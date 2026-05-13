@@ -147,6 +147,7 @@ export function initWindow(): void {
     height: 1000,
     title: 'Specular',
     titleBarStyle: 'hidden',
+    show: process.env.SPECULAR_BACKGROUND !== '1',
     ...(process.platform === 'darwin'
       ? { trafficLightPosition: { x: 14, y: 13 } }
       : {}),
