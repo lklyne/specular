@@ -22,7 +22,7 @@ import type { DeviceOrientation } from '../../shared/device-catalog'
 import { deviceForPresetIndex } from '../../shared/device-catalog'
 import type { AlignmentReferenceName } from '../../shared/canvas-guides'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
-import type { EdgeEnd, EdgeSide } from '../../shared/types'
+import type { AnnotationDrawingStroke, EdgeEnd, EdgeSide } from '../../shared/types'
 import type { WorkspaceGroup } from '../../shared/types'
 import {
   updateSelectionForRemovedEntity,
@@ -35,6 +35,7 @@ import {
   ungroupUserGroup as ungroupUserGroupInEngine,
 } from '../workspace-groups'
 import {
+  createDrawingEntity as createDrawingEntityInState,
   deleteDrawingEntity as deleteDrawingEntityInState,
   drawingEntities,
   type DrawingEntity,
@@ -751,6 +752,24 @@ export function deleteDrawingEntity(id: string): boolean {
   return deleted
 }
 
+export function createDrawingEntity(input: {
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  strokes: AnnotationDrawingStroke[]
+  id?: string
+}): DrawingEntity {
+  const entity = createDrawingEntityInState(input)
+  scheduleWorkspaceAutosave()
+  requestLayout()
+  return entity
+}
+
+export function getDrawingEntities(): DrawingEntity[] {
+  return [...drawingEntities]
+}
+
 // --- Shape Entity Commands ---
 
 export function createShapeEntity(input: {
@@ -832,6 +851,8 @@ export interface MultiResizeEntry {
   height: number
   canvasX: number
   canvasY: number
+  /** Scaled strokes for drawing entities — undefined for all other kinds. */
+  strokes?: AnnotationDrawingStroke[]
 }
 
 export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
@@ -871,12 +892,14 @@ export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
       })
       if (entity) changed = true
     } else if (entry.kind === 'drawing') {
-      const entity = updateDrawingEntityInState(entry.id, {
+      const drawingPatch: Parameters<typeof updateDrawingEntityInState>[1] = {
         width: entry.width,
         height: entry.height,
         canvasX: entry.canvasX,
         canvasY: entry.canvasY,
-      })
+      }
+      if (entry.strokes !== undefined) drawingPatch.strokes = entry.strokes
+      const entity = updateDrawingEntityInState(entry.id, drawingPatch)
       if (entity) changed = true
     } else if (entry.kind === 'shape') {
       const entity = updateShapeEntityInState(entry.id, {

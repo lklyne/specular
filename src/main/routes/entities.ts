@@ -1,12 +1,16 @@
 import { randomUUID } from 'crypto'
 import type { Route } from './types'
 import {
+  createDrawingEntity,
   createFileEntity,
   createTextEntity,
+  deleteDrawingEntity,
   deleteFileEntity,
   deleteTextEntity,
+  getDrawingEntities,
   getFileEntities,
   getTextEntities,
+  updateDrawingEntity,
   updateFileEntity,
   updateTextEntity,
 } from '../runtime/document-commands'
@@ -331,6 +335,82 @@ export const entityRoutes: Route[] = [
           }
         },
       )
+    },
+  },
+  // --- Drawing entities ---
+  {
+    method: 'GET',
+    pattern: '/drawing-entities',
+    async handler({ response }) {
+      writeJson(response, 200, { drawingEntities: getDrawingEntities() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/drawing-entities/create',
+    async handler({ response, body }) {
+      const payload = body as {
+        canvasX?: number
+        canvasY?: number
+        width?: number
+        height?: number
+        strokes?: import('../../shared/types').AnnotationDrawingStroke[]
+        id?: string
+      }
+      if (
+        typeof payload.canvasX !== 'number' ||
+        typeof payload.canvasY !== 'number' ||
+        typeof payload.width !== 'number' ||
+        typeof payload.height !== 'number' ||
+        !Array.isArray(payload.strokes)
+      ) {
+        writeJson(response, 400, { error: 'canvasX, canvasY, width, height, and strokes are required' })
+        return
+      }
+      const entity = createDrawingEntity({
+        id: payload.id,
+        canvasX: payload.canvasX,
+        canvasY: payload.canvasY,
+        width: payload.width,
+        height: payload.height,
+        strokes: payload.strokes,
+      })
+      writeJson(response, 200, entity)
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/drawing-entities/update',
+    async handler({ response, body }) {
+      const payload = body as {
+        id?: string
+        patch?: {
+          canvasX?: number
+          canvasY?: number
+          width?: number
+          height?: number
+          strokes?: import('../../shared/types').AnnotationDrawingStroke[]
+        }
+      }
+      if (!payload.id || !payload.patch) {
+        writeJson(response, 400, { error: 'id and patch are required' })
+        return
+      }
+      const entity = updateDrawingEntity(payload.id, payload.patch)
+      writeJson(response, 200, entity ?? { error: 'not found' })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/drawing-entities/delete',
+    async handler({ response, body }) {
+      const payload = body as { id?: string; ids?: string[] }
+      const ids = payload.ids ?? (payload.id ? [payload.id] : [])
+      const deleted: string[] = []
+      for (const id of ids) {
+        if (deleteDrawingEntity(id)) deleted.push(id)
+      }
+      writeJson(response, 200, { deleted })
     },
   },
   {
