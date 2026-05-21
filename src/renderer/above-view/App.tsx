@@ -57,7 +57,6 @@ import { EdgeLayer } from './EdgeLayer'
 import { PageChromeOverlay } from './PageChrome'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
-import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import { DrawingPopup } from './DrawingPopup'
 import { DrawToolPopup } from './DrawToolPopup'
@@ -1250,13 +1249,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
           <PageChromeOverlay
-            api={api}
-            layoutData={layoutData}
-            isDark={isDark}
-            optionHeldRef={optionHeldRef}
-            setDragCopyPreview={setDragCopyPreview}
-          />
-          <FileChromeOverlay
             api={api}
             layoutData={layoutData}
             isDark={isDark}

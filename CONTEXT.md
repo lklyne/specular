@@ -106,7 +106,7 @@ Modifiers and visual feedback that ride on top of entity drag (and resize) gestu
 
 Per [ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md) and [ADR 0008](./docs/adr/0008-unified-canvas-item-popup.md). All canvas-anchored UI renders in aboveView's React tree, marked `data-overlay-ui` so the pointer router yields.
 
-- **`CanvasItemChrome`** — persistent overlay UI for **identity** rendered while an entity exists. Per ADR 0008 §"File chrome", chrome carries identity affordances only (favicon + URL/filename + drag handle); all *actions* move into the popup. Examples: page favicon + URL display, file filename label.
+- **`CanvasItemChrome`** — persistent overlay UI for **identity** rendered while an entity exists. Carries identity affordances only (favicon + URL display + drag handle); all *actions* move into the popup. Used by **pages**. **Files no longer render chrome** — their name lives only in the selection popup (ADR 0008 §6 Update, 2026-05-21); the hit-test still keeps an invisible drag strip above each file.
 - **`CanvasItemPopup`** — the unified popup for "configure this kind". One component, two anchor modes:
   - **Entity-anchored (selection mode)** — mounts when one entity (or a same-kind multi-selection) is selected, idle, after a 150 ms delay. Hidden during drag/marquee/resize/edit. Reads/writes that entity's fields.
   - **Viewport-anchored (tool mode)** — mounts under the toolbar, centered, when a creation tool with options is active (`add-text`, `add-shape`, `draw`). Reads/writes per-tool defaults in app settings; the next item created uses those defaults.

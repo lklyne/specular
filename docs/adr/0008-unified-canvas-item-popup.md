@@ -83,6 +83,8 @@ Today's file chrome carries both identity (filename) and actions (rename, wirefr
 - **`CanvasItemChrome` for files keeps identity-only.** Favicon + filename label, rendered passively. No click-to-rename, no action buttons. Persistent (always-on) so the file's name stays visible at a glance.
 - **All file actions move into the popup.** Rename, dup, del, and per-renderer contributions (wireframe theme picker, json mode toggle, etc.).
 
+> **Update (2026-05-21):** The persistent file chrome was removed entirely — `FileChromeOverlay` / `FileChrome.tsx` are gone. A file's name now lives only in the selection popup (which already carries rename + actions), so an idle file shows no heading. The hit-test still reserves a chrome strip above each file (`entityHasChrome` in `src/shared/hit-test.ts`), so files remain draggable from that strip and from their body. This is option **B** below ("collapse chrome into popup entirely") applied to files only; pages keep their chrome.
+
 The same split applies in principle to pages — chrome carries favicon + URL display (identity), popup carries dup/del + nav + URL editing — but for this work, the page chrome stays unchanged. We're not removing or rewiring the page URL bar in this pass; the page popup *adds* dup/del/(URL/nav redundancy is acceptable for now) and lives alongside chrome. A follow-up may consolidate.
 
 ### 7. Renderer plugin contribution surface
