@@ -44,6 +44,8 @@ export default function App({
 }) {
   const [sidebarData, setSidebarData] = useState<LeftSidebarData>(initialSidebarData)
   const [pagesExpanded, setPagesExpanded] = useState(true)
+  const [notesExpanded, setNotesExpanded] = useState(true)
+  const [pagesSectionExpanded, setPagesSectionExpanded] = useState(true)
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
   const previousActivePageCountRef = useRef<number | null>(null)
   const isDark = useTheme(initialTheme, api.onThemeChanged)
@@ -260,37 +262,51 @@ export default function App({
 
         <div className="py-2">
           <div>
-            <div
-              className="px-3 pb-1 pt-0.5 text-[11px] font-medium uppercase text-zinc-500"
-            >
-              Notes
+            <div className="flex h-9 items-center px-3">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                onClick={() => setNotesExpanded((value) => !value)}
+                title="Notes"
+              >
+                <span className="truncate text-[12px] font-medium">Notes</span>
+                {notesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
             </div>
-            <SidebarCanvasTree
-              items={sidebarData.sections.notes}
-              selectedEntityIds={sidebarData.selectedEntityIds}
-              selectedGroupId={sidebarData.selectedGroupId ?? null}
-              isDark={isDark}
-              api={api}
-              section="notes"
-            />
+            {notesExpanded ? (
+              <SidebarCanvasTree
+                items={sidebarData.sections.notes}
+                selectedEntityIds={sidebarData.selectedEntityIds}
+                selectedGroupId={sidebarData.selectedGroupId ?? null}
+                isDark={isDark}
+                api={api}
+                section="notes"
+              />
+            ) : null}
           </div>
 
-          <div className={isDark ? 'my-1 border-t border-zinc-700/50' : 'my-1 border-t border-gray-200/80'} />
-
           <div>
-            <div
-              className="px-3 pb-1 pt-0.5 text-[11px] font-medium uppercase text-zinc-500"
-            >
-              Pages
+            <div className="flex h-9 items-center px-3">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                onClick={() => setPagesSectionExpanded((value) => !value)}
+                title="Pages"
+              >
+                <span className="truncate text-[12px] font-medium">Pages</span>
+                {pagesSectionExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
             </div>
-            <SidebarCanvasTree
-              items={sidebarData.sections.pages}
-              selectedEntityIds={sidebarData.selectedEntityIds}
-              selectedGroupId={sidebarData.selectedGroupId ?? null}
-              isDark={isDark}
-              api={api}
-              section="pages"
-            />
+            {pagesSectionExpanded ? (
+              <SidebarCanvasTree
+                items={sidebarData.sections.pages}
+                selectedEntityIds={sidebarData.selectedEntityIds}
+                selectedGroupId={sidebarData.selectedGroupId ?? null}
+                isDark={isDark}
+                api={api}
+                section="pages"
+              />
+            ) : null}
           </div>
 
           {!sidebarData.items.length ? (
