@@ -61,7 +61,7 @@ function entityOrderRank(): Map<string, number> {
 
 function sortSidebarItems(items: SortableSidebarItem[]): SidebarCanvasItem[] {
   return items
-    .sort((a, b) => a.sortKey - b.sortKey)
+    .sort((a, b) => b.sortKey - a.sortKey)
     .map(({ sortKey: _sortKey, ...item }) => item)
 }
 

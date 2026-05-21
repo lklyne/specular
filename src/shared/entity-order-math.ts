@@ -55,7 +55,9 @@ export function moveBlockBefore(
   const withoutBlock = order.filter((candidate) => !blockIds.has(candidate))
   const insertIndex = anchorId
     ? withoutBlock.indexOf(anchorId) + (position === 'after' ? 1 : 0)
-    : withoutBlock.length
+    : position === 'before'
+      ? 0
+      : withoutBlock.length
   if (insertIndex < 0) return [...order]
 
   return [

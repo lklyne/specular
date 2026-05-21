@@ -51,9 +51,9 @@ describe('left sidebar stack-order drag', () => {
       second,
       third,
     ])).toEqual([
-      first,
-      second,
       third,
+      second,
+      first,
     ])
 
     await reorderSidebarItem({
@@ -69,9 +69,9 @@ describe('left sidebar stack-order drag', () => {
       second,
       third,
     ])).toEqual([
-      third,
-      first,
       second,
+      first,
+      third,
     ])
     expect(idsInOrder((await getEntityOrder()).entityOrder, [first, second, third])).toEqual([
       third,
