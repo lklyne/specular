@@ -101,7 +101,7 @@ export default function App({
   }, [editingTabId, sidebarData.tabs])
 
   const activeTab = sidebarData.tabs.find((tab) => tab.id === sidebarData.activeTabId) ?? null
-  const pagesHeaderLabel = pagesExpanded ? 'Spaces' : activeTab?.name ?? 'Spaces'
+  const pagesHeaderLabel = pagesExpanded ? 'Workspaces' : activeTab?.name ?? 'Workspaces'
 
   useEffect(() => {
     const nextCount = activeTab?.pages.length ?? 0
@@ -158,7 +158,7 @@ export default function App({
                 : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 active:bg-zinc-200'
             }`}
             onClick={() => api.createTab()}
-            title="Add space"
+            title="Add workspace"
           >
             <Plus size={14} />
           </button>
@@ -237,7 +237,7 @@ export default function App({
                           }`}
                           onClick={() => startRenameTab(tab.id)}
                         >
-                          <span>Rename space</span>
+                          <span>Rename workspace</span>
                         </Menu.Item>
                         <Menu.Item
                           className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
@@ -247,7 +247,7 @@ export default function App({
                           }`}
                           onClick={() => api.deleteTab(tab.id)}
                         >
-                          <span>Delete space</span>
+                          <span>Delete workspace</span>
                         </Menu.Item>
                       </Menu.Popup>
                     </Menu.Positioner>
