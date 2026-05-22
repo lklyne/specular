@@ -23,24 +23,6 @@ function uniqueExisting(order: readonly string[], ids: readonly string[]): strin
   return result
 }
 
-export function moveBefore(
-  order: readonly string[],
-  id: string,
-  anchorId: string,
-  position: MovePosition,
-): string[] {
-  if (id === anchorId) return [...order]
-  const withoutId = order.filter((candidate) => candidate !== id)
-  const anchorIndex = withoutId.indexOf(anchorId)
-  if (anchorIndex === -1) return [...order]
-  const insertIndex = position === 'before' ? anchorIndex : anchorIndex + 1
-  return [
-    ...withoutId.slice(0, insertIndex),
-    id,
-    ...withoutId.slice(insertIndex),
-  ]
-}
-
 export function moveBlockBefore(
   order: readonly string[],
   ids: readonly string[],
