@@ -12,12 +12,13 @@
  * `MultiResizeEntry[]` payload for `api.resizeMultiSelection`.
  */
 
-import type { CanvasSceneEntity } from './types'
+import type { AnnotationDrawingStroke, CanvasSceneEntity } from './types'
+import type { ResizeHandle } from './resize-accumulator'
+import { scaleStrokes } from './scale-strokes'
 
 /** Kinds that the `resizeMultiSelection` IPC accepts. Groups own a separate
  *  selection overlay and are excluded from the multi-bbox gesture. */
 export type MultiResizableKind = 'page' | 'text' | 'file' | 'drawing' | 'shape'
-import type { ResizeHandle } from './resize-accumulator'
 
 /** Bbox cannot collapse below this canvas-space size while resizing. */
 export const MIN_MULTI_BBOX = 20
@@ -29,6 +30,8 @@ export interface MultiResizeEntity {
   canvasY: number
   width: number
   height: number
+  /** Initial strokes snapshot for drawing entities — undefined for all other kinds. */
+  strokes?: AnnotationDrawingStroke[]
 }
 
 export interface MultiResizeBbox {
@@ -60,6 +63,8 @@ export interface MultiResizeEntry {
   canvasY: number
   width: number
   height: number
+  /** Scaled strokes for drawing entities — undefined for all other kinds. */
+  strokes?: AnnotationDrawingStroke[]
 }
 
 export interface MultiResizeDelta {
@@ -97,6 +102,7 @@ export function computeMultiSelectionBbox(
       canvasY: e.canvasY,
       width: e.width,
       height: e.height,
+      strokes: e.kind === 'drawing' ? e.strokes : undefined,
     })
     minX = Math.min(minX, e.canvasX)
     minY = Math.min(minY, e.canvasY)
@@ -156,12 +162,18 @@ export function applyMultiHandleDelta(
   const scaleX = acc.initialBbox.width > 0 ? acc.accW / acc.initialBbox.width : 1
   const scaleY = acc.initialBbox.height > 0 ? acc.accH / acc.initialBbox.height : 1
 
-  return acc.initialEntities.map((entity) => ({
-    id: entity.id,
-    kind: entity.kind,
-    width: Math.round(Math.max(1, entity.width * scaleX)),
-    height: Math.round(Math.max(1, entity.height * scaleY)),
-    canvasX: Math.round(acc.accX + (entity.canvasX - acc.initialBbox.x) * scaleX),
-    canvasY: Math.round(acc.accY + (entity.canvasY - acc.initialBbox.y) * scaleY),
-  }))
+  return acc.initialEntities.map((entity) => {
+    const entry: MultiResizeEntry = {
+      id: entity.id,
+      kind: entity.kind,
+      width: Math.round(Math.max(1, entity.width * scaleX)),
+      height: Math.round(Math.max(1, entity.height * scaleY)),
+      canvasX: Math.round(acc.accX + (entity.canvasX - acc.initialBbox.x) * scaleX),
+      canvasY: Math.round(acc.accY + (entity.canvasY - acc.initialBbox.y) * scaleY),
+    }
+    if (entity.strokes) {
+      entry.strokes = scaleStrokes(entity.strokes, scaleX, scaleY)
+    }
+    return entry
+  })
 }

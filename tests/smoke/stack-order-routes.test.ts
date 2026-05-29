@@ -61,7 +61,10 @@ describe('stack-order HTTP routes', () => {
 
     const expected = [second, third, first, fourth]
     expect(idsInOrder((await getEntityOrder()).entityOrder, ids)).toEqual(expected)
-    expect(idsInOrder((await getSidebar()).sections.notes.map((item) => item.id), ids)).toEqual(expected)
+    // The sidebar renders the stack top-first, i.e. the reverse of entityOrder.
+    expect(idsInOrder((await getSidebar()).sections.notes.map((item) => item.id), ids)).toEqual(
+      [...expected].reverse(),
+    )
   })
 
   it('preserves group contiguity when a member is reordered through HTTP', async () => {

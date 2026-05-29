@@ -44,6 +44,7 @@ import {
   type AspectRatioResizeMode,
   type ResizeConfig,
 } from '../../shared/resize-accumulator'
+import { scaleStrokes } from '../../shared/scale-strokes'
 import {
   applyMultiHandleDelta,
   computeMultiSelectionBbox,
@@ -656,6 +657,26 @@ function runResize(
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
 
+  // For drawing entities, augment each patch with strokes scaled from the
+  // initial snapshot so stroke geometry tracks the bounds change in real time.
+  // Scale is computed from rounded patch dimensions vs. initial entity dimensions
+  // so both bounds and strokes stay consistent on every tick.
+  const effectiveDispatch = entity.kind === 'drawing'
+    ? (() => {
+        const initialStrokes = entity.strokes
+        const initialWidth = entity.width
+        const initialHeight = entity.height
+        return (patch: { width: number; height: number; canvasX?: number; canvasY?: number }) => {
+          const sX = initialWidth > 0 ? patch.width / initialWidth : 1
+          const sY = initialHeight > 0 ? patch.height / initialHeight : 1
+          api.updateDrawingEntity(action.entityId, {
+            ...patch,
+            strokes: scaleStrokes(initialStrokes, sX, sY),
+          })
+        }
+      })()
+    : dispatchPatch
+
   // Plain text in 'auto' widthMode is content-driven; the renderer's
   // ResizeObserver overwrites any width/height we'd dispatch. Flip to
   // 'fixed' first so the upcoming width/height patches stick.
@@ -692,7 +713,7 @@ function runResize(
       { screenDx, screenDy, zoom, shiftKey: ev.shiftKey },
       config,
     )
-    dispatchPatch(patch)
+    effectiveDispatch(patch)
   }
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return

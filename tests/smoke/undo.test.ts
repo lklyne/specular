@@ -18,17 +18,21 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   applyMultiResize,
   beginMultiResize,
+  createDrawingEntity,
   createGroup,
   createTextEntities,
+  deleteDrawingEntities,
   deleteGroups,
   deleteTextEntities,
   endMultiResize,
+  getDrawingEntities,
   getTextEntities,
   getUndoState,
   getWorkspace,
   redoWorkspace,
   resetSmokeState,
   undoWorkspace,
+  updateDrawingEntity,
 } from './app-client'
 import { wait } from './test-utils'
 
@@ -36,6 +40,13 @@ async function cleanupTextEntities(): Promise<void> {
   const { textEntities } = await getTextEntities()
   if (textEntities.length) {
     await deleteTextEntities(textEntities.map((t) => t.id))
+  }
+}
+
+async function cleanupDrawingEntities(): Promise<void> {
+  const { drawingEntities } = await getDrawingEntities()
+  if (drawingEntities.length) {
+    await deleteDrawingEntities(drawingEntities.map((d) => d.id))
   }
 }
 
@@ -235,5 +246,92 @@ describe('undo', () => {
     const bUndone = afterUndo.textEntities.find((t) => t.id === idsB[0])!
     expect(aUndone.width).toBe(aInit.width)
     expect(bUndone.width).toBe(bInit.width)
+  })
+})
+
+/**
+ * Drawing resize + undo round-trip.
+ *
+ * Verifies that updateDrawingEntity persists strokes to Y.Doc (forward sync)
+ * and that undo restores both bounds and the original stroke geometry (reverse
+ * sync). Required by CLAUDE.md test contract for new runtime mutators.
+ *
+ * Mutation-verified by:
+ *   - Removing `if (patch.strokes !== undefined) drawingPatch.strokes = entry.strokes`
+ *     in resizeMultiSelection and confirming the stroke assertion after update fails.
+ *   - Removing `scheduleWorkspaceAutosave()` from createDrawingEntity and
+ *     confirming the "strokes after resize" assertion is never reached (entity
+ *     not found on undo).
+ */
+describe('drawing resize undo', () => {
+  beforeEach(async () => {
+    await resetSmokeState()
+    await cleanupDrawingEntities()
+    await drainUndoStack()
+  })
+
+  afterEach(async () => {
+    await cleanupDrawingEntities()
+  })
+
+  it('resize + undo restores original bounds and stroke geometry', async () => {
+    const initialStrokes = [
+      {
+        id: 'stroke-1',
+        color: '#ff0000',
+        width: 3,
+        points: [
+          { x: 10, y: 10 },
+          { x: 50, y: 50 },
+          { x: 90, y: 10 },
+        ],
+      },
+    ]
+
+    const drawing = await createDrawingEntity({
+      canvasX: 0,
+      canvasY: 0,
+      width: 100,
+      height: 100,
+      strokes: initialStrokes,
+    })
+    await wait(50)
+
+    // Resize to 200×200 (2× in both axes) with proportionally scaled strokes.
+    await updateDrawingEntity(drawing.id, {
+      width: 200,
+      height: 200,
+      strokes: [
+        {
+          id: 'stroke-1',
+          color: '#ff0000',
+          width: 3,
+          points: [
+            { x: 20, y: 20 },
+            { x: 100, y: 100 },
+            { x: 180, y: 20 },
+          ],
+        },
+      ],
+    })
+    await wait(50)
+
+    const { drawingEntities: afterResize } = await getDrawingEntities()
+    const resized = afterResize.find((d) => d.id === drawing.id)
+    expect(resized).toBeDefined()
+    expect(resized!.width).toBe(200)
+    expect(resized!.height).toBe(200)
+    expect(resized!.strokes[0].points[0]).toMatchObject({ x: 20, y: 20 })
+
+    await undoWorkspace()
+    await wait(50)
+
+    const { drawingEntities: afterUndo } = await getDrawingEntities()
+    const restored = afterUndo.find((d) => d.id === drawing.id)
+    expect(restored).toBeDefined()
+    expect(restored!.width).toBe(100)
+    expect(restored!.height).toBe(100)
+    expect(restored!.strokes[0].points[0]).toMatchObject({ x: 10, y: 10 })
+    expect(restored!.strokes[0].points[1]).toMatchObject({ x: 50, y: 50 })
   })
 })
