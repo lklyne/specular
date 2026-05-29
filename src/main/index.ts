@@ -83,6 +83,10 @@ app.commandLine.appendSwitch('remote-debugging-port', remoteDebuggingPort)
 app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
 app.commandLine.appendSwitch('enable-unsafe-webgpu')
 
+if (process.platform === 'darwin' && process.env.SPECULAR_BACKGROUND === '1') {
+  app.setActivationPolicy('accessory')
+}
+
 // Allow smoke tests to isolate workspace data in a temp directory
 const userDataDirArg = process.argv.find((a) => a.startsWith('--user-data-dir='))
 if (userDataDirArg) {

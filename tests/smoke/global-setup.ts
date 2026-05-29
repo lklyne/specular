@@ -51,6 +51,7 @@ export async function setup() {
       SPECULAR_PORT: String(SMOKE_PORT),
       SPECULAR_REMOTE_DEBUGGING_PORT: String(SMOKE_CDP_PORT),
       SPECULAR_SKIP_ONBOARDING: '1',
+      SPECULAR_BACKGROUND: '1',
     },
   })
 
