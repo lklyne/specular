@@ -192,6 +192,7 @@ import { recordingRoutes } from './routes/recording'
 import { annotationRoutes } from './routes/annotations'
 import { entityRoutes } from './routes/entities'
 import { pageRoutes } from './routes/pages'
+import { stackOrderHttpRoutes } from './routes/stack-order'
 import { testRoutes } from './routes/test'
 
 const routes: Route[] = [
@@ -202,6 +203,7 @@ const routes: Route[] = [
   ...recordingRoutes,
   ...annotationRoutes,
   ...entityRoutes,
+  ...stackOrderHttpRoutes,
   ...designSystemRoutes,
   ...testRoutes,
 ]

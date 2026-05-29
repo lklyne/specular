@@ -1,4 +1,4 @@
-import { clipboard, ipcMain, Menu, shell } from 'electron'
+import { clipboard, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type { AnnotationCreateRequest } from '../../shared/types'
@@ -103,6 +103,41 @@ import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
 import { duplicateSelection } from '../runtime/duplicate-selection'
+import { reorderStackOrder, type StackOrderAction } from '../runtime/entity-order-state'
+
+function isStackOrderAction(action: string): action is StackOrderAction {
+  return (
+    action === 'bring-forward' ||
+    action === 'send-backward' ||
+    action === 'bring-to-front' ||
+    action === 'send-to-back'
+  )
+}
+
+function stackOrderMenuItems(targetId: string): MenuItemConstructorOptions[] {
+  return [
+    {
+      label: 'Bring forward',
+      accelerator: 'CmdOrCtrl+]',
+      click: () => reorderStackOrder('bring-forward', targetId),
+    },
+    {
+      label: 'Send backward',
+      accelerator: 'CmdOrCtrl+[',
+      click: () => reorderStackOrder('send-backward', targetId),
+    },
+    {
+      label: 'Bring to front',
+      accelerator: 'CmdOrCtrl+Shift+]',
+      click: () => reorderStackOrder('bring-to-front', targetId),
+    },
+    {
+      label: 'Send to back',
+      accelerator: 'CmdOrCtrl+Shift+[',
+      click: () => reorderStackOrder('send-to-back', targetId),
+    },
+  ]
+}
 
 export function registerCanvasEntityIpc(): void {
   ipcMain.on(
@@ -400,6 +435,8 @@ export function registerCanvasEntityIpc(): void {
         },
       },
       { type: 'separator' },
+      ...stackOrderMenuItems(pageId),
+      { type: 'separator' },
       {
         label: 'Delete',
         click: () => {
@@ -409,6 +446,14 @@ export function registerCanvasEntityIpc(): void {
     ])
     menu.popup()
   })
+
+  ipcMain.on(
+    'canvas-reorder-stack',
+    (_event, { action, targetId }: { action: string; targetId?: string }) => {
+      if (!isStackOrderAction(action)) return
+      reorderStackOrder(action, targetId)
+    },
+  )
 
   ipcMain.on('canvas-reveal-page', (_event, { pageId }: { pageId: string }) => {
     if (!selectPageById(pageId)) return

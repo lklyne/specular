@@ -46,8 +46,10 @@ export function serializeToJsonCanvas(
   const edges: JsonCanvasEdge[] = []
 
   // Build ordered entity list
-  const entityIds = snapshot.entityOrder ?? Object.keys(snapshot.entities ?? {})
-  const entities = snapshot.entities ?? {}
+  const entities = { ...(snapshot.entities ?? {}) }
+  const edgeIds = new Set((snapshot.edges ?? []).map((edge) => edge.id))
+  const knownIds = new Set([...Object.keys(entities), ...edgeIds])
+  const orderedIds = uniqueKnownIds(snapshot.entityOrder ?? Object.keys(entities), knownIds)
 
   // Also include page entities from legacy pages array
   for (const page of snapshot.pages) {
@@ -67,12 +69,19 @@ export function serializeToJsonCanvas(
         metadata: page.metadata,
       }
       entities[page.id] = entity
-      if (!entityIds.includes(page.id)) entityIds.push(page.id)
+      if (!knownIds.has(page.id)) {
+        knownIds.add(page.id)
+        orderedIds.push(page.id)
+      }
     }
+  }
+  for (const edgeId of edgeIds) {
+    if (orderedIds.includes(edgeId)) continue
+    orderedIds.push(edgeId)
   }
 
   // Convert entities to nodes (array order = z-order per spec)
-  for (const id of entityIds) {
+  for (const id of orderedIds) {
     const entity = entities[id]
     if (!entity) continue
 
@@ -99,6 +108,9 @@ export function serializeToJsonCanvas(
   }
 
   const doc: JsonCanvasDocument = { nodes, edges }
+  if (orderedIds.length) {
+    doc.specular = { entityOrder: orderedIds }
+  }
 
   // Add annotations as extension
   if (annotations?.length) {
@@ -289,36 +301,38 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
   annotations: Annotation[]
 } {
   const entities: Record<string, PersistedCanvasEntity> = {}
-  const entityOrder: string[] = []
+  const nodeOrder: string[] = []
   for (const node of doc.nodes) {
     if (node.type === 'link') {
       const entity = deserializeLinkNodeToPage(node)
       entities[entity.id] = entity
-      entityOrder.push(entity.id)
+      nodeOrder.push(entity.id)
     } else if (node.type === 'text') {
       const entity = deserializeTextNodeToText(node)
       entities[entity.id] = entity
-      entityOrder.push(entity.id)
+      nodeOrder.push(entity.id)
     } else if (node.type === 'file') {
       const entity = deserializeFileNodeToFile(node)
       entities[entity.id] = entity
-      entityOrder.push(entity.id)
+      nodeOrder.push(entity.id)
     } else if (node.type === 'group') {
       const entity = deserializeGroupNodeToGroup(node)
       entities[entity.id] = entity
-      entityOrder.push(entity.id)
+      nodeOrder.push(entity.id)
     } else if (node.type === 'drawing') {
       const entity = deserializeDrawingNodeToDrawing(node)
       entities[entity.id] = entity
-      entityOrder.push(entity.id)
+      nodeOrder.push(entity.id)
     } else if (node.type === 'shape') {
       const entity = deserializeShapeNodeToShape(node)
       entities[entity.id] = entity
-      entityOrder.push(entity.id)
+      nodeOrder.push(entity.id)
     }
   }
 
   const edges: WorkspaceEdge[] = doc.edges.map(deserializeEdgeToWorkspaceEdge)
+  const edgeOrder = edges.map((edge) => edge.id)
+  const entityOrder = deserializeEntityOrder(doc.specular?.entityOrder, nodeOrder, edgeOrder)
 
   const appState = doc.appState ?? { zoom: 1, pan: { x: 0, y: 0 } }
 
@@ -342,6 +356,33 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
   const annotations = (doc.annotations ?? []) as Annotation[]
 
   return { snapshot, annotations }
+}
+
+function uniqueKnownIds(ids: readonly string[], knownIds: ReadonlySet<string>): string[] {
+  const seen = new Set<string>()
+  const ordered: string[] = []
+  for (const id of ids) {
+    if (!knownIds.has(id) || seen.has(id)) continue
+    seen.add(id)
+    ordered.push(id)
+  }
+  return ordered
+}
+
+function deserializeEntityOrder(
+  specularOrder: readonly string[] | undefined,
+  nodeOrder: readonly string[],
+  edgeOrder: readonly string[],
+): string[] {
+  const knownIds = new Set([...nodeOrder, ...edgeOrder])
+  const ordered = uniqueKnownIds(specularOrder ?? [], knownIds)
+  const seen = new Set(ordered)
+  for (const id of [...nodeOrder, ...edgeOrder]) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    ordered.push(id)
+  }
+  return ordered
 }
 
 function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPageEntity {

@@ -2,6 +2,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import type { CanvasGuidesPayload } from '../../src/shared/canvas-guides'
+import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 function loadEnv(): { port: number; secret: string } {
   const raw = readFileSync(join(tmpdir(), 'specular-smoke-env.json'), 'utf8')
@@ -98,15 +99,48 @@ export function getWorkspace() {
 }
 
 export function getSidebar() {
+  type SidebarItem = {
+    kind: 'page' | 'text' | 'file' | 'group' | 'drawing' | 'shape'
+    id: string
+    label: string
+    children?: SidebarItem[]
+    entityCount?: number
+  }
   return get<{
-    items: Array<{
-      kind: 'page' | 'text' | 'file' | 'group'
-      id: string
-      label: string
-      children?: unknown[]
-      entityCount?: number
-    }>
+    sections: { notes: SidebarItem[]; pages: SidebarItem[] }
+    items: SidebarItem[]
   }>('/sidebar')
+}
+
+export function getEntityOrder() {
+  return get<{ entityOrder: string[] }>('/test/workspace/entity-order')
+}
+
+export function loadCanvasFixture(input: { name?: string; doc: JsonCanvasDocument }) {
+  return post<{ ok: true; entityOrder: string[] }>('/test/workspace/load-canvas-fixture', input)
+}
+
+export function reorderSidebarItem(input: {
+  section: 'notes' | 'pages'
+  draggedId: string
+  anchorId?: string | null
+  position?: 'before' | 'after'
+  parentId?: string | null
+}) {
+  return post<{ ok: boolean; entityOrder: string[] }>('/test/sidebar/reorder', input)
+}
+
+export type StackOrderAction =
+  | 'bring-forward'
+  | 'send-backward'
+  | 'bring-to-front'
+  | 'send-to-back'
+
+export function reorderStackOrder(
+  action: StackOrderAction,
+  input: { id: string } | { ids: string[] },
+) {
+  return post<{ ok: boolean; entityOrder: string[] }>(`/stack-order/${action}`, input)
 }
 
 // --- Pages ---
@@ -275,6 +309,21 @@ export function updateTextEntities(items: { id: string; patch: { text?: string; 
 
 export function deleteTextEntities(ids: string[]) {
   return post<{ deleted: string[] }>('/text-entities/delete', { ids })
+}
+
+// --- Edges ---
+
+export function createEdges(edges: Array<{
+  id?: string
+  fromEntityId: string
+  toEntityId: string
+  kind: 'breakpoint_variant' | 'connection'
+}>) {
+  return post<{ edgeIds: string[] }>('/edges/create', { edges })
+}
+
+export function deleteEdges(edgeIds: string[]) {
+  return post<{ deletedEdgeIds: string[] }>('/edges/delete', { edgeIds })
 }
 
 // --- Selection ---

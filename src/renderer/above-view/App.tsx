@@ -10,6 +10,7 @@ import type {
   LayoutUpdateData,
   SelectionOverlayPayload,
   ThemeData,
+  WorkspaceEdge,
 } from '../../shared/types'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
@@ -184,6 +185,129 @@ function GuideOverlayLayer({
         })
       ))}
     </svg>
+  )
+}
+
+function StackedCanvasItems({
+  layoutData,
+  fileJsonModeMap,
+  hoveredEntityId,
+  isDark,
+  selectedEdgeIds,
+  selectedEntityIdSet,
+  editingEntityId,
+}: {
+  layoutData: LayoutUpdateData
+  fileJsonModeMap: FileJsonModeMap
+  hoveredEntityId: string | null
+  isDark: boolean
+  selectedEdgeIds: ReadonlySet<string>
+  selectedEntityIdSet: Set<string>
+  editingEntityId: string | null
+}) {
+  if (layoutData.viewMode !== 'canvas') return null
+
+  const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
+  const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
+
+  function renderEdge(edge: WorkspaceEdge) {
+    return (
+      <EdgeLayer
+        key={`edge-${edge.id}`}
+        edges={[edge]}
+        entities={layoutData.entities}
+        hoveredEntityId={hoveredEntityId}
+        isDark={isDark}
+        interaction={layoutData.interaction}
+        selectedEdgeIds={selectedEdgeIds}
+        selectedEntityIds={layoutData.selectedEntityIds}
+        zoom={layoutData.zoom}
+        originY={layoutData.canvasOrigin.y}
+        onSelectEdge={api.selectEdge}
+        renderAnchors={false}
+        zIndex={undefined}
+      />
+    )
+  }
+
+  return (
+    <>
+      {layoutData.entityOrder.map((id) => {
+        const edge = edgesById.get(id)
+        if (edge) return renderEdge(edge)
+
+        const entity = entitiesById.get(id)
+        if (!entity) return null
+
+        if (entity.kind === 'drawing') {
+          return (
+            <SavedDrawingEntities
+              key={`drawing-${entity.id}`}
+              entities={[entity]}
+              layoutData={layoutData}
+              selectedEntityIds={layoutData.selectedEntityIds}
+              isDark={isDark}
+            />
+          )
+        }
+
+        if (entity.kind === 'shape') {
+          return (
+            <ShapeBodyLayer
+              key={`shape-${entity.id}`}
+              entities={[entity]}
+              isDark={isDark}
+              selectedEntityIdSet={selectedEntityIdSet}
+              editingEntityId={editingEntityId}
+              canvasOrigin={layoutData.canvasOrigin}
+              pan={layoutData.pan}
+              zoom={layoutData.zoom}
+              onUpdateText={(shapeId, text) => api.updateShapeEntity(shapeId, { text })}
+              onCommitEdit={api.commitEntityEdit}
+            />
+          )
+        }
+
+        if (entity.kind === 'text') {
+          return (
+            <StickyBodyLayer
+              key={`text-${entity.id}`}
+              entities={[entity]}
+              isDark={isDark}
+              selectedEntityIdSet={selectedEntityIdSet}
+              editingEntityId={editingEntityId}
+              canvasOrigin={layoutData.canvasOrigin}
+              pan={layoutData.pan}
+              zoom={layoutData.zoom}
+              onUpdateText={(textId, text) => api.updateTextEntity(textId, { text })}
+              onUpdateSize={(textId, width, height) =>
+                api.updateTextEntity(textId, { width, height })
+              }
+              onCommitEdit={api.commitEntityEdit}
+            />
+          )
+        }
+
+        if (entity.kind === 'file') {
+          return (
+            <FileBodyLayer
+              key={`file-${entity.id}`}
+              entities={[entity]}
+              isDark={isDark}
+              selectedEntityIdSet={selectedEntityIdSet}
+              editingEntityId={editingEntityId}
+              jsonModeMap={fileJsonModeMap}
+              canvasOrigin={layoutData.canvasOrigin}
+              pan={layoutData.pan}
+              zoom={layoutData.zoom}
+              onTextEditingChange={api.setTextEditing}
+            />
+          )
+        }
+
+        return null
+      })}
+    </>
   )
 }
 
@@ -1045,13 +1169,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       onPointerUp={handleOverlayPointerUp}
       onPointerCancel={handleOverlayPointerCancel}
     >
-      <SavedDrawingEntities
-        entities={layoutData.entities}
-        layoutData={layoutData}
-        selectedEntityIds={layoutData.selectedEntityIds}
-        isDark={isDark}
-      />
-
       {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
         <PlacementPreviewLayer
           isDark={isDark}
@@ -1148,9 +1265,19 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
+          <StackedCanvasItems
+            layoutData={layoutData}
+            fileJsonModeMap={fileJsonModeMap}
+            hoveredEntityId={hoveredEntityId}
+            isDark={isDark}
+            selectedEdgeIds={selectedEdgeIds}
+            selectedEntityIdSet={selectedEntityIdSet}
+            editingEntityId={editingEntityId}
+          />
+
           {layoutData.viewMode === 'canvas' ? (
             <EdgeLayer
-              edges={layoutData.edges}
+              edges={[]}
               entities={layoutData.entities}
               hoveredEntityId={hoveredEntityId}
               isDark={isDark}
@@ -1170,57 +1297,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               zoom={layoutData.zoom}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}
-            />
-          ) : null}
-
-          {layoutData.viewMode === 'canvas' ? (
-            <ShapeBodyLayer
-              entities={layoutData.entities.filter(
-                (e): e is CanvasSceneShapeEntity => e.kind === 'shape',
-              )}
-              isDark={isDark}
-              selectedEntityIdSet={selectedEntityIdSet}
-              editingEntityId={editingEntityId}
-              canvasOrigin={layoutData.canvasOrigin}
-              pan={layoutData.pan}
-              zoom={layoutData.zoom}
-              onUpdateText={(id, text) => api.updateShapeEntity(id, { text })}
-              onCommitEdit={api.commitEntityEdit}
-            />
-          ) : null}
-
-          {layoutData.viewMode === 'canvas' ? (
-            <StickyBodyLayer
-              entities={layoutData.entities.filter(
-                (e): e is CanvasSceneTextEntity => e.kind === 'text',
-              )}
-              isDark={isDark}
-              selectedEntityIdSet={selectedEntityIdSet}
-              editingEntityId={editingEntityId}
-              canvasOrigin={layoutData.canvasOrigin}
-              pan={layoutData.pan}
-              zoom={layoutData.zoom}
-              onUpdateText={(id, text) => api.updateTextEntity(id, { text })}
-              onUpdateSize={(id, width, height) =>
-                api.updateTextEntity(id, { width, height })
-              }
-              onCommitEdit={api.commitEntityEdit}
-            />
-          ) : null}
-
-          {layoutData.viewMode === 'canvas' ? (
-            <FileBodyLayer
-              entities={layoutData.entities.filter(
-                (e): e is CanvasSceneFileEntity => e.kind === 'file',
-              )}
-              isDark={isDark}
-              selectedEntityIdSet={selectedEntityIdSet}
-              editingEntityId={editingEntityId}
-              jsonModeMap={fileJsonModeMap}
-              canvasOrigin={layoutData.canvasOrigin}
-              pan={layoutData.pan}
-              zoom={layoutData.zoom}
-              onTextEditingChange={api.setTextEditing}
             />
           ) : null}
 

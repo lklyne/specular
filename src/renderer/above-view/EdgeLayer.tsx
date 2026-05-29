@@ -207,6 +207,8 @@ export function EdgeLayer({
   zoom,
   originY,
   onSelectEdge,
+  renderAnchors = true,
+  zIndex = 5,
 }: {
   edges: WorkspaceEdge[]
   entities: CanvasSceneEntity[]
@@ -218,6 +220,8 @@ export function EdgeLayer({
   zoom: number
   originY: number
   onSelectEdge: (edgeId: string) => void
+  renderAnchors?: boolean
+  zIndex?: number | undefined
 }) {
   const entityMap = useMemo(() => {
     const map = new Map<string, CanvasSceneEntity>()
@@ -284,7 +288,7 @@ export function EdgeLayer({
   return (
     <svg
       className="pointer-events-none absolute inset-0 h-full w-full"
-      style={{ zIndex: 5 }}
+      style={zIndex === undefined ? undefined : { zIndex }}
     >
       {/* Arrow marker definitions */}
       <defs>
@@ -358,7 +362,7 @@ export function EdgeLayer({
       })}
 
       {/* Anchor dots */}
-      {anchorEntities.map((entity) => (
+      {renderAnchors ? anchorEntities.map((entity) => (
         <AnchorDots
           key={entity.id}
           entity={entity}
@@ -367,7 +371,7 @@ export function EdgeLayer({
           zoom={zoom}
           originY={originY}
         />
-      ))}
+      )) : null}
     </svg>
   )
 }

@@ -433,6 +433,8 @@ export interface LayoutUpdateData {
    * that mode.
    */
   toolbarCenterX: number
+  /** Back-to-front stack order across canvas nodes and edges. */
+  entityOrder: string[]
   entities: CanvasSceneEntity[]
   browserTabs: WorkspaceTabPageSummary[]
   browserFillViewport: {
@@ -616,6 +618,13 @@ export type SidebarCanvasItem =
   | SidebarShapeItem
   | SidebarGroupItem
 
+export type SidebarSectionKey = 'notes' | 'pages'
+
+export interface LeftSidebarSections {
+  notes: SidebarCanvasItem[]
+  pages: SidebarCanvasItem[]
+}
+
 export interface LeftSidebarData {
   width: number
   selectedEntityIds: string[]
@@ -624,6 +633,7 @@ export interface LeftSidebarData {
   activeTabId: string | null
   viewMode: WorkspaceViewMode
   hasPages: boolean
+  sections: LeftSidebarSections
   items: SidebarCanvasItem[]
 }
 
@@ -1722,6 +1732,10 @@ export interface CanvasBgElectronAPI {
   pasteSelection: (canvasX: number, canvasY: number) => void
   deleteSelectedEntities: () => void
   tidySelectedEntities: () => void
+  reorderStack: (
+    action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
+    targetId?: string,
+  ) => void
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) => void
   updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }) => void
   duplicateTextEntity: (id: string) => void
@@ -1994,6 +2008,13 @@ export interface LeftSidebarElectronAPI {
   duplicateTab: (tabId: string) => void
   deleteTab: (tabId: string) => void
   reorderTab: (tabId: string, toIndex: number) => void
+  reorderSidebarItem: (
+    section: SidebarSectionKey,
+    draggedId: string,
+    anchorId: string | null,
+    position: 'before' | 'after',
+    parentId: string | null,
+  ) => void
   deletePage: (pageId: string) => void
   setTabExpanded: (tabId: string, expanded: boolean) => void
   setTextEditing: (active: boolean) => void

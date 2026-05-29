@@ -40,18 +40,23 @@ import {
   markUndoBoundary,
 } from '../runtime/workspace-undo'
 import { beginBatch, endBatch } from '../runtime/workspace-observers'
-import { flushWorkspaceAutosaveSync } from '../runtime/workspace-autosave'
+import { flushWorkspaceAutosaveSync, loadWorkspace } from '../runtime/workspace-autosave'
 import {
   DEFAULT_WORKSPACE_ID,
   canvasFilePath,
   readCanvasFile,
   readWorkspaceMeta,
+  writeCanvasFileSync,
+  writeWorkspaceMetaSync,
 } from '../runtime/workspace-persistence'
+import { restorePersistedWorkspace } from '../runtime/workspace-restore'
 import { getActiveDoc } from '../runtime/workspace-doc'
 import { workspaceTabs, activeWorkspaceTabId } from '../runtime/workspace-model'
 import { applyDragDelta, finalizeDrag, initializeDrag, resizeMultiSelection } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { currentCanvasGuides } from '../runtime/canvas-guides'
+import { currentEntityOrder, reorderSidebarStackOrder } from '../runtime/entity-order-state'
+import type { SidebarSectionKey } from '../../shared/types'
 
 // --- Y.Doc transaction counter (test-only) ---
 // Counts afterTransaction events for the active doc between start/stop calls.
@@ -260,6 +265,82 @@ export const testRoutes: Route[] = [
     pattern: '/test/canvas-guides/current',
     async handler({ response }) {
       writeJson(response, 200, currentCanvasGuides())
+    },
+  },
+
+  // --- Sidebar stack-order simulation ---
+  {
+    method: 'GET',
+    pattern: '/test/workspace/entity-order',
+    async handler({ response }) {
+      writeJson(response, 200, { entityOrder: currentEntityOrder() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/sidebar/reorder',
+    async handler({ response, body }) {
+      const payload = body as {
+        section?: SidebarSectionKey
+        draggedId?: string
+        anchorId?: string | null
+        position?: 'before' | 'after'
+        parentId?: string | null
+      }
+      if (payload.section !== 'notes' && payload.section !== 'pages') {
+        writeJson(response, 400, { error: 'section must be notes or pages' })
+        return
+      }
+      if (!payload.draggedId) {
+        writeJson(response, 400, { error: 'draggedId is required' })
+        return
+      }
+      const ok = reorderSidebarStackOrder({
+        section: payload.section,
+        draggedId: payload.draggedId,
+        anchorId: payload.anchorId ?? null,
+        position: payload.position ?? 'before',
+        parentId: payload.parentId ?? null,
+      })
+      writeJson(response, 200, { ok, entityOrder: currentEntityOrder() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/workspace/load-canvas-fixture',
+    async handler({ response, body }) {
+      const payload = body as {
+        name?: string
+        doc?: Parameters<typeof writeCanvasFileSync>[1]
+      }
+      if (!payload.doc || !Array.isArray(payload.doc.nodes) || !Array.isArray(payload.doc.edges)) {
+        writeJson(response, 400, { error: 'doc with nodes and edges is required' })
+        return
+      }
+
+      const userDataPath = app.getPath('userData')
+      const name = payload.name?.trim() || 'Fixture'
+      const tabId = 'fixture-tab'
+      writeCanvasFileSync(canvasFilePath(userDataPath, DEFAULT_WORKSPACE_ID, name), payload.doc)
+      writeWorkspaceMetaSync(userDataPath, DEFAULT_WORKSPACE_ID, {
+        activeTabId: tabId,
+        viewMode: 'canvas',
+        tabs: [{
+          id: tabId,
+          name,
+          updatedAt: new Date().toISOString(),
+          expanded: true,
+        }],
+      })
+
+      const record = loadWorkspace()
+      if (!record || !restorePersistedWorkspace(record)) {
+        writeJson(response, 500, { error: 'failed to load fixture workspace' })
+        return
+      }
+
+      requestLayout()
+      writeJson(response, 200, { ok: true, entityOrder: currentEntityOrder() })
     },
   },
 

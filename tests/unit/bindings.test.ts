@@ -192,6 +192,41 @@ describe('dispatchKey — modifier shortcuts', () => {
       ).toBe('close-tab')
     }
   })
+
+  it('returns stack-order shortcuts in canvas mode', () => {
+    expect(
+      dispatchKey(BINDINGS, { key: ']', cmd: true, alt: false, shift: false }, BASE_CTX),
+    ).toBe('stack-bring-forward')
+    expect(
+      dispatchKey(BINDINGS, { key: '[', cmd: true, alt: false, shift: false }, BASE_CTX),
+    ).toBe('stack-send-backward')
+    expect(
+      dispatchKey(BINDINGS, { key: ']', cmd: true, alt: false, shift: true }, BASE_CTX),
+    ).toBe('stack-bring-to-front')
+    expect(
+      dispatchKey(BINDINGS, { key: '[', cmd: true, alt: false, shift: true }, BASE_CTX),
+    ).toBe('stack-send-to-back')
+  })
+
+  it('suppresses stack-order shortcuts in browser mode', () => {
+    expect(
+      dispatchKey(
+        BINDINGS,
+        { key: ']', cmd: true, alt: false, shift: false },
+        { ...BASE_CTX, viewMode: 'browser' },
+      ),
+    ).toBeNull()
+  })
+
+  it('maps left-sidebar arrows to stack-order actions in canvas mode', () => {
+    const ctx: BindingContext = { ...BASE_CTX, sourceView: 'leftSidebar' }
+    expect(
+      dispatchKey(BINDINGS, { key: 'arrowup', cmd: false, alt: false, shift: false }, ctx),
+    ).toBe('stack-bring-forward')
+    expect(
+      dispatchKey(BINDINGS, { key: 'arrowdown', cmd: false, alt: false, shift: false }, ctx),
+    ).toBe('stack-send-backward')
+  })
 })
 
 describe('dispatchKey — Escape resolution', () => {
@@ -432,6 +467,21 @@ describe('normalizeElectronInput', () => {
       meta: false,
     })
     expect(result?.cmd).toBe(true)
+  })
+
+  it('normalizes shifted bracket keys by physical key', () => {
+    expect(
+      normalizeElectronInput({
+        type: 'keyDown',
+        key: '}',
+        code: 'BracketRight',
+        isAutoRepeat: false,
+        shift: true,
+        control: false,
+        alt: false,
+        meta: true,
+      }),
+    ).toEqual({ key: ']', cmd: true, shift: true, alt: false })
   })
 
   it('round-trips through dispatchKey for every binding', () => {

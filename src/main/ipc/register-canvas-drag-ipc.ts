@@ -236,6 +236,7 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on('canvas-drag-page-end', () => {
     endDragSession('page')
+    requestLayout()
   })
 
   ipcMain.on(
@@ -305,6 +306,7 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on('canvas-drag-entity-end', () => {
     endDragSession('entity')
+    requestLayout()
   })
 
   ipcMain.on(

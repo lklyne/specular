@@ -30,6 +30,11 @@ function findSidebarItemById(items: SidebarCanvasItem[], targetId: string): Side
   return null
 }
 
+function allSidebarItems(data: LeftSidebarData): SidebarCanvasItem[] {
+  if (data.sections) return [...data.sections.notes, ...data.sections.pages]
+  return data.items
+}
+
 export default function App({
   initialSidebarData,
   initialTheme,
@@ -39,6 +44,8 @@ export default function App({
 }) {
   const [sidebarData, setSidebarData] = useState<LeftSidebarData>(initialSidebarData)
   const [pagesExpanded, setPagesExpanded] = useState(true)
+  const [notesExpanded, setNotesExpanded] = useState(true)
+  const [pagesSectionExpanded, setPagesSectionExpanded] = useState(true)
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
   const previousActivePageCountRef = useRef<number | null>(null)
   const isDark = useTheme(initialTheme, api.onThemeChanged)
@@ -66,8 +73,9 @@ export default function App({
       if (!sidebarData.selectedEntityIds.length) return
 
       let deletedAny = false
+      const items = allSidebarItems(sidebarData)
       for (const entityId of sidebarData.selectedEntityIds) {
-        const item = findSidebarItemById(sidebarData.items, entityId)
+        const item = findSidebarItemById(items, entityId)
         if (!item || item.kind === 'group') continue
         if (item.kind === 'page') {
           api.deletePage(item.id)
@@ -83,7 +91,7 @@ export default function App({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [sidebarData.items, sidebarData.selectedEntityIds])
+  }, [sidebarData, sidebarData.selectedEntityIds])
 
   useEffect(() => {
     if (!editingTabId) return
@@ -93,7 +101,7 @@ export default function App({
   }, [editingTabId, sidebarData.tabs])
 
   const activeTab = sidebarData.tabs.find((tab) => tab.id === sidebarData.activeTabId) ?? null
-  const pagesHeaderLabel = pagesExpanded ? 'Spaces' : activeTab?.name ?? 'Spaces'
+  const pagesHeaderLabel = pagesExpanded ? 'Workspaces' : activeTab?.name ?? 'Workspaces'
 
   useEffect(() => {
     const nextCount = activeTab?.pages.length ?? 0
@@ -150,7 +158,7 @@ export default function App({
                 : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 active:bg-zinc-200'
             }`}
             onClick={() => api.createTab()}
-            title="Add space"
+            title="Add workspace"
           >
             <Plus size={14} />
           </button>
@@ -229,7 +237,7 @@ export default function App({
                           }`}
                           onClick={() => startRenameTab(tab.id)}
                         >
-                          <span>Rename space</span>
+                          <span>Rename workspace</span>
                         </Menu.Item>
                         <Menu.Item
                           className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
@@ -239,7 +247,7 @@ export default function App({
                           }`}
                           onClick={() => api.deleteTab(tab.id)}
                         >
-                          <span>Delete space</span>
+                          <span>Delete workspace</span>
                         </Menu.Item>
                       </Menu.Popup>
                     </Menu.Positioner>
@@ -253,13 +261,53 @@ export default function App({
         <div className={isDark ? 'border-t border-zinc-700/50' : 'border-t border-gray-200/80'} />
 
         <div className="py-2">
-          <SidebarCanvasTree
-            items={sidebarData.items}
-            selectedEntityIds={sidebarData.selectedEntityIds}
-            selectedGroupId={sidebarData.selectedGroupId ?? null}
-            isDark={isDark}
-            api={api}
-          />
+          <div>
+            <div className="flex h-9 items-center px-3">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                onClick={() => setNotesExpanded((value) => !value)}
+                title="Notes"
+              >
+                <span className="truncate text-[12px] font-medium">Notes</span>
+                {notesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+            </div>
+            {notesExpanded ? (
+              <SidebarCanvasTree
+                items={sidebarData.sections.notes}
+                selectedEntityIds={sidebarData.selectedEntityIds}
+                selectedGroupId={sidebarData.selectedGroupId ?? null}
+                isDark={isDark}
+                api={api}
+                section="notes"
+              />
+            ) : null}
+          </div>
+
+          <div>
+            <div className="flex h-9 items-center px-3">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                onClick={() => setPagesSectionExpanded((value) => !value)}
+                title="Pages"
+              >
+                <span className="truncate text-[12px] font-medium">Pages</span>
+                {pagesSectionExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </button>
+            </div>
+            {pagesSectionExpanded ? (
+              <SidebarCanvasTree
+                items={sidebarData.sections.pages}
+                selectedEntityIds={sidebarData.selectedEntityIds}
+                selectedGroupId={sidebarData.selectedGroupId ?? null}
+                isDark={isDark}
+                api={api}
+                section="pages"
+              />
+            ) : null}
+          </div>
 
           {!sidebarData.items.length ? (
             <div

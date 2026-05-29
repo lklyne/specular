@@ -61,6 +61,10 @@ export type BindingId =
   | 'select-all'
   | 'duplicate'
   | 'delete-selection'
+  | 'stack-bring-forward'
+  | 'stack-send-backward'
+  | 'stack-bring-to-front'
+  | 'stack-send-to-back'
   | 'nav-left'
   | 'nav-right'
   | 'nav-up'
@@ -98,6 +102,10 @@ function k(key: string, cmd = false, shift = false, alt = false): NormalizedKey 
   return { key, cmd, alt, shift }
 }
 
+function canvasModeOnly(ctx: BindingContext): boolean {
+  return ctx.viewMode === 'canvas'
+}
+
 // Table order determines dispatch priority. Escape resolution relies on:
 //   annotation-close-thread / annotation-clear-draft → escape-page-focus → escape-tool
 export const BINDINGS: readonly Binding[] = [
@@ -133,6 +141,54 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'ungroup', defaultKey: k('g', true, true), scope: CANVAS_REGION, target: 'main', label: 'Ungroup' },
   { id: 'select-all', defaultKey: k('a', true), scope: CANVAS_REGION, target: 'main', label: 'Select all' },
   { id: 'duplicate', defaultKey: k('d', true), scope: CANVAS_REGION, target: 'main', label: 'Duplicate' },
+  {
+    id: 'stack-bring-forward',
+    defaultKey: k(']', true),
+    scope: [...CANVAS_REGION, 'leftSidebar'],
+    target: 'main',
+    when: canvasModeOnly,
+    label: 'Bring forward',
+  },
+  {
+    id: 'stack-send-backward',
+    defaultKey: k('[', true),
+    scope: [...CANVAS_REGION, 'leftSidebar'],
+    target: 'main',
+    when: canvasModeOnly,
+    label: 'Send backward',
+  },
+  {
+    id: 'stack-bring-to-front',
+    defaultKey: k(']', true, true),
+    scope: [...CANVAS_REGION, 'leftSidebar'],
+    target: 'main',
+    when: canvasModeOnly,
+    label: 'Bring to front',
+  },
+  {
+    id: 'stack-send-to-back',
+    defaultKey: k('[', true, true),
+    scope: [...CANVAS_REGION, 'leftSidebar'],
+    target: 'main',
+    when: canvasModeOnly,
+    label: 'Send to back',
+  },
+  {
+    id: 'stack-bring-forward',
+    defaultKey: k('arrowup'),
+    scope: ['leftSidebar'],
+    target: 'main',
+    when: canvasModeOnly,
+    label: 'Bring forward',
+  },
+  {
+    id: 'stack-send-backward',
+    defaultKey: k('arrowdown'),
+    scope: ['leftSidebar'],
+    target: 'main',
+    when: canvasModeOnly,
+    label: 'Send backward',
+  },
 
   // Canvas-region plain shortcuts
   {
@@ -231,8 +287,14 @@ export interface ElectronInputEvent {
 
 export function normalizeElectronInput(input: ElectronInputEvent): NormalizedKey | null {
   if (input.type !== 'keyDown') return null
+  const bracketKey =
+    input.code === 'BracketLeft'
+      ? '['
+      : input.code === 'BracketRight'
+        ? ']'
+        : null
   return {
-    key: input.key.toLowerCase(),
+    key: bracketKey ?? input.key.toLowerCase(),
     cmd: input.meta || input.control,
     alt: input.alt,
     shift: input.shift,
@@ -264,6 +326,10 @@ function toAcceleratorKey(key: string): string {
       return 'Delete'
     case 'backspace':
       return 'Backspace'
+    case '[':
+      return '['
+    case ']':
+      return ']'
     case 'tab':
       return 'Tab'
     case 'enter':

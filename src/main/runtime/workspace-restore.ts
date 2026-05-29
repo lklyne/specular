@@ -31,6 +31,7 @@ import {
 import { markUndoBoundary } from './workspace-undo'
 import { resetDocSync } from './workspace-observers'
 import {
+  scheduleWorkspaceAutosave,
   withWorkspacePersistenceSuspended,
 } from './workspace-autosave'
 import { setZoom, setPan, requestLayout } from './viewport-control'
@@ -117,6 +118,7 @@ import {
 } from './runtime-constants'
 import { initWindow } from './window-init'
 import { applyTabState } from './workspace-tab-operations'
+import { migrateSnapshotEntityOrderForRestore } from './workspace-restore-migration'
 
 export function destroyActivePages(): void {
   clearTextEntities()
@@ -132,7 +134,19 @@ function selectPageById(id: string): boolean {
   return commitSelectPageById(id)
 }
 
+function restoreDocEntityOrder(snapshot: WorkspaceSnapshot): void {
+  if (!snapshot.entityOrder) return
+  const doc = getActiveDoc()
+  const order = doc.getArray<string>(DOC_ARRAY_ENTITY_ORDER)
+  if (JSON.stringify(order.toArray()) === JSON.stringify(snapshot.entityOrder)) return
+  doc.transact(() => {
+    if (order.length) order.delete(0, order.length)
+    if (snapshot.entityOrder?.length) order.push(snapshot.entityOrder)
+  }, 'restore')
+}
+
 export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
+  const migratedEntityOrder = migrateSnapshotEntityOrderForRestore(snapshot)
   const hasEntities = snapshot.entities && Object.keys(snapshot.entities).length > 0
   if (!snapshot.pages.length && !hasEntities) return false
 
@@ -315,6 +329,8 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
     }
   })
 
+  restoreDocEntityOrder(snapshot)
+  if (migratedEntityOrder) markAllDirty()
   return true
 }
 
@@ -345,6 +361,10 @@ export function restorePersistedWorkspace(
 ): boolean {
   workspaceTabs.length = 0
   workspaceTabs.push(...clonePersistedWorkspaceTabs(record.tabs))
+  let migratedEntityOrder = false
+  for (const tab of workspaceTabs) {
+    migratedEntityOrder = migrateSnapshotEntityOrderForRestore(tab.snapshot) || migratedEntityOrder
+  }
   setActiveWorkspaceTabId(
     record.activeTabId && workspaceTabs.some((tab) => tab.id === record.activeTabId)
       ? record.activeTabId
@@ -365,6 +385,10 @@ export function restorePersistedWorkspace(
   // won't generate an undo step. initializeDocObservers() handles the
   // initial sync, and clearUndoHistory() is called after to wipe any
   // phantom entries.
+  if (migratedEntityOrder) {
+    markAllDirty()
+    scheduleWorkspaceAutosave()
+  }
   return true
 }
 

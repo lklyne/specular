@@ -18,6 +18,7 @@ import { shapeEntities } from './shape-entity-state'
 import { selectBrowserTab } from './runtime-core'
 import { deleteSelection } from './delete-selection'
 import { duplicateSelection } from './duplicate-selection'
+import { reorderStackOrder } from './entity-order-state'
 
 type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
 
@@ -89,6 +90,22 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   },
   'delete-selection': () => {
     deleteSelection()
+  },
+  'stack-bring-forward': (ctx) => {
+    if (ctx.viewMode !== 'canvas') return
+    reorderStackOrder('bring-forward')
+  },
+  'stack-send-backward': (ctx) => {
+    if (ctx.viewMode !== 'canvas') return
+    reorderStackOrder('send-backward')
+  },
+  'stack-bring-to-front': (ctx) => {
+    if (ctx.viewMode !== 'canvas') return
+    reorderStackOrder('bring-to-front')
+  },
+  'stack-send-to-back': (ctx) => {
+    if (ctx.viewMode !== 'canvas') return
+    reorderStackOrder('send-to-back')
   },
   'nav-left': () => {
     selectAdjacentPageOnce('left')

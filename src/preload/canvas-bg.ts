@@ -134,6 +134,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-paste-selection', { canvasX, canvasY }),
   deleteSelectedEntities: () => ipcRenderer.send('canvas-delete-selection'),
   tidySelectedEntities: () => ipcRenderer.send('canvas-tidy-selection'),
+  reorderStack: (action, targetId) =>
+    ipcRenderer.send('canvas-reorder-stack', { action, targetId }),
   createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) =>
     ipcRenderer.send('canvas-create-text-entity', { canvasX, canvasY, text, color }),
   updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' }) =>

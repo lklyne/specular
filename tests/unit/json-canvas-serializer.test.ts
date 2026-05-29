@@ -8,6 +8,7 @@ import type {
   PersistedFileEntity,
   PersistedShapeEntity,
   PersistedTextEntity,
+  WorkspaceEdge,
   WorkspaceSnapshot,
 } from '../../src/shared/types'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
@@ -370,5 +371,72 @@ describe('json-canvas-serializer drawings', () => {
 
     const { snapshot: restored } = deserializeFromJsonCanvas(doc)
     expect(restored.entityOrder).toEqual(['t1', 'd1'])
+  })
+
+  it('round-trips interleaved edge stack order as a Specular document extension', () => {
+    const edge: WorkspaceEdge = {
+      id: 'e1',
+      fromEntityId: 't1',
+      toEntityId: 'sh1',
+      kind: 'breakpoint_variant',
+    }
+    const snapshot = emptySnapshot()
+    snapshot.entities!['t1'] = {
+      kind: 'text',
+      id: 't1',
+      text: 'hello',
+      color: '3',
+      canvasX: 0,
+      canvasY: 0,
+      width: 100,
+      height: 50,
+    }
+    snapshot.entities!['sh1'] = {
+      kind: 'shape',
+      id: 'sh1',
+      shapeKind: 'rectangle',
+      text: '',
+      canvasX: 120,
+      canvasY: 0,
+      width: 100,
+      height: 50,
+    }
+    snapshot.edges = [edge]
+    snapshot.entityOrder = ['t1', 'e1', 'sh1']
+
+    const doc = serializeToJsonCanvas(snapshot)
+    expect(doc.nodes.map((node) => node.id)).toEqual(['t1', 'sh1'])
+    expect(doc.edges.map((jsonEdge) => jsonEdge.id)).toEqual(['e1'])
+    expect(doc.specular?.entityOrder).toEqual(['t1', 'e1', 'sh1'])
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(doc)
+    expect(restored.edges).toEqual([edge])
+    expect(restored.entityOrder).toEqual(['t1', 'e1', 'sh1'])
+  })
+
+  it('appends legacy edges to the top when no Specular stack order exists', () => {
+    const legacyDoc: JsonCanvasDocument = {
+      nodes: [
+        {
+          id: 't1',
+          type: 'text',
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 50,
+          text: 'node',
+        },
+      ],
+      edges: [
+        {
+          id: 'e1',
+          fromNode: 't1',
+          toNode: 't1',
+        },
+      ],
+    }
+
+    const { snapshot: restored } = deserializeFromJsonCanvas(legacyDoc)
+    expect(restored.entityOrder).toEqual(['t1', 'e1'])
   })
 })

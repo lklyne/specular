@@ -148,8 +148,18 @@ export interface JsonCanvasDocument {
   nodes: JsonCanvasNode[]
   edges: JsonCanvasEdge[]
   // App-specific extensions (other tools ignore per spec)
+  specular?: JsonCanvasSpecularExtensions
   annotations?: unknown[]
   appState?: JsonCanvasAppState
+}
+
+export interface JsonCanvasSpecularExtensions {
+  /**
+   * Back-to-front stack order for all Specular canvas participants. JSON
+   * Canvas keeps nodes[] and edges[] separate, so this preserves edge
+   * interleaving without changing the spec arrays.
+   */
+  entityOrder?: string[]
 }
 
 export interface JsonCanvasAppState {

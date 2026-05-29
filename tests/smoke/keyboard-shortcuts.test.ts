@@ -2,13 +2,16 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   beginInteraction,
   cancelActiveInteraction,
+  createEdges,
   createPages,
   createTextEntities,
+  deleteEdges,
   deletePages,
   deleteTextEntities,
   deselectSelection,
   getInteractionMode,
   getSelection,
+  getEntityOrder,
   getTextEntities,
   getWorkspace,
   pasteClipboardText,
@@ -22,6 +25,7 @@ import { wait, waitFor } from './test-utils'
 
 const createdPageIds: string[] = []
 const createdTextIds: string[] = []
+const createdEdgeIds: string[] = []
 
 async function createPage(url = 'https://example.com') {
   const result = await createPages([{ url, canvasX: 0, canvasY: 0 }])
@@ -30,6 +34,10 @@ async function createPage(url = 'https://example.com') {
 }
 
 afterEach(async () => {
+  if (createdEdgeIds.length) {
+    const ids = createdEdgeIds.splice(0)
+    await deleteEdges(ids).catch(() => {})
+  }
   if (createdPageIds.length) {
     const ids = createdPageIds.splice(0)
     await deletePages(ids).catch(() => {})
@@ -314,5 +322,92 @@ describe('keyboard shortcuts (binding dispatcher)', () => {
     // so dispatchKey returns null and the keystroke is forwarded to the page.
     await sendKey('z', { cmd: true, target: 'page', pageId })
     await wait(50)
+  })
+
+  it('Cmd+[ sends a selected page backward in stack order', async () => {
+    const first = await createPage('https://example.com/stack-shortcut-a')
+    const second = await createPage('https://example.com/stack-shortcut-b')
+    await selectPage(second)
+
+    await sendKey('[', { cmd: true })
+
+    await waitFor(
+      () => getEntityOrder(),
+      ({ entityOrder }) => {
+        const ids = entityOrder.filter((id) => id === first || id === second)
+        return ids[0] === second && ids[1] === first
+      },
+      'Timed out waiting for page stack shortcut reorder',
+    )
+  })
+
+  it('Cmd+[ sends a selected sticky backward in stack order', async () => {
+    const firstResult = await createTextEntities([
+      { canvasX: 120, canvasY: 120, text: 'Stack shortcut A' },
+    ])
+    const secondResult = await createTextEntities([
+      { canvasX: 160, canvasY: 160, text: 'Stack shortcut B' },
+    ])
+    const ids = [firstResult.ids[0], secondResult.ids[0]]
+    createdTextIds.push(...ids)
+    const [first, second] = ids
+    await waitFor(
+      () => getTextEntities(),
+      ({ textEntities }) => ids.every((id) => textEntities.some((entity) => entity.id === id)),
+      'Timed out waiting for stack shortcut stickies',
+    )
+    const before = await getEntityOrder()
+    const beforePair = before.entityOrder.filter((id) => id === first || id === second)
+    expect(beforePair).toHaveLength(2)
+    const [backmost, frontmost] = beforePair
+    await selectEntity(frontmost, 'text')
+
+    await sendKey('[', { cmd: true })
+
+    await waitFor(
+      () => getEntityOrder(),
+      ({ entityOrder }) => {
+        const ordered = entityOrder.filter((id) => id === first || id === second)
+        return ordered[0] === frontmost && ordered[1] === backmost
+      },
+      'Timed out waiting for sticky stack shortcut reorder',
+    )
+  })
+
+  it('Cmd+[ sends a selected edge backward in stack order', async () => {
+    const firstResult = await createTextEntities([
+      { canvasX: 120, canvasY: 140, text: 'From' },
+    ])
+    const secondResult = await createTextEntities([
+      { canvasX: 360, canvasY: 140, text: 'To' },
+    ])
+    const first = firstResult.ids[0]
+    const second = secondResult.ids[0]
+    const ids = [first, second]
+    createdTextIds.push(first, second)
+    await waitFor(
+      () => getTextEntities(),
+      ({ textEntities }) => ids.every((id) => textEntities.some((entity) => entity.id === id)),
+      'Timed out waiting for edge endpoint stickies',
+    )
+    const edgeResult = await createEdges([
+      { fromEntityId: first, toEntityId: second, kind: 'connection' },
+    ])
+    const edge = edgeResult.edgeIds[0]
+    createdEdgeIds.push(edge)
+    const before = await getEntityOrder()
+    expect(before.entityOrder).toContain(edge)
+
+    await selectEntity(edge, 'edge')
+    const selection = await getSelection()
+    expect(selection.selectedEntityId).toBe(edge)
+    await sendKey('[', { cmd: true })
+
+    const after = await getEntityOrder()
+    expect(after.entityOrder.filter((id) => id === first || id === second || id === edge)).toEqual([
+      first,
+      edge,
+      second,
+    ])
   })
 })

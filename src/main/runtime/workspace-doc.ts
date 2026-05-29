@@ -195,6 +195,8 @@ export function syncRuntimeToDoc(
     workspaceAnnotations: ReadonlyArray<{ id: string }>
     zoom: number
     pan: { x: number; y: number }
+    activeTabId?: string | null
+    workspaceTabs?: ReadonlyArray<{ id: string; name: string }>
   },
   serializePage: (page: { id: string }) => Record<string, unknown>,
 ): void {
@@ -245,6 +247,19 @@ export function syncRuntimeToDoc(
     )
 
     syncEntityOrder(doc, runtime)
+
+    if (runtime.activeTabId) {
+      const workspace = doc.getMap(DOC_MAP_WORKSPACE)
+      if (workspace.get('activeTabId') !== runtime.activeTabId) {
+        workspace.set('activeTabId', runtime.activeTabId)
+      }
+      if (runtime.workspaceTabs) {
+        const tabs = runtime.workspaceTabs.map((tab) => ({ id: tab.id, name: tab.name }))
+        if (JSON.stringify(workspace.get('tabs') ?? []) !== JSON.stringify(tabs)) {
+          workspace.set('tabs', tabs)
+        }
+      }
+    }
   }, 'user')
 }
 
@@ -290,18 +305,33 @@ function syncEntityOrder(
     drawingEntities: ReadonlyArray<{ id: string }>
     shapeEntities: ReadonlyArray<{ id: string }>
     workspaceGroups: ReadonlyArray<{ id: string }>
+    workspaceEdges: ReadonlyArray<{ id: string }>
   },
 ): void {
   const order = doc.getArray<string>(DOC_ARRAY_ENTITY_ORDER)
-  const desiredOrder = [
+  const defaultOrder = [
     ...runtime.pages.map((p) => p.id),
     ...runtime.textEntities.map((e) => e.id),
     ...runtime.fileEntities.map((e) => e.id),
     ...runtime.drawingEntities.map((e) => e.id),
     ...runtime.shapeEntities.map((e) => e.id),
     ...runtime.workspaceGroups.map((g) => g.id),
+    ...runtime.workspaceEdges.map((e) => e.id),
   ]
+  const currentIds = new Set(defaultOrder)
   const currentOrder = order.toArray()
+  const seen = new Set<string>()
+  const desiredOrder: string[] = []
+  for (const id of currentOrder) {
+    if (!currentIds.has(id) || seen.has(id)) continue
+    seen.add(id)
+    desiredOrder.push(id)
+  }
+  for (const id of defaultOrder) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    desiredOrder.push(id)
+  }
   if (JSON.stringify(currentOrder) !== JSON.stringify(desiredOrder)) {
     order.delete(0, order.length)
     if (desiredOrder.length) order.push(desiredOrder)

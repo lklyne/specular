@@ -13,10 +13,16 @@ import {
   Square,
   StickyNote,
 } from 'lucide-react'
-import type { LeftSidebarElectronAPI, SidebarCanvasItem, SidebarFileItem, SidebarPageItem, SidebarGroupItem, SidebarTextItem } from '../../shared/types'
+import type {
+  LeftSidebarElectronAPI,
+  SidebarCanvasItem,
+  SidebarGroupItem,
+  SidebarSectionKey,
+} from '../../shared/types'
 import { iconForFilePath } from '../shared/fileIcon'
 import { PageListItem } from '../shared/pageListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
+import { useDragReorder } from './useDragReorder'
 
 const RENAMABLE_FILE_PATTERN = /\.(md|wireframe\.json)$/i
 
@@ -144,6 +150,8 @@ function GroupTreeItem({
   selectedGroupId,
   isDark,
   api,
+  section,
+  parentId,
 }: {
   group: SidebarGroupItem
   depth: number
@@ -151,6 +159,8 @@ function GroupTreeItem({
   selectedGroupId: string | null
   isDark: boolean
   api: LeftSidebarElectronAPI
+  section: SidebarSectionKey
+  parentId: string | null
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -228,17 +238,16 @@ function GroupTreeItem({
             </Collapsible.Trigger>
           </div>
           <Collapsible.Panel>
-            {group.children.map((child) => (
-              <SidebarCanvasTreeItem
-                key={child.id}
-                item={child}
-                depth={depth + 1}
-                selectedEntityIds={selectedEntityIds}
-                selectedGroupId={selectedGroupId}
-                isDark={isDark}
-                api={api}
-              />
-            ))}
+            <SidebarCanvasTreeList
+              items={group.children}
+              depth={depth + 1}
+              selectedEntityIds={selectedEntityIds}
+              selectedGroupId={selectedGroupId}
+              isDark={isDark}
+              api={api}
+              section={section}
+              parentId={group.id}
+            />
           </Collapsible.Panel>
         </Collapsible.Root>
       </ContextMenu.Trigger>
@@ -285,6 +294,8 @@ function SidebarCanvasTreeItem({
   selectedGroupId,
   isDark,
   api,
+  section,
+  parentId,
 }: {
   item: SidebarCanvasItem
   depth: number
@@ -292,6 +303,8 @@ function SidebarCanvasTreeItem({
   selectedGroupId: string | null
   isDark: boolean
   api: LeftSidebarElectronAPI
+  section: SidebarSectionKey
+  parentId: string | null
 }) {
   if (item.kind === 'group') {
     return (
@@ -302,6 +315,8 @@ function SidebarCanvasTreeItem({
         selectedGroupId={selectedGroupId}
         isDark={isDark}
         api={api}
+        section={section}
+        parentId={parentId}
       />
     )
   }
@@ -309,18 +324,16 @@ function SidebarCanvasTreeItem({
   const isSelected = selectedEntityIds.includes(item.id)
   if (item.kind === 'page') {
     return (
-      <div>
-        <PageListItem
-          page={item}
-          active={isSelected}
-          isDark={isDark}
-          contentPaddingLeft={LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP}
-          contentPaddingRight={LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING}
-          onClick={() => api.revealPage(item.id)}
-          onRename={(name) => api.renamePage(item.id, name)}
-          onDelete={() => api.deletePage(item.id)}
-        />
-      </div>
+      <PageListItem
+        page={item}
+        active={isSelected}
+        isDark={isDark}
+        contentPaddingLeft={LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP}
+        contentPaddingRight={LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING}
+        onClick={() => api.revealPage(item.id)}
+        onRename={(name) => api.renamePage(item.id, name)}
+        onDelete={() => api.deletePage(item.id)}
+      />
     )
   }
 
@@ -396,32 +409,61 @@ function SidebarCanvasTreeItem({
   )
 }
 
-export function SidebarCanvasTree({
+function SidebarCanvasTreeList({
   items,
+  depth,
   selectedEntityIds,
   selectedGroupId,
   isDark,
   api,
+  section,
+  parentId,
 }: {
+  items: SidebarCanvasItem[]
+  depth: number
+  selectedEntityIds: string[]
+  selectedGroupId: string | null
+  isDark: boolean
+  api: LeftSidebarElectronAPI
+  section: SidebarSectionKey
+  parentId: string | null
+}) {
+  const drag = useDragReorder(items.length, (id, toIndex) => {
+    const withoutDragged = items.filter((item) => item.id !== id)
+    const anchor = withoutDragged[toIndex]
+    // Sidebar renders top-of-stack first (front-to-back), but the backend
+    // treats `position` as entityOrder-relative (back-to-front). Flip so
+    // "visually above anchor" = "after anchor in entityOrder" = more frontward.
+    api.reorderSidebarItem(section, id, anchor?.id ?? null, anchor ? 'after' : 'before', parentId)
+  })
+
+  return (
+    <div {...drag.containerProps}>
+      {items.map((item, index) => (
+        <div key={item.id} {...drag.itemProps(item.id, index)}>
+          <SidebarCanvasTreeItem
+            item={item}
+            depth={depth}
+            selectedEntityIds={selectedEntityIds}
+            selectedGroupId={selectedGroupId}
+            isDark={isDark}
+            api={api}
+            section={section}
+            parentId={parentId}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function SidebarCanvasTree(props: {
   items: SidebarCanvasItem[]
   selectedEntityIds: string[]
   selectedGroupId: string | null
   isDark: boolean
   api: LeftSidebarElectronAPI
+  section: SidebarSectionKey
 }) {
-  return (
-    <>
-      {items.map((item) => (
-        <SidebarCanvasTreeItem
-          key={item.id}
-          item={item}
-          depth={0}
-          selectedEntityIds={selectedEntityIds}
-          selectedGroupId={selectedGroupId}
-          isDark={isDark}
-          api={api}
-        />
-      ))}
-    </>
-  )
+  return <SidebarCanvasTreeList {...props} depth={0} parentId={null} />
 }

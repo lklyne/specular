@@ -104,6 +104,7 @@ import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../presence-cursor'
 import { getFixProgress } from '../agent-fix/fix-progress'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
 
 // --- Exported data builders ---
 
@@ -359,28 +360,57 @@ export function buildCanvasLayoutData(
   const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
   const padRight = isMac ? TOOLBAR_PAD_RIGHT_MAC : TOOLBAR_PAD_RIGHT_OTHER
   const toolbarCenterX = (padLeft + Math.max(0, windowWidth - padRight)) / 2
+  const entities = [
+    ...pages,
+    ...textEntities.map((te) =>
+      buildTextEntitySceneEntity(te, zoom, pan, origin)
+    ),
+    ...fileEntities.map((fe) =>
+      buildFileEntitySceneEntity(fe, zoom, pan, origin)
+    ),
+    ...drawingEntitiesForUi().map((de) =>
+      buildDrawingEntitySceneEntity(de, zoom, pan, origin)
+    ),
+    ...shapeEntities.map((se) =>
+      buildShapeEntitySceneEntity(se, zoom, pan, origin)
+    ),
+    ...groupEntities,
+  ] as CanvasSceneEntity[]
+  const edges = [...workspaceEdges]
+  const knownStackIds = new Set([
+    ...entities.map((entity) => entity.id),
+    ...edges.map((edge) => edge.id),
+  ])
+  const seenStackIds = new Set<string>()
+  const entityOrder: string[] = []
+  for (const id of getActiveDoc().getArray<string>(DOC_ARRAY_ENTITY_ORDER).toArray()) {
+    if (!knownStackIds.has(id) || seenStackIds.has(id)) continue
+    seenStackIds.add(id)
+    entityOrder.push(id)
+  }
+  for (const id of knownStackIds) {
+    if (seenStackIds.has(id)) continue
+    seenStackIds.add(id)
+    entityOrder.push(id)
+  }
+  const orderRank = new Map(entityOrder.map((id, index) => [id, index]))
+  entities.sort((a, b) => {
+    const aRank = orderRank.get(a.id)
+    const bRank = orderRank.get(b.id)
+    if (aRank === undefined && bRank === undefined) return 0
+    if (aRank === undefined) return 1
+    if (bRank === undefined) return -1
+    return aRank - bRank
+  })
+  edges.sort((a, b) => (orderRank.get(a.id) ?? Infinity) - (orderRank.get(b.id) ?? Infinity))
   return {
     zoom,
     pan,
     canvasOrigin: origin,
     leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
     toolbarCenterX,
-    entities: [
-      ...pages,
-      ...textEntities.map((te) =>
-        buildTextEntitySceneEntity(te, zoom, pan, origin)
-      ),
-      ...fileEntities.map((fe) =>
-        buildFileEntitySceneEntity(fe, zoom, pan, origin)
-      ),
-      ...drawingEntitiesForUi().map((de) =>
-        buildDrawingEntitySceneEntity(de, zoom, pan, origin)
-      ),
-      ...shapeEntities.map((se) =>
-        buildShapeEntitySceneEntity(se, zoom, pan, origin)
-      ),
-      ...groupEntities,
-    ] as CanvasSceneEntity[],
+    entityOrder,
+    entities,
     browserTabs: buildLiveBrowserTabSummaries(),
     browserFillViewport: fillViewport,
     selectedEntityIds: uiSelectedEntityIds(),
@@ -402,7 +432,7 @@ export function buildCanvasLayoutData(
     pendingPlacement: pendingPlacementData,
     devtoolsOpen: uiDevtoolsOpen(),
     devtoolsWidth: uiDevtoolsWidth(),
-    edges: [...workspaceEdges],
+    edges,
     groups: groupEntities,
     presenceCursors: getPresenceCursors()
     .filter((c) => {

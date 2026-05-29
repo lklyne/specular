@@ -162,6 +162,34 @@ function FileBodyCard({
               >
                 Show in Finder
               </Menu.Item>
+              <div
+                role="separator"
+                className={isDark ? 'my-1 h-px bg-zinc-700' : 'my-1 h-px bg-zinc-200'}
+              />
+              <Menu.Item
+                className={menuItemClass}
+                onClick={() => fileApi.reorderStack('bring-forward', entity.id)}
+              >
+                Bring forward
+              </Menu.Item>
+              <Menu.Item
+                className={menuItemClass}
+                onClick={() => fileApi.reorderStack('send-backward', entity.id)}
+              >
+                Send backward
+              </Menu.Item>
+              <Menu.Item
+                className={menuItemClass}
+                onClick={() => fileApi.reorderStack('bring-to-front', entity.id)}
+              >
+                Bring to front
+              </Menu.Item>
+              <Menu.Item
+                className={menuItemClass}
+                onClick={() => fileApi.reorderStack('send-to-back', entity.id)}
+              >
+                Send to back
+              </Menu.Item>
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>

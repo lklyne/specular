@@ -19,6 +19,7 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   canvasOrigin: { x: 0, y: 44 },
   leftChromeWidth: 0,
   toolbarCenterX: 0,
+  entityOrder: [],
   entities: [],
   browserTabs: [],
   browserFillViewport: { width: 0, height: 0 },

@@ -60,13 +60,13 @@ describe('left sidebar hierarchy', () => {
 
     const outerChildren = Array.isArray(outerItem?.children) ? outerItem.children : []
     expect(outerChildren).toHaveLength(2)
-    expect(outerChildren[0]).toMatchObject({
+    expect(outerChildren.find((item) => item.id === innerGroup.id)).toMatchObject({
       kind: 'group',
       id: innerGroup.id,
       label: 'Inner group',
       entityCount: 2,
     })
-    expect(outerChildren[1]).toMatchObject({
+    expect(outerChildren.find((item) => item.id === outerOnly)).toMatchObject({
       kind: 'page',
       id: outerOnly,
     })

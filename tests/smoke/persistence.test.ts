@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   createTextEntities,
   deleteTextEntities,
+  loadCanvasFixture,
   getTextEntities,
   resetSmokeState,
 } from './app-client'
@@ -21,6 +22,7 @@ import {
   flushAndReadDiskSnapshot,
   waitForAutosave,
 } from './test-utils'
+import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 async function cleanupTextEntities(): Promise<void> {
   const { textEntities } = await getTextEntities()
@@ -29,14 +31,26 @@ async function cleanupTextEntities(): Promise<void> {
   }
 }
 
+async function resetWorkspaceFixture(): Promise<void> {
+  await loadCanvasFixture({
+    name: 'Smoke Blank',
+    doc: {
+      nodes: [],
+      edges: [],
+      appState: { zoom: 1, pan: { x: 0, y: 0 }, browserTabMode: 'canvas' },
+    },
+  })
+}
+
 describe('persistence', () => {
   beforeEach(async () => {
     await resetSmokeState()
+    await resetWorkspaceFixture()
     await cleanupTextEntities()
   })
 
   afterEach(async () => {
-    await cleanupTextEntities()
+    await resetWorkspaceFixture()
   })
 
   it('autosave writes a mutation to the .canvas file on disk', async () => {
@@ -103,5 +117,27 @@ describe('persistence', () => {
       (after.doc?.nodes ?? []).filter((n) => n.type === 'text').map((n) => n.id),
     )
     expect(textIds.has(newId)).toBe(false)
+  })
+
+  it('normalizes scattered group stack order on load and autosaves the migration', async () => {
+    const doc: JsonCanvasDocument = {
+      nodes: [
+        { id: 'a', type: 'shape', shapeKind: 'rectangle', x: 0, y: 0, width: 100, height: 100, parentGroupId: 'group' },
+        { id: 'x', type: 'shape', shapeKind: 'rectangle', x: 150, y: 0, width: 100, height: 100 },
+        { id: 'group', type: 'group', x: 0, y: 0, width: 300, height: 160, label: 'Group' },
+        { id: 'b', type: 'shape', shapeKind: 'rectangle', x: 20, y: 20, width: 100, height: 100, parentGroupId: 'group' },
+        { id: 'y', type: 'shape', shapeKind: 'rectangle', x: 300, y: 0, width: 100, height: 100 },
+      ],
+      edges: [],
+      specular: { entityOrder: ['a', 'x', 'group', 'b', 'y'] },
+      appState: { zoom: 1, pan: { x: 0, y: 0 }, browserTabMode: 'canvas' },
+    }
+
+    const loaded = await loadCanvasFixture({ name: 'Stack Migration', doc })
+    expect(loaded.entityOrder).toEqual(['x', 'a', 'b', 'group', 'y'])
+
+    const after = await waitForAutosave()
+    const order = (after.doc?.specular as { entityOrder?: string[] } | undefined)?.entityOrder
+    expect(order).toEqual(['x', 'a', 'b', 'group', 'y'])
   })
 })

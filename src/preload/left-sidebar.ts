@@ -28,6 +28,14 @@ const api: LeftSidebarElectronAPI = {
   duplicateTab: (tabId) => ipcRenderer.send('canvas-duplicate-tab', { tabId }),
   deleteTab: (tabId) => ipcRenderer.send('canvas-delete-tab', { tabId }),
   reorderTab: (tabId, toIndex) => ipcRenderer.send('canvas-reorder-tab', { tabId, toIndex }),
+  reorderSidebarItem: (section, draggedId, anchorId, position, parentId) =>
+    ipcRenderer.send('canvas-reorder-sidebar-item', {
+      section,
+      draggedId,
+      anchorId,
+      position,
+      parentId,
+    }),
   deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
   setTabExpanded: (tabId, expanded) =>
     ipcRenderer.send('canvas-set-tab-expanded', { tabId, expanded }),

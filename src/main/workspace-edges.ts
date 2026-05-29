@@ -2,6 +2,7 @@ import type { CreateEdgesRequest, CreateEdgesResponse, WorkspaceEdge } from '../
 import { workspaceEdges } from './runtime/workspace-model'
 import { markDirty } from './runtime/layout-dirty'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { appendStackOrderIdsAtTop } from './runtime/entity-order-state'
 import { makeId, cloneMetadata } from './workspace-utils'
 
 export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
@@ -22,6 +23,7 @@ export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
     edgeIds.push(nextEdge.id)
   }
   if (edgeIds.length) {
+    appendStackOrderIdsAtTop(edgeIds)
     markDirty('canvas')
     scheduleWorkspaceAutosave()
   }

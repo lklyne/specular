@@ -57,6 +57,7 @@ import {
   persistShapeEntity,
 } from './shape-entity-state'
 import { persistGroupEntity } from './group-entity-state'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
 
 export function workspaceSnapshot(): WorkspaceSnapshot {
   const pageIds = pages.map((p) => p.id)
@@ -132,6 +133,30 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
     if (!snapshot.entityOrder) snapshot.entityOrder = []
     snapshot.entities[entity.id] = entity
     snapshot.entityOrder.push(entity.id)
+  }
+  if (snapshot.entities) {
+    const currentIds = new Set([
+      ...Object.keys(snapshot.entities),
+      ...workspaceEdges.map((edge) => edge.id),
+    ])
+    const seen = new Set<string>()
+    const ordered: string[] = []
+    for (const id of getActiveDoc().getArray<string>(DOC_ARRAY_ENTITY_ORDER).toArray()) {
+      if (!currentIds.has(id) || seen.has(id)) continue
+      seen.add(id)
+      ordered.push(id)
+    }
+    for (const id of snapshot.entityOrder ?? []) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      ordered.push(id)
+    }
+    for (const edge of workspaceEdges) {
+      if (seen.has(edge.id)) continue
+      seen.add(edge.id)
+      ordered.push(edge.id)
+    }
+    snapshot.entityOrder = ordered
   }
   return snapshot
 }

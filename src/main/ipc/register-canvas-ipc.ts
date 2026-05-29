@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-import type { CanvasEntityKind, SelectionModifiers } from '../../shared/types'
+import type { CanvasEntityKind, SelectionModifiers, SidebarSectionKey } from '../../shared/types'
 import type { EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
@@ -76,6 +76,7 @@ import {
 import { consumeDragId } from '../runtime/drop-owner'
 import { registerCanvasDragIpc } from './register-canvas-drag-ipc'
 import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
+import { reorderSidebarStackOrder } from '../runtime/entity-order-state'
 
 export function registerCanvasIpc(): void {
   registerCanvasDragIpc()
@@ -373,6 +374,24 @@ export function registerCanvasIpc(): void {
     'canvas-reorder-tab',
     (_event, { tabId, toIndex }: { tabId: string; toIndex: number }) => {
       reorderWorkspaceTab(tabId, toIndex)
+    },
+  )
+
+  ipcMain.on(
+    'canvas-reorder-sidebar-item',
+    (
+      _event,
+      payload: {
+        section: SidebarSectionKey
+        draggedId: string
+        anchorId: string | null
+        position: 'before' | 'after'
+        parentId: string | null
+      },
+    ) => {
+      if (payload.section !== 'notes' && payload.section !== 'pages') return
+      if (payload.position !== 'before' && payload.position !== 'after') return
+      reorderSidebarStackOrder(payload)
     },
   )
 

@@ -22,8 +22,6 @@ import {
   getActiveDoc,
   getDocActiveTabId,
   getDocTabList,
-  setDocActiveTabId,
-  setDocTabList,
   isDocSyncSuppressed,
   syncRuntimeToDoc,
   withSuppressedDocSync,
@@ -149,18 +147,9 @@ function requestDocSyncImmediate(): void {
     workspaceAnnotations: _refs.workspaceAnnotations,
     zoom: _refs.getZoom(),
     pan: _refs.getPan(),
+    activeTabId: _refs.getActiveTabId(),
+    workspaceTabs: _refs.workspaceTabs,
   }, _refs.serializePage as (page: { id: string }) => Record<string, unknown>)
-  // Keep workspace metadata in sync
-  const activeTabId = _refs.getActiveTabId()
-  if (activeTabId) {
-    const currentDocTabId = getDocActiveTabId(doc)
-    if (currentDocTabId !== activeTabId) {
-      doc.transact(() => {
-        setDocActiveTabId(doc, activeTabId)
-        setDocTabList(doc, _refs!.workspaceTabs.map((t) => ({ id: t.id, name: t.name })))
-      }, 'user')
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
