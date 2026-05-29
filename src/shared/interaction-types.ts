@@ -13,11 +13,14 @@ export type InteractionMode =
   | { kind: 'resizing-multi-selection' }
   | { kind: 'dragging-edge'; from: EdgeEndpoint; target: EdgeEndpoint | null }
   | { kind: 'editing-entity'; id: string }
-  // Dragging a managed child's center dot to reorder it within its auto-layout
-  // group. A distinct mode (not a `dragging-entities` payload) because commit
-  // semantics differ — reorder+reflow vs free move — and it owns its own
-  // drop-index preview and cancel path (ADR 0015 D-O2).
-  | { kind: 'reordering-child'; groupId: string; childId: string; dropIndex: number }
+  // Dragging an entity's center dot to reorder it within its row. Door-agnostic
+  // (ADR 0015 D7): the row may be a loose equal-gap selection or a managed-row
+  // group's children — `reorder-gesture.ts` records which door armed it and
+  // branches the commit. A distinct mode (not a `dragging-entities` payload)
+  // because commit semantics differ and it owns its own drop-index preview and
+  // cancel path. `ids` is the frozen row order so the renderer can draw the
+  // insertion line door-agnostically.
+  | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
 
 export type CancelReason = 'blur' | 'escape' | 'undo' | 'tab-switch' | 'external'
 

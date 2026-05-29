@@ -213,13 +213,13 @@ const api: CanvasBgElectronAPI = {
   endResize: () => ipcRenderer.send('canvas-resize-end'),
   beginMultiResize: () => ipcRenderer.send('canvas-multi-resize-begin'),
   endMultiResize: () => ipcRenderer.send('canvas-multi-resize-end'),
-  beginReorderChild: (childId: string, groupId: string) =>
-    ipcRenderer.send('canvas-reorder-child-start', { childId, groupId }),
-  reorderChildMove: (canvasX: number, canvasY: number) =>
-    ipcRenderer.send('canvas-reorder-child-move', { canvasX, canvasY }),
-  reorderChildCommit: () => ipcRenderer.send('canvas-reorder-child-commit'),
-  reorderChildCancel: (reason?: CancelReason) =>
-    ipcRenderer.send('canvas-reorder-child-cancel', { reason }),
+  beginReorderDrag: (movingId: string) =>
+    ipcRenderer.send('canvas-reorder-start', { movingId }),
+  reorderDragMove: (canvasX: number, canvasY: number) =>
+    ipcRenderer.send('canvas-reorder-move', { canvasX, canvasY }),
+  reorderDragCommit: () => ipcRenderer.send('canvas-reorder-commit'),
+  reorderDragCancel: (reason?: CancelReason) =>
+    ipcRenderer.send('canvas-reorder-cancel', { reason }),
   commitRegionSelect: (canvasRect) => ipcRenderer.send('canvas-commit-region-select', canvasRect),
   commitCommentClickAt: (windowX, windowY) =>
     ipcRenderer.send('canvas-comment-click-at', { windowX, windowY }),

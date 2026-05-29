@@ -5,18 +5,20 @@ import {
   REORDER_DOT_VISUAL_RADIUS_PX,
 } from '../../shared/canvas-hit-geometry'
 import { CLUSTER_HORIZONTAL_GUTTER } from '../../shared/constants'
+import { reorderableDots } from '../../shared/reorderable-dots'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 
 /**
- * Auto-layout reorder dots (ADR 0015 Phase 4). Paints the per-child center dot
- * that hosts the reorder gesture — a geometric overlay (like edge anchors), not
- * DOM buttons. Small at rest, larger when the child or its group is hovered.
+ * Reorder dots (ADR 0015 D7). Paints the per-entity center dot that hosts the
+ * reorder gesture — a geometric overlay (like edge anchors), not DOM buttons.
+ * Small at rest, larger when the entity or its managed group is hovered.
  *
- * Mirrors the `reorder-handle` hit-test gating exactly (managed-row child whose
- * group or self is selected), so the visible dot and the grabbable target line
- * up. Suppressed during any non-reorder interaction and while a non-select tool
- * is active, matching popup suppression rules. During a reorder drag the dragged
- * child's dot is hidden and an insertion line marks the live drop slot.
+ * Eligibility comes from the one shared `reorderableDots` selector — the same
+ * source the hit-tester consumes — so the visible dot and the grabbable target
+ * line up by construction (the union of the selection and managed doors).
+ * Suppressed during any non-reorder interaction and while a non-select tool is
+ * active, matching popup suppression rules. During a reorder drag the dragged
+ * entity's dot is hidden and an insertion line marks the live drop slot.
  */
 export function ReorderDotsLayer({
   layoutData,
@@ -28,38 +30,38 @@ export function ReorderDotsLayer({
   const color = selectionColor(isDark)
   const { zoom, pan, canvasOrigin, entities, interaction } = layoutData
 
-  const reordering = interaction.kind === 'reordering-child' ? interaction : null
+  const reordering = interaction.kind === 'reordering-row' ? interaction : null
 
   const dots = useMemo(() => {
     if (layoutData.viewMode !== 'canvas') return []
     if (layoutData.activeTool.kind !== 'select') return []
     // Show dots only at rest or while reordering; hide during drag/resize/
     // marquee/edit so they don't clutter an in-progress gesture.
-    if (interaction.kind !== 'idle' && interaction.kind !== 'reordering-child') return []
+    if (interaction.kind !== 'idle' && interaction.kind !== 'reordering-row') return []
 
-    const childToGroup = new Map<string, string>()
-    for (const e of entities) {
-      if (e.kind === 'group' && e.managedLayout && e.layoutMode === 'row') {
-        for (const childId of e.entityIds) childToGroup.set(childId, e.id)
+    const eligible = reorderableDots(layoutData)
+    if (!eligible.length) return []
+
+    // Grow a dot when its entity is hovered, or when the hovered entity is the
+    // managed-row group that contains it.
+    const hoverId = layoutData.hover?.id ?? null
+    const hoveredGroupChildren = new Set<string>()
+    if (hoverId) {
+      const hovered = entities.find((e) => e.id === hoverId)
+      if (hovered?.kind === 'group' && hovered.managedLayout && hovered.layoutMode === 'row') {
+        for (const childId of hovered.entityIds) hoveredGroupChildren.add(childId)
       }
     }
-    if (!childToGroup.size) return []
 
-    const selected = new Set(layoutData.selectedEntityIds)
-    const hoverId = layoutData.hover?.id ?? null
     const out: Array<{ id: string; cx: number; cy: number; r: number }> = []
-    for (const e of entities) {
-      if (e.kind === 'group') continue
-      const groupId = childToGroup.get(e.id)
-      if (!groupId) continue
-      if (layoutData.selectedGroupId !== groupId && !selected.has(e.id)) continue
-      // The dragged child is "lifted" — its dot is replaced by the drop line.
-      if (reordering && reordering.childId === e.id) continue
-      const grown = hoverId === e.id || hoverId === groupId
+    for (const dot of eligible) {
+      // The dragged entity is "lifted" — its dot is replaced by the drop line.
+      if (reordering && reordering.movingId === dot.id) continue
+      const grown = hoverId === dot.id || hoveredGroupChildren.has(dot.id)
       out.push({
-        id: e.id,
-        cx: e.screenX + e.screenWidth / 2,
-        cy: e.screenY - canvasOrigin.y + e.screenHeight / 2,
+        id: dot.id,
+        cx: dot.center.x,
+        cy: dot.center.y - canvasOrigin.y,
         r: grown ? REORDER_DOT_HOVER_RADIUS_PX : REORDER_DOT_VISUAL_RADIUS_PX,
       })
     }
@@ -67,23 +69,18 @@ export function ReorderDotsLayer({
   }, [
     entities,
     interaction.kind,
-    layoutData.activeTool.kind,
-    layoutData.hover?.id,
-    layoutData.selectedEntityIds,
-    layoutData.selectedGroupId,
-    layoutData.viewMode,
+    layoutData,
     canvasOrigin.y,
     reordering,
   ])
 
-  // Insertion line: vertical bar at the drop slot of the dragged child's row.
+  // Insertion line: a bar at the drop slot of the dragged entity's row. Uses the
+  // frozen row order (`ids`) carried in the mode, so it's door-agnostic.
   const insertionLine = useMemo(() => {
     if (!reordering) return null
-    const group = entities.find((e) => e.kind === 'group' && e.id === reordering.groupId)
-    if (!group) return null
-    const childIds = new Set(group.kind === 'group' ? group.entityIds : [])
+    const rowIds = new Set(reordering.ids)
     const others = entities
-      .filter((e) => e.kind !== 'group' && childIds.has(e.id) && e.id !== reordering.childId)
+      .filter((e) => e.kind !== 'group' && rowIds.has(e.id) && e.id !== reordering.movingId)
       .sort((a, b) => a.screenX - b.screenX)
     if (!others.length) return null
 

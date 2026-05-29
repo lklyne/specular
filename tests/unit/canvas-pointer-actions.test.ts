@@ -423,14 +423,13 @@ describe('routePointerDown — auto-layout reorder dot (ADR 0015)', () => {
       {
         layer: 'reorder-handle',
         region: { kind: 'rect', rect: { x: 0, y: 0, width: 28, height: 28 } },
-        payload: { kind: 'reorder-handle', entityId: 'c1', entityKind: 'text', groupId: 'g1' },
+        payload: { kind: 'reorder-handle', entityId: 'c1', entityKind: 'text' },
       },
       baseCtx,
     )
     expect(action).toEqual({
       kind: 'begin-reorder-drag',
-      childId: 'c1',
-      groupId: 'g1',
+      movingId: 'c1',
       entityKind: 'text',
     })
   })

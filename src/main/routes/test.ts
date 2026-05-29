@@ -279,8 +279,8 @@ export const testRoutes: Route[] = [
     method: 'POST',
     pattern: '/test/canvas-reorder/start',
     async handler({ response, body }) {
-      const { childId, groupId } = body as { childId: string; groupId: string }
-      const ok = startReorderGesture(childId, groupId)
+      const { movingId } = body as { movingId: string }
+      const ok = startReorderGesture(movingId)
       writeJson(response, 200, { ok, mode: peekInteractionMode() })
     },
   },
@@ -288,8 +288,8 @@ export const testRoutes: Route[] = [
     method: 'POST',
     pattern: '/test/canvas-reorder/move',
     async handler({ response, body }) {
-      const { canvasX } = body as { canvasX: number }
-      moveReorderGesture(canvasX)
+      const { canvasX, canvasY } = body as { canvasX: number; canvasY?: number }
+      moveReorderGesture(canvasX, canvasY ?? 0)
       writeJson(response, 200, { ok: true, mode: peekInteractionMode() })
     },
   },

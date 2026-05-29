@@ -22,9 +22,15 @@ import {
   flushWorkspaceAutosave,
   getDiskSnapshot,
   getEntityOrder,
+  getInteractionMode,
   getTextEntities,
+  reorderGestureCancel,
+  reorderGestureCommit,
+  reorderGestureMove,
+  reorderGestureStart,
   reorderSelection,
   resetSmokeState,
+  selectEntities,
   undoWorkspace,
 } from './app-client'
 import { observeYDocTransactions, wait } from './test-utils'
@@ -149,5 +155,101 @@ describe('selection reorder (position-only commit)', () => {
     expect(after[a].x).toBe(before[a].x)
     expect(after[b].x).toBe(before[b].x)
     expect(after[c].x).toBe(before[c].x)
+  })
+})
+
+/**
+ * The selection door of the shared reorder gesture (ADR 0015 D7, Phase C). The
+ * gesture, mode (`reordering-row`), and cancel matrix are shared with the managed
+ * door (covered in managed-layout.test.ts); here we exercise the *selection*
+ * door — a loose equal-gap selection with no group — across the full
+ * begin/move/commit/cancel-{escape,blur,undo,tab-switch} matrix, plus the gate
+ * that an unequal-gap selection arms no gesture at all.
+ *
+ * Mutation-verified by:
+ *   - making `startReorderGesture` always take the managed door (skip the
+ *     selection branch): every selection-door start returns ok=false and the
+ *     "begin → move → commit" reorder assertion fails.
+ */
+describe('selection reorder gesture (selection door)', () => {
+  beforeEach(async () => {
+    await resetSmokeState()
+    await cleanupTextEntities()
+  })
+
+  afterEach(async () => {
+    await cleanupTextEntities()
+  })
+
+  it('begin → move → commit reorders and returns to idle', async () => {
+    const { a, b, c } = await makeEqualGapRow()
+    await selectEntities([a, b, c])
+    const before = await positionsById()
+
+    const started = await reorderGestureStart({ movingId: a })
+    expect(started.ok).toBe(true)
+    expect(started.mode.kind).toBe('reordering-row')
+
+    // Drag A's dot far to the right, past C's center.
+    await reorderGestureMove(before[c].x + WIDTH + 500)
+    const committed = await reorderGestureCommit()
+    expect(committed.changed).toBe(true)
+    expect(committed.mode.kind).toBe('idle')
+    await wait(50)
+
+    const after = await positionsById()
+    // Sequence is now B, C, A — and cross-axis (y) is preserved.
+    expect(after[b].x).toBeLessThan(after[c].x)
+    expect(after[c].x).toBeLessThan(after[a].x)
+    expect(after[a].y).toBe(before[a].y)
+  })
+
+  it('begin → cancel(escape) leaves positions untouched', async () => {
+    const { a, b, c } = await makeEqualGapRow()
+    await selectEntities([a, b, c])
+    const before = await positionsById()
+
+    await reorderGestureStart({ movingId: a })
+    await reorderGestureMove(before[c].x + 500)
+    const cancelled = await reorderGestureCancel('escape')
+    expect(cancelled.mode.kind).toBe('idle')
+    await wait(50)
+
+    const after = await positionsById()
+    expect(after[a].x).toBe(before[a].x)
+    expect(after[b].x).toBe(before[b].x)
+    expect(after[c].x).toBe(before[c].x)
+  })
+
+  it('cancel-on-{blur,undo,tab-switch} aborts without mutation', async () => {
+    for (const reason of ['blur', 'undo', 'tab-switch'] as const) {
+      const { a, b, c } = await makeEqualGapRow()
+      await selectEntities([a, b, c])
+      const before = await positionsById()
+
+      await reorderGestureStart({ movingId: a })
+      await reorderGestureMove(before[c].x + 500)
+      await reorderGestureCancel(reason)
+      await wait(20)
+
+      const after = await positionsById()
+      expect(after[a].x).toBe(before[a].x)
+      expect(after[b].x).toBe(before[b].x)
+      expect(after[c].x).toBe(before[c].x)
+      expect((await getInteractionMode()).mode.kind).toBe('idle')
+      await cleanupTextEntities()
+    }
+  })
+
+  it('arms no gesture on an unequal-gap selection', async () => {
+    const a = await createText({ canvasX: 100, canvasY: 200, text: 'A', width: WIDTH, height: 100 })
+    const b = await createText({ canvasX: 400, canvasY: 200, text: 'B', width: WIDTH, height: 100 })
+    const c = await createText({ canvasX: 1200, canvasY: 200, text: 'C', width: WIDTH, height: 100 })
+    await wait(50)
+    await selectEntities([a, b, c])
+
+    const started = await reorderGestureStart({ movingId: a })
+    expect(started.ok).toBe(false)
+    expect(started.mode.kind).toBe('idle')
   })
 })

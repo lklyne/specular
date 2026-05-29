@@ -1091,9 +1091,9 @@ function runReorderDrag(
 
   // Enter reorder mode in main BEFORE any layout-triggering work — same
   // gesture-begin ordering as resize/drag (see runtime/CLAUDE.md). With the
-  // mode set to 'reordering-child', the focus reconciler keeps aboveView
+  // mode set to 'reordering-row', the focus reconciler keeps aboveView
   // focused, so the window-blur cancel below doesn't fire on the first tick.
-  api.beginReorderChild(action.childId, action.groupId)
+  api.beginReorderDrag(action.movingId)
 
   const cleanup = () => {
     releasePointer?.()
@@ -1106,16 +1106,16 @@ function runReorderDrag(
     if (ev.pointerId !== pointerId) return
     const layout = layoutRef.current
     const point = screenPointToCanvasPoint(ev.clientX, ev.clientY + layout.canvasOrigin.y, layout)
-    api.reorderChildMove(point.x, point.y)
+    api.reorderDragMove(point.x, point.y)
   }
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
     cleanup()
-    api.reorderChildCommit()
+    api.reorderDragCommit()
   }
   const onCancel = () => {
     cleanup()
-    api.reorderChildCancel('blur')
+    api.reorderDragCancel('blur')
   }
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
