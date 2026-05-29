@@ -159,12 +159,12 @@ describe('auto-layout reorder gesture', () => {
   }
 
   it('begin → move → commit reorders and returns to idle', async () => {
-    const { a, b, c, group } = await makeRowOfThree()
+    const { a, b, c } = await makeRowOfThree()
     const before = await positionsById()
 
-    const started = await reorderGestureStart({ childId: a, groupId: group.id })
+    const started = await reorderGestureStart({ movingId: a })
     expect(started.ok).toBe(true)
-    expect(started.mode.kind).toBe('reordering-child')
+    expect(started.mode.kind).toBe('reordering-row')
 
     // Drag A's dot far to the right, past C's center.
     await reorderGestureMove(before[c].x + before[c].width + 500)
@@ -180,10 +180,10 @@ describe('auto-layout reorder gesture', () => {
   })
 
   it('begin → cancel leaves order and positions untouched', async () => {
-    const { a, b, c, group } = await makeRowOfThree()
+    const { a, b, c } = await makeRowOfThree()
     const before = await positionsById()
 
-    await reorderGestureStart({ childId: a, groupId: group.id })
+    await reorderGestureStart({ movingId: a })
     await reorderGestureMove(before[c].x + 500)
     const cancelled = await reorderGestureCancel('escape')
     expect(cancelled.mode.kind).toBe('idle')
@@ -197,9 +197,9 @@ describe('auto-layout reorder gesture', () => {
 
   it('cancel-on-blur and cancel-on-undo abort without mutation', async () => {
     for (const reason of ['blur', 'undo'] as const) {
-      const { a, b, c, group } = await makeRowOfThree()
+      const { a, b, c } = await makeRowOfThree()
       const before = await positionsById()
-      await reorderGestureStart({ childId: a, groupId: group.id })
+      await reorderGestureStart({ movingId: a })
       await reorderGestureMove(before[c].x + 500)
       await reorderGestureCancel(reason)
       await wait(20)

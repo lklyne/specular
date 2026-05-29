@@ -437,14 +437,19 @@ export function reorderManagedChild(input: { groupId: string; childId: string; t
   return post<{ changed: boolean }>('/groups/reorder-child', input)
 }
 
-// --- Auto-layout reorder gesture (test-only IPC simulation) ---
+// --- Row reorder gesture (test-only IPC simulation) ---
+// Door-agnostic (ADR 0015 D7): start carries only `movingId`; main resolves
+// whether the selection or managed door armed the gesture.
 
-export function reorderGestureStart(input: { childId: string; groupId: string }) {
+export function reorderGestureStart(input: { movingId: string }) {
   return post<{ ok: boolean; mode: { kind: string } }>('/test/canvas-reorder/start', input)
 }
 
-export function reorderGestureMove(canvasX: number) {
-  return post<{ ok: true; mode: { kind: string } }>('/test/canvas-reorder/move', { canvasX })
+export function reorderGestureMove(canvasX: number, canvasY = 0) {
+  return post<{ ok: true; mode: { kind: string } }>('/test/canvas-reorder/move', {
+    canvasX,
+    canvasY,
+  })
 }
 
 export function reorderGestureCommit() {

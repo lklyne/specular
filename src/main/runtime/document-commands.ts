@@ -92,7 +92,12 @@ import {
   type ShapeEntity,
 } from './shape-entity-state'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
-import { detectReorderableRow, reorderRowPositions, type Box } from '../../shared/reorder-row'
+import {
+  detectReorderableRow,
+  reorderRowPositions,
+  type Box,
+  type ReorderableRow,
+} from '../../shared/reorder-row'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
 import { distributionGuideDetector } from './distribution-guide-detector'
@@ -970,11 +975,13 @@ function writeReorderedPosition(
  * No-op (returns false) when the selection isn't an eligible equal-gap row or
  * the move changes nothing.
  */
-export function reorderSelection(
-  orderedIds: string[],
-  movingId: string,
-  dropIndex: number,
-): boolean {
+/**
+ * Build the frozen `ReorderableRow` for a selection from live geometry, or null
+ * when the selection isn't an eligible equal-gap row. Shared by the selection
+ * reorder door's gesture (freeze at start, drop-index per move) and its commit
+ * (`reorderSelection`) so both read the row off the same boxes.
+ */
+export function buildSelectionRow(orderedIds: string[]): ReorderableRow | null {
   const geometryById = new Map(
     currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
   )
@@ -990,8 +997,19 @@ export function reorderSelection(
       height: entity.height,
     })
   }
+  return detectReorderableRow(boxes)
+}
 
-  const row = detectReorderableRow(boxes)
+export function reorderSelection(
+  orderedIds: string[],
+  movingId: string,
+  dropIndex: number,
+): boolean {
+  const geometryById = new Map(
+    currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
+  )
+
+  const row = buildSelectionRow(orderedIds)
   if (!row) return false
 
   const positions = reorderRowPositions(row, movingId, dropIndex)

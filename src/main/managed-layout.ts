@@ -174,6 +174,20 @@ export function reflowManagedGroupForChild(childId: string): boolean {
   return reflowManagedGroup(parentId)
 }
 
+/**
+ * The managed-row group id that directly contains `childId`, or null. Used by the
+ * reorder gesture's door resolution (ADR 0015 D7): a dragged dot whose entity is
+ * a managed-row child takes the managed door; everything else takes the selection
+ * door.
+ */
+export function managedRowGroupForChild(childId: string): string | null {
+  const parentId = resolveLeafParentGroupId(childId)
+  if (!parentId) return null
+  const group = groupById(parentId)
+  if (!group || !group.managedLayout || group.layoutMode !== 'row') return null
+  return parentId
+}
+
 function resolveLeafParentGroupId(id: string): string | null {
   const page = pages.find((p) => p.id === id)
   if (page) return page.parentGroupId ?? null
