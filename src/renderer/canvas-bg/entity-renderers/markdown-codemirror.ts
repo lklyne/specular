@@ -4,6 +4,7 @@ import { defaultKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
+import { smartPasteExtension } from './markdown-smart-paste'
 
 export const externalUpdate = Annotation.define<boolean>()
 
@@ -94,6 +95,7 @@ export function createMarkdownExtensions(
     keymap.of(defaultKeymap),
     markdown(),
     syntaxHighlighting(markdownHighlightStyle),
+    smartPasteExtension(),
   ]
   // When wrap is off (auto-width plain text), the editor's container shrinks
   // to fit each line's natural width instead of forcing single-character wrap.
