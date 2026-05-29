@@ -153,7 +153,6 @@ interface CenterActionsProps {
   drawBrushType: DrawingBrushType
   drawColor: string
   stickyColor: string
-  hasPages: boolean
   drawingEnabled: boolean
   hasSelection: boolean
   zoomPercent: number
@@ -171,7 +170,6 @@ export function CenterActions({
   drawBrushType,
   drawColor,
   stickyColor,
-  hasPages,
   drawingEnabled,
   hasSelection,
   zoomPercent,
@@ -181,8 +179,6 @@ export function CenterActions({
   onToggleTheme,
   onZoomSet,
 }: CenterActionsProps) {
-  const annotateAvailable = hasPages
-  const inspectAvailable = hasPages
   const onAddPage = (presetIndex: number | 'custom') =>
     onSetTool({
       kind: 'add-page',
@@ -250,7 +246,6 @@ export function CenterActions({
             onClick={onToggleDrawMode}
             className={buttonClass(activeTool.kind === 'draw')}
             title="Draw"
-            disabled={!annotateAvailable}
             type="button"
           >
             {drawBrushType === 'pen' ? (
@@ -319,7 +314,6 @@ export function CenterActions({
           onClick={onToggleCommentMode}
           className={buttonClass(activeTool.kind === 'comment')}
           title="Comment"
-          disabled={!annotateAvailable}
           type="button"
         >
           <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
@@ -329,7 +323,6 @@ export function CenterActions({
           onClick={onToggleInspectMode}
           className={buttonClass(activeTool.kind === 'inspect')}
           title={hasSelection ? 'Inspect' : 'Inspect any page'}
-          disabled={!inspectAvailable}
           type="button"
         >
           <InspectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
