@@ -55,6 +55,7 @@ import {
 } from './useCanvasPointerRouter'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
+import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { PageChromeOverlay } from './PageChrome'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
@@ -1324,6 +1325,10 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
+
+          {layoutData.viewMode === 'canvas' ? (
+            <ReorderDotsLayer layoutData={layoutData} isDark={isDark} />
+          ) : null}
 
           <PageChromeOverlay
             api={api}

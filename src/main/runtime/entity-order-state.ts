@@ -233,6 +233,51 @@ export function reorderStackOrderIds(action: StackOrderAction, ids: readonly str
   return true
 }
 
+/**
+ * Direct children of a group in their `entityOrder` run order — the layout
+ * sequence of a managed (auto-layout) group (ADR 0015 D2). The order *within the
+ * run* is the left-to-right packing order; `canvasX` is an output of reflow, not
+ * the key. Returns children regardless of contiguity (the relative order is
+ * still well-defined).
+ */
+export function managedChildOrder(groupId: string): string[] {
+  const childIds = new Set(directChildIds(groupId))
+  if (!childIds.size) return []
+  return currentEntityOrder().filter((id) => childIds.has(id))
+}
+
+/**
+ * Rewrite a group's run so its direct children follow `orderedChildIds`, then
+ * re-enforce group contiguity. `orderedChildIds` must be a permutation of the
+ * group's current direct children. Returns true if the order actually changed.
+ *
+ * This is the order half of a managed reorder; the caller pairs it with a reflow
+ * inside one transaction (see `commitAsOneTransaction`) so order + positions
+ * collapse to a single undo step.
+ */
+export function writeManagedChildOrder(
+  groupId: string,
+  orderedChildIds: readonly string[],
+): boolean {
+  const childIds = new Set(directChildIds(groupId))
+  if (!childIds.size) return false
+  const requested = orderedChildIds.filter((id) => childIds.has(id))
+  if (requested.length !== childIds.size) return false
+
+  const order = currentEntityOrder()
+  const eligible = (id: string) => childIds.has(id)
+  const nextOrder = enforceGroupContiguity(
+    replaceSubsequence(order, eligible, requested),
+    groupsForContiguity(),
+  )
+  if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
+
+  writeEntityOrder(nextOrder)
+  markDirty('canvas', 'sidebar')
+  scheduleWorkspaceAutosave()
+  return true
+}
+
 export function appendStackOrderIdsAtTop(ids: readonly string[]): boolean {
   if (!ids.length) return false
   let nextOrder = currentEntityOrder()

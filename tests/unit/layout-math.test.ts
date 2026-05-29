@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeLayoutMetrics,
   computeLayoutPositions,
+  computeRowReflow,
   type LayoutBox,
 } from '../../src/main/layout-math'
 import {
@@ -173,6 +174,48 @@ describe('computeLayoutPositions — grid', () => {
     const positions = computeLayoutPositions(items, 'grid', 10, 10, { x: 50, y: 50 }, 2)
     expect(positions[0]).toEqual({ canvasX: 50, canvasY: 50 })
     expect(positions[1]).toEqual({ canvasX: 160, canvasY: 50 })
+  })
+})
+
+describe('computeRowReflow', () => {
+  it('returns empty for no children', () => {
+    expect(computeRowReflow([], 80, 0, 0)).toEqual([])
+  })
+
+  it('places a single child at the origin', () => {
+    expect(computeRowReflow([{ width: 300, height: 200 }], 80, 10, 20)).toEqual([
+      { canvasX: 10, canvasY: 20 },
+    ])
+  })
+
+  it('packs two children left-to-right separated by gap', () => {
+    const children: LayoutBox[] = [
+      { width: 100, height: 80 },
+      { width: 150, height: 80 },
+    ]
+    expect(computeRowReflow(children, 80, 0, 0)).toEqual([
+      { canvasX: 0, canvasY: 0 },
+      { canvasX: 180, canvasY: 0 },
+    ])
+  })
+
+  it('flows N heterogeneous widths by own width, sharing originY', () => {
+    const children: LayoutBox[] = [
+      { width: 100, height: 80 },
+      { width: 200, height: 120 },
+      { width: 50, height: 60 },
+    ]
+    const positions = computeRowReflow(children, 10, 5, 50)
+    expect(positions.map((p) => p.canvasX)).toEqual([5, 115, 325])
+    expect(positions.every((p) => p.canvasY === 50)).toBe(true)
+  })
+
+  it('treats a zero-width child as occupying only the gap', () => {
+    const children: LayoutBox[] = [
+      { width: 0, height: 0 },
+      { width: 100, height: 80 },
+    ]
+    expect(computeRowReflow(children, 20, 0, 0).map((p) => p.canvasX)).toEqual([0, 20])
   })
 })
 

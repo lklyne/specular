@@ -12,6 +12,7 @@ export type HitLayer =
   | 'resize-handles'
   | 'chrome'
   | 'anchors'
+  | 'reorder-handle'
   | 'body'
   | 'background'
 
@@ -19,6 +20,10 @@ export const HIT_LAYER_ORDER: readonly HitLayer[] = [
   'resize-handles',
   'chrome',
   'anchors',
+  // Auto-layout reorder dots sit above the child body so dragging the dot
+  // reorders, while dragging the body still moves the whole group (ADR 0015 D4).
+  // Below anchors/chrome/handles, which own the entity's edges.
+  'reorder-handle',
   'body',
   'background',
 ] as const

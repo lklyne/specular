@@ -32,6 +32,7 @@ canvas and page operations go through the `specular` command.
 | `specular find-placement` | Find open canvas space for new entities |
 | `specular link <a> <b>` | Connect two pages with an edge |
 | `specular group <id…>` | Group entities together |
+| `specular auto-layout <id…>` | Make a managed auto-layout row from a selection (or convert a single group); children pack left-to-right and can be drag-reordered |
 | `specular breakpoints <id>` | Cycle through device breakpoints for a page |
 | `specular annotate "<text>"` | Leave a comment on the canvas (anchor type from context — viewport by default; `--page-id` for a page anchor) |
 | `specular annotations` | List unresolved annotations (pending + acknowledged) |

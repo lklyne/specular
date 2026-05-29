@@ -85,6 +85,15 @@ Cross-surface stacking — putting a sticky behind a page, or a page in front of
 
 JSON Canvas note: the spec emits nodes and edges into separate arrays. The interleaved `entityOrder` (including edge ids) is persisted as a Specular extension (`specular.order` or equivalent); other JSON Canvas tools round-trip the data but lose precise stack interleaving for edges. Acceptable trade-off — same pattern as `specular.textStyle`.
 
+## Auto-layout
+
+A group can *manage* its children's layout instead of letting them float freely. See [ADR 0015](./docs/adr/0015-auto-layout-groups.md).
+
+- **Auto-layout group** — a group with `managedLayout: true`; its children are reflowed into a row (`layoutMode: 'row'`, the only live mode in Milestone 1), not freely positioned. `'freeform'` groups are plain selection/bbox containers. Reflow (`reflowManagedGroup`, built on the pure `computeRowReflow`) is the single writer of a managed child's `canvasX/canvasY` — those become outputs, re-derived on any membership / resize / reorder change.
+- **Layout sequence** — the left-to-right order of a managed row *is* the order of the group's run within `entityOrder` (no separate `childOrder` field). Reordering a child rewrites that run; reflow reads it. In a managed row, stack-order and layout-order are therefore the same axis (z-order is meaningless for non-overlapping row children).
+- **Reorder handle (center dot)** — the per-child drag target that reorders a child within its auto-layout group, dragging it to a new slot while siblings reflow. A geometric `hit-test` layer above `body` (below `anchors`), painted in `aboveView` like edge anchors — small at rest, larger when the child or its group is hovered. Dragging the child **body** still moves the whole group as a unit; only the dot reorders. The drag runs in the `reordering-child` interaction mode and commits as one undo step.
+- **Make auto-layout** — the headless entry point (no toolbar yet): `Shift+Cmd+A`, `specular auto-layout <ids|groupId>`, or `POST /groups/auto-layout`. Marks a selection (or existing group) as a managed row, seeding the sequence to current left-to-right order. The wrap-in-frame button, gap handles, direction/align/distribute controls are Milestone 2.
+
 ## Drag affordances
 
 Modifiers and visual feedback that ride on top of entity drag (and resize) gestures. The single magnetic pull on the canvas is grid-snap (`snapToGrid`, 20 px); everything below either projects the delta before the snap (axis lock) or renders informationally after it (alignment / distribution guides). See [ADR 0012](./docs/adr/0012-alignment-guides-are-visual-only.md).

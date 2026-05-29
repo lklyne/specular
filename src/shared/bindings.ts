@@ -58,6 +58,7 @@ export type BindingId =
   | 'reset-viewport'
   | 'group'
   | 'ungroup'
+  | 'make-auto-layout'
   | 'select-all'
   | 'duplicate'
   | 'delete-selection'
@@ -139,6 +140,7 @@ export const BINDINGS: readonly Binding[] = [
   // Canvas-region modifier shortcuts
   { id: 'group', defaultKey: k('g', true), scope: CANVAS_REGION, target: 'main', label: 'Group' },
   { id: 'ungroup', defaultKey: k('g', true, true), scope: CANVAS_REGION, target: 'main', label: 'Ungroup' },
+  { id: 'make-auto-layout', defaultKey: k('a', true, true), scope: CANVAS_REGION, target: 'main', label: 'Auto-layout' },
   { id: 'select-all', defaultKey: k('a', true), scope: CANVAS_REGION, target: 'main', label: 'Select all' },
   { id: 'duplicate', defaultKey: k('d', true), scope: CANVAS_REGION, target: 'main', label: 'Duplicate' },
   {

@@ -34,6 +34,7 @@ import {
   createUserGroup as createUserGroupInEngine,
   ungroupUserGroup as ungroupUserGroupInEngine,
 } from '../workspace-groups'
+import { makeAutoLayoutGroup } from '../managed-layout'
 import {
   createDrawingEntity as createDrawingEntityInState,
   deleteDrawingEntity as deleteDrawingEntityInState,
@@ -556,6 +557,23 @@ export function groupSelectedEntities(): WorkspaceGroup | null {
   const group = createUserGroupInEngine(ids)
   selectGroup(group.id)
   requestLayout()
+  return group
+}
+
+/**
+ * Convert the current selection into an auto-layout (managed row) group: a
+ * selected group is converted in place; a multi-selection is wrapped into a new
+ * managed group. Reachability entry point for drag-reorder on arbitrary content
+ * (plan O1). Returns the managed group or null. (ADR 0015)
+ */
+export function makeAutoLayoutFromSelection(): WorkspaceGroup | null {
+  const groupId = uiSelectedGroupId()
+  if (groupId) return makeAutoLayoutGroup({ groupId })
+
+  const ids = uiSelectedEntityIds()
+  if (ids.length < 2) return null
+  const group = makeAutoLayoutGroup({ entityIds: ids })
+  if (group) selectGroup(group.id)
   return group
 }
 

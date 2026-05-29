@@ -29,6 +29,7 @@ import {
   beginEntityResize,
   beginMarqueeSelect,
   beginMultiSelectionResize,
+  beginReorderingChild,
   clearInteractionState,
 } from './interaction-state'
 import type { CanvasSelectableTarget, EdgeSide } from '../../shared/types'
@@ -71,6 +72,8 @@ function snapshotMode(): InteractionMode {
       return { kind: 'resizing-multi-selection' }
     case 'editing-entity':
       return { kind: 'editing-entity', id: s.entityId }
+    case 'reordering-child':
+      return { kind: 'reordering-child', groupId: s.groupId, childId: s.childId, dropIndex: s.dropIndex }
     case 'dragging-edge':
       return {
         kind: 'dragging-edge',
@@ -103,6 +106,7 @@ export type TryEnterInput =
   | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: CanvasSelectableTarget; fromSide: EdgeSide }
+  | { kind: 'reordering-child'; groupId: string; childId: string; dropIndex: number }
 
 export function peek(): InteractionMode {
   return snapshotMode()
@@ -120,6 +124,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'resizing-multi-selection': beginMultiSelectionResize(); break
     case 'editing-entity': beginEntityEditing(input.entityId); break
     case 'dragging-edge': beginEdgeDrag(input.from, input.fromSide); break
+    case 'reordering-child': beginReorderingChild(input.groupId, input.childId, input.dropIndex); break
   }
   const token: InternalToken = {
     id: newTokenId(),
