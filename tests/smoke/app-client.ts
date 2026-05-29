@@ -421,6 +421,40 @@ export function ungroup(groupId: string) {
   return post<{ entityIds: string[] }>('/groups/ungroup', { groupId })
 }
 
+export function makeAutoLayout(input: { entityIds?: string[]; groupId?: string; label?: string }) {
+  return post<{
+    id: string
+    layoutMode: string
+    managedLayout: boolean
+    canvasX: number
+    canvasY: number
+    width: number
+    height: number
+  }>('/groups/auto-layout', input)
+}
+
+export function reorderManagedChild(input: { groupId: string; childId: string; toIndex: number }) {
+  return post<{ changed: boolean }>('/groups/reorder-child', input)
+}
+
+// --- Auto-layout reorder gesture (test-only IPC simulation) ---
+
+export function reorderGestureStart(input: { childId: string; groupId: string }) {
+  return post<{ ok: boolean; mode: { kind: string } }>('/test/canvas-reorder/start', input)
+}
+
+export function reorderGestureMove(canvasX: number) {
+  return post<{ ok: true; mode: { kind: string } }>('/test/canvas-reorder/move', { canvasX })
+}
+
+export function reorderGestureCommit() {
+  return post<{ changed: boolean; mode: { kind: string } }>('/test/canvas-reorder/commit')
+}
+
+export function reorderGestureCancel(reason: CancelReason = 'external') {
+  return post<{ ok: true; mode: { kind: string } }>('/test/canvas-reorder/cancel', { reason })
+}
+
 export function deleteGroups(groupIds: string[]) {
   return post<{ deletedGroupIds: string[] }>('/groups/delete', { groupIds })
 }

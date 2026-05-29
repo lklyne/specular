@@ -50,6 +50,28 @@ export function computeLayoutMetrics(
 }
 
 /**
+ * Pack boxes left-to-right into a single row from an explicit origin, separated
+ * by a fixed gap. The managed-layout kernel: each child keeps its own size, the
+ * cursor advances by width + gap. All children share the row's top (`originY`);
+ * cross-axis alignment is a Milestone 2 concern. Pure — no grid-snap (the caller
+ * snaps the origin; see managed-layout reflow, ADR 0015 D5).
+ */
+export function computeRowReflow(
+  children: LayoutBox[],
+  gap: number,
+  originX: number,
+  originY: number,
+): Array<{ canvasX: number; canvasY: number }> {
+  const positions: Array<{ canvasX: number; canvasY: number }> = []
+  let cursorX = originX
+  for (const child of children) {
+    positions.push({ canvasX: cursorX, canvasY: originY })
+    cursorX += child.width + gap
+  }
+  return positions
+}
+
+/**
  * Place items at an explicit origin in row/column/grid. Grid uses uniform
  * tracks (each cell sized to the largest item's dim) so heterogeneous content
  * still aligns to a clean grid.

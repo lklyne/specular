@@ -60,6 +60,9 @@ export type CanvasPointerAction =
   | { kind: 'begin-multi-resize'; handle: ResizeHandle }
   /** Begin an edge-create drag from an anchor. */
   | { kind: 'begin-edge-drag'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
+  /** Begin dragging a managed child's center dot to reorder it within its
+   *  auto-layout group (ADR 0015). */
+  | { kind: 'begin-reorder-drag'; childId: string; groupId: string; entityKind: CanvasEntityKind }
   /** Modifier-additive selection toggle (no drag). */
   | { kind: 'toggle-select'; entityId: string; entityKind: CanvasEntityKind }
   /** Background click/drag candidate — clears on click, marquee-selects after threshold. */
@@ -141,6 +144,13 @@ function routeByPayload(
         entityId: payload.entityId,
         entityKind: payload.entityKind,
         side: payload.side,
+      }
+    case 'reorder-handle':
+      return {
+        kind: 'begin-reorder-drag',
+        childId: payload.entityId,
+        groupId: payload.groupId,
+        entityKind: payload.entityKind,
       }
     case 'page-body':
       // Additive modifier wins over the forward-into-page shortcut: shift/

@@ -4,7 +4,7 @@ import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
 import { setZoom, setPan, focusSelection } from './viewport-control'
-import { groupSelectedEntities, ungroupSelectedGroup } from './document-commands'
+import { groupSelectedEntities, makeAutoLayoutFromSelection, ungroupSelectedGroup } from './document-commands'
 import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
@@ -81,6 +81,10 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   },
   'ungroup': () => {
     ungroupSelectedGroup()
+  },
+  'make-auto-layout': (ctx) => {
+    if (ctx.viewMode !== 'canvas') return
+    makeAutoLayoutFromSelection()
   },
   'select-all': () => {
     selectAllEntities()

@@ -56,6 +56,7 @@ import {
   isTypingTarget,
   middleDragDelta,
   normalizeRect,
+  screenPointToCanvasPoint,
   screenRectToCanvasRect,
 } from '../../shared/gesture-utils'
 import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
@@ -120,6 +121,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'background-click',
   'begin-marquee',
   'begin-pan',
+  'begin-reorder-drag',
 ])
 
 /** All routable kinds — used by tests and any caller that wants full
@@ -370,6 +372,8 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-pan':
       return runPan(api, event)
+    case 'begin-reorder-drag':
+      return runReorderDrag(action, api, event, layoutRef)
   }
 }
 
@@ -1069,6 +1073,50 @@ function runPan(api: CanvasBgElectronAPI, event: PointerEvent): boolean {
     cleanup()
   }
   const onCancel = () => cleanup()
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
+  window.addEventListener('blur', onCancel)
+  return true
+}
+
+function runReorderDrag(
+  action: Extract<CanvasPointerAction, { kind: 'begin-reorder-drag' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+): boolean {
+  const pointerId = event.pointerId
+  const releasePointer = capturePointer(event)
+
+  // Enter reorder mode in main BEFORE any layout-triggering work — same
+  // gesture-begin ordering as resize/drag (see runtime/CLAUDE.md). With the
+  // mode set to 'reordering-child', the focus reconciler keeps aboveView
+  // focused, so the window-blur cancel below doesn't fire on the first tick.
+  api.beginReorderChild(action.childId, action.groupId)
+
+  const cleanup = () => {
+    releasePointer?.()
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    window.removeEventListener('blur', onCancel)
+  }
+  const onMove = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    const layout = layoutRef.current
+    const point = screenPointToCanvasPoint(ev.clientX, ev.clientY + layout.canvasOrigin.y, layout)
+    api.reorderChildMove(point.x, point.y)
+  }
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId !== pointerId) return
+    cleanup()
+    api.reorderChildCommit()
+  }
+  const onCancel = () => {
+    cleanup()
+    api.reorderChildCancel('blur')
+  }
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onCancel)

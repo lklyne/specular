@@ -260,6 +260,29 @@ const ungroup: VerbHandler = async (args) => {
   return 0
 }
 
+// Mark a group (or a fresh group made from 2+ entities) as an auto-layout row:
+// children reflow left-to-right and can be drag-reordered. A single group id
+// converts that group in place. (ADR 0015)
+const autoLayout: VerbHandler = async (args) => {
+  if (args.positional.length === 0) {
+    printError('usage: specular auto-layout <entityId> [entityId...]  (or a single groupId)')
+    return 1
+  }
+  const onlyGroup =
+    args.positional.length === 1 && args.positional[0].startsWith('group_')
+      ? args.positional[0]
+      : undefined
+  printJson(await callApp('/groups/auto-layout', {
+    method: 'POST',
+    body: JSON.stringify(
+      onlyGroup
+        ? { groupId: onlyGroup, label: args.flags.label }
+        : { entityIds: args.positional, label: args.flags.label },
+    ),
+  }))
+  return 0
+}
+
 // --- Annotation verbs ---
 
 const annotations: VerbHandler = async (args) => {
@@ -527,6 +550,7 @@ const VERBS: Record<string, VerbHandler> = {
   unlink,
   group,
   ungroup,
+  'auto-layout': autoLayout,
   annotations,
   annotation,
   annotate,

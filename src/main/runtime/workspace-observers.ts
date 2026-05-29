@@ -118,6 +118,38 @@ export function endBatch(): void {
 }
 
 /**
+ * Run `mutate` and flush the resulting runtime→Y.Doc sync inside a single Y.Doc
+ * transaction, so it collapses to exactly one undo step.
+ *
+ * Needed when an operation mixes a *direct* doc write (e.g. `writeEntityOrder`,
+ * which transacts on its own) with *runtime* mutations that reach the doc only
+ * through the diff-sync (e.g. reflow position writes). Left apart these are two
+ * transactions — two undo entries, since the UndoManager uses `captureTimeout:
+ * 0`. Yjs flattens nested transactions, so wrapping both in one outer transact
+ * merges them. Reorder + reflow is the canonical caller (ADR 0015 undo
+ * batching).
+ */
+export function commitAsOneTransaction(mutate: () => void): void {
+  if (!_refs) {
+    mutate()
+    return
+  }
+  // Suppress the microtask sync that `scheduleWorkspaceAutosave()` would queue
+  // from inside `mutate` — we sync once, synchronously, inside the transaction.
+  // Without this, that trailing (empty) sync fires a second transaction.
+  const wasBatching = _batchingActive
+  _batchingActive = true
+  try {
+    getActiveDoc().transact(() => {
+      mutate()
+      requestDocSyncImmediate()
+    }, 'user')
+  } finally {
+    _batchingActive = wasBatching
+  }
+}
+
+/**
  * Schedule a diff-sync from runtime state to Y.Doc.
  * Uses queueMicrotask so multiple mutations in the same tick become one sync.
  * Call this from scheduleWorkspaceAutosave().

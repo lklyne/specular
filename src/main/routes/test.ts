@@ -53,6 +53,12 @@ import { restorePersistedWorkspace } from '../runtime/workspace-restore'
 import { getActiveDoc } from '../runtime/workspace-doc'
 import { workspaceTabs, activeWorkspaceTabId } from '../runtime/workspace-model'
 import { applyDragDelta, finalizeDrag, initializeDrag, resizeMultiSelection } from '../runtime/document-commands'
+import {
+  cancelReorderGesture,
+  commitReorderGesture,
+  moveReorderGesture,
+  startReorderGesture,
+} from '../reorder-gesture'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { currentCanvasGuides } from '../runtime/canvas-guides'
 import { currentEntityOrder, reorderSidebarStackOrder } from '../runtime/entity-order-state'
@@ -265,6 +271,43 @@ export const testRoutes: Route[] = [
     pattern: '/test/canvas-guides/current',
     async handler({ response }) {
       writeJson(response, 200, currentCanvasGuides())
+    },
+  },
+
+  // --- Auto-layout reorder gesture simulation (ADR 0015) ---
+  {
+    method: 'POST',
+    pattern: '/test/canvas-reorder/start',
+    async handler({ response, body }) {
+      const { childId, groupId } = body as { childId: string; groupId: string }
+      const ok = startReorderGesture(childId, groupId)
+      writeJson(response, 200, { ok, mode: peekInteractionMode() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-reorder/move',
+    async handler({ response, body }) {
+      const { canvasX } = body as { canvasX: number }
+      moveReorderGesture(canvasX)
+      writeJson(response, 200, { ok: true, mode: peekInteractionMode() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-reorder/commit',
+    async handler({ response }) {
+      const changed = commitReorderGesture()
+      writeJson(response, 200, { changed, mode: peekInteractionMode() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/canvas-reorder/cancel',
+    async handler({ response, body }) {
+      const { reason } = (body as { reason?: CancelReason }) ?? {}
+      cancelReorderGesture(reason ?? 'external')
+      writeJson(response, 200, { ok: true, mode: peekInteractionMode() })
     },
   },
 

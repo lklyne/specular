@@ -93,6 +93,28 @@ export function updateEdgeDragTarget(
   return next
 }
 
+export function beginReorderingChild(
+  groupId: string,
+  childId: string,
+  dropIndex: number,
+): CanvasInteractionState {
+  const next: CanvasInteractionState = { kind: 'reordering-child', groupId, childId, dropIndex }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
+export function updateReorderingDropIndex(dropIndex: number): CanvasInteractionState {
+  if (interactionState.kind !== 'reordering-child') return interactionState
+  if (interactionState.dropIndex === dropIndex) return interactionState
+  const next: CanvasInteractionState = { ...interactionState, dropIndex }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
 export function interactionBlocksPageHover(state: CanvasInteractionState = interactionState): boolean {
   return (
     state.kind === 'dragging-edge' ||

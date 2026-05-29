@@ -19,6 +19,7 @@ import {
   EDGE_SIDES,
   CHROME_HEADER_HEIGHT,
   MULTI_SELECTION_OUTLINE_PADDING_PX,
+  REORDER_HANDLE_HIT_PX,
   RESIZE_HANDLE_HIT_PX,
   scaleEdgeAnchorHitSize,
 } from './canvas-hit-geometry'
@@ -40,6 +41,7 @@ export type HitPayload =
   | { kind: 'multi-resize-handle'; handle: ResizeHandle }
   | { kind: 'chrome'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
+  | { kind: 'reorder-handle'; entityId: string; entityKind: CanvasEntityKind; groupId: string }
   | { kind: 'page-body'; entityId: string }
   | {
       kind: 'entity-body'
@@ -127,6 +129,8 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
       return collectChromeTargets(inputs)
     case 'anchors':
       return collectAnchorTargets(inputs)
+    case 'reorder-handle':
+      return collectReorderHandleTargets(inputs)
     case 'body':
       return collectBodyTargets(inputs)
     case 'background':
@@ -289,6 +293,37 @@ function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
   return out
 }
 
+// Center-dot reorder handles for managed (auto-layout row) children. A child
+// contributes a dot only when its managed group is selected or the child itself
+// is selected — matches the dot-paint rule in aboveView (ADR 0015 D4).
+function collectReorderHandleTargets(inputs: HitInputs): HitTarget[] {
+  // Map each managed-row group's direct children → group id. Using the group's
+  // broadcast `entityIds` avoids needing a parentGroupId on every scene entity
+  // (pages don't carry one) and is exactly the direct-child set.
+  const childToGroup = new Map<string, string>()
+  for (const e of inputs.entities) {
+    if (e.kind !== 'group' || !e.managedLayout || e.layoutMode !== 'row') continue
+    for (const childId of e.entityIds) childToGroup.set(childId, e.id)
+  }
+  if (!childToGroup.size) return []
+
+  const selected = new Set(inputs.selectedEntityIds)
+  const out: HitTarget[] = []
+  for (const entity of inputs.entities) {
+    if (entity.kind === 'group') continue
+    const groupId = childToGroup.get(entity.id)
+    if (!groupId) continue
+    const groupSelected = inputs.selectedGroupId === groupId
+    if (!groupSelected && !selected.has(entity.id)) continue
+    out.push({
+      layer: 'reorder-handle',
+      region: { kind: 'rect', rect: reorderHandleRect(entity) },
+      payload: { kind: 'reorder-handle', entityId: entity.id, entityKind: entity.kind, groupId },
+    })
+  }
+  return out
+}
+
 function collectBodyTargets(inputs: HitInputs): HitTarget[] {
   // Front-to-back hit order. `inputs.entities` is back-to-front (paint order:
   // first item painted first, last item on top — matches JSON Canvas array
@@ -364,6 +399,13 @@ function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
     case 'e':
       return { x: x + w + pad - half, y, width: RESIZE_HANDLE_HIT_PX, height: h }
   }
+}
+
+function reorderHandleRect(entity: CanvasSceneEntity): Rect {
+  const half = REORDER_HANDLE_HIT_PX / 2
+  const cx = entity.screenX + entity.screenWidth / 2
+  const cy = entity.screenY + entity.screenHeight / 2
+  return { x: cx - half, y: cy - half, width: REORDER_HANDLE_HIT_PX, height: REORDER_HANDLE_HIT_PX }
 }
 
 function chromeRect(entity: CanvasSceneEntity): Rect {

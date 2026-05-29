@@ -2,6 +2,7 @@ import type { Route } from './types'
 import type { CreateEdgesRequest, DeleteGroupsRequest } from '../../shared/types'
 import { createEdges, deleteEdges } from '../workspace-edges'
 import { createUserGroup, deleteGroups, focusTargets } from '../workspace-groups'
+import { makeAutoLayoutGroup, reorderManagedChild } from '../managed-layout'
 import { ungroupSelectedGroup } from '../runtime/document-commands'
 import { selectGroup as selectSelectionGroup } from '../runtime/selection-controller'
 import { workspaceEdges, workspaceGroups } from '../runtime/workspace-model'
@@ -65,6 +66,36 @@ export const edgesGroupsRoutes: Route[] = [
         .find((g): g is NonNullable<typeof g> => Boolean(g))
       if (firstGroup) movePresenceCursorTo(request, firstGroup.canvasX, firstGroup.canvasY, null)
       writeJson(response, 200, deleteGroups(payload))
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/groups/auto-layout',
+    async handler({ response, body }) {
+      const payload = body as { entityIds?: string[]; groupId?: string; label?: string }
+      if (!payload.groupId && !(payload.entityIds && payload.entityIds.length)) {
+        writeJson(response, 400, { error: 'groupId or entityIds is required' })
+        return
+      }
+      const group = makeAutoLayoutGroup(payload)
+      if (!group) {
+        writeJson(response, 404, { error: 'Nothing to manage' })
+        return
+      }
+      writeJson(response, 200, group)
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/groups/reorder-child',
+    async handler({ response, body }) {
+      const payload = body as { groupId?: string; childId?: string; toIndex?: number }
+      if (!payload.groupId || !payload.childId || typeof payload.toIndex !== 'number') {
+        writeJson(response, 400, { error: 'groupId, childId and toIndex are required' })
+        return
+      }
+      const changed = reorderManagedChild(payload.groupId, payload.childId, payload.toIndex)
+      writeJson(response, 200, { changed })
     },
   },
   {

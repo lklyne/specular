@@ -12,6 +12,7 @@ import type { DrawingBrushType, Tool } from './tool'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
 import type { ResizeHandle } from './resize-accumulator'
+import type { CancelReason } from './interaction-types'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { ToolDefaultPatch } from './tool-defaults'
@@ -110,6 +111,7 @@ export type CanvasInteractionState =
   | { kind: 'resizing-entity'; entity: CanvasSelectableTarget }
   | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
+  | { kind: 'reordering-child'; groupId: string; childId: string; dropIndex: number }
 
 export interface CanvasScenePageEntity {
   kind: 'page'
@@ -1789,6 +1791,11 @@ export interface CanvasBgElectronAPI {
   endResize: () => void
   beginMultiResize: () => void
   endMultiResize: () => void
+  /** Auto-layout reorder drag (ADR 0015). start → move* → commit | cancel. */
+  beginReorderChild: (childId: string, groupId: string) => void
+  reorderChildMove: (canvasX: number, canvasY: number) => void
+  reorderChildCommit: () => void
+  reorderChildCancel: (reason?: CancelReason) => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +
    *  element under the window-coord point and either fires

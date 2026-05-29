@@ -384,3 +384,55 @@ describe('hit-test — selected drawing beats page chrome and page body (issue #
     expect(result.payload).toMatchObject({ kind: 'page-body', entityId: 'p1' })
   })
 })
+
+describe('hit-test — auto-layout reorder dots (ADR 0015)', () => {
+  // Managed-row group g1 with two text children c1, c2. Child c1 at screen
+  // (220,220) 100×40 → center (270,240); reorder hit square is 28px centered →
+  // x ∈ [256,284], y ∈ [226,254].
+  const managedGroup = (entityIds: string[]): CanvasSceneGroupEntity => ({
+    ...group('g1', 200, 200, 600, 200),
+    layoutMode: 'row',
+    managedLayout: true,
+    entityIds,
+  })
+  const c1 = text('c1', 220, 220, 100, 40)
+  const c2 = text('c2', 400, 220, 100, 40)
+  const center = { x: 270, y: 240 }
+
+  it('emits a reorder handle at the child center when the group is selected', () => {
+    const result = hitTest(
+      { entities: [managedGroup(['c1', 'c2']), c1, c2], edges: [], selectedEntityIds: [], selectedGroupId: 'g1', zoom: 1 },
+      center,
+    )
+    expect(result.layer).toBe('reorder-handle')
+    expect(result.payload).toMatchObject({ kind: 'reorder-handle', entityId: 'c1', groupId: 'g1' })
+  })
+
+  it('emits a reorder handle when the child itself is selected', () => {
+    const result = hitTest(inputs([managedGroup(['c1', 'c2']), c1, c2], ['c1']), center)
+    expect(result.payload).toMatchObject({ kind: 'reorder-handle', entityId: 'c1' })
+  })
+
+  it('does not emit a reorder handle when neither group nor child is selected', () => {
+    const result = hitTest(inputs([managedGroup(['c1', 'c2']), c1, c2], []), center)
+    expect(result.payload.kind).not.toBe('reorder-handle')
+    expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 'c1' })
+  })
+
+  it('does not emit a reorder handle for an unmanaged group', () => {
+    const freeform: CanvasSceneGroupEntity = { ...group('g1', 200, 200, 600, 200), entityIds: ['c1', 'c2'] }
+    const result = hitTest(
+      { entities: [freeform, c1, c2], edges: [], selectedEntityIds: [], selectedGroupId: 'g1', zoom: 1 },
+      center,
+    )
+    expect(result.payload.kind).not.toBe('reorder-handle')
+  })
+
+  it('child resize handle still wins over the reorder dot at the corner', () => {
+    // c1 NE corner ≈ (320, 220) (2px outline pad). The reorder dot is below
+    // resize handles in priority, so a corner click resizes.
+    const result = hitTest(inputs([managedGroup(['c1', 'c2']), c1, c2], ['c1']), { x: 320, y: 220 })
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 'c1' })
+  })
+})

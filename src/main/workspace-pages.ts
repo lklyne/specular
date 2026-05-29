@@ -40,12 +40,11 @@ import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtim
 import { makeId, cloneMetadata, pageCurrentUrl, createGroup } from './workspace-utils'
 import {
   entityBoundsById,
-  pageSelectableBounds,
   groupById,
   groupChildIds,
-  unionBounds,
 } from './workspace-entities'
 import { findDuplicatePlacement } from './workspace-placement'
+import { reflowManagedGroup } from './managed-layout'
 
 // --- Helpers ---
 
@@ -104,34 +103,6 @@ function ensureManualRowGroup(sourcePageId: string, url: string): WorkspaceGroup
   }
 
   return group
-}
-
-function orderedPagesForGroup(group: WorkspaceGroup) {
-  return pages
-    .filter((page) => page.parentGroupId === group.id)
-    .sort((a, b) => a.canvasX - b.canvasX)
-}
-
-function reflowGroupRow(group: WorkspaceGroup): void {
-  const rowPages = orderedPagesForGroup(group)
-  if (!rowPages.length) return
-
-  const rowY = snapToGrid(Math.min(...rowPages.map((page) => page.canvasY)))
-  let cursorX = snapToGrid(Math.min(...rowPages.map((page) => page.canvasX)))
-  for (const page of rowPages) {
-    const size = pageContentSize(page)
-    page.canvasX = cursorX
-    page.canvasY = rowY
-    page.parentGroupId = group.id
-    cursorX = snapToGrid(cursorX + size.width + CLUSTER_HORIZONTAL_GUTTER)
-  }
-  const bounds = unionBounds(rowPages.map((page) => pageSelectableBounds(page)))
-  if (bounds) {
-    group.canvasX = bounds.x - USER_GROUP_PADDING
-    group.canvasY = bounds.y - USER_GROUP_PADDING
-    group.width = bounds.width + USER_GROUP_PADDING * 2
-    group.height = bounds.height + USER_GROUP_PADDING * 2
-  }
 }
 
 // --- Exported page operations ---
@@ -204,7 +175,7 @@ export function addPageFromSource(input: {
     newPage.metadata = setCustomPageSizeMetadata(newPage.metadata, pageContentSize(newPage))
   }
   newPage.parentGroupId = group.id
-  reflowGroupRow(group)
+  reflowManagedGroup(group.id)
 
   if (input.focus ?? true) {
     setSelectedGroupId(group.id)

@@ -51,8 +51,13 @@ import {
 } from '../workspace-clipboard'
 import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
 import { duplicateGroup } from '../workspace-groups'
+import { reflowManagedGroupForChild } from '../managed-layout'
 
 const VIEWPORT_EVENT_FRAME_MS = 16
+
+// The entity currently being resized, captured at resize-begin so resize-end can
+// reflow its managed group (if any) before committing the gesture's undo step.
+let resizingEntityId: string | null = null
 
 let pendingViewportDelta = {
   zoomDeltaY: 0,
@@ -364,6 +369,7 @@ export function registerCanvasDragIpc(): void {
       // listener cancels the gesture after one pixel. Same gotcha as the
       // drag-start ordering — see runtime/CLAUDE.md.
       tryEnter({ kind: 'resizing-entity', target: { id: entityId, kind: entityKind } })
+      resizingEntityId = entityId
       initializeResizeGuides(entityId, handle)
       // Coalesce the gesture's per-tick bounds mutations into one Y.Doc
       // transaction / one undo step — mirrors drag (initializeDrag/finalizeDrag).
@@ -373,6 +379,10 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on('canvas-resize-end', () => {
     finalizeResizeGuides()
+    // A managed child changing size reflows its siblings within the same batch,
+    // so the row re-packs in one undo step (ADR 0015 D3).
+    if (resizingEntityId) reflowManagedGroupForChild(resizingEntityId)
+    resizingEntityId = null
     endBatch()
     markUndoBoundary()
     commitActive()
