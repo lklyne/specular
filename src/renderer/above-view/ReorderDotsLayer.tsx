@@ -4,7 +4,6 @@ import {
   REORDER_DOT_HOVER_RADIUS_PX,
   REORDER_DOT_VISUAL_RADIUS_PX,
 } from '../../shared/canvas-hit-geometry'
-import { CLUSTER_HORIZONTAL_GUTTER } from '../../shared/constants'
 import { reorderableDots } from '../../shared/reorderable-dots'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 
@@ -18,7 +17,9 @@ import { selectionColor } from '../canvas-bg/canvasBgConstants'
  * line up by construction (the union of the selection and managed doors).
  * Suppressed during any non-reorder interaction and while a non-select tool is
  * active, matching popup suppression rules. During a reorder drag the dragged
- * entity's dot is hidden and an insertion line marks the live drop slot.
+ * entity's dot is hidden; the row entities reflow live to their previewed slots
+ * (App feeds this layer the reorder-preview layout), so the dots ride along with
+ * the siblings as they make room — no separate insertion line needed.
  */
 export function ReorderDotsLayer({
   layoutData,
@@ -28,7 +29,7 @@ export function ReorderDotsLayer({
   isDark: boolean
 }) {
   const color = selectionColor(isDark)
-  const { zoom, pan, canvasOrigin, entities, interaction } = layoutData
+  const { canvasOrigin, entities, interaction } = layoutData
 
   const reordering = interaction.kind === 'reordering-row' ? interaction : null
 
@@ -74,28 +75,7 @@ export function ReorderDotsLayer({
     reordering,
   ])
 
-  // Insertion line: a bar at the drop slot of the dragged entity's row. Uses the
-  // frozen row order (`ids`) carried in the mode, so it's door-agnostic.
-  const insertionLine = useMemo(() => {
-    if (!reordering) return null
-    const rowIds = new Set(reordering.ids)
-    const others = entities
-      .filter((e) => e.kind !== 'group' && rowIds.has(e.id) && e.id !== reordering.movingId)
-      .sort((a, b) => a.screenX - b.screenX)
-    if (!others.length) return null
-
-    const top = Math.min(...others.map((e) => e.screenY - canvasOrigin.y))
-    const bottom = Math.max(...others.map((e) => e.screenY - canvasOrigin.y + e.screenHeight))
-    const gapHalf = (CLUSTER_HORIZONTAL_GUTTER * zoom) / 2
-    const index = Math.max(0, Math.min(reordering.dropIndex, others.length))
-    const x =
-      index < others.length
-        ? others[index].screenX - gapHalf
-        : others[others.length - 1].screenX + others[others.length - 1].screenWidth + gapHalf
-    return { x, top, bottom }
-  }, [reordering, entities, canvasOrigin.y, zoom])
-
-  if (!dots.length && !insertionLine) return null
+  if (!dots.length) return null
 
   return (
     <svg
@@ -105,17 +85,6 @@ export function ReorderDotsLayer({
       {dots.map((dot) => (
         <circle key={dot.id} cx={dot.cx} cy={dot.cy} r={dot.r} fill={color} opacity={0.85} />
       ))}
-      {insertionLine ? (
-        <line
-          x1={insertionLine.x}
-          y1={insertionLine.top}
-          x2={insertionLine.x}
-          y2={insertionLine.bottom}
-          stroke={color}
-          strokeWidth={2}
-          vectorEffect="non-scaling-stroke"
-        />
-      ) : null}
     </svg>
   )
 }

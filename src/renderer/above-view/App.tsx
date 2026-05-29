@@ -56,6 +56,7 @@ import {
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
+import { reorderPreviewLayout } from './reorderPreview'
 import { PageChromeOverlay } from './PageChrome'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
@@ -447,6 +448,16 @@ export default function App({
   }, [selectionOverlay])
 
   const isDark = useTheme(initialTheme, api.onThemeChanged)
+
+  // During a reorder drag the row entities render at their previewed slots so
+  // siblings visibly make room (ADR 0015 D7, Phase D). Pure renderer ephemera —
+  // the broadcast layout is untouched; only the geometry layers below see the
+  // shift. Falls back to the broadcast layout when not reordering.
+  const renderLayout = useMemo(
+    () => reorderPreviewLayout(layoutData) ?? layoutData,
+    [layoutData],
+  )
+
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
 
@@ -1267,7 +1278,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           ) : null}
 
           <StackedCanvasItems
-            layoutData={layoutData}
+            layoutData={renderLayout}
             fileJsonModeMap={fileJsonModeMap}
             hoveredEntityId={hoveredEntityId}
             isDark={isDark}
@@ -1316,7 +1327,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
           {layoutData.viewMode === 'canvas' ? (
             <SelectionOutlineLayer
-              layoutData={layoutData}
+              layoutData={renderLayout}
               isDark={isDark}
               marqueePreviewIds={marqueePreviewIds}
             />
@@ -1327,7 +1338,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
           {layoutData.viewMode === 'canvas' ? (
-            <ReorderDotsLayer layoutData={layoutData} isDark={isDark} />
+            <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
           ) : null}
 
           <PageChromeOverlay
