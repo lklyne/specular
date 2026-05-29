@@ -455,6 +455,16 @@ export function reorderGestureCancel(reason: CancelReason = 'external') {
   return post<{ ok: true; mode: { kind: string } }>('/test/canvas-reorder/cancel', { reason })
 }
 
+// --- Selection reorder commit (ADR 0015 D7, position-only) ---
+
+export function reorderSelection(input: {
+  orderedIds: string[]
+  movingId: string
+  dropIndex: number
+}) {
+  return post<{ changed: boolean }>('/test/canvas-reorder-selection/commit', input)
+}
+
 export function deleteGroups(groupIds: string[]) {
   return post<{ deletedGroupIds: string[] }>('/groups/delete', { groupIds })
 }

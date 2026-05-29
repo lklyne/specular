@@ -52,7 +52,7 @@ import {
 import { restorePersistedWorkspace } from '../runtime/workspace-restore'
 import { getActiveDoc } from '../runtime/workspace-doc'
 import { workspaceTabs, activeWorkspaceTabId } from '../runtime/workspace-model'
-import { applyDragDelta, finalizeDrag, initializeDrag, resizeMultiSelection } from '../runtime/document-commands'
+import { applyDragDelta, finalizeDrag, initializeDrag, reorderSelection, resizeMultiSelection } from '../runtime/document-commands'
 import {
   cancelReorderGesture,
   commitReorderGesture,
@@ -308,6 +308,23 @@ export const testRoutes: Route[] = [
       const { reason } = (body as { reason?: CancelReason }) ?? {}
       cancelReorderGesture(reason ?? 'external')
       writeJson(response, 200, { ok: true, mode: peekInteractionMode() })
+    },
+  },
+
+  // --- Selection reorder commit (ADR 0015 D7) ---
+  // Drives the position-only `reorderSelection` directly; the gesture wiring
+  // (begin/move/dot gating) lands in Phase C. One call = one undo step.
+  {
+    method: 'POST',
+    pattern: '/test/canvas-reorder-selection/commit',
+    async handler({ response, body }) {
+      const { orderedIds, movingId, dropIndex } = body as {
+        orderedIds: string[]
+        movingId: string
+        dropIndex: number
+      }
+      const changed = reorderSelection(orderedIds, movingId, dropIndex)
+      writeJson(response, 200, { changed })
     },
   },
 
