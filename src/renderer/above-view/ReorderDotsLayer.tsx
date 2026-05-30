@@ -56,7 +56,8 @@ export function ReorderDotsLayer({
 
     const out: Array<{ id: string; cx: number; cy: number; r: number }> = []
     for (const dot of eligible) {
-      // The dragged entity is "lifted" — its dot is replaced by the drop line.
+      // The dragged entity is "lifted" — it floats as a ghost under the cursor
+      // (Phase D), so it carries no dot.
       if (reordering && reordering.movingId === dot.id) continue
       const grown = hoverId === dot.id || hoveredGroupChildren.has(dot.id)
       out.push({

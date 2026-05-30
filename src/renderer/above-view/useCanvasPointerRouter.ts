@@ -105,7 +105,15 @@ interface UseCanvasPointerRouterOptions {
   /** Edge-drag visual state setter. The router updates this so
    *  `EdgeDragLayer` can render the rubber-band. */
   setEdgeDragState: (state: EdgeDragState) => void
+  /** Reorder-ghost offset setter (ADR 0015 D7, Phase D). The router publishes
+   *  the live canvas-space pointer delta since grab so App can float the
+   *  dragged item under the cursor as a ghost. Null when not reordering. */
+  setReorderGhost: (ghost: ReorderGhostOffset) => void
 }
+
+/** Canvas-space pointer delta since a reorder grab — drives the floating ghost.
+ *  Null outside a reorder drag (ADR 0015 D7, Phase D). */
+export type ReorderGhostOffset = { dx: number; dy: number } | null
 
 const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointerAction['kind']>([
   'noop',
@@ -165,6 +173,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     optionHeldRef,
     setDragCopyPreview,
     setEdgeDragState,
+    setReorderGhost,
   } = options
   const apiRef = useRef(api)
   apiRef.current = api
@@ -261,6 +270,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         optionHeldRef,
         setDragCopyPreview,
         setEdgeDragState: setEdgeDragStateRef.current,
+        setReorderGhost,
       })
       if (dispatched) {
         event.preventDefault()
@@ -317,7 +327,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [enabled, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, spaceHeldRef])
+  }, [enabled, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setReorderGhost, spaceHeldRef])
 }
 
 // --- Dispatch ---
@@ -330,10 +340,11 @@ interface DispatchContext {
   optionHeldRef: React.MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   setEdgeDragState: (state: EdgeDragState) => void
+  setReorderGhost: (ghost: ReorderGhostOffset) => void
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
-  const { action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setEdgeDragState } = ctx
+  const { action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setEdgeDragState, setReorderGhost } = ctx
   switch (action.kind) {
     case 'noop':
       return false
@@ -373,7 +384,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'begin-pan':
       return runPan(api, event)
     case 'begin-reorder-drag':
-      return runReorderDrag(action, api, event, layoutRef)
+      return runReorderDrag(action, api, event, layoutRef, setReorderGhost)
   }
 }
 
@@ -1085,18 +1096,33 @@ function runReorderDrag(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  setReorderGhost: (ghost: ReorderGhostOffset) => void,
 ): boolean {
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
+
+  // Freeze the grab point so the ghost can float at original-pos + (live -
+  // grab) — the grab offset is preserved, keeping the centre dot under the
+  // pointer. Canvas-space so it survives pan/zoom mid-drag (it shouldn't, but
+  // the math is origin-independent either way).
+  const startLayout = layoutRef.current
+  const grab = screenPointToCanvasPoint(
+    event.clientX,
+    event.clientY + startLayout.canvasOrigin.y,
+    startLayout,
+  )
 
   // Enter reorder mode in main BEFORE any layout-triggering work — same
   // gesture-begin ordering as resize/drag (see runtime/CLAUDE.md). With the
   // mode set to 'reordering-row', the focus reconciler keeps aboveView
   // focused, so the window-blur cancel below doesn't fire on the first tick.
   api.beginReorderDrag(action.movingId)
+  // Lift the item the instant it's grabbed (50% ghost in place), before any move.
+  setReorderGhost({ dx: 0, dy: 0 })
 
   const cleanup = () => {
     releasePointer?.()
+    setReorderGhost(null)
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
     window.removeEventListener('pointercancel', onCancel)
@@ -1107,6 +1133,7 @@ function runReorderDrag(
     const layout = layoutRef.current
     const point = screenPointToCanvasPoint(ev.clientX, ev.clientY + layout.canvasOrigin.y, layout)
     api.reorderDragMove(point.x, point.y)
+    setReorderGhost({ dx: point.x - grab.x, dy: point.y - grab.y })
   }
   const onUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return

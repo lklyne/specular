@@ -78,7 +78,9 @@ function detectReorderableRow(
 ): ReorderableRow | null
 
 /** Drop index for a cursor position along the row's axis: how many *other*
- *  items have their center before the cursor. (Generalizes M1's
+ *  items have their MIDPOINT before the cursor. The midpoint test means the
+ *  swap fires once the dragged item is dragged halfway across a neighbour (50%),
+ *  not after it fully clears the neighbour. (Generalizes M1's
  *  computeReorderDropIndex off a groupId onto a box list.) */
 function dropIndexForCursor(row: ReorderableRow, cursorAlongAxis: number, movingId: string): number
 
@@ -172,12 +174,24 @@ managed door now.
 The reachability narrative "make-auto-layout is how you get reorder." Dots now
 come from eligible selections; the headless command only adds persistence.
 
-## Gesture freeze (stability)
+## Gesture freeze & drag feedback
 
 Freeze the `ReorderableRow` at gesture start (slots, gap, order, box sizes,
 cross-axis). `dropIndexForCursor` runs against the frozen non-moving slots; the
 live preview and commit repack the frozen order. Freezing avoids a feedback loop
 between the live-preview reflow and re-detection mid-drag.
+
+The in-drag feel (dnd-kit / FigJam parity), landed in Phase D:
+
+- **Ghost.** The dragged item renders as a **ghost — the same item at 50%
+  opacity — floating freely under the cursor** (grab offset preserved so the dot
+  stays under the pointer). Its real slot is vacated; nothing is written to data
+  until release.
+- **Open the gap, swap at 50%.** The other items reflow live to **open the slot**
+  at the current `dropIndex`. The index advances the moment the ghost's centre
+  (≈ the cursor, since the dot is centred) crosses a neighbour's **midpoint** —
+  halfway across, not the full width. The opened gap is the drop indicator, so the
+  standalone insertion line is no longer needed.
 
 ## Prerequisites — do these before `/afk-local`
 
@@ -227,7 +241,7 @@ Either way the working tree must be clean and pushed before the loop starts.
 
 ```
 Phase 0 ──► A ──────► B ──────────► C ───────────────► D
- (docs)    (kernel)  (commit path)  (gating+gesture)   (live preview)
+ (docs)    (kernel)  (commit path)  (gating+gesture)   (ghost + gap)
 ```
 
 Phase 0 first — lock the inversion in ADR 0015 before code builds on it. A→B→C is
@@ -263,7 +277,8 @@ Build the pure module — `detectReorderableRow`, `dropIndexForCursor`,
 - **Done when (unit tests):** equal-gap row → eligible; one unequal gap → null;
   overlapping items → null; 2 items; vertical column; gap-tolerance boundary;
   mixed-width repack moves the correct edges; cross-axis preserved (Q1);
-  drop-index at both ends. `pnpm typecheck && pnpm test:unit` green.
+  drop-index flips at a neighbour's **midpoint** (50% crossing), not after
+  clearing it; drop-index at both ends. `pnpm typecheck && pnpm test:unit` green.
 
 ## Phase B — Selection commit path: `reorderSelection` (main runtime)
 
@@ -306,20 +321,30 @@ Before starting: see §Working agreement and §Architecture ("Two doors" +
   `reorderManagedChild`; an **unequal-gap** selection exposes **no** reorder hit
   target. `pnpm typecheck && pnpm test:unit && pnpm test:smoke` green.
 
-## Phase D — Live reflow preview (renderer)
+## Phase D — Drag feedback: ghost + live gap (renderer)
 
-Before starting: see §Working agreement. Depends on C; independent polish.
+Before starting: see §Working agreement and §"Gesture freeze & drag feedback".
+Depends on C; independent polish, but required for the feature to feel done.
 
-During the drag, reflow siblings visibly via renderer-side `reorderRowPositions`
-against the frozen row, instead of only painting an insertion line — the
-difference between "elegant" and "mechanical." Pure renderer ephemera: no IPC, no
-data change.
+Renderer ephemera only — no IPC beyond the cursor the gesture already tracks, no
+data change until release:
 
-- **Done when:** siblings shift to make room as the dragged dot crosses slot
-  boundaries; release commits to the previewed arrangement. **Verify in-app** — the
-  headless loop can't eyeball this, so a human (or an attended `/verify` pass)
-  confirms the acceptance feel: dots on an equal-gap selection, dots vanish when
-  spacing is uneven, drag reorders with live reflow, one undo restores, and reload
+- **Ghost.** Render the dragged item (`movingId`) as the same item at **50%
+  opacity, free-floating under the cursor** (preserve the grab offset). Suppress
+  its normal in-row paint while dragging.
+- **Open the gap.** Reflow the other items live via `reorderRowPositions` against
+  the frozen row (excluding `movingId`) so the row visibly opens the slot at the
+  current `dropIndex`; the swap fires at the neighbour-**midpoint** (50%) crossing.
+  No insertion line — the opened gap is the indicator. (The vertical bar in the
+  FigJam mock is a gap *resize* handle, a separate Milestone 2 affordance — out of
+  scope here.)
+
+- **Done when:** the dragged item floats as a 50%-opacity ghost; siblings open the
+  destination slot to receive it; release commits to the previewed arrangement.
+  **Verify in-app** — the headless loop can't eyeball
+  this, so a human (or an attended `/verify` pass) confirms the feel: dots on an
+  equal-gap selection, dots vanish when spacing is uneven, dragging shows the
+  ghost + gap and **swaps at the halfway point**, one undo restores, and reload
   shows only moved positions (no group, no `managedLayout`). `pnpm typecheck` green.
 
 ## Open questions (with dumb defaults)

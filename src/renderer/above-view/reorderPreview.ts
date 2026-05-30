@@ -2,10 +2,13 @@
  * Live reorder preview (ADR 0015 D7, Phase D).
  *
  * While a `reordering-row` drag is in flight, repack the frozen row at the live
- * drop index and shift each row entity to its previewed slot — so siblings
- * visibly make room as the dragged dot crosses slot boundaries, the difference
- * between "elegant" and "mechanical." Pure renderer ephemera: no IPC, no doc
- * mutation. Release commits to exactly this arrangement via `reorderSelection`.
+ * drop index so the siblings open a gap to receive the dragged item — the swap
+ * fires at the neighbour midpoint (50% crossing), the difference between
+ * "elegant" and "mechanical." The dragged item keeps its packed slot here, but
+ * App skips its in-row paint and floats it as a 50%-opacity ghost under the
+ * cursor (so the reserved slot reads as the open gap). Pure renderer ephemera:
+ * no IPC, no doc mutation. Release commits to exactly this arrangement via
+ * `reorderSelection`.
  *
  * The row is rebuilt from the *current* selection geometry, which is identical
  * to the gesture-start freeze because the drag mutates nothing — `move` only
