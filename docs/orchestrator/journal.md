@@ -299,3 +299,18 @@ Noticed (no action):
 - **#144 (manifest extensions) at day 13, unchanged**: Opened May 17, manual test plan still unchecked. Not stalled by automation gap — it requires a human test session with SVG/Vue files. One PR; not a systemic pattern yet.
 - **#168 (triage drain) case weakening**: The proposal was filed when 5 items sat in `needs-triage`. Today the queue is 2 items, both explicitly requiring human architectural decisions — exactly the case the drain can route but cannot unblock. If #168 reaches day 7 (June 2) with 0 comments, the right note is not "wrong format" but "wrong target": the pipeline clears easy items automatically now; the real gap is surfacing architectural decisions to Lyle, not routing them to a label.
 Hint for next run: check whether #177, #178, or #179 merged with zero review (non-AFK post-disable canary — if yes, two-instance threshold for a review-gap proposal is met); check if #168 hit its June 2 deadline; if it did with 0 comments, write the "wrong target" diagnosis rather than refiling.
+
+---
+
+## 2026-05-31
+Surveyed: CI state on all open product PRs (#176, #177, #178, #179 — fallow failures across the board), needs-triage queue (#53 at 22 days, #124 at 15 days, unchanged), proposal #168 (day 5, 0 comments), ready-for-agent queue (empty). Dominant theme: fallow degrading to decorative noise; architectural-decision residue unchanged.
+Acted:
+- Nothing to close or file. #168 at day 5, stale threshold June 2. No new second instances crossed.
+Noticed (no action):
+- **Fallow failing on all 4 open product PRs**: #176, #177, #178, and #179 all show fallow=FAILURE, check=SUCCESS. This reopens the watch item closed in May 18 ("lifecycle complete after PR #145"). That cleanup pass cleared the first wave; a second wave has accumulated silently on 4 consecutive PRs with no cleanup filed. The soft-gate (AFK_SOFT_CHECKS=fallow) means they will all merge regardless. One complete instance of the "install → CI fail → cleanup" cycle (May 18). If these PRs merge without a follow-up cleanup PR, that's the second instance — and the "decorative" scenario the May 17 entry warned about. Watching.
+- **Canary watch clarification**: The May 30 entry called #177–#179 "non-AFK PRs," which was imprecise — they are AFK pipeline PRs (branches `claude/issue-122`, `claude/issue-146`, `claude/issue-167`). The claude-review disable was explicitly for AFK PRs. A genuine non-AFK PR (opened by Lyle manually) hasn't appeared since the disable landed May 29. No canary data yet; the watch item remains live but hasn't been triggered.
+- **ready-for-agent queue empty**: All 3 issues received PRs within 24 hours. AFK pipeline is at full steady-state.
+- **needs-triage unchanged**: #53 (22 days) and #124 (15 days) — both architectural decisions requiring human input. No comments on either. The triage drain proposal (#168) routes them to `ready-for-human`, which is accurate but not actionable without human review bandwidth. The label change doesn't unblock the decision.
+- **#144 (manifest extensions) at day 14**: Oldest open non-draft PR. Manual test plan (SVG/Vue files) still unchecked. Not a systemic pattern — one PR.
+- **#168 (triage drain) at day 5, 0 comments**: Two days from the stale threshold (June 2). Per May 30 diagnosis: if it hits day 7 with no comment, the right call is to close with a note — "wrong target, not wrong format." The pipeline now self-clears easy triage items; the residue is architectural decisions that need human time, not automation.
+Hint for next run: make the stale call on #168 if 0 comments June 2; check whether any of #176–#179 merged and whether a fallow cleanup PR appeared — if they merged without cleanup, that's the second fallow instance and crosses the proposal threshold.
