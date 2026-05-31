@@ -14,7 +14,6 @@ import { memo } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import type { CanvasSceneFileEntity, SelectionModifiers } from '../../shared/types'
-import { isBareImageEntity } from './entityPresentation'
 import {
   RendererSwitch,
 } from '../canvas-bg/entity-renderers/RendererSwitch'
@@ -121,7 +120,7 @@ function FileBodyCard({
 
   // Bare entities (images, device-framed pages) show no card: transparent
   // background, no shadow, square corners.
-  const isChromeless = isBareImageEntity(entity) || entity.showDeviceFrame
+  const isChromeless = entity.rendererTag === 'image' || entity.showDeviceFrame
 
   const menuPopupClass = `z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
     isDark
