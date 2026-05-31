@@ -12,6 +12,8 @@ import {
   getSelectionState,
   getWorkspaceGraph,
 } from '../workspace-entities'
+import { distributeSelection } from '../runtime/document-commands'
+import { selectedEntityIds as currentSelectionIds } from '../ui-state'
 import { applyLayoutDirective, findBatchPlacement, findPlacement } from '../workspace-placement'
 import {
   applyTaskLayout,
@@ -58,6 +60,16 @@ export const workspaceRoutes: Route[] = [
     pattern: '/selection/overlay-state',
     async handler({ response }) {
       writeJson(response, 200, { pages: pageSelectionOverlayStates() })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/selection/distribute',
+    async handler({ response, body }) {
+      const payload = body as { entityIds?: string[] }
+      const entityIds = payload.entityIds ?? currentSelectionIds()
+      const changed = distributeSelection(entityIds)
+      writeJson(response, 200, { changed })
     },
   },
   {

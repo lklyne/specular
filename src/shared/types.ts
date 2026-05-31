@@ -1791,6 +1791,9 @@ export interface CanvasBgElectronAPI {
   endResize: () => void
   beginMultiResize: () => void
   endMultiResize: () => void
+  /** Even out gaps for the current loose multi-selection (ADR 0015 D7). No-op
+   *  when fewer than 3 entities are selected or gaps are already even. */
+  distributeSelection: () => void
   /** Row reorder drag (ADR 0015 D7). start → move* → commit | cancel. The begin
    *  carries only `movingId`; main resolves which door (selection / managed)
    *  armed the gesture. */

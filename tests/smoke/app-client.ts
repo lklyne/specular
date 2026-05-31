@@ -470,6 +470,12 @@ export function reorderSelection(input: {
   return post<{ changed: boolean }>('/test/canvas-reorder-selection/commit', input)
 }
 
+// --- Selection distribute commit (ADR 0015 D7) ---
+
+export function distributeSelection(input: { entityIds: string[] }) {
+  return post<{ changed: boolean }>('/test/canvas-distribute-selection/commit', input)
+}
+
 export function deleteGroups(groupIds: string[]) {
   return post<{ deletedGroupIds: string[] }>('/groups/delete', { groupIds })
 }

@@ -213,6 +213,7 @@ const api: CanvasBgElectronAPI = {
   endResize: () => ipcRenderer.send('canvas-resize-end'),
   beginMultiResize: () => ipcRenderer.send('canvas-multi-resize-begin'),
   endMultiResize: () => ipcRenderer.send('canvas-multi-resize-end'),
+  distributeSelection: () => ipcRenderer.send('canvas-distribute-selection'),
   beginReorderDrag: (movingId: string) =>
     ipcRenderer.send('canvas-reorder-start', { movingId }),
   reorderDragMove: (canvasX: number, canvasY: number) =>

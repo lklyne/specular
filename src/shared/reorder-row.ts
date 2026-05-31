@@ -50,6 +50,18 @@ function spread(values: number[]): number {
 }
 
 /**
+ * Dominant axis: whichever axis has the larger spread of box centers. Shared
+ * by `detectReorderableRow` and `distributeRowPositions` so both operate on
+ * the same axis definition — distribute output is reorder-eligible by
+ * construction (ADR 0015 D7).
+ */
+export function dominantAxis(boxes: readonly Box[]): 'x' | 'y' {
+  const centersX = boxes.map((b) => centerAlong(b, 'x'))
+  const centersY = boxes.map((b) => centerAlong(b, 'y'))
+  return spread(centersX) >= spread(centersY) ? 'x' : 'y'
+}
+
+/**
  * Equal-gap row detector + eligibility gate. Returns null when the selection is
  * not a clean, evenly-spaced, non-overlapping line — that's also the gate for
  * the dots (no well-defined slots ⇒ no affordance). FigJam parity: equal gaps
@@ -61,9 +73,7 @@ export function detectReorderableRow(
 ): ReorderableRow | null {
   if (boxes.length < 2) return null
 
-  const centersX = boxes.map((b) => centerAlong(b, 'x'))
-  const centersY = boxes.map((b) => centerAlong(b, 'y'))
-  const axis: 'x' | 'y' = spread(centersX) >= spread(centersY) ? 'x' : 'y'
+  const axis = dominantAxis(boxes)
 
   const sorted = [...boxes].sort((a, b) => leadingEdge(a, axis) - leadingEdge(b, axis))
 

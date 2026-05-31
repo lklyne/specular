@@ -52,7 +52,7 @@ import {
 import { restorePersistedWorkspace } from '../runtime/workspace-restore'
 import { getActiveDoc } from '../runtime/workspace-doc'
 import { workspaceTabs, activeWorkspaceTabId } from '../runtime/workspace-model'
-import { applyDragDelta, finalizeDrag, initializeDrag, reorderSelection, resizeMultiSelection } from '../runtime/document-commands'
+import { applyDragDelta, finalizeDrag, initializeDrag, reorderSelection, distributeSelection, resizeMultiSelection } from '../runtime/document-commands'
 import {
   cancelReorderGesture,
   commitReorderGesture,
@@ -324,6 +324,18 @@ export const testRoutes: Route[] = [
         dropIndex: number
       }
       const changed = reorderSelection(orderedIds, movingId, dropIndex)
+      writeJson(response, 200, { changed })
+    },
+  },
+
+  // --- Selection distribute commit (ADR 0015 D7) ---
+  // Drives `distributeSelection` directly without UI interaction.
+  {
+    method: 'POST',
+    pattern: '/test/canvas-distribute-selection/commit',
+    async handler({ response, body }) {
+      const { entityIds } = body as { entityIds: string[] }
+      const changed = distributeSelection(entityIds)
       writeJson(response, 200, { changed })
     },
   },

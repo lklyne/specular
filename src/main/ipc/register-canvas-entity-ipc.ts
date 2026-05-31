@@ -102,6 +102,8 @@ import { copyableSelectionPayload } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
+import { distributeSelection } from '../runtime/document-commands'
+import { selectedEntityIds } from '../ui-state'
 import { duplicateSelection } from '../runtime/duplicate-selection'
 import { reorderStackOrder, type StackOrderAction } from '../runtime/entity-order-state'
 
@@ -237,6 +239,10 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on('canvas-tidy-selection', () => {
     tidySelectedPages()
+  })
+
+  ipcMain.on('canvas-distribute-selection', () => {
+    distributeSelection(selectedEntityIds())
   })
 
   ipcMain.on('canvas-navigate-page', (_event, { pageId, url }: { pageId: string; url: string }) => {
