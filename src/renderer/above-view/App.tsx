@@ -1291,8 +1291,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             onOpenThread={openThreadById}
           />
 
-          {drawingSession ? <DrawingLayer drawing={{ version: 1, ...drawingSession }} layout={layoutData} active isDark={isDark} /> : null}
-
           <PendingElementOutline
             pending={pendingAnnotation}
             layoutData={layoutData}
@@ -1359,6 +1357,18 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             editingEntityId={editingEntityId}
             ghostEntity={reorderGhostEntity}
           />
+
+          {/* Live drawing preview renders after StackedCanvasItems so the
+              in-progress stroke sits above file entities — matching where a
+              freshly committed drawing lands at the top of the entity order. */}
+          {drawingSession ? (
+            <DrawingLayer
+              drawing={{ version: 1, ...drawingSession }}
+              layout={layoutData}
+              active
+              isDark={isDark}
+            />
+          ) : null}
 
           {layoutData.viewMode === 'canvas' ? (
             <EdgeLayer

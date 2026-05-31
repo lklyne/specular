@@ -154,7 +154,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 drawBrushType={drawBrushType}
                 drawColor={drawColor}
                 stickyColor={stickyColor}
-                hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}
                 zoomPercent={zoomPercent}
@@ -196,7 +195,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 drawBrushType={drawBrushType}
                 drawColor={drawColor}
                 stickyColor={stickyColor}
-                hasPages={hasPages}
                 drawingEnabled={DRAWING_FEATURE_ENABLED}
                 hasSelection={hasSelection}
                 zoomPercent={zoomPercent}

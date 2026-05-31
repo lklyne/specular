@@ -40,18 +40,23 @@ export function FileChromeOverlay({
   const hoveredEntityId = layoutData.hover?.id ?? null
   return (
     <>
-      {fileEntities.map((entity) => (
-        <FileChromeItem
-          key={entity.id}
-          api={api}
-          layoutData={layoutData}
-          entity={entity}
-          isDark={isDark}
-          isActive={(entity.id === selectedEntityId && isIdle) || entity.id === hoveredEntityId}
-          optionHeldRef={optionHeldRef}
-          setDragCopyPreview={setDragCopyPreview}
-        />
-      ))}
+      {fileEntities.map((entity) => {
+        // Image entities render bare — no filename chrome. The selection
+        // popover surfaces the name when selected.
+        if (entity.rendererTag === 'image') return null
+        return (
+          <FileChromeItem
+            key={entity.id}
+            api={api}
+            layoutData={layoutData}
+            entity={entity}
+            isDark={isDark}
+            isActive={(entity.id === selectedEntityId && isIdle) || entity.id === hoveredEntityId}
+            optionHeldRef={optionHeldRef}
+            setDragCopyPreview={setDragCopyPreview}
+          />
+        )
+      })}
     </>
   )
 }

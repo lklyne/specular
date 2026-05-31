@@ -118,6 +118,10 @@ function FileBodyCard({
 }) {
   const fileApi = getFileApi()
 
+  // Bare entities (images, device-framed pages) show no card: transparent
+  // background, no shadow, square corners.
+  const isChromeless = entity.rendererTag === 'image' || entity.showDeviceFrame
+
   const menuPopupClass = `z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
     isDark
       ? 'border-zinc-700 bg-zinc-900 text-zinc-100'
@@ -138,9 +142,9 @@ function FileBodyCard({
       height={entity.height}
       isDark={isDark}
       isSelected={isSelected}
-      background={entity.showDeviceFrame ? 'transparent' : isDark ? '#1c1917' : '#fafaf9'}
-      borderRadius={entity.showDeviceFrame ? 0 : 4}
-      showCardShadow={!entity.showDeviceFrame}
+      background={isChromeless ? 'transparent' : isDark ? '#1c1917' : '#fafaf9'}
+      borderRadius={isChromeless ? 0 : 4}
+      showCardShadow={!isChromeless}
     >
       <ContextMenu.Root>
         <ContextMenu.Trigger className="block" style={{ width: '100%', height: '100%' }}>
