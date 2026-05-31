@@ -14,6 +14,7 @@ import { memo } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import type { CanvasSceneFileEntity, SelectionModifiers } from '../../shared/types'
+import { isBareImageEntity } from './entityPresentation'
 import {
   RendererSwitch,
 } from '../canvas-bg/entity-renderers/RendererSwitch'
@@ -118,9 +119,9 @@ function FileBodyCard({
 }) {
   const fileApi = getFileApi()
 
-  // Image entities never show a card (background, shadow) — just the bare
-  // image, selected or not. The filename chrome still appears on selection.
-  const isBareImage = entity.rendererTag === 'image'
+  // Bare entities (images, device-framed pages) show no card: transparent
+  // background, no shadow, square corners.
+  const isChromeless = isBareImageEntity(entity) || entity.showDeviceFrame
 
   const menuPopupClass = `z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
     isDark
@@ -142,15 +143,9 @@ function FileBodyCard({
       height={entity.height}
       isDark={isDark}
       isSelected={isSelected}
-      background={
-        isBareImage || entity.showDeviceFrame
-          ? 'transparent'
-          : isDark
-            ? '#1c1917'
-            : '#fafaf9'
-      }
-      borderRadius={isBareImage || entity.showDeviceFrame ? 0 : 4}
-      showCardShadow={!isBareImage && !entity.showDeviceFrame}
+      background={isChromeless ? 'transparent' : isDark ? '#1c1917' : '#fafaf9'}
+      borderRadius={isChromeless ? 0 : 4}
+      showCardShadow={!isChromeless}
     >
       <ContextMenu.Root>
         <ContextMenu.Trigger className="block" style={{ width: '100%', height: '100%' }}>

@@ -12,6 +12,7 @@ import type {
   CanvasSceneFileEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import { isBareImageEntity } from './entityPresentation'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
 import { CanvasItemChrome } from './CanvasItemChrome'
 import { iconForFilePath } from '../shared/fileIcon'
@@ -41,9 +42,9 @@ export function FileChromeOverlay({
   return (
     <>
       {fileEntities.map((entity) => {
-        // Image entities never show the filename chrome — they render bare, and
-        // the selection popover surfaces the name when selected.
-        if (entity.rendererTag === 'image') return null
+        // Image entities render bare — no filename chrome. The selection
+        // popover surfaces the name when selected.
+        if (isBareImageEntity(entity)) return null
         return (
           <FileChromeItem
             key={entity.id}
