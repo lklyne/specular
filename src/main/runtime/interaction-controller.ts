@@ -29,7 +29,7 @@ import {
   beginEntityResize,
   beginMarqueeSelect,
   beginMultiSelectionResize,
-  beginReorderingChild,
+  beginReorderingRow,
   clearInteractionState,
 } from './interaction-state'
 import type { CanvasSelectableTarget, EdgeSide } from '../../shared/types'
@@ -72,8 +72,8 @@ function snapshotMode(): InteractionMode {
       return { kind: 'resizing-multi-selection' }
     case 'editing-entity':
       return { kind: 'editing-entity', id: s.entityId }
-    case 'reordering-child':
-      return { kind: 'reordering-child', groupId: s.groupId, childId: s.childId, dropIndex: s.dropIndex }
+    case 'reordering-row':
+      return { kind: 'reordering-row', ids: [...s.ids], movingId: s.movingId, dropIndex: s.dropIndex, axis: s.axis }
     case 'dragging-edge':
       return {
         kind: 'dragging-edge',
@@ -106,7 +106,7 @@ export type TryEnterInput =
   | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: CanvasSelectableTarget; fromSide: EdgeSide }
-  | { kind: 'reordering-child'; groupId: string; childId: string; dropIndex: number }
+  | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
 
 export function peek(): InteractionMode {
   return snapshotMode()
@@ -124,7 +124,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'resizing-multi-selection': beginMultiSelectionResize(); break
     case 'editing-entity': beginEntityEditing(input.entityId); break
     case 'dragging-edge': beginEdgeDrag(input.from, input.fromSide); break
-    case 'reordering-child': beginReorderingChild(input.groupId, input.childId, input.dropIndex); break
+    case 'reordering-row': beginReorderingRow(input.ids, input.movingId, input.dropIndex, input.axis); break
   }
   const token: InternalToken = {
     id: newTokenId(),

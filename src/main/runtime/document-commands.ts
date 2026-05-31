@@ -92,6 +92,12 @@ import {
   type ShapeEntity,
 } from './shape-entity-state'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
+import {
+  detectReorderableRow,
+  reorderRowPositions,
+  type Box,
+  type ReorderableRow,
+} from '../../shared/reorder-row'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
 import { distributionGuideDetector } from './distribution-guide-detector'
@@ -933,6 +939,94 @@ export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
     scheduleWorkspaceAutosave()
     requestLayout()
   }
+}
+
+/** Write a single entity's canvas origin through its per-kind mutator. */
+function writeReorderedPosition(
+  id: string,
+  kind: SnapCandidateSnapshotEntity['kind'],
+  pos: { x: number; y: number },
+): boolean {
+  if (kind === 'page') {
+    const page = pages.find((p) => p.id === id)
+    if (!page) return false
+    page.canvasX = pos.x
+    page.canvasY = pos.y
+    return true
+  }
+  const patch = { canvasX: pos.x, canvasY: pos.y }
+  if (kind === 'text') return updateTextEntityInState(id, patch) !== null
+  if (kind === 'file') return updateFileEntityInState(id, patch) !== null
+  if (kind === 'drawing') return updateDrawingEntityInState(id, patch) !== null
+  if (kind === 'shape') return updateShapeEntityInState(id, patch) !== null
+  return false
+}
+
+/**
+ * Selection reorder commit (ADR 0015 D7) — the position-only sibling of
+ * `reorderManagedChild`. Geometry is the source of truth: the row is read off
+ * the current boxes, repacked with `movingId` at `dropIndex`, and only the
+ * changed origins are written through each entity's per-kind mutator inside one
+ * `beginBatch`/`endBatch` + `markUndoBoundary`, so the whole reorder collapses
+ * to a single undo step (the batched-multi-write shape `resizeMultiSelection`
+ * uses). **No** `entityOrder` write, **no** `managedLayout`, **no**
+ * `commitAsOneTransaction` — nothing persists but the new positions.
+ *
+ * No-op (returns false) when the selection isn't an eligible equal-gap row or
+ * the move changes nothing.
+ */
+/**
+ * Build the frozen `ReorderableRow` for a selection from live geometry, or null
+ * when the selection isn't an eligible equal-gap row. Shared by the selection
+ * reorder door's gesture (freeze at start, drop-index per move) and its commit
+ * (`reorderSelection`) so both read the row off the same boxes.
+ */
+export function buildSelectionRow(orderedIds: string[]): ReorderableRow | null {
+  const geometryById = new Map(
+    currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
+  )
+  const boxes: Box[] = []
+  for (const id of orderedIds) {
+    const entity = geometryById.get(id)
+    if (!entity) continue
+    boxes.push({
+      id,
+      x: entity.canvasX,
+      y: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })
+  }
+  return detectReorderableRow(boxes)
+}
+
+export function reorderSelection(
+  orderedIds: string[],
+  movingId: string,
+  dropIndex: number,
+): boolean {
+  const geometryById = new Map(
+    currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
+  )
+
+  const row = buildSelectionRow(orderedIds)
+  if (!row) return false
+
+  const positions = reorderRowPositions(row, movingId, dropIndex)
+  if (positions.size === 0) return false
+
+  beginBatch()
+  let changed = false
+  for (const [id, pos] of positions) {
+    const kind = geometryById.get(id)?.kind
+    if (kind && writeReorderedPosition(id, kind, pos)) changed = true
+  }
+  if (changed) scheduleWorkspaceAutosave()
+  endBatch()
+  markUndoBoundary()
+
+  if (changed) requestLayout()
+  return changed
 }
 
 // --- Device Page Commands ---

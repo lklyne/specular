@@ -21,7 +21,7 @@
 import type { FocusTarget } from '../../shared/interaction-types'
 
 export type FocusState = {
-  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity' | 'reordering-child'
+  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity' | 'reordering-row'
   editingEntityId: string | null
   selectedPageId: string | null
   workspaceViewMode: 'canvas' | 'browser'
@@ -56,7 +56,7 @@ export function expectedFocus(state: FocusState): FocusTarget {
     case 'resizing-entity':
     case 'resizing-multi-selection':
     case 'dragging-edge':
-    case 'reordering-child':
+    case 'reordering-row':
       return { kind: 'aboveView' }
     case 'editing-entity':
       // Inline canvas editors (sticky notes, shapes, markdown files,

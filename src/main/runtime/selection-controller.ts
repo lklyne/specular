@@ -80,7 +80,7 @@ function predicateInteractionKind(
     case 'resizing-multi-selection': return 'resizing-multi-selection'
     case 'dragging-edge': return 'dragging-edge'
     case 'editing-entity': return 'editing-entity'
-    case 'reordering-child': return 'reordering-child'
+    case 'reordering-row': return 'reordering-row'
   }
 }
 

@@ -111,7 +111,7 @@ export type CanvasInteractionState =
   | { kind: 'resizing-entity'; entity: CanvasSelectableTarget }
   | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
-  | { kind: 'reordering-child'; groupId: string; childId: string; dropIndex: number }
+  | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
 
 export interface CanvasScenePageEntity {
   kind: 'page'
@@ -1791,11 +1791,13 @@ export interface CanvasBgElectronAPI {
   endResize: () => void
   beginMultiResize: () => void
   endMultiResize: () => void
-  /** Auto-layout reorder drag (ADR 0015). start → move* → commit | cancel. */
-  beginReorderChild: (childId: string, groupId: string) => void
-  reorderChildMove: (canvasX: number, canvasY: number) => void
-  reorderChildCommit: () => void
-  reorderChildCancel: (reason?: CancelReason) => void
+  /** Row reorder drag (ADR 0015 D7). start → move* → commit | cancel. The begin
+   *  carries only `movingId`; main resolves which door (selection / managed)
+   *  armed the gesture. */
+  beginReorderDrag: (movingId: string) => void
+  reorderDragMove: (canvasX: number, canvasY: number) => void
+  reorderDragCommit: () => void
+  reorderDragCancel: (reason?: CancelReason) => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +
    *  element under the window-coord point and either fires

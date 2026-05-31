@@ -181,7 +181,7 @@ function EntitySelectionOverlay({
   )
 }
 
-interface SelectedEntitySpan {
+export interface SelectedEntitySpan {
   id: string
   kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
   canvasX: number
@@ -291,10 +291,22 @@ export function SelectionOutlineLayer({
   layoutData,
   isDark,
   marqueePreviewIds,
+  reorderGhostId,
+  reorderGhostSpan,
 }: {
   layoutData: LayoutUpdateData
   isDark: boolean
   marqueePreviewIds: Set<string> | null
+  /** While a reorder drag is in flight (ADR 0015 D7, Phase D), drop this entity's
+   *  *per-item* outline — a crisp box fights the grayscale placeholder at its
+   *  destination slot and the 50% ghost under the cursor. It stays in the
+   *  multi-select bounding box (placeholder slot via `layoutData`, cursor via
+   *  `reorderGhostSpan`), so the box wraps both. */
+  reorderGhostId?: string | null
+  /** While a reorder drag is in flight, the lifted item's ghost rect at the
+   *  cursor — added to the multi-select bounding box so it resizes toward the
+   *  cursor as the item is dragged out (FigJam parity). */
+  reorderGhostSpan?: SelectedEntitySpan | null
 }) {
   const originY = layoutData.canvasOrigin.y
   const selectedIdSet = useMemo(
@@ -345,11 +357,12 @@ export function SelectionOutlineLayer({
     () =>
       pages.filter(
         (f) =>
-          selectedIdSet.has(f.id) ||
-          f.id === hoveredEntityId ||
-          marqueePreviewIds?.has(f.id),
+          f.id !== reorderGhostId &&
+          (selectedIdSet.has(f.id) ||
+            f.id === hoveredEntityId ||
+            marqueePreviewIds?.has(f.id)),
       ),
-    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds],
+    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId],
   )
 
   // Non-page entities render outline if selected, hovered, or in marquee preview.
@@ -357,14 +370,20 @@ export function SelectionOutlineLayer({
     () =>
       [...textEntities, ...fileEntities, ...drawingEntities, ...shapeEntities].filter(
         (e) =>
-          selectedIdSet.has(e.id) ||
-          e.id === hoveredEntityId ||
-          marqueePreviewIds?.has(e.id),
+          e.id !== reorderGhostId &&
+          (selectedIdSet.has(e.id) ||
+            e.id === hoveredEntityId ||
+            marqueePreviewIds?.has(e.id)),
       ),
-    [textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, hoveredEntityId, marqueePreviewIds],
+    [textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId],
   )
 
-  // Multi-select bounding box: aggregate all selected entities' rects.
+  // Multi-select bounding box: aggregate all selected entities' rects. During a
+  // reorder drag the dragged item is included twice — once at its destination
+  // slot (the grayscale placeholder, via `layoutData`) and once at the cursor
+  // (`reorderGhostSpan`) — so the box wraps the drop location *and* resizes
+  // toward the lifted item as it moves (FigJam parity). Its per-item outline is
+  // still dropped below, so only the group box tracks them, not a crisp outline.
   const allSelectedEntities: SelectedEntitySpan[] = useMemo(() => {
     if (!isMultiSelect) return []
     const out: SelectedEntitySpan[] = []
@@ -373,8 +392,9 @@ export function SelectionOutlineLayer({
     for (const e of fileEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of drawingEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of shapeEntities) if (selectedIdSet.has(e.id)) out.push(e)
+    if (reorderGhostSpan) out.push(reorderGhostSpan)
     return out
-  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet])
+  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, reorderGhostSpan])
 
   // Group selection overlay — render whenever a group is selected. The
   // canvas-bg `GroupSelectionOverlayLayer` used to suppress this when the

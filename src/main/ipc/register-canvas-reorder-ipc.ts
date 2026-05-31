@@ -8,34 +8,32 @@ import {
 } from '../reorder-gesture'
 
 /**
- * IPC for the auto-layout reorder gesture (ADR 0015 Phase 3). Thin wrappers over
- * the reorder-gesture coordinator; the renderer's `runReorderDrag` dispatches
- * start → move* → commit | cancel.
+ * IPC for the row reorder gesture (ADR 0015 D7). Thin wrappers over the
+ * reorder-gesture coordinator; the renderer's `runReorderDrag` dispatches
+ * start → move* → commit | cancel. The begin carries only `movingId` — main
+ * resolves which door (selection / managed) armed the gesture.
  *
  * `start` enters the interaction mode before any mutation (gesture-begin
  * ordering — see runtime/CLAUDE.md), so the first `requestLayout` reconciles
- * focus against `reordering-child` rather than `idle`.
+ * focus against `reordering-row` rather than `idle`.
  */
 export function registerCanvasReorderIpc(): void {
+  ipcMain.on('canvas-reorder-start', (_event, { movingId }: { movingId: string }) => {
+    startReorderGesture(movingId)
+  })
+
   ipcMain.on(
-    'canvas-reorder-child-start',
-    (_event, { childId, groupId }: { childId: string; groupId: string }) => {
-      startReorderGesture(childId, groupId)
+    'canvas-reorder-move',
+    (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
+      moveReorderGesture(canvasX, canvasY)
     },
   )
 
-  ipcMain.on(
-    'canvas-reorder-child-move',
-    (_event, { canvasX }: { canvasX: number; canvasY: number }) => {
-      moveReorderGesture(canvasX)
-    },
-  )
-
-  ipcMain.on('canvas-reorder-child-commit', () => {
+  ipcMain.on('canvas-reorder-commit', () => {
     commitReorderGesture()
   })
 
-  ipcMain.on('canvas-reorder-child-cancel', (_event, { reason }: { reason?: CancelReason } = {}) => {
+  ipcMain.on('canvas-reorder-cancel', (_event, { reason }: { reason?: CancelReason } = {}) => {
     cancelReorderGesture(reason ?? 'external')
   })
 }

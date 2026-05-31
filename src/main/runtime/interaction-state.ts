@@ -93,12 +93,13 @@ export function updateEdgeDragTarget(
   return next
 }
 
-export function beginReorderingChild(
-  groupId: string,
-  childId: string,
+export function beginReorderingRow(
+  ids: string[],
+  movingId: string,
   dropIndex: number,
+  axis: 'x' | 'y',
 ): CanvasInteractionState {
-  const next: CanvasInteractionState = { kind: 'reordering-child', groupId, childId, dropIndex }
+  const next: CanvasInteractionState = { kind: 'reordering-row', ids: [...ids], movingId, dropIndex, axis }
   setInteractionState(next)
   markDirty('canvas')
   requestLayout()
@@ -106,7 +107,7 @@ export function beginReorderingChild(
 }
 
 export function updateReorderingDropIndex(dropIndex: number): CanvasInteractionState {
-  if (interactionState.kind !== 'reordering-child') return interactionState
+  if (interactionState.kind !== 'reordering-row') return interactionState
   if (interactionState.dropIndex === dropIndex) return interactionState
   const next: CanvasInteractionState = { ...interactionState, dropIndex }
   setInteractionState(next)

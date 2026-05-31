@@ -60,9 +60,10 @@ export type CanvasPointerAction =
   | { kind: 'begin-multi-resize'; handle: ResizeHandle }
   /** Begin an edge-create drag from an anchor. */
   | { kind: 'begin-edge-drag'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
-  /** Begin dragging a managed child's center dot to reorder it within its
-   *  auto-layout group (ADR 0015). */
-  | { kind: 'begin-reorder-drag'; childId: string; groupId: string; entityKind: CanvasEntityKind }
+  /** Begin dragging an entity's center dot to reorder it within its row
+   *  (ADR 0015 D7). Carries only `movingId`; main resolves which door
+   *  (selection / managed) armed the gesture. */
+  | { kind: 'begin-reorder-drag'; movingId: string; entityKind: CanvasEntityKind }
   /** Modifier-additive selection toggle (no drag). */
   | { kind: 'toggle-select'; entityId: string; entityKind: CanvasEntityKind }
   /** Background click/drag candidate — clears on click, marquee-selects after threshold. */
@@ -148,8 +149,7 @@ function routeByPayload(
     case 'reorder-handle':
       return {
         kind: 'begin-reorder-drag',
-        childId: payload.entityId,
-        groupId: payload.groupId,
+        movingId: payload.entityId,
         entityKind: payload.entityKind,
       }
     case 'page-body':

@@ -33,7 +33,7 @@ import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
-import { SelectionOutlineLayer } from './SelectionOutlineLayer'
+import { SelectionOutlineLayer, type SelectedEntitySpan } from './SelectionOutlineLayer'
 import { ShapeBodyLayer } from './ShapeBodyLayer'
 import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
@@ -52,10 +52,12 @@ import { canvasRectToScreenRect, pendingElementComposerPosition } from './annota
 import {
   FULL_ROUTER_CONSUME,
   useCanvasPointerRouter,
+  type ReorderGhostOffset,
 } from './useCanvasPointerRouter'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
+import { reorderPreviewLayout } from './reorderPreview'
 import { PageChromeOverlay } from './PageChrome'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
@@ -197,6 +199,7 @@ function StackedCanvasItems({
   selectedEdgeIds,
   selectedEntityIdSet,
   editingEntityId,
+  ghostEntity,
 }: {
   layoutData: LayoutUpdateData
   fileJsonModeMap: FileJsonModeMap
@@ -205,6 +208,11 @@ function StackedCanvasItems({
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
   editingEntityId: string | null
+  /** Reorder ghost (ADR 0015 D7, Phase D): the dragged entity, already
+   *  positioned at grab-origin + cursor-delta. Its in-row slot paints as a
+   *  grayscale placeholder (the drop location); the ghost itself renders last at
+   *  50% opacity, floating over the settling siblings under the cursor. */
+  ghostEntity?: CanvasSceneEntity | null
 }) {
   if (layoutData.viewMode !== 'canvas') return null
 
@@ -231,6 +239,76 @@ function StackedCanvasItems({
     )
   }
 
+  // One entity's body via its per-kind layer. Shared by the in-row stack and the
+  // reorder ghost so the ghost is the *same item*, not a stand-in box. Pages and
+  // groups have no React body here (page bodies are native WebContentsViews), so
+  // a page ghost has no fill — an inherent limit of renderer-only Phase D.
+  function renderEntityBody(entity: CanvasSceneEntity) {
+    if (entity.kind === 'drawing') {
+      return (
+        <SavedDrawingEntities
+          key={`drawing-${entity.id}`}
+          entities={[entity]}
+          layoutData={layoutData}
+          selectedEntityIds={layoutData.selectedEntityIds}
+          isDark={isDark}
+        />
+      )
+    }
+    if (entity.kind === 'shape') {
+      return (
+        <ShapeBodyLayer
+          key={`shape-${entity.id}`}
+          entities={[entity]}
+          isDark={isDark}
+          selectedEntityIdSet={selectedEntityIdSet}
+          editingEntityId={editingEntityId}
+          canvasOrigin={layoutData.canvasOrigin}
+          pan={layoutData.pan}
+          zoom={layoutData.zoom}
+          onUpdateText={(shapeId, text) => api.updateShapeEntity(shapeId, { text })}
+          onCommitEdit={api.commitEntityEdit}
+        />
+      )
+    }
+    if (entity.kind === 'text') {
+      return (
+        <StickyBodyLayer
+          key={`text-${entity.id}`}
+          entities={[entity]}
+          isDark={isDark}
+          selectedEntityIdSet={selectedEntityIdSet}
+          editingEntityId={editingEntityId}
+          canvasOrigin={layoutData.canvasOrigin}
+          pan={layoutData.pan}
+          zoom={layoutData.zoom}
+          onUpdateText={(textId, text) => api.updateTextEntity(textId, { text })}
+          onUpdateSize={(textId, width, height) =>
+            api.updateTextEntity(textId, { width, height })
+          }
+          onCommitEdit={api.commitEntityEdit}
+        />
+      )
+    }
+    if (entity.kind === 'file') {
+      return (
+        <FileBodyLayer
+          key={`file-${entity.id}`}
+          entities={[entity]}
+          isDark={isDark}
+          selectedEntityIdSet={selectedEntityIdSet}
+          editingEntityId={editingEntityId}
+          jsonModeMap={fileJsonModeMap}
+          canvasOrigin={layoutData.canvasOrigin}
+          pan={layoutData.pan}
+          zoom={layoutData.zoom}
+          onTextEditingChange={api.setTextEditing}
+        />
+      )
+    }
+    return null
+  }
+
   return (
     <>
       {layoutData.entityOrder.map((id) => {
@@ -239,75 +317,29 @@ function StackedCanvasItems({
 
         const entity = entitiesById.get(id)
         if (!entity) return null
-
-        if (entity.kind === 'drawing') {
+        // The dragged item's slot paints as a grayscale placeholder — the live
+        // drop location, sitting at the packed destination slot (it snaps here at
+        // the 50% threshold). The full-colour ghost floats over it under the
+        // cursor (rendered last, below).
+        if (ghostEntity && entity.id === ghostEntity.id) {
           return (
-            <SavedDrawingEntities
-              key={`drawing-${entity.id}`}
-              entities={[entity]}
-              layoutData={layoutData}
-              selectedEntityIds={layoutData.selectedEntityIds}
-              isDark={isDark}
-            />
+            <div
+              key={`reorder-placeholder-${entity.id}`}
+              className="pointer-events-none"
+              style={{ filter: 'grayscale(1)', opacity: 0.45 }}
+            >
+              {renderEntityBody(entity)}
+            </div>
           )
         }
 
-        if (entity.kind === 'shape') {
-          return (
-            <ShapeBodyLayer
-              key={`shape-${entity.id}`}
-              entities={[entity]}
-              isDark={isDark}
-              selectedEntityIdSet={selectedEntityIdSet}
-              editingEntityId={editingEntityId}
-              canvasOrigin={layoutData.canvasOrigin}
-              pan={layoutData.pan}
-              zoom={layoutData.zoom}
-              onUpdateText={(shapeId, text) => api.updateShapeEntity(shapeId, { text })}
-              onCommitEdit={api.commitEntityEdit}
-            />
-          )
-        }
-
-        if (entity.kind === 'text') {
-          return (
-            <StickyBodyLayer
-              key={`text-${entity.id}`}
-              entities={[entity]}
-              isDark={isDark}
-              selectedEntityIdSet={selectedEntityIdSet}
-              editingEntityId={editingEntityId}
-              canvasOrigin={layoutData.canvasOrigin}
-              pan={layoutData.pan}
-              zoom={layoutData.zoom}
-              onUpdateText={(textId, text) => api.updateTextEntity(textId, { text })}
-              onUpdateSize={(textId, width, height) =>
-                api.updateTextEntity(textId, { width, height })
-              }
-              onCommitEdit={api.commitEntityEdit}
-            />
-          )
-        }
-
-        if (entity.kind === 'file') {
-          return (
-            <FileBodyLayer
-              key={`file-${entity.id}`}
-              entities={[entity]}
-              isDark={isDark}
-              selectedEntityIdSet={selectedEntityIdSet}
-              editingEntityId={editingEntityId}
-              jsonModeMap={fileJsonModeMap}
-              canvasOrigin={layoutData.canvasOrigin}
-              pan={layoutData.pan}
-              zoom={layoutData.zoom}
-              onTextEditingChange={api.setTextEditing}
-            />
-          )
-        }
-
-        return null
+        return renderEntityBody(entity)
       })}
+      {ghostEntity ? (
+        <div key="reorder-ghost" className="pointer-events-none" style={{ opacity: 0.5 }}>
+          {renderEntityBody(ghostEntity)}
+        </div>
+      ) : null}
     </>
   )
 }
@@ -447,6 +479,56 @@ export default function App({
   }, [selectionOverlay])
 
   const isDark = useTheme(initialTheme, api.onThemeChanged)
+
+  // Reorder ghost (ADR 0015 D7, Phase D): the canvas-space pointer delta since
+  // the dragged item was grabbed, published by the gesture in
+  // `useCanvasPointerRouter`. Drives the floating 50%-opacity ghost; null when
+  // not reordering.
+  const [reorderGhost, setReorderGhost] = useState<ReorderGhostOffset>(null)
+
+  // During a reorder drag the *siblings* render at their previewed slots so the
+  // row visibly opens a gap to receive the dragged item (ADR 0015 D7, Phase D).
+  // The dragged item's slot stays reserved here but its body is skipped (drawn
+  // as the ghost instead), so the reserved slot reads as the open gap. Pure
+  // renderer ephemera — the broadcast layout is untouched. Falls back to the
+  // broadcast layout when not reordering.
+  const renderLayout = useMemo(
+    () => reorderPreviewLayout(layoutData) ?? layoutData,
+    [layoutData],
+  )
+
+  // The dragged entity floated at grab-origin + cursor-delta. Read from the
+  // *broadcast* layout (its untouched resting position) — never `renderLayout`,
+  // where it sits in its packed slot. Both canvas and screen coords shift so
+  // whichever a body layer reads lands the ghost under the cursor.
+  const reorderGhostEntity = useMemo<CanvasSceneEntity | null>(() => {
+    const interaction = layoutData.interaction
+    if (interaction.kind !== 'reordering-row') return null
+    const moving = layoutData.entities.find((e) => e.id === interaction.movingId)
+    if (!moving) return null
+    const dx = reorderGhost?.dx ?? 0
+    const dy = reorderGhost?.dy ?? 0
+    const { zoom } = layoutData
+    return {
+      ...moving,
+      canvasX: moving.canvasX + dx,
+      canvasY: moving.canvasY + dy,
+      screenX: moving.screenX + dx * zoom,
+      screenY: moving.screenY + dy * zoom,
+    }
+  }, [layoutData, reorderGhost])
+
+  // The drop-location placeholder sits at the dragged item's packed destination
+  // slot (its position in `renderLayout`, which snaps at the 50% threshold) — so
+  // the multi-select bounding box wraps it via that layout. To keep the box
+  // *resizing toward the cursor* during the drag (FigJam parity), also feed the
+  // lifted item's ghost rect as an extra bounding span. Never a group — reorder
+  // targets entities only.
+  const reorderGhostSpan = useMemo<SelectedEntitySpan | null>(() => {
+    if (!reorderGhostEntity || reorderGhostEntity.kind === 'group') return null
+    return reorderGhostEntity
+  }, [reorderGhostEntity])
+
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
 
@@ -1117,6 +1199,7 @@ export default function App({
     optionHeldRef,
     setDragCopyPreview,
     setEdgeDragState,
+    setReorderGhost,
   })
 
   useEffect(() => {
@@ -1267,13 +1350,14 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           ) : null}
 
           <StackedCanvasItems
-            layoutData={layoutData}
+            layoutData={renderLayout}
             fileJsonModeMap={fileJsonModeMap}
             hoveredEntityId={hoveredEntityId}
             isDark={isDark}
             selectedEdgeIds={selectedEdgeIds}
             selectedEntityIdSet={selectedEntityIdSet}
             editingEntityId={editingEntityId}
+            ghostEntity={reorderGhostEntity}
           />
 
           {layoutData.viewMode === 'canvas' ? (
@@ -1316,9 +1400,11 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
           {layoutData.viewMode === 'canvas' ? (
             <SelectionOutlineLayer
-              layoutData={layoutData}
+              layoutData={renderLayout}
               isDark={isDark}
               marqueePreviewIds={marqueePreviewIds}
+              reorderGhostId={reorderGhostEntity?.id ?? null}
+              reorderGhostSpan={reorderGhostSpan}
             />
           ) : null}
 
@@ -1327,7 +1413,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
           {layoutData.viewMode === 'canvas' ? (
-            <ReorderDotsLayer layoutData={layoutData} isDark={isDark} />
+            <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
           ) : null}
 
           <PageChromeOverlay

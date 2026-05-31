@@ -405,7 +405,7 @@ describe('hit-test — auto-layout reorder dots (ADR 0015)', () => {
       center,
     )
     expect(result.layer).toBe('reorder-handle')
-    expect(result.payload).toMatchObject({ kind: 'reorder-handle', entityId: 'c1', groupId: 'g1' })
+    expect(result.payload).toMatchObject({ kind: 'reorder-handle', entityId: 'c1' })
   })
 
   it('emits a reorder handle when the child itself is selected', () => {
@@ -434,5 +434,34 @@ describe('hit-test — auto-layout reorder dots (ADR 0015)', () => {
     const result = hitTest(inputs([managedGroup(['c1', 'c2']), c1, c2], ['c1']), { x: 320, y: 220 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 'c1' })
+  })
+})
+
+describe('hit-test — selection reorder door (ADR 0015 D7)', () => {
+  // Loose (ungrouped) equal-gap row: three 100×40 texts, gap 50 along x. Canvas
+  // and screen coords coincide (zoom 1) so the detector and the dot center agree.
+  // Centers at screen x = 250, 400, 550; y = 220.
+  function rowText(id: string, x: number): CanvasSceneTextEntity {
+    return { ...text(id, x, 200, 100, 40), canvasX: x, canvasY: 200 }
+  }
+  const e1 = rowText('e1', 200)
+  const e2 = rowText('e2', 350) // gap 50 → equal
+  const center1 = { x: 250, y: 220 }
+
+  it('emits a reorder handle on an equal-gap multi-selection (no group)', () => {
+    const result = hitTest(inputs([e1, e2, rowText('e3', 500)], ['e1', 'e2', 'e3']), center1)
+    expect(result.layer).toBe('reorder-handle')
+    expect(result.payload).toMatchObject({ kind: 'reorder-handle', entityId: 'e1' })
+  })
+
+  it('exposes no reorder hit target on an unequal-gap selection', () => {
+    // e3 sits far past e2 — the second gap dwarfs the first, so it is not a row.
+    const result = hitTest(inputs([e1, e2, rowText('e3', 900)], ['e1', 'e2', 'e3']), center1)
+    expect(result.payload.kind).not.toBe('reorder-handle')
+  })
+
+  it('exposes no reorder hit target on a single selection', () => {
+    const result = hitTest(inputs([e1, e2], ['e1']), center1)
+    expect(result.payload.kind).not.toBe('reorder-handle')
   })
 })
