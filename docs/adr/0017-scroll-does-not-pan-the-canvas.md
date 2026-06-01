@@ -1,4 +1,4 @@
-# ADR 0017 — Scroll does not pan the canvas
+# ADR 0017 — Scroll does not pan the canvas in browser mode
 
 **Status:** Accepted
 **Date:** 2026-06-01
@@ -6,51 +6,49 @@
 
 ## Context
 
-Since the aboveView interactive-layer migration, a plain wheel / two-finger
-trackpad scroll over the canvas mapped to `canvasPan` — the `'pan'` branch of
-`classifyViewportWheel`. This matched the Figma-style "two-finger scroll pans
-the viewport" convention.
+A plain wheel / two-finger trackpad scroll maps to `canvasPan` — the `'pan'`
+branch of `classifyViewportWheel`. In **canvas mode** that is the primary
+navigation gesture and works well; it is unchanged.
 
-In practice it fights the product's other half. Specular is a browser *and* a
-canvas: pages and notes hold scrollable content, and the dominant intent when
-scrolling is "scroll the thing under my cursor," not "pan the world." With a
-page selected, moving the cursor just outside its frame and scrolling slid the
-whole canvas (dots + page card) — surprising, since nothing scrollable was
-under the cursor and the user read the gesture as a no-op zone.
+In **browser mode** the same gesture is wrong. Browser mode presents a single
+page below the URL bar; there is no spatial canvas to navigate. But the canvas
+surface (grid dots + the page's backing card) still sits behind the page, and a
+scroll over the empty area dragged it around — the dots and the card slid while
+the page stayed put. The user reads browser mode as "a browser," where scroll
+should affect page content (or nothing), never pan a world they can't see.
 
-We already route wheel to the right target by cursor position:
+Two wheel handlers exist:
 
-- Over a selected/edited **page** → forwarded into the page's webContents
-  (`routeWheel` → `forwardWheelToPage`).
-- Over a selected/edited **note** with overflow → yielded to native DOM scroll
-  (`yieldWheelToNativeScroll`, the markdown-note scroll fix).
-
-The only remaining wheel consumer was "everything else → pan."
+- `useViewportWheelAndMiddlePan` (aboveView) — the canvas-mode wheel authority.
+  In browser mode aboveView is hidden (gate closed), so this handler does not
+  fire for empty-area scrolls.
+- `useCanvasViewportGestures` (bgView) — the fallback. In browser mode this is
+  the handler that receives an empty-area scroll, and it was panning.
 
 ## Decision
 
-**A plain wheel / two-finger scroll never pans the canvas.** The `'pan'` branch
-of both wheel handlers (`useViewportWheelAndMiddlePan` in aboveView,
-`useCanvasViewportGestures` in bgView) is a no-op. Wheel still:
+**Wheel-pan is canvas-mode only.** The bgView wheel handler pans only when
+`viewMode === 'canvas'`. In browser mode a plain wheel/two-finger scroll over
+the empty area does nothing. Both modes keep:
 
-- **Zooms** on `Cmd`/`Ctrl`+wheel and trackpad pinch (the `'zoom'` branch,
-  unchanged).
-- **Scrolls** a hovered page or note (routing unchanged).
-- **Does nothing** over empty canvas or a non-scrollable entity.
+- **Zoom** on `Cmd`/`Ctrl`+wheel and trackpad pinch.
+- **Scroll** of a hovered page (forwarded into its webContents) or note
+  (native DOM scroll).
 
-Panning remains available through explicit gestures, all unchanged:
-
-- **Hand tool** (toolbar) — drag to pan.
-- **Space-drag** — hold `Space` and drag (temporary hand tool).
-- **Middle-button drag** — drag to pan.
+Canvas mode is untouched — wheel-pan, hand tool, space-drag, and middle-button
+drag all behave exactly as before.
 
 ## Consequences
 
-- Reading a page/note no longer drifts the canvas underneath it.
-- Users lose trackpad-scroll panning; discoverability of the hand tool /
-  space-drag / middle-drag matters more. Acceptable: those are standard and
-  already present.
-- Cursor-position routing is now the single rule for what a wheel event means,
-  which is simpler to reason about than "scroll = pan unless over a target."
-- Reversible: re-enabling is a one-line restore of the `canvasPan` call in each
-  handler.
+- Browser mode no longer drags the canvas behind the page on scroll.
+- Canvas-mode navigation is unchanged (this ADR deliberately does **not** remove
+  scroll-to-pan there — an earlier draft did, and that was wrong).
+- The split lives in the bgView handler's `viewMode` check; the aboveView
+  authority is unchanged.
+
+## Note
+
+This does not address a separate, pre-existing browser-mode bug: the page's
+bgView backing card is positioned at canvas coordinates while the live page is
+re-centered/fit to the browser viewport, so the two diverge (visibly at
+non-100% zoom). That is tracked separately.

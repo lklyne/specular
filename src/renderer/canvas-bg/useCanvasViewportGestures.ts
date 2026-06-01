@@ -44,11 +44,15 @@ export function useCanvasViewportGestures({
       const action = classifyViewportWheel(event)
       if (action.kind === 'zoom') {
         api.canvasZoom(action.deltaY, action.mouseX, action.mouseY)
+        return
       }
-      // Scroll-to-pan is intentionally disabled (ADR 0017): a plain wheel/
-      // two-finger scroll over empty canvas does nothing. Cmd/Ctrl/pinch
-      // still zooms; pan is reachable via the hand tool, space-drag, and
-      // middle-button drag.
+      // Scroll-to-pan is canvas-mode only (ADR 0017). In browser mode this
+      // handler is the active wheel path (aboveView is hidden), and panning
+      // would drag the canvas behind the browser page — so a plain scroll
+      // there does nothing. Cmd/Ctrl/pinch still zooms above.
+      if (layoutRef.current.viewMode === 'canvas') {
+        api.canvasPan(action.deltaX, action.deltaY)
+      }
     }
 
     const handlePointerEnter = () => {

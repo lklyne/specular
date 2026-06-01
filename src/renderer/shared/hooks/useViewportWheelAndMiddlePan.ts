@@ -45,11 +45,9 @@ export function useViewportWheelAndMiddlePan(
       event.preventDefault()
       if (action.kind === 'zoom') {
         api.canvasZoom(action.deltaY, action.mouseX, action.mouseY)
+        return
       }
-      // Scroll-to-pan is intentionally disabled (ADR 0017): a plain wheel/
-      // two-finger scroll over empty canvas does nothing. Cmd/Ctrl/pinch
-      // still zooms above; pan is reachable via the hand tool, space-drag,
-      // and middle-button drag below.
+      api.canvasPan(action.deltaX, action.deltaY)
     }
 
     let middleDragPointerId: number | null = null

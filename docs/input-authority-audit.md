@@ -10,7 +10,7 @@ reserved for native page input, inline editing, and inspect/comment probing.
 | --- | --- | --- |
 | `src/renderer/above-view/useCanvasPointerRouter.ts` | keep as router-owned | Owns selection, drag, resize, marquee, pan, edge drag, and click-to-focus. |
 | `src/renderer/above-view/App.tsx` | keep as router/tool-owned | Keeps explicit aboveView handlers for pending placement and region-select tool mode; wheel and middle-pan use the narrow viewport hook. |
-| `src/renderer/shared/hooks/useViewportWheelAndMiddlePan.ts` | keep as native viewport-only | Forwards wheel zoom and middle-button pan; yields wheel to a hovered page/note for native scroll. Plain wheel does not pan (ADR 0017). |
+| `src/renderer/shared/hooks/useViewportWheelAndMiddlePan.ts` | keep as native viewport-only | Forwards wheel zoom/pan and middle-button pan; yields wheel to a hovered page/note for native scroll. Canvas-mode authority. |
 | `src/renderer/canvas-bg/App.tsx` | convert to visual/native-only | Renders grid, entities, menus, outlines, and accepts file drops; no canvas left-button gestures. |
 | `src/renderer/canvas-bg/CanvasSelectionLayers.tsx` | convert to visual-only | Selection outlines and handles render without starting drag or resize. |
 | `src/renderer/canvas-bg/EdgeLayer.tsx` | convert to visual-only | Edge paths and anchor affordances render without selecting or starting edge drags. |
