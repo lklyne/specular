@@ -433,7 +433,9 @@ export function notifyDevtoolsPanelData(): void {
     panelMode,
     activeTool: uiActiveTool(),
     annotateEnabled: uiActiveTool().kind === 'comment',
-    annotateAvailable: pages.length > 0,
+    // Comment activates on an empty canvas (matching the always-on toolbar), so
+    // the right-panel toggle must stay available with zero pages too.
+    annotateAvailable: true,
     focusedAnnotationId: uiFocusedAnnotationId(),
     selection: selectedPageSummary(),
     inspect,
