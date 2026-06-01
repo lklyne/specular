@@ -162,6 +162,8 @@ type Tool =
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 
+ADR 0005 unified tool *identity*; the remaining per-tool axes (enablement, target state, palette placement, cursor label, popup, bindings) are still scattered across surfaces. Proposed end-state: model tools as a capability registry mirroring the entity-renderer plugin pattern — see [ADR 0016](./docs/adr/0016-tools-as-capability-registry.md) (proposed; not yet adopted).
+
 **Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
 
 ## Annotations
