@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { isAbsolute, join } from 'path'
 import { tmpdir } from 'os'
 import {
   APP_CONTROL_DISCOVERY_FILE,
@@ -17,7 +17,12 @@ interface DiscoveryPayload {
   version: string
 }
 
+// Mirror the resolver in src/main/app-control-server.ts: SPECULAR_DISCOVERY_FILE
+// lets test instances talk to a private discovery file instead of the canonical
+// one shared by the dev/production app.
 function discoveryFilePath(): string {
+  const override = process.env.SPECULAR_DISCOVERY_FILE
+  if (override) return isAbsolute(override) ? override : join(tmpdir(), override)
   return join(tmpdir(), APP_CONTROL_DISCOVERY_FILE)
 }
 
@@ -98,6 +103,14 @@ export async function callApp<T>(path: string, init?: RequestInit): Promise<T> {
   })
   const payload = (await response.json()) as T & { error?: string }
   if (!response.ok) {
+    if (response.status === 401) {
+      // The discovery file's secret no longer matches the server answering on
+      // its port — typically a stale file left by a restarted app or a test
+      // instance. Relaunching the app rewrites the file with a fresh secret.
+      throw new Error(
+        'Specular rejected the request (stale credentials). The discovery file points at a server with a different secret — quit any extra Specular instances and relaunch the app, then retry.',
+      )
+    }
     throw new Error(payload.error ?? `Request failed with ${response.status}`)
   }
   return payload

@@ -3,7 +3,6 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'fs
 import { join } from 'path'
 import { tmpdir } from 'os'
 
-const DISCOVERY_FILE = join(tmpdir(), 'specular-mcp.json')
 const SMOKE_ENV_FILE = join(tmpdir(), 'specular-smoke-env.json')
 const POLL_INTERVAL_MS = 500
 const POLL_TIMEOUT_MS = 15_000
@@ -11,6 +10,11 @@ const POLL_TIMEOUT_MS = 15_000
 // Use a random high port to avoid colliding with a running Specular instance
 const SMOKE_PORT = 29900 + Math.floor(Math.random() * 99)
 const SMOKE_CDP_PORT = 39000 + Math.floor(Math.random() * 1000)
+
+// Private discovery file so smoke instances never read or clobber the canonical
+// specular-mcp.json that a developer's running app and the CLI share. Namespaced
+// by port so concurrent smoke runs stay isolated too.
+const DISCOVERY_FILE = join(tmpdir(), `specular-mcp-smoke-${SMOKE_PORT}.json`)
 
 let electronProcess: ChildProcess | null = null
 let sandboxDir: string | null = null
@@ -49,6 +53,7 @@ export async function setup() {
       ...process.env,
       NODE_ENV: 'production',
       SPECULAR_PORT: String(SMOKE_PORT),
+      SPECULAR_DISCOVERY_FILE: DISCOVERY_FILE,
       SPECULAR_REMOTE_DEBUGGING_PORT: String(SMOKE_CDP_PORT),
       SPECULAR_SKIP_ONBOARDING: '1',
       SPECULAR_BACKGROUND: '1',
@@ -88,14 +93,8 @@ export async function teardown() {
     rmSync(sandboxDir, { recursive: true, force: true })
   }
 
-  // Only remove the discovery file if it belongs to our smoke test instance
-  if (existsSync(DISCOVERY_FILE)) {
-    try {
-      const payload = JSON.parse(readFileSync(DISCOVERY_FILE, 'utf8'))
-      if (payload.port === SMOKE_PORT) rmSync(DISCOVERY_FILE)
-    } catch {
-      // File may have been removed by another process
-    }
-  }
+  // DISCOVERY_FILE is private to this run, so removing it can't affect the
+  // canonical specular-mcp.json a developer's app relies on.
+  if (existsSync(DISCOVERY_FILE)) rmSync(DISCOVERY_FILE, { force: true })
   if (existsSync(SMOKE_ENV_FILE)) rmSync(SMOKE_ENV_FILE)
 }

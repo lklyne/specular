@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http'
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs'
-import { join } from 'path'
+import { isAbsolute, join } from 'path'
 import { tmpdir } from 'os'
 import type { Duplex } from 'stream'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
@@ -78,8 +78,49 @@ let cdpProxyServer: WebSocketServer | null = null
 let secret = ''
 const PROBE_TIMEOUT_MS = 1_000
 
+// The discovery payload this instance owns once it has successfully bound, plus
+// a timer that re-asserts it. See ensureDiscoveryFile.
+let currentDiscovery: DiscoveryPayload | null = null
+let discoveryReassertTimer: NodeJS.Timeout | null = null
+const DISCOVERY_REASSERT_INTERVAL_MS = 4_000
+
+// Test instances (smoke/agent) set SPECULAR_DISCOVERY_FILE to a private path so
+// they never read or clobber the canonical file the dev/production app and the
+// CLI share. Mirror this in src/main/shared/app-client.ts.
 function discoveryFilePath(): string {
+  const override = process.env.SPECULAR_DISCOVERY_FILE
+  if (override) return isAbsolute(override) ? override : join(tmpdir(), override)
   return join(tmpdir(), APP_CONTROL_DISCOVERY_FILE)
+}
+
+function writeDiscoveryFile(payload: DiscoveryPayload): void {
+  writeFileSync(discoveryFilePath(), JSON.stringify(payload, null, 2), 'utf8')
+}
+
+// Re-write the discovery file if it has gone missing or drifted while our
+// server is still listening. Guards against another instance (e.g. a smoke
+// test tearing down, or a crash leaving a stale file) deleting or overwriting
+// the canonical file and orphaning this still-running app from the CLI.
+function ensureDiscoveryFile(): void {
+  if (!server || !currentDiscovery) return
+  try {
+    const onDisk = JSON.parse(readFileSync(discoveryFilePath(), 'utf8')) as Partial<DiscoveryPayload>
+    if (
+      onDisk.port === currentDiscovery.port &&
+      onDisk.secret === currentDiscovery.secret &&
+      onDisk.version === currentDiscovery.version
+    ) {
+      return
+    }
+  } catch {
+    // Missing or unreadable — fall through and rewrite.
+  }
+  try {
+    writeDiscoveryFile(currentDiscovery)
+    console.warn('[app-control] re-asserted discovery file (was missing or drifted)')
+  } catch (error) {
+    console.warn('[app-control] failed to re-assert discovery file:', error)
+  }
 }
 
 function removeDiscoveryFile(): void {
@@ -817,13 +858,21 @@ export async function startAppControlServer(): Promise<void> {
     secret,
     version: APP_CONTROL_VERSION,
   }
-  writeFileSync(discoveryFilePath(), JSON.stringify(payload, null, 2), 'utf8')
+  currentDiscovery = payload
+  writeDiscoveryFile(payload)
+  discoveryReassertTimer = setInterval(ensureDiscoveryFile, DISCOVERY_REASSERT_INTERVAL_MS)
+  discoveryReassertTimer.unref?.()
   console.log(`[app-control] listening on http://${APP_CONTROL_HOST}:${effectivePort}`)
   notifyStatusListeners()
 }
 
 export function stopAppControlServer(): void {
   if (!server) return
+  if (discoveryReassertTimer) {
+    clearInterval(discoveryReassertTimer)
+    discoveryReassertTimer = null
+  }
+  currentDiscovery = null
   cdpProxyServer?.close()
   cdpProxyServer = null
   server.close()
