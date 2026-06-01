@@ -41,12 +41,15 @@ cleanup() {
   if [[ -n "$SANDBOX_DIR" && -d "$SANDBOX_DIR" ]]; then
     rm -rf "$SANDBOX_DIR"
   fi
+  rm -f "$DISCOVERY_FILE" 2>/dev/null || true
   agent-browser close 2>/dev/null || true
 }
 trap cleanup EXIT
 
-# Locate the discovery file (macOS tmpdir is not always /tmp)
-DISCOVERY_FILE="$(python3 -c "import tempfile, os; print(os.path.join(tempfile.gettempdir(), 'specular-mcp.json'))")"
+# Private discovery file (macOS tmpdir is not always /tmp) so this run never
+# reads or clobbers the canonical specular-mcp.json a dev app + CLI share.
+DISCOVERY_FILE="$(python3 -c "import tempfile, os; print(os.path.join(tempfile.gettempdir(), 'specular-mcp-agent-$SMOKE_PORT.json'))")"
+export SPECULAR_DISCOVERY_FILE="$DISCOVERY_FILE"
 
 # Read secret once (populated after server is ready)
 API_SECRET=""
