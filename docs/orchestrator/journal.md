@@ -314,3 +314,17 @@ Noticed (no action):
 - **#144 (manifest extensions) at day 14**: Oldest open non-draft PR. Manual test plan (SVG/Vue files) still unchecked. Not a systemic pattern — one PR.
 - **#168 (triage drain) at day 5, 0 comments**: Two days from the stale threshold (June 2). Per May 30 diagnosis: if it hits day 7 with no comment, the right call is to close with a note — "wrong target, not wrong format." The pipeline now self-clears easy triage items; the residue is architectural decisions that need human time, not automation.
 Hint for next run: make the stale call on #168 if 0 comments June 2; check whether any of #176–#179 merged and whether a fallow cleanup PR appeared — if they merged without cleanup, that's the second fallow instance and crosses the proposal threshold.
+
+---
+
+## 2026-06-01
+Surveyed: CI check runs on non-AFK PRs #181 and #184 (both `fix/` branches, both merged post-claude-review-disable), fallow state on open PRs, #168 staleness (day 6, stale tomorrow), needs-triage queue (#53 at 23 days, #124 at 16 days). Dominant theme: non-AFK review gap crossed the two-instance threshold with CI evidence.
+Acted:
+- #188 filed — restore `claude-review` auto-trigger for non-AFK PRs. Two instances confirmed: PR #181 (`fix/toolbar-tools-and-draw-zorder`, merged May 31) had no `claude-review` run and contained a bug requiring an immediate follow-up; PR #184 (`fix/annotate-tools-without-pages`, merged June 1) also had no review run. CI check history on both PRs confirms only `check` and `fallow` ran — no `claude-review` job. The disable in PR #166 was scoped to AFK PRs in rationale but was unconditional in the YAML.
+Noticed (no action):
+- **#168 (triage drain) stale tomorrow (June 2), 0 comments**: Per the pre-committed May 30 decision — close with "wrong target" note, do not refile. The pipeline now self-clears easy triage items automatically; the residue (#53, #124) requires human architectural decisions that no automated routing unblocks. Next run closes it.
+- **Fallow cleanup lifecycle holding**: PR #185 was filed June 1 explicitly to clear a fallow warning (duplicate `ResizeEdge`/`ResizeDirection` export, issue #183). The cleanup is happening, just on a per-finding basis rather than in batches. Not decorative — generating real work. No proposal needed.
+- **ADR 0016 (tools capability registry, PR #187) filed same session as the #181/#184 fix**: The fix session surfaced deep tool-activation complexity; Lyle immediately framed the long-horizon structural fix in an ADR. Pattern: fix the immediate bug, document the end-state architecture. Healthy.
+- **needs-triage unchanged**: #53 (23 days) and #124 (16 days). Both require human architectural decisions. No automation closes this gap; not refiling.
+- **PR #182 (Distribute) and #185 (ResizeEdge rename) open**: Both filed June 1. Normal cadence; below 7-day threshold.
+Hint for next run: close #168 (stale, wrong target — no refile); check whether proposal #188 (non-AFK review restore) sees any traction or follows the stall pattern; watch whether #182/#185 merge cleanly.
