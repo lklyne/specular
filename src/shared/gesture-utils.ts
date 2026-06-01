@@ -78,6 +78,34 @@ export function isOverlayUiTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest('[data-overlay-ui]'))
 }
 
+function isScrollableContainer(el: HTMLElement): boolean {
+  const style = getComputedStyle(el)
+  const oy = style.overflowY
+  const ox = style.overflowX
+  return (
+    ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) ||
+    ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth)
+  )
+}
+
+/**
+ * True when a wheel event's target sits inside a scrollable element belonging
+ * to an entity body (a markdown note, etc.). The walk stops at the entity
+ * shell (`[data-entity-id]`) so it never reports the canvas surface itself.
+ *
+ * Used so wheeling over a note's body scrolls the note natively instead of
+ * the canvas-mode wheel authority swallowing the event to pan the canvas.
+ */
+export function canScrollWheelTarget(target: EventTarget | null): boolean {
+  let node: Element | null = target instanceof Element ? target : null
+  while (node) {
+    if (node instanceof HTMLElement && isScrollableContainer(node)) return true
+    if (node.hasAttribute('data-entity-id')) break
+    node = node.parentElement
+  }
+  return false
+}
+
 function hasNoModifierKeys(
   event: Pick<KeyboardEvent, 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
 ): boolean {
