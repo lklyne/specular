@@ -57,17 +57,10 @@ function sanitizeForFeatureFlags(tool: Tool): Tool {
   return tool
 }
 
-function sanitizeForPages(tool: Tool): Tool {
-  if (pages.length > 0) return tool
-  // Annotation/inspect tools need at least one page; collapse to select otherwise.
-  if (isAnnotationTool(tool) || tool.kind === 'inspect') {
-    return { kind: 'select' }
-  }
-  return tool
-}
-
 export function setActiveTool(tool: Tool): Tool {
-  const sanitized = sanitizeForPages(sanitizeForFeatureFlags(tool))
+  // Draw, comment, and inspect activate on an empty canvas — they don't
+  // require a page. Only the drawing feature flag can veto a tool here.
+  const sanitized = sanitizeForFeatureFlags(tool)
   const prev = uiActiveTool()
   if (toolsEqual(prev, sanitized)) {
     return prev
