@@ -1,6 +1,6 @@
 import type { CanvasPoint } from './coords'
 
-export type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+export type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
 export type EdgeEndpoint = { entityId: string; side: 'top' | 'right' | 'bottom' | 'left' }
 
@@ -9,7 +9,7 @@ export type InteractionMode =
   | { kind: 'panning' }
   | { kind: 'marquee'; origin: CanvasPoint; current: CanvasPoint }
   | { kind: 'dragging-entities'; ids: string[]; anchor: CanvasPoint }
-  | { kind: 'resizing-entity'; id: string; edge: ResizeEdge }
+  | { kind: 'resizing-entity'; id: string; edge: ResizeDirection }
   | { kind: 'resizing-multi-selection' }
   | { kind: 'dragging-edge'; from: EdgeEndpoint; target: EdgeEndpoint | null }
   | { kind: 'editing-entity'; id: string }
