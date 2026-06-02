@@ -230,12 +230,21 @@ function layoutAllViews(): void {
   const pageOverlays = backgroundPageOverlays()
   const nextActiveSelection = activeCanvasSelection()
 
+  // Whether this pass broadcast the canvas layout to bgView. The live page
+  // WCV bounds are set unconditionally below, but the bgView overlays (the
+  // page's backing card/border) only re-broadcast when 'canvas' is dirty —
+  // so a pass that moves a page's WCV without a canvas-dirty mark (e.g. a
+  // browser-mode page resizing/re-centering after load) would leave the card
+  // stale and offset. We re-send below if that happens.
+  let canvasBroadcast = false
+
   // --- Canvas background + annotation overlay ---
   if (bgView && win) {
     const { width, height } = win.getBounds()
     const bgWidth = Math.max(0, width - (devtoolsOpen ? devtoolsWidth : 0))
     layoutCache.lastBackgroundBoundsKey = setBoundsIfChanged(bgView, { x: 0, y: 0, width: bgWidth, height }, layoutCache.lastBackgroundBoundsKey)
     if (consumeDirty('canvas')) {
+      canvasBroadcast = true
       bgView.webContents.send(
         'layout-update',
         buildCanvasLayoutData(pageOverlays, nextActiveSelection),
@@ -351,6 +360,7 @@ function layoutAllViews(): void {
 
   // --- Per-page bounds, emulation, annotations ---
   const visibleBrowserPageId = boundSelectedPageId()
+  let visiblePageBoundsChanged = false
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const isVisibleInCurrentMode = viewMode === 'canvas' || page.id === visibleBrowserPageId
@@ -416,8 +426,13 @@ function layoutAllViews(): void {
         : CARD_BORDER_RADIUS
     page.frameView.setBorderRadius(borderRadius)
     page.pageView.setBorderRadius(borderRadius)
+    const prevFrameKey = page.lastFrameBoundsKey
+    const prevPageKey = page.lastPageBoundsKey
     page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
     page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
+    if (page.lastFrameBoundsKey !== prevFrameKey || page.lastPageBoundsKey !== prevPageKey) {
+      visiblePageBoundsChanged = true
+    }
 
     const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
     const nativeScale = screen.getPrimaryDisplay().scaleFactor
@@ -477,6 +492,23 @@ function layoutAllViews(): void {
       visible: true,
       isSelected: selectedPageIds.includes(page.id),
       devtoolsOpen,
+    })
+  }
+
+  // Re-sync the bgView overlays when a visible page's WCV bounds shifted this
+  // pass but the canvas layout wasn't broadcast (e.g. a browser-mode page
+  // re-centering after its content loaded). Without this, the backing card
+  // renders at the page's previous position — the browser-mode offset bug.
+  // The overlay data already reflects the new bounds (same `boundScreenBounds`
+  // call), so this is a pure re-send, not another layout pass.
+  if (visiblePageBoundsChanged && !canvasBroadcast && bgView && win) {
+    bgView.webContents.send(
+      'layout-update',
+      buildCanvasLayoutData(pageOverlays, nextActiveSelection),
+    )
+    sendAnnotationLayoutUpdate({
+      pages: pageOverlays,
+      activeSelection: nextActiveSelection,
     })
   }
 
