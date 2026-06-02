@@ -18,6 +18,7 @@ import {
   pendingFocus,
   setPendingFocus,
 } from './runtime-context'
+import { isTextEditingFor } from './binding-dispatcher'
 import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
@@ -46,6 +47,7 @@ function currentFocusState(): FocusState {
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
     focusedPageId: currentKeyboardTargetPageId(),
+    sidebarTextInputActive: leftSidebarView ? isTextEditingFor(leftSidebarView.webContents) : false,
   }
 }
 

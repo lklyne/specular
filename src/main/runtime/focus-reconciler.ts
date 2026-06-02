@@ -32,10 +32,17 @@ export type FocusState = {
    *  forwarded input, or null. Filled from `currentKeyboardTargetPageId`
    *  at the runtime binding layer. */
   focusedPageId: string | null
+  /** True while a sidebar rename input is active. Forces sidebar focus so
+   *  layout passes don't steal focus back to the canvas. */
+  sidebarTextInputActive: boolean
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
   if (state.pendingFocus) return state.pendingFocus
+
+  // Sidebar rename input is open — keep focus in the sidebar so keystrokes
+  // reach the input rather than firing canvas shortcuts.
+  if (state.sidebarTextInputActive) return { kind: 'sidebar' }
 
   // Selection-driven page focus (the predicate already gates on idle
   // interaction + commentOverlayActive). Gesture modes still win below

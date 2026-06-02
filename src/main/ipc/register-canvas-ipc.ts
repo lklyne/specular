@@ -38,6 +38,7 @@ import {
   commitEditingEntity,
 } from '../runtime/editing-entity-runtime'
 import { setTextEditingActive, setAnnotationState } from '../runtime/binding-dispatcher'
+import { leftSidebarView } from '../runtime/view-refs'
 import {
   forwardPointerToPage,
   forwardWheelToPage,
@@ -275,6 +276,12 @@ export function registerCanvasIpc(): void {
   // IPC pair — this handler stays focus-tracking-only.
   ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {
     setTextEditingActive(event.sender, active)
+    // When the sidebar reports a text input becoming active, request a layout
+    // pass so reconcileFocus() immediately gives focus to the sidebar —
+    // preventing any in-flight layout pass from stealing it back to aboveView.
+    if (event.sender === leftSidebarView?.webContents) {
+      requestLayout()
+    }
   })
 
   ipcMain.on(
