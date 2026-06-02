@@ -16,6 +16,7 @@ import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
   canvasToScreenX,
   canvasToScreenY,
+  canScrollWheelTarget,
   isOverlayUiTarget,
   normalizeRect,
   screenPointToCanvasPoint,
@@ -1091,7 +1092,40 @@ export default function App({
     },
     [layoutRef],
   )
-  useViewportWheelAndMiddlePan(true, viewportWheelAndPanApi, routeWheel)
+  // Let the wheel scroll a note's body natively instead of panning the canvas.
+  // Scoped to the single selected (preview) or actively-edited entity, mirroring
+  // the selected-page rule above — and only when its body actually overflows, so
+  // wheeling over a short note still pans.
+  const yieldWheelToEntityScroll = useCallback(
+    (event: WheelEvent): boolean => {
+      const layout = layoutRef.current
+      if (layout.viewMode !== 'canvas') return false
+      const kind = layout.interaction.kind
+      if (kind !== 'idle' && kind !== 'editing-entity') return false
+      const editingId =
+        layout.interaction.kind === 'editing-entity'
+          ? layout.interaction.entityId
+          : null
+      const target = event.target
+      if (!(target instanceof Element)) return false
+      const shell = target.closest('[data-entity-id]')
+      const entityId = shell?.getAttribute('data-entity-id')
+      if (!entityId) return false
+      const selected = layout.selectedEntityIds
+      const active =
+        editingId === entityId ||
+        (selected.length === 1 && selected[0] === entityId)
+      if (!active) return false
+      return canScrollWheelTarget(target, event)
+    },
+    [layoutRef],
+  )
+  useViewportWheelAndMiddlePan(
+    true,
+    viewportWheelAndPanApi,
+    routeWheel,
+    yieldWheelToEntityScroll,
+  )
 
   // PoC: mirror the focused page's `cursor-changed` onto aboveView's body so
   // the OS shows the right cursor (hand on links, I-beam on text, etc.). The

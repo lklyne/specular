@@ -19,9 +19,16 @@ export function useViewportWheelAndMiddlePan(
    *  zoom/pan branch. Cmd/Ctrl+wheel zooms the canvas regardless (the
    *  classifier checks before this is consulted). */
   routeWheel?: (event: WheelEvent) => boolean,
+  /** Optional predicate. Return true to let the browser scroll the event's
+   *  target natively (e.g. a selected note's body) instead of panning the
+   *  canvas. Unlike `routeWheel`, the hook does NOT preventDefault, so the
+   *  native scroll proceeds. Cmd/Ctrl+wheel still zooms the canvas. */
+  yieldWheelToNativeScroll?: (event: WheelEvent) => boolean,
 ) {
   const routeWheelRef = useRef(routeWheel)
   routeWheelRef.current = routeWheel
+  const yieldWheelRef = useRef(yieldWheelToNativeScroll)
+  yieldWheelRef.current = yieldWheelToNativeScroll
   useEffect(() => {
     if (!enabled) return
 
@@ -30,6 +37,7 @@ export function useViewportWheelAndMiddlePan(
     const onWheel = (event: WheelEvent) => {
       if (isOverlayUiTarget(event.target)) return
       const action = classifyViewportWheel(event)
+      if (action.kind === 'pan' && yieldWheelRef.current?.(event)) return
       if (action.kind === 'pan' && routeWheelRef.current?.(event)) {
         event.preventDefault()
         return
