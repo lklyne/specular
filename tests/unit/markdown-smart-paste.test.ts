@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { detectSmartPaste } from '../../src/renderer/canvas-bg/entity-renderers/markdown-smart-paste'
+import {
+  detectSmartPaste,
+  wrapInFence,
+} from '../../src/renderer/canvas-bg/entity-renderers/markdown-smart-paste'
 
 function mockPasteData(types: string[], data: Record<string, string>) {
   return {
@@ -54,6 +57,14 @@ describe('detectSmartPaste', () => {
       )
       expect(result).toBeNull()
     })
+
+    it('detects SVG preceded by an <?xml ...?> prologue', () => {
+      const withProlog = `<?xml version="1.0" encoding="UTF-8"?>\n${MINIMAL_SVG}`
+      const result = detectSmartPaste(
+        mockPasteData(['text/plain'], { 'text/plain': withProlog }),
+      )
+      expect(result).toEqual({ lang: 'svg', text: withProlog })
+    })
   })
 
   describe('JSON detection', () => {
@@ -96,6 +107,13 @@ describe('detectSmartPaste', () => {
     it('does not detect bare JSON primitive (not object or array)', () => {
       const result = detectSmartPaste(
         mockPasteData(['text/plain'], { 'text/plain': '"just a string"' }),
+      )
+      expect(result).toBeNull()
+    })
+
+    it('does not wrap a bare primitive even via application/json MIME', () => {
+      const result = detectSmartPaste(
+        mockPasteData(['application/json'], { 'application/json': '42' }),
       )
       expect(result).toBeNull()
     })
@@ -146,6 +164,23 @@ describe('detectSmartPaste', () => {
     it('returns null when no text/plain is available', () => {
       const result = detectSmartPaste(mockPasteData([], {}))
       expect(result).toBeNull()
+    })
+  })
+
+  describe('wrapInFence', () => {
+    it('uses a 3-backtick fence for ordinary content', () => {
+      expect(wrapInFence('json', '{"a":1}')).toBe('```json\n{"a":1}\n```')
+    })
+
+    it('escalates the fence past any backtick run in the content', () => {
+      // Content contains a ``` run, so the wrapper must use 4 backticks or the
+      // embedded fence would close the block early.
+      const text = 'before\n```\ncode\n```\nafter'
+      const fenced = wrapInFence('md', text)
+      expect(fenced).toBe(`\`\`\`\`md\n${text}\n\`\`\`\``)
+      // The content's ``` runs are strictly shorter than the wrapper fence.
+      expect(fenced.startsWith('````md\n')).toBe(true)
+      expect(fenced.endsWith('\n````')).toBe(true)
     })
   })
 })

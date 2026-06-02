@@ -1116,7 +1116,7 @@ export default function App({
         editingId === entityId ||
         (selected.length === 1 && selected[0] === entityId)
       if (!active) return false
-      return canScrollWheelTarget(target)
+      return canScrollWheelTarget(target, event)
     },
     [layoutRef],
   )

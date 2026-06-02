@@ -78,14 +78,26 @@ export function isOverlayUiTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest('[data-overlay-ui]'))
 }
 
-function isScrollableContainer(el: HTMLElement): boolean {
+type ScrollAxis = 'x' | 'y' | 'either'
+
+function isScrollableContainer(el: HTMLElement, axis: ScrollAxis): boolean {
+  // Cheap overflow check first — only resolve computed style when the content
+  // actually overflows the box on a relevant axis (getComputedStyle can force
+  // a style flush, and this runs per ancestor per wheel tick).
+  const overflowsY = el.scrollHeight > el.clientHeight
+  const overflowsX = el.scrollWidth > el.clientWidth
+  if (axis === 'y' && !overflowsY) return false
+  if (axis === 'x' && !overflowsX) return false
+  if (axis === 'either' && !overflowsY && !overflowsX) return false
+
   const style = getComputedStyle(el)
-  const oy = style.overflowY
-  const ox = style.overflowX
-  return (
-    ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) ||
-    ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth)
-  )
+  const scrollableY =
+    overflowsY && (style.overflowY === 'auto' || style.overflowY === 'scroll')
+  const scrollableX =
+    overflowsX && (style.overflowX === 'auto' || style.overflowX === 'scroll')
+  if (axis === 'y') return scrollableY
+  if (axis === 'x') return scrollableX
+  return scrollableY || scrollableX
 }
 
 /**
@@ -95,11 +107,24 @@ function isScrollableContainer(el: HTMLElement): boolean {
  *
  * Used so wheeling over a note's body scrolls the note natively instead of
  * the canvas-mode wheel authority swallowing the event to pan the canvas.
+ *
+ * When `wheel` is supplied, only the wheel's dominant axis counts as
+ * scrollable — so a vertical wheel over a body that only overflows
+ * horizontally is NOT yielded (native scroll couldn't move it, which would
+ * otherwise deaden the wheel).
  */
-export function canScrollWheelTarget(target: EventTarget | null): boolean {
+export function canScrollWheelTarget(
+  target: EventTarget | null,
+  wheel?: Pick<WheelEvent, 'deltaX' | 'deltaY'>,
+): boolean {
+  const axis: ScrollAxis = wheel
+    ? Math.abs(wheel.deltaY) >= Math.abs(wheel.deltaX)
+      ? 'y'
+      : 'x'
+    : 'either'
   let node: Element | null = target instanceof Element ? target : null
   while (node) {
-    if (node instanceof HTMLElement && isScrollableContainer(node)) return true
+    if (node instanceof HTMLElement && isScrollableContainer(node, axis)) return true
     if (node.hasAttribute('data-entity-id')) break
     node = node.parentElement
   }
