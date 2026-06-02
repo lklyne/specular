@@ -98,6 +98,7 @@ import {
   type Box,
   type ReorderableRow,
 } from '../../shared/reorder-row'
+import { distributeRowPositions } from '../../shared/distribute-row'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
 import { distributionGuideDetector } from './distribution-guide-detector'
@@ -1018,6 +1019,50 @@ export function reorderSelection(
   beginBatch()
   let changed = false
   for (const [id, pos] of positions) {
+    const kind = geometryById.get(id)?.kind
+    if (kind && writeReorderedPosition(id, kind, pos)) changed = true
+  }
+  if (changed) scheduleWorkspaceAutosave()
+  endBatch()
+  markUndoBoundary()
+
+  if (changed) requestLayout()
+  return changed
+}
+
+/**
+ * Distribute selection (ADR 0015 D7) — evens edge-to-edge gaps along the
+ * dominant axis of a loose 3+ entity selection, keeping the first and last
+ * items fixed. Position-only sibling of `reorderSelection`; nothing persists
+ * but the new positions — one undo step restores the prior arrangement.
+ *
+ * Returns false when there is nothing to do: fewer than 3 entities, selection
+ * is not resolvable, or already even within tolerance (no spurious undo step).
+ */
+export function distributeSelection(entityIds: string[]): boolean {
+  const geometryById = new Map(
+    currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
+  )
+
+  const boxes: Box[] = []
+  for (const id of entityIds) {
+    const entity = geometryById.get(id)
+    if (!entity) continue
+    boxes.push({
+      id,
+      x: entity.canvasX,
+      y: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })
+  }
+
+  const result = distributeRowPositions(boxes)
+  if (!result) return false
+
+  beginBatch()
+  let changed = false
+  for (const [id, pos] of result.positions) {
     const kind = geometryById.get(id)?.kind
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }

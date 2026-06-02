@@ -16,6 +16,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { DistributeAction } from './DistributeAction'
 import { TextKindToggle } from './TextKindToggle'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -33,6 +34,7 @@ export function StickyNotePopover({
     | 'deleteTextEntity'
     | 'updateTextEntity'
     | 'morphTextFile'
+    | 'distributeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -115,6 +117,7 @@ export function StickyNotePopover({
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
+          <DistributeAction api={api} isDark={isDark} count={count} />
           <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Duplicate ${noun}`}

@@ -12,6 +12,7 @@ import type {
 } from '../../shared/types'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { DistributeAction } from './DistributeAction'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
@@ -36,6 +37,7 @@ export function PagePopup({
     | 'toggleDeviceShell'
     | 'setPagePreset'
     | 'setPageCustom'
+    | 'distributeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -188,6 +190,7 @@ export function PagePopup({
           </>
         ) : null}
         <CanvasItemPopup.Section>
+          <DistributeAction api={api} isDark={isDark} count={count} />
           <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Duplicate ${noun}`}

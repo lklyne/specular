@@ -9,6 +9,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { DistributeAction } from './DistributeAction'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
 import { renderPopupContributions } from './file-popup-contributions'
@@ -39,6 +40,7 @@ export function FilePopup({
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
     | 'morphTextFile'
+    | 'distributeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -110,6 +112,7 @@ export function FilePopup({
             })()
           : null}
         <CanvasItemPopup.Section>
+          <DistributeAction api={api} isDark={isDark} count={count} />
           <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Duplicate ${noun}`}

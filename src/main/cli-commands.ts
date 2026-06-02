@@ -283,6 +283,20 @@ const autoLayout: VerbHandler = async (args) => {
   return 0
 }
 
+// Even out gaps between 3+ loose entities along their dominant axis. Endpoints
+// stay fixed; the middle items slide to equalize edge-to-edge spacing. (ADR 0015 D7)
+const distribute: VerbHandler = async (args) => {
+  if (args.positional.length > 0 && args.positional.length < 3) {
+    printError('usage: specular distribute <entityId> <entityId> <entityId> [entityId...]  (or no args to use current selection)')
+    return 1
+  }
+  const body = args.positional.length > 0
+    ? JSON.stringify({ entityIds: args.positional })
+    : JSON.stringify({})
+  printJson(await callApp('/selection/distribute', { method: 'POST', body }))
+  return 0
+}
+
 // --- Annotation verbs ---
 
 const annotations: VerbHandler = async (args) => {
@@ -551,6 +565,7 @@ const VERBS: Record<string, VerbHandler> = {
   group,
   ungroup,
   'auto-layout': autoLayout,
+  distribute,
   annotations,
   annotation,
   annotate,

@@ -13,6 +13,7 @@ import type {
   ShapeKind,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { DistributeAction } from './DistributeAction'
 import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -26,7 +27,10 @@ export function ShapePopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    'duplicateShapeEntity' | 'deleteShapeEntity' | 'updateShapeEntity'
+    | 'duplicateShapeEntity'
+    | 'deleteShapeEntity'
+    | 'updateShapeEntity'
+    | 'distributeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -110,6 +114,7 @@ export function ShapePopup({
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
+          <DistributeAction api={api} isDark={isDark} count={count} />
           <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Duplicate ${noun}`}
