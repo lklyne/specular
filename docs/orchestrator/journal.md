@@ -328,3 +328,18 @@ Noticed (no action):
 - **needs-triage unchanged**: #53 (23 days) and #124 (16 days). Both require human architectural decisions. No automation closes this gap; not refiling.
 - **PR #182 (Distribute) and #185 (ResizeEdge rename) open**: Both filed June 1. Normal cadence; below 7-day threshold.
 Hint for next run: close #168 (stale, wrong target — no refile); check whether proposal #188 (non-AFK review restore) sees any traction or follows the stall pattern; watch whether #182/#185 merge cleanly.
+
+---
+
+## 2026-06-02
+Surveyed: needs-triage queue (3 items: #53 at 24 days, #124 at 17 days, #190 at 1 day), proposal #168 (day 7, stale threshold hit), proposal #188 (day 1, 0 comments), ready-for-agent queue, fallow cleanup lifecycle, open PR aging (#182/#179/#178 at 2–3 days, #144 at day 16). Dominant theme: pipeline idle; architectural-decision residue is the only real blocker.
+Acted:
+- #168 closed as `not_planned` (7 days, 0 comments). Per pre-committed May 30 decision — "wrong target, not wrong format." The pipeline self-clears easy triage items automatically; what remains (#53, #124) requires human architectural decisions that no automated routing can unblock. Not refiling.
+Noticed (no action):
+- **AFK pipeline has no work queued**: ready-for-agent is empty. The last 3 ready-for-agent items (#122, #146, #167) each received PRs within 24 hours of being routed. The pipeline is healthy and idle — waiting for triage to produce the next bounded task.
+- **needs-triage bottleneck is structural, not mechanical**: #53 (markdown undo, 24 days) and #124 (pages select-first model, 17 days) both require human architectural decisions. Fresh item #190 (SVG paste rendering, 1 day) is the first new triage candidate — clearly bounded, likely fast-trackable once Lyle reviews it. If #190 routes to ready-for-agent, the AFK pipeline has its next task.
+- **Fallow watch item resolved**: All 4 PRs that showed fallow=FAILURE in the May 31 entry have now merged. PR #185 (ResizeEdge rename, filed June 1) was explicitly a fallow cleanup. The "install → CI fail → cleanup" lifecycle completed a second time — not decorative. Watch item closed.
+- **#188 (claude-review restore) at day 1, 0 comments**: One-liner fix; too early to judge traction. This is the only live proposal. If it reaches day 7 (June 8) with 0 comments, the stall pattern from #63 and #168 has a third data point and the question becomes whether GitHub issues are the wrong forcing function for any proposal.
+- **PR #144 (manifest extensions) at day 16**: Oldest open non-draft PR. Manual test plan (SVG/Vue files) still unchecked. Second-oldest non-draft open PR is #32 (LM Studio, day 39, predates the Specular rename). Neither is a systemic pattern; both are Lyle's product decisions.
+- **June 1 burst merged 4 PRs** (#177, #185, #187, #189): the consistent pattern of concentrated review sessions between quiet stretches continues. The pipeline produces, Lyle reviews in burst, pipeline produces again. This rhythm is stable and by design.
+Hint for next run: check if #190 (SVG paste) was triaged and whether the ready-for-agent queue refilled; check #188 traction (day 7 = June 8 stale threshold); watch whether #182/#179/#178 merged cleanly or if any AFK fix branch showed the review gap #188 targets.
