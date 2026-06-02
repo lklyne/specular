@@ -116,6 +116,8 @@ export function PlacementPreviewLayer({
     shapeKind?: string
     textStyle?: TextEntityStyle
     color?: string
+    textSize?: number
+    zoom?: number
     left: number
     top: number
     width: number
@@ -128,12 +130,16 @@ export function PlacementPreviewLayer({
   const isShape = preview.entityKind === 'shape'
   const isStickyPreview = isTextEntity && preview.textStyle === 'sticky'
   if (isTextEntity && preview.textStyle === 'plain') {
+    const scaledFontSize = (preview.textSize ?? 14) * (preview.zoom ?? 1)
+    const scaledLineHeight = scaledFontSize * 1.5
     return (
       <div
-        className="pointer-events-none absolute select-none text-[12px] leading-[18px] font-normal"
+        className="pointer-events-none absolute select-none font-normal"
         style={{
           left: preview.left,
           top: preview.top,
+          fontSize: scaledFontSize,
+          lineHeight: `${scaledLineHeight}px`,
           color: isDark ? 'rgba(231, 229, 228, 0.58)' : 'rgba(28, 25, 23, 0.48)',
           fontFamily: 'system-ui, sans-serif',
         }}

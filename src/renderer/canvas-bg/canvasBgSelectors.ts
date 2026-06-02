@@ -30,6 +30,8 @@ export function buildPendingPlacementPreview(
     shapeKind: layoutData.pendingPlacement.shapeKind,
     textStyle: layoutData.pendingPlacement.textStyle,
     color: layoutData.pendingPlacement.color,
+    textSize: layoutData.pendingPlacement.textSize,
+    zoom: layoutData.zoom,
     left: layoutData.canvasOrigin.x + layoutData.pan.x + snappedX * layoutData.zoom,
     top: layoutData.canvasOrigin.y + layoutData.pan.y + snappedY * layoutData.zoom,
     width: layoutData.pendingPlacement.width * layoutData.zoom,

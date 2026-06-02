@@ -313,6 +313,8 @@ export interface PendingPlacement {
   textStyle?: TextEntityStyle
   /** Stored color of the in-flight placement (sticky fill, etc.) so the preview can match the picker. */
   color?: string
+  /** Text size in canvas units for plain-text placement preview. */
+  textSize?: number
   width: number
   height: number
 }
