@@ -66,7 +66,6 @@ import { GroupRenameOverlay } from './GroupRenameLabel'
 import { DrawingPopup } from './DrawingPopup'
 import { DrawToolPopup } from './DrawToolPopup'
 import { GroupPopup } from './GroupPopup'
-import { DistributePopup } from './DistributePopup'
 import { ShapePopup } from './ShapePopup'
 import { ShapeToolPopup } from './ShapeToolPopup'
 import { StickyNotePopover } from './StickyNotePopover'
@@ -453,12 +452,6 @@ export default function App({
     () => new Set(layoutData.selectedEntityIds),
     [layoutData.selectedEntityIds],
   )
-  // Loose multi-entity selection: 3+ entities with no managed-row group selected.
-  // Distribute is only meaningful for loose selections — managed groups reflow automatically.
-  const looseEntityIds = useMemo(() => {
-    if (layoutData.selectedGroupId) return []
-    return layoutData.selectedEntityIds
-  }, [layoutData.selectedEntityIds, layoutData.selectedGroupId])
   const interactionIdle = layoutData.interaction.kind === 'idle'
 
   // Single source of truth for "is anything currently in inline-edit mode?"
@@ -1488,13 +1481,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
                     isDark={isDark}
                     layout={layoutData}
                     selectedGroup={selectedGroupEntity}
-                    interactionIdle={interactionIdle}
-                  />
-                  <DistributePopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    looseEntityIds={looseEntityIds}
                     interactionIdle={interactionIdle}
                   />
                   <ShapePopup

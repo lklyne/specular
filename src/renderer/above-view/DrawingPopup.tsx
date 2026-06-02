@@ -15,6 +15,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { DistributeAction } from './DistributeAction'
 import { drawingBounds } from './annotationMath'
 import {
   BRUSH_VARIANT_OPTIONS,
@@ -33,7 +34,10 @@ export function DrawingPopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    'duplicateDrawingEntity' | 'deleteDrawingEntity' | 'updateDrawingEntity'
+    | 'duplicateDrawingEntity'
+    | 'deleteDrawingEntity'
+    | 'updateDrawingEntity'
+    | 'distributeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -146,6 +150,7 @@ export function DrawingPopup({
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
+          <DistributeAction api={api} isDark={isDark} count={count} />
           <CanvasItemPopup.IconButton
             isDark={isDark}
             title={`Duplicate ${noun}`}
