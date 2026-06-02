@@ -289,12 +289,18 @@ export function computeScreenBoundsForPage(input: {
       : Math.max(browserMinPageY, centeredBrowserPageY)
     : snapTopScreenY + insetTop
   const chromeY = isBrowserActive ? browserViewportTop : snapTopScreenY - chromeH
-  // Shell rect (device page bezel) anchored at the snap-rect top — skip in
-  // fill-browser mode.
+  // Shell rect (device page bezel) wraps the content rect, offset outward by
+  // the bezel insets — skip in fill-browser mode. Anchoring off the content
+  // rect (rawChromeX/pageY) rather than the snap rect keeps the bezel locked
+  // to the page in every mode: in canvas mode rawChromeX === snapLeftScreenX +
+  // insetLeft and pageY === snapTopScreenY + insetTop, so this is identical to
+  // the snap-anchored value; in browser mode the content is centered/fitted
+  // (rawChromeX/pageY follow the browser viewport), and the bezel must follow
+  // it instead of staying at the canvas position.
   const shellRect = insets && !isFillBrowserActive
     ? {
-        x: snapLeftScreenX,
-        y: snapTopScreenY,
+        x: rawChromeX - insetLeft,
+        y: pageY - insetTop,
         width: contentW + insetLeft + insetRight,
         height: pageH + insetTop + insetBottom,
       }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computeScreenBoundsForPage,
   pageBodyCanvasBounds,
   pageSnapBounds,
   pageVisualBounds,
 } from '../../src/main/runtime/runtime-geometry'
+import type { Page } from '../../src/main/runtime/runtime-entities'
 import { CHROME_HEADER_HEIGHT } from '../../src/shared/entity-chrome-slots'
 
 type PageStub = Parameters<typeof pageSnapBounds>[0]
@@ -71,5 +73,61 @@ describe('page bounds (Path A semantics)', () => {
     // Body moves down to make room for the bezel.
     expect(pageBodyCanvasBounds(framed).y).toBeGreaterThan(pageBodyCanvasBounds(unframed).y)
     expect(pageBodyCanvasBounds(framed).y - pageBodyCanvasBounds(unframed).y).toBe(12)
+  })
+})
+
+// CUSTOM_SHELL_INSETS = 12px all around (framed page without a real deviceId).
+const SHELL_INSET = 12
+
+function screenBoundsPage(): Page {
+  return {
+    id: 'page_test',
+    canvasX: 100,
+    canvasY: 200,
+    presetIndex: 0,
+    peekWidth: 375,
+    peekHeight: 667,
+    metadata: { showDeviceFrame: true },
+  } as unknown as Page
+}
+
+function computeBounds(opts: { viewMode: 'canvas' | 'browser' }) {
+  return computeScreenBoundsForPage({
+    page: screenBoundsPage(),
+    effectivePageContentSize: () => ({ width: 375, height: 667 }),
+    availableCanvasViewportRect: () => ({ x: 0, y: 0, width: 1000, height: 1000 }),
+    currentViewMode: () => opts.viewMode,
+    // In browser mode the test page is the selected/active page.
+    selectedPageId: () => (opts.viewMode === 'browser' ? 'page_test' : null),
+    isFillBrowserPage: () => false,
+    zoom: 1,
+    pan: { x: 0, y: 0 },
+    toolbarHeight: 0,
+    browserHeaderHeight: 0,
+    chromePageGap: 0,
+    cardBorderWidth: 1,
+  })
+}
+
+describe('computeScreenBoundsForPage: device shell tracks the content rect', () => {
+  it('canvas mode: shell wraps the content, offset outward by the bezel insets', () => {
+    const { shell, page } = computeBounds({ viewMode: 'canvas' })
+    expect(shell.x).toBe(page.x - SHELL_INSET)
+    expect(shell.y).toBe(page.y - SHELL_INSET)
+    expect(shell.width).toBe(page.width + 2 * SHELL_INSET)
+    expect(shell.height).toBe(page.height + 2 * SHELL_INSET)
+  })
+
+  it('browser mode (non-fill): shell follows the centered content, not the canvas position', () => {
+    const { shell, page } = computeBounds({ viewMode: 'browser' })
+    // Content is browser-centered: x = (1000 - 375) / 2 = 312.5 -> 313.
+    expect(page.x).toBe(313)
+    // Regression: the bezel must wrap the *centered* content. Before the fix the
+    // shell was anchored at snapLeftScreenX/snapTopScreenY (the canvas position,
+    // x = 100), leaving the grey card stranded away from the live page.
+    expect(shell.x).toBe(page.x - SHELL_INSET)
+    expect(shell.y).toBe(page.y - SHELL_INSET)
+    expect(shell.width).toBe(page.width + 2 * SHELL_INSET)
+    expect(shell.height).toBe(page.height + 2 * SHELL_INSET)
   })
 })
