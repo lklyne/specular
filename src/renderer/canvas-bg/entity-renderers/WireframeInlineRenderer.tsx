@@ -65,6 +65,17 @@ export function WireframeInlineRenderer({
     return () => window.removeEventListener('wireframe-file-changed', handleExternalChange)
   }, [entity.file, fetchContent])
 
+  // Edits applied in main from another surface (3.2: the panel insert palette)
+  // ping us to re-fetch the projected JSON. Skip when we have a pending local
+  // write — our own optimistic state is fresher than disk until it flushes.
+  useEffect(() => {
+    return fileApi.onWireframeContentChanged(({ entityId }) => {
+      if (entityId !== entity.id) return
+      if (debounceRef.current) return
+      fetchContent()
+    })
+  }, [entity.id, fileApi, fetchContent])
+
   const handleChange = useCallback(
     (json: string) => {
       setContent(json)

@@ -4,7 +4,7 @@ import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type { AnnotationCreateRequest } from '../../shared/types'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
-import { aboveView } from '../runtime/view-refs'
+import { aboveView, bgView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
@@ -57,7 +57,8 @@ import {
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
-import { commitWireframeContent } from '../runtime/wireframe-commands'
+import { commitWireframeContent, commitWireframeInsertNode } from '../runtime/wireframe-commands'
+import type { WireframePaletteType } from '../../shared/wireframe/wireframe-node-factory'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -732,6 +733,19 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on('canvas-duplicate-file-entity', (_event, { id }: { id: string }) => {
     duplicateEntity({ entityId: id, focus: true })
   })
+
+  // Insert palette (3.2): insert a default node into a wireframe's root frame as
+  // one undoable Y.Doc op, then ping the canvas to re-fetch the projected JSON
+  // (the panel and canvas are separate renderers; the read path is still disk).
+  ipcMain.on(
+    'canvas-insert-wireframe-node',
+    (_event, { entityId, nodeType }: { entityId: string; nodeType: string }) => {
+      const result = commitWireframeInsertNode(entityId, nodeType as WireframePaletteType)
+      if (!result.ok) return
+      const entity = fileEntities.find((e) => e.id === entityId)
+      bgView?.webContents.send('wireframe-content-changed', { entityId, file: entity?.file })
+    },
+  )
 
   ipcMain.on(
     'canvas-set-file-device-orientation',

@@ -18,6 +18,9 @@ export interface RendererFileApi {
   readNoteFile: (path: string) => Promise<string | null>
   writeNoteFile: (path: string, content: string) => Promise<boolean>
   applyWireframeContent: (entityId: string, content: string) => Promise<boolean>
+  onWireframeContentChanged: (
+    callback: (data: { entityId: string; file: string }) => void,
+  ) => () => void
   renameNoteFile: (path: string, newName: string) => Promise<string | null>
 }
 

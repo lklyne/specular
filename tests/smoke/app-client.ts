@@ -760,6 +760,21 @@ export function setWireframeContent(id: string, content: string) {
   return post<{ ok: true }>('/test/wireframe/set-content', { id, content })
 }
 
+/** Insert a default node of `nodeType` into the entity's root frame (panel palette path, 3.2). */
+export async function insertWireframeNode(
+  id: string,
+  nodeType: string,
+): Promise<{ ok: boolean; content?: string; error?: string }> {
+  const res = await fetch(`${baseUrl()}/test/wireframe/insert-node`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ id, nodeType }),
+  })
+  const data = (await res.json()) as { ok?: boolean; content?: string; error?: string }
+  if (res.ok) return { ok: true, content: data.content }
+  return { ok: false, error: data.error }
+}
+
 export function getWireframeContent(id: string) {
   return get<{ runtime: string | null; disk: string | null; file: string | null }>(
     `/test/wireframe/content?id=${encodeURIComponent(id)}`,

@@ -22,12 +22,14 @@ import {
   flushWorkspaceAutosave,
   getUndoState,
   getWireframeContent,
+  insertWireframeNode,
   listFileEntities,
   redoWorkspace,
   reloadWorkspace,
   resetSmokeState,
   undoWorkspace,
 } from './app-client'
+import type { WireframeOpInput } from './app-client'
 import { observeYDocTransactions, wait } from './test-utils'
 
 function sampleContent(): string {
@@ -164,5 +166,94 @@ describe('wireframe content', () => {
     const after = await getWireframeContent(id)
     expect(after.disk).toBe(edited)
     expect(after.runtime).toBe(edited)
+  })
+})
+
+// 3.2 — the canvas/panel structural edits (insert / duplicate / delete) drive the
+// same op→Y.Doc apply path. Each must be one undoable transaction that projects
+// to disk, exactly like the setText case above.
+describe('wireframe structural ops (insert / duplicate / delete)', () => {
+  beforeEach(async () => {
+    await resetSmokeState()
+    await cleanupFileEntities()
+    await drainUndoStack()
+  })
+
+  afterEach(async () => {
+    await cleanupFileEntities()
+  })
+
+  // Apply `op`, assert it is exactly one transaction + reflected on disk, that
+  // undo restores the original tree and redo reapplies — the 3.2 contract.
+  async function expectOpRoundTrips(op: WireframeOpInput, expectDisk: (disk: string) => void) {
+    const original = sampleContent()
+    const { id } = await createWireframeEntity({ content: original })
+
+    let edited = ''
+    const count = await observeYDocTransactions(async () => {
+      const result = await applyWireframeOp(id, op)
+      expect(result.ok).toBe(true)
+      edited = result.content!
+    })
+    expect(count).toBe(1)
+
+    let snap = await flushWorkspaceAutosave().then(() => getWireframeContent(id))
+    expect(snap.disk).toBe(edited)
+    expectDisk(snap.disk!)
+
+    await undoWorkspace()
+    snap = await flushWorkspaceAutosave().then(() => getWireframeContent(id))
+    expect(snap.runtime).toBe(original)
+    expect(snap.disk).toBe(original)
+
+    await redoWorkspace()
+    snap = await flushWorkspaceAutosave().then(() => getWireframeContent(id))
+    expect(snap.runtime).toBe(edited)
+    expect(snap.disk).toBe(edited)
+  }
+
+  it('insert: one transaction, undo/redo round-trips, projects to disk', async () => {
+    await expectOpRoundTrips(
+      { kind: 'insert', parentId: 'root', index: 1, node: { id: 'mid', type: 'divider' } },
+      (disk) => expect(disk).toContain('"id": "mid"'),
+    )
+  })
+
+  it('duplicate: one transaction, undo/redo round-trips, projects to disk', async () => {
+    // The headline "another card like this": the clone lands after the source.
+    await expectOpRoundTrips({ kind: 'duplicate', nodeId: 'title' }, (disk) => {
+      // Two text nodes carrying "Hello" now (the original + the clone).
+      expect(disk.match(/"text": "Hello"/g)?.length).toBe(2)
+    })
+  })
+
+  it('delete: one transaction, undo/redo round-trips, projects to disk', async () => {
+    await expectOpRoundTrips({ kind: 'delete', nodeId: 'agree' }, (disk) => {
+      expect(disk).not.toContain('"id": "agree"')
+    })
+  })
+
+  it('panel insert palette: inserts a default node into the root, undoably', async () => {
+    const original = sampleContent()
+    const { id } = await createWireframeEntity({ content: original })
+
+    let edited = ''
+    const count = await observeYDocTransactions(async () => {
+      const result = await insertWireframeNode(id, 'button')
+      expect(result.ok).toBe(true)
+      edited = result.content!
+    })
+    expect(count).toBe(1)
+    // A default button landed at the end of the root frame.
+    expect(edited).toContain('"type": "button"')
+    expect(edited).toContain('"text": "Button"')
+
+    let snap = await flushWorkspaceAutosave().then(() => getWireframeContent(id))
+    expect(snap.disk).toBe(edited)
+
+    await undoWorkspace()
+    snap = await flushWorkspaceAutosave().then(() => getWireframeContent(id))
+    expect(snap.runtime).toBe(original)
+    expect(snap.disk).toBe(original)
   })
 })
