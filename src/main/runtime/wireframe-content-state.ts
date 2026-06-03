@@ -107,6 +107,20 @@ export function ensureWireframeBaseline(entityId: string): void {
   }
 }
 
+/**
+ * Seed a Y.Doc baseline for every current wireframe file-entity. Called when the
+ * external-edit watcher (3.5) starts so an existing entity holds its at-rest tree
+ * in the store + Y.Doc *before* any external edit can race in — without it, the
+ * first thing seen for an untouched entity would be the already-edited file, and
+ * the import couldn't diff back to the pre-edit tree. Idempotent (per-entity
+ * no-op once seeded).
+ */
+export function seedAllWireframeBaselines(): void {
+  for (const entity of fileEntities) {
+    if (isWireframeFilePath(entity.file)) ensureWireframeBaseline(entity.id)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -264,7 +278,7 @@ export function applyWireframeContentsFromDoc(entries: Array<{ id: string; conte
 // Disk projection — runtime mirror → .wireframe.json (autosave debounce)
 // ---------------------------------------------------------------------------
 
-// Self-write registry: last content hash written per path. A future external
+// Self-write registry: last content hash written per path. The external-edit
 // watcher (3.5) hashes a changed file and consults `isWireframeSelfWrite` to
 // ignore writes this process just made.
 const selfWriteHashes = new Map<string, string>()
@@ -275,6 +289,71 @@ function hashContent(content: string): string {
 
 export function isWireframeSelfWrite(filePath: string, hash: string): boolean {
   return selfWriteHashes.get(filePath) === hash
+}
+
+// ---------------------------------------------------------------------------
+// External-edit import — disk → runtime mirror (plan 3.5)
+// ---------------------------------------------------------------------------
+
+/** Why an external-edit import was skipped (for logging / tests). */
+export type WireframeImportSkip =
+  | 'untracked' // not a tracked `.wireframe.json` file-entity
+  | 'unreadable' // file vanished / unreadable between event and read
+  | 'self-write' // our own projection wrote these bytes — break the loop
+  | 'unchanged' // canonicalizes to the tree we already hold (echoed event)
+  | 'invalid' // malformed JSON / invalid tree — refuse to import
+
+/**
+ * Import a genuine external on-disk edit of a `.wireframe.json` into the runtime
+ * mirror (plan 3.5). The watcher calls this when a file changes; the bytes are
+ * validated and folded into the store, from where the shared forward-sync path
+ * writes them to the Y.Doc as one undoable transaction and re-projects them (the
+ * caller schedules that autosave).
+ *
+ * Loop safety: a write this process made (the projection step) is recognized by
+ * content hash and skipped, and the imported bytes are themselves registered as a
+ * self-write so the echo of the same change does not re-import. A content that
+ * canonicalizes to what we already hold is skipped too, so no empty transaction
+ * runs.
+ */
+export function importWireframeFileEdit(
+  filePath: string,
+): { ok: true; entityId: string } | { ok: false; reason: WireframeImportSkip; error?: string } {
+  if (!isWireframeFilePath(filePath)) return { ok: false, reason: 'untracked' }
+  const entity = fileEntities.find((e) => e.file === filePath)
+  if (!entity) return { ok: false, reason: 'untracked' }
+
+  const raw = readNoteFile(filePath)
+  if (raw == null) return { ok: false, reason: 'unreadable' }
+
+  // Our own projection wrote these exact bytes — ignore to break the
+  // write → watch → write loop.
+  if (isWireframeSelfWrite(filePath, hashContent(raw))) {
+    return { ok: false, reason: 'self-write' }
+  }
+
+  // Canonicalize + validate. A malformed mid-edit file is refused, not imported.
+  let canonical: string
+  try {
+    canonical = seedWireframeContent(raw)
+  } catch (err) {
+    return { ok: false, reason: 'invalid', error: (err as Error).message }
+  }
+
+  // Nothing new relative to the tree we already hold (an echoed event, or content
+  // that canonicalizes to the current value). Resolve the current tree from the
+  // store, falling back to the last-synced Y.Doc value when the entity has not
+  // been mirrored yet.
+  const current =
+    wireframeContents.get(entity.id) ??
+    getActiveDoc().getMap<string>(DOC_MAP_WIREFRAMES).get(entity.id)
+  if (current === canonical) return { ok: false, reason: 'unchanged' }
+
+  wireframeContents.set(entity.id, canonical)
+  // Register the imported bytes as a self-write so the echo of this same change
+  // re-firing the watcher is suppressed.
+  selfWriteHashes.set(filePath, hashContent(raw))
+  return { ok: true, entityId: entity.id }
 }
 
 function projectOne(entityFile: string, content: string): void {

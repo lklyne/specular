@@ -19,6 +19,7 @@ import {
   applyWireframeOp,
   createWireframeEntity,
   deleteFileEntities,
+  externalWriteWireframe,
   flushWorkspaceAutosave,
   getUndoState,
   getWireframeContent,
@@ -27,10 +28,12 @@ import {
   redoWorkspace,
   reloadWorkspace,
   resetSmokeState,
+  startTransactionCounter,
+  stopTransactionCounter,
   undoWorkspace,
 } from './app-client'
 import type { WireframeOpInput } from './app-client'
-import { observeYDocTransactions, wait } from './test-utils'
+import { observeYDocTransactions, wait, waitFor } from './test-utils'
 
 function sampleContent(): string {
   return JSON.stringify(
@@ -274,5 +277,106 @@ describe('wireframe structural ops (insert / duplicate / delete)', () => {
     snap = await flushWorkspaceAutosave().then(() => getWireframeContent(id))
     expect(snap.runtime).toBe(original)
     expect(snap.disk).toBe(original)
+  })
+})
+
+// 3.5 — external on-disk edits (agent `Write`, git checkout) are watched, parsed,
+// validated, and imported into the Y.Doc as one undoable transaction. Self-writes
+// from the projection step are ignored by content hash so the write→watch→write
+// loop never closes.
+//
+// Mutation-verified by:
+//   - removing the `scheduleWorkspaceAutosave()` call from
+//     `importExternalWireframeEdit` and confirming the import never reaches the
+//     Y.Doc (the transaction-count / undo assertions fail).
+//   - dropping the `isWireframeSelfWrite` guard in `importWireframeFileEdit` and
+//     confirming the self-write test re-imports (count > 0).
+describe('wireframe external-edit import (3.5)', () => {
+  beforeEach(async () => {
+    await resetSmokeState()
+    await cleanupFileEntities()
+    await drainUndoStack()
+  })
+
+  afterEach(async () => {
+    await cleanupFileEntities()
+  })
+
+  // An external edit, in canonical form so the projection is itself a no-op
+  // (disk already matches) — keeps the transaction count deterministic.
+  function externalContent(title: string): string {
+    return JSON.stringify(
+      JSON.parse(
+        JSON.stringify({
+          version: '1.0',
+          root: {
+            id: 'root',
+            type: 'frame',
+            direction: 'vertical',
+            children: [
+              { id: 'title', type: 'text', text: title, level: 'h1' },
+              { id: 'agree', type: 'checkbox', label: 'Agree', checked: false },
+            ],
+          },
+        }),
+      ),
+      null,
+      2,
+    )
+  }
+
+  it('imports an external edit as one undoable transaction, undo reverts', async () => {
+    const original = sampleContent()
+    const { id } = await createWireframeEntity({ content: original })
+    // Let the create's own file write drain through the watcher (an unchanged
+    // no-op) before we measure.
+    await wait(200)
+
+    const expected = externalContent('FromDisk')
+
+    await startTransactionCounter()
+    await externalWriteWireframe(id, expected)
+    // Wait for the watcher (debounce + fs latency) to fold the edit into the
+    // runtime mirror, then let the forward-sync microtask reach the UndoManager.
+    await waitFor(
+      () => getWireframeContent(id),
+      (c) => c.runtime === expected,
+      'external edit imported into the runtime mirror',
+      { maxAttempts: 40, intervalMs: 100 },
+    )
+    await wait(100)
+    const count = (await stopTransactionCounter()).count
+    expect(count).toBe(1)
+
+    // The import projects back to disk (a self-write — no second import).
+    const snap = await flushWorkspaceAutosave().then(() => getWireframeContent(id))
+    expect(snap.runtime).toBe(expected)
+    expect(snap.disk).toBe(expected)
+
+    // The import is one undo step back to the pre-import tree.
+    await undoWorkspace()
+    const undone = await getWireframeContent(id)
+    expect(undone.runtime).toBe(original)
+  })
+
+  it('does not re-import its own projection (self-write suppressed by hash)', async () => {
+    const { id } = await createWireframeEntity({ content: sampleContent() })
+    // A normal in-app edit projects to disk — that write must NOT loop back in.
+    const edited = (
+      await applyWireframeOp(id, { kind: 'setText', nodeId: 'title', value: 'InApp' })
+    ).content!
+    await wait(50)
+    await flushWorkspaceAutosave()
+
+    // Give the watcher ample time to (not) re-import the projection's write.
+    await startTransactionCounter()
+    await wait(400)
+    const count = (await stopTransactionCounter()).count
+    expect(count).toBe(0)
+
+    // Content is intact — not reverted, duplicated, or churned by a loop.
+    const snap = await getWireframeContent(id)
+    expect(snap.runtime).toBe(edited)
+    expect(snap.disk).toBe(edited)
   })
 })
