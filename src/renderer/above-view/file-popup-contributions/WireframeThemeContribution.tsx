@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'
 import { WIREFRAME_THEME_OPTIONS } from '../../canvas-bg/wireframe/WireframeRenderer'
-import type { WireframeThemeName } from '../../canvas-bg/wireframe/wireframe-types'
+import type { WireframeThemeName } from '../../../shared/wireframe/wireframe-types'
 import { filePathToSrc } from '../../canvas-bg/entity-renderers/filePathToSrc'
 import { CanvasItemPopup } from '../CanvasItemPopup'
 

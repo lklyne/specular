@@ -10,7 +10,7 @@ import type {
   WireframeToggle,
   WireframeImage,
   DropTarget,
-} from './wireframe-types'
+} from '../../../shared/wireframe/wireframe-types'
 import type { WireframeThemeColors } from './wireframe-themes'
 import { sizingToFlex, sizingToWidth, sizingToHeight, parsePadding } from './wireframe-utils'
 

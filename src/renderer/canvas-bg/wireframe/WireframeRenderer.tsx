@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { WireframeFile, WireframeThemeName, DropTarget } from './wireframe-types'
+import type { WireframeFile, WireframeThemeName, DropTarget } from '../../../shared/wireframe/wireframe-types'
 import { wireframeThemes } from './wireframe-themes'
 import { WireframeNodeRenderer } from './WireframeNodeRenderer'
 import {
@@ -7,8 +7,8 @@ import {
   updateNodeText,
   toggleNodeState,
   findNodeById,
-  nodeHasEditableText,
-} from './wireframe-utils'
+} from '../../../shared/wireframe/wireframe-ops'
+import { nodeHasEditableText } from './wireframe-utils'
 
 export const WIREFRAME_THEME_OPTIONS: { name: WireframeThemeName; color: string }[] = [
   { name: 'light', color: '#ffffff' },

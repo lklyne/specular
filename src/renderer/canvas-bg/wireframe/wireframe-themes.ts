@@ -1,4 +1,4 @@
-import type { WireframeThemeName } from './wireframe-types'
+import type { WireframeThemeName } from '../../../shared/wireframe/wireframe-types'
 
 export interface WireframeThemeColors {
   bg: string
