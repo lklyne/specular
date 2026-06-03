@@ -53,6 +53,7 @@ import {
   setInspectActivePageId,
   setInspectHoveredTarget as setInspectHoveredTargetState,
   setInspectSelectedTarget as setInspectSelectedTargetState,
+  wireframePanelSelection,
 } from './runtime-context'
 import {
   workspaceAnnotations,
@@ -446,6 +447,7 @@ export function notifyDevtoolsPanelData(): void {
     fixProgress: getFixProgress(),
     fixConfig: getFixConfig(),
     ...buildEntityDetails(panelMode),
+    wireframeSelection: wireframePanelSelection ?? undefined,
     emptyState: _mcpEmptyState(),
   })
   devtoolsPanelDebug('panel-data:sent', {

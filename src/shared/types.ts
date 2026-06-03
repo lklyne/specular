@@ -898,6 +898,18 @@ export interface PanelMultiEntitySummary {
   label: string
 }
 
+/**
+ * The wireframe node currently selected on the canvas, broadcast to the panel so
+ * it can render per-node property editors (plan 3.3). `node` carries the node's
+ * own props inline (id/type plus direction/gap/variant/level/…); the panel reads
+ * current values off it and sends `setProps` patches back. Cleared (absent) when
+ * no node is selected.
+ */
+export interface WireframePanelSelection {
+  entityId: string
+  node: { id: string; type: string } & Record<string, unknown>
+}
+
 export interface DevtoolsPanelData {
   activeTab: DevtoolsPanelTab
   panelMode: PanelMode
@@ -920,6 +932,7 @@ export interface DevtoolsPanelData {
   edgeEntity?: PanelEdgeEntityDetail
   groupEntity?: PanelGroupEntityDetail
   multiEntities?: PanelMultiEntitySummary[]
+  wireframeSelection?: WireframePanelSelection
   emptyState?: {
     kind: 'mcp_setup'
     serverName: string
@@ -1904,6 +1917,16 @@ export interface CanvasBgElectronAPI {
    */
   applyWireframeContent: (entityId: string, content: string) => Promise<boolean>
   /**
+   * Mirror the canvas's selected wireframe node to the panel (plan 3.3), so it
+   * can render per-node property editors. `node` carries the node's props inline;
+   * pass `null` to clear. Fire-and-forget — main stores it and re-broadcasts the
+   * panel data.
+   */
+  setWireframeSelection: (
+    entityId: string,
+    node: ({ id: string; type: string } & Record<string, unknown>) | null,
+  ) => void
+  /**
    * Wireframe content changed in the main process from a surface other than this
    * renderer (3.2: the panel insert palette). A refresh ping carrying the entity
    * id + file path so the inline renderer re-fetches the projected JSON. Returns
@@ -2089,6 +2112,16 @@ export interface DevtoolsPanelElectronAPI {
    * (3.2 — the insert palette). Applied in main as one Y.Doc op (undoable).
    */
   insertWireframeNode: (entityId: string, nodeType: string) => void
+  /**
+   * Patch the props of a single wireframe node (plan 3.3 — the panel property
+   * editors). Applied in main as one `setProps` Y.Doc op (undoable); an illegal
+   * prop for the node type is rejected there.
+   */
+  updateWireframeNodeProps: (
+    entityId: string,
+    nodeId: string,
+    patch: Record<string, unknown>,
+  ) => void
   setFilePreset: (fileId: string, presetIndex: number) => void
   setFileCustom: (fileId: string) => void
   setFileDeviceOrientation: (fileId: string, orientation: string) => void

@@ -6,7 +6,9 @@ import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
 import { aboveView, bgView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
-import { setPendingFocus } from '../runtime/runtime-context'
+import { setPendingFocus, setWireframePanelSelection } from '../runtime/runtime-context'
+import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
+import type { WireframePanelSelection } from '../../shared/types'
 import { executeRegionSelect } from '../runtime/region-select'
 import { queryElementAtPoint } from '../runtime/page-queries'
 import {
@@ -57,7 +59,11 @@ import {
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
-import { commitWireframeContent, commitWireframeInsertNode } from '../runtime/wireframe-commands'
+import {
+  commitWireframeContent,
+  commitWireframeInsertNode,
+  commitWireframeOp,
+} from '../runtime/wireframe-commands'
 import type { WireframePaletteType } from '../../shared/wireframe/wireframe-node-factory'
 import {
   activeTool,
@@ -744,6 +750,33 @@ export function registerCanvasEntityIpc(): void {
       if (!result.ok) return
       const entity = fileEntities.find((e) => e.id === entityId)
       bgView?.webContents.send('wireframe-content-changed', { entityId, file: entity?.file })
+    },
+  )
+
+  // Per-node property editing (3.3): the panel selected-node editors patch one
+  // node's props as a single undoable `setProps` op, then ping the canvas to
+  // re-fetch the projected JSON (separate renderers; the read path is still disk).
+  ipcMain.on(
+    'canvas-update-wireframe-node-props',
+    (
+      _event,
+      { entityId, nodeId, patch }: { entityId: string; nodeId: string; patch: Record<string, unknown> },
+    ) => {
+      const result = commitWireframeOp(entityId, { kind: 'setProps', nodeId, patch })
+      if (!result.ok) return
+      const entity = fileEntities.find((e) => e.id === entityId)
+      bgView?.webContents.send('wireframe-content-changed', { entityId, file: entity?.file })
+    },
+  )
+
+  // Mirror the canvas's selected wireframe node into the panel (3.3) so it can
+  // render the per-node editors. Ephemeral — stored in runtime state, never the
+  // Y.Doc — then re-broadcast in the panel data.
+  ipcMain.on(
+    'canvas-set-wireframe-selection',
+    (_event, { entityId, node }: WireframePanelSelection | { entityId: string; node: null }) => {
+      setWireframePanelSelection(node ? { entityId, node } : null)
+      notifyDevtoolsPanelData()
     },
   )
 

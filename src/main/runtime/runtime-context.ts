@@ -4,6 +4,7 @@ import type {
   CanvasInteractionState,
   DevtoolsPanelData,
   InspectNodeDetail,
+  WireframePanelSelection,
 } from '../../shared/types'
 import type { FocusTarget } from '../../shared/interaction-types'
 import type { Page } from './runtime-entities'
@@ -110,6 +111,14 @@ export function setInspectHoveredTarget(value: InspectNodeDetail | null): void {
 
 export function setInspectSelectedTarget(value: InspectNodeDetail | null): void {
   inspectSelectedTarget = value
+}
+
+// The wireframe node selected on the canvas, mirrored to the panel for per-node
+// property editors (plan 3.3). Ephemeral — never persisted to the Y.Doc.
+export let wireframePanelSelection: WireframePanelSelection | null = null
+
+export function setWireframePanelSelection(value: WireframePanelSelection | null): void {
+  wireframePanelSelection = value
 }
 
 // --- Workspace persistence ---
