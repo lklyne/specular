@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Drag to reorder the canvas stack right from the sidebar, plus keyboard shortcuts for stack order
 - Smart paste in markdown notes — paste SVG, JSON, or HTML and it auto-wraps in a fenced code block
 - Inspect mode now visualizes flex container gaps with hashed strips between children
-- Links that open in a new tab (`target="_blank"`, cmd-click) now spawn a new page on the canvas instead of a native popup
+- Links that open in a new tab (`target="_blank"`, cmd-click) now spawn a new page on the canvas instead of a native popup — the camera glides to center it on a foreground open
 
 ### Improvements
 - Replying on an annotation thread resumes the same agent-fix session instead of restarting cold

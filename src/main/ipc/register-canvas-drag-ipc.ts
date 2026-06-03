@@ -26,6 +26,7 @@ import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
 import {
   canvasOrigin,
+  cancelCameraAnimation,
   pan,
   requestLayout,
   setPan,
@@ -105,6 +106,11 @@ function flushViewportDelta(): void {
 
   if (panDeltaX !== 0 || panDeltaY !== 0) {
     setPan(pan.x + panDeltaX, pan.y + panDeltaY)
+  }
+
+  // A manual pan/zoom supersedes any in-flight camera animation.
+  if (zoomDeltaY !== 0 || panDeltaX !== 0 || panDeltaY !== 0) {
+    cancelCameraAnimation()
   }
 
   requestLayout()
@@ -190,6 +196,7 @@ export function registerCanvasDragIpc(): void {
   })
 
   ipcMain.on('canvas-pan-to', (_event, { x, y }: { x: number; y: number }) => {
+    cancelCameraAnimation()
     setPan(x, y)
     requestLayout()
   })
