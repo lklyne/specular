@@ -8,6 +8,10 @@ import {
   toggleNodeState,
 } from '../../../shared/wireframe/wireframe-ops'
 import {
+  applyNodeAction,
+  type WireframeNodeAction,
+} from '../../../shared/wireframe/wireframe-node-actions'
+import {
   EMPTY_WIREFRAME_SELECTION,
   wireframeSelectionReducer,
   type WireframeSelectionIntent,
@@ -59,6 +63,9 @@ export function WireframeRenderer({
   } | null>(null)
   const wireframeRef = useRef(wireframe)
   wireframeRef.current = wireframe
+
+  // Per-invocation counter so repeated duplicates get non-colliding fresh ids.
+  const dupSeqRef = useRef(0)
 
   const dispatchSelection = useCallback((intent: WireframeSelectionIntent) => {
     setSelection((prev) => wireframeSelectionReducer(prev, intent, wireframeRef.current))
@@ -232,6 +239,42 @@ export function WireframeRenderer({
   const handleDropTargetChange = useCallback((target: DropTarget) => {
     setDropTarget(target)
   }, [])
+
+  // Delete / duplicate the selected node. Routes through the same persist path as
+  // reorder/text edits (one Y.Doc op per action), then re-points the selection:
+  // cleared after delete, moved onto the new copy after duplicate.
+  const handleNodeAction = useCallback(
+    (action: WireframeNodeAction) => {
+      const wf = wireframeRef.current
+      if (!wf) return
+      const seq = action === 'duplicate' ? (dupSeqRef.current += 1) : 0
+      const result = applyNodeAction(wf, action, selectedNodeId, seq)
+      if (!result) return
+      setWireframe(result.file)
+      persist(result.file)
+      setSelection({ selectedNodeId: result.nextSelectedNodeId, editingNodeId: null })
+    },
+    [selectedNodeId, persist],
+  )
+
+  // Keyboard affordances for the selected node. The inline edit <input> handles
+  // its own keys and stops propagation, so these only fire when not typing.
+  useEffect(() => {
+    if (!canEdit || !selectedNodeId || editingNodeId) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        handleNodeAction('delete')
+      } else if ((e.key === 'd' || e.key === 'D') && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handleNodeAction('duplicate')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [canEdit, selectedNodeId, editingNodeId, handleNodeAction])
 
   // --- JSON mode ---
 

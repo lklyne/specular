@@ -1903,6 +1903,15 @@ export interface CanvasBgElectronAPI {
    * directly. The renderer keeps reading the projected `.wireframe.json`.
    */
   applyWireframeContent: (entityId: string, content: string) => Promise<boolean>
+  /**
+   * Wireframe content changed in the main process from a surface other than this
+   * renderer (3.2: the panel insert palette). A refresh ping carrying the entity
+   * id + file path so the inline renderer re-fetches the projected JSON. Returns
+   * an unsubscribe. (The broadcast-derived read path is the 3.5b cleanup.)
+   */
+  onWireframeContentChanged: (
+    callback: (data: { entityId: string; file: string }) => void,
+  ) => () => void
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   /**
    * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
@@ -2075,6 +2084,11 @@ export interface DevtoolsPanelElectronAPI {
   updateFileEntity: (id: string, patch: { objectFit?: FileObjectFit }) => void
   duplicateFileEntity: (id: string) => void
   deleteFileEntity: (id: string) => void
+  /**
+   * Insert a default node of `nodeType` into a wireframe entity's root frame
+   * (3.2 — the insert palette). Applied in main as one Y.Doc op (undoable).
+   */
+  insertWireframeNode: (entityId: string, nodeType: string) => void
   setFilePreset: (fileId: string, presetIndex: number) => void
   setFileCustom: (fileId: string) => void
   setFileDeviceOrientation: (fileId: string, orientation: string) => void

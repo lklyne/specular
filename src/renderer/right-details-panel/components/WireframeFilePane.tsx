@@ -157,25 +157,27 @@ export function WireframeFilePane({
         </div>
       </div>
 
-      {/* Component palette */}
+      {/* Component palette — insert a node into the root frame */}
       <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
         <div className={`mb-1.5 text-[10px] font-medium ${muted}`}>Components</div>
         <div className="grid grid-cols-2 gap-1">
           {PALETTE_ITEMS.map((item) => (
-            <div
+            <button
               key={item.type}
-              className={`flex items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
+              type="button"
+              onClick={() => rightDetailsPanelApi.insertWireframeNode(fileEntity.id, item.type)}
+              className={`flex items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] ${
                 isDark
                   ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                   : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
               }`}
-              title={`Add via JSON editor`}
+              title={`Add ${item.label.toLowerCase()}`}
             >
               <span className="font-mono text-[10px] opacity-60" style={{ width: 12, textAlign: 'center' }}>
                 {NODE_TYPE_ICONS[item.type]}
               </span>
               {item.label}
-            </div>
+            </button>
           ))}
         </div>
       </div>

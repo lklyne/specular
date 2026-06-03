@@ -65,7 +65,12 @@ import { currentEntityOrder, reorderSidebarStackOrder } from '../runtime/entity-
 import type { SidebarSectionKey } from '../../shared/types'
 import { createFileEntity } from '../runtime/document-commands'
 import { createWireframeFile, readNoteFile } from '../runtime/note-assets'
-import { commitWireframeContent, commitWireframeOp } from '../runtime/wireframe-commands'
+import {
+  commitWireframeContent,
+  commitWireframeInsertNode,
+  commitWireframeOp,
+} from '../runtime/wireframe-commands'
+import type { WireframePaletteType } from '../../shared/wireframe/wireframe-node-factory'
 import {
   ensureWireframeBaseline,
   getWireframeContent,
@@ -565,6 +570,28 @@ export const testRoutes: Route[] = [
         return
       }
       const result = commitWireframeOp(payload.id, payload.op)
+      if (!result.ok) {
+        writeJson(response, 400, { error: result.error })
+        return
+      }
+      writeJson(response, 200, { ok: true, content: result.content })
+    },
+  },
+  {
+    method: 'POST',
+    // Mirrors the panel insert-palette path (3.2): build + insert a default node
+    // of `nodeType` into the entity's root frame as one undoable Y.Doc op.
+    pattern: '/test/wireframe/insert-node',
+    async handler({ response, body }) {
+      const payload = body as { id: string; nodeType: string }
+      if (typeof payload.id !== 'string' || typeof payload.nodeType !== 'string') {
+        writeJson(response, 400, { error: 'id and nodeType are required' })
+        return
+      }
+      const result = commitWireframeInsertNode(
+        payload.id,
+        payload.nodeType as WireframePaletteType,
+      )
       if (!result.ok) {
         writeJson(response, 400, { error: result.error })
         return
