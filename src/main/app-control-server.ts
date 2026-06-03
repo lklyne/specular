@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http'
-import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs'
-import { isAbsolute, join } from 'path'
-import { tmpdir } from 'os'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
+import { dirname, isAbsolute, join } from 'path'
+import { homedir, tmpdir } from 'os'
 import type { Duplex } from 'stream'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
 
@@ -87,13 +87,19 @@ const DISCOVERY_REASSERT_INTERVAL_MS = 4_000
 // Test instances (smoke/agent) set SPECULAR_DISCOVERY_FILE to a private path so
 // they never read or clobber the canonical file the dev/production app and the
 // CLI share. Mirror this in src/main/shared/app-client.ts.
+//
+// The default lives under the home dir, NOT tmpdir(): a CLI run inside a tool
+// sandbox (e.g. Claude Code sets TMPDIR=/tmp/claude-<uid>) resolves tmpdir() to
+// a different directory than the app, so writer and reader would never meet.
+// A home-relative path is stable across processes regardless of TMPDIR.
 function discoveryFilePath(): string {
   const override = process.env.SPECULAR_DISCOVERY_FILE
   if (override) return isAbsolute(override) ? override : join(tmpdir(), override)
-  return join(tmpdir(), APP_CONTROL_DISCOVERY_FILE)
+  return join(homedir(), '.specular', APP_CONTROL_DISCOVERY_FILE)
 }
 
 function writeDiscoveryFile(payload: DiscoveryPayload): void {
+  mkdirSync(dirname(discoveryFilePath()), { recursive: true })
   writeFileSync(discoveryFilePath(), JSON.stringify(payload, null, 2), 'utf8')
 }
 

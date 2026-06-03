@@ -31,6 +31,7 @@ import {
   createDrawingEntity as createDrawingEntityInState,
 } from './runtime/drawing-entity-state'
 import {
+  focusCanvasBounds,
   pageContentSize,
   requestLayout,
   snapToGrid,
@@ -274,8 +275,23 @@ export function duplicatePageFromSource(input: {
     parentGroupId: sourcePage.parentGroupId,
     metadata,
   })
-  if (input.focus ?? true) {
+  const focusNewPage = input.focus ?? true
+  if (focusNewPage) {
     selectPageById(newPage.id)
+  }
+  // Opening a link as a frame via a regular click glides the camera to center
+  // the new frame (keeping zoom). Background opens (cmd/middle-click) and plain
+  // duplicates leave the camera where it is.
+  if (isLinkOpen && focusNewPage) {
+    focusCanvasBounds(
+      {
+        x: placement.canvasX,
+        y: placement.canvasY,
+        width: sourceSize.width,
+        height: sourceSize.height,
+      },
+      { animate: true },
+    )
   }
   requestLayout()
   scheduleWorkspaceAutosave()

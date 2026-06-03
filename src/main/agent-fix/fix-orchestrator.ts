@@ -1,15 +1,16 @@
-import type { Annotation } from '../../shared/types'
+import type { Annotation, FixProgressEvent } from '../../shared/types'
 import { annotationOrigin, truncate } from '../../shared/annotation-utils'
 import {
   addAnnotationReply,
   getAnnotationById,
   getAnnotations,
+  setAnnotationFixSession,
   setOnAnnotationCreated,
   setOnAnnotationReply,
   updateAnnotationStatus,
 } from '../workspace-annotations'
 import { getOriginBindingView as getOriginBinding } from '../runtime/dev-server-manager'
-import { buildFixPrompt } from './prompt-builder'
+import { buildFixPrompt, buildFollowUpPrompt } from './prompt-builder'
 import { invokeClaude, type FixResult } from './claude-spawner'
 import {
   isAnnotationInFlight,
@@ -40,7 +41,7 @@ export function initFixOrchestrator(): void {
     if (!origin) return
     const binding = getOriginBinding(origin)
     if (!binding || !binding.autoFix) return
-    fixAnnotation(annotation.id)
+    fixAnnotationCore(annotation, { followUpText: reply.text })
   })
 }
 
@@ -64,7 +65,10 @@ export function fixPendingAnnotationsForOrigin(origin: string): number {
   return queued
 }
 
-function fixAnnotationCore(annotation: Annotation): boolean {
+function fixAnnotationCore(
+  annotation: Annotation,
+  opts?: { followUpText?: string },
+): boolean {
   if (isAnnotationInFlight(annotation.id)) return false
 
   const origin = annotationOrigin(annotation)
@@ -83,31 +87,58 @@ function fixAnnotationCore(annotation: Annotation): boolean {
     return false
   }
 
-  const prompt = buildFixPrompt(annotation)
+  // A thread that has been fixed before carries its Claude session id; resume it
+  // so the agent keeps its prior context. The first fix (or a stale session)
+  // falls back to the full-context prompt.
+  const resumeSessionId = annotation.metadata?.fixSessionId
+  const fullPrompt = buildFixPrompt(annotation)
+  const prompt = resumeSessionId
+    ? buildFollowUpPrompt(opts?.followUpText ?? latestUserReplyText(annotation))
+    : fullPrompt
+
   updateAnnotationStatus(annotation.id, 'acknowledged')
   startFixProgress(annotation.id, origin)
   markFixStarted(annotation.id, origin)
-  void runFix(annotation.id, origin, prompt, binding.repoPath)
+  void runFix(annotation.id, origin, binding.repoPath, { prompt, resumeSessionId, fullPrompt })
   return true
+}
+
+function latestUserReplyText(annotation: Annotation): string {
+  for (let i = annotation.replies.length - 1; i >= 0; i--) {
+    if (annotation.replies[i].author === 'user') return annotation.replies[i].text
+  }
+  return ''
 }
 
 async function runFix(
   annotationId: string,
   origin: string,
-  prompt: string,
   repoPath: string,
+  plan: { prompt: string; resumeSessionId?: string; fullPrompt: string },
 ): Promise<void> {
   let result: FixResult | null = null
   let error: Error | null = null
+  const onEvent = (event: FixProgressEvent) =>
+    appendFixEvent(annotationId, event.kind, event.text)
   try {
-    result = await invokeClaude(prompt, repoPath, {
-      onEvent: (event) => appendFixEvent(annotationId, event.kind, event.text),
-    })
+    result = await invokeClaude(plan.prompt, repoPath, { resumeSessionId: plan.resumeSessionId, onEvent })
   } catch (err) {
     error = err instanceof Error ? err : new Error(String(err))
+    // A stale/missing session can't be resumed (cleaned up, or the .canvas
+    // moved to another machine). Retry once from scratch with full context.
+    if (plan.resumeSessionId) {
+      appendFixEvent(annotationId, 'system', 'Could not resume prior session — starting fresh.')
+      error = null
+      try {
+        result = await invokeClaude(plan.fullPrompt, repoPath, { onEvent })
+      } catch (retryErr) {
+        error = retryErr instanceof Error ? retryErr : new Error(String(retryErr))
+      }
+    }
   } finally {
     markFixFinished(annotationId, origin)
   }
+  if (result?.sessionId) setAnnotationFixSession(annotationId, result.sessionId)
   handleCompletion(annotationId, result, error)
 }
 

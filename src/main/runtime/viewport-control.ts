@@ -47,17 +47,78 @@ export function setPan(x: number, y: number): void {
 // import surface stays stable.
 export { requestLayout }
 
-export function focusCanvasBounds(bounds: WorkspaceBounds): void {
-  if (!win) return
+/** Pan offset that centers `bounds` in the available viewport at the current zoom. */
+function panToCenterBounds(bounds: WorkspaceBounds): { x: number; y: number } {
   const viewport = availableCanvasViewportRect()
-  const targetX = Math.round(
-    viewport.x + viewport.width / 2 - canvasOriginX() - (bounds.x + bounds.width / 2) * zoom,
-  )
-  const targetY = Math.round(
-    viewport.height / 2 - (bounds.y + bounds.height / 2) * zoom,
-  )
-  setPan(targetX, targetY)
+  return {
+    x: Math.round(
+      viewport.x + viewport.width / 2 - canvasOriginX() - (bounds.x + bounds.width / 2) * zoom,
+    ),
+    y: Math.round(viewport.height / 2 - (bounds.y + bounds.height / 2) * zoom),
+  }
+}
+
+export function focusCanvasBounds(
+  bounds: WorkspaceBounds,
+  options?: { animate?: boolean },
+): void {
+  if (!win) return
+  const target = panToCenterBounds(bounds)
+  if (options?.animate) {
+    animatePanTo(target.x, target.y)
+    return
+  }
+  setPan(target.x, target.y)
   requestLayout()
+}
+
+// --- Camera animation ----------------------------------------------------
+// Reusable pan tween for the main process. There's no requestAnimationFrame
+// here, so we step on a ~60fps interval, easing pan from its current value to
+// the target. Only one animation runs at a time; a new one (or any user-driven
+// pan/zoom via `cancelCameraAnimation`) supersedes the previous.
+
+const CAMERA_ANIMATION_DURATION_MS = 260
+const CAMERA_ANIMATION_FRAME_MS = 16
+
+let cameraAnimationTimer: ReturnType<typeof setInterval> | null = null
+
+function easeOutCubic(t: number): number {
+  return 1 - (1 - t) ** 3
+}
+
+/** Stop any in-flight camera animation. Safe to call when none is running. */
+export function cancelCameraAnimation(): void {
+  if (cameraAnimationTimer) {
+    clearInterval(cameraAnimationTimer)
+    cameraAnimationTimer = null
+  }
+}
+
+/**
+ * Smoothly pan the canvas to `(targetX, targetY)` while keeping the current
+ * zoom. Reusable wherever the camera should glide rather than jump.
+ */
+export function animatePanTo(
+  targetX: number,
+  targetY: number,
+  durationMs = CAMERA_ANIMATION_DURATION_MS,
+): void {
+  cancelCameraAnimation()
+  const startX = pan.x
+  const startY = pan.y
+  const dx = targetX - startX
+  const dy = targetY - startY
+  if (dx === 0 && dy === 0) return
+  const duration = Math.max(1, durationMs)
+  const start = Date.now()
+  cameraAnimationTimer = setInterval(() => {
+    const t = Math.min(1, (Date.now() - start) / duration)
+    const eased = easeOutCubic(t)
+    setPan(Math.round(startX + dx * eased), Math.round(startY + dy * eased))
+    requestLayout()
+    if (t >= 1) cancelCameraAnimation()
+  }, CAMERA_ANIMATION_FRAME_MS)
 }
 
 export function focusSelectedPage(): boolean {

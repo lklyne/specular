@@ -13,6 +13,8 @@ import { truncate } from '../../shared/annotation-utils'
 export interface ParsedStreamEvent {
   event: FixProgressEvent
   finalText?: string
+  /** Claude Code session id, carried on the init event so a thread can resume. */
+  sessionId?: string
 }
 
 export function parseStreamLine(line: string): ParsedStreamEvent | null {
@@ -29,8 +31,13 @@ export function parseStreamLine(line: string): ParsedStreamEvent | null {
   const type = payload.type as string | undefined
 
   if (type === 'system') {
-    const model = payload.model ?? payload.session_id ?? payload.subtype ?? 'system'
-    return makeEvent('system', `init ${String(model)}`)
+    // The stream emits many `system` messages per run (init, status, hooks …),
+    // all carrying the same session_id. Only the real init is worth surfacing;
+    // the rest would render as a flood of identical "init <session_id>" lines.
+    if (payload.subtype !== 'init') return null
+    const model = typeof payload.model === 'string' ? payload.model : 'session'
+    const sessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined
+    return { ...makeEvent('system', `init ${model}`), sessionId }
   }
 
   if (type === 'assistant') {
@@ -66,8 +73,11 @@ export function parseStreamLine(line: string): ParsedStreamEvent | null {
     return { ...makeEvent('result', summary), finalText }
   }
 
-  // Unknown event — fall through with a short marker so we still see movement.
-  return makeEvent('system', String(type ?? 'event'))
+  // Allowlist: only the types handled above are surfaced. Anything else
+  // (rate_limit_event, status pings, future control messages) is dropped so
+  // new CLI message types can't flood the panel. Movement is already visible
+  // through assistant/tool_use/tool_result events.
+  return null
 }
 
 function describeContentBlock(block: any): { kind: FixProgressEventKind; text: string } | null {

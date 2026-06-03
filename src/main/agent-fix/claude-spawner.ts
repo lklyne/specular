@@ -8,11 +8,15 @@ export interface FixResult {
   summary: string
   shouldResolve: boolean
   rawOutput: string
+  /** Session id reported by this run, for resuming the thread on the next reply. */
+  sessionId?: string
 }
 
 export interface InvokeOptions {
   onEvent?: (event: FixProgressEvent) => void
   timeout?: number
+  /** Resume an existing Claude session instead of starting a fresh one. */
+  resumeSessionId?: string
 }
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
@@ -44,6 +48,9 @@ export function invokeClaude(
       '--output-format', 'stream-json',
       '--verbose',
     ]
+    if (options.resumeSessionId) {
+      args.push('--resume', options.resumeSessionId)
+    }
     if (config.model !== 'opus') {
       args.push('--model', `claude-${config.model}-4-6`)
     }
@@ -63,6 +70,7 @@ export function invokeClaude(
     let stdoutBuffer = ''
     let rawOutput = ''
     let finalText = ''
+    let sessionId: string | undefined
 
     const timer = setTimeout(() => {
       child.kill('SIGKILL')
@@ -73,6 +81,7 @@ export function invokeClaude(
       const parsed = parseStreamLine(line)
       if (!parsed) return
       if (parsed.finalText != null) finalText = parsed.finalText
+      if (parsed.sessionId) sessionId = parsed.sessionId
       if (options.onEvent) options.onEvent(parsed.event)
     }
 
@@ -114,7 +123,7 @@ export function invokeClaude(
         return
       }
       const parsed = parseOutput(finalText || rawOutput)
-      resolve({ ...parsed, rawOutput })
+      resolve({ ...parsed, rawOutput, sessionId })
     })
 
     child.stdin.end()

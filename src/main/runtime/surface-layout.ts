@@ -37,4 +37,7 @@ export {
   requestLayout,
   setPan,
   setZoom,
+  focusCanvasBounds,
+  animatePanTo,
+  cancelCameraAnimation,
 } from './viewport-control'
