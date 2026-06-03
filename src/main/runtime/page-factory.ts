@@ -245,7 +245,20 @@ export function createPage(config: PageConfig): Page {
     const opensNewTab =
       disposition === 'foreground-tab' || disposition === 'background-tab'
     if (opensNewTab && looksLikeUrl(url)) {
-      openLinkInNewFrame({ sourcePageId: page.id, url })
+      // Never let a throw escape into Electron's native callback — always
+      // resolve the disposition by returning deny.
+      try {
+        openLinkInNewFrame({
+          sourcePageId: page.id,
+          url,
+          // Background opens (cmd/middle-click) shouldn't yank selection.
+          focus: disposition === 'foreground-tab',
+        })
+      } catch {
+        breadcrumb('navigation', 'open-link-as-frame-failed', {
+          host: hostOf(url),
+        })
+      }
       return { action: 'deny' }
     }
     return { action: 'allow' }

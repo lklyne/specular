@@ -244,8 +244,18 @@ export function duplicatePageFromSource(input: {
     throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
 
+  // A caller-supplied url means we're opening a link as a frame, not
+  // duplicating the page in place: keep the source's preset/size/device, but
+  // drop url-specific overrides (injected CSS/localStorage/props keyed to the
+  // source page) so they don't bleed onto an unrelated destination.
+  const isLinkOpen = input.url !== undefined
   const url = input.url ?? pageCurrentUrl(sourcePage.id) ?? 'about:blank'
-  const metadata = { ...(cloneMetadata(sourcePage.metadata) ?? {}), createdFrom: 'duplicate' }
+  const clonedMetadata = cloneMetadata(sourcePage.metadata) ?? {}
+  if (isLinkOpen) delete clonedMetadata.overrides
+  const metadata = {
+    ...clonedMetadata,
+    createdFrom: isLinkOpen ? 'link' : 'duplicate',
+  }
   const sourceSize = pageContentSize(sourcePage)
   const placement = findDuplicatePlacement({
     x: sourcePage.canvasX,

@@ -134,8 +134,8 @@ app.whenReady().then(async () => {
   // New-tab links from a page open as a duplicate frame on the canvas rather
   // than a native popup; page-factory routes through this seam to avoid an
   // import cycle into workspace-pages.
-  setOpenLinkInNewFrameHandler(({ sourcePageId, url }) =>
-    duplicatePageFromSource({ sourcePageId, url }),
+  setOpenLinkInNewFrameHandler(({ sourcePageId, url, focus }) =>
+    duplicatePageFromSource({ sourcePageId, url, focus }),
   )
   initDevServerManager({
     userDataDir: app.getPath('userData'),
