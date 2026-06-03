@@ -20,10 +20,11 @@ export interface WireframeNodeRendererProps {
   canEdit: boolean
   draggedNodeId: string | null
   dropTarget: DropTarget | null
+  selectedNodeId: string | null
   editingNodeId: string | null
   onNodePointerDown: (nodeId: string, parentId: string, e: React.PointerEvent) => void
   onDropTargetChange: (target: DropTarget) => void
-  onStartEdit: (nodeId: string) => void
+  onRequestEdit: (nodeId: string) => void
   onCommitEdit: (nodeId: string, value: string) => void
   onCancelEdit: () => void
   onToggleState: (nodeId: string) => void
@@ -34,7 +35,6 @@ function EditableText({
   value,
   isEditing,
   style,
-  onStartEdit,
   onCommitEdit,
   onCancelEdit,
   canEdit,
@@ -43,7 +43,6 @@ function EditableText({
   value: string
   isEditing: boolean
   style: React.CSSProperties
-  onStartEdit: (id: string) => void
   onCommitEdit: (id: string, value: string) => void
   onCancelEdit: () => void
   canEdit: boolean
@@ -84,16 +83,11 @@ function EditableText({
     )
   }
 
+  // Single click selects the node (handled by the frame-child wrapper's pointer
+  // handler); editing is promoted by double-click / Enter, so the span itself
+  // carries no click handler -- that's what de-conflates select from edit.
   return (
     <span
-      onClick={
-        canEdit
-          ? (e) => {
-              e.stopPropagation()
-              onStartEdit(nodeId)
-            }
-          : undefined
-      }
       style={{
         ...style,
         cursor: canEdit ? 'text' : 'default',
@@ -222,6 +216,12 @@ function FrameNodeRenderer({
                 opacity: isDragged ? 0.25 : 1,
                 transition: 'opacity 0.15s',
                 display: child.type === 'frame' ? 'flex' : undefined,
+                outline:
+                  props.selectedNodeId === child.id
+                    ? `2px solid ${props.theme.accent}`
+                    : undefined,
+                outlineOffset: 1,
+                borderRadius: 2,
                 ...(child.type === 'spacer'
                   ? { flex: 1 }
                   : child.type === 'frame'
@@ -234,6 +234,12 @@ function FrameNodeRenderer({
                 if (props.canEdit && !props.editingNodeId) {
                   e.stopPropagation()
                   props.onNodePointerDown(child.id, node.id, e)
+                }
+              }}
+              onDoubleClick={(e) => {
+                if (props.canEdit && !props.editingNodeId) {
+                  e.stopPropagation()
+                  props.onRequestEdit(child.id)
                 }
               }}
             >
@@ -274,7 +280,6 @@ function TextNodeRenderer({
       isEditing={props.editingNodeId === node.id}
       style={{ ...style, color: props.theme.text, fontFamily: 'system-ui, sans-serif' }}
       canEdit={props.canEdit}
-      onStartEdit={props.onStartEdit}
       onCommitEdit={props.onCommitEdit}
       onCancelEdit={props.onCancelEdit}
     />
@@ -316,7 +321,6 @@ function ButtonNodeRenderer({
         isEditing={props.editingNodeId === node.id}
         style={{ color: 'inherit', fontSize: 'inherit', fontWeight: 'inherit' }}
         canEdit={props.canEdit}
-        onStartEdit={props.onStartEdit}
         onCommitEdit={props.onCommitEdit}
         onCancelEdit={props.onCancelEdit}
       />
@@ -363,7 +367,6 @@ function InputNodeRenderer({
           isEditing={props.editingNodeId === node.id}
           style={{ color: theme.textMuted, fontSize: 13 }}
           canEdit={props.canEdit}
-          onStartEdit={props.onStartEdit}
           onCommitEdit={props.onCommitEdit}
           onCancelEdit={props.onCancelEdit}
         />
@@ -415,7 +418,6 @@ function DropdownNodeRenderer({
           isEditing={props.editingNodeId === node.id}
           style={{ color: theme.textMuted, fontSize: 13, flex: 1 }}
           canEdit={props.canEdit}
-          onStartEdit={props.onStartEdit}
           onCommitEdit={props.onCommitEdit}
           onCancelEdit={props.onCancelEdit}
         />
@@ -495,7 +497,6 @@ function CheckboxNodeRenderer({
         isEditing={props.editingNodeId === node.id}
         style={{ fontSize: 13, color: theme.text, fontFamily: 'system-ui, sans-serif' }}
         canEdit={props.canEdit}
-        onStartEdit={props.onStartEdit}
         onCommitEdit={props.onCommitEdit}
         onCancelEdit={props.onCancelEdit}
       />
@@ -559,7 +560,6 @@ function ToggleNodeRenderer({
         isEditing={props.editingNodeId === node.id}
         style={{ fontSize: 13, color: theme.text, fontFamily: 'system-ui, sans-serif' }}
         canEdit={props.canEdit}
-        onStartEdit={props.onStartEdit}
         onCommitEdit={props.onCommitEdit}
         onCancelEdit={props.onCancelEdit}
       />
