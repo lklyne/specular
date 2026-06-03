@@ -45,6 +45,7 @@ import {
 } from '../navigation-sync'
 import { attachBindingDispatcher } from './binding-dispatcher'
 import { openLinkInNewFrame } from './link-open-policy'
+import { looksLikeUrl } from '../../shared/url'
 import { breadcrumb } from '../sentry-context'
 
 function hostOf(url: string | undefined): string | undefined {
@@ -243,7 +244,7 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.setWindowOpenHandler(({ url, disposition }) => {
     const opensNewTab =
       disposition === 'foreground-tab' || disposition === 'background-tab'
-    if (opensNewTab && /^https?:\/\//i.test(url)) {
+    if (opensNewTab && looksLikeUrl(url)) {
       openLinkInNewFrame({ sourcePageId: page.id, url })
       return { action: 'deny' }
     }

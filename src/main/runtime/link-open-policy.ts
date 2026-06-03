@@ -5,10 +5,8 @@
  * through this setter keeps page-factory free of any import edge back into
  * workspace-pages, which would form an initialization cycle.
  */
-export type OpenLinkInNewFrame = (input: {
-  sourcePageId: string
-  url: string
-}) => void
+export type OpenLinkInput = { sourcePageId: string; url: string }
+export type OpenLinkInNewFrame = (input: OpenLinkInput) => void
 
 let handler: OpenLinkInNewFrame | null = null
 
@@ -16,9 +14,8 @@ export function setOpenLinkInNewFrameHandler(fn: OpenLinkInNewFrame): void {
   handler = fn
 }
 
-export function openLinkInNewFrame(input: {
-  sourcePageId: string
-  url: string
-}): void {
+export function openLinkInNewFrame(input: OpenLinkInput): void {
+  // No-op until the handler is registered at startup (index.ts); a missing
+  // handler simply means no frame is spawned.
   handler?.(input)
 }
