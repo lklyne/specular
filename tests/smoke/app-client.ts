@@ -782,6 +782,17 @@ export function getWireframeContent(id: string) {
 }
 
 /**
+ * Read the `wireframeContent` the inline renderer derives from — the field on the
+ * file entity in the canvas scene broadcast (3.5b). Asserting on this proves the
+ * broadcast carries the live content rather than the renderer re-fetching disk.
+ */
+export function getWireframeSceneContent(id: string) {
+  return get<{ content: string | null }>(
+    `/test/wireframe/scene-content?id=${encodeURIComponent(id)}`,
+  )
+}
+
+/**
  * Write raw bytes straight to a wireframe entity's file, out-of-band (3.5) —
  * bypassing the apply path and self-write registry, the way an external agent
  * `Write` / git checkout does. The watcher should pick it up and import it.

@@ -78,6 +78,7 @@ import {
   type WireframeOp,
 } from '../runtime/wireframe-content-state'
 import { fileEntities } from '../runtime/file-entity-state'
+import { getCanvasLayoutData } from '../runtime/canvas-layout-data'
 
 // --- Y.Doc transaction counter (test-only) ---
 // Counts afterTransaction events for the active doc between start/stop calls.
@@ -642,6 +643,21 @@ export const testRoutes: Route[] = [
       const entity = fileEntities.find((e) => e.id === id)
       const disk = entity ? readNoteFile(entity.file) : null
       writeJson(response, 200, { runtime, disk, file: entity?.file ?? null })
+    },
+  },
+  {
+    method: 'GET',
+    // 3.5b: the content the inline renderer derives from — the `wireframeContent`
+    // field on the file entity in the canvas scene broadcast. Reading it here lets
+    // a smoke test assert the broadcast (not a file re-fetch) drives the update.
+    pattern: /^\/test\/wireframe\/scene-content(?:\?|$)/,
+    async handler({ request, response }) {
+      const url = new URL(request.url ?? '/', 'http://x')
+      const id = url.searchParams.get('id') ?? ''
+      const scene = getCanvasLayoutData()
+      const entity = scene.entities.find((e) => e.kind === 'file' && e.id === id)
+      const content = entity && entity.kind === 'file' ? (entity.wireframeContent ?? null) : null
+      writeJson(response, 200, { content })
     },
   },
 

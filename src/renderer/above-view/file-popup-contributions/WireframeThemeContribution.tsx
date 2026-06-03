@@ -1,6 +1,6 @@
 // ADR 0008 §7 — wireframe theme swap. Routes the new JSON up via
-// `api.applyWireframeContent` (3.0b: undoable + projected to disk) and pings the
-// body via `wireframe-file-changed` so it picks up the change.
+// `api.applyWireframeContent` (3.0b: undoable + projected to disk); the commit
+// re-broadcasts the scene, so the inline body picks up the change (3.5b).
 
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'
@@ -53,11 +53,6 @@ export function WireframeThemeContribution({
       wf.theme = next
       await api.applyWireframeContent(entity.id, JSON.stringify(wf, null, 2))
       setTheme(next)
-      // Body renderer owns its own file-content state; disk write alone
-      // doesn't propagate. Ping it.
-      window.dispatchEvent(
-        new CustomEvent('wireframe-file-changed', { detail: { file: entity.file } }),
-      )
     } catch {
       /* ignore */
     }
