@@ -22,6 +22,7 @@ import {
   createNodeIdGenerator,
   deleteNode,
   duplicateNode,
+  findNodeById,
   insertNode,
   reorderNode,
   toggleNodeState,
@@ -162,6 +163,49 @@ export function applyWireframeOp(
   const content = serializeWireframeFile(next)
   wireframeContents.set(entityId, content)
   return { ok: true, content }
+}
+
+/**
+ * Validate an op's node references against `file`. Returns a legible error for an
+ * unknown / wrong-typed reference, or `null` when the op is applicable.
+ *
+ * The shared pure ops (3.0) deliberately *no-op* on bad references — a safety net
+ * for canvas gestures that race against a stale tree. The agent CLI route (3.4)
+ * runs this first so a bad id surfaces as a 4xx instead of a silent no-op. Prop
+ * legality is still enforced in `updateNodeProps` (it throws), so `setProps` only
+ * checks node existence here.
+ */
+export function findWireframeOpError(file: WireframeFile, op: WireframeOp): string | null {
+  switch (op.kind) {
+    case 'replace':
+      return null
+    case 'insert': {
+      const parent = findNodeById(file.root, op.parentId)
+      if (!parent) return `Unknown parent node: ${op.parentId}`
+      if (parent.type !== 'frame') return `Cannot insert into a non-frame node: ${op.parentId}`
+      return null
+    }
+    case 'delete':
+      if (file.root.id === op.nodeId) return 'Cannot delete the root node'
+      if (!findNodeById(file.root, op.nodeId)) return `Unknown node: ${op.nodeId}`
+      return null
+    case 'duplicate':
+      if (file.root.id === op.nodeId) return 'Cannot duplicate the root node'
+      if (!findNodeById(file.root, op.nodeId)) return `Unknown node: ${op.nodeId}`
+      return null
+    case 'reorder': {
+      if (!findNodeById(file.root, op.nodeId)) return `Unknown node: ${op.nodeId}`
+      const target = findNodeById(file.root, op.targetParentId)
+      if (!target) return `Unknown target parent: ${op.targetParentId}`
+      if (target.type !== 'frame') return `Cannot reorder into a non-frame node: ${op.targetParentId}`
+      return null
+    }
+    case 'setProps':
+    case 'setText':
+    case 'toggle':
+      if (!findNodeById(file.root, op.nodeId)) return `Unknown node: ${op.nodeId}`
+      return null
+  }
 }
 
 function applyOp(file: WireframeFile, op: Exclude<WireframeOp, { kind: 'replace' }>): WireframeFile {

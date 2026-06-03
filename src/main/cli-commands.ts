@@ -1,5 +1,9 @@
+import { randomUUID } from 'crypto'
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/types'
+import { createWireframeNode, type WireframePaletteType } from '../shared/wireframe/wireframe-node-factory'
+import type { WireframeNode } from '../shared/wireframe/wireframe-types'
+import type { WireframeOp } from './runtime/wireframe-content-state'
 import { callApp } from './shared/app-client'
 import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
@@ -297,6 +301,124 @@ const distribute: VerbHandler = async (args) => {
   return 0
 }
 
+// --- Wireframe verbs (3.4 — agent CLI parity) ---
+
+// Coerce a bare CLI value to its JSON-ish type: booleans, numbers, else string.
+// Keeps `set frame gap 8` → 8 and `set toggle on true` → true while leaving
+// `set text level h1` a string. Use --props for values that must stay strings
+// despite looking numeric, or for arrays/objects.
+function coerceValue(value: string): unknown {
+  if (value === 'true') return true
+  if (value === 'false') return false
+  if (value !== '' && !Number.isNaN(Number(value))) return Number(value)
+  return value
+}
+
+function parseKeyValues(tokens: string[]): Record<string, unknown> | null {
+  if (tokens.length % 2 !== 0) return null
+  const patch: Record<string, unknown> = {}
+  for (let i = 0; i < tokens.length; i += 2) patch[tokens[i]] = coerceValue(tokens[i + 1])
+  return patch
+}
+
+// Build a WireframeOp from the parsed verb + args, or print a usage error and
+// return null. The op shape mirrors the canvas/IPC op set so humans and agents
+// drive the same apply path.
+function buildWireframeOp(verb: string, args: ParsedArgs): WireframeOp | null {
+  const p = args.positional
+  switch (verb) {
+    case 'insert': {
+      const parentId = p[2]
+      const index = Number(p[3])
+      if (!parentId || Number.isNaN(index)) {
+        printError('usage: specular wireframe <target> insert <parentId> <index> <nodeType> | --node <json>')
+        return null
+      }
+      let node: WireframeNode
+      if (args.flags.node) {
+        try {
+          node = JSON.parse(args.flags.node) as WireframeNode
+        } catch (err) {
+          printError(`insert: invalid --node JSON: ${(err as Error).message}`)
+          return null
+        }
+      } else {
+        const nodeType = p[4]
+        if (!nodeType) {
+          printError('insert: provide a node type (text, button, frame, …) or --node <json>')
+          return null
+        }
+        const id = args.flags.id ?? `${nodeType}-${randomUUID().slice(0, 8)}`
+        node = createWireframeNode(nodeType as WireframePaletteType, () => id)
+      }
+      return { kind: 'insert', parentId, index, node }
+    }
+    case 'delete': {
+      const nodeId = p[2]
+      if (!nodeId) { printError('usage: specular wireframe <target> delete <nodeId>'); return null }
+      return { kind: 'delete', nodeId }
+    }
+    case 'duplicate': {
+      const nodeId = p[2]
+      if (!nodeId) { printError('usage: specular wireframe <target> duplicate <nodeId>'); return null }
+      return { kind: 'duplicate', nodeId }
+    }
+    case 'reorder': {
+      const nodeId = p[2]
+      const targetParentId = p[3]
+      const targetIndex = Number(p[4])
+      if (!nodeId || !targetParentId || Number.isNaN(targetIndex)) {
+        printError('usage: specular wireframe <target> reorder <nodeId> <targetParentId> <targetIndex>')
+        return null
+      }
+      return { kind: 'reorder', nodeId, targetParentId, targetIndex }
+    }
+    case 'set': {
+      const nodeId = p[2]
+      if (!nodeId) {
+        printError('usage: specular wireframe <target> set <nodeId> <key> <value> [<key> <value> …] | --props <json>')
+        return null
+      }
+      let patch: Record<string, unknown> | null
+      if (args.flags.props) {
+        try {
+          patch = JSON.parse(args.flags.props) as Record<string, unknown>
+        } catch (err) {
+          printError(`set: invalid --props JSON: ${(err as Error).message}`)
+          return null
+        }
+      } else {
+        patch = parseKeyValues(p.slice(3))
+        if (!patch) { printError('set: expected an even number of <key> <value> tokens'); return null }
+      }
+      if (!patch || Object.keys(patch).length === 0) {
+        printError('set: provide at least one key/value pair or --props <json>')
+        return null
+      }
+      return { kind: 'setProps', nodeId, patch }
+    }
+    default:
+      printError(`unknown wireframe verb: ${verb} (expected insert|delete|duplicate|reorder|set)`)
+      return null
+  }
+}
+
+const wireframe: VerbHandler = async (args) => {
+  const target = args.positional[0]
+  const verb = args.positional[1]
+  if (!target || !verb) {
+    printError('usage: specular wireframe <fileId|path> <insert|delete|duplicate|reorder|set> ...')
+    return 1
+  }
+  const op = buildWireframeOp(verb, args)
+  if (!op) return 1
+  printJson(await callApp('/wireframe/op', {
+    method: 'POST',
+    body: JSON.stringify({ target, op }),
+  }))
+  return 0
+}
+
 // --- Annotation verbs ---
 
 const annotations: VerbHandler = async (args) => {
@@ -566,6 +688,7 @@ const VERBS: Record<string, VerbHandler> = {
   ungroup,
   'auto-layout': autoLayout,
   distribute,
+  wireframe,
   annotations,
   annotation,
   annotate,
