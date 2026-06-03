@@ -343,3 +343,18 @@ Noticed (no action):
 - **PR #144 (manifest extensions) at day 16**: Oldest open non-draft PR. Manual test plan (SVG/Vue files) still unchecked. Second-oldest non-draft open PR is #32 (LM Studio, day 39, predates the Specular rename). Neither is a systemic pattern; both are Lyle's product decisions.
 - **June 1 burst merged 4 PRs** (#177, #185, #187, #189): the consistent pattern of concentrated review sessions between quiet stretches continues. The pipeline produces, Lyle reviews in burst, pipeline produces again. This rhythm is stable and by design.
 Hint for next run: check if #190 (SVG paste) was triaged and whether the ready-for-agent queue refilled; check #188 traction (day 7 = June 8 stale threshold); watch whether #182/#179/#178 merged cleanly or if any AFK fix branch showed the review gap #188 targets.
+
+---
+
+## 2026-06-03
+Surveyed: Check runs on non-AFK PRs #191 and #195 (both merged June 2–3), 0.3.1 release burst (#191–#195), needs-triage queue (#53/#124/#190), proposal #188 (day 2, 0 comments), ready-for-agent state (empty). Dominant theme: non-AFK review gap confirmed on two more PRs; pipeline re-idle after 0.3.1.
+Acted:
+- Nothing to close or file. #188 at day 2, below 7-day threshold. No stale orchestrator output.
+Noticed (no action):
+- **Non-AFK review gap: #191 and #195 confirm pattern (now 4 instances total).** PR #191 (`fix/note-wheel-scroll`, Lyle's branch, open 3 hours June 2) shows only `fallow=success` and `check=success` — no `claude-review`. PR #195 (`ci/node24-bump`, June 3) identical. Proposal #188 documented the first two instances (#181, #184); these add two more. No regression visible from either PR (both well-tested by Lyle), but the structural absence is confirmed. At 4 instances, the pattern is settled.
+- **0.3.1 shipped in a concentrated burst**: PRs #191–#195 landed June 2–3 — "idle" to a tagged minor release in ~12 hours. AFK pipeline contributed #193 (new-tab links as frames) and #194 (resume Claude sessions across annotation replies). Lyle contributed #191 (scroll + browser-mode shell fix) and #195 (CI Node.js 24 bump). Burst–quiet–burst cadence continues; the system is healthy.
+- **ready-for-agent empty; pipeline re-idle**: #190 (SVG paste rendering, needs-triage, now 2 days old) is the only fresh bounded item one triage step away from refilling the queue.
+- **needs-triage structural residue unchanged**: #53 (25 days, markdown undo requires architectural choice) and #124 (18 days, pages select-first model, "HITL: must update ADR 0001"). Both require a human architectural decision. No automation unblocks them; not watching further unless they produce a downstream consequence.
+- **#144 (manifest extensions) at day 17**: One manual test plan checkbox still unchecked. PRs requiring a physical test session (Vue/Svelte/SVG components) reliably stall until Lyle has time and a suitable project to test against. Not a systemic leak — one PR.
+- **#188 stale threshold: June 8.** If it reaches day 7 with 0 comments, that is a third proposal stalling in the issue queue after #63 (landed from visceral pain) and #168 (closed, wrong target). At that point the question becomes whether GitHub issues are the wrong forcing function for any proposal from this orchestrator — and the journal entry on June 8 should reflect rather than refile.
+Hint for next run: check if #190 (SVG paste) was triaged and the ready-for-agent queue refilled; check #188 traction at day 5 as an early signal before the June 8 deadline; if a fifth non-AFK PR merges without claude-review before that, note it but don't refile — the evidence is already sufficient.
