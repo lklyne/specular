@@ -23,6 +23,8 @@ const CLI_VALUE_FLAGS = new Set([
   '--anchor', '--label', '--color', '--layout', '--gap',
   '--status', '--url', '--page-id',
   '--reason', '--text',
+  // wireframe op flags (3.4)
+  '--id', '--node', '--props',
   '--output', '--fps', '--quality',
   '--min-idle', '--speed-factor',
   '--kind',

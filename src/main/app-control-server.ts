@@ -240,6 +240,7 @@ import { annotationRoutes } from './routes/annotations'
 import { entityRoutes } from './routes/entities'
 import { pageRoutes } from './routes/pages'
 import { stackOrderHttpRoutes } from './routes/stack-order'
+import { wireframeRoutes } from './routes/wireframe'
 import { testRoutes } from './routes/test'
 
 const routes: Route[] = [
@@ -251,6 +252,7 @@ const routes: Route[] = [
   ...annotationRoutes,
   ...entityRoutes,
   ...stackOrderHttpRoutes,
+  ...wireframeRoutes,
   ...designSystemRoutes,
   ...testRoutes,
 ]

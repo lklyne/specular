@@ -781,6 +781,27 @@ export function getWireframeContent(id: string) {
   )
 }
 
+// --- Wireframe agent CLI route (3.4) — the production /wireframe/op endpoint ---
+
+/**
+ * Drive the production `/wireframe/op` route the `specular wireframe` CLI POSTs
+ * to. `target` is a file-entity id or path; `op` is the same op shape the CLI
+ * builds. Returns the body plus the HTTP status so tests can assert 4xx errors.
+ */
+export async function wireframeOp(
+  target: string,
+  op: WireframeOpInput,
+): Promise<{ ok: boolean; id?: string; content?: string; error?: string; status: number }> {
+  const res = await fetch(`${baseUrl()}/wireframe/op`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ target, op }),
+  })
+  const data = (await res.json()) as { ok?: boolean; id?: string; content?: string; error?: string }
+  if (res.ok) return { ok: true, id: data.id, content: data.content, status: res.status }
+  return { ok: false, error: data.error, status: res.status }
+}
+
 export function listFileEntities() {
   return getFileEntities()
 }
