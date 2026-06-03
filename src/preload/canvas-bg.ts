@@ -361,14 +361,6 @@ const api: CanvasBgElectronAPI = {
     entityId: string,
     node: ({ id: string; type: string } & Record<string, unknown>) | null,
   ) => ipcRenderer.send('canvas-set-wireframe-selection', { entityId, node }),
-  onWireframeContentChanged: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      data: { entityId: string; file: string },
-    ) => callback(data)
-    ipcRenderer.on('wireframe-content-changed', handler)
-    return () => ipcRenderer.removeListener('wireframe-content-changed', handler)
-  },
   renameNoteFile: (filePath: string, newName: string) =>
     ipcRenderer.invoke('rename-note-file', { filePath, newName }),
   morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>

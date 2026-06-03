@@ -223,6 +223,13 @@ export interface CanvasSceneFileEntity {
    * to re-pick the folder.
    */
   componentInferredRepoPath?: string
+  /**
+   * For wireframe file entities (3.5b): the canonical `.wireframe.json` content,
+   * resolved from the Y.Doc-backed runtime mirror. The inline renderer derives
+   * its tree from this field instead of re-fetching the file — "renderer state
+   * is derived from broadcasts, never authoritative."
+   */
+  wireframeContent?: string
   /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
@@ -1926,15 +1933,6 @@ export interface CanvasBgElectronAPI {
     entityId: string,
     node: ({ id: string; type: string } & Record<string, unknown>) | null,
   ) => void
-  /**
-   * Wireframe content changed in the main process from a surface other than this
-   * renderer (3.2: the panel insert palette). A refresh ping carrying the entity
-   * id + file path so the inline renderer re-fetches the projected JSON. Returns
-   * an unsubscribe. (The broadcast-derived read path is the 3.5b cleanup.)
-   */
-  onWireframeContentChanged: (
-    callback: (data: { entityId: string; file: string }) => void,
-  ) => () => void
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   /**
    * ADR 0013 §3 — morph a plain-text entity into a markdown file entity

@@ -23,6 +23,7 @@ import {
 } from './runtime-entities'
 import { pickRenderer } from '../plugins/registry'
 import { findRepoForPath } from './dev-server-manager'
+import { getWireframeContent } from './wireframe-content-state'
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
 
@@ -135,6 +136,14 @@ export function buildFileEntitySceneEntity(
   const screenWidth = shellInsets ? contentScreenW + (shellInsets.left + shellInsets.right) * zoom : contentScreenW
   const screenHeight = shellInsets ? contentScreenH + (shellInsets.top + shellInsets.bottom) * zoom : contentScreenH
 
+  const rendererFields = rendererSceneFields(entity)
+  // 3.5b: ride the canonical wireframe content along the scene broadcast so the
+  // inline renderer derives its tree from it instead of re-fetching the file.
+  const wireframeContent =
+    rendererFields.rendererTag === 'wireframe'
+      ? (getWireframeContent(entity.id) ?? undefined)
+      : undefined
+
   return {
     kind: 'file',
     id: entity.id,
@@ -157,7 +166,8 @@ export function buildFileEntitySceneEntity(
     contentScreenY: showShell ? contentScreenY : undefined,
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
-    ...rendererSceneFields(entity),
+    wireframeContent,
+    ...rendererFields,
   }
 }
 

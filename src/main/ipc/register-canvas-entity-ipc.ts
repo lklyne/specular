@@ -4,7 +4,7 @@ import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type { AnnotationCreateRequest } from '../../shared/types'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
-import { aboveView, bgView } from '../runtime/view-refs'
+import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
 import { setPendingFocus, setWireframePanelSelection } from '../runtime/runtime-context'
 import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
@@ -741,31 +741,25 @@ export function registerCanvasEntityIpc(): void {
   })
 
   // Insert palette (3.2): insert a default node into a wireframe's root frame as
-  // one undoable Y.Doc op, then ping the canvas to re-fetch the projected JSON
-  // (the panel and canvas are separate renderers; the read path is still disk).
+  // one undoable Y.Doc op. The commit marks the canvas dirty, so the inline
+  // renderer picks up the new tree from the next scene broadcast (3.5b).
   ipcMain.on(
     'canvas-insert-wireframe-node',
     (_event, { entityId, nodeType }: { entityId: string; nodeType: string }) => {
-      const result = commitWireframeInsertNode(entityId, nodeType as WireframePaletteType)
-      if (!result.ok) return
-      const entity = fileEntities.find((e) => e.id === entityId)
-      bgView?.webContents.send('wireframe-content-changed', { entityId, file: entity?.file })
+      commitWireframeInsertNode(entityId, nodeType as WireframePaletteType)
     },
   )
 
   // Per-node property editing (3.3): the panel selected-node editors patch one
-  // node's props as a single undoable `setProps` op, then ping the canvas to
-  // re-fetch the projected JSON (separate renderers; the read path is still disk).
+  // node's props as a single undoable `setProps` op. The commit broadcasts the
+  // canvas scene, so the inline renderer re-renders from it (3.5b).
   ipcMain.on(
     'canvas-update-wireframe-node-props',
     (
       _event,
       { entityId, nodeId, patch }: { entityId: string; nodeId: string; patch: Record<string, unknown> },
     ) => {
-      const result = commitWireframeOp(entityId, { kind: 'setProps', nodeId, patch })
-      if (!result.ok) return
-      const entity = fileEntities.find((e) => e.id === entityId)
-      bgView?.webContents.send('wireframe-content-changed', { entityId, file: entity?.file })
+      commitWireframeOp(entityId, { kind: 'setProps', nodeId, patch })
     },
   )
 

@@ -22,9 +22,6 @@ export interface RendererFileApi {
     entityId: string,
     node: ({ id: string; type: string } & Record<string, unknown>) | null,
   ) => void
-  onWireframeContentChanged: (
-    callback: (data: { entityId: string; file: string }) => void,
-  ) => () => void
   renameNoteFile: (path: string, newName: string) => Promise<string | null>
 }
 

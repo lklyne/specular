@@ -9,9 +9,14 @@
  * captures — so wireframe edits undo/redo like any other workspace mutation.
  *
  * Apply path: runtime op → one Y.Doc transaction → reverse sync → projection to
- * disk → renderer re-fetch. The pure ops from 3.0 are the transaction bodies.
+ * disk → canvas scene broadcast. The pure ops from 3.0 are the transaction
+ * bodies. Each command marks the canvas dirty and requests a layout pass so the
+ * new content rides the next scene broadcast — the inline renderer derives its
+ * tree from that broadcast (3.5b), no file re-fetch.
  */
 
+import { markDirty } from './layout-dirty'
+import { requestLayout } from './surface-layout'
 import { scheduleWorkspaceAutosave } from './workspace-session'
 import {
   applyWireframeOp,
@@ -43,6 +48,7 @@ export function commitWireframeOp(
   if (!result.ok) return result
   projectWireframeEntityToDisk(entityId)
   scheduleWorkspaceAutosave()
+  broadcastWireframeScene()
   return result
 }
 
@@ -56,6 +62,17 @@ export function commitWireframeContent(entityId: string, content: string): void 
   setWireframeContent(entityId, content)
   projectWireframeEntityToDisk(entityId)
   scheduleWorkspaceAutosave()
+  broadcastWireframeScene()
+}
+
+/**
+ * Mark the canvas dirty and request a layout pass so the next scene broadcast
+ * carries the fresh wireframe content. Mirrors the per-keystroke broadcast the
+ * other inline entity edits already do (`updateTextEntity`).
+ */
+function broadcastWireframeScene(): void {
+  markDirty('canvas')
+  requestLayout()
 }
 
 /**
@@ -69,6 +86,7 @@ export function importExternalWireframeEdit(filePath: string): boolean {
   const result = importWireframeFileEdit(filePath)
   if (!result.ok) return false
   scheduleWorkspaceAutosave()
+  broadcastWireframeScene()
   return true
 }
 

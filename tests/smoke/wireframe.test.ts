@@ -23,6 +23,7 @@ import {
   flushWorkspaceAutosave,
   getUndoState,
   getWireframeContent,
+  getWireframeSceneContent,
   insertWireframeNode,
   listFileEntities,
   redoWorkspace,
@@ -378,5 +379,43 @@ describe('wireframe external-edit import (3.5)', () => {
     const snap = await getWireframeContent(id)
     expect(snap.runtime).toBe(edited)
     expect(snap.disk).toBe(edited)
+  })
+})
+
+// 3.5b — the inline renderer derives its tree from the canvas scene broadcast,
+// not a file re-fetch. The `wireframeContent` field rides every scene broadcast,
+// resolved from the Y.Doc-backed runtime mirror; an edit re-broadcasts it.
+//
+// Mutation-verified by:
+//   - dropping the `wireframeContent` assignment from `buildFileEntitySceneEntity`
+//     and confirming the scene content is null (the broadcast carries nothing).
+//   - removing the `broadcastWireframeScene()` call from `commitWireframeOp` and
+//     confirming the post-edit scene content stays at the pre-edit tree.
+describe('wireframe broadcast-derived read path (3.5b)', () => {
+  beforeEach(async () => {
+    await resetSmokeState()
+    await cleanupFileEntities()
+    await drainUndoStack()
+  })
+
+  afterEach(async () => {
+    await cleanupFileEntities()
+  })
+
+  it('rides the canvas scene broadcast and re-broadcasts on edit', async () => {
+    const original = sampleContent()
+    const { id } = await createWireframeEntity({ content: original })
+
+    // The scene broadcast carries the at-rest content before any edit.
+    const before = await getWireframeSceneContent(id)
+    expect(before.content).toBe(original)
+
+    // An edit re-broadcasts the new tree — no file re-fetch, no autosave flush.
+    const edited = (
+      await applyWireframeOp(id, { kind: 'setText', nodeId: 'title', value: 'Broadcast' })
+    ).content!
+    const after = await getWireframeSceneContent(id)
+    expect(after.content).toBe(edited)
+    expect(after.content).toContain('Broadcast')
   })
 })
