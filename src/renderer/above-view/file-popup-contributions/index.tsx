@@ -18,6 +18,7 @@ export interface FilePopupContributionCtx {
   api: Pick<
     CanvasBgElectronAPI,
     | 'writeNoteFile'
+    | 'applyWireframeContent'
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
     | 'morphTextFile'

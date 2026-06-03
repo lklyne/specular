@@ -37,6 +37,7 @@ export function FilePopup({
     | 'duplicateFileEntity'
     | 'deleteFileEntity'
     | 'writeNoteFile'
+    | 'applyWireframeContent'
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
     | 'morphTextFile'

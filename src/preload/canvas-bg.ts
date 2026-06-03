@@ -355,6 +355,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.invoke('read-note-file', { filePath }),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-note-file', { filePath, content }),
+  applyWireframeContent: (entityId: string, content: string) =>
+    ipcRenderer.invoke('apply-wireframe-content', { entityId, content }),
   renameNoteFile: (filePath: string, newName: string) =>
     ipcRenderer.invoke('rename-note-file', { filePath, newName }),
   morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>

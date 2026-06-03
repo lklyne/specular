@@ -659,6 +659,10 @@ export function flushWorkspaceAutosave() {
   return post<{ ok: true }>('/test/workspace/flush-autosave')
 }
 
+export function reloadWorkspace() {
+  return post<{ ok: true }>('/test/workspace/reload')
+}
+
 export type DiskSnapshot = {
   exists: boolean
   meta: {
@@ -713,4 +717,59 @@ function getFileEntities() {
       canvasY: number
     }>
   }>('/file-entities')
+}
+
+// --- Wireframe content (3.0b, test-only) ---
+
+export type WireframeOpInput =
+  | { kind: 'insert'; parentId: string; index: number; node: Record<string, unknown> }
+  | { kind: 'delete'; nodeId: string }
+  | { kind: 'duplicate'; nodeId: string }
+  | { kind: 'reorder'; nodeId: string; targetParentId: string; targetIndex: number }
+  | { kind: 'setProps'; nodeId: string; patch: Record<string, unknown> }
+  | { kind: 'setText'; nodeId: string; value: string }
+  | { kind: 'toggle'; nodeId: string }
+  | { kind: 'replace'; content: string }
+
+export function createWireframeEntity(input: {
+  canvasX?: number
+  canvasY?: number
+  name?: string
+  content: string
+}) {
+  return post<{ id: string; file: string }>('/test/wireframe/create', input)
+}
+
+export async function applyWireframeOp(
+  id: string,
+  op: WireframeOpInput,
+): Promise<{ ok: boolean; content?: string; error?: string }> {
+  // Invalid ops return 4xx by contract (the CLI surfaces a legible error), so
+  // read the body directly rather than throwing on a non-2xx status.
+  const res = await fetch(`${baseUrl()}/test/wireframe/op`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ id, op }),
+  })
+  const data = (await res.json()) as { ok?: boolean; content?: string; error?: string }
+  if (res.ok) return { ok: true, content: data.content }
+  return { ok: false, error: data.error }
+}
+
+export function setWireframeContent(id: string, content: string) {
+  return post<{ ok: true }>('/test/wireframe/set-content', { id, content })
+}
+
+export function getWireframeContent(id: string) {
+  return get<{ runtime: string | null; disk: string | null; file: string | null }>(
+    `/test/wireframe/content?id=${encodeURIComponent(id)}`,
+  )
+}
+
+export function listFileEntities() {
+  return getFileEntities()
+}
+
+export function deleteFileEntities(ids: string[]) {
+  return post<{ deleted: string[] }>('/file-entities/delete', { ids })
 }

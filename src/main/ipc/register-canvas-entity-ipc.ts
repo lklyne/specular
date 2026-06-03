@@ -57,6 +57,7 @@ import {
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
+import { commitWireframeContent } from '../runtime/wireframe-commands'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -759,6 +760,16 @@ export function registerCanvasEntityIpc(): void {
     writeNoteFile(filePath, content)
     return true
   })
+
+  // Wireframe write path (3.0b): edits route up as a Y.Doc op, not a direct
+  // disk write, so they undo/redo and project to disk like any workspace state.
+  ipcMain.handle(
+    'apply-wireframe-content',
+    (_event, { entityId, content }: { entityId: string; content: string }) => {
+      commitWireframeContent(entityId, content)
+      return true
+    },
+  )
 
   ipcMain.handle('rename-note-file', (_event, { filePath, newName }: { filePath: string; newName: string }) => {
     const newPath = renameNoteFile(filePath, newName)
