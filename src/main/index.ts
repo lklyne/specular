@@ -7,6 +7,8 @@ import {
   restorePersistedWorkspace,
 } from './runtime/workspace-session'
 import { createPage, pages, removePageById, setMcpConnectionStatus } from './runtime/page-runtime'
+import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
+import { duplicatePageFromSource } from './workspace-pages'
 import { requestLayout } from './runtime/surface-layout'
 import { toggleDevTools } from './runtime/ui-actions'
 import { broadcastTheme, initWindow, isDark, win } from './runtime/window-shell'
@@ -129,6 +131,12 @@ app.whenReady().then(async () => {
   identifyInstall()
   configureBundledAgentBrowser()
   registerBuiltInPlugins()
+  // New-tab links from a page open as a duplicate frame on the canvas rather
+  // than a native popup; page-factory routes through this seam to avoid an
+  // import cycle into workspace-pages.
+  setOpenLinkInNewFrameHandler(({ sourcePageId, url, focus }) =>
+    duplicatePageFromSource({ sourcePageId, url, focus }),
+  )
   initDevServerManager({
     userDataDir: app.getPath('userData'),
     spawn: (command, args, options) =>
