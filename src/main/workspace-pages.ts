@@ -237,13 +237,14 @@ export function createPageAtPosition(input: {
 export function duplicatePageFromSource(input: {
   sourcePageId: string
   focus?: boolean
+  url?: string
 }): { pageId: string } {
   const sourcePage = findPageById(input.sourcePageId)
   if (!sourcePage) {
     throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
 
-  const url = pageCurrentUrl(sourcePage.id) ?? 'about:blank'
+  const url = input.url ?? pageCurrentUrl(sourcePage.id) ?? 'about:blank'
   const metadata = { ...(cloneMetadata(sourcePage.metadata) ?? {}), createdFrom: 'duplicate' }
   const sourceSize = pageContentSize(sourcePage)
   const placement = findDuplicatePlacement({

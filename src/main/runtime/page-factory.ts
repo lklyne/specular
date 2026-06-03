@@ -44,6 +44,7 @@ import {
   propagateNavigationFromPage,
 } from '../navigation-sync'
 import { attachBindingDispatcher } from './binding-dispatcher'
+import { openLinkInNewFrame } from './link-open-policy'
 import { breadcrumb } from '../sentry-context'
 
 function hostOf(url: string | undefined): string | undefined {
@@ -231,6 +232,22 @@ export function createPage(config: PageConfig): Page {
     if (isNavigationSuppressed(page)) return
     if (!page.linked) return
     propagateNavigationFromPage(page, { type: 'in-page', url })
+  })
+
+  // A link that would open a new tab (target="_blank", window.open without
+  // window features, or cmd/ctrl-click) shouldn't spawn a native popup.
+  // Instead, reuse the duplicate flow: drop a new frame on the canvas that
+  // inherits this page's preset and size but points at the requested URL.
+  // Genuine popups (window.open with features — OAuth, pickers) keep their
+  // native window so those flows still work.
+  page.pageView.webContents.setWindowOpenHandler(({ url, disposition }) => {
+    const opensNewTab =
+      disposition === 'foreground-tab' || disposition === 'background-tab'
+    if (opensNewTab && /^https?:\/\//i.test(url)) {
+      openLinkInNewFrame({ sourcePageId: page.id, url })
+      return { action: 'deny' }
+    }
+    return { action: 'allow' }
   })
 
   if (config.suppressInitialNavigationBroadcast) {
