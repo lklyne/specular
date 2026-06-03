@@ -18,6 +18,10 @@ export interface RendererFileApi {
   readNoteFile: (path: string) => Promise<string | null>
   writeNoteFile: (path: string, content: string) => Promise<boolean>
   applyWireframeContent: (entityId: string, content: string) => Promise<boolean>
+  setWireframeSelection: (
+    entityId: string,
+    node: ({ id: string; type: string } & Record<string, unknown>) | null,
+  ) => void
   onWireframeContentChanged: (
     callback: (data: { entityId: string; file: string }) => void,
   ) => () => void

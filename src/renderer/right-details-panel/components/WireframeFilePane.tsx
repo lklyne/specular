@@ -1,5 +1,12 @@
+import { useEffect, useState } from 'react'
 import { Copy, LayoutGrid, Trash2 } from 'lucide-react'
-import type { PanelFileEntityDetail } from '../../../shared/types'
+import type { PanelFileEntityDetail, WireframePanelSelection } from '../../../shared/types'
+import {
+  editorDisplayValue,
+  editorsForNodeType,
+  patchForEditorChange,
+  type WireframePropEditor,
+} from '../../../shared/wireframe/wireframe-prop-editors'
 import { paneDeleteBtnClass as deleteBtnClass, dividerClass, paneActionBtnClass as iconBtnClass, mutedClass } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { FileDeviceSection } from './FileDeviceSection'
@@ -94,12 +101,174 @@ const PALETTE_ITEMS = [
   { type: 'spacer', label: 'Spacer' },
 ]
 
+function fieldClass(isDark: boolean): string {
+  return isDark
+    ? 'w-full rounded border border-zinc-700 bg-zinc-800 px-1.5 py-1 text-[11px] text-zinc-200 outline-none focus:border-zinc-500'
+    : 'w-full rounded border border-zinc-300 bg-white px-1.5 py-1 text-[11px] text-zinc-700 outline-none focus:border-zinc-400'
+}
+
+// Commits on blur and Enter, re-seeding from upstream when the broadcast value
+// changes (e.g. an edit round-trips back). Used for text / number / options /
+// fixed-px controls so typing isn't fired per-keystroke.
+function CommitInput({
+  value,
+  type,
+  isDark,
+  onCommit,
+}: {
+  value: string
+  type: 'text' | 'number'
+  isDark: boolean
+  onCommit: (raw: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  return (
+    <input
+      type={type}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+      }}
+      className={fieldClass(isDark)}
+    />
+  )
+}
+
+const SIZING_MODES = [
+  { value: 'hug', label: 'Hug' },
+  { value: 'fill', label: 'Fill' },
+  { value: 'fixed', label: 'Fixed' },
+] as const
+
+function PropEditorRow({
+  node,
+  editor,
+  entityId,
+  isDark,
+}: {
+  node: WireframePanelSelection['node']
+  editor: WireframePropEditor
+  entityId: string
+  isDark: boolean
+}) {
+  const value = editorDisplayValue(node, editor)
+  const muted = mutedClass(isDark)
+  const commit = (raw: string) => {
+    const patch = patchForEditorChange(editor, raw)
+    if (patch) rightDetailsPanelApi.updateWireframeNodeProps(entityId, node.id, patch)
+  }
+
+  let control: React.ReactNode
+  if (editor.control === 'select') {
+    control = (
+      <select
+        value={value}
+        onChange={(e) => commit(e.target.value)}
+        className={fieldClass(isDark)}
+      >
+        {editor.options?.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    )
+  } else if (editor.control === 'sizing') {
+    const mode = value === 'fill' ? 'fill' : value === 'hug' || value === '' ? 'hug' : 'fixed'
+    control = (
+      <div className="flex items-center gap-1">
+        <select
+          value={mode}
+          onChange={(e) => {
+            const next = e.target.value
+            if (next === 'fixed') commit(/^\d/.test(value) ? value : '100')
+            else commit(next)
+          }}
+          className={fieldClass(isDark)}
+        >
+          {SIZING_MODES.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        {mode === 'fixed' ? (
+          <CommitInput value={value} type="number" isDark={isDark} onCommit={commit} />
+        ) : null}
+      </div>
+    )
+  } else {
+    control = (
+      <CommitInput
+        value={value}
+        type={editor.control === 'number' ? 'number' : 'text'}
+        isDark={isDark}
+        onCommit={commit}
+      />
+    )
+  }
+
+  return (
+    <label className="flex items-center gap-2">
+      <span className={`w-16 shrink-0 text-[10px] ${muted}`}>{editor.label}</span>
+      <span className="min-w-0 flex-1">{control}</span>
+    </label>
+  )
+}
+
+function SelectedNodeSection({
+  selection,
+  isDark,
+  divider,
+  muted,
+}: {
+  selection: WireframePanelSelection
+  isDark: boolean
+  divider: string
+  muted: string
+}) {
+  const { node } = selection
+  const editors = editorsForNodeType(node.type)
+  const icon = NODE_TYPE_ICONS[node.type] ?? '?'
+  return (
+    <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
+      <div className={`mb-1.5 flex items-center gap-1.5 text-[10px] font-medium ${muted}`}>
+        <span className="font-mono text-[10px]">{icon}</span>
+        <span className="capitalize">{node.type}</span>
+        <span className="text-[9px] opacity-70">{node.id}</span>
+      </div>
+      {editors.length === 0 ? (
+        <div className={`text-[11px] ${muted}`}>No editable properties</div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {editors.map((editor) => (
+            <PropEditorRow
+              key={editor.key}
+              node={node}
+              editor={editor}
+              entityId={selection.entityId}
+              isDark={isDark}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function WireframeFilePane({
   fileEntity,
   isDark,
+  wireframeSelection,
 }: {
   fileEntity: PanelFileEntityDetail
   isDark: boolean
+  wireframeSelection?: WireframePanelSelection
 }) {
   const muted = mutedClass(isDark)
   const divider = dividerClass(isDark)
@@ -133,6 +302,15 @@ export function WireframeFilePane({
       />
 
       <FileDeviceSection fileEntity={fileEntity} isDark={isDark} divider={divider} />
+
+      {wireframeSelection && wireframeSelection.entityId === fileEntity.id ? (
+        <SelectedNodeSection
+          selection={wireframeSelection}
+          isDark={isDark}
+          divider={divider}
+          muted={muted}
+        />
+      ) : null}
 
       <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
         <div className={`mb-1.5 text-[10px] font-medium ${muted}`}>Theme</div>

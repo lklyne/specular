@@ -3,6 +3,7 @@ import type { WireframeFile, WireframeThemeName, DropTarget } from '../../../sha
 import { wireframeThemes } from './wireframe-themes'
 import { WireframeNodeRenderer } from './WireframeNodeRenderer'
 import {
+  findNodeById,
   reorderNode,
   updateNodeText,
   toggleNodeState,
@@ -24,16 +25,21 @@ export const WIREFRAME_THEME_OPTIONS: { name: WireframeThemeName; color: string 
   { name: 'blueprint', color: '#0f2744' },
 ]
 
+/** The selected node, flattened to its own props (no children) for the panel. */
+export type WireframeSelectedNode = { id: string; type: string } & Record<string, unknown>
+
 export function WireframeRenderer({
   content,
   canEdit,
   jsonMode = false,
   onContentChange,
+  onSelectionChange,
 }: {
   content: string
   canEdit: boolean
   jsonMode?: boolean
   onContentChange: (json: string) => void
+  onSelectionChange?: (node: WireframeSelectedNode | null) => void
 }) {
   const [wireframe, setWireframe] = useState<WireframeFile | null>(() => {
     try {
@@ -70,6 +76,29 @@ export function WireframeRenderer({
   const dispatchSelection = useCallback((intent: WireframeSelectionIntent) => {
     setSelection((prev) => wireframeSelectionReducer(prev, intent, wireframeRef.current))
   }, [])
+
+  // Mirror the selected node (its own props, no children) to the panel so it can
+  // render per-node property editors (3.3). Re-fires when the props change — e.g.
+  // a panel edit round-trips back through `content` — so the editors stay live.
+  // De-duped against the last payload to avoid redundant IPC on unrelated renders.
+  const lastSelectionRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!onSelectionChange) return
+    let payload: WireframeSelectedNode | null = null
+    if (canEdit && selectedNodeId && wireframe?.root) {
+      const node = findNodeById(wireframe.root, selectedNodeId)
+      if (node) {
+        const { children: _children, ...rest } = node as WireframeSelectedNode & {
+          children?: unknown
+        }
+        payload = rest
+      }
+    }
+    const serialized = payload ? JSON.stringify(payload) : null
+    if (serialized === lastSelectionRef.current) return
+    lastSelectionRef.current = serialized
+    onSelectionChange(payload)
+  }, [canEdit, selectedNodeId, wireframe, onSelectionChange])
 
   // Sync external content changes (skip initial mount — already parsed in useState initializer)
   const isFirstRender = useRef(true)

@@ -357,6 +357,10 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.invoke('write-note-file', { filePath, content }),
   applyWireframeContent: (entityId: string, content: string) =>
     ipcRenderer.invoke('apply-wireframe-content', { entityId, content }),
+  setWireframeSelection: (
+    entityId: string,
+    node: ({ id: string; type: string } & Record<string, unknown>) | null,
+  ) => ipcRenderer.send('canvas-set-wireframe-selection', { entityId, node }),
   onWireframeContentChanged: (callback) => {
     const handler = (
       _event: Electron.IpcRendererEvent,

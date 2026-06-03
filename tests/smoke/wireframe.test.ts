@@ -93,6 +93,25 @@ describe('wireframe content', () => {
     expect(after.disk).toContain('Updated')
   })
 
+  // 3.3 — per-node property editing. The panel editors send a `setProps` patch
+  // for the selected node; changing a frame's layout direction must project to
+  // disk (the observable surface the canvas re-renders from).
+  it('setProps: changes a frame direction and projects it to disk', async () => {
+    const { id } = await createWireframeEntity({ content: sampleContent() })
+    const result = await applyWireframeOp(id, {
+      kind: 'setProps',
+      nodeId: 'root',
+      patch: { direction: 'horizontal' },
+    })
+    expect(result.ok).toBe(true)
+    expect(result.content).toContain('"direction": "horizontal"')
+
+    await flushWorkspaceAutosave()
+    const after = await getWireframeContent(id)
+    expect(after.disk).toBe(result.content)
+    expect(after.disk).toContain('"direction": "horizontal"')
+  })
+
   it('runs each op type and validates illegal props as a 4xx', async () => {
     const { id } = await createWireframeEntity({ content: sampleContent() })
 

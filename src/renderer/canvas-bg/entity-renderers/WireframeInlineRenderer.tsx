@@ -116,6 +116,7 @@ export function WireframeInlineRenderer({
         canEdit={canEdit}
         jsonMode={jsonMode && canEdit}
         onContentChange={handleChange}
+        onSelectionChange={(node) => fileApi.setWireframeSelection(entity.id, node)}
       />
     </div>
   )
