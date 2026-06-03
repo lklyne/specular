@@ -17,6 +17,7 @@ import {
   applyWireframeOp,
   ensureWireframeBaseline,
   getWireframeContent,
+  importWireframeFileEdit,
   projectWireframeEntityToDisk,
   setWireframeContent,
   type WireframeOp,
@@ -55,6 +56,20 @@ export function commitWireframeContent(entityId: string, content: string): void 
   setWireframeContent(entityId, content)
   projectWireframeEntityToDisk(entityId)
   scheduleWorkspaceAutosave()
+}
+
+/**
+ * Import a genuine external on-disk edit of a `.wireframe.json` and schedule its
+ * sync to the Y.Doc (plan 3.5). The watcher calls this; on a real new edit the
+ * forward sync writes one undoable `'user'` transaction and re-projects, exactly
+ * like a canvas edit — so an agent `Write` / git checkout lands in the projection,
+ * shows live, and is undoable. Returns whether content was imported.
+ */
+export function importExternalWireframeEdit(filePath: string): boolean {
+  const result = importWireframeFileEdit(filePath)
+  if (!result.ok) return false
+  scheduleWorkspaceAutosave()
+  return true
 }
 
 let _insertCounter = 0

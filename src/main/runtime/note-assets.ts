@@ -3,7 +3,12 @@ import { join } from 'path'
 import { app } from 'electron'
 import { DEFAULT_WORKSPACE_ID } from './workspace-persistence'
 
-function workspaceNoteDir(): string {
+/**
+ * Absolute path to the workspace note directory (where `.md` and
+ * `.wireframe.json` assets live). Exported so the wireframe watcher (3.5) can
+ * observe external edits to those files.
+ */
+export function workspaceNoteDir(): string {
   const dir = join(app.getPath('userData'), 'workspaces', DEFAULT_WORKSPACE_ID)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir

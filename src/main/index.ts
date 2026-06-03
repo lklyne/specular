@@ -35,6 +35,7 @@ import {
 import { spawn as nodeSpawn } from 'node:child_process'
 import { initializeDocObservers } from './runtime/workspace-observers'
 import { getWireframeContentEntries } from './runtime/wireframe-content-state'
+import { startWireframeWatcher, stopWireframeWatcher } from './runtime/wireframe-watcher'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
 import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from './runtime/workspace-undo'
@@ -244,6 +245,10 @@ app.whenReady().then(async () => {
   // Clear any undo entries created by the initial doc sync
   clearUndoHistory()
 
+  // Watch `.wireframe.json` assets for external edits (3.5) — fileEntities and
+  // the undo manager are live by here, so an imported edit is one undoable op.
+  startWireframeWatcher()
+
   requestLayout()
 
   // Theme detection
@@ -260,6 +265,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+  stopWireframeWatcher()
   stopAppControlServer()
   app.quit()
 })

@@ -781,6 +781,15 @@ export function getWireframeContent(id: string) {
   )
 }
 
+/**
+ * Write raw bytes straight to a wireframe entity's file, out-of-band (3.5) —
+ * bypassing the apply path and self-write registry, the way an external agent
+ * `Write` / git checkout does. The watcher should pick it up and import it.
+ */
+export function externalWriteWireframe(id: string, content: string) {
+  return post<{ ok: true; file: string }>('/test/wireframe/external-write', { id, content })
+}
+
 // --- Wireframe agent CLI route (3.4) — the production /wireframe/op endpoint ---
 
 /**

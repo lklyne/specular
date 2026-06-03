@@ -8,6 +8,7 @@
  */
 
 import { writeJson } from './http-helpers'
+import { writeFileSync } from 'fs'
 import { app } from 'electron'
 import {
   peek as peekInteractionMode,
@@ -610,6 +611,23 @@ export const testRoutes: Route[] = [
       }
       commitWireframeContent(payload.id, payload.content)
       writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    // Out-of-band edit (3.5): write raw bytes straight to the entity's file,
+    // bypassing the apply path and the self-write registry — exactly what an
+    // external agent `Write` / git checkout does. The watcher should import it.
+    pattern: '/test/wireframe/external-write',
+    async handler({ response, body }) {
+      const payload = body as { id?: string; content?: string }
+      const entity = fileEntities.find((e) => e.id === payload?.id)
+      if (!entity || typeof payload?.content !== 'string') {
+        writeJson(response, 400, { error: 'id (existing entity) and content are required' })
+        return
+      }
+      writeFileSync(entity.file, payload.content, 'utf8')
+      writeJson(response, 200, { ok: true, file: entity.file })
     },
   },
   {
