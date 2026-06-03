@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-02 — Distribute, Reorder, Smart Paste
+
+### New
+- **Distribute** — evens out the gaps in a 3+ selection along the dominant axis, keeping the endpoints fixed
+- **Drag-to-reorder** — grab the reorder dot on any evenly-spaced multi-selection and shuffle items; siblings reflow to fill the gap
+- **Auto-layout groups** — a managed group packs its children into a row, and dragging a child reorders it
+- Drag to reorder the canvas stack right from the sidebar, plus keyboard shortcuts for stack order
+- Smart paste in markdown notes — paste SVG, JSON, or HTML and it auto-wraps in a fenced code block
+- Inspect mode now visualizes flex container gaps with hashed strips between children
+
+### Improvements
+- Drawing strokes scale with the bounding box when you resize
+- Image entities render bare — no card, shadow, or filename chrome (the filename moves to the selection popover)
+- Cmd+1 centers any selected canvas item, not just pages
+- Annotate tools (draw, comment, inspect) work on an empty canvas with no pages
+- Selection outlines unified to a clean 2px across every entity kind
+
+### Fixes
+- Scroll never accidentally pans the canvas, and the browser-mode device-shell offset is fixed
+- Plain-text placement preview matches the selected text's size and zoom
+- Sidebar rename inputs auto-focus and hold focus while you type
+- Multi-selection and group resize batch into a single undo step
+- Middle-mouse pan no longer sticks when you release the button outside the window
+- Neutral sticky note text is readable in dark mode
+- A selected drawing wins the hit-test over page chrome
+- The live drawing stroke renders above file entities instead of snapping on top after commit
+
 ## [0.3.0] - 2026-05-14 — Shapes, Alignment Guides, Live Components
 
 ### New
