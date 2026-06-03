@@ -223,6 +223,15 @@ export function updateAnnotationStatus(
   return annotation
 }
 
+export function setAnnotationFixSession(id: string, sessionId: string): void {
+  const annotation = workspaceAnnotations.find((a) => a.id === id)
+  if (!annotation) return
+  if (annotation.metadata?.fixSessionId === sessionId) return
+  annotation.metadata = { ...annotation.metadata, fixSessionId: sessionId }
+  markDirty('canvas')
+  scheduleWorkspaceAutosave()
+}
+
 export function addAnnotationReply(
   id: string,
   author: 'user' | 'agent',

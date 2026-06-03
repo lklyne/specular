@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { readFileSync, writeFileSync } from 'fs'
 import { isAbsolute, join } from 'path'
-import { tmpdir } from 'os'
+import { homedir, tmpdir } from 'os'
 import {
   APP_CONTROL_DISCOVERY_FILE,
   APP_CONTROL_VERSION,
@@ -19,11 +19,13 @@ interface DiscoveryPayload {
 
 // Mirror the resolver in src/main/app-control-server.ts: SPECULAR_DISCOVERY_FILE
 // lets test instances talk to a private discovery file instead of the canonical
-// one shared by the dev/production app.
+// one shared by the dev/production app. The default is home-relative (not
+// tmpdir()) so the CLI finds the app even when run inside a tool sandbox that
+// overrides TMPDIR (e.g. Claude Code's /tmp/claude-<uid>).
 function discoveryFilePath(): string {
   const override = process.env.SPECULAR_DISCOVERY_FILE
   if (override) return isAbsolute(override) ? override : join(tmpdir(), override)
-  return join(tmpdir(), APP_CONTROL_DISCOVERY_FILE)
+  return join(homedir(), '.specular', APP_CONTROL_DISCOVERY_FILE)
 }
 
 function loadDiscovery(): DiscoveryPayload {

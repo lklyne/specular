@@ -103,6 +103,26 @@ export function buildFixPrompt(annotation: Annotation): string {
   return lines.join('\n')
 }
 
+/**
+ * Prompt for a resumed session. The session already holds the page context and
+ * prior thread, so we only send the new user message plus the reply contract.
+ */
+export function buildFollowUpPrompt(replyText: string): string {
+  const message = replyText.trim() || 'Continue addressing the latest feedback in this thread.'
+  return [
+    'The user replied on the same comment thread:',
+    `[User] ${message}`,
+    '',
+    'Continue the fix. Use the specular skill to inspect the live page as before.',
+    '',
+    'Reply format — REQUIRED:',
+    '- End with one short IM-style summary line (under 280 chars), then a newline, then one of:',
+    '  <<RESOLVE>>   if you believe the issue is now fixed',
+    '  <<WAITING>>   if you need more information from the user',
+    'Do not write anything after the marker.',
+  ].join('\n')
+}
+
 function labelForAuthor(author: 'user' | 'agent'): string {
   return author === 'agent' ? 'Agent' : 'User'
 }
