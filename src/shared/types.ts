@@ -2196,6 +2196,12 @@ export interface AnnotationMetadata extends Record<string, unknown> {
   regionElements?: RegionElementGroup[]
   /** Who resolved this annotation, when status === 'resolved'. */
   resolvedBy?: 'user' | 'agent'
+  /**
+   * Claude Code session id for this thread's fix conversation. Set after the
+   * first fix; subsequent replies resume the same session (`claude --resume`)
+   * so the agent keeps its prior context instead of starting cold.
+   */
+  fixSessionId?: string
 }
 
 // --- Origin bindings (derived view from ConnectedRepo.boundOrigins) ---
