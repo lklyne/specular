@@ -36,6 +36,27 @@ export function createNoteFile(name?: string, initialContent?: string): string {
 }
 
 /**
+ * Create a new `.wireframe.json` file in the workspace directory.
+ * Returns the absolute file path.
+ */
+export function createWireframeFile(name?: string, initialContent?: string): string {
+  const dir = workspaceNoteDir()
+  const baseName = sanitizeNoteName(name ?? 'Untitled Wireframe')
+  let fileName = `${baseName}.wireframe.json`
+  let filePath = join(dir, fileName)
+
+  let counter = 2
+  while (existsSync(filePath)) {
+    fileName = `${baseName} ${counter}.wireframe.json`
+    filePath = join(dir, fileName)
+    counter++
+  }
+
+  writeFileSync(filePath, initialContent ?? '', 'utf8')
+  return filePath
+}
+
+/**
  * Read a note file's content.
  */
 export function readNoteFile(filePath: string): string | null {

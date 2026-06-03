@@ -17,6 +17,8 @@ export const DOC_MAP_EDGES = 'edges'
 export const DOC_MAP_ANNOTATIONS = 'annotations'
 export const DOC_MAP_ENTITIES = 'entities'
 export const DOC_MAP_WORKSPACE = 'workspace'
+/** Wireframe file content, keyed by file-entity id (A1: JSON-string values). */
+export const DOC_MAP_WIREFRAMES = 'wireframes'
 export const DOC_ARRAY_ENTITY_ORDER = 'entityOrder'
 
 /** All entity-related Y.Map names (excludes entityOrder, viewport, workspace) */
@@ -33,6 +35,7 @@ export const DOC_ALL_MAP_NAMES = [
   DOC_MAP_VIEWPORT,
   ...DOC_ENTITY_MAP_NAMES,
   DOC_MAP_WORKSPACE,
+  DOC_MAP_WIREFRAMES,
 ] as const
 
 // ---------------------------------------------------------------------------
@@ -197,6 +200,7 @@ export function syncRuntimeToDoc(
     pan: { x: number; y: number }
     activeTabId?: string | null
     workspaceTabs?: ReadonlyArray<{ id: string; name: string }>
+    wireframeContents?: ReadonlyArray<{ id: string; content: string }>
   },
   serializePage: (page: { id: string }) => Record<string, unknown>,
 ): void {
@@ -248,6 +252,13 @@ export function syncRuntimeToDoc(
 
     syncEntityOrder(doc, runtime)
 
+    if (runtime.wireframeContents) {
+      syncWireframesFromEntries(
+        doc.getMap<string>(DOC_MAP_WIREFRAMES),
+        runtime.wireframeContents,
+      )
+    }
+
     if (runtime.activeTabId) {
       const workspace = doc.getMap(DOC_MAP_WORKSPACE)
       if (workspace.get('activeTabId') !== runtime.activeTabId) {
@@ -294,6 +305,33 @@ function syncMapFromArray<T extends { id: string }>(
       ymap.delete(id)
     }
   }
+}
+
+/**
+ * Diff-sync the wireframes map (string values, keyed by file-entity id). Mirrors
+ * `syncMapFromArray` but for the A1 JSON-string representation: set changed
+ * values, delete entries whose entity no longer reports content.
+ */
+function syncWireframesFromEntries(
+  ymap: Y.Map<string>,
+  entries: ReadonlyArray<{ id: string; content: string }>,
+): void {
+  const ids = new Set<string>()
+  for (const { id, content } of entries) {
+    ids.add(id)
+    if (ymap.get(id) !== content) ymap.set(id, content)
+  }
+  for (const id of ymap.keys()) {
+    if (!ids.has(id)) ymap.delete(id)
+  }
+}
+
+/** Read the wireframes map back out as entries (reverse sync on undo/redo). */
+export function readWireframeEntries(doc: Y.Doc): Array<{ id: string; content: string }> {
+  const ymap = doc.getMap<string>(DOC_MAP_WIREFRAMES)
+  const entries: Array<{ id: string; content: string }> = []
+  for (const [id, content] of ymap.entries()) entries.push({ id, content })
+  return entries
 }
 
 function syncEntityOrder(

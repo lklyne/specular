@@ -70,11 +70,13 @@ export function WireframeInlineRenderer({
       setContent(json)
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
-        fileApi.writeNoteFile(entity.file, json)
+        // 3.0b: route up as a Y.Doc op (undoable, projected to disk) rather than
+        // writing the file directly.
+        fileApi.applyWireframeContent(entity.id, json)
         debounceRef.current = null
       }, 300)
     },
-    [entity.file, fileApi],
+    [entity.id, fileApi],
   )
 
   if (content == null) {

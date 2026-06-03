@@ -34,6 +34,7 @@ import {
 } from './runtime/dev-server-manager'
 import { spawn as nodeSpawn } from 'node:child_process'
 import { initializeDocObservers } from './runtime/workspace-observers'
+import { getWireframeContentEntries } from './runtime/wireframe-content-state'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
 import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from './runtime/workspace-undo'
@@ -218,6 +219,7 @@ app.whenReady().then(async () => {
     workspaceAnnotations,
     getZoom: () => zoom,
     getPan: () => pan,
+    getWireframeEntries: () => getWireframeContentEntries(),
     serializePage: (page) => ({
       id: page.id,
       name: page.name,

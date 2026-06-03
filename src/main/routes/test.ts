@@ -63,6 +63,15 @@ import type { MultiResizeEntry } from '../runtime/document-commands'
 import { currentCanvasGuides } from '../runtime/canvas-guides'
 import { currentEntityOrder, reorderSidebarStackOrder } from '../runtime/entity-order-state'
 import type { SidebarSectionKey } from '../../shared/types'
+import { createFileEntity } from '../runtime/document-commands'
+import { createWireframeFile, readNoteFile } from '../runtime/note-assets'
+import { commitWireframeContent, commitWireframeOp } from '../runtime/wireframe-commands'
+import {
+  ensureWireframeBaseline,
+  getWireframeContent,
+  type WireframeOp,
+} from '../runtime/wireframe-content-state'
+import { fileEntities } from '../runtime/file-entity-state'
 
 // --- Y.Doc transaction counter (test-only) ---
 // Counts afterTransaction events for the active doc between start/stop calls.
@@ -468,6 +477,22 @@ export const testRoutes: Route[] = [
     },
   },
 
+  // --- Reload the workspace from disk (round-trip persistence checks) ---
+  {
+    method: 'POST',
+    pattern: '/test/workspace/reload',
+    async handler({ response }) {
+      flushWorkspaceAutosaveSync()
+      const record = loadWorkspace()
+      if (!record || !restorePersistedWorkspace(record)) {
+        writeJson(response, 500, { error: 'failed to reload workspace from disk' })
+        return
+      }
+      requestLayout()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+
   // --- Autosave + persistence inspection ---
   {
     method: 'POST',
@@ -504,6 +529,74 @@ export const testRoutes: Route[] = [
         filePath,
         doc,
       })
+    },
+  },
+
+  // --- Wireframe content (3.0b: Y.Doc-backed, projected to .wireframe.json) ---
+  {
+    method: 'POST',
+    pattern: '/test/wireframe/create',
+    async handler({ response, body }) {
+      const payload = body as { canvasX?: number; canvasY?: number; name?: string; content: string }
+      if (typeof payload.content !== 'string') {
+        writeJson(response, 400, { error: 'content is required' })
+        return
+      }
+      const filePath = createWireframeFile(payload.name, payload.content)
+      const entity = createFileEntity({
+        canvasX: payload.canvasX ?? 0,
+        canvasY: payload.canvasY ?? 0,
+        file: filePath,
+        width: 400,
+        height: 400,
+      })
+      // Seed the Y.Doc baseline so the first edit is a single (undoable) step.
+      ensureWireframeBaseline(entity.id)
+      writeJson(response, 200, { id: entity.id, file: filePath })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/wireframe/op',
+    async handler({ response, body }) {
+      const payload = body as { id: string; op: WireframeOp }
+      if (typeof payload.id !== 'string' || !payload.op) {
+        writeJson(response, 400, { error: 'id and op are required' })
+        return
+      }
+      const result = commitWireframeOp(payload.id, payload.op)
+      if (!result.ok) {
+        writeJson(response, 400, { error: result.error })
+        return
+      }
+      writeJson(response, 200, { ok: true, content: result.content })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/wireframe/set-content',
+    async handler({ response, body }) {
+      const payload = body as { id: string; content: string }
+      if (typeof payload.id !== 'string' || typeof payload.content !== 'string') {
+        writeJson(response, 400, { error: 'id and content are required' })
+        return
+      }
+      commitWireframeContent(payload.id, payload.content)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'GET',
+    // RegExp so the `?id=` query is tolerated (string patterns match the raw
+    // URL exactly, query included).
+    pattern: /^\/test\/wireframe\/content(?:\?|$)/,
+    async handler({ request, response }) {
+      const url = new URL(request.url ?? '/', 'http://x')
+      const id = url.searchParams.get('id') ?? ''
+      const runtime = getWireframeContent(id)
+      const entity = fileEntities.find((e) => e.id === id)
+      const disk = entity ? readNoteFile(entity.file) : null
+      writeJson(response, 200, { runtime, disk, file: entity?.file ?? null })
     },
   },
 

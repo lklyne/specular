@@ -23,6 +23,7 @@ import {
   getDocActiveTabId,
   getDocTabList,
   isDocSyncSuppressed,
+  readWireframeEntries,
   syncRuntimeToDoc,
   withSuppressedDocSync,
   DOC_MAP_PAGES,
@@ -31,6 +32,7 @@ import {
   DOC_MAP_EDGES,
   DOC_MAP_ANNOTATIONS,
 } from './workspace-doc'
+import { applyWireframeContentsFromDoc } from './wireframe-content-state'
 import { getActiveUndoManager } from './workspace-undo'
 import { makeEmptyTabSnapshot } from './workspace-tabs'
 
@@ -49,6 +51,7 @@ interface RuntimeStateRefs {
   workspaceAnnotations: Annotation[]
   getZoom: () => number
   getPan: () => { x: number; y: number }
+  getWireframeEntries: () => ReadonlyArray<{ id: string; content: string }>
   serializePage: (page: Page) => Record<string, unknown>
   cancelActiveInteraction: () => void
   sendInteractiveState: () => void
@@ -181,6 +184,7 @@ function requestDocSyncImmediate(): void {
     pan: _refs.getPan(),
     activeTabId: _refs.getActiveTabId(),
     workspaceTabs: _refs.workspaceTabs,
+    wireframeContents: _refs.getWireframeEntries(),
   }, _refs.serializePage as (page: { id: string }) => Record<string, unknown>)
 }
 
@@ -294,6 +298,10 @@ function syncDocToRuntime(doc: Y.Doc): void {
     rebuildArrayFromYMap(_refs!.workspaceGroups, doc.getMap(DOC_MAP_GROUPS) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceEdges, doc.getMap(DOC_MAP_EDGES) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceAnnotations, doc.getMap(DOC_MAP_ANNOTATIONS) as Y.Map<Y.Map<unknown>>)
+
+    // Wireframe content (string-valued map) → runtime mirror, so the next disk
+    // projection writes the undone/redone tree back to .wireframe.json.
+    applyWireframeContentsFromDoc(readWireframeEntries(doc))
 
     // Phase 5d-v2 E1: gesture cancellation flows through the controller,
     // which is reentrancy-safe, so the undo observer can cancel + mark

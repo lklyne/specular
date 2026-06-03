@@ -1897,6 +1897,12 @@ export interface CanvasBgElectronAPI {
   ) => () => void
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
+  /**
+   * Wireframe write path (3.0b) — route a wireframe entity's full content up as
+   * a Y.Doc op (undoable, projected to disk) instead of writing the file
+   * directly. The renderer keeps reading the projected `.wireframe.json`.
+   */
+  applyWireframeContent: (entityId: string, content: string) => Promise<boolean>
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   /**
    * ADR 0013 §3 — morph a plain-text entity into a markdown file entity

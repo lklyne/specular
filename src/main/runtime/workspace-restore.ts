@@ -25,9 +25,11 @@ import {
   setDocActiveTabId,
   setDocTabList,
   DOC_MAP_VIEWPORT,
+  DOC_MAP_WIREFRAMES,
   DOC_ENTITY_MAP_NAMES,
   DOC_ARRAY_ENTITY_ORDER,
 } from './workspace-doc'
+import { clearWireframeContents } from './wireframe-content-state'
 import { markUndoBoundary } from './workspace-undo'
 import { resetDocSync } from './workspace-observers'
 import {
@@ -125,6 +127,7 @@ export function destroyActivePages(): void {
   clearFileEntities()
   clearDrawingEntities()
   clearShapeEntities()
+  clearWireframeContents()
   while (pages.length) {
     removePageAtIndex(pages.length - 1)
   }
@@ -343,7 +346,7 @@ export function transitionToTab(snapshot: WorkspaceSnapshot, tabId: string): voi
   doc.transact(() => {
     setDocActiveTabId(doc, tabId)
     setDocTabList(doc, workspaceTabs.map((t) => ({ id: t.id, name: t.name })))
-    for (const name of [DOC_MAP_VIEWPORT, ...DOC_ENTITY_MAP_NAMES]) {
+    for (const name of [DOC_MAP_VIEWPORT, ...DOC_ENTITY_MAP_NAMES, DOC_MAP_WIREFRAMES]) {
       const map = doc.getMap(name)
       for (const k of [...map.keys()]) map.delete(k)
     }
@@ -351,6 +354,9 @@ export function transitionToTab(snapshot: WorkspaceSnapshot, tabId: string): voi
     if (order.length) order.delete(0, order.length)
     hydrateDocFromSnapshot(doc, snapshot)
   }, 'user')
+  // Wireframe content is per-tab (keyed by file-entity id); drop the prior
+  // tab's mirror so the new tab's entities re-seed lazily from disk.
+  clearWireframeContents()
   markAllDirty()
   markUndoBoundary()
   resetDocSync()
