@@ -367,3 +367,16 @@ Noticed (no action):
 - **needs-triage queue at 3 items**: #53 (26 days, markdown undo — architectural) and #124 (19 days, pages select-first — ADR revision required) are structural residue requiring human time, per Lyle's June 2 post-mortem. #190 (SVG paste, 3 days) is fresh and bounded — likely triage candidate this week.
 - **ready-for-agent queue**: empty; no bounded items since #190 filed June 1. Pipeline is idle between epics, as expected.
 Hint for next run: watch #190 routing (SVG paste — whether it gets triaged to ready-for-agent and kicks off a new epic); check #188 traction at day 5 (June 6) as an early signal before the June 8 deadline.
+
+---
+
+## 2026-06-05
+Surveyed: PR #204 (wireframe integration, day 2), proposal #188 (day 4, 0 comments, stale threshold June 8), needs-triage queue (#190 at day 4, #53/#124 structural residue), PR #144 aging (day 19). Dominant theme: second designed pause holding; all watch items stable.
+Acted:
+- Nothing to close or file. #188 at day 4 (stale threshold June 8). No second instances crossed for any watch item.
+Noticed (no action):
+- **#190 (SVG paste rendering) at day 4, needs-triage, unrouted**: Bounded and agent-executable — natural next AFK epic candidate once triaged. Unlike #53/#124, no architectural decision blocks it. Not yet at the stall threshold (7 days); just watching for routing this session.
+- **#188 (claude-review restore) at day 4, 0 comments**: Stable. June 8 is the decision point. The June 6 early-signal check (per the June 4 hint) is tomorrow — nothing to assess yet today.
+- **PR #204 (wireframe integration) at day 2**: Designed pause; no movement expected before Lyle reviews. Deferral-without-tracking pattern (two items flagged in PR body: structured Y types §3.6, variant fan-out) still at one instance — no new AFK epics shipped since June 3 to confirm or deny a second.
+- **PR #144 (manifest extensions) at day 19**: Manual test still unchecked. No change; one PR, not systemic. Not watching further.
+Hint for next run: June 6 is the day 5 early-signal check for #188 (any organic resolution before the June 8 stale deadline?); also check whether #190 was routed to ready-for-agent and whether PR #204 merged or attracted review.
