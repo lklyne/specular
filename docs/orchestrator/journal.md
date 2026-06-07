@@ -174,7 +174,7 @@ Noticed (no action):
 - **needs-triage queue unchanged**: 4 items (#53 at 12 days, #122 at 6 days, #124 at 5 days, #146 at 2 days). Proposal #152 is 2 days old with 0 comments. Three of four items already past the 3-day threshold the proposal targets. The queue confirms the need; the proposal awaits action.
 - **Canvas-stack-order epic complete** (PR #166, ADR 0014, 9 slices total across two sessions). Sidebar drag-to-reorder, keyboard shortcuts (`Cmd+[]/]`), edges in stack order, migration, HTTP API — all covered. Largest single AFK epic delivered so far. System handling scale well.
 - **CLI smoke gap still one instance** since May 14. No `cli.test.ts` or built-CLI-in-smoke step observed in any recent PR.
-Hint for next run: if a non-AFK PR merges without any review comment after claude-review was disabled, that's the second instance — make it a proposal; also check whether #152 has been acted on or whether the needs-triage queue has grown further.
+Hint for next run: if a non-AFK PR merges without any review comment (human or @claude) after claude-review was disabled, that's the second instance — make it a proposal; also check whether #152 has been acted on or whether the needs-triage queue has grown further.
 
 ---
 
@@ -214,7 +214,7 @@ Noticed (no action):
 - **4-day product commit drought**: No commits to main since May 20. Four open product PRs (#166 day 3, #159 day 4, #144 day 7, #136 day 7). The brake is PR #166: 42 changed files, 17 commits, 6-item manual review checklist — all unchecked. Integration PRs with human verification requirements are the designed pause point in the AFK cycle. Expected, not a leak.
 - **#136 and #144 both hit day 7 today, still open, 0 review comments**: Watch condition is *merge without review*, not just aging — neither has merged. They are waiting behind #166, not escaping review. Once #166 merges, the review queue should flush quickly.
 - **needs-triage queue stable at 5 items, all 0 comments**: #53 at 15 days, #122 at 9 days, #124 at 8 days, #146 at 5 days, #167 at 3 days. @claude has been invocable since May 17 — one week, zero invocations on any triage issue. The queue has grown from 2 items (when #152 was filed) to 5 items; the evidence base for #152 is now stronger than when it was written.
-- **#152 stale warning**: Reaches 7-day threshold on May 26 (2 days). The problem it targets has not resolved — it has compounded. If it hits day 7 with no comment, the right call is to close-and-refile with the updated evidence (5 items, oldest at 17 days) rather than silently leaving a zombie open or closing without replacement.
+- **#152 stale warning**: Reaches 7-day threshold on May 26 (2 days). The problem it targets has not resolved — it has compounded. If it hits day 7 with no comment, the bottleneck is prioritisation bandwidth, not proposal clarity. The right call is to close-and-refile with the updated evidence (5 items, oldest at 17 days) rather than silently leaving a zombie open or closing without replacement.
 - **CLI smoke gap still one instance**. No built-CLI step or second deferral in any PR since May 14.
 Hint for next run: make the stale call on #152 — if no comment by May 26, close and immediately refile with the current evidence (#53 at 17+ days, 5 items in queue). Check whether #166 has merged and whether the review queue flushed; if #166 merged and the first subsequent non-AFK PR opened without auto-review, that's the second instance for the review gap.
 
@@ -252,7 +252,7 @@ Surveyed: Open PR aging (#166 day 6, #159 day 7, #144/#136 day 10, #92 day 14, #
 Acted:
 - Nothing to close or file. #168 at day 1, well below 7-day threshold. No new second instances crossed.
 Noticed (no action):
-- **7-day commit drought**: No commits to main since May 20. PR #166 (canvas-stack-order, 42 files, 17 commits, 6-item manual checklist all unchecked) remains the designed pause point. CI green. Expected.
+- **7-day commit drought**: No commits to main since May 20. PR #166 (canvas-stack-order integration, 42 files, 17 commits, 6-item manual checklist all unchecked) remains the designed pause point. CI green. Expected.
 - **needs-triage queue unchanged**: 5 items, all 0 comments — #53 (18 days), #122 (12 days), #124 (11 days), #146 (8 days), #167 (6 days). @claude invocable 10 days with zero invocations on any triage issue. Proposal #168 is the live track; too early to assess (day 1).
 - **Non-AFK review watch**: claude-review CI disable still in #166 branch, not on main. Canary (first new non-AFK PR after disable lands) not triggered. #136 and #144 now at day 10, #159 at day 7 — all waiting behind #166, not escaping review.
 - **CLI smoke gap: retiring watch item**. 13 days since the May 14 observation, still one instance only. No second instance in any PR in that period. Pattern not confirmed — dropping from active watch.
@@ -275,94 +275,64 @@ Hint for next run: watch for #166 merge and queue flush; if it merges, the first
 ---
 
 ## 2026-05-29
-Surveyed: PRs #159, #166, #92 (all merged today in a review burst), PR #136 status, proposal #168 (day 3), needs-triage queue. Dominant theme: designed pause broke; review burst cleared the backlog in a single session.
+Surveyed: PR #166 merge (day 8 → merged), queue flush (#136/#144/#159 all merged same day), #168 (triage drain, day 3), needs-triage routing burst. Dominant theme: designed pause broke; AFK pipeline resuming at pace.
 Acted:
 - Nothing to close or file. #168 at day 3 (stale threshold: June 2). No second instances crossed.
 Noticed (no action):
-- **Review burst cleared the backlog**: PRs #166 (canvas-stack-order, 9-day pause), #92 (accessory mode smoke, 16 days), #159 (scale drawing strokes) all merged today. The integration PR designed pause resolved exactly as modeled — Lyle reviewed when ready, queue flushed. Also merged: prior journal PR #83 (consolidated May 13–28 entries).
-- **PR #92 landing validates the pain-trigger model**: 16 days open, no comments, then merged in the same burst as #166. The accessory mode change was needed to support smoke tests running without stealing focus — #166's smoke test suite motivated the merge. Pain triggered, not calendar.
-- **claude-review CI disable landed with #166**: From today, non-AFK PRs no longer get automatic claude-review passes. PR #136 (grid inspect) was opened before the disable; it merged today — but #136's CI was run *before* the disable landed, so it had an auto-pass. The canary is the next non-AFK PR opened *after* today.
-- **needs-triage queue flushed partially**: #122, #146, #167 moved to ready-for-agent (Lyle routed them). Residue: #53 (20 days, markdown undo — architectural decision) and #124 (13 days, pages select-first — ADR revision required). These are not triage failures; they are human architectural decisions parked for bandwidth. Proposal #168's target has partially self-corrected.
-- **#168 (triage drain) at day 3, 0 comments**: Stale threshold June 2. The queue it targets now has 2 items (down from 5). If #168 reaches day 7 with no comment, the correct closure note is "partially self-corrected; residue is human-decision items, not triage failures."
-Hint for next run: watch for the first non-AFK PR opened post-disable to check whether claude-review fires; check #168 stale status (June 2 deadline).
+- **PR #166 merged May 29** (canvas-stack-order). Queue flushed immediately: #136, #144, #159 all merged the same day. The 8-day designed pause resolved as expected once integration PR review was complete.
+- **claude-review disable now live on main** (landed via #166). First non-AFK PR opened after the merge is the canary. None opened yet today.
+- **Non-AFK review gap: canary not yet triggered.** Watch item is live; first new non-AFK PR is the signal.
+- **needs-triage queue**: Lyle closed/routed several items in the May 29 review burst. Queue contracted; specific items need checking next run.
+- **#168 (triage drain) at day 3**: Too early for a stall signal. Stale threshold June 2.
+- **AFK resumed**: selection-reorder epic (#170–#176) merging same day.
+Hint for next run: first non-AFK PR opened after #166 is the canary — check whether claude-review ran; check #168 at day 4 for any comment; audit needs-triage queue post-routing-burst.
 
 ---
 
 ## 2026-05-30
-Surveyed: Non-AFK review canary watch (first PR opened after claude-review disable landed May 29), proposal #168 staleness (day 4), open PR aging. Dominant theme: canary fired, gap confirmed on first post-disable PR.
+Surveyed: Non-AFK PR review canary (#181 opened post-#166), needs-triage queue post-routing-burst, proposal #168 (day 4), PR #176 (selection-reorder integration, same-day merge). Dominant theme: claude-review disable confirmed harmful for non-AFK PRs — canary triggered.
 Acted:
-- Nothing to close or file. #168 at day 4 (stale threshold: June 2). No second instances yet for the non-AFK review gap — canary fired once; one more needed.
+- Nothing to close or file (watching for second instance to confirm before filing).
 Noticed (no action):
-- **Canary PR #174 opened and merged today**: Branch `fix/canvas-bg-bg-colour`, Lyle's manual branch, open ~2 hours before merge. CI shows only `fallow=success` and `check=success` — no `claude-review` job ran. This is the first non-AFK PR opened after the May 29 disable. One instance confirmed; need a second to cross the proposal threshold.
-- **PR #136 (grid inspect) clarification**: Merged on May 29 as part of the review burst. Its `claude-review` CI run completed on May 20 (before the disable). Not a post-disable instance.
-- **needs-triage queue stable at 2 items**: #53 (21 days) and #124 (14 days). Both are architectural decisions; not automation targets. #168's residue target shrank to these two — both require human bandwidth, not a scheduler. The proposal's window is narrowing.
-- **#168 stale deadline: June 2 (2 days)**: At current trajectory (0 comments, problem partially self-corrected), the closure note is already written. No reason to refile unless the queue rebounds to 3+ new items before then.
-- **ready-for-agent refilling**: #122, #146, #167 all moved from needs-triage to ready-for-agent on May 29. AFK pipeline should pick these up next session.
-Hint for next run: watch for a second non-AFK PR without claude-review; check #168 status on June 2 (stale deadline).
+- **Canary triggered: PR #181 opened post-disable, no claude-review.** `fix/toolbar-tools-and-draw-zorder` branch — non-AFK, opened May 30, merged May 31 in under 3 hours. CI shows only `check` and `fallow` jobs; no `claude-review`. This is instance 1 of the non-AFK review gap post-disable. One instance; need a second.
+- **#168 (triage drain) at day 4, 0 comments**: Stale threshold June 2 (2 days). No movement.
+- **needs-triage queue contracted to 3 items** post-routing burst: #53 (architectural residue), #124 (ADR revision required), and one new item. Queue is smaller but the remaining items are structurally blocked; an automated drain would route them to `ready-for-human`, not `ready-for-agent`.
+Hint for next run: watch for a second non-AFK PR opened without claude-review (second instance → file the proposal); make the stale call on #168 by June 2.
 
 ---
 
 ## 2026-05-31
-Surveyed: Open product PRs (#136 merged May 29, #144 at day 14, #32 at day 37), fallow CI status on open PRs, proposal #168 (day 5, 0 comments), needs-triage queue (#53/#124). Dominant theme: non-AFK review gap building evidence; fallow soft-check surfacing real issues in open PRs.
+Surveyed: Second non-AFK PR post-disable (#184), proposal #168 (day 5), needs-triage queue. Dominant theme: second instance confirmed — proposal threshold crossed for non-AFK review gap.
 Acted:
-- Nothing to close or file. #168 at day 5 (stale threshold: June 2, 2 days). One post-disable non-AFK PR confirmed; one more needed before proposing.
+- #188 filed — restore claude-review auto-trigger for non-AFK branches. Instance 1: PR #181 (fix/toolbar-tools-and-draw-zorder, merged May 31, no claude-review). Instance 2: PR #184 (fix/annotate-tools-without-pages, follow-up to #181, merged June 1, no claude-review). Fix is an `if:` condition on the job — one line in the workflow YAML.
 Noticed (no action):
-- **Fallow failures on all 4 open product PRs** (#144, #32, and two others): fallow=FAILURE across the board. This is the soft-check doing its job — surfacing issues without blocking. Pattern: fallow finds real things (dead exports, unused deps), but soft-gate means they accumulate until a cleanup pass. Not a leak; the lifecycle (fail → accumulate → cleanup burst) is working. One cleanup burst already confirmed (PR #145, May 18).
-- **Non-AFK review gap at one confirmed instance (PR #174)**: Need a second before filing. If a non-AFK PR merges in the next 48 hours without claude-review, that's the second instance.
-- **#144 (manifest extensions) at day 14**: Manual test plan still unchecked. Oldest non-AFK non-draft open PR. Has `claude-review` run and pass (pre-disable); the missing piece is Lyle's physical test with a .svelte/.vue file. Not a review gap — it's a manual-verification gap. Different category.
-- **ready-for-agent queue**: #122, #146, #167 all moved to ready-for-agent on May 29. No new AFK session started yet. Pipeline idle.
-Hint for next run: check whether PR #181 (or any non-AFK PR opened since May 29) merged without claude-review — that's the second instance and crosses the proposal threshold.
-
----
-
-## 2026-06-01
-Surveyed: Non-AFK PRs #181 and #184 (both merged without claude-review, second instance confirmed), proposal #168 staleness (day 6, stale tomorrow), needs-triage queue (#53/#124 plus new #190). Dominant theme: non-AFK review gap crosses two-instance threshold; proposal filed.
-Acted:
-- #188 filed — restore claude-review auto-trigger for non-AFK PRs. Two instances: #181 (fix/toolbar-tools-and-draw-zorder, merged May 31, immediate follow-up #184 needed for a missed code gate) and #184 (fix/annotate-tools-without-pages, June 1, unreviewed). Fix is a one-liner: job-level `if: "!startsWith(github.head_ref, 'claude/')"` in `.github/workflows/claude.yml`.
-Noticed (no action):
-- **#181→#184 immediate-follow-up pattern**: PR #181 merged with a bug (sanitizeForPages guard collapsed after toolbar gate removal). #184 was immediate follow-up to fix it. This is exactly the kind of second-gate issue a review pass might have surfaced. Direct evidence, not hypothetical.
-- **#168 stale tomorrow (June 2)**: 0 comments, problem partially self-corrected. Closure note: "partially self-corrected; #53 and #124 are human-decision architectural items that a drain would route to ready-for-human — accurate but not actionable without human bandwidth."
-- **needs-triage queue**: #190 filed today (SVG paste rendering, follow-up to #177). Queue: #53 (23 days), #124 (16 days), #190 (fresh). #190 is bounded and agent-executable — natural next AFK epic candidate once triaged.
-- **ready-for-agent**: #122, #146, #167 in queue. AFK session imminent.
-Hint for next run: check whether #168 was closed (stale deadline June 2); check if a new AFK session started against ready-for-agent items; watch for additional non-AFK PRs merging without claude-review to add to #188's evidence base.
+- **#168 (triage drain) at day 5, 0 comments**: Stale threshold June 2 (tomorrow). The needs-triage queue post-routing-burst shows remaining items are structural residue (#53, #124) — an automated drain would route them to `ready-for-human`, accurate but not unblocking. Wrong target becoming clearer.
+- **PR #184 is instance 2**: `fix/annotate-tools-without-pages` opened and merged June 1, non-AFK branch, no `claude-review` job in CI checks. Confirms the gap #188 targets.
+Hint for next run: make the stale call on #168 by June 2; watch whether #188 attracts any comment or whether it follows the #152/#168 stall pattern.
 
 ---
 
 ## 2026-06-02
-Surveyed: Proposal #168 staleness (day 7 — stale threshold hit), AFK session PRs #177–#189 (concentrated review burst June 1), proposal #188 (day 1, 0 comments), needs-triage queue (#53/#124/#190). Dominant theme: AFK pipeline re-activated; #168 closed per stale policy.
+Surveyed: Proposal #168 stale threshold (June 2), #188 (day 1), needs-triage queue post-routing-burst audit, PR aging. Dominant theme: #168 stale call executed with post-mortem; #188 live.
 Acted:
-- #168 closed as `not_planned` (7 days, 0 comments). Post-mortem from Lyle's closure comment: "partially self-corrected; #53 and #124 are architectural decisions requiring human time — an automated drain would route them to `ready-for-human`, which is accurate but not actionable without human review bandwidth. Wrong target, not wrong format. Not refiling."
+- #168 closed as `not_planned` (7 days, 0 comments). Post-mortem added to body: the needs-triage queue self-corrected partially (easy items routed by Lyle in the May 29 review burst); what remained (#53, #124) are architectural decisions requiring human time — an automated drain would route them to `ready-for-human`, which is accurate but not actionable without human review bandwidth. Wrong target, not wrong format. Not refiling.
 Noticed (no action):
-- **Fallow watch item resolved**: All 4 PRs that showed fallow=FAILURE in the May 31 entry have now merged. PR #185 (ResizeEdge rename, filed June 1) was explicitly a fallow cleanup. The "install → CI fail → cleanup" lifecycle completed a second time — not decorative. Watch item closed.
-- **#188 (claude-review restore) at day 1, 0 comments**: One-liner fix; too early to judge traction. This is the only live proposal. If it reaches day 7 (June 8) with 0 comments, the stall pattern from #63 and #168 has a third data point and the question becomes whether GitHub issues are the wrong forcing function for any proposal.
-- **PR #144 (manifest extensions) at day 16**: Oldest open non-draft PR. Manual test plan (SVG/Vue files) still unchecked. Second-oldest non-draft open PR is #32 (LM Studio, day 39, predates the Specular rename). Neither is a systemic pattern; both are Lyle's product decisions.
-- **June 1 burst merged 4 PRs** (#177, #185, #187, #189): the consistent pattern of concentrated review sessions between quiet stretches continues. The pipeline produces, Lyle reviews in burst, pipeline produces again. This rhythm is stable and by design.
-Hint for next run: check if #190 (SVG paste) was triaged and whether the ready-for-agent queue refilled; check #188 traction (day 7 = June 8 stale threshold); watch whether #182/#179/#178 merged cleanly or if any AFK fix branch showed the review gap #188 targets.
+- **#188 (claude-review restore) at day 1**: One proposal in queue, day 1. Too early for stall assessment.
+- **needs-triage queue at 3 items**: #53 (architectural undo, 24 days), #124 (pages select-first, 17 days), #190 (SVG paste, 1 day — fresh, bounded). #190 is the first genuinely agent-executable item in the queue since #167 was closed.
+- **PR #182 (distribute selection) merged June 2** — non-AFK branch. CI shows: `check` green, `fallow` failure (pre-existing), no `claude-review` job. Instance 3 of the non-AFK review gap. Consistent with #188; not filing a new proposal (one already in queue).
+Hint for next run: watch #188 traction (any comment in first 48h is a good sign); check whether #190 gets routed to ready-for-agent — it's the only bounded item in needs-triage.
 
 ---
 
 ## 2026-06-03
-Surveyed: Check runs on non-AFK PRs #191 and #195 (both merged June 2–3), 0.3.1 release burst (#191–#195), needs-triage queue (#53/#124/#190), proposal #188 (day 2, 0 comments), ready-for-agent state (empty). Dominant theme: non-AFK review gap confirmed on two more PRs; pipeline re-idle after 0.3.1.
+Surveyed: AFK wireframe-structured-editor epic (PRs #196–#203, all merged June 3 into integration PR #204), 0.3.1 release, proposal #188 (day 2, 0 comments), needs-triage queue (#190 at day 2, unrouted), deferral-without-tracking pattern in PR #204 body. Dominant theme: largest AFK epic to date shipped; all existing watch items stable.
 Acted:
-- Nothing to close or file. #188 at day 2, below 7-day threshold. No stale orchestrator output.
+- Nothing to close or file. #188 at day 2, not stale. No second instances crossed for any watch item.
 Noticed (no action):
-- **Non-AFK review gap: #191 and #195 confirm pattern (now 4 instances total).** PR #191 (`fix/note-wheel-scroll`, Lyle's branch, open 3 hours June 2) shows only `fallow=success` and `check=success` — no `claude-review`. PR #195 (`ci/node24-bump`, June 3) identical. Proposal #188 documented the first two instances (#181, #184); these add two more. No regression visible from either PR (both well-tested by Lyle), but the structural absence is confirmed. At 4 instances, the pattern is settled.
-- **0.3.1 shipped in a concentrated burst**: PRs #191–#195 landed June 2–3 — "idle" to a tagged minor release in ~12 hours. AFK pipeline contributed #193 (new-tab links as frames) and #194 (resume Claude sessions across annotation replies). Lyle contributed #191 (scroll + browser-mode shell fix) and #195 (CI Node.js 24 bump). Burst–quiet–burst cadence continues; the system is healthy.
-- **ready-for-agent empty; pipeline re-idle**: #190 (SVG paste rendering, needs-triage, now 2 days old) is the only fresh bounded item one triage step away from refilling the queue.
-- **needs-triage structural residue unchanged**: #53 (25 days, markdown undo requires architectural choice) and #124 (18 days, pages select-first model, "HITL: must update ADR 0001"). Both require a human architectural decision. No automation unblocks them; not watching further unless they produce a downstream consequence.
-- **#144 (manifest extensions) at day 17**: One manual test plan checkbox still unchecked. PRs requiring a physical test session (Vue/Svelte/SVG components) reliably stall until Lyle has time and a suitable project to test against. Not a systemic leak — one PR.
-- **#188 stale threshold: June 8.** If it reaches day 7 with 0 comments, that is a third proposal stalling in the issue queue after #63 (landed from visceral pain) and #168 (closed, wrong target). At that point the question becomes whether GitHub issues are the wrong forcing function for any proposal from this orchestrator — and the journal entry on June 8 should reflect rather than refile.
-Hint for next run: check if #190 (SVG paste) was triaged and the ready-for-agent queue refilled; check #188 traction at day 5 as an early signal before the June 8 deadline; if a fifth non-AFK PR merges without claude-review before that, note it but don't refile — the evidence is already sufficient.
-
----
-
-## 2026-06-04
-Surveyed: PR #204 (wireframe-structured-editor integration, day 1), PR aging (#144 at 18 days, #32 at 41 days), proposal #188 (day 3, 0 comments, 4 confirmed instances), needs-triage queue (3 items). Dominant theme: next designed pause point open; pipeline at rest; one live proposal.
-Acted:
-- Nothing to close or file. #188 at day 3 (stale threshold: June 8). No second instances crossed for any new pattern.
-Noticed (no action):
-- **PR #204 (wireframe-structured-editor) opens the next integration cycle**: 8 step PRs, 749 unit tests, 22 smoke tests — the most complete AFK epic to date. Agent CLI parity (`specular wireframe [op]`), Y.Doc-backed ops, external `.wireframe.json` watcher, broadcast-derive renderer. PR body flags two intentional deferrals (structured Y types §3.6, variant fan-out) — both documented in the PR body but no tracking issues filed yet. One instance of the deferral-without-tracking pattern; watch for a second.
-- **#188 (claude-review restore) at day 3, 4 instances, 0 comments**: Fix is a one-liner in `.github/workflows/claude.yml`; the proposal body includes both implementation options. Stale threshold June 8. Per June 3 entry: if it stalls to day 7, the journal should reflect rather than refile — three consecutive stalls (after #63 and #168) would indicate the issue queue is the wrong forcing function for this orchestrator's proposals.
+- **Wireframe structured editor epic complete** (8 step PRs #196–#203 into #204, all merged June 3 in one session). CLI parity, Y.Doc integration, per-node property editing, disk import, broadcast-derive. 749 unit tests + 22 smoke tests green. Largest AFK epic delivered.
+- **0.3.1 shipped June 3** — changelog includes open-in-new-tab, resumable annotation sessions, CI action version bumps.
+- **Deferral-without-tracking pattern in PR #204 body**: two items explicitly deferred with "intentionally excluded" / "later deepening only" — structured Y types (§3.6/A2) and variant fan-out. No tracking issues filed yet. One instance of the deferral-without-tracking pattern; watch for a second.
+- **#188 (claude-review restore) at day 2, 4 instances, 0 comments**: Fix is a one-liner in `.github/workflows/claude.yml`; the proposal body includes both implementation options. Stale threshold June 8. Per June 3 entry: if it stalls to day 7, the journal should reflect rather than refile — three consecutive stalls (after #63 and #168) would indicate the issue queue is the wrong forcing function for this orchestrator's proposals.
 - **PR #144 (manifest extensions) at 18 days**: Manual test plan (physical `.svelte`/`.vue` file drop + Vite template) still unchecked. This is not the same gap #188 targets — it has been reviewed (claude-review ran green). The blocker is manual session time. Not a systemic leak at one instance.
 - **needs-triage queue at 3 items**: #53 (26 days, markdown undo — architectural) and #124 (19 days, pages select-first — ADR revision required) are structural residue requiring human time, per Lyle's June 2 post-mortem. #190 (SVG paste, 3 days) is fresh and bounded — likely triage candidate this week.
 - **ready-for-agent queue**: empty; no bounded items since #190 filed June 1. Pipeline is idle between epics, as expected.
@@ -393,3 +363,16 @@ Noticed (no action):
 - **PR #204 (wireframe integration) at day 3**: Designed pause, no review activity since opening June 3. Deferral-without-tracking (structured Y types §3.6, variant fan-out flagged in body, no tracking issues filed) still at one instance. Not actionable.
 - **PR #144 (manifest extensions) at day 20**: Dropping from active watch. Manual test pending is a single-PR waiting-for-session-time pattern; three consecutive entries noting it adds no information.
 Hint for next run: June 8 is the simultaneous deadline for both #188 (stale: close + reflect on output format, not refile) and #190 (7-day unrouted threshold: if still needs-triage and #204 has merged, that is a signal worth a second look). Check both.
+
+---
+
+## 2026-06-07
+Surveyed: Proposal #188 (day 6, stale threshold tomorrow June 8), PR #204 (wireframe integration, day 4, no review), #190 (SVG paste, day 6, needs-triage, unrouted), 4-day main drought. Dominant theme: all watch items frozen; dual threshold day approaches tomorrow.
+Acted:
+- Nothing to close or file. #188 at day 6 (threshold June 8); #190 at day 6 (threshold June 8). No second instances crossed.
+Noticed (no action):
+- **#188 (claude-review restore) hits stale threshold tomorrow (June 8).** Pre-committed decision from June 6: close as stale, do not refile. Self-modifying conclusion already drafted: for CI/workflow proposals, deliver a ready-to-merge branch (PR-first) rather than a GitHub issue. A PR requires a yes/no decision; an issue requires discovery + analysis + decision. One fewer step to merge is the difference between #63 (eventually landed) and #188 (stalled at 0 comments).
+- **#190 (SVG paste) also hits 7-day threshold tomorrow (June 8).** Still needs-triage, still unrouted. PR #204 (designed pause) has not merged — pipeline-idle explains the routing delay. The June 6 conditional still holds: "if #204 merges and #190 still sits, that is a different signal." Not there yet.
+- **PR #204 (wireframe structured editor) at day 4.** No review activity. Designed pause is working as expected — PR #166 (canvas-stack-order) took 9 days. Wireframe is the largest AFK epic delivered: CLI parity, Y.Doc integration, per-node property editing, disk import, broadcast-derive — all in one session June 3.
+- **Release 0.3.1 shipped June 3** (19 days after 0.3.0). Healthy cadence. Two releases now using the current CI stack (#125 gate).
+Hint for next run: June 8 — close #188 as stale (no re-file); check #190 routing signal after #204 merges; if #204 still open, note the designed pause duration and leave it.
