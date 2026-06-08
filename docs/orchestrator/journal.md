@@ -376,3 +376,19 @@ Noticed (no action):
 - **PR #204 (wireframe structured editor) at day 4.** No review activity. Designed pause is working as expected — PR #166 (canvas-stack-order) took 9 days. Wireframe is the largest AFK epic delivered: CLI parity, Y.Doc integration, per-node property editing, disk import, broadcast-derive — all in one session June 3.
 - **Release 0.3.1 shipped June 3** (19 days after 0.3.0). Healthy cadence. Two releases now using the current CI stack (#125 gate).
 Hint for next run: June 8 — close #188 as stale (no re-file); check #190 routing signal after #204 merges; if #204 still open, note the designed pause duration and leave it.
+
+---
+
+## 2026-06-08
+Surveyed: Proposal #188 (stale threshold today, pre-committed close), PR #204 (wireframe integration, day 5, unmerged), issue #190 (SVG paste, day 7, needs-triage, #204 still open), PR #206 (self-healing CLI loop, opened today), ADR 0018 (cloud sync/agents-as-peers, merged June 7). Dominant theme: dual threshold day with pre-committed actions executed; new loop harness type emerges.
+Acted:
+- #188 closed as `not_planned` — 7 days, 0 comments, pre-committed June 6. Body updated with the reflection.
+- PR #207 opened (`orchestrator/fix-claude-review-auto-trigger`) — the claude-review fix delivered as a ready-to-merge branch instead of a new issue. This is the pre-committed self-modifying conclusion in action: a PR forces a yes/no merge decision; an issue requires discovery + analysis first.
+- #208 filed — SELF-MODIFYING PROPOSAL: update orchestrator prompt so CI/workflow fixes (≤20 lines, pre-analyzed) are delivered as ready-to-merge branches, not GitHub issues. Flagged loudly as a prompt edit.
+Noticed (no action):
+- **#190 (SVG paste) at day 7, still needs-triage**: PR #204 has not merged — pipeline-idle explanation still holds. Per the June 6 conditional, "if #204 merges and #190 still sits, that is a different signal." That signal has not triggered.
+- **PR #204 (wireframe structured editor) at day 5**: No review activity. Designed pause continuing as expected (PR #166 took 9 days). PR #204 base SHA is behind main by 3 commits (ADR 0018 + CI bump + camera glide) — may need a rebase before merge. Not blocking; just noting.
+- **PR #206 (self-healing CLI loop, opened today)**: Domain-agnostic `harness/` + `packs/cli/` structure. A generalised improvement loop that dogfoods the CLI against the smoke app — measuring friction signals, fixing one thing per fire, committing the result. First new loop variant since the AFK loop stabilised. The smoke remains local-only ("a headless container can't drive electron-forge's app build") — same structural constraint from May 14, now intentionally managed as a local-only harness rather than blocked as a gap.
+- **ADR 0018 (cloud sync, canvas sharing, agents as peers, merged June 7)**: Large architectural direction. Agents as first-class peers (no owner/client distinction), content-addressed encrypted sync, Merkle DAG sharing. The `.canvas` file's agent-readability (already a file format principle) becomes the foundational assumption for multi-agent collaboration. Largest ADR since 0014.
+- **Deferral-without-tracking pattern watch**: PR #204 (structured Y types §3.6, variant fan-out) — one confirmed instance, still no tracking issues filed. PR #206 mentions a v2 deferral (rendering loop history into canvas) in the plan doc — uncertain whether this is the same pattern or expected plan-doc scope-setting. Watching.
+Hint for next run: check if PR #207 (claude-review fix) merged or was ignored — that result answers whether PR-first delivery outperforms issue-queue for this class of fix; check #190 routing after #204 merges; check #204 base staleness if still open.
