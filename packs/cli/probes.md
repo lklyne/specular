@@ -28,12 +28,16 @@ pnpm build:cli && pnpm test:smoke -- cli
   two-page + note workflow. Guards: parseable output, observable edits, clean exits.
 - `error-ergonomics.probe.test.ts` — missing-arg usage messages, stderr/stdout
   separation. Guards: actionable, machine-legible failures.
+- `grid-layout.probe.test.ts` — `upsert --json` with a grid directive, geometry
+  read back from `workspace`. Guards: no overlapping entities at scale (12+
+  items, uniform and mixed-size) and a real grid structure, not a collapsed pile.
 
 ## Gaps (candidate probes — convert friction here)
 
 - `snapshot` / `screenshot` output shape and flags.
 - `annotate` → `resolve` round-trip ergonomics.
 - `group` → `auto-layout` → `focus` call count.
+- `distribute` even-gap correctness for a loose multi-selection (ADR 0015).
 - `update` / `delete` with an unknown id: is the error actionable?
 - `create page` with a bare path (`/garden`): should it be rejected with a message
   pointing at full-URL usage? (See backlog.md.)

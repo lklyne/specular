@@ -40,6 +40,10 @@ fixed thing instead of a flattering one.
    workspace back and confirm the edits are observable.
 2. Annotate a page, then resolve the annotation.
 3. Group several pages, auto-layout them, then focus the group.
+4. Lay out many items (a dozen+) as a grid via `upsert --json` with a grid
+   directive; read the workspace back and confirm none of them overlap and the
+   result is an even grid. Overlap is the failure mode that only appears at
+   scale — exercise it with enough items to catch it.
 
 For each: count the calls, check every output parses, check every error is
 actionable. File friction as Todo items in backlog.md.
