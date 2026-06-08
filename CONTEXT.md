@@ -198,6 +198,18 @@ A **Binding** is one entry in the keyboard registry: `{ id, defaultKey, scope, t
 
 **Keyboard shortcuts and tools.** Every `Tool['kind']` has a default key, enforced by TypeScript exhaustiveness. Variant keys (e.g. Shift+R for diamond, Shift+M for highlight) activate the tool *and* write the variant to **tool defaults** per ADR 0009. Pressing a tool's key while that tool is already active is a no-op (FigJam reference); Escape is the only keyboard path back to `select`.
 
+## Cloud sync & sharing
+
+Proposed, not yet built — see [ADR 0018](./docs/adr/0018-cloud-sync-and-canvas-sharing.md). The local-first disk path (`.canvas` files) remains the only shipping mode until the auth/token layer lands. Terms recorded ahead of implementation so planning shares vocabulary:
+
+- **Doc id** — the stable identifier for a canvas as a synced unit. One doc id ⇔ one Durable Object ⇔ one shared `Y.Doc`. Distinct from a tab id or a filename.
+- **Durable Object per canvas** — the Cloudflare unit that runs the Yjs sync server (`y-partykit`, WebSocket Hibernation) and persists the doc. The data plane: a canvas lives in the cloud whether or not a desktop app is connected.
+- **Split data plane** — the doc holds *references*, R2 holds *bytes*. Image/video binaries never enter the `Y.Doc`. Mirrors the local model (`image-assets.ts`: bytes to `assets/`, reference in the entity).
+- **Asset id** — a stable id stored on a `file` entity instead of a location. Resolved per environment to a local `assets/` path (desktop) or an R2 key (cloud), so a `.canvas` stays portable between both. The resolver is the only place the two location schemes meet.
+- **Capability link** — a share URL carrying a doc id plus a scoped, expiring **capability token** (`view` | `comment` | `edit`). The token, not the path, is the security boundary. An edit link is a write capability — treat like a password.
+- **Agent as peer** — an agent (local or cloud) joins a canvas as an ordinary authenticated Yjs peer via a capability link. It edits doc data headlessly (no rendering). Agent tokens are first-class: narrower scope, short TTL, audit-logged, separately revocable from human share links. Remote/agent transactions are origin-tagged (extending the `'user'` tag in `syncRuntimeToDoc`) to keep them out of the local undo stack and to attribute presence.
+- **Render path** — how render-dependent features (browser multiplayer, cloud screenshots) obtain pixels for live **page** nodes, which have none outside the desktop app. Full fidelity via the app's existing capture pipeline (`region-capture.ts` / `frame-compositor.ts`); cloud fidelity needs Cloudflare Browser Rendering or composited cached snapshots (`agent-snapshot-cache.ts`). Additive, not a prerequisite for sync or sharing.
+
 ## UI copy voice
 
 - **Sentence case** — capitalize the first word only. Default for menus, buttons, dialog text, chrome labels: "Reveal codebase in finder", "Delete project…", "Rename".
