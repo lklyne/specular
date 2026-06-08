@@ -22,7 +22,27 @@ Top of `## Todo` = next up. Keep items small and concrete.
       always pass full URLs (a bare `/garden` is ambiguous across origins), but
       `src/main/cli-commands.ts` passes the value straight through. Write a probe
       asserting `specular create page /garden` exits non-zero with a message
-      pointing at full-URL usage, then make it pass.
+      pointing at full-URL usage, then make it pass. The same applies to
+      `specular breakpoints <url>` (also takes a URL).
+
+- [ ] **Skill drift: `breakpoints` argument.** `.claude/skills/specular/SKILL.md`
+      documents `specular breakpoints <id>` / "cycle through device breakpoints,"
+      but the CLI takes a URL and applies a breakpoint *map*
+      (`cli-commands.ts` `breakpoints` handler: `usage: specular breakpoints <url>`).
+      Fix the skill (both copies) to match; verify against the actual handler.
+
+- [ ] **Audit the CLI docs against the command surface.** Diff CLAUDE.md
+      `## Specular CLI` + `## Agent integration` and both `SKILL.md` copies against
+      the `VERBS` map and per-verb usage strings in `cli-commands.ts`. File each
+      drift (missing/renamed command, wrong flag or argument, stale guidance) as its
+      own Todo here. Recurring: re-run after CLI changes land.
+
+- [ ] **Write a doc-truth probe.** Add a probe under `tests/smoke/cli/` that asserts
+      the documented command list and the CLI's real verbs agree — e.g. parse the
+      command table in `.claude/skills/specular/SKILL.md`, run `specular --help`
+      (and/or read the `VERBS` map), and fail if a documented verb doesn't exist or
+      a real verb is undocumented. This is the mechanical net for *removed/renamed*
+      commands; argument-level drift (like `breakpoints`) still needs the audit above.
 
 - [ ] **`snapshot` output ergonomics.** Confirm whether `snapshot` needs a
       `--format` flag to produce parseable output; if so, make agent-friendly JSON

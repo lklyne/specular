@@ -146,9 +146,11 @@ primitives and tools, not dedicated workflow features:
 
 ## Agent integration
 
-Agent interaction is moving to a CLI for better context management.
-Agents can also read and write .canvas files directly — they are just JSON.
-The HTTP API (src/main/routes/) remains available for runtime interaction.
+The `specular` CLI is the primary agent surface — see the specular skill
+(`.claude/skills/specular/SKILL.md`) for the full command reference and
+`## Specular CLI` below for invocation rules. Agents can also read and write
+.canvas files directly — they are just JSON. The HTTP API (`src/main/routes/`)
+backs the CLI and remains available for direct runtime interaction.
 
 ## Testing patterns
 
@@ -171,7 +173,19 @@ The suite stays small on purpose. To prevent drift back to a pile of low-value t
 
 ## Specular CLI
 
-- Always pass full URLs (including scheme and host) to `specular create page`. The canvas can contain pages from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
+The `specular` CLI drives the canvas (`src/main/cli.ts`, `src/main/cli-commands.ts`).
+It talks to the running app over the HTTP API, discovered via
+`~/.specular/specular-mcp.json`. The full command reference lives in the specular
+skill; `specular --help` lists the verbs.
+
+- The app must be running (`pnpm dev`) for any command to work — otherwise the CLI
+  reports "Specular app is not available. Launch the app first."
+- After editing CLI source, rebuild with `pnpm build:cli`, or the command keeps the
+  old behavior (`pnpm dev` rebuilds it on start).
+- Always pass full URLs (including scheme and host) to `specular create page` and
+  `specular breakpoints`. The canvas can contain pages from different origins, so
+  bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not
+  `/garden`.
 
 ## Skill files
 

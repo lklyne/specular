@@ -53,6 +53,20 @@ pnpm build:cli && pnpm test:smoke -- cli
 `pnpm build:cli` rebuilds `out/main/cli.js` so probes exercise your latest change.
 `-- cli` filters vitest to `tests/smoke/cli/`.
 
+## Docs are a maintained surface
+
+The CLI's agent-friendliness includes the docs that describe it. They must match
+observed behavior — treat them as part of "done" for any CLI change:
+
+- `CLAUDE.md` → the `## Specular CLI` and `## Agent integration` sections.
+- `.claude/skills/specular/SKILL.md` and `resources/skills/specular/SKILL.md`
+  (update both in the same commit — see guardrails.md).
+
+When a command's behavior, flags, or arguments change, update these in the same
+commit. When you notice a doc claims something the CLI doesn't do (a missing/renamed
+command, a wrong flag or argument), that is a heal item: fix it if small, else file
+it in backlog.md.
+
 ## Non-goals (do not drift here)
 
 - Renaming variables or reflowing code with no behavior or ergonomics change.
