@@ -392,3 +392,16 @@ Noticed (no action):
 - **ADR 0018 (cloud sync, canvas sharing, agents as peers, merged June 7)**: Large architectural direction. Agents as first-class peers (no owner/client distinction), content-addressed encrypted sync, Merkle DAG sharing. The `.canvas` file's agent-readability (already a file format principle) becomes the foundational assumption for multi-agent collaboration. Largest ADR since 0014.
 - **Deferral-without-tracking pattern watch**: PR #204 (structured Y types §3.6, variant fan-out) — one confirmed instance, still no tracking issues filed. PR #206 mentions a v2 deferral (rendering loop history into canvas) in the plan doc — uncertain whether this is the same pattern or expected plan-doc scope-setting. Watching.
 Hint for next run: check if PR #207 (claude-review fix) merged or was ignored — that result answers whether PR-first delivery outperforms issue-queue for this class of fix; check #190 routing after #204 merges; check #204 base staleness if still open.
+
+---
+
+## 2026-06-09
+Surveyed: PR #207 (claude-review fix, day 1), proposal #208 (PR-first self-modifying, day 1), needs-triage queue (4 items: #209 new day 1, #190 day 8, #124/#53 structural), PR #204 (wireframe integration, day 6). Dominant theme: proof-of-concept for PR-first delivery is live; all results are day 1, no conclusions yet.
+Acted:
+- Nothing to close or file. #208 at day 1 (stale threshold June 15). No new second instances crossed for any watch item.
+Noticed (no action):
+- **PR #207 (claude-review fix) at day 1**: The proof-of-concept for #208 is live — does a ready-to-merge branch force a faster yes/no decision than an issue in the queue? Too early to measure. Meaningful checkpoint: day 4–5.
+- **#209 (live-refresh local-file entities, filed June 8) entered needs-triage**: "Blocked by: None — can start immediately." Explicitly cites `wireframe-watcher.ts` as the template. Bounded and agent-executable. Needs-triage now has two ready-for-agent candidates (#190, #209) alongside two structural residuals (#53, #124) — the highest pipeline-ready count seen in the queue at once.
+- **#190 (SVG paste) at day 8, still needs-triage**: PR #204 still open — pipeline-idle explanation holds. The conditional from June 6 ("if #204 merges and #190 still sits, that is a different signal") has not triggered yet.
+- **PR #204 (wireframe structured editor) at day 6**: Behind main by 3 commits (ADR 0018, CI bump, camera glide). Designed pause continuing — PR #166 (canvas-stack-order) took 9 days before merge. On expected trajectory.
+Hint for next run: if PR #204 merges, check immediately whether #190 and/or #209 route to ready-for-agent — two bounded candidates at once is the pipeline's highest-readiness state yet; also check PR #207 at day 3–4 for early merge signal on the PR-first hypothesis.
