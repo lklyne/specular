@@ -128,6 +128,47 @@ Top of `## Todo` = next up. Keep items small and concrete.
       probe asserting that `upsert --json` with a text entity using the `preview` key round-trips
       through `workspace` under that exact field name.
 
+- [ ] **W5: `screenshot` silently times out (30s) when the page is not focused — no hint that `focus` is required.**
+      Trace `trace-20260609-233241-r4` calls 3 and 6: `["screenshot", "-f", "page_24b9e4b4-..."]` → exit 1,
+      stderr `"error: Command timed out after 30000ms"` — twice, 60 total seconds wasted. The doer had
+      no signal that the page must be focused/visible before screenshot can capture it. The fix was
+      discovered only through an intermediate `focus` call (call 8) followed by a successful screenshot
+      (call 9, 331ms). Fix: either (a) auto-focus the target page inside `screenshot` before capturing,
+      eliminating the requirement entirely, or (b) detect the not-focused state early and return a
+      specific actionable error (exit non-zero, stderr: "page is not visible in the viewport; call
+      `specular focus <id>` first"). The silent 30s hang is the worst outcome. Write a probe: assert
+      that `specular screenshot -f <newly-created-page-id>` (without a prior `focus`) either succeeds
+      or exits non-zero within < 5s with a message mentioning `focus`.
+
+- [ ] **W5: `screenshot` output is a bare file path + parenthetical comment, not JSON — fails parseable-output criterion.**
+      Trace `trace-20260609-233241-r4` call 9 (the successful shot): exit 0, stdout
+      `"/var/folders/.../specular-....png\n(image: use Read(\"...\") to view)\n"`. `JSON.parse()` on
+      this throws. Charter §parseable-output requires valid JSON on stdout with no extra flag. An agent
+      consuming this output would have to regex-parse the path. Fix: return JSON, e.g.
+      `{"path": "/var/folders/.../specular-....png", "bytes": 25652}`. Write a probe asserting
+      `specular screenshot -f <id>` stdout parses as JSON and contains a non-empty `path` key pointing
+      to an existing file.
+
+- [ ] **W5: `screenshot --help` exits 1 with an execution error instead of showing usage.**
+      Trace `trace-20260609-233241-r4` call 4: `["screenshot", "--help"]` → exit 1, stderr
+      `"error: No page specified and nothing is selected."` The `--help` flag should unconditionally
+      print usage and exit 0 — before argument validation runs. The broken `--help` forced the doer
+      to fall back to the top-level `specular --help` (call 5) to orient. Fix: handle `--help` before
+      argument parsing in the screenshot handler (and audit all other verbs for the same pattern).
+      Write a probe: assert `specular screenshot --help` exits 0 and stdout contains "screenshot"
+      (usage text), not an error.
+
+- [ ] **W5: no mechanism documented or auto-applied to wait for page load before `screenshot`.**
+      Trace `trace-20260609-233241-r4`: page was created (call 2) then screenshot attempted immediately
+      twice, timing out both times. The `wait` verb appears in `specular --help` output under "Browse"
+      but is undocumented in the skill and the doer did not find it. The workflow path in `workflows.md`
+      says "wait for it to load" but the CLI provides no built-in load-wait in `screenshot` and no
+      skill guidance on how to do it. Fix: document in the skill (both copies) how to use `specular wait`
+      for load-checking before screenshot; and/or add a `--wait` flag to `screenshot` that polls until
+      the page reports loaded before capturing. Write a probe: assert that `specular screenshot -f <id>`
+      on a page that has been focused and given at least one event loop turn succeeds without an
+      intermediate manual wait call.
+
 ## Done
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
