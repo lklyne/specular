@@ -171,6 +171,8 @@ const api: CanvasBgElectronAPI = {
   cancelEntityEdit: () => ipcRenderer.send('canvas-cancel-entity-edit'),
   showFileInFinder: (filePath: string) =>
     ipcRenderer.send('canvas-show-file-in-finder', { filePath }),
+  copyFileAsPng: (filePath: string) =>
+    ipcRenderer.send('canvas-copy-file-as-png', { filePath }),
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) =>
     ipcRenderer.send('canvas-update-group-entity', { id, patch }),
   duplicateGroup: (id: string) =>
