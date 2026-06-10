@@ -79,13 +79,9 @@ export const entityRoutes: Route[] = [
           typeof item.canvasX === 'number' && typeof item.canvasY === 'number',
       )
       validItems.forEach((item) => { item.id = item.id ?? `text_${randomUUID()}` })
+      validItems.forEach((item) => createTextEntity(item))
       writeJson(response, 200, { items: validItems.map((item) => ({ id: item.id })) })
-      staggerOperation(
-        request,
-        validItems.map((item) => ({ x: item.canvasX, y: item.canvasY })),
-        null,
-        (i) => createTextEntity(validItems[i]),
-      )
+      animateCursorScan(request, validItems.map((item) => ({ x: item.canvasX, y: item.canvasY })), null)
     },
   },
   {
@@ -196,17 +192,12 @@ export const entityRoutes: Route[] = [
           typeof item.file === 'string',
       )
       validItems.forEach((item) => { item.id = item.id ?? `file_${randomUUID()}` })
+      validItems.forEach((item) => {
+        const dims = resolveFileDimensions(item)
+        createFileEntity({ ...item, width: dims.width, height: dims.height })
+      })
       writeJson(response, 200, { items: validItems.map((item) => ({ id: item.id })) })
-      staggerOperation(
-        request,
-        validItems.map((item) => ({ x: item.canvasX, y: item.canvasY })),
-        null,
-        (i) => {
-          const item = validItems[i]
-          const dims = resolveFileDimensions(item)
-          createFileEntity({ ...item, width: dims.width, height: dims.height })
-        },
-      )
+      animateCursorScan(request, validItems.map((item) => ({ x: item.canvasX, y: item.canvasY })), null)
     },
   },
   {

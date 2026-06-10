@@ -52,6 +52,13 @@ Top of `## Todo` = next up. Keep items small and concrete.
       resolve, group→auto-layout→focus). Where one intent takes 3+ calls, file a
       simplification item.
 
+- [ ] **Batch page/mixed-entity create has the same async race.** `/pages/create`
+      batch (pages.ts:90-98) and `/entities/create` mixed batch (entities.ts:313-338)
+      respond before entities exist (same `staggerOperation` pattern). Not tested
+      by current CLI probes but will bite agents doing multi-page batch creates.
+      Fix: create synchronously, then `animateCursorScan` for cursor animation only.
+
 ## Done
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
+- [x] 2026-06-09 HEAL: batch text/file entity create returned IDs before entities existed — race made grid-layout probes see 0 entities. Fixed by creating synchronously then responding; cursor animation moved to `animateCursorScan` (cosmetic only). (`<sha>`)
