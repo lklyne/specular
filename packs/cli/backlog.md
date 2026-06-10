@@ -84,6 +84,28 @@ Top of `## Todo` = next up. Keep items small and concrete.
       actionable message (e.g. "Annotations cannot be deleted; use `specular resolve` to close
       them"). Write a probe asserting this exit code and message.
 
+- [ ] **W3: `focus` returns `{"focused": false}` with exit 0 — success is unverifiable.**
+      Trace `trace-20260609-231915-r1` call 7: `["focus", "group_f42f9127-b045-4855-b009-4a15437a2baa"]`
+      → exit 0, stdout `{"focused": false}`. Camera in the subsequent `workspace` readback (call 8)
+      is identical to the pre-workflow state (call 1): `panX: 225.18, panY: 876.90, zoom: 0.23`
+      unchanged. W3 acceptance requires "the camera/selection reflects the focus" — this criterion
+      appears unmet. An agent receiving `{"focused": false}` after a `focus` call cannot distinguish
+      success from a silent no-op or failure. Fix: `focus` should return `{"focused": true}` when
+      the viewport was moved; if the target is already in view it should still return `{"focused": true}`
+      to signal the postcondition is satisfied (not signal failure). Write a probe asserting
+      `specular focus <existing-group-id>` exits 0 and returns `{"focused": true}`.
+      REVIEW: if the camera intentionally doesn't change (target already in view), the response
+      should still say `true` not `false`; a `false` with exit 0 is a misleading success.
+
+- [ ] **W3: `create page` has no multi-URL form — 3 pages cost 3 calls (2 over ideal).**
+      Trace `trace-20260609-231915-r1` calls 2–4: three separate `["create", "page", "http://localhost:4321"]`
+      calls to create 3 pages. W3 ideal is ≤6 calls; actual was 8 (2 over). The per-page create
+      is the gap. Check whether `create page` already accepts variadic URLs
+      (e.g. `specular create page url1 url2 url3`) — if so, document it in the skill; if not,
+      add that capability or document `upsert --json` as the batch-page path. Write a probe
+      asserting `specular create page url1 url2 url3` (three URLs) exits 0 and returns all
+      three ids in one response.
+
 ## Done
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
