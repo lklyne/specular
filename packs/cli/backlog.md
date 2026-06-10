@@ -110,3 +110,4 @@ Top of `## Todo` = next up. Keep items small and concrete.
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
 - [x] 2026-06-09 HEAL: batch text/file entity create returned IDs before entities existed — race made grid-layout probes see 0 entities. Fixed by creating synchronously then responding; cursor animation moved to `animateCursorScan` (cosmetic only). (eb16a20)
+- [x] 2026-06-09 DISCOVER W4 clean run (trace-20260609-232329-r2): 12-item 4×3 grid; all IDs round-tripped; no overlap; JSON output without --format flag; core workflow 2 calls (ideal 2).
