@@ -61,4 +61,4 @@ Top of `## Todo` = next up. Keep items small and concrete.
 ## Done
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
-- [x] 2026-06-09 HEAL: batch text/file entity create returned IDs before entities existed — race made grid-layout probes see 0 entities. Fixed by creating synchronously then responding; cursor animation moved to `animateCursorScan` (cosmetic only). (`<sha>`)
+- [x] 2026-06-09 HEAL: batch text/file entity create returned IDs before entities existed — race made grid-layout probes see 0 entities. Fixed by creating synchronously then responding; cursor animation moved to `animateCursorScan` (cosmetic only). (eb16a20)
