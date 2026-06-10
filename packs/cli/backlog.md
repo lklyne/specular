@@ -169,6 +169,28 @@ Top of `## Todo` = next up. Keep items small and concrete.
       on a page that has been focused and given at least one event loop turn succeeds without an
       intermediate manual wait call.
 
+- [ ] **W6: `click` output is not JSON — fails parseable-output criterion.**
+      Trace `trace-20260609-233740-r5` call 4: `["click", "@e3", "-f", "page_a2798066-..."]`
+      → exit 0, stdout `"✓ Done\nurl: http://localhost:4321/\n"`. The charter requires valid JSON
+      on stdout with no extra flag; `JSON.parse()` on this throws. An agent must regex-parse the URL
+      or discard the result. Fix: return JSON, e.g. `{"success": true, "url": "http://localhost:4321/"}`.
+      Write a probe: assert `specular click @eN -f <id>` stdout parses as JSON and contains a
+      `success: true` field.
+
+- [ ] **W6: post-click state is unverifiable — `click` returns URL but URL was unchanged after clicking a navigation link.**
+      Trace `trace-20260609-233740-r5` call 4: `click @e3` (the "Updates" link on `http://localhost:4321/`)
+      returned `url: http://localhost:4321/` — identical to the pre-click URL. An agent cannot
+      distinguish successful SPA navigation (URL unchanged) from a no-op without a subsequent `snapshot`
+      call, which would push the workflow to 5 calls (above the ≤4 ideal). W6 acceptance requires
+      "the interaction reports success — all observable" — this criterion is not fully met. Fix:
+      (a) `click` returns a post-interaction snapshot inline (or via a `--snapshot` flag) so agents
+      can confirm the state change in a single call; or (b) update `workflows.md` W6 ideal to ≤5
+      to account for a verification snapshot; or (c) document in the skill that `click`'s `url`
+      field reflects any navigation and that a no-URL-change result is expected for SPA routes.
+      Write a probe: assert that `click` on a known navigation element whose href changes the URL
+      returns a `url` differing from the page's original URL, proving the field is populated from
+      the post-navigation state.
+
 ## Done
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
