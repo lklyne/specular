@@ -32,20 +32,21 @@ the fixed behavior. Freeform notes are only candidates; convert the good ones.
 
 ## Prescribed canvas workflows
 
-Run these against the ephemeral smoke app (the probes already do — see probes.md).
-Do not invent your own task to grade; run these, so the assessment measures a
-fixed thing instead of a flattering one.
+The fixed tasks live in `workflows.md` — that is the canonical, gradeable set
+(W1 small canvas, W2 annotate→resolve, W3 group→auto-layout→focus, W4 grid at
+scale, W5 live-page capture, W6 agent-browser). Do not invent your own task to
+grade; run a prescribed one, so the assessment measures a fixed thing instead of a
+flattering one.
 
-1. Build a small canvas: create two pages at breakpoints + a note, then read the
-   workspace back and confirm the edits are observable.
-2. Annotate a page, then resolve the annotation.
-3. Group several pages, auto-layout them, then focus the group.
-4. Lay out many items (a dozen+) as a grid via `upsert --json` with a grid
-   directive; read the workspace back and confirm none of them overlap and the
-   result is an even grid. Overlap is the failure mode that only appears at
-   scale — exercise it with enough items to catch it.
+They are exercised in two contexts (see probes.md → "Two phases"):
 
-For each: count the calls, check every output parses, check every error is
+- The **probes** under `tests/smoke/cli/` run the deterministic core of these
+  against the headless smoke app — the regression gate.
+- The **discovery phase** (`--discover`) runs them against the real app and grades
+  the trace with an independent judge — including W5/W6, which need real rendering
+  and agent-browser. That is where new friction is found.
+
+For each run: count the calls, check every output parses, check every error is
 actionable. File friction as Todo items in backlog.md.
 
 ## Probe command

@@ -13,13 +13,17 @@ Two layers. The **engine knows nothing about the CLI**; a **pack of docs aims it
 ```
 harness/                 # general purpose — never mentions the CLI
   loop.sh                # while-loop; takes a pack dir; one fresh `claude -p` per round
-  fire.md                # generic prompt template (only substitution: the pack path)
+  fire.md                # heal/improve prompt template (substitution: the pack path)
+  discover-doer.md       # discovery: perform one workflow on the real app, leave a trace
+  discover-judge.md      # discovery: grade the trace independently, file friction
+  cli-trace.sh           # faithful CLI tracer (args/exit/stdout/stderr) for the doer
 
 packs/cli/               # aims the engine at the CLI
-  charter.md             # what "better" means; mechanical friction signals; workflows
+  charter.md             # what "better" means; mechanical friction signals
   guardrails.md          # branch-only, don't game probes, flag deletions, skill sync
   backlog.md             # the memory: ## Todo / ## Done (git history = the record)
-  probes.md              # how to run the probes + coverage map + gaps
+  probes.md              # the two phases + how to run the probes + coverage map + gaps
+  workflows.md           # the fixed, gradeable tasks (W1–W6) discovery runs
 
 tests/smoke/cli/         # the runnable probes (reuse the existing smoke harness)
   cli-probe-utils.ts     # runCli(): built CLI → ephemeral smoke app, returns code/stdout/stderr/json
@@ -41,6 +45,29 @@ is flat, and the only durable state is git. A fire:
 4. Verifies (typecheck + unit + probes all green; never weaken a probe to pass).
 5. Records: moves the item to `## Done` (date + sha), appends new friction as
    `## Todo`, commits code + backlog together.
+
+## Two phases: discovery finds friction, probes lock fixes in
+
+The loop has two complementary halves that pull in opposite directions — and you
+want both.
+
+- **Discovery** (`./harness/loop.sh packs/cli --discover`) is the idea generator. A
+  **doer** fire performs one `workflows.md` task against the *real running app*
+  (canonical discovery file — real rendering, screenshots, agent-browser all work),
+  routing every CLI call through `harness/cli-trace.sh` so the round leaves a
+  faithful JSONL trace. A second, **independent judge** fire — fresh context, it
+  never saw the doing — grades that trace against the charter's friction signals and
+  appends new `## Todo` items to backlog.md. The doer/judge split is deliberate: an
+  agent grading its own task is biased toward "that went fine." Discovery is
+  realistic and open-ended but non-deterministic and mutates the live canvas, so it
+  **only files; it never fixes.**
+- **Heal/Improve** (`./harness/loop.sh packs/cli`) is the regression gate, below. It
+  drains the backlog discovery fills: a friction item becomes a probe, the CLI is
+  fixed until green, the probe stays green forever. Deterministic, cheap, headless.
+
+Run discovery occasionally to refill the backlog; run heal/improve often to drain
+it. The craft is the translation between them — a qualitative friction ("the grid
+felt wrong") becomes a mechanical probe ("no two AABBs overlap at 12 items").
 
 ## The probes: agent-friendliness as assertions
 
@@ -77,12 +104,16 @@ build.
 seeded backlog. History of record = git (backlog.md diffs + commits). Verification
 runs against the throwaway smoke app.
 
-**v2 — artifacts in the real Specular.** Because probes run against the ephemeral
-smoke app, the canvas they build is discarded, so the loop's progress isn't visible
-in the user's live app. v2 adds a read-only projection step that points the CLI at
-the *canonical* discovery file (the running app) and renders `backlog.md` Done/Todo
-entries as canvas notes — dogfooding the CLI to display its own history. Deferred so
-v1 stays simple; it's additive and changes nothing above.
+**Discovery phase (built).** The doer/judge discovery phase now points the CLI at
+the *canonical* discovery file (the running app) and exercises the full app —
+including the capture (W5) and agent-browser (W6) workflows the headless smoke app
+can't. It files friction into backlog.md for the heal loop to drain. See "Two
+phases" above. Requires `pnpm dev` running; mutates the live canvas, so prefer a
+scratch space.
+
+**v3 — artifacts in the real Specular.** A read-only projection step that renders
+`backlog.md` Done/Todo entries as canvas notes in the live app — dogfooding the CLI
+to display its own history. Still deferred; additive and changes nothing above.
 
 ## First real iterations (seeded in packs/cli/backlog.md)
 

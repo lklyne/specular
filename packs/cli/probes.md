@@ -6,6 +6,23 @@ a self-heal task (top priority). Writing a new probe that asserts a better
 experience — and fixing the CLI until it's green — is how "looking for
 improvements" happens concretely.
 
+## Two phases
+
+The loop has two complementary halves. Probes are the second.
+
+- **Discovery** (`./harness/loop.sh packs/cli --discover`) runs a `workflows.md`
+  task against the **real running app** (doer) then grades the trace with an
+  independent **judge**, filing new friction as `## Todo` items. It is realistic and
+  open-ended — it *finds* friction no probe was written for — but it is
+  non-deterministic and mutates the live canvas, so it only files, it never fixes.
+- **Heal/Improve** (`./harness/loop.sh packs/cli`) drains that backlog: it turns a
+  friction item into a probe below, fixes the CLI until the probe is green, and
+  locks it in. Deterministic, cheap, headless — the regression gate.
+
+Discovery generates ideas; probes crystallize the fixes. Run discovery occasionally
+to refill the backlog; run heal/improve often to drain it. A friction worth keeping
+should end as a probe here — that's what survives.
+
 ## Run
 
 ```
