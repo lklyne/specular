@@ -58,6 +58,32 @@ Top of `## Todo` = next up. Keep items small and concrete.
       by current CLI probes but will bite agents doing multi-page batch creates.
       Fix: create synchronously, then `animateCursorScan` for cursor animation only.
 
+- [ ] **W2: `annotate` → `resolve` round-trip needs an intermediate `annotations` list call.**
+      Trace `trace-20260609-231057-r1`: after `annotate` returned a complete object including
+      the id (`ann_315d6e2d-a9b5-494f-a5c7-d0c466f186c9`), the doer still ran `annotations`
+      (call 4) to verify the id before passing it to `resolve` — adding 1 unnecessary call
+      (6 actual vs 4 ideal). The friction is that the skill does not explicitly state the id
+      returned by `annotate` is stable and can be fed directly to `resolve`/`reply`. Fix: add a
+      note to the skill under `annotate` confirming id stability. Write a probe: assert that
+      `annotate` → `resolve` succeeds without an intermediate list call, and the annotation
+      reads `status: "resolved"` in `annotations --all`.
+
+- [ ] **W2: `annotations` hides resolved items by default; `--all` required to confirm resolve.**
+      Trace `trace-20260609-231057-r1`: after `resolve`, plain `annotations` returned 0 matching
+      items — the resolved annotation was invisible. The doer needed `--all` to confirm the
+      operation succeeded (call 6). An agent cannot verify its own `resolve` without a
+      non-default flag, and the flag may not be discoverable from `--help` or the skill. Fix:
+      check whether `--all` is documented in the skill; if not, add it. Write a probe asserting
+      that after `specular resolve <id>`, `specular annotations --all` shows that id with
+      `status: "resolved"`, and `specular annotations` (no flag) does NOT include it.
+
+- [ ] **W2: `specular delete <ann-id>` silently exits 0 but does not delete the annotation.**
+      Trace meta `trace-20260609-231057-r1`: "specular delete silently lies for annotation ids —
+      known limitation." A no-op that exits 0 is worse than a clear error — it poisons any
+      agent doing cleanup. Fix: `delete` on an annotation id should exit non-zero with an
+      actionable message (e.g. "Annotations cannot be deleted; use `specular resolve` to close
+      them"). Write a probe asserting this exit code and message.
+
 ## Done
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
