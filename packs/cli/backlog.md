@@ -106,6 +106,28 @@ Top of `## Todo` = next up. Keep items small and concrete.
       asserting `specular create page url1 url2 url3` (three URLs) exits 0 and returns all
       three ids in one response.
 
+- [ ] **W1: `create page` has no `--preset` flag; `presetIndex` device mapping undocumented in skill.**
+      Trace `trace-20260609-232718-r3` calls 2–3: goal was desktop + phone pages, but `create page
+      http://localhost:4321` defaulted to `presetIndex 6` (laptop) and the `upsert --json` phone
+      page also landed at `presetIndex 6` — the doer could not reach a phone preset. The skill does
+      not list `presetIndex` values or their device-name mappings, and `create page` takes no
+      breakpoint argument, so `upsert --json` is the only path — but only if the agent already knows
+      the presetIndex→device mapping. Fix: document the full `presetIndex` → device name table in
+      the skill under the `upsert` section; and/or add a `--preset <device>` flag to `create page`.
+      Write a probe: assert that when the skill-documented presetIndex for "phone" is passed via
+      `upsert --json`, `workspace` shows the resulting page with the correct `deviceId` (e.g.
+      `"phone"` or equivalent).
+
+- [ ] **W1: text entity's note content is stored in `preview` field — undocumented, non-obvious name.**
+      Trace `trace-20260609-232718-r3` call 4 (workspace readback): `text_cffdfe28` shows
+      `"preview": "W1 test note"`, not `text` or `content`. An agent creating a note from scratch
+      would likely set a `text` or `content` key, find it absent in the workspace output, and have
+      no signal that `preview` is the correct field. Fix: document the `preview` field name for
+      text entities explicitly in the skill (under both `upsert` input schema and `workspace` output
+      schema); consider renaming to `text` in the API if a breaking change is acceptable. Write a
+      probe asserting that `upsert --json` with a text entity using the `preview` key round-trips
+      through `workspace` under that exact field name.
+
 ## Done
 
 <!-- entries land here as: - [x] YYYY-MM-DD <what> (<short-sha>) -->
