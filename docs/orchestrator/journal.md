@@ -117,7 +117,7 @@ Acted:
 Noticed (no action):
 - **#63 LANDED** — Lyle closed it "completed" on 2026-05-16 after PR #125 shipped (CI: typecheck, lint, test:unit, fallow on every PR). First orchestrator proposal to reach "completed." The May 15 diagnosis held: CI improvements land from visceral pain, not queues — in this case, the pain was a real layout-pass refactor (PR #132) where test failures would have been invisible without CI.
 - **AFK first-run failure watch item resolved (second instance confirmed).** Instance 1 (May 14): canvas-drag epic hit three infrastructure failures (mcp_servers, sandbox, dex completion). Instance 2 (May 16): layout-pass epic burned ~20 fires, ~50% wasted on CI polling. Lyle diagnosed and fixed proactively in PR #133: `afk-loop.sh` now uses `gh pr checks --watch` for CI waits instead of a polling fire; `afk-fire.sh` is stateless implement-only. Pattern is real, closed, self-corrected.
-- **CLI smoke coverage deferral still at one instance.** PR #86 deferred `tests/smoke/cli.test.ts` with "CLI subprocess testing needs a built CLI in the smoke setup pipeline." Issue #81 (Phase 2) includes `cli.test.ts` on its checklist, but the underlying infrastructure gap (no built CLI in test harness) hasn't been addressed separately. Still watching.
+- **CLI smoke coverage deferral still at one instance.** No second PR deferral, no tracking issue, no built-CLI-in-smoke-harness step observed in commits since May 14. Issue #81 Phase 2 includes `cli.test.ts` on its checklist, but the underlying infrastructure gap (no built CLI in smoke setup) hasn't been addressed separately. Still watching.
 - **Fallow in CI but soft-gated.** PR #125 added fallow to CI; PR #133 documents `AFK_SOFT_CHECKS` defaults to `fallow` so it never blocks a merge. Pre-existing issues (unlisted react/react-dom, circular deps) are the cause. Soft-gating is pragmatic, but if the gate stays soft indefinitely, fallow becomes decorative. One instance; watch whether fallow findings ever get acted on.
 - **Proposal queue is empty; system is healthy.** Four proposals total since inception: #61 (closed, superseded by #63), #63 (closed, completed), #68 (closed, self-corrected), #71 (closed, self-corrected). Zero open proposals for the first time. AFK pipeline running at full velocity. CI live. This is the intended steady state.
 Hint for next run: with an empty queue and healthy pipeline, shift focus to the two remaining watch items — (a) CLI smoke infrastructure gap (still one instance; look for cli.test.ts or a built-CLI step appearing in any PR since May 14) and (b) fallow findings ever causing a commit (not just running in CI). If both stay at one instance for another week, they're probably not leaks.
@@ -130,7 +130,7 @@ Acted:
 - Nothing to close, nothing to file. Proposal queue empty; no stale orchestrator output.
 Noticed (no action):
 - **Fallow watch item resolved (second instance confirmed).** PR #145 "Fix fallow check failures: dead code, circular deps, config gaps" just merged. Instance 1 (May 17): soft-gate added, pre-existing issues noted. Instance 2 (May 18): PR #145 cleared dead code and tuned `.fallowrc.json` (ignoreExports for ESLint rule files, ignoreDependencies for react/react-dom — both legitimate suppressions, not real issues being hidden). The lifecycle is complete: install → CI soft-gate → cleanup pass lands. Fallow is generating real signal. Watch item (b) closed.
-- **CLI smoke infrastructure gap still at one instance.** No second PR deferral, no tracking issue, no built-CLI step in any recent PR. Issue #81 Phase 2 lists `cli.test.ts` on its checklist but the underlying "no built CLI in smoke setup" constraint remains unaddressed. Still watching; threshold for a proposal is a second instance.
+- **CLI smoke infrastructure gap still at one instance.** No second PR deferral, no tracking issue, no built-CLI-in-smoke PR observed in commits since May 14. Issue #81 Phase 2 lists `cli.test.ts` on its checklist but the underlying "no built CLI in smoke setup" constraint remains unaddressed. Still watching; threshold for a proposal is a second instance.
 - **PR backlog from May 17 session: four open, none merged yet** (#136 grid gaps, #137 hit-test fix, #143 pointer events migration, #144 manifest component extensions). Normal after a concentrated AFK session. Not a concern today; worth checking age next run — if any are still open at seven days, review bandwidth may be the constraint.
 - **Pointer events invariant now hard-gated.** PR #143 upgraded the `no-mouse-events` ESLint rule from `warn` to `error`. Pattern: spec doc → prose rule → ESLint enforce → CI gate. This is the interaction-layer enforcement model working as intended. Each spec invariant that gets this treatment removes a whole class of silent regressions.
 Hint for next run: check whether the May 17 PR batch (#136, #137, #143, #144) has been reviewed — if any are seven days old and unmerged, that's the first review-bandwidth signal worth noting. CLI smoke gap remains the only active watch item.
@@ -170,7 +170,7 @@ Surveyed: PR #166 (canvas-stack-order integration, ADR 0014 slices 5–9, claude
 Acted:
 - Nothing to close (proposal #152 is 2 days old, below 7-day threshold). Nothing to file — no second instance of any watch item; one proposal already in queue.
 Noticed (no action):
-- **PR #166 disabled the `claude-review` CI auto-trigger**, switching it to `workflow_dispatch` ("redundant in AFK loop context"). Rationale is sound for AFK PRs — the loop reviews inline. But non-AFK PRs (#136 at 4 days, #144 at 4 days, #159 at 1 day) will no longer get automatic review passes. One instance; watch whether non-AFK PRs start merging without any review.
+- **PR #166 disabled the `claude-review` CI auto-trigger**, switching it to `workflow_dispatch` ("redundant in AFK loop context"). Rationale is sound for AFK PRs — the loop reviews inline and the integration PR is the human gate. But non-AFK PRs (#136 at 4 days, #144 at 4 days, #159 at 1 day) will no longer get automatic review passes. One instance; watch whether non-AFK PRs start merging without any review.
 - **needs-triage queue unchanged**: 4 items (#53 at 12 days, #122 at 6 days, #124 at 5 days, #146 at 2 days). Proposal #152 is 2 days old with 0 comments. Three of four items already past the 3-day threshold the proposal targets. The queue confirms the need; the proposal awaits action.
 - **Canvas-stack-order epic complete** (PR #166, ADR 0014, 9 slices total across two sessions). Sidebar drag-to-reorder, keyboard shortcuts (`Cmd+[]/]`), edges in stack order, migration, HTTP API — all covered. Largest single AFK epic delivered so far. System handling scale well.
 - **CLI smoke gap still one instance** since May 14. No `cli.test.ts` or built-CLI-in-smoke step observed in any recent PR.
@@ -179,7 +179,7 @@ Hint for next run: if a non-AFK PR merges without any review comment (human or @
 ---
 
 ## 2026-05-22
-Surveyed: needs-triage queue (now 5 items), open PR aging (#32 at 28 days, #92 at 9 days, #136/#144 at 5 days, #159 at 2 days), proposal #152 status (day 3, 0 comments), claude-review disable watch item, merged PRs since yesterday. Dominant theme: evidence accumulating for existing proposal; no new second instances crossed the threshold.
+Surveyed: needs-triage queue (now 5 items), open PR aging (#32 at 28 days, #92 at 9 days, #136/#144 at 5 days, #159 at 2 days), proposal #152 (day 3, 0 comments), claude-review disable watch item, merged PRs since yesterday. Dominant theme: evidence accumulating for existing proposal; no new second instances crossed the threshold.
 Acted:
 - Nothing to close or file. Single proposal in queue (#152, day 3, 0 comments) not stale. No watch item crossed the second-instance threshold.
 Noticed (no action):
@@ -207,7 +207,7 @@ Hint for next run: once PR #166 merges (bringing the claude-review disable), the
 ---
 
 ## 2026-05-24
-Surveyed: Open PR aging (#136/#144 at day 7, #159 at day 4, #166 at day 3), needs-triage queue (5 items, all 0 comments, #53 at 15 days), proposal #152 (day 5, 0 comments), commit log (4-day drought since May 20). Dominant theme: integration PR review bottleneck; triage drain proposal approaching stale threshold while the problem it targets continues to compound.
+Surveyed: Open PR aging (#166 day 3, #159 day 4, #144/#136 day 7, #92 day 12), needs-triage queue (5 items, all 0 comments, #53 at 15 days), proposal #152 (day 5, 0 comments), commit log (4-day drought since May 20). Dominant theme: integration PR review bottleneck; triage drain proposal approaching stale threshold while the problem it targets continues to compound.
 Acted:
 - Nothing to close or file. #152 at day 5 (stale threshold: May 26). No new second instances crossed.
 Noticed (no action):
@@ -252,7 +252,7 @@ Surveyed: Open PR aging (#166 day 6, #159 day 7, #144/#136 day 10, #92 day 14, #
 Acted:
 - Nothing to close or file. #168 at day 1, well below 7-day threshold. No new second instances crossed.
 Noticed (no action):
-- **7-day commit drought**: No commits to main since May 20. PR #166 (canvas-stack-order integration, 42 files, 17 commits, 6-item manual checklist all unchecked) remains the designed pause point. CI green. Expected.
+- **7-day commit drought**: No commits to main since May 20. PR #166 (canvas-stack-order, 42 files, 17 commits, 6-item manual checklist all unchecked) remains the designed pause point. CI green. Expected.
 - **needs-triage queue unchanged**: 5 items, all 0 comments — #53 (18 days), #122 (12 days), #124 (11 days), #146 (8 days), #167 (6 days). @claude invocable 10 days with zero invocations on any triage issue. Proposal #168 is the live track; too early to assess (day 1).
 - **Non-AFK review watch**: claude-review CI disable still in #166 branch, not on main. Canary (first new non-AFK PR after disable lands) not triggered. #136 and #144 now at day 10, #159 at day 7 — all waiting behind #166, not escaping review.
 - **CLI smoke gap: retiring watch item**. 13 days since the May 14 observation, still one instance only. No second instance in any PR in that period. Pattern not confirmed — dropping from active watch.
@@ -275,40 +275,55 @@ Hint for next run: watch for #166 merge and queue flush; if it merges, the first
 ---
 
 ## 2026-05-29
-Surveyed: PR #166 merge (day 8 → merged), queue flush (#136/#144/#159 all merged same day), #168 (triage drain, day 3), needs-triage routing burst. Dominant theme: designed pause broke; AFK pipeline resuming at pace.
+Surveyed: #166 merged (day 8, queue flushed), #168 stale check (day 3, 0 comments), needs-triage queue post-flush, non-AFK review-gap second instance status. Dominant theme: designed pause broke — queue flushed — but the triage routing gap persisted through the flush.
 Acted:
-- Nothing to close or file. #168 at day 3 (stale threshold: June 2). No second instances crossed.
+- Nothing to close or file. #168 at day 3 (stale threshold June 2). No second instances crossed.
 Noticed (no action):
-- **PR #166 merged May 29** (canvas-stack-order). Queue flushed immediately: #136, #144, #159 all merged the same day. The 8-day designed pause resolved as expected once integration PR review was complete.
-- **claude-review disable now live on main** (landed via #166). First non-AFK PR opened after the merge is the canary. None opened yet today.
-- **Non-AFK review gap: canary not yet triggered.** Watch item is live; first new non-AFK PR is the signal.
-- **needs-triage queue**: Lyle closed/routed several items in the May 29 review burst. Queue contracted; specific items need checking next run.
-- **#168 (triage drain) at day 3**: Too early for a stall signal. Stale threshold June 2.
-- **AFK resumed**: selection-reorder epic (#170–#176) merging same day.
-Hint for next run: first non-AFK PR opened after #166 is the canary — check whether claude-review ran; check #168 at day 4 for any comment; audit needs-triage queue post-routing-burst.
+- **PR #166 merged today (day 8).** Five PRs queued behind it merged in quick succession: #136 (grid inspect gaps), #144 (manifest extensions), #159 (scale drawing strokes), #92 (smoke accessory mode), and more. Queue flushed as predicted.
+- **Non-AFK review-gap watch: second instance confirmed, but different.** All three flushed non-AFK PRs merged with the `claude-review` disable already in effect. Instance 1 (May 29): #136 (grid inspect), `fix/grid-inspect-gaps` branch — no `claude-review` CI job in its check runs. Instance 2 (May 29): #159 (scale drawing strokes), `claude/scale-drawing-strokes-resize` — same. Pattern confirmed: the disable removed the only auto-review safety net for non-AFK PRs. Proposal threshold crossed. But: the review-gap issue is now four instances and well-evidenced. The direct fix is one YAML change. Filing another issue into the same queue would repeat the #152/#168 pattern. This is the moment to apply what the June 2 post-mortem pre-committed: if #188 stalls, deliver it as a branch, not a third issue.
+- **needs-triage queue: burst routing by Lyle.** Four items routed in the May 29 session: #122 (design decision, closed wontfix), #146 (sidebar rename, closed fixed), #167 (sidebar rename auto-focus, closed fixed), and #124 (pages select-first model, labeled `ready-for-agent`). Residue: #53 (architectural undo, 20 days), #124 (now ready-for-agent). The burst routing happened organically at the queue-flush moment — not from an automated drain, but from Lyle's attention during the review session.
+- **#168 (triage drain) at day 3, 0 comments**: The queue self-corrected partially (easy items routed), reducing the evidence base. Remaining items (#53, #124) are structural residue — an automated drain would route them to `ready-for-human`, accurate but not unblocking. The wrong-target diagnosis from the May 27 format question is becoming clearer.
+- **PR #92 (smoke accessory mode) merged today** — 16 days old. The pain trigger hypothesis holds: it merged when it got slipstreamed into the queue-flush session, not from its own merit.
+Hint for next run: watch the first new non-AFK PR opened after today's queue flush — it is the definitive canary for whether the `claude-review` disable is still in effect on main; watch #188 for the first concrete action signal.
 
 ---
 
 ## 2026-05-30
-Surveyed: Non-AFK PR review canary (#181 opened post-#166), needs-triage queue post-routing-burst, proposal #168 (day 4), PR #176 (selection-reorder integration, same-day merge). Dominant theme: claude-review disable confirmed harmful for non-AFK PRs — canary triggered.
+Surveyed: Post-flush state (12 commits landed May 29), non-AFK review-gap second instance status (#188 day 1), needs-triage queue post-burst-routing (#53/#124 residue), PR #181 as first post-flush canary. Dominant theme: canary event triggered immediately; review gap confirmed end-to-end.
 Acted:
-- Nothing to close or file (watching for second instance to confirm before filing).
+- #188 filed — CI: restore `claude-review` auto-trigger for non-AFK PRs. Two confirmed instances (May 29 queue flush: #136 and #159 both merged without `claude-review` CI job). One-liner fix; proposal body includes the complete implementation. Filed as a GitHub issue per the current orchestrator format — but logged here as a pre-commitment: if #188 stalls to 7 days with 0 comments, the orchestrator will deliver the fix as a ready-to-merge branch instead of refiling.
 Noticed (no action):
-- **Canary triggered: PR #181 opened post-disable, no claude-review.** `fix/toolbar-tools-and-draw-zorder` branch — non-AFK, opened May 30, merged May 31 in under 3 hours. CI shows only `check` and `fallow` jobs; no `claude-review`. This is instance 1 of the non-AFK review gap post-disable. One instance; need a second.
-- **#168 (triage drain) at day 4, 0 comments**: Stale threshold June 2 (2 days). No movement.
-- **needs-triage queue contracted to 3 items** post-routing burst: #53 (architectural residue), #124 (ADR revision required), and one new item. Queue is smaller but the remaining items are structurally blocked; an automated drain would route them to `ready-for-human`, not `ready-for-agent`.
-Hint for next run: watch for a second non-AFK PR opened without claude-review (second instance → file the proposal); make the stale call on #168 by June 2.
+- **PR #181 (first post-flush non-AFK PR, `fix/toolbar-tools-and-draw-zorder`) merged today** — canary event confirmed. CI check runs for #181: `check` (green), `fallow` (soft-fail, pre-existing), no `claude-review` job. The disable is on main and is silently removing the only automated review pass from every hand-cut fix branch. Instance 3 of the review gap in a single day.
+- **needs-triage queue at 2 items**: #53 (architectural undo, 21 days), #124 (pages select-first, now `ready-for-agent`). The May 29 burst routing removed the easy items; what remains is structural. Proposal #168 (automated drain) targeted the wrong problem — the bottleneck was never the scheduler, it was bounded vs. architectural item discrimination.
+- **PR #182 (distribute selection) open** — non-AFK branch (`fix/distribute-selection`). Will be another canary instance when it merges.
+Hint for next run: watch #188 traction (any comment in first 48h?); check PR #182 CI — if it merges without `claude-review`, that's instance 4.
 
 ---
 
 ## 2026-05-31
-Surveyed: Second non-AFK PR post-disable (#184), proposal #168 (day 5), needs-triage queue. Dominant theme: second instance confirmed — proposal threshold crossed for non-AFK review gap.
+Surveyed: Post-flush PRs (#181 merged, #182 open), proposal #188 (day 1, 0 comments), needs-triage queue (#53 at 22 days, #124 ready-for-agent), PR #191 (scroll pan fix, opened today). Dominant theme: canary events continuing; review-gap accumulating fast.
 Acted:
-- #188 filed — restore claude-review auto-trigger for non-AFK branches. Instance 1: PR #181 (fix/toolbar-tools-and-draw-zorder, merged May 31, no claude-review). Instance 2: PR #184 (fix/annotate-tools-without-pages, follow-up to #181, merged June 1, no claude-review). Fix is an `if:` condition on the job — one line in the workflow YAML.
+- Nothing to close or file. #188 at day 1 (stale threshold June 7). No new watch items crossed second instance.
 Noticed (no action):
-- **#168 (triage drain) at day 5, 0 comments**: Stale threshold June 2 (tomorrow). The needs-triage queue post-routing-burst shows remaining items are structural residue (#53, #124) — an automated drain would route them to `ready-for-human`, accurate but not unblocking. Wrong target becoming clearer.
-- **PR #184 is instance 2**: `fix/annotate-tools-without-pages` opened and merged June 1, non-AFK branch, no `claude-review` job in CI checks. Confirms the gap #188 targets.
-Hint for next run: make the stale call on #168 by June 2; watch whether #188 attracts any comment or whether it follows the #152/#168 stall pattern.
+- **PR #182 (distribute selection) still open** — non-AFK. When it merges, it will be instance 4 of the review gap (post-disable, no `claude-review` job expected).
+- **PR #191 (scroll never pans the canvas, opened today)** — non-AFK branch. Instance 5 candidate when it merges.
+- **needs-triage queue at 2 items**: #53 (architectural, day 22) and #124 (`ready-for-agent`, day 15). No new items; pipeline between epics.
+- **#124 now `ready-for-agent`**: First item to complete the triage path (needs-triage → ready-for-agent) since the May 29 burst. The queue-flush + human-attention burst seems to be the actual routing mechanism — not an automated scheduler.
+Hint for next run: watch #188 traction (day 2–3); check whether #182 or #191 merged without `claude-review`.
+
+---
+
+## 2026-06-01
+Surveyed: PRs #182 and #191 CI check runs, proposal #188 (day 2, 0 comments), needs-triage queue (#53, #124, #190 new), merged PRs since May 31 (#184, #185, #187, #177, #189). Dominant theme: review-gap at 4+ instances and accumulating; new bounded needs-triage item.
+Acted:
+- Nothing to close or file. #188 at day 2 (stale threshold June 7). No new watch items crossed second instance.
+Noticed (no action):
+- **PRs #182 and #184 both merged today without `claude-review`**: Instance 4 and 5 confirmed. #182 (distribute, `fix/distribute-selection`) merged without the job. #184 (`fix/annotate-tools-without-pages`) is the follow-up fix to a bug introduced by #181 — also no `claude-review`. The absence of review is directly compounding: the bug requiring #184 was in #181 (which also had no review). This is the clearest possible example of the gap #188 targets.
+- **#190 (SVG paste in markdown notes) filed today**: "Possible directions" framing, not "Blocked by: None." Bounded and specific — natural AFK epic candidate. Needs-triage now has 3 items: #53 (structural), #124 (ready-for-agent), #190 (new, bounded).
+- **#188 at day 2, 0 comments**: June 7 is the stale threshold. Per the pre-commitment in the May 30 entry: if it stalls to 7 days, deliver the fix as a ready-to-merge branch instead of refiling.
+- **#177 (smart paste in markdown), #185 (rename ResizeEdge), #187 (ADR 0016 tools registry), #189 (fix test discovery) all merged today** — mixed AFK and non-AFK. #177 and #185 are non-AFK (`claude/` prefix); #187 is a docs PR; #189 is a CI fix. All merged without `claude-review`. Each is another instance; the gap is now confirmed across every non-AFK category (bug fix, feature, refactor, docs, CI).
+- **ADR 0016 (Tools as capability registry)** — a lightweight extensibility layer proposal. Additive to the existing plugin architecture. Not affecting orchestrator scope.
+Hint for next run: June 6 is the early signal check for #188 (day 5) — any comment? Watch whether #190 gets routed to ready-for-agent and potentially kicks off the next AFK epic.
 
 ---
 
@@ -405,3 +420,18 @@ Noticed (no action):
 - **#190 (SVG paste) at day 8, still needs-triage**: PR #204 still open — pipeline-idle explanation holds. The conditional from June 6 ("if #204 merges and #190 still sits, that is a different signal") has not triggered yet.
 - **PR #204 (wireframe structured editor) at day 6**: Behind main by 3 commits (ADR 0018, CI bump, camera glide). Designed pause continuing — PR #166 (canvas-stack-order) took 9 days before merge. On expected trajectory.
 Hint for next run: if PR #204 merges, check immediately whether #190 and/or #209 route to ready-for-agent — two bounded candidates at once is the pipeline's highest-readiness state yet; also check PR #207 at day 3–4 for early merge signal on the PR-first hypothesis.
+
+---
+
+## 2026-06-10
+Surveyed: PR #207 (claude-review fix, merged today after 2 days), proposal #208 (PR-first self-modifying, day 2), needs-triage queue (4 items: #209/#190 pipeline-ready, #124/#53 structural), PR #204 (wireframe integration, day 7), PR #211 (opened today — first non-AFK PR post-restore). Dominant theme: PR-first hypothesis confirmed; highest pipeline-ready triage depth yet remains unrouted.
+Acted:
+- Nothing to close or file. #208 at day 2 (stale threshold June 15). No watch items crossed second-instance threshold.
+Noticed (no action):
+- **PR #207 merged today in 2 days** — the proof-of-concept for #208 is confirmed. Issue #188 (the same fix) sat 7 days with 0 comments before going stale. Ready-to-merge PR: 2 days to merge. Issue in the queue: 7 days to stale. The comparison is unambiguous. Proposal #208 is the live track to formalize this.
+- **needs-triage queue: two agent-executable items, neither routed.** #209 (live-refresh local-file entities, day 2, "Blocked by: None") and #190 (SVG paste rendering, day 9, bounded) are both ready now. #124 and #53 are structural residue requiring human time. The @claude action has been invocable for 24 days with zero invocations on any triage issue. If #208 is accepted, the natural next step is delivering the triage drain as a PR rather than filing a third issue — the same PR-first pattern, applied to the same recurring gap.
+- **PR #211 (Copy as PNG, opened today)**: First non-AFK PR opened after the claude-review restore. This is the canary event tracked since May 23 — it will receive an auto-review CI pass, confirming the restore works end-to-end.
+- **PR #204 (wireframe structured editor) at day 7**: Behind main by 4 commits (ADR 0018, CI bump, camera glide, claude-review fix). No review activity. PR #166 took 9 days before merge — #204 is on the same trajectory. Once merged, #190 and #209 should route immediately to ready-for-agent.
+- **PR #206 (self-healing CLI loop) at day 2**: No review activity. Not concerning.
+- **Deferral-without-tracking** watch item still at one instance. No second confirmed instance observed.
+Hint for next run: verify PR #211 got a claude-review CI pass (confirms the restore works end-to-end); check if #204 merged and whether #190/#209 routed to ready-for-agent; check #208 activity at day 3-4.
