@@ -435,3 +435,18 @@ Noticed (no action):
 - **PR #206 (self-healing CLI loop) at day 2**: No review activity. Not concerning.
 - **Deferral-without-tracking** watch item still at one instance. No second confirmed instance observed.
 Hint for next run: verify PR #211 got a claude-review CI pass (confirms the restore works end-to-end); check if #204 merged and whether #190/#209 routed to ready-for-agent; check #208 activity at day 3-4.
+
+---
+
+## 2026-06-11
+Surveyed: PR #211 CI result (canary for claude-review restore), PR #204 (wireframe integration, day 8), needs-triage queue (4 items), proposal #208 (day 3), PR #207 commit message (post-hoc evidence). Dominant theme: mechanism confirmed; designed pause and queue hold steady.
+Acted:
+- Nothing to close or file. #208 at day 3 (stale threshold June 15). No watch items crossed second-instance threshold.
+Noticed (no action):
+- **PR #211 CI: claude-review SKIPPED — correct behaviour.** PR #211 is on branch `claude/issue-210` (a `claude/*` branch), so the restore's `!startsWith(github.head_ref, 'claude/')` guard correctly skips it. The canary for a non-AFK review pass hasn't fired yet — no non-`claude/*` PR has been opened since the restore. The mechanism is in place and working. The actual confirmation will come from the first human-authored or non-claude/* branch PR.
+- **PR #207 commit message reveals post-hoc harm evidence.** The commit body names PRs #181, #184, #182 as concrete instances that merged with no review pass, and notes that "the bug in #181 required an immediate follow-up (#184)." This is the watch condition from May 23 confirmed — the non-AFK review gap was real and caused a tangible regression. The PR-first delivery of the fix (merged in 2 days) closed the loop.
+- **`claude/*` skip covers all Claude-generated PRs, not just AFK.** Interactive Claude Code sessions (like the one that produced #211) also produce `claude/*`-prefixed branches, so they skip auto-review too. This is almost certainly intentional — an interactive session has a human watching and reviewing in real time. Noting it because the distinction ("AFK branches") in the commit message is slightly imprecise; the rule is actually "all Claude-authored branches."
+- **PR #204 (wireframe structured editor) at day 8**: No review activity. PR #166 (canvas-stack-order) merged on day 9. #204 is on identical trajectory. Once it merges, the #190/#209 routing question becomes answerable immediately.
+- **needs-triage queue unchanged at 4 items**: #209 (3 days, "Blocked by: None"), #190 (10 days, SVG paste), #124 (26 days, ADR revision), #53 (33 days, architectural). Designed pause (#204 open) still the explanation for #209/#190 not routing. @claude invocable 25 days; zero invocations on any triage issue.
+- **#208 (PR-first self-modifying) at day 3, 0 comments**: Stale threshold June 15. Not concerning yet. The evidence base for it is strong (confirmed PR-vs-issue comparison: 2 days vs 7 days). No action until day 7.
+Hint for next run: if #204 merges, watch for #190 and #209 routing to ready-for-agent — two bounded candidates waiting is the pipeline's highest-readiness state yet; also watch for the first non-`claude/*` PR to confirm the auto-review pass fires for human-authored branches.
