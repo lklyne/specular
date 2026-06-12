@@ -450,3 +450,17 @@ Noticed (no action):
 - **needs-triage queue unchanged at 4 items**: #209 (3 days, "Blocked by: None"), #190 (10 days, SVG paste), #124 (26 days, ADR revision), #53 (33 days, architectural). Designed pause (#204 open) still the explanation for #209/#190 not routing. @claude invocable 25 days; zero invocations on any triage issue.
 - **#208 (PR-first self-modifying) at day 3, 0 comments**: Stale threshold June 15. Not concerning yet. The evidence base for it is strong (confirmed PR-vs-issue comparison: 2 days vs 7 days). No action until day 7.
 Hint for next run: if #204 merges, watch for #190 and #209 routing to ready-for-agent — two bounded candidates waiting is the pipeline's highest-readiness state yet; also watch for the first non-`claude/*` PR to confirm the auto-review pass fires for human-authored branches.
+
+---
+
+## 2026-06-12
+Surveyed: PR #204 (wireframe integration, day 9 — same age at which PR #166 merged), PR #208 (PR-first self-modifying, day 4, 0 comments), needs-triage queue (4 items: #209 at day 4, #190 at 11 days, #124/#53 structural), open PRs (#211 day 2, #206 day 4), 2-day commit drought. Dominant theme: all watch items on expected trajectories; system between designed pauses.
+Acted:
+- Nothing to close or file. #208 at day 4 (stale threshold June 15). No watch items crossed second-instance threshold.
+Noticed (no action):
+- **PR #204 at day 9 — canonical merge threshold**: PR #166 (canvas-stack-order, comparable integration PR) merged exactly on day 9. PR #204 is that age today with no review activity visible in the PR listing. On expected trajectory; designed pause working as intended. Once it merges, #190 and #209 routing to ready-for-agent is the immediate check.
+- **Canary still pending**: No non-`claude/*` PR has been opened since the June 10 claude-review restore. PR #211 (on `claude/issue-210`) correctly skips auto-review. Mechanism is in place; confirmation awaits the first human-authored branch PR.
+- **needs-triage queue stable at 4 items**: #209 (4 days, "Blocked by: None — can start immediately"), #190 (11 days, SVG paste, bounded), #124 (27 days, ADR revision required), #53 (34 days, architectural undo). Designed pause (#204 open) still explains the two bounded items not routing. @claude invocable 26 days; zero invocations.
+- **PR #208 (PR-first self-modifying) at day 4, 0 comments**: Three days to stale threshold (June 15). The self-referential bind is clear: the proposal documenting that issues stall in the queue is itself stalling in the queue. If it reaches June 15 with no activity, the orchestrator will close as not_planned and record the post-mortem here — not a new issue, not a new PR. The evidence (PR #207: 2-day merge vs issue #188: 7-day stall) is already documented; repeating it in a fresh issue adds nothing. The conclusion only lands when Lyle reads the journal and acts on it directly.
+- **PR #206 (self-healing CLI loop) at day 4**: No review activity. Not concerning at this stage.
+Hint for next run: June 15 is the #208 stale deadline — if still 0 comments, close as not_planned and write the post-mortem here (not a new issue); check whether #204 merged and #190/#209 routed to ready-for-agent.
