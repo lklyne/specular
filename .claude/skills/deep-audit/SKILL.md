@@ -11,8 +11,8 @@ Default scope is `$ARGUMENTS` (a directory or domain). If none given, ask which 
 
 ## Loop
 
-### 1. Ground truth first
-Run the `fallow` skill over the area. Its dead-code / duplicate-clone / cycle / complexity output is the agents' **evidence base** — they interpret it, they don't guess. Note which "dead" symbols are exported (may be test-only — verify before anyone deletes).
+### 1. Ground truth first (optional sharpener, NOT a gate)
+If the area is JS/TS, run the `fallow` skill and hand its output to the agents as **evidence to interpret** for the dead-code section. It does not scope the audit: agents read/grep the whole area in step 3 regardless, and Fallow misses plenty (logic bugs, missing abstractions, non-exported dead symbols — all of which agents must still find). Unflagged ≠ unevaluated. Skip this step entirely if Fallow doesn't apply or isn't available. Where it does flag, note which "dead" symbols are exported — may be test-only, verify before deleting.
 
 ### 2. Read the domain
 Read `CONTEXT.md`, the relevant `docs/adr/*`, and the nearest `CLAUDE.md`. Agents must use real glossary terms and must know which invariants are load-bearing.
@@ -20,7 +20,7 @@ Read `CONTEXT.md`, the relevant `docs/adr/*`, and the nearest `CLAUDE.md`. Agent
 ### 3. Fan out a FIXED set of gather-agents
 One per sub-domain (aim 4–6, not "the app"). Two passes on the highest-value sub-domain, one elsewhere. Hard-cap it.
 
-Each agent: **foreground** (not background), model **sonnet**, given the Fallow output + the domain docs + this contract:
+Each agent reads/greps its **whole** sub-domain (Fallow flags are leads, not the boundary). Each agent: **foreground** (not background), model **sonnet**, given the Fallow output (if any) + the domain docs + this contract:
 
 > One turn. Do the full analysis with Grep/Read now; your FINAL message MUST be the report — no status updates, no "I'll continue". Grep to verify before asserting unused. Apply the ponytail lens (delete/reuse/collapse over add). Return EXACTLY:
 > 1. MAP — key files, LOC, responsibilities (one paragraph)
