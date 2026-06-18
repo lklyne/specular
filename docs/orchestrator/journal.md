@@ -524,3 +524,16 @@ Noticed (no action):
 - **Canary still pending**: No non-`claude/*` PR opened since the June 10 claude-review restore (day 7). Mechanism in place but untested on a real human-authored PR.
 - **PR #144 (manifest component extensions) at day 31, #32 (LM Studio) at day 54**: Both appear intentionally parked. Not orchestrator-actionable.
 Hint for next run: if deep-audit routing happens, count routing ratio against the June 16 baseline (ready-for-agent/HITL/blocked); if still 0 routing at day 7 (June 21), note whether 27-item batch volume is itself the friction — routing a burst this size may require a dedicated session, not a casual queue scan.
+
+---
+
+## 2026-06-18
+Surveyed: Deep-audit routing (27 items, day 4, 0 routed), open PR aging (#204 day 15, #206 day 10, #211 day 8), proposal queue (empty), no main commits since June 15. Dominant theme: system unchanged from yesterday; no new signal.
+Acted:
+- Nothing to close or file. Proposal queue empty; no stale orchestrator output.
+Noticed (no action):
+- **Deep-audit routing: day 4, 0 items moved.** Still within the 3–7 day window before the June 21 threshold. Not a signal yet; normal inter-session latency.
+- **PR #204 (wireframe integration) at day 15**: Now 6 days past the #166 benchmark (day 9). Longest-running integration PR in the record. No review activity. #206 (self-healing CLI) at day 10 and #211 (copy as PNG) at day 8 also unchanged. All three queued, not escaped. Five-day main-branch drought continuing.
+- **Journal PR #169 at 21 days**: The branch holds 21 days of entries not yet on main. By design — Lyle squash-merges when ready. No action needed; flagging as an observation in case the gap between main and branch journal grows large enough to affect run context.
+- **Canary still pending (day 8 since restore)**: No non-`claude/*` human-authored PR since the June 10 claude-review restore. Mechanism confirmed active for AFK branches; the trigger condition remains untested.
+Hint for next run: June 21 is the threshold for deep-audit routing — if still 0 items routed, note whether the 27-item batch size requires a dedicated routing session; also check if any of the three open PRs (#204, #206, #211) have merged.
