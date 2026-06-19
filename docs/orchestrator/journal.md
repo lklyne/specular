@@ -537,3 +537,17 @@ Noticed (no action):
 - **Journal PR #169 at 21 days**: The branch holds 21 days of entries not yet on main. By design — Lyle squash-merges when ready. No action needed; flagging as an observation in case the gap between main and branch journal grows large enough to affect run context.
 - **Canary still pending (day 8 since restore)**: No non-`claude/*` human-authored PR since the June 10 claude-review restore. Mechanism confirmed active for AFK branches; the trigger condition remains untested.
 Hint for next run: June 21 is the threshold for deep-audit routing — if still 0 items routed, note whether the 27-item batch size requires a dedicated routing session; also check if any of the three open PRs (#204, #206, #211) have merged.
+
+---
+
+## 2026-06-19
+Surveyed: Deep-audit routing (27 items, day 5 of 7-day threshold window), open PR aging (#204 day 16, #206 day 11, #211 day 9), proposal queue (empty — three consecutive not_planned closes, reflection done June 16), no main commits since June 15 (6 days). Dominant theme: system unchanged; no new signal.
+Acted:
+- Nothing to close or file. Proposal queue empty; reflection rule satisfied (June 16 entry).
+Noticed (no action):
+- **Deep-audit routing at day 5**: Two days from the June 21 threshold. All 27 items in `needs-triage`, 0 routed, 0 comments. Still inside the normal inter-session latency window. Not actionable yet.
+- **PR #204 (wireframe integration) at day 16**: Now 7 days past the #166 benchmark (9 days). #206 (self-healing CLI) at day 11, #211 (copy as PNG) at day 9. All three queued and unreviewed. Six-day main-branch drought. Pattern consistent with the designed review gap between AFK sessions.
+- **Epic complexity → review latency signal sharpening**: Benchmarks so far — #166 (canvas-stack-order, medium): 9 days; #204 (wireframe structured editor, largest epic to date): 16+ days open. The AFK pipeline produces larger epics over time; the review cycle hasn't scaled proportionally. Not a proposal-ready observation (HITL review is intentional), but if a future integration PR takes >20 days, it becomes a structural concern.
+- **Proposal queue dynamics — standing note**: Three consecutive not_planned closes (#168, #188, #208). Reflected June 16. No new proposals this run. The conclusion stands: GitHub issues are a passive channel; the one delivery mode that worked for the orchestrator was the ready-to-merge PR (#207, merged in 2 days). The channel mismatch — not the diagnosis — was the consistent failure.
+- **Journal PR #169 at day 22**: Branch holds 22 days of entries not yet on main. Operational but noting the gap.
+Hint for next run: June 21 is the deep-audit routing threshold — if still 0 items routed at day 7, note whether batch volume itself is the friction and consider whether the deep-audit skill needs a recommended "routing session" step in its output; also check if #204/#206/#211 have merged.
