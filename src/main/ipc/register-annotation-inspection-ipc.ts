@@ -4,6 +4,7 @@ import {
   bgView,
   aboveView,
   pageBodyCanvasBounds,
+  projectFramePointToCanvas,
   requestLayout,
 } from '../runtime/surface-layout'
 import {
@@ -72,16 +73,16 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
     case 'element': {
       const page = findPageById(anchor.pageId)
       if (!page) return null
-      const body = pageBodyCanvasBounds(page)
       if (anchor.boundingBox) {
+        const origin = projectFramePointToCanvas(page, anchor.boundingBox)
         return {
-          x: body.x + anchor.boundingBox.x,
-          y: body.y + anchor.boundingBox.y,
+          x: origin.x,
+          y: origin.y,
           width: anchor.boundingBox.width,
           height: anchor.boundingBox.height,
         }
       }
-      return body
+      return pageBodyCanvasBounds(page)
     }
     case 'page': {
       const page = findPageById(anchor.pageId)
