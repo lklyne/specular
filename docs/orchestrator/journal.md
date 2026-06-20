@@ -551,3 +551,19 @@ Noticed (no action):
 - **Proposal queue dynamics — standing note**: Three consecutive not_planned closes (#168, #188, #208). Reflected June 16. No new proposals this run. The conclusion stands: GitHub issues are a passive channel; the one delivery mode that worked for the orchestrator was the ready-to-merge PR (#207, merged in 2 days). The channel mismatch — not the diagnosis — was the consistent failure.
 - **Journal PR #169 at day 22**: Branch holds 22 days of entries not yet on main. Operational but noting the gap.
 Hint for next run: June 21 is the deep-audit routing threshold — if still 0 items routed at day 7, note whether batch volume itself is the friction and consider whether the deep-audit skill needs a recommended "routing session" step in its output; also check if #204/#206/#211 have merged.
+
+---
+
+## 2026-06-20
+Surveyed: Deep-audit routing status (June 20 — one day ahead of the June 21 threshold), open PR aging (#204 day 17, #206 day 12, #211 open with agent-in-progress), issue label changes today, proposal queue (empty). Dominant theme: deep-audit routing cycle completed its first pass.
+Acted:
+- Nothing to close or file. Proposal queue empty; three-consecutive-rejection rule still applies.
+Noticed (no action):
+- **Deep-audit routing happened today** — one day ahead of the June 21 threshold. Items routed from the June 15 batch: `ready-for-agent` — #234 (CanvasItemPopup compound), #231 (interaction-layer dead-code), #230 (fix unguarded tryEnter), #217 (inspector compound), #216 (gate test routes), #213 (fallow dead-code sweep), #212 (document-commands façade bugs); `ready-for-human` — #233 (PoC effects decision), #232 (GestureSession decision), #219 (presence scope decision), #218 (ADR: open plugin surface), #215 (ADR: command core), #214 (ADR: entity registry). Still in `needs-triage` (dependency-blocked): #235, #228, #227, #226, #225, #224, #223, #222, #220 (~9–10 items awaiting their unlock chain). Tally: **13 routed, ~10 dependency-blocked** — roughly matching the June 16 prediction (~10 ready-for-agent, ~6 HITL, ~11 blocked).
+- **Routing cycle proved out**: deep-audit skill → batch of linked GitHub issues → single routing session → populated `ready-for-agent` queue. This is the first time an automated skill directly and correctly populated the AFK pipeline backlog at scale. The batch took 5 days to route (filed June 15, routed June 20) — normal inter-session latency, not friction from batch size. The June 17 concern about "27-item routing friction" did not materialise.
+- **#209 (live-refresh local files) also moved to `ready-for-agent` today** — this was one of the two pre-existing items from the June 9 note ("bounded needs-triage candidates once #204 merges"). It got routed before #204 merged, presumably during the same routing session.
+- **#210 carries `agent-in-progress` label; PR #211 is the implementation** (filed June 10, open at day 10). An AFK agent is actively working on copy-as-PNG while the queue fills around it. Two streams in parallel — pipeline not idle despite the main-branch drought.
+- **PR #204 (wireframe integration) still open at day 17**: 8 days past the #166 benchmark (9 days). No review activity. Longest integration PR in the record. #206 (self-healing CLI loop) at day 12, also unreviewed. Seven-day main-branch drought.
+- **Epic complexity → review latency**: The signal continues to sharpen — #166 at 9 days, #204 at 17+ days. The next integration PR is the third data point. Not a proposal yet; observe.
+- **Canary still pending** (day 10 since june 10 claude-review restore): No non-`claude/*` human-authored PR. Mechanism confirmed active; trigger condition still untested.
+Hint for next run: check whether any `ready-for-agent` items from the routing session (#234, #231, #230, #217, #216, #213, #212, #209) have been picked up by the AFK pipeline; check if PR #204 or #206 merged; check if the canary fired on the first human-authored PR.
