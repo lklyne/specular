@@ -10,6 +10,7 @@ import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
 import { queryElementAtPoint } from '../runtime/page-queries'
 import {
+  fileAtWindowPoint,
   pageAtWindowPoint,
   windowPointToCanvasPoint,
 } from '../runtime/window-coords'
@@ -588,6 +589,17 @@ export function registerCanvasEntityIpc(): void {
             canvasY: canvasPoint.y,
           })
         }
+      }
+
+      const fileId = fileAtWindowPoint(windowX, windowY)
+      if (fileId) {
+        setCommentOverlayActive(true)
+        setPendingFocus({ kind: 'aboveView' })
+        requestLayout()
+        if (aboveView && !aboveView.webContents.isDestroyed()) {
+          aboveView.webContents.send('annotate-file-selected', { fileId })
+        }
+        return
       }
 
       const hit = pageAtWindowPoint(windowX, windowY)

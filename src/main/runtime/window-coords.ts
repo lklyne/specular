@@ -11,6 +11,7 @@
  */
 
 import { pages, pan, zoom } from './runtime-context'
+import { fileEntities } from './file-entity-state'
 import {
   boundCanvasOrigin,
   boundEffectivePageContentSize,
@@ -56,6 +57,31 @@ export function pageAtWindowPoint(windowX: number, windowY: number): PageHit | n
       pageId: page.id,
       localX: Math.round((windowX - bounds.x) * cssScale),
       localY: Math.round((windowY - bounds.y) * cssScale),
+    }
+  }
+  return null
+}
+
+/**
+ * Returns the id of the topmost file entity whose content rect contains
+ * (windowX, windowY), or null. Iterates in reverse array order so later
+ * entries — painted on top — win. Uses content bounds, ignoring shell insets.
+ */
+export function fileAtWindowPoint(windowX: number, windowY: number): string | null {
+  const origin = boundCanvasOrigin()
+  for (let i = fileEntities.length - 1; i >= 0; i--) {
+    const entity = fileEntities[i]
+    const contentScreenX = origin.x + entity.canvasX * zoom + pan.x
+    const contentScreenY = origin.y + entity.canvasY * zoom + pan.y
+    const contentScreenW = entity.width * zoom
+    const contentScreenH = entity.height * zoom
+    if (
+      windowX >= contentScreenX &&
+      windowX <= contentScreenX + contentScreenW &&
+      windowY >= contentScreenY &&
+      windowY <= contentScreenY + contentScreenH
+    ) {
+      return entity.id
     }
   }
   return null

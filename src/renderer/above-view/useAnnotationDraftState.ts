@@ -3,6 +3,7 @@ import type {
   AnnotationAnchor,
   AnnotationElementSelectionPayload,
   CanvasBgElectronAPI,
+  CanvasSceneFileEntity,
   LayoutUpdateData,
   WorkspaceBounds,
 } from '../../shared/types'
@@ -113,6 +114,22 @@ export function useAnnotationDraftState({
       setDrawingSession(null)
       setCommentText('')
       setElementNameDraft(payload.name?.trim() ?? '')
+    })
+    return cleanup
+  }, [api, layoutRef])
+
+  useEffect(() => {
+    const cleanup = api.onAnnotateFileSelected(({ fileId }) => {
+      const layout = layoutRef.current
+      const fileEntity = layout.entities.find(
+        (e): e is CanvasSceneFileEntity => e.id === fileId && e.kind === 'file',
+      )
+      const pending = buildFileEntityPendingAnnotation(fileId, fileEntity, layout)
+      setPendingAnnotation(pending)
+      setPendingRegionRect(null)
+      setDrawingSession(null)
+      setCommentText('')
+      setElementNameDraft('')
     })
     return cleanup
   }, [api, layoutRef])
@@ -272,6 +289,38 @@ function buildPendingAnnotation(
 
 function makeDraftId(): string {
   return `draft:${Math.random().toString(36).slice(2, 10)}:${Date.now().toString(36)}`
+}
+
+function buildFileEntityPendingAnnotation(
+  fileId: string,
+  fileEntity: CanvasSceneFileEntity | undefined,
+  layout: LayoutUpdateData,
+): PendingAnnotation {
+  const composerWidth = Math.min(CANVAS_POINT_COMPOSER_WIDTH, window.innerWidth - VIEWPORT_PADDING * 2)
+  let composerX = VIEWPORT_PADDING
+  let composerY = VIEWPORT_PADDING
+  if (fileEntity) {
+    const rightEdge = fileEntity.screenX + fileEntity.screenWidth + COMPOSER_MARGIN
+    const overlayY = toOverlayY(layout, fileEntity.screenY) + COMPOSER_MARGIN
+    composerX = Math.min(
+      Math.max(rightEdge, VIEWPORT_PADDING),
+      window.innerWidth - composerWidth - VIEWPORT_PADDING,
+    )
+    composerY = Math.min(
+      Math.max(overlayY, VIEWPORT_PADDING),
+      window.innerHeight - COMPOSER_MIN_HEIGHT - VIEWPORT_PADDING,
+    )
+  }
+  return {
+    draftId: makeDraftId(),
+    request: {
+      anchor: { type: 'file', fileId },
+      text: '',
+    },
+    composerX,
+    composerY,
+    composerWidth,
+  }
 }
 
 function buildCanvasPointPendingAnnotation(

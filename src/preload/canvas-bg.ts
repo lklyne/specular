@@ -257,6 +257,12 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.on('annotate-element-selected', handler)
     return () => ipcRenderer.removeListener('annotate-element-selected', handler)
   },
+  onAnnotateFileSelected: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
+      callback(data)
+    ipcRenderer.on('annotate-file-selected', handler)
+    return () => ipcRenderer.removeListener('annotate-file-selected', handler)
+  },
   onRegionSelectCommitted: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
       callback(data)

@@ -1824,6 +1824,11 @@ export interface CanvasBgElectronAPI {
   onAnnotateElementSelected: (
     callback: (data: AnnotationElementSelectionPayload) => void,
   ) => () => void
+  /** Comment-tool click that landed on a file entity. Renderer mounts a
+   *  pending composer anchored to the file entity. */
+  onAnnotateFileSelected: (
+    callback: (data: { fileId: string }) => void,
+  ) => () => void
   onRegionSelectCommitted: (
     callback: (data: { canvasRect: WorkspaceBounds }) => void,
   ) => () => void
@@ -2104,6 +2109,7 @@ export type AnnotationAnchor =
   | { type: 'page'; pageId: string; offsetX: number; offsetY: number }
   | { type: 'element'; pageId: string; selector: string; elementPath?: string; boundingBox?: DevtoolsPanelDomRect }
   | { type: 'region'; canvasRect: WorkspaceBounds }
+  | { type: 'file'; fileId: string }
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
 export type AnnotationStatusFilter = AnnotationStatus | 'unresolved' | 'all'
