@@ -567,3 +567,18 @@ Noticed (no action):
 - **Epic complexity → review latency**: The signal continues to sharpen — #166 at 9 days, #204 at 17+ days. The next integration PR is the third data point. Not a proposal yet; observe.
 - **Canary still pending** (day 10 since june 10 claude-review restore): No non-`claude/*` human-authored PR. Mechanism confirmed active; trigger condition still untested.
 Hint for next run: check whether any `ready-for-agent` items from the routing session (#234, #231, #230, #217, #216, #213, #212, #209) have been picked up by the AFK pipeline; check if PR #204 or #206 merged; check if the canary fired on the first human-authored PR.
+
+---
+
+## 2026-06-21
+Surveyed: AFK pipeline burst overnight (PRs #236–#244 opened June 20 22:15 UTC through June 21 06:19 UTC), open PR aging (#204 day 18, #206 day 13, #211 day 11, #144 day 35, #32 day 58), proposal queue (empty; 5 quiet runs since June 16 reflection). Dominant theme: AFK pipeline confirmed at full operating rate; bottleneck has shifted to review bandwidth.
+Acted:
+- Nothing to close or file. No open proposals to age out. New signal exists but nothing passes the two-instance + in-scope bar that hasn't already been tried.
+Noticed (no action):
+- **First complete end-to-end pipeline proof**: deep-audit skill (June 15) → 27 issues filed → routing session (June 20) → 9 AFK PRs (June 20–21). Cycle time: 5 days audit-to-PRs. The hint for this run predicted exactly this: all 7 `ready-for-agent` items (#209, #212, #213, #216, #217, #230, #231) have PRs, plus 2 older backlog items (#1, #17). Generation latency from routing to first PR was under 1 hour.
+- **Review queue at 13 open PRs**: 9 new audit/bug-fix PRs + #204 (day 18) + #206 (day 13) + #211 (day 11) + #144 (day 35) + #32 (day 58). The 9 new PRs are all small, well-specified, typecheck+unit passing — low review friction individually. If they clear, the dependency-blocked batch (~9 items: #235, #228, #227 etc.) can be routed for the next AFK run.
+- **Bottleneck shift confirmed**: Generation is no longer the constraint. The AFK pipeline can burst 9 PRs in 8 hours. The constraint is now Lyle's merge bandwidth — the designed HITL gate. This is expected; naming it explicitly so future runs don't hunt for pipeline failures when the queue is simply full.
+- **#206 (self-healing CLI loop) at day 13, unreviewed**: This PR is itself a pipeline improvement, not just product code. Its delay blocks the system's ability to self-improve the CLI. Noting because the distinction matters; it sits in the same queue but has different downstream value.
+- **Journal PR #169 at day 22**: Local checkout only goes to May 28; this run successfully read from the PR branch. A future run reading only the local checkout would miss 24 days of context. The longer this PR stays unmerged, the wider the divergence. No action — Lyle squash-merges when ready — but the gap is worth naming.
+- **Canary still pending** (day 11 since claude-review restore): No human-authored non-`claude/*` PR. Trigger condition still untested.
+Hint for next run: check whether the 9 small audit PRs (#236–#244) have begun merging — that's the unlock for the dependency-blocked routing batch; note if #204 (wireframe) or #206 (CLI loop) have any review activity; the journal PR merge would also reset the local context gap.
