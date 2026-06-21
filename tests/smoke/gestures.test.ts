@@ -1,17 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  applyMultiResize,
   beginInteraction,
+  beginMultiResize,
   cancelActiveInteraction,
   cancelInteraction,
   commitInteraction,
   createPages,
+  createTextEntities,
   deletePages,
+  deleteTextEntities,
+  endMultiResize,
   getInteractionMode,
+  getTextEntities,
+  getUndoState,
   resetInteraction,
+  resetSmokeState,
+  undoWorkspace,
   type CancelReason,
   type InteractionToken,
   type TryEnterInput,
 } from './app-client'
+import { wait } from './test-utils'
 
 /**
  * Per-mode begin/commit/cancel matrix for the InteractionController.
@@ -128,4 +138,65 @@ describe('InteractionController state machine', () => {
     expect(after.mode.kind).toBe('idle')
   })
 
+})
+
+describe('I3 violation fix: conflicting gesture-begin does not corrupt batch/undo', () => {
+  const createdTextIds: string[] = []
+
+  beforeEach(async () => {
+    await resetSmokeState()
+    await resetInteraction()
+  })
+
+  afterEach(async () => {
+    await resetInteraction()
+    if (createdTextIds.length) {
+      await deleteTextEntities(createdTextIds.splice(0))
+    }
+  })
+
+  it('second concurrent multi-resize-begin is refused and does not open a dangling batch', async () => {
+    const { ids } = await createTextEntities([
+      { canvasX: 0, canvasY: 0, text: 'resize-me', width: 100, height: 50 },
+    ])
+    createdTextIds.push(...ids)
+    await wait(50)
+
+    const before = await getTextEntities()
+    const init = before.textEntities.find((t) => t.id === ids[0])!
+
+    // Begin the first gesture.
+    const first = await beginMultiResize()
+    expect(first.ok).toBe(true)
+
+    // A second begin while the first is active must be refused.
+    const second = await beginMultiResize()
+    expect(second.ok).toBe(false)
+    expect(second.refused).toBe(true)
+
+    // Apply a resize tick on the first gesture.
+    await applyMultiResize([
+      { id: ids[0], kind: 'text', width: 150, height: 50, canvasX: init.canvasX, canvasY: init.canvasY },
+    ])
+
+    // End the first gesture — batch count should be balanced (one begin, one end).
+    await endMultiResize()
+    await wait(50)
+
+    const afterResize = await getTextEntities()
+    const resized = afterResize.textEntities.find((t) => t.id === ids[0])!
+    expect(resized.width).toBe(150)
+
+    // Undo must round-trip cleanly — if the batch were mismatched, undo would
+    // either no-op or corrupt a prior step.
+    const undoState = await getUndoState()
+    expect(undoState.canUndo).toBe(true)
+
+    await undoWorkspace()
+    await wait(50)
+
+    const afterUndo = await getTextEntities()
+    const undone = afterUndo.textEntities.find((t) => t.id === ids[0])!
+    expect(undone.width).toBe(init.width)
+  })
 })

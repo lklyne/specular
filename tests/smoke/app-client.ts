@@ -601,7 +601,7 @@ export type MultiResizeEntry = {
 }
 
 export function beginMultiResize() {
-  return post<{ ok: true }>('/test/canvas-multi-resize/begin')
+  return post<{ ok: boolean; refused?: true; reason?: string }>('/test/canvas-multi-resize/begin')
 }
 
 export function applyMultiResize(entries: MultiResizeEntry[]) {

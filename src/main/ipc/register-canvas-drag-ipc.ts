@@ -375,7 +375,8 @@ export function registerCanvasDragIpc(): void {
       // the first move tick, aboveView blurs, and the renderer's window-blur
       // listener cancels the gesture after one pixel. Same gotcha as the
       // drag-start ordering — see runtime/CLAUDE.md.
-      tryEnter({ kind: 'resizing-entity', target: { id: entityId, kind: entityKind } })
+      const resizeToken = tryEnter({ kind: 'resizing-entity', target: { id: entityId, kind: entityKind } })
+      if ('refused' in resizeToken) return
       resizingEntityId = entityId
       initializeResizeGuides(entityId, handle)
       // Coalesce the gesture's per-tick bounds mutations into one Y.Doc
@@ -396,7 +397,8 @@ export function registerCanvasDragIpc(): void {
   })
 
   ipcMain.on('canvas-multi-resize-begin', () => {
-    tryEnter({ kind: 'resizing-multi-selection' })
+    const multiResizeToken = tryEnter({ kind: 'resizing-multi-selection' })
+    if ('refused' in multiResizeToken) return
     beginBatch()
   })
 
@@ -412,11 +414,12 @@ export function registerCanvasDragIpc(): void {
       _event,
       { fromEntityId, fromSide }: { fromEntityId: string; fromSide: EdgeSide },
     ) => {
-      tryEnter({
+      const edgeToken = tryEnter({
         kind: 'dragging-edge',
         from: { id: fromEntityId, kind: resolveEntityKind(fromEntityId) },
         fromSide,
       })
+      if ('refused' in edgeToken) return
       setHoverEntity(null)
       requestLayout()
     },
