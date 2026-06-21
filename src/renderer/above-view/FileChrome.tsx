@@ -12,7 +12,7 @@ import type {
   CanvasSceneFileEntity,
   LayoutUpdateData,
 } from '../../shared/types'
-import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
+import { fileDisplayName } from '../canvas-bg/entityConstants'
 import { CanvasItemChrome } from './CanvasItemChrome'
 import { iconForFilePath } from '../shared/fileIcon'
 import { startOptionAwareEntityDrag, type DragCopyPreviewBox } from './optionDragCopy'
@@ -78,12 +78,7 @@ const FileChromeItem = memo(function FileChromeItem({
   optionHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
-  const fileName = entity.file.split('/').pop() ?? entity.file
-  const displayName = WIREFRAME_EXTENSIONS.test(entity.file)
-    ? fileName.replace(/\.wireframe\.json$/i, '')
-    : MARKDOWN_EXTENSIONS.test(entity.file)
-      ? fileName.replace(/\.md$/i, '')
-      : fileName
+  const displayName = fileDisplayName(entity.file)
   const FileIcon = iconForFilePath(entity.file)
 
   const onPointerDown = (event: React.PointerEvent) => {

@@ -21,19 +21,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
-import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
-import {
-  MIN_FILE_HEIGHT,
-  MIN_FILE_WIDTH,
-  MIN_GROUP_HEIGHT,
-  MIN_GROUP_WIDTH,
-  MIN_SHAPE_HEIGHT,
-  MIN_SHAPE_WIDTH,
-  MIN_TEXT_HEIGHT,
-  MIN_TEXT_WIDTH,
-} from '../canvas-bg/entityConstants'
 import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
-import { entityResizesAutomatically } from '../../shared/hit-test'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
@@ -45,7 +33,6 @@ interface PageOutlineProps {
 }
 
 function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: PageOutlineProps) {
-  const zoom = page.width > 0 ? page.screenWidth / page.width : 1
   return (
     <div
       className="absolute border-2"
@@ -60,20 +47,7 @@ function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: Page
       data-overlay-ui
     >
       {showResizeHandles ? (
-        <SelectionResizeGrid
-          id={page.id}
-          width={page.width}
-          height={page.height}
-          canvasX={page.canvasX}
-          canvasY={page.canvasY}
-          zoom={zoom}
-          minWidth={320}
-          minHeight={200}
-          onResize={() => {
-            /* hit-test in router drives resize; visual handles only */
-          }}
-          isDark={isDark}
-        />
+        <SelectionResizeGrid isDark={isDark} />
       ) : null}
     </div>
   )
@@ -125,26 +99,6 @@ function EntitySelectionOverlay({
   isSelected,
   showResizeHandles,
 }: EntityOutlineProps) {
-  const minWidth =
-    entity.kind === 'text'
-      ? MIN_TEXT_WIDTH
-      : entity.kind === 'file'
-        ? MIN_FILE_WIDTH
-        : entity.kind === 'shape'
-          ? MIN_SHAPE_WIDTH
-          : 16
-  const minHeight =
-    entity.kind === 'text'
-      ? MIN_TEXT_HEIGHT
-      : entity.kind === 'file'
-        ? MIN_FILE_HEIGHT
-        : entity.kind === 'shape'
-          ? MIN_SHAPE_HEIGHT
-          : 16
-  const aspectRatioResizeMode =
-    entity.kind === 'file' ? aspectRatioResizeModeForCanvasFile(entity.file) : 'off'
-  const zoom = entity.width > 0 ? entity.screenWidth / entity.width : 1
-
   return (
     <div
       className="absolute border-2"
@@ -161,21 +115,7 @@ function EntitySelectionOverlay({
       data-overlay-ui
     >
       {isSelected && showResizeHandles ? (
-        <SelectionResizeGrid
-          id={entity.id}
-          width={entity.width}
-          height={entity.height}
-          canvasX={entity.canvasX}
-          canvasY={entity.canvasY}
-          zoom={zoom}
-          minWidth={minWidth}
-          minHeight={minHeight}
-          onResize={() => {
-            /* hit-test in router drives resize; visual handles only */
-          }}
-          aspectRatioResizeMode={aspectRatioResizeMode}
-          isDark={isDark}
-        />
+        <SelectionResizeGrid isDark={isDark} />
       ) : null}
     </div>
   )
@@ -254,7 +194,6 @@ function GroupSelectionOverlay({
   originY: number
   isDark: boolean
 }) {
-  const zoom = group.width > 0 ? group.screenWidth / group.width : 1
   return (
     <div
       className="absolute border-2"
@@ -269,20 +208,7 @@ function GroupSelectionOverlay({
         pointerEvents: 'none',
       }}
     >
-      <SelectionResizeGrid
-        id={group.id}
-        width={group.width}
-        height={group.height}
-        canvasX={group.canvasX}
-        canvasY={group.canvasY}
-        zoom={zoom}
-        minWidth={MIN_GROUP_WIDTH}
-        minHeight={MIN_GROUP_HEIGHT}
-        onResize={() => {
-          /* hit-test in router drives resize; visual handles only */
-        }}
-        isDark={isDark}
-      />
+      <SelectionResizeGrid isDark={isDark} />
     </div>
   )
 }
@@ -448,7 +374,7 @@ export function SelectionOutlineLayer({
             borderRadius={borderRadius}
             isDark={isDark}
             isSelected={isSelected}
-            showResizeHandles={!isMultiSelect && !entityResizesAutomatically(entity)}
+            showResizeHandles={!isMultiSelect}
           />
         )
       })}

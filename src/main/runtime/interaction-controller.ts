@@ -142,13 +142,6 @@ function isActive(token: Token): boolean {
   return current !== null && current.id === token.id
 }
 
-export function update(token: Token): void {
-  if (!isActive(token)) return
-  // Phase 2: payload-free; specific update helpers (e.g. updateEdgeDragTarget)
-  // continue to be called directly by the drag IPC handlers. Phase 5 moves
-  // those payloads into this method.
-}
-
 export function commit(token: Token): void {
   if (!isActive(token)) return
   clearTimeout(current!.timer)

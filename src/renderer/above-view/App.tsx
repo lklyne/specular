@@ -17,6 +17,7 @@ import {
   canvasToScreenX,
   canvasToScreenY,
   canScrollWheelTarget,
+  DRAG_THRESHOLD,
   isOverlayUiTarget,
   normalizeRect,
   screenPointToCanvasPoint,
@@ -863,7 +864,6 @@ export default function App({
   // cursor via `inspectAtPoint`; element hit → element anchor; nothing →
   // canvas-point anchor. Drag past threshold → marquee → region anchor on
   // pointerup. Threshold matches the rest of the canvas pointer router.
-  const COMMENT_DRAG_THRESHOLD = 4
   // The comment tool needs to keep capturing pointerdowns while a pending
   // annotation or region rect is open so the user can retarget by clicking a
   // different element. `isOverlayUiTarget` below still filters out clicks on
@@ -956,7 +956,7 @@ export default function App({
           if (!crossedThreshold) {
             const dx = ev.clientX - startX
             const dy = ev.clientY - startY
-            if (Math.abs(dx) < COMMENT_DRAG_THRESHOLD && Math.abs(dy) < COMMENT_DRAG_THRESHOLD) {
+            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
               return
             }
             crossedThreshold = true

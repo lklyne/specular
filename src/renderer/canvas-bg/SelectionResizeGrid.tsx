@@ -1,4 +1,3 @@
-import type { AspectRatioResizeMode, EntityResizePatch } from './entityConstants'
 import { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
 
 /**
@@ -6,21 +5,7 @@ import { CornerResizeHandle, EdgeResizeHandle } from './ResizeHandles'
  * selected entity. It is visual-only; canvas resize gestures are routed
  * through aboveView's canvas pointer router.
  */
-export function SelectionResizeGrid({
-  isDark,
-}: {
-  id: string
-  width: number
-  height: number
-  canvasX: number
-  canvasY: number
-  zoom: number
-  minWidth: number
-  minHeight: number
-  onResize: (id: string, patch: EntityResizePatch) => void
-  aspectRatioResizeMode?: AspectRatioResizeMode
-  isDark: boolean
-}) {
+export function SelectionResizeGrid({ isDark }: { isDark: boolean }) {
   return (
     <>
       <EdgeResizeHandle edge="top" />
