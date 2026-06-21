@@ -15,28 +15,30 @@ import type { PageEntity, StickyEntity } from "./scene";
 // it (behind it). That is cross-surface, per-pair stacking from one shared
 // z-order. No native z-index API required; no aboveView plane; no IPC.
 
-export const stickySelector = (id: string): string => `[data-sticky-id="${id}"]`;
-export const pageChromeSelector = (id: string): string => `[data-page-chrome="${id}"]`;
+/** Every canvas item's shell carries `data-item-id`; this matches it. */
+export const itemSelector = (id: string): string => `[data-item-id="${id}"]`;
 
 /**
- * The mask selectors a given page's webview should currently expose:
- *  - its own chrome header (host-DOM title/drag bar that floats over the page), and
- *  - every sticky stacked above it in the shared z-order.
+ * The mask selectors a page's webview should expose: every item stacked above it
+ * in the shared z-order. (The page's own chrome sits in a host-DOM strip the
+ * webview doesn't cover, so it needs no mask.)
  */
 export const pageMaskSelectors = (
   page: PageEntity,
   stickies: readonly StickyEntity[],
-): string[] => [
-  pageChromeSelector(page.id),
-  ...stickies.filter((s) => s.z > page.z).map((s) => stickySelector(s.id)),
-];
+): string[] =>
+  stickies.filter((s) => s.z > page.z).map((s) => itemSelector(s.id));
 
 /**
  * Reconcile a webview element's live mask set to `desired`, touching only what
- * changed. Kept here (pure-ish, element-in) so PageLayer stays declarative.
+ * changed. Kept here (pure-ish, element-in) so PageBody stays declarative.
  */
 export const syncMasks = (
-  element: { maskSelectors: Set<string>; addMaskSelector(s: string): void; removeMaskSelector(s: string): void },
+  element: {
+    maskSelectors: Set<string>;
+    addMaskSelector(s: string): void;
+    removeMaskSelector(s: string): void;
+  },
   desired: readonly string[],
 ): void => {
   const want = new Set(desired);

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Canvas } from "./canvas/Canvas";
 import { Toolbar } from "./canvas/Toolbar";
 import { bringToFront, moveEntity, stepZ, type Scene } from "./core/scene";
@@ -32,8 +32,21 @@ export function App() {
   const { camera, onWheel, panByScreen } = useCamera();
   const panActive = usePanTool();
   const [scene, setScene] = useState<Scene>(initialScene);
-  const [selectedId, setSelectedId] = useState<string | null>("sticky-mid");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [overlayEnabled, setOverlayEnabled] = useState(false);
+
+  // Escape clears selection, returning every item to its inert state.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) {
+        e.target.blur();
+      }
+      setSelectedId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const onMove = useCallback(
     (id: string, dx: number, dy: number) => setScene((s) => moveEntity(s, id, dx, dy)),

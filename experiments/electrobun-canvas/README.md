@@ -46,13 +46,19 @@ bun run dev:hmr     # Vite HMR + Electrobun dev build
    at z=1 — above `page-a` (z=0), below `page-b` (z=2). In the A∩B overlap it
    shows through A yet is covered by B **simultaneously**. Select it and press
    **▼ / ▲** to walk it across each page; drag it around the overlap.
-2. **No gesture overlay:** clicking a page interacts with the live page natively;
-   hold **space** and drag to pan even while the pointer is over a page (pages flip
-   to passthrough); drag a page by its dark **chrome header** (a masked host-DOM
-   bar floating over live content). All of this works with **zero input-capturing
-   overlay** — contrast Specular's `aboveView` + `cursorOverlayWindow` +
-   `page-input-forwarding.ts`.
-3. **Passthrough overlay:** click **Show passthrough overlay** — a transparent
+2. **Select-to-interact (one rule, every item):** on launch nothing is selected,
+   so everything is inert — a single click selects an item (outline + chrome
+   accent) without driving it; click again / type to interact. Only the selected
+   page takes scroll/keyboard; only the selected sticky is editable. **Esc** (or a
+   click on empty canvas) returns everything to inert. The whole gate is one rule
+   — `live = selected && !panActive` (`core/interactivity.ts`) — applied through
+   one shared shell (`canvas/CanvasItem.tsx`); the only per-kind difference is how
+   a body goes inert/live (page → `togglePassthrough`, sticky → `contentEditable`).
+3. **No gesture overlay:** hold **space** and drag to pan even while the pointer is
+   over a page (pages flip to passthrough); drag any item by its **chrome bar**.
+   All of this works with **zero input-capturing overlay** — contrast Specular's
+   `aboveView` + `cursorOverlayWindow` + `page-input-forwarding.ts`.
+4. **Passthrough overlay:** click **Show passthrough overlay** — a transparent
    webview paints a watermark over everything, yet clicks and scroll still reach
    the pages beneath it. (This is what would replace the `cursorOverlayWindow`
    hack.)
@@ -66,9 +72,12 @@ src/mainview/
   core/camera.ts              {x,y,zoom} + pure transforms (re-derived)
   core/scene.ts               Page/Sticky model + shared-z operations
   core/layering.ts          ★ per-page mask sets from the shared z-order
+  core/interactivity.ts       the one rule: live = selected && !panActive
   canvas/Canvas.tsx           gesture root + world transform
-  canvas/PageLayer.tsx        <electrobun-webview> + masked chrome + passthrough
-  canvas/StickyLayer.tsx      draggable host-DOM sticky
+  canvas/CanvasItem.tsx       shared item shell (placement, select, drag, chrome)
+  canvas/CanvasItemView.tsx   kind → body dispatch (analog of RendererSwitch)
+  canvas/bodies/PageBody.tsx  webview substrate: passthrough gate + mask sync
+  canvas/bodies/StickyBody.tsx host-DOM substrate: contentEditable gate
   canvas/CursorOverlay.tsx    transparent + passthrough overlay
   canvas/EbWebview.tsx        typed React wrapper for the custom element
   hooks/                      useCamera, useDrag, usePanTool
@@ -92,6 +101,8 @@ _Fill in after running on macOS:_
 
 - [ ] Thesis holds — sticky above A / below B renders correctly in the overlap?
 - [ ] Restacking (▲▼) moves a sticky across individual pages as expected?
+- [ ] Select-to-interact: one click selects (inert), second click / typing interacts; Esc deselects?
+- [ ] The same shell + rule governs both pages and stickies (substrate logic isolated to body files)?
 - [ ] Pan/zoom keeps pages + stickies locked to canvas coords; overlay lag tolerable?
 - [ ] Native hit-testing + passthrough fully replaced the gesture overlay (no input layer needed)?
 - [ ] Passthrough overlay: clicks/scroll reach pages beneath?
@@ -100,4 +111,3 @@ _Fill in after running on macOS:_
       click at (x,y) into a page (Specular's `sendInputEvent`)? Needed for agent-driven
       annotation. Record what you find.
 - [ ] Open question — macOS offscreen/snapshot path for many cold pages.
-```

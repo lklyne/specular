@@ -26,8 +26,10 @@ export function Toolbar({
           {panActive ? <em> · panning</em> : null}
         </li>
         <li>
-          Drag a <b>sticky</b> into the page overlap, then <b>▲ ▼</b> to restack
+          <b>Click</b> an item to select · click again / type to interact ·{" "}
+          <b>Esc</b> deselects
         </li>
+        <li>Drag by the chrome bar · <b>▲ ▼</b> to restack across pages</li>
         <li>A sticky above a page shows through it; below, the page covers it</li>
       </ul>
     </div>

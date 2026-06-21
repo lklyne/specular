@@ -35,64 +35,83 @@ body,
   transform-origin: 0 0;
 }
 
-/* ── Pages (native webview + masked host-DOM chrome) ───────────────────────── */
+/* ── Shared item shell (every canvas item, any substrate) ──────────────────── */
 
-.page {
+.item {
   position: absolute;
+  display: flex;
+  flex-direction: column;
   border-radius: 10px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
   background: #fff;
+  /* Inert items read as "tap to select"; live items defer to body cursors. */
+  cursor: pointer;
 }
 
-.page.selected {
+.item.live {
+  cursor: default;
+}
+
+.item.selected {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
 
-.page-webview {
-  position: absolute;
-  inset: 0;
-  border-radius: 10px;
-  overflow: hidden;
-  display: block;
-}
-
-/* Floats over the live page; only visible because it is in the page's mask set. */
-.page-chrome {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 30px;
+.item-chrome {
+  flex: 0 0 26px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
+  gap: 8px;
+  padding: 0 8px;
   border-radius: 10px 10px 0 0;
-  background: rgba(28, 30, 38, 0.82);
+  background: rgba(28, 30, 38, 0.86);
   color: #fff;
   font-size: 12px;
   cursor: grab;
+  user-select: none;
 }
 
-.page-title {
+.item.selected .item-chrome {
+  background: #2563eb;
+}
+
+.item-title {
   font-weight: 600;
-  opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ── Stickies (plain host DOM) ─────────────────────────────────────────────── */
+.item-hint {
+  flex: 1;
+  text-align: right;
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
+}
 
-.sticky {
+.item-body {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+
+/* ── Page body (native webview substrate) ──────────────────────────────────── */
+
+.page-webview {
   position: absolute;
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
-  padding: 8px;
-  cursor: grab;
+  inset: 0;
+  display: block;
 }
 
-.sticky.selected {
-  outline: 2px solid #1f2937;
-  outline-offset: 2px;
+/* ── Sticky body (host-DOM substrate) ──────────────────────────────────────── */
+
+.sticky-surface {
+  position: absolute;
+  inset: 0;
+  padding: 8px;
 }
 
 .sticky-text {
@@ -103,6 +122,9 @@ body,
   color: #1f2430;
   outline: none;
   overflow: auto;
+}
+
+.item.live .sticky-text {
   cursor: text;
 }
 
@@ -111,31 +133,27 @@ body,
 .z-controls {
   display: inline-flex;
   gap: 4px;
+  margin-left: auto;
+}
+
+.item-hint + .z-controls {
+  margin-left: 8px;
 }
 
 .z-controls button {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.85);
   color: #1f2430;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
   cursor: pointer;
 }
 
 .z-controls button:hover {
   background: #fff;
-}
-
-.sticky-z {
-  position: absolute;
-  top: -12px;
-  right: -6px;
-  background: #1f2937;
-  padding: 3px;
-  border-radius: 7px;
 }
 
 /* ── Overlays ──────────────────────────────────────────────────────────────── */

@@ -2,9 +2,8 @@ import { useEffect, useRef } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { cameraTransform, type Camera } from "../core/camera";
 import type { Scene } from "../core/scene";
+import { CanvasItemView } from "./CanvasItemView";
 import { CursorOverlay } from "./CursorOverlay";
-import { PageLayer } from "./PageLayer";
-import { StickyLayer } from "./StickyLayer";
 
 interface CanvasProps {
   camera: Camera;
@@ -67,29 +66,18 @@ export function Canvas(props: CanvasProps) {
       onPointerDown={onPointerDown}
     >
       <div className="world" style={{ transform: cameraTransform(props.camera) }}>
-        {props.scene.pages.map((page) => (
-          <PageLayer
-            key={page.id}
-            page={page}
-            stickies={props.scene.stickies}
+        {[...props.scene.pages, ...props.scene.stickies].map((entity) => (
+          <CanvasItemView
+            key={entity.id}
+            entity={entity}
+            scene={props.scene}
             zoom={props.camera.zoom}
+            selectedId={props.selectedId}
             panActive={props.panActive}
-            selected={props.selectedId === page.id}
             onSelect={props.onSelect}
             onMove={props.onMove}
             onStepZ={props.onStepZ}
-          />
-        ))}
-        {props.scene.stickies.map((sticky) => (
-          <StickyLayer
-            key={sticky.id}
-            sticky={sticky}
-            zoom={props.camera.zoom}
-            selected={props.selectedId === sticky.id}
-            onSelect={props.onSelect}
-            onMove={props.onMove}
-            onStepZ={props.onStepZ}
-            onEdit={props.onEditSticky}
+            onEditSticky={props.onEditSticky}
           />
         ))}
       </div>
