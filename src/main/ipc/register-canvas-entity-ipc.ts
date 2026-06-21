@@ -16,7 +16,7 @@ import {
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { textEntities } from '../runtime/text-entity-state'
 import { fileEntities } from '../runtime/file-entity-state'
-import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from '../runtime/drawing-entity-state'
+import { drawingEntities } from '../runtime/drawing-entity-state'
 import { shapeEntities } from '../runtime/shape-entity-state'
 import {
   getStickyDefaultColor,
@@ -32,6 +32,7 @@ import {
 } from '../runtime/morph-text-file'
 import { createNoteFile } from '../runtime/note-assets'
 import {
+  createDrawingEntity,
   createFileEntity,
   createShapeEntity,
   createTextEntity,
@@ -469,12 +470,7 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on('canvas-set-selection-preset', (_event, index: number) => {
     const pageId = selectedPageId()
     if (!pageId) return
-    if (index < 0 || index >= VIEWPORT_PRESETS.length) return
-    const page = pages.find((candidate) => candidate.id === pageId)
-    if (!page) return
-    page.presetIndex = index
-    scheduleWorkspaceAutosave()
-    requestLayout()
+    setPagePreset(pageId, index)
   })
 
   ipcMain.on('canvas-open-devtools-selection', () => {
@@ -539,9 +535,7 @@ export function registerCanvasEntityIpc(): void {
     strokes: import('../../shared/types').AnnotationDrawingStroke[]
   }) => {
     if (!DRAWING_FEATURE_ENABLED) return
-    createDrawingEntityInState(input)
-    requestLayout()
-    scheduleWorkspaceAutosave()
+    createDrawingEntity(input)
   })
 
   ipcMain.on(

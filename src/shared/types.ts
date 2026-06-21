@@ -1342,11 +1342,41 @@ export interface WorkspaceGroup {
   metadata?: Record<string, unknown>
 }
 
+export interface WorkspaceDrawingEntity {
+  id: string
+  kind: 'drawing'
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  parentGroupId?: string
+  label?: string
+}
+
+export interface WorkspaceShapeEntity {
+  id: string
+  kind: 'shape'
+  shapeKind: ShapeKind
+  text: string
+  color?: string
+  strokeWidth?: number
+  textSize?: number
+  theme?: string
+  canvasX: number
+  canvasY: number
+  width: number
+  height: number
+  parentGroupId?: string
+  label?: string
+}
+
 export type WorkspaceCanvasEntity =
   | WorkspacePage
   | WorkspaceTextEntity
   | WorkspaceFileEntity
   | WorkspaceGroup
+  | WorkspaceDrawingEntity
+  | WorkspaceShapeEntity
 
 export type EdgeSide = 'top' | 'right' | 'bottom' | 'left'
 export type EdgeEnd = 'none' | 'arrow'
