@@ -2,14 +2,12 @@
 // `entity.popupContributions` via the plugin contribution surface.
 
 import { useEffect, useState } from 'react'
-import { Copy, Trash2 } from 'lucide-react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneFileEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { DistributeAction } from './DistributeAction'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
 import { renderPopupContributions } from './file-popup-contributions'
@@ -111,29 +109,18 @@ export function FilePopup({
               )
             })()
           : null}
-        <CanvasItemPopup.Section>
-          <DistributeAction api={api} isDark={isDark} count={count} />
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Duplicate ${noun}`}
-            ariaLabel={`Duplicate ${noun}`}
-            onClick={() => {
-              for (const f of selectedFiles) api.duplicateFileEntity(f.id)
-            }}
-          >
-            <Copy size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Delete ${noun}`}
-            ariaLabel={`Delete ${noun}`}
-            onClick={() => {
-              for (const f of selectedFiles) api.deleteFileEntity(f.id)
-            }}
-          >
-            <Trash2 size={14} />
-          </CanvasItemPopup.IconButton>
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.EntityActions
+          isDark={isDark}
+          noun={noun}
+          count={count}
+          onDuplicate={() => {
+            for (const f of selectedFiles) api.duplicateFileEntity(f.id)
+          }}
+          onDelete={() => {
+            for (const f of selectedFiles) api.deleteFileEntity(f.id)
+          }}
+          api={api}
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )

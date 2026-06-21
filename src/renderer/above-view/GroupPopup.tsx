@@ -1,11 +1,6 @@
 // ADR 0008 — group selection popup. Replaces canvas-bg GroupInlineMenu.
 
-import { Copy, Trash2 } from 'lucide-react'
-import {
-  paletteSlots,
-  resolveCanvasColor,
-  slotForStorage,
-} from '../../shared/canvas-colors'
+import { slotForStorage } from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneGroupEntity,
@@ -35,6 +30,7 @@ export function GroupPopup({
     interactionIdle && selectedGroup !== null,
   )
   if (!selectedGroup) return null
+  const activeSlot = slotForStorage(selectedGroup.color ?? null)
   return (
     <CanvasItemPopup.Root
       entityId={selectedGroup.id}
@@ -44,43 +40,23 @@ export function GroupPopup({
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
-        <CanvasItemPopup.Section>
-          {paletteSlots('vivid').map((slot) => {
-            const swatch =
-              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
-            const isActive = slotForStorage(selectedGroup.color) === slot.id
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={slot.id}
-                isDark={isDark}
-                active={isActive}
-                color={swatch}
-                ariaLabel={`Set group color to ${slot.label}`}
-                onClick={() =>
-                  api.updateGroupEntity(selectedGroup.id, { color: slot.storage })
-                }
-              />
-            )
-          })}
-        </CanvasItemPopup.Section>
-        <CanvasItemPopup.Section>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title="Duplicate Group"
-            ariaLabel="Duplicate Group"
-            onClick={() => api.duplicateGroup(selectedGroup.id)}
-          >
-            <Copy size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title="Delete Group"
-            ariaLabel="Delete Group"
-            onClick={() => api.deleteGroup(selectedGroup.id)}
-          >
-            <Trash2 size={14} />
-          </CanvasItemPopup.IconButton>
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.PaletteSection
+          isDark={isDark}
+          palette="vivid"
+          activeSlot={activeSlot}
+          role="fill"
+          noun="group"
+          onPick={(storage) =>
+            api.updateGroupEntity(selectedGroup.id, { color: storage })
+          }
+        />
+        <CanvasItemPopup.EntityActions
+          isDark={isDark}
+          noun="group"
+          count={1}
+          onDuplicate={() => api.duplicateGroup(selectedGroup.id)}
+          onDelete={() => api.deleteGroup(selectedGroup.id)}
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )

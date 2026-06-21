@@ -4,19 +4,13 @@
 // half of the leading short/long toggle morphs the entity into a markdown
 // file at the same rect.
 
-import { Copy, Trash2 } from 'lucide-react'
-import {
-  paletteSlots,
-  resolveCanvasColor,
-  slotForStorage,
-} from '../../shared/canvas-colors'
+import { slotForStorage } from '../../shared/canvas-colors'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneTextEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { DistributeAction } from './DistributeAction'
 import { TextKindToggle } from './TextKindToggle'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -95,50 +89,30 @@ export function StickyNotePopover({
           />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.Section>
-          {paletteSlots('soft').map((slot) => {
-            const swatch =
-              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={slot.id}
-                isDark={isDark}
-                active={activeSlot === slot.id}
-                color={swatch}
-                ariaLabel={`Set color to ${slot.label}`}
-                onClick={() => {
-                  for (const e of selectedTextEntities) {
-                    api.updateTextEntity(e.id, { color: slot.storage })
-                  }
-                }}
-              />
-            )
-          })}
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.PaletteSection
+          isDark={isDark}
+          palette="soft"
+          activeSlot={activeSlot}
+          role="fill"
+          onPick={(storage) => {
+            for (const e of selectedTextEntities) {
+              api.updateTextEntity(e.id, { color: storage })
+            }
+          }}
+        />
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.Section>
-          <DistributeAction api={api} isDark={isDark} count={count} />
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Duplicate ${noun}`}
-            ariaLabel={`Duplicate ${noun}`}
-            onClick={() => {
-              for (const e of selectedTextEntities) api.duplicateTextEntity(e.id)
-            }}
-          >
-            <Copy size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Delete ${noun}`}
-            ariaLabel={`Delete ${noun}`}
-            onClick={() => {
-              for (const e of selectedTextEntities) api.deleteTextEntity(e.id)
-            }}
-          >
-            <Trash2 size={14} />
-          </CanvasItemPopup.IconButton>
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.EntityActions
+          isDark={isDark}
+          noun={noun}
+          count={count}
+          onDuplicate={() => {
+            for (const e of selectedTextEntities) api.duplicateTextEntity(e.id)
+          }}
+          onDelete={() => {
+            for (const e of selectedTextEntities) api.deleteTextEntity(e.id)
+          }}
+          api={api}
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )
