@@ -702,7 +702,7 @@ function getWorkspaceTabs() {
   )
 }
 
-function getFileEntities() {
+export function getFileEntities() {
   return get<{
     fileEntities: Array<{
       id: string
@@ -711,6 +711,21 @@ function getFileEntities() {
       height: number
       canvasX: number
       canvasY: number
+      fileReloadVersion: number
     }>
   }>('/file-entities')
+}
+
+export function createFileEntity(input: {
+  canvasX: number
+  canvasY: number
+  file: string
+  width?: number
+  height?: number
+}) {
+  return post<{ id: string }>('/file-entities/create', input)
+}
+
+export function deleteFileEntity(id: string) {
+  return post<{ ok: boolean }>('/file-entities/delete', { id })
 }

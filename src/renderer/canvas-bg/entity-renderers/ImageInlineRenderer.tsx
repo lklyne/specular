@@ -5,6 +5,7 @@ export function ImageInlineRenderer({ entity }: { entity: CanvasSceneFileEntity 
   const fileName = entity.file.split('/').pop() ?? entity.file
   return (
     <img
+      key={entity.fileReloadVersion ?? 0}
       src={filePathToSrc(entity.file)}
       alt={fileName}
       draggable={false}

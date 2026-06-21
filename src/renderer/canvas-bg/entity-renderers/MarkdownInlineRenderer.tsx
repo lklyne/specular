@@ -42,7 +42,7 @@ export function MarkdownInlineRenderer({
           if (!cancelled) setMdContent(null)
         })
     }
-    fetchContent()
+    if (!isFocusedRef.current) fetchContent()
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
       if (debounceRef.current) return
@@ -54,7 +54,8 @@ export function MarkdownInlineRenderer({
       cancelled = true
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [entity.file])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity.file, entity.fileReloadVersion])
 
   useEffect(() => {
     if (!canEdit && isFocusedRef.current) {

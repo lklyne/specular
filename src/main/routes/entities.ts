@@ -14,6 +14,7 @@ import {
   updateFileEntity,
   updateTextEntity,
 } from '../runtime/document-commands'
+import { getFileReloadVersion } from '../runtime/local-file-watcher'
 import { createNoteFile } from '../runtime/note-assets'
 import { createPages } from '../workspace-pages'
 import { deletePages } from '../workspace-entities'
@@ -145,7 +146,11 @@ export const entityRoutes: Route[] = [
     pattern: '/file-entities',
     async handler({ request, response }) {
       animateCursorScan(request, allEntityPositions(), 'read_content')
-      writeJson(response, 200, { fileEntities: getFileEntities() })
+      const entities = getFileEntities().map((e) => ({
+        ...e,
+        fileReloadVersion: getFileReloadVersion(e.id),
+      }))
+      writeJson(response, 200, { fileEntities: entities })
     },
   },
   {

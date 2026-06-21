@@ -48,6 +48,7 @@ import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
 import { initSentry } from './sentry'
+import { initFileWatcher, teardownAllFileWatchers } from './runtime/local-file-watcher'
 import {
   breadcrumb,
   identifyInstall,
@@ -137,6 +138,11 @@ app.whenReady().then(async () => {
   setOpenLinkInNewFrameHandler(({ sourcePageId, url, focus }) =>
     duplicatePageFromSource({ sourcePageId, url, focus }),
   )
+  initFileWatcher((_entityIds) => {
+    markDirty('canvas')
+    requestLayout()
+  })
+
   initDevServerManager({
     userDataDir: app.getPath('userData'),
     spawn: (command, args, options) =>
@@ -265,5 +271,6 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quitRequested = true
   flushWorkspaceAutosaveSync()
+  teardownAllFileWatchers()
   void shutdownDevServerManager()
 })

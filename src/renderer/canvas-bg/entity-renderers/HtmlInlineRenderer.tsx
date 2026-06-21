@@ -11,6 +11,7 @@ export function HtmlInlineRenderer({
   const fileName = entity.file.split('/').pop() ?? entity.file
   return (
     <iframe
+      key={entity.fileReloadVersion ?? 0}
       src={filePathToSrc(entity.file)}
       title={fileName}
       style={{

@@ -26,10 +26,11 @@ export function WireframeInlineRenderer({
       .catch(() => {})
   }, [entity.file])
 
-  // Initial load.
+  // Initial load + disk-change reload.
   useEffect(() => {
+    if (debounceRef.current) return // pending local write — skip
     let cancelled = false
-    fetch(filePathToSrc(entity.file))
+    fetch(filePathToSrc(entity.file) + `?t=${Date.now()}`)
       .then((res) => res.text())
       .then((text) => {
         if (!cancelled) setContent(text)
@@ -40,7 +41,8 @@ export function WireframeInlineRenderer({
     return () => {
       cancelled = true
     }
-  }, [entity.file])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity.file, entity.fileReloadVersion])
 
   // Re-fetch when window regains visibility, unless we have a pending local write.
   useEffect(() => {
