@@ -16,9 +16,7 @@ export interface RendererFileApi {
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
     targetId?: string,
   ) => void
-  readNoteFile: (path: string) => Promise<string | null>
   writeNoteFile: (path: string, content: string) => Promise<boolean>
-  renameNoteFile: (path: string, newName: string) => Promise<string | null>
 }
 
 export function getFileApi(): RendererFileApi {

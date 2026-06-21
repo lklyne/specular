@@ -46,10 +46,8 @@ import {
 import { createEdges } from '../workspace-edges'
 import { deleteEdge, updateEdge } from '../runtime/document-commands'
 import {
-  copyablePagePayload,
   copyableSelectionPayload,
   pasteEntitiesFromClipboard,
-  pastePagesFromClipboard,
 } from '../workspace-clipboard'
 import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
 import { duplicateGroup } from '../workspace-groups'
@@ -199,13 +197,6 @@ export function registerCanvasDragIpc(): void {
     scheduleViewportDelta()
   })
 
-  ipcMain.on('canvas-pan-to', (_event, { x, y }: { x: number; y: number }) => {
-    if (isFocusSessionActive()) return
-    cancelCameraAnimation()
-    setPan(x, y)
-    requestLayout()
-  })
-
   ipcMain.on(
     'canvas-selection-overlay',
     (
@@ -255,26 +246,6 @@ export function registerCanvasDragIpc(): void {
     endDragSession('page')
     requestLayout()
   })
-
-  ipcMain.on(
-    'canvas-drag-copy-page',
-    (
-      _event,
-      { pageId, canvasX, canvasY }: { pageId: string; canvasX: number; canvasY: number },
-    ) => {
-      const entityIds = resolveDraggedPageIds(pageId)
-      // Use generic entity copy for mixed selections
-      const entityPayload = copyableSelectionPayload()
-      if (entityPayload) {
-        pasteEntitiesFromClipboard({ payload: entityPayload, canvasX, canvasY })
-        return
-      }
-      // Fallback to page-only copy
-      const payload = copyablePagePayload(entityIds)
-      if (!payload) return
-      pastePagesFromClipboard({ payload, canvasX, canvasY })
-    },
-  )
 
   ipcMain.on(
     'canvas-drag-copy-selection',

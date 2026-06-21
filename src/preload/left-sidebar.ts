@@ -25,7 +25,6 @@ const api: LeftSidebarElectronAPI = {
     ipcRenderer.send('canvas-rename-text-entity', { entityId, name }),
   renameDrawingEntity: (entityId, name) =>
     ipcRenderer.send('canvas-rename-drawing-entity', { entityId, name }),
-  duplicateTab: (tabId) => ipcRenderer.send('canvas-duplicate-tab', { tabId }),
   deleteTab: (tabId) => ipcRenderer.send('canvas-delete-tab', { tabId }),
   reorderTab: (tabId, toIndex) => ipcRenderer.send('canvas-reorder-tab', { tabId, toIndex }),
   reorderSidebarItem: (section, draggedId, anchorId, position, parentId) =>
@@ -37,8 +36,6 @@ const api: LeftSidebarElectronAPI = {
       parentId,
     }),
   deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
-  setTabExpanded: (tabId, expanded) =>
-    ipcRenderer.send('canvas-set-tab-expanded', { tabId, expanded }),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
   getInitialData: () => ipcRenderer.invoke('get-left-sidebar-bootstrap'),
   onThemeChanged: (callback) => {

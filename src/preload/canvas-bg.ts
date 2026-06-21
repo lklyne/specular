@@ -67,7 +67,6 @@ const api: CanvasBgElectronAPI = {
   canvasZoom: (deltaY, mouseX, mouseY) =>
     ipcRenderer.send('canvas-zoom', { deltaY, mouseX, mouseY }),
   canvasPan: (deltaX, deltaY) => ipcRenderer.send('canvas-pan', { deltaX, deltaY }),
-  canvasPanTo: (x, y) => ipcRenderer.send('canvas-pan-to', { x, y }),
   setSelectionOverlayRect: (overlay) => ipcRenderer.send('canvas-selection-overlay', overlay),
   onSelectionOverlayChanged: (callback) => {
     const handler = (
@@ -79,8 +78,6 @@ const api: CanvasBgElectronAPI = {
   },
   canvasSelectInRect: (rect, modifiers) =>
     ipcRenderer.send('canvas-select-in-rect', { ...rect, modifiers }),
-  canvasSelectInScreenRect: (rect, modifiers) =>
-    ipcRenderer.send('canvas-select-in-screen-rect', { ...rect, modifiers }),
   canvasDeselect: (modifiers) => ipcRenderer.send('page-deselect', { modifiers }),
   focusSelection: () => ipcRenderer.send('canvas-focus-selection'),
   restoreFocusCamera: () => ipcRenderer.send('canvas-restore-focus-camera'),
@@ -88,8 +85,6 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-set-focus-presentation-mode', mode),
   setFocusAnnotationsVisible: (visible) =>
     ipcRenderer.send('canvas-set-focus-annotations-visible', visible),
-  canvasClickAt: (screenX, screenY, modifiers) =>
-    ipcRenderer.send('canvas-click-at', { screenX, screenY, modifiers }),
   clearAnnotateHover: () => ipcRenderer.send('canvas-clear-annotate-hover'),
   selectPage: (pageId, modifiers) =>
     ipcRenderer.send('canvas-select-page', { pageId, modifiers }),
@@ -109,8 +104,6 @@ const api: CanvasBgElectronAPI = {
   dragPage: (pageId, dx, dy, shiftKey = false) =>
     ipcRenderer.send('canvas-drag-page', { pageId, dx, dy, shiftKey }),
   endDragPage: () => ipcRenderer.send('canvas-drag-page-end'),
-  dragCopyPage: (pageId, canvasX, canvasY) =>
-    ipcRenderer.send('canvas-drag-copy-page', { pageId, canvasX, canvasY }),
   dragCopySelection: (canvasX, canvasY) =>
     ipcRenderer.send('canvas-drag-copy-selection', { canvasX, canvasY }),
   dragCopyGroup: (groupId, canvasX, canvasY) =>
@@ -137,11 +130,8 @@ const api: CanvasBgElectronAPI = {
   pasteSelection: (canvasX, canvasY) =>
     ipcRenderer.send('canvas-paste-selection', { canvasX, canvasY }),
   deleteSelectedEntities: () => ipcRenderer.send('canvas-delete-selection'),
-  tidySelectedEntities: () => ipcRenderer.send('canvas-tidy-selection'),
   reorderStack: (action, targetId) =>
     ipcRenderer.send('canvas-reorder-stack', { action, targetId }),
-  createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) =>
-    ipcRenderer.send('canvas-create-text-entity', { canvasX, canvasY, text, color }),
   updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' }) =>
     ipcRenderer.send('canvas-update-text-entity', { id, patch }),
   duplicateTextEntity: (id: string) =>
@@ -239,8 +229,6 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-select-entities', entityIds),
   resizeMultiSelection: (entries) =>
     ipcRenderer.send('canvas-resize-multi-selection', { entries }),
-  deleteSelection: () =>
-    ipcRenderer.send('canvas-delete-selection'),
   moveAnnotation: (annotationId: string, dx: number, dy: number) =>
     ipcRenderer.send('canvas-move-annotation', { annotationId, dx, dy }),
   addAnnotationReply: (annotationId: string, text: string) =>
@@ -325,8 +313,6 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-edge-edit-commit', { edgeId, movingEnd, targetEntityId, targetSide }),
   discardEdgeEdit: (edgeId: string) =>
     ipcRenderer.send('canvas-edge-edit-discard', { edgeId }),
-  createEdge: (fromEntityId: string, toEntityId: string, fromSide?: EdgeSide, toSide?: EdgeSide) =>
-    ipcRenderer.send('canvas-create-edge', { fromEntityId, toEntityId, fromSide, toSide }),
   deleteEdge: (edgeId: string) =>
     ipcRenderer.send('canvas-delete-edge', { edgeId }),
   selectEdge: (edgeId: string | null) =>
@@ -360,12 +346,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.on('canvas-guides', handler)
     return () => ipcRenderer.removeListener('canvas-guides', handler)
   },
-  readNoteFile: (filePath: string) =>
-    ipcRenderer.invoke('read-note-file', { filePath }),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-note-file', { filePath, content }),
-  renameNoteFile: (filePath: string, newName: string) =>
-    ipcRenderer.invoke('rename-note-file', { filePath, newName }),
   morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
     ipcRenderer.invoke('canvas-morph-text-file', { entityId, direction }),
   getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
