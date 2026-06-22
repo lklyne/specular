@@ -143,7 +143,7 @@ Acted:
 - #152 filed — automated drain for `needs-triage` issues with no comments after 3 days. Two instances: #53 (10 days, 0 comments, architectural undo bug) and #124 (3 days, "Blocked by: None — can start immediately", 0 comments). PR #138 (Claude Code GitHub Actions, merged May 17) makes the fix cheap: one scheduled workflow that @mentions Claude on stale issues. Proposal scoped to the mechanical gap; routing logic is unchanged.
 Noticed (no action):
 - **May 17 batch**: #143 (pointer events) merged today; #136, #137, #144 still open at 2 days — below 7-day threshold, normal.
-- **PR #92** ("Run smoke-test Electron in accessory mode"): 6 days old as of today, created May 13. Will hit the 7-day stale threshold on May 20. Worth checking next run.
+- **PR #92** (smoke-test Electron in accessory mode): 6 days old as of today, created May 13. Will hit the 7-day stale threshold on May 20. Worth checking next run.
 - **CLI smoke gap**: Still one instance. No `cli.test.ts` PR or built-CLI-in-smoke-harness step observed in commits since May 14.
 - **@claude GitHub Actions live**: #138 merged May 17. Claude is now invocable via GitHub issue/PR comments. Too early to characterize usage. The triage drain proposal (#152) is the first concrete use case.
 - **needs-triage queue depth**: 4 open — #146 (today, fresh), #124 (3 days), #122 (4 days, design discussion), #53 (10 days). The queue is not draining between AFK epic kick-offs.
@@ -319,7 +319,6 @@ Acted:
 Noticed (no action):
 - **PR #184 confirms review-gap cost**: #181 merged without review and introduced a bug (`sanitizeForPages()` still collapsing tools back to `select` even after the button disable was removed). Required an immediate follow-up fix (#184). This is the concrete cost the May 21 watch item predicted. Four instances total (#170, #176, #181, #184-caused-by-#181); the gap is now well-documented.
 - **#188 (claude-review restore) at day 2, 0 comments**: Branch is ready to merge — `ci: restore claude-review auto-trigger for non-AFK PRs`. No action taken since yesterday. If it merges in the next 24h, the branch-vs-issue experiment still supports the hypothesis. If it stalls to day 7 with 0 comments, the delivery channel is not the problem — bandwidth is.
-- **#188 at day 2, 0 comments**: June 7 is the stale threshold. Per the pre-commitment in the May 30 entry: if it stalls to 7 days, deliver the fix as a ready-to-merge branch instead of refiling.
 - **#177 (smart paste in markdown), #185 (rename ResizeEdge), #187 (ADR 0016 tools registry), #189 (fix test discovery) all merged today** — mixed AFK and non-AFK. #177 and #185 are non-AFK (`claude/` prefix); #187 is a docs PR; #189 is a CI fix. All merged without `claude-review`. Each is another instance; the gap is now confirmed across every non-AFK category (bug fix, feature, refactor, docs, CI).
 - **ADR 0016 (Tools as capability registry)** — a lightweight extensibility layer proposal. Additive to the existing plugin architecture. Not affecting orchestrator scope.
 Hint for next run: June 6 is the early signal check for #188 (day 5) — any comment? Watch whether #190 gets routed to ready-for-agent and potentially kicks off the next AFK epic.
@@ -582,3 +581,18 @@ Noticed (no action):
 - **Journal PR #169 at day 22**: Local checkout only goes to May 28; this run successfully read from the PR branch. A future run reading only the local checkout would miss 24 days of context. The longer this PR stays unmerged, the wider the divergence. No action — Lyle squash-merges when ready — but the gap is worth naming.
 - **Canary still pending** (day 11 since claude-review restore): No human-authored non-`claude/*` PR. Trigger condition still untested.
 Hint for next run: check whether the 9 small audit PRs (#236–#244) have begun merging — that's the unlock for the dependency-blocked routing batch; note if #204 (wireframe) or #206 (CLI loop) have any review activity; the journal PR merge would also reset the local context gap.
+
+---
+
+## 2026-06-22
+Surveyed: Open PR queue (16 open, 14 non-draft), PR #246 (Electrobun spike, draft, June 22), main-branch drought (7 days since June 15), first complete deep-audit pipeline cycle observable end-to-end.
+Acted:
+- Nothing filed. Six quiet runs since the June 16 reflection (three consecutive rejected proposals). No new two-instance pattern above the threshold.
+Noticed (no action):
+- **First complete deep-audit pipeline cycle now observable**: skill run June 15 → 27 issues filed → routing session June 20 → 10 AFK PRs (#236–#245) June 20–21 → waiting for merge session. Cycle time from skill run to first PRs: 5 days. Two of the 10 PRs (#236 closes #1, #237 closes #17) came from pre-deep-audit backlog — the AFK loop drains the full `ready-for-agent` queue, not just the batch that prompted it. The merge session will complete the cycle and unlock the dependency-blocked routing batch (#235, #228, etc.).
+- **PR #246 (Electrobun spike, draft, June 22)**: First "alternative runtime" exploration in the record. ADR 0014 called cross-surface stacking "architecturally impossible" on Electron's WebContentsView model; this spike tests whether Electrobun's WKWebView mask model closes that gap. Documents Problem A (DOM ↔ page interleaving: solved via mask selectors) and Problem B (page ↔ page reorder gap: unresolved in stock Electrobun) with three bridging options. Opened while 14 PRs wait for review — research and review queue run on separate tracks; the HITL gate is specifically for code integration, not design exploration.
+- **Two-class PR queue**: 14 non-draft open PRs split into (a) 10 small, focused, CI-passing audit closures (#236–#245, all `claude/issue-*`, all report typecheck+unit clean) and (b) 4+ large/old PRs (#204 day 19, #206 day 14, #211 day 12, #144 day 36, #32 day 59). Class (a) could merge in a single batch session; class (b) requires deeper engagement. The queue looks larger than it is because both classes are undifferentiated in the list. Not proposing label automation — one cycle old, no immediate pain.
+- **7-day main-branch drought (June 15–22)**: Matches the May pattern exactly — the May pause was ~9 days before the May 29 queue flush. The merge session will likely follow the same pattern.
+- **Canary still pending (day 12)**: No human-authored non-`claude/*` PR since the June 10 claude-review restore.
+- **Journal PR #169 at day 24**: Longest branch divergence yet. Operational — future runs read from the branch — but the gap is worth naming as it compounds weekly.
+Hint for next run: if the merge session happened, count how many of the 10 small audit PRs (#236–#245) merged and whether that unblocked the dependency-blocked routing batch (#235, #228, etc.); check if the Electrobun spike (PR #246) influenced any ADR update or follow-on issues; check whether PR #204 (wireframe) or #206 (CLI loop) finally got reviewed.
