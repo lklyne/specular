@@ -89,12 +89,14 @@ src/mainview/
   single winner in the overlap; there is no public z-order API to reorder them
   (the `▲▼` on a page chrome restacks it relative to **stickies**, via masks, not
   relative to other pages). This is the page-reordering gap — see
-  [`PAGE-STACKING.md`](PAGE-STACKING.md) for the three ways to close it:
-  (1) a no-fork **single-live** model (only the selected page is live; others are
-  cards; reordering becomes shared-z), (2) a small **native reorder** fork
-  (multiple live pages, restacked in place), and (3) **snapshot/bitmap**
-  offscreen compositing (the real, framework-agnostic fix for true page-over-page,
-  "Problem B").
+  [`PAGE-STACKING.md`](PAGE-STACKING.md) for the full evaluation against the
+  Electron baseline (which reorders live views for free) and four ways to close
+  it: (1) a no-fork **single-live** model (only the selected page is live; others
+  are cards/snapshots; reordering becomes shared-z), (2) **recreate-on-reorder**
+  (multi-live, no fork, but pays a page reload per order change — dominated), (3) a
+  small **native reorder** fork (multiple live pages, restacked in place,
+  reload-free), and (4) **snapshot/bitmap** offscreen compositing (the real,
+  framework-agnostic fix for true page-over-page, "Problem B").
 - **macOS only** for masks/passthrough (Windows would need `bundleCEF: true`).
 - **Zoom** scales the page's native overlay to the anchor's screen rect; page
   content is not re-zoomed via `setPageZoom` (could be added).

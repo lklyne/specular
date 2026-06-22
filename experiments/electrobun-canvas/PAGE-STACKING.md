@@ -37,9 +37,37 @@ absence of a public reorder API, which holds regardless.
 It is the concrete, hands-on form of **Problem B** (page-over-page stacking)
 that the assessment predicted in the abstract.
 
-## Three ways to close it
+## The baseline we'd be regressing from
 
-Ranked from "ship today, renderer-only" to "true compositing."
+Worth stating plainly, because it reframes every option below: **Specular on
+Electron reorders live pages for free, without reloading them.** The single
+restack site (`src/main/runtime/layer-stack.ts`, `applyStack`) computes the
+desired bottom→top child list and just re-adds each view in order —
+
+```
+// Re-add every desired view in order — `addChildView` on a view that is
+// already a child moves it, so appending in sequence yields the exact
+// desired z-order.
+for (const view of desired) win.contentView.addChildView(view)
+```
+
+`addChildView` on an already-attached `WebContentsView` is a **move**, not a
+recreate: the page keeps its process, scroll, form, media, and socket state. So
+Electron exposes the one thing Electrobun's stock public API does not — a way to
+restack a *live* native view in place.
+
+This matters because the underlying macOS mechanism is the *same on both*:
+AppKit's `addSubview:positioned:NSWindowAbove/Below relativeTo:` moves an
+existing `NSView` without tearing it down, and Electrobun's wrapper already calls
+that family to mount webviews. The gap is not a platform limit — it is a
+**missing binding**. Every "keep pages live" option below is therefore measured
+against a baseline where reorder is already cheap and reload-free on the stack we
+have today.
+
+## Ways to close it
+
+Ranked from "ship today, renderer-only" to "true compositing." The first two need
+**zero upstream changes**; they differ in whether more than one page stays live.
 
 ### 1. Single-live model — no fork, renderer-only
 
@@ -60,8 +88,49 @@ page card — above it in the shared z.
 - **Verdict:** the closest thing to "reorder pages in the stack" achievable with
   **zero upstream changes**. Good enough to demo the model; not true multi-live
   compositing.
+- **Snapshot-card refinement:** render each inert page's *last snapshot bitmap*
+  (`SnapshotCallback` → data URL, the native path the assessment notes) instead of
+  a title/URL placeholder. Reordering stays pure shared-z, the selected page stays
+  the only live one, but the stack now *looks* like real pages frozen in place
+  rather than cards. Same cost profile as plain single-live; much higher fidelity.
+  This is the recommended shape — see the refinements section.
 
-### 2. Native reorder fork — small upstream change
+### 2. Recreate-on-reorder — multi-live, no fork, reload cost
+
+The idea raised directly: since the only public lever on native stack order is
+**creation order**, keep every page live and, when the shared z changes, **destroy
+and recreate the affected webviews in the new creation order.** Newest webview is
+inserted frontmost (`addSubview:positioned:Above relativeTo:nil`), so recreating
+pages back-to-front in target order yields exactly the desired stack.
+
+- **It does work, deterministically.** To land page X at an arbitrary depth you
+  must recreate X *and every page that should sit above it*, in order — a single
+  recreate can only go fully to front, never inserted mid-stack. So bring-to-front
+  is one recreate; an arbitrary reorder recreates the whole suffix above the
+  target; send-to-back recreates everything else.
+- **The cost is the killer, and it is exactly the cost Electron doesn't pay.**
+  Recreating an `<electrobun-webview>` is a fresh native view + a **full page
+  reload**: scroll position, form state, in-memory JS, media playback, and live
+  sockets are all lost (cookies survive via the `persist:` partition; runtime
+  state does not). A z-tweak should feel instant; a reload storm across a suffix of
+  pages does not. Versus the baseline above, this is a **strict regression** —
+  trading Electron's free in-place move for a reload on every order change while
+  *also* keeping the full cost of many simultaneously-live webviews.
+- **Mitigations don't rescue it.** Snapshot-then-recreate (show a frozen bitmap
+  during the swap) hides the *flash* but not the *state loss*, and at that point
+  you've built half of option 4 anyway. A hidden keep-alive pool (`toggleHidden`)
+  avoids reloads but doesn't change z — hiding is what the `multitab-browser`
+  template uses precisely *because* there's no reorder, and it shows one page at a
+  time rather than ordering an overlap.
+- **Verdict:** the only **zero-fork** way to keep *multiple* pages live and still
+  reorder them — but the reload cost makes it unfit as the interactive reorder
+  mechanism. If you accept reloads on reorder, single-live (option 1) is simpler
+  and reloads strictly less; if you want reload-free multi-live, that's the
+  one-line binding in option 3. Recreate-on-reorder is dominated on both sides;
+  keep it only as a last-resort fallback for rare, explicit reorders where a reload
+  is acceptable.
+
+### 3. Native reorder fork — small upstream change
 
 Bind a webview-reorder call through Electrobun's FFI so **multiple pages stay
 live *and* restack in place**, reload-free.
@@ -80,7 +149,7 @@ live *and* restack in place**, reload-free.
   restacking first-class. Still all-or-nothing per region (one live page wins
   each overlap) — it orders pages, it does not blend them.
 
-### 3. Snapshot / bitmap — true page-over-page, framework-agnostic
+### 4. Snapshot / bitmap — true page-over-page, framework-agnostic
 
 Represent inert or stacked pages as **frozen bitmaps** via the native snapshot
 path the assessment notes (`SnapshotCallback` → data URL), and composite those
@@ -96,10 +165,51 @@ them.
 - **Verdict:** the real fix for Problem B, at real cost. Use when blended
   page-over-page is a product requirement, not just stack order.
 
+## Cross-cutting refinements
+
+Two ideas that aren't standalone options — they make the options above cheaper or
+sharper, and combine with several of them.
+
+- **Scope the problem to actual overlaps.** The gap only bites where two *live*
+  pages overlap; pages with disjoint rects each own their region regardless of
+  creation order. So the expensive treatment (single-live, snapshot, or recreate)
+  only ever needs to apply within an **overlapping cluster** — typically a small
+  subset of a canvas. Resolve each cluster independently: keep its frontmost page
+  live, demote the rest. On a canvas of mostly non-overlapping pages this makes
+  options 1–3 nearly free in the common case, and shrinks how often any reload or
+  snapshot fires.
+- **Hybrid mask + snapshot for "page in front" without reorder.** Masks reveal
+  *host DOM*, never a natively-behind webview — so you can't punch page A and see
+  live page B through the hole. But you *can* punch A over B's region and place
+  **B's snapshot bitmap** in the host DOM behind that hole. Result: B appears in
+  front of A in their overlap, with no reorder API and without taking B's whole
+  surface offscreen — live where it's already frontmost, frozen only where it must
+  appear in front. A targeted, per-overlap slice of option 4 that leans on the
+  masks the spike already drives.
+
 ## Recommendation
 
-For this spike's purpose — proving the layering model — **option 1** is enough
-and ships with no upstream risk. **Option 2** is the clean follow-up if page
-restacking needs to be first-class with pages staying live. **Option 3** stays
-on the table for true page-over-page compositing and is independent of the
-framework choice.
+The honest ranking, against the Electron baseline (free, reload-free live
+reorder):
+
+1. **To prove the layering model now — option 1, in its snapshot-card form.**
+   Zero upstream risk, instant reorder, and inert pages look like real frozen
+   pages. Scope it to overlapping clusters (refinement 1) and only the focused
+   page is ever live.
+2. **To make multi-live page restacking first-class — option 3, the native
+   reorder fork.** It's a one-binding change that restores exactly the in-place,
+   reload-free move Electron already gives us. This is the right long-term shape if
+   Specular commits to Electrobun, and it's why **recreate-on-reorder (option 2) is
+   not the answer**: it pays a reload on every order change to avoid a change that
+   is one FFI export away.
+3. **For genuine blended page-over-page (Problem B) — option 4.** Real
+   compositing, real cost, and framework-agnostic: buildable on today's Electron
+   stack (`offscreen: true` + `paint`) with no migration. The hybrid mask+snapshot
+   refinement is the cheapest way to get the *appearance* of page-over-page before
+   committing to full offscreen compositing.
+
+**Bottom line:** recreate-on-reorder is the only zero-fork way to keep multiple
+pages live, but it is dominated on both sides — simpler if you accept reloads
+(option 1), and cheaper if you don't (option 3). Reach for option 1 to ship the
+model; option 3 to keep pages live; option 4 only when blending, not mere order,
+is the product requirement.
