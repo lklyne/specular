@@ -7,6 +7,12 @@ Follow-up finding from the `electrobun-canvas` layering spike. Read the
 Electron-vs-Electrobun comparison and the Problem A / Problem B framing this
 extends.
 
+This note is the *narrow* view — closing the page↔page reorder gap inside the
+spike. For the *broad* question (a classic, unified layers system where live pages
+are just layers at any depth, across substrates and frameworks), see
+[`docs/research/live-layers-substrates.md`](../../docs/research/live-layers-substrates.md);
+the single-live option below is its substrate **S1**.
+
 ## What works today
 
 The spike settles **Problem A — DOM ↔ page interleaving.** Stickies are host-DOM
