@@ -37,32 +37,18 @@ absence of a public reorder API, which holds regardless.
 It is the concrete, hands-on form of **Problem B** (page-over-page stacking)
 that the assessment predicted in the abstract.
 
-## The baseline we'd be regressing from
+## The fix is a missing binding, not a platform limit
 
-Worth stating plainly, because it reframes every option below: **Specular on
-Electron reorders live pages for free, without reloading them.** The single
-restack site (`src/main/runtime/layer-stack.ts`, `applyStack`) computes the
-desired bottom→top child list and just re-adds each view in order —
-
-```
-// Re-add every desired view in order — `addChildView` on a view that is
-// already a child moves it, so appending in sequence yields the exact
-// desired z-order.
-for (const view of desired) win.contentView.addChildView(view)
-```
-
-`addChildView` on an already-attached `WebContentsView` is a **move**, not a
-recreate: the page keeps its process, scroll, form, media, and socket state. So
-Electron exposes the one thing Electrobun's stock public API does not — a way to
-restack a *live* native view in place.
-
-This matters because the underlying macOS mechanism is the *same on both*:
-AppKit's `addSubview:positioned:NSWindowAbove/Below relativeTo:` moves an
-existing `NSView` without tearing it down, and Electrobun's wrapper already calls
-that family to mount webviews. The gap is not a platform limit — it is a
-**missing binding**. Every "keep pages live" option below is therefore measured
-against a baseline where reorder is already cheap and reload-free on the stack we
-have today.
+Before ranking workarounds, the key fact: **the native move that would close this
+gap already exists on macOS — it just isn't exposed through Electrobun's public
+API.** AppKit restacks a live `WKWebView` in place via
+`addSubview:positioned:NSWindowAbove/Below relativeTo:`, tearing nothing down —
+the same `addSubview:positioned:` family Electrobun's wrapper already calls to
+*mount* a webview. So a reload-free page↔page reorder is one FFI export away
+(that's option 3, which needs a patched Electrobun). Everything else below closes
+the gap **without touching native code**, working only with what the
+`<electrobun-webview>` tag exposes today — which is what keeps it inside this
+prototype.
 
 ## Ways to close it
 
@@ -108,14 +94,13 @@ pages back-to-front in target order yields exactly the desired stack.
   recreate can only go fully to front, never inserted mid-stack. So bring-to-front
   is one recreate; an arbitrary reorder recreates the whole suffix above the
   target; send-to-back recreates everything else.
-- **The cost is the killer, and it is exactly the cost Electron doesn't pay.**
-  Recreating an `<electrobun-webview>` is a fresh native view + a **full page
-  reload**: scroll position, form state, in-memory JS, media playback, and live
-  sockets are all lost (cookies survive via the `persist:` partition; runtime
-  state does not). A z-tweak should feel instant; a reload storm across a suffix of
-  pages does not. Versus the baseline above, this is a **strict regression** —
-  trading Electron's free in-place move for a reload on every order change while
-  *also* keeping the full cost of many simultaneously-live webviews.
+- **The cost is the killer.** Recreating an `<electrobun-webview>` is a fresh
+  native view + a **full page reload**: scroll position, form state, in-memory JS,
+  media playback, and live sockets are all lost (cookies survive via the
+  `persist:` partition; runtime state does not). A z-tweak should feel instant; a
+  reload storm across a suffix of pages does not. And it pays this to avoid the
+  in-place move the macOS layer already supports — the one option 3 would bind —
+  while *also* carrying the full cost of many simultaneously-live webviews.
 - **Mitigations don't rescue it.** Snapshot-then-recreate (show a frozen bitmap
   during the swap) hides the *flash* but not the *state loss*, and at that point
   you've built half of option 4 anyway. A hidden keep-alive pool (`toggleHidden`)
@@ -165,6 +150,63 @@ them.
 - **Verdict:** the real fix for Problem B, at real cost. Use when blended
   page-over-page is a product requirement, not just stack order.
 
+## Building the fix in this prototype
+
+What it actually takes to close the gap inside `electrobun-canvas`, file by file —
+design notes, not code. Only the two zero-fork options land here: 3 needs a
+vendored Electrobun patch and 4 needs the native snapshot path, so both sit
+outside the prototype's reach without new native surface.
+
+**The data model is already done.** `core/scene.ts` gives pages and stickies one
+shared `z`, and `stepZ` already walks *any* entity past *any* other — so a page's
+▲▼ already reorders it past other pages *in the model*. The gap is purely in the
+rendering substrate: two live native webviews can't both win an overlap. So every
+in-prototype fix changes how a page *renders*, never the z-order itself.
+
+### Option 1 here
+
+- `canvas/bodies/PageBody.tsx` — branch on selection. Selected → today's
+  `<EbWebview>` (the single live surface). Unselected → a host-DOM `<PageCard>`
+  carrying `data-item-id={page.id}` so it lives in the DOM and is maskable like
+  any other item.
+- `core/layering.ts` — generalize `pageMaskSelectors`. Today it masks only
+  *stickies* above the page; the live page must now mask *every item* above it,
+  stickies **and** page cards. The builder stops being sticky-specific and takes
+  "all entities with `z` greater than this page." (Honest correction to the
+  earlier "lands entirely inside `PageBody`" claim — `layering.ts` has to widen
+  its mask source too.)
+- `canvas/CanvasItem.tsx` + the ▲▼ chrome — untouched. Stepping a page already
+  calls `stepZ`; with cards in the DOM, that step now visibly reorders pages.
+- **Net:** one new `PageCard` body + one widened mask query. The
+  `live = selected && !panActive` rule and the shell stay as-is.
+- **Rough edge:** reselecting a page remounts (reloads) it, since the live webview
+  is keyed on selection — addressed next.
+
+### Keep-alive single-visible — the refinement that removes the reload
+
+Plain single-live reloads on every selection switch. Sharpen it: **mount all pages
+as live webviews once, but `toggleHidden(true)` every one except the selected
+page.** A hidden webview doesn't paint, so it never competes for the overlap —
+exactly one *visible* native surface at a time, same as single-live, but no reload
+on switch because the others stayed warm.
+
+- A hidden page's live pixels aren't visible, so each still needs a visual
+  stand-in at its rect — the same `PageCard` (or a snapshot).
+- Trade: N live webview processes in memory vs. 1. Single-live for many cold
+  pages; keep-alive for the handful you switch between fast.
+- Both variants close the reorder gap identically (reorder = shared-z) and show
+  one live page at a time; they differ only on warm-vs-cold selection switching.
+
+### Option 2 here
+
+- All pages stay `<EbWebview>`; on a z-change, force the affected pages to remount
+  in new creation order — in React, bump their `key` so the element is destroyed
+  and recreated, newest mounting frontmost.
+- Driving *creation order* through React reconciliation is fiddly (you must
+  remount the whole suffix above the target, in order) and each remount reloads
+  the page. In-prototype this mostly serves to *demonstrate the reload jank* —
+  which is the only reason to keep it, behind a toggle, if at all.
+
 ## Cross-cutting refinements
 
 Two ideas that aren't standalone options — they make the options above cheaper or
@@ -189,27 +231,26 @@ sharper, and combine with several of them.
 
 ## Recommendation
 
-The honest ranking, against the Electron baseline (free, reload-free live
-reorder):
+The honest ranking for closing the gap **inside the prototype**:
 
-1. **To prove the layering model now — option 1, in its snapshot-card form.**
-   Zero upstream risk, instant reorder, and inert pages look like real frozen
-   pages. Scope it to overlapping clusters (refinement 1) and only the focused
-   page is ever live.
-2. **To make multi-live page restacking first-class — option 3, the native
-   reorder fork.** It's a one-binding change that restores exactly the in-place,
-   reload-free move Electron already gives us. This is the right long-term shape if
-   Specular commits to Electrobun, and it's why **recreate-on-reorder (option 2) is
-   not the answer**: it pays a reload on every order change to avoid a change that
-   is one FFI export away.
-3. **For genuine blended page-over-page (Problem B) — option 4.** Real
-   compositing, real cost, and framework-agnostic: buildable on today's Electron
-   stack (`offscreen: true` + `paint`) with no migration. The hybrid mask+snapshot
-   refinement is the cheapest way to get the *appearance* of page-over-page before
-   committing to full offscreen compositing.
+1. **Build option 1 — single-live, in the keep-alive single-visible form.** It's
+   the only path that closes the page↔page reorder gap with zero native work, and
+   keep-alive removes its one rough edge (the reload-on-reselect). Scope the
+   treatment to overlapping clusters (refinement 1); upgrade the `PageCard`
+   stand-in to a snapshot bitmap once the native snapshot path is reachable.
+2. **Don't build option 2 (recreate-on-reorder) as the mechanism.** It's the only
+   zero-fork way to keep *multiple* pages live, but it pays a page reload on every
+   order change and is dominated on both sides — simpler if you accept reloads
+   (option 1), cheaper if you don't (option 3). Worth a toggle only to *feel* the
+   reload cost in the running spike, not as the real fix.
+3. **Treat option 3 (native reorder fork) as the graduation step.** When the
+   prototype proves out and reload-free multi-live restacking has to be
+   first-class, bind the one FFI export that exposes the in-place move the macOS
+   layer already supports. Out of scope for a no-native-changes prototype.
+4. **Option 4 / hybrid mask+snapshot stays parked** for genuine *blended*
+   page-over-page (Problem B) — a different requirement from mere stack order.
 
-**Bottom line:** recreate-on-reorder is the only zero-fork way to keep multiple
-pages live, but it is dominated on both sides — simpler if you accept reloads
-(option 1), and cheaper if you don't (option 3). Reach for option 1 to ship the
-model; option 3 to keep pages live; option 4 only when blending, not mere order,
-is the product requirement.
+**Bottom line for the prototype:** ship option 1 in keep-alive single-visible
+form. It closes the gap the spike actually surfaced, stays entirely in renderer
+TypeScript, and leaves option 3 as a clean later upgrade rather than a
+prerequisite.
