@@ -1,6 +1,6 @@
 # ADR 0019 — Canvas as a document: verb-primary CLI over one entity-kind registry
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-06-22
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md), [ADR 0016 — Tools as a capability registry](./0016-tools-as-capability-registry.md). Architectural precedent: the entity-renderer registry (`src/main/plugins/registry.ts`, `src/main/plugins/CLAUDE.md`). Surface precedent: the `agent-browser` skill (action verbs) and the Figma MCP (a few broad tools, node-type variety inside the payload).
 **Origin:** Surfaced auditing the `specular` CLI surface (`src/main/cli-commands.ts`, `src/main/shared/entity-ops.ts`, `src/main/routes/`) for simplicity against the agent-browser and Figma reference CLIs. The data model is already unified (`CanvasEntityKind` is one union); only the *surface* and the *mutation plumbing* are fragmented per kind.

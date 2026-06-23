@@ -9,7 +9,7 @@ Canonical terms used across the codebase, ADRs, and plans. Resolve language conf
 Follows [JSON Canvas v1.0](https://jsoncanvas.org) on disk; uses Specular-native terms in runtime and UI.
 
 - **Canvas item** — the user-facing and component-naming term for a thing on the canvas. Kinds: page, file, group, text, drawing, shape. Use this in docs, UI copy, and component names (`CanvasItemChrome`, `SidebarCanvasItem`).
-- **Entity** — the runtime / persistence term for the same concept. Use this in `src/main/runtime/` types (`PersistedPageEntity`, `CanvasEntityKind`, `CanvasSceneEntity`). One entity ⇔ one canvas item. The headless mutation surface (CLI / HTTP API) is moving toward one verb-primary surface over a single entity-kind registry — read/patch/act on the canvas as a document — per [ADR 0019](./docs/adr/0019-canvas-as-document-cli.md) (proposed; not yet adopted).
+- **Entity** — the runtime / persistence term for the same concept. Use this in `src/main/runtime/` types (`PersistedPageEntity`, `CanvasEntityKind`, `CanvasSceneEntity`). One entity ⇔ one canvas item. The headless mutation surface (CLI / HTTP API) is one verb-primary surface over a single entity-kind registry — read/patch/act on the canvas as a document — per [ADR 0019](./docs/adr/0019-canvas-as-document-cli.md) (accepted). See `src/main/entities/CLAUDE.md` for the `EntityKindDefinition` contract and how to add a kind.
 - **Node** — JSON Canvas spec term. Use **only** in the disk-schema layer (`src/shared/json-canvas-types.ts`, `json-canvas-serializer.ts`). Never as a synonym for entity in runtime code.
 - **Edge** — a connection between two canvas items. Same name across all three layers.
 - **Canvas** — a single `.canvas` file; the spatial document.
