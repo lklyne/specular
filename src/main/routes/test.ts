@@ -242,7 +242,11 @@ export const testRoutes: Route[] = [
     method: 'POST',
     pattern: '/test/canvas-multi-resize/begin',
     async handler({ response }) {
-      tryEnter({ kind: 'resizing-multi-selection' })
+      const token = tryEnter({ kind: 'resizing-multi-selection' })
+      if ('refused' in token) {
+        writeJson(response, 200, { ok: false, refused: true, reason: token.reason })
+        return
+      }
       beginBatch()
       writeJson(response, 200, { ok: true })
     },
