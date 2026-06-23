@@ -16,6 +16,7 @@ import type { PersistedPageEntity } from '../../../shared/types'
 import { normalizeUserUrl } from '../../../shared/url'
 import { navigatePage } from '../../navigation-sync'
 import { createPages } from '../../workspace-pages'
+import { deletePages } from '../../workspace-entities'
 import { findPageById } from '../../runtime/runtime-context'
 import {
   setDeviceOrientation,
@@ -78,6 +79,10 @@ export const pageKind: EntityKindDefinition<'page'> = {
     }
     if (patch.canvasX !== undefined) page.canvasX = patch.canvasX as number
     if (patch.canvasY !== undefined) page.canvasY = patch.canvasY as number
+  },
+
+  delete(id) {
+    return deletePages({ pageIds: [id] }).deletedPageIds.length > 0
   },
 
   serialize(entity) {

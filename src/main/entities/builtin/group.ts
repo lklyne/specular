@@ -9,6 +9,7 @@
 import type { PersistedGroupEntity } from '../../../shared/types'
 import { createUserGroup } from '../../workspace-groups'
 import { updateGroupEntity } from '../../runtime/document-commands'
+import { deleteGroupEntity } from '../../runtime/group-entity-state'
 import { serializeGroupEntityToGroupNode } from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
@@ -33,6 +34,12 @@ export const groupKind: EntityKindDefinition<'group'> = {
       label: patch.label as string | undefined,
       color: patch.color as string | undefined,
     })
+  },
+
+  // ponytail: removes the group container only; children keep their geometry
+  // and un-parent. Deleting members is `delete <childId…>`, not this.
+  delete(id) {
+    return deleteGroupEntity(id)
   },
 
   serialize(entity) {

@@ -5,6 +5,7 @@
 import type { AnnotationDrawingStroke, PersistedDrawingEntity } from '../../../shared/types'
 import {
   createDrawingEntity,
+  deleteDrawingEntity,
   updateDrawingEntity,
 } from '../../runtime/document-commands'
 import { serializeDrawingToDrawingNode } from '../../runtime/json-canvas-serializer'
@@ -36,6 +37,10 @@ export const drawingKind: EntityKindDefinition<'drawing'> = {
       height: patch.height as number | undefined,
       strokes: patch.strokes as AnnotationDrawingStroke[] | undefined,
     })
+  },
+
+  delete(id) {
+    return deleteDrawingEntity(id)
   },
 
   serialize(entity) {

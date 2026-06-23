@@ -2,7 +2,7 @@ import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/types'
 import { callApp } from './shared/app-client'
 import { handleBrowse, shellQuote } from './shared/browse-handler'
-import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
+import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
 import { emitPresenceForVerb } from './cli-presence'
@@ -19,8 +19,9 @@ function pageId(args: ParsedArgs): string | undefined {
 
 // --- Canvas verbs ---
 
+// Reads the canvas as a JSON Canvas document (GET /canvas — the doc read shape).
 const workspace: VerbHandler = async () => {
-  printJson(await callApp('/workspace'))
+  printJson(await callApp('/canvas'))
   return 0
 }
 
@@ -98,6 +99,19 @@ const upsert: VerbHandler = async (args) => {
   return 0
 }
 
+// The one declarative door (ADR 0019). A patch is { entities, edges, delete,
+// layout } — no id creates, id present updates, id in delete removes — applied
+// in one transaction. Documented as the batch fallback; verbs are primary.
+const apply: VerbHandler = async () => {
+  const patch = JSON.parse(await readStdin()) as CanvasPatch
+  if (patch.layout) {
+    const err = validateLayoutDirective(patch.layout)
+    if (err) { printError(`apply: ${err}`); return 1 }
+  }
+  printJson(await applyPatch(patch))
+  return 0
+}
+
 const create: VerbHandler = async (args) => {
   const subverb = args.positional[0]
   if (subverb === 'page') {
@@ -172,28 +186,21 @@ function kindFromId(id: string): 'page' | 'text' | 'file' | 'group' {
   return 'file'
 }
 
+// Shim over `apply`: kind is resolved from the doc by id, not an id prefix.
 const deleteEntities: VerbHandler = async (args) => {
+  let ids: string[]
   if (args.boolFlags.has('json')) {
     const input = await readStdin()
-    const items = JSON.parse(input) as Array<{ id: string; kind?: string }>
-    const withKind = items.map((item) => ({
-      ...item,
-      kind: item.kind ?? kindFromId(item.id),
-    }))
-    printJson(await callApp('/entities/delete', {
-      method: 'POST',
-      body: JSON.stringify({ items: withKind }),
-    }))
+    const items = JSON.parse(input) as Array<{ id: string }>
+    ids = items.map((item) => item.id)
   } else if (args.positional.length > 0) {
-    const items = args.positional.map((id) => ({ id, kind: kindFromId(id) }))
-    printJson(await callApp('/entities/delete', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    }))
+    ids = args.positional
   } else {
     printError('usage: specular delete <id> [id...] or specular delete --json')
     return 1
   }
+  const result = await applyPatch({ delete: ids })
+  printJson({ deleted: result.deleted })
   return 0
 }
 
@@ -206,26 +213,22 @@ const focus: VerbHandler = async (args) => {
   return 0
 }
 
+// Shim over `apply`: builds an edges patch and routes through /canvas/apply.
 const link: VerbHandler = async (args) => {
+  let edges: CanvasPatch['edges']
   if (args.positional.length >= 2) {
     const [fromEntityId, toEntityId] = args.positional
     const edge: Record<string, unknown> = { fromEntityId, toEntityId, kind: 'connection' }
     if (args.flags.label) edge.label = args.flags.label
-    printJson(await callApp('/edges/create', {
-      method: 'POST',
-      body: JSON.stringify({ edges: [edge] }),
-    }))
-    return 0
-  }
-  if (args.positional.length === 1 || (args.positional.length === 0 && process.stdin.isTTY)) {
+    edges = [edge] as CanvasPatch['edges']
+  } else if (args.positional.length === 1 || (args.positional.length === 0 && process.stdin.isTTY)) {
     printError('usage: specular link <fromId> <toId> [--label <text>]  (or pipe a JSON edges array on stdin)')
     return 1
+  } else {
+    edges = JSON.parse(await readStdin()) as CanvasPatch['edges']
   }
-  const input = await readStdin()
-  printJson(await callApp('/edges/create', {
-    method: 'POST',
-    body: JSON.stringify({ edges: JSON.parse(input) }),
-  }))
+  const result = await applyPatch({ edges })
+  printJson({ edgeIds: result.edges })
   return 0
 }
 
@@ -238,15 +241,13 @@ const unlink: VerbHandler = async (args) => {
   return 0
 }
 
+// Shim over `apply`: a group is created as a `group` entity around existing ids.
 const group: VerbHandler = async (args) => {
   if (args.positional.length === 0) { printError('usage: specular group <entityId> [entityId...]'); return 1 }
-  printJson(await callApp('/groups/create', {
-    method: 'POST',
-    body: JSON.stringify({
-      entityIds: args.positional,
-      label: args.flags.label,
-    }),
-  }))
+  const result = await applyPatch({
+    entities: [{ kind: 'group', entityIds: args.positional, label: args.flags.label }],
+  })
+  printJson({ id: result.created[0], entityIds: args.positional })
   return 0
 }
 
@@ -556,6 +557,7 @@ const VERBS: Record<string, VerbHandler> = {
   'find-placement': findPlacement,
   breakpoints,
   upsert,
+  apply,
   create,
   update,
   delete: deleteEntities,
@@ -602,7 +604,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
-    printText('Other: breakpoints, upsert, link, unlink, find-placement')
+    printText('Other: breakpoints, apply, upsert, link, unlink, find-placement')
     printText('')
     printText('Unknown verbs are passed to agent-browser as raw commands.')
     return 0

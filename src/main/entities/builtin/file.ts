@@ -13,6 +13,7 @@ import type { EntityCreateInput, EntityKindDefinition } from '../contract'
 import type { PersistedFileEntity } from '../../../shared/types'
 import {
   createFileEntity,
+  deleteFileEntity,
   updateFileEntity,
 } from '../../runtime/document-commands'
 import { createNoteFile } from '../../runtime/note-assets'
@@ -111,6 +112,10 @@ export const fileKind: EntityKindDefinition<'file'> = {
       canvasX: patch.canvasX as number | undefined,
       canvasY: patch.canvasY as number | undefined,
     })
+  },
+
+  delete(id) {
+    return deleteFileEntity(id)
   },
 
   serialize(entity) {

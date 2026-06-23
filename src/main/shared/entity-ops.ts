@@ -1,6 +1,7 @@
 import type {
   ApplyDirectiveResult,
   BatchLayoutMode,
+  CreateEdgesRequest,
   LayoutDirective,
 } from '../../shared/types'
 import {
@@ -74,12 +75,16 @@ function sizeForItem(item: Record<string, unknown>): ItemFootprint {
   }
 }
 
-export async function upsertEntities(
+/**
+ * Resolve every create item's canvas position in place — the placement pre-pass
+ * every mutation runs before the single `/canvas/apply` transaction. Applies a
+ * layout directive when present, otherwise batch-places creates that lack an
+ * explicit position. Items already carrying an `id` or a position are left alone.
+ */
+async function resolveEntityPlacements(
   items: Array<Record<string, unknown>>,
   options?: UpsertOptions,
-): Promise<{ created: string[]; updated: string[] }> {
-  const results: { created: string[]; updated: string[] } = { created: [], updated: [] }
-
+): Promise<void> {
   // Apply layout directive first, if present. Computes positions for all
   // items (creates and re-layouts), overrides per-item canvasX/Y, and
   // back-fills `kind` for items with `id` so the bucketer routes correctly.
@@ -147,16 +152,59 @@ export async function upsertEntities(
       needsPlacement[i].canvasY = placement.positions[i].canvasY
     }
   }
+}
 
-  // One declarative patch, one apply path, one Y.Doc transaction. The registry
-  // dispatches each item to its kind handler.
-  const applied = await callApp<{ created: string[]; updated: string[] }>('/canvas/apply', {
-    method: 'POST',
-    body: JSON.stringify({ entities: items }),
+export async function upsertEntities(
+  items: Array<Record<string, unknown>>,
+  options?: UpsertOptions,
+): Promise<{ created: string[]; updated: string[] }> {
+  const { created, updated } = await applyPatch({ entities: items, layout: options?.directive }, {
+    layout: options?.layout,
+    gap: options?.gap,
   })
-  results.created.push(...applied.created)
-  results.updated.push(...applied.updated)
-  return results
+  return { created, updated }
+}
+
+/** A declarative canvas patch — the one shape every verb compiles to (ADR 0019). */
+export interface CanvasPatch {
+  entities?: Array<Record<string, unknown>>
+  edges?: CreateEdgesRequest['edges']
+  delete?: string[]
+  /** Layout directive applied to the create items before they land. */
+  layout?: LayoutDirective
+}
+
+export interface ApplyResult {
+  created: string[]
+  updated: string[]
+  deleted: string[]
+  edges: string[]
+}
+
+/**
+ * The single declarative door (`specular apply`). Runs the placement pre-pass on
+ * the patch's create items, then posts the whole patch — entities, edges, and
+ * deletes — to `/canvas/apply` for one Y.Doc transaction. Every other verb is a
+ * thin shim that builds a patch and calls this.
+ */
+export async function applyPatch(
+  patch: CanvasPatch,
+  placement?: { layout?: BatchLayoutMode; gap?: number },
+): Promise<ApplyResult> {
+  const entities = patch.entities ?? []
+  await resolveEntityPlacements(entities, {
+    directive: patch.layout,
+    layout: placement?.layout,
+    gap: placement?.gap,
+  })
+  return callApp<ApplyResult>('/canvas/apply', {
+    method: 'POST',
+    body: JSON.stringify({
+      entities,
+      edges: patch.edges,
+      delete: patch.delete,
+    }),
+  })
 }
 
 // ---------------------------------------------------------------------------
