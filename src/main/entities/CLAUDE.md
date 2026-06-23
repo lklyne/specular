@@ -34,6 +34,10 @@ That's the whole tax. No new route, no new CLI verb, no `kindFromId` edit — th
 - Handlers are the *headless* path. Interactive creation (toolbar placement, drawing capture) keeps its own gesture homes; both ultimately call the same `document-commands` mutators a handler calls.
 - One `commitAsOneTransaction` per applied patch keeps the forward/reverse-sync contract intact (one Y.Doc transaction per mutation).
 
-## Scope today (ADR 0019, slice 1)
+## Scope today (ADR 0019, slice 2)
 
-`POST /canvas/apply` handles **create + update**; `upsertEntities` is a thin client of it. Delete still lives on `/entities/delete` and folds into the registry (with a generic, id-resolved delete) in a later slice. The per-kind create/update routes in `routes/entities.ts` and `routes/pages.ts` still exist for the smoke contract and are removed once every caller routes through `apply`.
+`POST /canvas/apply` handles the whole patch — **create + update + delete + edges** — in one transaction. Delete is generic and id-resolved: `apply` looks up each id's kind from the doc (via `entityKindById`) and calls that handler's `delete`, or the edge store when the id names an edge. No id prefix sniffing. `GET /canvas` is the JSON Canvas read shape (`specular workspace` reads it).
+
+Every CLI verb is now a thin shim that builds a patch and calls `apply`: `create`/`update`/`upsert` via `upsertEntities`, and `delete`/`link`/`group`/`apply` via `applyPatch` (`src/main/shared/entity-ops.ts`). The placement pre-pass (`resolveEntityPlacements`) resolves create positions before the single `apply` post.
+
+The per-kind create/update/delete routes in `routes/entities.ts`, `routes/pages.ts`, and `routes/edges-groups.ts` still exist (the smoke contract hits them directly) and are removed once nothing else calls them (ADR-0019 slice 4). `kindFromId` survives only in the `update` verb; it goes in slice 3.

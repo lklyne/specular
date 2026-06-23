@@ -1,28 +1,40 @@
 /**
  * Canvas document routes (ADR 0019).
  *
- * `POST /canvas/apply` is the single create/update path: it walks a patch's
- * `entities`, looks up each item's handler in the entity-kind registry by
- * `kind`, and runs the whole patch inside ONE Y.Doc transaction
- * (`commitAsOneTransaction`) so a batch collapses to a single undo step. Every
- * verb and `upsertEntities` compile to this patch shape.
+ * `GET /canvas` serializes the whole doc to a JSON Canvas document (the read
+ * shape; `specular workspace` reads it).
  *
- * An item with no `id` is a create; an item with an `id` is an update. Long /
+ * `POST /canvas/apply` is the single mutation door: it walks a patch and runs
+ * the whole thing inside ONE Y.Doc transaction (`commitAsOneTransaction`) so a
+ * batch collapses to a single undo step. The patch shape every verb compiles to:
+ *
+ *   { entities: [ {kind,…}|{id,…} ], edges: [ {from,to} ], delete: ["id"] }
+ *
+ * An entity with no `id` is a create; an entity with an `id` is an update. Long /
  * structured `text` creates are routed to the `file` kind as `.md` notes
- * (`claimsAsNote`). Positions are resolved by the caller before the patch
- * arrives. (Delete folds into this route with the registry's generic delete in
- * a later ADR-0019 slice; today it stays on `/entities/delete`.)
+ * (`claimsAsNote`). Each `delete` id is resolved to its kind from the doc (never
+ * an id prefix) and dispatched to that kind's handler, or to the edge store when
+ * it names an edge. Positions are resolved by the caller before the patch
+ * arrives.
  */
 
 import type { Route } from './types'
 import type { CanvasEntityKind } from '../../shared/types'
+import type { CreateEdgesRequest } from '../../shared/types'
 import { getEntityKind, hasEntityKind } from '../entities/contract'
 import { claimsAsNote } from '../entities/builtin/file'
+import { entityKindById } from '../workspace-entities'
+import { createEdges } from '../workspace-edges'
+import { deleteEdge } from '../runtime/document-commands'
+import { workspaceSnapshot } from '../runtime/workspace-tabs'
+import { serializeToJsonCanvas } from '../runtime/json-canvas-serializer'
 import { commitAsOneTransaction } from '../runtime/workspace-observers'
 import { writeJson } from './http-helpers'
 
 interface CanvasPatch {
   entities?: Array<Record<string, unknown>>
+  edges?: CreateEdgesRequest['edges']
+  delete?: string[]
 }
 
 /** Resolve the handler kind for a patch item, honoring the text→note route. */
@@ -36,14 +48,21 @@ function resolveKind(item: Record<string, unknown>): CanvasEntityKind | null {
 
 export const canvasRoutes: Route[] = [
   {
+    method: 'GET',
+    pattern: '/canvas',
+    async handler({ response }) {
+      writeJson(response, 200, serializeToJsonCanvas(workspaceSnapshot()))
+    },
+  },
+  {
     method: 'POST',
     pattern: '/canvas/apply',
     async handler({ response, body }) {
       const patch = body as CanvasPatch
       const entities = patch.entities ?? []
 
-      // Validate every item resolves to a registered kind before mutating, so a
-      // bad item can't leave a half-applied transaction behind.
+      // Validate every create/update item resolves to a registered kind before
+      // mutating, so a bad item can't leave a half-applied transaction behind.
       for (let i = 0; i < entities.length; i++) {
         if (!resolveKind(entities[i])) {
           writeJson(response, 400, {
@@ -55,6 +74,8 @@ export const canvasRoutes: Route[] = [
 
       const created: string[] = []
       const updated: string[] = []
+      const deleted: string[] = []
+      let edgeIds: string[] = []
       const ctx = {}
 
       commitAsOneTransaction(() => {
@@ -68,9 +89,23 @@ export const canvasRoutes: Route[] = [
             created.push(handler.create(item, ctx))
           }
         }
+
+        if (patch.edges?.length) {
+          edgeIds = createEdges({ edges: patch.edges }).edgeIds
+        }
+
+        for (const id of patch.delete ?? []) {
+          // Kind is resolved from the doc, never an id prefix. An id the doc
+          // doesn't know as an entity is tried as an edge.
+          const kind = entityKindById(id)
+          const removed = kind
+            ? getEntityKind(kind).delete(id, ctx)
+            : deleteEdge(id)
+          if (removed) deleted.push(id)
+        }
       })
 
-      writeJson(response, 200, { created, updated })
+      writeJson(response, 200, { created, updated, deleted, edges: edgeIds })
     },
   },
 ]

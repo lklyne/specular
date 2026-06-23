@@ -6,6 +6,7 @@
 import type { PersistedShapeEntity, ShapeKind } from '../../../shared/types'
 import {
   createShapeEntity,
+  deleteShapeEntity,
   updateShapeEntity,
 } from '../../runtime/document-commands'
 import {
@@ -47,6 +48,10 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
       strokeWidth: patch.strokeWidth as number | undefined,
       textSize: patch.textSize as number | undefined,
     })
+  },
+
+  delete(id) {
+    return deleteShapeEntity(id)
   },
 
   serialize(entity) {

@@ -46,6 +46,8 @@ export interface EntityKindDefinition<K extends CanvasEntityKind = CanvasEntityK
   create(input: EntityCreateInput, ctx: MutationContext): EntityId
   /** Apply a partial patch to an existing entity in place. */
   update(id: EntityId, patch: EntityPatch, ctx: MutationContext): void
+  /** Remove an entity by id; returns whether it existed. */
+  delete(id: EntityId, ctx: MutationContext): boolean
   /** Project a persisted entity to its JSON Canvas node (disk shape). */
   serialize(entity: PersistedCanvasEntity): JsonCanvasNode
   /** Footprint used when a create item omits an explicit size. */
