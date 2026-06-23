@@ -94,8 +94,15 @@ export function getCdpProxyDebug() {
 
 // --- Workspace ---
 
-export function getWorkspace() {
-  return get<{ entities: { id: string; kind: string }[]; edges: unknown[]; selection: unknown; camera: unknown }>('/workspace')
+// GET /workspace is gone (ADR 0019 slice 4); the read shape is GET /canvas.
+// Derive the {entities, edges} graph from the serialized doc: a `link` node is
+// a page, every other node type matches its kind.
+export async function getWorkspace() {
+  const doc = await getCanvas()
+  return {
+    entities: doc.nodes.map((n) => ({ id: n.id, kind: n.type === 'link' ? 'page' : n.type })),
+    edges: doc.edges.map((e) => ({ id: e.id })),
+  }
 }
 
 // --- Canvas document (ADR 0019) ---
@@ -162,8 +169,12 @@ export function reorderStackOrder(
 
 // --- Pages ---
 
-export function createPages(pages: { url: string; presetIndex?: number; canvasX?: number; canvasY?: number }[]) {
-  return post<{ pageIds: string[] }>('/pages/create', { pages })
+// Pages create/update/delete route through the apply spine now (ADR 0019).
+export async function createPages(pages: { url: string; presetIndex?: number; canvasX?: number; canvasY?: number }[]) {
+  const { created } = await applyCanvas({
+    entities: pages.map((p) => ({ kind: 'page', ...p })),
+  })
+  return { pageIds: created }
 }
 
 export function createFocusedPage(input: {
@@ -175,12 +186,9 @@ export function createFocusedPage(input: {
   return post<{ pageId: string }>('/pages/create-at-position', input)
 }
 
-export function deletePages(pageIds: string[]) {
-  return post<{ deletedPageIds: string[] }>('/pages/delete', { pageIds })
-}
-
-function updatePages(pages: Array<{ id: string; canvasX?: number; canvasY?: number; presetIndex?: number }>) {
-  return post<{ updated: string[] }>('/pages/update', { pages })
+export async function deletePages(pageIds: string[]) {
+  const { deleted } = await applyCanvas({ delete: pageIds })
+  return { deletedPageIds: deleted }
 }
 
 export function applyLayoutDirective(body: {
@@ -303,6 +311,9 @@ export function getTextEntities() {
   }>('/text-entities')
 }
 
+// Text entity create/update/delete route through the apply spine (ADR 0019).
+// `forceKind` pins short-or-long content to a text entity (the file kind would
+// otherwise claim long/structured text as a `.md` note).
 export async function createTextEntities(items: {
   canvasX: number
   canvasY: number
@@ -311,21 +322,22 @@ export async function createTextEntities(items: {
   width?: number
   height?: number
 }[]): Promise<{ ids: string[] }> {
-  if (items.length === 1) {
-    // Single item returns TextEntity directly
-    const entity = await post<{ id: string }>('/text-entities/create', items[0])
-    return { ids: [entity.id] }
-  }
-  const result = await post<{ items: { id: string }[] }>('/text-entities/create', { items })
-  return { ids: result.items.map((i) => i.id) }
+  const { created } = await applyCanvas({
+    entities: items.map((i) => ({ kind: 'text', forceKind: true, ...i })),
+  })
+  return { ids: created }
 }
 
-export function updateTextEntities(items: { id: string; patch: { text?: string; color?: string; canvasX?: number; canvasY?: number } }[]) {
-  return post<{ items: { id: string }[] }>('/text-entities/update', { items })
+export async function updateTextEntities(items: { id: string; patch: { text?: string; color?: string; canvasX?: number; canvasY?: number } }[]) {
+  const { updated } = await applyCanvas({
+    entities: items.map((i) => ({ id: i.id, ...i.patch })),
+  })
+  return { items: updated.map((id) => ({ id })) }
 }
 
-export function deleteTextEntities(ids: string[]) {
-  return post<{ deleted: string[] }>('/text-entities/delete', { ids })
+export async function deleteTextEntities(ids: string[]) {
+  const { deleted } = await applyCanvas({ delete: ids })
+  return { deleted }
 }
 
 // --- Edges ---
@@ -365,29 +377,35 @@ export function getDrawingEntities() {
   return get<{ drawingEntities: DrawingEntity[] }>('/drawing-entities')
 }
 
-export function createDrawingEntity(input: {
+// Drawing create/update/delete route through the apply spine (ADR 0019). The
+// apply route returns ids; we echo the input back with the new id so callers
+// keep the DrawingEntity shape they read today.
+export async function createDrawingEntity(input: {
   canvasX: number
   canvasY: number
   width: number
   height: number
   strokes: DrawingStroke[]
   id?: string
-}) {
-  return post<DrawingEntity>('/drawing-entities/create', input)
+}): Promise<DrawingEntity> {
+  const { created } = await applyCanvas({ entities: [{ kind: 'drawing', ...input }] })
+  return { ...input, id: created[0] }
 }
 
-export function updateDrawingEntity(id: string, patch: {
+export async function updateDrawingEntity(id: string, patch: {
   canvasX?: number
   canvasY?: number
   width?: number
   height?: number
   strokes?: DrawingStroke[]
 }) {
-  return post<DrawingEntity>('/drawing-entities/update', { id, patch })
+  const { updated } = await applyCanvas({ entities: [{ id, ...patch }] })
+  return { updated }
 }
 
-export function deleteDrawingEntities(ids: string[]) {
-  return post<{ deleted: string[] }>('/drawing-entities/delete', { ids })
+export async function deleteDrawingEntities(ids: string[]) {
+  const { deleted } = await applyCanvas({ delete: ids })
+  return { deleted }
 }
 
 // --- Selection ---

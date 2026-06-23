@@ -8,10 +8,7 @@ import type {
   PlacementRequest,
 } from '../../shared/types'
 import { validateLayoutDirective } from '../../shared/types'
-import {
-  getSelectionState,
-  getWorkspaceGraph,
-} from '../workspace-entities'
+import { getSelectionState } from '../workspace-entities'
 import { distributeSelection } from '../runtime/document-commands'
 import { selectedEntityIds as currentSelectionIds } from '../ui-state'
 import { applyLayoutDirective, findBatchPlacement, findPlacement } from '../workspace-placement'
@@ -29,18 +26,9 @@ import {
   selectPageById as selectSelectionPageById,
 } from '../runtime/selection-controller'
 import { pageSelectionOverlayStates } from '../runtime/overlay-manager'
-import { animateCursorScan, allEntityPositions } from '../presence-manager'
 import { writeJson } from './http-helpers'
 
 export const workspaceRoutes: Route[] = [
-  {
-    method: 'GET',
-    pattern: '/workspace',
-    async handler({ request, response }) {
-      animateCursorScan(request, allEntityPositions(), 'scan_workspace')
-      writeJson(response, 200, getWorkspaceGraph())
-    },
-  },
   {
     method: 'GET',
     pattern: '/sidebar',

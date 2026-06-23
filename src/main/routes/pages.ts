@@ -1,13 +1,7 @@
-import { randomUUID } from 'crypto'
 import { nativeImage } from 'electron'
 import type { Route } from './types'
-import type { CreatePagesRequest, DeletePagesRequest } from '../../shared/types'
-import { createPages } from '../workspace-pages'
-import { deletePages } from '../workspace-entities'
 import { focusTargets } from '../workspace-groups'
-import { createPageAtPosition, setPagePreset, setDeviceOrientation } from '../runtime/document-commands'
-import { showDeviceFrameFromMetadata, setShowDeviceFrameMetadata } from '../runtime/runtime-entities'
-import { navigatePage } from '../navigation-sync'
+import { createPageAtPosition } from '../runtime/document-commands'
 import { findPageById } from '../runtime/runtime-context'
 import {
   takePageAgentSnapshot,
@@ -27,9 +21,7 @@ import {
   cdpProxyMetrics,
 } from '../cdp-proxy'
 import {
-  animateCursorScan,
   movePresenceCursorTo,
-  staggerOperation,
   normalizeAgentSnapshot,
   findPresenceTarget,
   resolveSession,
@@ -77,70 +69,6 @@ export const pageRoutes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: '/pages/create',
-    async handler({ request, response, body }) {
-      const payload = body as CreatePagesRequest
-      const pages = payload.pages ?? []
-      if (pages.length <= 1) {
-        const page = pages[0]
-        if (page) movePresenceCursorTo(request, page.canvasX, page.canvasY, 'create_page')
-        writeJson(response, 200, createPages(payload))
-        return
-      }
-      const pageIds = pages.map((f) => f.id ?? `page_${randomUUID()}`)
-      pages.forEach((f, i) => { f.id = pageIds[i] })
-      writeJson(response, 200, { pageIds })
-      staggerOperation(
-        request,
-        pages.map((f) => ({ x: f.canvasX, y: f.canvasY })),
-        'create_page',
-        (i) => createPages({ pages: [pages[i]] }),
-      )
-    },
-  },
-  {
-    method: 'POST',
-    pattern: '/pages/update',
-    async handler({ request, response, body }) {
-      const payload = body as {
-        pages: Array<{
-          id: string
-          presetIndex?: number
-          orientation?: 'portrait' | 'landscape'
-          showDeviceFrame?: boolean
-          url?: string
-          canvasX?: number
-          canvasY?: number
-        }>
-      }
-      const updated: string[] = []
-      const positions: Array<{ x: number; y: number }> = []
-      for (const f of payload.pages) {
-        const page = findPageById(f.id)
-        if (!page) continue
-        positions.push({ x: page.canvasX, y: page.canvasY })
-        if (f.presetIndex !== undefined) setPagePreset(page.id, f.presetIndex)
-        if (f.orientation !== undefined) setDeviceOrientation(page.id, f.orientation)
-        if (f.showDeviceFrame !== undefined) {
-          const current = showDeviceFrameFromMetadata(page.metadata)
-          if (current !== f.showDeviceFrame) {
-            page.metadata = setShowDeviceFrameMetadata(page.metadata, f.showDeviceFrame)
-          }
-        }
-        if (f.url !== undefined && f.url !== page.url) {
-          navigatePage(page, { type: 'load-url', url: f.url })
-        }
-        if (f.canvasX !== undefined) page.canvasX = f.canvasX
-        if (f.canvasY !== undefined) page.canvasY = f.canvasY
-        updated.push(page.id)
-      }
-      if (positions.length === 1) movePresenceCursorTo(request, positions[0].x, positions[0].y, null)
-      else if (positions.length > 1) animateCursorScan(request, positions, null)
-      writeJson(response, 200, { updated })
-    },
-  },
-  {
-    method: 'POST',
     pattern: '/pages/create-at-position',
     async handler({ request, response, body }) {
       const payload = body as {
@@ -166,28 +94,6 @@ export const pageRoutes: Route[] = [
           focus: true,
         }),
       )
-    },
-  },
-  {
-    method: 'POST',
-    pattern: '/pages/delete',
-    async handler({ request, response, body }) {
-      const payload = body as DeletePagesRequest
-      const pageIds = payload.pageIds ?? []
-      if (pageIds.length <= 1) {
-        const id = pageIds[0]
-        if (id) {
-          const page = findPageById(id)
-          if (page) movePresenceCursorTo(request, page.canvasX, page.canvasY, null)
-        }
-        writeJson(response, 200, deletePages(payload))
-        return
-      }
-      const itemsToDelete = pageIds
-        .map((id) => { const p = findPageById(id); return p ? { id, x: p.canvasX, y: p.canvasY } : null })
-        .filter((p): p is NonNullable<typeof p> => p !== null)
-      writeJson(response, 200, { deletedPageIds: pageIds, deletedEdgeIds: [], deletedGroupIds: [], missingPageIds: [], warnings: [] })
-      staggerOperation(request, itemsToDelete, null, (i) => deletePages({ pageIds: [itemsToDelete[i].id] }))
     },
   },
   {

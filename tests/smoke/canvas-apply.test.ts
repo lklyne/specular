@@ -109,6 +109,43 @@ describe('canvas apply + get', () => {
     expect(ids).not.toContain(from)
   })
 
+  it('creates every entity kind via apply — incl. drawing/shape, which had no create path before', async () => {
+    // The `add` verb (ADR 0019 §1) and direct `apply` both compile to this
+    // spine. Drawing and shape never had a create route; the registry handlers
+    // give them one. group is created around existing ids.
+    const seed = await applyCanvas({
+      entities: [
+        { kind: 'text', forceKind: true, text: 'a', canvasX: 0, canvasY: 0 },
+        { kind: 'text', forceKind: true, text: 'b', canvasX: 200, canvasY: 0 },
+      ],
+    })
+    const [a, b] = seed.created
+
+    const { created } = await applyCanvas({
+      entities: [
+        { kind: 'page', url: 'https://example.com', presetIndex: 9, canvasX: 0, canvasY: 400 },
+        { kind: 'shape', shapeKind: 'rectangle', text: 'box', canvasX: 400, canvasY: 400 },
+        {
+          kind: 'drawing',
+          canvasX: 800,
+          canvasY: 400,
+          width: 100,
+          height: 100,
+          strokes: [{ id: 's1', color: '#000', width: 2, points: [{ x: 0, y: 0 }, { x: 50, y: 50 }] }],
+        },
+        { kind: 'group', entityIds: [a, b], label: 'pair' },
+      ],
+    })
+    expect(created).toHaveLength(4)
+    const [pageId, shapeId, drawingId, groupId] = created
+
+    const byId = new Map((await getCanvas()).nodes.map((n) => [n.id, n.type]))
+    expect(byId.get(pageId)).toBe('link')
+    expect(byId.get(shapeId)).toBe('shape')
+    expect(byId.get(drawingId)).toBe('drawing')
+    expect(byId.get(groupId)).toBe('group')
+  })
+
   it('applies create + delete as one patch', async () => {
     const seed = await applyCanvas({
       entities: [{ kind: 'text', text: 'seed', canvasX: 0, canvasY: 0 }],

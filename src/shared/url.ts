@@ -40,6 +40,11 @@ export function normalizeUserUrl(value: string): string {
   const trimmed = value.trim()
   if (!trimmed) throw new Error('URL cannot be empty')
 
+  // Opaque-scheme URLs (data:, blob:) are valid page sources as-is. They lack
+  // `://`, so the scheme-inference branch below would prepend `https://` and
+  // mangle them into an invalid URL.
+  if (/^(data|blob):/i.test(trimmed)) return new URL(trimmed).toString()
+
   const withScheme = SCHEME_PATTERN.test(trimmed)
     ? trimmed
     : `${inferDefaultScheme(trimmed)}://${trimmed.replace(/^\/\//, '')}`
