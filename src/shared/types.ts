@@ -1765,6 +1765,7 @@ export interface CanvasBgElectronAPI {
   /** Cancel the active inline edit (renderers fire on Escape). */
   cancelEntityEdit: () => void
   showFileInFinder: (filePath: string) => void
+  copyFileAsPng: (filePath: string) => void
   updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) => void
   duplicateGroup: (id: string) => void
   deleteGroup: (id: string) => void

@@ -166,6 +166,14 @@ function FileBodyCard({
               >
                 Show in Finder
               </Menu.Item>
+              {entity.rendererTag === 'image' && (
+                <Menu.Item
+                  className={menuItemClass}
+                  onClick={() => fileApi.copyFileAsPng(entity.file)}
+                >
+                  Copy as PNG
+                </Menu.Item>
+              )}
               <div
                 role="separator"
                 className={isDark ? 'my-1 h-px bg-zinc-700' : 'my-1 h-px bg-zinc-200'}

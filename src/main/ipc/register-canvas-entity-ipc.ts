@@ -1,4 +1,4 @@
-import { clipboard, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron'
+import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type { AnnotationCreateRequest } from '../../shared/types'
@@ -749,6 +749,10 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on('canvas-show-file-in-finder', (_event, { filePath }: { filePath: string }) => {
     shell.showItemInFolder(filePath)
+  })
+
+  ipcMain.on('canvas-copy-file-as-png', (_event, { filePath }: { filePath: string }) => {
+    clipboard.writeImage(nativeImage.createFromPath(filePath))
   })
 
   ipcMain.handle('read-note-file', (_event, { filePath }: { filePath: string }) => {
