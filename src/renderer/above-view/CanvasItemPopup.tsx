@@ -1,12 +1,20 @@
 // ADR 0008 — unified canvas-item popup compound component.
 
 import { type ReactNode } from 'react'
+import { AlignHorizontalDistributeCenter, Copy, Trash2 } from 'lucide-react'
+import {
+  paletteSlots,
+  resolveCanvasColor,
+  type CanvasColorRole,
+  type CanvasColorSlot,
+  type CanvasPalette,
+} from '../../shared/canvas-colors'
+import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
 import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
   type AnchorSlot,
 } from './useAnchoredPosition'
-import type { LayoutUpdateData } from '../../shared/types'
 
 type Placement = 'above' | 'below' | 'overlay'
 type Align = 'stretch' | 'center'
@@ -241,6 +249,90 @@ function ColorSwatch({
   )
 }
 
+function EntityActions({
+  isDark,
+  noun,
+  count,
+  onDuplicate,
+  onDelete,
+  api,
+}: {
+  isDark: boolean
+  noun: string
+  count: number
+  onDuplicate: () => void
+  onDelete: () => void
+  api?: Pick<CanvasBgElectronAPI, 'distributeSelection'>
+}) {
+  return (
+    <Section>
+      {api && count >= 3 && (
+        <IconButton
+          isDark={isDark}
+          title="Distribute spacing"
+          ariaLabel="Distribute spacing"
+          onClick={() => api.distributeSelection()}
+        >
+          <AlignHorizontalDistributeCenter size={14} />
+        </IconButton>
+      )}
+      <IconButton
+        isDark={isDark}
+        title={`Duplicate ${noun}`}
+        ariaLabel={`Duplicate ${noun}`}
+        onClick={onDuplicate}
+      >
+        <Copy size={14} />
+      </IconButton>
+      <IconButton
+        isDark={isDark}
+        title={`Delete ${noun}`}
+        ariaLabel={`Delete ${noun}`}
+        onClick={onDelete}
+      >
+        <Trash2 size={14} />
+      </IconButton>
+    </Section>
+  )
+}
+
+function PaletteSection({
+  isDark,
+  palette,
+  activeSlot,
+  role,
+  noun,
+  onPick,
+}: {
+  isDark: boolean
+  palette: CanvasPalette
+  activeSlot: CanvasColorSlot | null
+  role: CanvasColorRole
+  noun?: string
+  onPick: (storage: string) => void
+}) {
+  return (
+    <Section>
+      {paletteSlots(palette).map((slot) => {
+        const swatch = slot.hex ?? resolveCanvasColor(slot.storage, { role, isDark })
+        const ariaLabel = noun
+          ? `Set ${noun} color to ${slot.label}`
+          : `Set color to ${slot.label}`
+        return (
+          <ColorSwatch
+            key={slot.id}
+            isDark={isDark}
+            active={activeSlot === slot.id}
+            color={swatch}
+            ariaLabel={ariaLabel}
+            onClick={() => onPick(slot.storage)}
+          />
+        )
+      })}
+    </Section>
+  )
+}
+
 export const CanvasItemPopup = {
   Root,
   ViewportAnchor,
@@ -249,4 +341,6 @@ export const CanvasItemPopup = {
   Divider,
   IconButton,
   ColorSwatch,
+  EntityActions,
+  PaletteSection,
 }

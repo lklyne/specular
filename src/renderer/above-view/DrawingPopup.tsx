@@ -1,10 +1,8 @@
 // ADR 0008 §8 — drawing selection popup. Edits fan out across selected
 // drawings; legacy multi-stroke drawings accept uniform writes per stroke.
 
-import { Copy, Trash2 } from 'lucide-react'
 import {
   paletteForBrushType,
-  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -15,7 +13,6 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { DistributeAction } from './DistributeAction'
 import { drawingBounds } from './annotationMath'
 import {
   BRUSH_VARIANT_OPTIONS,
@@ -130,48 +127,29 @@ export function DrawingPopup({
           ))}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.Section>
-          {paletteSlots(swatchPalette).map((slot) => {
-            const swatch =
-              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'ink', isDark })
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={slot.id}
-                isDark={isDark}
-                active={activeSlot === slot.id}
-                color={swatch}
-                ariaLabel={`Set ${noun} color to ${slot.label}`}
-                onClick={() =>
-                  writeStrokes((stroke) => ({ ...stroke, color: slot.storage }))
-                }
-              />
-            )
-          })}
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.PaletteSection
+          isDark={isDark}
+          palette={swatchPalette}
+          activeSlot={activeSlot}
+          role="ink"
+          noun={noun}
+          onPick={(storage) =>
+            writeStrokes((stroke) => ({ ...stroke, color: storage }))
+          }
+        />
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.Section>
-          <DistributeAction api={api} isDark={isDark} count={count} />
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Duplicate ${noun}`}
-            ariaLabel={`Duplicate ${noun}`}
-            onClick={() => {
-              for (const d of selectedDrawings) api.duplicateDrawingEntity(d.id)
-            }}
-          >
-            <Copy size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Delete ${noun}`}
-            ariaLabel={`Delete ${noun}`}
-            onClick={() => {
-              for (const d of selectedDrawings) api.deleteDrawingEntity(d.id)
-            }}
-          >
-            <Trash2 size={14} />
-          </CanvasItemPopup.IconButton>
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.EntityActions
+          isDark={isDark}
+          noun={noun}
+          count={count}
+          onDuplicate={() => {
+            for (const d of selectedDrawings) api.duplicateDrawingEntity(d.id)
+          }}
+          onDelete={() => {
+            for (const d of selectedDrawings) api.deleteDrawingEntity(d.id)
+          }}
+          api={api}
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )

@@ -34,8 +34,7 @@ import {
   shouldFocusSelectedPage,
   type FocusSelectionInput,
 } from '../../shared/should-focus-selected-page'
-import type { InteractionMode } from '../../shared/interaction-types'
-import type { CanvasInteractionState } from '../../shared/types'
+import { canvasInteractionModeKind } from '../../shared/gesture-utils'
 
 type SelectionCommand =
   | { kind: 'none' }
@@ -68,22 +67,6 @@ function predicateSelectionInput(selection: UiState['selection']): FocusSelectio
   return { kind: 'none' }
 }
 
-function predicateInteractionKind(
-  state: CanvasInteractionState,
-): InteractionMode['kind'] {
-  switch (state.kind) {
-    case 'idle': return 'idle'
-    case 'panning-canvas': return 'panning'
-    case 'marquee-select': return 'marquee'
-    case 'dragging-entities': return 'dragging-entities'
-    case 'resizing-entity': return 'resizing-entity'
-    case 'resizing-multi-selection': return 'resizing-multi-selection'
-    case 'dragging-edge': return 'dragging-edge'
-    case 'editing-entity': return 'editing-entity'
-    case 'reordering-row': return 'reordering-row'
-  }
-}
-
 /**
  * Predicate-derived "which page should hold keyboard + receive forwarded
  * input." Single source of truth for the focus reconciler, page cursor
@@ -93,7 +76,7 @@ export function currentKeyboardTargetPageId(): string | null {
   const ui = getUiState()
   return shouldFocusSelectedPage({
     selection: predicateSelectionInput(ui.selection),
-    interactionKind: predicateInteractionKind(interactionState),
+    interactionKind: canvasInteractionModeKind(interactionState),
     activeTool: ui.activeTool,
     commentOverlayActive: isCommentOverlayVisible(ui),
   })

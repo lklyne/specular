@@ -12,6 +12,7 @@ import type {
   OriginBindings,
 } from '../../../shared/types'
 import { dividerClass, isUnresolved, mutedClass } from '../rightDetailsPanelHelpers'
+import { usePaneTheme } from '../PaneContext'
 import { groupAnnotationsByOrigin } from '../rightDetailsPanelSelectors'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { useFocusedAnnotationScroll } from '../useFocusedAnnotationScroll'
@@ -19,7 +20,6 @@ import { CommentRow, CommentsPane } from './CommentsPane'
 import { PaneHeader } from './PaneHeader'
 
 export function DocumentPane({
-  isDark,
   annotations,
   pages,
   focusedAnnotationId,
@@ -30,7 +30,6 @@ export function DocumentPane({
   fixProgress,
   fixConfig,
 }: {
-  isDark: boolean
   annotations: Annotation[]
   pages: DevtoolsPanelPageSummary[]
   focusedAnnotationId?: string | null
@@ -41,6 +40,7 @@ export function DocumentPane({
   fixProgress: Record<string, FixProgressEntry>
   fixConfig: FixConfig
 }) {
+  const isDark = usePaneTheme()
   const divider = dividerClass(isDark)
   const originGroups = useMemo(() => groupAnnotationsByOrigin(annotations), [annotations])
 

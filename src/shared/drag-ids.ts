@@ -8,6 +8,3 @@ export function newDragId(): DragId {
   return `drag_${Date.now().toString(36)}_${counter.toString(36)}_${rand}` as DragId
 }
 
-function isDragId(value: unknown): value is DragId {
-  return typeof value === 'string' && value.startsWith('drag_')
-}

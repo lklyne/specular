@@ -151,7 +151,6 @@ function GroupTreeItem({
   isDark,
   api,
   section,
-  parentId,
 }: {
   group: SidebarGroupItem
   depth: number
@@ -160,7 +159,6 @@ function GroupTreeItem({
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
-  parentId: string | null
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -295,7 +293,6 @@ function SidebarCanvasTreeItem({
   isDark,
   api,
   section,
-  parentId,
 }: {
   item: SidebarCanvasItem
   depth: number
@@ -304,7 +301,6 @@ function SidebarCanvasTreeItem({
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
-  parentId: string | null
 }) {
   if (item.kind === 'group') {
     return (
@@ -316,7 +312,6 @@ function SidebarCanvasTreeItem({
         isDark={isDark}
         api={api}
         section={section}
-        parentId={parentId}
       />
     )
   }
@@ -449,7 +444,6 @@ function SidebarCanvasTreeList({
             isDark={isDark}
             api={api}
             section={section}
-            parentId={parentId}
           />
         </div>
       ))}

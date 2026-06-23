@@ -36,6 +36,8 @@ import {
   setSelectedInspectNodeById,
   setSelectedInspectTarget,
 } from '../runtime/ui-actions'
+import { requestLayout } from '../runtime/surface-layout'
+import { markDirty } from '../runtime/layout-dirty'
 import {
   addAnnotationReply,
   createAnnotation,
@@ -80,6 +82,8 @@ export function registerRightDetailsPanelIpc(): void {
 
   ipcMain.on('right-details-panel-clear-inspect-selection', () => {
     setSelectedInspectTarget(null)
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on(
@@ -96,6 +100,8 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, { pageId, nodeId }: { pageId: string; nodeId: string | null }) => {
       if (!pageId) return
       setInspectNodeFromPanel(pageId, nodeId, false)
+      markDirty('canvas')
+      requestLayout()
     },
   )
 
@@ -108,6 +114,8 @@ export function registerRightDetailsPanelIpc(): void {
       }
       setSelectedInspectNodeById(pageId, nodeId)
       setInspectNodeFromPanel(pageId, nodeId, true)
+      markDirty('canvas')
+      requestLayout()
     },
   )
 

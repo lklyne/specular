@@ -32,6 +32,8 @@ import {
   automationInteractivePageCounts,
   hoverTarget,
   hoveringCanvasChrome,
+  inspectHoveredTarget,
+  inspectSelectedTarget,
   pages,
   interactionState,
   selectionOverlayActive,
@@ -323,10 +325,14 @@ function layoutAllViews(): void {
   // --- Cursor overlay window bounds ---
   // Child BrowserWindow for agent-presence cursors. Bounds are in screen
   // coordinates (not win-relative), derived from the main window's
-  // content bounds + the toolbar inset. Shown only when cursors exist.
+  // content bounds + the toolbar inset. Shown only when click-through
+  // screen overlays exist.
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed() && win) {
     const hasCursors = getPresenceCursors().length > 0
-    if (!hasCursors) {
+    const hasInspectPopover =
+      getUiState().activeTool.kind === 'inspect' &&
+      Boolean(inspectHoveredTarget ?? inspectSelectedTarget)
+    if (!hasCursors && !hasInspectPopover) {
       if (cursorOverlayWindow.isVisible()) cursorOverlayWindow.hide()
       layoutCache.lastCursorOverlayBoundsKey = null
     } else {

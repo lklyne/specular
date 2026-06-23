@@ -2,7 +2,7 @@
 // accepted per §6.
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, RotateCw, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, RotateCw } from 'lucide-react'
 import { normalizeUserUrl } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
@@ -12,7 +12,6 @@ import type {
 } from '../../shared/types'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { DistributeAction } from './DistributeAction'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
@@ -189,29 +188,18 @@ export function PagePopup({
             />
           </>
         ) : null}
-        <CanvasItemPopup.Section>
-          <DistributeAction api={api} isDark={isDark} count={count} />
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Duplicate ${noun}`}
-            ariaLabel={`Duplicate ${noun}`}
-            onClick={() => {
-              for (const p of selectedPages) api.duplicatePage(p.id)
-            }}
-          >
-            <Copy size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Delete ${noun}`}
-            ariaLabel={`Delete ${noun}`}
-            onClick={() => {
-              for (const p of selectedPages) api.deletePage(p.id)
-            }}
-          >
-            <Trash2 size={14} />
-          </CanvasItemPopup.IconButton>
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.EntityActions
+          isDark={isDark}
+          noun={noun}
+          count={count}
+          onDuplicate={() => {
+            for (const p of selectedPages) api.duplicatePage(p.id)
+          }}
+          onDelete={() => {
+            for (const p of selectedPages) api.deletePage(p.id)
+          }}
+          api={api}
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )

@@ -27,6 +27,8 @@ export {
   pageSnapBounds,
   pageVisualBounds,
   pageContentSize,
+  frameChromeCanvasBounds,
+  projectFramePointToCanvas,
 } from './runtime-geometry'
 
 export { snapToGrid } from '../../shared/gesture-utils'

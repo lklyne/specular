@@ -876,7 +876,7 @@ export interface MultiResizeEntry {
   height: number
   canvasX: number
   canvasY: number
-  /** Scaled strokes for drawing entities — undefined for all other kinds. */
+  /** Bounds-transformed strokes for drawing entities — undefined for all other kinds. */
   strokes?: AnnotationDrawingStroke[]
 }
 

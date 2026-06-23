@@ -4,6 +4,7 @@ import {
   bgView,
   aboveView,
   pageBodyCanvasBounds,
+  projectFramePointToCanvas,
   requestLayout,
 } from '../runtime/surface-layout'
 import {
@@ -28,6 +29,7 @@ import {
 } from '../runtime/ui-actions'
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
+import { markDirty } from '../runtime/layout-dirty'
 
 type ComponentPropOverridePayload = {
   pageId: string
@@ -72,16 +74,16 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
     case 'element': {
       const page = findPageById(anchor.pageId)
       if (!page) return null
-      const body = pageBodyCanvasBounds(page)
       if (anchor.boundingBox) {
+        const origin = projectFramePointToCanvas(page, anchor.boundingBox)
         return {
-          x: body.x + anchor.boundingBox.x,
-          y: body.y + anchor.boundingBox.y,
+          x: origin.x,
+          y: origin.y,
           width: anchor.boundingBox.width,
           height: anchor.boundingBox.height,
         }
       }
-      return body
+      return pageBodyCanvasBounds(page)
     }
     case 'page': {
       const page = findPageById(anchor.pageId)
@@ -136,12 +138,16 @@ export function registerAnnotationInspectionIpc(): void {
     if (!page) return
     if (!payload || typeof payload !== 'object') {
       setHoveredInspectTarget(null)
+      markDirty('canvas')
+      requestLayout()
       return
     }
     setHoveredInspectTarget({
       ...payload,
       pageId: page.id,
     })
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on('inspect-node-select', (event, payload) => {
@@ -157,6 +163,8 @@ export function registerAnnotationInspectionIpc(): void {
       ...payload,
       pageId: page.id,
     })
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on('inspect-node-detail-update', (event, payload) => {

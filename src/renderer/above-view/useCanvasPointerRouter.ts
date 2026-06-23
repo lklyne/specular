@@ -44,7 +44,7 @@ import {
   type AspectRatioResizeMode,
   type ResizeConfig,
 } from '../../shared/resize-accumulator'
-import { scaleStrokes } from '../../shared/scale-strokes'
+import { scaleStrokesToBounds } from '../../shared/scale-strokes'
 import {
   applyMultiHandleDelta,
   computeMultiSelectionBbox,
@@ -52,6 +52,7 @@ import {
 } from '../../shared/multi-resize-accumulator'
 import {
   entitiesOverlappingRect,
+  DRAG_THRESHOLD,
   isOverlayUiTarget,
   isTypingTarget,
   middleDragDelta,
@@ -138,10 +139,16 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
  *  and edge gestures. */
 export const FULL_ROUTER_CONSUME = ALL_KINDS
 
-const GROUP_DRAG_THRESHOLD = 4
-const MARQUEE_DRAG_THRESHOLD = 4
-const PAGE_BODY_DRAG_THRESHOLD = 4
-const ENTITY_PRESS_DRAG_THRESHOLD = GROUP_DRAG_THRESHOLD
+function layoutToHitInputs(layout: { entities: HitInputs['entities']; edges?: HitInputs['edges'] | null; selectedEntityIds: HitInputs['selectedEntityIds']; selectedGroupId?: string | null; hover?: { id: string } | null; zoom?: number | null }): HitInputs {
+  return {
+    entities: layout.entities,
+    edges: layout.edges ?? [],
+    selectedEntityIds: layout.selectedEntityIds,
+    selectedGroupId: layout.selectedGroupId ?? null,
+    hoveredEntityId: layout.hover?.id ?? null,
+    zoom: layout.zoom ?? 1,
+  }
+}
 
 function capturePointer(event: PointerEvent): (() => void) | null {
   const target = event.target
@@ -201,14 +208,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       // aboveView's WCV starts at canvasOrigin.y; scene entities use
       // window-relative screenY, so add the offset before hit-testing.
       const windowY = event.clientY + layout.canvasOrigin.y
-      const inputs: HitInputs = {
-        entities: layout.entities,
-        edges: layout.edges ?? [],
-        selectedEntityIds: layout.selectedEntityIds,
-        selectedGroupId: layout.selectedGroupId ?? null,
-        hoveredEntityId: layout.hover?.id ?? null,
-        zoom: layout.zoom ?? 1,
-      }
+      const inputs = layoutToHitInputs(layout)
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
 
       // Inline-edit outside-click (primary button) commits the active edit
@@ -285,17 +285,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       const layout = layoutRef.current
       if (layout.viewMode !== 'canvas') return
       const windowY = event.clientY + layout.canvasOrigin.y
-      const target = hitTest(
-        {
-          entities: layout.entities,
-          edges: layout.edges ?? [],
-          selectedEntityIds: layout.selectedEntityIds,
-          selectedGroupId: layout.selectedGroupId ?? null,
-          hoveredEntityId: layout.hover?.id ?? null,
-          zoom: layout.zoom ?? 1,
-        },
-        { x: event.clientX, y: windowY },
-      )
+      const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
       const action = routePointerDoubleClick(target)
       switch (action.kind) {
         case 'noop':
@@ -441,8 +431,8 @@ function runEntityPress(
       const totalDx = ev.screenX - startScreenX
       const totalDy = ev.screenY - startScreenY
       if (
-        Math.abs(totalDx) < ENTITY_PRESS_DRAG_THRESHOLD &&
-        Math.abs(totalDy) < ENTITY_PRESS_DRAG_THRESHOLD
+        Math.abs(totalDx) < DRAG_THRESHOLD &&
+        Math.abs(totalDy) < DRAG_THRESHOLD
       ) {
         return
       }
@@ -519,8 +509,8 @@ function runPageBodyPress(
     const totalDy = ev.screenY - startScreenY
     if (
       !dragging &&
-      Math.abs(totalDx) < PAGE_BODY_DRAG_THRESHOLD &&
-      Math.abs(totalDy) < PAGE_BODY_DRAG_THRESHOLD
+      Math.abs(totalDx) < DRAG_THRESHOLD &&
+      Math.abs(totalDy) < DRAG_THRESHOLD
     ) {
       return
     }
@@ -602,8 +592,8 @@ function runGroupDrag(
     const totalDy = ev.screenY - startScreenY
     if (
       !dragging &&
-      Math.abs(totalDx) < GROUP_DRAG_THRESHOLD &&
-      Math.abs(totalDy) < GROUP_DRAG_THRESHOLD
+      Math.abs(totalDx) < DRAG_THRESHOLD &&
+      Math.abs(totalDy) < DRAG_THRESHOLD
     ) {
       return
     }
@@ -672,21 +662,28 @@ function runResize(
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
 
-  // For drawing entities, augment each patch with strokes scaled from the
-  // initial snapshot so stroke geometry tracks the bounds change in real time.
-  // Scale is computed from rounded patch dimensions vs. initial entity dimensions
-  // so both bounds and strokes stay consistent on every tick.
+  // For drawing entities, augment each patch with strokes transformed from the
+  // initial bounds so absolute canvas-space stroke geometry tracks the resized
+  // selection box in real time.
   const effectiveDispatch = entity.kind === 'drawing'
     ? (() => {
         const initialStrokes = entity.strokes
-        const initialWidth = entity.width
-        const initialHeight = entity.height
+        const initialBounds = {
+          canvasX: entity.canvasX,
+          canvasY: entity.canvasY,
+          width: entity.width,
+          height: entity.height,
+        }
         return (patch: { width: number; height: number; canvasX?: number; canvasY?: number }) => {
-          const sX = initialWidth > 0 ? patch.width / initialWidth : 1
-          const sY = initialHeight > 0 ? patch.height / initialHeight : 1
+          const nextBounds = {
+            canvasX: patch.canvasX ?? initialBounds.canvasX,
+            canvasY: patch.canvasY ?? initialBounds.canvasY,
+            width: patch.width,
+            height: patch.height,
+          }
           api.updateDrawingEntity(action.entityId, {
             ...patch,
-            strokes: scaleStrokes(initialStrokes, sX, sY),
+            strokes: scaleStrokesToBounds(initialStrokes, initialBounds, nextBounds),
           })
         }
       })()
@@ -921,7 +918,7 @@ function runBackgroundSelectionGesture(
     if (!dragged) {
       const dx = ev.clientX - startClientX
       const dy = ev.clientY - startClientY
-      if (Math.abs(dx) < MARQUEE_DRAG_THRESHOLD && Math.abs(dy) < MARQUEE_DRAG_THRESHOLD) return
+      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
       dragged = true
     }
     const layout = layoutRef.current

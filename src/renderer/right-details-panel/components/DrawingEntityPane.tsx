@@ -1,19 +1,13 @@
 import { PenLine, Trash2 } from 'lucide-react'
 import type { PanelDrawingEntityDetail } from '../../../shared/types'
-import { dividerClass, mutedClass, paneDeleteBtnClass } from '../rightDetailsPanelHelpers'
+import { paneDeleteBtnClass } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
+import { usePaneTheme } from '../PaneContext'
+import { PaneField } from './PaneSection'
 import { PaneHeader } from './PaneHeader'
 
-export function DrawingEntityPane({
-  drawingEntity,
-  isDark,
-}: {
-  drawingEntity: PanelDrawingEntityDetail
-  isDark: boolean
-}) {
-  const muted = mutedClass(isDark)
-  const divider = dividerClass(isDark)
-  const deleteBtnClass = paneDeleteBtnClass(isDark)
+export function DrawingEntityPane({ drawingEntity }: { drawingEntity: PanelDrawingEntityDetail }) {
+  const isDark = usePaneTheme()
 
   return (
     <div className="flex flex-col">
@@ -23,7 +17,7 @@ export function DrawingEntityPane({
         actions={
           <button
             type="button"
-            className={deleteBtnClass}
+            className={paneDeleteBtnClass(isDark)}
             onClick={() => rightDetailsPanelApi.deleteDrawingEntity(drawingEntity.id)}
             title="Delete"
             aria-label="Delete Drawing"
@@ -33,19 +27,17 @@ export function DrawingEntityPane({
         }
       />
 
-      <div className={`border-t px-2 pb-2 pt-2 ${divider}`}>
-        <div className={`mb-1 text-[10px] font-medium ${muted}`}>Bounds</div>
+      <PaneField label="Bounds">
         <div className={`rounded px-2 py-1.5 text-[11px] ${isDark ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
           {drawingEntity.width} x {drawingEntity.height}
         </div>
-      </div>
+      </PaneField>
 
-      <div className={`border-t px-2 pb-2 pt-2 ${divider}`}>
-        <div className={`mb-1 text-[10px] font-medium ${muted}`}>Strokes</div>
+      <PaneField label="Strokes">
         <div className={`rounded px-2 py-1.5 text-[11px] ${isDark ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
           {drawingEntity.strokeCount}
         </div>
-      </div>
+      </PaneField>
     </div>
   )
 }

@@ -17,6 +17,7 @@ import {
   canvasToScreenX,
   canvasToScreenY,
   canScrollWheelTarget,
+  DRAG_THRESHOLD,
   isOverlayUiTarget,
   normalizeRect,
   screenPointToCanvasPoint,
@@ -49,6 +50,7 @@ import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
+import { useCanvasFileDrop } from './useCanvasFileDrop'
 import { canvasRectToScreenRect, pendingElementComposerPosition } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
@@ -696,6 +698,7 @@ export default function App({
   }, [openThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
 
   useRendererBindingHandlers(buildAboveViewHandlers(closeThread, clearDraft))
+  useCanvasFileDrop({ api, layoutRef })
 
   // ADR 0006 page-paints contract: while the comment tool is active,
   // broadcast pointer-state to main so each page can paint a hover preview
@@ -863,7 +866,6 @@ export default function App({
   // cursor via `inspectAtPoint`; element hit → element anchor; nothing →
   // canvas-point anchor. Drag past threshold → marquee → region anchor on
   // pointerup. Threshold matches the rest of the canvas pointer router.
-  const COMMENT_DRAG_THRESHOLD = 4
   // The comment tool needs to keep capturing pointerdowns while a pending
   // annotation or region rect is open so the user can retarget by clicking a
   // different element. `isOverlayUiTarget` below still filters out clicks on
@@ -956,7 +958,7 @@ export default function App({
           if (!crossedThreshold) {
             const dx = ev.clientX - startX
             const dy = ev.clientY - startY
-            if (Math.abs(dx) < COMMENT_DRAG_THRESHOLD && Math.abs(dy) < COMMENT_DRAG_THRESHOLD) {
+            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
               return
             }
             crossedThreshold = true

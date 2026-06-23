@@ -27,6 +27,7 @@ import {
   leftSidebarView,
   win,
 } from './view-refs'
+import { buildInspectPanelState } from './inspect-session'
 import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
 import {
@@ -61,8 +62,8 @@ import {
 } from './runtime-constants'
 import { currentKeyboardTargetPageId } from './selection-controller'
 import {
-  pageBodyCanvasBounds,
   pageContentSize,
+  projectFramePointToCanvas,
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
@@ -422,6 +423,7 @@ export function buildCanvasLayoutData(
     activeTool: tool,
     toolDefaults: getToolDefaults(),
     annotations: [...workspaceAnnotations],
+    inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),
     viewMode,
     activeBrowserTabId:
@@ -462,11 +464,10 @@ export function buildCanvasLayoutData(
             const clampedX = Math.max(0, Math.min(point.x, page.width))
             const clampedY = Math.max(0, Math.min(point.y, page.height))
             const pageWcv = findPageById(page.id)
-            const body = pageWcv ? pageBodyCanvasBounds(pageWcv) : { x: page.canvasX, y: page.canvasY }
-            return {
-              canvasX: body.x + clampedX,
-              canvasY: body.y + clampedY,
-            }
+            const proj = pageWcv
+              ? projectFramePointToCanvas(pageWcv, { x: clampedX, y: clampedY })
+              : { x: page.canvasX + clampedX, y: page.canvasY + clampedY }
+            return { canvasX: proj.x, canvasY: proj.y }
           }
         }
         // In browser mode, place canvas-surface cursors on the active page

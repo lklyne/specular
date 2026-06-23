@@ -6,7 +6,6 @@ import {
   Copy,
   Laptop,
   Link2,
-  Monitor,
   RotateCw,
   Smartphone,
   Tablet,
@@ -21,16 +20,14 @@ import type {
   FixProgressEntry,
   InspectPanelState,
 } from '../../../shared/types'
-import { DEVICE_CATALOG } from '../../../shared/device-catalog'
-import { VIEWPORT_PRESETS } from '../../../shared/constants'
 import { normalizeUserUrl } from '../../../shared/url'
-import { PagePresetDropdown } from '../../shared/PagePresetDropdown'
 import {
   dividerClass,
   isUnresolved,
   mutedClass,
 } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
+import { usePaneTheme } from '../PaneContext'
 import {
   buildUnresolvedCountsByNodeId,
   getInspectDetailState,
@@ -40,6 +37,7 @@ import { useClearInspectHoverOnLeave } from '../useClearInspectHoverOnLeave'
 import { useElementCommentDraft } from '../useElementCommentDraft'
 import { useInspectTreeState } from '../useInspectTreeState'
 import { CommentRow } from './CommentsPane'
+import { DeviceSection } from './DeviceSection'
 import { ElementCommentComposer } from './ElementCommentComposer'
 import { InspectDetailSection } from './InspectDetailSection'
 import { InspectTree } from './InspectTree'
@@ -48,19 +46,18 @@ import { InfoIcon } from '../../shared/PanelIcons'
 
 export function PagePane({
   inspect,
-  isDark,
   annotations,
   selection,
   pages,
   fixProgress,
 }: {
   inspect: InspectPanelState
-  isDark: boolean
   annotations: Annotation[]
   selection?: DevtoolsPanelSelectionSummary
   pages: DevtoolsPanelPageSummary[]
   fixProgress: Record<string, FixProgressEntry>
 }) {
+  const isDark = usePaneTheme()
   const muted = mutedClass(isDark)
   const divider = dividerClass(isDark)
   const elementsSectionRef = useRef<HTMLElement>(null)
@@ -143,11 +140,7 @@ export function PagePane({
 
         {/* Dimensions & device page */}
         {activePage ? (
-          <DeviceFrameSection
-            page={activePage}
-            isDark={isDark}
-            divider={divider}
-          />
+          <DeviceFrameSection page={activePage} />
         ) : null}
 
         {/* Page comments (collapsible, only when there are unresolved comments) */}
@@ -506,131 +499,20 @@ function PageNavigationSection({
 
 // --- Page Dimensions & Device Controls ---
 
-function OrientationIcon({
-  category,
-  orientation,
-  size,
-  className,
-}: {
-  category: string
-  orientation: 'portrait' | 'landscape'
-  size: number
-  className?: string
-}) {
-  // Smartphone/Tablet glyphs are portrait-native; Monitor is landscape-native.
-  const iconIsLandscapeNative = category === 'laptop' || category === 'desktop'
-  const shouldRotate =
-    iconIsLandscapeNative ? orientation === 'portrait' : orientation === 'landscape'
-  const combined = [className, shouldRotate && 'rotate-90'].filter(Boolean).join(' ')
-  const isMobile = category === 'iphone'
-  const isTablet = category === 'ipad'
-  if (isMobile) return <Smartphone size={size} className={combined} />
-  if (isTablet) return <Tablet size={size} className={combined} />
-  return <Monitor size={size} className={combined} />
-}
-
-function DeviceFrameSection({
-  page,
-  isDark,
-  divider,
-}: {
-  page: DevtoolsPanelPageSummary
-  isDark: boolean
-  divider: string
-}) {
-  const orientation = page.deviceOrientation ?? 'portrait'
-  const showShell = page.showDeviceFrame ?? false
-  const deviceId = page.deviceId ?? null
-  const dev = deviceId ? DEVICE_CATALOG.get(deviceId) : null
-  const supportsOrientation = !!dev
-
-  const preset = VIEWPORT_PRESETS[page.presetIndex]
-  const isCustom = !preset || page.width !== preset.width || page.height !== preset.height
-  const triggerLabel = isCustom ? 'Custom' : `${preset.label} (${preset.width}\u00d7${preset.height})`
-
-  const triggerClassName =
-    'flex h-7 min-w-0 flex-1 items-center justify-between gap-1 rounded-md border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-[11px] hover:border-[var(--surface-toolbar-border)]'
-
-  const tabBg = 'bg-[var(--surface-interactive)] border border-[var(--surface-input-border)]'
-  const tabActive = isDark
-    ? 'bg-[var(--surface-toolbar)] text-zinc-100'
-    : 'bg-[var(--surface-input)] text-zinc-800 shadow-sm'
-  const tabInactive = isDark
-    ? 'text-zinc-500 hover:text-zinc-300'
-    : 'text-zinc-400 hover:text-zinc-600'
-
+function DeviceFrameSection({ page }: { page: DevtoolsPanelPageSummary }) {
   return (
-    <section className={`border-t ${divider}`}>
-      <div className="flex items-center gap-2 px-2 py-2">
-        {/* Dimensions dropdown — same options as inline page menu */}
-        <PagePresetDropdown
-          align="start"
-          isDark={isDark}
-          side="bottom"
-          sideOffset={4}
-          onSelectPreset={(index) => rightDetailsPanelApi.setPagePreset(page.id, index)}
-          onSelectCustom={() => rightDetailsPanelApi.setPageCustom(page.id)}
-          trigger={
-            <button type="button" className={triggerClassName}>
-              <span className="min-w-0 truncate">{triggerLabel}</span>
-              <ChevronDown size={10} className="shrink-0 text-[var(--surface-toolbar-foreground)] opacity-50" />
-            </button>
-          }
-        />
-
-        {/* Orientation icon tabs */}
-        {supportsOrientation ? (
-          <div className={`flex shrink-0 rounded-md ${tabBg} p-0.5`}>
-            <button
-              type="button"
-              className={`rounded px-1.5 py-1 transition-colors ${
-                orientation === 'portrait' ? tabActive : tabInactive
-              }`}
-              title="Portrait"
-              onClick={() => rightDetailsPanelApi.setDeviceOrientation(page.id, 'portrait')}
-            >
-              <OrientationIcon category={dev!.category} orientation="portrait" size={14} />
-            </button>
-            <button
-              type="button"
-              className={`rounded px-1.5 py-1 transition-colors ${
-                orientation === 'landscape' ? tabActive : tabInactive
-              }`}
-              title="Landscape"
-              onClick={() => rightDetailsPanelApi.setDeviceOrientation(page.id, 'landscape')}
-            >
-              <OrientationIcon category={dev!.category} orientation="landscape" size={14} />
-            </button>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Show device page checkbox */}
-      <div className="flex flex-col gap-1 px-2 pb-2">
-        <label className="flex items-center gap-1.5 text-[11px]">
-          <input
-            type="checkbox"
-            checked={showShell}
-            onChange={() => rightDetailsPanelApi.toggleDeviceShell(page.id)}
-            className="accent-blue-500"
-          />
-          Show device page
-        </label>
-        {/* SVG device shell toggle (experimental, hidden for now)
-        {showShell && (
-          <label className="flex items-center gap-1.5 text-[11px]">
-            <input
-              type="checkbox"
-              checked={page.useSvgDeviceShell ?? false}
-              onChange={() => rightDetailsPanelApi.toggleSvgDeviceShell(page.id)}
-              className="accent-blue-500"
-            />
-            SVG device shell
-          </label>
-        )}
-        */}
-      </div>
-    </section>
+    <DeviceSection
+      deviceId={page.deviceId ?? null}
+      orientation={page.deviceOrientation ?? 'portrait'}
+      showShell={page.showDeviceFrame ?? false}
+      width={page.width}
+      height={page.height}
+      presetIndex={page.presetIndex ?? null}
+      onSelectPreset={(index) => rightDetailsPanelApi.setPagePreset(page.id, index)}
+      onSelectCustom={() => rightDetailsPanelApi.setPageCustom(page.id)}
+      onSetOrientation={(o) => rightDetailsPanelApi.setDeviceOrientation(page.id, o)}
+      onToggleShell={() => rightDetailsPanelApi.toggleDeviceShell(page.id)}
+    />
   )
 }
 
