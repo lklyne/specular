@@ -6,6 +6,7 @@ import { homedir, tmpdir } from 'os'
 import type { Duplex } from 'stream'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
 
+import { app } from 'electron'
 import { APP_CONTROL_DISCOVERY_FILE, APP_CONTROL_PORT, APP_CONTROL_VERSION } from '../shared/constants'
 import { getUiState } from './ui-state'
 import { findPageById, clearAutomationInteractivePageIds, automationInteractivePageCounts, getZoom } from './runtime/runtime-context'
@@ -252,7 +253,7 @@ const routes: Route[] = [
   ...entityRoutes,
   ...stackOrderHttpRoutes,
   ...designSystemRoutes,
-  ...testRoutes,
+  ...(!app.isPackaged ? testRoutes : []),
 ]
 
 async function route(request: IncomingMessage, response: ServerResponse): Promise<void> {
