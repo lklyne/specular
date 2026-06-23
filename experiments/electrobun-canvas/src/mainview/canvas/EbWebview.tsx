@@ -18,6 +18,7 @@ export interface WebviewElement extends HTMLElement {
   togglePassthrough(value?: boolean): void;
   toggleHidden(value?: boolean): void;
   syncDimensions(force?: boolean): void;
+  executeJavascript(js: string): void;
   on(event: string, listener: (e: CustomEvent) => void): void;
   off(event: string, listener: (e: CustomEvent) => void): void;
 }

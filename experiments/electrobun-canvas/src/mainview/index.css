@@ -52,9 +52,30 @@ body,
   cursor: default;
 }
 
-.item.selected {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+/* The selection ring is a real element (not an `outline`) so it owns a rect
+   that overlapping pages can mask through. Sized 4px beyond the item with a 2px
+   border, it reads like `outline-offset: 2px`. */
+.selection-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid #3b82f6;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* Bottom-right resize handle. Straddles the corner so it reads as a grip; the
+   owning page masks it (see pageMaskSelectors) so it isn't swallowed by the page
+   webview. Resizing a page changes its frame — its breakpoint viewport. */
+.resize-handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #3b82f6;
+  border-radius: 50%;
+  background: #fff;
+  cursor: nwse-resize;
 }
 
 .item-chrome {

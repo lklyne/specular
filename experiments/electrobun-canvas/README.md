@@ -51,9 +51,12 @@ bun run dev:hmr     # Vite HMR + Electrobun dev build
    accent) without driving it; click again / type to interact. Only the selected
    page takes scroll/keyboard; only the selected sticky is editable. **Esc** (or a
    click on empty canvas) returns everything to inert. The whole gate is one rule
-   — `live = selected && !panActive` (`core/interactivity.ts`) — applied through
-   one shared shell (`canvas/CanvasItem.tsx`); the only per-kind difference is how
-   a body goes inert/live (page → `togglePassthrough`, sticky → `contentEditable`).
+   — `live = selected && !panActive && !dragging` (`core/interactivity.ts`) —
+   applied through one shared shell (`canvas/CanvasItem.tsx`); the only per-kind
+   difference is how a body goes inert/live (page → `togglePassthrough`, sticky →
+   `contentEditable`). The `!dragging` clause holds every item inert for the whole
+   move/resize so a page never flips live mid-gesture and eats the drag as a text
+   selection.
 3. **No gesture overlay:** hold **space** and drag to pan even while the pointer is
    over a page (pages flip to passthrough); drag any item by its **chrome bar**.
    All of this works with **zero input-capturing overlay** — contrast Specular's
@@ -62,6 +65,12 @@ bun run dev:hmr     # Vite HMR + Electrobun dev build
    webview paints a watermark over everything, yet clicks and scroll still reach
    the pages beneath it. (This is what would replace the `cursorOverlayWindow`
    hack.)
+5. **Breakpoints (resize):** select a page and drag its bottom-right handle. A
+   page's frame width *is* its viewport width (page zoom cancels the canvas zoom,
+   so it's the design width at any zoom), so resizing reflows the page to that
+   breakpoint live. The handle is host DOM straddling the page's own webview, so
+   the page masks it (`core/layering.ts`) — same mask trick as the selection ring,
+   one more host affordance composited over a native surface.
 
 ## Map
 
@@ -94,10 +103,21 @@ src/mainview/
   cards; reordering becomes shared-z), (2) a small **native reorder** fork
   (multiple live pages, restacked in place), and (3) **snapshot/bitmap**
   offscreen compositing (the real, framework-agnostic fix for true page-over-page,
-  "Problem B").
+  "Problem B"). PAGE-STACKING also adds (4) **live textures** — the recommended,
+  fork-free path: only the selected page is a live webview, every other page is a
+  host-DOM element fed by the native image-stream, so it stays animated *and*
+  reorders by plain DOM z-index — and (5) a **texture-everything compositor** as
+  the long-term form. Both lean on the fact that click-to-interact means only one
+  page is ever input-live.
 - **macOS only** for masks/passthrough (Windows would need `bundleCEF: true`).
-- **Zoom** scales the page's native overlay to the anchor's screen rect; page
-  content is not re-zoomed via `setPageZoom` (could be added).
+- **Zoom** is matched to WebKit page zoom: the native overlay tracks the card's
+  *scaled* rect (via `getBoundingClientRect`), and `PageBody` sets CSS `zoom` on
+  the page document to the canvas zoom. The page therefore lays out at its design
+  width (responsive to the chrome, media queries see the logical width) and is
+  magnified to fill the card — matching Electron's `setZoomFactor`. We drive it
+  through `executeJavascript` because the `<electrobun-webview>` tag exposes no
+  native page-zoom RPC (the FFI `webviewSetPageZoom` is reachable only from a bun
+  `BrowserView`, not from a host-DOM tag, without forking the runtime).
 - Native overlays may visibly lag the host DOM by a frame during fast pan/zoom.
 
 ## Findings log
@@ -109,6 +129,10 @@ _Fill in after running on macOS:_
 - [ ] Select-to-interact: one click selects (inert), second click / typing interacts; Esc deselects?
 - [ ] The same shell + rule governs both pages and stickies (substrate logic isolated to body files)?
 - [ ] Pan/zoom keeps pages + stickies locked to canvas coords; overlay lag tolerable?
+- [ ] Breakpoints: resizing a page reflows it to its frame width as the design
+      width (responsive layout / media queries) at any canvas zoom?
+- [ ] Selection ring + resize handle render above the page they belong to and
+      stay correctly occluded when the selected item is behind another page?
 - [ ] Native hit-testing + passthrough fully replaced the gesture overlay (no input layer needed)?
 - [ ] Passthrough overlay: clicks/scroll reach pages beneath?
 - [ ] Page interactivity intact in unmasked regions; masked regions route to host?
@@ -116,3 +140,8 @@ _Fill in after running on macOS:_
       click at (x,y) into a page (Specular's `sendInputEvent`)? Needed for agent-driven
       annotation. Record what you find.
 - [ ] Open question — macOS offscreen/snapshot path for many cold pages.
+- [ ] Open question (gates PAGE-STACKING option 4/5) — macOS **image-stream**
+      path: framerate, latency, and cost of N concurrent streams. Can a
+      non-selected page stream into a host-DOM `<canvas>`/`<img>` and still look
+      convincingly live (video, CSS animation)? This one measurement decides
+      whether the no-fork live-textures path is real.

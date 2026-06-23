@@ -9,8 +9,11 @@ interface CanvasItemViewProps {
   zoom: number;
   selectedId: string | null;
   panActive: boolean;
+  dragging: boolean;
   onSelect: (id: string) => void;
+  onDragChange: (active: boolean) => void;
   onMove: (id: string, dx: number, dy: number) => void;
+  onResize: (id: string, dw: number, dh: number) => void;
   onStepZ: (id: string, dir: 1 | -1) => void;
   onEditSticky: (id: string, text: string) => void;
 }
@@ -32,8 +35,11 @@ export function CanvasItemView({
   zoom,
   selectedId,
   panActive,
+  dragging,
   onSelect,
+  onDragChange,
   onMove,
+  onResize,
   onStepZ,
   onEditSticky,
 }: CanvasItemViewProps) {
@@ -46,13 +52,26 @@ export function CanvasItemView({
       zoom={zoom}
       selected={selectedId === entity.id}
       panActive={panActive}
+      dragging={dragging}
       onSelect={onSelect}
+      onDragChange={onDragChange}
       onMove={onMove}
+      onResize={onResize}
       onStepZ={onStepZ}
     >
       {(live) =>
         entity.kind === "page" ? (
-          <PageBody page={entity} stickies={scene.stickies} live={live} />
+          <PageBody
+            page={entity}
+            stickies={scene.stickies}
+            selected={
+              [...scene.pages, ...scene.stickies].find(
+                (e) => e.id === selectedId,
+              ) ?? null
+            }
+            live={live}
+            zoom={zoom}
+          />
         ) : (
           <StickyBody sticky={entity} live={live} onEdit={onEditSticky} />
         )

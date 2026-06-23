@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Canvas } from "./canvas/Canvas";
 import { Toolbar } from "./canvas/Toolbar";
-import { bringToFront, moveEntity, stepZ, type Scene } from "./core/scene";
+import { bringToFront, moveEntity, resizeEntity, stepZ, type Scene } from "./core/scene";
 import { useCamera } from "./hooks/useCamera";
 import { usePanTool } from "./hooks/usePanTool";
 
@@ -33,6 +33,7 @@ export function App() {
   const panActive = usePanTool();
   const [scene, setScene] = useState<Scene>(initialScene);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [overlayEnabled, setOverlayEnabled] = useState(false);
 
   // Escape clears selection, returning every item to its inert state.
@@ -50,6 +51,10 @@ export function App() {
 
   const onMove = useCallback(
     (id: string, dx: number, dy: number) => setScene((s) => moveEntity(s, id, dx, dy)),
+    [],
+  );
+  const onResize = useCallback(
+    (id: string, dw: number, dh: number) => setScene((s) => resizeEntity(s, id, dw, dh)),
     [],
   );
   const onStepZ = useCallback(
@@ -94,11 +99,14 @@ export function App() {
         scene={scene}
         selectedId={selectedId}
         panActive={panActive}
+        dragging={dragging}
         overlayEnabled={overlayEnabled}
         onWheel={onWheel}
         onPanByScreen={panByScreen}
         onSelect={setSelectedId}
+        onDragChange={setDragging}
         onMove={onMove}
+        onResize={onResize}
         onStepZ={onStepZ}
         onEditSticky={onEditSticky}
       />

@@ -1,4 +1,4 @@
-import type { PageEntity, StickyEntity } from "./scene";
+import type { Entity, PageEntity, StickyEntity } from "./scene";
 
 // ── The heart of the spike ───────────────────────────────────────────────────
 //
@@ -18,16 +18,41 @@ import type { PageEntity, StickyEntity } from "./scene";
 /** Every canvas item's shell carries `data-item-id`; this matches it. */
 export const itemSelector = (id: string): string => `[data-item-id="${id}"]`;
 
+// Selection affordances are host DOM, so — like a sticky body — they only show
+// above a page that punches a hole for them. There's only ever one selected
+// item, so a class selector matches at most one element each.
+//
+// The ring sits *outside* the item box, so the owning page's own webview never
+// covers it; only OTHER pages stacked above need to mask it. A resize handle
+// straddles the item's corner, overlapping the page's own body, so the owning
+// page must mask it too — hence the two get different rules below.
+export const selectionRingSelector = ".selection-ring";
+export const resizeHandleSelector = ".resize-handle";
+
 /**
- * The mask selectors a page's webview should expose: every item stacked above it
- * in the shared z-order. (The page's own chrome sits in a host-DOM strip the
- * webview doesn't cover, so it needs no mask.)
+ * The mask selectors a page's webview should expose: every HOST-DOM thing
+ * stacked above it in the shared z-order — sticky bodies and the selected
+ * item's selection chrome — so the page paints (and clicks) through to them.
+ * A selection below this page is left out, so the page correctly occludes it.
  */
 export const pageMaskSelectors = (
   page: PageEntity,
   stickies: readonly StickyEntity[],
-): string[] =>
-  stickies.filter((s) => s.z > page.z).map((s) => itemSelector(s.id));
+  selected: Entity | null,
+): string[] => {
+  const selectors = stickies
+    .filter((s) => s.z > page.z)
+    .map((s) => itemSelector(s.id));
+  if (selected && selected.z > page.z && selected.id !== page.id) {
+    selectors.push(selectionRingSelector);
+  }
+  // The handle overlaps the page's own body, so the page masks it for its own
+  // selection too — not just for items stacked above.
+  if (selected && (selected.id === page.id || selected.z > page.z)) {
+    selectors.push(resizeHandleSelector);
+  }
+  return selectors;
+};
 
 /**
  * Reconcile a webview element's live mask set to `desired`, touching only what

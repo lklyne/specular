@@ -20,8 +20,11 @@ interface CanvasItemProps {
   zoom: number;
   selected: boolean;
   panActive: boolean;
+  dragging: boolean;
   onSelect: (id: string) => void;
+  onDragChange: (active: boolean) => void;
   onMove: (id: string, dx: number, dy: number) => void;
+  onResize: (id: string, dw: number, dh: number) => void;
   onStepZ: (id: string, dir: 1 | -1) => void;
   children: (live: boolean) => ReactNode;
 }
@@ -34,16 +37,29 @@ export function CanvasItem({
   zoom,
   selected,
   panActive,
+  dragging,
   onSelect,
+  onDragChange,
   onMove,
+  onResize,
   onStepZ,
   children,
 }: CanvasItemProps) {
-  const live = isLive(selected, panActive);
+  const live = isLive(selected, panActive, dragging);
+
+  const beginDrag = (e: ReactPointerEvent) => {
+    onDragChange(true);
+    startPointerDrag(
+      e,
+      zoom,
+      (dx, dy) => onMove(id, dx, dy),
+      () => onDragChange(false),
+    );
+  };
 
   const selectAndDrag = (e: ReactPointerEvent) => {
     onSelect(id);
-    startPointerDrag(e, zoom, (dx, dy) => onMove(id, dx, dy));
+    beginDrag(e);
   };
 
   return (
@@ -62,7 +78,7 @@ export function CanvasItem({
         onSelect(id);
         // While inert, a body drag moves the item. While live, the body owns
         // its own input (page scroll, text caret) and only the chrome moves it.
-        if (!live) startPointerDrag(e, zoom, (dx, dy) => onMove(id, dx, dy));
+        if (!live) beginDrag(e);
       }}
     >
       <div
@@ -84,6 +100,27 @@ export function CanvasItem({
         </span>
       </div>
       <div className="item-body">{children(live)}</div>
+      {/* Selection chrome: real elements (not a CSS outline) so each has its own
+          rect that pages can punch a mask hole for — see pageMaskSelectors.
+          Resizing a page changes its frame, which IS its viewport (breakpoints). */}
+      {selected && (
+        <>
+          <div className="selection-ring" />
+          <div
+            className="resize-handle"
+            onPointerDown={(e) => {
+              if (panActive) return;
+              onDragChange(true);
+              startPointerDrag(
+                e,
+                zoom,
+                (dx, dy) => onResize(id, dx, dy),
+                () => onDragChange(false),
+              );
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

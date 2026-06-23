@@ -10,11 +10,14 @@ interface CanvasProps {
   scene: Scene;
   selectedId: string | null;
   panActive: boolean;
+  dragging: boolean;
   overlayEnabled: boolean;
   onWheel: (e: WheelEvent) => void;
   onPanByScreen: (dx: number, dy: number) => void;
   onSelect: (id: string | null) => void;
+  onDragChange: (active: boolean) => void;
   onMove: (id: string, dx: number, dy: number) => void;
+  onResize: (id: string, dw: number, dh: number) => void;
   onStepZ: (id: string, dir: 1 | -1) => void;
   onEditSticky: (id: string, text: string) => void;
 }
@@ -74,8 +77,11 @@ export function Canvas(props: CanvasProps) {
             zoom={props.camera.zoom}
             selectedId={props.selectedId}
             panActive={props.panActive}
+            dragging={props.dragging}
             onSelect={props.onSelect}
+            onDragChange={props.onDragChange}
             onMove={props.onMove}
+            onResize={props.onResize}
             onStepZ={props.onStepZ}
             onEditSticky={props.onEditSticky}
           />

@@ -80,3 +80,23 @@ export const moveEntity = (scene: Scene, id: string, dx: number, dy: number): Sc
     e.id === id ? { ...e, frame: { ...e.frame, x: e.frame.x + dx, y: e.frame.y + dy } } : e;
   return { pages: scene.pages.map(shift), stickies: scene.stickies.map(shift) };
 };
+
+// Smallest a frame may shrink to. A page's frame width IS its viewport width
+// (at zoom 1), so resizing a page is how you drive it to a breakpoint.
+export const MIN_SIZE = { width: 120, height: 80 };
+
+/** Resize an entity from its top-left anchor (bottom-right-handle drag). */
+export const resizeEntity = (scene: Scene, id: string, dw: number, dh: number): Scene => {
+  const grow = <T extends Entity>(e: T): T =>
+    e.id === id
+      ? {
+          ...e,
+          frame: {
+            ...e.frame,
+            width: Math.max(MIN_SIZE.width, e.frame.width + dw),
+            height: Math.max(MIN_SIZE.height, e.frame.height + dh),
+          },
+        }
+      : e;
+  return { pages: scene.pages.map(grow), stickies: scene.stickies.map(grow) };
+};
