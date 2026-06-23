@@ -4,12 +4,10 @@
 // hooks and the canvas-pointer-router agree on shapes.
 import type {
   AspectRatioResizeMode,
-  EntityResizePatch,
   ResizeCorner,
   ResizeEdge,
 } from '../../shared/resize-accumulator'
 export type {
-  EntityResizePatch,
   ResizeCorner,
   ResizeEdge,
   AspectRatioResizeMode,
