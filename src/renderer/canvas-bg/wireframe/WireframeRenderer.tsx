@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { WireframeFile, WireframeThemeName, DropTarget } from './wireframe-types'
+import type { WireframeFile, WireframeThemeName, DropTarget } from '../../../shared/wireframe/wireframe-types'
 import { wireframeThemes } from './wireframe-themes'
 import { WireframeNodeRenderer } from './WireframeNodeRenderer'
 import {
+  findNodeById,
   reorderNode,
   updateNodeText,
   toggleNodeState,
-  findNodeById,
-  nodeHasEditableText,
-} from './wireframe-utils'
+} from '../../../shared/wireframe/wireframe-ops'
+import {
+  applyNodeAction,
+  type WireframeNodeAction,
+} from '../../../shared/wireframe/wireframe-node-actions'
+import {
+  EMPTY_WIREFRAME_SELECTION,
+  wireframeSelectionReducer,
+  type WireframeSelectionIntent,
+  type WireframeSelectionState,
+} from '../../../shared/wireframe/wireframe-selection'
 
 export const WIREFRAME_THEME_OPTIONS: { name: WireframeThemeName; color: string }[] = [
   { name: 'light', color: '#ffffff' },
@@ -16,16 +25,21 @@ export const WIREFRAME_THEME_OPTIONS: { name: WireframeThemeName; color: string 
   { name: 'blueprint', color: '#0f2744' },
 ]
 
+/** The selected node, flattened to its own props (no children) for the panel. */
+export type WireframeSelectedNode = { id: string; type: string } & Record<string, unknown>
+
 export function WireframeRenderer({
   content,
   canEdit,
   jsonMode = false,
   onContentChange,
+  onSelectionChange,
 }: {
   content: string
   canEdit: boolean
   jsonMode?: boolean
   onContentChange: (json: string) => void
+  onSelectionChange?: (node: WireframeSelectedNode | null) => void
 }) {
   const [wireframe, setWireframe] = useState<WireframeFile | null>(() => {
     try {
@@ -40,7 +54,12 @@ export function WireframeRenderer({
   // Drag state
   const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+
+  // Selection + edit state (ephemeral — never written to the Y.Doc).
+  const [selection, setSelection] = useState<WireframeSelectionState>(
+    EMPTY_WIREFRAME_SELECTION,
+  )
+  const { selectedNodeId, editingNodeId } = selection
 
   const pendingRef = useRef<{
     nodeId: string
@@ -50,6 +69,36 @@ export function WireframeRenderer({
   } | null>(null)
   const wireframeRef = useRef(wireframe)
   wireframeRef.current = wireframe
+
+  // Per-invocation counter so repeated duplicates get non-colliding fresh ids.
+  const dupSeqRef = useRef(0)
+
+  const dispatchSelection = useCallback((intent: WireframeSelectionIntent) => {
+    setSelection((prev) => wireframeSelectionReducer(prev, intent, wireframeRef.current))
+  }, [])
+
+  // Mirror the selected node (its own props, no children) to the panel so it can
+  // render per-node property editors (3.3). Re-fires when the props change — e.g.
+  // a panel edit round-trips back through `content` — so the editors stay live.
+  // De-duped against the last payload to avoid redundant IPC on unrelated renders.
+  const lastSelectionRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!onSelectionChange) return
+    let payload: WireframeSelectedNode | null = null
+    if (canEdit && selectedNodeId && wireframe?.root) {
+      const node = findNodeById(wireframe.root, selectedNodeId)
+      if (node) {
+        const { children: _children, ...rest } = node as WireframeSelectedNode & {
+          children?: unknown
+        }
+        payload = rest
+      }
+    }
+    const serialized = payload ? JSON.stringify(payload) : null
+    if (serialized === lastSelectionRef.current) return
+    lastSelectionRef.current = serialized
+    onSelectionChange(payload)
+  }, [canEdit, selectedNodeId, wireframe, onSelectionChange])
 
   // Sync external content changes (skip initial mount — already parsed in useState initializer)
   const isFirstRender = useRef(true)
@@ -68,14 +117,38 @@ export function WireframeRenderer({
     }
   }, [content])
 
-  // Clear edit state when edit mode is lost
+  // Clear selection/edit state when edit mode is lost
   useEffect(() => {
     if (!canEdit) {
-      setEditingNodeId(null)
+      setSelection(EMPTY_WIREFRAME_SELECTION)
       setDraggedNodeId(null)
       setDropTarget(null)
     }
   }, [canEdit])
+
+  // Enter promotes the selected node to edit; Esc steps out of edit, then clears.
+  // The inline edit <input> handles its own keys (and stops propagation), so this
+  // window listener only fires when not actively typing in a field.
+  useEffect(() => {
+    if (!canEdit) return
+    if (!selectedNodeId && !editingNodeId) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement
+      const tag = active?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'Enter') {
+        if (selectedNodeId && !editingNodeId) {
+          e.preventDefault()
+          dispatchSelection({ kind: 'request-edit', nodeId: selectedNodeId })
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        dispatchSelection({ kind: 'escape' })
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [canEdit, selectedNodeId, editingNodeId, dispatchSelection])
 
   const persist = useCallback(
     (wf: WireframeFile) => {
@@ -119,16 +192,10 @@ export function WireframeRenderer({
         window.removeEventListener('pointerup', handleUp)
 
         if (pendingRef.current) {
-          // It was a click — trigger edit if applicable
+          // It was a click — select the node (double-click / Enter edits text).
           const nid = pendingRef.current.nodeId
           pendingRef.current = null
-          const wf = wireframeRef.current
-          if (wf) {
-            const node = findNodeById(wf.root, nid)
-            if (node && nodeHasEditableText(node)) {
-              setEditingNodeId(nid)
-            }
-          }
+          dispatchSelection({ kind: 'select-node', nodeId: nid })
         } else {
           // End of drag
           setDraggedNodeId(null)
@@ -139,7 +206,7 @@ export function WireframeRenderer({
       window.addEventListener('pointermove', handleMove)
       window.addEventListener('pointerup', handleUp)
     },
-    [canEdit, editingNodeId],
+    [canEdit, editingNodeId, dispatchSelection],
   )
 
   // Commit drag reorder on mouseup when dragging
@@ -166,24 +233,27 @@ export function WireframeRenderer({
 
   // --- Edit handlers ---
 
-  const handleStartEdit = useCallback((nodeId: string) => {
-    setEditingNodeId(nodeId)
-  }, [])
+  const handleRequestEdit = useCallback(
+    (nodeId: string) => {
+      dispatchSelection({ kind: 'request-edit', nodeId })
+    },
+    [dispatchSelection],
+  )
 
   const handleCommitEdit = useCallback(
     (nodeId: string, value: string) => {
-      setEditingNodeId(null)
+      dispatchSelection({ kind: 'commit-edit' })
       if (!wireframe) return
       const updated = updateNodeText(wireframe, nodeId, value)
       setWireframe(updated)
       persist(updated)
     },
-    [wireframe, persist],
+    [wireframe, persist, dispatchSelection],
   )
 
   const handleCancelEdit = useCallback(() => {
-    setEditingNodeId(null)
-  }, [])
+    dispatchSelection({ kind: 'escape' })
+  }, [dispatchSelection])
 
   const handleToggleState = useCallback(
     (nodeId: string) => {
@@ -198,6 +268,42 @@ export function WireframeRenderer({
   const handleDropTargetChange = useCallback((target: DropTarget) => {
     setDropTarget(target)
   }, [])
+
+  // Delete / duplicate the selected node. Routes through the same persist path as
+  // reorder/text edits (one Y.Doc op per action), then re-points the selection:
+  // cleared after delete, moved onto the new copy after duplicate.
+  const handleNodeAction = useCallback(
+    (action: WireframeNodeAction) => {
+      const wf = wireframeRef.current
+      if (!wf) return
+      const seq = action === 'duplicate' ? (dupSeqRef.current += 1) : 0
+      const result = applyNodeAction(wf, action, selectedNodeId, seq)
+      if (!result) return
+      setWireframe(result.file)
+      persist(result.file)
+      setSelection({ selectedNodeId: result.nextSelectedNodeId, editingNodeId: null })
+    },
+    [selectedNodeId, persist],
+  )
+
+  // Keyboard affordances for the selected node. The inline edit <input> handles
+  // its own keys and stops propagation, so these only fire when not typing.
+  useEffect(() => {
+    if (!canEdit || !selectedNodeId || editingNodeId) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault()
+        handleNodeAction('delete')
+      } else if ((e.key === 'd' || e.key === 'D') && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handleNodeAction('duplicate')
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [canEdit, selectedNodeId, editingNodeId, handleNodeAction])
 
   // --- JSON mode ---
 
@@ -293,17 +399,25 @@ export function WireframeRenderer({
           )}
         </div>
       ) : (
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        <div
+          style={{ flex: 1, overflow: 'auto' }}
+          // Pointer events on nodes stopPropagation, so a pointerdown that reaches
+          // here landed on empty canvas — clear the selection.
+          onPointerDown={() => {
+            if (canEdit) dispatchSelection({ kind: 'select-background' })
+          }}
+        >
           <WireframeNodeRenderer
             node={wireframe.root}
             theme={theme}
             canEdit={canEdit}
             draggedNodeId={draggedNodeId}
             dropTarget={dropTarget}
+            selectedNodeId={selectedNodeId}
             editingNodeId={editingNodeId}
             onNodePointerDown={handleNodePointerDown}
             onDropTargetChange={handleDropTargetChange}
-            onStartEdit={handleStartEdit}
+            onRequestEdit={handleRequestEdit}
             onCommitEdit={handleCommitEdit}
             onCancelEdit={handleCancelEdit}
             onToggleState={handleToggleState}

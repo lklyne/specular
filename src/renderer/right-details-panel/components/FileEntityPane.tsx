@@ -1,5 +1,5 @@
 import { Copy, File, Trash2 } from 'lucide-react'
-import type { PanelFileEntityDetail } from '../../../shared/types'
+import type { PanelFileEntityDetail, WireframePanelSelection } from '../../../shared/types'
 import { paneDeleteBtnClass as deleteBtnClass, dividerClass, paneActionBtnClass as iconBtnClass, mutedClass } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { ImageFilePane } from './ImageFilePane'
@@ -81,9 +81,11 @@ function GenericFilePane({
 export function FileEntityPane({
   fileEntity,
   isDark,
+  wireframeSelection,
 }: {
   fileEntity: PanelFileEntityDetail
   isDark: boolean
+  wireframeSelection?: WireframePanelSelection
 }) {
   switch (fileEntity.fileType) {
     case 'image':
@@ -91,7 +93,13 @@ export function FileEntityPane({
     case 'markdown':
       return <MarkdownFilePane fileEntity={fileEntity} isDark={isDark} />
     case 'wireframe':
-      return <WireframeFilePane fileEntity={fileEntity} isDark={isDark} />
+      return (
+        <WireframeFilePane
+          fileEntity={fileEntity}
+          isDark={isDark}
+          wireframeSelection={wireframeSelection}
+        />
+      )
     case 'component':
       return <ComponentFilePane fileEntity={fileEntity} isDark={isDark} />
     case 'video':

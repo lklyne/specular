@@ -659,6 +659,10 @@ export function flushWorkspaceAutosave() {
   return post<{ ok: true }>('/test/workspace/flush-autosave')
 }
 
+export function reloadWorkspace() {
+  return post<{ ok: true }>('/test/workspace/reload')
+}
+
 export type DiskSnapshot = {
   exists: boolean
   meta: {
@@ -713,4 +717,115 @@ function getFileEntities() {
       canvasY: number
     }>
   }>('/file-entities')
+}
+
+// --- Wireframe content (3.0b, test-only) ---
+
+export type WireframeOpInput =
+  | { kind: 'insert'; parentId: string; index: number; node: Record<string, unknown> }
+  | { kind: 'delete'; nodeId: string }
+  | { kind: 'duplicate'; nodeId: string }
+  | { kind: 'reorder'; nodeId: string; targetParentId: string; targetIndex: number }
+  | { kind: 'setProps'; nodeId: string; patch: Record<string, unknown> }
+  | { kind: 'setText'; nodeId: string; value: string }
+  | { kind: 'toggle'; nodeId: string }
+  | { kind: 'replace'; content: string }
+
+export function createWireframeEntity(input: {
+  canvasX?: number
+  canvasY?: number
+  name?: string
+  content: string
+}) {
+  return post<{ id: string; file: string }>('/test/wireframe/create', input)
+}
+
+export async function applyWireframeOp(
+  id: string,
+  op: WireframeOpInput,
+): Promise<{ ok: boolean; content?: string; error?: string }> {
+  // Invalid ops return 4xx by contract (the CLI surfaces a legible error), so
+  // read the body directly rather than throwing on a non-2xx status.
+  const res = await fetch(`${baseUrl()}/test/wireframe/op`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ id, op }),
+  })
+  const data = (await res.json()) as { ok?: boolean; content?: string; error?: string }
+  if (res.ok) return { ok: true, content: data.content }
+  return { ok: false, error: data.error }
+}
+
+export function setWireframeContent(id: string, content: string) {
+  return post<{ ok: true }>('/test/wireframe/set-content', { id, content })
+}
+
+/** Insert a default node of `nodeType` into the entity's root frame (panel palette path, 3.2). */
+export async function insertWireframeNode(
+  id: string,
+  nodeType: string,
+): Promise<{ ok: boolean; content?: string; error?: string }> {
+  const res = await fetch(`${baseUrl()}/test/wireframe/insert-node`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ id, nodeType }),
+  })
+  const data = (await res.json()) as { ok?: boolean; content?: string; error?: string }
+  if (res.ok) return { ok: true, content: data.content }
+  return { ok: false, error: data.error }
+}
+
+export function getWireframeContent(id: string) {
+  return get<{ runtime: string | null; disk: string | null; file: string | null }>(
+    `/test/wireframe/content?id=${encodeURIComponent(id)}`,
+  )
+}
+
+/**
+ * Read the `wireframeContent` the inline renderer derives from — the field on the
+ * file entity in the canvas scene broadcast (3.5b). Asserting on this proves the
+ * broadcast carries the live content rather than the renderer re-fetching disk.
+ */
+export function getWireframeSceneContent(id: string) {
+  return get<{ content: string | null }>(
+    `/test/wireframe/scene-content?id=${encodeURIComponent(id)}`,
+  )
+}
+
+/**
+ * Write raw bytes straight to a wireframe entity's file, out-of-band (3.5) —
+ * bypassing the apply path and self-write registry, the way an external agent
+ * `Write` / git checkout does. The watcher should pick it up and import it.
+ */
+export function externalWriteWireframe(id: string, content: string) {
+  return post<{ ok: true; file: string }>('/test/wireframe/external-write', { id, content })
+}
+
+// --- Wireframe agent CLI route (3.4) — the production /wireframe/op endpoint ---
+
+/**
+ * Drive the production `/wireframe/op` route the `specular wireframe` CLI POSTs
+ * to. `target` is a file-entity id or path; `op` is the same op shape the CLI
+ * builds. Returns the body plus the HTTP status so tests can assert 4xx errors.
+ */
+export async function wireframeOp(
+  target: string,
+  op: WireframeOpInput,
+): Promise<{ ok: boolean; id?: string; content?: string; error?: string; status: number }> {
+  const res = await fetch(`${baseUrl()}/wireframe/op`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ target, op }),
+  })
+  const data = (await res.json()) as { ok?: boolean; id?: string; content?: string; error?: string }
+  if (res.ok) return { ok: true, id: data.id, content: data.content, status: res.status }
+  return { ok: false, error: data.error, status: res.status }
+}
+
+export function listFileEntities() {
+  return getFileEntities()
+}
+
+export function deleteFileEntities(ids: string[]) {
+  return post<{ deleted: string[] }>('/file-entities/delete', { ids })
 }

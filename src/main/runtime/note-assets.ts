@@ -3,7 +3,12 @@ import { join } from 'path'
 import { app } from 'electron'
 import { DEFAULT_WORKSPACE_ID } from './workspace-persistence'
 
-function workspaceNoteDir(): string {
+/**
+ * Absolute path to the workspace note directory (where `.md` and
+ * `.wireframe.json` assets live). Exported so the wireframe watcher (3.5) can
+ * observe external edits to those files.
+ */
+export function workspaceNoteDir(): string {
   const dir = join(app.getPath('userData'), 'workspaces', DEFAULT_WORKSPACE_ID)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
@@ -27,6 +32,27 @@ export function createNoteFile(name?: string, initialContent?: string): string {
   let counter = 2
   while (existsSync(filePath)) {
     fileName = `${baseName} ${counter}.md`
+    filePath = join(dir, fileName)
+    counter++
+  }
+
+  writeFileSync(filePath, initialContent ?? '', 'utf8')
+  return filePath
+}
+
+/**
+ * Create a new `.wireframe.json` file in the workspace directory.
+ * Returns the absolute file path.
+ */
+export function createWireframeFile(name?: string, initialContent?: string): string {
+  const dir = workspaceNoteDir()
+  const baseName = sanitizeNoteName(name ?? 'Untitled Wireframe')
+  let fileName = `${baseName}.wireframe.json`
+  let filePath = join(dir, fileName)
+
+  let counter = 2
+  while (existsSync(filePath)) {
+    fileName = `${baseName} ${counter}.wireframe.json`
     filePath = join(dir, fileName)
     counter++
   }

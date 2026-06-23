@@ -77,7 +77,11 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
 
       case 'file':
         return panelData.fileEntity ? (
-          <FileEntityPane fileEntity={panelData.fileEntity} isDark={isDark} />
+          <FileEntityPane
+            fileEntity={panelData.fileEntity}
+            isDark={isDark}
+            wireframeSelection={panelData.wireframeSelection}
+          />
         ) : null
 
       case 'drawing':

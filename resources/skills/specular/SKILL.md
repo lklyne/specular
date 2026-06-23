@@ -155,7 +155,16 @@ cat << 'EOF' | specular upsert --json
 EOF
 ```
 
-See [references/wireframes.md](references/wireframes.md) for the full node schema, layout patterns, and examples.
+Edit a wireframe's tree node-by-node with `specular wireframe <fileId|path> <verb>`
+(`insert` / `delete` / `duplicate` / `reorder` / `set`). Each op is one undoable
+change that projects back to disk — the same structural ops the canvas uses:
+
+```bash
+specular wireframe /tmp/my-layout.wireframe.json insert root 0 button
+specular wireframe /tmp/my-layout.wireframe.json set title text "Welcome"
+```
+
+See [references/wireframes.md](references/wireframes.md) for the full node schema, the CLI verb reference, layout patterns, and examples.
 
 ### HTML pages
 

@@ -8,6 +8,7 @@
  */
 
 import { writeJson } from './http-helpers'
+import { writeFileSync } from 'fs'
 import { app } from 'electron'
 import {
   peek as peekInteractionMode,
@@ -63,6 +64,21 @@ import type { MultiResizeEntry } from '../runtime/document-commands'
 import { currentCanvasGuides } from '../runtime/canvas-guides'
 import { currentEntityOrder, reorderSidebarStackOrder } from '../runtime/entity-order-state'
 import type { SidebarSectionKey } from '../../shared/types'
+import { createFileEntity } from '../runtime/document-commands'
+import { createWireframeFile, readNoteFile } from '../runtime/note-assets'
+import {
+  commitWireframeContent,
+  commitWireframeInsertNode,
+  commitWireframeOp,
+} from '../runtime/wireframe-commands'
+import type { WireframePaletteType } from '../../shared/wireframe/wireframe-node-factory'
+import {
+  ensureWireframeBaseline,
+  getWireframeContent,
+  type WireframeOp,
+} from '../runtime/wireframe-content-state'
+import { fileEntities } from '../runtime/file-entity-state'
+import { getCanvasLayoutData } from '../runtime/canvas-layout-data'
 
 // --- Y.Doc transaction counter (test-only) ---
 // Counts afterTransaction events for the active doc between start/stop calls.
@@ -468,6 +484,22 @@ export const testRoutes: Route[] = [
     },
   },
 
+  // --- Reload the workspace from disk (round-trip persistence checks) ---
+  {
+    method: 'POST',
+    pattern: '/test/workspace/reload',
+    async handler({ response }) {
+      flushWorkspaceAutosaveSync()
+      const record = loadWorkspace()
+      if (!record || !restorePersistedWorkspace(record)) {
+        writeJson(response, 500, { error: 'failed to reload workspace from disk' })
+        return
+      }
+      requestLayout()
+      writeJson(response, 200, { ok: true })
+    },
+  },
+
   // --- Autosave + persistence inspection ---
   {
     method: 'POST',
@@ -504,6 +536,128 @@ export const testRoutes: Route[] = [
         filePath,
         doc,
       })
+    },
+  },
+
+  // --- Wireframe content (3.0b: Y.Doc-backed, projected to .wireframe.json) ---
+  {
+    method: 'POST',
+    pattern: '/test/wireframe/create',
+    async handler({ response, body }) {
+      const payload = body as { canvasX?: number; canvasY?: number; name?: string; content: string }
+      if (typeof payload.content !== 'string') {
+        writeJson(response, 400, { error: 'content is required' })
+        return
+      }
+      const filePath = createWireframeFile(payload.name, payload.content)
+      const entity = createFileEntity({
+        canvasX: payload.canvasX ?? 0,
+        canvasY: payload.canvasY ?? 0,
+        file: filePath,
+        width: 400,
+        height: 400,
+      })
+      // Seed the Y.Doc baseline so the first edit is a single (undoable) step.
+      ensureWireframeBaseline(entity.id)
+      writeJson(response, 200, { id: entity.id, file: filePath })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/wireframe/op',
+    async handler({ response, body }) {
+      const payload = body as { id: string; op: WireframeOp }
+      if (typeof payload.id !== 'string' || !payload.op) {
+        writeJson(response, 400, { error: 'id and op are required' })
+        return
+      }
+      const result = commitWireframeOp(payload.id, payload.op)
+      if (!result.ok) {
+        writeJson(response, 400, { error: result.error })
+        return
+      }
+      writeJson(response, 200, { ok: true, content: result.content })
+    },
+  },
+  {
+    method: 'POST',
+    // Mirrors the panel insert-palette path (3.2): build + insert a default node
+    // of `nodeType` into the entity's root frame as one undoable Y.Doc op.
+    pattern: '/test/wireframe/insert-node',
+    async handler({ response, body }) {
+      const payload = body as { id: string; nodeType: string }
+      if (typeof payload.id !== 'string' || typeof payload.nodeType !== 'string') {
+        writeJson(response, 400, { error: 'id and nodeType are required' })
+        return
+      }
+      const result = commitWireframeInsertNode(
+        payload.id,
+        payload.nodeType as WireframePaletteType,
+      )
+      if (!result.ok) {
+        writeJson(response, 400, { error: result.error })
+        return
+      }
+      writeJson(response, 200, { ok: true, content: result.content })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/test/wireframe/set-content',
+    async handler({ response, body }) {
+      const payload = body as { id: string; content: string }
+      if (typeof payload.id !== 'string' || typeof payload.content !== 'string') {
+        writeJson(response, 400, { error: 'id and content are required' })
+        return
+      }
+      commitWireframeContent(payload.id, payload.content)
+      writeJson(response, 200, { ok: true })
+    },
+  },
+  {
+    method: 'POST',
+    // Out-of-band edit (3.5): write raw bytes straight to the entity's file,
+    // bypassing the apply path and the self-write registry — exactly what an
+    // external agent `Write` / git checkout does. The watcher should import it.
+    pattern: '/test/wireframe/external-write',
+    async handler({ response, body }) {
+      const payload = body as { id?: string; content?: string }
+      const entity = fileEntities.find((e) => e.id === payload?.id)
+      if (!entity || typeof payload?.content !== 'string') {
+        writeJson(response, 400, { error: 'id (existing entity) and content are required' })
+        return
+      }
+      writeFileSync(entity.file, payload.content, 'utf8')
+      writeJson(response, 200, { ok: true, file: entity.file })
+    },
+  },
+  {
+    method: 'GET',
+    // RegExp so the `?id=` query is tolerated (string patterns match the raw
+    // URL exactly, query included).
+    pattern: /^\/test\/wireframe\/content(?:\?|$)/,
+    async handler({ request, response }) {
+      const url = new URL(request.url ?? '/', 'http://x')
+      const id = url.searchParams.get('id') ?? ''
+      const runtime = getWireframeContent(id)
+      const entity = fileEntities.find((e) => e.id === id)
+      const disk = entity ? readNoteFile(entity.file) : null
+      writeJson(response, 200, { runtime, disk, file: entity?.file ?? null })
+    },
+  },
+  {
+    method: 'GET',
+    // 3.5b: the content the inline renderer derives from — the `wireframeContent`
+    // field on the file entity in the canvas scene broadcast. Reading it here lets
+    // a smoke test assert the broadcast (not a file re-fetch) drives the update.
+    pattern: /^\/test\/wireframe\/scene-content(?:\?|$)/,
+    async handler({ request, response }) {
+      const url = new URL(request.url ?? '/', 'http://x')
+      const id = url.searchParams.get('id') ?? ''
+      const scene = getCanvasLayoutData()
+      const entity = scene.entities.find((e) => e.kind === 'file' && e.id === id)
+      const content = entity && entity.kind === 'file' ? (entity.wireframeContent ?? null) : null
+      writeJson(response, 200, { content })
     },
   },
 

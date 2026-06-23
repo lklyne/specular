@@ -6,7 +6,9 @@ import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
 import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
-import { setPendingFocus } from '../runtime/runtime-context'
+import { setPendingFocus, setWireframePanelSelection } from '../runtime/runtime-context'
+import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
+import type { WireframePanelSelection } from '../../shared/types'
 import { executeRegionSelect } from '../runtime/region-select'
 import { queryElementAtPoint } from '../runtime/page-queries'
 import {
@@ -57,6 +59,12 @@ import {
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
+import {
+  commitWireframeContent,
+  commitWireframeInsertNode,
+  commitWireframeOp,
+} from '../runtime/wireframe-commands'
+import type { WireframePaletteType } from '../../shared/wireframe/wireframe-node-factory'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -732,6 +740,40 @@ export function registerCanvasEntityIpc(): void {
     duplicateEntity({ entityId: id, focus: true })
   })
 
+  // Insert palette (3.2): insert a default node into a wireframe's root frame as
+  // one undoable Y.Doc op. The commit marks the canvas dirty, so the inline
+  // renderer picks up the new tree from the next scene broadcast (3.5b).
+  ipcMain.on(
+    'canvas-insert-wireframe-node',
+    (_event, { entityId, nodeType }: { entityId: string; nodeType: string }) => {
+      commitWireframeInsertNode(entityId, nodeType as WireframePaletteType)
+    },
+  )
+
+  // Per-node property editing (3.3): the panel selected-node editors patch one
+  // node's props as a single undoable `setProps` op. The commit broadcasts the
+  // canvas scene, so the inline renderer re-renders from it (3.5b).
+  ipcMain.on(
+    'canvas-update-wireframe-node-props',
+    (
+      _event,
+      { entityId, nodeId, patch }: { entityId: string; nodeId: string; patch: Record<string, unknown> },
+    ) => {
+      commitWireframeOp(entityId, { kind: 'setProps', nodeId, patch })
+    },
+  )
+
+  // Mirror the canvas's selected wireframe node into the panel (3.3) so it can
+  // render the per-node editors. Ephemeral — stored in runtime state, never the
+  // Y.Doc — then re-broadcast in the panel data.
+  ipcMain.on(
+    'canvas-set-wireframe-selection',
+    (_event, { entityId, node }: WireframePanelSelection | { entityId: string; node: null }) => {
+      setWireframePanelSelection(node ? { entityId, node } : null)
+      notifyDevtoolsPanelData()
+    },
+  )
+
   ipcMain.on(
     'canvas-set-file-device-orientation',
     (_event, { fileId, orientation }: { fileId: string; orientation: string }) => {
@@ -763,6 +805,16 @@ export function registerCanvasEntityIpc(): void {
     writeNoteFile(filePath, content)
     return true
   })
+
+  // Wireframe write path (3.0b): edits route up as a Y.Doc op, not a direct
+  // disk write, so they undo/redo and project to disk like any workspace state.
+  ipcMain.handle(
+    'apply-wireframe-content',
+    (_event, { entityId, content }: { entityId: string; content: string }) => {
+      commitWireframeContent(entityId, content)
+      return true
+    },
+  )
 
   ipcMain.handle('rename-note-file', (_event, { filePath, newName }: { filePath: string; newName: string }) => {
     const newPath = renameNoteFile(filePath, newName)

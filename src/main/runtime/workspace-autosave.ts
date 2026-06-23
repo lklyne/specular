@@ -22,6 +22,7 @@ import {
   writeWorkspaceMetaSync,
 } from './workspace-persistence'
 import { buildPersistedWorkspaceRecord } from './workspace-tabs'
+import { projectWireframeContentsToDisk } from './wireframe-content-state'
 
 function shouldPersistWorkspace(): boolean {
   return (
@@ -65,6 +66,9 @@ export function saveWorkspaceStore(): void {
     const record = buildPersistedWorkspaceRecord()
     const userDataPath = app.getPath('userData')
     writeAllTabsAsCanvasFiles(userDataPath, record.id, record.tabs)
+    // Project wireframe content (Y.Doc-backed) to its .wireframe.json files on
+    // the same debounce. Self-write hashes let the 3.5 watcher ignore these.
+    projectWireframeContentsToDisk()
     writeWorkspaceMetaSync(userDataPath, record.id, {
       activeTabId: record.activeTabId,
       viewMode: record.viewMode,

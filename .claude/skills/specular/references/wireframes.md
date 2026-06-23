@@ -181,9 +181,48 @@ Flexible space — pushes siblings apart (like CSS `flex: 1`).
 }
 ```
 
+## Editing wireframes from the CLI
+
+`specular wireframe` edits a wireframe's tree node-by-node, applying the same
+structural ops the canvas uses. Each command is one undoable change that projects
+back to the `.wireframe.json` file — so an agent edit and a canvas edit are
+interchangeable, and undo on the canvas reverts either.
+
+Target a wireframe by its file-entity id (from `specular workspace`) or by the
+path you wrote to disk:
+
+```bash
+# Insert a default node of <nodeType> as a child of <parentId> at <index>
+specular wireframe <fileId|path> insert <parentId> <index> <nodeType>
+# …or insert a fully-specified node (must include a unique "id")
+specular wireframe <fileId|path> insert <parentId> <index> --node '{"id":"cta","type":"button","text":"Buy","variant":"primary"}'
+
+# Remove a subtree
+specular wireframe <fileId|path> delete <nodeId>
+
+# Clone a subtree (fresh ids) right after the original
+specular wireframe <fileId|path> duplicate <nodeId>
+
+# Move a node under a target frame at an index
+specular wireframe <fileId|path> reorder <nodeId> <targetParentId> <targetIndex>
+
+# Set properties on a node (key/value pairs, or --props for arrays/objects)
+specular wireframe <fileId|path> set <nodeId> text "Sign up" variant primary
+specular wireframe <fileId|path> set <nodeId> --props '{"options":["A","B"],"label":"Plan"}'
+```
+
+`set` values are coerced: `true`/`false` → boolean, numeric strings → number,
+everything else → string (so `set frame gap 8` sets `8`, `set frame width fill`
+sets `"fill"`). Use `--props` when a value must stay a string despite looking
+numeric, or for arrays/objects like `options`/`padding`.
+
+Only the props legal for a node type may be set (see each node type above). The
+command fails with a legible error on an unknown node id, an illegal prop, or a
+non-frame insert/reorder target — nothing is written when it fails.
+
 ## Interactive features
 
-Wireframes on the canvas are interactive:
+Wireframes on the canvas are also interactive:
 
 - **Text** — click to edit inline
 - **Checkboxes/Toggles** — click to toggle state

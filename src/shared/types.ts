@@ -223,6 +223,13 @@ export interface CanvasSceneFileEntity {
    * to re-pick the folder.
    */
   componentInferredRepoPath?: string
+  /**
+   * For wireframe file entities (3.5b): the canonical `.wireframe.json` content,
+   * resolved from the Y.Doc-backed runtime mirror. The inline renderer derives
+   * its tree from this field instead of re-fetching the file — "renderer state
+   * is derived from broadcasts, never authoritative."
+   */
+  wireframeContent?: string
   /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
@@ -898,6 +905,18 @@ export interface PanelMultiEntitySummary {
   label: string
 }
 
+/**
+ * The wireframe node currently selected on the canvas, broadcast to the panel so
+ * it can render per-node property editors (plan 3.3). `node` carries the node's
+ * own props inline (id/type plus direction/gap/variant/level/…); the panel reads
+ * current values off it and sends `setProps` patches back. Cleared (absent) when
+ * no node is selected.
+ */
+export interface WireframePanelSelection {
+  entityId: string
+  node: { id: string; type: string } & Record<string, unknown>
+}
+
 export interface DevtoolsPanelData {
   activeTab: DevtoolsPanelTab
   panelMode: PanelMode
@@ -920,6 +939,7 @@ export interface DevtoolsPanelData {
   edgeEntity?: PanelEdgeEntityDetail
   groupEntity?: PanelGroupEntityDetail
   multiEntities?: PanelMultiEntitySummary[]
+  wireframeSelection?: WireframePanelSelection
   emptyState?: {
     kind: 'mcp_setup'
     serverName: string
@@ -1898,6 +1918,22 @@ export interface CanvasBgElectronAPI {
   ) => () => void
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
+  /**
+   * Wireframe write path (3.0b) — route a wireframe entity's full content up as
+   * a Y.Doc op (undoable, projected to disk) instead of writing the file
+   * directly. The renderer keeps reading the projected `.wireframe.json`.
+   */
+  applyWireframeContent: (entityId: string, content: string) => Promise<boolean>
+  /**
+   * Mirror the canvas's selected wireframe node to the panel (plan 3.3), so it
+   * can render per-node property editors. `node` carries the node's props inline;
+   * pass `null` to clear. Fire-and-forget — main stores it and re-broadcasts the
+   * panel data.
+   */
+  setWireframeSelection: (
+    entityId: string,
+    node: ({ id: string; type: string } & Record<string, unknown>) | null,
+  ) => void
   renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   /**
    * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
@@ -2070,6 +2106,21 @@ export interface DevtoolsPanelElectronAPI {
   updateFileEntity: (id: string, patch: { objectFit?: FileObjectFit }) => void
   duplicateFileEntity: (id: string) => void
   deleteFileEntity: (id: string) => void
+  /**
+   * Insert a default node of `nodeType` into a wireframe entity's root frame
+   * (3.2 — the insert palette). Applied in main as one Y.Doc op (undoable).
+   */
+  insertWireframeNode: (entityId: string, nodeType: string) => void
+  /**
+   * Patch the props of a single wireframe node (plan 3.3 — the panel property
+   * editors). Applied in main as one `setProps` Y.Doc op (undoable); an illegal
+   * prop for the node type is rejected there.
+   */
+  updateWireframeNodeProps: (
+    entityId: string,
+    nodeId: string,
+    patch: Record<string, unknown>,
+  ) => void
   setFilePreset: (fileId: string, presetIndex: number) => void
   setFileCustom: (fileId: string) => void
   setFileDeviceOrientation: (fileId: string, orientation: string) => void

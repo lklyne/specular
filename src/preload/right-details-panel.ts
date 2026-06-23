@@ -51,6 +51,13 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('canvas-duplicate-file-entity', { id }),
   deleteFileEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-file-entity', { id }),
+  insertWireframeNode: (entityId: string, nodeType: string) =>
+    ipcRenderer.send('canvas-insert-wireframe-node', { entityId, nodeType }),
+  updateWireframeNodeProps: (
+    entityId: string,
+    nodeId: string,
+    patch: Record<string, unknown>,
+  ) => ipcRenderer.send('canvas-update-wireframe-node-props', { entityId, nodeId, patch }),
   setFilePreset: (fileId: string, presetIndex: number) =>
     ipcRenderer.send('right-details-panel-set-file-preset', { fileId, presetIndex }),
   setFileCustom: (fileId: string) =>
