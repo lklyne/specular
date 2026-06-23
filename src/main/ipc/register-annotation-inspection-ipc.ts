@@ -29,6 +29,7 @@ import {
 } from '../runtime/ui-actions'
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
+import { markDirty } from '../runtime/layout-dirty'
 
 type ComponentPropOverridePayload = {
   pageId: string
@@ -137,12 +138,16 @@ export function registerAnnotationInspectionIpc(): void {
     if (!page) return
     if (!payload || typeof payload !== 'object') {
       setHoveredInspectTarget(null)
+      markDirty('canvas')
+      requestLayout()
       return
     }
     setHoveredInspectTarget({
       ...payload,
       pageId: page.id,
     })
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on('inspect-node-select', (event, payload) => {
@@ -158,6 +163,8 @@ export function registerAnnotationInspectionIpc(): void {
       ...payload,
       pageId: page.id,
     })
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on('inspect-node-detail-update', (event, payload) => {

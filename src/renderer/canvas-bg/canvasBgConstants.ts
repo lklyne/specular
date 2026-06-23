@@ -29,6 +29,7 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   activeTool: { kind: 'select' },
   toolDefaults: DEFAULT_TOOL_DEFAULTS,
   annotations: [],
+  inspect: null,
   fixProgress: {},
   viewMode: 'canvas',
   activeBrowserTabId: null,

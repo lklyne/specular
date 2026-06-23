@@ -452,6 +452,7 @@ export interface LayoutUpdateData {
   /** Per-tool persistent defaults (ADR 0008 §9). Tool-mode popup reads/writes. */
   toolDefaults: import('./tool-defaults').ToolDefaults
   annotations: Annotation[]
+  inspect: InspectPanelState | null
   fixProgress: Record<string, FixProgressEntry>
   viewMode: WorkspaceViewMode
   activeBrowserTabId: string | null

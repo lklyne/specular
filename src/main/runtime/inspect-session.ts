@@ -173,7 +173,7 @@ function flattenTree(
   }
 }
 
-function buildInspectPanelState(): InspectPanelState {
+export function buildInspectPanelState(): InspectPanelState {
   const pageId = getActiveInspectPageId()
   const page = pageId ? findPageById(pageId) : undefined
   const roots: string[] = []

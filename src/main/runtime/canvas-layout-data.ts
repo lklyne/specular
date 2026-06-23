@@ -27,6 +27,7 @@ import {
   leftSidebarView,
   win,
 } from './view-refs'
+import { buildInspectPanelState } from './inspect-session'
 import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
 import {
@@ -422,6 +423,7 @@ export function buildCanvasLayoutData(
     activeTool: tool,
     toolDefaults: getToolDefaults(),
     annotations: [...workspaceAnnotations],
+    inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),
     viewMode,
     activeBrowserTabId:

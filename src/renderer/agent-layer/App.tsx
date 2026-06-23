@@ -4,7 +4,9 @@ import type {
   CanvasScenePageEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import { agentOverlayClipPath } from '../../shared/agent-overlay-clip'
 import { AgentCursorLayer } from '../canvas-bg/AgentCursorLayer'
+import { InspectPopoverLayer } from './InspectPopoverLayer'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -17,14 +19,10 @@ export default function App({
 
   useEffect(() => api.onLayoutUpdate(setLayoutData), [])
 
-  const clipTop = layoutData.canvasOrigin.y
-  const clipLeft = layoutData.leftChromeWidth
-  const clipRight = layoutData.devtoolsOpen ? layoutData.devtoolsWidth : 0
-
   return (
     <div
       className="pointer-events-none fixed inset-0 overflow-hidden bg-transparent"
-      style={{ clipPath: `inset(${clipTop}px ${clipRight}px 0 ${clipLeft}px)` }}
+      style={{ clipPath: agentOverlayClipPath(layoutData) }}
     >
       <AgentCursorLayer
         cursors={layoutData.presenceCursors}
@@ -36,6 +34,7 @@ export default function App({
         zoom={layoutData.zoom}
         overlayOffsetY={layoutData.canvasOrigin.y}
       />
+      <InspectPopoverLayer layoutData={layoutData} />
     </div>
   )
 }

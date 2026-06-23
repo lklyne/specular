@@ -44,7 +44,7 @@ import {
   type AspectRatioResizeMode,
   type ResizeConfig,
 } from '../../shared/resize-accumulator'
-import { scaleStrokes } from '../../shared/scale-strokes'
+import { scaleStrokesToBounds } from '../../shared/scale-strokes'
 import {
   applyMultiHandleDelta,
   computeMultiSelectionBbox,
@@ -662,21 +662,28 @@ function runResize(
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
 
-  // For drawing entities, augment each patch with strokes scaled from the
-  // initial snapshot so stroke geometry tracks the bounds change in real time.
-  // Scale is computed from rounded patch dimensions vs. initial entity dimensions
-  // so both bounds and strokes stay consistent on every tick.
+  // For drawing entities, augment each patch with strokes transformed from the
+  // initial bounds so absolute canvas-space stroke geometry tracks the resized
+  // selection box in real time.
   const effectiveDispatch = entity.kind === 'drawing'
     ? (() => {
         const initialStrokes = entity.strokes
-        const initialWidth = entity.width
-        const initialHeight = entity.height
+        const initialBounds = {
+          canvasX: entity.canvasX,
+          canvasY: entity.canvasY,
+          width: entity.width,
+          height: entity.height,
+        }
         return (patch: { width: number; height: number; canvasX?: number; canvasY?: number }) => {
-          const sX = initialWidth > 0 ? patch.width / initialWidth : 1
-          const sY = initialHeight > 0 ? patch.height / initialHeight : 1
+          const nextBounds = {
+            canvasX: patch.canvasX ?? initialBounds.canvasX,
+            canvasY: patch.canvasY ?? initialBounds.canvasY,
+            width: patch.width,
+            height: patch.height,
+          }
           api.updateDrawingEntity(action.entityId, {
             ...patch,
-            strokes: scaleStrokes(initialStrokes, sX, sY),
+            strokes: scaleStrokesToBounds(initialStrokes, initialBounds, nextBounds),
           })
         }
       })()

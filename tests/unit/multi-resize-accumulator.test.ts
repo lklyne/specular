@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CanvasSceneEntity } from '../../src/shared/types'
+import type { AnnotationDrawingStroke, CanvasSceneEntity } from '../../src/shared/types'
 import {
   applyMultiHandleDelta,
   computeMultiSelectionBbox,
@@ -32,6 +32,13 @@ function entity(
     shape: 'rectangle',
     text: '',
   } as unknown as CanvasSceneEntity
+}
+
+function stroke(
+  id: string,
+  points: { x: number; y: number }[],
+): AnnotationDrawingStroke {
+  return { id, color: '#000', width: 2, points }
 }
 
 function fresh(): MultiResizeAccumulator {
@@ -128,6 +135,29 @@ describe('multi-resize-accumulator', () => {
       const acc = fresh()
       applyMultiHandleDelta(acc, 'se', { screenDx: 100, screenDy: 0, zoom: 2 })
       expect(acc.accW).toBe(250)
+    })
+
+    it('resizes drawing strokes from their entity bounds instead of canvas origin', () => {
+      const acc = startMultiResize({
+        bbox: { x: 100, y: 200, width: 200, height: 100 },
+        entities: [
+          {
+            id: 'drawing-a',
+            kind: 'drawing',
+            canvasX: 100,
+            canvasY: 200,
+            width: 100,
+            height: 100,
+            strokes: [stroke('ink', [{ x: 110, y: 220 }, { x: 190, y: 260 }])],
+          },
+          { id: 'shape-b', kind: 'shape', canvasX: 200, canvasY: 200, width: 100, height: 100 },
+        ],
+      })
+
+      const [drawing] = applyMultiHandleDelta(acc, 'se', { screenDx: 200, screenDy: 100, zoom: 1 })
+
+      expect(drawing).toMatchObject({ canvasX: 100, canvasY: 200, width: 200, height: 200 })
+      expect(drawing.strokes?.[0].points).toEqual([{ x: 120, y: 240 }, { x: 280, y: 320 }])
     })
   })
 
