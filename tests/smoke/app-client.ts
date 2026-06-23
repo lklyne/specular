@@ -98,6 +98,23 @@ export function getWorkspace() {
   return get<{ entities: { id: string; kind: string }[]; edges: unknown[]; selection: unknown; camera: unknown }>('/workspace')
 }
 
+// --- Canvas document (ADR 0019) ---
+
+export function getCanvas() {
+  return get<JsonCanvasDocument>('/canvas')
+}
+
+export function applyCanvas(patch: {
+  entities?: Array<Record<string, unknown>>
+  edges?: Array<Record<string, unknown>>
+  delete?: string[]
+}) {
+  return post<{ created: string[]; updated: string[]; deleted: string[]; edges: string[] }>(
+    '/canvas/apply',
+    patch,
+  )
+}
+
 export function getSidebar() {
   type SidebarItem = {
     kind: 'page' | 'text' | 'file' | 'group' | 'drawing' | 'shape'

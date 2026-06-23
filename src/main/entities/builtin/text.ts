@@ -9,6 +9,7 @@
 import type { PersistedTextEntity, TextEntityStyle, TextWidthMode } from '../../../shared/types'
 import {
   createTextEntity,
+  deleteTextEntity,
   updateTextEntity,
 } from '../../runtime/document-commands'
 import { serializeTextToTextNode } from '../../runtime/json-canvas-serializer'
@@ -45,6 +46,10 @@ export const textKind: EntityKindDefinition<'text'> = {
       canvasX: patch.canvasX as number | undefined,
       canvasY: patch.canvasY as number | undefined,
     })
+  },
+
+  delete(id) {
+    return deleteTextEntity(id)
   },
 
   serialize(entity) {
