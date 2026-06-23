@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { ArrowRight, Trash2 } from 'lucide-react'
 import type { EdgeEnd, EdgeSide, PanelEdgeEntityDetail } from '../../../shared/types'
-import { dividerClass, mutedClass, paneDeleteBtnClass } from '../rightDetailsPanelHelpers'
+import { mutedClass, paneDeleteBtnClass } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
+import { usePaneTheme } from '../PaneContext'
+import { PaneField, PaneSection } from './PaneSection'
 import { ColorSwatchPicker } from './ColorSwatchPicker'
 import { PaneHeader } from './PaneHeader'
 
@@ -48,16 +50,9 @@ function SelectField({
   )
 }
 
-export function EdgeEntityPane({
-  edgeEntity,
-  isDark,
-}: {
-  edgeEntity: PanelEdgeEntityDetail
-  isDark: boolean
-}) {
+export function EdgeEntityPane({ edgeEntity }: { edgeEntity: PanelEdgeEntityDetail }) {
+  const isDark = usePaneTheme()
   const muted = mutedClass(isDark)
-  const divider = dividerClass(isDark)
-  const deleteBtnClass = paneDeleteBtnClass(isDark)
 
   const [labelDraft, setLabelDraft] = useState<string | null>(null)
   const labelValue = labelDraft ?? edgeEntity.label ?? ''
@@ -72,7 +67,7 @@ export function EdgeEntityPane({
             <span className={`text-[10px] ${muted}`}>{edgeEntity.kind.replace('_', ' ')}</span>
             <button
               type="button"
-              className={deleteBtnClass}
+              className={paneDeleteBtnClass(isDark)}
               onClick={() => rightDetailsPanelApi.deleteEdge(edgeEntity.id)}
               title="Delete"
               aria-label="Delete Edge"
@@ -83,7 +78,7 @@ export function EdgeEntityPane({
         }
       />
 
-      <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
+      <PaneSection.Root>
         <ColorSwatchPicker
           activeColor={edgeEntity.color}
           allowNone
@@ -91,10 +86,9 @@ export function EdgeEntityPane({
           palette="vivid"
           onSelectColor={(color) => rightDetailsPanelApi.updateEdge(edgeEntity.id, { color })}
         />
-      </div>
+      </PaneSection.Root>
 
-      <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
-        <div className={`mb-1 text-[10px] font-medium ${muted}`}>Label</div>
+      <PaneField label="Label">
         <input
           type="text"
           className={`w-full rounded px-2 py-1 text-[11px] ${
@@ -117,9 +111,9 @@ export function EdgeEntityPane({
             }
           }}
         />
-      </div>
+      </PaneField>
 
-      <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
+      <PaneSection.Root>
         <div className="flex flex-col gap-2">
           <div>
             <div className={`mb-0.5 text-[10px] font-medium ${muted}`}>From</div>
@@ -130,10 +124,10 @@ export function EdgeEntityPane({
             <div className="text-[11px]">{edgeEntity.toLabel}</div>
           </div>
         </div>
-      </div>
+      </PaneSection.Root>
 
-      <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
-        <div className={`mb-1.5 text-[10px] font-medium ${muted}`}>Endpoints</div>
+      <PaneSection.Root>
+        <PaneSection.Label>Endpoints</PaneSection.Label>
         <div className="flex flex-col gap-1.5">
           <SelectField
             label="Start"
@@ -150,10 +144,10 @@ export function EdgeEntityPane({
             isDark={isDark}
           />
         </div>
-      </div>
+      </PaneSection.Root>
 
-      <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
-        <div className={`mb-1.5 text-[10px] font-medium ${muted}`}>Sides</div>
+      <PaneSection.Root>
+        <PaneSection.Label>Sides</PaneSection.Label>
         <div className="flex flex-col gap-1.5">
           <SelectField
             label="From side"
@@ -170,7 +164,7 @@ export function EdgeEntityPane({
             isDark={isDark}
           />
         </div>
-      </div>
+      </PaneSection.Root>
     </div>
   )
 }
