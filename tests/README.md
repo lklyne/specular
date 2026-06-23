@@ -33,7 +33,7 @@ Default to **unit** when the behavior is pure. Reach for **smoke** when the regr
 Common entry points:
 
 - **Workspace state** — `getWorkspace`, `getSidebar`, `getSelection`, `getSelectionOverlayState`
-- **Page CRUD** — `createPages`, `createFocusedPage`, `deletePages`, `updatePages`
+- **Page CRUD** — `createPages`, `createFocusedPage`, `deletePages` (create/delete route through `applyCanvas`)
 - **Text entities** — `createTextEntities`, `updateTextEntities`, `deleteTextEntities`, `getTextEntities`
 - **Selection** — `selectPage`, `selectEntity`, `selectEntities`, `selectGroup`, `enterGroup`, `deselectSelection`
 - **Grouping/edges** — `createGroup`, `ungroup`, `deleteGroups`
