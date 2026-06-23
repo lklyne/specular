@@ -50,6 +50,7 @@ import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
+import { useCanvasFileDrop } from './useCanvasFileDrop'
 import { canvasRectToScreenRect, pendingElementComposerPosition } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
@@ -697,6 +698,7 @@ export default function App({
   }, [openThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
 
   useRendererBindingHandlers(buildAboveViewHandlers(closeThread, clearDraft))
+  useCanvasFileDrop({ api, layoutRef })
 
   // ADR 0006 page-paints contract: while the comment tool is active,
   // broadcast pointer-state to main so each page can paint a hover preview

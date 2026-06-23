@@ -13,26 +13,15 @@ import {
   sizeForOrientation,
 } from '../../shared/device-catalog'
 import { normalizeUserUrl } from '../../shared/url'
+import {
+  deriveDocumentName,
+  shouldRouteTextToDocument,
+} from '../../shared/text-document-routing'
 import { callApp } from './app-client'
 
 // ---------------------------------------------------------------------------
 // Long-text → file entity auto-routing
 // ---------------------------------------------------------------------------
-
-const LONG_TEXT_THRESHOLD = 300
-
-function shouldRouteToFile(text: string): boolean {
-  if (text.length > LONG_TEXT_THRESHOLD) return true
-  return /^#{1,6}\s/m.test(text)
-    || /^\|.+\|/m.test(text)
-    || /```/.test(text)
-}
-
-function deriveNoteName(text: string): string {
-  const heading = text.match(/^#{1,6}\s+(.+)/m)
-  if (heading) return heading[1].slice(0, 60)
-  return text.split('\n')[0].trim().slice(0, 60) || 'Note'
-}
 
 // ---------------------------------------------------------------------------
 // Upsert entities
@@ -157,7 +146,7 @@ export async function upsertEntities(
       && item.kind === 'text'
       && !item.forceKind
       && typeof item.text === 'string'
-      && (item._forceFile || shouldRouteToFile(item.text))
+      && (item._forceFile || shouldRouteTextToDocument(item.text))
     ) {
       noteCreates.push(item)
       continue
@@ -276,7 +265,7 @@ export async function upsertEntities(
       body: JSON.stringify({
         canvasX: note.canvasX,
         canvasY: note.canvasY,
-        name: deriveNoteName(note.text as string),
+        name: deriveDocumentName(note.text as string),
         content: note.text,
         width: note.width ?? 400,
         height: note.height ?? 400,
