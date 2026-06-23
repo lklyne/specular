@@ -252,6 +252,7 @@ When you encounter new gaps, append them to the tracking issue (see below).
 - **`specular breakpoints <url>` may produce malformed page URLs** — confirm the new pages loaded the intended host before relying on them.
 - **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
+- **`update <pageId> --url` lags `workspace`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular workspace` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → workspace` chain.
 
 ## Tracking issue (localhost sessions)
 

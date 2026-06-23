@@ -146,6 +146,18 @@ describe('canvas apply + get', () => {
     expect(byId.get(groupId)).toBe('group')
   })
 
+  it('accepts kind:"note" as an alias for text — same vocabulary as `add note`', async () => {
+    // `add note` is verb sugar that compiles to kind:text; the patch door now
+    // speaks the same word. Short note → text; the file kind's claimsAsNote
+    // route still decides text-vs-file by content, not by the alias.
+    const { created } = await applyCanvas({
+      entities: [{ kind: 'note', text: 'short note', canvasX: 0, canvasY: 0 }],
+    })
+    expect(created).toHaveLength(1)
+    const node = (await getCanvas()).nodes.find((n) => n.id === created[0])
+    expect(node?.type).toBe('text')
+  })
+
   it('applies create + delete as one patch', async () => {
     const seed = await applyCanvas({
       entities: [{ kind: 'text', text: 'seed', canvasX: 0, canvasY: 0 }],

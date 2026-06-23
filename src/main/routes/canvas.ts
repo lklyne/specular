@@ -43,8 +43,17 @@ interface CanvasPatch {
  * sniffs prefixes (ADR 0019 §4). Creates honor the text→note route, then the
  * declared kind.
  */
+// Caller-facing kind sugar that normalizes to a registered kind, so the patch
+// door speaks the same vocabulary as the `add` verb (`add note` → text/file).
+const KIND_ALIASES: Record<string, CanvasEntityKind> = { note: 'text' }
+
 function resolveKind(item: Record<string, unknown>): CanvasEntityKind | null {
   if (item.id) return entityKindById(item.id as string)
+  // Normalize aliases before the note-route + registry checks (claimsAsNote
+  // requires kind === 'text', so this must run first).
+  if (typeof item.kind === 'string' && KIND_ALIASES[item.kind]) {
+    item.kind = KIND_ALIASES[item.kind]
+  }
   if (claimsAsNote(item)) return 'file'
   const kind = item.kind
   return typeof kind === 'string' && hasEntityKind(kind as CanvasEntityKind)
