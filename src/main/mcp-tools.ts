@@ -25,7 +25,7 @@ export function registerTools(mcpServer: Server): void {
 
   switch (request.params.name) {
     case 'get_workspace':
-      return asText(await callApp('/workspace'))
+      return asText(await callApp('/canvas'))
     case 'get_selection':
       return asText(await callApp('/selection'))
     case 'find_placement':
@@ -207,9 +207,13 @@ export function registerTools(mcpServer: Server): void {
       return asText(await callApp('/file-entities'))
     case 'delete_entities':
       return asText(
-        await callApp('/entities/delete', {
+        await callApp('/canvas/apply', {
           method: 'POST',
-          body: JSON.stringify({ items: args.items }),
+          body: JSON.stringify({
+            // Kind resolves from the doc by id (ADR 0019 §4); the per-kind
+            // payload shape is gone.
+            delete: (args.items as Array<{ id: string }> | undefined)?.map((i) => i.id) ?? [],
+          }),
         }),
       )
     case 'start_recording':
