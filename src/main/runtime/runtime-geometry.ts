@@ -138,6 +138,31 @@ export function pageVisualBounds(
   }
 }
 
+/** Chrome band that floats above the snap rect. */
+export function frameChromeCanvasBounds(
+  page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
+): WorkspaceBounds {
+  const snap = pageSnapBounds(page)
+  return {
+    x: snap.x,
+    y: snap.y - CHROME_HEADER_HEIGHT,
+    width: snap.width,
+    height: CHROME_HEADER_HEIGHT,
+  }
+}
+
+/**
+ * Project a content-space DOM point (from a page iframe) into canvas coordinates.
+ * Accounts for shell insets so callers never need to add chromeHeight manually.
+ */
+export function projectFramePointToCanvas(
+  page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
+  point: { x: number; y: number },
+): { x: number; y: number } {
+  const body = pageBodyCanvasBounds(page)
+  return { x: body.x + point.x, y: body.y + point.y }
+}
+
 // ---------------------------------------------------------------------------
 // Pure computation functions (parameterized — no runtime state)
 // ---------------------------------------------------------------------------

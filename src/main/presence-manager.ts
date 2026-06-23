@@ -24,7 +24,7 @@ import {
 import {
   findPageById,
 } from './runtime/runtime-context'
-import { pageBodyCanvasBounds, pageContentSize } from './runtime/runtime-geometry'
+import { pageContentSize, projectFramePointToCanvas } from './runtime/runtime-geometry'
 
 // --- Re-exports from presence-session ---
 export {
@@ -162,13 +162,13 @@ export function resolveCanvasPointForPage(
     fallbackX: width / 2,
     fallbackY: height / 2,
   })
-  // DOM point lives in content coordinates; shift to the body origin so
+  // DOM point lives in content coordinates; project to canvas space so
   // the cursor lands on the page body (inside any device-frame bezel).
-  const body = pageBodyCanvasBounds(page)
-  return {
-    canvasX: body.x + clamp(point.x, 0, width),
-    canvasY: body.y + clamp(point.y, 0, height),
-  }
+  const canvas = projectFramePointToCanvas(page, {
+    x: clamp(point.x, 0, width),
+    y: clamp(point.y, 0, height),
+  })
+  return { canvasX: canvas.x, canvasY: canvas.y }
 }
 
 export function extractCanvasPosition(url: string, body: Record<string, unknown>): { x: number; y: number } | null {
