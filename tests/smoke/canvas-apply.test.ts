@@ -61,6 +61,29 @@ describe('canvas apply + get', () => {
     expect(entity?.text).toBe('after')
   })
 
+  it('updates an entity passing only its id — kind resolves from the doc', async () => {
+    // The `update` verb no longer sniffs an id prefix for kind (ADR 0019 §4);
+    // it sends just { id, …fields } and apply resolves the kind from the doc.
+    const { created } = await applyCanvas({
+      entities: [{ kind: 'text', text: 'before', canvasX: 0, canvasY: 0 }],
+    })
+    const id = created[0]
+
+    const { updated } = await applyCanvas({ entities: [{ id, text: 'after' }] })
+    expect(updated).toEqual([id])
+
+    const entity = (await getTextEntities()).textEntities.find((e) => e.id === id)
+    expect(entity?.text).toBe('after')
+  })
+
+  it('reports nothing deleted for an id the doc does not know (no lie, no crash)', async () => {
+    // The former kindFromId bucketed unknown prefixes to `file` and crashed on
+    // bare string arrays; apply resolves kind from the doc, so an unknown id is
+    // simply not deleted rather than mis-routed.
+    const removed = await applyCanvas({ delete: ['text_does_not_exist'] })
+    expect(removed.deleted).toEqual([])
+  })
+
   it('creates edges and deletes entities by id, resolving kind from the doc', async () => {
     const { created } = await applyCanvas({
       entities: [

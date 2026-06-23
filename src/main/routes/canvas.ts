@@ -37,9 +37,15 @@ interface CanvasPatch {
   delete?: string[]
 }
 
-/** Resolve the handler kind for a patch item, honoring the text→note route. */
+/**
+ * Resolve the handler kind for a patch item. Updates (id present) read their
+ * kind from the doc — never an id prefix or a caller hint — so the CLI never
+ * sniffs prefixes (ADR 0019 §4). Creates honor the text→note route, then the
+ * declared kind.
+ */
 function resolveKind(item: Record<string, unknown>): CanvasEntityKind | null {
-  if (!item.id && claimsAsNote(item)) return 'file'
+  if (item.id) return entityKindById(item.id as string)
+  if (claimsAsNote(item)) return 'file'
   const kind = item.kind
   return typeof kind === 'string' && hasEntityKind(kind as CanvasEntityKind)
     ? (kind as CanvasEntityKind)
