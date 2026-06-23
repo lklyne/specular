@@ -1,0 +1,3 @@
+workflow: W4 — Grid at scale
+acceptance: met — 12 text items created in a 4×3 grid; all IDs in workspace readback match upsert output; no AABBs overlap; distinct rows (y=200,460,720) and columns (x=200,460,720,980); output parsed as JSON without --format flag
+calls: 2 (ideal 2)

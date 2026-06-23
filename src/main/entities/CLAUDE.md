@@ -26,7 +26,7 @@ verb / upsertEntities  →  { entities: [ {kind,…}, {id,…} ] }   (a patch)
 2. **Create the handler** under `builtin/your-kind.ts` as an `EntityKindDefinition<'your-kind'>`. Delegate `serialize` to the matching `serialize…Node` export in `runtime/json-canvas-serializer.ts` and reuse the existing `document-commands` mutators for `create`/`update` — don't write a second mutation path.
 3. **Register it** in `index.ts` by adding it to the `builtIns` array.
 
-That's the whole tax. No new route, no new CLI verb, no `kindFromId` edit — the `apply` path and the verb surface already cover the new kind.
+That's the whole tax. No new route and no new CLI verb — the `apply` path and the verb surface already cover the new kind, and kind is resolved from the doc by id (no prefix sniffing to teach).
 
 ## Layer rules
 
@@ -40,4 +40,4 @@ That's the whole tax. No new route, no new CLI verb, no `kindFromId` edit — th
 
 Every CLI verb is now a thin shim that builds a patch and calls `apply`: `create`/`update`/`upsert` via `upsertEntities`, and `delete`/`link`/`group`/`apply` via `applyPatch` (`src/main/shared/entity-ops.ts`). The placement pre-pass (`resolveEntityPlacements`) resolves create positions before the single `apply` post.
 
-The per-kind create/update/delete routes in `routes/entities.ts`, `routes/pages.ts`, and `routes/edges-groups.ts` still exist (the smoke contract hits them directly) and are removed once nothing else calls them (ADR-0019 slice 4). `kindFromId` survives only in the `update` verb; it goes in slice 3.
+The per-kind create/update/delete routes in `routes/entities.ts`, `routes/pages.ts`, and `routes/edges-groups.ts` still exist (the smoke contract hits them directly) and are removed once nothing else calls them (ADR-0019 slice 4). `kindFromId` is gone (slice 3): `update`/`delete`/`apply` all resolve an entity's kind from the doc by id via `entityKindById`, so the CLI never sniffs id prefixes.
