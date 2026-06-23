@@ -1,4 +1,0 @@
-workflow: W2 — Annotate then resolve
-acceptance: met — annotation ann_315d6e2d appears as status:pending after create, status:resolved after resolve; confirmed via annotations --all read-back
-calls: 6 (ideal 4) — workspace[health-check] + create-page + annotate + annotations[list-verify] + resolve + annotations-all[read-back]; list-verify was skippable since id came directly from annotate output; annotations default hides resolved so --all required for read-back confirmation
-cleanup: page deleted; annotation ann_315d6e2d not deletable via CLI (known limitation: specular delete silently lies for annotation ids); left as resolved on canvas

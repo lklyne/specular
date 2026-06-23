@@ -1,4 +1,0 @@
-workflow: W3 — Group, auto-layout, focus
-acceptance: met — workspace shows group_f42f9127 containing all 3 pages; positions non-overlapping (x: 100+1280=1380 < 1460, 1460+1280=2740 < 2820); layoutMode: "row", managedLayout: true. Focus returned {"focused": false} with exit 0 — ambiguous, unclear if it succeeded.
-calls: 8 (ideal 6)
-friction: (1) 3 separate create page calls needed to create 3 pages — batch upsert would save 2 calls but workflow path implies per-create; (2) focus returned {"focused": false} exit 0 — no clear success/failure signal; skill says it scrolls viewport, but "focused: false" is unexplained; (3) grouping returned group id directly — no re-query needed, that was smooth; (4) auto-layout fed straight from group id — smooth.

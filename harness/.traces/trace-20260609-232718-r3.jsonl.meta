@@ -1,3 +1,0 @@
-workflow: W1 — Build a small canvas
-acceptance: met — both pages + note present with finite geometry; note text 'W1 test note' round-tripped exactly (as 'preview' field). FRICTION: presetIndex values not documented in skill — intended desktop+phone but both pages landed at presetIndex 6 (laptop); 'create page' has no --preset flag so upsert --json is the only path to set breakpoints; note text field is 'preview' in workspace output (naming inconsistency).
-calls: 4 (ideal 4)

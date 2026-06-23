@@ -1,3 +1,0 @@
-workflow: W6 — Inspect and drive a page via agent-browser
-acceptance: partially met — snapshot returned structured elements with refs (e1–e35), click @e3 exited 0 with "✓ Done"; BUT snapshot output is custom text format (not JSON, fails parseable-output criterion), click output is also not JSON ("✓ Done\nurl: ..."), and post-click URL unchanged (SPA route or no-op — unverifiable without a re-snapshot)
-calls: 4 (ideal ≤4) [create page, snapshot, click, cleanup delete; workspace is pre-task health check]
