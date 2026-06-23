@@ -9,16 +9,9 @@ import type {
 } from '../../shared/types'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
-import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
+import { fileDisplayName } from '../canvas-bg/entityConstants'
 import { renderPopupContributions } from './file-popup-contributions'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
-
-function displayNameFor(file: string): string {
-  const base = file.split('/').pop() ?? file
-  if (WIREFRAME_EXTENSIONS.test(file)) return base.replace(/\.wireframe\.json$/i, '')
-  if (MARKDOWN_EXTENSIONS.test(file)) return base.replace(/\.md$/i, '')
-  return base
-}
 
 export function FilePopup({
   api,
@@ -90,7 +83,7 @@ export function FilePopup({
                   ) : null}
                   <CanvasItemPopup.Section grow>
                     <InlineEditLabel
-                      value={displayNameFor(single.file)}
+                      value={fileDisplayName(single.file)}
                       isEditing={isRenaming}
                       onStartEdit={() => setIsRenaming(true)}
                       onCommit={(next) => {

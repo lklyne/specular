@@ -173,18 +173,9 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
   for (const entity of inputs.entities) {
     if (!selected.has(entity.id)) continue
-    if (entityResizesAutomatically(entity)) continue
     pushPerEntityHandles(out, entity)
   }
   return out
-}
-
-// Reserved for entities whose bounds are purely content-driven and should
-// never show manual resize handles. Plain text in 'auto' widthMode used to
-// qualify, but resize is now wired to flip 'auto' → 'fixed' on drag-begin,
-// so it can be handled like any other entity.
-export function entityResizesAutomatically(_entity: CanvasSceneEntity): boolean {
-  return false
 }
 
 function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {

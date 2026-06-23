@@ -1,5 +1,8 @@
-import type { CanvasSceneEntity, LayoutUpdateData } from './types'
+import type { CanvasInteractionState, CanvasSceneEntity, LayoutUpdateData } from './types'
+import type { InteractionMode } from './interaction-types'
 import { GRID_SIZE } from './constants'
+
+export const DRAG_THRESHOLD = 4
 
 export {
   canvasToScreenX,
@@ -144,16 +147,18 @@ export function isPlainShortcutKey(
   return event.key.toLowerCase() === key.toLowerCase() && hasNoModifierKeys(event)
 }
 
-function isCommandShortcutKey(
-  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
-  key: string,
-): boolean {
-  return (
-    event.key.toLowerCase() === key.toLowerCase() &&
-    (event.metaKey || event.ctrlKey) &&
-    !event.altKey &&
-    !event.shiftKey
-  )
+export function canvasInteractionModeKind(state: CanvasInteractionState): InteractionMode['kind'] {
+  switch (state.kind) {
+    case 'idle': return 'idle'
+    case 'panning-canvas': return 'panning'
+    case 'marquee-select': return 'marquee'
+    case 'dragging-entities': return 'dragging-entities'
+    case 'resizing-entity': return 'resizing-entity'
+    case 'resizing-multi-selection': return 'resizing-multi-selection'
+    case 'dragging-edge': return 'dragging-edge'
+    case 'editing-entity': return 'editing-entity'
+    case 'reordering-row': return 'reordering-row'
+  }
 }
 
 export function classifyViewportWheel(event: Pick<WheelEvent, 'metaKey' | 'ctrlKey' | 'deltaX' | 'deltaY' | 'screenX' | 'screenY'>): ViewportWheelAction {

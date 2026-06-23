@@ -28,6 +28,3 @@ export const HIT_LAYER_ORDER: readonly HitLayer[] = [
   'background',
 ] as const
 
-function compareLayers(a: HitLayer, b: HitLayer): number {
-  return HIT_LAYER_ORDER.indexOf(a) - HIT_LAYER_ORDER.indexOf(b)
-}

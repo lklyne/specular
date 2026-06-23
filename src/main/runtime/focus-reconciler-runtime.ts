@@ -9,6 +9,7 @@
 
 import type { WebContents } from 'electron'
 import type { FocusTarget } from '../../shared/interaction-types'
+import { canvasInteractionModeKind } from '../../shared/gesture-utils'
 import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
 import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
 import {
@@ -22,25 +23,11 @@ import { isTextEditingFor } from './binding-dispatcher'
 import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
-function interactionModeKey(): FocusState['interactionMode'] {
-  switch (interactionState.kind) {
-    case 'idle': return 'idle'
-    case 'panning-canvas': return 'panning'
-    case 'marquee-select': return 'marquee'
-    case 'dragging-entities': return 'dragging-entities'
-    case 'resizing-entity': return 'resizing-entity'
-    case 'resizing-multi-selection': return 'resizing-multi-selection'
-    case 'dragging-edge': return 'dragging-edge'
-    case 'editing-entity': return 'editing-entity'
-    case 'reordering-row': return 'reordering-row'
-  }
-}
-
 function currentFocusState(): FocusState {
   const idx = selectedPageIndex(pages.map((p) => p.id))
   const selectedPage = idx != null ? pages[idx] : null
   return {
-    interactionMode: interactionModeKey(),
+    interactionMode: canvasInteractionModeKind(interactionState),
     editingEntityId: getEditingEntityId(),
     selectedPageId: selectedPage?.id ?? null,
     workspaceViewMode: workspaceViewMode(),
