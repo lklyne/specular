@@ -28,6 +28,7 @@ import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser } from './agent-browser-install'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { registerBuiltInPlugins } from './plugins'
+import { registerBuiltInEntityKinds } from './entities'
 import {
   initDevServerManager,
   shutdownDevServerManager,
@@ -131,6 +132,7 @@ app.whenReady().then(async () => {
   identifyInstall()
   configureBundledAgentBrowser()
   registerBuiltInPlugins()
+  registerBuiltInEntityKinds()
   // New-tab links from a page open as a duplicate frame on the canvas rather
   // than a native popup; page-factory routes through this seam to avoid an
   // import cycle into workspace-pages.
