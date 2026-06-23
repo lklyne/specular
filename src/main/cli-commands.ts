@@ -160,8 +160,8 @@ const create: VerbHandler = async (args) => {
 const update: VerbHandler = async (args) => {
   const id = args.positional[0]
   if (!id) { printError('usage: specular update <id> [--preset N] [--at x,y] [--text T] [--color C]'); return 1 }
-  const kind = kindFromId(id)
-  const item: Record<string, unknown> = { kind, id }
+  // No kind: the apply route resolves it from the doc by id (ADR 0019 §4).
+  const item: Record<string, unknown> = { id }
   if (args.flags.at) {
     const [x, y] = args.flags.at.split(',').map(Number)
     if (!isNaN(x)) item.canvasX = x
@@ -177,13 +177,6 @@ const update: VerbHandler = async (args) => {
   if (args.flags.color) item.color = args.flags.color
   printJson(await upsertEntities([item]))
   return 0
-}
-
-function kindFromId(id: string): 'page' | 'text' | 'file' | 'group' {
-  if (id.startsWith('page_')) return 'page'
-  if (id.startsWith('text_')) return 'text'
-  if (id.startsWith('group_')) return 'group'
-  return 'file'
 }
 
 // Shim over `apply`: kind is resolved from the doc by id, not an id prefix.

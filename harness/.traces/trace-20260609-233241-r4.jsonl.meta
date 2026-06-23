@@ -1,0 +1,4 @@
+workflow: W5 — Pull a live page and capture it
+acceptance: met — screenshot returned 25652-byte PNG; but required focus before screenshot worked (2 timeouts before that); output is a file path not JSON
+calls: 9 (ideal 3)
+friction: (1) screenshot times out silently at 30s with no hint that focus/viewport visibility is required — only worked after focus call; (2) screenshot output is a bare file path + parenthetical comment, not JSON — fails charter parseable-output criterion; (3) screenshot --help errors ("No page specified") instead of showing usage; (4) no documented wait or load-check before screenshot
