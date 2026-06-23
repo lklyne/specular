@@ -123,7 +123,7 @@ export function serializeToJsonCanvas(
   return doc
 }
 
-function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNode {
+export function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNode {
   const preset = VIEWPORT_PRESETS[entity.presetIndex] ?? VIEWPORT_PRESETS[0]
   const customSize = pageCustomSizeFromMetadata(entity.metadata)
   return {
@@ -145,7 +145,7 @@ function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNod
   }
 }
 
-function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNode {
+export function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNode {
   const isNeutral = entity.color === NEUTRAL_STORAGE
   const node: JsonCanvasTextNode = {
     id: entity.id,
@@ -189,7 +189,7 @@ function buildSpecularExtensions(
   return ext
 }
 
-function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
+export function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
   return {
     id: entity.id,
     type: 'file',
@@ -205,7 +205,7 @@ function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNod
   }
 }
 
-function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShapeNode {
+export function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShapeNode {
   const isNeutral = entity.color === NEUTRAL_STORAGE
   const node: JsonCanvasShapeNode = {
     id: entity.id,
@@ -230,7 +230,7 @@ function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShap
   return node
 }
 
-function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanvasDrawingNode {
+export function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanvasDrawingNode {
   return {
     id: entity.id,
     type: 'drawing',
@@ -244,7 +244,7 @@ function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanv
   }
 }
 
-function serializeGroupEntityToGroupNode(entity: PersistedGroupEntity): JsonCanvasGroupNode {
+export function serializeGroupEntityToGroupNode(entity: PersistedGroupEntity): JsonCanvasGroupNode {
   return {
     id: entity.id,
     type: 'group',

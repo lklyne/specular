@@ -12,27 +12,7 @@ import {
   shellInsetsForDevice,
   sizeForOrientation,
 } from '../../shared/device-catalog'
-import { normalizeUserUrl } from '../../shared/url'
 import { callApp } from './app-client'
-
-// ---------------------------------------------------------------------------
-// Long-text → file entity auto-routing
-// ---------------------------------------------------------------------------
-
-const LONG_TEXT_THRESHOLD = 300
-
-function shouldRouteToFile(text: string): boolean {
-  if (text.length > LONG_TEXT_THRESHOLD) return true
-  return /^#{1,6}\s/m.test(text)
-    || /^\|.+\|/m.test(text)
-    || /```/.test(text)
-}
-
-function deriveNoteName(text: string): string {
-  const heading = text.match(/^#{1,6}\s+(.+)/m)
-  if (heading) return heading[1].slice(0, 60)
-  return text.split('\n')[0].trim().slice(0, 60) || 'Note'
-}
 
 // ---------------------------------------------------------------------------
 // Upsert entities
@@ -142,38 +122,11 @@ export async function upsertEntities(
     }
   }
 
-  // Single-pass grouping
-  const pageCreates: Array<Record<string, unknown>> = []
-  const pageUpdates: Array<Record<string, unknown>> = []
-  const textCreates: Array<Record<string, unknown>> = []
-  const textUpdates: Array<Record<string, unknown>> = []
-  const fileCreates: Array<Record<string, unknown>> = []
-  const fileUpdates: Array<Record<string, unknown>> = []
-  const noteCreates: Array<Record<string, unknown>> = []
-  for (const item of items) {
-    // Auto-route long/structured text to .md file entity
-    if (
-      !item.id
-      && item.kind === 'text'
-      && !item.forceKind
-      && typeof item.text === 'string'
-      && (item._forceFile || shouldRouteToFile(item.text))
-    ) {
-      noteCreates.push(item)
-      continue
-    }
-    const bucket = item.kind === 'page'
-      ? (item.id ? pageUpdates : pageCreates)
-      : item.kind === 'text'
-        ? (item.id ? textUpdates : textCreates)
-        : (item.id ? fileUpdates : fileCreates)
-    bucket.push(item)
-  }
-
-  // Batch-place items that lack explicit positions
-  const allCreates = [...pageCreates, ...textCreates, ...fileCreates, ...noteCreates]
-  const needsPlacement = allCreates.filter(
-    (item) => item.canvasX === undefined || item.canvasY === undefined,
+  // Batch-place creates (items without an `id`) that lack explicit positions.
+  // Footprints are sized per item; the apply path resolves kind and the
+  // long-text→note route, so no per-kind bucketing happens here anymore.
+  const needsPlacement = items.filter(
+    (item) => !item.id && (item.canvasX === undefined || item.canvasY === undefined),
   )
   if (needsPlacement.length > 0) {
     const footprints = needsPlacement.map(sizeForItem)
@@ -195,96 +148,14 @@ export async function upsertEntities(
     }
   }
 
-  // Prepare new pages with device metadata
-  const preparedPageCreates = pageCreates.map((item) => {
-    if (typeof item.url === 'string') {
-      item.url = normalizeUserUrl(item.url)
-    }
-    const device = deviceForPresetIndex(item.presetIndex as number)
-    const orientation = (item.orientation as string) ?? defaultOrientationForDevice(device)
-    const metadata: Record<string, unknown> = {
-      ...(item.metadata as Record<string, unknown> ?? {}),
-      deviceId: device?.id ?? null,
-      deviceOrientation: orientation,
-      showDeviceFrame: item.showDeviceFrame !== false,
-    }
-    const { orientation: _o, showDeviceFrame: _s, kind: _k, ...rest } = item
-    return { ...rest, metadata }
+  // One declarative patch, one apply path, one Y.Doc transaction. The registry
+  // dispatches each item to its kind handler.
+  const applied = await callApp<{ created: string[]; updated: string[] }>('/canvas/apply', {
+    method: 'POST',
+    body: JSON.stringify({ entities: items }),
   })
-
-  const extractIds = (result: { items?: Array<{ id: string }>; id?: string }): string[] =>
-    result.items?.map((i) => i.id) ?? (result.id ? [result.id] : [])
-
-  const pickDefined = (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
-    const out: Record<string, unknown> = {}
-    for (const k of keys) if (obj[k] !== undefined) out[k] = obj[k]
-    return out
-  }
-
-  // Fire all independent API calls concurrently
-  const ops: Array<Promise<void>> = []
-
-  if (preparedPageCreates.length) {
-    ops.push(callApp<{ pageIds?: string[] }>('/pages/create', {
-      method: 'POST',
-      body: JSON.stringify({ pages: preparedPageCreates }),
-    }).then((r) => { results.created.push(...(r.pageIds ?? [])) }))
-  }
-  if (pageUpdates.length) {
-    ops.push(callApp<{ updated?: string[] }>('/pages/update', {
-      method: 'POST',
-      body: JSON.stringify({ pages: pageUpdates }),
-    }).then((r) => { results.updated.push(...(r.updated ?? [])) }))
-  }
-  if (textCreates.length) {
-    const textItems = textCreates.map((t) => pickDefined(t, ['canvasX', 'canvasY', 'text', 'color', 'width', 'height']))
-    ops.push(callApp<{ items?: Array<{ id: string }>; id?: string }>('/text-entities/create', {
-      method: 'POST',
-      body: JSON.stringify({ items: textItems }),
-    }).then((r) => { results.created.push(...extractIds(r)) }))
-  }
-  if (textUpdates.length) {
-    const updateItems = textUpdates.map((t) => ({
-      id: t.id,
-      patch: pickDefined(t, ['text', 'color', 'width', 'height', 'canvasX', 'canvasY']),
-    }))
-    ops.push(callApp('/text-entities/update', {
-      method: 'POST',
-      body: JSON.stringify({ items: updateItems }),
-    }).then(() => { results.updated.push(...textUpdates.map((t) => t.id as string)) }))
-  }
-  if (fileCreates.length) {
-    const fileItems = fileCreates.map((f) => pickDefined(f, ['canvasX', 'canvasY', 'file', 'subpath', 'width', 'height']))
-    ops.push(callApp<{ items?: Array<{ id: string }>; id?: string }>('/file-entities/create', {
-      method: 'POST',
-      body: JSON.stringify({ items: fileItems }),
-    }).then((r) => { results.created.push(...extractIds(r)) }))
-  }
-  if (fileUpdates.length) {
-    const updateItems = fileUpdates.map((f) => ({
-      id: f.id,
-      patch: pickDefined(f, ['file', 'subpath', 'width', 'height', 'canvasX', 'canvasY']),
-    }))
-    ops.push(callApp('/file-entities/update', {
-      method: 'POST',
-      body: JSON.stringify({ items: updateItems }),
-    }).then(() => { results.updated.push(...fileUpdates.map((f) => f.id as string)) }))
-  }
-  for (const note of noteCreates) {
-    ops.push(callApp<{ id: string; file: string }>('/note-entities/create', {
-      method: 'POST',
-      body: JSON.stringify({
-        canvasX: note.canvasX,
-        canvasY: note.canvasY,
-        name: deriveNoteName(note.text as string),
-        content: note.text,
-        width: note.width ?? 400,
-        height: note.height ?? 400,
-      }),
-    }).then((r) => { results.created.push(r.id) }))
-  }
-
-  await Promise.all(ops)
+  results.created.push(...applied.created)
+  results.updated.push(...applied.updated)
   return results
 }
 
