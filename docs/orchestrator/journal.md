@@ -596,3 +596,18 @@ Noticed (no action):
 - **Canary still pending (day 12)**: No human-authored non-`claude/*` PR since the June 10 claude-review restore.
 - **Journal PR #169 at day 24**: Longest branch divergence yet. Operational — future runs read from the branch — but the gap is worth naming as it compounds weekly.
 Hint for next run: if the merge session happened, count how many of the 10 small audit PRs (#236–#245) merged and whether that unblocked the dependency-blocked routing batch (#235, #228, etc.); check if the Electrobun spike (PR #246) influenced any ADR update or follow-on issues; check whether PR #204 (wireframe) or #206 (CLI loop) finally got reviewed.
+
+---
+
+## 2026-06-23
+Surveyed: PR #253 (canvas-as-document-cli integration, ADR 0019), commit log for the 5-phase AFK epic run this morning, needs-triage queue (11 items), open PR aging, AFK worker staging incident.
+Acted:
+- Nothing filed. No two-instance pattern above the threshold; proposal queue empty.
+Noticed (no action):
+- **ADR 0019 (canvas-as-document-cli) delivered as 5-phase AFK epic**: All 5 step PRs (#248–#252) merged before integration PR #253 opened at 06:18 UTC today. Phase 1→5 took ~2.5h wall time (03:53–06:16 UTC). Net: +1575/−1008 LOC, full entity-kind registry, `kindFromId` prefix-sniffing deleted structurally, per-kind create/update/delete routes removed. The AFK pipeline shipped a complete ADR implementation in one run.
+- **AFK worker `git add -A` staging issue — first observed instance**: Phase 3 (#250) used broad `git add` and swept 29 untracked scratch files into the commit — a built `.app` bundle (binaries: `bun`, dylibs) under `experiments/` and `harness/.traces/`. Caught and remediated in commit `659223a` before phase 4 proceeded; those dirs added to `.gitignore`. PR #253 body explicitly names the fix: "The fire prompt / `worker.md` should scope its staging instead of `git add -A`." This is one instance of the pattern. If a second epic sweeps artifacts again, that's the threshold for a proposal.
+- **10 small audit PRs (#236–#245) still unmerged (day 2–3); joined by #253 today**: Merge queue at 12 PRs. Largest queue count in the journal record. Drought is now 8 days (June 15 → today with no main commits post the `e4e4f3b` Copy-as-PNG merge on June 15). The May analogue was a 9-day pause before the May 29 flush; this follows the same rhythm.
+- **Needs-triage queue at 11 items**: Issues #220–#228, #235 from June 14-15 bloat audit; #190 (June 1); #124 (May 16). Issues #225, #227, #228 received reconciliation notes from the ADR 0019 branch (June 22-23) but label routing has not happened. Expected to occur in the post-merge routing session.
+- **PR #246 (Electrobun spike)**: No ADR 0014 update, no follow-on issues filed. Research findings documented; not integrated. Separate track from merge queue as expected.
+- **Journal PR #169 at day 25**: Operational (this run read from the branch). Divergence compounds weekly.
+Hint for next run: check whether the merge session happened and how many audit PRs closed; if the AFK worker staging fix landed (change to `harness/fire.md` or equivalent), note it and retire the watch item; if a second `git add -A` sweep occurs in any future epic, file the proposal; check if #204 (wireframe, day 20+) or #206 (CLI loop, day 15+) have any review activity.
