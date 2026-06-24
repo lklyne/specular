@@ -851,6 +851,33 @@ export default function App({
     }
   }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement])
 
+  // Track which file entity the pointer is hovering while the comment tool is
+  // active (with no pending annotation open). Drives the dashed-blue hover
+  // outline rendered below.
+  const [commentToolHoveredFileId, setCommentToolHoveredFileId] = useState<string | null>(null)
+  const commentToolActiveNoPending =
+    layoutData.activeTool.kind === 'comment' && !pendingAnnotation && !pendingRegionRect
+  useEffect(() => {
+    if (!commentToolActiveNoPending) {
+      setCommentToolHoveredFileId(null)
+      return
+    }
+    const onMove = (event: PointerEvent) => {
+      if (isOverlayUiTarget(event.target)) {
+        setCommentToolHoveredFileId(null)
+        return
+      }
+      const nextId = hitTestHoverTarget(event.clientX, event.clientY)
+      const entity = nextId ? layoutRef.current.entities.find((e) => e.id === nextId) : null
+      setCommentToolHoveredFileId(entity?.kind === 'file' ? nextId : null)
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      setCommentToolHoveredFileId(null)
+    }
+  }, [commentToolActiveNoPending, hitTestHoverTarget, layoutRef])
+
   const routerOwnsCanvasPointers =
     !overlayInteractive &&
     !pendingPlacement &&
@@ -1326,6 +1353,29 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             layoutData={layoutData}
             onOpenThread={openThreadById}
           />
+
+          {commentToolHoveredFileId ? (() => {
+            const fe = layoutData.entities.find(
+              (e) => e.id === commentToolHoveredFileId && e.kind === 'file',
+            )
+            if (!fe) return null
+            return (
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  left: fe.screenX,
+                  top: fe.screenY - layoutData.canvasOrigin.y,
+                  width: Math.max(1, fe.screenWidth),
+                  height: Math.max(1, fe.screenHeight),
+                  border: '1px dashed rgba(59, 130, 246, 0.95)',
+                  background: 'rgba(59, 130, 246, 0.14)',
+                  boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.22) inset',
+                  boxSizing: 'border-box',
+                  zIndex: 40,
+                }}
+              />
+            )
+          })() : null}
 
           <PendingElementOutline
             pending={pendingAnnotation}

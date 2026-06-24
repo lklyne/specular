@@ -185,6 +185,15 @@ export function annotationScreenPos(
       transform: 'translate(-50%, 0)',
     }
   }
+  if (anchor.type === 'file') {
+    const fileEntity = layout.entities.find((e) => e.id === anchor.fileId && e.kind === 'file')
+    if (!fileEntity) return null
+    return {
+      x: fileEntity.screenX + fileEntity.screenWidth,
+      y: toOverlayY(layout, fileEntity.screenY),
+      transform: 'translate(-100%, 0)',
+    }
+  }
   if (anchor.type === 'page' || anchor.type === 'element') {
     const page = layout.entities.find((f) => f.id === anchor.pageId)
     if (!page) return null

@@ -194,6 +194,29 @@ export function PendingElementOutline({
   liveBboxes: AnnotationLiveBboxLookup
 }) {
   if (!pending) return null
+
+  if (pending.request.anchor.type === 'file') {
+    const fileId = pending.request.anchor.fileId
+    const fileEntity = layoutData.entities.find((e) => e.id === fileId && e.kind === 'file')
+    if (!fileEntity) return null
+    return (
+      <div
+        className="pointer-events-none absolute"
+        style={{
+          left: fileEntity.screenX,
+          top: fileEntity.screenY - layoutData.canvasOrigin.y,
+          width: Math.max(1, fileEntity.screenWidth),
+          height: Math.max(1, fileEntity.screenHeight),
+          border: '1px dashed rgba(59, 130, 246, 0.95)',
+          background: 'rgba(59, 130, 246, 0.14)',
+          boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.22) inset',
+          boxSizing: 'border-box',
+          zIndex: 40,
+        }}
+      />
+    )
+  }
+
   const rect = pendingElementScreenRect(pending, layoutData, liveBboxes)
   if (!rect) return null
   return (
