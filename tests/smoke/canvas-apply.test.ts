@@ -94,11 +94,15 @@ describe('canvas apply + get', () => {
     const [from, to] = created
 
     const linked = await applyCanvas({
-      edges: [{ fromEntityId: from, toEntityId: to, kind: 'connection' }],
+      edges: [{ fromEntityId: from, toEntityId: to, kind: 'connection', label: 'digest of' }],
     })
     expect(linked.edges).toHaveLength(1)
     const edges = (await getWorkspace()).edges as Array<{ id: string }>
     expect(edges.map((e) => e.id)).toContain(linked.edges[0])
+    // label must survive createEdges — it was dropped there before (read full
+    // canvas, since getWorkspace() projects edges down to ids).
+    const canvasEdge = (await getCanvas()).edges.find((e) => e.id === linked.edges[0])
+    expect(canvasEdge?.label).toBe('digest of')
 
     // Delete passes only the id — apply resolves the kind from the doc.
     const removed = await applyCanvas({ delete: [from] })
