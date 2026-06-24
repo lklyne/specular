@@ -10,7 +10,7 @@
  * (matching `useAnchoredPosition` and the rest of aboveView).
  */
 
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
@@ -32,17 +32,30 @@ interface PageOutlineProps {
   showResizeHandles: boolean
 }
 
-function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: PageOutlineProps) {
+function SelectionOutlineBox({
+  span,
+  originY,
+  isDark,
+  showResizeHandles,
+  cursor,
+}: {
+  span: Pick<SelectedEntitySpan, 'screenX' | 'screenY' | 'screenWidth' | 'screenHeight'>
+  originY: number
+  isDark: boolean
+  showResizeHandles: boolean
+  cursor?: CSSProperties['cursor']
+}) {
   return (
     <div
       className="absolute border-2"
       style={{
-        left: page.screenX - 2,
-        top: page.screenY - 2 - originY,
-        width: page.screenWidth + 4,
-        height: page.screenHeight + 4,
+        left: span.screenX - 2,
+        top: span.screenY - 2 - originY,
+        width: span.screenWidth + 4,
+        height: span.screenHeight + 4,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
+        cursor,
       }}
       data-overlay-ui
     >
@@ -50,6 +63,17 @@ function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: Page
         <SelectionResizeGrid isDark={isDark} />
       ) : null}
     </div>
+  )
+}
+
+function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: PageOutlineProps) {
+  return (
+    <SelectionOutlineBox
+      span={page}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles={showResizeHandles}
+    />
   )
 }
 
@@ -63,17 +87,11 @@ function PageHoverOutline({
   isDark: boolean
 }) {
   return (
-    <div
-      className="absolute border-2"
-      style={{
-        left: page.screenX - 2,
-        top: page.screenY - 2 - originY,
-        width: page.screenWidth + 4,
-        height: page.screenHeight + 4,
-        borderColor: selectionColor(isDark),
-        pointerEvents: 'none',
-      }}
-      data-overlay-ui
+    <SelectionOutlineBox
+      span={page}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles={false}
     />
   )
 }
@@ -85,7 +103,6 @@ interface EntityOutlineProps {
     | CanvasSceneDrawingEntity
     | CanvasSceneShapeEntity
   originY: number
-  borderRadius: number
   isDark: boolean
   isSelected: boolean
   showResizeHandles: boolean
@@ -94,30 +111,18 @@ interface EntityOutlineProps {
 function EntitySelectionOverlay({
   entity,
   originY,
-  borderRadius,
   isDark,
   isSelected,
   showResizeHandles,
 }: EntityOutlineProps) {
   return (
-    <div
-      className="absolute border-2"
-      style={{
-        left: entity.screenX - 2,
-        top: entity.screenY - 2 - originY,
-        width: entity.screenWidth + 4,
-        height: entity.screenHeight + 4,
-        borderColor: selectionColor(isDark),
-        borderRadius,
-        pointerEvents: 'none',
-        cursor: isSelected && entity.kind === 'drawing' ? 'grab' : undefined,
-      }}
-      data-overlay-ui
-    >
-      {isSelected && showResizeHandles ? (
-        <SelectionResizeGrid isDark={isDark} />
-      ) : null}
-    </div>
+    <SelectionOutlineBox
+      span={entity}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles={isSelected && showResizeHandles}
+      cursor={isSelected && entity.kind === 'drawing' ? 'grab' : undefined}
+    />
   )
 }
 
@@ -195,21 +200,12 @@ function GroupSelectionOverlay({
   isDark: boolean
 }) {
   return (
-    <div
-      className="absolute border-2"
-      data-overlay-ui
-      style={{
-        left: group.screenX - 2,
-        top: group.screenY - 2 - originY,
-        width: group.screenWidth + 4,
-        height: group.screenHeight + 4,
-        borderColor: selectionColor(isDark),
-        borderRadius: 2,
-        pointerEvents: 'none',
-      }}
-    >
-      <SelectionResizeGrid isDark={isDark} />
-    </div>
+    <SelectionOutlineBox
+      span={group}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles
+    />
   )
 }
 
@@ -365,13 +361,11 @@ export function SelectionOutlineLayer({
       })}
       {visibleEntities.map((entity) => {
         const isSelected = selectedIdSet.has(entity.id)
-        const borderRadius = entity.kind === 'text' ? 0 : 4
         return (
           <EntitySelectionOverlay
             key={`selection-outline-${entity.id}`}
             entity={entity}
             originY={originY}
-            borderRadius={borderRadius}
             isDark={isDark}
             isSelected={isSelected}
             showResizeHandles={!isMultiSelect}
