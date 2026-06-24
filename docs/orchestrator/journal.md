@@ -611,3 +611,18 @@ Noticed (no action):
 - **PR #246 (Electrobun spike)**: No ADR 0014 update, no follow-on issues filed. Research findings documented; not integrated. Separate track from merge queue as expected.
 - **Journal PR #169 at day 25**: Operational (this run read from the branch). Divergence compounds weekly.
 Hint for next run: check whether the merge session happened and how many audit PRs closed; if the AFK worker staging fix landed (change to `harness/fire.md` or equivalent), note it and retire the watch item; if a second `git add -A` sweep occurs in any future epic, file the proposal; check if #204 (wireframe, day 20+) or #206 (CLI loop, day 15+) have any review activity.
+
+---
+
+## 2026-06-24
+Surveyed: Today's merges (#253 canvas-as-document-cli integration, #255 unify selection outlines), pr-drain outcomes from June 23, remaining open PRs, AFK staging watch item status, needs-triage queue after ADR 0019 landing.
+Acted:
+- Nothing filed. No open proposals; no two-instance patterns above threshold.
+Noticed (no action):
+- **Merge session completed, partially**: pr-drain (June 23) merged 7 small audit PRs (#217, #212, #216, #231, #234, #17, #230) plus #211 (copy-as-PNG). Today #253 (canvas-as-document-cli integration) and #255 (selection outlines) merged. Queue went from ~14 non-draft open PRs to ~9. Three feature PRs remain open: #236 (comment mode for file entities, day 4), #238 (live-refresh local files, day 3), #240 (fallow dead-code sweep, day 3). All three are CI-passing and waiting review, not queued behind a dependency.
+- **AFK staging watch item: passive fix confirmed, root cause unaddressed.** `.gitignore` now excludes `experiments/` and `harness/` — verified in working tree. This prevents the June 23 class of artifact sweep from recurring. The PR #253 body's suggested fix ("scope worker staging instead of `git add -A`") was not implemented in `afk-fire.sh` or any worker.md — the fire prompt contains no git-add instruction at all; git staging is left to Claude's judgment. The `.gitignore` approach is the correct mitigation for this repo. Retiring the watch item: passive suppression sufficient unless a second sweep hits an unignored directory. No proposal needed; no second instance.
+- **ADR 0019 now on main**: The entity-kind registry (`src/main/entities/`) is live. This unblocks the dependency chain: #225 (migrate remaining kinds to registry) unblocks #227 (table-driven IPC) and #228 (collapse find-by-id fan-outs). All three still carry `needs-triage` — routing expected in the next session after today's merges settle.
+- **Needs-triage queue still at 11 items**: Composition unchanged from June 23 — no routing since ADR 0019 landed. The reconciliation notes on #225, #227, #228 clarify scope but labels haven't moved. Expected: next routing session will move the now-unblocked items to `ready-for-agent`.
+- **PR #204 (wireframe integration, day 21), #206 (self-healing CLI loop, day 16)**: No review activity observed on either. #204 remains the longest integration PR in the record. #206 is the pipeline improvement that, if merged, would close the CLI friction loop — its delay has downstream value distinct from product PRs.
+- **Journal PR #169 at day 26**: Longest divergence in the record. Operational; future runs read from the branch. No action.
+Hint for next run: check whether #236, #238, #240 merged (they are unblocked and CI-passing); check whether the needs-triage routing session happened post-ADR-0019 and how many of #225/#227/#228/#235 moved to ready-for-agent; watch for any activity on #204 or #206.
