@@ -1,6 +1,7 @@
 import type {
   ApplyDirectiveResult,
   BatchLayoutMode,
+  CreateEdgesRequest,
   LayoutDirective,
 } from '../../shared/types'
 import {
@@ -12,16 +13,7 @@ import {
   shellInsetsForDevice,
   sizeForOrientation,
 } from '../../shared/device-catalog'
-import { normalizeUserUrl } from '../../shared/url'
-import {
-  deriveDocumentName,
-  shouldRouteTextToDocument,
-} from '../../shared/text-document-routing'
 import { callApp } from './app-client'
-
-// ---------------------------------------------------------------------------
-// Long-text → file entity auto-routing
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Upsert entities
@@ -83,12 +75,16 @@ function sizeForItem(item: Record<string, unknown>): ItemFootprint {
   }
 }
 
-export async function upsertEntities(
+/**
+ * Resolve every create item's canvas position in place — the placement pre-pass
+ * every mutation runs before the single `/canvas/apply` transaction. Applies a
+ * layout directive when present, otherwise batch-places creates that lack an
+ * explicit position. Items already carrying an `id` or a position are left alone.
+ */
+async function resolveEntityPlacements(
   items: Array<Record<string, unknown>>,
   options?: UpsertOptions,
-): Promise<{ created: string[]; updated: string[] }> {
-  const results: { created: string[]; updated: string[] } = { created: [], updated: [] }
-
+): Promise<void> {
   // Apply layout directive first, if present. Computes positions for all
   // items (creates and re-layouts), overrides per-item canvasX/Y, and
   // back-fills `kind` for items with `id` so the bucketer routes correctly.
@@ -131,38 +127,11 @@ export async function upsertEntities(
     }
   }
 
-  // Single-pass grouping
-  const pageCreates: Array<Record<string, unknown>> = []
-  const pageUpdates: Array<Record<string, unknown>> = []
-  const textCreates: Array<Record<string, unknown>> = []
-  const textUpdates: Array<Record<string, unknown>> = []
-  const fileCreates: Array<Record<string, unknown>> = []
-  const fileUpdates: Array<Record<string, unknown>> = []
-  const noteCreates: Array<Record<string, unknown>> = []
-  for (const item of items) {
-    // Auto-route long/structured text to .md file entity
-    if (
-      !item.id
-      && item.kind === 'text'
-      && !item.forceKind
-      && typeof item.text === 'string'
-      && (item._forceFile || shouldRouteTextToDocument(item.text))
-    ) {
-      noteCreates.push(item)
-      continue
-    }
-    const bucket = item.kind === 'page'
-      ? (item.id ? pageUpdates : pageCreates)
-      : item.kind === 'text'
-        ? (item.id ? textUpdates : textCreates)
-        : (item.id ? fileUpdates : fileCreates)
-    bucket.push(item)
-  }
-
-  // Batch-place items that lack explicit positions
-  const allCreates = [...pageCreates, ...textCreates, ...fileCreates, ...noteCreates]
-  const needsPlacement = allCreates.filter(
-    (item) => item.canvasX === undefined || item.canvasY === undefined,
+  // Batch-place creates (items without an `id`) that lack explicit positions.
+  // Footprints are sized per item; the apply path resolves kind and the
+  // long-text→note route, so no per-kind bucketing happens here anymore.
+  const needsPlacement = items.filter(
+    (item) => !item.id && (item.canvasX === undefined || item.canvasY === undefined),
   )
   if (needsPlacement.length > 0) {
     const footprints = needsPlacement.map(sizeForItem)
@@ -183,98 +152,59 @@ export async function upsertEntities(
       needsPlacement[i].canvasY = placement.positions[i].canvasY
     }
   }
+}
 
-  // Prepare new pages with device metadata
-  const preparedPageCreates = pageCreates.map((item) => {
-    if (typeof item.url === 'string') {
-      item.url = normalizeUserUrl(item.url)
-    }
-    const device = deviceForPresetIndex(item.presetIndex as number)
-    const orientation = (item.orientation as string) ?? defaultOrientationForDevice(device)
-    const metadata: Record<string, unknown> = {
-      ...(item.metadata as Record<string, unknown> ?? {}),
-      deviceId: device?.id ?? null,
-      deviceOrientation: orientation,
-      showDeviceFrame: item.showDeviceFrame !== false,
-    }
-    const { orientation: _o, showDeviceFrame: _s, kind: _k, ...rest } = item
-    return { ...rest, metadata }
+export async function upsertEntities(
+  items: Array<Record<string, unknown>>,
+  options?: UpsertOptions,
+): Promise<{ created: string[]; updated: string[] }> {
+  const { created, updated } = await applyPatch({ entities: items, layout: options?.directive }, {
+    layout: options?.layout,
+    gap: options?.gap,
   })
+  return { created, updated }
+}
 
-  const extractIds = (result: { items?: Array<{ id: string }>; id?: string }): string[] =>
-    result.items?.map((i) => i.id) ?? (result.id ? [result.id] : [])
+/** A declarative canvas patch — the one shape every verb compiles to (ADR 0019). */
+export interface CanvasPatch {
+  entities?: Array<Record<string, unknown>>
+  edges?: CreateEdgesRequest['edges']
+  delete?: string[]
+  /** Layout directive applied to the create items before they land. */
+  layout?: LayoutDirective
+}
 
-  const pickDefined = (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
-    const out: Record<string, unknown> = {}
-    for (const k of keys) if (obj[k] !== undefined) out[k] = obj[k]
-    return out
-  }
+export interface ApplyResult {
+  created: string[]
+  updated: string[]
+  deleted: string[]
+  edges: string[]
+}
 
-  // Fire all independent API calls concurrently
-  const ops: Array<Promise<void>> = []
-
-  if (preparedPageCreates.length) {
-    ops.push(callApp<{ pageIds?: string[] }>('/pages/create', {
-      method: 'POST',
-      body: JSON.stringify({ pages: preparedPageCreates }),
-    }).then((r) => { results.created.push(...(r.pageIds ?? [])) }))
-  }
-  if (pageUpdates.length) {
-    ops.push(callApp<{ updated?: string[] }>('/pages/update', {
-      method: 'POST',
-      body: JSON.stringify({ pages: pageUpdates }),
-    }).then((r) => { results.updated.push(...(r.updated ?? [])) }))
-  }
-  if (textCreates.length) {
-    const textItems = textCreates.map((t) => pickDefined(t, ['canvasX', 'canvasY', 'text', 'color', 'width', 'height']))
-    ops.push(callApp<{ items?: Array<{ id: string }>; id?: string }>('/text-entities/create', {
-      method: 'POST',
-      body: JSON.stringify({ items: textItems }),
-    }).then((r) => { results.created.push(...extractIds(r)) }))
-  }
-  if (textUpdates.length) {
-    const updateItems = textUpdates.map((t) => ({
-      id: t.id,
-      patch: pickDefined(t, ['text', 'color', 'width', 'height', 'canvasX', 'canvasY']),
-    }))
-    ops.push(callApp('/text-entities/update', {
-      method: 'POST',
-      body: JSON.stringify({ items: updateItems }),
-    }).then(() => { results.updated.push(...textUpdates.map((t) => t.id as string)) }))
-  }
-  if (fileCreates.length) {
-    const fileItems = fileCreates.map((f) => pickDefined(f, ['canvasX', 'canvasY', 'file', 'subpath', 'width', 'height']))
-    ops.push(callApp<{ items?: Array<{ id: string }>; id?: string }>('/file-entities/create', {
-      method: 'POST',
-      body: JSON.stringify({ items: fileItems }),
-    }).then((r) => { results.created.push(...extractIds(r)) }))
-  }
-  if (fileUpdates.length) {
-    const updateItems = fileUpdates.map((f) => ({
-      id: f.id,
-      patch: pickDefined(f, ['file', 'subpath', 'width', 'height', 'canvasX', 'canvasY']),
-    }))
-    ops.push(callApp('/file-entities/update', {
-      method: 'POST',
-      body: JSON.stringify({ items: updateItems }),
-    }).then(() => { results.updated.push(...fileUpdates.map((f) => f.id as string)) }))
-  }
-  for (const note of noteCreates) {
-    ops.push(callApp<{ id: string; file: string }>('/note-entities/create', {
-      method: 'POST',
-      body: JSON.stringify({
-        canvasX: note.canvasX,
-        canvasY: note.canvasY,
-        name: deriveDocumentName(note.text as string),
-        content: note.text,
-        width: note.width ?? 400,
-        height: note.height ?? 400,
-      }),
-    }).then((r) => { results.created.push(r.id) }))
-  }
-
-  await Promise.all(ops)
-  return results
+/**
+ * The single declarative door (`specular apply`). Runs the placement pre-pass on
+ * the patch's create items, then posts the whole patch — entities, edges, and
+ * deletes — to `/canvas/apply` for one Y.Doc transaction. Every other verb is a
+ * thin shim that builds a patch and calls this.
+ */
+export async function applyPatch(
+  patch: CanvasPatch,
+  placement?: { layout?: BatchLayoutMode; gap?: number },
+): Promise<ApplyResult> {
+  const entities = patch.entities ?? []
+  await resolveEntityPlacements(entities, {
+    directive: patch.layout,
+    layout: placement?.layout,
+    gap: placement?.gap,
+  })
+  return callApp<ApplyResult>('/canvas/apply', {
+    method: 'POST',
+    body: JSON.stringify({
+      entities,
+      edges: patch.edges,
+      delete: patch.delete,
+    }),
+  })
 }
 
 // ---------------------------------------------------------------------------

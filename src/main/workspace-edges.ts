@@ -16,6 +16,8 @@ export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
       toSide: edge.toSide,
       fromEnd: edge.fromEnd,
       toEnd: edge.toEnd,
+      color: edge.color,
+      label: edge.label,
       kind: edge.kind,
       metadata: cloneMetadata(edge.metadata),
     }

@@ -17,9 +17,9 @@ export interface ParsedArgs {
   rest: string[]
 }
 
-const CLI_VALUE_FLAGS = new Set([
+export const CLI_VALUE_FLAGS = new Set([
   '--page', '-f',
-  '--preset', '--presets', '--at', '--width', '--height',
+  '--preset', '--presets', '--at', '--width', '--height', '--size', '--cols',
   '--anchor', '--label', '--color', '--layout', '--gap',
   '--status', '--url', '--page-id',
   '--reason', '--text',

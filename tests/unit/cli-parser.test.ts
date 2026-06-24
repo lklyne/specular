@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
-import { parseArgs } from '../../src/main/cli-parser'
+import { parseArgs, CLI_VALUE_FLAGS } from '../../src/main/cli-parser'
 
 describe('parseArgs', () => {
   it('extracts verb from simple command', () => {
@@ -73,6 +75,19 @@ describe('parseArgs', () => {
     expect(result.flags.preset).toBe('3')
   })
 
+  it('treats --size and --cols as value flags, not booleans', () => {
+    // Regression: both were missing from CLI_VALUE_FLAGS, so their values
+    // leaked into positionals (note --size silently dropped; arrange --cols
+    // read the count as an entity id).
+    const size = parseArgs(['update', 'text-1', '--size', '360,240'])
+    expect(size.flags.size).toBe('360,240')
+    expect(size.positional).toEqual(['text-1'])
+
+    const cols = parseArgs(['arrange', 'grid', 'a', 'b', '--cols', '2'])
+    expect(cols.flags.cols).toBe('2')
+    expect(cols.positional).toEqual(['grid', 'a', 'b'])
+  })
+
   it('preserves rest for passthrough', () => {
     const result = parseArgs(['eval', 'document.title'])
     expect(result.verb).toBe('eval')
@@ -90,5 +105,27 @@ describe('parseArgs', () => {
     const result = parseArgs(['--help'])
     expect(result.boolFlags.has('help')).toBe(true)
     expect(result.verb).toBe('')
+  })
+})
+
+// Drift guard: every `args.flags.X` a verb handler reads must be a declared
+// value flag, else the parser treats `--X` as boolean and its value leaks to
+// positionals — a silent no-op (e.g. `--size`, `--cols` once did). This keeps
+// the consumer list and the parser's allowlist from diverging again.
+describe('CLI_VALUE_FLAGS covers every consumed flag', () => {
+  it('has a value-flag entry for each args.flags.X read in cli-commands.ts', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../../src/main/cli-commands.ts', import.meta.url)),
+      'utf8',
+    )
+    const consumed = new Set(
+      [...src.matchAll(/args\.flags\.([a-zA-Z]+)/g)].map((m) => m[1]),
+    )
+    // Parser stores flags dash-stripped, so a key matches either --key or -k.
+    const declared = new Set(
+      [...CLI_VALUE_FLAGS].map((f) => f.replace(/^-+/, '')),
+    )
+    const missing = [...consumed].filter((k) => !declared.has(k))
+    expect(missing).toEqual([])
   })
 })

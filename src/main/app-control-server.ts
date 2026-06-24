@@ -239,6 +239,7 @@ import { edgesGroupsRoutes } from './routes/edges-groups'
 import { recordingRoutes } from './routes/recording'
 import { annotationRoutes } from './routes/annotations'
 import { entityRoutes } from './routes/entities'
+import { canvasRoutes } from './routes/canvas'
 import { pageRoutes } from './routes/pages'
 import { stackOrderHttpRoutes } from './routes/stack-order'
 import { testRoutes } from './routes/test'
@@ -251,6 +252,7 @@ const routes: Route[] = [
   ...recordingRoutes,
   ...annotationRoutes,
   ...entityRoutes,
+  ...canvasRoutes,
   ...stackOrderHttpRoutes,
   ...designSystemRoutes,
   ...(!app.isPackaged ? testRoutes : []),
