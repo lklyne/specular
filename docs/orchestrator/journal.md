@@ -626,3 +626,17 @@ Noticed (no action):
 - **PR #204 (wireframe integration, day 21), #206 (self-healing CLI loop, day 16)**: No review activity observed on either. #204 remains the longest integration PR in the record. #206 is the pipeline improvement that, if merged, would close the CLI friction loop — its delay has downstream value distinct from product PRs.
 - **Journal PR #169 at day 26**: Longest divergence in the record. Operational; future runs read from the branch. No action.
 Hint for next run: check whether #236, #238, #240 merged (they are unblocked and CI-passing); check whether the needs-triage routing session happened post-ADR-0019 and how many of #225/#227/#228/#235 moved to ready-for-agent; watch for any activity on #204 or #206.
+
+---
+
+## 2026-06-25
+Surveyed: Open PR aging (#236/#238/#240 at day 4–5, CI-passing and unreviewed; #204 at day 22; #206 at day 17), needs-triage queue (11 items, composition unchanged), proposal queue (empty). Dominant theme: quiet post-epic consolidation; no systemic leaks.
+Acted:
+- Nothing filed. Proposal queue empty; no stale orchestrator output.
+Noticed (no action):
+- **#236, #238, #240 at day 4–5, no merges**: All three are CI-passing with high-quality PRs (mutation-verified smoke tests on #238, comprehensive test plan on #236, fallow-verified dead-code sweep on #240). No blocking dependencies. Post-epic batch pattern from June 23–24 suggests these flush in the next review session. No alarm at day 4–5.
+- **Needs-triage routing still pending post-ADR-0019**: 11 items unchanged from June 24 — same composition as June 23. Issues #225, #227, #228 are explicitly now-unblocked per reconciliation notes added June 22–23. Routing them to `ready-for-agent` unlocks the next bloat-audit AFK batch. Expected latency between pipeline phases; not a leak at this cadence.
+- **PR #204 (wireframe-structured-editor) at day 22 — structurally different from a review-delay stall**: Base SHA is ~50 main-branch commits behind; ADR 0019 deleted the per-kind CLI routes that #204's slice 3.4 (`specular wireframe <verb>`) consumes. Merging #204 now requires conflict resolution across the entire ADR 0019 scope. This is "integration PR overtaken by a larger architectural shift" — distinct from the #166 stall (which was review delay only). The wireframe work is real and shipped in its step PRs; the question is whether it lands as-is (rebase) or is superseded by the new verb surface (ADR 0019 added `specular add note` etc. that overlaps). Product-level decision; technical clock is running.
+- **Deep-audit cycle time now measurable**: Skill run June 15 → issues filed same day → routing session June 20 (5 days) → AFK PRs June 20–21 → merge session June 23–24 (9 days total). Median wall time from skill run to merged PRs: ~9 days. Useful calibration for planning the next bloat-audit pass.
+- **Journal PR #169 at day 27**: Operational; this run read from the branch and appended successfully.
+Hint for next run: check if #236/#238/#240 merged; whether needs-triage routing happened and moved the now-unblocked items; whether #204 was closed or rebased — that decision determines how the wireframe feature story ends post-ADR-0019.
