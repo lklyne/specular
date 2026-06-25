@@ -30,7 +30,6 @@ export function FileChromeOverlay({
   optionHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
-  if (layoutData.viewMode !== 'canvas') return null
   const fileEntities = layoutData.entities.filter(
     (e): e is CanvasSceneFileEntity => e.kind === 'file',
   )

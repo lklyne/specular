@@ -40,7 +40,6 @@ const api: LeftSidebarElectronAPI = {
   setTabExpanded: (tabId, expanded) =>
     ipcRenderer.send('canvas-set-tab-expanded', { tabId, expanded }),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
-  toggleBrowserMode: () => ipcRenderer.send('toolbar-toggle-browser-mode'),
   getInitialData: () => ipcRenderer.invoke('get-left-sidebar-bootstrap'),
   onThemeChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) => callback(data)

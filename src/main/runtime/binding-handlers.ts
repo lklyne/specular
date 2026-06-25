@@ -3,7 +3,7 @@ import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
-import { setZoom, setPan, focusSelection } from './viewport-control'
+import { setZoom, setPan, focusSelection, restoreFocusCamera } from './viewport-control'
 import { groupSelectedEntities, makeAutoLayoutFromSelection, ungroupSelectedGroup } from './document-commands'
 import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
@@ -15,7 +15,6 @@ import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
-import { selectBrowserTab } from './runtime-core'
 import { deleteSelection } from './delete-selection'
 import { duplicateSelection } from './duplicate-selection'
 import { reorderStackOrder } from './entity-order-state'
@@ -71,7 +70,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   },
   'reset-viewport': () => {
     setZoom(1.0)
-    if (!focusSelection()) {
+    if (!focusSelection({ storeReturnCamera: false })) {
       setPan(0, 0)
       requestLayout()
     }
@@ -83,7 +82,6 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     ungroupSelectedGroup()
   },
   'make-auto-layout': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     makeAutoLayoutFromSelection()
   },
   'select-all': () => {
@@ -96,19 +94,15 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     deleteSelection()
   },
   'stack-bring-forward': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('bring-forward')
   },
   'stack-send-backward': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('send-backward')
   },
   'stack-bring-to-front': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('bring-to-front')
   },
   'stack-send-to-back': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('send-to-back')
   },
   'nav-left': () => {
@@ -129,6 +123,9 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     if (ctx.isTextEditing) return
     setActiveTool({ kind: 'select' })
   },
+  'restore-focus-camera': () => {
+    restoreFocusCamera()
+  },
   'escape-page-focus': () => {
     selectNone()
     markDirty('canvas')
@@ -137,17 +134,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'close-tab': (ctx) => {
     const pageId = selectedPageId()
     if (!pageId) return
-    const isBrowser = ctx.viewMode === 'browser'
-    let nextTabId: string | null = null
-    if (isBrowser) {
-      const idx = pages.findIndex((p) => p.id === pageId)
-      const next = pages[idx + 1] ?? pages[idx - 1] ?? null
-      nextTabId = next?.id ?? null
-    }
     deletePages({ pageIds: [pageId] })
-    if (isBrowser && nextTabId) {
-      selectBrowserTab(nextTabId)
-    }
   },
 }
 

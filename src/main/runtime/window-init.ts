@@ -208,7 +208,7 @@ export function initWindow(): void {
     })
     currentBgView.webContents.send('component-tree-data', selectedComponentTreePayload())
     // The renderer subscribes to layout updates during mount, so send one more
-    // pass on the next tick to avoid dropping the initial browser-mode tabs.
+    // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')
     requestLayout()
   })

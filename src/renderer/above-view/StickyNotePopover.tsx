@@ -28,6 +28,7 @@ export function StickyNotePopover({
     | 'deleteTextEntity'
     | 'updateTextEntity'
     | 'morphTextFile'
+    | 'focusSelection'
     | 'distributeSelection'
   >
   isDark: boolean

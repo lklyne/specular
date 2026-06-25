@@ -22,7 +22,6 @@ import {
   getUiState,
   isSelectionMarqueeVisible as uiSelectionMarqueeVisible,
   setSelectionMarqueeVisible as setUiSelectionMarqueeVisible,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import { selectionDebug } from './runtime-constants'
 import { requestLayout } from './viewport-control'
@@ -83,7 +82,6 @@ export function sendInteractiveState(): void {
     const wc = pages[i].pageView.webContents
     safeSend(wc, 'set-interactive', isSelected)
     safeSend(wc, 'set-multi-selected', isMultiSelected)
-    safeSend(wc, 'set-workspace-view-mode', uiWorkspaceViewMode())
   }
 }
 

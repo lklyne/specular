@@ -24,7 +24,6 @@ function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): Canva
     canGoForward: false,
     isLoading: false,
     isCustomSize: false,
-    browserSizeMode: 'fill',
     canvasX: 0,
     canvasY: 0,
     width: screenWidth,

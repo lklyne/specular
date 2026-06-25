@@ -6,7 +6,6 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
     interactionMode: 'idle',
     editingEntityId: null,
     selectedPageId: null,
-    workspaceViewMode: 'canvas',
     commentOverlayActive: false,
     pendingFocus: null,
     focusedPageId: null,
@@ -20,13 +19,8 @@ describe('expectedFocus', () => {
     expect(expectedFocus(state())).toEqual({ kind: 'aboveView' })
   })
 
-  it('returns the selected page in browser mode', () => {
-    expect(expectedFocus(state({ workspaceViewMode: 'browser', selectedPageId: 'p1' })))
-      .toEqual({ kind: 'page', id: 'p1' })
-  })
-
-  it('falls back to aboveView in browser mode without a selected page (Phase F)', () => {
-    expect(expectedFocus(state({ workspaceViewMode: 'browser' })))
+  it('does not focus a selected page unless the page-focus predicate elects it', () => {
+    expect(expectedFocus(state({ selectedPageId: 'p1' })))
       .toEqual({ kind: 'aboveView' })
   })
 
@@ -82,7 +76,6 @@ describe('expectedFocus', () => {
     expect(expectedFocus(state({ pendingFocus: { kind: 'toolbar' } })))
       .toEqual({ kind: 'toolbar' })
     expect(expectedFocus(state({
-      workspaceViewMode: 'browser',
       selectedPageId: 'p1',
       pendingFocus: { kind: 'bgView' },
     }))).toEqual({ kind: 'bgView' })

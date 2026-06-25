@@ -20,7 +20,7 @@ import {
   setPendingFocus,
 } from './runtime-context'
 import { isTextEditingFor } from './binding-dispatcher'
-import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
+import { isCommentOverlayVisible, selectedPageIndex } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
 function currentFocusState(): FocusState {
@@ -30,7 +30,6 @@ function currentFocusState(): FocusState {
     interactionMode: canvasInteractionModeKind(interactionState),
     editingEntityId: getEditingEntityId(),
     selectedPageId: selectedPage?.id ?? null,
-    workspaceViewMode: workspaceViewMode(),
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
     focusedPageId: currentKeyboardTargetPageId(),

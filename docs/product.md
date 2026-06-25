@@ -9,7 +9,8 @@ collect, arrange, and iterate on web content as part of their design practice.
 
 Part browser, part spatial canvas. Not a traditional tab-based browser, not a
 traditional design tool. The intersection where you pull live web content onto
-a freeform surface and think with it.
+a freeform surface and think with it. The browser part lives inside page nodes
+on the canvas rather than in a separate tabbed browser mode.
 
 ## Core beliefs
 
@@ -50,8 +51,8 @@ layout is part of the work product.
 
 Web content renders in real Electron webviews, not screenshots or proxies.
 Users can interact with live pages, inspect DOM, navigate, and see responsive
-behavior at different viewport presets. The browser half of the app is a real
-browser.
+behavior at different viewport presets. Page nodes are real browser surfaces,
+even though the app stays organized as one spatial canvas.
 
 ### Workflows are emergent
 
@@ -62,7 +63,7 @@ hard-coded as dedicated features.
 
 ## What it is not
 
-- Not a full-featured browser (no tabs management, extensions, bookmarks)
+- Not a full-featured browser (no tabs mode, extensions, bookmarks)
 - Not a pixel-perfect design tool (no vector editing, no export to Figma)
 - Not a project management tool (no tasks, no timelines)
 - Not a collaborative real-time editor (local-first, single user)

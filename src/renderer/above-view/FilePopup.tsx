@@ -31,6 +31,7 @@ export function FilePopup({
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
     | 'morphTextFile'
+    | 'focusSelection'
     | 'distributeSelection'
   >
   isDark: boolean

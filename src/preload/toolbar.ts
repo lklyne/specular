@@ -21,7 +21,6 @@ const api: ToolbarElectronAPI = {
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),
   toggleLeftSidebar: () => ipcRenderer.send('toggle-left-sidebar'),
   toggleDevTools: () => ipcRenderer.send('toggle-devtools'),
-  toggleBrowserMode: () => ipcRenderer.send('toolbar-toggle-browser-mode'),
   dropdownOpen: () => ipcRenderer.send('toolbar-dropdown-open'),
   dropdownClose: () => ipcRenderer.send('toolbar-dropdown-close'),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),

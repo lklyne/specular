@@ -34,7 +34,6 @@ export function ReorderDotsLayer({
   const reordering = interaction.kind === 'reordering-row' ? interaction : null
 
   const dots = useMemo(() => {
-    if (layoutData.viewMode !== 'canvas') return []
     if (layoutData.activeTool.kind !== 'select') return []
     // Show dots only at rest or while reordering; hide during drag/resize/
     // marquee/edit so they don't clutter an in-progress gesture.

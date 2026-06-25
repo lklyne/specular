@@ -36,6 +36,7 @@ export function PagePopup({
     | 'toggleDeviceShell'
     | 'setPagePreset'
     | 'setPageCustom'
+    | 'focusSelection'
     | 'distributeSelection'
   >
   isDark: boolean

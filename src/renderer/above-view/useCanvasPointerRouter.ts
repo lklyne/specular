@@ -203,7 +203,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       if (event.button !== 0 && event.button !== 1 && event.button !== 2) return
 
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return
 
       // aboveView's WCV starts at canvasOrigin.y; scene entities use
       // window-relative screenY, so add the offset before hit-testing.
@@ -283,7 +282,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       if (isTypingTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return
       const windowY = event.clientY + layout.canvasOrigin.y
       const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
       const action = routePointerDoubleClick(target)

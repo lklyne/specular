@@ -3,10 +3,7 @@
 export {
   deselectAll,
   selectPage,
-  setBrowserMode,
-  setCanvasMode,
   setSelectedPages,
-  toggleBrowserMode,
 } from './selection-state'
 
 export {
@@ -48,7 +45,6 @@ export {
 export {
   getSelectedEntityIds,
   getSelectedGroupId,
-  selectBrowserTab,
   selectEntity,
   selectPageById,
   setHoverEntity,

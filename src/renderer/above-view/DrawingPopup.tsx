@@ -34,6 +34,7 @@ export function DrawingPopup({
     | 'duplicateDrawingEntity'
     | 'deleteDrawingEntity'
     | 'updateDrawingEntity'
+    | 'focusSelection'
     | 'distributeSelection'
   >
   isDark: boolean

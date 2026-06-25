@@ -24,7 +24,6 @@ export type FocusState = {
   interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity' | 'reordering-row'
   editingEntityId: string | null
   selectedPageId: string | null
-  workspaceViewMode: 'canvas' | 'browser'
   commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
   pendingFocus: FocusTarget | null
@@ -80,16 +79,9 @@ export function expectedFocus(state: FocusState): FocusTarget {
     return { kind: 'aboveView' }
   }
 
-  // Browser mode with a live page — the page should be focused so
-  // keyboard input reaches the web content.
-  if (state.workspaceViewMode === 'browser' && state.selectedPageId) {
-    return { kind: 'page', id: state.selectedPageId }
-  }
-
-  // Canvas mode default: aboveView is the singleton keyboard owner. Canvas
+  // Canvas default: aboveView is the singleton keyboard owner. Canvas
   // shortcuts (Cmd-Z, Escape, tool hotkeys) are wired into aboveView's
-  // webContents via `watchModifierKeys`. The browser-mode no-selected-page
-  // fallback also lands here — a degenerate state with no page yet.
+  // webContents via `watchModifierKeys`.
   return { kind: 'aboveView' }
 }
 

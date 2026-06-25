@@ -27,10 +27,8 @@ import {
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
 import { contentCornerRadiusForDevice } from '../../shared/device-catalog'
-import { boundIsFillBrowserPage } from './runtime-geometry'
 
 function pageCornerRadiusPx(page: Page, dpr: number): number {
-  if (boundIsFillBrowserPage(page)) return 0
   const deviceId = deviceIdFromMetadata(page.metadata)
   if (!deviceId || !showDeviceFrameFromMetadata(page.metadata)) return 0
   const orientation = deviceOrientationFromMetadata(page.metadata)

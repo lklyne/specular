@@ -14,8 +14,8 @@ const BASE_CTX: BindingContext = {
   activeTool: { kind: 'select' },
   isTextEditing: false,
   pageFocusActive: false,
+  focusReturnCameraActive: false,
   sourceView: 'canvasBg',
-  viewMode: 'canvas',
   hasOpenAnnotationThread: false,
   hasPendingAnnotation: false,
 }
@@ -208,16 +208,6 @@ describe('dispatchKey — modifier shortcuts', () => {
     ).toBe('stack-send-to-back')
   })
 
-  it('suppresses stack-order shortcuts in browser mode', () => {
-    expect(
-      dispatchKey(
-        BINDINGS,
-        { key: ']', cmd: true, alt: false, shift: false },
-        { ...BASE_CTX, viewMode: 'browser' },
-      ),
-    ).toBeNull()
-  })
-
   it('maps left-sidebar arrows to stack-order actions in canvas mode', () => {
     const ctx: BindingContext = { ...BASE_CTX, sourceView: 'leftSidebar' }
     expect(
@@ -226,6 +216,16 @@ describe('dispatchKey — modifier shortcuts', () => {
     expect(
       dispatchKey(BINDINGS, { key: 'arrowdown', cmd: false, alt: false, shift: false }, ctx),
     ).toBe('stack-send-backward')
+  })
+
+  it('maps Escape to restore-focus-camera when a return camera is active', () => {
+    expect(
+      dispatchKey(
+        BINDINGS,
+        { key: 'escape', cmd: false, alt: false, shift: false },
+        { ...BASE_CTX, focusReturnCameraActive: true },
+      ),
+    ).toBe('restore-focus-camera')
   })
 })
 

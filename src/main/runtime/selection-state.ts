@@ -9,10 +9,7 @@ import {
   selectedEntityIds as uiSelectedEntityIds,
   selectedPageIndex as uiSelectedPageIndex,
   setActiveTool as setUiActiveTool,
-  setBrowserMode as setUiBrowserMode,
-  setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   selectPages,
@@ -41,64 +38,20 @@ export function deselectAll(): void {
   void selectNone()
 }
 
-/**
- * Single gate for all view-mode transitions. Clears transient state
- * (interaction, hover, pending placement) so nothing leaks across modes.
- */
-function transitionViewMode(target: 'canvas' | 'browser', pageId?: string): boolean {
-  // 1. Clear transient interaction state
+function clearTransientSelectionState(): void {
   cancelActiveInteraction('external')
   setHoverTarget(null)
   if (uiActiveTool().kind !== 'select') {
     setUiActiveTool({ kind: 'select' })
   }
+}
 
-  // 2. Perform the mode-specific transition
-  if (target === 'browser') {
-    const selectedPageIds = uiSelectedEntityIds()
-    const selectedIdx = uiSelectedPageIndex(pages.map((p) => p.id))
-    const currentSelectedPageId =
-      selectedIdx !== null && selectedIdx >= 0 && selectedIdx < pages.length
-        ? pages[selectedIdx].id
-        : null
-    const targetId =
-      pageId ?? currentSelectedPageId ?? selectedPageIds[0] ?? pages[0]?.id ?? null
-    if (!targetId) return false
-    const page = pages.find((p) => p.id === targetId)
-    if (!page) return false
-    if (currentSelectedPageId !== targetId || selectedPageIds.length !== 1 || selectedPageIds[0] !== targetId) {
-      selectPageById(targetId)
-    }
-    setUiBrowserMode({ pageId: targetId })
-  } else {
-    if (uiWorkspaceViewMode() === 'canvas') return false
-    setUiCanvasMode()
-  }
-
-  // 3. Validate devtools panel tab — browser-devtools only valid in browser mode
-  if (target === 'canvas' && uiDevtoolsPanelTab() === 'browser-devtools') {
+export function normalizeCanvasSelectionState(): void {
+  clearTransientSelectionState()
+  if (uiDevtoolsPanelTab() === 'browser-devtools') {
     setUiDevtoolsPanelTab('comments')
   }
-
-  // 4. One layout pass at the end
   requestLayout()
-  return true
-}
-
-export function setBrowserMode(pageId?: string): boolean {
-  return transitionViewMode('browser', pageId)
-}
-
-export function setCanvasMode(): void {
-  transitionViewMode('canvas')
-}
-
-export function toggleBrowserMode(): boolean {
-  if (uiWorkspaceViewMode() === 'browser') {
-    setCanvasMode()
-    return false
-  }
-  return setBrowserMode()
 }
 
 export function selectAdjacentPage(direction: ArrowDirection): boolean {

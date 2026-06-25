@@ -7,7 +7,7 @@
  *
  * This is the seam where undo/redo will hook in: when undo is added, these
  * functions will be wrapped to capture before/after state. UI-only mutations
- * (selection, view mode, tool state) live in ui-actions.ts and do NOT
+ * (selection, focus camera, tool state) live in ui-actions.ts and do NOT
  * participate in the undo stack.
  *
  * Rules:

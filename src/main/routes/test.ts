@@ -400,7 +400,6 @@ export const testRoutes: Route[] = [
       writeCanvasFileSync(canvasFilePath(userDataPath, DEFAULT_WORKSPACE_ID, name), payload.doc)
       writeWorkspaceMetaSync(userDataPath, DEFAULT_WORKSPACE_ID, {
         activeTabId: tabId,
-        viewMode: 'canvas',
         tabs: [{
           id: tabId,
           name,

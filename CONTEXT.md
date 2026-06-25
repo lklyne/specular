@@ -165,7 +165,7 @@ Replaces three previously-parallel state machines: `pendingPlacement`, `Annotati
 
 ADR 0005 unified tool *identity*; the remaining per-tool axes (enablement, target state, palette placement, cursor label, popup, bindings) are still scattered across surfaces. Proposed end-state: model tools as a capability registry mirroring the entity-renderer plugin pattern — see [ADR 0016](./docs/adr/0016-tools-as-capability-registry.md) (proposed; not yet adopted).
 
-**Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
+**Not a tool:** **Focus selection**. Focus answers "where should the camera look right now?", not "what does my next click do?" It is an ephemeral camera command, not a persisted mode or document state.
 
 ## Annotations
 

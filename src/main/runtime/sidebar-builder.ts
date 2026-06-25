@@ -25,7 +25,6 @@ import {
   leftSidebarOpen as uiLeftSidebarOpen,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
@@ -278,7 +277,6 @@ export function buildLeftSidebarData(): LeftSidebarData {
     selectedGroupId: uiSelectedGroupId(),
     tabs: workspaceTabSummaries(),
     activeTabId: activeWorkspaceTabId,
-    viewMode: uiWorkspaceViewMode(),
     hasPages: pages.length > 0,
     sections,
     items: [...sections.notes, ...sections.pages],

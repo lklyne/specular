@@ -91,40 +91,29 @@ function screenBoundsPage(): Page {
   } as unknown as Page
 }
 
-function computeBounds(opts: { viewMode: 'canvas' | 'browser' }) {
+function computeBounds() {
   return computeScreenBoundsForPage({
     page: screenBoundsPage(),
     effectivePageContentSize: () => ({ width: 375, height: 667 }),
-    availableCanvasViewportRect: () => ({ x: 0, y: 0, width: 1000, height: 1000 }),
-    currentViewMode: () => opts.viewMode,
-    // In browser mode the test page is the selected/active page.
-    selectedPageId: () => (opts.viewMode === 'browser' ? 'page_test' : null),
-    isFillBrowserPage: () => false,
     zoom: 1,
     pan: { x: 0, y: 0 },
     toolbarHeight: 0,
-    browserHeaderHeight: 0,
-    chromePageGap: 0,
     cardBorderWidth: 1,
   })
 }
 
 describe('computeScreenBoundsForPage: device shell tracks the content rect', () => {
   it('canvas mode: shell wraps the content, offset outward by the bezel insets', () => {
-    const { shell, page } = computeBounds({ viewMode: 'canvas' })
+    const { shell, page } = computeBounds()
     expect(shell.x).toBe(page.x - SHELL_INSET)
     expect(shell.y).toBe(page.y - SHELL_INSET)
     expect(shell.width).toBe(page.width + 2 * SHELL_INSET)
     expect(shell.height).toBe(page.height + 2 * SHELL_INSET)
   })
 
-  it('browser mode (non-fill): shell follows the centered content, not the canvas position', () => {
-    const { shell, page } = computeBounds({ viewMode: 'browser' })
-    // Content is browser-centered: x = (1000 - 375) / 2 = 312.5 -> 313.
-    expect(page.x).toBe(313)
-    // Regression: the bezel must wrap the *centered* content. Before the fix the
-    // shell was anchored at snapLeftScreenX/snapTopScreenY (the canvas position,
-    // x = 100), leaving the grey card stranded away from the live page.
+  it('does not recenter page bounds for a separate browser presentation', () => {
+    const { shell, page } = computeBounds()
+    expect(page.x).toBe(100 + SHELL_INSET)
     expect(shell.x).toBe(page.x - SHELL_INSET)
     expect(shell.y).toBe(page.y - SHELL_INSET)
     expect(shell.width).toBe(page.width + 2 * SHELL_INSET)

@@ -6,10 +6,8 @@ import {
   isCommentOverlayVisible,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
   setSelection as setUiSelection,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   findPageById,
@@ -109,7 +107,7 @@ export function resolveEntityKind(entityId: string): CanvasEntityKind {
   return 'page'
 }
 
-function browserSelectionAllowed(nextSelection: SelectionCommand): boolean {
+function browserDevtoolsSelectionAllowed(nextSelection: SelectionCommand): boolean {
   return nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'page'
 }
 
@@ -152,16 +150,11 @@ function commitSelection(
   nextSelection: SelectionCommand,
   options?: CommitOptions,
 ): boolean {
-  const currentUi = getUiState()
   const shouldClearHover = options?.clearHover ?? nextSelection.kind === 'none'
   const shouldClearInteraction = options?.clearInteraction ?? false
   const shouldClearInspect = options?.clearInspect ?? false
   const shouldSyncInspection = options?.syncInspection ?? true
   const shouldNotifyDevtools = options?.notifyDevtools ?? true
-
-  if (uiWorkspaceViewMode(currentUi) === 'browser' && !browserSelectionAllowed(nextSelection)) {
-    setUiCanvasMode()
-  }
 
   if (selectionEquals(getUiState().selection, nextSelection)) {
     if (shouldClearHover && hoverTarget) {
@@ -179,7 +172,7 @@ function commitSelection(
   setUiSelection(nextSelection)
   breadcrumb('selection', nextSelection.kind, describeSelection(nextSelection))
 
-  if (!browserSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
+  if (!browserDevtoolsSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
     setUiDevtoolsPanelTab('comments')
     savePreferences()
   }

@@ -66,10 +66,7 @@ export function useAnnotationDrawingGestures({
       if (drawInteractionEnabled) {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         if (event.clientY < layoutData.canvasOrigin.y) return
-        if (
-          layoutData.viewMode === 'canvas' &&
-          event.clientX < layoutData.leftChromeWidth
-        ) {
+        if (event.clientX < layoutData.leftChromeWidth) {
           return
         }
         if (isOverlayUiTarget(event.target)) return
@@ -129,7 +126,6 @@ export function useAnnotationDrawingGestures({
       layoutData.leftChromeWidth,
       layoutData.canvasOrigin.y,
       layoutData.selectedEntityIds,
-      layoutData.viewMode,
       layoutRef,
       pendingAnnotation,
       setDrawingSession,

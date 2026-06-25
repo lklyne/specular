@@ -121,13 +121,14 @@ Specular stores viewport and UI state in an `appState` field:
     "zoom": 0.5,
     "pan": { "x": -200, "y": -100 },
     "selectedEntityIds": ["abc123"],
-    "leftSidebarOpen": true,
-    "browserTabMode": "canvas"
+    "leftSidebarOpen": true
   }
 }
 ```
 
-Other tools ignore this field per the spec's extensibility model.
+Other tools ignore this field per the spec's extensibility model. Older files
+may contain `browserTabMode`; Specular reads it only as a legacy restore hint
+and no longer writes it.
 
 ### Annotations (extension)
 
@@ -158,7 +159,6 @@ Metadata about the canvas tabs within a space:
 ```json
 {
   "activeTabId": "tab_1",
-  "viewMode": "canvas",
   "tabs": [
     {
       "id": "tab_1",
@@ -169,6 +169,9 @@ Metadata about the canvas tabs within a space:
   ]
 }
 ```
+
+Older metadata may contain `viewMode`; Specular reads it only as a legacy
+restore hint and no longer writes it.
 
 ## Type definitions
 

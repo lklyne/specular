@@ -217,8 +217,6 @@ function StackedCanvasItems({
    *  50% opacity, floating over the settling siblings under the cursor. */
   ghostEntity?: CanvasSceneEntity | null
 }) {
-  if (layoutData.viewMode !== 'canvas') return null
-
   const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
 
@@ -736,7 +734,7 @@ export default function App({
       const rect = normalizeRect(startX, startY, endX, endY)
       // Annotation overlay sits at canvasOrigin.y, but the interaction overlay
       // (where the selection box renders) sits at TOOLBAR_HEIGHT. Offset the
-      // rect so it aligns with the mouse in both canvas and browser modes.
+      // rect so it aligns with the mouse.
       api.setSelectionOverlayRect({
         rect: {
           ...rect,
@@ -883,7 +881,6 @@ export default function App({
       if (isOverlayUiTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return
       if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
 
       event.preventDefault()
@@ -1058,7 +1055,6 @@ export default function App({
   const routeWheel = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return false
       if (layout.interaction.kind !== 'idle') return false
       const selected = layout.selectedEntityIds
       if (selected.length !== 1) return false
@@ -1101,7 +1097,6 @@ export default function App({
   const yieldWheelToEntityScroll = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return false
       const kind = layout.interaction.kind
       if (kind !== 'idle' && kind !== 'editing-entity') return false
       const editingId =
@@ -1156,7 +1151,6 @@ export default function App({
     const onMove = (event: PointerEvent) => {
       if (event.buttons !== 0) return
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return resetCursor()
       const selected = layout.selectedEntityIds
       if (selected.length !== 1) return resetCursor()
       const pageId = selected[0]
@@ -1373,7 +1367,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
           <MarqueeLayer overlay={selectionOverlay} />
 
-          {layoutData.viewMode === 'canvas' && layoutData.presenceCursors.length > 0 ? (
+          {layoutData.presenceCursors.length > 0 ? (
             <ActivePageHighlightLayer
               cursors={layoutData.presenceCursors}
               pages={layoutData.entities.filter(
@@ -1406,22 +1400,20 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
-          {layoutData.viewMode === 'canvas' ? (
-            <EdgeLayer
-              edges={[]}
-              entities={layoutData.entities}
-              hoveredEntityId={hoveredEntityId}
-              isDark={isDark}
-              interaction={layoutData.interaction}
-              selectedEdgeIds={selectedEdgeIds}
-              selectedEntityIds={layoutData.selectedEntityIds}
-              zoom={layoutData.zoom}
-              originY={layoutData.canvasOrigin.y}
-              onSelectEdge={api.selectEdge}
-            />
-          ) : null}
+          <EdgeLayer
+            edges={[]}
+            entities={layoutData.entities}
+            hoveredEntityId={hoveredEntityId}
+            isDark={isDark}
+            interaction={layoutData.interaction}
+            selectedEdgeIds={selectedEdgeIds}
+            selectedEntityIds={layoutData.selectedEntityIds}
+            zoom={layoutData.zoom}
+            originY={layoutData.canvasOrigin.y}
+            onSelectEdge={api.selectEdge}
+          />
 
-          {layoutData.viewMode === 'canvas' && (layoutData.groups?.length ?? 0) > 0 ? (
+          {(layoutData.groups?.length ?? 0) > 0 ? (
             <GroupBoundsLayer
               groups={layoutData.groups ?? []}
               isDark={isDark}
@@ -1431,36 +1423,30 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
-          {layoutData.viewMode === 'canvas' ? (
-            <PageFocusRingLayer
-              pages={layoutData.entities.filter(
-                (e): e is CanvasScenePageEntity => e.kind === 'page',
-              )}
-              fileEntities={layoutData.entities.filter(
-                (e): e is CanvasSceneFileEntity => e.kind === 'file',
-              )}
-              focusedPageId={layoutData.keyboardTargetPageId}
-              originY={layoutData.canvasOrigin.y}
-            />
-          ) : null}
+          <PageFocusRingLayer
+            pages={layoutData.entities.filter(
+              (e): e is CanvasScenePageEntity => e.kind === 'page',
+            )}
+            fileEntities={layoutData.entities.filter(
+              (e): e is CanvasSceneFileEntity => e.kind === 'file',
+            )}
+            focusedPageId={layoutData.keyboardTargetPageId}
+            originY={layoutData.canvasOrigin.y}
+          />
 
-          {layoutData.viewMode === 'canvas' ? (
-            <SelectionOutlineLayer
-              layoutData={renderLayout}
-              isDark={isDark}
-              marqueePreviewIds={marqueePreviewIds}
-              reorderGhostId={reorderGhostEntity?.id ?? null}
-              reorderGhostSpan={reorderGhostSpan}
-            />
-          ) : null}
+          <SelectionOutlineLayer
+            layoutData={renderLayout}
+            isDark={isDark}
+            marqueePreviewIds={marqueePreviewIds}
+            reorderGhostId={reorderGhostEntity?.id ?? null}
+            reorderGhostSpan={reorderGhostSpan}
+          />
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
-          {layoutData.viewMode === 'canvas' ? (
-            <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
-          ) : null}
+          <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
 
           <PageChromeOverlay
             api={api}
@@ -1485,82 +1471,78 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             setDragCopyPreview={setDragCopyPreview}
           />
 
-          {layoutData.viewMode === 'canvas' ? (
-            <>
-              {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
-              {layoutData.activeTool.kind === 'add-text' ? (
-                <TextToolPopup
-                  api={api}
-                  isDark={isDark}
-                  layout={layoutData}
-                  style="plain"
-                />
-              ) : null}
-              {layoutData.activeTool.kind === 'add-sticky' ? (
-                <TextToolPopup
-                  api={api}
-                  isDark={isDark}
-                  layout={layoutData}
-                  style="sticky"
-                />
-              ) : null}
-              {layoutData.activeTool.kind === 'add-shape' ? (
-                <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
-              ) : null}
-              {layoutData.activeTool.kind === 'draw' ? (
-                <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
-              ) : null}
+          {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
+          {layoutData.activeTool.kind === 'add-text' ? (
+            <TextToolPopup
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              style="plain"
+            />
+          ) : null}
+          {layoutData.activeTool.kind === 'add-sticky' ? (
+            <TextToolPopup
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              style="sticky"
+            />
+          ) : null}
+          {layoutData.activeTool.kind === 'add-shape' ? (
+            <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
+          ) : null}
+          {layoutData.activeTool.kind === 'draw' ? (
+            <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
+          ) : null}
 
-              {/* Selection-mode popups — suppressed while any tool with its own
-                  popup is active (ADR 0008 §2). */}
-              {!toolHasPopup(layoutData.activeTool) ? (
-                <>
-                  <StickyNotePopover
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedTextEntities={selectedTextEntities}
-                    popupReady={textPopupReady}
-                  />
-                  <GroupPopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedGroup={selectedGroupEntity}
-                    interactionIdle={interactionIdle}
-                  />
-                  <ShapePopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedShapes={selectedShapeEntities}
-                    interactionIdle={interactionIdle}
-                  />
-                  <DrawingPopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedDrawings={selectedDrawingEntities}
-                    interactionIdle={interactionIdle}
-                  />
-                  <PagePopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedPages={selectedPageEntities}
-                    interactionIdle={interactionIdle}
-                  />
-                  <FilePopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedFiles={selectedFileEntities}
-                    interactionIdle={interactionIdle}
-                    fileJsonModeMap={fileJsonModeMap}
-                    setFileJsonMode={setFileJsonMode}
-                  />
-                </>
-              ) : null}
+          {/* Selection-mode popups — suppressed while any tool with its own
+              popup is active (ADR 0008 §2). */}
+          {!toolHasPopup(layoutData.activeTool) ? (
+            <>
+              <StickyNotePopover
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedTextEntities={selectedTextEntities}
+                popupReady={textPopupReady}
+              />
+              <GroupPopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedGroup={selectedGroupEntity}
+                interactionIdle={interactionIdle}
+              />
+              <ShapePopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedShapes={selectedShapeEntities}
+                interactionIdle={interactionIdle}
+              />
+              <DrawingPopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedDrawings={selectedDrawingEntities}
+                interactionIdle={interactionIdle}
+              />
+              <PagePopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedPages={selectedPageEntities}
+                interactionIdle={interactionIdle}
+              />
+              <FilePopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedFiles={selectedFileEntities}
+                interactionIdle={interactionIdle}
+                fileJsonModeMap={fileJsonModeMap}
+                setFileJsonMode={setFileJsonMode}
+              />
             </>
           ) : null}
         </>

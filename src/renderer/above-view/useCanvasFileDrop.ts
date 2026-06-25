@@ -12,8 +12,6 @@ export function useCanvasFileDrop({
 }) {
   useEffect(() => {
     const handleDragOver = (event: DragEvent) => {
-      const layout = layoutRef.current
-      if (layout.viewMode === 'browser') return
       if (!event.dataTransfer?.types.includes('Files')) return
       event.preventDefault()
       event.dataTransfer.dropEffect = 'copy'
@@ -21,7 +19,6 @@ export function useCanvasFileDrop({
 
     const handleDrop = (event: DragEvent) => {
       const layout = layoutRef.current
-      if (layout.viewMode === 'browser') return
       if (!event.dataTransfer?.files.length) return
       event.preventDefault()
       event.stopImmediatePropagation()

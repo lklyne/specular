@@ -46,13 +46,7 @@ export function useCanvasViewportGestures({
         api.canvasZoom(action.deltaY, action.mouseX, action.mouseY)
         return
       }
-      // Scroll-to-pan is canvas-mode only (ADR 0017). In browser mode this
-      // handler is the active wheel path (aboveView is hidden), and panning
-      // would drag the canvas behind the browser page — so a plain scroll
-      // there does nothing. Cmd/Ctrl/pinch still zooms above.
-      if (layoutRef.current.viewMode === 'canvas') {
-        api.canvasPan(action.deltaX, action.deltaY)
-      }
+      api.canvasPan(action.deltaX, action.deltaY)
     }
 
     const handlePointerEnter = () => {
@@ -68,7 +62,6 @@ export function useCanvasViewportGestures({
     const handleMiddlePointerDown = (event: PointerEvent) => {
       const layout = layoutRef.current
       if (event.button !== 1) return
-      if (layout.viewMode === 'browser') return
       if (isOverlayUiTarget(event.target)) return
       if (event.clientY < layout.canvasOrigin.y) return
       middleDragPointerId = event.pointerId
@@ -113,8 +106,6 @@ export function useCanvasViewportGestures({
 
     // File drag/drop onto the canvas.
     const handleDragOver = (event: DragEvent) => {
-      const layout = layoutRef.current
-      if (layout.viewMode === 'browser') return
       if (!event.dataTransfer?.types.includes('Files')) return
       event.preventDefault()
       if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
@@ -122,7 +113,6 @@ export function useCanvasViewportGestures({
 
     const handleDrop = (event: DragEvent) => {
       const layout = layoutRef.current
-      if (layout.viewMode === 'browser') return
       if (!event.dataTransfer?.files.length) return
       event.preventDefault()
       event.stopImmediatePropagation()

@@ -12,6 +12,7 @@ import {
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
+import { computeFocusZoomForBounds as computeFocusZoomForBoundsValue } from '../../shared/focus-camera'
 import type { WorkspaceBounds } from '../../shared/types'
 import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
 import { textEntities } from './text-entity-state'
@@ -21,6 +22,7 @@ import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './workspace-model'
 
 export function setZoom(value: number): void {
+  clearFocusReturnCamera()
   const nextZoom = clampCanvasZoom(value)
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
@@ -36,6 +38,7 @@ export function broadcastCanvasZoomToPages(): void {
 }
 
 export function setPan(x: number, y: number): void {
+  clearFocusReturnCamera()
   if (pan.x === x && pan.y === y) return
   setPanState({ x, y })
   markDirty('canvas')
@@ -56,6 +59,44 @@ function panToCenterBounds(bounds: WorkspaceBounds): { x: number; y: number } {
     ),
     y: Math.round(viewport.height / 2 - (bounds.y + bounds.height / 2) * zoom),
   }
+}
+
+let focusReturnCamera: { zoom: number; pan: { x: number; y: number } } | null = null
+let suppressFocusReturnClear = false
+
+function clearFocusReturnCamera(): void {
+  if (suppressFocusReturnClear) return
+  focusReturnCamera = null
+}
+
+function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }): void {
+  suppressFocusReturnClear = true
+  try {
+    setZoom(nextZoom)
+    setPan(nextPan.x, nextPan.y)
+  } finally {
+    suppressFocusReturnClear = false
+  }
+}
+
+export function restoreFocusCamera(): boolean {
+  const camera = focusReturnCamera
+  if (!camera) return false
+  focusReturnCamera = null
+  setCameraForFocus(camera.zoom, camera.pan)
+  requestLayout()
+  return true
+}
+
+export function hasFocusReturnCamera(): boolean {
+  return focusReturnCamera !== null
+}
+
+export function computeFocusZoomForBounds(
+  bounds: WorkspaceBounds,
+  viewport: { width: number; height: number },
+): number {
+  return computeFocusZoomForBoundsValue(bounds, viewport, zoom)
 }
 
 export function focusCanvasBounds(
@@ -168,7 +209,7 @@ function unionBounds(boundsArr: WorkspaceBounds[]): WorkspaceBounds | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
-export function focusSelection(): boolean {
+export function focusSelection(options?: { storeReturnCamera?: boolean }): boolean {
   if (!win) return false
   const targets = uiSelectedCanvasTargets()
   if (!targets.length) return false
@@ -192,6 +233,22 @@ export function focusSelection(): boolean {
   const combined = unionBounds(allBounds)
   if (!combined) return false
 
-  focusCanvasBounds(combined)
+  const viewport = availableCanvasViewportRect()
+  const nextZoom = computeFocusZoomForBounds(combined, viewport)
+  if (options?.storeReturnCamera !== false) {
+    focusReturnCamera = { zoom, pan: { ...pan } }
+  }
+  setCameraForFocus(nextZoom, panToCenterBoundsAtZoom(combined, nextZoom))
+  requestLayout()
   return true
+}
+
+function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
+  const viewport = availableCanvasViewportRect()
+  return {
+    x: Math.round(
+      viewport.x + viewport.width / 2 - canvasOriginX() - (bounds.x + bounds.width / 2) * targetZoom,
+    ),
+    y: Math.round(viewport.height / 2 - (bounds.y + bounds.height / 2) * targetZoom),
+  }
 }

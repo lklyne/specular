@@ -3,10 +3,8 @@ import {
   boundsKey,
   boundApplyEmulation,
   boundEffectivePageContentSize,
-  boundIsFillBrowserPage,
   boundScreenBoundsForPage,
   boundSelectedPage,
-  boundSelectedPageId,
   boundCanvasOrigin,
 } from './runtime-geometry'
 import {
@@ -45,10 +43,7 @@ import { shouldGateBeOpen } from './gate-predicate'
 import {
   getUiState,
   activeTool as uiActiveTool,
-  selectedCanvasTargets,
 } from '../ui-state'
-import { drawingEntities } from './drawing-entity-state'
-import { descendantEntityIdsForGroup } from './group-descendants'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -58,7 +53,6 @@ import {
   selectedEntityIds as uiSelectedEntityIds,
   setDevtoolsWidth as setUiDevtoolsWidth,
   toolbarDropdownOpen as uiToolbarDropdownOpen,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   backgroundPageOverlays,
@@ -94,7 +88,6 @@ export function setBoundsIfChanged(
 }
 
 import {
-  BROWSER_HEADER_HEIGHT,
   CARD_BORDER_RADIUS,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
@@ -221,13 +214,12 @@ function layoutDevtoolsViews(): void {
 function layoutAllViews(): void {
   if (!win || win.isDestroyed()) return
   const layoutStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-  const viewMode = uiWorkspaceViewMode()
 
   const devtoolsOpen = uiDevtoolsOpen()
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
   const selectedPageIds = uiSelectedEntityIds()
-  const contentTopInset = layoutCache.toolbarHeight + (viewMode === 'browser' ? BROWSER_HEADER_HEIGHT : 0)
+  const contentTopInset = layoutCache.toolbarHeight
 
   const pageOverlays = backgroundPageOverlays()
   const nextActiveSelection = activeCanvasSelection()
@@ -279,33 +271,9 @@ function layoutAllViews(): void {
   // drives this; it only renders what it's told to render.
   if (aboveView && win) {
     const { width, height } = win.getBounds()
-    const selectedTargets = selectedCanvasTargets()
-    let selectedGroupOwnsPageContent = false
-    if (selectedTargets.length === 1 && selectedTargets[0]?.kind === 'group') {
-      const groupDescendantIds = new Set(descendantEntityIdsForGroup(selectedTargets[0].id))
-      selectedGroupOwnsPageContent = pages.some((page) => groupDescendantIds.has(page.id))
-    }
-    const selectionOwnsPageContent =
-      (selectedTargets.length > 1 &&
-        selectedTargets.some((target) => target.kind === 'page')) ||
-      selectedGroupOwnsPageContent
     const shouldCover = shouldGateBeOpen({
-      interactionKind: interactionState.kind === 'idle' ? 'idle'
-        : interactionState.kind === 'panning-canvas' ? 'panning'
-        : interactionState.kind === 'marquee-select' ? 'marquee'
-        : interactionState.kind === 'resizing-entity' ? 'resizing-entity'
-        : interactionState.kind === 'editing-entity' ? 'editing-entity'
-        : interactionState.kind,
       activeTool: getUiState().activeTool,
-      viewMode: uiWorkspaceViewMode(),
       commentOverlayActive: uiCommentOverlayVisible(),
-      selectionMarqueeVisible: selectionOverlayActive,
-      spaceHeld: spaceModifierHeld,
-      hoveringCanvasChrome,
-      selectedEntityIds: selectedTargets.map((t) => t.id),
-      selectedEntityKinds: selectedTargets.map((t) => t.kind),
-      selectionOwnsPageContent,
-      hasSavedDrawings: drawingEntities.length > 0,
     })
     const bounds = shouldCover
           ? {
@@ -356,15 +324,8 @@ function layoutAllViews(): void {
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
   // --- Per-page bounds, emulation, annotations ---
-  const visibleBrowserPageId = boundSelectedPageId()
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-    const isVisibleInCurrentMode = viewMode === 'canvas' || page.id === visibleBrowserPageId
-    if (!isVisibleInCurrentMode) {
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
-      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
-      continue
-    }
     const bounds = boundScreenBoundsForPage(page)
 
     // Viewport culling — off-screen pages get hidden bounds.
@@ -412,12 +373,9 @@ function layoutAllViews(): void {
       continue
     }
 
-    const isFillBrowser = boundIsFillBrowserPage(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
     const showShell = showDeviceFrameFromMetadata(page.metadata)
-    const borderRadius = isFillBrowser
-      ? 0
-      : deviceId && showShell
+    const borderRadius = deviceId && showShell
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
         : CARD_BORDER_RADIUS
     page.frameView.setBorderRadius(borderRadius)
@@ -427,8 +385,8 @@ function layoutAllViews(): void {
 
     const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
     const nativeScale = screen.getPrimaryDisplay().scaleFactor
-    const pageScale = isFillBrowser ? 1 : zoom
-    const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${viewMode}:${devtoolsOpen ? devtoolsWidth : 0}`
+    const pageScale = zoom
+    const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsOpen ? devtoolsWidth : 0}`
     if (pageEmulationKey !== page.lastPageEmulationKey) {
       const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
       boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
@@ -438,15 +396,13 @@ function layoutAllViews(): void {
         durationMs: Date.now() - emulationStart,
         emulatedWidth,
         emulatedHeight,
-        viewMode,
-
         devtoolsOpen,
       })
     }
 
     // Inject or remove safe-area CSS padding when the device shell is active
     const orientation = deviceOrientationFromMetadata(page.metadata)
-    const safeAreaCss = deviceId && showShell && !isFillBrowser
+    const safeAreaCss = deviceId && showShell
       ? safeAreaCssForDevice(deviceId, orientation)
       : null
     const safeAreaKey = safeAreaCss ?? ''
@@ -490,9 +446,7 @@ function layoutAllViews(): void {
 
   // --- Per-component bounds + emulation ---
   // Reconcile the component-view set against the current file entities,
-  // then position each view to match its entity's canvas footprint. Hidden
-  // entirely in browser mode — components are design artifacts, not
-  // navigable web content, so they don't get tabs.
+  // then position each view to match its entity's canvas footprint.
   syncComponentViews(fileEntities)
 
   // Child-list reconcile runs here — after syncComponentViews so component
@@ -500,12 +454,11 @@ function layoutAllViews(): void {
   // ordered child list (bgView → pages → components → overlays → toolbar).
   applyStack()
 
-  const componentsHidden = viewMode === 'browser'
   const canvasOrigin = boundCanvasOrigin()
   const nativeScale = screen.getPrimaryDisplay().scaleFactor
   for (const cv of listComponentViews()) {
     const entity = fileEntities.find((e) => e.id === cv.entityId)
-    if (!entity || componentsHidden) {
+    if (!entity) {
       cv.lastBoundsKey = setBoundsIfChanged(cv.view, HIDDEN_BOUNDS, cv.lastBoundsKey)
       continue
     }

@@ -37,7 +37,6 @@ export function GroupRenameOverlay({
   optionHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
-  if (layoutData.viewMode !== 'canvas') return null
   const groups = layoutData.groups ?? []
   if (!groups.length) return null
   return (

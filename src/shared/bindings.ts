@@ -70,6 +70,7 @@ export type BindingId =
   | 'nav-right'
   | 'nav-up'
   | 'nav-down'
+  | 'restore-focus-camera'
   | 'escape-tool'
   | 'escape-page-focus'
   | 'close-tab'
@@ -82,8 +83,8 @@ export type BindingContext = {
   activeTool: Tool
   isTextEditing: boolean
   pageFocusActive: boolean
+  focusReturnCameraActive: boolean
   sourceView: KeyboardSourceView
-  viewMode: 'canvas' | 'browser'
   hasOpenAnnotationThread: boolean
   hasPendingAnnotation: boolean
 }
@@ -103,12 +104,9 @@ function k(key: string, cmd = false, shift = false, alt = false): NormalizedKey 
   return { key, cmd, alt, shift }
 }
 
-function canvasModeOnly(ctx: BindingContext): boolean {
-  return ctx.viewMode === 'canvas'
-}
-
 // Table order determines dispatch priority. Escape resolution relies on:
-//   annotation-close-thread / annotation-clear-draft → escape-page-focus → escape-tool
+//   annotation-close-thread / annotation-clear-draft → restore-focus-camera
+//   → escape-page-focus → escape-tool
 export const BINDINGS: readonly Binding[] = [
   // Tool selection (canvas-region, plain keys, suppressed while typing)
   { id: 'tool-select', defaultKey: k('v'), scope: CANVAS_REGION, target: 'main', label: 'Select' },
@@ -148,7 +146,6 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k(']', true),
     scope: [...CANVAS_REGION, 'leftSidebar'],
     target: 'main',
-    when: canvasModeOnly,
     label: 'Bring forward',
   },
   {
@@ -156,7 +153,6 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k('[', true),
     scope: [...CANVAS_REGION, 'leftSidebar'],
     target: 'main',
-    when: canvasModeOnly,
     label: 'Send backward',
   },
   {
@@ -164,7 +160,6 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k(']', true, true),
     scope: [...CANVAS_REGION, 'leftSidebar'],
     target: 'main',
-    when: canvasModeOnly,
     label: 'Bring to front',
   },
   {
@@ -172,7 +167,6 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k('[', true, true),
     scope: [...CANVAS_REGION, 'leftSidebar'],
     target: 'main',
-    when: canvasModeOnly,
     label: 'Send to back',
   },
   {
@@ -180,7 +174,6 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k('arrowup'),
     scope: ['leftSidebar'],
     target: 'main',
-    when: canvasModeOnly,
     label: 'Bring forward',
   },
   {
@@ -188,7 +181,6 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k('arrowdown'),
     scope: ['leftSidebar'],
     target: 'main',
-    when: canvasModeOnly,
     label: 'Send backward',
   },
 
@@ -233,6 +225,16 @@ export const BINDINGS: readonly Binding[] = [
   },
 
   // Escape resolution: page-focus exit before tool exit
+  {
+    id: 'restore-focus-camera',
+    defaultKey: k('escape'),
+    scope: ALL_VIEWS,
+    target: 'main',
+    firesWhileTyping: true,
+    firesFromPageFocus: true,
+    when: (ctx) => ctx.focusReturnCameraActive,
+    label: 'Restore focus camera',
+  },
   {
     id: 'escape-page-focus',
     defaultKey: k('escape'),

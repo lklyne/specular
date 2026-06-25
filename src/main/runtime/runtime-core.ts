@@ -12,7 +12,6 @@ import {
   selectedPageIndex as uiSelectedPageIndex,
   setCommentOverlayVisible as setUiCommentOverlayVisible,
   setDevtoolsWidth as setUiDevtoolsWidth,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import type {
   DevtoolsPanelData,
@@ -28,7 +27,6 @@ import {
   setHoverTarget,
   setMcpConnectionStatusState,
   findPageById,
-  selectedPageId,
   incrementBrowserDevtoolsAttachGeneration,
 } from './runtime-context'
 import {
@@ -42,9 +40,6 @@ import {
   notifyDevtoolsPanelData,
 } from './inspect-session'
 import type { Page } from './runtime-entities'
-import {
-  setBrowserMode,
-} from './selection-state'
 import {
   selectEntities as commitSelectedEntities,
   selectEntity as commitSelectEntity,
@@ -202,22 +197,6 @@ function selectionDebug(event: string, details?: Record<string, unknown>): void 
   })
 }
 
-function collapseSelectionForBrowserMode(pageId?: string): boolean {
-  const selectedPageIds = uiSelectedEntityIds()
-  const targetId = pageId ?? selectedPageId() ?? selectedPageIds[0] ?? pages[0]?.id ?? null
-  if (!targetId) return false
-  const page = findPageById(targetId)
-  if (!page) return false
-  if (selectedPageId() !== targetId) {
-    selectPageById(targetId)
-  } else if (selectedPageIds.length !== 1 || selectedPageIds[0] !== targetId) {
-    commitSelectPageById(targetId)
-  }
-  return true
-}
-export function selectBrowserTab(pageId: string): boolean {
-  return setBrowserMode(pageId)
-}
 export function selectPageById(id: string): boolean {
   return commitSelectPageById(id)
 }
@@ -249,10 +228,6 @@ export function setDevtoolsWidthFromScreenX(screenX: number): void {
   requestLayout()
 }
 
-function currentViewMode(): string {
-  return uiWorkspaceViewMode()
-}
-
 function currentDevtoolsOpen(): boolean {
   return uiDevtoolsOpen()
 }
@@ -274,4 +249,3 @@ export function setCommentOverlayActive(active: boolean): void {
 export function endDevtoolsResize(): void {
   savePreferences()
 }
-

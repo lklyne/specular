@@ -30,7 +30,6 @@ export function PageChromeOverlay({
   optionHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
-  if (layoutData.viewMode !== 'canvas') return null
   const pages = layoutData.entities.filter(
     (e): e is CanvasScenePageEntity => e.kind === 'page',
   )

@@ -67,7 +67,6 @@ export function saveWorkspaceStore(): void {
     writeAllTabsAsCanvasFiles(userDataPath, record.id, record.tabs)
     writeWorkspaceMetaSync(userDataPath, record.id, {
       activeTabId: record.activeTabId,
-      viewMode: record.viewMode,
       tabs: record.tabs.map((t) => ({
         id: t.id,
         name: t.name,

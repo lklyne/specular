@@ -15,7 +15,6 @@ function page(overrides: Partial<CanvasScenePageEntity> = {}): CanvasScenePageEn
     canGoForward: false,
     isLoading: false,
     isCustomSize: false,
-    browserSizeMode: 'device',
     canvasX: 0,
     canvasY: 0,
     width: 1000,

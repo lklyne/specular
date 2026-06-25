@@ -10,7 +10,6 @@ import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
-import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { PageBorderLayer } from './PageBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
@@ -48,12 +47,6 @@ export default function App({
     () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
-  const borderPages = useMemo(
-    () => layoutData.viewMode === 'browser'
-      ? pageEntities.filter((f) => f.id === layoutData.activeBrowserTabId)
-      : pageEntities,
-    [pageEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
-  )
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -74,31 +67,18 @@ export default function App({
         pan={layoutData.pan}
         zoom={layoutData.zoom}
       />
-      {layoutData.viewMode === 'browser' ? (
-        <BrowserTabBar
-          activeBrowserTabId={layoutData.activeBrowserTabId}
-          leftInset={layoutData.leftChromeWidth}
-          browserTabs={layoutData.browserTabs}
-          isDark={isDark}
-          onAddBrowserPage={api.addBrowserPage}
-          onDeletePage={api.deletePage}
-          onRenamePage={api.renamePage}
-          onSelectBrowserTab={api.selectBrowserTab}
-        />
-      ) : null}
-
       <div className="pointer-events-none absolute inset-0">
         <PageBorderLayer
-          pages={borderPages}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
+          pages={pageEntities}
+          fileEntities={fileEntities}
         />
         <DeviceShellLayer
-          pages={borderPages.filter((f) => !f.useSvgDeviceShell)}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
+          pages={pageEntities.filter((f) => !f.useSvgDeviceShell)}
+          fileEntities={fileEntities}
           isDark={isDark}
         />
         <SvgDeviceShellLayer
-          pages={borderPages.filter((f) => f.useSvgDeviceShell)}
+          pages={pageEntities.filter((f) => f.useSvgDeviceShell)}
           isDark={isDark}
         />
       </div>

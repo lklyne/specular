@@ -24,6 +24,7 @@ export function ShapePopup({
     | 'duplicateShapeEntity'
     | 'deleteShapeEntity'
     | 'updateShapeEntity'
+    | 'focusSelection'
     | 'distributeSelection'
   >
   isDark: boolean

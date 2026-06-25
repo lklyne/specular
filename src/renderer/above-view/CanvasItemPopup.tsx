@@ -1,7 +1,7 @@
 // ADR 0008 — unified canvas-item popup compound component.
 
 import { type ReactNode } from 'react'
-import { AlignHorizontalDistributeCenter, Copy, Trash2 } from 'lucide-react'
+import { AlignHorizontalDistributeCenter, Copy, Maximize2, Trash2 } from 'lucide-react'
 import {
   paletteSlots,
   resolveCanvasColor,
@@ -262,16 +262,27 @@ function EntityActions({
   count: number
   onDuplicate: () => void
   onDelete: () => void
-  api?: Pick<CanvasBgElectronAPI, 'distributeSelection'>
+  api?: Pick<CanvasBgElectronAPI, 'focusSelection'> &
+    Partial<Pick<CanvasBgElectronAPI, 'distributeSelection'>>
 }) {
   return (
     <Section>
-      {api && count >= 3 && (
+      {api && (
+        <IconButton
+          isDark={isDark}
+          title={`Focus ${noun}`}
+          ariaLabel={`Focus ${noun}`}
+          onClick={() => api.focusSelection()}
+        >
+          <Maximize2 size={14} />
+        </IconButton>
+      )}
+      {api?.distributeSelection && count >= 3 && (
         <IconButton
           isDark={isDark}
           title="Distribute spacing"
           ariaLabel="Distribute spacing"
-          onClick={() => api.distributeSelection()}
+          onClick={() => api.distributeSelection?.()}
         >
           <AlignHorizontalDistributeCenter size={14} />
         </IconButton>

@@ -6,33 +6,20 @@ import {
   requestLayout,
   setPan,
   setZoom,
-  toolbarView,
   zoom,
 } from '../runtime/surface-layout'
 import {
-  focusSelectedPage,
+  focusSelection,
   getSelectedEntityIds,
   openInspectPanel,
   selectedPageId,
   setActiveTool,
-  toggleBrowserMode,
   toggleLeftSidebar,
   toggleDevTools,
 } from '../runtime/ui-actions'
 import { endDevtoolsResize, setDevtoolsWidthFromScreenX } from '../runtime/window-shell'
-import { selectBrowserTab } from '../runtime/runtime-core'
-import { findPageById, setPendingFocus } from '../runtime/runtime-context'
-import { addPageFromSource } from '../workspace-pages'
 import { applyNavigationToSelectedPages } from '../navigation-sync'
-import {
-  setToolbarDropdownOpen,
-  workspaceViewMode as uiWorkspaceViewMode,
-} from '../ui-state'
-
-function recenterBrowserSelectionIfNeeded(): void {
-  if (uiWorkspaceViewMode() !== 'browser') return
-  focusSelectedPage()
-}
+import { setToolbarDropdownOpen } from '../ui-state'
 
 export function registerToolbarIpc(): void {
   ipcMain.on('zoom-in', () => {
@@ -47,7 +34,7 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('zoom-reset', () => {
     setZoom(1.0)
-    if (!focusSelectedPage()) {
+    if (!focusSelection()) {
       setPan(0, 0)
       requestLayout()
     }
@@ -55,7 +42,7 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('zoom-set', (_event, level: number) => {
     setZoom(level)
-    if (level === 1.0 && focusSelectedPage()) return
+    if (level === 1.0 && focusSelection()) return
     requestLayout()
   })
 
@@ -77,10 +64,6 @@ export function registerToolbarIpc(): void {
   ipcMain.on('toolbar-reload-selection', () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'reload', fallbackUrl: 'about:blank' })
-  })
-
-  ipcMain.on('toolbar-toggle-browser-mode', () => {
-    toggleBrowserMode()
   })
 
   ipcMain.on('toolbar-set-tool', (_event, payload: Tool) => {
@@ -108,7 +91,6 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('toggle-devtools', () => {
     toggleDevTools()
-    recenterBrowserSelectionIfNeeded()
   })
 
   ipcMain.on('toggle-left-sidebar', () => {
@@ -117,49 +99,14 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('devtools-resize-start', (_event, { screenX }: { screenX: number }) => {
     setDevtoolsWidthFromScreenX(screenX)
-    recenterBrowserSelectionIfNeeded()
   })
 
   ipcMain.on('devtools-resize-move', (_event, { screenX }: { screenX: number }) => {
     setDevtoolsWidthFromScreenX(screenX)
-    recenterBrowserSelectionIfNeeded()
   })
 
   ipcMain.on('devtools-resize-end', () => {
     endDevtoolsResize()
-  })
-
-  ipcMain.on('add-browser-page', (_event, presetIndex: number | 'custom') => {
-    const result = addPageFromSource({
-      presetIndex: typeof presetIndex === 'number' ? presetIndex : 0,
-      customSize: presetIndex === 'custom',
-      focus: true,
-    })
-    selectBrowserTab(result.pageId)
-
-    // Focus the address bar after the new page finishes loading.
-    // We must wait because Chromium auto-focuses a webContents when
-    // its load completes, which would steal focus from the toolbar.
-    const page = findPageById(result.pageId)
-    if (toolbarView && page) {
-      const focusToolbar = () => {
-        if (!toolbarView) return
-        setPendingFocus({ kind: 'toolbar' })
-        requestLayout()
-        toolbarView.webContents.send('focus-address-bar')
-      }
-      const wc = page.pageView.webContents
-      if (wc.isLoading()) {
-        const onDestroyed = () => wc.removeListener('did-finish-load', focusToolbar)
-        wc.once('destroyed', onDestroyed)
-        wc.once('did-finish-load', () => {
-          wc.removeListener('destroyed', onDestroyed)
-          focusToolbar()
-        })
-      } else {
-        focusToolbar()
-      }
-    }
   })
 
   ipcMain.on('toolbar-dropdown-open', () => {

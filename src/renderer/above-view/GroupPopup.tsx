@@ -18,7 +18,7 @@ export function GroupPopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    'duplicateGroup' | 'deleteGroup' | 'updateGroupEntity'
+    'duplicateGroup' | 'deleteGroup' | 'updateGroupEntity' | 'focusSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -56,6 +56,7 @@ export function GroupPopup({
           count={1}
           onDuplicate={() => api.duplicateGroup(selectedGroup.id)}
           onDelete={() => api.deleteGroup(selectedGroup.id)}
+          api={api}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

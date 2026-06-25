@@ -31,7 +31,7 @@ export function SvgDeviceShellLayer({
   pages: CanvasScenePageEntity[]
   isDark: boolean
 }) {
-  const framedPages = pages.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
+  const framedPages = pages.filter((f) => f.showDeviceFrame)
 
   if (!framedPages.length) return null
 

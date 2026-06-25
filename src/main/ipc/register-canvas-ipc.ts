@@ -16,15 +16,12 @@ import {
 import { saveImageBuffer } from '../runtime/image-assets'
 import { htmlDefaultSize, imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
-  focusSelectedPage,
+  focusSelection,
   getSelectedEntityIds,
-  selectBrowserTab,
   selectEntity,
   selectPage,
   selectPageById,
   selectedPageId,
-  setBrowserMode,
-  setCanvasMode,
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
@@ -60,10 +57,6 @@ import {
   setActiveWorkspaceTab,
   setWorkspaceTabExpanded,
 } from '../runtime/workspace-session'
-import {
-  setPageBrowserSizeMode,
-  type BrowserSizeMode,
-} from '../runtime/runtime-entities'
 import { createEdges, deleteEdges } from '../workspace-edges'
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
@@ -180,6 +173,10 @@ export function registerCanvasIpc(): void {
     requestLayout()
   })
 
+  ipcMain.on('canvas-focus-selection', () => {
+    focusSelection()
+  })
+
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
     DRAWING_FEATURE_ENABLED
       ? ['page', 'text', 'file', 'drawing', 'shape', 'edge']
@@ -288,34 +285,6 @@ export function registerCanvasIpc(): void {
     'canvas-set-annotation-state',
     (_event, { hasOpenThread, hasPending }: { hasOpenThread: boolean; hasPending: boolean }) => {
       setAnnotationState(hasOpenThread, hasPending)
-    },
-  )
-
-  // --- Browser mode ---
-
-  ipcMain.on('canvas-select-browser-tab', (_event, { pageId }: { pageId: string }) => {
-    selectBrowserTab(pageId)
-  })
-
-  ipcMain.on(
-    'canvas-set-browser-size-mode',
-    (_event, { pageId, mode }: { pageId: string; mode: BrowserSizeMode }) => {
-      const page = pages.find((candidate) => candidate.id === pageId)
-      if (!page) return
-      page.metadata = setPageBrowserSizeMode(page.metadata, mode)
-      scheduleWorkspaceAutosave()
-      requestLayout()
-    },
-  )
-
-  ipcMain.on(
-    'canvas-set-browser-mode',
-    (_event, { mode }: { mode: 'canvas' | 'browser' }) => {
-      if (mode === 'browser') {
-        setBrowserMode()
-        return
-      }
-      setCanvasMode()
     },
   )
 

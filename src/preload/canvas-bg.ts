@@ -82,19 +82,17 @@ const api: CanvasBgElectronAPI = {
   canvasSelectInScreenRect: (rect, modifiers) =>
     ipcRenderer.send('canvas-select-in-screen-rect', { ...rect, modifiers }),
   canvasDeselect: (modifiers) => ipcRenderer.send('page-deselect', { modifiers }),
+  focusSelection: () => ipcRenderer.send('canvas-focus-selection'),
   canvasClickAt: (screenX, screenY, modifiers) =>
     ipcRenderer.send('canvas-click-at', { screenX, screenY, modifiers }),
   clearAnnotateHover: () => ipcRenderer.send('canvas-clear-annotate-hover'),
   selectPage: (pageId, modifiers) =>
     ipcRenderer.send('canvas-select-page', { pageId, modifiers }),
-  selectBrowserTab: (pageId) => ipcRenderer.send('canvas-select-browser-tab', { pageId }),
-  addBrowserPage: (presetIndex) => ipcRenderer.send('add-browser-page', presetIndex),
   navigatePage: (pageId, url) => ipcRenderer.send('canvas-navigate-page', { pageId, url }),
   goBackPage: (pageId) => ipcRenderer.send('canvas-back-page', { pageId }),
   goForwardPage: (pageId) => ipcRenderer.send('canvas-forward-page', { pageId }),
   reloadPage: (pageId) => ipcRenderer.send('canvas-reload-page', { pageId }),
   setPageCustom: (pageId) => ipcRenderer.send('canvas-set-page-custom', { pageId }),
-  setBrowserSizeMode: (pageId, mode) => ipcRenderer.send('canvas-set-browser-size-mode', { pageId, mode }),
   updatePageBounds: (pageId, patch) => ipcRenderer.send('canvas-update-page-bounds', { pageId, patch }),
   placePendingEntity: (canvasX, canvasY) =>
     ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
