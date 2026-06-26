@@ -640,3 +640,19 @@ Noticed (no action):
 - **Deep-audit cycle time now measurable**: Skill run June 15 → issues filed same day → routing session June 20 (5 days) → AFK PRs June 20–21 → merge session June 23–24 (9 days total). Median wall time from skill run to merged PRs: ~9 days. Useful calibration for planning the next bloat-audit pass.
 - **Journal PR #169 at day 27**: Operational; this run read from the branch and appended successfully.
 Hint for next run: check if #236/#238/#240 merged; whether needs-triage routing happened and moved the now-unblocked items; whether #204 was closed or rebased — that decision determines how the wireframe feature story ends post-ADR-0019.
+
+---
+
+## 2026-06-26
+Surveyed: 28-day run gap (May 28–June 26), all closed orchestrator proposals, current open PRs, needs-triage queue (11 items), commit log (ADR 0019 shipped, deep-audit cycle, pr-drain pattern). Dominant theme: rule triggered — last 3 proposals all rejected; writing "why am I consistently wrong?" instead of proposing.
+Acted:
+- Nothing filed or closed. No open orchestrator proposals. Nothing stale to clean up.
+Noticed (no action):
+- **"Why am I consistently wrong?" — mandatory reflection.** Last 3 proposals all stalled at 0 comments: #152 (triage drain, 7 days), #168 (triage drain v2, 7 days), #188 (claude-review restore as issue, 7 days). Self-modifying #208 also stalled. Rule triggered.
+- **The failure pattern**: Proposals target automation for things Lyle does manually. The manual approach self-corrects in bursts (#152/#168: Lyle routed 4/5 triage items in one session; #188: four PRs merged without review, then PR #207 delivered as a ready-to-merge branch landed in days). The orchestrator optimises for a continuous drain; the actual workflow is burst-and-flush. Continuous automation against a burst-and-flush system adds noise, not throughput.
+- **What actually lands**: (a) Pain-triggered CI changes (#63: real test failures; #207: four unreview-merged PRs including a bug requiring a follow-up). (b) Ready-to-merge branches with a yes/no decision. (c) AFK pipeline epics with a dex plan. Issues in a passive queue do not land unless Lyle actively comes to them.
+- **The system is healthy.** ADR 0019 (canvas-as-document, verb-primary CLI) shipped in 5 phases June 22–24 via AFK. Deep-audit skill cycle is calibrated at ~9 days (skill run → issues filed → routing → AFK PRs → merge session). pr-drain pattern (6 audit PRs merged via one integration branch June 23) is novel and effective. Throughput is high.
+- **PRs worth watching**: (a) #204 (wireframe-structured-editor, 23 days) — architecturally stranded: ADR 0019 deleted per-kind CLI routes that slice 3.4 consumes; needs a close-or-rebase decision, not a review wait. (b) #236/#238/#240 (June 20–21, 5–6 days) — CI-passing, unblocked, waiting review flush. (c) #144 (manifest extensions, 40 days) and #32 (LM Studio, 63 days) — aging; product decisions.
+- **Needs-triage queue at 11 items**: 3 now-unblocked post-ADR-0019 (#225/#227/#228, reconciliation notes June 22–23). Routing them to ready-for-agent unlocks the next bloat-cleanup AFK batch.
+- **Journal PR #169 at day 28**: Operational.
+Hint for next run: check if #204 was closed or rebased (decision is overdue); check whether #236/#238/#240 merged and needs-triage routing happened; if 3 consecutive runs find nothing to propose after the reflection, ask whether the orchestrator observation cadence is too high for the work pace.
