@@ -70,7 +70,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   },
   'reset-viewport': () => {
     setZoom(1.0)
-    if (!focusSelection({ storeReturnCamera: false })) {
+    if (!focusSelection({ storeReturnCamera: false, animate: false })) {
       setPan(0, 0)
       requestLayout()
     }

@@ -1,6 +1,11 @@
 import { ipcMain } from 'electron'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-import type { CanvasEntityKind, SelectionModifiers, SidebarSectionKey } from '../../shared/types'
+import type {
+  CanvasEntityKind,
+  FocusPresentationMode,
+  SelectionModifiers,
+  SidebarSectionKey,
+} from '../../shared/types'
 import type { EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
@@ -21,7 +26,9 @@ import {
   selectEntity,
   selectPage,
   selectPageById,
+  restoreFocusCamera,
   selectedPageId,
+  setFocusPresentationMode,
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
@@ -175,6 +182,15 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-focus-selection', () => {
     focusSelection()
+  })
+
+  ipcMain.on('canvas-restore-focus-camera', () => {
+    restoreFocusCamera()
+  })
+
+  ipcMain.on('canvas-set-focus-presentation-mode', (_event, mode: FocusPresentationMode) => {
+    if (mode !== 'fit' && mode !== 'responsive') return
+    setFocusPresentationMode(mode)
   })
 
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(

@@ -73,6 +73,7 @@ import {
   canvasOrigin,
   pageContentSize,
   pan,
+  recenterFocusPresentation,
   requestLayout,
   snapToGrid,
   zoom,
@@ -1088,6 +1089,7 @@ export function setPagePreset(pageId: string, presetIndex: number): void {
   page.metadata = meta
   scheduleWorkspaceAutosave()
   markDirty('canvas')
+  recenterFocusPresentation(pageId)
   requestLayout()
   markUndoBoundary()
 }
@@ -1101,6 +1103,7 @@ export function setPageCustom(pageId: string): void {
   page.metadata = meta
   scheduleWorkspaceAutosave()
   markDirty('canvas')
+  recenterFocusPresentation(pageId)
   requestLayout()
   markUndoBoundary()
 }
@@ -1113,6 +1116,7 @@ export function setDeviceOrientation(pageId: string, orientation: DeviceOrientat
   page.metadata = meta
   scheduleWorkspaceAutosave()
   markDirty('canvas')
+  recenterFocusPresentation(pageId)
   requestLayout()
   markUndoBoundary()
 }

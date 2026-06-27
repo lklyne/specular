@@ -11,6 +11,7 @@ import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
 import { DeviceShellLayer } from './DeviceShellLayer'
+import { GroupBackgroundLayer } from './GroupBackgroundLayer'
 import { PageBorderLayer } from './PageBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
@@ -66,6 +67,11 @@ export default function App({
         canvasOrigin={layoutData.canvasOrigin}
         pan={layoutData.pan}
         zoom={layoutData.zoom}
+      />
+      <GroupBackgroundLayer
+        groups={layoutData.groups ?? []}
+        isDark={isDark}
+        dimmed={layoutData.focusPresentation !== null}
       />
       <div className="pointer-events-none absolute inset-0">
         <PageBorderLayer

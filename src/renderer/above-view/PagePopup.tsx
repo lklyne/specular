@@ -2,7 +2,18 @@
 // accepted per §6.
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, RotateCw } from 'lucide-react'
+import {
+  AlignHorizontalDistributeCenter,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Maximize2,
+  Minimize2,
+  Monitor,
+  RotateCw,
+  Trash2,
+} from 'lucide-react'
 import { normalizeUserUrl } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
@@ -37,6 +48,8 @@ export function PagePopup({
     | 'setPagePreset'
     | 'setPageCustom'
     | 'focusSelection'
+    | 'restoreFocusCamera'
+    | 'setFocusPresentationMode'
     | 'distributeSelection'
   >
   isDark: boolean
@@ -77,7 +90,15 @@ export function PagePopup({
   const entityIds = selectedPages.map((p) => p.id)
   const noun = isSingle ? 'page' : `${count} pages`
 
-  const presetLabel = single
+  const focusPresentation =
+    single && layout.focusPresentation?.pageId === single.id
+      ? layout.focusPresentation
+      : null
+  const flushToViewportTop = focusPresentation !== null
+
+  const presetLabel = focusPresentation
+    ? focusPresentation.authoredLabel
+    : single
     ? (() => {
         const preset = VIEWPORT_PRESETS[single.presetIndex]
         const isCustom = !preset || single.width !== preset.width || single.height !== preset.height
@@ -88,17 +109,20 @@ export function PagePopup({
   const sizeTriggerClass = isDark
     ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-300 transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100'
     : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-600 transition-colors hover:bg-[#fdf8f5] hover:text-zinc-900'
+  const tabGroupClass = isDark
+    ? 'flex h-7 items-center gap-0.5 rounded-[7px] bg-black/15 p-0.5'
+    : 'flex h-7 items-center gap-0.5 rounded-[7px] bg-zinc-900/10 p-0.5'
 
   return (
     <CanvasItemPopup.Root
       entityIds={entityIds}
       layout={layout}
       open={open}
-      placement="above"
+      placement={flushToViewportTop ? 'viewport-top' : 'above'}
       align={isSingle ? 'stretch' : 'center'}
       offset={POPUP_OFFSET_Y}
     >
-      <CanvasItemPopup.Frame isDark={isDark}>
+      <CanvasItemPopup.Frame isDark={isDark} flush={flushToViewportTop}>
         {isSingle && single ? (
           <>
             <CanvasItemPopup.Section>
@@ -189,18 +213,73 @@ export function PagePopup({
             />
           </>
         ) : null}
-        <CanvasItemPopup.EntityActions
-          isDark={isDark}
-          noun={noun}
-          count={count}
-          onDuplicate={() => {
-            for (const p of selectedPages) api.duplicatePage(p.id)
-          }}
-          onDelete={() => {
-            for (const p of selectedPages) api.deletePage(p.id)
-          }}
-          api={api}
-        />
+        <CanvasItemPopup.Section>
+          {focusPresentation ? (
+            <div className={tabGroupClass} role="group" aria-label="Focused viewport mode">
+              <CanvasItemPopup.IconButton
+                isDark={isDark}
+                active={focusPresentation.mode === 'fit'}
+                title="Keep saved viewport"
+                ariaLabel="Keep saved viewport while focused"
+                onClick={() => api.setFocusPresentationMode('fit')}
+              >
+                <Monitor size={13} />
+              </CanvasItemPopup.IconButton>
+              <CanvasItemPopup.IconButton
+                isDark={isDark}
+                active={focusPresentation.mode === 'responsive'}
+                title="Fill focus area"
+                ariaLabel="Fill focus area responsively"
+                onClick={() => api.setFocusPresentationMode('responsive')}
+              >
+                <Maximize2 size={13} />
+              </CanvasItemPopup.IconButton>
+            </div>
+          ) : null}
+          {isSingle ? (
+            <CanvasItemPopup.IconButton
+              isDark={isDark}
+              title={focusPresentation ? 'Exit focus' : 'Focus page'}
+              ariaLabel={focusPresentation ? 'Exit focus' : 'Focus page'}
+              onClick={() => {
+                if (focusPresentation) api.restoreFocusCamera()
+                else api.focusSelection()
+              }}
+            >
+              {focusPresentation ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </CanvasItemPopup.IconButton>
+          ) : null}
+          {count >= 3 ? (
+            <CanvasItemPopup.IconButton
+              isDark={isDark}
+              title="Distribute spacing"
+              ariaLabel="Distribute spacing"
+              onClick={() => api.distributeSelection()}
+            >
+              <AlignHorizontalDistributeCenter size={14} />
+            </CanvasItemPopup.IconButton>
+          ) : null}
+          <CanvasItemPopup.IconButton
+            isDark={isDark}
+            title={`Duplicate ${noun}`}
+            ariaLabel={`Duplicate ${noun}`}
+            onClick={() => {
+              for (const p of selectedPages) api.duplicatePage(p.id)
+            }}
+          >
+            <Copy size={14} />
+          </CanvasItemPopup.IconButton>
+          <CanvasItemPopup.IconButton
+            isDark={isDark}
+            title={`Delete ${noun}`}
+            ariaLabel={`Delete ${noun}`}
+            onClick={() => {
+              for (const p of selectedPages) api.deletePage(p.id)
+            }}
+          >
+            <Trash2 size={14} />
+          </CanvasItemPopup.IconButton>
+        </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )

@@ -14,6 +14,7 @@ export const DRAW_CURSOR =
 
 export const EMPTY_LAYOUT: LayoutUpdateData = {
   keyboardTargetPageId: null,
+  focusPresentation: null,
   zoom: 1,
   pan: { x: 0, y: 0 },
   canvasOrigin: { x: 0, y: 44 },

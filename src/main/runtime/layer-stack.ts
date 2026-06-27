@@ -26,8 +26,9 @@ import {
   toolbarView,
   win,
 } from './view-refs'
-import { pages } from './runtime-context'
+import { focusPresentationOverride, pages } from './runtime-context'
 import { listComponentViews } from './component-page-factory'
+import type { Page } from './runtime-entities'
 
 export type LayerId =
   | 'bgView'
@@ -82,6 +83,19 @@ export function resolveStackOrder(
   return LAYER_STACK.filter((id) => get(id) != null)
 }
 
+export function orderedPagesForStack<T extends { id: string }>(
+  inputPages: readonly T[],
+  focusedPageId: string | null | undefined,
+): T[] {
+  if (!focusedPageId) return [...inputPages]
+  const focused = inputPages.find((page) => page.id === focusedPageId)
+  if (!focused) return [...inputPages]
+  return [
+    ...inputPages.filter((page) => page.id !== focusedPageId),
+    focused,
+  ]
+}
+
 /**
  * Compute the desired ordered child list, bottom → top:
  * `bgView` → pages (`frameView` + `pageView` + inactive `devtoolsHostView`)
@@ -98,7 +112,11 @@ function desiredChildOrder(): View[] {
     if (!view) continue
     order.push(view)
     if (id === 'bgView') {
-      for (const page of pages) {
+      const orderedPages: Page[] = orderedPagesForStack(
+        pages,
+        focusPresentationOverride?.pageId,
+      )
+      for (const page of orderedPages) {
         order.push(page.frameView, page.pageView)
         if (page.devtoolsHostView && page.devtoolsHostView !== devtoolsView) {
           order.push(page.devtoolsHostView)

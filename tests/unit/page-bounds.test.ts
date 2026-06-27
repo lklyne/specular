@@ -4,6 +4,7 @@ import {
   pageBodyCanvasBounds,
   pageSnapBounds,
   pageVisualBounds,
+  pageVisualBoundsForContentSize,
 } from '../../src/main/runtime/runtime-geometry'
 import type { Page } from '../../src/main/runtime/runtime-entities'
 import { CHROME_HEADER_HEIGHT } from '../../src/shared/entity-chrome-slots'
@@ -63,6 +64,26 @@ describe('page bounds (Path A semantics)', () => {
     expect(visual.height).toBe(667 + CHROME_HEADER_HEIGHT)
     expect(visual.x).toBe(100)
     expect(visual.width).toBe(375)
+  })
+
+  it('visual bounds include the device shell and chrome for framed pages', () => {
+    const page = framedPage()
+    expect(pageVisualBounds(page)).toEqual({
+      x: 100,
+      y: 200 - CHROME_HEADER_HEIGHT,
+      width: 375 + 24,
+      height: 667 + 24 + CHROME_HEADER_HEIGHT,
+    })
+  })
+
+  it('visual bounds can be computed from an effective focus presentation size', () => {
+    const page = framedPage()
+    expect(pageVisualBoundsForContentSize(page, { width: 500, height: 300 })).toEqual({
+      x: 100,
+      y: 200 - CHROME_HEADER_HEIGHT,
+      width: 500 + 24,
+      height: 300 + 24 + CHROME_HEADER_HEIGHT,
+    })
   })
 
   it('toggling a frame on keeps canvasY stable and pushes body down', () => {

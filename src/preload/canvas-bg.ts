@@ -83,6 +83,9 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-select-in-screen-rect', { ...rect, modifiers }),
   canvasDeselect: (modifiers) => ipcRenderer.send('page-deselect', { modifiers }),
   focusSelection: () => ipcRenderer.send('canvas-focus-selection'),
+  restoreFocusCamera: () => ipcRenderer.send('canvas-restore-focus-camera'),
+  setFocusPresentationMode: (mode) =>
+    ipcRenderer.send('canvas-set-focus-presentation-mode', mode),
   canvasClickAt: (screenX, screenY, modifiers) =>
     ipcRenderer.send('canvas-click-at', { screenX, screenY, modifiers }),
   clearAnnotateHover: () => ipcRenderer.send('canvas-clear-annotate-hover'),

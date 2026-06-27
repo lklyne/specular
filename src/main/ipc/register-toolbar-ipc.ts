@@ -34,7 +34,7 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('zoom-reset', () => {
     setZoom(1.0)
-    if (!focusSelection()) {
+    if (!focusSelection({ animate: false })) {
       setPan(0, 0)
       requestLayout()
     }
@@ -42,7 +42,7 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on('zoom-set', (_event, level: number) => {
     setZoom(level)
-    if (level === 1.0 && focusSelection()) return
+    if (level === 1.0 && focusSelection({ animate: false })) return
     requestLayout()
   })
 

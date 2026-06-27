@@ -40,6 +40,9 @@ export {
   setPan,
   setZoom,
   focusCanvasBounds,
+  recenterFocusPresentation,
+  animateCameraTo,
   animatePanTo,
   cancelCameraAnimation,
+  moveCameraTo,
 } from './viewport-control'

@@ -17,7 +17,7 @@ import {
 import { CUSTOM_SHELL_INSETS, shellInsetsForDevice, sizeForOrientation } from '../../shared/device-catalog'
 import { win } from './view-refs'
 import { layoutCache } from './layout-cache'
-import { pages, pan, zoom } from './runtime-context'
+import { focusPresentationOverride, pages, pan, zoom } from './runtime-context'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
@@ -86,7 +86,13 @@ export function pageShellInsets(
 export function pageSnapBounds(
   page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
 ): WorkspaceBounds {
-  const size = pageContentSize(page)
+  return pageSnapBoundsForContentSize(page, pageContentSize(page))
+}
+
+export function pageSnapBoundsForContentSize(
+  page: Pick<Page, 'canvasX' | 'canvasY' | 'metadata'>,
+  size: { width: number; height: number },
+): WorkspaceBounds {
   const insets = pageShellInsets(page)
   if (!insets) {
     return { x: page.canvasX, y: page.canvasY, width: size.width, height: size.height }
@@ -125,7 +131,14 @@ export function pageBodyCanvasBounds(
 export function pageVisualBounds(
   page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
 ): WorkspaceBounds {
-  const snap = pageSnapBounds(page)
+  return pageVisualBoundsForContentSize(page, pageContentSize(page))
+}
+
+export function pageVisualBoundsForContentSize(
+  page: Pick<Page, 'canvasX' | 'canvasY' | 'metadata'>,
+  size: { width: number; height: number },
+): WorkspaceBounds {
+  const snap = pageSnapBoundsForContentSize(page, size)
   return {
     x: snap.x,
     y: snap.y - CHROME_HEADER_HEIGHT,
@@ -356,8 +369,19 @@ export function boundAvailableCanvasViewportRect(): { x: number; y: number; widt
 }
 
 export function boundEffectivePageContentSize(
-  page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>,
+  page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'> & { id?: string },
 ): { width: number; height: number } {
+  if (
+    page.id &&
+    focusPresentationOverride?.pageId === page.id &&
+    focusPresentationOverride.mode === 'responsive'
+  ) {
+    const viewport = boundAvailableCanvasViewportRect()
+    return {
+      width: Math.max(320, Math.round(viewport.width - 128)),
+      height: Math.max(200, Math.round(viewport.height - 128)),
+    }
+  }
   return computeEffectivePageContentSize({
     page,
   })

@@ -13,6 +13,7 @@ import type {
   Annotation,
   CanvasSceneEntity,
   CanvasScenePageEntity,
+  FocusPresentationData,
   CanvasSceneGroupEntity,
   ComponentTreeNode,
   LayoutUpdateData,
@@ -39,6 +40,7 @@ import {
   selectedPage,
   selectedPageId,
   zoom,
+  focusPresentationOverride,
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
 import { getToolDefaults } from './tool-defaults'
@@ -106,7 +108,11 @@ import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
 // --- Exported data builders ---
 
 export function backgroundPageOverlays(): CanvasScenePageEntity[] {
-  return pages.map((page) => {
+  const focusedPresentationPageId = focusPresentationOverride?.pageId ?? null
+  const visiblePages = focusedPresentationPageId
+    ? pages.filter((page) => page.id === focusedPresentationPageId)
+    : pages
+  return visiblePages.map((page) => {
     const { width, height } = effectivePageContentSize(page)
     const bounds = screenBoundsForPage(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
@@ -448,7 +454,30 @@ export function buildCanvasLayoutData(
       updatedAt: c.updatedAt,
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
+    focusPresentation: buildFocusPresentationData(pages),
   } as LayoutUpdateData
+}
+
+function buildFocusPresentationData(
+  scenePages: CanvasScenePageEntity[],
+): FocusPresentationData | null {
+  const focus = focusPresentationOverride
+  if (!focus) return null
+  const page = findPageById(focus.pageId)
+  const scenePage = scenePages.find((candidate) => candidate.id === focus.pageId)
+  if (!page || !scenePage) return null
+  const authored = pageContentSize(page)
+  const preset = viewportPresetForIndex(page.presetIndex)
+  const authoredLabel = pageUsesCustomSize(page.metadata) ? 'Custom' : preset.label
+  return {
+    pageId: page.id,
+    mode: focus.mode,
+    authoredLabel,
+    authoredWidth: authored.width,
+    authoredHeight: authored.height,
+    effectiveWidth: scenePage.width,
+    effectiveHeight: scenePage.height,
+  }
 }
 
 export function getCanvasLayoutData(): LayoutUpdateData {

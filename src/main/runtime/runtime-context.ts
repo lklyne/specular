@@ -3,6 +3,7 @@ import type {
   CanvasHoverTarget,
   CanvasInteractionState,
   DevtoolsPanelData,
+  FocusPresentationMode,
   InspectNodeDetail,
 } from '../../shared/types'
 import type { FocusTarget } from '../../shared/interaction-types'
@@ -92,6 +93,18 @@ export function setHoveringCanvasChrome(value: boolean): void {
   hoveringCanvasChrome = value
 }
 
+// --- Focus presentation ---
+
+export type FocusPresentationOverride = {
+  pageId: string
+  mode: FocusPresentationMode
+}
+
+export let focusPresentationOverride: FocusPresentationOverride | null = null
+
+export function setFocusPresentationOverride(value: FocusPresentationOverride | null): void {
+  focusPresentationOverride = value
+}
 
 // --- Inspect state ---
 

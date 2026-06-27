@@ -33,6 +33,7 @@ import {
   inspectHoveredTarget,
   inspectSelectedTarget,
   pages,
+  focusPresentationOverride,
   interactionState,
   selectionOverlayActive,
   spaceModifierHeld,
@@ -324,9 +325,24 @@ function layoutAllViews(): void {
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
   // --- Per-page bounds, emulation, annotations ---
+  const focusedPresentationPageId = focusPresentationOverride?.pageId ?? null
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
+
+    if (focusedPresentationPageId && page.id !== focusedPresentationPageId) {
+      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
+      devtoolsPanelDebug('layout:page', {
+        pageId: page.id,
+        durationMs: Date.now() - pageStart,
+        visible: false,
+        hiddenByFocusPresentation: true,
+        isSelected: selectedPageIds.includes(page.id),
+        devtoolsOpen,
+      })
+      continue
+    }
 
     // Viewport culling — off-screen pages get hidden bounds.
     // Skip culling during drag and for pages in automation-interactive mode

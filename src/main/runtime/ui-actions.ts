@@ -40,6 +40,8 @@ export {
   focusCanvasBounds,
   focusSelectedPage,
   focusSelection,
+  restoreFocusCamera,
+  setFocusPresentationMode,
 } from './viewport-control'
 
 export {

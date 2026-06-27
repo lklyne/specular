@@ -1,6 +1,6 @@
 // ADR 0008 — unified canvas-item popup compound component.
 
-import { type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { AlignHorizontalDistributeCenter, Copy, Maximize2, Trash2 } from 'lucide-react'
 import {
   paletteSlots,
@@ -11,12 +11,16 @@ import {
 } from '../../shared/canvas-colors'
 import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
 import {
+  CAMERA_SPRING_CSS_EASING,
+  DEFAULT_CAMERA_TRANSITION_DURATION_MS,
+} from '../../shared/camera-transition'
+import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
   type AnchorSlot,
 } from './useAnchoredPosition'
 
-type Placement = 'above' | 'below' | 'overlay'
+type Placement = 'above' | 'below' | 'overlay' | 'viewport-top'
 type Align = 'stretch' | 'center'
 
 type RootProps = {
@@ -49,17 +53,91 @@ function Root(props: RootProps) {
   )
   const multiRect = useMultiAnchoredPosition(layout, props.entityIds ?? [], slot)
   const rect = props.entityIds !== undefined ? multiRect : singleRect
+  const popupMotion = usePopupFlipAnimation({
+    active: open && rect !== null,
+    placement,
+  })
   if (!open || !rect) return null
   const style = popupStyle(rect, placement, align, offset)
   return (
     <div
+      ref={popupMotion.layoutRef}
       data-overlay-ui
+      data-popup-placement={placement}
       className="pointer-events-auto absolute"
       style={style}
     >
-      {children}
+      <div ref={popupMotion.motionRef}>{children}</div>
     </div>
   )
+}
+
+function usePopupFlipAnimation({
+  active,
+  placement,
+}: {
+  active: boolean
+  placement: Placement
+}) {
+  const layoutRef = useRef<HTMLDivElement | null>(null)
+  const motionRef = useRef<HTMLDivElement | null>(null)
+  const previousRectRef = useRef<DOMRect | null>(null)
+  const previousPlacementRef = useRef<Placement | null>(null)
+  const animationRef = useRef<Animation | null>(null)
+
+  useLayoutEffect(() => {
+    const layoutElement = layoutRef.current
+    const motionElement = motionRef.current
+    if (!active || !layoutElement || !motionElement) {
+      previousRectRef.current = null
+      previousPlacementRef.current = null
+      animationRef.current?.cancel()
+      animationRef.current = null
+      return
+    }
+
+    const nextRect = layoutElement.getBoundingClientRect()
+    const previousRect = previousRectRef.current
+    const previousPlacement = previousPlacementRef.current
+    const shouldFlip =
+      previousRect &&
+      previousPlacement &&
+      previousPlacement !== placement &&
+      (previousPlacement === 'viewport-top' || placement === 'viewport-top')
+
+    if (shouldFlip) {
+      animationRef.current?.cancel()
+      const deltaX = previousRect.left - nextRect.left
+      const deltaY = previousRect.top - nextRect.top
+      const scaleX = nextRect.width > 0 ? previousRect.width / nextRect.width : 1
+      const scaleY = nextRect.height > 0 ? previousRect.height / nextRect.height : 1
+
+      animationRef.current = motionElement.animate(
+        [
+          {
+            transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
+            transformOrigin: 'top left',
+          },
+          {
+            transform: 'translate(0, 0) scale(1, 1)',
+            transformOrigin: 'top left',
+          },
+        ],
+        {
+          duration: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
+          easing: CAMERA_SPRING_CSS_EASING,
+        },
+      )
+      animationRef.current.onfinish = () => {
+        animationRef.current = null
+      }
+    }
+
+    previousRectRef.current = nextRect
+    previousPlacementRef.current = placement
+  }, [active, placement])
+
+  return { layoutRef, motionRef }
 }
 
 function popupStyle(
@@ -67,7 +145,15 @@ function popupStyle(
   placement: Placement,
   align: Align,
   offset: number,
-): React.CSSProperties {
+): CSSProperties {
+  if (placement === 'viewport-top') {
+    return {
+      left: 0,
+      top: 0,
+      width: '100%',
+      transform: 'none',
+    }
+  }
   if (placement === 'overlay') {
     return { left: rect.x, top: rect.y, width: rect.width, height: rect.height }
   }
@@ -133,22 +219,30 @@ function ViewportAnchor({
 // Stops mousedown so clicks inside don't fall through to canvas gestures.
 function Frame({
   isDark,
+  flush = false,
   className = '',
   children,
 }: {
   isDark: boolean
+  flush?: boolean
   className?: string
   children: ReactNode
 }) {
+  const shapeClass = flush
+    ? 'w-full rounded-none border p-0'
+    : 'rounded-[10px] border p-1'
   return (
     <div
-      className={`flex items-center gap-1 rounded-[10px] border p-1 ${
+      data-popup-frame={flush ? 'flush' : 'floating'}
+      className={`flex items-center gap-1 ${shapeClass} ${
         isDark ? 'text-zinc-100' : 'text-zinc-900'
       } ${className}`.trim()}
       style={{
         background: isDark ? '#3a3836' : '#ece9e7',
         borderColor: isDark ? '#414141' : '#dcdcda',
-        boxShadow: isDark
+        boxShadow: flush
+          ? 'none'
+          : isDark
           ? '0 10px 8px -6px rgba(0,0,0,.58), 0 4px 16px 0 rgba(0,0,0,.5)'
           : '0 10px 8px -6px rgba(0,0,0,.18), 0 4px 16px 0 rgba(199,193,188,.5)',
       }}

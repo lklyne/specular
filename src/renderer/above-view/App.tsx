@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
@@ -27,18 +27,26 @@ import {
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
+import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
+import {
+  FocusDimmingLayer,
+  focusedPresentationPageId,
+  focusItemOpacity,
+} from './FocusDimmingLayer'
+import { FocusedPageFrameLayer } from './FocusedPageFrameLayer'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { SelectionOutlineLayer, type SelectedEntitySpan } from './SelectionOutlineLayer'
 import { ShapeBodyLayer } from './ShapeBodyLayer'
 import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
+import { CommentBadgesLayer } from './CommentBadgesLayer'
 import {
   AnnotationThreadPopover,
   PendingAnnotationComposer,
@@ -203,6 +211,7 @@ function StackedCanvasItems({
   selectedEntityIdSet,
   editingEntityId,
   ghostEntity,
+  focusedPageId,
 }: {
   layoutData: LayoutUpdateData
   fileJsonModeMap: FileJsonModeMap
@@ -211,6 +220,7 @@ function StackedCanvasItems({
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
   editingEntityId: string | null
+  focusedPageId: string | null
   /** Reorder ghost (ADR 0015 D7, Phase D): the dragged entity, already
    *  positioned at grab-origin + cursor-delta. Its in-row slot paints as a
    *  grayscale placeholder (the drop location); the ghost itself renders last at
@@ -220,8 +230,18 @@ function StackedCanvasItems({
   const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
 
-  function renderEdge(edge: WorkspaceEdge) {
+  function renderDimmed(child: ReactNode, entityId: string, key: string) {
+    const opacity = focusItemOpacity(focusedPageId, entityId)
+    if (opacity === 1) return child
     return (
+      <div key={key} style={{ opacity }}>
+        {child}
+      </div>
+    )
+  }
+
+  function renderEdge(edge: WorkspaceEdge) {
+    const layer = (
       <EdgeLayer
         key={`edge-${edge.id}`}
         edges={[edge]}
@@ -238,12 +258,15 @@ function StackedCanvasItems({
         zIndex={undefined}
       />
     )
+    return renderDimmed(layer, edge.id, `edge-dim-${edge.id}`)
   }
 
-  // One entity's body via its per-kind layer. Shared by the in-row stack and the
-  // reorder ghost so the ghost is the *same item*, not a stand-in box. Pages and
-  // groups have no React body here (page bodies are native WebContentsViews), so
-  // a page ghost has no fill — an inherent limit of renderer-only Phase D.
+  function renderDimmedEntityBody(entity: CanvasSceneEntity) {
+    const body = renderEntityBody(entity)
+    if (!body) return null
+    return renderDimmed(body, entity.id, `entity-dim-${entity.id}`)
+  }
+
   function renderEntityBody(entity: CanvasSceneEntity) {
     if (entity.kind === 'drawing') {
       return (
@@ -334,7 +357,7 @@ function StackedCanvasItems({
           )
         }
 
-        return renderEntityBody(entity)
+        return renderDimmedEntityBody(entity)
       })}
       {ghostEntity ? (
         <div key="reorder-ghost" className="pointer-events-none" style={{ opacity: 0.5 }}>
@@ -594,26 +617,41 @@ export default function App({
   // popover positioners below.
   const liveBboxSubscriptions = useMemo(() => {
     const subs: Array<{ pageId: string; annotationId: string; selector: string }> = []
+    const seen = new Set<string>()
+    const pushSub = (sub: { pageId: string; annotationId: string; selector: string }) => {
+      const key = `${sub.pageId}:${sub.annotationId}:${sub.selector}`
+      if (seen.has(key)) return
+      seen.add(key)
+      subs.push(sub)
+    }
     if (
       pendingAnnotation &&
       pendingAnnotation.request.anchor.type === 'element'
     ) {
       const anchor = pendingAnnotation.request.anchor
-      subs.push({
+      pushSub({
         pageId: anchor.pageId,
         annotationId: pendingAnnotation.draftId,
         selector: anchor.selector,
       })
     }
     if (openThread && openThread.anchor.type === 'element') {
-      subs.push({
+      pushSub({
         pageId: openThread.anchor.pageId,
         annotationId: openThread.id,
         selector: openThread.anchor.selector,
       })
     }
+    for (const annotation of layoutData.annotations) {
+      if (!isUnresolved(annotation.status) || annotation.anchor.type !== 'element') continue
+      pushSub({
+        pageId: annotation.anchor.pageId,
+        annotationId: annotation.id,
+        selector: annotation.anchor.selector,
+      })
+    }
     return subs
-  }, [openThread, pendingAnnotation])
+  }, [layoutData.annotations, openThread, pendingAnnotation])
 
   const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
 
@@ -634,6 +672,8 @@ export default function App({
     return ids
   }, [layoutData.selection])
   const hoveredEntityId = layoutData.hover?.id ?? null
+  const focusPageId = focusedPresentationPageId(layoutData)
+  const focusPresentationActive = focusPageId !== null
   const overlayInteractive = Boolean(
     pendingAnnotation ||
       pendingRegionRect ||
@@ -1386,6 +1426,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIdSet={selectedEntityIdSet}
             editingEntityId={editingEntityId}
             ghostEntity={reorderGhostEntity}
+            focusedPageId={focusPageId}
           />
 
           {/* Live drawing preview renders after StackedCanvasItems so the
@@ -1407,10 +1448,11 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             isDark={isDark}
             interaction={layoutData.interaction}
             selectedEdgeIds={selectedEdgeIds}
-            selectedEntityIds={layoutData.selectedEntityIds}
+            selectedEntityIds={focusPresentationActive ? [] : layoutData.selectedEntityIds}
             zoom={layoutData.zoom}
             originY={layoutData.canvasOrigin.y}
             onSelectEdge={api.selectEdge}
+            renderAnchors={!focusPresentationActive}
           />
 
           {(layoutData.groups?.length ?? 0) > 0 ? (
@@ -1420,27 +1462,35 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               zoom={layoutData.zoom}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}
+              dimmed={focusPresentationActive}
             />
           ) : null}
 
-          <PageFocusRingLayer
-            pages={layoutData.entities.filter(
-              (e): e is CanvasScenePageEntity => e.kind === 'page',
-            )}
-            fileEntities={layoutData.entities.filter(
-              (e): e is CanvasSceneFileEntity => e.kind === 'file',
-            )}
-            focusedPageId={layoutData.keyboardTargetPageId}
-            originY={layoutData.canvasOrigin.y}
-          />
+          <FocusDimmingLayer layoutData={layoutData} isDark={isDark} />
+          <FocusedPageFrameLayer layoutData={layoutData} isDark={isDark} />
 
-          <SelectionOutlineLayer
-            layoutData={renderLayout}
-            isDark={isDark}
-            marqueePreviewIds={marqueePreviewIds}
-            reorderGhostId={reorderGhostEntity?.id ?? null}
-            reorderGhostSpan={reorderGhostSpan}
-          />
+          {!focusPresentationActive ? (
+            <PageFocusRingLayer
+              pages={layoutData.entities.filter(
+                (e): e is CanvasScenePageEntity => e.kind === 'page',
+              )}
+              fileEntities={layoutData.entities.filter(
+                (e): e is CanvasSceneFileEntity => e.kind === 'file',
+              )}
+              focusedPageId={layoutData.keyboardTargetPageId}
+              originY={layoutData.canvasOrigin.y}
+            />
+          ) : null}
+
+          {!focusPresentationActive ? (
+            <SelectionOutlineLayer
+              layoutData={renderLayout}
+              isDark={isDark}
+              marqueePreviewIds={marqueePreviewIds}
+              reorderGhostId={reorderGhostEntity?.id ?? null}
+              reorderGhostSpan={reorderGhostSpan}
+            />
+          ) : null}
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
@@ -1545,6 +1595,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               />
             </>
           ) : null}
+
+          <CommentBadgesLayer
+            annotations={layoutData.annotations}
+            layoutData={layoutData}
+            liveBboxes={liveBboxes}
+            onOpenThread={openThreadById}
+          />
         </>
       ) : null}
     </div>

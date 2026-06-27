@@ -147,6 +147,18 @@ export interface CanvasScenePageEntity {
   useSvgDeviceShell?: boolean
 }
 
+export type FocusPresentationMode = 'fit' | 'responsive'
+
+export interface FocusPresentationData {
+  pageId: string
+  mode: FocusPresentationMode
+  authoredLabel: string
+  authoredWidth: number
+  authoredHeight: number
+  effectiveWidth: number
+  effectiveHeight: number
+}
+
 /** 'plain' = unbacked text, 'sticky' = text in a colored card. See ADR 0004. */
 export type TextEntityStyle = 'plain' | 'sticky'
 
@@ -460,6 +472,8 @@ export interface LayoutUpdateData {
   /** Predicate-derived: the page id that should hold keyboard + receive
    *  forwarded input, or null. See `shouldFocusSelectedPage`. */
   keyboardTargetPageId: string | null
+  /** Ephemeral focus-presentation override for the focused page, if active. */
+  focusPresentation: FocusPresentationData | null
 }
 
 export type PresenceSurface = 'canvas' | 'page'
@@ -1709,6 +1723,8 @@ export interface CanvasBgElectronAPI {
   canvasSelectInScreenRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
   canvasDeselect: (modifiers?: SelectionModifiers) => void
   focusSelection: () => void
+  restoreFocusCamera: () => void
+  setFocusPresentationMode: (mode: FocusPresentationMode) => void
   canvasClickAt: (
     screenX: number,
     screenY: number,

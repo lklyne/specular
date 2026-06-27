@@ -29,7 +29,7 @@ import {
 } from './view-refs'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './viewport-control'
+import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import {
   consumeLegacyOriginBindings,
   isDark,
@@ -155,7 +155,10 @@ export function initWindow(): void {
   const currentWin = win
   if (!currentWin) return
 
-  currentWin.on('resize', () => { markDirty('canvas'); requestLayout() })
+  currentWin.on('resize', () => {
+    markDirty('canvas')
+    if (!recenterFocusPresentation()) requestLayout()
+  })
   currentWin.on('move', () => { markDirty('canvas'); requestLayout() })
 
   currentWin.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
