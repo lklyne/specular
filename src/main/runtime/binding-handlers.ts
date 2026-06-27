@@ -18,6 +18,7 @@ import { shapeEntities } from './shape-entity-state'
 import { deleteSelection } from './delete-selection'
 import { duplicateSelection } from './duplicate-selection'
 import { reorderStackOrder } from './entity-order-state'
+import { createBlankFrameFromSource } from '../workspace-pages'
 
 type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
 
@@ -69,6 +70,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     redo()
   },
   'reset-viewport': () => {
+    if (restoreFocusCamera()) return
     setZoom(1.0)
     if (!focusSelection({ storeReturnCamera: false, animate: false })) {
       setPan(0, 0)
@@ -89,6 +91,11 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   },
   'duplicate': () => {
     duplicateSelection()
+  },
+  'new-frame': () => {
+    const pageId = selectedPageId()
+    if (!pageId) return
+    createBlankFrameFromSource({ sourcePageId: pageId, focusAddressBar: true })
   },
   'delete-selection': () => {
     deleteSelection()

@@ -34,6 +34,7 @@ function currentFocusState(): FocusState {
     pendingFocus,
     focusedPageId: currentKeyboardTargetPageId(),
     sidebarTextInputActive: leftSidebarView ? isTextEditingFor(leftSidebarView.webContents) : false,
+    toolbarTextInputActive: toolbarView ? isTextEditingFor(toolbarView.webContents) : false,
   }
 }
 

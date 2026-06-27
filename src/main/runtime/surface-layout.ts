@@ -40,6 +40,7 @@ export {
   setPan,
   setZoom,
   focusCanvasBounds,
+  restoreFocusCamera,
   recenterFocusPresentation,
   animateCameraTo,
   animatePanTo,

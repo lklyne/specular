@@ -12,6 +12,7 @@ import {
   focusSelection,
   getSelectedEntityIds,
   openInspectPanel,
+  restoreFocusCamera,
   selectedPageId,
   setActiveTool,
   toggleLeftSidebar,
@@ -23,16 +24,19 @@ import { setToolbarDropdownOpen } from '../ui-state'
 
 export function registerToolbarIpc(): void {
   ipcMain.on('zoom-in', () => {
+    if (restoreFocusCamera()) return
     setZoom(zoom + 0.1)
     requestLayout()
   })
 
   ipcMain.on('zoom-out', () => {
+    if (restoreFocusCamera()) return
     setZoom(zoom - 0.1)
     requestLayout()
   })
 
   ipcMain.on('zoom-reset', () => {
+    if (restoreFocusCamera()) return
     setZoom(1.0)
     if (!focusSelection({ animate: false })) {
       setPan(0, 0)
@@ -41,6 +45,7 @@ export function registerToolbarIpc(): void {
   })
 
   ipcMain.on('zoom-set', (_event, level: number) => {
+    if (restoreFocusCamera()) return
     setZoom(level)
     if (level === 1.0 && focusSelection({ animate: false })) return
     requestLayout()

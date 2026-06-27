@@ -24,8 +24,6 @@ export function StickyNotePopover({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'duplicateTextEntity'
-    | 'deleteTextEntity'
     | 'updateTextEntity'
     | 'morphTextFile'
     | 'focusSelection'
@@ -106,12 +104,6 @@ export function StickyNotePopover({
           isDark={isDark}
           noun={noun}
           count={count}
-          onDuplicate={() => {
-            for (const e of selectedTextEntities) api.duplicateTextEntity(e.id)
-          }}
-          onDelete={() => {
-            for (const e of selectedTextEntities) api.deleteTextEntity(e.id)
-          }}
           api={api}
         />
       </CanvasItemPopup.Frame>

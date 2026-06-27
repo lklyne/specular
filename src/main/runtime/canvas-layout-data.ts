@@ -520,7 +520,12 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     }
   }
 
-  const distinctUrls = [...new Set(targets.map((page) => page.pageView.webContents.getURL()))]
+  const distinctUrls = [
+    ...new Set(targets.map((page) => {
+      const url = page.pageView.webContents.getURL()
+      return url === 'about:blank' ? '' : url
+    })),
+  ]
   const selectionCount = targets.length
   const loadingPageCount = targets.filter((page) => page.pageView.webContents.isLoadingMainFrame()).length
   const isLoadingAnySelected = loadingPageCount > 0

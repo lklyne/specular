@@ -9,6 +9,7 @@ import type {
 import type { EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
+import { focusPresentationOverride } from '../runtime/runtime-context'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
 import { activeTool as uiActiveTool } from '../ui-state'
@@ -272,6 +273,8 @@ export function registerCanvasIpc(): void {
   ipcMain.on(
     'canvas-forward-wheel',
     (_event, { pageId, payload }: { pageId: string; payload: ForwardWheelPayload }) => {
+      // Focus presentation locks the camera: scroll the page, don't exit.
+      if (!focusPresentationOverride && restoreFocusCamera()) return
       forwardWheelToPage(pageId, payload)
     },
   )

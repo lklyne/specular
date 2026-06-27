@@ -31,8 +31,6 @@ export function DrawingPopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'duplicateDrawingEntity'
-    | 'deleteDrawingEntity'
     | 'updateDrawingEntity'
     | 'focusSelection'
     | 'distributeSelection'
@@ -143,12 +141,6 @@ export function DrawingPopup({
           isDark={isDark}
           noun={noun}
           count={count}
-          onDuplicate={() => {
-            for (const d of selectedDrawings) api.duplicateDrawingEntity(d.id)
-          }}
-          onDelete={() => {
-            for (const d of selectedDrawings) api.deleteDrawingEntity(d.id)
-          }}
           api={api}
         />
       </CanvasItemPopup.Frame>

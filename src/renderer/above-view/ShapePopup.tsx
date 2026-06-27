@@ -21,8 +21,6 @@ export function ShapePopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'duplicateShapeEntity'
-    | 'deleteShapeEntity'
     | 'updateShapeEntity'
     | 'focusSelection'
     | 'distributeSelection'
@@ -104,12 +102,6 @@ export function ShapePopup({
           isDark={isDark}
           noun={noun}
           count={count}
-          onDuplicate={() => {
-            for (const s of selectedShapes) api.duplicateShapeEntity(s.id)
-          }}
-          onDelete={() => {
-            for (const s of selectedShapes) api.deleteShapeEntity(s.id)
-          }}
           api={api}
         />
       </CanvasItemPopup.Frame>

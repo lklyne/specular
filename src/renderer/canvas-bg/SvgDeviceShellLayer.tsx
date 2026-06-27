@@ -27,11 +27,9 @@ import { squirclePath } from './squirclePath'
 export function SvgDeviceShellLayer({
   pages,
   isDark,
-  offsetY = 0,
 }: {
   pages: CanvasScenePageEntity[]
   isDark: boolean
-  offsetY?: number
 }) {
   const framedPages = pages.filter((f) => f.showDeviceFrame)
 
@@ -100,7 +98,7 @@ export function SvgDeviceShellLayer({
             className="pointer-events-none absolute"
             style={{
               left: shellX - pad,
-              top: shellY - pad - offsetY,
+              top: shellY - pad,
               filter: isDark
                 ? `drop-shadow(0 ${shadowBlur}px ${shadowBlur}px rgba(0,0,0,0.8))`
                 : `drop-shadow(0 ${shadowBlur}px ${shadowBlur}px rgba(0,0,0,0.24))`,

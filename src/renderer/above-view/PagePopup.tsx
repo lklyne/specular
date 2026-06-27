@@ -7,14 +7,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Copy,
   Maximize2,
-  Minimize2,
   Monitor,
   RotateCw,
-  Trash2,
+  X,
 } from 'lucide-react'
-import { normalizeUserUrl } from '../../shared/url'
+import { resolveAddressInput } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
   CanvasBgElectronAPI,
@@ -37,8 +35,6 @@ export function PagePopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'duplicatePage'
-    | 'deletePage'
     | 'navigatePage'
     | 'goBackPage'
     | 'goForwardPage'
@@ -82,7 +78,7 @@ export function PagePopup({
       setDraftUrl(null)
       return
     }
-    const normalized = normalizeUserUrl(trimmed)
+    const normalized = resolveAddressInput(trimmed)
     setDraftUrl(normalized)
     api.navigatePage(single.id, normalized)
   }
@@ -246,7 +242,7 @@ export function PagePopup({
                 else api.focusSelection()
               }}
             >
-              {focusPresentation ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              {focusPresentation ? <X size={14} /> : <Maximize2 size={14} />}
             </CanvasItemPopup.IconButton>
           ) : null}
           {count >= 3 ? (
@@ -259,26 +255,6 @@ export function PagePopup({
               <AlignHorizontalDistributeCenter size={14} />
             </CanvasItemPopup.IconButton>
           ) : null}
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Duplicate ${noun}`}
-            ariaLabel={`Duplicate ${noun}`}
-            onClick={() => {
-              for (const p of selectedPages) api.duplicatePage(p.id)
-            }}
-          >
-            <Copy size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Delete ${noun}`}
-            ariaLabel={`Delete ${noun}`}
-            onClick={() => {
-              for (const p of selectedPages) api.deletePage(p.id)
-            }}
-          >
-            <Trash2 size={14} />
-          </CanvasItemPopup.IconButton>
         </CanvasItemPopup.Section>
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

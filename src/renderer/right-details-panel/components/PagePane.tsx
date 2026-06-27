@@ -20,7 +20,7 @@ import type {
   FixProgressEntry,
   InspectPanelState,
 } from '../../../shared/types'
-import { normalizeUserUrl } from '../../../shared/url'
+import { resolveAddressInput } from '../../../shared/url'
 import {
   dividerClass,
   isUnresolved,
@@ -414,7 +414,7 @@ function PageNavigationSection({
   const handleCommitUrl = () => {
     const value = urlValue.trim()
     if (value && value !== page.url) {
-      rightDetailsPanelApi.navigatePage(page.id, normalizeUserUrl(value))
+      rightDetailsPanelApi.navigatePage(page.id, resolveAddressInput(value))
     }
     setIsEditingUrl(false)
   }

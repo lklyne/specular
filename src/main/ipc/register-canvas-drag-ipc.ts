@@ -29,11 +29,13 @@ import {
   cancelCameraAnimation,
   pan,
   requestLayout,
+  restoreFocusCamera,
   setPan,
   setZoom,
   win,
   zoom,
 } from '../runtime/surface-layout'
+import { focusPresentationOverride } from '../runtime/runtime-context'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
 import {
   resolveEntityKind,
@@ -182,6 +184,9 @@ export function registerCanvasDragIpc(): void {
   ipcMain.on(
     'canvas-zoom',
     (_event, data: { deltaY: number; mouseX: number; mouseY: number }) => {
+      // Focus presentation locks the camera on the page; exit is escape/button/dim-click only.
+      if (focusPresentationOverride) return
+      if (restoreFocusCamera()) return
       pendingViewportDelta.zoomDeltaY += data.deltaY
       pendingViewportDelta.mouseX = data.mouseX
       pendingViewportDelta.mouseY = data.mouseY
@@ -190,12 +195,16 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on('canvas-pan', (_event, { deltaX, deltaY }: { deltaX: number; deltaY: number }) => {
+    if (focusPresentationOverride) return
+    if (restoreFocusCamera()) return
     pendingViewportDelta.panDeltaX -= deltaX
     pendingViewportDelta.panDeltaY -= deltaY
     scheduleViewportDelta()
   })
 
   ipcMain.on('canvas-pan-to', (_event, { x, y }: { x: number; y: number }) => {
+    if (focusPresentationOverride) return
+    if (restoreFocusCamera()) return
     cancelCameraAnimation()
     setPan(x, y)
     requestLayout()

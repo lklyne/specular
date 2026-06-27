@@ -1,7 +1,7 @@
 // ADR 0008 — unified canvas-item popup compound component.
 
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
-import { AlignHorizontalDistributeCenter, Copy, Maximize2, Trash2 } from 'lucide-react'
+import { AlignHorizontalDistributeCenter, Maximize2 } from 'lucide-react'
 import {
   paletteSlots,
   resolveCanvasColor,
@@ -65,7 +65,8 @@ function Root(props: RootProps) {
       data-overlay-ui
       data-popup-placement={placement}
       className="pointer-events-auto absolute"
-      style={style}
+      // z-index above EdgeLayer (5) so edges don't paint over canvas-item toolbars.
+      style={{ zIndex: 20, ...style }}
     >
       <div ref={popupMotion.motionRef}>{children}</div>
     </div>
@@ -229,7 +230,7 @@ function Frame({
   children: ReactNode
 }) {
   const shapeClass = flush
-    ? 'w-full rounded-none border p-0'
+    ? 'w-full rounded-none border p-1'
     : 'rounded-[10px] border p-1'
   return (
     <div
@@ -347,15 +348,11 @@ function EntityActions({
   isDark,
   noun,
   count,
-  onDuplicate,
-  onDelete,
   api,
 }: {
   isDark: boolean
   noun: string
   count: number
-  onDuplicate: () => void
-  onDelete: () => void
   api?: Pick<CanvasBgElectronAPI, 'focusSelection'> &
     Partial<Pick<CanvasBgElectronAPI, 'distributeSelection'>>
 }) {
@@ -381,22 +378,6 @@ function EntityActions({
           <AlignHorizontalDistributeCenter size={14} />
         </IconButton>
       )}
-      <IconButton
-        isDark={isDark}
-        title={`Duplicate ${noun}`}
-        ariaLabel={`Duplicate ${noun}`}
-        onClick={onDuplicate}
-      >
-        <Copy size={14} />
-      </IconButton>
-      <IconButton
-        isDark={isDark}
-        title={`Delete ${noun}`}
-        ariaLabel={`Delete ${noun}`}
-        onClick={onDelete}
-      >
-        <Trash2 size={14} />
-      </IconButton>
     </Section>
   )
 }

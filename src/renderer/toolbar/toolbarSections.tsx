@@ -14,7 +14,7 @@ import type {
 } from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { normalizeUserUrl } from '../../shared/url'
+import { resolveAddressInput } from '../../shared/url'
 import {
   AddPageToolIcon,
   AddShapeToolIcon,
@@ -459,7 +459,7 @@ export function CenterAddressBar({
             if (event.key !== 'Enter') return
             const value = addressValue.trim()
             if (!value) return
-            onNavigateSelection(normalizeUserUrl(value))
+            onNavigateSelection(resolveAddressInput(value))
           }}
           placeholder={selection.placeholder}
           spellCheck={false}

@@ -61,6 +61,7 @@ export type BindingId =
   | 'make-auto-layout'
   | 'select-all'
   | 'duplicate'
+  | 'new-frame'
   | 'delete-selection'
   | 'stack-bring-forward'
   | 'stack-send-backward'
@@ -141,6 +142,15 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'make-auto-layout', defaultKey: k('a', true, true), scope: CANVAS_REGION, target: 'main', label: 'Auto-layout' },
   { id: 'select-all', defaultKey: k('a', true), scope: CANVAS_REGION, target: 'main', label: 'Select all' },
   { id: 'duplicate', defaultKey: k('d', true), scope: CANVAS_REGION, target: 'main', label: 'Duplicate' },
+  {
+    id: 'new-frame',
+    defaultKey: k('t', true),
+    scope: CANVAS_OR_PAGE_REGION,
+    target: 'main',
+    firesWhileTyping: true,
+    firesFromPageFocus: true,
+    label: 'New frame',
+  },
   {
     id: 'stack-bring-forward',
     defaultKey: k(']', true),

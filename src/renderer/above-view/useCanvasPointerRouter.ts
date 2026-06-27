@@ -139,12 +139,23 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
  *  and edge gestures. */
 export const FULL_ROUTER_CONSUME = ALL_KINDS
 
-function layoutToHitInputs(layout: { entities: HitInputs['entities']; edges?: HitInputs['edges'] | null; selectedEntityIds: HitInputs['selectedEntityIds']; selectedGroupId?: string | null; hover?: { id: string } | null; zoom?: number | null }): HitInputs {
+function layoutToHitInputs(layout: {
+  entities: HitInputs['entities']
+  edges?: HitInputs['edges'] | null
+  selectedEntityIds: HitInputs['selectedEntityIds']
+  selectedGroupId?: string | null
+  keyboardTargetPageId?: string | null
+  focusPresentation?: { pageId: string } | null
+  hover?: { id: string } | null
+  zoom?: number | null
+}): HitInputs {
   return {
     entities: layout.entities,
     edges: layout.edges ?? [],
     selectedEntityIds: layout.selectedEntityIds,
     selectedGroupId: layout.selectedGroupId ?? null,
+    keyboardTargetPageId: layout.keyboardTargetPageId ?? null,
+    focusPresentationPageId: layout.focusPresentation?.pageId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
   }
@@ -942,6 +953,12 @@ function runBackgroundSelectionGesture(
     cleanup()
     api.setSelectionOverlayRect(null)
     const layout = layoutRef.current
+    // Clicking the dimmed canvas exits focus presentation (camera is otherwise
+    // locked; escape and the popup button are the other exits).
+    if (!dragged && layout.focusPresentation) {
+      api.restoreFocusCamera()
+      return
+    }
     const modifiers: SelectionModifiers = {
       shift: ev.shiftKey,
       meta: ev.metaKey,

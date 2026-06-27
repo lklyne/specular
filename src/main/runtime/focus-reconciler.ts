@@ -34,6 +34,9 @@ export type FocusState = {
   /** True while a sidebar rename input is active. Forces sidebar focus so
    *  layout passes don't steal focus back to the canvas. */
   sidebarTextInputActive: boolean
+  /** True while a toolbar input is active. Keeps the address bar focused
+   * across selection/page-load layout passes. */
+  toolbarTextInputActive: boolean
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
@@ -42,6 +45,10 @@ export function expectedFocus(state: FocusState): FocusTarget {
   // Sidebar rename input is open — keep focus in the sidebar so keystrokes
   // reach the input rather than firing canvas shortcuts.
   if (state.sidebarTextInputActive) return { kind: 'sidebar' }
+
+  // Toolbar address input is open — keep focus in the toolbar so browser-like
+  // commands such as Cmd+T can leave the user ready to type a destination.
+  if (state.toolbarTextInputActive) return { kind: 'toolbar' }
 
   // Selection-driven page focus (the predicate already gates on idle
   // interaction + commentOverlayActive). Gesture modes still win below

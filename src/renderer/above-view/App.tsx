@@ -39,7 +39,6 @@ import {
   focusedPresentationPageId,
   focusItemOpacity,
 } from './FocusDimmingLayer'
-import { FocusedPageFrameLayer } from './FocusedPageFrameLayer'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { SelectionOutlineLayer, type SelectedEntitySpan } from './SelectionOutlineLayer'
@@ -69,10 +68,8 @@ import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
-import { PageChromeOverlay } from './PageChrome'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
-import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import { DrawingPopup } from './DrawingPopup'
 import { DrawToolPopup } from './DrawToolPopup'
@@ -1096,21 +1093,28 @@ export default function App({
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
       if (layout.interaction.kind !== 'idle') return false
+      // In focus presentation the page isn't single-selected, but the wheel
+      // should still scroll it instead of panning (which would exit focus).
+      const focusedPageId = layout.focusPresentation?.pageId ?? null
       const selected = layout.selectedEntityIds
-      if (selected.length !== 1) return false
-      const pageId = selected[0]
+      const pageId = focusedPageId ?? (selected.length === 1 ? selected[0] : null)
+      if (!pageId) return false
       const page = layout.entities.find(
         (entity): entity is CanvasSceneEntity & { kind: 'page' } =>
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return false
       const windowY = event.clientY + layout.canvasOrigin.y
-      const x0 = page.contentScreenX ?? page.screenX
-      const y0 = page.contentScreenY ?? page.screenY
-      const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-      const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
-      if (event.clientX < x0 || event.clientX > x1) return false
-      if (windowY < y0 || windowY > y1) return false
+      // In focus presentation the camera is locked on the page, so any wheel
+      // scrolls it — skip the cursor-over-body check used for selected pages.
+      if (!focusedPageId) {
+        const x0 = page.contentScreenX ?? page.screenX
+        const y0 = page.contentScreenY ?? page.screenY
+        const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
+        const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
+        if (event.clientX < x0 || event.clientX > x1) return false
+        if (windowY < y0 || windowY > y1) return false
+      }
       api.forwardWheelToPage(pageId, {
         windowX: event.clientX,
         windowY,
@@ -1467,7 +1471,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           ) : null}
 
           <FocusDimmingLayer layoutData={layoutData} isDark={isDark} />
-          <FocusedPageFrameLayer layoutData={layoutData} isDark={isDark} />
 
           {!focusPresentationActive ? (
             <PageFocusRingLayer
@@ -1498,20 +1501,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
           <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
 
-          <PageChromeOverlay
-            api={api}
-            layoutData={layoutData}
-            isDark={isDark}
-            optionHeldRef={optionHeldRef}
-            setDragCopyPreview={setDragCopyPreview}
-          />
-          <FileChromeOverlay
-            api={api}
-            layoutData={layoutData}
-            isDark={isDark}
-            optionHeldRef={optionHeldRef}
-            setDragCopyPreview={setDragCopyPreview}
-          />
           <GroupRenameOverlay
             api={api}
             layoutData={layoutData}

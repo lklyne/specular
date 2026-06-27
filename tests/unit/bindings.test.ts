@@ -193,6 +193,36 @@ describe('dispatchKey — modifier shortcuts', () => {
     }
   })
 
+  it('returns new-frame for Cmd+T from canvas, toolbar, and page focus', () => {
+    expect(
+      dispatchKey(BINDINGS, { key: 't', cmd: true, alt: false, shift: false }, BASE_CTX),
+    ).toBe('new-frame')
+    expect(
+      dispatchKey(
+        BINDINGS,
+        { key: 't', cmd: true, alt: false, shift: false },
+        { ...BASE_CTX, sourceView: 'toolbar', isTextEditing: true },
+      ),
+    ).toBe('new-frame')
+    expect(
+      dispatchKey(
+        BINDINGS,
+        { key: 't', cmd: true, alt: false, shift: false },
+        { ...BASE_CTX, sourceView: 'page', pageFocusActive: true },
+      ),
+    ).toBe('new-frame')
+  })
+
+  it('does not return new-frame from the sidebar', () => {
+    expect(
+      dispatchKey(
+        BINDINGS,
+        { key: 't', cmd: true, alt: false, shift: false },
+        { ...BASE_CTX, sourceView: 'leftSidebar', isTextEditing: true },
+      ),
+    ).toBeNull()
+  })
+
   it('returns stack-order shortcuts in canvas mode', () => {
     expect(
       dispatchKey(BINDINGS, { key: ']', cmd: true, alt: false, shift: false }, BASE_CTX),

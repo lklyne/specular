@@ -10,6 +10,7 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
     pendingFocus: null,
     focusedPageId: null,
     sidebarTextInputActive: false,
+    toolbarTextInputActive: false,
     ...overrides,
   }
 }
@@ -69,6 +70,15 @@ describe('expectedFocus', () => {
 
   it('sidebarTextInputActive yields to explicit pendingFocus', () => {
     expect(expectedFocus(state({ sidebarTextInputActive: true, pendingFocus: { kind: 'toolbar' } })))
+      .toEqual({ kind: 'toolbar' })
+  })
+
+  it('routes to toolbar when toolbarTextInputActive', () => {
+    expect(expectedFocus(state({ toolbarTextInputActive: true }))).toEqual({ kind: 'toolbar' })
+  })
+
+  it('toolbarTextInputActive overrides page focus', () => {
+    expect(expectedFocus(state({ toolbarTextInputActive: true, focusedPageId: 'p1' })))
       .toEqual({ kind: 'toolbar' })
   })
 

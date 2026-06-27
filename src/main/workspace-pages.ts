@@ -36,8 +36,16 @@ import {
   requestLayout,
   snapToGrid,
 } from './runtime/surface-layout'
+import { recenterFocusPresentation } from './runtime/viewport-control'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
+import {
+  focusPresentationOverride,
+  setFocusPresentationOverride,
+  setPendingFocus,
+} from './runtime/runtime-context'
+import { toolbarView } from './runtime/view-refs'
+import { safeSend } from './runtime/safe-send'
 import { makeId, cloneMetadata, pageCurrentUrl, createGroup } from './workspace-utils'
 import {
   entityBoundsById,
@@ -292,6 +300,69 @@ export function duplicatePageFromSource(input: {
       },
       { animate: true },
     )
+  }
+  requestLayout()
+  scheduleWorkspaceAutosave()
+  return { pageId: newPage.id }
+}
+
+export function createBlankFrameFromSource(input: {
+  sourcePageId: string
+  focusAddressBar?: boolean
+}): { pageId: string } {
+  const sourcePage = findPageById(input.sourcePageId)
+  if (!sourcePage) {
+    throw new Error(`Unknown page: ${input.sourcePageId}`)
+  }
+
+  const sourceSize = pageContentSize(sourcePage)
+  const placement = findDuplicatePlacement({
+    x: sourcePage.canvasX,
+    y: sourcePage.canvasY,
+    width: sourceSize.width,
+    height: sourceSize.height,
+  })
+  const clonedMetadata = cloneMetadata(sourcePage.metadata) ?? {}
+  delete clonedMetadata.overrides
+  const metadata = {
+    ...clonedMetadata,
+    createdFrom: 'new-frame',
+  }
+
+  const newPage = createPage({
+    url: 'about:blank',
+    presetIndex: sourcePage.presetIndex,
+    linked: false,
+    suppressInitialNavigationBroadcast: true,
+    canvasX: placement.canvasX,
+    canvasY: placement.canvasY,
+    source: 'manual',
+    parentGroupId: sourcePage.parentGroupId,
+    metadata,
+  })
+
+  selectPageById(newPage.id)
+  if (focusPresentationOverride?.pageId === sourcePage.id) {
+    setFocusPresentationOverride({
+      pageId: newPage.id,
+      mode: focusPresentationOverride.mode,
+    })
+    recenterFocusPresentation(newPage.id)
+  } else {
+    focusCanvasBounds(
+      {
+        x: placement.canvasX,
+        y: placement.canvasY,
+        width: sourceSize.width,
+        height: sourceSize.height,
+      },
+      { animate: true },
+    )
+  }
+
+  if (input.focusAddressBar ?? true) {
+    setPendingFocus({ kind: 'toolbar' })
+    if (toolbarView) safeSend(toolbarView.webContents, 'focus-address-bar')
   }
   requestLayout()
   scheduleWorkspaceAutosave()
