@@ -656,3 +656,17 @@ Noticed (no action):
 - **Needs-triage queue at 11 items**: 3 now-unblocked post-ADR-0019 (#225/#227/#228, reconciliation notes June 22–23). Routing them to ready-for-agent unlocks the next bloat-cleanup AFK batch.
 - **Journal PR #169 at day 28**: Operational.
 Hint for next run: check if #204 was closed or rebased (decision is overdue); check whether #236/#238/#240 merged and needs-triage routing happened; if 3 consecutive runs find nothing to propose after the reflection, ask whether the orchestrator observation cadence is too high for the work pace.
+
+---
+
+## 2026-06-27
+Surveyed: PR #256 (delete Browser mode / Focus selection camera, ADR 0020, filed June 26, active today), open PR aging (#236 at day 7, #238/#240 at day 6, #204 at day 24, #206 at day 19), needs-triage queue (11 items, unchanged), first run post-mandatory-reflection. Dominant theme: major simplification PR active on a `codex/` branch; system otherwise in a post-epic pause.
+Acted:
+- Nothing filed. First run after the June 26 mandatory reflection. Proposal queue empty; no stale orchestrator output to close.
+Noticed (no action):
+- **PR #256 (delete Browser mode / Focus selection, ADR 0020) is today's dominant signal**: 100 files changed, 1944 additions / 1343 deletions, branch `codex/delete-browser-mode-focus-selection`. Filed June 26, updated June 27 (this morning). `mergeable_state: unstable` — CI was still running or failing at run time. Two notable things: (a) this is a `codex/` branch, not `claude/` — a different worker variant than the usual AFK pipeline; (b) it deletes a whole navigation mode (Browser mode) in a single PR rather than across AFK step PRs. If it merges clean, the codebase loses the Browser view model entirely and gains a simpler ephemeral focus-camera behavior. Second major "delete-a-whole-mode" simplification in 5 days after ADR 0019.
+- **#236, #238, #240 at day 6–7, CI-passing, unreviewed**: Consistent with burst-and-flush pattern. June 26 reflection confirmed this. These will flush when the #256 merge triggers a review session. No alarm.
+- **PR #204 (wireframe-structured-editor) at day 24**: Still no close-or-rebase decision despite the June 26 entry calling it "overdue." Main has advanced another day farther from its base. No new activity visible. Each day this remains open, the conflict surface with main grows.
+- **Needs-triage queue at 11 items, composition unchanged**: Bloat-audit items #225/#227/#228 have had reconciliation notes since June 22–23 (now 14 days) but remain `needs-triage`. Expected latency; routing session likely follows the next review flush.
+- **Journal PR #169 at day 29**: Operational. Appended today's entry successfully.
+Hint for next run: check CI status on #256 and whether it merged; if it merged, check whether the review session also cleared #236/#238/#240; if #204 is still open at day 25+ with no comment, note it as the longest-running architecturally-stranded PR in the record and consider whether it warrants a close recommendation as a proposal.
