@@ -126,7 +126,20 @@ function usePopupFlipAnimation({
     if (shouldFlip) {
       positionAnimRef.current?.cancel()
       widthAnimRef.current?.cancel()
-      const deltaX = previousRect.left - nextRect.left
+      // Page-anchored placements (above/below) center via translateX(-50%), so
+      // the wrapper recenters on the frame's *live* width as it tweens. Anchor
+      // the FLIP on the box center there — anchoring on the left edge makes the
+      // centering double-count the width delta and the frame jumps half the
+      // width difference on the first frame. Viewport-top/overlay are
+      // left-anchored, so anchor on the left edge.
+      const destCenters = placement === 'above' || placement === 'below'
+      const previousAnchorX = destCenters
+        ? previousRect.left + previousRect.width / 2
+        : previousRect.left
+      const nextAnchorX = destCenters
+        ? nextRect.left + nextRect.width / 2
+        : nextRect.left
+      const deltaX = previousAnchorX - nextAnchorX
       const deltaY = previousRect.top - nextRect.top
       const timing = {
         duration: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
@@ -137,20 +150,27 @@ function usePopupFlipAnimation({
         [{ transform: `translate(${deltaX}px, ${deltaY}px)` }, { transform: 'translate(0, 0)' }],
         timing,
       )
-      // The viewport-top frame is `w-full`, so its resting width is the live
-      // container width. Tween toward `100%` (not a frozen px snapshot) so a
-      // chrome inset/recenter that lands mid-flight doesn't snap at the end —
-      // mirrors how `left` stays live and only the translate delta decays.
-      const targetWidth = placement === 'viewport-top' ? '100%' : `${nextRect.width}px`
-      widthAnimRef.current = frameElement.animate(
-        [{ width: `${previousRect.width}px` }, { width: targetWidth }],
-        timing,
-      )
+      // Width only needs an explicit tween when entering the viewport-top bar:
+      // its resting width is the live container width, so we tween toward `100%`
+      // (not a frozen px snapshot) — a chrome inset/recenter landing mid-flight
+      // then can't snap at the end, mirroring how `left` stays live.
+      //
+      // Page-anchored placements get their width morph for free: popupStyle sets
+      // `minWidth: rect.width`, and `rect.width` is the live page width shrinking
+      // as the camera restores. A frozen px tween here fights that live width and
+      // snaps to the real (smaller) size only once the camera settles, so we let
+      // the live minWidth carry it instead.
+      if (placement === 'viewport-top') {
+        widthAnimRef.current = frameElement.animate(
+          [{ width: `${previousRect.width}px` }, { width: '100%' }],
+          timing,
+        )
+        widthAnimRef.current.onfinish = () => {
+          widthAnimRef.current = null
+        }
+      }
       positionAnimRef.current.onfinish = () => {
         positionAnimRef.current = null
-      }
-      widthAnimRef.current.onfinish = () => {
-        widthAnimRef.current = null
       }
 
       // The main-process camera move starts the instant focus toggles, but this
@@ -164,7 +184,7 @@ function usePopupFlipAnimation({
           Math.max(0, Date.now() - cameraTransitionStartedAt),
         )
         positionAnimRef.current.currentTime = elapsed
-        widthAnimRef.current.currentTime = elapsed
+        if (widthAnimRef.current) widthAnimRef.current.currentTime = elapsed
       }
     }
 
