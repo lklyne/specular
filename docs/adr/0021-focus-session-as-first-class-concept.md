@@ -87,3 +87,39 @@ state, not a transition edge).
   documented tightening; it does not touch the gesture architecture
   (`InteractionController`, the pointer router, the layout pass), which held up
   fine.
+
+## Amendment — annotation visibility replaces the item dim
+
+Date: 2026-06-28
+
+The "dim is a resting affordance lifted by a working tool" rule (point 3) proved
+unworkable for the one job it was meant to serve: viewing annotations on a
+focused page. One-shot tools (sticky/text/shape) auto-revert to select after
+placement, so a just-placed sticky immediately re-dimmed — there was no resting
+state that showed it. Deriving visibility from the *transient* tool state is the
+flaw.
+
+Two changes:
+
+1. **Content vs annotation taxonomy.** `isAnnotationEntityKind` (in
+   `focus-context.ts`) splits entities into *content* (`page`, `file` — a reading
+   surface with interior worth isolating) and *annotation* (`text`, `shape`,
+   `drawing`, plus edges — things placed *on* content). The line is "rich
+   internal content worth reading in isolation." This same predicate is the seam
+   a future content lightbox would key off.
+
+2. **Annotation visibility is latched session state, not derived from the tool.**
+   `FocusSession.annotationsVisible` starts `false` (clean read) and latches
+   `true` when a working tool activates *or* the user clicks the eye in the focus
+   bar — and **stays** on after the one-shot tool reverts. That's what keeps a
+   just-placed sticky visible. The old per-item `0.2` opacity dim is deleted;
+   hidden annotations simply don't render (binary, not faded). The page scrim
+   (`FocusDimmingLayer`) now recedes other pages purely as a function of the
+   session — a working tool no longer lifts it, for the same "don't derive from
+   transient tool state" reason.
+
+The toggle is per-session and ephemeral (resets each focus). It is *not*
+persisted to `.canvas` — visibility is view state, not document data. Chosen over
+a global persisted flag because it's the smallest thing that solves the problem;
+the consumer is one boolean behind `focusContext()`, so a global or per-content
+model is a cheap later refactor if needed.

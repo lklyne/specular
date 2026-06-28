@@ -29,6 +29,7 @@ import {
   restoreFocusCamera,
   selectedPageId,
   setFocusPresentationMode,
+  setFocusAnnotationsVisible,
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
@@ -191,6 +192,10 @@ export function registerCanvasIpc(): void {
   ipcMain.on('canvas-set-focus-presentation-mode', (_event, mode: FocusPresentationMode) => {
     if (mode !== 'device' && mode !== 'fit' && mode !== 'fill') return
     setFocusPresentationMode(mode)
+  })
+
+  ipcMain.on('canvas-set-focus-annotations-visible', (_event, visible: boolean) => {
+    setFocusAnnotationsVisible(Boolean(visible))
   })
 
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(

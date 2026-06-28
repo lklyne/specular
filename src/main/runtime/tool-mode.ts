@@ -1,7 +1,8 @@
 // Tool mode management — single `activeTool` source of truth (ADR 0005).
 
 import type { DevtoolsPanelTab, Tool } from '../../shared/types'
-import { isAnnotationTool, isOneShot, toolAnnotateOverlay } from '../../shared/tool'
+import { isAnnotationTool, isOneShot, isWorkingTool, toolAnnotateOverlay } from '../../shared/tool'
+import { isFocusSessionActive, setFocusAnnotationsVisible } from './focus-session'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { pages } from './runtime-context'
 import { markDirty } from './layout-dirty'
@@ -66,6 +67,12 @@ export function setActiveTool(tool: Tool): Tool {
     return prev
   }
   setUiActiveTool(sanitized)
+  // A working tool latches annotation visibility on for the focus session, so a
+  // sticky placed mid-focus stays visible after the one-shot tool reverts to
+  // select. The user turns it back off via the focus bar's eye (ADR 0021).
+  if (isWorkingTool(sanitized) && isFocusSessionActive()) {
+    setFocusAnnotationsVisible(true)
+  }
   applyToolSideEffects(prev, sanitized)
   return uiActiveTool()
 }

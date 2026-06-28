@@ -86,6 +86,8 @@ const api: CanvasBgElectronAPI = {
   restoreFocusCamera: () => ipcRenderer.send('canvas-restore-focus-camera'),
   setFocusPresentationMode: (mode) =>
     ipcRenderer.send('canvas-set-focus-presentation-mode', mode),
+  setFocusAnnotationsVisible: (visible) =>
+    ipcRenderer.send('canvas-set-focus-annotations-visible', visible),
   canvasClickAt: (screenX, screenY, modifiers) =>
     ipcRenderer.send('canvas-click-at', { screenX, screenY, modifiers }),
   clearAnnotateHover: () => ipcRenderer.send('canvas-clear-annotate-hover'),

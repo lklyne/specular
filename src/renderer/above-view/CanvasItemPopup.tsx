@@ -313,7 +313,7 @@ function Frame({
   children: ReactNode
 }) {
   const shapeClass = `${fullWidth ? 'w-full ' : ''}${
-    flush ? 'rounded-none border-b' : 'rounded-[10px] border'
+    flush ? 'rounded-none border-b flex items-center' : 'rounded-[10px] border'
   } p-1`
   const frameProps = {
     'data-popup-frame': flush ? 'flush' : 'floating',
@@ -324,8 +324,8 @@ function Frame({
       // Flush focus bar matches the toolbar height so 'fill' page content,
       // which starts at the toolbar inset, butts directly against it.
       height: flush ? TOOLBAR_HEIGHT : undefined,
-      background: isDark ? '#3a3836' : '#ece9e7',
-      borderColor: isDark ? '#414141' : '#dcdcda',
+      background: 'var(--surface-popup)',
+      borderColor: 'var(--surface-popup-border)',
       boxShadow: flush
         ? 'none'
         : isDark
@@ -368,16 +368,17 @@ function popupIconButtonClass(isDark: boolean, active = false): string {
   if (active) {
     return isDark
       ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
-      : `${base} bg-[#fdf8f5] text-zinc-900`
+      : `${base} bg-[var(--color-stone-200)] text-zinc-900`
   }
   return isDark
     ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
-    : `${base} text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900`
+    : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900`
 }
 
 function IconButton({
   isDark,
   active = false,
+  disabled = false,
   title,
   ariaLabel,
   onClick,
@@ -385,6 +386,7 @@ function IconButton({
 }: {
   isDark: boolean
   active?: boolean
+  disabled?: boolean
   title: string
   ariaLabel: string
   onClick: () => void
@@ -393,8 +395,9 @@ function IconButton({
   return (
     <button
       type="button"
-      className={popupIconButtonClass(isDark, active)}
+      className={`${popupIconButtonClass(isDark, active)} disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent`}
       onClick={onClick}
+      disabled={disabled}
       title={title}
       aria-label={ariaLabel}
       aria-pressed={active}
@@ -405,13 +408,11 @@ function IconButton({
 }
 
 function ColorSwatch({
-  isDark,
   active,
   color,
   ariaLabel,
   onClick,
 }: {
-  isDark: boolean
   active: boolean
   color: string
   ariaLabel: string
@@ -421,9 +422,7 @@ function ColorSwatch({
     <button
       type="button"
       aria-label={ariaLabel}
-      className={`flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
-        isDark ? 'bg-[#3a3836]' : 'bg-[#ece9e7]'
-      }`}
+      className="flex h-5 w-5 items-center justify-center rounded-full border transition-colors bg-[var(--surface-popup)]"
       style={{ borderColor: active ? color : 'transparent' }}
       onClick={onClick}
     >
@@ -498,7 +497,6 @@ function PaletteSection({
         return (
           <ColorSwatch
             key={slot.id}
-            isDark={isDark}
             active={activeSlot === slot.id}
             color={swatch}
             ariaLabel={ariaLabel}

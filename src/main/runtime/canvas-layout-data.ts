@@ -480,6 +480,7 @@ function buildFocusPresentationData(
     authoredHeight: authored.height,
     effectiveWidth: scenePage.width,
     effectiveHeight: scenePage.height,
+    annotationsVisible: focus.annotationsVisible,
   }
 }
 

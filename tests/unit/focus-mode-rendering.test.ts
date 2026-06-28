@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { FocusDimmingLayer } from '../../src/renderer/above-view/FocusDimmingLayer'
-import { focusContext, focusItemOpacity } from '../../src/shared/focus-context'
+import { focusContext } from '../../src/shared/focus-context'
 import { CanvasItemPopup } from '../../src/renderer/above-view/CanvasItemPopup'
 import { EMPTY_LAYOUT } from '../../src/renderer/canvas-bg/canvasBgConstants'
 import {
@@ -34,7 +34,7 @@ function page(id: string, x: number): CanvasScenePageEntity {
   }
 }
 
-function focusedLayout(): LayoutUpdateData {
+function focusedLayout(annotationsVisible = false): LayoutUpdateData {
   const focused = page('focused', 100)
   const other = page('other', 500)
   return {
@@ -51,6 +51,7 @@ function focusedLayout(): LayoutUpdateData {
       authoredHeight: 200,
       effectiveWidth: 300,
       effectiveHeight: 200,
+      annotationsVisible,
     },
   }
 }
@@ -60,10 +61,11 @@ function cssLength(value: number): string {
 }
 
 describe('focus mode rendering', () => {
-  it('leaves the focused item at full opacity and dims other items to 20%', () => {
-    expect(focusItemOpacity('focused', 'focused')).toBe(1)
-    expect(focusItemOpacity('focused', 'other')).toBe(0.2)
-    expect(focusItemOpacity(null, 'other')).toBe(1)
+  it('hides annotations at rest and shows them once the eye is on (ADR 0021)', () => {
+    expect(focusContext(focusedLayout(false)).showsAnnotations).toBe(false)
+    expect(focusContext(focusedLayout(true)).showsAnnotations).toBe(true)
+    // Outside a focus session annotations always render.
+    expect(focusContext(EMPTY_LAYOUT).showsAnnotations).toBe(true)
   })
 
   it('renders a dimming scrim over non-focused pages only', () => {
@@ -95,16 +97,18 @@ describe('focus mode rendering', () => {
     expect(focusContext(focusedLayout()).pageId).toBe('focused')
   })
 
-  it('lifts the dim while a working tool is active (ADR 0021)', () => {
+  it('keeps other pages receded regardless of the active tool (ADR 0021)', () => {
+    // The page scrim is now purely a function of the session — a working tool
+    // no longer lifts it (annotation visibility is its own, latched control).
     const drawing = { ...focusedLayout(), activeTool: { kind: 'draw' as const } }
     const ctx = focusContext(drawing)
     expect(ctx.active).toBe(true)
-    expect(ctx.dimsOtherPages).toBe(false)
+    expect(ctx.dimsOtherPages).toBe(true)
 
     const html = renderToStaticMarkup(
       createElement(FocusDimmingLayer, { layoutData: drawing, isDark: false }),
     )
-    expect(html).toBe('')
+    expect(html).toContain('data-focus-dim-id="other"')
   })
 
   it('renders the focused action menu with the configured viewport-top layout', () => {

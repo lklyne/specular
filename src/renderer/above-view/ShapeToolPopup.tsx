@@ -73,7 +73,6 @@ export function ShapeToolPopup({
             return (
               <CanvasItemPopup.ColorSwatch
                 key={slot.id}
-                isDark={isDark}
                 active={activeSlot === slot.id}
                 color={swatch}
                 ariaLabel={`Set default shape color to ${slot.label}`}

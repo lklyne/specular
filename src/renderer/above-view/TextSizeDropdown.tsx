@@ -66,7 +66,7 @@ function triggerClass(isDark: boolean): string {
     'flex h-6 items-center gap-1 rounded-[6px] border-0 px-1.5 text-xs leading-none transition-colors'
   return isDark
     ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100 data-[popup-open]:bg-[rgba(253,248,245,0.1)] data-[popup-open]:text-zinc-100`
-    : `${base} text-zinc-700 hover:bg-[#fdf8f5] hover:text-zinc-900 data-[popup-open]:bg-[#fdf8f5] data-[popup-open]:text-zinc-900`
+    : `${base} text-zinc-700 hover:bg-[var(--color-stone-100)] hover:text-zinc-900 data-[popup-open]:bg-[var(--color-stone-200)] data-[popup-open]:text-zinc-900`
 }
 
 function inputClass(isDark: boolean): string {

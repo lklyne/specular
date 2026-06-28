@@ -16,6 +16,7 @@ import {
   isFocusSessionActive,
   repointFocusSession,
   setFocusSessionMode,
+  setFocusAnnotationsVisible as setSessionAnnotationsVisible,
 } from './focus-session'
 import { win } from './view-refs'
 import { requestLayout } from './layout-engine'
@@ -366,6 +367,19 @@ export function setFocusPresentationMode(mode: FocusPresentationMode): boolean {
   return true
 }
 
+export function setFocusAnnotationsVisible(visible: boolean): boolean {
+  const current = focusSession()
+  if (!current) return false
+  if (current.annotationsVisible === visible) return true
+  setSessionAnnotationsVisible(visible)
+  // Mark canvas dirty so the next layout pass actually broadcasts layout-update
+  // (the broadcast is gated on the 'canvas' dirty flag) — otherwise the eye
+  // state only reaches the renderer on the next unrelated dirtying event.
+  markDirty('canvas')
+  requestLayout()
+  return true
+}
+
 /**
  * Retarget an *active* focus session to a different page, keeping the session's
  * current mode and return camera. Returns false (no-op) when no session is
@@ -432,6 +446,7 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
       pageId: singlePageTarget.id,
       mode: focusMode,
       returnCamera: { zoom, pan: { ...pan } },
+      annotationsVisible: false,
     })
   } else {
     endFocusSession('re-focus')

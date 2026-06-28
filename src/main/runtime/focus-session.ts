@@ -18,6 +18,14 @@ export interface FocusSession {
   mode: FocusPresentationMode
   /** Camera to restore on a graceful exit. Captured when the session begins. */
   returnCamera: FocusReturnCamera
+  /**
+   * Are annotations (stickies/text/shapes/drawings/edges) shown over the
+   * focused content. Per-session, ephemeral: starts off (clean read) and
+   * latches on when a working tool activates or the user clicks the eye in the
+   * focus bar. Stays on after a one-shot tool reverts — that's what lets a
+   * just-placed sticky remain visible.
+   */
+  annotationsVisible: boolean
 }
 
 /** The closed set of reasons a focus session can end (ADR 0021). */
@@ -53,6 +61,11 @@ export function setFocusSessionMode(mode: FocusPresentationMode): void {
 export function repointFocusSession(pageId: string): void {
   if (!session) return
   session = { ...session, pageId }
+}
+
+export function setFocusAnnotationsVisible(visible: boolean): void {
+  if (!session) return
+  session = { ...session, annotationsVisible: visible }
 }
 
 /**

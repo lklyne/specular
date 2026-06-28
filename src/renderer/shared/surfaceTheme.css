@@ -12,6 +12,8 @@
   --surface-popover: var(--color-stone-200);
   --surface-popover-subtle: var(--color-stone-100);
   --surface-popover-border: var(--color-stone-200);
+  --surface-popup: var(--color-stone-50);
+  --surface-popup-border: var(--color-stone-200);
   --surface-input: var(--color-stone-50);
   --surface-input-border: var(--color-stone-300);
   --surface-device: var(--color-stone-300);
@@ -32,6 +34,8 @@
   --surface-popover: var(--color-stone-800);
   --surface-popover-subtle: var(--color-stone-900);
   --surface-popover-border: var(--color-stone-600);
+  --surface-popup: var(--color-stone-700);
+  --surface-popup-border: var(--color-stone-600);
   --surface-input: color-mix(in srgb, var(--color-stone-900) 90%, transparent);
   --surface-input-border: color-mix(in srgb, var(--color-stone-700) 80%, transparent);
   --surface-device: var(--color-stone-800);

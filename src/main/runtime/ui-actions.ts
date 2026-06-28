@@ -43,6 +43,7 @@ export {
   refocusActiveSession,
   restoreFocusCamera,
   setFocusPresentationMode,
+  setFocusAnnotationsVisible,
 } from './viewport-control'
 
 export {

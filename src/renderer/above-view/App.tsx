@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
@@ -35,7 +35,7 @@ import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
 import { FocusDimmingLayer } from './FocusDimmingLayer'
-import { focusContext, focusItemOpacity } from '../../shared/focus-context'
+import { focusContext } from '../../shared/focus-context'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { SelectionOutlineLayer, type SelectedEntitySpan } from './SelectionOutlineLayer'
@@ -205,7 +205,7 @@ function StackedCanvasItems({
   selectedEntityIdSet,
   editingEntityId,
   ghostEntity,
-  focusedPageId,
+  hideAnnotations,
 }: {
   layoutData: LayoutUpdateData
   fileJsonModeMap: FileJsonModeMap
@@ -214,7 +214,9 @@ function StackedCanvasItems({
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
   editingEntityId: string | null
-  focusedPageId: string | null
+  /** Focus is at rest with annotations hidden — skip annotation entities and
+   *  edges entirely (binary, replaces the old 0.2 dim). ADR 0021. */
+  hideAnnotations: boolean
   /** Reorder ghost (ADR 0015 D7, Phase D): the dragged entity, already
    *  positioned at grab-origin + cursor-delta. Its in-row slot paints as a
    *  grayscale placeholder (the drop location); the ghost itself renders last at
@@ -224,17 +226,8 @@ function StackedCanvasItems({
   const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
 
-  function renderDimmed(child: ReactNode, entityId: string, key: string) {
-    const opacity = focusItemOpacity(focusedPageId, entityId)
-    if (opacity === 1) return child
-    return (
-      <div key={key} style={{ opacity }}>
-        {child}
-      </div>
-    )
-  }
-
   function renderEdge(edge: WorkspaceEdge) {
+    if (hideAnnotations) return null
     const layer = (
       <EdgeLayer
         key={`edge-${edge.id}`}
@@ -252,16 +245,14 @@ function StackedCanvasItems({
         zIndex={undefined}
       />
     )
-    return renderDimmed(layer, edge.id, `edge-dim-${edge.id}`)
-  }
-
-  function renderDimmedEntityBody(entity: CanvasSceneEntity) {
-    const body = renderEntityBody(entity)
-    if (!body) return null
-    return renderDimmed(body, entity.id, `entity-dim-${entity.id}`)
+    return layer
   }
 
   function renderEntityBody(entity: CanvasSceneEntity) {
+    // Eye off: hide every non-page item — annotations *and* files/images. The
+    // focused page is a webview, not rendered here, so it's never affected
+    // (focus is always page-targeted). ADR 0021.
+    if (hideAnnotations) return null
     if (entity.kind === 'drawing') {
       return (
         <SavedDrawingEntities
@@ -351,7 +342,7 @@ function StackedCanvasItems({
           )
         }
 
-        return renderDimmedEntityBody(entity)
+        return renderEntityBody(entity)
       })}
       {ghostEntity ? (
         <div key="reorder-ghost" className="pointer-events-none" style={{ opacity: 0.5 }}>
@@ -668,9 +659,9 @@ export default function App({
   const hoveredEntityId = layoutData.hover?.id ?? null
   const focus = focusContext(layoutData)
   const focusPresentationActive = focus.active
-  // Dim the rest of the canvas only while focus is at rest — a working tool
-  // (draw/placement/comment) lifts it so annotation reads at full opacity.
-  const dimAroundPageId = focus.dimsOtherPages ? focus.pageId : null
+  // Annotations are hidden while a focus session rests with the eye off; a
+  // working tool or the focus-bar eye latches them on (ADR 0021).
+  const hideAnnotations = focus.active && !focus.showsAnnotations
   const overlayInteractive = Boolean(
     pendingAnnotation ||
       pendingRegionRect ||
@@ -1431,7 +1422,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIdSet={selectedEntityIdSet}
             editingEntityId={editingEntityId}
             ghostEntity={reorderGhostEntity}
-            focusedPageId={dimAroundPageId}
+            hideAnnotations={hideAnnotations}
           />
 
           {/* Live drawing preview renders after StackedCanvasItems so the
@@ -1486,15 +1477,17 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
-          {!focusPresentationActive ? (
-            <SelectionOutlineLayer
-              layoutData={renderLayout}
-              isDark={isDark}
-              marqueePreviewIds={marqueePreviewIds}
-              reorderGhostId={reorderGhostEntity?.id ?? null}
-              reorderGhostSpan={reorderGhostSpan}
-            />
-          ) : null}
+          {/* Render during a focus session too — only the focused page's own box
+              is suppressed (clean read); other items keep selection/hover
+              outlines so eye-revealed annotations stay interactive (ADR 0021). */}
+          <SelectionOutlineLayer
+            layoutData={renderLayout}
+            isDark={isDark}
+            marqueePreviewIds={marqueePreviewIds}
+            reorderGhostId={reorderGhostEntity?.id ?? null}
+            reorderGhostSpan={reorderGhostSpan}
+            suppressPageId={focus.pageId}
+          />
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />

@@ -7,7 +7,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Maximize,
+  Eye,
+  EyeClosed,
   Maximize2,
   RotateCw,
   X,
@@ -33,11 +34,11 @@ function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6
   if (active) {
     return isDark
       ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
-      : `${base} bg-[#fdf8f5] text-zinc-900`
+      : `${base} bg-[var(--surface-popup)] text-zinc-900`
   }
   return isDark
     ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
-    : `${base} text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900`
+    : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900`
 }
 
 export function PagePopup({
@@ -60,6 +61,7 @@ export function PagePopup({
     | 'focusSelection'
     | 'restoreFocusCamera'
     | 'setFocusPresentationMode'
+    | 'setFocusAnnotationsVisible'
     | 'distributeSelection'
   >
   isDark: boolean
@@ -147,7 +149,7 @@ export function PagePopup({
 
   const sizeTriggerClass = isDark
     ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-300 transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100'
-    : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-600 transition-colors hover:bg-[#fdf8f5] hover:text-zinc-900'
+    : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-600 transition-colors hover:bg-[var(--color-stone-100)] hover:text-zinc-900'
   const focusSizeTriggerClass = popupTabButtonClass(isDark, focusMode === 'device', 'px-2')
   const tabGroupClass = isDark
     ? 'flex h-7 items-center gap-0.5 rounded-[7px] bg-black/15 p-0.5'
@@ -290,23 +292,23 @@ export function PagePopup({
                   />
                   <button
                     type="button"
-                    className={popupTabButtonClass(isDark, focusPresentation.mode === 'fit')}
+                    className={popupTabButtonClass(isDark, focusPresentation.mode === 'fit', 'px-2')}
                     title="Fit to canvas"
                     aria-label="Fit the page to the canvas"
                     aria-pressed={focusPresentation.mode === 'fit'}
                     onClick={() => api.setFocusPresentationMode('fit')}
                   >
-                    <Maximize2 size={13} />
+                    Fit
                   </button>
                   <button
                     type="button"
-                    className={popupTabButtonClass(isDark, focusPresentation.mode === 'fill')}
+                    className={popupTabButtonClass(isDark, focusPresentation.mode === 'fill', 'px-2')}
                     title="Fill the window"
                     aria-label="Fill the window like a browser"
                     aria-pressed={focusPresentation.mode === 'fill'}
                     onClick={() => api.setFocusPresentationMode('fill')}
                   >
-                    <Maximize size={13} />
+                    Fill
                   </button>
                 </div>
               ) : (
@@ -329,6 +331,7 @@ export function PagePopup({
               showDeviceFrame={single.showDeviceFrame ?? false}
               orientation={single.deviceOrientation ?? 'portrait'}
               noun="page"
+              disabled={focusPresentation?.mode === 'fill'}
               onToggleDeviceFrame={() => api.toggleDeviceShell(single.id)}
               onSetOrientation={(orientation) =>
                 api.setDeviceOrientation(single.id, orientation)
@@ -337,6 +340,22 @@ export function PagePopup({
           </>
         ) : null}
         <CanvasItemPopup.Section>
+          {focusPresentation ? (
+            <CanvasItemPopup.IconButton
+              isDark={isDark}
+              title={focusPresentation.annotationsVisible ? 'Hide other items' : 'Show other items'}
+              ariaLabel={focusPresentation.annotationsVisible ? 'Hide other items' : 'Show other items'}
+              onClick={() =>
+                api.setFocusAnnotationsVisible(!focusPresentation.annotationsVisible)
+              }
+            >
+              {focusPresentation.annotationsVisible ? (
+                <Eye size={14} />
+              ) : (
+                <EyeClosed size={14} />
+              )}
+            </CanvasItemPopup.IconButton>
+          ) : null}
           {isSingle ? (
             <CanvasItemPopup.IconButton
               isDark={isDark}

@@ -157,6 +157,9 @@ export interface FocusPresentationData {
   authoredHeight: number
   effectiveWidth: number
   effectiveHeight: number
+  /** Annotations shown over the focused content. Starts off; latched on by a
+   *  working tool or the focus-bar eye (ADR 0021). */
+  annotationsVisible: boolean
 }
 
 /** 'plain' = unbacked text, 'sticky' = text in a colored card. See ADR 0004. */
@@ -1730,6 +1733,7 @@ export interface CanvasBgElectronAPI {
   focusSelection: () => void
   restoreFocusCamera: () => void
   setFocusPresentationMode: (mode: FocusPresentationMode) => void
+  setFocusAnnotationsVisible: (visible: boolean) => void
   canvasClickAt: (
     screenX: number,
     screenY: number,
