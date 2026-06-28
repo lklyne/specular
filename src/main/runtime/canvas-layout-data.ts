@@ -387,6 +387,7 @@ export function buildCanvasLayoutData(
   })
   edges.sort((a, b) => (orderRank.get(a.id) ?? Infinity) - (orderRank.get(b.id) ?? Infinity))
   return {
+    windowWidth,
     zoom,
     pan,
     canvasOrigin: origin,

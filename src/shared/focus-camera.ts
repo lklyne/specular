@@ -13,3 +13,18 @@ export function computeFocusZoomForBounds(
   const fitZoom = Math.min(availableWidth / bounds.width, availableHeight / bounds.height)
   return Math.min(1, fitZoom)
 }
+
+export function computePanToCenterBoundsAtZoom(input: {
+  bounds: WorkspaceBounds
+  viewport: { x: number; y?: number; width: number; height: number }
+  canvasOriginX: number
+  zoom: number
+}): { x: number; y: number } {
+  const { bounds, viewport, canvasOriginX, zoom } = input
+  return {
+    x: Math.round(
+      viewport.x + viewport.width / 2 - canvasOriginX - (bounds.x + bounds.width / 2) * zoom,
+    ),
+    y: Math.round(viewport.height / 2 - (bounds.y + bounds.height / 2) * zoom),
+  }
+}

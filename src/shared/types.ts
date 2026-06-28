@@ -426,6 +426,7 @@ export type PersistedCanvasEntity =
 // --- Layout Update Data ---
 
 export interface LayoutUpdateData {
+  windowWidth: number
   zoom: number
   pan: { x: number; y: number }
   canvasOrigin: { x: number; y: number }

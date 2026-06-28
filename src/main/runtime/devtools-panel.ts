@@ -24,7 +24,7 @@ import {
   setLeftSidebarOpen as setUiLeftSidebarOpen,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
 } from '../ui-state'
-import { requestLayout } from './viewport-control'
+import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import { syncInspectionState } from './inspect-session'
 import { devtoolsPanelDebug } from './runtime-constants'
 
@@ -39,6 +39,7 @@ export function toggleLeftSidebar(): void {
   setUiLeftSidebarOpen(!uiLeftSidebarOpen())
   markDirty('sidebar', 'canvas')
   notifyDevtoolsChanged()
+  recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
 }
 
@@ -61,6 +62,7 @@ export function closeDevTools(): void {
   setUiDevtoolsOpen(false)
   syncInspectionState()
   notifyDevtoolsChanged()
+  recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
 }
 
@@ -80,6 +82,7 @@ export function toggleDevTools(): void {
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
   syncInspectionState()
+  recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
   devtoolsPanelDebug('toggle:open-complete', { durationMs: Date.now() - start })
 }
@@ -115,6 +118,7 @@ export function openDevToolsForSelectedPage(): void {
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
   syncInspectionState()
+  recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
   attachBrowserDevtoolsToPage(selectedPageIdx)
 }
@@ -129,6 +133,7 @@ export function openInspectPanel(): void {
   focusUiAnnotation(null)
   markDirty('toolbar', 'canvas')
   syncInspectionState()
+  recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
 }
 
@@ -142,6 +147,7 @@ export function openCommentsPanel(annotationId?: string): void {
   focusUiAnnotation(annotationId ?? null)
   markDirty('toolbar', 'canvas')
   syncInspectionState()
+  recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
 }
 

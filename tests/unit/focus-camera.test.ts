@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { computeFocusZoomForBounds } from '../../src/shared/focus-camera'
+import {
+  computeFocusZoomForBounds,
+  computePanToCenterBoundsAtZoom,
+} from '../../src/shared/focus-camera'
 
 describe('focus camera', () => {
   it('fits large selections into the viewport with padding', () => {
@@ -18,5 +21,20 @@ describe('focus camera', () => {
         { width: 1000, height: 800 },
       ),
     ).toBe(1)
+  })
+
+  it('centers bounds inside the currently available chrome-inset viewport', () => {
+    const bounds = { x: 100, y: 50, width: 800, height: 600 }
+    const pan = computePanToCenterBoundsAtZoom({
+      bounds,
+      viewport: { x: 320, y: 44, width: 880, height: 756 },
+      canvasOriginX: 0,
+      zoom: 1,
+    })
+
+    const screenCenterX = bounds.x + bounds.width / 2 + pan.x
+    const screenCenterY = bounds.y + bounds.height / 2 + pan.y
+    expect(screenCenterX).toBe(320 + 880 / 2)
+    expect(screenCenterY).toBe(756 / 2)
   })
 })

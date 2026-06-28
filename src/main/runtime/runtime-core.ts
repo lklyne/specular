@@ -33,6 +33,7 @@ import {
   scheduleWorkspaceAutosave,
 } from './workspace-autosave'
 import {
+  recenterFocusPresentation,
   requestLayout,
 } from './viewport-control'
 import { markDirty } from './layout-dirty'
@@ -225,6 +226,7 @@ export function setDevtoolsWidthFromScreenX(screenX: number): void {
   if (!win || !uiDevtoolsOpen()) return
   const bounds = win.getContentBounds()
   setDevtoolsWidth(bounds.x + bounds.width - screenX)
+  recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
 }
 

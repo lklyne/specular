@@ -8,12 +8,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Maximize2,
-  Monitor,
   RotateCw,
   X,
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
+import { DEFAULT_CAMERA_TRANSITION_DURATION_MS } from '../../shared/camera-transition'
+import { FOCUS_PRESENTATION_MENU_INSET } from '../../shared/featureFlags'
 import type {
   CanvasBgElectronAPI,
   CanvasScenePageEntity,
@@ -25,6 +26,38 @@ import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 const URL_INPUT_MIN_WIDTH = 280
+
+function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6'): string {
+  const base =
+    `flex h-6 ${widthClass} items-center justify-center gap-1 rounded-[6px] border-0 text-xs transition-colors`
+  if (active) {
+    return isDark
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
+      : `${base} bg-[#fdf8f5] text-zinc-900`
+  }
+  return isDark
+    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
+    : `${base} text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900`
+}
+
+function usePinnedFocusPopupPlacement(focusActive: boolean): boolean {
+  const [pinnedToViewportTop, setPinnedToViewportTop] = useState(false)
+
+  useEffect(() => {
+    if (focusActive) {
+      setPinnedToViewportTop(true)
+      return undefined
+    }
+    if (!pinnedToViewportTop) return undefined
+
+    const timeout = window.setTimeout(() => {
+      setPinnedToViewportTop(false)
+    }, DEFAULT_CAMERA_TRANSITION_DURATION_MS / 2)
+    return () => window.clearTimeout(timeout)
+  }, [focusActive, pinnedToViewportTop])
+
+  return focusActive || pinnedToViewportTop
+}
 
 export function PagePopup({
   api,
@@ -59,13 +92,28 @@ export function PagePopup({
 
   // Hold optimistic URL until the navigate IPC → broadcast round-trip catches up.
   const [draftUrl, setDraftUrl] = useState<string | null>(null)
+  const [presetDropdownOpen, setPresetDropdownOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const suppressPresetOpenRef = useRef(false)
 
   const single = count === 1 ? selectedPages[0] : null
   const currentUrl = single?.url
   useEffect(() => {
     if (draftUrl !== null && currentUrl === draftUrl) setDraftUrl(null)
   }, [currentUrl, draftUrl])
+
+  const focusPresentation =
+    single && layout.focusPresentation?.pageId === single.id
+      ? layout.focusPresentation
+      : null
+  const focusMode = focusPresentation?.mode ?? null
+  useEffect(() => {
+    if (focusMode !== 'fit') {
+      suppressPresetOpenRef.current = false
+      setPresetDropdownOpen(false)
+    }
+  }, [focusMode])
+  const pinPopupToViewportTop = usePinnedFocusPopupPlacement(focusPresentation !== null)
 
   if (count === 0) return null
   const isSingle = count === 1
@@ -86,11 +134,8 @@ export function PagePopup({
   const entityIds = selectedPages.map((p) => p.id)
   const noun = isSingle ? 'page' : `${count} pages`
 
-  const focusPresentation =
-    single && layout.focusPresentation?.pageId === single.id
-      ? layout.focusPresentation
-      : null
-  const flushToViewportTop = focusPresentation !== null
+  const useFlushFocusMenu = pinPopupToViewportTop && !FOCUS_PRESENTATION_MENU_INSET
+  const popupLayoutDependency = pinPopupToViewportTop ? 'viewport-top' : 'above'
 
   const presetLabel = focusPresentation
     ? focusPresentation.authoredLabel
@@ -105,6 +150,7 @@ export function PagePopup({
   const sizeTriggerClass = isDark
     ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-300 transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100'
     : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-600 transition-colors hover:bg-[#fdf8f5] hover:text-zinc-900'
+  const focusSizeTriggerClass = popupTabButtonClass(isDark, focusMode === 'fit', 'px-2')
   const tabGroupClass = isDark
     ? 'flex h-7 items-center gap-0.5 rounded-[7px] bg-black/15 p-0.5'
     : 'flex h-7 items-center gap-0.5 rounded-[7px] bg-zinc-900/10 p-0.5'
@@ -114,11 +160,15 @@ export function PagePopup({
       entityIds={entityIds}
       layout={layout}
       open={open}
-      placement={flushToViewportTop ? 'viewport-top' : 'above'}
+      placement={popupLayoutDependency}
       align={isSingle ? 'stretch' : 'center'}
       offset={POPUP_OFFSET_Y}
     >
-      <CanvasItemPopup.Frame isDark={isDark} flush={flushToViewportTop}>
+      <CanvasItemPopup.Frame
+        isDark={isDark}
+        flush={useFlushFocusMenu}
+        fullWidth={pinPopupToViewportTop}
+      >
         {isSingle && single ? (
           <>
             <CanvasItemPopup.Section>
@@ -184,17 +234,89 @@ export function PagePopup({
             </CanvasItemPopup.Section>
             <CanvasItemPopup.Divider isDark={isDark} />
             <CanvasItemPopup.Section>
-              <PagePresetDropdown
-                isDark={isDark}
-                onSelectPreset={(index) => api.setPagePreset(single.id, index)}
-                onSelectCustom={() => api.setPageCustom(single.id)}
-                trigger={
-                  <button type="button" className={sizeTriggerClass} title="Page size">
-                    <span className="truncate">{presetLabel}</span>
-                    <ChevronDown size={10} className="shrink-0 opacity-50" />
+              {focusPresentation ? (
+                <div className={tabGroupClass} role="group" aria-label="Focused viewport mode">
+                  <PagePresetDropdown
+                    isDark={isDark}
+                    onOpenChange={(nextOpen) => {
+                      if (
+                        nextOpen &&
+                        (focusPresentation.mode !== 'fit' || suppressPresetOpenRef.current)
+                      ) {
+                        suppressPresetOpenRef.current = false
+                        api.setFocusPresentationMode('fit')
+                        setPresetDropdownOpen(false)
+                        return
+                      }
+                      setPresetDropdownOpen(nextOpen)
+                    }}
+                    onSelectPreset={(index) => api.setPagePreset(single.id, index)}
+                    onSelectCustom={() => api.setPageCustom(single.id)}
+                    open={presetDropdownOpen}
+                    trigger={
+                      <button
+                        type="button"
+                        className={focusSizeTriggerClass}
+                        title="Keep saved viewport"
+                        aria-label="Keep saved viewport while focused"
+                        aria-pressed={focusPresentation.mode === 'fit'}
+                        onPointerDownCapture={(event) => {
+                          if (focusPresentation.mode === 'fit') return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          suppressPresetOpenRef.current = true
+                          setPresetDropdownOpen(false)
+                          api.setFocusPresentationMode('fit')
+                        }}
+                        onClickCapture={(event) => {
+                          if (suppressPresetOpenRef.current) {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            suppressPresetOpenRef.current = false
+                            return
+                          }
+                          if (focusPresentation.mode === 'fit') return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          if (event.detail === 0) {
+                            suppressPresetOpenRef.current = true
+                            setPresetDropdownOpen(false)
+                            api.setFocusPresentationMode('fit')
+                          }
+                        }}
+                      >
+                        <span className="max-w-28 truncate">{presetLabel}</span>
+                        <ChevronDown size={10} className="shrink-0 opacity-50" />
+                      </button>
+                    }
+                  />
+                  <button
+                    type="button"
+                    className={popupTabButtonClass(
+                      isDark,
+                      focusPresentation.mode === 'responsive',
+                    )}
+                    title="Fill focus area"
+                    aria-label="Fill focus area responsively"
+                    aria-pressed={focusPresentation.mode === 'responsive'}
+                    onClick={() => api.setFocusPresentationMode('responsive')}
+                  >
+                    <Maximize2 size={13} />
                   </button>
-                }
-              />
+                </div>
+              ) : (
+                <PagePresetDropdown
+                  isDark={isDark}
+                  onSelectPreset={(index) => api.setPagePreset(single.id, index)}
+                  onSelectCustom={() => api.setPageCustom(single.id)}
+                  trigger={
+                    <button type="button" className={sizeTriggerClass} title="Page size">
+                      <span className="truncate">{presetLabel}</span>
+                      <ChevronDown size={10} className="shrink-0 opacity-50" />
+                    </button>
+                  }
+                />
+              )}
             </CanvasItemPopup.Section>
             <CanvasItemPopup.Divider isDark={isDark} />
             <DeviceViewportPopupControls
@@ -210,28 +332,6 @@ export function PagePopup({
           </>
         ) : null}
         <CanvasItemPopup.Section>
-          {focusPresentation ? (
-            <div className={tabGroupClass} role="group" aria-label="Focused viewport mode">
-              <CanvasItemPopup.IconButton
-                isDark={isDark}
-                active={focusPresentation.mode === 'fit'}
-                title="Keep saved viewport"
-                ariaLabel="Keep saved viewport while focused"
-                onClick={() => api.setFocusPresentationMode('fit')}
-              >
-                <Monitor size={13} />
-              </CanvasItemPopup.IconButton>
-              <CanvasItemPopup.IconButton
-                isDark={isDark}
-                active={focusPresentation.mode === 'responsive'}
-                title="Fill focus area"
-                ariaLabel="Fill focus area responsively"
-                onClick={() => api.setFocusPresentationMode('responsive')}
-              >
-                <Maximize2 size={13} />
-              </CanvasItemPopup.IconButton>
-            </div>
-          ) : null}
           {isSingle ? (
             <CanvasItemPopup.IconButton
               isDark={isDark}

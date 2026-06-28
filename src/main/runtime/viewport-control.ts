@@ -23,7 +23,10 @@ import {
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
-import { computeFocusZoomForBounds as computeFocusZoomForBoundsValue } from '../../shared/focus-camera'
+import {
+  computeFocusZoomForBounds as computeFocusZoomForBoundsValue,
+  computePanToCenterBoundsAtZoom as computePanToCenterBoundsAtZoomValue,
+} from '../../shared/focus-camera'
 import {
   CAMERA_TRANSITION_FRAME_MS,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
@@ -72,13 +75,7 @@ export { requestLayout }
 
 /** Pan offset that centers `bounds` in the available viewport at the current zoom. */
 function panToCenterBounds(bounds: WorkspaceBounds): { x: number; y: number } {
-  const viewport = availableCanvasViewportRect()
-  return {
-    x: Math.round(
-      viewport.x + viewport.width / 2 - canvasOriginX() - (bounds.x + bounds.width / 2) * zoom,
-    ),
-    y: Math.round(viewport.height / 2 - (bounds.y + bounds.height / 2) * zoom),
-  }
+  return panToCenterBoundsAtZoom(bounds, zoom)
 }
 
 let focusReturnCamera: { zoom: number; pan: { x: number; y: number } } | null = null
@@ -106,7 +103,10 @@ export function restoreFocusCamera(): boolean {
   if (!camera) return false
   focusReturnCamera = null
   setFocusPresentationOverride(null)
-  animateCameraTo(camera, { preserveFocusSession: true })
+  animateCameraTo(camera, {
+    durationMs: DEFAULT_CAMERA_TRANSITION_DURATION_MS / 2,
+    preserveFocusSession: true,
+  })
   return true
 }
 
@@ -316,16 +316,22 @@ export function setFocusPresentationMode(mode: FocusPresentationMode): boolean {
   return true
 }
 
-export function recenterFocusPresentation(pageId?: string): boolean {
+export function recenterFocusPresentation(
+  pageId?: string,
+  options?: { animate?: boolean },
+): boolean {
   const current = focusPresentationOverride
   if (!current || (pageId && current.pageId !== pageId)) return false
   const bounds = focusPageBounds(current.pageId, current.mode)
   if (!bounds) return false
   const viewport = availableCanvasViewportRect()
   const nextZoom = computeFocusZoomForPresentation(bounds, viewport, current.mode)
-  animateCameraTo(
+  moveCameraTo(
     { zoom: nextZoom, pan: panToCenterBoundsAtZoom(bounds, nextZoom) },
-    { preserveFocusSession: true },
+    {
+      animate: options?.animate ?? true,
+      preserveFocusSession: true,
+    },
   )
   return true
 }
@@ -396,11 +402,10 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
 }
 
 function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
-  const viewport = availableCanvasViewportRect()
-  return {
-    x: Math.round(
-      viewport.x + viewport.width / 2 - canvasOriginX() - (bounds.x + bounds.width / 2) * targetZoom,
-    ),
-    y: Math.round(viewport.height / 2 - (bounds.y + bounds.height / 2) * targetZoom),
-  }
+  return computePanToCenterBoundsAtZoomValue({
+    bounds,
+    viewport: availableCanvasViewportRect(),
+    canvasOriginX: canvasOriginX(),
+    zoom: targetZoom,
+  })
 }

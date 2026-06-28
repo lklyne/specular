@@ -1,6 +1,6 @@
 // ADR 0008 — unified canvas-item popup compound component.
 
-import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { AlignHorizontalDistributeCenter, Maximize2 } from 'lucide-react'
 import {
   paletteSlots,
@@ -9,11 +9,15 @@ import {
   type CanvasColorSlot,
   type CanvasPalette,
 } from '../../shared/canvas-colors'
-import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
+import {
+  FOCUS_PRESENTATION_MENU_EDGE_INSET_PX,
+  FOCUS_PRESENTATION_MENU_INSET,
+} from '../../shared/featureFlags'
 import {
   CAMERA_SPRING_CSS_EASING,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
 } from '../../shared/camera-transition'
+import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
 import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
@@ -58,7 +62,7 @@ function Root(props: RootProps) {
     placement,
   })
   if (!open || !rect) return null
-  const style = popupStyle(rect, placement, align, offset)
+  const style = popupStyle(rect, placement, align, offset, layout)
   return (
     <div
       ref={popupMotion.layoutRef}
@@ -146,12 +150,19 @@ function popupStyle(
   placement: Placement,
   align: Align,
   offset: number,
+  layout: LayoutUpdateData,
 ): CSSProperties {
   if (placement === 'viewport-top') {
+    const inset = FOCUS_PRESENTATION_MENU_INSET
+      ? FOCUS_PRESENTATION_MENU_EDGE_INSET_PX
+      : 0
+    const left = layout.leftChromeWidth + inset
+    const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
+    const rightEdge = Math.max(0, layout.windowWidth - rightInset - inset)
     return {
-      left: 0,
-      top: 0,
-      width: '100%',
+      left,
+      top: inset,
+      width: Math.max(0, rightEdge - left),
       transform: 'none',
     }
   }
@@ -221,35 +232,42 @@ function ViewportAnchor({
 function Frame({
   isDark,
   flush = false,
+  fullWidth = false,
   className = '',
   children,
 }: {
   isDark: boolean
   flush?: boolean
+  fullWidth?: boolean
   className?: string
   children: ReactNode
 }) {
-  const shapeClass = flush
-    ? 'w-full rounded-none border p-1'
-    : 'rounded-[10px] border p-1'
+  const shapeClass = `${fullWidth ? 'w-full ' : ''}${
+    flush ? 'rounded-none' : 'rounded-[10px]'
+  } border p-1`
+  const frameProps = {
+    'data-popup-frame': flush ? 'flush' : 'floating',
+    className: `${shapeClass} ${
+      isDark ? 'text-zinc-100' : 'text-zinc-900'
+    } ${className}`.trim(),
+    style: {
+      background: isDark ? '#3a3836' : '#ece9e7',
+      borderColor: isDark ? '#414141' : '#dcdcda',
+      boxShadow: flush
+        ? 'none'
+        : isDark
+        ? '0 10px 8px -6px rgba(0,0,0,.58), 0 4px 16px 0 rgba(0,0,0,.5)'
+        : '0 10px 8px -6px rgba(0,0,0,.18), 0 4px 16px 0 rgba(199,193,188,.5)',
+    },
+    onPointerDown: (event: PointerEvent) => event.stopPropagation(),
+  }
+  const contentProps = {
+    'data-popup-frame-content': true,
+    className: 'flex min-w-0 w-full items-center gap-1',
+  }
   return (
-    <div
-      data-popup-frame={flush ? 'flush' : 'floating'}
-      className={`flex items-center gap-1 ${shapeClass} ${
-        isDark ? 'text-zinc-100' : 'text-zinc-900'
-      } ${className}`.trim()}
-      style={{
-        background: isDark ? '#3a3836' : '#ece9e7',
-        borderColor: isDark ? '#414141' : '#dcdcda',
-        boxShadow: flush
-          ? 'none'
-          : isDark
-          ? '0 10px 8px -6px rgba(0,0,0,.58), 0 4px 16px 0 rgba(0,0,0,.5)'
-          : '0 10px 8px -6px rgba(0,0,0,.18), 0 4px 16px 0 rgba(199,193,188,.5)',
-      }}
-      onPointerDown={(event) => event.stopPropagation()}
-    >
-      {children}
+    <div {...frameProps}>
+      <div {...contentProps}>{children}</div>
     </div>
   )
 }
