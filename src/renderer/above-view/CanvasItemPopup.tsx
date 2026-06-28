@@ -89,6 +89,8 @@ function usePopupFlipAnimation({
   const previousRectRef = useRef<DOMRect | null>(null)
   const previousPlacementRef = useRef<Placement | null>(null)
   const animationRef = useRef<Animation | null>(null)
+  const contentFrameRef = useRef<number | null>(null)
+  const compensatedContentRef = useRef<HTMLElement | null>(null)
 
   useLayoutEffect(() => {
     const layoutElement = layoutRef.current
@@ -98,6 +100,7 @@ function usePopupFlipAnimation({
       previousPlacementRef.current = null
       animationRef.current?.cancel()
       animationRef.current = null
+      stopContentCompensation()
       return
     }
 
@@ -112,10 +115,15 @@ function usePopupFlipAnimation({
 
     if (shouldFlip) {
       animationRef.current?.cancel()
+      stopContentCompensation()
       const deltaX = previousRect.left - nextRect.left
       const deltaY = previousRect.top - nextRect.top
       const scaleX = nextRect.width > 0 ? previousRect.width / nextRect.width : 1
       const scaleY = nextRect.height > 0 ? previousRect.height / nextRect.height : 1
+      const contentElement = motionElement.querySelector<HTMLElement>(
+        '[data-popup-frame-content]',
+      )
+      const contentRect = contentElement?.getBoundingClientRect() ?? null
 
       animationRef.current = motionElement.animate(
         [
@@ -133,8 +141,21 @@ function usePopupFlipAnimation({
           easing: CAMERA_SPRING_CSS_EASING,
         },
       )
+      if (contentElement && contentRect) {
+        startContentCompensation({
+          motionElement,
+          contentElement,
+          width: contentRect.width,
+          height: contentRect.height,
+        })
+      }
       animationRef.current.onfinish = () => {
         animationRef.current = null
+        stopContentCompensation()
+      }
+      animationRef.current.oncancel = () => {
+        animationRef.current = null
+        stopContentCompensation()
       }
     }
 
@@ -142,7 +163,73 @@ function usePopupFlipAnimation({
     previousPlacementRef.current = placement
   }, [active, placement])
 
+  function startContentCompensation({
+    motionElement,
+    contentElement,
+    width,
+    height,
+  }: {
+    motionElement: HTMLElement
+    contentElement: HTMLElement
+    width: number
+    height: number
+  }): void {
+    compensatedContentRef.current = contentElement
+    contentElement.style.transformOrigin = 'top left'
+    contentElement.style.willChange = 'width, height, transform'
+
+    const tick = () => {
+      const { scaleX, scaleY } = currentElementScale(motionElement)
+      const safeScaleX = scaleX || 1
+      const safeScaleY = scaleY || 1
+      // Let the shell morph, but keep glyphs undistorted and make flex layout
+      // track the shell's live size instead of snapping to the final width.
+      contentElement.style.width = `${Math.max(0, width * safeScaleX)}px`
+      contentElement.style.height = `${Math.max(0, height * safeScaleY)}px`
+      contentElement.style.transform = `scale(${1 / safeScaleX}, ${1 / safeScaleY})`
+      contentFrameRef.current = requestAnimationFrame(tick)
+    }
+
+    tick()
+  }
+
+  function stopContentCompensation(): void {
+    if (contentFrameRef.current !== null) {
+      cancelAnimationFrame(contentFrameRef.current)
+      contentFrameRef.current = null
+    }
+    const contentElement = compensatedContentRef.current
+    if (contentElement) {
+      contentElement.style.width = ''
+      contentElement.style.height = ''
+      contentElement.style.transform = ''
+      contentElement.style.transformOrigin = ''
+      contentElement.style.willChange = ''
+    }
+    compensatedContentRef.current = null
+  }
+
   return { layoutRef, motionRef }
+}
+
+function currentElementScale(element: HTMLElement): { scaleX: number; scaleY: number } {
+  const transform = getComputedStyle(element).transform
+  if (!transform || transform === 'none') return { scaleX: 1, scaleY: 1 }
+  const match = transform.match(/matrix(3d)?\((.+)\)/)
+  if (!match) return { scaleX: 1, scaleY: 1 }
+  const values = match[2]
+    .split(',')
+    .map((value) => Number.parseFloat(value.trim()))
+  if (match[1] === '3d') {
+    return {
+      scaleX: Math.hypot(values[0] ?? 1, values[1] ?? 0),
+      scaleY: Math.hypot(values[4] ?? 0, values[5] ?? 1),
+    }
+  }
+  return {
+    scaleX: Math.hypot(values[0] ?? 1, values[1] ?? 0),
+    scaleY: Math.hypot(values[2] ?? 0, values[3] ?? 1),
+  }
 }
 
 function popupStyle(
