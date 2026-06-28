@@ -11,7 +11,8 @@
  * - Fewer DOM nodes per device page
  *
  * Known issue: the top border stroke is clipped in some configurations.
- * The CSS approach (DeviceShellLayer) is currently the default.
+ * The CSS approach (DeviceShellLayer) is the default and now draws squircle
+ * corners via `-electron-corner-smoothing`, so this SVG shell is unused.
  *
  * Toggle via the per-page `useSvgDeviceShell` metadata flag (checkbox in
  * the right details panel, currently commented out).

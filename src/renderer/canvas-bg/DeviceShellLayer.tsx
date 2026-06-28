@@ -90,7 +90,7 @@ export function DeviceShellLayer({
           >
             {/* Outer bezel */}
             <div
-              className="absolute inset-0"
+              className="device-squircle absolute inset-0"
               style={{
                 borderRadius: outerRadius,
                 background: bezelColor,
@@ -102,7 +102,7 @@ export function DeviceShellLayer({
 
             {/* Content cutout (transparent hole) */}
             <div
-              className="absolute overflow-hidden"
+              className="device-squircle absolute overflow-hidden"
               style={{
                 left: insetLeft,
                 top: insetTop,
@@ -117,7 +117,7 @@ export function DeviceShellLayer({
 
             {/* Mask so bezel doesn't cover content — use clip-path with hole */}
             <div
-              className="absolute inset-0"
+              className="device-squircle absolute inset-0"
               style={{
                 borderRadius: outerRadius,
                 background: bezelColor,

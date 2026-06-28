@@ -16,3 +16,8 @@
   border-radius: 3px;
   -electron-corner-smoothing: system-ui;
 }
+
+/* Device shell corners: squircle smoothing on inline border-radius. */
+.device-squircle {
+  -electron-corner-smoothing: system-ui;
+}
