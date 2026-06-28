@@ -106,6 +106,15 @@ export function setFocusPresentationOverride(value: FocusPresentationOverride | 
   focusPresentationOverride = value
 }
 
+// Wall-clock (Date.now) start of the in-flight animated camera move, or null
+// when idle. Broadcast in layout so renderer flip animations (popup morph) can
+// fast-forward into phase with the main-driven camera instead of starting late.
+export let cameraTransitionStartedAt: number | null = null
+
+export function setCameraTransitionStartedAt(value: number | null): void {
+  cameraTransitionStartedAt = value
+}
+
 // --- Inspect state ---
 
 export let inspectActivePageId: string | null = null

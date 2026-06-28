@@ -6,6 +6,7 @@ import {
   pan,
   zoom,
   setFocusPresentationOverride,
+  setCameraTransitionStartedAt,
   setPanState,
   setZoomState,
   selectedPage,
@@ -196,6 +197,7 @@ export function cancelCameraAnimation(): void {
     clearInterval(cameraAnimationTimer)
     cameraAnimationTimer = null
   }
+  setCameraTransitionStartedAt(null)
 }
 
 /**
@@ -216,6 +218,7 @@ export function moveCameraTo(targetCamera: CanvasCamera, options: CameraMoveOpti
   }
 
   const start = Date.now()
+  setCameraTransitionStartedAt(start)
   cameraAnimationTimer = setInterval(() => {
     const t = Math.min(1, (Date.now() - start) / duration)
     applyCamera(interpolateCamera(startCamera, target, t), preserveFocusSession)

@@ -41,6 +41,7 @@ import {
   selectedPageId,
   zoom,
   focusPresentationOverride,
+  cameraTransitionStartedAt,
 } from './runtime-context'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
 import { getToolDefaults } from './tool-defaults'
@@ -456,6 +457,7 @@ export function buildCanvasLayoutData(
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
     focusPresentation: buildFocusPresentationData(pages),
+    cameraTransitionStartedAt,
   } as LayoutUpdateData
 }
 

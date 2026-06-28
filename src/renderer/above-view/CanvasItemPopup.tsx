@@ -60,6 +60,7 @@ function Root(props: RootProps) {
   const popupMotion = usePopupFlipAnimation({
     active: open && rect !== null,
     placement,
+    cameraTransitionStartedAt: layout.cameraTransitionStartedAt,
   })
   if (!open || !rect) return null
   const style = popupStyle(rect, placement, align, offset, layout)
@@ -85,9 +86,11 @@ function Root(props: RootProps) {
 function usePopupFlipAnimation({
   active,
   placement,
+  cameraTransitionStartedAt,
 }: {
   active: boolean
   placement: Placement
+  cameraTransitionStartedAt: number | null
 }) {
   const layoutRef = useRef<HTMLDivElement | null>(null)
   const motionRef = useRef<HTMLDivElement | null>(null)
@@ -148,6 +151,20 @@ function usePopupFlipAnimation({
       }
       widthAnimRef.current.onfinish = () => {
         widthAnimRef.current = null
+      }
+
+      // The main-process camera move starts the instant focus toggles, but this
+      // renderer animation only starts once the layout broadcast round-trips
+      // back. Fast-forward by however long the camera has already been running
+      // (Date.now is the same wall clock in both processes) so the popup morph
+      // stays in phase with the page instead of finishing a few frames late.
+      if (cameraTransitionStartedAt !== null) {
+        const elapsed = Math.min(
+          DEFAULT_CAMERA_TRANSITION_DURATION_MS,
+          Math.max(0, Date.now() - cameraTransitionStartedAt),
+        )
+        positionAnimRef.current.currentTime = elapsed
+        widthAnimRef.current.currentTime = elapsed
       }
     }
 

@@ -475,6 +475,10 @@ export interface LayoutUpdateData {
   keyboardTargetPageId: string | null
   /** Ephemeral focus-presentation override for the focused page, if active. */
   focusPresentation: FocusPresentationData | null
+  /** Wall-clock (Date.now) start of the in-flight animated camera move, or
+   *  null when idle. Lets renderer flip animations fast-forward into phase
+   *  with the main-driven camera. */
+  cameraTransitionStartedAt: number | null
 }
 
 export type PresenceSurface = 'canvas' | 'page'
