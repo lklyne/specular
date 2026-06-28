@@ -40,9 +40,9 @@ import {
   selectedPage,
   selectedPageId,
   zoom,
-  focusPresentationOverride,
   cameraTransitionStartedAt,
 } from './runtime-context'
+import { focusSession } from './focus-session'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
 import { getToolDefaults } from './tool-defaults'
 import {
@@ -109,7 +109,7 @@ import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
 // --- Exported data builders ---
 
 export function backgroundPageOverlays(): CanvasScenePageEntity[] {
-  const focusedPresentationPageId = focusPresentationOverride?.pageId ?? null
+  const focusedPresentationPageId = focusSession()?.pageId ?? null
   const visiblePages = focusedPresentationPageId
     ? pages.filter((page) => page.id === focusedPresentationPageId)
     : pages
@@ -464,7 +464,7 @@ export function buildCanvasLayoutData(
 function buildFocusPresentationData(
   scenePages: CanvasScenePageEntity[],
 ): FocusPresentationData | null {
-  const focus = focusPresentationOverride
+  const focus = focusSession()
   if (!focus) return null
   const page = findPageById(focus.pageId)
   const scenePage = scenePages.find((candidate) => candidate.id === focus.pageId)

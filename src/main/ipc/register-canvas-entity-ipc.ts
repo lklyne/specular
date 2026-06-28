@@ -66,6 +66,7 @@ import {
   getSelectedEntityIds,
   selectEntity,
   openDevToolsForSelectedPage,
+  refocusActiveSession,
   selectPage,
   selectPageById,
   selectedPageId,
@@ -275,6 +276,7 @@ export function registerCanvasEntityIpc(): void {
     (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
       if (entityKind === 'page') {
         if (!selectPageById(entityId)) return
+        if (refocusActiveSession(entityId)) return
         focusSelectedPage()
         return
       }
@@ -464,6 +466,7 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on('canvas-reveal-page', (_event, { pageId }: { pageId: string }) => {
     if (!selectPageById(pageId)) return
+    if (refocusActiveSession(pageId)) return
     focusSelectedPage()
   })
 

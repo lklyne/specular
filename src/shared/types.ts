@@ -147,7 +147,7 @@ export interface CanvasScenePageEntity {
   useSvgDeviceShell?: boolean
 }
 
-export type FocusPresentationMode = 'fit' | 'responsive'
+export type FocusPresentationMode = 'device' | 'fit' | 'fill'
 
 export interface FocusPresentationData {
   pageId: string

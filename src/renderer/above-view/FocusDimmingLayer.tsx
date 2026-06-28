@@ -1,15 +1,5 @@
+import { FOCUS_DIMMED_ITEM_OPACITY, focusContext } from '../../shared/focus-context'
 import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
-
-export const FOCUS_DIMMED_ITEM_OPACITY = 0.2
-
-export function focusedPresentationPageId(layoutData: LayoutUpdateData): string | null {
-  return layoutData.focusPresentation?.pageId ?? null
-}
-
-export function focusItemOpacity(focusedPageId: string | null, entityId: string): number {
-  if (!focusedPageId) return 1
-  return entityId === focusedPageId ? 1 : FOCUS_DIMMED_ITEM_OPACITY
-}
 
 export function FocusDimmingLayer({
   layoutData,
@@ -18,12 +8,12 @@ export function FocusDimmingLayer({
   layoutData: LayoutUpdateData
   isDark: boolean
 }) {
-  const focusedPageId = focusedPresentationPageId(layoutData)
-  if (!focusedPageId) return null
+  const focus = focusContext(layoutData)
+  if (!focus.dimsOtherPages) return null
 
   const pages = layoutData.entities.filter(
     (entity): entity is CanvasScenePageEntity =>
-      entity.kind === 'page' && entity.id !== focusedPageId,
+      entity.kind === 'page' && entity.id !== focus.pageId,
   )
   if (!pages.length) return null
 

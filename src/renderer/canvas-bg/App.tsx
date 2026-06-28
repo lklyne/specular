@@ -6,6 +6,7 @@ import type {
   LayoutUpdateData,
   ThemeData,
 } from '../../shared/types'
+import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
@@ -48,6 +49,13 @@ export default function App({
     () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
+  const focus = focusContext(layoutData)
+  // 'fill' focus is the browser-like mode: edge-to-edge, no border, no bezel.
+  const fillPageId = focus.mode === 'fill' ? focus.pageId : null
+  const chromePages = useMemo(
+    () => (fillPageId ? pageEntities.filter((p) => p.id !== fillPageId) : pageEntities),
+    [pageEntities, fillPageId],
+  )
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -71,20 +79,20 @@ export default function App({
       <GroupBackgroundLayer
         groups={layoutData.groups ?? []}
         isDark={isDark}
-        dimmed={layoutData.focusPresentation !== null}
+        dimmed={focus.dimsOtherPages}
       />
       <div className="pointer-events-none absolute inset-0">
         <PageBorderLayer
-          pages={pageEntities}
+          pages={chromePages}
           fileEntities={fileEntities}
         />
         <DeviceShellLayer
-          pages={pageEntities.filter((f) => !f.useSvgDeviceShell)}
+          pages={chromePages.filter((f) => !f.useSvgDeviceShell)}
           fileEntities={fileEntities}
           isDark={isDark}
         />
         <SvgDeviceShellLayer
-          pages={pageEntities.filter((f) => f.useSvgDeviceShell)}
+          pages={chromePages.filter((f) => f.useSvgDeviceShell)}
           isDark={isDark}
         />
       </div>

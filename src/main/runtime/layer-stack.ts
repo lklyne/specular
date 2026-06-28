@@ -26,7 +26,8 @@ import {
   toolbarView,
   win,
 } from './view-refs'
-import { focusPresentationOverride, pages } from './runtime-context'
+import { pages } from './runtime-context'
+import { focusSession } from './focus-session'
 import { listComponentViews } from './component-page-factory'
 import type { Page } from './runtime-entities'
 
@@ -114,7 +115,7 @@ function desiredChildOrder(): View[] {
     if (id === 'bgView') {
       const orderedPages: Page[] = orderedPagesForStack(
         pages,
-        focusPresentationOverride?.pageId,
+        focusSession()?.pageId,
       )
       for (const page of orderedPages) {
         order.push(page.frameView, page.pageView)

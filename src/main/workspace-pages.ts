@@ -39,11 +39,8 @@ import {
 import { recenterFocusPresentation } from './runtime/viewport-control'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
 import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
-import {
-  focusPresentationOverride,
-  setFocusPresentationOverride,
-  setPendingFocus,
-} from './runtime/runtime-context'
+import { setPendingFocus } from './runtime/runtime-context'
+import { focusSession, repointFocusSession } from './runtime/focus-session'
 import { toolbarView } from './runtime/view-refs'
 import { safeSend } from './runtime/safe-send'
 import { makeId, cloneMetadata, pageCurrentUrl, createGroup } from './workspace-utils'
@@ -342,11 +339,8 @@ export function createBlankFrameFromSource(input: {
   })
 
   selectPageById(newPage.id)
-  if (focusPresentationOverride?.pageId === sourcePage.id) {
-    setFocusPresentationOverride({
-      pageId: newPage.id,
-      mode: focusPresentationOverride.mode,
-    })
+  if (focusSession()?.pageId === sourcePage.id) {
+    repointFocusSession(newPage.id)
     recenterFocusPresentation(newPage.id)
   } else {
     focusCanvasBounds(

@@ -6,6 +6,7 @@ import {
   CARD_BORDER_WIDTH,
   CHROME_HEADER_HEIGHT,
   LEFT_SIDEBAR_WIDTH,
+  TOOLBAR_HEIGHT,
   devtoolsPanelDebug,
 } from './runtime-constants'
 import {
@@ -17,7 +18,8 @@ import {
 import { CUSTOM_SHELL_INSETS, shellInsetsForDevice, sizeForOrientation } from '../../shared/device-catalog'
 import { win } from './view-refs'
 import { layoutCache } from './layout-cache'
-import { focusPresentationOverride, pages, pan, zoom } from './runtime-context'
+import { pages, pan, zoom } from './runtime-context'
+import { focusSession } from './focus-session'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
@@ -368,18 +370,38 @@ export function boundAvailableCanvasViewportRect(): { x: number; y: number; widt
   })
 }
 
+/**
+ * The 'fill' focus region: the canvas viewport below the flush focus chrome
+ * bar (TOOLBAR_HEIGHT tall, pinned to the canvas-area top). Single source of
+ * truth for both the fill page-view bounds and its native viewport size, so
+ * the two can't drift.
+ */
+export function focusFillRegion(): { x: number; y: number; width: number; height: number } {
+  const rect = boundAvailableCanvasViewportRect()
+  return {
+    x: rect.x,
+    y: rect.y + TOOLBAR_HEIGHT,
+    width: Math.round(rect.width),
+    height: Math.max(1, Math.round(rect.height - TOOLBAR_HEIGHT)),
+  }
+}
+
 export function boundEffectivePageContentSize(
   page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'> & { id?: string },
 ): { width: number; height: number } {
-  if (
-    page.id &&
-    focusPresentationOverride?.pageId === page.id &&
-    focusPresentationOverride.mode === 'responsive'
-  ) {
-    const viewport = boundAvailableCanvasViewportRect()
-    return {
-      width: Math.max(320, Math.round(viewport.width - 128)),
-      height: Math.max(200, Math.round(viewport.height - 128)),
+  const focus = focusSession()
+  if (page.id && focus?.pageId === page.id) {
+    const mode = focus.mode
+    if (mode === 'fill') {
+      const region = focusFillRegion()
+      return { width: region.width, height: region.height }
+    }
+    if (mode === 'fit') {
+      const viewport = boundAvailableCanvasViewportRect()
+      return {
+        width: Math.max(320, Math.round(viewport.width - 128)),
+        height: Math.max(200, Math.round(viewport.height - 128)),
+      }
     }
   }
   return computeEffectivePageContentSize({

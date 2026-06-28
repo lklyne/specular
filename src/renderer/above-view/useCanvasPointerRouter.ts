@@ -72,6 +72,7 @@ import {
   MIN_TEXT_WIDTH,
 } from '../canvas-bg/entityConstants'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
+import { focusContext } from '../../shared/focus-context'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
@@ -955,7 +956,7 @@ function runBackgroundSelectionGesture(
     const layout = layoutRef.current
     // Clicking the dimmed canvas exits focus presentation (camera is otherwise
     // locked; escape and the popup button are the other exits).
-    if (!dragged && layout.focusPresentation) {
+    if (!dragged && focusContext(layout).active) {
       api.restoreFocusCamera()
       return
     }

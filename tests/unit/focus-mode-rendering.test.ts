@@ -1,11 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import {
-  FocusDimmingLayer,
-  focusedPresentationPageId,
-  focusItemOpacity,
-} from '../../src/renderer/above-view/FocusDimmingLayer'
+import { FocusDimmingLayer } from '../../src/renderer/above-view/FocusDimmingLayer'
+import { focusContext, focusItemOpacity } from '../../src/shared/focus-context'
 import { CanvasItemPopup } from '../../src/renderer/above-view/CanvasItemPopup'
 import { EMPTY_LAYOUT } from '../../src/renderer/canvas-bg/canvasBgConstants'
 import {
@@ -91,11 +88,23 @@ describe('focus mode rendering', () => {
     )
 
     expect(html).toBe('')
-    expect(focusedPresentationPageId(EMPTY_LAYOUT)).toBeNull()
+    expect(focusContext(EMPTY_LAYOUT).pageId).toBeNull()
   })
 
   it('exposes the focused page id used by App to suppress selection chrome', () => {
-    expect(focusedPresentationPageId(focusedLayout())).toBe('focused')
+    expect(focusContext(focusedLayout()).pageId).toBe('focused')
+  })
+
+  it('lifts the dim while a working tool is active (ADR 0021)', () => {
+    const drawing = { ...focusedLayout(), activeTool: { kind: 'draw' as const } }
+    const ctx = focusContext(drawing)
+    expect(ctx.active).toBe(true)
+    expect(ctx.dimsOtherPages).toBe(false)
+
+    const html = renderToStaticMarkup(
+      createElement(FocusDimmingLayer, { layoutData: drawing, isDark: false }),
+    )
+    expect(html).toBe('')
   })
 
   it('renders the focused action menu with the configured viewport-top layout', () => {

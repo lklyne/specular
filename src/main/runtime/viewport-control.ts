@@ -1,16 +1,22 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. workspace-autosave → workspace-observers import viewport-control back
 import {
-  focusPresentationOverride,
   pages,
   pan,
   zoom,
-  setFocusPresentationOverride,
   setCameraTransitionStartedAt,
   setPanState,
   setZoomState,
   selectedPage,
 } from './runtime-context'
+import {
+  beginFocusSession,
+  endFocusSession,
+  focusSession,
+  isFocusSessionActive,
+  repointFocusSession,
+  setFocusSessionMode,
+} from './focus-session'
 import { win } from './view-refs'
 import { requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
@@ -35,7 +41,11 @@ import {
   interpolateCamera,
 } from '../../shared/camera-transition'
 import type { FocusPresentationMode, WorkspaceBounds } from '../../shared/types'
-import { selectedCanvasTargets as uiSelectedCanvasTargets } from '../ui-state'
+import { isWorkingTool } from '../../shared/tool'
+import {
+  activeTool as uiActiveTool,
+  selectedCanvasTargets as uiSelectedCanvasTargets,
+} from '../ui-state'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
@@ -45,7 +55,7 @@ import { pageUsesCustomSize } from './runtime-entities'
 
 export function setZoom(value: number): void {
   if (!suppressCameraAnimationCancel) cancelCameraAnimation()
-  clearFocusReturnCamera()
+  endFocusOnCameraChange()
   const nextZoom = clampCanvasZoom(value)
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
@@ -62,7 +72,7 @@ export function broadcastCanvasZoomToPages(): void {
 
 export function setPan(x: number, y: number): void {
   if (!suppressCameraAnimationCancel) cancelCameraAnimation()
-  clearFocusReturnCamera()
+  endFocusOnCameraChange()
   if (pan.x === x && pan.y === y) return
   setPanState({ x, y })
   markDirty('canvas')
@@ -79,14 +89,19 @@ function panToCenterBounds(bounds: WorkspaceBounds): { x: number; y: number } {
   return panToCenterBoundsAtZoom(bounds, zoom)
 }
 
-let focusReturnCamera: { zoom: number; pan: { x: number; y: number } } | null = null
 let suppressFocusReturnClear = false
 let suppressCameraAnimationCancel = false
 
-function clearFocusReturnCamera(): void {
+// A user camera move (setZoom/setPan) ends the focus session — except:
+//  - programmatic focus moves set `suppressFocusReturnClear` (they reframe the
+//    focused page, they don't leave it);
+//  - while a working tool is active, you're annotating/placing, not leaving, so
+//    the session survives the camera change (ADR 0021 tightening).
+function endFocusOnCameraChange(): void {
   if (suppressFocusReturnClear) return
-  focusReturnCamera = null
-  setFocusPresentationOverride(null)
+  if (!isFocusSessionActive()) return
+  if (isWorkingTool(uiActiveTool())) return
+  endFocusSession('camera-change')
 }
 
 function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }): void {
@@ -99,20 +114,40 @@ function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }):
   }
 }
 
+// How far to zoom out when exiting focus. Easy in-focus navigation makes the
+// pre-focus camera position usually irrelevant, so we keep where the user is
+// and just pull back a touch instead of restoring the stored camera.
+const FOCUS_EXIT_ZOOM_OUT = 0.85
+
 export function restoreFocusCamera(): boolean {
-  const camera = focusReturnCamera
-  if (!camera) return false
-  focusReturnCamera = null
-  setFocusPresentationOverride(null)
-  animateCameraTo(camera, {
-    durationMs: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
-    preserveFocusSession: true,
-  })
+  // The graceful, camera-restoring exit (X button / Escape / dimmed-click).
+  if (!focusSession()) return false
+  endFocusSession('dismiss')
+  // Keep the current camera position; zoom out slightly, anchored on the
+  // viewport center so the focused content stays put as we pull back.
+  const viewport = availableCanvasViewportRect()
+  const nextZoom = clampCanvasZoom(zoom * FOCUS_EXIT_ZOOM_OUT)
+  const anchorX = viewport.x + viewport.width / 2 - canvasOriginX()
+  const anchorY = viewport.height / 2
+  const ratio = nextZoom / zoom
+  animateCameraTo(
+    {
+      zoom: nextZoom,
+      pan: {
+        x: anchorX - (anchorX - pan.x) * ratio,
+        y: anchorY - (anchorY - pan.y) * ratio,
+      },
+    },
+    {
+      durationMs: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
+      preserveFocusSession: true,
+    },
+  )
   return true
 }
 
 export function hasFocusReturnCamera(): boolean {
-  return focusReturnCamera !== null
+  return isFocusSessionActive()
 }
 
 export function computeFocusZoomForBounds(
@@ -127,11 +162,16 @@ function computeFocusZoomForPresentation(
   viewport: { width: number; height: number },
   mode: FocusPresentationMode | null,
 ): number {
-  if (mode !== 'fit') return computeFocusZoomForBoundsValue(bounds, viewport, zoom)
-  if (bounds.width <= 0 || bounds.height <= 0) return Math.min(zoom, 1)
-  const availableWidth = Math.max(1, viewport.width - 128)
-  const availableHeight = Math.max(1, viewport.height - 128)
-  return clampCanvasZoom(Math.min(availableWidth / bounds.width, availableHeight / bounds.height))
+  if (mode === 'fill') return clampCanvasZoom(1)
+  if (mode === 'device') {
+    if (bounds.width <= 0 || bounds.height <= 0) return Math.min(zoom, 1)
+    const availableWidth = Math.max(1, viewport.width - 128)
+    const availableHeight = Math.max(1, viewport.height - 128)
+    return clampCanvasZoom(Math.min(availableWidth / bounds.width, availableHeight / bounds.height))
+  }
+  // 'fit' (and multi-select null): reflowed page already sized to the padded
+  // area, so this resolves to ~100%.
+  return computeFocusZoomForBoundsValue(bounds, viewport, zoom)
 }
 
 export function focusCanvasBounds(
@@ -265,8 +305,9 @@ export function focusSelectedPage(): boolean {
 function resolveEntityBounds(entityId: string): WorkspaceBounds | null {
   const page = pages.find((p) => p.id === entityId)
   if (page) {
-    return focusPresentationOverride?.pageId === page.id
-      ? focusPageBounds(page.id, focusPresentationOverride.mode)
+    const focus = focusSession()
+    return focus?.pageId === page.id
+      ? focusPageBounds(page.id, focus.mode)
       : pageVisualBoundsForContentSize(page, effectivePageContentSize(page))
   }
   const text = textEntities.find((e) => e.id === entityId)
@@ -283,10 +324,10 @@ function resolveEntityBounds(entityId: string): WorkspaceBounds | null {
 }
 
 function defaultFocusPresentationMode(page: { metadata?: Record<string, unknown> }): FocusPresentationMode {
-  return pageUsesCustomSize(page.metadata) ? 'responsive' : 'fit'
+  return pageUsesCustomSize(page.metadata) ? 'fit' : 'device'
 }
 
-function responsiveFocusPageSize(): { width: number; height: number } {
+function fitFocusPageSize(): { width: number; height: number } {
   const viewport = availableCanvasViewportRect()
   return {
     width: Math.max(320, Math.round(viewport.width - 128)),
@@ -294,11 +335,17 @@ function responsiveFocusPageSize(): { width: number; height: number } {
   }
 }
 
+function fillFocusPageSize(): { width: number; height: number } {
+  const viewport = availableCanvasViewportRect()
+  return { width: Math.round(viewport.width), height: Math.round(viewport.height) }
+}
+
 function focusPageContentSize(
   page: Parameters<typeof pageContentSize>[0] & { id?: string },
   mode: FocusPresentationMode,
 ): { width: number; height: number } {
-  if (mode === 'responsive') return responsiveFocusPageSize()
+  if (mode === 'fit') return fitFocusPageSize()
+  if (mode === 'fill') return fillFocusPageSize()
   return pageContentSize(page)
 }
 
@@ -310,20 +357,34 @@ function focusPageBounds(pageId: string, mode: FocusPresentationMode): Workspace
 }
 
 export function setFocusPresentationMode(mode: FocusPresentationMode): boolean {
-  const current = focusPresentationOverride
-  if (!current || !focusReturnCamera) return false
+  const current = focusSession()
+  if (!current) return false
   const bounds = focusPageBounds(current.pageId, mode)
   if (!bounds) return false
-  setFocusPresentationOverride({ pageId: current.pageId, mode })
+  setFocusSessionMode(mode)
   recenterFocusPresentation()
   return true
+}
+
+/**
+ * Retarget an *active* focus session to a different page, keeping the session's
+ * current mode and return camera. Returns false (no-op) when no session is
+ * active, so callers can fall back to a plain reveal. This is what makes focus
+ * persist across page switches: the session outlives any single target page.
+ */
+export function refocusActiveSession(pageId: string, options?: { animate?: boolean }): boolean {
+  const current = focusSession()
+  if (!current) return false
+  if (!pages.some((page) => page.id === pageId)) return false
+  repointFocusSession(pageId)
+  return recenterFocusPresentation(pageId, options)
 }
 
 export function recenterFocusPresentation(
   pageId?: string,
   options?: { animate?: boolean },
 ): boolean {
-  const current = focusPresentationOverride
+  const current = focusSession()
   if (!current || (pageId && current.pageId !== pageId)) return false
   const bounds = focusPageBounds(current.pageId, current.mode)
   if (!bounds) return false
@@ -365,9 +426,15 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
     ? defaultFocusPresentationMode(singlePageTarget)
     : null
   if (singlePageTarget && focusMode) {
-    setFocusPresentationOverride({ pageId: singlePageTarget.id, mode: focusMode })
+    // The session always stores its return camera here (focusMode is only set
+    // when storeReturnCamera !== false). Capture the pre-move camera now.
+    beginFocusSession({
+      pageId: singlePageTarget.id,
+      mode: focusMode,
+      returnCamera: { zoom, pan: { ...pan } },
+    })
   } else {
-    setFocusPresentationOverride(null)
+    endFocusSession('re-focus')
   }
 
   const allBounds: WorkspaceBounds[] = []
@@ -391,9 +458,6 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
 
   const viewport = availableCanvasViewportRect()
   const nextZoom = computeFocusZoomForPresentation(combined, viewport, focusMode)
-  if (options?.storeReturnCamera !== false) {
-    focusReturnCamera = { zoom, pan: { ...pan } }
-  }
   moveCameraTo(
     { zoom: nextZoom, pan: panToCenterBoundsAtZoom(combined, nextZoom) },
     {

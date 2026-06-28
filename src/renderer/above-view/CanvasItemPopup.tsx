@@ -13,6 +13,8 @@ import {
   FOCUS_PRESENTATION_MENU_EDGE_INSET_PX,
   FOCUS_PRESENTATION_MENU_INSET,
 } from '../../shared/featureFlags'
+import { TOOLBAR_HEIGHT } from '../../shared/constants'
+import { focusContext } from '../../shared/focus-context'
 import {
   CAMERA_SPRING_CSS_EASING,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
@@ -185,6 +187,20 @@ function usePopupFlipAnimation({
         )
         positionAnimRef.current.currentTime = elapsed
         if (widthAnimRef.current) widthAnimRef.current.currentTime = elapsed
+        // TEMP DIAG
+        console.log('[flip]', placement, {
+          deltaX: Math.round(deltaX),
+          deltaY: Math.round(deltaY),
+          elapsed: Math.round(elapsed),
+          prevTop: Math.round(previousRect.top),
+          nextTop: Math.round(nextRect.top),
+          prevW: Math.round(previousRect.width),
+        })
+      } else {
+        console.log('[flip] no-camera', placement, {
+          deltaX: Math.round(deltaX),
+          deltaY: Math.round(deltaY),
+        })
       }
     }
 
@@ -252,6 +268,10 @@ function ViewportAnchor({
   children: ReactNode
 }) {
   if (!open) return null
+  // A focus session pins the focus bar to the viewport top (placement
+  // 'viewport-top', height TOOLBAR_HEIGHT). Drop the tool popup below it so the
+  // two stack instead of colliding.
+  const top = offset + (focusContext(layout).active ? TOOLBAR_HEIGHT : 0)
   return (
     <>
       {/* Bridge across the gap between the toolbar and the popup. Marked as
@@ -261,13 +281,13 @@ function ViewportAnchor({
         data-overlay-ui
         aria-hidden
         className="pointer-events-auto absolute left-0 right-0"
-        style={{ top: 0, height: offset }}
+        style={{ top: 0, height: top }}
       />
       <div
         data-overlay-ui
         className="pointer-events-auto absolute"
         style={{
-          top: offset,
+          top,
           left: layout.toolbarCenterX,
           transform: 'translateX(-50%)',
         }}
@@ -293,14 +313,17 @@ function Frame({
   children: ReactNode
 }) {
   const shapeClass = `${fullWidth ? 'w-full ' : ''}${
-    flush ? 'rounded-none' : 'rounded-[10px]'
-  } border p-1`
+    flush ? 'rounded-none border-b' : 'rounded-[10px] border'
+  } p-1`
   const frameProps = {
     'data-popup-frame': flush ? 'flush' : 'floating',
     className: `${shapeClass} ${
       isDark ? 'text-zinc-100' : 'text-zinc-900'
     } ${className}`.trim(),
     style: {
+      // Flush focus bar matches the toolbar height so 'fill' page content,
+      // which starts at the toolbar inset, butts directly against it.
+      height: flush ? TOOLBAR_HEIGHT : undefined,
       background: isDark ? '#3a3836' : '#ece9e7',
       borderColor: isDark ? '#414141' : '#dcdcda',
       boxShadow: flush

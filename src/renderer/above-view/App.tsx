@@ -34,11 +34,8 @@ import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
-import {
-  FocusDimmingLayer,
-  focusedPresentationPageId,
-  focusItemOpacity,
-} from './FocusDimmingLayer'
+import { FocusDimmingLayer } from './FocusDimmingLayer'
+import { focusContext, focusItemOpacity } from '../../shared/focus-context'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { SelectionOutlineLayer, type SelectedEntitySpan } from './SelectionOutlineLayer'
@@ -669,8 +666,11 @@ export default function App({
     return ids
   }, [layoutData.selection])
   const hoveredEntityId = layoutData.hover?.id ?? null
-  const focusPageId = focusedPresentationPageId(layoutData)
-  const focusPresentationActive = focusPageId !== null
+  const focus = focusContext(layoutData)
+  const focusPresentationActive = focus.active
+  // Dim the rest of the canvas only while focus is at rest — a working tool
+  // (draw/placement/comment) lifts it so annotation reads at full opacity.
+  const dimAroundPageId = focus.dimsOtherPages ? focus.pageId : null
   const overlayInteractive = Boolean(
     pendingAnnotation ||
       pendingRegionRect ||
@@ -860,7 +860,8 @@ export default function App({
           clientY: event.clientY + layoutRef.current.canvasOrigin.y,
         })
       }
-      if (hoverForwardingEnabled) {
+      // During placement the placeholder owns the cursor; page hover would flicker.
+      if (hoverForwardingEnabled && !pendingPlacement) {
         const nextId = hitTestHoverTarget(event.clientX, event.clientY)
         if (nextId !== lastHoverIdRef.current) {
           lastHoverIdRef.current = nextId
@@ -1095,7 +1096,7 @@ export default function App({
       if (layout.interaction.kind !== 'idle') return false
       // In focus presentation the page isn't single-selected, but the wheel
       // should still scroll it instead of panning (which would exit focus).
-      const focusedPageId = layout.focusPresentation?.pageId ?? null
+      const focusedPageId = focusContext(layout).pageId
       const selected = layout.selectedEntityIds
       const pageId = focusedPageId ?? (selected.length === 1 ? selected[0] : null)
       if (!pageId) return false
@@ -1430,7 +1431,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIdSet={selectedEntityIdSet}
             editingEntityId={editingEntityId}
             ghostEntity={reorderGhostEntity}
-            focusedPageId={focusPageId}
+            focusedPageId={dimAroundPageId}
           />
 
           {/* Live drawing preview renders after StackedCanvasItems so the
@@ -1566,13 +1567,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
                 selectedDrawings={selectedDrawingEntities}
                 interactionIdle={interactionIdle}
               />
-              <PagePopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedPages={selectedPageEntities}
-                interactionIdle={interactionIdle}
-              />
               <FilePopup
                 api={api}
                 isDark={isDark}
@@ -1583,6 +1577,20 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
                 setFileJsonMode={setFileJsonMode}
               />
             </>
+          ) : null}
+
+          {/* PagePopup doubles as the focus bar (pinned viewport-top during a
+              focus session). Exempt it from the tool-popup mutex while focused
+              so the focus controls stay visible — ViewportAnchor drops the tool
+              popup below it so the two stack. */}
+          {!toolHasPopup(layoutData.activeTool) || focusPresentationActive ? (
+            <PagePopup
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              selectedPages={selectedPageEntities}
+              interactionIdle={interactionIdle}
+            />
           ) : null}
 
           <CommentBadgesLayer

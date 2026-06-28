@@ -6,6 +6,7 @@ import {
   boundScreenBoundsForPage,
   boundSelectedPage,
   boundCanvasOrigin,
+  focusFillRegion,
 } from './runtime-geometry'
 import {
   aboveView,
@@ -33,13 +34,13 @@ import {
   inspectHoveredTarget,
   inspectSelectedTarget,
   pages,
-  focusPresentationOverride,
   interactionState,
   selectionOverlayActive,
   spaceModifierHeld,
   pan,
   zoom,
 } from './runtime-context'
+import { focusSession } from './focus-session'
 import { shouldGateBeOpen } from './gate-predicate'
 import {
   getUiState,
@@ -101,6 +102,8 @@ import {
 import { boundsOverlap } from './runtime-geometry'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
+// Emulation-cache sentinel marking a page rendered natively (fill focus mode).
+const FILL_NATIVE_KEY = 'fill-native'
 
 /**
  * Off-screen-but-alive bounds for hidden devtools panels. Unlike a 0×0
@@ -325,7 +328,8 @@ function layoutAllViews(): void {
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
   // --- Per-page bounds, emulation, annotations ---
-  const focusedPresentationPageId = focusPresentationOverride?.pageId ?? null
+  const focusSessionValue = focusSession()
+  const focusedPresentationPageId = focusSessionValue?.pageId ?? null
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
@@ -391,34 +395,61 @@ function layoutAllViews(): void {
 
     const deviceId = deviceIdFromMetadata(page.metadata)
     const showShell = showDeviceFrameFromMetadata(page.metadata)
-    const borderRadius = deviceId && showShell
+    // 'fill' focus is the browser mode: page fills the canvas viewport edge to
+    // edge with no chrome header, no bezel, and square corners.
+    const isFillFocus =
+      focusedPresentationPageId === page.id && focusSessionValue?.mode === 'fill'
+    const borderRadius = isFillFocus
+      ? 0
+      : deviceId && showShell
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
         : CARD_BORDER_RADIUS
     page.frameView.setBorderRadius(borderRadius)
     page.pageView.setBorderRadius(borderRadius)
-    page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
-    page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
-
-    const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
-    const nativeScale = screen.getPrimaryDisplay().scaleFactor
-    const pageScale = zoom
-    const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsOpen ? devtoolsWidth : 0}`
-    if (pageEmulationKey !== page.lastPageEmulationKey) {
-      const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-      boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
-      page.lastPageEmulationKey = pageEmulationKey
-      devtoolsPanelDebug('layout:apply-emulation', {
-        pageId: page.id,
-        durationMs: Date.now() - emulationStart,
-        emulatedWidth,
-        emulatedHeight,
-        devtoolsOpen,
-      })
+    if (isFillFocus) {
+      // Fill page sits below the flush focus chrome bar and fills the rest of
+      // the canvas area. focusFillRegion() is the shared source of truth.
+      const region = focusFillRegion()
+      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, region, page.lastPageBoundsKey)
+    } else {
+      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
+      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
     }
 
-    // Inject or remove safe-area CSS padding when the device shell is active
+    if (isFillFocus) {
+      // Fill is the browser mode: render natively at 100% with no device
+      // emulation, so the page reflows to the real view size and viewport-aware
+      // layout (sticky headers, 100vh, visualViewport) behaves like a real tab.
+      // Emulation at scale 1 leaves pages in a stale layout until a scroll.
+      if (page.lastPageEmulationKey !== FILL_NATIVE_KEY) {
+        page.pageView.webContents.disableDeviceEmulation()
+        page.pageView.webContents.setZoomFactor(1)
+        page.lastPageEmulationKey = FILL_NATIVE_KEY
+      }
+    } else {
+      const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
+      const nativeScale = screen.getPrimaryDisplay().scaleFactor
+      const pageScale = zoom
+      const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsOpen ? devtoolsWidth : 0}`
+      if (pageEmulationKey !== page.lastPageEmulationKey) {
+        const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
+        boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
+        page.lastPageEmulationKey = pageEmulationKey
+        devtoolsPanelDebug('layout:apply-emulation', {
+          pageId: page.id,
+          durationMs: Date.now() - emulationStart,
+          emulatedWidth,
+          emulatedHeight,
+          devtoolsOpen,
+        })
+      }
+    }
+
+    // Inject or remove safe-area CSS padding when the device shell is active.
+    // Fill mode is chromeless, so it never gets device safe-area padding.
     const orientation = deviceOrientationFromMetadata(page.metadata)
-    const safeAreaCss = deviceId && showShell
+    const safeAreaCss = !isFillFocus && deviceId && showShell
       ? safeAreaCssForDevice(deviceId, orientation)
       : null
     const safeAreaKey = safeAreaCss ?? ''

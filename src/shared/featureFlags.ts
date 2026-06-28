@@ -9,7 +9,7 @@ export const PERFECT_FREEHAND_ENABLED = true
  * `false` — legacy edge-to-edge strip pinned to the viewport top.
  * `true`  — inset the strip by 8px and keep rounded floating corners.
  */
-export const FOCUS_PRESENTATION_MENU_INSET = true
+export const FOCUS_PRESENTATION_MENU_INSET = false
 export const FOCUS_PRESENTATION_MENU_EDGE_INSET_PX = 8
 
 /**
