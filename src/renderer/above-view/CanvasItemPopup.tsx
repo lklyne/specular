@@ -77,6 +77,11 @@ function Root(props: RootProps) {
   )
 }
 
+// Morph the toolbar between its page-anchored placement and the focused
+// viewport-top bar. Height is constant across placements, so we animate width
+// directly (no transform scale — that distorts the flex row) plus a translate
+// for the position delta. The width tween reflows the flex children naturally,
+// so glyphs stay undistorted without any counter-scaling.
 function usePopupFlipAnimation({
   active,
   placement,
@@ -88,23 +93,25 @@ function usePopupFlipAnimation({
   const motionRef = useRef<HTMLDivElement | null>(null)
   const previousRectRef = useRef<DOMRect | null>(null)
   const previousPlacementRef = useRef<Placement | null>(null)
-  const animationRef = useRef<Animation | null>(null)
-  const contentFrameRef = useRef<number | null>(null)
-  const compensatedContentRef = useRef<HTMLElement | null>(null)
+  const positionAnimRef = useRef<Animation | null>(null)
+  const widthAnimRef = useRef<Animation | null>(null)
 
   useLayoutEffect(() => {
-    const layoutElement = layoutRef.current
     const motionElement = motionRef.current
-    if (!active || !layoutElement || !motionElement) {
+    const frameElement = motionElement?.querySelector<HTMLElement>('[data-popup-frame]')
+    if (!active || !motionElement || !frameElement) {
       previousRectRef.current = null
       previousPlacementRef.current = null
-      animationRef.current?.cancel()
-      animationRef.current = null
-      stopContentCompensation()
+      positionAnimRef.current?.cancel()
+      widthAnimRef.current?.cancel()
+      positionAnimRef.current = null
+      widthAnimRef.current = null
       return
     }
 
-    const nextRect = layoutElement.getBoundingClientRect()
+    // Measure the frame (the visible box) rather than the positioned wrapper so
+    // the width tween matches what the user sees.
+    const nextRect = frameElement.getBoundingClientRect()
     const previousRect = previousRectRef.current
     const previousPlacement = previousPlacementRef.current
     const shouldFlip =
@@ -114,48 +121,33 @@ function usePopupFlipAnimation({
       (previousPlacement === 'viewport-top' || placement === 'viewport-top')
 
     if (shouldFlip) {
-      animationRef.current?.cancel()
-      stopContentCompensation()
+      positionAnimRef.current?.cancel()
+      widthAnimRef.current?.cancel()
       const deltaX = previousRect.left - nextRect.left
       const deltaY = previousRect.top - nextRect.top
-      const scaleX = nextRect.width > 0 ? previousRect.width / nextRect.width : 1
-      const scaleY = nextRect.height > 0 ? previousRect.height / nextRect.height : 1
-      const contentElement = motionElement.querySelector<HTMLElement>(
-        '[data-popup-frame-content]',
-      )
-      const contentRect = contentElement?.getBoundingClientRect() ?? null
+      const timing = {
+        duration: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
+        easing: CAMERA_SPRING_CSS_EASING,
+      }
 
-      animationRef.current = motionElement.animate(
-        [
-          {
-            transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
-            transformOrigin: 'top left',
-          },
-          {
-            transform: 'translate(0, 0) scale(1, 1)',
-            transformOrigin: 'top left',
-          },
-        ],
-        {
-          duration: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
-          easing: CAMERA_SPRING_CSS_EASING,
-        },
+      positionAnimRef.current = motionElement.animate(
+        [{ transform: `translate(${deltaX}px, ${deltaY}px)` }, { transform: 'translate(0, 0)' }],
+        timing,
       )
-      if (contentElement && contentRect) {
-        startContentCompensation({
-          motionElement,
-          contentElement,
-          width: contentRect.width,
-          height: contentRect.height,
-        })
+      // The viewport-top frame is `w-full`, so its resting width is the live
+      // container width. Tween toward `100%` (not a frozen px snapshot) so a
+      // chrome inset/recenter that lands mid-flight doesn't snap at the end —
+      // mirrors how `left` stays live and only the translate delta decays.
+      const targetWidth = placement === 'viewport-top' ? '100%' : `${nextRect.width}px`
+      widthAnimRef.current = frameElement.animate(
+        [{ width: `${previousRect.width}px` }, { width: targetWidth }],
+        timing,
+      )
+      positionAnimRef.current.onfinish = () => {
+        positionAnimRef.current = null
       }
-      animationRef.current.onfinish = () => {
-        animationRef.current = null
-        stopContentCompensation()
-      }
-      animationRef.current.oncancel = () => {
-        animationRef.current = null
-        stopContentCompensation()
+      widthAnimRef.current.onfinish = () => {
+        widthAnimRef.current = null
       }
     }
 
@@ -163,73 +155,7 @@ function usePopupFlipAnimation({
     previousPlacementRef.current = placement
   }, [active, placement])
 
-  function startContentCompensation({
-    motionElement,
-    contentElement,
-    width,
-    height,
-  }: {
-    motionElement: HTMLElement
-    contentElement: HTMLElement
-    width: number
-    height: number
-  }): void {
-    compensatedContentRef.current = contentElement
-    contentElement.style.transformOrigin = 'top left'
-    contentElement.style.willChange = 'width, height, transform'
-
-    const tick = () => {
-      const { scaleX, scaleY } = currentElementScale(motionElement)
-      const safeScaleX = scaleX || 1
-      const safeScaleY = scaleY || 1
-      // Let the shell morph, but keep glyphs undistorted and make flex layout
-      // track the shell's live size instead of snapping to the final width.
-      contentElement.style.width = `${Math.max(0, width * safeScaleX)}px`
-      contentElement.style.height = `${Math.max(0, height * safeScaleY)}px`
-      contentElement.style.transform = `scale(${1 / safeScaleX}, ${1 / safeScaleY})`
-      contentFrameRef.current = requestAnimationFrame(tick)
-    }
-
-    tick()
-  }
-
-  function stopContentCompensation(): void {
-    if (contentFrameRef.current !== null) {
-      cancelAnimationFrame(contentFrameRef.current)
-      contentFrameRef.current = null
-    }
-    const contentElement = compensatedContentRef.current
-    if (contentElement) {
-      contentElement.style.width = ''
-      contentElement.style.height = ''
-      contentElement.style.transform = ''
-      contentElement.style.transformOrigin = ''
-      contentElement.style.willChange = ''
-    }
-    compensatedContentRef.current = null
-  }
-
   return { layoutRef, motionRef }
-}
-
-function currentElementScale(element: HTMLElement): { scaleX: number; scaleY: number } {
-  const transform = getComputedStyle(element).transform
-  if (!transform || transform === 'none') return { scaleX: 1, scaleY: 1 }
-  const match = transform.match(/matrix(3d)?\((.+)\)/)
-  if (!match) return { scaleX: 1, scaleY: 1 }
-  const values = match[2]
-    .split(',')
-    .map((value) => Number.parseFloat(value.trim()))
-  if (match[1] === '3d') {
-    return {
-      scaleX: Math.hypot(values[0] ?? 1, values[1] ?? 0),
-      scaleY: Math.hypot(values[4] ?? 0, values[5] ?? 1),
-    }
-  }
-  return {
-    scaleX: Math.hypot(values[0] ?? 1, values[1] ?? 0),
-    scaleY: Math.hypot(values[2] ?? 0, values[3] ?? 1),
-  }
 }
 
 function popupStyle(

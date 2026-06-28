@@ -104,7 +104,7 @@ export function restoreFocusCamera(): boolean {
   focusReturnCamera = null
   setFocusPresentationOverride(null)
   animateCameraTo(camera, {
-    durationMs: DEFAULT_CAMERA_TRANSITION_DURATION_MS / 2,
+    durationMs: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
     preserveFocusSession: true,
   })
   return true

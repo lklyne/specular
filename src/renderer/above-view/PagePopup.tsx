@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import { DEFAULT_CAMERA_TRANSITION_DURATION_MS } from '../../shared/camera-transition'
 import { FOCUS_PRESENTATION_MENU_INSET } from '../../shared/featureFlags'
 import type {
   CanvasBgElectronAPI,
@@ -38,25 +37,6 @@ function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6
   return isDark
     ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
     : `${base} text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900`
-}
-
-function usePinnedFocusPopupPlacement(focusActive: boolean): boolean {
-  const [pinnedToViewportTop, setPinnedToViewportTop] = useState(false)
-
-  useEffect(() => {
-    if (focusActive) {
-      setPinnedToViewportTop(true)
-      return undefined
-    }
-    if (!pinnedToViewportTop) return undefined
-
-    const timeout = window.setTimeout(() => {
-      setPinnedToViewportTop(false)
-    }, DEFAULT_CAMERA_TRANSITION_DURATION_MS / 2)
-    return () => window.clearTimeout(timeout)
-  }, [focusActive, pinnedToViewportTop])
-
-  return focusActive || pinnedToViewportTop
 }
 
 export function PagePopup({
@@ -113,7 +93,10 @@ export function PagePopup({
       setPresetDropdownOpen(false)
     }
   }, [focusMode])
-  const pinPopupToViewportTop = usePinnedFocusPopupPlacement(focusPresentation !== null)
+  // Pin to the viewport top only while focused; on leave, flip back to the
+  // page-anchored placement immediately so the FLIP tween rides the camera
+  // restore as one motion (durations match in restoreFocusCamera).
+  const pinPopupToViewportTop = focusPresentation !== null
 
   if (count === 0) return null
   const isSingle = count === 1
