@@ -1,5 +1,3 @@
-// fallow-ignore-file circular-dependencies
-// Suppressed: see #141. selection-controller → overlay-manager → layout-engine import focus-reconciler-runtime back
 /**
  * Runtime binding for FocusReconciler. Resolves a FocusTarget to the
  * actual WebContents and calls focus() at most once per layout pass.
