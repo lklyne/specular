@@ -312,8 +312,8 @@ function Frame({
       height: flush ? TOOLBAR_HEIGHT : undefined,
       // One surface across both placements — the page-anchored popup and the
       // flush focus bar are the same toolbar morphing between spots, so the
-      // color must not shift mid-flip. Both use the panel/chrome surface.
-      background: 'var(--surface-panel)',
+      // color must not shift mid-flip.
+      background: 'var(--surface-popup)',
       borderColor: 'var(--surface-popup-border)',
       boxShadow: flush
         ? 'none'
