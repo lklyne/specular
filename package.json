@@ -8,6 +8,7 @@
     "type": "git",
     "url": "https://github.com/lklyne/specular.git"
   },
+  "license": "PolyForm-Shield-1.0.0",
   "main": ".vite/build/index.js",
   "config": {
     "forge": "./forge.config.ts"
