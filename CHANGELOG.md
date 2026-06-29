@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-29 — Focus Mode
+
+### New
+- **Focus mode** replaces Browser mode — select a page and focus it to present it full-bleed. Navigate between pages from the sidebar while focused, and use the eye toggle to show or hide everything around it (other pages, files, notes, annotations).
+- Copy as PNG — right-click an image to copy it straight to the clipboard.
+
+### Improvements
+- Clearer modes and more consistent movement between canvas items — selecting an item, stepping into it, and stepping back out now behave the same everywhere.
+- Cleaner borders around pages.
+- The CLI is simpler and easier for agents to drive.
+
+### Fixes
+- Files dropped or pasted onto the canvas intake correctly again.
+- `link --label` and edge colors persist again.
+- A second gesture starting mid-resize or edge-drag no longer corrupts the undo stack.
+
 ## [0.3.1] - 2026-06-02 — Distribute, Reorder, Smart Paste
 
 ### New
