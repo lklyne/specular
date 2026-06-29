@@ -1,14 +1,17 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. workspace-autosave → workspace-observers import viewport-control back
 import {
+  interactivePageId,
   pages,
   pan,
   zoom,
   setCameraTransitionStartedAt,
+  setInteractivePageId,
   setPanState,
   setZoomState,
   selectedPage,
 } from './runtime-context'
+import { sendInteractiveState } from './overlay-manager'
 import {
   beginFocusSession,
   endFocusSession,
@@ -108,6 +111,18 @@ function endFocusOnCameraChange(): void {
   if (!isFocusSessionActive()) return
   if (isWorkingTool(uiActiveTool())) return
   endFocusSession('camera-change')
+  syncInteractiveToFocus()
+}
+
+// Focus is the second click (#124): entering a focus session immediately makes
+// the focused page interactive — no extra deliberate click — and leaving focus
+// drops it back to selected-only. Call right after any beginFocusSession /
+// endFocusSession so `interactivePageId` tracks the session's page.
+function syncInteractiveToFocus(): void {
+  const focusedPageId = focusSession()?.pageId ?? null
+  if (interactivePageId() === focusedPageId) return
+  setInteractivePageId(focusedPageId)
+  sendInteractiveState()
 }
 
 function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }): void {
@@ -129,6 +144,7 @@ export function restoreFocusCamera(): boolean {
   // The graceful, camera-restoring exit (X button / Escape / dimmed-click).
   if (!focusSession()) return false
   endFocusSession('dismiss')
+  syncInteractiveToFocus()
   // Keep the current camera position; zoom out slightly, anchored on the
   // viewport center so the focused content stays put as we pull back.
   const viewport = availableCanvasViewportRect()
@@ -455,6 +471,7 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
   } else {
     endFocusSession('re-focus')
   }
+  syncInteractiveToFocus()
 
   const allBounds: WorkspaceBounds[] = []
   for (const { id, kind } of targets) {

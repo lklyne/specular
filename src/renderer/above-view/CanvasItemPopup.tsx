@@ -311,7 +311,8 @@ function Frame({
       // which starts at the toolbar inset, butts directly against it.
       height: flush ? TOOLBAR_HEIGHT : undefined,
       background: 'var(--surface-popup)',
-      borderColor: 'var(--surface-popup-border)',
+      // Flush focus bar's bottom border matches the side panel dividers.
+      borderColor: flush ? 'var(--surface-chrome-border)' : 'var(--surface-popup-border)',
       boxShadow: flush
         ? 'none'
         : isDark

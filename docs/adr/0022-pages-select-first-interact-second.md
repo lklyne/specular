@@ -39,15 +39,25 @@ three facets of interactivity:
 - **Content blocker** — `pageSelectionOverlayStates` reports `interactive` only
   for the entered page; a selected page keeps its blocking overlay on.
 
-**Enter:** the second deliberate click on an already-selected page, or a
+**Enter:** the second deliberate click on an already-selected page, a
 double-click on a page body (`routePointerDoubleClick` → `enter-page-interactive`
-as a race-proof path). Dispatched via `canvas-enter-page-interactive` →
-`enterPageInteractive(pageId)`.
+as a race-proof path), or **entering a focus session** on the page — focus *is*
+the second click, so a focused page is interactive immediately with no extra
+click. The click/double-click paths dispatch via `canvas-enter-page-interactive`
+→ `enterPageInteractive(pageId)`; focus drives it through `syncInteractiveToFocus`
+(`viewport-control.ts`), called right after every `beginFocusSession` /
+`endFocusSession` so `interactivePageId` tracks the focused page.
 
 **Exit (back to selected):** Escape (`escape-page-focus` clears
 `interactivePageId` before falling through to deselect), clicking away or onto
 another entity (selection moves off the entered page → `commitSelection` clears
-it), and page deletion.
+it), leaving the focus session (dismiss / camera-change / re-focus →
+`syncInteractiveToFocus` clears it), and page deletion.
+
+**Delete guard:** `delete-selection` carries `firesFromPageFocus`, so Delete
+reaches main even while the focused page owns keyboard. `deleteSelection` drops
+the `interactivePageId` from its page targets — the frame is only removed once
+the user is back to selected-only.
 
 The entered page is broadcast as `LayoutUpdateData.interactivePageId` so the
 renderer router can build its `CanvasPointerContext`.
