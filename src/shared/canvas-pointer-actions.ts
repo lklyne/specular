@@ -25,6 +25,9 @@ export type CanvasPointerContext = {
   /** Entity currently in inline-edit mode; suppresses the press-deferral
    *  predicate while another entity is editing. */
   editingEntityId: string | null
+  /** The page the user has *entered* for interaction (#124), or null. Only the
+   *  entered page forwards pointer input; a merely-selected page does not. */
+  interactivePageId: string | null
 }
 
 /**
@@ -41,9 +44,12 @@ export type CanvasPointerAction =
   | { kind: 'noop' }
   /** Page body click/drag candidate: click selects, drag moves page. */
   | { kind: 'page-body-press'; entityId: string; preserveSelection: boolean }
-  /** Page body hit on the **single-selected** page: forward the pointerdown
-   *  (and the subsequent move/up) into the page's webContents. PoC for the
-   *  always-on aboveView interactive layer. */
+  /** Page body click on the already-selected (but not yet entered) page:
+   *  enter interactive mode (#124). The second deliberate click; subsequent
+   *  clicks forward into the page. */
+  | { kind: 'enter-page-interactive'; entityId: string }
+  /** Page body hit on the **entered** page: forward the pointerdown (and the
+   *  subsequent move/up) into the page's webContents. */
   | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
   /** Begin selecting + dragging an entity (page, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
@@ -92,7 +98,7 @@ export function routePointerDown(
   if (!context.isPrimaryButton) {
     if (
       target.payload.kind === 'page-body' &&
-      isSingleSelected(context, target.payload.entityId)
+      context.interactivePageId === target.payload.entityId
     ) {
       return {
         kind: 'forward-pointer-down',
@@ -168,16 +174,19 @@ function routeByPayload(
           preserveSelection: context.selectedEntityIds.includes(payload.entityId),
         }
       }
-      // PoC: on the single-selected page's body, forward the pointer event
-      // into the page so the user interacts with web content directly.
-      // Otherwise (unselected or multi-selected) keep the existing
-      // click-to-select / drag-to-move behavior.
-      if (isSingleSelected(context, payload.entityId)) {
+      // Select-first / interact-second (#124):
+      //  - entered page → forward the pointer into its web content;
+      //  - already single-selected (not entered) → the second click enters;
+      //  - otherwise (unselected / multi) → click-to-select / drag-to-move.
+      if (context.interactivePageId === payload.entityId) {
         return {
           kind: 'forward-pointer-down',
           entityId: payload.entityId,
           button: context.button,
         }
+      }
+      if (isSingleSelected(context, payload.entityId)) {
+        return { kind: 'enter-page-interactive', entityId: payload.entityId }
       }
       return {
         kind: 'page-body-press',
@@ -255,11 +264,17 @@ export type CanvasPointerDoubleClickAction =
   | { kind: 'request-entity-edit'; entityId: string }
   | { kind: 'enter-group'; groupId: string }
   | { kind: 'enter-group-rename'; groupId: string }
+  /** Double-click a page body → enter interactive mode (#124). A reliable
+   *  enter path: the first click selects, and this fires after the second
+   *  pointerup regardless of how fast the two single clicks landed. */
+  | { kind: 'enter-page-interactive'; entityId: string }
 
 export function routePointerDoubleClick(
   target: HitTarget,
 ): CanvasPointerDoubleClickAction {
   switch (target.payload.kind) {
+    case 'page-body':
+      return { kind: 'enter-page-interactive', entityId: target.payload.entityId }
     case 'chrome':
       // Group chrome → rename. Page/file chrome dbl-click is a no-op
       // (chrome owns its own click handlers in aboveView).

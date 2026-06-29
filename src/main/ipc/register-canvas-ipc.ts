@@ -1,6 +1,11 @@
 import { ipcMain } from 'electron'
 import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-import type { CanvasEntityKind, SelectionModifiers, SidebarSectionKey } from '../../shared/types'
+import type {
+  CanvasEntityKind,
+  FocusPresentationMode,
+  SelectionModifiers,
+  SidebarSectionKey,
+} from '../../shared/types'
 import type { EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
@@ -16,15 +21,15 @@ import {
 import { saveImageBuffer } from '../runtime/image-assets'
 import { htmlDefaultSize, imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
-  focusSelectedPage,
+  focusSelection,
   getSelectedEntityIds,
-  selectBrowserTab,
   selectEntity,
   selectPage,
   selectPageById,
+  restoreFocusCamera,
   selectedPageId,
-  setBrowserMode,
-  setCanvasMode,
+  setFocusPresentationMode,
+  setFocusAnnotationsVisible,
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
@@ -60,10 +65,6 @@ import {
   setActiveWorkspaceTab,
   setWorkspaceTabExpanded,
 } from '../runtime/workspace-session'
-import {
-  setPageBrowserSizeMode,
-  type BrowserSizeMode,
-} from '../runtime/runtime-entities'
 import { createEdges, deleteEdges } from '../workspace-edges'
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
@@ -75,6 +76,7 @@ import {
   selectNone,
 } from '../runtime/selection-controller'
 import { consumeDragId } from '../runtime/drop-owner'
+import { enterPageInteractive } from '../runtime/overlay-manager'
 import { registerCanvasDragIpc } from './register-canvas-drag-ipc'
 import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
 import { registerCanvasReorderIpc } from './register-canvas-reorder-ipc'
@@ -180,6 +182,23 @@ export function registerCanvasIpc(): void {
     requestLayout()
   })
 
+  ipcMain.on('canvas-focus-selection', () => {
+    focusSelection()
+  })
+
+  ipcMain.on('canvas-restore-focus-camera', () => {
+    restoreFocusCamera()
+  })
+
+  ipcMain.on('canvas-set-focus-presentation-mode', (_event, mode: FocusPresentationMode) => {
+    if (mode !== 'device' && mode !== 'fit' && mode !== 'fill') return
+    setFocusPresentationMode(mode)
+  })
+
+  ipcMain.on('canvas-set-focus-annotations-visible', (_event, visible: boolean) => {
+    setFocusAnnotationsVisible(Boolean(visible))
+  })
+
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
     DRAWING_FEATURE_ENABLED
       ? ['page', 'text', 'file', 'drawing', 'shape', 'edge']
@@ -212,6 +231,10 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-enter-group', (_event, { groupId }: { groupId: string }) => {
     enterGroup(groupId, { clearInteraction: true })
+  })
+
+  ipcMain.on('canvas-enter-page-interactive', (_event, { pageId }: { pageId: string }) => {
+    enterPageInteractive(pageId)
   })
 
   // Unified inline-edit entry point. Dblclick on a sticky/text/shape body
@@ -259,6 +282,8 @@ export function registerCanvasIpc(): void {
   ipcMain.on(
     'canvas-forward-wheel',
     (_event, { pageId, payload }: { pageId: string; payload: ForwardWheelPayload }) => {
+      // Focus presentation locks the camera: a focused page scrolls its own
+      // content; the wheel never reaches the canvas, so there's no exit to guard.
       forwardWheelToPage(pageId, payload)
     },
   )
@@ -288,34 +313,6 @@ export function registerCanvasIpc(): void {
     'canvas-set-annotation-state',
     (_event, { hasOpenThread, hasPending }: { hasOpenThread: boolean; hasPending: boolean }) => {
       setAnnotationState(hasOpenThread, hasPending)
-    },
-  )
-
-  // --- Browser mode ---
-
-  ipcMain.on('canvas-select-browser-tab', (_event, { pageId }: { pageId: string }) => {
-    selectBrowserTab(pageId)
-  })
-
-  ipcMain.on(
-    'canvas-set-browser-size-mode',
-    (_event, { pageId, mode }: { pageId: string; mode: BrowserSizeMode }) => {
-      const page = pages.find((candidate) => candidate.id === pageId)
-      if (!page) return
-      page.metadata = setPageBrowserSizeMode(page.metadata, mode)
-      scheduleWorkspaceAutosave()
-      requestLayout()
-    },
-  )
-
-  ipcMain.on(
-    'canvas-set-browser-mode',
-    (_event, { mode }: { mode: 'canvas' | 'browser' }) => {
-      if (mode === 'browser') {
-        setBrowserMode()
-        return
-      }
-      setCanvasMode()
     },
   )
 

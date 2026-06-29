@@ -116,7 +116,8 @@ export function clearCustomPageSizeMetadata(
 }
 
 // ---------------------------------------------------------------------------
-// Browser size mode metadata (per-page fill vs device in browser mode)
+// Legacy browser-size metadata. Browser mode no longer exists; these helpers
+// remain so old files containing `browserSizeMode` can be read or cleaned up.
 // ---------------------------------------------------------------------------
 
 export type BrowserSizeMode = 'fill' | 'device'
@@ -219,4 +220,3 @@ export function setUseSvgDeviceShellMetadata(
     useSvgDeviceShell: use,
   }
 }
-

@@ -4,11 +4,9 @@ import type {
   DevtoolsPanelTab,
   Tool,
   UiState,
-  WorkspaceViewMode,
 } from '../shared/types'
 import { isCanvasEntityKindEnabled } from '../shared/featureFlags'
 import { markDirty } from './runtime/layout-dirty'
-import { breadcrumb } from './sentry-context'
 
 type SelectionInput =
   | { kind: 'none' }
@@ -18,10 +16,6 @@ type SelectionInput =
       entityIds: string[]
       entityKindsById: Partial<Record<string, CanvasEntityKind>>
     }
-
-type BrowserTarget = {
-  pageId: string
-}
 
 const DEFAULT_DEVTOOLS_WIDTH = 400
 
@@ -49,7 +43,6 @@ export function createDefaultUiState(): UiState {
   return {
     selection: { kind: 'none' },
     activeTool: { kind: 'select' },
-    viewMode: { kind: 'canvas' },
     leftSidebarOpen: true,
     toolbarDropdownOpen: false,
     devtools: {
@@ -109,9 +102,6 @@ export function setSelection(input: SelectionInput): UiState {
         entityKindsById: { ...nextInput.entityKindsById },
       }
     }
-    if (uiState.viewMode.kind === 'browser') {
-      uiState.viewMode = { kind: 'canvas' }
-    }
     markDirty('canvas', 'sidebar', 'toolbar')
     return getUiState()
   }
@@ -123,25 +113,6 @@ export function setSelection(input: SelectionInput): UiState {
 export function setActiveTool(tool: Tool): UiState {
   uiState.activeTool = tool
   markDirty('canvas', 'toolbar')
-  return getUiState()
-}
-
-export function setCanvasMode(): UiState {
-  if (uiState.viewMode.kind !== 'canvas') {
-    breadcrumb('view-mode', 'canvas')
-  }
-  uiState.viewMode = { kind: 'canvas' }
-  markDirty('canvas', 'sidebar', 'toolbar')
-  return getUiState()
-}
-
-export function setBrowserMode(target: BrowserTarget): UiState {
-  if (uiState.viewMode.kind !== 'browser' || uiState.viewMode.pageId !== target.pageId) {
-    breadcrumb('view-mode', 'browser')
-  }
-  uiState.selection = { kind: 'single-entity', entityId: target.pageId, entityKind: 'page' }
-  uiState.viewMode = { kind: 'browser', pageId: target.pageId }
-  markDirty('canvas', 'sidebar', 'toolbar')
   return getUiState()
 }
 
@@ -172,9 +143,6 @@ export function updateSelectionForRemovedEntity(entityId: string): UiState {
           : { kind: 'none' }
   }
 
-  if (uiState.viewMode.kind === 'browser' && uiState.viewMode.pageId === entityId) {
-    uiState.viewMode = { kind: 'canvas' }
-  }
   return getUiState()
 }
 
@@ -222,20 +190,6 @@ export function setDevtoolsWidth(width: number): UiState {
   return getUiState()
 }
 
-export function workspaceViewMode(ui: UiState = uiState): WorkspaceViewMode {
-  return ui.viewMode.kind === 'canvas' ? 'canvas' : 'browser'
-}
-
-export function activeBrowserPageId(ui: UiState = uiState): string | null {
-  if (ui.viewMode.kind === 'browser') return ui.viewMode.pageId
-  return selectedEntityId(ui)
-}
-
-export function activeBrowserTabId(ui: UiState = uiState): string | null {
-  if (ui.viewMode.kind === 'canvas') return null
-  return ui.viewMode.pageId
-}
-
 export function selectedEntityIds(ui: UiState = uiState): string[] {
   if (ui.selection.kind === 'single-entity') {
     return isCanvasEntityKindEnabled(ui.selection.entityKind) ? [ui.selection.entityId] : []
@@ -270,7 +224,6 @@ export function selectedCanvasTargets(ui: UiState = uiState): CanvasSelectableTa
 export function selectedEntityId(ui: UiState = uiState): string | null {
   if (ui.selection.kind === 'single-entity') return ui.selection.entityId
   if (ui.selection.kind === 'multi-entity') return ui.selection.entityIds[0] ?? null
-  if (ui.viewMode.kind === 'browser') return ui.viewMode.pageId
   return null
 }
 
@@ -341,7 +294,6 @@ function cloneUiState(input: UiState): UiState {
           }
         : { ...input.selection },
     activeTool: input.activeTool,
-    viewMode: { ...input.viewMode },
     leftSidebarOpen: input.leftSidebarOpen,
     toolbarDropdownOpen: input.toolbarDropdownOpen,
     devtools: { ...input.devtools },

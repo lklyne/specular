@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { commentBadgesForLayout } from '../../src/renderer/above-view/CommentBadgesLayer'
 import { annotationScreenPos, type AnnotationLiveBboxLookup } from '../../src/renderer/above-view/annotationMath'
 import type { Annotation, LayoutUpdateData } from '../../src/shared/types'
 
@@ -86,5 +87,38 @@ describe('annotationScreenPos with live bboxes', () => {
     }
     const pos = annotationScreenPos(ann, layout(), lookup({ 'canv-1': { x: 0, y: 0, width: 1, height: 1 } }))
     expect(pos).not.toBeNull()
+  })
+})
+
+describe('commentBadgesForLayout', () => {
+  it('positions element badges in the page content viewport above device frames', () => {
+    const page = {
+      ...PAGE,
+      contentScreenX: 230,
+      contentScreenY: 140,
+      contentScreenWidth: 200,
+      contentScreenHeight: 150,
+    }
+    const ann = elementAnnotation({ x: 50, y: 40, width: 100, height: 20 })
+    const badges = commentBadgesForLayout(
+      [ann],
+      layout({ entities: [page] }),
+      lookup({}),
+    )
+
+    expect(badges).toHaveLength(1)
+    expect(badges[0]).toMatchObject({
+      annotationId: ann.id,
+      count: 1,
+      x: 297,
+      y: 118,
+      transform: 'translate(-100%, 0)',
+      highlightRect: {
+        left: 255,
+        top: 110,
+        width: 50,
+        height: 10,
+      },
+    })
   })
 })

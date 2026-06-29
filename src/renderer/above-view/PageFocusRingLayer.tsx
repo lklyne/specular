@@ -14,7 +14,6 @@ type RingTarget = {
   contentScreenHeight?: number
   deviceId?: string | null
   showDeviceFrame?: boolean
-  browserSizeMode?: string
   width: number
 }
 
@@ -47,7 +46,7 @@ export function PageFocusRingLayer({
   const fw = target.screenWidth
   const fh = target.screenHeight
 
-  const hasShell = target.showDeviceFrame && target.browserSizeMode !== 'fill'
+  const hasShell = target.showDeviceFrame
   const dev = hasShell && target.deviceId ? DEVICE_CATALOG.get(target.deviceId) : null
   const cw = target.contentScreenWidth ?? target.screenWidth
   const displayZoom = target.width > 0 ? cw / target.width : 1

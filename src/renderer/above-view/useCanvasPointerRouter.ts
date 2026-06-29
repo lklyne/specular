@@ -72,6 +72,7 @@ import {
   MIN_TEXT_WIDTH,
 } from '../canvas-bg/entityConstants'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
+import { focusContext } from '../../shared/focus-context'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
@@ -119,6 +120,7 @@ export type ReorderGhostOffset = { dx: number; dy: number } | null
 const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointerAction['kind']>([
   'noop',
   'page-body-press',
+  'enter-page-interactive',
   'forward-pointer-down',
   'begin-entity-drag',
   'begin-entity-press',
@@ -139,12 +141,23 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
  *  and edge gestures. */
 export const FULL_ROUTER_CONSUME = ALL_KINDS
 
-function layoutToHitInputs(layout: { entities: HitInputs['entities']; edges?: HitInputs['edges'] | null; selectedEntityIds: HitInputs['selectedEntityIds']; selectedGroupId?: string | null; hover?: { id: string } | null; zoom?: number | null }): HitInputs {
+function layoutToHitInputs(layout: {
+  entities: HitInputs['entities']
+  edges?: HitInputs['edges'] | null
+  selectedEntityIds: HitInputs['selectedEntityIds']
+  selectedGroupId?: string | null
+  keyboardTargetPageId?: string | null
+  focusPresentation?: { pageId: string } | null
+  hover?: { id: string } | null
+  zoom?: number | null
+}): HitInputs {
   return {
     entities: layout.entities,
     edges: layout.edges ?? [],
     selectedEntityIds: layout.selectedEntityIds,
     selectedGroupId: layout.selectedGroupId ?? null,
+    keyboardTargetPageId: layout.keyboardTargetPageId ?? null,
+    focusPresentationPageId: layout.focusPresentation?.pageId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
   }
@@ -203,7 +216,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       if (event.button !== 0 && event.button !== 1 && event.button !== 2) return
 
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return
 
       // aboveView's WCV starts at canvasOrigin.y; scene entities use
       // window-relative screenY, so add the offset before hit-testing.
@@ -250,6 +262,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
         altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
+        interactivePageId: layout.interactivePageId ?? null,
       }
 
       // Hand tool: primary-button drag pans globally regardless of hit
@@ -283,7 +296,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       if (isTypingTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return
       const windowY = event.clientY + layout.canvasOrigin.y
       const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
       const action = routePointerDoubleClick(target)
@@ -292,6 +304,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           return
         case 'request-entity-edit':
           apiRef.current.requestEntityEdit(action.entityId)
+          break
+        case 'enter-page-interactive':
+          apiRef.current.enterPageInteractive(action.entityId)
           break
         case 'enter-group':
           apiRef.current.enterGroup(action.groupId)
@@ -340,6 +355,9 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return false
     case 'page-body-press':
       return runPageBodyPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
+    case 'enter-page-interactive':
+      api.enterPageInteractive(action.entityId)
+      return true
     case 'forward-pointer-down':
       return runForwardPointer(action, api, event, layoutRef)
     case 'toggle-select':
@@ -944,6 +962,12 @@ function runBackgroundSelectionGesture(
     cleanup()
     api.setSelectionOverlayRect(null)
     const layout = layoutRef.current
+    // Clicking the dimmed canvas exits focus presentation (camera is otherwise
+    // locked; escape and the popup button are the other exits).
+    if (!dragged && focusContext(layout).active) {
+      api.restoreFocusCamera()
+      return
+    }
     const modifiers: SelectionModifiers = {
       shift: ev.shiftKey,
       meta: ev.metaKey,

@@ -8,6 +8,7 @@ export function DeviceViewportPopupControls({
   showDeviceFrame,
   orientation,
   noun,
+  disabled = false,
   onToggleDeviceFrame,
   onSetOrientation,
 }: {
@@ -15,6 +16,7 @@ export function DeviceViewportPopupControls({
   showDeviceFrame: boolean
   orientation: DeviceOrientation
   noun: string
+  disabled?: boolean
   onToggleDeviceFrame: () => void
   onSetOrientation: (orientation: DeviceOrientation) => void
 }) {
@@ -26,6 +28,7 @@ export function DeviceViewportPopupControls({
       <CanvasItemPopup.IconButton
         isDark={isDark}
         active={showDeviceFrame}
+        disabled={disabled}
         title="Device frame"
         ariaLabel={`Toggle device frame for ${noun}`}
         onClick={onToggleDeviceFrame}
@@ -34,6 +37,7 @@ export function DeviceViewportPopupControls({
       </CanvasItemPopup.IconButton>
       <CanvasItemPopup.IconButton
         isDark={isDark}
+        disabled={disabled}
         title="Rotate viewport"
         ariaLabel={`Rotate viewport for ${noun}`}
         onClick={() => onSetOrientation(nextOrientation)}

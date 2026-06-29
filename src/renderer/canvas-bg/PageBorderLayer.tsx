@@ -21,7 +21,6 @@ type BorderItem = {
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
   useSvgDeviceShell?: boolean
-  browserSizeMode?: string
   width: number
 }
 
@@ -50,7 +49,7 @@ export function PageBorderLayer({
         const fw = page.screenWidth
         const fh = page.screenHeight
 
-        const hasShell = page.showDeviceFrame && page.browserSizeMode !== 'fill'
+        const hasShell = page.showDeviceFrame
 
         // SVG device shell handles its own borders
         if (hasShell && page.useSvgDeviceShell) return null

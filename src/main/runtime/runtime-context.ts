@@ -57,6 +57,19 @@ export function setPendingFocus(value: FocusTarget | null): void {
   pendingFocus = value
 }
 
+// The page the user has *entered* for interaction (#124, select-first /
+// interact-second). Only this page forwards pointer input and owns keyboard;
+// a merely-selected page is null here. Ephemeral — never persisted/undoable.
+let interactivePageIdState: string | null = null
+
+export function interactivePageId(): string | null {
+  return interactivePageIdState
+}
+
+export function setInteractivePageId(pageId: string | null): void {
+  interactivePageIdState = pageId
+}
+
 export function setSelectionOverlayActive(value: boolean): void {
   selectionOverlayActive = value
 }
@@ -92,6 +105,14 @@ export function setHoveringCanvasChrome(value: boolean): void {
   hoveringCanvasChrome = value
 }
 
+// Wall-clock (Date.now) start of the in-flight animated camera move, or null
+// when idle. Broadcast in layout so renderer flip animations (popup morph) can
+// fast-forward into phase with the main-driven camera instead of starting late.
+export let cameraTransitionStartedAt: number | null = null
+
+export function setCameraTransitionStartedAt(value: number | null): void {
+  cameraTransitionStartedAt = value
+}
 
 // --- Inspect state ---
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { looksLikeUrl } from '../../src/shared/url'
+import { looksLikeUrl, resolveAddressInput } from '../../src/shared/url'
 
 describe('looksLikeUrl', () => {
   it('accepts urls with explicit http(s) scheme', () => {
@@ -38,5 +38,22 @@ describe('looksLikeUrl', () => {
   it('trims surrounding whitespace before evaluating', () => {
     expect(looksLikeUrl('   https://example.com   ')).toBe(true)
     expect(looksLikeUrl('   example.com   ')).toBe(true)
+  })
+})
+
+describe('resolveAddressInput', () => {
+  it('normalizes URL-like input', () => {
+    expect(resolveAddressInput('example.com/path')).toBe('https://example.com/path')
+    expect(resolveAddressInput('localhost:4321')).toBe('http://localhost:4321/')
+  })
+
+  it('turns raw text into a Google search', () => {
+    expect(resolveAddressInput('design systems')).toBe(
+      'https://www.google.com/search?q=design%20systems',
+    )
+    expect(resolveAddressInput('is this thing on?')).toBe(
+      'https://www.google.com/search?q=is%20this%20thing%20on%3F',
+    )
+    expect(resolveAddressInput('figma')).toBe('https://www.google.com/search?q=figma')
   })
 })

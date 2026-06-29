@@ -29,7 +29,7 @@ import {
 } from './view-refs'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './viewport-control'
+import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import {
   consumeLegacyOriginBindings,
   isDark,
@@ -155,7 +155,10 @@ export function initWindow(): void {
   const currentWin = win
   if (!currentWin) return
 
-  currentWin.on('resize', () => { markDirty('canvas'); requestLayout() })
+  currentWin.on('resize', () => {
+    markDirty('canvas')
+    if (!recenterFocusPresentation()) requestLayout()
+  })
   currentWin.on('move', () => { markDirty('canvas'); requestLayout() })
 
   currentWin.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
@@ -208,7 +211,7 @@ export function initWindow(): void {
     })
     currentBgView.webContents.send('component-tree-data', selectedComponentTreePayload())
     // The renderer subscribes to layout updates during mount, so send one more
-    // pass on the next tick to avoid dropping the initial browser-mode tabs.
+    // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')
     requestLayout()
   })

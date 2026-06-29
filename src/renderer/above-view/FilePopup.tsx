@@ -25,12 +25,11 @@ export function FilePopup({
   api: Pick<
     CanvasBgElectronAPI,
     | 'renameFileEntity'
-    | 'duplicateFileEntity'
-    | 'deleteFileEntity'
     | 'writeNoteFile'
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
     | 'morphTextFile'
+    | 'focusSelection'
     | 'distributeSelection'
   >
   isDark: boolean
@@ -106,12 +105,6 @@ export function FilePopup({
           isDark={isDark}
           noun={noun}
           count={count}
-          onDuplicate={() => {
-            for (const f of selectedFiles) api.duplicateFileEntity(f.id)
-          }}
-          onDelete={() => {
-            for (const f of selectedFiles) api.deleteFileEntity(f.id)
-          }}
           api={api}
         />
       </CanvasItemPopup.Frame>

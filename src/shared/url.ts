@@ -52,6 +52,13 @@ export function normalizeUserUrl(value: string): string {
   return new URL(withScheme).toString()
 }
 
+export function resolveAddressInput(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) throw new Error('Address cannot be empty')
+  if (looksLikeUrl(trimmed)) return normalizeUserUrl(trimmed)
+  return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}`
+}
+
 // A trimmed single-line string is treated as a URL when it either has an
 // explicit http(s) scheme or looks like a bare host (`host.tld[:port][/…]`,
 // `localhost[:port][/…]`). Other schemes (file:, mailto:, javascript:) are

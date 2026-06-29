@@ -83,7 +83,6 @@ export function TextToolPopup({
             return (
               <CanvasItemPopup.ColorSwatch
                 key={slot.id}
-                isDark={isDark}
                 active={activeSlot === slot.id}
                 color={swatch}
                 ariaLabel={`Set default ${style} text color to ${slot.label}`}

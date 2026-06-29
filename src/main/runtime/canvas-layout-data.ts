@@ -13,6 +13,7 @@ import type {
   Annotation,
   CanvasSceneEntity,
   CanvasScenePageEntity,
+  FocusPresentationData,
   CanvasSceneGroupEntity,
   ComponentTreeNode,
   LayoutUpdateData,
@@ -34,16 +35,18 @@ import {
   findPageById,
   hoverTarget,
   interactionState,
+  interactivePageId,
   pages,
   pan,
   selectedPage,
   selectedPageId,
   zoom,
+  cameraTransitionStartedAt,
 } from './runtime-context'
+import { focusSession } from './focus-session'
 import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
 import { getToolDefaults } from './tool-defaults'
 import {
-  activeBrowserPageId as uiActiveBrowserPageId,
   activeTool as uiActiveTool,
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
@@ -51,7 +54,6 @@ import {
   selectedCanvasTargets as uiSelectedCanvasTargets,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   LEFT_SIDEBAR_WIDTH,
@@ -67,7 +69,6 @@ import {
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
-  boundFillBrowserViewportSize as localFillBrowserViewportSize,
   boundScreenBoundsForPage as screenBoundsForPage,
 } from './runtime-geometry'
 import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
@@ -79,7 +80,6 @@ import {
 } from './text-entity-state'
 import {
   pageUsesCustomSize,
-  pageBrowserSizeModeFromMetadata,
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
@@ -110,15 +110,15 @@ import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
 // --- Exported data builders ---
 
 export function backgroundPageOverlays(): CanvasScenePageEntity[] {
-  const viewMode = uiWorkspaceViewMode()
-  const activeBrowserPageId = viewMode === 'browser' ? uiActiveBrowserPageId() : null
-  return pages.map((page) => {
+  const focusedPresentationPageId = focusSession()?.pageId ?? null
+  const visiblePages = focusedPresentationPageId
+    ? pages.filter((page) => page.id === focusedPresentationPageId)
+    : pages
+  return visiblePages.map((page) => {
     const { width, height } = effectivePageContentSize(page)
     const bounds = screenBoundsForPage(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
-    // In browser mode, only show the device shell for the active tab
     const showShell = showDeviceFrameFromMetadata(page.metadata)
-      && (viewMode === 'canvas' || page.id === activeBrowserPageId)
     return {
       kind: 'page' as const,
       id: page.id,
@@ -129,7 +129,6 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       canGoForward: page.pageView.webContents.canGoForward(),
       isLoading: page.pageView.webContents.isLoading(),
       isCustomSize: pageUsesCustomSize(page.metadata),
-      browserSizeMode: viewMode === 'canvas' ? 'device' : pageBrowserSizeModeFromMetadata(page.metadata),
       canvasX: page.canvasX,
       canvasY: page.canvasY,
       width,
@@ -150,22 +149,6 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       contentScreenWidth: bounds.page.width,
       contentScreenHeight: bounds.page.height,
       useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-    }
-  })
-}
-
-function buildLiveBrowserTabSummaries() {
-  return pages.map((page) => {
-    const { width, height } = pageContentSize(page)
-    return {
-      id: page.id,
-      label: pageDisplayLabel(page),
-      name: page.name?.trim() || undefined,
-      url: page.url,
-      presetIndex: page.presetIndex,
-      faviconUrl: page.faviconUrl ?? null,
-      width,
-      height,
     }
   })
 }
@@ -319,7 +302,7 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   const preset = (isText || isFile || isShape)
     ? null
     : viewportPresetForIndex(presetIndex ?? 0)
-  const customDims = sourcePage ? pageContentSize(sourcePage) : localFillBrowserViewportSize()
+  const customDims = sourcePage ? pageContentSize(sourcePage) : localAvailableCanvasViewport()
   const shapeDefault = isShape && shapeKind ? defaultShapeSize(shapeKind) : null
   return {
     entityKind,
@@ -353,9 +336,7 @@ export function buildCanvasLayoutData(
   pages: CanvasScenePageEntity[],
   activeSelection: ActiveCanvasEntitySelection | null,
 ): LayoutUpdateData {
-  const fillViewport = localFillBrowserViewportSize()
   const tool = uiActiveTool()
-  const viewMode = uiWorkspaceViewMode()
   const origin = localCanvasOrigin()
   const pendingPlacementData = buildPlacementPreview(tool)
   const groupEntities = buildUserGroupSceneEntities(origin)
@@ -408,6 +389,7 @@ export function buildCanvasLayoutData(
   })
   edges.sort((a, b) => (orderRank.get(a.id) ?? Infinity) - (orderRank.get(b.id) ?? Infinity))
   return {
+    windowWidth,
     zoom,
     pan,
     canvasOrigin: origin,
@@ -415,8 +397,6 @@ export function buildCanvasLayoutData(
     toolbarCenterX,
     entityOrder,
     entities,
-    browserTabs: buildLiveBrowserTabSummaries(),
-    browserFillViewport: fillViewport,
     selectedEntityIds: uiSelectedEntityIds(),
     selection: uiSelectedCanvasTargets(),
     activeSelection,
@@ -425,12 +405,6 @@ export function buildCanvasLayoutData(
     annotations: [...workspaceAnnotations],
     inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),
-    viewMode,
-    activeBrowserTabId:
-      viewMode === 'browser'
-        ? selectedPageId()
-        : null,
-    activeBrowserPageId: uiActiveBrowserPageId(),
     selectedGroupId: uiSelectedGroupId(),
     hover: hoverTarget,
     interaction: interactionState,
@@ -439,15 +413,7 @@ export function buildCanvasLayoutData(
     devtoolsWidth: uiDevtoolsWidth(),
     edges,
     groups: groupEntities,
-    presenceCursors: getPresenceCursors()
-    .filter((c) => {
-      // In browser mode, hide cursors that explicitly target a different page.
-      if (viewMode !== 'browser') return true
-      const activePageId = uiActiveBrowserPageId()
-      if (c.surface === 'page' && c.pageId && c.pageId !== activePageId) return false
-      return true
-    })
-    .map((c): AgentPresenceCursor => ({
+    presenceCursors: getPresenceCursors().map((c): AgentPresenceCursor => ({
       ...(function resolvePresencePosition() {
         if (c.surface === 'page' && c.pageId) {
           const page = pages.find((candidate) => candidate.id === c.pageId)
@@ -468,20 +434,6 @@ export function buildCanvasLayoutData(
               ? projectFramePointToCanvas(pageWcv, { x: clampedX, y: clampedY })
               : { x: page.canvasX + clampedX, y: page.canvasY + clampedY }
             return { canvasX: proj.x, canvasY: proj.y }
-          }
-        }
-        // In browser mode, place canvas-surface cursors on the active page
-        // so they remain visible instead of mapping to off-screen canvas coords.
-        if (viewMode === 'browser') {
-          const activePageId = uiActiveBrowserPageId()
-          const page = activePageId
-            ? pages.find((candidate) => candidate.id === activePageId)
-            : null
-          if (page) {
-            return {
-              canvasX: page.canvasX + page.width / 2,
-              canvasY: page.canvasY + page.height / 2,
-            }
           }
         }
         return { canvasX: c.canvasX, canvasY: c.canvasY }
@@ -505,7 +457,33 @@ export function buildCanvasLayoutData(
       updatedAt: c.updatedAt,
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
+    interactivePageId: interactivePageId(),
+    focusPresentation: buildFocusPresentationData(pages),
+    cameraTransitionStartedAt,
   } as LayoutUpdateData
+}
+
+function buildFocusPresentationData(
+  scenePages: CanvasScenePageEntity[],
+): FocusPresentationData | null {
+  const focus = focusSession()
+  if (!focus) return null
+  const page = findPageById(focus.pageId)
+  const scenePage = scenePages.find((candidate) => candidate.id === focus.pageId)
+  if (!page || !scenePage) return null
+  const authored = pageContentSize(page)
+  const preset = viewportPresetForIndex(page.presetIndex)
+  const authoredLabel = pageUsesCustomSize(page.metadata) ? 'Custom' : preset.label
+  return {
+    pageId: page.id,
+    mode: focus.mode,
+    authoredLabel,
+    authoredWidth: authored.width,
+    authoredHeight: authored.height,
+    effectiveWidth: scenePage.width,
+    effectiveHeight: scenePage.height,
+    annotationsVisible: focus.annotationsVisible,
+  }
 }
 
 export function getCanvasLayoutData(): LayoutUpdateData {
@@ -541,7 +519,6 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       loadingPhase: 'idle',
       activeTabId: activeWorkspaceTabId,
       activeTabName,
-      viewMode: uiWorkspaceViewMode(),
       activeTool: uiActiveTool(),
       drawBrushType: getToolDefaults().draw.brushType,
       drawColor: getToolDefaults().draw.color,
@@ -549,7 +526,12 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     }
   }
 
-  const distinctUrls = [...new Set(targets.map((page) => page.pageView.webContents.getURL()))]
+  const distinctUrls = [
+    ...new Set(targets.map((page) => {
+      const url = page.pageView.webContents.getURL()
+      return url === 'about:blank' ? '' : url
+    })),
+  ]
   const selectionCount = targets.length
   const loadingPageCount = targets.filter((page) => page.pageView.webContents.isLoadingMainFrame()).length
   const isLoadingAnySelected = loadingPageCount > 0
@@ -579,7 +561,6 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     loadingPhase,
     activeTabId: activeWorkspaceTabId,
     activeTabName,
-    viewMode: uiWorkspaceViewMode(),
     activeTool: uiActiveTool(),
     drawBrushType: getToolDefaults().draw.brushType,
     drawColor: getToolDefaults().draw.color,

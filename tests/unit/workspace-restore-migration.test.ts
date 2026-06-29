@@ -16,7 +16,6 @@ function snapshot(input: Partial<WorkspaceSnapshot>): WorkspaceSnapshot {
     devtoolsOpen: false,
     devtoolsPanelTab: 'elements',
     devtoolsWidth: 400,
-    browserTabMode: 'canvas',
     groups: [],
     edges: [],
     ...input,

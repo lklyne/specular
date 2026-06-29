@@ -129,6 +129,7 @@ Build toward small, obvious pieces.
 - Reuse shared primitives only when behavior is truly shared.
 - If the cleanest solution wants a different shape, propose that change.
 - Preserve existing UX unless a cleaner design is intentionally chosen.
+- Comment the timeless "why" only when the code is non-obvious. Don't narrate the change — a comment that says what the code "now" does, "no longer" does, "used to" do, or "moved away from" is describing the diff, not the code. Write it as if the prior version never existed; the git history already holds that. (Backward-compat notes explaining why a dead-looking branch must stay are "why", and are fine.)
 
 When refactoring, optimize for clarity, smaller files, and stronger boundaries.
 

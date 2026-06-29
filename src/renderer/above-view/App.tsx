@@ -27,18 +27,21 @@ import {
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
+import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
+import { focusContext } from '../../shared/focus-context'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
 import { SelectionOutlineLayer, type SelectedEntitySpan } from './SelectionOutlineLayer'
 import { ShapeBodyLayer } from './ShapeBodyLayer'
 import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
+import { CommentBadgesLayer } from './CommentBadgesLayer'
 import {
   AnnotationThreadPopover,
   PendingAnnotationComposer,
@@ -61,10 +64,8 @@ import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
-import { PageChromeOverlay } from './PageChrome'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
-import { FileChromeOverlay } from './FileChrome'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import { DrawingPopup } from './DrawingPopup'
 import { DrawToolPopup } from './DrawToolPopup'
@@ -203,6 +204,7 @@ function StackedCanvasItems({
   selectedEntityIdSet,
   editingEntityId,
   ghostEntity,
+  hideContext,
 }: {
   layoutData: LayoutUpdateData
   fileJsonModeMap: FileJsonModeMap
@@ -211,19 +213,21 @@ function StackedCanvasItems({
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
   editingEntityId: string | null
+  /** Focus is at rest with the eye off — skip all non-page context (annotation
+   *  entities, edges, file entities) entirely (binary, never dimmed). ADR 0021. */
+  hideContext: boolean
   /** Reorder ghost (ADR 0015 D7, Phase D): the dragged entity, already
    *  positioned at grab-origin + cursor-delta. Its in-row slot paints as a
    *  grayscale placeholder (the drop location); the ghost itself renders last at
    *  50% opacity, floating over the settling siblings under the cursor. */
   ghostEntity?: CanvasSceneEntity | null
 }) {
-  if (layoutData.viewMode !== 'canvas') return null
-
   const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
 
   function renderEdge(edge: WorkspaceEdge) {
-    return (
+    if (hideContext) return null
+    const layer = (
       <EdgeLayer
         key={`edge-${edge.id}`}
         edges={[edge]}
@@ -240,13 +244,14 @@ function StackedCanvasItems({
         zIndex={undefined}
       />
     )
+    return layer
   }
 
-  // One entity's body via its per-kind layer. Shared by the in-row stack and the
-  // reorder ghost so the ghost is the *same item*, not a stand-in box. Pages and
-  // groups have no React body here (page bodies are native WebContentsViews), so
-  // a page ghost has no fill — an inherent limit of renderer-only Phase D.
   function renderEntityBody(entity: CanvasSceneEntity) {
+    // Eye off: hide every non-page item — annotations *and* files/images. The
+    // focused page is a webview, not rendered here, so it's never affected
+    // (focus is always page-targeted). ADR 0021.
+    if (hideContext) return null
     if (entity.kind === 'drawing') {
       return (
         <SavedDrawingEntities
@@ -596,26 +601,41 @@ export default function App({
   // popover positioners below.
   const liveBboxSubscriptions = useMemo(() => {
     const subs: Array<{ pageId: string; annotationId: string; selector: string }> = []
+    const seen = new Set<string>()
+    const pushSub = (sub: { pageId: string; annotationId: string; selector: string }) => {
+      const key = `${sub.pageId}:${sub.annotationId}:${sub.selector}`
+      if (seen.has(key)) return
+      seen.add(key)
+      subs.push(sub)
+    }
     if (
       pendingAnnotation &&
       pendingAnnotation.request.anchor.type === 'element'
     ) {
       const anchor = pendingAnnotation.request.anchor
-      subs.push({
+      pushSub({
         pageId: anchor.pageId,
         annotationId: pendingAnnotation.draftId,
         selector: anchor.selector,
       })
     }
     if (openThread && openThread.anchor.type === 'element') {
-      subs.push({
+      pushSub({
         pageId: openThread.anchor.pageId,
         annotationId: openThread.id,
         selector: openThread.anchor.selector,
       })
     }
+    for (const annotation of layoutData.annotations) {
+      if (!isUnresolved(annotation.status) || annotation.anchor.type !== 'element') continue
+      pushSub({
+        pageId: annotation.anchor.pageId,
+        annotationId: annotation.id,
+        selector: annotation.anchor.selector,
+      })
+    }
     return subs
-  }, [openThread, pendingAnnotation])
+  }, [layoutData.annotations, openThread, pendingAnnotation])
 
   const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
 
@@ -636,6 +656,12 @@ export default function App({
     return ids
   }, [layoutData.selection])
   const hoveredEntityId = layoutData.hover?.id ?? null
+  const focus = focusContext(layoutData)
+  const focusPresentationActive = focus.active
+  // Surrounding context (annotations, other pages, groups) is hidden while a
+  // focus session rests with the eye off; a working tool or the focus-bar eye
+  // latches it on (ADR 0021). Binary show/hide, never a dim.
+  const hideContext = focus.active && !focus.showsContext
   const overlayInteractive = Boolean(
     pendingAnnotation ||
       pendingRegionRect ||
@@ -736,7 +762,7 @@ export default function App({
       const rect = normalizeRect(startX, startY, endX, endY)
       // Annotation overlay sits at canvasOrigin.y, but the interaction overlay
       // (where the selection box renders) sits at TOOLBAR_HEIGHT. Offset the
-      // rect so it aligns with the mouse in both canvas and browser modes.
+      // rect so it aligns with the mouse.
       api.setSelectionOverlayRect({
         rect: {
           ...rect,
@@ -825,7 +851,8 @@ export default function App({
           clientY: event.clientY + layoutRef.current.canvasOrigin.y,
         })
       }
-      if (hoverForwardingEnabled) {
+      // During placement the placeholder owns the cursor; page hover would flicker.
+      if (hoverForwardingEnabled && !pendingPlacement) {
         const nextId = hitTestHoverTarget(event.clientX, event.clientY)
         if (nextId !== lastHoverIdRef.current) {
           lastHoverIdRef.current = nextId
@@ -883,7 +910,6 @@ export default function App({
       if (isOverlayUiTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return
       if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
 
       event.preventDefault()
@@ -1058,23 +1084,29 @@ export default function App({
   const routeWheel = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return false
       if (layout.interaction.kind !== 'idle') return false
+      // In focus presentation the page isn't single-selected, but the wheel
+      // should still scroll it instead of panning (which would exit focus).
+      const focusedPageId = focusContext(layout).pageId
       const selected = layout.selectedEntityIds
-      if (selected.length !== 1) return false
-      const pageId = selected[0]
+      const pageId = focusedPageId ?? (selected.length === 1 ? selected[0] : null)
+      if (!pageId) return false
       const page = layout.entities.find(
         (entity): entity is CanvasSceneEntity & { kind: 'page' } =>
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return false
       const windowY = event.clientY + layout.canvasOrigin.y
-      const x0 = page.contentScreenX ?? page.screenX
-      const y0 = page.contentScreenY ?? page.screenY
-      const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-      const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
-      if (event.clientX < x0 || event.clientX > x1) return false
-      if (windowY < y0 || windowY > y1) return false
+      // In focus presentation the camera is locked on the page, so any wheel
+      // scrolls it — skip the cursor-over-body check used for selected pages.
+      if (!focusedPageId) {
+        const x0 = page.contentScreenX ?? page.screenX
+        const y0 = page.contentScreenY ?? page.screenY
+        const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
+        const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
+        if (event.clientX < x0 || event.clientX > x1) return false
+        if (windowY < y0 || windowY > y1) return false
+      }
       api.forwardWheelToPage(pageId, {
         windowX: event.clientX,
         windowY,
@@ -1101,7 +1133,6 @@ export default function App({
   const yieldWheelToEntityScroll = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return false
       const kind = layout.interaction.kind
       if (kind !== 'idle' && kind !== 'editing-entity') return false
       const editingId =
@@ -1156,7 +1187,6 @@ export default function App({
     const onMove = (event: PointerEvent) => {
       if (event.buttons !== 0) return
       const layout = layoutRef.current
-      if (layout.viewMode !== 'canvas') return resetCursor()
       const selected = layout.selectedEntityIds
       if (selected.length !== 1) return resetCursor()
       const pageId = selected[0]
@@ -1373,7 +1403,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
           <MarqueeLayer overlay={selectionOverlay} />
 
-          {layoutData.viewMode === 'canvas' && layoutData.presenceCursors.length > 0 ? (
+          {layoutData.presenceCursors.length > 0 ? (
             <ActivePageHighlightLayer
               cursors={layoutData.presenceCursors}
               pages={layoutData.entities.filter(
@@ -1392,6 +1422,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIdSet={selectedEntityIdSet}
             editingEntityId={editingEntityId}
             ghostEntity={reorderGhostEntity}
+            hideContext={hideContext}
           />
 
           {/* Live drawing preview renders after StackedCanvasItems so the
@@ -1406,22 +1437,21 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
-          {layoutData.viewMode === 'canvas' ? (
-            <EdgeLayer
-              edges={[]}
-              entities={layoutData.entities}
-              hoveredEntityId={hoveredEntityId}
-              isDark={isDark}
-              interaction={layoutData.interaction}
-              selectedEdgeIds={selectedEdgeIds}
-              selectedEntityIds={layoutData.selectedEntityIds}
-              zoom={layoutData.zoom}
-              originY={layoutData.canvasOrigin.y}
-              onSelectEdge={api.selectEdge}
-            />
-          ) : null}
+          <EdgeLayer
+            edges={[]}
+            entities={layoutData.entities}
+            hoveredEntityId={hoveredEntityId}
+            isDark={isDark}
+            interaction={layoutData.interaction}
+            selectedEdgeIds={selectedEdgeIds}
+            selectedEntityIds={focusPresentationActive ? [] : layoutData.selectedEntityIds}
+            zoom={layoutData.zoom}
+            originY={layoutData.canvasOrigin.y}
+            onSelectEdge={api.selectEdge}
+            renderAnchors={!focusPresentationActive}
+          />
 
-          {layoutData.viewMode === 'canvas' && (layoutData.groups?.length ?? 0) > 0 ? (
+          {(layoutData.groups?.length ?? 0) > 0 && !hideContext ? (
             <GroupBoundsLayer
               groups={layoutData.groups ?? []}
               isDark={isDark}
@@ -1431,7 +1461,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
-          {layoutData.viewMode === 'canvas' ? (
+          {!focusPresentationActive ? (
             <PageFocusRingLayer
               pages={layoutData.entities.filter(
                 (e): e is CanvasScenePageEntity => e.kind === 'page',
@@ -1444,38 +1474,24 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
-          {layoutData.viewMode === 'canvas' ? (
-            <SelectionOutlineLayer
-              layoutData={renderLayout}
-              isDark={isDark}
-              marqueePreviewIds={marqueePreviewIds}
-              reorderGhostId={reorderGhostEntity?.id ?? null}
-              reorderGhostSpan={reorderGhostSpan}
-            />
-          ) : null}
+          {/* Render during a focus session too — only the focused page's own box
+              is suppressed (clean read); other items keep selection/hover
+              outlines so eye-revealed annotations stay interactive (ADR 0021). */}
+          <SelectionOutlineLayer
+            layoutData={renderLayout}
+            isDark={isDark}
+            marqueePreviewIds={marqueePreviewIds}
+            reorderGhostId={reorderGhostEntity?.id ?? null}
+            reorderGhostSpan={reorderGhostSpan}
+            suppressPageId={focus.pageId}
+          />
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
-          {layoutData.viewMode === 'canvas' ? (
-            <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
-          ) : null}
+          <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
 
-          <PageChromeOverlay
-            api={api}
-            layoutData={layoutData}
-            isDark={isDark}
-            optionHeldRef={optionHeldRef}
-            setDragCopyPreview={setDragCopyPreview}
-          />
-          <FileChromeOverlay
-            api={api}
-            layoutData={layoutData}
-            isDark={isDark}
-            optionHeldRef={optionHeldRef}
-            setDragCopyPreview={setDragCopyPreview}
-          />
           <GroupRenameOverlay
             api={api}
             layoutData={layoutData}
@@ -1485,84 +1501,94 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             setDragCopyPreview={setDragCopyPreview}
           />
 
-          {layoutData.viewMode === 'canvas' ? (
-            <>
-              {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
-              {layoutData.activeTool.kind === 'add-text' ? (
-                <TextToolPopup
-                  api={api}
-                  isDark={isDark}
-                  layout={layoutData}
-                  style="plain"
-                />
-              ) : null}
-              {layoutData.activeTool.kind === 'add-sticky' ? (
-                <TextToolPopup
-                  api={api}
-                  isDark={isDark}
-                  layout={layoutData}
-                  style="sticky"
-                />
-              ) : null}
-              {layoutData.activeTool.kind === 'add-shape' ? (
-                <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
-              ) : null}
-              {layoutData.activeTool.kind === 'draw' ? (
-                <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
-              ) : null}
+          {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
+          {layoutData.activeTool.kind === 'add-text' ? (
+            <TextToolPopup
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              style="plain"
+            />
+          ) : null}
+          {layoutData.activeTool.kind === 'add-sticky' ? (
+            <TextToolPopup
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              style="sticky"
+            />
+          ) : null}
+          {layoutData.activeTool.kind === 'add-shape' ? (
+            <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
+          ) : null}
+          {layoutData.activeTool.kind === 'draw' ? (
+            <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
+          ) : null}
 
-              {/* Selection-mode popups — suppressed while any tool with its own
-                  popup is active (ADR 0008 §2). */}
-              {!toolHasPopup(layoutData.activeTool) ? (
-                <>
-                  <StickyNotePopover
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedTextEntities={selectedTextEntities}
-                    popupReady={textPopupReady}
-                  />
-                  <GroupPopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedGroup={selectedGroupEntity}
-                    interactionIdle={interactionIdle}
-                  />
-                  <ShapePopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedShapes={selectedShapeEntities}
-                    interactionIdle={interactionIdle}
-                  />
-                  <DrawingPopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedDrawings={selectedDrawingEntities}
-                    interactionIdle={interactionIdle}
-                  />
-                  <PagePopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedPages={selectedPageEntities}
-                    interactionIdle={interactionIdle}
-                  />
-                  <FilePopup
-                    api={api}
-                    isDark={isDark}
-                    layout={layoutData}
-                    selectedFiles={selectedFileEntities}
-                    interactionIdle={interactionIdle}
-                    fileJsonModeMap={fileJsonModeMap}
-                    setFileJsonMode={setFileJsonMode}
-                  />
-                </>
-              ) : null}
+          {/* Selection-mode popups — suppressed while any tool with its own
+              popup is active (ADR 0008 §2). */}
+          {!toolHasPopup(layoutData.activeTool) ? (
+            <>
+              <StickyNotePopover
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedTextEntities={selectedTextEntities}
+                popupReady={textPopupReady}
+              />
+              <GroupPopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedGroup={selectedGroupEntity}
+                interactionIdle={interactionIdle}
+              />
+              <ShapePopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedShapes={selectedShapeEntities}
+                interactionIdle={interactionIdle}
+              />
+              <DrawingPopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedDrawings={selectedDrawingEntities}
+                interactionIdle={interactionIdle}
+              />
+              <FilePopup
+                api={api}
+                isDark={isDark}
+                layout={layoutData}
+                selectedFiles={selectedFileEntities}
+                interactionIdle={interactionIdle}
+                fileJsonModeMap={fileJsonModeMap}
+                setFileJsonMode={setFileJsonMode}
+              />
             </>
           ) : null}
+
+          {/* PagePopup doubles as the focus bar (pinned viewport-top during a
+              focus session). Exempt it from the tool-popup mutex while focused
+              so the focus controls stay visible — ViewportAnchor drops the tool
+              popup below it so the two stack. */}
+          {!toolHasPopup(layoutData.activeTool) || focusPresentationActive ? (
+            <PagePopup
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              selectedPages={selectedPageEntities}
+              interactionIdle={interactionIdle}
+            />
+          ) : null}
+
+          <CommentBadgesLayer
+            annotations={layoutData.annotations}
+            layoutData={layoutData}
+            liveBboxes={liveBboxes}
+            onOpenThread={openThreadById}
+          />
         </>
       ) : null}
     </div>

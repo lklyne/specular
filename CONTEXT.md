@@ -107,6 +107,7 @@ Modifiers and visual feedback that ride on top of entity drag (and resize) gestu
 
 ## Input authority
 
+- **Page interactive (entered)** — runtime state `interactivePageId: string | null` in main (`runtime-context.ts`). Names the page the user has *entered*; only it forwards pointer input, owns keyboard, and has its content blocker lifted. A merely-**selected** page is not interactive — keyboard stays on aboveView so canvas shortcuts act on the frame. Enter via a second click on the selected page, a double-click on its body, or **entering a focus session** on the page (focus is the second click); exit (back to selected) via Escape / click-away / selecting elsewhere / leaving focus. This **select-first / interact-second** model supersedes the earlier "single-selected = interactive" behavior. Delete is guarded against the interactive page — `deleteSelection` drops it from the page targets (Delete fires even from page focus), so the frame is only removed once the page is back to selected-only. Broadcast as `LayoutUpdateData.interactivePageId`. See [ADR 0022](./docs/adr/0022-pages-select-first-interact-second.md).
 - **Page focus** — runtime state `{ id, since } | null` in main. When set, the focused page receives native pointer input; aboveView's gate is closed. When null, aboveView is the sole input authority. See [ADR 0001](./docs/adr/0001-click-to-enter-frame-focus.md). (ADR 0001 was authored under the old "frame" name; the runtime variable is currently `frameFocus` and renames to `pageFocus` in the migration.)
 - **Gate** (a.k.a. **input gate**) — `aboveView.setVisible(...)` predicate. Open in canvas mode iff `pageFocus === null`. The single arbiter of who receives canvas-region pointer events.
 - **Pointer router** — `src/renderer/above-view/useCanvasPointerRouter.ts`. Single window-level capture-phase pointerdown listener that runs the shared `hitTest` and dispatches a typed `CanvasPointerAction`. Yields to any element inside `[data-overlay-ui]`.
@@ -165,7 +166,7 @@ Replaces three previously-parallel state machines: `pendingPlacement`, `Annotati
 
 ADR 0005 unified tool *identity*; the remaining per-tool axes (enablement, target state, palette placement, cursor label, popup, bindings) are still scattered across surfaces. Proposed end-state: model tools as a capability registry mirroring the entity-renderer plugin pattern — see [ADR 0016](./docs/adr/0016-tools-as-capability-registry.md) (proposed; not yet adopted).
 
-**Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
+**Not a tool:** **Focus selection**. Focus answers "where should the camera look right now?", not "what does my next click do?" It is an ephemeral camera command, not a persisted mode or document state.
 
 ## Annotations
 

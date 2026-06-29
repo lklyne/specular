@@ -16,6 +16,7 @@ import {
   deleteTextEntities,
   loadCanvasFixture,
   getTextEntities,
+  getSelection,
   resetSmokeState,
 } from './app-client'
 import {
@@ -37,7 +38,7 @@ async function resetWorkspaceFixture(): Promise<void> {
     doc: {
       nodes: [],
       edges: [],
-      appState: { zoom: 1, pan: { x: 0, y: 0 }, browserTabMode: 'canvas' },
+      appState: { zoom: 1, pan: { x: 0, y: 0 } },
     },
   })
 }
@@ -130,7 +131,7 @@ describe('persistence', () => {
       ],
       edges: [],
       specular: { entityOrder: ['a', 'x', 'group', 'b', 'y'] },
-      appState: { zoom: 1, pan: { x: 0, y: 0 }, browserTabMode: 'canvas' },
+      appState: { zoom: 1, pan: { x: 0, y: 0 } },
     }
 
     const loaded = await loadCanvasFixture({ name: 'Stack Migration', doc })
@@ -139,5 +140,35 @@ describe('persistence', () => {
     const after = await waitForAutosave()
     const order = (after.doc?.specular as { entityOrder?: string[] } | undefined)?.entityOrder
     expect(order).toEqual(['x', 'a', 'b', 'group', 'y'])
+  })
+
+  it('opens legacy Browser-mode appState as canvas with the saved page selected', async () => {
+    await loadCanvasFixture({
+      name: 'Legacy Browser Selection',
+      doc: {
+        nodes: [
+          {
+            id: 'legacy-page',
+            type: 'link',
+            x: 120,
+            y: 80,
+            width: 800,
+            height: 600,
+            url: 'data:text/html,legacy',
+          },
+        ],
+        edges: [],
+        appState: {
+          zoom: 1,
+          pan: { x: 0, y: 0 },
+          selectedEntityIds: ['legacy-page'],
+          browserTabMode: 'page',
+        },
+      },
+    })
+
+    const selection = await getSelection()
+    expect(selection.selectedEntityId).toBe('legacy-page')
+    expect(selection.selectedEntityIds).toEqual(['legacy-page'])
   })
 })

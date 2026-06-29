@@ -11,8 +11,6 @@ import {
   setDevtoolsWidth as setUiDevtoolsWidth,
   setLeftSidebarOpen as setUiLeftSidebarOpen,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
-  setBrowserMode as setUiBrowserMode,
-  setCanvasMode as setUiCanvasMode,
   selectedEntityId as uiSelectedEntityId,
   selectedGroupId as uiSelectedGroupId,
   createDefaultUiState,
@@ -91,7 +89,6 @@ import {
 import {
   deselectAll,
   selectPage,
-  setBrowserMode,
   setSelectedPages,
 } from './selection-state'
 import {
@@ -313,14 +310,12 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
       commitSelectGroup(snapshot.selectedGroupId)
     }
 
-    // Restore browser mode — legacy snapshots may have browserTabMode 'responsive' or 'page',
-    // both now just mean "browser mode targeting a page"
+    // Legacy browser-mode snapshots targeted a page. Browser mode no longer
+    // exists, so keep the page selected and remain in the canvas view.
     if (snapshot.browserTabMode === 'page' || snapshot.browserTabMode === 'responsive') {
       const pageId = snapshot.selectedPageId ?? uiSelectedEntityId()
       if (pageId) {
-        setUiBrowserMode({ pageId })
-      } else {
-        setUiCanvasMode()
+        selectPageById(pageId)
       }
     }
 
@@ -372,15 +367,11 @@ export function restorePersistedWorkspace(
   )
   const activeTab = workspaceTabs.find((tab) => tab.id === activeWorkspaceTabId)
   if (!activeTab) return false
+  applyTabState(activeTab)
   if (record.viewMode === 'browser') {
     const pageId = activeTab.snapshot.selectedPageId ?? activeTab.snapshot.selectedPageIds?.[0]
-    if (pageId) {
-      setUiBrowserMode({ pageId })
-    }
-  } else {
-    setUiCanvasMode()
+    if (pageId) selectPageById(pageId)
   }
-  applyTabState(activeTab)
   // Startup path: UndoManager not yet created, so this initial hydration
   // won't generate an undo step. initializeDocObservers() handles the
   // initial sync, and clearUndoHistory() is called after to wipe any

@@ -6,12 +6,13 @@ import type {
   LayoutUpdateData,
   ThemeData,
 } from '../../shared/types'
+import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
-import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
+import { GroupBackgroundLayer } from './GroupBackgroundLayer'
 import { PageBorderLayer } from './PageBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
@@ -48,11 +49,20 @@ export default function App({
     () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
-  const borderPages = useMemo(
-    () => layoutData.viewMode === 'browser'
-      ? pageEntities.filter((f) => f.id === layoutData.activeBrowserTabId)
-      : pageEntities,
-    [pageEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
+  const focus = focusContext(layoutData)
+  // 'fill' focus is the browser-like mode: edge-to-edge, no border, no bezel.
+  const fillPageId = focus.mode === 'fill' ? focus.pageId : null
+  // Eye off during focus: only the focused page's chrome survives; all other
+  // context (other pages, file frames, groups) is hidden, never dimmed (ADR 0021).
+  const hideContext = focus.active && !focus.showsContext
+  const chromePages = useMemo(() => {
+    if (fillPageId) return pageEntities.filter((p) => p.id !== fillPageId)
+    if (hideContext) return pageEntities.filter((p) => p.id === focus.pageId)
+    return pageEntities
+  }, [pageEntities, fillPageId, hideContext, focus.pageId])
+  const chromeFiles = useMemo(
+    () => (hideContext ? [] : fileEntities),
+    [fileEntities, hideContext],
   )
   return (
     <div
@@ -74,31 +84,22 @@ export default function App({
         pan={layoutData.pan}
         zoom={layoutData.zoom}
       />
-      {layoutData.viewMode === 'browser' ? (
-        <BrowserTabBar
-          activeBrowserTabId={layoutData.activeBrowserTabId}
-          leftInset={layoutData.leftChromeWidth}
-          browserTabs={layoutData.browserTabs}
-          isDark={isDark}
-          onAddBrowserPage={api.addBrowserPage}
-          onDeletePage={api.deletePage}
-          onRenamePage={api.renamePage}
-          onSelectBrowserTab={api.selectBrowserTab}
-        />
-      ) : null}
-
+      <GroupBackgroundLayer
+        groups={hideContext ? [] : (layoutData.groups ?? [])}
+        isDark={isDark}
+      />
       <div className="pointer-events-none absolute inset-0">
         <PageBorderLayer
-          pages={borderPages}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
+          pages={chromePages}
+          fileEntities={chromeFiles}
         />
         <DeviceShellLayer
-          pages={borderPages.filter((f) => !f.useSvgDeviceShell)}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
+          pages={chromePages.filter((f) => !f.useSvgDeviceShell)}
+          fileEntities={chromeFiles}
           isDark={isDark}
         />
         <SvgDeviceShellLayer
-          pages={borderPages.filter((f) => f.useSvgDeviceShell)}
+          pages={chromePages.filter((f) => f.useSvgDeviceShell)}
           isDark={isDark}
         />
       </div>

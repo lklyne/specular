@@ -9,6 +9,7 @@ import {
   deleteTextEntity,
 } from './document-commands'
 import { requestLayout } from './viewport-control'
+import { interactivePageId } from './runtime-context'
 
 export function deleteSelection(): void {
   const targets = uiSelectedCanvasTargets()
@@ -22,12 +23,18 @@ export function deleteSelection(): void {
   const shapeIds: string[] = []
   const groupIds: string[] = []
 
+  // Guard (#124): an entered/focused page owns its web content. Delete fires
+  // even from page focus (firesFromPageFocus), so drop the interactive page —
+  // the user must exit to selected-only before Delete removes the frame.
+  const enteredPageId = interactivePageId()
+
   for (const target of targets) {
     switch (target.kind) {
       case 'edge':
         edgeIds.push(target.id)
         break
       case 'page':
+        if (target.id === enteredPageId) break
         pageIds.push(target.id)
         break
       case 'text':

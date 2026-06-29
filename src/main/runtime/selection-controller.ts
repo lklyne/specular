@@ -6,17 +6,17 @@ import {
   isCommentOverlayVisible,
   selectedEntityIds as uiSelectedEntityIds,
   selectedGroupId as uiSelectedGroupId,
-  setCanvasMode as setUiCanvasMode,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
   setSelection as setUiSelection,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   findPageById,
   hoverTarget,
   interactionState,
+  interactivePageId,
   pages,
   setHoverTarget,
+  setInteractivePageId,
 } from './runtime-context'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
@@ -79,6 +79,7 @@ export function currentKeyboardTargetPageId(): string | null {
     interactionKind: canvasInteractionModeKind(interactionState),
     activeTool: ui.activeTool,
     commentOverlayActive: isCommentOverlayVisible(ui),
+    interactivePageId: interactivePageId(),
   })
 }
 
@@ -109,7 +110,7 @@ export function resolveEntityKind(entityId: string): CanvasEntityKind {
   return 'page'
 }
 
-function browserSelectionAllowed(nextSelection: SelectionCommand): boolean {
+function browserDevtoolsSelectionAllowed(nextSelection: SelectionCommand): boolean {
   return nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'page'
 }
 
@@ -152,16 +153,11 @@ function commitSelection(
   nextSelection: SelectionCommand,
   options?: CommitOptions,
 ): boolean {
-  const currentUi = getUiState()
   const shouldClearHover = options?.clearHover ?? nextSelection.kind === 'none'
   const shouldClearInteraction = options?.clearInteraction ?? false
   const shouldClearInspect = options?.clearInspect ?? false
   const shouldSyncInspection = options?.syncInspection ?? true
   const shouldNotifyDevtools = options?.notifyDevtools ?? true
-
-  if (uiWorkspaceViewMode(currentUi) === 'browser' && !browserSelectionAllowed(nextSelection)) {
-    setUiCanvasMode()
-  }
 
   if (selectionEquals(getUiState().selection, nextSelection)) {
     if (shouldClearHover && hoverTarget) {
@@ -179,7 +175,22 @@ function commitSelection(
   setUiSelection(nextSelection)
   breadcrumb('selection', nextSelection.kind, describeSelection(nextSelection))
 
-  if (!browserSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
+  // Select-first / interact-second (#124): moving the selection off the entered
+  // page drops it back to selected-only — blocker back on, keyboard back to the
+  // canvas. Re-selecting the same page (selectionEquals above) keeps it entered.
+  const enteredId = interactivePageId()
+  if (
+    enteredId !== null &&
+    !(
+      nextSelection.kind === 'single-entity' &&
+      nextSelection.entityKind === 'page' &&
+      nextSelection.entityId === enteredId
+    )
+  ) {
+    setInteractivePageId(null)
+  }
+
+  if (!browserDevtoolsSelectionAllowed(nextSelection) && uiDevtoolsPanelTab() === 'browser-devtools') {
     setUiDevtoolsPanelTab('comments')
     savePreferences()
   }

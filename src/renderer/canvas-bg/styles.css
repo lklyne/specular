@@ -2,15 +2,6 @@
 @import "../shared/surfaceTheme.css";
 @variant dark (&:where(.dark, .dark *));
 
-.browser-tab-strip-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.browser-tab-strip-scroll::-webkit-scrollbar {
-  display: none;
-}
-
 .chrome-squircle-8 {
   border-radius: 0;
   -electron-corner-smoothing: system-ui;
@@ -26,3 +17,7 @@
   -electron-corner-smoothing: system-ui;
 }
 
+/* Device shell corners: squircle smoothing on inline border-radius. */
+.device-squircle {
+  -electron-corner-smoothing: system-ui;
+}

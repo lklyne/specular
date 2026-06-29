@@ -145,8 +145,8 @@ const entries: DeviceDef[] = [
     mobile: false,
     presetIndex: 6,
     shellInsets: { top: 12, right: 12, bottom: 12, left: 12 },
-    cornerRadius: 10,
-    screenCornerRadius: 6,
+    cornerRadius: 20,
+    screenCornerRadius: 8,
     safeAreaInsets: null,
   },
   {
@@ -157,8 +157,8 @@ const entries: DeviceDef[] = [
     mobile: false,
     presetIndex: 7,
     shellInsets: { top: 12, right: 12, bottom: 12, left: 12 },
-    cornerRadius: 10,
-    screenCornerRadius: 6,
+    cornerRadius: 20,
+    screenCornerRadius: 8,
     safeAreaInsets: null,
   },
   {
@@ -169,8 +169,8 @@ const entries: DeviceDef[] = [
     mobile: false,
     presetIndex: 8,
     shellInsets: { top: 12, right: 12, bottom: 12, left: 12 },
-    cornerRadius: 10,
-    screenCornerRadius: 6,
+    cornerRadius: 20,
+    screenCornerRadius: 8,
     safeAreaInsets: null,
   },
 ]

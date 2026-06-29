@@ -128,6 +128,11 @@ export function forwardPointerToPage(pageId: string, payload: ForwardPointerPayl
       modifiers: modifiersFor(payload),
     }
     target.webContents.sendInputEvent(pointerEvent)
+    // sendInputEvent synthesizes the click but does NOT focus the webContents,
+    // so the resulting text selection renders with Chromium's inactive (gray)
+    // highlight. Focus on mouseDown the way a real click would, so selection is
+    // active immediately — matches what runForwardPointer already assumes.
+    if (payload.kind === 'down') target.webContents.focus()
   } catch (error) {
     console.error('[page-input-forwarding] pointer forward threw', error)
     return false

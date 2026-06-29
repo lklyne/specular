@@ -123,7 +123,6 @@ export interface CanvasScenePageEntity {
   canGoForward: boolean
   isLoading: boolean
   isCustomSize: boolean
-  browserSizeMode: 'fill' | 'device'
   canvasX: number
   canvasY: number
   width: number
@@ -146,6 +145,21 @@ export interface CanvasScenePageEntity {
   contentScreenHeight?: number
   /** Use SVG rendering for the device shell (A/B toggle). */
   useSvgDeviceShell?: boolean
+}
+
+export type FocusPresentationMode = 'device' | 'fit' | 'fill'
+
+export interface FocusPresentationData {
+  pageId: string
+  mode: FocusPresentationMode
+  authoredLabel: string
+  authoredWidth: number
+  authoredHeight: number
+  effectiveWidth: number
+  effectiveHeight: number
+  /** Annotations shown over the focused content. Starts off; latched on by a
+   *  working tool or the focus-bar eye (ADR 0021). */
+  annotationsVisible: boolean
 }
 
 /** 'plain' = unbacked text, 'sticky' = text in a colored card. See ADR 0004. */
@@ -415,6 +429,7 @@ export type PersistedCanvasEntity =
 // --- Layout Update Data ---
 
 export interface LayoutUpdateData {
+  windowWidth: number
   zoom: number
   pan: { x: number; y: number }
   canvasOrigin: { x: number; y: number }
@@ -440,11 +455,6 @@ export interface LayoutUpdateData {
   /** Back-to-front stack order across canvas nodes and edges. */
   entityOrder: string[]
   entities: CanvasSceneEntity[]
-  browserTabs: WorkspaceTabPageSummary[]
-  browserFillViewport: {
-    width: number
-    height: number
-  }
   selectedEntityIds: string[]
   selection: CanvasSelectableTarget[]
   activeSelection: ActiveCanvasEntitySelection | null
@@ -454,9 +464,6 @@ export interface LayoutUpdateData {
   annotations: Annotation[]
   inspect: InspectPanelState | null
   fixProgress: Record<string, FixProgressEntry>
-  viewMode: WorkspaceViewMode
-  activeBrowserTabId: string | null
-  activeBrowserPageId: string | null
   selectedGroupId?: string | null
   hover: CanvasHoverTarget
   interaction: CanvasInteractionState
@@ -469,6 +476,16 @@ export interface LayoutUpdateData {
   /** Predicate-derived: the page id that should hold keyboard + receive
    *  forwarded input, or null. See `shouldFocusSelectedPage`. */
   keyboardTargetPageId: string | null
+  /** The page the user has *entered* for interaction (select-first /
+   *  interact-second, #124). Only this page forwards pointer input and owns
+   *  keyboard; a merely-selected page is null here. */
+  interactivePageId: string | null
+  /** Ephemeral focus-presentation override for the focused page, if active. */
+  focusPresentation: FocusPresentationData | null
+  /** Wall-clock (Date.now) start of the in-flight animated camera move, or
+   *  null when idle. Lets renderer flip animations fast-forward into phase
+   *  with the main-driven camera. */
+  cameraTransitionStartedAt: number | null
 }
 
 export type PresenceSurface = 'canvas' | 'page'
@@ -636,7 +653,6 @@ export interface LeftSidebarData {
   selectedGroupId?: string | null
   tabs: WorkspaceTabSummary[]
   activeTabId: string | null
-  viewMode: WorkspaceViewMode
   hasPages: boolean
   sections: LeftSidebarSections
   items: SidebarCanvasItem[]
@@ -657,7 +673,6 @@ export interface ToolbarSelectionData {
   loadingPhase: 'idle' | 'waiting-response' | 'loading'
   activeTabId: string | null
   activeTabName: string | null
-  viewMode: WorkspaceViewMode
   activeTool: Tool
   /** Current draw-tool brush default — drives which glyph the Draw button shows. */
   drawBrushType: DrawingBrushType
@@ -1109,10 +1124,6 @@ export type SelectionOverlayPayload = {
   entityIds?: string[]
 }
 
-export type UiViewMode =
-  | { kind: 'canvas' }
-  | { kind: 'browser'; pageId: string }
-
 export interface UiDevtoolsState {
   open: boolean
   activeTab: DevtoolsPanelTab
@@ -1128,7 +1139,6 @@ export interface UiOverlayState {
 export interface UiState {
   selection: UiSelection
   activeTool: Tool
-  viewMode: UiViewMode
   leftSidebarOpen: boolean
   /** True while a toolbar dropdown is open — the layout pass grows the
    *  toolbar view to full-window bounds so the menu can overflow the strip. */
@@ -1694,7 +1704,6 @@ export interface ToolbarElectronAPI {
   getInitialData: () => Promise<ThemeBootstrapData>
   toggleLeftSidebar: () => void
   toggleDevTools: () => void
-  toggleBrowserMode: () => void
   dropdownOpen: () => void
   dropdownClose: () => void
   setTextEditing: (active: boolean) => void
@@ -1725,6 +1734,10 @@ export interface CanvasBgElectronAPI {
   canvasSelectInRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
   canvasSelectInScreenRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
   canvasDeselect: (modifiers?: SelectionModifiers) => void
+  focusSelection: () => void
+  restoreFocusCamera: () => void
+  setFocusPresentationMode: (mode: FocusPresentationMode) => void
+  setFocusAnnotationsVisible: (visible: boolean) => void
   canvasClickAt: (
     screenX: number,
     screenY: number,
@@ -1732,14 +1745,11 @@ export interface CanvasBgElectronAPI {
   ) => void
   clearAnnotateHover: () => void
   selectPage: (pageId: string, modifiers?: SelectionModifiers) => void
-  selectBrowserTab: (pageId: string) => void
-  addBrowserPage: (presetIndex: number | 'custom') => void
   navigatePage: (pageId: string, url: string) => void
   goBackPage: (pageId: string) => void
   goForwardPage: (pageId: string) => void
   reloadPage: (pageId: string) => void
   setPageCustom: (pageId: string) => void
-  setBrowserSizeMode: (pageId: string, mode: 'fill' | 'device') => void
   updatePageBounds: (pageId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
   setTool: (tool: Tool) => void
@@ -1815,6 +1825,7 @@ export interface CanvasBgElectronAPI {
   ) => void
   selectGroup: (groupId: string) => void
   enterGroup: (groupId: string) => void
+  enterPageInteractive: (pageId: string) => void
   startDragGroup: (groupId: string) => void
   dragGroup: (groupId: string, dx: number, dy: number, shiftKey?: boolean) => void
   endDragGroup: () => void
@@ -2064,7 +2075,6 @@ export interface LeftSidebarElectronAPI {
   deletePage: (pageId: string) => void
   setTabExpanded: (tabId: string, expanded: boolean) => void
   setTextEditing: (active: boolean) => void
-  toggleBrowserMode: () => void
   getInitialData: () => Promise<LeftSidebarBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onSidebarData: (callback: (data: LeftSidebarData) => void) => () => void

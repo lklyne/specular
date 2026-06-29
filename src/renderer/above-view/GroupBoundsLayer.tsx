@@ -1,6 +1,7 @@
 /**
- * GroupBoundsLayer — group bound rectangles. Mounted in aboveView so a
- * group containing a page keeps its border visible above the page.
+ * GroupBoundsLayer — group bound borders. Mounted in aboveView so a group
+ * containing a page keeps its border visible above the page. The filled
+ * group background lives in canvas-bg, below page WebContentsViews.
  *
  * Purely visual (`pointer-events: none` end-to-end) — selection / drag /
  * double-click-to-enter-group are all driven by `useCanvasPointerRouter`
@@ -8,33 +9,7 @@
  */
 import { memo } from 'react'
 import type { CanvasSceneGroupEntity } from '../../shared/types'
-import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { selectionColor } from '../canvas-bg/canvasBgConstants'
-
-function groupSurfaceStyle(
-  group: CanvasSceneGroupEntity,
-  isDark: boolean,
-  highlighted: boolean,
-) {
-  if (!group.color) {
-    return {
-      borderColor: highlighted
-        ? selectionColor(isDark)
-        : isDark ? 'rgba(161,161,170,0.25)' : 'rgba(113,113,122,0.25)',
-      background: isDark ? 'rgba(39,39,42,0.35)' : 'rgba(244,244,245,0.45)',
-    }
-  }
-
-  const resolvedColor = resolveCanvasColor(group.color, { palette: 'vivid' })
-  return {
-    borderColor: highlighted
-      ? selectionColor(isDark)
-      : isDark
-        ? `color-mix(in srgb, ${resolvedColor} 72%, #f4f4f5)`
-        : `color-mix(in srgb, ${resolvedColor} 78%, #a16207)`,
-    background: `color-mix(in srgb, ${resolvedColor} ${isDark ? '20%' : '30%'}, transparent)`,
-  }
-}
+import { groupSurfaceStyle } from '../shared/groupSurfaceStyle'
 
 /**
  * Wraps the group-bound rectangles in a viewport transform so they live in
@@ -105,7 +80,7 @@ function GroupBoundsItem({
   isDark: boolean
   inverseScale: number
 }) {
-  const surfaceStyle = groupSurfaceStyle(group, isDark, false)
+  const surfaceStyle = groupSurfaceStyle(group, isDark)
 
   return (
     <div
@@ -124,7 +99,6 @@ function GroupBoundsItem({
         style={{
           borderRadius: 2 * inverseScale,
           border: `${1.5 * inverseScale}px solid ${surfaceStyle.borderColor}`,
-          background: surfaceStyle.background,
           transition: 'border-color 120ms ease',
         }}
       />

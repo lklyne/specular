@@ -11,7 +11,8 @@
  * - Fewer DOM nodes per device page
  *
  * Known issue: the top border stroke is clipped in some configurations.
- * The CSS approach (DeviceShellLayer) is currently the default.
+ * Off by default — the CSS `DeviceShellLayer` is the active renderer and draws
+ * squircle corners via `-electron-corner-smoothing`.
  *
  * Toggle via the per-page `useSvgDeviceShell` metadata flag (checkbox in
  * the right details panel, currently commented out).
@@ -31,7 +32,7 @@ export function SvgDeviceShellLayer({
   pages: CanvasScenePageEntity[]
   isDark: boolean
 }) {
-  const framedPages = pages.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
+  const framedPages = pages.filter((f) => f.showDeviceFrame)
 
   if (!framedPages.length) return null
 

@@ -3,11 +3,10 @@ import {
   boundsKey,
   boundApplyEmulation,
   boundEffectivePageContentSize,
-  boundIsFillBrowserPage,
   boundScreenBoundsForPage,
   boundSelectedPage,
-  boundSelectedPageId,
   boundCanvasOrigin,
+  focusFillRegion,
 } from './runtime-geometry'
 import {
   aboveView,
@@ -41,14 +40,12 @@ import {
   pan,
   zoom,
 } from './runtime-context'
+import { focusSession } from './focus-session'
 import { shouldGateBeOpen } from './gate-predicate'
 import {
   getUiState,
   activeTool as uiActiveTool,
-  selectedCanvasTargets,
 } from '../ui-state'
-import { drawingEntities } from './drawing-entity-state'
-import { descendantEntityIdsForGroup } from './group-descendants'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -58,7 +55,6 @@ import {
   selectedEntityIds as uiSelectedEntityIds,
   setDevtoolsWidth as setUiDevtoolsWidth,
   toolbarDropdownOpen as uiToolbarDropdownOpen,
-  workspaceViewMode as uiWorkspaceViewMode,
 } from '../ui-state'
 import {
   backgroundPageOverlays,
@@ -94,7 +90,6 @@ export function setBoundsIfChanged(
 }
 
 import {
-  BROWSER_HEADER_HEIGHT,
   CARD_BORDER_RADIUS,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
@@ -107,6 +102,8 @@ import {
 import { boundsOverlap } from './runtime-geometry'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
+// Emulation-cache sentinel marking a page rendered natively (fill focus mode).
+const FILL_NATIVE_KEY = 'fill-native'
 
 /**
  * Off-screen-but-alive bounds for hidden devtools panels. Unlike a 0×0
@@ -221,13 +218,12 @@ function layoutDevtoolsViews(): void {
 function layoutAllViews(): void {
   if (!win || win.isDestroyed()) return
   const layoutStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-  const viewMode = uiWorkspaceViewMode()
 
   const devtoolsOpen = uiDevtoolsOpen()
   const devtoolsWidth = uiDevtoolsWidth()
   const devtoolsPanelTab = uiDevtoolsPanelTab()
   const selectedPageIds = uiSelectedEntityIds()
-  const contentTopInset = layoutCache.toolbarHeight + (viewMode === 'browser' ? BROWSER_HEADER_HEIGHT : 0)
+  const contentTopInset = layoutCache.toolbarHeight
 
   const pageOverlays = backgroundPageOverlays()
   const nextActiveSelection = activeCanvasSelection()
@@ -279,33 +275,9 @@ function layoutAllViews(): void {
   // drives this; it only renders what it's told to render.
   if (aboveView && win) {
     const { width, height } = win.getBounds()
-    const selectedTargets = selectedCanvasTargets()
-    let selectedGroupOwnsPageContent = false
-    if (selectedTargets.length === 1 && selectedTargets[0]?.kind === 'group') {
-      const groupDescendantIds = new Set(descendantEntityIdsForGroup(selectedTargets[0].id))
-      selectedGroupOwnsPageContent = pages.some((page) => groupDescendantIds.has(page.id))
-    }
-    const selectionOwnsPageContent =
-      (selectedTargets.length > 1 &&
-        selectedTargets.some((target) => target.kind === 'page')) ||
-      selectedGroupOwnsPageContent
     const shouldCover = shouldGateBeOpen({
-      interactionKind: interactionState.kind === 'idle' ? 'idle'
-        : interactionState.kind === 'panning-canvas' ? 'panning'
-        : interactionState.kind === 'marquee-select' ? 'marquee'
-        : interactionState.kind === 'resizing-entity' ? 'resizing-entity'
-        : interactionState.kind === 'editing-entity' ? 'editing-entity'
-        : interactionState.kind,
       activeTool: getUiState().activeTool,
-      viewMode: uiWorkspaceViewMode(),
       commentOverlayActive: uiCommentOverlayVisible(),
-      selectionMarqueeVisible: selectionOverlayActive,
-      spaceHeld: spaceModifierHeld,
-      hoveringCanvasChrome,
-      selectedEntityIds: selectedTargets.map((t) => t.id),
-      selectedEntityKinds: selectedTargets.map((t) => t.kind),
-      selectionOwnsPageContent,
-      hasSavedDrawings: drawingEntities.length > 0,
     })
     const bounds = shouldCover
           ? {
@@ -356,16 +328,35 @@ function layoutAllViews(): void {
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
   // --- Per-page bounds, emulation, annotations ---
-  const visibleBrowserPageId = boundSelectedPageId()
+  const focusSessionValue = focusSession()
+  const focusedPresentationPageId = focusSessionValue?.pageId ?? null
+  // Eye on (non-fill focus): other pages' live content returns as surrounding
+  // context, subject to normal culling. Eye off (or fill): only the focused
+  // page shows. Binary show/hide, never dimmed (ADR 0021).
+  const showOtherPagesInFocus =
+    focusSessionValue?.mode !== 'fill' &&
+    (focusSessionValue?.annotationsVisible ?? false)
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-    const isVisibleInCurrentMode = viewMode === 'canvas' || page.id === visibleBrowserPageId
-    if (!isVisibleInCurrentMode) {
+    const bounds = boundScreenBoundsForPage(page)
+
+    if (
+      focusedPresentationPageId &&
+      page.id !== focusedPresentationPageId &&
+      !showOtherPagesInFocus
+    ) {
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
+      devtoolsPanelDebug('layout:page', {
+        pageId: page.id,
+        durationMs: Date.now() - pageStart,
+        visible: false,
+        hiddenByFocusPresentation: true,
+        isSelected: selectedPageIds.includes(page.id),
+        devtoolsOpen,
+      })
       continue
     }
-    const bounds = boundScreenBoundsForPage(page)
 
     // Viewport culling — off-screen pages get hidden bounds.
     // Skip culling during drag and for pages in automation-interactive mode
@@ -412,41 +403,63 @@ function layoutAllViews(): void {
       continue
     }
 
-    const isFillBrowser = boundIsFillBrowserPage(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
     const showShell = showDeviceFrameFromMetadata(page.metadata)
-    const borderRadius = isFillBrowser
+    // 'fill' focus is the browser mode: page fills the canvas viewport edge to
+    // edge with no chrome header, no bezel, and square corners.
+    const isFillFocus =
+      focusedPresentationPageId === page.id && focusSessionValue?.mode === 'fill'
+    const borderRadius = isFillFocus
       ? 0
       : deviceId && showShell
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
         : CARD_BORDER_RADIUS
     page.frameView.setBorderRadius(borderRadius)
     page.pageView.setBorderRadius(borderRadius)
-    page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
-    page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
-
-    const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
-    const nativeScale = screen.getPrimaryDisplay().scaleFactor
-    const pageScale = isFillBrowser ? 1 : zoom
-    const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${viewMode}:${devtoolsOpen ? devtoolsWidth : 0}`
-    if (pageEmulationKey !== page.lastPageEmulationKey) {
-      const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-      boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
-      page.lastPageEmulationKey = pageEmulationKey
-      devtoolsPanelDebug('layout:apply-emulation', {
-        pageId: page.id,
-        durationMs: Date.now() - emulationStart,
-        emulatedWidth,
-        emulatedHeight,
-        viewMode,
-
-        devtoolsOpen,
-      })
+    if (isFillFocus) {
+      // Fill page sits below the flush focus chrome bar and fills the rest of
+      // the canvas area. focusFillRegion() is the shared source of truth.
+      const region = focusFillRegion()
+      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, region, page.lastPageBoundsKey)
+    } else {
+      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
+      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
     }
 
-    // Inject or remove safe-area CSS padding when the device shell is active
+    if (isFillFocus) {
+      // Fill is the browser mode: render natively at 100% with no device
+      // emulation, so the page reflows to the real view size and viewport-aware
+      // layout (sticky headers, 100vh, visualViewport) behaves like a real tab.
+      // Emulation at scale 1 leaves pages in a stale layout until a scroll.
+      if (page.lastPageEmulationKey !== FILL_NATIVE_KEY) {
+        page.pageView.webContents.disableDeviceEmulation()
+        page.pageView.webContents.setZoomFactor(1)
+        page.lastPageEmulationKey = FILL_NATIVE_KEY
+      }
+    } else {
+      const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
+      const nativeScale = screen.getPrimaryDisplay().scaleFactor
+      const pageScale = zoom
+      const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsOpen ? devtoolsWidth : 0}`
+      if (pageEmulationKey !== page.lastPageEmulationKey) {
+        const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
+        boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
+        page.lastPageEmulationKey = pageEmulationKey
+        devtoolsPanelDebug('layout:apply-emulation', {
+          pageId: page.id,
+          durationMs: Date.now() - emulationStart,
+          emulatedWidth,
+          emulatedHeight,
+          devtoolsOpen,
+        })
+      }
+    }
+
+    // Inject or remove safe-area CSS padding when the device shell is active.
+    // Fill mode is chromeless, so it never gets device safe-area padding.
     const orientation = deviceOrientationFromMetadata(page.metadata)
-    const safeAreaCss = deviceId && showShell && !isFillBrowser
+    const safeAreaCss = !isFillFocus && deviceId && showShell
       ? safeAreaCssForDevice(deviceId, orientation)
       : null
     const safeAreaKey = safeAreaCss ?? ''
@@ -490,9 +503,7 @@ function layoutAllViews(): void {
 
   // --- Per-component bounds + emulation ---
   // Reconcile the component-view set against the current file entities,
-  // then position each view to match its entity's canvas footprint. Hidden
-  // entirely in browser mode — components are design artifacts, not
-  // navigable web content, so they don't get tabs.
+  // then position each view to match its entity's canvas footprint.
   syncComponentViews(fileEntities)
 
   // Child-list reconcile runs here — after syncComponentViews so component
@@ -500,12 +511,11 @@ function layoutAllViews(): void {
   // ordered child list (bgView → pages → components → overlays → toolbar).
   applyStack()
 
-  const componentsHidden = viewMode === 'browser'
   const canvasOrigin = boundCanvasOrigin()
   const nativeScale = screen.getPrimaryDisplay().scaleFactor
   for (const cv of listComponentViews()) {
     const entity = fileEntities.find((e) => e.id === cv.entityId)
-    if (!entity || componentsHidden) {
+    if (!entity) {
       cv.lastBoundsKey = setBoundsIfChanged(cv.view, HIDDEN_BOUNDS, cv.lastBoundsKey)
       continue
     }

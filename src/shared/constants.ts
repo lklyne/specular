@@ -1,7 +1,7 @@
 import type { PageConfig } from './types'
 
 // Device dimensions are defined in device-catalog.ts (single source of truth).
-export { VIEWPORT_PRESETS, LAPTOP_PRESET_INDEX, DESKTOP_PRESET_INDEX } from './device-catalog'
+export { VIEWPORT_PRESETS, DESKTOP_PRESET_INDEX } from './device-catalog'
 
 export const PLAIN_TEXT_PLACEHOLDER = 'Add text'
 

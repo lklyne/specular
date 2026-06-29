@@ -10,9 +10,9 @@ import {
 } from '../../shared/bindings'
 import { setSpaceModifierHeld } from './runtime-context'
 import { activeTool } from './tool-mode'
-import { workspaceViewMode } from '../ui-state'
 import { aboveView } from './view-refs'
 import { mainHandlers } from './binding-handlers'
+import { hasFocusReturnCamera } from './viewport-control'
 
 // Track text-editing state per webContents. A keystroke can only land in the
 // webContents that has focus, so dispatch consults that source's flag — not
@@ -49,8 +49,8 @@ export function buildBindingContext(
     activeTool: activeTool(),
     isTextEditing,
     pageFocusActive,
+    focusReturnCameraActive: hasFocusReturnCamera(),
     sourceView,
-    viewMode: workspaceViewMode(),
     hasOpenAnnotationThread,
     hasPendingAnnotation,
   }

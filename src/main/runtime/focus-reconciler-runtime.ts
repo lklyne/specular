@@ -1,5 +1,3 @@
-// fallow-ignore-file circular-dependencies
-// Suppressed: see #141. selection-controller → overlay-manager → layout-engine import focus-reconciler-runtime back
 /**
  * Runtime binding for FocusReconciler. Resolves a FocusTarget to the
  * actual WebContents and calls focus() at most once per layout pass.
@@ -20,21 +18,18 @@ import {
   setPendingFocus,
 } from './runtime-context'
 import { isTextEditingFor } from './binding-dispatcher'
-import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
+import { isCommentOverlayVisible } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
 function currentFocusState(): FocusState {
-  const idx = selectedPageIndex(pages.map((p) => p.id))
-  const selectedPage = idx != null ? pages[idx] : null
   return {
     interactionMode: canvasInteractionModeKind(interactionState),
     editingEntityId: getEditingEntityId(),
-    selectedPageId: selectedPage?.id ?? null,
-    workspaceViewMode: workspaceViewMode(),
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
     focusedPageId: currentKeyboardTargetPageId(),
     sidebarTextInputActive: leftSidebarView ? isTextEditingFor(leftSidebarView.webContents) : false,
+    toolbarTextInputActive: toolbarView ? isTextEditingFor(toolbarView.webContents) : false,
   }
 }
 

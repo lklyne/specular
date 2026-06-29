@@ -64,6 +64,10 @@ export interface HitInputs {
   edges: readonly WorkspaceEdge[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
+  /** Page whose native webContents currently owns keyboard/pointer focus. */
+  keyboardTargetPageId?: string | null
+  /** Page currently being presented by the focus camera. */
+  focusPresentationPageId?: string | null
   /** Optional. When set, anchor dots on the hovered entity are routable too —
    *  matches the EdgeLayer renderer policy (selected + hovered show anchors)
    *  and lets users grab an existing edge endpoint without first selecting
@@ -252,8 +256,12 @@ function multiHandleRect(bbox: ScreenBbox, handle: ResizeHandle): Rect {
 
 function collectChromeTargets(inputs: HitInputs): HitTarget[] {
   const out: HitTarget[] = []
+  const selected = new Set(inputs.selectedEntityIds)
   for (const entity of inputs.entities) {
     if (!entityHasChrome(entity.kind)) continue
+    if (selected.has(entity.id)) continue
+    if (entity.kind === 'page' && entity.id === inputs.keyboardTargetPageId) continue
+    if (entity.kind === 'page' && entity.id === inputs.focusPresentationPageId) continue
     out.push({
       layer: 'chrome',
       region: { kind: 'rect', rect: chromeRect(entity) },

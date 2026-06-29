@@ -12,6 +12,7 @@ import {
   getInteractionMode,
   getSelection,
   getEntityOrder,
+  getCanvas,
   getTextEntities,
   getWorkspace,
   pasteClipboardText,
@@ -251,6 +252,37 @@ describe('keyboard shortcuts (binding dispatcher)', () => {
     // Track new pages for cleanup.
     for (const p of pagesAfter) {
       if (!createdPageIds.includes(p.id)) createdPageIds.push(p.id)
+    }
+  })
+
+  it('Cmd+T creates a blank frame with the selected page size', async () => {
+    const sourceId = await createPage()
+    await selectPage(sourceId)
+    await wait(50)
+
+    const beforeCanvas = await getCanvas()
+    const sourceBefore = beforeCanvas.nodes.find((node) => node.id === sourceId)
+    const beforeNodeIds = new Set(beforeCanvas.nodes.map((node) => node.id))
+    expect(sourceBefore).toBeTruthy()
+
+    await sendKey('t', { cmd: true })
+    await waitFor(
+      () => getCanvas(),
+      (canvas) => canvas.nodes.filter((node) => node.type === 'link').length >= 2,
+      'Timed out waiting for Cmd+T blank frame',
+    )
+
+    const afterCanvas = await getCanvas()
+    const newPage = afterCanvas.nodes.find(
+      (node) => node.type === 'link' && !beforeNodeIds.has(node.id),
+    )
+    expect(newPage).toBeTruthy()
+    expect(newPage?.url).toBe('about:blank')
+    expect(newPage?.width).toBe(sourceBefore?.width)
+    expect(newPage?.height).toBe(sourceBefore?.height)
+
+    if (newPage?.id && !createdPageIds.includes(newPage.id)) {
+      createdPageIds.push(newPage.id)
     }
   })
 

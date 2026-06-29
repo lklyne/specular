@@ -1,12 +1,9 @@
 import type { Dispatch, SetStateAction } from 'react'
 import { Select } from '@base-ui/react/select'
-import { Tabs } from '@base-ui/react/tabs'
 import {
   ChevronLeft,
   ChevronRight,
-  LayoutTemplate,
   PanelRight,
-  PanelTop,
   RotateCw,
 } from 'lucide-react'
 import type {
@@ -17,7 +14,7 @@ import type {
 } from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { normalizeUserUrl } from '../../shared/url'
+import { resolveAddressInput } from '../../shared/url'
 import {
   AddPageToolIcon,
   AddShapeToolIcon,
@@ -148,7 +145,6 @@ export function LeftActions({
 
 interface CenterActionsProps {
   isDark: boolean
-  isBrowserMode: boolean
   activeTool: Tool
   drawBrushType: DrawingBrushType
   drawColor: string
@@ -165,7 +161,6 @@ interface CenterActionsProps {
 
 export function CenterActions({
   isDark,
-  isBrowserMode,
   activeTool,
   drawBrushType,
   drawColor,
@@ -214,8 +209,6 @@ export function CenterActions({
     : 'flex cursor-pointer items-center justify-between gap-6 px-3 py-1.5 text-xs text-zinc-700 outline-none data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-900 data-[selected]:font-semibold data-[selected]:text-zinc-900'
 
   // ADR 0013 §5 grouping: nav | create | annotate | view.
-  // Browser mode hides creation tools (no canvas placement) and the hand
-  // tool (pan-on-drag is canvas-only).
   return (
     <div className="flex min-w-0 items-center justify-center overflow-hidden">
       <div className="flex w-fit items-center gap-1 [-webkit-app-region:no-drag]">
@@ -228,20 +221,18 @@ export function CenterActions({
           <SelectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
         </button>
 
-        {!isBrowserMode ? (
-          <button
-            onClick={onToggleHandTool}
-            className={buttonClass(activeTool.kind === 'hand')}
-            title="Hand"
-            type="button"
-          >
-            <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-          </button>
-        ) : null}
+        <button
+          onClick={onToggleHandTool}
+          className={buttonClass(activeTool.kind === 'hand')}
+          title="Hand"
+          type="button"
+        >
+          <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+        </button>
 
-        {!isBrowserMode ? <ToolbarDivider isDark={isDark} /> : null}
+        <ToolbarDivider isDark={isDark} />
 
-        {!isBrowserMode && drawingEnabled ? (
+        {drawingEnabled ? (
           <button
             onClick={onToggleDrawMode}
             className={buttonClass(activeTool.kind === 'draw')}
@@ -266,49 +257,41 @@ export function CenterActions({
           </button>
         ) : null}
 
-        {!isBrowserMode ? (
-          <button
-            onClick={onAddSticky}
-            className={buttonClass(activeTool.kind === 'add-sticky')}
-            title="Add sticky"
-            type="button"
-          >
-            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} color={stickyColor} />
-          </button>
-        ) : null}
+        <button
+          onClick={onAddSticky}
+          className={buttonClass(activeTool.kind === 'add-sticky')}
+          title="Add sticky"
+          type="button"
+        >
+          <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} color={stickyColor} />
+        </button>
 
-        {!isBrowserMode ? (
-          <button
-            onClick={onAddShape}
-            className={buttonClass(activeTool.kind === 'add-shape')}
-            title="Add shape"
-            type="button"
-          >
-            <AddShapeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-          </button>
-        ) : null}
+        <button
+          onClick={onAddShape}
+          className={buttonClass(activeTool.kind === 'add-shape')}
+          title="Add shape"
+          type="button"
+        >
+          <AddShapeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+        </button>
 
-        {!isBrowserMode ? (
-          <AddPagePresetMenu
-            isDark={isDark}
-            active={activeTool.kind === 'add-page'}
-            onAddPage={onAddPage}
-            onDropdownOpenChange={onDropdownOpenChange}
-          />
-        ) : null}
+        <AddPagePresetMenu
+          isDark={isDark}
+          active={activeTool.kind === 'add-page'}
+          onAddPage={onAddPage}
+          onDropdownOpenChange={onDropdownOpenChange}
+        />
 
-        {!isBrowserMode ? <ToolbarDivider isDark={isDark} /> : null}
+        <ToolbarDivider isDark={isDark} />
 
-        {!isBrowserMode ? (
-          <button
-            onClick={onAddText}
-            className={buttonClass(activeTool.kind === 'add-text')}
-            title="Add text"
-            type="button"
-          >
-            <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-          </button>
-        ) : null}
+        <button
+          onClick={onAddText}
+          className={buttonClass(activeTool.kind === 'add-text')}
+          title="Add text"
+          type="button"
+        >
+          <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+        </button>
 
         <button
           onClick={onToggleCommentMode}
@@ -476,7 +459,7 @@ export function CenterAddressBar({
             if (event.key !== 'Enter') return
             const value = addressValue.trim()
             if (!value) return
-            onNavigateSelection(normalizeUserUrl(value))
+            onNavigateSelection(resolveAddressInput(value))
           }}
           placeholder={selection.placeholder}
           spellCheck={false}
@@ -490,50 +473,19 @@ export function CenterAddressBar({
 interface RightPanelToggleProps {
   isDark: boolean
   devtoolsOpen: boolean
-  isBrowserMode: boolean
-  hasPages: boolean
   onToggleDevTools: () => void
-  onToggleBrowserMode: () => void
 }
 
 export function RightPanelToggle({
   isDark,
   devtoolsOpen,
-  isBrowserMode,
-  hasPages,
   onToggleDevTools,
-  onToggleBrowserMode,
 }: RightPanelToggleProps) {
   const iconButtonClassName = toolbarIconBtnClass(isDark)
-
-  const modeTabClassName = isDark
-    ? 'toolbar-squircle-btn relative z-10 flex items-center justify-center rounded-[8px] border-0 bg-transparent p-1.5 text-zinc-300 opacity-60 outline-none transition-[color,opacity] select-none hover:text-zinc-100 hover:opacity-100 data-[active]:text-zinc-100 data-[active]:opacity-100 disabled:pointer-events-none disabled:opacity-45'
-    : 'toolbar-squircle-btn relative z-10 flex items-center justify-center rounded-[8px] border-0 bg-transparent p-1.5 text-zinc-600 opacity-60 outline-none transition-[color,opacity] select-none hover:text-zinc-900 hover:opacity-100 data-[active]:text-zinc-900 data-[active]:opacity-100 disabled:pointer-events-none disabled:opacity-45'
-  const modeTabIndicatorClassName =
-    'absolute top-1/2 left-0 z-[-1] h-[var(--active-tab-height)] w-[var(--active-tab-width)] -translate-y-1/2 translate-x-[var(--active-tab-left)] rounded-[8px] bg-[var(--surface-interactive)] transition-all duration-200 ease-in-out'
 
   return (
     <div className="flex min-w-0 items-center justify-end">
       <div className="flex w-fit items-center gap-1 [-webkit-app-region:no-drag]">
-        <Tabs.Root
-          value={isBrowserMode ? 'browser' : 'canvas'}
-          onValueChange={(value) => {
-            if ((value === 'browser') !== isBrowserMode) {
-              onToggleBrowserMode()
-            }
-          }}
-        >
-          <Tabs.List className="relative z-0 flex items-center gap-1" aria-label="View mode">
-            <Tabs.Tab className={modeTabClassName} value="canvas" title="Canvas">
-              <LayoutTemplate size={14} />
-            </Tabs.Tab>
-            <Tabs.Tab className={modeTabClassName} disabled={!hasPages} value="browser" title="Browser">
-              <PanelTop size={14} />
-            </Tabs.Tab>
-            <Tabs.Indicator className={modeTabIndicatorClassName} />
-          </Tabs.List>
-        </Tabs.Root>
-
         <button
           onClick={onToggleDevTools}
           className={iconButtonClassName}

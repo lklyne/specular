@@ -10,7 +10,6 @@ export const CHROME_PAGE_GAP = 0
 export { TOOLBAR_HEIGHT } from '../../shared/constants'
 export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'
 export const TOOLBAR_BORDER_DARK = '#3f3f46'
-export const BROWSER_HEADER_HEIGHT = 36
 export const LEFT_SIDEBAR_WIDTH = 256
 
 // --- Toolbar padding (mirrors `src/renderer/toolbar/App.tsx`) ---
