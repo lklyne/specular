@@ -34,8 +34,7 @@
   --surface-popover: var(--color-stone-800);
   --surface-popover-subtle: var(--color-stone-900);
   --surface-popover-border: var(--color-stone-600);
-  /* Panel surface, nudged a touch lighter so popups read as raised chrome. */
-  --surface-popup: color-mix(in srgb, var(--surface-panel) 80%, var(--color-stone-700) 20%);
+  --surface-popup: color-mix(in srgb, var(--surface-panel) 45%, var(--color-stone-700) 55%);
   --surface-popup-border: var(--surface-chrome-border);
   --surface-input: color-mix(in srgb, var(--color-stone-900) 90%, transparent);
   --surface-input-border: color-mix(in srgb, var(--color-stone-700) 80%, transparent);
