@@ -105,8 +105,6 @@ export function setHoveringCanvasChrome(value: boolean): void {
   hoveringCanvasChrome = value
 }
 
-// Focus-presentation state now lives in `focus-session.ts` (ADR 0021).
-
 // Wall-clock (Date.now) start of the in-flight animated camera move, or null
 // when idle. Broadcast in layout so renderer flip animations (popup morph) can
 // fast-forward into phase with the main-driven camera instead of starting late.

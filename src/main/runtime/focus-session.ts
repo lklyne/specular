@@ -2,25 +2,15 @@
 //
 // Sibling to InteractionController / FocusReconciler, not an InteractionMode:
 // focus spans gestures, it is not itself a gesture. This module holds the
-// session state (page, mode, return camera) and is the sole writer. Every
+// session state (page, mode) and is the sole writer. Every
 // consumer reads `focusSession()`; every exit funnels through
 // `endFocusSession(reason)` so "what ends focus" is one auditable list.
 
 import type { FocusPresentationMode } from '../../shared/types'
 
-export interface FocusReturnCamera {
-  zoom: number
-  pan: { x: number; y: number }
-}
-
 export interface FocusSession {
   pageId: string
   mode: FocusPresentationMode
-  // TODO: delete returnCamera. We moved away from restoring the stored camera on
-  // exit (restoreFocusCamera now just zooms out 0.85 from the current camera),
-  // so this is captured on every beginFocusSession but never read.
-  /** Camera to restore on a graceful exit. Captured when the session begins. */
-  returnCamera: FocusReturnCamera
   /**
    * Are annotations (stickies/text/shapes/drawings/edges) shown over the
    * focused content. Per-session, ephemeral: starts off (clean read) and
@@ -73,7 +63,7 @@ export function setFocusAnnotationsVisible(visible: boolean): void {
 
 /**
  * End the session. The only path that clears it. Returns the ended session so
- * callers (e.g. the camera restore) can read its return camera.
+ * callers can inspect it during teardown.
  */
 export function endFocusSession(_reason: FocusExitReason): FocusSession | null {
   const ended = session

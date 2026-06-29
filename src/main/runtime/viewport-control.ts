@@ -460,12 +460,9 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
     ? defaultFocusPresentationMode(singlePageTarget)
     : null
   if (singlePageTarget && focusMode) {
-    // The session always stores its return camera here (focusMode is only set
-    // when storeReturnCamera !== false). Capture the pre-move camera now.
     beginFocusSession({
       pageId: singlePageTarget.id,
       mode: focusMode,
-      returnCamera: { zoom, pan: { ...pan } },
       annotationsVisible: false,
     })
   } else {
