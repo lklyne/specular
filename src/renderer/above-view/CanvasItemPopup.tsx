@@ -310,10 +310,11 @@ function Frame({
       // Flush focus bar matches the toolbar height so 'fill' page content,
       // which starts at the toolbar inset, butts directly against it.
       height: flush ? TOOLBAR_HEIGHT : undefined,
-      // Flush focus bar is chrome — it shares the side panels' surface and
-      // divider so the three read as one frame. Floating popups stay lighter.
-      background: flush ? 'var(--surface-panel)' : 'var(--surface-popup)',
-      borderColor: flush ? 'var(--surface-chrome-border)' : 'var(--surface-popup-border)',
+      // One surface across both placements — the page-anchored popup and the
+      // flush focus bar are the same toolbar morphing between spots, so the
+      // color must not shift mid-flip. Both use the panel/chrome surface.
+      background: 'var(--surface-panel)',
+      borderColor: 'var(--surface-popup-border)',
       boxShadow: flush
         ? 'none'
         : isDark
