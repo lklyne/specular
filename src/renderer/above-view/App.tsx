@@ -34,7 +34,6 @@ import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
-import { FocusDimmingLayer } from './FocusDimmingLayer'
 import { focusContext } from '../../shared/focus-context'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
@@ -205,7 +204,7 @@ function StackedCanvasItems({
   selectedEntityIdSet,
   editingEntityId,
   ghostEntity,
-  hideAnnotations,
+  hideContext,
 }: {
   layoutData: LayoutUpdateData
   fileJsonModeMap: FileJsonModeMap
@@ -214,9 +213,9 @@ function StackedCanvasItems({
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
   editingEntityId: string | null
-  /** Focus is at rest with annotations hidden — skip annotation entities and
-   *  edges entirely (binary, replaces the old 0.2 dim). ADR 0021. */
-  hideAnnotations: boolean
+  /** Focus is at rest with the eye off — skip all non-page context (annotation
+   *  entities, edges, file entities) entirely (binary, never dimmed). ADR 0021. */
+  hideContext: boolean
   /** Reorder ghost (ADR 0015 D7, Phase D): the dragged entity, already
    *  positioned at grab-origin + cursor-delta. Its in-row slot paints as a
    *  grayscale placeholder (the drop location); the ghost itself renders last at
@@ -227,7 +226,7 @@ function StackedCanvasItems({
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
 
   function renderEdge(edge: WorkspaceEdge) {
-    if (hideAnnotations) return null
+    if (hideContext) return null
     const layer = (
       <EdgeLayer
         key={`edge-${edge.id}`}
@@ -252,7 +251,7 @@ function StackedCanvasItems({
     // Eye off: hide every non-page item — annotations *and* files/images. The
     // focused page is a webview, not rendered here, so it's never affected
     // (focus is always page-targeted). ADR 0021.
-    if (hideAnnotations) return null
+    if (hideContext) return null
     if (entity.kind === 'drawing') {
       return (
         <SavedDrawingEntities
@@ -659,9 +658,10 @@ export default function App({
   const hoveredEntityId = layoutData.hover?.id ?? null
   const focus = focusContext(layoutData)
   const focusPresentationActive = focus.active
-  // Annotations are hidden while a focus session rests with the eye off; a
-  // working tool or the focus-bar eye latches them on (ADR 0021).
-  const hideAnnotations = focus.active && !focus.showsAnnotations
+  // Surrounding context (annotations, other pages, groups) is hidden while a
+  // focus session rests with the eye off; a working tool or the focus-bar eye
+  // latches it on (ADR 0021). Binary show/hide, never a dim.
+  const hideContext = focus.active && !focus.showsContext
   const overlayInteractive = Boolean(
     pendingAnnotation ||
       pendingRegionRect ||
@@ -1422,7 +1422,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIdSet={selectedEntityIdSet}
             editingEntityId={editingEntityId}
             ghostEntity={reorderGhostEntity}
-            hideAnnotations={hideAnnotations}
+            hideContext={hideContext}
           />
 
           {/* Live drawing preview renders after StackedCanvasItems so the
@@ -1451,18 +1451,15 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             renderAnchors={!focusPresentationActive}
           />
 
-          {(layoutData.groups?.length ?? 0) > 0 ? (
+          {(layoutData.groups?.length ?? 0) > 0 && !hideContext ? (
             <GroupBoundsLayer
               groups={layoutData.groups ?? []}
               isDark={isDark}
               zoom={layoutData.zoom}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}
-              dimmed={focusPresentationActive}
             />
           ) : null}
-
-          <FocusDimmingLayer layoutData={layoutData} isDark={isDark} />
 
           {!focusPresentationActive ? (
             <PageFocusRingLayer

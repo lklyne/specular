@@ -52,9 +52,17 @@ export default function App({
   const focus = focusContext(layoutData)
   // 'fill' focus is the browser-like mode: edge-to-edge, no border, no bezel.
   const fillPageId = focus.mode === 'fill' ? focus.pageId : null
-  const chromePages = useMemo(
-    () => (fillPageId ? pageEntities.filter((p) => p.id !== fillPageId) : pageEntities),
-    [pageEntities, fillPageId],
+  // Eye off during focus: only the focused page's chrome survives; all other
+  // context (other pages, file frames, groups) is hidden, never dimmed (ADR 0021).
+  const hideContext = focus.active && !focus.showsContext
+  const chromePages = useMemo(() => {
+    if (fillPageId) return pageEntities.filter((p) => p.id !== fillPageId)
+    if (hideContext) return pageEntities.filter((p) => p.id === focus.pageId)
+    return pageEntities
+  }, [pageEntities, fillPageId, hideContext, focus.pageId])
+  const chromeFiles = useMemo(
+    () => (hideContext ? [] : fileEntities),
+    [fileEntities, hideContext],
   )
   return (
     <div
@@ -77,18 +85,17 @@ export default function App({
         zoom={layoutData.zoom}
       />
       <GroupBackgroundLayer
-        groups={layoutData.groups ?? []}
+        groups={hideContext ? [] : (layoutData.groups ?? [])}
         isDark={isDark}
-        dimmed={focus.dimsOtherPages}
       />
       <div className="pointer-events-none absolute inset-0">
         <PageBorderLayer
           pages={chromePages}
-          fileEntities={fileEntities}
+          fileEntities={chromeFiles}
         />
         <DeviceShellLayer
           pages={chromePages.filter((f) => !f.useSvgDeviceShell)}
-          fileEntities={fileEntities}
+          fileEntities={chromeFiles}
           isDark={isDark}
         />
         <SvgDeviceShellLayer

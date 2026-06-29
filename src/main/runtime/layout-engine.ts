@@ -330,11 +330,21 @@ function layoutAllViews(): void {
   // --- Per-page bounds, emulation, annotations ---
   const focusSessionValue = focusSession()
   const focusedPresentationPageId = focusSessionValue?.pageId ?? null
+  // Eye on (non-fill focus): other pages' live content returns as surrounding
+  // context, subject to normal culling. Eye off (or fill): only the focused
+  // page shows. Binary show/hide, never dimmed (ADR 0021).
+  const showOtherPagesInFocus =
+    focusSessionValue?.mode !== 'fill' &&
+    (focusSessionValue?.annotationsVisible ?? false)
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
 
-    if (focusedPresentationPageId && page.id !== focusedPresentationPageId) {
+    if (
+      focusedPresentationPageId &&
+      page.id !== focusedPresentationPageId &&
+      !showOtherPagesInFocus
+    ) {
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {

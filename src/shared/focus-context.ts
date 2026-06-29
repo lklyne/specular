@@ -8,8 +8,6 @@ import type {
   LayoutUpdateData,
 } from './types'
 
-export const FOCUS_DIMMED_ITEM_OPACITY = 0.2
-
 export interface FocusContext {
   /** A focus session is active. */
   active: boolean
@@ -17,15 +15,15 @@ export interface FocusContext {
   pageId: string | null
   mode: FocusPresentationMode | null
   data: FocusPresentationData | null
-  /** Other pages recede behind a scrim while a session is active. */
-  dimsOtherPages: boolean
   /**
-   * Annotations (stickies/text/shapes/drawings/edges) render. Always true
-   * outside a session; inside one it's the session's latched eye state
-   * (ADR 0021) — off for a clean read, on once a working tool or the focus-bar
-   * eye turns it on.
+   * Surrounding context — other pages (and their chrome), annotations
+   * (stickies/text/shapes/drawings/edges), and group backgrounds — renders.
+   * Always true outside a session; inside one it's the session's latched eye
+   * state (ADR 0021): off for a clean read of the focused page alone, on once a
+   * working tool or the focus-bar eye turns it on. Binary show/hide, never a
+   * dim — the focused page is the only thing left when it's off.
    */
-  showsAnnotations: boolean
+  showsContext: boolean
 }
 
 export function focusContext(layout: LayoutUpdateData): FocusContext {
@@ -36,7 +34,6 @@ export function focusContext(layout: LayoutUpdateData): FocusContext {
     pageId: data?.pageId ?? null,
     mode: data?.mode ?? null,
     data,
-    dimsOtherPages: active,
-    showsAnnotations: !active || data.annotationsVisible,
+    showsContext: !active || data.annotationsVisible,
   }
 }

@@ -80,9 +80,8 @@ state, not a transition edge).
   camera, because nothing load-bearing reads selection or re-derives focus.
 - Adding or changing an exit trigger means editing one function with a typed
   reason — the failure mode of "found another path that clears focus" is gone.
-- The dim subsystem is now explicitly a *resting* affordance. Whether a working
-  focus surface should dim at all is left as a product question; the seam is now
-  in one place (`focusContext().dimsOtherPages`) if we revisit it.
+- The dim subsystem is gone entirely (see Amendment 2): surrounding context is
+  binary show/hide off one gate, `focusContext().showsContext`.
 - This is a pure structural consolidation of existing behavior plus the one
   documented tightening; it does not touch the gesture architecture
   (`InteractionController`, the pointer router, the layout pass), which held up
@@ -110,15 +109,37 @@ Two changes:
    predicate; the only line is page vs not-page. (A future content lightbox
    that wants to keep files visible would reintroduce that split here.)
 
-2. **Annotation visibility is latched session state, not derived from the tool.**
+2. **Eye state is latched session state, not derived from the tool.**
    `FocusSession.annotationsVisible` starts `false` (clean read) and latches
    `true` when a working tool activates *or* the user clicks the eye in the focus
    bar — and **stays** on after the one-shot tool reverts. That's what keeps a
-   just-placed sticky visible. The old per-item `0.2` opacity dim is deleted;
-   hidden annotations simply don't render (binary, not faded). The page scrim
-   (`FocusDimmingLayer`) now recedes other pages purely as a function of the
-   session — a working tool no longer lifts it, for the same "don't derive from
-   transient tool state" reason.
+   just-placed sticky visible. All opacity dimming is deleted (the per-item
+   `0.2`, the page scrim, the group dim); surrounding context is binary
+   show/hide, never faded.
+
+### Amendment 2 — the eye governs other pages too, and the scrim is gone
+
+Date: 2026-06-28
+
+The eye latch now drives *all* surrounding context, not just above-view
+annotations. The old behavior dimmed other pages behind a scrim
+(`FocusDimmingLayer`) while keeping them on screen; this is deleted. One gate —
+`focusContext(layout).showsContext` (`= annotationsVisible` during a session) —
+decides everything that isn't the focused page:
+
+- **Other-page webviews** (`layout-engine.ts`): hidden when the eye is off;
+  when the eye is on (and not `fill` mode) they return as live content, subject
+  to normal viewport culling.
+- **Other-page chrome + file frames + group backgrounds** (`canvas-bg/App.tsx`,
+  `GroupBackgroundLayer`): filtered out when the eye is off.
+- **Annotations, edges, groups in the above-view layer** (`above-view/App.tsx`,
+  `GroupBoundsLayer`): the `hideContext` gate (was `hideAnnotations`) drops
+  them.
+
+So focus is now strictly two states: eye off = the focused page alone on empty
+canvas; eye on = the focused page plus everything around it at full opacity.
+No middle dimmed state. `FOCUS_DIMMED_ITEM_OPACITY` and `dimsOtherPages` are
+removed; `showsAnnotations` became `showsContext`.
 
 The toggle is per-session and ephemeral (resets each focus). It is *not*
 persisted to `.canvas` — visibility is view state, not document data. Chosen over

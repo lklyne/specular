@@ -47,14 +47,12 @@ export const GroupBoundsLayer = memo(function GroupBoundsLayer({
   zoom,
   canvasOrigin,
   pan,
-  dimmed = false,
 }: {
   groups: CanvasSceneGroupEntity[]
   isDark: boolean
   zoom: number
   canvasOrigin: { x: number; y: number }
   pan: { x: number; y: number }
-  dimmed?: boolean
 }) {
   if (!groups.length) return null
   const inverseScale = 1 / zoom
@@ -67,7 +65,6 @@ export const GroupBoundsLayer = memo(function GroupBoundsLayer({
           group={group}
           isDark={isDark}
           inverseScale={inverseScale}
-          dimmed={dimmed}
         />
       ))}
     </GroupViewportLayer>
@@ -78,12 +75,10 @@ function GroupBoundsItem({
   group,
   isDark,
   inverseScale,
-  dimmed,
 }: {
   group: CanvasSceneGroupEntity
   isDark: boolean
   inverseScale: number
-  dimmed: boolean
 }) {
   const surfaceStyle = groupSurfaceStyle(group, isDark)
 
@@ -96,7 +91,6 @@ function GroupBoundsItem({
         width: group.width,
         height: group.height,
         overflow: 'visible',
-        opacity: dimmed ? 0.2 : 1,
         pointerEvents: 'none',
       }}
     >
