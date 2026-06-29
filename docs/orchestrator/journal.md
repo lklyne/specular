@@ -685,3 +685,18 @@ Noticed (no action):
 - **Journal PR #169 at day 30**: One month of entries buffered on the branch, not yet on main. Operational — this run read from and appended to the branch successfully. No practical problem today (no one else edits journal.md), but noting the milestone.
 - **`codex/` branch variant (PR #256) — one observed instance**: PR #256 comes from `codex/delete-browser-mode-focus-selection`, distinct from the usual `claude/` prefix. Different worker variant. First observed instance in the journal record. Watch for a second use of `codex/` branches to understand when that variant is preferred over the `claude/` AFK pipeline.
 Hint for next run: check whether #256 merged (CI clearance); if merged, check whether the review session also cleared #236/#238/#240 and whether the needs-triage routing session happened; if #204 remains open at day 26+ with no comment, it is worth noting as a proposal candidate (close recommendation) — product PR stranded by a superseding ADR is arguably within the orchestrator's scope to surface.
+
+---
+
+## 2026-06-29
+Surveyed: commits since June 28 (0.3.2 released; #256 merged, #258 license), open PR state (#236/#238/#240 day 8–9; #204 day 26; #206 day 21), needs-triage queue (11 items, day 15 for bloat-audit batch), ready-for-agent queue (1 new item: #257 selection-lag bug), post-reflection period.
+Acted:
+- #259 filed — "Add post-ADR conflict-audit step to AFK merge checklist." Two instances of AFK-built PRs becoming architecturally stranded after a superseding ADR merged without triggering a review of open PRs: #204 (wireframe verb surface superseded by ADR 0019's `specular apply` path) and #206 (CLI probes testing old command surface, also affected by ADR 0019/0020). Each day these sit, their conflict surface with main grows.
+Noticed (no action):
+- **0.3.2 shipped today**: ADR 0019 (canvas-as-document-cli) + ADR 0020 (Browser mode deletion) landed in one release cycle. Two complete mode deletions in the same version is notable — the system is shedding abstraction layers at a pace that creates real rebase debt on any open integration PR.
+- **`codex/` branch variant confirmed**: PR #256 (codex/delete-browser-mode-focus-selection) merged and shipped in 0.3.2. Matches the `claude/` AFK pattern for single-scope large simplifications. Second confirmed codex/ use would confirm variant is in regular rotation — watch the next large simplification branch.
+- **Issue #257 filed and labeled `ready-for-agent` within hours of creation**: Selection-border-lag bug (filed 03:02 UTC, labeled by ~08:30 UTC). Whether this was Lyle or the @claude triage action, the triage latency for well-scoped bugs is dramatically shorter than for the bloat-audit batch (#220–#228 at 15 days needs-triage). Pattern: self-described bugs with root-cause analysis and file pointers route fast; batch refactoring issues stall.
+- **PRs #236, #238, #240 did NOT flush with 0.3.2**: Still open at day 8–9. These are CI-passing, unblocked, and were last updated June 20–21. The 0.3.2 merge session cleared the codex/ and pr-drain branches but not these three. Next review session should catch them; at day 10+ without flush, note it.
+- **PR #204 at day 26**: Entry for the fifth consecutive run. Past the point where noting is useful — naming it here for continuity with #259 proposal context only.
+- **Journal PR #169 at day 31**: Record holder; operational.
+Hint for next run: check whether #259 is acted on and whether #236/#238/#240 flushed; if the needs-triage bloat-audit batch (#220–#228) moved to ready-for-agent, an AFK session is likely starting — watch for a new dex epic; if #257 (selection-lag) was addressed by an agent, observe whether the fix matched option A or B from the issue's options list.
