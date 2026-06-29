@@ -101,12 +101,14 @@ flaw.
 
 Two changes:
 
-1. **Content vs annotation taxonomy.** `isAnnotationEntityKind` (in
-   `focus-context.ts`) splits entities into *content* (`page`, `file` — a reading
-   surface with interior worth isolating) and *annotation* (`text`, `shape`,
-   `drawing`, plus edges — things placed *on* content). The line is "rich
-   internal content worth reading in isolation." This same predicate is the seam
-   a future content lightbox would key off.
+1. **Eye-off hides everything but the focused page.** Focus is always
+   page-targeted, and the focused page is a webview (not drawn in the above-view
+   layer), so the simplest rule won out: when the eye is off,
+   `renderEntityBody` / `renderEdge` (`above-view/App.tsx`) drop *every*
+   non-page item — annotations (`text`, `shape`, `drawing`, edges) **and**
+   files/images alike. There is no `content`-vs-`annotation` entity-kind
+   predicate; the only line is page vs not-page. (A future content lightbox
+   that wants to keep files visible would reintroduce that split here.)
 
 2. **Annotation visibility is latched session state, not derived from the tool.**
    `FocusSession.annotationsVisible` starts `false` (clean read) and latches

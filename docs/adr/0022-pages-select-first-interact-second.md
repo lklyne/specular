@@ -48,8 +48,9 @@ click. The click/double-click paths dispatch via `canvas-enter-page-interactive`
 (`viewport-control.ts`), called right after every `beginFocusSession` /
 `endFocusSession` so `interactivePageId` tracks the focused page.
 
-**Exit (back to selected):** Escape (`escape-page-focus` clears
-`interactivePageId` before falling through to deselect), clicking away or onto
+**Exit (back to selected):** Escape (`escape-page-focus` is two-stage — the
+first press clears `interactivePageId` and returns, leaving the page selected;
+a second press deselects), clicking away or onto
 another entity (selection moves off the entered page → `commitSelection` clears
 it), leaving the focus session (dismiss / camera-change / re-focus →
 `syncInteractiveToFocus` clears it), and page deletion.

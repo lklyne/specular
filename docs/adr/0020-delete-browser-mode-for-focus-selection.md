@@ -28,9 +28,14 @@ that:
 - centers and zooms to fit the selected item or multi-selection with padding;
 - caps zoom at 100%;
 - preserves each node's persisted width and height;
-- stores the pre-focus camera in runtime memory only;
-- lets Escape restore that stored camera, unless manual pan, zoom, or reset has
-  cleared it.
+- on exit (Escape / X / dimmed-canvas click) keeps the current camera position
+  and zooms out a touch (`FOCUS_EXIT_ZOOM_OUT`, anchored on the viewport
+  center) rather than restoring the pre-focus camera — easy in-focus
+  navigation made the original position usually irrelevant.
+
+(The original design restored a stored pre-focus camera; [ADR 0021](./0021-focus-session-as-first-class-concept.md)'s
+session rework dropped that in favor of the zoom-out-in-place exit above. The
+`returnCamera` field is still captured but no longer read.)
 
 Legacy `viewMode` and `browserTabMode` fields remain readable for old files.
 On restore, Browser-mode metadata selects the formerly active page and then the
