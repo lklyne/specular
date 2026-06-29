@@ -221,11 +221,7 @@ export function selectedComponentTreePayload():
   return { pageId, tree: page.componentTree ?? [] }
 }
 
-export function sendAnnotationLayoutUpdate(data: {
-  pages: CanvasScenePageEntity[]
-  activeSelection: ActiveCanvasEntitySelection | null
-}): void {
-  const payload = buildCanvasLayoutData(data.pages, data.activeSelection)
+export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
   if (aboveView) safeSend(aboveView.webContents, 'layout-update', payload)
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed()) {
     safeSend(cursorOverlayWindow.webContents, 'layout-update', payload)

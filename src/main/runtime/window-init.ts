@@ -204,11 +204,9 @@ export function initWindow(): void {
     currentBgView.webContents.send('theme-changed', { isDark: isDark() })
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
-    currentBgView.webContents.send('layout-update', buildCanvasLayoutData(pageOverlays, nextActiveSelection))
-    sendAnnotationLayoutUpdate({
-      pages: pageOverlays,
-      activeSelection: nextActiveSelection,
-    })
+    const initialLayoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
+    currentBgView.webContents.send('layout-update', initialLayoutData)
+    sendAnnotationLayoutUpdate(initialLayoutData)
     currentBgView.webContents.send('component-tree-data', selectedComponentTreePayload())
     // The renderer subscribes to layout updates during mount, so send one more
     // pass on the next tick to avoid dropping the initial canvas paint.
@@ -253,10 +251,7 @@ export function initWindow(): void {
     currentAboveView.webContents.send('theme-changed', { isDark: isDark() })
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
-    sendAnnotationLayoutUpdate({
-      pages: pageOverlays,
-      activeSelection: nextActiveSelection,
-    })
+    sendAnnotationLayoutUpdate(buildCanvasLayoutData(pageOverlays, nextActiveSelection))
     layoutCache.lastCommentOverlayBoundsKey = null
     requestLayout()
   })
