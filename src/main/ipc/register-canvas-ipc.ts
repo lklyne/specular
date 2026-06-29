@@ -76,6 +76,7 @@ import {
   selectNone,
 } from '../runtime/selection-controller'
 import { consumeDragId } from '../runtime/drop-owner'
+import { enterPageInteractive } from '../runtime/overlay-manager'
 import { registerCanvasDragIpc } from './register-canvas-drag-ipc'
 import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
 import { registerCanvasReorderIpc } from './register-canvas-reorder-ipc'
@@ -230,6 +231,10 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on('canvas-enter-group', (_event, { groupId }: { groupId: string }) => {
     enterGroup(groupId, { clearInteraction: true })
+  })
+
+  ipcMain.on('canvas-enter-page-interactive', (_event, { pageId }: { pageId: string }) => {
+    enterPageInteractive(pageId)
   })
 
   // Unified inline-edit entry point. Dblclick on a sticky/text/shape body

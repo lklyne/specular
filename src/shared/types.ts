@@ -476,6 +476,10 @@ export interface LayoutUpdateData {
   /** Predicate-derived: the page id that should hold keyboard + receive
    *  forwarded input, or null. See `shouldFocusSelectedPage`. */
   keyboardTargetPageId: string | null
+  /** The page the user has *entered* for interaction (select-first /
+   *  interact-second, #124). Only this page forwards pointer input and owns
+   *  keyboard; a merely-selected page is null here. */
+  interactivePageId: string | null
   /** Ephemeral focus-presentation override for the focused page, if active. */
   focusPresentation: FocusPresentationData | null
   /** Wall-clock (Date.now) start of the in-flight animated camera move, or
@@ -1821,6 +1825,7 @@ export interface CanvasBgElectronAPI {
   ) => void
   selectGroup: (groupId: string) => void
   enterGroup: (groupId: string) => void
+  enterPageInteractive: (pageId: string) => void
   startDragGroup: (groupId: string) => void
   dragGroup: (groupId: string, dx: number, dy: number, shiftKey?: boolean) => void
   endDragGroup: () => void

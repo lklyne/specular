@@ -63,6 +63,7 @@ const baseCtx: CanvasPointerContext = {
   spaceHeld: false,
   altHeld: false,
   editingEntityId: null,
+  interactivePageId: null,
 }
 
 function shape(over: Partial<CanvasSceneShapeEntity> = {}): CanvasSceneShapeEntity {
@@ -110,10 +111,21 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'page-body-press', entityId: 'f1', preserveSelection: false })
   })
 
-  it('page body pointerdown on single-selected page → forward-pointer-down', () => {
+  it('page body pointerdown on single-selected (not entered) page → enter-page-interactive', () => {
     const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
+    expect(action).toEqual({ kind: 'enter-page-interactive', entityId: 'f1' })
+  })
+
+  it('page body pointerdown on the entered page → forward-pointer-down', () => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+    })
     expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'left' })
   })
 
@@ -128,12 +140,13 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'page-body-press', entityId: 'f1', preserveSelection: true })
   })
 
-  it('right-click on single-selected page body → forward-pointer-down (right)', () => {
+  it('right-click on the entered page body → forward-pointer-down (right)', () => {
     const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
       ...baseCtx,
       selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
       isPrimaryButton: false,
       button: 'right',
     })

@@ -9,7 +9,8 @@ import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './surface-layout'
-import { arrowNavigationLocked, setArrowNavigationLocked, pages, selectedPageId } from './runtime-context'
+import { arrowNavigationLocked, setArrowNavigationLocked, interactivePageId, pages, selectedPageId } from './runtime-context'
+import { exitPageInteractive } from './overlay-manager'
 import { deletePages } from '../workspace-entities'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
@@ -134,6 +135,13 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     restoreFocusCamera()
   },
   'escape-page-focus': () => {
+    // Select-first / interact-second (#124): first Escape exits interactive
+    // mode back to selected (keeps the outline); a page only owns keyboard
+    // while entered, so this is the path that fires from page focus.
+    if (interactivePageId()) {
+      exitPageInteractive()
+      return
+    }
     selectNone()
     markDirty('canvas')
     requestLayout()

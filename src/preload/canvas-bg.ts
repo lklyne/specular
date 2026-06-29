@@ -203,6 +203,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-select-group', { groupId }),
   enterGroup: (groupId: string) =>
     ipcRenderer.send('canvas-enter-group', { groupId }),
+  enterPageInteractive: (pageId: string) =>
+    ipcRenderer.send('canvas-enter-page-interactive', { pageId }),
   startDragGroup: (groupId: string) =>
     ipcRenderer.send('canvas-drag-group-start', { groupId }),
   dragGroup: (groupId: string, dx: number, dy: number, shiftKey = false) =>

@@ -63,13 +63,14 @@ describe('routePointerDoubleClick', () => {
     ).toEqual({ kind: 'noop' })
   })
 
+  it('page body → enter-page-interactive (#124 reliable enter path)', () => {
+    expect(
+      routePointerDoubleClick(target({ kind: 'page-body', entityId: 'p1' })),
+    ).toEqual({ kind: 'enter-page-interactive', entityId: 'p1' })
+  })
+
   it('background → noop', () => {
     expect(routePointerDoubleClick(target({ kind: 'background' }))).toEqual({ kind: 'noop' })
   })
 
-  it('page body → noop (single-click already enters focus)', () => {
-    expect(
-      routePointerDoubleClick(target({ kind: 'page-body', entityId: 'f1' })),
-    ).toEqual({ kind: 'noop' })
-  })
 })

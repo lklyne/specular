@@ -118,7 +118,7 @@ describe('selection', () => {
     expect(cleared.selectedGroupId).toBeUndefined()
   })
 
-  it('creating a focused page yields a single interactive selection that can be deselected immediately', async () => {
+  it('creating a page yields a selected-but-not-interactive page (select-first, #124) that can be deselected immediately', async () => {
     const result = await createFocusedPage({
       canvasX: 280,
       canvasY: 420,
@@ -134,9 +134,12 @@ describe('selection', () => {
     expect(selection.selectedEntityId).toBe(result.pageId)
     expect(selection.selectedEntityIds).toEqual([result.pageId])
 
+    // Select-first / interact-second: a freshly selected page is NOT
+    // interactive (blocker on, keyboard stays on the canvas so Delete removes
+    // the frame). It becomes interactive only once the user enters it.
     const overlay = await getSelectionOverlayState()
     const pageState = overlay.pages.find((page) => page.pageId === result.pageId)
-    expect(pageState).toMatchObject({ interactive: true, multiSelected: false })
+    expect(pageState).toMatchObject({ interactive: false, multiSelected: false })
 
     await deselectSelection()
 

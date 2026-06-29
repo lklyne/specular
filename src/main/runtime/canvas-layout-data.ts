@@ -35,6 +35,7 @@ import {
   findPageById,
   hoverTarget,
   interactionState,
+  interactivePageId,
   pages,
   pan,
   selectedPage,
@@ -456,6 +457,7 @@ export function buildCanvasLayoutData(
       updatedAt: c.updatedAt,
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
+    interactivePageId: interactivePageId(),
     focusPresentation: buildFocusPresentationData(pages),
     cameraTransitionStartedAt,
   } as LayoutUpdateData

@@ -13,7 +13,9 @@ import {
 } from './view-refs'
 import {
   inspectSelectedNodeIdByPage,
+  interactivePageId,
   pages,
+  setInteractivePageId,
   setPendingFocus,
 } from './runtime-context'
 import {
@@ -304,6 +306,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // early-returns while focus is active) with no visible affordance to recover.
   // Full select-first / interact-second delete behavior is tracked in #124.
   if (focusSession()?.pageId === page.id) endFocusSession('dismiss')
+  if (interactivePageId() === page.id) setInteractivePageId(null)
   breadcrumb('page', 'remove', { host: hostOf(page.url) })
   clearPendingRequestsForPage(page.id)
   // Detachment is owned by the layout pass child-list reconcile — splice

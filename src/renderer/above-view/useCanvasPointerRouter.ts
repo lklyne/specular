@@ -120,6 +120,7 @@ export type ReorderGhostOffset = { dx: number; dy: number } | null
 const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointerAction['kind']>([
   'noop',
   'page-body-press',
+  'enter-page-interactive',
   'forward-pointer-down',
   'begin-entity-drag',
   'begin-entity-press',
@@ -261,6 +262,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
         altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
+        interactivePageId: layout.interactivePageId ?? null,
       }
 
       // Hand tool: primary-button drag pans globally regardless of hit
@@ -302,6 +304,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           return
         case 'request-entity-edit':
           apiRef.current.requestEntityEdit(action.entityId)
+          break
+        case 'enter-page-interactive':
+          apiRef.current.enterPageInteractive(action.entityId)
           break
         case 'enter-group':
           apiRef.current.enterGroup(action.groupId)
@@ -350,6 +355,9 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return false
     case 'page-body-press':
       return runPageBodyPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
+    case 'enter-page-interactive':
+      api.enterPageInteractive(action.entityId)
+      return true
     case 'forward-pointer-down':
       return runForwardPointer(action, api, event, layoutRef)
     case 'toggle-select':

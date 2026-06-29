@@ -33,6 +33,9 @@ export type ShouldFocusSelectedPageInputs = {
   interactionKind: InteractionMode['kind']
   activeTool: Tool
   commentOverlayActive: boolean
+  /** The page the user has *entered* for interaction (#124). A merely-selected
+   *  page does not own keyboard — only the entered page does. */
+  interactivePageId: string | null
 }
 
 export function shouldFocusSelectedPage(
@@ -43,5 +46,8 @@ export function shouldFocusSelectedPage(
   if (inputs.interactionKind !== 'idle') return null
   if (inputs.activeTool.kind !== 'select') return null
   if (inputs.commentOverlayActive) return null
+  // Select-first / interact-second: a selected page owns keyboard only once
+  // the user has entered it (second click / double-click).
+  if (inputs.selection.entityId !== inputs.interactivePageId) return null
   return inputs.selection.entityId
 }
