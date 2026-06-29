@@ -5,7 +5,6 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
   return {
     interactionMode: 'idle',
     editingEntityId: null,
-    selectedPageId: null,
     commentOverlayActive: false,
     pendingFocus: null,
     focusedPageId: null,
@@ -18,11 +17,6 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
 describe('expectedFocus', () => {
   it('defaults to aboveView in idle canvas mode (Phase F: aboveView is the keyboard owner)', () => {
     expect(expectedFocus(state())).toEqual({ kind: 'aboveView' })
-  })
-
-  it('does not focus a selected page unless the page-focus predicate elects it', () => {
-    expect(expectedFocus(state({ selectedPageId: 'p1' })))
-      .toEqual({ kind: 'aboveView' })
   })
 
   for (const mode of ['panning', 'marquee', 'dragging-entities', 'resizing-entity', 'resizing-multi-selection', 'dragging-edge'] as const) {
@@ -86,7 +80,6 @@ describe('expectedFocus', () => {
     expect(expectedFocus(state({ pendingFocus: { kind: 'toolbar' } })))
       .toEqual({ kind: 'toolbar' })
     expect(expectedFocus(state({
-      selectedPageId: 'p1',
       pendingFocus: { kind: 'bgView' },
     }))).toEqual({ kind: 'bgView' })
   })

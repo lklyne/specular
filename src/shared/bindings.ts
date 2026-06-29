@@ -240,7 +240,9 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k('escape'),
     scope: ALL_VIEWS,
     target: 'main',
-    firesWhileTyping: true,
+    // No firesWhileTyping: while editing a sticky/text entity inside a focus
+    // session, Escape must reach the editor's onEscape (commit/dismiss) rather
+    // than getting consumed here to exit focus.
     firesFromPageFocus: true,
     when: (ctx) => ctx.focusReturnCameraActive,
     label: 'Restore focus camera',

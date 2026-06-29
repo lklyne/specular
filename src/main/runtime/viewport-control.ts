@@ -32,6 +32,7 @@ import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
 import {
+  FOCUS_VIEWPORT_PADDING_PX,
   computeFocusZoomForBounds as computeFocusZoomForBoundsValue,
   computePanToCenterBoundsAtZoom as computePanToCenterBoundsAtZoomValue,
 } from '../../shared/focus-camera'
@@ -62,7 +63,7 @@ export function setZoom(value: number): void {
   setZoomState(nextZoom)
   markDirty('canvas', 'toolbar')
   broadcastCanvasZoomToPages()
-  scheduleWorkspaceAutosave()
+  if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
 }
 
 export function broadcastCanvasZoomToPages(): void {
@@ -77,7 +78,7 @@ export function setPan(x: number, y: number): void {
   if (pan.x === x && pan.y === y) return
   setPanState({ x, y })
   markDirty('canvas')
-  scheduleWorkspaceAutosave()
+  if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
 }
 
 // `requestLayout` lives in layout-engine (co-located with the private
@@ -92,6 +93,10 @@ function panToCenterBounds(bounds: WorkspaceBounds): { x: number; y: number } {
 
 let suppressFocusReturnClear = false
 let suppressCameraAnimationCancel = false
+// Per-frame camera tweens shouldn't fire scheduleWorkspaceAutosave() (full
+// runtime→Y.Doc diff-sync + debounce reset) ~20× per transition. applyCamera
+// suppresses it; moveCameraTo schedules a single autosave when the move lands.
+let suppressCameraAutosave = false
 
 // A user camera move (setZoom/setPan) ends the focus session — except:
 //  - programmatic focus moves set `suppressFocusReturnClear` (they reframe the
@@ -151,13 +156,6 @@ export function hasFocusReturnCamera(): boolean {
   return isFocusSessionActive()
 }
 
-export function computeFocusZoomForBounds(
-  bounds: WorkspaceBounds,
-  viewport: { width: number; height: number },
-): number {
-  return computeFocusZoomForBoundsValue(bounds, viewport, zoom)
-}
-
 function computeFocusZoomForPresentation(
   bounds: WorkspaceBounds,
   viewport: { width: number; height: number },
@@ -166,8 +164,8 @@ function computeFocusZoomForPresentation(
   if (mode === 'fill') return clampCanvasZoom(1)
   if (mode === 'device') {
     if (bounds.width <= 0 || bounds.height <= 0) return Math.min(zoom, 1)
-    const availableWidth = Math.max(1, viewport.width - 128)
-    const availableHeight = Math.max(1, viewport.height - 128)
+    const availableWidth = Math.max(1, viewport.width - FOCUS_VIEWPORT_PADDING_PX * 2)
+    const availableHeight = Math.max(1, viewport.height - FOCUS_VIEWPORT_PADDING_PX * 2)
     return clampCanvasZoom(Math.min(availableWidth / bounds.width, availableHeight / bounds.height))
   }
   // 'fit' (and multi-select null): reflowed page already sized to the padded
@@ -220,6 +218,7 @@ function camerasEqual(a: CanvasCamera, b: CanvasCamera): boolean {
 
 function applyCamera(camera: CanvasCamera, preserveFocusSession: boolean): void {
   suppressCameraAnimationCancel = true
+  suppressCameraAutosave = true
   try {
     if (preserveFocusSession) {
       setCameraForFocus(camera.zoom, camera.pan)
@@ -229,6 +228,7 @@ function applyCamera(camera: CanvasCamera, preserveFocusSession: boolean): void 
     setPan(camera.pan.x, camera.pan.y)
   } finally {
     suppressCameraAnimationCancel = false
+    suppressCameraAutosave = false
   }
 }
 
@@ -254,6 +254,7 @@ export function moveCameraTo(targetCamera: CanvasCamera, options: CameraMoveOpti
   const duration = Math.max(0, options.durationMs ?? DEFAULT_CAMERA_TRANSITION_DURATION_MS)
   if (!options.animate || duration === 0 || camerasEqual(startCamera, target)) {
     applyCamera(target, preserveFocusSession)
+    scheduleWorkspaceAutosave()
     requestLayout()
     return
   }
@@ -264,7 +265,10 @@ export function moveCameraTo(targetCamera: CanvasCamera, options: CameraMoveOpti
     const t = Math.min(1, (Date.now() - start) / duration)
     applyCamera(interpolateCamera(startCamera, target, t), preserveFocusSession)
     requestLayout()
-    if (t >= 1) cancelCameraAnimation()
+    if (t >= 1) {
+      cancelCameraAnimation()
+      scheduleWorkspaceAutosave()
+    }
   }, CAMERA_TRANSITION_FRAME_MS)
 }
 
@@ -331,8 +335,8 @@ function defaultFocusPresentationMode(page: { metadata?: Record<string, unknown>
 function fitFocusPageSize(): { width: number; height: number } {
   const viewport = availableCanvasViewportRect()
   return {
-    width: Math.max(320, Math.round(viewport.width - 128)),
-    height: Math.max(200, Math.round(viewport.height - 128)),
+    width: Math.max(320, Math.round(viewport.width - FOCUS_VIEWPORT_PADDING_PX * 2)),
+    height: Math.max(200, Math.round(viewport.height - FOCUS_VIEWPORT_PADDING_PX * 2)),
   }
 }
 

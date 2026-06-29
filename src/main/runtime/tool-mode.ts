@@ -72,6 +72,11 @@ export function setActiveTool(tool: Tool): Tool {
   // select. The user turns it back off via the focus bar's eye (ADR 0021).
   if (isWorkingTool(sanitized) && isFocusSessionActive()) {
     setFocusAnnotationsVisible(true)
+    // The layout-update broadcast is gated on the 'canvas' dirty flag, and
+    // applyToolSideEffects only dirties canvas for annotation tools — so a
+    // non-annotation working tool (text/sticky/shape/page) would latch the eye
+    // on without ever telling the renderer to lift the scrim.
+    markDirty('canvas')
   }
   applyToolSideEffects(prev, sanitized)
   return uiActiveTool()

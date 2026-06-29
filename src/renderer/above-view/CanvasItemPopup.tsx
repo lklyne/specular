@@ -187,20 +187,6 @@ function usePopupFlipAnimation({
         )
         positionAnimRef.current.currentTime = elapsed
         if (widthAnimRef.current) widthAnimRef.current.currentTime = elapsed
-        // TEMP DIAG
-        console.log('[flip]', placement, {
-          deltaX: Math.round(deltaX),
-          deltaY: Math.round(deltaY),
-          elapsed: Math.round(elapsed),
-          prevTop: Math.round(previousRect.top),
-          nextTop: Math.round(nextRect.top),
-          prevW: Math.round(previousRect.width),
-        })
-      } else {
-        console.log('[flip] no-camera', placement, {
-          deltaX: Math.round(deltaX),
-          deltaY: Math.round(deltaY),
-        })
       }
     }
 

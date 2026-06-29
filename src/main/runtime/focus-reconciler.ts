@@ -23,7 +23,6 @@ import type { FocusTarget } from '../../shared/interaction-types'
 export type FocusState = {
   interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity' | 'reordering-row'
   editingEntityId: string | null
-  selectedPageId: string | null
   commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
   pendingFocus: FocusTarget | null

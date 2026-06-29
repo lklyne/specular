@@ -16,6 +16,9 @@ export interface FocusReturnCamera {
 export interface FocusSession {
   pageId: string
   mode: FocusPresentationMode
+  // TODO: delete returnCamera. We moved away from restoring the stored camera on
+  // exit (restoreFocusCamera now just zooms out 0.85 from the current camera),
+  // so this is captured on every beginFocusSession but never read.
   /** Camera to restore on a graceful exit. Captured when the session begins. */
   returnCamera: FocusReturnCamera
   /**

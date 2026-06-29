@@ -1,6 +1,6 @@
 import type { WorkspaceBounds } from './types'
 
-const FOCUS_VIEWPORT_PADDING_PX = 64
+export const FOCUS_VIEWPORT_PADDING_PX = 64
 
 export function computeFocusZoomForBounds(
   bounds: WorkspaceBounds,

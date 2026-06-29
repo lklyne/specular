@@ -20,16 +20,13 @@ import {
   setPendingFocus,
 } from './runtime-context'
 import { isTextEditingFor } from './binding-dispatcher'
-import { isCommentOverlayVisible, selectedPageIndex } from '../ui-state'
+import { isCommentOverlayVisible } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
 function currentFocusState(): FocusState {
-  const idx = selectedPageIndex(pages.map((p) => p.id))
-  const selectedPage = idx != null ? pages[idx] : null
   return {
     interactionMode: canvasInteractionModeKind(interactionState),
     editingEntityId: getEditingEntityId(),
-    selectedPageId: selectedPage?.id ?? null,
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
     focusedPageId: currentKeyboardTargetPageId(),

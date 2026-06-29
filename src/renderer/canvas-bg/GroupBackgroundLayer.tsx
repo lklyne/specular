@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import type { CanvasSceneGroupEntity } from '../../shared/types'
+import { FOCUS_DIMMED_ITEM_OPACITY } from '../../shared/focus-context'
 import { groupSurfaceStyle } from '../shared/groupSurfaceStyle'
 
 export const GroupBackgroundLayer = memo(function GroupBackgroundLayer({
@@ -28,7 +29,7 @@ export const GroupBackgroundLayer = memo(function GroupBackgroundLayer({
               height: group.screenHeight,
               borderRadius: 2,
               background: surfaceStyle.background,
-              opacity: dimmed ? 0.2 : 1,
+              opacity: dimmed ? FOCUS_DIMMED_ITEM_OPACITY : 1,
             }}
           />
         )
