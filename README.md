@@ -73,3 +73,7 @@ An MCP server is also available for clients that prefer the Model Context Protoc
 ## Security
 
 To report a security vulnerability, see [SECURITY.md](SECURITY.md).
+
+## License
+
+Licensed under [PolyForm Shield 1.0.0](LICENSE.md). Copyright © 2026 Lyle Klyne.
