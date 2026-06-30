@@ -700,3 +700,18 @@ Noticed (no action):
 - **PR #204 at day 26**: Entry for the fifth consecutive run. Past the point where noting is useful — naming it here for continuity with #259 proposal context only.
 - **Journal PR #169 at day 31**: Record holder; operational.
 Hint for next run: check whether #259 is acted on and whether #236/#238/#240 flushed; if the needs-triage bloat-audit batch (#220–#228) moved to ready-for-agent, an AFK session is likely starting — watch for a new dex epic; if #257 (selection-lag) was addressed by an agent, observe whether the fix matched option A or B from the issue's options list.
+
+---
+
+## 2026-06-30
+Surveyed: Today's merges (#240 fallow dead-code sweep, #260 perf layout pass, #261 page panel + comment overlay polish), open PR state (#236/#238 still open at day 10), issue #257 closed-as-completed, proposal #259 (day 1, 0 comments). Dominant theme: review flush underway; bug-to-fix cycle confirmed fast.
+Acted:
+- Nothing filed or closed. Proposal #259 at day 1; no stale orchestrator output.
+Noticed (no action):
+- **Review flush broke the stall: three PRs merged today**. #240 (fallow dead-code sweep, ~250 LOC removed, day 9), #260 (perf: layout data built once per pass, day 1), and #261 (page panel + comment overlay polish, interactive multi-commit). Pattern confirmed: the burst-and-flush rhythm holds. PRs #236 (comment mode for file entities) and #238 (live-refresh local files) still open at day 10 — expected to flush in the same session.
+- **#257 fast-tracked to closed in ~28 hours**: Filed June 29 at 03:02 UTC (thorough analysis, root cause, six numbered options). Closed June 30 at 07:49 UTC after PR #260 landed. The fix implemented Option C exactly as the issue named it ("build once, pass to all senders"). Pattern from June 29 entry holds: thorough bug reports with root-cause analysis and file pointers skip the queue and get fixed directly. Batch refactoring issues with no immediate visible cost don't.
+- **PR #261 was interactive, not AFK**: 8 commits, each co-authored by Claude Opus 4.8, merged as a single PR. Covers UX + logic changes (page device controls, per-comment fix button, fix-agent reframe from "fix only" to "respond"). Reinforces the two-mode split: AFK for bounded refactors; interactive for mixed UX/logic work with rapid iteration. Both modes in active use.
+- **Needs-triage bloat-audit batch (#223/#225–#228) at day 16, composition unchanged**: Routing to `ready-for-agent` is the unlock for the next AFK bloat-cleanup epic. No routing session observed since June 24. Each day this sits, the next AFK batch is delayed by one more day.
+- **PR #204 (wireframe, day 27) and #206 (CLI loop, day 22)**: Architecturally stranded; #259 is the live proposal addressing this. No new activity on either.
+- **Journal PR #169 at day 32**: Operational.
+Hint for next run: check whether #236/#238 flushed with the current review session; check whether the needs-triage bloat-audit batch moved (a routing session would signal the next AFK epic imminent); watch for any comment on #259 — if it still has 0 comments by July 6, decide whether to close as stale or refile as a ready-to-merge PR (the skill edit is small and self-applying).
