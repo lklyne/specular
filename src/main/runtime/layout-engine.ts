@@ -234,14 +234,9 @@ function layoutAllViews(): void {
     const bgWidth = Math.max(0, width - (devtoolsOpen ? devtoolsWidth : 0))
     layoutCache.lastBackgroundBoundsKey = setBoundsIfChanged(bgView, { x: 0, y: 0, width: bgWidth, height }, layoutCache.lastBackgroundBoundsKey)
     if (consumeDirty('canvas')) {
-      bgView.webContents.send(
-        'layout-update',
-        buildCanvasLayoutData(pageOverlays, nextActiveSelection),
-      )
-      sendAnnotationLayoutUpdate({
-        pages: pageOverlays,
-        activeSelection: nextActiveSelection,
-      })
+      const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
+      bgView.webContents.send('layout-update', layoutData)
+      sendAnnotationLayoutUpdate(layoutData)
       bgView.webContents.send('component-tree-data', selectedComponentTreePayload())
     }
   }
