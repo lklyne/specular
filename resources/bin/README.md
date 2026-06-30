@@ -5,7 +5,13 @@ bundle and exposed to the main process via environment variables.
 
 ## `agent-browser`
 
-A pinned release of [vercel-labs/agent-browser][ab].
+A pinned release of [vercel-labs/agent-browser][ab] (a native Rust binary).
+
+The binary is **not committed** — it's fetched at build time by
+`scripts/fetch-agent-browser.sh`, which pins a `VERSION` + `SHA256` and drops
+the matching `darwin-arm64` release asset into `resources/bin/agent-browser`.
+`pnpm build` and `pnpm dist:mac` run it (via `pnpm fetch:agent-browser`) before
+packaging. The fetched binary is gitignored.
 
 ### How it's resolved at runtime
 
@@ -24,7 +30,7 @@ against its CLI command surface.
 agent-browser updates ship inside Specular app updates:
 
 1. New agent-browser release is published upstream.
-2. Drop the binary into `resources/bin/agent-browser` (`chmod +x`).
+2. Bump `VERSION` + `SHA256` in `scripts/fetch-agent-browser.sh` (see below).
 3. Bump Specular's version in `package.json` and publish.
 4. `update-electron-app` (already in `package.json`) auto-downloads the
    Specular update on the user's machine.
@@ -40,14 +46,17 @@ A user who needs a specific agent-browser version can set
 value Specular sets at startup respects an existing env var and won't
 overwrite it.
 
-### Updating the bundled binary
+### Updating the pinned binary
 
-1. Download the pinned release binary for the target platform.
-2. Replace `resources/bin/agent-browser` with the new binary.
-3. `chmod +x resources/bin/agent-browser`.
-4. Verify: `./resources/bin/agent-browser --version`.
-5. Commit the new binary alongside any matching skill changes in
-   `resources/skills/agent-browser/`.
+1. Pick the new tag from https://github.com/vercel-labs/agent-browser/releases.
+2. In `scripts/fetch-agent-browser.sh`, set `VERSION` and delete the old
+   `SHA256` (leave it wrong for now).
+3. Run `pnpm fetch:agent-browser` — it downloads the new asset; the checksum
+   check fails and prints the actual hash. Paste that into `SHA256`.
+4. Re-run `pnpm fetch:agent-browser` to confirm it passes, then
+   `./resources/bin/agent-browser --version`.
+5. Commit the script change alongside any matching skill changes in
+   `resources/skills/agent-browser/` (run `pnpm sync:agent-browser`).
 
 This directory is wired into `forge.config.ts` `extraResource` so its
 contents are copied into the packaged app's `Resources/bin/`.
