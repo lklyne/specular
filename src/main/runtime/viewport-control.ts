@@ -32,6 +32,7 @@ import {
   pageVisualBoundsForContentSize,
 } from './runtime-geometry'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
+import { broadcastViewportNudge } from './viewport-nudge'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
 import {
@@ -65,6 +66,7 @@ export function setZoom(value: number): void {
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
   markDirty('canvas', 'toolbar')
+  broadcastViewportNudge()
   broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
 }
@@ -81,6 +83,7 @@ export function setPan(x: number, y: number): void {
   if (pan.x === x && pan.y === y) return
   setPanState({ x, y })
   markDirty('canvas')
+  broadcastViewportNudge()
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
 }
 
