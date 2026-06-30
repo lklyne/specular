@@ -12,42 +12,13 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity } from '../../shared/types'
 import { lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
+import { CanvasViewportLayer } from './CanvasViewportLayer'
 
 const DEFAULT_STROKE_WIDTH = 2
 /** ADR 0013 §2 — shapes without textSize render their label at this size. */
 const DEFAULT_TEXT_SIZE = 14
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
-
-/**
- * Wraps the shape cards in a viewport transform so they live in
- * canvas-coordinate space. AboveView's WCV origin already sits at
- * `canvasOrigin.y` (the toolbar inset), so the translate omits that axis
- * — only `canvasOrigin.x` and `pan` apply. Matches `StickyViewportLayer`.
- */
-function ShapeViewportLayer({
-  canvasOrigin,
-  pan,
-  zoom,
-  children,
-}: {
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className="pointer-events-none absolute left-0 top-0 origin-top-left"
-      style={{
-        ['--canvas-zoom' as string]: zoom,
-        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
 
 function ShapeText({
   text,
@@ -397,7 +368,7 @@ export function ShapeBodyLayer({
 }) {
   if (!entities.length) return null
   return (
-    <ShapeViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
       {entities.map((shape) => (
         <ShapeCard
           key={shape.id}
@@ -409,6 +380,6 @@ export function ShapeBodyLayer({
           onCommitEdit={onCommitEdit}
         />
       ))}
-    </ShapeViewportLayer>
+    </CanvasViewportLayer>
   )
 }

@@ -17,8 +17,10 @@ import {
   canvasToScreenX,
   canvasToScreenY,
   canScrollWheelTarget,
+  clientYToWindowY,
   DRAG_THRESHOLD,
   isOverlayUiTarget,
+  isPointerInPageContent,
   normalizeRect,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
@@ -805,7 +807,7 @@ export default function App({
   const hitTestHoverTarget = useCallback(
     (clientX: number, clientY: number) => {
       const layout = layoutRef.current
-      const windowY = clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(clientY, layout)
       for (let i = layout.entities.length - 1; i >= 0; i--) {
         const entity = layout.entities[i]
         if (entity.kind === 'group' || entity.kind === 'drawing') continue
@@ -848,7 +850,7 @@ export default function App({
       if (pendingPlacement) {
         setPlacementCursor({
           clientX: event.clientX,
-          clientY: event.clientY + layoutRef.current.canvasOrigin.y,
+          clientY: clientYToWindowY(event.clientY, layoutRef.current),
         })
       }
       // During placement the placeholder owns the cursor; page hover would flicker.
@@ -925,7 +927,7 @@ export default function App({
 
       const startX = event.clientX
       const startY = event.clientY
-      const startWindowY = startY + layout.canvasOrigin.y
+      const startWindowY = clientYToWindowY(startY, layout)
       const startCanvas = screenPointToCanvasPoint(startX, startWindowY, layout)
       const placementAtStart = layout.pendingPlacement
       let crossedThreshold = false
@@ -946,7 +948,7 @@ export default function App({
         const current = layoutRef.current
         const endCanvas = screenPointToCanvasPoint(
           ev.clientX,
-          ev.clientY + current.canvasOrigin.y,
+          clientYToWindowY(ev.clientY, current),
           current,
         )
         const square = squareConstrainedRect(
@@ -1002,7 +1004,7 @@ export default function App({
             api.setSelectionOverlayRect(null)
             const endCanvas = screenPointToCanvasPoint(
               ev.clientX,
-              ev.clientY + current.canvasOrigin.y,
+              clientYToWindowY(ev.clientY, current),
               current,
             )
             const square = squareConstrainedRect(
@@ -1046,7 +1048,7 @@ export default function App({
             draft.clearDraft()
             return
           }
-          api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
+          api.commitCommentClickAt(ev.clientX, clientYToWindowY(ev.clientY, current))
         }
       }
 
@@ -1096,16 +1098,11 @@ export default function App({
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return false
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       // In focus presentation the camera is locked on the page, so any wheel
       // scrolls it — skip the cursor-over-body check used for selected pages.
-      if (!focusedPageId) {
-        const x0 = page.contentScreenX ?? page.screenX
-        const y0 = page.contentScreenY ?? page.screenY
-        const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-        const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
-        if (event.clientX < x0 || event.clientX > x1) return false
-        if (windowY < y0 || windowY > y1) return false
+      if (!focusedPageId && !isPointerInPageContent(event.clientX, windowY, page)) {
+        return false
       }
       api.forwardWheelToPage(pageId, {
         windowX: event.clientX,
@@ -1195,13 +1192,8 @@ export default function App({
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return resetCursor()
-      const windowY = event.clientY + layout.canvasOrigin.y
-      const x0 = page.contentScreenX ?? page.screenX
-      const y0 = page.contentScreenY ?? page.screenY
-      const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-      const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
-      if (event.clientX < x0 || event.clientX > x1) return resetCursor()
-      if (windowY < y0 || windowY > y1) return resetCursor()
+      const windowY = clientYToWindowY(event.clientY, layout)
+      if (!isPointerInPageContent(event.clientX, windowY, page)) return resetCursor()
       cursorIsForwarded = true
       api.forwardPointerToPage(pageId, {
         kind: 'move',

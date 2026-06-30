@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   canvasToScreenPoint,
+  clientYToWindowY,
+  isPointerInPageContent,
+  pageContentBounds,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
 } from '../../src/shared/coords'
@@ -44,5 +47,37 @@ describe('coords', () => {
     expect(canvasRect.y).toBeCloseTo(tl.y, 6)
     expect(canvasRect.width).toBeCloseTo(rect.width / L.zoom, 6)
     expect(canvasRect.height).toBeCloseTo(rect.height / L.zoom, 6)
+  })
+
+  it('adds canvasOrigin.y to overlay-relative clientY to land in window space', () => {
+    const L = layout()
+    expect(clientYToWindowY(200, L)).toBe(200 + L.canvasOrigin.y)
+  })
+
+  it('falls back to outer screen bounds when a page has no content* bounds', () => {
+    const page = { screenX: 10, screenY: 20, screenWidth: 300, screenHeight: 200 }
+    expect(pageContentBounds(page)).toEqual({ left: 10, top: 20, width: 300, height: 200 })
+  })
+
+  it('prefers content* bounds over outer screen bounds when present', () => {
+    const page = {
+      screenX: 0,
+      screenY: 0,
+      screenWidth: 400,
+      screenHeight: 300,
+      contentScreenX: 10,
+      contentScreenY: 40,
+      contentScreenWidth: 380,
+      contentScreenHeight: 260,
+    }
+    expect(pageContentBounds(page)).toEqual({ left: 10, top: 40, width: 380, height: 260 })
+  })
+
+  it('isPointerInPageContent matches inclusive membership against the content rect', () => {
+    const page = { screenX: 0, screenY: 0, screenWidth: 100, screenHeight: 50 }
+    expect(isPointerInPageContent(0, 0, page)).toBe(true)
+    expect(isPointerInPageContent(100, 50, page)).toBe(true)
+    expect(isPointerInPageContent(101, 25, page)).toBe(false)
+    expect(isPointerInPageContent(50, 51, page)).toBe(false)
   })
 })

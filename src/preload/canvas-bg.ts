@@ -2,16 +2,19 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   AnnotationBboxSubscription,
   AnnotationCreateRequest,
+  AnnotationElementSelectionPayload,
   AnnotationLiveBboxUpdate,
   CanvasBgElectronAPI,
   EdgeSide,
   LayoutUpdateData,
   SelectionOverlayPayload,
   ToolDefaultPatch,
+  WorkspaceBounds,
 } from '../shared/types'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
 import type { CanvasGuidesPayload } from '../shared/canvas-guides'
+import { makeThemeSubscriber, sub } from './ipc-subscribe'
 
 function installSelectionOverlayBridge(): void {
   if (location.href !== 'about:blank') return
@@ -68,14 +71,7 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-zoom', { deltaY, mouseX, mouseY }),
   canvasPan: (deltaX, deltaY) => ipcRenderer.send('canvas-pan', { deltaX, deltaY }),
   setSelectionOverlayRect: (overlay) => ipcRenderer.send('canvas-selection-overlay', overlay),
-  onSelectionOverlayChanged: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      overlay: import('../shared/types').SelectionOverlayPayload | null,
-    ) => callback(overlay)
-    ipcRenderer.on('canvas-selection-overlay', handler)
-    return () => ipcRenderer.removeListener('canvas-selection-overlay', handler)
-  },
+  onSelectionOverlayChanged: sub<SelectionOverlayPayload | null>('canvas-selection-overlay'),
   canvasSelectInRect: (rect, modifiers) =>
     ipcRenderer.send('canvas-select-in-rect', { ...rect, modifiers }),
   canvasDeselect: (modifiers) => ipcRenderer.send('page-deselect', { modifiers }),
@@ -243,29 +239,12 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('annotation-open-thread', { annotationId }),
   setCommentOverlayActive: (active: boolean) =>
     ipcRenderer.send('comment-overlay-set-active', active),
-  onCaptureMode: (callback: (active: boolean) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, active: boolean) => callback(active)
-    ipcRenderer.on('capture-mode', handler)
-    return () => ipcRenderer.removeListener('capture-mode', handler)
-  },
-  onAnnotateElementSelected: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('annotate-element-selected', handler)
-    return () => ipcRenderer.removeListener('annotate-element-selected', handler)
-  },
-  onRegionSelectCommitted: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('region-select-committed', handler)
-    return () => ipcRenderer.removeListener('region-select-committed', handler)
-  },
-  onCommentCanvasPointCommitted: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('comment-canvas-point-committed', handler)
-    return () => ipcRenderer.removeListener('comment-canvas-point-committed', handler)
-  },
+  onCaptureMode: sub<boolean>('capture-mode'),
+  onAnnotateElementSelected: sub<AnnotationElementSelectionPayload>('annotate-element-selected'),
+  onRegionSelectCommitted: sub<{ canvasRect: WorkspaceBounds }>('region-select-committed'),
+  onCommentCanvasPointCommitted: sub<{ canvasX: number; canvasY: number }>(
+    'comment-canvas-point-committed',
+  ),
   setCommentToolPointerState: (state) =>
     ipcRenderer.send(
       'comment-tool-pointer-state',
@@ -282,20 +261,10 @@ const api: CanvasBgElectronAPI = {
     subscriptions: AnnotationBboxSubscription[],
   ) =>
     ipcRenderer.send('comment-tool-bbox-subscriptions', { pageId, subscriptions }),
-  onAnnotationLiveBbox: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, update: AnnotationLiveBboxUpdate) =>
-      callback(update)
-    ipcRenderer.on('annotation-live-bbox', handler)
-    return () => ipcRenderer.removeListener('annotation-live-bbox', handler)
-  },
+  onAnnotationLiveBbox: sub<AnnotationLiveBboxUpdate>('annotation-live-bbox'),
   createRegionAnnotation: (canvasRect, text) =>
     ipcRenderer.send('canvas-create-region-annotation', { canvasRect, text }),
-  onAnnotationThreadOpen: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('annotation-thread-open', handler)
-    return () => ipcRenderer.removeListener('annotation-thread-open', handler)
-  },
+  onAnnotationThreadOpen: sub<{ annotationId: string }>('annotation-thread-open'),
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) =>
     ipcRenderer.send('canvas-edge-drag-begin', { fromEntityId, fromSide }),
   updateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) =>
@@ -323,29 +292,13 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-forward-wheel', { pageId, payload }),
   forwardPointerToPage: (pageId, payload) =>
     ipcRenderer.send('canvas-forward-pointer', { pageId, payload }),
-  onPageCursorChange: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      data: { type: string | null },
-    ) => callback(data)
-    ipcRenderer.on('aboveview-cursor-update', handler)
-    return () => ipcRenderer.removeListener('aboveview-cursor-update', handler)
-  },
+  onPageCursorChange: sub<{ type: string | null }>('aboveview-cursor-update'),
   setTextEditing: (active: boolean) =>
     ipcRenderer.send('canvas-set-text-editing', { active }),
   setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) =>
     ipcRenderer.send('canvas-set-annotation-state', { hasOpenThread, hasPending: hasPendingAnnotation }),
-  onBindingFire: (callback: (id: BindingId) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, id: BindingId) => callback(id)
-    ipcRenderer.on('binding-fire', handler)
-    return () => ipcRenderer.removeListener('binding-fire', handler)
-  },
-  onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: CanvasGuidesPayload) =>
-      callback(payload)
-    ipcRenderer.on('canvas-guides', handler)
-    return () => ipcRenderer.removeListener('canvas-guides', handler)
-  },
+  onBindingFire: sub<BindingId>('binding-fire'),
+  onCanvasGuides: sub<CanvasGuidesPayload>('canvas-guides'),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-note-file', { filePath, content }),
   morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
@@ -353,23 +306,9 @@ const api: CanvasBgElectronAPI = {
   getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke('repo-connect', { absolutePath }),
-  onLayoutUpdate: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData) => callback(data)
-    ipcRenderer.on('layout-update', handler)
-    return () => ipcRenderer.removeListener('layout-update', handler)
-  },
-  onFixProgressUpdate: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData['fixProgress']) =>
-      callback(data)
-    ipcRenderer.on('fix-progress-update', handler)
-    return () => ipcRenderer.removeListener('fix-progress-update', handler)
-  },
-  onThemeChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { isDark: boolean }) =>
-      callback(data)
-    ipcRenderer.on('theme-changed', handler)
-    return () => ipcRenderer.removeListener('theme-changed', handler)
-  },
+  onLayoutUpdate: sub<LayoutUpdateData>('layout-update'),
+  onFixProgressUpdate: sub<LayoutUpdateData['fixProgress']>('fix-progress-update'),
+  onThemeChanged: makeThemeSubscriber(),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

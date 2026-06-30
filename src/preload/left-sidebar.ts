@@ -3,8 +3,8 @@ import type {
   CanvasEntityKind,
   LeftSidebarData,
   LeftSidebarElectronAPI,
-  ThemeData,
 } from '../shared/types'
+import { makeThemeSubscriber, sub } from './ipc-subscribe'
 
 const api: LeftSidebarElectronAPI = {
   revealPage: (pageId) => ipcRenderer.send('canvas-reveal-page', { pageId }),
@@ -38,16 +38,8 @@ const api: LeftSidebarElectronAPI = {
   deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
   getInitialData: () => ipcRenderer.invoke('get-left-sidebar-bootstrap'),
-  onThemeChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) => callback(data)
-    ipcRenderer.on('theme-changed', handler)
-    return () => ipcRenderer.removeListener('theme-changed', handler)
-  },
-  onSidebarData: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: LeftSidebarData) => callback(data)
-    ipcRenderer.on('left-sidebar-data', handler)
-    return () => ipcRenderer.removeListener('left-sidebar-data', handler)
-  },
+  onThemeChanged: makeThemeSubscriber(),
+  onSidebarData: sub<LeftSidebarData>('left-sidebar-data'),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

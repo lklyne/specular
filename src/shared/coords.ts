@@ -45,3 +45,52 @@ export function screenRectToCanvasRect(
 export function toOverlayY(layout: LayoutUpdateData, value: number): number {
   return value - layout.canvasOrigin.y
 }
+
+/**
+ * aboveView's WCV origin sits at `canvasOrigin.y` below the toolbar, so a
+ * pointer event's `clientY` (relative to the overlay) must add that offset
+ * to land in window space, where scene entities' `screenY` lives.
+ */
+export function clientYToWindowY(clientY: number, layout: LayoutUpdateData): number {
+  return clientY + layout.canvasOrigin.y
+}
+
+export interface ScreenContentBounds {
+  screenX: number
+  screenY: number
+  screenWidth: number
+  screenHeight: number
+  contentScreenX?: number
+  contentScreenY?: number
+  contentScreenWidth?: number
+  contentScreenHeight?: number
+}
+
+/**
+ * A page/file entity's outer `screen*` bounds include device-shell chrome;
+ * `contentScreen*` (when present) is the inner web-viewport rect. Falls back
+ * to the outer bounds when there's no shell.
+ */
+export function pageContentBounds(page: ScreenContentBounds): ScreenRect {
+  return {
+    left: page.contentScreenX ?? page.screenX,
+    top: page.contentScreenY ?? page.screenY,
+    width: page.contentScreenWidth ?? page.screenWidth,
+    height: page.contentScreenHeight ?? page.screenHeight,
+  }
+}
+
+/** Whether a window-space point (`clientX`, `windowY`) falls inside a page's content rect. */
+export function isPointerInPageContent(
+  clientX: number,
+  windowY: number,
+  page: ScreenContentBounds,
+): boolean {
+  const bounds = pageContentBounds(page)
+  return (
+    clientX >= bounds.left &&
+    clientX <= bounds.left + bounds.width &&
+    windowY >= bounds.top &&
+    windowY <= bounds.top + bounds.height
+  )
+}

@@ -18,37 +18,7 @@ import {
   RendererSwitch,
 } from '../canvas-bg/entity-renderers/RendererSwitch'
 import { getFileApi } from '../canvas-bg/entity-renderers/filePathToSrc'
-
-/**
- * Wraps the file cards in a viewport transform so they live in
- * canvas-coordinate space. AboveView's WCV origin already sits at
- * `canvasOrigin.y` (the toolbar inset), so the translate omits that axis
- * — only `canvasOrigin.x` and `pan` apply. Matches `StickyViewportLayer`
- * and `ShapeViewportLayer`.
- */
-function FileViewportLayer({
-  canvasOrigin,
-  pan,
-  zoom,
-  children,
-}: {
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className="pointer-events-none absolute left-0 top-0 origin-top-left"
-      style={{
-        ['--canvas-zoom' as string]: zoom,
-        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
+import { CanvasViewportLayer } from './CanvasViewportLayer'
 
 function FileShell({
   id,
@@ -261,7 +231,7 @@ export function FileBodyLayer({
 }) {
   if (!entities.length) return null
   return (
-    <FileViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
       {entities.map((entity) => (
         <MemoFileBodyCard
           key={entity.id}
@@ -273,6 +243,6 @@ export function FileBodyLayer({
           onTextEditingChange={onTextEditingChange}
         />
       ))}
-    </FileViewportLayer>
+    </CanvasViewportLayer>
   )
 }

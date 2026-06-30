@@ -28,41 +28,12 @@ import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { remarkLineBreaks } from '../shared/remark-line-breaks'
 import { lineHeightForTextSize } from './TextSizeDropdown'
+import { CanvasViewportLayer } from './CanvasViewportLayer'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
 /** ADR 0013 §2 — entities without textSize render at this size ("Small"). */
 const DEFAULT_TEXT_SIZE = 14
-
-/**
- * Wraps the sticky body cards in a viewport transform so they live in
- * canvas-coordinate space. AboveView's WCV origin already sits at
- * `canvasOrigin.y` (the toolbar inset), so the translate omits that axis
- * — only `canvasOrigin.x` and `pan` apply.
- */
-function StickyViewportLayer({
-  canvasOrigin,
-  pan,
-  zoom,
-  children,
-}: {
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className="pointer-events-none absolute left-0 top-0 origin-top-left"
-      style={{
-        ['--canvas-zoom' as string]: zoom,
-        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
 
 function StickyShell({
   id,
@@ -384,7 +355,7 @@ export function StickyBodyLayer({
 }) {
   if (!entities.length) return null
   return (
-    <StickyViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
       {entities.map((note) => (
         <MemoStickyCard
           key={note.id}
@@ -397,6 +368,6 @@ export function StickyBodyLayer({
           onCommitEdit={onCommitEdit}
         />
       ))}
-    </StickyViewportLayer>
+    </CanvasViewportLayer>
   )
 }
