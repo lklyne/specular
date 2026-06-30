@@ -381,17 +381,20 @@ function PageHeaderActions({
     isDark ? 'text-zinc-400 hover:bg-red-500/12 hover:text-red-400' : 'text-zinc-500 hover:bg-red-50 hover:text-red-600'
   }`
 
-  const showShell = page?.showDeviceFrame ?? false
-  const orientation = page?.deviceOrientation ?? 'portrait'
-
+  // Gate device controls on `page` — without the summary we can't read the
+  // current orientation, so a rotate would flip from the wrong base.
   return (
     <div className="flex items-center gap-0.5">
-      <button type="button" className={showShell ? activeBtnClass : btnClass} aria-label="Toggle device frame" title="Device frame" onClick={() => rightDetailsPanelApi.toggleDeviceShell(pageId)}>
-        <Smartphone size={13} />
-      </button>
-      <button type="button" className={btnClass} aria-label="Rotate viewport" title="Rotate viewport" onClick={() => rightDetailsPanelApi.setDeviceOrientation(pageId, orientation === 'portrait' ? 'landscape' : 'portrait')}>
-        <RotateIcon size={13} />
-      </button>
+      {page ? (
+        <>
+          <button type="button" className={page.showDeviceFrame ? activeBtnClass : btnClass} aria-label="Toggle device frame" title="Device frame" onClick={() => rightDetailsPanelApi.toggleDeviceShell(pageId)}>
+            <Smartphone size={13} />
+          </button>
+          <button type="button" className={btnClass} aria-label="Rotate viewport" title="Rotate viewport" onClick={() => rightDetailsPanelApi.setDeviceOrientation(pageId, page.deviceOrientation === 'landscape' ? 'portrait' : 'landscape')}>
+            <RotateIcon size={13} />
+          </button>
+        </>
+      ) : null}
       <button type="button" className={btnClass} aria-label="Focus page" title="Focus page" onClick={() => rightDetailsPanelApi.focusSelection()}>
         <Maximize2 size={13} />
       </button>

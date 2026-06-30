@@ -16,6 +16,8 @@ import { TextEntityPane } from './components/TextEntityPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
 
+const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'dangerously', configured: false } as const
+
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
   const isDark = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
@@ -69,7 +71,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             fixProgress={panelData.fixProgress ?? {}}
             originBindings={panelData.originBindings ?? {}}
             fixInProgress={panelData.fixInProgress ?? {}}
-            fixConfig={panelData.fixConfig ?? { model: 'opus', permissions: 'dangerously', configured: false }}
+            fixConfig={panelData.fixConfig ?? DEFAULT_FIX_CONFIG}
           />
         ) : null
 
@@ -120,7 +122,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             originBindings={panelData.originBindings ?? {}}
             fixInProgress={panelData.fixInProgress ?? {}}
             fixProgress={panelData.fixProgress ?? {}}
-            fixConfig={panelData.fixConfig ?? { model: 'opus', permissions: 'dangerously', configured: false }}
+            fixConfig={panelData.fixConfig ?? DEFAULT_FIX_CONFIG}
           />
         )
     }

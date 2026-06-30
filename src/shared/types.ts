@@ -2126,10 +2126,6 @@ export interface DevtoolsPanelElectronAPI {
   toggleDeviceShell: (pageId: string) => void
   toggleSvgDeviceShell: (pageId: string) => void
   focusSelection: () => void
-  navigatePage: (pageId: string, url: string) => void
-  goBackPage: (pageId: string) => void
-  goForwardPage: (pageId: string) => void
-  reloadPage: (pageId: string) => void
   duplicatePage: (pageId: string) => void
   toggleLinkedPage: (pageId: string) => void
   deletePage: (pageId: string) => void
