@@ -4,7 +4,7 @@ import { truncate } from '../../shared/annotation-utils'
 export function buildFixPrompt(annotation: Annotation): string {
   const lines: string[] = []
 
-  lines.push('You are fixing a UI comment left on a live web page.')
+  lines.push('You are responding to a comment left on a live web page.')
   lines.push('')
 
   const pageUrl = annotation.metadata?.pageUrl
@@ -81,8 +81,9 @@ export function buildFixPrompt(annotation: Annotation): string {
   }
 
   lines.push('')
-  lines.push('Make the minimal code change in this repo to address the feedback.')
-  lines.push('Verify your change does not break typecheck when reasonable.')
+  lines.push('The comment may request a change or simply ask a question.')
+  lines.push('- If it calls for a change, make the minimal code change in this repo to address it, then verify typecheck when reasonable.')
+  lines.push('- If it is a question or needs no change, just answer it. Do not edit code only to have made a change.')
   lines.push('')
   lines.push('Inspecting the live page: the specular skill already has it open. Prefer:')
   lines.push('  specular snapshot -i -f <pageId>     # element refs + accessibility tree')
@@ -95,8 +96,9 @@ export function buildFixPrompt(annotation: Annotation): string {
   lines.push('covers every case above and has the right page already focused.')
   lines.push('')
   lines.push('Reply format — REQUIRED:')
-  lines.push('- Your final output MUST end with one short IM-style summary line (under 280 chars), then a newline, then one of:')
-  lines.push('  <<RESOLVE>>   if you believe the issue is now fixed')
+  lines.push('- Your entire final message is the only thing the user sees, so keep it brief and self-contained — no references to your steps, tool output, or anything "above" they cannot see.')
+  lines.push('- End the message with one of:')
+  lines.push('  <<RESOLVE>>   if you have addressed the comment (made the change or answered it)')
   lines.push('  <<WAITING>>   if you need more information from the user')
   lines.push('Do not write anything after the marker.')
 
@@ -113,11 +115,13 @@ export function buildFollowUpPrompt(replyText: string): string {
     'The user replied on the same comment thread:',
     `[User] ${message}`,
     '',
-    'Continue the fix. Use the specular skill to inspect the live page as before.',
+    'Continue the thread — make a change if it calls for one, or just answer if it is a question.',
+    'Use the specular skill to inspect the live page as before.',
     '',
     'Reply format — REQUIRED:',
-    '- End with one short IM-style summary line (under 280 chars), then a newline, then one of:',
-    '  <<RESOLVE>>   if you believe the issue is now fixed',
+    '- Your entire final message is the only thing the user sees, so keep it brief and self-contained — no references to your steps, tool output, or anything "above" they cannot see.',
+    '- End the message with one of:',
+    '  <<RESOLVE>>   if you have addressed the comment (made the change or answered it)',
     '  <<WAITING>>   if you need more information from the user',
     'Do not write anything after the marker.',
   ].join('\n')
