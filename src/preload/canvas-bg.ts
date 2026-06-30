@@ -8,6 +8,7 @@ import type {
   LayoutUpdateData,
   SelectionOverlayPayload,
   ToolDefaultPatch,
+  ViewportNudge,
 } from '../shared/types'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -357,6 +358,11 @@ const api: CanvasBgElectronAPI = {
     const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData) => callback(data)
     ipcRenderer.on('layout-update', handler)
     return () => ipcRenderer.removeListener('layout-update', handler)
+  },
+  onViewportNudge: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: ViewportNudge) => callback(data)
+    ipcRenderer.on('viewport-nudge', handler)
+    return () => ipcRenderer.removeListener('viewport-nudge', handler)
   },
   onFixProgressUpdate: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData['fixProgress']) =>

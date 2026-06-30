@@ -17,6 +17,7 @@ import { PageBorderLayer } from './PageBorderLayer'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
+import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -34,6 +35,11 @@ export default function App({
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
+  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
+  const livePan = useMemo(
+    () => ({ x: layoutData.pan.x + panOffset.x, y: layoutData.pan.y + panOffset.y }),
+    [layoutData.pan.x, layoutData.pan.y, panOffset.x, panOffset.y],
+  )
 
   useCanvasViewportGestures({
     api,
@@ -81,27 +87,35 @@ export default function App({
         bgRef={bgRef}
         isDark={isDark}
         canvasOrigin={layoutData.canvasOrigin}
-        pan={layoutData.pan}
+        pan={livePan}
         zoom={layoutData.zoom}
       />
-      <GroupBackgroundLayer
-        groups={hideContext ? [] : (layoutData.groups ?? [])}
-        isDark={isDark}
-      />
-      <div className="pointer-events-none absolute inset-0">
-        <PageBorderLayer
-          pages={chromePages}
-          fileEntities={chromeFiles}
-        />
-        <DeviceShellLayer
-          pages={chromePages.filter((f) => !f.useSvgDeviceShell)}
-          fileEntities={chromeFiles}
+      {/* Translate the page chrome live with the pan gesture so borders and
+          device shells track the natively-positioned page views instead of
+          trailing until the next layout-update rebuild lands (#257). */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
+      >
+        <GroupBackgroundLayer
+          groups={hideContext ? [] : (layoutData.groups ?? [])}
           isDark={isDark}
         />
-        <SvgDeviceShellLayer
-          pages={chromePages.filter((f) => f.useSvgDeviceShell)}
-          isDark={isDark}
-        />
+        <div className="pointer-events-none absolute inset-0">
+          <PageBorderLayer
+            pages={chromePages}
+            fileEntities={chromeFiles}
+          />
+          <DeviceShellLayer
+            pages={chromePages.filter((f) => !f.useSvgDeviceShell)}
+            fileEntities={chromeFiles}
+            isDark={isDark}
+          />
+          <SvgDeviceShellLayer
+            pages={chromePages.filter((f) => f.useSvgDeviceShell)}
+            isDark={isDark}
+          />
+        </div>
       </div>
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
