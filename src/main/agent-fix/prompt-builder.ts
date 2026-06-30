@@ -1,6 +1,15 @@
 import type { Annotation } from '../../shared/types'
 import { truncate } from '../../shared/annotation-utils'
 
+const REPLY_FORMAT = [
+  'Reply format — REQUIRED:',
+  '- Your entire final message is the only thing the user sees, so keep it brief and self-contained — no references to your steps, tool output, or anything "above" they cannot see.',
+  '- End the message with one of:',
+  '  <<RESOLVE>>   if you have addressed the comment (made the change or answered it)',
+  '  <<WAITING>>   if you need more information from the user',
+  'Do not write anything after the marker.',
+]
+
 export function buildFixPrompt(annotation: Annotation): string {
   const lines: string[] = []
 
@@ -95,12 +104,7 @@ export function buildFixPrompt(annotation: Annotation): string {
   lines.push('Do not use chrome-devtools or any other browser automation tool — specular')
   lines.push('covers every case above and has the right page already focused.')
   lines.push('')
-  lines.push('Reply format — REQUIRED:')
-  lines.push('- Your entire final message is the only thing the user sees, so keep it brief and self-contained — no references to your steps, tool output, or anything "above" they cannot see.')
-  lines.push('- End the message with one of:')
-  lines.push('  <<RESOLVE>>   if you have addressed the comment (made the change or answered it)')
-  lines.push('  <<WAITING>>   if you need more information from the user')
-  lines.push('Do not write anything after the marker.')
+  lines.push(...REPLY_FORMAT)
 
   return lines.join('\n')
 }
@@ -118,12 +122,7 @@ export function buildFollowUpPrompt(replyText: string): string {
     'Continue the thread — make a change if it calls for one, or just answer if it is a question.',
     'Use the specular skill to inspect the live page as before.',
     '',
-    'Reply format — REQUIRED:',
-    '- Your entire final message is the only thing the user sees, so keep it brief and self-contained — no references to your steps, tool output, or anything "above" they cannot see.',
-    '- End the message with one of:',
-    '  <<RESOLVE>>   if you have addressed the comment (made the change or answered it)',
-    '  <<WAITING>>   if you need more information from the user',
-    'Do not write anything after the marker.',
+    ...REPLY_FORMAT,
   ].join('\n')
 }
 
