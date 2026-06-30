@@ -13,6 +13,7 @@ import type {
   WorkspaceEdge,
 } from '../../shared/types'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
+import { capturePointer, withDragLifecycle } from '../../shared/drag-lifecycle'
 import {
   canvasToScreenX,
   canvasToScreenY,
@@ -54,6 +55,7 @@ import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotat
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
 import { useCanvasFileDrop } from './useCanvasFileDrop'
+import { usePageInputForwarding } from './usePageInputForwarding'
 import { canvasRectToScreenRect, pendingElementComposerPosition } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
@@ -680,19 +682,14 @@ export default function App({
       api.setCommentOverlayActive(false)
     }
   }, [overlayInteractive])
-  // Above-view is the sole owner of the placement preview ghost. The cursor
-  // starts null and is set by the first pointermove (handled below); we don't
-  // seed from main, because polling the OS cursor at layout time risks
-  // capturing toolbar coordinates and re-snapping the ghost on every layout
-  // broadcast.
+  // Above-view is the sole owner of the placement preview ghost.
   const pendingPlacement = layoutData.pendingPlacement
-  const [placementCursor, setPlacementCursor] = useState<{
-    clientX: number
-    clientY: number
-  } | null>(null)
-  useEffect(() => {
-    if (!pendingPlacement) setPlacementCursor(null)
-  }, [pendingPlacement])
+  const placementCursor = usePageInputForwarding({
+    api,
+    layoutRef,
+    pendingPlacement,
+    activeToolKind: layoutData.activeTool.kind,
+  })
   const placementPreview = useMemo(
     () => buildPendingPlacementPreview(layoutData, placementCursor),
     [layoutData, placementCursor],
@@ -802,82 +799,6 @@ export default function App({
     [api, layoutRef],
   )
 
-  const hitTestHoverTarget = useCallback(
-    (clientX: number, clientY: number) => {
-      const layout = layoutRef.current
-      const windowY = clientY + layout.canvasOrigin.y
-      for (let i = layout.entities.length - 1; i >= 0; i--) {
-        const entity = layout.entities[i]
-        if (entity.kind === 'group' || entity.kind === 'drawing') continue
-        if (
-          clientX >= entity.screenX &&
-          clientX <= entity.screenX + entity.screenWidth &&
-          windowY >= entity.screenY &&
-          windowY <= entity.screenY + entity.screenHeight
-        ) {
-          return entity.id
-        }
-      }
-      return null
-    },
-    [layoutRef],
-  )
-
-  // One window pointermove handler drives both placement-preview cursor and
-  // hover forwarding. When above-view intercepts events (gate open), canvas-bg
-  // never sees mouseenter/leave, so we dedupe and forward via api.hoverPage.
-  const lastHoverIdRef = useRef<string | null>(null)
-  const hoverForwardingEnabled =
-    layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'comment'
-  useEffect(() => {
-    const clearHover = () => {
-      setPlacementCursor(null)
-      if (lastHoverIdRef.current === null) return
-      lastHoverIdRef.current = null
-      api.hoverPage(null)
-    }
-    if (!pendingPlacement && !hoverForwardingEnabled) {
-      clearHover()
-      return
-    }
-    const handleMove = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) {
-        clearHover()
-        return
-      }
-      if (pendingPlacement) {
-        setPlacementCursor({
-          clientX: event.clientX,
-          clientY: event.clientY + layoutRef.current.canvasOrigin.y,
-        })
-      }
-      // During placement the placeholder owns the cursor; page hover would flicker.
-      if (hoverForwardingEnabled && !pendingPlacement) {
-        const nextId = hitTestHoverTarget(event.clientX, event.clientY)
-        if (nextId !== lastHoverIdRef.current) {
-          lastHoverIdRef.current = nextId
-          api.hoverPage(nextId)
-        }
-      }
-    }
-    // The top toolbar is a sibling WebContentsView, so when the cursor moves
-    // up into it the above-view stops receiving pointer events without
-    // pointerleave firing. mouseleave on documentElement is the reliable
-    // "cursor left this webcontents" signal in Electron's multi-view layout.
-    const docEl = document.documentElement
-    window.addEventListener('pointermove', handleMove)
-    // eslint-disable-next-line local/no-mouse-events
-    docEl.addEventListener('mouseleave', clearHover)
-    window.addEventListener('blur', clearHover)
-    return () => {
-      window.removeEventListener('pointermove', handleMove)
-      // eslint-disable-next-line local/no-mouse-events
-      docEl.removeEventListener('mouseleave', clearHover)
-      window.removeEventListener('blur', clearHover)
-      clearHover()
-    }
-  }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement])
-
   const routerOwnsCanvasPointers =
     !overlayInteractive &&
     !pendingPlacement &&
@@ -915,32 +836,13 @@ export default function App({
       event.preventDefault()
       event.stopPropagation()
 
-      const pointerId = event.pointerId
-      const target = event.target instanceof Element ? event.target : null
-      try {
-        target?.setPointerCapture(pointerId)
-      } catch {
-        /* ignore */
-      }
-
+      const releasePointer = capturePointer(event)
       const startX = event.clientX
       const startY = event.clientY
       const startWindowY = startY + layout.canvasOrigin.y
       const startCanvas = screenPointToCanvasPoint(startX, startWindowY, layout)
       const placementAtStart = layout.pendingPlacement
       let crossedThreshold = false
-
-      const cleanup = () => {
-        try {
-          if (target?.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId)
-        } catch {
-          /* ignore */
-        }
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        window.removeEventListener('pointercancel', onCancel)
-        window.removeEventListener('blur', onCancel)
-      }
 
       const updateShapePreview = (ev: PointerEvent) => {
         const current = layoutRef.current
@@ -973,92 +875,83 @@ export default function App({
         })
       }
 
-      const onMove = (ev: PointerEvent) => {
-        if (ev.pointerId !== pointerId) return
-        const current = layoutRef.current
-        if (placementAtStart?.entityKind === 'shape') {
-          updateShapePreview(ev)
-          return
-        }
-        if (!placementAtStart && current.activeTool.kind === 'comment') {
-          if (!crossedThreshold) {
-            const dx = ev.clientX - startX
-            const dy = ev.clientY - startY
-            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+      withDragLifecycle(event, {
+        threshold: 0,
+        releasePointer,
+        onMove: (ev) => {
+          const current = layoutRef.current
+          if (placementAtStart?.entityKind === 'shape') {
+            updateShapePreview(ev)
+            return
+          }
+          if (!placementAtStart && current.activeTool.kind === 'comment') {
+            if (!crossedThreshold) {
+              const dx = ev.clientX - startX
+              const dy = ev.clientY - startY
+              if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+                return
+              }
+              crossedThreshold = true
+            }
+            onDragMove(startX, startY, ev.clientX, ev.clientY)
+          }
+        },
+        onCommit: (ev) => {
+          const current = layoutRef.current
+          if (placementAtStart) {
+            if (placementAtStart.entityKind === 'shape') {
+              api.setSelectionOverlayRect(null)
+              const endCanvas = screenPointToCanvasPoint(
+                ev.clientX,
+                ev.clientY + current.canvasOrigin.y,
+                current,
+              )
+              const square = squareConstrainedRect(
+                startCanvas.x,
+                startCanvas.y,
+                endCanvas.x,
+                endCanvas.y,
+                ev.shiftKey,
+              )
+              if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
+                api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
+                  x: snapToGrid(square.left),
+                  y: snapToGrid(square.top),
+                  width: snapToGrid(square.width),
+                  height: snapToGrid(square.height),
+                })
+              } else {
+                api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+              }
               return
             }
-            crossedThreshold = true
+            api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
+            return
           }
-          onDragMove(startX, startY, ev.clientX, ev.clientY)
-        }
-      }
-
-      const onUp = (ev: PointerEvent) => {
-        if (ev.pointerId !== pointerId) return
-        cleanup()
-        const current = layoutRef.current
-        if (placementAtStart) {
-          if (placementAtStart.entityKind === 'shape') {
-            api.setSelectionOverlayRect(null)
-            const endCanvas = screenPointToCanvasPoint(
-              ev.clientX,
-              ev.clientY + current.canvasOrigin.y,
-              current,
-            )
-            const square = squareConstrainedRect(
-              startCanvas.x,
-              startCanvas.y,
-              endCanvas.x,
-              endCanvas.y,
-              ev.shiftKey,
-            )
-            if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
-              api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
-                x: snapToGrid(square.left),
-                y: snapToGrid(square.top),
-                width: snapToGrid(square.width),
-                height: snapToGrid(square.height),
-              })
-            } else {
-              api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+          if (current.activeTool.kind === 'comment') {
+            if (crossedThreshold) {
+              // Drag past threshold → region anchor.
+              onDragEnd(startX, startY, ev.clientX, ev.clientY)
+              return
             }
-            return
+            // Click below threshold → element anchor if a page DOM element sits
+            // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
+            api.setSelectionOverlayRect(null)
+            const draft = draftStateRef.current
+            const hasEmptyDraft =
+              Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
+              !draft.commentText.trim()
+            if (hasEmptyDraft) {
+              // Empty composer open → click-away dismisses it without creating
+              // a new draft; comment mode stays active.
+              draft.clearDraft()
+              return
+            }
+            api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
           }
-          api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
-          return
-        }
-        if (current.activeTool.kind === 'comment') {
-          if (crossedThreshold) {
-            // Drag past threshold → region anchor.
-            onDragEnd(startX, startY, ev.clientX, ev.clientY)
-            return
-          }
-          // Click below threshold → element anchor if a page DOM element sits
-          // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
-          api.setSelectionOverlayRect(null)
-          const draft = draftStateRef.current
-          const hasEmptyDraft =
-            Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
-            !draft.commentText.trim()
-          if (hasEmptyDraft) {
-            // Empty composer open → click-away dismisses it without creating
-            // a new draft; comment mode stays active.
-            draft.clearDraft()
-            return
-          }
-          api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
-        }
-      }
-
-      const onCancel = () => {
-        cleanup()
-        api.setSelectionOverlayRect(null)
-      }
-
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
-      window.addEventListener('pointercancel', onCancel)
-      window.addEventListener('blur', onCancel)
+        },
+        onCancel: () => api.setSelectionOverlayRect(null),
+      })
     }
 
     window.addEventListener('pointerdown', onPointerDown, { capture: true })

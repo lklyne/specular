@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { withDragLifecycle } from '../../../shared/drag-lifecycle'
 import type { WireframeFile, WireframeThemeName, DropTarget } from './wireframe-types'
 import { wireframeThemes } from './wireframe-themes'
 import { WireframeNodeRenderer } from './WireframeNodeRenderer'
@@ -42,12 +43,6 @@ export function WireframeRenderer({
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
 
-  const pendingRef = useRef<{
-    nodeId: string
-    parentId: string
-    x: number
-    y: number
-  } | null>(null)
   const wireframeRef = useRef(wireframe)
   wireframeRef.current = wireframe
 
@@ -89,55 +84,37 @@ export function WireframeRenderer({
   // --- Drag handlers ---
 
   const handleNodePointerDown = useCallback(
-    (nodeId: string, parentId: string, e: React.PointerEvent) => {
+    (nodeId: string, _parentId: string, e: React.PointerEvent) => {
       if (!canEdit || editingNodeId) return
       e.preventDefault()
 
-      const pointerId = e.pointerId
-
-      pendingRef.current = {
-        nodeId,
-        parentId,
-        x: e.clientX,
-        y: e.clientY,
-      }
-
-      const handleMove = (me: PointerEvent) => {
-        if (me.pointerId !== pointerId) return
-        if (!pendingRef.current) return
-        const dx = me.clientX - pendingRef.current.x
-        const dy = me.clientY - pendingRef.current.y
-        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-          setDraggedNodeId(pendingRef.current.nodeId)
-          pendingRef.current = null
-        }
-      }
-
-      const handleUp = (me: PointerEvent) => {
-        if (me.pointerId !== pointerId) return
-        window.removeEventListener('pointermove', handleMove)
-        window.removeEventListener('pointerup', handleUp)
-
-        if (pendingRef.current) {
-          // It was a click — trigger edit if applicable
-          const nid = pendingRef.current.nodeId
-          pendingRef.current = null
+      withDragLifecycle(e.nativeEvent, {
+        // The wireframe's nested per-node `onPointerMove` (in
+        // WireframeNodeRenderer) drives the drop-target preview once
+        // `draggedNodeId` is set — this lifecycle only needs to flip that
+        // state once, at the threshold crossing.
+        skipBlurCancel: true,
+        onMove: () => setDraggedNodeId(nodeId),
+        onCommit: (_event, dragging) => {
+          if (dragging) {
+            setDraggedNodeId(null)
+            setDropTarget(null)
+            return
+          }
+          // It was a click — trigger edit if applicable.
           const wf = wireframeRef.current
           if (wf) {
-            const node = findNodeById(wf.root, nid)
+            const node = findNodeById(wf.root, nodeId)
             if (node && nodeHasEditableText(node)) {
-              setEditingNodeId(nid)
+              setEditingNodeId(nodeId)
             }
           }
-        } else {
-          // End of drag
+        },
+        onCancel: () => {
           setDraggedNodeId(null)
           setDropTarget(null)
-        }
-      }
-
-      window.addEventListener('pointermove', handleMove)
-      window.addEventListener('pointerup', handleUp)
+        },
+      })
     },
     [canEdit, editingNodeId],
   )
