@@ -135,7 +135,7 @@ function FixMenu({
     : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-200'
   const btnClass = isPrimary ? primaryBtnClass : secondaryBtnClass
 
-  const popupClass = `z-50 min-w-[260px] rounded-[10px] border shadow-xl outline-none ${
+  const popupClass = `z-50 w-[256px] rounded-[10px] border shadow-xl outline-none ${
     isDark
       ? 'border-zinc-700 bg-zinc-900 text-zinc-100'
       : 'border-zinc-200 bg-white text-zinc-900'
@@ -179,7 +179,7 @@ function FixMenu({
       </div>
 
       <Popover.Portal>
-        <Popover.Positioner sideOffset={4} align="end">
+        <Popover.Positioner sideOffset={4} align="end" collisionPadding={8}>
           <Popover.Popup className={popupClass}>
             {showSettings ? (
               <FixSettingsView
@@ -242,7 +242,7 @@ function FixSettingsView({
   }
 
   return (
-    <div className="w-[280px]">
+    <div className="w-full">
       <div className={`px-3 py-2.5 text-[12px] leading-relaxed text-pretty ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
         Fix uses Claude Code to read your comments and make changes in linked repositories.
         Pick a model and permission level below.

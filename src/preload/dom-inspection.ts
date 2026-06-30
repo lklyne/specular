@@ -468,6 +468,9 @@ export function updateDomInspectionOverlay(
     pinnedElement?: Element | null
     pinnedPayload?: ReturnType<typeof inspectionPayload> | null
     showLabel?: boolean
+    /** Counter-scale (1 / displayZoom) so the label reads at a constant
+     *  on-screen size despite the webview being zoom-scaled. */
+    labelScale?: number
   },
 ): void {
   ensureDomInspectionOverlay()
@@ -515,6 +518,11 @@ export function updateDomInspectionOverlay(
 
   domInspectionLabelEl.style.display = 'block'
   buildLabelContent(domInspectionLabelEl, element, styles)
+  // Counter-scale before measuring so the clamp math uses the on-screen
+  // footprint. Origin top-left keeps the visual box anchored at left/top.
+  const labelScale = options?.labelScale ?? 1
+  domInspectionLabelEl.style.transformOrigin = '0 0'
+  domInspectionLabelEl.style.transform = labelScale === 1 ? '' : `scale(${labelScale})`
   const outerPadding = 2
   const labelRect = domInspectionLabelEl.getBoundingClientRect()
   const maxLeft = Math.max(outerPadding, window.innerWidth - Math.ceil(labelRect.width) - outerPadding)
