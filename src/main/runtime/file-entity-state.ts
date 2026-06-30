@@ -12,6 +12,7 @@ import { existsSync } from 'fs'
 import { dirname } from 'path'
 import type {
   CanvasSceneFileEntity,
+  FileObjectFit,
   PersistedFileEntity,
 } from '../../shared/types'
 import { CUSTOM_SHELL_INSETS, shellInsetsForDevice } from '../../shared/device-catalog'
@@ -23,8 +24,6 @@ import {
 } from './runtime-entities'
 import { pickRenderer } from '../plugins/registry'
 import { findRepoForPath } from './dev-server-manager'
-
-export type FileObjectFit = 'contain' | 'cover' | 'fill'
 
 export interface FileEntity {
   id: string

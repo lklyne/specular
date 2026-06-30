@@ -157,21 +157,3 @@ export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {
     label: entity.label,
   }
 }
-
-export function restoreShapeEntity(persisted: PersistedShapeEntity): ShapeEntity {
-  return {
-    id: persisted.id,
-    shapeKind: persisted.shapeKind,
-    text: persisted.text ?? '',
-    color: persisted.color,
-    strokeWidth: persisted.strokeWidth,
-    textSize: persisted.textSize,
-    theme: persisted.theme,
-    canvasX: persisted.canvasX,
-    canvasY: persisted.canvasY,
-    width: persisted.width,
-    height: persisted.height,
-    parentGroupId: persisted.parentGroupId,
-    label: persisted.label,
-  }
-}

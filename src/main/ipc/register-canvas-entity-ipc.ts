@@ -57,7 +57,7 @@ import {
   updateResizeGuides,
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
-import { readNoteFile, writeNoteFile, renameNoteFile } from '../runtime/note-assets'
+import { writeNoteFile } from '../runtime/note-assets'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -97,7 +97,6 @@ import {
   createPageAtPosition,
   duplicateEntity,
   duplicatePageFromSource,
-  tidySelectedPages,
 } from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
 import { copyableSelectionPayload } from '../workspace-clipboard'
@@ -237,10 +236,6 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on('canvas-delete-page', (_event, { pageId }: { pageId: string }) => {
     if (!pages.some((candidate) => candidate.id === pageId)) return
     deletePages({ pageIds: [pageId] })
-  })
-
-  ipcMain.on('canvas-tidy-selection', () => {
-    tidySelectedPages()
   })
 
   ipcMain.on('canvas-distribute-selection', () => {
@@ -627,13 +622,6 @@ export function registerCanvasEntityIpc(): void {
   // --- Text Entity IPC ---
 
   ipcMain.on(
-    'canvas-create-text-entity',
-    (_event, { canvasX, canvasY, text, color }: { canvasX: number; canvasY: number; text?: string; color?: string }) => {
-      createTextEntity({ canvasX, canvasY, text, color })
-    },
-  )
-
-  ipcMain.on(
     'canvas-update-text-entity',
     (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' } }) => {
       updateTextEntity(id, patch)
@@ -752,26 +740,9 @@ export function registerCanvasEntityIpc(): void {
     clipboard.writeImage(nativeImage.createFromPath(filePath))
   })
 
-  ipcMain.handle('read-note-file', (_event, { filePath }: { filePath: string }) => {
-    return readNoteFile(filePath)
-  })
-
   ipcMain.handle('write-note-file', (_event, { filePath, content }: { filePath: string; content: string }) => {
     writeNoteFile(filePath, content)
     return true
-  })
-
-  ipcMain.handle('rename-note-file', (_event, { filePath, newName }: { filePath: string; newName: string }) => {
-    const newPath = renameNoteFile(filePath, newName)
-    if (!newPath) return null
-    // Update the file entity's file path
-    const entity = fileEntities.find((e) => e.file === filePath)
-    if (entity) {
-      entity.file = newPath
-      scheduleWorkspaceAutosave()
-      requestLayout()
-    }
-    return newPath
   })
 
   // ADR 0013 §3 — cross-kind morph between text and markdown file entities.

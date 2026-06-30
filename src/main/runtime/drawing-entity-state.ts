@@ -124,16 +124,3 @@ export function persistDrawingEntity(entity: DrawingEntity): PersistedDrawingEnt
     label: entity.label,
   }
 }
-
-export function restoreDrawingEntity(persisted: PersistedDrawingEntity): DrawingEntity {
-  return {
-    id: persisted.id,
-    canvasX: persisted.canvasX,
-    canvasY: persisted.canvasY,
-    width: persisted.width,
-    height: persisted.height,
-    strokes: persisted.strokes,
-    parentGroupId: persisted.parentGroupId,
-    label: persisted.label,
-  }
-}

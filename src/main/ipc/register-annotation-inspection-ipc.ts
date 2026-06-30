@@ -95,17 +95,6 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
 
 export function registerAnnotationInspectionIpc(): void {
   ipcMain.on(
-    'annotation-open-in-comments',
-    (_event, payload: { annotationId?: string } | undefined) => {
-      const annotationId =
-        typeof payload?.annotationId === 'string' && payload.annotationId.trim().length > 0
-          ? payload.annotationId
-          : undefined
-      openCommentsPanel(annotationId)
-    },
-  )
-
-  ipcMain.on(
     'annotation-open-thread',
     (_event, payload: { annotationId?: string } | undefined) => {
       const annotationId =
@@ -221,12 +210,6 @@ export function registerAnnotationInspectionIpc(): void {
         })
       }
     }
-  })
-
-  ipcMain.on('component-tree-update', (event, payload) => {
-    const page = findPageByPageView(event.sender)
-    if (!page || !Array.isArray(payload)) return
-    page.componentTree = payload as ComponentTreeNode[]
   })
 
   ipcMain.on(

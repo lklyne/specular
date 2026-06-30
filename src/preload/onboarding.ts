@@ -3,7 +3,6 @@ import type { OnboardingElectronAPI } from '../shared/types'
 
 const api: OnboardingElectronAPI = {
   getInitialData: () => ipcRenderer.invoke('onboarding:get-initial-data'),
-  refreshStatus: () => ipcRenderer.invoke('onboarding:refresh-status'),
   install: (selections) => ipcRenderer.invoke('onboarding:install', selections),
   complete: () => ipcRenderer.send('onboarding:complete'),
   dismiss: () => ipcRenderer.send('onboarding:dismiss'),

@@ -316,7 +316,6 @@ function publishTreeNow(): void {
   if (nextKey === lastSentTreeKey) return
   lastSentTreeKey = nextKey
   ipcRenderer.send('inspect-tree-update', tree)
-  ipcRenderer.send('component-tree-update', tree)
 }
 
 function scheduleTreePublish(): void {

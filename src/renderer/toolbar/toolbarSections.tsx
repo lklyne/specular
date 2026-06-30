@@ -509,8 +509,6 @@ export function ToolbarStatusActions({
   agentCursors,
 }: ToolbarStatusActionsProps) {
   const activeAgentCursors = agentCursors.filter((c) => c.activity !== 'idle')
-  const primaryAgentCursor = activeAgentCursors[0] ?? null
-  const primaryAgentSummary = primaryAgentCursor ? summarizePresenceCursor(primaryAgentCursor) : null
 
   return (
     <>

@@ -518,31 +518,7 @@ export interface PresenceTargetRect {
   height: number
 }
 
-interface PresenceCoordinates {
-  canvasX?: number
-  canvasY?: number
-  pageX?: number
-  pageY?: number
-  targetRect?: PresenceTargetRect | null
-}
-
 export type PresenceTargetRefSource = 'specular' | 'agent-browser'
-
-interface PresenceEvent {
-  sessionId: string
-  surface: PresenceSurface
-  phase: PresenceActivity
-  eventType?: 'start' | 'surface' | 'act' | 'think' | 'done' | null
-  pageId?: string | null
-  coordinates?: PresenceCoordinates | null
-  labelKey: PresenceLabelKey | null
-  taskLabel?: string | null
-  labelHint?: string | null
-  labelParams?: Record<string, string | number | boolean> | null
-  targetRef?: string | null
-  targetRefSource?: PresenceTargetRefSource | null
-  targetName?: string | null
-}
 
 export interface AgentPresenceCursor {
   sessionId: string
@@ -742,7 +718,6 @@ export interface OnboardingState {
 
 export interface OnboardingElectronAPI {
   getInitialData: () => Promise<OnboardingBootstrapData>
-  refreshStatus: () => Promise<OnboardingStatusSnapshot>
   install: (
     selections: Record<OnboardingComponentId, boolean>,
   ) => Promise<OnboardingStatusSnapshot>
@@ -793,14 +768,6 @@ export interface DebugElectronAPI {
   resetCursorTuning: () => void
   onPresenceTimelineAppend: (callback: (entry: PresenceDebugEntry) => void) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
-}
-
-interface DebugPreviewPath {
-  start: Vec2
-  end: Vec2
-  candidates: MotionCandidate[]
-  selectedCandidateIndex: number
-  samples: Vec2[]
 }
 
 export type {
@@ -1074,13 +1041,6 @@ export interface DevtoolsPanelDomTarget {
     documentY: number
     isFixed: boolean
   }
-}
-
-interface DevtoolsPanelDomInspectorState {
-  available: boolean
-  inspectMode: boolean
-  hoverTarget: DevtoolsPanelDomTarget | null
-  selectedTarget: DevtoolsPanelDomTarget | null
 }
 
 export interface ScrollSyncData {
@@ -1714,16 +1674,13 @@ export interface ToolbarElectronAPI {
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
   onFocusAddressBar: (callback: () => void) => () => void
-  repoList: () => Promise<ConnectedRepo[]>
   repoConnectViaPicker: () => Promise<ConnectedRepo | null>
   repoDisconnect: (id: string) => Promise<void>
-  onReposChanged: (callback: (repos: ConnectedRepo[]) => void) => () => void
 }
 
 export interface CanvasBgElectronAPI {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
-  canvasPanTo: (x: number, y: number) => void
   /** Subscribe to main's canvas-selection-overlay broadcast (marquee rect). */
   onSelectionOverlayChanged: (
     callback: (overlay: SelectionOverlayPayload | null) => void,
@@ -1732,17 +1689,11 @@ export interface CanvasBgElectronAPI {
     overlay: SelectionOverlayPayload | null,
   ) => void
   canvasSelectInRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
-  canvasSelectInScreenRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
   canvasDeselect: (modifiers?: SelectionModifiers) => void
   focusSelection: () => void
   restoreFocusCamera: () => void
   setFocusPresentationMode: (mode: FocusPresentationMode) => void
   setFocusAnnotationsVisible: (visible: boolean) => void
-  canvasClickAt: (
-    screenX: number,
-    screenY: number,
-    modifiers?: SelectionModifiers,
-  ) => void
   clearAnnotateHover: () => void
   selectPage: (pageId: string, modifiers?: SelectionModifiers) => void
   navigatePage: (pageId: string, url: string) => void
@@ -1757,7 +1708,6 @@ export interface CanvasBgElectronAPI {
   startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
   dragPage: (pageId: string, dx: number, dy: number, shiftKey?: boolean) => void
   endDragPage: () => void
-  dragCopyPage: (pageId: string, canvasX: number, canvasY: number) => void
   dragCopySelection: (canvasX: number, canvasY: number) => void
   dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
   dragPreview: (dx: number, dy: number, shiftKey?: boolean) => void
@@ -1776,12 +1726,10 @@ export interface CanvasBgElectronAPI {
   copySelection: () => void
   pasteSelection: (canvasX: number, canvasY: number) => void
   deleteSelectedEntities: () => void
-  tidySelectedEntities: () => void
   reorderStack: (
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
     targetId?: string,
   ) => void
-  createTextEntity: (canvasX: number, canvasY: number, text?: string, color?: string) => void
   updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
@@ -1856,7 +1804,6 @@ export interface CanvasBgElectronAPI {
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
   resizeMultiSelection: (entries: Array<{ id: string; kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number; strokes?: AnnotationDrawingStroke[] }>) => void
-  deleteSelection: () => void
   moveAnnotation: (annotationId: string, dx: number, dy: number) => void
   addAnnotationReply: (annotationId: string, text: string) => void
   resolveAnnotation: (annotationId: string) => void
@@ -1919,7 +1866,6 @@ export interface CanvasBgElectronAPI {
     targetSide: EdgeSide,
   ) => void
   discardEdgeEdit: (edgeId: string) => void
-  createEdge: (fromEntityId: string, toEntityId: string, fromSide?: EdgeSide, toSide?: EdgeSide) => void
   deleteEdge: (edgeId: string) => void
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void
@@ -1939,9 +1885,7 @@ export interface CanvasBgElectronAPI {
   onPageCursorChange: (
     callback: (data: { type: string | null }) => void,
   ) => () => void
-  readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
-  renameNoteFile: (filePath: string, newName: string) => Promise<string | null>
   /**
    * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
    * (or vice versa) at the same canvas rect. Both halves of the swap (the
@@ -1999,48 +1943,6 @@ export type ForwardPointerPayload = {
   metaKey: boolean
 }
 
-interface FloatingUiElectronAPI {
-  navigatePage: (pageId: string, url: string) => void
-  goBackPage: (pageId: string) => void
-  goForwardPage: (pageId: string) => void
-  reloadPage: (pageId: string) => void
-  setPagePreset: (pageId: string, index: number) => void
-  setPageCustom: (pageId: string) => void
-  duplicatePage: (pageId: string) => void
-  toggleLinkedPage: (pageId: string) => void
-  deletePage: (pageId: string) => void
-  updateTextEntity: (id: string, patch: { color?: string }) => void
-  duplicateTextEntity: (id: string) => void
-  deleteTextEntity: (id: string) => void
-  deleteDrawingEntity: (id: string) => void
-  startDragEntity: (entityId: string) => void
-  dragEntity: (entityId: string, dx: number, dy: number) => void
-  endDragEntity: () => void
-  setTextEditing: (active: boolean) => void
-  dropdownOpen: () => void
-  dropdownClose: () => void
-  onCloseDropdown: (callback: () => void) => () => void
-  getInitialData: () => Promise<FloatingUiBootstrapData>
-  onFloatingUiUpdate: (callback: (data: FloatingUiUpdatePayload) => void) => () => void
-  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
-}
-
-interface AboveViewElectronAPI {
-  canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
-  canvasPan: (deltaX: number, deltaY: number) => void
-  onSelectionOverlayChanged: (
-    callback: (overlay: SelectionOverlayPayload | null) => void,
-  ) => () => void
-}
-
-interface InteractionOverlayElectronAPI {
-  canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
-  canvasPan: (deltaX: number, deltaY: number) => void
-  onSelectionOverlayChanged: (
-    callback: (overlay: SelectionOverlayPayload | null) => void,
-  ) => () => void
-}
-
 export interface DevtoolsResizeHandleElectronAPI {
   devtoolsResizeStart: (screenX: number) => void
   devtoolsResizeMove: (screenX: number) => void
@@ -2063,7 +1965,6 @@ export interface LeftSidebarElectronAPI {
   renameFileEntity: (entityId: string, name: string) => void
   renameTextEntity: (entityId: string, name: string) => void
   renameDrawingEntity: (entityId: string, name: string) => void
-  duplicateTab: (tabId: string) => void
   deleteTab: (tabId: string) => void
   reorderTab: (tabId: string, toIndex: number) => void
   reorderSidebarItem: (
@@ -2074,7 +1975,6 @@ export interface LeftSidebarElectronAPI {
     parentId: string | null,
   ) => void
   deletePage: (pageId: string) => void
-  setTabExpanded: (tabId: string, expanded: boolean) => void
   setTextEditing: (active: boolean) => void
   getInitialData: () => Promise<LeftSidebarBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void

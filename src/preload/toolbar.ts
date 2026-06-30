@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AgentPresenceCursor,
-  ConnectedRepo,
   ToolbarElectronAPI,
   ToolbarSelectionData,
 } from '../shared/types'
@@ -62,14 +61,8 @@ const api: ToolbarElectronAPI = {
     ipcRenderer.on('focus-address-bar', handler)
     return () => ipcRenderer.removeListener('focus-address-bar', handler)
   },
-  repoList: () => ipcRenderer.invoke('repo-list'),
   repoConnectViaPicker: () => ipcRenderer.invoke('repo-connect-via-picker'),
   repoDisconnect: (id) => ipcRenderer.invoke('repo-disconnect', { id }),
-  onReposChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, repos: ConnectedRepo[]) => callback(repos)
-    ipcRenderer.on('repo-changed', handler)
-    return () => ipcRenderer.removeListener('repo-changed', handler)
-  },
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

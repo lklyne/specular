@@ -53,7 +53,6 @@ import {
 import {
   createWorkspaceTab,
   deleteWorkspaceTab,
-  duplicateWorkspaceTab,
   renameWorkspaceDrawingEntity,
   renameWorkspaceFileEntity,
   renameWorkspacePage,
@@ -63,9 +62,8 @@ import {
   reorderWorkspaceTab,
   scheduleWorkspaceAutosave,
   setActiveWorkspaceTab,
-  setWorkspaceTabExpanded,
 } from '../runtime/workspace-session'
-import { createEdges, deleteEdges } from '../workspace-edges'
+import { deleteEdges } from '../workspace-edges'
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
 import {
@@ -128,52 +126,6 @@ export function registerCanvasIpc(): void {
         return
       }
       applyEntitySelectionMutation([pageId], mode)
-    },
-  )
-
-  ipcMain.on(
-    'canvas-click-at',
-    (
-      _event,
-      {
-        screenX,
-        screenY,
-        modifiers,
-      }: { screenX: number; screenY: number; modifiers?: SelectionModifiers },
-    ) => {
-      if (interactionBlocksPageSelection()) return
-      const origin = canvasOrigin()
-      const canvasX = (screenX - origin.x - pan.x) / zoom
-      const canvasY = (screenY - origin.y - pan.y) / zoom
-      // Use a 1x1 rect at the click point for hit-testing.
-      // Drawings are hit-tested in the renderer (SVG stroke hit-paths), not by bbox here.
-      selectEntitiesInRect(
-        { x: canvasX, y: canvasY, width: 1, height: 1 },
-        { includeDrawings: false, mode: selectionMutationMode(modifiers) },
-      )
-    },
-  )
-
-  ipcMain.on(
-    'canvas-select-in-screen-rect',
-    (
-      _event,
-      rect: {
-        x: number
-        y: number
-        width: number
-        height: number
-        modifiers?: SelectionModifiers
-      },
-    ) => {
-      if (interactionBlocksPageSelection()) return
-      const origin = canvasOrigin()
-      const canvasX = (rect.x - origin.x - pan.x) / zoom
-      const canvasY = (rect.y - origin.y - pan.y) / zoom
-      selectEntitiesInRect(
-        { x: canvasX, y: canvasY, width: rect.width / zoom, height: rect.height / zoom },
-        { mode: selectionMutationMode(rect.modifiers) },
-      )
     },
   )
 
@@ -368,9 +320,6 @@ export function registerCanvasIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-duplicate-tab', (_event, { tabId }: { tabId: string }) => {
-    duplicateWorkspaceTab(tabId)
-  })
 
   ipcMain.on('canvas-delete-tab', (_event, { tabId }: { tabId: string }) => {
     deleteWorkspaceTab(tabId)
@@ -401,49 +350,7 @@ export function registerCanvasIpc(): void {
     },
   )
 
-  ipcMain.on(
-    'canvas-set-tab-expanded',
-    (_event, { tabId, expanded }: { tabId: string; expanded: boolean }) => {
-      setWorkspaceTabExpanded(tabId, expanded)
-    },
-  )
-
   // --- Edge operations ---
-
-  ipcMain.on(
-    'canvas-create-edge',
-    (
-      _event,
-      {
-        fromEntityId,
-        toEntityId,
-        fromSide,
-        toSide,
-      }: {
-        fromEntityId: string
-        toEntityId: string
-        fromSide?: EdgeSide
-        toSide?: EdgeSide
-      },
-    ) => {
-      if (!fromSide || !toSide) return
-      createEdges({
-        edges: [
-          {
-            fromEntityId,
-            toEntityId,
-            fromSide,
-            toSide,
-            toEnd: 'arrow',
-            kind: 'connection',
-          },
-        ],
-      })
-      commitActive()
-      setHoverEntity(null)
-      requestLayout()
-    },
-  )
 
   ipcMain.on('canvas-delete-edge', (_event, { edgeId }: { edgeId: string }) => {
     deleteEdges({ edgeIds: [edgeId] })
