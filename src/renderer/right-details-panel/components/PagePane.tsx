@@ -126,7 +126,6 @@ export function PagePane({
               <PageHeaderActions
                 page={activePage}
                 pageId={inspect.activePageId!}
-                linked={activePage?.linked ?? false}
                 isDark={isDark}
               />
             }
@@ -363,14 +362,15 @@ function PageCommentsSection({
 function PageHeaderActions({
   page,
   pageId,
-  linked,
   isDark,
 }: {
+  // `pageId` comes from inspect.activePageId (always present); `page` is the
+  // summary lookup, which can briefly be undefined before the broadcast lands.
   page?: DevtoolsPanelPageSummary
   pageId: string
-  linked: boolean
   isDark: boolean
 }) {
+  const linked = page?.linked ?? false
   const btnClass = `rounded p-1 ${
     isDark ? 'text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
   }`

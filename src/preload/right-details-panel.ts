@@ -77,6 +77,8 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-set-device-orientation', { pageId, orientation }),
   toggleDeviceShell: (pageId: string) =>
     ipcRenderer.send('right-details-panel-toggle-device-shell', { pageId }),
+  // Reuses the global focus channel — the panel only surfaces the selected
+  // page, so "focus selection" and "focus this page" are the same action.
   focusSelection: () => ipcRenderer.send('canvas-focus-selection'),
   toggleSvgDeviceShell: (pageId: string) =>
     ipcRenderer.send('right-details-panel-toggle-svg-device-shell', { pageId }),
