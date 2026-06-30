@@ -5,7 +5,9 @@ import {
   Copy,
   Laptop,
   Link2,
+  Loader2,
   Maximize2,
+  Play,
   Smartphone,
   Tablet,
   Trash2,
@@ -16,7 +18,6 @@ import type {
   Annotation,
   DevtoolsPanelPageSummary,
   DevtoolsPanelSelectionSummary,
-  FixConfig,
   FixProgressEntry,
   InspectPanelState,
   OriginBindings,
@@ -39,7 +40,6 @@ import { useElementCommentDraft } from '../useElementCommentDraft'
 import { useInspectTreeState } from '../useInspectTreeState'
 import { RotateIcon } from '../../shared/CustomIcons'
 import { CommentRow } from './CommentsPane'
-import { FixMenu } from './DocumentPane'
 import { ElementCommentComposer } from './ElementCommentComposer'
 import { InspectDetailSection } from './InspectDetailSection'
 import { InspectTree } from './InspectTree'
@@ -53,8 +53,6 @@ export function PagePane({
   pages,
   fixProgress,
   originBindings,
-  fixInProgress,
-  fixConfig,
 }: {
   inspect: InspectPanelState
   annotations: Annotation[]
@@ -62,8 +60,6 @@ export function PagePane({
   pages: DevtoolsPanelPageSummary[]
   fixProgress: Record<string, FixProgressEntry>
   originBindings: OriginBindings
-  fixInProgress: Record<string, number>
-  fixConfig: FixConfig
 }) {
   const isDark = usePaneTheme()
   const muted = mutedClass(isDark)
@@ -147,8 +143,6 @@ export function PagePane({
           collapsiblePanelClass={collapsiblePanelClass}
           fixProgress={fixProgress}
           originBindings={originBindings}
-          fixInProgress={fixInProgress}
-          fixConfig={fixConfig}
         />
 
         {/* Inspect tree (collapsible) */}
@@ -295,8 +289,6 @@ function PageCommentsSection({
   collapsiblePanelClass,
   fixProgress,
   originBindings,
-  fixInProgress,
-  fixConfig,
 }: {
   annotations: Annotation[]
   activePageId: string | null
@@ -306,12 +298,24 @@ function PageCommentsSection({
   collapsiblePanelClass: string
   fixProgress: Record<string, FixProgressEntry>
   originBindings: OriginBindings
-  fixInProgress: Record<string, number>
-  fixConfig: FixConfig
 }) {
   const pageComments = unresolvedCommentsForPage(annotations, activePageId)
   if (!pageComments.length) return null
-  const originGroups = groupAnnotationsByOrigin(pageComments)
+  // Fix is scoped to this page's comments — each is queued individually rather
+  // than via the origin-wide trigger, so we don't touch the canvas's other pages.
+  const hasBinding = groupAnnotationsByOrigin(pageComments).some(
+    (g) => originBindings[g.origin],
+  )
+  const working = pageComments.some((a) => fixProgress[a.id]?.status === 'running')
+  const fixPageComments = () => {
+    if (!hasBinding || working) return
+    for (const annotation of pageComments) {
+      rightDetailsPanelApi.fixSingleAnnotation(annotation.id)
+    }
+  }
+  const fixBtnClass = isDark
+    ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
+    : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
   return (
     <section className={`border-t ${divider}`}>
       <Collapsible.Root defaultOpen>
@@ -326,14 +330,21 @@ function PageCommentsSection({
               ({pageComments.length})
             </span>
           </Collapsible.Trigger>
-          {originGroups.length > 0 ? (
-            <FixMenu
-              isDark={isDark}
-              originGroups={originGroups}
-              originBindings={originBindings}
-              fixInProgress={fixInProgress}
-              fixConfig={fixConfig}
-            />
+          {hasBinding ? (
+            <button
+              type="button"
+              onClick={fixPageComments}
+              disabled={working}
+              title="Fix this page's comments"
+              className={`mr-2 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-40 ${fixBtnClass}`}
+            >
+              {working ? (
+                <Loader2 size={11} className="shrink-0 animate-spin" />
+              ) : (
+                <Play size={11} className="shrink-0" />
+              )}
+              <span>Fix {pageComments.length}</span>
+            </button>
           ) : null}
         </div>
         <Collapsible.Panel className={collapsiblePanelClass}>

@@ -70,8 +70,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             pages={pages}
             fixProgress={panelData.fixProgress ?? {}}
             originBindings={panelData.originBindings ?? {}}
-            fixInProgress={panelData.fixInProgress ?? {}}
-            fixConfig={panelData.fixConfig ?? DEFAULT_FIX_CONFIG}
           />
         ) : null
 
