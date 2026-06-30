@@ -1,12 +1,13 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import {
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Copy,
   Laptop,
   Link2,
-  RotateCw,
+  Loader2,
+  Maximize2,
+  Play,
   Smartphone,
   Tablet,
   Trash2,
@@ -19,8 +20,8 @@ import type {
   DevtoolsPanelSelectionSummary,
   FixProgressEntry,
   InspectPanelState,
+  OriginBindings,
 } from '../../../shared/types'
-import { resolveAddressInput } from '../../../shared/url'
 import {
   dividerClass,
   isUnresolved,
@@ -31,13 +32,14 @@ import { usePaneTheme } from '../PaneContext'
 import {
   buildUnresolvedCountsByNodeId,
   getInspectDetailState,
+  groupAnnotationsByOrigin,
   resolvePageDimensions,
 } from '../rightDetailsPanelSelectors'
 import { useClearInspectHoverOnLeave } from '../useClearInspectHoverOnLeave'
 import { useElementCommentDraft } from '../useElementCommentDraft'
 import { useInspectTreeState } from '../useInspectTreeState'
+import { RotateIcon } from '../../shared/CustomIcons'
 import { CommentRow } from './CommentsPane'
-import { DeviceSection } from './DeviceSection'
 import { ElementCommentComposer } from './ElementCommentComposer'
 import { InspectDetailSection } from './InspectDetailSection'
 import { InspectTree } from './InspectTree'
@@ -50,12 +52,14 @@ export function PagePane({
   selection,
   pages,
   fixProgress,
+  originBindings,
 }: {
   inspect: InspectPanelState
   annotations: Annotation[]
   selection?: DevtoolsPanelSelectionSummary
   pages: DevtoolsPanelPageSummary[]
   fixProgress: Record<string, FixProgressEntry>
+  originBindings: OriginBindings
 }) {
   const isDark = usePaneTheme()
   const muted = mutedClass(isDark)
@@ -116,8 +120,8 @@ export function PagePane({
             label={activePage?.label ?? 'Page'}
             actions={
               <PageHeaderActions
+                page={activePage}
                 pageId={inspect.activePageId!}
-                linked={activePage?.linked ?? false}
                 isDark={isDark}
               />
             }
@@ -129,20 +133,6 @@ export function PagePane({
           />
         )}
 
-        {/* Navigation & page actions */}
-        {activePage ? (
-          <PageNavigationSection
-            page={activePage}
-            isDark={isDark}
-            divider={divider}
-          />
-        ) : null}
-
-        {/* Dimensions & device page */}
-        {activePage ? (
-          <DeviceFrameSection page={activePage} />
-        ) : null}
-
         {/* Page comments (collapsible, only when there are unresolved comments) */}
         <PageCommentsSection
           annotations={annotations}
@@ -152,6 +142,7 @@ export function PagePane({
           muted={muted}
           collapsiblePanelClass={collapsiblePanelClass}
           fixProgress={fixProgress}
+          originBindings={originBindings}
         />
 
         {/* Inspect tree (collapsible) */}
@@ -297,6 +288,7 @@ function PageCommentsSection({
   muted,
   collapsiblePanelClass,
   fixProgress,
+  originBindings,
 }: {
   annotations: Annotation[]
   activePageId: string | null
@@ -305,22 +297,56 @@ function PageCommentsSection({
   muted: string
   collapsiblePanelClass: string
   fixProgress: Record<string, FixProgressEntry>
+  originBindings: OriginBindings
 }) {
   const pageComments = unresolvedCommentsForPage(annotations, activePageId)
   if (!pageComments.length) return null
+  // Fix is scoped to this page's comments — each is queued individually rather
+  // than via the origin-wide trigger, so we don't touch the canvas's other pages.
+  const hasBinding = groupAnnotationsByOrigin(pageComments).some(
+    (g) => originBindings[g.origin],
+  )
+  const working = pageComments.some((a) => fixProgress[a.id]?.status === 'running')
+  const fixPageComments = () => {
+    if (!hasBinding || working) return
+    for (const annotation of pageComments) {
+      rightDetailsPanelApi.fixSingleAnnotation(annotation.id)
+    }
+  }
+  const fixBtnClass = isDark
+    ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
+    : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
   return (
     <section className={`border-t ${divider}`}>
       <Collapsible.Root defaultOpen>
-        <Collapsible.Trigger
-          className={`group flex w-full items-center gap-1.5 px-2 py-2 text-[12px] font-medium`}
-        >
-          <ChevronDown size={12} className="hidden group-data-[panel-open]:block" />
-          <ChevronRight size={12} className="block group-data-[panel-open]:hidden" />
-          Comments
-          <span className={`text-[10px] font-normal ${muted}`}>
-            ({pageComments.length})
-          </span>
-        </Collapsible.Trigger>
+        <div className="flex items-center">
+          <Collapsible.Trigger
+            className={`group flex flex-1 items-center gap-1.5 px-2 py-2 text-[12px] font-medium`}
+          >
+            <ChevronDown size={12} className="hidden group-data-[panel-open]:block" />
+            <ChevronRight size={12} className="block group-data-[panel-open]:hidden" />
+            Comments
+            <span className={`text-[10px] font-normal ${muted}`}>
+              ({pageComments.length})
+            </span>
+          </Collapsible.Trigger>
+          {hasBinding ? (
+            <button
+              type="button"
+              onClick={fixPageComments}
+              disabled={working}
+              title="Fix this page's comments"
+              className={`mr-2 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-40 ${fixBtnClass}`}
+            >
+              {working ? (
+                <Loader2 size={11} className="shrink-0 animate-spin" />
+              ) : (
+                <Play size={11} className="shrink-0" />
+              )}
+              <span>Fix {pageComments.length}</span>
+            </button>
+          ) : null}
+        </div>
         <Collapsible.Panel className={collapsiblePanelClass}>
           <div className="space-y-2 px-2 pb-2">
             {pageComments.map((annotation) => (
@@ -345,23 +371,44 @@ function PageCommentsSection({
 // --- Page Header Actions (inline with PaneHeader) ---
 
 function PageHeaderActions({
+  page,
   pageId,
-  linked,
   isDark,
 }: {
+  // `pageId` comes from inspect.activePageId (always present); `page` is the
+  // summary lookup, which can briefly be undefined before the broadcast lands.
+  page?: DevtoolsPanelPageSummary
   pageId: string
-  linked: boolean
   isDark: boolean
 }) {
+  const linked = page?.linked ?? false
   const btnClass = `rounded p-1 ${
     isDark ? 'text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+  }`
+  const activeBtnClass = `rounded p-1 ${
+    isDark ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-200 text-zinc-800'
   }`
   const deleteBtnClass = `rounded p-1 ${
     isDark ? 'text-zinc-400 hover:bg-red-500/12 hover:text-red-400' : 'text-zinc-500 hover:bg-red-50 hover:text-red-600'
   }`
 
+  // Gate device controls on `page` — without the summary we can't read the
+  // current orientation, so a rotate would flip from the wrong base.
   return (
     <div className="flex items-center gap-0.5">
+      {page ? (
+        <>
+          <button type="button" className={page.showDeviceFrame ? activeBtnClass : btnClass} aria-label="Toggle device frame" title="Device frame" onClick={() => rightDetailsPanelApi.toggleDeviceShell(pageId)}>
+            <Smartphone size={13} />
+          </button>
+          <button type="button" className={btnClass} aria-label="Rotate viewport" title="Rotate viewport" onClick={() => rightDetailsPanelApi.setDeviceOrientation(pageId, page.deviceOrientation === 'landscape' ? 'portrait' : 'landscape')}>
+            <RotateIcon size={13} />
+          </button>
+        </>
+      ) : null}
+      <button type="button" className={btnClass} aria-label="Focus page" title="Focus page" onClick={() => rightDetailsPanelApi.focusSelection()}>
+        <Maximize2 size={13} />
+      </button>
       <button type="button" className={btnClass} aria-label="Duplicate" title="Duplicate" onClick={() => rightDetailsPanelApi.duplicatePage(pageId)}>
         <Copy size={13} />
       </button>
@@ -382,137 +429,6 @@ function PageHeaderActions({
         <Trash2 size={13} />
       </button>
     </div>
-  )
-}
-
-// --- Page Navigation & Actions ---
-
-function PageNavigationSection({
-  page,
-  isDark,
-  divider,
-}: {
-  page: DevtoolsPanelPageSummary
-  isDark: boolean
-  divider: string
-}) {
-  const [urlValue, setUrlValue] = useState(page.url)
-  const [isEditingUrl, setIsEditingUrl] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setUrlValue(page.url)
-  }, [page.url])
-
-  useEffect(() => {
-    if (isEditingUrl) {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }
-  }, [isEditingUrl])
-
-  const handleCommitUrl = () => {
-    const value = urlValue.trim()
-    if (value && value !== page.url) {
-      rightDetailsPanelApi.navigatePage(page.id, resolveAddressInput(value))
-    }
-    setIsEditingUrl(false)
-  }
-
-  const navBtnClass = isDark
-    ? 'rounded-md p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 disabled:pointer-events-none disabled:opacity-40'
-    : 'rounded-md p-1 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700 disabled:pointer-events-none disabled:opacity-40'
-
-  const inputContainerClass = isDark
-    ? 'flex h-7 items-center rounded-md border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-zinc-200 transition-[border-color,box-shadow] focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500'
-    : 'flex h-7 items-center rounded-md border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-zinc-800 transition-[border-color,box-shadow] focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500'
-
-  return (
-    <section className={`border-t ${divider}`}>
-      {/* Navigation bar */}
-      <div className="flex items-center gap-1 px-2 py-1.5">
-        <button
-          type="button"
-          className={navBtnClass}
-          disabled={!page.canGoBack}
-          title="Back"
-          onClick={() => rightDetailsPanelApi.goBackPage(page.id)}
-        >
-          <ChevronLeft size={14} />
-        </button>
-        <button
-          type="button"
-          className={navBtnClass}
-          disabled={!page.canGoForward}
-          title="Forward"
-          onClick={() => rightDetailsPanelApi.goForwardPage(page.id)}
-        >
-          <ChevronRight size={14} />
-        </button>
-        <button
-          type="button"
-          className={navBtnClass}
-          title={page.isLoading ? 'Loading' : 'Reload'}
-          onClick={() => rightDetailsPanelApi.reloadPage(page.id)}
-        >
-          <RotateCw size={13} className={page.isLoading ? 'animate-spin' : ''} />
-        </button>
-
-        {/* URL bar */}
-        <div className={`${inputContainerClass} ml-1 min-w-0 flex-1`}>
-          {isEditingUrl ? (
-            <input
-              ref={inputRef}
-              type="text"
-              value={urlValue}
-              onChange={(e) => setUrlValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCommitUrl()
-                if (e.key === 'Escape') {
-                  setUrlValue(page.url)
-                  setIsEditingUrl(false)
-                }
-              }}
-              onBlur={handleCommitUrl}
-              spellCheck={false}
-              className={`min-w-0 flex-1 border-0 bg-transparent text-[11px] outline-none ${
-                isDark ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'
-              }`}
-            />
-          ) : (
-            <span
-              className={`min-w-0 flex-1 cursor-text truncate text-[11px] ${
-                isDark ? 'text-zinc-400' : 'text-zinc-500'
-              }`}
-              onClick={() => setIsEditingUrl(true)}
-              title={page.url}
-            >
-              {page.url}
-            </span>
-          )}
-        </div>
-      </div>
-
-    </section>
-  )
-}
-
-// --- Page Dimensions & Device Controls ---
-
-function DeviceFrameSection({ page }: { page: DevtoolsPanelPageSummary }) {
-  return (
-    <DeviceSection
-      deviceId={page.deviceId ?? null}
-      orientation={page.deviceOrientation ?? 'portrait'}
-      showShell={page.showDeviceFrame ?? false}
-      width={page.width}
-      height={page.height}
-      presetIndex={page.presetIndex ?? null}
-      onSelectPreset={(index) => rightDetailsPanelApi.setPagePreset(page.id, index)}
-      onSelectCustom={() => rightDetailsPanelApi.setPageCustom(page.id)}
-      onSetOrientation={(o) => rightDetailsPanelApi.setDeviceOrientation(page.id, o)}
-      onToggleShell={() => rightDetailsPanelApi.toggleDeviceShell(page.id)}
-    />
   )
 }
 

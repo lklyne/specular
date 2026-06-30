@@ -77,16 +77,11 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-set-device-orientation', { pageId, orientation }),
   toggleDeviceShell: (pageId: string) =>
     ipcRenderer.send('right-details-panel-toggle-device-shell', { pageId }),
+  // Reuses the global focus channel — the panel only surfaces the selected
+  // page, so "focus selection" and "focus this page" are the same action.
+  focusSelection: () => ipcRenderer.send('canvas-focus-selection'),
   toggleSvgDeviceShell: (pageId: string) =>
     ipcRenderer.send('right-details-panel-toggle-svg-device-shell', { pageId }),
-  navigatePage: (pageId: string, url: string) =>
-    ipcRenderer.send('right-details-panel-navigate-page', { pageId, url }),
-  goBackPage: (pageId: string) =>
-    ipcRenderer.send('right-details-panel-go-back-page', { pageId }),
-  goForwardPage: (pageId: string) =>
-    ipcRenderer.send('right-details-panel-go-forward-page', { pageId }),
-  reloadPage: (pageId: string) =>
-    ipcRenderer.send('right-details-panel-reload-page', { pageId }),
   duplicatePage: (pageId: string) =>
     ipcRenderer.send('right-details-panel-duplicate-page', { pageId }),
   toggleLinkedPage: (pageId: string) =>

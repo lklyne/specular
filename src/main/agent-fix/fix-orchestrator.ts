@@ -155,13 +155,13 @@ function handleCompletion(
     addAnnotationReply(annotationId, 'agent', `Fix failed: ${shortMessage}`)
     return
   }
+  // shouldResolve is the agent's own "I believe this is fixed" signal — kept on
+  // the progress entry as a hint, but resolving the thread is the user's call
+  // (the comment row's ⋮ → Resolve). We never auto-resolve.
   finalizeFixProgress(annotationId, 'completed', {
     summary: result.summary,
     shouldResolve: result.shouldResolve,
   })
   addAnnotationReply(annotationId, 'agent', result.summary)
-  if (result.shouldResolve) {
-    updateAnnotationStatus(annotationId, 'resolved', 'Auto-resolved by agent', 'agent')
-  }
 }
 

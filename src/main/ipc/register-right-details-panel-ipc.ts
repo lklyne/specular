@@ -24,7 +24,7 @@ import {
   setFileDeviceOrientation,
   toggleFileDeviceShell,
 } from '../runtime/document-commands'
-import { navigatePage, togglePageLinked } from '../navigation-sync'
+import { togglePageLinked } from '../navigation-sync'
 import { deletePages } from '../workspace-entities'
 import { duplicatePageFromSource } from '../workspace-pages'
 import {
@@ -344,43 +344,7 @@ export function registerRightDetailsPanelIpc(): void {
     },
   )
 
-  // --- Page navigation & actions ---
-
-  ipcMain.on(
-    'right-details-panel-navigate-page',
-    (_event, payload: { pageId: string; url: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'load-url', url: payload.url })
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-go-back-page',
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-go-forward-page',
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-reload-page',
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
-    },
-  )
+  // --- Page actions ---
 
   ipcMain.on(
     'right-details-panel-duplicate-page',

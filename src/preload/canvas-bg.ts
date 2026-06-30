@@ -249,6 +249,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('right-details-panel-resolve-annotation', { annotationId }),
   deleteAnnotation: (annotationId: string) =>
     ipcRenderer.send('right-details-panel-delete-annotation', { annotationId }),
+  fixSingleAnnotation: (annotationId: string) =>
+    ipcRenderer.send('right-details-panel-fix-single-annotation', { annotationId }),
   openAnnotationThread: (annotationId: string) =>
     ipcRenderer.send('annotation-open-thread', { annotationId }),
   setCommentOverlayActive: (active: boolean) =>

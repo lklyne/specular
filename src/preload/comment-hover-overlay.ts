@@ -88,7 +88,7 @@ function buildOutline(rect: DOMRect | { left: number; top: number; width: number
   return outline
 }
 
-function paintPointerElement(x: number, y: number): void {
+function paintPointerElement(x: number, y: number, labelScale: number): void {
   clearMarqueeLayer()
   const target = pickContentElementAtPoint(x, y)
   if (!target) {
@@ -96,7 +96,7 @@ function paintPointerElement(x: number, y: number): void {
     return
   }
   ensureDomInspectionOverlay()
-  updateDomInspectionOverlay(target, inspectionPayload(target))
+  updateDomInspectionOverlay(target, inspectionPayload(target), { labelScale })
 }
 
 function paintRegionIntersection(region: { x: number; y: number; width: number; height: number }): void {
@@ -154,7 +154,7 @@ function refresh(state: CommentToolPagePreviewState): void {
     return
   }
   if (state.pointer) {
-    paintPointerElement(state.pointer.x, state.pointer.y)
+    paintPointerElement(state.pointer.x, state.pointer.y, state.displayScale ?? 1)
     return
   }
   clearMarqueeLayer()
@@ -163,6 +163,7 @@ function refresh(state: CommentToolPagePreviewState): void {
 
 function statesEqual(a: CommentToolPagePreviewState, b: CommentToolPagePreviewState): boolean {
   if (a.active !== b.active) return false
+  if ((a.displayScale ?? 1) !== (b.displayScale ?? 1)) return false
   if ((a.pointer == null) !== (b.pointer == null)) return false
   if (a.pointer && b.pointer && (a.pointer.x !== b.pointer.x || a.pointer.y !== b.pointer.y)) {
     return false

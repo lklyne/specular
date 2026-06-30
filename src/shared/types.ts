@@ -1861,6 +1861,7 @@ export interface CanvasBgElectronAPI {
   addAnnotationReply: (annotationId: string, text: string) => void
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void
+  fixSingleAnnotation: (annotationId: string) => void
   openAnnotationThread: (annotationId: string) => void
   setCommentOverlayActive: (active: boolean) => void
   onCaptureMode: (callback: (active: boolean) => void) => () => void
@@ -2125,10 +2126,7 @@ export interface DevtoolsPanelElectronAPI {
   setDeviceOrientation: (pageId: string, orientation: string) => void
   toggleDeviceShell: (pageId: string) => void
   toggleSvgDeviceShell: (pageId: string) => void
-  navigatePage: (pageId: string, url: string) => void
-  goBackPage: (pageId: string) => void
-  goForwardPage: (pageId: string) => void
-  reloadPage: (pageId: string) => void
+  focusSelection: () => void
   duplicatePage: (pageId: string) => void
   toggleLinkedPage: (pageId: string) => void
   deletePage: (pageId: string) => void
@@ -2334,6 +2332,10 @@ export interface CommentToolPagePreviewState {
   active: boolean
   pointer: { x: number; y: number } | null
   regionRect: { x: number; y: number; width: number; height: number } | null
+  /** Counter-scale for the in-page hover label (= 1 / displayZoom). Keeps the
+   *  label a constant on-screen size despite the webview being zoom-scaled, so
+   *  it matches the screen-space inspect popover. */
+  displayScale?: number
 }
 
 /** Live-bbox subscription request: identifies an element-anchored annotation

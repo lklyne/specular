@@ -5,6 +5,7 @@ import {
   type AnnotationLiveBboxLookup,
   type PendingAnnotation,
 } from './annotationMath'
+import { Play } from 'lucide-react'
 import { CircleCheckIcon, MoreVerticalIcon, TrashIcon } from '../shared/PanelIcons'
 import { CommentBubble, CommentInput } from '../shared/CommentPrimitives'
 import { FixEventList, fixStatusLabel } from '../shared/FixEventList'
@@ -230,7 +231,11 @@ export function AnnotationThreadPopover({
   threadInputRef,
   threadPosition,
 }: {
-  api: { deleteAnnotation: (annotationId: string) => void; resolveAnnotation: (annotationId: string) => void }
+  api: {
+    deleteAnnotation: (annotationId: string) => void
+    resolveAnnotation: (annotationId: string) => void
+    fixSingleAnnotation: (annotationId: string) => void
+  }
   closeThread: () => void
   drawCursor: string
   drawInteractionEnabled: boolean
@@ -286,6 +291,17 @@ export function AnnotationThreadPopover({
           >
             <div className="text-[12px] font-semibold">Comment</div>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                data-overlay-ui
+                className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-[var(--surface-popover)] disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-[var(--surface-popover)]"
+                aria-label="Fix with agent"
+                title="Fix with agent"
+                disabled={progress?.status === 'running'}
+                onClick={() => api.fixSingleAnnotation(openThread.id)}
+              >
+                <Play className="size-3.5" />
+              </button>
               <div className="relative">
                 <button
                   type="button"

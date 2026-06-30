@@ -64,12 +64,13 @@ function payloadSignature(payload: {
   active: boolean
   pointer: { x: number; y: number } | null
   regionRect: { x: number; y: number; width: number; height: number } | null
+  displayScale?: number
 }): string {
   const p = payload.pointer ? `${payload.pointer.x},${payload.pointer.y}` : '-'
   const r = payload.regionRect
     ? `${payload.regionRect.x},${payload.regionRect.y},${payload.regionRect.width},${payload.regionRect.height}`
     : '-'
-  return `${payload.active ? '1' : '0'}|${p}|${r}`
+  return `${payload.active ? '1' : '0'}|${p}|${r}|${payload.displayScale ?? 1}`
 }
 
 function sendIfChanged(
@@ -79,6 +80,7 @@ function sendIfChanged(
     active: boolean
     pointer: { x: number; y: number } | null
     regionRect: { x: number; y: number; width: number; height: number } | null
+    displayScale?: number
   },
 ): void {
   const sig = payloadSignature(payload)
@@ -130,6 +132,9 @@ function broadcastPointerState(state: PointerStateInput): void {
       active: true,
       pointer,
       regionRect,
+      // cssScale = pageCSSpx / onScreenPx = 1 / displayZoom — the factor that
+      // counter-scales the in-page label back to a constant screen size.
+      displayScale: cssScale,
     })
   }
 }
