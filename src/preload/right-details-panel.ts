@@ -77,6 +77,7 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-set-device-orientation', { pageId, orientation }),
   toggleDeviceShell: (pageId: string) =>
     ipcRenderer.send('right-details-panel-toggle-device-shell', { pageId }),
+  focusSelection: () => ipcRenderer.send('canvas-focus-selection'),
   toggleSvgDeviceShell: (pageId: string) =>
     ipcRenderer.send('right-details-panel-toggle-svg-device-shell', { pageId }),
   navigatePage: (pageId: string, url: string) =>

@@ -67,6 +67,9 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             selection={panelData.selection}
             pages={pages}
             fixProgress={panelData.fixProgress ?? {}}
+            originBindings={panelData.originBindings ?? {}}
+            fixInProgress={panelData.fixInProgress ?? {}}
+            fixConfig={panelData.fixConfig ?? { model: 'opus', permissions: 'dangerously', configured: false }}
           />
         ) : null
 

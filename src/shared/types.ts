@@ -2125,6 +2125,7 @@ export interface DevtoolsPanelElectronAPI {
   setDeviceOrientation: (pageId: string, orientation: string) => void
   toggleDeviceShell: (pageId: string) => void
   toggleSvgDeviceShell: (pageId: string) => void
+  focusSelection: () => void
   navigatePage: (pageId: string, url: string) => void
   goBackPage: (pageId: string) => void
   goForwardPage: (pageId: string) => void

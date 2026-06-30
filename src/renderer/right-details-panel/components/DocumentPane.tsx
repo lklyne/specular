@@ -92,7 +92,7 @@ export function DocumentPane({
   )
 }
 
-function FixMenu({
+export function FixMenu({
   isDark,
   originGroups,
   originBindings,
