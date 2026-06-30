@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-06-30 — Agent Browser Fix, Page Panel Controls
+
+### Fixes
+- packaged apps now actually ship the agent-browser binary — Setup no longer
+  reports it missing. It's fetched and checksum-verified at build time.
+- comment badges fade out gracefully as they leave a page's content band
+  instead of drifting onto page chrome
+- in-page comment hover labels stay a constant on-screen size when zoomed
+
+### Improvements
+- page device controls (frame toggle, rotate, focus) moved into the right
+  panel header
+- send a single comment to the fix agent from the thread popover, or fix all
+  of one page's comments from the page panel
+- the fix agent can now answer questions without editing code, and leaves
+  resolving the thread up to you
+- faster panning on busy canvases
+
 ## [0.3.2] - 2026-06-29 — Focus Mode
 
 ### New
