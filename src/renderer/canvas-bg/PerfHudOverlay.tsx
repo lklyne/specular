@@ -91,10 +91,22 @@ export function PerfHudOverlay({
   const buildMs = useRef<number[]>([])
   const lastFrameTs = useRef(0)
 
+  // Off by default; opt in per-machine with `localStorage.perfHud = '1'` in the
+  // canvas devtools console, then reload. Dev-only tool, dev-only switch — not
+  // worth the cross-window preference plumbing a UI toggle would need.
+  const [enabled] = useState(() => {
+    try {
+      return localStorage.getItem('perfHud') === '1'
+    } catch {
+      return false
+    }
+  })
+  const active = isDev && enabled
+
   // Sample every real frame into a ring buffer; never setState here — that
   // would re-render 120x/sec and pollute the very numbers we're measuring.
   useEffect(() => {
-    if (!isDev) return
+    if (!active) return
     let raf = 0
     const loop = (ts: number) => {
       if (lastFrameTs.current) pushCapped(frameMs.current, ts - lastFrameTs.current)
@@ -103,21 +115,21 @@ export function PerfHudOverlay({
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [isDev])
+  }, [active])
 
   // Repaint the readout at a fixed 4Hz, decoupled from the frame loop.
   useEffect(() => {
-    if (!isDev) return
+    if (!active) return
     const id = setInterval(() => forceTick((n) => n + 1), 250)
     return () => clearInterval(id)
-  }, [isDev])
+  }, [active])
 
   // Record each layout build cost as its payload lands.
   useEffect(() => {
     if (layoutData.buildMs != null) pushCapped(buildMs.current, layoutData.buildMs)
   }, [layoutData])
 
-  if (!isDev) return null
+  if (!active) return null
 
   const frames = frameMs.current
   const recentFrames = frames.slice(-15)
