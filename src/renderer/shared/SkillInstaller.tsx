@@ -54,7 +54,7 @@ function rowBaseClass(progress: RowProgress): string {
   const base =
     'flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3 text-left cursor-pointer select-none'
   if (progress === 'installing') return `${base} opacity-90 cursor-not-allowed`
-  if (progress === 'success') return `${base} border-emerald-500/40`
+  if (progress === 'success') return `${base} border-[var(--surface-toolbar-foreground)]/40`
   if (progress === 'error') return `${base} border-red-500/50`
   return base
 }
@@ -88,7 +88,7 @@ function Row({
           disabled={snapshot.progress === 'installing'}
           checked={snapshot.selected}
           onCheckedChange={(checked) => setSelected(id, checked)}
-          className="relative inline-flex h-[18px] w-[32px] shrink-0 cursor-pointer items-center rounded-full border border-[var(--surface-popover-border)] bg-[var(--surface-input)] transition-colors data-[checked]:border-transparent data-[checked]:bg-emerald-500 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+          className="relative inline-flex h-[18px] w-[32px] shrink-0 cursor-pointer items-center rounded-full border border-[var(--surface-popover-border)] bg-[var(--surface-input)] transition-colors data-[checked]:border-transparent data-[checked]:bg-[var(--surface-toolbar-foreground)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
         >
           <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[1px] rounded-full bg-white shadow-sm transition-transform data-[checked]:translate-x-[15px]" />
         </Switch.Root>
@@ -108,7 +108,7 @@ function StatusBadge({ snapshot }: { snapshot: InstallerRowSnapshot }) {
   }
   if (snapshot.progress === 'success' || snapshot.status.kind === 'installed') {
     return (
-      <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+      <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[var(--surface-toolbar-foreground)]">
         <Check size={12} strokeWidth={3} />
         Installed
       </span>

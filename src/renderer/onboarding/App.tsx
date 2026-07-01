@@ -76,7 +76,7 @@ function WelcomeScreen({ onContinue, onSkip }: { onContinue: () => void; onSkip:
         </button>
         <button
           type="button"
-          className="rounded-[6px] bg-emerald-600 px-4 py-[6px] text-[12px] font-medium text-white shadow-sm hover:bg-emerald-500"
+          className="rounded-[6px] bg-[var(--surface-toolbar-foreground)] px-4 py-[6px] text-[12px] font-medium text-[var(--surface-panel)] shadow-sm hover:opacity-90"
           onClick={onContinue}
         >
           Get started
@@ -149,23 +149,22 @@ function SetupScreen({
     try {
       const next = await api.install(selections)
       setStatus(next)
-      if (allInstalledOrSkipped(next, INITIAL_PROGRESS)) {
-        api.complete()
-      }
     } finally {
       setInstalling(false)
     }
   }, [api, installing, selections])
 
+  const isSettingsMode = initialData.mode === 'settings'
   const canFinish = allInstalledOrSkipped(status, progress)
   const primaryLabel = canFinish
-    ? 'Continue'
+    ? isSettingsMode
+      ? 'Done'
+      : 'Get started'
     : installing
       ? 'Installing\u2026'
       : 'Install selected'
 
   const primaryAction = canFinish ? () => api.complete() : handleInstall
-  const isSettingsMode = initialData.mode === 'settings'
 
   return (
     <div className="flex h-full flex-col">
@@ -218,7 +217,7 @@ function SetupScreen({
         </button>
         <button
           type="button"
-          className="rounded-[6px] bg-emerald-600 px-4 py-[6px] text-[12px] font-medium text-white shadow-sm enabled:hover:bg-emerald-500 disabled:opacity-50"
+          className="rounded-[6px] bg-[var(--surface-toolbar-foreground)] px-4 py-[6px] text-[12px] font-medium text-[var(--surface-panel)] shadow-sm enabled:hover:opacity-90 disabled:opacity-50"
           disabled={installing || (!canFinish && !anyInstallable(selections))}
           onClick={primaryAction}
         >
