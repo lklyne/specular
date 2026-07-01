@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ViewportNudge } from '../../../shared/types'
 
-export type Camera = { pan: { x: number; y: number }; zoom: number }
+export type SceneCamera = { pan: { x: number; y: number }; zoom: number }
 
 /**
  * The live camera pushed by main on every pan/zoom, ahead of the debounced
@@ -12,8 +12,8 @@ export type Camera = { pan: { x: number; y: number }; zoom: number }
  */
 export function useSceneCamera(
   onViewportNudge: (cb: (nudge: ViewportNudge) => void) => () => void,
-  payload: Camera,
-): Camera {
+  payload: SceneCamera,
+): SceneCamera {
   const [nudge, setNudge] = useState<ViewportNudge | null>(null)
   useEffect(() => onViewportNudge(setNudge), [onViewportNudge])
   return nudge ?? { pan: payload.pan, zoom: payload.zoom }
@@ -38,7 +38,7 @@ export function useSceneCamera(
  */
 export function sceneReprojectTransform(
   payload: { pan: { x: number; y: number }; zoom: number; canvasOrigin: { x: number; y: number } },
-  live: Camera,
+  live: SceneCamera,
   originLocalY: number,
 ): string {
   const scale = live.zoom / payload.zoom

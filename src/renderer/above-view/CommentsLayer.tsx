@@ -1,6 +1,6 @@
 import type { Annotation, FixProgressEntry, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import {
-  canvasRectToScreenRect,
+  canvasRectToScreenBox,
   pendingElementScreenRect,
   type AnnotationLiveBboxLookup,
   type PendingAnnotation,
@@ -77,7 +77,7 @@ export function PendingAnnotationComposer({
     )
   }
   if (pendingRegionRect) {
-    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
+    const screen = canvasRectToScreenBox(layoutData, pendingRegionRect)
     const overlayTop = screen.top - layoutData.canvasOrigin.y
     const composerX = Math.min(
       Math.max(screen.left, 8),

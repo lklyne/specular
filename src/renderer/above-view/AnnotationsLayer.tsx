@@ -1,5 +1,5 @@
 import type { Annotation, LayoutUpdateData } from '../../shared/types'
-import { canvasRectToScreenRect } from './annotationMath'
+import { canvasRectToScreenBox } from './annotationMath'
 
 export function RegionSelectAnnotations({
   annotations,
@@ -24,7 +24,7 @@ export function RegionSelectAnnotations({
     <>
       {regionAnnotations.map((annotation) => {
         if (annotation.anchor.type !== 'region') return null
-        const screen = canvasRectToScreenRect(layoutData, annotation.anchor.canvasRect)
+        const screen = canvasRectToScreenBox(layoutData, annotation.anchor.canvasRect)
 
         return (
           <button

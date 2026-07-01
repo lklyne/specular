@@ -126,7 +126,7 @@ export function drawingBounds(
   }
 }
 
-export function canvasRectToScreenRect(
+export function canvasRectToScreenBox(
   layout: LayoutUpdateData,
   canvasRect: { x: number; y: number; width: number; height: number },
   minSize = 4,

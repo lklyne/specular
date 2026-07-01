@@ -55,7 +55,7 @@ import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotat
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
 import { useCanvasFileDrop } from './useCanvasFileDrop'
-import { canvasRectToScreenRect, pendingElementComposerPosition } from './annotationMath'
+import { canvasRectToScreenBox, pendingElementComposerPosition } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
   useCanvasPointerRouter,
@@ -767,7 +767,7 @@ export default function App({
   // in-flight drag rect when both are set.
   const heldRegionRect = useMemo(() => {
     if (!pendingRegionRect) return null
-    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
+    const screen = canvasRectToScreenBox(layoutData, pendingRegionRect)
     return {
       x: screen.left,
       y: screen.top,
