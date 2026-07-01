@@ -1,5 +1,5 @@
 import { app, crashReporter, net, nativeTheme, protocol } from 'electron'
-import { DEFAULT_PAGES } from '../shared/constants'
+import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
 import {
   flushWorkspaceAutosaveSync,
@@ -81,7 +81,7 @@ app.on('render-process-gone', (_e, wc, details) => {
 })
 app.on('child-process-gone', (_e, details) => logCrash('child-process-gone', details))
 
-const remoteDebuggingPort = process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? '9229'
+const remoteDebuggingPort = process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? String(DEFAULT_REMOTE_DEBUGGING_PORT)
 app.commandLine.appendSwitch('remote-debugging-port', remoteDebuggingPort)
 app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
 app.commandLine.appendSwitch('enable-unsafe-webgpu')

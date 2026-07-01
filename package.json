@@ -16,7 +16,7 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@9.5.0",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "pnpm fetch:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
     "dev:restart": "bash scripts/dev-restart.sh",
@@ -80,16 +80,5 @@
     "typescript-eslint": "^8.58.2",
     "vite": "^7.3.1",
     "vitest": "^4.1.1"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild",
-      "macos-alias",
-      "fs-xattr"
-    ],
-    "overrides": {
-      "@electron/notarize": "^3.1.1"
-    }
   }
 }

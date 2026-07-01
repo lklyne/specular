@@ -2,12 +2,16 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import type {
   OnboardingBootstrapData,
   OnboardingComponentId,
-  OnboardingComponentStatus,
   OnboardingElectronAPI,
   OnboardingProgressEvent,
   OnboardingStatusSnapshot,
 } from '../../shared/types'
 import { SkillInstaller, type InstallerRowSnapshot, type RowProgress } from '../shared/SkillInstaller'
+import {
+  defaultSelected,
+  hasInstallableSelection,
+  installableSelections,
+} from './onboardingSelection'
 
 type RowProgressMap = Record<OnboardingComponentId, { progress: RowProgress; detail?: string }>
 
@@ -34,16 +38,6 @@ function progressReducer(state: RowProgressMap, action: ProgressAction): RowProg
     case 'error':
       return { ...state, [action.id]: { progress: 'error', detail: action.detail } }
   }
-}
-
-function defaultSelected(status: OnboardingComponentStatus): boolean {
-  return status.kind !== 'installed'
-}
-
-function anyInstallable(
-  selections: Record<OnboardingComponentId, boolean>,
-): boolean {
-  return Object.values(selections).some(Boolean)
 }
 
 function allInstalledOrSkipped(
@@ -76,7 +70,7 @@ function WelcomeScreen({ onContinue, onSkip }: { onContinue: () => void; onSkip:
         </button>
         <button
           type="button"
-          className="rounded-[6px] bg-emerald-600 px-4 py-[6px] text-[12px] font-medium text-white shadow-sm hover:bg-emerald-500"
+          className="rounded-[6px] bg-[var(--surface-toolbar-foreground)] px-4 py-[6px] text-[12px] font-medium text-[var(--surface-panel)] shadow-sm hover:opacity-90"
           onClick={onContinue}
         >
           Get started
@@ -143,29 +137,29 @@ function SetupScreen({
   )
 
   const handleInstall = useCallback(async () => {
-    if (installing || !anyInstallable(selections)) return
+    const selectionsToInstall = installableSelections(status, selections)
+    if (installing || !hasInstallableSelection(status, selections)) return
     setInstalling(true)
     dispatchProgress({ kind: 'reset' })
     try {
-      const next = await api.install(selections)
+      const next = await api.install(selectionsToInstall)
       setStatus(next)
-      if (allInstalledOrSkipped(next, INITIAL_PROGRESS)) {
-        api.complete()
-      }
     } finally {
       setInstalling(false)
     }
-  }, [api, installing, selections])
+  }, [api, installing, status, selections])
 
+  const isSettingsMode = initialData.mode === 'settings'
   const canFinish = allInstalledOrSkipped(status, progress)
   const primaryLabel = canFinish
-    ? 'Continue'
+    ? isSettingsMode
+      ? 'Done'
+      : 'Get started'
     : installing
       ? 'Installing\u2026'
       : 'Install selected'
 
   const primaryAction = canFinish ? () => api.complete() : handleInstall
-  const isSettingsMode = initialData.mode === 'settings'
 
   return (
     <div className="flex h-full flex-col">
@@ -218,8 +212,8 @@ function SetupScreen({
         </button>
         <button
           type="button"
-          className="rounded-[6px] bg-emerald-600 px-4 py-[6px] text-[12px] font-medium text-white shadow-sm enabled:hover:bg-emerald-500 disabled:opacity-50"
-          disabled={installing || (!canFinish && !anyInstallable(selections))}
+          className="rounded-[6px] bg-[var(--surface-toolbar-foreground)] px-4 py-[6px] text-[12px] font-medium text-[var(--surface-panel)] shadow-sm enabled:hover:opacity-90 disabled:opacity-50"
+          disabled={installing || (!canFinish && !hasInstallableSelection(status, selections))}
           onClick={primaryAction}
         >
           {primaryLabel}
