@@ -429,6 +429,13 @@ export type PersistedCanvasEntity =
 // --- Layout Update Data ---
 
 export interface LayoutUpdateData {
+  /**
+   * Wall-clock milliseconds `buildCanvasLayoutData` took to produce this
+   * payload, stamped by the layout pass. Diagnostic only — feeds the canvas
+   * perf HUD so the O(entities) rebuild cost is visible during pan/zoom. See
+   * #257 / #265.
+   */
+  buildMs?: number
   windowWidth: number
   zoom: number
   pan: { x: number; y: number }
@@ -1678,6 +1685,18 @@ export interface ToolbarElectronAPI {
   repoDisconnect: (id: string) => Promise<void>
 }
 
+/**
+ * The authoritative viewport, pushed to the overlay renderers immediately on a
+ * pan/zoom — ahead of the debounced `layout-update` rebuild. The canvas scene
+ * layers translate by (livePan − payloadPan) so selection chrome and entity
+ * bodies track the natively-positioned page views during a pan instead of
+ * waiting for the next full rebuild. See #257.
+ */
+export interface ViewportNudge {
+  pan: { x: number; y: number }
+  zoom: number
+}
+
 export interface CanvasBgElectronAPI {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
@@ -1901,6 +1920,7 @@ export interface CanvasBgElectronAPI {
    *  connected repo, or null if connection fails. */
   repoConnect: (absolutePath: string) => Promise<unknown>
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
+  onViewportNudge: (callback: (data: ViewportNudge) => void) => () => void
   onFixProgressUpdate: (
     callback: (data: LayoutUpdateData['fixProgress']) => void,
   ) => () => void

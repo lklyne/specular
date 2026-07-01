@@ -18,6 +18,7 @@
  * the right details panel, currently commented out).
  */
 
+import { memo } from 'react'
 import type { CanvasScenePageEntity } from '../../shared/types'
 import {
   DEVICE_CATALOG,
@@ -25,7 +26,7 @@ import {
 } from '../../shared/device-catalog'
 import { squirclePath } from './squirclePath'
 
-export function SvgDeviceShellLayer({
+export const SvgDeviceShellLayer = memo(function SvgDeviceShellLayer({
   pages,
   isDark,
 }: {
@@ -188,4 +189,4 @@ export function SvgDeviceShellLayer({
       })}
     </>
   )
-}
+})

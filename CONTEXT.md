@@ -56,6 +56,7 @@ Conventions:
 ## Entity geometry
 
 - **Entity rect** — the full bounding rect of an entity, body + chrome as one layout unit ([ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md)). Pan / zoom / drag / resize operate on this rect.
+- **Camera** — the renderer-owned `{ x, y, zoom }` viewport transform. Canvas-space DOM (borders, entity bodies, edges, selection chrome) rides one `translate/scale` container per renderer; pan/zoom are GPU-composited, not per-entity screen coords rebuilt in main. Native pages (`WebContentsView`s) can't ride the transform, so main follows the camera to reposition them (`setBounds`) and re-emulate on zoom-*settle*. Proposed migration in [ADR 0023](./docs/adr/0023-renderer-owned-camera-gpu-panzoom.md).
 - **Body sub-rect** — the part of the entity rect that holds the entity's content (the live document for a page, the image for a file, etc.). Resize handles and edge anchors attach here.
 - **Chrome slot** — the part of the entity rect reserved for canvas-anchored overlay UI. Per-kind, runtime-derived, **not persisted** in the `.canvas` schema.
 
