@@ -71,6 +71,21 @@ export default function App({
     () => (hideContext ? [] : fileEntities),
     [fileEntities, hideContext],
   )
+  // Hoist per-layer slices so the memoized layers receive stable array refs and
+  // skip re-rendering on every pan/zoom nudge (props only change on a real
+  // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
+  const deviceShellPages = useMemo(
+    () => chromePages.filter((f) => !f.useSvgDeviceShell),
+    [chromePages],
+  )
+  const svgDeviceShellPages = useMemo(
+    () => chromePages.filter((f) => f.useSvgDeviceShell),
+    [chromePages],
+  )
+  const chromeGroups = useMemo(
+    () => (hideContext ? [] : (layoutData.groups ?? [])),
+    [hideContext, layoutData.groups],
+  )
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -99,22 +114,19 @@ export default function App({
         className="pointer-events-none absolute inset-0"
         style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
       >
-        <GroupBackgroundLayer
-          groups={hideContext ? [] : (layoutData.groups ?? [])}
-          isDark={isDark}
-        />
+        <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
         <div className="pointer-events-none absolute inset-0">
           <PageBorderLayer
             pages={chromePages}
             fileEntities={chromeFiles}
           />
           <DeviceShellLayer
-            pages={chromePages.filter((f) => !f.useSvgDeviceShell)}
+            pages={deviceShellPages}
             fileEntities={chromeFiles}
             isDark={isDark}
           />
           <SvgDeviceShellLayer
-            pages={chromePages.filter((f) => f.useSvgDeviceShell)}
+            pages={svgDeviceShellPages}
             isDark={isDark}
           />
         </div>

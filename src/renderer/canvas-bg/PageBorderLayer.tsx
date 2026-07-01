@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import type { CanvasScenePageEntity, CanvasSceneFileEntity } from '../../shared/types'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
@@ -24,7 +24,7 @@ type BorderItem = {
   width: number
 }
 
-export function PageBorderLayer({
+export const PageBorderLayer = memo(function PageBorderLayer({
   pages,
   fileEntities,
   offsetY = 0,
@@ -102,4 +102,4 @@ export function PageBorderLayer({
       })}
     </>
   )
-}
+})
