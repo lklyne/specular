@@ -32,6 +32,7 @@ import type {
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 import { reorderableDots } from './reorderable-dots'
 import { ENTITY_KIND_CAPS } from './entity-kind-caps'
+import { selectionBbox, type SelectionBbox } from './selection-bbox'
 
 // --- Public types ---
 
@@ -157,7 +158,7 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   // non-group entities once groups are excluded).
   const bbox =
     inputs.selectedEntityIds.length > 1
-      ? multiSelectionScreenBbox(inputs.entities, inputs.selectedEntityIds)
+      ? selectionBbox(inputs.entities, inputs.selectedEntityIds, 'screen')
       : null
   if (bbox) {
     for (const handle of HANDLES) {
@@ -198,37 +199,7 @@ function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void
   }
 }
 
-interface ScreenBbox {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-function multiSelectionScreenBbox(
-  entities: readonly CanvasSceneEntity[],
-  selectedEntityIds: readonly string[],
-): ScreenBbox | null {
-  const ids = new Set(selectedEntityIds)
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  let count = 0
-  for (const e of entities) {
-    if (!ids.has(e.id)) continue
-    if (e.kind === 'group') continue
-    minX = Math.min(minX, e.screenX)
-    minY = Math.min(minY, e.screenY)
-    maxX = Math.max(maxX, e.screenX + e.screenWidth)
-    maxY = Math.max(maxY, e.screenY + e.screenHeight)
-    count++
-  }
-  if (count < 2) return null
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-}
-
-function multiHandleRect(bbox: ScreenBbox, handle: ResizeHandle): Rect {
+function multiHandleRect(bbox: SelectionBbox, handle: ResizeHandle): Rect {
   const half = RESIZE_HANDLE_HIT_PX / 2
   const pad = MULTI_SELECTION_OUTLINE_PADDING_PX
   const left = bbox.x - pad
