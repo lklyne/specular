@@ -1,9 +1,21 @@
 # ADR 0023 — Renderer-owned camera and GPU-composited pan/zoom
 
-**Status:** Proposed
+**Status:** Rejected — attempted then abandoned 2026-07-01 (see Postmortem below)
 **Date:** 2026-06-30
 **Related:** [ADR 0014 — Canvas stack order](./0014-canvas-stack-order.md) (the layering constraint this ADR must preserve), [ADR 0002 — Canvas-anchored overlay UI](./0002-canvas-anchored-overlay-ui.md), [ADR 0021 — Focus session](./0021-focus-session-as-first-class-concept.md), [ADR 0022 — Pages select-first / interact-second](./0022-pages-select-first-interact-second.md).
 **Origin:** Perf analysis on branch `claude/issue-265-perf-b-and-hud`, distilled from issues [#257](https://github.com/lklyne/specular/issues/257) (selection border lags during pan) and [#265](https://github.com/lklyne/specular/issues/265) (make `buildCanvasLayoutData` cheap for pan-only changes). Those two issues chipped at symptoms; this ADR names the root cause and the end-state architecture.
+
+## Postmortem — attempted and abandoned (2026-07-01)
+
+Phases 1–3 were built on branch `claude/feat-renderer-owned-camera` (step PRs #271/#275/#276) and abandoned before Phase 4 landed. Integration PR #277 was closed; the branch is kept as a record. **The design below is preserved unedited for the record — read it as the plan we tried, not current guidance.** What we learned:
+
+- **No felt improvement, worse measured cost.** After Phases 1–3, HUD frame/`build` stats during pan and zoom were *worse* than the pre-ADR baseline, and there was no perceptible smoothness gain from the migration. The two-substrate tax the ADR set out to remove did not shrink meaningfully in practice.
+- **Decision §5 rests on a false assumption.** §5 claims resizing a page's `WebContentsView` via `setBounds` lets "the view's existing raster scale (Chromium composites the view texture at the new size)." It does not. Content is pinned to the emulation `viewSize × scale` (`runtime-geometry.ts`), so a page does **not** scale during a zoom gesture — it snaps to the new scale only on the settle re-emulation. The "smooth approximate scale during the gesture" §5 promised never existed.
+- **The only ways to scale a live page during zoom both have known costs.** Per-tick `enableDeviceEmulation({ scale })` (the pre-Phase-3 behavior) scales the content but is the reflow cost Phase 3 removed; the snapshot-freeze in §6/Phase 5 is the real fix but is genuine work. `setBounds` alone — the cheap path this ADR bet on — is not an option. So Phase 5 was never optional for the "pages scale during zoom" goal, contrary to §6's "build only if profiling shows jank."
+
+**What we kept:** the #257/#265 perf work that predates the migration — live selection chrome during pan (#257), the perf HUD, chrome-layer memoization, and rAF-batched layout-update consumption (#265). Those helped and remain on `claude/issue-265-perf-b-and-hud`. Only the renderer-owned-camera refactor (Phases 1–4) was dropped.
+
+**If revisited:** start from the §5/§6 correction above — the live-page substrate is the hard part, and it needs the snapshot-freeze approach, not a `setBounds`/transform trick.
 
 ## Context
 
