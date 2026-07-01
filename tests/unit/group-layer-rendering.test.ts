@@ -3,21 +3,21 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { GroupBoundsLayer } from '../../src/renderer/above-view/GroupBoundsLayer'
 import { GroupBackgroundLayer } from '../../src/renderer/canvas-bg/GroupBackgroundLayer'
+import type { Camera } from '../../src/shared/coords'
 import type { CanvasSceneGroupEntity } from '../../src/shared/types'
+
+// Identity camera: the group's canvas rect projects 1:1 to screen space.
+const camera: Camera = { pan: { x: 0, y: 0 }, zoom: 1, canvasOrigin: { x: 0, y: 0 } }
 
 function group(overrides: Partial<CanvasSceneGroupEntity> = {}): CanvasSceneGroupEntity {
   return {
     kind: 'group',
     id: 'g1',
     label: 'Group',
-    canvasX: 100,
-    canvasY: 120,
-    width: 300,
-    height: 180,
-    screenX: 140,
-    screenY: 160,
-    screenWidth: 360,
-    screenHeight: 216,
+    canvasX: 140,
+    canvasY: 160,
+    width: 360,
+    height: 216,
     layoutMode: 'freeform',
     managedLayout: false,
     entityIds: [],
@@ -46,6 +46,7 @@ describe('group layer rendering', () => {
       createElement(GroupBackgroundLayer, {
         groups: [group()],
         isDark: false,
+        camera,
       }),
     )
 

@@ -3,15 +3,21 @@ import { commentBadgesForLayout } from '../../src/renderer/above-view/CommentBad
 import { annotationScreenPos, type AnnotationLiveBboxLookup } from '../../src/renderer/above-view/annotationMath'
 import type { Annotation, LayoutUpdateData } from '../../src/shared/types'
 
+// Layout camera below has canvasOrigin { x: 0, y: 50 }, pan 0, zoom 1, so a
+// page's canvas rect projects to screen as { x, y + 50, w, h }. The visual
+// rect is chosen so its screen projection matches the old screenX/Y/W/H
+// (200/100/400/300).
 const PAGE = {
   id: 'page-1',
   kind: 'page' as const,
-  screenX: 200,
-  screenY: 100,
-  screenWidth: 400,
-  screenHeight: 300,
+  canvasX: 200,
+  canvasY: 50,
   width: 400,
   height: 300,
+  visualCanvasX: 200,
+  visualCanvasY: 50,
+  visualWidth: 400,
+  visualHeight: 300,
 }
 
 function layout(partial: Partial<LayoutUpdateData> = {}): LayoutUpdateData {
@@ -92,12 +98,14 @@ describe('annotationScreenPos with live bboxes', () => {
 
 describe('commentBadgesForLayout', () => {
   it('positions element badges in the page content viewport above device frames', () => {
+    // content canvas rect projects (origin y 50) to the old content screen
+    // rect { 230, 140, 200, 150 }.
     const page = {
       ...PAGE,
-      contentScreenX: 230,
-      contentScreenY: 140,
-      contentScreenWidth: 200,
-      contentScreenHeight: 150,
+      contentCanvasX: 230,
+      contentCanvasY: 90,
+      contentCanvasWidth: 200,
+      contentCanvasHeight: 150,
     }
     const ann = elementAnnotation({ x: 50, y: 40, width: 100, height: 20 })
     const badges = commentBadgesForLayout(

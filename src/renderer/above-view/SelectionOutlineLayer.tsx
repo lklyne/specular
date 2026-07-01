@@ -13,6 +13,7 @@
 import { useMemo, type CSSProperties } from 'react'
 import type {
   CanvasSceneDrawingEntity,
+  CanvasSceneEntity,
   CanvasSceneFileEntity,
   CanvasScenePageEntity,
   CanvasSceneGroupEntity,
@@ -20,6 +21,7 @@ import type {
   CanvasSceneTextEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import { entityVisualScreenRect, type Camera } from '../../shared/coords'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
@@ -27,6 +29,7 @@ import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
 interface PageOutlineProps {
   page: CanvasScenePageEntity
+  camera: Camera
   originY: number
   isDark: boolean
   showResizeHandles: boolean
@@ -34,25 +37,28 @@ interface PageOutlineProps {
 
 function SelectionOutlineBox({
   span,
+  camera,
   originY,
   isDark,
   showResizeHandles,
   cursor,
 }: {
-  span: Pick<SelectedEntitySpan, 'screenX' | 'screenY' | 'screenWidth' | 'screenHeight'>
+  span: SelectedEntitySpan
+  camera: Camera
   originY: number
   isDark: boolean
   showResizeHandles: boolean
   cursor?: CSSProperties['cursor']
 }) {
+  const b = entityVisualScreenRect(span, camera)
   return (
     <div
       className="absolute border-2"
       style={{
-        left: span.screenX - 2,
-        top: span.screenY - 2 - originY,
-        width: span.screenWidth + 4,
-        height: span.screenHeight + 4,
+        left: b.screenX - 2,
+        top: b.screenY - 2 - originY,
+        width: b.screenWidth + 4,
+        height: b.screenHeight + 4,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
         cursor,
@@ -66,10 +72,11 @@ function SelectionOutlineBox({
   )
 }
 
-function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: PageOutlineProps) {
+function PageSelectionOverlay({ page, camera, originY, isDark, showResizeHandles }: PageOutlineProps) {
   return (
     <SelectionOutlineBox
       span={page}
+      camera={camera}
       originY={originY}
       isDark={isDark}
       showResizeHandles={showResizeHandles}
@@ -79,16 +86,19 @@ function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: Page
 
 function PageHoverOutline({
   page,
+  camera,
   originY,
   isDark,
 }: {
   page: CanvasScenePageEntity
+  camera: Camera
   originY: number
   isDark: boolean
 }) {
   return (
     <SelectionOutlineBox
       span={page}
+      camera={camera}
       originY={originY}
       isDark={isDark}
       showResizeHandles={false}
@@ -102,6 +112,7 @@ interface EntityOutlineProps {
     | CanvasSceneFileEntity
     | CanvasSceneDrawingEntity
     | CanvasSceneShapeEntity
+  camera: Camera
   originY: number
   isDark: boolean
   isSelected: boolean
@@ -110,6 +121,7 @@ interface EntityOutlineProps {
 
 function EntitySelectionOverlay({
   entity,
+  camera,
   originY,
   isDark,
   isSelected,
@@ -118,6 +130,7 @@ function EntitySelectionOverlay({
   return (
     <SelectionOutlineBox
       span={entity}
+      camera={camera}
       originY={originY}
       isDark={isDark}
       showResizeHandles={isSelected && showResizeHandles}
@@ -126,25 +139,18 @@ function EntitySelectionOverlay({
   )
 }
 
-export interface SelectedEntitySpan {
-  id: string
-  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
-  canvasX: number
-  canvasY: number
-  width: number
-  height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
-}
+/** A selectable scene entity whose outer visual rect the layer projects through
+ *  the camera to draw its outline / bounding box (ADR 0023 Phase 2). */
+export type SelectedEntitySpan = CanvasSceneEntity
 
 function MultiSelectionBoundingBox({
   selectedEntities,
+  camera,
   originY,
   isDark,
 }: {
   selectedEntities: SelectedEntitySpan[]
+  camera: Camera
   originY: number
   isDark: boolean
 }) {
@@ -154,13 +160,14 @@ function MultiSelectionBoundingBox({
     let maxX = -Infinity
     let maxY = -Infinity
     for (const e of selectedEntities) {
-      minX = Math.min(minX, e.screenX)
-      minY = Math.min(minY, e.screenY)
-      maxX = Math.max(maxX, e.screenX + e.screenWidth)
-      maxY = Math.max(maxY, e.screenY + e.screenHeight)
+      const b = entityVisualScreenRect(e, camera)
+      minX = Math.min(minX, b.screenX)
+      minY = Math.min(minY, b.screenY)
+      maxX = Math.max(maxX, b.screenX + b.screenWidth)
+      maxY = Math.max(maxY, b.screenY + b.screenHeight)
     }
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-  }, [selectedEntities])
+  }, [selectedEntities, camera])
 
   const pad = MULTI_SELECTION_OUTLINE_PADDING_PX
 
@@ -192,16 +199,19 @@ function MultiSelectionBoundingBox({
 
 function GroupSelectionOverlay({
   group,
+  camera,
   originY,
   isDark,
 }: {
   group: CanvasSceneGroupEntity
+  camera: Camera
   originY: number
   isDark: boolean
 }) {
   return (
     <SelectionOutlineBox
       span={group}
+      camera={camera}
       originY={originY}
       isDark={isDark}
       showResizeHandles
@@ -236,6 +246,9 @@ export function SelectionOutlineLayer({
   reorderGhostSpan?: SelectedEntitySpan | null
 }) {
   const originY = layoutData.canvasOrigin.y
+  // layoutData is structurally a Camera; project entity rects through it (the
+  // layer rides the reproject container, so the payload camera is correct).
+  const camera: Camera = layoutData
   const selectedIdSet = useMemo(
     () => new Set(layoutData.selectedEntityIds),
     [layoutData.selectedEntityIds],
@@ -339,6 +352,7 @@ export function SelectionOutlineLayer({
       {isMultiSelect && allSelectedEntities.length > 1 ? (
         <MultiSelectionBoundingBox
           selectedEntities={allSelectedEntities}
+          camera={camera}
           originY={originY}
           isDark={isDark}
         />
@@ -350,6 +364,7 @@ export function SelectionOutlineLayer({
             <PageSelectionOverlay
               key={`selection-outline-${page.id}`}
               page={page}
+              camera={camera}
               originY={originY}
               isDark={isDark}
               showResizeHandles={!isMultiSelect}
@@ -360,6 +375,7 @@ export function SelectionOutlineLayer({
           <PageHoverOutline
             key={`selection-outline-${page.id}`}
             page={page}
+            camera={camera}
             originY={originY}
             isDark={isDark}
           />
@@ -371,6 +387,7 @@ export function SelectionOutlineLayer({
           <EntitySelectionOverlay
             key={`selection-outline-${entity.id}`}
             entity={entity}
+            camera={camera}
             originY={originY}
             isDark={isDark}
             isSelected={isSelected}
@@ -381,6 +398,7 @@ export function SelectionOutlineLayer({
       {selectedGroup ? (
         <GroupSelectionOverlay
           group={selectedGroup}
+          camera={camera}
           originY={originY}
           isDark={isDark}
         />

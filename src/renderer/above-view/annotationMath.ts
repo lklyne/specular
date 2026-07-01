@@ -12,6 +12,10 @@ import {
   canvasToScreenY,
   toOverlayY,
 } from '../../shared/gesture-utils'
+import {
+  entityContentScreenRect,
+  entityVisualScreenRect,
+} from '../../shared/coords'
 
 
 export interface PendingAnnotation {
@@ -150,12 +154,13 @@ export function annotationScreenPos(
     page: LayoutUpdateData['entities'][number],
     preferredY: number,
   ): { x: number; y: number; transform: string } => {
+    const vb = entityVisualScreenRect(page, layout)
     const y = Math.min(
-      Math.max(preferredY, toOverlayY(layout, page.screenY + 10)),
-      toOverlayY(layout, page.screenY + page.screenHeight - 10),
+      Math.max(preferredY, toOverlayY(layout, vb.screenY + 10)),
+      toOverlayY(layout, vb.screenY + vb.screenHeight - 10),
     )
-    const rightX = page.screenX + page.screenWidth + 12
-    const leftX = page.screenX - 12
+    const rightX = vb.screenX + vb.screenWidth + 12
+    const leftX = vb.screenX - 12
     const canUseRight = rightX + 280 <= window.innerWidth
     return canUseRight
       ? { x: rightX, y, transform: 'translate(0, -50%)' }
@@ -196,22 +201,23 @@ export function annotationScreenPos(
       // stale the moment the page scrolls.
       const liveBbox = liveBboxes?.get(annotation.id)
       const bb = liveBbox ?? anchor.boundingBox
+      const vb = entityVisualScreenRect(page, layout)
       const x =
-        page.screenX +
+        vb.screenX +
         (bb.x + bb.width) *
-          (page.screenWidth / page.width) -
+          (vb.screenWidth / page.width) -
         rightInset
       const y =
-        page.screenY +
-        bb.y * (page.screenHeight / page.height) +
+        vb.screenY +
+        bb.y * (vb.screenHeight / page.height) +
         topInset
       const clampedX = Math.max(
-        page.screenX + rightInset,
-        Math.min(x, page.screenX + page.screenWidth - rightInset),
+        vb.screenX + rightInset,
+        Math.min(x, vb.screenX + vb.screenWidth - rightInset),
       )
       const clampedY = Math.max(
-        page.screenY + topInset,
-        Math.min(y, page.screenY + page.screenHeight - topInset),
+        vb.screenY + topInset,
+        Math.min(y, vb.screenY + vb.screenHeight - topInset),
       )
       return {
         x: clampedX,
@@ -220,10 +226,12 @@ export function annotationScreenPos(
       }
     }
     if (anchor.type === 'page') {
-      const y = toOverlayY(layout, page.screenY + anchor.offsetY * page.screenHeight)
+      const vb = entityVisualScreenRect(page, layout)
+      const y = toOverlayY(layout, vb.screenY + anchor.offsetY * vb.screenHeight)
       return railAnchor(page, y)
     }
-    return railAnchor(page, toOverlayY(layout, page.screenY + page.screenHeight / 2))
+    const vb = entityVisualScreenRect(page, layout)
+    return railAnchor(page, toOverlayY(layout, vb.screenY + vb.screenHeight / 2))
   }
   return null
 }
@@ -281,23 +289,12 @@ export function pendingElementScreenRect(
   if (!bbox) return null
   const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
   if (!page) return null
-  const contentScreenX =
-    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
-  const contentScreenY =
-    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
-  const contentScreenWidth =
-    'contentScreenWidth' in page && page.contentScreenWidth != null
-      ? page.contentScreenWidth
-      : page.screenWidth
-  const contentScreenHeight =
-    'contentScreenHeight' in page && page.contentScreenHeight != null
-      ? page.contentScreenHeight
-      : page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
+  const cb = entityContentScreenRect(page, layout)
+  const scaleX = cb.screenWidth / page.width
+  const scaleY = cb.screenHeight / page.height
   return {
-    left: contentScreenX + bbox.x * scaleX,
-    top: toOverlayY(layout, contentScreenY + bbox.y * scaleY),
+    left: cb.screenX + bbox.x * scaleX,
+    top: toOverlayY(layout, cb.screenY + bbox.y * scaleY),
     width: bbox.width * scaleX,
     height: bbox.height * scaleY,
   }

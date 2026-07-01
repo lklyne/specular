@@ -1,21 +1,15 @@
 import type { CanvasSceneFileEntity, CanvasScenePageEntity } from '../../shared/types'
 import {
+  entityContentScreenRect,
+  entityVisualScreenRect,
+  type Camera,
+} from '../../shared/coords'
+import {
   CUSTOM_SHELL_CORNER_RADIUS,
   DEVICE_CATALOG,
 } from '../../shared/device-catalog'
 
-type RingTarget = {
-  id: string
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
-  deviceId?: string | null
-  showDeviceFrame?: boolean
-  width: number
-}
+type RingTarget = CanvasScenePageEntity | CanvasSceneFileEntity
 
 /** Focused-page accent ring. Lives in aboveView so it paints above page
  *  WCVs (and any neighboring page that overlaps the page's outer rect):
@@ -26,11 +20,13 @@ export function PageFocusRingLayer({
   pages,
   fileEntities,
   focusedPageId,
+  camera,
   originY,
 }: {
   pages: CanvasScenePageEntity[]
   fileEntities?: CanvasSceneFileEntity[]
   focusedPageId: string | null
+  camera: Camera
   originY: number
 }) {
   if (!focusedPageId) return null
@@ -41,14 +37,15 @@ export function PageFocusRingLayer({
   const target = items.find((item) => item.id === focusedPageId)
   if (!target) return null
 
-  const fx = target.screenX
-  const fy = target.screenY - originY
-  const fw = target.screenWidth
-  const fh = target.screenHeight
+  const outer = entityVisualScreenRect(target, camera)
+  const fx = outer.screenX
+  const fy = outer.screenY - originY
+  const fw = outer.screenWidth
+  const fh = outer.screenHeight
 
   const hasShell = target.showDeviceFrame
   const dev = hasShell && target.deviceId ? DEVICE_CATALOG.get(target.deviceId) : null
-  const cw = target.contentScreenWidth ?? target.screenWidth
+  const cw = entityContentScreenRect(target, camera).screenWidth
   const displayZoom = target.width > 0 ? cw / target.width : 1
   const outerRadius = hasShell
     ? (dev?.cornerRadius ?? CUSTOM_SHELL_CORNER_RADIUS) * displayZoom

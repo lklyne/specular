@@ -104,35 +104,29 @@ export function clearFileEntities(): void {
   fileEntities.length = 0
 }
 
-export function buildFileEntitySceneEntity(
-  entity: FileEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneFileEntity {
-  const contentScreenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const contentScreenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
-  const contentScreenW = entity.width * zoom
-  const contentScreenH = entity.height * zoom
-
+export function buildFileEntitySceneEntity(entity: FileEntity): CanvasSceneFileEntity {
   const deviceId = deviceIdFromMetadata(entity.metadata)
   const orientation = deviceOrientationFromMetadata(entity.metadata)
   const showShell = showDeviceFrameFromMetadata(entity.metadata)
 
-  // Compute shell-inflated outer bounds
+  // Compute shell insets (canvas units) that inflate the outer visual bounds.
   let shellInsets: { top: number; right: number; bottom: number; left: number } | null = null
   if (showShell) {
-    if (deviceId) {
-      shellInsets = shellInsetsForDevice(deviceId, orientation)
-    } else {
-      shellInsets = CUSTOM_SHELL_INSETS
-    }
+    shellInsets = deviceId ? shellInsetsForDevice(deviceId, orientation) : CUSTOM_SHELL_INSETS
   }
 
-  const screenX = shellInsets ? contentScreenX - shellInsets.left * zoom : contentScreenX
-  const screenY = shellInsets ? contentScreenY - shellInsets.top * zoom : contentScreenY
-  const screenWidth = shellInsets ? contentScreenW + (shellInsets.left + shellInsets.right) * zoom : contentScreenW
-  const screenHeight = shellInsets ? contentScreenH + (shellInsets.top + shellInsets.bottom) * zoom : contentScreenH
+  // Ship canvas-space bounds only; the renderer projects through the live camera
+  // (ADR 0023 Phase 2). The file's base rect is its content; the shell extends
+  // outward by the bezel insets. Content-canvas fields are omitted unless framed
+  // (then they equal the base rect — the body isn't inset for files).
+  const visualCanvasX = shellInsets ? entity.canvasX - shellInsets.left : entity.canvasX
+  const visualCanvasY = shellInsets ? entity.canvasY - shellInsets.top : entity.canvasY
+  const visualWidth = shellInsets
+    ? entity.width + shellInsets.left + shellInsets.right
+    : entity.width
+  const visualHeight = shellInsets
+    ? entity.height + shellInsets.top + shellInsets.bottom
+    : entity.height
 
   return {
     kind: 'file',
@@ -143,19 +137,19 @@ export function buildFileEntitySceneEntity(
     canvasY: entity.canvasY,
     width: entity.width,
     height: entity.height,
+    visualCanvasX,
+    visualCanvasY,
+    visualWidth,
+    visualHeight,
     parentGroupId: entity.parentGroupId,
     objectFit: entity.objectFit,
     deviceId,
     deviceOrientation: orientation,
     showDeviceFrame: showShell,
-    screenX,
-    screenY,
-    screenWidth,
-    screenHeight,
-    contentScreenX: showShell ? contentScreenX : undefined,
-    contentScreenY: showShell ? contentScreenY : undefined,
-    contentScreenWidth: showShell ? contentScreenW : undefined,
-    contentScreenHeight: showShell ? contentScreenH : undefined,
+    contentCanvasX: showShell ? entity.canvasX : undefined,
+    contentCanvasY: showShell ? entity.canvasY : undefined,
+    contentCanvasWidth: showShell ? entity.width : undefined,
+    contentCanvasHeight: showShell ? entity.height : undefined,
     ...rendererSceneFields(entity),
   }
 }

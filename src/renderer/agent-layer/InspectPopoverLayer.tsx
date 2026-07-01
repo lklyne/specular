@@ -70,7 +70,7 @@ export function InspectPopoverLayer({
   }, [detail, size.height, size.width])
 
   if (!detail || !page) return null
-  const screenTarget = inspectTargetScreenRect(detail, page)
+  const screenTarget = inspectTargetScreenRect(detail, page, layoutData)
   if (!screenTarget) return null
   const target = {
     ...screenTarget,

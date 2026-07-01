@@ -8,6 +8,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { canvasToScreenX, canvasToScreenY, snapToGrid } from '../../shared/gesture-utils'
+import { visualCanvasRect } from '../../shared/coords'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
 
 export type DragCopyPreviewBox = {
@@ -44,10 +45,11 @@ type DragCopySessionOptions = DragCopyCallbacks & {
   isOptionHeld: () => boolean
 }
 
-type DragSnapshot = Pick<
-  CanvasSceneEntity,
-  'id' | 'kind' | 'canvasX' | 'canvasY' | 'screenX' | 'screenY' | 'screenWidth' | 'screenHeight'
->
+type DragSnapshot = Pick<CanvasSceneEntity, 'id' | 'kind' | 'canvasX' | 'canvasY'> & {
+  /** Outer visual size in canvas units (× zoom → the preview box's screen size). */
+  visualWidth: number
+  visualHeight: number
+}
 
 function draggedEntityIdsForSelection(
   layout: LayoutUpdateData,
@@ -93,16 +95,17 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
   const snapshots = options.entityIds
     .map((id) => options.layout.entities.find((entity) => entity.id === id))
     .filter((entity): entity is CanvasSceneEntity => entity !== undefined)
-    .map((entity): DragSnapshot => ({
-      id: entity.id,
-      kind: entity.kind,
-      canvasX: entity.canvasX,
-      canvasY: entity.canvasY,
-      screenX: entity.screenX,
-      screenY: entity.screenY,
-      screenWidth: entity.screenWidth,
-      screenHeight: entity.screenHeight,
-    }))
+    .map((entity): DragSnapshot => {
+      const v = visualCanvasRect(entity)
+      return {
+        id: entity.id,
+        kind: entity.kind,
+        canvasX: entity.canvasX,
+        canvasY: entity.canvasY,
+        visualWidth: v.width,
+        visualHeight: v.height,
+      }
+    })
   const anchorSnapshot =
     snapshots.find((entity) => entity.id === options.anchorEntityId) ?? snapshots[0]
   const minCanvasX = snapshots.length
@@ -150,8 +153,8 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
         entityKind: entity.kind,
         left: canvasToScreenX(options.layout, canvasX),
         top: canvasToScreenY(options.layout, canvasY) - options.layout.canvasOrigin.y,
-        width: entity.screenWidth,
-        height: entity.screenHeight,
+        width: entity.visualWidth * options.layout.zoom,
+        height: entity.visualHeight * options.layout.zoom,
       }
     })
   }

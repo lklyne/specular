@@ -129,20 +129,30 @@ export interface CanvasScenePageEntity {
   height: number
   presetIndex: number
   linked: boolean
-  /** Outer screen bounds (includes shell when device page is on). */
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
+  /**
+   * Outer visual bounds in canvas space (includes the device shell when the
+   * frame is on; equals the snap/card rect otherwise). Renderers and hit-test
+   * project this through the live camera — the payload carries no screen coords
+   * (ADR 0023 Phase 2). Note `canvasX/canvasY` is the snap origin and `width/
+   * height` the content size, so this is the entity's true outer box.
+   */
+  visualCanvasX: number
+  visualCanvasY: number
+  visualWidth: number
+  visualHeight: number
   /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Inner content screen bounds (always the web viewport). */
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
+  /**
+   * Inner content (web viewport) bounds in canvas space. Present only when it
+   * differs from `canvasX/canvasY/width/height` (i.e. the device frame is on
+   * and the body is inset within the bezel). Absent → content is the base rect.
+   */
+  contentCanvasX?: number
+  contentCanvasY?: number
+  contentCanvasWidth?: number
+  contentCanvasHeight?: number
   /** Use SVG rendering for the device shell (A/B toggle). */
   useSvgDeviceShell?: boolean
 }
@@ -186,10 +196,6 @@ export interface CanvasSceneTextEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
 }
 
@@ -202,10 +208,12 @@ export interface CanvasSceneFileEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
+  /** Outer visual bounds in canvas space (includes the device shell when on;
+   *  equals the base rect otherwise). Projected through the live camera. */
+  visualCanvasX: number
+  visualCanvasY: number
+  visualWidth: number
+  visualHeight: number
   parentGroupId?: string
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
@@ -241,11 +249,12 @@ export interface CanvasSceneFileEntity {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Inner content screen bounds (when device page is on). */
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
+  /** Inner content bounds in canvas space (when the device frame is on and the
+   *  body is inset within the bezel). Absent → content is the base rect. */
+  contentCanvasX?: number
+  contentCanvasY?: number
+  contentCanvasWidth?: number
+  contentCanvasHeight?: number
 }
 
 export interface CanvasSceneGroupEntity {
@@ -257,10 +266,6 @@ export interface CanvasSceneGroupEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
@@ -274,10 +279,6 @@ export interface CanvasSceneDrawingEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
 }
@@ -297,10 +298,6 @@ export interface CanvasSceneShapeEntity {
   width: number
   height: number
   parentGroupId?: string
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
 }
 
 export type CanvasSceneEntity =

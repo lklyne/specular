@@ -105,27 +105,31 @@ export default function App({
         pan={camera.pan}
         zoom={camera.zoom}
       />
-      {/* Reproject the page chrome live from the viewport nudge so borders and
-          device shells track the natively-positioned page views instead of
-          trailing until the next layout-update rebuild lands (#257, ADR 0023). */}
+      {/* Page chrome is positioned from canvas coords through the payload camera,
+          then this one container reprojects to the live camera so borders and
+          device shells track the natively-positioned page views without a per-tick
+          rebuild (#257, ADR 0023 Phase 2). will-change keeps it a GPU layer. */}
       <div
         className="pointer-events-none absolute inset-0 origin-top-left"
-        style={{ transform: sceneTransform }}
+        style={{ transform: sceneTransform, willChange: 'transform' }}
       >
-        <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
+        <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} camera={layoutData} />
         <div className="pointer-events-none absolute inset-0">
           <PageBorderLayer
             pages={chromePages}
             fileEntities={chromeFiles}
+            camera={layoutData}
           />
           <DeviceShellLayer
             pages={deviceShellPages}
             fileEntities={chromeFiles}
             isDark={isDark}
+            camera={layoutData}
           />
           <SvgDeviceShellLayer
             pages={svgDeviceShellPages}
             isDark={isDark}
+            camera={layoutData}
           />
         </div>
       </div>

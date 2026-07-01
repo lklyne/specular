@@ -25,14 +25,16 @@ export function useSceneCamera(
  * container-local position `origin + canvas*payload.zoom + payload.pan` lands at
  * `origin + canvas*live.zoom + live.pan` — exact for both pan and zoom.
  *
+ * Under ADR 0023 Phase 2 the payload no longer carries screen coords: each layer
+ * projects its canvas coords through the *payload* camera (`canvasToScreenX(layout,
+ * …)`) to position within this container, and this reproject maps that to the live
+ * camera. Hit-testing instead reads the live camera directly, so interaction stays
+ * exact during a gesture even though the container render trails to the next payload.
+ *
  * `originLocalY` is the canvas origin's y in the container's own top-left frame:
  * `canvasOrigin.y` for bgView (no inset), `0` for the above-view / cursor
  * overlays (their WCV top sits at `canvasOrigin.y`, which their children already
  * subtract). The container must set `transform-origin: 0 0`.
- *
- * Screen-constant chrome (1px borders, resize handles) scales with the container
- * during a live zoom; that softness is reconciled when the next content payload
- * lands and is made exact by ADR 0023 Phase 2 (non-scaling stroke / counter-scale).
  */
 export function sceneReprojectTransform(
   payload: { pan: { x: number; y: number }; zoom: number; canvasOrigin: { x: number; y: number } },

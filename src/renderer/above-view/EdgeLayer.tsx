@@ -16,6 +16,7 @@ import type {
   WorkspaceEdge,
 } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { entityVisualScreenRect, visualCanvasRect, type Camera } from '../../shared/coords'
 import {
   EDGE_ANCHOR_DOT_OFFSET_PX,
   EDGE_ANCHOR_HIT_ACROSS_PX,
@@ -48,8 +49,9 @@ function getAnchorPoint(
   side: EdgeSide,
   zoom: number,
   originY: number,
+  camera: Camera,
 ): AnchorPoint {
-  const { screenX, screenY, screenWidth, screenHeight } = entity
+  const { screenX, screenY, screenWidth, screenHeight } = entityVisualScreenRect(entity, camera)
   const localY = screenY - originY
   const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * zoom
   switch (side) {
@@ -69,8 +71,9 @@ function getAnchorHitRect(
   side: EdgeSide,
   zoom: number,
   originY: number,
+  camera: Camera,
 ): { x: number; y: number; width: number; height: number } {
-  const { screenX, screenY, screenWidth, screenHeight } = entity
+  const { screenX, screenY, screenWidth, screenHeight } = entityVisualScreenRect(entity, camera)
   const localY = screenY - originY
   const along = scaleEdgeHitTargetSize(EDGE_ANCHOR_HIT_ALONG_PX, zoom)
   const across = scaleEdgeHitTargetSize(EDGE_ANCHOR_HIT_ACROSS_PX, zoom)
@@ -117,10 +120,13 @@ function autoSides(
   from: CanvasSceneEntity,
   to: CanvasSceneEntity,
 ): { fromSide: EdgeSide; toSide: EdgeSide } {
-  const fromCx = from.screenX + from.screenWidth / 2
-  const fromCy = from.screenY + from.screenHeight / 2
-  const toCx = to.screenX + to.screenWidth / 2
-  const toCy = to.screenY + to.screenHeight / 2
+  // Direction only — canvas coords suffice (scale-invariant).
+  const a = visualCanvasRect(from)
+  const b = visualCanvasRect(to)
+  const fromCx = a.canvasX + a.width / 2
+  const fromCy = a.canvasY + a.height / 2
+  const toCx = b.canvasX + b.width / 2
+  const toCy = b.canvasY + b.height / 2
   const dx = toCx - fromCx
   const dy = toCy - fromCy
   if (Math.abs(dx) > Math.abs(dy)) {
@@ -137,12 +143,14 @@ function AnchorDots({
   isDragging,
   zoom,
   originY,
+  camera,
 }: {
   entity: CanvasSceneEntity
   isDark: boolean
   isDragging: boolean
   zoom: number
   originY: number
+  camera: Camera
 }) {
   const [hoveredSide, setHoveredSide] = useState<EdgeSide | null>(null)
 
@@ -153,8 +161,8 @@ function AnchorDots({
   return (
     <>
       {EDGE_SIDES.map((side) => {
-        const pt = getAnchorPoint(entity, side, zoom, originY)
-        const hitRect = getAnchorHitRect(entity, side, zoom, originY)
+        const pt = getAnchorPoint(entity, side, zoom, originY, camera)
+        const hitRect = getAnchorHitRect(entity, side, zoom, originY, camera)
         const showDot = isDragging || hoveredSide === side
         return (
           <g key={side}>
@@ -206,6 +214,7 @@ export function EdgeLayer({
   selectedEntityIds,
   zoom,
   originY,
+  camera,
   onSelectEdge,
   renderAnchors = true,
   zIndex = 5,
@@ -219,6 +228,7 @@ export function EdgeLayer({
   selectedEntityIds: string[]
   zoom: number
   originY: number
+  camera: Camera
   onSelectEdge: (edgeId: string) => void
   renderAnchors?: boolean
   zIndex?: number | undefined
@@ -252,8 +262,8 @@ export function EdgeLayer({
         ? { fromSide: edge.fromSide, toSide: edge.toSide }
         : autoSides(fromEntity, toEntity)
 
-      const from = getAnchorPoint(fromEntity, fromSide, zoom, originY)
-      const to = getAnchorPoint(toEntity, toSide, zoom, originY)
+      const from = getAnchorPoint(fromEntity, fromSide, zoom, originY, camera)
+      const to = getAnchorPoint(toEntity, toSide, zoom, originY, camera)
       const d = buildBezierPath(from, to, zoom)
       paths.push({
         id: edge.id,
@@ -370,6 +380,7 @@ export function EdgeLayer({
           isDragging={interaction.kind === 'dragging-edge'}
           zoom={zoom}
           originY={originY}
+          camera={camera}
         />
       )) : null}
     </svg>

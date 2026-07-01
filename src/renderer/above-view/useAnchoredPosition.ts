@@ -23,6 +23,7 @@ import {
   type ChromeSlotName,
 } from '../../shared/entity-chrome-slots'
 import type { Rect } from '../../shared/hit-regions'
+import { entityVisualScreenRect } from '../../shared/coords'
 import type {
   CanvasSceneEntity,
   CanvasSceneGroupEntity,
@@ -40,7 +41,7 @@ export function anchoredSlotRect(
 ): AnchoredRect | null {
   const entity = findAnchorTarget(layout, entityId)
   if (!entity) return null
-  const entityRect = entityRectFor(entity)
+  const entityRect = entityRectFor(entity, layout)
   const layoutResult = entityChromeSlots(entity.kind, entityRect)
   const rect =
     slot === 'body'
@@ -109,14 +110,15 @@ function findAnchorTarget(layout: LayoutUpdateData, id: string): AnchorTarget | 
  * top otherwise. Chrome lives `CHROME_HEADER_HEIGHT` above it; extend the
  * rect upward to include the strip for kinds that have chrome.
  */
-function entityRectFor(entity: AnchorTarget): Rect {
+function entityRectFor(entity: AnchorTarget, layout: LayoutUpdateData): Rect {
   const hasHeader = entity.kind === 'page' || entity.kind === 'file' || entity.kind === 'group'
   const headerExtension = hasHeader ? CHROME_HEADER_HEIGHT : 0
+  const vb = entityVisualScreenRect(entity, layout)
   return {
-    x: entity.screenX,
-    y: entity.screenY - headerExtension,
-    width: entity.screenWidth,
-    height: entity.screenHeight + headerExtension,
+    x: vb.screenX,
+    y: vb.screenY - headerExtension,
+    width: vb.screenWidth,
+    height: vb.screenHeight + headerExtension,
   }
 }
 

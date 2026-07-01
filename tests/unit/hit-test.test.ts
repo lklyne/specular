@@ -11,10 +11,10 @@ import type {
 // --- Fixtures ---
 
 function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): CanvasScenePageEntity {
-  const screenX = overrides.screenX ?? 200
-  const screenY = overrides.screenY ?? 200
-  const screenWidth = overrides.screenWidth ?? 400
-  const screenHeight = overrides.screenHeight ?? 300
+  const canvasX = overrides.canvasX ?? 200
+  const canvasY = overrides.canvasY ?? 200
+  const width = overrides.width ?? 400
+  const height = overrides.height ?? 300
   return {
     kind: 'page',
     id: overrides.id,
@@ -24,68 +24,56 @@ function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): Canva
     canGoForward: false,
     isLoading: false,
     isCustomSize: false,
-    canvasX: 0,
-    canvasY: 0,
-    width: screenWidth,
-    height: screenHeight,
+    canvasX,
+    canvasY,
+    width,
+    height,
     presetIndex: 0,
     linked: false,
-    screenX,
-    screenY,
-    screenWidth,
-    screenHeight,
+    visualCanvasX: canvasX,
+    visualCanvasY: canvasY,
+    visualWidth: width,
+    visualHeight: height,
     ...overrides,
   }
 }
 
-function text(id: string, screenX: number, screenY: number, w = 100, h = 40): CanvasSceneTextEntity {
+function text(id: string, canvasX: number, canvasY: number, w = 100, h = 40): CanvasSceneTextEntity {
   return {
     kind: 'text',
     id,
     text: 'hello',
     color: '#000',
-    canvasX: 0,
-    canvasY: 0,
+    canvasX,
+    canvasY,
     width: w,
     height: h,
-    screenX,
-    screenY,
-    screenWidth: w,
-    screenHeight: h,
   }
 }
 
-function group(id: string, screenX: number, screenY: number, w = 600, h = 500): CanvasSceneGroupEntity {
+function group(id: string, canvasX: number, canvasY: number, w = 600, h = 500): CanvasSceneGroupEntity {
   return {
     kind: 'group',
     id,
     label: 'g',
-    canvasX: 0,
-    canvasY: 0,
+    canvasX,
+    canvasY,
     width: w,
     height: h,
-    screenX,
-    screenY,
-    screenWidth: w,
-    screenHeight: h,
     layoutMode: 'freeform',
     managedLayout: false,
     entityIds: [],
   }
 }
 
-function drawing(id: string, screenX: number, screenY: number, w = 100, h = 60): CanvasSceneDrawingEntity {
+function drawing(id: string, canvasX: number, canvasY: number, w = 100, h = 60): CanvasSceneDrawingEntity {
   return {
     kind: 'drawing',
     id,
-    canvasX: 0,
-    canvasY: 0,
+    canvasX,
+    canvasY,
     width: w,
     height: h,
-    screenX,
-    screenY,
-    screenWidth: w,
-    screenHeight: h,
     strokes: [],
   }
 }
@@ -105,7 +93,7 @@ describe('hit-test — issue #41 anchor near chrome', () => {
   // body, occupying y ∈ [164, 200). The top anchor's hit rect sits 4px
   // above the page top, height 24px → y ∈ [172, 196). Heavy overlap with
   // chrome y ∈ [164, 200). The bug: anchor wins. The fix: chrome wins.
-  const f = page({ id: 'f1', screenX: 200, screenY: 200 })
+  const f = page({ id: 'f1', canvasX: 200, canvasY: 200 })
 
   it('chrome wins over top anchor when page is hovered but not selected', () => {
     const result = hitTest(inputs([f], [], { hoveredEntityId: 'f1' }), { x: 400, y: 185 })
@@ -140,7 +128,7 @@ describe('hit-test — issue #41 anchor near chrome', () => {
 describe('hit-test — resize handles vs body', () => {
   // Page selected, resize handle at NE corner = (600, 200). Click on the
   // corner should resize, not enter focus.
-  const f = page({ id: 'f1', screenX: 200, screenY: 200 })
+  const f = page({ id: 'f1', canvasX: 200, canvasY: 200 })
 
   it('resize handle wins over page body at the corner', () => {
     const result = hitTest(inputs([f], ['f1']), { x: 600, y: 200 })
@@ -233,7 +221,7 @@ describe('hit-test — body z-order (front-to-back)', () => {
   // The sticky is fully inside the page.
 
   it('sticky declared front (after page in entities) wins over page body', () => {
-    const f = page({ id: 'f1', screenX: 200, screenY: 200 })
+    const f = page({ id: 'f1', canvasX: 200, canvasY: 200 })
     const t = text('t1', 300, 300)
     // Page first (back), text after (front).
     const result = hitTest(inputs([f, t]), { x: 320, y: 320 })
@@ -246,7 +234,7 @@ describe('hit-test — body z-order (front-to-back)', () => {
   })
 
   it('reverse z-order (sticky behind page) returns page-body', () => {
-    const f = page({ id: 'f1', screenX: 200, screenY: 200 })
+    const f = page({ id: 'f1', canvasX: 200, canvasY: 200 })
     const t = text('t1', 300, 300)
     // Text first (back), page after (front).
     const result = hitTest(inputs([t, f]), { x: 320, y: 320 })
@@ -356,7 +344,7 @@ describe('hit-test — selected drawing beats page chrome and page body (issue #
   // Drawing at (220, 170), 100×80. Drawing body: x ∈ [220,320], y ∈ [170,250].
   // This overlaps the page chrome at y ∈ [170, 200) and the page body at
   // y ∈ [200, 250]. Drawings render in aboveView above all page elements.
-  const p = page({ id: 'p1', screenX: 200, screenY: 200 })
+  const p = page({ id: 'p1', canvasX: 200, canvasY: 200 })
   const d = drawing('d1', 220, 170, 100, 80)
 
   it('selected drawing beats page chrome when overlapping (drag-from-chrome-area)', () => {

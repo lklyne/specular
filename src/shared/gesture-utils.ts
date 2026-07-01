@@ -1,6 +1,7 @@
 import type { CanvasInteractionState, CanvasSceneEntity, LayoutUpdateData } from './types'
 import type { InteractionMode } from './interaction-types'
 import { GRID_SIZE } from './constants'
+import { canvasRectToScreenRect, visualCanvasRect, type Camera } from './coords'
 
 export const DRAG_THRESHOLD = 4
 
@@ -200,16 +201,18 @@ export function middleDragDelta(
 export function entitiesOverlappingRect(
   entities: readonly CanvasSceneEntity[],
   rect: { left: number; top: number; width: number; height: number },
+  cam: Camera,
 ): string[] {
   const ids: string[] = []
   const right = rect.left + rect.width
   const bottom = rect.top + rect.height
   for (const entity of entities) {
+    const s = canvasRectToScreenRect(cam, visualCanvasRect(entity))
     if (
-      rect.left < entity.screenX + entity.screenWidth &&
-      right > entity.screenX &&
-      rect.top < entity.screenY + entity.screenHeight &&
-      bottom > entity.screenY
+      rect.left < s.left + s.width &&
+      right > s.left &&
+      rect.top < s.top + s.height &&
+      bottom > s.top
     ) {
       ids.push(entity.id)
     }

@@ -21,6 +21,11 @@
 import { memo } from 'react'
 import type { CanvasScenePageEntity } from '../../shared/types'
 import {
+  entityContentScreenRect,
+  entityVisualScreenRect,
+  type Camera,
+} from '../../shared/coords'
+import {
   DEVICE_CATALOG,
   contentCornerRadiusForDevice,
 } from '../../shared/device-catalog'
@@ -29,9 +34,11 @@ import { squirclePath } from './squirclePath'
 export const SvgDeviceShellLayer = memo(function SvgDeviceShellLayer({
   pages,
   isDark,
+  camera,
 }: {
   pages: CanvasScenePageEntity[]
   isDark: boolean
+  camera: Camera
 }) {
   const framedPages = pages.filter((f) => f.showDeviceFrame)
 
@@ -46,16 +53,18 @@ export const SvgDeviceShellLayer = memo(function SvgDeviceShellLayer({
         const orientation = page.deviceOrientation ?? 'portrait'
 
         // Inner content bounds (the web viewport area)
-        const contentX = page.contentScreenX ?? page.screenX
-        const contentY = page.contentScreenY ?? page.screenY
-        const contentW = page.contentScreenWidth ?? page.screenWidth
-        const contentH = page.contentScreenHeight ?? page.screenHeight
+        const content = entityContentScreenRect(page, camera)
+        const contentX = content.screenX
+        const contentY = content.screenY
+        const contentW = content.screenWidth
+        const contentH = content.screenHeight
 
         // Outer shell bounds (device bezel outer edge)
-        const shellX = page.screenX
-        const shellY = page.screenY
-        const shellW = page.screenWidth
-        const shellH = page.screenHeight
+        const outer = entityVisualScreenRect(page, camera)
+        const shellX = outer.screenX
+        const shellY = outer.screenY
+        const shellW = outer.screenWidth
+        const shellH = outer.screenHeight
 
         // Bezel insets (space between shell and content)
         const insetTop = contentY - shellY

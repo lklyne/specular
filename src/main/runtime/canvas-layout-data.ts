@@ -65,11 +65,12 @@ import {
 import { currentKeyboardTargetPageId } from './selection-controller'
 import {
   pageContentSize,
+  pageShellInsets,
+  pageSnapBoundsForContentSize,
   projectFramePointToCanvas,
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
-  boundScreenBoundsForPage as screenBoundsForPage,
 } from './runtime-geometry'
 import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
 import {
@@ -116,9 +117,13 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
     : pages
   return visiblePages.map((page) => {
     const { width, height } = effectivePageContentSize(page)
-    const bounds = screenBoundsForPage(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
     const showShell = showDeviceFrameFromMetadata(page.metadata)
+    // Ship canvas-space bounds only; renderers project through the live camera
+    // (ADR 0023 Phase 2). Outer visual = the snap/shell rect; inner content is
+    // the body, inset by the bezel when the frame is on.
+    const snap = pageSnapBoundsForContentSize(page, { width, height })
+    const insets = pageShellInsets(page)
     return {
       kind: 'page' as const,
       id: page.id,
@@ -135,19 +140,19 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       height,
       presetIndex: page.presetIndex,
       linked: page.linked,
-      screenX: showShell ? bounds.shell.x : bounds.page.x,
-      screenY: showShell ? bounds.shell.y : bounds.page.y,
-      screenWidth: showShell ? bounds.shell.width : bounds.page.width,
-      screenHeight: showShell ? bounds.shell.height : bounds.page.height,
+      visualCanvasX: snap.x,
+      visualCanvasY: snap.y,
+      visualWidth: snap.width,
+      visualHeight: snap.height,
       // Device state
       deviceId,
       deviceOrientation: deviceOrientationFromMetadata(page.metadata),
       showDeviceFrame: showShell,
-      // Inner content bounds (always the web viewport)
-      contentScreenX: bounds.page.x,
-      contentScreenY: bounds.page.y,
-      contentScreenWidth: bounds.page.width,
-      contentScreenHeight: bounds.page.height,
+      // Inner content bounds (web viewport), inset by the bezel when framed.
+      contentCanvasX: insets ? page.canvasX + insets.left : undefined,
+      contentCanvasY: insets ? page.canvasY + insets.top : undefined,
+      contentCanvasWidth: insets ? width : undefined,
+      contentCanvasHeight: insets ? height : undefined,
       useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
     }
   })
@@ -252,7 +257,7 @@ function buildUserGroupSceneEntities(
         ...shapeEntities.filter((entity) => entity.parentGroupId === g.id).map((entity) => entity.id),
         ...workspaceGroups.filter((candidate) => candidate.parentGroupId === g.id).map((group) => group.id),
       ]
-      return buildGroupSceneEntity(g, zoom, pan, origin, entityIds)
+      return buildGroupSceneEntity(g, entityIds)
     })
 }
 
@@ -343,18 +348,10 @@ export function buildCanvasLayoutData(
   const toolbarCenterX = (padLeft + Math.max(0, windowWidth - padRight)) / 2
   const entities = [
     ...pages,
-    ...textEntities.map((te) =>
-      buildTextEntitySceneEntity(te, zoom, pan, origin)
-    ),
-    ...fileEntities.map((fe) =>
-      buildFileEntitySceneEntity(fe, zoom, pan, origin)
-    ),
-    ...drawingEntitiesForUi().map((de) =>
-      buildDrawingEntitySceneEntity(de, zoom, pan, origin)
-    ),
-    ...shapeEntities.map((se) =>
-      buildShapeEntitySceneEntity(se, zoom, pan, origin)
-    ),
+    ...textEntities.map((te) => buildTextEntitySceneEntity(te)),
+    ...fileEntities.map((fe) => buildFileEntitySceneEntity(fe)),
+    ...drawingEntitiesForUi().map((de) => buildDrawingEntitySceneEntity(de)),
+    ...shapeEntities.map((se) => buildShapeEntitySceneEntity(se)),
     ...groupEntities,
   ] as CanvasSceneEntity[]
   const edges = [...workspaceEdges]

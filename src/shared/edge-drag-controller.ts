@@ -32,6 +32,7 @@ import {
   EDGE_ANCHOR_HIT_MIN_SCALE,
   EDGE_SIDES,
 } from './canvas-hit-geometry'
+import { canvasToScreenX, canvasToScreenY, visualCanvasRect, type Camera } from './coords'
 import type { CanvasSceneEntity, EdgeSide, WorkspaceEdge } from './types'
 
 const SNAP_DISTANCE = 48
@@ -131,7 +132,7 @@ export function updateEdgeDragCursor(
   cursorX: number,
   cursorY: number,
   entityMap: ReadonlyMap<string, CanvasSceneEntity>,
-  zoom: number,
+  cam: Camera,
 ): EdgeDragState {
   if (state.kind === 'idle') return state
   const fromEntityId =
@@ -141,8 +142,8 @@ export function updateEdgeDragCursor(
     fromEntityId,
     cursorX,
     cursorY,
-    scaleSnapDistance(SNAP_DISTANCE, zoom),
-    zoom,
+    scaleSnapDistance(SNAP_DISTANCE, cam.zoom),
+    cam,
   )
   return { ...state, cursorX, cursorY, snap }
 }
@@ -184,26 +185,30 @@ export function cancelEdgeDrag(state: EdgeDragState): CommitOutcome {
 function getAnchorPoint(
   entity: CanvasSceneEntity,
   side: EdgeSide,
-  zoom: number,
+  cam: Camera,
 ): AnchorPoint {
-  const { screenX, screenY, screenWidth, screenHeight } = entity
-  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * zoom
+  const r = visualCanvasRect(entity)
+  const x0 = canvasToScreenX(cam, r.canvasX)
+  const y0 = canvasToScreenY(cam, r.canvasY)
+  const w = r.width * cam.zoom
+  const h = r.height * cam.zoom
+  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * cam.zoom
   switch (side) {
     case 'top':
-      return { x: screenX + screenWidth / 2, y: screenY - dotOffset, side }
+      return { x: x0 + w / 2, y: y0 - dotOffset, side }
     case 'bottom':
-      return { x: screenX + screenWidth / 2, y: screenY + screenHeight + dotOffset, side }
+      return { x: x0 + w / 2, y: y0 + h + dotOffset, side }
     case 'left':
-      return { x: screenX - dotOffset, y: screenY + screenHeight / 2, side }
+      return { x: x0 - dotOffset, y: y0 + h / 2, side }
     case 'right':
-      return { x: screenX + screenWidth + dotOffset, y: screenY + screenHeight / 2, side }
+      return { x: x0 + w + dotOffset, y: y0 + h / 2, side }
   }
 }
 
 export function buildEdgeDragPath(
   state: EdgeDragState,
   entityMap: ReadonlyMap<string, CanvasSceneEntity>,
-  zoom: number,
+  cam: Camera,
 ): { d: string; from: AnchorPoint; to: AnchorPoint } | null {
   if (state.kind === 'idle') return null
   const fromEntity = entityMap.get(
@@ -211,13 +216,13 @@ export function buildEdgeDragPath(
   )
   if (!fromEntity) return null
   const fromSide = state.kind === 'create' ? state.fromSide : state.fixedSide
-  const from = getAnchorPoint(fromEntity, fromSide, zoom)
+  const from = getAnchorPoint(fromEntity, fromSide, cam)
 
   const to: AnchorPoint = state.snap
-    ? getAnchorPoint(entityMap.get(state.snap.entityId)!, state.snap.side, zoom)
+    ? getAnchorPoint(entityMap.get(state.snap.entityId)!, state.snap.side, cam)
     : { x: state.cursorX, y: state.cursorY, side: oppositeSide(fromSide) }
 
-  return { d: buildBezierPath(from, to, zoom), from, to }
+  return { d: buildBezierPath(from, to, cam.zoom), from, to }
 }
 
 // --- Internal pure helpers ---
@@ -228,13 +233,13 @@ function findClosestAnchorTarget(
   clientX: number,
   clientY: number,
   snapDistance: number,
-  zoom: number,
+  cam: Camera,
 ): SnapTarget | null {
   let best: SnapTarget | null = null
   for (const [entityId, entity] of entityMap) {
     if (entityId === fromEntityId) continue
     for (const side of EDGE_SIDES) {
-      const pt = getAnchorPoint(entity, side, zoom)
+      const pt = getAnchorPoint(entity, side, cam)
       const dist = Math.hypot(pt.x - clientX, pt.y - clientY)
       if (dist < snapDistance && (!best || dist < best.dist)) {
         best = { entityId, side, dist }
@@ -287,10 +292,13 @@ function autoSides(
   from: CanvasSceneEntity,
   to: CanvasSceneEntity,
 ): { fromSide: EdgeSide; toSide: EdgeSide } {
-  const fromCx = from.screenX + from.screenWidth / 2
-  const fromCy = from.screenY + from.screenHeight / 2
-  const toCx = to.screenX + to.screenWidth / 2
-  const toCy = to.screenY + to.screenHeight / 2
+  // Direction only — canvas coords suffice (scale-invariant), no camera needed.
+  const a = visualCanvasRect(from)
+  const b = visualCanvasRect(to)
+  const fromCx = a.canvasX + a.width / 2
+  const fromCy = a.canvasY + a.height / 2
+  const toCx = b.canvasX + b.width / 2
+  const toCy = b.canvasY + b.height / 2
   const dx = toCx - fromCx
   const dy = toCy - fromCy
   if (Math.abs(dx) > Math.abs(dy)) {

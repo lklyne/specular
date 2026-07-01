@@ -26,7 +26,7 @@ import type { CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
  * shifts yet). Callers fall back to the broadcast layout on null.
  */
 export function reorderPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData | null {
-  const { interaction, zoom } = layoutData
+  const { interaction } = layoutData
   if (interaction.kind !== 'reordering-row') return null
 
   const rowIds = new Set(interaction.ids)
@@ -52,8 +52,6 @@ export function reorderPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdate
       ...e,
       canvasX: next.x,
       canvasY: next.y,
-      screenX: e.screenX + (next.x - e.canvasX) * zoom,
-      screenY: e.screenY + (next.y - e.canvasY) * zoom,
     }
   })
 

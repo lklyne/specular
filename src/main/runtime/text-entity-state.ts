@@ -108,14 +108,7 @@ export function clearTextEntities(): void {
   textEntities.length = 0
 }
 
-export function buildTextEntitySceneEntity(
-  entity: TextEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneTextEntity {
-  const screenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+export function buildTextEntitySceneEntity(entity: TextEntity): CanvasSceneTextEntity {
   return {
     kind: 'text',
     id: entity.id,
@@ -129,10 +122,6 @@ export function buildTextEntitySceneEntity(
     width: entity.width,
     height: entity.height,
     parentGroupId: entity.parentGroupId,
-    screenX,
-    screenY,
-    screenWidth: entity.width * zoom,
-    screenHeight: entity.height * zoom,
   }
 }
 

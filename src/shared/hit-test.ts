@@ -12,6 +12,7 @@
  */
 
 import { regionContains, type HitRegion, type Point, type Rect } from './hit-regions'
+import { canvasToScreenX, canvasToScreenY, visualCanvasRect, type Camera } from './coords'
 import {
   EDGE_ANCHOR_HIT_ACROSS_PX,
   EDGE_ANCHOR_HIT_ALONG_PX,
@@ -74,6 +75,31 @@ export interface HitInputs {
    *  the connected node. */
   hoveredEntityId?: string | null
   zoom: number
+  /** Live camera pan (renderer nudge-driven, not the payload) so hit rects
+   *  track the gesture. Defaults to {0,0} for callers that predate the camera. */
+  pan?: { x: number; y: number }
+  /** Canvas origin (toolbar/sidebar inset). Defaults to {0,0}. */
+  canvasOrigin?: { x: number; y: number }
+}
+
+/** Build the projection camera from hit inputs (pan/origin optional for older callers). */
+function hitCamera(inputs: HitInputs): Camera {
+  return {
+    pan: inputs.pan ?? { x: 0, y: 0 },
+    zoom: inputs.zoom,
+    canvasOrigin: inputs.canvasOrigin ?? { x: 0, y: 0 },
+  }
+}
+
+/** Screen-space outer (visual) rect of an entity under the given camera. */
+function screenRectOf(entity: CanvasSceneEntity, cam: Camera): Rect {
+  const r = visualCanvasRect(entity)
+  return {
+    x: canvasToScreenX(cam, r.canvasX),
+    y: canvasToScreenY(cam, r.canvasY),
+    width: r.width * cam.zoom,
+    height: r.height * cam.zoom,
+  }
 }
 
 // --- Top-level hit-test ---
@@ -107,12 +133,13 @@ export function hitTest(inputs: HitInputs, point: Point): HitTarget {
 // Checks whether the point falls inside any selected drawing's body,
 // iterating front-to-back so the topmost drawing wins in overlap cases.
 function hitSelectedDrawingBody(inputs: HitInputs, point: Point): HitTarget | null {
+  const cam = hitCamera(inputs)
   const selectedSet = new Set(inputs.selectedEntityIds)
   for (let i = inputs.entities.length - 1; i >= 0; i--) {
     const entity = inputs.entities[i]
     if (entity.kind !== 'drawing') continue
     if (!selectedSet.has(entity.id)) continue
-    const rect = bodyRect(entity)
+    const rect = bodyRect(entity, cam)
     if (regionContains({ kind: 'rect', rect }, point)) {
       return {
         layer: 'body',
@@ -147,6 +174,7 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
 
 function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   const out: HitTarget[] = []
+  const cam = hitCamera(inputs)
 
   // Multi-selection: per-entity handles are visually hidden in favor of one
   // bbox spanning the selection. Mirror that here — emit the eight multi-bbox
@@ -156,7 +184,7 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   // non-group entities once groups are excluded).
   const bbox =
     inputs.selectedEntityIds.length > 1
-      ? multiSelectionScreenBbox(inputs.entities, inputs.selectedEntityIds)
+      ? multiSelectionScreenBbox(inputs.entities, inputs.selectedEntityIds, cam)
       : null
   if (bbox) {
     for (const handle of HANDLES) {
@@ -168,7 +196,7 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
     }
     if (inputs.selectedGroupId) {
       const group = inputs.entities.find((e) => e.id === inputs.selectedGroupId)
-      if (group) pushPerEntityHandles(out, group)
+      if (group) pushPerEntityHandles(out, group, cam)
     }
     return out
   }
@@ -177,16 +205,16 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
   for (const entity of inputs.entities) {
     if (!selected.has(entity.id)) continue
-    pushPerEntityHandles(out, entity)
+    pushPerEntityHandles(out, entity, cam)
   }
   return out
 }
 
-function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {
+function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity, cam: Camera): void {
   for (const handle of HANDLES) {
     out.push({
       layer: 'resize-handles',
-      region: { kind: 'rect', rect: handleRect(entity, handle) },
+      region: { kind: 'rect', rect: handleRect(entity, handle, cam) },
       payload: {
         kind: 'resize-handle',
         entityId: entity.id,
@@ -207,6 +235,7 @@ interface ScreenBbox {
 function multiSelectionScreenBbox(
   entities: readonly CanvasSceneEntity[],
   selectedEntityIds: readonly string[],
+  cam: Camera,
 ): ScreenBbox | null {
   const ids = new Set(selectedEntityIds)
   let minX = Infinity
@@ -217,10 +246,11 @@ function multiSelectionScreenBbox(
   for (const e of entities) {
     if (!ids.has(e.id)) continue
     if (e.kind === 'group') continue
-    minX = Math.min(minX, e.screenX)
-    minY = Math.min(minY, e.screenY)
-    maxX = Math.max(maxX, e.screenX + e.screenWidth)
-    maxY = Math.max(maxY, e.screenY + e.screenHeight)
+    const r = screenRectOf(e, cam)
+    minX = Math.min(minX, r.x)
+    minY = Math.min(minY, r.y)
+    maxX = Math.max(maxX, r.x + r.width)
+    maxY = Math.max(maxY, r.y + r.height)
     count++
   }
   if (count < 2) return null
@@ -256,6 +286,7 @@ function multiHandleRect(bbox: ScreenBbox, handle: ResizeHandle): Rect {
 
 function collectChromeTargets(inputs: HitInputs): HitTarget[] {
   const out: HitTarget[] = []
+  const cam = hitCamera(inputs)
   const selected = new Set(inputs.selectedEntityIds)
   for (const entity of inputs.entities) {
     if (!entityHasChrome(entity.kind)) continue
@@ -264,7 +295,7 @@ function collectChromeTargets(inputs: HitInputs): HitTarget[] {
     if (entity.kind === 'page' && entity.id === inputs.focusPresentationPageId) continue
     out.push({
       layer: 'chrome',
-      region: { kind: 'rect', rect: chromeRect(entity) },
+      region: { kind: 'rect', rect: chromeRect(entity, cam) },
       payload: { kind: 'chrome', entityId: entity.id, entityKind: entity.kind },
     })
   }
@@ -272,6 +303,7 @@ function collectChromeTargets(inputs: HitInputs): HitTarget[] {
 }
 
 function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
+  const cam = hitCamera(inputs)
   const eligible = new Set(inputs.selectedEntityIds)
   if (inputs.selectedGroupId) eligible.add(inputs.selectedGroupId)
   if (inputs.hoveredEntityId) eligible.add(inputs.hoveredEntityId)
@@ -285,7 +317,7 @@ function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
     for (const side of EDGE_SIDES) {
       out.push({
         layer: 'anchors',
-        region: { kind: 'rect', rect: anchorRect(entity, side, inputs.zoom) },
+        region: { kind: 'rect', rect: anchorRect(entity, side, inputs.zoom, cam) },
         payload: { kind: 'anchor', entityId: entity.id, entityKind: entity.kind, side },
       })
     }
@@ -300,7 +332,12 @@ function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
 // target line up by construction. The begin payload carries only the entity id;
 // main resolves which door armed the gesture.
 function collectReorderHandleTargets(inputs: HitInputs): HitTarget[] {
-  return reorderableDots(inputs).map((dot) => ({
+  return reorderableDots({
+    entities: inputs.entities,
+    selectedEntityIds: inputs.selectedEntityIds,
+    selectedGroupId: inputs.selectedGroupId,
+    camera: hitCamera(inputs),
+  }).map((dot) => ({
     layer: 'reorder-handle' as const,
     region: { kind: 'rect' as const, rect: reorderHandleRectAt(dot.center) },
     payload: { kind: 'reorder-handle' as const, entityId: dot.id, entityKind: dot.entityKind },
@@ -308,6 +345,7 @@ function collectReorderHandleTargets(inputs: HitInputs): HitTarget[] {
 }
 
 function collectBodyTargets(inputs: HitInputs): HitTarget[] {
+  const cam = hitCamera(inputs)
   // Front-to-back hit order. `inputs.entities` is back-to-front (paint order:
   // first item painted first, last item on top — matches JSON Canvas array
   // order and `entityOrder`). For hit-testing we want the front-most entity
@@ -321,7 +359,7 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
     const entity = inputs.entities[i]
     const target: HitTarget = {
       layer: 'body',
-      region: { kind: 'rect', rect: bodyRect(entity) },
+      region: { kind: 'rect', rect: bodyRect(entity, cam) },
       payload:
         entity.kind === 'page'
           ? { kind: 'page-body', entityId: entity.id }
@@ -357,10 +395,10 @@ function outlinePaddingFor(_kind: CanvasEntityKind): number {
   return SINGLE_SELECTION_OUTLINE_PADDING_PX
 }
 
-function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
+function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle, cam: Camera): Rect {
   const half = RESIZE_HANDLE_HIT_PX / 2
   const pad = outlinePaddingFor(entity.kind)
-  const { screenX: x, screenY: y, screenWidth: w, screenHeight: h } = entity
+  const { x, y, width: w, height: h } = screenRectOf(entity, cam)
   switch (handle) {
     case 'nw':
       return { x: x - pad - half, y: y - pad - half, width: RESIZE_HANDLE_HIT_PX, height: RESIZE_HANDLE_HIT_PX }
@@ -389,41 +427,38 @@ function reorderHandleRectAt(center: { x: number; y: number }): Rect {
   return { x: center.x - half, y: center.y - half, width: REORDER_HANDLE_HIT_PX, height: REORDER_HANDLE_HIT_PX }
 }
 
-function chromeRect(entity: CanvasSceneEntity): Rect {
+function chromeRect(entity: CanvasSceneEntity, cam: Camera): Rect {
+  const r = screenRectOf(entity, cam)
   return {
-    x: entity.screenX,
-    y: entity.screenY - CHROME_HEADER_HEIGHT,
-    width: entity.screenWidth,
+    x: r.x,
+    y: r.y - CHROME_HEADER_HEIGHT,
+    width: r.width,
     height: CHROME_HEADER_HEIGHT,
   }
 }
 
-function bodyRect(entity: CanvasSceneEntity): Rect {
-  return {
-    x: entity.screenX,
-    y: entity.screenY,
-    width: entity.screenWidth,
-    height: entity.screenHeight,
-  }
+function bodyRect(entity: CanvasSceneEntity, cam: Camera): Rect {
+  return screenRectOf(entity, cam)
 }
 
-function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Rect {
+function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number, cam: Camera): Rect {
   const along = scaleEdgeAnchorHitSize(EDGE_ANCHOR_HIT_ALONG_PX, zoom)
   const across = scaleEdgeAnchorHitSize(EDGE_ANCHOR_HIT_ACROSS_PX, zoom)
   const horizontal = side === 'top' || side === 'bottom'
   const w = horizontal ? along : across
   const h = horizontal ? across : along
-  const cx = entity.screenX + entity.screenWidth / 2
-  const cy = entity.screenY + entity.screenHeight / 2
+  const r = screenRectOf(entity, cam)
+  const cx = r.x + r.width / 2
+  const cy = r.y + r.height / 2
   switch (side) {
     case 'top':
-      return { x: cx - w / 2, y: entity.screenY - EDGE_ANCHOR_HIT_GAP_PX - h, width: w, height: h }
+      return { x: cx - w / 2, y: r.y - EDGE_ANCHOR_HIT_GAP_PX - h, width: w, height: h }
     case 'bottom':
-      return { x: cx - w / 2, y: entity.screenY + entity.screenHeight + EDGE_ANCHOR_HIT_GAP_PX, width: w, height: h }
+      return { x: cx - w / 2, y: r.y + r.height + EDGE_ANCHOR_HIT_GAP_PX, width: w, height: h }
     case 'left':
-      return { x: entity.screenX - EDGE_ANCHOR_HIT_GAP_PX - w, y: cy - h / 2, width: w, height: h }
+      return { x: r.x - EDGE_ANCHOR_HIT_GAP_PX - w, y: cy - h / 2, width: w, height: h }
     case 'right':
-      return { x: entity.screenX + entity.screenWidth + EDGE_ANCHOR_HIT_GAP_PX, y: cy - h / 2, width: w, height: h }
+      return { x: r.x + r.width + EDGE_ANCHOR_HIT_GAP_PX, y: cy - h / 2, width: w, height: h }
   }
 }
 

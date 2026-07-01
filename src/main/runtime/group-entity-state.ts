@@ -84,13 +84,8 @@ export function clearGroupEntities(): void {
 
 export function buildGroupSceneEntity(
   group: WorkspaceGroup,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
   entityIds: string[],
 ): CanvasSceneGroupEntity {
-  const screenX = canvasOrigin.x + group.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + group.canvasY * zoom + pan.y
   return {
     kind: 'group',
     id: group.id,
@@ -100,10 +95,6 @@ export function buildGroupSceneEntity(
     canvasY: group.canvasY,
     width: group.width,
     height: group.height,
-    screenX,
-    screenY,
-    screenWidth: group.width * zoom,
-    screenHeight: group.height * zoom,
     parentGroupId: group.parentGroupId,
     layoutMode: group.layoutMode,
     managedLayout: group.managedLayout,

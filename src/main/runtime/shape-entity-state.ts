@@ -110,14 +110,7 @@ export function clearShapeEntities(): void {
   shapeEntities.length = 0
 }
 
-export function buildShapeEntitySceneEntity(
-  entity: ShapeEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneShapeEntity {
-  const screenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+export function buildShapeEntitySceneEntity(entity: ShapeEntity): CanvasSceneShapeEntity {
   return {
     kind: 'shape',
     id: entity.id,
@@ -132,10 +125,6 @@ export function buildShapeEntitySceneEntity(
     width: entity.width,
     height: entity.height,
     parentGroupId: entity.parentGroupId,
-    screenX,
-    screenY,
-    screenWidth: entity.width * zoom,
-    screenHeight: entity.height * zoom,
   }
 }
 

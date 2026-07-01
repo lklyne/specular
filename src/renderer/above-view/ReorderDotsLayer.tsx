@@ -39,7 +39,12 @@ export function ReorderDotsLayer({
     // marquee/edit so they don't clutter an in-progress gesture.
     if (interaction.kind !== 'idle' && interaction.kind !== 'reordering-row') return []
 
-    const eligible = reorderableDots(layoutData)
+    const eligible = reorderableDots({
+      entities: layoutData.entities,
+      selectedEntityIds: layoutData.selectedEntityIds,
+      selectedGroupId: layoutData.selectedGroupId,
+      camera: layoutData,
+    })
     if (!eligible.length) return []
 
     // Grow a dot when its entity is hovered, or when the hovered entity is the

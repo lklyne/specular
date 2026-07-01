@@ -25,6 +25,7 @@ import {
   snapToGrid,
   squareConstrainedRect,
 } from '../../shared/gesture-utils'
+import { entityContentScreenRect, entityVisualScreenRect } from '../../shared/coords'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
 import { isUnresolved } from '../../shared/annotation-utils'
@@ -240,6 +241,7 @@ function StackedCanvasItems({
         selectedEntityIds={layoutData.selectedEntityIds}
         zoom={layoutData.zoom}
         originY={layoutData.canvasOrigin.y}
+        camera={layoutData}
         onSelectEdge={api.selectEdge}
         renderAnchors={false}
         zIndex={undefined}
@@ -412,6 +414,13 @@ export default function App({
   // above-view children subtract canvasOrigin.y (its WCV top sits at the toolbar
   // inset), so the canvas origin's local y is 0.
   const sceneTransform = sceneReprojectTransform(layoutData, camera, 0)
+  // The pointer router hit-tests against `layoutRef`, so keep its camera live:
+  // patch pan/zoom from the nudge (canvasOrigin is viewport-fixed). Without this
+  // the pointer would resolve to where the last payload placed entities, not
+  // where the reprojected transform shows them mid-gesture (ADR 0023 Phase 2).
+  useEffect(() => {
+    layoutRef.current = { ...layoutRef.current, pan: camera.pan, zoom: camera.zoom }
+  }, [camera])
   const [fixProgress, setFixProgress] = useState<LayoutUpdateData['fixProgress']>(
     initialLayoutData.fixProgress,
   )
@@ -512,8 +521,8 @@ export default function App({
 
   // The dragged entity floated at grab-origin + cursor-delta. Read from the
   // *broadcast* layout (its untouched resting position) — never `renderLayout`,
-  // where it sits in its packed slot. Both canvas and screen coords shift so
-  // whichever a body layer reads lands the ghost under the cursor.
+  // where it sits in its packed slot. Shift its canvas coords; body/selection
+  // layers project through the camera, so the ghost lands under the cursor.
   const reorderGhostEntity = useMemo<CanvasSceneEntity | null>(() => {
     const interaction = layoutData.interaction
     if (interaction.kind !== 'reordering-row') return null
@@ -521,13 +530,10 @@ export default function App({
     if (!moving) return null
     const dx = reorderGhost?.dx ?? 0
     const dy = reorderGhost?.dy ?? 0
-    const { zoom } = layoutData
     return {
       ...moving,
       canvasX: moving.canvasX + dx,
       canvasY: moving.canvasY + dy,
-      screenX: moving.screenX + dx * zoom,
-      screenY: moving.screenY + dy * zoom,
     }
   }, [layoutData, reorderGhost])
 
@@ -829,11 +835,12 @@ export default function App({
       for (let i = layout.entities.length - 1; i >= 0; i--) {
         const entity = layout.entities[i]
         if (entity.kind === 'group' || entity.kind === 'drawing') continue
+        const b = entityVisualScreenRect(entity, layout)
         if (
-          clientX >= entity.screenX &&
-          clientX <= entity.screenX + entity.screenWidth &&
-          windowY >= entity.screenY &&
-          windowY <= entity.screenY + entity.screenHeight
+          clientX >= b.screenX &&
+          clientX <= b.screenX + b.screenWidth &&
+          windowY >= b.screenY &&
+          windowY <= b.screenY + b.screenHeight
         ) {
           return entity.id
         }
@@ -1120,10 +1127,11 @@ export default function App({
       // In focus presentation the camera is locked on the page, so any wheel
       // scrolls it — skip the cursor-over-body check used for selected pages.
       if (!focusedPageId) {
-        const x0 = page.contentScreenX ?? page.screenX
-        const y0 = page.contentScreenY ?? page.screenY
-        const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-        const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
+        const c = entityContentScreenRect(page, layout)
+        const x0 = c.screenX
+        const y0 = c.screenY
+        const x1 = x0 + c.screenWidth
+        const y1 = y0 + c.screenHeight
         if (event.clientX < x0 || event.clientX > x1) return false
         if (windowY < y0 || windowY > y1) return false
       }
@@ -1216,10 +1224,11 @@ export default function App({
       )
       if (!page) return resetCursor()
       const windowY = event.clientY + layout.canvasOrigin.y
-      const x0 = page.contentScreenX ?? page.screenX
-      const y0 = page.contentScreenY ?? page.screenY
-      const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-      const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
+      const c = entityContentScreenRect(page, layout)
+      const x0 = c.screenX
+      const y0 = c.screenY
+      const x1 = x0 + c.screenWidth
+      const y1 = y0 + c.screenHeight
       if (event.clientX < x0 || event.clientX > x1) return resetCursor()
       if (windowY < y0 || windowY > y1) return resetCursor()
       cursorIsForwarded = true
@@ -1437,6 +1446,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               pages={layoutData.entities.filter(
                 (e): e is CanvasScenePageEntity => e.kind === 'page',
               )}
+              camera={layoutData}
               originY={layoutData.canvasOrigin.y}
             />
           ) : null}
@@ -1475,6 +1485,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIds={focusPresentationActive ? [] : layoutData.selectedEntityIds}
             zoom={layoutData.zoom}
             originY={layoutData.canvasOrigin.y}
+            camera={layoutData}
             onSelectEdge={api.selectEdge}
             renderAnchors={!focusPresentationActive}
           />
@@ -1498,6 +1509,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
                 (e): e is CanvasSceneFileEntity => e.kind === 'file',
               )}
               focusedPageId={layoutData.keyboardTargetPageId}
+              camera={layoutData}
               originY={layoutData.canvasOrigin.y}
             />
           ) : null}

@@ -38,9 +38,12 @@ export function EdgeDragLayer({
     return map
   }, [layoutData.entities])
 
+  // layoutData is structurally a Camera (pan/zoom/canvasOrigin). The camera is
+  // static during an edge drag, so the payload camera equals the live camera and
+  // the reprojected container renders the path in place.
   const path = useMemo(
-    () => buildEdgeDragPath(state, entityMap, layoutData.zoom ?? 1),
-    [state, entityMap, layoutData.zoom],
+    () => buildEdgeDragPath(state, entityMap, layoutData),
+    [state, entityMap, layoutData],
   )
 
   if (!path) return null

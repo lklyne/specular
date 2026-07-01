@@ -80,6 +80,7 @@ import type {
   LayoutUpdateData,
   SelectionModifiers,
 } from '../../shared/types'
+import type { Camera } from '../../shared/coords'
 import {
   startOptionAwareEntityDrag,
   startOptionAwareGroupDrag,
@@ -150,6 +151,8 @@ function layoutToHitInputs(layout: {
   focusPresentation?: { pageId: string } | null
   hover?: { id: string } | null
   zoom?: number | null
+  pan?: { x: number; y: number }
+  canvasOrigin?: { x: number; y: number }
 }): HitInputs {
   return {
     entities: layout.entities,
@@ -160,7 +163,17 @@ function layoutToHitInputs(layout: {
     focusPresentationPageId: layout.focusPresentation?.pageId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
+    // `layoutRef.current` carries the live camera (App patches pan/zoom from the
+    // viewport nudge), so hit rects project to where the entities render *now*,
+    // not where the last payload placed them (ADR 0023 Phase 2).
+    pan: layout.pan,
+    canvasOrigin: layout.canvasOrigin,
   }
+}
+
+/** The live camera carried by the layout snapshot (pan/zoom patched from the nudge). */
+function layoutCamera(layout: LayoutUpdateData): Camera {
+  return { pan: layout.pan, zoom: layout.zoom, canvasOrigin: layout.canvasOrigin }
 }
 
 function capturePointer(event: PointerEvent): (() => void) | null {
@@ -846,7 +859,7 @@ function runEdgeDrag(
     const snapMap = new Map<string, CanvasSceneEntity>()
     for (const e of cur.entities) snapMap.set(e.id, e)
     const winY = ev.clientY + cur.canvasOrigin.y
-    state = updateEdgeDragCursor(state, ev.clientX, winY, snapMap, cur.zoom ?? 1)
+    state = updateEdgeDragCursor(state, ev.clientX, winY, snapMap, layoutCamera(cur))
     setEdgeDragState(state)
     const snapKey = state.kind !== 'idle' && state.snap
       ? `${state.snap.entityId}:${state.snap.side}`
@@ -947,7 +960,7 @@ function runBackgroundSelectionGesture(
       width: rect.width,
       height: rect.height,
     }
-    const entityIds = entitiesOverlappingRect(layout.entities, windowRect)
+    const entityIds = entitiesOverlappingRect(layout.entities, windowRect, layoutCamera(layout))
     api.setSelectionOverlayRect({
       rect: {
         ...rect,

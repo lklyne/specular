@@ -16,14 +16,14 @@ function page(over: Partial<CanvasScenePageEntity> = {}): CanvasScenePageEntity 
   return {
     id: 'f1',
     kind: 'page',
-    canvasX: 0,
-    canvasY: 0,
+    canvasX: 100,
+    canvasY: 100,
     width: 800,
     height: 600,
-    screenX: 100,
-    screenY: 100,
-    screenWidth: 800,
-    screenHeight: 600,
+    visualCanvasX: 100,
+    visualCanvasY: 100,
+    visualWidth: 800,
+    visualHeight: 600,
     presetIndex: 0,
     rendererTag: 'web',
     ...over,
@@ -34,14 +34,10 @@ function text(over: Partial<CanvasSceneTextEntity> = {}): CanvasSceneTextEntity 
   return {
     id: 't1',
     kind: 'text',
-    canvasX: 0,
-    canvasY: 0,
+    canvasX: 1100,
+    canvasY: 100,
     width: 200,
     height: 80,
-    screenX: 1100,
-    screenY: 100,
-    screenWidth: 200,
-    screenHeight: 80,
     text: 'hi',
     ...over,
   } as CanvasSceneTextEntity
@@ -70,14 +66,10 @@ function shape(over: Partial<CanvasSceneShapeEntity> = {}): CanvasSceneShapeEnti
   return {
     id: 's1',
     kind: 'shape',
-    canvasX: 0,
-    canvasY: 0,
+    canvasX: 1400,
+    canvasY: 100,
     width: 200,
     height: 80,
-    screenX: 1400,
-    screenY: 100,
-    screenWidth: 200,
-    screenHeight: 80,
     shapeKind: 'rect',
     text: '',
     ...over,
@@ -89,14 +81,14 @@ function file(over: Partial<CanvasSceneFileEntity> = {}): CanvasSceneFileEntity 
     id: 'fi1',
     kind: 'file',
     file: 'note.md',
-    canvasX: 0,
-    canvasY: 0,
+    canvasX: 1700,
+    canvasY: 100,
     width: 200,
     height: 80,
-    screenX: 1700,
-    screenY: 100,
-    screenWidth: 200,
-    screenHeight: 80,
+    visualCanvasX: 1700,
+    visualCanvasY: 100,
+    visualWidth: 200,
+    visualHeight: 80,
     rendererTag: 'markdown',
     rendererEditable: true,
     ...over,
@@ -155,7 +147,10 @@ describe('routePointerDown', () => {
 
   it('page body pointerdown when page is in multi-selection → page-body-press (drag)', () => {
     const f = page()
-    const t = text()
+    // Text overlaps the page so the two-item selection is not a clean row —
+    // otherwise a reorder dot at the page center would intercept the click.
+    // Placed near the page's top-left so its anchors stay clear of (500,400).
+    const t = text({ canvasX: 150, canvasY: 150 })
     const target = hitTest(inputs([f, t], ['f1', 't1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
       ...baseCtx,
@@ -189,7 +184,10 @@ describe('routePointerDown', () => {
 
   it('shift-click on multi-selected page body → toggle-select (drops it from selection)', () => {
     const f = page()
-    const t = text()
+    // Overlap the page so the selection is not a reorderable row (no dot at the
+    // page center intercepting the click). Placed near the page's top-left so
+    // its anchors stay clear of (500,400).
+    const t = text({ canvasX: 150, canvasY: 150 })
     const target = hitTest(inputs([f, t], ['f1', 't1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
       ...baseCtx,
@@ -202,14 +200,14 @@ describe('routePointerDown', () => {
   it('chrome click on page → begin-entity-drag', () => {
     const f = page()
     // Chrome is the 36px strip above screenY.
-    const target = hitTest(inputs([f]), { x: 500, y: f.screenY - 10 })
+    const target = hitTest(inputs([f]), { x: 500, y: f.canvasY - 10 })
     const action = routePointerDown(target, baseCtx)
     expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'f1', entityKind: 'page' })
   })
 
   it('shift-click chrome → toggle-select (no drag)', () => {
     const f = page()
-    const target = hitTest(inputs([f]), { x: 500, y: f.screenY - 10 })
+    const target = hitTest(inputs([f]), { x: 500, y: f.canvasY - 10 })
     const action = routePointerDown(target, {
       ...baseCtx,
       modifiers: { shift: true, meta: false, ctrl: false },
@@ -223,7 +221,7 @@ describe('routePointerDown', () => {
       inputs([f], ['f1']),
       // Right-side anchor sits past the resize edge strip (pages extend the
       // resize hit band to entity.right + 12 for the outline padding).
-      { x: f.screenX + f.screenWidth + 20, y: f.screenY + f.screenHeight / 2 },
+      { x: f.canvasX + f.width + 20, y: f.canvasY + f.height / 2 },
     )
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
     expect(action).toMatchObject({ kind: 'begin-edge-drag', entityId: 'f1', side: 'right' })
@@ -233,7 +231,7 @@ describe('routePointerDown', () => {
     const f = page()
     const target = hitTest(
       inputs([f], ['f1']),
-      { x: f.screenX, y: f.screenY }, // nw handle
+      { x: f.canvasX, y: f.canvasY }, // nw handle
     )
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
     expect(action).toMatchObject({ kind: 'begin-resize', entityId: 'f1', handle: 'nw' })
@@ -262,7 +260,7 @@ describe('routePointerDown', () => {
 
   it('text body click → begin-entity-drag', () => {
     const t = text()
-    const target = hitTest(inputs([t]), { x: t.screenX + 50, y: t.screenY + 30 })
+    const target = hitTest(inputs([t]), { x: t.canvasX + 50, y: t.canvasY + 30 })
     const action = routePointerDown(target, baseCtx)
     expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1', entityKind: 'text' })
   })
@@ -274,8 +272,8 @@ describe('routePointerDown', () => {
   })
 
   it('multi-bbox SE handle → begin-multi-resize (no entityId on the action)', () => {
-    const t1 = text({ id: 't1', screenX: 100, screenY: 100, screenWidth: 50, screenHeight: 50 })
-    const t2 = text({ id: 't2', screenX: 200, screenY: 200, screenWidth: 80, screenHeight: 40 })
+    const t1 = text({ id: 't1', canvasX: 100, canvasY: 100, width: 50, height: 50 })
+    const t2 = text({ id: 't2', canvasX: 200, canvasY: 200, width: 80, height: 40 })
     // Multi-bbox SE corner sits at (280+8, 240+8) = (288, 248).
     const target = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 288, y: 248 })
     const action = routePointerDown(target, {
@@ -289,31 +287,31 @@ describe('routePointerDown', () => {
   describe('begin-entity-press (issue #49)', () => {
     it('click on solo-selected text body → begin-entity-press', () => {
       const t = text()
-      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const target = hitTest(inputs([t], ['t1']), { x: t.canvasX + 50, y: t.canvasY + 30 })
       const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['t1'] })
       expect(action).toEqual({ kind: 'begin-entity-press', entityId: 't1', entityKind: 'text' })
     })
 
     it('click on solo-selected shape body → begin-entity-press', () => {
       const s = shape()
-      const target = hitTest(inputs([s], ['s1']), { x: s.screenX + 50, y: s.screenY + 30 })
+      const target = hitTest(inputs([s], ['s1']), { x: s.canvasX + 50, y: s.canvasY + 30 })
       const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['s1'] })
       expect(action).toEqual({ kind: 'begin-entity-press', entityId: 's1', entityKind: 'shape' })
     })
 
     it('click on unselected text body → begin-entity-drag (no press deferral)', () => {
       const t = text()
-      const target = hitTest(inputs([t]), { x: t.screenX + 50, y: t.screenY + 30 })
+      const target = hitTest(inputs([t]), { x: t.canvasX + 50, y: t.canvasY + 30 })
       const action = routePointerDown(target, baseCtx)
       expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 't1' })
     })
 
     it('click on text in multi-selection → begin-entity-drag (no press deferral)', () => {
       const t1 = text({ id: 't1' })
-      const t2 = text({ id: 't2', screenX: 1500 })
+      const t2 = text({ id: 't2', canvasX: 1500 })
       const target = hitTest(
         inputs([t1, t2], ['t1', 't2']),
-        { x: t1.screenX + 50, y: t1.screenY + 30 },
+        { x: t1.canvasX + 50, y: t1.canvasY + 30 },
       )
       const action = routePointerDown(target, {
         ...baseCtx,
@@ -324,7 +322,7 @@ describe('routePointerDown', () => {
 
     it('shift-click on solo-selected text → toggle-select (no press deferral)', () => {
       const t = text()
-      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const target = hitTest(inputs([t], ['t1']), { x: t.canvasX + 50, y: t.canvasY + 30 })
       const action = routePointerDown(target, {
         ...baseCtx,
         selectedEntityIds: ['t1'],
@@ -335,7 +333,7 @@ describe('routePointerDown', () => {
 
     it('cmd-click on solo-selected shape → toggle-select (no press deferral)', () => {
       const s = shape()
-      const target = hitTest(inputs([s], ['s1']), { x: s.screenX + 50, y: s.screenY + 30 })
+      const target = hitTest(inputs([s], ['s1']), { x: s.canvasX + 50, y: s.canvasY + 30 })
       const action = routePointerDown(target, {
         ...baseCtx,
         selectedEntityIds: ['s1'],
@@ -346,7 +344,7 @@ describe('routePointerDown', () => {
 
     it('alt-click on solo-selected text → begin-entity-drag (alt-clone semantics preserved)', () => {
       const t = text()
-      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const target = hitTest(inputs([t], ['t1']), { x: t.canvasX + 50, y: t.canvasY + 30 })
       const action = routePointerDown(target, {
         ...baseCtx,
         selectedEntityIds: ['t1'],
@@ -357,7 +355,7 @@ describe('routePointerDown', () => {
 
     it('space-click on solo-selected text → begin-entity-drag (hold-to-pan modifier preserves drag)', () => {
       const t = text()
-      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const target = hitTest(inputs([t], ['t1']), { x: t.canvasX + 50, y: t.canvasY + 30 })
       const action = routePointerDown(target, {
         ...baseCtx,
         selectedEntityIds: ['t1'],
@@ -368,7 +366,7 @@ describe('routePointerDown', () => {
 
     it('click on solo-selected text while another entity is editing → begin-entity-drag (deferral suppressed)', () => {
       const t = text()
-      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const target = hitTest(inputs([t], ['t1']), { x: t.canvasX + 50, y: t.canvasY + 30 })
       const action = routePointerDown(target, {
         ...baseCtx,
         selectedEntityIds: ['t1'],
@@ -379,7 +377,7 @@ describe('routePointerDown', () => {
 
     it('non-primary (right-click) on solo-selected text → noop (deferral is left-button only)', () => {
       const t = text()
-      const target = hitTest(inputs([t], ['t1']), { x: t.screenX + 50, y: t.screenY + 30 })
+      const target = hitTest(inputs([t], ['t1']), { x: t.canvasX + 50, y: t.canvasY + 30 })
       const action = routePointerDown(target, {
         ...baseCtx,
         selectedEntityIds: ['t1'],
@@ -394,7 +392,7 @@ describe('routePointerDown', () => {
     // placeholders gracefully fall through to drag.
     it('click on solo-selected editable file body → begin-entity-press', () => {
       const f = file({ rendererEditable: true })
-      const target = hitTest(inputs([f], ['fi1']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const target = hitTest(inputs([f], ['fi1']), { x: f.canvasX + 50, y: f.canvasY + 30 })
       const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['fi1'] })
       expect(action).toEqual({ kind: 'begin-entity-press', entityId: 'fi1', entityKind: 'file' })
     })
@@ -406,14 +404,14 @@ describe('routePointerDown', () => {
         rendererTag: 'image',
         rendererEditable: false,
       })
-      const target = hitTest(inputs([f], ['img']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const target = hitTest(inputs([f], ['img']), { x: f.canvasX + 50, y: f.canvasY + 30 })
       const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['img'] })
       expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'img' })
     })
 
     it('click on solo-selected file with missing rendererEditable (unclaimed) → begin-entity-drag', () => {
       const f = file({ id: 'unk', file: 'foo.bin', rendererEditable: undefined })
-      const target = hitTest(inputs([f], ['unk']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const target = hitTest(inputs([f], ['unk']), { x: f.canvasX + 50, y: f.canvasY + 30 })
       const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['unk'] })
       expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'unk' })
     })
