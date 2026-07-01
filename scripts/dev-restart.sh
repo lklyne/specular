@@ -4,11 +4,11 @@
 #
 # Usage:
 #   pnpm dev:restart          — kill + restart in a new Terminal tab
-#   pnpm dev:restart:debug    — same, but with custom CDP port (default 9229 is always on)
+#   pnpm dev:restart:debug    — same, but with custom CDP port (default 9333 is always on)
 set -euo pipefail
 
-PROJECT_DIR="/Users/lyleklyne/Developer/web-canvas"
-CDP_PORT=9229
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CDP_PORT=9333
 APP_CONTROL_PORT=29979
 
 # ── Kill existing Specular processes ──────────────────────────────
@@ -21,8 +21,8 @@ pkill -9 -f "electron-forge start" 2>/dev/null || true
 
 # Kill orphaned Vite dev servers and node processes from the project directory.
 # These survive pkill -9 of the parent forge process.
-pgrep -f "node.*vite.*web-canvas" | xargs kill -9 2>/dev/null || true
-pgrep -f "node.*electron-forge.*web-canvas" | xargs kill -9 2>/dev/null || true
+pgrep -f "node.*vite.*${PROJECT_DIR}" | xargs kill -9 2>/dev/null || true
+pgrep -f "node.*electron-forge.*${PROJECT_DIR}" | xargs kill -9 2>/dev/null || true
 
 # Wait for CDP port to close
 for i in {1..10}; do
