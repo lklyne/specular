@@ -39,6 +39,8 @@ export interface Page {
   peekHeight?: number
   lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
+  /** Viewport-cull state from the last layout pass; drives cull hysteresis. */
+  culled?: boolean
   lastDevtoolsHostBoundsKey?: string
   lastPageEmulationKey?: string
   lastPageAnnotationsKey?: string

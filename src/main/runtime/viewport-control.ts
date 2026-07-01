@@ -22,7 +22,7 @@ import {
   setFocusAnnotationsVisible as setSessionAnnotationsVisible,
 } from './focus-session'
 import { win } from './view-refs'
-import { requestLayout } from './layout-engine'
+import { noteZoomActivity, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
@@ -65,6 +65,9 @@ export function setZoom(value: number): void {
   const nextZoom = clampCanvasZoom(value)
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
+  // Approximate-scale live views this tick; one crisp re-emulation fires once
+  // the zoom stops (ADR 0023 Phase 3).
+  noteZoomActivity()
   // The scene payload is viewport-independent (ADR 0023 Phase 1): pan/zoom no
   // longer rebuild it. The renderers reproject their scene transform from the
   // viewport-nudge instead; only the toolbar's zoom readout needs a rebuild.

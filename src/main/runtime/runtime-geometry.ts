@@ -52,6 +52,32 @@ export function boundsOverlap(a: Bounds, b: Bounds): boolean {
   )
 }
 
+/**
+ * Viewport-cull visibility with hysteresis. A visible page (`wasCulled` false)
+ * stays on until it drifts `keepMargin` past the viewport; a culled page
+ * reappears only once it overlaps the viewport inflated by the smaller
+ * `showMargin`. `keepMargin` must exceed `showMargin` — the gap is the dead
+ * band that stops edge-hovering pages from toggling every pan tick.
+ */
+export function pageVisibleWithHysteresis(
+  pageBounds: Bounds,
+  windowRect: Bounds,
+  wasCulled: boolean,
+  showMargin: number,
+  keepMargin: number,
+): boolean {
+  const margin = wasCulled ? showMargin : keepMargin
+  return boundsOverlap(
+    {
+      x: windowRect.x - margin,
+      y: windowRect.y - margin,
+      width: windowRect.width + margin * 2,
+      height: windowRect.height + margin * 2,
+    },
+    pageBounds,
+  )
+}
+
 export function pageContentSize(page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>): {
   width: number
   height: number
