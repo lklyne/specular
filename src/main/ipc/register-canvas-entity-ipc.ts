@@ -58,6 +58,7 @@ import {
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
 import { writeNoteFile } from '../runtime/note-assets'
+import { commitNoteContent } from '../runtime/note-commands'
 import {
   activeTool,
   finishOneShotPlacement,
@@ -740,10 +741,21 @@ export function registerCanvasEntityIpc(): void {
     clipboard.writeImage(nativeImage.createFromPath(filePath))
   })
 
+  // Raw disk write — still used by non-markdown note-backed renderers
+  // (wireframe JSON) that aren't Y.Doc-backed yet (issue #262 non-goals).
   ipcMain.handle('write-note-file', (_event, { filePath, content }: { filePath: string; content: string }) => {
     writeNoteFile(filePath, content)
     return true
   })
+
+  // Markdown note edits: routed through the Y.Doc so they participate in
+  // the unified UndoManager (issue #262).
+  ipcMain.handle(
+    'apply-note-content',
+    (_event, { entityId, content }: { entityId: string; content: string }) => {
+      return commitNoteContent(entityId, content)
+    },
+  )
 
   // ADR 0013 §3 — cross-kind morph between text and markdown file entities.
   // One IPC, two directions; both halves (entity replacement + .md file

@@ -723,6 +723,20 @@ export function getDiskSnapshot(tabId?: string) {
   return get<DiskSnapshot>(`/test/workspace/disk-snapshot${q}`)
 }
 
+// --- Note content (test-only, issue #262) ---
+
+export function applyNoteContent(entityId: string, content: string) {
+  return post<{ ok: boolean }>('/test/notes/apply', { entityId, content })
+}
+
+export function getNoteContentMirror(entityId: string) {
+  return get<{ content: string | null }>(`/test/notes/mirror?entityId=${encodeURIComponent(entityId)}`)
+}
+
+export function resetNoteContentMirror() {
+  return post<{ ok: true }>('/test/notes/reset-mirror')
+}
+
 export function startTransactionCounter() {
   return post<{ ok: true }>('/test/workspace/transactions/start')
 }
@@ -737,7 +751,7 @@ function getWorkspaceTabs() {
   )
 }
 
-function getFileEntities() {
+export function getFileEntities() {
   return get<{
     fileEntities: Array<{
       id: string

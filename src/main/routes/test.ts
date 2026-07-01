@@ -63,6 +63,8 @@ import type { MultiResizeEntry } from '../runtime/document-commands'
 import { currentCanvasGuides } from '../runtime/canvas-guides'
 import { currentEntityOrder, reorderSidebarStackOrder } from '../runtime/entity-order-state'
 import type { SidebarSectionKey } from '../../shared/types'
+import { commitNoteContent } from '../runtime/note-commands'
+import { getNoteContent, clearNoteContentState } from '../runtime/note-content-state'
 
 // --- Y.Doc transaction counter (test-only) ---
 // Counts afterTransaction events for the active doc between start/stop calls.
@@ -536,6 +538,41 @@ export const testRoutes: Route[] = [
         activeTabId: activeWorkspaceTabId,
         tabs: workspaceTabs.map((t) => ({ id: t.id, name: t.name })),
       })
+    },
+  },
+
+  // --- Note content (issue #262) ---
+  // apply-note-content is normally reached over IPC from the renderer;
+  // this test route drives the same `commitNoteContent` seam so smoke
+  // tests can exercise the Y.Doc-backed undo path without simulating
+  // CodeMirror input.
+  {
+    method: 'POST',
+    pattern: '/test/notes/apply',
+    async handler({ response, body }) {
+      const { entityId, content } = body as { entityId: string; content: string }
+      const ok = commitNoteContent(entityId, content)
+      writeJson(response, 200, { ok })
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/test/notes/mirror',
+    async handler({ request, response }) {
+      const url = new URL(request.url ?? '/', 'http://x')
+      const entityId = url.searchParams.get('entityId') ?? ''
+      writeJson(response, 200, { content: getNoteContent(entityId) ?? null })
+    },
+  },
+  // Simulates the empty-mirror state a real relaunch starts with, without
+  // spinning up a new Electron process — the note-content mirror otherwise
+  // outlives any single smoke test's workspace-fixture reload.
+  {
+    method: 'POST',
+    pattern: '/test/notes/reset-mirror',
+    async handler({ response }) {
+      clearNoteContentState()
+      writeJson(response, 200, { ok: true })
     },
   },
 

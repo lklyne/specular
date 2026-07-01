@@ -237,6 +237,14 @@ export interface CanvasSceneFileEntity {
    * to re-pick the folder.
    */
   componentInferredRepoPath?: string
+  /**
+   * Markdown note content, present only once the note has entered the
+   * Y.Doc `notes` mirror (i.e. edited at least once — ADR 0023). Undefined
+   * means the renderer should fall back to reading the `.md` file directly;
+   * once defined, this scene field is the source of truth and reflects
+   * undo/redo immediately on the next broadcast.
+   */
+  noteContent?: string
   /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
@@ -1886,6 +1894,12 @@ export interface CanvasBgElectronAPI {
     callback: (data: { type: string | null }) => void,
   ) => () => void
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
+  /**
+   * ADR 0023 — commit a markdown note edit through the Y.Doc so it
+   * participates in the unified UndoManager. Prefer this over
+   * `writeNoteFile` for markdown note content.
+   */
+  applyNoteContent: (entityId: string, content: string) => Promise<boolean>
   /**
    * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
    * (or vice versa) at the same canvas rect. Both halves of the swap (the

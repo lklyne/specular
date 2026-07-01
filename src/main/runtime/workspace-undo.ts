@@ -7,6 +7,7 @@ import {
   DOC_MAP_ANNOTATIONS,
   DOC_MAP_ENTITIES,
   DOC_MAP_WORKSPACE,
+  DOC_MAP_NOTES,
   DOC_ARRAY_ENTITY_ORDER,
 } from './workspace-doc'
 import { breadcrumb } from '../sentry-context'
@@ -43,6 +44,7 @@ export function createCanvasUndoManager(doc: Y.Doc): UndoManager {
     doc.getMap(DOC_MAP_ANNOTATIONS) as unknown as Y.AbstractType<unknown>,
     doc.getMap(DOC_MAP_ENTITIES) as unknown as Y.AbstractType<unknown>,
     doc.getMap(DOC_MAP_WORKSPACE) as unknown as Y.AbstractType<unknown>,
+    doc.getMap(DOC_MAP_NOTES) as unknown as Y.AbstractType<unknown>,
     doc.getArray(DOC_ARRAY_ENTITY_ORDER) as unknown as Y.AbstractType<unknown>,
   ]
 

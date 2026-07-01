@@ -348,6 +348,8 @@ const api: CanvasBgElectronAPI = {
   },
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-note-file', { filePath, content }),
+  applyNoteContent: (entityId: string, content: string) =>
+    ipcRenderer.invoke('apply-note-content', { entityId, content }),
   morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
     ipcRenderer.invoke('canvas-morph-text-file', { entityId, direction }),
   getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
