@@ -14,6 +14,7 @@ import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
 import { DeviceShellLayer } from './DeviceShellLayer'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
 import { PageBorderLayer } from './PageBorderLayer'
+import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
@@ -83,6 +84,7 @@ export default function App({
         isDev={isDev}
         layoutTick={layoutTick}
       />
+      <PerfHudOverlay isDev={isDev} layoutData={layoutData} />
       <CanvasGridSurface
         bgRef={bgRef}
         isDark={isDark}

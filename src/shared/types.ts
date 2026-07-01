@@ -429,6 +429,13 @@ export type PersistedCanvasEntity =
 // --- Layout Update Data ---
 
 export interface LayoutUpdateData {
+  /**
+   * Wall-clock milliseconds `buildCanvasLayoutData` took to produce this
+   * payload, stamped by the layout pass. Diagnostic only — feeds the canvas
+   * perf HUD so the O(entities) rebuild cost is visible during pan/zoom. See
+   * #257 / #265.
+   */
+  buildMs?: number
   windowWidth: number
   zoom: number
   pan: { x: number; y: number }
