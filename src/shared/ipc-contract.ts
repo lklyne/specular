@@ -300,6 +300,7 @@ export interface IpcContract {
   'toolbar-selection-changed': { dir: 'main→renderer'; payload: ToolbarSelectionData }
   'toolbar-set-tool': { dir: 'renderer→main'; payload: unknown }
   'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
+  'apply-note-content': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
   'zoom-changed': { dir: 'main→renderer'; payload: number }
   'zoom-in': { dir: 'renderer→main'; payload: unknown }
@@ -334,6 +335,7 @@ export const ipcChannels = {
   annotationOpenThread: 'annotation-open-thread',
   annotationThreadOpen: 'annotation-thread-open',
   applyLinkedScroll: 'apply-linked-scroll',
+  applyNoteContent: 'apply-note-content',
   applyPageOverrides: 'apply-page-overrides',
   bindingFire: 'binding-fire',
   canvasBackPage: 'canvas-back-page',

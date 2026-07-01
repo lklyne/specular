@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import type { PersistedWorkspaceRecord } from '../../shared/types'
 import { requestDocSync } from './workspace-observers'
+import { projectAllNoteContentToDisk } from './note-content-state'
 import {
   pages,
   workspaceAutosaveTimer,
@@ -65,6 +66,7 @@ export function saveWorkspaceStore(): void {
     const record = buildPersistedWorkspaceRecord()
     const userDataPath = app.getPath('userData')
     writeAllTabsAsCanvasFiles(userDataPath, record.id, record.tabs)
+    projectAllNoteContentToDisk()
     writeWorkspaceMetaSync(userDataPath, record.id, {
       activeTabId: record.activeTabId,
       tabs: record.tabs.map((t) => ({
