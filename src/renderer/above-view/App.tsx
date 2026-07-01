@@ -80,7 +80,7 @@ import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
 import { buildAboveViewHandlers } from './binding-handlers'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHandlers'
-import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
+import { useSceneCamera, sceneReprojectTransform } from '../shared/hooks/useSceneCamera'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
@@ -408,7 +408,10 @@ export default function App({
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
-  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
+  const camera = useSceneCamera(api.onViewportNudge, layoutData)
+  // above-view children subtract canvasOrigin.y (its WCV top sits at the toolbar
+  // inset), so the canvas origin's local y is 0.
+  const sceneTransform = sceneReprojectTransform(layoutData, camera, 0)
   const [fixProgress, setFixProgress] = useState<LayoutUpdateData['fixProgress']>(
     initialLayoutData.fixProgress,
   )
@@ -543,12 +546,27 @@ export default function App({
   useCanvasClipboard({ api, layoutRef })
 
   useEffect(() => {
+    // Coalesce a burst of layout-updates into one render per animation frame,
+    // matching bgView (#265). layoutRef stays synchronous so gesture logic reads
+    // the latest scene on every pointer event; only the React render is batched.
+    let pending: LayoutUpdateData | null = null
+    let raf = 0
+    const flush = () => {
+      raf = 0
+      if (!pending) return
+      setLayoutData(pending)
+      setFixProgress(pending.fixProgress)
+      pending = null
+    }
     const cleanup = api.onLayoutUpdate((data) => {
       layoutRef.current = data
-      setLayoutData(data)
-      setFixProgress(data.fixProgress)
+      pending = data
+      if (!raf) raf = requestAnimationFrame(flush)
     })
-    return cleanup
+    return () => {
+      cleanup()
+      if (raf) cancelAnimationFrame(raf)
+    }
   }, [])
 
   useEffect(() => api.onFixProgressUpdate(setFixProgress), [])
@@ -1321,14 +1339,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       onPointerUp={handleOverlayPointerUp}
       onPointerCancel={handleOverlayPointerCancel}
     >
-      {/* Translate the whole canvas scene live with the pan gesture so selection
-          chrome and entity bodies track the natively-positioned page views
-          instead of trailing until the next layout-update rebuild (#257). Pan is
-          disabled during focus, where the only viewport-pinned chrome exists, so
-          every layer here is canvas-space and moves together. */}
+      {/* Reproject the whole canvas scene live from the viewport nudge so
+          selection chrome and entity bodies track the natively-positioned page
+          views instead of trailing until the next layout-update rebuild (#257,
+          ADR 0023). Every layer here is canvas-space and reprojects together. */}
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
+        className="pointer-events-none absolute inset-0 origin-top-left"
+        style={{ transform: sceneTransform }}
       >
       {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
         <PlacementPreviewLayer

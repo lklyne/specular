@@ -65,7 +65,10 @@ export function setZoom(value: number): void {
   const nextZoom = clampCanvasZoom(value)
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
-  markDirty('canvas', 'toolbar')
+  // The scene payload is viewport-independent (ADR 0023 Phase 1): pan/zoom no
+  // longer rebuild it. The renderers reproject their scene transform from the
+  // viewport-nudge instead; only the toolbar's zoom readout needs a rebuild.
+  markDirty('toolbar')
   broadcastViewportNudge()
   broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
@@ -82,7 +85,8 @@ export function setPan(x: number, y: number): void {
   endFocusOnCameraChange()
   if (pan.x === x && pan.y === y) return
   setPanState({ x, y })
-  markDirty('canvas')
+  // Pan no longer dirties the scene (ADR 0023 Phase 1); the nudge drives the
+  // renderer transform. The unconditional setBounds pass still moves the pages.
   broadcastViewportNudge()
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
 }
