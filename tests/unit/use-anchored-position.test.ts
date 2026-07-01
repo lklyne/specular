@@ -19,10 +19,12 @@ function pageEntity(): CanvasScenePageEntity {
     height: 300,
     presetIndex: 0,
     linked: false,
-    screenX: 200,
-    screenY: 250,
-    screenWidth: 400,
-    screenHeight: 300,
+    // Visual (outer) rect in canvas space; projected through the camera below
+    // (zoom 1, pan 0, canvasOrigin.y 60) it lands at window rect {200,250,400,300}.
+    visualCanvasX: 200,
+    visualCanvasY: 190,
+    visualWidth: 400,
+    visualHeight: 300,
   }
 }
 
@@ -32,19 +34,22 @@ function textEntity(): CanvasSceneTextEntity {
     id: 't1',
     text: 'hi',
     color: '#000',
-    canvasX: 0,
-    canvasY: 0,
+    // Chromeless kinds project from their base rect; camera below lands it at
+    // window rect {50,80,100,40}.
+    canvasX: 50,
+    canvasY: 20,
     width: 100,
     height: 40,
-    screenX: 50,
-    screenY: 80,
-    screenWidth: 100,
-    screenHeight: 40,
   }
 }
 
 function makeLayout(entities: LayoutUpdateData['entities'], originY = 60): LayoutUpdateData {
-  return { entities, canvasOrigin: { x: 0, y: originY } } as unknown as LayoutUpdateData
+  return {
+    entities,
+    canvasOrigin: { x: 0, y: originY },
+    pan: { x: 0, y: 0 },
+    zoom: 1,
+  } as unknown as LayoutUpdateData
 }
 
 describe('anchoredSlotRect', () => {

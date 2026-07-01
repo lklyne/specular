@@ -6,6 +6,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { isUnresolved } from '../../shared/annotation-utils'
+import { entityContentScreenRect, entityVisualScreenRect } from '../../shared/coords'
 import type { AnnotationLiveBboxLookup } from './annotationMath'
 
 interface CommentBadge {
@@ -167,10 +168,11 @@ export function commentBadgesForLayout(
     if (anchor.type === 'page') {
       const page = pagesById.get(anchor.pageId)
       if (!page) continue
-      const rightX = page.screenX + page.screenWidth - 8
+      const vb = entityVisualScreenRect(page, layoutData)
+      const rightX = vb.screenX + vb.screenWidth - 8
       const y = Math.min(
-        Math.max(page.screenY + anchor.offsetY * page.screenHeight, page.screenY + 10),
-        page.screenY + page.screenHeight - 10,
+        Math.max(vb.screenY + anchor.offsetY * vb.screenHeight, vb.screenY + 10),
+        vb.screenY + vb.screenHeight - 10,
       )
       const top = y - layoutData.canvasOrigin.y
       const opacity = badgeOpacity(top, page, layoutData)
@@ -200,10 +202,9 @@ function badgeOpacity(
   page: CanvasScenePageEntity,
   layoutData: LayoutUpdateData,
 ): number {
-  const contentScreenY = page.contentScreenY ?? page.screenY
-  const contentScreenHeight = page.contentScreenHeight ?? page.screenHeight
-  const top = contentScreenY - layoutData.canvasOrigin.y
-  const bottom = top + contentScreenHeight
+  const cb = entityContentScreenRect(page, layoutData)
+  const top = cb.screenY - layoutData.canvasOrigin.y
+  const bottom = top + cb.screenHeight
   const overflow = Math.max(top - anchorY, anchorY - bottom, 0)
   if (overflow <= 0) return 1
   return Math.max(0, 1 - overflow / BADGE_FADE_MARGIN)
@@ -219,16 +220,13 @@ function elementAnnotationRect(
   const bbox = liveBboxes.get(annotation.id) ?? annotation.anchor.boundingBox
   if (!bbox) return null
 
-  const contentScreenX = page.contentScreenX ?? page.screenX
-  const contentScreenY = page.contentScreenY ?? page.screenY
-  const contentScreenWidth = page.contentScreenWidth ?? page.screenWidth
-  const contentScreenHeight = page.contentScreenHeight ?? page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
+  const cb = entityContentScreenRect(page, layoutData)
+  const scaleX = cb.screenWidth / page.width
+  const scaleY = cb.screenHeight / page.height
 
   return {
-    left: contentScreenX + bbox.x * scaleX,
-    top: contentScreenY + bbox.y * scaleY - layoutData.canvasOrigin.y,
+    left: cb.screenX + bbox.x * scaleX,
+    top: cb.screenY + bbox.y * scaleY - layoutData.canvasOrigin.y,
     width: bbox.width * scaleX,
     height: bbox.height * scaleY,
   }

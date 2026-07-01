@@ -5,6 +5,7 @@ import type {
   PresenceActivity,
 } from '../../shared/types'
 import { labelForPresenceCursor } from '../../shared/agent-presence'
+import { entityContentScreenRect, entityVisualScreenRect, type Camera } from '../../shared/coords'
 import {
   DEFAULT_CURSOR_MOTION,
   DISTANCE_SCALE_REFERENCE_PX,
@@ -66,10 +67,12 @@ function activityStyle(activity: PresenceActivity): CSSProperties {
 function TargetHalo({
   cursor,
   page,
+  camera,
   overlayOffsetY,
 }: {
   cursor: AgentPresenceCursor
   page: CanvasScenePageEntity | null
+  camera: Camera
   overlayOffsetY: number
 }) {
   if (
@@ -83,14 +86,16 @@ function TargetHalo({
   ) {
     return null
   }
-  const scaleX = page.screenWidth / Math.max(page.width, 1)
-  const scaleY = page.screenHeight / Math.max(page.height, 1)
+  // targetRect is in page-content coordinates; anchor to the content rect.
+  const content = entityContentScreenRect(page, camera)
+  const scaleX = content.screenWidth / Math.max(page.width, 1)
+  const scaleY = content.screenHeight / Math.max(page.height, 1)
   return (
     <div
       className="absolute rounded-xl border"
       style={{
-        left: page.screenX + cursor.targetRect.x * scaleX - 6,
-        top: page.screenY + cursor.targetRect.y * scaleY - overlayOffsetY - 6,
+        left: content.screenX + cursor.targetRect.x * scaleX - 6,
+        top: content.screenY + cursor.targetRect.y * scaleY - overlayOffsetY - 6,
         width: cursor.targetRect.width * scaleX + 12,
         height: cursor.targetRect.height * scaleY + 12,
         borderColor: cursor.color,
@@ -210,10 +215,12 @@ function AgentCursor({
 export function ActivePageHighlightLayer({
   cursors,
   pages,
+  camera,
   originY = 0,
 }: {
   cursors: AgentPresenceCursor[]
   pages: CanvasScenePageEntity[]
+  camera: Camera
   originY?: number
 }) {
   const activePages = useMemo(() => {
@@ -232,20 +239,23 @@ export function ActivePageHighlightLayer({
     <>
       {pages
         .filter((page) => activePages.has(page.id))
-        .map((page) => (
+        .map((page) => {
+          const b = entityVisualScreenRect(page, camera)
+          return (
           <div
             key={`page-highlight-${page.id}`}
             className="absolute rounded-sm pointer-events-none"
             style={{
-              left: page.screenX + inset,
-              top: page.screenY + inset - originY,
-              width: page.screenWidth - inset * 2,
-              height: page.screenHeight - inset * 2,
+              left: b.screenX + inset,
+              top: b.screenY + inset - originY,
+              width: b.screenWidth - inset * 2,
+              height: b.screenHeight - inset * 2,
               boxShadow: `0 0 0 2px ${activePages.get(page.id)!}, 0 0 24px 4px color-mix(in srgb, ${activePages.get(page.id)!} 25%, transparent)`,
               transition: 'box-shadow 300ms ease-out',
             }}
           />
-        ))}
+          )
+        })}
     </>
   )
 }
@@ -409,6 +419,7 @@ export function AgentCursorLayer({
         <TargetHalo
           key={`halo-${cursor.sessionId}`}
           cursor={cursor}
+          camera={{ pan, zoom, canvasOrigin }}
           page={
             cursor.pageId
               ? (pages.find((page) => page.id === cursor.pageId) ?? null)

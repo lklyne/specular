@@ -87,14 +87,7 @@ export function clearDrawingEntities(): void {
   drawingEntities.length = 0
 }
 
-export function buildDrawingEntitySceneEntity(
-  entity: DrawingEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneDrawingEntity {
-  const screenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+export function buildDrawingEntitySceneEntity(entity: DrawingEntity): CanvasSceneDrawingEntity {
   return {
     kind: 'drawing',
     id: entity.id,
@@ -102,10 +95,6 @@ export function buildDrawingEntitySceneEntity(
     canvasY: entity.canvasY,
     width: entity.width,
     height: entity.height,
-    screenX,
-    screenY,
-    screenWidth: entity.width * zoom,
-    screenHeight: entity.height * zoom,
     strokes: entity.strokes,
     parentGroupId: entity.parentGroupId,
   }

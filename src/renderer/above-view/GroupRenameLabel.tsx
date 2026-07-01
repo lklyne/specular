@@ -19,6 +19,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { DRAG_THRESHOLD } from '../../shared/gesture-utils'
+import { entityVisualScreenRect } from '../../shared/coords'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { startOptionAwareGroupDrag, type DragCopyPreviewBox } from './optionDragCopy'
 
@@ -80,10 +81,11 @@ function GroupRenameItem({
   const iconColorClass = group.color
     ? isDark ? 'text-zinc-300' : 'text-zinc-600'
     : 'text-zinc-500'
-  // The label sits above group.screenY and inside aboveView's overlay-local
+  // The label sits above the group's top edge and inside aboveView's overlay-local
   // coordinate space; subtract canvasOrigin.y to drop into overlay coords.
-  const left = group.screenX
-  const top = group.screenY - layoutData.canvasOrigin.y
+  const vb = entityVisualScreenRect(group, layoutData)
+  const left = vb.screenX
+  const top = vb.screenY - layoutData.canvasOrigin.y
 
   const onPointerDown = isRenaming
     ? (event: React.PointerEvent) => event.stopPropagation()

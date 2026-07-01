@@ -7,6 +7,7 @@ import type {
   WorkspaceBounds,
 } from '../../shared/types'
 import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/gesture-utils'
+import { entityContentScreenRect } from '../../shared/coords'
 import {
   drawingBounds,
   elementAnchoredComposerPosition,
@@ -221,24 +222,13 @@ function buildPendingAnnotation(
   const page = layout.entities.find((candidate) => candidate.id === payload.pageId)
   if (!page) return null
   const bb = payload.boundingBox
-  const contentScreenX =
-    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
-  const contentScreenY =
-    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
-  const contentScreenWidth =
-    'contentScreenWidth' in page && page.contentScreenWidth != null
-      ? page.contentScreenWidth
-      : page.screenWidth
-  const contentScreenHeight =
-    'contentScreenHeight' in page && page.contentScreenHeight != null
-      ? page.contentScreenHeight
-      : page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
-  const elementLeft = contentScreenX + (bb ? bb.x * scaleX : contentScreenWidth / 2)
+  const cb = entityContentScreenRect(page, layout)
+  const scaleX = cb.screenWidth / page.width
+  const scaleY = cb.screenHeight / page.height
+  const elementLeft = cb.screenX + (bb ? bb.x * scaleX : cb.screenWidth / 2)
   const elementTop = toOverlayY(
     layout,
-    contentScreenY + (bb ? bb.y * scaleY : contentScreenHeight / 2),
+    cb.screenY + (bb ? bb.y * scaleY : cb.screenHeight / 2),
   )
   const elementHeight = bb ? bb.height * scaleY : 0
   const composerWidth = Math.min(420, window.innerWidth - VIEWPORT_PADDING * 2)

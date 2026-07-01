@@ -1,6 +1,11 @@
 import { memo } from 'react'
 import type { CanvasScenePageEntity, CanvasSceneFileEntity } from '../../shared/types'
 import {
+  entityContentScreenRect,
+  entityVisualScreenRect,
+  type Camera,
+} from '../../shared/coords'
+import {
   CUSTOM_SHELL_CORNER_RADIUS,
   CUSTOM_SHELL_SCREEN_CORNER_RADIUS,
   DEVICE_CATALOG,
@@ -8,30 +13,18 @@ import {
 } from '../../shared/device-catalog'
 
 /** Shared shape for anything that can render a device shell. */
-interface DeviceShellItem {
-  id: string
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
-  deviceId?: string | null
-  deviceOrientation?: 'portrait' | 'landscape'
-  showDeviceFrame?: boolean
-  width: number
-}
+type DeviceShellItem = CanvasScenePageEntity | CanvasSceneFileEntity
 
 export const DeviceShellLayer = memo(function DeviceShellLayer({
   pages,
   fileEntities,
   isDark,
+  camera,
 }: {
   pages: CanvasScenePageEntity[]
   fileEntities?: CanvasSceneFileEntity[]
   isDark: boolean
+  camera: Camera
 }) {
   const framedPages: DeviceShellItem[] = pages.filter((f) => f.showDeviceFrame)
   const framedFiles: DeviceShellItem[] = (fileEntities ?? []).filter((f) => f.showDeviceFrame)
@@ -43,16 +36,18 @@ export const DeviceShellLayer = memo(function DeviceShellLayer({
 
         const orientation = page.deviceOrientation ?? 'portrait'
 
-        const contentX = page.contentScreenX ?? page.screenX
-        const contentY = page.contentScreenY ?? page.screenY
-        const contentW = page.contentScreenWidth ?? page.screenWidth
-        const contentH = page.contentScreenHeight ?? page.screenHeight
+        const content = entityContentScreenRect(page, camera)
+        const contentX = content.screenX
+        const contentY = content.screenY
+        const contentW = content.screenWidth
+        const contentH = content.screenHeight
 
-        // Shell outer rect is screenX/Y/Width/Height (already outer bounds)
-        const shellX = page.screenX
-        const shellY = page.screenY
-        const shellW = page.screenWidth
-        const shellH = page.screenHeight
+        // Shell outer rect (device bezel) — the entity's visual bounds.
+        const outer = entityVisualScreenRect(page, camera)
+        const shellX = outer.screenX
+        const shellY = outer.screenY
+        const shellW = outer.screenWidth
+        const shellH = outer.screenHeight
 
         // Insets in screen space
         const insetTop = contentY - shellY

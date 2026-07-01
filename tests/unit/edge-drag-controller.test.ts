@@ -7,7 +7,11 @@ import {
   EDGE_DRAG_IDLE,
   updateEdgeDragCursor,
 } from '../../src/shared/edge-drag-controller'
+import type { Camera } from '../../src/shared/coords'
 import type { CanvasSceneEntity, WorkspaceEdge } from '../../src/shared/types'
+
+// Identity camera: canvas coords project 1:1 to screen coords.
+const cam: Camera = { pan: { x: 0, y: 0 }, zoom: 1, canvasOrigin: { x: 0, y: 0 } }
 
 function page(id: string, x: number, y: number): CanvasSceneEntity {
   return {
@@ -17,10 +21,10 @@ function page(id: string, x: number, y: number): CanvasSceneEntity {
     canvasY: y,
     width: 200,
     height: 100,
-    screenX: x,
-    screenY: y,
-    screenWidth: 200,
-    screenHeight: 100,
+    visualCanvasX: x,
+    visualCanvasY: y,
+    visualWidth: 200,
+    visualHeight: 100,
     presetIndex: 0,
     rendererTag: 'web',
   } as CanvasSceneEntity
@@ -76,7 +80,7 @@ describe('edge-drag-controller', () => {
       const a = page('a', 0, 0)
       const b = page('b', 400, 0)
       let state = beginEdgeDrag('a', 'right', 250, 50, [], entityMap(a, b))
-      state = updateEdgeDragCursor(state, 392, 50, entityMap(a, b), 1)
+      state = updateEdgeDragCursor(state, 392, 50, entityMap(a, b), cam)
       // b's left anchor is at (392, 50) given DOT_OFFSET=8.
       if (state.kind !== 'create') throw new Error('expected create state')
       expect(state.snap?.entityId).toBe('b')
@@ -87,7 +91,7 @@ describe('edge-drag-controller', () => {
       const a = page('a', 0, 0)
       const b = page('b', 400, 0)
       let state = beginEdgeDrag('a', 'right', 250, 50, [], entityMap(a, b))
-      state = updateEdgeDragCursor(state, 250, 250, entityMap(a, b), 1)
+      state = updateEdgeDragCursor(state, 250, 250, entityMap(a, b), cam)
       if (state.kind !== 'create') throw new Error('expected create state')
       expect(state.snap).toBeNull()
     })
@@ -96,13 +100,13 @@ describe('edge-drag-controller', () => {
       const a = page('a', 0, 0)
       let state = beginEdgeDrag('a', 'right', 208, 50, [], entityMap(a))
       // Cursor lands very close to a's right anchor — but a is the source.
-      state = updateEdgeDragCursor(state, 208, 50, entityMap(a), 1)
+      state = updateEdgeDragCursor(state, 208, 50, entityMap(a), cam)
       if (state.kind !== 'create') throw new Error('expected create state')
       expect(state.snap).toBeNull()
     })
 
     it('idle state passes through unchanged', () => {
-      const out = updateEdgeDragCursor(EDGE_DRAG_IDLE, 0, 0, new Map(), 1)
+      const out = updateEdgeDragCursor(EDGE_DRAG_IDLE, 0, 0, new Map(), cam)
       expect(out).toBe(EDGE_DRAG_IDLE)
     })
   })
@@ -112,7 +116,7 @@ describe('edge-drag-controller', () => {
       const a = page('a', 0, 0)
       const b = page('b', 400, 0)
       let state = beginEdgeDrag('a', 'right', 250, 50, [], entityMap(a, b))
-      state = updateEdgeDragCursor(state, 392, 50, entityMap(a, b), 1)
+      state = updateEdgeDragCursor(state, 392, 50, entityMap(a, b), cam)
       const outcome = commitEdgeDrag(state)
       expect(outcome).toEqual({
         kind: 'create-edge',
@@ -137,7 +141,7 @@ describe('edge-drag-controller', () => {
         { id: 'e1', fromEntityId: 'a', toEntityId: 'b', fromSide: 'right', toSide: 'left' } as WorkspaceEdge,
       ]
       let state = beginEdgeDrag('b', 'left', 410, 50, edges, entityMap(a, b, c))
-      state = updateEdgeDragCursor(state, 100, 292, entityMap(a, b, c), 1)
+      state = updateEdgeDragCursor(state, 100, 292, entityMap(a, b, c), cam)
       const outcome = commitEdgeDrag(state)
       expect(outcome).toEqual({
         kind: 'edit-edge',
@@ -155,7 +159,7 @@ describe('edge-drag-controller', () => {
         { id: 'e1', fromEntityId: 'a', toEntityId: 'b', fromSide: 'right', toSide: 'left' } as WorkspaceEdge,
       ]
       let state = beginEdgeDrag('b', 'left', 410, 50, edges, entityMap(a, b))
-      state = updateEdgeDragCursor(state, 1000, 1000, entityMap(a, b), 1)
+      state = updateEdgeDragCursor(state, 1000, 1000, entityMap(a, b), cam)
       expect(commitEdgeDrag(state)).toEqual({ kind: 'discard-edge', edgeId: 'e1' })
     })
 
@@ -187,8 +191,8 @@ describe('edge-drag-controller', () => {
       const a = page('a', 0, 0)
       const b = page('b', 400, 0)
       let state = beginEdgeDrag('a', 'right', 250, 50, [], entityMap(a, b))
-      state = updateEdgeDragCursor(state, 392, 50, entityMap(a, b), 1)
-      const path = buildEdgeDragPath(state, entityMap(a, b), 1)
+      state = updateEdgeDragCursor(state, 392, 50, entityMap(a, b), cam)
+      const path = buildEdgeDragPath(state, entityMap(a, b), cam)
       expect(path).not.toBeNull()
       expect(path!.d).toMatch(/^M [\d.]+ [\d.]+ C /)
       expect(path!.from.side).toBe('right')
@@ -198,15 +202,15 @@ describe('edge-drag-controller', () => {
     it('renders to cursor when no snap target', () => {
       const a = page('a', 0, 0)
       let state = beginEdgeDrag('a', 'right', 250, 50, [], entityMap(a))
-      state = updateEdgeDragCursor(state, 250, 250, entityMap(a), 1)
-      const path = buildEdgeDragPath(state, entityMap(a), 1)
+      state = updateEdgeDragCursor(state, 250, 250, entityMap(a), cam)
+      const path = buildEdgeDragPath(state, entityMap(a), cam)
       expect(path).not.toBeNull()
       expect(path!.to.x).toBe(250)
       expect(path!.to.y).toBe(250)
     })
 
     it('idle state produces null', () => {
-      expect(buildEdgeDragPath(EDGE_DRAG_IDLE, new Map(), 1)).toBeNull()
+      expect(buildEdgeDragPath(EDGE_DRAG_IDLE, new Map(), cam)).toBeNull()
     })
   })
 })

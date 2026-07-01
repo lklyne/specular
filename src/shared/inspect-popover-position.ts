@@ -1,3 +1,4 @@
+import { canvasToScreenX, canvasToScreenY, contentCanvasRect, type Camera } from './coords'
 import type {
   CanvasScenePageEntity,
   DevtoolsPanelDomRect,
@@ -29,20 +30,23 @@ const TARGET_GAP = 6
 export function inspectTargetScreenRect(
   detail: Pick<InspectNodeDetail, 'boundingBox'>,
   page: CanvasScenePageEntity,
+  cam: Camera,
 ): InspectOverlayRect | null {
   const box = detail.boundingBox
   if (!box) return null
-  return domRectToPageScreenRect(box, page)
+  return domRectToPageScreenRect(box, page, cam)
 }
 
 export function domRectToPageScreenRect(
   rect: DevtoolsPanelDomRect,
   page: CanvasScenePageEntity,
+  cam: Camera,
 ): InspectOverlayRect {
-  const contentX = page.contentScreenX ?? page.screenX
-  const contentY = page.contentScreenY ?? page.screenY
-  const contentWidth = page.contentScreenWidth ?? page.screenWidth
-  const contentHeight = page.contentScreenHeight ?? page.screenHeight
+  const content = contentCanvasRect(page)
+  const contentX = canvasToScreenX(cam, content.canvasX)
+  const contentY = canvasToScreenY(cam, content.canvasY)
+  const contentWidth = content.width * cam.zoom
+  const contentHeight = content.height * cam.zoom
   const scaleX = page.width > 0 ? contentWidth / page.width : 1
   const scaleY = page.height > 0 ? contentHeight / page.height : 1
   const left = contentX + rect.x * scaleX

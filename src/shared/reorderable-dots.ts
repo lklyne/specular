@@ -19,6 +19,7 @@
  */
 
 import { detectReorderableRow, type Box } from './reorder-row'
+import { canvasToScreenX, canvasToScreenY, visualCanvasRect, type Camera } from './coords'
 import type { CanvasEntityKind, CanvasSceneEntity } from './types'
 
 export interface ReorderDot {
@@ -33,12 +34,15 @@ export interface ReorderableDotsInput {
   entities: readonly CanvasSceneEntity[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
+  /** Live camera used to project each dot's canvas center to screen space. */
+  camera: Camera
 }
 
-function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
+function screenCenter(entity: CanvasSceneEntity, cam: Camera): { x: number; y: number } {
+  const r = visualCanvasRect(entity)
   return {
-    x: entity.screenX + entity.screenWidth / 2,
-    y: entity.screenY + entity.screenHeight / 2,
+    x: canvasToScreenX(cam, r.canvasX + r.width / 2),
+    y: canvasToScreenY(cam, r.canvasY + r.height / 2),
   }
 }
 
@@ -48,7 +52,7 @@ function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
  * managed children are excluded from the loose-selection box set below).
  */
 export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
-  const { entities, selectedEntityIds, selectedGroupId } = input
+  const { entities, selectedEntityIds, selectedGroupId, camera } = input
   const selected = new Set(selectedEntityIds)
   const dots = new Map<string, ReorderDot>()
 
@@ -65,7 +69,7 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
     const groupId = childToGroup.get(e.id)
     if (!groupId) continue
     if (selectedGroupId !== groupId && !selected.has(e.id)) continue
-    dots.set(e.id, { id: e.id, entityKind: e.kind, center: screenCenter(e) })
+    dots.set(e.id, { id: e.id, entityKind: e.kind, center: screenCenter(e, camera) })
   }
 
   // Selection door: a loose equal-gap multi-selection. Managed children are
@@ -84,7 +88,7 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
   if (row) {
     for (const id of row.order) {
       const e = byId.get(id)
-      if (e && !dots.has(id)) dots.set(id, { id, entityKind: e.kind, center: screenCenter(e) })
+      if (e && !dots.has(id)) dots.set(id, { id, entityKind: e.kind, center: screenCenter(e, camera) })
     }
   }
 

@@ -1,36 +1,28 @@
 import React, { memo } from 'react'
 import type { CanvasScenePageEntity, CanvasSceneFileEntity } from '../../shared/types'
 import {
+  entityContentScreenRect,
+  entityVisualScreenRect,
+  type Camera,
+} from '../../shared/coords'
+import {
   CUSTOM_SHELL_CORNER_RADIUS,
   CUSTOM_SHELL_SCREEN_CORNER_RADIUS,
   DEVICE_CATALOG,
   contentCornerRadiusForDevice,
 } from '../../shared/device-catalog'
 
-type BorderItem = {
-  id: string
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
-  deviceId?: string | null
-  deviceOrientation?: 'portrait' | 'landscape'
-  showDeviceFrame?: boolean
-  useSvgDeviceShell?: boolean
-  width: number
-}
+type BorderItem = CanvasScenePageEntity | CanvasSceneFileEntity
 
 export const PageBorderLayer = memo(function PageBorderLayer({
   pages,
   fileEntities,
+  camera,
   offsetY = 0,
 }: {
   pages: CanvasScenePageEntity[]
   fileEntities?: CanvasSceneFileEntity[]
+  camera: Camera
   offsetY?: number
 }) {
   const items: BorderItem[] = [...pages, ...(fileEntities ?? []).filter((f) => f.showDeviceFrame)]
@@ -38,21 +30,23 @@ export const PageBorderLayer = memo(function PageBorderLayer({
     <>
       {items.map((page) => {
         // Inner content border
-        const cx = page.contentScreenX ?? page.screenX
-        const cy = (page.contentScreenY ?? page.screenY) - offsetY
-        const cw = page.contentScreenWidth ?? page.screenWidth
-        const ch = page.contentScreenHeight ?? page.screenHeight
+        const content = entityContentScreenRect(page, camera)
+        const cx = content.screenX
+        const cy = content.screenY - offsetY
+        const cw = content.screenWidth
+        const ch = content.screenHeight
 
         // Outer page border
-        const fx = page.screenX
-        const fy = page.screenY - offsetY
-        const fw = page.screenWidth
-        const fh = page.screenHeight
+        const outer = entityVisualScreenRect(page, camera)
+        const fx = outer.screenX
+        const fy = outer.screenY - offsetY
+        const fw = outer.screenWidth
+        const fh = outer.screenHeight
 
         const hasShell = page.showDeviceFrame
 
         // SVG device shell handles its own borders
-        if (hasShell && page.useSvgDeviceShell) return null
+        if (hasShell && 'useSvgDeviceShell' in page && page.useSvgDeviceShell) return null
         const dev = hasShell && page.deviceId ? DEVICE_CATALOG.get(page.deviceId) : null
         const displayZoom = page.width > 0 ? cw / page.width : 1
         const innerRadius = hasShell
