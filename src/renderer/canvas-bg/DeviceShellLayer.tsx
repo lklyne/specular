@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { CanvasScenePageEntity, CanvasSceneFileEntity } from '../../shared/types'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
@@ -23,7 +24,7 @@ interface DeviceShellItem {
   width: number
 }
 
-export function DeviceShellLayer({
+export const DeviceShellLayer = memo(function DeviceShellLayer({
   pages,
   fileEntities,
   isDark,
@@ -198,7 +199,7 @@ export function DeviceShellLayer({
       {framedFiles.map(renderItem)}
     </>
   )
-}
+})
 
 function pct(value: number, total: number): string {
   return `${((value / total) * 100).toFixed(4)}%`

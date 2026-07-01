@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
@@ -59,33 +59,43 @@ export function CanvasGridSurface({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gridStyle = useMemo(() => buildCanvasGridStyle(), [])
 
+  // Latest draw inputs, read by the resize-triggered redraw without re-binding
+  // the observer every pan tick (#265).
+  const drawInputs = useRef({ canvasOrigin, pan, zoom, isDark })
+  drawInputs.current = { canvasOrigin, pan, zoom, isDark }
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const { canvasOrigin: o, pan: p, zoom: z, isDark: dark } = drawInputs.current
+    drawCanvasGrid({
+      canvas,
+      color: dark ? '#78716c' : '#a8a29e',
+      canvasOrigin: o,
+      pan: p,
+      zoom: z,
+      isDark: dark,
+      devicePixelRatio: window.devicePixelRatio || 1,
+    })
+  }, [])
+
+  // Redraw when the viewport changes.
+  useEffect(() => {
+    draw()
+  }, [canvasOrigin, isDark, pan, zoom, draw])
+
+  // Bind resize listeners once — not on every pan.
   useEffect(() => {
     const surface = bgRef.current
-    const canvas = canvasRef.current
-    if (!surface || !canvas) return
-
-    const draw = () => {
-      drawCanvasGrid({
-        canvas,
-        color: isDark ? '#78716c' : '#a8a29e',
-        canvasOrigin,
-        pan,
-        zoom,
-        isDark,
-        devicePixelRatio: window.devicePixelRatio || 1,
-      })
-    }
-
-    draw()
+    if (!surface) return
     const resizeObserver = new ResizeObserver(draw)
     resizeObserver.observe(surface)
     window.addEventListener('resize', draw)
-
     return () => {
       resizeObserver.disconnect()
       window.removeEventListener('resize', draw)
     }
-  }, [bgRef, canvasOrigin, isDark, pan, zoom])
+  }, [bgRef, draw])
 
   return (
     <div
