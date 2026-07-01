@@ -18,7 +18,7 @@ import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
-import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
+import { useSceneCamera, sceneReprojectTransform } from '../shared/hooks/useSceneCamera'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -36,11 +36,9 @@ export default function App({
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
-  const livePan = useMemo(
-    () => ({ x: layoutData.pan.x + panOffset.x, y: layoutData.pan.y + panOffset.y }),
-    [layoutData.pan.x, layoutData.pan.y, panOffset.x, panOffset.y],
-  )
+  const camera = useSceneCamera(api.onViewportNudge, layoutData)
+  // bgView children carry the canvas origin in both axes (no WCV inset).
+  const sceneTransform = sceneReprojectTransform(layoutData, camera, layoutData.canvasOrigin.y)
 
   useCanvasViewportGestures({
     api,
@@ -104,15 +102,15 @@ export default function App({
         bgRef={bgRef}
         isDark={isDark}
         canvasOrigin={layoutData.canvasOrigin}
-        pan={livePan}
-        zoom={layoutData.zoom}
+        pan={camera.pan}
+        zoom={camera.zoom}
       />
-      {/* Translate the page chrome live with the pan gesture so borders and
+      {/* Reproject the page chrome live from the viewport nudge so borders and
           device shells track the natively-positioned page views instead of
-          trailing until the next layout-update rebuild lands (#257). */}
+          trailing until the next layout-update rebuild lands (#257, ADR 0023). */}
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
+        className="pointer-events-none absolute inset-0 origin-top-left"
+        style={{ transform: sceneTransform }}
       >
         <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
         <div className="pointer-events-none absolute inset-0">
