@@ -12,6 +12,21 @@ export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'
 export const TOOLBAR_BORDER_DARK = '#3f3f46'
 export const LEFT_SIDEBAR_WIDTH = 256
 
+// --- Viewport cull hysteresis ---
+// A visible page stays alive until it drifts CULL_KEEP_MARGIN_PX past the
+// viewport; a culled page reappears once it overlaps the viewport inflated by
+// the smaller CULL_SHOW_MARGIN_PX. The dead band between the two stops a page
+// hovering at the edge from toggling bounds (and re-rastering) every pan tick.
+export const CULL_SHOW_MARGIN_PX = 48
+export const CULL_KEEP_MARGIN_PX = 256
+
+// --- Zoom-settle emulation ---
+// During an active zoom, live views are approximately scaled by setBounds
+// (Chromium composites the existing raster at the new size). One crisp
+// enableDeviceEmulation fires this long after the last zoom tick — one reflow
+// per gesture instead of one per frame. ADR 0023 Phase 3.
+export const ZOOM_SETTLE_MS = 130
+
 // --- Toolbar padding (mirrors `src/renderer/toolbar/App.tsx`) ---
 // Mac reserves space at the left for traffic-light buttons; other platforms
 // pad evenly. Kept here so main can compute the toolbar's tool-center x

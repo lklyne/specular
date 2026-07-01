@@ -91,15 +91,18 @@ export function setBoundsIfChanged(
 
 import {
   CARD_BORDER_RADIUS,
+  CULL_KEEP_MARGIN_PX,
+  CULL_SHOW_MARGIN_PX,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
   DEVTOOLS_PANEL_PADDING,
   DEVTOOLS_RESIZE_HANDLE_WIDTH,
   LEFT_SIDEBAR_WIDTH,
   DEVTOOLS_PANEL_DEBUG,
+  ZOOM_SETTLE_MS,
   devtoolsPanelDebug,
 } from './runtime-constants'
-import { boundsOverlap } from './runtime-geometry'
+import { boundsOverlap, pageVisibleWithHysteresis } from './runtime-geometry'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
 // Emulation-cache sentinel marking a page rendered natively (fill focus mode).
@@ -115,6 +118,27 @@ const DEVTOOLS_HIDDEN_BOUNDS = { x: -10_000, y: 0, width: 1, height: 1 }
 
 /** Off-screen origin for automation-interactive pages parked outside the viewport. */
 const AUTOMATION_OFFSCREEN_ORIGIN = -10_000
+
+// --- Zoom-settle emulation (ADR 0023 Phase 3) ---
+// A live WCV can't re-layout crisply at 60fps. During an active zoom we skip
+// enableDeviceEmulation and let the per-tick setBounds scale the existing
+// raster (soft mid-gesture, geometrically correct); one crisp re-emulation
+// fires ZOOM_SETTLE_MS after the last zoom tick. setZoom calls noteZoomActivity.
+let zoomSettleTimer: NodeJS.Timeout | null = null
+
+function isZoomSettling(): boolean {
+  return zoomSettleTimer !== null
+}
+
+export function noteZoomActivity(): void {
+  if (zoomSettleTimer) clearTimeout(zoomSettleTimer)
+  zoomSettleTimer = setTimeout(() => {
+    zoomSettleTimer = null
+    // Emulation was skipped while zooming, so lastPageEmulationKey is stale;
+    // this pass re-emulates every page and component view at the final zoom.
+    requestLayout()
+  }, ZOOM_SETTLE_MS)
+}
 
 function layoutDevtoolsViews(): void {
   const devtoolsOpen = uiDevtoolsOpen()
@@ -355,12 +379,21 @@ function layoutAllViews(): void {
       continue
     }
 
-    // Viewport culling — off-screen pages get hidden bounds.
+    // Viewport culling — off-screen pages get hidden bounds. Hysteresis on the
+    // cull threshold keeps a page hovering at the edge from toggling bounds
+    // every pan tick (each toggle is a setBounds + re-raster on re-show).
     // Skip culling during drag and for pages in automation-interactive mode
     // (agents need non-zero bounds to interact with off-screen pages).
-    const isOnScreen = boundsOverlap(bounds.page, windowRect)
+    const isOnScreen = pageVisibleWithHysteresis(
+      bounds.page,
+      windowRect,
+      page.culled ?? false,
+      CULL_SHOW_MARGIN_PX,
+      CULL_KEEP_MARGIN_PX,
+    )
     const isAutomationActive = automationInteractivePageCounts.has(page.id)
     if (!isOnScreen && interactionState.kind !== 'dragging-entities') {
+      page.culled = true
       if (isAutomationActive) {
         // Automation-interactive pages that aren't visible on the canvas
         // are parked off-screen at their logical viewport size, so an
@@ -399,6 +432,8 @@ function layoutAllViews(): void {
       })
       continue
     }
+
+    page.culled = false
 
     const deviceId = deviceIdFromMetadata(page.metadata)
     const showShell = showDeviceFrameFromMetadata(page.metadata)
@@ -439,7 +474,10 @@ function layoutAllViews(): void {
       const nativeScale = screen.getPrimaryDisplay().scaleFactor
       const pageScale = zoom
       const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsOpen ? devtoolsWidth : 0}`
-      if (pageEmulationKey !== page.lastPageEmulationKey) {
+      // During an active zoom, setBounds above already scaled the raster;
+      // re-emulating is deferred to the settle pass (leaving the stale key so
+      // the mismatch triggers one crisp reflow then).
+      if (pageEmulationKey !== page.lastPageEmulationKey && !isZoomSettling()) {
         const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
         boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
         page.lastPageEmulationKey = pageEmulationKey
@@ -534,9 +572,10 @@ function layoutAllViews(): void {
     cv.lastBoundsKey = setBoundsIfChanged(cv.view, bounds, cv.lastBoundsKey)
 
     // Emulate the entity's logical viewport and let canvas zoom drive the
-    // paint scale. Mirrors page emulation so components reflow the same way.
+    // paint scale. Mirrors page emulation so components reflow the same way —
+    // including deferring re-emulation to the zoom-settle pass.
     const emulationKey = `${entity.width}:${entity.height}:${zoom}:${nativeScale}`
-    if (emulationKey !== cv.lastEmulationKey) {
+    if (emulationKey !== cv.lastEmulationKey && !isZoomSettling()) {
       cv.view.webContents.enableDeviceEmulation({
         screenPosition: 'desktop',
         screenSize: { width: entity.width, height: entity.height },
