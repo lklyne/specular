@@ -4,7 +4,7 @@ import {
   getFileEntities,
   getTextEntities,
 } from '../runtime/document-commands'
-import { animateCursorScan, allEntityPositions } from '../presence-manager'
+import { animateCursorScan, allEntityPositions } from '../presence-cursor'
 import { writeJson } from './http-helpers'
 
 /**

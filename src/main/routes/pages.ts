@@ -20,12 +20,12 @@ import {
   summarizeCdpProxyRegistration,
   cdpProxyMetrics,
 } from '../cdp-proxy'
+import { movePresenceCursorTo } from '../presence-cursor'
 import {
-  movePresenceCursorTo,
   normalizeAgentSnapshot,
   findPresenceTarget,
-  resolveSession,
 } from '../presence-manager'
+import { resolveSession } from '../presence-session'
 import { writeJson, getServerAddress } from './http-helpers'
 
 export const pageRoutes: Route[] = [

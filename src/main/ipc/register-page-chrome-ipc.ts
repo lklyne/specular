@@ -2,10 +2,8 @@ import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
-import {
-  bgView,
-  zoom,
-} from '../runtime/surface-layout'
+import { bgView } from '../runtime/view-refs'
+import { zoom } from '../runtime/runtime-context'
 import { requestLayout } from '../runtime/viewport-control'
 import {
   deselectAll,

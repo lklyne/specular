@@ -13,9 +13,9 @@ import {
   getComponentSourceLocationByNodeId,
 } from './runtime/page-runtime'
 import { markDirty } from './runtime/layout-dirty'
-import { requestLayout } from './runtime/surface-layout'
+import { requestLayout } from './runtime/viewport-control'
 import { workspaceAnnotations } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { makeId } from './workspace-utils'
 import { VIEWPORT_PRESETS } from '../shared/constants'
 

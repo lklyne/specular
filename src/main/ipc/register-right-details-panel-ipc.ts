@@ -36,7 +36,7 @@ import {
   setSelectedInspectNodeById,
   setSelectedInspectTarget,
 } from '../runtime/ui-actions'
-import { requestLayout } from '../runtime/surface-layout'
+import { requestLayout } from '../runtime/viewport-control'
 import { markDirty } from '../runtime/layout-dirty'
 import {
   addAnnotationReply,
@@ -45,30 +45,109 @@ import {
   updateAnnotationStatus,
 } from '../workspace-annotations'
 import { pages } from '../runtime/page-runtime'
+import {
+  forwardOverrideToPage,
+  type ComponentPropOverridePayload,
+  type ComponentTokenOverridePayload,
+} from './component-override'
 
-type ComponentPropOverridePayload = {
-  pageId: string
-  componentId: string
-  propPath: string[]
-  value: unknown
+type SingleFieldCommand = {
+  /** Payload key carrying the target id. */
+  key: 'annotationId' | 'origin' | 'pageId' | 'fileId'
+  /** Trim the id and require it non-empty before running. */
+  trim?: boolean
+  /** Extra payload validation beyond the id field. */
+  accept?: (payload: Record<string, unknown>) => boolean
+  run: (id: string, payload: Record<string, unknown>) => void
 }
 
-type ComponentTokenOverridePayload = {
-  pageId: string
-  componentId?: string
-  token: string
-  value: string
-  selector?: string
+const hasPresetIndex = (payload: Record<string, unknown>): boolean =>
+  typeof payload.presetIndex === 'number'
+
+const hasOrientation = (payload: Record<string, unknown>): boolean =>
+  payload.orientation === 'portrait' || payload.orientation === 'landscape'
+
+/** Channels that validate one id field, then call one function. */
+const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
+  // --- Annotations and fixes ---
+  'right-details-panel-resolve-annotation': {
+    key: 'annotationId',
+    trim: true,
+    run: (id) => updateAnnotationStatus(id, 'resolved'),
+  },
+  'right-details-panel-delete-annotation': {
+    key: 'annotationId',
+    trim: true,
+    run: (id) => deleteAnnotation(id),
+  },
+  'right-details-panel-trigger-fix-comments': {
+    key: 'origin',
+    trim: true,
+    run: (origin) => fixPendingAnnotationsForOrigin(origin),
+  },
+  'right-details-panel-fix-single-annotation': {
+    key: 'annotationId',
+    trim: true,
+    run: (id) => fixAnnotation(id),
+  },
+  // --- Device Page ---
+  'right-details-panel-set-page-preset': {
+    key: 'pageId',
+    accept: hasPresetIndex,
+    run: (id, payload) => setPagePreset(id, payload.presetIndex as number),
+  },
+  'right-details-panel-set-page-custom': {
+    key: 'pageId',
+    run: (id) => setPageCustom(id),
+  },
+  'right-details-panel-set-device-orientation': {
+    key: 'pageId',
+    accept: hasOrientation,
+    run: (id, payload) =>
+      setDeviceOrientation(id, payload.orientation as 'portrait' | 'landscape'),
+  },
+  'right-details-panel-toggle-device-shell': {
+    key: 'pageId',
+    run: (id) => toggleDeviceShell(id),
+  },
+  'right-details-panel-toggle-svg-device-shell': {
+    key: 'pageId',
+    run: (id) => toggleSvgDeviceShell(id),
+  },
+  // --- File Device Settings ---
+  'right-details-panel-set-file-preset': {
+    key: 'fileId',
+    accept: hasPresetIndex,
+    run: (id, payload) => setFilePreset(id, payload.presetIndex as number),
+  },
+  'right-details-panel-set-file-custom': {
+    key: 'fileId',
+    run: (id) => setFileCustom(id),
+  },
+  'right-details-panel-set-file-device-orientation': {
+    key: 'fileId',
+    accept: hasOrientation,
+    run: (id, payload) =>
+      setFileDeviceOrientation(id, payload.orientation as 'portrait' | 'landscape'),
+  },
+  'right-details-panel-toggle-file-device-shell': {
+    key: 'fileId',
+    run: (id) => toggleFileDeviceShell(id),
+  },
 }
 
-function forwardOverrideToPage(
-  pageId: string,
-  channel: 'override-props' | 'override-token',
-  payload: Record<string, unknown>,
-): void {
-  const page = pages.find((candidate) => candidate.id === pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
-  page.pageView.webContents.send(channel, payload)
+function registerSingleFieldHandlers(): void {
+  for (const [channel, command] of Object.entries(SINGLE_FIELD_COMMANDS)) {
+    ipcMain.on(channel, (_event, payload: Record<string, unknown> | undefined) => {
+      if (!payload) return
+      const raw = payload[command.key]
+      if (typeof raw !== 'string') return
+      const id = command.trim ? raw.trim() : raw
+      if (!id) return
+      if (command.accept && !command.accept(payload)) return
+      command.run(id, payload)
+    })
+  }
 }
 
 export function registerRightDetailsPanelIpc(): void {
@@ -165,41 +244,7 @@ export function registerRightDetailsPanelIpc(): void {
     },
   )
 
-  ipcMain.on(
-    'right-details-panel-resolve-annotation',
-    (_event, payload: { annotationId?: string } | undefined) => {
-      const annotationId = payload?.annotationId?.trim()
-      if (!annotationId) return
-      updateAnnotationStatus(annotationId, 'resolved')
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-delete-annotation',
-    (_event, payload: { annotationId?: string } | undefined) => {
-      const annotationId = payload?.annotationId?.trim()
-      if (!annotationId) return
-      deleteAnnotation(annotationId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-trigger-fix-comments',
-    (_event, payload: { origin?: string } | undefined) => {
-      const origin = payload?.origin?.trim()
-      if (!origin) return
-      fixPendingAnnotationsForOrigin(origin)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-fix-single-annotation',
-    (_event, payload: { annotationId?: string } | undefined) => {
-      const annotationId = payload?.annotationId?.trim()
-      if (!annotationId) return
-      fixAnnotation(annotationId)
-    },
-  )
+  registerSingleFieldHandlers()
 
   ipcMain.on(
     'right-details-panel-set-auto-fix',
@@ -263,84 +308,6 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { id: string }) => {
       if (!payload?.id) return
       deleteEdge(payload.id)
-    },
-  )
-
-  // --- Device Page ---
-
-  ipcMain.on(
-    'right-details-panel-set-page-preset',
-    (_event, payload: { pageId: string; presetIndex: number }) => {
-      if (!payload?.pageId || typeof payload.presetIndex !== 'number') return
-      setPagePreset(payload.pageId, payload.presetIndex)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-page-custom',
-    (_event, payload: { pageId: string }) => {
-      if (!payload?.pageId) return
-      setPageCustom(payload.pageId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-device-orientation',
-    (_event, payload: { pageId: string; orientation: string }) => {
-      if (!payload?.pageId) return
-      if (payload.orientation !== 'portrait' && payload.orientation !== 'landscape') return
-      setDeviceOrientation(payload.pageId, payload.orientation)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-toggle-device-shell',
-    (_event, payload: { pageId: string }) => {
-      if (!payload?.pageId) return
-      toggleDeviceShell(payload.pageId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-toggle-svg-device-shell',
-    (_event, payload: { pageId: string }) => {
-      if (!payload?.pageId) return
-      toggleSvgDeviceShell(payload.pageId)
-    },
-  )
-
-  // --- File Device Settings ---
-
-  ipcMain.on(
-    'right-details-panel-set-file-preset',
-    (_event, payload: { fileId: string; presetIndex: number }) => {
-      if (!payload?.fileId || typeof payload.presetIndex !== 'number') return
-      setFilePreset(payload.fileId, payload.presetIndex)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-file-custom',
-    (_event, payload: { fileId: string }) => {
-      if (!payload?.fileId) return
-      setFileCustom(payload.fileId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-file-device-orientation',
-    (_event, payload: { fileId: string; orientation: string }) => {
-      if (!payload?.fileId) return
-      if (payload.orientation !== 'portrait' && payload.orientation !== 'landscape') return
-      setFileDeviceOrientation(payload.fileId, payload.orientation)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-toggle-file-device-shell',
-    (_event, payload: { fileId: string }) => {
-      if (!payload?.fileId) return
-      toggleFileDeviceShell(payload.fileId)
     },
   )
 

@@ -69,15 +69,9 @@ import {
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
-import {
-  canvasOrigin,
-  pageContentSize,
-  pan,
-  recenterFocusPresentation,
-  requestLayout,
-  snapToGrid,
-  zoom,
-} from './surface-layout'
+import { pan, zoom } from './runtime-context'
+import { recenterFocusPresentation, requestLayout } from './viewport-control'
+import { snapToGrid } from '../../shared/gesture-utils'
 import {
   createTextEntity as createTextEntityInState,
   updateTextEntity as updateTextEntityInState,
@@ -107,10 +101,12 @@ import { descendantEntityIdsForGroup } from './group-descendants'
 import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { beginBatch, endBatch } from './workspace-observers'
-import { scheduleWorkspaceAutosave } from './workspace-session'
+import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { markUndoBoundary } from './workspace-undo'
 import {
   boundAvailableCanvasViewportRect,
+  boundCanvasOrigin as canvasOrigin,
+  pageContentSize,
   pageSnapBounds,
 } from './runtime-geometry'
 import {

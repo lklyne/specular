@@ -72,15 +72,13 @@ import {
   setActiveTool,
   setSelectedEntities,
 } from '../runtime/ui-actions'
-import {
-  requestLayout,
-  snapToGrid,
-} from '../runtime/surface-layout'
+import { requestLayout } from '../runtime/viewport-control'
+import { snapToGrid } from '../../shared/gesture-utils'
 import { markDirty } from '../runtime/layout-dirty'
 import { pageContentSize } from '../runtime/runtime-geometry'
 import {
   scheduleWorkspaceAutosave,
-} from '../runtime/workspace-session'
+} from '../runtime/workspace-autosave'
 import { navigatePage, togglePageLinked } from '../navigation-sync'
 import {
   deviceIdFromMetadata,

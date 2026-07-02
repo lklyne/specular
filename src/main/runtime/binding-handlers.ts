@@ -7,7 +7,7 @@ import { groupSelectedEntities, makeAutoLayoutFromSelection, ungroupSelectedGrou
 import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './surface-layout'
+import { requestLayout } from './viewport-control'
 import { arrowNavigationLocked, setArrowNavigationLocked, interactivePageId, pages, selectedPageId } from './runtime-context'
 import { exitPageInteractive } from './overlay-manager'
 import { deletePages } from '../workspace-entities'

@@ -4,12 +4,12 @@ import { logCrash } from './crash-log'
 import {
   flushWorkspaceAutosaveSync,
   loadWorkspace,
-  restorePersistedWorkspace,
-} from './runtime/workspace-session'
+} from './runtime/workspace-autosave'
+import { restorePersistedWorkspace } from './runtime/workspace-restore'
 import { createPage, pages, removePageById, setMcpConnectionStatus } from './runtime/page-runtime'
 import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
 import { duplicatePageFromSource } from './workspace-pages'
-import { requestLayout } from './runtime/surface-layout'
+import { requestLayout } from './runtime/viewport-control'
 import { toggleDevTools } from './runtime/ui-actions'
 import { broadcastTheme, initWindow, isDark, win } from './runtime/window-shell'
 import {

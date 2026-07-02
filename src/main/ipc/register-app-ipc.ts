@@ -2,15 +2,15 @@ import { ipcMain, nativeTheme } from 'electron'
 import {
   getCanvasLayoutData,
   getLeftSidebarData,
-  isDark,
-  requestLayout,
-} from '../runtime/surface-layout'
+} from '../runtime/canvas-layout-data'
+import { isDark } from '../runtime/preferences'
+import { requestLayout } from '../runtime/viewport-control'
 import { rebuildWindowFromSnapshot } from '../runtime/window-shell'
 import {
   currentPersistedWorkspaceRecord,
-  restorePersistedWorkspace,
   workspaceSnapshot,
-} from '../runtime/workspace-session'
+} from '../runtime/workspace-tabs'
+import { restorePersistedWorkspace } from '../runtime/workspace-restore'
 import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerAppIpc(): void {

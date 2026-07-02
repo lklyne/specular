@@ -23,8 +23,9 @@ import {
   createDrawingEntity as createDrawingEntityInState,
   drawingEntities,
 } from './runtime/drawing-entity-state'
-import { requestLayout, snapToGrid } from './runtime/surface-layout'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { requestLayout } from './runtime/viewport-control'
+import { snapToGrid } from '../shared/gesture-utils'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { cloneMetadata } from './workspace-utils'
 
 export function copyablePagePayload(

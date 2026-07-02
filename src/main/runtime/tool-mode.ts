@@ -17,7 +17,7 @@ import {
   syncInspectionState,
   notifyDevtoolsPanelData,
 } from './inspect-session'
-import { requestLayout } from './surface-layout'
+import { requestLayout } from './viewport-control'
 
 function syncAnnotationState(): void {
   const payload = toolAnnotateOverlay(uiActiveTool())

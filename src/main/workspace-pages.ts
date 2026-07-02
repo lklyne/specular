@@ -30,14 +30,14 @@ import {
   drawingEntities,
   createDrawingEntity as createDrawingEntityInState,
 } from './runtime/drawing-entity-state'
+import { pageContentSize } from './runtime/runtime-geometry'
+import { snapToGrid } from '../shared/gesture-utils'
 import {
   focusCanvasBounds,
-  pageContentSize,
+  recenterFocusPresentation,
   requestLayout,
-  snapToGrid,
-} from './runtime/surface-layout'
-import { recenterFocusPresentation } from './runtime/viewport-control'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+} from './runtime/viewport-control'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
 import { setPendingFocus } from './runtime/runtime-context'
 import { focusSession, repointFocusSession } from './runtime/focus-session'

@@ -9,7 +9,7 @@ import {
   resolveSpacing,
   SPACING_TOKEN_PIXELS,
   validateLayoutDirective,
-} from '../../src/shared/types'
+} from '../../src/shared/layout-directive'
 
 const ORIGIN = { x: 0, y: 0 }
 

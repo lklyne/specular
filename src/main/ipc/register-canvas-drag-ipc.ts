@@ -24,16 +24,15 @@ import { markUndoBoundary } from '../runtime/workspace-undo'
 import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
+import { pan, zoom } from '../runtime/runtime-context'
 import {
-  canvasOrigin,
   cancelCameraAnimation,
-  pan,
   requestLayout,
   setPan,
   setZoom,
-  win,
-  zoom,
-} from '../runtime/surface-layout'
+} from '../runtime/viewport-control'
+import { boundCanvasOrigin as canvasOrigin } from '../runtime/runtime-geometry'
+import { win } from '../runtime/view-refs'
 import { isFocusSessionActive } from '../runtime/focus-session'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
 import {

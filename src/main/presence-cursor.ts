@@ -1,5 +1,5 @@
 // fallow-ignore-file circular-dependencies
-// Suppressed: see #141. document-commands → surface-layout → canvas-layout-data import presence-cursor back
+// Suppressed: see #141. document-commands → … → canvas-layout-data / layout-engine import presence-cursor back
 import type { IncomingMessage } from 'http'
 import type {
   PresenceActivity,
@@ -12,6 +12,7 @@ import {
   PRESENCE_STEP_DELAY_MS,
   PRESENCE_THINKING_DELAY_MS,
 } from '../shared/presence-timing'
+import { PRESENCE_LABEL_KEYS } from '../shared/presence-label-keys'
 import {
   getTextEntities,
   getFileEntities,
@@ -88,24 +89,11 @@ const PRESENCE_IDLE_RETIRE_MS = 10_000
 
 // --- Coercion validation sets ---
 
-const PRESENCE_LABEL_KEYS = new Set<PresenceLabelKey>([
-  'scan_workspace',
-  'find_placement',
-  'create_page',
-  'select_page',
-  'attach_page',
-  'inspect_page',
-  'find_target',
-  'click_target',
-  'type_text',
-  'select_option',
-  'wait_page',
-  'scroll_page',
-  'read_content',
-  'add_annotation',
-  'thinking',
-  'idle',
-])
+// 'departing' is set internally when a session winds down; it is never
+// accepted from client input.
+const COERCIBLE_PRESENCE_LABEL_KEYS = new Set<PresenceLabelKey>(
+  PRESENCE_LABEL_KEYS.filter((key) => key !== 'departing'),
+)
 
 const PRESENCE_ACTIVITIES = new Set<PresenceActivity>([
   'traveling',
@@ -233,7 +221,7 @@ export function onPresenceCursorsChanged(listener: () => void): () => void {
 // --- Coercion helpers ---
 
 export function coercePresenceLabelKey(value: unknown): PresenceLabelKey | null {
-  return typeof value === 'string' && PRESENCE_LABEL_KEYS.has(value as PresenceLabelKey)
+  return typeof value === 'string' && COERCIBLE_PRESENCE_LABEL_KEYS.has(value as PresenceLabelKey)
     ? (value as PresenceLabelKey)
     : null
 }
@@ -257,6 +245,48 @@ export function coercePresenceTargetRefSource(value: unknown): PresenceTargetRef
 }
 
 // --- Cursor mutation functions ---
+
+/** Copy `keys` from `source`, skipping keys whose value is `undefined` (so
+ *  they fall through to the previous spread), but keeping explicit `null`s
+ *  (which overwrite). */
+function pickDefined<T extends object, K extends keyof T>(
+  source: T | undefined,
+  keys: readonly K[],
+): Partial<Pick<T, K>> {
+  const picked: Partial<Pick<T, K>> = {}
+  if (!source) return picked
+  for (const key of keys) {
+    if (source[key] !== undefined) picked[key] = source[key]
+  }
+  return picked
+}
+
+/** Cursor fields merged patch-over-existing-over-null. The rest of
+ *  `PresenceCursorEntry` has bespoke fallbacks and is set explicitly. */
+const MERGED_CURSOR_FIELDS = [
+  'pageId',
+  'pageX',
+  'pageY',
+  'labelKey',
+  'labelParams',
+  'targetRef',
+  'targetRefSource',
+  'targetName',
+  'targetRect',
+] as const
+
+/** Task fields merged patch-over-existing-over-null. */
+const MERGED_TASK_FIELDS = [
+  'taskLabel',
+  'pageId',
+  'pageX',
+  'pageY',
+  'canvasX',
+  'canvasY',
+  'targetName',
+  'targetRect',
+  'labelHint',
+] as const
 
 export function upsertPresenceCursor(
   request: IncomingMessage,
@@ -297,7 +327,19 @@ export function upsertPresenceCursor(
     existing.canvasX !== resolvedCanvasX ||
     existing.canvasY !== resolvedCanvasY
   const now = Date.now()
+  const activeTask = activePresenceTasks.get(sessionId)
   const next: PresenceCursorEntry = {
+    pageId: null,
+    pageX: null,
+    pageY: null,
+    labelKey: null,
+    labelParams: null,
+    targetRef: null,
+    targetRefSource: null,
+    targetName: null,
+    targetRect: null,
+    ...pickDefined(existing, MERGED_CURSOR_FIELDS),
+    ...pickDefined(patch, MERGED_CURSOR_FIELDS),
     sessionId,
     clientName: session.clientName,
     color: existing?.color ?? deriveColor(sessionId),
@@ -305,50 +347,14 @@ export function upsertPresenceCursor(
     canvasY: resolvedCanvasY,
     surface: patch.surface ?? existing?.surface ?? 'canvas',
     activity: patch.activity ?? existing?.activity ?? 'acting',
-    pageId:
-      patch.pageId === undefined
-        ? existing?.pageId ?? null
-        : patch.pageId,
-    pageX:
-      patch.pageX === undefined
-        ? existing?.pageX ?? null
-        : patch.pageX,
-    pageY:
-      patch.pageY === undefined
-        ? existing?.pageY ?? null
-        : patch.pageY,
-    labelKey:
-      patch.labelKey === undefined
-        ? existing?.labelKey ?? null
-        : patch.labelKey,
     taskLabel:
       patch.taskLabel === undefined
-        ? existing?.taskLabel ?? activePresenceTasks.get(sessionId)?.taskLabel ?? null
+        ? existing?.taskLabel ?? activeTask?.taskLabel ?? null
         : patch.taskLabel,
     labelHint:
       patch.labelHint === undefined
-        ? existing?.labelHint ?? activePresenceTasks.get(sessionId)?.labelHint ?? null
+        ? existing?.labelHint ?? activeTask?.labelHint ?? null
         : patch.labelHint,
-    labelParams:
-      patch.labelParams === undefined
-        ? existing?.labelParams ?? null
-        : patch.labelParams,
-    targetRef:
-      patch.targetRef === undefined
-        ? existing?.targetRef ?? null
-        : patch.targetRef,
-    targetRefSource:
-      patch.targetRefSource === undefined
-        ? existing?.targetRefSource ?? null
-        : patch.targetRefSource,
-    targetName:
-      patch.targetName === undefined
-        ? existing?.targetName ?? null
-        : patch.targetName,
-    targetRect:
-      patch.targetRect === undefined
-        ? existing?.targetRect ?? null
-        : patch.targetRect,
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
   }
@@ -379,45 +385,20 @@ export function upsertActivePresenceTask(
   const { sessionId, session } = resolved
   const existing = activePresenceTasks.get(sessionId)
   activePresenceTasks.set(sessionId, {
+    taskLabel: null,
+    pageId: null,
+    pageX: null,
+    pageY: null,
+    canvasX: null,
+    canvasY: null,
+    targetName: null,
+    targetRect: null,
+    labelHint: null,
+    ...pickDefined(existing, MERGED_TASK_FIELDS),
+    ...pickDefined(patch, MERGED_TASK_FIELDS),
     sessionId,
     clientName: session.clientName,
-    taskLabel:
-      patch.taskLabel === undefined
-        ? existing?.taskLabel ?? null
-        : patch.taskLabel,
     surface: patch.surface ?? existing?.surface ?? 'canvas',
-    pageId:
-      patch.pageId === undefined
-        ? existing?.pageId ?? null
-        : patch.pageId,
-    pageX:
-      patch.pageX === undefined
-        ? existing?.pageX ?? null
-        : patch.pageX,
-    pageY:
-      patch.pageY === undefined
-        ? existing?.pageY ?? null
-        : patch.pageY,
-    canvasX:
-      patch.canvasX === undefined
-        ? existing?.canvasX ?? null
-        : patch.canvasX,
-    canvasY:
-      patch.canvasY === undefined
-        ? existing?.canvasY ?? null
-        : patch.canvasY,
-    targetName:
-      patch.targetName === undefined
-        ? existing?.targetName ?? null
-        : patch.targetName,
-    targetRect:
-      patch.targetRect === undefined
-        ? existing?.targetRect ?? null
-        : patch.targetRect,
-    labelHint:
-      patch.labelHint === undefined
-        ? existing?.labelHint ?? null
-        : patch.labelHint,
     updatedAt: Date.now(),
   })
   schedulePresenceExpiry()
