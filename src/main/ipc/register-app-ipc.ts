@@ -11,13 +11,7 @@ import {
   restorePersistedWorkspace,
   workspaceSnapshot,
 } from '../runtime/workspace-session'
-
-const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
-
-function selectionDebug(event: string, details?: Record<string, unknown>): void {
-  if (!SELECTION_DEBUG) return
-  console.log('[selection-debug:ipc]', { ts: Date.now(), event, ...details })
-}
+import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerAppIpc(): void {
   ipcMain.on(

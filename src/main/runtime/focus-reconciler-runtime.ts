@@ -46,7 +46,7 @@ function resolve(target: FocusTarget): WebContents | null {
   }
 }
 
-function currentlyFocusedKey(): string | null {
+export function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
   if (aboveView?.webContents.isFocused()) return 'aboveView'
   if (toolbarView?.webContents.isFocused()) return 'toolbar'
