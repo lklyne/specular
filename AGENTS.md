@@ -15,12 +15,13 @@ pnpm install                 # install dependencies
 pnpm dev                     # start the Electron app
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
-pnpm test:smoke              # integration tests (spawns Electron, uses HTTP API)
+pnpm test:integration        # real runtime in-process (no Electron, seconds)
+pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
 pnpm build                   # package for distribution
 ```
 
 After any structural change, run `typecheck` + `test:unit` at minimum.
-After changes to runtime, IPC, or persistence, run `test:smoke`.
+After changes to runtime, IPC, or persistence, run `test:integration`.
 
 ## Architecture (quick reference)
 
@@ -104,5 +105,6 @@ Build toward small, obvious pieces.
 ## Testing patterns
 
 - **Unit tests** — pure logic, no Electron. `tests/unit/`
-- **Smoke tests** — full app via HTTP API, serial. `tests/smoke/`
+- **Integration tests** — real runtime in-process, electron stubbed. `tests/integration/`
+- **Boot tests** — real Electron, pre-release only. `tests/boot/`
 - **Agent tests** — scenario scripts. `tests/agent/`

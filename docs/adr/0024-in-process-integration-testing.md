@@ -6,7 +6,7 @@
 
 ## Context
 
-The Electron-spawning smoke suite (`tests/smoke/`, 26 files, ~169 tests, ~34s) was the designated coverage for the highest-risk layer — persistence, undo, forward/reverse sync. An audit of ~11 weeks of session history (#278) found it produced roughly zero clean regression catches. Three structural reasons:
+The Electron-spawning smoke suite (`tests/smoke/`, 24 test files, ~169 tests, ~34s) was the designated coverage for the highest-risk layer — persistence, undo, forward/reverse sync. An audit of ~11 weeks of session history (#278) found it produced roughly zero clean regression catches. Three structural reasons:
 
 1. **It tested a facade.** `src/main/routes/test.ts` (589 lines) was a test-only HTTP entry point wired in parallel to the real IPC handlers. A test could stay green while the shipping path was broken (commit `ef012e7a` was exactly this).
 2. **It was gated nowhere.** Spawning Electron made it too slow/fragile for CI, so it ran only when someone remembered — and cloud agent sessions couldn't run it at all (no display, no Electron binary). A suite that only runs ad hoc and passes ~100% of the time is ritual, not protection.
