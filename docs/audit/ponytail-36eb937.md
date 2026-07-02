@@ -79,7 +79,7 @@ Future: MCP delete (~1,000) after CLI migration. three.js is off the table.
 
 - [x] Run 0 — fallow ground truth (`fallow-36eb937.txt`)
 - [x] Run 1 — this cut list; tradeoffs decided 2026-07-01
-- [~] **Apply pass** (in progress, branch `architecture-audit`) — each commit verified with
+- [x] **Apply pass** (complete 2026-07-02, branch `architecture-audit`) — each commit verified with
       `pnpm typecheck && pnpm test:unit && pnpm test:smoke` (all green: 722 unit, 169 smoke).
       Applied so far:
   - `56b0c5d` — canvasGeometry + wireframe fixtures + page-hover handler deletes; feature-flag
@@ -102,24 +102,30 @@ Future: MCP delete (~1,000) after CLI migration. three.js is off the table.
     shared/): its header rationale — testable state machine without DOM — holds
     regardless of directory, and the move is import churn across 4 files + a test for
     zero line savings.
+  - `5461747` — startPointerSession helper (pointer-session.ts); 11/11 drag-session
+    scaffolds converted (router + App.tsx), phantom-blur guard preserved as `ignoreBlur`
+    option, teardown order verbatim.
+  - `5ac1efe` — CSS `field-sizing: content` (+ max-h/overflow) replaces both JS textarea
+    autosize routines; resizeCommentInput prop threading deleted. **Needs one visual
+    check** (composer grows with text, clamps at 120px) — see regression plan.
+  - `974612e` — renderer dedups: CanvasViewportLayer + EntityShell (4 identical body
+    layers), useDebouncedWrite hook (3 copies; only markdown flushes on unmount, as
+    before), WireframeNodeRenderer local extractions, PenIconDefs + penGlyphPalette.
+  - `a3c7069` — main-process batch: presence-cursor pickDefined merge (bespoke-fallback
+    fields kept explicit), presence-label-keys.ts single source ('departing' still
+    excluded from coercion), presence-manager barrel removed (consumers repointed),
+    ipc/component-override.ts extraction, single-field IPC command table (13 handlers),
+    scroll/typing correlation via sendPageIpc (gains per-page cleanup),
+    surface-layout/workspace-session facades deleted (madge: no new cycles),
+    layout-directive.ts moved out of types.ts.
 
   **Skipped (with rationale):**
   - `MutationContext` empty interface — documented ADR-0019 seam, on this file's own do-not-cut list.
   - Finding #22 (cubic-bezier easing solver) — the *kept* PresenceSection easing picker still
     produces `kind:'custom'` specs, so it is not dead; cursor-motion.ts left untouched.
-
-  **Not yet applied (recommend one focused commit each; several are load-bearing — review before/after):**
-  - Dedup extractions: pointer drag-session scaffolds (~200, interaction-layer §6 invariants),
-    body-layer scaffold
-    (~100), pen-icon defs (~100), presence-cursor field merge (~75, fallow-CRITICAL),
-    PresenceLabelKey 3× (~45), 13 one-field IPC handlers (~45), WireframeNodeRenderer clones (~35),
-    ComponentPropOverridePayload dup (~30), debounced-file-write hook (~20), selectionDebug/... done.
-  - Facades: surface-layout / workspace-session (~80, #141 circular-dep caveat),
-    presence-manager re-export blocks (~40, repoint 7 consumers).
-  - stdlib: requestId+once+timeout IPC → sendPageIpc (~35).
-  - native: two textarea autosize routines → CSS `field-sizing: content` (~19) — **needs visual
-    verification in the running app** before applying.
-  - yagni: applyTaskLayout generic envelope (~10). hygiene: move layout-directive out of types.ts.
+  - applyTaskLayout envelope (#37) — the `taskKind` guard is runtime validation of an HTTP
+    trust boundary (`body as ApplyTaskLayoutRequest`), and `TaskKind` is already a
+    single-member union; inlining deletes validation, not slop.
 - [ ] Run 2 — `/improve-codebase-architecture` (prepend the invariant preamble from
       `docs/architecture-audit.md`; point it at this file so it doesn't re-derive)
 - [ ] Run 3 — `deep-audit` per seam, heaviest first (see docs/architecture-audit.md §3)
