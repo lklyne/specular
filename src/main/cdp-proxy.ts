@@ -512,19 +512,3 @@ export function allowCdpTargetEvent(method: string, params: Record<string, unkno
   return true
 }
 
-// --- Reset ---
-
-export function resetCdpProxyState(): void {
-  for (const registration of [...cdpProxyRegistrations.values()]) {
-    registration.selectionSnapshot = null
-    disposeCdpProxyRegistration(registration)
-  }
-  cdpProxyRegistrations.clear()
-  cdpProxyRegistrationsByKey.clear()
-  cdpProxyMetrics.registrationsCreated = 0
-  cdpProxyMetrics.registrationsReused = 0
-  cdpProxyMetrics.upstreamConnects = 0
-  cdpProxyMetrics.upstreamReconnects = 0
-  cdpProxyMetrics.interceptedClicks = 0
-  cdpProxyMetrics.interceptedScrolls = 0
-}

@@ -75,7 +75,6 @@ import {
   upsertPresenceCursor,
   upsertActivePresenceTask,
   scheduleThinkingState,
-  resetPresenceState as resetPresenceCursorState,
   notifyPresenceChanged,
 } from './presence-cursor'
 
@@ -533,10 +532,4 @@ export function updatePresenceCursor(
   }
 
   scheduleThinkingState(request)
-}
-
-// --- Reset ---
-
-export function resetPresenceState(): void {
-  resetPresenceCursorState(pendingIntents)
 }

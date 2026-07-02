@@ -27,10 +27,12 @@
     "src/renderer/toolbar/main.tsx",
 
     "tests/unit/**/*.test.ts",
-    "tests/smoke/**/*.test.ts",
+    "tests/integration/**/*.test.ts",
+    "tests/boot/**/*.test.ts",
 
-    "tests/smoke/global-setup.ts",
-    "tests/smoke/setup.ts",
+    "tests/integration/harness.ts",
+    "tests/integration/electron-stub.ts",
+    "tests/boot/global-setup.ts",
 
     "vite.main.config.ts",
     "vite.preload.config.ts",

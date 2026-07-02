@@ -704,21 +704,3 @@ export function animateCursorScan(
 
 // --- Reset ---
 
-export function resetPresenceState(pendingIntents: Map<string, { expiryTimer: NodeJS.Timeout }>): void {
-  if (thinkingTimer) {
-    clearTimeout(thinkingTimer)
-    thinkingTimer = null
-  }
-  if (presenceExpiryTimer) {
-    clearTimeout(presenceExpiryTimer)
-    presenceExpiryTimer = null
-  }
-
-  for (const pending of pendingIntents.values()) {
-    clearTimeout(pending.expiryTimer)
-  }
-  pendingIntents.clear()
-  activePresenceTasks.clear()
-  presenceCursors.clear()
-  notifyPresenceChanged()
-}
