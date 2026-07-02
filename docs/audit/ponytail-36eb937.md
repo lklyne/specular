@@ -79,9 +79,37 @@ Future: MCP delete (~1,000) after CLI migration. three.js is off the table.
 
 - [x] Run 0 — fallow ground truth (`fallow-36eb937.txt`)
 - [x] Run 1 — this cut list; tradeoffs decided 2026-07-01
-- [ ] **Apply pass** — apply this cut list on a branch; verify with `pnpm typecheck && pnpm test:unit`
-      (+ `test:smoke` — it touches IPC and main runtime). Suggested commit grouping:
-      (1) pure deletes, (2) dedup extractions, (3) debug-window prod gating.
+- [~] **Apply pass** (in progress, branch `architecture-audit`) — each commit verified with
+      `pnpm typecheck && pnpm test:unit && pnpm test:smoke` (all green: 722 unit, 169 smoke).
+      Applied so far:
+  - `56b0c5d` — canvasGeometry + wireframe fixtures + page-hover handler deletes; feature-flag
+    resolution (DRAWING/PERFECT_FREEHAND/FOCUS_PRESENTATION_MENU_INSET + isCanvasEntityKindEnabled
+    + drawingEnabled prop); VERB_PRESENCE collapse; structuredClone; `@sentry/core` dep drop.
+  - `e548d65` — presence-move forensic logging; dead props (onSelect, ResizeHandles
+    beginResize/scaleWithZoom, CenterAddressBar align, MarkdownEditor onAutoFocusConsumed,
+    defaultSelected); presence-manager duplicated derivePageId line.
+  - `1e89866` — legacy cursor-motion debug section + PresenceTimelinePanel + presence-debug.ts
+    deletes; debug window prod-gated (app.isPackaged).
+  - `4aef9e3` — toAcceleratorKey lookup table; selectionDebug dedup (2 IPC copies);
+    currentlyFocusedKey dedup.
+
+  **Skipped (with rationale):**
+  - `MutationContext` empty interface — documented ADR-0019 seam, on this file's own do-not-cut list.
+  - Finding #22 (cubic-bezier easing solver) — the *kept* PresenceSection easing picker still
+    produces `kind:'custom'` specs, so it is not dead; cursor-motion.ts left untouched.
+
+  **Not yet applied (recommend one focused commit each; several are load-bearing — review before/after):**
+  - Dedup extractions: pointer drag-session scaffolds (~200, interaction-layer §6 invariants),
+    preload `on<T>` helper (~110), edge geometry merge + boundary move (~100), body-layer scaffold
+    (~100), pen-icon defs (~100), presence-cursor field merge (~75, fallow-CRITICAL),
+    PresenceLabelKey 3× (~45), 13 one-field IPC handlers (~45), WireframeNodeRenderer clones (~35),
+    ComponentPropOverridePayload dup (~30), debounced-file-write hook (~20), selectionDebug/... done.
+  - Facades: surface-layout / workspace-session (~80, #141 circular-dep caveat),
+    presence-manager re-export blocks (~40, repoint 7 consumers).
+  - stdlib: requestId+once+timeout IPC → sendPageIpc (~35).
+  - native: two textarea autosize routines → CSS `field-sizing: content` (~19) — **needs visual
+    verification in the running app** before applying.
+  - yagni: applyTaskLayout generic envelope (~10). hygiene: move layout-directive out of types.ts.
 - [ ] Run 2 — `/improve-codebase-architecture` (prepend the invariant preamble from
       `docs/architecture-audit.md`; point it at this file so it doesn't re-derive)
 - [ ] Run 3 — `deep-audit` per seam, heaviest first (see docs/architecture-audit.md §3)
