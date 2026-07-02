@@ -23,125 +23,58 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
-import type { CanvasSceneTextEntity, TextEntityStyle } from '../../shared/types'
+import type { CanvasSceneTextEntity } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { remarkLineBreaks } from '../shared/remark-line-breaks'
+import { useDebouncedWrite } from '../shared/useDebouncedWrite'
 import { lineHeightForTextSize } from './TextSizeDropdown'
+import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
 /** ADR 0013 §2 — entities without textSize render at this size ("Small"). */
 const DEFAULT_TEXT_SIZE = 14
 
-/**
- * Wraps the sticky body cards in a viewport transform so they live in
- * canvas-coordinate space. AboveView's WCV origin already sits at
- * `canvasOrigin.y` (the toolbar inset), so the translate omits that axis
- * — only `canvasOrigin.x` and `pan` apply.
- */
-function StickyViewportLayer({
-  canvasOrigin,
-  pan,
-  zoom,
-  children,
-}: {
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className="pointer-events-none absolute left-0 top-0 origin-top-left"
-      style={{
-        ['--canvas-zoom' as string]: zoom,
-        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function StickyShell({
-  id,
-  canvasX,
-  canvasY,
-  width,
-  height,
+function stickyShellStyle({
+  note,
   isDark,
   isSelected,
-  background,
-  textStyle,
+  isPlain,
   isAuto,
-  shellRef,
-  children,
 }: {
-  id: string
-  canvasX: number
-  canvasY: number
-  width: number
-  height: number
+  note: CanvasSceneTextEntity
   isDark: boolean
   isSelected: boolean
-  background: string
-  textStyle: TextEntityStyle
+  isPlain: boolean
   isAuto: boolean
-  shellRef?: React.Ref<HTMLDivElement>
-  children: React.ReactNode
-}) {
-  const isPlain = textStyle === 'plain'
-  return (
-    <div
-      ref={shellRef}
-      data-entity-id={id}
-      className="absolute pointer-events-auto"
-      style={
-        isPlain && isAuto
-          ? {
-              left: canvasX,
-              top: canvasY,
-              // The containing viewport layer holds only absolutely-positioned
-              // children, so its intrinsic width is 0. Without an explicit
-              // `width`, our absolute shell's shrink-to-fit collapses to
-              // `min-content` (longest word) once view mode swaps CodeMirror's
-              // `white-space: pre` content for a wrapping `<p>`. `max-content`
-              // pins the shell to the unwrapped line width, matching what the
-              // editor showed.
-              width: 'max-content',
-              minWidth: PLAIN_MIN_WIDTH,
-              minHeight: PLAIN_MIN_HEIGHT,
-              cursor: 'default',
-              touchAction: 'none',
-            }
-          : isPlain
-            ? {
-                left: canvasX,
-                top: canvasY,
-                width,
-                height,
-                cursor: 'default',
-                touchAction: 'none',
-              }
-            : {
-                left: canvasX,
-                top: canvasY,
-                width,
-                height,
-                background,
-                boxShadow: isDark
-                  ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-                  : '0 2px 8px rgba(0, 0, 0, 0.08)',
-                overflow: isSelected ? 'visible' : 'hidden',
-                cursor: 'default',
-                touchAction: 'none',
-              }
-      }
-    >
-      {children}
-    </div>
-  )
+}): React.CSSProperties {
+  if (isPlain && isAuto) {
+    return {
+      // The containing viewport layer holds only absolutely-positioned
+      // children, so its intrinsic width is 0. Without an explicit
+      // `width`, our absolute shell's shrink-to-fit collapses to
+      // `min-content` (longest word) once view mode swaps CodeMirror's
+      // `white-space: pre` content for a wrapping `<p>`. `max-content`
+      // pins the shell to the unwrapped line width, matching what the
+      // editor showed.
+      width: 'max-content',
+      minWidth: PLAIN_MIN_WIDTH,
+      minHeight: PLAIN_MIN_HEIGHT,
+    }
+  }
+  if (isPlain) {
+    return { width: note.width, height: note.height }
+  }
+  return {
+    width: note.width,
+    height: note.height,
+    background: resolveCanvasColor(note.color, { role: 'fill', isDark, palette: 'soft' }),
+    boxShadow: isDark
+      ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+      : '0 2px 8px rgba(0, 0, 0, 0.08)',
+    overflow: isSelected ? 'visible' : 'hidden',
+  }
 }
 
 function StickyCard({
@@ -162,7 +95,6 @@ function StickyCard({
   onCommitEdit: () => void
 }) {
   const [localText, setLocalText] = useState(note.text)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Tracks the most recent value we sent upstream. When an incoming
   // `note.text` differs from this, we treat it as external (e.g. Yjs undo)
   // and pull it into local state — even mid-edit. When it matches, the
@@ -184,11 +116,13 @@ function StickyCard({
     }
   }, [canEdit, note.text])
 
+  const debouncedWrite = useDebouncedWrite((value) => {
+    lastSentRef.current = value
+    onUpdateText(note.id, value)
+  })
+
   const commitNow = () => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-      debounceRef.current = null
-    }
+    debouncedWrite.cancel()
     lastSentRef.current = localText
     onUpdateText(note.id, localText)
     onCommitEdit()
@@ -196,11 +130,7 @@ function StickyCard({
 
   const handleTextChange = (value: string) => {
     setLocalText(value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      lastSentRef.current = value
-      onUpdateText(note.id, value)
-    }, 300)
+    debouncedWrite.schedule(value)
   }
 
   const textStyle = note.textStyle
@@ -289,17 +219,11 @@ function StickyCard({
   }
 
   return (
-    <StickyShell
+    <EntityShell
       id={note.id}
       canvasX={note.canvasX}
       canvasY={note.canvasY}
-      width={note.width}
-      height={note.height}
-      isDark={isDark}
-      isSelected={isSelected}
-      background={resolveCanvasColor(note.color, { role: 'fill', isDark, palette: 'soft' })}
-      textStyle={textStyle}
-      isAuto={isAuto}
+      style={stickyShellStyle({ note, isDark, isSelected, isPlain, isAuto })}
       shellRef={shellRef}
     >
       <div style={innerColumnStyle}>
@@ -335,7 +259,7 @@ function StickyCard({
           </div>
         )}
       </div>
-    </StickyShell>
+    </EntityShell>
   )
 }
 
@@ -384,7 +308,7 @@ export function StickyBodyLayer({
 }) {
   if (!entities.length) return null
   return (
-    <StickyViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
       {entities.map((note) => (
         <MemoStickyCard
           key={note.id}
@@ -397,6 +321,6 @@ export function StickyBodyLayer({
           onCommitEdit={onCommitEdit}
         />
       ))}
-    </StickyViewportLayer>
+    </CanvasViewportLayer>
   )
 }

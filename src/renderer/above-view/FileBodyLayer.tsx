@@ -18,88 +18,7 @@ import {
   RendererSwitch,
 } from '../canvas-bg/entity-renderers/RendererSwitch'
 import { getFileApi } from '../canvas-bg/entity-renderers/filePathToSrc'
-
-/**
- * Wraps the file cards in a viewport transform so they live in
- * canvas-coordinate space. AboveView's WCV origin already sits at
- * `canvasOrigin.y` (the toolbar inset), so the translate omits that axis
- * — only `canvasOrigin.x` and `pan` apply. Matches `StickyViewportLayer`
- * and `ShapeViewportLayer`.
- */
-function FileViewportLayer({
-  canvasOrigin,
-  pan,
-  zoom,
-  children,
-}: {
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className="pointer-events-none absolute left-0 top-0 origin-top-left"
-      style={{
-        ['--canvas-zoom' as string]: zoom,
-        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function FileShell({
-  id,
-  canvasX,
-  canvasY,
-  width,
-  height,
-  isDark,
-  isSelected,
-  background,
-  borderRadius,
-  showCardShadow,
-  children,
-}: {
-  id: string
-  canvasX: number
-  canvasY: number
-  width: number
-  height: number
-  isDark: boolean
-  isSelected: boolean
-  background: string
-  borderRadius?: number
-  showCardShadow: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      data-entity-id={id}
-      className="absolute pointer-events-auto"
-      style={{
-        left: canvasX,
-        top: canvasY,
-        width,
-        height,
-        background,
-        boxShadow: showCardShadow
-          ? isDark
-            ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-            : '0 2px 8px rgba(0, 0, 0, 0.08)'
-          : undefined,
-        overflow: isSelected ? 'visible' : 'hidden',
-        cursor: 'default',
-        borderRadius,
-        touchAction: 'none',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
+import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 
 function FileBodyCard({
   entity,
@@ -134,17 +53,22 @@ function FileBodyCard({
   }`
 
   return (
-    <FileShell
+    <EntityShell
       id={entity.id}
       canvasX={entity.canvasX}
       canvasY={entity.canvasY}
-      width={entity.width}
-      height={entity.height}
-      isDark={isDark}
-      isSelected={isSelected}
-      background={isChromeless ? 'transparent' : isDark ? '#1c1917' : '#fafaf9'}
-      borderRadius={isChromeless ? 0 : 4}
-      showCardShadow={!isChromeless}
+      style={{
+        width: entity.width,
+        height: entity.height,
+        background: isChromeless ? 'transparent' : isDark ? '#1c1917' : '#fafaf9',
+        boxShadow: isChromeless
+          ? undefined
+          : isDark
+            ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+            : '0 2px 8px rgba(0, 0, 0, 0.08)',
+        overflow: isSelected ? 'visible' : 'hidden',
+        borderRadius: isChromeless ? 0 : 4,
+      }}
     >
       <ContextMenu.Root>
         <ContextMenu.Trigger className="block" style={{ width: '100%', height: '100%' }}>
@@ -206,7 +130,7 @@ function FileBodyCard({
           </Menu.Positioner>
         </Menu.Portal>
       </ContextMenu.Root>
-    </FileShell>
+    </EntityShell>
   )
 }
 
@@ -261,7 +185,7 @@ export function FileBodyLayer({
 }) {
   if (!entities.length) return null
   return (
-    <FileViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
       {entities.map((entity) => (
         <MemoFileBodyCard
           key={entity.id}
@@ -273,6 +197,6 @@ export function FileBodyLayer({
           onTextEditingChange={onTextEditingChange}
         />
       ))}
-    </FileViewportLayer>
+    </CanvasViewportLayer>
   )
 }

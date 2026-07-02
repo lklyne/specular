@@ -91,29 +91,89 @@ type DrawToolIconProps = {
 // Red preset — the first-launch draw default. Callers always pass `ink`.
 const DEFAULT_DRAW_INK = '#e8b4b8'
 
+// ── Shared pen-glyph gradient defs ──────────────────────────────────────────
+//
+// All four pen-family glyphs (toolbar Draw pen/highlight, popup slim/marker)
+// share the same mask/body/shine/seam gradient stops and isDark palette; only
+// the gradient geometry differs per glyph. Ids are namespaced by `prefix`
+// (which embeds a useId value) so several icon instances on one page never
+// collide.
+
+/** The gray ramp behind a pen glyph's gradients, keyed by theme. */
+function penGlyphPalette(isDark: boolean) {
+  return {
+    maskColor: isDark ? '#484744' : '#D0CDCB',
+    bodyTop: isDark ? '#65625D' : '#F0F0F0',
+    bodyBottom: isDark ? '#65625D' : '#F8F8F8',
+    shineTop: isDark ? '#484744' : '#D8D8D8',
+    shineRest: isDark ? '#484744' : '#DBDBDB',
+    seamTop: isDark ? '#484744' : '#D9D9D9',
+    seamBottom: isDark ? '#C4BEBB' : '#B5B5B5',
+  }
+}
+
+type PenGradientCoords = { x1: string; y1: string; x2: string; y2: string }
+
+/**
+ * The four gradients every pen glyph references as `${prefix}-mask-grad`,
+ * `${prefix}-body-grad`, `${prefix}-shine-grad`, and `${prefix}-seam-grad`.
+ * Rendered inside the glyph's `<defs>`.
+ */
+function PenIconDefs({
+  prefix,
+  isDark = false,
+  mask,
+  body,
+  shine,
+  seam,
+}: {
+  prefix: string
+  isDark?: boolean
+  mask: PenGradientCoords
+  body: PenGradientCoords
+  shine: PenGradientCoords
+  seam: PenGradientCoords
+}) {
+  const palette = penGlyphPalette(isDark)
+  return (
+    <>
+      <linearGradient id={`${prefix}-mask-grad`} {...mask} gradientUnits="userSpaceOnUse">
+        <stop stopColor={palette.maskColor} stopOpacity="0" />
+        <stop offset="0.278846" stopColor={palette.maskColor} />
+      </linearGradient>
+      <linearGradient id={`${prefix}-body-grad`} {...body} gradientUnits="userSpaceOnUse">
+        <stop stopColor={palette.bodyTop} />
+        <stop offset="1" stopColor={palette.bodyBottom} />
+      </linearGradient>
+      <linearGradient id={`${prefix}-shine-grad`} {...shine} gradientUnits="userSpaceOnUse">
+        <stop stopColor={palette.shineTop} />
+        <stop offset="0.540027" stopColor={palette.shineRest} stopOpacity="0.2" />
+        <stop offset="0.985392" stopColor={palette.shineRest} stopOpacity="0.1" />
+      </linearGradient>
+      <linearGradient id={`${prefix}-seam-grad`} {...seam} gradientUnits="userSpaceOnUse">
+        <stop stopColor={palette.seamTop} stopOpacity="0.33" />
+        <stop offset="1" stopColor={palette.seamBottom} />
+      </linearGradient>
+    </>
+  )
+}
+
 export function DrawPenToolIcon({
   size = 20,
   isDark = false,
   ink = DEFAULT_DRAW_INK,
   style,
 }: DrawToolIconProps) {
-  const uid = useId()
-  const clipId = `draw-pen-clip-${uid}`
-  const maskId = `draw-pen-mask-${uid}`
-  const capFilterId = `draw-pen-cap-${uid}`
-  const bodyFilterId = `draw-pen-body-${uid}`
-  const maskGradId = `draw-pen-mask-grad-${uid}`
-  const bodyGradId = `draw-pen-body-grad-${uid}`
-  const shineGradId = `draw-pen-shine-grad-${uid}`
-  const seamGradId = `draw-pen-seam-grad-${uid}`
+  const prefix = `draw-pen-${useId()}`
+  const clipId = `${prefix}-clip`
+  const maskId = `${prefix}-mask`
+  const capFilterId = `${prefix}-cap`
+  const bodyFilterId = `${prefix}-body`
+  const maskGradId = `${prefix}-mask-grad`
+  const bodyGradId = `${prefix}-body-grad`
+  const shineGradId = `${prefix}-shine-grad`
+  const seamGradId = `${prefix}-seam-grad`
   const stroke = isDark ? '#C4BEBB' : '#18181B'
-  const maskColor = isDark ? '#484744' : '#D0CDCB'
-  const bodyTop = isDark ? '#65625D' : '#F0F0F0'
-  const bodyBottom = isDark ? '#65625D' : '#F8F8F8'
-  const shineTop = isDark ? '#484744' : '#D8D8D8'
-  const shineRest = isDark ? '#484744' : '#DBDBDB'
-  const seamTop = isDark ? '#484744' : '#D9D9D9'
-  const seamBottom = isDark ? '#C4BEBB' : '#B5B5B5'
   return (
     <svg
       width={size}
@@ -215,51 +275,14 @@ export function DrawPenToolIcon({
           <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0" />
           <feBlend mode="normal" in2="shape" result="effect1_innerShadow" />
         </filter>
-        <linearGradient
-          id={maskGradId}
-          x1="7.5"
-          y1="0"
-          x2="7.5"
-          y2="21"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={maskColor} stopOpacity="0" />
-          <stop offset="0.278846" stopColor={maskColor} />
-        </linearGradient>
-        <linearGradient
-          id={bodyGradId}
-          x1="10.8545"
-          y1="35.0134"
-          x2="9.57424"
-          y2="35.0134"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={bodyTop} />
-          <stop offset="1" stopColor={bodyBottom} />
-        </linearGradient>
-        <linearGradient
-          id={shineGradId}
-          x1="12.8501"
-          y1="7.10886"
-          x2="14.7895"
-          y2="15.577"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={shineTop} />
-          <stop offset="0.540027" stopColor={shineRest} stopOpacity="0.2" />
-          <stop offset="0.985392" stopColor={shineRest} stopOpacity="0.1" />
-        </linearGradient>
-        <linearGradient
-          id={seamGradId}
-          x1="10.5"
-          y1="7"
-          x2="10.5"
-          y2="19"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={seamTop} stopOpacity="0.33" />
-          <stop offset="1" stopColor={seamBottom} />
-        </linearGradient>
+        <PenIconDefs
+          prefix={prefix}
+          isDark={isDark}
+          mask={{ x1: '7.5', y1: '0', x2: '7.5', y2: '21' }}
+          body={{ x1: '10.8545', y1: '35.0134', x2: '9.57424', y2: '35.0134' }}
+          shine={{ x1: '12.8501', y1: '7.10886', x2: '14.7895', y2: '15.577' }}
+          seam={{ x1: '10.5', y1: '7', x2: '10.5', y2: '19' }}
+        />
         <clipPath id={clipId}>
           <rect width="20" height="20" fill="white" />
         </clipPath>
@@ -274,21 +297,14 @@ export function DrawHighlightToolIcon({
   ink = DEFAULT_DRAW_INK,
   style,
 }: DrawToolIconProps) {
-  const uid = useId()
-  const clipId = `draw-hl-clip-${uid}`
-  const maskId = `draw-hl-mask-${uid}`
-  const maskGradId = `draw-hl-mask-grad-${uid}`
-  const bodyGradId = `draw-hl-body-grad-${uid}`
-  const shineGradId = `draw-hl-shine-grad-${uid}`
-  const seamGradId = `draw-hl-seam-grad-${uid}`
+  const prefix = `draw-hl-${useId()}`
+  const clipId = `${prefix}-clip`
+  const maskId = `${prefix}-mask`
+  const maskGradId = `${prefix}-mask-grad`
+  const bodyGradId = `${prefix}-body-grad`
+  const shineGradId = `${prefix}-shine-grad`
+  const seamGradId = `${prefix}-seam-grad`
   const stroke = isDark ? '#C4BEBB' : '#352C24'
-  const maskColor = isDark ? '#484744' : '#D0CDCB'
-  const bodyTop = isDark ? '#65625D' : '#F0F0F0'
-  const bodyBottom = isDark ? '#65625D' : '#F8F8F8'
-  const shineTop = isDark ? '#484744' : '#D8D8D8'
-  const shineRest = isDark ? '#484744' : '#DBDBDB'
-  const seamTop = isDark ? '#484744' : '#D9D9D9'
-  const seamBottom = isDark ? '#C4BEBB' : '#B5B5B5'
   return (
     <svg
       width={size}
@@ -342,51 +358,14 @@ export function DrawHighlightToolIcon({
         </g>
       </g>
       <defs>
-        <linearGradient
-          id={maskGradId}
-          x1="7.5"
-          y1="0"
-          x2="7.5"
-          y2="21"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={maskColor} stopOpacity="0" />
-          <stop offset="0.278846" stopColor={maskColor} />
-        </linearGradient>
-        <linearGradient
-          id={bodyGradId}
-          x1="10.8545"
-          y1="35.0134"
-          x2="9.57424"
-          y2="35.0134"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={bodyTop} />
-          <stop offset="1" stopColor={bodyBottom} />
-        </linearGradient>
-        <linearGradient
-          id={shineGradId}
-          x1="12.8501"
-          y1="7.10886"
-          x2="14.7895"
-          y2="15.577"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={shineTop} />
-          <stop offset="0.540027" stopColor={shineRest} stopOpacity="0.2" />
-          <stop offset="0.985392" stopColor={shineRest} stopOpacity="0.1" />
-        </linearGradient>
-        <linearGradient
-          id={seamGradId}
-          x1="16.5"
-          y1="16"
-          x2="16.5"
-          y2="27"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor={seamTop} stopOpacity="0.33" />
-          <stop offset="1" stopColor={seamBottom} />
-        </linearGradient>
+        <PenIconDefs
+          prefix={prefix}
+          isDark={isDark}
+          mask={{ x1: '7.5', y1: '0', x2: '7.5', y2: '21' }}
+          body={{ x1: '10.8545', y1: '35.0134', x2: '9.57424', y2: '35.0134' }}
+          shine={{ x1: '12.8501', y1: '7.10886', x2: '14.7895', y2: '15.577' }}
+          seam={{ x1: '16.5', y1: '16', x2: '16.5', y2: '27' }}
+        />
         <clipPath id={clipId}>
           <rect width="20" height="20" fill="white" />
         </clipPath>
@@ -608,12 +587,12 @@ export function PenSlimIcon({
 }: PenIconProps) {
   // Figma node 360:12 — 16×16 frame with the pen body extending past the
   // bottom and clipped. The `ink` prop drives the cap fill.
-  const uid = useId()
-  const maskId = `pen-slim-mask-${uid}`
-  const maskGradId = `pen-slim-mask-grad-${uid}`
-  const bodyGradId = `pen-slim-body-grad-${uid}`
-  const shineGradId = `pen-slim-shine-grad-${uid}`
-  const seamGradId = `pen-slim-seam-grad-${uid}`
+  const prefix = `pen-slim-${useId()}`
+  const maskId = `${prefix}-mask`
+  const maskGradId = `${prefix}-mask-grad`
+  const bodyGradId = `${prefix}-body-grad`
+  const shineGradId = `${prefix}-shine-grad`
+  const seamGradId = `${prefix}-seam-grad`
   const strokeColor = selected ? PEN_STROKE_SELECTED : PEN_STROKE_IDLE
   return (
     <svg
@@ -660,23 +639,13 @@ export function PenSlimIcon({
         <rect x="7.25" y="6.25" width="0.75" height="9" fill={`url(#${seamGradId})`} />
       </g>
       <defs>
-        <linearGradient id={maskGradId} x1="5.625" y1="0" x2="5.625" y2="15.75" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#D0CDCB" stopOpacity="0" />
-          <stop offset="0.278846" stopColor="#D0CDCB" />
-        </linearGradient>
-        <linearGradient id={bodyGradId} x1="7.89091" y1="27.2601" x2="6.93068" y2="27.2601" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F0F0F0" />
-          <stop offset="1" stopColor="#F8F8F8" />
-        </linearGradient>
-        <linearGradient id={shineGradId} x1="9.38755" y1="6.33165" x2="10.8421" y2="12.6828" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#D8D8D8" />
-          <stop offset="0.540027" stopColor="#DBDBDB" stopOpacity="0.2" />
-          <stop offset="0.985392" stopColor="#DBDBDB" stopOpacity="0.1" />
-        </linearGradient>
-        <linearGradient id={seamGradId} x1="7.625" y1="6.25" x2="7.625" y2="15.25" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#D9D9D9" stopOpacity="0.33" />
-          <stop offset="1" stopColor="#B5B5B5" />
-        </linearGradient>
+        <PenIconDefs
+          prefix={prefix}
+          mask={{ x1: '5.625', y1: '0', x2: '5.625', y2: '15.75' }}
+          body={{ x1: '7.89091', y1: '27.2601', x2: '6.93068', y2: '27.2601' }}
+          shine={{ x1: '9.38755', y1: '6.33165', x2: '10.8421', y2: '12.6828' }}
+          seam={{ x1: '7.625', y1: '6.25', x2: '7.625', y2: '15.25' }}
+        />
       </defs>
     </svg>
   )
@@ -690,12 +659,12 @@ export function PenMarkerIcon({
 }: PenIconProps) {
   // Figma node 360:22 — 16×16 frame; cap, body, and tip rect take the ink
   // color. Body extends past the bottom and is clipped by the mask.
-  const uid = useId()
-  const maskId = `pen-marker-mask-${uid}`
-  const maskGradId = `pen-marker-mask-grad-${uid}`
-  const bodyGradId = `pen-marker-body-grad-${uid}`
-  const shineGradId = `pen-marker-shine-grad-${uid}`
-  const seamGradId = `pen-marker-seam-grad-${uid}`
+  const prefix = `pen-marker-${useId()}`
+  const maskId = `${prefix}-mask`
+  const maskGradId = `${prefix}-mask-grad`
+  const bodyGradId = `${prefix}-body-grad`
+  const shineGradId = `${prefix}-shine-grad`
+  const seamGradId = `${prefix}-seam-grad`
   const strokeColor = selected ? PEN_STROKE_SELECTED : PEN_STROKE_IDLE
   return (
     <svg
@@ -748,23 +717,13 @@ export function PenMarkerIcon({
         <rect x="4" y="13.5996" width="8.8" height="3.2" fill={ink} />
       </g>
       <defs>
-        <linearGradient id={maskGradId} x1="6" y1="0" x2="6" y2="16.8" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#D0CDCB" stopOpacity="0" />
-          <stop offset="0.278846" stopColor="#D0CDCB" />
-        </linearGradient>
-        <linearGradient id={bodyGradId} x1="8.68324" y1="28.0115" x2="7.659" y2="28.0115" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F0F0F0" />
-          <stop offset="1" stopColor="#F8F8F8" />
-        </linearGradient>
-        <linearGradient id={shineGradId} x1="10.2799" y1="5.68792" x2="11.8314" y2="12.4625" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#D8D8D8" />
-          <stop offset="0.540027" stopColor="#DBDBDB" stopOpacity="0.2" />
-          <stop offset="0.985392" stopColor="#DBDBDB" stopOpacity="0.1" />
-        </linearGradient>
-        <linearGradient id={seamGradId} x1="12.9004" y1="13" x2="12.9004" y2="21" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#D9D9D9" stopOpacity="0.33" />
-          <stop offset="1" stopColor="#B5B5B5" />
-        </linearGradient>
+        <PenIconDefs
+          prefix={prefix}
+          mask={{ x1: '6', y1: '0', x2: '6', y2: '16.8' }}
+          body={{ x1: '8.68324', y1: '28.0115', x2: '7.659', y2: '28.0115' }}
+          shine={{ x1: '10.2799', y1: '5.68792', x2: '11.8314', y2: '12.4625' }}
+          seam={{ x1: '12.9004', y1: '13', x2: '12.9004', y2: '21' }}
+        />
       </defs>
     </svg>
   )
