@@ -19,6 +19,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test:unit
+      - run: pnpm test:integration
 
   fallow:
     runs-on: ubuntu-latest

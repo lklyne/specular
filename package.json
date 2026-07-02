@@ -32,7 +32,8 @@
     "lint": "eslint src",
     "dist:mac": "pnpm fetch:agent-browser && pnpm sync:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge make --platform darwin",
     "test:unit": "vitest run --config vitest.unit.config.ts",
-    "test:smoke": "vitest run --config vitest.smoke.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:boot": "vitest run --config vitest.boot.config.ts",
     "test:agent": "bash tests/agent/run-scenarios.sh",
     "release:patch": "npm version patch && git push --follow-tags",
     "release:minor": "npm version minor && git push --follow-tags"

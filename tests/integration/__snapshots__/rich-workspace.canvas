@@ -1,0 +1,109 @@
+{
+  "nodes": [
+    {
+      "id": "generated-id-1",
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 200,
+      "height": 100,
+      "text": "hello canvas",
+      "color": "3",
+      "specular": {
+        "textStyle": "sticky",
+        "widthMode": "fixed"
+      }
+    },
+    {
+      "id": "generated-id-2",
+      "type": "shape",
+      "x": 300,
+      "y": 0,
+      "width": 120,
+      "height": 80,
+      "shapeKind": "rectangle",
+      "text": "box"
+    },
+    {
+      "id": "generated-id-3",
+      "type": "drawing",
+      "x": 0,
+      "y": 300,
+      "width": 150,
+      "height": 150,
+      "strokes": [
+        {
+          "id": "stroke-1",
+          "color": "#ff0000",
+          "width": 2,
+          "points": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 10,
+              "y": 10
+            },
+            {
+              "x": 20,
+              "y": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "generated-id-4",
+      "type": "file",
+      "x": 300,
+      "y": 300,
+      "width": 220,
+      "height": 180,
+      "file": "notes/fixture.md"
+    },
+    {
+      "id": "generated-id-5",
+      "type": "group",
+      "x": -24,
+      "y": -24,
+      "width": 468,
+      "height": 498,
+      "label": "Pair",
+      "layoutMode": "freeform",
+      "managedLayout": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "fromNode": "generated-id-1",
+      "toNode": "generated-id-4",
+      "fromSide": "right",
+      "toSide": "left",
+      "edgeKind": "connection"
+    }
+  ],
+  "specular": {
+    "entityOrder": [
+      "generated-id-1",
+      "generated-id-2",
+      "generated-id-3",
+      "generated-id-4",
+      "generated-id-5",
+      "edge-1"
+    ]
+  },
+  "appState": {
+    "zoom": 1,
+    "pan": {
+      "x": 0,
+      "y": 0
+    },
+    "selectedEntityIds": [],
+    "leftSidebarOpen": true,
+    "devtoolsOpen": false,
+    "devtoolsPanelTab": "comments",
+    "devtoolsWidth": 400
+  }
+}
