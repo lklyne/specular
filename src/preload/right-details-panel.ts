@@ -5,6 +5,7 @@ import type {
   DevtoolsPanelElectronAPI,
   ThemeData,
 } from '../shared/types'
+import { on } from './ipc-helpers'
 
 const api: DevtoolsPanelElectronAPI = {
   setTool: (tool) => ipcRenderer.send('toolbar-set-tool', tool),
@@ -91,16 +92,8 @@ const api: DevtoolsPanelElectronAPI = {
   openBrowserDevTools: () => ipcRenderer.send('right-details-panel-open-browser-devtools'),
   closeBrowserDevTools: () => ipcRenderer.send('right-details-panel-dismiss-browser-devtools'),
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),
-  onThemeChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: ThemeData) => callback(data)
-    ipcRenderer.on('theme-changed', handler)
-    return () => ipcRenderer.removeListener('theme-changed', handler)
-  },
-  onPanelData: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: DevtoolsPanelData) => callback(data)
-    ipcRenderer.on('right-details-panel-data', handler)
-    return () => ipcRenderer.removeListener('right-details-panel-data', handler)
-  },
+  onThemeChanged: on<ThemeData>('theme-changed'),
+  onPanelData: on<DevtoolsPanelData>('right-details-panel-data'),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

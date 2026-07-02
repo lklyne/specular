@@ -2,8 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   ConnectedRepo,
   FixConfig,
+  OnboardingProgressEvent,
   SettingsElectronAPI,
 } from '../shared/types'
+import { on } from './ipc-helpers'
 
 const api: SettingsElectronAPI = {
   getInitialData: () => ipcRenderer.invoke('settings:get-initial-data'),
@@ -18,31 +20,10 @@ const api: SettingsElectronAPI = {
   repoBindOrigin: (repoId, origin) =>
     ipcRenderer.invoke('repo-bind-origin', { repoId, origin }),
   close: () => ipcRenderer.send('settings:close'),
-  onSkillProgress: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
-      callback(payload as Parameters<typeof callback>[0])
-    }
-    ipcRenderer.on('settings:skill-progress', handler)
-    return () => ipcRenderer.removeListener('settings:skill-progress', handler)
-  },
-  onFixConfigChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: FixConfig) =>
-      callback(payload)
-    ipcRenderer.on('settings:fix-config-changed', handler)
-    return () => ipcRenderer.removeListener('settings:fix-config-changed', handler)
-  },
-  onConnectedReposChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: ConnectedRepo[]) =>
-      callback(payload)
-    ipcRenderer.on('repo-changed', handler)
-    return () => ipcRenderer.removeListener('repo-changed', handler)
-  },
-  onThemeChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { isDark: boolean }) =>
-      callback(data)
-    ipcRenderer.on('theme-changed', handler)
-    return () => ipcRenderer.removeListener('theme-changed', handler)
-  },
+  onSkillProgress: on<OnboardingProgressEvent>('settings:skill-progress'),
+  onFixConfigChanged: on<FixConfig>('settings:fix-config-changed'),
+  onConnectedReposChanged: on<ConnectedRepo[]>('repo-changed'),
+  onThemeChanged: on<{ isDark: boolean }>('theme-changed'),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

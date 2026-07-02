@@ -92,6 +92,9 @@ Future: MCP delete (~1,000) after CLI migration. three.js is off the table.
     deletes; debug window prod-gated (app.isPackaged).
   - `4aef9e3` — toAcceleratorKey lookup table; selectionDebug dedup (2 IPC copies);
     currentlyFocusedKey dedup.
+  - preload `on<T>(channel)` helper (src/preload/ipc-helpers.ts) — 34 copy-pasted
+    subscribe/removeListener closures across 8 bridge files collapse to one line each
+    (-137 net). IPC-only; no behavior change.
 
   **Skipped (with rationale):**
   - `MutationContext` empty interface — documented ADR-0019 seam, on this file's own do-not-cut list.
@@ -100,7 +103,7 @@ Future: MCP delete (~1,000) after CLI migration. three.js is off the table.
 
   **Not yet applied (recommend one focused commit each; several are load-bearing — review before/after):**
   - Dedup extractions: pointer drag-session scaffolds (~200, interaction-layer §6 invariants),
-    preload `on<T>` helper (~110), edge geometry merge + boundary move (~100), body-layer scaffold
+    edge geometry merge + boundary move (~100), body-layer scaffold
     (~100), pen-icon defs (~100), presence-cursor field merge (~75, fallow-CRITICAL),
     PresenceLabelKey 3× (~45), 13 one-field IPC handlers (~45), WireframeNodeRenderer clones (~35),
     ComponentPropOverridePayload dup (~30), debounced-file-write hook (~20), selectionDebug/... done.
