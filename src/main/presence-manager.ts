@@ -131,7 +131,6 @@ export function derivePageId(url: string, body: Record<string, unknown>): string
   const match = /^\/pages\/([^/]+)/.exec(url)
   if (match) return decodeURIComponent(match[1])
   if (typeof body.pageId === 'string') return body.pageId
-  if (typeof body.pageId === 'string') return body.pageId
   if (Array.isArray(body.pageIds) && typeof body.pageIds[0] === 'string') {
     return body.pageIds[0]
   }
