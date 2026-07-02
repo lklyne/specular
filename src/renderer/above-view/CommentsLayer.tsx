@@ -34,7 +34,6 @@ export function PendingAnnotationComposer({
   pendingAnnotation,
   pendingPosition,
   pendingRegionRect,
-  resizeCommentInput,
   setCommentText,
   setElementNameDraft,
   submitPendingAnnotation,
@@ -48,7 +47,6 @@ export function PendingAnnotationComposer({
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
-  resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
   submitPendingAnnotation: () => void
@@ -67,7 +65,6 @@ export function PendingAnnotationComposer({
         left={left}
         top={top}
         width={width}
-        resizeCommentInput={resizeCommentInput}
         setCommentText={setCommentText}
         submit={submitPendingAnnotation}
         submitLabel="Submit comment"
@@ -97,7 +94,6 @@ export function PendingAnnotationComposer({
           left={composerX}
           top={composerY}
           width={REGION_COMPOSER_WIDTH}
-          resizeCommentInput={resizeCommentInput}
           setCommentText={setCommentText}
           submit={submitRegionAnnotation}
           submitLabel="Submit region annotation"
@@ -115,7 +111,6 @@ function ComposerBox({
   left,
   top,
   width,
-  resizeCommentInput,
   setCommentText,
   submit,
   submitLabel,
@@ -128,7 +123,6 @@ function ComposerBox({
   left: number
   top: number
   width: number
-  resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   submit: () => void
   submitLabel?: string
@@ -163,7 +157,7 @@ function ComposerBox({
             inputRef={commentInputRef}
             autoFocus={!showElementName}
             value={commentText}
-            onChange={(value) => { setCommentText(value); resizeCommentInput() }}
+            onChange={setCommentText}
             onSubmit={submit}
             submitLabel={submitLabel}
             onKeyDown={(event) => {

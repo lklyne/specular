@@ -39,15 +39,6 @@ export function useAnnotationDraftState({
   const [commentText, setCommentText] = useState('')
   const [elementNameDraft, setElementNameDraft] = useState('')
 
-  const resizeCommentInput = useCallback(() => {
-    const input = commentInputRef.current
-    if (!input) return
-    input.style.height = '0px'
-    const nextHeight = Math.min(input.scrollHeight, 120)
-    input.style.height = `${nextHeight}px`
-    input.style.overflowY = input.scrollHeight > 120 ? 'auto' : 'hidden'
-  }, [commentInputRef])
-
   const clearDraft = useCallback(() => {
     activeStrokeRef.current = null
     setPendingAnnotation(null)
@@ -182,10 +173,6 @@ export function useAnnotationDraftState({
   }, [api, clearDraft, drawingSession, activeToolKind])
 
   useEffect(() => {
-    resizeCommentInput()
-  }, [commentText, drawingSession, pendingAnnotation, resizeCommentInput])
-
-  useEffect(() => {
     if (!pendingAnnotation && !pendingRegionRect) return
     const id = window.requestAnimationFrame(() => {
       commentInputRef.current?.focus({ preventScroll: true })
@@ -201,7 +188,6 @@ export function useAnnotationDraftState({
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
-    resizeCommentInput,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,

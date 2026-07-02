@@ -562,7 +562,6 @@ export default function App({
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
-    resizeCommentInput,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
@@ -1356,7 +1355,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             pendingAnnotation={pendingAnnotation}
             pendingPosition={pendingComposerPosition}
             pendingRegionRect={pendingRegionRect}
-            resizeCommentInput={resizeCommentInput}
             setCommentText={setCommentText}
             setElementNameDraft={setElementNameDraft}
             submitPendingAnnotation={submitPendingAnnotation}
