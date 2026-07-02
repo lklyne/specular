@@ -1,5 +1,4 @@
 import type {
-  CursorMotionParams,
   CurveDirection,
   EasingPreset,
   EasingSpec,
@@ -7,7 +6,6 @@ import type {
   Vec2,
 } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
-import type { PresenceDebugEntry } from './presence-debug'
 import type { DrawingBrushType, Tool } from './tool'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
@@ -674,10 +672,8 @@ export interface ThemeBootstrapData {
 }
 
 export interface DebugBootstrapData extends ThemeBootstrapData {
-  cursorMotion: CursorMotionParams
   cursorSplineViz: boolean
   cursorTuning: CursorTuningParams
-  presenceTimeline: PresenceDebugEntry[]
 }
 
 export interface LeftSidebarBootstrapData extends ThemeBootstrapData {
@@ -766,24 +762,18 @@ export interface SettingsElectronAPI {
 
 export interface DebugElectronAPI {
   getInitialData: () => Promise<DebugBootstrapData>
-  updateCursorMotion: (params: CursorMotionParams) => void
-  resetCursorMotion: () => void
-  onCursorMotionChanged: (callback: (params: CursorMotionParams) => void) => () => void
   updateCursorSplineViz: (on: boolean) => void
   onCursorSplineVizChanged: (callback: (on: boolean) => void) => () => void
   updateCursorTuning: (params: CursorTuningParams) => void
   resetCursorTuning: () => void
-  onPresenceTimelineAppend: (callback: (entry: PresenceDebugEntry) => void) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }
 
 export type {
-  CursorMotionParams,
   CurveDirection,
   CursorTuningParams,
   EasingPreset,
   EasingSpec,
-  PresenceDebugEntry,
   Vec2,
 }
 

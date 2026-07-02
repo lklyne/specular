@@ -171,11 +171,15 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
             },
           ],
         },
-        {
-          label: 'Open Motion Debug Window',
-          accelerator: 'CmdOrCtrl+Shift+D',
-          click: () => showDebugWindow(),
-        },
+        ...(app.isPackaged
+          ? []
+          : [
+              {
+                label: 'Open Motion Debug Window',
+                accelerator: 'CmdOrCtrl+Shift+D',
+                click: () => showDebugWindow(),
+              } as const,
+            ]),
         { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
