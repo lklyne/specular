@@ -1,32 +1,20 @@
 import { callApp, sessionId, getClientName } from './shared/app-client'
+import type { PresenceLabelKey } from '../shared/types'
 
 // ---------------------------------------------------------------------------
 // Presence mapping for canvas verbs
 // ---------------------------------------------------------------------------
 // Browse verbs already emit presence via handleBrowse — this covers canvas ops.
+// Typed against PresenceLabelKey so only keys the allowlist accepts can be
+// added: verbs without a real label (create/update/delete/…) emit no presence.
 
-const VERB_PRESENCE: Record<string, { labelKey: string; surface: string }> = {
+const VERB_PRESENCE: Record<string, { labelKey: PresenceLabelKey; surface: string }> = {
   workspace:        { labelKey: 'scan_workspace', surface: 'canvas' },
   selection:        { labelKey: 'scan_workspace', surface: 'canvas' },
-  'find-placement': { labelKey: 'scan_workspace', surface: 'canvas' },
-  create:           { labelKey: 'create_entity',  surface: 'canvas' },
-  update:           { labelKey: 'update_entity',  surface: 'canvas' },
-  delete:           { labelKey: 'delete_entity',  surface: 'canvas' },
-  upsert:           { labelKey: 'update_entity',  surface: 'canvas' },
-  focus:            { labelKey: 'focus_camera',   surface: 'canvas' },
-  group:            { labelKey: 'update_entity',  surface: 'canvas' },
-  ungroup:          { labelKey: 'update_entity',  surface: 'canvas' },
-  link:             { labelKey: 'update_entity',  surface: 'canvas' },
-  unlink:           { labelKey: 'update_entity',  surface: 'canvas' },
-  breakpoints:      { labelKey: 'create_entity',  surface: 'canvas' },
-  annotate:         { labelKey: 'create_entity',  surface: 'canvas' },
+  'find-placement': { labelKey: 'find_placement', surface: 'canvas' },
+  annotate:         { labelKey: 'add_annotation', surface: 'canvas' },
   annotations:      { labelKey: 'scan_workspace', surface: 'canvas' },
   annotation:       { labelKey: 'scan_workspace', surface: 'canvas' },
-  ack:              { labelKey: 'update_entity',  surface: 'canvas' },
-  resolve:          { labelKey: 'update_entity',  surface: 'canvas' },
-  dismiss:          { labelKey: 'update_entity',  surface: 'canvas' },
-  reply:            { labelKey: 'update_entity',  surface: 'canvas' },
-  record:           { labelKey: 'update_entity',  surface: 'canvas' },
 }
 
 export function emitPresenceForVerb(verb: string): void {

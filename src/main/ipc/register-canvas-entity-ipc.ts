@@ -1,6 +1,5 @@
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type { AnnotationCreateRequest } from '../../shared/types'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
@@ -516,7 +515,6 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on('canvas-toggle-draw-mode', () => {
-    if (!DRAWING_FEATURE_ENABLED) return
     const next = activeTool().kind === 'draw' ? { kind: 'select' as const } : { kind: 'draw' as const }
     setActiveTool(next)
   })
@@ -532,7 +530,6 @@ export function registerCanvasEntityIpc(): void {
     height: number
     strokes: import('../../shared/types').AnnotationDrawingStroke[]
   }) => {
-    if (!DRAWING_FEATURE_ENABLED) return
     createDrawingEntity(input)
   })
 

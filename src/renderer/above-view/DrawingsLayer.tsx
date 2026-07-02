@@ -11,7 +11,6 @@ import {
   resolveCanvasColor,
   withAlpha,
 } from '../../shared/canvas-colors'
-import { PERFECT_FREEHAND_ENABLED } from '../../shared/featureFlags'
 import { pathD } from './annotationMath'
 
 function freehandPathD(
@@ -115,14 +114,12 @@ function HighlightStroke({
 function renderStrokeBody({
   stroke,
   points,
-  strokedD,
   visibleWidth,
   active,
   isDark,
 }: {
   stroke: AnnotationDrawingStroke
   points: { x: number; y: number }[]
-  strokedD: string
   visibleWidth: number
   active: boolean
   isDark: boolean
@@ -145,19 +142,7 @@ function renderStrokeBody({
     )
   }
   // Pen strokes render fully opaque — only the highlighter is translucent.
-  if (PERFECT_FREEHAND_ENABLED) {
-    return <path d={freehandPathD(points, visibleWidth)} fill={inkColor} />
-  }
-  return (
-    <path
-      d={strokedD}
-      fill="none"
-      stroke={inkColor}
-      strokeWidth={visibleWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  )
+  return <path d={freehandPathD(points, visibleWidth)} fill={inkColor} />
 }
 
 export function DrawingLayer({
@@ -249,7 +234,7 @@ export function DrawingLayer({
                 }}
               />
             ) : null}
-            {renderStrokeBody({ stroke, points, strokedD, visibleWidth, active: active ?? false, isDark })}
+            {renderStrokeBody({ stroke, points, visibleWidth, active: active ?? false, isDark })}
           </g>
         )
       })}

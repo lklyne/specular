@@ -1,5 +1,4 @@
 import type { BindingContext, BindingId } from '../../shared/bindings'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
@@ -52,12 +51,10 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     setActiveTool({ kind: 'comment' })
   },
   'tool-draw-pen': () => {
-    if (!DRAWING_FEATURE_ENABLED) return
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'pen' })
   },
   'tool-draw-highlight': () => {
-    if (!DRAWING_FEATURE_ENABLED) return
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'highlight' })
   },

@@ -149,7 +149,6 @@ interface CenterActionsProps {
   drawBrushType: DrawingBrushType
   drawColor: string
   stickyColor: string
-  drawingEnabled: boolean
   hasSelection: boolean
   zoomPercent: number
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
@@ -165,7 +164,6 @@ export function CenterActions({
   drawBrushType,
   drawColor,
   stickyColor,
-  drawingEnabled,
   hasSelection,
   zoomPercent,
   currentPresetValue,
@@ -232,30 +230,28 @@ export function CenterActions({
 
         <ToolbarDivider isDark={isDark} />
 
-        {drawingEnabled ? (
-          <button
-            onClick={onToggleDrawMode}
-            className={buttonClass(activeTool.kind === 'draw')}
-            title="Draw"
-            type="button"
-          >
-            {drawBrushType === 'pen' ? (
-              <DrawPenToolIcon
-                size={TOOL_GLYPH_SIZE}
-                isDark={isDark}
-                ink={drawInk}
-                style={TOOLBAR_GLYPH_STYLE}
-              />
-            ) : (
-              <DrawHighlightToolIcon
-                size={TOOL_GLYPH_SIZE}
-                isDark={isDark}
-                ink={drawInk}
-                style={TOOLBAR_GLYPH_STYLE}
-              />
-            )}
-          </button>
-        ) : null}
+        <button
+          onClick={onToggleDrawMode}
+          className={buttonClass(activeTool.kind === 'draw')}
+          title="Draw"
+          type="button"
+        >
+          {drawBrushType === 'pen' ? (
+            <DrawPenToolIcon
+              size={TOOL_GLYPH_SIZE}
+              isDark={isDark}
+              ink={drawInk}
+              style={TOOLBAR_GLYPH_STYLE}
+            />
+          ) : (
+            <DrawHighlightToolIcon
+              size={TOOL_GLYPH_SIZE}
+              isDark={isDark}
+              ink={drawInk}
+              style={TOOLBAR_GLYPH_STYLE}
+            />
+          )}
+        </button>
 
         <button
           onClick={onAddSticky}

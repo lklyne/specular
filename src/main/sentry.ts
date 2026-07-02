@@ -1,6 +1,9 @@
 import * as Sentry from '@sentry/electron/main'
-import type { ErrorEvent } from '@sentry/core'
 import { app } from 'electron'
+
+// @sentry/electron/main re-exports Event but not ErrorEvent; it's just Event
+// with type narrowed to undefined (what beforeSend receives).
+type ErrorEvent = Sentry.Event & { type: undefined }
 import {
   markSentryEnabled,
   setAutoUpdateChannel,

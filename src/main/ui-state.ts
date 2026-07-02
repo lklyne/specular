@@ -5,7 +5,6 @@ import type {
   Tool,
   UiState,
 } from '../shared/types'
-import { isCanvasEntityKindEnabled } from '../shared/featureFlags'
 import { markDirty } from './runtime/layout-dirty'
 
 type SelectionInput =
@@ -22,18 +21,11 @@ const DEFAULT_DEVTOOLS_WIDTH = 400
 let uiState: UiState = createDefaultUiState()
 
 function sanitizeSelectionInput(input: SelectionInput): SelectionInput {
-  if (input.kind === 'single-entity') {
-    return isCanvasEntityKindEnabled(input.entityKind) ? input : { kind: 'none' }
-  }
-
   if (input.kind === 'multi-entity') {
-    const entityIds = input.entityIds.filter((entityId) =>
-      isCanvasEntityKindEnabled(input.entityKindsById[entityId] ?? 'page'),
-    )
     const entityKindsById = Object.fromEntries(
-      entityIds.map((entityId) => [entityId, input.entityKindsById[entityId] ?? 'page']),
+      input.entityIds.map((entityId) => [entityId, input.entityKindsById[entityId] ?? 'page']),
     ) as Partial<Record<string, CanvasEntityKind>>
-    return { kind: 'multi-entity', entityIds, entityKindsById }
+    return { kind: 'multi-entity', entityIds: input.entityIds, entityKindsById }
   }
 
   return input
@@ -192,27 +184,21 @@ export function setDevtoolsWidth(width: number): UiState {
 
 export function selectedEntityIds(ui: UiState = uiState): string[] {
   if (ui.selection.kind === 'single-entity') {
-    return isCanvasEntityKindEnabled(ui.selection.entityKind) ? [ui.selection.entityId] : []
+    return [ui.selection.entityId]
   }
   if (ui.selection.kind === 'multi-entity') {
-    const { entityIds, entityKindsById } = ui.selection
-    return entityIds.filter((entityId) =>
-      isCanvasEntityKindEnabled(entityKindsById[entityId] ?? 'page'),
-    )
+    return ui.selection.entityIds
   }
   return []
 }
 
 export function selectedCanvasTargets(ui: UiState = uiState): CanvasSelectableTarget[] {
   if (ui.selection.kind === 'single-entity') {
-    return isCanvasEntityKindEnabled(ui.selection.entityKind)
-      ? [{ id: ui.selection.entityId, kind: ui.selection.entityKind }]
-      : []
+    return [{ id: ui.selection.entityId, kind: ui.selection.entityKind }]
   }
   if (ui.selection.kind === 'multi-entity') {
     const { entityIds, entityKindsById } = ui.selection
     return entityIds
-      .filter((entityId) => isCanvasEntityKindEnabled(entityKindsById[entityId] ?? 'page'))
       .map((entityId) => ({
         id: entityId,
         kind: entityKindsById[entityId] ?? 'page',

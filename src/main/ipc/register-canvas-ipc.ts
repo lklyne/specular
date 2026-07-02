@@ -1,5 +1,4 @@
 import { ipcMain } from 'electron'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type {
   CanvasEntityKind,
   FocusPresentationMode,
@@ -151,11 +150,9 @@ export function registerCanvasIpc(): void {
     setFocusAnnotationsVisible(Boolean(visible))
   })
 
-  const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
-    DRAWING_FEATURE_ENABLED
-      ? ['page', 'text', 'file', 'drawing', 'shape', 'edge']
-      : ['page', 'text', 'file', 'shape', 'edge'],
-  )
+  const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>([
+    'page', 'text', 'file', 'drawing', 'shape', 'edge',
+  ])
   ipcMain.on(
     'canvas-select-entity',
     (

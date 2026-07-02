@@ -10,10 +10,6 @@ import { requestLayout } from '../runtime/viewport-control'
 import {
   deselectAll,
 } from '../runtime/ui-actions'
-import { interactionBlocksPageHover } from '../runtime/interaction-state'
-import {
-  activeTool as uiActiveTool,
-} from '../ui-state'
 import {
   findPageByPageView,
 } from '../runtime/page-runtime'
@@ -45,15 +41,9 @@ export function registerPageChromeIpc(): void {
     },
   )
 
-  ipcMain.on('page-hover', (_event, _hovered: boolean) => {
-    if (interactionBlocksPageHover()) return
-    if (uiActiveTool().kind === 'comment') return
-    // aboveView's gate is open by default (gate-predicate.ts), so its hit-test
-    // is the sole hover authority. The page only sees synthetic events
-    // forwarded by aboveView, and the blocking overlay's mouseenter can fire
-    // spuriously when re-injected under a "stuck" perceived cursor.
-    return
-  })
+  // No 'page-hover' handler: aboveView's hit-test is the sole hover authority
+  // (its gate is open by default per gate-predicate.ts), so the page's forwarded
+  // hover events are intentionally dropped — an unhandled ipcMain.on does that.
 
   ipcMain.on('page-scroll-changed', (event, data: ScrollSyncData) => {
     const page = findPageByPageView(event.sender)
