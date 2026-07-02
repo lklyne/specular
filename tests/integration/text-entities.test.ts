@@ -7,12 +7,15 @@
  * delete behavior, disk persistence of a created text entity, and the
  * undo/redo round-trip of a creation.
  *
- * Mutation-verified by: making `updateTextEntity` in
- * src/main/runtime/document-commands.ts return null without applying the
- * patch — "updates a text entity" fails; and by bypassing
- * `scheduleWorkspaceAutosave()` in `createTextEntity` — the disk-persistence
- * and undo round-trip cases fail because the create never syncs to the
- * Y.Doc or disk.
+ * Mutation-verified by:
+ *   - passing `{}` instead of the snapped patch to `updateTextEntityInState`
+ *     in `updateTextEntity` (src/main/runtime/document-commands.ts) —
+ *     "updates a text entity" fails.
+ *   - removing the `scheduleWorkspaceAutosave()` call from `createTextEntity`
+ *     — "round-trips a created text entity through undo/redo" fails because
+ *     the create never syncs to the Y.Doc, so there is nothing to undo.
+ *     (The disk case survives that mutation: `diskDoc()`'s flush still
+ *     syncs-and-writes on its own.)
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'

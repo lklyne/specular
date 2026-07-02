@@ -15,14 +15,13 @@
       }
     },
     {
-      "id": "generated-id-2",
-      "type": "shape",
+      "id": "generated-id-4",
+      "type": "file",
       "x": 300,
-      "y": 0,
-      "width": 120,
-      "height": 80,
-      "shapeKind": "rectangle",
-      "text": "box"
+      "y": 300,
+      "width": 220,
+      "height": 180,
+      "file": "notes/fixture.md"
     },
     {
       "id": "generated-id-3",
@@ -54,21 +53,22 @@
       ]
     },
     {
-      "id": "generated-id-4",
-      "type": "file",
+      "id": "generated-id-2",
+      "type": "shape",
       "x": 300,
-      "y": 300,
-      "width": 220,
-      "height": 180,
-      "file": "notes/fixture.md"
+      "y": 0,
+      "width": 120,
+      "height": 80,
+      "shapeKind": "rectangle",
+      "text": "box"
     },
     {
       "id": "generated-id-5",
       "type": "group",
       "x": -24,
       "y": -24,
-      "width": 468,
-      "height": 498,
+      "width": 568,
+      "height": 528,
       "label": "Pair",
       "layoutMode": "freeform",
       "managedLayout": false
@@ -77,8 +77,8 @@
   "edges": [
     {
       "id": "edge-1",
-      "fromNode": "generated-id-1",
-      "toNode": "generated-id-4",
+      "fromNode": "generated-id-2",
+      "toNode": "generated-id-3",
       "fromSide": "right",
       "toSide": "left",
       "edgeKind": "connection"
@@ -87,9 +87,9 @@
   "specular": {
     "entityOrder": [
       "generated-id-1",
-      "generated-id-2",
-      "generated-id-3",
       "generated-id-4",
+      "generated-id-3",
+      "generated-id-2",
       "generated-id-5",
       "edge-1"
     ]

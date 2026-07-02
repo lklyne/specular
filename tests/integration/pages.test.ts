@@ -8,16 +8,15 @@
  * undo/redo round-trip (including destroying/recreating its views), and
  * restore from a fixture `.canvas` file with `link` nodes on relaunch.
  *
- * Mutation-verified by: commenting out `nodes.push(serializePageToLinkNode(entity))`
+ * Mutation-verified by: replacing `nodes.push(serializePageToLinkNode(entity))`
  * for the `kind === 'page'` branch in
- * src/main/runtime/json-canvas-serializer.ts — "persists the created page to
- * disk as a link node" and the fixture-restore test fail (page never reaches
- * the .canvas file / doc).
+ * src/main/runtime/json-canvas-serializer.ts with a no-op — "persists the
+ * created page to disk as a link node" fails (page never reaches the .canvas
+ * file).
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
-import { registerBuiltInEntityKinds } from '../../src/main/entities'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
 import { pages, findPageById } from '../../src/main/runtime/runtime-context'
 import { undo, redo, canUndo, canRedo } from '../../src/main/runtime/workspace-undo'
@@ -45,7 +44,6 @@ function createPageViaPatch(overrides: Record<string, unknown> = {}): string {
 describe('pages', () => {
   beforeEach(() => {
     harness ??= bootWorkspaceHarness()
-    registerBuiltInEntityKinds()
     harness.reset()
   })
 

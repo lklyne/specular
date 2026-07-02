@@ -8,20 +8,15 @@
  * (undo/redo restores the stack) while note-row reorders never move page or
  * edge stack slots.
  *
- * Mutation-verified by: making `partitionSidebarItems`
- * (src/main/runtime/sidebar-builder.ts) drop group nesting fails the
- * hierarchy case; letting `reorderSidebarStackOrder`
- * (src/main/runtime/entity-order-state.ts) reorder across sections fails the
- * page/edge slot-stability cases.
+ * Mutation-verified by: deleting the `setEntityParentGroupId(entityId,
+ * group.id)` loop in `createUserGroup` (src/main/workspace-groups.ts) — the
+ * hierarchy, disk-persistence, and undo/redo cases all fail.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import type { JsonCanvasLinkNode } from '../../src/shared/json-canvas-types'
-import {
-  createShapeEntity,
-  createTextEntity,
-} from '../../src/main/runtime/document-commands'
+import { createTextEntity } from '../../src/main/runtime/document-commands'
 import { createEdges } from '../../src/main/workspace-edges'
 import { createUserGroup } from '../../src/main/workspace-groups'
 import { getLeftSidebarData } from '../../src/main/runtime/canvas-layout-data'
@@ -93,12 +88,17 @@ describe('left sidebar', () => {
   })
 
   it('persists nested groups to disk', async () => {
-    const s1 = createShapeEntity({ canvasX: 0, canvasY: 0 })
-    const s2 = createShapeEntity({ canvasX: 300, canvasY: 0 })
+    harness.loadFixture({
+      name: 'Nested persist',
+      doc: {
+        nodes: [linkNode('page-a', 120), linkNode('page-b', 620)],
+        edges: [],
+        appState: { zoom: 1, pan: { x: 0, y: 0 } },
+      },
+    })
+    const inner = createUserGroup(['page-a', 'page-b'], 'Inner persist')
     await settleSync()
-    const inner = createUserGroup([s1.id, s2.id], 'Inner persist')
-    await settleSync()
-    const outer = createUserGroup([s1.id, s2.id], 'Outer persist')
+    const outer = createUserGroup(['page-a', 'page-b'], 'Outer persist')
     await settleSync()
 
     const disk = harness.diskDoc()
@@ -111,20 +111,20 @@ describe('left sidebar', () => {
       label: 'Inner persist',
       parentGroupId: outer.id,
     })
-    for (const shapeId of [s1.id, s2.id]) {
-      expect(disk?.nodes.find((n) => n.id === shapeId)).toMatchObject({
+    for (const pageId of ['page-a', 'page-b']) {
+      expect(disk?.nodes.find((n) => n.id === pageId)).toMatchObject({
         parentGroupId: inner.id,
       })
     }
   })
 
   it('round-trips nested group creation through undo/redo', async () => {
-    const s1 = createShapeEntity({ canvasX: 0, canvasY: 400 })
-    const s2 = createShapeEntity({ canvasX: 300, canvasY: 400 })
+    const a = createTextEntity({ canvasX: 0, canvasY: 400, text: 'nested a' })
+    const b = createTextEntity({ canvasX: 300, canvasY: 400, text: 'nested b' })
     await settleSync()
-    const inner = createUserGroup([s1.id, s2.id], 'Inner undo')
+    const inner = createUserGroup([a.id, b.id], 'Inner undo')
     await settleSync()
-    const outer = createUserGroup([s1.id, s2.id], 'Outer undo')
+    const outer = createUserGroup([a.id, b.id], 'Outer undo')
     await settleSync()
 
     const innerGroup = () => workspaceGroups.find((g) => g.id === inner.id)

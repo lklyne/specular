@@ -17,7 +17,6 @@
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
-import { registerBuiltInEntityKinds } from '../../src/main/entities'
 import { applyLayoutDirective } from '../../src/main/workspace-placement'
 import { validateLayoutDirective, type ApplyDirectiveRequest } from '../../src/shared/types'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
@@ -45,7 +44,6 @@ let harness: WorkspaceHarness
 describe('layout directive', () => {
   beforeEach(() => {
     // Same boot step src/main/index.ts runs after app.whenReady (idempotent).
-    registerBuiltInEntityKinds()
     harness ??= bootWorkspaceHarness()
     harness.reset()
   })

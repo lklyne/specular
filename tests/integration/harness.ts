@@ -62,6 +62,7 @@ import {
   writeCanvasFileSync,
   writeWorkspaceMetaSync,
 } from '../../src/main/runtime/workspace-persistence'
+import { registerBuiltInEntityKinds } from '../../src/main/entities'
 
 export interface WorkspaceHarness {
   userDataPath: string
@@ -105,6 +106,10 @@ export function bootWorkspaceHarness(fixture: CanvasFixture = BLANK_FIXTURE): Wo
 
   const userDataPath = mkdtempSync(join(tmpdir(), 'specular-itest-'))
   __setUserDataPath(userDataPath)
+
+  // App boot registers the entity-kind handlers before anything touches the
+  // registry (src/main/index.ts); idempotent, so per-file re-boots are safe.
+  registerBuiltInEntityKinds()
 
   // Minimal view topology: createPage() requires win + toolbarView to exist;
   // the fake window reports isDestroyed() so the layout engine never runs.

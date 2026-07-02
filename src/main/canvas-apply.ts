@@ -86,8 +86,8 @@ export function applyCanvasPatch(patch: CanvasPatch): CanvasApplyResult {
   let edgeIds: string[] = []
   const ctx = {}
 
-  for (const item of entities) {
-    commitAsOneTransaction(() => {
+  commitAsOneTransaction(() => {
+    for (const item of entities) {
       const kind = resolveKind(item)!
       const handler = getEntityKind(kind)
       if (item.id) {
@@ -96,9 +96,7 @@ export function applyCanvasPatch(patch: CanvasPatch): CanvasApplyResult {
       } else {
         created.push(handler.create(item, ctx))
       }
-    })
-  }
-  commitAsOneTransaction(() => {
+    }
 
     if (patch.edges?.length) {
       edgeIds = createEdges({ edges: patch.edges }).edgeIds

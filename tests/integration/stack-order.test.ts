@@ -7,9 +7,8 @@
  * undo step that restores the prior order without swallowing entity creation).
  *
  * Mutation-verified by: dropping the `enforceGroupContiguity` wrapper in
- * `reorderStackOrderIds` (src/main/runtime/entity-order-state.ts) fails the
- * contiguity case; the same edit inverted (skipping `writeEntityOrder`) fails
- * every reorder assertion.
+ * `reorderStackOrderIds` (src/main/runtime/entity-order-state.ts) — the
+ * contiguity case and the undo case both fail.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'

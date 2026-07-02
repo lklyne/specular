@@ -112,14 +112,7 @@ describe('persistence', () => {
     expect(order).toEqual(['x', 'a', 'b', 'group', 'y'])
   })
 
-  // Skipped on a harness gap: restoring a `link` node runs createPage →
-  // frameColor() in src/main/runtime/page-factory.ts:78, which calls a bare
-  // CJS `require('electron')`. The vitest alias only rewrites ESM imports,
-  // so the real (binary-less) electron package loads and throws. The stub
-  // needs a Module._load interceptor for 'electron' (electron-stub.ts already
-  // imports `Module` but never installs one). Verified: with that require
-  // intercepted, this test passes end-to-end.
-  it.skip('opens legacy Browser-mode appState as canvas with the saved page selected', () => {
+  it('opens legacy Browser-mode appState as canvas with the saved page selected', () => {
     harness.loadFixture({
       name: 'Legacy Browser Selection',
       doc: {

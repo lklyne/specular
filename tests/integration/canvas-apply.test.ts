@@ -10,19 +10,22 @@
  * validation (throws before mutating), and the one-patch-one-undo-step
  * contract of `commitAsOneTransaction`.
  *
- * Mutation-verified by:
- *   - replacing the `commitAsOneTransaction(() => {…})` wrapper in
- *     src/main/canvas-apply.ts with a bare call of its body — "a multi-item
- *     patch collapses to one undo step" fails (one undo leaves 2 of 3).
+ * Mutation-verified by (all in src/main/canvas-apply.ts):
+ *   - moving `commitAsOneTransaction` inside the entities loop (one commit
+ *     per item) — "a multi-item patch collapses to one undo step" fails.
+ *     Note: merely deleting the wrapper is NOT caught, because the deferred
+ *     microtask diff-sync still coalesces the patch into one transaction;
+ *     the wrapper guards against per-item commits, which is what this
+ *     mutation simulates.
  *   - making `resolveKind` return the caller's `item.kind` for updates
  *     instead of `entityKindById` — "updates an entity passing only its id"
- *     throws CanvasPatchError.
- *   - making the delete loop a no-op — the delete assertions fail.
+ *     fails (CanvasPatchError).
+ *   - making the delete loop iterate nothing — "creates edges and deletes
+ *     entities by id" and "applies create + delete as one patch" fail.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
-import { registerBuiltInEntityKinds } from '../../src/main/entities'
 import { applyCanvasPatch, CanvasPatchError } from '../../src/main/canvas-apply'
 import { serializeToJsonCanvas } from '../../src/main/runtime/json-canvas-serializer'
 import { workspaceSnapshot } from '../../src/main/runtime/workspace-tabs'
@@ -41,7 +44,6 @@ let harness: WorkspaceHarness
 describe('canvas apply', () => {
   beforeEach(() => {
     // Same boot step src/main/index.ts runs after app.whenReady (idempotent).
-    registerBuiltInEntityKinds()
     harness ??= bootWorkspaceHarness()
     harness.reset()
   })

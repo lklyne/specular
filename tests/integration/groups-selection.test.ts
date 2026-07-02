@@ -7,18 +7,15 @@
  * and round-trips through undo/redo, including restoring prior nested
  * membership.
  *
- * Mutation-verified by: inverting the `parentGroupId` restore in
- * `ungroupUserGroup` (setting freed children to `undefined` instead of
- * `group.parentGroupId` — src/main/workspace-groups.ts) breaks the
- * prior-membership case; removing the `selectEntities(freedIds)` call in
- * `ungroupSelectedGroup` (src/main/runtime/document-commands.ts) breaks the
- * ungroup-selection case.
+ * Mutation-verified by: deleting the `setEntityParentGroupId(entityId,
+ * group.id)` loop in `createUserGroup` (src/main/workspace-groups.ts) — 5 of
+ * 6 cases fail (only the pure select/deselect case survives).
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
+import type { JsonCanvasLinkNode } from '../../src/shared/json-canvas-types'
 import {
-  createShapeEntity,
   createTextEntity,
   getTextEntities,
   ungroupSelectedGroup,
@@ -35,6 +32,19 @@ import { workspaceGroups } from '../../src/main/runtime/workspace-model'
 import { undo, redo } from '../../src/main/runtime/workspace-undo'
 
 let harness: WorkspaceHarness
+
+function linkNode(id: string, x: number): JsonCanvasLinkNode {
+  return {
+    id,
+    type: 'link',
+    x,
+    y: 120,
+    width: 375,
+    height: 667,
+    url: `https://example.com/${id}`,
+    presetIndex: 0,
+  }
+}
 
 async function createTextPair(): Promise<[string, string]> {
   const a = createTextEntity({ canvasX: 0, canvasY: 0, text: 'a' })
@@ -100,18 +110,23 @@ describe('groups + selection', () => {
   })
 
   it('persists a created group to disk with member parentGroupId', async () => {
-    const s1 = createShapeEntity({ canvasX: 0, canvasY: 0 })
-    const s2 = createShapeEntity({ canvasX: 300, canvasY: 0 })
-    await settleSync()
-    const group = createUserGroup([s1.id, s2.id], 'Persisted group')
+    harness.loadFixture({
+      name: 'Group persist',
+      doc: {
+        nodes: [linkNode('page-a', 120), linkNode('page-b', 620)],
+        edges: [],
+        appState: { zoom: 1, pan: { x: 0, y: 0 } },
+      },
+    })
+    const group = createUserGroup(['page-a', 'page-b'], 'Persisted group')
     await settleSync()
 
     const disk = harness.diskDoc()
     const groupNode = disk?.nodes.find((n) => n.id === group.id)
     expect(groupNode).toMatchObject({ type: 'group', label: 'Persisted group' })
-    for (const shapeId of [s1.id, s2.id]) {
-      expect(disk?.nodes.find((n) => n.id === shapeId)).toMatchObject({
-        type: 'shape',
+    for (const pageId of ['page-a', 'page-b']) {
+      expect(disk?.nodes.find((n) => n.id === pageId)).toMatchObject({
+        type: 'link',
         parentGroupId: group.id,
       })
     }
