@@ -9,11 +9,16 @@
  * `afterTransaction`, so a forward-sync echo shows up as an extra count.
  *
  * Mutation-verified by:
- *   - removing the `'user'` transaction origin in syncRuntimeToDoc so the
- *     transaction count assertion below counts the doc transaction PLUS the
- *     echo from the undo observer (it goes from 1 to 2).
- *   - dropping `withSuppressedDocSync()` around the undo-path sync, which
- *     makes the "undo doesn't re-trigger forward sync" assertion fail.
+ *   - commenting out `scheduleWorkspaceAutosave()` in `createTextEntity`
+ *     (src/main/runtime/document-commands.ts) — the forward sync never fires,
+ *     so both create-count assertions fail (0 transactions instead of 1/2+).
+ *   - commenting out the `syncDocToRuntime(doc)` call in the afterTransaction
+ *     observer (src/main/runtime/workspace-observers.ts) — "undo does not
+ *     re-trigger a forward sync" fails because the runtime still holds the
+ *     undone entity.
+ * (The smoke suite's mutations — dropping the `'user'` origin or the
+ * undo-path `withSuppressedDocSync()` — are not observable in the
+ * display-free harness: nothing schedules an autosave during undo here.)
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'

@@ -198,7 +198,7 @@ function rebuildArrayFromYMap<T>(target: T[], ymap: Y.Map<Y.Map<unknown>>): void
 function syncDocToRuntime(doc: Y.Doc): void {
   if (!_refs) return
 
-  ;((fn: () => void) => fn())(() => {
+  withSuppressedDocSync(() => {
     const docTabId = getDocActiveTabId(doc)
     const currentTabId = _refs!.getActiveTabId()
     const isCrossTabUndo = docTabId !== null && docTabId !== currentTabId

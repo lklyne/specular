@@ -8,9 +8,9 @@
  * normalization, legacy Browser-mode appState restore).
  *
  * Mutation-verified by: commenting out `scheduleWorkspaceAutosave()` in
- * src/main/runtime/text-entity-state.ts — the debounce test's disk snapshot
- * stays empty after the autosave window and the flush-path tests lose the
- * created entity.
+ * `createTextEntity` (src/main/runtime/document-commands.ts) — "autosave
+ * writes a mutation to the .canvas file on disk" fails because the disk
+ * snapshot stays empty after the debounce window.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'

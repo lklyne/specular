@@ -23,7 +23,6 @@ import { readFileSync } from 'fs'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
-import { registerBuiltInEntityKinds } from '../../src/main/entities'
 import {
   DEFAULT_WORKSPACE_ID,
   canvasFilePath,
@@ -43,9 +42,6 @@ function normalizeGeneratedIds(text: string, generated: string[]): string {
 describe('.canvas format', () => {
   beforeEach(() => {
     harness ??= bootWorkspaceHarness()
-    // Same boot entry point src/main/index.ts calls after app.whenReady;
-    // idempotent, and required before the patch door can resolve kinds.
-    registerBuiltInEntityKinds()
     harness.reset()
   })
 
