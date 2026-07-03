@@ -41,13 +41,14 @@ Tab switches write to Y.Doc via `transitionToTab()`:
 3. UndoManager captures the diff between old and new tab state
 4. `markUndoBoundary()` ensures the tab switch is a discrete undo step
 
-## Drag batching
+## Gesture batching
 
-Drags produce many small position updates. Without batching, each would be a separate undo step.
+Gestures (drag, resize, reorder, distribute) produce many small updates. Without batching, each would be a separate undo step.
 
-- `initializeDrag()` calls `beginBatch()` — suppresses doc sync during drag
-- `applyDragDelta()` updates positions but sync is held
-- `finalizeDrag()` calls `endBatch()` — one sync for the entire drag, then `markUndoBoundary()`
+- `beginGestureSession()` (`workspace-gesture-session.ts`) suppresses doc sync and registers with `mutateWorkspace` so per-tick calls defer their undo boundary
+- Tick functions (`applyDragDelta`, `resizeMultiSelection`, registry updates) mutate freely while sync is held
+- `session.finalize()` — one sync for the entire gesture, then one `markUndoBoundary()`
+- At most one session at a time (one interaction token); a second begin warns and finalizes the stale session
 
 ## UndoManager scope
 

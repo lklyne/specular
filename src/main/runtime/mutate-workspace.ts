@@ -35,9 +35,9 @@ export interface MutateWorkspaceOptions<T> {
 let gestureSessionActive: () => boolean = () => false
 
 /**
- * Registered by the gesture session (step 8) so per-tick `mutateWorkspace`
- * calls inside an active session defer their undo boundary to the session's
- * finalize.
+ * Registered by the gesture session (workspace-gesture-session.ts) so
+ * per-tick `mutateWorkspace` calls inside an active session defer their undo
+ * boundary to the session's finalize.
  */
 export function setGestureSessionProbe(probe: () => boolean): void {
   gestureSessionActive = probe

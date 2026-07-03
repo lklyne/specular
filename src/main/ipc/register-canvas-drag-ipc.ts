@@ -19,8 +19,10 @@ import {
   currentInteractionState,
 } from '../runtime/interaction-state'
 import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-controller'
-import { beginBatch, endBatch } from '../runtime/workspace-observers'
-import { markUndoBoundary } from '../runtime/workspace-undo'
+import {
+  beginGestureSession,
+  type GestureSession,
+} from '../runtime/workspace-gesture-session'
 import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
@@ -57,6 +59,10 @@ const VIEWPORT_EVENT_FRAME_MS = 16
 // The entity currently being resized, captured at resize-begin so resize-end can
 // reflow its managed group (if any) before committing the gesture's undo step.
 let resizingEntityId: string | null = null
+
+// One variable serves both resize and multi-resize: the interaction token
+// (I2) guarantees the two gestures never overlap.
+let resizeSession: GestureSession | null = null
 
 let pendingViewportDelta = {
   zoomDeltaY: 0,
@@ -356,7 +362,7 @@ export function registerCanvasDragIpc(): void {
       initializeResizeGuides(entityId, handle)
       // Coalesce the gesture's per-tick bounds mutations into one Y.Doc
       // transaction / one undo step — mirrors drag (initializeDrag/finalizeDrag).
-      beginBatch()
+      resizeSession = beginGestureSession()
     },
   )
 
@@ -366,20 +372,20 @@ export function registerCanvasDragIpc(): void {
     // so the row re-packs in one undo step (ADR 0015 D3).
     if (resizingEntityId) reflowManagedGroupForChild(resizingEntityId)
     resizingEntityId = null
-    endBatch()
-    markUndoBoundary()
+    resizeSession?.finalize()
+    resizeSession = null
     commitActive()
   })
 
   ipcMain.on('canvas-multi-resize-begin', () => {
     const multiResizeToken = tryEnter({ kind: 'resizing-multi-selection' })
     if ('refused' in multiResizeToken) return
-    beginBatch()
+    resizeSession = beginGestureSession()
   })
 
   ipcMain.on('canvas-multi-resize-end', () => {
-    endBatch()
-    markUndoBoundary()
+    resizeSession?.finalize()
+    resizeSession = null
     commitActive()
   })
 

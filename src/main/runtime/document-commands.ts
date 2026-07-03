@@ -8,10 +8,10 @@
  * UI-only mutations (selection, focus camera, tool state) live in
  * ui-actions.ts and do NOT participate in the undo stack.
  *
- * The exceptions are the gesture-tick functions (drag, resize guides,
- * multi-resize, reorder, distribute): they keep their hand-rolled
- * `beginBatch` … `endBatch` … `markUndoBoundary` brackets until the gesture
- * session lands (deepen-runtime step 8).
+ * Multi-tick gestures (drag, resize, reorder, distribute) bracket their
+ * per-tick mutations in a gesture session (`beginGestureSession` …
+ * `finalize`), so the whole interaction collapses to one doc sync and one
+ * undo step.
  */
 
 import { GRID_SIZE, VIEWPORT_PRESETS } from '../../shared/constants'
@@ -103,9 +103,8 @@ import { distributionGuideDetector } from './distribution-guide-detector'
 import { descendantEntityIdsForGroup } from './group-descendants'
 import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
-import { beginBatch, endBatch } from './workspace-observers'
+import { beginGestureSession, type GestureSession } from './workspace-gesture-session'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
-import { markUndoBoundary } from './workspace-undo'
 import {
   boundAvailableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -176,6 +175,7 @@ type DragDeltaOptions = {
 const dragAccumulatorById = new Map<string, DragAccumulator>()
 let activeDragCandidates: SnapCandidate[] = []
 let activeDraggedGuideIds: string[] = []
+let dragSession: GestureSession | null = null
 let activeResizeGuideSession: {
   entityId: string
   references: AlignmentReferenceName[]
@@ -290,7 +290,7 @@ export function initializeDrag(entityIds: string[]): void {
     currentCanvasViewportRect(),
     entityIds,
   )
-  beginBatch()
+  dragSession = beginGestureSession()
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
     if (!entity) continue
@@ -474,8 +474,8 @@ export function finalizeDrag(): void {
   activeDragCandidates = []
   activeDraggedGuideIds = []
   clearCanvasGuides()
-  endBatch()
-  markUndoBoundary()
+  dragSession?.finalize()
+  dragSession = null
 }
 
 function resizeGuideExcludedIds(entityId: string): string[] {
@@ -880,10 +880,10 @@ function writeReorderedPosition(
  * Selection reorder commit (ADR 0015 D7) — the position-only sibling of
  * `reorderManagedChild`. Geometry is the source of truth: the row is read off
  * the current boxes, repacked with `movingId` at `dropIndex`, and only the
- * changed origins are written through each entity's per-kind mutator inside one
- * `beginBatch`/`endBatch` + `markUndoBoundary`, so the whole reorder collapses
- * to a single undo step (the batched-multi-write shape `resizeMultiSelection`
- * uses). **No** `entityOrder` write, **no** `managedLayout`, **no**
+ * changed origins are written through each entity's per-kind mutator inside
+ * one gesture session, so the whole reorder collapses to a single undo step
+ * (the batched-multi-write shape `resizeMultiSelection` uses). **No**
+ * `entityOrder` write, **no** `managedLayout`, **no**
  * `commitAsOneTransaction` — nothing persists but the new positions.
  *
  * No-op (returns false) when the selection isn't an eligible equal-gap row or
@@ -929,15 +929,14 @@ export function reorderSelection(
   const positions = reorderRowPositions(row, movingId, dropIndex)
   if (positions.size === 0) return false
 
-  beginBatch()
+  const session = beginGestureSession()
   let changed = false
   for (const [id, pos] of positions) {
     const kind = geometryById.get(id)?.kind
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }
   if (changed) scheduleWorkspaceAutosave()
-  endBatch()
-  markUndoBoundary()
+  session.finalize()
 
   if (changed) requestLayout()
   return changed
@@ -973,15 +972,14 @@ export function distributeSelection(entityIds: string[]): boolean {
   const result = distributeRowPositions(boxes)
   if (!result) return false
 
-  beginBatch()
+  const session = beginGestureSession()
   let changed = false
   for (const [id, pos] of result.positions) {
     const kind = geometryById.get(id)?.kind
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }
   if (changed) scheduleWorkspaceAutosave()
-  endBatch()
-  markUndoBoundary()
+  session.finalize()
 
   if (changed) requestLayout()
   return changed

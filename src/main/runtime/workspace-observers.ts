@@ -95,18 +95,16 @@ let _syncScheduled = false
 let _batchingActive = false
 
 /**
- * Begin batching: suppress doc sync until endBatch() is called.
- * Use this to coalesce a series of fine-grained mutations (e.g. drag
- * increments) into a single Y.Doc transaction / undo step.
+ * Begin batching: suppress doc sync until endBatch() is called, coalescing a
+ * series of fine-grained mutations (e.g. drag increments) into a single
+ * Y.Doc transaction. The gesture session (workspace-gesture-session.ts) is
+ * the caller — it pairs the batch with the gesture's one undo boundary.
  */
 export function beginBatch(): void {
   _batchingActive = true
 }
 
-/**
- * End batching: perform one sync for all accumulated mutations,
- * then mark an undo boundary so the batch is one undo step.
- */
+/** End batching: perform one sync for all accumulated mutations. */
 export function endBatch(): void {
   _batchingActive = false
   if (!_refs) return
