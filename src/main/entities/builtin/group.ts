@@ -9,11 +9,8 @@
 import type { PersistedGroupEntity, WorkspaceGroup } from '../../../shared/types'
 import type { JsonCanvasGroupNode } from '../../../shared/json-canvas-types'
 import { createUserGroup } from '../../workspace-groups'
-import { updateGroupEntity } from '../../runtime/document-commands'
-import {
-  deleteGroupEntity,
-  WORKSPACE_GROUP_PERSISTED_FIELDS,
-} from '../../runtime/group-entity-state'
+import { deleteGroupEntity, updateGroupEntity } from '../../runtime/document-commands'
+import { WORKSPACE_GROUP_PERSISTED_FIELDS } from '../../runtime/group-entity-state'
 import { workspaceGroups } from '../../runtime/workspace-model'
 import {
   deserializeGroupNodeToGroup,

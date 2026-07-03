@@ -13,7 +13,7 @@ import {
 import { allEntities } from '../entities/contract'
 import { getActiveDoc, DOC_ARRAY_ENTITY_ORDER } from './workspace-doc'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './viewport-control'
+import { mutateWorkspace } from './mutate-workspace'
 import { selectedEntityIds as uiSelectedEntityIds, selectedGroupId as uiSelectedGroupId } from '../ui-state'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
@@ -177,11 +177,11 @@ export function reorderStackOrder(action: StackOrderAction, targetId?: string): 
   )
   if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
 
-  writeEntityOrder(nextOrder)
-  markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    writeEntityOrder(nextOrder)
+    markDirty('canvas', 'sidebar')
+    return true
+  })
 }
 
 export function reorderStackOrderIds(action: StackOrderAction, ids: readonly string[]): boolean {
@@ -196,11 +196,11 @@ export function reorderStackOrderIds(action: StackOrderAction, ids: readonly str
   )
   if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
 
-  writeEntityOrder(nextOrder)
-  markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    writeEntityOrder(nextOrder)
+    markDirty('canvas', 'sidebar')
+    return true
+  })
 }
 
 /**
@@ -285,9 +285,9 @@ export function reorderSidebarStackOrder(input: {
   )
   if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
 
-  writeEntityOrder(nextOrder)
-  markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    writeEntityOrder(nextOrder)
+    markDirty('canvas', 'sidebar')
+    return true
+  })
 }

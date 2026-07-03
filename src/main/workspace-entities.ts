@@ -34,10 +34,9 @@ import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
 import { pan, zoom } from './runtime/runtime-context'
-import { requestLayout } from './runtime/viewport-control'
 import { CHROME_HEADER_HEIGHT } from '../shared/entity-chrome-slots'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import {
   boundsOverlap,
   pageContentSize,
@@ -250,6 +249,15 @@ export function removeEmptyGroups(): string[] {
 // --- Delete pages ---
 
 export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
+  return mutateWorkspace(() => deletePagesInternal(input), {
+    changed: (result) =>
+      result.deletedPageIds.length > 0 ||
+      result.deletedEdgeIds.length > 0 ||
+      result.deletedGroupIds.length > 0,
+  })
+}
+
+function deletePagesInternal(input: DeletePagesRequest): DeletePagesResponse {
   const deletedPageIds: string[] = []
   const missingPageIds: string[] = []
 
@@ -273,12 +281,6 @@ export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
   if (input.focusAfter) {
     const bounds = selectionBounds()
     if (bounds) focusCanvasBounds(bounds)
-  } else {
-    requestLayout()
-  }
-
-  if (deletedPageIds.length || deletedEdgeIds.length || deletedGroupIds.length) {
-    scheduleWorkspaceAutosave()
   }
 
   return {

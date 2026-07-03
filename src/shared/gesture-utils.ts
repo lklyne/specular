@@ -64,6 +64,32 @@ export function snapToGrid(value: number): number {
   return Math.round(value / GRID_SIZE) * GRID_SIZE
 }
 
+export type GeometryPatchKey = 'canvasX' | 'canvasY' | 'width' | 'height'
+
+const ALL_GEOMETRY_PATCH_KEYS: readonly GeometryPatchKey[] = [
+  'canvasX',
+  'canvasY',
+  'width',
+  'height',
+]
+
+/**
+ * Grid-snap the geometry fields present on a partial entity patch, leaving
+ * every other field untouched. `keys` narrows which fields snap — file
+ * entities snap position but keep their intrinsic size.
+ */
+export function snapGeometryPatch<T extends Partial<Record<GeometryPatchKey, number>>>(
+  patch: T,
+  keys: readonly GeometryPatchKey[] = ALL_GEOMETRY_PATCH_KEYS,
+): T {
+  const snapped = { ...patch }
+  for (const key of keys) {
+    const value = snapped[key]
+    if (value !== undefined) snapped[key] = snapToGrid(value) as T[GeometryPatchKey]
+  }
+  return snapped
+}
+
 export function isTypingTarget(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLTextAreaElement ||
