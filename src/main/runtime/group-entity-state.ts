@@ -111,6 +111,35 @@ export function buildGroupSceneEntity(
   }
 }
 
+/**
+ * Every key the doc's groups map can hold. Groups mirror to the doc as raw
+ * `WorkspaceGroup` objects (identity projection in the forward sync), so the
+ * list is the full runtime type keyed by `satisfies` — a new `WorkspaceGroup`
+ * field cannot silently skip the declaration (ADR 0024 §5). Restore replaces
+ * the array wholesale, so every listed field survives undo.
+ */
+const WORKSPACE_GROUP_PERSISTED_FIELD_SET = {
+  id: true,
+  kind: true,
+  label: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  color: true,
+  layoutMode: true,
+  managedLayout: true,
+  pageIds: true,
+  entityIds: true,
+  sourceTaskId: true,
+  metadata: true,
+} as const satisfies Record<keyof WorkspaceGroup, true>
+
+export const WORKSPACE_GROUP_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  WORKSPACE_GROUP_PERSISTED_FIELD_SET,
+)
+
 export function persistGroupEntity(group: WorkspaceGroup): PersistedGroupEntity {
   return {
     id: group.id,

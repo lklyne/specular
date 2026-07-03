@@ -11,14 +11,17 @@
 
 import { markAllDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
-import { allEntities, getEntityKind } from '../entities/contract'
+import { allEntities, forEachEntityKind, getEntityKind } from '../entities/contract'
+import { persistPage } from './page-doc-projection'
 import type * as Y from 'yjs'
-import type { Annotation, PersistedWorkspaceTab, WorkspaceEdge, WorkspaceGroup } from '../../shared/types'
+import type {
+  Annotation,
+  CanvasEntityKind,
+  PersistedWorkspaceTab,
+  WorkspaceEdge,
+  WorkspaceGroup,
+} from '../../shared/types'
 import type { Page } from './runtime-entities'
-import type { TextEntity } from './text-entity-state'
-import type { FileEntity } from './file-entity-state'
-import type { DrawingEntity } from './drawing-entity-state'
-import type { ShapeEntity } from './shape-entity-state'
 import {
   getActiveDoc,
   getDocActiveTabId,
@@ -41,21 +44,13 @@ import { makeEmptyTabSnapshot } from './workspace-tabs'
 
 interface RuntimeStateRefs {
   pages: Page[]
-  textEntities: TextEntity[]
-  fileEntities: FileEntity[]
-  drawingEntities: DrawingEntity[]
-  shapeEntities: ShapeEntity[]
   workspaceGroups: WorkspaceGroup[]
   workspaceEdges: WorkspaceEdge[]
   workspaceAnnotations: Annotation[]
   getZoom: () => number
   getPan: () => { x: number; y: number }
-  serializePage: (page: Page) => Record<string, unknown>
   cancelActiveInteraction: () => void
   sendInteractiveState: () => void
-  // Page lifecycle for undo of create/delete
-  createPage: (data: Record<string, unknown>) => void
-  removePageById: (id: string) => void
   // Cross-tab undo: full rebuild when activeTabId changes
   destroyActivePages: () => void
   getActiveTabId: () => string | null
@@ -191,7 +186,7 @@ function requestDocSyncImmediate(): void {
     pan: _refs.getPan(),
     activeTabId: _refs.getActiveTabId(),
     workspaceTabs: _refs.workspaceTabs,
-  }, _refs.serializePage as (page: { id: string }) => Record<string, unknown>)
+  }, persistPage as (page: { id: string }) => Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +198,14 @@ function rebuildArrayFromYMap<T>(target: T[], ymap: Y.Map<Y.Map<unknown>>): void
   for (const [, ym] of ymap.entries()) {
     target.push(ym.toJSON() as T)
   }
+}
+
+function mapSnapshots(ymap: Y.Map<Y.Map<unknown>>): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = []
+  for (const [, ym] of ymap.entries()) {
+    out.push(ym.toJSON() as Record<string, unknown>)
+  }
+  return out
 }
 
 function syncDocToRuntime(doc: Y.Doc): void {
@@ -250,58 +253,32 @@ function syncDocToRuntime(doc: Y.Doc): void {
       _refs!.destroyActivePages()
     }
 
-    // Reconcile pages: remove deleted, add restored
-    const yPages = doc.getMap(DOC_MAP_PAGES) as Y.Map<Y.Map<unknown>>
-    const runtimePageIds = new Set(_refs!.pages.map((p) => p.id))
-    const docPageIds = new Set(yPages.keys())
-
-    for (const page of [..._refs!.pages]) {
-      if (!docPageIds.has(page.id)) {
-        _refs!.removePageById(page.id)
-      }
-    }
-
-    for (const [id, yPage] of yPages.entries()) {
-      if (!runtimePageIds.has(id)) {
-        _refs!.createPage(yPage.toJSON() as Record<string, unknown>)
-      }
-    }
-
-    // Update properties on existing pages
-    for (const page of _refs!.pages) {
-      const yPage = yPages.get(page.id)
-      if (!yPage) continue
-      page.canvasX = (yPage.get('canvasX') as number) ?? page.canvasX
-      page.canvasY = (yPage.get('canvasY') as number) ?? page.canvasY
-      page.presetIndex = (yPage.get('presetIndex') as number) ?? page.presetIndex
-      page.linked = (yPage.get('linked') as boolean) ?? page.linked
-      page.parentGroupId = yPage.get('parentGroupId') as string | undefined
-      page.name = yPage.get('name') as string | undefined
-      if (yPage.get('metadata') !== undefined) {
-        page.metadata = yPage.get('metadata') as Record<string, unknown> | undefined
-      }
-    }
-
+    // Reconcile every registered kind's runtime store from its doc map: page
+    // and group mirror to their own maps; the rest share the entity map,
+    // bucketed by their persisted `kind` field. Each kind's `restore` runs
+    // even when its bucket is empty, so undo of a create clears the store.
+    // Edges and annotations are not registered kinds; they rebuild below.
+    const entitySnapshots = new Map<CanvasEntityKind, Record<string, unknown>[]>()
     const yEntities = doc.getMap(DOC_MAP_ENTITIES) as Y.Map<Y.Map<unknown>>
-    _refs!.textEntities.length = 0
-    _refs!.fileEntities.length = 0
-    _refs!.drawingEntities.length = 0
-    _refs!.shapeEntities.length = 0
     for (const [, yEntity] of yEntities.entries()) {
       const data = yEntity.toJSON() as Record<string, unknown>
-      const kind = data.kind as string
-      if (kind === 'text') {
-        _refs!.textEntities.push(data as unknown as TextEntity)
-      } else if (kind === 'file') {
-        _refs!.fileEntities.push(data as unknown as FileEntity)
-      } else if (kind === 'drawing') {
-        _refs!.drawingEntities.push(data as unknown as DrawingEntity)
-      } else if (kind === 'shape') {
-        _refs!.shapeEntities.push(data as unknown as ShapeEntity)
-      }
+      const kind = data.kind as CanvasEntityKind
+      const bucket = entitySnapshots.get(kind)
+      if (bucket) bucket.push(data)
+      else entitySnapshots.set(kind, [data])
     }
+    const yPages = doc.getMap(DOC_MAP_PAGES) as Y.Map<Y.Map<unknown>>
+    const yGroups = doc.getMap(DOC_MAP_GROUPS) as Y.Map<Y.Map<unknown>>
+    forEachEntityKind((def) => {
+      const snapshots =
+        def.kind === 'page'
+          ? mapSnapshots(yPages)
+          : def.kind === 'group'
+            ? mapSnapshots(yGroups)
+            : entitySnapshots.get(def.kind) ?? []
+      def.restore(snapshots)
+    })
 
-    rebuildArrayFromYMap(_refs!.workspaceGroups, doc.getMap(DOC_MAP_GROUPS) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceEdges, doc.getMap(DOC_MAP_EDGES) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceAnnotations, doc.getMap(DOC_MAP_ANNOTATIONS) as Y.Map<Y.Map<unknown>>)
 

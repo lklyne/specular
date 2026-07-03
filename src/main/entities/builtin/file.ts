@@ -21,6 +21,7 @@ import {
   buildFileEntitySceneEntity,
   fileEntities,
   persistFileEntity,
+  FILE_ENTITY_PERSISTED_FIELDS,
   type FileEntity,
 } from '../../runtime/file-entity-state'
 import { createNoteFile } from '../../runtime/note-assets'
@@ -77,7 +78,7 @@ function resolveFileDimensions(file: string, width?: number, height?: number) {
 
 export const fileKind: EntityKindDefinition<'file'> = {
   kind: 'file',
-  fields: ['file', 'subpath', 'width', 'height', 'canvasX', 'canvasY'],
+  fields: FILE_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const canvasX = (input.canvasX as number | undefined) ?? 0
@@ -142,6 +143,13 @@ export const fileKind: EntityKindDefinition<'file'> = {
   },
 
   entities: () => fileEntities,
+
+  restore(snapshots) {
+    fileEntities.length = 0
+    for (const snapshot of snapshots) {
+      fileEntities.push(snapshot as unknown as FileEntity)
+    }
+  },
 
   buildSceneEntity: (entity, zoom, pan, origin) =>
     buildFileEntitySceneEntity(entity as FileEntity, zoom, pan, origin),

@@ -139,6 +139,33 @@ export function buildShapeEntitySceneEntity(
   }
 }
 
+/**
+ * Every key `persistShapeEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedShapeEntity`; the persisted-fields
+ * drift test keeps `persistShapeEntity` on it.
+ */
+const SHAPE_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  shapeKind: true,
+  text: true,
+  color: true,
+  strokeWidth: true,
+  textSize: true,
+  theme: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  label: true,
+} as const satisfies Record<keyof PersistedShapeEntity, true>
+
+export const SHAPE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  SHAPE_ENTITY_PERSISTED_FIELD_SET,
+)
+
 export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {
   return {
     kind: 'shape',

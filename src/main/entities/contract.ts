@@ -67,8 +67,23 @@ export interface EntityKindDefinition<K extends CanvasEntityKind = CanvasEntityK
   deserialize(node: JsonCanvasNode): PersistedCanvasEntity
   /** Footprint used when a create item omits an explicit size. */
   defaultSize(input: EntityCreateInput): { width: number; height: number }
-  /** The update fields this kind actually honors — the rest are dropped. */
+  /**
+   * The authoritative persisted field list: every key this kind writes to its
+   * Y.Doc map (the shared entity map; the pages/groups maps for page/group).
+   * Both sync directions derive from it — the persist projection's output
+   * keys must match it (drift-tested per kind) and `restore` must account for
+   * every field on undo.
+   */
   fields: readonly string[]
+  /**
+   * Reconcile this kind's live runtime store from its persisted doc snapshots
+   * after undo/redo reverts the Y.Doc. Runs inside `withSuppressedDocSync`;
+   * the observer passes every snapshot of this kind (an empty array when the
+   * doc holds none). The map-backed kinds replace their array wholesale; page
+   * patches its live WebContentsView-backed objects field by field (see
+   * `runtime/page-doc-projection.ts`).
+   */
+  restore(snapshots: readonly Record<string, unknown>[]): void
   /**
    * This kind's live runtime entities — the raw store its persist and scene
    * projections read. For `drawing` this is the raw store, deliberately

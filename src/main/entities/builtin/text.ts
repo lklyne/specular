@@ -17,6 +17,7 @@ import {
   buildTextEntitySceneEntity,
   persistTextEntity,
   textEntities,
+  TEXT_ENTITY_PERSISTED_FIELDS,
   type TextEntity,
 } from '../../runtime/text-entity-state'
 import {
@@ -29,7 +30,7 @@ const DEFAULT_TEXT_SIZE = 200
 
 export const textKind: EntityKindDefinition<'text'> = {
   kind: 'text',
-  fields: ['text', 'color', 'width', 'height', 'canvasX', 'canvasY'],
+  fields: TEXT_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const entity = createTextEntity({
@@ -75,6 +76,13 @@ export const textKind: EntityKindDefinition<'text'> = {
   },
 
   entities: () => textEntities,
+
+  restore(snapshots) {
+    textEntities.length = 0
+    for (const snapshot of snapshots) {
+      textEntities.push(snapshot as unknown as TextEntity)
+    }
+  },
 
   buildSceneEntity: (entity, zoom, pan, origin) =>
     buildTextEntitySceneEntity(entity as TextEntity, zoom, pan, origin),

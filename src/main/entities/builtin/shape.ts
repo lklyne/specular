@@ -16,6 +16,7 @@ import {
   DEFAULT_SHAPE_WIDTH,
   persistShapeEntity,
   shapeEntities,
+  SHAPE_ENTITY_PERSISTED_FIELDS,
   type ShapeEntity,
 } from '../../runtime/shape-entity-state'
 import {
@@ -26,7 +27,7 @@ import type { EntityKindDefinition } from '../contract'
 
 export const shapeKind: EntityKindDefinition<'shape'> = {
   kind: 'shape',
-  fields: ['canvasX', 'canvasY', 'width', 'height', 'shapeKind', 'text', 'color', 'strokeWidth', 'textSize'],
+  fields: SHAPE_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const entity = createShapeEntity({
@@ -75,6 +76,13 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
   },
 
   entities: () => shapeEntities,
+
+  restore(snapshots) {
+    shapeEntities.length = 0
+    for (const snapshot of snapshots) {
+      shapeEntities.push(snapshot as unknown as ShapeEntity)
+    }
+  },
 
   buildSceneEntity: (entity, zoom, pan, origin) =>
     buildShapeEntitySceneEntity(entity as ShapeEntity, zoom, pan, origin),

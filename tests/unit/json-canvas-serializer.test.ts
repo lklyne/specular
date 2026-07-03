@@ -51,6 +51,8 @@ function registerSerdeKind(
     serialize,
     deserialize,
     defaultSize: () => ({ width: 0, height: 0 }),
+    entities: () => [],
+    restore: () => {},
   })
 }
 

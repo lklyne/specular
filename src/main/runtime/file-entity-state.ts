@@ -212,6 +212,31 @@ function inferRepoRoot(filePath: string): string | undefined {
   return undefined
 }
 
+/**
+ * Every key `persistFileEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedFileEntity`; the persisted-fields
+ * drift test keeps `persistFileEntity` on it.
+ */
+const FILE_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  file: true,
+  subpath: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  objectFit: true,
+  presetIndex: true,
+  metadata: true,
+} as const satisfies Record<keyof PersistedFileEntity, true>
+
+export const FILE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  FILE_ENTITY_PERSISTED_FIELD_SET,
+)
+
 export function persistFileEntity(entity: FileEntity): PersistedFileEntity {
   return {
     kind: 'file',

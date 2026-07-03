@@ -13,6 +13,7 @@ import {
   buildDrawingEntitySceneEntity,
   drawingEntities,
   persistDrawingEntity,
+  DRAWING_ENTITY_PERSISTED_FIELDS,
   type DrawingEntity,
 } from '../../runtime/drawing-entity-state'
 import {
@@ -25,7 +26,7 @@ const DEFAULT_DRAWING_SIZE = 200
 
 export const drawingKind: EntityKindDefinition<'drawing'> = {
   kind: 'drawing',
-  fields: ['canvasX', 'canvasY', 'width', 'height', 'strokes'],
+  fields: DRAWING_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const entity = createDrawingEntity({
@@ -68,6 +69,13 @@ export const drawingKind: EntityKindDefinition<'drawing'> = {
   // The raw store — persistence and stack order read this. The sidebar and
   // canvas scene read the UI-filtered `drawingEntitiesForUi()` view instead.
   entities: () => drawingEntities,
+
+  restore(snapshots) {
+    drawingEntities.length = 0
+    for (const snapshot of snapshots) {
+      drawingEntities.push(snapshot as unknown as DrawingEntity)
+    }
+  },
 
   buildSceneEntity: (entity, zoom, pan, origin) =>
     buildDrawingEntitySceneEntity(entity as DrawingEntity, zoom, pan, origin),

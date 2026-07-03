@@ -109,6 +109,28 @@ export function buildDrawingEntitySceneEntity(
   }
 }
 
+/**
+ * Every key `persistDrawingEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedDrawingEntity`; the
+ * persisted-fields drift test keeps `persistDrawingEntity` on it.
+ */
+const DRAWING_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  strokes: true,
+  parentGroupId: true,
+  label: true,
+} as const satisfies Record<keyof PersistedDrawingEntity, true>
+
+export const DRAWING_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  DRAWING_ENTITY_PERSISTED_FIELD_SET,
+)
+
 export function persistDrawingEntity(entity: DrawingEntity): PersistedDrawingEntity {
   return {
     kind: 'drawing',

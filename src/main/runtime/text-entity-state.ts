@@ -136,6 +136,32 @@ export function buildTextEntitySceneEntity(
   }
 }
 
+/**
+ * Every key `persistTextEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedTextEntity`; the persisted-fields
+ * drift test keeps `persistTextEntity` on it.
+ */
+const TEXT_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  text: true,
+  color: true,
+  textStyle: true,
+  widthMode: true,
+  textSize: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  label: true,
+} as const satisfies Record<keyof PersistedTextEntity, true>
+
+export const TEXT_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  TEXT_ENTITY_PERSISTED_FIELD_SET,
+)
+
 export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
   return {
     kind: 'text',

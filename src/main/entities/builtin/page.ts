@@ -19,6 +19,11 @@ import { navigatePage } from '../../navigation-sync'
 import { createPages } from '../../workspace-pages'
 import { deletePages } from '../../workspace-entities'
 import { findPageById, pages } from '../../runtime/runtime-context'
+import { createPage, removePageById } from '../../runtime/page-factory'
+import {
+  PAGE_PERSISTED_FIELDS,
+  restorePagesFromDoc,
+} from '../../runtime/page-doc-projection'
 import {
   setDeviceOrientation,
   setPagePreset,
@@ -35,7 +40,7 @@ import type { EntityKindDefinition } from '../contract'
 
 export const pageKind: EntityKindDefinition<'page'> = {
   kind: 'page',
-  fields: ['canvasX', 'canvasY', 'presetIndex', 'orientation', 'showDeviceFrame', 'url'],
+  fields: PAGE_PERSISTED_FIELDS,
 
   create(input) {
     const presetIndex = (input.presetIndex as number | undefined) ?? LAPTOP_PRESET_INDEX
@@ -104,4 +109,14 @@ export const pageKind: EntityKindDefinition<'page'> = {
   },
 
   entities: () => pages,
+
+  restore(snapshots) {
+    restorePagesFromDoc(snapshots, {
+      pages,
+      createPage: (data) => {
+        createPage(data as unknown as Parameters<typeof createPage>[0])
+      },
+      removePageById,
+    })
+  },
 }
