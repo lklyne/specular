@@ -13,11 +13,8 @@
 
 import { FolderOpen } from 'lucide-react'
 import type { MutableRefObject } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneGroupEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { DRAG_THRESHOLD } from '../../shared/gesture-utils'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { startOptionAwareGroupDrag, type DragCopyPreviewBox } from './optionDragCopy'

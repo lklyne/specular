@@ -1,11 +1,6 @@
 import { useMemo, useRef } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneFileEntity,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-  ThemeData,
-} from '../../shared/types'
+import type { CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, ThemeData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'

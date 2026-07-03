@@ -1,17 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type {
-  AnnotationBboxSubscription,
-  AnnotationCreateRequest,
-  AnnotationElementSelectionPayload,
-  AnnotationLiveBboxUpdate,
-  CanvasBgElectronAPI,
-  EdgeSide,
-  LayoutUpdateData,
-  SelectionOverlayPayload,
-  ToolDefaultPatch,
-  ViewportNudge,
-  WorkspaceBounds,
-} from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
+import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
 import type { CanvasGuidesPayload } from '../shared/canvas-guides'

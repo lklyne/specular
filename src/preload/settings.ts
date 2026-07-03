@@ -1,10 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type {
-  ConnectedRepo,
-  FixConfig,
-  OnboardingProgressEvent,
-  SettingsElectronAPI,
-} from '../shared/types'
+import type { ConnectedRepo, FixConfig, OnboardingProgressEvent } from '../shared/types'
+import type { SettingsElectronAPI } from '../shared/electron-api/settings'
 import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 

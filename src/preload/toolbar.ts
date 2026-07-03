@@ -1,9 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type {
-  AgentPresenceCursor,
-  ToolbarElectronAPI,
-  ToolbarSelectionData,
-} from '../shared/types'
+import type { AgentPresenceCursor, ToolbarSelectionData } from '../shared/types'
+import type { ToolbarElectronAPI } from '../shared/electron-api/toolbar'
 import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 

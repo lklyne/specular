@@ -266,15 +266,10 @@ export interface IpcContract {
   'right-details-panel-select-node': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-select-page': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-auto-fix': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-set-device-orientation': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-file-custom': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-set-file-device-orientation': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-file-preset': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-fix-config': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-set-page-custom': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-preset': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-toggle-device-shell': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-toggle-file-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-toggle-linked-page': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
@@ -562,15 +557,10 @@ export const ipcChannels = {
   rightDetailsPanelSelectNode: 'right-details-panel-select-node',
   rightDetailsPanelSelectPage: 'right-details-panel-select-page',
   rightDetailsPanelSetAutoFix: 'right-details-panel-set-auto-fix',
-  rightDetailsPanelSetDeviceOrientation: 'right-details-panel-set-device-orientation',
   rightDetailsPanelSetFileCustom: 'right-details-panel-set-file-custom',
-  rightDetailsPanelSetFileDeviceOrientation: 'right-details-panel-set-file-device-orientation',
   rightDetailsPanelSetFilePreset: 'right-details-panel-set-file-preset',
   rightDetailsPanelSetFixConfig: 'right-details-panel-set-fix-config',
-  rightDetailsPanelSetPageCustom: 'right-details-panel-set-page-custom',
   rightDetailsPanelSetPagePreset: 'right-details-panel-set-page-preset',
-  rightDetailsPanelToggleDeviceShell: 'right-details-panel-toggle-device-shell',
-  rightDetailsPanelToggleFileDeviceShell: 'right-details-panel-toggle-file-device-shell',
   rightDetailsPanelToggleLinkedPage: 'right-details-panel-toggle-linked-page',
   rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',

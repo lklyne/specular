@@ -16,14 +16,9 @@ import {
   deleteEdge,
   updateEdge,
   setPagePreset,
-  setPageCustom,
-  setDeviceOrientation,
-  toggleDeviceShell,
   toggleSvgDeviceShell,
   setFilePreset,
   setFileCustom,
-  setFileDeviceOrientation,
-  toggleFileDeviceShell,
 } from '../runtime/document-commands'
 import { togglePageLinked } from '../navigation-sync'
 import { deletePages } from '../workspace-entities'
@@ -65,9 +60,6 @@ type SingleFieldCommand = {
 const hasPresetIndex = (payload: Record<string, unknown>): boolean =>
   typeof payload.presetIndex === 'number'
 
-const hasOrientation = (payload: Record<string, unknown>): boolean =>
-  payload.orientation === 'portrait' || payload.orientation === 'landscape'
-
 /** Channels that validate one id field, then call one function. */
 const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
   // --- Annotations and fixes ---
@@ -97,20 +89,6 @@ const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
     accept: hasPresetIndex,
     run: (id, payload) => setPagePreset(id, payload.presetIndex as number),
   },
-  [ipcChannels.rightDetailsPanelSetPageCustom]: {
-    key: 'pageId',
-    run: (id) => setPageCustom(id),
-  },
-  [ipcChannels.rightDetailsPanelSetDeviceOrientation]: {
-    key: 'pageId',
-    accept: hasOrientation,
-    run: (id, payload) =>
-      setDeviceOrientation(id, payload.orientation as 'portrait' | 'landscape'),
-  },
-  [ipcChannels.rightDetailsPanelToggleDeviceShell]: {
-    key: 'pageId',
-    run: (id) => toggleDeviceShell(id),
-  },
   [ipcChannels.rightDetailsPanelToggleSvgDeviceShell]: {
     key: 'pageId',
     run: (id) => toggleSvgDeviceShell(id),
@@ -124,16 +102,6 @@ const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
   [ipcChannels.rightDetailsPanelSetFileCustom]: {
     key: 'fileId',
     run: (id) => setFileCustom(id),
-  },
-  [ipcChannels.rightDetailsPanelSetFileDeviceOrientation]: {
-    key: 'fileId',
-    accept: hasOrientation,
-    run: (id, payload) =>
-      setFileDeviceOrientation(id, payload.orientation as 'portrait' | 'landscape'),
-  },
-  [ipcChannels.rightDetailsPanelToggleFileDeviceShell]: {
-    key: 'fileId',
-    run: (id) => toggleFileDeviceShell(id),
   },
 }
 

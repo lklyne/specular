@@ -1,9 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type {
-  AnnotationCreateRequest,
-  DevtoolsPanelData,
-  DevtoolsPanelElectronAPI,
-} from '../shared/types'
+import type { AnnotationCreateRequest, DevtoolsPanelData } from '../shared/types'
+import type { DevtoolsPanelElectronAPI } from '../shared/electron-api/right-details-panel'
 import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
@@ -57,9 +54,9 @@ const api: DevtoolsPanelElectronAPI = {
   setFileCustom: (fileId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFileCustom, { fileId }),
   setFileDeviceOrientation: (fileId: string, orientation: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelSetFileDeviceOrientation, { fileId, orientation }),
+    ipcRenderer.send(ipcChannels.canvasSetFileDeviceOrientation, { fileId, orientation }),
   toggleFileDeviceShell: (fileId: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelToggleFileDeviceShell, { fileId }),
+    ipcRenderer.send(ipcChannels.canvasToggleFileDeviceShell, { fileId }),
   deleteDrawingEntity: (id: string) =>
     ipcRenderer.send(ipcChannels.canvasDeleteDrawingEntity, { id }),
   updateShapeEntity: (id, patch) =>
@@ -73,11 +70,11 @@ const api: DevtoolsPanelElectronAPI = {
   setPagePreset: (pageId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetPagePreset, { pageId, presetIndex }),
   setPageCustom: (pageId: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelSetPageCustom, { pageId }),
+    ipcRenderer.send(ipcChannels.canvasSetPageCustom, { pageId }),
   setDeviceOrientation: (pageId: string, orientation: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelSetDeviceOrientation, { pageId, orientation }),
+    ipcRenderer.send(ipcChannels.canvasSetDeviceOrientation, { pageId, orientation }),
   toggleDeviceShell: (pageId: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelToggleDeviceShell, { pageId }),
+    ipcRenderer.send(ipcChannels.canvasToggleDeviceShell, { pageId }),
   // Reuses the global focus channel — the panel only surfaces the selected
   // page, so "focus selection" and "focus this page" are the same action.
   focusSelection: () => ipcRenderer.send(ipcChannels.canvasFocusSelection),

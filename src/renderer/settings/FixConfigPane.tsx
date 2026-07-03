@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Select } from '@base-ui/react/select'
 import { Check, ChevronDown } from 'lucide-react'
-import type {
-  FixConfig,
-  FixModel,
-  FixPermissions,
-  SettingsElectronAPI,
-} from '../../shared/types'
+import type { FixConfig, FixModel, FixPermissions } from '../../shared/types'
+import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
 
 const MODEL_OPTIONS: { value: FixModel; label: string }[] = [
   { value: 'opus', label: 'Opus' },

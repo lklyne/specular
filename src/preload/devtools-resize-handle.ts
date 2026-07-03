@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DevtoolsResizeHandleElectronAPI } from '../shared/types'
+import type { DevtoolsResizeHandleElectronAPI } from '../shared/electron-api/devtools-resize-handle'
 import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 

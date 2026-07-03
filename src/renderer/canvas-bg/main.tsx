@@ -5,7 +5,7 @@ import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
 import { installRendererErrorReporter } from '../shared/install-error-reporter'
 import { RendererErrorBoundary } from '../shared/RendererErrorBoundary'
-import type { CanvasBgElectronAPI } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 
 initRendererSentry()
 installRendererErrorReporter('canvas-bg')

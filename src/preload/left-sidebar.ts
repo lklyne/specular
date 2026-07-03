@@ -1,9 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type {
-  CanvasEntityKind,
-  LeftSidebarData,
-  LeftSidebarElectronAPI,
-} from '../shared/types'
+import type { CanvasEntityKind, LeftSidebarData } from '../shared/types'
+import type { LeftSidebarElectronAPI } from '../shared/electron-api/left-sidebar'
 import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 

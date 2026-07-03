@@ -6,12 +6,8 @@ import {
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type {
-  AnnotationDrawingStroke,
-  CanvasBgElectronAPI,
-  CanvasSceneDrawingEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { AnnotationDrawingStroke, CanvasSceneDrawingEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { drawingBounds } from './annotationMath'
 import {

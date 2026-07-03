@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
-import type {
-  OnboardingBootstrapData,
-  OnboardingComponentId,
-  OnboardingElectronAPI,
-  OnboardingProgressEvent,
-  OnboardingStatusSnapshot,
-} from '../../shared/types'
+import type { OnboardingBootstrapData, OnboardingComponentId, OnboardingProgressEvent, OnboardingStatusSnapshot } from '../../shared/types'
+import type { OnboardingElectronAPI } from '../../shared/electron-api/onboarding'
 import { SkillInstaller, type InstallerRowSnapshot, type RowProgress } from '../shared/SkillInstaller'
 import {
   hasInstallableSelection,

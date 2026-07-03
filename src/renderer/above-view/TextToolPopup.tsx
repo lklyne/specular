@@ -9,12 +9,8 @@ import {
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type {
-  CanvasBgElectronAPI,
-  LayoutUpdateData,
-  TextEntityStyle,
-  ToolDefaultPatch,
-} from '../../shared/types'
+import type { LayoutUpdateData, TextEntityStyle, ToolDefaultPatch } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { TextKindToggle } from './TextKindToggle'
 import { TextSizeDropdown } from './TextSizeDropdown'

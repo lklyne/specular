@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DebugElectronAPI } from '../shared/types'
+import type { DebugElectronAPI } from '../shared/electron-api/debug'
 import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 

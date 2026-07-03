@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { BindingId } from '../../../shared/bindings'
-import type { CanvasBgElectronAPI } from '../../../shared/types'
+import type { CanvasBgElectronAPI } from '../../../shared/electron-api/canvas-bg'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 

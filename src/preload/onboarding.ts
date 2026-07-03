@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { OnboardingElectronAPI, OnboardingProgressEvent } from '../shared/types'
+import type { OnboardingProgressEvent } from '../shared/types'
+import type { OnboardingElectronAPI } from '../shared/electron-api/onboarding'
 import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
