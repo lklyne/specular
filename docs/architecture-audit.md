@@ -59,6 +59,10 @@ Multi-run, not one holistic pass: ~74k LOC across clean seams, so a single
   `docs/plans/deepen-ipc.md` and `docs/plans/deepen-above-view.md` are shovel-ready;
   the runtime track (entity-kind registry + mutate-workspace seam) needs a grill +
   ADR first — see the "Status & pickup" section of the deepen doc.
+- **2026-07-03 (later)** — grill done: ADR 0024 (registry spans runtime +
+  persistence) and ADR 0025 (single mutation seam) accepted; CONTEXT.md updated;
+  `docs/plans/deepen-runtime.md` written. All three tracks shovel-ready for the
+  AFK pipeline.
 
 ## Why this shape
 
