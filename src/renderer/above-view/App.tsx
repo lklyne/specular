@@ -14,19 +14,16 @@ import type {
 } from '../../shared/types'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
-  canvasToScreenX,
-  canvasToScreenY,
   canScrollWheelTarget,
-  DRAG_THRESHOLD,
-  isOverlayUiTarget,
   normalizeRect,
-  screenPointToCanvasPoint,
   screenRectToCanvasRect,
-  snapToGrid,
-  squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
-import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
+import { toolHasPopup } from '../../shared/tool'
+import {
+  annotationOverlayActive,
+  canvasPointerOwner,
+} from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
@@ -60,7 +57,6 @@ import {
   useCanvasPointerRouter,
   type ReorderGhostOffset,
 } from './useCanvasPointerRouter'
-import { startPointerSession } from './pointer-session'
 import { usePageInputForwarding } from './usePageInputForwarding'
 import { pointerOverPageContent } from '../../shared/page-hit-test'
 import { EdgeDragLayer } from './EdgeDragLayer'
@@ -88,7 +84,6 @@ import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
-const MIN_SHAPE_DRAG_SIZE = 24
 
 function DragCopyPreviewLayer({
   previews,
@@ -376,16 +371,6 @@ function sameKindSelectedEntities<K extends CanvasSceneEntity['kind']>(
   return result
 }
 
-function overlayRectFromScreenRect(
-  rect: { left: number; top: number; width: number; height: number },
-  layout: LayoutUpdateData,
-) {
-  return {
-    ...rect,
-    top: rect.top - layout.canvasOrigin.y,
-  }
-}
-
 export default function App({
   initialLayoutData,
   initialTheme,
@@ -653,13 +638,16 @@ export default function App({
   // focus session rests with the eye off; a working tool or the focus-bar eye
   // latches it on (ADR 0021). Binary show/hide, never a dim.
   const hideContext = focus.active && !focus.showsContext
-  const overlayInteractive = Boolean(
-    pendingAnnotation ||
-      pendingRegionRect ||
-      openThreadId ||
-      drawingSession ||
-      layoutData.activeTool.kind === 'draw',
-  )
+  const pointerOwnerState = {
+    toolKind: layoutData.activeTool.kind,
+    pendingPlacement: Boolean(layoutData.pendingPlacement),
+    pendingAnnotation: Boolean(pendingAnnotation),
+    pendingRegionRect: Boolean(pendingRegionRect),
+    openThread: Boolean(openThreadId),
+    drawingSession: Boolean(drawingSession),
+  }
+  const overlayInteractive = annotationOverlayActive(pointerOwnerState)
+  const pointerOwner = canvasPointerOwner(pointerOwnerState)
   // Gate authority is main (Phase 5d-v2 D6): shouldGateBeOpen() derives
   // bounds from interaction, toolMode, modifiers, presence, marquee,
   // floating menu, and saved drawings. Main can't see renderer-local
@@ -803,169 +791,6 @@ export default function App({
     setPlacementCursor,
   })
 
-  const routerOwnsCanvasPointers =
-    !overlayInteractive &&
-    !pendingPlacement &&
-    !isAnnotationTool(layoutData.activeTool)
-  const toolGestureOwnsCanvasPointers =
-    !overlayInteractive &&
-    (Boolean(pendingPlacement) || layoutData.activeTool.kind === 'comment')
-
-  // Comment-tool gesture + placement-tool gesture share this overlay handler:
-  // both capture pointerdown/move/up while the gate routes events to aboveView.
-  //
-  // Comment tool (ADR 0006): click below threshold → resolve element under
-  // cursor via `inspectAtPoint`; element hit → element anchor; nothing →
-  // canvas-point anchor. Drag past threshold → marquee → region anchor on
-  // pointerup. Threshold matches the rest of the canvas pointer router.
-  // The comment tool needs to keep capturing pointerdowns while a pending
-  // annotation or region rect is open so the user can retarget by clicking a
-  // different element. `isOverlayUiTarget` below still filters out clicks on
-  // the composer / popups so typing isn't interrupted.
-  const commentToolBlocked = Boolean(
-    openThreadId || drawingSession || layoutData.activeTool.kind === 'draw',
-  )
-  const skipPointerCapture =
-    layoutData.activeTool.kind === 'comment' ? commentToolBlocked : overlayInteractive
-  useEffect(() => {
-    if (skipPointerCapture) return
-    if (!pendingPlacement && layoutData.activeTool.kind !== 'comment') return
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) return
-      if (event.button !== 0) return
-      const layout = layoutRef.current
-      if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
-
-      event.preventDefault()
-      event.stopPropagation()
-
-      const startX = event.clientX
-      const startY = event.clientY
-      const startWindowY = startY + layout.canvasOrigin.y
-      const startCanvas = screenPointToCanvasPoint(startX, startWindowY, layout)
-      const placementAtStart = layout.pendingPlacement
-      let crossedThreshold = false
-
-      const updateShapePreview = (ev: PointerEvent) => {
-        const current = layoutRef.current
-        const endCanvas = screenPointToCanvasPoint(
-          ev.clientX,
-          ev.clientY + current.canvasOrigin.y,
-          current,
-        )
-        const square = squareConstrainedRect(
-          startCanvas.x,
-          startCanvas.y,
-          endCanvas.x,
-          endCanvas.y,
-          ev.shiftKey,
-        )
-        const minCanvasX = snapToGrid(square.left)
-        const minCanvasY = snapToGrid(square.top)
-        const snappedW = snapToGrid(square.width)
-        const snappedH = snapToGrid(square.height)
-        const screenRect = {
-          left: canvasToScreenX(current, minCanvasX),
-          top: canvasToScreenY(current, minCanvasY),
-          width: snappedW * current.zoom,
-          height: snappedH * current.zoom,
-        }
-        api.setSelectionOverlayRect({
-          rect: overlayRectFromScreenRect(screenRect, current),
-          variant: 'place-shape',
-          shapeKind: current.pendingPlacement?.shapeKind ?? 'rectangle',
-        })
-      }
-
-      startPointerSession(event, {
-        onMove: (ev) => {
-          const current = layoutRef.current
-          if (placementAtStart?.entityKind === 'shape') {
-            updateShapePreview(ev)
-            return
-          }
-          if (!placementAtStart && current.activeTool.kind === 'comment') {
-            if (!crossedThreshold) {
-              const dx = ev.clientX - startX
-              const dy = ev.clientY - startY
-              if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
-                return
-              }
-              crossedThreshold = true
-            }
-            onDragMove(startX, startY, ev.clientX, ev.clientY)
-          }
-        },
-        onUp: (ev) => {
-          const current = layoutRef.current
-          if (placementAtStart) {
-            if (placementAtStart.entityKind === 'shape') {
-              api.setSelectionOverlayRect(null)
-              const endCanvas = screenPointToCanvasPoint(
-                ev.clientX,
-                ev.clientY + current.canvasOrigin.y,
-                current,
-              )
-              const square = squareConstrainedRect(
-                startCanvas.x,
-                startCanvas.y,
-                endCanvas.x,
-                endCanvas.y,
-                ev.shiftKey,
-              )
-              if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
-                api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
-                  x: snapToGrid(square.left),
-                  y: snapToGrid(square.top),
-                  width: snapToGrid(square.width),
-                  height: snapToGrid(square.height),
-                })
-              } else {
-                api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
-              }
-              return
-            }
-            api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
-            return
-          }
-          if (current.activeTool.kind === 'comment') {
-            if (crossedThreshold) {
-              // Drag past threshold → region anchor.
-              onDragEnd(startX, startY, ev.clientX, ev.clientY)
-              return
-            }
-            // Click below threshold → element anchor if a page DOM element sits
-            // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
-            api.setSelectionOverlayRect(null)
-            const draft = draftStateRef.current
-            const hasEmptyDraft =
-              Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
-              !draft.commentText.trim()
-            if (hasEmptyDraft) {
-              // Empty composer open → click-away dismisses it without creating
-              // a new draft; comment mode stays active.
-              draft.clearDraft()
-              return
-            }
-            api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
-          }
-        },
-        onCancel: () => {
-          api.setSelectionOverlayRect(null)
-        },
-        listenBlur: true,
-      })
-    }
-
-    window.addEventListener('pointerdown', onPointerDown, { capture: true })
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, {
-        capture: true,
-      } as EventListenerOptions)
-    }
-  }, [api, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, pendingPlacement, skipPointerCapture])
-
   const viewportWheelAndPanApi = useMemo(
     () => ({
       canvasZoom: api.canvasZoom,
@@ -1089,7 +914,7 @@ export default function App({
   useCanvasPointerRouter({
     api,
     layoutRef,
-    enabled: routerOwnsCanvasPointers,
+    owner: pointerOwner,
     consume: FULL_ROUTER_CONSUME,
     spaceHeldRef,
     handToolActiveRef,
@@ -1097,6 +922,9 @@ export default function App({
     setDragCopyPreview,
     setEdgeDragState,
     setReorderGhost,
+    onCommentDragMove: onDragMove,
+    onCommentDragEnd: onDragEnd,
+    commentDraftRef: draftStateRef,
   })
 
   useEffect(() => {
@@ -1136,12 +964,11 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
   }, [handToolActive])
 
   return (
+    // aboveView is the always-on canvas-mode input authority (I7): every
+    // pointer-owner state keeps the root interactive; individual layers opt
+    // out with pointer-events-none.
     <div
-      className={`relative h-screen w-screen overflow-hidden bg-transparent ${
-        overlayInteractive || routerOwnsCanvasPointers || toolGestureOwnsCanvasPointers
-          ? 'pointer-events-auto'
-          : 'pointer-events-none'
-      }`}
+      className="pointer-events-auto relative h-screen w-screen overflow-hidden bg-transparent"
       style={{
         cursor: drawInteractionEnabled ? DRAW_CURSOR : undefined,
       }}
