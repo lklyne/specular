@@ -31,6 +31,7 @@ import type {
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 import { reorderableDots } from './reorderable-dots'
+import { ENTITY_KIND_CAPS } from './entity-kind-caps'
 
 // --- Public types ---
 
@@ -428,13 +429,9 @@ function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Re
 }
 
 function entityHasChrome(kind: CanvasEntityKind): boolean {
-  // Pages and files have chrome strips above them; text/shape/drawing/group
-  // do not (text/shape have inline editors when selected, not chrome).
-  return kind === 'page' || kind === 'file'
+  return ENTITY_KIND_CAPS[kind].hasChrome
 }
 
 export function entityHasAnchors(kind: CanvasEntityKind): boolean {
-  // Drawings don't get edge anchors — the dots crowd the selection chrome and
-  // make a selected stroke awkward to grab and drag.
-  return kind !== 'drawing'
+  return ENTITY_KIND_CAPS[kind].hasAnchors
 }
