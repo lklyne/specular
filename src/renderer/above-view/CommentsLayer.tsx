@@ -152,7 +152,7 @@ function ComposerBox({
             className="w-full rounded-[6px] bg-transparent px-2 py-1 text-[12px] font-medium text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
           />
         ) : null}
-        <div className="flex items-center gap-2 px-1.5">
+        <div className="relative pl-1.5 pb-1.5">
           <CommentInput
             inputRef={commentInputRef}
             autoFocus={!showElementName}
@@ -366,7 +366,7 @@ export function AnnotationThreadPopover({
             <ThreadFixProgress progress={progress} />
           ) : null}
           <div className="border-t border-zinc-200 px-2.5 py-2.5 dark:border-zinc-700">
-            <div className="flex items-center gap-2 rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
+            <div className="relative rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
               <CommentInput
                 inputRef={threadInputRef}
                 value={replyText}
