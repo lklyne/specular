@@ -24,20 +24,11 @@ import {
   normalizeCursorTuning,
   type CursorTuningParams,
 } from '../../shared/cursor-tuning'
-import { getDebugWebContents } from '../debug-window'
-import { getSettingsWebContents } from '../settings-window'
 import {
-  bgView,
-  aboveView,
-
   devtoolsBackgroundView,
-  devtoolsHeaderView,
-  devtoolsResizeHandleView,
-  leftSidebarView,
-
-  toolbarView,
   win,
 } from './view-refs'
+import { broadcast } from './view-broadcast'
 import {
   hoverTarget,
   pages,
@@ -237,46 +228,16 @@ export function frameColor(): string {
 
 export function broadcastTheme(): void {
   if (win) win.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
-  const data = { isDark: isDark() }
-  if (bgView) bgView.webContents.send(ipcChannels.themeChanged, data)
-  if (leftSidebarView) leftSidebarView.webContents.send(ipcChannels.themeChanged, data)
-  if (toolbarView) toolbarView.webContents.send(ipcChannels.themeChanged, data)
-  if (aboveView && !aboveView.webContents.isDestroyed()) {
-    aboveView.webContents.send(ipcChannels.themeChanged, data)
-  }
-  if (devtoolsHeaderView)
-    devtoolsHeaderView.webContents.send(ipcChannels.themeChanged, data)
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   }
-  if (devtoolsResizeHandleView && !devtoolsResizeHandleView.webContents.isDestroyed()) {
-    devtoolsResizeHandleView.webContents.send(ipcChannels.themeChanged, data)
-  }
-  const debugWebContents = getDebugWebContents()
-  if (debugWebContents && !debugWebContents.isDestroyed()) {
-    debugWebContents.send(ipcChannels.themeChanged, data)
-  }
-  const settingsWebContents = getSettingsWebContents()
-  if (settingsWebContents && !settingsWebContents.isDestroyed()) {
-    settingsWebContents.send(ipcChannels.themeChanged, data)
-  }
+  broadcast(ipcChannels.themeChanged, { isDark: isDark() })
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())
   }
 }
 
-function broadcastToDebugTargets(channel: string, payload: unknown): void {
-  const targets = [
-    bgView?.webContents,
-    aboveView?.webContents,
-    getDebugWebContents(),
-  ]
-  for (const wc of targets) {
-    if (wc && !wc.isDestroyed()) wc.send(channel, payload)
-  }
-}
-
 export function broadcastCursorSplineViz(): void {
-  broadcastToDebugTargets(ipcChannels.cursorSplineVizChanged, currentCursorSplineViz)
+  broadcast(ipcChannels.cursorSplineVizChanged, currentCursorSplineViz, 'debug')
 }
