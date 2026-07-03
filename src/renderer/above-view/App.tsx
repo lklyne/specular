@@ -2,11 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasBgElectronAPI,
   CanvasSceneEntity,
-  CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
   CanvasScenePageEntity,
-  CanvasSceneShapeEntity,
-  CanvasSceneTextEntity,
   LayoutUpdateData,
   SelectionOverlayPayload,
   ThemeData,
@@ -63,16 +60,14 @@ import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
-import { PagePopup } from './PagePopup'
-import { FilePopup } from './FilePopup'
 import { GroupRenameOverlay } from './GroupRenameLabel'
-import { DrawingPopup } from './DrawingPopup'
-import { DrawToolPopup } from './DrawToolPopup'
-import { GroupPopup } from './GroupPopup'
-import { ShapePopup } from './ShapePopup'
-import { ShapeToolPopup } from './ShapeToolPopup'
-import { StickyNotePopover } from './StickyNotePopover'
-import { TextToolPopup } from './TextToolPopup'
+import {
+  computeSameKindSelection,
+  sameKindEntities,
+  SELECTION_POPUPS,
+  TOOL_POPUPS,
+  type PopupContext,
+} from './canvasItemPopupTable'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import type { DragCopyPreviewBox } from './optionDragCopy'
 import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
@@ -351,26 +346,6 @@ function StackedCanvasItems({
   )
 }
 
-/**
- * Same-kind multi-select detector (ADR 0008 §4). Returns the array of
- * entities iff every selected id resolves to the requested kind; otherwise
- * empty. The caller mounts the popup when length >= 1.
- */
-function sameKindSelectedEntities<K extends CanvasSceneEntity['kind']>(
-  layout: LayoutUpdateData,
-  kind: K,
-): Extract<CanvasSceneEntity, { kind: K }>[] {
-  const ids = layout.selectedEntityIds
-  if (ids.length === 0) return []
-  const result: Extract<CanvasSceneEntity, { kind: K }>[] = []
-  for (const id of ids) {
-    const entity = layout.entities.find((e) => e.id === id)
-    if (!entity || entity.kind !== kind) return []
-    result.push(entity as Extract<CanvasSceneEntity, { kind: K }>)
-  }
-  return result
-}
-
 export default function App({
   initialLayoutData,
   initialTheme,
@@ -414,25 +389,14 @@ export default function App({
   // Selection-popup mounts on single OR same-kind multi-select (ADR 0008 §4).
   // Each `selectedXxxEntities` is the non-empty array of selected entities iff
   // every selected id resolves to that kind; otherwise empty.
-  const selectedTextEntities = useMemo<CanvasSceneTextEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'text')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const sameKindSelection = useMemo(
+    () => computeSameKindSelection(layoutData),
+    [layoutData.selectedEntityIds, layoutData.entities],
+  )
   const selectedGroupEntity = useMemo(() => {
     if (!layoutData.selectedGroupId) return null
     return (layoutData.groups ?? []).find((g) => g.id === layoutData.selectedGroupId) ?? null
   }, [layoutData.groups, layoutData.selectedGroupId])
-  const selectedShapeEntities = useMemo<CanvasSceneShapeEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'shape')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
-  const selectedDrawingEntities = useMemo<CanvasSceneDrawingEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'drawing')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
-  const selectedPageEntities = useMemo<CanvasScenePageEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'page')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
-  const selectedFileEntities = useMemo<CanvasSceneFileEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'file')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedEntityIdSet = useMemo(
     () => new Set(layoutData.selectedEntityIds),
     [layoutData.selectedEntityIds],
@@ -449,7 +413,9 @@ export default function App({
     interactionIdle ||
     Boolean(
       editingEntityId &&
-        selectedTextEntities.some((entity) => entity.id === editingEntityId),
+        sameKindEntities(sameKindSelection, 'text').some(
+          (entity) => entity.id === editingEntityId,
+        ),
     )
 
   const marqueePreviewIds = useMemo(() => {
@@ -963,6 +929,18 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     }
   }, [handToolActive])
 
+  const popupContext: PopupContext = {
+    api,
+    isDark,
+    layout: layoutData,
+    interactionIdle,
+    sameKindSelection,
+    selectedGroup: selectedGroupEntity,
+    textPopupReady,
+    fileJsonModeMap,
+    setFileJsonMode,
+  }
+
   return (
     // aboveView is the always-on canvas-mode input authority (I7): every
     // pointer-owner state keeps the root interactive; individual layers opt
@@ -1167,87 +1145,28 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             setDragCopyPreview={setDragCopyPreview}
           />
 
-          {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
-          {layoutData.activeTool.kind === 'add-text' ? (
-            <TextToolPopup
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              style="plain"
-            />
-          ) : null}
-          {layoutData.activeTool.kind === 'add-sticky' ? (
-            <TextToolPopup
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              style="sticky"
-            />
-          ) : null}
-          {layoutData.activeTool.kind === 'add-shape' ? (
-            <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
-          ) : null}
-          {layoutData.activeTool.kind === 'draw' ? (
-            <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
-          ) : null}
-
-          {/* Selection-mode popups — suppressed while any tool with its own
-              popup is active (ADR 0008 §2). */}
-          {!toolHasPopup(layoutData.activeTool) ? (
-            <>
-              <StickyNotePopover
+          {/* Tool-vs-selection mutex (ADR 0008 §2): the active tool's popup wins
+              and suppresses the selection popups. PagePopup is exempt while a
+              focus session is active — it doubles as the focus bar, and
+              ViewportAnchor stacks the tool popup below it. */}
+          {TOOL_POPUPS.filter((row) => row.toolKind === layoutData.activeTool.kind).map(
+            ({ toolKind, Component, extraProps }) => (
+              <Component
+                key={toolKind}
                 api={api}
                 isDark={isDark}
                 layout={layoutData}
-                selectedTextEntities={selectedTextEntities}
-                popupReady={textPopupReady}
+                {...extraProps}
               />
-              <GroupPopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedGroup={selectedGroupEntity}
-                interactionIdle={interactionIdle}
-              />
-              <ShapePopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedShapes={selectedShapeEntities}
-                interactionIdle={interactionIdle}
-              />
-              <DrawingPopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedDrawings={selectedDrawingEntities}
-                interactionIdle={interactionIdle}
-              />
-              <FilePopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedFiles={selectedFileEntities}
-                interactionIdle={interactionIdle}
-                fileJsonModeMap={fileJsonModeMap}
-                setFileJsonMode={setFileJsonMode}
-              />
-            </>
-          ) : null}
-
-          {/* PagePopup doubles as the focus bar (pinned viewport-top during a
-              focus session). Exempt it from the tool-popup mutex while focused
-              so the focus controls stay visible — ViewportAnchor drops the tool
-              popup below it so the two stack. */}
-          {!toolHasPopup(layoutData.activeTool) || focusPresentationActive ? (
-            <PagePopup
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              selectedPages={selectedPageEntities}
-              interactionIdle={interactionIdle}
-            />
-          ) : null}
+            ),
+          )}
+          {SELECTION_POPUPS.filter((row) =>
+            row.focusExempt
+              ? !toolHasPopup(layoutData.activeTool) || focusPresentationActive
+              : !toolHasPopup(layoutData.activeTool),
+          ).map(({ key, Component, mapProps }) => (
+            <Component key={key} {...mapProps(popupContext)} />
+          ))}
 
           <CommentBadgesLayer
             annotations={layoutData.annotations}
