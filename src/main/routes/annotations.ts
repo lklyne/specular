@@ -12,7 +12,7 @@ import {
   fixAnnotation,
   fixPendingAnnotationsForOrigin,
 } from '../agent-fix/fix-orchestrator'
-import { findEntityPosition, movePresenceCursorTo } from '../presence-manager'
+import { findEntityPosition, movePresenceCursorTo } from '../presence-cursor'
 import { writeJson } from './http-helpers'
 import type { IncomingMessage } from 'http'
 

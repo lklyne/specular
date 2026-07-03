@@ -1,5 +1,5 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
-import { validateLayoutDirective } from '../shared/types'
+import { validateLayoutDirective } from '../shared/layout-directive'
 import { callApp } from './shared/app-client'
 import { handleBrowse, shellQuote } from './shared/browse-handler'
 import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'

@@ -26,7 +26,6 @@ vi.mock('../../src/main/runtime/selection-controller', () => ({
   selectNone: vi.fn(),
 }))
 vi.mock('../../src/main/runtime/layout-dirty', () => ({ markDirty: vi.fn() }))
-vi.mock('../../src/main/runtime/surface-layout', () => layout)
 vi.mock('../../src/main/runtime/runtime-context', () => ({
   arrowNavigationLocked: false,
   pages: [],
@@ -41,7 +40,7 @@ vi.mock('../../src/main/runtime/shape-entity-state', () => ({ shapeEntities: [] 
 vi.mock('../../src/main/runtime/delete-selection', () => ({ deleteSelection: vi.fn() }))
 vi.mock('../../src/main/runtime/duplicate-selection', () => ({ duplicateSelection: vi.fn() }))
 vi.mock('../../src/main/runtime/entity-order-state', () => ({ reorderStackOrder: vi.fn() }))
-vi.mock('../../src/main/runtime/viewport-control', () => viewport)
+vi.mock('../../src/main/runtime/viewport-control', () => ({ ...viewport, ...layout }))
 
 const { mainHandlers } = await import('../../src/main/runtime/binding-handlers')
 

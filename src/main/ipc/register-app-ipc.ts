@@ -2,22 +2,16 @@ import { ipcMain, nativeTheme } from 'electron'
 import {
   getCanvasLayoutData,
   getLeftSidebarData,
-  isDark,
-  requestLayout,
-} from '../runtime/surface-layout'
+} from '../runtime/canvas-layout-data'
+import { isDark } from '../runtime/preferences'
+import { requestLayout } from '../runtime/viewport-control'
 import { rebuildWindowFromSnapshot } from '../runtime/window-shell'
 import {
   currentPersistedWorkspaceRecord,
-  restorePersistedWorkspace,
   workspaceSnapshot,
-} from '../runtime/workspace-session'
-
-const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
-
-function selectionDebug(event: string, details?: Record<string, unknown>): void {
-  if (!SELECTION_DEBUG) return
-  console.log('[selection-debug:ipc]', { ts: Date.now(), event, ...details })
-}
+} from '../runtime/workspace-tabs'
+import { restorePersistedWorkspace } from '../runtime/workspace-restore'
+import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerAppIpc(): void {
   ipcMain.on(

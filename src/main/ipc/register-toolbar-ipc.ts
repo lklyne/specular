@@ -1,13 +1,8 @@
 import { ipcMain } from 'electron'
 import type { Tool, ToolDefaultPatch } from '../../shared/types'
 import { applyToolDefaultPatch } from '../runtime/tool-defaults'
-import {
-  pan,
-  requestLayout,
-  setPan,
-  setZoom,
-  zoom,
-} from '../runtime/surface-layout'
+import { pan, zoom } from '../runtime/runtime-context'
+import { requestLayout, setPan, setZoom } from '../runtime/viewport-control'
 import {
   focusSelection,
   getSelectedEntityIds,

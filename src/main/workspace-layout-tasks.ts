@@ -16,7 +16,7 @@ import {
   focusCanvasBounds,
   setSelectedGroupId,
 } from './runtime/ui-actions'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { workspaceGroups } from './runtime/workspace-model'
 import { getManifest } from './design-system-store'
 import { normalizeUserUrl } from '../shared/url'

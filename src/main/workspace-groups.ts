@@ -24,12 +24,10 @@ import { textEntities, createTextEntity as createTextEntityInState } from './run
 import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
 import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from './runtime/drawing-entity-state'
-import {
-  requestLayout,
-  snapToGrid,
-} from './runtime/surface-layout'
+import { requestLayout } from './runtime/viewport-control'
+import { snapToGrid } from '../shared/gesture-utils'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { markDirty } from './runtime/layout-dirty'
 import { makeId, cloneMetadata, pageCurrentUrl } from './workspace-utils'
 import {

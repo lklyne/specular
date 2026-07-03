@@ -149,7 +149,6 @@ interface CenterActionsProps {
   drawBrushType: DrawingBrushType
   drawColor: string
   stickyColor: string
-  drawingEnabled: boolean
   hasSelection: boolean
   zoomPercent: number
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
@@ -165,7 +164,6 @@ export function CenterActions({
   drawBrushType,
   drawColor,
   stickyColor,
-  drawingEnabled,
   hasSelection,
   zoomPercent,
   currentPresetValue,
@@ -232,30 +230,28 @@ export function CenterActions({
 
         <ToolbarDivider isDark={isDark} />
 
-        {drawingEnabled ? (
-          <button
-            onClick={onToggleDrawMode}
-            className={buttonClass(activeTool.kind === 'draw')}
-            title="Draw"
-            type="button"
-          >
-            {drawBrushType === 'pen' ? (
-              <DrawPenToolIcon
-                size={TOOL_GLYPH_SIZE}
-                isDark={isDark}
-                ink={drawInk}
-                style={TOOLBAR_GLYPH_STYLE}
-              />
-            ) : (
-              <DrawHighlightToolIcon
-                size={TOOL_GLYPH_SIZE}
-                isDark={isDark}
-                ink={drawInk}
-                style={TOOLBAR_GLYPH_STYLE}
-              />
-            )}
-          </button>
-        ) : null}
+        <button
+          onClick={onToggleDrawMode}
+          className={buttonClass(activeTool.kind === 'draw')}
+          title="Draw"
+          type="button"
+        >
+          {drawBrushType === 'pen' ? (
+            <DrawPenToolIcon
+              size={TOOL_GLYPH_SIZE}
+              isDark={isDark}
+              ink={drawInk}
+              style={TOOLBAR_GLYPH_STYLE}
+            />
+          ) : (
+            <DrawHighlightToolIcon
+              size={TOOL_GLYPH_SIZE}
+              isDark={isDark}
+              ink={drawInk}
+              style={TOOLBAR_GLYPH_STYLE}
+            />
+          )}
+        </button>
 
         <button
           onClick={onAddSticky}
@@ -377,7 +373,6 @@ interface CenterAddressBarProps {
   addressValue: string
   setAddressValue: Dispatch<SetStateAction<string>>
   addressBarRef?: React.RefObject<HTMLInputElement | null>
-  align?: 'center' | 'left'
   onGoBackSelection: () => void
   onGoForwardSelection: () => void
   onReloadSelection: () => void
@@ -391,7 +386,6 @@ export function CenterAddressBar({
   addressValue,
   setAddressValue,
   addressBarRef,
-  align = 'center',
   onGoBackSelection,
   onGoForwardSelection,
   onReloadSelection,
@@ -410,7 +404,7 @@ export function CenterAddressBar({
     : 'min-w-0 flex-1 border-0 bg-transparent text-[12px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:outline-none'
 
   return (
-    <div className={`flex min-w-0 items-center gap-2 [-webkit-app-region:no-drag] ${align === 'left' ? 'justify-start' : 'justify-center'}`}>
+    <div className="flex min-w-0 items-center justify-center gap-2 [-webkit-app-region:no-drag]">
       <div className="flex shrink-0 items-center gap-1">
         <button
           onClick={onGoBackSelection}
@@ -448,7 +442,7 @@ export function CenterAddressBar({
         </button>
       </div>
       <div
-        className={`${addressBarClassName} min-w-[200px] ${align === 'left' ? 'w-full' : 'w-full lg:max-w-[720px]'}`}
+        className={`${addressBarClassName} min-w-[200px] w-full lg:max-w-[720px]`}
       >
         <input
           ref={addressBarRef}

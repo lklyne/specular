@@ -8,7 +8,7 @@ import type {
   WorkspaceBounds,
   WorkspacePage,
 } from '../shared/types'
-import { resolveSpacing } from '../shared/types'
+import { resolveSpacing } from '../shared/layout-directive'
 import {
   ANCHOR_OFFSET_X,
   ANCHOR_OFFSET_Y,
@@ -19,12 +19,9 @@ import {
 import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
-import {
-  pageSnapBounds,
-  snapToGrid,
-} from './runtime/surface-layout'
+import { snapToGrid } from '../shared/gesture-utils'
 import { workspaceGroups } from './runtime/workspace-model'
-import { boundsOverlap } from './runtime/runtime-geometry'
+import { boundsOverlap, pageSnapBounds } from './runtime/runtime-geometry'
 import { CHROME_HEADER_HEIGHT } from './runtime/runtime-constants'
 import {
   allWorkspacePages,

@@ -1,6 +1,6 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. preferences imports debug-window for UI coordination
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import type { WebContents } from 'electron'
 import { loadRenderer, preloadPath } from './runtime/load-renderer'
 import { isDark } from './runtime/preferences'
@@ -49,6 +49,8 @@ function createDebugWindow(): BrowserWindow {
 }
 
 export function showDebugWindow(): void {
+  // Dev-only tool — never open it in packaged builds.
+  if (app.isPackaged) return
   if (isDebugWindowOpen()) {
     debugWindow!.focus()
     return

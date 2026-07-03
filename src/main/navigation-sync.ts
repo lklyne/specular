@@ -7,7 +7,7 @@ import {
   findPageById,
 } from './runtime/page-runtime'
 import { getSelectedEntityIds } from './runtime/ui-actions'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 
 const LINKED_SCROLL_SUPPRESSION_MS = 150
 

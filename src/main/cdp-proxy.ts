@@ -3,7 +3,7 @@ import { webContents } from 'electron'
 import { WebSocket, type RawData } from 'ws'
 import { DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import type { UiSelection } from '../shared/types'
-import { activeSessions } from './presence-manager'
+import { activeSessions } from './presence-session'
 import {
   enterGroup as enterSelectionGroup,
   selectEntities as selectSelectionEntities,

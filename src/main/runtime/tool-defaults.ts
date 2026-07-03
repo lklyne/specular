@@ -18,7 +18,7 @@ import {
   saveToolDefaults,
 } from './preferences'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './surface-layout'
+import { requestLayout } from './viewport-control'
 import type { ToolDefaults, ToolDefaultPatch } from '../../shared/tool-defaults'
 
 export function getToolDefaults(): ToolDefaults {

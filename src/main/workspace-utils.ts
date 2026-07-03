@@ -3,7 +3,7 @@ import type { WorkspaceGroup } from '../shared/types'
 import { findPageById } from './runtime/page-runtime'
 import { workspaceGroups } from './runtime/workspace-model'
 import { markDirty } from './runtime/layout-dirty'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 
 export function makeId(prefix: string): string {
   return `${prefix}_${randomUUID()}`

@@ -139,6 +139,106 @@ function DropIndicator({
   )
 }
 
+/** The EditableText wiring every node renderer forwards from the tree props. */
+function editableTextProps(props: WireframeNodeRendererProps, nodeId: string) {
+  return {
+    nodeId,
+    isEditing: props.editingNodeId === nodeId,
+    canEdit: props.canEdit,
+    onStartEdit: props.onStartEdit,
+    onCommitEdit: props.onCommitEdit,
+    onCancelEdit: props.onCancelEdit,
+  }
+}
+
+/**
+ * Label + bordered field box shared by input and dropdown. `fieldStyle`
+ * extends the field container (e.g. dropdown's flex row for the chevron).
+ */
+function LabeledField({
+  label,
+  theme,
+  fieldStyle,
+  children,
+}: {
+  label?: string
+  theme: WireframeThemeColors
+  fieldStyle?: React.CSSProperties
+  children: React.ReactNode
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {label && (
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            color: theme.text,
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          {label}
+        </span>
+      )}
+      <div
+        style={{
+          padding: '7px 10px',
+          borderRadius: 6,
+          border: `1px solid ${theme.border}`,
+          background: theme.inputBg,
+          fontSize: 13,
+          fontFamily: 'system-ui, sans-serif',
+          ...fieldStyle,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Clickable row shared by checkbox and toggle: a control glyph followed by
+ * an editable label. Clicking the row toggles the node's state (unless the
+ * label is mid-edit).
+ */
+function ToggleRow({
+  node,
+  props,
+  control,
+}: {
+  node: WireframeCheckbox | WireframeToggle
+  props: WireframeNodeRendererProps
+  control: React.ReactNode
+}) {
+  const { theme } = props
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        cursor: props.canEdit ? 'pointer' : 'default',
+      }}
+      onClick={
+        props.canEdit && props.editingNodeId !== node.id
+          ? (e) => {
+              e.stopPropagation()
+              props.onToggleState(node.id)
+            }
+          : undefined
+      }
+    >
+      {control}
+      <EditableText
+        {...editableTextProps(props, node.id)}
+        value={node.label}
+        style={{ fontSize: 13, color: theme.text, fontFamily: 'system-ui, sans-serif' }}
+      />
+    </div>
+  )
+}
+
 // --- Node type renderers ---
 
 function FrameNodeRenderer({
@@ -269,14 +369,9 @@ function TextNodeRenderer({
 
   return (
     <EditableText
-      nodeId={node.id}
+      {...editableTextProps(props, node.id)}
       value={node.text}
-      isEditing={props.editingNodeId === node.id}
       style={{ ...style, color: props.theme.text, fontFamily: 'system-ui, sans-serif' }}
-      canEdit={props.canEdit}
-      onStartEdit={props.onStartEdit}
-      onCommitEdit={props.onCommitEdit}
-      onCancelEdit={props.onCancelEdit}
     />
   )
 }
@@ -311,14 +406,9 @@ function ButtonNodeRenderer({
   return (
     <div style={style}>
       <EditableText
-        nodeId={node.id}
+        {...editableTextProps(props, node.id)}
         value={node.text}
-        isEditing={props.editingNodeId === node.id}
         style={{ color: 'inherit', fontSize: 'inherit', fontWeight: 'inherit' }}
-        canEdit={props.canEdit}
-        onStartEdit={props.onStartEdit}
-        onCommitEdit={props.onCommitEdit}
-        onCancelEdit={props.onCancelEdit}
       />
     </div>
   )
@@ -334,41 +424,13 @@ function InputNodeRenderer({
   const { theme } = props
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {node.label && (
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: theme.text,
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
-          {node.label}
-        </span>
-      )}
-      <div
-        style={{
-          padding: '7px 10px',
-          borderRadius: 6,
-          border: `1px solid ${theme.border}`,
-          background: theme.inputBg,
-          fontSize: 13,
-          fontFamily: 'system-ui, sans-serif',
-        }}
-      >
-        <EditableText
-          nodeId={node.id}
-          value={node.placeholder ?? ''}
-          isEditing={props.editingNodeId === node.id}
-          style={{ color: theme.textMuted, fontSize: 13 }}
-          canEdit={props.canEdit}
-          onStartEdit={props.onStartEdit}
-          onCommitEdit={props.onCommitEdit}
-          onCancelEdit={props.onCancelEdit}
-        />
-      </div>
-    </div>
+    <LabeledField label={node.label} theme={theme}>
+      <EditableText
+        {...editableTextProps(props, node.id)}
+        value={node.placeholder ?? ''}
+        style={{ color: theme.textMuted, fontSize: 13 }}
+      />
+    </LabeledField>
   )
 }
 
@@ -382,56 +444,33 @@ function DropdownNodeRenderer({
   const { theme } = props
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {node.label && (
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 500,
-            color: theme.text,
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
-          {node.label}
-        </span>
-      )}
-      <div
-        style={{
-          padding: '7px 10px',
-          borderRadius: 6,
-          border: `1px solid ${theme.border}`,
-          background: theme.inputBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
-          fontSize: 13,
-          fontFamily: 'system-ui, sans-serif',
-        }}
+    <LabeledField
+      label={node.label}
+      theme={theme}
+      fieldStyle={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 8,
+      }}
+    >
+      <EditableText
+        {...editableTextProps(props, node.id)}
+        value={node.placeholder ?? 'Select...'}
+        style={{ color: theme.textMuted, fontSize: 13, flex: 1 }}
+      />
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 12 12"
+        fill="none"
+        stroke={theme.textMuted}
+        strokeWidth="1.5"
+        strokeLinecap="round"
       >
-        <EditableText
-          nodeId={node.id}
-          value={node.placeholder ?? 'Select...'}
-          isEditing={props.editingNodeId === node.id}
-          style={{ color: theme.textMuted, fontSize: 13, flex: 1 }}
-          canEdit={props.canEdit}
-          onStartEdit={props.onStartEdit}
-          onCommitEdit={props.onCommitEdit}
-          onCancelEdit={props.onCancelEdit}
-        />
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke={theme.textMuted}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        >
-          <path d="M3 4.5L6 7.5L9 4.5" />
-        </svg>
-      </div>
-    </div>
+        <path d="M3 4.5L6 7.5L9 4.5" />
+      </svg>
+    </LabeledField>
   )
 }
 
@@ -445,61 +484,40 @@ function CheckboxNodeRenderer({
   const { theme } = props
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        cursor: props.canEdit ? 'pointer' : 'default',
-      }}
-      onClick={
-        props.canEdit && props.editingNodeId !== node.id
-          ? (e) => {
-              e.stopPropagation()
-              props.onToggleState(node.id)
-            }
-          : undefined
+    <ToggleRow
+      node={node}
+      props={props}
+      control={
+        <div
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: 3,
+            border: `1.5px solid ${node.checked ? theme.accent : theme.border}`,
+            background: node.checked ? theme.accent : 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          {node.checked && (
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              fill="none"
+              stroke={theme.accentText}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M2 5L4.5 7.5L8 3" />
+            </svg>
+          )}
+        </div>
       }
-    >
-      <div
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 3,
-          border: `1.5px solid ${node.checked ? theme.accent : theme.border}`,
-          background: node.checked ? theme.accent : 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {node.checked && (
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            stroke={theme.accentText}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M2 5L4.5 7.5L8 3" />
-          </svg>
-        )}
-      </div>
-      <EditableText
-        nodeId={node.id}
-        value={node.label}
-        isEditing={props.editingNodeId === node.id}
-        style={{ fontSize: 13, color: theme.text, fontFamily: 'system-ui, sans-serif' }}
-        canEdit={props.canEdit}
-        onStartEdit={props.onStartEdit}
-        onCommitEdit={props.onCommitEdit}
-        onCancelEdit={props.onCancelEdit}
-      />
-    </div>
+    />
   )
 }
 
@@ -513,57 +531,36 @@ function ToggleNodeRenderer({
   const { theme } = props
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        cursor: props.canEdit ? 'pointer' : 'default',
-      }}
-      onClick={
-        props.canEdit && props.editingNodeId !== node.id
-          ? (e) => {
-              e.stopPropagation()
-              props.onToggleState(node.id)
-            }
-          : undefined
-      }
-    >
-      <div
-        style={{
-          width: 32,
-          height: 18,
-          borderRadius: 9,
-          background: node.on ? theme.accent : theme.border,
-          position: 'relative',
-          flexShrink: 0,
-          transition: 'background 0.15s',
-        }}
-      >
+    <ToggleRow
+      node={node}
+      props={props}
+      control={
         <div
           style={{
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            background: node.on ? theme.accentText : theme.surface,
-            position: 'absolute',
-            top: 2,
-            left: node.on ? 16 : 2,
-            transition: 'left 0.15s',
+            width: 32,
+            height: 18,
+            borderRadius: 9,
+            background: node.on ? theme.accent : theme.border,
+            position: 'relative',
+            flexShrink: 0,
+            transition: 'background 0.15s',
           }}
-        />
-      </div>
-      <EditableText
-        nodeId={node.id}
-        value={node.label}
-        isEditing={props.editingNodeId === node.id}
-        style={{ fontSize: 13, color: theme.text, fontFamily: 'system-ui, sans-serif' }}
-        canEdit={props.canEdit}
-        onStartEdit={props.onStartEdit}
-        onCommitEdit={props.onCommitEdit}
-        onCancelEdit={props.onCancelEdit}
-      />
-    </div>
+        >
+          <div
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: node.on ? theme.accentText : theme.surface,
+              position: 'absolute',
+              top: 2,
+              left: node.on ? 16 : 2,
+              transition: 'left 0.15s',
+            }}
+          />
+        </div>
+      }
+    />
   )
 }
 

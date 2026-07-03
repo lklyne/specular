@@ -4,6 +4,7 @@ import type {
   ToolbarElectronAPI,
   ToolbarSelectionData,
 } from '../shared/types'
+import { on } from './ipc-helpers'
 
 const api: ToolbarElectronAPI = {
   zoomIn: () => ipcRenderer.send('zoom-in'),
@@ -23,44 +24,13 @@ const api: ToolbarElectronAPI = {
   dropdownOpen: () => ipcRenderer.send('toolbar-dropdown-open'),
   dropdownClose: () => ipcRenderer.send('toolbar-dropdown-close'),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
-  onZoomChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, value: number) => callback(value)
-    ipcRenderer.on('zoom-changed', handler)
-    return () => ipcRenderer.removeListener('zoom-changed', handler)
-  },
-  onSelectionChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: ToolbarSelectionData) =>
-      callback(data)
-    ipcRenderer.on('toolbar-selection-changed', handler)
-    return () => ipcRenderer.removeListener('toolbar-selection-changed', handler)
-  },
-  onLeftSidebarChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, open: boolean) => callback(open)
-    ipcRenderer.on('left-sidebar-changed', handler)
-    return () => ipcRenderer.removeListener('left-sidebar-changed', handler)
-  },
-  onDevtoolsChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, open: boolean) => callback(open)
-    ipcRenderer.on('devtools-changed', handler)
-    return () => ipcRenderer.removeListener('devtools-changed', handler)
-  },
-  onThemeChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { isDark: boolean }) =>
-      callback(data)
-    ipcRenderer.on('theme-changed', handler)
-    return () => ipcRenderer.removeListener('theme-changed', handler)
-  },
-  onAgentPresenceChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, cursors: AgentPresenceCursor[]) =>
-      callback(cursors)
-    ipcRenderer.on('agent-presence-changed', handler)
-    return () => ipcRenderer.removeListener('agent-presence-changed', handler)
-  },
-  onFocusAddressBar: (callback) => {
-    const handler = () => callback()
-    ipcRenderer.on('focus-address-bar', handler)
-    return () => ipcRenderer.removeListener('focus-address-bar', handler)
-  },
+  onZoomChanged: on<number>('zoom-changed'),
+  onSelectionChanged: on<ToolbarSelectionData>('toolbar-selection-changed'),
+  onLeftSidebarChanged: on<boolean>('left-sidebar-changed'),
+  onDevtoolsChanged: on<boolean>('devtools-changed'),
+  onThemeChanged: on<{ isDark: boolean }>('theme-changed'),
+  onAgentPresenceChanged: on<AgentPresenceCursor[]>('agent-presence-changed'),
+  onFocusAddressBar: on('focus-address-bar'),
   repoConnectViaPicker: () => ipcRenderer.invoke('repo-connect-via-picker'),
   repoDisconnect: (id) => ipcRenderer.invoke('repo-disconnect', { id }),
 }

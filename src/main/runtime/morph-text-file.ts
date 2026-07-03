@@ -30,8 +30,8 @@ import {
 } from './text-entity-state'
 import { createNoteFile, readNoteFile } from './note-assets'
 import { selectEntity } from './ui-actions'
-import { requestLayout } from './surface-layout'
-import { scheduleWorkspaceAutosave } from './workspace-session'
+import { requestLayout } from './viewport-control'
+import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { pushPendingUndoSideEffect } from './workspace-undo'
 
 export type MorphResult =

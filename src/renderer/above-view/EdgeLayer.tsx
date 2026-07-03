@@ -17,7 +17,6 @@ import type {
 } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import {
-  EDGE_ANCHOR_DOT_OFFSET_PX,
   EDGE_ANCHOR_HIT_ACROSS_PX,
   EDGE_ANCHOR_HIT_ALONG_PX,
   EDGE_ANCHOR_HIT_CORNER_PX,
@@ -25,44 +24,21 @@ import {
   EDGE_SIDES,
 } from '../../shared/canvas-hit-geometry'
 import { entityHasAnchors } from '../../shared/hit-test'
+import {
+  autoSides,
+  buildBezierPath,
+  getAnchorPoint,
+  type AnchorPoint,
+} from '../../shared/edge-geometry'
 import { selectionColor, EDGE_COLOR_DEFAULT } from '../canvas-bg/canvasBgConstants'
 import { scaleEdgeHitTargetSize } from '../canvas-bg/edgeHitSizing'
 
 // --- Constants ---
 
 const DOT_RADIUS = 3
-const CONTROL_POINT_MIN = 40
-const CONTROL_POINT_MAX = 200
 const EDGE_SELECTION_HIT_WIDTH = 14
 
 // --- Geometry helpers ---
-
-interface AnchorPoint {
-  x: number
-  y: number
-  side: EdgeSide
-}
-
-function getAnchorPoint(
-  entity: CanvasSceneEntity,
-  side: EdgeSide,
-  zoom: number,
-  originY: number,
-): AnchorPoint {
-  const { screenX, screenY, screenWidth, screenHeight } = entity
-  const localY = screenY - originY
-  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * zoom
-  switch (side) {
-    case 'top':
-      return { x: screenX + screenWidth / 2, y: localY - dotOffset, side }
-    case 'bottom':
-      return { x: screenX + screenWidth / 2, y: localY + screenHeight + dotOffset, side }
-    case 'left':
-      return { x: screenX - dotOffset, y: localY + screenHeight / 2, side }
-    case 'right':
-      return { x: screenX + screenWidth + dotOffset, y: localY + screenHeight / 2, side }
-  }
-}
 
 function getAnchorHitRect(
   entity: CanvasSceneEntity,
@@ -89,44 +65,6 @@ function getAnchorHitRect(
     case 'right':
       return { x: screenX + screenWidth + EDGE_ANCHOR_HIT_GAP_PX, y: cy - height / 2, width, height }
   }
-}
-
-function controlPointOffset(side: EdgeSide, distance: number, zoom: number): { dx: number; dy: number } {
-  const offset = Math.min(Math.max(distance * 0.4, CONTROL_POINT_MIN * zoom), CONTROL_POINT_MAX * zoom)
-  switch (side) {
-    case 'top':
-      return { dx: 0, dy: -offset }
-    case 'bottom':
-      return { dx: 0, dy: offset }
-    case 'left':
-      return { dx: -offset, dy: 0 }
-    case 'right':
-      return { dx: offset, dy: 0 }
-  }
-}
-
-function buildBezierPath(from: AnchorPoint, to: AnchorPoint, zoom: number): string {
-  const dist = Math.hypot(to.x - from.x, to.y - from.y)
-  const cp1 = controlPointOffset(from.side, dist, zoom)
-  const cp2 = controlPointOffset(to.side, dist, zoom)
-  return `M ${from.x} ${from.y} C ${from.x + cp1.dx} ${from.y + cp1.dy}, ${to.x + cp2.dx} ${to.y + cp2.dy}, ${to.x} ${to.y}`
-}
-
-/** Pick the best sides to connect two entities when sides aren't specified. */
-function autoSides(
-  from: CanvasSceneEntity,
-  to: CanvasSceneEntity,
-): { fromSide: EdgeSide; toSide: EdgeSide } {
-  const fromCx = from.screenX + from.screenWidth / 2
-  const fromCy = from.screenY + from.screenHeight / 2
-  const toCx = to.screenX + to.screenWidth / 2
-  const toCy = to.screenY + to.screenHeight / 2
-  const dx = toCx - fromCx
-  const dy = toCy - fromCy
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return { fromSide: dx > 0 ? 'right' : 'left', toSide: dx > 0 ? 'left' : 'right' }
-  }
-  return { fromSide: dy > 0 ? 'bottom' : 'top', toSide: dy > 0 ? 'top' : 'bottom' }
 }
 
 // --- Anchor dots for a single entity ---

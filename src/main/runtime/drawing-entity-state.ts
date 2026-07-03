@@ -25,12 +25,10 @@ export interface DrawingEntity {
   label?: string
 }
 
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-
 export const drawingEntities: DrawingEntity[] = []
 
 export function drawingEntitiesForUi(): DrawingEntity[] {
-  return DRAWING_FEATURE_ENABLED ? drawingEntities : []
+  return drawingEntities
 }
 
 export function createDrawingEntity(input: {

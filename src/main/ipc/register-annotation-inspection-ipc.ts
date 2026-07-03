@@ -1,22 +1,19 @@
 import { ipcMain } from 'electron'
 import type { Annotation, ComponentTreeNode, WorkspaceBounds } from '../../shared/types'
+import { bgView, aboveView } from '../runtime/view-refs'
 import {
-  bgView,
-  aboveView,
   pageBodyCanvasBounds,
   projectFramePointToCanvas,
-  requestLayout,
-} from '../runtime/surface-layout'
+} from '../runtime/runtime-geometry'
 import {
   findPageById,
   findPageByPageView,
   getComponentSourceLocationByNodeId,
   handlePageIpcResponse,
   handleNodeDetailResponse,
-  pages,
 } from '../runtime/page-runtime'
 import { getZoom, setPendingFocus } from '../runtime/runtime-context'
-import { setZoom } from '../runtime/viewport-control'
+import { requestLayout, setZoom } from '../runtime/viewport-control'
 import {
   focusCanvasBounds,
   getSelectedEntityIds,
@@ -30,31 +27,11 @@ import {
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
 import { markDirty } from '../runtime/layout-dirty'
-
-type ComponentPropOverridePayload = {
-  pageId: string
-  componentId: string
-  propPath: string[]
-  value: unknown
-}
-
-type ComponentTokenOverridePayload = {
-  pageId: string
-  componentId?: string
-  token: string
-  value: string
-  selector?: string
-}
-
-function forwardOverrideToPage(
-  pageId: string,
-  channel: 'override-props' | 'override-token',
-  payload: Record<string, unknown>,
-): void {
-  const page = pages.find((candidate) => candidate.id === pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
-  page.pageView.webContents.send(channel, payload)
-}
+import {
+  forwardOverrideToPage,
+  type ComponentPropOverridePayload,
+  type ComponentTokenOverridePayload,
+} from './component-override'
 
 const POINT_FOCUS_SIZE = 100
 const FOCUS_MIN_ZOOM = 0.8
@@ -193,6 +170,16 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on('query-element-at-point-response', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on('dispatch-scroll-result', (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on('query-active-element-rect-result', (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })

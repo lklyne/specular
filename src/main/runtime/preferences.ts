@@ -8,7 +8,6 @@ import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import type {
-  CursorMotionParams,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
@@ -19,10 +18,6 @@ import {
   type ToolDefaults,
 } from '../../shared/tool-defaults'
 import type { LegacyOriginBindings } from './dev-server-manager'
-import {
-  DEFAULT_CURSOR_MOTION,
-  normalizeCursorMotion,
-} from '../../shared/cursor-motion'
 import {
   DEFAULT_CURSOR_TUNING,
   normalizeCursorTuning,
@@ -74,13 +69,11 @@ type PreferencesFile = {
   fixConfig?: Omit<FixConfig, 'configured'>
   toolDefaults?: ToolDefaults
   debug?: {
-    cursorMotion?: CursorMotionParams
     cursorSplineViz?: boolean
     cursorTuning?: CursorTuningParams
   }
 }
 
-let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
 let currentCursorSplineViz = false
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
@@ -159,7 +152,6 @@ export function loadPreferences(): void {
   if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
   }
-  currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
@@ -175,10 +167,6 @@ export function saveToolDefaults(next: ToolDefaults): void {
   writePreferencesFile({ ...parsed, toolDefaults: currentToolDefaults })
 }
 
-export function getCursorMotion(): CursorMotionParams {
-  return currentCursorMotion
-}
-
 export function getCursorSplineViz(): boolean {
   return currentCursorSplineViz
 }
@@ -189,15 +177,6 @@ export function saveCursorSplineViz(next: boolean): void {
   writePreferencesFile({
     ...parsed,
     debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
-  })
-}
-
-export function saveCursorMotion(next: CursorMotionParams): void {
-  currentCursorMotion = normalizeCursorMotion(next)
-  const parsed = readPreferencesFile()
-  writePreferencesFile({
-    ...parsed,
-    debug: { ...parsed.debug, cursorMotion: currentCursorMotion },
   })
 }
 
@@ -295,10 +274,6 @@ function broadcastToDebugTargets(channel: string, payload: unknown): void {
   for (const wc of targets) {
     if (wc && !wc.isDestroyed()) wc.send(channel, payload)
   }
-}
-
-export function broadcastCursorMotion(): void {
-  broadcastToDebugTargets('cursor-motion-changed', currentCursorMotion)
 }
 
 export function broadcastCursorSplineViz(): void {

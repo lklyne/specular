@@ -7,7 +7,7 @@ import type {
   LayoutComponentStatesRequest,
   PlacementRequest,
 } from '../../shared/types'
-import { validateLayoutDirective } from '../../shared/types'
+import { validateLayoutDirective } from '../../shared/layout-directive'
 import { getSelectionState } from '../workspace-entities'
 import { distributeSelection } from '../runtime/document-commands'
 import { selectedEntityIds as currentSelectionIds } from '../ui-state'

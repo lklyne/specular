@@ -11,8 +11,6 @@ import {
   resolveCanvasColor,
   withAlpha,
 } from '../../shared/canvas-colors'
-import { PERFECT_FREEHAND_ENABLED } from '../../shared/featureFlags'
-import { pathD } from './annotationMath'
 
 function freehandPathD(
   points: { x: number; y: number }[],
@@ -115,14 +113,12 @@ function HighlightStroke({
 function renderStrokeBody({
   stroke,
   points,
-  strokedD,
   visibleWidth,
   active,
   isDark,
 }: {
   stroke: AnnotationDrawingStroke
   points: { x: number; y: number }[]
-  strokedD: string
   visibleWidth: number
   active: boolean
   isDark: boolean
@@ -145,32 +141,18 @@ function renderStrokeBody({
     )
   }
   // Pen strokes render fully opaque — only the highlighter is translucent.
-  if (PERFECT_FREEHAND_ENABLED) {
-    return <path d={freehandPathD(points, visibleWidth)} fill={inkColor} />
-  }
-  return (
-    <path
-      d={strokedD}
-      fill="none"
-      stroke={inkColor}
-      strokeWidth={visibleWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  )
+  return <path d={freehandPathD(points, visibleWidth)} fill={inkColor} />
 }
 
 export function DrawingLayer({
   drawing,
   layout,
   active,
-  onSelect,
   isDark,
 }: {
   drawing: AnnotationDrawing
   layout: LayoutUpdateData
   active?: boolean
-  onSelect?: () => void
   isDark: boolean
 }) {
   const hasHighlight = drawing.strokes.some((s) => s.brushType === 'highlight')
@@ -228,28 +210,9 @@ export function DrawingLayer({
           y: canvasToScreenY(layout, point.y) - layout.canvasOrigin.y,
         }))
         const visibleWidth = Math.max(1, stroke.width * layout.zoom)
-        const hitWidth = Math.max(12, visibleWidth + 10)
-        const strokedD = pathD(points)
         return (
           <g key={stroke.id}>
-            {onSelect ? (
-              <path
-                data-overlay-ui
-                d={strokedD}
-                fill="none"
-                stroke="transparent"
-                strokeWidth={hitWidth}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-                onPointerDown={(event) => {
-                  if (event.button !== 0) return
-                  event.stopPropagation()
-                  onSelect()
-                }}
-              />
-            ) : null}
-            {renderStrokeBody({ stroke, points, strokedD, visibleWidth, active: active ?? false, isDark })}
+            {renderStrokeBody({ stroke, points, visibleWidth, active: active ?? false, isDark })}
           </g>
         )
       })}
@@ -261,13 +224,11 @@ export function SavedDrawingEntities({
   entities,
   layoutData,
   selectedEntityIds,
-  onSelect,
   isDark,
 }: {
   entities: CanvasSceneEntity[]
   layoutData: LayoutUpdateData
   selectedEntityIds: string[]
-  onSelect?: (id: string) => void
   isDark: boolean
 }) {
   const drawings = entities.filter(
@@ -285,7 +246,6 @@ export function SavedDrawingEntities({
             drawing={{ version: 1, bounds: { x: drawing.canvasX, y: drawing.canvasY, width: drawing.width, height: drawing.height }, strokes: drawing.strokes }}
             layout={layoutData}
             active={isSelected}
-            onSelect={onSelect ? () => onSelect(drawing.id) : undefined}
             isDark={isDark}
           />
         )

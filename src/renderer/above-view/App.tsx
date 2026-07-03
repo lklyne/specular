@@ -60,6 +60,7 @@ import {
   useCanvasPointerRouter,
   type ReorderGhostOffset,
 } from './useCanvasPointerRouter'
+import { startPointerSession } from './pointer-session'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
@@ -561,7 +562,6 @@ export default function App({
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
-    resizeCommentInput,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
@@ -917,32 +917,12 @@ export default function App({
       event.preventDefault()
       event.stopPropagation()
 
-      const pointerId = event.pointerId
-      const target = event.target instanceof Element ? event.target : null
-      try {
-        target?.setPointerCapture(pointerId)
-      } catch {
-        /* ignore */
-      }
-
       const startX = event.clientX
       const startY = event.clientY
       const startWindowY = startY + layout.canvasOrigin.y
       const startCanvas = screenPointToCanvasPoint(startX, startWindowY, layout)
       const placementAtStart = layout.pendingPlacement
       let crossedThreshold = false
-
-      const cleanup = () => {
-        try {
-          if (target?.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId)
-        } catch {
-          /* ignore */
-        }
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
-        window.removeEventListener('pointercancel', onCancel)
-        window.removeEventListener('blur', onCancel)
-      }
 
       const updateShapePreview = (ev: PointerEvent) => {
         const current = layoutRef.current
@@ -975,92 +955,84 @@ export default function App({
         })
       }
 
-      const onMove = (ev: PointerEvent) => {
-        if (ev.pointerId !== pointerId) return
-        const current = layoutRef.current
-        if (placementAtStart?.entityKind === 'shape') {
-          updateShapePreview(ev)
-          return
-        }
-        if (!placementAtStart && current.activeTool.kind === 'comment') {
-          if (!crossedThreshold) {
-            const dx = ev.clientX - startX
-            const dy = ev.clientY - startY
-            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+      startPointerSession(event, {
+        onMove: (ev) => {
+          const current = layoutRef.current
+          if (placementAtStart?.entityKind === 'shape') {
+            updateShapePreview(ev)
+            return
+          }
+          if (!placementAtStart && current.activeTool.kind === 'comment') {
+            if (!crossedThreshold) {
+              const dx = ev.clientX - startX
+              const dy = ev.clientY - startY
+              if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+                return
+              }
+              crossedThreshold = true
+            }
+            onDragMove(startX, startY, ev.clientX, ev.clientY)
+          }
+        },
+        onUp: (ev) => {
+          const current = layoutRef.current
+          if (placementAtStart) {
+            if (placementAtStart.entityKind === 'shape') {
+              api.setSelectionOverlayRect(null)
+              const endCanvas = screenPointToCanvasPoint(
+                ev.clientX,
+                ev.clientY + current.canvasOrigin.y,
+                current,
+              )
+              const square = squareConstrainedRect(
+                startCanvas.x,
+                startCanvas.y,
+                endCanvas.x,
+                endCanvas.y,
+                ev.shiftKey,
+              )
+              if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
+                api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
+                  x: snapToGrid(square.left),
+                  y: snapToGrid(square.top),
+                  width: snapToGrid(square.width),
+                  height: snapToGrid(square.height),
+                })
+              } else {
+                api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+              }
               return
             }
-            crossedThreshold = true
+            api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
+            return
           }
-          onDragMove(startX, startY, ev.clientX, ev.clientY)
-        }
-      }
-
-      const onUp = (ev: PointerEvent) => {
-        if (ev.pointerId !== pointerId) return
-        cleanup()
-        const current = layoutRef.current
-        if (placementAtStart) {
-          if (placementAtStart.entityKind === 'shape') {
-            api.setSelectionOverlayRect(null)
-            const endCanvas = screenPointToCanvasPoint(
-              ev.clientX,
-              ev.clientY + current.canvasOrigin.y,
-              current,
-            )
-            const square = squareConstrainedRect(
-              startCanvas.x,
-              startCanvas.y,
-              endCanvas.x,
-              endCanvas.y,
-              ev.shiftKey,
-            )
-            if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
-              api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
-                x: snapToGrid(square.left),
-                y: snapToGrid(square.top),
-                width: snapToGrid(square.width),
-                height: snapToGrid(square.height),
-              })
-            } else {
-              api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+          if (current.activeTool.kind === 'comment') {
+            if (crossedThreshold) {
+              // Drag past threshold → region anchor.
+              onDragEnd(startX, startY, ev.clientX, ev.clientY)
+              return
             }
-            return
+            // Click below threshold → element anchor if a page DOM element sits
+            // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
+            api.setSelectionOverlayRect(null)
+            const draft = draftStateRef.current
+            const hasEmptyDraft =
+              Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
+              !draft.commentText.trim()
+            if (hasEmptyDraft) {
+              // Empty composer open → click-away dismisses it without creating
+              // a new draft; comment mode stays active.
+              draft.clearDraft()
+              return
+            }
+            api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
           }
-          api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
-          return
-        }
-        if (current.activeTool.kind === 'comment') {
-          if (crossedThreshold) {
-            // Drag past threshold → region anchor.
-            onDragEnd(startX, startY, ev.clientX, ev.clientY)
-            return
-          }
-          // Click below threshold → element anchor if a page DOM element sits
-          // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
+        },
+        onCancel: () => {
           api.setSelectionOverlayRect(null)
-          const draft = draftStateRef.current
-          const hasEmptyDraft =
-            Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
-            !draft.commentText.trim()
-          if (hasEmptyDraft) {
-            // Empty composer open → click-away dismisses it without creating
-            // a new draft; comment mode stays active.
-            draft.clearDraft()
-            return
-          }
-          api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
-        }
-      }
-
-      const onCancel = () => {
-        cleanup()
-        api.setSelectionOverlayRect(null)
-      }
-
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
-      window.addEventListener('pointercancel', onCancel)
-      window.addEventListener('blur', onCancel)
+        },
+        listenBlur: true,
+      })
     }
 
     window.addEventListener('pointerdown', onPointerDown, { capture: true })
@@ -1383,7 +1355,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             pendingAnnotation={pendingAnnotation}
             pendingPosition={pendingComposerPosition}
             pendingRegionRect={pendingRegionRect}
-            resizeCommentInput={resizeCommentInput}
             setCommentText={setCommentText}
             setElementNameDraft={setElementNameDraft}
             submitPendingAnnotation={submitPendingAnnotation}

@@ -34,7 +34,6 @@ export function PendingAnnotationComposer({
   pendingAnnotation,
   pendingPosition,
   pendingRegionRect,
-  resizeCommentInput,
   setCommentText,
   setElementNameDraft,
   submitPendingAnnotation,
@@ -48,7 +47,6 @@ export function PendingAnnotationComposer({
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
-  resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
   submitPendingAnnotation: () => void
@@ -67,7 +65,6 @@ export function PendingAnnotationComposer({
         left={left}
         top={top}
         width={width}
-        resizeCommentInput={resizeCommentInput}
         setCommentText={setCommentText}
         submit={submitPendingAnnotation}
         submitLabel="Submit comment"
@@ -97,7 +94,6 @@ export function PendingAnnotationComposer({
           left={composerX}
           top={composerY}
           width={REGION_COMPOSER_WIDTH}
-          resizeCommentInput={resizeCommentInput}
           setCommentText={setCommentText}
           submit={submitRegionAnnotation}
           submitLabel="Submit region annotation"
@@ -115,7 +111,6 @@ function ComposerBox({
   left,
   top,
   width,
-  resizeCommentInput,
   setCommentText,
   submit,
   submitLabel,
@@ -128,7 +123,6 @@ function ComposerBox({
   left: number
   top: number
   width: number
-  resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   submit: () => void
   submitLabel?: string
@@ -158,12 +152,12 @@ function ComposerBox({
             className="w-full rounded-[6px] bg-transparent px-2 py-1 text-[12px] font-medium text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
           />
         ) : null}
-        <div className="flex items-center gap-2 px-1.5">
+        <div className="relative pl-1.5 pb-1.5">
           <CommentInput
             inputRef={commentInputRef}
             autoFocus={!showElementName}
             value={commentText}
-            onChange={(value) => { setCommentText(value); resizeCommentInput() }}
+            onChange={setCommentText}
             onSubmit={submit}
             submitLabel={submitLabel}
             onKeyDown={(event) => {
@@ -372,7 +366,7 @@ export function AnnotationThreadPopover({
             <ThreadFixProgress progress={progress} />
           ) : null}
           <div className="border-t border-zinc-200 px-2.5 py-2.5 dark:border-zinc-700">
-            <div className="flex items-center gap-2 rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
+            <div className="relative rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
               <CommentInput
                 inputRef={threadInputRef}
                 value={replyText}

@@ -26,47 +26,6 @@ import {
 } from './runtime/runtime-context'
 import { pageContentSize, projectFramePointToCanvas } from './runtime/runtime-geometry'
 
-// --- Re-exports from presence-session ---
-export {
-  type McpClientSession,
-  mcpSessions,
-  MCP_SESSION_TIMEOUT_MS,
-  activeSessions,
-  resolveSession,
-} from './presence-session'
-
-// --- Re-exports from presence-cursor ---
-export {
-  type PresenceCursorEntry,
-  type ActivePresenceTask,
-  presenceCursors,
-  activePresenceTasks,
-  PRESENCE_CURSOR_STEP_DELAY_MS,
-  notifyPresenceChanged,
-  deriveColor,
-  removePresenceCursor,
-  beginPresenceDeparture,
-  getPresenceCursors,
-  onPresenceCursorsChanged,
-  coercePresenceLabelKey,
-  coercePresenceActivity,
-  coercePresenceSurface,
-  coercePresenceTargetRefSource,
-  upsertPresenceCursor,
-  upsertActivePresenceTask,
-  clearActivePresenceTask,
-  scheduleThinkingState,
-  allEntityPositions,
-  staggerOperation,
-  animateCursorScan,
-  movePresenceCursorTo,
-  findEntityPosition,
-} from './presence-cursor'
-
-// Re-export for route usage
-export { invalidateAgentSnapshot } from './runtime/agent-snapshot-cache'
-
-// --- Imports needed for local logic ---
 import { resolveSession } from './presence-session'
 import {
   activePresenceTasks,
@@ -130,7 +89,6 @@ export function deriveLabelKey(url: string, method: string): PresenceLabelKey | 
 export function derivePageId(url: string, body: Record<string, unknown>): string | null {
   const match = /^\/pages\/([^/]+)/.exec(url)
   if (match) return decodeURIComponent(match[1])
-  if (typeof body.pageId === 'string') return body.pageId
   if (typeof body.pageId === 'string') return body.pageId
   if (Array.isArray(body.pageIds) && typeof body.pageIds[0] === 'string') {
     return body.pageIds[0]

@@ -1,26 +1,27 @@
 import type { Route } from './types'
 import type { PresenceTargetRect, PresenceTargetRefSource } from '../../shared/types'
 import {
-  mcpSessions,
-  pendingIntents,
-  PENDING_INTENT_TTL_MS,
-  resolveSession,
   getPresenceCursors,
   coercePresenceLabelKey,
   coercePresenceActivity,
   coercePresenceSurface,
   coercePresenceTargetRefSource,
-  resolveCanvasPointForPage,
-  resolvePresenceTargetRect,
-  findPresenceTarget,
   upsertPresenceCursor,
   upsertActivePresenceTask,
   clearActivePresenceTask,
   scheduleThinkingState,
-  invalidateAgentSnapshot,
   beginPresenceDeparture,
+} from '../presence-cursor'
+import {
+  pendingIntents,
+  PENDING_INTENT_TTL_MS,
+  resolveCanvasPointForPage,
+  resolvePresenceTargetRect,
+  findPresenceTarget,
   resetPresenceState,
 } from '../presence-manager'
+import { mcpSessions, resolveSession } from '../presence-session'
+import { invalidateAgentSnapshot } from '../runtime/agent-snapshot-cache'
 import { cdpProxyRegistrations, resetCdpProxyState } from '../cdp-proxy'
 import {
   clearAutomationInteractivePageIds,

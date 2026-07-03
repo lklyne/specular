@@ -1,5 +1,4 @@
 import { ipcMain } from 'electron'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import type {
   CanvasEntityKind,
   FocusPresentationMode,
@@ -12,12 +11,9 @@ import { pages } from '../runtime/page-runtime'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
 import { activeTool as uiActiveTool } from '../ui-state'
-import {
-  canvasOrigin,
-  pan,
-  requestLayout,
-  zoom,
-} from '../runtime/surface-layout'
+import { pan, zoom } from '../runtime/runtime-context'
+import { requestLayout } from '../runtime/viewport-control'
+import { boundCanvasOrigin as canvasOrigin } from '../runtime/runtime-geometry'
 import { saveImageBuffer } from '../runtime/image-assets'
 import { htmlDefaultSize, imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
@@ -60,9 +56,9 @@ import {
   renameWorkspaceTab,
   renameWorkspaceTextEntity,
   reorderWorkspaceTab,
-  scheduleWorkspaceAutosave,
   setActiveWorkspaceTab,
-} from '../runtime/workspace-session'
+} from '../runtime/workspace-tab-operations'
+import { scheduleWorkspaceAutosave } from '../runtime/workspace-autosave'
 import { deleteEdges } from '../workspace-edges'
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
@@ -151,11 +147,9 @@ export function registerCanvasIpc(): void {
     setFocusAnnotationsVisible(Boolean(visible))
   })
 
-  const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
-    DRAWING_FEATURE_ENABLED
-      ? ['page', 'text', 'file', 'drawing', 'shape', 'edge']
-      : ['page', 'text', 'file', 'shape', 'edge'],
-  )
+  const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>([
+    'page', 'text', 'file', 'drawing', 'shape', 'edge',
+  ])
   ipcMain.on(
     'canvas-select-entity',
     (

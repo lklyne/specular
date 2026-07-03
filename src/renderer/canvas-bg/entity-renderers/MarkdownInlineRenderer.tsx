@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { MarkdownEditor } from '../../shared/MarkdownEditor'
+import { useDebouncedWrite } from '../../shared/useDebouncedWrite'
 import { filePathToSrc, getFileApi } from './filePathToSrc'
 
 function renderMarkdownBody(mdContent: string | null) {
@@ -25,8 +26,12 @@ export function MarkdownInlineRenderer({
   const [mdContent, setMdContent] = useState<string | null>(null)
   const [localText, setLocalText] = useState('')
   const isFocusedRef = useRef(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const flushRef = useRef<(() => void) | null>(null)
+  // Flush-on-unmount so a queued write mid-debounce (e.g. tab switch, entity
+  // deletion) isn't lost — otherwise the last typed keystrokes disappear.
+  const debouncedWrite = useDebouncedWrite(
+    (value) => fileApi.writeNoteFile(entity.file, value),
+    { flushOnUnmount: true },
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -45,7 +50,7 @@ export function MarkdownInlineRenderer({
     fetchContent()
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
-      if (debounceRef.current) return
+      if (debouncedWrite.isPending()) return
       if (isFocusedRef.current) return
       fetchContent()
     }
@@ -63,28 +68,9 @@ export function MarkdownInlineRenderer({
     }
   }, [canEdit, onTextEditingChange])
 
-  // Flush a queued write if the component unmounts mid-debounce (e.g. tab
-  // switch, entity deletion) — otherwise the last typed keystrokes are lost.
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-        debounceRef.current = null
-        flushRef.current?.()
-        flushRef.current = null
-      }
-    }
-  }, [])
-
   const handleChange = (value: string) => {
     setLocalText(value)
-    flushRef.current = () => fileApi.writeNoteFile(entity.file, value)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      flushRef.current?.()
-      flushRef.current = null
-      debounceRef.current = null
-    }, 300)
+    debouncedWrite.schedule(value)
   }
 
   const handleFocus = () => {
@@ -95,11 +81,7 @@ export function MarkdownInlineRenderer({
   const handleBlur = () => {
     isFocusedRef.current = false
     onTextEditingChange(false)
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-      debounceRef.current = null
-    }
-    flushRef.current = null
+    debouncedWrite.cancel()
     fileApi.writeNoteFile(entity.file, localText)
     setMdContent(localText)
   }

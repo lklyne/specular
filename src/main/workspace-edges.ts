@@ -1,7 +1,7 @@
 import type { CreateEdgesRequest, CreateEdgesResponse, WorkspaceEdge } from '../shared/types'
 import { workspaceEdges } from './runtime/workspace-model'
 import { markDirty } from './runtime/layout-dirty'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { appendStackOrderIdsAtTop } from './runtime/entity-order-state'
 import { makeId, cloneMetadata } from './workspace-utils'
 

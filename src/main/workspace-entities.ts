@@ -32,18 +32,17 @@ import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
+import { pan, zoom } from './runtime/runtime-context'
+import { requestLayout } from './runtime/viewport-control'
+import { CHROME_HEADER_HEIGHT } from '../shared/entity-chrome-slots'
+import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import {
+  boundsOverlap,
   pageContentSize,
   pageSnapBounds,
   pageVisualBounds,
-  pan,
-  requestLayout,
-  zoom,
-} from './runtime/surface-layout'
-import { CHROME_HEADER_HEIGHT } from '../shared/entity-chrome-slots'
-import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
-import { boundsOverlap } from './runtime/runtime-geometry'
+} from './runtime/runtime-geometry'
 import { cloneMetadata } from './workspace-utils'
 import { removeEdgesTouchingEntities } from './workspace-edges'
 import { occupiedRegions } from './workspace-placement'
