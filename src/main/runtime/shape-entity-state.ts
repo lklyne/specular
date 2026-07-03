@@ -5,6 +5,7 @@ import type {
   ShapeKind,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 
 export interface ShapeEntity {
   id: string
@@ -82,17 +83,12 @@ export function updateShapeEntity(
 ): ShapeEntity | null {
   const entity = shapeEntities.find((s) => s.id === id)
   if (!entity) return null
-  if (patch.shapeKind !== undefined) entity.shapeKind = patch.shapeKind
-  if (patch.text !== undefined) entity.text = patch.text
+  applyPatch(entity, patch, [
+    'shapeKind', 'text', 'strokeWidth', 'textSize',
+    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
+  ])
   if (patch.color !== undefined) entity.color = patch.color || undefined
-  if (patch.strokeWidth !== undefined) entity.strokeWidth = patch.strokeWidth
-  if (patch.textSize !== undefined) entity.textSize = patch.textSize
   if (patch.theme !== undefined) entity.theme = patch.theme || undefined
-  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
-  if (patch.width !== undefined) entity.width = patch.width
-  if (patch.height !== undefined) entity.height = patch.height
-  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity

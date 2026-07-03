@@ -13,6 +13,7 @@ import type {
   PersistedDrawingEntity,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 
 export interface DrawingEntity {
   id: string
@@ -70,12 +71,9 @@ export function updateDrawingEntity(
 ): DrawingEntity | null {
   const entity = drawingEntities.find((candidate) => candidate.id === id)
   if (!entity) return null
-  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
-  if (patch.width !== undefined) entity.width = patch.width
-  if (patch.height !== undefined) entity.height = patch.height
-  if (patch.strokes !== undefined) entity.strokes = patch.strokes
-  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
+  applyPatch(entity, patch, [
+    'canvasX', 'canvasY', 'width', 'height', 'strokes', 'parentGroupId',
+  ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity

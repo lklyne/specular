@@ -15,6 +15,7 @@ import type {
   TextWidthMode,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 
 export interface TextEntity {
   id: string
@@ -81,16 +82,10 @@ export function createTextEntity(input: {
 export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id'>>): TextEntity | null {
   const entity = textEntities.find((n) => n.id === id)
   if (!entity) return null
-  if (patch.text !== undefined) entity.text = patch.text
-  if (patch.color !== undefined) entity.color = patch.color
-  if (patch.textStyle !== undefined) entity.textStyle = patch.textStyle
-  if (patch.widthMode !== undefined) entity.widthMode = patch.widthMode
-  if (patch.textSize !== undefined) entity.textSize = patch.textSize
-  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
-  if (patch.width !== undefined) entity.width = patch.width
-  if (patch.height !== undefined) entity.height = patch.height
-  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
+  applyPatch(entity, patch, [
+    'text', 'color', 'textStyle', 'widthMode', 'textSize',
+    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
+  ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity
