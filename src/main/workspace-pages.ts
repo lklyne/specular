@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import type {
   CreatePagesRequest,
   CreatePagesResponse,
@@ -356,7 +357,7 @@ export function createBlankFrameFromSource(input: {
 
   if (input.focusAddressBar ?? true) {
     setPendingFocus({ kind: 'toolbar' })
-    if (toolbarView) safeSend(toolbarView.webContents, 'focus-address-bar')
+    if (toolbarView) safeSend(toolbarView.webContents, ipcChannels.focusAddressBar)
   }
   requestLayout()
   scheduleWorkspaceAutosave()

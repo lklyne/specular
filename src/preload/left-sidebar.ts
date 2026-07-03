@@ -8,39 +8,39 @@ import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: LeftSidebarElectronAPI = {
-  revealPage: (pageId) => ipcRenderer.send('canvas-reveal-page', { pageId }),
+  revealPage: (pageId) => ipcRenderer.send(ipcChannels.canvasRevealPage, { pageId }),
   revealEntity: (entityId, entityKind) =>
-    ipcRenderer.send('canvas-reveal-entity', { entityId, entityKind }),
+    ipcRenderer.send(ipcChannels.canvasRevealEntity, { entityId, entityKind }),
   deleteEntity: (entityId, entityKind) =>
-    ipcRenderer.send('canvas-delete-entity', { entityId, entityKind }),
-  revealGroup: (groupId) => ipcRenderer.send('canvas-reveal-group', { groupId }),
-  ungroupGroup: (groupId) => ipcRenderer.send('canvas-ungroup-group', { groupId }),
-  selectTab: (tabId) => ipcRenderer.send('canvas-select-tab', { tabId }),
-  createTab: () => ipcRenderer.send('canvas-create-tab'),
-  renameTab: (tabId, name) => ipcRenderer.send('canvas-rename-tab', { tabId, name }),
-  renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
-  renameGroup: (groupId, name) => ipcRenderer.send('canvas-rename-group', { groupId, name }),
+    ipcRenderer.send(ipcChannels.canvasDeleteEntity, { entityId, entityKind }),
+  revealGroup: (groupId) => ipcRenderer.send(ipcChannels.canvasRevealGroup, { groupId }),
+  ungroupGroup: (groupId) => ipcRenderer.send(ipcChannels.canvasUngroupGroup, { groupId }),
+  selectTab: (tabId) => ipcRenderer.send(ipcChannels.canvasSelectTab, { tabId }),
+  createTab: () => ipcRenderer.send(ipcChannels.canvasCreateTab),
+  renameTab: (tabId, name) => ipcRenderer.send(ipcChannels.canvasRenameTab, { tabId, name }),
+  renamePage: (pageId, name) => ipcRenderer.send(ipcChannels.canvasRenamePage, { pageId, name }),
+  renameGroup: (groupId, name) => ipcRenderer.send(ipcChannels.canvasRenameGroup, { groupId, name }),
   renameFileEntity: (entityId, name) =>
-    ipcRenderer.send('canvas-rename-file-entity', { entityId, name }),
+    ipcRenderer.send(ipcChannels.canvasRenameFileEntity, { entityId, name }),
   renameTextEntity: (entityId, name) =>
-    ipcRenderer.send('canvas-rename-text-entity', { entityId, name }),
+    ipcRenderer.send(ipcChannels.canvasRenameTextEntity, { entityId, name }),
   renameDrawingEntity: (entityId, name) =>
-    ipcRenderer.send('canvas-rename-drawing-entity', { entityId, name }),
-  deleteTab: (tabId) => ipcRenderer.send('canvas-delete-tab', { tabId }),
-  reorderTab: (tabId, toIndex) => ipcRenderer.send('canvas-reorder-tab', { tabId, toIndex }),
+    ipcRenderer.send(ipcChannels.canvasRenameDrawingEntity, { entityId, name }),
+  deleteTab: (tabId) => ipcRenderer.send(ipcChannels.canvasDeleteTab, { tabId }),
+  reorderTab: (tabId, toIndex) => ipcRenderer.send(ipcChannels.canvasReorderTab, { tabId, toIndex }),
   reorderSidebarItem: (section, draggedId, anchorId, position, parentId) =>
-    ipcRenderer.send('canvas-reorder-sidebar-item', {
+    ipcRenderer.send(ipcChannels.canvasReorderSidebarItem, {
       section,
       draggedId,
       anchorId,
       position,
       parentId,
     }),
-  deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
-  setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
-  getInitialData: () => ipcRenderer.invoke('get-left-sidebar-bootstrap'),
+  deletePage: (pageId) => ipcRenderer.send(ipcChannels.canvasDeletePage, { pageId }),
+  setTextEditing: (active) => ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),
+  getInitialData: () => ipcRenderer.invoke(ipcChannels.getLeftSidebarBootstrap),
   onThemeChanged: on(ipcChannels.themeChanged),
-  onSidebarData: on<LeftSidebarData>('left-sidebar-data'),
+  onSidebarData: on<LeftSidebarData>(ipcChannels.leftSidebarData),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

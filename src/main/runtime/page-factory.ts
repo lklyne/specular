@@ -2,6 +2,7 @@
  * Page factory — creation and removal of browser page views.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import { WebContentsView } from 'electron'
 import { randomUUID } from 'crypto'
 import { preloadPath } from './load-renderer'
@@ -171,10 +172,10 @@ export function createPage(config: PageConfig): Page {
     // query the DOM for <link rel="icon"> and fall back to /favicon.ico
     if (!page.faviconUrl) {
       const faviconTimeout = setTimeout(() => {
-        page.pageView.webContents.ipc.removeAllListeners('query-favicon-result')
+        page.pageView.webContents.ipc.removeAllListeners(ipcChannels.queryFaviconResult)
       }, 5000)
       page.pageView.webContents.ipc.once(
-        'query-favicon-result',
+        ipcChannels.queryFaviconResult,
         (_event: Electron.IpcMainEvent, href: string | null) => {
           clearTimeout(faviconTimeout)
           if (page.faviconUrl) return
@@ -192,7 +193,7 @@ export function createPage(config: PageConfig): Page {
           requestLayout()
         },
       )
-      page.pageView.webContents.send('query-favicon')
+      page.pageView.webContents.send(ipcChannels.queryFavicon)
     }
     invalidateAgentSnapshot(page.id)
     page.lastPageEmulationKey = undefined
@@ -202,14 +203,14 @@ export function createPage(config: PageConfig): Page {
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     syncInspectionState()
-    page.pageView.webContents.send('set-annotate-mode', toolAnnotateOverlay(uiActiveTool()))
+    page.pageView.webContents.send(ipcChannels.setAnnotateMode, toolAnnotateOverlay(uiActiveTool()))
     sendInteractiveState()
     broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)
     if (overrides) {
-      page.pageView.webContents.send('apply-page-overrides', overrides)
+      page.pageView.webContents.send(ipcChannels.applyPageOverrides, overrides)
     }
-    page.pageView.webContents.send('page-annotations-update', {
+    page.pageView.webContents.send(ipcChannels.pageAnnotationsUpdate, {
       annotations: annotationsForPage(page.id),
     })
   })

@@ -2,6 +2,7 @@
  * Sidebar tree builder — constructs hierarchical sidebar data for the left panel.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import type {
   LeftSidebarData,
   LeftSidebarSections,
@@ -292,5 +293,5 @@ export function notifyLeftSidebarData(): void {
   const wc = leftSidebarView.webContents
   if (wc.isDestroyed()) return
   if (interactionState.kind === 'dragging-entities') return
-  wc.send('left-sidebar-data', buildLeftSidebarData())
+  wc.send(ipcChannels.leftSidebarData, buildLeftSidebarData())
 }

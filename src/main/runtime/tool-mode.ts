@@ -1,5 +1,6 @@
 // Tool mode management — single `activeTool` source of truth (ADR 0005).
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import type { DevtoolsPanelTab, Tool } from '../../shared/types'
 import { isAnnotationTool, isOneShot, isWorkingTool, toolAnnotateOverlay } from '../../shared/tool'
 import { isFocusSessionActive, setFocusAnnotationsVisible } from './focus-session'
@@ -22,7 +23,7 @@ import { requestLayout } from './viewport-control'
 function syncAnnotationState(): void {
   const payload = toolAnnotateOverlay(uiActiveTool())
   for (const page of pages) {
-    page.pageView.webContents.send('set-annotate-mode', payload)
+    page.pageView.webContents.send(ipcChannels.setAnnotateMode, payload)
   }
 }
 

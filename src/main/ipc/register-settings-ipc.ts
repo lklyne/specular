@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type {
   FixModel,
@@ -32,16 +33,16 @@ function sendToSettings(channel: string, payload: unknown): void {
 }
 
 function broadcastProgress(event: OnboardingProgressEvent): void {
-  sendToSettings('settings:skill-progress', event)
+  sendToSettings(ipcChannels.settingsSkillProgress, event)
 }
 
 function broadcastFixConfig(): void {
-  sendToSettings('settings:fix-config-changed', getFixConfig())
+  sendToSettings(ipcChannels.settingsFixConfigChanged, getFixConfig())
 }
 
 export function registerSettingsIpc(): void {
   ipcMain.handle(
-    'settings:get-initial-data',
+    ipcChannels.settingsGetInitialData,
     async (): Promise<SettingsBootstrapData> => ({
       theme: { isDark: isDark() },
       status: await getOnboardingStatus(),
@@ -50,12 +51,12 @@ export function registerSettingsIpc(): void {
     }),
   )
 
-  ipcMain.handle('settings:refresh-status', async (): Promise<OnboardingStatusSnapshot> => {
+  ipcMain.handle(ipcChannels.settingsRefreshStatus, async (): Promise<OnboardingStatusSnapshot> => {
     return await getOnboardingStatus()
   })
 
   ipcMain.handle(
-    'settings:install-skills',
+    ipcChannels.settingsInstallSkills,
     async (
       _event,
       selections: Record<OnboardingComponentId, boolean>,
@@ -67,7 +68,7 @@ export function registerSettingsIpc(): void {
   )
 
   ipcMain.handle(
-    'settings:set-component-installed',
+    ipcChannels.settingsSetComponentInstalled,
     async (
       _event,
       payload: { component: OnboardingComponentId; installed: boolean },
@@ -83,7 +84,7 @@ export function registerSettingsIpc(): void {
   )
 
   ipcMain.on(
-    'settings:set-fix-config',
+    ipcChannels.settingsSetFixConfig,
     (_event, payload: { model?: FixModel; permissions?: FixPermissions } | undefined) => {
       if (!payload) return
       setFixConfig(payload)
@@ -93,7 +94,7 @@ export function registerSettingsIpc(): void {
   )
 
   ipcMain.on(
-    'settings:remove-origin-binding',
+    ipcChannels.settingsRemoveOriginBinding,
     (_event, origin: unknown) => {
       const trimmed = typeof origin === 'string' ? origin.trim() : ''
       if (!trimmed) return
@@ -101,7 +102,7 @@ export function registerSettingsIpc(): void {
     },
   )
 
-  ipcMain.on('settings:close', () => {
+  ipcMain.on(ipcChannels.settingsClose, () => {
     closeSettingsWindow()
   })
 }

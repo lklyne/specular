@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { randomUUID } from 'crypto'
 import { findPageById, selectedPage } from './runtime-context'
 import { safeSend } from './safe-send'
@@ -20,7 +21,7 @@ export function requestNodeDetail(pageId: string, nodeId: string): void {
   if (!page || page.pageView.webContents.isDestroyed()) return
   const requestId = randomUUID()
   pendingDetailRequests.set(requestId, { pageId, nodeId })
-  safeSend(page.pageView.webContents, 'resolve-node-detail', { nodeId, requestId })
+  safeSend(page.pageView.webContents, ipcChannels.resolveNodeDetail, { nodeId, requestId })
 }
 
 export function takePendingDetailRequest(

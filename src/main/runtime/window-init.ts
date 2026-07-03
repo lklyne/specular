@@ -137,7 +137,7 @@ export function initWindow(): void {
   initFixOrchestrator()
   onTrackerChange(() => notifyDevtoolsPanelData())
   onProgressChange(() => {
-    if (aboveView) safeSend(aboveView.webContents, 'fix-progress-update', getFixProgress())
+    if (aboveView) safeSend(aboveView.webContents, ipcChannels.fixProgressUpdate, getFixProgress())
     notifyDevtoolsPanelData()
   })
   ensureWorkspaceTabsInitialized()
@@ -208,7 +208,7 @@ export function initWindow(): void {
     const initialLayoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
     currentBgView.webContents.send(ipcChannels.layoutUpdate, initialLayoutData)
     sendAnnotationLayoutUpdate(initialLayoutData)
-    currentBgView.webContents.send('component-tree-data', selectedComponentTreePayload())
+    currentBgView.webContents.send(ipcChannels.componentTreeData, selectedComponentTreePayload())
     // The renderer subscribes to layout updates during mount, so send one more
     // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')

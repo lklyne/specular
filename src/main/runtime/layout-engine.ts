@@ -240,7 +240,7 @@ function layoutAllViews(): void {
       layoutData.buildMs = performance.now() - buildStart
       bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
       sendAnnotationLayoutUpdate(layoutData)
-      bgView.webContents.send('component-tree-data', selectedComponentTreePayload())
+      bgView.webContents.send(ipcChannels.componentTreeData, selectedComponentTreePayload())
     }
   }
 
@@ -483,7 +483,7 @@ function layoutAllViews(): void {
     const pageAnnotations = annotationsForPage(page.id)
     const nextPageAnnotationsKey = pageAnnotationsKey(pageAnnotations)
     if (nextPageAnnotationsKey !== page.lastPageAnnotationsKey) {
-      page.pageView.webContents.send('page-annotations-update', {
+      page.pageView.webContents.send(ipcChannels.pageAnnotationsUpdate, {
         annotations: pageAnnotations,
       })
       page.lastPageAnnotationsKey = nextPageAnnotationsKey
@@ -567,10 +567,10 @@ function layoutAllViews(): void {
       layoutCache.lastToolbarBoundsKey,
     )
     if (consumeDirty('toolbar')) {
-      toolbarView.webContents.send('zoom-changed', Math.round(zoom * 100))
-      toolbarView.webContents.send('toolbar-selection-changed', toolbarSelectionData())
-      toolbarView.webContents.send('left-sidebar-changed', uiLeftSidebarOpen())
-      toolbarView.webContents.send('agent-presence-changed', getPresenceCursors())
+      toolbarView.webContents.send(ipcChannels.zoomChanged, Math.round(zoom * 100))
+      toolbarView.webContents.send(ipcChannels.toolbarSelectionChanged, toolbarSelectionData())
+      toolbarView.webContents.send(ipcChannels.leftSidebarChanged, uiLeftSidebarOpen())
+      toolbarView.webContents.send(ipcChannels.agentPresenceChanged, getPresenceCursors())
     }
   }
 

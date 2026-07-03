@@ -278,5 +278,5 @@ function broadcastToDebugTargets(channel: string, payload: unknown): void {
 }
 
 export function broadcastCursorSplineViz(): void {
-  broadcastToDebugTargets('cursor-spline-viz-changed', currentCursorSplineViz)
+  broadcastToDebugTargets(ipcChannels.cursorSplineVizChanged, currentCursorSplineViz)
 }
