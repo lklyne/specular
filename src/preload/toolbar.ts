@@ -4,6 +4,7 @@ import type {
   ToolbarElectronAPI,
   ToolbarSelectionData,
 } from '../shared/types'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: ToolbarElectronAPI = {
@@ -28,7 +29,7 @@ const api: ToolbarElectronAPI = {
   onSelectionChanged: on<ToolbarSelectionData>('toolbar-selection-changed'),
   onLeftSidebarChanged: on<boolean>('left-sidebar-changed'),
   onDevtoolsChanged: on<boolean>('devtools-changed'),
-  onThemeChanged: on<{ isDark: boolean }>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
   onAgentPresenceChanged: on<AgentPresenceCursor[]>('agent-presence-changed'),
   onFocusAddressBar: on('focus-address-bar'),
   repoConnectViaPicker: () => ipcRenderer.invoke('repo-connect-via-picker'),

@@ -12,6 +12,7 @@ import type {
   FixConfig,
   OnboardingState,
 } from '../../shared/types'
+import { ipcChannels } from '../../shared/ipc-contract'
 import {
   DEFAULT_TOOL_DEFAULTS,
   normalizeToolDefaults,
@@ -237,27 +238,27 @@ export function frameColor(): string {
 export function broadcastTheme(): void {
   if (win) win.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
   const data = { isDark: isDark() }
-  if (bgView) bgView.webContents.send('theme-changed', data)
-  if (leftSidebarView) leftSidebarView.webContents.send('theme-changed', data)
-  if (toolbarView) toolbarView.webContents.send('theme-changed', data)
+  if (bgView) bgView.webContents.send(ipcChannels.themeChanged, data)
+  if (leftSidebarView) leftSidebarView.webContents.send(ipcChannels.themeChanged, data)
+  if (toolbarView) toolbarView.webContents.send(ipcChannels.themeChanged, data)
   if (aboveView && !aboveView.webContents.isDestroyed()) {
-    aboveView.webContents.send('theme-changed', data)
+    aboveView.webContents.send(ipcChannels.themeChanged, data)
   }
   if (devtoolsHeaderView)
-    devtoolsHeaderView.webContents.send('theme-changed', data)
+    devtoolsHeaderView.webContents.send(ipcChannels.themeChanged, data)
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   }
   if (devtoolsResizeHandleView && !devtoolsResizeHandleView.webContents.isDestroyed()) {
-    devtoolsResizeHandleView.webContents.send('theme-changed', data)
+    devtoolsResizeHandleView.webContents.send(ipcChannels.themeChanged, data)
   }
   const debugWebContents = getDebugWebContents()
   if (debugWebContents && !debugWebContents.isDestroyed()) {
-    debugWebContents.send('theme-changed', data)
+    debugWebContents.send(ipcChannels.themeChanged, data)
   }
   const settingsWebContents = getSettingsWebContents()
   if (settingsWebContents && !settingsWebContents.isDestroyed()) {
-    settingsWebContents.send('theme-changed', data)
+    settingsWebContents.send(ipcChannels.themeChanged, data)
   }
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]

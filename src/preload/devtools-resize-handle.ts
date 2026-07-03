@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { DevtoolsResizeHandleElectronAPI } from '../shared/types'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: DevtoolsResizeHandleElectronAPI = {
@@ -7,7 +8,7 @@ const api: DevtoolsResizeHandleElectronAPI = {
   devtoolsResizeMove: (screenX) => ipcRenderer.send('devtools-resize-move', { screenX }),
   devtoolsResizeEnd: () => ipcRenderer.send('devtools-resize-end'),
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),
-  onThemeChanged: on<{ isDark: boolean }>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

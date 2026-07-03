@@ -1,8 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type {
-  DebugElectronAPI,
-  ThemeData,
-} from '../shared/types'
+import type { DebugElectronAPI } from '../shared/types'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: DebugElectronAPI = {
@@ -13,7 +11,7 @@ const api: DebugElectronAPI = {
   updateCursorTuning: (params) =>
     ipcRenderer.send('debug:update-cursor-tuning', params),
   resetCursorTuning: () => ipcRenderer.send('debug:reset-cursor-tuning'),
-  onThemeChanged: on<ThemeData>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

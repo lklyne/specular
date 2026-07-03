@@ -75,6 +75,7 @@ import { getPresenceCursors } from '../presence-cursor'
 import { notifyDevtoolsPanelData } from './inspect-session'
 import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
+import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
 
 export function setBoundsIfChanged(
@@ -237,7 +238,7 @@ function layoutAllViews(): void {
       const buildStart = performance.now()
       const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
       layoutData.buildMs = performance.now() - buildStart
-      bgView.webContents.send('layout-update', layoutData)
+      bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
       sendAnnotationLayoutUpdate(layoutData)
       bgView.webContents.send('component-tree-data', selectedComponentTreePayload())
     }

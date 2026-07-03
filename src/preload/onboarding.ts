@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { OnboardingElectronAPI, OnboardingProgressEvent } from '../shared/types'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: OnboardingElectronAPI = {
@@ -8,7 +9,7 @@ const api: OnboardingElectronAPI = {
   complete: () => ipcRenderer.send('onboarding:complete'),
   dismiss: () => ipcRenderer.send('onboarding:dismiss'),
   onProgress: on<OnboardingProgressEvent>('onboarding:progress'),
-  onThemeChanged: on<{ isDark: boolean }>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

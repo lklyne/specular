@@ -3,8 +3,8 @@ import type {
   AnnotationCreateRequest,
   DevtoolsPanelData,
   DevtoolsPanelElectronAPI,
-  ThemeData,
 } from '../shared/types'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: DevtoolsPanelElectronAPI = {
@@ -92,7 +92,7 @@ const api: DevtoolsPanelElectronAPI = {
   openBrowserDevTools: () => ipcRenderer.send('right-details-panel-open-browser-devtools'),
   closeBrowserDevTools: () => ipcRenderer.send('right-details-panel-dismiss-browser-devtools'),
   getInitialData: () => ipcRenderer.invoke('get-theme-bootstrap'),
-  onThemeChanged: on<ThemeData>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
   onPanelData: on<DevtoolsPanelData>('right-details-panel-data'),
 }
 

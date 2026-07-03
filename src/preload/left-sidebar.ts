@@ -3,8 +3,8 @@ import type {
   CanvasEntityKind,
   LeftSidebarData,
   LeftSidebarElectronAPI,
-  ThemeData,
 } from '../shared/types'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: LeftSidebarElectronAPI = {
@@ -39,7 +39,7 @@ const api: LeftSidebarElectronAPI = {
   deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
   setTextEditing: (active) => ipcRenderer.send('canvas-set-text-editing', { active }),
   getInitialData: () => ipcRenderer.invoke('get-left-sidebar-bootstrap'),
-  onThemeChanged: on<ThemeData>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
   onSidebarData: on<LeftSidebarData>('left-sidebar-data'),
 }
 

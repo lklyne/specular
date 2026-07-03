@@ -15,6 +15,7 @@ import type {
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
 import type { CanvasGuidesPayload } from '../shared/canvas-guides'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 function installSelectionOverlayBridge(): void {
@@ -307,10 +308,10 @@ const api: CanvasBgElectronAPI = {
   getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke('repo-connect', { absolutePath }),
-  onLayoutUpdate: on<LayoutUpdateData>('layout-update'),
+  onLayoutUpdate: on(ipcChannels.layoutUpdate),
   onViewportNudge: on<ViewportNudge>('viewport-nudge'),
   onFixProgressUpdate: on<LayoutUpdateData['fixProgress']>('fix-progress-update'),
-  onThemeChanged: on<{ isDark: boolean }>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

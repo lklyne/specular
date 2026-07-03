@@ -20,6 +20,7 @@ import type {
   PendingPlacement,
   ToolbarSelectionData,
 } from '../../shared/types'
+import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { isUnresolved } from '../../shared/annotation-utils'
 import {
@@ -222,9 +223,9 @@ export function selectedComponentTreePayload():
 }
 
 export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
-  if (aboveView) safeSend(aboveView.webContents, 'layout-update', payload)
+  if (aboveView) safeSend(aboveView.webContents, ipcChannels.layoutUpdate, payload)
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed()) {
-    safeSend(cursorOverlayWindow.webContents, 'layout-update', payload)
+    safeSend(cursorOverlayWindow.webContents, ipcChannels.layoutUpdate, payload)
   }
 }
 

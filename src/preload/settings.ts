@@ -5,6 +5,7 @@ import type {
   OnboardingProgressEvent,
   SettingsElectronAPI,
 } from '../shared/types'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: SettingsElectronAPI = {
@@ -23,7 +24,7 @@ const api: SettingsElectronAPI = {
   onSkillProgress: on<OnboardingProgressEvent>('settings:skill-progress'),
   onFixConfigChanged: on<FixConfig>('settings:fix-config-changed'),
   onConnectedReposChanged: on<ConnectedRepo[]>('repo-changed'),
-  onThemeChanged: on<{ isDark: boolean }>('theme-changed'),
+  onThemeChanged: on(ipcChannels.themeChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
