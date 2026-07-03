@@ -1,9 +1,27 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import {
   serializeToJsonCanvas,
   deserializeFromJsonCanvas,
+  serializePageToLinkNode,
+  serializeTextToTextNode,
+  serializeFileToFileNode,
+  serializeGroupEntityToGroupNode,
+  serializeDrawingToDrawingNode,
+  serializeShapeToShapeNode,
+  deserializeLinkNodeToPage,
+  deserializeTextNodeToText,
+  deserializeFileNodeToFile,
+  deserializeGroupNodeToGroup,
+  deserializeDrawingNodeToDrawing,
+  deserializeShapeNodeToShape,
 } from '../../src/main/runtime/json-canvas-serializer'
+import {
+  registerEntityKind,
+  hasEntityKind,
+  type EntityKindDefinition,
+} from '../../src/main/entities/contract'
 import type {
+  CanvasEntityKind,
   PersistedDrawingEntity,
   PersistedFileEntity,
   PersistedShapeEntity,
@@ -12,6 +30,39 @@ import type {
   WorkspaceSnapshot,
 } from '../../src/shared/types'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
+
+// The serializer dispatches per kind through the entity-kind registry. The
+// real built-in handlers pull the whole Electron main process in, so register
+// serialize/deserialize-only stubs that reuse the real projection functions.
+type SerializeFn = EntityKindDefinition['serialize']
+type DeserializeFn = EntityKindDefinition['deserialize']
+
+function registerSerdeKind(
+  kind: CanvasEntityKind,
+  serialize: SerializeFn,
+  deserialize: DeserializeFn,
+): void {
+  registerEntityKind({
+    kind,
+    fields: [],
+    create: () => { throw new Error(`create unused for ${kind} in serializer tests`) },
+    update: () => {},
+    delete: () => false,
+    serialize,
+    deserialize,
+    defaultSize: () => ({ width: 0, height: 0 }),
+  })
+}
+
+beforeAll(() => {
+  if (hasEntityKind('page')) return
+  registerSerdeKind('page', serializePageToLinkNode as SerializeFn, deserializeLinkNodeToPage as unknown as DeserializeFn)
+  registerSerdeKind('text', serializeTextToTextNode as SerializeFn, deserializeTextNodeToText as unknown as DeserializeFn)
+  registerSerdeKind('file', serializeFileToFileNode as SerializeFn, deserializeFileNodeToFile as unknown as DeserializeFn)
+  registerSerdeKind('group', serializeGroupEntityToGroupNode as SerializeFn, deserializeGroupNodeToGroup as unknown as DeserializeFn)
+  registerSerdeKind('drawing', serializeDrawingToDrawingNode as SerializeFn, deserializeDrawingNodeToDrawing as unknown as DeserializeFn)
+  registerSerdeKind('shape', serializeShapeToShapeNode as SerializeFn, deserializeShapeNodeToShape as unknown as DeserializeFn)
+})
 
 function emptySnapshot(): WorkspaceSnapshot {
   return {

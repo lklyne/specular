@@ -7,10 +7,14 @@
  */
 
 import type { PersistedGroupEntity } from '../../../shared/types'
+import type { JsonCanvasGroupNode } from '../../../shared/json-canvas-types'
 import { createUserGroup } from '../../workspace-groups'
 import { updateGroupEntity } from '../../runtime/document-commands'
 import { deleteGroupEntity } from '../../runtime/group-entity-state'
-import { serializeGroupEntityToGroupNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeGroupNodeToGroup,
+  serializeGroupEntityToGroupNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 const DEFAULT_GROUP_SIZE = 200
@@ -44,6 +48,10 @@ export const groupKind: EntityKindDefinition<'group'> = {
 
   serialize(entity) {
     return serializeGroupEntityToGroupNode(entity as PersistedGroupEntity)
+  },
+
+  deserialize(node) {
+    return deserializeGroupNodeToGroup(node as JsonCanvasGroupNode)
   },
 
   defaultSize() {

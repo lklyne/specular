@@ -50,6 +50,8 @@ export interface EntityKindDefinition<K extends CanvasEntityKind = CanvasEntityK
   delete(id: EntityId, ctx: MutationContext): boolean
   /** Project a persisted entity to its JSON Canvas node (disk shape). */
   serialize(entity: PersistedCanvasEntity): JsonCanvasNode
+  /** Rebuild a persisted entity from its JSON Canvas node (disk shape). */
+  deserialize(node: JsonCanvasNode): PersistedCanvasEntity
   /** Footprint used when a create item omits an explicit size. */
   defaultSize(input: EntityCreateInput): { width: number; height: number }
   /** The update fields this kind actually honors — the rest are dropped. */

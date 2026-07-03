@@ -4,6 +4,7 @@
  */
 
 import type { PersistedShapeEntity, ShapeKind } from '../../../shared/types'
+import type { JsonCanvasShapeNode } from '../../../shared/json-canvas-types'
 import {
   createShapeEntity,
   deleteShapeEntity,
@@ -13,7 +14,10 @@ import {
   DEFAULT_SHAPE_HEIGHT,
   DEFAULT_SHAPE_WIDTH,
 } from '../../runtime/shape-entity-state'
-import { serializeShapeToShapeNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeShapeNodeToShape,
+  serializeShapeToShapeNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 export const shapeKind: EntityKindDefinition<'shape'> = {
@@ -56,6 +60,10 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
 
   serialize(entity) {
     return serializeShapeToShapeNode(entity as PersistedShapeEntity)
+  },
+
+  deserialize(node) {
+    return deserializeShapeNodeToShape(node as JsonCanvasShapeNode)
   },
 
   defaultSize() {

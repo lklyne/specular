@@ -13,6 +13,7 @@ import {
   deviceForPresetIndex,
 } from '../../../shared/device-catalog'
 import type { PersistedPageEntity } from '../../../shared/types'
+import type { JsonCanvasLinkNode } from '../../../shared/json-canvas-types'
 import { normalizeUserUrl } from '../../../shared/url'
 import { navigatePage } from '../../navigation-sync'
 import { createPages } from '../../workspace-pages'
@@ -26,7 +27,10 @@ import {
   setShowDeviceFrameMetadata,
   showDeviceFrameFromMetadata,
 } from '../../runtime/runtime-entities'
-import { serializePageToLinkNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeLinkNodeToPage,
+  serializePageToLinkNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 export const pageKind: EntityKindDefinition<'page'> = {
@@ -87,6 +91,10 @@ export const pageKind: EntityKindDefinition<'page'> = {
 
   serialize(entity) {
     return serializePageToLinkNode(entity as PersistedPageEntity)
+  },
+
+  deserialize(node) {
+    return deserializeLinkNodeToPage(node as JsonCanvasLinkNode)
   },
 
   defaultSize(input) {

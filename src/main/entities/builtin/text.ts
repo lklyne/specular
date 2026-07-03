@@ -7,12 +7,16 @@
  */
 
 import type { PersistedTextEntity, TextEntityStyle, TextWidthMode } from '../../../shared/types'
+import type { JsonCanvasTextNode } from '../../../shared/json-canvas-types'
 import {
   createTextEntity,
   deleteTextEntity,
   updateTextEntity,
 } from '../../runtime/document-commands'
-import { serializeTextToTextNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeTextNodeToText,
+  serializeTextToTextNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 const DEFAULT_TEXT_SIZE = 200
@@ -54,6 +58,10 @@ export const textKind: EntityKindDefinition<'text'> = {
 
   serialize(entity) {
     return serializeTextToTextNode(entity as PersistedTextEntity)
+  },
+
+  deserialize(node) {
+    return deserializeTextNodeToText(node as JsonCanvasTextNode)
   },
 
   defaultSize() {

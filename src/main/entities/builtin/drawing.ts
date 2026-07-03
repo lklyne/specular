@@ -3,12 +3,16 @@
  */
 
 import type { AnnotationDrawingStroke, PersistedDrawingEntity } from '../../../shared/types'
+import type { JsonCanvasDrawingNode } from '../../../shared/json-canvas-types'
 import {
   createDrawingEntity,
   deleteDrawingEntity,
   updateDrawingEntity,
 } from '../../runtime/document-commands'
-import { serializeDrawingToDrawingNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeDrawingNodeToDrawing,
+  serializeDrawingToDrawingNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 const DEFAULT_DRAWING_SIZE = 200
@@ -45,6 +49,10 @@ export const drawingKind: EntityKindDefinition<'drawing'> = {
 
   serialize(entity) {
     return serializeDrawingToDrawingNode(entity as PersistedDrawingEntity)
+  },
+
+  deserialize(node) {
+    return deserializeDrawingNodeToDrawing(node as JsonCanvasDrawingNode)
   },
 
   defaultSize() {

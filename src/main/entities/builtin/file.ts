@@ -11,6 +11,7 @@
 
 import type { EntityCreateInput, EntityKindDefinition } from '../contract'
 import type { PersistedFileEntity } from '../../../shared/types'
+import type { JsonCanvasFileNode } from '../../../shared/json-canvas-types'
 import {
   createFileEntity,
   deleteFileEntity,
@@ -22,7 +23,10 @@ import {
   imageSizeFromPath,
   videoSizeFromPath,
 } from '../../runtime/image-sizing'
-import { serializeFileToFileNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeFileNodeToFile,
+  serializeFileToFileNode,
+} from '../../runtime/json-canvas-serializer'
 
 const DEFAULT_FILE_SIZE = 200
 const DEFAULT_NOTE_SIZE = 400
@@ -120,6 +124,10 @@ export const fileKind: EntityKindDefinition<'file'> = {
 
   serialize(entity) {
     return serializeFileToFileNode(entity as PersistedFileEntity)
+  },
+
+  deserialize(node) {
+    return deserializeFileNodeToFile(node as JsonCanvasFileNode)
   },
 
   defaultSize(input) {
