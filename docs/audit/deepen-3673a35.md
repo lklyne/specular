@@ -13,18 +13,15 @@ For a fresh agent continuing the audit:
 - Runs 0–1 (fallow ground truth, ponytail cut pass) are **done and applied** —
   see `ponytail-36eb937.md` and the `refactor(audit):` commits.
 - Run 2 (this document) is **done**: six deepening candidates, ranked below.
-- Remaining work, in order:
-  1. **Grill candidate 1** (entity-kind registry) with the user — interactive;
-     use `/grill-with-docs`. Output: an ADR (extends ADR 0019) + CONTEXT.md
-     entries + `docs/plans/deepen-runtime.md` (covers candidates 1→2, in that
-     order — both rewrite `document-commands.ts`). Candidate 2 needs only a
-     short grill (shape of `mutateWorkspace` + the gesture-session object).
-  2. **Kick off the two shovel-ready tracks** — no grilling needed, plans
-     already written: `docs/plans/deepen-ipc.md` (candidates 3→4) and
-     `docs/plans/deepen-above-view.md` (candidates 5→6). Use `/afk-local` or
-     `/afk-feature` per plan doc: one feature branch off main per track, one
-     PR per step, integration PR at the end.
-  3. After grilling, kick off the runtime track the same way.
+- The grill on candidates 1–2 is **done** (2026-07-03): decisions recorded in
+  [ADR 0024](../adr/0024-entity-kind-registry-spans-runtime-and-persistence.md)
+  and [ADR 0025](../adr/0025-single-workspace-mutation-seam.md), CONTEXT.md
+  updated (Entity bullet + kind capability table).
+- Remaining work: **kick off the three tracks** — all plans are written and
+  shovel-ready: `docs/plans/deepen-runtime.md` (candidates 1→2),
+  `docs/plans/deepen-ipc.md` (3→4), `docs/plans/deepen-above-view.md` (5→6).
+  Use `/afk-local` or `/afk-feature` per plan doc: one feature branch off
+  main per track, one PR per step, integration PR at the end.
 - The three tracks touch **disjoint files** — safe to run concurrently.
   Within a track, steps are serial.
 - Test gate: candidates 1–2 touch `src/main/runtime/workspace-*.ts`, so their
