@@ -56,6 +56,7 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
       color: patch.color as string | undefined,
       strokeWidth: patch.strokeWidth as number | undefined,
       textSize: patch.textSize as number | undefined,
+      theme: patch.theme as string | undefined,
     })
   },
 

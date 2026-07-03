@@ -268,7 +268,7 @@ function StackedCanvasItems({
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
           zoom={layoutData.zoom}
-          onUpdateText={(shapeId, text) => api.updateShapeEntity(shapeId, { text })}
+          onUpdateText={(shapeId, text) => api.updateEntity('shape', shapeId, { text })}
           onCommitEdit={api.commitEntityEdit}
         />
       )
@@ -284,9 +284,9 @@ function StackedCanvasItems({
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
           zoom={layoutData.zoom}
-          onUpdateText={(textId, text) => api.updateTextEntity(textId, { text })}
+          onUpdateText={(textId, text) => api.updateEntity('text', textId, { text })}
           onUpdateSize={(textId, width, height) =>
-            api.updateTextEntity(textId, { width, height })
+            api.updateEntity('text', textId, { width, height })
           }
           onCommitEdit={api.commitEntityEdit}
         />

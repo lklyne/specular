@@ -52,6 +52,8 @@ export const textKind: EntityKindDefinition<'text'> = {
     updateTextEntity(id, {
       text: patch.text as string | undefined,
       color: patch.color as string | undefined,
+      textSize: patch.textSize as number | undefined,
+      widthMode: patch.widthMode as TextWidthMode | undefined,
       width: patch.width as number | undefined,
       height: patch.height as number | undefined,
       canvasX: patch.canvasX as number | undefined,

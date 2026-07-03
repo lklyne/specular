@@ -10,7 +10,7 @@
  */
 
 import type { EntityCreateInput, EntityKindDefinition } from '../contract'
-import type { PersistedFileEntity } from '../../../shared/types'
+import type { FileObjectFit, PersistedFileEntity } from '../../../shared/types'
 import type { JsonCanvasFileNode } from '../../../shared/json-canvas-types'
 import {
   createFileEntity,
@@ -118,6 +118,7 @@ export const fileKind: EntityKindDefinition<'file'> = {
     updateFileEntity(id, {
       file: patch.file as string | undefined,
       subpath: patch.subpath as string | undefined,
+      objectFit: patch.objectFit as FileObjectFit | undefined,
       width: patch.width as number | undefined,
       height: patch.height as number | undefined,
       canvasX: patch.canvasX as number | undefined,

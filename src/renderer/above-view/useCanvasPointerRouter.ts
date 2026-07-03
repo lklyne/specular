@@ -697,7 +697,7 @@ function runResize(
             width: patch.width,
             height: patch.height,
           }
-          api.updateDrawingEntity(action.entityId, {
+          api.updateEntity('drawing', action.entityId, {
             ...patch,
             strokes: scaleStrokesToBounds(initialStrokes, initialBounds, nextBounds),
           })
@@ -709,7 +709,7 @@ function runResize(
   // ResizeObserver overwrites any width/height we'd dispatch. Flip to
   // 'fixed' first so the upcoming width/height patches stick.
   if (entity.kind === 'text' && entity.widthMode === 'auto') {
-    api.updateTextEntity(action.entityId, { widthMode: 'fixed' })
+    api.updateEntity('text', action.entityId, { widthMode: 'fixed' })
   }
 
   // Enter resize mode in main BEFORE the first dispatchPatch. The bounds-update
@@ -1260,15 +1260,15 @@ function patchDispatcherForKind(
     case 'page':
       return (patch) => api.updatePageBounds(id, patch)
     case 'group':
-      return (patch) => api.updateGroupEntity(id, patch)
+      return (patch) => api.updateEntity('group', id, patch)
     case 'text':
-      return (patch) => api.updateTextEntity(id, patch)
+      return (patch) => api.updateEntity('text', id, patch)
     case 'file':
-      return (patch) => api.updateFileEntity(id, patch)
+      return (patch) => api.updateEntity('file', id, patch)
     case 'shape':
-      return (patch) => api.updateShapeEntity(id, patch)
+      return (patch) => api.updateEntity('shape', id, patch)
     case 'drawing':
-      return (patch) => api.updateDrawingEntity(id, patch)
+      return (patch) => api.updateEntity('drawing', id, patch)
     default:
       return null
   }
