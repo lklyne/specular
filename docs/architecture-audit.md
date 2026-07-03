@@ -50,6 +50,16 @@ Multi-run, not one holistic pass: ~74k LOC across clean seams, so a single
    deep-audit src/main/plugins         # entity-renderer registry
    ```
 
+## Run log
+
+- **2026-07-02 (36eb937)** — runs 0–1 done and applied: `docs/audit/fallow-36eb937.txt`,
+  `docs/audit/ponytail-36eb937.md`, `refactor(audit):` commits.
+- **2026-07-03 (3673a35)** — run 2 done: `docs/audit/deepen-3673a35.md` — six ranked
+  deepening candidates + pickup instructions. Hand-off is planning docs, not issues:
+  `docs/plans/deepen-ipc.md` and `docs/plans/deepen-above-view.md` are shovel-ready;
+  the runtime track (entity-kind registry + mutate-workspace seam) needs a grill +
+  ADR first — see the "Status & pickup" section of the deepen doc.
+
 ## Why this shape
 
 - **Facts before opinions** — fallow is free and already ran; feeding it in
