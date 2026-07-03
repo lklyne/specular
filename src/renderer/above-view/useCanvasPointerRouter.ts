@@ -37,9 +37,15 @@ import {
   cancelEdgeDrag as cancelEdgeDragState,
   commitEdgeDrag as commitEdgeDragState,
   EDGE_DRAG_IDLE,
+  edgeDragOrigin,
   updateEdgeDragCursor,
   type EdgeDragState,
 } from '../../shared/edge-drag-controller'
+import {
+  beginPressGesture,
+  pressGestureIgnoresBlur,
+  pressGestureStep,
+} from '../../shared/press-gesture'
 import {
   applyHandleDelta,
   startResize,
@@ -517,54 +523,41 @@ function runEntityPress(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
-  let dragging = false
+  let press = beginPressGesture(event.screenX, event.screenY)
 
   const session = startPointerSession(event, {
     onMove: (ev) => {
-      if (!dragging) {
-        const totalDx = ev.screenX - startScreenX
-        const totalDy = ev.screenY - startScreenY
-        if (
-          Math.abs(totalDx) < DRAG_THRESHOLD &&
-          Math.abs(totalDy) < DRAG_THRESHOLD
-        ) {
-          return
-        }
-        dragging = true
-        session.end()
-        startOptionAwareEntityDrag({
-          api,
-          layout: layoutRef.current,
-          entityId: action.entityId,
-          entityKind: action.entityKind,
-          preserveSelection: true,
-          event,
-          releasePointer: session.releasePointer,
-          initialPointer: ev,
-          isOptionHeld: () => optionHeldRef.current,
-          setPreview: setDragCopyPreview,
-        })
-        return
-      }
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
+      startOptionAwareEntityDrag({
+        api,
+        layout: layoutRef.current,
+        entityId: action.entityId,
+        entityKind: action.entityKind,
+        preserveSelection: true,
+        event,
+        releasePointer: session.releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
+      })
     },
     onUp: () => {
-      if (dragging) {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
         api.endDragEntity()
         return
       }
       api.requestEntityEdit(action.entityId)
     },
     onCancel: () => {
-      if (dragging) api.endDragEntity()
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragEntity()
+      }
     },
     listenBlur: true,
-    // Pre-threshold blur is a phantom: focus reconciliation routes focus
-    // aboveView → bgView on the next layout pass after a prior gesture
-    // ends. A second click landing inside that window would otherwise see
-    // the armed press torn down before pointerup, dropping the edit.
-    ignoreBlur: () => !dragging,
+    ignoreBlur: () => pressGestureIgnoresBlur(press),
   })
   return true
 }
@@ -577,41 +570,29 @@ function runPageBodyPress(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
-  let dragging = false
+  let press = beginPressGesture(event.screenX, event.screenY)
 
   const session = startPointerSession(event, {
     onMove: (ev) => {
-      const totalDx = ev.screenX - startScreenX
-      const totalDy = ev.screenY - startScreenY
-      if (
-        !dragging &&
-        Math.abs(totalDx) < DRAG_THRESHOLD &&
-        Math.abs(totalDy) < DRAG_THRESHOLD
-      ) {
-        return
-      }
-      if (!dragging) {
-        dragging = true
-        session.end()
-        startOptionAwareEntityDrag({
-          api,
-          layout: layoutRef.current,
-          entityId: action.entityId,
-          entityKind: 'page',
-          preserveSelection: action.preserveSelection,
-          event,
-          releasePointer: session.releasePointer,
-          initialPointer: ev,
-          isOptionHeld: () => optionHeldRef.current,
-          setPreview: setDragCopyPreview,
-        })
-        return
-      }
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
+      startOptionAwareEntityDrag({
+        api,
+        layout: layoutRef.current,
+        entityId: action.entityId,
+        entityKind: 'page',
+        preserveSelection: action.preserveSelection,
+        event,
+        releasePointer: session.releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
+      })
     },
     onUp: (ev) => {
-      if (dragging) {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
         api.endDragPage()
         return
       }
@@ -627,17 +608,12 @@ function runPageBodyPress(
       })
     },
     onCancel: () => {
-      if (dragging) api.endDragPage()
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragPage()
+      }
     },
     listenBlur: true,
-    // Pre-threshold blur is a phantom: focus reconciliation routes focus
-    // aboveView → bgView on the next layout pass (debounced 16ms) after a
-    // drag ends. A second click that lands inside that window arms this
-    // gesture, then the pending reconcile blurs aboveView before any
-    // cursor movement — tearing the armed gesture down here would kill
-    // the second drag with no recovery. Wait for actual movement;
-    // pointerup / pointercancel still abort cleanly.
-    ignoreBlur: () => !dragging,
+    ignoreBlur: () => pressGestureIgnoresBlur(press),
   })
   return true
 }
@@ -650,47 +626,39 @@ function runGroupDrag(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  let dragging = false
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
+  let press = beginPressGesture(event.screenX, event.screenY)
 
   const session = startPointerSession(event, {
     onMove: (ev) => {
-      const totalDx = ev.screenX - startScreenX
-      const totalDy = ev.screenY - startScreenY
-      if (
-        !dragging &&
-        Math.abs(totalDx) < DRAG_THRESHOLD &&
-        Math.abs(totalDy) < DRAG_THRESHOLD
-      ) {
-        return
-      }
-      if (!dragging) {
-        dragging = true
-        session.end()
-        startOptionAwareGroupDrag({
-          api,
-          layout: layoutRef.current,
-          groupId: action.groupId,
-          event,
-          releasePointer: session.releasePointer,
-          initialPointer: ev,
-          isOptionHeld: () => optionHeldRef.current,
-          setPreview: setDragCopyPreview,
-        })
-        return
-      }
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
+      startOptionAwareGroupDrag({
+        api,
+        layout: layoutRef.current,
+        groupId: action.groupId,
+        event,
+        releasePointer: session.releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
+      })
     },
     onUp: () => {
-      if (dragging) {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
         api.endDragGroup()
         return
       }
       api.selectGroup(action.groupId)
     },
     onCancel: () => {
-      if (dragging) api.endDragGroup()
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragGroup()
+      }
     },
+    // No phantom-blur guard here (§4.6 documents it for entity/page presses
+    // only): a window blur cancels a group press even while armed.
     listenBlur: true,
   })
   return true
@@ -845,11 +813,8 @@ function runEdgeDrag(
 
   // Tell main about the gesture begin so its interaction-controller is in
   // the right mode — this is what `EdgeLayer.tsx` used to call.
-  const dragOriginEntityId =
-    state.kind === 'edit' ? state.fixedEntityId : action.entityId
-  const dragOriginSide =
-    state.kind === 'edit' ? state.fixedSide : (action.side as EdgeSide)
-  api.beginEdgeDrag(dragOriginEntityId, dragOriginSide)
+  const origin = edgeDragOrigin(state)
+  if (origin) api.beginEdgeDrag(origin.entityId, origin.side)
 
   let lastSnap: string | null = null
 
