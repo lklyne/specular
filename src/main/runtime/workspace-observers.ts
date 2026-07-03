@@ -11,6 +11,7 @@
 
 import { markAllDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
+import { allEntities, getEntityKind } from '../entities/contract'
 import type * as Y from 'yjs'
 import type { Annotation, PersistedWorkspaceTab, WorkspaceEdge, WorkspaceGroup } from '../../shared/types'
 import type { Page } from './runtime-entities'
@@ -168,15 +169,24 @@ export function requestDocSync(): void {
 function requestDocSyncImmediate(): void {
   if (!_refs) return
   const doc = getActiveDoc()
+  // Walk the registry once: the entity map takes the map-projectable kinds
+  // (page and group mirror to their own maps); stack order takes every entity
+  // id in registration order, then edges.
+  const registryEntities = allEntities()
+  const entities = registryEntities
+    .filter(({ kind }) => kind !== 'page' && kind !== 'group')
+    .map(({ kind, entity }) => getEntityKind(kind).persist!(entity))
+  const entityOrderIds = [
+    ...registryEntities.map(({ entity }) => entity.id),
+    ..._refs.workspaceEdges.map((edge) => edge.id),
+  ]
   syncRuntimeToDoc(doc, {
     pages: _refs.pages,
-    textEntities: _refs.textEntities,
-    fileEntities: _refs.fileEntities,
-    drawingEntities: _refs.drawingEntities,
-    shapeEntities: _refs.shapeEntities,
+    entities,
     workspaceGroups: _refs.workspaceGroups,
     workspaceEdges: _refs.workspaceEdges,
     workspaceAnnotations: _refs.workspaceAnnotations,
+    entityOrderIds,
     zoom: _refs.getZoom(),
     pan: _refs.getPan(),
     activeTabId: _refs.getActiveTabId(),

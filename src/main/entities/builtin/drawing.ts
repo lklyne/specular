@@ -10,6 +10,12 @@ import {
   updateDrawingEntity,
 } from '../../runtime/document-commands'
 import {
+  buildDrawingEntitySceneEntity,
+  drawingEntities,
+  persistDrawingEntity,
+  type DrawingEntity,
+} from '../../runtime/drawing-entity-state'
+import {
   deserializeDrawingNodeToDrawing,
   serializeDrawingToDrawingNode,
 } from '../../runtime/json-canvas-serializer'
@@ -58,4 +64,13 @@ export const drawingKind: EntityKindDefinition<'drawing'> = {
   defaultSize() {
     return { width: DEFAULT_DRAWING_SIZE, height: DEFAULT_DRAWING_SIZE }
   },
+
+  // The raw store — persistence and stack order read this. The sidebar and
+  // canvas scene read the UI-filtered `drawingEntitiesForUi()` view instead.
+  entities: () => drawingEntities,
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildDrawingEntitySceneEntity(entity as DrawingEntity, zoom, pan, origin),
+
+  persist: (entity) => persistDrawingEntity(entity as DrawingEntity),
 }

@@ -18,7 +18,7 @@ import { normalizeUserUrl } from '../../../shared/url'
 import { navigatePage } from '../../navigation-sync'
 import { createPages } from '../../workspace-pages'
 import { deletePages } from '../../workspace-entities'
-import { findPageById } from '../../runtime/runtime-context'
+import { findPageById, pages } from '../../runtime/runtime-context'
 import {
   setDeviceOrientation,
   setPagePreset,
@@ -102,4 +102,6 @@ export const pageKind: EntityKindDefinition<'page'> = {
     const preset = VIEWPORT_PRESETS[presetIndex] ?? VIEWPORT_PRESETS[LAPTOP_PRESET_INDEX]
     return { width: preset?.width ?? 1280, height: preset?.height ?? 800 }
   },
+
+  entities: () => pages,
 }

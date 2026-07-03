@@ -11,8 +11,12 @@ import {
   updateShapeEntity,
 } from '../../runtime/document-commands'
 import {
+  buildShapeEntitySceneEntity,
   DEFAULT_SHAPE_HEIGHT,
   DEFAULT_SHAPE_WIDTH,
+  persistShapeEntity,
+  shapeEntities,
+  type ShapeEntity,
 } from '../../runtime/shape-entity-state'
 import {
   deserializeShapeNodeToShape,
@@ -69,4 +73,11 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
   defaultSize() {
     return { width: DEFAULT_SHAPE_WIDTH, height: DEFAULT_SHAPE_HEIGHT }
   },
+
+  entities: () => shapeEntities,
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildShapeEntitySceneEntity(entity as ShapeEntity, zoom, pan, origin),
+
+  persist: (entity) => persistShapeEntity(entity as ShapeEntity),
 }

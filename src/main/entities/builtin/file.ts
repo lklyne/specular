@@ -17,6 +17,12 @@ import {
   deleteFileEntity,
   updateFileEntity,
 } from '../../runtime/document-commands'
+import {
+  buildFileEntitySceneEntity,
+  fileEntities,
+  persistFileEntity,
+  type FileEntity,
+} from '../../runtime/file-entity-state'
 import { createNoteFile } from '../../runtime/note-assets'
 import {
   htmlDefaultSize,
@@ -134,4 +140,11 @@ export const fileKind: EntityKindDefinition<'file'> = {
     const size = isNoteInput(input) ? DEFAULT_NOTE_SIZE : DEFAULT_FILE_SIZE
     return { width: size, height: size }
   },
+
+  entities: () => fileEntities,
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildFileEntitySceneEntity(entity as FileEntity, zoom, pan, origin),
+
+  persist: (entity) => persistFileEntity(entity as FileEntity),
 }

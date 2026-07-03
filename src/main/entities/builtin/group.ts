@@ -11,6 +11,7 @@ import type { JsonCanvasGroupNode } from '../../../shared/json-canvas-types'
 import { createUserGroup } from '../../workspace-groups'
 import { updateGroupEntity } from '../../runtime/document-commands'
 import { deleteGroupEntity } from '../../runtime/group-entity-state'
+import { workspaceGroups } from '../../runtime/workspace-model'
 import {
   deserializeGroupNodeToGroup,
   serializeGroupEntityToGroupNode,
@@ -57,4 +58,6 @@ export const groupKind: EntityKindDefinition<'group'> = {
   defaultSize() {
     return { width: DEFAULT_GROUP_SIZE, height: DEFAULT_GROUP_SIZE }
   },
+
+  entities: () => workspaceGroups,
 }

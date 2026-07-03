@@ -14,6 +14,12 @@ import {
   updateTextEntity,
 } from '../../runtime/document-commands'
 import {
+  buildTextEntitySceneEntity,
+  persistTextEntity,
+  textEntities,
+  type TextEntity,
+} from '../../runtime/text-entity-state'
+import {
   deserializeTextNodeToText,
   serializeTextToTextNode,
 } from '../../runtime/json-canvas-serializer'
@@ -67,4 +73,11 @@ export const textKind: EntityKindDefinition<'text'> = {
   defaultSize() {
     return { width: DEFAULT_TEXT_SIZE, height: DEFAULT_TEXT_SIZE }
   },
+
+  entities: () => textEntities,
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildTextEntitySceneEntity(entity as TextEntity, zoom, pan, origin),
+
+  persist: (entity) => persistTextEntity(entity as TextEntity),
 }
