@@ -57,8 +57,9 @@ export function useAnnotationDrawingGestures({
       event.currentTarget.setPointerCapture(event.pointerId)
       event.preventDefault()
       event.stopPropagation()
+      api.beginMoveAnnotation(annotationId)
     },
-    [],
+    [api],
   )
 
   const handleOverlayPointerDown = useCallback(
@@ -193,6 +194,7 @@ export function useAnnotationDrawingGestures({
           suppressedAnnotationClickRef.current = annotationDrag.annotationId
         }
         annotationDragRef.current = null
+        api.endMoveAnnotation()
         return
       }
 
@@ -226,6 +228,7 @@ export function useAnnotationDrawingGestures({
           annotationDrag.captureTarget.releasePointerCapture(event.pointerId)
         }
         annotationDragRef.current = null
+        api.endMoveAnnotation()
         return
       }
 
@@ -236,7 +239,7 @@ export function useAnnotationDrawingGestures({
         event.currentTarget.releasePointerCapture(event.pointerId)
       }
     },
-    [activeStrokeRef, setDrawingStrokeActive],
+    [activeStrokeRef, api, setDrawingStrokeActive],
   )
 
   const consumeSuppressedAnnotationClick = useCallback((annotationId: string) => {

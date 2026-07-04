@@ -153,6 +153,7 @@ export function canvasInteractionModeKind(state: CanvasInteractionState): Intera
     case 'panning-canvas': return 'panning'
     case 'marquee-select': return 'marquee'
     case 'dragging-entities': return 'dragging-entities'
+    case 'dragging-annotation': return 'dragging-annotation'
     case 'resizing-entity': return 'resizing-entity'
     case 'resizing-multi-selection': return 'resizing-multi-selection'
     case 'dragging-edge': return 'dragging-edge'

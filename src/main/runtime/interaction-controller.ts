@@ -22,6 +22,7 @@
 import type { InteractionMode, Token, CancelReason } from '../../shared/interaction-types'
 import { interactionState } from './runtime-context'
 import {
+  beginAnnotationDrag,
   beginCanvasPan,
   beginDraggingEntities,
   beginEdgeDrag,
@@ -66,6 +67,8 @@ function snapshotMode(): InteractionMode {
       return { kind: 'marquee', origin: { x: 0, y: 0 }, current: { x: 0, y: 0 } }
     case 'dragging-entities':
       return { kind: 'dragging-entities', ids: [...s.entityIds], anchor: { x: 0, y: 0 } }
+    case 'dragging-annotation':
+      return { kind: 'dragging-annotation', id: s.annotationId }
     case 'resizing-entity':
       return { kind: 'resizing-entity', id: s.entity.id, edge: 'se' }
     case 'resizing-multi-selection':
@@ -102,6 +105,7 @@ export type TryEnterInput =
   | { kind: 'panning' }
   | { kind: 'marquee' }
   | { kind: 'dragging-entities'; entityIds: string[] }
+  | { kind: 'dragging-annotation'; annotationId: string }
   | { kind: 'resizing-entity'; target: CanvasSelectableTarget }
   | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
@@ -120,6 +124,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'panning': beginCanvasPan(); break
     case 'marquee': beginMarqueeSelect(); break
     case 'dragging-entities': beginDraggingEntities(input.entityIds); break
+    case 'dragging-annotation': beginAnnotationDrag(input.annotationId); break
     case 'resizing-entity': beginEntityResize(input.target); break
     case 'resizing-multi-selection': beginMultiSelectionResize(); break
     case 'editing-entity': beginEntityEditing(input.entityId); break

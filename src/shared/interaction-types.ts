@@ -9,6 +9,7 @@ export type InteractionMode =
   | { kind: 'panning' }
   | { kind: 'marquee'; origin: CanvasPoint; current: CanvasPoint }
   | { kind: 'dragging-entities'; ids: string[]; anchor: CanvasPoint }
+  | { kind: 'dragging-annotation'; id: string }
   | { kind: 'resizing-entity'; id: string; edge: ResizeDirection }
   | { kind: 'resizing-multi-selection' }
   | { kind: 'dragging-edge'; from: EdgeEndpoint; target: EdgeEndpoint | null }

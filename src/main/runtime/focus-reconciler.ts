@@ -21,7 +21,7 @@
 import type { FocusTarget } from '../../shared/interaction-types'
 
 export type FocusState = {
-  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity' | 'reordering-row'
+  interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'dragging-annotation' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity' | 'reordering-row'
   editingEntityId: string | null
   commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
@@ -65,6 +65,7 @@ export function expectedFocus(state: FocusState): FocusTarget {
     case 'panning':
     case 'marquee':
     case 'dragging-entities':
+    case 'dragging-annotation':
     case 'resizing-entity':
     case 'resizing-multi-selection':
     case 'dragging-edge':

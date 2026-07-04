@@ -23,6 +23,14 @@ export function beginDraggingEntities(entityIds: string[]): CanvasInteractionSta
   return next
 }
 
+export function beginAnnotationDrag(annotationId: string): CanvasInteractionState {
+  const next: CanvasInteractionState = { kind: 'dragging-annotation', annotationId }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
 export function beginMarqueeSelect(): CanvasInteractionState {
   const next: CanvasInteractionState = { kind: 'marquee-select' }
   setInteractionState(next)

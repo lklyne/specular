@@ -19,7 +19,7 @@ describe('expectedFocus', () => {
     expect(expectedFocus(state())).toEqual({ kind: 'aboveView' })
   })
 
-  for (const mode of ['panning', 'marquee', 'dragging-entities', 'resizing-entity', 'resizing-multi-selection', 'dragging-edge'] as const) {
+  for (const mode of ['panning', 'marquee', 'dragging-entities', 'dragging-annotation', 'resizing-entity', 'resizing-multi-selection', 'dragging-edge'] as const) {
     it(`routes ${mode} to aboveView`, () => {
       expect(expectedFocus(state({ interactionMode: mode }))).toEqual({ kind: 'aboveView' })
     })
@@ -41,6 +41,10 @@ describe('expectedFocus', () => {
     })
     it('yields to active gestures', () => {
       expect(expectedFocus(state({ focusedPageId: 'f1', interactionMode: 'panning' })))
+        .toEqual({ kind: 'aboveView' })
+    })
+    it('yields to an in-progress annotation drag (gesture-begin ordering, see runtime/CLAUDE.md)', () => {
+      expect(expectedFocus(state({ focusedPageId: 'f1', interactionMode: 'dragging-annotation' })))
         .toEqual({ kind: 'aboveView' })
     })
     it('yields to comment overlay', () => {

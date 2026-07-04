@@ -8,6 +8,9 @@ import { beginEditingEntity } from '../runtime/editing-entity-runtime'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
 import { queryElementAtPoint } from '../runtime/page-queries'
+import { tryEnter, commitActive } from '../runtime/interaction-controller'
+import { beginBatch, endBatch } from '../runtime/workspace-observers'
+import { markUndoBoundary } from '../runtime/workspace-undo'
 import {
   pageAtWindowPoint,
   windowPointToCanvasPoint,
@@ -605,6 +608,23 @@ export function registerCanvasEntityIpc(): void {
   )
 
   ipcMain.on(
+    'canvas-move-annotation-begin',
+    (_event, payload: { annotationId?: string } | undefined) => {
+      const annotationId = payload?.annotationId?.trim()
+      if (!annotationId) return
+      // Same gesture-begin ordering gotcha as resize (see runtime/CLAUDE.md):
+      // enter the interaction state before the first per-tick mutation so the
+      // debounced requestLayout it triggers reconciles focus against
+      // 'dragging-annotation' instead of racing a stale 'idle' read.
+      const token = tryEnter({ kind: 'dragging-annotation', annotationId })
+      if ('refused' in token) return
+      // Coalesce the gesture's per-tick position mutations into one Y.Doc
+      // transaction / one undo step — mirrors resize (canvas-resize-begin/end).
+      beginBatch()
+    },
+  )
+
+  ipcMain.on(
     'canvas-move-annotation',
     (_event, payload: { annotationId?: string; dx?: number; dy?: number } | undefined) => {
       const annotationId = payload?.annotationId?.trim()
@@ -613,6 +633,12 @@ export function registerCanvasEntityIpc(): void {
       moveAnnotation(annotationId, payload.dx, payload.dy)
     },
   )
+
+  ipcMain.on('canvas-move-annotation-end', () => {
+    endBatch()
+    markUndoBoundary()
+    commitActive()
+  })
 
   // --- Text Entity IPC ---
 
