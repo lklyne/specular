@@ -621,13 +621,6 @@ export function initComponentInspector(): void {
     ipcRenderer.send(ipcChannels.resolveNodeDetailResponse, { requestId, nodeId, detail })
   })
 
-  // Filter toggle: allow the devtools panel to request unfiltered tree
-  ipcRenderer.on(ipcChannels.setShowAllNodes, (_event, value: boolean) => {
-    showAllNodes = value
-    lastSentTreeKey = '' // force re-publish with new filter
-    scheduleTreePublish()
-  })
-
   const boot = () => {
     // Try to hook into React's commit cycle
     const hooked = installCommitHook()

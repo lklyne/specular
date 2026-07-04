@@ -62,7 +62,6 @@ import {
   buildCanvasLayoutData,
   buildFloatingUiUpdatePayload,
   sendAnnotationLayoutUpdate,
-  selectedComponentTreePayload,
   toolbarSelectionData,
   notifyLeftSidebarData,
   annotationsForPage,
@@ -240,7 +239,6 @@ function layoutAllViews(): void {
       layoutData.buildMs = performance.now() - buildStart
       bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
       sendAnnotationLayoutUpdate(layoutData)
-      bgView.webContents.send(ipcChannels.componentTreeData, selectedComponentTreePayload())
     }
   }
 
