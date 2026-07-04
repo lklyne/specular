@@ -74,16 +74,7 @@ import {
 } from '../../shared/gesture-utils'
 import type { CanvasPointerOwner } from '../../shared/canvas-pointer-owner'
 import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
-import {
-  MIN_FILE_HEIGHT,
-  MIN_FILE_WIDTH,
-  MIN_GROUP_HEIGHT,
-  MIN_GROUP_WIDTH,
-  MIN_SHAPE_HEIGHT,
-  MIN_SHAPE_WIDTH,
-  MIN_TEXT_HEIGHT,
-  MIN_TEXT_WIDTH,
-} from '../canvas-bg/entityConstants'
+import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
 import type {
@@ -706,7 +697,7 @@ function runResize(
             width: patch.width,
             height: patch.height,
           }
-          api.updateDrawingEntity(action.entityId, {
+          api.updateEntity('drawing', action.entityId, {
             ...patch,
             strokes: scaleStrokesToBounds(initialStrokes, initialBounds, nextBounds),
           })
@@ -718,7 +709,7 @@ function runResize(
   // ResizeObserver overwrites any width/height we'd dispatch. Flip to
   // 'fixed' first so the upcoming width/height patches stick.
   if (entity.kind === 'text' && entity.widthMode === 'auto') {
-    api.updateTextEntity(action.entityId, { widthMode: 'fixed' })
+    api.updateEntity('text', action.entityId, { widthMode: 'fixed' })
   }
 
   // Enter resize mode in main BEFORE the first dispatchPatch. The bounds-update
@@ -1248,36 +1239,15 @@ function runCommentGesture(
 // --- Per-kind helpers ---
 
 function resizeConfigForEntity(entity: CanvasSceneEntity): ResizeConfig {
-  switch (entity.kind) {
-    case 'page':
-      return { minWidth: 320, minHeight: 200, aspectRatioResizeMode: 'off' }
-    case 'group':
-      return {
-        minWidth: MIN_GROUP_WIDTH,
-        minHeight: MIN_GROUP_HEIGHT,
-        aspectRatioResizeMode: 'off',
-      }
-    case 'text':
-      return {
-        minWidth: MIN_TEXT_WIDTH,
-        minHeight: MIN_TEXT_HEIGHT,
-        aspectRatioResizeMode: 'off',
-      }
-    case 'file': {
-      const aspect: AspectRatioResizeMode =
-        'file' in entity && typeof entity.file === 'string'
-          ? aspectRatioResizeModeForCanvasFile(entity.file)
-          : 'off'
-      return { minWidth: MIN_FILE_WIDTH, minHeight: MIN_FILE_HEIGHT, aspectRatioResizeMode: aspect }
-    }
-    case 'shape':
-      return {
-        minWidth: MIN_SHAPE_WIDTH,
-        minHeight: MIN_SHAPE_HEIGHT,
-        aspectRatioResizeMode: 'shift-locks',
-      }
-    case 'drawing':
-      return { minWidth: 16, minHeight: 16, aspectRatioResizeMode: 'off' }
+  const caps = ENTITY_KIND_CAPS[entity.kind]
+  const aspectRatioResizeMode: AspectRatioResizeMode =
+    entity.kind === 'file' && 'file' in entity && typeof entity.file === 'string'
+      ? aspectRatioResizeModeForCanvasFile(entity.file)
+      : caps.aspectMode
+  return {
+    minWidth: caps.minSize.width,
+    minHeight: caps.minSize.height,
+    aspectRatioResizeMode,
   }
 }
 
@@ -1290,15 +1260,15 @@ function patchDispatcherForKind(
     case 'page':
       return (patch) => api.updatePageBounds(id, patch)
     case 'group':
-      return (patch) => api.updateGroupEntity(id, patch)
+      return (patch) => api.updateEntity('group', id, patch)
     case 'text':
-      return (patch) => api.updateTextEntity(id, patch)
+      return (patch) => api.updateEntity('text', id, patch)
     case 'file':
-      return (patch) => api.updateFileEntity(id, patch)
+      return (patch) => api.updateEntity('file', id, patch)
     case 'shape':
-      return (patch) => api.updateShapeEntity(id, patch)
+      return (patch) => api.updateEntity('shape', id, patch)
     case 'drawing':
-      return (patch) => api.updateDrawingEntity(id, patch)
+      return (patch) => api.updateEntity('drawing', id, patch)
     default:
       return null
   }

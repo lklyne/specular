@@ -24,11 +24,11 @@ import { textEntities, createTextEntity as createTextEntityInState } from './run
 import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
 import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from './runtime/drawing-entity-state'
-import { requestLayout } from './runtime/viewport-control'
 import { snapToGrid } from '../shared/gesture-utils'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { markDirty } from './runtime/layout-dirty'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import { makeId, cloneMetadata, pageCurrentUrl } from './workspace-utils'
 import {
   deletePages,
@@ -70,6 +70,10 @@ function setEntityParentGroupId(entityId: string, parentGroupId: string | undefi
 // --- Exported group operations ---
 
 export function createUserGroup(entityIds: string[], label?: string): WorkspaceGroup {
+  return mutateWorkspace(() => createUserGroupInternal(entityIds, label))
+}
+
+function createUserGroupInternal(entityIds: string[], label?: string): WorkspaceGroup {
   const selectionIds = new Set([...new Set(entityIds)].filter(Boolean))
 
   let changed = true
@@ -123,22 +127,22 @@ export function createUserGroup(entityIds: string[], label?: string): WorkspaceG
     setEntityParentGroupId(entityId, group.id)
   }
   markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
   return group
 }
 
 export function ungroupUserGroup(groupId: string): string[] {
   const idx = workspaceGroups.findIndex((g) => g.id === groupId)
   if (idx === -1) return []
-  const group = workspaceGroups[idx]
-  const freedIds = groupChildIds(groupId)
-  for (const entityId of freedIds) {
-    setEntityParentGroupId(entityId, group.parentGroupId)
-  }
-  workspaceGroups.splice(idx, 1)
-  markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
-  return freedIds
+  return mutateWorkspace(() => {
+    const group = workspaceGroups[idx]
+    const freedIds = groupChildIds(groupId)
+    for (const entityId of freedIds) {
+      setEntityParentGroupId(entityId, group.parentGroupId)
+    }
+    workspaceGroups.splice(idx, 1)
+    markDirty('canvas', 'sidebar')
+    return freedIds
+  })
 }
 
 export function removeEntityFromUserGroups(entityId: string): void {
@@ -154,6 +158,13 @@ export function duplicateGroup(input: {
   if (!sourceGroup) {
     throw new Error(`Unknown group: ${input.groupId}`)
   }
+  return mutateWorkspace(() => duplicateGroupInternal(input, sourceGroup))
+}
+
+function duplicateGroupInternal(
+  input: { groupId: string; focus?: boolean; placement?: { canvasX: number; canvasY: number } },
+  sourceGroup: WorkspaceGroup,
+): { groupId: string; entityIds: string[] } {
 
   const sourceBounds = groupBounds(sourceGroup)
   const placement = input.placement
@@ -301,8 +312,6 @@ export function duplicateGroup(input: {
     setSelectedGroupId(duplicatedRootGroup.id)
   }
 
-  requestLayout()
-  scheduleWorkspaceAutosave()
   return {
     groupId: duplicatedRootGroup.id,
     entityIds: duplicatedEntityIds,
@@ -310,6 +319,15 @@ export function duplicateGroup(input: {
 }
 
 export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
+  return mutateWorkspace(() => deleteGroupsInternal(input), {
+    changed: (result) =>
+      result.deletedGroupIds.length > 0 ||
+      result.deletedPageIds.length > 0 ||
+      result.deletedEdgeIds.length > 0,
+  })
+}
+
+function deleteGroupsInternal(input: DeleteGroupsRequest): DeleteGroupsResponse {
   const deletedGroupIds: string[] = []
   const deletedPageIds: string[] = []
   const deletedEdgeIds: string[] = []
@@ -351,12 +369,6 @@ export function deleteGroups(input: DeleteGroupsRequest): DeleteGroupsResponse {
   if (input.focusAfter) {
     const bounds = selectionBounds()
     if (bounds) focusCanvasBounds(bounds)
-  } else {
-    requestLayout()
-  }
-
-  if (deletedGroupIds.length || deletedPageIds.length || deletedEdgeIds.length) {
-    scheduleWorkspaceAutosave()
   }
 
   return {

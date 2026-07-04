@@ -129,26 +129,20 @@ const api: CanvasBgElectronAPI = {
   deleteSelectedEntities: () => ipcRenderer.send('canvas-delete-selection'),
   reorderStack: (action, targetId) =>
     ipcRenderer.send('canvas-reorder-stack', { action, targetId }),
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' }) =>
-    ipcRenderer.send('canvas-update-text-entity', { id, patch }),
+  updateEntity: (kind, id, patch) =>
+    ipcRenderer.send('canvas-update-entity', { kind, id, patch }),
   duplicateTextEntity: (id: string) =>
     ipcRenderer.send('canvas-duplicate-text-entity', { id }),
   deleteTextEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-text-entity', { id }),
-  updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) =>
-    ipcRenderer.send('canvas-update-file-entity', { id, patch }),
   deleteFileEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-file-entity', { id }),
   duplicateFileEntity: (id: string) =>
     ipcRenderer.send('canvas-duplicate-file-entity', { id }),
-  updateDrawingEntity: (id, patch) =>
-    ipcRenderer.send('canvas-update-drawing-entity', { id, patch }),
   deleteDrawingEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-drawing-entity', { id }),
   duplicateDrawingEntity: (id) =>
     ipcRenderer.send('canvas-duplicate-drawing-entity', { id }),
-  updateShapeEntity: (id, patch) =>
-    ipcRenderer.send('canvas-update-shape', { id, patch }),
   deleteShapeEntity: (id) =>
     ipcRenderer.send('canvas-delete-shape', { id }),
   duplicateShapeEntity: (id) =>
@@ -163,8 +157,6 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send('canvas-show-file-in-finder', { filePath }),
   copyFileAsPng: (filePath: string) =>
     ipcRenderer.send('canvas-copy-file-as-png', { filePath }),
-  updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) =>
-    ipcRenderer.send('canvas-update-group-entity', { id, patch }),
   duplicateGroup: (id: string) =>
     ipcRenderer.send('canvas-duplicate-group', { id }),
   deleteGroup: (id: string) =>

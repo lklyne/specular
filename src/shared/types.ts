@@ -1616,6 +1616,24 @@ export interface ViewportNudge {
   zoom: number
 }
 
+/**
+ * Per-kind interactive update patch shapes. `updateEntity` is typed by this map
+ * so a text patch sent with `kind: 'shape'` is a compile error at the call
+ * site. Each patch is the union of every field the interactive path forwards
+ * for that kind; the registry `update` honors each (see
+ * `src/main/entities/builtin/*.ts`).
+ */
+export interface EntityUpdatePatchMap {
+  text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
+  file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
+  drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
+  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
+  group: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }
+}
+
+/** The entity kinds reachable through the generic `canvas-update-entity` channel. */
+export type UpdatableEntityKind = keyof EntityUpdatePatchMap
+
 export interface CanvasBgElectronAPI {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
@@ -1668,16 +1686,13 @@ export interface CanvasBgElectronAPI {
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
     targetId?: string,
   ) => void
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }) => void
+  updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
-  updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteFileEntity: (id: string) => void
   duplicateFileEntity: (id: string) => void
-  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }) => void
   deleteDrawingEntity: (id: string) => void
   duplicateDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   duplicateShapeEntity: (id: string) => void
   placePendingShape: (
@@ -1693,7 +1708,6 @@ export interface CanvasBgElectronAPI {
   cancelEntityEdit: () => void
   showFileInFinder: (filePath: string) => void
   copyFileAsPng: (filePath: string) => void
-  updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) => void
   duplicateGroup: (id: string) => void
   deleteGroup: (id: string) => void
   renameGroup: (groupId: string, name: string) => void
@@ -1945,10 +1959,9 @@ export interface DevtoolsPanelElectronAPI {
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
-  updateTextEntity: (id: string, patch: { color?: string; textSize?: number }) => void
+  updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
-  updateFileEntity: (id: string, patch: { objectFit?: FileObjectFit }) => void
   duplicateFileEntity: (id: string) => void
   deleteFileEntity: (id: string) => void
   setFilePreset: (fileId: string, presetIndex: number) => void
@@ -1956,7 +1969,6 @@ export interface DevtoolsPanelElectronAPI {
   setFileDeviceOrientation: (fileId: string, orientation: string) => void
   toggleFileDeviceShell: (fileId: string) => void
   deleteDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
   deleteEdge: (id: string) => void

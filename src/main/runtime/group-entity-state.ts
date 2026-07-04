@@ -7,6 +7,7 @@ import type {
 } from '../../shared/types'
 import { workspaceGroups } from './workspace-model'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 
 export const DEFAULT_GROUP_WIDTH = 240
 export const DEFAULT_GROUP_HEIGHT = 180
@@ -53,16 +54,10 @@ export function updateGroupEntity(
 ): WorkspaceGroup | null {
   const group = workspaceGroups.find((candidate) => candidate.id === id)
   if (!group) return null
-  if (patch.label !== undefined) group.label = patch.label
-  if (patch.color !== undefined) group.color = patch.color
-  if (patch.canvasX !== undefined) group.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) group.canvasY = patch.canvasY
-  if (patch.width !== undefined) group.width = patch.width
-  if (patch.height !== undefined) group.height = patch.height
-  if (patch.parentGroupId !== undefined) group.parentGroupId = patch.parentGroupId
-  if (patch.layoutMode !== undefined) group.layoutMode = patch.layoutMode
-  if (patch.managedLayout !== undefined) group.managedLayout = patch.managedLayout
-  if (patch.sourceTaskId !== undefined) group.sourceTaskId = patch.sourceTaskId
+  applyPatch(group, patch, [
+    'label', 'color', 'canvasX', 'canvasY', 'width', 'height',
+    'parentGroupId', 'layoutMode', 'managedLayout', 'sourceTaskId',
+  ])
   if (patch.metadata !== undefined) {
     group.metadata = patch.metadata ? { ...patch.metadata } : undefined
   }
@@ -110,6 +105,35 @@ export function buildGroupSceneEntity(
     entityIds,
   }
 }
+
+/**
+ * Every key the doc's groups map can hold. Groups mirror to the doc as raw
+ * `WorkspaceGroup` objects (identity projection in the forward sync), so the
+ * list is the full runtime type keyed by `satisfies` — a new `WorkspaceGroup`
+ * field cannot silently skip the declaration (ADR 0024 §5). Restore replaces
+ * the array wholesale, so every listed field survives undo.
+ */
+const WORKSPACE_GROUP_PERSISTED_FIELD_SET = {
+  id: true,
+  kind: true,
+  label: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  color: true,
+  layoutMode: true,
+  managedLayout: true,
+  pageIds: true,
+  entityIds: true,
+  sourceTaskId: true,
+  metadata: true,
+} as const satisfies Record<keyof WorkspaceGroup, true>
+
+export const WORKSPACE_GROUP_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  WORKSPACE_GROUP_PERSISTED_FIELD_SET,
+)
 
 export function persistGroupEntity(group: WorkspaceGroup): PersistedGroupEntity {
   return {

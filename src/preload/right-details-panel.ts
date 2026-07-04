@@ -40,14 +40,12 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-remove-origin-binding', { origin }),
   setFixConfig: (config: { model: string; permissions: string }) =>
     ipcRenderer.send('right-details-panel-set-fix-config', config),
-  updateTextEntity: (id: string, patch: { color?: string }) =>
-    ipcRenderer.send('canvas-update-text-entity', { id, patch }),
+  updateEntity: (kind, id, patch) =>
+    ipcRenderer.send('canvas-update-entity', { kind, id, patch }),
   duplicateTextEntity: (id: string) =>
     ipcRenderer.send('canvas-duplicate-text-entity', { id }),
   deleteTextEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-text-entity', { id }),
-  updateFileEntity: (id: string, patch: { objectFit?: string }) =>
-    ipcRenderer.send('canvas-update-file-entity', { id, patch }),
   duplicateFileEntity: (id: string) =>
     ipcRenderer.send('canvas-duplicate-file-entity', { id }),
   deleteFileEntity: (id: string) =>
@@ -62,8 +60,6 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send('right-details-panel-toggle-file-device-shell', { fileId }),
   deleteDrawingEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-drawing-entity', { id }),
-  updateShapeEntity: (id, patch) =>
-    ipcRenderer.send('canvas-update-shape', { id, patch }),
   deleteShapeEntity: (id: string) =>
     ipcRenderer.send('canvas-delete-shape', { id }),
   updateEdge: (id, patch) =>

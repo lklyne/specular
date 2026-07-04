@@ -21,7 +21,7 @@ export function ShapePopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'updateShapeEntity'
+    | 'updateEntity'
     | 'focusSelection'
     | 'distributeSelection'
   >
@@ -64,7 +64,7 @@ export function ShapePopup({
               ariaLabel={`Morph ${noun} to ${label}`}
               onClick={() => {
                 const patch: { shapeKind: ShapeKind } = { shapeKind: kind }
-                for (const s of selectedShapes) api.updateShapeEntity(s.id, patch)
+                for (const s of selectedShapes) api.updateEntity('shape', s.id, patch)
               }}
             >
               <Icon size={14} />
@@ -79,7 +79,7 @@ export function ShapePopup({
             ariaLabel={`Set ${noun} text size`}
             onPick={(size) => {
               for (const s of selectedShapes) {
-                api.updateShapeEntity(s.id, { textSize: size })
+                api.updateEntity('shape', s.id, { textSize: size })
               }
             }}
           />
@@ -93,7 +93,7 @@ export function ShapePopup({
           noun={noun}
           onPick={(storage) => {
             for (const s of selectedShapes) {
-              api.updateShapeEntity(s.id, { color: storage })
+              api.updateEntity('shape', s.id, { color: storage })
             }
           }}
         />
