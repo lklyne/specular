@@ -64,6 +64,8 @@ const baseCtx: CanvasPointerContext = {
   altHeld: false,
   editingEntityId: null,
   interactivePageId: null,
+  placement: null,
+  commentToolActive: false,
 }
 
 function shape(over: Partial<CanvasSceneShapeEntity> = {}): CanvasSceneShapeEntity {
@@ -451,6 +453,106 @@ describe('routePointerDown', () => {
     expect(target.payload.kind).toBe('background')
     const action = routePointerDown(target, baseCtx)
     expect(action.kind).toBe('background-click')
+  })
+})
+
+// --- Placement / comment tool gestures ---
+//
+// While a placement or the comment tool owns canvas pointers
+// (`canvasPointerOwner` → 'tool-gesture'), the tool captures every
+// pointerdown regardless of hit target. Overlay UI still wins (I8'): the
+// router yields to `[data-overlay-ui]` before classification runs — that
+// arbitration row is covered by canvas-pointer-owner.test.ts.
+describe('routePointerDown — placement / comment tool gestures', () => {
+  it('active placement tool on background → begin-placement', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      placement: { entityKind: 'text' },
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'text' })
+  })
+
+  it('active placement tool over an entity body → begin-placement (target-independent)', () => {
+    const t = text()
+    const target = hitTest(inputs([t]), { x: t.screenX + 50, y: t.screenY + 30 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      placement: { entityKind: 'shape' },
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'shape' })
+  })
+
+  it('active placement tool over the entered page body → begin-placement (no forward)', () => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+      placement: { entityKind: 'shape' },
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'shape' })
+  })
+
+  it('non-primary button with a placement active → noop (viewport middle-pan keeps it)', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      isPrimaryButton: false,
+      button: 'middle',
+      placement: { entityKind: 'shape' },
+    })
+    expect(action).toEqual({ kind: 'noop' })
+  })
+
+  it('active comment tool on background → begin-comment-gesture', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, { ...baseCtx, commentToolActive: true })
+    expect(action).toEqual({ kind: 'begin-comment-gesture' })
+  })
+
+  it('active comment tool over a page body → begin-comment-gesture (element anchor resolves in main)', () => {
+    const f = page()
+    const target = hitTest(inputs([f]), { x: 500, y: 400 })
+    const action = routePointerDown(target, { ...baseCtx, commentToolActive: true })
+    expect(action).toEqual({ kind: 'begin-comment-gesture' })
+  })
+
+  it('comment click and region drag start as the same action — the threshold resolves them', () => {
+    // Click-vs-drag is a pointermove-time decision: `runCommentGesture`
+    // promotes to a region marquee past DRAG_THRESHOLD and anchors an
+    // element / canvas-point comment on a stationary release. Both begin
+    // with the identical pointerdown classification.
+    const f = page()
+    const clickTarget = hitTest(inputs([f]), { x: 500, y: 400 })
+    const dragStartTarget = hitTest(inputs([]), { x: 50, y: 50 })
+    const ctx = { ...baseCtx, commentToolActive: true }
+    expect(routePointerDown(clickTarget, ctx)).toEqual(routePointerDown(dragStartTarget, ctx))
+  })
+
+  it('non-primary button with the comment tool active → noop', () => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+      isPrimaryButton: false,
+      button: 'right',
+      commentToolActive: true,
+    })
+    expect(action).toEqual({ kind: 'noop' })
+  })
+
+  it('placement wins when placement and comment are both active', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      placement: { entityKind: 'shape' },
+      commentToolActive: true,
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'shape' })
   })
 })
 

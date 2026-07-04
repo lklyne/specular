@@ -37,9 +37,15 @@ import {
   cancelEdgeDrag as cancelEdgeDragState,
   commitEdgeDrag as commitEdgeDragState,
   EDGE_DRAG_IDLE,
+  edgeDragOrigin,
   updateEdgeDragCursor,
   type EdgeDragState,
 } from '../../shared/edge-drag-controller'
+import {
+  beginPressGesture,
+  pressGestureIgnoresBlur,
+  pressGestureStep,
+} from '../../shared/press-gesture'
 import {
   applyHandleDelta,
   startResize,
@@ -53,6 +59,8 @@ import {
   startMultiResize,
 } from '../../shared/multi-resize-accumulator'
 import {
+  canvasToScreenX,
+  canvasToScreenY,
   entitiesOverlappingRect,
   DRAG_THRESHOLD,
   isOverlayUiTarget,
@@ -61,7 +69,10 @@ import {
   normalizeRect,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
+  snapToGrid,
+  squareConstrainedRect,
 } from '../../shared/gesture-utils'
+import type { CanvasPointerOwner } from '../../shared/canvas-pointer-owner'
 import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
 import {
   MIN_FILE_HEIGHT,
@@ -89,12 +100,23 @@ import {
 } from './optionDragCopy'
 import { capturePointer, startPointerSession } from './pointer-session'
 
+/** Live draft snapshot the comment gesture consults on pointerup — a click
+ *  away from an empty composer dismisses it instead of opening a new one. */
+export interface CommentDraftSnapshot {
+  pendingAnnotation: object | null
+  pendingRegionRect: object | null
+  commentText: string
+  clearDraft: () => void
+}
+
 interface UseCanvasPointerRouterOptions {
   api: CanvasBgElectronAPI
   layoutRef: React.MutableRefObject<LayoutUpdateData>
-  /** When false, the router does not intercept anything. Useful while
-   *  annotations / drawing own pointer input. */
-  enabled: boolean
+  /** Who owns canvas pointerdowns (`canvasPointerOwner`). 'router' runs the
+   *  hit-test + routing matrix; 'tool-gesture' captures every canvas
+   *  pointerdown for the active placement / comment tool; anything else
+   *  stands the router down (annotations / drawing own pointer input). */
+  owner: CanvasPointerOwner
   /** Hit kinds the router should consume. */
   consume: ReadonlySet<CanvasPointerAction['kind']>
   /** Space-modifier mirror — `useCanvasPointerRouter` reads this on each
@@ -114,6 +136,12 @@ interface UseCanvasPointerRouterOptions {
    *  the live canvas-space pointer delta since grab so App can float the
    *  dragged item under the cursor as a ghost. Null when not reordering. */
   setReorderGhost: (ghost: ReorderGhostOffset) => void
+  /** Comment-gesture region marquee: live drag rect (ADR 0006). Lives with
+   *  App because it feeds the comment-preview pointer broadcast. */
+  onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
+  /** Comment-gesture region marquee commit → region anchor. */
+  onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
+  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
 }
 
 /** Canvas-space pointer delta since a reorder grab — drives the floating ghost.
@@ -136,6 +164,8 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'begin-marquee',
   'begin-pan',
   'begin-reorder-drag',
+  'begin-placement',
+  'begin-comment-gesture',
 ])
 
 /** All routable kinds — used by tests and any caller that wants full
@@ -170,7 +200,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
   const {
     api,
     layoutRef,
-    enabled,
+    owner,
     consume,
     spaceHeldRef,
     handToolActiveRef,
@@ -178,6 +208,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     setDragCopyPreview,
     setEdgeDragState,
     setReorderGhost,
+    onCommentDragMove,
+    onCommentDragEnd,
+    commentDraftRef,
   } = options
   const apiRef = useRef(api)
   apiRef.current = api
@@ -185,12 +218,65 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
   consumeRef.current = consume
   const setEdgeDragStateRef = useRef(setEdgeDragState)
   setEdgeDragStateRef.current = setEdgeDragState
+  const commentGestureRef = useRef({ onCommentDragMove, onCommentDragEnd })
+  commentGestureRef.current = { onCommentDragMove, onCommentDragEnd }
 
   useEffect(() => {
-    if (!enabled) return
+    if (owner !== 'router' && owner !== 'tool-gesture') return
+    const toolGestureOwns = owner === 'tool-gesture'
+
+    // Active placement / comment tool: every canvas pointerdown belongs to
+    // the tool. No hit-target routing, no typing-target yield (a comment
+    // click on a sticky's textarea anchors a comment, it doesn't focus the
+    // note), no edit-commit side effects — only overlay UI wins (I8').
+    const handleToolGesturePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return
+      const layout = layoutRef.current
+      if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
+
+      const windowY = event.clientY + layout.canvasOrigin.y
+      const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
+      const context: CanvasPointerContext = {
+        selectedEntityIds: layout.selectedEntityIds,
+        isPrimaryButton: true,
+        button: 'left',
+        modifiers: { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey },
+        spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
+        altHeld: event.altKey || optionHeldRef.current,
+        editingEntityId:
+          layout.interaction.kind === 'editing-entity' ? layout.interaction.entityId : null,
+        interactivePageId: layout.interactivePageId ?? null,
+        placement: layout.pendingPlacement
+          ? { entityKind: layout.pendingPlacement.entityKind }
+          : null,
+        commentToolActive: layout.activeTool.kind === 'comment',
+      }
+      const action = routePointerDown(target, context)
+      const dispatched = dispatchAction({
+        action,
+        api: apiRef.current,
+        event,
+        layoutRef,
+        optionHeldRef,
+        setDragCopyPreview,
+        setEdgeDragState: setEdgeDragStateRef.current,
+        setReorderGhost,
+        onCommentDragMove: commentGestureRef.current.onCommentDragMove,
+        onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
+        commentDraftRef,
+      })
+      if (dispatched) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
 
     const handlePointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
+      if (toolGestureOwns) {
+        handleToolGesturePointerDown(event)
+        return
+      }
       // Yield to typing targets (textarea, input, contenteditable) so focus
       // and cursor positioning land normally. Without this, the router's
       // preventDefault on entity-body hits eats the click before the
@@ -247,6 +333,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
         interactivePageId: layout.interactivePageId ?? null,
+        placement: null,
+        commentToolActive: false,
       }
 
       // Hand tool: primary-button drag pans globally regardless of hit
@@ -268,6 +356,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         setDragCopyPreview,
         setEdgeDragState: setEdgeDragStateRef.current,
         setReorderGhost,
+        onCommentDragMove: commentGestureRef.current.onCommentDragMove,
+        onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
+        commentDraftRef,
       })
       if (dispatched) {
         event.preventDefault()
@@ -307,7 +398,12 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     }
 
     window.addEventListener('pointerdown', handlePointerDown, { capture: true })
-    window.addEventListener('dblclick', handleDblClick, { capture: true })
+    // Dblclick routing (edit / enter-group / enter-page) is router-mode
+    // only — a double click while a tool gesture owns pointers is just two
+    // tool gestures.
+    if (!toolGestureOwns) {
+      window.addEventListener('dblclick', handleDblClick, { capture: true })
+    }
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown, {
         capture: true,
@@ -316,7 +412,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [enabled, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setReorderGhost, spaceHeldRef])
+  }, [owner, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setReorderGhost, spaceHeldRef])
 }
 
 // --- Dispatch ---
@@ -330,6 +426,9 @@ interface DispatchContext {
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   setEdgeDragState: (state: EdgeDragState) => void
   setReorderGhost: (ghost: ReorderGhostOffset) => void
+  onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
+  onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
+  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
@@ -377,6 +476,17 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runPan(api, event)
     case 'begin-reorder-drag':
       return runReorderDrag(action, api, event, layoutRef, setReorderGhost)
+    case 'begin-placement':
+      return runPlacementGesture(action, api, event, layoutRef)
+    case 'begin-comment-gesture':
+      return runCommentGesture(
+        api,
+        event,
+        layoutRef,
+        ctx.onCommentDragMove,
+        ctx.onCommentDragEnd,
+        ctx.commentDraftRef,
+      )
   }
 }
 
@@ -413,54 +523,41 @@ function runEntityPress(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
-  let dragging = false
+  let press = beginPressGesture(event.screenX, event.screenY)
 
   const session = startPointerSession(event, {
     onMove: (ev) => {
-      if (!dragging) {
-        const totalDx = ev.screenX - startScreenX
-        const totalDy = ev.screenY - startScreenY
-        if (
-          Math.abs(totalDx) < DRAG_THRESHOLD &&
-          Math.abs(totalDy) < DRAG_THRESHOLD
-        ) {
-          return
-        }
-        dragging = true
-        session.end()
-        startOptionAwareEntityDrag({
-          api,
-          layout: layoutRef.current,
-          entityId: action.entityId,
-          entityKind: action.entityKind,
-          preserveSelection: true,
-          event,
-          releasePointer: session.releasePointer,
-          initialPointer: ev,
-          isOptionHeld: () => optionHeldRef.current,
-          setPreview: setDragCopyPreview,
-        })
-        return
-      }
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
+      startOptionAwareEntityDrag({
+        api,
+        layout: layoutRef.current,
+        entityId: action.entityId,
+        entityKind: action.entityKind,
+        preserveSelection: true,
+        event,
+        releasePointer: session.releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
+      })
     },
     onUp: () => {
-      if (dragging) {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
         api.endDragEntity()
         return
       }
       api.requestEntityEdit(action.entityId)
     },
     onCancel: () => {
-      if (dragging) api.endDragEntity()
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragEntity()
+      }
     },
     listenBlur: true,
-    // Pre-threshold blur is a phantom: focus reconciliation routes focus
-    // aboveView → bgView on the next layout pass after a prior gesture
-    // ends. A second click landing inside that window would otherwise see
-    // the armed press torn down before pointerup, dropping the edit.
-    ignoreBlur: () => !dragging,
+    ignoreBlur: () => pressGestureIgnoresBlur(press),
   })
   return true
 }
@@ -473,41 +570,29 @@ function runPageBodyPress(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
-  let dragging = false
+  let press = beginPressGesture(event.screenX, event.screenY)
 
   const session = startPointerSession(event, {
     onMove: (ev) => {
-      const totalDx = ev.screenX - startScreenX
-      const totalDy = ev.screenY - startScreenY
-      if (
-        !dragging &&
-        Math.abs(totalDx) < DRAG_THRESHOLD &&
-        Math.abs(totalDy) < DRAG_THRESHOLD
-      ) {
-        return
-      }
-      if (!dragging) {
-        dragging = true
-        session.end()
-        startOptionAwareEntityDrag({
-          api,
-          layout: layoutRef.current,
-          entityId: action.entityId,
-          entityKind: 'page',
-          preserveSelection: action.preserveSelection,
-          event,
-          releasePointer: session.releasePointer,
-          initialPointer: ev,
-          isOptionHeld: () => optionHeldRef.current,
-          setPreview: setDragCopyPreview,
-        })
-        return
-      }
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
+      startOptionAwareEntityDrag({
+        api,
+        layout: layoutRef.current,
+        entityId: action.entityId,
+        entityKind: 'page',
+        preserveSelection: action.preserveSelection,
+        event,
+        releasePointer: session.releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
+      })
     },
     onUp: (ev) => {
-      if (dragging) {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
         api.endDragPage()
         return
       }
@@ -523,17 +608,12 @@ function runPageBodyPress(
       })
     },
     onCancel: () => {
-      if (dragging) api.endDragPage()
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragPage()
+      }
     },
     listenBlur: true,
-    // Pre-threshold blur is a phantom: focus reconciliation routes focus
-    // aboveView → bgView on the next layout pass (debounced 16ms) after a
-    // drag ends. A second click that lands inside that window arms this
-    // gesture, then the pending reconcile blurs aboveView before any
-    // cursor movement — tearing the armed gesture down here would kill
-    // the second drag with no recovery. Wait for actual movement;
-    // pointerup / pointercancel still abort cleanly.
-    ignoreBlur: () => !dragging,
+    ignoreBlur: () => pressGestureIgnoresBlur(press),
   })
   return true
 }
@@ -546,47 +626,39 @@ function runGroupDrag(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  let dragging = false
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
+  let press = beginPressGesture(event.screenX, event.screenY)
 
   const session = startPointerSession(event, {
     onMove: (ev) => {
-      const totalDx = ev.screenX - startScreenX
-      const totalDy = ev.screenY - startScreenY
-      if (
-        !dragging &&
-        Math.abs(totalDx) < DRAG_THRESHOLD &&
-        Math.abs(totalDy) < DRAG_THRESHOLD
-      ) {
-        return
-      }
-      if (!dragging) {
-        dragging = true
-        session.end()
-        startOptionAwareGroupDrag({
-          api,
-          layout: layoutRef.current,
-          groupId: action.groupId,
-          event,
-          releasePointer: session.releasePointer,
-          initialPointer: ev,
-          isOptionHeld: () => optionHeldRef.current,
-          setPreview: setDragCopyPreview,
-        })
-        return
-      }
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
+      startOptionAwareGroupDrag({
+        api,
+        layout: layoutRef.current,
+        groupId: action.groupId,
+        event,
+        releasePointer: session.releasePointer,
+        initialPointer: ev,
+        isOptionHeld: () => optionHeldRef.current,
+        setPreview: setDragCopyPreview,
+      })
     },
     onUp: () => {
-      if (dragging) {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
         api.endDragGroup()
         return
       }
       api.selectGroup(action.groupId)
     },
     onCancel: () => {
-      if (dragging) api.endDragGroup()
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragGroup()
+      }
     },
+    // No phantom-blur guard here (§4.6 documents it for entity/page presses
+    // only): a window blur cancels a group press even while armed.
     listenBlur: true,
   })
   return true
@@ -741,11 +813,8 @@ function runEdgeDrag(
 
   // Tell main about the gesture begin so its interaction-controller is in
   // the right mode — this is what `EdgeLayer.tsx` used to call.
-  const dragOriginEntityId =
-    state.kind === 'edit' ? state.fixedEntityId : action.entityId
-  const dragOriginSide =
-    state.kind === 'edit' ? state.fixedSide : (action.side as EdgeSide)
-  api.beginEdgeDrag(dragOriginEntityId, dragOriginSide)
+  const origin = edgeDragOrigin(state)
+  if (origin) api.beginEdgeDrag(origin.entityId, origin.side)
 
   let lastSnap: string | null = null
 
@@ -1002,6 +1071,174 @@ function runReorderDrag(
     onCancel: () => {
       setReorderGhost(null)
       api.reorderDragCancel('blur')
+    },
+    listenBlur: true,
+  })
+  return true
+}
+
+const MIN_SHAPE_DRAG_SIZE = 24
+
+function overlayRectFromScreenRect(
+  rect: { left: number; top: number; width: number; height: number },
+  layout: LayoutUpdateData,
+) {
+  return {
+    ...rect,
+    top: rect.top - layout.canvasOrigin.y,
+  }
+}
+
+/**
+ * Placement-tool gesture. A click places the pending entity at the press
+ * point; a shape placement dragged past `MIN_SHAPE_DRAG_SIZE` sizes the shape
+ * to the drag rect instead (shift constrains it square), previewed live via
+ * the 'place-shape' selection overlay.
+ */
+function runPlacementGesture(
+  action: Extract<CanvasPointerAction, { kind: 'begin-placement' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+): boolean {
+  const layout = layoutRef.current
+  const startCanvas = screenPointToCanvasPoint(
+    event.clientX,
+    event.clientY + layout.canvasOrigin.y,
+    layout,
+  )
+
+  const updateShapePreview = (ev: PointerEvent) => {
+    const current = layoutRef.current
+    const endCanvas = screenPointToCanvasPoint(
+      ev.clientX,
+      ev.clientY + current.canvasOrigin.y,
+      current,
+    )
+    const square = squareConstrainedRect(
+      startCanvas.x,
+      startCanvas.y,
+      endCanvas.x,
+      endCanvas.y,
+      ev.shiftKey,
+    )
+    const minCanvasX = snapToGrid(square.left)
+    const minCanvasY = snapToGrid(square.top)
+    const snappedW = snapToGrid(square.width)
+    const snappedH = snapToGrid(square.height)
+    const screenRect = {
+      left: canvasToScreenX(current, minCanvasX),
+      top: canvasToScreenY(current, minCanvasY),
+      width: snappedW * current.zoom,
+      height: snappedH * current.zoom,
+    }
+    api.setSelectionOverlayRect({
+      rect: overlayRectFromScreenRect(screenRect, current),
+      variant: 'place-shape',
+      shapeKind: current.pendingPlacement?.shapeKind ?? 'rectangle',
+    })
+  }
+
+  startPointerSession(event, {
+    onMove: (ev) => {
+      if (action.entityKind === 'shape') updateShapePreview(ev)
+    },
+    onUp: (ev) => {
+      if (action.entityKind === 'shape') {
+        api.setSelectionOverlayRect(null)
+        const current = layoutRef.current
+        const endCanvas = screenPointToCanvasPoint(
+          ev.clientX,
+          ev.clientY + current.canvasOrigin.y,
+          current,
+        )
+        const square = squareConstrainedRect(
+          startCanvas.x,
+          startCanvas.y,
+          endCanvas.x,
+          endCanvas.y,
+          ev.shiftKey,
+        )
+        if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
+          api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
+            x: snapToGrid(square.left),
+            y: snapToGrid(square.top),
+            width: snapToGrid(square.width),
+            height: snapToGrid(square.height),
+          })
+        } else {
+          api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+        }
+        return
+      }
+      api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
+    },
+    onCancel: () => {
+      api.setSelectionOverlayRect(null)
+    },
+    listenBlur: true,
+  })
+  return true
+}
+
+/**
+ * Comment-tool gesture (ADR 0006). Click below threshold → resolve element
+ * under cursor via `inspectAtPoint`; element hit → element anchor; nothing →
+ * canvas-point anchor. Drag past threshold → marquee → region anchor on
+ * pointerup. Threshold matches the rest of the canvas pointer router. Every
+ * move/up consults the live tool so leaving comment mode mid-gesture stops
+ * it dispatching.
+ */
+function runCommentGesture(
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  onDragMove: (startX: number, startY: number, endX: number, endY: number) => void,
+  onDragEnd: (startX: number, startY: number, endX: number, endY: number) => void,
+  draftRef: React.MutableRefObject<CommentDraftSnapshot>,
+): boolean {
+  const startX = event.clientX
+  const startY = event.clientY
+  let crossedThreshold = false
+
+  startPointerSession(event, {
+    onMove: (ev) => {
+      if (layoutRef.current.activeTool.kind !== 'comment') return
+      if (!crossedThreshold) {
+        const dx = ev.clientX - startX
+        const dy = ev.clientY - startY
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+          return
+        }
+        crossedThreshold = true
+      }
+      onDragMove(startX, startY, ev.clientX, ev.clientY)
+    },
+    onUp: (ev) => {
+      const current = layoutRef.current
+      if (current.activeTool.kind !== 'comment') return
+      if (crossedThreshold) {
+        // Drag past threshold → region anchor.
+        onDragEnd(startX, startY, ev.clientX, ev.clientY)
+        return
+      }
+      // Click below threshold → element anchor if a page DOM element sits
+      // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
+      api.setSelectionOverlayRect(null)
+      const draft = draftRef.current
+      const hasEmptyDraft =
+        Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
+        !draft.commentText.trim()
+      if (hasEmptyDraft) {
+        // Empty composer open → click-away dismisses it without creating
+        // a new draft; comment mode stays active.
+        draft.clearDraft()
+        return
+      }
+      api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
+    },
+    onCancel: () => {
+      api.setSelectionOverlayRect(null)
     },
     listenBlur: true,
   })
