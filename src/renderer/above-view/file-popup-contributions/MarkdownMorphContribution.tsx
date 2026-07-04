@@ -2,7 +2,8 @@
 // short/long toggle on `.md` selections; clicking `short` morphs the file
 // entity back into a plain-text entity at the same canvas rect.
 
-import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'
+import type { CanvasSceneFileEntity } from '../../../shared/types'
+import type { CanvasBgElectronAPI } from '../../../shared/electron-api/canvas-bg'
 import { TextKindToggle } from '../TextKindToggle'
 
 export function MarkdownMorphContribution({

@@ -13,6 +13,7 @@
  *  - page resize (ditto)
  */
 
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import type { AnnotationBboxSubscription, AnnotationLiveBboxUpdate } from '../shared/types'
 
@@ -59,7 +60,7 @@ function flush(): void {
   // Forget bboxes for ids that are no longer subscribed.
   lastBoxes = nextBoxes
   if (!updates.length) return
-  ipcRenderer.send('annotation-bbox-update', { updates })
+  ipcRenderer.send(ipcChannels.annotationBboxUpdate, { updates })
 }
 
 export function queueRecomputeAnnotationBboxes(): void {

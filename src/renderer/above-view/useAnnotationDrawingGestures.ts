@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
+import type { LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { isOverlayUiTarget, screenPointToCanvasPoint } from '../../shared/gesture-utils'
 import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './annotationMath'
 

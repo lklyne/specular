@@ -1,5 +1,6 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. page-factory imports navigation-sync creating a cycle through runtime-core and page-runtime
+import { ipcChannels } from '../shared/ipc-contract'
 import type { ScrollSyncData } from '../shared/types'
 import {
   type Page,
@@ -152,6 +153,6 @@ export function propagateScrollFromPage(
 ): void {
   for (const peer of linkedPeersOf(source)) {
     markScrollSuppressed(peer)
-    peer.pageView.webContents.send('apply-linked-scroll', scrollData)
+    peer.pageView.webContents.send(ipcChannels.applyLinkedScroll, scrollData)
   }
 }

@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { AnnotationCreateRequest, CanvasEntityKind } from '../../shared/types'
@@ -137,7 +138,7 @@ function stackOrderMenuItems(targetId: string): MenuItemConstructorOptions[] {
 
 export function registerCanvasEntityIpc(): void {
   ipcMain.on(
-    'canvas-place-pending-entity',
+    ipcChannels.canvasPlacePendingEntity,
     (
       _event,
       payload: {
@@ -222,45 +223,45 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-delete-selection', () => {
+  ipcMain.on(ipcChannels.canvasDeleteSelection, () => {
     deleteSelection()
   })
 
-  ipcMain.on('canvas-delete-page', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasDeletePage, (_event, { pageId }: { pageId: string }) => {
     if (!pages.some((candidate) => candidate.id === pageId)) return
     deletePages({ pageIds: [pageId] })
   })
 
-  ipcMain.on('canvas-distribute-selection', () => {
+  ipcMain.on(ipcChannels.canvasDistributeSelection, () => {
     distributeSelection(selectedEntityIds())
   })
 
-  ipcMain.on('canvas-navigate-page', (_event, { pageId, url }: { pageId: string; url: string }) => {
+  ipcMain.on(ipcChannels.canvasNavigatePage, (_event, { pageId, url }: { pageId: string; url: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     navigatePage(page, { type: 'load-url', url })
   })
 
-  ipcMain.on('canvas-back-page', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasBackPage, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
-  ipcMain.on('canvas-forward-page', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasForwardPage, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
-  ipcMain.on('canvas-reload-page', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasReloadPage, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
   })
 
   ipcMain.on(
-    'canvas-reveal-entity',
+    ipcChannels.canvasRevealEntity,
     (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
       if (entityKind === 'page') {
         if (!selectPageById(entityId)) return
@@ -281,7 +282,7 @@ export function registerCanvasEntityIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-delete-entity',
+    ipcChannels.canvasDeleteEntity,
     (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
       if (entityKind === 'text') {
         deleteTextEntity(entityId)
@@ -296,7 +297,7 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-reveal-group', (_event, { groupId }: { groupId: string }) => {
+  ipcMain.on(ipcChannels.canvasRevealGroup, (_event, { groupId }: { groupId: string }) => {
     const group = workspaceGroups.find((candidate) => candidate.id === groupId)
     if (!group) return
     selectGroup(groupId)
@@ -309,7 +310,7 @@ export function registerCanvasEntityIpc(): void {
     requestLayout()
   })
 
-  ipcMain.on('canvas-ungroup-group', (_event, { groupId }: { groupId: string }) => {
+  ipcMain.on(ipcChannels.canvasUngroupGroup, (_event, { groupId }: { groupId: string }) => {
     const group = workspaceGroups.find((g) => g.id === groupId)
     if (!group) return
     selectGroup(groupId)
@@ -317,7 +318,7 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-set-page-preset',
+    ipcChannels.canvasSetPagePreset,
     (_event, { pageId, index }: { pageId: string; index: number }) => {
       if (index < 0 || index >= VIEWPORT_PRESETS.length) return
       const idx = pages.findIndex((candidate) => candidate.id === pageId)
@@ -327,24 +328,24 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-set-page-custom', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasSetPageCustom, (_event, { pageId }: { pageId: string }) => {
     setPageCustom(pageId)
   })
 
   ipcMain.on(
-    'canvas-set-device-orientation',
+    ipcChannels.canvasSetDeviceOrientation,
     (_event, { pageId, orientation }: { pageId: string; orientation: string }) => {
       if (orientation !== 'portrait' && orientation !== 'landscape') return
       setDeviceOrientation(pageId, orientation)
     },
   )
 
-  ipcMain.on('canvas-toggle-device-shell', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasToggleDeviceShell, (_event, { pageId }: { pageId: string }) => {
     toggleDeviceShell(pageId)
   })
 
   ipcMain.on(
-    'canvas-update-page-bounds',
+    ipcChannels.canvasUpdatePageBounds,
     (
       _event,
       {
@@ -382,7 +383,7 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-duplicate-page', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasDuplicatePage, (_event, { pageId }: { pageId: string }) => {
     if (!pages.some((candidate) => candidate.id === pageId)) return
     duplicatePageFromSource({
       sourcePageId: pageId,
@@ -390,14 +391,14 @@ export function registerCanvasEntityIpc(): void {
     })
   })
 
-  ipcMain.on('canvas-toggle-linked-page', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasToggleLinkedPage, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     togglePageLinked(page)
     requestLayout()
   })
 
-  ipcMain.on('canvas-show-page-context-menu', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasShowPageContextMenu, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
     const canGoBack = page.pageView.webContents.canGoBack()
@@ -445,35 +446,35 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-reorder-stack',
+    ipcChannels.canvasReorderStack,
     (_event, { action, targetId }: { action: string; targetId?: string }) => {
       if (!isStackOrderAction(action)) return
       reorderStackOrder(action, targetId)
     },
   )
 
-  ipcMain.on('canvas-reveal-page', (_event, { pageId }: { pageId: string }) => {
+  ipcMain.on(ipcChannels.canvasRevealPage, (_event, { pageId }: { pageId: string }) => {
     if (!selectPageById(pageId)) return
     if (refocusActiveSession(pageId)) return
     focusSelectedPage()
   })
 
-  ipcMain.on('canvas-set-selection-preset', (_event, index: number) => {
+  ipcMain.on(ipcChannels.canvasSetSelectionPreset, (_event, index: number) => {
     const pageId = selectedPageId()
     if (!pageId) return
     setPagePreset(pageId, index)
   })
 
-  ipcMain.on('canvas-open-devtools-selection', () => {
+  ipcMain.on(ipcChannels.canvasOpenDevtoolsSelection, () => {
     if (!selectedPageId()) return
     openDevToolsForSelectedPage()
   })
 
-  ipcMain.on('canvas-duplicate-selection', () => {
+  ipcMain.on(ipcChannels.canvasDuplicateSelection, () => {
     duplicateSelection()
   })
 
-  ipcMain.on('canvas-copy-selection', () => {
+  ipcMain.on(ipcChannels.canvasCopySelection, () => {
     const payload = copyableSelectionPayload()
     if (!payload) return
     clipboard.writeText(`${CLIPBOARD_PREFIX}${JSON.stringify(payload)}`)
@@ -481,13 +482,13 @@ export function registerCanvasEntityIpc(): void {
 
 
   ipcMain.on(
-    'canvas-paste-selection',
+    ipcChannels.canvasPasteSelection,
     (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
       pasteFromClipboard({ canvasX, canvasY })
     },
   )
 
-  ipcMain.on('canvas-toggle-linked-selection', () => {
+  ipcMain.on(ipcChannels.canvasToggleLinkedSelection, () => {
     const pageIds = getSelectedEntityIds()
     if (!pageIds.length) return
     const selectedPages = pageIds
@@ -503,21 +504,21 @@ export function registerCanvasEntityIpc(): void {
     requestLayout()
   })
 
-  ipcMain.on('canvas-toggle-annotate-mode', () => {
+  ipcMain.on(ipcChannels.canvasToggleAnnotateMode, () => {
     const next = activeTool().kind === 'comment' ? { kind: 'select' as const } : { kind: 'comment' as const }
     setActiveTool(next)
   })
 
-  ipcMain.on('canvas-toggle-draw-mode', () => {
+  ipcMain.on(ipcChannels.canvasToggleDrawMode, () => {
     const next = activeTool().kind === 'draw' ? { kind: 'select' as const } : { kind: 'draw' as const }
     setActiveTool(next)
   })
 
-  ipcMain.on('canvas-create-annotation', (_event, request: AnnotationCreateRequest) => {
+  ipcMain.on(ipcChannels.canvasCreateAnnotation, (_event, request: AnnotationCreateRequest) => {
     createAnnotation(request)
   })
 
-  ipcMain.on('canvas-create-drawing', (_event, input: {
+  ipcMain.on(ipcChannels.canvasCreateDrawing, (_event, input: {
     canvasX: number
     canvasY: number
     width: number
@@ -528,20 +529,20 @@ export function registerCanvasEntityIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-commit-region-select',
+    ipcChannels.canvasCommitRegionSelect,
     (_event, canvasRect: { x: number; y: number; width: number; height: number }) => {
       // Forward to annotation overlay to show comment composer.
       setCommentOverlayActive(true)
       setPendingFocus({ kind: 'aboveView' })
       requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
-        aboveView.webContents.send('region-select-committed', { canvasRect })
+        aboveView.webContents.send(ipcChannels.regionSelectCommitted, { canvasRect })
       }
     },
   )
 
   ipcMain.on(
-    'canvas-create-region-annotation',
+    ipcChannels.canvasCreateRegionAnnotation,
     (_event, payload: { canvasRect: { x: number; y: number; width: number; height: number }; text: string }) => {
       executeRegionSelect(payload.canvasRect, payload.text).catch((err) => {
         console.error('[region-select] failed:', err)
@@ -554,7 +555,7 @@ export function registerCanvasEntityIpc(): void {
   // route to the existing `annotate-element-selected` flow. Otherwise
   // fall back to a canvas-point anchor, broadcast on a sibling channel.
   ipcMain.on(
-    'canvas-comment-click-at',
+    ipcChannels.canvasCommentClickAt,
     (_event, payload: { windowX?: number; windowY?: number } | undefined) => {
       const windowX = payload?.windowX
       const windowY = payload?.windowY
@@ -566,7 +567,7 @@ export function registerCanvasEntityIpc(): void {
         setPendingFocus({ kind: 'aboveView' })
         requestLayout()
         if (aboveView && !aboveView.webContents.isDestroyed()) {
-          aboveView.webContents.send('comment-canvas-point-committed', {
+          aboveView.webContents.send(ipcChannels.commentCanvasPointCommitted, {
             canvasX: canvasPoint.x,
             canvasY: canvasPoint.y,
           })
@@ -585,7 +586,7 @@ export function registerCanvasEntityIpc(): void {
             setPendingFocus({ kind: 'aboveView' })
             requestLayout()
             if (aboveView && !aboveView.webContents.isDestroyed()) {
-              aboveView.webContents.send('annotate-element-selected', {
+              aboveView.webContents.send(ipcChannels.annotateElementSelected, {
                 pageId: hit.pageId,
                 ...data,
               })
@@ -601,7 +602,7 @@ export function registerCanvasEntityIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-move-annotation',
+    ipcChannels.canvasMoveAnnotation,
     (_event, payload: { annotationId?: string; dx?: number; dy?: number } | undefined) => {
       const annotationId = payload?.annotationId?.trim()
       if (!annotationId) return
@@ -615,7 +616,7 @@ export function registerCanvasEntityIpc(): void {
   // delete routes through `deleteSelection`). The renderer types the patch by
   // kind (`EntityUpdatePatchMap`), so an ill-typed patch is a compile error.
   ipcMain.on(
-    'canvas-update-entity',
+    ipcChannels.canvasUpdateEntity,
     (_event, { kind, id, patch }: { kind: CanvasEntityKind; id: string; patch: Record<string, unknown> }) => {
       if (!hasEntityKind(kind)) return
       getEntityKind(kind).update(id, patch, {})
@@ -624,44 +625,44 @@ export function registerCanvasEntityIpc(): void {
 
   // --- Text Entity IPC ---
 
-  ipcMain.on('canvas-delete-text-entity', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDeleteTextEntity, (_event, { id }: { id: string }) => {
     deleteTextEntity(id)
   })
 
-  ipcMain.on('canvas-delete-drawing-entity', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDeleteDrawingEntity, (_event, { id }: { id: string }) => {
     deleteDrawingEntity(id)
   })
 
-  ipcMain.on('canvas-duplicate-drawing-entity', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDuplicateDrawingEntity, (_event, { id }: { id: string }) => {
     duplicateEntity({ entityId: id, focus: true })
   })
 
-  ipcMain.on('canvas-duplicate-text-entity', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDuplicateTextEntity, (_event, { id }: { id: string }) => {
     duplicateEntity({ entityId: id, focus: true })
   })
 
   // --- Shape Entity IPC ---
 
-  ipcMain.on('canvas-delete-shape', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDeleteShape, (_event, { id }: { id: string }) => {
     deleteShapeEntity(id)
   })
 
-  ipcMain.on('canvas-duplicate-shape', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDuplicateShape, (_event, { id }: { id: string }) => {
     duplicateEntity({ entityId: id, focus: true })
   })
 
   // --- File Entity IPC ---
 
-  ipcMain.on('canvas-delete-file-entity', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDeleteFileEntity, (_event, { id }: { id: string }) => {
     deleteFileEntity(id)
   })
 
-  ipcMain.on('canvas-duplicate-file-entity', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDuplicateFileEntity, (_event, { id }: { id: string }) => {
     duplicateEntity({ entityId: id, focus: true })
   })
 
   ipcMain.on(
-    'canvas-set-file-device-orientation',
+    ipcChannels.canvasSetFileDeviceOrientation,
     (_event, { fileId, orientation }: { fileId: string; orientation: string }) => {
       if (orientation !== 'portrait' && orientation !== 'landscape') return
       setFileDeviceOrientation(fileId, orientation)
@@ -669,21 +670,21 @@ export function registerCanvasEntityIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-toggle-file-device-shell',
+    ipcChannels.canvasToggleFileDeviceShell,
     (_event, { fileId }: { fileId: string }) => {
       toggleFileDeviceShell(fileId)
     },
   )
 
-  ipcMain.on('canvas-show-file-in-finder', (_event, { filePath }: { filePath: string }) => {
+  ipcMain.on(ipcChannels.canvasShowFileInFinder, (_event, { filePath }: { filePath: string }) => {
     shell.showItemInFolder(filePath)
   })
 
-  ipcMain.on('canvas-copy-file-as-png', (_event, { filePath }: { filePath: string }) => {
+  ipcMain.on(ipcChannels.canvasCopyFileAsPng, (_event, { filePath }: { filePath: string }) => {
     clipboard.writeImage(nativeImage.createFromPath(filePath))
   })
 
-  ipcMain.handle('write-note-file', (_event, { filePath, content }: { filePath: string; content: string }) => {
+  ipcMain.handle(ipcChannels.writeNoteFile, (_event, { filePath, content }: { filePath: string; content: string }) => {
     writeNoteFile(filePath, content)
     return true
   })
@@ -692,7 +693,7 @@ export function registerCanvasEntityIpc(): void {
   // One IPC, two directions; both halves (entity replacement + .md file
   // write/delete) collapse into a single undo step.
   ipcMain.handle(
-    'canvas-morph-text-file',
+    ipcChannels.canvasMorphTextFile,
     (
       _event,
       { entityId, direction }: { entityId: string; direction: 'text-to-file' | 'file-to-text' },
@@ -705,24 +706,24 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-duplicate-group', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDuplicateGroup, (_event, { id }: { id: string }) => {
     duplicateGroup({ groupId: id, focus: true })
   })
 
-  ipcMain.on('canvas-delete-group', (_event, { id }: { id: string }) => {
+  ipcMain.on(ipcChannels.canvasDeleteGroup, (_event, { id }: { id: string }) => {
     deleteGroups({ groupIds: [id] })
   })
 
-  ipcMain.on('canvas-group-selection', () => {
+  ipcMain.on(ipcChannels.canvasGroupSelection, () => {
     groupSelectedEntities()
   })
 
-  ipcMain.on('canvas-ungroup-selection', () => {
+  ipcMain.on(ipcChannels.canvasUngroupSelection, () => {
     ungroupSelectedGroup()
   })
 
   ipcMain.on(
-    'canvas-resize-multi-selection',
+    ipcChannels.canvasResizeMultiSelection,
     (_event, { entries }: { entries: MultiResizeEntry[] }) => {
       resizeMultiSelection(entries)
     },

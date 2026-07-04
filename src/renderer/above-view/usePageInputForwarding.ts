@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type {
-  CanvasBgElectronAPI,
   CanvasScenePageEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { isOverlayUiTarget } from '../../shared/gesture-utils'
 import { pointerOverPageContent } from '../../shared/page-hit-test'
 

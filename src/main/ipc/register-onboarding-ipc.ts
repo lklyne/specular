@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type {
   OnboardingComponentId,
@@ -18,22 +19,22 @@ import {
 function broadcast(event: OnboardingProgressEvent): void {
   const wc = getOnboardingWebContents()
   if (!wc || wc.isDestroyed()) return
-  wc.send('onboarding:progress', event)
+  wc.send(ipcChannels.onboardingProgress, event)
 }
 
 export function registerOnboardingIpc(): void {
-  ipcMain.handle('onboarding:get-initial-data', async () => ({
+  ipcMain.handle(ipcChannels.onboardingGetInitialData, async () => ({
     theme: { isDark: isDark() },
     status: await getOnboardingStatus(),
     mode: getOnboardingMode(),
   }))
 
-  ipcMain.handle('onboarding:refresh-status', async (): Promise<OnboardingStatusSnapshot> => {
+  ipcMain.handle(ipcChannels.onboardingRefreshStatus, async (): Promise<OnboardingStatusSnapshot> => {
     return await getOnboardingStatus()
   })
 
   ipcMain.handle(
-    'onboarding:install',
+    ipcChannels.onboardingInstall,
     async (
       _event,
       selections: Record<OnboardingComponentId, boolean>,
@@ -44,14 +45,14 @@ export function registerOnboardingIpc(): void {
     },
   )
 
-  ipcMain.on('onboarding:complete', () => {
+  ipcMain.on(ipcChannels.onboardingComplete, () => {
     const prev = loadOnboardingState()
     saveOnboardingState({ ...prev, completed: true, completedAt: Date.now() })
     closeAndResolve('complete')
     refreshAppMenu()
   })
 
-  ipcMain.on('onboarding:dismiss', () => {
+  ipcMain.on(ipcChannels.onboardingDismiss, () => {
     const prev = loadOnboardingState()
     saveOnboardingState({ ...prev, dismissedAt: Date.now() })
     closeAndResolve('dismiss')

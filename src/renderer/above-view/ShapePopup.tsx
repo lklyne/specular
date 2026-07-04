@@ -1,12 +1,8 @@
 // ADR 0008/0009 — shape selection popup. Variant morph per ADR 0009.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneShapeEntity,
-  LayoutUpdateData,
-  ShapeKind,
-} from '../../shared/types'
+import type { CanvasSceneShapeEntity, LayoutUpdateData, ShapeKind } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'

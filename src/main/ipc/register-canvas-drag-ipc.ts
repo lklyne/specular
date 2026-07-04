@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { CanvasDragStartSelection, CanvasHoverTarget } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
@@ -184,7 +185,7 @@ function endDragSession(kind: 'page' | 'entity' | 'group'): void {
 
 export function registerCanvasDragIpc(): void {
   ipcMain.on(
-    'canvas-zoom',
+    ipcChannels.canvasZoom,
     (_event, data: { deltaY: number; mouseX: number; mouseY: number }) => {
       // Focus presentation locks the camera on the page; exit is escape/button/dim-click only.
       if (isFocusSessionActive()) return
@@ -195,7 +196,7 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-pan', (_event, { deltaX, deltaY }: { deltaX: number; deltaY: number }) => {
+  ipcMain.on(ipcChannels.canvasPan, (_event, { deltaX, deltaY }: { deltaX: number; deltaY: number }) => {
     if (isFocusSessionActive()) return
     pendingViewportDelta.panDeltaX -= deltaX
     pendingViewportDelta.panDeltaY -= deltaY
@@ -203,7 +204,7 @@ export function registerCanvasDragIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-selection-overlay',
+    ipcChannels.canvasSelectionOverlay,
     (
       _event,
       overlay: import('../../shared/types').SelectionOverlayPayload | null,
@@ -215,7 +216,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-drag-page-start',
+    ipcChannels.canvasDragPageStart,
     (
       _event,
       { pageId, selection }: { pageId: string; selection?: CanvasDragStartSelection },
@@ -231,7 +232,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-drag-page',
+    ipcChannels.canvasDragPage,
     (
       _event,
       { pageId, dx, dy, shiftKey }: { pageId: string; dx: number; dy: number; shiftKey?: boolean },
@@ -247,13 +248,13 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-drag-page-end', () => {
+  ipcMain.on(ipcChannels.canvasDragPageEnd, () => {
     endDragSession('page')
     requestLayout()
   })
 
   ipcMain.on(
-    'canvas-drag-copy-selection',
+    ipcChannels.canvasDragCopySelection,
     (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
       const payload = copyableSelectionPayload()
       if (!payload) return
@@ -262,7 +263,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-drag-copy-group',
+    ipcChannels.canvasDragCopyGroup,
     (
       _event,
       { groupId, canvasX, canvasY }: { groupId: string; canvasX: number; canvasY: number },
@@ -272,7 +273,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-drag-entity-start',
+    ipcChannels.canvasDragEntityStart,
     (
       _event,
       { entityId, selection }: { entityId: string; selection?: CanvasDragStartSelection },
@@ -285,7 +286,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-drag-entity',
+    ipcChannels.canvasDragEntity,
     (
       _event,
       { entityId, dx, dy, shiftKey }: { entityId: string; dx: number; dy: number; shiftKey: boolean },
@@ -297,13 +298,13 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-drag-entity-end', () => {
+  ipcMain.on(ipcChannels.canvasDragEntityEnd, () => {
     endDragSession('entity')
     requestLayout()
   })
 
   ipcMain.on(
-    'canvas-drag-preview',
+    ipcChannels.canvasDragPreview,
     (
       _event,
       { dx, dy, shiftKey }: { dx: number; dy: number; shiftKey?: boolean },
@@ -312,13 +313,13 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-drag-group-start', (_event, { groupId }: { groupId: string }) => {
+  ipcMain.on(ipcChannels.canvasDragGroupStart, (_event, { groupId }: { groupId: string }) => {
     const entityIds = [groupId, ...descendantEntityIdsForGroup(groupId)]
     beginDragSession('group', entityIds)
   })
 
   ipcMain.on(
-    'canvas-drag-group',
+    ipcChannels.canvasDragGroup,
     (
       _event,
       { groupId, dx, dy, shiftKey }: { groupId: string; dx: number; dy: number; shiftKey?: boolean },
@@ -330,13 +331,13 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-drag-group-end', () => {
+  ipcMain.on(ipcChannels.canvasDragGroupEnd, () => {
     endDragSession('group')
     requestLayout()
   })
 
   ipcMain.on(
-    'canvas-resize-begin',
+    ipcChannels.canvasResizeBegin,
     (
       _event,
       {
@@ -366,7 +367,7 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-resize-end', () => {
+  ipcMain.on(ipcChannels.canvasResizeEnd, () => {
     finalizeResizeGuides()
     // A managed child changing size reflows its siblings within the same batch,
     // so the row re-packs in one undo step (ADR 0015 D3).
@@ -377,20 +378,20 @@ export function registerCanvasDragIpc(): void {
     commitActive()
   })
 
-  ipcMain.on('canvas-multi-resize-begin', () => {
+  ipcMain.on(ipcChannels.canvasMultiResizeBegin, () => {
     const multiResizeToken = tryEnter({ kind: 'resizing-multi-selection' })
     if ('refused' in multiResizeToken) return
     resizeSession = beginGestureSession()
   })
 
-  ipcMain.on('canvas-multi-resize-end', () => {
+  ipcMain.on(ipcChannels.canvasMultiResizeEnd, () => {
     resizeSession?.finalize()
     resizeSession = null
     commitActive()
   })
 
   ipcMain.on(
-    'canvas-edge-drag-begin',
+    ipcChannels.canvasEdgeDragBegin,
     (
       _event,
       { fromEntityId, fromSide }: { fromEntityId: string; fromSide: EdgeSide },
@@ -407,7 +408,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-edge-drag-target-change',
+    ipcChannels.canvasEdgeDragTargetChange,
     (
       _event,
       {
@@ -424,14 +425,14 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-edge-drag-cancel', () => {
+  ipcMain.on(ipcChannels.canvasEdgeDragCancel, () => {
     cancelActive('escape')
     setHoverEntity(null)
     requestLayout()
   })
 
   ipcMain.on(
-    'canvas-edge-drag-commit',
+    ipcChannels.canvasEdgeDragCommit,
     (
       _event,
       {
@@ -470,7 +471,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-edge-edit-commit',
+    ipcChannels.canvasEdgeEditCommit,
     (
       _event,
       {
@@ -497,7 +498,7 @@ export function registerCanvasDragIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-edge-edit-discard',
+    ipcChannels.canvasEdgeEditDiscard,
     (_event, { edgeId }: { edgeId: string }) => {
       deleteEdge(edgeId)
       cancelActive('escape')

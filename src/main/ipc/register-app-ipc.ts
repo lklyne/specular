@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain, nativeTheme } from 'electron'
 import {
   getCanvasLayoutData,
@@ -15,7 +16,7 @@ import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerAppIpc(): void {
   ipcMain.on(
-    'debug-log',
+    ipcChannels.debugLog,
     (
       _event,
       payload: { source: string; level: 'log' | 'warn' | 'error'; args: unknown[] },
@@ -31,29 +32,29 @@ export function registerAppIpc(): void {
     },
   )
 
-  ipcMain.on('toggle-theme', () => {
+  ipcMain.on(ipcChannels.toggleTheme, () => {
     nativeTheme.themeSource = nativeTheme.shouldUseDarkColors ? 'light' : 'dark'
   })
 
-  ipcMain.handle('get-theme-bootstrap', async () => ({ theme: { isDark: isDark() } }))
+  ipcMain.handle(ipcChannels.getThemeBootstrap, async () => ({ theme: { isDark: isDark() } }))
 
-  ipcMain.handle('get-left-sidebar-bootstrap', async () => ({
+  ipcMain.handle(ipcChannels.getLeftSidebarBootstrap, async () => ({
     theme: { isDark: isDark() },
     sidebarData: getLeftSidebarData(),
   }))
 
-  ipcMain.handle('get-canvas-layout-bootstrap', async () => ({
+  ipcMain.handle(ipcChannels.getCanvasLayoutBootstrap, async () => ({
     theme: { isDark: isDark() },
     layoutData: getCanvasLayoutData(),
   }))
 
-  ipcMain.handle('get-floating-ui-bootstrap', async () => ({
+  ipcMain.handle(ipcChannels.getFloatingUiBootstrap, async () => ({
     theme: { isDark: isDark() },
     layoutData: getCanvasLayoutData(),
     surfaceOrigin: { x: 0, y: 0 },
   }))
 
-  ipcMain.on('reload-app', () => {
+  ipcMain.on(ipcChannels.reloadApp, () => {
     selectionDebug('ipc:reload-app')
     try {
       const record = currentPersistedWorkspaceRecord()

@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneEntity,
-  CanvasSceneFileEntity,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-  SelectionOverlayPayload,
-  ThemeData,
-  WorkspaceEdge,
-} from '../../shared/types'
+import type { CanvasSceneEntity, CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, SelectionOverlayPayload, ThemeData, WorkspaceEdge } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
   canScrollWheelTarget,

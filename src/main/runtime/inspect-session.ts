@@ -2,6 +2,7 @@
  * Inspect session — component inspection, node detail, panel state building.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import type {
   ComponentNodeDetail,
   ComponentTreeNode,
@@ -109,7 +110,7 @@ function effectiveInspectionPageIds(): Set<string> {
 export function syncInspectionState(): void {
   const enabledPageIds = effectiveInspectionPageIds()
   for (const page of pages) {
-    safeSend(page.pageView.webContents, 'set-inspection-mode', {
+    safeSend(page.pageView.webContents, ipcChannels.setInspectionMode, {
       enabled: enabledPageIds.has(page.id),
     })
   }
@@ -428,7 +429,7 @@ export function notifyDevtoolsPanelData(): void {
     isLoading: page.pageView.webContents.isLoading(),
     linked: page.linked,
   }))
-  devtoolsHeaderView.webContents.send('right-details-panel-data', {
+  devtoolsHeaderView.webContents.send(ipcChannels.rightDetailsPanelData, {
     activeTab: uiDevtoolsPanelTab(),
     panelMode,
     activeTool: uiActiveTool(),
@@ -523,7 +524,7 @@ export function setInspectNodeFromPanel(
 ): void {
   const page = findPageById(pageId)
   if (!page || page.pageView.webContents.isDestroyed()) return
-  page.pageView.webContents.send('inspect-focus-node', {
+  page.pageView.webContents.send(ipcChannels.inspectFocusNode, {
     nodeId,
     pin,
     fromPanel: true,

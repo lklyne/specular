@@ -1,5 +1,6 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. workspace-autosave → workspace-observers import viewport-control back
+import { ipcChannels } from '../../shared/ipc-contract'
 import {
   interactivePageId,
   pages,
@@ -73,7 +74,7 @@ export function setZoom(value: number): void {
 
 export function broadcastCanvasZoomToPages(): void {
   for (const page of pages) {
-    safeSend(page.pageView.webContents, 'set-canvas-zoom', zoom)
+    safeSend(page.pageView.webContents, ipcChannels.setCanvasZoom, zoom)
   }
 }
 

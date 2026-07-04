@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { randomUUID } from 'crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
@@ -387,12 +388,12 @@ export async function startAppControlServer(): Promise<void> {
       deltaX: number,
       deltaY: number,
     ): Promise<{ ok: boolean; reason?: string; consumed?: boolean; targetTag?: string; beforeLeft?: number; beforeTop?: number; afterLeft?: number; afterTop?: number }> =>
-      sendPageIpc(page.id, 'dispatch-scroll', { x, y, deltaX, deltaY })
+      sendPageIpc(page.id, ipcChannels.dispatchScroll, { x, y, deltaX, deltaY })
         .then((data) => data as { ok: boolean; reason?: string; consumed?: boolean })
         .catch(() => ({ ok: false, reason: 'ipc-timeout' }))
 
     const emitTypingPresence = async (): Promise<void> => {
-      const target = await sendPageIpc(page.id, 'query-active-element-rect', {})
+      const target = await sendPageIpc(page.id, ipcChannels.queryActiveElementRect, {})
         .then(
           (data) =>
             data as {

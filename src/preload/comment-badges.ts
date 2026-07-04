@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import type { Annotation } from '../shared/types'
 import { isUnresolved } from '../shared/annotation-utils'
@@ -40,7 +41,7 @@ function commentBadgeDebug(event: string, details?: Record<string, unknown>): vo
 
 export function setPageAnnotations(annotations: Annotation[]): void {
   pageAnnotations = annotations
-  commentBadgeDebug('page-annotations-update', {
+  commentBadgeDebug(ipcChannels.pageAnnotationsUpdate, {
     annotations: pageAnnotations.length,
     ids: pageAnnotations.map((annotation) => annotation.id),
   })
@@ -405,7 +406,7 @@ export function renderCommentBadges(): void {
       event.preventDefault()
       event.stopPropagation()
       event.stopImmediatePropagation()
-      ipcRenderer.send('annotation-open-thread', { annotationId: badge.annotationId })
+      ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId: badge.annotationId })
     })
     commentBadgesLayerEl.appendChild(button)
   }

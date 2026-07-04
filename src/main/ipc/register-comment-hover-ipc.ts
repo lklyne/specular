@@ -18,6 +18,7 @@
  *      ─forward─▶ above-view
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { AnnotationBboxSubscription, AnnotationLiveBboxUpdate } from '../../shared/types'
 import { aboveView } from '../runtime/view-refs'
@@ -87,7 +88,7 @@ function sendIfChanged(
   if (lastPayloadByPage.get(pageId) === sig) return
   lastPayloadByPage.set(pageId, sig)
   trackPageForDedup(pageId, webContents)
-  safeSend(webContents, 'comment-tool-page-preview', payload)
+  safeSend(webContents, ipcChannels.commentToolPagePreview, payload)
 }
 
 function broadcastPointerState(state: PointerStateInput): void {
@@ -160,7 +161,7 @@ function schedulePointerFlush(): void {
 
 export function registerCommentHoverIpc(): void {
   ipcMain.on(
-    'comment-tool-pointer-state',
+    ipcChannels.commentToolPointerState,
     (
       _event,
       payload:
@@ -190,7 +191,7 @@ export function registerCommentHoverIpc(): void {
   )
 
   ipcMain.on(
-    'comment-tool-bbox-subscriptions',
+    ipcChannels.commentToolBboxSubscriptions,
     (
       _event,
       payload: { pageId?: string; subscriptions?: AnnotationBboxSubscription[] } | undefined,
@@ -199,14 +200,14 @@ export function registerCommentHoverIpc(): void {
       if (!pageId) return
       const page = pages.find((candidate) => candidate.id === pageId)
       if (!page || page.pageView.webContents.isDestroyed()) return
-      safeSend(page.pageView.webContents, 'annotation-bbox-subscriptions', {
+      safeSend(page.pageView.webContents, ipcChannels.annotationBboxSubscriptions, {
         subscriptions: Array.isArray(payload?.subscriptions) ? payload.subscriptions : [],
       })
     },
   )
 
   ipcMain.on(
-    'annotation-bbox-update',
+    ipcChannels.annotationBboxUpdate,
     (
       event,
       payload: {
@@ -223,7 +224,7 @@ export function registerCommentHoverIpc(): void {
       if (!aboveView || aboveView.webContents.isDestroyed()) return
       for (const update of updates) {
         if (typeof update?.annotationId !== 'string') continue
-        safeSend(aboveView.webContents, 'annotation-live-bbox', {
+        safeSend(aboveView.webContents, ipcChannels.annotationLiveBbox, {
           pageId: page.id,
           annotationId: update.annotationId,
           boundingBox: update.boundingBox ?? null,

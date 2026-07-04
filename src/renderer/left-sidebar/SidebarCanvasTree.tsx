@@ -13,12 +13,8 @@ import {
   Square,
   StickyNote,
 } from 'lucide-react'
-import type {
-  LeftSidebarElectronAPI,
-  SidebarCanvasItem,
-  SidebarGroupItem,
-  SidebarSectionKey,
-} from '../../shared/types'
+import type { SidebarCanvasItem, SidebarGroupItem, SidebarSectionKey } from '../../shared/types'
+import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-sidebar'
 import { iconForFilePath } from '../shared/fileIcon'
 import { PageListItem } from '../shared/pageListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'

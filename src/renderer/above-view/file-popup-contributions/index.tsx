@@ -4,11 +4,8 @@
 // case in the switch below.
 
 import type { ReactNode } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneFileEntity,
-  PopupContributionTag,
-} from '../../../shared/types'
+import type { CanvasSceneFileEntity, PopupContributionTag } from '../../../shared/types'
+import type { CanvasBgElectronAPI } from '../../../shared/electron-api/canvas-bg'
 import { MarkdownMorphContribution } from './MarkdownMorphContribution'
 import { WireframeThemeContribution } from './WireframeThemeContribution'
 import { WireframeJsonModeContribution } from './WireframeJsonModeContribution'

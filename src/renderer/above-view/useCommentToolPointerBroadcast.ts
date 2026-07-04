@@ -13,7 +13,8 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
+import type { LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 
 type PointerStateApi = Pick<CanvasBgElectronAPI, 'setCommentToolPointerState'>
 

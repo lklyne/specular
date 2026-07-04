@@ -1,10 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, X, Zap } from 'lucide-react'
-import type {
-  ConnectedRepo,
-  RepoStatus,
-  SettingsElectronAPI,
-} from '../../shared/types'
+import type { ConnectedRepo, RepoStatus } from '../../shared/types'
+import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
 
 const STATUS_DOT: Record<RepoStatus, string> = {
   stopped: 'bg-zinc-400',

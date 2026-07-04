@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'
+import type { CanvasSceneFileEntity } from '../../../shared/types'
+import type { CanvasBgElectronAPI } from '../../../shared/electron-api/canvas-bg'
 
 declare global {
   interface Window {

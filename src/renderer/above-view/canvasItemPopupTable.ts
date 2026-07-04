@@ -1,10 +1,10 @@
 import type { ComponentType } from 'react'
 import type {
-  CanvasBgElectronAPI,
   CanvasSceneEntity,
   CanvasSceneGroupEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { ToolKind } from '../../shared/tool'
 import type { FileJsonModeMap } from './FileBodyLayer'
 import { PagePopup } from './PagePopup'

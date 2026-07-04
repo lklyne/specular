@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
-import type { DevtoolsResizeHandleElectronAPI } from '../../shared/types'
+import type { DevtoolsResizeHandleElectronAPI } from '../../shared/electron-api/devtools-resize-handle'
 
 initRendererSentry()
 

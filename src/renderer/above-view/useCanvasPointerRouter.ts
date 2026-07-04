@@ -77,13 +77,8 @@ import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants
 import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneEntity,
-  EdgeSide,
-  LayoutUpdateData,
-  SelectionModifiers,
-} from '../../shared/types'
+import type { CanvasSceneEntity, EdgeSide, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   startOptionAwareEntityDrag,
   startOptionAwareGroupDrag,
