@@ -93,6 +93,9 @@ export function initializeDocObservers(refs: RuntimeStateRefs): void {
 
 let _syncScheduled = false
 let _batchingActive = false
+// One-shot: set by commitAsOneTransaction after it has already synced, so the
+// mutation trailer's requestDocSync doesn't open a second (empty) transaction.
+let _docSyncSatisfied = false
 
 /**
  * Begin batching: suppress doc sync until endBatch() is called, coalescing a
@@ -141,6 +144,14 @@ export function commitAsOneTransaction(mutate: () => void): void {
   } finally {
     _batchingActive = wasBatching
   }
+  // The doc now matches runtime, but the `mutateWorkspace` trailer runs
+  // *after* this returns and its `requestDocSync` would open a second, empty
+  // transaction. Swallow exactly that one request; the flag dies with the
+  // current tick so later syncs are unaffected.
+  _docSyncSatisfied = true
+  queueMicrotask(() => {
+    _docSyncSatisfied = false
+  })
 }
 
 /**
@@ -149,6 +160,10 @@ export function commitAsOneTransaction(mutate: () => void): void {
  * Call this from scheduleWorkspaceAutosave().
  */
 export function requestDocSync(): void {
+  if (_docSyncSatisfied) {
+    _docSyncSatisfied = false
+    return
+  }
   if (isDocSyncSuppressed() || _batchingActive || _syncScheduled || !_refs) return
   _syncScheduled = true
   queueMicrotask(() => {
