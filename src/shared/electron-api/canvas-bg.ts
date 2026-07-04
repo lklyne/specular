@@ -13,15 +13,15 @@ import type {
   CanvasEntityKind,
   CanvasLayoutBootstrapData,
   EdgeSide,
+  EntityUpdatePatchMap,
   FocusPresentationMode,
   ForwardPointerPayload,
   ForwardWheelPayload,
   LayoutUpdateData,
   SelectionModifiers,
   SelectionOverlayPayload,
-  ShapeKind,
-  TextWidthMode,
   ThemeData,
+  UpdatableEntityKind,
   ViewportNudge,
   WorkspaceBounds,
 } from '../types'
@@ -78,16 +78,13 @@ export interface CanvasBgElectronAPI {
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
     targetId?: string,
   ) => void
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }) => void
+  updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
-  updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteFileEntity: (id: string) => void
   duplicateFileEntity: (id: string) => void
-  updateDrawingEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }) => void
   deleteDrawingEntity: (id: string) => void
   duplicateDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   duplicateShapeEntity: (id: string) => void
   placePendingShape: (
@@ -103,7 +100,6 @@ export interface CanvasBgElectronAPI {
   cancelEntityEdit: () => void
   showFileInFinder: (filePath: string) => void
   copyFileAsPng: (filePath: string) => void
-  updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) => void
   duplicateGroup: (id: string) => void
   deleteGroup: (id: string) => void
   renameGroup: (groupId: string, name: string) => void

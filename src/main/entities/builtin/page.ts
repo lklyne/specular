@@ -13,11 +13,17 @@ import {
   deviceForPresetIndex,
 } from '../../../shared/device-catalog'
 import type { PersistedPageEntity } from '../../../shared/types'
+import type { JsonCanvasLinkNode } from '../../../shared/json-canvas-types'
 import { normalizeUserUrl } from '../../../shared/url'
 import { navigatePage } from '../../navigation-sync'
 import { createPages } from '../../workspace-pages'
 import { deletePages } from '../../workspace-entities'
-import { findPageById } from '../../runtime/runtime-context'
+import { findPageById, pages } from '../../runtime/runtime-context'
+import { createPage, removePageById } from '../../runtime/page-factory'
+import {
+  PAGE_PERSISTED_FIELDS,
+  restorePagesFromDoc,
+} from '../../runtime/page-doc-projection'
 import {
   setDeviceOrientation,
   setPagePreset,
@@ -26,12 +32,15 @@ import {
   setShowDeviceFrameMetadata,
   showDeviceFrameFromMetadata,
 } from '../../runtime/runtime-entities'
-import { serializePageToLinkNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeLinkNodeToPage,
+  serializePageToLinkNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 export const pageKind: EntityKindDefinition<'page'> = {
   kind: 'page',
-  fields: ['canvasX', 'canvasY', 'presetIndex', 'orientation', 'showDeviceFrame', 'url'],
+  fields: PAGE_PERSISTED_FIELDS,
 
   create(input) {
     const presetIndex = (input.presetIndex as number | undefined) ?? LAPTOP_PRESET_INDEX
@@ -89,9 +98,25 @@ export const pageKind: EntityKindDefinition<'page'> = {
     return serializePageToLinkNode(entity as PersistedPageEntity)
   },
 
+  deserialize(node) {
+    return deserializeLinkNodeToPage(node as JsonCanvasLinkNode)
+  },
+
   defaultSize(input) {
     const presetIndex = (input.presetIndex as number | undefined) ?? LAPTOP_PRESET_INDEX
     const preset = VIEWPORT_PRESETS[presetIndex] ?? VIEWPORT_PRESETS[LAPTOP_PRESET_INDEX]
     return { width: preset?.width ?? 1280, height: preset?.height ?? 800 }
+  },
+
+  entities: () => pages,
+
+  restore(snapshots) {
+    restorePagesFromDoc(snapshots, {
+      pages,
+      createPage: (data) => {
+        createPage(data as unknown as Parameters<typeof createPage>[0])
+      },
+      removePageById,
+    })
   },
 }

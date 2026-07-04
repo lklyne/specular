@@ -38,9 +38,11 @@ import {
   redo as redoCanvas,
   canUndo as canUndoCanvas,
   canRedo as canRedoCanvas,
-  markUndoBoundary,
 } from '../runtime/workspace-undo'
-import { beginBatch, endBatch } from '../runtime/workspace-observers'
+import {
+  beginGestureSession,
+  type GestureSession,
+} from '../runtime/workspace-gesture-session'
 import { flushWorkspaceAutosaveSync, loadWorkspace } from '../runtime/workspace-autosave'
 import {
   DEFAULT_WORKSPACE_ID,
@@ -72,6 +74,9 @@ import type { SidebarSectionKey } from '../../shared/types'
 
 let _transactionCount = 0
 let _transactionCounterHandler: ((tx: { origin: unknown }) => void) | null = null
+
+// Mirrors the canvas-multi-resize IPC handlers (register-canvas-drag-ipc.ts).
+let multiResizeSession: GestureSession | null = null
 
 function startTransactionCounter(): void {
   if (_transactionCounterHandler) {
@@ -237,7 +242,7 @@ export const testRoutes: Route[] = [
         writeJson(response, 200, { ok: false, refused: true, reason: token.reason })
         return
       }
-      beginBatch()
+      multiResizeSession = beginGestureSession()
       writeJson(response, 200, { ok: true })
     },
   },
@@ -254,8 +259,8 @@ export const testRoutes: Route[] = [
     method: 'POST',
     pattern: '/test/canvas-multi-resize/end',
     async handler({ response }) {
-      endBatch()
-      markUndoBoundary()
+      multiResizeSession?.finalize()
+      multiResizeSession = null
       commitActive()
       writeJson(response, 200, { ok: true })
     },

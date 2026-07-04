@@ -6,7 +6,7 @@ import {
   loadWorkspace,
 } from './runtime/workspace-autosave'
 import { restorePersistedWorkspace } from './runtime/workspace-restore'
-import { createPage, pages, removePageById, setMcpConnectionStatus } from './runtime/page-runtime'
+import { createPage, pages, setMcpConnectionStatus } from './runtime/page-runtime'
 import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
 import { duplicatePageFromSource } from './workspace-pages'
 import { requestLayout } from './runtime/viewport-control'
@@ -41,10 +41,6 @@ import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from
 import { getActiveDoc } from './runtime/workspace-doc'
 import { zoom, pan } from './runtime/runtime-context'
 import { workspaceGroups, workspaceEdges, workspaceAnnotations, workspaceTabs, activeWorkspaceTabId, setActiveWorkspaceTabId } from './runtime/workspace-model'
-import { textEntities } from './runtime/text-entity-state'
-import { fileEntities } from './runtime/file-entity-state'
-import { drawingEntities } from './runtime/drawing-entity-state'
-import { shapeEntities } from './runtime/shape-entity-state'
 import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
@@ -211,31 +207,13 @@ app.whenReady().then(async () => {
   )
   initializeDocObservers({
     pages,
-    textEntities,
-    fileEntities,
-    drawingEntities,
-    shapeEntities,
     workspaceGroups,
     workspaceEdges,
     workspaceAnnotations,
     getZoom: () => zoom,
     getPan: () => pan,
-    serializePage: (page) => ({
-      id: page.id,
-      name: page.name,
-      url: page.url,
-      presetIndex: page.presetIndex,
-      canvasX: page.canvasX,
-      canvasY: page.canvasY,
-      linked: page.linked,
-      source: (page as any).source,
-      parentGroupId: page.parentGroupId ?? (page as any).groupId,
-      metadata: page.metadata,
-    }),
     cancelActiveInteraction: () => cancelActiveInteraction('undo'),
     sendInteractiveState,
-    createPage: (data) => createPage(data as any),
-    removePageById,
     destroyActivePages,
     getActiveTabId: () => activeWorkspaceTabId,
     setActiveTabId: setActiveWorkspaceTabId,

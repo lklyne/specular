@@ -1541,6 +1541,23 @@ export interface ViewportNudge {
   zoom: number
 }
 
+/**
+ * Per-kind interactive update patch shapes. `updateEntity` is typed by this map
+ * so a text patch sent with `kind: 'shape'` is a compile error at the call
+ * site. Each patch is the union of every field the interactive path forwards
+ * for that kind; the registry `update` honors each (see
+ * `src/main/entities/builtin/*.ts`).
+ */
+export interface EntityUpdatePatchMap {
+  text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
+  file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
+  drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
+  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
+  group: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }
+}
+
+/** The entity kinds reachable through the generic `canvas-update-entity` channel. */
+export type UpdatableEntityKind = keyof EntityUpdatePatchMap
 export type CanvasDragStartSelection = {
   entityKind: CanvasEntityKind
   preserveSelection?: boolean

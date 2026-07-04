@@ -27,7 +27,7 @@ export function DrawingPopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'updateDrawingEntity'
+    | 'updateEntity'
     | 'focusSelection'
     | 'distributeSelection'
   >
@@ -61,7 +61,7 @@ export function DrawingPopup({
     for (const drawing of selectedDrawings) {
       const next = drawing.strokes.map(rewrite)
       const bbox = drawingBounds(next)
-      api.updateDrawingEntity(drawing.id, {
+      api.updateEntity('drawing', drawing.id, {
         strokes: next,
         canvasX: bbox.x,
         canvasY: bbox.y,

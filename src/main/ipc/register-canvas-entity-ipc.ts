@@ -1,7 +1,8 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { AnnotationCreateRequest } from '../../shared/types'
+import type { AnnotationCreateRequest, CanvasEntityKind } from '../../shared/types'
+import { getEntityKind, hasEntityKind } from '../entities/contract'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
 import { aboveView } from '../runtime/view-refs'
@@ -46,11 +47,6 @@ import {
   setPagePreset,
   toggleDeviceShell,
   toggleFileDeviceShell,
-  updateDrawingEntity,
-  updateFileEntity,
-  updateGroupEntity,
-  updateShapeEntity,
-  updateTextEntity,
   resizeMultiSelection,
   groupSelectedEntities,
   ungroupSelectedGroup,
@@ -615,37 +611,23 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  // --- Text Entity IPC ---
-
+  // Generic interactive update — one channel dispatching through the registry's
+  // per-kind `update` (create/delete stay per-kind: create payloads diverge,
+  // delete routes through `deleteSelection`). The renderer types the patch by
+  // kind (`EntityUpdatePatchMap`), so an ill-typed patch is a compile error.
   ipcMain.on(
-    ipcChannels.canvasUpdateTextEntity,
-    (_event, { id, patch }: { id: string; patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' } }) => {
-      updateTextEntity(id, patch)
+    ipcChannels.canvasUpdateEntity,
+    (_event, { kind, id, patch }: { kind: CanvasEntityKind; id: string; patch: Record<string, unknown> }) => {
+      if (!hasEntityKind(kind)) return
+      getEntityKind(kind).update(id, patch, {})
     },
   )
+
+  // --- Text Entity IPC ---
 
   ipcMain.on(ipcChannels.canvasDeleteTextEntity, (_event, { id }: { id: string }) => {
     deleteTextEntity(id)
   })
-
-  ipcMain.on(
-    ipcChannels.canvasUpdateDrawingEntity,
-    (
-      _event,
-      { id, patch }: {
-        id: string
-        patch: {
-          width?: number
-          height?: number
-          canvasX?: number
-          canvasY?: number
-          strokes?: import('../../shared/types').AnnotationDrawingStroke[]
-        }
-      },
-    ) => {
-      updateDrawingEntity(id, patch)
-    },
-  )
 
   ipcMain.on(ipcChannels.canvasDeleteDrawingEntity, (_event, { id }: { id: string }) => {
     deleteDrawingEntity(id)
@@ -661,33 +643,6 @@ export function registerCanvasEntityIpc(): void {
 
   // --- Shape Entity IPC ---
 
-  ipcMain.on(
-    ipcChannels.canvasUpdateShape,
-    (
-      _event,
-      {
-        id,
-        patch,
-      }: {
-        id: string
-        patch: Partial<{
-          shapeKind: 'rectangle' | 'ellipse' | 'diamond'
-          text: string
-          color: string
-          strokeWidth: number
-          textSize: number
-          theme: string
-          width: number
-          height: number
-          canvasX: number
-          canvasY: number
-        }>
-      },
-    ) => {
-      updateShapeEntity(id, patch)
-    },
-  )
-
   ipcMain.on(ipcChannels.canvasDeleteShape, (_event, { id }: { id: string }) => {
     deleteShapeEntity(id)
   })
@@ -697,13 +652,6 @@ export function registerCanvasEntityIpc(): void {
   })
 
   // --- File Entity IPC ---
-
-  ipcMain.on(
-    ipcChannels.canvasUpdateFileEntity,
-    (_event, { id, patch }: { id: string; patch: { width?: number; height?: number; canvasX?: number; canvasY?: number } }) => {
-      updateFileEntity(id, patch)
-    },
-  )
 
   ipcMain.on(ipcChannels.canvasDeleteFileEntity, (_event, { id }: { id: string }) => {
     deleteFileEntity(id)
@@ -755,13 +703,6 @@ export function registerCanvasEntityIpc(): void {
           ? morphTextEntityToMarkdownFile(entityId)
           : morphMarkdownFileToTextEntity(entityId)
       return result
-    },
-  )
-
-  ipcMain.on(
-    ipcChannels.canvasUpdateGroupEntity,
-    (_event, { id, patch }: { id: string; patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string } }) => {
-      updateGroupEntity(id, patch)
     },
   )
 

@@ -1,11 +1,18 @@
 import type { CreateEdgesRequest, CreateEdgesResponse, WorkspaceEdge } from '../shared/types'
 import { workspaceEdges } from './runtime/workspace-model'
 import { markDirty } from './runtime/layout-dirty'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import { appendStackOrderIdsAtTop } from './runtime/entity-order-state'
 import { makeId, cloneMetadata } from './workspace-utils'
 
 export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
+  return mutateWorkspace(
+    () => createEdgesInternal(input),
+    { changed: (result) => result.edgeIds.length > 0 },
+  )
+}
+
+function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
   const edgeIds: string[] = []
   for (const edge of input.edges) {
     const nextEdge: WorkspaceEdge = {
@@ -26,25 +33,21 @@ export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
   }
   if (edgeIds.length) {
     appendStackOrderIdsAtTop(edgeIds)
-    markDirty('canvas')
-    scheduleWorkspaceAutosave()
   }
   return { edgeIds }
 }
 
 export function deleteEdges(input: { edgeIds: string[] }): { deletedEdgeIds: string[] } {
-  const deletedEdgeIds: string[] = []
-  for (const edgeId of input.edgeIds) {
-    const idx = workspaceEdges.findIndex((edge) => edge.id === edgeId)
-    if (idx === -1) continue
-    deletedEdgeIds.push(workspaceEdges[idx].id)
-    workspaceEdges.splice(idx, 1)
-  }
-  if (deletedEdgeIds.length) {
-    markDirty('canvas')
-    scheduleWorkspaceAutosave()
-  }
-  return { deletedEdgeIds }
+  return mutateWorkspace(() => {
+    const deletedEdgeIds: string[] = []
+    for (const edgeId of input.edgeIds) {
+      const idx = workspaceEdges.findIndex((edge) => edge.id === edgeId)
+      if (idx === -1) continue
+      deletedEdgeIds.push(workspaceEdges[idx].id)
+      workspaceEdges.splice(idx, 1)
+    }
+    return { deletedEdgeIds }
+  }, { changed: (result) => result.deletedEdgeIds.length > 0 })
 }
 
 export function removeEdgesTouchingEntities(entityIds: Set<string>): string[] {

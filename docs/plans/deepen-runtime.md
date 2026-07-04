@@ -70,6 +70,16 @@ contract); `footprintForItem` dispatches through `defaultSize`. The 6-branch
 chains in `json-canvas-serializer.ts` and the kind arms in
 `workspace-restore.ts` collapse. Pure relocation — same functions, one owner.
 
+**Done, with two constraints discovered in implementation:** (a) `defaultSize`
+dispatch is deferred — `sizeForItem` (the function's real name; `footprintForItem`
+never existed) is bundled into the non-Electron CLI/MCP builds where
+`registerBuiltInEntityKinds()` never runs, so registry dispatch would throw;
+importing the builtins there drags Electron-dependent main code into the lean
+bundle. `defaultSize` stays dead until footprint computation moves server-side.
+(b) The `workspace-restore.ts` kind chain operates on already-deserialized
+persisted entities creating *runtime* state — that is step 3/4's
+entity→runtime hydration member, not `deserialize`; left for step 4.
+
 ### 2. Kind capability table
 
 `src/shared/entity-kind-caps.ts`: exhaustive

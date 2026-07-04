@@ -4,12 +4,12 @@ import type {
   DevtoolsPanelData,
   EdgeEnd,
   EdgeSide,
-  FileObjectFit,
+  EntityUpdatePatchMap,
   FixModel,
   FixPermissions,
-  ShapeKind,
   ThemeBootstrapData,
   ThemeData,
+  UpdatableEntityKind,
 } from '../types'
 
 export interface DevtoolsPanelElectronAPI {
@@ -37,10 +37,9 @@ export interface DevtoolsPanelElectronAPI {
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
-  updateTextEntity: (id: string, patch: { color?: string; textSize?: number }) => void
+  updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
-  updateFileEntity: (id: string, patch: { objectFit?: FileObjectFit }) => void
   duplicateFileEntity: (id: string) => void
   deleteFileEntity: (id: string) => void
   setFilePreset: (fileId: string, presetIndex: number) => void
@@ -48,7 +47,6 @@ export interface DevtoolsPanelElectronAPI {
   setFileDeviceOrientation: (fileId: string, orientation: string) => void
   toggleFileDeviceShell: (fileId: string) => void
   deleteDrawingEntity: (id: string) => void
-  updateShapeEntity: (id: string, patch: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   deleteShapeEntity: (id: string) => void
   updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
   deleteEdge: (id: string) => void

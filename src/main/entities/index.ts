@@ -14,7 +14,11 @@ import { groupKind } from './builtin/group'
 import { drawingKind } from './builtin/drawing'
 import { shapeKind } from './builtin/shape'
 
-const builtIns = [pageKind, textKind, fileKind, groupKind, drawingKind, shapeKind]
+// Registration order is the canonical kind order the fan-out sites enumerate
+// (`allEntities()` / `forEachEntityKind()` walk it): page, text, file, drawing,
+// shape, group — group trails the map-projectable kinds, matching scene z-order
+// and `defaultEntityOrder`. Lookups (`getEntityKind`) are order-independent.
+const builtIns = [pageKind, textKind, fileKind, drawingKind, shapeKind, groupKind]
 
 let registered = false
 

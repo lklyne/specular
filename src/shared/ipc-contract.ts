@@ -171,12 +171,8 @@ export interface IpcContract {
   'canvas-toggle-linked-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-ungroup-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-ungroup-selection': { dir: 'renderer→main'; payload: unknown }
-  'canvas-update-drawing-entity': { dir: 'renderer→main'; payload: unknown }
-  'canvas-update-file-entity': { dir: 'renderer→main'; payload: unknown }
-  'canvas-update-group-entity': { dir: 'renderer→main'; payload: unknown }
+  'canvas-update-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-update-page-bounds': { dir: 'renderer→main'; payload: unknown }
-  'canvas-update-shape': { dir: 'renderer→main'; payload: unknown }
-  'canvas-update-text-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-zoom': { dir: 'renderer→main'; payload: unknown }
   'capture-mode': { dir: 'main→renderer'; payload: boolean }
   'comment-canvas-point-committed': { dir: 'main→renderer'; payload: { canvasX: number; canvasY: number } }
@@ -462,12 +458,8 @@ export const ipcChannels = {
   canvasToggleLinkedSelection: 'canvas-toggle-linked-selection',
   canvasUngroupGroup: 'canvas-ungroup-group',
   canvasUngroupSelection: 'canvas-ungroup-selection',
-  canvasUpdateDrawingEntity: 'canvas-update-drawing-entity',
-  canvasUpdateFileEntity: 'canvas-update-file-entity',
-  canvasUpdateGroupEntity: 'canvas-update-group-entity',
+  canvasUpdateEntity: 'canvas-update-entity',
   canvasUpdatePageBounds: 'canvas-update-page-bounds',
-  canvasUpdateShape: 'canvas-update-shape',
-  canvasUpdateTextEntity: 'canvas-update-text-entity',
   canvasZoom: 'canvas-zoom',
   captureMode: 'capture-mode',
   commentCanvasPointCommitted: 'comment-canvas-point-committed',

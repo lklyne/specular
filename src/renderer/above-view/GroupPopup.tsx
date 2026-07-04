@@ -13,7 +13,7 @@ export function GroupPopup({
   selectedGroup,
   interactionIdle,
 }: {
-  api: Pick<CanvasBgElectronAPI, 'updateGroupEntity' | 'focusSelection'>
+  api: Pick<CanvasBgElectronAPI, 'updateEntity' | 'focusSelection'>
   isDark: boolean
   layout: LayoutUpdateData
   selectedGroup: CanvasSceneGroupEntity | null
@@ -41,7 +41,7 @@ export function GroupPopup({
           role="fill"
           noun="group"
           onPick={(storage) =>
-            api.updateGroupEntity(selectedGroup.id, { color: storage })
+            api.updateEntity('group', selectedGroup.id, { color: storage })
           }
         />
         <CanvasItemPopup.EntityActions

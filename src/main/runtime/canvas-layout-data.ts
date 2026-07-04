@@ -75,7 +75,6 @@ import {
 import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
 import {
   textEntities,
-  buildTextEntitySceneEntity,
   DEFAULT_TEXT_WIDTH,
   DEFAULT_TEXT_HEIGHT,
 } from './text-entity-state'
@@ -88,20 +87,17 @@ import {
 } from './runtime-entities'
 import {
   fileEntities,
-  buildFileEntitySceneEntity,
   DEFAULT_FILE_WIDTH,
   DEFAULT_FILE_HEIGHT,
 } from './file-entity-state'
-import {
-  drawingEntitiesForUi,
-  buildDrawingEntitySceneEntity,
-} from './drawing-entity-state'
+import { drawingEntitiesForUi } from './drawing-entity-state'
 import {
   shapeEntities,
-  buildShapeEntitySceneEntity,
   defaultShapeSize,
 } from './shape-entity-state'
 import { buildGroupSceneEntity } from './group-entity-state'
+import { getEntityKind, type RuntimeEntity } from '../entities/contract'
+import type { CanvasEntityKind } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import { workspaceTabSummaries } from './workspace-tabs'
 import { getPresenceCursors } from '../presence-cursor'
@@ -342,19 +338,19 @@ export function buildCanvasLayoutData(
   const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
   const padRight = isMac ? TOOLBAR_PAD_RIGHT_MAC : TOOLBAR_PAD_RIGHT_OTHER
   const toolbarCenterX = (padLeft + Math.max(0, windowWidth - padRight)) / 2
+  // Project each map-projectable kind through its registry `buildSceneEntity`.
+  // `drawing` reads its UI-filtered view (`drawingEntitiesForUi()`), which is
+  // distinct from the raw persisted store the registry's `entities()` exposes.
+  const leafSceneSources: { kind: CanvasEntityKind; source: readonly RuntimeEntity[] }[] = [
+    { kind: 'text', source: textEntities },
+    { kind: 'file', source: fileEntities },
+    { kind: 'drawing', source: drawingEntitiesForUi() },
+    { kind: 'shape', source: shapeEntities },
+  ]
   const entities = [
     ...pages,
-    ...textEntities.map((te) =>
-      buildTextEntitySceneEntity(te, zoom, pan, origin)
-    ),
-    ...fileEntities.map((fe) =>
-      buildFileEntitySceneEntity(fe, zoom, pan, origin)
-    ),
-    ...drawingEntitiesForUi().map((de) =>
-      buildDrawingEntitySceneEntity(de, zoom, pan, origin)
-    ),
-    ...shapeEntities.map((se) =>
-      buildShapeEntitySceneEntity(se, zoom, pan, origin)
+    ...leafSceneSources.flatMap(({ kind, source }) =>
+      source.map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
     ),
     ...groupEntities,
   ] as CanvasSceneEntity[]

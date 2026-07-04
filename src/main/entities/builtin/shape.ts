@@ -4,21 +4,30 @@
  */
 
 import type { PersistedShapeEntity, ShapeKind } from '../../../shared/types'
+import type { JsonCanvasShapeNode } from '../../../shared/json-canvas-types'
 import {
   createShapeEntity,
   deleteShapeEntity,
   updateShapeEntity,
 } from '../../runtime/document-commands'
 import {
+  buildShapeEntitySceneEntity,
   DEFAULT_SHAPE_HEIGHT,
   DEFAULT_SHAPE_WIDTH,
+  persistShapeEntity,
+  shapeEntities,
+  SHAPE_ENTITY_PERSISTED_FIELDS,
+  type ShapeEntity,
 } from '../../runtime/shape-entity-state'
-import { serializeShapeToShapeNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeShapeNodeToShape,
+  serializeShapeToShapeNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 export const shapeKind: EntityKindDefinition<'shape'> = {
   kind: 'shape',
-  fields: ['canvasX', 'canvasY', 'width', 'height', 'shapeKind', 'text', 'color', 'strokeWidth', 'textSize'],
+  fields: SHAPE_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const entity = createShapeEntity({
@@ -47,6 +56,7 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
       color: patch.color as string | undefined,
       strokeWidth: patch.strokeWidth as number | undefined,
       textSize: patch.textSize as number | undefined,
+      theme: patch.theme as string | undefined,
     })
   },
 
@@ -58,7 +68,25 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
     return serializeShapeToShapeNode(entity as PersistedShapeEntity)
   },
 
+  deserialize(node) {
+    return deserializeShapeNodeToShape(node as JsonCanvasShapeNode)
+  },
+
   defaultSize() {
     return { width: DEFAULT_SHAPE_WIDTH, height: DEFAULT_SHAPE_HEIGHT }
   },
+
+  entities: () => shapeEntities,
+
+  restore(snapshots) {
+    shapeEntities.length = 0
+    for (const snapshot of snapshots) {
+      shapeEntities.push(snapshot as unknown as ShapeEntity)
+    }
+  },
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildShapeEntitySceneEntity(entity as ShapeEntity, zoom, pan, origin),
+
+  persist: (entity) => persistShapeEntity(entity as ShapeEntity),
 }
