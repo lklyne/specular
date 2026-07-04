@@ -964,32 +964,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         className="pointer-events-none absolute inset-0"
         style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
       >
-      {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
-        <PlacementPreviewLayer
-          isDark={isDark}
-          preview={{
-            ...placementPreview,
-            top: placementPreview.top - layoutData.canvasOrigin.y,
-          }}
-        />
-      ) : null}
-
-      {selectionOverlay?.variant === 'place-shape' &&
-      selectionOverlay.rect.width > 0 &&
-      selectionOverlay.rect.height > 0 ? (
-        <PlacementPreviewLayer
-          isDark={isDark}
-          preview={{
-            entityKind: 'shape',
-            shapeKind: selectionOverlay.shapeKind,
-            left: selectionOverlay.rect.left,
-            top: selectionOverlay.rect.top,
-            width: selectionOverlay.rect.width,
-            height: selectionOverlay.rect.height,
-          }}
-        />
-      ) : null}
-
       {!captureMode ? (
         <>
           {/* ADR 0006: region anchors always render their resting visual,
@@ -1078,6 +1052,37 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               layout={layoutData}
               active
               isDark={isDark}
+            />
+          ) : null}
+
+          {/* Placement preview renders after StackedCanvasItems for the same
+              reason the drawing preview does: the ghost sits above existing
+              entity bodies, matching where the stamped item lands at the top of
+              the entity order. Rendered earlier it paints beneath file entities
+              and then jumps on top once placed. */}
+          {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
+            <PlacementPreviewLayer
+              isDark={isDark}
+              preview={{
+                ...placementPreview,
+                top: placementPreview.top - layoutData.canvasOrigin.y,
+              }}
+            />
+          ) : null}
+
+          {selectionOverlay?.variant === 'place-shape' &&
+          selectionOverlay.rect.width > 0 &&
+          selectionOverlay.rect.height > 0 ? (
+            <PlacementPreviewLayer
+              isDark={isDark}
+              preview={{
+                entityKind: 'shape',
+                shapeKind: selectionOverlay.shapeKind,
+                left: selectionOverlay.rect.left,
+                top: selectionOverlay.rect.top,
+                width: selectionOverlay.rect.width,
+                height: selectionOverlay.rect.height,
+              }}
             />
           ) : null}
 
