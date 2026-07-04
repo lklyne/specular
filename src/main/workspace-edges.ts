@@ -5,6 +5,10 @@ import { mutateWorkspace } from './runtime/mutate-workspace'
 import { appendStackOrderIdsAtTop } from './runtime/entity-order-state'
 import { makeId, cloneMetadata } from './workspace-utils'
 
+export function edgeExists(id: string): boolean {
+  return workspaceEdges.some((edge) => edge.id === id)
+}
+
 export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
   return mutateWorkspace(
     () => createEdgesInternal(input),
@@ -14,7 +18,26 @@ export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
 
 function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
   const edgeIds: string[] = []
+  const newIds: string[] = []
   for (const edge of input.edges) {
+    // A caller-supplied id that already exists is an update, not a second
+    // record — this is the only door edges are created through, so guarding
+    // here keeps duplicate ids impossible everywhere (apply route included).
+    const existing = edge.id ? workspaceEdges.find((e) => e.id === edge.id) : undefined
+    if (existing) {
+      existing.fromEntityId = edge.fromEntityId
+      existing.toEntityId = edge.toEntityId
+      existing.fromSide = edge.fromSide
+      existing.toSide = edge.toSide
+      existing.fromEnd = edge.fromEnd
+      existing.toEnd = edge.toEnd
+      existing.color = edge.color
+      existing.label = edge.label
+      existing.kind = edge.kind
+      existing.metadata = cloneMetadata(edge.metadata)
+      edgeIds.push(existing.id)
+      continue
+    }
     const nextEdge: WorkspaceEdge = {
       id: edge.id ?? makeId('edge'),
       fromEntityId: edge.fromEntityId,
@@ -30,9 +53,10 @@ function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
     }
     workspaceEdges.push(nextEdge)
     edgeIds.push(nextEdge.id)
+    newIds.push(nextEdge.id)
   }
-  if (edgeIds.length) {
-    appendStackOrderIdsAtTop(edgeIds)
+  if (newIds.length) {
+    appendStackOrderIdsAtTop(newIds)
   }
   return { edgeIds }
 }

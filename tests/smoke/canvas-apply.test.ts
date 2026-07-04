@@ -5,6 +5,7 @@ import {
   getTextEntities,
   getWorkspace,
   resetSmokeState,
+  undoWorkspace,
 } from './app-client'
 
 /**
@@ -111,6 +112,40 @@ describe('canvas apply + get', () => {
     const ids = (await getTextEntities()).textEntities.map((e) => e.id)
     expect(ids).toContain(to)
     expect(ids).not.toContain(from)
+  })
+
+  it('patches an edge in place when the apply patch reuses its id, instead of duplicating it', async () => {
+    // Bug #295: edge items were unconditionally routed to creation, so an
+    // apply patch carrying an existing edge id appended a second record
+    // instead of updating the first.
+    const { created } = await applyCanvas({
+      entities: [
+        { kind: 'text', text: 'from', canvasX: 0, canvasY: 0 },
+        { kind: 'text', text: 'to', canvasX: 200, canvasY: 0 },
+      ],
+    })
+    const [from, to] = created
+
+    const linked = await applyCanvas({
+      edges: [{ fromEntityId: from, toEntityId: to, kind: 'connection', label: 'v1' }],
+    })
+    const edgeId = linked.edges[0]
+
+    const relabeled = await applyCanvas({
+      edges: [{ id: edgeId, label: 'v2' }],
+    })
+    expect(relabeled.edges).toEqual([edgeId])
+
+    const doc = await getCanvas()
+    const matching = doc.edges.filter((e) => e.id === edgeId)
+    expect(matching).toHaveLength(1)
+    expect(matching[0].label).toBe('v2')
+
+    await undoWorkspace()
+    const afterUndo = await getCanvas()
+    const revertedMatching = afterUndo.edges.filter((e) => e.id === edgeId)
+    expect(revertedMatching).toHaveLength(1)
+    expect(revertedMatching[0].label).toBe('v1')
   })
 
   it('creates every entity kind via apply — incl. drawing/shape, which had no create path before', async () => {
