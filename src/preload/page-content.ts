@@ -1,5 +1,9 @@
 import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
+import {
+  CAPTURE_SUPPRESSION_CSS,
+  CAPTURE_SUPPRESSION_STYLE_ID,
+} from './capture-suppression'
 import type {
   Annotation,
   AnnotationBboxSubscription,
@@ -74,9 +78,27 @@ let interactive = false
 let multiSelected = false
 let canvasZoom = 1
 let annotateEnabled = false
+let captureSuppressionStyleEl: HTMLStyleElement | null = null
 let cleanupBlockingOverlayListeners: (() => void) | null = null
 const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
 let lastReportedTextEditing = false
+
+function setCaptureSuppression(active: boolean): void {
+  if (!active) {
+    captureSuppressionStyleEl?.remove()
+    captureSuppressionStyleEl = null
+    queueRefreshCommentHoverOverlay()
+    queueRefreshDomInspectionOverlay()
+    queueRenderCommentBadges()
+    return
+  }
+  if (captureSuppressionStyleEl?.isConnected) return
+  const style = document.createElement('style')
+  style.id = CAPTURE_SUPPRESSION_STYLE_ID
+  style.textContent = CAPTURE_SUPPRESSION_CSS
+  document.documentElement.appendChild(style)
+  captureSuppressionStyleEl = style
+}
 
 function selectionDebug(event: string, details?: Record<string, unknown>): void {
   if (!SELECTION_DEBUG) return
@@ -386,6 +408,10 @@ ipcRenderer.on(ipcChannels.setAnnotateMode, (_event, payload: { enabled?: boolea
 ipcRenderer.on(ipcChannels.annotateClearHover, () => {
   if (!annotateEnabled) return
   hideDomInspectionOverlay()
+})
+
+ipcRenderer.on(ipcChannels.captureMode, (_event, active: boolean) => {
+  setCaptureSuppression(Boolean(active))
 })
 
 // ADR 0006 — page-paints contract for the unified comment tool. Main fans

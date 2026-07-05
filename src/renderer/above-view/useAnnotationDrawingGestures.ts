@@ -1,7 +1,11 @@
 import { useCallback, useRef } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { isOverlayUiTarget, screenPointToCanvasPoint } from '../../shared/gesture-utils'
+import {
+  clientYToWindowY,
+  isOverlayUiTarget,
+  screenPointToCanvasPoint,
+} from '../../shared/gesture-utils'
 import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './annotationMath'
 
 export function useAnnotationDrawingGestures({
@@ -53,7 +57,7 @@ export function useAnnotationDrawingGestures({
         const strokeId = `stroke_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
         const startPoint = screenPointToCanvasPoint(
           event.clientX,
-          event.clientY + layoutRef.current.canvasOrigin.y,
+          clientYToWindowY(event.clientY, layoutRef.current),
           layoutRef.current,
         )
         activeStrokeRef.current = { pointerId: event.pointerId, strokeId }
@@ -115,7 +119,7 @@ export function useAnnotationDrawingGestures({
       if (event.pointerId !== activeStroke.pointerId) return
       const pointerPoint = screenPointToCanvasPoint(
         event.clientX,
-        event.clientY + layoutRef.current.canvasOrigin.y,
+        clientYToWindowY(event.clientY, layoutRef.current),
         layoutRef.current,
       )
       const current = sessionRef.current

@@ -4,6 +4,7 @@ import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
   canScrollWheelTarget,
+  clientYToWindowY,
   normalizeRect,
   screenRectToCanvasRect,
 } from '../../shared/gesture-utils'
@@ -774,7 +775,7 @@ export default function App({
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return false
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       // In focus presentation the camera is locked on the page, so any wheel
       // scrolls it — skip the cursor-over-body check used for selected pages.
       if (!focusedPageId && !pointerOverPageContent(page, { x: event.clientX, y: windowY })) {

@@ -7,6 +7,7 @@ export const DRAG_THRESHOLD = 4
 export {
   canvasToScreenX,
   canvasToScreenY,
+  clientYToWindowY,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
   toOverlayY,

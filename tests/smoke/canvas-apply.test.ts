@@ -5,6 +5,7 @@ import {
   getTextEntities,
   getWorkspace,
   resetSmokeState,
+  undoWorkspace,
 } from './app-client'
 
 /**
@@ -113,6 +114,40 @@ describe('canvas apply + get', () => {
     expect(ids).not.toContain(from)
   })
 
+  it('patches an edge in place when the apply patch reuses its id, instead of duplicating it', async () => {
+    // Bug #295: edge items were unconditionally routed to creation, so an
+    // apply patch carrying an existing edge id appended a second record
+    // instead of updating the first.
+    const { created } = await applyCanvas({
+      entities: [
+        { kind: 'text', text: 'from', canvasX: 0, canvasY: 0 },
+        { kind: 'text', text: 'to', canvasX: 200, canvasY: 0 },
+      ],
+    })
+    const [from, to] = created
+
+    const linked = await applyCanvas({
+      edges: [{ fromEntityId: from, toEntityId: to, kind: 'connection', label: 'v1' }],
+    })
+    const edgeId = linked.edges[0]
+
+    const relabeled = await applyCanvas({
+      edges: [{ id: edgeId, label: 'v2' }],
+    })
+    expect(relabeled.edges).toEqual([edgeId])
+
+    const doc = await getCanvas()
+    const matching = doc.edges.filter((e) => e.id === edgeId)
+    expect(matching).toHaveLength(1)
+    expect(matching[0].label).toBe('v2')
+
+    await undoWorkspace()
+    const afterUndo = await getCanvas()
+    const revertedMatching = afterUndo.edges.filter((e) => e.id === edgeId)
+    expect(revertedMatching).toHaveLength(1)
+    expect(revertedMatching[0].label).toBe('v1')
+  })
+
   it('creates every entity kind via apply — incl. drawing/shape, which had no create path before', async () => {
     // The `add` verb (ADR 0019 §1) and direct `apply` both compile to this
     // spine. Drawing and shape never had a create route; the registry handlers
@@ -148,6 +183,33 @@ describe('canvas apply + get', () => {
     expect(byId.get(shapeId)).toBe('shape')
     expect(byId.get(drawingId)).toBe('drawing')
     expect(byId.get(groupId)).toBe('group')
+  })
+
+  it('renames a group via --text, aliased to label; explicit label wins over text; undo restores the prior name', async () => {
+    const seed = await applyCanvas({
+      entities: [
+        { kind: 'text', forceKind: true, text: 'a', canvasX: 0, canvasY: 0 },
+        { kind: 'text', forceKind: true, text: 'b', canvasX: 200, canvasY: 0 },
+      ],
+    })
+    const [a, b] = seed.created
+    const { created } = await applyCanvas({
+      entities: [{ kind: 'group', entityIds: [a, b], label: 'original' }],
+    })
+    const groupId = created[0]
+
+    const { updated } = await applyCanvas({ entities: [{ id: groupId, kind: 'group', text: 'renamed' }] })
+    expect(updated).toEqual([groupId])
+    const renamed = (await getCanvas()).nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(renamed?.label).toBe('renamed')
+
+    await undoWorkspace()
+    const reverted = (await getCanvas()).nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(reverted?.label).toBe('original')
+
+    await applyCanvas({ entities: [{ id: groupId, kind: 'group', text: 'ignored', label: 'explicit' }] })
+    const explicit = (await getCanvas()).nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(explicit?.label).toBe('explicit')
   })
 
   it('accepts kind:"note" as an alias for text — same vocabulary as `add note`', async () => {
