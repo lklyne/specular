@@ -6,20 +6,12 @@
  */
 
 import { ipcChannels } from '../../shared/ipc-contract'
-import { nativeImage, screen as electronScreen } from 'electron'
+import { nativeImage, screen as electronScreen, type WebContents } from 'electron'
 import type { WorkspaceBounds } from '../../shared/types'
 import { captureFrameComposited, captureViewRegion } from './frame-compositor'
 import { boundCanvasOrigin, boundsOverlap, pageBodyCanvasBounds } from './runtime-geometry'
-import { aboveView, bgView } from './view-refs'
-
-function setRendererCaptureMode(active: boolean): void {
-  for (const view of [bgView, aboveView]) {
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.send(ipcChannels.captureMode, active)
-    }
-  }
-}
 import { pages, zoom, pan } from './runtime-context'
+import { aboveView, bgView } from './view-refs'
 import { win } from './window-shell'
 import type { Page } from './runtime-entities'
 import {
@@ -28,6 +20,40 @@ import {
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
 import { contentCornerRadiusForDevice } from '../../shared/device-catalog'
+
+function sendCaptureMode(webContents: WebContents | undefined, active: boolean): void {
+  if (!webContents || webContents.isDestroyed()) return
+  webContents.send(ipcChannels.captureMode, active)
+}
+
+function captureModeTargets(): WebContents[] {
+  const viewTargets = [bgView, aboveView]
+    .map((view) => view?.webContents)
+    .filter((webContents): webContents is WebContents => Boolean(webContents))
+  const pageTargets = pages.map((page) => page.pageView.webContents)
+  return [...viewTargets, ...pageTargets]
+}
+
+function setRendererCaptureMode(active: boolean): void {
+  for (const webContents of captureModeTargets()) {
+    sendCaptureMode(webContents, active)
+  }
+}
+
+function canvasRectToScreenRect(canvasRect: WorkspaceBounds): {
+  x: number
+  y: number
+  width: number
+  height: number
+} {
+  const origin = boundCanvasOrigin()
+  return {
+    x: origin.x + canvasRect.x * zoom + pan.x,
+    y: origin.y + canvasRect.y * zoom + pan.y,
+    width: canvasRect.width * zoom,
+    height: canvasRect.height * zoom,
+  }
+}
 
 function pageCornerRadiusPx(page: Page, dpr: number): number {
   const deviceId = deviceIdFromMetadata(page.metadata)
@@ -102,13 +128,7 @@ async function captureRegionInternal(
 
   if (opts?.includeBgView && bgView && !bgView.webContents.isDestroyed()) {
     // Convert canvas rect to screen coordinates for the bgView crop.
-    const origin = boundCanvasOrigin()
-    const screenRect = {
-      x: origin.x + canvasRect.x * zoom + pan.x,
-      y: origin.y + canvasRect.y * zoom + pan.y,
-      width: canvasRect.width * zoom,
-      height: canvasRect.height * zoom,
-    }
+    const screenRect = canvasRectToScreenRect(canvasRect)
     const bgCapture = await captureViewRegion(bgView, screenRect, { dpr })
     if (bgCapture && bgCapture.width === outW && bgCapture.height === outH) {
       outBuf = bgCapture.bitmap
@@ -180,13 +200,7 @@ async function captureRegionInternal(
 
   // Composite above-view (drawing strokes, annotation overlays) on top.
   if (aboveView && !aboveView.webContents.isDestroyed()) {
-    const origin = boundCanvasOrigin()
-    const screenRect = {
-      x: origin.x + canvasRect.x * zoom + pan.x,
-      y: origin.y + canvasRect.y * zoom + pan.y,
-      width: canvasRect.width * zoom,
-      height: canvasRect.height * zoom,
-    }
+    const screenRect = canvasRectToScreenRect(canvasRect)
     const aboveCapture = await captureViewRegion(aboveView, screenRect, { dpr })
     if (aboveCapture && aboveCapture.width === outW && aboveCapture.height === outH) {
       const src = aboveCapture.bitmap
