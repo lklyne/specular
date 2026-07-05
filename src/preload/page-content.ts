@@ -317,13 +317,7 @@ function injectBlockingOverlay(): void {
   }
   window.addEventListener('mouseup', handleWindowMouseUp)
 
-  // Hover state forwarding
-  overlay.addEventListener('mouseenter', () => {
-    ipcRenderer.send(ipcChannels.pageHover, true)
-  })
-
   overlay.addEventListener('mouseleave', () => {
-    ipcRenderer.send(ipcChannels.pageHover, false)
     middleDrag = null
   })
 
@@ -767,14 +761,6 @@ window.addEventListener(
 
 window.addEventListener('blur', () => {
   hideCommentBadgeHover()
-})
-
-// --- Page hover state ---
-window.addEventListener('mouseenter', () => {
-  ipcRenderer.send(ipcChannels.pageHover, true)
-})
-window.addEventListener('mouseleave', () => {
-  ipcRenderer.send(ipcChannels.pageHover, false)
 })
 
 // --- Resize handle ---

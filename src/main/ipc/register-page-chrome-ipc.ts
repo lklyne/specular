@@ -34,10 +34,6 @@ export function registerPageChromeIpc(): void {
     },
   )
 
-  // No 'page-hover' handler: aboveView's hit-test is the sole hover authority
-  // (its gate is open by default per gate-predicate.ts), so the page's forwarded
-  // hover events are intentionally dropped — an unhandled ipcMain.on does that.
-
   ipcMain.on(ipcChannels.pageScrollChanged, (event, data: ScrollSyncData) => {
     const page = findPageByPageView(event.sender)
     if (!page || !page.linked) return

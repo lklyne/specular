@@ -53,7 +53,6 @@ import {
   activeCanvasSelection,
   buildCanvasLayoutData,
   sendAnnotationLayoutUpdate,
-  selectedComponentTreePayload,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
 import {
@@ -208,7 +207,6 @@ export function initWindow(): void {
     const initialLayoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
     currentBgView.webContents.send(ipcChannels.layoutUpdate, initialLayoutData)
     sendAnnotationLayoutUpdate(initialLayoutData)
-    currentBgView.webContents.send(ipcChannels.componentTreeData, selectedComponentTreePayload())
     // The renderer subscribes to layout updates during mount, so send one more
     // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')

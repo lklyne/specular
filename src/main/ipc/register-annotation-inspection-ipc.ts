@@ -1,7 +1,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { Annotation, ComponentTreeNode, WorkspaceBounds } from '../../shared/types'
-import { bgView, aboveView } from '../runtime/view-refs'
+import { aboveView } from '../runtime/view-refs'
 import {
   pageBodyCanvasBounds,
   projectFramePointToCanvas,
@@ -17,7 +17,6 @@ import { getZoom, setPendingFocus } from '../runtime/runtime-context'
 import { requestLayout, setZoom } from '../runtime/viewport-control'
 import {
   focusCanvasBounds,
-  getSelectedEntityIds,
   openCommentsPanel,
   openInspectPanel,
   focusAnnotation,
@@ -189,15 +188,6 @@ export function registerAnnotationInspectionIpc(): void {
     const page = findPageByPageView(event.sender)
     if (!page || !Array.isArray(payload)) return
     page.componentTree = payload as ComponentTreeNode[]
-    if (bgView && !bgView.webContents.isDestroyed()) {
-      const selectedIds = getSelectedEntityIds()
-      if (selectedIds.length === 1 && selectedIds[0] === page.id) {
-        bgView.webContents.send(ipcChannels.componentTreeData, {
-          pageId: page.id,
-          tree: page.componentTree,
-        })
-      }
-    }
   })
 
   ipcMain.on(

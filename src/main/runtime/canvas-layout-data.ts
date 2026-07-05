@@ -15,7 +15,6 @@ import type {
   CanvasScenePageEntity,
   FocusPresentationData,
   CanvasSceneGroupEntity,
-  ComponentTreeNode,
   LayoutUpdateData,
   PendingPlacement,
   ToolbarSelectionData,
@@ -205,17 +204,6 @@ export function pageAnnotationsKey(annotations: Annotation[]): string {
       return [annotation.id, annotation.author, annotation.status, annotation.text, repliesKey].join(':')
     })
     .join('|')
-}
-
-export function selectedComponentTreePayload():
-  | { pageId: string; tree: ComponentTreeNode[] }
-  | null {
-  const selectedPageIds = uiSelectedEntityIds()
-  if (selectedPageIds.length !== 1) return null
-  const pageId = selectedPageIds[0]
-  const page = findPageById(pageId)
-  if (!page) return null
-  return { pageId, tree: page.componentTree ?? [] }
 }
 
 export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
