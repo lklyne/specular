@@ -1,89 +1,73 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { Tool, ToolDefaultPatch } from '../../shared/types'
 import { applyToolDefaultPatch } from '../runtime/tool-defaults'
+import { pan, zoom } from '../runtime/runtime-context'
+import { requestLayout, setPan, setZoom } from '../runtime/viewport-control'
 import {
-  pan,
-  requestLayout,
-  setPan,
-  setZoom,
-  toolbarView,
-  zoom,
-} from '../runtime/surface-layout'
-import {
-  focusSelectedPage,
+  focusSelection,
   getSelectedEntityIds,
   openInspectPanel,
+  restoreFocusCamera,
   selectedPageId,
   setActiveTool,
-  toggleBrowserMode,
   toggleLeftSidebar,
   toggleDevTools,
 } from '../runtime/ui-actions'
 import { endDevtoolsResize, setDevtoolsWidthFromScreenX } from '../runtime/window-shell'
-import { selectBrowserTab } from '../runtime/runtime-core'
-import { findPageById, setPendingFocus } from '../runtime/runtime-context'
-import { addPageFromSource } from '../workspace-pages'
 import { applyNavigationToSelectedPages } from '../navigation-sync'
-import {
-  setToolbarDropdownOpen,
-  workspaceViewMode as uiWorkspaceViewMode,
-} from '../ui-state'
-
-function recenterBrowserSelectionIfNeeded(): void {
-  if (uiWorkspaceViewMode() !== 'browser') return
-  focusSelectedPage()
-}
+import { setToolbarDropdownOpen } from '../ui-state'
 
 export function registerToolbarIpc(): void {
-  ipcMain.on('zoom-in', () => {
+  ipcMain.on(ipcChannels.zoomIn, () => {
+    if (restoreFocusCamera()) return
     setZoom(zoom + 0.1)
     requestLayout()
   })
 
-  ipcMain.on('zoom-out', () => {
+  ipcMain.on(ipcChannels.zoomOut, () => {
+    if (restoreFocusCamera()) return
     setZoom(zoom - 0.1)
     requestLayout()
   })
 
-  ipcMain.on('zoom-reset', () => {
+  ipcMain.on(ipcChannels.zoomReset, () => {
+    if (restoreFocusCamera()) return
     setZoom(1.0)
-    if (!focusSelectedPage()) {
+    if (!focusSelection({ animate: false })) {
       setPan(0, 0)
       requestLayout()
     }
   })
 
-  ipcMain.on('zoom-set', (_event, level: number) => {
+  ipcMain.on(ipcChannels.zoomSet, (_event, level: number) => {
+    if (restoreFocusCamera()) return
     setZoom(level)
-    if (level === 1.0 && focusSelectedPage()) return
+    if (level === 1.0 && focusSelection({ animate: false })) return
     requestLayout()
   })
 
-  ipcMain.on('toolbar-navigate-selection', (_event, url: string) => {
+  ipcMain.on(ipcChannels.toolbarNavigateSelection, (_event, url: string) => {
     if (!url) return
     applyNavigationToSelectedPages({ type: 'load-url', url })
   })
 
-  ipcMain.on('toolbar-back-selection', () => {
+  ipcMain.on(ipcChannels.toolbarBackSelection, () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'go-back', fallbackUrl: 'about:blank' })
   })
 
-  ipcMain.on('toolbar-forward-selection', () => {
+  ipcMain.on(ipcChannels.toolbarForwardSelection, () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'go-forward', fallbackUrl: 'about:blank' })
   })
 
-  ipcMain.on('toolbar-reload-selection', () => {
+  ipcMain.on(ipcChannels.toolbarReloadSelection, () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'reload', fallbackUrl: 'about:blank' })
   })
 
-  ipcMain.on('toolbar-toggle-browser-mode', () => {
-    toggleBrowserMode()
-  })
-
-  ipcMain.on('toolbar-set-tool', (_event, payload: Tool) => {
+  ipcMain.on(ipcChannels.toolbarSetTool, (_event, payload: Tool) => {
     if (!payload || typeof payload !== 'object' || typeof payload.kind !== 'string') return
     // Toolbar-initiated add-page inherits the URL of the currently-selected
     // page; the renderer doesn't know which page is selected.
@@ -95,7 +79,7 @@ export function registerToolbarIpc(): void {
     if (result.kind === 'inspect') openInspectPanel()
   })
 
-  ipcMain.on('tool-defaults-set', (_event, patch: ToolDefaultPatch) => {
+  ipcMain.on(ipcChannels.toolDefaultsSet, (_event, patch: ToolDefaultPatch) => {
     if (!patch || typeof patch !== 'object') return
     if (
       patch.scope !== 'add-text' &&
@@ -106,68 +90,32 @@ export function registerToolbarIpc(): void {
     applyToolDefaultPatch(patch)
   })
 
-  ipcMain.on('toggle-devtools', () => {
+  ipcMain.on(ipcChannels.toggleDevtools, () => {
     toggleDevTools()
-    recenterBrowserSelectionIfNeeded()
   })
 
-  ipcMain.on('toggle-left-sidebar', () => {
+  ipcMain.on(ipcChannels.toggleLeftSidebar, () => {
     toggleLeftSidebar()
   })
 
-  ipcMain.on('devtools-resize-start', (_event, { screenX }: { screenX: number }) => {
+  ipcMain.on(ipcChannels.devtoolsResizeStart, (_event, { screenX }: { screenX: number }) => {
     setDevtoolsWidthFromScreenX(screenX)
-    recenterBrowserSelectionIfNeeded()
   })
 
-  ipcMain.on('devtools-resize-move', (_event, { screenX }: { screenX: number }) => {
+  ipcMain.on(ipcChannels.devtoolsResizeMove, (_event, { screenX }: { screenX: number }) => {
     setDevtoolsWidthFromScreenX(screenX)
-    recenterBrowserSelectionIfNeeded()
   })
 
-  ipcMain.on('devtools-resize-end', () => {
+  ipcMain.on(ipcChannels.devtoolsResizeEnd, () => {
     endDevtoolsResize()
   })
 
-  ipcMain.on('add-browser-page', (_event, presetIndex: number | 'custom') => {
-    const result = addPageFromSource({
-      presetIndex: typeof presetIndex === 'number' ? presetIndex : 0,
-      customSize: presetIndex === 'custom',
-      focus: true,
-    })
-    selectBrowserTab(result.pageId)
-
-    // Focus the address bar after the new page finishes loading.
-    // We must wait because Chromium auto-focuses a webContents when
-    // its load completes, which would steal focus from the toolbar.
-    const page = findPageById(result.pageId)
-    if (toolbarView && page) {
-      const focusToolbar = () => {
-        if (!toolbarView) return
-        setPendingFocus({ kind: 'toolbar' })
-        requestLayout()
-        toolbarView.webContents.send('focus-address-bar')
-      }
-      const wc = page.pageView.webContents
-      if (wc.isLoading()) {
-        const onDestroyed = () => wc.removeListener('did-finish-load', focusToolbar)
-        wc.once('destroyed', onDestroyed)
-        wc.once('did-finish-load', () => {
-          wc.removeListener('destroyed', onDestroyed)
-          focusToolbar()
-        })
-      } else {
-        focusToolbar()
-      }
-    }
-  })
-
-  ipcMain.on('toolbar-dropdown-open', () => {
+  ipcMain.on(ipcChannels.toolbarDropdownOpen, () => {
     setToolbarDropdownOpen(true)
     requestLayout()
   })
 
-  ipcMain.on('toolbar-dropdown-close', () => {
+  ipcMain.on(ipcChannels.toolbarDropdownClose, () => {
     setToolbarDropdownOpen(false)
     requestLayout()
   })

@@ -1,4 +1,9 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
+import {
+  CAPTURE_SUPPRESSION_CSS,
+  CAPTURE_SUPPRESSION_STYLE_ID,
+} from './capture-suppression'
 import type {
   Annotation,
   AnnotationBboxSubscription,
@@ -73,9 +78,27 @@ let interactive = false
 let multiSelected = false
 let canvasZoom = 1
 let annotateEnabled = false
+let captureSuppressionStyleEl: HTMLStyleElement | null = null
 let cleanupBlockingOverlayListeners: (() => void) | null = null
 const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
 let lastReportedTextEditing = false
+
+function setCaptureSuppression(active: boolean): void {
+  if (!active) {
+    captureSuppressionStyleEl?.remove()
+    captureSuppressionStyleEl = null
+    queueRefreshCommentHoverOverlay()
+    queueRefreshDomInspectionOverlay()
+    queueRenderCommentBadges()
+    return
+  }
+  if (captureSuppressionStyleEl?.isConnected) return
+  const style = document.createElement('style')
+  style.id = CAPTURE_SUPPRESSION_STYLE_ID
+  style.textContent = CAPTURE_SUPPRESSION_CSS
+  document.documentElement.appendChild(style)
+  captureSuppressionStyleEl = style
+}
 
 function selectionDebug(event: string, details?: Record<string, unknown>): void {
   if (!SELECTION_DEBUG) return
@@ -115,7 +138,7 @@ function serializeDebugArg(value: unknown): unknown {
 }
 
 function debugLog(level: 'log' | 'warn' | 'error', ...args: unknown[]): void {
-  ipcRenderer.send('debug-log', {
+  ipcRenderer.send(ipcChannels.debugLog, {
     source: 'page-content',
     level,
     args: args.map(serializeDebugArg),
@@ -156,7 +179,7 @@ function isTypingTarget(element: Element | null): boolean {
 function reportTextEditing(active: boolean): void {
   if (lastReportedTextEditing === active) return
   lastReportedTextEditing = active
-  ipcRenderer.send('canvas-set-text-editing', { active })
+  ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active })
 }
 
 function reportCurrentTextEditing(): void {
@@ -294,13 +317,7 @@ function injectBlockingOverlay(): void {
   }
   window.addEventListener('mouseup', handleWindowMouseUp)
 
-  // Hover state forwarding
-  overlay.addEventListener('mouseenter', () => {
-    ipcRenderer.send('page-hover', true)
-  })
-
   overlay.addEventListener('mouseleave', () => {
-    ipcRenderer.send('page-hover', false)
     middleDrag = null
   })
 
@@ -349,7 +366,7 @@ function applyInteractiveState(): void {
 
 // --- IPC handlers ---
 
-ipcRenderer.on('set-interactive', (_event, value: boolean) => {
+ipcRenderer.on(ipcChannels.setInteractive, (_event, value: boolean) => {
   const wasInteractive = interactive
   selectionDebug('ipc:set-interactive', { value, wasInteractive })
   interactive = value
@@ -362,17 +379,17 @@ ipcRenderer.on('set-interactive', (_event, value: boolean) => {
   renderCommentBadges()
 })
 
-ipcRenderer.on('set-canvas-zoom', (_event, value: number) => {
+ipcRenderer.on(ipcChannels.setCanvasZoom, (_event, value: number) => {
   canvasZoom = value
 })
 
-ipcRenderer.on('set-multi-selected', (_event, value: boolean) => {
+ipcRenderer.on(ipcChannels.setMultiSelected, (_event, value: boolean) => {
   selectionDebug('ipc:set-multi-selected', { value })
   multiSelected = value
   applyInteractiveState()
 })
 
-ipcRenderer.on('set-annotate-mode', (_event, payload: { enabled?: boolean; mode?: AnnotateOverlayMode } | undefined) => {
+ipcRenderer.on(ipcChannels.setAnnotateMode, (_event, payload: { enabled?: boolean; mode?: AnnotateOverlayMode } | undefined) => {
   selectionDebug('ipc:set-annotate-mode', {
     enabled: Boolean(payload?.enabled),
     mode: payload?.mode ?? 'off',
@@ -382,9 +399,13 @@ ipcRenderer.on('set-annotate-mode', (_event, payload: { enabled?: boolean; mode?
   applyInteractiveState()
 })
 
-ipcRenderer.on('annotate-clear-hover', () => {
+ipcRenderer.on(ipcChannels.annotateClearHover, () => {
   if (!annotateEnabled) return
   hideDomInspectionOverlay()
+})
+
+ipcRenderer.on(ipcChannels.captureMode, (_event, active: boolean) => {
+  setCaptureSuppression(Boolean(active))
 })
 
 // ADR 0006 — page-paints contract for the unified comment tool. Main fans
@@ -393,7 +414,7 @@ ipcRenderer.on('annotate-clear-hover', () => {
 // outlines directly in its own DOM so they align pixel-perfectly with
 // content and cost no IPC per frame. `active === false` clears.
 ipcRenderer.on(
-  'comment-tool-page-preview',
+  ipcChannels.commentToolPagePreview,
   (_event, payload: CommentToolPagePreviewState | null | undefined) => {
     if (!payload || !payload.active) {
       clearCommentHoverOverlay()
@@ -408,45 +429,45 @@ ipcRenderer.on(
 // it changes; the page resolves selectors against the live DOM and reports
 // bboxes back via `annotation-bbox-update`.
 ipcRenderer.on(
-  'annotation-bbox-subscriptions',
+  ipcChannels.annotationBboxSubscriptions,
   (_event, payload: { subscriptions?: AnnotationBboxSubscription[] } | undefined) => {
     setAnnotationBboxSubscriptions(payload?.subscriptions ?? [])
   },
 )
 
 ipcRenderer.on(
-  'page-annotations-update',
+  ipcChannels.pageAnnotationsUpdate,
   (_event, payload: { annotations?: Annotation[] } | undefined) => {
     setPageAnnotations(payload?.annotations ?? [])
     queueRenderCommentBadges()
   },
 )
 
-ipcRenderer.on('set-inspection-mode', (_event, payload: { enabled?: boolean } | undefined) => {
+ipcRenderer.on(ipcChannels.setInspectionMode, (_event, payload: { enabled?: boolean } | undefined) => {
   selectionDebug('ipc:set-inspection-mode', { enabled: Boolean(payload?.enabled) })
   setDomInspectionEnabled(Boolean(payload?.enabled))
   applyInteractiveState()
   if (!isDomInspectionEnabled()) {
-    ipcRenderer.send('inspect-node-hover', null)
+    ipcRenderer.send(ipcChannels.inspectNodeHover, null)
   } else if (getDomInspectionLastTarget()) {
     emitHoveredElement(getDomInspectionLastTarget())
   }
 })
 
 ipcRenderer.on(
-  'inspect-focus-node',
+  ipcChannels.inspectFocusNode,
   (_event, payload: { nodeId?: string | null; pin?: boolean; fromPanel?: boolean } | undefined) => {
     handleInspectFocusNode(payload, getInspectableElementByNodeId)
   },
 )
 
-ipcRenderer.on('apply-linked-scroll', (_event, data: ScrollSyncData) => {
+ipcRenderer.on(ipcChannels.applyLinkedScroll, (_event, data: ScrollSyncData) => {
   applyIncomingLinkedScroll(data)
 })
 
 // --- MCP page inspection handlers ---
 
-ipcRenderer.on('take-dom-snapshot', (_event, payload: { requestId: string; maxDepth?: number; structured?: boolean }) => {
+ipcRenderer.on(ipcChannels.takeDomSnapshot, (_event, payload: { requestId: string; maxDepth?: number; structured?: boolean }) => {
   const maxDepth = payload.maxDepth ?? 10
 
   function walkDom(element: Element, depth: number, indent: string): string {
@@ -477,47 +498,47 @@ ipcRenderer.on('take-dom-snapshot', (_event, payload: { requestId: string; maxDe
   const snapshot = payload.structured
     ? buildStructuredDomSnapshot(maxDepth)
     : walkDom(document.body, 0, '')
-  ipcRenderer.send('take-dom-snapshot-response', { requestId: payload.requestId, data: snapshot })
+  ipcRenderer.send(ipcChannels.takeDomSnapshotResponse, { requestId: payload.requestId, data: snapshot })
 })
 
 ipcRenderer.on(
-  'query-element-at-point',
+  ipcChannels.queryElementAtPoint,
   (_event, payload: { requestId: string; x: number; y: number }) => {
     // ADR 0006 — comment tool's click-vs-element resolver. See
     // pickContentElementAtPoint for the overlay-skip rationale.
     const target = pickContentElementAtPoint(payload.x, payload.y)
     if (!target) {
-      ipcRenderer.send('query-element-at-point-response', {
+      ipcRenderer.send(ipcChannels.queryElementAtPointResponse, {
         requestId: payload.requestId,
         data: null,
       })
       return
     }
-    ipcRenderer.send('query-element-at-point-response', {
+    ipcRenderer.send(ipcChannels.queryElementAtPointResponse, {
       requestId: payload.requestId,
       data: inspectionPayload(target),
     })
   },
 )
 
-ipcRenderer.on('query-dom-elements', (_event, payload: { requestId: string; selector: string; maxResults?: number }) => {
+ipcRenderer.on(ipcChannels.queryDomElements, (_event, payload: { requestId: string; selector: string; maxResults?: number }) => {
   const maxResults = payload.maxResults ?? 20
   let elements: Element[]
   try {
     elements = [...document.querySelectorAll(payload.selector)].slice(0, maxResults)
   } catch {
-    ipcRenderer.send('query-dom-elements-response', {
+    ipcRenderer.send(ipcChannels.queryDomElementsResponse, {
       requestId: payload.requestId,
       data: { error: `Invalid selector: ${payload.selector}` },
     })
     return
   }
   const results = elements.map((el) => inspectionPayload(el))
-  ipcRenderer.send('query-dom-elements-response', { requestId: payload.requestId, data: results })
+  ipcRenderer.send(ipcChannels.queryDomElementsResponse, { requestId: payload.requestId, data: results })
 })
 
 ipcRenderer.on(
-  'query-elements-in-rect',
+  ipcChannels.queryElementsInRect,
   (_event, payload: { requestId: string; rect: { x: number; y: number; width: number; height: number }; maxResults?: number }) => {
     const maxResults = payload.maxResults ?? 15
     const region = payload.rect
@@ -550,22 +571,22 @@ ipcRenderer.on(
       results.push(inspectionPayload(el))
     }
 
-    ipcRenderer.send('query-elements-in-rect-response', { requestId: payload.requestId, data: results })
+    ipcRenderer.send(ipcChannels.queryElementsInRectResponse, { requestId: payload.requestId, data: results })
   },
 )
 
 // --- IPC handlers for main-process queries (replacing executeJavaScript) ---
 
-ipcRenderer.on('query-favicon', () => {
+ipcRenderer.on(ipcChannels.queryFavicon, () => {
   const el =
     document.querySelector('link[rel~="icon"]') ||
     document.querySelector('link[rel="shortcut icon"]')
   const href = el instanceof HTMLLinkElement ? el.href : null
-  ipcRenderer.send('query-favicon-result', href)
+  ipcRenderer.send(ipcChannels.queryFaviconResult, href)
 })
 
 ipcRenderer.on(
-  'query-active-element-rect',
+  ipcChannels.queryActiveElementRect,
   (_event, payload: { requestId: string }) => {
     const el = document.activeElement
     if (
@@ -573,7 +594,7 @@ ipcRenderer.on(
       el === document.body ||
       el === document.documentElement
     ) {
-      ipcRenderer.send('query-active-element-rect-result', {
+      ipcRenderer.send(ipcChannels.queryActiveElementRectResult, {
         requestId: payload.requestId,
         data: null,
       })
@@ -588,7 +609,7 @@ ipcRenderer.on(
       (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
         ? el.type
         : null)
-    ipcRenderer.send('query-active-element-rect-result', {
+    ipcRenderer.send(ipcChannels.queryActiveElementRectResult, {
       requestId: payload.requestId,
       data: {
         x: rect.left,
@@ -605,7 +626,7 @@ ipcRenderer.on(
 let activeScrollToken = 0
 
 ipcRenderer.on(
-  'dispatch-scroll',
+  ipcChannels.dispatchScroll,
   (
     _event,
     payload: {
@@ -633,7 +654,7 @@ ipcRenderer.on(
     const target =
       node || document.scrollingElement || document.documentElement
     if (!target) {
-      ipcRenderer.send('dispatch-scroll-result', {
+      ipcRenderer.send(ipcChannels.dispatchScrollResult, {
         requestId: payload.requestId,
         data: { ok: false, reason: 'no-scroll-target' },
       })
@@ -645,7 +666,7 @@ ipcRenderer.on(
     const finish = () => {
       const afterLeft = target.scrollLeft
       const afterTop = target.scrollTop
-      ipcRenderer.send('dispatch-scroll-result', {
+      ipcRenderer.send(ipcChannels.dispatchScrollResult, {
         requestId: payload.requestId,
         data: {
           ok: true,
@@ -742,14 +763,6 @@ window.addEventListener('blur', () => {
   hideCommentBadgeHover()
 })
 
-// --- Page hover state ---
-window.addEventListener('mouseenter', () => {
-  ipcRenderer.send('page-hover', true)
-})
-window.addEventListener('mouseleave', () => {
-  ipcRenderer.send('page-hover', false)
-})
-
 // --- Resize handle ---
 
 function injectResizeHandle(): void {
@@ -787,7 +800,7 @@ function injectResizeHandle(): void {
       screenY: event.screenY,
     }
     handle.setPointerCapture(event.pointerId)
-    ipcRenderer.send('peek-resize-start')
+    ipcRenderer.send(ipcChannels.peekResizeStart)
   })
 
   const endResizeDrag = (pointerId?: number) => {
@@ -797,7 +810,7 @@ function injectResizeHandle(): void {
       handle.releasePointerCapture(dragState.pointerId)
     }
     dragState = null
-    ipcRenderer.send('peek-resize-end')
+    ipcRenderer.send(ipcChannels.peekResizeEnd)
   }
 
   handle.addEventListener('pointermove', (event: PointerEvent) => {
@@ -809,7 +822,7 @@ function injectResizeHandle(): void {
       screenX: event.screenX,
       screenY: event.screenY,
     }
-    ipcRenderer.send('peek-resize-move', { dx, dy })
+    ipcRenderer.send(ipcChannels.peekResizeMove, { dx, dy })
   })
 
   handle.addEventListener('pointerup', (event: PointerEvent) => {

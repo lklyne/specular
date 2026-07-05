@@ -20,12 +20,14 @@ pnpm install                 # install dependencies
 pnpm dev                     # start the Electron app
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
-pnpm test:smoke              # integration tests (spawns Electron, uses HTTP API)
+pnpm test:integration        # real runtime in-process (no Electron, seconds)
+pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
 pnpm build                   # package for distribution
 ```
 
 After any structural change, run `typecheck` + `test:unit` at minimum.
-After changes to runtime, IPC, or persistence, run `test:smoke`.
+After changes to runtime, IPC, or persistence, run `test:integration`.
+`test:boot` needs a built app + the Electron binary; run it before releases, not per-change.
 
 ## Crash logs
 
@@ -129,6 +131,7 @@ Build toward small, obvious pieces.
 - Reuse shared primitives only when behavior is truly shared.
 - If the cleanest solution wants a different shape, propose that change.
 - Preserve existing UX unless a cleaner design is intentionally chosen.
+- Comment the timeless "why" only when the code is non-obvious. Don't narrate the change — a comment that says what the code "now" does, "no longer" does, "used to" do, or "moved away from" is describing the diff, not the code. Write it as if the prior version never existed; the git history already holds that. (Backward-compat notes explaining why a dead-looking branch must stay are "why", and are fine.)
 
 When refactoring, optimize for clarity, smaller files, and stronger boundaries.
 
@@ -153,9 +156,10 @@ The HTTP API (src/main/routes/) remains available for runtime interaction.
 ## Testing patterns
 
 - **Unit tests** — pure logic, no Electron. `tests/unit/`
-- **Smoke tests** — full app via HTTP API, serial. `tests/smoke/`
+- **Integration tests** — the real main-process runtime, in-process (electron aliased to a stub). `tests/integration/`, gated in CI. See ADR 0024.
+- **Boot tests** — real Electron, ~3 checks, pre-release only. `tests/boot/`
 - **Agent tests** — scenario scripts. `tests/agent/`
-- **Smoke client** — `AppClient` in `tests/smoke/app-client.ts` wraps the HTTP API
+- **Harness** — `bootWorkspaceHarness()` in `tests/integration/harness.ts` boots the runtime against a temp dir; tests call the same mutators the IPC handlers call and assert on runtime arrays, the Y.Doc, and `.canvas` files.
 
 Before writing a test, re-read `tests/README.md` — it documents the four-criterion bar a test must clear to earn its keep, the bucket selection guide, and the mutation-verification convention.
 
@@ -163,9 +167,9 @@ Before writing a test, re-read `tests/README.md` — it documents the four-crite
 
 The suite stays small on purpose. To prevent drift back to a pile of low-value tests, the following apply:
 
-- Any new entity kind ships with smoke coverage of its persistence + undo round-trip.
+- Any new entity kind ships with integration coverage of its persistence + undo round-trip.
 - Any new runtime mutator ships with forward/reverse sync coverage (one Y.Doc transaction per mutation; undo round-trips cleanly).
-- PRs touching `src/main/runtime/workspace-*.ts` require smoke coverage updates unless the change is pure refactor with no behavior delta.
+- PRs touching `src/main/runtime/workspace-*.ts` require integration coverage updates unless the change is pure refactor with no behavior delta.
 - No new `.todo()` test merged without a linked issue describing what would unblock it.
 - Before writing a test, re-read `tests/README.md` and confirm it clears the four-criterion bar.
 

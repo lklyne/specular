@@ -5,11 +5,8 @@ import {
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type {
-  CanvasBgElectronAPI,
-  LayoutUpdateData,
-  ToolDefaultPatch,
-} from '../../shared/types'
+import type { LayoutUpdateData, ToolDefaultPatch } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
 import { TextSizeDropdown } from './TextSizeDropdown'
@@ -73,7 +70,6 @@ export function ShapeToolPopup({
             return (
               <CanvasItemPopup.ColorSwatch
                 key={slot.id}
-                isDark={isDark}
                 active={activeSlot === slot.id}
                 color={swatch}
                 ariaLabel={`Set default shape color to ${slot.label}`}

@@ -9,7 +9,8 @@ Canonical terms used across the codebase, ADRs, and plans. Resolve language conf
 Follows [JSON Canvas v1.0](https://jsoncanvas.org) on disk; uses Specular-native terms in runtime and UI.
 
 - **Canvas item** — the user-facing and component-naming term for a thing on the canvas. Kinds: page, file, group, text, drawing, shape. Use this in docs, UI copy, and component names (`CanvasItemChrome`, `SidebarCanvasItem`).
-- **Entity** — the runtime / persistence term for the same concept. Use this in `src/main/runtime/` types (`PersistedPageEntity`, `CanvasEntityKind`, `CanvasSceneEntity`). One entity ⇔ one canvas item.
+- **Entity** — the runtime / persistence term for the same concept. Use this in `src/main/runtime/` types (`PersistedPageEntity`, `CanvasEntityKind`, `CanvasSceneEntity`). One entity ⇔ one canvas item. The headless mutation surface (CLI / HTTP API) is one verb-primary surface over a single entity-kind registry — read/patch/act on the canvas as a document — per [ADR 0019](./docs/adr/0019-canvas-as-document-cli.md) (accepted). The registry also owns per-kind runtime state, persistence (one field list drives both save and undo-restore), and iteration; all six canvas-item kinds register, edges don't ([ADR 0024](./docs/adr/0024-entity-kind-registry-spans-runtime-and-persistence.md)). Every mutation — interactive or headless — flows through one mutation seam with one-undo-step-per-call semantics ([ADR 0025](./docs/adr/0025-single-workspace-mutation-seam.md)). See `src/main/entities/CLAUDE.md` for the `EntityKindDefinition` contract and how to add a kind.
+- **Kind capability table** — the exhaustive `Record<CanvasEntityKind, …>` in `src/shared/` declaring the renderer-visible per-kind facts (`hasChrome`, `hasAnchors`, `minSize`, `aspectMode`), consumed by hit-test and the pointer router. Adding a kind without a row is a compile error ([ADR 0024](./docs/adr/0024-entity-kind-registry-spans-runtime-and-persistence.md)).
 - **Node** — JSON Canvas spec term. Use **only** in the disk-schema layer (`src/shared/json-canvas-types.ts`, `json-canvas-serializer.ts`). Never as a synonym for entity in runtime code.
 - **Edge** — a connection between two canvas items. Same name across all three layers.
 - **Canvas** — a single `.canvas` file; the spatial document.
@@ -56,6 +57,7 @@ Conventions:
 ## Entity geometry
 
 - **Entity rect** — the full bounding rect of an entity, body + chrome as one layout unit ([ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md)). Pan / zoom / drag / resize operate on this rect.
+- **Camera** — the renderer-owned `{ x, y, zoom }` viewport transform. Canvas-space DOM (borders, entity bodies, edges, selection chrome) rides one `translate/scale` container per renderer; pan/zoom are GPU-composited, not per-entity screen coords rebuilt in main. Native pages (`WebContentsView`s) can't ride the transform, so main follows the camera to reposition them (`setBounds`) and re-emulate on zoom-*settle*. Proposed migration in [ADR 0023](./docs/adr/0023-renderer-owned-camera-gpu-panzoom.md).
 - **Body sub-rect** — the part of the entity rect that holds the entity's content (the live document for a page, the image for a file, etc.). Resize handles and edge anchors attach here.
 - **Chrome slot** — the part of the entity rect reserved for canvas-anchored overlay UI. Per-kind, runtime-derived, **not persisted** in the `.canvas` schema.
 
@@ -107,6 +109,7 @@ Modifiers and visual feedback that ride on top of entity drag (and resize) gestu
 
 ## Input authority
 
+- **Page interactive (entered)** — runtime state `interactivePageId: string | null` in main (`runtime-context.ts`). Names the page the user has *entered*; only it forwards pointer input, owns keyboard, and has its content blocker lifted. A merely-**selected** page is not interactive — keyboard stays on aboveView so canvas shortcuts act on the frame. Enter via a second click on the selected page, a double-click on its body, or **entering a focus session** on the page (focus is the second click); exit (back to selected) via Escape / click-away / selecting elsewhere / leaving focus. This **select-first / interact-second** model supersedes the earlier "single-selected = interactive" behavior. Delete is guarded against the interactive page — `deleteSelection` drops it from the page targets (Delete fires even from page focus), so the frame is only removed once the page is back to selected-only. Broadcast as `LayoutUpdateData.interactivePageId`. See [ADR 0022](./docs/adr/0022-pages-select-first-interact-second.md).
 - **Page focus** — runtime state `{ id, since } | null` in main. When set, the focused page receives native pointer input; aboveView's gate is closed. When null, aboveView is the sole input authority. See [ADR 0001](./docs/adr/0001-click-to-enter-frame-focus.md). (ADR 0001 was authored under the old "frame" name; the runtime variable is currently `frameFocus` and renames to `pageFocus` in the migration.)
 - **Gate** (a.k.a. **input gate**) — `aboveView.setVisible(...)` predicate. Open in canvas mode iff `pageFocus === null`. The single arbiter of who receives canvas-region pointer events.
 - **Pointer router** — `src/renderer/above-view/useCanvasPointerRouter.ts`. Single window-level capture-phase pointerdown listener that runs the shared `hitTest` and dispatches a typed `CanvasPointerAction`. Yields to any element inside `[data-overlay-ui]`.
@@ -165,7 +168,7 @@ Replaces three previously-parallel state machines: `pendingPlacement`, `Annotati
 
 ADR 0005 unified tool *identity*; the remaining per-tool axes (enablement, target state, palette placement, cursor label, popup, bindings) are still scattered across surfaces. Proposed end-state: model tools as a capability registry mirroring the entity-renderer plugin pattern — see [ADR 0016](./docs/adr/0016-tools-as-capability-registry.md) (proposed; not yet adopted).
 
-**Not a tool:** **View mode** (canvas vs browser). View mode answers "which surface am I looking at?", not "what does my next click do?" — it's structural, not transient. Stays in its own state.
+**Not a tool:** **Focus selection**. Focus answers "where should the camera look right now?", not "what does my next click do?" It is an ephemeral camera command, not a persisted mode or document state.
 
 ## Annotations
 

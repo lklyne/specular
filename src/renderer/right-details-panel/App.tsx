@@ -1,7 +1,7 @@
 import type { ThemeData } from '../../shared/types'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
+import { PaneProvider } from './PaneContext'
 import { DocumentPane } from './components/DocumentPane'
 import { DrawingEntityPane } from './components/DrawingEntityPane'
 import { EdgeEntityPane } from './components/EdgeEntityPane'
@@ -15,6 +15,8 @@ import { TextEntityPane } from './components/TextEntityPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
 
+const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'dangerously', configured: false } as const
+
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
   const isDark = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
@@ -22,8 +24,8 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 
   const pageClass = isDark
-    ? 'h-screen w-screen overflow-hidden border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-100'
-    : 'h-screen w-screen overflow-hidden border-l border-[var(--surface-panel-border)] bg-[var(--surface-panel)] text-zinc-900'
+    ? 'h-screen w-screen overflow-hidden border-l border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-zinc-100'
+    : 'h-screen w-screen overflow-hidden border-l border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-zinc-900'
   const pages = panelData.pages ?? []
   const annotations = panelData.annotations ?? []
   const { panelMode } = panelData
@@ -62,54 +64,53 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
         return panelData.inspect ? (
           <PagePane
             inspect={panelData.inspect}
-            isDark={isDark}
             annotations={annotations}
             selection={panelData.selection}
             pages={pages}
             fixProgress={panelData.fixProgress ?? {}}
+            originBindings={panelData.originBindings ?? {}}
           />
         ) : null
 
       case 'text':
         return panelData.textEntity ? (
-          <TextEntityPane textEntity={panelData.textEntity} isDark={isDark} />
+          <TextEntityPane textEntity={panelData.textEntity} />
         ) : null
 
       case 'file':
         return panelData.fileEntity ? (
-          <FileEntityPane fileEntity={panelData.fileEntity} isDark={isDark} />
+          <FileEntityPane fileEntity={panelData.fileEntity} />
         ) : null
 
       case 'drawing':
-        return DRAWING_FEATURE_ENABLED && panelData.drawingEntity ? (
-          <DrawingEntityPane drawingEntity={panelData.drawingEntity} isDark={isDark} />
+        return panelData.drawingEntity ? (
+          <DrawingEntityPane drawingEntity={panelData.drawingEntity} />
         ) : null
 
       case 'shape':
         return panelData.shapeEntity ? (
-          <ShapeEntityPane shapeEntity={panelData.shapeEntity} isDark={isDark} />
+          <ShapeEntityPane shapeEntity={panelData.shapeEntity} />
         ) : null
 
       case 'edge':
         return panelData.edgeEntity ? (
-          <EdgeEntityPane edgeEntity={panelData.edgeEntity} isDark={isDark} />
+          <EdgeEntityPane edgeEntity={panelData.edgeEntity} />
         ) : null
 
       case 'group':
         return panelData.groupEntity ? (
-          <GroupEntityPane groupEntity={panelData.groupEntity} isDark={isDark} />
+          <GroupEntityPane groupEntity={panelData.groupEntity} />
         ) : null
 
       case 'multi':
         return panelData.multiEntities ? (
-          <MultiEntityPane multiEntities={panelData.multiEntities} isDark={isDark} />
+          <MultiEntityPane multiEntities={panelData.multiEntities} />
         ) : null
 
       case 'document':
       default:
         return (
           <DocumentPane
-            isDark={isDark}
             annotations={annotations}
             pages={pages}
             focusedAnnotationId={panelData.focusedAnnotationId}
@@ -118,17 +119,19 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             originBindings={panelData.originBindings ?? {}}
             fixInProgress={panelData.fixInProgress ?? {}}
             fixProgress={panelData.fixProgress ?? {}}
-            fixConfig={panelData.fixConfig ?? { model: 'opus', permissions: 'dangerously', configured: false }}
+            fixConfig={panelData.fixConfig ?? DEFAULT_FIX_CONFIG}
           />
         )
     }
   }
 
   return (
-    <div className={pageClass}>
-      <div className="flex h-full min-h-0 flex-col">
-        {renderPane()}
+    <PaneProvider isDark={isDark}>
+      <div className={pageClass}>
+        <div className="flex h-full min-h-0 flex-col">
+          {renderPane()}
+        </div>
       </div>
-    </div>
+    </PaneProvider>
   )
 }

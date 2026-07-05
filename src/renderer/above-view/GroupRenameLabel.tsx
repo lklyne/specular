@@ -13,16 +13,11 @@
 
 import { FolderOpen } from 'lucide-react'
 import type { MutableRefObject } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneGroupEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
-import { resolveCanvasColor } from '../../shared/canvas-colors'
+import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { DRAG_THRESHOLD } from '../../shared/gesture-utils'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { startOptionAwareGroupDrag, type DragCopyPreviewBox } from './optionDragCopy'
-
-const GROUP_DRAG_THRESHOLD = 4
 
 export function GroupRenameOverlay({
   api,
@@ -39,7 +34,6 @@ export function GroupRenameOverlay({
   optionHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
 }) {
-  if (layoutData.viewMode !== 'canvas') return null
   const groups = layoutData.groups ?? []
   if (!groups.length) return null
   return (
@@ -87,9 +81,6 @@ function GroupRenameItem({
   // coordinate space; subtract canvasOrigin.y to drop into overlay coords.
   const left = group.screenX
   const top = group.screenY - layoutData.canvasOrigin.y
-  // Suppress per-page React thinks-unused warning by referencing the resolved
-  // colour for future styling extension; today we lean on existing tokens.
-  void resolveCanvasColor
 
   const onPointerDown = isRenaming
     ? (event: React.PointerEvent) => event.stopPropagation()
@@ -111,8 +102,8 @@ function GroupRenameItem({
           const totalDy = ev.screenY - startY
           if (
             !dragging &&
-            Math.abs(totalDx) < GROUP_DRAG_THRESHOLD &&
-            Math.abs(totalDy) < GROUP_DRAG_THRESHOLD
+            Math.abs(totalDx) < DRAG_THRESHOLD &&
+            Math.abs(totalDy) < DRAG_THRESHOLD
           ) {
             return
           }

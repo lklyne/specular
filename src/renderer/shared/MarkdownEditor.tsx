@@ -23,7 +23,6 @@ export function MarkdownEditor({
   onEscape,
   isDark,
   autoFocus = false,
-  onAutoFocusConsumed,
   placeholder,
   className,
   style,
@@ -37,7 +36,6 @@ export function MarkdownEditor({
   onEscape?: () => void
   isDark: boolean
   autoFocus?: boolean
-  onAutoFocusConsumed?: () => void
   placeholder?: string
   className?: string
   style?: React.CSSProperties
@@ -120,7 +118,6 @@ export function MarkdownEditor({
     if (autoFocus) {
       view.focus()
       view.dispatch({ selection: { anchor: view.state.doc.length } })
-      onAutoFocusConsumed?.()
     }
 
     return () => {

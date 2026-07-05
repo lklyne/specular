@@ -25,6 +25,17 @@ export type CanvasPointerContext = {
   /** Entity currently in inline-edit mode; suppresses the press-deferral
    *  predicate while another entity is editing. */
   editingEntityId: string | null
+  /** The page the user has *entered* for interaction (#124), or null. Only the
+   *  entered page forwards pointer input; a merely-selected page does not. */
+  interactivePageId: string | null
+  /** In-flight placement (the `pendingPlacement` broadcast) when the tool
+   *  gesture owns canvas pointers (`canvasPointerOwner` → 'tool-gesture');
+   *  null otherwise. Wins over the comment tool when both are active. */
+  placement: { entityKind: CanvasEntityKind } | null
+  /** Comment tool owns canvas pointers (ADR 0006). Like `placement`, only
+   *  set when the tool gesture owns pointer input — a router-owned
+   *  pointerdown routes by hit target even if a stale broadcast disagrees. */
+  commentToolActive: boolean
 }
 
 /**
@@ -41,9 +52,12 @@ export type CanvasPointerAction =
   | { kind: 'noop' }
   /** Page body click/drag candidate: click selects, drag moves page. */
   | { kind: 'page-body-press'; entityId: string; preserveSelection: boolean }
-  /** Page body hit on the **single-selected** page: forward the pointerdown
-   *  (and the subsequent move/up) into the page's webContents. PoC for the
-   *  always-on aboveView interactive layer. */
+  /** Page body click on the already-selected (but not yet entered) page:
+   *  enter interactive mode (#124). The second deliberate click; subsequent
+   *  clicks forward into the page. */
+  | { kind: 'enter-page-interactive'; entityId: string }
+  /** Page body hit on the **entered** page: forward the pointerdown (and the
+   *  subsequent move/up) into the page's webContents. */
   | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
   /** Begin selecting + dragging an entity (page, file, text, shape). */
   | { kind: 'begin-entity-drag'; entityId: string; entityKind: CanvasEntityKind; preserveSelection: boolean }
@@ -73,6 +87,16 @@ export type CanvasPointerAction =
   | { kind: 'begin-marquee' }
   /** Hold-to-pan on background. */
   | { kind: 'begin-pan' }
+  /** Placement-tool gesture: click places the pending entity at the press
+   *  point; shape placements drag-to-size past the threshold (shift
+   *  constrains square). Captures wherever the pointerdown lands — the
+   *  pending placement, not the hit target, decides. */
+  | { kind: 'begin-placement'; entityKind: CanvasEntityKind }
+  /** Comment-tool gesture (ADR 0006): release below the drag threshold
+   *  anchors a comment at the element / canvas point under the cursor; a
+   *  drag past it marquees a region anchor. Click-vs-drag resolves in the
+   *  router's `runCommentGesture` at pointermove time — both start here. */
+  | { kind: 'begin-comment-gesture' }
 
 /**
  * Map a hit-test result + context to the action a pointerdown should trigger.
@@ -85,6 +109,18 @@ export function routePointerDown(
   target: HitTarget,
   context: CanvasPointerContext,
 ): CanvasPointerAction {
+  // An active placement / comment tool captures the pointerdown wherever it
+  // lands — the tool, not the hit target, decides. Overlay UI still wins:
+  // the router yields to `[data-overlay-ui]` before classification (I8').
+  // Non-primary buttons stay with the viewport (middle-drag pan), never the
+  // tool or the routing matrix below.
+  if (context.placement || context.commentToolActive) {
+    if (!context.isPrimaryButton) return { kind: 'noop' }
+    return context.placement
+      ? { kind: 'begin-placement', entityKind: context.placement.entityKind }
+      : { kind: 'begin-comment-gesture' }
+  }
+
   // Non-primary buttons on background → pan; otherwise no-op (the viewport
   // hook handles middle-drag pan independently). Right-click on the body of
   // the single-selected page still forwards so the page's context menu
@@ -92,7 +128,7 @@ export function routePointerDown(
   if (!context.isPrimaryButton) {
     if (
       target.payload.kind === 'page-body' &&
-      isSingleSelected(context, target.payload.entityId)
+      context.interactivePageId === target.payload.entityId
     ) {
       return {
         kind: 'forward-pointer-down',
@@ -168,16 +204,19 @@ function routeByPayload(
           preserveSelection: context.selectedEntityIds.includes(payload.entityId),
         }
       }
-      // PoC: on the single-selected page's body, forward the pointer event
-      // into the page so the user interacts with web content directly.
-      // Otherwise (unselected or multi-selected) keep the existing
-      // click-to-select / drag-to-move behavior.
-      if (isSingleSelected(context, payload.entityId)) {
+      // Select-first / interact-second (#124):
+      //  - entered page → forward the pointer into its web content;
+      //  - already single-selected (not entered) → the second click enters;
+      //  - otherwise (unselected / multi) → click-to-select / drag-to-move.
+      if (context.interactivePageId === payload.entityId) {
         return {
           kind: 'forward-pointer-down',
           entityId: payload.entityId,
           button: context.button,
         }
+      }
+      if (isSingleSelected(context, payload.entityId)) {
+        return { kind: 'enter-page-interactive', entityId: payload.entityId }
       }
       return {
         kind: 'page-body-press',
@@ -255,11 +294,17 @@ export type CanvasPointerDoubleClickAction =
   | { kind: 'request-entity-edit'; entityId: string }
   | { kind: 'enter-group'; groupId: string }
   | { kind: 'enter-group-rename'; groupId: string }
+  /** Double-click a page body → enter interactive mode (#124). A reliable
+   *  enter path: the first click selects, and this fires after the second
+   *  pointerup regardless of how fast the two single clicks landed. */
+  | { kind: 'enter-page-interactive'; entityId: string }
 
 export function routePointerDoubleClick(
   target: HitTarget,
 ): CanvasPointerDoubleClickAction {
   switch (target.payload.kind) {
+    case 'page-body':
+      return { kind: 'enter-page-interactive', entityId: target.payload.entityId }
     case 'chrome':
       // Group chrome → rename. Page/file chrome dbl-click is a no-op
       // (chrome owns its own click handlers in aboveView).

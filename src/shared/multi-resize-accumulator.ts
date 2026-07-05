@@ -14,7 +14,7 @@
 
 import type { AnnotationDrawingStroke, CanvasSceneEntity } from './types'
 import type { ResizeHandle } from './resize-accumulator'
-import { scaleStrokes } from './scale-strokes'
+import { scaleStrokesToBounds } from './scale-strokes'
 
 /** Kinds that the `resizeMultiSelection` IPC accepts. Groups own a separate
  *  selection overlay and are excluded from the multi-bbox gesture. */
@@ -63,7 +63,7 @@ export interface MultiResizeEntry {
   canvasY: number
   width: number
   height: number
-  /** Scaled strokes for drawing entities — undefined for all other kinds. */
+  /** Bounds-transformed strokes for drawing entities — undefined for all other kinds. */
   strokes?: AnnotationDrawingStroke[]
 }
 
@@ -172,7 +172,11 @@ export function applyMultiHandleDelta(
       canvasY: Math.round(acc.accY + (entity.canvasY - acc.initialBbox.y) * scaleY),
     }
     if (entity.strokes) {
-      entry.strokes = scaleStrokes(entity.strokes, scaleX, scaleY)
+      entry.strokes = scaleStrokesToBounds(
+        entity.strokes,
+        entity,
+        entry,
+      )
     }
     return entry
   })

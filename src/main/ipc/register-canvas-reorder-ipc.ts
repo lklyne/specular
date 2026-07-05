@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { CancelReason } from '../../shared/interaction-types'
 import {
@@ -18,22 +19,22 @@ import {
  * focus against `reordering-row` rather than `idle`.
  */
 export function registerCanvasReorderIpc(): void {
-  ipcMain.on('canvas-reorder-start', (_event, { movingId }: { movingId: string }) => {
+  ipcMain.on(ipcChannels.canvasReorderStart, (_event, { movingId }: { movingId: string }) => {
     startReorderGesture(movingId)
   })
 
   ipcMain.on(
-    'canvas-reorder-move',
+    ipcChannels.canvasReorderMove,
     (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
       moveReorderGesture(canvasX, canvasY)
     },
   )
 
-  ipcMain.on('canvas-reorder-commit', () => {
+  ipcMain.on(ipcChannels.canvasReorderCommit, () => {
     commitReorderGesture()
   })
 
-  ipcMain.on('canvas-reorder-cancel', (_event, { reason }: { reason?: CancelReason } = {}) => {
+  ipcMain.on(ipcChannels.canvasReorderCancel, (_event, { reason }: { reason?: CancelReason } = {}) => {
     cancelReorderGesture(reason ?? 'external')
   })
 }

@@ -45,3 +45,7 @@ export function screenRectToCanvasRect(
 export function toOverlayY(layout: LayoutUpdateData, value: number): number {
   return value - layout.canvasOrigin.y
 }
+
+export function clientYToWindowY(clientY: number, layout: LayoutUpdateData): number {
+  return clientY + layout.canvasOrigin.y
+}

@@ -5,6 +5,7 @@ import type {
   ShapeKind,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 
 export interface ShapeEntity {
   id: string
@@ -82,17 +83,12 @@ export function updateShapeEntity(
 ): ShapeEntity | null {
   const entity = shapeEntities.find((s) => s.id === id)
   if (!entity) return null
-  if (patch.shapeKind !== undefined) entity.shapeKind = patch.shapeKind
-  if (patch.text !== undefined) entity.text = patch.text
+  applyPatch(entity, patch, [
+    'shapeKind', 'text', 'strokeWidth', 'textSize',
+    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
+  ])
   if (patch.color !== undefined) entity.color = patch.color || undefined
-  if (patch.strokeWidth !== undefined) entity.strokeWidth = patch.strokeWidth
-  if (patch.textSize !== undefined) entity.textSize = patch.textSize
   if (patch.theme !== undefined) entity.theme = patch.theme || undefined
-  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
-  if (patch.width !== undefined) entity.width = patch.width
-  if (patch.height !== undefined) entity.height = patch.height
-  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity
@@ -139,6 +135,33 @@ export function buildShapeEntitySceneEntity(
   }
 }
 
+/**
+ * Every key `persistShapeEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedShapeEntity`; the persisted-fields
+ * drift test keeps `persistShapeEntity` on it.
+ */
+const SHAPE_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  shapeKind: true,
+  text: true,
+  color: true,
+  strokeWidth: true,
+  textSize: true,
+  theme: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  label: true,
+} as const satisfies Record<keyof PersistedShapeEntity, true>
+
+export const SHAPE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  SHAPE_ENTITY_PERSISTED_FIELD_SET,
+)
+
 export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {
   return {
     kind: 'shape',
@@ -155,23 +178,5 @@ export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {
     height: entity.height,
     parentGroupId: entity.parentGroupId,
     label: entity.label,
-  }
-}
-
-export function restoreShapeEntity(persisted: PersistedShapeEntity): ShapeEntity {
-  return {
-    id: persisted.id,
-    shapeKind: persisted.shapeKind,
-    text: persisted.text ?? '',
-    color: persisted.color,
-    strokeWidth: persisted.strokeWidth,
-    textSize: persisted.textSize,
-    theme: persisted.theme,
-    canvasX: persisted.canvasX,
-    canvasY: persisted.canvasY,
-    width: persisted.width,
-    height: persisted.height,
-    parentGroupId: persisted.parentGroupId,
-    label: persisted.label,
   }
 }

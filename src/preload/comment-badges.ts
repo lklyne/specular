@@ -1,8 +1,10 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import type { Annotation } from '../shared/types'
 import { isUnresolved } from '../shared/annotation-utils'
 
 const COMMENT_BADGE_DEBUG = process.env.CANVAS_DEBUG_COMMENT_BADGES === '1'
+const PAGE_COMMENT_BADGES_ENABLED = false
 
 let pageAnnotations: Annotation[] = []
 let commentBadgesLayerEl: HTMLDivElement | null = null
@@ -39,7 +41,7 @@ function commentBadgeDebug(event: string, details?: Record<string, unknown>): vo
 
 export function setPageAnnotations(annotations: Annotation[]): void {
   pageAnnotations = annotations
-  commentBadgeDebug('page-annotations-update', {
+  commentBadgeDebug(ipcChannels.pageAnnotationsUpdate, {
     annotations: pageAnnotations.length,
     ids: pageAnnotations.map((annotation) => annotation.id),
   })
@@ -217,8 +219,12 @@ function annotationViewportRect(annotation: Annotation): { left: number; top: nu
 }
 
 function pageCommentBadgeData(): PageCommentBadge[] {
+  // Resting comment badges render in aboveView so they can sit above focused
+  // device frames and neighboring page WCVs. Keep this preload path quiet; the
+  // page still owns comment hover previews and live-bbox tracking.
   const unresolved = pageAnnotations
     .filter((annotation) => isUnresolved(annotation.status))
+    .filter(() => PAGE_COMMENT_BADGES_ENABLED)
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
   const grouped = new Map<
     string,
@@ -400,7 +406,7 @@ export function renderCommentBadges(): void {
       event.preventDefault()
       event.stopPropagation()
       event.stopImmediatePropagation()
-      ipcRenderer.send('annotation-open-thread', { annotationId: badge.annotationId })
+      ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId: badge.annotationId })
     })
     commentBadgesLayerEl.appendChild(button)
   }

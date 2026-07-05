@@ -3,10 +3,7 @@
 export {
   deselectAll,
   selectPage,
-  setBrowserMode,
-  setCanvasMode,
   setSelectedPages,
-  toggleBrowserMode,
 } from './selection-state'
 
 export {
@@ -43,12 +40,15 @@ export {
   focusCanvasBounds,
   focusSelectedPage,
   focusSelection,
+  refocusActiveSession,
+  restoreFocusCamera,
+  setFocusPresentationMode,
+  setFocusAnnotationsVisible,
 } from './viewport-control'
 
 export {
   getSelectedEntityIds,
   getSelectedGroupId,
-  selectBrowserTab,
   selectEntity,
   selectPageById,
   setHoverEntity,

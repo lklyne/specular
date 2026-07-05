@@ -1,21 +1,19 @@
 import { useMemo, useRef } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneFileEntity,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-  ThemeData,
-} from '../../shared/types'
+import type { CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, ThemeData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
-import { BrowserTabBar } from './BrowserTabBar'
 import { DeviceShellLayer } from './DeviceShellLayer'
+import { GroupBackgroundLayer } from './GroupBackgroundLayer'
 import { PageBorderLayer } from './PageBorderLayer'
+import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
+import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -33,6 +31,11 @@ export default function App({
   const isDark = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
+  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
+  const livePan = useMemo(
+    () => ({ x: layoutData.pan.x + panOffset.x, y: layoutData.pan.y + panOffset.y }),
+    [layoutData.pan.x, layoutData.pan.y, panOffset.x, panOffset.y],
+  )
 
   useCanvasViewportGestures({
     api,
@@ -48,11 +51,35 @@ export default function App({
     () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
-  const borderPages = useMemo(
-    () => layoutData.viewMode === 'browser'
-      ? pageEntities.filter((f) => f.id === layoutData.activeBrowserTabId)
-      : pageEntities,
-    [pageEntities, layoutData.viewMode, layoutData.activeBrowserTabId],
+  const focus = focusContext(layoutData)
+  // 'fill' focus is the browser-like mode: edge-to-edge, no border, no bezel.
+  const fillPageId = focus.mode === 'fill' ? focus.pageId : null
+  // Eye off during focus: only the focused page's chrome survives; all other
+  // context (other pages, file frames, groups) is hidden, never dimmed (ADR 0021).
+  const hideContext = focus.active && !focus.showsContext
+  const chromePages = useMemo(() => {
+    if (fillPageId) return pageEntities.filter((p) => p.id !== fillPageId)
+    if (hideContext) return pageEntities.filter((p) => p.id === focus.pageId)
+    return pageEntities
+  }, [pageEntities, fillPageId, hideContext, focus.pageId])
+  const chromeFiles = useMemo(
+    () => (hideContext ? [] : fileEntities),
+    [fileEntities, hideContext],
+  )
+  // Hoist per-layer slices so the memoized layers receive stable array refs and
+  // skip re-rendering on every pan/zoom nudge (props only change on a real
+  // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
+  const deviceShellPages = useMemo(
+    () => chromePages.filter((f) => !f.useSvgDeviceShell),
+    [chromePages],
+  )
+  const svgDeviceShellPages = useMemo(
+    () => chromePages.filter((f) => f.useSvgDeviceShell),
+    [chromePages],
+  )
+  const chromeGroups = useMemo(
+    () => (hideContext ? [] : (layoutData.groups ?? [])),
+    [hideContext, layoutData.groups],
   )
   return (
     <div
@@ -67,40 +94,37 @@ export default function App({
         isDev={isDev}
         layoutTick={layoutTick}
       />
+      <PerfHudOverlay isDev={isDev} layoutData={layoutData} />
       <CanvasGridSurface
         bgRef={bgRef}
         isDark={isDark}
         canvasOrigin={layoutData.canvasOrigin}
-        pan={layoutData.pan}
+        pan={livePan}
         zoom={layoutData.zoom}
       />
-      {layoutData.viewMode === 'browser' ? (
-        <BrowserTabBar
-          activeBrowserTabId={layoutData.activeBrowserTabId}
-          leftInset={layoutData.leftChromeWidth}
-          browserTabs={layoutData.browserTabs}
-          isDark={isDark}
-          onAddBrowserPage={api.addBrowserPage}
-          onDeletePage={api.deletePage}
-          onRenamePage={api.renamePage}
-          onSelectBrowserTab={api.selectBrowserTab}
-        />
-      ) : null}
-
-      <div className="pointer-events-none absolute inset-0">
-        <PageBorderLayer
-          pages={borderPages}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
-        />
-        <DeviceShellLayer
-          pages={borderPages.filter((f) => !f.useSvgDeviceShell)}
-          fileEntities={layoutData.viewMode === 'browser' ? [] : fileEntities}
-          isDark={isDark}
-        />
-        <SvgDeviceShellLayer
-          pages={borderPages.filter((f) => f.useSvgDeviceShell)}
-          isDark={isDark}
-        />
+      {/* Translate the page chrome live with the pan gesture so borders and
+          device shells track the natively-positioned page views instead of
+          trailing until the next layout-update rebuild lands (#257). */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
+      >
+        <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
+        <div className="pointer-events-none absolute inset-0">
+          <PageBorderLayer
+            pages={chromePages}
+            fileEntities={chromeFiles}
+          />
+          <DeviceShellLayer
+            pages={deviceShellPages}
+            fileEntities={chromeFiles}
+            isDark={isDark}
+          />
+          <SvgDeviceShellLayer
+            pages={svgDeviceShellPages}
+            isDark={isDark}
+          />
+        </div>
       </div>
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).

@@ -5,6 +5,7 @@ import {
   type AnnotationLiveBboxLookup,
   type PendingAnnotation,
 } from './annotationMath'
+import { Play } from 'lucide-react'
 import { CircleCheckIcon, MoreVerticalIcon, TrashIcon } from '../shared/PanelIcons'
 import { CommentBubble, CommentInput } from '../shared/CommentPrimitives'
 import { FixEventList, fixStatusLabel } from '../shared/FixEventList'
@@ -33,7 +34,6 @@ export function PendingAnnotationComposer({
   pendingAnnotation,
   pendingPosition,
   pendingRegionRect,
-  resizeCommentInput,
   setCommentText,
   setElementNameDraft,
   submitPendingAnnotation,
@@ -47,7 +47,6 @@ export function PendingAnnotationComposer({
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
-  resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
   submitPendingAnnotation: () => void
@@ -66,7 +65,6 @@ export function PendingAnnotationComposer({
         left={left}
         top={top}
         width={width}
-        resizeCommentInput={resizeCommentInput}
         setCommentText={setCommentText}
         submit={submitPendingAnnotation}
         submitLabel="Submit comment"
@@ -96,7 +94,6 @@ export function PendingAnnotationComposer({
           left={composerX}
           top={composerY}
           width={REGION_COMPOSER_WIDTH}
-          resizeCommentInput={resizeCommentInput}
           setCommentText={setCommentText}
           submit={submitRegionAnnotation}
           submitLabel="Submit region annotation"
@@ -114,7 +111,6 @@ function ComposerBox({
   left,
   top,
   width,
-  resizeCommentInput,
   setCommentText,
   submit,
   submitLabel,
@@ -127,7 +123,6 @@ function ComposerBox({
   left: number
   top: number
   width: number
-  resizeCommentInput: () => void
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   submit: () => void
   submitLabel?: string
@@ -157,12 +152,12 @@ function ComposerBox({
             className="w-full rounded-[6px] bg-transparent px-2 py-1 text-[12px] font-medium text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
           />
         ) : null}
-        <div className="flex items-center gap-2 px-1.5">
+        <div className="relative pl-1.5 pb-1.5">
           <CommentInput
             inputRef={commentInputRef}
             autoFocus={!showElementName}
             value={commentText}
-            onChange={(value) => { setCommentText(value); resizeCommentInput() }}
+            onChange={setCommentText}
             onSubmit={submit}
             submitLabel={submitLabel}
             onKeyDown={(event) => {
@@ -225,12 +220,15 @@ export function AnnotationThreadPopover({
   replyText,
   setOpenThreadMenu,
   setReplyText,
-  startAnnotationDrag,
   submitThreadReply,
   threadInputRef,
   threadPosition,
 }: {
-  api: { deleteAnnotation: (annotationId: string) => void; resolveAnnotation: (annotationId: string) => void }
+  api: {
+    deleteAnnotation: (annotationId: string) => void
+    resolveAnnotation: (annotationId: string) => void
+    fixSingleAnnotation: (annotationId: string) => void
+  }
   closeThread: () => void
   drawCursor: string
   drawInteractionEnabled: boolean
@@ -240,7 +238,6 @@ export function AnnotationThreadPopover({
   replyText: string
   setOpenThreadMenu: React.Dispatch<React.SetStateAction<boolean>>
   setReplyText: React.Dispatch<React.SetStateAction<string>>
-  startAnnotationDrag: (event: React.PointerEvent<HTMLElement>, annotationId: string) => void
   submitThreadReply: () => void
   threadInputRef: React.RefObject<HTMLTextAreaElement | null>
   threadPosition: { left: number; top: number; width: number } | null
@@ -268,24 +265,21 @@ export function AnnotationThreadPopover({
         <div className="rounded-2xl border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900 shadow-xl dark:text-zinc-100">
           <div
             className="flex items-center justify-between border-b border-zinc-200 px-2.5 py-1.5 dark:border-zinc-700"
-            style={{
-              cursor:
-                openThread.anchor.type === 'canvas'
-                  ? drawInteractionEnabled
-                    ? drawCursor
-                    : 'grab'
-                  : drawInteractionEnabled
-                    ? drawCursor
-                    : undefined,
-            }}
-            onPointerDown={(event) => {
-              if (openThread.anchor.type !== 'canvas') return
-              if ((event.target as Element | null)?.closest('button')) return
-              startAnnotationDrag(event, openThread.id)
-            }}
+            style={{ cursor: drawInteractionEnabled ? drawCursor : undefined }}
           >
             <div className="text-[12px] font-semibold">Comment</div>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                data-overlay-ui
+                className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-[var(--surface-popover)] disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-[var(--surface-popover)]"
+                aria-label="Fix with agent"
+                title="Fix with agent"
+                disabled={progress?.status === 'running'}
+                onClick={() => api.fixSingleAnnotation(openThread.id)}
+              >
+                <Play className="size-3.5" />
+              </button>
               <div className="relative">
                 <button
                   type="button"
@@ -356,7 +350,7 @@ export function AnnotationThreadPopover({
             <ThreadFixProgress progress={progress} />
           ) : null}
           <div className="border-t border-zinc-200 px-2.5 py-2.5 dark:border-zinc-700">
-            <div className="flex items-center gap-2 rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
+            <div className="relative rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
               <CommentInput
                 inputRef={threadInputRef}
                 value={replyText}

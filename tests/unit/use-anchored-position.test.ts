@@ -13,7 +13,6 @@ function pageEntity(): CanvasScenePageEntity {
     canGoForward: false,
     isLoading: false,
     isCustomSize: false,
-    browserSizeMode: 'fill',
     canvasX: 0,
     canvasY: 0,
     width: 400,

@@ -13,12 +13,8 @@ import {
   Square,
   StickyNote,
 } from 'lucide-react'
-import type {
-  LeftSidebarElectronAPI,
-  SidebarCanvasItem,
-  SidebarGroupItem,
-  SidebarSectionKey,
-} from '../../shared/types'
+import type { SidebarCanvasItem, SidebarGroupItem, SidebarSectionKey } from '../../shared/types'
+import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-sidebar'
 import { iconForFilePath } from '../shared/fileIcon'
 import { PageListItem } from '../shared/pageListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
@@ -151,7 +147,6 @@ function GroupTreeItem({
   isDark,
   api,
   section,
-  parentId,
 }: {
   group: SidebarGroupItem
   depth: number
@@ -160,7 +155,6 @@ function GroupTreeItem({
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
-  parentId: string | null
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -295,7 +289,6 @@ function SidebarCanvasTreeItem({
   isDark,
   api,
   section,
-  parentId,
 }: {
   item: SidebarCanvasItem
   depth: number
@@ -304,7 +297,6 @@ function SidebarCanvasTreeItem({
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
-  parentId: string | null
 }) {
   if (item.kind === 'group') {
     return (
@@ -316,7 +308,6 @@ function SidebarCanvasTreeItem({
         isDark={isDark}
         api={api}
         section={section}
-        parentId={parentId}
       />
     )
   }
@@ -449,7 +440,6 @@ function SidebarCanvasTreeList({
             isDark={isDark}
             api={api}
             section={section}
-            parentId={parentId}
           />
         </div>
       ))}

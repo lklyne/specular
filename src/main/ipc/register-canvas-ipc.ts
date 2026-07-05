@@ -1,30 +1,32 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-import type { CanvasEntityKind, SelectionModifiers, SidebarSectionKey } from '../../shared/types'
+import type {
+  CanvasEntityKind,
+  FocusPresentationMode,
+  SelectionModifiers,
+  SidebarSectionKey,
+} from '../../shared/types'
 import type { EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
 import { activeTool as uiActiveTool } from '../ui-state'
-import {
-  canvasOrigin,
-  pan,
-  requestLayout,
-  zoom,
-} from '../runtime/surface-layout'
+import { pan, zoom } from '../runtime/runtime-context'
+import { requestLayout } from '../runtime/viewport-control'
+import { boundCanvasOrigin as canvasOrigin } from '../runtime/runtime-geometry'
 import { saveImageBuffer } from '../runtime/image-assets'
 import { htmlDefaultSize, imageSizeFromBuffer } from '../runtime/image-sizing'
 import {
-  focusSelectedPage,
+  focusSelection,
   getSelectedEntityIds,
-  selectBrowserTab,
   selectEntity,
   selectPage,
   selectPageById,
+  restoreFocusCamera,
   selectedPageId,
-  setBrowserMode,
-  setCanvasMode,
+  setFocusPresentationMode,
+  setFocusAnnotationsVisible,
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
@@ -48,7 +50,6 @@ import {
 import {
   createWorkspaceTab,
   deleteWorkspaceTab,
-  duplicateWorkspaceTab,
   renameWorkspaceDrawingEntity,
   renameWorkspaceFileEntity,
   renameWorkspacePage,
@@ -56,15 +57,10 @@ import {
   renameWorkspaceTab,
   renameWorkspaceTextEntity,
   reorderWorkspaceTab,
-  scheduleWorkspaceAutosave,
   setActiveWorkspaceTab,
-  setWorkspaceTabExpanded,
-} from '../runtime/workspace-session'
-import {
-  setPageBrowserSizeMode,
-  type BrowserSizeMode,
-} from '../runtime/runtime-entities'
-import { createEdges, deleteEdges } from '../workspace-edges'
+} from '../runtime/workspace-tab-operations'
+import { scheduleWorkspaceAutosave } from '../runtime/workspace-autosave'
+import { deleteEdges } from '../workspace-edges'
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
 import {
@@ -75,6 +71,7 @@ import {
   selectNone,
 } from '../runtime/selection-controller'
 import { consumeDragId } from '../runtime/drop-owner'
+import { enterPageInteractive } from '../runtime/overlay-manager'
 import { registerCanvasDragIpc } from './register-canvas-drag-ipc'
 import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
 import { registerCanvasReorderIpc } from './register-canvas-reorder-ipc'
@@ -88,7 +85,7 @@ export function registerCanvasIpc(): void {
   // --- Selection ---
 
   ipcMain.on(
-    'canvas-select-in-rect',
+    ipcChannels.canvasSelectInRect,
     (
       _event,
       payload: {
@@ -104,15 +101,15 @@ export function registerCanvasIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-clear-annotate-hover', () => {
+  ipcMain.on(ipcChannels.canvasClearAnnotateHover, () => {
     for (const page of pages) {
       if (page.pageView.webContents.isDestroyed()) continue
-      page.pageView.webContents.send('annotate-clear-hover')
+      page.pageView.webContents.send(ipcChannels.annotateClearHover)
     }
   })
 
   ipcMain.on(
-    'canvas-select-page',
+    ipcChannels.canvasSelectPage,
     (
       _event,
       { pageId, modifiers }: { pageId: string; modifiers?: SelectionModifiers },
@@ -129,64 +126,33 @@ export function registerCanvasIpc(): void {
     },
   )
 
-  ipcMain.on(
-    'canvas-click-at',
-    (
-      _event,
-      {
-        screenX,
-        screenY,
-        modifiers,
-      }: { screenX: number; screenY: number; modifiers?: SelectionModifiers },
-    ) => {
-      if (interactionBlocksPageSelection()) return
-      const origin = canvasOrigin()
-      const canvasX = (screenX - origin.x - pan.x) / zoom
-      const canvasY = (screenY - origin.y - pan.y) / zoom
-      // Use a 1x1 rect at the click point for hit-testing.
-      // Drawings are hit-tested in the renderer (SVG stroke hit-paths), not by bbox here.
-      selectEntitiesInRect(
-        { x: canvasX, y: canvasY, width: 1, height: 1 },
-        { includeDrawings: false, mode: selectionMutationMode(modifiers) },
-      )
-    },
-  )
-
-  ipcMain.on(
-    'canvas-select-in-screen-rect',
-    (
-      _event,
-      rect: {
-        x: number
-        y: number
-        width: number
-        height: number
-        modifiers?: SelectionModifiers
-      },
-    ) => {
-      if (interactionBlocksPageSelection()) return
-      const origin = canvasOrigin()
-      const canvasX = (rect.x - origin.x - pan.x) / zoom
-      const canvasY = (rect.y - origin.y - pan.y) / zoom
-      selectEntitiesInRect(
-        { x: canvasX, y: canvasY, width: rect.width / zoom, height: rect.height / zoom },
-        { mode: selectionMutationMode(rect.modifiers) },
-      )
-    },
-  )
-
-  ipcMain.on('canvas-select-entities', (_event, entityIds: string[]) => {
+  ipcMain.on(ipcChannels.canvasSelectEntities, (_event, entityIds: string[]) => {
     setSelectedEntities(entityIds)
     requestLayout()
   })
 
-  const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>(
-    DRAWING_FEATURE_ENABLED
-      ? ['page', 'text', 'file', 'drawing', 'shape', 'edge']
-      : ['page', 'text', 'file', 'shape', 'edge'],
-  )
+  ipcMain.on(ipcChannels.canvasFocusSelection, () => {
+    focusSelection()
+  })
+
+  ipcMain.on(ipcChannels.canvasRestoreFocusCamera, () => {
+    restoreFocusCamera()
+  })
+
+  ipcMain.on(ipcChannels.canvasSetFocusPresentationMode, (_event, mode: FocusPresentationMode) => {
+    if (mode !== 'device' && mode !== 'fit' && mode !== 'fill') return
+    setFocusPresentationMode(mode)
+  })
+
+  ipcMain.on(ipcChannels.canvasSetFocusAnnotationsVisible, (_event, visible: boolean) => {
+    setFocusAnnotationsVisible(Boolean(visible))
+  })
+
+  const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>([
+    'page', 'text', 'file', 'drawing', 'shape', 'edge',
+  ])
   ipcMain.on(
-    'canvas-select-entity',
+    ipcChannels.canvasSelectEntity,
     (
       _event,
       {
@@ -206,12 +172,16 @@ export function registerCanvasIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-select-group', (_event, { groupId }: { groupId: string }) => {
+  ipcMain.on(ipcChannels.canvasSelectGroup, (_event, { groupId }: { groupId: string }) => {
     selectGroup(groupId, { clearInteraction: true })
   })
 
-  ipcMain.on('canvas-enter-group', (_event, { groupId }: { groupId: string }) => {
+  ipcMain.on(ipcChannels.canvasEnterGroup, (_event, { groupId }: { groupId: string }) => {
     enterGroup(groupId, { clearInteraction: true })
+  })
+
+  ipcMain.on(ipcChannels.canvasEnterPageInteractive, (_event, { pageId }: { pageId: string }) => {
+    enterPageInteractive(pageId)
   })
 
   // Unified inline-edit entry point. Dblclick on a sticky/text/shape body
@@ -221,7 +191,7 @@ export function registerCanvasIpc(): void {
   // editing state from the broadcast `interaction` field of the next
   // layout-update — no separate begin-edit channel.
   ipcMain.on(
-    'canvas-request-entity-edit',
+    ipcChannels.canvasRequestEntityEdit,
     (_event, { entityId }: { entityId: string }) => {
       const kind = resolveEntityKind(entityId)
       if (kind === 'edge' || kind === 'drawing') return
@@ -237,15 +207,15 @@ export function registerCanvasIpc(): void {
     },
   )
 
-  ipcMain.on('canvas-commit-entity-edit', () => {
+  ipcMain.on(ipcChannels.canvasCommitEntityEdit, () => {
     commitEditingEntity()
   })
 
-  ipcMain.on('canvas-cancel-entity-edit', () => {
+  ipcMain.on(ipcChannels.canvasCancelEntityEdit, () => {
     cancelEditingEntity('escape')
   })
 
-  ipcMain.on('canvas-hover-page', (_event, { pageId }: { pageId: string | null }) => {
+  ipcMain.on(ipcChannels.canvasHoverPage, (_event, { pageId }: { pageId: string | null }) => {
     if (interactionBlocksPageHover()) return
     // Comment tool captures pointerdown in the overlay — page hover would
     // race with the comment gesture's element preview (ADR 0006).
@@ -257,13 +227,15 @@ export function registerCanvasIpc(): void {
   // single-selected page so the page reacts as if clicked/scrolled directly.
   // See docs/plans/aboveview-interactive-layer-poc.md.
   ipcMain.on(
-    'canvas-forward-wheel',
+    ipcChannels.canvasForwardWheel,
     (_event, { pageId, payload }: { pageId: string; payload: ForwardWheelPayload }) => {
+      // Focus presentation locks the camera: a focused page scrolls its own
+      // content; the wheel never reaches the canvas, so there's no exit to guard.
       forwardWheelToPage(pageId, payload)
     },
   )
   ipcMain.on(
-    'canvas-forward-pointer',
+    ipcChannels.canvasForwardPointer,
     (_event, { pageId, payload }: { pageId: string; payload: ForwardPointerPayload }) => {
       forwardPointerToPage(pageId, payload)
     },
@@ -274,7 +246,7 @@ export function registerCanvasIpc(): void {
   // off (Cmd+Z, single-letter tool hotkeys, etc.). Edit-mode lifecycle
   // (`editing-entity`) is owned by the request/commit/cancel-entity-edit
   // IPC pair — this handler stays focus-tracking-only.
-  ipcMain.on('canvas-set-text-editing', (event, { active }: { active: boolean }) => {
+  ipcMain.on(ipcChannels.canvasSetTextEditing, (event, { active }: { active: boolean }) => {
     setTextEditingActive(event.sender, active)
     // When the sidebar reports a text input becoming active, request a layout
     // pass so reconcileFocus() immediately gives focus to the sidebar —
@@ -285,109 +257,78 @@ export function registerCanvasIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-set-annotation-state',
+    ipcChannels.canvasSetAnnotationState,
     (_event, { hasOpenThread, hasPending }: { hasOpenThread: boolean; hasPending: boolean }) => {
       setAnnotationState(hasOpenThread, hasPending)
     },
   )
 
-  // --- Browser mode ---
-
-  ipcMain.on('canvas-select-browser-tab', (_event, { pageId }: { pageId: string }) => {
-    selectBrowserTab(pageId)
-  })
-
-  ipcMain.on(
-    'canvas-set-browser-size-mode',
-    (_event, { pageId, mode }: { pageId: string; mode: BrowserSizeMode }) => {
-      const page = pages.find((candidate) => candidate.id === pageId)
-      if (!page) return
-      page.metadata = setPageBrowserSizeMode(page.metadata, mode)
-      scheduleWorkspaceAutosave()
-      requestLayout()
-    },
-  )
-
-  ipcMain.on(
-    'canvas-set-browser-mode',
-    (_event, { mode }: { mode: 'canvas' | 'browser' }) => {
-      if (mode === 'browser') {
-        setBrowserMode()
-        return
-      }
-      setCanvasMode()
-    },
-  )
-
   // --- Tab management ---
 
-  ipcMain.on('canvas-select-tab', (_event, { tabId }: { tabId: string }) => {
+  ipcMain.on(ipcChannels.canvasSelectTab, (_event, { tabId }: { tabId: string }) => {
     setActiveWorkspaceTab(tabId)
   })
 
-  ipcMain.on('canvas-create-tab', () => {
+  ipcMain.on(ipcChannels.canvasCreateTab, () => {
     createWorkspaceTab()
   })
 
   ipcMain.on(
-    'canvas-rename-tab',
+    ipcChannels.canvasRenameTab,
     (_event, { tabId, name }: { tabId: string; name: string }) => {
       renameWorkspaceTab(tabId, name)
     },
   )
 
   ipcMain.on(
-    'canvas-rename-page',
+    ipcChannels.canvasRenamePage,
     (_event, { pageId, name }: { pageId: string; name: string }) => {
       renameWorkspacePage(pageId, name)
     },
   )
 
   ipcMain.on(
-    'canvas-rename-group',
+    ipcChannels.canvasRenameGroup,
     (_event, { groupId, name }: { groupId: string; name: string }) => {
       renameWorkspaceGroup(groupId, name)
     },
   )
 
   ipcMain.on(
-    'canvas-rename-file-entity',
+    ipcChannels.canvasRenameFileEntity,
     (_event, { entityId, name }: { entityId: string; name: string }) => {
       renameWorkspaceFileEntity(entityId, name)
     },
   )
 
   ipcMain.on(
-    'canvas-rename-text-entity',
+    ipcChannels.canvasRenameTextEntity,
     (_event, { entityId, name }: { entityId: string; name: string }) => {
       renameWorkspaceTextEntity(entityId, name)
     },
   )
 
   ipcMain.on(
-    'canvas-rename-drawing-entity',
+    ipcChannels.canvasRenameDrawingEntity,
     (_event, { entityId, name }: { entityId: string; name: string }) => {
       renameWorkspaceDrawingEntity(entityId, name)
     },
   )
 
-  ipcMain.on('canvas-duplicate-tab', (_event, { tabId }: { tabId: string }) => {
-    duplicateWorkspaceTab(tabId)
-  })
 
-  ipcMain.on('canvas-delete-tab', (_event, { tabId }: { tabId: string }) => {
+  ipcMain.on(ipcChannels.canvasDeleteTab, (_event, { tabId }: { tabId: string }) => {
     deleteWorkspaceTab(tabId)
   })
 
   ipcMain.on(
-    'canvas-reorder-tab',
+    ipcChannels.canvasReorderTab,
     (_event, { tabId, toIndex }: { tabId: string; toIndex: number }) => {
       reorderWorkspaceTab(tabId, toIndex)
     },
   )
 
   ipcMain.on(
-    'canvas-reorder-sidebar-item',
+    ipcChannels.canvasReorderSidebarItem,
     (
       _event,
       payload: {
@@ -404,56 +345,14 @@ export function registerCanvasIpc(): void {
     },
   )
 
-  ipcMain.on(
-    'canvas-set-tab-expanded',
-    (_event, { tabId, expanded }: { tabId: string; expanded: boolean }) => {
-      setWorkspaceTabExpanded(tabId, expanded)
-    },
-  )
-
   // --- Edge operations ---
 
-  ipcMain.on(
-    'canvas-create-edge',
-    (
-      _event,
-      {
-        fromEntityId,
-        toEntityId,
-        fromSide,
-        toSide,
-      }: {
-        fromEntityId: string
-        toEntityId: string
-        fromSide?: EdgeSide
-        toSide?: EdgeSide
-      },
-    ) => {
-      if (!fromSide || !toSide) return
-      createEdges({
-        edges: [
-          {
-            fromEntityId,
-            toEntityId,
-            fromSide,
-            toSide,
-            toEnd: 'arrow',
-            kind: 'connection',
-          },
-        ],
-      })
-      commitActive()
-      setHoverEntity(null)
-      requestLayout()
-    },
-  )
-
-  ipcMain.on('canvas-delete-edge', (_event, { edgeId }: { edgeId: string }) => {
+  ipcMain.on(ipcChannels.canvasDeleteEdge, (_event, { edgeId }: { edgeId: string }) => {
     deleteEdges({ edgeIds: [edgeId] })
     requestLayout()
   })
 
-  ipcMain.on('canvas-select-edge', (_event, { edgeId }: { edgeId: string | null }) => {
+  ipcMain.on(ipcChannels.canvasSelectEdge, (_event, { edgeId }: { edgeId: string | null }) => {
     if (!edgeId) {
       selectNone()
       return
@@ -476,7 +375,7 @@ export function registerCanvasIpc(): void {
   let lastDropTime = 0
 
   ipcMain.on(
-    'canvas-drop-file-buffer',
+    ipcChannels.canvasDropFileBuffer,
     (
       _event,
       {
@@ -504,7 +403,7 @@ export function registerCanvasIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-drop-component-path',
+    ipcChannels.canvasDropComponentPath,
     (
       _event,
       {

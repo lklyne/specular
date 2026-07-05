@@ -7,7 +7,6 @@ import type { LayoutUpdateData } from '../../src/shared/types'
 
 function layout(): LayoutUpdateData {
   return {
-    viewMode: 'canvas',
     zoom: 1,
     canvasOrigin: { x: 0, y: 40 },
     pan: { x: 200, y: 20 },

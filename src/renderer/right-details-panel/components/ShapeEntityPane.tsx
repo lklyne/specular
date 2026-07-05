@@ -1,11 +1,9 @@
 import { Circle, Diamond, Square, Trash2 } from 'lucide-react'
 import type { PanelShapeEntityDetail, ShapeKind } from '../../../shared/types'
-import {
-  dividerClass,
-  mutedClass,
-  paneDeleteBtnClass,
-} from '../rightDetailsPanelHelpers'
+import { mutedClass, paneDeleteBtnClass } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
+import { usePaneTheme } from '../PaneContext'
+import { PaneField, PaneSection } from './PaneSection'
 import { ColorSwatchPicker } from './ColorSwatchPicker'
 import { PaneHeader } from './PaneHeader'
 
@@ -17,16 +15,9 @@ const SHAPE_OPTIONS: Array<{ kind: ShapeKind; label: string; Icon: React.Compone
   { kind: 'diamond', label: 'Diamond', Icon: Diamond },
 ]
 
-export function ShapeEntityPane({
-  shapeEntity,
-  isDark,
-}: {
-  shapeEntity: PanelShapeEntityDetail
-  isDark: boolean
-}) {
+export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntityDetail }) {
+  const isDark = usePaneTheme()
   const muted = mutedClass(isDark)
-  const divider = dividerClass(isDark)
-  const deleteBtnClass = paneDeleteBtnClass(isDark)
   const segmentBtn = (active: boolean) =>
     `flex items-center gap-1 rounded px-2 py-1 text-[11px] ${
       active
@@ -50,7 +41,7 @@ export function ShapeEntityPane({
         actions={
           <button
             type="button"
-            className={deleteBtnClass}
+            className={paneDeleteBtnClass(isDark)}
             onClick={() => rightDetailsPanelApi.deleteShapeEntity(shapeEntity.id)}
             title="Delete"
             aria-label="Delete Shape"
@@ -68,9 +59,7 @@ export function ShapeEntityPane({
               key={kind}
               type="button"
               className={segmentBtn(shapeEntity.shapeKind === kind)}
-              onClick={() =>
-                rightDetailsPanelApi.updateShapeEntity(shapeEntity.id, { shapeKind: kind })
-              }
+              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { shapeKind: kind })}
               title={label}
             >
               <Icon size={12} />
@@ -80,48 +69,39 @@ export function ShapeEntityPane({
         </div>
       </div>
 
-      <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
-        <div className={`mb-1 text-[10px] font-medium ${muted}`}>color</div>
+      <PaneSection.Root>
+        <PaneSection.Label>color</PaneSection.Label>
         <ColorSwatchPicker
           activeColor={shapeEntity.color ?? null}
           isDark={isDark}
           allowNone
           palette="soft"
-          onSelectColor={(color) =>
-            rightDetailsPanelApi.updateShapeEntity(shapeEntity.id, { color })
-          }
+          onSelectColor={(color) => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { color })}
         />
-      </div>
+      </PaneSection.Root>
 
-      <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
-        <div className={`mb-1 text-[10px] font-medium ${muted}`}>stroke</div>
+      <PaneSection.Root>
+        <PaneSection.Label>stroke</PaneSection.Label>
         <div className="flex items-center gap-1">
           {STROKE_WIDTHS.map((value) => (
             <button
               key={value}
               type="button"
               className={segmentBtn(currentStroke === value)}
-              onClick={() =>
-                rightDetailsPanelApi.updateShapeEntity(shapeEntity.id, { strokeWidth: value })
-              }
+              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { strokeWidth: value })}
             >
               <span>{value}</span>
             </button>
           ))}
         </div>
-      </div>
+      </PaneSection.Root>
 
       {shapeEntity.text ? (
-        <div className={`border-t px-2 pt-2 pb-2 ${divider}`}>
-          <div className={`mb-1 text-[10px] font-medium ${muted}`}>content</div>
-          <div
-            className={`rounded px-2 py-1.5 text-[11px] leading-5 ${
-              isDark ? 'bg-zinc-800' : 'bg-zinc-100'
-            }`}
-          >
+        <PaneField label="content">
+          <div className={`rounded px-2 py-1.5 text-[11px] leading-5 ${isDark ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
             {shapeEntity.text}
           </div>
-        </div>
+        </PaneField>
       ) : null}
     </div>
   )

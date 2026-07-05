@@ -24,7 +24,6 @@ function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): Canva
     canGoForward: false,
     isLoading: false,
     isCustomSize: false,
-    browserSizeMode: 'fill',
     canvasX: 0,
     canvasY: 0,
     width: screenWidth,
@@ -91,8 +90,12 @@ function drawing(id: string, screenX: number, screenY: number, w = 100, h = 60):
   }
 }
 
-function inputs(entities: CanvasSceneEntity[], selectedEntityIds: string[] = []): HitInputs {
-  return { entities, edges: [], selectedEntityIds, zoom: 1 }
+function inputs(
+  entities: CanvasSceneEntity[],
+  selectedEntityIds: string[] = [],
+  overrides: Partial<HitInputs> = {},
+): HitInputs {
+  return { entities, edges: [], selectedEntityIds, zoom: 1, ...overrides }
 }
 
 // --- Collision class tests ---
@@ -104,10 +107,26 @@ describe('hit-test — issue #41 anchor near chrome', () => {
   // chrome y ∈ [164, 200). The bug: anchor wins. The fix: chrome wins.
   const f = page({ id: 'f1', screenX: 200, screenY: 200 })
 
-  it('chrome wins over top anchor when page is selected', () => {
-    const result = hitTest(inputs([f], ['f1']), { x: 400, y: 185 })
+  it('chrome wins over top anchor when page is hovered but not selected', () => {
+    const result = hitTest(inputs([f], [], { hoveredEntityId: 'f1' }), { x: 400, y: 185 })
     expect(result.layer).toBe('chrome')
     expect(result.payload).toMatchObject({ kind: 'chrome', entityId: 'f1' })
+  })
+
+  it('selected pages do not expose a chrome hit target', () => {
+    const result = hitTest(inputs([f], ['f1']), { x: 400, y: 185 })
+    expect(result.layer).toBe('anchors')
+    expect(result.payload).toMatchObject({ kind: 'anchor', side: 'top' })
+  })
+
+  it('keyboard-focused pages do not expose a chrome hit target', () => {
+    const result = hitTest(inputs([f], [], { keyboardTargetPageId: 'f1' }), { x: 400, y: 185 })
+    expect(result.layer).toBe('background')
+  })
+
+  it('focus-presented pages do not expose a chrome hit target', () => {
+    const result = hitTest(inputs([f], [], { focusPresentationPageId: 'f1' }), { x: 400, y: 185 })
+    expect(result.layer).toBe('background')
   })
 
   it('an anchor click clear of the chrome still hits the anchor', () => {

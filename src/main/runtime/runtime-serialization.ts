@@ -56,9 +56,9 @@ export function pageDisplayLabel(page: PageLabelTarget): string {
 export function cloneAnnotationsForPersistence(
   annotations: Annotation[],
 ): Annotation[] {
-  return JSON.parse(JSON.stringify(annotations)) as Annotation[]
+  return structuredClone(annotations)
 }
 
 export function cloneWorkspaceSnapshot(snapshot: WorkspaceSnapshot): WorkspaceSnapshot {
-  return JSON.parse(JSON.stringify(snapshot)) as WorkspaceSnapshot
+  return structuredClone(snapshot)
 }

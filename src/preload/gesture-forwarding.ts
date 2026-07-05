@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { classifyViewportWheel, middleDragDelta } from '../shared/gesture-utils'
 import { ipcRenderer } from 'electron'
 
@@ -28,14 +29,14 @@ export function isPageOverlayTarget(target: Element | null): boolean {
 export function forwardViewportWheel(event: WheelEvent, emulationScale = 1): void {
   const action = classifyViewportWheel(event)
   if (action.kind === 'zoom') {
-    ipcRenderer.send('canvas-zoom', {
+    ipcRenderer.send(ipcChannels.canvasZoom, {
       deltaY: action.deltaY * emulationScale,
       mouseX: action.mouseX,
       mouseY: action.mouseY,
     })
     return
   }
-  ipcRenderer.send('canvas-pan', {
+  ipcRenderer.send(ipcChannels.canvasPan, {
     deltaX: action.deltaX * emulationScale,
     deltaY: action.deltaY * emulationScale,
   })
@@ -46,7 +47,7 @@ export function forwardMiddleDragPan(
   next: MouseEvent,
 ): { screenX: number; screenY: number } {
   const delta = middleDragDelta(previous, next)
-  ipcRenderer.send('canvas-pan', delta)
+  ipcRenderer.send(ipcChannels.canvasPan, delta)
   return {
     screenX: next.screenX,
     screenY: next.screenY,

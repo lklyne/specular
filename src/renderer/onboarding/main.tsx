@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
-import type { OnboardingElectronAPI } from '../../shared/types'
+import type { OnboardingElectronAPI } from '../../shared/electron-api/onboarding'
 
 initRendererSentry()
 

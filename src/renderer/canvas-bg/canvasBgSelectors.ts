@@ -1,17 +1,7 @@
 import type {
-  CanvasSceneEntity,
   LayoutUpdateData,
 } from '../../shared/types'
 import { snapToGrid, screenPointToCanvasPoint } from '../../shared/gesture-utils'
-import { unionScreenBounds } from './canvasGeometry'
-
-function buildSelectedPageIdSet(selectedEntityIds: string[]): Set<string> {
-  return new Set(selectedEntityIds)
-}
-
-function buildSelectionBounds(layoutData: LayoutUpdateData) {
-  return unionScreenBounds(layoutData.entities, layoutData.selectedEntityIds)
-}
 
 export function buildPendingPlacementPreview(
   layoutData: LayoutUpdateData,
@@ -39,21 +29,3 @@ export function buildPendingPlacementPreview(
   }
 }
 
-function buildActionAnchorTop(
-  layoutData: LayoutUpdateData,
-  selectionBounds: ReturnType<typeof unionScreenBounds>,
-): number {
-  return selectionBounds
-    ? Math.max(layoutData.canvasOrigin.y + 40, selectionBounds.top)
-    : layoutData.canvasOrigin.y + 40
-}
-
-function buildHighlightedEntities(
-  entities: CanvasSceneEntity[],
-  selectedEntityIdSet: Set<string>,
-  hoveredEntityId: string | null,
-) {
-  return entities.filter(
-    (entity) => selectedEntityIdSet.has(entity.id) || entity.id === hoveredEntityId,
-  )
-}

@@ -11,13 +11,12 @@ export function filePathToSrc(filePath: string): string {
 
 export interface RendererFileApi {
   showFileInFinder: (path: string) => void
+  copyFileAsPng: (path: string) => void
   reorderStack: (
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
     targetId?: string,
   ) => void
-  readNoteFile: (path: string) => Promise<string | null>
   writeNoteFile: (path: string, content: string) => Promise<boolean>
-  renameNoteFile: (path: string, newName: string) => Promise<string | null>
 }
 
 export function getFileApi(): RendererFileApi {

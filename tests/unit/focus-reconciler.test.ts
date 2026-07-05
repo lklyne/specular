@@ -5,12 +5,11 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
   return {
     interactionMode: 'idle',
     editingEntityId: null,
-    selectedPageId: null,
-    workspaceViewMode: 'canvas',
     commentOverlayActive: false,
     pendingFocus: null,
     focusedPageId: null,
     sidebarTextInputActive: false,
+    toolbarTextInputActive: false,
     ...overrides,
   }
 }
@@ -18,16 +17,6 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
 describe('expectedFocus', () => {
   it('defaults to aboveView in idle canvas mode (Phase F: aboveView is the keyboard owner)', () => {
     expect(expectedFocus(state())).toEqual({ kind: 'aboveView' })
-  })
-
-  it('returns the selected page in browser mode', () => {
-    expect(expectedFocus(state({ workspaceViewMode: 'browser', selectedPageId: 'p1' })))
-      .toEqual({ kind: 'page', id: 'p1' })
-  })
-
-  it('falls back to aboveView in browser mode without a selected page (Phase F)', () => {
-    expect(expectedFocus(state({ workspaceViewMode: 'browser' })))
-      .toEqual({ kind: 'aboveView' })
   })
 
   for (const mode of ['panning', 'marquee', 'dragging-entities', 'resizing-entity', 'resizing-multi-selection', 'dragging-edge'] as const) {
@@ -78,12 +67,19 @@ describe('expectedFocus', () => {
       .toEqual({ kind: 'toolbar' })
   })
 
+  it('routes to toolbar when toolbarTextInputActive', () => {
+    expect(expectedFocus(state({ toolbarTextInputActive: true }))).toEqual({ kind: 'toolbar' })
+  })
+
+  it('toolbarTextInputActive overrides page focus', () => {
+    expect(expectedFocus(state({ toolbarTextInputActive: true, focusedPageId: 'p1' })))
+      .toEqual({ kind: 'toolbar' })
+  })
+
   it('pendingFocus overrides derivation', () => {
     expect(expectedFocus(state({ pendingFocus: { kind: 'toolbar' } })))
       .toEqual({ kind: 'toolbar' })
     expect(expectedFocus(state({
-      workspaceViewMode: 'browser',
-      selectedPageId: 'p1',
       pendingFocus: { kind: 'bgView' },
     }))).toEqual({ kind: 'bgView' })
   })

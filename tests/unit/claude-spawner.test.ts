@@ -2,23 +2,23 @@ import { describe, expect, it } from 'vitest'
 import { parseOutput } from '../../src/main/agent-fix/claude-spawner'
 
 describe('parseOutput', () => {
-  it('treats <<RESOLVE>> on its own line as resolving, with prior line as summary', () => {
-    const stdout = 'Some preamble\nShrunk the header padding to 12px.\n<<RESOLVE>>\n'
+  it('keeps the full message before <<RESOLVE>> and marks resolved', () => {
+    const stdout = 'Shrunk the header padding to 12px.\n\nAlternatives:\n- 8px for tighter\n<<RESOLVE>>\n'
     expect(parseOutput(stdout)).toEqual({
-      summary: 'Shrunk the header padding to 12px.',
+      summary: 'Shrunk the header padding to 12px.\n\nAlternatives:\n- 8px for tighter',
       shouldResolve: true,
     })
   })
 
-  it('treats <<WAITING>> as not resolving', () => {
+  it('treats <<WAITING>> as not resolving and keeps the message', () => {
     const stdout = 'Looked at the component.\nNeed clarification on spacing.\n<<WAITING>>'
     expect(parseOutput(stdout)).toEqual({
-      summary: 'Need clarification on spacing.',
+      summary: 'Looked at the component.\nNeed clarification on spacing.',
       shouldResolve: false,
     })
   })
 
-  it('extracts inline summary when marker is on the same line', () => {
+  it('handles the marker inline with the message', () => {
     const stdout = 'Header padding reduced. <<RESOLVE>>'
     expect(parseOutput(stdout)).toEqual({
       summary: 'Header padding reduced.',
@@ -26,10 +26,10 @@ describe('parseOutput', () => {
     })
   })
 
-  it('falls back to last line when no marker is present', () => {
+  it('keeps the whole output when no marker is present', () => {
     const stdout = 'Line one\nLine two\nFinal line without marker'
     expect(parseOutput(stdout)).toEqual({
-      summary: 'Final line without marker',
+      summary: 'Line one\nLine two\nFinal line without marker',
       shouldResolve: false,
     })
   })
@@ -41,12 +41,11 @@ describe('parseOutput', () => {
     })
   })
 
-  it('truncates very long summaries', () => {
-    const long = 'x'.repeat(400)
-    const stdout = `${long}\n<<RESOLVE>>`
-    const result = parseOutput(stdout)
+  it('truncates a runaway message', () => {
+    const long = 'x'.repeat(2400)
+    const result = parseOutput(`${long}\n<<RESOLVE>>`)
     expect(result.shouldResolve).toBe(true)
-    expect(result.summary.length).toBeLessThanOrEqual(280)
+    expect(result.summary.length).toBeLessThanOrEqual(2000)
     expect(result.summary.endsWith('…')).toBe(true)
   })
 })

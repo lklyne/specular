@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto'
 import { webContents } from 'electron'
 import { WebSocket, type RawData } from 'ws'
+import { DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import type { UiSelection } from '../shared/types'
-import { activeSessions } from './presence-manager'
+import { activeSessions } from './presence-session'
 import {
   enterGroup as enterSelectionGroup,
   selectEntities as selectSelectionEntities,
@@ -17,7 +18,10 @@ import { findPageById } from './runtime/runtime-context'
 
 export const APP_CONTROL_HOST = '127.0.0.1'
 const CDP_PROXY_TTL_MS = 5 * 60_000
-const REMOTE_DEBUGGING_PORT = Number.parseInt(process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? '9229', 10)
+const REMOTE_DEBUGGING_PORT = Number.parseInt(
+  process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? String(DEFAULT_REMOTE_DEBUGGING_PORT),
+  10,
+)
 const CDP_PROXY_LOG_DEBUG = process.env.SPECULAR_DEBUG_CDP_PROXY === '1'
 const CDP_PROXY_TIMING_DEBUG = process.env.SPECULAR_DEBUG_CDP_PROXY_TIMING === '1'
 
@@ -508,19 +512,3 @@ export function allowCdpTargetEvent(method: string, params: Record<string, unkno
   return true
 }
 
-// --- Reset ---
-
-export function resetCdpProxyState(): void {
-  for (const registration of [...cdpProxyRegistrations.values()]) {
-    registration.selectionSnapshot = null
-    disposeCdpProxyRegistration(registration)
-  }
-  cdpProxyRegistrations.clear()
-  cdpProxyRegistrationsByKey.clear()
-  cdpProxyMetrics.registrationsCreated = 0
-  cdpProxyMetrics.registrationsReused = 0
-  cdpProxyMetrics.upstreamConnects = 0
-  cdpProxyMetrics.upstreamReconnects = 0
-  cdpProxyMetrics.interceptedClicks = 0
-  cdpProxyMetrics.interceptedScrolls = 0
-}

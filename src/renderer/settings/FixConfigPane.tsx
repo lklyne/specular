@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Select } from '@base-ui/react/select'
 import { Check, ChevronDown } from 'lucide-react'
-import type {
-  FixConfig,
-  FixModel,
-  FixPermissions,
-  SettingsElectronAPI,
-} from '../../shared/types'
+import type { FixConfig, FixModel, FixPermissions } from '../../shared/types'
+import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
 
 const MODEL_OPTIONS: { value: FixModel; label: string }[] = [
   { value: 'opus', label: 'Opus' },
@@ -70,7 +66,7 @@ export function FixConfigPane({
             type="button"
             disabled={!dirty}
             onClick={() => api.setFixConfig({ model, permissions })}
-            className="rounded-[6px] bg-emerald-600 px-4 py-[6px] text-[12px] font-medium text-white shadow-sm enabled:hover:bg-emerald-500 disabled:opacity-50"
+            className="rounded-[6px] bg-[var(--surface-toolbar-foreground)] px-4 py-[6px] text-[12px] font-medium text-[var(--surface-panel)] shadow-sm enabled:hover:opacity-90 disabled:opacity-50"
           >
             Save
           </button>

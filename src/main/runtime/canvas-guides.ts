@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import { safeSend } from './safe-send'
 import { aboveView } from './view-refs'
@@ -8,7 +9,7 @@ let lastCanvasGuides: CanvasGuidesPayload = EMPTY_GUIDES
 export function broadcastCanvasGuides(payload: CanvasGuidesPayload): void {
   lastCanvasGuides = payload
   if (!aboveView || aboveView.webContents.isDestroyed()) return
-  safeSend(aboveView.webContents, 'canvas-guides', payload)
+  safeSend(aboveView.webContents, ipcChannels.canvasGuides, payload)
 }
 
 export function clearCanvasGuides(): void {

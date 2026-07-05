@@ -1,6 +1,9 @@
 import * as Sentry from '@sentry/electron/main'
-import type { ErrorEvent } from '@sentry/core'
 import { app } from 'electron'
+
+// @sentry/electron/main re-exports Event but not ErrorEvent; it's just Event
+// with type narrowed to undefined (what beforeSend receives).
+type ErrorEvent = Sentry.Event & { type: undefined }
 import {
   markSentryEnabled,
   setAutoUpdateChannel,
@@ -11,7 +14,6 @@ import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
-import { workspaceViewMode } from './ui-state'
 
 /**
  * Initialize Sentry for the Electron main process.
@@ -56,7 +58,7 @@ export function initSentry(): void {
 
 /**
  * Live app-state tags — read fresh on every event so entity counts and
- * view mode reflect the moment of capture without any subscription
+ * entity counts reflect the moment of capture without any subscription
  * plumbing on the mutation side.
  */
 function readAppStateTags(): Record<string, string> {
@@ -70,7 +72,6 @@ function readAppStateTags(): Record<string, string> {
         shapeEntities.length +
         workspaceGroups.length,
     ),
-    view_mode: workspaceViewMode(),
   }
 }
 

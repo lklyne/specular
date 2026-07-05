@@ -29,7 +29,7 @@ import {
 } from './view-refs'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './viewport-control'
+import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import {
   consumeLegacyOriginBindings,
   isDark,
@@ -53,7 +53,6 @@ import {
   activeCanvasSelection,
   buildCanvasLayoutData,
   sendAnnotationLayoutUpdate,
-  selectedComponentTreePayload,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
 import {
@@ -66,6 +65,7 @@ import {
 import type {
   DevtoolsPanelData,
 } from '../../shared/types'
+import { ipcChannels } from '../../shared/ipc-contract'
 import {
   mcpConnectionStatus,
 } from './runtime-context'
@@ -136,7 +136,7 @@ export function initWindow(): void {
   initFixOrchestrator()
   onTrackerChange(() => notifyDevtoolsPanelData())
   onProgressChange(() => {
-    if (aboveView) safeSend(aboveView.webContents, 'fix-progress-update', getFixProgress())
+    if (aboveView) safeSend(aboveView.webContents, ipcChannels.fixProgressUpdate, getFixProgress())
     notifyDevtoolsPanelData()
   })
   ensureWorkspaceTabsInitialized()
@@ -155,7 +155,10 @@ export function initWindow(): void {
   const currentWin = win
   if (!currentWin) return
 
-  currentWin.on('resize', () => { markDirty('canvas'); requestLayout() })
+  currentWin.on('resize', () => {
+    markDirty('canvas')
+    if (!recenterFocusPresentation()) requestLayout()
+  })
   currentWin.on('move', () => { markDirty('canvas'); requestLayout() })
 
   currentWin.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
@@ -198,17 +201,14 @@ export function initWindow(): void {
   // the first pass.
 
   currentBgView.webContents.once('did-finish-load', () => {
-    currentBgView.webContents.send('theme-changed', { isDark: isDark() })
+    currentBgView.webContents.send(ipcChannels.themeChanged, { isDark: isDark() })
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
-    currentBgView.webContents.send('layout-update', buildCanvasLayoutData(pageOverlays, nextActiveSelection))
-    sendAnnotationLayoutUpdate({
-      pages: pageOverlays,
-      activeSelection: nextActiveSelection,
-    })
-    currentBgView.webContents.send('component-tree-data', selectedComponentTreePayload())
+    const initialLayoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
+    currentBgView.webContents.send(ipcChannels.layoutUpdate, initialLayoutData)
+    sendAnnotationLayoutUpdate(initialLayoutData)
     // The renderer subscribes to layout updates during mount, so send one more
-    // pass on the next tick to avoid dropping the initial browser-mode tabs.
+    // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')
     requestLayout()
   })
@@ -226,7 +226,7 @@ export function initWindow(): void {
   loadRenderer(currentLeftSidebarView, 'left-sidebar')
   currentLeftSidebarView.webContents.once('did-finish-load', () => {
     if (currentLeftSidebarView.webContents.isDestroyed()) return
-    currentLeftSidebarView.webContents.send('theme-changed', { isDark: isDark() })
+    currentLeftSidebarView.webContents.send(ipcChannels.themeChanged, { isDark: isDark() })
     notifyLeftSidebarData()
   })
   attachBindingDispatcher(currentLeftSidebarView.webContents, 'leftSidebar')
@@ -247,13 +247,10 @@ export function initWindow(): void {
   loadRenderer(currentAboveView, 'above-view')
   currentAboveView.webContents.once('did-finish-load', () => {
     if (currentAboveView.webContents.isDestroyed()) return
-    currentAboveView.webContents.send('theme-changed', { isDark: isDark() })
+    currentAboveView.webContents.send(ipcChannels.themeChanged, { isDark: isDark() })
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
-    sendAnnotationLayoutUpdate({
-      pages: pageOverlays,
-      activeSelection: nextActiveSelection,
-    })
+    sendAnnotationLayoutUpdate(buildCanvasLayoutData(pageOverlays, nextActiveSelection))
     layoutCache.lastCommentOverlayBoundsKey = null
     requestLayout()
   })
@@ -288,7 +285,7 @@ export function initWindow(): void {
   loadRenderer(overlayWin, 'agent-layer')
   overlayWin.webContents.once('did-finish-load', () => {
     if (overlayWin.webContents.isDestroyed()) return
-    overlayWin.webContents.send('theme-changed', { isDark: isDark() })
+    overlayWin.webContents.send(ipcChannels.themeChanged, { isDark: isDark() })
     requestLayout()
   })
   const syncOverlayOnDisplayChange = () => { markDirty('canvas'); requestLayout() }
@@ -323,7 +320,7 @@ export function initWindow(): void {
   loadRenderer(currentToolbarView, 'toolbar')
 
   currentToolbarView.webContents.once('did-finish-load', () => {
-    currentToolbarView.webContents.send('theme-changed', { isDark: isDark() })
+    currentToolbarView.webContents.send(ipcChannels.themeChanged, { isDark: isDark() })
     notifyDevtoolsChanged()
     markDirty('toolbar')
     requestLayout()
@@ -359,7 +356,7 @@ export function initWindow(): void {
       ts: Date.now(),
       event: 'panel-webcontents:did-finish-load',
     })
-    currentDevtoolsHeaderView.webContents.send('theme-changed', { isDark: isDark() })
+    currentDevtoolsHeaderView.webContents.send(ipcChannels.themeChanged, { isDark: isDark() })
     notifyDevtoolsPanelData()
   })
 
@@ -377,7 +374,7 @@ export function initWindow(): void {
   currentDevtoolsResizeHandleView.setBackgroundColor('#00000000')
   loadRenderer(currentDevtoolsResizeHandleView, 'devtools-resize-handle')
   currentDevtoolsResizeHandleView.webContents.once('did-finish-load', () => {
-    currentDevtoolsResizeHandleView.webContents.send('theme-changed', { isDark: isDark() })
+    currentDevtoolsResizeHandleView.webContents.send(ipcChannels.themeChanged, { isDark: isDark() })
   })
 
   // Attach binding dispatcher to all initial views

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { CanvasScenePageEntity, CanvasSceneFileEntity } from '../../shared/types'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
@@ -23,7 +24,7 @@ interface DeviceShellItem {
   width: number
 }
 
-export function DeviceShellLayer({
+export const DeviceShellLayer = memo(function DeviceShellLayer({
   pages,
   fileEntities,
   isDark,
@@ -32,7 +33,7 @@ export function DeviceShellLayer({
   fileEntities?: CanvasSceneFileEntity[]
   isDark: boolean
 }) {
-  const framedPages: DeviceShellItem[] = pages.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
+  const framedPages: DeviceShellItem[] = pages.filter((f) => f.showDeviceFrame)
   const framedFiles: DeviceShellItem[] = (fileEntities ?? []).filter((f) => f.showDeviceFrame)
 
   if (!framedPages.length && !framedFiles.length) return null
@@ -90,7 +91,7 @@ export function DeviceShellLayer({
           >
             {/* Outer bezel */}
             <div
-              className="absolute inset-0"
+              className="device-squircle absolute inset-0"
               style={{
                 borderRadius: outerRadius,
                 background: bezelColor,
@@ -102,7 +103,7 @@ export function DeviceShellLayer({
 
             {/* Content cutout (transparent hole) */}
             <div
-              className="absolute overflow-hidden"
+              className="device-squircle absolute overflow-hidden"
               style={{
                 left: insetLeft,
                 top: insetTop,
@@ -117,7 +118,7 @@ export function DeviceShellLayer({
 
             {/* Mask so bezel doesn't cover content — use clip-path with hole */}
             <div
-              className="absolute inset-0"
+              className="device-squircle absolute inset-0"
               style={{
                 borderRadius: outerRadius,
                 background: bezelColor,
@@ -198,7 +199,7 @@ export function DeviceShellLayer({
       {framedFiles.map(renderItem)}
     </>
   )
-}
+})
 
 function pct(value: number, total: number): string {
   return `${((value / total) * 100).toFixed(4)}%`

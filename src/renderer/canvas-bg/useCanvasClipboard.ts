@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
+import type { LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   isTypingTarget,
   screenPointToCanvasPoint,
@@ -18,7 +19,7 @@ export function useCanvasClipboard(input: {
       if (isTypingTarget(event.target)) return false
       const sel = window.getSelection()
       if (sel && sel.toString().length > 0) return false
-      return layoutRef.current.viewMode === 'canvas'
+      return true
     }
 
     const handleCopy = (event: ClipboardEvent) => {

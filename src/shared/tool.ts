@@ -69,6 +69,16 @@ export function isPlacementTool(tool: Tool): boolean {
   )
 }
 
+/**
+ * Working tools express creation/annotation intent — placing items, drawing, or
+ * commenting. The resting tools (select, hand, inspect) do not. Used as the one
+ * definition of "am I working" for focus: a working tool keeps a focus session
+ * alive across camera changes (ADR 0021) and lifts the focus dim.
+ */
+export function isWorkingTool(tool: Tool): boolean {
+  return isPlacementTool(tool) || isAnnotationTool(tool)
+}
+
 export function applyPlacementCompletion(current: Tool): Tool {
   return isOneShot(current.kind) ? SELECT_TOOL : current
 }

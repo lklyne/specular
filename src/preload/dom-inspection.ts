@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import {
   deepElementFromPoint,
@@ -464,7 +465,14 @@ export function hideDomInspectionOverlay(): void {
 export function updateDomInspectionOverlay(
   element: Element,
   payload: ReturnType<typeof inspectionPayload>,
-  options?: { pinnedElement?: Element | null; pinnedPayload?: ReturnType<typeof inspectionPayload> | null },
+  options?: {
+    pinnedElement?: Element | null
+    pinnedPayload?: ReturnType<typeof inspectionPayload> | null
+    showLabel?: boolean
+    /** Counter-scale (1 / displayZoom) so the label reads at a constant
+     *  on-screen size despite the webview being zoom-scaled. */
+    labelScale?: number
+  },
 ): void {
   ensureDomInspectionOverlay()
   if (!domInspectionHighlightEl || !domInspectionPinnedHighlightEl || !domInspectionLabelEl) return
@@ -503,8 +511,19 @@ export function updateDomInspectionOverlay(
   const styles = window.getComputedStyle(element)
   updateBoxModelOverlay(rect, styles, element)
 
+  if (options?.showLabel === false) {
+    domInspectionLabelEl.style.display = 'none'
+    domInspectionLabelEl.replaceChildren()
+    return
+  }
+
   domInspectionLabelEl.style.display = 'block'
   buildLabelContent(domInspectionLabelEl, element, styles)
+  // Counter-scale before measuring so the clamp math uses the on-screen
+  // footprint. Origin top-left keeps the visual box anchored at left/top.
+  const labelScale = options?.labelScale ?? 1
+  domInspectionLabelEl.style.transformOrigin = '0 0'
+  domInspectionLabelEl.style.transform = labelScale === 1 ? '' : `scale(${labelScale})`
   const outerPadding = 2
   const labelRect = domInspectionLabelEl.getBoundingClientRect()
   const maxLeft = Math.max(outerPadding, window.innerWidth - Math.ceil(labelRect.width) - outerPadding)
@@ -524,11 +543,11 @@ export function emitHoveredElement(target: Element | null): void {
   if (!domInspectionEnabled) return
   if (!target) {
     domInspectionHoverKey = ''
-    ipcRenderer.send('inspect-node-hover', null)
+    ipcRenderer.send(ipcChannels.inspectNodeHover, null)
     if (domInspectionPinnedTarget) {
       const payload = inspectionPayload(domInspectionPinnedTarget)
       domInspectionLastTarget = domInspectionPinnedTarget
-      updateDomInspectionOverlay(domInspectionPinnedTarget, payload)
+      updateDomInspectionOverlay(domInspectionPinnedTarget, payload, { showLabel: false })
       return
     }
     domInspectionLastTarget = null
@@ -542,6 +561,7 @@ export function emitHoveredElement(target: Element | null): void {
     updateDomInspectionOverlay(target, payload, {
       pinnedElement: domInspectionPinnedTarget,
       pinnedPayload: domInspectionPinnedTarget ? inspectionPayload(domInspectionPinnedTarget) : null,
+      showLabel: false,
     })
     return
   }
@@ -551,9 +571,10 @@ export function emitHoveredElement(target: Element | null): void {
   updateDomInspectionOverlay(target, payload, {
     pinnedElement: domInspectionPinnedTarget,
     pinnedPayload: domInspectionPinnedTarget ? inspectionPayload(domInspectionPinnedTarget) : null,
+    showLabel: false,
   })
-  ipcRenderer.send('inspect-node-hover', payload)
-  ipcRenderer.send('inspect-node-detail-update', payload)
+  ipcRenderer.send(ipcChannels.inspectNodeHover, payload)
+  ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, payload)
 }
 
 function handleDomInspectionMove(event: MouseEvent): void {
@@ -576,9 +597,9 @@ function handleDomInspectionClick(event: MouseEvent): void {
   event.stopImmediatePropagation()
   const payload = inspectionPayload(target)
   domInspectionPinnedTarget = target
-  updateDomInspectionOverlay(target, payload)
-  ipcRenderer.send('inspect-node-select', payload)
-  ipcRenderer.send('inspect-node-detail-update', payload)
+  updateDomInspectionOverlay(target, payload, { showLabel: false })
+  ipcRenderer.send(ipcChannels.inspectNodeSelect, payload)
+  ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, payload)
 }
 
 function handleDomInspectionMouseDown(event: MouseEvent): void {
@@ -652,6 +673,7 @@ export function queueRefreshDomInspectionOverlay(): void {
     updateDomInspectionOverlay(target, payload, {
       pinnedElement: domInspectionPinnedTarget,
       pinnedPayload: domInspectionPinnedTarget ? inspectionPayload(domInspectionPinnedTarget) : null,
+      showLabel: false,
     })
   })
 }
@@ -686,6 +708,7 @@ export function handleInspectFocusNode(
     pinnedElement: payload?.pin ? target : domInspectionPinnedTarget,
     pinnedPayload:
       payload?.pin || !domInspectionPinnedTarget ? detail : inspectionPayload(domInspectionPinnedTarget),
+    showLabel: false,
   })
   domInspectionLastTarget = target
   if (payload?.pin) {
@@ -694,11 +717,11 @@ export function handleInspectFocusNode(
     // Sending inspect-node-select back would trigger a circular
     // selectPageById -> syncInspectionState that can hide the overlay.
     if (!payload.fromPanel) {
-      ipcRenderer.send('inspect-node-select', detail)
+      ipcRenderer.send(ipcChannels.inspectNodeSelect, detail)
     }
-    ipcRenderer.send('inspect-node-detail-update', detail)
+    ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, detail)
   } else {
-    ipcRenderer.send('inspect-node-hover', detail)
-    ipcRenderer.send('inspect-node-detail-update', detail)
+    ipcRenderer.send(ipcChannels.inspectNodeHover, detail)
+    ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, detail)
   }
 }

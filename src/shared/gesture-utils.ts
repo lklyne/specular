@@ -1,9 +1,13 @@
-import type { CanvasSceneEntity, LayoutUpdateData } from './types'
+import type { CanvasInteractionState, CanvasSceneEntity, LayoutUpdateData } from './types'
+import type { InteractionMode } from './interaction-types'
 import { GRID_SIZE } from './constants'
+
+export const DRAG_THRESHOLD = 4
 
 export {
   canvasToScreenX,
   canvasToScreenY,
+  clientYToWindowY,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
   toOverlayY,
@@ -59,6 +63,32 @@ export function squareConstrainedRect(
 
 export function snapToGrid(value: number): number {
   return Math.round(value / GRID_SIZE) * GRID_SIZE
+}
+
+export type GeometryPatchKey = 'canvasX' | 'canvasY' | 'width' | 'height'
+
+const ALL_GEOMETRY_PATCH_KEYS: readonly GeometryPatchKey[] = [
+  'canvasX',
+  'canvasY',
+  'width',
+  'height',
+]
+
+/**
+ * Grid-snap the geometry fields present on a partial entity patch, leaving
+ * every other field untouched. `keys` narrows which fields snap — file
+ * entities snap position but keep their intrinsic size.
+ */
+export function snapGeometryPatch<T extends Partial<Record<GeometryPatchKey, number>>>(
+  patch: T,
+  keys: readonly GeometryPatchKey[] = ALL_GEOMETRY_PATCH_KEYS,
+): T {
+  const snapped = { ...patch }
+  for (const key of keys) {
+    const value = snapped[key]
+    if (value !== undefined) snapped[key] = snapToGrid(value) as T[GeometryPatchKey]
+  }
+  return snapped
 }
 
 export function isTypingTarget(target: EventTarget | null): boolean {
@@ -144,16 +174,18 @@ export function isPlainShortcutKey(
   return event.key.toLowerCase() === key.toLowerCase() && hasNoModifierKeys(event)
 }
 
-function isCommandShortcutKey(
-  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
-  key: string,
-): boolean {
-  return (
-    event.key.toLowerCase() === key.toLowerCase() &&
-    (event.metaKey || event.ctrlKey) &&
-    !event.altKey &&
-    !event.shiftKey
-  )
+export function canvasInteractionModeKind(state: CanvasInteractionState): InteractionMode['kind'] {
+  switch (state.kind) {
+    case 'idle': return 'idle'
+    case 'panning-canvas': return 'panning'
+    case 'marquee-select': return 'marquee'
+    case 'dragging-entities': return 'dragging-entities'
+    case 'resizing-entity': return 'resizing-entity'
+    case 'resizing-multi-selection': return 'resizing-multi-selection'
+    case 'dragging-edge': return 'dragging-edge'
+    case 'editing-entity': return 'editing-entity'
+    case 'reordering-row': return 'reordering-row'
+  }
 }
 
 export function classifyViewportWheel(event: Pick<WheelEvent, 'metaKey' | 'ctrlKey' | 'deltaX' | 'deltaY' | 'screenX' | 'screenY'>): ViewportWheelAction {

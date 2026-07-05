@@ -193,7 +193,7 @@ function FixProgressButton({
           size={11}
           className={progress.status === 'running' ? 'animate-spin shrink-0' : 'shrink-0'}
         />
-        <span className="truncate">{label}</span>
+        <span className="truncate font-mono">{label}</span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={4} align="start">

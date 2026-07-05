@@ -13,9 +13,10 @@ import {
   getComponentSourceLocationByNodeId,
 } from './runtime/page-runtime'
 import { markDirty } from './runtime/layout-dirty'
-import { requestLayout } from './runtime/surface-layout'
+import { mutateWorkspace } from './runtime/mutate-workspace'
+import { requestLayout } from './runtime/viewport-control'
 import { workspaceAnnotations } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { makeId } from './workspace-utils'
 import { VIEWPORT_PRESETS } from '../shared/constants'
 
@@ -165,6 +166,10 @@ export function setOnAnnotationReply(
 }
 
 export function createAnnotation(request: AnnotationCreateRequest): Annotation {
+  return mutateWorkspace(() => createAnnotationInternal(request))
+}
+
+function createAnnotationInternal(request: AnnotationCreateRequest): Annotation {
   const elementName =
     request.anchor.type === 'element'
       ? request.elementName?.trim() || undefined
@@ -181,9 +186,6 @@ export function createAnnotation(request: AnnotationCreateRequest): Annotation {
     metadata: enrichedAnnotationMetadata(request),
   }
   workspaceAnnotations.push(annotation)
-  markDirty('canvas')
-  requestLayout()
-  scheduleWorkspaceAutosave()
   if (onAnnotationCreatedListener) {
     try {
       onAnnotationCreatedListener(annotation)
@@ -200,27 +202,26 @@ export function updateAnnotationStatus(
   reason?: string,
   resolvedBy?: 'user' | 'agent',
 ): Annotation | null {
-  const annotation = workspaceAnnotations.find((a) => a.id === id)
-  if (!annotation) return null
-  annotation.status = status
-  const metadataPatch: AnnotationMetadata = { ...annotation.metadata }
-  if (reason) {
-    metadataPatch.dismissReason = reason
-  } else if (status !== 'dismissed') {
-    delete metadataPatch.dismissReason
-  }
-  if (status === 'resolved' && resolvedBy) {
-    metadataPatch.resolvedBy = resolvedBy
-  } else if (status !== 'resolved') {
-    delete metadataPatch.resolvedBy
-  }
-  if (Object.keys(metadataPatch).length) {
-    annotation.metadata = metadataPatch
-  }
-  markDirty('canvas')
-  requestLayout()
-  scheduleWorkspaceAutosave()
-  return annotation
+  return mutateWorkspace(() => {
+    const annotation = workspaceAnnotations.find((a) => a.id === id)
+    if (!annotation) return null
+    annotation.status = status
+    const metadataPatch: AnnotationMetadata = { ...annotation.metadata }
+    if (reason) {
+      metadataPatch.dismissReason = reason
+    } else if (status !== 'dismissed') {
+      delete metadataPatch.dismissReason
+    }
+    if (status === 'resolved' && resolvedBy) {
+      metadataPatch.resolvedBy = resolvedBy
+    } else if (status !== 'resolved') {
+      delete metadataPatch.resolvedBy
+    }
+    if (Object.keys(metadataPatch).length) {
+      annotation.metadata = metadataPatch
+    }
+    return annotation
+  }, { changed: (annotation) => annotation !== null })
 }
 
 export function setAnnotationFixSession(id: string, sessionId: string): void {
@@ -237,56 +238,30 @@ export function addAnnotationReply(
   author: 'user' | 'agent',
   text: string,
 ): Annotation | null {
-  const annotation = workspaceAnnotations.find((a) => a.id === id)
-  if (!annotation) return null
-  const reply: AnnotationReply = { author, text, timestamp: new Date().toISOString() }
-  annotation.replies = [...annotation.replies, reply]
-  const statusUpdated = author === 'user' && annotation.status === 'resolved'
-  if (statusUpdated) {
-    updateAnnotationStatus(id, 'pending')
-  }
-  if (!statusUpdated) {
-    markDirty('canvas')
-    requestLayout()
-    scheduleWorkspaceAutosave()
-  }
-  if (onAnnotationReplyListener) {
-    try {
-      onAnnotationReplyListener(annotation, reply)
-    } catch (error) {
-      console.error('onAnnotationReply listener failed:', error)
+  return mutateWorkspace(() => {
+    const annotation = workspaceAnnotations.find((a) => a.id === id)
+    if (!annotation) return null
+    const reply: AnnotationReply = { author, text, timestamp: new Date().toISOString() }
+    annotation.replies = [...annotation.replies, reply]
+    if (author === 'user' && annotation.status === 'resolved') {
+      updateAnnotationStatus(id, 'pending')
     }
-  }
-  return annotation
-}
-
-export function moveAnnotation(
-  id: string,
-  dx: number,
-  dy: number,
-): Annotation | null {
-  const annotation = workspaceAnnotations.find((candidate) => candidate.id === id)
-  if (!annotation) return null
-  if (annotation.anchor.type !== 'canvas') return null
-
-  annotation.anchor = {
-    ...annotation.anchor,
-    canvasX: annotation.anchor.canvasX + dx,
-    canvasY: annotation.anchor.canvasY + dy,
-  }
-
-  markDirty('canvas')
-  requestLayout()
-  scheduleWorkspaceAutosave()
-  return annotation
+    if (onAnnotationReplyListener) {
+      try {
+        onAnnotationReplyListener(annotation, reply)
+      } catch (error) {
+        console.error('onAnnotationReply listener failed:', error)
+      }
+    }
+    return annotation
+  }, { changed: (annotation) => annotation !== null })
 }
 
 export function deleteAnnotation(id: string): boolean {
-  const idx = workspaceAnnotations.findIndex((a) => a.id === id)
-  if (idx === -1) return false
-  workspaceAnnotations.splice(idx, 1)
-  markDirty('canvas')
-  requestLayout()
-  scheduleWorkspaceAutosave()
-  return true
+  return mutateWorkspace(() => {
+    const idx = workspaceAnnotations.findIndex((a) => a.id === id)
+    if (idx === -1) return false
+    workspaceAnnotations.splice(idx, 1)
+    return true
+  }, { changed: (deleted) => deleted })
 }

@@ -38,7 +38,7 @@ export function PagePresetDropdown({
   }
 
   const popupClassName =
-    'min-w-[240px] overflow-hidden rounded-md border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1 text-[var(--surface-toolbar-foreground)] shadow-xl'
+    'min-w-[240px] overflow-hidden rounded-md border border-[var(--surface-popup-border)] bg-[var(--surface-popup)] py-1 text-[var(--surface-toolbar-foreground)] shadow-xl'
   const itemClassName =
     'flex w-full cursor-pointer items-center justify-between gap-4 px-3 py-1.5 text-left text-xs text-[var(--surface-toolbar-foreground)] hover:bg-[var(--surface-interactive)]'
 

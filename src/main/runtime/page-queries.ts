@@ -1,12 +1,13 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { selectedPage, findPageById } from './runtime-context'
 import { sendPageIpc } from './page-ipc'
 
 export async function takePageSnapshot(pageId?: string, maxDepth?: number): Promise<unknown> {
-  return sendPageIpc(pageId, 'take-dom-snapshot', { maxDepth: maxDepth ?? 10 })
+  return sendPageIpc(pageId, ipcChannels.takeDomSnapshot, { maxDepth: maxDepth ?? 10 })
 }
 
 export async function takePageAgentSnapshot(pageId?: string, maxDepth?: number): Promise<unknown> {
-  return sendPageIpc(pageId, 'take-dom-snapshot', {
+  return sendPageIpc(pageId, ipcChannels.takeDomSnapshot, {
     maxDepth: maxDepth ?? 10,
     structured: true,
   })
@@ -23,7 +24,7 @@ export async function takePageScreenshot(pageId?: string): Promise<string> {
 
 export async function queryPageElements(pageId?: string, selector?: string, maxResults?: number): Promise<unknown> {
   if (!selector) throw new Error('selector is required')
-  return sendPageIpc(pageId, 'query-dom-elements', { selector, maxResults: maxResults ?? 20 })
+  return sendPageIpc(pageId, ipcChannels.queryDomElements, { selector, maxResults: maxResults ?? 20 })
 }
 
 export async function queryElementsInRect(
@@ -31,7 +32,7 @@ export async function queryElementsInRect(
   rect: { x: number; y: number; width: number; height: number },
   maxResults?: number,
 ): Promise<unknown[]> {
-  const data = await sendPageIpc(pageId, 'query-elements-in-rect', {
+  const data = await sendPageIpc(pageId, ipcChannels.queryElementsInRect, {
     rect,
     maxResults: maxResults ?? 15,
   })
@@ -49,7 +50,7 @@ export async function queryElementAtPoint(
   y: number,
 ): Promise<Record<string, unknown> | null> {
   try {
-    const data = await sendPageIpc(pageId, 'query-element-at-point', { x, y })
+    const data = await sendPageIpc(pageId, ipcChannels.queryElementAtPoint, { x, y })
     if (!data || typeof data !== 'object') return null
     return data as Record<string, unknown>
   } catch {

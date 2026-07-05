@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { AnnotationCreateRequest, EdgeEnd, EdgeSide } from '../../shared/types'
 import { setFixConfig } from '../runtime/preferences'
@@ -15,16 +16,11 @@ import {
   deleteEdge,
   updateEdge,
   setPagePreset,
-  setPageCustom,
-  setDeviceOrientation,
-  toggleDeviceShell,
   toggleSvgDeviceShell,
   setFilePreset,
   setFileCustom,
-  setFileDeviceOrientation,
-  toggleFileDeviceShell,
 } from '../runtime/document-commands'
-import { navigatePage, togglePageLinked } from '../navigation-sync'
+import { togglePageLinked } from '../navigation-sync'
 import { deletePages } from '../workspace-entities'
 import { duplicatePageFromSource } from '../workspace-pages'
 import {
@@ -36,6 +32,8 @@ import {
   setSelectedInspectNodeById,
   setSelectedInspectTarget,
 } from '../runtime/ui-actions'
+import { requestLayout } from '../runtime/viewport-control'
+import { markDirty } from '../runtime/layout-dirty'
 import {
   addAnnotationReply,
   createAnnotation,
@@ -43,47 +41,101 @@ import {
   updateAnnotationStatus,
 } from '../workspace-annotations'
 import { pages } from '../runtime/page-runtime'
+import {
+  forwardOverrideToPage,
+  type ComponentPropOverridePayload,
+  type ComponentTokenOverridePayload,
+} from './component-override'
 
-type ComponentPropOverridePayload = {
-  pageId: string
-  componentId: string
-  propPath: string[]
-  value: unknown
+type SingleFieldCommand = {
+  /** Payload key carrying the target id. */
+  key: 'annotationId' | 'origin' | 'pageId' | 'fileId'
+  /** Trim the id and require it non-empty before running. */
+  trim?: boolean
+  /** Extra payload validation beyond the id field. */
+  accept?: (payload: Record<string, unknown>) => boolean
+  run: (id: string, payload: Record<string, unknown>) => void
 }
 
-type ComponentTokenOverridePayload = {
-  pageId: string
-  componentId?: string
-  token: string
-  value: string
-  selector?: string
+const hasPresetIndex = (payload: Record<string, unknown>): boolean =>
+  typeof payload.presetIndex === 'number'
+
+/** Channels that validate one id field, then call one function. */
+const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
+  // --- Annotations and fixes ---
+  [ipcChannels.rightDetailsPanelResolveAnnotation]: {
+    key: 'annotationId',
+    trim: true,
+    run: (id) => updateAnnotationStatus(id, 'resolved'),
+  },
+  [ipcChannels.rightDetailsPanelDeleteAnnotation]: {
+    key: 'annotationId',
+    trim: true,
+    run: (id) => deleteAnnotation(id),
+  },
+  [ipcChannels.rightDetailsPanelTriggerFixComments]: {
+    key: 'origin',
+    trim: true,
+    run: (origin) => fixPendingAnnotationsForOrigin(origin),
+  },
+  [ipcChannels.rightDetailsPanelFixSingleAnnotation]: {
+    key: 'annotationId',
+    trim: true,
+    run: (id) => fixAnnotation(id),
+  },
+  // --- Device Page ---
+  [ipcChannels.rightDetailsPanelSetPagePreset]: {
+    key: 'pageId',
+    accept: hasPresetIndex,
+    run: (id, payload) => setPagePreset(id, payload.presetIndex as number),
+  },
+  [ipcChannels.rightDetailsPanelToggleSvgDeviceShell]: {
+    key: 'pageId',
+    run: (id) => toggleSvgDeviceShell(id),
+  },
+  // --- File Device Settings ---
+  [ipcChannels.rightDetailsPanelSetFilePreset]: {
+    key: 'fileId',
+    accept: hasPresetIndex,
+    run: (id, payload) => setFilePreset(id, payload.presetIndex as number),
+  },
+  [ipcChannels.rightDetailsPanelSetFileCustom]: {
+    key: 'fileId',
+    run: (id) => setFileCustom(id),
+  },
 }
 
-function forwardOverrideToPage(
-  pageId: string,
-  channel: 'override-props' | 'override-token',
-  payload: Record<string, unknown>,
-): void {
-  const page = pages.find((candidate) => candidate.id === pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
-  page.pageView.webContents.send(channel, payload)
+function registerSingleFieldHandlers(): void {
+  for (const [channel, command] of Object.entries(SINGLE_FIELD_COMMANDS)) {
+    ipcMain.on(channel, (_event, payload: Record<string, unknown> | undefined) => {
+      if (!payload) return
+      const raw = payload[command.key]
+      if (typeof raw !== 'string') return
+      const id = command.trim ? raw.trim() : raw
+      if (!id) return
+      if (command.accept && !command.accept(payload)) return
+      command.run(id, payload)
+    })
+  }
 }
 
 export function registerRightDetailsPanelIpc(): void {
-  ipcMain.on('right-details-panel-open-browser-devtools', () => {
+  ipcMain.on(ipcChannels.rightDetailsPanelOpenBrowserDevtools, () => {
     openDevToolsForSelectedPage()
   })
 
-  ipcMain.on('right-details-panel-dismiss-browser-devtools', () => {
+  ipcMain.on(ipcChannels.rightDetailsPanelDismissBrowserDevtools, () => {
     dismissBrowserDevTools()
   })
 
-  ipcMain.on('right-details-panel-clear-inspect-selection', () => {
+  ipcMain.on(ipcChannels.rightDetailsPanelClearInspectSelection, () => {
     setSelectedInspectTarget(null)
+    markDirty('canvas')
+    requestLayout()
   })
 
   ipcMain.on(
-    'right-details-panel-select-page',
+    ipcChannels.rightDetailsPanelSelectPage,
     (_event, payload: { pageId?: string } | undefined) => {
       const pageId = payload?.pageId?.trim()
       if (!pageId) return
@@ -92,15 +144,17 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-hover-node',
+    ipcChannels.rightDetailsPanelHoverNode,
     (_event, { pageId, nodeId }: { pageId: string; nodeId: string | null }) => {
       if (!pageId) return
       setInspectNodeFromPanel(pageId, nodeId, false)
+      markDirty('canvas')
+      requestLayout()
     },
   )
 
   ipcMain.on(
-    'right-details-panel-select-node',
+    ipcChannels.rightDetailsPanelSelectNode,
     (_event, { pageId, nodeId }: { pageId: string; nodeId: string | null }) => {
       if (!pageId) return
       if (selectPageById(pageId)) {
@@ -108,16 +162,18 @@ export function registerRightDetailsPanelIpc(): void {
       }
       setSelectedInspectNodeById(pageId, nodeId)
       setInspectNodeFromPanel(pageId, nodeId, true)
+      markDirty('canvas')
+      requestLayout()
     },
   )
 
   ipcMain.on(
-    'right-details-panel-edit-component-prop',
+    ipcChannels.rightDetailsPanelEditComponentProp,
     (
       _event,
       { pageId, componentId, propPath, value }: ComponentPropOverridePayload,
     ) => {
-      forwardOverrideToPage(pageId, 'override-props', {
+      forwardOverrideToPage(pageId, ipcChannels.overrideProps, {
         componentId,
         propPath,
         value,
@@ -126,12 +182,12 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-edit-component-token',
+    ipcChannels.rightDetailsPanelEditComponentToken,
     (
       _event,
       { pageId, componentId, token, value, selector }: ComponentTokenOverridePayload,
     ) => {
-      forwardOverrideToPage(pageId, 'override-token', {
+      forwardOverrideToPage(pageId, ipcChannels.overrideToken, {
         componentId,
         token,
         value,
@@ -141,14 +197,14 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-create-annotation',
+    ipcChannels.rightDetailsPanelCreateAnnotation,
     (_event, request: AnnotationCreateRequest) => {
       createAnnotation(request)
     },
   )
 
   ipcMain.on(
-    'right-details-panel-reply-annotation',
+    ipcChannels.rightDetailsPanelReplyAnnotation,
     (_event, payload: { annotationId?: string; text?: string } | undefined) => {
       const annotationId = payload?.annotationId?.trim()
       const text = payload?.text?.trim()
@@ -157,44 +213,10 @@ export function registerRightDetailsPanelIpc(): void {
     },
   )
 
-  ipcMain.on(
-    'right-details-panel-resolve-annotation',
-    (_event, payload: { annotationId?: string } | undefined) => {
-      const annotationId = payload?.annotationId?.trim()
-      if (!annotationId) return
-      updateAnnotationStatus(annotationId, 'resolved')
-    },
-  )
+  registerSingleFieldHandlers()
 
   ipcMain.on(
-    'right-details-panel-delete-annotation',
-    (_event, payload: { annotationId?: string } | undefined) => {
-      const annotationId = payload?.annotationId?.trim()
-      if (!annotationId) return
-      deleteAnnotation(annotationId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-trigger-fix-comments',
-    (_event, payload: { origin?: string } | undefined) => {
-      const origin = payload?.origin?.trim()
-      if (!origin) return
-      fixPendingAnnotationsForOrigin(origin)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-fix-single-annotation',
-    (_event, payload: { annotationId?: string } | undefined) => {
-      const annotationId = payload?.annotationId?.trim()
-      if (!annotationId) return
-      fixAnnotation(annotationId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-auto-fix',
+    ipcChannels.rightDetailsPanelSetAutoFix,
     (_event, payload: { origin?: string; enabled?: boolean } | undefined) => {
       const origin = payload?.origin?.trim()
       if (!origin) return
@@ -209,7 +231,7 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-pick-repo-for-origin',
+    ipcChannels.rightDetailsPanelPickRepoForOrigin,
     async (event, payload: { origin?: string } | undefined) => {
       const origin = payload?.origin?.trim()
       if (!origin) return
@@ -225,7 +247,7 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-remove-origin-binding',
+    ipcChannels.rightDetailsPanelRemoveOriginBinding,
     (_event, payload: { origin?: string } | undefined) => {
       const origin = payload?.origin?.trim()
       if (!origin) return
@@ -234,7 +256,7 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-set-fix-config',
+    ipcChannels.rightDetailsPanelSetFixConfig,
     (_event, payload: { model?: string; permissions?: string } | undefined) => {
       if (!payload) return
       setFixConfig(payload as { model?: 'opus' | 'sonnet' | 'haiku'; permissions?: 'dangerously' | 'default' })
@@ -243,7 +265,7 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-update-edge',
+    ipcChannels.rightDetailsPanelUpdateEdge,
     (_event, payload: { id: string; patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string } }) => {
       if (!payload?.id) return
       updateEdge(payload.id, payload.patch)
@@ -251,131 +273,17 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-delete-edge',
+    ipcChannels.rightDetailsPanelDeleteEdge,
     (_event, payload: { id: string }) => {
       if (!payload?.id) return
       deleteEdge(payload.id)
     },
   )
 
-  // --- Device Page ---
+  // --- Page actions ---
 
   ipcMain.on(
-    'right-details-panel-set-page-preset',
-    (_event, payload: { pageId: string; presetIndex: number }) => {
-      if (!payload?.pageId || typeof payload.presetIndex !== 'number') return
-      setPagePreset(payload.pageId, payload.presetIndex)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-page-custom',
-    (_event, payload: { pageId: string }) => {
-      if (!payload?.pageId) return
-      setPageCustom(payload.pageId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-device-orientation',
-    (_event, payload: { pageId: string; orientation: string }) => {
-      if (!payload?.pageId) return
-      if (payload.orientation !== 'portrait' && payload.orientation !== 'landscape') return
-      setDeviceOrientation(payload.pageId, payload.orientation)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-toggle-device-shell',
-    (_event, payload: { pageId: string }) => {
-      if (!payload?.pageId) return
-      toggleDeviceShell(payload.pageId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-toggle-svg-device-shell',
-    (_event, payload: { pageId: string }) => {
-      if (!payload?.pageId) return
-      toggleSvgDeviceShell(payload.pageId)
-    },
-  )
-
-  // --- File Device Settings ---
-
-  ipcMain.on(
-    'right-details-panel-set-file-preset',
-    (_event, payload: { fileId: string; presetIndex: number }) => {
-      if (!payload?.fileId || typeof payload.presetIndex !== 'number') return
-      setFilePreset(payload.fileId, payload.presetIndex)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-file-custom',
-    (_event, payload: { fileId: string }) => {
-      if (!payload?.fileId) return
-      setFileCustom(payload.fileId)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-set-file-device-orientation',
-    (_event, payload: { fileId: string; orientation: string }) => {
-      if (!payload?.fileId) return
-      if (payload.orientation !== 'portrait' && payload.orientation !== 'landscape') return
-      setFileDeviceOrientation(payload.fileId, payload.orientation)
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-toggle-file-device-shell',
-    (_event, payload: { fileId: string }) => {
-      if (!payload?.fileId) return
-      toggleFileDeviceShell(payload.fileId)
-    },
-  )
-
-  // --- Page navigation & actions ---
-
-  ipcMain.on(
-    'right-details-panel-navigate-page',
-    (_event, payload: { pageId: string; url: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'load-url', url: payload.url })
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-go-back-page',
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-go-forward-page',
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-reload-page',
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
-    },
-  )
-
-  ipcMain.on(
-    'right-details-panel-duplicate-page',
+    ipcChannels.rightDetailsPanelDuplicatePage,
     (_event, payload: { pageId: string }) => {
       if (!payload?.pageId) return
       if (!pages.some((p) => p.id === payload.pageId)) return
@@ -384,7 +292,7 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-toggle-linked-page',
+    ipcChannels.rightDetailsPanelToggleLinkedPage,
     (_event, payload: { pageId: string }) => {
       const page = pages.find((p) => p.id === payload?.pageId)
       if (!page) return
@@ -393,7 +301,7 @@ export function registerRightDetailsPanelIpc(): void {
   )
 
   ipcMain.on(
-    'right-details-panel-delete-page',
+    ipcChannels.rightDetailsPanelDeletePage,
     (_event, payload: { pageId: string }) => {
       if (!payload?.pageId) return
       if (!pages.some((p) => p.id === payload.pageId)) return

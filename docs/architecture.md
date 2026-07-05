@@ -215,10 +215,17 @@ Load-bearing invariants (I1–I10) are listed in `interaction-layer.md` §6.
 ESLint rules `no-direct-view-mutation` and `no-mouse-events` enforce I1
 and I8 (currently as warnings — legacy sites pending cleanup).
 
-## View modes
+## Focus Selection
 
-Browser mode and Canvas mode share the same .canvas data:
-- **Canvas mode** — freeform spatial layout; all nodes visible
-- **Browser mode** — traditional tab-based navigation between pages
+Specular has one primary view: the canvas. Pages, notes, files, groups, and
+drawings all remain spatial nodes in that view.
 
-The view mode is UI-level state, not a data distinction.
+`Focus selection` is an ephemeral camera command, not a mode. It zooms and pans
+to fit the current selection with padding, capped at 100% zoom, and stores the
+previous camera in runtime memory so Escape can restore it. The stored return
+camera is cleared by manual pan, zoom, or reset. Focus state is never persisted,
+and node geometry is never changed to fill the app viewport.
+
+Legacy workspace metadata may still mention Browser mode. Restore treats that
+metadata as a compatibility hint only: old Browser-mode workspaces open on the
+canvas with the formerly active page selected.

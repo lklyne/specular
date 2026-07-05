@@ -9,7 +9,7 @@ Before adding a test, re-read **The bar** and confirm the test you're about to w
 A test earns its keep iff **all four** of the following hold:
 
 1. **Catches a real regression.** You can name the production-code change that would break it. If you can't articulate the mutation, the test isn't protecting anything.
-2. **Tests an observable outcome** — function output, IPC broadcast, file on disk, snapshot field — not an internal mechanism. No `vi.mock('../runtime-context')`-style mocks of internal collaborators. Mock at process boundaries (HTTP, file system, child processes), never at module boundaries inside the same layer.
+2. **Tests an observable outcome** — function output, Y.Doc state, file on disk, captured broadcast — not an internal mechanism. No `vi.mock('../runtime-context')`-style mocks of internal collaborators. Mock at process boundaries (the `electron` module, file system, child processes), never at module boundaries inside the same layer.
 3. **Survives refactors.** If production code is reorganized but behavior preserved, the test passes. A test that breaks when you rename a private helper is testing the wrong thing.
 4. **Locally legible.** Reading just the test file tells you what regression it protects. No "see the issue tracker for context"; the relevant assertion and setup are in front of you.
 
@@ -17,40 +17,46 @@ If a test fails any one of these, prefer to delete or rewrite it. A smaller suit
 
 ## Buckets
 
-| Bucket | Lives in | Run with | Use when |
-|---|---|---|---|
-| Unit | `tests/unit/` | `pnpm test:unit` | Pure logic — math, parsers, derivations, controllers driven through their public API. No Electron. |
-| Smoke | `tests/smoke/` | `pnpm test:smoke` | End-to-end behavior of the running app over its real surfaces (HTTP API, file system, IPC). Spawns one Electron via `tests/smoke/global-setup.ts` and runs serially. |
-| Agent | `tests/agent/` | `bash tests/agent/run-scenarios.sh` | Scripted UI scenarios driven by an agent. Out-of-band — not part of CI. |
-| Fuzz | `tests/fuzz/` (when present) | `pnpm test:fuzz` | Property-based generation against parser-shaped surfaces (`.canvas` files). User-data surfaces only. |
+| Bucket | Lives in | Run with | Gated | Use when |
+|---|---|---|---|---|
+| Unit | `tests/unit/` | `pnpm test:unit` | CI, every PR | Pure logic — math, parsers, derivations, controllers driven through their public API. No Electron. |
+| Integration | `tests/integration/` | `pnpm test:integration` | CI, every PR | The real main-process runtime, in-process: persistence, undo, sync, entity mutations, the `/canvas/apply` door. Plain Node — the `electron` module is aliased to an inert stub. Seconds, no display, no binary. |
+| Boot | `tests/boot/` | `pnpm test:boot` | Pre-release | The ~3 checks that genuinely need a window: real Electron boots, serves the HTTP API, round-trips one mutation. Needs a built app (`.vite/build`) and the Electron binary. |
+| Agent | `tests/agent/` | `bash tests/agent/run-scenarios.sh` | Out-of-band | Scripted UI scenarios driven by an agent. Not part of CI. |
+| Fuzz | `tests/fuzz/` (when present) | `pnpm test:fuzz` | — | Property-based generation against parser-shaped surfaces (`.canvas` files). User-data surfaces only. |
 
-Default to **unit** when the behavior is pure. Reach for **smoke** when the regression involves Electron, IPC, persistence, undo, or the file system. Use **agent** only for scenarios that can't be expressed through the HTTP API.
+Default to **unit** when the behavior is pure. Reach for **integration** when the regression involves the Y.Doc, persistence, undo, sync, or cross-module runtime behavior. **Boot** exists only to prove the Electron wiring assembles — do not add data-shaped tests there.
 
-## Smoke: the `AppClient` toolkit
+## Integration: the in-process harness
 
-`tests/smoke/app-client.ts` exposes a thin HTTP wrapper around the running app. Treat its functions as the public surface of the smoke suite — prefer them over hand-rolled `fetch` calls.
+`tests/integration/harness.ts` boots the real runtime — workspace model, Y.Doc, undo manager, doc observers, autosave — in plain Node against a temp dir, mirroring the boot sequence in `src/main/index.ts`. `vitest.integration.config.ts` aliases `electron` to `tests/integration/electron-stub.ts`; the fake window reports `isDestroyed()` so the layout engine stays dormant, and every renderer-bound `webContents.send` is captured in `harness.broadcasts`.
 
-Common entry points:
+Tests import the same exported mutators the IPC handlers and HTTP routes call (`document-commands`, `workspace-undo`, `applyCanvasPatch`, selection-controller, …) and assert on three production surfaces:
 
-- **Workspace state** — `getWorkspace`, `getSidebar`, `getSelection`, `getSelectionOverlayState`
-- **Page CRUD** — `createPages`, `createFocusedPage`, `deletePages`, `updatePages`
-- **Text entities** — `createTextEntities`, `updateTextEntities`, `deleteTextEntities`, `getTextEntities`
-- **Selection** — `selectPage`, `selectEntity`, `selectEntities`, `selectGroup`, `enterGroup`, `deselectSelection`
-- **Grouping/edges** — `createGroup`, `ungroup`, `deleteGroups`
-- **Visual capture** — `takeScreenshot`, `takeSnapshot`, `takeAgentSnapshot`
-- **Interaction** — `tryEnter`, `cancelInteraction`, `requestPointerLock`
-- **Reset** — `resetSmokeState` (only in tests that need a known-empty workspace)
+1. **Runtime arrays** — what the renderer would be shown
+2. **The Y.Doc** (`harness.doc`) — what undo operates on
+3. **`.canvas` bytes on disk** (`harness.diskDoc()`) — what survives a relaunch
 
-When the surface you need isn't there, add the helper to `app-client.ts`. Don't shell out to `fetch` from a test file — keeping all HTTP calls in one place is what makes the suite refactor-survivable.
+File pattern (see `tests/integration/undo.test.ts` for the exemplar):
 
-Two utilities for polling/timing live in `tests/smoke/test-utils.ts`:
+```ts
+let harness: WorkspaceHarness
+beforeEach(() => {
+  harness ??= bootWorkspaceHarness()
+  harness.reset()
+})
+afterAll(() => harness?.dispose())
+```
 
-- `wait(ms)` — sleep. Use sparingly; prefer `waitFor` when you're waiting on a state condition.
-- `waitFor(factory, predicate, message, opts?)` — poll a factory function until a predicate matches. Default is 20 attempts at 100ms intervals.
+One harness per file — runtime state is module-global in `src/main`, and vitest gives each test file its own process, which is the isolation model. Use `harness.reset()` / `harness.loadFixture()` between tests, and `await settleSync()` after mutations before asserting on the doc, the undo stack, or disk (the forward sync is scheduled on a microtask).
+
+Pages work in-process: the stub fakes `WebContentsView`, so the `page` entity kind, `link`-node fixtures, and page undo/redo all run. Anything that depends on real view geometry, focus routing, or renderer behavior is out of scope for this tier — that's the boot suite's job, and it stays deliberately thin.
+
+`tests/integration/canvas-format.test.ts` pins the serialized `.canvas` format with a golden snapshot (`__snapshots__/rich-workspace.canvas`). Format drift shows up as a reviewable git diff — if you changed the serializer intentionally, regenerate with `--update` and review the diff; if you didn't, it caught a regression.
 
 ## Mutation-verification
 
-Smoke and unit tests for runtime/persistence/undo/sync must be verified inline before merging: temporarily break the production code the test claims to protect, confirm the test fails, restore. Name the mutation in the commit message so a future reader can replay it.
+Integration and unit tests for runtime/persistence/undo/sync must be verified inline before merging: temporarily break the production code the test claims to protect, confirm the test fails, restore. Name the mutation in the test-file header and the commit message so a future reader can replay it.
 
 Example commit message:
 
@@ -66,13 +72,13 @@ If you can't name a mutation that breaks the test, the test is testing nothing (
 
 ## What's intentionally uncovered
 
-These were considered and deliberately deferred — see issue [#81](https://github.com/lklyne/specular/issues/81) "Non-goals" for the full reasoning:
+These were considered and deliberately deferred — see issue [#81](https://github.com/lklyne/specular/issues/81) "Non-goals" and [ADR 0024](../docs/adr/0024-in-process-integration-testing.md):
 
 - **Renderer E2E with Playwright+Electron** — high flake/maintenance tax. Reconsider once a UI regression slips past users.
+- **View geometry / focus routing / overlay interactivity** — needs real views; covered indirectly by unit tests on the controllers (`focus-reconciler`, `interaction-controller`, `layout-*` math) and by dogfooding. The old Electron smoke tests for these passed without protecting anything (see #278).
 - **Visual regression baselines** — UI churns frequently pre-1.0; baselines would be wrong constantly.
 - **Performance budgets** — solving a problem we don't yet observe.
-- **HTTP API and Y.Doc-merge fuzz** — parser fuzz covers the user-data risk; the others are low-leverage.
-- **Full-suite backfilled mutation verification** — process burden disproportionate. New tests in covered layers are mutation-verified inline; old tests are not retroactively audited.
+- **HTTP transport itself** — routes are thin over tested functions; the boot suite proves the server answers.
 - **CI dashboards / flake quarantine policy** — overkill until more layers exist.
 
 If a regression slips past users that one of the above would have caught, that's evidence to add it — file an issue with the specific regression as justification.

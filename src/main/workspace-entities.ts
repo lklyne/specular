@@ -11,6 +11,7 @@ import type {
   WorkspaceSelection,
 } from '../shared/types'
 import type { SelectionMutationMode } from '../shared/selection-modifiers'
+import { allEntities } from './entities/contract'
 import { applyEntitySelectionMutation } from './runtime/selection-controller'
 import {
   findPageById,
@@ -32,18 +33,16 @@ import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
+import { pan, zoom } from './runtime/runtime-context'
+import { CHROME_HEADER_HEIGHT } from '../shared/entity-chrome-slots'
+import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import {
+  boundsOverlap,
   pageContentSize,
   pageSnapBounds,
   pageVisualBounds,
-  pan,
-  requestLayout,
-  zoom,
-} from './runtime/surface-layout'
-import { CHROME_HEADER_HEIGHT } from '../shared/entity-chrome-slots'
-import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
-import { boundsOverlap } from './runtime/runtime-geometry'
+} from './runtime/runtime-geometry'
 import { cloneMetadata } from './workspace-utils'
 import { removeEdgesTouchingEntities } from './workspace-edges'
 import { occupiedRegions } from './workspace-placement'
@@ -119,19 +118,14 @@ function findEntityById(
 ): { kind: 'page'; page: ReturnType<typeof findPageById> }
   | { kind: 'text' | 'file' | 'drawing' | 'shape' | 'group'; entity: AnyEntity }
   | null {
-  const page = findPageById(entityId)
-  if (page) return { kind: 'page', page }
-  const te = textEntities.find((t) => t.id === entityId)
-  if (te) return { kind: 'text', entity: te }
-  const fe = fileEntities.find((f) => f.id === entityId)
-  if (fe) return { kind: 'file', entity: fe }
-  const de = drawingEntities.find((d) => d.id === entityId)
-  if (de) return { kind: 'drawing', entity: de }
-  const se = shapeEntities.find((s) => s.id === entityId)
-  if (se) return { kind: 'shape', entity: se }
-  const group = workspaceGroups.find((g) => g.id === entityId)
-  if (group) return { kind: 'group', entity: group }
-  return null
+  const found = allEntities().find(({ entity }) => entity.id === entityId)
+  if (!found) return null
+  if (found.kind === 'page') return { kind: 'page', page: findPageById(entityId) }
+  // `allEntities()` never yields edges, so the kind is one of the entity kinds.
+  return {
+    kind: found.kind as 'text' | 'file' | 'drawing' | 'shape' | 'group',
+    entity: found.entity as AnyEntity,
+  }
 }
 
 export function entityKindById(entityId: string): CanvasEntityKind | null {
@@ -176,14 +170,9 @@ export function groupById(groupId: string): import('../shared/types').WorkspaceG
 }
 
 export function groupChildIds(groupId: string): string[] {
-  return [
-    ...pages.filter((page) => page.parentGroupId === groupId).map((page) => page.id),
-    ...textEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...fileEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...drawingEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...shapeEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...workspaceGroups.filter((group) => group.parentGroupId === groupId).map((group) => group.id),
-  ]
+  return allEntities()
+    .filter(({ entity }) => entity.parentGroupId === groupId)
+    .map(({ entity }) => entity.id)
 }
 
 export function groupDescendantIds(groupId: string): string[] {
@@ -260,6 +249,15 @@ export function removeEmptyGroups(): string[] {
 // --- Delete pages ---
 
 export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
+  return mutateWorkspace(() => deletePagesInternal(input), {
+    changed: (result) =>
+      result.deletedPageIds.length > 0 ||
+      result.deletedEdgeIds.length > 0 ||
+      result.deletedGroupIds.length > 0,
+  })
+}
+
+function deletePagesInternal(input: DeletePagesRequest): DeletePagesResponse {
   const deletedPageIds: string[] = []
   const missingPageIds: string[] = []
 
@@ -283,12 +281,6 @@ export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
   if (input.focusAfter) {
     const bounds = selectionBounds()
     if (bounds) focusCanvasBounds(bounds)
-  } else {
-    requestLayout()
-  }
-
-  if (deletedPageIds.length || deletedEdgeIds.length || deletedGroupIds.length) {
-    scheduleWorkspaceAutosave()
   }
 
   return {
@@ -525,6 +517,32 @@ export function getWorkspaceGraph(): WorkspaceGraph {
         ...group,
         kind: 'group' as const,
         metadata: cloneMetadata(group.metadata),
+      })),
+      ...drawingEntities.map((entity) => ({
+        id: entity.id,
+        kind: 'drawing' as const,
+        canvasX: entity.canvasX,
+        canvasY: entity.canvasY,
+        width: entity.width,
+        height: entity.height,
+        parentGroupId: entity.parentGroupId,
+        label: entity.label,
+      })),
+      ...shapeEntities.map((entity) => ({
+        id: entity.id,
+        kind: 'shape' as const,
+        shapeKind: entity.shapeKind,
+        text: entity.text,
+        color: entity.color,
+        strokeWidth: entity.strokeWidth,
+        textSize: entity.textSize,
+        theme: entity.theme,
+        canvasX: entity.canvasX,
+        canvasY: entity.canvasY,
+        width: entity.width,
+        height: entity.height,
+        parentGroupId: entity.parentGroupId,
+        label: entity.label,
       })),
     ],
     edges: workspaceEdges.map((edge) => ({

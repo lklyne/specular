@@ -1,15 +1,15 @@
 import { app, crashReporter, net, nativeTheme, protocol } from 'electron'
-import { DEFAULT_PAGES } from '../shared/constants'
+import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
 import {
   flushWorkspaceAutosaveSync,
   loadWorkspace,
-  restorePersistedWorkspace,
-} from './runtime/workspace-session'
-import { createPage, pages, removePageById, setMcpConnectionStatus } from './runtime/page-runtime'
+} from './runtime/workspace-autosave'
+import { restorePersistedWorkspace } from './runtime/workspace-restore'
+import { createPage, pages, setMcpConnectionStatus } from './runtime/page-runtime'
 import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
 import { duplicatePageFromSource } from './workspace-pages'
-import { requestLayout } from './runtime/surface-layout'
+import { requestLayout } from './runtime/viewport-control'
 import { toggleDevTools } from './runtime/ui-actions'
 import { broadcastTheme, initWindow, isDark, win } from './runtime/window-shell'
 import {
@@ -28,6 +28,7 @@ import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser } from './agent-browser-install'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { registerBuiltInPlugins } from './plugins'
+import { registerBuiltInEntityKinds } from './entities'
 import {
   initDevServerManager,
   shutdownDevServerManager,
@@ -40,10 +41,6 @@ import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from
 import { getActiveDoc } from './runtime/workspace-doc'
 import { zoom, pan } from './runtime/runtime-context'
 import { workspaceGroups, workspaceEdges, workspaceAnnotations, workspaceTabs, activeWorkspaceTabId, setActiveWorkspaceTabId } from './runtime/workspace-model'
-import { textEntities } from './runtime/text-entity-state'
-import { fileEntities } from './runtime/file-entity-state'
-import { drawingEntities } from './runtime/drawing-entity-state'
-import { shapeEntities } from './runtime/shape-entity-state'
 import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
@@ -81,7 +78,7 @@ app.on('render-process-gone', (_e, wc, details) => {
 })
 app.on('child-process-gone', (_e, details) => logCrash('child-process-gone', details))
 
-const remoteDebuggingPort = process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? '9229'
+const remoteDebuggingPort = process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? String(DEFAULT_REMOTE_DEBUGGING_PORT)
 app.commandLine.appendSwitch('remote-debugging-port', remoteDebuggingPort)
 app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
 app.commandLine.appendSwitch('enable-unsafe-webgpu')
@@ -132,6 +129,7 @@ app.whenReady().then(async () => {
   identifyInstall()
   configureBundledAgentBrowser()
   registerBuiltInPlugins()
+  registerBuiltInEntityKinds()
   // New-tab links from a page open as a duplicate frame on the canvas rather
   // than a native popup; page-factory routes through this seam to avoid an
   // import cycle into workspace-pages.
@@ -215,31 +213,13 @@ app.whenReady().then(async () => {
   )
   initializeDocObservers({
     pages,
-    textEntities,
-    fileEntities,
-    drawingEntities,
-    shapeEntities,
     workspaceGroups,
     workspaceEdges,
     workspaceAnnotations,
     getZoom: () => zoom,
     getPan: () => pan,
-    serializePage: (page) => ({
-      id: page.id,
-      name: page.name,
-      url: page.url,
-      presetIndex: page.presetIndex,
-      canvasX: page.canvasX,
-      canvasY: page.canvasY,
-      linked: page.linked,
-      source: (page as any).source,
-      parentGroupId: page.parentGroupId ?? (page as any).groupId,
-      metadata: page.metadata,
-    }),
     cancelActiveInteraction: () => cancelActiveInteraction('undo'),
     sendInteractiveState,
-    createPage: (data) => createPage(data as any),
-    removePageById,
     destroyActivePages,
     getActiveTabId: () => activeWorkspaceTabId,
     setActiveTabId: setActiveWorkspaceTabId,

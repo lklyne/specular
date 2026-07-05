@@ -11,12 +11,14 @@
  * - Fewer DOM nodes per device page
  *
  * Known issue: the top border stroke is clipped in some configurations.
- * The CSS approach (DeviceShellLayer) is currently the default.
+ * Off by default — the CSS `DeviceShellLayer` is the active renderer and draws
+ * squircle corners via `-electron-corner-smoothing`.
  *
  * Toggle via the per-page `useSvgDeviceShell` metadata flag (checkbox in
  * the right details panel, currently commented out).
  */
 
+import { memo } from 'react'
 import type { CanvasScenePageEntity } from '../../shared/types'
 import {
   DEVICE_CATALOG,
@@ -24,14 +26,14 @@ import {
 } from '../../shared/device-catalog'
 import { squirclePath } from './squirclePath'
 
-export function SvgDeviceShellLayer({
+export const SvgDeviceShellLayer = memo(function SvgDeviceShellLayer({
   pages,
   isDark,
 }: {
   pages: CanvasScenePageEntity[]
   isDark: boolean
 }) {
-  const framedPages = pages.filter((f) => f.showDeviceFrame && f.browserSizeMode !== 'fill')
+  const framedPages = pages.filter((f) => f.showDeviceFrame)
 
   if (!framedPages.length) return null
 
@@ -187,4 +189,4 @@ export function SvgDeviceShellLayer({
       })}
     </>
   )
-}
+})

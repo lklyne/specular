@@ -47,8 +47,12 @@ function text(over: Partial<CanvasSceneTextEntity> = {}): CanvasSceneTextEntity 
   } as CanvasSceneTextEntity
 }
 
-function inputs(entities: CanvasSceneEntity[], selected: string[] = []): HitInputs {
-  return { entities, edges: [], selectedEntityIds: selected, zoom: 1 }
+function inputs(
+  entities: CanvasSceneEntity[],
+  selected: string[] = [],
+  overrides: Partial<HitInputs> = {},
+): HitInputs {
+  return { entities, edges: [], selectedEntityIds: selected, zoom: 1, ...overrides }
 }
 
 const baseCtx: CanvasPointerContext = {
@@ -59,6 +63,9 @@ const baseCtx: CanvasPointerContext = {
   spaceHeld: false,
   altHeld: false,
   editingEntityId: null,
+  interactivePageId: null,
+  placement: null,
+  commentToolActive: false,
 }
 
 function shape(over: Partial<CanvasSceneShapeEntity> = {}): CanvasSceneShapeEntity {
@@ -106,10 +113,21 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'page-body-press', entityId: 'f1', preserveSelection: false })
   })
 
-  it('page body pointerdown on single-selected page → forward-pointer-down', () => {
+  it('page body pointerdown on single-selected (not entered) page → enter-page-interactive', () => {
     const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
+    expect(action).toEqual({ kind: 'enter-page-interactive', entityId: 'f1' })
+  })
+
+  it('page body pointerdown on the entered page → forward-pointer-down', () => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+    })
     expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'left' })
   })
 
@@ -124,12 +142,13 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'page-body-press', entityId: 'f1', preserveSelection: true })
   })
 
-  it('right-click on single-selected page body → forward-pointer-down (right)', () => {
+  it('right-click on the entered page body → forward-pointer-down (right)', () => {
     const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
     const action = routePointerDown(target, {
       ...baseCtx,
       selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
       isPrimaryButton: false,
       button: 'right',
     })
@@ -405,15 +424,135 @@ describe('routePointerDown', () => {
   // --- Issue #41 regression: chrome wins over anchor in their overlap zone ---
   it('issue #41: click at the chrome/top-anchor overlap zone goes to chrome, not anchor', () => {
     // Chrome strip is the 36px band above screenY: x=[100,900], y=[64,100].
-    // Top anchor (when selected) is centred above the page midpoint, with a
+    // Top anchor (when hovered) is centred above the page midpoint, with a
     // 4px gap. At zoom=1 it's 56×24, centred at (500, 84): x=[472,528],
     // y=[72,96]. The anchor's hit ring dips into the chrome y-range — that's
-    // the #41 bug class. Per ADR 0001's priority table, chrome wins.
+    // the #41 bug class. When the page is not selected/focused and the chrome
+    // is visible, chrome wins.
+    const f = page()
+    const target = hitTest(inputs([f], [], { hoveredEntityId: 'f1' }), { x: 500, y: 84 })
+    expect(target.payload.kind).toBe('chrome')
+    const action = routePointerDown(target, baseCtx)
+    expect(action.kind).toBe('begin-entity-drag')
+  })
+
+  it('selected page chrome strip does not hijack routing', () => {
     const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 84 })
-    expect(target.payload.kind).toBe('chrome')
+    expect(target.payload.kind).toBe('anchor')
     const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['f1'] })
-    expect(action.kind).toBe('begin-entity-drag')
+    expect(action.kind).toBe('begin-edge-drag')
+  })
+
+  it('focus-presented page chrome strip routes as background', () => {
+    const f = page()
+    const target = hitTest(inputs([f], [], { focusPresentationPageId: 'f1' }), {
+      x: 500,
+      y: 84,
+    })
+    expect(target.payload.kind).toBe('background')
+    const action = routePointerDown(target, baseCtx)
+    expect(action.kind).toBe('background-click')
+  })
+})
+
+// --- Placement / comment tool gestures ---
+//
+// While a placement or the comment tool owns canvas pointers
+// (`canvasPointerOwner` → 'tool-gesture'), the tool captures every
+// pointerdown regardless of hit target. Overlay UI still wins (I8'): the
+// router yields to `[data-overlay-ui]` before classification runs — that
+// arbitration row is covered by canvas-pointer-owner.test.ts.
+describe('routePointerDown — placement / comment tool gestures', () => {
+  it('active placement tool on background → begin-placement', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      placement: { entityKind: 'text' },
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'text' })
+  })
+
+  it('active placement tool over an entity body → begin-placement (target-independent)', () => {
+    const t = text()
+    const target = hitTest(inputs([t]), { x: t.screenX + 50, y: t.screenY + 30 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      placement: { entityKind: 'shape' },
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'shape' })
+  })
+
+  it('active placement tool over the entered page body → begin-placement (no forward)', () => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+      placement: { entityKind: 'shape' },
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'shape' })
+  })
+
+  it('non-primary button with a placement active → noop (viewport middle-pan keeps it)', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      isPrimaryButton: false,
+      button: 'middle',
+      placement: { entityKind: 'shape' },
+    })
+    expect(action).toEqual({ kind: 'noop' })
+  })
+
+  it('active comment tool on background → begin-comment-gesture', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, { ...baseCtx, commentToolActive: true })
+    expect(action).toEqual({ kind: 'begin-comment-gesture' })
+  })
+
+  it('active comment tool over a page body → begin-comment-gesture (element anchor resolves in main)', () => {
+    const f = page()
+    const target = hitTest(inputs([f]), { x: 500, y: 400 })
+    const action = routePointerDown(target, { ...baseCtx, commentToolActive: true })
+    expect(action).toEqual({ kind: 'begin-comment-gesture' })
+  })
+
+  it('comment click and region drag start as the same action — the threshold resolves them', () => {
+    // Click-vs-drag is a pointermove-time decision: `runCommentGesture`
+    // promotes to a region marquee past DRAG_THRESHOLD and anchors an
+    // element / canvas-point comment on a stationary release. Both begin
+    // with the identical pointerdown classification.
+    const f = page()
+    const clickTarget = hitTest(inputs([f]), { x: 500, y: 400 })
+    const dragStartTarget = hitTest(inputs([]), { x: 50, y: 50 })
+    const ctx = { ...baseCtx, commentToolActive: true }
+    expect(routePointerDown(clickTarget, ctx)).toEqual(routePointerDown(dragStartTarget, ctx))
+  })
+
+  it('non-primary button with the comment tool active → noop', () => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+      isPrimaryButton: false,
+      button: 'right',
+      commentToolActive: true,
+    })
+    expect(action).toEqual({ kind: 'noop' })
+  })
+
+  it('placement wins when placement and comment are both active', () => {
+    const target = hitTest(inputs([]), { x: 50, y: 50 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      placement: { entityKind: 'shape' },
+      commentToolActive: true,
+    })
+    expect(action).toEqual({ kind: 'begin-placement', entityKind: 'shape' })
   })
 })
 

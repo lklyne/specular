@@ -92,3 +92,7 @@ export function paneDeleteBtnClass(isDark: boolean): string {
     ? 'rounded p-0.5 text-zinc-400 hover:bg-red-500/12 hover:text-red-400'
     : 'rounded p-0.5 text-zinc-500 hover:bg-red-50 hover:text-red-600'
 }
+
+export function fileEntityLabel(path: string): string {
+  return path.split('/').pop() ?? path
+}

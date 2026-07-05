@@ -36,8 +36,17 @@ Collect in parallel:
 - Commits since last tag: `git log <last-tag>..HEAD --oneline`
 - Full commit bodies for those commits: `git log <last-tag>..HEAD --format="%h%n%s%n%b%n---"`
 - Existing `## [Unreleased]` section from `changelog.md`
+- Bundled agent-browser freshness: `pnpm check:agent-browser`
 
 If there are zero commits since the last tag, stop — nothing to release.
+
+If `check:agent-browser` reports we're behind, surface it: show the pinned →
+latest versions and the release notes it printed, and ask the user whether to
+bump the pin as part of this release (it's a judgment call — patch-level upstream
+fixes are usually worth it; skip if the notes look risky or unrelated). To bump:
+set `VERSION` in `scripts/fetch-agent-browser.sh`, run `pnpm fetch:agent-browser`
+to get the new `SHA256`, paste it back, and commit alongside the changelog. Don't
+bump silently and don't block the release on it.
 
 ### Step 3: Infer version bump, ask user to confirm
 

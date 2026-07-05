@@ -25,7 +25,6 @@ const EMPTY_SELECTION: ToolbarSelectionData = {
   loadingPhase: 'idle',
   activeTabId: null,
   activeTabName: null,
-  viewMode: 'canvas',
   activeTool: { kind: 'select' },
   drawBrushType: 'pen',
   drawColor: '1',
@@ -46,8 +45,6 @@ export interface ToolbarState {
   addressBarRef: RefObject<HTMLInputElement | null>
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
   hasSelection: boolean
-  hasPages: boolean
-  isBrowserMode: boolean
   agentCursors: AgentPresenceCursor[]
 }
 
@@ -97,8 +94,6 @@ export function useToolbarState(): ToolbarState {
     ? (zoomPercent as (typeof ZOOM_PRESETS)[number])
     : null
   const hasSelection = selection.selectionCount > 0
-  const hasPages = selection.availablePageCount > 0
-  const isBrowserMode = selection.viewMode === 'browser'
 
   return {
     zoomPercent,
@@ -114,8 +109,6 @@ export function useToolbarState(): ToolbarState {
     addressBarRef,
     currentPresetValue,
     hasSelection,
-    hasPages,
-    isBrowserMode,
     agentCursors,
   }
 }

@@ -23,8 +23,6 @@ import type { FocusTarget } from '../../shared/interaction-types'
 export type FocusState = {
   interactionMode: 'idle' | 'panning' | 'marquee' | 'dragging-entities' | 'resizing-entity' | 'resizing-multi-selection' | 'dragging-edge' | 'editing-entity' | 'reordering-row'
   editingEntityId: string | null
-  selectedPageId: string | null
-  workspaceViewMode: 'canvas' | 'browser'
   commentOverlayActive: boolean
   /** Explicit intent set by a subsystem (overrides derivation). Cleared after reconcile. */
   pendingFocus: FocusTarget | null
@@ -35,6 +33,9 @@ export type FocusState = {
   /** True while a sidebar rename input is active. Forces sidebar focus so
    *  layout passes don't steal focus back to the canvas. */
   sidebarTextInputActive: boolean
+  /** True while a toolbar input is active. Keeps the address bar focused
+   * across selection/page-load layout passes. */
+  toolbarTextInputActive: boolean
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
@@ -43,6 +44,10 @@ export function expectedFocus(state: FocusState): FocusTarget {
   // Sidebar rename input is open — keep focus in the sidebar so keystrokes
   // reach the input rather than firing canvas shortcuts.
   if (state.sidebarTextInputActive) return { kind: 'sidebar' }
+
+  // Toolbar address input is open — keep focus in the toolbar so browser-like
+  // commands such as Cmd+T can leave the user ready to type a destination.
+  if (state.toolbarTextInputActive) return { kind: 'toolbar' }
 
   // Selection-driven page focus (the predicate already gates on idle
   // interaction + commentOverlayActive). Gesture modes still win below
@@ -80,16 +85,9 @@ export function expectedFocus(state: FocusState): FocusTarget {
     return { kind: 'aboveView' }
   }
 
-  // Browser mode with a live page — the page should be focused so
-  // keyboard input reaches the web content.
-  if (state.workspaceViewMode === 'browser' && state.selectedPageId) {
-    return { kind: 'page', id: state.selectedPageId }
-  }
-
-  // Canvas mode default: aboveView is the singleton keyboard owner. Canvas
+  // Canvas default: aboveView is the singleton keyboard owner. Canvas
   // shortcuts (Cmd-Z, Escape, tool hotkeys) are wired into aboveView's
-  // webContents via `watchModifierKeys`. The browser-mode no-selected-page
-  // fallback also lands here — a degenerate state with no page yet.
+  // webContents via `watchModifierKeys`.
   return { kind: 'aboveView' }
 }
 

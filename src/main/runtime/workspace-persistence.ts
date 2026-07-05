@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import { join } from 'path'
 import type {
   Annotation,
-  BrowserTabMode,
   DevtoolsPanelTab,
   LegacyPersistedWorkspaceStore,
   PersistedCanvasEntity,
@@ -95,14 +94,12 @@ export function buildWorkspaceTabSummary(
 export function buildPersistedWorkspaceRecord(params: {
   workspaceTabs: PersistedWorkspaceTab[]
   activeWorkspaceTabId: string
-  viewMode: WorkspaceViewMode
 }): PersistedWorkspaceRecord {
   return {
     id: DEFAULT_WORKSPACE_ID,
     name: DEFAULT_WORKSPACE_NAME,
     updatedAt: new Date().toISOString(),
     activeTabId: params.activeWorkspaceTabId,
-    viewMode: params.viewMode,
     tabs: params.workspaceTabs.map((tab) => ({
       ...tab,
       expanded: tab.expanded ?? true,
@@ -220,7 +217,6 @@ export function makeEmptyWorkspaceSnapshot(params: {
     devtoolsOpen: false,
     devtoolsPanelTab: params.devtoolsPanelTab,
     devtoolsWidth: params.devtoolsWidth,
-    browserTabMode: 'page',
     groups: [],
     edges: [],
   }
@@ -342,7 +338,6 @@ export function buildWorkspaceSnapshot(params: {
   devtoolsOpen: boolean
   devtoolsPanelTab: DevtoolsPanelTab
   devtoolsWidth: number
-  browserTabMode: BrowserTabMode
   groups: WorkspaceGroup[]
   edges: WorkspaceEdge[]
 }): WorkspaceSnapshot {
@@ -361,7 +356,6 @@ export function buildWorkspaceSnapshot(params: {
     devtoolsOpen: params.devtoolsOpen,
     devtoolsPanelTab: params.devtoolsPanelTab,
     devtoolsWidth: params.devtoolsWidth,
-    browserTabMode: params.browserTabMode,
     groups: cloneWorkspaceGroupsForSnapshot(params.groups),
     edges: cloneWorkspaceEdgesForSnapshot(params.edges),
   }

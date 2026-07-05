@@ -10,7 +10,7 @@
  * (matching `useAnchoredPosition` and the rest of aboveView).
  */
 
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
@@ -21,19 +21,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
-import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
-import {
-  MIN_FILE_HEIGHT,
-  MIN_FILE_WIDTH,
-  MIN_GROUP_HEIGHT,
-  MIN_GROUP_WIDTH,
-  MIN_SHAPE_HEIGHT,
-  MIN_SHAPE_WIDTH,
-  MIN_TEXT_HEIGHT,
-  MIN_TEXT_WIDTH,
-} from '../canvas-bg/entityConstants'
 import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
-import { entityResizesAutomatically } from '../../shared/hit-test'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
@@ -44,38 +32,48 @@ interface PageOutlineProps {
   showResizeHandles: boolean
 }
 
-function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: PageOutlineProps) {
-  const zoom = page.width > 0 ? page.screenWidth / page.width : 1
+function SelectionOutlineBox({
+  span,
+  originY,
+  isDark,
+  showResizeHandles,
+  cursor,
+}: {
+  span: Pick<SelectedEntitySpan, 'screenX' | 'screenY' | 'screenWidth' | 'screenHeight'>
+  originY: number
+  isDark: boolean
+  showResizeHandles: boolean
+  cursor?: CSSProperties['cursor']
+}) {
   return (
     <div
       className="absolute border-2"
       style={{
-        left: page.screenX - 2,
-        top: page.screenY - 2 - originY,
-        width: page.screenWidth + 4,
-        height: page.screenHeight + 4,
+        left: span.screenX - 2,
+        top: span.screenY - 2 - originY,
+        width: span.screenWidth + 4,
+        height: span.screenHeight + 4,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
+        cursor,
       }}
       data-overlay-ui
     >
       {showResizeHandles ? (
-        <SelectionResizeGrid
-          id={page.id}
-          width={page.width}
-          height={page.height}
-          canvasX={page.canvasX}
-          canvasY={page.canvasY}
-          zoom={zoom}
-          minWidth={320}
-          minHeight={200}
-          onResize={() => {
-            /* hit-test in router drives resize; visual handles only */
-          }}
-          isDark={isDark}
-        />
+        <SelectionResizeGrid isDark={isDark} />
       ) : null}
     </div>
+  )
+}
+
+function PageSelectionOverlay({ page, originY, isDark, showResizeHandles }: PageOutlineProps) {
+  return (
+    <SelectionOutlineBox
+      span={page}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles={showResizeHandles}
+    />
   )
 }
 
@@ -89,17 +87,11 @@ function PageHoverOutline({
   isDark: boolean
 }) {
   return (
-    <div
-      className="absolute border-2"
-      style={{
-        left: page.screenX - 2,
-        top: page.screenY - 2 - originY,
-        width: page.screenWidth + 4,
-        height: page.screenHeight + 4,
-        borderColor: selectionColor(isDark),
-        pointerEvents: 'none',
-      }}
-      data-overlay-ui
+    <SelectionOutlineBox
+      span={page}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles={false}
     />
   )
 }
@@ -111,7 +103,6 @@ interface EntityOutlineProps {
     | CanvasSceneDrawingEntity
     | CanvasSceneShapeEntity
   originY: number
-  borderRadius: number
   isDark: boolean
   isSelected: boolean
   showResizeHandles: boolean
@@ -120,64 +111,18 @@ interface EntityOutlineProps {
 function EntitySelectionOverlay({
   entity,
   originY,
-  borderRadius,
   isDark,
   isSelected,
   showResizeHandles,
 }: EntityOutlineProps) {
-  const minWidth =
-    entity.kind === 'text'
-      ? MIN_TEXT_WIDTH
-      : entity.kind === 'file'
-        ? MIN_FILE_WIDTH
-        : entity.kind === 'shape'
-          ? MIN_SHAPE_WIDTH
-          : 16
-  const minHeight =
-    entity.kind === 'text'
-      ? MIN_TEXT_HEIGHT
-      : entity.kind === 'file'
-        ? MIN_FILE_HEIGHT
-        : entity.kind === 'shape'
-          ? MIN_SHAPE_HEIGHT
-          : 16
-  const aspectRatioResizeMode =
-    entity.kind === 'file' ? aspectRatioResizeModeForCanvasFile(entity.file) : 'off'
-  const zoom = entity.width > 0 ? entity.screenWidth / entity.width : 1
-
   return (
-    <div
-      className="absolute border-2"
-      style={{
-        left: entity.screenX - 2,
-        top: entity.screenY - 2 - originY,
-        width: entity.screenWidth + 4,
-        height: entity.screenHeight + 4,
-        borderColor: selectionColor(isDark),
-        borderRadius,
-        pointerEvents: 'none',
-        cursor: isSelected && entity.kind === 'drawing' ? 'grab' : undefined,
-      }}
-      data-overlay-ui
-    >
-      {isSelected && showResizeHandles ? (
-        <SelectionResizeGrid
-          id={entity.id}
-          width={entity.width}
-          height={entity.height}
-          canvasX={entity.canvasX}
-          canvasY={entity.canvasY}
-          zoom={zoom}
-          minWidth={minWidth}
-          minHeight={minHeight}
-          onResize={() => {
-            /* hit-test in router drives resize; visual handles only */
-          }}
-          aspectRatioResizeMode={aspectRatioResizeMode}
-          isDark={isDark}
-        />
-      ) : null}
-    </div>
+    <SelectionOutlineBox
+      span={entity}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles={isSelected && showResizeHandles}
+      cursor={isSelected && entity.kind === 'drawing' ? 'grab' : undefined}
+    />
   )
 }
 
@@ -254,36 +199,13 @@ function GroupSelectionOverlay({
   originY: number
   isDark: boolean
 }) {
-  const zoom = group.width > 0 ? group.screenWidth / group.width : 1
   return (
-    <div
-      className="absolute border-2"
-      data-overlay-ui
-      style={{
-        left: group.screenX - 2,
-        top: group.screenY - 2 - originY,
-        width: group.screenWidth + 4,
-        height: group.screenHeight + 4,
-        borderColor: selectionColor(isDark),
-        borderRadius: 2,
-        pointerEvents: 'none',
-      }}
-    >
-      <SelectionResizeGrid
-        id={group.id}
-        width={group.width}
-        height={group.height}
-        canvasX={group.canvasX}
-        canvasY={group.canvasY}
-        zoom={zoom}
-        minWidth={MIN_GROUP_WIDTH}
-        minHeight={MIN_GROUP_HEIGHT}
-        onResize={() => {
-          /* hit-test in router drives resize; visual handles only */
-        }}
-        isDark={isDark}
-      />
-    </div>
+    <SelectionOutlineBox
+      span={group}
+      originY={originY}
+      isDark={isDark}
+      showResizeHandles
+    />
   )
 }
 
@@ -293,10 +215,15 @@ export function SelectionOutlineLayer({
   marqueePreviewIds,
   reorderGhostId,
   reorderGhostSpan,
+  suppressPageId,
 }: {
   layoutData: LayoutUpdateData
   isDark: boolean
   marqueePreviewIds: Set<string> | null
+  /** The focused page during a focus session (ADR 0021): its own selection box
+   *  and resize handles are suppressed for a clean read, but every other item's
+   *  selection/hover outline still renders so annotations stay interactive. */
+  suppressPageId?: string | null
   /** While a reorder drag is in flight (ADR 0015 D7, Phase D), drop this entity's
    *  *per-item* outline — a crisp box fights the grayscale placeholder at its
    *  destination slot and the 50% ghost under the cursor. It stays in the
@@ -358,11 +285,12 @@ export function SelectionOutlineLayer({
       pages.filter(
         (f) =>
           f.id !== reorderGhostId &&
+          f.id !== suppressPageId &&
           (selectedIdSet.has(f.id) ||
             f.id === hoveredEntityId ||
             marqueePreviewIds?.has(f.id)),
       ),
-    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId],
+    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressPageId],
   )
 
   // Non-page entities render outline if selected, hovered, or in marquee preview.
@@ -387,14 +315,14 @@ export function SelectionOutlineLayer({
   const allSelectedEntities: SelectedEntitySpan[] = useMemo(() => {
     if (!isMultiSelect) return []
     const out: SelectedEntitySpan[] = []
-    for (const f of pages) if (selectedIdSet.has(f.id)) out.push(f)
+    for (const f of pages) if (selectedIdSet.has(f.id) && f.id !== suppressPageId) out.push(f)
     for (const e of textEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of fileEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of drawingEntities) if (selectedIdSet.has(e.id)) out.push(e)
     for (const e of shapeEntities) if (selectedIdSet.has(e.id)) out.push(e)
     if (reorderGhostSpan) out.push(reorderGhostSpan)
     return out
-  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, reorderGhostSpan])
+  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, reorderGhostSpan, suppressPageId])
 
   // Group selection overlay — render whenever a group is selected. The
   // canvas-bg `GroupSelectionOverlayLayer` used to suppress this when the
@@ -439,16 +367,14 @@ export function SelectionOutlineLayer({
       })}
       {visibleEntities.map((entity) => {
         const isSelected = selectedIdSet.has(entity.id)
-        const borderRadius = entity.kind === 'text' ? 0 : 4
         return (
           <EntitySelectionOverlay
             key={`selection-outline-${entity.id}`}
             entity={entity}
             originY={originY}
-            borderRadius={borderRadius}
             isDark={isDark}
             isSelected={isSelected}
-            showResizeHandles={!isMultiSelect && !entityResizesAutomatically(entity)}
+            showResizeHandles={!isMultiSelect}
           />
         )
       })}

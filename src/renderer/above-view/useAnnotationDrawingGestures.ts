@@ -1,6 +1,11 @@
 import { useCallback, useRef } from 'react'
-import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
-import { isOverlayUiTarget, screenPointToCanvasPoint } from '../../shared/gesture-utils'
+import type { LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import {
+  clientYToWindowY,
+  isOverlayUiTarget,
+  screenPointToCanvasPoint,
+} from '../../shared/gesture-utils'
 import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './annotationMath'
 
 export function useAnnotationDrawingGestures({
@@ -32,44 +37,14 @@ export function useAnnotationDrawingGestures({
     React.SetStateAction<import('./annotationMath').PendingAnnotation | null>
   >
 }) {
-  const annotationDragRef = useRef<{
-    pointerId: number
-    annotationId: string
-    lastClientX: number
-    lastClientY: number
-    moved: boolean
-    captureTarget: HTMLElement
-  } | null>(null)
-  const suppressedAnnotationClickRef = useRef<string | null>(null)
   const sessionRef = useRef<DrawingSession | null>(null)
-
-  const startAnnotationDrag = useCallback(
-    (event: React.PointerEvent<HTMLElement>, annotationId: string) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return
-      annotationDragRef.current = {
-        pointerId: event.pointerId,
-        annotationId,
-        lastClientX: event.clientX,
-        lastClientY: event.clientY,
-        moved: false,
-        captureTarget: event.currentTarget,
-      }
-      event.currentTarget.setPointerCapture(event.pointerId)
-      event.preventDefault()
-      event.stopPropagation()
-    },
-    [],
-  )
 
   const handleOverlayPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (drawInteractionEnabled) {
         if (event.pointerType === 'mouse' && event.button !== 0) return
         if (event.clientY < layoutData.canvasOrigin.y) return
-        if (
-          layoutData.viewMode === 'canvas' &&
-          event.clientX < layoutData.leftChromeWidth
-        ) {
+        if (event.clientX < layoutData.leftChromeWidth) {
           return
         }
         if (isOverlayUiTarget(event.target)) return
@@ -82,7 +57,7 @@ export function useAnnotationDrawingGestures({
         const strokeId = `stroke_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
         const startPoint = screenPointToCanvasPoint(
           event.clientX,
-          event.clientY + layoutRef.current.canvasOrigin.y,
+          clientYToWindowY(event.clientY, layoutRef.current),
           layoutRef.current,
         )
         activeStrokeRef.current = { pointerId: event.pointerId, strokeId }
@@ -129,7 +104,6 @@ export function useAnnotationDrawingGestures({
       layoutData.leftChromeWidth,
       layoutData.canvasOrigin.y,
       layoutData.selectedEntityIds,
-      layoutData.viewMode,
       layoutRef,
       pendingAnnotation,
       setDrawingSession,
@@ -140,25 +114,12 @@ export function useAnnotationDrawingGestures({
 
   const handleOverlayPointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const annotationDrag = annotationDragRef.current
-      if (annotationDrag?.pointerId === event.pointerId) {
-        const dx = (event.clientX - annotationDrag.lastClientX) / layoutRef.current.zoom
-        const dy = (event.clientY - annotationDrag.lastClientY) / layoutRef.current.zoom
-        if (dx !== 0 || dy !== 0) {
-          annotationDrag.moved = true
-          annotationDrag.lastClientX = event.clientX
-          annotationDrag.lastClientY = event.clientY
-          api.moveAnnotation(annotationDrag.annotationId, dx, dy)
-        }
-        return
-      }
-
       const activeStroke = activeStrokeRef.current
       if (!activeStroke) return
       if (event.pointerId !== activeStroke.pointerId) return
       const pointerPoint = screenPointToCanvasPoint(
         event.clientX,
-        event.clientY + layoutRef.current.canvasOrigin.y,
+        clientYToWindowY(event.clientY, layoutRef.current),
         layoutRef.current,
       )
       const current = sessionRef.current
@@ -188,18 +149,6 @@ export function useAnnotationDrawingGestures({
 
   const handleOverlayPointerUp = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const annotationDrag = annotationDragRef.current
-      if (annotationDrag?.pointerId === event.pointerId) {
-        if (annotationDrag.captureTarget.hasPointerCapture(event.pointerId)) {
-          annotationDrag.captureTarget.releasePointerCapture(event.pointerId)
-        }
-        if (annotationDrag.moved) {
-          suppressedAnnotationClickRef.current = annotationDrag.annotationId
-        }
-        annotationDragRef.current = null
-        return
-      }
-
       if (activeStrokeRef.current?.pointerId !== event.pointerId) return
       activeStrokeRef.current = null
       setDrawingStrokeActive(false)
@@ -224,15 +173,6 @@ export function useAnnotationDrawingGestures({
 
   const handleOverlayPointerCancel = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const annotationDrag = annotationDragRef.current
-      if (annotationDrag?.pointerId === event.pointerId) {
-        if (annotationDrag.captureTarget.hasPointerCapture(event.pointerId)) {
-          annotationDrag.captureTarget.releasePointerCapture(event.pointerId)
-        }
-        annotationDragRef.current = null
-        return
-      }
-
       if (activeStrokeRef.current?.pointerId !== event.pointerId) return
       activeStrokeRef.current = null
       setDrawingStrokeActive(false)
@@ -243,18 +183,10 @@ export function useAnnotationDrawingGestures({
     [activeStrokeRef, setDrawingStrokeActive],
   )
 
-  const consumeSuppressedAnnotationClick = useCallback((annotationId: string) => {
-    if (suppressedAnnotationClickRef.current !== annotationId) return false
-    suppressedAnnotationClickRef.current = null
-    return true
-  }, [])
-
   return {
-    consumeSuppressedAnnotationClick,
     handleOverlayPointerCancel,
     handleOverlayPointerDown,
     handleOverlayPointerMove,
     handleOverlayPointerUp,
-    startAnnotationDrag,
   }
 }

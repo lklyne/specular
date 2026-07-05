@@ -1,24 +1,24 @@
 import type { BindingContext, BindingId } from '../../shared/bindings'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
-import { setZoom, setPan, focusSelection } from './viewport-control'
+import { setZoom, setPan, focusSelection, restoreFocusCamera } from './viewport-control'
 import { groupSelectedEntities, makeAutoLayoutFromSelection, ungroupSelectedGroup } from './document-commands'
 import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './surface-layout'
-import { arrowNavigationLocked, setArrowNavigationLocked, pages, selectedPageId } from './runtime-context'
+import { requestLayout } from './viewport-control'
+import { arrowNavigationLocked, setArrowNavigationLocked, interactivePageId, pages, selectedPageId } from './runtime-context'
+import { exitPageInteractive } from './overlay-manager'
 import { deletePages } from '../workspace-entities'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
-import { selectBrowserTab } from './runtime-core'
 import { deleteSelection } from './delete-selection'
 import { duplicateSelection } from './duplicate-selection'
 import { reorderStackOrder } from './entity-order-state'
+import { createBlankFrameFromSource } from '../workspace-pages'
 
 type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
 
@@ -51,12 +51,10 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     setActiveTool({ kind: 'comment' })
   },
   'tool-draw-pen': () => {
-    if (!DRAWING_FEATURE_ENABLED) return
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'pen' })
   },
   'tool-draw-highlight': () => {
-    if (!DRAWING_FEATURE_ENABLED) return
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'highlight' })
   },
@@ -70,8 +68,9 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     redo()
   },
   'reset-viewport': () => {
+    if (restoreFocusCamera()) return
     setZoom(1.0)
-    if (!focusSelection()) {
+    if (!focusSelection({ storeReturnCamera: false, animate: false })) {
       setPan(0, 0)
       requestLayout()
     }
@@ -83,7 +82,6 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     ungroupSelectedGroup()
   },
   'make-auto-layout': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     makeAutoLayoutFromSelection()
   },
   'select-all': () => {
@@ -92,23 +90,24 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'duplicate': () => {
     duplicateSelection()
   },
+  'new-frame': () => {
+    const pageId = selectedPageId()
+    if (!pageId) return
+    createBlankFrameFromSource({ sourcePageId: pageId, focusAddressBar: true })
+  },
   'delete-selection': () => {
     deleteSelection()
   },
   'stack-bring-forward': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('bring-forward')
   },
   'stack-send-backward': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('send-backward')
   },
   'stack-bring-to-front': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('bring-to-front')
   },
   'stack-send-to-back': (ctx) => {
-    if (ctx.viewMode !== 'canvas') return
     reorderStackOrder('send-to-back')
   },
   'nav-left': () => {
@@ -129,7 +128,17 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     if (ctx.isTextEditing) return
     setActiveTool({ kind: 'select' })
   },
+  'restore-focus-camera': () => {
+    restoreFocusCamera()
+  },
   'escape-page-focus': () => {
+    // Select-first / interact-second (#124): first Escape exits interactive
+    // mode back to selected (keeps the outline); a page only owns keyboard
+    // while entered, so this is the path that fires from page focus.
+    if (interactivePageId()) {
+      exitPageInteractive()
+      return
+    }
     selectNone()
     markDirty('canvas')
     requestLayout()
@@ -137,17 +146,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'close-tab': (ctx) => {
     const pageId = selectedPageId()
     if (!pageId) return
-    const isBrowser = ctx.viewMode === 'browser'
-    let nextTabId: string | null = null
-    if (isBrowser) {
-      const idx = pages.findIndex((p) => p.id === pageId)
-      const next = pages[idx + 1] ?? pages[idx - 1] ?? null
-      nextTabId = next?.id ?? null
-    }
     deletePages({ pageIds: [pageId] })
-    if (isBrowser && nextTabId) {
-      selectBrowserTab(nextTabId)
-    }
   },
 }
 

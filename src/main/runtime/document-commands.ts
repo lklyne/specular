@@ -1,20 +1,17 @@
 /**
  * Document Commands
  *
- * This module provides the canonical entry points for all mutations that change
- * persisted workspace data. Every function here modifies the workspace document
- * (pages, groups, edges, annotations) and triggers autosave.
+ * The canonical entry points for mutations that change persisted workspace
+ * data. Every exported command runs through `mutateWorkspace` (ADR 0025),
+ * which owns the dirty → autosave → layout → undo-boundary trailer; the raw
+ * per-kind state mutators (`*-entity-state.ts`) stay internal to commands.
+ * UI-only mutations (selection, focus camera, tool state) live in
+ * ui-actions.ts and do NOT participate in the undo stack.
  *
- * This is the seam where undo/redo will hook in: when undo is added, these
- * functions will be wrapped to capture before/after state. UI-only mutations
- * (selection, view mode, tool state) live in ui-actions.ts and do NOT
- * participate in the undo stack.
- *
- * Rules:
- * - Every document command triggers scheduleWorkspaceAutosave()
- * - Every document command triggers requestLayout()
- * - Document commands may also change UI state (e.g., selecting a newly created page)
- * - UI commands (in ui-actions.ts) never change persisted document data
+ * Multi-tick gestures (drag, resize, reorder, distribute) bracket their
+ * per-tick mutations in a gesture session (`beginGestureSession` …
+ * `finalize`), so the whole interaction collapses to one doc sync and one
+ * undo step.
  */
 
 import { GRID_SIZE, VIEWPORT_PRESETS } from '../../shared/constants'
@@ -50,9 +47,11 @@ import {
   type FileEntity,
 } from './file-entity-state'
 import {
+  deleteGroupEntity as deleteGroupEntityInState,
   updateGroupEntity as updateGroupEntityInState,
 } from './group-entity-state'
 import { markDirty } from './layout-dirty'
+import { mutateWorkspace } from './mutate-workspace'
 import { pages } from './page-runtime'
 import {
   clearCustomPageSizeMetadata,
@@ -69,14 +68,13 @@ import {
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
+import { pan, zoom } from './runtime-context'
+import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import {
-  canvasOrigin,
-  pageContentSize,
-  pan,
-  requestLayout,
+  snapGeometryPatch,
   snapToGrid,
-  zoom,
-} from './surface-layout'
+  type GeometryPatchKey,
+} from '../../shared/gesture-utils'
 import {
   createTextEntity as createTextEntityInState,
   updateTextEntity as updateTextEntityInState,
@@ -105,11 +103,12 @@ import { distributionGuideDetector } from './distribution-guide-detector'
 import { descendantEntityIdsForGroup } from './group-descendants'
 import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
-import { beginBatch, endBatch } from './workspace-observers'
-import { scheduleWorkspaceAutosave } from './workspace-session'
-import { markUndoBoundary } from './workspace-undo'
+import { beginGestureSession, type GestureSession } from './workspace-gesture-session'
+import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import {
   boundAvailableCanvasViewportRect,
+  boundCanvasOrigin as canvasOrigin,
+  pageContentSize,
   pageSnapBounds,
 } from './runtime-geometry'
 import {
@@ -176,6 +175,7 @@ type DragDeltaOptions = {
 const dragAccumulatorById = new Map<string, DragAccumulator>()
 let activeDragCandidates: SnapCandidate[] = []
 let activeDraggedGuideIds: string[] = []
+let dragSession: GestureSession | null = null
 let activeResizeGuideSession: {
   entityId: string
   references: AlignmentReferenceName[]
@@ -290,7 +290,7 @@ export function initializeDrag(entityIds: string[]): void {
     currentCanvasViewportRect(),
     entityIds,
   )
-  beginBatch()
+  dragSession = beginGestureSession()
   for (const id of entityIds) {
     const entity = findMovableEntity(id)
     if (!entity) continue
@@ -474,8 +474,8 @@ export function finalizeDrag(): void {
   activeDragCandidates = []
   activeDraggedGuideIds = []
   clearCanvasGuides()
-  endBatch()
-  markUndoBoundary()
+  dragSession?.finalize()
+  dragSession = null
 }
 
 function resizeGuideExcludedIds(entityId: string): string[] {
@@ -533,27 +533,6 @@ export function finalizeResizeGuides(): void {
   clearCanvasGuides()
 }
 
-/**
- * Move entities by a screen-pixel delta. For use outside of drag flows
- * (e.g., keyboard arrow movement).
- */
-export function moveEntities(entityIds: string[], dx: number, dy: number): void {
-  for (const id of entityIds) {
-    const entity = findMovableEntity(id)
-    if (!entity) continue
-    const prevX = entity.canvasX
-    const prevY = entity.canvasY
-    entity.canvasX = snapToGrid(entity.canvasX + dx / zoom)
-    entity.canvasY = snapToGrid(entity.canvasY + dy / zoom)
-    shiftDrawingStrokes(id, entity.canvasX - prevX, entity.canvasY - prevY)
-  }
-  if (entityIds.length) {
-    markDirty('canvas', 'sidebar')
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-}
-
 // --- Group Commands ---
 
 export { deleteGroups } from '../workspace-groups'
@@ -563,7 +542,6 @@ export function groupSelectedEntities(): WorkspaceGroup | null {
   if (ids.length < 2) return null
   const group = createUserGroupInEngine(ids)
   selectGroup(group.id)
-  requestLayout()
   return group
 }
 
@@ -590,7 +568,6 @@ export function ungroupSelectedGroup(): string[] | null {
   const freedIds = ungroupUserGroupInEngine(groupId)
   if (!freedIds.length) return null
   selectEntities(freedIds)
-  requestLayout()
   return freedIds
 }
 
@@ -599,7 +576,6 @@ export function ungroupSelectedGroup(): string[] | null {
 export {
   createEdges,
   deleteEdges,
-  removeEdgesTouchingEntities,
 } from '../workspace-edges'
 
 export function updateEdge(
@@ -615,31 +591,29 @@ export function updateEdge(
     label?: string
   },
 ): boolean {
-  const edge = workspaceEdges.find((e) => e.id === id)
-  if (!edge) return false
-  if (patch.fromEntityId !== undefined) edge.fromEntityId = patch.fromEntityId
-  if (patch.toEntityId !== undefined) edge.toEntityId = patch.toEntityId
-  if (patch.fromEnd !== undefined) edge.fromEnd = patch.fromEnd
-  if (patch.toEnd !== undefined) edge.toEnd = patch.toEnd
-  if (patch.fromSide !== undefined) edge.fromSide = patch.fromSide
-  if (patch.toSide !== undefined) edge.toSide = patch.toSide
-  if (patch.color !== undefined) edge.color = patch.color || undefined
-  if (patch.label !== undefined) edge.label = patch.label || undefined
-  markDirty('canvas')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    const edge = workspaceEdges.find((e) => e.id === id)
+    if (!edge) return false
+    if (patch.fromEntityId !== undefined) edge.fromEntityId = patch.fromEntityId
+    if (patch.toEntityId !== undefined) edge.toEntityId = patch.toEntityId
+    if (patch.fromEnd !== undefined) edge.fromEnd = patch.fromEnd
+    if (patch.toEnd !== undefined) edge.toEnd = patch.toEnd
+    if (patch.fromSide !== undefined) edge.fromSide = patch.fromSide
+    if (patch.toSide !== undefined) edge.toSide = patch.toSide
+    if (patch.color !== undefined) edge.color = patch.color || undefined
+    if (patch.label !== undefined) edge.label = patch.label || undefined
+    return true
+  }, { changed: (updated) => updated })
 }
 
 export function deleteEdge(id: string): boolean {
-  const idx = workspaceEdges.findIndex((e) => e.id === id)
-  if (idx === -1) return false
-  workspaceEdges.splice(idx, 1)
-  updateSelectionForRemovedEntity(id)
-  markDirty('canvas')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    const idx = workspaceEdges.findIndex((e) => e.id === id)
+    if (idx === -1) return false
+    workspaceEdges.splice(idx, 1)
+    updateSelectionForRemovedEntity(id)
+    return true
+  }, { changed: (deleted) => deleted })
 }
 
 // --- Layout Task Commands ---
@@ -649,7 +623,34 @@ export {
   layoutComponentStates,
 } from '../workspace-layout-tasks'
 
-// --- Text Entity Commands ---
+// --- Per-Kind Entity Commands ---
+
+/** The shared update command: snap geometry, patch in state, refresh guides. */
+function updateEntityCommand<P extends Partial<Record<GeometryPatchKey, number>>, E>(
+  id: string,
+  patch: P,
+  updateInState: (id: string, patch: P) => E | null,
+  snapKeys?: readonly GeometryPatchKey[],
+): E | null {
+  return mutateWorkspace(() => {
+    const entity = updateInState(id, snapGeometryPatch(patch, snapKeys))
+    if (entity) updateResizeGuides(id)
+    return entity
+  }, { changed: (entity) => entity !== null })
+}
+
+/** The shared delete command: drop the entity plus its edges and selection. */
+function deleteEntityCommand(id: string, deleteInState: (id: string) => boolean): boolean {
+  return mutateWorkspace(() => {
+    cancelEditingEntityIfMatches(id)
+    const deleted = deleteInState(id)
+    if (deleted) {
+      removeEdgesTouchingEntities(new Set([id]))
+      updateSelectionForRemovedEntity(id)
+    }
+    return deleted
+  }, { changed: (deleted) => deleted })
+}
 
 export function createTextEntity(input: {
   canvasX: number
@@ -663,44 +664,20 @@ export function createTextEntity(input: {
   height?: number
   id?: string
 }): TextEntity {
-  const entity = createTextEntityInState(input)
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return entity
+  return mutateWorkspace(() => createTextEntityInState(input))
 }
 
 export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id'>>): TextEntity | null {
-  const snapped = { ...patch }
-  if (snapped.width !== undefined) snapped.width = snapToGrid(snapped.width)
-  if (snapped.height !== undefined) snapped.height = snapToGrid(snapped.height)
-  if (snapped.canvasX !== undefined) snapped.canvasX = snapToGrid(snapped.canvasX)
-  if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
-  const entity = updateTextEntityInState(id, snapped)
-  if (entity) {
-    updateResizeGuides(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return entity
+  return updateEntityCommand(id, patch, updateTextEntityInState)
 }
 
 export function deleteTextEntity(id: string): boolean {
-  cancelEditingEntityIfMatches(id)
-  const deleted = deleteTextEntityInState(id)
-  if (deleted) {
-    removeEdgesTouchingEntities(new Set([id]))
-    updateSelectionForRemovedEntity(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return deleted
+  return deleteEntityCommand(id, deleteTextEntityInState)
 }
 
 export function getTextEntities(): TextEntity[] {
   return [...textEntities]
 }
-
-// --- File Entity Commands ---
 
 export function createFileEntity(input: {
   canvasX: number
@@ -712,69 +689,20 @@ export function createFileEntity(input: {
   id?: string
   metadata?: Record<string, unknown>
 }): FileEntity {
-  const entity = createFileEntityInState(input)
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return entity
+  return mutateWorkspace(() => createFileEntityInState(input))
 }
 
+/** File entities snap position only — their size is intrinsic to the file. */
 export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id'>>): FileEntity | null {
-  const snapped = { ...patch }
-  if (snapped.canvasX !== undefined) snapped.canvasX = snapToGrid(snapped.canvasX)
-  if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
-  const entity = updateFileEntityInState(id, snapped)
-  if (entity) {
-    updateResizeGuides(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return entity
+  return updateEntityCommand(id, patch, updateFileEntityInState, ['canvasX', 'canvasY'])
 }
 
 export function deleteFileEntity(id: string): boolean {
-  cancelEditingEntityIfMatches(id)
-  const deleted = deleteFileEntityInState(id)
-  if (deleted) {
-    removeEdgesTouchingEntities(new Set([id]))
-    updateSelectionForRemovedEntity(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return deleted
+  return deleteEntityCommand(id, deleteFileEntityInState)
 }
 
 export function getFileEntities(): FileEntity[] {
   return [...fileEntities]
-}
-
-export function updateDrawingEntity(
-  id: string,
-  patch: Partial<Omit<DrawingEntity, 'id'>>,
-): DrawingEntity | null {
-  const snapped = { ...patch }
-  if (snapped.width !== undefined) snapped.width = snapToGrid(snapped.width)
-  if (snapped.height !== undefined) snapped.height = snapToGrid(snapped.height)
-  if (snapped.canvasX !== undefined) snapped.canvasX = snapToGrid(snapped.canvasX)
-  if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
-  const entity = updateDrawingEntityInState(id, snapped)
-  if (entity) {
-    updateResizeGuides(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return entity
-}
-
-export function deleteDrawingEntity(id: string): boolean {
-  cancelEditingEntityIfMatches(id)
-  const deleted = deleteDrawingEntityInState(id)
-  if (deleted) {
-    removeEdgesTouchingEntities(new Set([id]))
-    updateSelectionForRemovedEntity(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return deleted
 }
 
 export function createDrawingEntity(input: {
@@ -785,17 +713,23 @@ export function createDrawingEntity(input: {
   strokes: AnnotationDrawingStroke[]
   id?: string
 }): DrawingEntity {
-  const entity = createDrawingEntityInState(input)
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return entity
+  return mutateWorkspace(() => createDrawingEntityInState(input))
+}
+
+export function updateDrawingEntity(
+  id: string,
+  patch: Partial<Omit<DrawingEntity, 'id'>>,
+): DrawingEntity | null {
+  return updateEntityCommand(id, patch, updateDrawingEntityInState)
+}
+
+export function deleteDrawingEntity(id: string): boolean {
+  return deleteEntityCommand(id, deleteDrawingEntityInState)
 }
 
 export function getDrawingEntities(): DrawingEntity[] {
   return [...drawingEntities]
 }
-
-// --- Shape Entity Commands ---
 
 export function createShapeEntity(input: {
   canvasX: number
@@ -809,40 +743,18 @@ export function createShapeEntity(input: {
   textSize?: number
   id?: string
 }): ShapeEntity {
-  const entity = createShapeEntityInState(input)
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return entity
+  return mutateWorkspace(() => createShapeEntityInState(input))
 }
 
 export function updateShapeEntity(
   id: string,
   patch: Partial<Omit<ShapeEntity, 'id'>>,
 ): ShapeEntity | null {
-  const snapped = { ...patch }
-  if (snapped.width !== undefined) snapped.width = snapToGrid(snapped.width)
-  if (snapped.height !== undefined) snapped.height = snapToGrid(snapped.height)
-  if (snapped.canvasX !== undefined) snapped.canvasX = snapToGrid(snapped.canvasX)
-  if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
-  const entity = updateShapeEntityInState(id, snapped)
-  if (entity) {
-    updateResizeGuides(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return entity
+  return updateEntityCommand(id, patch, updateShapeEntityInState)
 }
 
 export function deleteShapeEntity(id: string): boolean {
-  cancelEditingEntityIfMatches(id)
-  const deleted = deleteShapeEntityInState(id)
-  if (deleted) {
-    removeEdgesTouchingEntities(new Set([id]))
-    updateSelectionForRemovedEntity(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return deleted
+  return deleteEntityCommand(id, deleteShapeEntityInState)
 }
 
 export function getShapeEntities(): ShapeEntity[] {
@@ -853,18 +765,19 @@ export function updateGroupEntity(
   id: string,
   patch: Partial<Omit<WorkspaceGroup, 'id' | 'kind'>>,
 ): WorkspaceGroup | null {
-  const snapped = { ...patch }
-  if (snapped.width !== undefined) snapped.width = snapToGrid(snapped.width)
-  if (snapped.height !== undefined) snapped.height = snapToGrid(snapped.height)
-  if (snapped.canvasX !== undefined) snapped.canvasX = snapToGrid(snapped.canvasX)
-  if (snapped.canvasY !== undefined) snapped.canvasY = snapToGrid(snapped.canvasY)
-  const entity = updateGroupEntityInState(id, snapped)
-  if (entity) {
-    updateResizeGuides(id)
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return entity
+  return updateEntityCommand(id, patch, updateGroupEntityInState)
+}
+
+/**
+ * Remove a group container only — children keep their geometry and
+ * un-parent on the next restore. The registry's `group` handler dispatches
+ * headless deletes here; dissolving members is `deleteGroups`.
+ */
+export function deleteGroupEntity(id: string): boolean {
+  return mutateWorkspace(
+    () => deleteGroupEntityInState(id),
+    { changed: (deleted) => deleted },
+  )
 }
 
 // --- Multi-Selection Resize (no grid snap) ---
@@ -876,7 +789,7 @@ export interface MultiResizeEntry {
   height: number
   canvasX: number
   canvasY: number
-  /** Scaled strokes for drawing entities — undefined for all other kinds. */
+  /** Bounds-transformed strokes for drawing entities — undefined for all other kinds. */
   strokes?: AnnotationDrawingStroke[]
 }
 
@@ -967,10 +880,10 @@ function writeReorderedPosition(
  * Selection reorder commit (ADR 0015 D7) — the position-only sibling of
  * `reorderManagedChild`. Geometry is the source of truth: the row is read off
  * the current boxes, repacked with `movingId` at `dropIndex`, and only the
- * changed origins are written through each entity's per-kind mutator inside one
- * `beginBatch`/`endBatch` + `markUndoBoundary`, so the whole reorder collapses
- * to a single undo step (the batched-multi-write shape `resizeMultiSelection`
- * uses). **No** `entityOrder` write, **no** `managedLayout`, **no**
+ * changed origins are written through each entity's per-kind mutator inside
+ * one gesture session, so the whole reorder collapses to a single undo step
+ * (the batched-multi-write shape `resizeMultiSelection` uses). **No**
+ * `entityOrder` write, **no** `managedLayout`, **no**
  * `commitAsOneTransaction` — nothing persists but the new positions.
  *
  * No-op (returns false) when the selection isn't an eligible equal-gap row or
@@ -1016,15 +929,14 @@ export function reorderSelection(
   const positions = reorderRowPositions(row, movingId, dropIndex)
   if (positions.size === 0) return false
 
-  beginBatch()
+  const session = beginGestureSession()
   let changed = false
   for (const [id, pos] of positions) {
     const kind = geometryById.get(id)?.kind
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }
   if (changed) scheduleWorkspaceAutosave()
-  endBatch()
-  markUndoBoundary()
+  session.finalize()
 
   if (changed) requestLayout()
   return changed
@@ -1060,151 +972,165 @@ export function distributeSelection(entityIds: string[]): boolean {
   const result = distributeRowPositions(boxes)
   if (!result) return false
 
-  beginBatch()
+  const session = beginGestureSession()
   let changed = false
   for (const [id, pos] of result.positions) {
     const kind = geometryById.get(id)?.kind
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }
   if (changed) scheduleWorkspaceAutosave()
-  endBatch()
-  markUndoBoundary()
+  session.finalize()
 
   if (changed) requestLayout()
   return changed
 }
 
-// --- Device Page Commands ---
+// --- Device Commands (pages and file entities) ---
+
+/**
+ * The kind-specific half of a device command. Pages derive their size from
+ * the preset and recenter an active focus presentation; file entities carry
+ * explicit width/height, so presets write size and orientation swaps it.
+ */
+interface DeviceTarget {
+  getMetadata(): Record<string, unknown> | undefined
+  setMetadata(meta: Record<string, unknown>): void
+  applyPreset(presetIndex: number): void
+  currentContentSize(): { width: number; height: number }
+  clearPresetIndex?(): void
+  applyOrientation?(orientation: DeviceOrientation): void
+  recenterId?: string
+}
+
+function pageDeviceTarget(pageId: string): DeviceTarget | null {
+  const page = pages.find((p) => p.id === pageId)
+  if (!page) return null
+  return {
+    getMetadata: () => page.metadata,
+    setMetadata: (meta) => { page.metadata = meta },
+    applyPreset: (presetIndex) => { page.presetIndex = presetIndex },
+    currentContentSize: () => pageContentSize(page),
+    recenterId: pageId,
+  }
+}
+
+function fileDeviceTarget(fileId: string): DeviceTarget | null {
+  const entity = fileEntities.find((e) => e.id === fileId)
+  if (!entity) return null
+  return {
+    getMetadata: () => entity.metadata,
+    setMetadata: (meta) => { entity.metadata = meta },
+    applyPreset: (presetIndex) => {
+      const preset = VIEWPORT_PRESETS[presetIndex]
+      entity.presetIndex = presetIndex
+      entity.width = preset.width
+      entity.height = preset.height
+    },
+    currentContentSize: () => ({ width: entity.width, height: entity.height }),
+    clearPresetIndex: () => { entity.presetIndex = undefined },
+    applyOrientation: (orientation) => {
+      // Swap width/height when changing orientation (only for preset sizes)
+      const currentOrientation = deviceOrientationFromMetadata(entity.metadata ?? {})
+      if (currentOrientation !== orientation && entity.presetIndex !== undefined) {
+        const temp = entity.width
+        entity.width = entity.height
+        entity.height = temp
+      }
+    },
+  }
+}
+
+function setDevicePreset(target: DeviceTarget, presetIndex: number): void {
+  mutateWorkspace(() => {
+    target.applyPreset(presetIndex)
+    let meta = clearCustomPageSizeMetadata(target.getMetadata()) ?? {}
+    // Auto-assign device based on the new preset
+    const matchedDevice = deviceForPresetIndex(presetIndex)
+    meta = setDeviceIdMetadata(meta, matchedDevice?.id ?? null)
+    target.setMetadata(meta)
+    if (target.recenterId) recenterFocusPresentation(target.recenterId)
+  })
+}
+
+function setDeviceCustom(target: DeviceTarget): void {
+  mutateWorkspace(() => {
+    const size = target.currentContentSize()
+    let meta = setCustomPageSizeMetadata(target.getMetadata(), size)
+    meta = setDeviceIdMetadata(meta, null)
+    target.setMetadata(meta)
+    target.clearPresetIndex?.()
+    if (target.recenterId) recenterFocusPresentation(target.recenterId)
+  })
+}
+
+function setDeviceTargetOrientation(target: DeviceTarget, orientation: DeviceOrientation): void {
+  mutateWorkspace(() => {
+    target.applyOrientation?.(orientation)
+    target.setMetadata(setDeviceOrientationMetadata(target.getMetadata() ?? {}, orientation))
+    if (target.recenterId) recenterFocusPresentation(target.recenterId)
+  })
+}
+
+function toggleDeviceFlag(
+  target: DeviceTarget,
+  read: (meta: Record<string, unknown>) => boolean,
+  write: (meta: Record<string, unknown>, value: boolean) => Record<string, unknown>,
+): void {
+  mutateWorkspace(() => {
+    const meta = target.getMetadata() ?? {}
+    target.setMetadata(write(meta, !read(meta)))
+  })
+}
+
+function validPresetIndex(presetIndex: number): boolean {
+  return presetIndex >= 0 && presetIndex < VIEWPORT_PRESETS.length
+}
 
 export function setPagePreset(pageId: string, presetIndex: number): void {
-  if (presetIndex < 0 || presetIndex >= VIEWPORT_PRESETS.length) return
-  const page = pages.find((p) => p.id === pageId)
-  if (!page) return
-  page.presetIndex = presetIndex
-  let meta = clearCustomPageSizeMetadata(page.metadata) ?? {}
-  // Auto-assign device based on the new preset
-  const matchedDevice = deviceForPresetIndex(presetIndex)
-  meta = setDeviceIdMetadata(meta, matchedDevice?.id ?? null)
-  page.metadata = meta
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  if (!validPresetIndex(presetIndex)) return
+  const target = pageDeviceTarget(pageId)
+  if (target) setDevicePreset(target, presetIndex)
 }
 
 export function setPageCustom(pageId: string): void {
-  const page = pages.find((p) => p.id === pageId)
-  if (!page) return
-  const size = pageContentSize(page)
-  let meta = setCustomPageSizeMetadata(page.metadata, size)
-  meta = setDeviceIdMetadata(meta, null)
-  page.metadata = meta
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  const target = pageDeviceTarget(pageId)
+  if (target) setDeviceCustom(target)
 }
 
 export function setDeviceOrientation(pageId: string, orientation: DeviceOrientation): void {
-  const page = pages.find((p) => p.id === pageId)
-  if (!page) return
-  let meta = page.metadata ?? {}
-  meta = setDeviceOrientationMetadata(meta, orientation)
-  page.metadata = meta
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  const target = pageDeviceTarget(pageId)
+  if (target) setDeviceTargetOrientation(target, orientation)
 }
 
 export function toggleDeviceShell(pageId: string): void {
-  const page = pages.find((p) => p.id === pageId)
-  if (!page) return
-  let meta = page.metadata ?? {}
-  const current = showDeviceFrameFromMetadata(meta)
-  meta = setShowDeviceFrameMetadata(meta, !current)
-  page.metadata = meta
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  const target = pageDeviceTarget(pageId)
+  if (target) toggleDeviceFlag(target, showDeviceFrameFromMetadata, setShowDeviceFrameMetadata)
 }
 
 export function toggleSvgDeviceShell(pageId: string): void {
-  const page = pages.find((p) => p.id === pageId)
-  if (!page) return
-  let meta = page.metadata ?? {}
-  const current = useSvgDeviceShellFromMetadata(meta)
-  meta = setUseSvgDeviceShellMetadata(meta, !current)
-  page.metadata = meta
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  const target = pageDeviceTarget(pageId)
+  if (target) toggleDeviceFlag(target, useSvgDeviceShellFromMetadata, setUseSvgDeviceShellMetadata)
 }
 
-// --- File Device Commands ---
-
 export function setFilePreset(fileId: string, presetIndex: number): void {
-  if (presetIndex < 0 || presetIndex >= VIEWPORT_PRESETS.length) return
-  const entity = fileEntities.find((e) => e.id === fileId)
-  if (!entity) return
-  const preset = VIEWPORT_PRESETS[presetIndex]
-  entity.presetIndex = presetIndex
-  entity.width = preset.width
-  entity.height = preset.height
-  let meta = clearCustomPageSizeMetadata(entity.metadata) ?? {}
-  const matchedDevice = deviceForPresetIndex(presetIndex)
-  meta = setDeviceIdMetadata(meta, matchedDevice?.id ?? null)
-  entity.metadata = meta
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  if (!validPresetIndex(presetIndex)) return
+  const target = fileDeviceTarget(fileId)
+  if (target) setDevicePreset(target, presetIndex)
 }
 
 export function setFileCustom(fileId: string): void {
-  const entity = fileEntities.find((e) => e.id === fileId)
-  if (!entity) return
-  let meta = setCustomPageSizeMetadata(entity.metadata, { width: entity.width, height: entity.height })
-  meta = setDeviceIdMetadata(meta, null)
-  entity.metadata = meta
-  entity.presetIndex = undefined
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  const target = fileDeviceTarget(fileId)
+  if (target) setDeviceCustom(target)
 }
 
 export function setFileDeviceOrientation(fileId: string, orientation: DeviceOrientation): void {
-  const entity = fileEntities.find((e) => e.id === fileId)
-  if (!entity) return
-  // Swap width/height when changing orientation (only for preset sizes)
-  const meta = entity.metadata ?? {}
-  const currentOrientation = deviceOrientationFromMetadata(meta)
-  if (currentOrientation !== orientation && entity.presetIndex !== undefined) {
-    const temp = entity.width
-    entity.width = entity.height
-    entity.height = temp
-  }
-  entity.metadata = setDeviceOrientationMetadata(meta, orientation)
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  const target = fileDeviceTarget(fileId)
+  if (target) setDeviceTargetOrientation(target, orientation)
 }
 
 export function toggleFileDeviceShell(fileId: string): void {
-  const entity = fileEntities.find((e) => e.id === fileId)
-  if (!entity) return
-  let meta = entity.metadata ?? {}
-  const current = showDeviceFrameFromMetadata(meta)
-  meta = setShowDeviceFrameMetadata(meta, !current)
-  entity.metadata = meta
-  scheduleWorkspaceAutosave()
-  markDirty('canvas')
-  requestLayout()
-  markUndoBoundary()
+  const target = fileDeviceTarget(fileId)
+  if (target) toggleDeviceFlag(target, showDeviceFrameFromMetadata, setShowDeviceFrameMetadata)
 }
 
 // --- Annotation Commands ---
@@ -1213,6 +1139,5 @@ export {
   createAnnotation,
   updateAnnotationStatus,
   addAnnotationReply,
-  moveAnnotation,
   deleteAnnotation,
 } from '../workspace-annotations'

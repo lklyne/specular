@@ -2,25 +2,13 @@
 // `entity.popupContributions` via the plugin contribution surface.
 
 import { useEffect, useState } from 'react'
-import { Copy, Trash2 } from 'lucide-react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneFileEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { DistributeAction } from './DistributeAction'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
-import { MARKDOWN_EXTENSIONS, WIREFRAME_EXTENSIONS } from '../canvas-bg/entityConstants'
+import { fileDisplayName } from '../canvas-bg/entityConstants'
 import { renderPopupContributions } from './file-popup-contributions'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
-
-function displayNameFor(file: string): string {
-  const base = file.split('/').pop() ?? file
-  if (WIREFRAME_EXTENSIONS.test(file)) return base.replace(/\.wireframe\.json$/i, '')
-  if (MARKDOWN_EXTENSIONS.test(file)) return base.replace(/\.md$/i, '')
-  return base
-}
 
 export function FilePopup({
   api,
@@ -34,12 +22,11 @@ export function FilePopup({
   api: Pick<
     CanvasBgElectronAPI,
     | 'renameFileEntity'
-    | 'duplicateFileEntity'
-    | 'deleteFileEntity'
     | 'writeNoteFile'
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
     | 'morphTextFile'
+    | 'focusSelection'
     | 'distributeSelection'
   >
   isDark: boolean
@@ -92,7 +79,7 @@ export function FilePopup({
                   ) : null}
                   <CanvasItemPopup.Section grow>
                     <InlineEditLabel
-                      value={displayNameFor(single.file)}
+                      value={fileDisplayName(single.file)}
                       isEditing={isRenaming}
                       onStartEdit={() => setIsRenaming(true)}
                       onCommit={(next) => {
@@ -111,29 +98,12 @@ export function FilePopup({
               )
             })()
           : null}
-        <CanvasItemPopup.Section>
-          <DistributeAction api={api} isDark={isDark} count={count} />
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Duplicate ${noun}`}
-            ariaLabel={`Duplicate ${noun}`}
-            onClick={() => {
-              for (const f of selectedFiles) api.duplicateFileEntity(f.id)
-            }}
-          >
-            <Copy size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            title={`Delete ${noun}`}
-            ariaLabel={`Delete ${noun}`}
-            onClick={() => {
-              for (const f of selectedFiles) api.deleteFileEntity(f.id)
-            }}
-          >
-            <Trash2 size={14} />
-          </CanvasItemPopup.IconButton>
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.EntityActions
+          isDark={isDark}
+          noun={noun}
+          count={count}
+          api={api}
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )

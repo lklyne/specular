@@ -14,6 +14,10 @@ export function ImageInlineRenderer({ entity }: { entity: CanvasSceneFileEntity 
         height: '100%',
         objectFit: entity.objectFit ?? 'contain',
         pointerEvents: 'none',
+        // Defer selection to Specular's own selection system; the native
+        // browser selection can otherwise leave images in a stuck highlighted state.
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
       }}
     />
   )

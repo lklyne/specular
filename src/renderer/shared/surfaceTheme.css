@@ -12,8 +12,16 @@
   --surface-popover: var(--color-stone-200);
   --surface-popover-subtle: var(--color-stone-100);
   --surface-popover-border: var(--color-stone-200);
+  --surface-card: var(--surface-popover-subtle);
+  --surface-card-border: var(--surface-input-border);
+  --surface-popup: var(--color-stone-50);
+  --surface-popup-border: var(--surface-chrome-border);
   --surface-input: var(--color-stone-50);
   --surface-input-border: var(--color-stone-300);
+  --surface-switch-track: var(--surface-input);
+  --surface-switch-track-border: var(--surface-input-border);
+  --surface-switch-track-checked: var(--surface-toolbar-foreground);
+  --surface-switch-track-checked-border: var(--surface-toolbar-foreground);
   --surface-device: var(--color-stone-300);
   --surface-device-border: var(--color-stone-400);
 }
@@ -32,8 +40,16 @@
   --surface-popover: var(--color-stone-800);
   --surface-popover-subtle: var(--color-stone-900);
   --surface-popover-border: var(--color-stone-600);
+  --surface-card: color-mix(in srgb, var(--color-stone-800) 68%, var(--color-stone-900) 32%);
+  --surface-card-border: color-mix(in srgb, var(--color-stone-700) 58%, transparent);
+  --surface-popup: color-mix(in srgb, var(--surface-panel) 45%, var(--color-stone-700) 55%);
+  --surface-popup-border: var(--surface-chrome-border);
   --surface-input: color-mix(in srgb, var(--color-stone-900) 90%, transparent);
   --surface-input-border: color-mix(in srgb, var(--color-stone-700) 80%, transparent);
+  --surface-switch-track: var(--surface-input);
+  --surface-switch-track-border: var(--surface-input-border);
+  --surface-switch-track-checked: var(--surface-input);
+  --surface-switch-track-checked-border: var(--surface-input-border);
   --surface-device: var(--color-stone-800);
   --surface-device-border: var(--color-stone-600);
 }

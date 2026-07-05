@@ -1,13 +1,14 @@
 {
   "name": "specular",
   "productName": "Specular",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/specular",
   "repository": {
     "type": "git",
     "url": "https://github.com/lklyne/specular.git"
   },
+  "license": "PolyForm-Shield-1.0.0",
   "main": ".vite/build/index.js",
   "config": {
     "forge": "./forge.config.ts"
@@ -15,21 +16,24 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@9.5.0",
+  "packageManager": "pnpm@11.10.0",
   "scripts": {
-    "dev": "pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
+    "dev": "pnpm fetch:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
     "dev:restart": "bash scripts/dev-restart.sh",
     "sync:agent-browser": "bash scripts/sync-agent-browser-skill.sh",
-    "build": "pnpm sync:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge package",
+    "fetch:agent-browser": "bash scripts/fetch-agent-browser.sh",
+    "check:agent-browser": "bash scripts/check-agent-browser.sh",
+    "build": "pnpm fetch:agent-browser && pnpm sync:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge package",
     "build:mcp-helper": "esbuild src/main/mcp-helper.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main/mcp-helper.js",
     "build:cli": "esbuild src/main/cli.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main/cli.js",
     "mcp": "node ./out/main/mcp-helper.js",
     "cli": "node ./out/main/cli.js",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src",
-    "dist:mac": "pnpm sync:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge make --platform darwin",
+    "dist:mac": "pnpm fetch:agent-browser && pnpm sync:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge make --platform darwin",
     "test:unit": "vitest run --config vitest.unit.config.ts",
-    "test:smoke": "vitest run --config vitest.smoke.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:boot": "vitest run --config vitest.boot.config.ts",
     "test:agent": "bash tests/agent/run-scenarios.sh",
     "release:patch": "npm version patch && git push --follow-tags",
     "release:minor": "npm version minor && git push --follow-tags"
@@ -43,7 +47,6 @@
     "@codemirror/view": "^6.42.1",
     "@lezer/highlight": "^1.2.3",
     "@modelcontextprotocol/sdk": "^1.18.0",
-    "@sentry/core": "^8.55.0",
     "@sentry/electron": "^5.11.0",
     "lucide-react": "^0.576.0",
     "perfect-freehand": "^1.2.3",
@@ -77,16 +80,5 @@
     "typescript-eslint": "^8.58.2",
     "vite": "^7.3.1",
     "vitest": "^4.1.1"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild",
-      "macos-alias",
-      "fs-xattr"
-    ],
-    "overrides": {
-      "@electron/notarize": "^3.1.1"
-    }
   }
 }

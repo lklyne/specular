@@ -41,13 +41,14 @@ Tab switches write to Y.Doc via `transitionToTab()`:
 3. UndoManager captures the diff between old and new tab state
 4. `markUndoBoundary()` ensures the tab switch is a discrete undo step
 
-## Drag batching
+## Gesture batching
 
-Drags produce many small position updates. Without batching, each would be a separate undo step.
+Gestures (drag, resize, reorder, distribute) produce many small updates. Without batching, each would be a separate undo step.
 
-- `initializeDrag()` calls `beginBatch()` — suppresses doc sync during drag
-- `applyDragDelta()` updates positions but sync is held
-- `finalizeDrag()` calls `endBatch()` — one sync for the entire drag, then `markUndoBoundary()`
+- `beginGestureSession()` (`workspace-gesture-session.ts`) suppresses doc sync and registers with `mutateWorkspace` so per-tick calls defer their undo boundary
+- Tick functions (`applyDragDelta`, `resizeMultiSelection`, registry updates) mutate freely while sync is held
+- `session.finalize()` — one sync for the entire gesture, then one `markUndoBoundary()`
+- At most one session at a time (one interaction token); a second begin warns and finalizes the stale session
 
 ## UndoManager scope
 
@@ -67,12 +68,12 @@ Not tracked: viewport zoom/pan (in a separate Y.Map excluded from UndoManager sc
 
 This is a high-risk layer: a bug in persistence, forward/reverse sync, or undo batching can lose user work silently. When you change anything in `workspace-*.ts` or the diff-sync path:
 
-- Add or update smoke coverage under `tests/smoke/` for the behavior change. Persistence, undo, and sync each have a dedicated smoke file once Phase 2 of issue [#81](https://github.com/lklyne/specular/issues/81) lands (`persistence.test.ts`, `undo.test.ts`, `sync.test.ts`); until then, fold coverage into the nearest existing smoke file.
+- Add or update integration coverage under `tests/integration/` for the behavior change. Persistence, undo, and sync each have a dedicated file (`persistence.test.ts`, `undo.test.ts`, `sync.test.ts`) driving the real runtime in-process via `bootWorkspaceHarness()` — see [ADR 0024](../../../docs/adr/0024-in-process-integration-testing.md).
 - Mutation-verify the test before committing — name the production-code change you used to confirm the test catches it. See `tests/README.md` for the convention.
 - Forward sync changes need a "one mutation → one Y.Doc transaction" assertion. Reverse sync changes need an "undo applies without re-triggering forward sync" assertion.
 - Undo batching changes need a "logically-grouped mutations collapse to one undo step; distinct user actions remain distinct" assertion.
 
-See `tests/README.md` for the test bar and the `AppClient` helpers available to smoke tests.
+See `tests/README.md` for the test bar and the harness API available to integration tests.
 
 ## Gotchas
 

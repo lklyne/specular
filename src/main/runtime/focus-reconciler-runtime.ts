@@ -1,5 +1,3 @@
-// fallow-ignore-file circular-dependencies
-// Suppressed: see #141. selection-controller → overlay-manager → layout-engine import focus-reconciler-runtime back
 /**
  * Runtime binding for FocusReconciler. Resolves a FocusTarget to the
  * actual WebContents and calls focus() at most once per layout pass.
@@ -9,6 +7,7 @@
 
 import type { WebContents } from 'electron'
 import type { FocusTarget } from '../../shared/interaction-types'
+import { canvasInteractionModeKind } from '../../shared/gesture-utils'
 import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
 import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
 import {
@@ -19,35 +18,18 @@ import {
   setPendingFocus,
 } from './runtime-context'
 import { isTextEditingFor } from './binding-dispatcher'
-import { isCommentOverlayVisible, selectedPageIndex, workspaceViewMode } from '../ui-state'
+import { isCommentOverlayVisible } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
-function interactionModeKey(): FocusState['interactionMode'] {
-  switch (interactionState.kind) {
-    case 'idle': return 'idle'
-    case 'panning-canvas': return 'panning'
-    case 'marquee-select': return 'marquee'
-    case 'dragging-entities': return 'dragging-entities'
-    case 'resizing-entity': return 'resizing-entity'
-    case 'resizing-multi-selection': return 'resizing-multi-selection'
-    case 'dragging-edge': return 'dragging-edge'
-    case 'editing-entity': return 'editing-entity'
-    case 'reordering-row': return 'reordering-row'
-  }
-}
-
 function currentFocusState(): FocusState {
-  const idx = selectedPageIndex(pages.map((p) => p.id))
-  const selectedPage = idx != null ? pages[idx] : null
   return {
-    interactionMode: interactionModeKey(),
+    interactionMode: canvasInteractionModeKind(interactionState),
     editingEntityId: getEditingEntityId(),
-    selectedPageId: selectedPage?.id ?? null,
-    workspaceViewMode: workspaceViewMode(),
     commentOverlayActive: isCommentOverlayVisible(),
     pendingFocus,
     focusedPageId: currentKeyboardTargetPageId(),
     sidebarTextInputActive: leftSidebarView ? isTextEditingFor(leftSidebarView.webContents) : false,
+    toolbarTextInputActive: toolbarView ? isTextEditingFor(toolbarView.webContents) : false,
   }
 }
 
@@ -64,7 +46,7 @@ function resolve(target: FocusTarget): WebContents | null {
   }
 }
 
-function currentlyFocusedKey(): string | null {
+export function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
   if (aboveView?.webContents.isFocused()) return 'aboveView'
   if (toolbarView?.webContents.isFocused()) return 'toolbar'

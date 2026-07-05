@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import {
   bgView,
@@ -26,7 +27,7 @@ function broadcastRepos(repos: ConnectedRepo[]): void {
   ]
   for (const wc of targets) {
     try {
-      wc?.send('repo-changed', repos)
+      wc?.send(ipcChannels.repoChanged, repos)
     } catch {
       // ignore — view may be in the middle of teardown
     }
@@ -34,10 +35,10 @@ function broadcastRepos(repos: ConnectedRepo[]): void {
 }
 
 export function registerRepoIpc(): void {
-  ipcMain.handle('repo-list', async (): Promise<ConnectedRepo[]> => listRepos())
+  ipcMain.handle(ipcChannels.repoList, async (): Promise<ConnectedRepo[]> => listRepos())
 
   ipcMain.handle(
-    'repo-connect',
+    ipcChannels.repoConnect,
     async (_event, payload: { absolutePath?: string }): Promise<ConnectedRepo | null> => {
       const path = payload?.absolutePath
       if (!path) return null
@@ -45,7 +46,7 @@ export function registerRepoIpc(): void {
     },
   )
 
-  ipcMain.handle('repo-connect-via-picker', async (event): Promise<ConnectedRepo | null> => {
+  ipcMain.handle(ipcChannels.repoConnectViaPicker, async (event): Promise<ConnectedRepo | null> => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
     const result = win
       ? await dialog.showOpenDialog(win, {
@@ -58,14 +59,14 @@ export function registerRepoIpc(): void {
   })
 
   ipcMain.handle(
-    'repo-disconnect',
+    ipcChannels.repoDisconnect,
     async (_event, payload: { id?: string }): Promise<void> => {
       if (payload?.id) await disconnectRepo(payload.id)
     },
   )
 
   ipcMain.handle(
-    'repo-bind-origin',
+    ipcChannels.repoBindOrigin,
     async (
       _event,
       payload: { repoId?: string; origin?: string },
@@ -78,7 +79,7 @@ export function registerRepoIpc(): void {
   )
 
   ipcMain.handle(
-    'repo-find-for-path',
+    ipcChannels.repoFindForPath,
     async (_event, payload: { absolutePath?: string }): Promise<ConnectedRepo | null> => {
       const path = payload?.absolutePath
       if (!path) return null

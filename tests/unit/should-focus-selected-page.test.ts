@@ -13,13 +13,22 @@ function inputs(
     interactionKind: 'idle',
     activeTool: { kind: 'select' },
     commentOverlayActive: false,
+    interactivePageId: 'f1',
     ...overrides,
   }
 }
 
 describe('shouldFocusSelectedPage — happy path', () => {
-  it('returns the page id when single-selected and idle in select mode', () => {
+  it('returns the page id when the selected page has been entered', () => {
     expect(shouldFocusSelectedPage(inputs())).toBe('f1')
+  })
+
+  it('select-first / interact-second: a selected-but-not-entered page owns no keyboard', () => {
+    expect(shouldFocusSelectedPage(inputs({ interactivePageId: null }))).toBeNull()
+  })
+
+  it('returns null when the entered page is a different page than the selection', () => {
+    expect(shouldFocusSelectedPage(inputs({ interactivePageId: 'f2' }))).toBeNull()
   })
 })
 

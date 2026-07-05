@@ -24,49 +24,8 @@ import {
 import {
   findPageById,
 } from './runtime/runtime-context'
-import { pageBodyCanvasBounds, pageContentSize } from './runtime/runtime-geometry'
+import { pageContentSize, projectFramePointToCanvas } from './runtime/runtime-geometry'
 
-// --- Re-exports from presence-session ---
-export {
-  type McpClientSession,
-  mcpSessions,
-  MCP_SESSION_TIMEOUT_MS,
-  activeSessions,
-  resolveSession,
-} from './presence-session'
-
-// --- Re-exports from presence-cursor ---
-export {
-  type PresenceCursorEntry,
-  type ActivePresenceTask,
-  presenceCursors,
-  activePresenceTasks,
-  PRESENCE_CURSOR_STEP_DELAY_MS,
-  notifyPresenceChanged,
-  deriveColor,
-  removePresenceCursor,
-  beginPresenceDeparture,
-  getPresenceCursors,
-  onPresenceCursorsChanged,
-  coercePresenceLabelKey,
-  coercePresenceActivity,
-  coercePresenceSurface,
-  coercePresenceTargetRefSource,
-  upsertPresenceCursor,
-  upsertActivePresenceTask,
-  clearActivePresenceTask,
-  scheduleThinkingState,
-  allEntityPositions,
-  staggerOperation,
-  animateCursorScan,
-  movePresenceCursorTo,
-  findEntityPosition,
-} from './presence-cursor'
-
-// Re-export for route usage
-export { invalidateAgentSnapshot } from './runtime/agent-snapshot-cache'
-
-// --- Imports needed for local logic ---
 import { resolveSession } from './presence-session'
 import {
   activePresenceTasks,
@@ -75,7 +34,6 @@ import {
   upsertPresenceCursor,
   upsertActivePresenceTask,
   scheduleThinkingState,
-  resetPresenceState as resetPresenceCursorState,
   notifyPresenceChanged,
 } from './presence-cursor'
 
@@ -131,7 +89,6 @@ export function derivePageId(url: string, body: Record<string, unknown>): string
   const match = /^\/pages\/([^/]+)/.exec(url)
   if (match) return decodeURIComponent(match[1])
   if (typeof body.pageId === 'string') return body.pageId
-  if (typeof body.pageId === 'string') return body.pageId
   if (Array.isArray(body.pageIds) && typeof body.pageIds[0] === 'string') {
     return body.pageIds[0]
   }
@@ -162,13 +119,13 @@ export function resolveCanvasPointForPage(
     fallbackX: width / 2,
     fallbackY: height / 2,
   })
-  // DOM point lives in content coordinates; shift to the body origin so
+  // DOM point lives in content coordinates; project to canvas space so
   // the cursor lands on the page body (inside any device-frame bezel).
-  const body = pageBodyCanvasBounds(page)
-  return {
-    canvasX: body.x + clamp(point.x, 0, width),
-    canvasY: body.y + clamp(point.y, 0, height),
-  }
+  const canvas = projectFramePointToCanvas(page, {
+    x: clamp(point.x, 0, width),
+    y: clamp(point.y, 0, height),
+  })
+  return { canvasX: canvas.x, canvasY: canvas.y }
 }
 
 export function extractCanvasPosition(url: string, body: Record<string, unknown>): { x: number; y: number } | null {
@@ -533,10 +490,4 @@ export function updatePresenceCursor(
   }
 
   scheduleThinkingState(request)
-}
-
-// --- Reset ---
-
-export function resetPresenceState(): void {
-  resetPresenceCursorState(pendingIntents)
 }

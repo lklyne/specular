@@ -1,12 +1,8 @@
 import { useCallback, useState } from 'react'
 import { Switch } from '@base-ui/react/switch'
 import { Loader2 } from 'lucide-react'
-import type {
-  OnboardingComponentId,
-  OnboardingComponentStatus,
-  OnboardingStatusSnapshot,
-  SettingsElectronAPI,
-} from '../../shared/types'
+import type { OnboardingComponentId, OnboardingComponentStatus, OnboardingStatusSnapshot } from '../../shared/types'
+import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
 
 type RowConfig = {
   id: OnboardingComponentId
@@ -115,7 +111,7 @@ export function SkillsPane({
             <label
               key={row.id}
               title={title}
-              className={`flex items-start gap-3 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-4 py-3 select-none ${
+              className={`flex items-start gap-3 rounded-[8px] border border-[var(--surface-card-border)] bg-[var(--surface-card)] px-4 py-3 select-none ${
                 disabled ? 'cursor-not-allowed' : 'cursor-pointer'
               }`}
             >
@@ -149,7 +145,7 @@ export function SkillsPane({
                   disabled={disabled}
                   checked={installed}
                   onCheckedChange={(checked) => handleToggle(row.id, checked)}
-                  className="relative inline-flex h-[18px] w-[32px] shrink-0 cursor-pointer items-center rounded-full border border-[var(--surface-popover-border)] bg-[var(--surface-input)] transition-colors data-[checked]:border-transparent data-[checked]:bg-emerald-500 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+                  className="relative inline-flex h-[18px] w-[32px] shrink-0 cursor-pointer items-center rounded-full border border-[var(--surface-switch-track-border)] bg-[var(--surface-switch-track)] transition-colors data-[checked]:border-[var(--surface-switch-track-checked-border)] data-[checked]:bg-[var(--surface-switch-track-checked)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
                 >
                   <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[1px] rounded-full bg-white shadow-sm transition-transform data-[checked]:translate-x-[15px]" />
                 </Switch.Root>

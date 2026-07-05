@@ -31,6 +31,7 @@ import type {
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 import { reorderableDots } from './reorderable-dots'
+import { ENTITY_KIND_CAPS } from './entity-kind-caps'
 
 // --- Public types ---
 
@@ -64,6 +65,10 @@ export interface HitInputs {
   edges: readonly WorkspaceEdge[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
+  /** Page whose native webContents currently owns keyboard/pointer focus. */
+  keyboardTargetPageId?: string | null
+  /** Page currently being presented by the focus camera. */
+  focusPresentationPageId?: string | null
   /** Optional. When set, anchor dots on the hovered entity are routable too —
    *  matches the EdgeLayer renderer policy (selected + hovered show anchors)
    *  and lets users grab an existing edge endpoint without first selecting
@@ -173,18 +178,9 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   if (inputs.selectedGroupId) selected.add(inputs.selectedGroupId)
   for (const entity of inputs.entities) {
     if (!selected.has(entity.id)) continue
-    if (entityResizesAutomatically(entity)) continue
     pushPerEntityHandles(out, entity)
   }
   return out
-}
-
-// Reserved for entities whose bounds are purely content-driven and should
-// never show manual resize handles. Plain text in 'auto' widthMode used to
-// qualify, but resize is now wired to flip 'auto' → 'fixed' on drag-begin,
-// so it can be handled like any other entity.
-export function entityResizesAutomatically(_entity: CanvasSceneEntity): boolean {
-  return false
 }
 
 function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {
@@ -261,8 +257,12 @@ function multiHandleRect(bbox: ScreenBbox, handle: ResizeHandle): Rect {
 
 function collectChromeTargets(inputs: HitInputs): HitTarget[] {
   const out: HitTarget[] = []
+  const selected = new Set(inputs.selectedEntityIds)
   for (const entity of inputs.entities) {
     if (!entityHasChrome(entity.kind)) continue
+    if (selected.has(entity.id)) continue
+    if (entity.kind === 'page' && entity.id === inputs.keyboardTargetPageId) continue
+    if (entity.kind === 'page' && entity.id === inputs.focusPresentationPageId) continue
     out.push({
       layer: 'chrome',
       region: { kind: 'rect', rect: chromeRect(entity) },
@@ -429,13 +429,9 @@ function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Re
 }
 
 function entityHasChrome(kind: CanvasEntityKind): boolean {
-  // Pages and files have chrome strips above them; text/shape/drawing/group
-  // do not (text/shape have inline editors when selected, not chrome).
-  return kind === 'page' || kind === 'file'
+  return ENTITY_KIND_CAPS[kind].hasChrome
 }
 
 export function entityHasAnchors(kind: CanvasEntityKind): boolean {
-  // Drawings don't get edge anchors — the dots crowd the selection chrome and
-  // make a selected stroke awkward to grab and drag.
-  return kind !== 'drawing'
+  return ENTITY_KIND_CAPS[kind].hasAnchors
 }

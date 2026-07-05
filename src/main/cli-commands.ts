@@ -1,8 +1,8 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
-import { validateLayoutDirective } from '../shared/types'
+import { validateLayoutDirective } from '../shared/layout-directive'
 import { callApp } from './shared/app-client'
 import { handleBrowse, shellQuote } from './shared/browse-handler'
-import { upsertEntities, type UpsertOptions, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
+import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
 import { emitPresenceForVerb } from './cli-presence'
@@ -19,8 +19,9 @@ function pageId(args: ParsedArgs): string | undefined {
 
 // --- Canvas verbs ---
 
+// Reads the canvas as a JSON Canvas document (GET /canvas — the doc read shape).
 const workspace: VerbHandler = async () => {
-  printJson(await callApp('/workspace'))
+  printJson(await callApp('/canvas'))
   return 0
 }
 
@@ -98,63 +99,113 @@ const upsert: VerbHandler = async (args) => {
   return 0
 }
 
-const create: VerbHandler = async (args) => {
-  const subverb = args.positional[0]
-  if (subverb === 'page') {
+// The one declarative door (ADR 0019). A patch is { entities, edges, delete,
+// layout } — no id creates, id present updates, id in delete removes — applied
+// in one transaction. Documented as the batch fallback; verbs are primary.
+const apply: VerbHandler = async () => {
+  const patch = JSON.parse(await readStdin()) as CanvasPatch
+  if (patch.layout) {
+    const err = validateLayoutDirective(patch.layout)
+    if (err) { printError(`apply: ${err}`); return 1 }
+  }
+  printJson(await applyPatch(patch))
+  return 0
+}
+
+// Add — kind is the subcommand (ADR 0019 §1, like `git remote add`). Each
+// branch builds one create item; `applyPatch` runs the placement pre-pass and
+// routes it through the single apply spine. `add` is the only create surface;
+// drawing/shape (no ergonomic verb) are created via `apply` with a patch.
+const add: VerbHandler = async (args) => {
+  const kind = args.positional[0]
+  const item: Record<string, unknown> = {}
+  const applyAt = () => {
+    if (!args.flags.at) return
+    const [x, y] = args.flags.at.split(',').map(Number)
+    if (!isNaN(x)) item.canvasX = x
+    if (!isNaN(y)) item.canvasY = y
+  }
+  if (kind === 'page') {
     const url = args.positional[1]
-    if (!url) { printError('usage: specular create page <url>'); return 1 }
-    const item: Record<string, unknown> = { kind: 'page', url }
+    if (!url) { printError('usage: specular add page <url> [--at x,y] [--preset N]'); return 1 }
+    item.kind = 'page'
+    item.url = url
     item.presetIndex = args.flags.preset ? Number(args.flags.preset) : 6 // default to Laptop
-    if (args.flags.at) {
-      const [x, y] = args.flags.at.split(',').map(Number)
-      if (!isNaN(x)) item.canvasX = x
-      if (!isNaN(y)) item.canvasY = y
-    }
+    applyAt()
     if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
     if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
-    printJson(await upsertEntities([item]))
-    return 0
-  }
-  if (subverb === 'note') {
+  } else if (kind === 'note') {
     const text = args.positional.slice(1).join(' ')
-    if (!text) { printError('usage: specular create note <text>'); return 1 }
-    const item: Record<string, unknown> = { kind: 'text', text }
-    if (args.flags.at) {
-      const [x, y] = args.flags.at.split(',').map(Number)
-      if (!isNaN(x)) item.canvasX = x
-      if (!isNaN(y)) item.canvasY = y
-    }
+    if (!text) { printError('usage: specular add note <text> [--at x,y] [--color N]'); return 1 }
+    // Long / structured text auto-routes to a `.md` note file on the apply
+    // spine (file kind's claimsAsNote); short text stays a text entity.
+    item.kind = 'text'
+    item.text = text
+    applyAt()
     if (args.flags.color) item.color = args.flags.color
-    // --kind text: force text entity even for long content
-    // --kind file: force file entity even for short content
-    if (args.flags.kind === 'text') item.forceKind = true
-    if (args.flags.kind === 'file') {
-      // Route directly to file entity by removing kind override protection
-      // and ensuring it gets auto-routed regardless of length
-      item.kind = 'text'
-      item.forceKind = false
-      // Force auto-route by setting a flag the grouping loop checks
-      item._forceFile = true
-    }
-    printJson(await upsertEntities([item]))
-    return 0
+  } else if (kind === 'file') {
+    const path = args.positional[1]
+    if (!path) { printError('usage: specular add file <path> [--at x,y]'); return 1 }
+    // The file handler infers the renderer from the extension (md / wireframe /
+    // html / image / video) and sizes images/video from the file.
+    item.kind = 'file'
+    item.file = path
+    applyAt()
+  } else {
+    printError('usage: specular add <page|note|file> ...')
+    return 1
   }
-  printError('usage: specular create <page|note> ...')
-  return 1
+  printJson({ created: (await applyPatch({ entities: [item] })).created })
+  return 0
+}
+
+// Rearrange existing entities into a row / column / grid (ADR 0019 §1). Compiles
+// to an apply patch whose items are bare ids and whose layout directive the
+// apply spine resolves into new positions — no separate move/resize verbs.
+const arrange: VerbHandler = async (args) => {
+  const kind = args.positional[0]
+  if (kind !== 'row' && kind !== 'column' && kind !== 'grid') {
+    printError('usage: specular arrange <row|column|grid> <id> [id...] [--gap m] [--cols N]')
+    return 1
+  }
+  const ids = args.positional.slice(1)
+  if (ids.length === 0) { printError('arrange: needs at least one entity id'); return 1 }
+  const layout: Record<string, unknown> = { kind }
+  if (args.flags.gap !== undefined) {
+    const n = Number(args.flags.gap)
+    layout.gap = isNaN(n) ? args.flags.gap : n
+  }
+  if (args.flags.cols) layout.cols = Number(args.flags.cols)
+  const err = validateLayoutDirective(layout)
+  if (err) { printError(`arrange: ${err}`); return 1 }
+  const result = await applyPatch({
+    entities: ids.map((id) => ({ id })),
+    layout: layout as unknown as CanvasPatch['layout'],
+  })
+  printJson({ arranged: result.updated })
+  return 0
 }
 
 const update: VerbHandler = async (args) => {
   const id = args.positional[0]
-  if (!id) { printError('usage: specular update <id> [--preset N] [--at x,y] [--text T] [--color C]'); return 1 }
-  const kind = kindFromId(id)
-  const item: Record<string, unknown> = { kind, id }
+  if (!id) { printError('usage: specular update <id> [--at x,y] [--size w,h] [--preset N] [--text T] [--color C] [--url U]'); return 1 }
+  // No kind: the apply route resolves it from the doc by id (ADR 0019 §4).
+  const item: Record<string, unknown> = { id }
   if (args.flags.at) {
     const [x, y] = args.flags.at.split(',').map(Number)
     if (!isNaN(x)) item.canvasX = x
     if (!isNaN(y)) item.canvasY = y
   }
+  // move/resize fold into update flags (ADR 0019 §1). The registry's per-kind
+  // `fields` decides which take effect — pages size via preset, not w/h.
+  if (args.flags.size) {
+    const [w, h] = args.flags.size.split(',').map(Number)
+    if (!isNaN(w)) item.width = w
+    if (!isNaN(h)) item.height = h
+  }
   // Page-specific flags
   if (args.flags.preset) item.presetIndex = Number(args.flags.preset)
+  if (args.flags.url) item.url = args.flags.url
   if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
   if (args.boolFlags.has('portrait')) item.orientation = 'portrait'
   if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
@@ -165,35 +216,21 @@ const update: VerbHandler = async (args) => {
   return 0
 }
 
-function kindFromId(id: string): 'page' | 'text' | 'file' | 'group' {
-  if (id.startsWith('page_')) return 'page'
-  if (id.startsWith('text_')) return 'text'
-  if (id.startsWith('group_')) return 'group'
-  return 'file'
-}
-
+// Shim over `apply`: kind is resolved from the doc by id, not an id prefix.
 const deleteEntities: VerbHandler = async (args) => {
+  let ids: string[]
   if (args.boolFlags.has('json')) {
     const input = await readStdin()
-    const items = JSON.parse(input) as Array<{ id: string; kind?: string }>
-    const withKind = items.map((item) => ({
-      ...item,
-      kind: item.kind ?? kindFromId(item.id),
-    }))
-    printJson(await callApp('/entities/delete', {
-      method: 'POST',
-      body: JSON.stringify({ items: withKind }),
-    }))
+    const items = JSON.parse(input) as Array<{ id: string }>
+    ids = items.map((item) => item.id)
   } else if (args.positional.length > 0) {
-    const items = args.positional.map((id) => ({ id, kind: kindFromId(id) }))
-    printJson(await callApp('/entities/delete', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    }))
+    ids = args.positional
   } else {
     printError('usage: specular delete <id> [id...] or specular delete --json')
     return 1
   }
+  const result = await applyPatch({ delete: ids })
+  printJson({ deleted: result.deleted })
   return 0
 }
 
@@ -206,26 +243,22 @@ const focus: VerbHandler = async (args) => {
   return 0
 }
 
+// Shim over `apply`: builds an edges patch and routes through /canvas/apply.
 const link: VerbHandler = async (args) => {
+  let edges: CanvasPatch['edges']
   if (args.positional.length >= 2) {
     const [fromEntityId, toEntityId] = args.positional
     const edge: Record<string, unknown> = { fromEntityId, toEntityId, kind: 'connection' }
     if (args.flags.label) edge.label = args.flags.label
-    printJson(await callApp('/edges/create', {
-      method: 'POST',
-      body: JSON.stringify({ edges: [edge] }),
-    }))
-    return 0
-  }
-  if (args.positional.length === 1 || (args.positional.length === 0 && process.stdin.isTTY)) {
+    edges = [edge] as CanvasPatch['edges']
+  } else if (args.positional.length === 1 || (args.positional.length === 0 && process.stdin.isTTY)) {
     printError('usage: specular link <fromId> <toId> [--label <text>]  (or pipe a JSON edges array on stdin)')
     return 1
+  } else {
+    edges = JSON.parse(await readStdin()) as CanvasPatch['edges']
   }
-  const input = await readStdin()
-  printJson(await callApp('/edges/create', {
-    method: 'POST',
-    body: JSON.stringify({ edges: JSON.parse(input) }),
-  }))
+  const result = await applyPatch({ edges })
+  printJson({ edgeIds: result.edges })
   return 0
 }
 
@@ -238,15 +271,13 @@ const unlink: VerbHandler = async (args) => {
   return 0
 }
 
+// Shim over `apply`: a group is created as a `group` entity around existing ids.
 const group: VerbHandler = async (args) => {
   if (args.positional.length === 0) { printError('usage: specular group <entityId> [entityId...]'); return 1 }
-  printJson(await callApp('/groups/create', {
-    method: 'POST',
-    body: JSON.stringify({
-      entityIds: args.positional,
-      label: args.flags.label,
-    }),
-  }))
+  const result = await applyPatch({
+    entities: [{ kind: 'group', entityIds: args.positional, label: args.flags.label }],
+  })
+  printJson({ id: result.created[0], entityIds: args.positional })
   return 0
 }
 
@@ -556,9 +587,11 @@ const VERBS: Record<string, VerbHandler> = {
   'find-placement': findPlacement,
   breakpoints,
   upsert,
-  create,
+  apply,
+  add,
   update,
   delete: deleteEntities,
+  arrange,
   focus,
   link,
   unlink,
@@ -598,11 +631,11 @@ export async function dispatch(argv: string[]): Promise<number> {
   if (!args.verb || args.verb === '--help' || args.verb === '-h') {
     printText('usage: specular <verb> [args...] [--flag value]')
     printText('')
-    printText('Canvas: workspace, create, update, delete, focus, group, ungroup')
+    printText('Canvas: workspace, add, update, delete, arrange, focus, group, ungroup')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
-    printText('Other: breakpoints, upsert, link, unlink, find-placement')
+    printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, distribute, find-placement')
     printText('')
     printText('Unknown verbs are passed to agent-browser as raw commands.')
     return 0

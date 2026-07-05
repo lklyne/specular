@@ -7,11 +7,12 @@ import { fileEntities } from './runtime/file-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { workspaceGroups } from './runtime/workspace-model'
-import { pageContentSize, requestLayout, snapToGrid } from './runtime/surface-layout'
+import { pageContentSize } from './runtime/runtime-geometry'
+import { snapToGrid } from '../shared/gesture-utils'
 import { markDirty } from './runtime/layout-dirty'
 import { managedChildOrder, writeManagedChildOrder } from './runtime/entity-order-state'
 import { commitAsOneTransaction } from './runtime/workspace-observers'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import { createUserGroup } from './workspace-groups'
 import {
   entityBoundsById,
@@ -253,13 +254,14 @@ export function reorderManagedChild(
   const next = order.filter((id) => id !== childId)
   next.splice(clampedTo, 0, childId)
 
-  let changed = false
-  commitAsOneTransaction(() => {
-    changed = writeManagedChildOrder(groupId, next)
-    if (changed) reflowManagedGroup(groupId)
-  })
-  if (changed) requestLayout()
-  return changed
+  return mutateWorkspace(() => {
+    let changed = false
+    commitAsOneTransaction(() => {
+      changed = writeManagedChildOrder(groupId, next)
+      if (changed) reflowManagedGroup(groupId)
+    })
+    return changed
+  }, { changed: (changed) => changed })
 }
 
 /**
@@ -275,35 +277,33 @@ export function makeAutoLayoutGroup(input: {
   entityIds?: string[]
   label?: string
 }): WorkspaceGroup | null {
-  let result: WorkspaceGroup | null = null
-  commitAsOneTransaction(() => {
-    let group: WorkspaceGroup | undefined
-    if (input.groupId) {
-      group = groupById(input.groupId)
-    } else if (input.entityIds && input.entityIds.length === 1 && groupById(input.entityIds[0])) {
-      group = groupById(input.entityIds[0])
-    } else if (input.entityIds && input.entityIds.length >= 2) {
-      group = createUserGroup(input.entityIds, input.label ?? 'Auto-layout')
-    }
-    if (!group) return
+  return mutateWorkspace(() => {
+    let result: WorkspaceGroup | null = null
+    commitAsOneTransaction(() => {
+      let group: WorkspaceGroup | undefined
+      if (input.groupId) {
+        group = groupById(input.groupId)
+      } else if (input.entityIds && input.entityIds.length === 1 && groupById(input.entityIds[0])) {
+        group = groupById(input.entityIds[0])
+      } else if (input.entityIds && input.entityIds.length >= 2) {
+        group = createUserGroup(input.entityIds, input.label ?? 'Auto-layout')
+      }
+      if (!group) return
 
-    group.layoutMode = 'row'
-    group.managedLayout = true
-    markDirty('canvas', 'sidebar')
+      group.layoutMode = 'row'
+      group.managedLayout = true
+      markDirty('canvas', 'sidebar')
 
-    // Seed layout order = current visual left-to-right so the row doesn't
-    // scramble on conversion.
-    const seeded = managedChildOrder(group.id)
-      .map((id) => ({ id, x: resolveManagedChild(id)?.canvasX ?? 0 }))
-      .sort((a, b) => a.x - b.x)
-      .map((c) => c.id)
-    writeManagedChildOrder(group.id, seeded)
-    reflowManagedGroup(group.id)
-    result = group
-  })
-  if (result) {
-    scheduleWorkspaceAutosave()
-    requestLayout()
-  }
-  return result
+      // Seed layout order = current visual left-to-right so the row doesn't
+      // scramble on conversion.
+      const seeded = managedChildOrder(group.id)
+        .map((id) => ({ id, x: resolveManagedChild(id)?.canvasX ?? 0 }))
+        .sort((a, b) => a.x - b.x)
+        .map((c) => c.id)
+      writeManagedChildOrder(group.id, seeded)
+      reflowManagedGroup(group.id)
+      result = group
+    })
+    return result
+  }, { changed: (group) => group !== null })
 }

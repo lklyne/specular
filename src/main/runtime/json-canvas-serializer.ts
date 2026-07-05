@@ -8,6 +8,7 @@
 import type {
   Annotation,
   BrowserTabMode,
+  CanvasEntityKind,
   DevtoolsPanelTab,
   PersistedCanvasEntity,
   PersistedDrawingEntity,
@@ -35,6 +36,17 @@ import type {
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import { NEUTRAL_STORAGE } from '../../shared/canvas-colors'
 import { pageCustomSizeFromMetadata } from './runtime-entities'
+import { getEntityKind, hasEntityKind } from '../entities/contract'
+
+/** JSON Canvas node types map 1:1 to entity kinds, except `link` → `page`. */
+const NODE_TYPE_TO_KIND: Record<JsonCanvasNode['type'], CanvasEntityKind> = {
+  link: 'page',
+  text: 'text',
+  file: 'file',
+  group: 'group',
+  drawing: 'drawing',
+  shape: 'shape',
+}
 
 // --- Serialize ---
 
@@ -84,20 +96,8 @@ export function serializeToJsonCanvas(
   for (const id of orderedIds) {
     const entity = entities[id]
     if (!entity) continue
-
-    if (entity.kind === 'page') {
-      nodes.push(serializePageToLinkNode(entity))
-    } else if (entity.kind === 'text') {
-      nodes.push(serializeTextToTextNode(entity))
-    } else if (entity.kind === 'file') {
-      nodes.push(serializeFileToFileNode(entity))
-    } else if (entity.kind === 'group') {
-      nodes.push(serializeGroupEntityToGroupNode(entity))
-    } else if (entity.kind === 'drawing') {
-      nodes.push(serializeDrawingToDrawingNode(entity))
-    } else if (entity.kind === 'shape') {
-      nodes.push(serializeShapeToShapeNode(entity))
-    }
+    if (!hasEntityKind(entity.kind)) continue
+    nodes.push(getEntityKind(entity.kind).serialize(entity))
   }
 
   // Convert edges
@@ -123,7 +123,7 @@ export function serializeToJsonCanvas(
   return doc
 }
 
-function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNode {
+export function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNode {
   const preset = VIEWPORT_PRESETS[entity.presetIndex] ?? VIEWPORT_PRESETS[0]
   const customSize = pageCustomSizeFromMetadata(entity.metadata)
   return {
@@ -145,7 +145,7 @@ function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNod
   }
 }
 
-function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNode {
+export function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvasTextNode {
   const isNeutral = entity.color === NEUTRAL_STORAGE
   const node: JsonCanvasTextNode = {
     id: entity.id,
@@ -189,7 +189,7 @@ function buildSpecularExtensions(
   return ext
 }
 
-function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
+export function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
   return {
     id: entity.id,
     type: 'file',
@@ -205,7 +205,7 @@ function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNod
   }
 }
 
-function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShapeNode {
+export function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShapeNode {
   const isNeutral = entity.color === NEUTRAL_STORAGE
   const node: JsonCanvasShapeNode = {
     id: entity.id,
@@ -230,7 +230,7 @@ function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCanvasShap
   return node
 }
 
-function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanvasDrawingNode {
+export function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanvasDrawingNode {
   return {
     id: entity.id,
     type: 'drawing',
@@ -244,7 +244,7 @@ function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): JsonCanv
   }
 }
 
-function serializeGroupEntityToGroupNode(entity: PersistedGroupEntity): JsonCanvasGroupNode {
+export function serializeGroupEntityToGroupNode(entity: PersistedGroupEntity): JsonCanvasGroupNode {
   return {
     id: entity.id,
     type: 'group',
@@ -290,7 +290,6 @@ function serializeAppState(snapshot: WorkspaceSnapshot): JsonCanvasAppState {
     devtoolsOpen: snapshot.devtoolsOpen,
     devtoolsPanelTab: snapshot.devtoolsPanelTab,
     devtoolsWidth: snapshot.devtoolsWidth,
-    browserTabMode: snapshot.browserTabMode,
   }
 }
 
@@ -303,31 +302,11 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
   const entities: Record<string, PersistedCanvasEntity> = {}
   const nodeOrder: string[] = []
   for (const node of doc.nodes) {
-    if (node.type === 'link') {
-      const entity = deserializeLinkNodeToPage(node)
-      entities[entity.id] = entity
-      nodeOrder.push(entity.id)
-    } else if (node.type === 'text') {
-      const entity = deserializeTextNodeToText(node)
-      entities[entity.id] = entity
-      nodeOrder.push(entity.id)
-    } else if (node.type === 'file') {
-      const entity = deserializeFileNodeToFile(node)
-      entities[entity.id] = entity
-      nodeOrder.push(entity.id)
-    } else if (node.type === 'group') {
-      const entity = deserializeGroupNodeToGroup(node)
-      entities[entity.id] = entity
-      nodeOrder.push(entity.id)
-    } else if (node.type === 'drawing') {
-      const entity = deserializeDrawingNodeToDrawing(node)
-      entities[entity.id] = entity
-      nodeOrder.push(entity.id)
-    } else if (node.type === 'shape') {
-      const entity = deserializeShapeNodeToShape(node)
-      entities[entity.id] = entity
-      nodeOrder.push(entity.id)
-    }
+    const kind = NODE_TYPE_TO_KIND[node.type]
+    if (!kind || !hasEntityKind(kind)) continue
+    const entity = getEntityKind(kind).deserialize(node)
+    entities[entity.id] = entity
+    nodeOrder.push(entity.id)
   }
 
   const edges: WorkspaceEdge[] = doc.edges.map(deserializeEdgeToWorkspaceEdge)
@@ -349,7 +328,7 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
     devtoolsOpen: appState.devtoolsOpen ?? false,
     devtoolsPanelTab: (appState.devtoolsPanelTab as DevtoolsPanelTab) ?? 'elements',
     devtoolsWidth: appState.devtoolsWidth ?? 400,
-    browserTabMode: (appState.browserTabMode as BrowserTabMode) ?? 'page',
+    browserTabMode: appState.browserTabMode as BrowserTabMode | undefined,
     edges,
   }
 
@@ -385,7 +364,7 @@ function deserializeEntityOrder(
   return ordered
 }
 
-function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPageEntity {
+export function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPageEntity {
   return {
     kind: 'page',
     id: node.id,
@@ -401,7 +380,7 @@ function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPageEntit
   }
 }
 
-function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntity {
+export function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntity {
   // Color is kept raw — a preset number, the 'neutral' sentinel, or a literal
   // hex — so the renderer can resolve the palette against the entity's surface.
   const color =
@@ -427,7 +406,7 @@ function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTextEntit
   }
 }
 
-function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFileEntity {
+export function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFileEntity {
   return {
     kind: 'file',
     id: node.id,
@@ -443,7 +422,7 @@ function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFileEntit
   }
 }
 
-function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): PersistedShapeEntity {
+export function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): PersistedShapeEntity {
   const color =
     node.specular?.colorRole === 'neutral' ? NEUTRAL_STORAGE : node.color
   return {
@@ -464,7 +443,7 @@ function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): PersistedShapeE
   }
 }
 
-function deserializeDrawingNodeToDrawing(node: JsonCanvasDrawingNode): PersistedDrawingEntity {
+export function deserializeDrawingNodeToDrawing(node: JsonCanvasDrawingNode): PersistedDrawingEntity {
   return {
     kind: 'drawing',
     id: node.id,
@@ -478,7 +457,7 @@ function deserializeDrawingNodeToDrawing(node: JsonCanvasDrawingNode): Persisted
   }
 }
 
-function deserializeGroupNodeToGroup(node: JsonCanvasGroupNode): PersistedGroupEntity {
+export function deserializeGroupNodeToGroup(node: JsonCanvasGroupNode): PersistedGroupEntity {
   return {
     id: node.id,
     kind: 'group',

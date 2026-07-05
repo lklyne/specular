@@ -130,37 +130,28 @@ export function invokeClaude(
   })
 }
 
+const RESOLVE_MARKER = '<<RESOLVE>>'
+const WAITING_MARKER = '<<WAITING>>'
+// The agent's whole final message is shown to the user verbatim; the marker
+// only carries the resolve/waiting hint. Cap as a runaway guard — the prompt
+// asks for brevity.
+const MAX_REPLY_CHARS = 2000
+
 export function parseOutput(stdout: string): { summary: string; shouldResolve: boolean } {
-  const lines = stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0)
-  if (lines.length === 0) {
+  const text = stdout.trim()
+  if (!text) {
     return { summary: '(no output)', shouldResolve: false }
   }
-  let markerIndex = -1
-  let shouldResolve = false
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i]
-    if (line === '<<RESOLVE>>' || line.endsWith('<<RESOLVE>>')) {
-      markerIndex = i
-      shouldResolve = true
-      break
-    }
-    if (line === '<<WAITING>>' || line.endsWith('<<WAITING>>')) {
-      markerIndex = i
-      shouldResolve = false
-      break
-    }
+  // Last marker wins; everything before it is the user-facing answer.
+  const resolveIdx = text.lastIndexOf(RESOLVE_MARKER)
+  const waitingIdx = text.lastIndexOf(WAITING_MARKER)
+  const markerIdx = Math.max(resolveIdx, waitingIdx)
+  if (markerIdx === -1) {
+    return { summary: truncate(text, MAX_REPLY_CHARS), shouldResolve: false }
   }
-  if (markerIndex === -1) {
-    return { summary: truncate(lines[lines.length - 1], 280), shouldResolve: false }
-  }
-  const markerLine = lines[markerIndex]
-  const markerToken = shouldResolve ? '<<RESOLVE>>' : '<<WAITING>>'
-  const inlineSummary = markerLine === markerToken
-    ? ''
-    : markerLine.slice(0, markerLine.length - markerToken.length).trim()
-  const summary = inlineSummary || (markerIndex > 0 ? lines[markerIndex - 1] : '')
+  const answer = text.slice(0, markerIdx).trim()
   return {
-    summary: truncate(summary || '(no summary)', 280),
-    shouldResolve,
+    summary: truncate(answer || '(no summary)', MAX_REPLY_CHARS),
+    shouldResolve: resolveIdx > waitingIdx,
   }
 }

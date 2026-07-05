@@ -1,22 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
-import type {
-  CursorMotionParams,
-  CursorTuningParams,
-  DebugBootstrapData,
-  DebugElectronAPI,
-  PresenceDebugEntry,
-} from '../../shared/types'
+import { useEffect, useState } from 'react'
+import type { CursorTuningParams, DebugBootstrapData } from '../../shared/types'
+import type { DebugElectronAPI } from '../../shared/electron-api/debug'
 import { DEFAULT_CURSOR_TUNING } from '../../shared/cursor-tuning'
 import { useTheme } from '../shared/hooks/useTheme'
-import { CursorMotionSection } from './CursorMotionSection'
 import { PresenceSection } from './PresenceSection'
-
-type SectionId = 'cursor-motion' | 'presence'
-
-const SECTIONS: Array<{ id: SectionId; label: string }> = [
-  { id: 'cursor-motion', label: 'Cursor motion (legacy)' },
-  { id: 'presence', label: 'Presence' },
-]
 
 export default function App({
   api,
@@ -26,28 +13,12 @@ export default function App({
   initialData: DebugBootstrapData
 }) {
   useTheme(initialData.theme, api.onThemeChanged)
-  const [activeSection, setActiveSection] = useState<SectionId>('presence')
-  const [cursorMotion, setCursorMotion] = useState<CursorMotionParams>(
-    initialData.cursorMotion,
-  )
   const [splineViz, setSplineViz] = useState<boolean>(initialData.cursorSplineViz)
   const [cursorTuning, setCursorTuning] = useState<CursorTuningParams>(
     initialData.cursorTuning,
   )
 
-  useEffect(() => api.onCursorMotionChanged(setCursorMotion), [api])
   useEffect(() => api.onCursorSplineVizChanged(setSplineViz), [api])
-
-  const subscribeTimeline = useCallback(
-    (cb: (entry: PresenceDebugEntry) => void) =>
-      api.onPresenceTimelineAppend(cb),
-    [api],
-  )
-
-  const commitCursorMotion = (next: CursorMotionParams) => {
-    setCursorMotion(next)
-    api.updateCursorMotion(next)
-  }
 
   const commitSplineViz = (next: boolean) => {
     setSplineViz(next)
@@ -72,42 +43,18 @@ export default function App({
           <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider opacity-50">
             Debug
           </div>
-          {SECTIONS.map((section) => {
-            const active = section.id === activeSection
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => setActiveSection(section.id)}
-                className={`rounded px-2 py-1 text-left text-[12px] ${
-                  active
-                    ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
-                    : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900'
-                }`}
-              >
-                {section.label}
-              </button>
-            )
-          })}
+          <div className="rounded bg-zinc-200 px-2 py-1 text-left text-[12px] text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
+            Presence
+          </div>
         </nav>
         <main className="flex min-h-0 min-w-0 flex-1">
-          {activeSection === 'cursor-motion' ? (
-            <CursorMotionSection
-              params={cursorMotion}
-              onChange={commitCursorMotion}
-              onReset={api.resetCursorMotion}
-            />
-          ) : activeSection === 'presence' ? (
-            <PresenceSection
-              splineViz={splineViz}
-              onSplineVizChange={commitSplineViz}
-              tuning={cursorTuning}
-              onTuningChange={commitCursorTuning}
-              onTuningReset={resetCursorTuning}
-              initialTimeline={initialData.presenceTimeline}
-              subscribeTimeline={subscribeTimeline}
-            />
-          ) : null}
+          <PresenceSection
+            splineViz={splineViz}
+            onSplineVizChange={commitSplineViz}
+            tuning={cursorTuning}
+            onTuningChange={commitCursorTuning}
+            onTuningReset={resetCursorTuning}
+          />
         </main>
       </div>
     </div>
