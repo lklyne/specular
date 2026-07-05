@@ -42,7 +42,6 @@ export function WireframeInlineRenderer({
     return () => {
       cancelled = true
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity.file, entity.fileReloadVersion])
 
   // Re-fetch when window regains visibility, unless we have a pending local write.

@@ -74,7 +74,6 @@ export function MarkdownInlineRenderer({
       cancelled = true
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity.file, entity.noteContent, entity.fileReloadVersion])
 
   // Reflect Y.Doc-driven changes (undo/redo) once the note is tracked.
