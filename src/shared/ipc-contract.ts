@@ -114,7 +114,6 @@ export interface IpcContract {
   'canvas-guides': { dir: 'main→renderer'; payload: CanvasGuidesPayload }
   'canvas-hover-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-morph-text-file': { dir: 'invoke'; payload: unknown }
-  'canvas-move-annotation': { dir: 'renderer→main'; payload: unknown }
   'canvas-multi-resize-begin': { dir: 'renderer→main'; payload: unknown }
   'canvas-multi-resize-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-navigate-page': { dir: 'renderer→main'; payload: unknown }
@@ -401,7 +400,6 @@ export const ipcChannels = {
   canvasGuides: 'canvas-guides',
   canvasHoverPage: 'canvas-hover-page',
   canvasMorphTextFile: 'canvas-morph-text-file',
-  canvasMoveAnnotation: 'canvas-move-annotation',
   canvasMultiResizeBegin: 'canvas-multi-resize-begin',
   canvasMultiResizeEnd: 'canvas-multi-resize-end',
   canvasNavigatePage: 'canvas-navigate-page',
