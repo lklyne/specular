@@ -273,7 +273,10 @@ function syncMapFromArray<T extends { id: string }>(
       ymap.set(item.id, objectToYMap(data))
     } else {
       for (const [k, v] of Object.entries(data)) {
-        if (v === undefined) continue
+        if (v === undefined) {
+          if (existing.has(k)) existing.delete(k)
+          continue
+        }
         const current = existing.get(k)
         if (typeof v === 'object' && v !== null) {
           if (JSON.stringify(current) !== JSON.stringify(v)) {
