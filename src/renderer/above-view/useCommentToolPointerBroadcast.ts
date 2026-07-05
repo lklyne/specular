@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { clientYToWindowY } from '../../shared/coords'
 
 type PointerStateApi = Pick<CanvasBgElectronAPI, 'setCommentToolPointerState'>
 
@@ -102,7 +103,7 @@ export function useCommentToolPointerBroadcast({
       const layout = layoutRef.current
       const pointer = {
         windowX: event.clientX,
-        windowY: event.clientY + layout.canvasOrigin.y,
+        windowY: clientYToWindowY(event.clientY, layout),
       }
       lastPointerRef.current = pointer
       send(pointer, currentRegion())

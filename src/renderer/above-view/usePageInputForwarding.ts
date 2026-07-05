@@ -4,7 +4,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { isOverlayUiTarget } from '../../shared/gesture-utils'
+import { clientYToWindowY, isOverlayUiTarget } from '../../shared/gesture-utils'
 import { pointerOverPageContent } from '../../shared/page-hit-test'
 
 /** Map Electron's `cursor-changed` type strings onto CSS cursor values.
@@ -45,7 +45,7 @@ export function usePageInputForwarding({
   const hitTestHoverTarget = useCallback(
     (clientX: number, clientY: number) => {
       const layout = layoutRef.current
-      const windowY = clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(clientY, layout)
       for (let i = layout.entities.length - 1; i >= 0; i--) {
         const entity = layout.entities[i]
         if (entity.kind === 'group' || entity.kind === 'drawing') continue
@@ -86,7 +86,7 @@ export function usePageInputForwarding({
       if (pendingPlacement) {
         setPlacementCursor({
           clientX: event.clientX,
-          clientY: event.clientY + layoutRef.current.canvasOrigin.y,
+          clientY: clientYToWindowY(event.clientY, layoutRef.current),
         })
       }
       // During placement the placeholder owns the cursor; page hover would flicker.
@@ -151,7 +151,7 @@ export function usePageInputForwarding({
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return resetCursor()
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       if (!pointerOverPageContent(page, { x: event.clientX, y: windowY })) return resetCursor()
       cursorIsForwarded = true
       api.forwardPointerToPage(pageId, {
