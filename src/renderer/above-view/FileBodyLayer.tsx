@@ -138,6 +138,7 @@ const MemoFileBodyCard = memo(FileBodyCard, (prev, next) => {
   return (
     prev.entity.id === next.entity.id &&
     prev.entity.file === next.entity.file &&
+    prev.entity.fileReloadVersion === next.entity.fileReloadVersion &&
     prev.entity.subpath === next.entity.subpath &&
     prev.entity.canvasX === next.entity.canvasX &&
     prev.entity.canvasY === next.entity.canvasY &&

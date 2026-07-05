@@ -25,6 +25,12 @@ import {
 } from './runtime-entities'
 import { pickRenderer } from '../plugins/registry'
 import { findRepoForPath } from './dev-server-manager'
+import {
+  watchEntityFile,
+  unwatchEntityFile,
+  teardownAllFileWatchers,
+  getFileReloadVersion,
+} from './local-file-watcher'
 
 export interface FileEntity {
   id: string
@@ -72,6 +78,7 @@ export function createFileEntity(input: {
     objectFit: input.objectFit,
   }
   fileEntities.push(entity)
+  watchEntityFile(entity.id, entity.file)
   markDirty('canvas', 'sidebar')
   return entity
 }
@@ -79,10 +86,15 @@ export function createFileEntity(input: {
 export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id'>>): FileEntity | null {
   const entity = fileEntities.find((e) => e.id === id)
   if (!entity) return null
+  const prevFile = entity.file
   applyPatch(entity, patch, [
     'file', 'subpath', 'canvasX', 'canvasY', 'width', 'height',
     'parentGroupId', 'objectFit', 'presetIndex', 'metadata',
   ])
+  if (patch.file !== undefined && patch.file !== prevFile) {
+    unwatchEntityFile(entity.id, prevFile)
+    watchEntityFile(entity.id, entity.file)
+  }
   markDirty('canvas', 'sidebar')
   return entity
 }
@@ -90,13 +102,16 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
 export function deleteFileEntity(id: string): boolean {
   const idx = fileEntities.findIndex((e) => e.id === id)
   if (idx === -1) return false
+  const entity = fileEntities[idx]
   fileEntities.splice(idx, 1)
+  unwatchEntityFile(entity.id, entity.file)
   markDirty('canvas', 'sidebar')
   return true
 }
 
 export function clearFileEntities(): void {
   fileEntities.length = 0
+  teardownAllFileWatchers()
 }
 
 export function buildFileEntitySceneEntity(
@@ -151,6 +166,7 @@ export function buildFileEntitySceneEntity(
     contentScreenY: showShell ? contentScreenY : undefined,
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
+    fileReloadVersion: getFileReloadVersion(entity.id),
     ...rendererSceneFields(entity),
   }
 }

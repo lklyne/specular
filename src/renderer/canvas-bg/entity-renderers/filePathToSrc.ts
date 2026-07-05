@@ -9,6 +9,17 @@ export function filePathToSrc(filePath: string): string {
   return `local-file://${filePath}`
 }
 
+/**
+ * Cache-busted src for live-reloading file entities. Remounting an <iframe>/<img>
+ * with an identical local-file:// URL serves the cached response, so we append
+ * the reload version to force a fresh fetch when the file changes on disk.
+ */
+export function filePathToSrcVersioned(filePath: string, version = 0): string {
+  const src = filePathToSrc(filePath)
+  if (!version) return src
+  return `${src}${src.includes('?') ? '&' : '?'}v=${version}`
+}
+
 export interface RendererFileApi {
   showFileInFinder: (path: string) => void
   copyFileAsPng: (path: string) => void
