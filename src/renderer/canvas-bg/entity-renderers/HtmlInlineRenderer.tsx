@@ -1,5 +1,5 @@
 import type { CanvasSceneFileEntity } from '../../../shared/types'
-import { filePathToSrc } from './filePathToSrc'
+import { filePathToSrcVersioned } from './filePathToSrc'
 
 export function HtmlInlineRenderer({
   entity,
@@ -11,7 +11,8 @@ export function HtmlInlineRenderer({
   const fileName = entity.file.split('/').pop() ?? entity.file
   return (
     <iframe
-      src={filePathToSrc(entity.file)}
+      key={entity.fileReloadVersion ?? 0}
+      src={filePathToSrcVersioned(entity.file, entity.fileReloadVersion)}
       title={fileName}
       style={{
         width: '100%',

@@ -45,6 +45,7 @@ import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
 import { initSentry } from './sentry'
+import { initFileWatcher, teardownAllFileWatchers } from './runtime/local-file-watcher'
 import {
   breadcrumb,
   identifyInstall,
@@ -121,7 +122,10 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(async () => {
   protocol.handle('local-file', (request) => {
-    const filePath = decodeURIComponent(request.url.replace('local-file://', ''))
+    // Strip any ?v= cache-buster / #hash before resolving to a real file —
+    // renderers append ?v=<fileReloadVersion> to force a fresh fetch on disk change.
+    const raw = request.url.slice('local-file://'.length).split(/[?#]/)[0]
+    const filePath = decodeURIComponent(raw)
     return net.fetch(`file://${filePath}`)
   })
 
@@ -135,6 +139,11 @@ app.whenReady().then(async () => {
   setOpenLinkInNewFrameHandler(({ sourcePageId, url, focus }) =>
     duplicatePageFromSource({ sourcePageId, url, focus }),
   )
+  initFileWatcher((_entityIds) => {
+    markDirty('canvas')
+    requestLayout()
+  })
+
   initDevServerManager({
     userDataDir: app.getPath('userData'),
     spawn: (command, args, options) =>
@@ -245,5 +254,6 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quitRequested = true
   flushWorkspaceAutosaveSync()
+  teardownAllFileWatchers()
   void shutdownDevServerManager()
 })

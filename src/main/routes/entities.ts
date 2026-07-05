@@ -5,6 +5,7 @@ import {
   getTextEntities,
 } from '../runtime/document-commands'
 import { animateCursorScan, allEntityPositions } from '../presence-cursor'
+import { getFileReloadVersion } from '../runtime/local-file-watcher'
 import { writeJson } from './http-helpers'
 
 /**
@@ -27,7 +28,11 @@ export const entityRoutes: Route[] = [
     pattern: '/file-entities',
     async handler({ request, response }) {
       animateCursorScan(request, allEntityPositions(), 'read_content')
-      writeJson(response, 200, { fileEntities: getFileEntities() })
+      const entities = getFileEntities().map((e) => ({
+        ...e,
+        fileReloadVersion: getFileReloadVersion(e.id),
+      }))
+      writeJson(response, 200, { fileEntities: entities })
     },
   },
   {

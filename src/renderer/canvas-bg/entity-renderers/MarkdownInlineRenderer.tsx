@@ -62,7 +62,7 @@ export function MarkdownInlineRenderer({
           if (!cancelled) setMdContent(null)
         })
     }
-    fetchContent()
+    if (!isFocusedRef.current) fetchContent()
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
       if (debouncedWrite.isPending()) return
@@ -74,7 +74,8 @@ export function MarkdownInlineRenderer({
       cancelled = true
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [entity.file, entity.noteContent])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity.file, entity.noteContent, entity.fileReloadVersion])
 
   // Reflect Y.Doc-driven changes (undo/redo) once the note is tracked.
   useEffect(() => {

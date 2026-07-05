@@ -249,6 +249,12 @@ export interface CanvasSceneFileEntity {
   contentScreenY?: number
   contentScreenWidth?: number
   contentScreenHeight?: number
+  /**
+   * Incremented by the main-process file watcher each time the underlying file
+   * changes on disk. Renderers use this as a remount key or refetch trigger so
+   * the canvas updates without an app restart.
+   */
+  fileReloadVersion?: number
 }
 
 export interface CanvasSceneGroupEntity {
