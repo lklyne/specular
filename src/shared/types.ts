@@ -722,11 +722,9 @@ export interface SettingsBootstrapData extends ThemeBootstrapData {
 }
 
 export type {
-  CurveDirection,
   CursorTuningParams,
   EasingPreset,
   EasingSpec,
-  Vec2,
 }
 
 export interface CanvasLayoutBootstrapData extends ThemeBootstrapData {

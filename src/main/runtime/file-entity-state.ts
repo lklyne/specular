@@ -25,7 +25,6 @@ import {
 } from './runtime-entities'
 import { pickRenderer } from '../plugins/registry'
 import { findRepoForPath } from './dev-server-manager'
-import { getNoteContent } from './note-content-state'
 import {
   watchEntityFile,
   unwatchEntityFile,
@@ -167,7 +166,6 @@ export function buildFileEntitySceneEntity(
     contentScreenY: showShell ? contentScreenY : undefined,
     contentScreenWidth: showShell ? contentScreenW : undefined,
     contentScreenHeight: showShell ? contentScreenH : undefined,
-    noteContent: getNoteContent(entity.id),
     fileReloadVersion: getFileReloadVersion(entity.id),
     ...rendererSceneFields(entity),
   }
