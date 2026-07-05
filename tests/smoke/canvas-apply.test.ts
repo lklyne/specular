@@ -5,6 +5,7 @@ import {
   getTextEntities,
   getWorkspace,
   resetSmokeState,
+  undoWorkspace,
 } from './app-client'
 
 /**
@@ -148,6 +149,33 @@ describe('canvas apply + get', () => {
     expect(byId.get(shapeId)).toBe('shape')
     expect(byId.get(drawingId)).toBe('drawing')
     expect(byId.get(groupId)).toBe('group')
+  })
+
+  it('renames a group via --text, aliased to label; explicit label wins over text; undo restores the prior name', async () => {
+    const seed = await applyCanvas({
+      entities: [
+        { kind: 'text', forceKind: true, text: 'a', canvasX: 0, canvasY: 0 },
+        { kind: 'text', forceKind: true, text: 'b', canvasX: 200, canvasY: 0 },
+      ],
+    })
+    const [a, b] = seed.created
+    const { created } = await applyCanvas({
+      entities: [{ kind: 'group', entityIds: [a, b], label: 'original' }],
+    })
+    const groupId = created[0]
+
+    const { updated } = await applyCanvas({ entities: [{ id: groupId, kind: 'group', text: 'renamed' }] })
+    expect(updated).toEqual([groupId])
+    const renamed = (await getCanvas()).nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(renamed?.label).toBe('renamed')
+
+    await undoWorkspace()
+    const reverted = (await getCanvas()).nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(reverted?.label).toBe('original')
+
+    await applyCanvas({ entities: [{ id: groupId, kind: 'group', text: 'ignored', label: 'explicit' }] })
+    const explicit = (await getCanvas()).nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(explicit?.label).toBe('explicit')
   })
 
   it('accepts kind:"note" as an alias for text — same vocabulary as `add note`', async () => {

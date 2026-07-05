@@ -36,7 +36,7 @@ export const groupKind: EntityKindDefinition<'group'> = {
       canvasY: patch.canvasY as number | undefined,
       width: patch.width as number | undefined,
       height: patch.height as number | undefined,
-      label: patch.label as string | undefined,
+      label: (patch.label ?? patch.text) as string | undefined,
       color: patch.color as string | undefined,
     })
   },
