@@ -1,12 +1,12 @@
 import type { CanvasSceneFileEntity } from '../../../shared/types'
-import { filePathToSrc } from './filePathToSrc'
+import { filePathToSrcVersioned } from './filePathToSrc'
 
 export function ImageInlineRenderer({ entity }: { entity: CanvasSceneFileEntity }) {
   const fileName = entity.file.split('/').pop() ?? entity.file
   return (
     <img
       key={entity.fileReloadVersion ?? 0}
-      src={filePathToSrc(entity.file)}
+      src={filePathToSrcVersioned(entity.file, entity.fileReloadVersion)}
       alt={fileName}
       draggable={false}
       style={{

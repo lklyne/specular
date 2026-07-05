@@ -122,7 +122,10 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(async () => {
   protocol.handle('local-file', (request) => {
-    const filePath = decodeURIComponent(request.url.replace('local-file://', ''))
+    // Strip any ?v= cache-buster / #hash before resolving to a real file —
+    // renderers append ?v=<fileReloadVersion> to force a fresh fetch on disk change.
+    const raw = request.url.slice('local-file://'.length).split(/[?#]/)[0]
+    const filePath = decodeURIComponent(raw)
     return net.fetch(`file://${filePath}`)
   })
 
