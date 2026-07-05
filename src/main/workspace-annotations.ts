@@ -257,27 +257,6 @@ export function addAnnotationReply(
   }, { changed: (annotation) => annotation !== null })
 }
 
-export function moveAnnotation(
-  id: string,
-  dx: number,
-  dy: number,
-): Annotation | null {
-  const annotation = workspaceAnnotations.find((candidate) => candidate.id === id)
-  if (!annotation) return null
-  if (annotation.anchor.type !== 'canvas') return null
-
-  annotation.anchor = {
-    ...annotation.anchor,
-    canvasX: annotation.anchor.canvasX + dx,
-    canvasY: annotation.anchor.canvasY + dy,
-  }
-
-  markDirty('canvas')
-  requestLayout()
-  scheduleWorkspaceAutosave()
-  return annotation
-}
-
 export function deleteAnnotation(id: string): boolean {
   return mutateWorkspace(() => {
     const idx = workspaceAnnotations.findIndex((a) => a.id === id)

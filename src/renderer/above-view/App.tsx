@@ -637,12 +637,10 @@ export default function App({
   )
 
   const {
-    consumeSuppressedAnnotationClick,
     handleOverlayPointerCancel,
     handleOverlayPointerDown,
     handleOverlayPointerMove,
     handleOverlayPointerUp,
-    startAnnotationDrag,
   } = useAnnotationDrawingGestures({
     api,
     clearDraft,
@@ -1006,7 +1004,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             replyText={replyText}
             setOpenThreadMenu={setOpenThreadMenu}
             setReplyText={setReplyText}
-            startAnnotationDrag={startAnnotationDrag}
             submitThreadReply={submitThreadReply}
             threadInputRef={threadInputRef}
             threadPosition={threadPosition}

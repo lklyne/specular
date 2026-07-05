@@ -37,34 +37,7 @@ export function useAnnotationDrawingGestures({
     React.SetStateAction<import('./annotationMath').PendingAnnotation | null>
   >
 }) {
-  const annotationDragRef = useRef<{
-    pointerId: number
-    annotationId: string
-    lastClientX: number
-    lastClientY: number
-    moved: boolean
-    captureTarget: HTMLElement
-  } | null>(null)
-  const suppressedAnnotationClickRef = useRef<string | null>(null)
   const sessionRef = useRef<DrawingSession | null>(null)
-
-  const startAnnotationDrag = useCallback(
-    (event: React.PointerEvent<HTMLElement>, annotationId: string) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return
-      annotationDragRef.current = {
-        pointerId: event.pointerId,
-        annotationId,
-        lastClientX: event.clientX,
-        lastClientY: event.clientY,
-        moved: false,
-        captureTarget: event.currentTarget,
-      }
-      event.currentTarget.setPointerCapture(event.pointerId)
-      event.preventDefault()
-      event.stopPropagation()
-    },
-    [],
-  )
 
   const handleOverlayPointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -141,19 +114,6 @@ export function useAnnotationDrawingGestures({
 
   const handleOverlayPointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const annotationDrag = annotationDragRef.current
-      if (annotationDrag?.pointerId === event.pointerId) {
-        const dx = (event.clientX - annotationDrag.lastClientX) / layoutRef.current.zoom
-        const dy = (event.clientY - annotationDrag.lastClientY) / layoutRef.current.zoom
-        if (dx !== 0 || dy !== 0) {
-          annotationDrag.moved = true
-          annotationDrag.lastClientX = event.clientX
-          annotationDrag.lastClientY = event.clientY
-          api.moveAnnotation(annotationDrag.annotationId, dx, dy)
-        }
-        return
-      }
-
       const activeStroke = activeStrokeRef.current
       if (!activeStroke) return
       if (event.pointerId !== activeStroke.pointerId) return
@@ -189,18 +149,6 @@ export function useAnnotationDrawingGestures({
 
   const handleOverlayPointerUp = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const annotationDrag = annotationDragRef.current
-      if (annotationDrag?.pointerId === event.pointerId) {
-        if (annotationDrag.captureTarget.hasPointerCapture(event.pointerId)) {
-          annotationDrag.captureTarget.releasePointerCapture(event.pointerId)
-        }
-        if (annotationDrag.moved) {
-          suppressedAnnotationClickRef.current = annotationDrag.annotationId
-        }
-        annotationDragRef.current = null
-        return
-      }
-
       if (activeStrokeRef.current?.pointerId !== event.pointerId) return
       activeStrokeRef.current = null
       setDrawingStrokeActive(false)
@@ -225,15 +173,6 @@ export function useAnnotationDrawingGestures({
 
   const handleOverlayPointerCancel = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      const annotationDrag = annotationDragRef.current
-      if (annotationDrag?.pointerId === event.pointerId) {
-        if (annotationDrag.captureTarget.hasPointerCapture(event.pointerId)) {
-          annotationDrag.captureTarget.releasePointerCapture(event.pointerId)
-        }
-        annotationDragRef.current = null
-        return
-      }
-
       if (activeStrokeRef.current?.pointerId !== event.pointerId) return
       activeStrokeRef.current = null
       setDrawingStrokeActive(false)
@@ -244,18 +183,10 @@ export function useAnnotationDrawingGestures({
     [activeStrokeRef, setDrawingStrokeActive],
   )
 
-  const consumeSuppressedAnnotationClick = useCallback((annotationId: string) => {
-    if (suppressedAnnotationClickRef.current !== annotationId) return false
-    suppressedAnnotationClickRef.current = null
-    return true
-  }, [])
-
   return {
-    consumeSuppressedAnnotationClick,
     handleOverlayPointerCancel,
     handleOverlayPointerDown,
     handleOverlayPointerMove,
     handleOverlayPointerUp,
-    startAnnotationDrag,
   }
 }
