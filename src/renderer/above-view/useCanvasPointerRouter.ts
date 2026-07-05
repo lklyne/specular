@@ -61,6 +61,7 @@ import {
 import {
   canvasToScreenX,
   canvasToScreenY,
+  clientYToWindowY,
   entitiesOverlappingRect,
   DRAG_THRESHOLD,
   isOverlayUiTarget,
@@ -220,7 +221,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       const layout = layoutRef.current
       if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
 
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
       const context: CanvasPointerContext = {
         selectedEntityIds: layout.selectedEntityIds,
@@ -275,7 +276,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
       // aboveView's WCV starts at canvasOrigin.y; scene entities use
       // window-relative screenY, so add the offset before hit-testing.
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       const inputs = layoutToHitInputs(layout)
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
 
@@ -357,7 +358,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       if (isTypingTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
       const action = routePointerDoubleClick(target)
       switch (action.kind) {
@@ -784,7 +785,7 @@ function runEdgeDrag(
   setEdgeDragState: (state: EdgeDragState) => void,
 ): boolean {
   const layout = layoutRef.current
-  const windowY = event.clientY + layout.canvasOrigin.y
+  const windowY = clientYToWindowY(event.clientY, layout)
   const entityMap = new Map<string, CanvasSceneEntity>()
   for (const e of layout.entities) entityMap.set(e.id, e)
   let state = beginEdgeDragState(
@@ -840,7 +841,7 @@ function runEdgeDrag(
       const cur = layoutRef.current
       const snapMap = new Map<string, CanvasSceneEntity>()
       for (const e of cur.entities) snapMap.set(e.id, e)
-      const winY = ev.clientY + cur.canvasOrigin.y
+      const winY = clientYToWindowY(ev.clientY, cur)
       state = updateEdgeDragCursor(state, ev.clientX, winY, snapMap, cur.zoom ?? 1)
       setEdgeDragState(state)
       const snapKey = state.kind !== 'idle' && state.snap
@@ -942,7 +943,7 @@ function runForwardPointer(
 ): boolean {
   const { entityId, button } = action
   let lastWindowX = event.clientX
-  let lastWindowY = event.clientY + layoutRef.current.canvasOrigin.y
+  let lastWindowY = clientYToWindowY(event.clientY, layoutRef.current)
   api.forwardPointerToPage(entityId, {
     kind: 'down',
     windowX: lastWindowX,
@@ -957,7 +958,7 @@ function runForwardPointer(
 
   const sendUp = (ev: PointerEvent | null) => {
     const winX = ev ? ev.clientX : lastWindowX
-    const winY = ev ? ev.clientY + layoutRef.current.canvasOrigin.y : lastWindowY
+    const winY = ev ? clientYToWindowY(ev.clientY, layoutRef.current) : lastWindowY
     api.forwardPointerToPage(entityId, {
       kind: 'up',
       windowX: winX,
@@ -979,7 +980,7 @@ function runForwardPointer(
   startPointerSession(event, {
     onMove: (ev) => {
       lastWindowX = ev.clientX
-      lastWindowY = ev.clientY + layoutRef.current.canvasOrigin.y
+      lastWindowY = clientYToWindowY(ev.clientY, layoutRef.current)
       api.forwardPointerToPage(entityId, {
         kind: 'move',
         windowX: lastWindowX,
@@ -1031,7 +1032,7 @@ function runReorderDrag(
   const startLayout = layoutRef.current
   const grab = screenPointToCanvasPoint(
     event.clientX,
-    event.clientY + startLayout.canvasOrigin.y,
+    clientYToWindowY(event.clientY, startLayout),
     startLayout,
   )
 
@@ -1046,7 +1047,11 @@ function runReorderDrag(
   startPointerSession(event, {
     onMove: (ev) => {
       const layout = layoutRef.current
-      const point = screenPointToCanvasPoint(ev.clientX, ev.clientY + layout.canvasOrigin.y, layout)
+      const point = screenPointToCanvasPoint(
+        ev.clientX,
+        clientYToWindowY(ev.clientY, layout),
+        layout,
+      )
       api.reorderDragMove(point.x, point.y)
       setReorderGhost({ dx: point.x - grab.x, dy: point.y - grab.y })
     },
@@ -1090,7 +1095,7 @@ function runPlacementGesture(
   const layout = layoutRef.current
   const startCanvas = screenPointToCanvasPoint(
     event.clientX,
-    event.clientY + layout.canvasOrigin.y,
+    clientYToWindowY(event.clientY, layout),
     layout,
   )
 
@@ -1098,7 +1103,7 @@ function runPlacementGesture(
     const current = layoutRef.current
     const endCanvas = screenPointToCanvasPoint(
       ev.clientX,
-      ev.clientY + current.canvasOrigin.y,
+      clientYToWindowY(ev.clientY, current),
       current,
     )
     const square = squareConstrainedRect(
@@ -1135,7 +1140,7 @@ function runPlacementGesture(
         const current = layoutRef.current
         const endCanvas = screenPointToCanvasPoint(
           ev.clientX,
-          ev.clientY + current.canvasOrigin.y,
+          clientYToWindowY(ev.clientY, current),
           current,
         )
         const square = squareConstrainedRect(
@@ -1221,7 +1226,7 @@ function runCommentGesture(
         draft.clearDraft()
         return
       }
-      api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
+      api.commitCommentClickAt(ev.clientX, clientYToWindowY(ev.clientY, current))
     },
     onCancel: () => {
       api.setSelectionOverlayRect(null)
