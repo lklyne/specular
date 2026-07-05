@@ -10,16 +10,8 @@ import { nativeImage, screen as electronScreen } from 'electron'
 import type { WorkspaceBounds } from '../../shared/types'
 import { captureFrameComposited, captureViewRegion } from './frame-compositor'
 import { boundCanvasOrigin, boundsOverlap, pageBodyCanvasBounds } from './runtime-geometry'
-import { aboveView, bgView } from './view-refs'
-
-function setRendererCaptureMode(active: boolean): void {
-  for (const view of [bgView, aboveView]) {
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.send(ipcChannels.captureMode, active)
-    }
-  }
-}
 import { pages, zoom, pan } from './runtime-context'
+import { aboveView, bgView } from './view-refs'
 import { win } from './window-shell'
 import type { Page } from './runtime-entities'
 import {
@@ -28,6 +20,19 @@ import {
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
 import { contentCornerRadiusForDevice } from '../../shared/device-catalog'
+
+function setRendererCaptureMode(active: boolean): void {
+  for (const view of [bgView, aboveView]) {
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.send(ipcChannels.captureMode, active)
+    }
+  }
+  for (const page of pages) {
+    if (!page.pageView.webContents.isDestroyed()) {
+      page.pageView.webContents.send(ipcChannels.captureMode, active)
+    }
+  }
+}
 
 function pageCornerRadiusPx(page: Page, dpr: number): number {
   const deviceId = deviceIdFromMetadata(page.metadata)
