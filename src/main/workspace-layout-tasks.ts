@@ -16,7 +16,7 @@ import {
   focusCanvasBounds,
   setSelectedGroupId,
 } from './runtime/ui-actions'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import { workspaceGroups } from './runtime/workspace-model'
 import { getManifest } from './design-system-store'
 import { normalizeUserUrl } from '../shared/url'
@@ -163,6 +163,12 @@ function resolveStateCombinations(
 export function layoutComponentStates(
   request: LayoutComponentStatesRequest,
 ): LayoutComponentStatesResponse {
+  return mutateWorkspace(() => layoutComponentStatesInternal(request))
+}
+
+function layoutComponentStatesInternal(
+  request: LayoutComponentStatesRequest,
+): LayoutComponentStatesResponse {
   const manifest = getManifest()
   if (!manifest) {
     throw new Error('No design system manifest is registered')
@@ -273,8 +279,6 @@ export function layoutComponentStates(
     }
   }
 
-  scheduleWorkspaceAutosave()
-
   return {
     taskId,
     groupId,
@@ -285,6 +289,12 @@ export function layoutComponentStates(
 }
 
 export function applyTaskLayout(
+  request: ApplyTaskLayoutRequest,
+): ApplyTaskLayoutResponse {
+  return mutateWorkspace(() => applyTaskLayoutInternal(request))
+}
+
+function applyTaskLayoutInternal(
   request: ApplyTaskLayoutRequest,
 ): ApplyTaskLayoutResponse {
   if (request.taskKind !== 'breakpoint_map') {
@@ -375,8 +385,6 @@ export function applyTaskLayout(
       focusCanvasBounds(bounds)
     }
   }
-
-  scheduleWorkspaceAutosave()
 
   return {
     taskId,

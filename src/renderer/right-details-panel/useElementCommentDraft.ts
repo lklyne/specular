@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   DevtoolsPanelSelectionSummary,
   InspectNodeDetail,
@@ -18,19 +18,6 @@ export function useElementCommentDraft({
   useEffect(() => {
     setElementCommentText('')
   }, [activeDetail?.nodeId])
-
-  const resizeCommentInput = useCallback(() => {
-    const input = commentInputRef.current
-    if (!input) return
-    input.style.height = '0px'
-    const nextHeight = Math.min(input.scrollHeight, 120)
-    input.style.height = `${nextHeight}px`
-    input.style.overflowY = input.scrollHeight > 120 ? 'auto' : 'hidden'
-  }, [])
-
-  useEffect(() => {
-    resizeCommentInput()
-  }, [activeDetail?.nodeId, elementCommentText, resizeCommentInput])
 
   const submitElementComment = () => {
     if (!activeDetail) return
@@ -79,7 +66,6 @@ export function useElementCommentDraft({
     commentInputRef,
     elementCommentText,
     hasElementComment: elementCommentText.trim().length > 0,
-    resizeCommentInput,
     setElementCommentText,
     submitElementComment,
   }

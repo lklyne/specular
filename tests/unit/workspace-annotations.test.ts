@@ -24,11 +24,11 @@ vi.mock('../../src/main/runtime/layout-dirty', () => ({
   markDirty: vi.fn(),
 }))
 
-vi.mock('../../src/main/runtime/surface-layout', () => ({
+vi.mock('../../src/main/runtime/viewport-control', () => ({
   requestLayout: vi.fn(),
 }))
 
-vi.mock('../../src/main/runtime/workspace-session', () => ({
+vi.mock('../../src/main/runtime/workspace-autosave', () => ({
   scheduleWorkspaceAutosave: vi.fn(),
 }))
 

@@ -1,5 +1,4 @@
 import type { BindingContext, BindingId } from '../../shared/bindings'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
@@ -8,7 +7,7 @@ import { groupSelectedEntities, makeAutoLayoutFromSelection, ungroupSelectedGrou
 import { selectAdjacentPage } from './selection-state'
 import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
-import { requestLayout } from './surface-layout'
+import { requestLayout } from './viewport-control'
 import { arrowNavigationLocked, setArrowNavigationLocked, interactivePageId, pages, selectedPageId } from './runtime-context'
 import { exitPageInteractive } from './overlay-manager'
 import { deletePages } from '../workspace-entities'
@@ -52,12 +51,10 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     setActiveTool({ kind: 'comment' })
   },
   'tool-draw-pen': () => {
-    if (!DRAWING_FEATURE_ENABLED) return
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'pen' })
   },
   'tool-draw-highlight': () => {
-    if (!DRAWING_FEATURE_ENABLED) return
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'highlight' })
   },

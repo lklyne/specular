@@ -23,13 +23,16 @@ jobs:
 
   fallow:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    continue-on-error: true # advisory: reports new dead code, never blocks merge
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # audit needs base history to compute the merge-base
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: npx fallow check
+      # audit gates on newly-introduced dead code only; baseline findings are inherited (non-blocking)
+      - run: npx fallow@3 audit --base origin/${{ github.base_ref || 'main' }}

@@ -5,6 +5,7 @@
  * then composites all page captures onto a canvas-background-colored buffer.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import { nativeImage, screen as electronScreen } from 'electron'
 import type { WorkspaceBounds } from '../../shared/types'
 import { captureFrameComposited, captureViewRegion } from './frame-compositor'
@@ -14,7 +15,7 @@ import { aboveView, bgView } from './view-refs'
 function setRendererCaptureMode(active: boolean): void {
   for (const view of [bgView, aboveView]) {
     if (view && !view.webContents.isDestroyed()) {
-      view.webContents.send('capture-mode', active)
+      view.webContents.send(ipcChannels.captureMode, active)
     }
   }
 }

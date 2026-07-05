@@ -1,18 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type {
-  AnnotationBboxSubscription,
-  AnnotationCreateRequest,
-  AnnotationLiveBboxUpdate,
-  CanvasBgElectronAPI,
-  EdgeSide,
-  LayoutUpdateData,
-  SelectionOverlayPayload,
-  ToolDefaultPatch,
-  ViewportNudge,
-} from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
+import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
 import type { CanvasGuidesPayload } from '../shared/canvas-guides'
+import { ipcChannels } from '../shared/ipc-contract'
+import { on } from './ipc-helpers'
 
 function installSelectionOverlayBridge(): void {
   if (location.href !== 'about:blank') return
@@ -35,7 +28,7 @@ function installSelectionOverlayBridge(): void {
   }
 
   ipcRenderer.on(
-    'canvas-selection-overlay',
+    ipcChannels.canvasSelectionOverlay,
     (
       _event,
       overlay: SelectionOverlayPayload | null,
@@ -66,210 +59,178 @@ if (document.readyState === 'loading') {
 
 const api: CanvasBgElectronAPI = {
   canvasZoom: (deltaY, mouseX, mouseY) =>
-    ipcRenderer.send('canvas-zoom', { deltaY, mouseX, mouseY }),
-  canvasPan: (deltaX, deltaY) => ipcRenderer.send('canvas-pan', { deltaX, deltaY }),
-  setSelectionOverlayRect: (overlay) => ipcRenderer.send('canvas-selection-overlay', overlay),
-  onSelectionOverlayChanged: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      overlay: import('../shared/types').SelectionOverlayPayload | null,
-    ) => callback(overlay)
-    ipcRenderer.on('canvas-selection-overlay', handler)
-    return () => ipcRenderer.removeListener('canvas-selection-overlay', handler)
-  },
+    ipcRenderer.send(ipcChannels.canvasZoom, { deltaY, mouseX, mouseY }),
+  canvasPan: (deltaX, deltaY) => ipcRenderer.send(ipcChannels.canvasPan, { deltaX, deltaY }),
+  setSelectionOverlayRect: (overlay) => ipcRenderer.send(ipcChannels.canvasSelectionOverlay, overlay),
+  onSelectionOverlayChanged: on<SelectionOverlayPayload | null>(ipcChannels.canvasSelectionOverlay),
   canvasSelectInRect: (rect, modifiers) =>
-    ipcRenderer.send('canvas-select-in-rect', { ...rect, modifiers }),
-  canvasDeselect: (modifiers) => ipcRenderer.send('page-deselect', { modifiers }),
-  focusSelection: () => ipcRenderer.send('canvas-focus-selection'),
-  restoreFocusCamera: () => ipcRenderer.send('canvas-restore-focus-camera'),
+    ipcRenderer.send(ipcChannels.canvasSelectInRect, { ...rect, modifiers }),
+  canvasDeselect: (modifiers) => ipcRenderer.send(ipcChannels.pageDeselect, { modifiers }),
+  focusSelection: () => ipcRenderer.send(ipcChannels.canvasFocusSelection),
+  restoreFocusCamera: () => ipcRenderer.send(ipcChannels.canvasRestoreFocusCamera),
   setFocusPresentationMode: (mode) =>
-    ipcRenderer.send('canvas-set-focus-presentation-mode', mode),
+    ipcRenderer.send(ipcChannels.canvasSetFocusPresentationMode, mode),
   setFocusAnnotationsVisible: (visible) =>
-    ipcRenderer.send('canvas-set-focus-annotations-visible', visible),
-  clearAnnotateHover: () => ipcRenderer.send('canvas-clear-annotate-hover'),
+    ipcRenderer.send(ipcChannels.canvasSetFocusAnnotationsVisible, visible),
+  clearAnnotateHover: () => ipcRenderer.send(ipcChannels.canvasClearAnnotateHover),
   selectPage: (pageId, modifiers) =>
-    ipcRenderer.send('canvas-select-page', { pageId, modifiers }),
-  navigatePage: (pageId, url) => ipcRenderer.send('canvas-navigate-page', { pageId, url }),
-  goBackPage: (pageId) => ipcRenderer.send('canvas-back-page', { pageId }),
-  goForwardPage: (pageId) => ipcRenderer.send('canvas-forward-page', { pageId }),
-  reloadPage: (pageId) => ipcRenderer.send('canvas-reload-page', { pageId }),
-  setPageCustom: (pageId) => ipcRenderer.send('canvas-set-page-custom', { pageId }),
-  updatePageBounds: (pageId, patch) => ipcRenderer.send('canvas-update-page-bounds', { pageId, patch }),
+    ipcRenderer.send(ipcChannels.canvasSelectPage, { pageId, modifiers }),
+  navigatePage: (pageId, url) => ipcRenderer.send(ipcChannels.canvasNavigatePage, { pageId, url }),
+  goBackPage: (pageId) => ipcRenderer.send(ipcChannels.canvasBackPage, { pageId }),
+  goForwardPage: (pageId) => ipcRenderer.send(ipcChannels.canvasForwardPage, { pageId }),
+  reloadPage: (pageId) => ipcRenderer.send(ipcChannels.canvasReloadPage, { pageId }),
+  setPageCustom: (pageId) => ipcRenderer.send(ipcChannels.canvasSetPageCustom, { pageId }),
+  updatePageBounds: (pageId, patch) => ipcRenderer.send(ipcChannels.canvasUpdatePageBounds, { pageId, patch }),
   placePendingEntity: (canvasX, canvasY) =>
-    ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY }),
-  setTool: (tool) => ipcRenderer.send('toolbar-set-tool', tool),
+    ipcRenderer.send(ipcChannels.canvasPlacePendingEntity, { canvasX, canvasY }),
+  setTool: (tool) => ipcRenderer.send(ipcChannels.toolbarSetTool, tool),
   setToolDefault: (patch: ToolDefaultPatch) =>
-    ipcRenderer.send('tool-defaults-set', patch),
+    ipcRenderer.send(ipcChannels.toolDefaultsSet, patch),
   startDragPage: (pageId, selection) =>
-    ipcRenderer.send('canvas-drag-page-start', { pageId, selection }),
+    ipcRenderer.send(ipcChannels.canvasDragPageStart, { pageId, selection }),
   dragPage: (pageId, dx, dy, shiftKey = false) =>
-    ipcRenderer.send('canvas-drag-page', { pageId, dx, dy, shiftKey }),
-  endDragPage: () => ipcRenderer.send('canvas-drag-page-end'),
+    ipcRenderer.send(ipcChannels.canvasDragPage, { pageId, dx, dy, shiftKey }),
+  endDragPage: () => ipcRenderer.send(ipcChannels.canvasDragPageEnd),
   dragCopySelection: (canvasX, canvasY) =>
-    ipcRenderer.send('canvas-drag-copy-selection', { canvasX, canvasY }),
+    ipcRenderer.send(ipcChannels.canvasDragCopySelection, { canvasX, canvasY }),
   dragCopyGroup: (groupId, canvasX, canvasY) =>
-    ipcRenderer.send('canvas-drag-copy-group', { groupId, canvasX, canvasY }),
+    ipcRenderer.send(ipcChannels.canvasDragCopyGroup, { groupId, canvasX, canvasY }),
   dragPreview: (dx, dy, shiftKey = false) =>
-    ipcRenderer.send('canvas-drag-preview', { dx, dy, shiftKey }),
-  setPagePreset: (pageId, index) => ipcRenderer.send('canvas-set-page-preset', { pageId, index }),
+    ipcRenderer.send(ipcChannels.canvasDragPreview, { dx, dy, shiftKey }),
+  setPagePreset: (pageId, index) => ipcRenderer.send(ipcChannels.canvasSetPagePreset, { pageId, index }),
   setDeviceOrientation: (pageId, orientation) =>
-    ipcRenderer.send('canvas-set-device-orientation', { pageId, orientation }),
+    ipcRenderer.send(ipcChannels.canvasSetDeviceOrientation, { pageId, orientation }),
   toggleDeviceShell: (pageId) =>
-    ipcRenderer.send('canvas-toggle-device-shell', { pageId }),
+    ipcRenderer.send(ipcChannels.canvasToggleDeviceShell, { pageId }),
   setFileDeviceOrientation: (fileId, orientation) =>
-    ipcRenderer.send('canvas-set-file-device-orientation', { fileId, orientation }),
+    ipcRenderer.send(ipcChannels.canvasSetFileDeviceOrientation, { fileId, orientation }),
   toggleFileDeviceShell: (fileId) =>
-    ipcRenderer.send('canvas-toggle-file-device-shell', { fileId }),
-  renamePage: (pageId, name) => ipcRenderer.send('canvas-rename-page', { pageId, name }),
-  duplicatePage: (pageId) => ipcRenderer.send('canvas-duplicate-page', { pageId }),
-  toggleLinkedPage: (pageId) => ipcRenderer.send('canvas-toggle-linked-page', { pageId }),
-  deletePage: (pageId) => ipcRenderer.send('canvas-delete-page', { pageId }),
-  showPageContextMenu: (pageId) => ipcRenderer.send('canvas-show-page-context-menu', { pageId }),
-  dropdownOpen: () => ipcRenderer.send('canvas-bg-dropdown-open'),
-  dropdownClose: () => ipcRenderer.send('canvas-bg-dropdown-close'),
-  copySelection: () => ipcRenderer.send('canvas-copy-selection'),
+    ipcRenderer.send(ipcChannels.canvasToggleFileDeviceShell, { fileId }),
+  renamePage: (pageId, name) => ipcRenderer.send(ipcChannels.canvasRenamePage, { pageId, name }),
+  duplicatePage: (pageId) => ipcRenderer.send(ipcChannels.canvasDuplicatePage, { pageId }),
+  toggleLinkedPage: (pageId) => ipcRenderer.send(ipcChannels.canvasToggleLinkedPage, { pageId }),
+  deletePage: (pageId) => ipcRenderer.send(ipcChannels.canvasDeletePage, { pageId }),
+  showPageContextMenu: (pageId) => ipcRenderer.send(ipcChannels.canvasShowPageContextMenu, { pageId }),
+  dropdownOpen: () => ipcRenderer.send(ipcChannels.canvasBgDropdownOpen),
+  dropdownClose: () => ipcRenderer.send(ipcChannels.canvasBgDropdownClose),
+  copySelection: () => ipcRenderer.send(ipcChannels.canvasCopySelection),
   pasteSelection: (canvasX, canvasY) =>
-    ipcRenderer.send('canvas-paste-selection', { canvasX, canvasY }),
-  deleteSelectedEntities: () => ipcRenderer.send('canvas-delete-selection'),
+    ipcRenderer.send(ipcChannels.canvasPasteSelection, { canvasX, canvasY }),
+  deleteSelectedEntities: () => ipcRenderer.send(ipcChannels.canvasDeleteSelection),
   reorderStack: (action, targetId) =>
-    ipcRenderer.send('canvas-reorder-stack', { action, targetId }),
-  updateTextEntity: (id: string, patch: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: 'auto' | 'fixed' }) =>
-    ipcRenderer.send('canvas-update-text-entity', { id, patch }),
+    ipcRenderer.send(ipcChannels.canvasReorderStack, { action, targetId }),
+  updateEntity: (kind, id, patch) =>
+    ipcRenderer.send(ipcChannels.canvasUpdateEntity, { kind, id, patch }),
   duplicateTextEntity: (id: string) =>
-    ipcRenderer.send('canvas-duplicate-text-entity', { id }),
+    ipcRenderer.send(ipcChannels.canvasDuplicateTextEntity, { id }),
   deleteTextEntity: (id: string) =>
-    ipcRenderer.send('canvas-delete-text-entity', { id }),
-  updateFileEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) =>
-    ipcRenderer.send('canvas-update-file-entity', { id, patch }),
+    ipcRenderer.send(ipcChannels.canvasDeleteTextEntity, { id }),
   deleteFileEntity: (id: string) =>
-    ipcRenderer.send('canvas-delete-file-entity', { id }),
+    ipcRenderer.send(ipcChannels.canvasDeleteFileEntity, { id }),
   duplicateFileEntity: (id: string) =>
-    ipcRenderer.send('canvas-duplicate-file-entity', { id }),
-  updateDrawingEntity: (id, patch) =>
-    ipcRenderer.send('canvas-update-drawing-entity', { id, patch }),
+    ipcRenderer.send(ipcChannels.canvasDuplicateFileEntity, { id }),
   deleteDrawingEntity: (id: string) =>
-    ipcRenderer.send('canvas-delete-drawing-entity', { id }),
+    ipcRenderer.send(ipcChannels.canvasDeleteDrawingEntity, { id }),
   duplicateDrawingEntity: (id) =>
-    ipcRenderer.send('canvas-duplicate-drawing-entity', { id }),
-  updateShapeEntity: (id, patch) =>
-    ipcRenderer.send('canvas-update-shape', { id, patch }),
+    ipcRenderer.send(ipcChannels.canvasDuplicateDrawingEntity, { id }),
   deleteShapeEntity: (id) =>
-    ipcRenderer.send('canvas-delete-shape', { id }),
+    ipcRenderer.send(ipcChannels.canvasDeleteShape, { id }),
   duplicateShapeEntity: (id) =>
-    ipcRenderer.send('canvas-duplicate-shape', { id }),
+    ipcRenderer.send(ipcChannels.canvasDuplicateShape, { id }),
   placePendingShape: (canvasX, canvasY, dragRect) =>
-    ipcRenderer.send('canvas-place-pending-entity', { canvasX, canvasY, dragRect: dragRect ?? null }),
+    ipcRenderer.send(ipcChannels.canvasPlacePendingEntity, { canvasX, canvasY, dragRect: dragRect ?? null }),
   requestEntityEdit: (entityId) =>
-    ipcRenderer.send('canvas-request-entity-edit', { entityId }),
-  commitEntityEdit: () => ipcRenderer.send('canvas-commit-entity-edit'),
-  cancelEntityEdit: () => ipcRenderer.send('canvas-cancel-entity-edit'),
+    ipcRenderer.send(ipcChannels.canvasRequestEntityEdit, { entityId }),
+  commitEntityEdit: () => ipcRenderer.send(ipcChannels.canvasCommitEntityEdit),
+  cancelEntityEdit: () => ipcRenderer.send(ipcChannels.canvasCancelEntityEdit),
   showFileInFinder: (filePath: string) =>
-    ipcRenderer.send('canvas-show-file-in-finder', { filePath }),
+    ipcRenderer.send(ipcChannels.canvasShowFileInFinder, { filePath }),
   copyFileAsPng: (filePath: string) =>
-    ipcRenderer.send('canvas-copy-file-as-png', { filePath }),
-  updateGroupEntity: (id: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }) =>
-    ipcRenderer.send('canvas-update-group-entity', { id, patch }),
+    ipcRenderer.send(ipcChannels.canvasCopyFileAsPng, { filePath }),
   duplicateGroup: (id: string) =>
-    ipcRenderer.send('canvas-duplicate-group', { id }),
+    ipcRenderer.send(ipcChannels.canvasDuplicateGroup, { id }),
   deleteGroup: (id: string) =>
-    ipcRenderer.send('canvas-delete-group', { id }),
+    ipcRenderer.send(ipcChannels.canvasDeleteGroup, { id }),
   renameGroup: (groupId: string, name: string) =>
-    ipcRenderer.send('canvas-rename-group', { groupId, name }),
+    ipcRenderer.send(ipcChannels.canvasRenameGroup, { groupId, name }),
   renameFileEntity: (entityId: string, name: string) =>
-    ipcRenderer.send('canvas-rename-file-entity', { entityId, name }),
+    ipcRenderer.send(ipcChannels.canvasRenameFileEntity, { entityId, name }),
   renameTextEntity: (entityId: string, name: string) =>
-    ipcRenderer.send('canvas-rename-text-entity', { entityId, name }),
+    ipcRenderer.send(ipcChannels.canvasRenameTextEntity, { entityId, name }),
   renameDrawingEntity: (entityId: string, name: string) =>
-    ipcRenderer.send('canvas-rename-drawing-entity', { entityId, name }),
+    ipcRenderer.send(ipcChannels.canvasRenameDrawingEntity, { entityId, name }),
   dropFileBuffer: (buffer: Uint8Array, ext: string, canvasX: number, canvasY: number) =>
-    ipcRenderer.send('canvas-drop-file-buffer', { buffer: Buffer.from(buffer), ext, canvasX, canvasY }),
+    ipcRenderer.send(ipcChannels.canvasDropFileBuffer, { buffer: Buffer.from(buffer), ext, canvasX, canvasY }),
   dropComponentFile: (file: File, canvasX: number, canvasY: number) => {
     const absolutePath = webUtils.getPathForFile(file)
     if (!absolutePath) return
-    ipcRenderer.send('canvas-drop-component-path', { absolutePath, canvasX, canvasY })
+    ipcRenderer.send(ipcChannels.canvasDropComponentPath, { absolutePath, canvasX, canvasY })
   },
   selectEntity: (entityId, entityKind, modifiers) =>
-    ipcRenderer.send('canvas-select-entity', { entityId, entityKind, modifiers }),
+    ipcRenderer.send(ipcChannels.canvasSelectEntity, { entityId, entityKind, modifiers }),
   selectGroup: (groupId: string) =>
-    ipcRenderer.send('canvas-select-group', { groupId }),
+    ipcRenderer.send(ipcChannels.canvasSelectGroup, { groupId }),
   enterGroup: (groupId: string) =>
-    ipcRenderer.send('canvas-enter-group', { groupId }),
+    ipcRenderer.send(ipcChannels.canvasEnterGroup, { groupId }),
   enterPageInteractive: (pageId: string) =>
-    ipcRenderer.send('canvas-enter-page-interactive', { pageId }),
+    ipcRenderer.send(ipcChannels.canvasEnterPageInteractive, { pageId }),
   startDragGroup: (groupId: string) =>
-    ipcRenderer.send('canvas-drag-group-start', { groupId }),
+    ipcRenderer.send(ipcChannels.canvasDragGroupStart, { groupId }),
   dragGroup: (groupId: string, dx: number, dy: number, shiftKey = false) =>
-    ipcRenderer.send('canvas-drag-group', { groupId, dx, dy, shiftKey }),
-  endDragGroup: () => ipcRenderer.send('canvas-drag-group-end'),
+    ipcRenderer.send(ipcChannels.canvasDragGroup, { groupId, dx, dy, shiftKey }),
+  endDragGroup: () => ipcRenderer.send(ipcChannels.canvasDragGroupEnd),
   startDragEntity: (entityId: string, selection) =>
-    ipcRenderer.send('canvas-drag-entity-start', { entityId, selection }),
+    ipcRenderer.send(ipcChannels.canvasDragEntityStart, { entityId, selection }),
   dragEntity: (entityId: string, dx: number, dy: number, shiftKey: boolean) =>
-    ipcRenderer.send('canvas-drag-entity', { entityId, dx, dy, shiftKey }),
-  endDragEntity: () => ipcRenderer.send('canvas-drag-entity-end'),
+    ipcRenderer.send(ipcChannels.canvasDragEntity, { entityId, dx, dy, shiftKey }),
+  endDragEntity: () => ipcRenderer.send(ipcChannels.canvasDragEntityEnd),
   beginResize: (entityId, entityKind, handle) =>
-    ipcRenderer.send('canvas-resize-begin', { entityId, entityKind, handle }),
-  endResize: () => ipcRenderer.send('canvas-resize-end'),
-  beginMultiResize: () => ipcRenderer.send('canvas-multi-resize-begin'),
-  endMultiResize: () => ipcRenderer.send('canvas-multi-resize-end'),
-  distributeSelection: () => ipcRenderer.send('canvas-distribute-selection'),
+    ipcRenderer.send(ipcChannels.canvasResizeBegin, { entityId, entityKind, handle }),
+  endResize: () => ipcRenderer.send(ipcChannels.canvasResizeEnd),
+  beginMultiResize: () => ipcRenderer.send(ipcChannels.canvasMultiResizeBegin),
+  endMultiResize: () => ipcRenderer.send(ipcChannels.canvasMultiResizeEnd),
+  distributeSelection: () => ipcRenderer.send(ipcChannels.canvasDistributeSelection),
   beginReorderDrag: (movingId: string) =>
-    ipcRenderer.send('canvas-reorder-start', { movingId }),
+    ipcRenderer.send(ipcChannels.canvasReorderStart, { movingId }),
   reorderDragMove: (canvasX: number, canvasY: number) =>
-    ipcRenderer.send('canvas-reorder-move', { canvasX, canvasY }),
-  reorderDragCommit: () => ipcRenderer.send('canvas-reorder-commit'),
+    ipcRenderer.send(ipcChannels.canvasReorderMove, { canvasX, canvasY }),
+  reorderDragCommit: () => ipcRenderer.send(ipcChannels.canvasReorderCommit),
   reorderDragCancel: (reason?: CancelReason) =>
-    ipcRenderer.send('canvas-reorder-cancel', { reason }),
-  commitRegionSelect: (canvasRect) => ipcRenderer.send('canvas-commit-region-select', canvasRect),
+    ipcRenderer.send(ipcChannels.canvasReorderCancel, { reason }),
+  commitRegionSelect: (canvasRect) => ipcRenderer.send(ipcChannels.canvasCommitRegionSelect, canvasRect),
   commitCommentClickAt: (windowX, windowY) =>
-    ipcRenderer.send('canvas-comment-click-at', { windowX, windowY }),
+    ipcRenderer.send(ipcChannels.canvasCommentClickAt, { windowX, windowY }),
   createAnnotation: (request: AnnotationCreateRequest) =>
-    ipcRenderer.send('canvas-create-annotation', request),
+    ipcRenderer.send(ipcChannels.canvasCreateAnnotation, request),
   createDrawing: (input) =>
-    ipcRenderer.send('canvas-create-drawing', input),
+    ipcRenderer.send(ipcChannels.canvasCreateDrawing, input),
   selectEntities: (entityIds: string[]) =>
-    ipcRenderer.send('canvas-select-entities', entityIds),
+    ipcRenderer.send(ipcChannels.canvasSelectEntities, entityIds),
   resizeMultiSelection: (entries) =>
-    ipcRenderer.send('canvas-resize-multi-selection', { entries }),
+    ipcRenderer.send(ipcChannels.canvasResizeMultiSelection, { entries }),
   moveAnnotation: (annotationId: string, dx: number, dy: number) =>
-    ipcRenderer.send('canvas-move-annotation', { annotationId, dx, dy }),
+    ipcRenderer.send(ipcChannels.canvasMoveAnnotation, { annotationId, dx, dy }),
   addAnnotationReply: (annotationId: string, text: string) =>
-    ipcRenderer.send('right-details-panel-reply-annotation', { annotationId, text }),
+    ipcRenderer.send(ipcChannels.rightDetailsPanelReplyAnnotation, { annotationId, text }),
   resolveAnnotation: (annotationId: string) =>
-    ipcRenderer.send('right-details-panel-resolve-annotation', { annotationId }),
+    ipcRenderer.send(ipcChannels.rightDetailsPanelResolveAnnotation, { annotationId }),
   deleteAnnotation: (annotationId: string) =>
-    ipcRenderer.send('right-details-panel-delete-annotation', { annotationId }),
+    ipcRenderer.send(ipcChannels.rightDetailsPanelDeleteAnnotation, { annotationId }),
   fixSingleAnnotation: (annotationId: string) =>
-    ipcRenderer.send('right-details-panel-fix-single-annotation', { annotationId }),
+    ipcRenderer.send(ipcChannels.rightDetailsPanelFixSingleAnnotation, { annotationId }),
   openAnnotationThread: (annotationId: string) =>
-    ipcRenderer.send('annotation-open-thread', { annotationId }),
+    ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId }),
   setCommentOverlayActive: (active: boolean) =>
-    ipcRenderer.send('comment-overlay-set-active', active),
-  onCaptureMode: (callback: (active: boolean) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, active: boolean) => callback(active)
-    ipcRenderer.on('capture-mode', handler)
-    return () => ipcRenderer.removeListener('capture-mode', handler)
-  },
-  onAnnotateElementSelected: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('annotate-element-selected', handler)
-    return () => ipcRenderer.removeListener('annotate-element-selected', handler)
-  },
-  onRegionSelectCommitted: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('region-select-committed', handler)
-    return () => ipcRenderer.removeListener('region-select-committed', handler)
-  },
-  onCommentCanvasPointCommitted: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('comment-canvas-point-committed', handler)
-    return () => ipcRenderer.removeListener('comment-canvas-point-committed', handler)
-  },
+    ipcRenderer.send(ipcChannels.commentOverlaySetActive, active),
+  onCaptureMode: on<boolean>(ipcChannels.captureMode),
+  onAnnotateElementSelected: on<AnnotationElementSelectionPayload>(ipcChannels.annotateElementSelected),
+  onRegionSelectCommitted: on<{ canvasRect: WorkspaceBounds }>(ipcChannels.regionSelectCommitted),
+  onCommentCanvasPointCommitted: on<{ canvasX: number; canvasY: number }>(
+    ipcChannels.commentCanvasPointCommitted,
+  ),
   setCommentToolPointerState: (state) =>
     ipcRenderer.send(
-      'comment-tool-pointer-state',
+      ipcChannels.commentToolPointerState,
       state
         ? {
             windowX: state.windowX,
@@ -282,100 +243,56 @@ const api: CanvasBgElectronAPI = {
     pageId: string,
     subscriptions: AnnotationBboxSubscription[],
   ) =>
-    ipcRenderer.send('comment-tool-bbox-subscriptions', { pageId, subscriptions }),
-  onAnnotationLiveBbox: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, update: AnnotationLiveBboxUpdate) =>
-      callback(update)
-    ipcRenderer.on('annotation-live-bbox', handler)
-    return () => ipcRenderer.removeListener('annotation-live-bbox', handler)
-  },
+    ipcRenderer.send(ipcChannels.commentToolBboxSubscriptions, { pageId, subscriptions }),
+  onAnnotationLiveBbox: on<AnnotationLiveBboxUpdate>(ipcChannels.annotationLiveBbox),
   createRegionAnnotation: (canvasRect, text) =>
-    ipcRenderer.send('canvas-create-region-annotation', { canvasRect, text }),
-  onAnnotationThreadOpen: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: Parameters<typeof callback>[0]) =>
-      callback(data)
-    ipcRenderer.on('annotation-thread-open', handler)
-    return () => ipcRenderer.removeListener('annotation-thread-open', handler)
-  },
+    ipcRenderer.send(ipcChannels.canvasCreateRegionAnnotation, { canvasRect, text }),
+  onAnnotationThreadOpen: on<{ annotationId: string }>(ipcChannels.annotationThreadOpen),
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) =>
-    ipcRenderer.send('canvas-edge-drag-begin', { fromEntityId, fromSide }),
+    ipcRenderer.send(ipcChannels.canvasEdgeDragBegin, { fromEntityId, fromSide }),
   updateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) =>
-    ipcRenderer.send('canvas-edge-drag-target-change', { targetEntityId, targetSide }),
+    ipcRenderer.send(ipcChannels.canvasEdgeDragTargetChange, { targetEntityId, targetSide }),
   commitEdgeDrag: (fromEntityId: string, toEntityId: string, fromSide: EdgeSide, toSide: EdgeSide) =>
-    ipcRenderer.send('canvas-edge-drag-commit', { fromEntityId, toEntityId, fromSide, toSide }),
+    ipcRenderer.send(ipcChannels.canvasEdgeDragCommit, { fromEntityId, toEntityId, fromSide, toSide }),
   cancelEdgeDrag: () =>
-    ipcRenderer.send('canvas-edge-drag-cancel'),
+    ipcRenderer.send(ipcChannels.canvasEdgeDragCancel),
   commitEdgeEdit: (
     edgeId: string,
     movingEnd: 'from' | 'to',
     targetEntityId: string,
     targetSide: EdgeSide,
   ) =>
-    ipcRenderer.send('canvas-edge-edit-commit', { edgeId, movingEnd, targetEntityId, targetSide }),
+    ipcRenderer.send(ipcChannels.canvasEdgeEditCommit, { edgeId, movingEnd, targetEntityId, targetSide }),
   discardEdgeEdit: (edgeId: string) =>
-    ipcRenderer.send('canvas-edge-edit-discard', { edgeId }),
+    ipcRenderer.send(ipcChannels.canvasEdgeEditDiscard, { edgeId }),
   deleteEdge: (edgeId: string) =>
-    ipcRenderer.send('canvas-delete-edge', { edgeId }),
+    ipcRenderer.send(ipcChannels.canvasDeleteEdge, { edgeId }),
   selectEdge: (edgeId: string | null) =>
-    ipcRenderer.send('canvas-select-edge', { edgeId }),
+    ipcRenderer.send(ipcChannels.canvasSelectEdge, { edgeId }),
   hoverPage: (pageId: string | null) =>
-    ipcRenderer.send('canvas-hover-page', { pageId }),
+    ipcRenderer.send(ipcChannels.canvasHoverPage, { pageId }),
   forwardWheelToPage: (pageId, payload) =>
-    ipcRenderer.send('canvas-forward-wheel', { pageId, payload }),
+    ipcRenderer.send(ipcChannels.canvasForwardWheel, { pageId, payload }),
   forwardPointerToPage: (pageId, payload) =>
-    ipcRenderer.send('canvas-forward-pointer', { pageId, payload }),
-  onPageCursorChange: (callback) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      data: { type: string | null },
-    ) => callback(data)
-    ipcRenderer.on('aboveview-cursor-update', handler)
-    return () => ipcRenderer.removeListener('aboveview-cursor-update', handler)
-  },
+    ipcRenderer.send(ipcChannels.canvasForwardPointer, { pageId, payload }),
+  onPageCursorChange: on<{ type: string | null }>(ipcChannels.aboveviewCursorUpdate),
   setTextEditing: (active: boolean) =>
-    ipcRenderer.send('canvas-set-text-editing', { active }),
+    ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),
   setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) =>
-    ipcRenderer.send('canvas-set-annotation-state', { hasOpenThread, hasPending: hasPendingAnnotation }),
-  onBindingFire: (callback: (id: BindingId) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, id: BindingId) => callback(id)
-    ipcRenderer.on('binding-fire', handler)
-    return () => ipcRenderer.removeListener('binding-fire', handler)
-  },
-  onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: CanvasGuidesPayload) =>
-      callback(payload)
-    ipcRenderer.on('canvas-guides', handler)
-    return () => ipcRenderer.removeListener('canvas-guides', handler)
-  },
+    ipcRenderer.send(ipcChannels.canvasSetAnnotationState, { hasOpenThread, hasPending: hasPendingAnnotation }),
+  onBindingFire: on<BindingId>(ipcChannels.bindingFire),
+  onCanvasGuides: on<CanvasGuidesPayload>(ipcChannels.canvasGuides),
   writeNoteFile: (filePath: string, content: string) =>
-    ipcRenderer.invoke('write-note-file', { filePath, content }),
+    ipcRenderer.invoke(ipcChannels.writeNoteFile, { filePath, content }),
   morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
-    ipcRenderer.invoke('canvas-morph-text-file', { entityId, direction }),
-  getInitialData: () => ipcRenderer.invoke('get-canvas-layout-bootstrap'),
+    ipcRenderer.invoke(ipcChannels.canvasMorphTextFile, { entityId, direction }),
+  getInitialData: () => ipcRenderer.invoke(ipcChannels.getCanvasLayoutBootstrap),
   repoConnect: (absolutePath: string) =>
-    ipcRenderer.invoke('repo-connect', { absolutePath }),
-  onLayoutUpdate: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData) => callback(data)
-    ipcRenderer.on('layout-update', handler)
-    return () => ipcRenderer.removeListener('layout-update', handler)
-  },
-  onViewportNudge: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: ViewportNudge) => callback(data)
-    ipcRenderer.on('viewport-nudge', handler)
-    return () => ipcRenderer.removeListener('viewport-nudge', handler)
-  },
-  onFixProgressUpdate: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: LayoutUpdateData['fixProgress']) =>
-      callback(data)
-    ipcRenderer.on('fix-progress-update', handler)
-    return () => ipcRenderer.removeListener('fix-progress-update', handler)
-  },
-  onThemeChanged: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { isDark: boolean }) =>
-      callback(data)
-    ipcRenderer.on('theme-changed', handler)
-    return () => ipcRenderer.removeListener('theme-changed', handler)
-  },
+    ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),
+  onLayoutUpdate: on(ipcChannels.layoutUpdate),
+  onViewportNudge: on<ViewportNudge>(ipcChannels.viewportNudge),
+  onFixProgressUpdate: on<LayoutUpdateData['fixProgress']>(ipcChannels.fixProgressUpdate),
+  onThemeChanged: on(ipcChannels.themeChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

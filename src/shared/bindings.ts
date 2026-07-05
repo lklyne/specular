@@ -326,34 +326,23 @@ export function acceleratorString(key: NormalizedKey): string {
   return parts.join('+')
 }
 
+const ACCELERATOR_KEYS: Record<string, string> = {
+  arrowleft: 'Left',
+  arrowright: 'Right',
+  arrowup: 'Up',
+  arrowdown: 'Down',
+  escape: 'Escape',
+  delete: 'Delete',
+  backspace: 'Backspace',
+  '[': '[',
+  ']': ']',
+  tab: 'Tab',
+  enter: 'Return',
+  return: 'Return',
+}
+
 function toAcceleratorKey(key: string): string {
-  switch (key) {
-    case 'arrowleft':
-      return 'Left'
-    case 'arrowright':
-      return 'Right'
-    case 'arrowup':
-      return 'Up'
-    case 'arrowdown':
-      return 'Down'
-    case 'escape':
-      return 'Escape'
-    case 'delete':
-      return 'Delete'
-    case 'backspace':
-      return 'Backspace'
-    case '[':
-      return '['
-    case ']':
-      return ']'
-    case 'tab':
-      return 'Tab'
-    case 'enter':
-    case 'return':
-      return 'Return'
-    default:
-      return key.toUpperCase()
-  }
+  return ACCELERATOR_KEYS[key] ?? key.toUpperCase()
 }
 
 export function bindingById(id: BindingId): Binding {

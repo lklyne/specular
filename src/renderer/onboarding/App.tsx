@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
-import type {
-  OnboardingBootstrapData,
-  OnboardingComponentId,
-  OnboardingElectronAPI,
-  OnboardingProgressEvent,
-  OnboardingStatusSnapshot,
-} from '../../shared/types'
+import type { OnboardingBootstrapData, OnboardingComponentId, OnboardingProgressEvent, OnboardingStatusSnapshot } from '../../shared/types'
+import type { OnboardingElectronAPI } from '../../shared/electron-api/onboarding'
 import { SkillInstaller, type InstallerRowSnapshot, type RowProgress } from '../shared/SkillInstaller'
 import {
-  defaultSelected,
   hasInstallableSelection,
   installableSelections,
 } from './onboardingSelection'
@@ -91,9 +85,9 @@ function SetupScreen({
   const [progress, dispatchProgress] = useReducer(progressReducer, INITIAL_PROGRESS)
   const [installing, setInstalling] = useState(false)
   const [selections, setSelections] = useState<Record<OnboardingComponentId, boolean>>({
-    cli: defaultSelected(initialData.status.cli),
-    skill: defaultSelected(initialData.status.skill),
-    agentBrowser: defaultSelected(initialData.status.agentBrowser),
+    cli: true,
+    skill: true,
+    agentBrowser: true,
   })
 
   useEffect(() => {

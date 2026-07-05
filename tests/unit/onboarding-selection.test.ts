@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { OnboardingComponentId, OnboardingStatusSnapshot } from '../../src/shared/types'
 import {
-  defaultSelected,
   hasInstallableSelection,
   installableSelections,
 } from '../../src/renderer/onboarding/onboardingSelection'
@@ -18,10 +17,6 @@ function selections(value: boolean): Record<OnboardingComponentId, boolean> {
 }
 
 describe('onboarding selection helpers', () => {
-  it('defaults installed rows to visually selected', () => {
-    expect(defaultSelected({ kind: 'installed' })).toBe(true)
-  })
-
   it('does not submit already-installed rows for installation', () => {
     const status: OnboardingStatusSnapshot = {
       ...baseStatus,

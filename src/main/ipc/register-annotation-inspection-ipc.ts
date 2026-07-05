@@ -1,22 +1,20 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { Annotation, ComponentTreeNode, WorkspaceBounds } from '../../shared/types'
+import { bgView, aboveView } from '../runtime/view-refs'
 import {
-  bgView,
-  aboveView,
   pageBodyCanvasBounds,
   projectFramePointToCanvas,
-  requestLayout,
-} from '../runtime/surface-layout'
+} from '../runtime/runtime-geometry'
 import {
   findPageById,
   findPageByPageView,
   getComponentSourceLocationByNodeId,
   handlePageIpcResponse,
   handleNodeDetailResponse,
-  pages,
 } from '../runtime/page-runtime'
 import { getZoom, setPendingFocus } from '../runtime/runtime-context'
-import { setZoom } from '../runtime/viewport-control'
+import { requestLayout, setZoom } from '../runtime/viewport-control'
 import {
   focusCanvasBounds,
   getSelectedEntityIds,
@@ -30,31 +28,11 @@ import {
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
 import { markDirty } from '../runtime/layout-dirty'
-
-type ComponentPropOverridePayload = {
-  pageId: string
-  componentId: string
-  propPath: string[]
-  value: unknown
-}
-
-type ComponentTokenOverridePayload = {
-  pageId: string
-  componentId?: string
-  token: string
-  value: string
-  selector?: string
-}
-
-function forwardOverrideToPage(
-  pageId: string,
-  channel: 'override-props' | 'override-token',
-  payload: Record<string, unknown>,
-): void {
-  const page = pages.find((candidate) => candidate.id === pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
-  page.pageView.webContents.send(channel, payload)
-}
+import {
+  forwardOverrideToPage,
+  type ComponentPropOverridePayload,
+  type ComponentTokenOverridePayload,
+} from './component-override'
 
 const POINT_FOCUS_SIZE = 100
 const FOCUS_MIN_ZOOM = 0.8
@@ -95,7 +73,7 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
 
 export function registerAnnotationInspectionIpc(): void {
   ipcMain.on(
-    'annotation-open-thread',
+    ipcChannels.annotationOpenThread,
     (_event, payload: { annotationId?: string } | undefined) => {
       const annotationId =
         typeof payload?.annotationId === 'string' && payload.annotationId.trim().length > 0
@@ -115,14 +93,14 @@ export function registerAnnotationInspectionIpc(): void {
       setPendingFocus({ kind: 'aboveView' })
       requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
-        aboveView.webContents.send('annotation-thread-open', {
+        aboveView.webContents.send(ipcChannels.annotationThreadOpen, {
           annotationId,
         })
       }
     },
   )
 
-  ipcMain.on('inspect-node-hover', (event, payload) => {
+  ipcMain.on(ipcChannels.inspectNodeHover, (event, payload) => {
     const page = findPageByPageView(event.sender)
     if (!page) return
     if (!payload || typeof payload !== 'object') {
@@ -139,7 +117,7 @@ export function registerAnnotationInspectionIpc(): void {
     requestLayout()
   })
 
-  ipcMain.on('inspect-node-select', (event, payload) => {
+  ipcMain.on(ipcChannels.inspectNodeSelect, (event, payload) => {
     const page = findPageByPageView(event.sender)
     if (!page) return
     if (!payload || typeof payload !== 'object') {
@@ -156,7 +134,7 @@ export function registerAnnotationInspectionIpc(): void {
     requestLayout()
   })
 
-  ipcMain.on('inspect-node-detail-update', (event, payload) => {
+  ipcMain.on(ipcChannels.inspectNodeDetailUpdate, (event, payload) => {
     const page = findPageByPageView(event.sender)
     if (!page || !payload || typeof payload !== 'object') return
     const raw = payload as { nodeId?: string; id?: string }
@@ -172,39 +150,49 @@ export function registerAnnotationInspectionIpc(): void {
     } as NonNullable<typeof page.inspectDetailsByNodeId>[string]
   })
 
-  ipcMain.on('resolve-node-detail-response', (_event, payload) => {
+  ipcMain.on(ipcChannels.resolveNodeDetailResponse, (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handleNodeDetailResponse(payload)
   })
 
-  ipcMain.on('take-dom-snapshot-response', (_event, payload) => {
+  ipcMain.on(ipcChannels.takeDomSnapshotResponse, (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
-  ipcMain.on('query-dom-elements-response', (_event, payload) => {
+  ipcMain.on(ipcChannels.queryDomElementsResponse, (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
-  ipcMain.on('query-elements-in-rect-response', (_event, payload) => {
+  ipcMain.on(ipcChannels.queryElementsInRectResponse, (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
-  ipcMain.on('query-element-at-point-response', (_event, payload) => {
+  ipcMain.on(ipcChannels.queryElementAtPointResponse, (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
-  ipcMain.on('inspect-tree-update', (event, payload) => {
+  ipcMain.on(ipcChannels.dispatchScrollResult, (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on(ipcChannels.queryActiveElementRectResult, (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on(ipcChannels.inspectTreeUpdate, (event, payload) => {
     const page = findPageByPageView(event.sender)
     if (!page || !Array.isArray(payload)) return
     page.componentTree = payload as ComponentTreeNode[]
     if (bgView && !bgView.webContents.isDestroyed()) {
       const selectedIds = getSelectedEntityIds()
       if (selectedIds.length === 1 && selectedIds[0] === page.id) {
-        bgView.webContents.send('component-tree-data', {
+        bgView.webContents.send(ipcChannels.componentTreeData, {
           pageId: page.id,
           tree: page.componentTree,
         })
@@ -213,12 +201,12 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(
-    'canvas-edit-component-prop',
+    ipcChannels.canvasEditComponentProp,
     (
       _event,
       { pageId, componentId, propPath, value }: ComponentPropOverridePayload,
     ) => {
-      forwardOverrideToPage(pageId, 'override-props', {
+      forwardOverrideToPage(pageId, ipcChannels.overrideProps, {
         componentId,
         propPath,
         value,
@@ -227,12 +215,12 @@ export function registerAnnotationInspectionIpc(): void {
   )
 
   ipcMain.on(
-    'canvas-edit-component-token',
+    ipcChannels.canvasEditComponentToken,
     (
       _event,
       { pageId, componentId, token, value, selector }: ComponentTokenOverridePayload,
     ) => {
-      forwardOverrideToPage(pageId, 'override-token', {
+      forwardOverrideToPage(pageId, ipcChannels.overrideToken, {
         componentId,
         token,
         value,
@@ -241,7 +229,7 @@ export function registerAnnotationInspectionIpc(): void {
     },
   )
 
-  ipcMain.on('comment-overlay-set-active', (_event, active: boolean) => {
+  ipcMain.on(ipcChannels.commentOverlaySetActive, (_event, active: boolean) => {
     setCommentOverlayActive(Boolean(active))
   })
 

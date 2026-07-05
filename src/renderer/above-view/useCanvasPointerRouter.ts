@@ -19,7 +19,9 @@
  *
  * The router itself owns only the wiring: window-level pointer listeners,
  * per-action drag-installation, IPC dispatch, and renderer-local visual
- * state for the edge-drag rubber-band.
+ * state for the edge-drag rubber-band. Per-gesture drag sessions (pointer
+ * capture, pointerId-filtered window listeners, teardown, blur handling)
+ * come from `./pointer-session.ts`.
  */
 
 import { useEffect, useRef } from 'react'
@@ -35,9 +37,15 @@ import {
   cancelEdgeDrag as cancelEdgeDragState,
   commitEdgeDrag as commitEdgeDragState,
   EDGE_DRAG_IDLE,
+  edgeDragOrigin,
   updateEdgeDragCursor,
   type EdgeDragState,
 } from '../../shared/edge-drag-controller'
+import {
+  beginPressGesture,
+  pressGestureIgnoresBlur,
+  pressGestureStep,
+} from '../../shared/press-gesture'
 import {
   applyHandleDelta,
   startResize,
@@ -51,6 +59,9 @@ import {
   startMultiResize,
 } from '../../shared/multi-resize-accumulator'
 import {
+  canvasToScreenX,
+  canvasToScreenY,
+  clientYToWindowY,
   entitiesOverlappingRect,
   DRAG_THRESHOLD,
   isOverlayUiTarget,
@@ -59,39 +70,40 @@ import {
   normalizeRect,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
+  snapToGrid,
+  squareConstrainedRect,
 } from '../../shared/gesture-utils'
+import type { CanvasPointerOwner } from '../../shared/canvas-pointer-owner'
 import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
-import {
-  MIN_FILE_HEIGHT,
-  MIN_FILE_WIDTH,
-  MIN_GROUP_HEIGHT,
-  MIN_GROUP_WIDTH,
-  MIN_SHAPE_HEIGHT,
-  MIN_SHAPE_WIDTH,
-  MIN_TEXT_HEIGHT,
-  MIN_TEXT_WIDTH,
-} from '../canvas-bg/entityConstants'
+import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneEntity,
-  EdgeSide,
-  LayoutUpdateData,
-  SelectionModifiers,
-} from '../../shared/types'
+import type { CanvasSceneEntity, EdgeSide, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   startOptionAwareEntityDrag,
   startOptionAwareGroupDrag,
   type DragCopyPreviewBox,
 } from './optionDragCopy'
+import { capturePointer, startPointerSession } from './pointer-session'
+
+/** Live draft snapshot the comment gesture consults on pointerup — a click
+ *  away from an empty composer dismisses it instead of opening a new one. */
+export interface CommentDraftSnapshot {
+  pendingAnnotation: object | null
+  pendingRegionRect: object | null
+  commentText: string
+  clearDraft: () => void
+}
 
 interface UseCanvasPointerRouterOptions {
   api: CanvasBgElectronAPI
   layoutRef: React.MutableRefObject<LayoutUpdateData>
-  /** When false, the router does not intercept anything. Useful while
-   *  annotations / drawing own pointer input. */
-  enabled: boolean
+  /** Who owns canvas pointerdowns (`canvasPointerOwner`). 'router' runs the
+   *  hit-test + routing matrix; 'tool-gesture' captures every canvas
+   *  pointerdown for the active placement / comment tool; anything else
+   *  stands the router down (annotations / drawing own pointer input). */
+  owner: CanvasPointerOwner
   /** Hit kinds the router should consume. */
   consume: ReadonlySet<CanvasPointerAction['kind']>
   /** Space-modifier mirror — `useCanvasPointerRouter` reads this on each
@@ -111,6 +123,12 @@ interface UseCanvasPointerRouterOptions {
    *  the live canvas-space pointer delta since grab so App can float the
    *  dragged item under the cursor as a ghost. Null when not reordering. */
   setReorderGhost: (ghost: ReorderGhostOffset) => void
+  /** Comment-gesture region marquee: live drag rect (ADR 0006). Lives with
+   *  App because it feeds the comment-preview pointer broadcast. */
+  onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
+  /** Comment-gesture region marquee commit → region anchor. */
+  onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
+  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
 }
 
 /** Canvas-space pointer delta since a reorder grab — drives the floating ghost.
@@ -133,6 +151,8 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'begin-marquee',
   'begin-pan',
   'begin-reorder-drag',
+  'begin-placement',
+  'begin-comment-gesture',
 ])
 
 /** All routable kinds — used by tests and any caller that wants full
@@ -163,30 +183,11 @@ function layoutToHitInputs(layout: {
   }
 }
 
-function capturePointer(event: PointerEvent): (() => void) | null {
-  const target = event.target
-  if (!(target instanceof Element)) return null
-  try {
-    target.setPointerCapture(event.pointerId)
-  } catch {
-    return null
-  }
-  return () => {
-    try {
-      if (target.hasPointerCapture(event.pointerId)) {
-        target.releasePointerCapture(event.pointerId)
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
 export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): void {
   const {
     api,
     layoutRef,
-    enabled,
+    owner,
     consume,
     spaceHeldRef,
     handToolActiveRef,
@@ -194,6 +195,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     setDragCopyPreview,
     setEdgeDragState,
     setReorderGhost,
+    onCommentDragMove,
+    onCommentDragEnd,
+    commentDraftRef,
   } = options
   const apiRef = useRef(api)
   apiRef.current = api
@@ -201,12 +205,65 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
   consumeRef.current = consume
   const setEdgeDragStateRef = useRef(setEdgeDragState)
   setEdgeDragStateRef.current = setEdgeDragState
+  const commentGestureRef = useRef({ onCommentDragMove, onCommentDragEnd })
+  commentGestureRef.current = { onCommentDragMove, onCommentDragEnd }
 
   useEffect(() => {
-    if (!enabled) return
+    if (owner !== 'router' && owner !== 'tool-gesture') return
+    const toolGestureOwns = owner === 'tool-gesture'
+
+    // Active placement / comment tool: every canvas pointerdown belongs to
+    // the tool. No hit-target routing, no typing-target yield (a comment
+    // click on a sticky's textarea anchors a comment, it doesn't focus the
+    // note), no edit-commit side effects — only overlay UI wins (I8').
+    const handleToolGesturePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return
+      const layout = layoutRef.current
+      if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
+
+      const windowY = clientYToWindowY(event.clientY, layout)
+      const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
+      const context: CanvasPointerContext = {
+        selectedEntityIds: layout.selectedEntityIds,
+        isPrimaryButton: true,
+        button: 'left',
+        modifiers: { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey },
+        spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
+        altHeld: event.altKey || optionHeldRef.current,
+        editingEntityId:
+          layout.interaction.kind === 'editing-entity' ? layout.interaction.entityId : null,
+        interactivePageId: layout.interactivePageId ?? null,
+        placement: layout.pendingPlacement
+          ? { entityKind: layout.pendingPlacement.entityKind }
+          : null,
+        commentToolActive: layout.activeTool.kind === 'comment',
+      }
+      const action = routePointerDown(target, context)
+      const dispatched = dispatchAction({
+        action,
+        api: apiRef.current,
+        event,
+        layoutRef,
+        optionHeldRef,
+        setDragCopyPreview,
+        setEdgeDragState: setEdgeDragStateRef.current,
+        setReorderGhost,
+        onCommentDragMove: commentGestureRef.current.onCommentDragMove,
+        onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
+        commentDraftRef,
+      })
+      if (dispatched) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
 
     const handlePointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
+      if (toolGestureOwns) {
+        handleToolGesturePointerDown(event)
+        return
+      }
       // Yield to typing targets (textarea, input, contenteditable) so focus
       // and cursor positioning land normally. Without this, the router's
       // preventDefault on entity-body hits eats the click before the
@@ -219,7 +276,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
       // aboveView's WCV starts at canvasOrigin.y; scene entities use
       // window-relative screenY, so add the offset before hit-testing.
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       const inputs = layoutToHitInputs(layout)
       const target = hitTest(inputs, { x: event.clientX, y: windowY })
 
@@ -263,6 +320,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
         interactivePageId: layout.interactivePageId ?? null,
+        placement: null,
+        commentToolActive: false,
       }
 
       // Hand tool: primary-button drag pans globally regardless of hit
@@ -284,6 +343,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         setDragCopyPreview,
         setEdgeDragState: setEdgeDragStateRef.current,
         setReorderGhost,
+        onCommentDragMove: commentGestureRef.current.onCommentDragMove,
+        onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
+        commentDraftRef,
       })
       if (dispatched) {
         event.preventDefault()
@@ -296,7 +358,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       if (isTypingTarget(event.target)) return
       if (event.button !== 0) return
       const layout = layoutRef.current
-      const windowY = event.clientY + layout.canvasOrigin.y
+      const windowY = clientYToWindowY(event.clientY, layout)
       const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
       const action = routePointerDoubleClick(target)
       switch (action.kind) {
@@ -323,7 +385,12 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     }
 
     window.addEventListener('pointerdown', handlePointerDown, { capture: true })
-    window.addEventListener('dblclick', handleDblClick, { capture: true })
+    // Dblclick routing (edit / enter-group / enter-page) is router-mode
+    // only — a double click while a tool gesture owns pointers is just two
+    // tool gestures.
+    if (!toolGestureOwns) {
+      window.addEventListener('dblclick', handleDblClick, { capture: true })
+    }
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown, {
         capture: true,
@@ -332,7 +399,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [enabled, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setReorderGhost, spaceHeldRef])
+  }, [owner, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setReorderGhost, spaceHeldRef])
 }
 
 // --- Dispatch ---
@@ -346,6 +413,9 @@ interface DispatchContext {
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   setEdgeDragState: (state: EdgeDragState) => void
   setReorderGhost: (ghost: ReorderGhostOffset) => void
+  onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
+  onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
+  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
@@ -393,6 +463,17 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runPan(api, event)
     case 'begin-reorder-drag':
       return runReorderDrag(action, api, event, layoutRef, setReorderGhost)
+    case 'begin-placement':
+      return runPlacementGesture(action, api, event, layoutRef)
+    case 'begin-comment-gesture':
+      return runCommentGesture(
+        api,
+        event,
+        layoutRef,
+        ctx.onCommentDragMove,
+        ctx.onCommentDragEnd,
+        ctx.commentDraftRef,
+      )
   }
 }
 
@@ -429,33 +510,14 @@ function runEntityPress(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
-  let dragging = false
+  let press = beginPressGesture(event.screenX, event.screenY)
 
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-  }
-
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    if (!dragging) {
-      const totalDx = ev.screenX - startScreenX
-      const totalDy = ev.screenY - startScreenY
-      if (
-        Math.abs(totalDx) < DRAG_THRESHOLD &&
-        Math.abs(totalDy) < DRAG_THRESHOLD
-      ) {
-        return
-      }
-      dragging = true
-      cleanup()
+  const session = startPointerSession(event, {
+    onMove: (ev) => {
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
       startOptionAwareEntityDrag({
         api,
         layout: layoutRef.current,
@@ -463,39 +525,27 @@ function runEntityPress(
         entityKind: action.entityKind,
         preserveSelection: true,
         event,
-        releasePointer,
+        releasePointer: session.releasePointer,
         initialPointer: ev,
         isOptionHeld: () => optionHeldRef.current,
         setPreview: setDragCopyPreview,
       })
-      return
-    }
-  }
-
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-    if (dragging) {
-      api.endDragEntity()
-      return
-    }
-    api.requestEntityEdit(action.entityId)
-  }
-
-  const onCancel = (ev: Event) => {
-    // Pre-threshold blur is a phantom: focus reconciliation routes focus
-    // aboveView → bgView on the next layout pass after a prior gesture
-    // ends. A second click landing inside that window would otherwise see
-    // the armed press torn down before pointerup, dropping the edit.
-    if (!dragging && ev.type === 'blur') return
-    cleanup()
-    if (dragging) api.endDragEntity()
-  }
-
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+    },
+    onUp: () => {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
+        api.endDragEntity()
+        return
+      }
+      api.requestEntityEdit(action.entityId)
+    },
+    onCancel: () => {
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragEntity()
+      }
+    },
+    listenBlur: true,
+    ignoreBlur: () => pressGestureIgnoresBlur(press),
+  })
   return true
 }
 
@@ -507,34 +557,14 @@ function runPageBodyPress(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
-  let dragging = false
+  let press = beginPressGesture(event.screenX, event.screenY)
 
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-  }
-
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const totalDx = ev.screenX - startScreenX
-    const totalDy = ev.screenY - startScreenY
-    if (
-      !dragging &&
-      Math.abs(totalDx) < DRAG_THRESHOLD &&
-      Math.abs(totalDy) < DRAG_THRESHOLD
-    ) {
-      return
-    }
-    if (!dragging) {
-      dragging = true
-      cleanup()
+  const session = startPointerSession(event, {
+    onMove: (ev) => {
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
       startOptionAwareEntityDrag({
         api,
         layout: layoutRef.current,
@@ -542,51 +572,36 @@ function runPageBodyPress(
         entityKind: 'page',
         preserveSelection: action.preserveSelection,
         event,
-        releasePointer,
+        releasePointer: session.releasePointer,
         initialPointer: ev,
         isOptionHeld: () => optionHeldRef.current,
         setPreview: setDragCopyPreview,
       })
-      return
-    }
-  }
-
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-    if (dragging) {
-      api.endDragPage()
-      return
-    }
-    // Thread modifiers through so a shift/cmd-click on an unselected or
-    // multi-selected page body extends the selection instead of replacing
-    // it. Routing already converts additive clicks on page-body to
-    // toggle-select, but reading the live modifier state here keeps the
-    // gesture honest if the user presses shift between down and up.
-    api.selectPage(action.entityId, {
-      shift: ev.shiftKey,
-      meta: ev.metaKey,
-      ctrl: ev.ctrlKey,
-    })
-  }
-
-  const onCancel = (ev: Event) => {
-    // Pre-threshold blur is a phantom: focus reconciliation routes focus
-    // aboveView → bgView on the next layout pass (debounced 16ms) after a
-    // drag ends. A second click that lands inside that window installs
-    // this listener, then the pending reconcile blurs aboveView before
-    // any cursor movement — tearing the armed gesture down here would
-    // kill the second drag with no recovery. Wait for actual movement;
-    // pointerup / pointercancel still abort cleanly.
-    if (!dragging && ev.type === 'blur') return
-    cleanup()
-    if (dragging) api.endDragPage()
-  }
-
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+    },
+    onUp: (ev) => {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
+        api.endDragPage()
+        return
+      }
+      // Thread modifiers through so a shift/cmd-click on an unselected or
+      // multi-selected page body extends the selection instead of replacing
+      // it. Routing already converts additive clicks on page-body to
+      // toggle-select, but reading the live modifier state here keeps the
+      // gesture honest if the user presses shift between down and up.
+      api.selectPage(action.entityId, {
+        shift: ev.shiftKey,
+        meta: ev.metaKey,
+        ctrl: ev.ctrlKey,
+      })
+    },
+    onCancel: () => {
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragPage()
+      }
+    },
+    listenBlur: true,
+    ignoreBlur: () => pressGestureIgnoresBlur(press),
+  })
   return true
 }
 
@@ -598,63 +613,41 @@ function runGroupDrag(
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
-  let dragging = false
-  const startScreenX = event.screenX
-  const startScreenY = event.screenY
+  let press = beginPressGesture(event.screenX, event.screenY)
 
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const totalDx = ev.screenX - startScreenX
-    const totalDy = ev.screenY - startScreenY
-    if (
-      !dragging &&
-      Math.abs(totalDx) < DRAG_THRESHOLD &&
-      Math.abs(totalDy) < DRAG_THRESHOLD
-    ) {
-      return
-    }
-    if (!dragging) {
-      dragging = true
-      cleanup()
+  const session = startPointerSession(event, {
+    onMove: (ev) => {
+      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
       startOptionAwareGroupDrag({
         api,
         layout: layoutRef.current,
         groupId: action.groupId,
         event,
-        releasePointer,
+        releasePointer: session.releasePointer,
         initialPointer: ev,
         isOptionHeld: () => optionHeldRef.current,
         setPreview: setDragCopyPreview,
       })
-      return
-    }
-  }
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-  }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-    if (dragging) {
-      api.endDragGroup()
-      return
-    }
-    api.selectGroup(action.groupId)
-  }
-  const onCancel = () => {
-    cleanup()
-    if (dragging) api.endDragGroup()
-  }
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+    },
+    onUp: () => {
+      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
+        api.endDragGroup()
+        return
+      }
+      api.selectGroup(action.groupId)
+    },
+    onCancel: () => {
+      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
+        api.endDragGroup()
+      }
+    },
+    // No phantom-blur guard here (§4.6 documents it for entity/page presses
+    // only): a window blur cancels a group press even while armed.
+    listenBlur: true,
+  })
   return true
 }
 
@@ -664,8 +657,9 @@ function runResize(
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
+  // Capture up front, before the target-entity validation below — a bail
+  // leaves the capture held until the implicit release on pointerup.
+  capturePointer(event)
   const layout = layoutRef.current
   const entity = layout.entities.find((e) => e.id === action.entityId)
   if (!entity) return false
@@ -699,7 +693,7 @@ function runResize(
             width: patch.width,
             height: patch.height,
           }
-          api.updateDrawingEntity(action.entityId, {
+          api.updateEntity('drawing', action.entityId, {
             ...patch,
             strokes: scaleStrokesToBounds(initialStrokes, initialBounds, nextBounds),
           })
@@ -711,7 +705,7 @@ function runResize(
   // ResizeObserver overwrites any width/height we'd dispatch. Flip to
   // 'fixed' first so the upcoming width/height patches stick.
   if (entity.kind === 'text' && entity.widthMode === 'auto') {
-    api.updateTextEntity(action.entityId, { widthMode: 'fixed' })
+    api.updateEntity('text', action.entityId, { widthMode: 'fixed' })
   }
 
   // Enter resize mode in main BEFORE the first dispatchPatch. The bounds-update
@@ -723,37 +717,24 @@ function runResize(
 
   let lastX = event.screenX
   let lastY = event.screenY
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-    api.endResize()
-  }
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const screenDx = ev.screenX - lastX
-    const screenDy = ev.screenY - lastY
-    lastX = ev.screenX
-    lastY = ev.screenY
-    const patch = applyHandleDelta(
-      acc,
-      action.handle,
-      { screenDx, screenDy, zoom, shiftKey: ev.shiftKey },
-      config,
-    )
-    effectiveDispatch(patch)
-  }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-  }
-  const onCancel = () => cleanup()
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+  startPointerSession(event, {
+    onMove: (ev) => {
+      const screenDx = ev.screenX - lastX
+      const screenDy = ev.screenY - lastY
+      lastX = ev.screenX
+      lastY = ev.screenY
+      const patch = applyHandleDelta(
+        acc,
+        action.handle,
+        { screenDx, screenDy, zoom, shiftKey: ev.shiftKey },
+        config,
+      )
+      effectiveDispatch(patch)
+    },
+    onUp: () => api.endResize(),
+    onCancel: () => api.endResize(),
+    listenBlur: true,
+  })
   return true
 }
 
@@ -763,8 +744,9 @@ function runMultiResize(
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
+  // Capture up front, before the selection-bbox validation below — a bail
+  // leaves the capture held until the implicit release on pointerup.
+  capturePointer(event)
   const layout = layoutRef.current
   const seed = computeMultiSelectionBbox(layout.entities, layout.selectedEntityIds)
   if (!seed) return false
@@ -779,32 +761,19 @@ function runMultiResize(
 
   let lastX = event.screenX
   let lastY = event.screenY
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-    api.endMultiResize()
-  }
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const screenDx = ev.screenX - lastX
-    const screenDy = ev.screenY - lastY
-    lastX = ev.screenX
-    lastY = ev.screenY
-    const entries = applyMultiHandleDelta(acc, action.handle, { screenDx, screenDy, zoom })
-    api.resizeMultiSelection(entries)
-  }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-  }
-  const onCancel = () => cleanup()
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+  startPointerSession(event, {
+    onMove: (ev) => {
+      const screenDx = ev.screenX - lastX
+      const screenDy = ev.screenY - lastY
+      lastX = ev.screenX
+      lastY = ev.screenY
+      const entries = applyMultiHandleDelta(acc, action.handle, { screenDx, screenDy, zoom })
+      api.resizeMultiSelection(entries)
+    },
+    onUp: () => api.endMultiResize(),
+    onCancel: () => api.endMultiResize(),
+    listenBlur: true,
+  })
   return true
 }
 
@@ -815,10 +784,8 @@ function runEdgeDrag(
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
   setEdgeDragState: (state: EdgeDragState) => void,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
   const layout = layoutRef.current
-  const windowY = event.clientY + layout.canvasOrigin.y
+  const windowY = clientYToWindowY(event.clientY, layout)
   const entityMap = new Map<string, CanvasSceneEntity>()
   for (const e of layout.entities) entityMap.set(e.id, e)
   let state = beginEdgeDragState(
@@ -833,40 +800,12 @@ function runEdgeDrag(
 
   // Tell main about the gesture begin so its interaction-controller is in
   // the right mode — this is what `EdgeLayer.tsx` used to call.
-  const dragOriginEntityId =
-    state.kind === 'edit' ? state.fixedEntityId : action.entityId
-  const dragOriginSide =
-    state.kind === 'edit' ? state.fixedSide : (action.side as EdgeSide)
-  api.beginEdgeDrag(dragOriginEntityId, dragOriginSide)
+  const origin = edgeDragOrigin(state)
+  if (origin) api.beginEdgeDrag(origin.entityId, origin.side)
 
   let lastSnap: string | null = null
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const cur = layoutRef.current
-    const snapMap = new Map<string, CanvasSceneEntity>()
-    for (const e of cur.entities) snapMap.set(e.id, e)
-    const winY = ev.clientY + cur.canvasOrigin.y
-    state = updateEdgeDragCursor(state, ev.clientX, winY, snapMap, cur.zoom ?? 1)
-    setEdgeDragState(state)
-    const snapKey = state.kind !== 'idle' && state.snap
-      ? `${state.snap.entityId}:${state.snap.side}`
-      : null
-    if (snapKey !== lastSnap) {
-      lastSnap = snapKey
-      const target =
-        state.kind !== 'idle' && state.snap
-          ? { entityId: state.snap.entityId, side: state.snap.side }
-          : null
-      api.updateEdgeDragTarget(target?.entityId ?? null, target?.side ?? null)
-    }
-  }
 
   const finish = (mode: 'commit' | 'cancel') => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
     const outcome =
       mode === 'commit' ? commitEdgeDragState(state) : cancelEdgeDragState(state)
     switch (outcome.kind) {
@@ -897,15 +836,30 @@ function runEdgeDrag(
     setEdgeDragState(EDGE_DRAG_IDLE)
   }
 
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    finish('commit')
-  }
-  const onCancel = () => finish('cancel')
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+  startPointerSession(event, {
+    onMove: (ev) => {
+      const cur = layoutRef.current
+      const snapMap = new Map<string, CanvasSceneEntity>()
+      for (const e of cur.entities) snapMap.set(e.id, e)
+      const winY = clientYToWindowY(ev.clientY, cur)
+      state = updateEdgeDragCursor(state, ev.clientX, winY, snapMap, cur.zoom ?? 1)
+      setEdgeDragState(state)
+      const snapKey = state.kind !== 'idle' && state.snap
+        ? `${state.snap.entityId}:${state.snap.side}`
+        : null
+      if (snapKey !== lastSnap) {
+        lastSnap = snapKey
+        const target =
+          state.kind !== 'idle' && state.snap
+            ? { entityId: state.snap.entityId, side: state.snap.side }
+            : null
+        api.updateEdgeDragTarget(target?.entityId ?? null, target?.side ?? null)
+      }
+    },
+    onUp: () => finish('commit'),
+    onCancel: () => finish('cancel'),
+    listenBlur: true,
+  })
   return true
 }
 
@@ -919,80 +873,65 @@ function runBackgroundSelectionGesture(
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
   let dragged = false
 
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-  }
-
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    if (!dragged) {
-      const dx = ev.clientX - startClientX
-      const dy = ev.clientY - startClientY
-      if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
-      dragged = true
-    }
-    const layout = layoutRef.current
-    const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
-    const windowRect = {
-      left: rect.left,
-      top: rect.top + layout.canvasOrigin.y,
-      width: rect.width,
-      height: rect.height,
-    }
-    const entityIds = entitiesOverlappingRect(layout.entities, windowRect)
-    api.setSelectionOverlayRect({
-      rect: {
-        ...rect,
-        top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
-      },
-      variant: 'default',
-      entityIds,
-    })
-  }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-    api.setSelectionOverlayRect(null)
-    const layout = layoutRef.current
-    // Clicking the dimmed canvas exits focus presentation (camera is otherwise
-    // locked; escape and the popup button are the other exits).
-    if (!dragged && focusContext(layout).active) {
-      api.restoreFocusCamera()
-      return
-    }
-    const modifiers: SelectionModifiers = {
-      shift: ev.shiftKey,
-      meta: ev.metaKey,
-      ctrl: ev.ctrlKey,
-    }
-    if (!dragged) {
-      api.canvasDeselect(modifiers)
-      return
-    }
-    const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
-    if (rect.width < 4 || rect.height < 4) {
-      api.canvasDeselect(modifiers)
-      return
-    }
-    const windowRect = { ...rect, top: rect.top + layout.canvasOrigin.y }
-    api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout), modifiers)
-  }
-  const onCancel = () => {
-    cleanup()
-    api.setSelectionOverlayRect(null)
-  }
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+  startPointerSession(event, {
+    onMove: (ev) => {
+      if (!dragged) {
+        const dx = ev.clientX - startClientX
+        const dy = ev.clientY - startClientY
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
+        dragged = true
+      }
+      const layout = layoutRef.current
+      const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
+      const windowRect = {
+        left: rect.left,
+        top: rect.top + layout.canvasOrigin.y,
+        width: rect.width,
+        height: rect.height,
+      }
+      const entityIds = entitiesOverlappingRect(layout.entities, windowRect)
+      api.setSelectionOverlayRect({
+        rect: {
+          ...rect,
+          top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
+        },
+        variant: 'default',
+        entityIds,
+      })
+    },
+    onUp: (ev) => {
+      api.setSelectionOverlayRect(null)
+      const layout = layoutRef.current
+      // Clicking the dimmed canvas exits focus presentation (camera is otherwise
+      // locked; escape and the popup button are the other exits).
+      if (!dragged && focusContext(layout).active) {
+        api.restoreFocusCamera()
+        return
+      }
+      const modifiers: SelectionModifiers = {
+        shift: ev.shiftKey,
+        meta: ev.metaKey,
+        ctrl: ev.ctrlKey,
+      }
+      if (!dragged) {
+        api.canvasDeselect(modifiers)
+        return
+      }
+      const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
+      if (rect.width < 4 || rect.height < 4) {
+        api.canvasDeselect(modifiers)
+        return
+      }
+      const windowRect = { ...rect, top: rect.top + layout.canvasOrigin.y }
+      api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout), modifiers)
+    },
+    onCancel: () => {
+      api.setSelectionOverlayRect(null)
+    },
+    listenBlur: true,
+  })
   return true
 }
 
@@ -1002,11 +941,9 @@ function runForwardPointer(
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
   const { entityId, button } = action
   let lastWindowX = event.clientX
-  let lastWindowY = event.clientY + layoutRef.current.canvasOrigin.y
+  let lastWindowY = clientYToWindowY(event.clientY, layoutRef.current)
   api.forwardPointerToPage(entityId, {
     kind: 'down',
     windowX: lastWindowX,
@@ -1019,36 +956,9 @@ function runForwardPointer(
     metaKey: event.metaKey,
   })
 
-  // Important: do NOT register a window `blur` listener here. Forwarding
-  // `mouseDown` causes the focus-reconciler to move webContents focus to the
-  // target page, which fires `blur` on aboveView. If we treated that as a
-  // cancel, we'd tear down the gesture before `pointerup` arrives — leaving
-  // the page stuck with a phantom mouseDown and the next click looking like
-  // a release+drag rather than a fresh click.
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-  }
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    lastWindowX = ev.clientX
-    lastWindowY = ev.clientY + layoutRef.current.canvasOrigin.y
-    api.forwardPointerToPage(entityId, {
-      kind: 'move',
-      windowX: lastWindowX,
-      windowY: lastWindowY,
-      button,
-      shiftKey: ev.shiftKey,
-      ctrlKey: ev.ctrlKey,
-      altKey: ev.altKey,
-      metaKey: ev.metaKey,
-    })
-  }
   const sendUp = (ev: PointerEvent | null) => {
     const winX = ev ? ev.clientX : lastWindowX
-    const winY = ev ? ev.clientY + layoutRef.current.canvasOrigin.y : lastWindowY
+    const winY = ev ? clientYToWindowY(ev.clientY, layoutRef.current) : lastWindowY
     api.forwardPointerToPage(entityId, {
       kind: 'up',
       windowX: winX,
@@ -1061,54 +971,50 @@ function runForwardPointer(
       metaKey: ev?.metaKey ?? false,
     })
   }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-    sendUp(ev)
-  }
-  const onCancel = () => {
-    cleanup()
+  // Important: no `listenBlur` here. Forwarding `mouseDown` causes the
+  // focus-reconciler to move webContents focus to the target page, which
+  // fires `blur` on aboveView. If we treated that as a cancel, we'd tear
+  // down the gesture before `pointerup` arrives — leaving the page stuck
+  // with a phantom mouseDown and the next click looking like a
+  // release+drag rather than a fresh click.
+  startPointerSession(event, {
+    onMove: (ev) => {
+      lastWindowX = ev.clientX
+      lastWindowY = clientYToWindowY(ev.clientY, layoutRef.current)
+      api.forwardPointerToPage(entityId, {
+        kind: 'move',
+        windowX: lastWindowX,
+        windowY: lastWindowY,
+        button,
+        shiftKey: ev.shiftKey,
+        ctrlKey: ev.ctrlKey,
+        altKey: ev.altKey,
+        metaKey: ev.metaKey,
+      })
+    },
+    onUp: (ev) => sendUp(ev),
     // Always release the page's mouseDown state so a canceled gesture
     // doesn't leak a stuck button.
-    sendUp(null)
-  }
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
+    onCancel: () => sendUp(null),
+  })
   return true
 }
 
 function runPan(api: CanvasBgElectronAPI, event: PointerEvent): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
   let lastScreenX = event.screenX
   let lastScreenY = event.screenY
-  const cleanup = () => {
-    releasePointer?.()
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
-  }
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const { deltaX, deltaY } = middleDragDelta(
-      { screenX: lastScreenX, screenY: lastScreenY },
-      ev,
-    )
-    lastScreenX = ev.screenX
-    lastScreenY = ev.screenY
-    if (deltaX !== 0 || deltaY !== 0) api.canvasPan(deltaX, deltaY)
-  }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-  }
-  const onCancel = () => cleanup()
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+  startPointerSession(event, {
+    onMove: (ev) => {
+      const { deltaX, deltaY } = middleDragDelta(
+        { screenX: lastScreenX, screenY: lastScreenY },
+        ev,
+      )
+      lastScreenX = ev.screenX
+      lastScreenY = ev.screenY
+      if (deltaX !== 0 || deltaY !== 0) api.canvasPan(deltaX, deltaY)
+    },
+    listenBlur: true,
+  })
   return true
 }
 
@@ -1119,9 +1025,6 @@ function runReorderDrag(
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
   setReorderGhost: (ghost: ReorderGhostOffset) => void,
 ): boolean {
-  const pointerId = event.pointerId
-  const releasePointer = capturePointer(event)
-
   // Freeze the grab point so the ghost can float at original-pos + (live -
   // grab) — the grab offset is preserved, keeping the centre dot under the
   // pointer. Canvas-space so it survives pan/zoom mid-drag (it shouldn't, but
@@ -1129,7 +1032,7 @@ function runReorderDrag(
   const startLayout = layoutRef.current
   const grab = screenPointToCanvasPoint(
     event.clientX,
-    event.clientY + startLayout.canvasOrigin.y,
+    clientYToWindowY(event.clientY, startLayout),
     startLayout,
   )
 
@@ -1141,70 +1044,210 @@ function runReorderDrag(
   // Lift the item the instant it's grabbed (50% ghost in place), before any move.
   setReorderGhost({ dx: 0, dy: 0 })
 
-  const cleanup = () => {
-    releasePointer?.()
-    setReorderGhost(null)
-    window.removeEventListener('pointermove', onMove)
-    window.removeEventListener('pointerup', onUp)
-    window.removeEventListener('pointercancel', onCancel)
-    window.removeEventListener('blur', onCancel)
+  startPointerSession(event, {
+    onMove: (ev) => {
+      const layout = layoutRef.current
+      const point = screenPointToCanvasPoint(
+        ev.clientX,
+        clientYToWindowY(ev.clientY, layout),
+        layout,
+      )
+      api.reorderDragMove(point.x, point.y)
+      setReorderGhost({ dx: point.x - grab.x, dy: point.y - grab.y })
+    },
+    onUp: () => {
+      setReorderGhost(null)
+      api.reorderDragCommit()
+    },
+    onCancel: () => {
+      setReorderGhost(null)
+      api.reorderDragCancel('blur')
+    },
+    listenBlur: true,
+  })
+  return true
+}
+
+const MIN_SHAPE_DRAG_SIZE = 24
+
+function overlayRectFromScreenRect(
+  rect: { left: number; top: number; width: number; height: number },
+  layout: LayoutUpdateData,
+) {
+  return {
+    ...rect,
+    top: rect.top - layout.canvasOrigin.y,
   }
-  const onMove = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    const layout = layoutRef.current
-    const point = screenPointToCanvasPoint(ev.clientX, ev.clientY + layout.canvasOrigin.y, layout)
-    api.reorderDragMove(point.x, point.y)
-    setReorderGhost({ dx: point.x - grab.x, dy: point.y - grab.y })
+}
+
+/**
+ * Placement-tool gesture. A click places the pending entity at the press
+ * point; a shape placement dragged past `MIN_SHAPE_DRAG_SIZE` sizes the shape
+ * to the drag rect instead (shift constrains it square), previewed live via
+ * the 'place-shape' selection overlay.
+ */
+function runPlacementGesture(
+  action: Extract<CanvasPointerAction, { kind: 'begin-placement' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+): boolean {
+  const layout = layoutRef.current
+  const startCanvas = screenPointToCanvasPoint(
+    event.clientX,
+    clientYToWindowY(event.clientY, layout),
+    layout,
+  )
+
+  const updateShapePreview = (ev: PointerEvent) => {
+    const current = layoutRef.current
+    const endCanvas = screenPointToCanvasPoint(
+      ev.clientX,
+      clientYToWindowY(ev.clientY, current),
+      current,
+    )
+    const square = squareConstrainedRect(
+      startCanvas.x,
+      startCanvas.y,
+      endCanvas.x,
+      endCanvas.y,
+      ev.shiftKey,
+    )
+    const minCanvasX = snapToGrid(square.left)
+    const minCanvasY = snapToGrid(square.top)
+    const snappedW = snapToGrid(square.width)
+    const snappedH = snapToGrid(square.height)
+    const screenRect = {
+      left: canvasToScreenX(current, minCanvasX),
+      top: canvasToScreenY(current, minCanvasY),
+      width: snappedW * current.zoom,
+      height: snappedH * current.zoom,
+    }
+    api.setSelectionOverlayRect({
+      rect: overlayRectFromScreenRect(screenRect, current),
+      variant: 'place-shape',
+      shapeKind: current.pendingPlacement?.shapeKind ?? 'rectangle',
+    })
   }
-  const onUp = (ev: PointerEvent) => {
-    if (ev.pointerId !== pointerId) return
-    cleanup()
-    api.reorderDragCommit()
-  }
-  const onCancel = () => {
-    cleanup()
-    api.reorderDragCancel('blur')
-  }
-  window.addEventListener('pointermove', onMove)
-  window.addEventListener('pointerup', onUp)
-  window.addEventListener('pointercancel', onCancel)
-  window.addEventListener('blur', onCancel)
+
+  startPointerSession(event, {
+    onMove: (ev) => {
+      if (action.entityKind === 'shape') updateShapePreview(ev)
+    },
+    onUp: (ev) => {
+      if (action.entityKind === 'shape') {
+        api.setSelectionOverlayRect(null)
+        const current = layoutRef.current
+        const endCanvas = screenPointToCanvasPoint(
+          ev.clientX,
+          clientYToWindowY(ev.clientY, current),
+          current,
+        )
+        const square = squareConstrainedRect(
+          startCanvas.x,
+          startCanvas.y,
+          endCanvas.x,
+          endCanvas.y,
+          ev.shiftKey,
+        )
+        if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
+          api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
+            x: snapToGrid(square.left),
+            y: snapToGrid(square.top),
+            width: snapToGrid(square.width),
+            height: snapToGrid(square.height),
+          })
+        } else {
+          api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
+        }
+        return
+      }
+      api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
+    },
+    onCancel: () => {
+      api.setSelectionOverlayRect(null)
+    },
+    listenBlur: true,
+  })
+  return true
+}
+
+/**
+ * Comment-tool gesture (ADR 0006). Click below threshold → resolve element
+ * under cursor via `inspectAtPoint`; element hit → element anchor; nothing →
+ * canvas-point anchor. Drag past threshold → marquee → region anchor on
+ * pointerup. Threshold matches the rest of the canvas pointer router. Every
+ * move/up consults the live tool so leaving comment mode mid-gesture stops
+ * it dispatching.
+ */
+function runCommentGesture(
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  onDragMove: (startX: number, startY: number, endX: number, endY: number) => void,
+  onDragEnd: (startX: number, startY: number, endX: number, endY: number) => void,
+  draftRef: React.MutableRefObject<CommentDraftSnapshot>,
+): boolean {
+  const startX = event.clientX
+  const startY = event.clientY
+  let crossedThreshold = false
+
+  startPointerSession(event, {
+    onMove: (ev) => {
+      if (layoutRef.current.activeTool.kind !== 'comment') return
+      if (!crossedThreshold) {
+        const dx = ev.clientX - startX
+        const dy = ev.clientY - startY
+        if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+          return
+        }
+        crossedThreshold = true
+      }
+      onDragMove(startX, startY, ev.clientX, ev.clientY)
+    },
+    onUp: (ev) => {
+      const current = layoutRef.current
+      if (current.activeTool.kind !== 'comment') return
+      if (crossedThreshold) {
+        // Drag past threshold → region anchor.
+        onDragEnd(startX, startY, ev.clientX, ev.clientY)
+        return
+      }
+      // Click below threshold → element anchor if a page DOM element sits
+      // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
+      api.setSelectionOverlayRect(null)
+      const draft = draftRef.current
+      const hasEmptyDraft =
+        Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
+        !draft.commentText.trim()
+      if (hasEmptyDraft) {
+        // Empty composer open → click-away dismisses it without creating
+        // a new draft; comment mode stays active.
+        draft.clearDraft()
+        return
+      }
+      api.commitCommentClickAt(ev.clientX, clientYToWindowY(ev.clientY, current))
+    },
+    onCancel: () => {
+      api.setSelectionOverlayRect(null)
+    },
+    listenBlur: true,
+  })
   return true
 }
 
 // --- Per-kind helpers ---
 
 function resizeConfigForEntity(entity: CanvasSceneEntity): ResizeConfig {
-  switch (entity.kind) {
-    case 'page':
-      return { minWidth: 320, minHeight: 200, aspectRatioResizeMode: 'off' }
-    case 'group':
-      return {
-        minWidth: MIN_GROUP_WIDTH,
-        minHeight: MIN_GROUP_HEIGHT,
-        aspectRatioResizeMode: 'off',
-      }
-    case 'text':
-      return {
-        minWidth: MIN_TEXT_WIDTH,
-        minHeight: MIN_TEXT_HEIGHT,
-        aspectRatioResizeMode: 'off',
-      }
-    case 'file': {
-      const aspect: AspectRatioResizeMode =
-        'file' in entity && typeof entity.file === 'string'
-          ? aspectRatioResizeModeForCanvasFile(entity.file)
-          : 'off'
-      return { minWidth: MIN_FILE_WIDTH, minHeight: MIN_FILE_HEIGHT, aspectRatioResizeMode: aspect }
-    }
-    case 'shape':
-      return {
-        minWidth: MIN_SHAPE_WIDTH,
-        minHeight: MIN_SHAPE_HEIGHT,
-        aspectRatioResizeMode: 'shift-locks',
-      }
-    case 'drawing':
-      return { minWidth: 16, minHeight: 16, aspectRatioResizeMode: 'off' }
+  const caps = ENTITY_KIND_CAPS[entity.kind]
+  const aspectRatioResizeMode: AspectRatioResizeMode =
+    entity.kind === 'file' && 'file' in entity && typeof entity.file === 'string'
+      ? aspectRatioResizeModeForCanvasFile(entity.file)
+      : caps.aspectMode
+  return {
+    minWidth: caps.minSize.width,
+    minHeight: caps.minSize.height,
+    aspectRatioResizeMode,
   }
 }
 
@@ -1217,15 +1260,15 @@ function patchDispatcherForKind(
     case 'page':
       return (patch) => api.updatePageBounds(id, patch)
     case 'group':
-      return (patch) => api.updateGroupEntity(id, patch)
+      return (patch) => api.updateEntity('group', id, patch)
     case 'text':
-      return (patch) => api.updateTextEntity(id, patch)
+      return (patch) => api.updateEntity('text', id, patch)
     case 'file':
-      return (patch) => api.updateFileEntity(id, patch)
+      return (patch) => api.updateEntity('file', id, patch)
     case 'shape':
-      return (patch) => api.updateShapeEntity(id, patch)
+      return (patch) => api.updateEntity('shape', id, patch)
     case 'drawing':
-      return (patch) => api.updateDrawingEntity(id, patch)
+      return (patch) => api.updateEntity('drawing', id, patch)
     default:
       return null
   }

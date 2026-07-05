@@ -15,6 +15,7 @@
  * alongside `reconcileFocus()`.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import { findPageById } from './runtime-context'
 import { currentKeyboardTargetPageId } from './selection-controller'
 import { aboveView } from './view-refs'
@@ -44,7 +45,7 @@ function attach(pageId: string): void {
   if (!page || page.pageView.webContents.isDestroyed()) return
   const listener: CursorChangeEvent = (_event, type) => {
     if (!aboveView || aboveView.webContents.isDestroyed()) return
-    safeSend(aboveView.webContents, 'aboveview-cursor-update', { type })
+    safeSend(aboveView.webContents, ipcChannels.aboveviewCursorUpdate, { type })
   }
   page.pageView.webContents.on('cursor-changed', listener)
   attachedPageId = pageId
@@ -53,7 +54,7 @@ function attach(pageId: string): void {
 
 function reset(): void {
   if (!aboveView || aboveView.webContents.isDestroyed()) return
-  safeSend(aboveView.webContents, 'aboveview-cursor-update', { type: null })
+  safeSend(aboveView.webContents, ipcChannels.aboveviewCursorUpdate, { type: null })
 }
 
 export function reconcilePageCursorBridge(): void {

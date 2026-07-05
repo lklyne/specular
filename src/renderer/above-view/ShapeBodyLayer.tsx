@@ -12,42 +12,13 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity } from '../../shared/types'
 import { lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
+import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 
 const DEFAULT_STROKE_WIDTH = 2
 /** ADR 0013 §2 — shapes without textSize render their label at this size. */
 const DEFAULT_TEXT_SIZE = 14
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
-
-/**
- * Wraps the shape cards in a viewport transform so they live in
- * canvas-coordinate space. AboveView's WCV origin already sits at
- * `canvasOrigin.y` (the toolbar inset), so the translate omits that axis
- * — only `canvasOrigin.x` and `pan` apply. Matches `StickyViewportLayer`.
- */
-function ShapeViewportLayer({
-  canvasOrigin,
-  pan,
-  zoom,
-  children,
-}: {
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      className="pointer-events-none absolute left-0 top-0 origin-top-left"
-      style={{
-        ['--canvas-zoom' as string]: zoom,
-        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
 
 function ShapeText({
   text,
@@ -300,43 +271,6 @@ const MemoShapeBody = memo(ShapeBody, (a, b) => {
   )
 })
 
-function ShapeShell({
-  id,
-  canvasX,
-  canvasY,
-  width,
-  height,
-  children,
-}: {
-  id: string
-  canvasX: number
-  canvasY: number
-  width: number
-  height: number
-  children: React.ReactNode
-}) {
-  // Shapes have no card background or shadow (transparent). The body
-  // children paint the rectangle/ellipse/diamond fill themselves.
-  return (
-    <div
-      data-entity-id={id}
-      className="absolute pointer-events-auto"
-      style={{
-        left: canvasX,
-        top: canvasY,
-        width,
-        height,
-        background: 'transparent',
-        overflow: 'visible',
-        cursor: 'default',
-        touchAction: 'none',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
 function ShapeCard({
   shape,
   isDark,
@@ -352,13 +286,19 @@ function ShapeCard({
   onUpdateText: (id: string, text: string) => void
   onCommitEdit: () => void
 }) {
+  // Shapes have no card background or shadow (transparent). The body
+  // children paint the rectangle/ellipse/diamond fill themselves.
   return (
-    <ShapeShell
+    <EntityShell
       id={shape.id}
       canvasX={shape.canvasX}
       canvasY={shape.canvasY}
-      width={shape.width}
-      height={shape.height}
+      style={{
+        width: shape.width,
+        height: shape.height,
+        background: 'transparent',
+        overflow: 'visible',
+      }}
     >
       <MemoShapeBody
         shape={shape}
@@ -368,7 +308,7 @@ function ShapeCard({
         onCommitText={(text) => onUpdateText(shape.id, text)}
         onCommitEdit={onCommitEdit}
       />
-    </ShapeShell>
+    </EntityShell>
   )
 }
 
@@ -397,7 +337,7 @@ export function ShapeBodyLayer({
 }) {
   if (!entities.length) return null
   return (
-    <ShapeViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
       {entities.map((shape) => (
         <ShapeCard
           key={shape.id}
@@ -409,6 +349,6 @@ export function ShapeBodyLayer({
           onCommitEdit={onCommitEdit}
         />
       ))}
-    </ShapeViewportLayer>
+    </CanvasViewportLayer>
   )
 }

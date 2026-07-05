@@ -8,11 +8,11 @@ import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import type {
-  CursorMotionParams,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
 } from '../../shared/types'
+import { ipcChannels } from '../../shared/ipc-contract'
 import {
   DEFAULT_TOOL_DEFAULTS,
   normalizeToolDefaults,
@@ -20,28 +20,15 @@ import {
 } from '../../shared/tool-defaults'
 import type { LegacyOriginBindings } from './dev-server-manager'
 import {
-  DEFAULT_CURSOR_MOTION,
-  normalizeCursorMotion,
-} from '../../shared/cursor-motion'
-import {
   DEFAULT_CURSOR_TUNING,
   normalizeCursorTuning,
   type CursorTuningParams,
 } from '../../shared/cursor-tuning'
-import { getDebugWebContents } from '../debug-window'
-import { getSettingsWebContents } from '../settings-window'
 import {
-  bgView,
-  aboveView,
-
   devtoolsBackgroundView,
-  devtoolsHeaderView,
-  devtoolsResizeHandleView,
-  leftSidebarView,
-
-  toolbarView,
   win,
 } from './view-refs'
+import { broadcast } from './view-broadcast'
 import {
   hoverTarget,
   pages,
@@ -74,13 +61,11 @@ type PreferencesFile = {
   fixConfig?: Omit<FixConfig, 'configured'>
   toolDefaults?: ToolDefaults
   debug?: {
-    cursorMotion?: CursorMotionParams
     cursorSplineViz?: boolean
     cursorTuning?: CursorTuningParams
   }
 }
 
-let currentCursorMotion: CursorMotionParams = DEFAULT_CURSOR_MOTION
 let currentCursorSplineViz = false
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
@@ -159,7 +144,6 @@ export function loadPreferences(): void {
   if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
   }
-  currentCursorMotion = normalizeCursorMotion(parsed.debug?.cursorMotion)
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
@@ -175,10 +159,6 @@ export function saveToolDefaults(next: ToolDefaults): void {
   writePreferencesFile({ ...parsed, toolDefaults: currentToolDefaults })
 }
 
-export function getCursorMotion(): CursorMotionParams {
-  return currentCursorMotion
-}
-
 export function getCursorSplineViz(): boolean {
   return currentCursorSplineViz
 }
@@ -189,15 +169,6 @@ export function saveCursorSplineViz(next: boolean): void {
   writePreferencesFile({
     ...parsed,
     debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
-  })
-}
-
-export function saveCursorMotion(next: CursorMotionParams): void {
-  currentCursorMotion = normalizeCursorMotion(next)
-  const parsed = readPreferencesFile()
-  writePreferencesFile({
-    ...parsed,
-    debug: { ...parsed.debug, cursorMotion: currentCursorMotion },
   })
 }
 
@@ -257,50 +228,16 @@ export function frameColor(): string {
 
 export function broadcastTheme(): void {
   if (win) win.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
-  const data = { isDark: isDark() }
-  if (bgView) bgView.webContents.send('theme-changed', data)
-  if (leftSidebarView) leftSidebarView.webContents.send('theme-changed', data)
-  if (toolbarView) toolbarView.webContents.send('theme-changed', data)
-  if (aboveView && !aboveView.webContents.isDestroyed()) {
-    aboveView.webContents.send('theme-changed', data)
-  }
-  if (devtoolsHeaderView)
-    devtoolsHeaderView.webContents.send('theme-changed', data)
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   }
-  if (devtoolsResizeHandleView && !devtoolsResizeHandleView.webContents.isDestroyed()) {
-    devtoolsResizeHandleView.webContents.send('theme-changed', data)
-  }
-  const debugWebContents = getDebugWebContents()
-  if (debugWebContents && !debugWebContents.isDestroyed()) {
-    debugWebContents.send('theme-changed', data)
-  }
-  const settingsWebContents = getSettingsWebContents()
-  if (settingsWebContents && !settingsWebContents.isDestroyed()) {
-    settingsWebContents.send('theme-changed', data)
-  }
+  broadcast(ipcChannels.themeChanged, { isDark: isDark() })
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())
   }
 }
 
-function broadcastToDebugTargets(channel: string, payload: unknown): void {
-  const targets = [
-    bgView?.webContents,
-    aboveView?.webContents,
-    getDebugWebContents(),
-  ]
-  for (const wc of targets) {
-    if (wc && !wc.isDestroyed()) wc.send(channel, payload)
-  }
-}
-
-export function broadcastCursorMotion(): void {
-  broadcastToDebugTargets('cursor-motion-changed', currentCursorMotion)
-}
-
 export function broadcastCursorSplineViz(): void {
-  broadcastToDebugTargets('cursor-spline-viz-changed', currentCursorSplineViz)
+  broadcast(ipcChannels.cursorSplineVizChanged, currentCursorSplineViz, 'debug')
 }

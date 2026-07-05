@@ -11,11 +11,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  AnnotationBboxSubscription,
-  CanvasBgElectronAPI,
-  DevtoolsPanelDomRect,
-} from '../../shared/types'
+import type { AnnotationBboxSubscription, DevtoolsPanelDomRect } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 
 type SubscriptionApi = Pick<
   CanvasBgElectronAPI,

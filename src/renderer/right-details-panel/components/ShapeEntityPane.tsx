@@ -59,7 +59,7 @@ export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntity
               key={kind}
               type="button"
               className={segmentBtn(shapeEntity.shapeKind === kind)}
-              onClick={() => rightDetailsPanelApi.updateShapeEntity(shapeEntity.id, { shapeKind: kind })}
+              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { shapeKind: kind })}
               title={label}
             >
               <Icon size={12} />
@@ -76,7 +76,7 @@ export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntity
           isDark={isDark}
           allowNone
           palette="soft"
-          onSelectColor={(color) => rightDetailsPanelApi.updateShapeEntity(shapeEntity.id, { color })}
+          onSelectColor={(color) => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { color })}
         />
       </PaneSection.Root>
 
@@ -88,7 +88,7 @@ export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntity
               key={value}
               type="button"
               className={segmentBtn(currentStroke === value)}
-              onClick={() => rightDetailsPanelApi.updateShapeEntity(shapeEntity.id, { strokeWidth: value })}
+              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { strokeWidth: value })}
             >
               <span>{value}</span>
             </button>

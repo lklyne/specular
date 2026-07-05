@@ -17,6 +17,7 @@ import type {
 } from '../../shared/types'
 import { CUSTOM_SHELL_INSETS, shellInsetsForDevice } from '../../shared/device-catalog'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 import {
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
@@ -78,16 +79,10 @@ export function createFileEntity(input: {
 export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id'>>): FileEntity | null {
   const entity = fileEntities.find((e) => e.id === id)
   if (!entity) return null
-  if (patch.file !== undefined) entity.file = patch.file
-  if (patch.subpath !== undefined) entity.subpath = patch.subpath
-  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
-  if (patch.width !== undefined) entity.width = patch.width
-  if (patch.height !== undefined) entity.height = patch.height
-  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
-  if (patch.objectFit !== undefined) entity.objectFit = patch.objectFit
-  if (patch.presetIndex !== undefined) entity.presetIndex = patch.presetIndex
-  if (patch.metadata !== undefined) entity.metadata = patch.metadata
+  applyPatch(entity, patch, [
+    'file', 'subpath', 'canvasX', 'canvasY', 'width', 'height',
+    'parentGroupId', 'objectFit', 'presetIndex', 'metadata',
+  ])
   markDirty('canvas', 'sidebar')
   return entity
 }
@@ -211,6 +206,31 @@ function inferRepoRoot(filePath: string): string | undefined {
   }
   return undefined
 }
+
+/**
+ * Every key `persistFileEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedFileEntity`; the persisted-fields
+ * drift test keeps `persistFileEntity` on it.
+ */
+const FILE_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  file: true,
+  subpath: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  objectFit: true,
+  presetIndex: true,
+  metadata: true,
+} as const satisfies Record<keyof PersistedFileEntity, true>
+
+export const FILE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  FILE_ENTITY_PERSISTED_FIELD_SET,
+)
 
 export function persistFileEntity(entity: FileEntity): PersistedFileEntity {
   return {

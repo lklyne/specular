@@ -12,7 +12,6 @@ import type {
   CursorTuningParams,
   EasingPreset,
   EasingSpec,
-  PresenceDebugEntry,
 } from '../../shared/types'
 import {
   DEFAULT_TRAIL_PARAMS,
@@ -20,7 +19,6 @@ import {
   type TrailFadeEasing,
   type TrailParticleParams,
 } from './PresencePlayground'
-import { PresenceTimelinePanel } from './PresenceTimelinePanel'
 
 const EASING_PRESETS: EasingPreset[] = [
   'linear',
@@ -37,16 +35,12 @@ export function PresenceSection({
   tuning,
   onTuningChange,
   onTuningReset,
-  initialTimeline,
-  subscribeTimeline,
 }: {
   splineViz: boolean
   onSplineVizChange: (on: boolean) => void
   tuning: CursorTuningParams
   onTuningChange: (next: CursorTuningParams) => void
   onTuningReset: () => void
-  initialTimeline: PresenceDebugEntry[]
-  subscribeTimeline: (cb: (entry: PresenceDebugEntry) => void) => () => void
 }) {
   const [trail, setTrail] = useState<TrailParticleParams>(DEFAULT_TRAIL_PARAMS)
 
@@ -55,12 +49,6 @@ export function PresenceSection({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <PresencePlayground tuning={tuning} trail={trail} />
-        </div>
-        <div className="flex h-[45%] min-h-[160px] shrink-0 flex-col">
-          <PresenceTimelinePanel
-            initialEntries={initialTimeline}
-            subscribe={subscribeTimeline}
-          />
         </div>
       </div>
       <div className="w-80 shrink-0 overflow-y-auto border-l border-[var(--surface-popover-border)]">

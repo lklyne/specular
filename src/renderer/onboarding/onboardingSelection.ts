@@ -1,14 +1,9 @@
 import type {
   OnboardingComponentId,
-  OnboardingComponentStatus,
   OnboardingStatusSnapshot,
 } from '../../shared/types'
 
 const ONBOARDING_COMPONENT_IDS: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
-
-export function defaultSelected(_status: OnboardingComponentStatus): boolean {
-  return true
-}
 
 export function installableSelections(
   status: OnboardingStatusSnapshot,

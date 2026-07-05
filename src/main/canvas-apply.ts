@@ -22,13 +22,13 @@ import type { CanvasEntityKind, CreateEdgesRequest } from '../shared/types'
 import { getEntityKind, hasEntityKind } from './entities/contract'
 import { claimsAsNote } from './entities/builtin/file'
 import { entityKindById } from './workspace-entities'
-import { createEdges } from './workspace-edges'
-import { deleteEdge } from './runtime/document-commands'
+import { createEdges, edgeExists } from './workspace-edges'
+import { deleteEdge, updateEdge } from './runtime/document-commands'
 import { commitAsOneTransaction } from './runtime/workspace-observers'
 
 export interface CanvasPatch {
   entities?: Array<Record<string, unknown>>
-  edges?: CreateEdgesRequest['edges']
+  edges?: Array<Record<string, unknown> & { id?: string }>
   delete?: string[]
 }
 
@@ -98,9 +98,24 @@ export function applyCanvasPatch(patch: CanvasPatch): CanvasApplyResult {
       }
     }
 
-    if (patch.edges?.length) {
-      edgeIds = createEdges({ edges: patch.edges }).edgeIds
+    // Edges follow the same upsert contract as entities: an id that
+    // resolves to an existing edge patches it in place; anything else
+    // (no id, or an id the doc doesn't know) creates.
+    const edgeCreates: CreateEdgesRequest['edges'] = []
+    const edgeUpdateIds: string[] = []
+    for (const item of patch.edges ?? []) {
+      const id = typeof item.id === 'string' ? item.id : undefined
+      if (id && edgeExists(id)) {
+        updateEdge(id, item as Parameters<typeof updateEdge>[1])
+        edgeUpdateIds.push(id)
+      } else {
+        edgeCreates.push(item as CreateEdgesRequest['edges'][number])
+      }
     }
+    if (edgeCreates.length) {
+      edgeIds = createEdges({ edges: edgeCreates }).edgeIds
+    }
+    edgeIds = edgeIds.concat(edgeUpdateIds)
 
     for (const id of patch.delete ?? []) {
       // Kind is resolved from the doc, never an id prefix. An id the doc

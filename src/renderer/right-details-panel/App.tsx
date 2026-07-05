@@ -1,5 +1,4 @@
 import type { ThemeData } from '../../shared/types'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { PaneProvider } from './PaneContext'
@@ -84,7 +83,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
         ) : null
 
       case 'drawing':
-        return DRAWING_FEATURE_ENABLED && panelData.drawingEntity ? (
+        return panelData.drawingEntity ? (
           <DrawingEntityPane drawingEntity={panelData.drawingEntity} />
         ) : null
 

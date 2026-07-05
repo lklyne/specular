@@ -29,9 +29,8 @@ import {
   textEntities,
 } from './text-entity-state'
 import { createNoteFile, readNoteFile } from './note-assets'
+import { mutateWorkspace } from './mutate-workspace'
 import { selectEntity } from './ui-actions'
-import { requestLayout } from './surface-layout'
-import { scheduleWorkspaceAutosave } from './workspace-session'
 import { pushPendingUndoSideEffect } from './workspace-undo'
 
 export type MorphResult =
@@ -47,32 +46,32 @@ export function morphTextEntityToMarkdownFile(entityId: string): MorphResult {
   const text = textEntities.find((e) => e.id === entityId)
   if (!text) return { kind: 'noop', reason: 'not-found' }
 
-  const noteName = text.label?.trim() || firstNonEmptyLine(text.text) || 'Untitled Note'
-  const filePath = createNoteFile(noteName, text.text)
+  return mutateWorkspace(() => {
+    const noteName = text.label?.trim() || firstNonEmptyLine(text.text) || 'Untitled Note'
+    const filePath = createNoteFile(noteName, text.text)
 
-  deleteTextEntityInState(entityId)
-  const file = createFileEntityInState({
-    canvasX: text.canvasX,
-    canvasY: text.canvasY,
-    width: text.width,
-    height: text.height,
-    file: filePath,
-    parentGroupId: text.parentGroupId,
+    deleteTextEntityInState(entityId)
+    const file = createFileEntityInState({
+      canvasX: text.canvasX,
+      canvasY: text.canvasY,
+      width: text.width,
+      height: text.height,
+      file: filePath,
+      parentGroupId: text.parentGroupId,
+    })
+
+    pushPendingUndoSideEffect({
+      // Undo restores the text entity through Y.Doc — clean the newly written
+      // file so we don't leave it dangling on disk.
+      undo: () => safeUnlink(filePath),
+      // Redo re-creates the file entity through Y.Doc — make sure the .md
+      // file exists again with the original content.
+      redo: () => safeWrite(filePath, text.text),
+    })
+
+    selectEntity(file.id, 'file')
+    return { kind: 'morphed', newEntityId: file.id }
   })
-
-  pushPendingUndoSideEffect({
-    // Undo restores the text entity through Y.Doc — clean the newly written
-    // file so we don't leave it dangling on disk.
-    undo: () => safeUnlink(filePath),
-    // Redo re-creates the file entity through Y.Doc — make sure the .md
-    // file exists again with the original content.
-    redo: () => safeWrite(filePath, text.text),
-  })
-
-  selectEntity(file.id, 'file')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return { kind: 'morphed', newEntityId: file.id }
 }
 
 /**
@@ -85,38 +84,38 @@ export function morphMarkdownFileToTextEntity(entityId: string): MorphResult {
   if (!file) return { kind: 'noop', reason: 'not-found' }
   if (!MARKDOWN_EXTENSIONS.test(file.file)) return { kind: 'noop', reason: 'wrong-kind' }
 
-  const filePath = file.file
-  const body = readNoteFile(filePath) ?? ''
+  return mutateWorkspace(() => {
+    const filePath = file.file
+    const body = readNoteFile(filePath) ?? ''
 
-  deleteFileEntityInState(entityId)
-  safeUnlink(filePath)
+    deleteFileEntityInState(entityId)
+    safeUnlink(filePath)
 
-  const noteName = stripMarkdownExt(basename(filePath))
-  const text = createTextEntityInState({
-    canvasX: file.canvasX,
-    canvasY: file.canvasY,
-    width: file.width,
-    height: file.height,
-    text: body,
-    textStyle: 'plain',
-    // Preserve the markdown file's existing bounds so the morph doesn't reflow.
-    widthMode: 'fixed',
-    parentGroupId: file.parentGroupId,
-    label: noteName,
+    const noteName = stripMarkdownExt(basename(filePath))
+    const text = createTextEntityInState({
+      canvasX: file.canvasX,
+      canvasY: file.canvasY,
+      width: file.width,
+      height: file.height,
+      text: body,
+      textStyle: 'plain',
+      // Preserve the markdown file's existing bounds so the morph doesn't reflow.
+      widthMode: 'fixed',
+      parentGroupId: file.parentGroupId,
+      label: noteName,
+    })
+
+    pushPendingUndoSideEffect({
+      // Undo restores the file entity — recreate the deleted file with the
+      // captured content so the renderer can read it back.
+      undo: () => safeWrite(filePath, body),
+      // Redo removes the file entity again — drop the file too.
+      redo: () => safeUnlink(filePath),
+    })
+
+    selectEntity(text.id, 'text')
+    return { kind: 'morphed', newEntityId: text.id }
   })
-
-  pushPendingUndoSideEffect({
-    // Undo restores the file entity — recreate the deleted file with the
-    // captured content so the renderer can read it back.
-    undo: () => safeWrite(filePath, body),
-    // Redo removes the file entity again — drop the file too.
-    redo: () => safeUnlink(filePath),
-  })
-
-  selectEntity(text.id, 'text')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return { kind: 'morphed', newEntityId: text.id }
 }
 
 function firstNonEmptyLine(text: string): string {

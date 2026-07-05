@@ -10,14 +10,10 @@ import {
   sendToBack,
   type MovePosition,
 } from '../../shared/entity-order-math'
-import { drawingEntities } from './drawing-entity-state'
-import { fileEntities } from './file-entity-state'
+import { allEntities } from '../entities/contract'
 import { getActiveDoc, DOC_ARRAY_ENTITY_ORDER } from './workspace-doc'
 import { markDirty } from './layout-dirty'
-import { pages } from './runtime-context'
-import { requestLayout } from './viewport-control'
-import { shapeEntities } from './shape-entity-state'
-import { textEntities } from './text-entity-state'
+import { mutateWorkspace } from './mutate-workspace'
 import { selectedEntityIds as uiSelectedEntityIds, selectedGroupId as uiSelectedGroupId } from '../ui-state'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
@@ -27,12 +23,7 @@ export type StackOrderAction = 'bring-forward' | 'send-backward' | 'bring-to-fro
 
 function defaultEntityOrder(): string[] {
   return [
-    ...pages.map((page) => page.id),
-    ...textEntities.map((entity) => entity.id),
-    ...fileEntities.map((entity) => entity.id),
-    ...drawingEntities.map((entity) => entity.id),
-    ...shapeEntities.map((entity) => entity.id),
-    ...workspaceGroups.map((group) => group.id),
+    ...allEntities().map(({ entity }) => entity.id),
     ...workspaceEdges.map((edge) => edge.id),
   ]
 }
@@ -86,41 +77,20 @@ export function writeEntityOrder(nextOrder: readonly string[]): void {
 }
 
 function entityKindById(id: string): EntityKindForOrder | null {
-  if (pages.some((page) => page.id === id)) return 'page'
-  if (textEntities.some((entity) => entity.id === id)) return 'text'
-  if (fileEntities.some((entity) => entity.id === id)) return 'file'
-  if (drawingEntities.some((entity) => entity.id === id)) return 'drawing'
-  if (shapeEntities.some((entity) => entity.id === id)) return 'shape'
-  if (workspaceGroups.some((group) => group.id === id)) return 'group'
+  const found = allEntities().find(({ entity }) => entity.id === id)
+  if (found) return found.kind
   if (workspaceEdges.some((edge) => edge.id === id)) return 'edge'
   return null
 }
 
 function parentGroupIdById(id: string): string | null {
-  const page = pages.find((entity) => entity.id === id)
-  if (page) return page.parentGroupId ?? null
-  const text = textEntities.find((entity) => entity.id === id)
-  if (text) return text.parentGroupId ?? null
-  const file = fileEntities.find((entity) => entity.id === id)
-  if (file) return file.parentGroupId ?? null
-  const drawing = drawingEntities.find((entity) => entity.id === id)
-  if (drawing) return drawing.parentGroupId ?? null
-  const shape = shapeEntities.find((entity) => entity.id === id)
-  if (shape) return shape.parentGroupId ?? null
-  const group = workspaceGroups.find((entity) => entity.id === id)
-  if (group) return group.parentGroupId ?? null
-  return null
+  return allEntities().find(({ entity }) => entity.id === id)?.entity.parentGroupId ?? null
 }
 
 function directChildIds(groupId: string): string[] {
-  return [
-    ...pages.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...textEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...fileEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...drawingEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...shapeEntities.filter((entity) => entity.parentGroupId === groupId).map((entity) => entity.id),
-    ...workspaceGroups.filter((group) => group.parentGroupId === groupId).map((group) => group.id),
-  ]
+  return allEntities()
+    .filter(({ entity }) => entity.parentGroupId === groupId)
+    .map(({ entity }) => entity.id)
 }
 
 function descendantIds(groupId: string): string[] {
@@ -207,11 +177,11 @@ export function reorderStackOrder(action: StackOrderAction, targetId?: string): 
   )
   if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
 
-  writeEntityOrder(nextOrder)
-  markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    writeEntityOrder(nextOrder)
+    markDirty('canvas', 'sidebar')
+    return true
+  })
 }
 
 export function reorderStackOrderIds(action: StackOrderAction, ids: readonly string[]): boolean {
@@ -226,11 +196,11 @@ export function reorderStackOrderIds(action: StackOrderAction, ids: readonly str
   )
   if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
 
-  writeEntityOrder(nextOrder)
-  markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    writeEntityOrder(nextOrder)
+    markDirty('canvas', 'sidebar')
+    return true
+  })
 }
 
 /**
@@ -315,9 +285,9 @@ export function reorderSidebarStackOrder(input: {
   )
   if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
 
-  writeEntityOrder(nextOrder)
-  markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
-  requestLayout()
-  return true
+  return mutateWorkspace(() => {
+    writeEntityOrder(nextOrder)
+    markDirty('canvas', 'sidebar')
+    return true
+  })
 }

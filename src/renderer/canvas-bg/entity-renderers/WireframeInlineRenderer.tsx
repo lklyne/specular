@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { WireframeRenderer } from '../wireframe/WireframeRenderer'
+import { useDebouncedWrite } from '../../shared/useDebouncedWrite'
 import { filePathToSrc, getFileApi } from './filePathToSrc'
 
 export function WireframeInlineRenderer({
@@ -16,7 +17,7 @@ export function WireframeInlineRenderer({
 }) {
   const fileApi = getFileApi()
   const [content, setContent] = useState<string | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debouncedWrite = useDebouncedWrite((json) => fileApi.writeNoteFile(entity.file, json))
 
   const fetchContent = useCallback(() => {
     const src = filePathToSrc(entity.file) + `?t=${Date.now()}`
@@ -46,7 +47,7 @@ export function WireframeInlineRenderer({
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
-      if (debounceRef.current) return
+      if (debouncedWrite.isPending()) return
       fetchContent()
     }
     document.addEventListener('visibilitychange', handleVisibility)
@@ -58,7 +59,7 @@ export function WireframeInlineRenderer({
     const handleExternalChange = (ev: Event) => {
       const detail = (ev as CustomEvent<{ file?: string }>).detail
       if (detail?.file !== entity.file) return
-      if (debounceRef.current) return
+      if (debouncedWrite.isPending()) return
       fetchContent()
     }
     window.addEventListener('wireframe-file-changed', handleExternalChange)
@@ -68,13 +69,9 @@ export function WireframeInlineRenderer({
   const handleChange = useCallback(
     (json: string) => {
       setContent(json)
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => {
-        fileApi.writeNoteFile(entity.file, json)
-        debounceRef.current = null
-      }, 300)
+      debouncedWrite.schedule(json)
     },
-    [entity.file, fileApi],
+    [debouncedWrite],
   )
 
   if (content == null) {

@@ -120,6 +120,38 @@ describe('canvas apply', () => {
     expect(ids).not.toContain(from)
   })
 
+  it('patches an edge in place when the apply patch reuses its id, instead of duplicating it', async () => {
+    // Bug #295: edge items were unconditionally routed to creation, so an
+    // apply patch carrying an existing edge id appended a second record
+    // instead of updating the first.
+    const { created } = applyCanvasPatch({
+      entities: [
+        { kind: 'text', text: 'from', canvasX: 0, canvasY: 0 },
+        { kind: 'text', text: 'to', canvasX: 200, canvasY: 0 },
+      ],
+    })
+    const [from, to] = created
+
+    const linked = applyCanvasPatch({
+      edges: [{ fromEntityId: from, toEntityId: to, kind: 'connection', label: 'v1' }],
+    })
+    const edgeId = linked.edges[0]
+    await settleSync()
+
+    const relabeled = applyCanvasPatch({ edges: [{ id: edgeId, label: 'v2' }] })
+    expect(relabeled.edges).toEqual([edgeId])
+    await settleSync()
+
+    const matching = getCanvas().edges.filter((e) => e.id === edgeId)
+    expect(matching).toHaveLength(1)
+    expect(matching[0].label).toBe('v2')
+
+    undo()
+    const revertedMatching = getCanvas().edges.filter((e) => e.id === edgeId)
+    expect(revertedMatching).toHaveLength(1)
+    expect(revertedMatching[0].label).toBe('v1')
+  })
+
   it('creates every entity kind via apply — incl. drawing/shape', () => {
     const seed = applyCanvasPatch({
       entities: [
@@ -152,6 +184,35 @@ describe('canvas apply', () => {
     expect(byId.get(shapeId)).toBe('shape')
     expect(byId.get(drawingId)).toBe('drawing')
     expect(byId.get(groupId)).toBe('group')
+  })
+
+  it('renames a group via text, aliased to label; explicit label wins; undo restores the prior name', async () => {
+    const seed = applyCanvasPatch({
+      entities: [
+        { kind: 'text', forceKind: true, text: 'a', canvasX: 0, canvasY: 0 },
+        { kind: 'text', forceKind: true, text: 'b', canvasX: 200, canvasY: 0 },
+      ],
+    })
+    const [a, b] = seed.created
+    const { created } = applyCanvasPatch({
+      entities: [{ kind: 'group', entityIds: [a, b], label: 'original' }],
+    })
+    const groupId = created[0]
+    await settleSync()
+
+    const { updated } = applyCanvasPatch({ entities: [{ id: groupId, kind: 'group', text: 'renamed' }] })
+    expect(updated).toEqual([groupId])
+    await settleSync()
+    const renamed = getCanvas().nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(renamed?.label).toBe('renamed')
+
+    undo()
+    const reverted = getCanvas().nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(reverted?.label).toBe('original')
+
+    applyCanvasPatch({ entities: [{ id: groupId, kind: 'group', text: 'ignored', label: 'explicit' }] })
+    const explicit = getCanvas().nodes.find((n) => n.id === groupId) as { label?: string } | undefined
+    expect(explicit?.label).toBe('explicit')
   })
 
   it('accepts kind:"note" as an alias for text', () => {

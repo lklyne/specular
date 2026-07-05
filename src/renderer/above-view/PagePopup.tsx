@@ -15,12 +15,8 @@ import {
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import { FOCUS_PRESENTATION_MENU_INSET } from '../../shared/featureFlags'
-import type {
-  CanvasBgElectronAPI,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
@@ -134,7 +130,7 @@ export function PagePopup({
   const entityIds = single ? [single.id] : selectedPages.map((p) => p.id)
   const noun = isSingle ? 'page' : `${count} pages`
 
-  const useFlushFocusMenu = pinPopupToViewportTop && !FOCUS_PRESENTATION_MENU_INSET
+  const useFlushFocusMenu = pinPopupToViewportTop
   const popupLayoutDependency = pinPopupToViewportTop ? 'viewport-top' : 'above'
 
   const presetLabel = focusPresentation

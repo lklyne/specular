@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import '../above-view/styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
-import type { CanvasBgElectronAPI } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 
 initRendererSentry()
 

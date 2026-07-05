@@ -17,7 +17,7 @@ export function ElementCommentComposer({
   onSubmit: () => void
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-[8px] border border-[var(--surface-input-border)] bg-[var(--surface-input)] pl-3 pr-2 py-1.5">
+    <div className="relative rounded-[8px] border border-[var(--surface-input-border)] bg-[var(--surface-input)] pl-3 pr-2 py-1.5">
       <CommentInput
         inputRef={commentInputRef}
         value={elementCommentText}

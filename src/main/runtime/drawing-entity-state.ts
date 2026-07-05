@@ -13,6 +13,7 @@ import type {
   PersistedDrawingEntity,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 
 export interface DrawingEntity {
   id: string
@@ -25,12 +26,10 @@ export interface DrawingEntity {
   label?: string
 }
 
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
-
 export const drawingEntities: DrawingEntity[] = []
 
 export function drawingEntitiesForUi(): DrawingEntity[] {
-  return DRAWING_FEATURE_ENABLED ? drawingEntities : []
+  return drawingEntities
 }
 
 export function createDrawingEntity(input: {
@@ -72,12 +71,9 @@ export function updateDrawingEntity(
 ): DrawingEntity | null {
   const entity = drawingEntities.find((candidate) => candidate.id === id)
   if (!entity) return null
-  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
-  if (patch.width !== undefined) entity.width = patch.width
-  if (patch.height !== undefined) entity.height = patch.height
-  if (patch.strokes !== undefined) entity.strokes = patch.strokes
-  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
+  applyPatch(entity, patch, [
+    'canvasX', 'canvasY', 'width', 'height', 'strokes', 'parentGroupId',
+  ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity
@@ -110,6 +106,28 @@ export function buildDrawingEntitySceneEntity(
     parentGroupId: entity.parentGroupId,
   }
 }
+
+/**
+ * Every key `persistDrawingEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedDrawingEntity`; the
+ * persisted-fields drift test keeps `persistDrawingEntity` on it.
+ */
+const DRAWING_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  strokes: true,
+  parentGroupId: true,
+  label: true,
+} as const satisfies Record<keyof PersistedDrawingEntity, true>
+
+export const DRAWING_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  DRAWING_ENTITY_PERSISTED_FIELD_SET,
+)
 
 export function persistDrawingEntity(entity: DrawingEntity): PersistedDrawingEntity {
   return {

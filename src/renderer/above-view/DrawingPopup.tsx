@@ -6,12 +6,8 @@ import {
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type {
-  AnnotationDrawingStroke,
-  CanvasBgElectronAPI,
-  CanvasSceneDrawingEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { AnnotationDrawingStroke, CanvasSceneDrawingEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { drawingBounds } from './annotationMath'
 import {
@@ -31,7 +27,7 @@ export function DrawingPopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'updateDrawingEntity'
+    | 'updateEntity'
     | 'focusSelection'
     | 'distributeSelection'
   >
@@ -65,7 +61,7 @@ export function DrawingPopup({
     for (const drawing of selectedDrawings) {
       const next = drawing.strokes.map(rewrite)
       const bbox = drawingBounds(next)
-      api.updateDrawingEntity(drawing.id, {
+      api.updateEntity('drawing', drawing.id, {
         strokes: next,
         canvasX: bbox.x,
         canvasY: bbox.y,

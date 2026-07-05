@@ -1,9 +1,9 @@
 // Tool mode management — single `activeTool` source of truth (ADR 0005).
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import type { DevtoolsPanelTab, Tool } from '../../shared/types'
 import { isAnnotationTool, isOneShot, isWorkingTool, toolAnnotateOverlay } from '../../shared/tool'
 import { isFocusSessionActive, setFocusAnnotationsVisible } from './focus-session'
-import { DRAWING_FEATURE_ENABLED } from '../../shared/featureFlags'
 import { pages } from './runtime-context'
 import { markDirty } from './layout-dirty'
 import {
@@ -18,12 +18,12 @@ import {
   syncInspectionState,
   notifyDevtoolsPanelData,
 } from './inspect-session'
-import { requestLayout } from './surface-layout'
+import { requestLayout } from './viewport-control'
 
 function syncAnnotationState(): void {
   const payload = toolAnnotateOverlay(uiActiveTool())
   for (const page of pages) {
-    page.pageView.webContents.send('set-annotate-mode', payload)
+    page.pageView.webContents.send(ipcChannels.setAnnotateMode, payload)
   }
 }
 
@@ -51,26 +51,18 @@ function applyToolSideEffects(prev: Tool, next: Tool): void {
   requestLayout()
 }
 
-function sanitizeForFeatureFlags(tool: Tool): Tool {
-  if (tool.kind === 'draw' && !DRAWING_FEATURE_ENABLED) {
-    return { kind: 'select' }
-  }
-  return tool
-}
-
 export function setActiveTool(tool: Tool): Tool {
   // Draw, comment, and inspect activate on an empty canvas — they don't
-  // require a page. Only the drawing feature flag can veto a tool here.
-  const sanitized = sanitizeForFeatureFlags(tool)
+  // require a page.
   const prev = uiActiveTool()
-  if (toolsEqual(prev, sanitized)) {
+  if (toolsEqual(prev, tool)) {
     return prev
   }
-  setUiActiveTool(sanitized)
+  setUiActiveTool(tool)
   // A working tool latches annotation visibility on for the focus session, so a
   // sticky placed mid-focus stays visible after the one-shot tool reverts to
   // select. The user turns it back off via the focus bar's eye (ADR 0021).
-  if (isWorkingTool(sanitized) && isFocusSessionActive()) {
+  if (isWorkingTool(tool) && isFocusSessionActive()) {
     setFocusAnnotationsVisible(true)
     // The layout-update broadcast is gated on the 'canvas' dirty flag, and
     // applyToolSideEffects only dirties canvas for annotation tools — so a
@@ -78,7 +70,7 @@ export function setActiveTool(tool: Tool): Tool {
     // on without ever telling the renderer to lift the scrim.
     markDirty('canvas')
   }
-  applyToolSideEffects(prev, sanitized)
+  applyToolSideEffects(prev, tool)
   return uiActiveTool()
 }
 

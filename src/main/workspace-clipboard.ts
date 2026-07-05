@@ -23,8 +23,8 @@ import {
   createDrawingEntity as createDrawingEntityInState,
   drawingEntities,
 } from './runtime/drawing-entity-state'
-import { requestLayout, snapToGrid } from './runtime/surface-layout'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+import { snapToGrid } from '../shared/gesture-utils'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import { cloneMetadata } from './workspace-utils'
 
 export function copyablePagePayload(
@@ -187,6 +187,17 @@ export function pastePagesFromClipboard(input: {
   canvasX: number
   canvasY: number
 }): { pageIds: string[] } {
+  return mutateWorkspace(
+    () => pastePagesInternal(input),
+    { changed: (result) => result.pageIds.length > 0 },
+  )
+}
+
+function pastePagesInternal(input: {
+  payload: ClipboardPageSelectionPayload
+  canvasX: number
+  canvasY: number
+}): { pageIds: string[] } {
   const pages = input.payload.pages.filter((page) =>
     Number.isFinite(page.presetIndex) &&
     Number.isFinite(page.dx) &&
@@ -221,12 +232,21 @@ export function pastePagesFromClipboard(input: {
     setSelectedPages(pageIds)
   }
 
-  requestLayout()
-  scheduleWorkspaceAutosave()
   return { pageIds }
 }
 
 export function pasteEntitiesFromClipboard(input: {
+  payload: ClipboardEntitySelectionPayload
+  canvasX: number
+  canvasY: number
+}): { entityIds: string[] } {
+  return mutateWorkspace(
+    () => pasteEntitiesInternal(input),
+    { changed: (result) => result.entityIds.length > 0 },
+  )
+}
+
+function pasteEntitiesInternal(input: {
   payload: ClipboardEntitySelectionPayload
   canvasX: number
   canvasY: number
@@ -322,7 +342,5 @@ export function pasteEntitiesFromClipboard(input: {
   if (!entityIds.length) return { entityIds: [] }
 
   setSelectedEntities(entityIds)
-  requestLayout()
-  scheduleWorkspaceAutosave()
   return { entityIds }
 }

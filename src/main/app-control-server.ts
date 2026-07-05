@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { randomUUID } from 'crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
@@ -15,14 +16,12 @@ import {
   sendInteractiveState,
 } from './runtime/overlay-manager'
 import {
-  activeSessions,
-  resolveSession,
   updatePresenceCursor,
   resolveCanvasPointForPage,
   pendingIntents,
-  beginPresenceDeparture,
 } from './presence-manager'
 import {
+  beginPresenceDeparture,
   upsertPresenceCursor,
   presenceCursors,
   PRESENCE_CURSOR_STEP_DELAY_MS,
@@ -44,11 +43,12 @@ import {
   ensureCdpProxyUpstream,
   pruneExpiredCdpProxyRegistrations,
 } from './cdp-proxy'
-import { mcpSessions } from './presence-session'
+import { activeSessions, mcpSessions, resolveSession } from './presence-session'
+import { sendPageIpc } from './runtime/page-ipc'
 
 // Re-export for external consumers
-export { getPresenceCursors, onPresenceCursorsChanged } from './presence-manager'
-export type { PresenceCursorEntry } from './presence-manager'
+export { getPresenceCursors, onPresenceCursorsChanged } from './presence-cursor'
+export type { PresenceCursorEntry } from './presence-cursor'
 
 // Re-export from http-helpers for callers that import from app-control-server
 export type { McpConnectionStatus } from './routes/http-helpers'
@@ -372,8 +372,6 @@ export async function startAppControlServer(): Promise<void> {
       return sessionBody
     }
 
-    const IPC_TIMEOUT_MS = 5000
-
     const waitForPresenceDwell = async (sessionId: string | null | undefined): Promise<void> => {
       const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
       const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
@@ -382,69 +380,28 @@ export async function startAppControlServer(): Promise<void> {
     }
 
     const sendScrollIpc = (
-      wc: Electron.WebContents,
       x: number,
       y: number,
       deltaX: number,
       deltaY: number,
-    ): Promise<{ ok: boolean; reason?: string; consumed?: boolean; targetTag?: string; beforeLeft?: number; beforeTop?: number; afterLeft?: number; afterTop?: number }> => {
-      const requestId = randomUUID()
-      return new Promise((resolve) => {
-        const timer = setTimeout(() => {
-          wc.ipc.removeAllListeners('dispatch-scroll-result')
-          resolve({ ok: false, reason: 'ipc-timeout' })
-        }, IPC_TIMEOUT_MS)
-        wc.ipc.once(
-          'dispatch-scroll-result',
-          (_event: Electron.IpcMainEvent, response: { requestId: string; data: { ok: boolean; reason?: string; consumed?: boolean; targetTag?: string; beforeLeft?: number; beforeTop?: number; afterLeft?: number; afterTop?: number } }) => {
-            if (response.requestId !== requestId) return
-            clearTimeout(timer)
-            resolve(response.data)
-          },
-        )
-        wc.send('dispatch-scroll', { requestId, x, y, deltaX, deltaY })
-      })
-    }
+    ): Promise<{ ok: boolean; reason?: string; consumed?: boolean; targetTag?: string; beforeLeft?: number; beforeTop?: number; afterLeft?: number; afterTop?: number }> =>
+      sendPageIpc(page.id, ipcChannels.dispatchScroll, { x, y, deltaX, deltaY })
+        .then((data) => data as { ok: boolean; reason?: string; consumed?: boolean })
+        .catch(() => ({ ok: false, reason: 'ipc-timeout' }))
 
     const emitTypingPresence = async (): Promise<void> => {
-      const requestId = randomUUID()
-      const target = await new Promise<{
-        x: number
-        y: number
-        width: number
-        height: number
-        name: string | null
-      } | null>((resolve) => {
-        const timer = setTimeout(() => {
-          page.pageView.webContents.ipc.removeAllListeners(
-            'query-active-element-rect-result',
-          )
-          resolve(null)
-        }, IPC_TIMEOUT_MS)
-        page.pageView.webContents.ipc.once(
-          'query-active-element-rect-result',
-          (
-            _event: Electron.IpcMainEvent,
-            response: {
-              requestId: string
-              data: {
-                x: number
-                y: number
-                width: number
-                height: number
-                name: string | null
-              } | null
-            },
-          ) => {
-            if (response.requestId !== requestId) return
-            clearTimeout(timer)
-            resolve(response.data)
-          },
+      const target = await sendPageIpc(page.id, ipcChannels.queryActiveElementRect, {})
+        .then(
+          (data) =>
+            data as {
+              x: number
+              y: number
+              width: number
+              height: number
+              name: string | null
+            } | null,
         )
-        page.pageView.webContents.send('query-active-element-rect', {
-          requestId,
-        })
-      })
+        .catch(() => null)
 
       const targetRect =
         target &&
@@ -718,13 +675,7 @@ export async function startAppControlServer(): Promise<void> {
         await waitForPresenceDwell(registration.sessionId)
         try {
           const startedAt = Date.now()
-          const result = await sendScrollIpc(
-            page.pageView.webContents,
-            x,
-            y,
-            deltaX,
-            deltaY,
-          )
+          const result = await sendScrollIpc(x, y, deltaX, deltaY)
           if (!result?.ok) {
             sendProtocolError(id, typeof result?.reason === 'string' ? result.reason : 'Scroll target not found')
             return
@@ -763,13 +714,7 @@ export async function startAppControlServer(): Promise<void> {
         await waitForPresenceDwell(registration.sessionId)
         try {
           const startedAt = Date.now()
-          const result = await sendScrollIpc(
-            page.pageView.webContents,
-            x,
-            y,
-            -xDistance,
-            -yDistance,
-          )
+          const result = await sendScrollIpc(x, y, -xDistance, -yDistance)
           if (!result?.ok) {
             sendProtocolError(id, typeof result?.reason === 'string' ? result.reason : 'Scroll target not found')
             return

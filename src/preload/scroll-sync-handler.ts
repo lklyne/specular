@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import {
   createScrollSyncData,
@@ -118,7 +119,7 @@ export function queueScrollSyncBroadcast(interactive: boolean): void {
     const nextData = createScrollSyncData()
     if (!hasMeaningfulScrollDelta(lastBroadcastScrollData, nextData)) return
     lastBroadcastScrollData = nextData
-    ipcRenderer.send('page-scroll-changed', nextData)
+    ipcRenderer.send(ipcChannels.pageScrollChanged, nextData)
   })
 }
 

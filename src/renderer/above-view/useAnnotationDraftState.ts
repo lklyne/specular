@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import type {
-  AnnotationAnchor,
-  AnnotationElementSelectionPayload,
-  CanvasBgElectronAPI,
-  LayoutUpdateData,
-  WorkspaceBounds,
-} from '../../shared/types'
+import type { AnnotationAnchor, AnnotationElementSelectionPayload, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/gesture-utils'
 import {
   drawingBounds,
@@ -38,15 +33,6 @@ export function useAnnotationDraftState({
   const [drawingStrokeActive, setDrawingStrokeActive] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [elementNameDraft, setElementNameDraft] = useState('')
-
-  const resizeCommentInput = useCallback(() => {
-    const input = commentInputRef.current
-    if (!input) return
-    input.style.height = '0px'
-    const nextHeight = Math.min(input.scrollHeight, 120)
-    input.style.height = `${nextHeight}px`
-    input.style.overflowY = input.scrollHeight > 120 ? 'auto' : 'hidden'
-  }, [commentInputRef])
 
   const clearDraft = useCallback(() => {
     activeStrokeRef.current = null
@@ -182,10 +168,6 @@ export function useAnnotationDraftState({
   }, [api, clearDraft, drawingSession, activeToolKind])
 
   useEffect(() => {
-    resizeCommentInput()
-  }, [commentText, drawingSession, pendingAnnotation, resizeCommentInput])
-
-  useEffect(() => {
     if (!pendingAnnotation && !pendingRegionRect) return
     const id = window.requestAnimationFrame(() => {
       commentInputRef.current?.focus({ preventScroll: true })
@@ -201,7 +183,6 @@ export function useAnnotationDraftState({
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
-    resizeCommentInput,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,

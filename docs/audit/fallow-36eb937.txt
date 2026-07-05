@@ -1,0 +1,2991 @@
+npm warn exec The following package was not found and will be installed: fallow@2.104.0
+loaded config: /Users/lyleklyne/Developer/telescope/.fallowrc.json
+
+■ Metrics: dead files 0.2% (1 of 567) · dead exports 0.0% (0 of 2330) · MI 90.0 (good)
+  567 files analyzed
+  327 entry points detected (203 plugin, 120 manual entry, 4 package.json)
+  42 refactoring targets — start with src/main/runtime/entity-order-state.ts (high impact)
+
+── Dead Code ──────────────────────────────────────
+
+── Unused Code ─────────────────────────────────────
+
+● Unused files (1)
+  src/renderer/canvas-bg/canvasGeometry.ts
+  Files not reachable from any entry point — https://docs.fallow.tools/explanations/dead-code#unused-files
+
+✗ 1 file (0.12s)
+  1 issue · 11 suppressed · 0 stale suppressions
+
+── Duplication ────────────────────────────────────
+note: skipped 93 files matching default duplicates ignores (use --explain-skipped for the list)
+note: module wiring excluded from clone detection (--no-ignore-imports to include it)
+
+● Duplicates (106 clone groups)
+
+    493 lines  2 instances  dup:a871ab55
+    src/main/routes/test.ts:97-589
+    src/main/runtime/focus-reconciler-runtime.ts:49-81
+
+    114 lines  2 instances  dup:021ecfc8
+    src/renderer/above-view/useCanvasPointerRouter.ts:746-910
+    src/renderer/above-view/useCanvasPointerRouter.ts:1101-1173
+
+    102 lines  3 instances  dup:876d7322
+    src/renderer/above-view/FileBodyLayer.tsx:30-102
+    src/renderer/above-view/ShapeBodyLayer.tsx:29-128
+    src/renderer/above-view/StickyBodyLayer.tsx:44-145
+
+     80 lines  2 instances  dup:dbb76940
+    src/renderer/above-view/EdgeLayer.tsx:116-195
+    src/shared/edge-drag-controller.ts:286-321
+
+     76 lines  2 instances  dup:5096032d
+    src/renderer/debug/ControlsPanel.tsx:151-192
+    src/renderer/debug/PresenceSection.tsx:514-589
+
+     72 lines  2 instances  dup:738c72d7
+    src/main/ipc/register-app-ipc.ts:15-73
+    src/main/ipc/register-page-chrome-ipc.ts:26-97
+
+     66 lines  2 instances  dup:010e0046
+    src/renderer/above-view/App.tsx:998-1063
+    src/renderer/above-view/useCanvasPointerRouter.ts:960-995
+
+     45 lines  2 instances  dup:dac35921
+    src/renderer/debug/PlaygroundCanvas.tsx:61-74
+    src/renderer/debug/PresencePlayground.tsx:133-177
+
+     43 lines  5 instances  dup:ca3186e4
+    src/renderer/above-view/useCanvasPointerRouter.ts:436-473
+    src/renderer/above-view/useCanvasPointerRouter.ts:514-552
+    src/renderer/above-view/useCanvasPointerRouter.ts:607-649
+    src/renderer/above-view/useCanvasPointerRouter.ts:924-959
+    src/renderer/above-view/useCanvasPointerRouter.ts:1085-1102
+
+     40 lines  2 instances  dup:c8db7e62
+    src/renderer/shared/CustomIcons.tsx:109-144
+    src/renderer/shared/CustomIcons.tsx:284-323
+
+  ... and 96 more clone groups
+  Identical code blocks detected via suffix-array analysis — https://docs.fallow.tools/explanations/duplication#clone-groups
+
+● Clone families (14 with multiple groups)
+
+  4 groups, 43 lines across src/main/app-control-server.ts
+    → Extract shared function (17 lines) from app-control-server.ts, app-control-server.ts
+    → Extract shared function (8 lines) from app-control-server.ts, app-control-server.ts
+    → Extract shared function (6 lines) from app-control-server.ts, app-control-server.ts
+    → Extract shared function (12 lines) from app-control-server.ts, app-control-server.ts
+
+  3 groups, 52 lines across src/main/ipc/register-annotation-inspection-ipc.ts, src/main/ipc/register-right-details-panel-ipc.ts
+    → Extract 3 shared clone groups (52 lines) from register-annotation-inspection-ipc.ts, register-right-details-panel-ipc.ts into src/main/ipc
+
+  2 groups, 36 lines across src/main/presence-cursor.ts, src/shared/types.ts
+    → Extract shared function (20 lines) from presence-cursor.ts, types.ts
+    → Extract shared function (16 lines) from presence-cursor.ts, presence-cursor.ts, types.ts
+
+  2 groups, 25 lines across src/main/routes/annotations.ts
+    → Extract shared function (14 lines) from annotations.ts, annotations.ts
+    → Extract shared function (11 lines) from annotations.ts, annotations.ts
+
+  2 groups, 14 lines across src/main/runtime/workspace-tabs.ts
+    → Extract shared function (8 lines) from workspace-tabs.ts, workspace-tabs.ts, workspace-tabs.ts, workspace-tabs.ts
+    → Extract shared function (6 lines) from workspace-tabs.ts, workspace-tabs.ts, workspace-tabs.ts, workspace-tabs.ts, workspace-tabs.ts
+
+  3 groups, 26 lines across src/renderer/above-view/App.tsx
+    → Extract shared function (5 lines) from App.tsx, App.tsx
+    → Extract shared function (8 lines) from App.tsx, App.tsx
+    → Extract shared function (13 lines) from App.tsx, App.tsx
+
+  3 groups, 125 lines across src/renderer/above-view/EdgeLayer.tsx, src/shared/edge-drag-controller.ts
+    → Extract 3 shared clone groups (125 lines) from EdgeLayer.tsx, edge-drag-controller.ts into a shared directory
+
+  2 groups, 19 lines across src/renderer/above-view/useAnnotationDrawingGestures.ts
+    → Extract shared function (12 lines) from useAnnotationDrawingGestures.ts, useAnnotationDrawingGestures.ts
+    → Extract shared function (7 lines) from useAnnotationDrawingGestures.ts, useAnnotationDrawingGestures.ts
+
+  9 groups, 269 lines across src/renderer/above-view/useCanvasPointerRouter.ts
+    → Extract 9 shared clone groups (269 lines) from useCanvasPointerRouter.ts into src/renderer/above-view
+
+  2 groups, 50 lines across src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+    → Extract 2 shared clone groups (50 lines) from WireframeNodeRenderer.tsx into src/renderer/canvas-bg/wireframe
+
+  ... and 4 more families
+
+  Groups of related clones across the same files — https://docs.fallow.tools/explanations/duplication#clone-families
+
+✗ 4,106 lines (5.5%) duplicated across 101 files (0.04s)
+
+── Complexity ─────────────────────────────────────
+
+■ Metrics: 88,672 LOC · dead files 0.2% · dead exports 0.0% · avg cyclomatic 2.4 · p90 cyclomatic 5 · maintainability 90.0 (good) · 0 churn hotspots (since 6 months)
+
+  Function size: 79% low · 11% medium · 6% high · 4% very high  (1-15 / 16-30 / 31-60 / >60 LOC)
+
+  Render fan-in: <PaneField> 10 parents (19 incl. repeats) · <PaneHeader> 10 parents (11 incl. repeats) · <EditableText> 6 parents (6 incl. repeats) · <InlineEditLabel> 6 parents (6 incl. repeats) · <FileEntityShell> 5 parents (5 incl. repeats)
+
+● Large functions (10 shown, 285 total)
+  src/renderer/above-view/App.tsx
+    :399 App  1210 lines
+  src/main/ipc/register-canvas-entity-ipc.ts
+    :145 registerCanvasEntityIpc  650 lines
+  src/main/app-control-server.ts
+    :314 startAppControlServer  562 lines
+    :332 <arrow>  489 lines
+  tests/unit/json-canvas-serializer.test.ts
+    :29 <arrow>  414 lines
+  tests/smoke/keyboard-shortcuts.test.ts
+    :53 <arrow>  393 lines
+  src/main/runtime/layout-engine.ts
+    :218 layoutAllViews  372 lines
+  tests/unit/canvas-pointer-actions.test.ts
+    :106 <arrow>  350 lines
+  src/main/ipc/register-canvas-ipc.ts
+    :83 registerCanvasIpc  349 lines
+  src/renderer/above-view/PagePopup.tsx
+    :44 PagePopup  343 lines
+  Functions exceeding 60 lines of code (very high risk): https://docs.fallow.tools/explanations/health#unit-size
+  use --top 285 to see all
+
+● High complexity functions (489)
+  CRAP scores are estimated from export references; run `fallow health --coverage <coverage-final.json>` for exact scores.
+  src/main/app-control-server.ts
+    :532 <arrow> CRITICAL
+         105 cyclomatic  165 cognitive  280 lines
+         11130.0 CRAP
+  src/main/runtime/layout-engine.ts
+    :218 layoutAllViews CRITICAL
+          71 cyclomatic  114 cognitive  372 lines
+         1159.9 CRAP
+  src/main/presence-cursor.ts
+    :365 upsertPresenceCursor CRITICAL
+          61 cyclomatic   35 cognitive  109 lines
+         864.7 CRAP
+  src/renderer/above-view/App.tsx
+    :399 App CRITICAL
+          55 cyclomatic  127 cognitive  1210 lines
+         react: 2 props, 74 hooks (10 state, 18 effect, 18 memo, 6 callback, 22 custom), max effect deps 7, JSX depth 5
+         3080.0 CRAP
+  src/main/runtime/workspace-restore.ts
+    :150 <arrow> CRITICAL
+          50 cyclomatic   52 cognitive  176 lines
+         590.0 CRAP
+  src/main/routes/session.ts
+    :51 handler CRITICAL
+          48 cyclomatic   36 cognitive  103 lines
+         react: 3 props
+         2352.0 CRAP
+  src/renderer/above-view/PagePopup.tsx
+    :44 PagePopup CRITICAL
+          48 cyclomatic   64 cognitive  343 lines
+         react: 5 props, 7 hooks (2 state, 2 effect, 3 custom), max effect deps 2, JSX depth 8
+         2352.0 CRAP
+  src/main/shared/browse-handler.ts
+    :302 <arrow> CRITICAL
+          45 cyclomatic   70 cognitive  191 lines
+         482.4 CRAP
+  src/main/mcp-tools.ts
+    :23 <arrow> CRITICAL
+          41 cyclomatic   12 cognitive  230 lines
+         1722.0 CRAP
+  src/shared/tool-defaults.ts
+    :80 normalizeToolDefaults CRITICAL
+          38 cyclomatic   50 cognitive   47 lines
+          42.9 CRAP
+  src/main/presence-cursor.ts
+    :475 upsertActivePresenceTask CRITICAL
+          32 cyclomatic   20 cognitive   64 lines
+         253.2 CRAP
+  src/main/runtime/region-capture.ts
+    :79 captureRegionInternal CRITICAL
+          32 cyclomatic   70 cognitive  129 lines
+         1056.0 CRAP
+  src/main/routes/session.ts
+    :158 handler CRITICAL
+          30 cyclomatic   26 cognitive  101 lines
+         react: 3 props
+         930.0 CRAP
+  src/main/runtime/canvas-layout-data.ts
+    :274 buildPlacementPreview CRITICAL
+          30 cyclomatic   39 cognitive   56 lines
+         224.4 CRAP
+  src/main/agent-fix/prompt-builder.ts
+    :13 buildFixPrompt CRITICAL
+          29 cyclomatic   46 cognitive   98 lines
+          31.8 CRAP
+  src/main/runtime/selection-controller.ts
+    :152 commitSelection CRITICAL
+          29 cyclomatic   26 cognitive   58 lines
+         210.7 CRAP
+  src/main/presence-cursor.ts
+    :294 logPresenceMove CRITICAL
+          28 cyclomatic   20 cognitive   68 lines
+         197.3 CRAP
+  src/main/runtime/workspace-tabs.ts
+    :61 workspaceSnapshot CRITICAL
+          28 cyclomatic   45 cognitive  100 lines
+         197.3 CRAP
+  src/preload/dom-inspection.ts
+    :155 updateFlexGapStrips CRITICAL
+          28 cyclomatic   56 cognitive  110 lines
+         812.0 CRAP
+  src/renderer/shared/pageListItem.tsx
+    :67 PageListItem CRITICAL
+          28 cyclomatic   46 cognitive  140 lines
+         react: 11 props, 1 hooks (1 state), JSX depth 6
+         blast radius: <PageGlyph> rendered in 2 places
+         812.0 CRAP
+  src/main/runtime/workspace-observers.ts
+    :201 <arrow> CRITICAL
+          27 cyclomatic   40 cognitive  107 lines
+         184.5 CRAP
+  src/renderer/canvas-bg/DeviceShellLayer.tsx
+    :41 renderItem CRITICAL
+          27 cyclomatic   21 cognitive  154 lines
+         react: JSX depth 2
+         756.0 CRAP
+  src/main/presence-manager.ts
+    :237 nodes CRITICAL
+          25 cyclomatic    6 cognitive   34 lines
+         650.0 CRAP
+    :323 scorePresenceTargetCandidate CRITICAL
+          25 cyclomatic   30 cognitive   91 lines
+         650.0 CRAP
+  src/main/runtime/json-canvas-serializer.ts
+    :41 serializeToJsonCanvas HIGH
+          25 cyclomatic   30 cognitive   84 lines
+  src/renderer/right-details-panel/App.tsx
+    :62 renderPane CRITICAL
+          25 cyclomatic   24 cognitive   66 lines
+         react: JSX depth 1
+         650.0 CRAP
+  src/renderer/above-view/CommentBadgesLayer.tsx
+    :112 commentBadgesForLayout HIGH
+          24 cyclomatic   37 cognitive   80 lines
+  src/renderer/above-view/useCanvasPointerRouter.ts
+    :208 handlePointerDown CRITICAL
+          24 cyclomatic   22 cognitive   85 lines
+         600.0 CRAP
+  src/shared/agent-presence.ts
+    :3 labelForKey CRITICAL
+          24 cyclomatic   13 cognitive   42 lines
+         600.0 CRAP
+  src/shared/canvas-pointer-actions.ts
+    :121 routeByPayload CRITICAL
+          24 cyclomatic   20 cognitive  116 lines
+         148.4 CRAP
+  src/main/shared/entity-ops.ts
+    :294 getAnnotationDetail HIGH
+          23 cyclomatic   30 cognitive   87 lines
+  src/renderer/right-details-panel/components/CommentsPane.tsx
+    :158 FixProgressButton CRITICAL
+          23 cyclomatic   38 cognitive   95 lines
+         react: 3 props, JSX depth 7
+         blast radius: <CommentRow> rendered in 3 places
+         552.0 CRAP
+  src/main/agent-fix/stream-json-parser.ts
+    :20 parseStreamLine HIGH
+          22 cyclomatic   28 cognitive   62 lines
+  src/main/cdp-proxy.ts
+    :311 <arrow> CRITICAL
+          22 cyclomatic   25 cognitive   54 lines
+         506.0 CRAP
+  src/main/presence-manager.ts
+    :486 updatePresenceCursor CRITICAL
+          22 cyclomatic   16 cognitive   51 lines
+         506.0 CRAP
+  src/main/runtime/viewport-control.ts
+    :452 focusSelection HIGH
+          22 cyclomatic   28 cognitive   54 lines
+  src/preload/dom-inspection.ts
+    :680 handleInspectFocusNode CRITICAL
+          22 cyclomatic   17 cognitive   47 lines
+         506.0 CRAP
+  src/main/agent-fix/stream-json-parser.ts
+    :114 summarizeToolResult CRITICAL
+          21 cyclomatic   28 cognitive   23 lines
+         116.3 CRAP
+  src/main/runtime/sidebar-builder.ts
+    :67 buildSidebarLeafItem CRITICAL
+          21 cyclomatic   22 cognitive   71 lines
+         116.3 CRAP
+  src/main/shared/entity-ops.ts
+    :234 stubs CRITICAL
+          21 cyclomatic   12 cognitive   52 lines
+         116.3 CRAP
+  src/renderer/canvas-bg/SvgDeviceShellLayer.tsx
+    :42 <arrow> CRITICAL
+          21 cyclomatic   18 cognitive  148 lines
+         react: JSX depth 2
+         462.0 CRAP
+  src/main/runtime/layout-engine.ts
+    :119 layoutDevtoolsViews CRITICAL
+          20 cyclomatic   28 cognitive   98 lines
+         106.4 CRAP
+  src/main/workspace-clipboard.ts
+    :229 pasteEntitiesFromClipboard HIGH
+          20 cyclomatic   28 cognitive  100 lines
+  src/renderer/canvas-bg/CanvasGridSurface.tsx
+    :119 PlacementPreviewLayer HIGH
+          20 cyclomatic   32 cognitive  111 lines
+         react: 2 props, JSX depth 2
+         blast radius: <PlacementPreviewLayer> rendered in 2 places
+  src/main/presence-manager.ts
+    :111 deriveLabelKey CRITICAL
+          19 cyclomatic   17 cognitive   18 lines
+         380.0 CRAP
+  src/main/runtime/document-commands.ts
+    :884 resizeMultiSelection HIGH
+          19 cyclomatic   36 cognitive   61 lines
+          97.0 CRAP
+  src/main/workspace-annotations.ts
+    :59 enrichedAnnotationMetadata HIGH
+          19 cyclomatic   22 cognitive   52 lines
+          97.0 CRAP
+  src/renderer/left-sidebar/App.tsx
+    :38 App CRITICAL
+          19 cyclomatic   29 cognitive  290 lines
+         react: 2 props, 13 hooks (5 state, 4 effect, 4 custom), max effect deps 2, JSX depth 7
+         380.0 CRAP
+  src/renderer/right-details-panel/components/DocumentPane.tsx
+    :377 <arrow> CRITICAL
+          19 cyclomatic   24 cognitive   67 lines
+         react: JSX depth 5
+         380.0 CRAP
+  src/shared/reorderable-dots.ts
+    :50 reorderableDots HIGH
+          19 cyclomatic   29 cognitive   43 lines
+  src/shared/types.ts
+    :1503 validateLayoutDirective
+          19 cyclomatic   18 cognitive   27 lines
+  src/preload/dom-inspection.ts
+    :464 updateDomInspectionOverlay CRITICAL
+          19 cyclomatic   12 cognitive   76 lines
+         380.0 CRAP
+  src/main/app-control-server.ts
+    :260 route CRITICAL
+          18 cyclomatic   30 cognitive   53 lines
+         342.0 CRAP
+  src/main/runtime/distribution-guide-detector.ts
+    :76 distributionGuideDetector
+          18 cyclomatic   21 cognitive   62 lines
+  src/main/runtime/json-canvas-serializer.ts
+    :298 deserializeFromJsonCanvas
+          18 cyclomatic   17 cognitive   61 lines
+  src/main/runtime/preferences.ts
+    :258 broadcastTheme
+          18 cyclomatic   19 cognitive   30 lines
+  src/main/workspace-annotations.ts
+    :118 <arrow> HIGH
+          18 cyclomatic   22 cognitive   25 lines
+          88.0 CRAP
+  src/main/workspace-pages.ts
+    :116 addPageFromSource
+          18 cyclomatic   16 cognitive   78 lines
+  src/main/workspace-placement.ts
+    :221 applyLayoutDirective HIGH
+          18 cyclomatic   25 cognitive   77 lines
+          88.0 CRAP
+  src/renderer/above-view/ReorderDotsLayer.tsx
+    :36 dots CRITICAL
+          18 cyclomatic   19 cognitive   35 lines
+         342.0 CRAP
+  src/main/runtime/frame-compositor.ts
+    :32 captureFrameComposited CRITICAL
+          18 cyclomatic   12 cognitive   61 lines
+         342.0 CRAP
+  src/renderer/above-view/useCanvasPointerRouter.ts
+    :351 dispatchAction CRITICAL
+          18 cyclomatic    5 cognitive   47 lines
+         342.0 CRAP
+  src/renderer/above-view/FileBodyLayer.tsx
+    :213 MemoFileBodyCard CRITICAL
+          18 cyclomatic    1 cognitive   22 lines
+         342.0 CRAP
+  src/main/clipboard-paste.ts
+    :218 pasteFromClipboard CRITICAL
+          17 cyclomatic   17 cognitive   76 lines
+         306.0 CRAP
+  src/main/runtime/inspect-session.ts
+    :176 buildInspectPanelState
+          17 cyclomatic   18 cognitive   47 lines
+  src/main/runtime/shape-entity-state.ts
+    :79 updateShapeEntity
+          17 cyclomatic   16 cognitive   21 lines
+  src/main/workspace-clipboard.ts
+    :55 copyableSelectionPayload HIGH
+          17 cyclomatic   26 cognitive  129 lines
+  src/renderer/right-details-panel/components/DocumentPane.tsx
+    :95 FixMenu CRITICAL
+          17 cyclomatic   21 cognitive  121 lines
+         react: 5 props, 1 hooks (1 state), JSX depth 5
+         306.0 CRAP
+  src/main/presence-manager.ts
+    :286 normalizeQueryElementCandidate CRITICAL
+          17 cyclomatic   10 cognitive   30 lines
+         306.0 CRAP
+  src/preload/comment-hover-overlay.ts
+    :164 statesEqual CRITICAL
+          17 cyclomatic   14 cognitive   20 lines
+         306.0 CRAP
+  src/main/workspace-groups.ts
+    :314 deleteGroups HIGH
+          16 cyclomatic   25 cognitive   60 lines
+  src/renderer/right-details-panel/components/CommentsPane.tsx
+    :25 CommentRow CRITICAL
+          16 cyclomatic   19 cognitive  132 lines
+         react: 8 props, JSX depth 6
+         blast radius: <CommentRow> rendered in 3 places
+         272.0 CRAP
+  src/renderer/right-details-panel/components/WireframeFilePane.tsx
+    :39 nodeLabel CRITICAL
+          16 cyclomatic   14 cognitive   12 lines
+         272.0 CRAP
+  src/renderer/canvas-bg/PageBorderLayer.tsx
+    :39 <arrow> CRITICAL
+          16 cyclomatic   15 cognitive   64 lines
+         react: JSX depth 2
+         272.0 CRAP
+  src/main/cli-commands.ts
+    :189 update HIGH
+          15 cyclomatic   18 cognitive   29 lines
+          63.6 CRAP
+  src/main/presence-manager.ts
+    :174 extractCanvasPosition CRITICAL
+          15 cyclomatic   18 cognitive   25 lines
+         240.0 CRAP
+  src/main/runtime/window-init.ts
+    :125 initWindow
+          15 cyclomatic   16 cognitive  265 lines
+  src/main/shared/browse-handler.ts
+    :61 splitChainedCommands
+          15 cyclomatic   17 cognitive   24 lines
+  src/main/workspace-layout-tasks.ts
+    :107 resolveStateCombinations HIGH
+          15 cyclomatic   20 cognitive   53 lines
+          63.6 CRAP
+  src/main/workspace-pages.ts
+    :430 duplicateEntity
+          15 cyclomatic   19 cognitive  128 lines
+  src/renderer/above-view/App.tsx
+    :1087 routeWheel CRITICAL
+          15 cyclomatic   16 cognitive   42 lines
+         240.0 CRAP
+  src/renderer/above-view/CanvasItemPopup.tsx
+    :104 <arrow> HIGH
+          15 cyclomatic   17 cognitive   92 lines
+         blast radius: <IconButton> rendered in 2 places
+          63.6 CRAP
+  src/renderer/right-details-panel/components/InspectDetailSection.tsx
+    :9 InspectDetailSection CRITICAL
+          15 cyclomatic   21 cognitive  136 lines
+         react: 5 props, JSX depth 4
+         240.0 CRAP
+  src/shared/structured-content.ts
+    :24 detectStructuredContent
+          15 cyclomatic   17 cognitive   32 lines
+  src/main/runtime/focus-reconciler-runtime.ts
+    :36 resolve HIGH
+          15 cyclomatic    6 cognitive   12 lines
+          63.6 CRAP
+  src/shared/gesture-utils.ts
+    :86 isScrollableContainer HIGH
+          15 cyclomatic   13 cognitive   19 lines
+          63.6 CRAP
+  src/main/runtime/tool-defaults.ts
+    :66 applyToolDefaultPatch
+          14 cyclomatic   18 cognitive   35 lines
+  src/main/runtime/video-activity-tracker.ts
+    :71 getSegments CRITICAL
+          14 cyclomatic   24 cognitive   65 lines
+         210.0 CRAP
+  src/main/sentry.ts
+    :80 scrubEvent CRITICAL
+          14 cyclomatic   19 cognitive   37 lines
+         210.0 CRAP
+  src/main/shared/browse-handler.ts
+    :87 splitShellArgs
+          14 cyclomatic   19 cognitive   20 lines
+  src/main/shared/entity-ops.ts
+    :84 resolveEntityPlacements HIGH
+          14 cyclomatic   16 cognitive   72 lines
+          56.3 CRAP
+  src/main/skill-auto-update.ts
+    :26 autoUpdateSkillsIfSafe CRITICAL
+          14 cyclomatic   23 cognitive   45 lines
+         210.0 CRAP
+  src/renderer/above-view/SelectionOutlineLayer.tsx
+    :315 allSelectedEntities CRITICAL
+          14 cyclomatic   18 cognitive   11 lines
+         blast radius: <SelectionOutlineBox> rendered in 4 places
+         210.0 CRAP
+  src/renderer/above-view/StickyBodyLayer.tsx
+    :147 StickyCard CRITICAL
+          14 cyclomatic   25 cognitive  194 lines
+         react: 7 props, 7 hooks (1 state, 2 effect, 4 custom), max effect deps 3, JSX depth 4
+         210.0 CRAP
+  src/renderer/right-details-panel/components/PagePane.tsx
+    :49 PagePane CRITICAL
+          14 cyclomatic   17 cognitive  214 lines
+         react: 6 props, 5 hooks (5 custom), JSX depth 9
+         210.0 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+    :635 WireframeNodeRenderer CRITICAL
+          14 cyclomatic    3 cognitive   50 lines
+         react: JSX depth 1
+         blast radius: <EditableText> rendered in 6 places
+         210.0 CRAP
+  src/renderer/left-sidebar/App.tsx
+    :61 onKeyDown CRITICAL
+          14 cyclomatic   15 cognitive   30 lines
+         210.0 CRAP
+  src/main/app-control-server.ts
+    :412 emitTypingPresence CRITICAL
+          14 cyclomatic    8 cognitive   75 lines
+         210.0 CRAP
+  src/main/runtime/tool-defaults.ts
+    :102 currentValueFor
+          13 cyclomatic   17 cognitive   24 lines
+          49.5 CRAP
+  src/main/runtime/workspace-doc.ts
+    :105 hydrateDocFromSnapshot
+          13 cyclomatic   22 cognitive   56 lines
+  src/renderer/left-sidebar/App.tsx
+    :171 <arrow> CRITICAL
+          13 cyclomatic   22 cognitive   87 lines
+         react: JSX depth 7
+         182.0 CRAP
+  src/renderer/right-details-panel/components/InspectTree.tsx
+    :14 InspectTreeNode CRITICAL
+          13 cyclomatic   22 cognitive  149 lines
+         react: 10 props, JSX depth 4
+         blast radius: <InspectTreeNode> rendered in 2 places
+         182.0 CRAP
+  src/renderer/above-view/StickyBodyLayer.tsx
+    :342 MemoStickyCard CRITICAL
+          13 cyclomatic    1 cognitive   17 lines
+         182.0 CRAP
+  src/preload/page-content.ts
+    :569 <arrow> CRITICAL
+          13 cyclomatic    8 cognitive   33 lines
+         182.0 CRAP
+  src/main/ipc/register-canvas-entity-ipc.ts
+    :355 <arrow> CRITICAL
+          13 cyclomatic   13 cognitive   35 lines
+         182.0 CRAP
+  src/main/cdp-proxy.ts
+    :490 allowCdpTargetEvent CRITICAL
+          13 cyclomatic   14 cognitive   24 lines
+         182.0 CRAP
+  src/renderer/above-view/annotationMath.ts
+    :273 pendingElementScreenRect
+          13 cyclomatic   12 cognitive   32 lines
+          49.5 CRAP
+  src/main/runtime/entity-order-state.ts
+    :99 parentGroupIdById
+          13 cyclomatic   12 cognitive   15 lines
+          49.5 CRAP
+  src/shared/bindings.ts
+    :329 toAcceleratorKey
+          13 cyclomatic    1 cognitive   29 lines
+          49.5 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+    :144 FrameNodeRenderer CRITICAL
+          13 cyclomatic   11 cognitive  109 lines
+         react: 2 props, 2 hooks (2 custom), JSX depth 2
+         blast radius: <EditableText> rendered in 6 places
+         182.0 CRAP
+  src/renderer/above-view/useAnnotationDraftState.ts
+    :217 buildPendingAnnotation CRITICAL
+          13 cyclomatic   12 cognitive   55 lines
+         182.0 CRAP
+  src/renderer/above-view/useCanvasPointerRouter.ts
+    :843 onMove CRITICAL
+          13 cyclomatic   11 cognitive   20 lines
+         182.0 CRAP
+    :1049 sendUp CRITICAL
+          13 cyclomatic    7 cognitive   15 lines
+         182.0 CRAP
+  src/preload/comment-badges.ts
+    :236 anchorKey CRITICAL
+          13 cyclomatic    8 cognitive    8 lines
+         182.0 CRAP
+  packages/vite/src/index.ts
+    :72 matchesAllow CRITICAL
+          12 cyclomatic   19 cognitive   21 lines
+         156.0 CRAP
+  src/preload/component-inspector.ts
+    :331 resolveNodeDetail CRITICAL
+          12 cyclomatic   16 cognitive   50 lines
+         156.0 CRAP
+  src/renderer/above-view/useAnnotationDrawingGestures.ts
+    :65 handleOverlayPointerDown CRITICAL
+          12 cyclomatic   16 cognitive   55 lines
+         156.0 CRAP
+  src/renderer/agent-layer/InspectPopoverLayer.tsx
+    :38 InspectPopoverLayer CRITICAL
+          12 cyclomatic   16 cognitive   98 lines
+         react: 1 props, 5 hooks (1 state, 2 memo, 2 custom), JSX depth 3
+         blast radius: <ColorSwatch> rendered in 2 places
+         156.0 CRAP
+  src/main/runtime/interaction-controller.ts
+    :60 snapshotMode
+          12 cyclomatic    4 cognitive   27 lines
+          43.1 CRAP
+  src/main/cli-commands.ts
+    :66 upsert
+          12 cyclomatic   14 cognitive   35 lines
+          43.1 CRAP
+  src/renderer/right-details-panel/components/PagePane.tsx
+    :373 PageHeaderActions CRITICAL
+          12 cyclomatic   12 cognitive   61 lines
+         react: 3 props, JSX depth 4
+         156.0 CRAP
+  src/shared/url.ts
+    :7 isPrivateIpv4
+          12 cyclomatic   10 cognitive   14 lines
+          43.1 CRAP
+  src/main/navigation-sync.ts
+    :64 applyNavigationAction
+          12 cyclomatic   15 cognitive   29 lines
+          43.1 CRAP
+  src/main/workspace-entities.ts
+    :307 selectEntitiesInRect
+          12 cyclomatic   10 cognitive  108 lines
+          43.1 CRAP
+  src/main/shared/entity-ops.ts
+    :45 sizeForItem
+          12 cyclomatic   12 cognitive   32 lines
+          43.1 CRAP
+  src/main/runtime/inspect-session.ts
+    :362 resolveEntityLabel
+          12 cyclomatic   12 cognitive   15 lines
+          43.1 CRAP
+  src/main/runtime/json-canvas-serializer.ts
+    :126 serializePageToLinkNode
+          12 cyclomatic    5 cognitive   21 lines
+          43.1 CRAP
+  src/renderer/above-view/App.tsx
+    :1189 onMove CRITICAL
+          12 cyclomatic   11 cognitive   30 lines
+         156.0 CRAP
+  src/main/runtime/document-commands.ts
+    :606 updateEdge
+          12 cyclomatic   11 cognitive   28 lines
+          43.1 CRAP
+  src/preload/comment-badges.ts
+    :321 renderCommentBadges CRITICAL
+          12 cyclomatic   14 cognitive  100 lines
+         156.0 CRAP
+  src/main/ipc/register-annotation-inspection-ipc.ts
+    :99 <arrow> CRITICAL
+          12 cyclomatic   10 cognitive   24 lines
+         156.0 CRAP
+  src/main/routes/test.ts
+    :546 handler CRITICAL
+          12 cyclomatic    9 cognitive   42 lines
+         react: 2 props
+         156.0 CRAP
+  src/main/app-control-server.ts
+    :499 cleanupClient CRITICAL
+          12 cyclomatic   15 cognitive   32 lines
+         156.0 CRAP
+  src/main/cli-commands.ts
+    :119 add
+          11 cyclomatic   18 cognitive   42 lines
+          37.1 CRAP
+  src/main/ipc/register-comment-hover-ipc.ts
+    :93 broadcastPointerState CRITICAL
+          11 cyclomatic   18 cognitive   48 lines
+         132.0 CRAP
+  src/main/runtime/workspace-doc.ts
+    :266 syncMapFromArray HIGH
+          11 cyclomatic   25 cognitive   32 lines
+          37.1 CRAP
+  src/main/workspace-groups.ts
+    :74 createUserGroup
+          11 cyclomatic   19 cognitive   57 lines
+  src/preload/component-inspector.ts
+    :170 walkFiber CRITICAL
+          11 cyclomatic   18 cognitive   42 lines
+         132.0 CRAP
+  src/renderer/above-view/App.tsx
+    :998 onUp CRITICAL
+          11 cyclomatic   16 cognitive   56 lines
+         132.0 CRAP
+  src/renderer/above-view/CommentsLayer.tsx
+    :28 PendingAnnotationComposer CRITICAL
+          11 cyclomatic   18 cognitive   82 lines
+         react: 13 props, JSX depth 2
+         blast radius: <ComposerBox> rendered in 2 places
+         132.0 CRAP
+    :218 AnnotationThreadPopover CRITICAL
+          11 cyclomatic   21 cognitive  174 lines
+         react: 14 props, JSX depth 9
+         blast radius: <ComposerBox> rendered in 2 places
+         132.0 CRAP
+  src/renderer/above-view/optionDragCopy.ts
+    :61 draggedEntityIdsForGroup
+          11 cyclomatic   20 cognitive   30 lines
+          37.1 CRAP
+  src/renderer/left-sidebar/SidebarCanvasTree.tsx
+    :146 GroupTreeItem CRITICAL
+          11 cyclomatic   19 cognitive  141 lines
+         react: 7 props, 2 hooks (2 state), JSX depth 6
+         blast radius: <EntityListItem> rendered in 4 places
+         132.0 CRAP
+  src/renderer/onboarding/App.tsx
+    :83 SetupScreen CRITICAL
+          11 cyclomatic   20 cognitive  142 lines
+         react: 2 props, 8 hooks (3 state, 1 effect, 1 memo, 2 callback, 1 custom), max effect deps 1, JSX depth 4
+         132.0 CRAP
+  src/renderer/right-details-panel/components/DeviceSection.tsx
+    :29 DeviceSection CRITICAL
+          11 cyclomatic   18 cognitive   96 lines
+         react: 10 props, 1 hooks (1 custom), JSX depth 5
+         blast radius: <OrientationIcon> rendered in 2 places
+         132.0 CRAP
+  src/renderer/right-details-panel/rightDetailsPanelSelectors.ts
+    :32 groupAnnotationsByPage CRITICAL
+          11 cyclomatic   20 cognitive   57 lines
+         132.0 CRAP
+  src/main/cli-commands.ts
+    :414 record
+          11 cyclomatic   15 cognitive   41 lines
+          37.1 CRAP
+  src/main/ipc/register-canvas-entity-ipc.ts
+    :148 <arrow> CRITICAL
+          11 cyclomatic   14 cognitive   82 lines
+         132.0 CRAP
+  src/renderer/canvas-bg/ResizeHandles.tsx
+    :48 EdgeResizeHandle CRITICAL
+          11 cyclomatic   13 cognitive   36 lines
+         react: 3 props, JSX depth 1
+         blast radius: <CornerResizeHandle> rendered in 8 places
+         132.0 CRAP
+  src/renderer/above-view/PageFocusRingLayer.tsx
+    :25 PageFocusRingLayer CRITICAL
+          11 cyclomatic    9 cognitive   47 lines
+         react: 4 props, JSX depth 1
+         132.0 CRAP
+  eslint-rules/no-mouse-events.js
+    :52 Literal CRITICAL
+          11 cyclomatic    8 cognitive   19 lines
+         132.0 CRAP
+  src/main/agent-fix/stream-json-parser.ts
+    :83 describeContentBlock
+          11 cyclomatic   15 cognitive   19 lines
+          37.1 CRAP
+  src/main/runtime/frame-compositor.ts
+    :150 captureViewRegion CRITICAL
+          11 cyclomatic    9 cognitive   32 lines
+         132.0 CRAP
+  src/renderer/above-view/ShapeBodyLayer.tsx
+    :287 MemoShapeBody CRITICAL
+          11 cyclomatic    1 cognitive   15 lines
+         132.0 CRAP
+  src/main/presence-cursor.ts
+    :555 <arrow>
+          11 cyclomatic    6 cognitive   21 lines
+          37.1 CRAP
+    :611 setPresenceCursorIdle
+          11 cyclomatic    6 cognitive   17 lines
+          37.1 CRAP
+  src/main/routes/pages.ts
+    :35 handler CRITICAL
+          11 cyclomatic   13 cognitive   23 lines
+         react: 3 props
+         132.0 CRAP
+  src/main/runtime/workspace-restore-migration.ts
+    :96 groupsForSnapshot
+          11 cyclomatic   12 cognitive   21 lines
+          37.1 CRAP
+  packages/vite/src/bootstrap.client.js
+    :65 mount CRITICAL
+          11 cyclomatic   12 cognitive   42 lines
+         132.0 CRAP
+  src/main/clipboard-paste.ts
+    :36 parseClipboardSelection CRITICAL
+          11 cyclomatic   12 cognitive   29 lines
+         132.0 CRAP
+  src/main/runtime/window-coords.ts
+    :39 pageAtWindowPoint CRITICAL
+          11 cyclomatic   12 cognitive   24 lines
+         132.0 CRAP
+  src/main/ipc/register-comment-hover-ipc.ts
+    :210 <arrow> CRITICAL
+          11 cyclomatic    9 cognitive   23 lines
+         132.0 CRAP
+  src/main/runtime/overlay-manager.ts
+    :32 pageSelectionOverlayStates
+          10 cyclomatic   17 cognitive   40 lines
+          31.6 CRAP
+  src/renderer/above-view/ShapeBodyLayer.tsx
+    :130 ShapeBody CRITICAL
+          10 cyclomatic   18 cognitive  156 lines
+         react: 5 props, 6 hooks (1 state, 2 effect, 3 custom), max effect deps 2, JSX depth 3
+         110.0 CRAP
+  src/renderer/left-sidebar/SidebarCanvasTree.tsx
+    :34 EntityListItem CRITICAL
+          10 cyclomatic   19 cognitive  111 lines
+         react: 9 props, 1 hooks (1 state), JSX depth 6
+         blast radius: <EntityListItem> rendered in 4 places
+         110.0 CRAP
+  src/renderer/right-details-panel/components/CommentsPane.tsx
+    :254 CommentsPane CRITICAL
+          10 cyclomatic   20 cognitive   84 lines
+         react: 7 props, 2 hooks (1 memo, 1 custom), JSX depth 4
+         blast radius: <CommentRow> rendered in 3 places
+         110.0 CRAP
+  src/renderer/right-details-panel/components/DocumentPane.tsx
+    :300 FixOperationsView CRITICAL
+          10 cyclomatic   22 cognitive  147 lines
+         react: 14 props, JSX depth 4
+         110.0 CRAP
+  src/renderer/toolbar/toolbarSections.tsx
+    :387 CenterAddressBar CRITICAL
+          10 cyclomatic   19 cognitive   85 lines
+         react: 11 props, JSX depth 4
+         blast radius: <ToolbarDivider> rendered in 5 places
+         110.0 CRAP
+  src/shared/cursor-motion.ts
+    :317 normalizeEasing
+          10 cyclomatic   20 cognitive   23 lines
+  src/renderer/settings/SkillsPane.tsx
+    :101 <arrow> CRITICAL
+          10 cyclomatic   10 cognitive   59 lines
+         react: JSX depth 4
+         110.0 CRAP
+  src/main/ipc/register-canvas-drag-ipc.ts
+    :71 flushViewportDelta CRITICAL
+          10 cyclomatic    8 cognitive   46 lines
+         110.0 CRAP
+  src/renderer/above-view/useAnnotationDrawingGestures.ts
+    :186 handleOverlayPointerUp CRITICAL
+          10 cyclomatic    9 cognitive   32 lines
+         110.0 CRAP
+  src/main/runtime/video-recorder.ts
+    :162 captureFrame CRITICAL
+          10 cyclomatic    8 cognitive   35 lines
+         110.0 CRAP
+  src/preload/page-content.ts
+    :452 walkDom CRITICAL
+          10 cyclomatic    9 cognitive   24 lines
+         110.0 CRAP
+  src/main/runtime/workspace-doc.ts
+    :205 <arrow>
+          10 cyclomatic   12 cognitive   59 lines
+          31.6 CRAP
+  src/main/runtime/selection-controller.ts
+    :86 selectionEquals
+          10 cyclomatic   10 cognitive   15 lines
+          31.6 CRAP
+  src/main/runtime/dev-server-manager.ts
+    :108 loadPersisted
+          10 cyclomatic   10 cognitive   27 lines
+          31.6 CRAP
+  src/main/workspace-groups.ts
+    :173 cloneGroupTree
+          10 cyclomatic    9 cognitive  109 lines
+          31.6 CRAP
+  src/renderer/debug/PresenceTimelinePanel.tsx
+    :169 layoutEntries CRITICAL
+          10 cyclomatic   15 cognitive   81 lines
+         110.0 CRAP
+  src/main/managed-layout.ts
+    :191 resolveLeafParentGroupId
+          10 cyclomatic    7 cognitive   13 lines
+          31.6 CRAP
+  src/main/runtime/file-entity-state.ts
+    :163 rendererSceneFields
+          10 cyclomatic    6 cognitive   33 lines
+          31.6 CRAP
+  src/main/index.ts
+    :126 <arrow> CRITICAL
+          10 cyclomatic   11 cognitive  135 lines
+         110.0 CRAP
+  src/main/cli-install.ts
+    :97 installCli CRITICAL
+          10 cyclomatic    8 cognitive   54 lines
+         110.0 CRAP
+  src/main/entities/builtin/page.ts
+    :64 update CRITICAL
+          10 cyclomatic   10 cognitive   19 lines
+         110.0 CRAP
+  src/main/runtime/inspect-session.ts
+    :608 handleNodeDetailResponse
+          10 cyclomatic    6 cognitive   47 lines
+          31.6 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+    :156 handlePointerMove CRITICAL
+          10 cyclomatic   10 cognitive   24 lines
+         blast radius: <EditableText> rendered in 6 places
+         110.0 CRAP
+    :206 <arrow> CRITICAL
+          10 cyclomatic   10 cognitive   39 lines
+         react: JSX depth 3
+         blast radius: <EditableText> rendered in 6 places
+         110.0 CRAP
+  src/main/runtime/document-commands.ts
+    :1043 distributeSelection
+          10 cyclomatic   10 cognitive   34 lines
+          31.6 CRAP
+  src/main/presence-cursor.ts
+    :271 coordSourceForLog
+          10 cyclomatic    7 cognitive   22 lines
+          31.6 CRAP
+  src/main/presence-manager.ts
+    :415 findPresenceTarget CRITICAL
+          10 cyclomatic   11 cognitive   56 lines
+         110.0 CRAP
+  src/main/runtime/binding-dispatcher.ts
+    :72 <arrow>
+          10 cyclomatic   12 cognitive   36 lines
+          31.6 CRAP
+  src/shared/edge-drag-controller.ts
+    :247 findEdgeAtAnchor
+          10 cyclomatic   13 cognitive   38 lines
+          31.6 CRAP
+  src/main/clipboard-paste.ts
+    :66 readClipboardFileReferenceStrings CRITICAL
+          10 cyclomatic   10 cognitive   34 lines
+         110.0 CRAP
+    :101 readClipboardStructuredData CRITICAL
+          10 cyclomatic   14 cognitive   37 lines
+         110.0 CRAP
+  src/main/runtime/layer-stack.ts
+    :109 desiredChildOrder
+           9 cyclomatic   16 cognitive   22 lines
+  src/main/workspace-entities.ts
+    :436 segmentIntersectsRect HIGH
+           9 cyclomatic   27 cognitive   31 lines
+  src/preload/component-inspector.ts
+    :421 cssRuleTextForPseudoState HIGH
+           9 cyclomatic   19 cognitive   37 lines
+          90.0 CRAP
+  src/renderer/right-details-panel/rightDetailsPanelSelectors.ts
+    :111 buildUnresolvedCountsByNodeId HIGH
+           9 cyclomatic   11 cognitive   18 lines
+          90.0 CRAP
+  src/renderer/shared/SkillInstaller.tsx
+    :139 RowDetail HIGH
+           9 cyclomatic    8 cognitive   16 lines
+         react: 1 props, JSX depth 1
+          90.0 CRAP
+  src/renderer/left-sidebar/SidebarCanvasTree.tsx
+    :288 SidebarCanvasTreeItem HIGH
+           9 cyclomatic   14 cognitive  118 lines
+         react: 7 props, JSX depth 3
+         blast radius: <EntityListItem> rendered in 4 places
+          90.0 CRAP
+  src/renderer/canvas-bg/ResizeHandles.tsx
+    :5 CornerResizeHandle HIGH
+           9 cyclomatic   11 cognitive   42 lines
+         react: 4 props, JSX depth 1
+         blast radius: <CornerResizeHandle> rendered in 8 places
+          90.0 CRAP
+  src/main/cdp-proxy.ts
+    :207 resolvePageCdpConnection HIGH
+           9 cyclomatic    5 cognitive   30 lines
+          90.0 CRAP
+  src/renderer/shared/CustomIcons.tsx
+    :94 DrawPenToolIcon HIGH
+           9 cyclomatic    9 cognitive  176 lines
+         react: 4 props, 1 hooks (1 custom), JSX depth 5
+         blast radius: <RotateIcon> rendered in 2 places
+          90.0 CRAP
+    :271 DrawHighlightToolIcon HIGH
+           9 cyclomatic    9 cognitive  126 lines
+         react: 4 props, 1 hooks (1 custom), JSX depth 4
+         blast radius: <RotateIcon> rendered in 2 places
+          90.0 CRAP
+  src/renderer/toolbar/App.tsx
+    :41 onKeyDown HIGH
+           9 cyclomatic    9 cognitive   19 lines
+          90.0 CRAP
+  src/renderer/canvas-bg/AgentCursorLayer.tsx
+    :312 tick HIGH
+           9 cyclomatic   13 cognitive   26 lines
+          90.0 CRAP
+    :277 <arrow> HIGH
+           9 cyclomatic   11 cognitive   64 lines
+          90.0 CRAP
+  src/main/entities/builtin/page.ts
+    :36 create HIGH
+           9 cyclomatic    7 cognitive   27 lines
+          90.0 CRAP
+  src/preload/component-inspector.ts
+    :384 overrideToken HIGH
+           9 cyclomatic    7 cognitive   21 lines
+          90.0 CRAP
+  src/renderer/canvas-bg/wireframe/wireframe-utils.ts
+    :153 updateNodeTextInTree HIGH
+           9 cyclomatic    4 cognitive   21 lines
+          90.0 CRAP
+  src/renderer/above-view/App.tsx
+    :978 onMove HIGH
+           9 cyclomatic   10 cognitive   19 lines
+          90.0 CRAP
+    :1136 yieldWheelToEntityScroll HIGH
+           9 cyclomatic    8 cognitive   20 lines
+          90.0 CRAP
+  src/renderer/above-view/useCanvasPointerRouter.ts
+    :144 layoutToHitInputs HIGH
+           9 cyclomatic    6 cognitive   21 lines
+          90.0 CRAP
+    :294 handleDblClick HIGH
+           9 cyclomatic    4 cognitive   30 lines
+          90.0 CRAP
+    :1177 resizeConfigForEntity HIGH
+           9 cyclomatic    4 cognitive   33 lines
+          90.0 CRAP
+  src/renderer/shared/hooks/useViewportWheelAndMiddlePan.ts
+    :37 onWheel HIGH
+           9 cyclomatic    6 cognitive   15 lines
+          90.0 CRAP
+  src/main/routes/canvas.ts
+    :96 <arrow> HIGH
+           9 cyclomatic   11 cognitive   26 lines
+          90.0 CRAP
+  src/main/routes/pages.ts
+    :182 handler HIGH
+           9 cyclomatic    8 cognitive   30 lines
+         react: 2 props
+          90.0 CRAP
+  src/preload/comment-badges.ts
+    :220 pageCommentBadgeData HIGH
+           9 cyclomatic   14 cognitive   76 lines
+          90.0 CRAP
+  src/renderer/above-view/FileBodyLayer.tsx
+    :104 FileBodyCard HIGH
+           9 cyclomatic   11 cognitive  108 lines
+         react: 6 props, JSX depth 6
+          90.0 CRAP
+  src/main/runtime/alignment-guide-detector.ts
+    :51 alignmentGuideDetector
+           8 cyclomatic   24 cognitive   42 lines
+  src/renderer/above-view/annotationMath.ts
+    :95 drawingBounds
+           8 cyclomatic   16 cognitive   29 lines
+  src/renderer/toolbar/toolbarSections.tsx
+    :162 CenterActions HIGH
+           8 cyclomatic   17 cognitive  210 lines
+         react: 13 props, JSX depth 6
+         blast radius: <ToolbarDivider> rendered in 5 places
+          72.0 CRAP
+  src/renderer/above-view/useAnnotationDrawingGestures.ts
+    :138 handleOverlayPointerMove HIGH
+           8 cyclomatic    7 cognitive   44 lines
+          72.0 CRAP
+  src/main/runtime/video-recorder.ts
+    :85 start HIGH
+           8 cyclomatic    7 cognitive   76 lines
+          72.0 CRAP
+  src/preload/page-content.ts
+    :609 <arrow> HIGH
+           8 cyclomatic    6 cognitive   92 lines
+          72.0 CRAP
+  src/preload/scroll-sync-handler.ts
+    :96 hasMeaningfulScrollDelta HIGH
+           8 cyclomatic    7 cognitive   13 lines
+          72.0 CRAP
+  src/renderer/shared/SkillInstaller.tsx
+    :99 StatusBadge HIGH
+           8 cyclomatic    8 cognitive   39 lines
+         react: 1 props, JSX depth 2
+          72.0 CRAP
+  src/main/runtime/region-components.ts
+    :28 walk HIGH
+           8 cyclomatic   11 cognitive   23 lines
+          72.0 CRAP
+  src/renderer/above-view/DrawingPopup.tsx
+    :25 DrawingPopup HIGH
+           8 cyclomatic    9 cognitive  125 lines
+         react: 5 props, 1 hooks (1 custom), JSX depth 3
+          72.0 CRAP
+  src/main/runtime/page-input-forwarding.ts
+    :114 forwardPointerToPage HIGH
+           8 cyclomatic    8 cognitive   28 lines
+          72.0 CRAP
+  src/renderer/above-view/EdgeLayer.tsx
+    :67 getAnchorHitRect HIGH
+           8 cyclomatic    4 cognitive   26 lines
+         blast radius: <EdgeLayer> rendered in 2 places
+          72.0 CRAP
+    :236 edgePaths HIGH
+           8 cyclomatic    9 cognitive   33 lines
+         blast radius: <EdgeLayer> rendered in 2 places
+          72.0 CRAP
+    :271 anchorEntities HIGH
+           8 cyclomatic   11 cognitive   16 lines
+         blast radius: <EdgeLayer> rendered in 2 places
+          72.0 CRAP
+    :325 <arrow> HIGH
+           8 cyclomatic   10 cognitive   38 lines
+         react: 6 props, JSX depth 2
+         blast radius: <EdgeLayer> rendered in 2 places
+          72.0 CRAP
+  src/main/ipc/register-canvas-entity-ipc.ts
+    :271 <arrow> HIGH
+           8 cyclomatic    7 cognitive   17 lines
+          72.0 CRAP
+  src/main/cdp-proxy.ts
+    :398 pruneExpiredCdpProxyRegistrations HIGH
+           8 cyclomatic   12 cognitive   16 lines
+          72.0 CRAP
+  src/renderer/above-view/StickyNotePopover.tsx
+    :18 StickyNotePopover HIGH
+           8 cyclomatic    9 cognitive   95 lines
+         react: 5 props, 1 hooks (1 custom), JSX depth 4
+          72.0 CRAP
+  src/renderer/right-details-panel/rightDetailsPanelHelpers.ts
+    :44 parseEditedValue HIGH
+           8 cyclomatic   10 cognitive   16 lines
+          72.0 CRAP
+  src/renderer/shared/CustomIcons.tsx
+    :418 AddStickyToolIcon HIGH
+           8 cyclomatic   11 cognitive  165 lines
+         react: 5 props, 1 hooks (1 custom), JSX depth 4
+         blast radius: <RotateIcon> rendered in 2 places
+          72.0 CRAP
+  src/renderer/above-view/GroupRenameLabel.tsx
+    :60 GroupRenameItem HIGH
+           8 cyclomatic   13 cognitive  125 lines
+         react: 7 props, JSX depth 3
+          72.0 CRAP
+  packages/vite/src/index.ts
+    :110 <arrow> HIGH
+           8 cyclomatic    7 cognitive   42 lines
+          72.0 CRAP
+  src/renderer/debug/PresenceTimelinePanel.tsx
+    :308 toneFor HIGH
+           8 cyclomatic    1 cognitive   21 lines
+          72.0 CRAP
+  src/renderer/right-details-panel/components/EdgeEntityPane.tsx
+    :53 EdgeEntityPane HIGH
+           8 cyclomatic    8 cognitive  118 lines
+         react: 1 props, 2 hooks (1 state, 1 custom), JSX depth 5
+         blast radius: <SelectField> rendered in 4 places
+          72.0 CRAP
+  src/preload/component-inspector.ts
+    :213 collectReactTree HIGH
+           8 cyclomatic    8 cognitive   18 lines
+          72.0 CRAP
+    :523 applyAfterMount HIGH
+           8 cyclomatic   11 cognitive   25 lines
+          72.0 CRAP
+  src/renderer/canvas-bg/wireframe/wireframe-utils.ts
+    :60 getEditableText HIGH
+           8 cyclomatic    2 cognitive   15 lines
+          72.0 CRAP
+  src/renderer/above-view/App.tsx
+    :360 electronCursorToCss HIGH
+           8 cyclomatic    6 cognitive    8 lines
+          72.0 CRAP
+    :604 liveBboxSubscriptions HIGH
+           8 cyclomatic    8 cognitive   37 lines
+          72.0 CRAP
+    :808 hitTestHoverTarget HIGH
+           8 cyclomatic    7 cognitive   17 lines
+          72.0 CRAP
+  src/main/ipc/register-toolbar-ipc.ts
+    :74 <arrow> HIGH
+           8 cyclomatic    6 cognitive   11 lines
+          72.0 CRAP
+  src/main/routes/pages.ts
+    :136 handler HIGH
+           8 cyclomatic    8 cognitive   33 lines
+         react: 2 props
+          72.0 CRAP
+  src/main/runtime/video-activity-tracker.ts
+    :137 sampleActivity HIGH
+           8 cyclomatic   10 cognitive   27 lines
+          72.0 CRAP
+  src/main/ipc/register-annotation-inspection-ipc.ts
+    :62 annotationCanvasBounds HIGH
+           8 cyclomatic    7 cognitive   33 lines
+          72.0 CRAP
+  src/main/runtime/video-trimmer.ts
+    :40 trimRecording HIGH
+           8 cyclomatic   10 cognitive   58 lines
+          72.0 CRAP
+  tests/smoke/global-setup.ts
+    :78 teardown HIGH
+           8 cyclomatic   10 cognitive   23 lines
+          72.0 CRAP
+  src/renderer/right-details-panel/components/ShapeEntityPane.tsx
+    :18 ShapeEntityPane HIGH
+           8 cyclomatic    8 cognitive   91 lines
+         react: 1 props, 1 hooks (1 custom), JSX depth 4
+          72.0 CRAP
+  src/main/clipboard-paste.ts
+    :170 createStructuredContentEntity HIGH
+           8 cyclomatic    3 cognitive   44 lines
+          72.0 CRAP
+  src/main/app-control-server.ts
+    :110 ensureDiscoveryFile HIGH
+           8 cyclomatic    6 cognitive   21 lines
+          72.0 CRAP
+    :207 handleCdpProxyUpgrade HIGH
+           8 cyclomatic    6 cognitive   25 lines
+          72.0 CRAP
+  src/main/ipc/register-comment-hover-ipc.ts
+    :194 <arrow> HIGH
+           8 cyclomatic    5 cognitive   12 lines
+          72.0 CRAP
+  src/renderer/above-view/SelectionOutlineLayer.tsx
+    :212 SelectionOutlineLayer HIGH
+           7 cyclomatic   17 cognitive  179 lines
+         react: 6 props, 10 hooks (10 memo), JSX depth 2
+         blast radius: <SelectionOutlineBox> rendered in 4 places
+          56.0 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeRenderer.tsx
+    :19 WireframeRenderer HIGH
+           7 cyclomatic   26 cognitive  297 lines
+         react: 4 props, 19 hooks (6 state, 3 effect, 7 callback, 3 custom), max effect deps 3, JSX depth 3
+          56.0 CRAP
+  src/shared/agent-presence.ts
+    :46 applyHint HIGH
+           7 cyclomatic    8 cognitive   11 lines
+          56.0 CRAP
+  src/renderer/right-details-panel/rightDetailsPanelSelectors.ts
+    :39 ensureGroup HIGH
+           7 cyclomatic    4 cognitive   18 lines
+          56.0 CRAP
+  src/renderer/above-view/useAnnotationDrawingGestures.ts
+    :222 handleOverlayPointerCancel HIGH
+           7 cyclomatic    5 cognitive   17 lines
+          56.0 CRAP
+  src/preload/page-content.ts
+    :94 serializeDebugArg HIGH
+           7 cyclomatic    4 cognitive   22 lines
+          56.0 CRAP
+  src/renderer/right-details-panel/components/DocumentPane.tsx
+    :118 handleFixAll HIGH
+           7 cyclomatic    6 cognitive    8 lines
+          56.0 CRAP
+  src/renderer/canvas-bg/entity-renderers/ComponentPlaceholderRenderer.tsx
+    :10 ComponentPlaceholderRenderer HIGH
+           7 cyclomatic    9 cognitive   85 lines
+         react: 2 props, 1 hooks (1 state), JSX depth 3
+          56.0 CRAP
+  src/renderer/above-view/useCommentToolPointerBroadcast.ts
+    :50 send HIGH
+           7 cyclomatic    7 cognitive   28 lines
+          56.0 CRAP
+  src/main/routes/recording.ts
+    :98 handler HIGH
+           7 cyclomatic    7 cognitive   28 lines
+         react: 1 props
+          56.0 CRAP
+  src/renderer/right-details-panel/components/PagePane.tsx
+    :104 <arrow> HIGH
+           7 cyclomatic    6 cognitive   10 lines
+          56.0 CRAP
+  src/main/cdp-proxy.ts
+    :278 ensureCdpProxyUpstream HIGH
+           7 cyclomatic    5 cognitive  117 lines
+          56.0 CRAP
+  src/preload/dom-inspection.ts
+    :339 buildLabelContent HIGH
+           7 cyclomatic    7 cognitive  117 lines
+          56.0 CRAP
+    :541 emitHoveredElement HIGH
+           7 cyclomatic    8 cognitive   37 lines
+          56.0 CRAP
+  src/renderer/right-details-panel/rightDetailsPanelHelpers.ts
+    :13 valuePreview HIGH
+           7 cyclomatic    4 cognitive   16 lines
+          56.0 CRAP
+  src/renderer/canvas-bg/PerfHudOverlay.tsx
+    :81 PerfHudOverlay HIGH
+           7 cyclomatic   15 cognitive   98 lines
+         react: 2 props, 9 hooks (3 state, 3 effect, 3 custom), max effect deps 1, JSX depth 5
+         blast radius: <Spark> rendered in 2 places
+          56.0 CRAP
+  src/renderer/canvas-bg/AgentCursorLayer.tsx
+    :45 activityStyle HIGH
+           7 cyclomatic    1 cognitive   20 lines
+          56.0 CRAP
+  src/main/entities/builtin/page.ts
+    :92 defaultSize HIGH
+           7 cyclomatic    4 cognitive    5 lines
+          56.0 CRAP
+  src/renderer/canvas-bg/entity-renderers/RendererSwitch.tsx
+    :23 resolveTag HIGH
+           7 cyclomatic    6 cognitive    9 lines
+          56.0 CRAP
+    :33 RendererSwitch HIGH
+           7 cyclomatic    3 cognitive   47 lines
+         react: 6 props, JSX depth 1
+          56.0 CRAP
+  src/main/routes/annotations.ts
+    :49 handler HIGH
+           7 cyclomatic    6 cognitive   27 lines
+         react: 2 props
+          56.0 CRAP
+  src/renderer/left-sidebar/useDragReorder.ts
+    :77 itemProps HIGH
+           7 cyclomatic    5 cognitive   32 lines
+          56.0 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+    :438 CheckboxNodeRenderer HIGH
+           7 cyclomatic    6 cognitive   67 lines
+         react: 2 props, JSX depth 4
+         blast radius: <EditableText> rendered in 6 places
+          56.0 CRAP
+    :506 ToggleNodeRenderer HIGH
+           7 cyclomatic    6 cognitive   63 lines
+         react: 2 props, JSX depth 3
+         blast radius: <EditableText> rendered in 6 places
+          56.0 CRAP
+  src/main/runtime/frame-compositor.ts
+    :125 blendOnto HIGH
+           7 cyclomatic    7 cognitive   18 lines
+          56.0 CRAP
+  src/preload/component-inspector.ts
+    :82 compactProps HIGH
+           7 cyclomatic   11 cognitive   16 lines
+          56.0 CRAP
+  src/renderer/canvas-bg/wireframe/wireframe-utils.ts
+    :124 reorderNode HIGH
+           7 cyclomatic    6 cognitive   24 lines
+          56.0 CRAP
+  src/renderer/above-view/App.tsx
+    :514 reorderGhostEntity HIGH
+           7 cyclomatic    4 cognitive   16 lines
+          56.0 CRAP
+    :911 onPointerDown HIGH
+           7 cyclomatic    6 cognitive  154 lines
+          56.0 CRAP
+  eslint-rules/no-direct-view-mutation.js
+    :49 CallExpression HIGH
+           7 cyclomatic    6 cognitive   23 lines
+          56.0 CRAP
+  src/renderer/above-view/useCanvasPointerRouter.ts
+    :661 runResize HIGH
+           7 cyclomatic    6 cognitive   98 lines
+          56.0 CRAP
+    :864 finish HIGH
+           7 cyclomatic    2 cognitive   35 lines
+          56.0 CRAP
+    :960 onUp HIGH
+           7 cyclomatic    6 cognitive   28 lines
+          56.0 CRAP
+    :1211 patchDispatcherForKind HIGH
+           7 cyclomatic    1 cognitive   22 lines
+          56.0 CRAP
+  src/main/presence-manager.ts
+    :472 resolvePresenceTargetRect HIGH
+           7 cyclomatic    5 cognitive   11 lines
+          56.0 CRAP
+  src/main/ipc/register-toolbar-ipc.ts
+    :86 <arrow> HIGH
+           7 cyclomatic    4 cognitive   10 lines
+          56.0 CRAP
+  src/main/routes/canvas.ts
+    :50 resolveKind HIGH
+           7 cyclomatic    6 cognitive   13 lines
+          56.0 CRAP
+  src/renderer/above-view/reorderPreview.ts
+    :28 reorderPreviewLayout HIGH
+           7 cyclomatic    8 cognitive   34 lines
+          56.0 CRAP
+  src/preload/comment-badges.ts
+    :155 updateCommentBadgeHover HIGH
+           7 cyclomatic    7 cognitive   44 lines
+          56.0 CRAP
+  src/main/ipc/register-annotation-inspection-ipc.ts
+    :159 <arrow> HIGH
+           7 cyclomatic    4 cognitive   15 lines
+          56.0 CRAP
+    :200 <arrow> HIGH
+           7 cyclomatic    7 cognitive   14 lines
+          56.0 CRAP
+  src/main/runtime/video-trimmer.ts
+    :172 trimWithSpeedup HIGH
+           7 cyclomatic    9 cognitive   81 lines
+          56.0 CRAP
+  src/preload/dom-element-utils.ts
+    :21 bestElementName HIGH
+           7 cyclomatic    2 cognitive   11 lines
+          56.0 CRAP
+  src/preload/comment-hover-overlay.ts
+    :102 paintRegionIntersection HIGH
+           7 cyclomatic    6 cognitive   43 lines
+          56.0 CRAP
+  src/main/routes/test.ts
+    :97 currentlyFocusedKey HIGH
+           7 cyclomatic    7 cognitive   10 lines
+          56.0 CRAP
+    :358 handler HIGH
+           7 cyclomatic    6 cognitive   25 lines
+         react: 2 props
+          56.0 CRAP
+    :387 handler HIGH
+           7 cyclomatic    5 cognitive   33 lines
+         react: 2 props
+          56.0 CRAP
+  src/main/reorder-gesture.ts
+    :58 startReorderGesture HIGH
+           7 cyclomatic    8 cognitive   33 lines
+          56.0 CRAP
+  src/main/routes/edges-groups.ts
+    :123 handler HIGH
+           7 cyclomatic    5 cognitive   20 lines
+         react: 3 props
+          56.0 CRAP
+  src/main/agent-browser-install.ts
+    :93 getAgentBrowserStatus HIGH
+           7 cyclomatic   11 cognitive   27 lines
+          56.0 CRAP
+  src/renderer/shared/install-error-reporter.ts
+    :16 <arrow> HIGH
+           7 cyclomatic    6 cognitive   10 lines
+          56.0 CRAP
+  src/main/runtime/image-sizing.ts
+    :30 videoSizeFromPath HIGH
+           7 cyclomatic    4 cognitive   19 lines
+          56.0 CRAP
+  src/renderer/above-view/FilePopup.tsx
+    :16 FilePopup HIGH
+           7 cyclomatic   12 cognitive   98 lines
+         react: 7 props, 3 hooks (1 state, 1 effect, 1 custom), max effect deps 1, JSX depth 3
+          56.0 CRAP
+  src/main/app-control-server.ts
+    :314 startAppControlServer HIGH
+           7 cyclomatic    7 cognitive  562 lines
+          56.0 CRAP
+  src/renderer/above-view/StickyBodyLayer.tsx
+    :67 StickyShell
+           6 cyclomatic   18 cognitive   79 lines
+         react: 12 props, JSX depth 1
+          42.0 CRAP
+  src/renderer/canvas-bg/App.tsx
+    :25 App
+           6 cyclomatic   18 cognitive  115 lines
+         react: 2 props, 14 hooks (8 memo, 6 custom), JSX depth 4
+          42.0 CRAP
+  src/renderer/shared/InlineEditLabel.tsx
+    :34 InlineEditLabel
+           6 cyclomatic   17 cognitive   84 lines
+         react: 12 props, 4 hooks (1 state, 1 effect, 2 custom), max effect deps 1, JSX depth 1
+         blast radius: <InlineEditLabel> rendered in 6 places
+          42.0 CRAP
+  src/main/ipc/register-canvas-drag-ipc.ts
+    :148 beginDragSession
+           6 cyclomatic    5 cognitive   15 lines
+          42.0 CRAP
+  src/main/ipc/register-repo-ipc.ts
+    :20 broadcastRepos
+           6 cyclomatic    3 cognitive   15 lines
+          42.0 CRAP
+  src/preload/page-content.ts
+    :528 acceptNode
+           6 cyclomatic    5 cognitive   15 lines
+          42.0 CRAP
+    :678 tick
+           6 cyclomatic    6 cognitive   21 lines
+          42.0 CRAP
+  src/renderer/right-details-panel/components/DocumentPane.tsx
+    :217 FixSettingsView
+           6 cyclomatic    8 cognitive   82 lines
+         react: 5 props, 2 hooks (2 state), JSX depth 5
+          42.0 CRAP
+  src/renderer/right-details-panel/useElementCommentDraft.ts
+    :35 submitElementComment
+           6 cyclomatic    3 cognitive   42 lines
+          42.0 CRAP
+  src/main/ipc/register-right-details-panel-ipc.ts
+    :221 <arrow>
+           6 cyclomatic    5 cognitive   12 lines
+          42.0 CRAP
+  src/renderer/onboarding/App.tsx
+    :100 <arrow>
+           6 cyclomatic    7 cognitive   16 lines
+          42.0 CRAP
+  src/renderer/right-details-panel/components/FileEntityPane.tsx
+    :49 FileEntityPane
+           6 cyclomatic    1 cognitive   16 lines
+         react: 1 props, JSX depth 1
+          42.0 CRAP
+  src/renderer/agent-layer/InspectPopoverLayer.tsx
+    :43 detail
+           6 cyclomatic    4 cognitive    6 lines
+         blast radius: <ColorSwatch> rendered in 2 places
+          42.0 CRAP
+  src/renderer/above-view/EdgeLayer.tsx
+    :116 autoSides
+           6 cyclomatic    7 cognitive   15 lines
+         blast radius: <EdgeLayer> rendered in 2 places
+          42.0 CRAP
+  src/main/ipc/register-canvas-entity-ipc.ts
+    :567 <arrow>
+           6 cyclomatic    3 cognitive   43 lines
+          42.0 CRAP
+    :614 <arrow>
+           6 cyclomatic    3 cognitive    6 lines
+          42.0 CRAP
+  src/renderer/above-view/CommentsLayer.tsx
+    :393 ThreadFixProgress
+           6 cyclomatic    6 cognitive   35 lines
+         react: 1 props, JSX depth 3
+         blast radius: <ComposerBox> rendered in 2 places
+          42.0 CRAP
+  src/renderer/right-details-panel/components/PagePane.tsx
+    :466 viewportIcon
+           6 cyclomatic    5 cognitive    8 lines
+          42.0 CRAP
+  src/main/ipc/register-canvas-ipc.ts
+    :384 <arrow>
+           6 cyclomatic    8 cognitive   24 lines
+          42.0 CRAP
+  src/main/cdp-proxy.ts
+    :171 restoreAutomationSelectionIfNeeded
+           6 cyclomatic    4 cognitive   17 lines
+          42.0 CRAP
+  src/preload/dom-inspection.ts
+    :40 ensureDomInspectionOverlay
+           6 cyclomatic    5 cognitive   77 lines
+          42.0 CRAP
+  src/preload/annotation-bbox-tracker.ts
+    :23 resolveBbox
+           6 cyclomatic    5 cognitive   18 lines
+          42.0 CRAP
+    :47 flush
+           6 cyclomatic    7 cognitive   17 lines
+          42.0 CRAP
+  src/renderer/toolbar/App.tsx
+    :18 App
+           6 cyclomatic   10 cognitive  162 lines
+         react: 1 props, 4 hooks (1 effect, 3 custom), max effect deps 1, JSX depth 5
+          42.0 CRAP
+  src/renderer/shared/PresenceParticleTrail.tsx
+    :76 applyEase
+           6 cyclomatic    3 cognitive   14 lines
+         blast radius: <PresenceParticleTrail> rendered in 2 places
+          42.0 CRAP
+    :314 stepCompute
+           6 cyclomatic    9 cognitive   49 lines
+         blast radius: <PresenceParticleTrail> rendered in 2 places
+          42.0 CRAP
+  src/renderer/above-view/GroupRenameLabel.tsx
+    :102 onMove
+           6 cyclomatic    4 cognitive   26 lines
+          42.0 CRAP
+  src/renderer/above-view/DrawingsLayer.tsx
+    :54 HighlightStroke
+           6 cyclomatic    7 cognitive   60 lines
+         react: 6 props, JSX depth 3
+         blast radius: <DrawingLayer> rendered in 2 places
+          42.0 CRAP
+  src/main/entities/builtin/drawing.ts
+    :20 create
+           6 cyclomatic    5 cognitive   11 lines
+          42.0 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeRenderer.tsx
+    :116 handleUp
+           6 cyclomatic    9 cognitive   22 lines
+          42.0 CRAP
+  src/renderer/right-details-panel/App.tsx
+    :21 App
+           6 cyclomatic    9 cognitive  118 lines
+         react: 1 props, 3 hooks (3 custom), JSX depth 5
+          42.0 CRAP
+  src/main/entities/builtin/file.ts
+    :54 claimsAsNote
+           6 cyclomatic    2 cognitive    7 lines
+          42.0 CRAP
+    :62 resolveFileDimensions
+           6 cyclomatic    4 cognitive    5 lines
+          42.0 CRAP
+    :72 create
+           6 cyclomatic    5 cognitive   33 lines
+          42.0 CRAP
+  src/main/skill-install-runner.ts
+    :60 runInstall
+           6 cyclomatic    5 cognitive   18 lines
+          42.0 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+    :284 ButtonNodeRenderer
+           6 cyclomatic    7 cognitive   42 lines
+         react: 2 props, JSX depth 2
+         blast radius: <EditableText> rendered in 6 places
+          42.0 CRAP
+  src/main/runtime/frame-compositor.ts
+    :100 captureAndCropToRect
+           6 cyclomatic    5 cognitive   24 lines
+          42.0 CRAP
+  src/preload/component-inspector.ts
+    :58 isFrameworkInternal
+           6 cyclomatic    5 cognitive    8 lines
+          42.0 CRAP
+    :113 matchDesignSystemComponent
+           6 cyclomatic    8 cognitive   12 lines
+          42.0 CRAP
+    :126 readTokenValues
+           6 cyclomatic    4 cognitive   14 lines
+          42.0 CRAP
+    :459 ensurePseudoStateStyles
+           6 cyclomatic    7 cognitive   24 lines
+          42.0 CRAP
+    :507 applyPageOverrides
+           6 cyclomatic    5 cognitive   44 lines
+          42.0 CRAP
+  src/renderer/shared/fileIcon.ts
+    :13 iconForFilePath
+           6 cyclomatic    5 cognitive    8 lines
+          42.0 CRAP
+  src/renderer/canvas-bg/wireframe/wireframe-utils.ts
+    :34 findNodeParent
+           6 cyclomatic    7 cognitive   14 lines
+          42.0 CRAP
+    :49 nodeHasEditableText
+           6 cyclomatic    1 cognitive   10 lines
+          42.0 CRAP
+  src/renderer/above-view/App.tsx
+    :251 renderEntityBody
+           6 cyclomatic    5 cognitive   69 lines
+         react: JSX depth 1
+          42.0 CRAP
+    :845 handleMove
+           6 cyclomatic    6 cognitive   20 lines
+          42.0 CRAP
+  src/renderer/debug/PresencePlayground.tsx
+    :136 tick
+           6 cyclomatic    5 cognitive   31 lines
+          42.0 CRAP
+    :297 <arrow>
+           6 cyclomatic    5 cognitive   25 lines
+         react: JSX depth 2
+          42.0 CRAP
+  src/renderer/above-view/useCanvasPointerRouter.ts
+    :524 onMove
+           6 cyclomatic    4 cognitive   29 lines
+          42.0 CRAP
+    :607 onMove
+           6 cyclomatic    4 cognitive   27 lines
+          42.0 CRAP
+  src/main/presence-manager.ts
+    :130 derivePageId
+           6 cyclomatic    5 cognitive   10 lines
+          42.0 CRAP
+    :147 resolveCanvasPointForPage
+           6 cyclomatic    2 cognitive   26 lines
+          42.0 CRAP
+  src/renderer/right-details-panel/components/DeviceSection.tsx
+    :8 OrientationIcon
+           6 cyclomatic    5 cognitive   20 lines
+         react: 4 props, JSX depth 1
+         blast radius: <OrientationIcon> rendered in 2 places
+          42.0 CRAP
+  src/preload/comment-badges.ts
+    :119 scheduleCommentBadgeHoverHide
+           6 cyclomatic    3 cognitive   35 lines
+          42.0 CRAP
+    :200 annotationViewportRect
+           6 cyclomatic    3 cognitive   19 lines
+          42.0 CRAP
+  src/main/runtime/video-trimmer.ts
+    :103 trimByCutting
+           6 cyclomatic    6 cognitive   64 lines
+          42.0 CRAP
+  src/preload/dom-element-utils.ts
+    :139 pickContentElementAtPoint
+           6 cyclomatic    9 cognitive   14 lines
+          42.0 CRAP
+    :154 inspectionPayload
+           6 cyclomatic    3 cognitive   39 lines
+          42.0 CRAP
+    :225 isInteractiveForSnapshot
+           6 cyclomatic    5 cognitive   14 lines
+          42.0 CRAP
+  tests/smoke/global-setup.ts
+    :22 waitForServer
+           6 cyclomatic   12 cognitive   20 lines
+          42.0 CRAP
+  src/preload/comment-hover-overlay.ts
+    :112 acceptNode
+           6 cyclomatic    5 cognitive   20 lines
+          42.0 CRAP
+  src/main/routes/test.ts
+    :486 handler
+           6 cyclomatic    5 cognitive   25 lines
+         react: 2 props
+          42.0 CRAP
+  src/renderer/shared/remark-line-breaks.ts
+    :24 splitTextChildren
+           6 cyclomatic    6 cognitive   17 lines
+          42.0 CRAP
+  src/renderer/above-view/GroupPopup.tsx
+    :12 GroupPopup
+           6 cyclomatic    6 cognitive   48 lines
+         react: 5 props, 1 hooks (1 custom), JSX depth 3
+          42.0 CRAP
+  src/renderer/shared/pageListItem.tsx
+    :30 viewportIcon
+           6 cyclomatic    5 cognitive    8 lines
+         blast radius: <PageGlyph> rendered in 2 places
+          42.0 CRAP
+  src/main/agent-browser-install.ts
+    :16 findAgentBrowserOnPath
+           6 cyclomatic    8 cognitive   10 lines
+          42.0 CRAP
+    :60 <arrow>
+           6 cyclomatic    5 cognitive   11 lines
+          42.0 CRAP
+    :126 installAgentBrowser
+           6 cyclomatic    7 cognitive   24 lines
+          42.0 CRAP
+  src/main/app-control-server.ts
+    :157 cleanupStaleDiscoveryFile
+           6 cyclomatic    6 cognitive   13 lines
+          42.0 CRAP
+  src/renderer/debug/PresencePlayground.tsx
+    :90 PresencePlayground
+           5 cyclomatic   21 cognitive  180 lines
+         react: 2 props, 17 hooks (5 state, 3 effect, 9 custom), max effect deps 1, JSX depth 4
+          30.0 CRAP
+  src/renderer/above-view/StickyBodyLayer.tsx
+    :221 flush
+           5 cyclomatic    3 cognitive   10 lines
+          30.0 CRAP
+  src/renderer/settings/SkillsPane.tsx
+    :36 statusDetail
+           5 cyclomatic    4 cognitive    6 lines
+          30.0 CRAP
+  src/renderer/right-details-panel/components/FileDeviceSection.tsx
+    :5 FileDeviceSection
+           5 cyclomatic    4 cognitive   16 lines
+         react: 1 props, JSX depth 1
+         blast radius: <FileDeviceSection> rendered in 4 places
+          30.0 CRAP
+  src/renderer/right-details-panel/rightDetailsPanelSelectors.ts
+    :21 resolvePageDimensions
+           5 cyclomatic    2 cognitive   10 lines
+          30.0 CRAP
+    :96 groupAnnotationsByOrigin
+           5 cyclomatic    6 cognitive   14 lines
+          30.0 CRAP
+    :130 getInspectDetailState
+           5 cyclomatic    4 cognitive   15 lines
+          30.0 CRAP
+  src/main/ipc/register-repo-ipc.ts
+    :48 <arrow>
+           5 cyclomatic    4 cognitive   11 lines
+          30.0 CRAP
+  src/preload/page-content.ts
+    :133 isTypingTarget
+           5 cyclomatic    4 cognitive   22 lines
+          30.0 CRAP
+    :337 applyInteractiveState
+           5 cyclomatic    5 cognitive   12 lines
+          30.0 CRAP
+    :375 <arrow>
+           5 cyclomatic    1 cognitive    9 lines
+          30.0 CRAP
+    :425 <arrow>
+           5 cyclomatic    2 cognitive   10 lines
+          30.0 CRAP
+    :521 <arrow>
+           5 cyclomatic    5 cognitive   34 lines
+          30.0 CRAP
+    :793 endResizeDrag
+           5 cyclomatic    4 cognitive    9 lines
+          30.0 CRAP
+  src/preload/scroll-sync-handler.ts
+    :24 maxScrollLeft
+           5 cyclomatic    2 cognitive    7 lines
+          30.0 CRAP
+    :39 tick
+           5 cyclomatic    4 cognitive   40 lines
+          30.0 CRAP
+  src/renderer/shared/MarkdownEditor.tsx
+    :61 <arrow>
+           5 cyclomatic    3 cognitive   75 lines
+         blast radius: <MarkdownEditor> rendered in 2 places
+          30.0 CRAP
+  src/renderer/above-view/SelectionOutlineLayer.tsx
+    :286 <arrow>
+           5 cyclomatic    2 cognitive    6 lines
+         blast radius: <SelectionOutlineBox> rendered in 4 places
+          30.0 CRAP
+  src/renderer/right-details-panel/components/DocumentPane.tsx
+    :448 ResolvedPane
+           5 cyclomatic    6 cognitive   54 lines
+         react: 5 props, 1 hooks (1 custom), JSX depth 3
+          30.0 CRAP
+  src/renderer/above-view/PagePopup.tsx
+    :122 commitUrl
+           5 cyclomatic    4 cognitive   11 lines
+          30.0 CRAP
+  src/renderer/right-details-panel/components/GroupEntityPane.tsx
+    :9 GroupEntityPane
+           5 cyclomatic    5 cognitive   34 lines
+         react: 1 props, 1 hooks (1 custom), JSX depth 4
+          30.0 CRAP
+  src/main/ipc/register-right-details-panel-ipc.ts
+    :206 <arrow>
+           5 cyclomatic    3 cognitive   11 lines
+          30.0 CRAP
+    :289 <arrow>
+           5 cyclomatic    3 cognitive    5 lines
+          30.0 CRAP
+    :332 <arrow>
+           5 cyclomatic    3 cognitive    5 lines
+          30.0 CRAP
+  src/renderer/onboarding/App.tsx
+    :30 progressReducer
+           5 cyclomatic    1 cognitive   12 lines
+          30.0 CRAP
+  src/renderer/above-view/useLiveAnnotationBboxes.ts
+    :88 <arrow>
+           5 cyclomatic    6 cognitive   19 lines
+          30.0 CRAP
+  src/main/runtime/page-input-forwarding.ts
+    :57 modifiersFor
+           5 cyclomatic    4 cognitive   13 lines
+          30.0 CRAP
+    :84 forwardWheelToPage
+           5 cyclomatic    4 cognitive   29 lines
+          30.0 CRAP
+  src/main/routes/recording.ts
+    :20 handler
+           5 cyclomatic    5 cognitive   28 lines
+         react: 2 props
+          30.0 CRAP
+  src/renderer/above-view/EdgeLayer.tsx
+    :46 getAnchorPoint
+           5 cyclomatic    1 cognitive   20 lines
+         blast radius: <EdgeLayer> rendered in 2 places
+          30.0 CRAP
+    :94 controlPointOffset
+           5 cyclomatic    1 cognitive   13 lines
+         blast radius: <EdgeLayer> rendered in 2 places
+          30.0 CRAP
+  src/main/ipc/register-canvas-entity-ipc.ts
+    :292 <arrow>
+           5 cyclomatic    4 cognitive   12 lines
+          30.0 CRAP
+    :497 <arrow>
+           5 cyclomatic    5 cognitive   15 lines
+          30.0 CRAP
+  src/renderer/right-details-panel/components/PagePane.tsx
+    :271 <arrow>
+           5 cyclomatic    4 cognitive   10 lines
+          30.0 CRAP
+    :283 PageCommentsSection
+           5 cyclomatic    9 cognitive   87 lines
+         react: 8 props, JSX depth 5
+          30.0 CRAP
+  src/main/ipc/register-canvas-ipc.ts
+    :116 <arrow>
+           5 cyclomatic    5 cognitive   14 lines
+          30.0 CRAP
+    :161 <arrow>
+           5 cyclomatic    4 cognitive   17 lines
+          30.0 CRAP
+    :337 <arrow>
+           5 cyclomatic    4 cognitive   14 lines
+          30.0 CRAP
+  src/renderer/canvas-bg/entity-renderers/WireframeInlineRenderer.tsx
+    :6 WireframeInlineRenderer
+           5 cyclomatic   12 cognitive  104 lines
+         react: 4 props, 7 hooks (1 state, 3 effect, 2 callback, 1 custom), max effect deps 2, JSX depth 2
+          30.0 CRAP
+  src/main/routes/session.ts
+    :281 handler
+           5 cyclomatic    2 cognitive   15 lines
+         react: 2 props
+          30.0 CRAP
+  src/main/onboarding-status.ts
+    :21 skillToStatus
+           5 cyclomatic    1 cognitive   12 lines
+          30.0 CRAP
+    :34 getOnboardingStatus
+           5 cyclomatic    5 cognitive   20 lines
+          30.0 CRAP
+  src/renderer/shared/RendererErrorBoundary.tsx
+    :39 copyAll
+           5 cyclomatic    4 cognitive   19 lines
+          30.0 CRAP
+  src/main/routes/workspace.ts
+    :160 handler
+           5 cyclomatic    4 cognitive   13 lines
+         react: 2 props
+          30.0 CRAP
+  src/preload/annotation-bbox-tracker.ts
+    :71 setAnnotationBboxSubscriptions
+           5 cyclomatic    5 cognitive   19 lines
+          30.0 CRAP
+  src/renderer/right-details-panel/rightDetailsPanelHelpers.ts
+    :30 formatSourceLocation
+           5 cyclomatic    4 cognitive   13 lines
+          30.0 CRAP
+  src/renderer/shared/PresenceParticleTrail.tsx
+    :377 pushCursors
+           5 cyclomatic    6 cognitive   21 lines
+         blast radius: <PresenceParticleTrail> rendered in 2 places
+          30.0 CRAP
+  src/main/sentry.ts
+    :30 initSentry
+           5 cyclomatic    3 cognitive   25 lines
+          30.0 CRAP
+  src/renderer/above-view/file-popup-contributions/WireframeJsonModeContribution.tsx
+    :6 WireframeJsonModeContribution
+           5 cyclomatic    6 cognitive   32 lines
+         react: 4 props, JSX depth 2
+          30.0 CRAP
+  src/renderer/above-view/file-popup-contributions/index.tsx
+    :38 renderOne
+           5 cyclomatic    1 cognitive   45 lines
+         react: JSX depth 1
+          30.0 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeRenderer.tsx
+    :105 handleMove
+           5 cyclomatic    4 cognitive   10 lines
+          30.0 CRAP
+    :149 handleUp
+           5 cyclomatic    4 cognitive   13 lines
+          30.0 CRAP
+  src/main/index.ts
+    :106 <arrow>
+           5 cyclomatic    4 cognitive   12 lines
+          30.0 CRAP
+  src/main/cli-install.ts
+    :40 createSymlink
+           5 cyclomatic    4 cognitive   25 lines
+          30.0 CRAP
+    :152 uninstallCli
+           5 cyclomatic    7 cognitive   24 lines
+          30.0 CRAP
+  src/renderer/above-view/TextToolPopup.tsx
+    :22 TextToolPopup
+           5 cyclomatic    4 cognitive   82 lines
+         react: 4 props, JSX depth 4
+         blast radius: <TextToolPopup> rendered in 2 places
+          30.0 CRAP
+  src/main/routes/annotations.ts
+    :22 annotationAnchorPosition
+           5 cyclomatic    4 cognitive   15 lines
+          30.0 CRAP
+  src/main/skill-install-runner.ts
+    :14 runOne
+           5 cyclomatic    6 cognitive   23 lines
+          30.0 CRAP
+    :92 runComponentToggle
+           5 cyclomatic    6 cognitive   24 lines
+          30.0 CRAP
+  src/renderer/left-sidebar/useDragReorder.ts
+    :38 onDragOver
+           5 cyclomatic    5 cognitive   18 lines
+          30.0 CRAP
+    :62 onDrop
+           5 cyclomatic    4 cognitive   12 lines
+          30.0 CRAP
+  src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+    :32 EditableText
+           5 cyclomatic    8 cognitive   75 lines
+         react: 8 props, JSX depth 1
+         blast radius: <EditableText> rendered in 6 places
+          30.0 CRAP
+  src/renderer/above-view/ShapePopup.tsx
+    :15 ShapePopup
+           5 cyclomatic    6 cognitive   96 lines
+         react: 5 props, 1 hooks (1 custom), JSX depth 4
+          30.0 CRAP
+  src/renderer/shared/hooks/useScenePanOffset.ts
+    :18 useScenePanOffset
+           5 cyclomatic    6 cognitive   13 lines
+         react: 2 hooks
+          30.0 CRAP
+  src/preload/component-inspector.ts
+    :99 nodeDisplayName
+           5 cyclomatic    3 cognitive    6 lines
+          30.0 CRAP
+    :271 children
+           5 cyclomatic    1 cognitive   10 lines
+          30.0 CRAP
+    :296 roots
+           5 cyclomatic    1 cognitive   10 lines
+          30.0 CRAP
+    :406 overrideProps
+           5 cyclomatic    3 cognitive   14 lines
+          30.0 CRAP
+    :492 forcePseudoState
+           5 cyclomatic    4 cognitive   14 lines
+          30.0 CRAP
+    :556 installCommitHook
+           5 cyclomatic    3 cognitive   18 lines
+          30.0 CRAP
+  src/renderer/canvas-bg/wireframe/wireframe-utils.ts
+    :179 toggleNodeStateInTree
+           5 cyclomatic    6 cognitive   11 lines
+          30.0 CRAP
+    :191 findNodeById
+           5 cyclomatic    7 cognitive   10 lines
+          30.0 CRAP
+  src/renderer/canvas-bg/useCanvasViewportGestures.ts
+    :35 handleWheel
+           5 cyclomatic    4 cognitive   16 lines
+          30.0 CRAP
+  src/renderer/above-view/App.tsx
+    :323 <arrow>
+           5 cyclomatic    4 cognitive   24 lines
+         react: JSX depth 1
+          30.0 CRAP
+    :374 sameKindSelectedEntities
+           5 cyclomatic    5 cognitive   14 lines
+          30.0 CRAP
+    :480 marqueePreviewIds
+           5 cyclomatic    2 cognitive   10 lines
+          30.0 CRAP
+    :1237 onKey
+           5 cyclomatic    3 cognitive    6 lines
+          30.0 CRAP
+  src/renderer/above-view/useAnnotationDraftState.ts
+    :61 submitPendingAnnotation
+           5 cyclomatic    4 cognitive   14 lines
+          30.0 CRAP
+    :147 <arrow>
+           5 cyclomatic    5 cognitive   21 lines
+          30.0 CRAP
+  src/renderer/above-view/useCanvasPointerRouter.ts
+    :446 onMove
+           5 cyclomatic    5 cognitive   28 lines
+          30.0 CRAP
+    :811 runEdgeDrag
+           5 cyclomatic    4 cognitive  100 lines
+          30.0 CRAP
+    :934 onMove
+           5 cyclomatic    5 cognitive   26 lines
+          30.0 CRAP
+  src/main/skill-install.ts
+    :70 getSkillStatus
+           5 cyclomatic    4 cognitive   14 lines
+          30.0 CRAP
+  src/renderer/above-view/useAnnotationThreadState.ts
+    :98 annotationThreadPosition
+           5 cyclomatic    4 cognitive   24 lines
+          30.0 CRAP
+  src/renderer/left-sidebar/App.tsx
+    :23 findSidebarItemById
+           5 cyclomatic    7 cognitive    9 lines
+          30.0 CRAP
+  src/main/runtime/app-menu.ts
+    :28 pendingSkillUpdates
+           5 cyclomatic    4 cognitive   11 lines
+          30.0 CRAP
+  src/preload/comment-badges.ts
+    :391 <arrow>
+           5 cyclomatic    3 cognitive   13 lines
+          30.0 CRAP
+  src/shared/scroll-sync.ts
+    :7 maxScrollLeft
+           5 cyclomatic    2 cognitive    7 lines
+          30.0 CRAP
+    :15 maxScrollTop
+           5 cyclomatic    2 cognitive    7 lines
+          30.0 CRAP
+  src/preload/dom-element-utils.ts
+    :49 buildElementPath
+           5 cyclomatic    6 cognitive   17 lines
+          30.0 CRAP
+    :120 deepElementFromPoint
+           5 cyclomatic    6 cognitive   11 lines
+          30.0 CRAP
+    :240 buildStructuredSnapshotNode
+           5 cyclomatic    4 cognitive   29 lines
+          30.0 CRAP
+  src/preload/comment-hover-overlay.ts
+    :146 refresh
+           5 cyclomatic    4 cognitive   17 lines
+          30.0 CRAP
+  src/renderer/right-details-panel/components/ColorSwatchPicker.tsx
+    :47 <arrow>
+           5 cyclomatic    6 cognitive   27 lines
+         react: JSX depth 2
+         blast radius: <ColorSwatchPicker> rendered in 3 places
+          30.0 CRAP
+    :8 ColorSwatchPicker
+           5 cyclomatic   10 cognitive   69 lines
+         react: 5 props, JSX depth 3
+         blast radius: <ColorSwatchPicker> rendered in 3 places
+          30.0 CRAP
+  src/main/reorder-gesture.ts
+    :107 commitReorderGesture
+           5 cyclomatic    5 cognitive   20 lines
+          30.0 CRAP
+  src/main/routes/edges-groups.ts
+    :74 handler
+           5 cyclomatic    3 cognitive   13 lines
+         react: 2 props
+          30.0 CRAP
+  src/main/clipboard-paste.ts
+    :140 <arrow>
+           5 cyclomatic    1 cognitive   10 lines
+          30.0 CRAP
+  src/main/app-control-server.ts
+    :332 <arrow>
+           5 cyclomatic    4 cognitive  489 lines
+          30.0 CRAP
+  src/main/ipc/register-comment-hover-ipc.ts
+    :63 payloadSignature
+           5 cyclomatic    4 cognitive   12 lines
+          30.0 CRAP
+    :164 <arrow>
+           5 cyclomatic    4 cognitive   26 lines
+          30.0 CRAP
+  src/renderer/above-view/useAnnotationDraftState.ts
+    :22 useAnnotationDraftState
+           1 cyclomatic   19 cognitive  194 lines
+         react: 5 props, 19 hooks
+  src/renderer/shared/MarkdownEditor.tsx
+    :18 MarkdownEditor
+           1 cyclomatic   19 cognitive  151 lines
+         react: 12 props, 11 hooks (3 effect, 8 custom), max effect deps 1, JSX depth 1
+         blast radius: <MarkdownEditor> rendered in 2 places
+  src/renderer/shared/PresenceParticleTrail.tsx
+    :434 PresenceParticleTrail
+           1 cyclomatic   16 cognitive  157 lines
+         react: 15 props, 5 hooks (3 effect, 2 custom), max effect deps 14, JSX depth 1
+         blast radius: <PresenceParticleTrail> rendered in 2 places
+  Functions exceeding cyclomatic, cognitive, or CRAP thresholds (https://docs.fallow.tools/explanations/health#complexity-metrics)
+  To suppress: // fallow-ignore-next-line complexity
+
+● File health scores (515 files) · sorted by triage concern
+
+   79.4    src/main/app-control-server.ts                  risk
+            899 LOC    1 fan-in   22 fan-out    0% dead  0.27 density  >999 risk
+
+   79.3    src/renderer/above-view/App.tsx                 risk
+           1609 LOC    1 fan-in   53 fan-out    0% dead  0.19 density  >999 risk
+
+   82.5    src/main/routes/session.ts                      risk
+            321 LOC    1 fan-in    8 fan-out    0% dead  0.29 density  >999 risk
+
+   83.4    src/renderer/above-view/PagePopup.tsx           risk
+            387 LOC    1 fan-in    8 fan-out    0% dead  0.26 density  >999 risk
+
+   87.7    src/main/mcp-tools.ts                           risk
+            254 LOC    1 fan-in    5 fan-out    0% dead  0.17 density  >999 risk
+
+   82.5    src/main/runtime/layout-engine.ts               risk
+            604 LOC    2 fan-in   21 fan-out    0% dead  0.17 density  >999 risk
+
+   84.9    src/main/runtime/region-capture.ts              risk
+            208 LOC    1 fan-in    8 fan-out    0% dead  0.21 density  >999 risk
+
+   82.0    src/main/presence-cursor.ts                     risk
+            725 LOC    5 fan-in    6 fan-out    0% dead  0.34 density  864.7 risk
+
+   88.7    src/preload/dom-inspection.ts                   risk
+            727 LOC    2 fan-in    2 fan-out    0% dead  0.23 density  812.0 risk
+
+   90.6    src/renderer/shared/pageListItem.tsx            risk
+            207 LOC    1 fan-in    1 fan-out    0% dead  0.22 density  812.0 risk
+
+  ... and 505 more files (--format json for full list)
+
+  Sorted by triage concern: the larger of low-MI concern and CRAP risk. The risk / structure tag marks which one placed each file. MI reflects complexity, coupling, and dead code; risk reflects untested complexity (CRAP) and can diverge from MI. Risk: low <15, moderate 15-30, high >=30. CRAP estimated from export references (85% direct, 40% indirect, 0% untested). Run `fallow health --coverage <coverage-final.json>` for exact scores. https://docs.fallow.tools/explanations/health#file-health-scores
+
+● Hotspots (246 files, since 6 months)
+
+   44.2 ▼  src/preload/canvas-bg.ts
+          29 commits    585 churn  0.45 density   0 fan-in  ▼ cooling
+
+   25.1 ▼  src/renderer/above-view/App.tsx
+          41 commits   3586 churn  0.19 density   1 fan-in  ▼ cooling
+
+   20.0 ▼  src/main/runtime/canvas-layout-data.ts
+          21 commits   1119 churn  0.28 density   5 fan-in  ▼ cooling
+
+   18.9 ▼  src/main/runtime/selection-controller.ts
+          16 commits    510 churn  0.36 density  17 fan-in  ▼ cooling
+
+   18.2 ▼  src/main/runtime/focus-reconciler-runtime.ts
+          13 commits    157 churn  0.41 density   1 fan-in  ▼ cooling
+
+   18.1 ▼  src/main/ipc/register-canvas-entity-ipc.ts
+          23 commits   1440 churn  0.23 density   1 fan-in  ▼ cooling
+
+   15.1 ▼  src/renderer/above-view/useCanvasPointerRouter.ts
+          21 commits   1762 churn  0.21 density   1 fan-in  ▼ cooling
+
+   13.9 ▼  src/preload/toolbar.ts
+           7 commits    144 churn  0.58 density   0 fan-in  ▼ cooling
+
+   13.1 ▼  src/main/ipc/register-canvas-ipc.ts
+          24 commits   1037 churn  0.17 density   1 fan-in  ▼ cooling
+
+   12.2 ▼  src/main/runtime/document-commands.ts
+          18 commits   1348 churn  0.20 density  23 fan-in  ▼ cooling
+
+   11.7 ▼  src/renderer/canvas-bg/App.tsx
+          21 commits   1287 churn  0.18 density   1 fan-in  ▼ cooling
+
+   11.6 ▼  src/main/runtime/inspect-session.ts
+          13 commits    868 churn  0.29 density  14 fan-in  ▼ cooling
+
+   11.5 ▼  src/main/runtime/page-factory.ts
+          15 commits    554 churn  0.24 density   3 fan-in  ▼ cooling
+
+   10.9 ▼  src/shared/hit-test.ts
+          16 commits    666 churn  0.20 density   6 fan-in  ▼ cooling
+
+   10.8 ▼  src/main/ipc/register-toolbar-ipc.ts
+          10 commits    428 churn  0.33 density   1 fan-in  ▼ cooling
+
+   10.6 ─  src/main/app-control-server.ts
+          11 commits   1110 churn  0.27 density   1 fan-in  ─ stable
+
+    9.8 ─  src/preload/left-sidebar.ts
+           6 commits     67 churn  0.46 density   0 fan-in  ─ stable
+
+    9.7 ─  tests/smoke/app-client.ts
+          19 commits    959 churn  0.15 density  25 fan-in  ─ stable
+
+    9.3 ▼  src/main/runtime/layout-engine.ts
+          16 commits    923 churn  0.17 density   2 fan-in  ▼ cooling
+
+    9.3 ▼  src/main/runtime/focus-reconciler.ts
+          15 commits    192 churn  0.19 density   2 fan-in  ▼ cooling
+
+    9.2 ▼  src/preload/right-details-panel.ts
+           6 commits    194 churn  0.48 density   0 fan-in  ▼ cooling
+
+    8.8 ▼  src/main/routes/test.ts
+          17 commits    697 churn  0.15 density   1 fan-in  ▼ cooling
+
+    8.8 ▼  src/main/ipc/register-canvas-drag-ipc.ts
+          17 commits    961 churn  0.15 density   1 fan-in  ▼ cooling
+
+    8.7 ▼  src/main/index.ts
+          17 commits    329 churn  0.16 density   0 fan-in  ▼ cooling
+
+    8.3 ▼  src/main/cli-commands.ts
+          10 commits    957 churn  0.26 density   2 fan-in  ▼ cooling
+
+    8.2 ▼  src/main/ipc/register-annotation-inspection-ipc.ts
+           9 commits    387 churn  0.26 density   1 fan-in  ▼ cooling
+
+    8.2 ▼  src/main/ipc/register-page-chrome-ipc.ts
+          10 commits    915 churn  0.26 density   1 fan-in  ▼ cooling
+
+    8.2 ▼  src/main/runtime/binding-handlers.ts
+           8 commits    262 churn  0.29 density   3 fan-in  ▼ cooling
+
+    8.0 ▼  src/main/runtime/json-canvas-serializer.ts
+          11 commits    610 churn  0.22 density   9 fan-in  ▼ cooling
+
+    8.0 ▼  tests/unit/focus-reconciler.test.ts [test]
+          12 commits    163 churn  0.21 density   0 fan-in  ▼ cooling
+
+    7.8 ▼  src/main/presence-cursor.ts
+           8 commits    860 churn  0.34 density   5 fan-in  ▼ cooling
+
+    7.7 ▼  src/shared/gesture-utils.ts
+           8 commits    254 churn  0.29 density  20 fan-in  ▼ cooling
+
+    7.6 ▼  src/main/runtime/workspace-restore.ts
+          10 commits    515 churn  0.23 density   5 fan-in  ▼ cooling
+
+    7.6 ▼  src/main/runtime/selection-state.ts
+           7 commits    233 churn  0.33 density   4 fan-in  ▼ cooling
+
+    7.5 ─  src/shared/url.ts
+           4 commits     84 churn  0.51 density   7 fan-in  ─ stable
+
+    7.4 ▼  src/main/runtime/tool-mode.ts
+           9 commits    360 churn  0.25 density   5 fan-in  ▼ cooling
+
+    7.2 ▼  src/renderer/right-details-panel/App.tsx
+           9 commits    224 churn  0.23 density   1 fan-in  ▼ cooling
+
+    7.2 ▼  src/renderer/canvas-bg/useCanvasViewportGestures.ts
+          10 commits    690 churn  0.22 density   1 fan-in  ▼ cooling
+
+    7.0 ─  src/main/workspace-annotations.ts
+           7 commits    384 churn  0.32 density   8 fan-in  ─ stable
+
+    7.0 ▼  tests/unit/gate-predicate.test.ts [test]
+          14 commits    519 churn  0.16 density   0 fan-in  ▼ cooling
+
+    6.9 ▼  src/main/presence-manager.ts
+           7 commits    704 churn  0.32 density   7 fan-in  ▼ cooling
+
+    6.9 ▼  src/main/runtime/sidebar-builder.ts
+           6 commits    370 churn  0.35 density   1 fan-in  ▼ cooling
+
+    6.9 ▼  src/main/workspace-entities.ts
+           9 commits    764 churn  0.24 density  16 fan-in  ▼ cooling
+
+    6.8 ▼  src/main/runtime/viewport-control.ts
+           8 commits    652 churn  0.24 density  26 fan-in  ▼ cooling
+
+    6.6 ▼  src/renderer/toolbar/toolbarSections.tsx
+          17 commits   1562 churn  0.12 density   1 fan-in  ▼ cooling
+
+    6.4 ▼  src/main/routes/session.ts
+           7 commits    460 churn  0.29 density   1 fan-in  ▼ cooling
+
+    6.2 ▼  src/renderer/above-view/SelectionOutlineLayer.tsx
+          11 commits    804 churn  0.16 density   1 fan-in  ▼ cooling
+
+    6.2 ─  src/preload/page-content.ts
+          10 commits   1560 churn  0.21 density   0 fan-in  ─ stable
+
+    6.0 ▼  src/shared/canvas-pointer-actions.ts
+          12 commits    382 churn  0.15 density   3 fan-in  ▼ cooling
+
+    6.0 ▼  src/main/workspace-pages.ts
+          10 commits    739 churn  0.17 density   9 fan-in  ▼ cooling
+
+    5.9 ▼  src/renderer/above-view/PagePopup.tsx
+           6 commits    516 churn  0.26 density   1 fan-in  ▼ cooling
+
+    5.7 ▼  src/main/runtime/file-entity-state.ts
+           9 commits    270 churn  0.20 density  27 fan-in  ▼ cooling
+
+    5.7 ▼  src/main/runtime/workspace-tab-operations.ts
+           7 commits    370 churn  0.26 density   3 fan-in  ▼ cooling
+
+    5.6 ▼  src/renderer/above-view/FileBodyLayer.tsx
+          11 commits    348 churn  0.15 density   1 fan-in  ▼ cooling
+
+    5.5 ─  src/main/runtime/interaction-controller.ts
+           7 commits    248 churn  0.23 density  10 fan-in  ─ stable
+
+    5.4 ▼  src/main/shared/entity-ops.ts
+           6 commits    778 churn  0.26 density   2 fan-in  ▼ cooling
+
+    5.4 ▲  src/main/workspace-groups.ts
+           7 commits    464 churn  0.25 density   9 fan-in  ▲ accelerating
+
+    5.4 ─  src/main/runtime/preferences.ts
+           8 commits    438 churn  0.23 density  19 fan-in  ─ stable
+
+    5.3 ▼  src/main/ipc/register-right-details-panel-ipc.ts
+           6 commits    637 churn  0.26 density   1 fan-in  ▼ cooling
+
+    5.2 ▲  src/main/workspace-clipboard.ts
+           8 commits    396 churn  0.21 density   5 fan-in  ▲ accelerating
+
+    5.1 ▼  src/main/runtime/dev-server-manager.ts
+           7 commits    570 churn  0.25 density  13 fan-in  ▼ cooling
+
+    5.0 ▼  src/renderer/canvas-bg/CanvasGridSurface.tsx
+          10 commits    381 churn  0.15 density   3 fan-in  ▼ cooling
+
+    4.9 ▼  src/renderer/above-view/StickyNotePopover.tsx
+           8 commits    494 churn  0.17 density   1 fan-in  ▼ cooling
+
+    4.8 ▼  src/renderer/above-view/StickyBodyLayer.tsx
+          10 commits    744 churn  0.15 density   1 fan-in  ▼ cooling
+
+    4.8 ▼  src/main/runtime/runtime-entities.ts
+           7 commits    272 churn  0.21 density  23 fan-in  ▼ cooling
+
+    4.6 ▼  src/renderer/toolbar/App.tsx
+          13 commits    429 churn  0.11 density   1 fan-in  ▼ cooling
+
+    4.6 ▼  src/renderer/shared/hooks/useViewportWheelAndMiddlePan.ts
+           6 commits    144 churn  0.23 density   1 fan-in  ▼ cooling
+
+    4.6 ▼  tests/unit/should-focus-selected-page.test.ts [test]
+           8 commits    176 churn  0.17 density   0 fan-in  ▼ cooling
+
+    4.5 ▼  src/renderer/above-view/GroupRenameLabel.tsx
+           7 commits    254 churn  0.18 density   1 fan-in  ▼ cooling
+
+    4.5 ▼  tests/unit/hit-test.test.ts [test]
+          10 commits    566 churn  0.13 density   0 fan-in  ▼ cooling
+
+    4.5 ▼  src/shared/tool.ts
+           6 commits    206 churn  0.22 density   9 fan-in  ▼ cooling
+
+    4.4 ▼  src/main/runtime/app-menu.ts
+           9 commits    385 churn  0.17 density   3 fan-in  ▼ cooling
+
+    4.4 ▲  src/renderer/canvas-bg/entity-renderers/MarkdownInlineRenderer.tsx
+           6 commits    488 churn  0.24 density   1 fan-in  ▲ accelerating
+
+    4.4 ▼  src/main/runtime/window-init.ts
+          12 commits    549 churn  0.11 density   3 fan-in  ▼ cooling
+
+    4.4 ▼  src/main/runtime/runtime-geometry.ts
+           8 commits    772 churn  0.16 density  17 fan-in  ▼ cooling
+
+    4.3 ▼  src/renderer/left-sidebar/SidebarCanvasTree.tsx
+          10 commits    813 churn  0.14 density   1 fan-in  ▼ cooling
+
+    4.3 ▼  src/renderer/right-details-panel/rightDetailsPanelHelpers.ts
+           4 commits    114 churn  0.34 density  20 fan-in  ▼ cooling
+
+    4.3 ─  src/main/routes/edges-groups.ts
+           5 commits    190 churn  0.28 density   1 fan-in  ─ stable
+
+    4.3 ▼  src/main/agent-fix/prompt-builder.ts
+           5 commits    189 churn  0.25 density   2 fan-in  ▼ cooling
+
+    4.3 ▼  src/renderer/right-details-panel/components/FileDeviceSection.tsx
+           3 commits    220 churn  0.43 density   4 fan-in  ▼ cooling
+
+    4.2 ▼  src/preload/dom-inspection.ts
+           5 commits    790 churn  0.23 density   2 fan-in  ▼ cooling
+
+    4.2 ▼  src/main/runtime/overlay-manager.ts
+           5 commits    259 churn  0.25 density  12 fan-in  ▼ cooling
+
+    4.2 ▼  src/main/ui-state.ts
+           5 commits    582 churn  0.25 density  32 fan-in  ▼ cooling
+
+    4.1 ▼  src/main/runtime/workspace-tabs.ts
+           5 commits    247 churn  0.24 density   9 fan-in  ▼ cooling
+
+    4.0 ▼  src/renderer/above-view/useAnnotationDrawingGestures.ts
+           7 commits    394 churn  0.18 density   1 fan-in  ▼ cooling
+
+    4.0 ─  src/renderer/above-view/FilePopup.tsx
+           7 commits    271 churn  0.15 density   1 fan-in  ─ stable
+
+    4.0 ─  src/main/agent-fix/fix-orchestrator.ts
+           4 commits    195 churn  0.28 density   3 fan-in  ─ stable
+
+    4.0 ▼  src/main/runtime/runtime-core.ts
+           5 commits    365 churn  0.24 density   9 fan-in  ▼ cooling
+
+    3.8 ▼  src/main/shared/browse-handler.ts
+           5 commits    593 churn  0.27 density   3 fan-in  ▼ cooling
+
+    3.8 ▼  src/renderer/left-sidebar/App.tsx
+           5 commits    443 churn  0.26 density   1 fan-in  ▼ cooling
+
+    3.8 ▼  src/main/runtime/layer-stack.ts
+           5 commits    185 churn  0.23 density   2 fan-in  ▼ cooling
+
+    3.7 ▼  src/renderer/right-details-panel/components/CommentsPane.tsx
+           6 commits    364 churn  0.19 density   2 fan-in  ▼ cooling
+
+    3.7 ▼  src/renderer/above-view/EdgeLayer.tsx
+           6 commits    423 churn  0.19 density   1 fan-in  ▼ cooling
+
+    3.7 ▼  tests/smoke/global-setup.ts
+           5 commits    134 churn  0.24 density   0 fan-in  ▼ cooling
+
+    3.7 ▼  tests/smoke/selection.test.ts [test]
+           4 commits    289 churn  0.27 density   0 fan-in  ▼ cooling
+
+    3.6 ─  src/renderer/canvas-bg/ResizeHandles.tsx
+           5 commits    107 churn  0.24 density   2 fan-in  ─ stable
+
+    3.6 ▼  src/renderer/canvas-bg/AgentCursorLayer.tsx
+           8 commits    811 churn  0.16 density   2 fan-in  ▼ cooling
+
+    3.6 ▼  src/main/runtime/component-page-factory.ts
+           6 commits    227 churn  0.20 density   3 fan-in  ▼ cooling
+
+    3.5 ▲  src/renderer/above-view/useAnnotationDraftState.ts
+           6 commits    418 churn  0.19 density   1 fan-in  ▲ accelerating
+
+    3.5 ▼  src/renderer/above-view/DrawingPopup.tsx
+           5 commits    299 churn  0.18 density   1 fan-in  ▼ cooling
+
+    3.5 ▼  src/renderer/above-view/CanvasItemPopup.tsx
+           7 commits    799 churn  0.14 density  15 fan-in  ▼ cooling
+
+    3.5 ▲  src/preload/dom-element-utils.ts
+           4 commits    306 churn  0.29 density   3 fan-in  ▲ accelerating
+
+    3.4 ─  src/renderer/right-details-panel/components/PagePane.tsx
+           5 commits   1075 churn  0.17 density   1 fan-in  ─ stable
+
+    3.4 ▼  src/renderer/canvas-bg/canvasGeometry.ts
+           4 commits    223 churn  0.25 density   0 fan-in  ▼ cooling
+
+    3.4 ▼  tests/unit/entity-renderer-registry.test.ts [test]
+           6 commits    241 churn  0.19 density   0 fan-in  ▼ cooling
+
+    3.3 ▼  src/main/runtime/binding-dispatcher.ts
+           4 commits    141 churn  0.23 density   5 fan-in  ▼ cooling
+
+    3.3 ▼  src/renderer/above-view/ShapePopup.tsx
+           5 commits    306 churn  0.17 density   1 fan-in  ▼ cooling
+
+    3.3 ─  src/renderer/above-view/useAnchoredPosition.ts
+           5 commits    148 churn  0.21 density   2 fan-in  ─ stable
+
+    3.3 ▼  src/main/plugins/registry.ts
+           8 commits    194 churn  0.14 density  11 fan-in  ▼ cooling
+
+    3.3 ▼  src/main/runtime/runtime-context.ts
+           5 commits    252 churn  0.20 density  56 fan-in  ▼ cooling
+
+    3.3 ▼  tests/unit/canvas-pointer-actions.test.ts [test]
+          11 commits    567 churn  0.09 density   0 fan-in  ▼ cooling
+
+    3.2 ─  src/renderer/above-view/optionDragCopy.ts
+           4 commits    487 churn  0.24 density   4 fan-in  ─ stable
+
+    3.2 ▲  src/main/runtime/interaction-state.ts
+           6 commits    154 churn  0.16 density   6 fan-in  ▲ accelerating
+
+    3.1 ▼  src/renderer/right-details-panel/components/DocumentPane.tsx
+           5 commits    607 churn  0.18 density   1 fan-in  ▼ cooling
+
+    3.1 ▼  src/preload/component-inspector.ts
+           3 commits    680 churn  0.30 density   2 fan-in  ▼ cooling
+
+    3.1 ▲  src/renderer/canvas-bg/entity-renderers/filePathToSrc.ts
+           4 commits     28 churn  0.20 density   7 fan-in  ▲ accelerating
+
+    3.0 ▼  src/renderer/above-view/ReorderDotsLayer.tsx
+           3 commits    230 churn  0.25 density   1 fan-in  ▼ cooling
+
+    3.0 ▼  packages/vite/src/index.ts
+           5 commits    213 churn  0.21 density   0 fan-in  ▼ cooling
+
+    3.0 ▲  src/main/navigation-sync.ts
+           4 commits    169 churn  0.25 density   6 fan-in  ▲ accelerating
+
+    3.0 ▼  tests/smoke/keyboard-shortcuts.test.ts [test]
+           3 commits    445 churn  0.26 density   0 fan-in  ▼ cooling
+
+    3.0 ─  src/main/runtime/text-entity-state.ts
+           5 commits    171 churn  0.20 density  26 fan-in  ─ stable
+
+    3.0 ▼  src/shared/presence-targeting.ts
+           3 commits     90 churn  0.35 density   6 fan-in  ▼ cooling
+
+    3.0 ▼  tests/smoke/gestures.test.ts [test]
+           6 commits    274 churn  0.15 density   0 fan-in  ▼ cooling
+
+    3.0 ▼  src/main/runtime/gate-predicate.ts
+          14 commits    387 churn  0.07 density   2 fan-in  ▼ cooling
+
+    2.9 ▼  src/main/sentry.ts
+           4 commits    163 churn  0.22 density   1 fan-in  ▼ cooling
+
+    2.9 ─  src/main/runtime/workspace-observers.ts
+           5 commits    345 churn  0.18 density   8 fan-in  ─ stable
+
+    2.9 ▼  src/renderer/above-view/ShapeBodyLayer.tsx
+           7 commits    630 churn  0.13 density   1 fan-in  ▼ cooling
+
+    2.9 ─  src/renderer/shared/MarkdownEditor.tsx
+           5 commits    178 churn  0.18 density   2 fan-in  ─ stable
+
+    2.9 ▼  src/main/runtime/shape-entity-state.ts
+           4 commits    201 churn  0.20 density  23 fan-in  ▼ cooling
+
+    2.9 ▼  src/renderer/above-view/TextSizeDropdown.tsx
+           5 commits    192 churn  0.16 density   6 fan-in  ▼ cooling
+
+    2.8 ▼  src/main/runtime/region-capture.ts
+           4 commits    253 churn  0.21 density   1 fan-in  ▼ cooling
+
+    2.8 ▼  src/main/cdp-proxy.ts
+           4 commits    608 churn  0.21 density   3 fan-in  ▼ cooling
+
+    2.8 ▼  src/main/runtime/delete-selection.ts
+           3 commits     78 churn  0.25 density   3 fan-in  ▼ cooling
+
+    2.7 ▼  src/preload/comment-badges.ts
+           4 commits    436 churn  0.21 density   1 fan-in  ▼ cooling
+
+    2.7 ▼  src/renderer/right-details-panel/rightDetailsPanelSelectors.ts
+           3 commits    234 churn  0.32 density   3 fan-in  ▼ cooling
+
+    2.7 ─  src/main/runtime/workspace-doc.ts
+           4 commits    343 churn  0.22 density  11 fan-in  ─ stable
+
+    2.7 ─  tests/unit/tool.test.ts [test]
+           4 commits    171 churn  0.21 density   0 fan-in  ─ stable
+
+    2.7 ▼  src/main/runtime/devtools-panel.ts
+           5 commits    255 churn  0.16 density   3 fan-in  ▼ cooling
+
+    2.7 ▼  src/main/shared/app-client.ts
+           5 commits    184 churn  0.17 density   7 fan-in  ▼ cooling
+
+    2.7 ▼  src/main/runtime/safe-send.ts
+           3 commits     15 churn  0.33 density  11 fan-in  ▼ cooling
+
+    2.7 ▼  tests/unit/canvas-pointer-double-click.test.ts [test]
+           5 commits    110 churn  0.16 density   0 fan-in  ▼ cooling
+
+    2.6 ▼  src/renderer/above-view/CommentsLayer.tsx
+           7 commits    599 churn  0.12 density   1 fan-in  ▼ cooling
+
+    2.6 ▼  src/renderer/canvas-bg/entityConstants.ts
+           7 commits    100 churn  0.11 density   4 fan-in  ▼ cooling
+
+    2.6 ▼  src/main/plugins/index.ts
+           6 commits     58 churn  0.15 density   1 fan-in  ▼ cooling
+
+    2.6 ▲  src/shared/canvas-colors.ts
+           4 commits    253 churn  0.21 density  20 fan-in  ▲ accelerating
+
+    2.6 ▼  src/renderer/toolbar/useToolbarState.ts
+           8 commits    202 churn  0.10 density   2 fan-in  ▼ cooling
+
+    2.5 ▼  src/main/clipboard-paste.ts
+           3 commits    313 churn  0.23 density   2 fan-in  ▼ cooling
+
+    2.5 ▼  src/preload/comment-hover-overlay.ts
+           3 commits    299 churn  0.23 density   1 fan-in  ▼ cooling
+
+    2.5 ▼  src/main/runtime/image-sizing.ts
+           3 commits     54 churn  0.29 density   3 fan-in  ▼ cooling
+
+    2.5 ▲  src/main/workspace-edges.ts
+           3 commits     61 churn  0.23 density   8 fan-in  ▲ accelerating
+
+    2.4 ─  src/renderer/canvas-bg/DeviceShellLayer.tsx
+           4 commits    258 churn  0.16 density   1 fan-in  ─ stable
+
+    2.4 ▼  src/renderer/canvas-bg/entity-renderers/RendererSwitch.tsx
+           4 commits     92 churn  0.17 density   1 fan-in  ▼ cooling
+
+    2.4 ▼  src/main/routes/annotations.ts
+           5 commits    235 churn  0.17 density   1 fan-in  ▼ cooling
+
+    2.4 ▼  src/shared/bindings.ts
+           5 commits    397 churn  0.13 density   8 fan-in  ▼ cooling
+
+    2.4 ▼  src/main/routes/workspace.ts
+           5 commits    218 churn  0.14 density   1 fan-in  ▼ cooling
+
+    2.4 ▼  tests/smoke/persistence.test.ts [test]
+           3 commits    180 churn  0.21 density   0 fan-in  ▼ cooling
+
+    2.4 ▼  src/renderer/canvas-bg/canvasBgSelectors.ts
+           8 commits     97 churn  0.09 density   2 fan-in  ▼ cooling
+
+    2.3 ▼  src/main/ipc/register-repo-ipc.ts
+           3 commits    105 churn  0.27 density   1 fan-in  ▼ cooling
+
+    2.3 ▼  src/main/crash-log.ts
+           3 commits    123 churn  0.26 density   3 fan-in  ▼ cooling
+
+    2.3 ▼  src/main/runtime/page-cursor-bridge.ts
+           3 commits    148 churn  0.25 density   1 fan-in  ▼ cooling
+
+    2.3 ▲  tests/smoke/sidebar-hierarchy.test.ts [test]
+           4 commits    156 churn  0.18 density   0 fan-in  ▲ accelerating
+
+    2.2 ▲  src/renderer/canvas-bg/PageBorderLayer.tsx
+           3 commits    115 churn  0.18 density   1 fan-in  ▲ accelerating
+
+    2.2 ▼  src/renderer/onboarding/App.tsx
+           4 commits    327 churn  0.17 density   1 fan-in  ▼ cooling
+
+    2.2 ▼  src/renderer/shared/InlineEditLabel.tsx
+           4 commits    141 churn  0.19 density   5 fan-in  ▼ cooling
+
+    2.2 ─  src/main/skill-install.ts
+           4 commits    140 churn  0.20 density   5 fan-in  ─ stable
+
+    2.2 ▲  src/renderer/right-details-panel/useClearInspectHoverOnLeave.ts
+           3 commits     57 churn  0.24 density   1 fan-in  ▲ accelerating
+
+    2.2 ▼  src/main/runtime/drawing-entity-state.ts
+           4 commits    158 churn  0.17 density  22 fan-in  ▼ cooling
+
+    2.2 ▲  src/main/presence-session.ts
+           3 commits    107 churn  0.27 density   3 fan-in  ▲ accelerating
+
+    2.1 ▼  src/main/routes/pages.ts
+           3 commits    405 churn  0.19 density   1 fan-in  ▼ cooling
+
+    2.1 ▼  src/shared/edge-drag-controller.ts
+           4 commits    362 churn  0.17 density   4 fan-in  ▼ cooling
+
+    2.1 ▲  src/main/agent-fix/claude-spawner.ts
+           3 commits    213 churn  0.19 density   2 fan-in  ▲ accelerating
+
+    2.1 ▼  tests/unit/bindings.test.ts [test]
+           4 commits    616 churn  0.14 density   0 fan-in  ▼ cooling
+
+    2.0 ─  src/main/runtime/video-recorder.ts
+           5 commits    452 churn  0.13 density   1 fan-in  ─ stable
+
+    2.0 ▼  src/shared/multi-resize-accumulator.ts
+           4 commits    211 churn  0.14 density   2 fan-in  ▼ cooling
+
+    2.0 ▼  src/main/debug-window.ts
+           3 commits     68 churn  0.22 density   2 fan-in  ▼ cooling
+
+    2.0 ▼  src/main/plugins/builtin/component-render.ts
+           7 commits     73 churn  0.10 density   3 fan-in  ▼ cooling
+
+    1.9 ▲  src/main/workspace-placement.ts
+           4 commits    432 churn  0.16 density   6 fan-in  ▲ accelerating
+
+    1.9 ▲  src/main/workspace-layout-tasks.ts
+           3 commits    445 churn  0.22 density   2 fan-in  ▲ accelerating
+
+    1.9 ─  src/main/routes/recording.ts
+           4 commits    141 churn  0.16 density   1 fan-in  ─ stable
+
+    1.9 ─  src/renderer/above-view/GroupPopup.tsx
+           4 commits    177 churn  0.12 density   1 fan-in  ─ stable
+
+    1.9 ▼  src/main/runtime/workspace-persistence.ts
+           3 commits    627 churn  0.18 density   8 fan-in  ▼ cooling
+
+    1.8 ─  src/renderer/canvas-bg/SvgDeviceShellLayer.tsx
+           4 commits    242 churn  0.12 density   1 fan-in  ─ stable
+
+    1.8 ▼  src/renderer/right-details-panel/components/WireframeFilePane.tsx
+           3 commits    327 churn  0.18 density   1 fan-in  ▼ cooling
+
+    1.8 ▼  src/renderer/shared/SkillInstaller.tsx
+           3 commits    166 churn  0.16 density   1 fan-in  ▼ cooling
+
+    1.8 ▼  src/renderer/right-details-panel/components/ShapeEntityPane.tsx
+           3 commits    184 churn  0.17 density   1 fan-in  ▼ cooling
+
+    1.8 ▲  src/renderer/above-view/annotationMath.ts
+           4 commits    442 churn  0.15 density  10 fan-in  ▲ accelerating
+
+    1.8 ▼  src/shared/should-focus-selected-page.ts
+           4 commits     83 churn  0.13 density   2 fan-in  ▼ cooling
+
+    1.8 ▼  tests/unit/layout-math.test.ts [test]
+           3 commits    254 churn  0.18 density   0 fan-in  ▼ cooling
+
+    1.8 ▼  tests/unit/option-drag-copy.test.ts [test]
+           3 commits    104 churn  0.16 density   0 fan-in  ▼ cooling
+
+    1.7 ▼  src/main/mcp-tools.ts
+           3 commits    273 churn  0.17 density   1 fan-in  ▼ cooling
+
+    1.7 ▼  src/renderer/right-details-panel/components/EdgeEntityPane.tsx
+           3 commits    218 churn  0.17 density   1 fan-in  ▼ cooling
+
+    1.7 ▼  src/shared/types.ts
+          52 commits   3150 churn  0.01 density  284 fan-in  ▼ cooling
+
+    1.7 ─  src/main/sentry-context.ts
+           4 commits    113 churn  0.16 density   8 fan-in  ─ stable
+
+    1.7 ▲  tests/unit/workspace-annotations.test.ts [test]
+           4 commits    220 churn  0.14 density   0 fan-in  ▲ accelerating
+
+    1.6 ▼  src/main/runtime/page-input-forwarding.ts
+           3 commits    159 churn  0.15 density   1 fan-in  ▼ cooling
+
+    1.6 ▼  tests/unit/cli-parser.test.ts [test]
+           3 commits    155 churn  0.16 density   0 fan-in  ▼ cooling
+
+    1.6 ▼  src/main/routes/entities.ts
+           7 commits    914 churn  0.07 density   1 fan-in  ▼ cooling
+
+    1.5 ▼  src/main/cli-install.ts
+           3 commits    257 churn  0.19 density   2 fan-in  ▼ cooling
+
+    1.5 ▼  src/renderer/shared/PagePresetDropdown.tsx
+           3 commits     76 churn  0.14 density   3 fan-in  ▼ cooling
+
+    1.5 ▼  src/shared/device-catalog.ts
+           4 commits    307 churn  0.11 density  17 fan-in  ▼ cooling
+
+    1.5 ▼  src/main/auto-updater.ts
+           4 commits    128 churn  0.14 density   2 fan-in  ▼ cooling
+
+    1.5 ▼  src/main/cli-output.ts
+           3 commits     52 churn  0.18 density   1 fan-in  ▼ cooling
+
+    1.5 ─  tests/unit/json-canvas-serializer.test.ts [test]
+           7 commits    444 churn  0.07 density   0 fan-in  ─ stable
+
+    1.5 ▼  src/renderer/canvas-bg/canvasBgConstants.ts
+          11 commits     63 churn  0.04 density   9 fan-in  ▼ cooling
+
+    1.4 ▼  src/renderer/right-details-panel/components/FileEntityPane.tsx
+           3 commits    196 churn  0.14 density   1 fan-in  ▼ cooling
+
+    1.4 ▲  src/renderer/right-details-panel/components/ColorSwatchPicker.tsx
+           3 commits     98 churn  0.16 density   3 fan-in  ▲ accelerating
+
+    1.4 ▼  src/main/cli-parser.ts
+           3 commits     73 churn  0.14 density   2 fan-in  ▼ cooling
+
+    1.4 ▼  tests/smoke/undo.test.ts [test]
+           3 commits    339 churn  0.14 density   0 fan-in  ▼ cooling
+
+    1.4 ▼  src/main/runtime/view-refs.ts
+           3 commits     66 churn  0.16 density  31 fan-in  ▼ cooling
+
+    1.3 ▼  src/renderer/canvas-bg/wireframe/WireframeNodeRenderer.tsx
+           3 commits    694 churn  0.15 density   1 fan-in  ▼ cooling
+
+    1.3 ▼  src/renderer/canvas-bg/wireframe/WireframeRenderer.tsx
+           3 commits    339 churn  0.15 density   2 fan-in  ▼ cooling
+
+    1.3 ▼  src/renderer/above-view/TextToolPopup.tsx
+           3 commits    133 churn  0.12 density   1 fan-in  ▼ cooling
+
+    1.3 ▲  src/main/ipc/register-onboarding-ipc.ts
+           3 commits    144 churn  0.15 density   1 fan-in  ▲ accelerating
+
+    1.3 ▼  tests/unit/component-render-plugin.test.ts [test]
+           3 commits    232 churn  0.15 density   0 fan-in  ▼ cooling
+
+    1.3 ▼  src/main/plugins/builtin/image-render.ts
+           5 commits     34 churn  0.09 density   1 fan-in  ▼ cooling
+
+    1.2 ▲  src/renderer/right-details-panel/components/InspectTree.tsx
+           3 commits    242 churn  0.13 density   1 fan-in  ▲ accelerating
+
+    1.2 ▲  src/renderer/above-view/DrawingsLayer.tsx
+           4 commits    361 churn  0.10 density   1 fan-in  ▲ accelerating
+
+    1.2 ▼  src/renderer/right-details-panel/components/GroupEntityPane.tsx
+           3 commits     82 churn  0.12 density   1 fan-in  ▼ cooling
+
+    1.2 ▼  src/renderer/canvas-bg/entity-renderers/markdown-codemirror.ts
+           5 commits    151 churn  0.07 density   1 fan-in  ▼ cooling
+
+    1.2 ▲  src/renderer/canvas-bg/canvasGridStyle.ts
+           3 commits    159 churn  0.13 density   1 fan-in  ▲ accelerating
+
+    1.2 ▼  tests/smoke/upsert-layout.test.ts [test]
+           3 commits    228 churn  0.13 density   0 fan-in  ▼ cooling
+
+    1.2 ▲  tests/smoke/focus.test.ts [test]
+           3 commits     83 churn  0.13 density   0 fan-in  ▲ accelerating
+
+    1.2 ▼  tests/unit/page-bounds.test.ts [test]
+           3 commits    175 churn  0.10 density   0 fan-in  ▼ cooling
+
+    1.2 ▼  tests/unit/presence-targeting.test.ts [test]
+           3 commits    143 churn  0.14 density   0 fan-in  ▼ cooling
+
+    1.2 ▼  src/main/plugins/builtin/markdown-render.ts
+           6 commits     35 churn  0.07 density   1 fan-in  ▼ cooling
+
+    1.2 ▼  src/main/plugins/builtin/video-render.ts
+           5 commits     32 churn  0.08 density   1 fan-in  ▼ cooling
+
+    1.2 ▼  src/main/plugins/builtin/wireframe-render.ts
+           8 commits     48 churn  0.05 density   2 fan-in  ▼ cooling
+
+    1.1 ▼  src/renderer/right-details-panel/components/TextEntityPane.tsx
+           3 commits    103 churn  0.11 density   1 fan-in  ▼ cooling
+
+    1.1 ▼  src/renderer/canvas-bg/entity-renderers/markdown-smart-paste.ts
+           3 commits    246 churn  0.09 density   2 fan-in  ▼ cooling
+
+    1.1 ▼  tests/unit/use-anchored-position.test.ts [test]
+           3 commits    102 churn  0.10 density   0 fan-in  ▼ cooling
+
+    1.1 ▼  src/main/runtime/runtime-constants.ts
+           4 commits     53 churn  0.08 density  14 fan-in  ▼ cooling
+
+    0.9 ▲  src/renderer/canvas-bg/entity-renderers/ComponentPlaceholderRenderer.tsx
+           3 commits    106 churn  0.11 density   1 fan-in  ▲ accelerating
+
+    0.9 ▲  src/renderer/shared/PresenceParticleTrail.tsx
+           3 commits    602 churn  0.10 density   2 fan-in  ▲ accelerating
+
+    0.9 ▲  src/renderer/above-view/popupVariantOptions.ts
+           3 commits     62 churn  0.09 density   4 fan-in  ▲ accelerating
+
+    0.9 ▲  src/renderer/above-view/MarqueeLayer.tsx
+           4 commits     50 churn  0.08 density   1 fan-in  ▲ accelerating
+
+    0.9 ▼  src/renderer/above-view/DrawToolPopup.tsx
+           3 commits    177 churn  0.08 density   1 fan-in  ▼ cooling
+
+    0.9 ▼  src/renderer/agent-layer/App.tsx
+           4 commits     58 churn  0.07 density   1 fan-in  ▼ cooling
+
+    0.9 ▼  src/renderer/above-view/GroupBoundsLayer.tsx
+           5 commits    187 churn  0.05 density   2 fan-in  ▼ cooling
+
+    0.9 ▼  src/shared/drag-ids.ts
+           3 commits     18 churn  0.09 density   2 fan-in  ▼ cooling
+
+    0.8 ▲  src/main/runtime/region-select.ts
+           4 commits     92 churn  0.07 density   1 fan-in  ▲ accelerating
+
+    0.8 ▼  src/renderer/above-view/ShapeToolPopup.tsx
+           3 commits    166 churn  0.07 density   1 fan-in  ▼ cooling
+
+    0.8 ▼  src/shared/featureFlags.ts
+           4 commits     44 churn  0.06 density  15 fan-in  ▼ cooling
+
+    0.7 ▼  src/renderer/debug/PresenceSection.tsx
+           3 commits    626 churn  0.08 density   1 fan-in  ▼ cooling
+
+    0.7 ▼  src/main/ipc-handlers.ts
+           6 commits     25 churn  0.04 density   1 fan-in  ▼ cooling
+
+    0.5 ▼  src/renderer/canvas-bg/SelectionResizeGrid.tsx
+           3 commits    137 churn  0.05 density   1 fan-in  ▼ cooling
+
+    0.5 ▼  src/shared/canvas-hit-geometry.ts
+           5 commits     32 churn  0.03 density   7 fan-in  ▼ cooling
+
+  269 files excluded (< 3 commits)
+
+  Files with high churn and high complexity: https://docs.fallow.tools/explanations/health#hotspot-metrics
+
+● Refactoring targets (42)
+  31 medium · 11 high
+    score = quick-win ROI (higher = better) · pri = absolute priority
+
+   15.0  pri:30.0    src/main/runtime/entity-order-state.ts
+         high impact · effort:medium · confidence:medium  Split high-impact file (324 LOC), 9 dependents amplify every change
+         importers: src/main/ipc/register-canvas-entity-ipc.ts (StackOrderAction, reorderStackOrder); src/main/ipc/register-canvas-ipc.ts (reorderSidebarStackOrder); src/main/managed-layout.ts (managedChildOrder, writeManagedChildOrder); src/main/reorder-gesture.ts (managedChildOrder); src/main/routes/stack-order.ts (StackOrderAction, currentEntityIds, currentEntityOrder, reorderStackOrderIds)
+         clones: src/main/runtime/entity-order-state.ts:205-214 dup:bfe0d8e9; src/main/runtime/entity-order-state.ts:224-233 dup:bfe0d8e9; src/main/runtime/entity-order-state.ts:313-322 dup:bfe0d8e9; src/main/workspace-entities.ts:180-186 dup:1e4dafda
+
+   13.5  pri:40.5    src/main/runtime/selection-controller.ts
+         high impact · effort:high · confidence:medium  Split high-impact file (347 LOC), 17 dependents amplify every change
+         importers: src/main/cdp-proxy.ts (enterGroup as enterSelectionGroup, selectEntities as selectSelectionEntities, selectEntity as selectSelectionEntity, selectNone as clearSelection, selectPageById as selectSelectionPageById); src/main/ipc/register-canvas-drag-ipc.ts (resolveEntityKind, selectEntity as selectCanvasEntity, selectNone, selectPageById as selectCanvasPageById, selectedDragEntityIds); src/main/ipc/register-canvas-entity-ipc.ts (selectGroup); src/main/ipc/register-canvas-ipc.ts (applyEntitySelectionMutation, enterGroup, resolveEntityKind, selectGroup, selectNone); src/main/routes/edges-groups.ts (selectGroup as selectSelectionGroup)
+         clones: src/main/runtime/selection-controller.ts:163-172 dup:c1ef3915; src/main/runtime/selection-controller.ts:198-208 dup:c1ef3915; src/main/workspace-entities.ts:179-183 dup:3bbd2d89
+
+   12.7  pri:25.4    src/main/workspace-annotations.ts
+         high impact · effort:medium · confidence:medium  Split high-impact file (293 LOC), 8 dependents amplify every change
+         importers: src/main/agent-fix/fix-orchestrator.ts (addAnnotationReply, getAnnotationById, getAnnotations, setAnnotationFixSession, setOnAnnotationCreated, setOnAnnotationReply, updateAnnotationStatus); src/main/ipc/register-annotation-inspection-ipc.ts (getAnnotationById); src/main/ipc/register-canvas-entity-ipc.ts (createAnnotation, moveAnnotation); src/main/ipc/register-right-details-panel-ipc.ts (addAnnotationReply, createAnnotation, deleteAnnotation, updateAnnotationStatus); src/main/routes/annotations.ts (addAnnotationReply, createAnnotation, deleteAnnotation, getAnnotationById, getAnnotations, updateAnnotationStatus)
+
+   12.6  pri:25.2    src/main/runtime/workspace-tabs.ts
+         complexity · effort:medium · confidence:high  Extract workspaceSnapshot (cognitive: 45) in 234-LOC file into smaller functions
+         importers: src/main/routes/canvas.ts (workspaceSnapshot); src/main/runtime/canvas-layout-data.ts (workspaceTabSummaries); src/main/runtime/sidebar-builder.ts (workspaceTabSummaries); src/main/runtime/window-init.ts (ensureWorkspaceTabsInitialized); src/main/runtime/workspace-autosave.ts (buildPersistedWorkspaceRecord)
+         clones: src/main/runtime/workspace-tabs.ts:100-105 dup:e107918b; src/main/runtime/workspace-tabs.ts:100-107 dup:74313266; src/main/runtime/workspace-tabs.ts:108-113 dup:e107918b; src/main/runtime/workspace-tabs.ts:108-114 dup:74313266; src/main/runtime/workspace-tabs.ts:115-120 dup:e107918b
+
+   12.3  pri:24.6    src/main/managed-layout.ts
+         high impact · effort:medium · confidence:medium  Split high-impact file (310 LOC), 5 dependents amplify every change
+         importers: src/main/ipc/register-canvas-drag-ipc.ts (reflowManagedGroupForChild); src/main/reorder-gesture.ts (computeReorderDropIndex, managedRowGroupForChild, reorderManagedChild); src/main/routes/edges-groups.ts (makeAutoLayoutGroup, reorderManagedChild); src/main/runtime/document-commands.ts (makeAutoLayoutGroup); src/main/workspace-pages.ts (reflowManagedGroup)
+
+   12.1  pri:24.2    src/shared/url.ts
+         high impact · effort:medium · confidence:medium  Split high-impact file (85 LOC), 7 dependents amplify every change
+         importers: src/main/clipboard-paste.ts (looksLikeUrl, normalizeUserUrl); src/main/entities/builtin/page.ts (normalizeUserUrl); src/main/runtime/page-factory.ts (looksLikeUrl); src/main/workspace-layout-tasks.ts (normalizeUserUrl); src/renderer/above-view/PagePopup.tsx (resolveAddressInput)
+
+   11.9  pri:23.8    src/main/runtime/workspace-restore.ts
+         complexity · effort:medium · confidence:high  Extract <arrow> (cognitive: 52) in 446-LOC file into smaller functions
+         importers: src/main/routes/test.ts (restorePersistedWorkspace); src/main/runtime/runtime-core.ts (side effect); src/main/runtime/window-shell.ts (side effect); src/main/runtime/workspace-session.ts (side effect); src/main/runtime/workspace-tab-operations.ts (destroyActivePages, restoreWorkspaceSnapshot, transitionToTab)
+
+   11.4  pri:34.1    src/main/runtime/document-commands.ts
+         complexity · effort:high · confidence:high  Extract resizeMultiSelection (cognitive: 36) in 1223-LOC file into smaller functions
+         importers: src/main/clipboard-paste.ts (createFileEntity); src/main/entities/builtin/drawing.ts (createDrawingEntity, deleteDrawingEntity, updateDrawingEntity); src/main/entities/builtin/file.ts (createFileEntity, deleteFileEntity, updateFileEntity); src/main/entities/builtin/group.ts (updateGroupEntity); src/main/entities/builtin/page.ts (setDeviceOrientation, setPagePreset)
+         clones: src/main/runtime/document-commands.ts:673-679 dup:352751ad; src/main/runtime/document-commands.ts:754-760 dup:352751ad; src/main/runtime/document-commands.ts:822-828 dup:352751ad; src/main/runtime/document-commands.ts:856-862 dup:352751ad
+
+   10.8  pri:21.6    src/main/runtime/runtime-serialization.ts
+         high impact · effort:medium · confidence:medium  Split high-impact file (65 LOC), 11 dependents amplify every change
+         importers: src/main/runtime/canvas-layout-data.ts (pageDisplayLabel, viewportPresetForIndex); src/main/runtime/inspect-session.ts (pageDisplayLabel, viewportPresetForIndex); src/main/runtime/page-factory.ts (normalizePresetIndex); src/main/runtime/region-components.ts (pageDisplayLabel); src/main/runtime/region-select.ts (pageDisplayLabel)
+
+   10.8  pri:21.5    src/main/runtime/workspace-observers.ts
+         complexity · effort:medium · confidence:high  Extract <arrow> (cognitive: 40) in 318-LOC file into smaller functions
+         importers: src/main/index.ts (initializeDocObservers); src/main/ipc/register-canvas-drag-ipc.ts (beginBatch, endBatch); src/main/managed-layout.ts (commitAsOneTransaction); src/main/routes/canvas.ts (commitAsOneTransaction); src/main/routes/test.ts (beginBatch, endBatch)
+
+  ... and 32 more targets (--format json for full list)
+
+  Prioritized refactoring recommendations based on complexity, churn, and coupling signals: https://docs.fallow.tools/explanations/health#refactoring-targets
+
+✗ 489 above threshold · 6787 analyzed · maintainability 90.0 (good) (0.26s)
+
+Failed: dead-code (1 issues), dupes (106 clone groups), health (489 above threshold): start with src/main/runtime/entity-order-state.ts

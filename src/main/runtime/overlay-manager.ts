@@ -2,6 +2,7 @@
  * Overlay and interaction management — canvas interaction mode, selection marquee.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import type { SelectionOverlayPayload } from '../../shared/types'
 import {
   aboveView,
@@ -82,8 +83,8 @@ export function sendInteractiveState(): void {
       multiSelected: isMultiSelected,
     })
     const wc = pages[i].pageView.webContents
-    safeSend(wc, 'set-interactive', isSelected)
-    safeSend(wc, 'set-multi-selected', isMultiSelected)
+    safeSend(wc, ipcChannels.setInteractive, isSelected)
+    safeSend(wc, ipcChannels.setMultiSelected, isMultiSelected)
   }
 }
 
@@ -137,12 +138,12 @@ export function setSelectionOverlayRect(
   if (!win || win.isDestroyed()) return
 
   if (aboveView) {
-    safeSend(aboveView.webContents, 'canvas-selection-overlay', overlay)
+    safeSend(aboveView.webContents, ipcChannels.canvasSelectionOverlay, overlay)
   }
   // canvas-bg consumes the same payload to render per-entity marquee
   // preview outlines (`overlay.entityIds`).
   if (bgView) {
-    safeSend(bgView.webContents, 'canvas-selection-overlay', overlay)
+    safeSend(bgView.webContents, ipcChannels.canvasSelectionOverlay, overlay)
   }
   // The gate predicate reads selectionMarqueeVisible, so a rect change
   // can flip aboveView bounds on/off. Bounds + visibility are centralized

@@ -11,13 +11,17 @@
 
 import { markAllDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
+import { allEntities, forEachEntityKind, getEntityKind } from '../entities/contract'
+import { persistPage } from './page-doc-projection'
 import type * as Y from 'yjs'
-import type { Annotation, PersistedWorkspaceTab, WorkspaceEdge, WorkspaceGroup } from '../../shared/types'
+import type {
+  Annotation,
+  CanvasEntityKind,
+  PersistedWorkspaceTab,
+  WorkspaceEdge,
+  WorkspaceGroup,
+} from '../../shared/types'
 import type { Page } from './runtime-entities'
-import type { TextEntity } from './text-entity-state'
-import type { FileEntity } from './file-entity-state'
-import type { DrawingEntity } from './drawing-entity-state'
-import type { ShapeEntity } from './shape-entity-state'
 import {
   getActiveDoc,
   getDocActiveTabId,
@@ -40,21 +44,13 @@ import { makeEmptyTabSnapshot } from './workspace-tabs'
 
 interface RuntimeStateRefs {
   pages: Page[]
-  textEntities: TextEntity[]
-  fileEntities: FileEntity[]
-  drawingEntities: DrawingEntity[]
-  shapeEntities: ShapeEntity[]
   workspaceGroups: WorkspaceGroup[]
   workspaceEdges: WorkspaceEdge[]
   workspaceAnnotations: Annotation[]
   getZoom: () => number
   getPan: () => { x: number; y: number }
-  serializePage: (page: Page) => Record<string, unknown>
   cancelActiveInteraction: () => void
   sendInteractiveState: () => void
-  // Page lifecycle for undo of create/delete
-  createPage: (data: Record<string, unknown>) => void
-  removePageById: (id: string) => void
   // Cross-tab undo: full rebuild when activeTabId changes
   destroyActivePages: () => void
   getActiveTabId: () => string | null
@@ -97,20 +93,21 @@ export function initializeDocObservers(refs: RuntimeStateRefs): void {
 
 let _syncScheduled = false
 let _batchingActive = false
+// One-shot: set by commitAsOneTransaction after it has already synced, so the
+// mutation trailer's requestDocSync doesn't open a second (empty) transaction.
+let _docSyncSatisfied = false
 
 /**
- * Begin batching: suppress doc sync until endBatch() is called.
- * Use this to coalesce a series of fine-grained mutations (e.g. drag
- * increments) into a single Y.Doc transaction / undo step.
+ * Begin batching: suppress doc sync until endBatch() is called, coalescing a
+ * series of fine-grained mutations (e.g. drag increments) into a single
+ * Y.Doc transaction. The gesture session (workspace-gesture-session.ts) is
+ * the caller — it pairs the batch with the gesture's one undo boundary.
  */
 export function beginBatch(): void {
   _batchingActive = true
 }
 
-/**
- * End batching: perform one sync for all accumulated mutations,
- * then mark an undo boundary so the batch is one undo step.
- */
+/** End batching: perform one sync for all accumulated mutations. */
 export function endBatch(): void {
   _batchingActive = false
   if (!_refs) return
@@ -147,6 +144,14 @@ export function commitAsOneTransaction(mutate: () => void): void {
   } finally {
     _batchingActive = wasBatching
   }
+  // The doc now matches runtime, but the `mutateWorkspace` trailer runs
+  // *after* this returns and its `requestDocSync` would open a second, empty
+  // transaction. Swallow exactly that one request; the flag dies with the
+  // current tick so later syncs are unaffected.
+  _docSyncSatisfied = true
+  queueMicrotask(() => {
+    _docSyncSatisfied = false
+  })
 }
 
 /**
@@ -155,6 +160,10 @@ export function commitAsOneTransaction(mutate: () => void): void {
  * Call this from scheduleWorkspaceAutosave().
  */
 export function requestDocSync(): void {
+  if (_docSyncSatisfied) {
+    _docSyncSatisfied = false
+    return
+  }
   if (isDocSyncSuppressed() || _batchingActive || _syncScheduled || !_refs) return
   _syncScheduled = true
   queueMicrotask(() => {
@@ -168,20 +177,29 @@ export function requestDocSync(): void {
 function requestDocSyncImmediate(): void {
   if (!_refs) return
   const doc = getActiveDoc()
+  // Walk the registry once: the entity map takes the map-projectable kinds
+  // (page and group mirror to their own maps); stack order takes every entity
+  // id in registration order, then edges.
+  const registryEntities = allEntities()
+  const entities = registryEntities
+    .filter(({ kind }) => kind !== 'page' && kind !== 'group')
+    .map(({ kind, entity }) => getEntityKind(kind).persist!(entity))
+  const entityOrderIds = [
+    ...registryEntities.map(({ entity }) => entity.id),
+    ..._refs.workspaceEdges.map((edge) => edge.id),
+  ]
   syncRuntimeToDoc(doc, {
     pages: _refs.pages,
-    textEntities: _refs.textEntities,
-    fileEntities: _refs.fileEntities,
-    drawingEntities: _refs.drawingEntities,
-    shapeEntities: _refs.shapeEntities,
+    entities,
     workspaceGroups: _refs.workspaceGroups,
     workspaceEdges: _refs.workspaceEdges,
     workspaceAnnotations: _refs.workspaceAnnotations,
+    entityOrderIds,
     zoom: _refs.getZoom(),
     pan: _refs.getPan(),
     activeTabId: _refs.getActiveTabId(),
     workspaceTabs: _refs.workspaceTabs,
-  }, _refs.serializePage as (page: { id: string }) => Record<string, unknown>)
+  }, persistPage as (page: { id: string }) => Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +211,14 @@ function rebuildArrayFromYMap<T>(target: T[], ymap: Y.Map<Y.Map<unknown>>): void
   for (const [, ym] of ymap.entries()) {
     target.push(ym.toJSON() as T)
   }
+}
+
+function mapSnapshots(ymap: Y.Map<Y.Map<unknown>>): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = []
+  for (const [, ym] of ymap.entries()) {
+    out.push(ym.toJSON() as Record<string, unknown>)
+  }
+  return out
 }
 
 function syncDocToRuntime(doc: Y.Doc): void {
@@ -240,58 +266,32 @@ function syncDocToRuntime(doc: Y.Doc): void {
       _refs!.destroyActivePages()
     }
 
-    // Reconcile pages: remove deleted, add restored
-    const yPages = doc.getMap(DOC_MAP_PAGES) as Y.Map<Y.Map<unknown>>
-    const runtimePageIds = new Set(_refs!.pages.map((p) => p.id))
-    const docPageIds = new Set(yPages.keys())
-
-    for (const page of [..._refs!.pages]) {
-      if (!docPageIds.has(page.id)) {
-        _refs!.removePageById(page.id)
-      }
-    }
-
-    for (const [id, yPage] of yPages.entries()) {
-      if (!runtimePageIds.has(id)) {
-        _refs!.createPage(yPage.toJSON() as Record<string, unknown>)
-      }
-    }
-
-    // Update properties on existing pages
-    for (const page of _refs!.pages) {
-      const yPage = yPages.get(page.id)
-      if (!yPage) continue
-      page.canvasX = (yPage.get('canvasX') as number) ?? page.canvasX
-      page.canvasY = (yPage.get('canvasY') as number) ?? page.canvasY
-      page.presetIndex = (yPage.get('presetIndex') as number) ?? page.presetIndex
-      page.linked = (yPage.get('linked') as boolean) ?? page.linked
-      page.parentGroupId = yPage.get('parentGroupId') as string | undefined
-      page.name = yPage.get('name') as string | undefined
-      if (yPage.get('metadata') !== undefined) {
-        page.metadata = yPage.get('metadata') as Record<string, unknown> | undefined
-      }
-    }
-
+    // Reconcile every registered kind's runtime store from its doc map: page
+    // and group mirror to their own maps; the rest share the entity map,
+    // bucketed by their persisted `kind` field. Each kind's `restore` runs
+    // even when its bucket is empty, so undo of a create clears the store.
+    // Edges and annotations are not registered kinds; they rebuild below.
+    const entitySnapshots = new Map<CanvasEntityKind, Record<string, unknown>[]>()
     const yEntities = doc.getMap(DOC_MAP_ENTITIES) as Y.Map<Y.Map<unknown>>
-    _refs!.textEntities.length = 0
-    _refs!.fileEntities.length = 0
-    _refs!.drawingEntities.length = 0
-    _refs!.shapeEntities.length = 0
     for (const [, yEntity] of yEntities.entries()) {
       const data = yEntity.toJSON() as Record<string, unknown>
-      const kind = data.kind as string
-      if (kind === 'text') {
-        _refs!.textEntities.push(data as unknown as TextEntity)
-      } else if (kind === 'file') {
-        _refs!.fileEntities.push(data as unknown as FileEntity)
-      } else if (kind === 'drawing') {
-        _refs!.drawingEntities.push(data as unknown as DrawingEntity)
-      } else if (kind === 'shape') {
-        _refs!.shapeEntities.push(data as unknown as ShapeEntity)
-      }
+      const kind = data.kind as CanvasEntityKind
+      const bucket = entitySnapshots.get(kind)
+      if (bucket) bucket.push(data)
+      else entitySnapshots.set(kind, [data])
     }
+    const yPages = doc.getMap(DOC_MAP_PAGES) as Y.Map<Y.Map<unknown>>
+    const yGroups = doc.getMap(DOC_MAP_GROUPS) as Y.Map<Y.Map<unknown>>
+    forEachEntityKind((def) => {
+      const snapshots =
+        def.kind === 'page'
+          ? mapSnapshots(yPages)
+          : def.kind === 'group'
+            ? mapSnapshots(yGroups)
+            : entitySnapshots.get(def.kind) ?? []
+      def.restore(snapshots)
+    })
 
-    rebuildArrayFromYMap(_refs!.workspaceGroups, doc.getMap(DOC_MAP_GROUPS) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceEdges, doc.getMap(DOC_MAP_EDGES) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceAnnotations, doc.getMap(DOC_MAP_ANNOTATIONS) as Y.Map<Y.Map<unknown>>)
 

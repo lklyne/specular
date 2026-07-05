@@ -2,40 +2,37 @@ import type { ResizeCorner, ResizeEdge } from './entityConstants'
 import { HANDLE_SIZE, CORNER_CURSORS, EDGE_CURSORS } from './entityConstants'
 import { selectionColor } from './canvasBgConstants'
 
+// Visual-only handles — canvas resize gestures are routed through aboveView's
+// canvas pointer router, which hit-tests the `data-resize-handle` attribute.
+
+const HALF = HANDLE_SIZE / 2
+const NEG_HALF = -(HANDLE_SIZE / 2)
+
 export function CornerResizeHandle({
   corner,
   isDark,
-  beginResize,
-  scaleWithZoom = false,
 }: {
   corner: ResizeCorner
   isDark: boolean
-  beginResize?: (e: React.PointerEvent) => void
-  scaleWithZoom?: boolean
 }) {
-  const half = scaleWithZoom ? `calc(${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : HANDLE_SIZE / 2
-  const negHalf = scaleWithZoom ? `calc(-1 * ${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : -(HANDLE_SIZE / 2)
-  const size = scaleWithZoom ? `calc(${HANDLE_SIZE}px / var(--canvas-zoom, 1))` : HANDLE_SIZE
-  const borderWidth = scaleWithZoom ? `calc(1px / var(--canvas-zoom, 1))` : '1px'
   const pos: React.CSSProperties =
-    corner === 'top-left' ? { top: negHalf, left: negHalf } :
-    corner === 'top-right' ? { top: negHalf, right: negHalf } :
-    corner === 'bottom-left' ? { bottom: negHalf, left: negHalf } :
-    { bottom: negHalf, right: negHalf }
+    corner === 'top-left' ? { top: NEG_HALF, left: NEG_HALF } :
+    corner === 'top-right' ? { top: NEG_HALF, right: NEG_HALF } :
+    corner === 'bottom-left' ? { bottom: NEG_HALF, left: NEG_HALF } :
+    { bottom: NEG_HALF, right: NEG_HALF }
 
   return (
     <div
       data-resize-handle
-      data-overlay-ui={scaleWithZoom ? undefined : true}
-      onPointerDown={beginResize}
+      data-overlay-ui
       style={{
         position: 'absolute',
         ...pos,
-        width: size,
-        height: size,
+        width: HANDLE_SIZE,
+        height: HANDLE_SIZE,
         boxSizing: 'border-box',
         background: 'white',
-        border: `${borderWidth} solid ${selectionColor(isDark)}`,
+        border: `1px solid ${selectionColor(isDark)}`,
         borderRadius: 0,
         cursor: CORNER_CURSORS[corner],
         pointerEvents: 'auto',
@@ -47,33 +44,25 @@ export function CornerResizeHandle({
 
 export function EdgeResizeHandle({
   edge,
-  beginResize,
-  scaleWithZoom = false,
 }: {
   edge: ResizeEdge
-  beginResize?: (e: React.PointerEvent) => void
-  scaleWithZoom?: boolean
 }) {
-  const half = scaleWithZoom ? `calc(${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : HANDLE_SIZE / 2
-  const negHalf = scaleWithZoom ? `calc(-1 * ${HANDLE_SIZE / 2}px / var(--canvas-zoom, 1))` : -(HANDLE_SIZE / 2)
-  const size = scaleWithZoom ? `calc(${HANDLE_SIZE}px / var(--canvas-zoom, 1))` : HANDLE_SIZE
   const isHorizontal = edge === 'top' || edge === 'bottom'
   const pos: React.CSSProperties =
-    edge === 'top' ? { top: negHalf, left: half, right: half } :
-    edge === 'bottom' ? { bottom: negHalf, left: half, right: half } :
-    edge === 'left' ? { left: negHalf, top: half, bottom: half } :
-    { right: negHalf, top: half, bottom: half }
+    edge === 'top' ? { top: NEG_HALF, left: HALF, right: HALF } :
+    edge === 'bottom' ? { bottom: NEG_HALF, left: HALF, right: HALF } :
+    edge === 'left' ? { left: NEG_HALF, top: HALF, bottom: HALF } :
+    { right: NEG_HALF, top: HALF, bottom: HALF }
 
   return (
     <div
       data-resize-handle
-      data-overlay-ui={scaleWithZoom ? undefined : true}
-      onPointerDown={beginResize}
+      data-overlay-ui
       style={{
         position: 'absolute',
         ...pos,
-        width: isHorizontal ? undefined : size,
-        height: isHorizontal ? size : undefined,
+        width: isHorizontal ? undefined : HANDLE_SIZE,
+        height: isHorizontal ? HANDLE_SIZE : undefined,
         cursor: EDGE_CURSORS[edge],
         pointerEvents: 'auto',
         zIndex: 1,

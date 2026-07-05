@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import type {
   CreatePagesRequest,
   CreatePagesResponse,
@@ -30,14 +31,13 @@ import {
   drawingEntities,
   createDrawingEntity as createDrawingEntityInState,
 } from './runtime/drawing-entity-state'
+import { pageContentSize } from './runtime/runtime-geometry'
+import { snapToGrid } from '../shared/gesture-utils'
 import {
   focusCanvasBounds,
-  pageContentSize,
-  requestLayout,
-  snapToGrid,
-} from './runtime/surface-layout'
-import { recenterFocusPresentation } from './runtime/viewport-control'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-session'
+  recenterFocusPresentation,
+} from './runtime/viewport-control'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
 import { setPendingFocus } from './runtime/runtime-context'
 import { focusSession, repointFocusSession } from './runtime/focus-session'
@@ -123,6 +123,15 @@ export function addPageFromSource(input: {
   if (!preset) {
     throw new Error(`Unknown preset index: ${input.presetIndex}`)
   }
+  return mutateWorkspace(() => addPageFromSourceInternal(input))
+}
+
+function addPageFromSourceInternal(input: {
+  sourcePageId?: string
+  presetIndex: number
+  customSize?: boolean
+  focus?: boolean
+}): { pageId: string; groupId?: string } {
 
   const sourcePage = input.sourcePageId ? findPageById(input.sourcePageId) : undefined
   const url = pageCurrentUrl(sourcePage?.id) ?? 'about:blank'
@@ -152,8 +161,6 @@ export function addPageFromSource(input: {
     if (input.focus ?? true) {
       selectPageById(page.id)
     }
-    requestLayout()
-    scheduleWorkspaceAutosave()
     return { pageId: page.id }
   }
 
@@ -187,8 +194,6 @@ export function addPageFromSource(input: {
     setSelectedGroupId(group.id)
     selectPageById(newPage.id)
   }
-  requestLayout()
-  scheduleWorkspaceAutosave()
   return { pageId: newPage.id, groupId: group.id }
 }
 
@@ -207,37 +212,37 @@ export function createPageAtPosition(input: {
     throw new Error(`Unknown preset index: ${input.presetIndex}`)
   }
 
-  const url = input.url ?? pageCurrentUrl(input.sourcePageId) ?? 'about:blank'
-  // Auto-assign device based on the preset so orientation tabs appear immediately
-  const matchedDevice = deviceForPresetIndex(input.presetIndex)
-  const metadata = setDeviceIdMetadata(
-    {
-      createdFrom: input.mode,
-      deviceOrientation: defaultOrientationForDevice(matchedDevice),
-      showDeviceFrame: true,
-    },
-    matchedDevice?.id ?? null,
-  )
+  return mutateWorkspace(() => {
+    const url = input.url ?? pageCurrentUrl(input.sourcePageId) ?? 'about:blank'
+    // Auto-assign device based on the preset so orientation tabs appear immediately
+    const matchedDevice = deviceForPresetIndex(input.presetIndex)
+    const metadata = setDeviceIdMetadata(
+      {
+        createdFrom: input.mode,
+        deviceOrientation: defaultOrientationForDevice(matchedDevice),
+        showDeviceFrame: true,
+      },
+      matchedDevice?.id ?? null,
+    )
 
-  const page = createPage({
-    url,
-    presetIndex: input.presetIndex,
-    linked: false,
-    canvasX: snapToGrid(input.canvasX),
-    canvasY: snapToGrid(input.canvasY),
-    source: 'manual',
-    metadata,
+    const page = createPage({
+      url,
+      presetIndex: input.presetIndex,
+      linked: false,
+      canvasX: snapToGrid(input.canvasX),
+      canvasY: snapToGrid(input.canvasY),
+      source: 'manual',
+      metadata,
+    })
+    if (input.customSize) {
+      page.metadata = setCustomPageSizeMetadata(page.metadata, pageContentSize(page))
+    }
+
+    if (input.focus ?? true) {
+      selectPageById(page.id)
+    }
+    return { pageId: page.id }
   })
-  if (input.customSize) {
-    page.metadata = setCustomPageSizeMetadata(page.metadata, pageContentSize(page))
-  }
-
-  if (input.focus ?? true) {
-    selectPageById(page.id)
-  }
-  requestLayout()
-  scheduleWorkspaceAutosave()
-  return { pageId: page.id }
 }
 
 export function duplicatePageFromSource(input: {
@@ -249,7 +254,13 @@ export function duplicatePageFromSource(input: {
   if (!sourcePage) {
     throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
+  return mutateWorkspace(() => duplicatePageInternal(input, sourcePage))
+}
 
+function duplicatePageInternal(
+  input: { sourcePageId: string; focus?: boolean; url?: string },
+  sourcePage: NonNullable<ReturnType<typeof findPageById>>,
+): { pageId: string } {
   // A caller-supplied url means we're opening a link as a frame, not
   // duplicating the page in place: keep the source's preset/size/device, but
   // drop url-specific overrides (injected CSS/localStorage/props keyed to the
@@ -298,8 +309,6 @@ export function duplicatePageFromSource(input: {
       { animate: true },
     )
   }
-  requestLayout()
-  scheduleWorkspaceAutosave()
   return { pageId: newPage.id }
 }
 
@@ -311,7 +320,13 @@ export function createBlankFrameFromSource(input: {
   if (!sourcePage) {
     throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
+  return mutateWorkspace(() => createBlankFrameInternal(input, sourcePage))
+}
 
+function createBlankFrameInternal(
+  input: { sourcePageId: string; focusAddressBar?: boolean },
+  sourcePage: NonNullable<ReturnType<typeof findPageById>>,
+): { pageId: string } {
   const sourceSize = pageContentSize(sourcePage)
   const placement = findDuplicatePlacement({
     x: sourcePage.canvasX,
@@ -356,25 +371,30 @@ export function createBlankFrameFromSource(input: {
 
   if (input.focusAddressBar ?? true) {
     setPendingFocus({ kind: 'toolbar' })
-    if (toolbarView) safeSend(toolbarView.webContents, 'focus-address-bar')
+    if (toolbarView) safeSend(toolbarView.webContents, ipcChannels.focusAddressBar)
   }
-  requestLayout()
-  scheduleWorkspaceAutosave()
   return { pageId: newPage.id }
 }
 
 export function createPages(input: CreatePagesRequest): CreatePagesResponse {
-  const pageIds: string[] = []
-  for (const config of input.pages) {
-    const page = createPage(config)
-    pageIds.push(page.id)
-  }
-  requestLayout()
-  if (pageIds.length) scheduleWorkspaceAutosave()
-  return { pageIds }
+  return mutateWorkspace(() => {
+    const pageIds: string[] = []
+    for (const config of input.pages) {
+      const page = createPage(config)
+      pageIds.push(page.id)
+    }
+    return { pageIds }
+  }, { changed: (result) => result.pageIds.length > 0 })
 }
 
 export function tidySelectedPages(): { pageIds: string[] } {
+  return mutateWorkspace(
+    () => tidySelectedPagesInternal(),
+    { changed: (result) => result.pageIds.length > 0 },
+  )
+}
+
+function tidySelectedPagesInternal(): { pageIds: string[] } {
   const selectedPageIds = getSelectedEntityIds()
   if (!selectedPageIds.length) return { pageIds: [] }
 
@@ -422,8 +442,6 @@ export function tidySelectedPages(): { pageIds: string[] } {
     cursorX = page.canvasX + width + distributedGap
   }
 
-  requestLayout()
-  scheduleWorkspaceAutosave()
   return { pageIds: pagesToTidy.map((page) => page.id) }
 }
 
@@ -439,7 +457,13 @@ export function duplicateEntity(input: {
     })
     return { entityId: result.pageId }
   }
+  return mutateWorkspace(() => duplicateEntityInternal(input))
+}
 
+function duplicateEntityInternal(input: {
+  entityId: string
+  focus?: boolean
+}): { entityId: string } {
   const note = textEntities.find((n) => n.id === input.entityId)
   if (note) {
     const notePlacement = findDuplicatePlacement({
@@ -462,8 +486,6 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newNote.id])
     }
-    requestLayout()
-    scheduleWorkspaceAutosave()
     return { entityId: newNote.id }
   }
 
@@ -489,8 +511,6 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newFile.id])
     }
-    requestLayout()
-    scheduleWorkspaceAutosave()
     return { entityId: newFile.id }
   }
 
@@ -518,8 +538,6 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newShape.id])
     }
-    requestLayout()
-    scheduleWorkspaceAutosave()
     return { entityId: newShape.id }
   }
 
@@ -548,8 +566,6 @@ export function duplicateEntity(input: {
     if (input.focus ?? true) {
       setSelectedEntities([newDrawing.id])
     }
-    requestLayout()
-    scheduleWorkspaceAutosave()
     return { entityId: newDrawing.id }
   }
 

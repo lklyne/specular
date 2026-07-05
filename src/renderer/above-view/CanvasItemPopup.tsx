@@ -9,17 +9,14 @@ import {
   type CanvasColorSlot,
   type CanvasPalette,
 } from '../../shared/canvas-colors'
-import {
-  FOCUS_PRESENTATION_MENU_EDGE_INSET_PX,
-  FOCUS_PRESENTATION_MENU_INSET,
-} from '../../shared/featureFlags'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
 import {
   CAMERA_SPRING_CSS_EASING,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
 } from '../../shared/camera-transition'
-import type { CanvasBgElectronAPI, LayoutUpdateData } from '../../shared/types'
+import type { LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
@@ -205,15 +202,12 @@ function popupStyle(
   layout: LayoutUpdateData,
 ): CSSProperties {
   if (placement === 'viewport-top') {
-    const inset = FOCUS_PRESENTATION_MENU_INSET
-      ? FOCUS_PRESENTATION_MENU_EDGE_INSET_PX
-      : 0
-    const left = layout.leftChromeWidth + inset
+    const left = layout.leftChromeWidth
     const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
-    const rightEdge = Math.max(0, layout.windowWidth - rightInset - inset)
+    const rightEdge = Math.max(0, layout.windowWidth - rightInset)
     return {
       left,
-      top: inset,
+      top: 0,
       width: Math.max(0, rightEdge - left),
       transform: 'none',
     }
