@@ -1,4 +1,5 @@
-import type { CanvasBgElectronAPI, CanvasSceneFileEntity } from '../../../shared/types'
+import type { CanvasSceneFileEntity } from '../../../shared/types'
+import type { CanvasBgElectronAPI } from '../../../shared/electron-api/canvas-bg'
 import { DeviceViewportPopupControls } from '../DeviceViewportPopupControls'
 
 export function WireframeDeviceControlsContribution({

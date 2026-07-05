@@ -5,6 +5,7 @@ import {
   cancelEdgeDrag,
   commitEdgeDrag,
   EDGE_DRAG_IDLE,
+  edgeDragOrigin,
   updateEdgeDragCursor,
 } from '../../src/shared/edge-drag-controller'
 import type { CanvasSceneEntity, WorkspaceEdge } from '../../src/shared/types'
@@ -179,6 +180,38 @@ describe('edge-drag-controller', () => {
       const a = page('a', 0, 0)
       const state = beginEdgeDrag('a', 'right', 250, 50, [], entityMap(a))
       expect(cancelEdgeDrag(state)).toEqual({ kind: 'noop' })
+    })
+  })
+
+  describe('edgeDragOrigin', () => {
+    it('create drag → the grabbed anchor', () => {
+      const a = page('a', 0, 0)
+      const state = beginEdgeDrag('a', 'right', 250, 50, [], entityMap(a))
+      expect(edgeDragOrigin(state)).toEqual({ entityId: 'a', side: 'right' })
+    })
+
+    it('edit drag moving the to-end → the fixed from-endpoint, not the grabbed anchor', () => {
+      const a = page('a', 0, 0)
+      const b = page('b', 400, 0)
+      const edges: WorkspaceEdge[] = [
+        { id: 'e1', fromEntityId: 'a', toEntityId: 'b', fromSide: 'right', toSide: 'left' } as WorkspaceEdge,
+      ]
+      const state = beginEdgeDrag('b', 'left', 410, 50, edges, entityMap(a, b))
+      expect(edgeDragOrigin(state)).toEqual({ entityId: 'a', side: 'right' })
+    })
+
+    it('edit drag moving the from-end → the fixed to-endpoint', () => {
+      const a = page('a', 0, 0)
+      const b = page('b', 400, 0)
+      const edges: WorkspaceEdge[] = [
+        { id: 'e1', fromEntityId: 'a', toEntityId: 'b', fromSide: 'right', toSide: 'left' } as WorkspaceEdge,
+      ]
+      const state = beginEdgeDrag('a', 'right', 208, 50, edges, entityMap(a, b))
+      expect(edgeDragOrigin(state)).toEqual({ entityId: 'b', side: 'left' })
+    })
+
+    it('idle → null', () => {
+      expect(edgeDragOrigin(EDGE_DRAG_IDLE)).toBeNull()
     })
   })
 

@@ -28,6 +28,14 @@ export type CanvasPointerContext = {
   /** The page the user has *entered* for interaction (#124), or null. Only the
    *  entered page forwards pointer input; a merely-selected page does not. */
   interactivePageId: string | null
+  /** In-flight placement (the `pendingPlacement` broadcast) when the tool
+   *  gesture owns canvas pointers (`canvasPointerOwner` → 'tool-gesture');
+   *  null otherwise. Wins over the comment tool when both are active. */
+  placement: { entityKind: CanvasEntityKind } | null
+  /** Comment tool owns canvas pointers (ADR 0006). Like `placement`, only
+   *  set when the tool gesture owns pointer input — a router-owned
+   *  pointerdown routes by hit target even if a stale broadcast disagrees. */
+  commentToolActive: boolean
 }
 
 /**
@@ -79,6 +87,16 @@ export type CanvasPointerAction =
   | { kind: 'begin-marquee' }
   /** Hold-to-pan on background. */
   | { kind: 'begin-pan' }
+  /** Placement-tool gesture: click places the pending entity at the press
+   *  point; shape placements drag-to-size past the threshold (shift
+   *  constrains square). Captures wherever the pointerdown lands — the
+   *  pending placement, not the hit target, decides. */
+  | { kind: 'begin-placement'; entityKind: CanvasEntityKind }
+  /** Comment-tool gesture (ADR 0006): release below the drag threshold
+   *  anchors a comment at the element / canvas point under the cursor; a
+   *  drag past it marquees a region anchor. Click-vs-drag resolves in the
+   *  router's `runCommentGesture` at pointermove time — both start here. */
+  | { kind: 'begin-comment-gesture' }
 
 /**
  * Map a hit-test result + context to the action a pointerdown should trigger.
@@ -91,6 +109,18 @@ export function routePointerDown(
   target: HitTarget,
   context: CanvasPointerContext,
 ): CanvasPointerAction {
+  // An active placement / comment tool captures the pointerdown wherever it
+  // lands — the tool, not the hit target, decides. Overlay UI still wins:
+  // the router yields to `[data-overlay-ui]` before classification (I8').
+  // Non-primary buttons stay with the viewport (middle-drag pan), never the
+  // tool or the routing matrix below.
+  if (context.placement || context.commentToolActive) {
+    if (!context.isPrimaryButton) return { kind: 'noop' }
+    return context.placement
+      ? { kind: 'begin-placement', entityKind: context.placement.entityKind }
+      : { kind: 'begin-comment-gesture' }
+  }
+
   // Non-primary buttons on background → pan; otherwise no-op (the viewport
   // hook handles middle-drag pan independently). Right-click on the body of
   // the single-selected page still forwards so the page's context menu

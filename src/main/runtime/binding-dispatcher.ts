@@ -1,5 +1,6 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. binding-handlers → runtime-core → page-factory/window-init import binding-dispatcher back
+import { ipcChannels } from '../../shared/ipc-contract'
 import type { WebContents } from 'electron'
 import {
   BINDINGS,
@@ -101,7 +102,7 @@ export function attachBindingDispatcher(
       // Renderer-targeted binding — forward via IPC
       const targetWc = resolveTargetWebContents(binding.target)
       if (targetWc && !targetWc.isDestroyed()) {
-        targetWc.send('binding-fire', bindingId)
+        targetWc.send(ipcChannels.bindingFire, bindingId)
       }
     }
   })

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   canvasToScreenPoint,
+  clientYToWindowY,
   screenPointToCanvasPoint,
   screenRectToCanvasRect,
+  toOverlayY,
 } from '../../src/shared/coords'
 import type { LayoutUpdateData } from '../../src/shared/types'
 
@@ -44,5 +46,17 @@ describe('coords', () => {
     expect(canvasRect.y).toBeCloseTo(tl.y, 6)
     expect(canvasRect.width).toBeCloseTo(rect.width / L.zoom, 6)
     expect(canvasRect.height).toBeCloseTo(rect.height / L.zoom, 6)
+  })
+
+  it('converts clientY to window Y by adding the overlay origin offset', () => {
+    const L = layout()
+    expect(clientYToWindowY(300, L)).toBe(300 + L.canvasOrigin.y)
+  })
+
+  it('is the inverse of toOverlayY', () => {
+    const L = layout()
+    const clientY = 412
+    const windowY = clientYToWindowY(clientY, L)
+    expect(toOverlayY(L, windowY)).toBe(clientY)
   })
 })

@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { Tool, ToolDefaultPatch } from '../../shared/types'
 import { applyToolDefaultPatch } from '../runtime/tool-defaults'
@@ -18,19 +19,19 @@ import { applyNavigationToSelectedPages } from '../navigation-sync'
 import { setToolbarDropdownOpen } from '../ui-state'
 
 export function registerToolbarIpc(): void {
-  ipcMain.on('zoom-in', () => {
+  ipcMain.on(ipcChannels.zoomIn, () => {
     if (restoreFocusCamera()) return
     setZoom(zoom + 0.1)
     requestLayout()
   })
 
-  ipcMain.on('zoom-out', () => {
+  ipcMain.on(ipcChannels.zoomOut, () => {
     if (restoreFocusCamera()) return
     setZoom(zoom - 0.1)
     requestLayout()
   })
 
-  ipcMain.on('zoom-reset', () => {
+  ipcMain.on(ipcChannels.zoomReset, () => {
     if (restoreFocusCamera()) return
     setZoom(1.0)
     if (!focusSelection({ animate: false })) {
@@ -39,34 +40,34 @@ export function registerToolbarIpc(): void {
     }
   })
 
-  ipcMain.on('zoom-set', (_event, level: number) => {
+  ipcMain.on(ipcChannels.zoomSet, (_event, level: number) => {
     if (restoreFocusCamera()) return
     setZoom(level)
     if (level === 1.0 && focusSelection({ animate: false })) return
     requestLayout()
   })
 
-  ipcMain.on('toolbar-navigate-selection', (_event, url: string) => {
+  ipcMain.on(ipcChannels.toolbarNavigateSelection, (_event, url: string) => {
     if (!url) return
     applyNavigationToSelectedPages({ type: 'load-url', url })
   })
 
-  ipcMain.on('toolbar-back-selection', () => {
+  ipcMain.on(ipcChannels.toolbarBackSelection, () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'go-back', fallbackUrl: 'about:blank' })
   })
 
-  ipcMain.on('toolbar-forward-selection', () => {
+  ipcMain.on(ipcChannels.toolbarForwardSelection, () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'go-forward', fallbackUrl: 'about:blank' })
   })
 
-  ipcMain.on('toolbar-reload-selection', () => {
+  ipcMain.on(ipcChannels.toolbarReloadSelection, () => {
     if (!getSelectedEntityIds().length) return
     applyNavigationToSelectedPages({ type: 'reload', fallbackUrl: 'about:blank' })
   })
 
-  ipcMain.on('toolbar-set-tool', (_event, payload: Tool) => {
+  ipcMain.on(ipcChannels.toolbarSetTool, (_event, payload: Tool) => {
     if (!payload || typeof payload !== 'object' || typeof payload.kind !== 'string') return
     // Toolbar-initiated add-page inherits the URL of the currently-selected
     // page; the renderer doesn't know which page is selected.
@@ -78,7 +79,7 @@ export function registerToolbarIpc(): void {
     if (result.kind === 'inspect') openInspectPanel()
   })
 
-  ipcMain.on('tool-defaults-set', (_event, patch: ToolDefaultPatch) => {
+  ipcMain.on(ipcChannels.toolDefaultsSet, (_event, patch: ToolDefaultPatch) => {
     if (!patch || typeof patch !== 'object') return
     if (
       patch.scope !== 'add-text' &&
@@ -89,32 +90,32 @@ export function registerToolbarIpc(): void {
     applyToolDefaultPatch(patch)
   })
 
-  ipcMain.on('toggle-devtools', () => {
+  ipcMain.on(ipcChannels.toggleDevtools, () => {
     toggleDevTools()
   })
 
-  ipcMain.on('toggle-left-sidebar', () => {
+  ipcMain.on(ipcChannels.toggleLeftSidebar, () => {
     toggleLeftSidebar()
   })
 
-  ipcMain.on('devtools-resize-start', (_event, { screenX }: { screenX: number }) => {
+  ipcMain.on(ipcChannels.devtoolsResizeStart, (_event, { screenX }: { screenX: number }) => {
     setDevtoolsWidthFromScreenX(screenX)
   })
 
-  ipcMain.on('devtools-resize-move', (_event, { screenX }: { screenX: number }) => {
+  ipcMain.on(ipcChannels.devtoolsResizeMove, (_event, { screenX }: { screenX: number }) => {
     setDevtoolsWidthFromScreenX(screenX)
   })
 
-  ipcMain.on('devtools-resize-end', () => {
+  ipcMain.on(ipcChannels.devtoolsResizeEnd, () => {
     endDevtoolsResize()
   })
 
-  ipcMain.on('toolbar-dropdown-open', () => {
+  ipcMain.on(ipcChannels.toolbarDropdownOpen, () => {
     setToolbarDropdownOpen(true)
     requestLayout()
   })
 
-  ipcMain.on('toolbar-dropdown-close', () => {
+  ipcMain.on(ipcChannels.toolbarDropdownClose, () => {
     setToolbarDropdownOpen(false)
     requestLayout()
   })

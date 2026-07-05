@@ -1,12 +1,8 @@
 import { useCallback, useState } from 'react'
 import { Switch } from '@base-ui/react/switch'
 import { Loader2 } from 'lucide-react'
-import type {
-  OnboardingComponentId,
-  OnboardingComponentStatus,
-  OnboardingStatusSnapshot,
-  SettingsElectronAPI,
-} from '../../shared/types'
+import type { OnboardingComponentId, OnboardingComponentStatus, OnboardingStatusSnapshot } from '../../shared/types'
+import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
 
 type RowConfig = {
   id: OnboardingComponentId

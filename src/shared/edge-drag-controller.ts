@@ -175,6 +175,24 @@ export function cancelEdgeDrag(state: EdgeDragState): CommitOutcome {
   return { kind: 'noop' }
 }
 
+/**
+ * The anchor main is told the gesture hangs off in `beginEdgeDrag` IPC: the
+ * grabbed anchor for a create drag, the far (fixed) endpoint for an edit
+ * drag — the rubber-band is pinned to the end that is NOT moving.
+ */
+export function edgeDragOrigin(
+  state: EdgeDragState,
+): { entityId: string; side: EdgeSide } | null {
+  switch (state.kind) {
+    case 'idle':
+      return null
+    case 'create':
+      return { entityId: state.fromEntityId, side: state.fromSide }
+    case 'edit':
+      return { entityId: state.fixedEntityId, side: state.fixedSide }
+  }
+}
+
 // --- Visual helpers (rendered by EdgeDragLayer in aboveView) ---
 
 export function buildEdgeDragPath(

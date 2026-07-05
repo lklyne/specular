@@ -186,13 +186,15 @@ export function syncRuntimeToDoc(
   doc: Y.Doc,
   runtime: {
     pages: ReadonlyArray<{ id: string }>
-    textEntities: ReadonlyArray<{ id: string; kind?: string }>
-    fileEntities: ReadonlyArray<{ id: string; kind?: string }>
-    drawingEntities: ReadonlyArray<{ id: string; kind?: string }>
-    shapeEntities: ReadonlyArray<{ id: string; kind?: string }>
+    /** The entity-map kinds (text/file/drawing/shape), already persist-projected
+     *  and kind-tagged by the caller via the registry. */
+    entities: ReadonlyArray<{ id: string }>
     workspaceGroups: ReadonlyArray<{ id: string }>
     workspaceEdges: ReadonlyArray<{ id: string }>
     workspaceAnnotations: ReadonlyArray<{ id: string }>
+    /** Every entity id in canonical stack order (pages, entities, groups) plus
+     *  edges, built by the caller via the registry. */
+    entityOrderIds: readonly string[]
     zoom: number
     pan: { x: number; y: number }
     activeTabId?: string | null
@@ -216,15 +218,9 @@ export function syncRuntimeToDoc(
       serializePage,
     )
 
-    const allEntities = [
-      ...runtime.textEntities.map((e) => ({ ...e, kind: 'text' as const })),
-      ...runtime.fileEntities.map((e) => ({ ...e, kind: 'file' as const })),
-      ...runtime.drawingEntities.map((e) => ({ ...e, kind: 'drawing' as const })),
-      ...runtime.shapeEntities.map((e) => ({ ...e, kind: 'shape' as const })),
-    ]
     syncMapFromArray(
       doc.getMap(DOC_MAP_ENTITIES) as Y.Map<Y.Map<unknown>>,
-      allEntities,
+      runtime.entities,
       (e) => e as Record<string, unknown>,
     )
 
@@ -246,7 +242,7 @@ export function syncRuntimeToDoc(
       (a) => a as Record<string, unknown>,
     )
 
-    syncEntityOrder(doc, runtime)
+    syncEntityOrder(doc, runtime.entityOrderIds)
 
     if (runtime.activeTabId) {
       const workspace = doc.getMap(DOC_MAP_WORKSPACE)
@@ -299,28 +295,9 @@ function syncMapFromArray<T extends { id: string }>(
   }
 }
 
-function syncEntityOrder(
-  doc: Y.Doc,
-  runtime: {
-    pages: ReadonlyArray<{ id: string }>
-    textEntities: ReadonlyArray<{ id: string }>
-    fileEntities: ReadonlyArray<{ id: string }>
-    drawingEntities: ReadonlyArray<{ id: string }>
-    shapeEntities: ReadonlyArray<{ id: string }>
-    workspaceGroups: ReadonlyArray<{ id: string }>
-    workspaceEdges: ReadonlyArray<{ id: string }>
-  },
-): void {
+function syncEntityOrder(doc: Y.Doc, entityOrderIds: readonly string[]): void {
   const order = doc.getArray<string>(DOC_ARRAY_ENTITY_ORDER)
-  const defaultOrder = [
-    ...runtime.pages.map((p) => p.id),
-    ...runtime.textEntities.map((e) => e.id),
-    ...runtime.fileEntities.map((e) => e.id),
-    ...runtime.drawingEntities.map((e) => e.id),
-    ...runtime.shapeEntities.map((e) => e.id),
-    ...runtime.workspaceGroups.map((g) => g.id),
-    ...runtime.workspaceEdges.map((e) => e.id),
-  ]
+  const defaultOrder = [...entityOrderIds]
   const currentIds = new Set(defaultOrder)
   const currentOrder = order.toArray()
   const seen = new Set<string>()

@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
-import type {
-  CursorTuningParams,
-  DebugBootstrapData,
-  DebugElectronAPI,
-} from '../../shared/types'
+import type { CursorTuningParams, DebugBootstrapData } from '../../shared/types'
+import type { DebugElectronAPI } from '../../shared/electron-api/debug'
 import { DEFAULT_CURSOR_TUNING } from '../../shared/cursor-tuning'
 import { useTheme } from '../shared/hooks/useTheme'
 import { PresenceSection } from './PresenceSection'

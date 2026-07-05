@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react'
-import type {
-  ConnectedRepo,
-  FixConfig,
-  OnboardingStatusSnapshot,
-  SettingsBootstrapData,
-  SettingsElectronAPI,
-} from '../../shared/types'
+import type { ConnectedRepo, FixConfig, OnboardingStatusSnapshot, SettingsBootstrapData } from '../../shared/types'
+import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
 import { Sidebar, type SettingsSection } from './Sidebar'
 import { SkillsPane } from './SkillsPane'
 import { FixConfigPane } from './FixConfigPane'

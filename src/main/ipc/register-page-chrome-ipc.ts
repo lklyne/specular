@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
@@ -20,7 +21,7 @@ import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerPageChromeIpc(): void {
   ipcMain.on(
-    'page-deselect',
+    ipcChannels.pageDeselect,
     (_event, payload?: { modifiers?: SelectionModifiers }) => {
       // Additive modifiers (shift/meta/ctrl) preserve the existing selection
       // so clicking on empty space with a modifier held does not wipe it.
@@ -37,23 +38,23 @@ export function registerPageChromeIpc(): void {
   // (its gate is open by default per gate-predicate.ts), so the page's forwarded
   // hover events are intentionally dropped — an unhandled ipcMain.on does that.
 
-  ipcMain.on('page-scroll-changed', (event, data: ScrollSyncData) => {
+  ipcMain.on(ipcChannels.pageScrollChanged, (event, data: ScrollSyncData) => {
     const page = findPageByPageView(event.sender)
     if (!page || !page.linked) return
     if (isScrollSuppressed(page)) return
     propagateScrollFromPage(page, data)
   })
 
-  ipcMain.on('canvas-bg-dropdown-open', () => {
+  ipcMain.on(ipcChannels.canvasBgDropdownOpen, () => {
     if (!bgView || !win) return
     requestLayout()
   })
 
-  ipcMain.on('canvas-bg-dropdown-close', () => {
+  ipcMain.on(ipcChannels.canvasBgDropdownClose, () => {
     requestLayout()
   })
 
-  ipcMain.on('peek-resize-start', (event) => {
+  ipcMain.on(ipcChannels.peekResizeStart, (event) => {
     const page = findPageByPageView(event.sender)
     if (!page) return
     const vp = VIEWPORT_PRESETS[page.presetIndex]
@@ -61,7 +62,7 @@ export function registerPageChromeIpc(): void {
     page.peekHeight = vp.height
   })
 
-  ipcMain.on('peek-resize-move', (event, { dx, dy }: { dx: number; dy: number }) => {
+  ipcMain.on(ipcChannels.peekResizeMove, (event, { dx, dy }: { dx: number; dy: number }) => {
     const page = findPageByPageView(event.sender)
     if (!page || page.peekWidth === undefined || page.peekHeight === undefined) return
     page.peekWidth = Math.max(320, Math.round(page.peekWidth + dx / zoom))
@@ -69,7 +70,7 @@ export function registerPageChromeIpc(): void {
     requestLayout()
   })
 
-  ipcMain.on('peek-resize-end', (event) => {
+  ipcMain.on(ipcChannels.peekResizeEnd, (event) => {
     const page = findPageByPageView(event.sender)
     if (!page) return
     page.peekWidth = undefined

@@ -5,11 +5,8 @@
 // file at the same rect.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneTextEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { TextKindToggle } from './TextKindToggle'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
@@ -24,7 +21,7 @@ export function StickyNotePopover({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'updateTextEntity'
+    | 'updateEntity'
     | 'morphTextFile'
     | 'focusSelection'
     | 'distributeSelection'
@@ -82,7 +79,7 @@ export function StickyNotePopover({
             ariaLabel={`Set ${noun} text size`}
             onPick={(size) => {
               for (const e of selectedTextEntities) {
-                api.updateTextEntity(e.id, { textSize: size })
+                api.updateEntity('text', e.id, { textSize: size })
               }
             }}
           />
@@ -95,7 +92,7 @@ export function StickyNotePopover({
           role="fill"
           onPick={(storage) => {
             for (const e of selectedTextEntities) {
-              api.updateTextEntity(e.id, { color: storage })
+              api.updateEntity('text', e.id, { color: storage })
             }
           }}
         />

@@ -1,13 +1,43 @@
 import type { CreateEdgesRequest, CreateEdgesResponse, WorkspaceEdge } from '../shared/types'
 import { workspaceEdges } from './runtime/workspace-model'
 import { markDirty } from './runtime/layout-dirty'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 import { appendStackOrderIdsAtTop } from './runtime/entity-order-state'
 import { makeId, cloneMetadata } from './workspace-utils'
 
+export function edgeExists(id: string): boolean {
+  return workspaceEdges.some((edge) => edge.id === id)
+}
+
 export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
+  return mutateWorkspace(
+    () => createEdgesInternal(input),
+    { changed: (result) => result.edgeIds.length > 0 },
+  )
+}
+
+function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
   const edgeIds: string[] = []
+  const newIds: string[] = []
   for (const edge of input.edges) {
+    // A caller-supplied id that already exists is an update, not a second
+    // record — this is the only door edges are created through, so guarding
+    // here keeps duplicate ids impossible everywhere (apply route included).
+    const existing = edge.id ? workspaceEdges.find((e) => e.id === edge.id) : undefined
+    if (existing) {
+      existing.fromEntityId = edge.fromEntityId
+      existing.toEntityId = edge.toEntityId
+      existing.fromSide = edge.fromSide
+      existing.toSide = edge.toSide
+      existing.fromEnd = edge.fromEnd
+      existing.toEnd = edge.toEnd
+      existing.color = edge.color
+      existing.label = edge.label
+      existing.kind = edge.kind
+      existing.metadata = cloneMetadata(edge.metadata)
+      edgeIds.push(existing.id)
+      continue
+    }
     const nextEdge: WorkspaceEdge = {
       id: edge.id ?? makeId('edge'),
       fromEntityId: edge.fromEntityId,
@@ -23,28 +53,25 @@ export function createEdges(input: CreateEdgesRequest): CreateEdgesResponse {
     }
     workspaceEdges.push(nextEdge)
     edgeIds.push(nextEdge.id)
+    newIds.push(nextEdge.id)
   }
-  if (edgeIds.length) {
-    appendStackOrderIdsAtTop(edgeIds)
-    markDirty('canvas')
-    scheduleWorkspaceAutosave()
+  if (newIds.length) {
+    appendStackOrderIdsAtTop(newIds)
   }
   return { edgeIds }
 }
 
 export function deleteEdges(input: { edgeIds: string[] }): { deletedEdgeIds: string[] } {
-  const deletedEdgeIds: string[] = []
-  for (const edgeId of input.edgeIds) {
-    const idx = workspaceEdges.findIndex((edge) => edge.id === edgeId)
-    if (idx === -1) continue
-    deletedEdgeIds.push(workspaceEdges[idx].id)
-    workspaceEdges.splice(idx, 1)
-  }
-  if (deletedEdgeIds.length) {
-    markDirty('canvas')
-    scheduleWorkspaceAutosave()
-  }
-  return { deletedEdgeIds }
+  return mutateWorkspace(() => {
+    const deletedEdgeIds: string[] = []
+    for (const edgeId of input.edgeIds) {
+      const idx = workspaceEdges.findIndex((edge) => edge.id === edgeId)
+      if (idx === -1) continue
+      deletedEdgeIds.push(workspaceEdges[idx].id)
+      workspaceEdges.splice(idx, 1)
+    }
+    return { deletedEdgeIds }
+  }, { changed: (result) => result.deletedEdgeIds.length > 0 })
 }
 
 export function removeEdgesTouchingEntities(entityIds: Set<string>): string[] {

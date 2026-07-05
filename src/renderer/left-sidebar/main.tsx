@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
-import type { LeftSidebarElectronAPI } from '../../shared/types'
+import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-sidebar'
 
 initRendererSentry()
 

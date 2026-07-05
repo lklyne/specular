@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { DevtoolsResizeHandleElectronAPI, ThemeData } from '../../shared/types'
+import type { ThemeData } from '../../shared/types'
+import type { DevtoolsResizeHandleElectronAPI } from '../../shared/electron-api/devtools-resize-handle'
 
 export default function App({
   api,

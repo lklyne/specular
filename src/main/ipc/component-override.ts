@@ -1,4 +1,5 @@
 import { pages } from '../runtime/page-runtime'
+import { ipcChannels } from '../../shared/ipc-contract'
 
 export type ComponentPropOverridePayload = {
   pageId: string
@@ -17,7 +18,7 @@ export type ComponentTokenOverridePayload = {
 
 export function forwardOverrideToPage(
   pageId: string,
-  channel: 'override-props' | 'override-token',
+  channel: typeof ipcChannels.overrideProps | typeof ipcChannels.overrideToken,
   payload: Record<string, unknown>,
 ): void {
   const page = pages.find((candidate) => candidate.id === pageId)

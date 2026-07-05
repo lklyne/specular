@@ -3,19 +3,30 @@
  */
 
 import type { AnnotationDrawingStroke, PersistedDrawingEntity } from '../../../shared/types'
+import type { JsonCanvasDrawingNode } from '../../../shared/json-canvas-types'
 import {
   createDrawingEntity,
   deleteDrawingEntity,
   updateDrawingEntity,
 } from '../../runtime/document-commands'
-import { serializeDrawingToDrawingNode } from '../../runtime/json-canvas-serializer'
+import {
+  buildDrawingEntitySceneEntity,
+  drawingEntities,
+  persistDrawingEntity,
+  DRAWING_ENTITY_PERSISTED_FIELDS,
+  type DrawingEntity,
+} from '../../runtime/drawing-entity-state'
+import {
+  deserializeDrawingNodeToDrawing,
+  serializeDrawingToDrawingNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 const DEFAULT_DRAWING_SIZE = 200
 
 export const drawingKind: EntityKindDefinition<'drawing'> = {
   kind: 'drawing',
-  fields: ['canvasX', 'canvasY', 'width', 'height', 'strokes'],
+  fields: DRAWING_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const entity = createDrawingEntity({
@@ -47,7 +58,27 @@ export const drawingKind: EntityKindDefinition<'drawing'> = {
     return serializeDrawingToDrawingNode(entity as PersistedDrawingEntity)
   },
 
+  deserialize(node) {
+    return deserializeDrawingNodeToDrawing(node as JsonCanvasDrawingNode)
+  },
+
   defaultSize() {
     return { width: DEFAULT_DRAWING_SIZE, height: DEFAULT_DRAWING_SIZE }
   },
+
+  // The raw store — persistence and stack order read this. The sidebar and
+  // canvas scene read the UI-filtered `drawingEntitiesForUi()` view instead.
+  entities: () => drawingEntities,
+
+  restore(snapshots) {
+    drawingEntities.length = 0
+    for (const snapshot of snapshots) {
+      drawingEntities.push(snapshot as unknown as DrawingEntity)
+    }
+  },
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildDrawingEntitySceneEntity(entity as DrawingEntity, zoom, pan, origin),
+
+  persist: (entity) => persistDrawingEntity(entity as DrawingEntity),
 }

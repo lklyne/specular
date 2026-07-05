@@ -7,6 +7,9 @@ nodeLinker: hoisted
 overrides:
   '@electron/notarize': ^3.1.1
 
+# @electron/rebuild resolves @electron/node-gyp from git; it has no npm release
+blockExoticSubdeps: false
+
 allowBuilds:
   electron: true
   esbuild: true

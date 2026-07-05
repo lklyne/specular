@@ -32,7 +32,7 @@ export function ImageFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetai
             <button
               key={opt.value}
               type="button"
-              onClick={() => rightDetailsPanelApi.updateFileEntity(fileEntity.id, { objectFit: opt.value })}
+              onClick={() => rightDetailsPanelApi.updateEntity('file', fileEntity.id, { objectFit: opt.value })}
               className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
                 activeFit === opt.value
                   ? isDark

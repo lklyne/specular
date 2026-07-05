@@ -1,19 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type {
-  DebugElectronAPI,
-  ThemeData,
-} from '../shared/types'
+import type { DebugElectronAPI } from '../shared/electron-api/debug'
+import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: DebugElectronAPI = {
-  getInitialData: () => ipcRenderer.invoke('debug:get-initial-data'),
+  getInitialData: () => ipcRenderer.invoke(ipcChannels.debugGetInitialData),
   updateCursorSplineViz: (enabled) =>
-    ipcRenderer.send('debug:update-cursor-spline-viz', enabled),
-  onCursorSplineVizChanged: on<boolean>('cursor-spline-viz-changed'),
+    ipcRenderer.send(ipcChannels.debugUpdateCursorSplineViz, enabled),
+  onCursorSplineVizChanged: on<boolean>(ipcChannels.cursorSplineVizChanged),
   updateCursorTuning: (params) =>
-    ipcRenderer.send('debug:update-cursor-tuning', params),
-  resetCursorTuning: () => ipcRenderer.send('debug:reset-cursor-tuning'),
-  onThemeChanged: on<ThemeData>('theme-changed'),
+    ipcRenderer.send(ipcChannels.debugUpdateCursorTuning, params),
+  resetCursorTuning: () => ipcRenderer.send(ipcChannels.debugResetCursorTuning),
+  onThemeChanged: on(ipcChannels.themeChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

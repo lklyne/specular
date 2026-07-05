@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import type { ViewportNudge } from '../../shared/types'
 import { aboveView, bgView } from './view-refs'
 import { pan, zoom } from './runtime-context'
@@ -15,6 +16,6 @@ import { safeSend } from './safe-send'
 export function broadcastViewportNudge(): void {
   if (!bgView && !aboveView) return
   const payload: ViewportNudge = { pan: { x: pan.x, y: pan.y }, zoom }
-  if (bgView) safeSend(bgView.webContents, 'viewport-nudge', payload)
-  if (aboveView) safeSend(aboveView.webContents, 'viewport-nudge', payload)
+  if (bgView) safeSend(bgView.webContents, ipcChannels.viewportNudge, payload)
+  if (aboveView) safeSend(aboveView.webContents, ipcChannels.viewportNudge, payload)
 }

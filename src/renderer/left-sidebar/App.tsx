@@ -2,12 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { Check, ChevronDown, ChevronRight, File, Plus } from 'lucide-react'
-import type {
-  LeftSidebarData,
-  LeftSidebarElectronAPI,
-  SidebarCanvasItem,
-  ThemeData,
-} from '../../shared/types'
+import type { LeftSidebarData, SidebarCanvasItem, ThemeData } from '../../shared/types'
+import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-sidebar'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { SidebarCanvasTree } from './SidebarCanvasTree'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'

@@ -2,11 +2,8 @@
 // `entity.popupContributions` via the plugin contribution surface.
 
 import { useEffect, useState } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneFileEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { fileDisplayName } from '../canvas-bg/entityConstants'
