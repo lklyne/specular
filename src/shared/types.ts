@@ -206,6 +206,14 @@ export interface CanvasSceneFileEntity {
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
   rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component' | 'html'
   /**
+   * Markdown note content, present only once the note has entered the
+   * Y.Doc `notes` mirror (i.e. edited at least once — ADR 0023). Undefined
+   * means the renderer should fall back to reading the `.md` file directly;
+   * once defined, this scene field is the source of truth and reflects
+   * undo/redo immediately on the next broadcast.
+   */
+  noteContent?: string
+  /**
    * Static contribution tags declared by the picked renderer plugin (ADR 0008
    * §7). The `FilePopup` reads these to compose plugin-specific controls
    * (e.g. wireframe theme picker). Empty array means no contributions. The
@@ -714,11 +722,9 @@ export interface SettingsBootstrapData extends ThemeBootstrapData {
 }
 
 export type {
-  CurveDirection,
   CursorTuningParams,
   EasingPreset,
   EasingSpec,
-  Vec2,
 }
 
 export interface CanvasLayoutBootstrapData extends ThemeBootstrapData {

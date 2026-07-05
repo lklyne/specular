@@ -230,6 +230,12 @@ export interface CanvasBgElectronAPI {
   ) => () => void
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   /**
+   * ADR 0023 — commit a markdown note edit through the Y.Doc so it
+   * participates in the unified UndoManager. Prefer this over
+   * `writeNoteFile` for markdown note content.
+   */
+  applyNoteContent: (entityId: string, content: string) => Promise<boolean>
+  /**
    * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
    * (or vice versa) at the same canvas rect. Both halves of the swap (the
    * entity replacement and the `.md` file write/delete) collapse into a

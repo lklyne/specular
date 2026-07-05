@@ -29,6 +29,7 @@ import {
   isDocSyncSuppressed,
   syncRuntimeToDoc,
   withSuppressedDocSync,
+  readNoteEntries,
   DOC_MAP_PAGES,
   DOC_MAP_ENTITIES,
   DOC_MAP_GROUPS,
@@ -37,6 +38,12 @@ import {
 } from './workspace-doc'
 import { getActiveUndoManager } from './workspace-undo'
 import { makeEmptyTabSnapshot } from './workspace-tabs'
+import {
+  noteContentEntries,
+  applyNoteContentsFromDoc,
+  projectNoteContentToDisk,
+  clearNoteContentState,
+} from './note-content-state'
 
 // ---------------------------------------------------------------------------
 // Runtime state references (set during initialization)
@@ -199,6 +206,7 @@ function requestDocSyncImmediate(): void {
     pan: _refs.getPan(),
     activeTabId: _refs.getActiveTabId(),
     workspaceTabs: _refs.workspaceTabs,
+    noteContent: noteContentEntries(),
   }, persistPage as (page: { id: string }) => Record<string, unknown>)
 }
 
@@ -295,6 +303,11 @@ function syncDocToRuntime(doc: Y.Doc): void {
     rebuildArrayFromYMap(_refs!.workspaceEdges, doc.getMap(DOC_MAP_EDGES) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceAnnotations, doc.getMap(DOC_MAP_ANNOTATIONS) as Y.Map<Y.Map<unknown>>)
 
+    // Note content: pull the reverted `notes` Y.Map back into the runtime
+    // mirror, then project just the ids that actually changed to disk.
+    const changedNoteIds = applyNoteContentsFromDoc(readNoteEntries(doc))
+    for (const id of changedNoteIds) projectNoteContentToDisk(id)
+
     // Phase 5d-v2 E1: gesture cancellation flows through the controller,
     // which is reentrancy-safe, so the undo observer can cancel + mark
     // dirty + request a layout synchronously. The 16ms layout debounce
@@ -314,4 +327,5 @@ function syncDocToRuntime(doc: Y.Doc): void {
 export function resetDocSync(): void {
   _syncScheduled = false
   _batchingActive = false
+  clearNoteContentState()
 }

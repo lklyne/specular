@@ -18,6 +18,9 @@ export const DOC_MAP_ANNOTATIONS = 'annotations'
 export const DOC_MAP_ENTITIES = 'entities'
 export const DOC_MAP_WORKSPACE = 'workspace'
 export const DOC_ARRAY_ENTITY_ORDER = 'entityOrder'
+/** entityId -> markdown note content. Undo-tracked mirror of the `.md` file
+ *  on disk (source of truth stays the file — see docs/adr/0023). */
+export const DOC_MAP_NOTES = 'notes'
 
 /** All entity-related Y.Map names (excludes entityOrder, viewport, workspace) */
 export const DOC_ENTITY_MAP_NAMES = [
@@ -33,6 +36,7 @@ export const DOC_ALL_MAP_NAMES = [
   DOC_MAP_VIEWPORT,
   ...DOC_ENTITY_MAP_NAMES,
   DOC_MAP_WORKSPACE,
+  DOC_MAP_NOTES,
 ] as const
 
 // ---------------------------------------------------------------------------
@@ -199,6 +203,7 @@ export function syncRuntimeToDoc(
     pan: { x: number; y: number }
     activeTabId?: string | null
     workspaceTabs?: ReadonlyArray<{ id: string; name: string }>
+    noteContent?: ReadonlyMap<string, string>
   },
   serializePage: (page: { id: string }) => Record<string, unknown>,
 ): void {
@@ -243,6 +248,10 @@ export function syncRuntimeToDoc(
     )
 
     syncEntityOrder(doc, runtime.entityOrderIds)
+
+    if (runtime.noteContent) {
+      syncNotesFromMirror(doc.getMap(DOC_MAP_NOTES) as Y.Map<string>, runtime.noteContent)
+    }
 
     if (runtime.activeTabId) {
       const workspace = doc.getMap(DOC_MAP_WORKSPACE)
@@ -293,6 +302,22 @@ function syncMapFromArray<T extends { id: string }>(
       ymap.delete(id)
     }
   }
+}
+
+/** Diff-sync the note-content runtime mirror (entityId -> markdown text) into the `notes` Y.Map. */
+function syncNotesFromMirror(ymap: Y.Map<string>, mirror: ReadonlyMap<string, string>): void {
+  for (const [id, content] of mirror) {
+    if (ymap.get(id) !== content) ymap.set(id, content)
+  }
+  for (const id of ymap.keys()) {
+    if (!mirror.has(id)) ymap.delete(id)
+  }
+}
+
+/** Read the `notes` Y.Map into a plain Map (entityId -> markdown text). */
+export function readNoteEntries(doc: Y.Doc): Map<string, string> {
+  const yNotes = doc.getMap(DOC_MAP_NOTES) as Y.Map<string>
+  return new Map(yNotes.entries())
 }
 
 function syncEntityOrder(doc: Y.Doc, entityOrderIds: readonly string[]): void {

@@ -27,7 +27,7 @@ The `text` and `file` kinds back three user-facing affordances. The toolbar expo
 | **Sticky note** | Short text inside a colored card. Padding, bg color. The default. | `text` node + `specular.textStyle: 'sticky'` |
 | **Document** | Longer markdown content as a `.md` file on disk; reusable across canvases. | `file` node, markdown renderer (selected by extension via `src/main/plugins/registry.ts`) |
 
-Text and Sticky note are the same `text` kind with a render-style toggle. Document is a separate `file` kind because its content lives on disk, not in the `.canvas` JSON.
+Text and Sticky note are the same `text` kind with a render-style toggle. Document is a separate `file` kind because its content lives on disk, not in the `.canvas` JSON. A Document's content is additionally mirrored into a transient, undo-tracked Y.Doc map on edit — the `.md` file stays the source of truth. See [ADR 0023](./docs/adr/0023-note-content-in-ydoc-for-undo.md).
 
 Default `textStyle` when the field is absent is `'sticky'` — preserves rendering of legacy canvases without migration. New "Add text" placements stamp `'plain'`.
 

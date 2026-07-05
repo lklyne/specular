@@ -28,6 +28,7 @@ export interface RendererFileApi {
     targetId?: string,
   ) => void
   writeNoteFile: (path: string, content: string) => Promise<boolean>
+  applyNoteContent: (entityId: string, content: string) => Promise<boolean>
 }
 
 export function getFileApi(): RendererFileApi {

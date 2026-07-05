@@ -25,6 +25,7 @@ import {
   type FileEntity,
 } from '../../runtime/file-entity-state'
 import { createNoteFile } from '../../runtime/note-assets'
+import { getNoteContent } from '../../runtime/note-content-state'
 import {
   htmlDefaultSize,
   imageSizeFromPath,
@@ -152,8 +153,10 @@ export const fileKind: EntityKindDefinition<'file'> = {
     }
   },
 
-  buildSceneEntity: (entity, zoom, pan, origin) =>
-    buildFileEntitySceneEntity(entity as FileEntity, zoom, pan, origin),
+  buildSceneEntity: (entity, zoom, pan, origin) => ({
+    ...buildFileEntitySceneEntity(entity as FileEntity, zoom, pan, origin),
+    noteContent: getNoteContent(entity.id),
+  }),
 
   persist: (entity) => persistFileEntity(entity as FileEntity),
 }

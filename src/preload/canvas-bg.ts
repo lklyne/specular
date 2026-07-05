@@ -282,6 +282,8 @@ const api: CanvasBgElectronAPI = {
   onCanvasGuides: on<CanvasGuidesPayload>(ipcChannels.canvasGuides),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke(ipcChannels.writeNoteFile, { filePath, content }),
+  applyNoteContent: (entityId: string, content: string) =>
+    ipcRenderer.invoke(ipcChannels.applyNoteContent, { entityId, content }),
   morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
     ipcRenderer.invoke(ipcChannels.canvasMorphTextFile, { entityId, direction }),
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getCanvasLayoutBootstrap),
