@@ -83,7 +83,7 @@ import {
   setCustomPageSizeMetadata,
   setDeviceIdMetadata,
 } from '../runtime/runtime-entities'
-import { createAnnotation, moveAnnotation } from '../workspace-annotations'
+import { createAnnotation } from '../workspace-annotations'
 import {
   deletePages,
 } from '../workspace-entities'
@@ -601,17 +601,7 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on(
-    ipcChannels.canvasMoveAnnotation,
-    (_event, payload: { annotationId?: string; dx?: number; dy?: number } | undefined) => {
-      const annotationId = payload?.annotationId?.trim()
-      if (!annotationId) return
-      if (typeof payload?.dx !== 'number' || typeof payload?.dy !== 'number') return
-      moveAnnotation(annotationId, payload.dx, payload.dy)
-    },
-  )
-
-  // Generic interactive update — one channel dispatching through the registry's
+// Generic interactive update — one channel dispatching through the registry's
   // per-kind `update` (create/delete stay per-kind: create payloads diverge,
   // delete routes through `deleteSelection`). The renderer types the patch by
   // kind (`EntityUpdatePatchMap`), so an ill-typed patch is a compile error.

@@ -1139,6 +1139,5 @@ export {
   createAnnotation,
   updateAnnotationStatus,
   addAnnotationReply,
-  moveAnnotation,
   deleteAnnotation,
 } from '../workspace-annotations'

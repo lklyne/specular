@@ -208,8 +208,6 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasSelectEntities, entityIds),
   resizeMultiSelection: (entries) =>
     ipcRenderer.send(ipcChannels.canvasResizeMultiSelection, { entries }),
-  moveAnnotation: (annotationId: string, dx: number, dy: number) =>
-    ipcRenderer.send(ipcChannels.canvasMoveAnnotation, { annotationId, dx, dy }),
   addAnnotationReply: (annotationId: string, text: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelReplyAnnotation, { annotationId, text }),
   resolveAnnotation: (annotationId: string) =>

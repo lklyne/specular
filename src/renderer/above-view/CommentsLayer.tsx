@@ -220,7 +220,6 @@ export function AnnotationThreadPopover({
   replyText,
   setOpenThreadMenu,
   setReplyText,
-  startAnnotationDrag,
   submitThreadReply,
   threadInputRef,
   threadPosition,
@@ -239,7 +238,6 @@ export function AnnotationThreadPopover({
   replyText: string
   setOpenThreadMenu: React.Dispatch<React.SetStateAction<boolean>>
   setReplyText: React.Dispatch<React.SetStateAction<string>>
-  startAnnotationDrag: (event: React.PointerEvent<HTMLElement>, annotationId: string) => void
   submitThreadReply: () => void
   threadInputRef: React.RefObject<HTMLTextAreaElement | null>
   threadPosition: { left: number; top: number; width: number } | null
@@ -267,21 +265,7 @@ export function AnnotationThreadPopover({
         <div className="rounded-2xl border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900 shadow-xl dark:text-zinc-100">
           <div
             className="flex items-center justify-between border-b border-zinc-200 px-2.5 py-1.5 dark:border-zinc-700"
-            style={{
-              cursor:
-                openThread.anchor.type === 'canvas'
-                  ? drawInteractionEnabled
-                    ? drawCursor
-                    : 'grab'
-                  : drawInteractionEnabled
-                    ? drawCursor
-                    : undefined,
-            }}
-            onPointerDown={(event) => {
-              if (openThread.anchor.type !== 'canvas') return
-              if ((event.target as Element | null)?.closest('button')) return
-              startAnnotationDrag(event, openThread.id)
-            }}
+            style={{ cursor: drawInteractionEnabled ? drawCursor : undefined }}
           >
             <div className="text-[12px] font-semibold">Comment</div>
             <div className="flex items-center gap-1">
