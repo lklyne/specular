@@ -15,6 +15,7 @@
 import type { AnnotationDrawingStroke, CanvasSceneEntity } from './types'
 import type { ResizeHandle } from './resize-accumulator'
 import { scaleStrokesToBounds } from './scale-strokes'
+import { selectionBbox } from './selection-bbox'
 
 /** Kinds that the `resizeMultiSelection` IPC accepts. Groups own a separate
  *  selection overlay and are excluded from the multi-bbox gesture. */
@@ -85,13 +86,10 @@ export function computeMultiSelectionBbox(
   entities: readonly CanvasSceneEntity[],
   selectedEntityIds: readonly string[],
 ): { bbox: MultiResizeBbox; entities: MultiResizeEntity[] } | null {
-  if (selectedEntityIds.length < 2) return null
+  const bbox = selectionBbox(entities, selectedEntityIds, 'canvas')
+  if (!bbox) return null
   const idSet = new Set(selectedEntityIds)
   const out: MultiResizeEntity[] = []
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
   for (const e of entities) {
     if (!idSet.has(e.id)) continue
     if (e.kind === 'group') continue // groups have their own selection overlay
@@ -104,16 +102,8 @@ export function computeMultiSelectionBbox(
       height: e.height,
       strokes: e.kind === 'drawing' ? e.strokes : undefined,
     })
-    minX = Math.min(minX, e.canvasX)
-    minY = Math.min(minY, e.canvasY)
-    maxX = Math.max(maxX, e.canvasX + e.width)
-    maxY = Math.max(maxY, e.canvasY + e.height)
   }
-  if (out.length < 2) return null
-  return {
-    entities: out,
-    bbox: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
-  }
+  return { entities: out, bbox }
 }
 
 export function startMultiResize(start: MultiResizeStart): MultiResizeAccumulator {
