@@ -2,6 +2,7 @@
  * Sidebar tree builder — constructs hierarchical sidebar data for the left panel.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import type {
   LeftSidebarData,
   LeftSidebarSections,
@@ -62,6 +63,22 @@ function sortSidebarItems(items: SortableSidebarItem[]): SidebarCanvasItem[] {
   return items
     .sort((a, b) => b.sortKey - a.sortKey)
     .map(({ sortKey: _sortKey, ...item }) => item)
+}
+
+/**
+ * The sidebar's leaf entities in stack order: pages then the non-group entity
+ * kinds. Drawings use the UI-filtered view (`drawingEntitiesForUi()`), not the
+ * raw persisted store — so this stays a local enumeration rather than the
+ * registry's `allEntities()`, which exposes the raw store and includes groups.
+ */
+function sidebarLeafEntities(): { id: string; parentGroupId?: string }[] {
+  return [
+    ...pages,
+    ...textEntities,
+    ...fileEntities,
+    ...drawingEntitiesForUi(),
+    ...shapeEntities,
+  ]
 }
 
 function buildSidebarLeafItem(
@@ -137,12 +154,8 @@ function buildSidebarLeafItem(
 }
 
 function countSidebarLeafDescendants(groupId: string): number {
-  const directLeafCount =
-    pages.filter((page) => page.parentGroupId === groupId).length +
-    textEntities.filter((entity) => entity.parentGroupId === groupId).length +
-    fileEntities.filter((entity) => entity.parentGroupId === groupId).length +
-    drawingEntitiesForUi().filter((entity) => entity.parentGroupId === groupId).length +
-    shapeEntities.filter((entity) => entity.parentGroupId === groupId).length
+  const directLeafCount = sidebarLeafEntities()
+    .filter((entity) => entity.parentGroupId === groupId).length
 
   const nestedLeafCount = workspaceGroups
     .filter((group) => group.parentGroupId === groupId)
@@ -189,14 +202,9 @@ export function buildSidebarSections(): LeftSidebarSections {
     const childGroups = node.childGroupIds
       .map(buildGroupItem)
       .filter((item): item is SortableSidebarItem => Boolean(item))
-    const directLeafItems = [
-      ...pages.filter((page) => page.parentGroupId === node.group.id).map((page) => page.id),
-      ...textEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-      ...fileEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-      ...drawingEntitiesForUi().filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-      ...shapeEntities.filter((entity) => entity.parentGroupId === node.group.id).map((entity) => entity.id),
-    ]
-      .map((id) => buildSidebarLeafItem(id, ranks))
+    const directLeafItems = sidebarLeafEntities()
+      .filter((entity) => entity.parentGroupId === node.group.id)
+      .map((entity) => buildSidebarLeafItem(entity.id, ranks))
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
 
     return {
@@ -209,30 +217,15 @@ export function buildSidebarSections(): LeftSidebarSections {
     }
   }
 
-  const groupedEntityIds = new Set<string>([
-    ...pages.filter((page) => page.parentGroupId).map((page) => page.id),
-    ...textEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-    ...fileEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-    ...drawingEntitiesForUi().filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-    ...shapeEntities.filter((entity) => entity.parentGroupId).map((entity) => entity.id),
-  ])
-  const rootLeafItems = [
-    ...pages
-      .filter((page) => !groupedEntityIds.has(page.id))
-      .map((page) => buildSidebarLeafItem(page.id, ranks)),
-    ...textEntities
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id, ranks)),
-    ...fileEntities
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id, ranks)),
-    ...drawingEntitiesForUi()
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id, ranks)),
-    ...shapeEntities
-      .filter((entity) => !groupedEntityIds.has(entity.id))
-      .map((entity) => buildSidebarLeafItem(entity.id, ranks)),
-  ].filter((item): item is NonNullable<typeof item> => Boolean(item))
+  const groupedEntityIds = new Set<string>(
+    sidebarLeafEntities()
+      .filter((entity) => entity.parentGroupId)
+      .map((entity) => entity.id),
+  )
+  const rootLeafItems = sidebarLeafEntities()
+    .filter((entity) => !groupedEntityIds.has(entity.id))
+    .map((entity) => buildSidebarLeafItem(entity.id, ranks))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
 
   const rootGroupItems = groupNodes
     .filter((node) => !node.parentId)
@@ -292,5 +285,5 @@ export function notifyLeftSidebarData(): void {
   const wc = leftSidebarView.webContents
   if (wc.isDestroyed()) return
   if (interactionState.kind === 'dragging-entities') return
-  wc.send('left-sidebar-data', buildLeftSidebarData())
+  wc.send(ipcChannels.leftSidebarData, buildLeftSidebarData())
 }

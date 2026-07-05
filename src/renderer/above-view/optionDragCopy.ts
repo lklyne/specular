@@ -1,12 +1,8 @@
 import type {
   PointerEvent as ReactPointerEvent,
 } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasEntityKind,
-  CanvasSceneEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasEntityKind, CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, snapToGrid } from '../../shared/gesture-utils'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
 

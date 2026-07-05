@@ -7,19 +7,30 @@
  */
 
 import type { PersistedTextEntity, TextEntityStyle, TextWidthMode } from '../../../shared/types'
+import type { JsonCanvasTextNode } from '../../../shared/json-canvas-types'
 import {
   createTextEntity,
   deleteTextEntity,
   updateTextEntity,
 } from '../../runtime/document-commands'
-import { serializeTextToTextNode } from '../../runtime/json-canvas-serializer'
+import {
+  buildTextEntitySceneEntity,
+  persistTextEntity,
+  textEntities,
+  TEXT_ENTITY_PERSISTED_FIELDS,
+  type TextEntity,
+} from '../../runtime/text-entity-state'
+import {
+  deserializeTextNodeToText,
+  serializeTextToTextNode,
+} from '../../runtime/json-canvas-serializer'
 import type { EntityKindDefinition } from '../contract'
 
 const DEFAULT_TEXT_SIZE = 200
 
 export const textKind: EntityKindDefinition<'text'> = {
   kind: 'text',
-  fields: ['text', 'color', 'width', 'height', 'canvasX', 'canvasY'],
+  fields: TEXT_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const entity = createTextEntity({
@@ -41,6 +52,8 @@ export const textKind: EntityKindDefinition<'text'> = {
     updateTextEntity(id, {
       text: patch.text as string | undefined,
       color: patch.color as string | undefined,
+      textSize: patch.textSize as number | undefined,
+      widthMode: patch.widthMode as TextWidthMode | undefined,
       width: patch.width as number | undefined,
       height: patch.height as number | undefined,
       canvasX: patch.canvasX as number | undefined,
@@ -56,7 +69,25 @@ export const textKind: EntityKindDefinition<'text'> = {
     return serializeTextToTextNode(entity as PersistedTextEntity)
   },
 
+  deserialize(node) {
+    return deserializeTextNodeToText(node as JsonCanvasTextNode)
+  },
+
   defaultSize() {
     return { width: DEFAULT_TEXT_SIZE, height: DEFAULT_TEXT_SIZE }
   },
+
+  entities: () => textEntities,
+
+  restore(snapshots) {
+    textEntities.length = 0
+    for (const snapshot of snapshots) {
+      textEntities.push(snapshot as unknown as TextEntity)
+    }
+  },
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildTextEntitySceneEntity(entity as TextEntity, zoom, pan, origin),
+
+  persist: (entity) => persistTextEntity(entity as TextEntity),
 }

@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { agentOverlayClipPath } from '../../shared/agent-overlay-clip'
 import { AgentCursorLayer } from '../canvas-bg/AgentCursorLayer'
 import { InspectPopoverLayer } from './InspectPopoverLayer'

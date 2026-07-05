@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import {
   deepElementFromPoint,
@@ -542,7 +543,7 @@ export function emitHoveredElement(target: Element | null): void {
   if (!domInspectionEnabled) return
   if (!target) {
     domInspectionHoverKey = ''
-    ipcRenderer.send('inspect-node-hover', null)
+    ipcRenderer.send(ipcChannels.inspectNodeHover, null)
     if (domInspectionPinnedTarget) {
       const payload = inspectionPayload(domInspectionPinnedTarget)
       domInspectionLastTarget = domInspectionPinnedTarget
@@ -572,8 +573,8 @@ export function emitHoveredElement(target: Element | null): void {
     pinnedPayload: domInspectionPinnedTarget ? inspectionPayload(domInspectionPinnedTarget) : null,
     showLabel: false,
   })
-  ipcRenderer.send('inspect-node-hover', payload)
-  ipcRenderer.send('inspect-node-detail-update', payload)
+  ipcRenderer.send(ipcChannels.inspectNodeHover, payload)
+  ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, payload)
 }
 
 function handleDomInspectionMove(event: MouseEvent): void {
@@ -597,8 +598,8 @@ function handleDomInspectionClick(event: MouseEvent): void {
   const payload = inspectionPayload(target)
   domInspectionPinnedTarget = target
   updateDomInspectionOverlay(target, payload, { showLabel: false })
-  ipcRenderer.send('inspect-node-select', payload)
-  ipcRenderer.send('inspect-node-detail-update', payload)
+  ipcRenderer.send(ipcChannels.inspectNodeSelect, payload)
+  ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, payload)
 }
 
 function handleDomInspectionMouseDown(event: MouseEvent): void {
@@ -716,11 +717,11 @@ export function handleInspectFocusNode(
     // Sending inspect-node-select back would trigger a circular
     // selectPageById -> syncInspectionState that can hide the overlay.
     if (!payload.fromPanel) {
-      ipcRenderer.send('inspect-node-select', detail)
+      ipcRenderer.send(ipcChannels.inspectNodeSelect, detail)
     }
-    ipcRenderer.send('inspect-node-detail-update', detail)
+    ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, detail)
   } else {
-    ipcRenderer.send('inspect-node-hover', detail)
-    ipcRenderer.send('inspect-node-detail-update', detail)
+    ipcRenderer.send(ipcChannels.inspectNodeHover, detail)
+    ipcRenderer.send(ipcChannels.inspectNodeDetailUpdate, detail)
   }
 }

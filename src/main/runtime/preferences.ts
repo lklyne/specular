@@ -12,6 +12,7 @@ import type {
   FixConfig,
   OnboardingState,
 } from '../../shared/types'
+import { ipcChannels } from '../../shared/ipc-contract'
 import {
   DEFAULT_TOOL_DEFAULTS,
   normalizeToolDefaults,
@@ -23,20 +24,11 @@ import {
   normalizeCursorTuning,
   type CursorTuningParams,
 } from '../../shared/cursor-tuning'
-import { getDebugWebContents } from '../debug-window'
-import { getSettingsWebContents } from '../settings-window'
 import {
-  bgView,
-  aboveView,
-
   devtoolsBackgroundView,
-  devtoolsHeaderView,
-  devtoolsResizeHandleView,
-  leftSidebarView,
-
-  toolbarView,
   win,
 } from './view-refs'
+import { broadcast } from './view-broadcast'
 import {
   hoverTarget,
   pages,
@@ -236,46 +228,16 @@ export function frameColor(): string {
 
 export function broadcastTheme(): void {
   if (win) win.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
-  const data = { isDark: isDark() }
-  if (bgView) bgView.webContents.send('theme-changed', data)
-  if (leftSidebarView) leftSidebarView.webContents.send('theme-changed', data)
-  if (toolbarView) toolbarView.webContents.send('theme-changed', data)
-  if (aboveView && !aboveView.webContents.isDestroyed()) {
-    aboveView.webContents.send('theme-changed', data)
-  }
-  if (devtoolsHeaderView)
-    devtoolsHeaderView.webContents.send('theme-changed', data)
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   }
-  if (devtoolsResizeHandleView && !devtoolsResizeHandleView.webContents.isDestroyed()) {
-    devtoolsResizeHandleView.webContents.send('theme-changed', data)
-  }
-  const debugWebContents = getDebugWebContents()
-  if (debugWebContents && !debugWebContents.isDestroyed()) {
-    debugWebContents.send('theme-changed', data)
-  }
-  const settingsWebContents = getSettingsWebContents()
-  if (settingsWebContents && !settingsWebContents.isDestroyed()) {
-    settingsWebContents.send('theme-changed', data)
-  }
+  broadcast(ipcChannels.themeChanged, { isDark: isDark() })
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())
   }
 }
 
-function broadcastToDebugTargets(channel: string, payload: unknown): void {
-  const targets = [
-    bgView?.webContents,
-    aboveView?.webContents,
-    getDebugWebContents(),
-  ]
-  for (const wc of targets) {
-    if (wc && !wc.isDestroyed()) wc.send(channel, payload)
-  }
-}
-
 export function broadcastCursorSplineViz(): void {
-  broadcastToDebugTargets('cursor-spline-viz-changed', currentCursorSplineViz)
+  broadcast(ipcChannels.cursorSplineVizChanged, currentCursorSplineViz, 'debug')
 }

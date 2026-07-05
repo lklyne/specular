@@ -15,6 +15,7 @@ import type {
   TextWidthMode,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
+import { applyPatch } from './apply-patch'
 
 export interface TextEntity {
   id: string
@@ -81,16 +82,10 @@ export function createTextEntity(input: {
 export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id'>>): TextEntity | null {
   const entity = textEntities.find((n) => n.id === id)
   if (!entity) return null
-  if (patch.text !== undefined) entity.text = patch.text
-  if (patch.color !== undefined) entity.color = patch.color
-  if (patch.textStyle !== undefined) entity.textStyle = patch.textStyle
-  if (patch.widthMode !== undefined) entity.widthMode = patch.widthMode
-  if (patch.textSize !== undefined) entity.textSize = patch.textSize
-  if (patch.canvasX !== undefined) entity.canvasX = patch.canvasX
-  if (patch.canvasY !== undefined) entity.canvasY = patch.canvasY
-  if (patch.width !== undefined) entity.width = patch.width
-  if (patch.height !== undefined) entity.height = patch.height
-  if (patch.parentGroupId !== undefined) entity.parentGroupId = patch.parentGroupId
+  applyPatch(entity, patch, [
+    'text', 'color', 'textStyle', 'widthMode', 'textSize',
+    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
+  ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity
@@ -135,6 +130,32 @@ export function buildTextEntitySceneEntity(
     screenHeight: entity.height * zoom,
   }
 }
+
+/**
+ * Every key `persistTextEntity` writes to the doc's entity map — the single
+ * field list both sync directions derive from (ADR 0024 §5). `satisfies`
+ * keeps the set exhaustive against `PersistedTextEntity`; the persisted-fields
+ * drift test keeps `persistTextEntity` on it.
+ */
+const TEXT_ENTITY_PERSISTED_FIELD_SET = {
+  kind: true,
+  id: true,
+  text: true,
+  color: true,
+  textStyle: true,
+  widthMode: true,
+  textSize: true,
+  canvasX: true,
+  canvasY: true,
+  width: true,
+  height: true,
+  parentGroupId: true,
+  label: true,
+} as const satisfies Record<keyof PersistedTextEntity, true>
+
+export const TEXT_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
+  TEXT_ENTITY_PERSISTED_FIELD_SET,
+)
 
 export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
   return {

@@ -6,11 +6,8 @@ import {
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type {
-  CanvasBgElectronAPI,
-  LayoutUpdateData,
-  ToolDefaultPatch,
-} from '../../shared/types'
+import type { LayoutUpdateData, ToolDefaultPatch } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import {
   BRUSH_VARIANT_OPTIONS,

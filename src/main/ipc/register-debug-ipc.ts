@@ -1,3 +1,4 @@
+import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import {
   DEFAULT_CURSOR_TUNING,
@@ -14,22 +15,22 @@ import {
 } from '../runtime/preferences'
 
 export function registerDebugIpc(): void {
-  ipcMain.handle('debug:get-initial-data', async (): Promise<DebugBootstrapData> => ({
+  ipcMain.handle(ipcChannels.debugGetInitialData, async (): Promise<DebugBootstrapData> => ({
     theme: { isDark: isDark() },
     cursorSplineViz: getCursorSplineViz(),
     cursorTuning: getCursorTuning(),
   }))
 
-  ipcMain.on('debug:update-cursor-spline-viz', (_event, on: unknown) => {
+  ipcMain.on(ipcChannels.debugUpdateCursorSplineViz, (_event, on: unknown) => {
     saveCursorSplineViz(on === true)
     broadcastCursorSplineViz()
   })
 
-  ipcMain.on('debug:update-cursor-tuning', (_event, raw: unknown) => {
+  ipcMain.on(ipcChannels.debugUpdateCursorTuning, (_event, raw: unknown) => {
     saveCursorTuning(normalizeCursorTuning(raw))
   })
 
-  ipcMain.on('debug:reset-cursor-tuning', () => {
+  ipcMain.on(ipcChannels.debugResetCursorTuning, () => {
     saveCursorTuning(DEFAULT_CURSOR_TUNING)
   })
 }

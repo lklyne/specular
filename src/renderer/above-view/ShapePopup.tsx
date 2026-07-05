@@ -1,12 +1,8 @@
 // ADR 0008/0009 — shape selection popup. Variant morph per ADR 0009.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneShapeEntity,
-  LayoutUpdateData,
-  ShapeKind,
-} from '../../shared/types'
+import type { CanvasSceneShapeEntity, LayoutUpdateData, ShapeKind } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
@@ -21,7 +17,7 @@ export function ShapePopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'updateShapeEntity'
+    | 'updateEntity'
     | 'focusSelection'
     | 'distributeSelection'
   >
@@ -64,7 +60,7 @@ export function ShapePopup({
               ariaLabel={`Morph ${noun} to ${label}`}
               onClick={() => {
                 const patch: { shapeKind: ShapeKind } = { shapeKind: kind }
-                for (const s of selectedShapes) api.updateShapeEntity(s.id, patch)
+                for (const s of selectedShapes) api.updateEntity('shape', s.id, patch)
               }}
             >
               <Icon size={14} />
@@ -79,7 +75,7 @@ export function ShapePopup({
             ariaLabel={`Set ${noun} text size`}
             onPick={(size) => {
               for (const s of selectedShapes) {
-                api.updateShapeEntity(s.id, { textSize: size })
+                api.updateEntity('shape', s.id, { textSize: size })
               }
             }}
           />
@@ -93,7 +89,7 @@ export function ShapePopup({
           noun={noun}
           onPick={(storage) => {
             for (const s of selectedShapes) {
-              api.updateShapeEntity(s.id, { color: storage })
+              api.updateEntity('shape', s.id, { color: storage })
             }
           }}
         />

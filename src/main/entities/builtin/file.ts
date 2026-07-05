@@ -10,19 +10,30 @@
  */
 
 import type { EntityCreateInput, EntityKindDefinition } from '../contract'
-import type { PersistedFileEntity } from '../../../shared/types'
+import type { FileObjectFit, PersistedFileEntity } from '../../../shared/types'
+import type { JsonCanvasFileNode } from '../../../shared/json-canvas-types'
 import {
   createFileEntity,
   deleteFileEntity,
   updateFileEntity,
 } from '../../runtime/document-commands'
+import {
+  buildFileEntitySceneEntity,
+  fileEntities,
+  persistFileEntity,
+  FILE_ENTITY_PERSISTED_FIELDS,
+  type FileEntity,
+} from '../../runtime/file-entity-state'
 import { createNoteFile } from '../../runtime/note-assets'
 import {
   htmlDefaultSize,
   imageSizeFromPath,
   videoSizeFromPath,
 } from '../../runtime/image-sizing'
-import { serializeFileToFileNode } from '../../runtime/json-canvas-serializer'
+import {
+  deserializeFileNodeToFile,
+  serializeFileToFileNode,
+} from '../../runtime/json-canvas-serializer'
 
 const DEFAULT_FILE_SIZE = 200
 const DEFAULT_NOTE_SIZE = 400
@@ -67,7 +78,7 @@ function resolveFileDimensions(file: string, width?: number, height?: number) {
 
 export const fileKind: EntityKindDefinition<'file'> = {
   kind: 'file',
-  fields: ['file', 'subpath', 'width', 'height', 'canvasX', 'canvasY'],
+  fields: FILE_ENTITY_PERSISTED_FIELDS,
 
   create(input) {
     const canvasX = (input.canvasX as number | undefined) ?? 0
@@ -107,6 +118,7 @@ export const fileKind: EntityKindDefinition<'file'> = {
     updateFileEntity(id, {
       file: patch.file as string | undefined,
       subpath: patch.subpath as string | undefined,
+      objectFit: patch.objectFit as FileObjectFit | undefined,
       width: patch.width as number | undefined,
       height: patch.height as number | undefined,
       canvasX: patch.canvasX as number | undefined,
@@ -122,8 +134,26 @@ export const fileKind: EntityKindDefinition<'file'> = {
     return serializeFileToFileNode(entity as PersistedFileEntity)
   },
 
+  deserialize(node) {
+    return deserializeFileNodeToFile(node as JsonCanvasFileNode)
+  },
+
   defaultSize(input) {
     const size = isNoteInput(input) ? DEFAULT_NOTE_SIZE : DEFAULT_FILE_SIZE
     return { width: size, height: size }
   },
+
+  entities: () => fileEntities,
+
+  restore(snapshots) {
+    fileEntities.length = 0
+    for (const snapshot of snapshots) {
+      fileEntities.push(snapshot as unknown as FileEntity)
+    }
+  },
+
+  buildSceneEntity: (entity, zoom, pan, origin) =>
+    buildFileEntitySceneEntity(entity as FileEntity, zoom, pan, origin),
+
+  persist: (entity) => persistFileEntity(entity as FileEntity),
 }

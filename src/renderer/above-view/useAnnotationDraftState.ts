@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import type {
-  AnnotationAnchor,
-  AnnotationElementSelectionPayload,
-  CanvasBgElectronAPI,
-  LayoutUpdateData,
-  WorkspaceBounds,
-} from '../../shared/types'
+import type { AnnotationAnchor, AnnotationElementSelectionPayload, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/gesture-utils'
 import {
   drawingBounds,

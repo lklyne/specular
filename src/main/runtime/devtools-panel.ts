@@ -4,6 +4,7 @@
  * DevTools panel lifecycle — open, close, tab switching, resize.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import { markDirty } from './layout-dirty'
 import {
   toolbarView,
@@ -30,8 +31,8 @@ import { devtoolsPanelDebug } from './runtime-constants'
 
 export function notifyDevtoolsChanged(): void {
   if (toolbarView) {
-    toolbarView.webContents.send('left-sidebar-changed', uiLeftSidebarOpen())
-    toolbarView.webContents.send('devtools-changed', uiDevtoolsOpen())
+    toolbarView.webContents.send(ipcChannels.leftSidebarChanged, uiLeftSidebarOpen())
+    toolbarView.webContents.send(ipcChannels.devtoolsChanged, uiDevtoolsOpen())
   }
 }
 

@@ -1,32 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneEntity,
-  CanvasSceneDrawingEntity,
-  CanvasSceneFileEntity,
-  CanvasScenePageEntity,
-  CanvasSceneShapeEntity,
-  CanvasSceneTextEntity,
-  LayoutUpdateData,
-  SelectionOverlayPayload,
-  ThemeData,
-  WorkspaceEdge,
-} from '../../shared/types'
+import type { CanvasSceneEntity, CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, SelectionOverlayPayload, ThemeData, WorkspaceEdge } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
-  canvasToScreenX,
-  canvasToScreenY,
   canScrollWheelTarget,
-  DRAG_THRESHOLD,
-  isOverlayUiTarget,
   normalizeRect,
-  screenPointToCanvasPoint,
   screenRectToCanvasRect,
-  snapToGrid,
-  squareConstrainedRect,
 } from '../../shared/gesture-utils'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
-import { isAnnotationTool, toolHasPopup } from '../../shared/tool'
+import { toolHasPopup } from '../../shared/tool'
+import {
+  annotationOverlayActive,
+  canvasPointerOwner,
+} from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
@@ -60,21 +46,20 @@ import {
   useCanvasPointerRouter,
   type ReorderGhostOffset,
 } from './useCanvasPointerRouter'
-import { startPointerSession } from './pointer-session'
+import { usePageInputForwarding } from './usePageInputForwarding'
+import { pointerOverPageContent } from '../../shared/page-hit-test'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
-import { PagePopup } from './PagePopup'
-import { FilePopup } from './FilePopup'
 import { GroupRenameOverlay } from './GroupRenameLabel'
-import { DrawingPopup } from './DrawingPopup'
-import { DrawToolPopup } from './DrawToolPopup'
-import { GroupPopup } from './GroupPopup'
-import { ShapePopup } from './ShapePopup'
-import { ShapeToolPopup } from './ShapeToolPopup'
-import { StickyNotePopover } from './StickyNotePopover'
-import { TextToolPopup } from './TextToolPopup'
+import {
+  computeSameKindSelection,
+  sameKindEntities,
+  SELECTION_POPUPS,
+  TOOL_POPUPS,
+  type PopupContext,
+} from './canvasItemPopupTable'
 import { EDGE_DRAG_IDLE, type EdgeDragState } from '../../shared/edge-drag-controller'
 import type { DragCopyPreviewBox } from './optionDragCopy'
 import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
@@ -86,7 +71,6 @@ import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
-const MIN_SHAPE_DRAG_SIZE = 24
 
 function DragCopyPreviewLayer({
   previews,
@@ -276,7 +260,7 @@ function StackedCanvasItems({
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
           zoom={layoutData.zoom}
-          onUpdateText={(shapeId, text) => api.updateShapeEntity(shapeId, { text })}
+          onUpdateText={(shapeId, text) => api.updateEntity('shape', shapeId, { text })}
           onCommitEdit={api.commitEntityEdit}
         />
       )
@@ -292,9 +276,9 @@ function StackedCanvasItems({
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
           zoom={layoutData.zoom}
-          onUpdateText={(textId, text) => api.updateTextEntity(textId, { text })}
+          onUpdateText={(textId, text) => api.updateEntity('text', textId, { text })}
           onUpdateSize={(textId, width, height) =>
-            api.updateTextEntity(textId, { width, height })
+            api.updateEntity('text', textId, { width, height })
           }
           onCommitEdit={api.commitEntityEdit}
         />
@@ -354,49 +338,6 @@ function StackedCanvasItems({
   )
 }
 
-/** Map Electron's `cursor-changed` type strings onto CSS cursor values.
- *  Electron uses Blink-era names where `pointer` is the arrow and `hand` is
- *  the link hand — the opposite of CSS. Most other types match CSS 1:1;
- *  panning variants and unknown/custom types collapse to a sensible default. */
-function electronCursorToCss(type: string | null): string {
-  if (!type || type === 'custom' || type === 'null') return ''
-  if (type === 'pointer') return 'default'
-  if (type === 'hand') return 'pointer'
-  if (type === 'iBeam') return 'text'
-  if (type.endsWith('-panning')) return 'all-scroll'
-  return type
-}
-
-/**
- * Same-kind multi-select detector (ADR 0008 §4). Returns the array of
- * entities iff every selected id resolves to the requested kind; otherwise
- * empty. The caller mounts the popup when length >= 1.
- */
-function sameKindSelectedEntities<K extends CanvasSceneEntity['kind']>(
-  layout: LayoutUpdateData,
-  kind: K,
-): Extract<CanvasSceneEntity, { kind: K }>[] {
-  const ids = layout.selectedEntityIds
-  if (ids.length === 0) return []
-  const result: Extract<CanvasSceneEntity, { kind: K }>[] = []
-  for (const id of ids) {
-    const entity = layout.entities.find((e) => e.id === id)
-    if (!entity || entity.kind !== kind) return []
-    result.push(entity as Extract<CanvasSceneEntity, { kind: K }>)
-  }
-  return result
-}
-
-function overlayRectFromScreenRect(
-  rect: { left: number; top: number; width: number; height: number },
-  layout: LayoutUpdateData,
-) {
-  return {
-    ...rect,
-    top: rect.top - layout.canvasOrigin.y,
-  }
-}
-
 export default function App({
   initialLayoutData,
   initialTheme,
@@ -440,25 +381,14 @@ export default function App({
   // Selection-popup mounts on single OR same-kind multi-select (ADR 0008 §4).
   // Each `selectedXxxEntities` is the non-empty array of selected entities iff
   // every selected id resolves to that kind; otherwise empty.
-  const selectedTextEntities = useMemo<CanvasSceneTextEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'text')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
+  const sameKindSelection = useMemo(
+    () => computeSameKindSelection(layoutData),
+    [layoutData.selectedEntityIds, layoutData.entities],
+  )
   const selectedGroupEntity = useMemo(() => {
     if (!layoutData.selectedGroupId) return null
     return (layoutData.groups ?? []).find((g) => g.id === layoutData.selectedGroupId) ?? null
   }, [layoutData.groups, layoutData.selectedGroupId])
-  const selectedShapeEntities = useMemo<CanvasSceneShapeEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'shape')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
-  const selectedDrawingEntities = useMemo<CanvasSceneDrawingEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'drawing')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
-  const selectedPageEntities = useMemo<CanvasScenePageEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'page')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
-  const selectedFileEntities = useMemo<CanvasSceneFileEntity[]>(() => {
-    return sameKindSelectedEntities(layoutData, 'file')
-  }, [layoutData.selectedEntityIds, layoutData.entities])
   const selectedEntityIdSet = useMemo(
     () => new Set(layoutData.selectedEntityIds),
     [layoutData.selectedEntityIds],
@@ -475,7 +405,9 @@ export default function App({
     interactionIdle ||
     Boolean(
       editingEntityId &&
-        selectedTextEntities.some((entity) => entity.id === editingEntityId),
+        sameKindEntities(sameKindSelection, 'text').some(
+          (entity) => entity.id === editingEntityId,
+        ),
     )
 
   const marqueePreviewIds = useMemo(() => {
@@ -664,13 +596,16 @@ export default function App({
   // focus session rests with the eye off; a working tool or the focus-bar eye
   // latches it on (ADR 0021). Binary show/hide, never a dim.
   const hideContext = focus.active && !focus.showsContext
-  const overlayInteractive = Boolean(
-    pendingAnnotation ||
-      pendingRegionRect ||
-      openThreadId ||
-      drawingSession ||
-      layoutData.activeTool.kind === 'draw',
-  )
+  const pointerOwnerState = {
+    toolKind: layoutData.activeTool.kind,
+    pendingPlacement: Boolean(layoutData.pendingPlacement),
+    pendingAnnotation: Boolean(pendingAnnotation),
+    pendingRegionRect: Boolean(pendingRegionRect),
+    openThread: Boolean(openThreadId),
+    drawingSession: Boolean(drawingSession),
+  }
+  const overlayInteractive = annotationOverlayActive(pointerOwnerState)
+  const pointerOwner = canvasPointerOwner(pointerOwnerState)
   // Gate authority is main (Phase 5d-v2 D6): shouldGateBeOpen() derives
   // bounds from interaction, toolMode, modifiers, presence, marquee,
   // floating menu, and saved drawings. Main can't see renderer-local
@@ -804,244 +739,15 @@ export default function App({
     [api, layoutRef],
   )
 
-  const hitTestHoverTarget = useCallback(
-    (clientX: number, clientY: number) => {
-      const layout = layoutRef.current
-      const windowY = clientY + layout.canvasOrigin.y
-      for (let i = layout.entities.length - 1; i >= 0; i--) {
-        const entity = layout.entities[i]
-        if (entity.kind === 'group' || entity.kind === 'drawing') continue
-        if (
-          clientX >= entity.screenX &&
-          clientX <= entity.screenX + entity.screenWidth &&
-          windowY >= entity.screenY &&
-          windowY <= entity.screenY + entity.screenHeight
-        ) {
-          return entity.id
-        }
-      }
-      return null
-    },
-    [layoutRef],
-  )
-
-  // One window pointermove handler drives both placement-preview cursor and
-  // hover forwarding. When above-view intercepts events (gate open), canvas-bg
-  // never sees mouseenter/leave, so we dedupe and forward via api.hoverPage.
-  const lastHoverIdRef = useRef<string | null>(null)
   const hoverForwardingEnabled =
     layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'comment'
-  useEffect(() => {
-    const clearHover = () => {
-      setPlacementCursor(null)
-      if (lastHoverIdRef.current === null) return
-      lastHoverIdRef.current = null
-      api.hoverPage(null)
-    }
-    if (!pendingPlacement && !hoverForwardingEnabled) {
-      clearHover()
-      return
-    }
-    const handleMove = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) {
-        clearHover()
-        return
-      }
-      if (pendingPlacement) {
-        setPlacementCursor({
-          clientX: event.clientX,
-          clientY: event.clientY + layoutRef.current.canvasOrigin.y,
-        })
-      }
-      // During placement the placeholder owns the cursor; page hover would flicker.
-      if (hoverForwardingEnabled && !pendingPlacement) {
-        const nextId = hitTestHoverTarget(event.clientX, event.clientY)
-        if (nextId !== lastHoverIdRef.current) {
-          lastHoverIdRef.current = nextId
-          api.hoverPage(nextId)
-        }
-      }
-    }
-    // The top toolbar is a sibling WebContentsView, so when the cursor moves
-    // up into it the above-view stops receiving pointer events without
-    // pointerleave firing. mouseleave on documentElement is the reliable
-    // "cursor left this webcontents" signal in Electron's multi-view layout.
-    const docEl = document.documentElement
-    window.addEventListener('pointermove', handleMove)
-    // eslint-disable-next-line local/no-mouse-events
-    docEl.addEventListener('mouseleave', clearHover)
-    window.addEventListener('blur', clearHover)
-    return () => {
-      window.removeEventListener('pointermove', handleMove)
-      // eslint-disable-next-line local/no-mouse-events
-      docEl.removeEventListener('mouseleave', clearHover)
-      window.removeEventListener('blur', clearHover)
-      clearHover()
-    }
-  }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement])
-
-  const routerOwnsCanvasPointers =
-    !overlayInteractive &&
-    !pendingPlacement &&
-    !isAnnotationTool(layoutData.activeTool)
-  const toolGestureOwnsCanvasPointers =
-    !overlayInteractive &&
-    (Boolean(pendingPlacement) || layoutData.activeTool.kind === 'comment')
-
-  // Comment-tool gesture + placement-tool gesture share this overlay handler:
-  // both capture pointerdown/move/up while the gate routes events to aboveView.
-  //
-  // Comment tool (ADR 0006): click below threshold → resolve element under
-  // cursor via `inspectAtPoint`; element hit → element anchor; nothing →
-  // canvas-point anchor. Drag past threshold → marquee → region anchor on
-  // pointerup. Threshold matches the rest of the canvas pointer router.
-  // The comment tool needs to keep capturing pointerdowns while a pending
-  // annotation or region rect is open so the user can retarget by clicking a
-  // different element. `isOverlayUiTarget` below still filters out clicks on
-  // the composer / popups so typing isn't interrupted.
-  const commentToolBlocked = Boolean(
-    openThreadId || drawingSession || layoutData.activeTool.kind === 'draw',
-  )
-  const skipPointerCapture =
-    layoutData.activeTool.kind === 'comment' ? commentToolBlocked : overlayInteractive
-  useEffect(() => {
-    if (skipPointerCapture) return
-    if (!pendingPlacement && layoutData.activeTool.kind !== 'comment') return
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) return
-      if (event.button !== 0) return
-      const layout = layoutRef.current
-      if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
-
-      event.preventDefault()
-      event.stopPropagation()
-
-      const startX = event.clientX
-      const startY = event.clientY
-      const startWindowY = startY + layout.canvasOrigin.y
-      const startCanvas = screenPointToCanvasPoint(startX, startWindowY, layout)
-      const placementAtStart = layout.pendingPlacement
-      let crossedThreshold = false
-
-      const updateShapePreview = (ev: PointerEvent) => {
-        const current = layoutRef.current
-        const endCanvas = screenPointToCanvasPoint(
-          ev.clientX,
-          ev.clientY + current.canvasOrigin.y,
-          current,
-        )
-        const square = squareConstrainedRect(
-          startCanvas.x,
-          startCanvas.y,
-          endCanvas.x,
-          endCanvas.y,
-          ev.shiftKey,
-        )
-        const minCanvasX = snapToGrid(square.left)
-        const minCanvasY = snapToGrid(square.top)
-        const snappedW = snapToGrid(square.width)
-        const snappedH = snapToGrid(square.height)
-        const screenRect = {
-          left: canvasToScreenX(current, minCanvasX),
-          top: canvasToScreenY(current, minCanvasY),
-          width: snappedW * current.zoom,
-          height: snappedH * current.zoom,
-        }
-        api.setSelectionOverlayRect({
-          rect: overlayRectFromScreenRect(screenRect, current),
-          variant: 'place-shape',
-          shapeKind: current.pendingPlacement?.shapeKind ?? 'rectangle',
-        })
-      }
-
-      startPointerSession(event, {
-        onMove: (ev) => {
-          const current = layoutRef.current
-          if (placementAtStart?.entityKind === 'shape') {
-            updateShapePreview(ev)
-            return
-          }
-          if (!placementAtStart && current.activeTool.kind === 'comment') {
-            if (!crossedThreshold) {
-              const dx = ev.clientX - startX
-              const dy = ev.clientY - startY
-              if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
-                return
-              }
-              crossedThreshold = true
-            }
-            onDragMove(startX, startY, ev.clientX, ev.clientY)
-          }
-        },
-        onUp: (ev) => {
-          const current = layoutRef.current
-          if (placementAtStart) {
-            if (placementAtStart.entityKind === 'shape') {
-              api.setSelectionOverlayRect(null)
-              const endCanvas = screenPointToCanvasPoint(
-                ev.clientX,
-                ev.clientY + current.canvasOrigin.y,
-                current,
-              )
-              const square = squareConstrainedRect(
-                startCanvas.x,
-                startCanvas.y,
-                endCanvas.x,
-                endCanvas.y,
-                ev.shiftKey,
-              )
-              if (square.width >= MIN_SHAPE_DRAG_SIZE && square.height >= MIN_SHAPE_DRAG_SIZE) {
-                api.placePendingShape(snapToGrid(square.left), snapToGrid(square.top), {
-                  x: snapToGrid(square.left),
-                  y: snapToGrid(square.top),
-                  width: snapToGrid(square.width),
-                  height: snapToGrid(square.height),
-                })
-              } else {
-                api.placePendingShape(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y), null)
-              }
-              return
-            }
-            api.placePendingEntity(snapToGrid(startCanvas.x), snapToGrid(startCanvas.y))
-            return
-          }
-          if (current.activeTool.kind === 'comment') {
-            if (crossedThreshold) {
-              // Drag past threshold → region anchor.
-              onDragEnd(startX, startY, ev.clientX, ev.clientY)
-              return
-            }
-            // Click below threshold → element anchor if a page DOM element sits
-            // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
-            api.setSelectionOverlayRect(null)
-            const draft = draftStateRef.current
-            const hasEmptyDraft =
-              Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
-              !draft.commentText.trim()
-            if (hasEmptyDraft) {
-              // Empty composer open → click-away dismisses it without creating
-              // a new draft; comment mode stays active.
-              draft.clearDraft()
-              return
-            }
-            api.commitCommentClickAt(ev.clientX, ev.clientY + current.canvasOrigin.y)
-          }
-        },
-        onCancel: () => {
-          api.setSelectionOverlayRect(null)
-        },
-        listenBlur: true,
-      })
-    }
-
-    window.addEventListener('pointerdown', onPointerDown, { capture: true })
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, {
-        capture: true,
-      } as EventListenerOptions)
-    }
-  }, [api, layoutData.activeTool.kind, layoutRef, onDragEnd, onDragMove, pendingPlacement, skipPointerCapture])
+  usePageInputForwarding({
+    api,
+    layoutRef,
+    pendingPlacement,
+    hoverForwardingEnabled,
+    setPlacementCursor,
+  })
 
   const viewportWheelAndPanApi = useMemo(
     () => ({
@@ -1073,13 +779,8 @@ export default function App({
       const windowY = event.clientY + layout.canvasOrigin.y
       // In focus presentation the camera is locked on the page, so any wheel
       // scrolls it — skip the cursor-over-body check used for selected pages.
-      if (!focusedPageId) {
-        const x0 = page.contentScreenX ?? page.screenX
-        const y0 = page.contentScreenY ?? page.screenY
-        const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-        const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
-        if (event.clientX < x0 || event.clientX > x1) return false
-        if (windowY < y0 || windowY > y1) return false
+      if (!focusedPageId && !pointerOverPageContent(page, { x: event.clientX, y: windowY })) {
+        return false
       }
       api.forwardWheelToPage(pageId, {
         windowX: event.clientX,
@@ -1134,67 +835,6 @@ export default function App({
     yieldWheelToEntityScroll,
   )
 
-  // PoC: mirror the focused page's `cursor-changed` onto aboveView's body so
-  // the OS shows the right cursor (hand on links, I-beam on text, etc.). The
-  // OS picks cursor from the topmost WCV at the pointer location, which is
-  // aboveView whenever the canvas-mode gate is open.
-  useEffect(() => {
-    return api.onPageCursorChange(({ type }) => {
-      document.body.style.cursor = electronCursorToCss(type)
-    })
-  }, [])
-
-  // PoC: continuous hover forwarding into the single-selected page's body so
-  // cursor styling (link → hand, text → I-beam) and hover-driven UI react
-  // without requiring a button-down. The router's `runForwardPointer` already
-  // forwards moves while a button is held, so this listener only fires when
-  // no buttons are pressed to avoid double-dispatch. When the pointer leaves
-  // the focused page's body (or selection drops below one page), reset
-  // body cursor so the hand/I-beam doesn't bleed into canvas chrome.
-  useEffect(() => {
-    let cursorIsForwarded = false
-    const resetCursor = () => {
-      if (!cursorIsForwarded) return
-      cursorIsForwarded = false
-      document.body.style.cursor = ''
-    }
-    const onMove = (event: PointerEvent) => {
-      if (event.buttons !== 0) return
-      const layout = layoutRef.current
-      const selected = layout.selectedEntityIds
-      if (selected.length !== 1) return resetCursor()
-      const pageId = selected[0]
-      const page = layout.entities.find(
-        (entity): entity is CanvasSceneEntity & { kind: 'page' } =>
-          entity.kind === 'page' && entity.id === pageId,
-      )
-      if (!page) return resetCursor()
-      const windowY = event.clientY + layout.canvasOrigin.y
-      const x0 = page.contentScreenX ?? page.screenX
-      const y0 = page.contentScreenY ?? page.screenY
-      const x1 = x0 + (page.contentScreenWidth ?? page.screenWidth)
-      const y1 = y0 + (page.contentScreenHeight ?? page.screenHeight)
-      if (event.clientX < x0 || event.clientX > x1) return resetCursor()
-      if (windowY < y0 || windowY > y1) return resetCursor()
-      cursorIsForwarded = true
-      api.forwardPointerToPage(pageId, {
-        kind: 'move',
-        windowX: event.clientX,
-        windowY,
-        button: 'left',
-        shiftKey: event.shiftKey,
-        ctrlKey: event.ctrlKey,
-        altKey: event.altKey,
-        metaKey: event.metaKey,
-      })
-    }
-    window.addEventListener('pointermove', onMove)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      resetCursor()
-    }
-  }, [layoutRef])
-
   // ADR 0001 — canvas pointer router. Single window-level pointerdown
   // listener that runs the shared hit-test, classifies the action via the
   // priority table, and dispatches every gesture (focus, drag, resize,
@@ -1232,7 +872,7 @@ export default function App({
   useCanvasPointerRouter({
     api,
     layoutRef,
-    enabled: routerOwnsCanvasPointers,
+    owner: pointerOwner,
     consume: FULL_ROUTER_CONSUME,
     spaceHeldRef,
     handToolActiveRef,
@@ -1240,6 +880,9 @@ export default function App({
     setDragCopyPreview,
     setEdgeDragState,
     setReorderGhost,
+    onCommentDragMove: onDragMove,
+    onCommentDragEnd: onDragEnd,
+    commentDraftRef: draftStateRef,
   })
 
   useEffect(() => {
@@ -1278,13 +921,24 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     }
   }, [handToolActive])
 
+  const popupContext: PopupContext = {
+    api,
+    isDark,
+    layout: layoutData,
+    interactionIdle,
+    sameKindSelection,
+    selectedGroup: selectedGroupEntity,
+    textPopupReady,
+    fileJsonModeMap,
+    setFileJsonMode,
+  }
+
   return (
+    // aboveView is the always-on canvas-mode input authority (I7): every
+    // pointer-owner state keeps the root interactive; individual layers opt
+    // out with pointer-events-none.
     <div
-      className={`relative h-screen w-screen overflow-hidden bg-transparent ${
-        overlayInteractive || routerOwnsCanvasPointers || toolGestureOwnsCanvasPointers
-          ? 'pointer-events-auto'
-          : 'pointer-events-none'
-      }`}
+      className="pointer-events-auto relative h-screen w-screen overflow-hidden bg-transparent"
       style={{
         cursor: drawInteractionEnabled ? DRAW_CURSOR : undefined,
       }}
@@ -1302,32 +956,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         className="pointer-events-none absolute inset-0"
         style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
       >
-      {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
-        <PlacementPreviewLayer
-          isDark={isDark}
-          preview={{
-            ...placementPreview,
-            top: placementPreview.top - layoutData.canvasOrigin.y,
-          }}
-        />
-      ) : null}
-
-      {selectionOverlay?.variant === 'place-shape' &&
-      selectionOverlay.rect.width > 0 &&
-      selectionOverlay.rect.height > 0 ? (
-        <PlacementPreviewLayer
-          isDark={isDark}
-          preview={{
-            entityKind: 'shape',
-            shapeKind: selectionOverlay.shapeKind,
-            left: selectionOverlay.rect.left,
-            top: selectionOverlay.rect.top,
-            width: selectionOverlay.rect.width,
-            height: selectionOverlay.rect.height,
-          }}
-        />
-      ) : null}
-
       {!captureMode ? (
         <>
           {/* ADR 0006: region anchors always render their resting visual,
@@ -1419,6 +1047,37 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             />
           ) : null}
 
+          {/* Placement preview renders after StackedCanvasItems for the same
+              reason the drawing preview does: the ghost sits above existing
+              entity bodies, matching where the stamped item lands at the top of
+              the entity order. Rendered earlier it paints beneath file entities
+              and then jumps on top once placed. */}
+          {placementPreview && selectionOverlay?.variant !== 'place-shape' ? (
+            <PlacementPreviewLayer
+              isDark={isDark}
+              preview={{
+                ...placementPreview,
+                top: placementPreview.top - layoutData.canvasOrigin.y,
+              }}
+            />
+          ) : null}
+
+          {selectionOverlay?.variant === 'place-shape' &&
+          selectionOverlay.rect.width > 0 &&
+          selectionOverlay.rect.height > 0 ? (
+            <PlacementPreviewLayer
+              isDark={isDark}
+              preview={{
+                entityKind: 'shape',
+                shapeKind: selectionOverlay.shapeKind,
+                left: selectionOverlay.rect.left,
+                top: selectionOverlay.rect.top,
+                width: selectionOverlay.rect.width,
+                height: selectionOverlay.rect.height,
+              }}
+            />
+          ) : null}
+
           <EdgeLayer
             edges={[]}
             entities={layoutData.entities}
@@ -1483,87 +1142,28 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             setDragCopyPreview={setDragCopyPreview}
           />
 
-          {/* Tool-mode popups (ADR 0008 §2 mutex: tool wins when active). */}
-          {layoutData.activeTool.kind === 'add-text' ? (
-            <TextToolPopup
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              style="plain"
-            />
-          ) : null}
-          {layoutData.activeTool.kind === 'add-sticky' ? (
-            <TextToolPopup
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              style="sticky"
-            />
-          ) : null}
-          {layoutData.activeTool.kind === 'add-shape' ? (
-            <ShapeToolPopup api={api} isDark={isDark} layout={layoutData} />
-          ) : null}
-          {layoutData.activeTool.kind === 'draw' ? (
-            <DrawToolPopup api={api} isDark={isDark} layout={layoutData} />
-          ) : null}
-
-          {/* Selection-mode popups — suppressed while any tool with its own
-              popup is active (ADR 0008 §2). */}
-          {!toolHasPopup(layoutData.activeTool) ? (
-            <>
-              <StickyNotePopover
+          {/* Tool-vs-selection mutex (ADR 0008 §2): the active tool's popup wins
+              and suppresses the selection popups. PagePopup is exempt while a
+              focus session is active — it doubles as the focus bar, and
+              ViewportAnchor stacks the tool popup below it. */}
+          {TOOL_POPUPS.filter((row) => row.toolKind === layoutData.activeTool.kind).map(
+            ({ toolKind, Component, extraProps }) => (
+              <Component
+                key={toolKind}
                 api={api}
                 isDark={isDark}
                 layout={layoutData}
-                selectedTextEntities={selectedTextEntities}
-                popupReady={textPopupReady}
+                {...extraProps}
               />
-              <GroupPopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedGroup={selectedGroupEntity}
-                interactionIdle={interactionIdle}
-              />
-              <ShapePopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedShapes={selectedShapeEntities}
-                interactionIdle={interactionIdle}
-              />
-              <DrawingPopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedDrawings={selectedDrawingEntities}
-                interactionIdle={interactionIdle}
-              />
-              <FilePopup
-                api={api}
-                isDark={isDark}
-                layout={layoutData}
-                selectedFiles={selectedFileEntities}
-                interactionIdle={interactionIdle}
-                fileJsonModeMap={fileJsonModeMap}
-                setFileJsonMode={setFileJsonMode}
-              />
-            </>
-          ) : null}
-
-          {/* PagePopup doubles as the focus bar (pinned viewport-top during a
-              focus session). Exempt it from the tool-popup mutex while focused
-              so the focus controls stay visible — ViewportAnchor drops the tool
-              popup below it so the two stack. */}
-          {!toolHasPopup(layoutData.activeTool) || focusPresentationActive ? (
-            <PagePopup
-              api={api}
-              isDark={isDark}
-              layout={layoutData}
-              selectedPages={selectedPageEntities}
-              interactionIdle={interactionIdle}
-            />
-          ) : null}
+            ),
+          )}
+          {SELECTION_POPUPS.filter((row) =>
+            row.focusExempt
+              ? !toolHasPopup(layoutData.activeTool) || focusPresentationActive
+              : !toolHasPopup(layoutData.activeTool),
+          ).map(({ key, Component, mapProps }) => (
+            <Component key={key} {...mapProps(popupContext)} />
+          ))}
 
           <CommentBadgesLayer
             annotations={layoutData.annotations}

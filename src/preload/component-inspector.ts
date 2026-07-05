@@ -1,3 +1,4 @@
+import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import type { ComponentTreeNode, ComponentNodeDetail } from '../shared/types'
 import type { DesignSystemManifest } from '../shared/design-system-types'
@@ -315,7 +316,7 @@ function publishTreeNow(): void {
   const nextKey = JSON.stringify(tree)
   if (nextKey === lastSentTreeKey) return
   lastSentTreeKey = nextKey
-  ipcRenderer.send('inspect-tree-update', tree)
+  ipcRenderer.send(ipcChannels.inspectTreeUpdate, tree)
 }
 
 function scheduleTreePublish(): void {
@@ -597,31 +598,31 @@ function installMutationObserver(): MutationObserver {
 }
 
 export function initComponentInspector(): void {
-  ipcRenderer.on('set-design-system-manifest', (_event, nextManifest) => {
+  ipcRenderer.on(ipcChannels.setDesignSystemManifest, (_event, nextManifest) => {
     manifest = (nextManifest as DesignSystemManifest | null) ?? null
     scheduleTreePublish()
   })
 
-  ipcRenderer.on('override-token', (_event, payload) => {
+  ipcRenderer.on(ipcChannels.overrideToken, (_event, payload) => {
     overrideToken(payload ?? {})
   })
 
-  ipcRenderer.on('override-props', (_event, payload) => {
+  ipcRenderer.on(ipcChannels.overrideProps, (_event, payload) => {
     overrideProps(payload ?? {})
   })
 
-  ipcRenderer.on('apply-page-overrides', (_event, payload) => {
+  ipcRenderer.on(ipcChannels.applyPageOverrides, (_event, payload) => {
     applyPageOverrides(payload)
   })
 
   // Tier 2: Resolve full detail on demand from main process
-  ipcRenderer.on('resolve-node-detail', (_event, { nodeId, requestId }: { nodeId: string; requestId: string }) => {
+  ipcRenderer.on(ipcChannels.resolveNodeDetail, (_event, { nodeId, requestId }: { nodeId: string; requestId: string }) => {
     const detail = resolveNodeDetail(nodeId)
-    ipcRenderer.send('resolve-node-detail-response', { requestId, nodeId, detail })
+    ipcRenderer.send(ipcChannels.resolveNodeDetailResponse, { requestId, nodeId, detail })
   })
 
   // Filter toggle: allow the devtools panel to request unfiltered tree
-  ipcRenderer.on('set-show-all-nodes', (_event, value: boolean) => {
+  ipcRenderer.on(ipcChannels.setShowAllNodes, (_event, value: boolean) => {
     showAllNodes = value
     lastSentTreeKey = '' // force re-publish with new filter
     scheduleTreePublish()

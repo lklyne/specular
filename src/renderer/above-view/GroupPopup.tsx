@@ -1,11 +1,8 @@
 // ADR 0008 — group selection popup. Replaces canvas-bg GroupInlineMenu.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import type {
-  CanvasBgElectronAPI,
-  CanvasSceneGroupEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
@@ -16,7 +13,7 @@ export function GroupPopup({
   selectedGroup,
   interactionIdle,
 }: {
-  api: Pick<CanvasBgElectronAPI, 'updateGroupEntity' | 'focusSelection'>
+  api: Pick<CanvasBgElectronAPI, 'updateEntity' | 'focusSelection'>
   isDark: boolean
   layout: LayoutUpdateData
   selectedGroup: CanvasSceneGroupEntity | null
@@ -44,7 +41,7 @@ export function GroupPopup({
           role="fill"
           noun="group"
           onPick={(storage) =>
-            api.updateGroupEntity(selectedGroup.id, { color: storage })
+            api.updateEntity('group', selectedGroup.id, { color: storage })
           }
         />
         <CanvasItemPopup.EntityActions

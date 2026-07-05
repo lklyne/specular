@@ -45,7 +45,7 @@ export function TextEntityPane({ textEntity }: { textEntity: PanelTextEntityDeta
           activeColor={textEntity.color}
           isDark={isDark}
           palette="vivid"
-          onSelectColor={(color) => rightDetailsPanelApi.updateTextEntity(textEntity.id, { color })}
+          onSelectColor={(color) => rightDetailsPanelApi.updateEntity('text', textEntity.id, { color })}
         />
       </div>
 
