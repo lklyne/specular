@@ -20,6 +20,14 @@ const DEFAULT_TEXT_SIZE = 14
 const FILL_LIGHTEN = 0.5
 const NEUTRAL_SLATE = '#6b7280'
 
+// contentEditable represents line breaks as <br>/block elements, which
+// .textContent drops entirely. innerText is layout-aware and reconstructs
+// `\n` from them, but browsers also report a trailing `\n` for the final
+// (empty) line — strip that one so it doesn't accumulate across edits.
+function readInnerText(node: HTMLDivElement): string {
+  return node.innerText.replace(/\n$/, '')
+}
+
 function ShapeText({
   text,
   editing,
@@ -66,15 +74,15 @@ function ShapeText({
         ref={ref}
         contentEditable={editing}
         suppressContentEditableWarning
-        onInput={(e) => onChange((e.target as HTMLDivElement).textContent ?? '')}
+        onInput={(e) => onChange(readInnerText(e.target as HTMLDivElement))}
         onPointerDown={(e) => { if (editing) e.stopPropagation() }}
         onBlur={(e) => {
-          onCommit((e.target as HTMLDivElement).textContent ?? '')
+          onCommit(readInnerText(e.target as HTMLDivElement))
         }}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             e.preventDefault()
-            onCommit((e.target as HTMLDivElement).textContent ?? '')
+            onCommit(readInnerText(e.target as HTMLDivElement))
           }
         }}
         style={{
