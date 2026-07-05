@@ -214,7 +214,7 @@ function createStructuredContentEntity(input: {
 
 // Smart-paste resolution order: entity JSON → local file refs → native image
 // → structured renderer-backed text → markdown document → URL → sticky text.
-// Tested via tests/smoke/keyboard-shortcuts.test.ts.
+// Tested via tests/integration/clipboard-paste.test.ts.
 export function pasteFromClipboard(input: { canvasX: number; canvasY: number }): void {
   const { canvasX, canvasY } = input
 

@@ -17,26 +17,11 @@ import {
   PENDING_INTENT_TTL_MS,
   resolveCanvasPointForPage,
   resolvePresenceTargetRect,
-  findPresenceTarget,
-  resetPresenceState,
 } from '../presence-manager'
 import { mcpSessions, resolveSession } from '../presence-session'
 import { invalidateAgentSnapshot } from '../runtime/agent-snapshot-cache'
-import { cdpProxyRegistrations, resetCdpProxyState } from '../cdp-proxy'
-import {
-  clearAutomationInteractivePageIds,
-} from '../runtime/runtime-context'
-import { selectNone as clearSelection } from '../runtime/selection-controller'
-import { sendInteractiveState } from '../runtime/overlay-manager'
+import { cdpProxyRegistrations } from '../cdp-proxy'
 import { writeJson, notifyStatusListeners } from './http-helpers'
-
-function resetSmokeTestState(): void {
-  resetPresenceState()
-  resetCdpProxyState()
-  clearAutomationInteractivePageIds()
-  clearSelection()
-  sendInteractiveState()
-}
 
 export const sessionRoutes: Route[] = [
   {
@@ -307,14 +292,6 @@ export const sessionRoutes: Route[] = [
       mcpSessions.delete(payload.sessionId)
       notifyStatusListeners()
       beginPresenceDeparture(payload.sessionId)
-      writeJson(response, 200, { ok: true })
-    },
-  },
-  {
-    method: 'POST',
-    pattern: '/test/reset-state',
-    async handler({ response }) {
-      resetSmokeTestState()
       writeJson(response, 200, { ok: true })
     },
   },

@@ -453,14 +453,13 @@ Retained as separate bundles: `toolbar/`, `left-sidebar/`, `devtools-*`. Retired
 - `coords.ts` — round-trip canvas↔screen, zoom/pan extremes.
 - `layer-stack.applyStack` — deterministic output from state (no view list needed; work on descriptor IDs).
 
-### Integration (smoke)
+### Integration (in-process)
 
-- Every gesture mode: begin, commit, cancel on blur, cancel on escape, cancel on undo, cancel on tab switch.
-- Focus lands correctly after: page create, page delete, tab switch, undo cross-tab, window blur.
-- Drop with two overlapping drag targets → exactly one drop handler fires.
-- Gate visibility predicate on every mode transition.
+The Electron smoke layer this section originally specified is retired ([ADR 0024](./adr/0024-in-process-integration-testing.md)) — it exercised a test-only HTTP facade and was gated nowhere. What remains covered, and where:
 
-**Smoke matrix lands before behavior changes.** When executing phased rollouts of this spec, the smoke suite is built first against current behavior so subsequent phases have a regression baseline. Tests that encode not-yet-correct behavior are marked `xfail` and flipped as the owning phase lands.
+- Gesture state-machine behavior (begin/commit/cancel, concurrent refusal, stale tokens) — unit, against `InteractionController`'s public API.
+- Cross-module batch/undo integrity (a refused gesture-begin must not corrupt the undo batch, I3) — `tests/integration/interaction-batch.test.ts`, driving the same call sequence as the IPC handlers.
+- Focus landing, gate visibility, and real drop routing depend on live views and are **intentionally uncovered** below the boot suite — the reconciler and drop-owner logic are unit-tested as pure functions of state; the wiring is validated by dogfooding.
 
 ### Agent / scenario
 

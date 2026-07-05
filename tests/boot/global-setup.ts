@@ -1,20 +1,26 @@
+/**
+ * Boot-suite global setup: spawn one real Electron app against a sandbox
+ * user-data dir and wait for its HTTP server. This is the ONLY suite that
+ * needs a built app (`pnpm dev:build` / `.vite/build/index.js`) and the
+ * Electron binary — everything else runs in-process (tests/integration/).
+ */
+
 import { spawn, type ChildProcess } from 'child_process'
 import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
-const SMOKE_ENV_FILE = join(tmpdir(), 'specular-smoke-env.json')
+export const BOOT_ENV_FILE = join(tmpdir(), 'specular-boot-env.json')
 const POLL_INTERVAL_MS = 500
 const POLL_TIMEOUT_MS = 15_000
 
-// Use a random high port to avoid colliding with a running Specular instance
-const SMOKE_PORT = 29900 + Math.floor(Math.random() * 99)
-const SMOKE_CDP_PORT = 39000 + Math.floor(Math.random() * 1000)
+// Random high port to avoid colliding with a running Specular instance
+const BOOT_PORT = 29900 + Math.floor(Math.random() * 99)
+const BOOT_CDP_PORT = 39000 + Math.floor(Math.random() * 1000)
 
-// Private discovery file so smoke instances never read or clobber the canonical
-// specular-mcp.json that a developer's running app and the CLI share. Namespaced
-// by port so concurrent smoke runs stay isolated too.
-const DISCOVERY_FILE = join(tmpdir(), `specular-mcp-smoke-${SMOKE_PORT}.json`)
+// Private discovery file so boot instances never read or clobber the
+// canonical specular-mcp.json a developer's running app and the CLI share.
+const DISCOVERY_FILE = join(tmpdir(), `specular-mcp-boot-${BOOT_PORT}.json`)
 
 let electronProcess: ChildProcess | null = null
 let sandboxDir: string | null = null
@@ -24,7 +30,7 @@ async function waitForServer(): Promise<{ port: number; secret: string }> {
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     if (existsSync(DISCOVERY_FILE)) {
       const payload = JSON.parse(readFileSync(DISCOVERY_FILE, 'utf8'))
-      if (payload.port !== SMOKE_PORT) {
+      if (payload.port !== BOOT_PORT) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
         continue
       }
@@ -37,11 +43,11 @@ async function waitForServer(): Promise<{ port: number; secret: string }> {
     }
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
   }
-  throw new Error(`Smoke test server not ready after ${POLL_TIMEOUT_MS}ms`)
+  throw new Error(`Boot-suite server not ready after ${POLL_TIMEOUT_MS}ms`)
 }
 
 export async function setup() {
-  sandboxDir = mkdtempSync(join(tmpdir(), 'specular-smoke-'))
+  sandboxDir = mkdtempSync(join(tmpdir(), 'specular-boot-'))
 
   const electronBin = join(process.cwd(), 'node_modules', '.bin', 'electron')
   const appEntry = join(process.cwd(), '.vite', 'build', 'index.js')
@@ -52,9 +58,9 @@ export async function setup() {
     env: {
       ...process.env,
       NODE_ENV: 'production',
-      SPECULAR_PORT: String(SMOKE_PORT),
+      SPECULAR_PORT: String(BOOT_PORT),
       SPECULAR_DISCOVERY_FILE: DISCOVERY_FILE,
-      SPECULAR_REMOTE_DEBUGGING_PORT: String(SMOKE_CDP_PORT),
+      SPECULAR_REMOTE_DEBUGGING_PORT: String(BOOT_CDP_PORT),
       SPECULAR_SKIP_ONBOARDING: '1',
       SPECULAR_BACKGROUND: '1',
     },
@@ -68,16 +74,12 @@ export async function setup() {
   })
 
   const { port, secret } = await waitForServer()
-
-  // Write env to a temp file so test processes can read it
-  writeFileSync(SMOKE_ENV_FILE, JSON.stringify({ port, secret }), 'utf8')
-
-  console.log(`Smoke tests: Electron ready on port ${port}, sandbox at ${sandboxDir}`)
+  writeFileSync(BOOT_ENV_FILE, JSON.stringify({ port, secret }), 'utf8')
+  console.log(`Boot suite: Electron ready on port ${port}, sandbox at ${sandboxDir}`)
 }
 
 export async function teardown() {
   if (electronProcess) {
-    // Detach stdio to allow vitest to exit cleanly
     electronProcess.stdout?.destroy()
     electronProcess.stderr?.destroy()
     electronProcess.stdin?.destroy()
@@ -92,9 +94,6 @@ export async function teardown() {
   if (sandboxDir && existsSync(sandboxDir)) {
     rmSync(sandboxDir, { recursive: true, force: true })
   }
-
-  // DISCOVERY_FILE is private to this run, so removing it can't affect the
-  // canonical specular-mcp.json a developer's app relies on.
   if (existsSync(DISCOVERY_FILE)) rmSync(DISCOVERY_FILE, { force: true })
-  if (existsSync(SMOKE_ENV_FILE)) rmSync(SMOKE_ENV_FILE)
+  if (existsSync(BOOT_ENV_FILE)) rmSync(BOOT_ENV_FILE)
 }
