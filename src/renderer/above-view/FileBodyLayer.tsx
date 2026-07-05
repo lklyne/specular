@@ -148,6 +148,7 @@ const MemoFileBodyCard = memo(FileBodyCard, (prev, next) => {
     prev.entity.deviceId === next.entity.deviceId &&
     prev.entity.deviceOrientation === next.entity.deviceOrientation &&
     prev.entity.rendererTag === next.entity.rendererTag &&
+    prev.entity.noteContent === next.entity.noteContent &&
     prev.entity.componentHasRepo === next.entity.componentHasRepo &&
     prev.entity.componentInferredRepoPath === next.entity.componentInferredRepoPath &&
     prev.isDark === next.isDark &&

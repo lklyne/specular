@@ -246,7 +246,8 @@ function placementEntityKindForTool(tool: ReturnType<typeof uiActiveTool>): Pend
     case 'add-page':
       return 'page'
     case 'add-text':
-      return 'text'
+      // `long` stamps a markdown note file entity, not plain text. ADR 0013 §3.
+      return getToolDefaults()['add-text'].textKind === 'long' ? 'file' : 'text'
     case 'add-sticky':
       return 'text'
     case 'add-shape':
