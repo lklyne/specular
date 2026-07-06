@@ -3,6 +3,7 @@ import type { ThemeData } from '../../shared/types'
 import { isPlainShortcutKey } from '../../shared/gesture-utils'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
+import { TooltipProvider } from '../shared/Tooltip'
 import { toolbarApi } from './toolbarApi'
 import {
   CenterAddressBar,
@@ -23,6 +24,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     drawBrushType,
     drawColor,
     stickyColor,
+    shapeColor,
     selection,
     addressValue,
     setAddressValue,
@@ -71,6 +73,23 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           margin: 0;
           padding: 0;
           overflow: visible !important;
+          scrollbar-width: none;
+        }
+        /* The toolbar WebContentsView grows a band below the 44px strip to paint
+           tooltips; never show its scrollbar when content overflows the view. */
+        ::-webkit-scrollbar { display: none; }
+        /* Bridge the horizontal gaps between buttons so the tooltip fires
+           continuously. The transparent ::before extends each button's hover
+           hit-area into the gap without moving the glyph or growing the visible
+           hover fill (which stays on the real button box). */
+        .tb-hit { position: relative; }
+        .tb-hit::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: -4px;
+          right: -4px;
         }
         html:not(.dark) .toolbar-bar {
           background: var(--surface-toolbar);
@@ -105,6 +124,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
       {/* NOTE: padding values (`pl-[86px] pr-4` mac, `px-4` other) are mirrored
           in `runtime-constants.ts` (TOOLBAR_PAD_*) so main can compute the
           tool-center x for popup alignment. Keep in sync. */}
+      <TooltipProvider>
       <div
         className={`toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] ${
           showCenterActionsOnly ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-[auto_1fr_auto]'
@@ -144,6 +164,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                 drawBrushType={drawBrushType}
                 drawColor={drawColor}
                 stickyColor={stickyColor}
+                shapeColor={shapeColor}
                 hasSelection={hasSelection}
                 zoomPercent={zoomPercent}
                 currentPresetValue={currentPresetValue}
@@ -172,6 +193,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           />
         </div>
       </div>
+      </TooltipProvider>
     </>
   )
 }

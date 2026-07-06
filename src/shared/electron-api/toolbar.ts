@@ -24,6 +24,8 @@ export interface ToolbarElectronAPI {
   toggleDevTools: () => void
   dropdownOpen: () => void
   dropdownClose: () => void
+  tooltipOpen: () => void
+  tooltipClose: () => void
   setTextEditing: (active: boolean) => void
   onZoomChanged: (callback: (value: number) => void) => () => void
   onSelectionChanged: (callback: (data: ToolbarSelectionData) => void) => () => void

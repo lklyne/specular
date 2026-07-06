@@ -298,6 +298,8 @@ export interface IpcContract {
   'toolbar-reload-selection': { dir: 'renderer→main'; payload: unknown }
   'toolbar-selection-changed': { dir: 'main→renderer'; payload: ToolbarSelectionData }
   'toolbar-set-tool': { dir: 'renderer→main'; payload: unknown }
+  'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
+  'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
   'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
@@ -582,6 +584,8 @@ export const ipcChannels = {
   toolbarReloadSelection: 'toolbar-reload-selection',
   toolbarSelectionChanged: 'toolbar-selection-changed',
   toolbarSetTool: 'toolbar-set-tool',
+  toolbarTooltipClose: 'toolbar-tooltip-close',
+  toolbarTooltipOpen: 'toolbar-tooltip-open',
   viewportNudge: 'viewport-nudge',
   writeNoteFile: 'write-note-file',
   zoomChanged: 'zoom-changed',

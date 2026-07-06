@@ -16,7 +16,7 @@ import {
 } from '../runtime/ui-actions'
 import { endDevtoolsResize, setDevtoolsWidthFromScreenX } from '../runtime/window-shell'
 import { applyNavigationToSelectedPages } from '../navigation-sync'
-import { setToolbarDropdownOpen } from '../ui-state'
+import { setToolbarDropdownOpen, setToolbarTooltipOpen } from '../ui-state'
 
 export function registerToolbarIpc(): void {
   ipcMain.on(ipcChannels.zoomIn, () => {
@@ -117,6 +117,16 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on(ipcChannels.toolbarDropdownClose, () => {
     setToolbarDropdownOpen(false)
+    requestLayout()
+  })
+
+  ipcMain.on(ipcChannels.toolbarTooltipOpen, () => {
+    setToolbarTooltipOpen(true)
+    requestLayout()
+  })
+
+  ipcMain.on(ipcChannels.toolbarTooltipClose, () => {
+    setToolbarTooltipOpen(false)
     requestLayout()
   })
 }

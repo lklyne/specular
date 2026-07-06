@@ -1061,6 +1061,9 @@ export interface UiState {
   /** True while a toolbar dropdown is open — the layout pass grows the
    *  toolbar view to full-window bounds so the menu can overflow the strip. */
   toolbarDropdownOpen: boolean
+  /** True while a toolbar tooltip is open — the layout pass grows the toolbar
+   *  view by a shallow band so the tip can paint just below the strip. */
+  toolbarTooltipOpen: boolean
   devtools: UiDevtoolsState
   overlays: UiOverlayState
 }

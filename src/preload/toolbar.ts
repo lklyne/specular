@@ -21,6 +21,8 @@ const api: ToolbarElectronAPI = {
   toggleDevTools: () => ipcRenderer.send(ipcChannels.toggleDevtools),
   dropdownOpen: () => ipcRenderer.send(ipcChannels.toolbarDropdownOpen),
   dropdownClose: () => ipcRenderer.send(ipcChannels.toolbarDropdownClose),
+  tooltipOpen: () => ipcRenderer.send(ipcChannels.toolbarTooltipOpen),
+  tooltipClose: () => ipcRenderer.send(ipcChannels.toolbarTooltipClose),
   setTextEditing: (active) => ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),
   onZoomChanged: on<number>(ipcChannels.zoomChanged),
   onSelectionChanged: on<ToolbarSelectionData>(ipcChannels.toolbarSelectionChanged),

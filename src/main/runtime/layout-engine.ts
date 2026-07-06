@@ -55,6 +55,7 @@ import {
   selectedEntityIds as uiSelectedEntityIds,
   setDevtoolsWidth as setUiDevtoolsWidth,
   toolbarDropdownOpen as uiToolbarDropdownOpen,
+  toolbarTooltipOpen as uiToolbarTooltipOpen,
 } from '../ui-state'
 import {
   backgroundPageOverlays,
@@ -102,6 +103,10 @@ import {
 import { boundsOverlap } from './runtime-geometry'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
+
+// Extra px the toolbar view grows by while a tooltip is open — enough for one
+// tip row (sideOffset + line) below the 44px strip, no more.
+const TOOLBAR_TOOLTIP_BAND = 48
 // Emulation-cache sentinel marking a page rendered natively (fill focus mode).
 const FILL_NATIVE_KEY = 'fill-native'
 
@@ -552,16 +557,21 @@ function layoutAllViews(): void {
   layoutDevtoolsViews()
 
   // --- Toolbar ---
-  // While a toolbar dropdown is open the view grows to full-window bounds
-  // so the menu can overflow the toolbar strip; otherwise it is just the
-  // strip height.
+  // The toolbar view is normally just the strip height. A dropdown grows it
+  // to full-window so the menu can overflow; a tooltip grows it by a shallow
+  // band so the tip paints just below the strip while keeping the transparent
+  // click-swallow region over the canvas small.
   if (toolbarView && win) {
     const { width, height } = win.getBounds()
+    const tooltipBandHeight = Math.min(height, layoutCache.toolbarHeight + TOOLBAR_TOOLTIP_BAND)
+    const toolbarHeight = uiToolbarDropdownOpen()
+      ? height
+      : uiToolbarTooltipOpen()
+        ? tooltipBandHeight
+        : layoutCache.toolbarHeight
     layoutCache.lastToolbarBoundsKey = setBoundsIfChanged(
       toolbarView,
-      uiToolbarDropdownOpen()
-        ? { x: 0, y: 0, width, height }
-        : { x: 0, y: 0, width, height: layoutCache.toolbarHeight },
+      { x: 0, y: 0, width, height: toolbarHeight },
       layoutCache.lastToolbarBoundsKey,
     )
     if (consumeDirty('toolbar')) {
