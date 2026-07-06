@@ -249,7 +249,15 @@ function usePopupFlipAnimation({
 
     previousRectRef.current = nextRect
     previousPlacementRef.current = placement
-  }, [active, placement])
+    // No deps: re-measure after every commit so `previousRectRef` tracks the
+    // popup's *settled* resting rect. A placement change (open/close) can fire
+    // while the camera is still mid-restore — the frame there sits clamped to a
+    // transient corner. If we only captured on placement change, the next FLIP
+    // would tween from that stale rect (~zero delta = a snap instead of a
+    // slide). Refreshing each render lets the baseline converge to rest before
+    // the next flip. `shouldFlip` still gates on the placement change, so this
+    // only refreshes the baseline; it never re-fires the animation.
+  })
 
   return { layoutRef, motionRef }
 }
