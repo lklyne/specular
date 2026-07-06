@@ -191,7 +191,7 @@ export function CenterActions({
           </button>
         </ToolbarTooltip>
 
-        <ToolbarTooltip label="Hand tool">
+        <ToolbarTooltip label="Hand tool" shortcut={sc('tool-hand')}>
           <button
             onClick={onToggleHandTool}
             className={buttonClass(activeTool.kind === 'hand')}
@@ -256,7 +256,7 @@ export function CenterActions({
           </button>
         </ToolbarTooltip>
 
-        <ToolbarTooltip label="Add page">
+        <ToolbarTooltip label="Add page" shortcut={sc('tool-add-page')}>
           <button
             onClick={onAddPage}
             className={buttonClass(activeTool.kind === 'add-page')}

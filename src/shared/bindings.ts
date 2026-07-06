@@ -43,6 +43,7 @@ export type NormalizedKey = {
 
 export type BindingId =
   | 'tool-select'
+  | 'tool-hand'
   | 'tool-add-page'
   | 'tool-add-text'
   | 'tool-add-sticky'
@@ -111,6 +112,7 @@ function k(key: string, cmd = false, shift = false, alt = false): NormalizedKey 
 export const BINDINGS: readonly Binding[] = [
   // Tool selection (canvas-region, plain keys, suppressed while typing)
   { id: 'tool-select', defaultKey: k('v'), scope: CANVAS_REGION, target: 'main', label: 'Select' },
+  { id: 'tool-hand', defaultKey: k('h'), scope: CANVAS_REGION, target: 'main', label: 'Hand tool' },
   { id: 'tool-add-page', defaultKey: k('p'), scope: CANVAS_REGION, target: 'main', label: 'Add page' },
   { id: 'tool-add-text', defaultKey: k('t'), scope: CANVAS_REGION, target: 'main', label: 'Add text' },
   { id: 'tool-add-sticky', defaultKey: k('s'), scope: CANVAS_REGION, target: 'main', label: 'Add sticky' },

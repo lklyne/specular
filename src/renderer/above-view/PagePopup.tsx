@@ -135,14 +135,20 @@ export function PagePopup({
   const useFlushFocusMenu = pinPopupToViewportTop
   const popupLayoutDependency = pinPopupToViewportTop ? 'viewport-top' : 'above'
 
+  const activeIsCustom = single
+    ? (() => {
+        const preset = VIEWPORT_PRESETS[single.presetIndex]
+        return !preset || single.width !== preset.width || single.height !== preset.height
+      })()
+    : false
+  const activePresetIndex = single && !activeIsCustom ? single.presetIndex : null
+
   const presetLabel = focusPresentation
     ? focusPresentation.authoredLabel
     : single
-    ? (() => {
-        const preset = VIEWPORT_PRESETS[single.presetIndex]
-        const isCustom = !preset || single.width !== preset.width || single.height !== preset.height
-        return isCustom ? 'Custom' : preset.label
-      })()
+    ? activeIsCustom
+      ? 'Custom'
+      : VIEWPORT_PRESETS[single.presetIndex].label
     : null
 
   const sizeTriggerClass = isDark
@@ -236,6 +242,8 @@ export function PagePopup({
                 <div className={tabGroupClass} role="group" aria-label="Focused viewport mode">
                   <PagePresetDropdown
                     isDark={isDark}
+                    activePreset={activePresetIndex}
+                    customActive={activeIsCustom}
                     onOpenChange={(nextOpen) => {
                       if (
                         nextOpen &&
@@ -312,6 +320,8 @@ export function PagePopup({
               ) : (
                 <PagePresetDropdown
                   isDark={isDark}
+                  activePreset={activePresetIndex}
+                  customActive={activeIsCustom}
                   onSelectPreset={(index) => api.setPagePreset(single.id, index)}
                   onSelectCustom={() => api.setPageCustom(single.id)}
                   trigger={

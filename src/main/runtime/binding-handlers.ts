@@ -26,6 +26,9 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'tool-select': () => {
     setActiveTool({ kind: 'select' })
   },
+  'tool-hand': () => {
+    setActiveTool({ kind: 'hand' })
+  },
   'tool-add-page': () => {
     setActiveTool({ kind: 'add-page' })
   },
