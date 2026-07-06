@@ -4,6 +4,7 @@ import {
   REORDER_DOT_HOVER_RADIUS_PX,
   REORDER_DOT_VISUAL_RADIUS_PX,
 } from '../../shared/canvas-hit-geometry'
+import { managedLineAxis } from '../../shared/layout-math'
 import { reorderableDots } from '../../shared/reorderable-dots'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 
@@ -51,7 +52,7 @@ export function ReorderDotsLayer({
       if (
         hovered?.kind === 'group' &&
         hovered.managedLayout &&
-        (hovered.layoutMode === 'row' || hovered.layoutMode === 'column')
+        managedLineAxis(hovered.layoutMode) !== null
       ) {
         for (const childId of hovered.entityIds) hoveredGroupChildren.add(childId)
       }

@@ -41,7 +41,7 @@ The polished "wrap selection → auto-layout" toolbar button is Milestone 2. To 
 
 - `managedLayout` is now load-bearing: it gates reflow, the reorder hit layer, and dot painting.
 - Mixed-surface groups (ADR 0014 split rows) can be managed; reflow operates in canvas space on all children regardless of paint surface. The sidebar split-row representation reads `entityOrder`, which reorder mutates — rows stay paired.
-- Milestone 2 (deferred): draggable gap handles (`layoutGap`), direction toggle (column/grid via the existing `layout-math` paths), align (`layoutAlign`), distribute, and the floating multi-select toolbar.
+- Milestone 2 (in progress): draggable gap handles (`layoutGap`) and the column direction (`layoutMode: 'column'`) have landed — one axis-parameterized reflow kernel, a `resizing-gap` gesture, and a headless `--gap` surface (`specular update <group> --gap`, `auto-layout --gap`). Still deferred: `'grid'` managed reflow, align (`layoutAlign`), and the floating multi-select toolbar.
 
 ## Glossary additions
 

@@ -18,6 +18,7 @@
  * Electron, no DOM.
  */
 
+import { managedLineAxis } from './layout-math'
 import { detectReorderableRow, type Box } from './reorder-row'
 import type { CanvasEntityKind, CanvasSceneEntity } from './types'
 
@@ -56,7 +57,7 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
   // id, then light a child whose group or self is selected.
   const childToGroup = new Map<string, string>()
   for (const e of entities) {
-    if (e.kind === 'group' && e.managedLayout && (e.layoutMode === 'row' || e.layoutMode === 'column')) {
+    if (e.kind === 'group' && e.managedLayout && managedLineAxis(e.layoutMode) !== null) {
       for (const childId of e.entityIds) childToGroup.set(childId, e.id)
     }
   }

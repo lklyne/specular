@@ -1,7 +1,7 @@
-import type { WorkspaceGroup, WorkspaceGroupLayoutMode } from '../shared/types'
+import type { WorkspaceGroup } from '../shared/types'
 import { CLUSTER_HORIZONTAL_GUTTER, USER_GROUP_PADDING } from '../shared/constants'
 import { dominantAxis, type Box } from '../shared/reorder-row'
-import { computeRowReflow, type LayoutBox } from './layout-math'
+import { computeRowReflow, managedLineAxis, type LayoutBox } from '../shared/layout-math'
 import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
@@ -128,16 +128,6 @@ function recomputeGroupBounds(group: WorkspaceGroup, childIds: string[]): void {
   group.height = bounds.height + USER_GROUP_PADDING * 2
 }
 
-/** Packing axis for a managed layout mode: columns stack vertically, everything
- *  else packs horizontally (grid isn't live yet). */
-export function managedAxis(mode: WorkspaceGroupLayoutMode): 'x' | 'y' {
-  return mode === 'column' ? 'y' : 'x'
-}
-
-function isManagedLineMode(mode: WorkspaceGroupLayoutMode): boolean {
-  return mode === 'row' || mode === 'column'
-}
-
 /**
  * The single writer of a managed group's child positions (ADR 0015 D3). Resolves
  * the group's direct children in `entityOrder` run order, packs them as a line
@@ -151,7 +141,8 @@ function isManagedLineMode(mode: WorkspaceGroupLayoutMode): boolean {
 export function reflowManagedGroup(groupId: string): boolean {
   const group = groupById(groupId)
   if (!group || !group.managedLayout) return false
-  if (!isManagedLineMode(group.layoutMode)) return false // grid isn't live yet
+  const axis = managedLineAxis(group.layoutMode)
+  if (axis === null) return false // grid / freeform aren't live yet
 
   const orderedIds = managedChildOrder(groupId)
   if (!orderedIds.length) return false
@@ -165,7 +156,7 @@ export function reflowManagedGroup(groupId: string): boolean {
   const originY = snapToGrid(Math.min(...children.map((c) => c.canvasY)))
 
   const gap = group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
-  const positions = computeRowReflow(children, gap, originX, originY, managedAxis(group.layoutMode))
+  const positions = computeRowReflow(children, gap, originX, originY, axis)
   children.forEach((child, index) => {
     const pos = positions[index]
     child.setOrigin(pos.canvasX, pos.canvasY)
@@ -199,8 +190,10 @@ export function managedGroupForChild(
   const parentId = resolveLeafParentGroupId(childId)
   if (!parentId) return null
   const group = groupById(parentId)
-  if (!group || !group.managedLayout || !isManagedLineMode(group.layoutMode)) return null
-  return { groupId: parentId, axis: managedAxis(group.layoutMode) }
+  if (!group || !group.managedLayout) return null
+  const axis = managedLineAxis(group.layoutMode)
+  if (axis === null) return null
+  return { groupId: parentId, axis }
 }
 
 function resolveLeafParentGroupId(id: string): string | null {
@@ -230,7 +223,7 @@ export function computeReorderDropIndex(
   cursorAlongAxis: number,
 ): number {
   const group = groupById(groupId)
-  const axis = group ? managedAxis(group.layoutMode) : 'x'
+  const axis = (group ? managedLineAxis(group.layoutMode) : null) ?? 'x'
   const others = managedChildOrder(groupId).filter((id) => id !== childId)
   let index = 0
   for (const id of others) {

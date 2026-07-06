@@ -22,11 +22,12 @@
  */
 
 import { tryEnter, commitActive, cancelActive } from './runtime/interaction-controller'
-import { currentInteractionState, updateGapResizeGap } from './runtime/interaction-state'
+import { updateGapResizeGap } from './runtime/interaction-state'
 import { markUndoBoundary } from './runtime/workspace-undo'
 import type { CancelReason } from '../shared/interaction-types'
 import { CLUSTER_HORIZONTAL_GUTTER } from '../shared/constants'
-import { managedAxis, setGroupLayoutGap } from './managed-layout'
+import { managedLineAxis } from '../shared/layout-math'
+import { setGroupLayoutGap } from './managed-layout'
 import { groupById } from './workspace-entities'
 
 type ActiveGesture = {
@@ -35,6 +36,8 @@ type ActiveGesture = {
   startGap: number
   /** Grab point projected onto the packing axis (canvas space). */
   startCursor: number
+  /** Last gap computed by `move` — the value `commit` writes. */
+  gap: number
 }
 
 let active: ActiveGesture | null = null
@@ -52,8 +55,8 @@ export function startGapGesture(
 ): boolean {
   const group = groupById(groupId)
   if (!group || !group.managedLayout) return false
-  if (group.layoutMode !== 'row' && group.layoutMode !== 'column') return false
-  const axis = managedAxis(group.layoutMode)
+  const axis = managedLineAxis(group.layoutMode)
+  if (axis === null) return false
   const startGap = group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
   const token = tryEnter({ kind: 'resizing-gap', groupId, gap: startGap, axis })
   if ('refused' in token) return false
@@ -62,6 +65,8 @@ export function startGapGesture(
     axis,
     startGap,
     startCursor: axis === 'x' ? cursorCanvasX : cursorCanvasY,
+    // A no-move drag stays at startGap → commit no-ops cleanly.
+    gap: startGap,
   }
   return true
 }
@@ -71,7 +76,8 @@ export function moveGapGesture(cursorCanvasX: number, cursorCanvasY: number): vo
   if (!active) return
   const cursor = active.axis === 'x' ? cursorCanvasX : cursorCanvasY
   const delta = cursor - active.startCursor
-  updateGapResizeGap(Math.max(0, Math.round(active.startGap + delta)))
+  active.gap = Math.max(0, Math.round(active.startGap + delta))
+  updateGapResizeGap(active.gap)
 }
 
 /** Commit the gap at its live preview value. One undo step (the field write
@@ -85,9 +91,8 @@ export function commitGapGesture(): boolean {
     commitActive()
     return false
   }
-  const state = currentInteractionState()
-  const gap = state.kind === 'resizing-gap' ? state.gap : gesture.startGap
-  const changed = gap !== gesture.startGap && setGroupLayoutGap(gesture.groupId, gap)
+  const changed =
+    gesture.gap !== gesture.startGap && setGroupLayoutGap(gesture.groupId, gesture.gap)
   commitActive()
   markUndoBoundary()
   return changed

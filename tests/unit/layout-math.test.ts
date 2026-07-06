@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   computeLayoutMetrics,
   computeLayoutPositions,
-  computeRowReflow,
-  type LayoutBox,
 } from '../../src/main/layout-math'
+import { computeRowReflow, type LayoutBox } from '../../src/shared/layout-math'
 import {
   resolveSpacing,
   SPACING_TOKEN_PIXELS,

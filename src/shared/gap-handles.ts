@@ -17,6 +17,7 @@
 
 import { GAP_HANDLE_MIN_HIT_PX } from './canvas-hit-geometry'
 import type { Rect } from './hit-regions'
+import { computeRowReflow, managedLineAxis } from './layout-math'
 import type { CanvasSceneEntity } from './types'
 
 export interface GapHandleZone {
@@ -72,12 +73,12 @@ export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
   for (const group of entities) {
     if (group.kind !== 'group') continue
     if (!group.managedLayout) continue
-    if (group.layoutMode !== 'row' && group.layoutMode !== 'column') continue
+    const axis = managedLineAxis(group.layoutMode)
+    if (axis === null) continue
     const eligible =
       selectedGroupId === group.id || group.entityIds.some((id) => selected.has(id))
     if (!eligible) continue
 
-    const axis = group.layoutMode === 'column' ? 'y' : 'x'
     const children = group.entityIds
       .map((id) => byId.get(id))
       .filter((e): e is CanvasSceneEntity => e !== undefined)
@@ -111,11 +112,11 @@ export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
 }
 
 /**
- * Pure preview kernel for the gap drag: repack `children` along `axis` at
- * `gap`, anchored at the first child's current leading edge; every child keeps
- * its cross-axis coordinate. Returns only positions that changed — the
- * renderer-side mirror of main's `computeRowReflow` (which owns the real
- * commit-time reflow; this never mutates anything).
+ * Preview repack for the gap drag: pack `children` along `axis` at `gap` through
+ * the shared `computeRowReflow` kernel — the same function that owns the
+ * commit-time reflow, so preview and commit cannot drift — anchored at the first
+ * child's current leading edge, every child keeping its cross-axis coordinate.
+ * Returns only the positions that changed (this never mutates anything).
  */
 export function packedGapPositions(
   children: readonly Pick<CanvasSceneEntity, 'id' | 'canvasX' | 'canvasY' | 'width' | 'height'>[],
@@ -128,11 +129,10 @@ export function packedGapPositions(
   )
   const changed = new Map<string, { x: number; y: number }>()
   if (!sorted.length) return changed
-  let cursor = along ? sorted[0].canvasX : sorted[0].canvasY
-  for (const child of sorted) {
-    const next = along ? { x: cursor, y: child.canvasY } : { x: child.canvasX, y: cursor }
+  const positions = computeRowReflow(sorted, gap, sorted[0].canvasX, sorted[0].canvasY, axis)
+  sorted.forEach((child, i) => {
+    const next = { x: positions[i].canvasX, y: positions[i].canvasY }
     if (next.x !== child.canvasX || next.y !== child.canvasY) changed.set(child.id, next)
-    cursor += (along ? child.width : child.height) + gap
-  }
+  })
   return changed
 }
