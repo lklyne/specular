@@ -29,6 +29,7 @@ const EMPTY_SELECTION: ToolbarSelectionData = {
   drawBrushType: 'pen',
   drawColor: '1',
   stickyColor: 'neutral',
+  shapeColor: '1',
 }
 
 export interface ToolbarState {
@@ -39,6 +40,7 @@ export interface ToolbarState {
   drawBrushType: DrawingBrushType
   drawColor: string
   stickyColor: string
+  shapeColor: string
   selection: ToolbarSelectionData
   addressValue: string
   setAddressValue: Dispatch<SetStateAction<string>>
@@ -103,6 +105,7 @@ export function useToolbarState(): ToolbarState {
     drawBrushType: selection.drawBrushType,
     drawColor: selection.drawColor,
     stickyColor: selection.stickyColor,
+    shapeColor: selection.shapeColor,
     selection,
     addressValue,
     setAddressValue,

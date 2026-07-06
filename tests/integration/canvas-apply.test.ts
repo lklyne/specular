@@ -186,6 +186,52 @@ describe('canvas apply', () => {
     expect(byId.get(groupId)).toBe('group')
   })
 
+  it('round-trips shape border style/color/width and undo restores the prior border', async () => {
+    const { created } = applyCanvasPatch({
+      entities: [
+        {
+          kind: 'shape',
+          shapeKind: 'rectangle',
+          canvasX: 0,
+          canvasY: 0,
+          borderStyle: 'solid',
+          borderColor: '4',
+          strokeWidth: 3,
+        },
+      ],
+    })
+    const id = created[0]
+    await settleSync()
+
+    // Create carries the border fields through persist → serialize (the GET
+    // /canvas shape node).
+    const seeded = getCanvas().nodes.find((n) => n.id === id) as
+      | { borderStyle?: string; borderColor?: string; strokeWidth?: number }
+      | undefined
+    expect(seeded?.borderStyle).toBe('solid')
+    expect(seeded?.borderColor).toBe('4')
+    expect(seeded?.strokeWidth).toBe(3)
+
+    applyCanvasPatch({
+      entities: [{ id, kind: 'shape', borderStyle: 'none', borderColor: '1', strokeWidth: 1 }],
+    })
+    await settleSync()
+    const updated = getCanvas().nodes.find((n) => n.id === id) as
+      | { borderStyle?: string; borderColor?: string; strokeWidth?: number }
+      | undefined
+    expect(updated?.borderStyle).toBe('none')
+    expect(updated?.borderColor).toBe('1')
+    expect(updated?.strokeWidth).toBe(1)
+
+    undo()
+    const reverted = getCanvas().nodes.find((n) => n.id === id) as
+      | { borderStyle?: string; borderColor?: string; strokeWidth?: number }
+      | undefined
+    expect(reverted?.borderStyle).toBe('solid')
+    expect(reverted?.borderColor).toBe('4')
+    expect(reverted?.strokeWidth).toBe(3)
+  })
+
   it('renames a group via text, aliased to label; explicit label wins; undo restores the prior name', async () => {
     const seed = applyCanvasPatch({
       entities: [
