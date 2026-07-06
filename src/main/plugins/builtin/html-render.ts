@@ -6,5 +6,6 @@ export const htmlRenderPlugin: InlineRendererClaim = {
   kind: 'inline',
   rendererTag: 'html',
   editable: false,
+  interactive: true,
   claims: (entity) => HTML_EXTENSIONS.test(entity.file),
 }

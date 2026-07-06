@@ -3,10 +3,13 @@ import { filePathToSrcVersioned } from './filePathToSrc'
 
 export function HtmlInlineRenderer({
   entity,
-  isSelected,
+  isInteractive,
 }: {
   entity: CanvasSceneFileEntity
-  isSelected: boolean
+  /** Select-first / interact-second: the iframe only captures the pointer
+   *  once the user has entered it (second click / double-click). A merely-
+   *  selected file stays click-through so the first click selects/drags. */
+  isInteractive: boolean
 }) {
   const fileName = entity.file.split('/').pop() ?? entity.file
   return (
@@ -18,7 +21,7 @@ export function HtmlInlineRenderer({
         width: '100%',
         height: '100%',
         border: 'none',
-        pointerEvents: isSelected ? 'auto' : 'none',
+        pointerEvents: isInteractive ? 'auto' : 'none',
         background: 'white',
       }}
     />

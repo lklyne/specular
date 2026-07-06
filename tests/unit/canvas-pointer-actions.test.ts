@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { hitTest, type HitInputs } from '../../src/shared/hit-test'
 import {
   routePointerDown,
+  routePointerDoubleClick,
   type CanvasPointerContext,
 } from '../../src/shared/canvas-pointer-actions'
 import type {
@@ -64,6 +65,7 @@ const baseCtx: CanvasPointerContext = {
   altHeld: false,
   editingEntityId: null,
   interactivePageId: null,
+  interactiveEntityId: null,
   placement: null,
   commentToolActive: false,
 }
@@ -418,6 +420,50 @@ describe('routePointerDown', () => {
       const target = hitTest(inputs([f], ['unk']), { x: f.screenX + 50, y: f.screenY + 30 })
       const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['unk'] })
       expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'unk' })
+    })
+  })
+
+  // --- Interactive file renderers (HTML iframe): select-first / interact-second ---
+  describe('enter-entity-interactive (interactive file renderers)', () => {
+    const html = (over: Partial<CanvasSceneFileEntity> = {}) =>
+      file({ id: 'h1', file: 'page.html', rendererTag: 'html', rendererEditable: false, rendererInteractive: true, ...over })
+
+    it('click on unselected HTML file → begin-entity-drag (first click selects, does not enter)', () => {
+      const f = html()
+      const target = hitTest(inputs([f]), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, baseCtx)
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'h1' })
+    })
+
+    it('click on solo-selected (not entered) HTML file → enter-entity-interactive', () => {
+      const f = html()
+      const target = hitTest(inputs([f], ['h1']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['h1'] })
+      expect(action).toEqual({ kind: 'enter-entity-interactive', entityId: 'h1' })
+    })
+
+    it('click on the entered HTML file → begin-entity-drag (content owns the pointer; a click reaching the router is an edge grab)', () => {
+      const f = html()
+      const target = hitTest(inputs([f], ['h1']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['h1'],
+        interactiveEntityId: 'h1',
+      })
+      expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'h1' })
+    })
+
+    it('non-interactive editable file (markdown) still takes the edit path, not enter', () => {
+      const f = file({ rendererEditable: true, rendererInteractive: false })
+      const target = hitTest(inputs([f], ['fi1']), { x: f.screenX + 50, y: f.screenY + 30 })
+      const action = routePointerDown(target, { ...baseCtx, selectedEntityIds: ['fi1'] })
+      expect(action).toEqual({ kind: 'begin-entity-press', entityId: 'fi1', entityKind: 'file' })
+    })
+
+    it('double-click on HTML file → enter-entity-interactive', () => {
+      const f = html()
+      const target = hitTest(inputs([f], ['h1']), { x: f.screenX + 50, y: f.screenY + 30 })
+      expect(routePointerDoubleClick(target)).toEqual({ kind: 'enter-entity-interactive', entityId: 'h1' })
     })
   })
 

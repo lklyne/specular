@@ -229,6 +229,11 @@ export interface CanvasSceneFileEntity {
    *  pointer router. Undefined for unclaimed (fallback) entities — treated
    *  as `false`. */
   rendererEditable?: boolean
+  /** Whether the resolved renderer hosts live content (an iframe) that should
+   *  get the page-like select-first / interact-second treatment: the first
+   *  click selects, a second click enters interactivity so pointer/scroll
+   *  reach the content. Undefined → treated as `false`. */
+  rendererInteractive?: boolean
   /**
    * For component file entities: whether some connected repo claims this
    * file (i.e. resolveUrl will succeed). The renderer suppresses the
