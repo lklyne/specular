@@ -106,6 +106,30 @@ export function beginReorderingRow(
   return next
 }
 
+export function beginGapResize(
+  groupId: string,
+  gap: number,
+  axis: 'x' | 'y',
+): CanvasInteractionState {
+  const next: CanvasInteractionState = { kind: 'resizing-gap', groupId, gap, axis }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
+/** Live gap preview tick — updates only the broadcast interaction state (no
+ *  doc writes, §6 I5). The renderer derives child positions from this value. */
+export function updateGapResizeGap(gap: number): CanvasInteractionState {
+  if (interactionState.kind !== 'resizing-gap') return interactionState
+  if (interactionState.gap === gap) return interactionState
+  const next: CanvasInteractionState = { ...interactionState, gap }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
 export function updateReorderingDropIndex(dropIndex: number): CanvasInteractionState {
   if (interactionState.kind !== 'reordering-row') return interactionState
   if (interactionState.dropIndex === dropIndex) return interactionState
@@ -121,6 +145,7 @@ export function interactionBlocksPageHover(state: CanvasInteractionState = inter
     state.kind === 'dragging-edge' ||
     state.kind === 'resizing-entity' ||
     state.kind === 'resizing-multi-selection' ||
+    state.kind === 'resizing-gap' ||
     state.kind === 'dragging-entities'
   )
 }

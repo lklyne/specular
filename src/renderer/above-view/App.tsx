@@ -53,6 +53,8 @@ import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
+import { gapPreviewLayout } from './gapPreview'
+import { GapHandlesLayer } from './GapHandlesLayer'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import {
   computeSameKindSelection,
@@ -437,7 +439,7 @@ export default function App({
   // renderer ephemera — the broadcast layout is untouched. Falls back to the
   // broadcast layout when not reordering.
   const renderLayout = useMemo(
-    () => reorderPreviewLayout(layoutData) ?? layoutData,
+    () => reorderPreviewLayout(layoutData) ?? gapPreviewLayout(layoutData) ?? layoutData,
     [layoutData],
   )
 
@@ -1092,7 +1094,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
           {(layoutData.groups?.length ?? 0) > 0 && !hideContext ? (
             <GroupBoundsLayer
-              groups={layoutData.groups ?? []}
+              groups={renderLayout.groups ?? []}
               isDark={isDark}
               zoom={layoutData.zoom}
               canvasOrigin={layoutData.canvasOrigin}
@@ -1129,6 +1131,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
+          <GapHandlesLayer layoutData={renderLayout} isDark={isDark} />
           <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
 
           <GroupRenameOverlay

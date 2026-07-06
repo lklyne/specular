@@ -185,6 +185,7 @@ export function canvasInteractionModeKind(state: CanvasInteractionState): Intera
     case 'dragging-edge': return 'dragging-edge'
     case 'editing-entity': return 'editing-entity'
     case 'reordering-row': return 'reordering-row'
+    case 'resizing-gap': return 'resizing-gap'
   }
 }
 

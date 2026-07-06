@@ -78,6 +78,9 @@ export type CanvasPointerAction =
    *  (ADR 0015 D7). Carries only `movingId`; main resolves which door
    *  (selection / managed) armed the gesture. */
   | { kind: 'begin-reorder-drag'; movingId: string; entityKind: CanvasEntityKind }
+  /** Begin dragging a managed group's gap handle — the strip between adjacent
+   *  children — to change its `layoutGap` (ADR 0015 Milestone 2). */
+  | { kind: 'begin-gap-drag'; groupId: string; axis: 'x' | 'y' }
   /** Modifier-additive selection toggle (no drag). */
   | { kind: 'toggle-select'; entityId: string; entityKind: CanvasEntityKind }
   /** Background click/drag candidate — clears on click, marquee-selects after threshold. */
@@ -188,6 +191,8 @@ function routeByPayload(
         movingId: payload.entityId,
         entityKind: payload.entityKind,
       }
+    case 'gap-handle':
+      return { kind: 'begin-gap-drag', groupId: payload.groupId, axis: payload.axis }
     case 'page-body':
       // Additive modifier wins over the forward-into-page shortcut: shift/
       // cmd-click on the page body must reach the selection system so users

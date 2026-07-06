@@ -21,6 +21,12 @@ export type InteractionMode =
   // cancel path. `ids` is the frozen row order so the renderer can draw the
   // insertion line door-agnostically.
   | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
+  // Dragging a managed group's gap handle (the strip between adjacent children)
+  // to change its `layoutGap` (ADR 0015 Milestone 2). `gap` is the live
+  // canvas-space gap value — move ticks update only this broadcast field; the
+  // renderer previews child positions from it and the single doc write happens
+  // at commit via `setGroupLayoutGap`.
+  | { kind: 'resizing-gap'; groupId: string; gap: number; axis: 'x' | 'y' }
 
 export type CancelReason = 'blur' | 'escape' | 'undo' | 'tab-switch' | 'external'
 

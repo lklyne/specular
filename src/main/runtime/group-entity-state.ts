@@ -102,6 +102,7 @@ export function buildGroupSceneEntity(
     parentGroupId: group.parentGroupId,
     layoutMode: group.layoutMode,
     managedLayout: group.managedLayout,
+    layoutGap: group.layoutGap,
     entityIds,
   }
 }

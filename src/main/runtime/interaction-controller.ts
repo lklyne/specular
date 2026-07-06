@@ -27,6 +27,7 @@ import {
   beginEdgeDrag,
   beginEntityEditing,
   beginEntityResize,
+  beginGapResize,
   beginMarqueeSelect,
   beginMultiSelectionResize,
   beginReorderingRow,
@@ -74,6 +75,8 @@ function snapshotMode(): InteractionMode {
       return { kind: 'editing-entity', id: s.entityId }
     case 'reordering-row':
       return { kind: 'reordering-row', ids: [...s.ids], movingId: s.movingId, dropIndex: s.dropIndex, axis: s.axis }
+    case 'resizing-gap':
+      return { kind: 'resizing-gap', groupId: s.groupId, gap: s.gap, axis: s.axis }
     case 'dragging-edge':
       return {
         kind: 'dragging-edge',
@@ -107,6 +110,7 @@ export type TryEnterInput =
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: CanvasSelectableTarget; fromSide: EdgeSide }
   | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
+  | { kind: 'resizing-gap'; groupId: string; gap: number; axis: 'x' | 'y' }
 
 export function peek(): InteractionMode {
   return snapshotMode()
@@ -125,6 +129,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'editing-entity': beginEntityEditing(input.entityId); break
     case 'dragging-edge': beginEdgeDrag(input.from, input.fromSide); break
     case 'reordering-row': beginReorderingRow(input.ids, input.movingId, input.dropIndex, input.axis); break
+    case 'resizing-gap': beginGapResize(input.groupId, input.gap, input.axis); break
   }
   const token: InternalToken = {
     id: newTokenId(),

@@ -138,6 +138,14 @@ export interface CanvasBgElectronAPI {
   reorderDragMove: (canvasX: number, canvasY: number) => void
   reorderDragCommit: () => void
   reorderDragCancel: (reason?: CancelReason) => void
+  /** Managed-group gap-handle drag (ADR 0015 Milestone 2). start → move* →
+   *  commit | cancel. The begin carries the group id plus the grab point in
+   *  canvas space; main projects subsequent moves onto the group's packing
+   *  axis and broadcasts the live gap, writing once at commit. */
+  beginGapResizeDrag: (groupId: string, canvasX: number, canvasY: number) => void
+  gapResizeDragMove: (canvasX: number, canvasY: number) => void
+  gapResizeDragCommit: () => void
+  gapResizeDragCancel: (reason?: CancelReason) => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +
    *  element under the window-coord point and either fires

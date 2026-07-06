@@ -31,6 +31,7 @@ import type {
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 import { reorderableDots } from './reorderable-dots'
+import { collectGapHandleZones } from './gap-handles'
 import { ENTITY_KIND_CAPS } from './entity-kind-caps'
 import { selectionBbox, type SelectionBbox } from './selection-bbox'
 
@@ -45,6 +46,7 @@ export type HitPayload =
   | { kind: 'chrome'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   | { kind: 'reorder-handle'; entityId: string; entityKind: CanvasEntityKind }
+  | { kind: 'gap-handle'; groupId: string; axis: 'x' | 'y' }
   | { kind: 'page-body'; entityId: string }
   | {
       kind: 'entity-body'
@@ -138,6 +140,8 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
       return collectAnchorTargets(inputs)
     case 'reorder-handle':
       return collectReorderHandleTargets(inputs)
+    case 'gap-handle':
+      return collectGapHandleTargets(inputs)
     case 'body':
       return collectBodyTargets(inputs)
     case 'background':
@@ -276,6 +280,18 @@ function collectReorderHandleTargets(inputs: HitInputs): HitTarget[] {
     layer: 'reorder-handle' as const,
     region: { kind: 'rect' as const, rect: reorderHandleRectAt(dot.center) },
     payload: { kind: 'reorder-handle' as const, entityId: dot.id, entityKind: dot.entityKind },
+  }))
+}
+
+// Gap strips between a managed group's adjacent children (ADR 0015 Milestone
+// 2). Geometry and eligibility come from the one shared `collectGapHandleZones`
+// selector — the same source `GapHandlesLayer` paints — so the visible strip
+// and the grabbable target line up by construction.
+function collectGapHandleTargets(inputs: HitInputs): HitTarget[] {
+  return collectGapHandleZones(inputs).map((zone) => ({
+    layer: 'gap-handle' as const,
+    region: { kind: 'rect' as const, rect: zone.rect },
+    payload: { kind: 'gap-handle' as const, groupId: zone.groupId, axis: zone.axis },
   }))
 }
 
