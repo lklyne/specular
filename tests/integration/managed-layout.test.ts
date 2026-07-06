@@ -13,17 +13,25 @@
  *   - hardcoding `CLUSTER_HORIZONTAL_GUTTER` back into `reflowManagedGroup` —
  *     the gap-reflow case fails.
  *   - forcing `axis = 'x'` in `reflowManagedGroup` — both column cases fail.
+ *   - dropping the `setGroupLayoutGap` delegation from the group kind's
+ *     `update` handler — the apply-patch case fails.
+ *   - routing `layoutGap` through the plain `updateGroupEntity` field patch
+ *     instead — the unmanaged-group rejection case fails.
+ *   - dropping the `input.gap` write from `makeAutoLayoutGroup` — the
+ *     create-with-gap case fails.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import type { JsonCanvasGroupNode } from '../../src/shared/json-canvas-types'
+import { applyCanvasPatch } from '../../src/main/canvas-apply'
 import { createTextEntity, getTextEntities } from '../../src/main/runtime/document-commands'
 import {
   makeAutoLayoutGroup,
   reorderManagedChild,
   setGroupLayoutGap,
 } from '../../src/main/managed-layout'
+import { createUserGroup } from '../../src/main/workspace-groups'
 import { workspaceGroups } from '../../src/main/runtime/workspace-model'
 import { undo } from '../../src/main/runtime/workspace-undo'
 
@@ -105,6 +113,49 @@ describe('managed layout', () => {
       { x: 0, y: 180 },
       { x: 0, y: 360 },
     ])
+  })
+
+  it('a layoutGap apply patch reflows a managed group through the registry', async () => {
+    const a = textAt(0, 0, 'a')
+    const b = textAt(200, 0, 'b')
+    const group = makeAutoLayoutGroup({ entityIds: [a.id, b.id] })!
+    await settleSync()
+    expect(positionsOf([a.id, b.id]).map((p) => p.x)).toEqual([0, 180])
+
+    // The same door `specular update <groupId> --gap 20` compiles to.
+    applyCanvasPatch({ entities: [{ id: group.id, layoutGap: 20 }] })
+    await settleSync()
+
+    expect(workspaceGroups.find((g) => g.id === group.id)?.layoutGap).toBe(20)
+    expect(positionsOf([a.id, b.id]).map((p) => p.x)).toEqual([0, 120])
+  })
+
+  it('a layoutGap patch no-ops on an unmanaged group and on a non-finite value', async () => {
+    const a = textAt(0, 0, 'a')
+    const b = textAt(200, 0, 'b')
+    const plain = createUserGroup([a.id, b.id])
+    await settleSync()
+
+    applyCanvasPatch({ entities: [{ id: plain.id, layoutGap: 40 }] })
+    await settleSync()
+    expect(workspaceGroups.find((g) => g.id === plain.id)?.layoutGap).toBeUndefined()
+    expect(positionsOf([a.id, b.id]).map((p) => p.x)).toEqual([0, 200])
+
+    const managed = makeAutoLayoutGroup({ groupId: plain.id })!
+    await settleSync()
+    applyCanvasPatch({ entities: [{ id: managed.id, layoutGap: Number.NaN }] })
+    await settleSync()
+    expect(workspaceGroups.find((g) => g.id === managed.id)?.layoutGap).toBeUndefined()
+  })
+
+  it('auto-layout with a gap creates the group already packed at that gap', async () => {
+    const a = textAt(0, 0, 'a')
+    const b = textAt(200, 0, 'b')
+    const group = makeAutoLayoutGroup({ entityIds: [a.id, b.id], gap: 24 })!
+    await settleSync()
+
+    expect(workspaceGroups.find((g) => g.id === group.id)?.layoutGap).toBe(24)
+    expect(positionsOf([a.id, b.id]).map((p) => p.x)).toEqual([0, 124])
   })
 
   it('reorderManagedChild reorders a column group along y', async () => {

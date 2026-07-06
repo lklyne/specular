@@ -283,6 +283,13 @@ export function reorderManagedChild(
   }, { changed: (changed) => changed })
 }
 
+/** Clamp a requested packing gap to a usable value (non-negative whole px), or
+ *  null when it isn't a finite number. */
+function normalizeLayoutGap(gap: number): number | null {
+  if (!Number.isFinite(gap)) return null
+  return Math.max(0, Math.round(gap))
+}
+
 /**
  * Set a managed group's packing gap (px) and reflow at the new spacing. The gap
  * is clamped to a non-negative integer. One undo step (the field write and the
@@ -292,9 +299,8 @@ export function reorderManagedChild(
 export function setGroupLayoutGap(groupId: string, gap: number): boolean {
   const group = groupById(groupId)
   if (!group || !group.managedLayout) return false
-  if (!Number.isFinite(gap)) return false
-  const next = Math.max(0, Math.round(gap))
-  if (group.layoutGap === next) return false
+  const next = normalizeLayoutGap(gap)
+  if (next === null || group.layoutGap === next) return false
   return mutateWorkspace(() => {
     group.layoutGap = next
     markDirty('canvas', 'sidebar')
@@ -316,6 +322,8 @@ export function makeAutoLayoutGroup(input: {
   groupId?: string
   entityIds?: string[]
   label?: string
+  /** Packing gap (px); validated like `setGroupLayoutGap` — invalid values are ignored. */
+  gap?: number
 }): WorkspaceGroup | null {
   return mutateWorkspace(() => {
     let result: WorkspaceGroup | null = null
@@ -342,6 +350,10 @@ export function makeAutoLayoutGroup(input: {
       const axis = boxes.length ? dominantAxis(boxes) : 'x'
       group.layoutMode = axis === 'y' ? 'column' : 'row'
       group.managedLayout = true
+      if (input.gap !== undefined) {
+        const gap = normalizeLayoutGap(input.gap)
+        if (gap !== null) group.layoutGap = gap
+      }
       markDirty('canvas', 'sidebar')
 
       // Seed layout order = current visual order along the axis so the line

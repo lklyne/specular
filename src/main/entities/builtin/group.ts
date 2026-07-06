@@ -9,6 +9,7 @@
 import type { PersistedGroupEntity, WorkspaceGroup } from '../../../shared/types'
 import type { JsonCanvasGroupNode } from '../../../shared/json-canvas-types'
 import { createUserGroup } from '../../workspace-groups'
+import { setGroupLayoutGap } from '../../managed-layout'
 import { deleteGroupEntity, updateGroupEntity } from '../../runtime/document-commands'
 import { WORKSPACE_GROUP_PERSISTED_FIELDS } from '../../runtime/group-entity-state'
 import { workspaceGroups } from '../../runtime/workspace-model'
@@ -39,6 +40,10 @@ export const groupKind: EntityKindDefinition<'group'> = {
       label: (patch.label ?? patch.text) as string | undefined,
       color: patch.color as string | undefined,
     })
+    // The gap goes through `setGroupLayoutGap`, never the plain field patch,
+    // so the managed reflow can't be bypassed — it validates the value,
+    // repacks the children, and no-ops on unmanaged groups.
+    if (typeof patch.layoutGap === 'number') setGroupLayoutGap(id, patch.layoutGap)
   },
 
   // ponytail: removes the group container only; children keep their geometry

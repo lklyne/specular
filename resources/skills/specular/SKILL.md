@@ -47,7 +47,7 @@ extension and sizes images / video from the file.
 ## Edit
 
 ```bash
-specular update <id> [--at x,y] [--size w,h] [--preset N] [--text T] [--color C] [--url U]
+specular update <id> [--at x,y] [--size w,h] [--preset N] [--text T] [--color C] [--url U] [--gap N]
 specular delete <id> [id...]
 ```
 
@@ -55,6 +55,8 @@ specular delete <id> [id...]
 separate verbs. Kind is resolved from the doc by id; you never pass it. The
 registry decides which flags a kind honors (pages size via `--preset`, not
 `--size`), so a flag a kind ignores is simply a no-op rather than a silent lie.
+`update <groupId> --gap N` sets a managed auto-layout group's packing gap (px)
+and reflows its children; it no-ops on unmanaged groups.
 
 ## Arrange & connect
 
@@ -63,7 +65,7 @@ registry decides which flags a kind honors (pages size via `--preset`, not
 | `specular arrange row\|column\|grid <id…> [--gap m] [--cols N]` | Rearrange existing entities |
 | `specular group <id…>` | Group entities together |
 | `specular ungroup <groupId>` | Dissolve a group |
-| `specular auto-layout <id…>` | Make a managed auto-layout row from a selection (or convert a single group); children pack left-to-right and can be drag-reordered |
+| `specular auto-layout <id…> [--gap N]` | Make a managed auto-layout row or column from a selection (or convert a single group) — the mode follows the selection's dominant axis; children pack along it and can be drag-reordered; `--gap N` sets the packing gap (px) |
 | `specular distribute <id…>` | Even out gaps between 3+ loosely-spaced entities |
 | `specular focus <id…>` | Scroll the viewport so the entity is centered |
 | `specular link <a> <b> [--label <text>]` | Connect two entities with an edge |
