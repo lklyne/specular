@@ -78,7 +78,6 @@ export type PopupContributionTag =
   | 'wireframe-theme'
   | 'wireframe-json-mode'
   | 'wireframe-device-controls'
-  | 'markdown-morph-to-text'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind

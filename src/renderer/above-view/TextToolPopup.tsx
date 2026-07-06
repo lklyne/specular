@@ -1,7 +1,4 @@
 // ADR 0008 §1/§5 — add-text tool popup; writes to per-style tool defaults.
-// ADR 0013 §3 — for the plain-text variant, the leading row is a short/long
-// toggle that picks whether `add-text` stamps a text entity or a markdown
-// file entity for the next creation.
 
 import {
   paletteForTextStyle,
@@ -12,7 +9,6 @@ import {
 import type { LayoutUpdateData, TextEntityStyle, ToolDefaultPatch } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { TextKindToggle } from './TextKindToggle'
 import { TextSizeDropdown } from './TextSizeDropdown'
 
 export function TextToolPopup({
@@ -33,7 +29,6 @@ export function TextToolPopup({
   const activeSlot = slotForStorage(currentRaw)
   const swatchRole = style === 'sticky' ? 'fill' : 'ink'
   const swatchPalette = paletteForTextStyle(style)
-  const textKind = layout.toolDefaults['add-text'].textKind
   const currentTextSize =
     style === 'sticky'
       ? layout.toolDefaults['add-sticky'].textSize
@@ -41,22 +36,6 @@ export function TextToolPopup({
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
-        {style === 'plain' ? (
-          <>
-            <TextKindToggle
-              isDark={isDark}
-              active={textKind}
-              onPick={(kind) =>
-                api.setToolDefault({
-                  scope: 'add-text',
-                  key: 'textKind',
-                  value: kind,
-                })
-              }
-            />
-            <CanvasItemPopup.Divider isDark={isDark} />
-          </>
-        ) : null}
         <CanvasItemPopup.Section>
           <TextSizeDropdown
             isDark={isDark}
@@ -79,6 +58,7 @@ export function TextToolPopup({
             return (
               <CanvasItemPopup.ColorSwatch
                 key={slot.id}
+                isDark={isDark}
                 active={activeSlot === slot.id}
                 color={swatch}
                 ariaLabel={`Set default ${style} text color to ${slot.label}`}

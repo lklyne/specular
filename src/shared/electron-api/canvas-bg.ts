@@ -235,16 +235,6 @@ export interface CanvasBgElectronAPI {
    * `writeNoteFile` for markdown note content.
    */
   applyNoteContent: (entityId: string, content: string) => Promise<boolean>
-  /**
-   * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
-   * (or vice versa) at the same canvas rect. Both halves of the swap (the
-   * entity replacement and the `.md` file write/delete) collapse into a
-   * single undo step on the main-side undo stack.
-   */
-  morphTextFile: (
-    entityId: string,
-    direction: 'text-to-file' | 'file-to-text',
-  ) => Promise<{ kind: 'morphed'; newEntityId: string } | { kind: 'noop'; reason: string }>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
   /** Connect a Vite repo at the given absolute folder path. Returns the
    *  connected repo, or null if connection fails. */

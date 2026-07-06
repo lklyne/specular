@@ -11,19 +11,12 @@
  */
 
 import type { DrawingBrushType, ShapeKind } from './types'
-
-/**
- * ADR 0013 §3 — the text popup's leading variant pair.
- *   `short` stamps a plain-text entity.
- *   `long` stamps a `file` entity backed by a new `.md` note.
- */
-export type TextKind = 'short' | 'long'
+import { isShapeKind } from './shapes'
 
 export interface ToolDefaults {
   'add-text': {
     color: string | null
     textSize: number
-    textKind: TextKind
   }
   'add-sticky': {
     color: string
@@ -54,7 +47,6 @@ export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   'add-text': {
     color: null,
     textSize: 14,
-    textKind: 'short',
   },
   'add-sticky': {
     color: '3', // yellow preset
@@ -88,8 +80,6 @@ export function normalizeToolDefaults(
     if (typeof t.color === 'string' || t.color === null) merged['add-text'].color = t.color
     if (typeof t.textSize === 'number' && Number.isFinite(t.textSize))
       merged['add-text'].textSize = t.textSize
-    if (t.textKind === 'short' || t.textKind === 'long')
-      merged['add-text'].textKind = t.textKind
     const legacy = t as { 'plain.color'?: unknown }
     if (typeof legacy['plain.color'] === 'string' || legacy['plain.color'] === null)
       merged['add-text'].color = legacy['plain.color']
@@ -107,8 +97,7 @@ export function normalizeToolDefaults(
   }
   if (obj['add-shape'] && typeof obj['add-shape'] === 'object') {
     const s = obj['add-shape']
-    if (s.shapeKind === 'rectangle' || s.shapeKind === 'ellipse' || s.shapeKind === 'diamond')
-      merged['add-shape'].shapeKind = s.shapeKind
+    if (isShapeKind(s.shapeKind)) merged['add-shape'].shapeKind = s.shapeKind
     if (typeof s.color === 'string') merged['add-shape'].color = s.color
     if (typeof s.strokeWidth === 'number' && Number.isFinite(s.strokeWidth))
       merged['add-shape'].strokeWidth = s.strokeWidth
@@ -142,7 +131,6 @@ function cloneToolDefaults(src: ToolDefaults): ToolDefaults {
 export type ToolDefaultPatch =
   | { scope: 'add-text'; key: 'color'; value: string | null }
   | { scope: 'add-text'; key: 'textSize'; value: number }
-  | { scope: 'add-text'; key: 'textKind'; value: TextKind }
   | { scope: 'add-sticky'; key: 'color'; value: string }
   | { scope: 'add-sticky'; key: 'textSize'; value: number }
   | { scope: 'add-shape'; key: 'shapeKind'; value: ShapeKind }

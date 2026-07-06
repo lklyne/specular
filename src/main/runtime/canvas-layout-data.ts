@@ -246,8 +246,9 @@ function placementEntityKindForTool(tool: ReturnType<typeof uiActiveTool>): Pend
     case 'add-page':
       return 'page'
     case 'add-text':
-      // `long` stamps a markdown note file entity, not plain text. ADR 0013 §3.
-      return getToolDefaults()['add-text'].textKind === 'long' ? 'file' : 'text'
+      return 'text'
+    case 'add-document':
+      return 'file'
     case 'add-sticky':
       return 'text'
     case 'add-shape':
@@ -505,6 +506,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       drawBrushType: getToolDefaults().draw.brushType,
       drawColor: getToolDefaults().draw.color,
       stickyColor: getToolDefaults()['add-sticky'].color,
+      shapeColor: getToolDefaults()['add-shape'].color,
     }
   }
 
@@ -547,5 +549,6 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     drawBrushType: getToolDefaults().draw.brushType,
     drawColor: getToolDefaults().draw.color,
     stickyColor: getToolDefaults()['add-sticky'].color,
+    shapeColor: getToolDefaults()['add-shape'].color,
   }
 }
