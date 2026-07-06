@@ -13,11 +13,11 @@
  *     against the frozen non-moving slots; commit repacks via `reorderSelection`
  *     (positions only, ephemeral). Freezing avoids a feedback loop between the
  *     live preview and re-detection mid-drag.
- *   - **Managed group door** — a managed-row group's child. Commit rewrites the
- *     `entityOrder` run via `reorderManagedChild` (persisted, M1 unchanged).
+ *   - **Managed group door** — a managed row/column group's child. Commit
+ *     rewrites the `entityOrder` run via `reorderManagedChild` (persisted).
  *
  * `start` only carries `movingId`; this coordinator resolves which door armed it
- * (a managed-row child → managed door, else the selection door).
+ * (a managed child → managed door, else the selection door).
  *
  * Invariants (plan I2/I3, gesture-begin ordering):
  *   - `start` enters the interaction mode BEFORE any mutation, so the focus
@@ -35,7 +35,7 @@ import type { CancelReason } from '../shared/interaction-types'
 import { managedChildOrder } from './runtime/entity-order-state'
 import {
   computeReorderDropIndex,
-  managedRowGroupForChild,
+  managedGroupForChild,
   reorderManagedChild,
 } from './managed-layout'
 import { buildSelectionRow, reorderSelection } from './runtime/document-commands'
@@ -43,7 +43,7 @@ import { dropIndexForCursor, type ReorderableRow } from '../shared/reorder-row'
 import { selectedEntityIds } from './ui-state'
 
 type ActiveGesture =
-  | { door: 'managed'; groupId: string; movingId: string }
+  | { door: 'managed'; groupId: string; axis: 'x' | 'y'; movingId: string }
   | { door: 'selection'; row: ReorderableRow; movingId: string }
 
 let active: ActiveGesture | null = null
@@ -52,13 +52,13 @@ function clearActive(): void {
   active = null
 }
 
-/** Begin a reorder drag for `movingId`. Resolves the door (managed-row child →
+/** Begin a reorder drag for `movingId`. Resolves the door (managed child →
  *  managed door, else loose equal-gap selection → selection door) and freezes
  *  the row. Returns false (and enters nothing) when neither door is eligible. */
 export function startReorderGesture(movingId: string): boolean {
-  const groupId = managedRowGroupForChild(movingId)
-  if (groupId) {
-    const order = managedChildOrder(groupId)
+  const managed = managedGroupForChild(movingId)
+  if (managed) {
+    const order = managedChildOrder(managed.groupId)
     const dropIndex = order.indexOf(movingId)
     if (dropIndex === -1) return false
     const token = tryEnter({
@@ -66,10 +66,10 @@ export function startReorderGesture(movingId: string): boolean {
       ids: order,
       movingId,
       dropIndex,
-      axis: 'x',
+      axis: managed.axis,
     })
     if ('refused' in token) return false
-    active = { door: 'managed', groupId, movingId }
+    active = { door: 'managed', ...managed, movingId }
     return true
   }
 
@@ -93,8 +93,9 @@ export function startReorderGesture(movingId: string): boolean {
 export function moveReorderGesture(cursorCanvasX: number, cursorCanvasY: number): void {
   if (!active) return
   if (active.door === 'managed') {
+    const cursorAlongAxis = active.axis === 'x' ? cursorCanvasX : cursorCanvasY
     updateReorderingDropIndex(
-      computeReorderDropIndex(active.groupId, active.movingId, cursorCanvasX),
+      computeReorderDropIndex(active.groupId, active.movingId, cursorAlongAxis),
     )
     return
   }

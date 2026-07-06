@@ -391,7 +391,7 @@ export interface PersistedFileEntity extends CanvasEntityBase {
   metadata?: Record<string, unknown>
 }
 
-export type WorkspaceGroupLayoutMode = 'freeform' | 'row' | 'grid'
+export type WorkspaceGroupLayoutMode = 'freeform' | 'row' | 'column' | 'grid'
 
 export interface PersistedGroupEntity extends CanvasEntityBase {
   kind: 'group'
@@ -401,6 +401,8 @@ export interface PersistedGroupEntity extends CanvasEntityBase {
   height: number
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
+  /** Managed-layout packing gap in px; absent → the default gutter. */
+  layoutGap?: number
   sourceTaskId?: string
   metadata?: Record<string, unknown>
 }
@@ -1254,6 +1256,8 @@ export interface WorkspaceGroup {
   color?: string
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
+  /** Managed-layout packing gap in px; absent → the default gutter. */
+  layoutGap?: number
   pageIds?: string[]
   entityIds?: string[]
   sourceTaskId?: string

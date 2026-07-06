@@ -9,8 +9,8 @@
  * Eligibility is the union of two doors:
  *   - **Selection door** (new, primary): an evenly-spaced loose multi-selection
  *     (`detectReorderableRow` ≠ null) shows a dot on each selected item.
- *   - **Managed group door** (M1, persisted): a managed-row group whose group or
- *     child is selected shows a dot on each child.
+ *   - **Managed group door** (M1, persisted): a managed row/column group whose
+ *     group or child is selected shows a dot on each child.
  *
  * Eligibility runs on *canvas* geometry (fixed gap tolerance, matching the
  * commit's re-detection); the returned `center` is the entity's *screen* center,
@@ -52,11 +52,11 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
   const selected = new Set(selectedEntityIds)
   const dots = new Map<string, ReorderDot>()
 
-  // Managed door: map each managed-row group's direct children → group id, then
-  // light a child whose group or self is selected.
+  // Managed door: map each managed row/column group's direct children → group
+  // id, then light a child whose group or self is selected.
   const childToGroup = new Map<string, string>()
   for (const e of entities) {
-    if (e.kind === 'group' && e.managedLayout && e.layoutMode === 'row') {
+    if (e.kind === 'group' && e.managedLayout && (e.layoutMode === 'row' || e.layoutMode === 'column')) {
       for (const childId of e.entityIds) childToGroup.set(childId, e.id)
     }
   }

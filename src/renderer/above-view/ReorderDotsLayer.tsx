@@ -43,12 +43,16 @@ export function ReorderDotsLayer({
     if (!eligible.length) return []
 
     // Grow a dot when its entity is hovered, or when the hovered entity is the
-    // managed-row group that contains it.
+    // managed group that contains it.
     const hoverId = layoutData.hover?.id ?? null
     const hoveredGroupChildren = new Set<string>()
     if (hoverId) {
       const hovered = entities.find((e) => e.id === hoverId)
-      if (hovered?.kind === 'group' && hovered.managedLayout && hovered.layoutMode === 'row') {
+      if (
+        hovered?.kind === 'group' &&
+        hovered.managedLayout &&
+        (hovered.layoutMode === 'row' || hovered.layoutMode === 'column')
+      ) {
         for (const childId of hovered.entityIds) hoveredGroupChildren.add(childId)
       }
     }

@@ -50,23 +50,29 @@ export function computeLayoutMetrics(
 }
 
 /**
- * Pack boxes left-to-right into a single row from an explicit origin, separated
+ * Pack boxes into a single line along `axis` from an explicit origin, separated
  * by a fixed gap. The managed-layout kernel: each child keeps its own size, the
- * cursor advances by width + gap. All children share the row's top (`originY`);
- * cross-axis alignment is a Milestone 2 concern. Pure — no grid-snap (the caller
- * snaps the origin; see managed-layout reflow, ADR 0015 D5).
+ * cursor advances by the child's main-axis size + gap. All children share the
+ * line's cross-axis origin; cross-axis alignment is a Milestone 2 concern.
+ * Pure — no grid-snap (the caller snaps the origin; see managed-layout reflow,
+ * ADR 0015 D5).
  */
 export function computeRowReflow(
   children: LayoutBox[],
   gap: number,
   originX: number,
   originY: number,
+  axis: 'x' | 'y' = 'x',
 ): Array<{ canvasX: number; canvasY: number }> {
   const positions: Array<{ canvasX: number; canvasY: number }> = []
-  let cursorX = originX
+  let cursor = axis === 'x' ? originX : originY
   for (const child of children) {
-    positions.push({ canvasX: cursorX, canvasY: originY })
-    cursorX += child.width + gap
+    positions.push(
+      axis === 'x'
+        ? { canvasX: cursor, canvasY: originY }
+        : { canvasX: originX, canvasY: cursor },
+    )
+    cursor += (axis === 'x' ? child.width : child.height) + gap
   }
   return positions
 }

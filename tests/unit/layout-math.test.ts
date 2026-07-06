@@ -217,6 +217,17 @@ describe('computeRowReflow', () => {
     ]
     expect(computeRowReflow(children, 20, 0, 0).map((p) => p.canvasX)).toEqual([0, 20])
   })
+
+  it('packs top-to-bottom by own height on the y axis, sharing originX', () => {
+    const children: LayoutBox[] = [
+      { width: 100, height: 80 },
+      { width: 200, height: 120 },
+      { width: 50, height: 60 },
+    ]
+    const positions = computeRowReflow(children, 10, 5, 50, 'y')
+    expect(positions.map((p) => p.canvasY)).toEqual([50, 140, 270])
+    expect(positions.every((p) => p.canvasX === 5)).toBe(true)
+  })
 })
 
 describe('computeLayoutMetrics', () => {

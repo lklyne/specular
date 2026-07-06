@@ -1,5 +1,6 @@
-import type { WorkspaceGroup } from '../shared/types'
+import type { WorkspaceGroup, WorkspaceGroupLayoutMode } from '../shared/types'
 import { CLUSTER_HORIZONTAL_GUTTER, USER_GROUP_PADDING } from '../shared/constants'
+import { dominantAxis, type Box } from '../shared/reorder-row'
 import { computeRowReflow, type LayoutBox } from './layout-math'
 import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
@@ -127,12 +128,22 @@ function recomputeGroupBounds(group: WorkspaceGroup, childIds: string[]): void {
   group.height = bounds.height + USER_GROUP_PADDING * 2
 }
 
+/** Packing axis for a managed layout mode: columns stack vertically, everything
+ *  else packs horizontally (grid isn't live yet). */
+export function managedAxis(mode: WorkspaceGroupLayoutMode): 'x' | 'y' {
+  return mode === 'column' ? 'y' : 'x'
+}
+
+function isManagedLineMode(mode: WorkspaceGroupLayoutMode): boolean {
+  return mode === 'row' || mode === 'column'
+}
+
 /**
  * The single writer of a managed group's child positions (ADR 0015 D3). Resolves
- * the group's direct children in `entityOrder` run order, packs them as a row,
- * writes each origin, and recomputes the group bbox. Any change to a managed
- * group — membership, child resize, reorder — funnels through here. Children
- * never hold authoritative positions; these are outputs.
+ * the group's direct children in `entityOrder` run order, packs them as a line
+ * along the mode's axis, writes each origin, and recomputes the group bbox. Any
+ * change to a managed group — membership, child resize, reorder — funnels
+ * through here. Children never hold authoritative positions; these are outputs.
  *
  * No-op for `freeform` / unmanaged groups. Does not call `requestLayout` — the
  * caller owns the layout pass and undo batching.
@@ -140,7 +151,7 @@ function recomputeGroupBounds(group: WorkspaceGroup, childIds: string[]): void {
 export function reflowManagedGroup(groupId: string): boolean {
   const group = groupById(groupId)
   if (!group || !group.managedLayout) return false
-  if (group.layoutMode !== 'row') return false // only row is live in Milestone 1
+  if (!isManagedLineMode(group.layoutMode)) return false // grid isn't live yet
 
   const orderedIds = managedChildOrder(groupId)
   if (!orderedIds.length) return false
@@ -153,7 +164,8 @@ export function reflowManagedGroup(groupId: string): boolean {
   const originX = snapToGrid(Math.min(...children.map((c) => c.canvasX)))
   const originY = snapToGrid(Math.min(...children.map((c) => c.canvasY)))
 
-  const positions = computeRowReflow(children, CLUSTER_HORIZONTAL_GUTTER, originX, originY)
+  const gap = group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
+  const positions = computeRowReflow(children, gap, originX, originY, managedAxis(group.layoutMode))
   children.forEach((child, index) => {
     const pos = positions[index]
     child.setOrigin(pos.canvasX, pos.canvasY)
@@ -176,17 +188,19 @@ export function reflowManagedGroupForChild(childId: string): boolean {
 }
 
 /**
- * The managed-row group id that directly contains `childId`, or null. Used by the
- * reorder gesture's door resolution (ADR 0015 D7): a dragged dot whose entity is
- * a managed-row child takes the managed door; everything else takes the selection
- * door.
+ * The managed row/column group that directly contains `childId` (with its
+ * packing axis), or null. Used by the reorder gesture's door resolution
+ * (ADR 0015 D7): a dragged dot whose entity is a managed child takes the
+ * managed door; everything else takes the selection door.
  */
-export function managedRowGroupForChild(childId: string): string | null {
+export function managedGroupForChild(
+  childId: string,
+): { groupId: string; axis: 'x' | 'y' } | null {
   const parentId = resolveLeafParentGroupId(childId)
   if (!parentId) return null
   const group = groupById(parentId)
-  if (!group || !group.managedLayout || group.layoutMode !== 'row') return null
-  return parentId
+  if (!group || !group.managedLayout || !isManagedLineMode(group.layoutMode)) return null
+  return { groupId: parentId, axis: managedAxis(group.layoutMode) }
 }
 
 function resolveLeafParentGroupId(id: string): string | null {
@@ -205,21 +219,26 @@ function resolveLeafParentGroupId(id: string): string | null {
 
 /**
  * Drop index for a reorder-in-progress: where `childId` would land if released
- * with the cursor at `cursorCanvasX`. Counts how many *other* children have their
- * center left of the cursor. Returns an index into the without-dragged sequence
- * (0..n-1), directly consumable by `reorderManagedChild`.
+ * with the cursor at `cursorAlongAxis` (canvas-space, along the group's packing
+ * axis). Counts how many *other* children have their center before the cursor.
+ * Returns an index into the without-dragged sequence (0..n-1), directly
+ * consumable by `reorderManagedChild`.
  */
 export function computeReorderDropIndex(
   groupId: string,
   childId: string,
-  cursorCanvasX: number,
+  cursorAlongAxis: number,
 ): number {
+  const group = groupById(groupId)
+  const axis = group ? managedAxis(group.layoutMode) : 'x'
   const others = managedChildOrder(groupId).filter((id) => id !== childId)
   let index = 0
   for (const id of others) {
     const child = resolveManagedChild(id)
     if (!child) continue
-    if (cursorCanvasX > child.canvasX + child.width / 2) index++
+    const center =
+      axis === 'y' ? child.canvasY + child.height / 2 : child.canvasX + child.width / 2
+    if (cursorAlongAxis > center) index++
   }
   return index
 }
@@ -265,10 +284,31 @@ export function reorderManagedChild(
 }
 
 /**
+ * Set a managed group's packing gap (px) and reflow at the new spacing. The gap
+ * is clamped to a non-negative integer. One undo step (the field write and the
+ * reflow positions land in the same forward-sync transaction). Returns whether
+ * anything changed.
+ */
+export function setGroupLayoutGap(groupId: string, gap: number): boolean {
+  const group = groupById(groupId)
+  if (!group || !group.managedLayout) return false
+  if (!Number.isFinite(gap)) return false
+  const next = Math.max(0, Math.round(gap))
+  if (group.layoutGap === next) return false
+  return mutateWorkspace(() => {
+    group.layoutGap = next
+    markDirty('canvas', 'sidebar')
+    reflowManagedGroup(groupId)
+    return true
+  }, { changed: (changed) => changed })
+}
+
+/**
  * Headless entry point for "make auto-layout from selection" (plan O1). Marks a
- * group as a managed row — creating one from `entityIds` if no `groupId` is
- * given — seeds the layout sequence to the children's current left-to-right
- * order so nothing jumps, and reflows. One undo step.
+ * group as a managed row or column — creating one from `entityIds` if no
+ * `groupId` is given — picking the mode from the children's dominant axis,
+ * seeds the layout sequence to their current order along that axis so nothing
+ * jumps, and reflows. One undo step.
  *
  * Returns the managed group, or null if there's nothing to manage.
  */
@@ -290,15 +330,28 @@ export function makeAutoLayoutGroup(input: {
       }
       if (!group) return
 
-      group.layoutMode = 'row'
+      const children = managedChildOrder(group.id).map((id) => ({
+        id,
+        child: resolveManagedChild(id),
+      }))
+      const boxes: Box[] = children.flatMap(({ id, child }) =>
+        child
+          ? [{ id, x: child.canvasX, y: child.canvasY, width: child.width, height: child.height }]
+          : [],
+      )
+      const axis = boxes.length ? dominantAxis(boxes) : 'x'
+      group.layoutMode = axis === 'y' ? 'column' : 'row'
       group.managedLayout = true
       markDirty('canvas', 'sidebar')
 
-      // Seed layout order = current visual left-to-right so the row doesn't
-      // scramble on conversion.
-      const seeded = managedChildOrder(group.id)
-        .map((id) => ({ id, x: resolveManagedChild(id)?.canvasX ?? 0 }))
-        .sort((a, b) => a.x - b.x)
+      // Seed layout order = current visual order along the axis so the line
+      // doesn't scramble on conversion.
+      const seeded = children
+        .map(({ id, child }) => ({
+          id,
+          pos: (axis === 'y' ? child?.canvasY : child?.canvasX) ?? 0,
+        }))
+        .sort((a, b) => a.pos - b.pos)
         .map((c) => c.id)
       writeManagedChildOrder(group.id, seeded)
       reflowManagedGroup(group.id)

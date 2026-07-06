@@ -256,6 +256,7 @@ export function serializeGroupEntityToGroupNode(entity: PersistedGroupEntity): J
     color: entity.color,
     // App-specific extensions
     layoutMode: entity.layoutMode,
+    layoutGap: entity.layoutGap,
     parentGroupId: entity.parentGroupId,
     managedLayout: entity.managedLayout,
     groupColor: entity.color,
@@ -469,6 +470,7 @@ export function deserializeGroupNodeToGroup(node: JsonCanvasGroupNode): Persiste
     parentGroupId: node.parentGroupId,
     color: node.groupColor ?? node.color,
     layoutMode: (node.layoutMode as PersistedGroupEntity['layoutMode']) ?? 'freeform',
+    layoutGap: node.layoutGap,
     managedLayout: node.managedLayout ?? false,
     sourceTaskId: node.sourceTaskId,
     metadata: node.groupMetadata,
