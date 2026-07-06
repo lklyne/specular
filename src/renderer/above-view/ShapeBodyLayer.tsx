@@ -115,6 +115,47 @@ function ShapeText({
   )
 }
 
+// Pure fill/border/text derivation for a shape — kept out of the component so
+// its render stays about state and layout, not color math.
+function shapeVisuals(shape: CanvasSceneShapeEntity, isDark: boolean, editing: boolean) {
+  const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
+  const borderStyle = shape.borderStyle ?? 'solid'
+  const hasBorder = borderStyle !== 'none'
+  const resolvedColor = shape.color
+    ? resolveCanvasColor(shape.color, { role: 'fill', isDark, palette: 'soft' })
+    : NEUTRAL_SLATE
+  // Opaque fill — the resolved hue pushed toward paper (light) or the canvas
+  // (dark), no alpha.
+  const fill = isDark
+    ? darkenHex(resolvedColor, FILL_DARKEN)
+    : lightenHex(resolvedColor, FILL_LIGHTEN)
+  // Border color is independent of fill; absent, it derives from the fill hue.
+  const borderBase = shape.borderColor
+    ? resolveCanvasColor(shape.borderColor, { role: 'fill', isDark, palette: 'soft' })
+    : resolvedColor
+  // Dark mode: the pastel hue is already a light outline on the dark fill.
+  // Light mode: darken it so the edge reads against the light canvas.
+  const strokeColor = isDark ? borderBase : darkenHex(borderBase, BORDER_DARKEN_LIGHT)
+  const dash = borderStyle === 'dashed' ? `${stroke * 2} ${stroke * 1.5}` : undefined
+  const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
+
+  const def = shapeDef(shape.shapeKind)
+  const inset = def.textInset
+  const textContainerStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: inset ? `${inset.x}%` : 0,
+    top: inset ? `${inset.y}%` : 0,
+    ...(inset ? { width: `${inset.w}%`, height: `${inset.h}%` } : { right: 0, bottom: 0 }),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    boxSizing: 'border-box',
+    pointerEvents: editing ? 'auto' : 'none',
+  }
+  return { def, fill, hasBorder, stroke, strokeColor, dash, textColor, textContainerStyle }
+}
+
 function ShapeBody({
   shape,
   isDark,
@@ -166,42 +207,8 @@ function ShapeBody({
     setLocalText(shape.text)
   }, [editing, shape.text])
 
-  const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
-  const borderStyle = shape.borderStyle ?? 'solid'
-  const hasBorder = borderStyle !== 'none'
-  const resolvedColor = shape.color
-    ? resolveCanvasColor(shape.color, { role: 'fill', isDark, palette: 'soft' })
-    : NEUTRAL_SLATE
-  // Opaque fill — the resolved hue pushed toward paper (light) or the canvas
-  // (dark), no alpha.
-  const fill = isDark
-    ? darkenHex(resolvedColor, FILL_DARKEN)
-    : lightenHex(resolvedColor, FILL_LIGHTEN)
-  // Border color is independent of fill; absent, it derives from the fill hue.
-  const borderBase = shape.borderColor
-    ? resolveCanvasColor(shape.borderColor, { role: 'fill', isDark, palette: 'soft' })
-    : resolvedColor
-  // Dark mode: the pastel hue is already a light outline on the dark fill.
-  // Light mode: darken it so the edge reads against the light canvas.
-  const strokeColor = isDark ? borderBase : darkenHex(borderBase, BORDER_DARKEN_LIGHT)
-  const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
-
-  const def = shapeDef(shape.shapeKind)
-  const inset = def.textInset
-  const textContainerStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: inset ? `${inset.x}%` : 0,
-    top: inset ? `${inset.y}%` : 0,
-    ...(inset
-      ? { width: `${inset.w}%`, height: `${inset.h}%` }
-      : { right: 0, bottom: 0 }),
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    boxSizing: 'border-box',
-    pointerEvents: editing ? 'auto' : 'none',
-  }
+  const { def, fill, hasBorder, stroke, strokeColor, dash, textColor, textContainerStyle } =
+    shapeVisuals(shape, isDark, editing)
 
   const text = (
     <ShapeText
@@ -223,7 +230,6 @@ function ShapeBody({
   // entity's bounds. `non-scaling-stroke` keeps the border uniform even when
   // the box is non-square; `strokeDasharray` reproduces the dashed style SVG
   // has no `border-style` for.
-  const dash = borderStyle === 'dashed' ? `${stroke * 2} ${stroke * 1.5}` : undefined
   return (
     <>
       <svg

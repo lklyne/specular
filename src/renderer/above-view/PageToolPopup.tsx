@@ -5,19 +5,10 @@
 // Self-contained on purpose — the preset-row layout is meant to be iterated on
 // without disturbing the shared CanvasItemPopup primitives.
 
-import type { ComponentType } from 'react'
-import { Laptop, Monitor, Smartphone, SquareDashed, Tablet } from 'lucide-react'
 import { VIEWPORT_PRESETS, deviceForPresetIndex } from '../../shared/device-catalog'
 import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
-
-const CATEGORY_ICON: Record<string, ComponentType<{ size?: number }>> = {
-  iphone: Smartphone,
-  ipad: Tablet,
-  laptop: Laptop,
-  desktop: Monitor,
-}
 
 // Group presets into three device sections, keyed off catalog category.
 function sectionIndex(category: string | undefined): number {
@@ -44,14 +35,12 @@ function PresetRow({
   active,
   label,
   dims,
-  Icon,
   onClick,
 }: {
   isDark: boolean
   active: boolean
   label: string
   dims?: string
-  Icon: ComponentType<{ size?: number }>
   onClick: () => void
 }) {
   return (
@@ -62,8 +51,6 @@ function PresetRow({
       aria-pressed={active}
       aria-label={`Add ${label} page`}
     >
-      {/* Icons hidden for now — re-enable to bring them back. */}
-      {/* <Icon size={14} /> */}
       <span className="truncate text-xs font-medium leading-none">{label}</span>
       <span className="whitespace-nowrap text-xs font-normal leading-none tabular-nums text-zinc-500">
         {dims ?? ''}
@@ -102,10 +89,9 @@ export function PageToolPopup({
   const activePreset =
     tool.kind === 'add-page' && !tool.customSize ? tool.presetIndex ?? 0 : null
 
-  const sections: { index: number; category: string | undefined }[][] = [[], [], []]
+  const sections: number[][] = [[], [], []]
   VIEWPORT_PRESETS.forEach((_, index) => {
-    const category = deviceForPresetIndex(index)?.category
-    sections[sectionIndex(category)].push({ index, category })
+    sections[sectionIndex(deviceForPresetIndex(index)?.category)].push(index)
   })
 
   return (
@@ -115,7 +101,7 @@ export function PageToolPopup({
           {sections.map((rows, sectionI) => (
             <div key={sectionI} className="flex flex-col">
               {sectionI > 0 && <HDivider isDark={isDark} />}
-              {rows.map(({ index, category }) => {
+              {rows.map((index) => {
                 const preset = VIEWPORT_PRESETS[index]
                 return (
                   <PresetRow
@@ -124,7 +110,6 @@ export function PageToolPopup({
                     active={activePreset === index}
                     label={rowLabel(preset.label)}
                     dims={`${preset.width}×${preset.height}`}
-                    Icon={CATEGORY_ICON[category ?? ''] ?? Monitor}
                     onClick={() => api.setTool({ kind: 'add-page', presetIndex: index })}
                   />
                 )
@@ -136,7 +121,6 @@ export function PageToolPopup({
             isDark={isDark}
             active={customActive}
             label="Custom"
-            Icon={SquareDashed}
             onClick={() => api.setTool({ kind: 'add-page', customSize: true })}
           />
         </div>

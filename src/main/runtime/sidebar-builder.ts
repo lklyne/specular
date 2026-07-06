@@ -86,6 +86,13 @@ function buildSidebarLeafItem(
   entityId: string,
   ranks: Map<string, number>,
 ): (SidebarLeafItem & { sortKey: SortableSidebarItem['sortKey'] }) | null {
+  const leaf = describeSidebarLeaf(entityId)
+  if (!leaf) return null
+  return { ...leaf, sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER }
+}
+
+// The kind-specific projection, minus sort position (the caller stamps that).
+function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
   const page = findPageById(entityId)
   if (page) {
     return {
@@ -95,34 +102,19 @@ function buildSidebarLeafItem(
       faviconUrl: page.faviconUrl ?? null,
       width: page.peekWidth,
       height: page.peekHeight,
-      sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER,
     }
   }
 
   const te = textEntities.find((entity) => entity.id === entityId)
   if (te) {
-    return {
-      kind: 'text',
-      id: entityId,
-      label: te.label || te.text || 'Text',
-      color: te.color,
-      sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER,
-    }
+    return { kind: 'text', id: entityId, label: te.label || te.text || 'Text', color: te.color }
   }
 
   const fe = fileEntities.find((entity) => entity.id === entityId)
   if (fe) {
     const fileName = fe.file.split('/').pop() ?? fe.file
-    const displayName = fileName
-      .replace(/\.wireframe\.json$/i, '')
-      .replace(/\.md$/i, '')
-    return {
-      kind: 'file',
-      id: entityId,
-      label: displayName,
-      file: fe.file,
-      sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER,
-    }
+    const displayName = fileName.replace(/\.wireframe\.json$/i, '').replace(/\.md$/i, '')
+    return { kind: 'file', id: entityId, label: displayName, file: fe.file }
   }
 
   const de = drawingEntitiesForUi().find((entity) => entity.id === entityId)
@@ -133,20 +125,17 @@ function buildSidebarLeafItem(
       id: entityId,
       label: de.label || defaultLabel,
       strokeCount: de.strokes.length,
-      sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER,
     }
   }
 
   const se = shapeEntities.find((entity) => entity.id === entityId)
   if (se) {
-    const trimmed = se.text.trim()
     const defaultLabel = shapeDef(se.shapeKind).label
     return {
       kind: 'shape',
       id: entityId,
-      label: se.label || trimmed || defaultLabel,
+      label: se.label || se.text.trim() || defaultLabel,
       shapeKind: se.shapeKind,
-      sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER,
     }
   }
 

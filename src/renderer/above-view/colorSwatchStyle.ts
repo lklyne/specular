@@ -18,7 +18,7 @@ function luminance(hex: string): number {
  * subtle matching ring), a contrasting gray for near-white swatches that would
  * otherwise disappear against the popup surface.
  */
-export function swatchRingColor(swatch: string, isDark: boolean): string {
+function swatchRingColor(swatch: string, isDark: boolean): string {
   // Only near-white swatches (the neutral slot, ~0.98) flip to gray; the soft
   // pastels (yellow, the lightest hue, is ~0.88) keep their matching colored ring.
   if (luminance(swatch) > 0.92) return isDark ? '#a1a1aa' : '#71717a'

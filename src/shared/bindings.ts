@@ -353,7 +353,7 @@ export function bindingById(id: BindingId): Binding {
 
 // Compact glyph form for surfacing a shortcut inline (e.g. a tooltip): `V`,
 // `⇧M`, `⌘⇧R` on mac; `Ctrl+Shift+R` elsewhere.
-export function shortcutSymbols(key: NormalizedKey, isMac: boolean): string {
+function shortcutSymbols(key: NormalizedKey, isMac: boolean): string {
   const parts: string[] = []
   if (key.cmd) parts.push(isMac ? '⌘' : 'Ctrl')
   if (key.alt) parts.push(isMac ? '⌥' : 'Alt')

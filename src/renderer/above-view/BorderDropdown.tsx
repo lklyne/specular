@@ -17,7 +17,7 @@ import type { ShapeBorderStyle } from '../../shared/types'
 import { swatchDotShadow, swatchRingShadow } from './colorSwatchStyle'
 
 /** Thickness presets, mirroring the right panel's stroke widths. */
-export const BORDER_WIDTH_PRESETS: readonly number[] = [1, 2, 3, 4]
+const BORDER_WIDTH_PRESETS: readonly number[] = [1, 2, 3, 4]
 
 const STYLE_OPTIONS: { style: ShapeBorderStyle; label: string }[] = [
   { style: 'solid', label: 'Solid' },

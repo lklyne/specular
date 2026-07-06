@@ -111,16 +111,11 @@ export function clearShapeEntities(): void {
   shapeEntities.length = 0
 }
 
-export function buildShapeEntitySceneEntity(
-  entity: ShapeEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneShapeEntity {
-  const screenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+// The field copy shared by the scene and persisted projections. Scene adds
+// screen coords; persist adds `label`.
+function shapeCoreFields(entity: ShapeEntity) {
   return {
-    kind: 'shape',
+    kind: 'shape' as const,
     id: entity.id,
     shapeKind: entity.shapeKind,
     text: entity.text,
@@ -135,8 +130,19 @@ export function buildShapeEntitySceneEntity(
     width: entity.width,
     height: entity.height,
     parentGroupId: entity.parentGroupId,
-    screenX,
-    screenY,
+  }
+}
+
+export function buildShapeEntitySceneEntity(
+  entity: ShapeEntity,
+  zoom: number,
+  pan: { x: number; y: number },
+  canvasOrigin: { x: number; y: number },
+): CanvasSceneShapeEntity {
+  return {
+    ...shapeCoreFields(entity),
+    screenX: canvasOrigin.x + entity.canvasX * zoom + pan.x,
+    screenY: canvasOrigin.y + entity.canvasY * zoom + pan.y,
     screenWidth: entity.width * zoom,
     screenHeight: entity.height * zoom,
   }
@@ -173,21 +179,7 @@ export const SHAPE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
 
 export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {
   return {
-    kind: 'shape',
-    id: entity.id,
-    shapeKind: entity.shapeKind,
-    text: entity.text,
-    color: entity.color,
-    strokeWidth: entity.strokeWidth,
-    borderStyle: entity.borderStyle,
-    borderColor: entity.borderColor,
-    textSize: entity.textSize,
-    theme: entity.theme,
-    canvasX: entity.canvasX,
-    canvasY: entity.canvasY,
-    width: entity.width,
-    height: entity.height,
-    parentGroupId: entity.parentGroupId,
+    ...shapeCoreFields(entity),
     label: entity.label,
   }
 }
