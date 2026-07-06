@@ -11,13 +11,22 @@
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CanvasSceneShapeEntity } from '../../shared/types'
-import { lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
+import { darkenHex, lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
+import { shapeDef } from '../../shared/shapes'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 
 const DEFAULT_STROKE_WIDTH = 2
 /** ADR 0013 §2 — shapes without textSize render their label at this size. */
 const DEFAULT_TEXT_SIZE = 14
+// Light mode lightens the hue toward paper; dark mode darkens it toward the
+// canvas so the shape reads as a tinted panel, not a bright blob (the pastel
+// hue itself stays the border, outlining the dark fill). The palette hues carry
+// no dark variant, so the theme split lives here in the derivation.
 const FILL_LIGHTEN = 0.5
+const FILL_DARKEN = 0.55
+// Light-mode borders darken the hue so the outline reads against the light
+// canvas — neutral's near-white fill hue would otherwise vanish into it.
+const BORDER_DARKEN_LIGHT = 0.35
 const NEUTRAL_SLATE = '#6b7280'
 
 // contentEditable represents line breaks as <br>/block elements, which
@@ -158,49 +167,41 @@ function ShapeBody({
   }, [editing, shape.text])
 
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
+  const borderStyle = shape.borderStyle ?? 'solid'
+  const hasBorder = borderStyle !== 'none'
   const resolvedColor = shape.color
     ? resolveCanvasColor(shape.color, { role: 'fill', isDark, palette: 'soft' })
     : NEUTRAL_SLATE
-  // Opaque fill — the resolved hue lightened toward white, no alpha.
-  const fill = lightenHex(resolvedColor, FILL_LIGHTEN)
-  const strokeColor = resolvedColor
+  // Opaque fill — the resolved hue pushed toward paper (light) or the canvas
+  // (dark), no alpha.
+  const fill = isDark
+    ? darkenHex(resolvedColor, FILL_DARKEN)
+    : lightenHex(resolvedColor, FILL_LIGHTEN)
+  // Border color is independent of fill; absent, it derives from the fill hue.
+  const borderBase = shape.borderColor
+    ? resolveCanvasColor(shape.borderColor, { role: 'fill', isDark, palette: 'soft' })
+    : resolvedColor
+  // Dark mode: the pastel hue is already a light outline on the dark fill.
+  // Light mode: darken it so the edge reads against the light canvas.
+  const strokeColor = isDark ? borderBase : darkenHex(borderBase, BORDER_DARKEN_LIGHT)
   const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 
-  const baseStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
+  const def = shapeDef(shape.shapeKind)
+  const inset = def.textInset
+  const textContainerStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: inset ? `${inset.x}%` : 0,
+    top: inset ? `${inset.y}%` : 0,
+    ...(inset
+      ? { width: `${inset.w}%`, height: `${inset.h}%` }
+      : { right: 0, bottom: 0 }),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
     boxSizing: 'border-box',
-    borderWidth: stroke,
-    borderStyle: 'solid',
-    borderColor: strokeColor,
-    backgroundColor: fill,
-    pointerEvents: 'none',
+    pointerEvents: editing ? 'auto' : 'none',
   }
-
-  const textContainerStyle: React.CSSProperties =
-    shape.shapeKind === 'diamond'
-      ? {
-          position: 'absolute',
-          left: '25%',
-          top: '25%',
-          width: '50%',
-          height: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 8,
-          boxSizing: 'border-box',
-          pointerEvents: editing ? 'auto' : 'none',
-        }
-      : {
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 8,
-          pointerEvents: editing ? 'auto' : 'none',
-        }
 
   const text = (
     <ShapeText
@@ -218,29 +219,11 @@ function ShapeBody({
     />
   )
 
-  if (shape.shapeKind === 'rectangle') {
-    return (
-      <>
-        <div style={baseStyle} />
-        {text}
-      </>
-    )
-  }
-
-  if (shape.shapeKind === 'ellipse') {
-    return (
-      <>
-        <div style={{ ...baseStyle, borderRadius: '50%' }} />
-        {text}
-      </>
-    )
-  }
-
-  // diamond: a true rhombus with vertices at the midpoints of each
-  // bounding-box edge. Drawn as an SVG polygon so the stroke stays uniform
-  // when the bounding box is non-square. The text box is the largest
-  // axis-aligned rectangle that fits inside the rhombus — half the bbox
-  // width × half the height.
+  // Every shape is one SVG path in a normalized 0–100 box, stretched to the
+  // entity's bounds. `non-scaling-stroke` keeps the border uniform even when
+  // the box is non-square; `strokeDasharray` reproduces the dashed style SVG
+  // has no `border-style` for.
+  const dash = borderStyle === 'dashed' ? `${stroke * 2} ${stroke * 1.5}` : undefined
   return (
     <>
       <svg
@@ -250,13 +233,25 @@ function ShapeBody({
         preserveAspectRatio="none"
         style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
       >
-        <polygon
-          points="50,0 100,50 50,100 0,50"
+        <path
+          d={def.path}
           fill={fill}
-          stroke={strokeColor}
-          strokeWidth={stroke}
+          stroke={hasBorder ? strokeColor : 'none'}
+          strokeWidth={hasBorder ? stroke : 0}
+          strokeDasharray={dash}
+          strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
+        {def.line ? (
+          <path
+            d={def.line}
+            fill="none"
+            stroke={hasBorder ? strokeColor : fill}
+            strokeWidth={hasBorder ? stroke : 1}
+            strokeDasharray={dash}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null}
       </svg>
       {text}
     </>
@@ -270,6 +265,8 @@ const MemoShapeBody = memo(ShapeBody, (a, b) => {
     a.shape.text === b.shape.text &&
     a.shape.color === b.shape.color &&
     a.shape.strokeWidth === b.shape.strokeWidth &&
+    a.shape.borderStyle === b.shape.borderStyle &&
+    a.shape.borderColor === b.shape.borderColor &&
     a.shape.textSize === b.shape.textSize &&
     a.shape.width === b.shape.width &&
     a.shape.height === b.shape.height &&

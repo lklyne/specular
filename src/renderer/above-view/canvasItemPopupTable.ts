@@ -12,6 +12,7 @@ import { FilePopup } from './FilePopup'
 import { DrawingPopup } from './DrawingPopup'
 import { DrawToolPopup } from './DrawToolPopup'
 import { GroupPopup } from './GroupPopup'
+import { PageToolPopup } from './PageToolPopup'
 import { ShapePopup } from './ShapePopup'
 import { ShapeToolPopup } from './ShapeToolPopup'
 import { StickyNotePopover } from './StickyNotePopover'
@@ -73,6 +74,7 @@ export type ToolPopupRow = {
 // Tool-mode popups (ADR 0008 §1): keyed by the active tool; exactly one mounts,
 // and it always wins the tool-vs-selection mutex (§2).
 export const TOOL_POPUPS: ToolPopupRow[] = [
+  { toolKind: 'add-page', Component: PageToolPopup },
   { toolKind: 'add-text', Component: TextToolPopup, extraProps: { style: 'plain' } },
   { toolKind: 'add-sticky', Component: TextToolPopup, extraProps: { style: 'sticky' } },
   { toolKind: 'add-shape', Component: ShapeToolPopup },

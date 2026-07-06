@@ -4,6 +4,7 @@ import { slotForStorage } from '../../shared/canvas-colors'
 import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { ColorDropdown } from './ColorDropdown'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function GroupPopup({
@@ -34,7 +35,7 @@ export function GroupPopup({
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
-        <CanvasItemPopup.PaletteSection
+        <ColorDropdown
           isDark={isDark}
           palette="vivid"
           activeSlot={activeSlot}

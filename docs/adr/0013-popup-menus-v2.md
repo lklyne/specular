@@ -71,6 +71,14 @@ Shape stroke width remains in the data model but is **not** exposed in the popup
 
 ### 3. Cross-kind morph (text ↔ file)
 
+> **Superseded (2026-07).** This section is retired. Text and Document are now two
+> independent one-shot toolbar tools (`add-text` and `add-document`); the tool you
+> pick determines the entity. The `short`/`long` popup toggle, the `add-text.textKind`
+> preference, and the cross-kind morph (`morph-text-file` IPC + `TextKindToggle` +
+> the markdown-morph popup contribution) were all deleted — this ADR's rejected
+> alternative **C** is what shipped. Convert-in-place is no longer offered; retype or
+> copy/paste to change kind. The rest of the section is kept for history.
+
 Plain text and Document (`.md`) are presented to users as two flavors of one "text" concept. The popup's leading variant pair (`short` / `long`) toggles between them:
 
 - **Tool mode** — `short` stamps a `text` entity with `textStyle: 'plain'`; `long` stamps a `file` entity backed by a new `.md` file on disk.

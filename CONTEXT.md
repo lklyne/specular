@@ -19,7 +19,7 @@ Follows [JSON Canvas v1.0](https://jsoncanvas.org) on disk; uses Specular-native
 
 ## Text affordances
 
-The `text` and `file` kinds back three user-facing affordances. The toolbar exposes them under a single **`Add text ▾`** dropdown.
+The `text` and `file` kinds back three user-facing affordances. The toolbar exposes **Text**, **Sticky note**, and **Document** as three independent one-shot tools (`add-text`, `add-sticky`, `add-document`) — the tool you pick determines the entity, with no post-pick mode toggle or cross-kind morph.
 
 | UX affordance | What it is | Spec mapping |
 |---|---|---|
@@ -126,6 +126,10 @@ Per [ADR 0002](./docs/adr/0002-canvas-anchored-overlay-ui.md) and [ADR 0008](./d
   - **Viewport-anchored (tool mode)** — mounts under the toolbar, centered, when a creation tool with options is active (`add-text`, `add-shape`, `draw`). Reads/writes per-tool defaults in app settings; the next item created uses those defaults.
   - When a non-`select` tool with options is active, the tool popup wins; the selection popup is suppressed. Tools without options (`inspect`, `comment`, `add-page`, `add-document`) fall through to the selection popup.
   - Right-click context menus are out of scope.
+- **Shape catalog** — every shape kind is one row in `src/shared/shapes.ts` (`SHAPE_DEFS`): a `label`, an SVG `path` in a normalized 0–100 box, an optional stroke-only `line` overlay (cylinder rim), and an optional `textInset` for the label box. `ShapeKind` **derives** from this table, so adding a shape is one row — no union edits. `ShapeBodyLayer` and the drag-preview draw the `path` with `preserveAspectRatio="none"` + `vectorEffect="non-scaling-stroke"` (stretches to any size, uniform border); `ShapeGlyph` renders the same path as a picker icon so the icon always matches the drawn shape. Shape pickers use `ShapeDropdown` (a grid mirror of `ColorDropdown`). Straight-edged shapes stretch cleanly; rounded ones (rounded/pill/cylinder/cloud) distort their curves under non-square scaling — acceptable for flowchart use.
+- **Shape border** — a shape's outline is independent of its fill. `color` drives the fill; `borderStyle` (`solid` / `dashed` / `none`, absent = solid) and `borderColor` (absent = derive from the fill hue) drive the outline, with `strokeWidth` as thickness. All four are edited from the shape popup's `BorderDropdown` (style + thickness + color in one popup); fill color has its own `ColorDropdown` beside it.
+- **Shape fill is theme-derived, not a second palette.** The hue slots carry no dark variant; `ShapeBodyLayer` splits by theme — light mode lightens the hue toward paper, dark mode darkens it toward the canvas so the shape is a tinted panel with the pastel hue as a light outline (readable label on both). Neutral rides the same path via its theme-aware fill.
+- **`ColorDropdown`** — the single collapsed color picker for selection popups (sticky/shape/group/drawing). The popup shows only the active swatch + chevron; opening it drops a palette row below. Tool-mode popups keep their swatches inline (all colors shown), so `ColorDropdown` is selection-mode only.
 - **`useAnchoredPosition(entityId, slot)`** — pure positioning hook. Reads the layout broadcast aboveView already receives, returns screen-space coords for the entity's chrome slot.
 - **`EntityChrome` compound** — the `Root / DragTrigger / Title / Actions / Button` primitives composed inside `CanvasItemChrome` consumers. Style once, compose differently per consumer.
 

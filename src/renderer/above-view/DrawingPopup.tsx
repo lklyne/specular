@@ -9,6 +9,7 @@ import {
 import type { AnnotationDrawingStroke, CanvasSceneDrawingEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { ColorDropdown } from './ColorDropdown'
 import { drawingBounds } from './annotationMath'
 import {
   BRUSH_VARIANT_OPTIONS,
@@ -122,7 +123,7 @@ export function DrawingPopup({
           ))}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.PaletteSection
+        <ColorDropdown
           isDark={isDark}
           palette={swatchPalette}
           activeSlot={activeSlot}

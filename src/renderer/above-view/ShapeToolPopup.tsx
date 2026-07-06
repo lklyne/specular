@@ -5,10 +5,10 @@ import {
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type { LayoutUpdateData, ToolDefaultPatch } from '../../shared/types'
+import type { LayoutUpdateData, ShapeKind, ToolDefaultPatch } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
+import { ShapeDropdown } from './ShapeDropdown'
 import { TextSizeDropdown } from './TextSizeDropdown'
 
 export function ShapeToolPopup({
@@ -25,27 +25,19 @@ export function ShapeToolPopup({
   return (
     <CanvasItemPopup.ViewportAnchor layout={layout} open offset={8}>
       <CanvasItemPopup.Frame isDark={isDark}>
-        <CanvasItemPopup.Section>
-          {SHAPE_VARIANT_OPTIONS.map(({ kind, label, Icon }) => (
-            <CanvasItemPopup.IconButton
-              key={kind}
-              isDark={isDark}
-              active={defaults.shapeKind === kind}
-              title={label}
-              ariaLabel={`Set default shape to ${label}`}
-              onClick={() => {
-                const patch: ToolDefaultPatch = {
-                  scope: 'add-shape',
-                  key: 'shapeKind',
-                  value: kind,
-                }
-                api.setToolDefault(patch)
-              }}
-            >
-              <Icon size={14} />
-            </CanvasItemPopup.IconButton>
-          ))}
-        </CanvasItemPopup.Section>
+        <ShapeDropdown
+          isDark={isDark}
+          activeKind={defaults.shapeKind}
+          noun="default"
+          onPick={(kind) => {
+            const patch: ToolDefaultPatch = {
+              scope: 'add-shape',
+              key: 'shapeKind',
+              value: kind as ShapeKind,
+            }
+            api.setToolDefault(patch)
+          }}
+        />
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           <TextSizeDropdown
@@ -70,6 +62,7 @@ export function ShapeToolPopup({
             return (
               <CanvasItemPopup.ColorSwatch
                 key={slot.id}
+                isDark={isDark}
                 active={activeSlot === slot.id}
                 color={swatch}
                 ariaLabel={`Set default shape color to ${slot.label}`}

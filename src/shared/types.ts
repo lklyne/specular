@@ -59,7 +59,11 @@ export interface PageConfig {
 
 export type CanvasEntityKind = 'page' | 'text' | 'file' | 'group' | 'edge' | 'drawing' | 'shape'
 
-export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
+import type { ShapeKind } from './shapes'
+export type { ShapeKind }
+
+/** Shape border rendering: a drawn outline, a dashed outline, or no outline. */
+export type ShapeBorderStyle = 'solid' | 'dashed' | 'none'
 
 /**
  * Renderer plugin popup contribution tags (ADR 0008 §7). Each tag names a
@@ -298,6 +302,10 @@ export interface CanvasSceneShapeEntity {
   text: string
   color?: string
   strokeWidth?: number
+  /** Border line style. Absent = 'solid' (backward compat). */
+  borderStyle?: ShapeBorderStyle
+  /** Border color, independent of fill `color`. Absent = derive from `color`. */
+  borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
@@ -419,6 +427,8 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   text: string
   color?: string
   strokeWidth?: number
+  borderStyle?: ShapeBorderStyle
+  borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
@@ -655,6 +665,8 @@ export interface ToolbarSelectionData {
   drawColor: string
   /** Current sticky-tool color default (raw stored slot/hex) — tints the sticky glyph. */
   stickyColor: string
+  /** Current shape-tool color default (raw stored slot/hex) — tints the shape glyph. */
+  shapeColor: string
 }
 
 export interface ThemeData {
@@ -1564,7 +1576,7 @@ export interface EntityUpdatePatchMap {
   text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
   file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
   drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
-  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
+  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; borderStyle?: ShapeBorderStyle; borderColor?: string; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
   group: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }
 }
 

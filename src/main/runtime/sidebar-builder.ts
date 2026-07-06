@@ -3,6 +3,7 @@
  */
 
 import { ipcChannels } from '../../shared/ipc-contract'
+import { shapeDef } from '../../shared/shapes'
 import type {
   LeftSidebarData,
   LeftSidebarSections,
@@ -139,8 +140,7 @@ function buildSidebarLeafItem(
   const se = shapeEntities.find((entity) => entity.id === entityId)
   if (se) {
     const trimmed = se.text.trim()
-    const defaultLabel =
-      se.shapeKind === 'ellipse' ? 'Ellipse' : se.shapeKind === 'diamond' ? 'Diamond' : 'Rectangle'
+    const defaultLabel = shapeDef(se.shapeKind).label
     return {
       kind: 'shape',
       id: entityId,

@@ -1,20 +1,23 @@
 // ADR 0008 — unified canvas-item popup compound component.
 
-import { useLayoutEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { AlignHorizontalDistributeCenter, Maximize2 } from 'lucide-react'
 import {
-  paletteSlots,
-  resolveCanvasColor,
-  type CanvasColorRole,
-  type CanvasColorSlot,
-  type CanvasPalette,
-} from '../../shared/canvas-colors'
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+  type ReactNode,
+} from 'react'
+import { AlignHorizontalDistributeCenter, Maximize2 } from 'lucide-react'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
+import { Tooltip } from '../shared/Tooltip'
+import { swatchDotShadow, swatchRingShadow } from './colorSwatchStyle'
 import { focusContext } from '../../shared/focus-context'
 import {
   CAMERA_SPRING_CSS_EASING,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
 } from '../../shared/camera-transition'
+import type { Rect } from '../../shared/hit-regions'
 import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
@@ -56,13 +59,20 @@ function Root(props: RootProps) {
   )
   const multiRect = useMultiAnchoredPosition(layout, props.entityIds ?? [], slot)
   const rect = props.entityIds !== undefined ? multiRect : singleRect
+  const anchorVisible =
+    rect === null ||
+    placement === 'overlay' ||
+    placement === 'viewport-top' ||
+    anchorIntersectsCanvas(rect, layout)
+  const mounted = open && rect !== null && anchorVisible
   const popupMotion = usePopupFlipAnimation({
-    active: open && rect !== null,
+    active: mounted,
     placement,
     cameraTransitionStartedAt: layout.cameraTransitionStartedAt,
   })
-  if (!open || !rect) return null
-  const style = popupStyle(rect, placement, align, offset, layout)
+  const frameSize = useMeasuredFrameSize(popupMotion.layoutRef, mounted)
+  if (!mounted || !rect) return null
+  const style = popupStyle(rect, placement, align, offset, layout, frameSize)
   return (
     <div
       ref={popupMotion.layoutRef}
@@ -75,6 +85,64 @@ function Root(props: RootProps) {
       <div ref={popupMotion.motionRef}>{children}</div>
     </div>
   )
+}
+
+const POPUP_EDGE_MARGIN = 8
+
+// Canvas span not covered by the left sidebar or the devtools panel, in
+// window/overlay x coords.
+function canvasHorizontalBounds(layout: LayoutUpdateData): { left: number; right: number } {
+  const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
+  return {
+    left: layout.leftChromeWidth,
+    right: Math.max(0, layout.windowWidth - rightInset),
+  }
+}
+
+// Page-anchored popups stick to the canvas edges while any part of the anchor
+// is visible, and unmount once it scrolls fully past a panel or window edge.
+function anchorIntersectsCanvas(rect: Rect, layout: LayoutUpdateData): boolean {
+  const bounds = canvasHorizontalBounds(layout)
+  // Overlay-local y: 0 is the toolbar's bottom edge.
+  const overlayHeight = window.innerHeight - layout.canvasOrigin.y
+  return (
+    rect.x < bounds.right &&
+    rect.x + rect.width > bounds.left &&
+    rect.y < overlayHeight &&
+    rect.y + rect.height > 0
+  )
+}
+
+// Measures the visible popup frame so popupStyle can clamp an explicit
+// position (a CSS-only clamp can't know the rendered size). Size updates flow
+// through state, but the frame is stable outside camera transitions so this
+// rarely re-renders.
+function useMeasuredFrameSize(
+  hostRef: { current: HTMLDivElement | null },
+  active: boolean,
+): { width: number; height: number } | null {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!active) {
+      setSize(null)
+      return
+    }
+    const frame = hostRef.current?.querySelector<HTMLElement>('[data-popup-frame]')
+    if (!frame) return
+    const measure = () => {
+      const box = frame.getBoundingClientRect()
+      setSize((prev) =>
+        prev && prev.width === box.width && prev.height === box.height
+          ? prev
+          : { width: box.width, height: box.height },
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(frame)
+    return () => observer.disconnect()
+  }, [hostRef, active])
+  return size
 }
 
 // Morph the toolbar between its page-anchored placement and the focused
@@ -125,20 +193,12 @@ function usePopupFlipAnimation({
     if (shouldFlip) {
       positionAnimRef.current?.cancel()
       widthAnimRef.current?.cancel()
-      // Page-anchored placements (above/below) center via translateX(-50%), so
-      // the wrapper recenters on the frame's *live* width as it tweens. Anchor
-      // the FLIP on the box center there — anchoring on the left edge makes the
-      // centering double-count the width delta and the frame jumps half the
-      // width difference on the first frame. Viewport-top/overlay are
-      // left-anchored, so anchor on the left edge.
-      const destCenters = placement === 'above' || placement === 'below'
-      const previousAnchorX = destCenters
-        ? previousRect.left + previousRect.width / 2
-        : previousRect.left
-      const nextAnchorX = destCenters
-        ? nextRect.left + nextRect.width / 2
-        : nextRect.left
-      const deltaX = previousAnchorX - nextAnchorX
+      // Every placement is left-anchored (page-anchored popups emit a clamped
+      // explicit `left` px; viewport-top/overlay always did), so the FLIP
+      // deltas anchor on left edges. Re-centering on the frame's live width as
+      // it tweens happens in popupStyle, which recomputes `left` from the
+      // measured width each layout broadcast.
+      const deltaX = previousRect.left - nextRect.left
       const deltaY = previousRect.top - nextRect.top
       const timing = {
         duration: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
@@ -200,6 +260,7 @@ function popupStyle(
   align: Align,
   offset: number,
   layout: LayoutUpdateData,
+  frameSize: { width: number; height: number } | null,
 ): CSSProperties {
   if (placement === 'viewport-top') {
     const left = layout.leftChromeWidth
@@ -216,20 +277,40 @@ function popupStyle(
     return { left: rect.x, top: rect.y, width: rect.width, height: rect.height }
   }
   const isAbove = placement === 'above'
-  const top = isAbove ? rect.y - offset : rect.y + rect.height + offset
-  const verticalTransform = isAbove ? 'translateY(-100%)' : ''
-  if (align === 'stretch') {
+  const bounds = canvasHorizontalBounds(layout)
+  const availableSpan = Math.max(0, bounds.right - bounds.left - POPUP_EDGE_MARGIN * 2)
+  const minWidth =
+    align === 'stretch' ? Math.min(rect.width, availableSpan) : undefined
+  // First render only: frame size unknown, position via percent transforms.
+  // The measure effect fires before paint, so the clamped explicit style
+  // below is what actually paints.
+  if (frameSize === null) {
     return {
       left: rect.x + rect.width / 2,
-      top,
-      minWidth: rect.width,
-      transform: `translateX(-50%) ${verticalTransform}`.trim(),
+      top: isAbove ? rect.y - offset : rect.y + rect.height + offset,
+      minWidth,
+      transform: `translateX(-50%) ${isAbove ? 'translateY(-100%)' : ''}`.trim(),
     }
   }
+  // Clamp inside the canvas span. When the span is narrower than the popup,
+  // pin to the leading edge and let it overflow — never compress content.
+  const centeredLeft = rect.x + rect.width / 2 - frameSize.width / 2
+  const left = Math.max(
+    bounds.left + POPUP_EDGE_MARGIN,
+    Math.min(centeredLeft, bounds.right - POPUP_EDGE_MARGIN - frameSize.width),
+  )
+  const anchoredTop = isAbove
+    ? rect.y - offset - frameSize.height
+    : rect.y + rect.height + offset
+  const top = Math.max(POPUP_EDGE_MARGIN, anchoredTop)
+  // Position via transform, not left/top: layout offsets snap to the pixel
+  // grid each frame, which reads as jitter against the subpixel-smooth page
+  // views while panning.
   return {
-    left: rect.x + rect.width / 2,
-    top,
-    transform: `translateX(-50%) ${verticalTransform}`.trim(),
+    left: 0,
+    top: 0,
+    minWidth,
+    transform: `translate(${left}px, ${top}px)`,
   }
 }
 
@@ -257,11 +338,15 @@ function ViewportAnchor({
       {/* Bridge across the gap between the toolbar and the popup. Marked as
           overlay UI so the placement-preview ghost clears while the cursor
           is in this strip, instead of stamping through the gap. */}
+      {/* zIndex matches Root: without it, a selected page's resize handles
+          (positioned, zIndex 1) paint above the popup in the root stacking
+          context and steal the pointer — `data-resize-handle` is routable, so
+          clicks fall through to the canvas. */}
       <div
         data-overlay-ui
         aria-hidden
         className="pointer-events-auto absolute left-0 right-0"
-        style={{ top: 0, height: top }}
+        style={{ top: 0, height: top, zIndex: 20 }}
       />
       <div
         data-overlay-ui
@@ -270,6 +355,7 @@ function ViewportAnchor({
           top,
           left: layout.toolbarCenterX,
           transform: 'translateX(-50%)',
+          zIndex: 20,
         }}
       >
         {children}
@@ -373,17 +459,18 @@ function IconButton({
   children: ReactNode
 }) {
   return (
-    <button
-      type="button"
-      className={`${popupIconButtonClass(isDark, active)} disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent`}
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-label={ariaLabel}
-      aria-pressed={active}
-    >
-      {children}
-    </button>
+    <Tooltip label={title}>
+      <button
+        type="button"
+        className={`${popupIconButtonClass(isDark, active)} disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent`}
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-pressed={active}
+      >
+        {children}
+      </button>
+    </Tooltip>
   )
 }
 
@@ -391,24 +478,26 @@ function ColorSwatch({
   active,
   color,
   ariaLabel,
+  isDark,
   onClick,
 }: {
   active: boolean
   color: string
   ariaLabel: string
+  isDark: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       aria-label={ariaLabel}
-      className="flex h-5 w-5 items-center justify-center rounded-full border transition-colors bg-[var(--surface-popup)]"
-      style={{ borderColor: active ? color : 'transparent' }}
+      className="flex h-5 w-5 items-center justify-center rounded-full transition-shadow bg-[var(--surface-popup)]"
+      style={{ boxShadow: swatchRingShadow(color, active, isDark) }}
       onClick={onClick}
     >
       <span
         className="block h-3 w-3 rounded-full"
-        style={{ background: color }}
+        style={{ background: color, boxShadow: swatchDotShadow(isDark) }}
       />
     </button>
   )
@@ -452,42 +541,6 @@ function EntityActions({
   )
 }
 
-function PaletteSection({
-  isDark,
-  palette,
-  activeSlot,
-  role,
-  noun,
-  onPick,
-}: {
-  isDark: boolean
-  palette: CanvasPalette
-  activeSlot: CanvasColorSlot | null
-  role: CanvasColorRole
-  noun?: string
-  onPick: (storage: string) => void
-}) {
-  return (
-    <Section>
-      {paletteSlots(palette).map((slot) => {
-        const swatch = slot.hex ?? resolveCanvasColor(slot.storage, { role, isDark })
-        const ariaLabel = noun
-          ? `Set ${noun} color to ${slot.label}`
-          : `Set color to ${slot.label}`
-        return (
-          <ColorSwatch
-            key={slot.id}
-            active={activeSlot === slot.id}
-            color={swatch}
-            ariaLabel={ariaLabel}
-            onClick={() => onPick(slot.storage)}
-          />
-        )
-      })}
-    </Section>
-  )
-}
-
 export const CanvasItemPopup = {
   Root,
   ViewportAnchor,
@@ -497,5 +550,4 @@ export const CanvasItemPopup = {
   IconButton,
   ColorSwatch,
   EntityActions,
-  PaletteSection,
 }

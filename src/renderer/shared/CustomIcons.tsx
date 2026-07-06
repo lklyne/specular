@@ -22,8 +22,8 @@ import { darkenHex, lightenHex, NEUTRAL_STORAGE, resolveCanvasColor } from '../.
 // Re-extracting from Figma: see docs/adr/0013-popup-menus-v2.md §Icons for
 // the per-node id table and an mcp__plugin_figma_figma__use_figma recipe.
 
+import addDocumentUrl from './icons/toolbar/add-document.svg'
 import addPageUrl from './icons/toolbar/add-page.svg'
-import addShapeUrl from './icons/toolbar/add-shape.svg'
 import addTextUrl from './icons/toolbar/add-text.svg'
 import commentUrl from './icons/toolbar/comment.svg'
 import handUrl from './icons/toolbar/hand.svg'
@@ -31,8 +31,8 @@ import inspectUrl from './icons/toolbar/inspect.svg'
 import selectUrl from './icons/toolbar/select.svg'
 import themeUrl from './icons/toolbar/theme.svg'
 import zoomChevronUrl from './icons/toolbar/zoom-chevron.svg'
+import addDocumentDarkUrl from './icons/toolbar/dark/add-document.svg'
 import addPageDarkUrl from './icons/toolbar/dark/add-page.svg'
-import addShapeDarkUrl from './icons/toolbar/dark/add-shape.svg'
 import addTextDarkUrl from './icons/toolbar/dark/add-text.svg'
 import commentDarkUrl from './icons/toolbar/dark/comment.svg'
 import handDarkUrl from './icons/toolbar/dark/hand.svg'
@@ -373,7 +373,70 @@ export function DrawHighlightToolIcon({
     </svg>
   )
 }
-export const AddShapeToolIcon = makeToolbarIcon(addShapeUrl, addShapeDarkUrl, 'AddShapeToolIcon')
+// ── AddShapeToolIcon (inline JSX — `color` tints the square + circle fills to
+// match the currently selected shape color; gradient stops derived via
+// lighten/darken like AddStickyToolIcon so the highlight/shadow reads across
+// hues. Geometry ported from icons/toolbar/add-shape.svg; the morph arrow and
+// strokes follow the theme like the other glyphs.) ─────────────────────────
+
+type AddShapeIconProps = {
+  size?: number
+  isDark?: boolean
+  /** Raw stored shape-color value (slot sentinel, preset, or hex). */
+  color?: string
+  style?: React.CSSProperties
+  className?: string
+}
+
+export function AddShapeToolIcon({
+  size = 20,
+  isDark = false,
+  color = NEUTRAL_STORAGE,
+  style,
+  className,
+}: AddShapeIconProps) {
+  const tint = resolveCanvasColor(color, { role: 'fill', isDark, palette: 'soft' })
+  const isNeutral = color === NEUTRAL_STORAGE
+  const uid = useId()
+  const paint0 = `add-shape-paint0-${uid}`
+  const paint1 = `add-shape-paint1-${uid}`
+  const fillTop = isDark
+    ? darkenHex(tint, isNeutral ? 0.55 : 0.4)
+    : lightenHex(tint, 0.45)
+  const fillBottom = isDark
+    ? darkenHex(tint, isNeutral ? 0.7 : 0.55)
+    : lightenHex(tint, 0.15)
+  const stroke = isDark ? '#C4BEBB' : '#45403C'
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+    >
+      <rect x="0.5" y="1.5" width="10" height="10" rx="1.5" fill={`url(#${paint0})`} stroke={stroke} />
+      <rect x="6.5" y="8.5" width="9" height="9" rx="4.5" fill={`url(#${paint1})`} stroke={stroke} />
+      <path
+        d="M13 1.5C12.7239 1.5 12.5 1.72386 12.5 2C12.5 2.27614 12.7239 2.5 13 2.5L13 2L13 1.5ZM17 8L16.6464 8.35355L17 8.70711L17.3536 8.35355L17 8ZM19.3536 6.35355L19.7071 6L19 5.29289L18.6464 5.64645L19 6L19.3536 6.35355ZM15.3536 5.64645L15 5.29289L14.2929 6L14.6464 6.35355L15 6L15.3536 5.64645ZM13 2L13 2.5L15 2.5L15 2L15 1.5L13 1.5L13 2ZM17 4L16.5 4L16.5 8L17 8L17.5 8L17.5 4L17 4ZM17 8L17.3536 8.35355L19.3536 6.35355L19 6L18.6464 5.64645L16.6464 7.64645L17 8ZM17 8L17.3536 7.64645L15.3536 5.64645L15 6L14.6464 6.35355L16.6464 8.35355L17 8ZM15 2L15 2.5C15.8284 2.5 16.5 3.17157 16.5 4L17 4L17.5 4C17.5 2.61929 16.3807 1.5 15 1.5L15 2Z"
+        fill={stroke}
+      />
+      <defs>
+        <linearGradient id={paint0} x1="5.5" y1="1" x2="5.5" y2="12" gradientUnits="userSpaceOnUse">
+          <stop stopColor={fillTop} />
+          <stop offset="1" stopColor={fillBottom} />
+        </linearGradient>
+        <linearGradient id={paint1} x1="11" y1="8" x2="11" y2="18" gradientUnits="userSpaceOnUse">
+          <stop stopColor={fillTop} />
+          <stop offset="1" stopColor={fillBottom} />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
 
 // ── AddStickyToolIcon (inline JSX — `tint` colors the paper to match the
 // currently selected sticky color; gradient stops derived via lighten/darken
@@ -562,6 +625,11 @@ export function AddStickyToolIcon({
 
 export const AddPageToolIcon = makeToolbarIcon(addPageUrl, addPageDarkUrl, 'AddPageToolIcon')
 export const AddTextToolIcon = makeToolbarIcon(addTextUrl, addTextDarkUrl, 'AddTextToolIcon')
+export const AddDocumentToolIcon = makeToolbarIcon(
+  addDocumentUrl,
+  addDocumentDarkUrl,
+  'AddDocumentToolIcon',
+)
 export const CommentToolIcon = makeToolbarIcon(commentUrl, commentDarkUrl, 'CommentToolIcon')
 export const InspectToolIcon = makeToolbarIcon(inspectUrl, inspectDarkUrl, 'InspectToolIcon')
 export const ThemeToolIcon = makeToolbarIcon(themeUrl, themeDarkUrl, 'ThemeToolIcon')

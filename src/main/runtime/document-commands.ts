@@ -740,6 +740,8 @@ export function createShapeEntity(input: {
   text?: string
   color?: string
   strokeWidth?: number
+  borderStyle?: ShapeEntity['borderStyle']
+  borderColor?: string
   textSize?: number
   id?: string
 }): ShapeEntity {

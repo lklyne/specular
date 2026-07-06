@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import type {
   CanvasSceneShapeEntity,
   PersistedShapeEntity,
+  ShapeBorderStyle,
   ShapeKind,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
@@ -13,6 +14,8 @@ export interface ShapeEntity {
   text: string
   color?: string
   strokeWidth?: number
+  borderStyle?: ShapeBorderStyle
+  borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
@@ -24,17 +27,14 @@ export interface ShapeEntity {
   label?: string
 }
 
-export const DEFAULT_SHAPE_WIDTH = 200
-export const DEFAULT_SHAPE_HEIGHT = 120
-export const DEFAULT_DIAMOND_SIZE = 160
+// Shapes are placed as squares by default; the user resizes freely after.
+export const DEFAULT_SHAPE_WIDTH = 160
+export const DEFAULT_SHAPE_HEIGHT = 160
 export const DEFAULT_STROKE_WIDTH = 2
 export const MIN_SHAPE_WIDTH = 24
 export const MIN_SHAPE_HEIGHT = 24
 
-export function defaultShapeSize(shapeKind: ShapeKind): { width: number; height: number } {
-  if (shapeKind === 'diamond') {
-    return { width: DEFAULT_DIAMOND_SIZE, height: DEFAULT_DIAMOND_SIZE }
-  }
+export function defaultShapeSize(_shapeKind: ShapeKind): { width: number; height: number } {
   return { width: DEFAULT_SHAPE_WIDTH, height: DEFAULT_SHAPE_HEIGHT }
 }
 
@@ -49,6 +49,8 @@ export function createShapeEntity(input: {
   text?: string
   color?: string
   strokeWidth?: number
+  borderStyle?: ShapeBorderStyle
+  borderColor?: string
   textSize?: number
   theme?: string
   id?: string
@@ -63,6 +65,8 @@ export function createShapeEntity(input: {
     text: input.text ?? '',
     color: input.color,
     strokeWidth: input.strokeWidth,
+    borderStyle: input.borderStyle,
+    borderColor: input.borderColor,
     textSize: input.textSize,
     theme: input.theme,
     canvasX: input.canvasX,
@@ -84,10 +88,11 @@ export function updateShapeEntity(
   const entity = shapeEntities.find((s) => s.id === id)
   if (!entity) return null
   applyPatch(entity, patch, [
-    'shapeKind', 'text', 'strokeWidth', 'textSize',
+    'shapeKind', 'text', 'strokeWidth', 'borderStyle', 'textSize',
     'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
   ])
   if (patch.color !== undefined) entity.color = patch.color || undefined
+  if (patch.borderColor !== undefined) entity.borderColor = patch.borderColor || undefined
   if (patch.theme !== undefined) entity.theme = patch.theme || undefined
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
@@ -121,6 +126,8 @@ export function buildShapeEntitySceneEntity(
     text: entity.text,
     color: entity.color,
     strokeWidth: entity.strokeWidth,
+    borderStyle: entity.borderStyle,
+    borderColor: entity.borderColor,
     textSize: entity.textSize,
     theme: entity.theme,
     canvasX: entity.canvasX,
@@ -148,6 +155,8 @@ const SHAPE_ENTITY_PERSISTED_FIELD_SET = {
   text: true,
   color: true,
   strokeWidth: true,
+  borderStyle: true,
+  borderColor: true,
   textSize: true,
   theme: true,
   canvasX: true,
@@ -170,6 +179,8 @@ export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {
     text: entity.text,
     color: entity.color,
     strokeWidth: entity.strokeWidth,
+    borderStyle: entity.borderStyle,
+    borderColor: entity.borderColor,
     textSize: entity.textSize,
     theme: entity.theme,
     canvasX: entity.canvasX,

@@ -79,10 +79,12 @@ export function PagePopup({
   const count = focusedPageEntity ? 1 : selectedPages.length
   const single = focusedPageEntity ?? (count === 1 ? selectedPages[0] : null)
   const popupKey = single ? single.id : selectedPages.map((p) => p.id).join('|')
-  const open = usePopupDelayedKey(
-    popupKey,
-    focusedPageEntity != null || (interactionIdle && count > 0),
-  )
+  // The show-delay is for transient selections (rubber-band, rapid clicks). The
+  // focus bar is deliberate chrome, so skip it while focused — otherwise
+  // switching focused pages re-arms the delay on the new page id and the bar
+  // blinks out for POPUP_SHOW_DELAY_MS mid-transition.
+  const delayedOpen = usePopupDelayedKey(popupKey, interactionIdle && count > 0)
+  const open = focusedPageEntity != null || delayedOpen
 
   // Hold optimistic URL until the navigate IPC → broadcast round-trip catches up.
   const [draftUrl, setDraftUrl] = useState<string | null>(null)

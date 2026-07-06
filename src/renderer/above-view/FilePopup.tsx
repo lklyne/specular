@@ -25,7 +25,6 @@ export function FilePopup({
     | 'writeNoteFile'
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
-    | 'morphTextFile'
     | 'focusSelection'
     | 'distributeSelection'
   >
