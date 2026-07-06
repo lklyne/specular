@@ -12,6 +12,7 @@ import type {
   CanvasDragStartSelection,
   CanvasEntityKind,
   CanvasLayoutBootstrapData,
+  EdgeEnd,
   EdgeSide,
   EntityUpdatePatchMap,
   FocusPresentationMode,
@@ -210,6 +211,10 @@ export interface CanvasBgElectronAPI {
   ) => void
   discardEdgeEdit: (edgeId: string) => void
   deleteEdge: (edgeId: string) => void
+  updateEdge: (
+    edgeId: string,
+    patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string },
+  ) => void
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void
   setTextEditing: (active: boolean) => void

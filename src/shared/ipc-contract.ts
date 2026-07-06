@@ -66,6 +66,7 @@ export interface IpcContract {
   'canvas-create-tab': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-drawing-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-edge': { dir: 'renderer→main'; payload: unknown }
+  'canvas-update-edge': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-file-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-group': { dir: 'renderer→main'; payload: unknown }
@@ -355,6 +356,7 @@ export const ipcChannels = {
   canvasCreateTab: 'canvas-create-tab',
   canvasDeleteDrawingEntity: 'canvas-delete-drawing-entity',
   canvasDeleteEdge: 'canvas-delete-edge',
+  canvasUpdateEdge: 'canvas-update-edge',
   canvasDeleteEntity: 'canvas-delete-entity',
   canvasDeleteFileEntity: 'canvas-delete-file-entity',
   canvasDeleteGroup: 'canvas-delete-group',

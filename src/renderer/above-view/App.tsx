@@ -51,6 +51,7 @@ import { usePageInputForwarding } from './usePageInputForwarding'
 import { pointerOverPageContent } from '../../shared/page-hit-test'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
+import { EdgePopup } from './EdgePopup'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
 import { GroupRenameOverlay } from './GroupRenameLabel'
@@ -590,6 +591,12 @@ export default function App({
     }
     return ids
   }, [layoutData.selection])
+  // Single-edge selection drives the edge popup (basics: one edge at a time).
+  const selectedEdge = useMemo(() => {
+    if (selectedEdgeIds.size !== 1) return null
+    const [id] = selectedEdgeIds
+    return layoutData.edges.find((edge) => edge.id === id) ?? null
+  }, [selectedEdgeIds, layoutData.edges])
   const hoveredEntityId = layoutData.hover?.id ?? null
   const focus = focusContext(layoutData)
   const focusPresentationActive = focus.active
@@ -1162,6 +1169,12 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           ).map(({ key, Component, mapProps }) => (
             <Component key={key} {...mapProps(popupContext)} />
           ))}
+
+          {/* Edges aren't scene entities, so they sit outside SELECTION_POPUPS.
+              Mount off the single selected edge, under the same tool mutex. */}
+          {!toolHasPopup(layoutData.activeTool) && !hideContext ? (
+            <EdgePopup api={api} isDark={isDark} layout={layoutData} edge={selectedEdge} />
+          ) : null}
 
           <CommentBadgesLayer
             annotations={layoutData.annotations}

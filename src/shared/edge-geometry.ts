@@ -25,7 +25,9 @@ export function getAnchorPoint(
 ): AnchorPoint {
   const { screenX, screenY, screenWidth, screenHeight } = entity
   const localY = screenY - originY
-  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * zoom
+  // Screen-space overlay: keep the gap constant on screen so the dot doesn't
+  // collapse onto the item edge when zoomed out (matches the hit-rect gap).
+  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX
   switch (side) {
     case 'top':
       return { x: screenX + screenWidth / 2, y: localY - dotOffset, side }

@@ -265,6 +265,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasEdgeEditDiscard, { edgeId }),
   deleteEdge: (edgeId: string) =>
     ipcRenderer.send(ipcChannels.canvasDeleteEdge, { edgeId }),
+  updateEdge: (edgeId, patch) =>
+    ipcRenderer.send(ipcChannels.canvasUpdateEdge, { edgeId, patch }),
   selectEdge: (edgeId: string | null) =>
     ipcRenderer.send(ipcChannels.canvasSelectEdge, { edgeId }),
   hoverPage: (pageId: string | null) =>
