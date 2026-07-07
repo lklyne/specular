@@ -1,5 +1,7 @@
-import { Circle, Diamond, Square, Trash2 } from 'lucide-react'
-import type { PanelShapeEntityDetail, ShapeKind } from '../../../shared/types'
+import { Trash2 } from 'lucide-react'
+import type { PanelShapeEntityDetail } from '../../../shared/types'
+import { SHAPE_DEFS, shapeDef } from '../../../shared/shapes'
+import { ShapeGlyph } from '../../shared/ShapeGlyph'
 import { mutedClass, paneDeleteBtnClass } from '../rightDetailsPanelHelpers'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { usePaneTheme } from '../PaneContext'
@@ -8,12 +10,6 @@ import { ColorSwatchPicker } from './ColorSwatchPicker'
 import { PaneHeader } from './PaneHeader'
 
 const STROKE_WIDTHS: number[] = [1, 2, 3, 4]
-
-const SHAPE_OPTIONS: Array<{ kind: ShapeKind; label: string; Icon: React.ComponentType<{ size?: number }> }> = [
-  { kind: 'rectangle', label: 'Rectangle', Icon: Square },
-  { kind: 'ellipse', label: 'Ellipse', Icon: Circle },
-  { kind: 'diamond', label: 'Diamond', Icon: Diamond },
-]
 
 export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntityDetail }) {
   const isDark = usePaneTheme()
@@ -29,15 +25,13 @@ export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntity
           : 'text-zinc-600 hover:bg-zinc-100'
     }`
 
-  const HeaderIcon =
-    SHAPE_OPTIONS.find((o) => o.kind === shapeEntity.shapeKind)?.Icon ?? Square
   const currentStroke = shapeEntity.strokeWidth ?? 2
 
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<HeaderIcon size={14} />}
-        label={shapeEntity.text.slice(0, 40) || shapeEntity.shapeKind}
+        icon={<ShapeGlyph kind={shapeEntity.shapeKind} size={14} />}
+        label={shapeEntity.text.slice(0, 40) || shapeDef(shapeEntity.shapeKind).label}
         actions={
           <button
             type="button"
@@ -53,17 +47,17 @@ export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntity
 
       <div className="px-2 pt-2 pb-2">
         <div className={`mb-1 text-[10px] font-medium ${muted}`}>shape</div>
-        <div className="flex items-center gap-1">
-          {SHAPE_OPTIONS.map(({ kind, label, Icon }) => (
+        <div className="grid grid-cols-6 gap-1">
+          {SHAPE_DEFS.map((def) => (
             <button
-              key={kind}
+              key={def.kind}
               type="button"
-              className={segmentBtn(shapeEntity.shapeKind === kind)}
-              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { shapeKind: kind })}
-              title={label}
+              className={`flex h-7 items-center justify-center rounded ${segmentBtn(shapeEntity.shapeKind === def.kind)}`}
+              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { shapeKind: def.kind })}
+              title={def.label}
+              aria-label={def.label}
             >
-              <Icon size={12} />
-              <span>{label.toLowerCase()}</span>
+              <ShapeGlyph kind={def.kind} size={16} />
             </button>
           ))}
         </div>

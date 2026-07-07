@@ -47,7 +47,7 @@ export interface PageConfig {
   presetIndex: number
   canvasX: number
   canvasY: number
-  linked?: boolean
+  syncId?: string | null
   suppressInitialNavigationBroadcast?: boolean
   source?: WorkspacePageSource
   parentGroupId?: string
@@ -59,7 +59,11 @@ export interface PageConfig {
 
 export type CanvasEntityKind = 'page' | 'text' | 'file' | 'group' | 'edge' | 'drawing' | 'shape'
 
-export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
+import type { ShapeKind } from './shapes'
+export type { ShapeKind }
+
+/** Shape border rendering: a drawn outline, a dashed outline, or no outline. */
+export type ShapeBorderStyle = 'solid' | 'dashed' | 'none'
 
 /**
  * Renderer plugin popup contribution tags (ADR 0008 §7). Each tag names a
@@ -74,7 +78,6 @@ export type PopupContributionTag =
   | 'wireframe-theme'
   | 'wireframe-json-mode'
   | 'wireframe-device-controls'
-  | 'markdown-morph-to-text'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -123,7 +126,10 @@ export interface CanvasScenePageEntity {
   width: number
   height: number
   presetIndex: number
-  linked: boolean
+  /** True when this page shares a live sync set (has at least one peer). */
+  synced: boolean
+  /** The page's sync-set id, so a selection can tell "all one set" from "each in some set". */
+  syncId: string | null
   /** Outer screen bounds (includes shell when device page is on). */
   screenX: number
   screenY: number
@@ -226,6 +232,11 @@ export interface CanvasSceneFileEntity {
    *  pointer router. Undefined for unclaimed (fallback) entities — treated
    *  as `false`. */
   rendererEditable?: boolean
+  /** Whether the resolved renderer hosts live content (an iframe) that should
+   *  get the page-like select-first / interact-second treatment: the first
+   *  click selects, a second click enters interactivity so pointer/scroll
+   *  reach the content. Undefined → treated as `false`. */
+  rendererInteractive?: boolean
   /**
    * For component file entities: whether some connected repo claims this
    * file (i.e. resolveUrl will succeed). The renderer suppresses the
@@ -298,6 +309,10 @@ export interface CanvasSceneShapeEntity {
   text: string
   color?: string
   strokeWidth?: number
+  /** Border line style. Absent = 'solid' (backward compat). */
+  borderStyle?: ShapeBorderStyle
+  /** Border color, independent of fill `color`. Absent = derive from `color`. */
+  borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
@@ -326,7 +341,6 @@ export interface ActiveCanvasEntitySelection {
   width: number
   height: number
   presetIndex: number
-  linked: boolean
 }
 
 export interface PendingPlacement {
@@ -357,7 +371,7 @@ export interface PersistedPageEntity extends CanvasEntityBase {
   name?: string
   url: string
   presetIndex: number
-  linked: boolean
+  syncId: string | null
   source?: WorkspacePageSource
   groupId?: string
   metadata?: Record<string, unknown>
@@ -419,6 +433,8 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   text: string
   color?: string
   strokeWidth?: number
+  borderStyle?: ShapeBorderStyle
+  borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
@@ -458,14 +474,12 @@ export interface LayoutUpdateData {
   leftChromeWidth: number
   /**
    * X-coordinate (in window pixels) of the centerpoint of the toolbar's tool
-   * cluster, when the toolbar is in `showCenterActionsOnly` mode. Popups that
-   * anchor below the toolbar (tool-mode popups, ADR 0008 §1) read this to
-   * align with the tools regardless of platform padding (mac traffic-lights
-   * inset) or sidebar state.
+   * cluster. Popups that anchor below the toolbar (tool-mode popups, ADR 0008
+   * §1) read this to align with the tools regardless of platform padding (mac
+   * traffic-lights inset) or sidebar state.
    *
    * Computed in main from `TOOLBAR_PAD_*` constants and the current window
-   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses in
-   * that mode.
+   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses.
    */
   toolbarCenterX: number
   /** Back-to-front stack order across canvas nodes and edges. */
@@ -638,14 +652,6 @@ export interface ToolbarSelectionData {
   selectedEntityIds: string[]
   selectionCount: number
   availablePageCount: number
-  displayUrl: string
-  placeholder: string
-  canGoBack: boolean
-  canGoForward: boolean
-  isLoadingActivePage: boolean
-  loadingPageCount: number
-  isLoadingAnySelected: boolean
-  loadingPhase: 'idle' | 'waiting-response' | 'loading'
   activeTabId: string | null
   activeTabName: string | null
   activeTool: Tool
@@ -655,6 +661,8 @@ export interface ToolbarSelectionData {
   drawColor: string
   /** Current sticky-tool color default (raw stored slot/hex) — tints the sticky glyph. */
   stickyColor: string
+  /** Current shape-tool color default (raw stored slot/hex) — tints the shape glyph. */
+  shapeColor: string
 }
 
 export interface ThemeData {
@@ -884,7 +892,6 @@ export interface DevtoolsPanelPageSummary {
   canGoBack?: boolean
   canGoForward?: boolean
   isLoading?: boolean
-  linked?: boolean
 }
 
 export type DevtoolsPanelTab = 'comments' | 'inspect' | 'browser-devtools' | 'settings'
@@ -951,7 +958,6 @@ export interface DevtoolsPanelSelectionSummary {
   viewportLabel: string
   width: number
   height: number
-  linked: boolean
 }
 
 export interface DevtoolsPanelDomRect {
@@ -1050,6 +1056,9 @@ export interface UiState {
   /** True while a toolbar dropdown is open — the layout pass grows the
    *  toolbar view to full-window bounds so the menu can overflow the strip. */
   toolbarDropdownOpen: boolean
+  /** True while a toolbar tooltip is open — the layout pass grows the toolbar
+   *  view by a shallow band so the tip can paint just below the strip. */
+  toolbarTooltipOpen: boolean
   devtools: UiDevtoolsState
   overlays: UiOverlayState
 }
@@ -1084,7 +1093,7 @@ export interface WorkspacePageSnapshot {
   presetIndex: number
   canvasX: number
   canvasY: number
-  linked: boolean
+  syncId?: string | null
   source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
@@ -1163,7 +1172,6 @@ export interface WorkspacePage {
   canvasY: number
   width: number
   height: number
-  linkedBrowsing: boolean
   source: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
@@ -1564,7 +1572,7 @@ export interface EntityUpdatePatchMap {
   text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
   file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
   drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
-  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
+  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; borderStyle?: ShapeBorderStyle; borderColor?: string; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
   group: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }
 }
 

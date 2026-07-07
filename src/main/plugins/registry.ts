@@ -48,6 +48,9 @@ interface BaseRendererClaim {
    *  the dblclick and click-on-solo-selected → edit paths. Renderers that
    *  ignore `canEdit` declare `false` so those gestures stay a clean no-op. */
   editable: boolean
+  /** Whether the renderer hosts live content (an iframe) that gets the
+   *  page-like select-first / interact-second treatment. Defaults to false. */
+  interactive?: boolean
   /**
    * Popup contribution tags this renderer surfaces in the file selection
    * popup (ADR 0008 §7). The renderer side owns the React components — the

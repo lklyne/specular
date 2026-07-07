@@ -2,14 +2,16 @@ import type { Route } from './types'
 import type {
   ApplyDirectiveRequest,
   ApplyTaskLayoutRequest,
+  BatchLayoutMode,
   BatchPlacementRequest,
   CanvasEntityKind,
+  SpacingToken,
   LayoutComponentStatesRequest,
   PlacementRequest,
 } from '../../shared/types'
 import { validateLayoutDirective } from '../../shared/layout-directive'
 import { getSelectionState } from '../workspace-entities'
-import { distributeSelection } from '../runtime/document-commands'
+import { arrangeEntities } from '../runtime/document-commands'
 import { selectedEntityIds as currentSelectionIds } from '../ui-state'
 import { applyLayoutDirective, findBatchPlacement, findPlacement } from '../workspace-placement'
 import {
@@ -52,11 +54,28 @@ export const workspaceRoutes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: '/selection/distribute',
+    pattern: '/selection/arrange',
     async handler({ response, body }) {
-      const payload = body as { entityIds?: string[] }
+      const payload = body as {
+        mode?: BatchLayoutMode
+        entityIds?: string[]
+        gap?: number | SpacingToken
+        cols?: number
+      }
+      const err = validateLayoutDirective({
+        kind: payload.mode as BatchLayoutMode,
+        gap: payload.gap,
+        cols: payload.cols,
+      })
+      if (err) {
+        writeJson(response, 400, { error: err })
+        return
+      }
       const entityIds = payload.entityIds ?? currentSelectionIds()
-      const changed = distributeSelection(entityIds)
+      const changed = arrangeEntities(entityIds, payload.mode as BatchLayoutMode, {
+        gap: payload.gap,
+        cols: payload.cols,
+      })
       writeJson(response, 200, { changed })
     },
   },

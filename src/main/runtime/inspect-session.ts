@@ -252,7 +252,6 @@ function selectedPageSummary(): DevtoolsPanelSelectionSummary | undefined {
     viewportLabel: vp.label,
     width: page.peekWidth ?? vp.width,
     height: page.peekHeight ?? vp.height,
-    linked: page.linked,
   }
 }
 
@@ -427,7 +426,6 @@ export function notifyDevtoolsPanelData(): void {
     canGoBack: page.pageView.webContents.canGoBack(),
     canGoForward: page.pageView.webContents.canGoForward(),
     isLoading: page.pageView.webContents.isLoading(),
-    linked: page.linked,
   }))
   devtoolsHeaderView.webContents.send(ipcChannels.rightDetailsPanelData, {
     activeTab: uiDevtoolsPanelTab(),

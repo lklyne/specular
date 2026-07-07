@@ -60,11 +60,10 @@ registry decides which flags a kind honors (pages size via `--preset`, not
 
 | Command | Purpose |
 |---|---|
-| `specular arrange row\|column\|grid <id…> [--gap m] [--cols N]` | Rearrange existing entities |
+| `specular arrange row\|column\|grid [id…] [--cols N]` | Tidy entities (ids, or current selection) in place: keep the footprint, even the gaps. Add `--gap m` to pack tight to a fixed gap instead |
 | `specular group <id…>` | Group entities together |
 | `specular ungroup <groupId>` | Dissolve a group |
 | `specular auto-layout <id…>` | Make a managed auto-layout row from a selection (or convert a single group); children pack left-to-right and can be drag-reordered |
-| `specular distribute <id…>` | Even out gaps between 3+ loosely-spaced entities |
 | `specular focus <id…>` | Scroll the viewport so the entity is centered |
 | `specular link <a> <b> [--label <text>]` | Connect two entities with an edge |
 | `specular unlink <edgeId…>` | Remove edges |

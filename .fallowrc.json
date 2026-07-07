@@ -41,10 +41,19 @@
   "rules": {
     "unused-dependencies": "warn"
   },
+  "health": {
+    "maxCyclomatic": 25,
+    "maxCognitive": 18,
+    "maxCrap": 999,
+    "ignore": ["tests/**"]
+  },
+  "duplicates": {
+    "minTokens": 80
+  },
   "ignoreExports": [
     { "file": "eslint-rules/index.js", "exports": ["*"] },
     { "file": "eslint-rules/no-direct-view-mutation.js", "exports": ["*"] },
     { "file": "eslint-rules/no-mouse-events.js", "exports": ["*"] }
   ],
-  "ignoreDependencies": ["react", "react-dom"]
+  "ignoreDependencies": ["react", "react-dom", "tailwindcss"]
 }

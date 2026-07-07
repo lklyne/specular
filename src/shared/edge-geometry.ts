@@ -8,8 +8,8 @@
 import { EDGE_ANCHOR_DOT_OFFSET_PX } from './canvas-hit-geometry'
 import type { CanvasSceneEntity, EdgeSide } from './types'
 
-export const CONTROL_POINT_MIN = 40
-export const CONTROL_POINT_MAX = 200
+const CONTROL_POINT_MIN = 40
+const CONTROL_POINT_MAX = 200
 
 export interface AnchorPoint {
   x: number
@@ -25,7 +25,9 @@ export function getAnchorPoint(
 ): AnchorPoint {
   const { screenX, screenY, screenWidth, screenHeight } = entity
   const localY = screenY - originY
-  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX * zoom
+  // Screen-space overlay: keep the gap constant on screen so the dot doesn't
+  // collapse onto the item edge when zoomed out (matches the hit-rect gap).
+  const dotOffset = EDGE_ANCHOR_DOT_OFFSET_PX
   switch (side) {
     case 'top':
       return { x: screenX + screenWidth / 2, y: localY - dotOffset, side }
@@ -38,7 +40,7 @@ export function getAnchorPoint(
   }
 }
 
-export function controlPointOffset(
+function controlPointOffset(
   side: EdgeSide,
   distance: number,
   zoom: number,

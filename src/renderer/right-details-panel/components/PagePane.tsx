@@ -2,11 +2,8 @@ import { Collapsible } from '@base-ui/react/collapsible'
 import {
   ChevronDown,
   ChevronRight,
-  Copy,
   Laptop,
-  Link2,
   Loader2,
-  Maximize2,
   Play,
   Smartphone,
   Tablet,
@@ -38,7 +35,6 @@ import {
 import { useClearInspectHoverOnLeave } from '../useClearInspectHoverOnLeave'
 import { useElementCommentDraft } from '../useElementCommentDraft'
 import { useInspectTreeState } from '../useInspectTreeState'
-import { RotateIcon } from '../../shared/CustomIcons'
 import { CommentRow } from './CommentsPane'
 import { ElementCommentComposer } from './ElementCommentComposer'
 import { InspectDetailSection } from './InspectDetailSection'
@@ -120,7 +116,6 @@ export function PagePane({
             label={activePage?.label ?? 'Page'}
             actions={
               <PageHeaderActions
-                page={activePage}
                 pageId={inspect.activePageId!}
                 isDark={isDark}
               />
@@ -371,57 +366,22 @@ function PageCommentsSection({
 // --- Page Header Actions (inline with PaneHeader) ---
 
 function PageHeaderActions({
-  page,
   pageId,
   isDark,
 }: {
-  // `pageId` comes from inspect.activePageId (always present); `page` is the
-  // summary lookup, which can briefly be undefined before the broadcast lands.
-  page?: DevtoolsPanelPageSummary
+  // `pageId` comes from inspect.activePageId (always present).
   pageId: string
   isDark: boolean
 }) {
-  const linked = page?.linked ?? false
   const btnClass = `rounded p-1 ${
     isDark ? 'text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
-  }`
-  const activeBtnClass = `rounded p-1 ${
-    isDark ? 'bg-zinc-700 text-zinc-100' : 'bg-zinc-200 text-zinc-800'
   }`
   const deleteBtnClass = `rounded p-1 ${
     isDark ? 'text-zinc-400 hover:bg-red-500/12 hover:text-red-400' : 'text-zinc-500 hover:bg-red-50 hover:text-red-600'
   }`
 
-  // Gate device controls on `page` — without the summary we can't read the
-  // current orientation, so a rotate would flip from the wrong base.
   return (
     <div className="flex items-center gap-0.5">
-      {page ? (
-        <>
-          <button type="button" className={page.showDeviceFrame ? activeBtnClass : btnClass} aria-label="Toggle device frame" title="Device frame" onClick={() => rightDetailsPanelApi.toggleDeviceShell(pageId)}>
-            <Smartphone size={13} />
-          </button>
-          <button type="button" className={btnClass} aria-label="Rotate viewport" title="Rotate viewport" onClick={() => rightDetailsPanelApi.setDeviceOrientation(pageId, page.deviceOrientation === 'landscape' ? 'portrait' : 'landscape')}>
-            <RotateIcon size={13} />
-          </button>
-        </>
-      ) : null}
-      <button type="button" className={btnClass} aria-label="Focus page" title="Focus page" onClick={() => rightDetailsPanelApi.focusSelection()}>
-        <Maximize2 size={13} />
-      </button>
-      <button type="button" className={btnClass} aria-label="Duplicate" title="Duplicate" onClick={() => rightDetailsPanelApi.duplicatePage(pageId)}>
-        <Copy size={13} />
-      </button>
-      <button
-        type="button"
-        className={btnClass}
-        aria-label={linked ? 'Unlink Page' : 'Link Page'}
-        title={linked ? 'Unlink Page' : 'Link Page'}
-        onClick={() => rightDetailsPanelApi.toggleLinkedPage(pageId)}
-        style={linked ? { color: isDark ? '#60a5fa' : '#2563eb' } : undefined}
-      >
-        <Link2 size={13} />
-      </button>
       <button type="button" className={btnClass} aria-label="Open DevTools" title="Open DevTools" onClick={() => rightDetailsPanelApi.openBrowserDevTools()}>
         <Wrench size={13} />
       </button>

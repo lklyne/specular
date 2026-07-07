@@ -52,6 +52,9 @@ export type HitPayload =
       entityKind: CanvasEntityKind
       /** Only set for files; gates the dblclick / press-deferral → edit paths. */
       rendererEditable?: boolean
+      /** Only set for files; true for live-iframe renderers (HTML) that get
+       *  the select-first / interact-second treatment. */
+      rendererInteractive?: boolean
     }
   | { kind: 'background' }
 
@@ -303,6 +306,8 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
               entityKind: entity.kind,
               rendererEditable:
                 entity.kind === 'file' ? entity.rendererEditable === true : undefined,
+              rendererInteractive:
+                entity.kind === 'file' ? entity.rendererInteractive === true : undefined,
             },
     }
     if (entity.kind === 'group') groups.push(target)

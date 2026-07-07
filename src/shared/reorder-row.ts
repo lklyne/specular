@@ -17,6 +17,16 @@ export interface Box {
   height: number
 }
 
+/**
+ * Gap-equality slack (canvas px) for the loose-selection reorder door. Wider
+ * than the 1px default so an arranged row still reads as even after the small
+ * float/rounding drift a page's shell size picks up round-tripping through
+ * screen bounds — the dots stay put instead of flickering off. The renderer's
+ * `reorderableDots` and main's `buildSelectionRow` share this so the visible
+ * dot and the commit agree on what counts as a row.
+ */
+export const SELECTION_ROW_GAP_TOLERANCE = 4
+
 export interface ReorderableRow {
   /** Dominant axis — the one with the larger center spread. */
   axis: 'x' | 'y'
@@ -50,12 +60,10 @@ function spread(values: number[]): number {
 }
 
 /**
- * Dominant axis: whichever axis has the larger spread of box centers. Shared
- * by `detectReorderableRow` and `distributeRowPositions` so both operate on
- * the same axis definition — distribute output is reorder-eligible by
- * construction (ADR 0015 D7).
+ * Dominant axis: whichever axis has the larger spread of box centers. Used by
+ * `detectReorderableRow` to pick the row's axis.
  */
-export function dominantAxis(boxes: readonly Box[]): 'x' | 'y' {
+function dominantAxis(boxes: readonly Box[]): 'x' | 'y' {
   const centersX = boxes.map((b) => centerAlong(b, 'x'))
   const centersY = boxes.map((b) => centerAlong(b, 'y'))
   return spread(centersX) >= spread(centersY) ? 'x' : 'y'

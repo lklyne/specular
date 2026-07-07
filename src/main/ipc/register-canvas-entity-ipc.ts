@@ -1,7 +1,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { AnnotationCreateRequest, CanvasEntityKind } from '../../shared/types'
+import type { AnnotationCreateRequest, BatchLayoutMode, CanvasEntityKind } from '../../shared/types'
 import { getEntityKind, hasEntityKind } from '../entities/contract'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
@@ -23,14 +23,9 @@ import {
   getStickyDefaultColor,
   getPlainTextDefaultColor,
   getShapeDefaults,
-  getAddTextKind,
   getTextDefaultSize,
   getStickyDefaultSize,
 } from '../runtime/tool-defaults'
-import {
-  morphMarkdownFileToTextEntity,
-  morphTextEntityToMarkdownFile,
-} from '../runtime/morph-text-file'
 import { createNoteFile } from '../runtime/note-assets'
 import {
   createDrawingEntity,
@@ -77,7 +72,7 @@ import { pageContentSize } from '../runtime/runtime-geometry'
 import {
   scheduleWorkspaceAutosave,
 } from '../runtime/workspace-autosave'
-import { navigatePage, togglePageLinked } from '../navigation-sync'
+import { navigatePage, setSyncForSelection, unsyncPage } from '../navigation-sync'
 import {
   deviceIdFromMetadata,
   pageUsesCustomSize,
@@ -98,7 +93,7 @@ import { copyableSelectionPayload } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
-import { distributeSelection } from '../runtime/document-commands'
+import { arrangeEntities } from '../runtime/document-commands'
 import { selectedEntityIds } from '../ui-state'
 import { duplicateSelection } from '../runtime/duplicate-selection'
 import { reorderStackOrder, type StackOrderAction } from '../runtime/entity-order-state'
@@ -152,28 +147,21 @@ export function registerCanvasEntityIpc(): void {
       const dragRect = payload.dragRect ?? null
       const tool = activeTool()
       if (tool.kind === 'add-text') {
-        // ADR 0013 §3 — `long` stamps a markdown file entity backed by a
-        // fresh empty `.md` note instead of a plain-text entity.
-        if (getAddTextKind() === 'long') {
-          const filePath = createNoteFile()
-          const created = createFileEntity({
-            canvasX,
-            canvasY,
-            file: filePath,
-          })
-          selectEntity(created.id, 'file')
-          beginEditingEntity(created.id)
-        } else {
-          const created = createTextEntity({
-            canvasX,
-            canvasY,
-            textStyle: 'plain',
-            color: getPlainTextDefaultColor() ?? undefined,
-            textSize: getTextDefaultSize(),
-          })
-          selectEntity(created.id, 'text')
-          beginEditingEntity(created.id)
-        }
+        const created = createTextEntity({
+          canvasX,
+          canvasY,
+          textStyle: 'plain',
+          color: getPlainTextDefaultColor() ?? undefined,
+          textSize: getTextDefaultSize(),
+        })
+        selectEntity(created.id, 'text')
+        beginEditingEntity(created.id)
+      } else if (tool.kind === 'add-document') {
+        // Stamps a markdown file entity backed by a fresh empty `.md` note.
+        const filePath = createNoteFile()
+        const created = createFileEntity({ canvasX, canvasY, file: filePath })
+        selectEntity(created.id, 'file')
+        beginEditingEntity(created.id)
       } else if (tool.kind === 'add-sticky') {
         const created = createTextEntity({
           canvasX,
@@ -233,8 +221,8 @@ export function registerCanvasEntityIpc(): void {
     deletePages({ pageIds: [pageId] })
   })
 
-  ipcMain.on(ipcChannels.canvasDistributeSelection, () => {
-    distributeSelection(selectedEntityIds())
+  ipcMain.on(ipcChannels.canvasArrangeSelection, (_event, mode: BatchLayoutMode) => {
+    arrangeEntities(selectedEntityIds(), mode)
   })
 
   ipcMain.on(ipcChannels.canvasNavigatePage, (_event, { pageId, url }: { pageId: string; url: string }) => {
@@ -266,7 +254,9 @@ export function registerCanvasEntityIpc(): void {
     (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
       if (entityKind === 'page') {
         if (!selectPageById(entityId)) return
-        if (refocusActiveSession(entityId)) return
+        // Switching between already-focused pages cuts instantly — animating the
+        // camera across large canvas distances makes the pinned focus bar jitter.
+        if (refocusActiveSession(entityId, { animate: false })) return
         focusSelectedPage()
         return
       }
@@ -392,13 +382,6 @@ export function registerCanvasEntityIpc(): void {
     })
   })
 
-  ipcMain.on(ipcChannels.canvasToggleLinkedPage, (_event, { pageId }: { pageId: string }) => {
-    const page = pages.find((candidate) => candidate.id === pageId)
-    if (!page) return
-    togglePageLinked(page)
-    requestLayout()
-  })
-
   ipcMain.on(ipcChannels.canvasShowPageContextMenu, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
@@ -426,13 +409,6 @@ export function registerCanvasEntityIpc(): void {
           duplicatePageFromSource({ sourcePageId: pageId, focus: true })
         },
       },
-      {
-        label: page.linked ? 'Unlink Page' : 'Link Page',
-        click: () => {
-          togglePageLinked(page)
-          requestLayout()
-        },
-      },
       { type: 'separator' },
       ...stackOrderMenuItems(pageId),
       { type: 'separator' },
@@ -456,7 +432,7 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(ipcChannels.canvasRevealPage, (_event, { pageId }: { pageId: string }) => {
     if (!selectPageById(pageId)) return
-    if (refocusActiveSession(pageId)) return
+    if (refocusActiveSession(pageId, { animate: false })) return
     focusSelectedPage()
   })
 
@@ -489,20 +465,12 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.canvasToggleLinkedSelection, () => {
-    const pageIds = getSelectedEntityIds()
-    if (!pageIds.length) return
-    const selectedPages = pageIds
-      .map((pageId) => pages.find((candidate) => candidate.id === pageId))
-      .filter((page): page is (typeof pages)[number] => page !== undefined)
-    if (!selectedPages.length) return
-    const nextLinked = !selectedPages.every((page) => page.linked)
-    for (const page of selectedPages) {
-      if (page.linked !== nextLinked) {
-        togglePageLinked(page)
-      }
-    }
-    requestLayout()
+  ipcMain.on(ipcChannels.canvasToggleSyncSelection, () => {
+    setSyncForSelection(getSelectedEntityIds())
+  })
+
+  ipcMain.on(ipcChannels.canvasUnsyncPage, (_event, pageId: string) => {
+    unsyncPage(pageId)
   })
 
   ipcMain.on(ipcChannels.canvasToggleAnnotateMode, () => {
@@ -688,23 +656,6 @@ export function registerCanvasEntityIpc(): void {
     ipcChannels.applyNoteContent,
     (_event, { entityId, content }: { entityId: string; content: string }) => {
       return commitNoteContent(entityId, content)
-    },
-  )
-
-  // ADR 0013 §3 — cross-kind morph between text and markdown file entities.
-  // One IPC, two directions; both halves (entity replacement + .md file
-  // write/delete) collapse into a single undo step.
-  ipcMain.handle(
-    ipcChannels.canvasMorphTextFile,
-    (
-      _event,
-      { entityId, direction }: { entityId: string; direction: 'text-to-file' | 'file-to-text' },
-    ) => {
-      const result =
-        direction === 'text-to-file'
-          ? morphTextEntityToMarkdownFile(entityId)
-          : morphMarkdownFileToTextEntity(entityId)
-      return result
     },
   )
 

@@ -20,7 +20,6 @@ import {
   setFilePreset,
   setFileCustom,
 } from '../runtime/document-commands'
-import { togglePageLinked } from '../navigation-sync'
 import { deletePages } from '../workspace-entities'
 import { duplicatePageFromSource } from '../workspace-pages'
 import {
@@ -288,15 +287,6 @@ export function registerRightDetailsPanelIpc(): void {
       if (!payload?.pageId) return
       if (!pages.some((p) => p.id === payload.pageId)) return
       duplicatePageFromSource({ sourcePageId: payload.pageId })
-    },
-  )
-
-  ipcMain.on(
-    ipcChannels.rightDetailsPanelToggleLinkedPage,
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      togglePageLinked(page)
     },
   )
 

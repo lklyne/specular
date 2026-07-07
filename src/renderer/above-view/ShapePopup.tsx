@@ -3,8 +3,10 @@
 import { slotForStorage } from '../../shared/canvas-colors'
 import type { CanvasSceneShapeEntity, LayoutUpdateData, ShapeKind } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { BorderDropdown } from './BorderDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { SHAPE_VARIANT_OPTIONS } from './popupVariantOptions'
+import { ColorDropdown } from './ColorDropdown'
+import { ShapeDropdown } from './ShapeDropdown'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
@@ -19,7 +21,7 @@ export function ShapePopup({
     CanvasBgElectronAPI,
     | 'updateEntity'
     | 'focusSelection'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -34,6 +36,10 @@ export function ShapePopup({
   const sharedShapeKind = sharedValue(selectedShapes.map((s) => s.shapeKind))
   const sharedColorRaw = sharedValue(selectedShapes.map((s) => s.color ?? null))
   const activeSlot = slotForStorage(sharedColorRaw)
+  const sharedBorderStyle = sharedValue(selectedShapes.map((s) => s.borderStyle ?? 'solid'))
+  const sharedBorderColorRaw = sharedValue(selectedShapes.map((s) => s.borderColor ?? null))
+  const borderColorSlot = slotForStorage(sharedBorderColorRaw)
+  const sharedStrokeWidth = sharedValue(selectedShapes.map((s) => s.strokeWidth ?? 2))
   const sharedTextSize = sharedValue(
     selectedShapes.map((s) => s.textSize ?? TEXT_SIZE_DEFAULT),
   )
@@ -50,23 +56,15 @@ export function ShapePopup({
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
-        <CanvasItemPopup.Section>
-          {SHAPE_VARIANT_OPTIONS.map(({ kind, label, Icon }) => (
-            <CanvasItemPopup.IconButton
-              key={kind}
-              isDark={isDark}
-              active={sharedShapeKind === kind}
-              title={label}
-              ariaLabel={`Morph ${noun} to ${label}`}
-              onClick={() => {
-                const patch: { shapeKind: ShapeKind } = { shapeKind: kind }
-                for (const s of selectedShapes) api.updateEntity('shape', s.id, patch)
-              }}
-            >
-              <Icon size={14} />
-            </CanvasItemPopup.IconButton>
-          ))}
-        </CanvasItemPopup.Section>
+        <ShapeDropdown
+          isDark={isDark}
+          activeKind={sharedShapeKind ?? null}
+          noun={noun}
+          onPick={(kind) => {
+            const patch: { shapeKind: ShapeKind } = { shapeKind: kind as ShapeKind }
+            for (const s of selectedShapes) api.updateEntity('shape', s.id, patch)
+          }}
+        />
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.Section>
           <TextSizeDropdown
@@ -81,7 +79,7 @@ export function ShapePopup({
           />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.PaletteSection
+        <ColorDropdown
           isDark={isDark}
           palette="soft"
           activeSlot={activeSlot}
@@ -90,6 +88,30 @@ export function ShapePopup({
           onPick={(storage) => {
             for (const s of selectedShapes) {
               api.updateEntity('shape', s.id, { color: storage })
+            }
+          }}
+        />
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <BorderDropdown
+          isDark={isDark}
+          borderStyle={sharedBorderStyle}
+          strokeWidth={sharedStrokeWidth}
+          activeColorSlot={borderColorSlot}
+          palette="soft"
+          noun={noun}
+          onSetStyle={(style) => {
+            for (const s of selectedShapes) {
+              api.updateEntity('shape', s.id, { borderStyle: style })
+            }
+          }}
+          onSetWidth={(width) => {
+            for (const s of selectedShapes) {
+              api.updateEntity('shape', s.id, { strokeWidth: width })
+            }
+          }}
+          onSetColor={(storage) => {
+            for (const s of selectedShapes) {
+              api.updateEntity('shape', s.id, { borderColor: storage })
             }
           }}
         />

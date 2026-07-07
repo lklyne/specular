@@ -18,7 +18,7 @@ describe('tool-defaults: normalizeToolDefaults', () => {
 
   it('round-trips a complete persisted blob', () => {
     const persisted = {
-      'add-text': { color: '5', textSize: 32, textKind: 'long' as const },
+      'add-text': { color: '5', textSize: 32 },
       'add-sticky': { color: '1', textSize: 18 },
       'add-shape': {
         shapeKind: 'ellipse' as const,
@@ -50,31 +50,11 @@ describe('tool-defaults: normalizeToolDefaults', () => {
     expect(out['add-shape'].textSize).toBe(96)
   })
 
-  it('defaults textKind to short when absent', () => {
+  it('drops a legacy textKind key (creation kind is now tool-selected)', () => {
     const out = normalizeToolDefaults({
-      'add-text': { color: '5', textSize: 32 },
+      'add-text': { color: '5', textSize: 32, textKind: 'long' },
     })
-    expect(out['add-text'].textKind).toBe('short')
-  })
-
-  it('accepts textKind long and short overrides', () => {
-    expect(
-      normalizeToolDefaults({ 'add-text': { color: null, textSize: 18, textKind: 'long' } })[
-        'add-text'
-      ].textKind,
-    ).toBe('long')
-    expect(
-      normalizeToolDefaults({ 'add-text': { color: null, textSize: 18, textKind: 'short' } })[
-        'add-text'
-      ].textKind,
-    ).toBe('short')
-  })
-
-  it('rejects unknown textKind values and falls back to default', () => {
-    const out = normalizeToolDefaults({
-      'add-text': { color: null, textSize: 18, textKind: 'huge' },
-    })
-    expect(out['add-text'].textKind).toBe(DEFAULT_TOOL_DEFAULTS['add-text'].textKind)
+    expect(out['add-text']).toEqual({ color: '5', textSize: 32 })
   })
 
   it('fills gaps with defaults when only one scope is persisted', () => {
@@ -88,7 +68,7 @@ describe('tool-defaults: normalizeToolDefaults', () => {
 
   it('rejects unknown shapeKind / brushType, keeps the default', () => {
     const out = normalizeToolDefaults({
-      'add-shape': { shapeKind: 'hexagon', color: '#fff', strokeWidth: 1 },
+      'add-shape': { shapeKind: 'octagon', color: '#fff', strokeWidth: 1 },
       draw: { brushType: 'spray', color: '#fff', strokeWidth: 1 },
     })
     expect(out['add-shape'].shapeKind).toBe(DEFAULT_TOOL_DEFAULTS['add-shape'].shapeKind)

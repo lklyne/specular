@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { shapeDef } from '../../shared/shapes'
 import { buildCanvasGridStyle, drawCanvasGrid } from './canvasGridStyle'
 
 function previewBoxStyle(
@@ -161,40 +162,28 @@ export function PlacementPreviewLayer({
   if (isShape) {
     const baseStyle = previewBoxStyle(isDark, preview)
     const stroke = isDark ? 'rgba(168, 162, 158, 0.6)' : 'rgba(120, 113, 108, 0.6)'
-    const fill = 'transparent'
-    if (preview.shapeKind === 'ellipse') {
-      return (
-        <div
-          className="pointer-events-none absolute border"
-          style={{ ...baseStyle, borderRadius: '50%', borderColor: stroke, background: fill }}
-        />
-      )
-    }
-    if (preview.shapeKind === 'diamond') {
-      return (
-        <svg
-          className="pointer-events-none absolute"
-          width={baseStyle.width}
-          height={baseStyle.height}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          style={{ left: baseStyle.left, top: baseStyle.top, overflow: 'visible' }}
-        >
-          <polygon
-            points="50,0 100,50 50,100 0,50"
-            fill={fill}
-            stroke={stroke}
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-      )
-    }
+    const def = shapeDef(preview.shapeKind ?? 'rectangle')
     return (
-      <div
-        className="pointer-events-none absolute border"
-        style={{ ...baseStyle, borderColor: stroke, background: fill }}
-      />
+      <svg
+        className="pointer-events-none absolute"
+        width={baseStyle.width}
+        height={baseStyle.height}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ left: baseStyle.left, top: baseStyle.top, overflow: 'visible' }}
+      >
+        <path
+          d={def.path}
+          fill="transparent"
+          stroke={stroke}
+          strokeWidth={1}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
+        {def.line ? (
+          <path d={def.line} fill="none" stroke={stroke} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        ) : null}
+      </svg>
     )
   }
   return (

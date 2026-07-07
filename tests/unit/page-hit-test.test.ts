@@ -21,7 +21,7 @@ function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): Canva
     width: screenWidth,
     height: screenHeight,
     presetIndex: 0,
-    linked: false,
+    synced: false,
     screenX,
     screenY,
     screenWidth,

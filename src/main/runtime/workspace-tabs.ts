@@ -77,7 +77,7 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
         presetIndex: page.presetIndex,
         canvasX: page.canvasX,
         canvasY: page.canvasY,
-        linked: page.linked,
+        syncId: page.syncId,
         source: page.source,
         parentGroupId: page.parentGroupId ?? page.groupId,
         groupId: page.parentGroupId ?? page.groupId,

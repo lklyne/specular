@@ -29,6 +29,7 @@ import {
   win,
 } from './view-refs'
 import { buildInspectPanelState } from './inspect-session'
+import { isPageSynced } from '../navigation-sync'
 import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
 import {
@@ -130,7 +131,8 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       width,
       height,
       presetIndex: page.presetIndex,
-      linked: page.linked,
+      synced: isPageSynced(page),
+      syncId: page.syncId ?? null,
       screenX: showShell ? bounds.shell.x : bounds.page.x,
       screenY: showShell ? bounds.shell.y : bounds.page.y,
       screenWidth: showShell ? bounds.shell.width : bounds.page.width,
@@ -163,7 +165,6 @@ export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
     width: page.peekWidth ?? vp.width,
     height: page.peekHeight ?? vp.height,
     presetIndex: page.presetIndex,
-    linked: targets.length > 0 ? targets.every((target) => target.linked) : page.linked,
   }
 }
 
@@ -246,8 +247,9 @@ function placementEntityKindForTool(tool: ReturnType<typeof uiActiveTool>): Pend
     case 'add-page':
       return 'page'
     case 'add-text':
-      // `long` stamps a markdown note file entity, not plain text. ADR 0013 §3.
-      return getToolDefaults()['add-text'].textKind === 'long' ? 'file' : 'text'
+      return 'text'
+    case 'add-document':
+      return 'file'
     case 'add-sticky':
       return 'text'
     case 'add-shape':
@@ -491,61 +493,27 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       selectedEntityIds: [],
       selectionCount: 0,
       availablePageCount,
-      displayUrl: '',
-      placeholder: '',
-      canGoBack: false,
-      canGoForward: false,
-      isLoadingActivePage: false,
-      loadingPageCount: 0,
-      isLoadingAnySelected: false,
-      loadingPhase: 'idle',
       activeTabId: activeWorkspaceTabId,
       activeTabName,
       activeTool: uiActiveTool(),
       drawBrushType: getToolDefaults().draw.brushType,
       drawColor: getToolDefaults().draw.color,
       stickyColor: getToolDefaults()['add-sticky'].color,
+      shapeColor: getToolDefaults()['add-shape'].color,
     }
   }
-
-  const distinctUrls = [
-    ...new Set(targets.map((page) => {
-      const url = page.pageView.webContents.getURL()
-      return url === 'about:blank' ? '' : url
-    })),
-  ]
-  const selectionCount = targets.length
-  const loadingPageCount = targets.filter((page) => page.pageView.webContents.isLoadingMainFrame()).length
-  const isLoadingAnySelected = loadingPageCount > 0
-  const isLoadingActivePage = activePage.pageView.webContents.isLoadingMainFrame()
-  const isWaitingForResponse =
-    typeof activePage.pageView.webContents.isWaitingForResponse === 'function' &&
-    activePage.pageView.webContents.isWaitingForResponse()
-  const loadingPhase: ToolbarSelectionData['loadingPhase'] = isLoadingActivePage
-    ? isWaitingForResponse
-      ? 'waiting-response'
-      : 'loading'
-    : 'idle'
 
   return {
     activePageId: activePage.id,
     selectedEntityIds: targets.map((page) => page.id),
-    selectionCount,
+    selectionCount: targets.length,
     availablePageCount,
-    displayUrl: distinctUrls.length === 1 ? distinctUrls[0] ?? '' : '',
-    placeholder:
-      selectionCount > 1 ? `${selectionCount} pages selected` : 'Enter URL',
-    canGoBack: targets.some((page) => page.pageView.webContents.navigationHistory.canGoBack()),
-    canGoForward: targets.some((page) => page.pageView.webContents.navigationHistory.canGoForward()),
-    isLoadingActivePage,
-    loadingPageCount,
-    isLoadingAnySelected,
-    loadingPhase,
     activeTabId: activeWorkspaceTabId,
     activeTabName,
     activeTool: uiActiveTool(),
     drawBrushType: getToolDefaults().draw.brushType,
     drawColor: getToolDefaults().draw.color,
     stickyColor: getToolDefaults()['add-sticky'].color,
+    shapeColor: getToolDefaults()['add-shape'].color,
   }
 }

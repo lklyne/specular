@@ -227,6 +227,7 @@ function layoutComponentStatesInternal(
     },
   })
 
+  const batchSyncId = combinations.length > 1 ? makeId('sync') : null
   const pages: PageConfig[] = combinations.map((combo, index) => {
     const row = Math.floor(index / columnCount)
     const col = index % columnCount
@@ -248,7 +249,7 @@ function layoutComponentStatesInternal(
       presetIndex,
       canvasX,
       canvasY,
-      linked: true,
+      syncId: batchSyncId,
       source: 'generated',
       parentGroupId: groupId,
       groupId,
@@ -340,6 +341,7 @@ function applyTaskLayoutInternal(
   })
 
   let cursorX = placement.canvasX
+  const batchSyncId = presetIndexes.length > 1 ? makeId('sync') : null
   const pagesToCreate = presetIndexes.map((presetIndex) => {
     const preset = VIEWPORT_PRESETS[presetIndex]
     const id = makeId('page')
@@ -349,7 +351,7 @@ function applyTaskLayoutInternal(
       presetIndex,
       canvasX: cursorX,
       canvasY: placement.canvasY,
-      linked: true,
+      syncId: batchSyncId,
       source: 'generated' as const,
       parentGroupId: groupId,
       groupId,

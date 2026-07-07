@@ -61,7 +61,6 @@ export const pageKind: EntityKindDefinition<'page'> = {
         presetIndex,
         canvasX: (input.canvasX as number | undefined) ?? 0,
         canvasY: (input.canvasY as number | undefined) ?? 0,
-        linked: input.linked as boolean | undefined,
         groupId: input.groupId as string | undefined,
         parentGroupId: input.parentGroupId as string | undefined,
         metadata,

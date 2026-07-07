@@ -28,6 +28,13 @@ export type CanvasPointerContext = {
   /** The page the user has *entered* for interaction (#124), or null. Only the
    *  entered page forwards pointer input; a merely-selected page does not. */
   interactivePageId: string | null
+  /** The interactive file entity (HTML iframe) the user has *entered*, or
+   *  null. Mirrors `interactivePageId` for iframe file renderers: a merely-
+   *  selected one still routes clicks to select/drag; only the entered one
+   *  lets the pointer fall through to its content. Renderer-owned — the
+   *  iframe lives in aboveView's DOM, so entering just flips its
+   *  pointer-events (no cross-process forwarding like pages need). */
+  interactiveEntityId: string | null
   /** In-flight placement (the `pendingPlacement` broadcast) when the tool
    *  gesture owns canvas pointers (`canvasPointerOwner` → 'tool-gesture');
    *  null otherwise. Wins over the comment tool when both are active. */
@@ -56,6 +63,12 @@ export type CanvasPointerAction =
    *  enter interactive mode (#124). The second deliberate click; subsequent
    *  clicks forward into the page. */
   | { kind: 'enter-page-interactive'; entityId: string }
+  /** Entity body click on an already-single-selected interactive file (HTML
+   *  iframe): enter interactivity so pointer/scroll reach the content. The
+   *  select-first / interact-second second click, mirroring
+   *  `enter-page-interactive` but renderer-owned (no webContents to forward
+   *  into — entering just flips the iframe's pointer-events). */
+  | { kind: 'enter-entity-interactive'; entityId: string }
   /** Page body hit on the **entered** page: forward the pointerdown (and the
    *  subsequent move/up) into the page's webContents. */
   | { kind: 'forward-pointer-down'; entityId: string; button: 'left' | 'middle' | 'right' }
@@ -189,79 +202,99 @@ function routeByPayload(
         entityKind: payload.entityKind,
       }
     case 'page-body':
-      // Additive modifier wins over the forward-into-page shortcut: shift/
-      // cmd-click on the page body must reach the selection system so users
-      // can extend a multi-selection from a single-selected page (the page
-      // content blocker is removed in that state, so the click would
-      // otherwise land in the webpage). Mirrors `chrome` and `entity-body`.
-      if (isAdditive(context.modifiers)) {
-        return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'page' }
-      }
-      if (context.altHeld) {
-        return {
-          kind: 'page-body-press',
-          entityId: payload.entityId,
-          preserveSelection: context.selectedEntityIds.includes(payload.entityId),
-        }
-      }
-      // Select-first / interact-second (#124):
-      //  - entered page → forward the pointer into its web content;
-      //  - already single-selected (not entered) → the second click enters;
-      //  - otherwise (unselected / multi) → click-to-select / drag-to-move.
-      if (context.interactivePageId === payload.entityId) {
-        return {
-          kind: 'forward-pointer-down',
-          entityId: payload.entityId,
-          button: context.button,
-        }
-      }
-      if (isSingleSelected(context, payload.entityId)) {
-        return { kind: 'enter-page-interactive', entityId: payload.entityId }
-      }
-      return {
-        kind: 'page-body-press',
-        entityId: payload.entityId,
-        preserveSelection: context.selectedEntityIds.includes(payload.entityId),
-      }
-    case 'entity-body': {
-      const additive = isAdditive(context.modifiers)
-      if (additive) {
-        return { kind: 'toggle-select', entityId: payload.entityId, entityKind: payload.entityKind }
-      }
-      if (payload.entityKind === 'group') {
-        const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
-        return { kind: 'begin-group-drag', groupId: payload.entityId, preserveSelection }
-      }
-      // Click-on-solo-selected → defer to release-or-drag: stationary
-      // release fires `canvas-request-entity-edit`, threshold-crossing
-      // movement falls through to drag. File entities require their
-      // resolved renderer to declare `editable: true` so non-editable
-      // renderers (image, component placeholder) drag normally.
-      if (
-        !context.altHeld &&
-        !context.spaceHeld &&
-        context.editingEntityId === null &&
-        isSingleSelected(context, payload.entityId) &&
-        (payload.entityKind === 'text' ||
-          payload.entityKind === 'shape' ||
-          (payload.entityKind === 'file' && payload.rendererEditable === true))
-      ) {
-        return {
-          kind: 'begin-entity-press',
-          entityId: payload.entityId,
-          entityKind: payload.entityKind,
-        }
-      }
-      const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
-      return {
-        kind: 'begin-entity-drag',
-        entityId: payload.entityId,
-        entityKind: payload.entityKind,
-        preserveSelection,
-      }
-    }
+      return routePageBody(payload, context)
+    case 'entity-body':
+      return routeEntityBody(payload, context)
     case 'background':
       return { kind: 'background-click' }
+  }
+}
+
+function routePageBody(
+  payload: Extract<HitPayload, { kind: 'page-body' }>,
+  context: CanvasPointerContext,
+): CanvasPointerAction {
+  // Additive modifier wins over the forward-into-page shortcut: shift/
+  // cmd-click on the page body must reach the selection system so users
+  // can extend a multi-selection from a single-selected page (the page
+  // content blocker is removed in that state, so the click would
+  // otherwise land in the webpage). Mirrors `chrome` and `entity-body`.
+  if (isAdditive(context.modifiers)) {
+    return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'page' }
+  }
+  if (context.altHeld) {
+    return {
+      kind: 'page-body-press',
+      entityId: payload.entityId,
+      preserveSelection: context.selectedEntityIds.includes(payload.entityId),
+    }
+  }
+  // Select-first / interact-second (#124):
+  //  - entered page → forward the pointer into its web content;
+  //  - already single-selected (not entered) → the second click enters;
+  //  - otherwise (unselected / multi) → click-to-select / drag-to-move.
+  if (context.interactivePageId === payload.entityId) {
+    return { kind: 'forward-pointer-down', entityId: payload.entityId, button: context.button }
+  }
+  if (isSingleSelected(context, payload.entityId)) {
+    return { kind: 'enter-page-interactive', entityId: payload.entityId }
+  }
+  return {
+    kind: 'page-body-press',
+    entityId: payload.entityId,
+    preserveSelection: context.selectedEntityIds.includes(payload.entityId),
+  }
+}
+
+function routeEntityBody(
+  payload: Extract<HitPayload, { kind: 'entity-body' }>,
+  context: CanvasPointerContext,
+): CanvasPointerAction {
+  if (isAdditive(context.modifiers)) {
+    return { kind: 'toggle-select', entityId: payload.entityId, entityKind: payload.entityKind }
+  }
+  if (payload.entityKind === 'group') {
+    const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
+    return { kind: 'begin-group-drag', groupId: payload.entityId, preserveSelection }
+  }
+  // Interactive file renderers (HTML iframe): select-first / interact-
+  // second, mirroring page-body. A click on the single-selected (not yet
+  // entered) file enters interactivity; once entered the iframe holds
+  // pointer-events, so content clicks never reach the router — a click
+  // that still does (border/margin) falls through to drag below.
+  if (
+    payload.entityKind === 'file' &&
+    payload.rendererInteractive === true &&
+    !context.altHeld &&
+    !context.spaceHeld &&
+    context.editingEntityId === null &&
+    context.interactiveEntityId !== payload.entityId &&
+    isSingleSelected(context, payload.entityId)
+  ) {
+    return { kind: 'enter-entity-interactive', entityId: payload.entityId }
+  }
+  // Click-on-solo-selected → defer to release-or-drag: stationary
+  // release fires `canvas-request-entity-edit`, threshold-crossing
+  // movement falls through to drag. File entities require their
+  // resolved renderer to declare `editable: true` so non-editable
+  // renderers (image, component placeholder) drag normally.
+  if (
+    !context.altHeld &&
+    !context.spaceHeld &&
+    context.editingEntityId === null &&
+    isSingleSelected(context, payload.entityId) &&
+    (payload.entityKind === 'text' ||
+      payload.entityKind === 'shape' ||
+      (payload.entityKind === 'file' && payload.rendererEditable === true))
+  ) {
+    return { kind: 'begin-entity-press', entityId: payload.entityId, entityKind: payload.entityKind }
+  }
+  const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
+  return {
+    kind: 'begin-entity-drag',
+    entityId: payload.entityId,
+    entityKind: payload.entityKind,
+    preserveSelection,
   }
 }
 
@@ -294,6 +327,9 @@ export type CanvasPointerDoubleClickAction =
   | { kind: 'request-entity-edit'; entityId: string }
   | { kind: 'enter-group'; groupId: string }
   | { kind: 'enter-group-rename'; groupId: string }
+  /** Double-click an interactive file (HTML iframe) → enter interactivity.
+   *  A reliable enter path mirroring the page-body double-click. */
+  | { kind: 'enter-entity-interactive'; entityId: string }
   /** Double-click a page body → enter interactive mode (#124). A reliable
    *  enter path: the first click selects, and this fires after the second
    *  pointerup regardless of how fast the two single clicks landed. */
@@ -318,9 +354,13 @@ export function routePointerDoubleClick(
         case 'text':
           return { kind: 'request-entity-edit', entityId: target.payload.entityId }
         case 'file':
-          return target.payload.rendererEditable === true
-            ? { kind: 'request-entity-edit', entityId: target.payload.entityId }
-            : { kind: 'noop' }
+          if (target.payload.rendererEditable === true) {
+            return { kind: 'request-entity-edit', entityId: target.payload.entityId }
+          }
+          if (target.payload.rendererInteractive === true) {
+            return { kind: 'enter-entity-interactive', entityId: target.payload.entityId }
+          }
+          return { kind: 'noop' }
         case 'group':
           return { kind: 'enter-group', groupId: target.payload.entityId }
         default:

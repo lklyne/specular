@@ -6,7 +6,7 @@ import type {
   SelectionModifiers,
   SidebarSectionKey,
 } from '../../shared/types'
-import type { EdgeSide } from '../../shared/types'
+import type { EdgeEnd, EdgeSide } from '../../shared/types'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
@@ -61,6 +61,16 @@ import {
 } from '../runtime/workspace-tab-operations'
 import { scheduleWorkspaceAutosave } from '../runtime/workspace-autosave'
 import { deleteEdges } from '../workspace-edges'
+import { updateEdge } from '../runtime/document-commands'
+
+type EdgeUpdatePatch = {
+  fromEnd?: EdgeEnd
+  toEnd?: EdgeEnd
+  fromSide?: EdgeSide
+  toSide?: EdgeSide
+  color?: string
+  label?: string
+}
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'
 import {
@@ -351,6 +361,15 @@ export function registerCanvasIpc(): void {
     deleteEdges({ edgeIds: [edgeId] })
     requestLayout()
   })
+
+  ipcMain.on(
+    ipcChannels.canvasUpdateEdge,
+    (_event, { edgeId, patch }: { edgeId: string; patch: EdgeUpdatePatch }) => {
+      if (!edgeId) return
+      updateEdge(edgeId, patch)
+      requestLayout()
+    },
+  )
 
   ipcMain.on(ipcChannels.canvasSelectEdge, (_event, { edgeId }: { edgeId: string | null }) => {
     if (!edgeId) {

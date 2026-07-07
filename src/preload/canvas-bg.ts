@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -108,7 +108,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasToggleFileDeviceShell, { fileId }),
   renamePage: (pageId, name) => ipcRenderer.send(ipcChannels.canvasRenamePage, { pageId, name }),
   duplicatePage: (pageId) => ipcRenderer.send(ipcChannels.canvasDuplicatePage, { pageId }),
-  toggleLinkedPage: (pageId) => ipcRenderer.send(ipcChannels.canvasToggleLinkedPage, { pageId }),
+  toggleSyncSelection: () => ipcRenderer.send(ipcChannels.canvasToggleSyncSelection),
+  unsyncPage: (pageId: string) => ipcRenderer.send(ipcChannels.canvasUnsyncPage, pageId),
   deletePage: (pageId) => ipcRenderer.send(ipcChannels.canvasDeletePage, { pageId }),
   showPageContextMenu: (pageId) => ipcRenderer.send(ipcChannels.canvasShowPageContextMenu, { pageId }),
   dropdownOpen: () => ipcRenderer.send(ipcChannels.canvasBgDropdownOpen),
@@ -189,7 +190,8 @@ const api: CanvasBgElectronAPI = {
   endResize: () => ipcRenderer.send(ipcChannels.canvasResizeEnd),
   beginMultiResize: () => ipcRenderer.send(ipcChannels.canvasMultiResizeBegin),
   endMultiResize: () => ipcRenderer.send(ipcChannels.canvasMultiResizeEnd),
-  distributeSelection: () => ipcRenderer.send(ipcChannels.canvasDistributeSelection),
+  arrangeSelection: (mode: BatchLayoutMode) =>
+    ipcRenderer.send(ipcChannels.canvasArrangeSelection, mode),
   beginReorderDrag: (movingId: string) =>
     ipcRenderer.send(ipcChannels.canvasReorderStart, { movingId }),
   reorderDragMove: (canvasX: number, canvasY: number) =>
@@ -265,6 +267,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasEdgeEditDiscard, { edgeId }),
   deleteEdge: (edgeId: string) =>
     ipcRenderer.send(ipcChannels.canvasDeleteEdge, { edgeId }),
+  updateEdge: (edgeId, patch) =>
+    ipcRenderer.send(ipcChannels.canvasUpdateEdge, { edgeId, patch }),
   selectEdge: (edgeId: string | null) =>
     ipcRenderer.send(ipcChannels.canvasSelectEdge, { edgeId }),
   hoverPage: (pageId: string | null) =>
@@ -284,8 +288,6 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.invoke(ipcChannels.writeNoteFile, { filePath, content }),
   applyNoteContent: (entityId: string, content: string) =>
     ipcRenderer.invoke(ipcChannels.applyNoteContent, { entityId, content }),
-  morphTextFile: (entityId: string, direction: 'text-to-file' | 'file-to-text') =>
-    ipcRenderer.invoke(ipcChannels.canvasMorphTextFile, { entityId, direction }),
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getCanvasLayoutBootstrap),
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),

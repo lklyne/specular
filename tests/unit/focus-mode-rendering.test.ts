@@ -25,7 +25,7 @@ function page(id: string, x: number): CanvasScenePageEntity {
     width: 300,
     height: 200,
     presetIndex: 0,
-    linked: false,
+    synced: false,
     screenX: x,
     screenY: 100,
     screenWidth: 300,

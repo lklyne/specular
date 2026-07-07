@@ -200,7 +200,7 @@ function duplicateGroupInternal(
         presetIndex: page.presetIndex,
         canvasX: snapToGrid(page.canvasX + offsetX),
         canvasY: snapToGrid(page.canvasY + offsetY),
-        linked: false,
+        syncId: null,
         suppressInitialNavigationBroadcast: true,
         source: page.source,
         parentGroupId: clonedGroup.id,

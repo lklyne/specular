@@ -1,5 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react'
-import { Select } from '@base-ui/react/select'
+import { ZoomPresetDropdown } from '../shared/ZoomPresetDropdown'
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,13 +9,13 @@ import type {
   AgentPresenceCursor,
   DrawingBrushType,
   Tool,
-  ToolbarSelectionData,
 } from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
+import { shortcutDisplay } from '../../shared/bindings'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { resolveAddressInput } from '../../shared/url'
 import {
   AddPageToolIcon,
+  AddDocumentToolIcon,
   AddShapeToolIcon,
   AddStickyToolIcon,
   AddTextToolIcon,
@@ -29,13 +28,13 @@ import {
   ThemeToolIcon,
   ZoomChevronIcon,
 } from '../shared/CustomIcons'
-import { PagePresetDropdown } from '../shared/PagePresetDropdown'
+import { ToolbarTooltip } from './ToolbarTooltip'
 import { ZOOM_PRESETS } from './useToolbarState'
 
 function toolbarIconBtnClass(isDark: boolean): string {
   return isDark
-    ? 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-300 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-100 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
-    : 'toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-600 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
+    ? 'tb-hit toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-300 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-100 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
+    : 'tb-hit toolbar-squircle-btn rounded-[8px] border border-transparent bg-transparent p-1.5 text-zinc-600 hover:bg-[var(--surface-interactive-hover)] hover:text-zinc-900 active:bg-[var(--surface-interactive)] disabled:pointer-events-none disabled:opacity-45'
 }
 
 // Tool buttons in the central toolbar follow the Figma toolbar spec:
@@ -44,7 +43,7 @@ function toolbarIconBtnClass(isDark: boolean): string {
 // surface and its glyphs need to read at a glance.
 function toolbarToolBtnClass(isDark: boolean, active: boolean): string {
   const base =
-    'flex h-7 w-8 items-center justify-center rounded-[6px] border-0 transition-colors disabled:pointer-events-none disabled:opacity-45'
+    'tb-hit flex h-7 w-8 items-center justify-center rounded-[6px] border-0 transition-colors disabled:pointer-events-none disabled:opacity-45'
   if (active) {
     return isDark
       ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
@@ -67,42 +66,7 @@ const TOOL_GLYPH_SIZE = 20
 const TOOLBAR_GLYPH_SHADOW = 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18))'
 const TOOLBAR_GLYPH_STYLE: React.CSSProperties = { filter: TOOLBAR_GLYPH_SHADOW }
 
-function AddPagePresetMenu({
-  isDark,
-  active,
-  onAddPage,
-  onDropdownOpenChange,
-}: {
-  isDark: boolean
-  active: boolean
-  onAddPage: (presetIndex: number | 'custom') => void
-  onDropdownOpenChange: (open: boolean) => void
-}) {
-  const triggerClassName = toolbarToolBtnClass(isDark, active)
-
-  return (
-    <PagePresetDropdown
-      align="center"
-      isDark={isDark}
-      onOpenChange={onDropdownOpenChange}
-      onSelectPreset={(index) => onAddPage(index)}
-      onSelectCustom={() => onAddPage('custom')}
-      side="bottom"
-      sideOffset={4}
-      trigger={
-        <button className={triggerClassName} title="Add page" type="button">
-          <AddPageToolIcon
-            size={TOOL_GLYPH_SIZE}
-            isDark={isDark}
-            style={TOOLBAR_GLYPH_STYLE}
-          />
-        </button>
-      }
-    />
-  )
-}
-
-export function ToolbarDivider({ isDark }: { isDark: boolean }) {
+function ToolbarDivider({ isDark }: { isDark: boolean }) {
   return (
     <div
       className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-white/20' : 'bg-zinc-900/20'}`}
@@ -122,22 +86,25 @@ export function LeftActions({
   onToggleLeftSidebar,
 }: LeftActionsProps) {
   const iconButtonClassName = toolbarIconBtnClass(isDark)
+  const label = leftSidebarOpen ? 'Collapse left panel' : 'Expand left panel'
 
   return (
     <div className="flex min-w-0 items-center justify-start">
       <div className="flex w-fit items-center gap-2 [-webkit-app-region:no-drag]">
-        <button
-          onClick={onToggleLeftSidebar}
-          className={iconButtonClassName}
-          title={leftSidebarOpen ? 'Collapse left panel' : 'Expand left panel'}
-          type="button"
-        >
-          <PanelRight
-            size={14}
-            className={leftSidebarOpen ? '' : 'opacity-60'}
-            style={{ transform: 'scaleX(-1)' }}
-          />
-        </button>
+        <ToolbarTooltip label={label}>
+          <button
+            onClick={onToggleLeftSidebar}
+            className={iconButtonClassName}
+            aria-label={label}
+            type="button"
+          >
+            <PanelRight
+              size={14}
+              className={leftSidebarOpen ? '' : 'opacity-60'}
+              style={{ transform: 'scaleX(-1)' }}
+            />
+          </button>
+        </ToolbarTooltip>
       </div>
     </div>
   )
@@ -149,6 +116,7 @@ interface CenterActionsProps {
   drawBrushType: DrawingBrushType
   drawColor: string
   stickyColor: string
+  shapeColor: string
   hasSelection: boolean
   zoomPercent: number
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
@@ -164,6 +132,7 @@ export function CenterActions({
   drawBrushType,
   drawColor,
   stickyColor,
+  shapeColor,
   hasSelection,
   zoomPercent,
   currentPresetValue,
@@ -172,12 +141,7 @@ export function CenterActions({
   onToggleTheme,
   onZoomSet,
 }: CenterActionsProps) {
-  const onAddPage = (presetIndex: number | 'custom') =>
-    onSetTool({
-      kind: 'add-page',
-      presetIndex: typeof presetIndex === 'number' ? presetIndex : undefined,
-      customSize: presetIndex === 'custom',
-    })
+  const onAddPage = () => onSetTool({ kind: 'add-page' })
   const onSelectTool = () => onSetTool({ kind: 'select' })
   const onToggleHandTool = () =>
     onSetTool(activeTool.kind === 'hand' ? { kind: 'select' } : { kind: 'hand' })
@@ -186,11 +150,14 @@ export function CenterActions({
   const onAddSticky = () => onSetTool({ kind: 'add-sticky' })
   const onAddShape = () => onSetTool({ kind: 'add-shape' })
   const onAddText = () => onSetTool({ kind: 'add-text' })
+  const onAddDocument = () => onSetTool({ kind: 'add-document' })
   const onToggleCommentMode = () =>
     onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
   const onToggleInspectMode = () =>
     onSetTool(activeTool.kind === 'inspect' ? { kind: 'select' } : { kind: 'inspect' })
 
+  const isMac = navigator.userAgent.includes('Mac')
+  const sc = (id: Parameters<typeof shortcutDisplay>[0]) => shortcutDisplay(id, isMac)
   const buttonClass = (active: boolean) => toolbarToolBtnClass(isDark, active)
   const drawInk = resolveCanvasColor(drawColor, {
     role: 'ink',
@@ -200,264 +167,173 @@ export function CenterActions({
   const selectTriggerClassName = isDark
     ? 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'
     : 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900'
-  const popupClassName =
-    'z-50 min-w-[140px] rounded-md border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1 shadow-xl'
-  const popupItemClassName = isDark
-    ? 'flex cursor-pointer items-center justify-between gap-6 px-3 py-1.5 text-xs text-zinc-300 outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-zinc-100 data-[selected]:font-semibold data-[selected]:text-zinc-100'
-    : 'flex cursor-pointer items-center justify-between gap-6 px-3 py-1.5 text-xs text-zinc-700 outline-none data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-900 data-[selected]:font-semibold data-[selected]:text-zinc-900'
-
   // ADR 0013 §5 grouping: nav | create | annotate | view.
   return (
     <div className="flex min-w-0 items-center justify-center overflow-hidden">
       <div className="flex w-fit items-center gap-1 [-webkit-app-region:no-drag]">
-        <button
-          onClick={onSelectTool}
-          className={buttonClass(activeTool.kind === 'select')}
-          title="Select"
-          type="button"
-        >
-          <SelectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-        </button>
+        <ToolbarTooltip label="Select tool" shortcut={sc('tool-select')}>
+          <button
+            onClick={onSelectTool}
+            className={buttonClass(activeTool.kind === 'select')}
+            aria-label="Select tool"
+            type="button"
+          >
+            <SelectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
 
-        <button
-          onClick={onToggleHandTool}
-          className={buttonClass(activeTool.kind === 'hand')}
-          title="Hand"
-          type="button"
-        >
-          <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-        </button>
+        <ToolbarTooltip label="Hand tool" shortcut={sc('tool-hand')}>
+          <button
+            onClick={onToggleHandTool}
+            className={buttonClass(activeTool.kind === 'hand')}
+            aria-label="Hand tool"
+            type="button"
+          >
+            <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
 
         <ToolbarDivider isDark={isDark} />
 
-        <button
-          onClick={onToggleDrawMode}
-          className={buttonClass(activeTool.kind === 'draw')}
-          title="Draw"
-          type="button"
-        >
-          {drawBrushType === 'pen' ? (
-            <DrawPenToolIcon
+        <ToolbarTooltip label="Draw" shortcut={sc('tool-draw-pen')}>
+          <button
+            onClick={onToggleDrawMode}
+            className={buttonClass(activeTool.kind === 'draw')}
+            aria-label="Draw"
+            type="button"
+          >
+            {drawBrushType === 'pen' ? (
+              <DrawPenToolIcon
+                size={TOOL_GLYPH_SIZE}
+                isDark={isDark}
+                ink={drawInk}
+                style={TOOLBAR_GLYPH_STYLE}
+              />
+            ) : (
+              <DrawHighlightToolIcon
+                size={TOOL_GLYPH_SIZE}
+                isDark={isDark}
+                ink={drawInk}
+                style={TOOLBAR_GLYPH_STYLE}
+              />
+            )}
+          </button>
+        </ToolbarTooltip>
+
+        <ToolbarTooltip label="Add sticky" shortcut={sc('tool-add-sticky')}>
+          <button
+            onClick={onAddSticky}
+            className={buttonClass(activeTool.kind === 'add-sticky')}
+            aria-label="Add sticky"
+            type="button"
+          >
+            <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} color={stickyColor} />
+          </button>
+        </ToolbarTooltip>
+
+        <ToolbarTooltip label="Add shape" shortcut={sc('tool-add-shape-rectangle')}>
+          <button
+            onClick={onAddShape}
+            className={buttonClass(activeTool.kind === 'add-shape')}
+            aria-label="Add shape"
+            type="button"
+          >
+            <AddShapeToolIcon
               size={TOOL_GLYPH_SIZE}
               isDark={isDark}
-              ink={drawInk}
+              color={shapeColor}
               style={TOOLBAR_GLYPH_STYLE}
             />
-          ) : (
-            <DrawHighlightToolIcon
+          </button>
+        </ToolbarTooltip>
+
+        <ToolbarTooltip label="Add page" shortcut={sc('tool-add-page')}>
+          <button
+            onClick={onAddPage}
+            className={buttonClass(activeTool.kind === 'add-page')}
+            aria-label="Add page"
+            type="button"
+          >
+            <AddPageToolIcon
               size={TOOL_GLYPH_SIZE}
               isDark={isDark}
-              ink={drawInk}
               style={TOOLBAR_GLYPH_STYLE}
             />
-          )}
-        </button>
+          </button>
+        </ToolbarTooltip>
 
-        <button
-          onClick={onAddSticky}
-          className={buttonClass(activeTool.kind === 'add-sticky')}
-          title="Add sticky"
-          type="button"
-        >
-          <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} color={stickyColor} />
-        </button>
+        <ToolbarTooltip label="Add text" shortcut={sc('tool-add-text')}>
+          <button
+            onClick={onAddText}
+            className={buttonClass(activeTool.kind === 'add-text')}
+            aria-label="Add text"
+            type="button"
+          >
+            <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
 
-        <button
-          onClick={onAddShape}
-          className={buttonClass(activeTool.kind === 'add-shape')}
-          title="Add shape"
-          type="button"
-        >
-          <AddShapeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-        </button>
+        <ToolbarTooltip label="Add document">
+          <button
+            onClick={onAddDocument}
+            className={buttonClass(activeTool.kind === 'add-document')}
+            aria-label="Add document"
+            type="button"
+          >
+            <AddDocumentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
 
-        <AddPagePresetMenu
+        <ToolbarDivider isDark={isDark} />
+
+        <ToolbarTooltip label="Comment" shortcut={sc('tool-comment')}>
+          <button
+            onClick={onToggleCommentMode}
+            className={buttonClass(activeTool.kind === 'comment')}
+            aria-label="Comment"
+            type="button"
+          >
+            <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
+
+        <ToolbarTooltip label={hasSelection ? 'Inspect' : 'Inspect any page'} shortcut={sc('tool-inspect')}>
+          <button
+            onClick={onToggleInspectMode}
+            className={buttonClass(activeTool.kind === 'inspect')}
+            aria-label={hasSelection ? 'Inspect' : 'Inspect any page'}
+            type="button"
+          >
+            <InspectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
+
+        <ToolbarDivider isDark={isDark} />
+
+        <ToolbarTooltip label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+          <button
+            onClick={onToggleTheme}
+            className={buttonClass(false)}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            type="button"
+          >
+            <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
+
+        <ZoomPresetDropdown
           isDark={isDark}
-          active={activeTool.kind === 'add-page'}
-          onAddPage={onAddPage}
-          onDropdownOpenChange={onDropdownOpenChange}
-        />
-
-        <ToolbarDivider isDark={isDark} />
-
-        <button
-          onClick={onAddText}
-          className={buttonClass(activeTool.kind === 'add-text')}
-          title="Add text"
-          type="button"
-        >
-          <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-        </button>
-
-        <button
-          onClick={onToggleCommentMode}
-          className={buttonClass(activeTool.kind === 'comment')}
-          title="Comment"
-          type="button"
-        >
-          <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-        </button>
-
-        <button
-          onClick={onToggleInspectMode}
-          className={buttonClass(activeTool.kind === 'inspect')}
-          title={hasSelection ? 'Inspect' : 'Inspect any page'}
-          type="button"
-        >
-          <InspectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-        </button>
-
-        <ToolbarDivider isDark={isDark} />
-
-        <button
-          onClick={onToggleTheme}
-          className={buttonClass(false)}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          type="button"
-        >
-          <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-        </button>
-
-        <Select.Root
-          value={currentPresetValue}
-          onValueChange={(value) => {
-            if (value !== null) onZoomSet(value)
-          }}
+          levels={ZOOM_PRESETS}
+          activeLevel={currentPresetValue}
+          shortcutLevel={100}
+          onSelect={onZoomSet}
           onOpenChange={onDropdownOpenChange}
-        >
-          <Select.Trigger className={selectTriggerClassName} title="Zoom">
-            <Select.Value placeholder={`${zoomPercent}%`}>
-              {() => <span>{zoomPercent}%</span>}
-            </Select.Value>
-            <Select.Icon className={isDark ? 'text-zinc-400' : 'text-zinc-500'}>
+          trigger={
+            <button type="button" data-zoom-anchor className={selectTriggerClassName} title="Zoom">
+              <span>{zoomPercent}%</span>
               <ZoomChevronIcon size={10} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-            </Select.Icon>
-          </Select.Trigger>
-          <Select.Portal>
-            <Select.Positioner side="bottom" align="center" sideOffset={4}>
-              <Select.Popup className={popupClassName}>
-                {ZOOM_PRESETS.map((level) => (
-                  <Select.Item key={level} value={level} className={popupItemClassName}>
-                    <Select.ItemText>{level}%</Select.ItemText>
-                    {level === 100 ? (
-                      <kbd
-                        className={
-                          isDark
-                            ? 'rounded-[4px] bg-zinc-700 px-1.5 py-0.5 text-xs leading-none text-zinc-200'
-                            : 'rounded-[4px] bg-zinc-100 px-1.5 py-0.5 text-xs leading-none text-zinc-600'
-                        }
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <span>⌘</span>
-                          <span>1</span>
-                        </span>
-                      </kbd>
-                    ) : (
-                      <span />
-                    )}
-                  </Select.Item>
-                ))}
-              </Select.Popup>
-            </Select.Positioner>
-          </Select.Portal>
-        </Select.Root>
-      </div>
-    </div>
-  )
-}
-
-interface CenterAddressBarProps {
-  isDark: boolean
-  hasSelection: boolean
-  selection: ToolbarSelectionData
-  addressValue: string
-  setAddressValue: Dispatch<SetStateAction<string>>
-  addressBarRef?: React.RefObject<HTMLInputElement | null>
-  onGoBackSelection: () => void
-  onGoForwardSelection: () => void
-  onReloadSelection: () => void
-  onNavigateSelection: (url: string) => void
-}
-
-export function CenterAddressBar({
-  isDark,
-  hasSelection,
-  selection,
-  addressValue,
-  setAddressValue,
-  addressBarRef,
-  onGoBackSelection,
-  onGoForwardSelection,
-  onReloadSelection,
-  onNavigateSelection,
-}: CenterAddressBarProps) {
-  if (!hasSelection) {
-    return <div className="flex min-w-0 justify-center px-1" />
-  }
-
-  const iconButtonClassName = toolbarIconBtnClass(isDark)
-  const addressBarClassName = isDark
-    ? 'flex h-7 min-w-0 items-center rounded-[8px] border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-[border-color,box-shadow] focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500'
-    : 'flex h-7 min-w-0 items-center rounded-[8px] border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-zinc-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition-[border-color,box-shadow] focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500'
-  const inputClassName = isDark
-    ? 'min-w-0 flex-1 border-0 bg-transparent text-[12px] text-zinc-100 outline-none placeholder:text-zinc-500 focus:outline-none'
-    : 'min-w-0 flex-1 border-0 bg-transparent text-[12px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:outline-none'
-
-  return (
-    <div className="flex min-w-0 items-center justify-center gap-2 [-webkit-app-region:no-drag]">
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          onClick={onGoBackSelection}
-          className={iconButtonClassName}
-          disabled={!selection.canGoBack}
-          title="Back"
-          type="button"
-        >
-          <ChevronLeft size={14} />
-        </button>
-        <button
-          onClick={onGoForwardSelection}
-          className={iconButtonClassName}
-          disabled={!selection.canGoForward}
-          title="Forward"
-          type="button"
-        >
-          <ChevronRight size={14} />
-        </button>
-        <button
-          onClick={onReloadSelection}
-          className={iconButtonClassName}
-          title={
-            selection.isLoadingAnySelected
-              ? selection.selectionCount > 1
-                ? `Loading ${selection.loadingPageCount}/${selection.selectionCount} pages`
-                : selection.loadingPhase === 'waiting-response'
-                  ? 'Waiting for response'
-                  : 'Loading'
-              : 'Reload'
+            </button>
           }
-          type="button"
-        >
-          <RotateCw size={14} className={selection.isLoadingAnySelected ? 'animate-spin' : ''} />
-        </button>
-      </div>
-      <div
-        className={`${addressBarClassName} min-w-[200px] w-full lg:max-w-[720px]`}
-      >
-        <input
-          ref={addressBarRef}
-          type="text"
-          value={addressValue}
-          onChange={(event) => setAddressValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return
-            const value = addressValue.trim()
-            if (!value) return
-            onNavigateSelection(resolveAddressInput(value))
-          }}
-          placeholder={selection.placeholder}
-          spellCheck={false}
-          className={inputClassName}
         />
       </div>
     </div>
@@ -476,18 +352,21 @@ export function RightPanelToggle({
   onToggleDevTools,
 }: RightPanelToggleProps) {
   const iconButtonClassName = toolbarIconBtnClass(isDark)
+  const label = devtoolsOpen ? 'Collapse right panel' : 'Expand right panel'
 
   return (
     <div className="flex min-w-0 items-center justify-end">
       <div className="flex w-fit items-center gap-1 [-webkit-app-region:no-drag]">
-        <button
-          onClick={onToggleDevTools}
-          className={iconButtonClassName}
-          title={devtoolsOpen ? 'Collapse right panel' : 'Expand right panel'}
-          type="button"
-        >
-          <PanelRight size={14} className={devtoolsOpen ? '' : 'opacity-60'} />
-        </button>
+        <ToolbarTooltip label={label}>
+          <button
+            onClick={onToggleDevTools}
+            className={iconButtonClassName}
+            aria-label={label}
+            type="button"
+          >
+            <PanelRight size={14} className={devtoolsOpen ? '' : 'opacity-60'} />
+          </button>
+        </ToolbarTooltip>
       </div>
     </div>
   )

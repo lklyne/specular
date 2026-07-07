@@ -107,7 +107,7 @@ describe('persist projections match the declared persisted field lists', () => {
       presetIndex: 1,
       canvasX: 0,
       canvasY: 0,
-      linked: false,
+      syncId: null,
       source: 'user',
       syncState: {
         suppressNavigationBroadcastUntil: 0,

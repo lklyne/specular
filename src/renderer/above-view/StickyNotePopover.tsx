@@ -1,14 +1,11 @@
 // ADR 0008 §4 — text selection popup. Plain and sticky count as same kind
 // for color so color edits apply uniformly across both in multi-select.
-// ADR 0013 §3 — for a single plain-text selection, clicking the inactive
-// half of the leading short/long toggle morphs the entity into a markdown
-// file at the same rect.
 
 import { slotForStorage } from '../../shared/canvas-colors'
 import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
-import { TextKindToggle } from './TextKindToggle'
+import { ColorDropdown } from './ColorDropdown'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
@@ -22,9 +19,8 @@ export function StickyNotePopover({
   api: Pick<
     CanvasBgElectronAPI,
     | 'updateEntity'
-    | 'morphTextFile'
     | 'focusSelection'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -44,10 +40,6 @@ export function StickyNotePopover({
 
   const entityIds = selectedTextEntities.map((e) => e.id)
   const noun = count === 1 ? 'sticky note' : `${count} text entities`
-  const singlePlainText =
-    count === 1 && selectedTextEntities[0].textStyle === 'plain'
-      ? selectedTextEntities[0]
-      : null
 
   return (
     <CanvasItemPopup.Root
@@ -58,20 +50,6 @@ export function StickyNotePopover({
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
-        {singlePlainText ? (
-          <>
-            <TextKindToggle
-              isDark={isDark}
-              active="short"
-              onPick={(kind) => {
-                if (kind === 'long') {
-                  void api.morphTextFile(singlePlainText.id, 'text-to-file')
-                }
-              }}
-            />
-            <CanvasItemPopup.Divider isDark={isDark} />
-          </>
-        ) : null}
         <CanvasItemPopup.Section>
           <TextSizeDropdown
             isDark={isDark}
@@ -85,11 +63,12 @@ export function StickyNotePopover({
           />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.PaletteSection
+        <ColorDropdown
           isDark={isDark}
           palette="soft"
           activeSlot={activeSlot}
           role="fill"
+          noun={noun}
           onPick={(storage) => {
             for (const e of selectedTextEntities) {
               api.updateEntity('text', e.id, { color: storage })

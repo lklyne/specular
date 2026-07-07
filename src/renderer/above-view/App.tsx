@@ -51,6 +51,7 @@ import { usePageInputForwarding } from './usePageInputForwarding'
 import { pointerOverPageContent } from '../../shared/page-hit-test'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
+import { EdgePopup } from './EdgePopup'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
 import { GroupRenameOverlay } from './GroupRenameLabel'
@@ -190,6 +191,7 @@ function StackedCanvasItems({
   selectedEdgeIds,
   selectedEntityIdSet,
   editingEntityId,
+  interactiveEntityId,
   ghostEntity,
   hideContext,
 }: {
@@ -200,6 +202,9 @@ function StackedCanvasItems({
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
   editingEntityId: string | null
+  /** Interactive file (HTML iframe) the user has entered, or null. Flips that
+   *  iframe's pointer-events on so scroll/clicks reach its content. */
+  interactiveEntityId: string | null
   /** Focus is at rest with the eye off — skip all non-page context (annotation
    *  entities, edges, file entities) entirely (binary, never dimmed). ADR 0021. */
   hideContext: boolean
@@ -293,6 +298,7 @@ function StackedCanvasItems({
           isDark={isDark}
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
+          interactiveEntityId={interactiveEntityId}
           jsonModeMap={fileJsonModeMap}
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
@@ -590,6 +596,12 @@ export default function App({
     }
     return ids
   }, [layoutData.selection])
+  // Single-edge selection drives the edge popup (basics: one edge at a time).
+  const selectedEdge = useMemo(() => {
+    if (selectedEdgeIds.size !== 1) return null
+    const [id] = selectedEdgeIds
+    return layoutData.edges.find((edge) => edge.id === id) ?? null
+  }, [selectedEdgeIds, layoutData.edges])
   const hoveredEntityId = layoutData.hover?.id ?? null
   const focus = focusContext(layoutData)
   const focusPresentationActive = focus.active
@@ -868,6 +880,22 @@ export default function App({
   }, [])
   const [edgeDragState, setEdgeDragState] = useState<EdgeDragState>(EDGE_DRAG_IDLE)
   const [dragCopyPreview, setDragCopyPreview] = useState<DragCopyPreviewBox[]>([])
+  // Interactive file (HTML iframe) the user has entered: select-first /
+  // interact-second, mirroring pages. Renderer-local — the iframe lives in
+  // this WCV's DOM, so entering just flips its pointer-events (no cross-
+  // process forwarding pages need). Cleared when it stops being the sole
+  // selection (Escape → selectNone, click-away, select another).
+  const [enteredEntityId, setEnteredEntityId] = useState<string | null>(null)
+  const enteredEntityIdRef = useRef<string | null>(null)
+  enteredEntityIdRef.current = enteredEntityId
+  const onEnterEntityInteractive = useCallback((entityId: string) => {
+    setEnteredEntityId(entityId)
+  }, [])
+  useEffect(() => {
+    if (!enteredEntityId) return
+    const sel = layoutData.selectedEntityIds
+    if (sel.length !== 1 || sel[0] !== enteredEntityId) setEnteredEntityId(null)
+  }, [enteredEntityId, layoutData.selectedEntityIds])
   useCanvasPointerRouter({
     api,
     layoutRef,
@@ -882,6 +910,8 @@ export default function App({
     onCommentDragMove: onDragMove,
     onCommentDragEnd: onDragEnd,
     commentDraftRef: draftStateRef,
+    enteredEntityIdRef,
+    onEnterEntityInteractive,
   })
 
   useEffect(() => {
@@ -901,7 +931,10 @@ export default function App({
     // children (drawing hit-paths, thread chrome, region annotations) set
     // their own cursor and would otherwise win on hover.
     const style = document.createElement('style')
-    style.textContent = `html, body, body * { cursor: ${DRAW_CURSOR} !important; }`
+    // Overlay UI (tool popups, chrome) keeps a normal pointer — its attribute
+    // selector outspecifies `body *`, so the default cursor wins on hover.
+    style.textContent = `html, body, body * { cursor: ${DRAW_CURSOR} !important; }
+[data-overlay-ui], [data-overlay-ui] * { cursor: default !important; }`
     document.head.appendChild(style)
     return () => {
       style.remove()
@@ -1029,6 +1062,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEdgeIds={selectedEdgeIds}
             selectedEntityIdSet={selectedEntityIdSet}
             editingEntityId={editingEntityId}
+            interactiveEntityId={enteredEntityId}
             ghostEntity={reorderGhostEntity}
             hideContext={hideContext}
           />
@@ -1162,6 +1196,18 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           ).map(({ key, Component, mapProps }) => (
             <Component key={key} {...mapProps(popupContext)} />
           ))}
+
+          {/* Edges aren't scene entities, so they sit outside SELECTION_POPUPS.
+              Mount off the single selected edge, under the same tool mutex. */}
+          {!toolHasPopup(layoutData.activeTool) && !hideContext ? (
+            <EdgePopup
+              key={selectedEdge?.id ?? 'none'}
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              edge={selectedEdge}
+            />
+          ) : null}
 
           <CommentBadgesLayer
             annotations={layoutData.annotations}

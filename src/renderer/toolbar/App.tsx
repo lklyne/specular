@@ -3,13 +3,12 @@ import type { ThemeData } from '../../shared/types'
 import { isPlainShortcutKey } from '../../shared/gesture-utils'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
+import { TooltipProvider } from '../shared/Tooltip'
 import { toolbarApi } from './toolbarApi'
 import {
-  CenterAddressBar,
   CenterActions,
   LeftActions,
   RightPanelToggle,
-  ToolbarDivider,
   ToolbarStatusActions,
 } from './toolbarSections'
 import { useToolbarState } from './useToolbarState'
@@ -23,10 +22,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     drawBrushType,
     drawColor,
     stickyColor,
-    selection,
-    addressValue,
-    setAddressValue,
-    addressBarRef,
+    shapeColor,
     currentPresetValue,
     hasSelection,
     agentCursors,
@@ -60,8 +56,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [activeTool])
   const isMac = navigator.userAgent.includes('Mac')
-  const showMultiPageAddressBar = selection.selectionCount > 1
-  const showCenterActionsOnly = !showMultiPageAddressBar
 
   return (
     <>
@@ -71,6 +65,23 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           margin: 0;
           padding: 0;
           overflow: visible !important;
+          scrollbar-width: none;
+        }
+        /* The toolbar WebContentsView grows a band below the 44px strip to paint
+           tooltips; never show its scrollbar when content overflows the view. */
+        ::-webkit-scrollbar { display: none; }
+        /* Bridge the horizontal gaps between buttons so the tooltip fires
+           continuously. The transparent ::before extends each button's hover
+           hit-area into the gap without moving the glyph or growing the visible
+           hover fill (which stays on the real button box). */
+        .tb-hit { position: relative; }
+        .tb-hit::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: -4px;
+          right: -4px;
         }
         html:not(.dark) .toolbar-bar {
           background: var(--surface-toolbar);
@@ -105,10 +116,9 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
       {/* NOTE: padding values (`pl-[86px] pr-4` mac, `px-4` other) are mirrored
           in `runtime-constants.ts` (TOOLBAR_PAD_*) so main can compute the
           tool-center x for popup alignment. Keep in sync. */}
+      <TooltipProvider>
       <div
-        className={`toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] ${
-          showCenterActionsOnly ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-[auto_1fr_auto]'
-        } items-center gap-1 ${
+        className={`toolbar-bar fixed top-0 left-0 right-0 grid h-[44px] grid-cols-[1fr_auto_1fr] items-center gap-1 ${
           isMac ? 'pl-[86px] pr-4' : 'px-4'
         } select-none [-webkit-app-region:drag] border-b border-[var(--surface-toolbar-border)] bg-[var(--surface-toolbar)] text-[var(--surface-toolbar-foreground)]`}
       >
@@ -118,53 +128,39 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           onToggleLeftSidebar={toolbarApi.toggleLeftSidebar}
         />
 
-        {showMultiPageAddressBar ? (
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <ToolbarDivider isDark={isDark} />
-            <div className="min-w-0 flex-1">
-              <CenterAddressBar
-                isDark={isDark}
-                hasSelection={hasSelection}
-                selection={selection}
-                addressValue={addressValue}
-                setAddressValue={setAddressValue}
-                onGoBackSelection={toolbarApi.goBackSelection}
-                onGoForwardSelection={toolbarApi.goForwardSelection}
-                onReloadSelection={toolbarApi.reloadSelection}
-                onNavigateSelection={toolbarApi.navigateSelection}
-              />
-            </div>
+        <div className="flex items-center justify-center">
+          <div className="flex min-w-0 max-w-full items-center gap-2 [-webkit-app-region:no-drag]">
+            <CenterActions
+              isDark={isDark}
+              activeTool={activeTool}
+              drawBrushType={drawBrushType}
+              drawColor={drawColor}
+              stickyColor={stickyColor}
+              shapeColor={shapeColor}
+              hasSelection={hasSelection}
+              zoomPercent={zoomPercent}
+              currentPresetValue={currentPresetValue}
+              onSetTool={toolbarApi.setTool}
+              onDropdownOpenChange={(open) => {
+                if (open) {
+                  toolbarApi.dropdownOpen()
+                  // A tool popup (e.g. add-page) lives in the above-view overlay
+                  // and can't see this dropdown; disarm the tool so the two
+                  // toolbar popups can't sit open at once.
+                  if (activeTool.kind !== 'select') toolbarApi.setTool({ kind: 'select' })
+                } else toolbarApi.dropdownClose()
+              }}
+              onToggleTheme={toolbarApi.toggleTheme}
+              onZoomSet={(value) => toolbarApi.zoomSet(value / 100)}
+            />
           </div>
-        ) : showCenterActionsOnly ? (
-          <div className="flex items-center justify-center">
-            <div className="flex min-w-0 max-w-full items-center gap-2 [-webkit-app-region:no-drag]">
-              <CenterActions
-                isDark={isDark}
-                activeTool={activeTool}
-                drawBrushType={drawBrushType}
-                drawColor={drawColor}
-                stickyColor={stickyColor}
-                hasSelection={hasSelection}
-                zoomPercent={zoomPercent}
-                currentPresetValue={currentPresetValue}
-                onSetTool={toolbarApi.setTool}
-                onDropdownOpenChange={(open) => {
-                  if (open) toolbarApi.dropdownOpen()
-                  else toolbarApi.dropdownClose()
-                }}
-                onToggleTheme={toolbarApi.toggleTheme}
-                onZoomSet={(value) => toolbarApi.zoomSet(value / 100)}
-              />
-            </div>
-          </div>
-        ) : null}
+        </div>
 
         <div className="flex min-w-0 items-center justify-end gap-1">
           <ToolbarStatusActions
             isDark={isDark}
             agentCursors={agentCursors}
           />
-          {!showCenterActionsOnly && <ToolbarDivider isDark={isDark} />}
           <RightPanelToggle
             isDark={isDark}
             devtoolsOpen={devtoolsOpen}
@@ -172,6 +168,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           />
         </div>
       </div>
+      </TooltipProvider>
     </>
   )
 }

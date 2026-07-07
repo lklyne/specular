@@ -12,10 +12,6 @@ export interface ToolbarElectronAPI {
   zoomOut: () => void
   zoomReset: () => void
   zoomSet: (level: number) => void
-  navigateSelection: (url: string) => void
-  goBackSelection: () => void
-  goForwardSelection: () => void
-  reloadSelection: () => void
   setTool: (tool: Tool) => void
   reloadApp: () => void
   toggleTheme: () => void
@@ -24,6 +20,8 @@ export interface ToolbarElectronAPI {
   toggleDevTools: () => void
   dropdownOpen: () => void
   dropdownClose: () => void
+  tooltipOpen: () => void
+  tooltipClose: () => void
   setTextEditing: (active: boolean) => void
   onZoomChanged: (callback: (value: number) => void) => () => void
   onSelectionChanged: (callback: (data: ToolbarSelectionData) => void) => () => void
@@ -31,7 +29,6 @@ export interface ToolbarElectronAPI {
   onDevtoolsChanged: (callback: (open: boolean) => void) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
-  onFocusAddressBar: (callback: () => void) => () => void
   repoConnectViaPicker: () => Promise<ConnectedRepo | null>
   repoDisconnect: (id: string) => Promise<void>
 }
