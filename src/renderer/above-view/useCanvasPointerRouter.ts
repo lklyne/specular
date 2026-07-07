@@ -89,7 +89,7 @@ import { capturePointer, startPointerSession } from './pointer-session'
 
 /** Live draft snapshot the comment gesture consults on pointerup — a click
  *  away from an empty composer dismisses it instead of opening a new one. */
-export interface CommentDraftSnapshot {
+interface CommentDraftSnapshot {
   pendingAnnotation: object | null
   pendingRegionRect: object | null
   commentText: string

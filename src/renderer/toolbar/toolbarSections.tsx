@@ -66,7 +66,7 @@ const TOOL_GLYPH_SIZE = 20
 const TOOLBAR_GLYPH_SHADOW = 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18))'
 const TOOLBAR_GLYPH_STYLE: React.CSSProperties = { filter: TOOLBAR_GLYPH_SHADOW }
 
-export function ToolbarDivider({ isDark }: { isDark: boolean }) {
+function ToolbarDivider({ isDark }: { isDark: boolean }) {
   return (
     <div
       className={`mx-1 h-4 w-px shrink-0 ${isDark ? 'bg-white/20' : 'bg-zinc-900/20'}`}
