@@ -17,6 +17,16 @@ export interface Box {
   height: number
 }
 
+/**
+ * Gap-equality slack (canvas px) for the loose-selection reorder door. Wider
+ * than the 1px default so an arranged row still reads as even after the small
+ * float/rounding drift a page's shell size picks up round-tripping through
+ * screen bounds — the dots stay put instead of flickering off. The renderer's
+ * `reorderableDots` and main's `buildSelectionRow` share this so the visible
+ * dot and the commit agree on what counts as a row.
+ */
+export const SELECTION_ROW_GAP_TOLERANCE = 4
+
 export interface ReorderableRow {
   /** Dominant axis — the one with the larger center spread. */
   axis: 'x' | 'y'

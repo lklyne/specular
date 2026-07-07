@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { Columns3, Grid3x3, Maximize2, Rows3 } from 'lucide-react'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
+import { POPUP_SURFACE_CLASS, popupSurfaceStyle } from '../shared/popupSurface'
 import { Tooltip } from '../shared/Tooltip'
 import { swatchDotShadow, swatchRingShadow } from './colorSwatchStyle'
 import { focusContext } from '../../shared/focus-context'
@@ -387,25 +388,23 @@ function Frame({
   children: ReactNode
 }) {
   const shapeClass = `${fullWidth ? 'w-full ' : ''}${
-    flush ? 'rounded-none border-b flex items-center' : 'rounded-[10px] border'
-  } p-1`
+    flush ? 'rounded-none border-b flex items-center p-1' : POPUP_SURFACE_CLASS
+  }`
   const frameProps = {
     'data-popup-frame': flush ? 'flush' : 'floating',
     className: `${shapeClass} ${
       isDark ? 'text-zinc-100' : 'text-zinc-900'
     } ${className}`.trim(),
-    style: {
-      // Flush focus bar matches the toolbar height so 'fill' page content,
-      // which starts at the toolbar inset, butts directly against it.
-      height: flush ? TOOLBAR_HEIGHT : undefined,
-      background: 'var(--surface-popup)',
-      borderColor: 'var(--surface-popup-border)',
-      boxShadow: flush
-        ? 'none'
-        : isDark
-        ? '0 10px 8px -6px rgba(0,0,0,.58), 0 4px 16px 0 rgba(0,0,0,.5)'
-        : '0 10px 8px -6px rgba(0,0,0,.18), 0 4px 16px 0 rgba(199,193,188,.5)',
-    },
+    style: flush
+      ? {
+          // Flush focus bar matches the toolbar height so 'fill' page content,
+          // which starts at the toolbar inset, butts directly against it.
+          height: TOOLBAR_HEIGHT,
+          background: 'var(--surface-popup)',
+          borderColor: 'var(--surface-popup-border)',
+          boxShadow: 'none',
+        }
+      : popupSurfaceStyle(isDark),
     onPointerDown: (event: PointerEvent) => event.stopPropagation(),
   }
   const contentProps = {

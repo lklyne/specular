@@ -12,10 +12,6 @@ export interface ToolbarElectronAPI {
   zoomOut: () => void
   zoomReset: () => void
   zoomSet: (level: number) => void
-  navigateSelection: (url: string) => void
-  goBackSelection: () => void
-  goForwardSelection: () => void
-  reloadSelection: () => void
   setTool: (tool: Tool) => void
   reloadApp: () => void
   toggleTheme: () => void

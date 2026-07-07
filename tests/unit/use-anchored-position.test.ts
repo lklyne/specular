@@ -18,7 +18,7 @@ function pageEntity(): CanvasScenePageEntity {
     width: 400,
     height: 300,
     presetIndex: 0,
-    linked: false,
+    synced: false,
     screenX: 200,
     screenY: 250,
     screenWidth: 400,

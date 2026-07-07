@@ -1,5 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react'
-import { Select } from '@base-ui/react/select'
+import { ZoomPresetDropdown } from '../shared/ZoomPresetDropdown'
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,12 +9,10 @@ import type {
   AgentPresenceCursor,
   DrawingBrushType,
   Tool,
-  ToolbarSelectionData,
 } from '../../shared/types'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { shortcutDisplay } from '../../shared/bindings'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { resolveAddressInput } from '../../shared/url'
 import {
   AddPageToolIcon,
   AddDocumentToolIcon,
@@ -170,12 +167,6 @@ export function CenterActions({
   const selectTriggerClassName = isDark
     ? 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-200 hover:bg-[rgba(253,248,245,0.1)]'
     : 'toolbar-squircle-btn flex h-7 w-[58px] cursor-pointer items-center justify-between gap-0.5 rounded-[6px] border border-transparent bg-transparent pl-2 pr-1 text-xs tabular-nums text-zinc-600 hover:bg-[#fdf8f5] hover:text-zinc-900'
-  const popupClassName =
-    'z-50 min-w-[140px] rounded-md border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] py-1 shadow-xl'
-  const popupItemClassName = isDark
-    ? 'flex cursor-pointer items-center justify-between gap-6 px-3 py-1.5 text-xs text-zinc-300 outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-zinc-100 data-[selected]:font-semibold data-[selected]:text-zinc-100'
-    : 'flex cursor-pointer items-center justify-between gap-6 px-3 py-1.5 text-xs text-zinc-700 outline-none data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-900 data-[selected]:font-semibold data-[selected]:text-zinc-900'
-
   // ADR 0013 §5 grouping: nav | create | annotate | view.
   return (
     <div className="flex min-w-0 items-center justify-center overflow-hidden">
@@ -330,151 +321,19 @@ export function CenterActions({
           </button>
         </ToolbarTooltip>
 
-        <Select.Root
-          value={currentPresetValue}
-          onValueChange={(value) => {
-            if (value !== null) onZoomSet(value)
-          }}
+        <ZoomPresetDropdown
+          isDark={isDark}
+          levels={ZOOM_PRESETS}
+          activeLevel={currentPresetValue}
+          shortcutLevel={100}
+          onSelect={onZoomSet}
           onOpenChange={onDropdownOpenChange}
-        >
-          <Select.Trigger className={selectTriggerClassName} title="Zoom">
-            <Select.Value placeholder={`${zoomPercent}%`}>
-              {() => <span>{zoomPercent}%</span>}
-            </Select.Value>
-            <Select.Icon className={isDark ? 'text-zinc-400' : 'text-zinc-500'}>
+          trigger={
+            <button type="button" data-zoom-anchor className={selectTriggerClassName} title="Zoom">
+              <span>{zoomPercent}%</span>
               <ZoomChevronIcon size={10} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-            </Select.Icon>
-          </Select.Trigger>
-          <Select.Portal>
-            <Select.Positioner side="bottom" align="center" sideOffset={4}>
-              <Select.Popup className={popupClassName}>
-                {ZOOM_PRESETS.map((level) => (
-                  <Select.Item key={level} value={level} className={popupItemClassName}>
-                    <Select.ItemText>{level}%</Select.ItemText>
-                    {level === 100 ? (
-                      <kbd
-                        className={
-                          isDark
-                            ? 'rounded-[4px] bg-zinc-700 px-1.5 py-0.5 text-xs leading-none text-zinc-200'
-                            : 'rounded-[4px] bg-zinc-100 px-1.5 py-0.5 text-xs leading-none text-zinc-600'
-                        }
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <span>⌘</span>
-                          <span>1</span>
-                        </span>
-                      </kbd>
-                    ) : (
-                      <span />
-                    )}
-                  </Select.Item>
-                ))}
-              </Select.Popup>
-            </Select.Positioner>
-          </Select.Portal>
-        </Select.Root>
-      </div>
-    </div>
-  )
-}
-
-interface CenterAddressBarProps {
-  isDark: boolean
-  hasSelection: boolean
-  selection: ToolbarSelectionData
-  addressValue: string
-  setAddressValue: Dispatch<SetStateAction<string>>
-  addressBarRef?: React.RefObject<HTMLInputElement | null>
-  onGoBackSelection: () => void
-  onGoForwardSelection: () => void
-  onReloadSelection: () => void
-  onNavigateSelection: (url: string) => void
-}
-
-export function CenterAddressBar({
-  isDark,
-  hasSelection,
-  selection,
-  addressValue,
-  setAddressValue,
-  addressBarRef,
-  onGoBackSelection,
-  onGoForwardSelection,
-  onReloadSelection,
-  onNavigateSelection,
-}: CenterAddressBarProps) {
-  if (!hasSelection) {
-    return <div className="flex min-w-0 justify-center px-1" />
-  }
-
-  const iconButtonClassName = toolbarIconBtnClass(isDark)
-  const addressBarClassName = isDark
-    ? 'flex h-7 min-w-0 items-center rounded-[8px] border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-[border-color,box-shadow] focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500'
-    : 'flex h-7 min-w-0 items-center rounded-[8px] border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-zinc-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition-[border-color,box-shadow] focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500'
-  const inputClassName = isDark
-    ? 'min-w-0 flex-1 border-0 bg-transparent text-[12px] text-zinc-100 outline-none placeholder:text-zinc-500 focus:outline-none'
-    : 'min-w-0 flex-1 border-0 bg-transparent text-[12px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:outline-none'
-  const reloadLabel = selection.isLoadingAnySelected
-    ? selection.selectionCount > 1
-      ? `Loading ${selection.loadingPageCount}/${selection.selectionCount} pages`
-      : selection.loadingPhase === 'waiting-response'
-        ? 'Waiting for response'
-        : 'Loading'
-    : 'Reload'
-
-  return (
-    <div className="flex min-w-0 items-center justify-center gap-2 [-webkit-app-region:no-drag]">
-      <div className="flex shrink-0 items-center gap-1">
-        <ToolbarTooltip label="Back">
-          <button
-            onClick={onGoBackSelection}
-            className={iconButtonClassName}
-            disabled={!selection.canGoBack}
-            aria-label="Back"
-            type="button"
-          >
-            <ChevronLeft size={14} />
-          </button>
-        </ToolbarTooltip>
-        <ToolbarTooltip label="Forward">
-          <button
-            onClick={onGoForwardSelection}
-            className={iconButtonClassName}
-            disabled={!selection.canGoForward}
-            aria-label="Forward"
-            type="button"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </ToolbarTooltip>
-        <ToolbarTooltip label={reloadLabel}>
-          <button
-            onClick={onReloadSelection}
-            className={iconButtonClassName}
-            aria-label={reloadLabel}
-            type="button"
-          >
-            <RotateCw size={14} className={selection.isLoadingAnySelected ? 'animate-spin' : ''} />
-          </button>
-        </ToolbarTooltip>
-      </div>
-      <div
-        className={`${addressBarClassName} min-w-[200px] w-full lg:max-w-[720px]`}
-      >
-        <input
-          ref={addressBarRef}
-          type="text"
-          value={addressValue}
-          onChange={(event) => setAddressValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return
-            const value = addressValue.trim()
-            if (!value) return
-            onNavigateSelection(resolveAddressInput(value))
-          }}
-          placeholder={selection.placeholder}
-          spellCheck={false}
-          className={inputClassName}
+            </button>
+          }
         />
       </div>
     </div>

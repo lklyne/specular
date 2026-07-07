@@ -57,7 +57,6 @@ export interface DevtoolsPanelElectronAPI {
   toggleSvgDeviceShell: (pageId: string) => void
   focusSelection: () => void
   duplicatePage: (pageId: string) => void
-  toggleLinkedPage: (pageId: string) => void
   deletePage: (pageId: string) => void
   openBrowserDevTools: () => void
   closeBrowserDevTools: () => void

@@ -71,6 +71,24 @@ describe('arrangeInSpan — column', () => {
     expect(b.x).toBe(5)
     expect(c.x).toBe(5)
   })
+
+  it('collapsed column re-arranged into a row inherits the y-extent as spacing', () => {
+    // All same x (a column). Switching to row must not stack them at x=0 —
+    // the 0-width x-extent falls back to the 550-tall y-extent.
+    const boxes: Box[] = [
+      { id: 'a', x: 10, y: 0, width: 80, height: 50 },
+      { id: 'b', x: 10, y: 250, width: 80, height: 50 },
+      { id: 'c', x: 10, y: 550, width: 80, height: 50 },
+    ]
+    const t = arrangeInSpan(boxes, 'row')!
+    const a = placed(t, boxes, 'a')
+    const b = placed(t, boxes, 'b')
+    const c = placed(t, boxes, 'c')
+
+    // Spread horizontally with positive, even gaps (not stacked).
+    expect(b.x).toBeGreaterThan(a.x + a.width)
+    expect(b.x - (a.x + a.width)).toBeCloseTo(c.x - (b.x + b.width), 5)
+  })
 })
 
 describe('arrangeInSpan — grid', () => {

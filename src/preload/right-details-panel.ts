@@ -78,8 +78,6 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelToggleSvgDeviceShell, { pageId }),
   duplicatePage: (pageId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelDuplicatePage, { pageId }),
-  toggleLinkedPage: (pageId: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelToggleLinkedPage, { pageId }),
   deletePage: (pageId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelDeletePage, { pageId }),
   openBrowserDevTools: () => ipcRenderer.send(ipcChannels.rightDetailsPanelOpenBrowserDevtools),

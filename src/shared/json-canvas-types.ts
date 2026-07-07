@@ -56,7 +56,7 @@ export interface JsonCanvasLinkNode extends JsonCanvasNodeBase {
   url: string
   // App-specific extensions (other tools ignore per spec extensibility model)
   presetIndex?: number
-  linked?: boolean
+  syncId?: string | null
   label?: string
   source?: string
   groupId?: string

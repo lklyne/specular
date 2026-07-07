@@ -473,7 +473,6 @@ export function toWorkspacePage(pageId: string): WorkspacePage | null {
     canvasY: page.canvasY,
     width: size.width,
     height: size.height,
-    linkedBrowsing: page.linked,
     source: page.source,
     parentGroupId: page.parentGroupId,
     groupId: page.parentGroupId,

@@ -8,8 +8,10 @@ import {
   ChevronRight,
   Eye,
   EyeClosed,
+  Link2,
   Maximize2,
   RotateCw,
+  Smartphone,
   X,
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
@@ -58,6 +60,8 @@ export function PagePopup({
     | 'setFocusPresentationMode'
     | 'setFocusAnnotationsVisible'
     | 'arrangeSelection'
+    | 'toggleSyncSelection'
+    | 'unsyncPage'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -91,10 +95,26 @@ export function PagePopup({
   const inputRef = useRef<HTMLInputElement>(null)
   const suppressPresetOpenRef = useRef(false)
 
-  const currentUrl = single?.url
+  // Nav + URL bar act on the whole page selection. Linked peers of any selected
+  // page are handled downstream by navigatePage() in the main process.
+  const navPages = single ? [single] : selectedPages
+  const entityIds = navPages.map((p) => p.id)
+  const canGoBack = navPages.some((p) => p.canGoBack)
+  const canGoForward = navPages.some((p) => p.canGoForward)
+  const anyLoading = navPages.some((p) => p.isLoading)
+  const allFramed = navPages.every((p) => p.showDeviceFrame ?? false)
+  // Sync is a multi-page relationship; only offered for 2+ selected pages.
+  const canSync = !single && selectedPages.length >= 2
+  const allSynced = canSync && selectedPages.every((p) => p.synced)
+  // One shared URL across the selection, else blank so the placeholder shows.
+  const distinctUrls = new Set(
+    navPages.map((p) => p.url).filter((url) => url && url !== 'about:blank'),
+  )
+  const sharedUrl = distinctUrls.size === 1 ? [...distinctUrls][0]! : ''
+
   useEffect(() => {
-    if (draftUrl !== null && currentUrl === draftUrl) setDraftUrl(null)
-  }, [currentUrl, draftUrl])
+    if (draftUrl !== null && sharedUrl === draftUrl) setDraftUrl(null)
+  }, [sharedUrl, draftUrl])
 
   const focusPresentation =
     single && layout.focusPresentation?.pageId === single.id
@@ -114,22 +134,32 @@ export function PagePopup({
 
   if (count === 0) return null
   const isSingle = count === 1
-  const value = draftUrl ?? (single && single.url !== 'about:blank' ? single.url : '')
+  const value = draftUrl ?? sharedUrl
+  const urlPlaceholder = isSingle ? 'Type a URL' : `${count} pages selected`
 
   const commitUrl = () => {
-    if (!single || draftUrl === null) return
+    if (draftUrl === null) return
     const trimmed = draftUrl.trim()
-    if (!trimmed || trimmed === single.url) {
+    if (!trimmed || trimmed === sharedUrl) {
       setDraftUrl(null)
       return
     }
     const normalized = resolveAddressInput(trimmed)
     setDraftUrl(normalized)
-    api.navigatePage(single.id, normalized)
+    for (const id of entityIds) api.navigatePage(id, normalized)
   }
 
-  const entityIds = single ? [single.id] : selectedPages.map((p) => p.id)
-  const noun = isSingle ? 'page' : `${count} pages`
+  const goBack = () => entityIds.forEach((id) => api.goBackPage(id))
+  const goForward = () => entityIds.forEach((id) => api.goForwardPage(id))
+  const reload = () => entityIds.forEach((id) => api.reloadPage(id))
+  // Drive every page to one target state (only the ones off the target flip),
+  // so a mixed selection resolves to all-on rather than inverting each page.
+  const toggleFrameAll = () => {
+    const target = !allFramed
+    for (const p of navPages) {
+      if ((p.showDeviceFrame ?? false) !== target) api.toggleDeviceShell(p.id)
+    }
+  }
 
   const useFlushFocusMenu = pinPopupToViewportTop
   const popupLayoutDependency = pinPopupToViewportTop ? 'viewport-top' : 'above'
@@ -141,6 +171,25 @@ export function PagePopup({
       })()
     : false
   const activePresetIndex = single && !activeIsCustom ? single.presetIndex : null
+
+  // Batch preset: highlight the shared preset when every selected page matches
+  // it, else null → "Multiple". Custom pages count as their own key so a mixed
+  // set never falsely reads as one preset.
+  const multiPresetIndex = (() => {
+    if (single) return null
+    const keys = new Set(
+      selectedPages.map((p) => {
+        const preset = VIEWPORT_PRESETS[p.presetIndex]
+        return !preset || p.width !== preset.width || p.height !== preset.height
+          ? 'custom'
+          : p.presetIndex
+      }),
+    )
+    const only = keys.size === 1 ? [...keys][0] : null
+    return typeof only === 'number' ? only : null
+  })()
+  const multiPresetLabel =
+    multiPresetIndex != null ? VIEWPORT_PRESETS[multiPresetIndex].label : 'Multiple'
 
   const presetLabel = focusPresentation
     ? focusPresentation.authoredLabel
@@ -172,69 +221,63 @@ export function PagePopup({
         flush={useFlushFocusMenu}
         fullWidth={pinPopupToViewportTop}
       >
+        <CanvasItemPopup.Section>
+          <CanvasItemPopup.IconButton
+            isDark={isDark}
+            title="Back"
+            ariaLabel="Go back"
+            onClick={goBack}
+          >
+            <ChevronLeft size={14} style={!canGoBack ? { opacity: 0.3 } : undefined} />
+          </CanvasItemPopup.IconButton>
+          <CanvasItemPopup.IconButton
+            isDark={isDark}
+            title="Forward"
+            ariaLabel="Go forward"
+            onClick={goForward}
+          >
+            <ChevronRight size={14} style={!canGoForward ? { opacity: 0.3 } : undefined} />
+          </CanvasItemPopup.IconButton>
+          <CanvasItemPopup.IconButton
+            isDark={isDark}
+            title={anyLoading ? 'Loading…' : 'Reload'}
+            ariaLabel="Reload page"
+            onClick={reload}
+          >
+            <RotateCw size={12} className={anyLoading ? 'animate-spin' : ''} />
+          </CanvasItemPopup.IconButton>
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section grow>
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            placeholder={urlPlaceholder}
+            onChange={(e) => setDraftUrl(e.target.value)}
+            onBlur={commitUrl}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitUrl()
+                inputRef.current?.blur()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                setDraftUrl(null)
+                inputRef.current?.blur()
+              }
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className={`min-w-0 flex-1 rounded-[6px] border px-2 py-1 text-xs outline-none focus:ring-1 ${
+              isDark
+                ? 'border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 focus:ring-blue-500/40'
+                : 'border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-400 focus:ring-blue-500/40'
+            }`}
+            style={{ minWidth: URL_INPUT_MIN_WIDTH }}
+          />
+        </CanvasItemPopup.Section>
         {isSingle && single ? (
           <>
-            <CanvasItemPopup.Section>
-              <CanvasItemPopup.IconButton
-                isDark={isDark}
-                title="Back"
-                ariaLabel="Go back"
-                onClick={() => api.goBackPage(single.id)}
-              >
-                <ChevronLeft
-                  size={14}
-                  style={!single.canGoBack ? { opacity: 0.3 } : undefined}
-                />
-              </CanvasItemPopup.IconButton>
-              <CanvasItemPopup.IconButton
-                isDark={isDark}
-                title="Forward"
-                ariaLabel="Go forward"
-                onClick={() => api.goForwardPage(single.id)}
-              >
-                <ChevronRight
-                  size={14}
-                  style={!single.canGoForward ? { opacity: 0.3 } : undefined}
-                />
-              </CanvasItemPopup.IconButton>
-              <CanvasItemPopup.IconButton
-                isDark={isDark}
-                title={single.isLoading ? 'Loading…' : 'Reload'}
-                ariaLabel="Reload page"
-                onClick={() => api.reloadPage(single.id)}
-              >
-                <RotateCw size={12} className={single.isLoading ? 'animate-spin' : ''} />
-              </CanvasItemPopup.IconButton>
-            </CanvasItemPopup.Section>
-            <CanvasItemPopup.Divider isDark={isDark} />
-            <CanvasItemPopup.Section grow>
-              <input
-                ref={inputRef}
-                type="text"
-                value={value}
-                placeholder="Type a URL"
-                onChange={(e) => setDraftUrl(e.target.value)}
-                onBlur={commitUrl}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    commitUrl()
-                    inputRef.current?.blur()
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault()
-                    setDraftUrl(null)
-                    inputRef.current?.blur()
-                  }
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                className={`min-w-0 flex-1 rounded-[6px] border px-2 py-1 text-xs outline-none focus:ring-1 ${
-                  isDark
-                    ? 'border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 focus:ring-blue-500/40'
-                    : 'border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-400 focus:ring-blue-500/40'
-                }`}
-                style={{ minWidth: URL_INPUT_MIN_WIDTH }}
-              />
-            </CanvasItemPopup.Section>
             <CanvasItemPopup.Divider isDark={isDark} />
             <CanvasItemPopup.Section>
               {focusPresentation ? (
@@ -346,6 +389,41 @@ export function PagePopup({
             />
           </>
         ) : null}
+        {!isSingle ? (
+          <>
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <CanvasItemPopup.Section>
+              <PagePresetDropdown
+                isDark={isDark}
+                activePreset={multiPresetIndex}
+                customActive={false}
+                hideCustom
+                onSelectPreset={(index) =>
+                  selectedPages.forEach((p) => api.setPagePreset(p.id, index))
+                }
+                onSelectCustom={() => {}}
+                trigger={
+                  <button type="button" className={sizeTriggerClass} title="Page size">
+                    <span className="truncate">{multiPresetLabel}</span>
+                    <ChevronDown size={10} className="shrink-0 opacity-50" />
+                  </button>
+                }
+              />
+            </CanvasItemPopup.Section>
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <CanvasItemPopup.Section>
+              <CanvasItemPopup.IconButton
+                isDark={isDark}
+                active={allFramed}
+                title="Device frame"
+                ariaLabel="Toggle device frame for selected pages"
+                onClick={toggleFrameAll}
+              >
+                <Smartphone size={14} />
+              </CanvasItemPopup.IconButton>
+            </CanvasItemPopup.Section>
+          </>
+        ) : null}
         <CanvasItemPopup.Section>
           {focusPresentation ? (
             <CanvasItemPopup.IconButton
@@ -368,6 +446,28 @@ export function PagePopup({
             count={count}
             arrange={api.arrangeSelection}
           />
+          {canSync ? (
+            <CanvasItemPopup.IconButton
+              isDark={isDark}
+              active={allSynced}
+              title={allSynced ? 'Unsync navigation' : 'Sync navigation'}
+              ariaLabel={allSynced ? 'Unsync navigation' : 'Sync navigation'}
+              onClick={() => api.toggleSyncSelection()}
+            >
+              <Link2 size={14} />
+            </CanvasItemPopup.IconButton>
+          ) : null}
+          {single && single.synced ? (
+            <CanvasItemPopup.IconButton
+              isDark={isDark}
+              active
+              title="Unsync navigation"
+              ariaLabel="Unsync this page from its sync set"
+              onClick={() => api.unsyncPage(single.id)}
+            >
+              <Link2 size={14} />
+            </CanvasItemPopup.IconButton>
+          ) : null}
           {isSingle ? (
             <CanvasItemPopup.IconButton
               isDark={isDark}

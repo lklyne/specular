@@ -93,6 +93,7 @@ import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-
 import {
   detectReorderableRow,
   reorderRowPositions,
+  SELECTION_ROW_GAP_TOLERANCE,
   type Box,
   type ReorderableRow,
 } from '../../shared/reorder-row'
@@ -969,7 +970,7 @@ export function buildSelectionRow(orderedIds: string[]): ReorderableRow | null {
       height: entity.height,
     })
   }
-  return detectReorderableRow(boxes)
+  return detectReorderableRow(boxes, { gapTolerance: SELECTION_ROW_GAP_TOLERANCE })
 }
 
 export function reorderSelection(

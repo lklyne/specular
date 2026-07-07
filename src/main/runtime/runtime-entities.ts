@@ -24,7 +24,7 @@ export interface Page {
    * above at (canvasY - CHROME_HEADER_HEIGHT).
    */
   canvasY: number
-  linked: boolean
+  syncId: string | null
   source: WorkspacePageSource
   parentGroupId?: string
   groupId?: string

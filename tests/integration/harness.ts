@@ -206,7 +206,7 @@ function wireDocObservers(): void {
       presetIndex: page.presetIndex,
       canvasX: page.canvasX,
       canvasY: page.canvasY,
-      linked: page.linked,
+      syncId: page.syncId,
       source: (page as { source?: unknown }).source,
       parentGroupId: page.parentGroupId ?? (page as { groupId?: string }).groupId,
       metadata: page.metadata,

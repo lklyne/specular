@@ -17,7 +17,7 @@ function rowLabel(label: string): string {
   return label.replace('iPhone 14 ', 'iPhone ')
 }
 
-function rowClass(isDark: boolean, active: boolean): string {
+export function presetRowClass(isDark: boolean, active: boolean): string {
   const base =
     'flex w-full cursor-pointer items-center justify-between gap-4 rounded-[6px] px-2 py-1.5 text-left transition-colors'
   if (active) {
@@ -48,7 +48,7 @@ function PresetRow({
   return (
     <button
       type="button"
-      className={rowClass(isDark, active)}
+      className={presetRowClass(isDark, active)}
       onClick={onClick}
       aria-pressed={active}
       aria-label={ariaLabel}
@@ -78,6 +78,7 @@ export function PresetList({
   onSelectPreset,
   onSelectCustom,
   ariaVerb = 'Select',
+  hideCustom = false,
 }: {
   isDark: boolean
   activePreset: number | null
@@ -85,6 +86,8 @@ export function PresetList({
   onSelectPreset: (index: number) => void
   onSelectCustom: () => void
   ariaVerb?: string
+  // Batch selections have no single custom target, so the owner can drop the row.
+  hideCustom?: boolean
 }) {
   const sections: number[][] = [[], [], []]
   VIEWPORT_PRESETS.forEach((_, index) => {
@@ -113,14 +116,18 @@ export function PresetList({
           })}
         </div>
       ))}
-      <HDivider isDark={isDark} />
-      <PresetRow
-        isDark={isDark}
-        active={customActive}
-        label="Custom"
-        ariaLabel={`${ariaVerb} custom`}
-        onClick={onSelectCustom}
-      />
+      {!hideCustom && (
+        <>
+          <HDivider isDark={isDark} />
+          <PresetRow
+            isDark={isDark}
+            active={customActive}
+            label="Custom"
+            ariaLabel={`${ariaVerb} custom`}
+            onClick={onSelectCustom}
+          />
+        </>
+      )}
     </div>
   )
 }

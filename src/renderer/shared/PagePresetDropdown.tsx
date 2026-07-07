@@ -1,6 +1,6 @@
 import { type ReactElement, useState } from 'react'
-import { Popover } from '@base-ui/react/popover'
 import { PresetList } from './PresetList'
+import { PresetPopover } from './PresetPopover'
 
 export function PagePresetDropdown({
   align = 'center',
@@ -14,6 +14,7 @@ export function PagePresetDropdown({
   side = 'bottom',
   sideOffset = 4,
   trigger,
+  hideCustom = false,
 }: {
   align?: 'start' | 'center' | 'end'
   isDark: boolean
@@ -26,6 +27,7 @@ export function PagePresetDropdown({
   side?: 'top' | 'bottom' | 'left' | 'right'
   sideOffset?: number
   trigger: ReactElement
+  hideCustom?: boolean
 }) {
   const [localOpen, setLocalOpen] = useState(false)
   const isControlled = openProp !== undefined
@@ -41,25 +43,16 @@ export function PagePresetDropdown({
     setOpen(false)
   }
 
-  const popupClassName =
-    'overflow-hidden rounded-md border border-[var(--surface-popup-border)] bg-[var(--surface-popup)] p-1 text-[var(--surface-toolbar-foreground)] shadow-xl'
-
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger render={trigger} />
-      <Popover.Portal>
-        <Popover.Positioner side={side} align={align} sideOffset={sideOffset} collisionAvoidance={{ side: 'none', align: 'none' }} style={{ zIndex: 100 }}>
-          <Popover.Popup data-overlay-ui className={popupClassName}>
-            <PresetList
-              isDark={isDark}
-              activePreset={activePreset}
-              customActive={customActive}
-              onSelectPreset={(index) => handleSelect(() => onSelectPreset(index))}
-              onSelectCustom={() => handleSelect(onSelectCustom)}
-            />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+    <PresetPopover isDark={isDark} open={open} onOpenChange={setOpen} side={side} align={align} sideOffset={sideOffset} trigger={trigger}>
+      <PresetList
+        isDark={isDark}
+        activePreset={activePreset}
+        customActive={customActive}
+        onSelectPreset={(index) => handleSelect(() => onSelectPreset(index))}
+        onSelectCustom={() => handleSelect(onSelectCustom)}
+        hideCustom={hideCustom}
+      />
+    </PresetPopover>
   )
 }

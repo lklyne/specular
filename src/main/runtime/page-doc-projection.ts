@@ -22,7 +22,7 @@ const PAGE_DOC_FIELD_SET = {
   presetIndex: true,
   canvasX: true,
   canvasY: true,
-  linked: true,
+  syncId: true,
   source: true,
   parentGroupId: true,
   metadata: true,
@@ -41,7 +41,7 @@ export function persistPage(page: Page): Record<string, unknown> {
     presetIndex: page.presetIndex,
     canvasX: page.canvasX,
     canvasY: page.canvasY,
-    linked: page.linked,
+    syncId: page.syncId,
     source: page.source,
     parentGroupId: page.parentGroupId ?? page.groupId,
     metadata: page.metadata,
@@ -56,9 +56,9 @@ type PagePatcher = (page: Page, value: unknown) => void
  * - `id` is the reconciliation key — add/remove, never patched in place
  * - `url` — patching would navigate the live WebContents mid-undo
  * - `source` is create-time provenance
- * Geometry, preset, and linked keep their current value when the doc lacks
- * the key; name and group membership overwrite so undo can clear them;
- * metadata applies only when present.
+ * Geometry and preset keep their current value when the doc lacks the key;
+ * name, sync membership, and group membership overwrite so undo can clear
+ * them; metadata applies only when present.
  */
 const PAGE_RESTORE_PATCHERS = {
   id: null,
@@ -76,8 +76,8 @@ const PAGE_RESTORE_PATCHERS = {
   canvasY: (page, value) => {
     page.canvasY = (value as number) ?? page.canvasY
   },
-  linked: (page, value) => {
-    page.linked = (value as boolean) ?? page.linked
+  syncId: (page, value) => {
+    page.syncId = (value as string | null) ?? null
   },
   parentGroupId: (page, value) => {
     page.parentGroupId = value as string | undefined

@@ -68,7 +68,8 @@ export interface CanvasBgElectronAPI {
   toggleFileDeviceShell: (fileId: string) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void
-  toggleLinkedPage: (pageId: string) => void
+  toggleSyncSelection: () => void
+  unsyncPage: (pageId: string) => void
   deletePage: (pageId: string) => void
   showPageContextMenu: (pageId: string) => void
   dropdownOpen: () => void

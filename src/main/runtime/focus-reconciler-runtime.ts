@@ -18,7 +18,7 @@ import {
   setPendingFocus,
 } from './runtime-context'
 import { isTextEditingFor } from './binding-dispatcher'
-import { isCommentOverlayVisible } from '../ui-state'
+import { isCommentOverlayVisible, toolbarDropdownOpen } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
 
 function currentFocusState(): FocusState {
@@ -30,6 +30,7 @@ function currentFocusState(): FocusState {
     focusedPageId: currentKeyboardTargetPageId(),
     sidebarTextInputActive: leftSidebarView ? isTextEditingFor(leftSidebarView.webContents) : false,
     toolbarTextInputActive: toolbarView ? isTextEditingFor(toolbarView.webContents) : false,
+    toolbarDropdownOpen: toolbarDropdownOpen(),
   }
 }
 

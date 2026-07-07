@@ -115,7 +115,7 @@ export function createPage(config: PageConfig): Page {
     presetIndex,
     canvasX: config.canvasX,
     canvasY: config.canvasY,
-    linked: config.linked ?? false,
+    syncId: config.syncId ?? null,
     source: config.source ?? 'manual',
     parentGroupId: config.parentGroupId ?? config.groupId,
     groupId: config.parentGroupId ?? config.groupId,
@@ -223,7 +223,7 @@ export function createPage(config: PageConfig): Page {
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     if (isNavigationSuppressed(page)) return
-    if (!page.linked) return
+    if (!page.syncId) return
     propagateNavigationFromPage(page, { type: 'load-url', url })
   })
   page.pageView.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
@@ -235,7 +235,7 @@ export function createPage(config: PageConfig): Page {
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     if (!isMainFrame) return
     if (isNavigationSuppressed(page)) return
-    if (!page.linked) return
+    if (!page.syncId) return
     propagateNavigationFromPage(page, { type: 'in-page', url })
   })
 

@@ -142,7 +142,7 @@ function addPageFromSourceInternal(input: {
     const page = createPage({
       url,
       presetIndex: input.presetIndex,
-      linked: false,
+      syncId: null,
       canvasX: placement.canvasX,
       canvasY: placement.canvasY,
       source: 'manual',
@@ -176,7 +176,7 @@ function addPageFromSourceInternal(input: {
   const newPage = createPage({
     url,
     presetIndex: input.presetIndex,
-    linked: false,
+    syncId: null,
     suppressInitialNavigationBroadcast: true,
     canvasX: sourcePage.canvasX,
     canvasY: sourcePage.canvasY,
@@ -228,7 +228,7 @@ export function createPageAtPosition(input: {
     const page = createPage({
       url,
       presetIndex: input.presetIndex,
-      linked: false,
+      syncId: null,
       canvasX: snapToGrid(input.canvasX),
       canvasY: snapToGrid(input.canvasY),
       source: 'manual',
@@ -283,7 +283,7 @@ function duplicatePageInternal(
   const newPage = createPage({
     url,
     presetIndex: sourcePage.presetIndex,
-    linked: false,
+    syncId: null,
     suppressInitialNavigationBroadcast: true,
     canvasX: placement.canvasX,
     canvasY: placement.canvasY,
@@ -344,7 +344,7 @@ function createBlankFrameInternal(
   const newPage = createPage({
     url: 'about:blank',
     presetIndex: sourcePage.presetIndex,
-    linked: false,
+    syncId: null,
     suppressInitialNavigationBroadcast: true,
     canvasX: placement.canvasX,
     canvasY: placement.canvasY,

@@ -1,5 +1,6 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. page-factory imports navigation-sync creating a cycle through runtime-core and page-runtime
+import { randomUUID } from 'crypto'
 import { ipcChannels } from '../shared/ipc-contract'
 import type { ScrollSyncData } from '../shared/types'
 import {
@@ -7,8 +8,7 @@ import {
   pages,
   findPageById,
 } from './runtime/page-runtime'
-import { getSelectedEntityIds } from './runtime/ui-actions'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { mutateWorkspace } from './runtime/mutate-workspace'
 
 const LINKED_SCROLL_SUPPRESSION_MS = 150
 
@@ -19,20 +19,68 @@ export type NavigationSyncAction =
   | { type: 'reload'; fallbackUrl: string }
   | { type: 'in-page'; url: string }
 
-export function linkedPeersOf(source: Page): Page[] {
-  if (!source.linked) return []
+/**
+ * Sync sets are identified by a shared `syncId` on each page — independent of
+ * groups. Pages sync navigation/scroll iff they carry the same non-null id.
+ */
+export function syncPeersOf(source: Page): Page[] {
+  if (!source.syncId) return []
   return pages.filter(
     (page) =>
       page !== source &&
-      page.linked &&
-      (source.groupId ? page.groupId === source.groupId : !page.groupId) &&
+      page.syncId === source.syncId &&
       !page.pageView.webContents.isDestroyed(),
   )
 }
 
-export function togglePageLinked(page: Page): void {
-  page.linked = !page.linked
-  scheduleWorkspaceAutosave()
+/** A page is "synced" only when it actually has a live peer in its set. */
+export function isPageSynced(page: Page): boolean {
+  return syncPeersOf(page).length > 0
+}
+
+/**
+ * Toggle-merge: if the whole selection already shares one sync set, clear it
+ * (unsync); otherwise mint one new set and stamp every selected page. Sets of
+ * one are meaningless, so a selection under two pages is a no-op.
+ */
+export function setSyncForSelection(pageIds: string[]): void {
+  const selected = pageIds
+    .map((id) => findPageById(id))
+    .filter((page): page is Page => page !== undefined)
+  if (selected.length < 2) return
+  mutateWorkspace(() => {
+    const first = selected[0].syncId
+    const allShareOne =
+      first != null && selected.every((page) => page.syncId === first)
+    if (allShareOne) {
+      for (const page of selected) page.syncId = null
+    } else {
+      const id = `sync_${randomUUID()}`
+      for (const page of selected) page.syncId = id
+    }
+    dissolveOrphanSyncSets()
+  })
+}
+
+/** Remove a single page from its sync set; the set auto-dissolves below two members. */
+export function unsyncPage(pageId: string): void {
+  const page = findPageById(pageId)
+  if (!page || !page.syncId) return
+  mutateWorkspace(() => {
+    page.syncId = null
+    dissolveOrphanSyncSets()
+  })
+}
+
+/** Clear any sync id left with fewer than two members after a membership change. */
+function dissolveOrphanSyncSets(): void {
+  const counts = new Map<string, number>()
+  for (const page of pages) {
+    if (page.syncId) counts.set(page.syncId, (counts.get(page.syncId) ?? 0) + 1)
+  }
+  for (const page of pages) {
+    if (page.syncId && (counts.get(page.syncId) ?? 0) < 2) page.syncId = null
+  }
 }
 
 const LINKED_NAV_SUPPRESSION_MS = 1500
@@ -73,7 +121,7 @@ function applyNavigationAction(page: Page, action: NavigationSyncAction): void {
       webContents.loadURL(action.url)
       return
     case 'in-page':
-      // Avoid navigation ping-pong between linked peers when URL is already identical.
+      // Avoid navigation ping-pong between sync peers when URL is already identical.
       if (currentUrl === action.url) return
       webContents.loadURL(action.url)
       return
@@ -96,14 +144,14 @@ export function propagateNavigationFromPage(
   source: Page,
   action: NavigationSyncAction,
 ): void {
-  for (const peer of linkedPeersOf(source)) {
+  for (const peer of syncPeersOf(source)) {
     markNavigationSuppressed(peer)
     applyNavigationAction(peer, action)
   }
 }
 
 /**
- * Navigate a page (source) and propagate the action to linked peers.
+ * Navigate a page (source) and propagate the action to sync peers.
  * This is the single entry point for all page navigation triggered by
  * user interactions (canvas chrome, right panel, context menu).
  */
@@ -116,42 +164,11 @@ export function navigatePage(
   propagateNavigationFromPage(page, action)
 }
 
-export function applyNavigationToSelectedPages(
-  action: NavigationSyncAction,
-): void {
-  const targets = new Map<string, Page>()
-  for (const pageId of getSelectedEntityIds()) {
-    const page = findPageById(pageId)
-    if (!page) continue
-    targets.set(page.id, page)
-    for (const peer of linkedPeersOf(page)) {
-      targets.set(peer.id, peer)
-    }
-  }
-
-  for (const page of targets.values()) {
-    markNavigationSuppressed(page)
-    if (
-      action.type === 'go-back' ||
-      action.type === 'go-forward' ||
-      action.type === 'reload'
-    ) {
-      applyNavigationAction(page, {
-        ...action,
-        fallbackUrl: page.pageView.webContents.getURL(),
-      })
-      continue
-    }
-
-    applyNavigationAction(page, action)
-  }
-}
-
 export function propagateScrollFromPage(
   source: Page,
   scrollData: ScrollSyncData,
 ): void {
-  for (const peer of linkedPeersOf(source)) {
+  for (const peer of syncPeersOf(source)) {
     markScrollSuppressed(peer)
     peer.pageView.webContents.send(ipcChannels.applyLinkedScroll, scrollData)
   }

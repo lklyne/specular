@@ -68,10 +68,18 @@ function size(box: Box, axis: 'x' | 'y'): number {
  * Returns each box's new leading edge along the axis, keyed by id.
  */
 function evenCells(boxes: readonly Box[], axis: 'x' | 'y'): Map<string, number> {
+  const cross = axis === 'x' ? 'y' : 'x'
   const sorted = [...boxes].sort((a, b) => lead(a, axis) - lead(b, axis))
   const first = sorted[0]
   const last = sorted[sorted.length - 1]
-  const extent = lead(last, axis) + size(last, axis) - lead(first, axis)
+  const along = lead(last, axis) + size(last, axis) - lead(first, axis)
+  // A collapsed cluster (e.g. a column re-arranged into a row) has ~0 extent on
+  // this axis, so items would stack. Fall back to the bigger cross-axis extent
+  // so the line inherits the spacing it had on the other axis.
+  const crossExtent =
+    Math.max(...boxes.map((b) => lead(b, cross) + size(b, cross))) -
+    Math.min(...boxes.map((b) => lead(b, cross)))
+  const extent = Math.max(along, crossExtent)
   const totalSize = sorted.reduce((s, b) => s + size(b, axis), 0)
   const gap = (extent - totalSize) / (sorted.length - 1)
 

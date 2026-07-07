@@ -47,7 +47,7 @@ export interface PageConfig {
   presetIndex: number
   canvasX: number
   canvasY: number
-  linked?: boolean
+  syncId?: string | null
   suppressInitialNavigationBroadcast?: boolean
   source?: WorkspacePageSource
   parentGroupId?: string
@@ -126,7 +126,8 @@ export interface CanvasScenePageEntity {
   width: number
   height: number
   presetIndex: number
-  linked: boolean
+  /** True when this page shares a live sync set (has at least one peer). */
+  synced: boolean
   /** Outer screen bounds (includes shell when device page is on). */
   screenX: number
   screenY: number
@@ -338,7 +339,6 @@ export interface ActiveCanvasEntitySelection {
   width: number
   height: number
   presetIndex: number
-  linked: boolean
 }
 
 export interface PendingPlacement {
@@ -369,7 +369,7 @@ export interface PersistedPageEntity extends CanvasEntityBase {
   name?: string
   url: string
   presetIndex: number
-  linked: boolean
+  syncId: string | null
   source?: WorkspacePageSource
   groupId?: string
   metadata?: Record<string, unknown>
@@ -472,14 +472,12 @@ export interface LayoutUpdateData {
   leftChromeWidth: number
   /**
    * X-coordinate (in window pixels) of the centerpoint of the toolbar's tool
-   * cluster, when the toolbar is in `showCenterActionsOnly` mode. Popups that
-   * anchor below the toolbar (tool-mode popups, ADR 0008 §1) read this to
-   * align with the tools regardless of platform padding (mac traffic-lights
-   * inset) or sidebar state.
+   * cluster. Popups that anchor below the toolbar (tool-mode popups, ADR 0008
+   * §1) read this to align with the tools regardless of platform padding (mac
+   * traffic-lights inset) or sidebar state.
    *
    * Computed in main from `TOOLBAR_PAD_*` constants and the current window
-   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses in
-   * that mode.
+   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses.
    */
   toolbarCenterX: number
   /** Back-to-front stack order across canvas nodes and edges. */
@@ -652,14 +650,6 @@ export interface ToolbarSelectionData {
   selectedEntityIds: string[]
   selectionCount: number
   availablePageCount: number
-  displayUrl: string
-  placeholder: string
-  canGoBack: boolean
-  canGoForward: boolean
-  isLoadingActivePage: boolean
-  loadingPageCount: number
-  isLoadingAnySelected: boolean
-  loadingPhase: 'idle' | 'waiting-response' | 'loading'
   activeTabId: string | null
   activeTabName: string | null
   activeTool: Tool
@@ -900,7 +890,6 @@ export interface DevtoolsPanelPageSummary {
   canGoBack?: boolean
   canGoForward?: boolean
   isLoading?: boolean
-  linked?: boolean
 }
 
 export type DevtoolsPanelTab = 'comments' | 'inspect' | 'browser-devtools' | 'settings'
@@ -967,7 +956,6 @@ export interface DevtoolsPanelSelectionSummary {
   viewportLabel: string
   width: number
   height: number
-  linked: boolean
 }
 
 export interface DevtoolsPanelDomRect {
@@ -1103,7 +1091,7 @@ export interface WorkspacePageSnapshot {
   presetIndex: number
   canvasX: number
   canvasY: number
-  linked: boolean
+  syncId?: string | null
   source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
@@ -1182,7 +1170,6 @@ export interface WorkspacePage {
   canvasY: number
   width: number
   height: number
-  linkedBrowsing: boolean
   source: WorkspacePageSource
   parentGroupId?: string
   groupId?: string

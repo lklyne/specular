@@ -72,7 +72,7 @@ import { pageContentSize } from '../runtime/runtime-geometry'
 import {
   scheduleWorkspaceAutosave,
 } from '../runtime/workspace-autosave'
-import { navigatePage, togglePageLinked } from '../navigation-sync'
+import { navigatePage, setSyncForSelection, unsyncPage } from '../navigation-sync'
 import {
   deviceIdFromMetadata,
   pageUsesCustomSize,
@@ -382,13 +382,6 @@ export function registerCanvasEntityIpc(): void {
     })
   })
 
-  ipcMain.on(ipcChannels.canvasToggleLinkedPage, (_event, { pageId }: { pageId: string }) => {
-    const page = pages.find((candidate) => candidate.id === pageId)
-    if (!page) return
-    togglePageLinked(page)
-    requestLayout()
-  })
-
   ipcMain.on(ipcChannels.canvasShowPageContextMenu, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
@@ -414,13 +407,6 @@ export function registerCanvasEntityIpc(): void {
         label: 'Duplicate',
         click: () => {
           duplicatePageFromSource({ sourcePageId: pageId, focus: true })
-        },
-      },
-      {
-        label: page.linked ? 'Unlink Page' : 'Link Page',
-        click: () => {
-          togglePageLinked(page)
-          requestLayout()
         },
       },
       { type: 'separator' },
@@ -479,20 +465,12 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.canvasToggleLinkedSelection, () => {
-    const pageIds = getSelectedEntityIds()
-    if (!pageIds.length) return
-    const selectedPages = pageIds
-      .map((pageId) => pages.find((candidate) => candidate.id === pageId))
-      .filter((page): page is (typeof pages)[number] => page !== undefined)
-    if (!selectedPages.length) return
-    const nextLinked = !selectedPages.every((page) => page.linked)
-    for (const page of selectedPages) {
-      if (page.linked !== nextLinked) {
-        togglePageLinked(page)
-      }
-    }
-    requestLayout()
+  ipcMain.on(ipcChannels.canvasToggleSyncSelection, () => {
+    setSyncForSelection(getSelectedEntityIds())
+  })
+
+  ipcMain.on(ipcChannels.canvasUnsyncPage, (_event, pageId: string) => {
+    unsyncPage(pageId)
   })
 
   ipcMain.on(ipcChannels.canvasToggleAnnotateMode, () => {

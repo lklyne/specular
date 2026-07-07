@@ -1,4 +1,4 @@
-import type { Dispatch, RefObject, SetStateAction } from 'react'
+import type { RefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type {
   AgentPresenceCursor,
@@ -15,14 +15,6 @@ const EMPTY_SELECTION: ToolbarSelectionData = {
   selectedEntityIds: [],
   selectionCount: 0,
   availablePageCount: 0,
-  displayUrl: '',
-  placeholder: '',
-  canGoBack: false,
-  canGoForward: false,
-  isLoadingActivePage: false,
-  loadingPageCount: 0,
-  isLoadingAnySelected: false,
-  loadingPhase: 'idle',
   activeTabId: null,
   activeTabName: null,
   activeTool: { kind: 'select' },
@@ -42,8 +34,6 @@ export interface ToolbarState {
   stickyColor: string
   shapeColor: string
   selection: ToolbarSelectionData
-  addressValue: string
-  setAddressValue: Dispatch<SetStateAction<string>>
   addressBarRef: RefObject<HTMLInputElement | null>
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
   hasSelection: boolean
@@ -55,7 +45,6 @@ export function useToolbarState(): ToolbarState {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [devtoolsOpen, setDevtoolsOpen] = useState(false)
   const [selection, setSelection] = useState<ToolbarSelectionData>(EMPTY_SELECTION)
-  const [addressValue, setAddressValue] = useState('')
   const [agentCursors, setAgentCursors] = useState<AgentPresenceCursor[]>([])
   const addressBarRef = useRef<HTMLInputElement | null>(null)
 
@@ -65,7 +54,6 @@ export function useToolbarState(): ToolbarState {
     })
     const cleanupSelection = toolbarApi.onSelectionChanged((data) => {
       setSelection(data)
-      setAddressValue(data.displayUrl)
     })
     const cleanupLeftSidebar = toolbarApi.onLeftSidebarChanged((open) => setLeftSidebarOpen(open))
     const cleanupDevtools = toolbarApi.onDevtoolsChanged((open) => setDevtoolsOpen(open))
@@ -107,8 +95,6 @@ export function useToolbarState(): ToolbarState {
     stickyColor: selection.stickyColor,
     shapeColor: selection.shapeColor,
     selection,
-    addressValue,
-    setAddressValue,
     addressBarRef,
     currentPresetValue,
     hasSelection,

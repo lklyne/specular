@@ -36,6 +36,10 @@ export type FocusState = {
   /** True while a toolbar input is active. Keeps the address bar focused
    * across selection/page-load layout passes. */
   toolbarTextInputActive: boolean
+  /** True while a toolbar dropdown (zoom picker) is open. Focuses the toolbar
+   * view so its base-ui popover receives Escape/keyboard — the toolbar is a
+   * separate WebContentsView and otherwise never holds keyboard focus. */
+  toolbarDropdownOpen: boolean
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
@@ -48,6 +52,11 @@ export function expectedFocus(state: FocusState): FocusTarget {
   // Toolbar address input is open — keep focus in the toolbar so browser-like
   // commands such as Cmd+T can leave the user ready to type a destination.
   if (state.toolbarTextInputActive) return { kind: 'toolbar' }
+
+  // Toolbar dropdown open — keep focus in the toolbar so its popover handles
+  // Escape/keyboard dismissal itself instead of the keystroke landing on the
+  // canvas view (which has no idea the dropdown exists).
+  if (state.toolbarDropdownOpen) return { kind: 'toolbar' }
 
   // Selection-driven page focus (the predicate already gates on idle
   // interaction + commentOverlayActive). Gesture modes still win below

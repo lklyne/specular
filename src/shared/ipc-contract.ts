@@ -166,8 +166,8 @@ export interface IpcContract {
   'canvas-toggle-device-shell': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-draw-mode': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-file-device-shell': { dir: 'renderer→main'; payload: unknown }
-  'canvas-toggle-linked-page': { dir: 'renderer→main'; payload: unknown }
-  'canvas-toggle-linked-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-toggle-sync-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-unsync-page': { dir: 'renderer→main'; payload: string }
   'canvas-ungroup-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-ungroup-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-update-entity': { dir: 'renderer→main'; payload: unknown }
@@ -265,7 +265,6 @@ export interface IpcContract {
   'right-details-panel-set-file-preset': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-fix-config': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-preset': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-toggle-linked-page': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
@@ -456,8 +455,8 @@ export const ipcChannels = {
   canvasToggleDeviceShell: 'canvas-toggle-device-shell',
   canvasToggleDrawMode: 'canvas-toggle-draw-mode',
   canvasToggleFileDeviceShell: 'canvas-toggle-file-device-shell',
-  canvasToggleLinkedPage: 'canvas-toggle-linked-page',
-  canvasToggleLinkedSelection: 'canvas-toggle-linked-selection',
+  canvasToggleSyncSelection: 'canvas-toggle-sync-selection',
+  canvasUnsyncPage: 'canvas-unsync-page',
   canvasUngroupGroup: 'canvas-ungroup-group',
   canvasUngroupSelection: 'canvas-ungroup-selection',
   canvasUpdateEntity: 'canvas-update-entity',
@@ -553,7 +552,6 @@ export const ipcChannels = {
   rightDetailsPanelSetFilePreset: 'right-details-panel-set-file-preset',
   rightDetailsPanelSetFixConfig: 'right-details-panel-set-fix-config',
   rightDetailsPanelSetPagePreset: 'right-details-panel-set-page-preset',
-  rightDetailsPanelToggleLinkedPage: 'right-details-panel-toggle-linked-page',
   rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',
@@ -578,12 +576,8 @@ export const ipcChannels = {
   toggleLeftSidebar: 'toggle-left-sidebar',
   toggleTheme: 'toggle-theme',
   toolDefaultsSet: 'tool-defaults-set',
-  toolbarBackSelection: 'toolbar-back-selection',
   toolbarDropdownClose: 'toolbar-dropdown-close',
   toolbarDropdownOpen: 'toolbar-dropdown-open',
-  toolbarForwardSelection: 'toolbar-forward-selection',
-  toolbarNavigateSelection: 'toolbar-navigate-selection',
-  toolbarReloadSelection: 'toolbar-reload-selection',
   toolbarSelectionChanged: 'toolbar-selection-changed',
   toolbarSetTool: 'toolbar-set-tool',
   toolbarTooltipClose: 'toolbar-tooltip-close',

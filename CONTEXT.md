@@ -16,6 +16,7 @@ Follows [JSON Canvas v1.0](https://jsoncanvas.org) on disk; uses Specular-native
 - **Canvas** — a single `.canvas` file; the spatial document.
 - **Space** — a folder of canvases (Obsidian-vault analogue).
 - **Page** — Specular's term for live web items: a URL rendered at a particular viewport size at a particular position on the canvas. The runtime `Page` (the `WebContentsView` wrapper in `src/main/runtime/page-factory.ts`) is the same concept — there is no separate "frame entity vs page wrapper" duality. Multiple pages can share the same URL (the multi-breakpoint workflow). Serialized as JSON Canvas `link` nodes; the serializer is the only place the two names meet. See [ADR 0003](./docs/adr/0003-page-as-canonical-name-for-live-web-items.md).
+- **Sync set** — a group of 2+ pages that share navigation and scroll: navigating one drives the others. Membership is a shared `syncId` string on each page (`null` when unsynced), persisted on the `link` node and independent of groups — a sync set can span groups, and grouping does not imply syncing. Owned by `src/main/navigation-sync.ts` (`syncPeersOf`, `setSyncForSelection`, toggle-merge semantics); the only entry point is the multi-select page popup's chain-icon button. Distinct from the edge-based `link_pages` concept (a visual **Edge**, not navigation). See [ADR 0027](./docs/adr/0027-sync-sets-decouple-navigation-sync-from-groups.md).
 
 ## Text affordances
 

@@ -214,7 +214,7 @@ function pastePagesInternal(input: {
     const page = createPage({
       url: entry.url,
       presetIndex: entry.presetIndex,
-      linked: false,
+      syncId: null,
       canvasX: snapToGrid(input.canvasX + entry.dx),
       canvasY: snapToGrid(input.canvasY + entry.dy),
       source: 'manual',
@@ -269,7 +269,7 @@ function pasteEntitiesInternal(input: {
       const page = createPage({
         url: entity.url!,
         presetIndex: entity.presetIndex!,
-        linked: false,
+        syncId: null,
         canvasX: snapToGrid(input.canvasX + entity.dx),
         canvasY: snapToGrid(input.canvasY + entity.dy),
         source: 'manual',
