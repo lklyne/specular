@@ -105,7 +105,12 @@ export function PagePopup({
   const allFramed = navPages.every((p) => p.showDeviceFrame ?? false)
   // Sync is a multi-page relationship; only offered for 2+ selected pages.
   const canSync = !single && selectedPages.length >= 2
-  const allSynced = canSync && selectedPages.every((p) => p.synced)
+  // "Unsync" only when the whole selection is one shared set — mirrors main's
+  // clear-vs-merge decision. A selection straddling two sets reads as "Sync"
+  // and merges, rather than falsely offering to unsync.
+  const firstSyncId = selectedPages[0]?.syncId ?? null
+  const allShareOneSet =
+    canSync && firstSyncId != null && selectedPages.every((p) => p.syncId === firstSyncId)
   // One shared URL across the selection, else blank so the placeholder shows.
   const distinctUrls = new Set(
     navPages.map((p) => p.url).filter((url) => url && url !== 'about:blank'),
@@ -449,9 +454,9 @@ export function PagePopup({
           {canSync ? (
             <CanvasItemPopup.IconButton
               isDark={isDark}
-              active={allSynced}
-              title={allSynced ? 'Unsync navigation' : 'Sync navigation'}
-              ariaLabel={allSynced ? 'Unsync navigation' : 'Sync navigation'}
+              active={allShareOneSet}
+              title={allShareOneSet ? 'Unsync navigation' : 'Sync navigation'}
+              ariaLabel={allShareOneSet ? 'Unsync navigation' : 'Sync navigation'}
               onClick={() => api.toggleSyncSelection()}
             >
               <Link2 size={14} />

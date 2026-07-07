@@ -193,7 +193,6 @@ export interface IpcContract {
   'dispatch-scroll': { dir: 'main→renderer'; payload: unknown }
   'dispatch-scroll-result': { dir: 'renderer→main'; payload: unknown }
   'fix-progress-update': { dir: 'main→renderer'; payload: LayoutUpdateData['fixProgress'] }
-  'focus-address-bar': { dir: 'main→renderer'; payload: void }
   'get-canvas-layout-bootstrap': { dir: 'invoke'; payload: unknown }
   'get-floating-ui-bootstrap': { dir: 'renderer→main'; payload: unknown }
   'get-left-sidebar-bootstrap': { dir: 'invoke'; payload: unknown }
@@ -290,12 +289,8 @@ export interface IpcContract {
   'toggle-left-sidebar': { dir: 'renderer→main'; payload: unknown }
   'toggle-theme': { dir: 'renderer→main'; payload: unknown }
   'tool-defaults-set': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-back-selection': { dir: 'renderer→main'; payload: unknown }
   'toolbar-dropdown-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-dropdown-open': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-forward-selection': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-navigate-selection': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-reload-selection': { dir: 'renderer→main'; payload: unknown }
   'toolbar-selection-changed': { dir: 'main→renderer'; payload: ToolbarSelectionData }
   'toolbar-set-tool': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
@@ -481,7 +476,6 @@ export const ipcChannels = {
   dispatchScroll: 'dispatch-scroll',
   dispatchScrollResult: 'dispatch-scroll-result',
   fixProgressUpdate: 'fix-progress-update',
-  focusAddressBar: 'focus-address-bar',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',
   getLeftSidebarBootstrap: 'get-left-sidebar-bootstrap',

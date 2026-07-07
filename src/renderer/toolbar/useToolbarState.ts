@@ -1,5 +1,4 @@
-import type { RefObject } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type {
   AgentPresenceCursor,
   DrawingBrushType,
@@ -34,7 +33,6 @@ export interface ToolbarState {
   stickyColor: string
   shapeColor: string
   selection: ToolbarSelectionData
-  addressBarRef: RefObject<HTMLInputElement | null>
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
   hasSelection: boolean
   agentCursors: AgentPresenceCursor[]
@@ -46,7 +44,6 @@ export function useToolbarState(): ToolbarState {
   const [devtoolsOpen, setDevtoolsOpen] = useState(false)
   const [selection, setSelection] = useState<ToolbarSelectionData>(EMPTY_SELECTION)
   const [agentCursors, setAgentCursors] = useState<AgentPresenceCursor[]>([])
-  const addressBarRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const cleanupZoom = toolbarApi.onZoomChanged((value) => {
@@ -60,14 +57,6 @@ export function useToolbarState(): ToolbarState {
     const cleanupPresence = toolbarApi.onAgentPresenceChanged((cursors) => {
       setAgentCursors(cursors)
     })
-    let focusTimer: ReturnType<typeof setTimeout> | undefined
-    const cleanupFocusAddress = toolbarApi.onFocusAddressBar(() => {
-      clearTimeout(focusTimer)
-      focusTimer = setTimeout(() => {
-        addressBarRef.current?.focus()
-        addressBarRef.current?.select()
-      }, 50)
-    })
 
     return () => {
       cleanupZoom()
@@ -75,8 +64,6 @@ export function useToolbarState(): ToolbarState {
       cleanupLeftSidebar()
       cleanupDevtools()
       cleanupPresence()
-      cleanupFocusAddress()
-      clearTimeout(focusTimer)
     }
   }, [])
 
@@ -95,7 +82,6 @@ export function useToolbarState(): ToolbarState {
     stickyColor: selection.stickyColor,
     shapeColor: selection.shapeColor,
     selection,
-    addressBarRef,
     currentPresetValue,
     hasSelection,
     agentCursors,

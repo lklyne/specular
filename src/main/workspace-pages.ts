@@ -1,4 +1,3 @@
-import { ipcChannels } from '../shared/ipc-contract'
 import type {
   CreatePagesRequest,
   CreatePagesResponse,
@@ -39,10 +38,7 @@ import {
 } from './runtime/viewport-control'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
-import { setPendingFocus } from './runtime/runtime-context'
 import { focusSession, repointFocusSession } from './runtime/focus-session'
-import { toolbarView } from './runtime/view-refs'
-import { safeSend } from './runtime/safe-send'
 import { makeId, cloneMetadata, pageCurrentUrl, createGroup } from './workspace-utils'
 import {
   entityBoundsById,
@@ -314,17 +310,15 @@ function duplicatePageInternal(
 
 export function createBlankFrameFromSource(input: {
   sourcePageId: string
-  focusAddressBar?: boolean
 }): { pageId: string } {
   const sourcePage = findPageById(input.sourcePageId)
   if (!sourcePage) {
     throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
-  return mutateWorkspace(() => createBlankFrameInternal(input, sourcePage))
+  return mutateWorkspace(() => createBlankFrameInternal(sourcePage))
 }
 
 function createBlankFrameInternal(
-  input: { sourcePageId: string; focusAddressBar?: boolean },
   sourcePage: NonNullable<ReturnType<typeof findPageById>>,
 ): { pageId: string } {
   const sourceSize = pageContentSize(sourcePage)
@@ -369,10 +363,6 @@ function createBlankFrameInternal(
     )
   }
 
-  if (input.focusAddressBar ?? true) {
-    setPendingFocus({ kind: 'toolbar' })
-    if (toolbarView) safeSend(toolbarView.webContents, ipcChannels.focusAddressBar)
-  }
   return { pageId: newPage.id }
 }
 

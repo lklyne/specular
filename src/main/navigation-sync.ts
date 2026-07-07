@@ -73,7 +73,7 @@ export function unsyncPage(pageId: string): void {
 }
 
 /** Clear any sync id left with fewer than two members after a membership change. */
-function dissolveOrphanSyncSets(): void {
+export function dissolveOrphanSyncSets(): void {
   const counts = new Map<string, number>()
   for (const page of pages) {
     if (page.syncId) counts.set(page.syncId, (counts.get(page.syncId) ?? 0) + 1)

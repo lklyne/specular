@@ -34,4 +34,4 @@ Migration is not handled — old `.canvas` files with `linkedBrowsing`/`linked` 
 
 - Independent sync sets coexist freely; the common multi-breakpoint / component-states layout paths mint one shared `syncId` per generated cluster.
 - Scroll sync rides the same `syncPeersOf`, so it decoupled from groups for free.
-- Visualization of *which* set a page belongs to is deferred — today a page only knows it is synced, not to whom. A future per-set identity (color / connector) can read `syncId` without touching this model.
+- The scene entity carries `syncId` so the multi-select toggle can tell "whole selection is one set" (offer unsync) from "each in some set" (offer merge). *Visual* per-set identity — showing *which* set via color or connector — is still deferred; a future treatment can read the same `syncId` without touching this model.

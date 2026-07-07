@@ -18,6 +18,13 @@ import {
   CAMERA_SPRING_CSS_EASING,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
 } from '../../shared/camera-transition'
+import {
+  paletteSlots,
+  resolveCanvasColor,
+  type CanvasColorRole,
+  type CanvasColorSlot,
+  type CanvasPalette,
+} from '../../shared/canvas-colors'
 import type { Rect } from '../../shared/hit-regions'
 import type { BatchLayoutMode, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -510,6 +517,43 @@ function ColorSwatch({
   )
 }
 
+// The tool popups' color row: one swatch per palette hue, ring on the active
+// one. Callers vary the palette, resolve role, and target scope; the layout is
+// shared.
+function PaletteRow({
+  isDark,
+  palette,
+  role,
+  activeSlot,
+  ariaLabel,
+  onPick,
+}: {
+  isDark: boolean
+  palette: CanvasPalette
+  role: CanvasColorRole
+  activeSlot: CanvasColorSlot | null
+  ariaLabel: (slotLabel: string) => string
+  onPick: (storage: string) => void
+}) {
+  return (
+    <Section>
+      {paletteSlots(palette).map((slot) => {
+        const swatch = slot.hex ?? resolveCanvasColor(slot.storage, { role, isDark })
+        return (
+          <ColorSwatch
+            key={slot.id}
+            isDark={isDark}
+            active={activeSlot === slot.id}
+            color={swatch}
+            ariaLabel={ariaLabel(slot.label)}
+            onClick={() => onPick(slot.storage)}
+          />
+        )
+      })}
+    </Section>
+  )
+}
+
 function EntityActions({
   isDark,
   noun,
@@ -592,6 +636,7 @@ export const CanvasItemPopup = {
   Divider,
   IconButton,
   ColorSwatch,
+  PaletteRow,
   EntityActions,
   ArrangeButtons,
 }

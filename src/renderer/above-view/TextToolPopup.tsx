@@ -1,11 +1,6 @@
 // ADR 0008 §1/§5 — add-text tool popup; writes to per-style tool defaults.
 
-import {
-  paletteForTextStyle,
-  paletteSlots,
-  resolveCanvasColor,
-  slotForStorage,
-} from '../../shared/canvas-colors'
+import { paletteForTextStyle, slotForStorage } from '../../shared/canvas-colors'
 import type { LayoutUpdateData, TextEntityStyle, ToolDefaultPatch } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
@@ -51,28 +46,20 @@ export function TextToolPopup({
           />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.Section>
-          {paletteSlots(swatchPalette).map((slot) => {
-            const swatch =
-              slot.hex ?? resolveCanvasColor(slot.storage, { role: swatchRole, isDark })
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={slot.id}
-                isDark={isDark}
-                active={activeSlot === slot.id}
-                color={swatch}
-                ariaLabel={`Set default ${style} text color to ${slot.label}`}
-                onClick={() => {
-                  const patch: ToolDefaultPatch =
-                    style === 'sticky'
-                      ? { scope: 'add-sticky', key: 'color', value: slot.storage }
-                      : { scope: 'add-text', key: 'color', value: slot.storage }
-                  api.setToolDefault(patch)
-                }}
-              />
+        <CanvasItemPopup.PaletteRow
+          isDark={isDark}
+          palette={swatchPalette}
+          role={swatchRole}
+          activeSlot={activeSlot}
+          ariaLabel={(label) => `Set default ${style} text color to ${label}`}
+          onPick={(storage) =>
+            api.setToolDefault(
+              style === 'sticky'
+                ? { scope: 'add-sticky', key: 'color', value: storage }
+                : { scope: 'add-text', key: 'color', value: storage },
             )
-          })}
-        </CanvasItemPopup.Section>
+          }
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>
   )

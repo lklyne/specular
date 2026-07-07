@@ -1200,7 +1200,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           {/* Edges aren't scene entities, so they sit outside SELECTION_POPUPS.
               Mount off the single selected edge, under the same tool mutex. */}
           {!toolHasPopup(layoutData.activeTool) && !hideContext ? (
-            <EdgePopup api={api} isDark={isDark} layout={layoutData} edge={selectedEdge} />
+            <EdgePopup
+              key={selectedEdge?.id ?? 'none'}
+              api={api}
+              isDark={isDark}
+              layout={layoutData}
+              edge={selectedEdge}
+            />
           ) : null}
 
           <CommentBadgesLayer

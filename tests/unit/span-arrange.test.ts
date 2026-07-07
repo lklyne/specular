@@ -6,7 +6,7 @@
  * Mutation-verified by:
  *   - returning the input positions unchanged: the even-gap and align
  *     assertions fail.
- *   - collapsing to a fixed gap from the origin (the old pack behavior): the
+ *   - collapsing to a fixed gap from the origin (a pack, not a tidy): the
  *     "last item's trailing edge stays put" assertions fail.
  *   - not clustering grid bands (treating every box as its own column): the
  *     "column-aligned items share an x" assertion fails.

@@ -128,6 +128,8 @@ export interface CanvasScenePageEntity {
   presetIndex: number
   /** True when this page shares a live sync set (has at least one peer). */
   synced: boolean
+  /** The page's sync-set id, so a selection can tell "all one set" from "each in some set". */
+  syncId: string | null
   /** Outer screen bounds (includes shell when device page is on). */
   screenX: number
   screenY: number

@@ -2,7 +2,6 @@
 
 import {
   paletteForBrushType,
-  paletteSlots,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
@@ -90,29 +89,16 @@ export function DrawToolPopup({
           ))}
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.Section>
-          {paletteSlots(swatchPalette).map((slot) => {
-            const swatch =
-              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'ink', isDark })
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={slot.id}
-                isDark={isDark}
-                active={activeSlot === slot.id}
-                color={swatch}
-                ariaLabel={`Set default brush color to ${slot.label}`}
-                onClick={() => {
-                  const patch: ToolDefaultPatch = {
-                    scope: 'draw',
-                    key: 'color',
-                    value: slot.storage,
-                  }
-                  api.setToolDefault(patch)
-                }}
-              />
-            )
-          })}
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.PaletteRow
+          isDark={isDark}
+          palette={swatchPalette}
+          role="ink"
+          activeSlot={activeSlot}
+          ariaLabel={(label) => `Set default brush color to ${label}`}
+          onPick={(storage) =>
+            api.setToolDefault({ scope: 'draw', key: 'color', value: storage })
+          }
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>
   )

@@ -15,14 +15,7 @@ import {
   type CanvasPalette,
 } from '../../shared/canvas-colors'
 import { swatchDotShadow, swatchRingShadow } from './colorSwatchStyle'
-
-function triggerClass(isDark: boolean): string {
-  const base =
-    'flex h-6 items-center gap-1 rounded-[6px] border-0 pl-1 pr-1.5 transition-colors'
-  return isDark
-    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100 data-[popup-open]:bg-[rgba(253,248,245,0.1)] data-[popup-open]:text-zinc-100`
-    : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900 data-[popup-open]:bg-[var(--color-stone-200)] data-[popup-open]:text-zinc-900`
-}
+import { POPUP_SURFACE_CLASS, dropdownTriggerClass, popupSurfaceStyle } from '../shared/popupSurface'
 
 export function ColorDropdown({
   isDark,
@@ -49,7 +42,11 @@ export function ColorDropdown({
 
   return (
     <Menu.Root>
-      <Menu.Trigger className={triggerClass(isDark)} aria-label={triggerLabel} title={triggerLabel}>
+      <Menu.Trigger
+        className={dropdownTriggerClass(isDark, 'pl-1 pr-1.5')}
+        aria-label={triggerLabel}
+        title={triggerLabel}
+      >
         <span
           className="block h-4 w-4 rounded-full"
           style={{
@@ -65,14 +62,8 @@ export function ColorDropdown({
         <Menu.Positioner align="center" side="bottom" sideOffset={8} style={{ zIndex: 50 }}>
           <Menu.Popup
             data-overlay-ui
-            className="flex items-center gap-1 rounded-[10px] border p-1"
-            style={{
-              background: 'var(--surface-popup)',
-              borderColor: 'var(--surface-popup-border)',
-              boxShadow: isDark
-                ? '0 10px 8px -6px rgba(0,0,0,.58), 0 4px 16px 0 rgba(0,0,0,.5)'
-                : '0 10px 8px -6px rgba(0,0,0,.18), 0 4px 16px 0 rgba(199,193,188,.5)',
-            }}
+            className={`flex items-center gap-1 ${POPUP_SURFACE_CLASS}`}
+            style={popupSurfaceStyle(isDark)}
             onPointerDown={(event) => event.stopPropagation()}
           >
             {slots.map((slot) => {

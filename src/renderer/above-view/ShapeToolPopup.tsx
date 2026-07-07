@@ -1,10 +1,6 @@
 // ADR 0008 §1/§5, ADR 0009 — add-shape tool popup; persists via tool defaults.
 
-import {
-  paletteSlots,
-  resolveCanvasColor,
-  slotForStorage,
-} from '../../shared/canvas-colors'
+import { slotForStorage } from '../../shared/canvas-colors'
 import type { LayoutUpdateData, ShapeKind, ToolDefaultPatch } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
@@ -55,29 +51,16 @@ export function ShapeToolPopup({
           />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.Section>
-          {paletteSlots('soft').map((slot) => {
-            const swatch =
-              slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })
-            return (
-              <CanvasItemPopup.ColorSwatch
-                key={slot.id}
-                isDark={isDark}
-                active={activeSlot === slot.id}
-                color={swatch}
-                ariaLabel={`Set default shape color to ${slot.label}`}
-                onClick={() => {
-                  const patch: ToolDefaultPatch = {
-                    scope: 'add-shape',
-                    key: 'color',
-                    value: slot.storage,
-                  }
-                  api.setToolDefault(patch)
-                }}
-              />
-            )
-          })}
-        </CanvasItemPopup.Section>
+        <CanvasItemPopup.PaletteRow
+          isDark={isDark}
+          palette="soft"
+          role="fill"
+          activeSlot={activeSlot}
+          ariaLabel={(label) => `Set default shape color to ${label}`}
+          onPick={(storage) =>
+            api.setToolDefault({ scope: 'add-shape', key: 'color', value: storage })
+          }
+        />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>
   )

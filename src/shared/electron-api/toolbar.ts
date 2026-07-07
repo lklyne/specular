@@ -29,7 +29,6 @@ export interface ToolbarElectronAPI {
   onDevtoolsChanged: (callback: (open: boolean) => void) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
-  onFocusAddressBar: (callback: () => void) => () => void
   repoConnectViaPicker: () => Promise<ConnectedRepo | null>
   repoDisconnect: (id: string) => Promise<void>
 }

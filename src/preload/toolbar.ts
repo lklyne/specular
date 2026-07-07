@@ -26,7 +26,6 @@ const api: ToolbarElectronAPI = {
   onDevtoolsChanged: on<boolean>(ipcChannels.devtoolsChanged),
   onThemeChanged: on(ipcChannels.themeChanged),
   onAgentPresenceChanged: on<AgentPresenceCursor[]>(ipcChannels.agentPresenceChanged),
-  onFocusAddressBar: on(ipcChannels.focusAddressBar),
   repoConnectViaPicker: () => ipcRenderer.invoke(ipcChannels.repoConnectViaPicker),
   repoDisconnect: (id) => ipcRenderer.invoke(ipcChannels.repoDisconnect, { id }),
 }

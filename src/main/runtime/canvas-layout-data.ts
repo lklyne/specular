@@ -132,6 +132,7 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       height,
       presetIndex: page.presetIndex,
       synced: isPageSynced(page),
+      syncId: page.syncId ?? null,
       screenX: showShell ? bounds.shell.x : bounds.page.x,
       screenY: showShell ? bounds.shell.y : bounds.page.y,
       screenWidth: showShell ? bounds.shell.width : bounds.page.width,

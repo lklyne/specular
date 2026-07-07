@@ -12,6 +12,7 @@ import type {
 } from '../shared/types'
 import type { SelectionMutationMode } from '../shared/selection-modifiers'
 import { allEntities } from './entities/contract'
+import { dissolveOrphanSyncSets } from './navigation-sync'
 import { applyEntitySelectionMutation } from './runtime/selection-controller'
 import {
   findPageById,
@@ -270,6 +271,9 @@ function deletePagesInternal(input: DeletePagesRequest): DeletePagesResponse {
     }
     deletedPageIds.push(pageId)
   }
+
+  // A deleted page can leave its sync-set peer alone with a now-dead id.
+  if (deletedPageIds.length > 0) dissolveOrphanSyncSets()
 
   const deletedEdgeIds = removeEdgesTouchingEntities(new Set(deletedPageIds))
   const deletedGroupIds = removeEmptyGroups()

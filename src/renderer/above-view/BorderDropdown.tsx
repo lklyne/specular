@@ -15,6 +15,7 @@ import {
 } from '../../shared/canvas-colors'
 import type { ShapeBorderStyle } from '../../shared/types'
 import { swatchDotShadow, swatchRingShadow } from './colorSwatchStyle'
+import { POPUP_SURFACE_CLASS, dropdownTriggerClass, popupSurfaceStyle } from '../shared/popupSurface'
 
 /** Thickness presets, mirroring the right panel's stroke widths. */
 const BORDER_WIDTH_PRESETS: readonly number[] = [1, 2, 3, 4]
@@ -57,14 +58,6 @@ function LineGlyph({ dashed }: { dashed: boolean }) {
   )
 }
 
-function triggerClass(isDark: boolean): string {
-  const base =
-    'flex h-6 items-center gap-1 rounded-[6px] border-0 pl-1.5 pr-1 transition-colors'
-  return isDark
-    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100 data-[popup-open]:bg-[rgba(253,248,245,0.1)] data-[popup-open]:text-zinc-100`
-    : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900 data-[popup-open]:bg-[var(--color-stone-200)] data-[popup-open]:text-zinc-900`
-}
-
 function segmentClass(isDark: boolean, active: boolean): string {
   const base =
     'flex flex-1 items-center justify-center gap-1 rounded-[6px] px-2 py-1 text-xs leading-none transition-colors'
@@ -104,7 +97,11 @@ export function BorderDropdown({
   const colorDisabled = borderStyle === 'none'
   return (
     <Menu.Root>
-      <Menu.Trigger className={triggerClass(isDark)} aria-label="Border" title="Border">
+      <Menu.Trigger
+        className={dropdownTriggerClass(isDark, 'pl-1.5 pr-1')}
+        aria-label="Border"
+        title="Border"
+      >
         <BorderGlyph size={14} />
         <ChevronDown size={12} />
       </Menu.Trigger>
@@ -112,14 +109,8 @@ export function BorderDropdown({
         <Menu.Positioner align="center" side="bottom" sideOffset={8} style={{ zIndex: 50 }}>
           <Menu.Popup
             data-overlay-ui
-            className="flex w-[220px] flex-col gap-1 rounded-[10px] border p-1"
-            style={{
-              background: 'var(--surface-popup)',
-              borderColor: 'var(--surface-popup-border)',
-              boxShadow: isDark
-                ? '0 10px 8px -6px rgba(0,0,0,.58), 0 4px 16px 0 rgba(0,0,0,.5)'
-                : '0 10px 8px -6px rgba(0,0,0,.18), 0 4px 16px 0 rgba(199,193,188,.5)',
-            }}
+            className={`flex w-[220px] flex-col gap-1 ${POPUP_SURFACE_CLASS}`}
+            style={popupSurfaceStyle(isDark)}
             onPointerDown={(event) => event.stopPropagation()}
           >
             <div className="flex items-center gap-1">

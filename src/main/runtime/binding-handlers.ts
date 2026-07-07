@@ -96,7 +96,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'new-frame': () => {
     const pageId = selectedPageId()
     if (!pageId) return
-    createBlankFrameFromSource({ sourcePageId: pageId, focusAddressBar: true })
+    createBlankFrameFromSource({ sourcePageId: pageId })
   },
   'delete-selection': () => {
     deleteSelection()
