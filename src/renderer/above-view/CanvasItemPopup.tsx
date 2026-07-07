@@ -8,7 +8,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { AlignHorizontalDistributeCenter, Maximize2 } from 'lucide-react'
+import { Columns3, Grid3x3, Maximize2, Rows3 } from 'lucide-react'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { Tooltip } from '../shared/Tooltip'
 import { swatchDotShadow, swatchRingShadow } from './colorSwatchStyle'
@@ -18,7 +18,7 @@ import {
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
 } from '../../shared/camera-transition'
 import type { Rect } from '../../shared/hit-regions'
-import type { LayoutUpdateData } from '../../shared/types'
+import type { BatchLayoutMode, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   useAnchoredPosition,
@@ -521,10 +521,13 @@ function EntityActions({
   noun: string
   count: number
   api?: Pick<CanvasBgElectronAPI, 'focusSelection'> &
-    Partial<Pick<CanvasBgElectronAPI, 'distributeSelection'>>
+    Partial<Pick<CanvasBgElectronAPI, 'arrangeSelection'>>
 }) {
+  const arrange = api?.arrangeSelection
+  // Focus stays pinned to the right; arrange (row/column/grid) sits before it.
   return (
     <Section>
+      <ArrangeButtons isDark={isDark} count={count} arrange={arrange} />
       {api && (
         <IconButton
           isDark={isDark}
@@ -535,17 +538,50 @@ function EntityActions({
           <Maximize2 size={14} />
         </IconButton>
       )}
-      {api?.distributeSelection && count >= 3 && (
-        <IconButton
-          isDark={isDark}
-          title="Distribute spacing"
-          ariaLabel="Distribute spacing"
-          onClick={() => api.distributeSelection?.()}
-        >
-          <AlignHorizontalDistributeCenter size={14} />
-        </IconButton>
-      )}
     </Section>
+  )
+}
+
+// Icon visuals match the arrangement, not the lucide name: a row of items reads
+// as side-by-side vertical bars (Columns3); a column reads as stacked bars
+// (Rows3).
+const ARRANGE_MODES: {
+  mode: BatchLayoutMode
+  Icon: typeof Grid3x3
+  label: string
+}[] = [
+  { mode: 'row', Icon: Columns3, label: 'Arrange in a row' },
+  { mode: 'column', Icon: Rows3, label: 'Arrange in a column' },
+  { mode: 'grid', Icon: Grid3x3, label: 'Arrange in a grid' },
+]
+
+// Row/column/grid pack buttons. Shown for a real multi-selection (count >= 2);
+// nothing renders when the host lacks the arrange API. Standalone so PagePopup,
+// which builds a bespoke action row, can drop it in alongside EntityActions.
+function ArrangeButtons({
+  isDark,
+  count,
+  arrange,
+}: {
+  isDark: boolean
+  count: number
+  arrange?: (mode: BatchLayoutMode) => void
+}) {
+  if (!arrange || count < 2) return null
+  return (
+    <>
+      {ARRANGE_MODES.map(({ mode, Icon, label }) => (
+        <IconButton
+          key={mode}
+          isDark={isDark}
+          title={label}
+          ariaLabel={label}
+          onClick={() => arrange(mode)}
+        >
+          <Icon size={14} />
+        </IconButton>
+      ))}
+    </>
   )
 }
 
@@ -558,4 +594,5 @@ export const CanvasItemPopup = {
   IconButton,
   ColorSwatch,
   EntityActions,
+  ArrangeButtons,
 }

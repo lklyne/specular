@@ -26,7 +26,7 @@ export function FilePopup({
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
     | 'focusSelection'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData

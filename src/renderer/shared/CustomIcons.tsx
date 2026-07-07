@@ -14,7 +14,7 @@ import { darkenHex, lightenHex, NEUTRAL_STORAGE, resolveCanvasColor } from '../.
 //     AddText / Comment / Inspect / Theme / ZoomChevron): rendered from raw
 //     SVG assets in ./icons/toolbar/*.svg (light) and ./icons/toolbar/dark/
 //     (dark variants generated via color-substitution: light gradient stops
-//     remap to #65625D → #484744, stroke flips to #C4BEBB). Caller passes
+//     remap to #65625D → #484744, stroke flips to #E2DEDB). Caller passes
 //     `isDark` to pick the right asset. Shadows are still reapplied via CSS
 //     `filter: drop-shadow(...)` on the `<img>` so each glyph gets its own
 //     alpha-correct shadow instead of a bounding-box shadow.
@@ -108,7 +108,7 @@ function penGlyphPalette(isDark: boolean) {
     shineTop: isDark ? '#484744' : '#D8D8D8',
     shineRest: isDark ? '#484744' : '#DBDBDB',
     seamTop: isDark ? '#484744' : '#D9D9D9',
-    seamBottom: isDark ? '#C4BEBB' : '#B5B5B5',
+    seamBottom: isDark ? '#E2DEDB' : '#B5B5B5',
   }
 }
 
@@ -173,7 +173,7 @@ export function DrawPenToolIcon({
   const bodyGradId = `${prefix}-body-grad`
   const shineGradId = `${prefix}-shine-grad`
   const seamGradId = `${prefix}-seam-grad`
-  const stroke = isDark ? '#C4BEBB' : '#18181B'
+  const stroke = isDark ? '#E2DEDB' : '#18181B'
   return (
     <svg
       width={size}
@@ -304,7 +304,7 @@ export function DrawHighlightToolIcon({
   const bodyGradId = `${prefix}-body-grad`
   const shineGradId = `${prefix}-shine-grad`
   const seamGradId = `${prefix}-seam-grad`
-  const stroke = isDark ? '#C4BEBB' : '#352C24'
+  const stroke = isDark ? '#E2DEDB' : '#352C24'
   return (
     <svg
       width={size}
@@ -406,7 +406,7 @@ export function AddShapeToolIcon({
   const fillBottom = isDark
     ? darkenHex(tint, isNeutral ? 0.7 : 0.55)
     : lightenHex(tint, 0.15)
-  const stroke = isDark ? '#C4BEBB' : '#45403C'
+  const stroke = isDark ? '#E2DEDB' : '#45403C'
 
   return (
     <svg
@@ -445,7 +445,7 @@ export function AddShapeToolIcon({
 // Geometry ported from icons/toolbar/add-sticky.svg. Light mode keeps the
 // paper pale via lighten(tint, 0.45) → lighten(tint, 0.15). Dark mode is
 // split: neutral darkens hard (0.55 → 0.70, matching the original raster);
-// hues darken to 0.40 → 0.55 so the fill sits below the #C4BEBB stroke in
+// hues darken to 0.40 → 0.55 so the fill sits below the #E2DEDB stroke in
 // value and the outline reads clearly. Less darkening washed the stroke out.
 
 type AddStickyIconProps = {
@@ -480,7 +480,7 @@ export function AddStickyToolIcon({
   const paperBottom = isDark
     ? darkenHex(tint, isNeutral ? 0.7 : 0.55)
     : lightenHex(tint, 0.15)
-  const stroke = isDark ? '#C4BEBB' : '#45403C'
+  const stroke = isDark ? '#E2DEDB' : '#45403C'
   // Drop-shadow color matrix differs by theme: light uses 32% gray, dark uses
   // 40% black — preserved from the original SVG assets so the shadow stays
   // alpha-correct against either toolbar surface.

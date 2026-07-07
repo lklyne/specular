@@ -1,7 +1,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { AnnotationCreateRequest, CanvasEntityKind } from '../../shared/types'
+import type { AnnotationCreateRequest, BatchLayoutMode, CanvasEntityKind } from '../../shared/types'
 import { getEntityKind, hasEntityKind } from '../entities/contract'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
@@ -93,7 +93,7 @@ import { copyableSelectionPayload } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
 import { selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
-import { distributeSelection } from '../runtime/document-commands'
+import { arrangeEntities } from '../runtime/document-commands'
 import { selectedEntityIds } from '../ui-state'
 import { duplicateSelection } from '../runtime/duplicate-selection'
 import { reorderStackOrder, type StackOrderAction } from '../runtime/entity-order-state'
@@ -221,8 +221,8 @@ export function registerCanvasEntityIpc(): void {
     deletePages({ pageIds: [pageId] })
   })
 
-  ipcMain.on(ipcChannels.canvasDistributeSelection, () => {
-    distributeSelection(selectedEntityIds())
+  ipcMain.on(ipcChannels.canvasArrangeSelection, (_event, mode: BatchLayoutMode) => {
+    arrangeEntities(selectedEntityIds(), mode)
   })
 
   ipcMain.on(ipcChannels.canvasNavigatePage, (_event, { pageId, url }: { pageId: string; url: string }) => {

@@ -12,6 +12,7 @@ import { FilePopup } from './FilePopup'
 import { DrawingPopup } from './DrawingPopup'
 import { DrawToolPopup } from './DrawToolPopup'
 import { GroupPopup } from './GroupPopup'
+import { MultiSelectPopup } from './MultiSelectPopup'
 import { PageToolPopup } from './PageToolPopup'
 import { ShapePopup } from './ShapePopup'
 import { ShapeToolPopup } from './ShapeToolPopup'
@@ -143,6 +144,14 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     interactionIdle: ctx.interactionIdle,
     fileJsonModeMap: ctx.fileJsonModeMap,
     setFileJsonMode: ctx.setFileJsonMode,
+  })),
+  // Mixed-kind fallback: renders only when the selection spans kinds, so it
+  // never doubles up with a per-kind popup.
+  selectionRow('multi', MultiSelectPopup, (ctx) => ({
+    api: ctx.api,
+    isDark: ctx.isDark,
+    layout: ctx.layout,
+    mixed: ctx.sameKindSelection === null,
   })),
   selectionRow(
     'page',

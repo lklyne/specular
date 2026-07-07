@@ -20,7 +20,7 @@ export function StickyNotePopover({
     CanvasBgElectronAPI,
     | 'updateEntity'
     | 'focusSelection'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData

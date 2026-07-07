@@ -3,7 +3,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  AlignHorizontalDistributeCenter,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -58,7 +57,7 @@ export function PagePopup({
     | 'restoreFocusCamera'
     | 'setFocusPresentationMode'
     | 'setFocusAnnotationsVisible'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -364,6 +363,11 @@ export function PagePopup({
               )}
             </CanvasItemPopup.IconButton>
           ) : null}
+          <CanvasItemPopup.ArrangeButtons
+            isDark={isDark}
+            count={count}
+            arrange={api.arrangeSelection}
+          />
           {isSingle ? (
             <CanvasItemPopup.IconButton
               isDark={isDark}
@@ -375,16 +379,6 @@ export function PagePopup({
               }}
             >
               {focusPresentation ? <X size={14} /> : <Maximize2 size={14} />}
-            </CanvasItemPopup.IconButton>
-          ) : null}
-          {count >= 3 ? (
-            <CanvasItemPopup.IconButton
-              isDark={isDark}
-              title="Distribute spacing"
-              ariaLabel="Distribute spacing"
-              onClick={() => api.distributeSelection()}
-            >
-              <AlignHorizontalDistributeCenter size={14} />
             </CanvasItemPopup.IconButton>
           ) : null}
         </CanvasItemPopup.Section>

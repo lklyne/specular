@@ -21,7 +21,7 @@ export function ShapePopup({
     CanvasBgElectronAPI,
     | 'updateEntity'
     | 'focusSelection'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -189,7 +189,8 @@ const api: CanvasBgElectronAPI = {
   endResize: () => ipcRenderer.send(ipcChannels.canvasResizeEnd),
   beginMultiResize: () => ipcRenderer.send(ipcChannels.canvasMultiResizeBegin),
   endMultiResize: () => ipcRenderer.send(ipcChannels.canvasMultiResizeEnd),
-  distributeSelection: () => ipcRenderer.send(ipcChannels.canvasDistributeSelection),
+  arrangeSelection: (mode: BatchLayoutMode) =>
+    ipcRenderer.send(ipcChannels.canvasArrangeSelection, mode),
   beginReorderDrag: (movingId: string) =>
     ipcRenderer.send(ipcChannels.canvasReorderStart, { movingId }),
   reorderDragMove: (canvasX: number, canvasY: number) =>

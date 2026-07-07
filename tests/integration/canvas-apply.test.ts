@@ -29,8 +29,8 @@ import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harne
 import { applyCanvasPatch, CanvasPatchError } from '../../src/main/canvas-apply'
 import { serializeToJsonCanvas } from '../../src/main/runtime/json-canvas-serializer'
 import { workspaceSnapshot } from '../../src/main/runtime/workspace-tabs'
-import { getTextEntities } from '../../src/main/runtime/document-commands'
-import { workspaceEdges } from '../../src/main/runtime/workspace-model'
+import { getDrawingEntities, getTextEntities } from '../../src/main/runtime/document-commands'
+import { workspaceEdges, workspaceGroups } from '../../src/main/runtime/workspace-model'
 import { undo } from '../../src/main/runtime/workspace-undo'
 import { DOC_MAP_ENTITIES } from '../../src/main/runtime/workspace-doc'
 
@@ -322,5 +322,65 @@ describe('canvas apply', () => {
     expect(getTextEntities()).toHaveLength(0)
     const entitiesMap = harness.doc.getMap(DOC_MAP_ENTITIES)
     for (const id of created) expect(entitiesMap.has(id)).toBe(false)
+  })
+
+  // `update --at` on a drawing/group is a move: strokes and children live in
+  // absolute coords, so they must travel with the origin (matching drag).
+  it('moving a drawing via update carries its strokes and undo restores them', async () => {
+    const { created } = applyCanvasPatch({
+      entities: [
+        {
+          kind: 'drawing',
+          canvasX: 0,
+          canvasY: 0,
+          width: 100,
+          height: 100,
+          strokes: [{ id: 's', color: '#000', width: 2, points: [{ x: 10, y: 20 }] }],
+        },
+      ],
+    })
+    const id = created[0]
+    await settleSync()
+
+    applyCanvasPatch({ entities: [{ id, kind: 'drawing', canvasX: 300, canvasY: 400 }] })
+    const moved = getDrawingEntities().find((d) => d.id === id)!
+    expect({ x: moved.canvasX, y: moved.canvasY }).toEqual({ x: 300, y: 400 })
+    expect(moved.strokes[0].points[0]).toEqual({ x: 310, y: 420 })
+
+    undo()
+    const back = getDrawingEntities().find((d) => d.id === id)!
+    expect({ x: back.canvasX, y: back.canvasY }).toEqual({ x: 0, y: 0 })
+    expect(back.strokes[0].points[0]).toEqual({ x: 10, y: 20 })
+  })
+
+  it('moving a group via update carries its children as one undo step', async () => {
+    const seed = applyCanvasPatch({
+      entities: [
+        { kind: 'text', text: 'a', canvasX: 0, canvasY: 0 },
+        { kind: 'text', text: 'b', canvasX: 40, canvasY: 0 },
+      ],
+    })
+    const [a, b] = seed.created
+    const groupId = applyCanvasPatch({
+      entities: [{ kind: 'group', entityIds: [a, b], label: 'g' }],
+    }).created[0]
+    await settleSync()
+
+    const g0 = workspaceGroups.find((g) => g.id === groupId)!
+    const a0 = getTextEntities().find((t) => t.id === a)!
+    const ax0 = a0.canvasX
+    const ay0 = a0.canvasY
+
+    applyCanvasPatch({
+      entities: [{ id: groupId, kind: 'group', canvasX: g0.canvasX + 100, canvasY: g0.canvasY + 50 }],
+    })
+    const a1 = getTextEntities().find((t) => t.id === a)!
+    expect(a1.canvasX).toBe(ax0 + 100)
+    expect(a1.canvasY).toBe(ay0 + 50)
+
+    undo()
+    const a2 = getTextEntities().find((t) => t.id === a)!
+    expect(a2.canvasX).toBe(ax0)
+    expect(a2.canvasY).toBe(ay0)
   })
 })

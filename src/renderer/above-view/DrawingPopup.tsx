@@ -30,7 +30,7 @@ export function DrawingPopup({
     CanvasBgElectronAPI,
     | 'updateEntity'
     | 'focusSelection'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData

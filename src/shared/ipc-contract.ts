@@ -75,7 +75,7 @@ export interface IpcContract {
   'canvas-delete-shape': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-tab': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-text-entity': { dir: 'renderer→main'; payload: unknown }
-  'canvas-distribute-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-arrange-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-copy-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-copy-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-entity': { dir: 'renderer→main'; payload: unknown }
@@ -365,7 +365,7 @@ export const ipcChannels = {
   canvasDeleteShape: 'canvas-delete-shape',
   canvasDeleteTab: 'canvas-delete-tab',
   canvasDeleteTextEntity: 'canvas-delete-text-entity',
-  canvasDistributeSelection: 'canvas-distribute-selection',
+  canvasArrangeSelection: 'canvas-arrange-selection',
   canvasDragCopyGroup: 'canvas-drag-copy-group',
   canvasDragCopySelection: 'canvas-drag-copy-selection',
   canvasDragEntity: 'canvas-drag-entity',
