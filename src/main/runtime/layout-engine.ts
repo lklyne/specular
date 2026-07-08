@@ -1,3 +1,6 @@
+// fallow-ignore-file circular-dependencies
+// reconcileBrowserDevtools lives in runtime-core, which imports requestLayout
+// via viewport-control → this file. See devtools-panel.ts for the same cycle.
 import { screen, type WebContentsView } from 'electron'
 import {
   boundsKey,
@@ -26,6 +29,7 @@ import { layoutCache } from './layout-cache'
 import { consumeDirty } from './layout-dirty'
 import { applyStack } from './layer-stack'
 import { reconcileFocus } from './focus-reconciler-runtime'
+import { reconcileBrowserDevtools } from './runtime-core'
 import { reconcilePageCursorBridge } from './page-cursor-bridge'
 import {
   automationInteractivePageCounts,
@@ -595,6 +599,7 @@ function layoutAllViews(): void {
   // post-mutation world. Both observe the same predicate
   // (`currentKeyboardTargetPageId`).
   reconcileFocus()
+  reconcileBrowserDevtools()
   reconcilePageCursorBridge()
 
   devtoolsPanelDebug('layout:all-views-complete', {

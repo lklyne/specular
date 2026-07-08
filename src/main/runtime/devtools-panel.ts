@@ -1,5 +1,3 @@
-// fallow-ignore-file circular-dependencies
-// Suppressed: see #141. runtime-core → workspace-restore/window-init import devtools-panel back
 /**
  * DevTools panel lifecycle — open, close, tab switching, resize.
  */
@@ -15,7 +13,6 @@ import {
   pages,
   incrementBrowserDevtoolsAttachGeneration,
 } from './runtime-context'
-import { attachBrowserDevtoolsToPage } from './runtime-core'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   focusAnnotation as focusUiAnnotation,
@@ -121,7 +118,6 @@ export function openDevToolsForSelectedPage(): void {
   syncInspectionState()
   recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
-  attachBrowserDevtoolsToPage(selectedPageIdx)
 }
 
 export function openInspectPanel(): void {

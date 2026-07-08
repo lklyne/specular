@@ -6,7 +6,6 @@ import { pan, zoom } from '../runtime/runtime-context'
 import { requestLayout, setPan, setZoom } from '../runtime/viewport-control'
 import {
   focusSelection,
-  openInspectPanel,
   restoreFocusCamera,
   selectedPageId,
   setActiveTool,
@@ -53,8 +52,11 @@ export function registerToolbarIpc(): void {
       payload.kind === 'add-page' && payload.sourcePageId === undefined
         ? { ...payload, sourcePageId: selectedPageId() ?? undefined }
         : payload
-    const result = setActiveTool(tool)
-    if (result.kind === 'inspect') openInspectPanel()
+    // Activating the eyedropper enables in-page hover highlighting (via
+    // setActiveTool → syncInspectionState) but does NOT open the right panel
+    // or switch tabs — that happens on click (inspectNodeSelect). Keeps a
+    // live browser-devtools session intact when the tool is picked.
+    setActiveTool(tool)
   })
 
   ipcMain.on(ipcChannels.toolDefaultsSet, (_event, patch: ToolDefaultPatch) => {

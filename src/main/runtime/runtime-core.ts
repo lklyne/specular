@@ -17,6 +17,7 @@ import type {
   DevtoolsPanelData,
 } from '../../shared/types'
 import {
+  devtoolsView,
   setDevtoolsView,
   win,
 } from './view-refs'
@@ -129,6 +130,35 @@ export function attachBrowserDevtoolsToPage(index: number): void {
     nextPage.pageView.webContents.openDevTools({ mode: 'detach' })
     requestLayout()
   }, 0)
+}
+
+/**
+ * Reconcile the browser DevTools panel's attached page against the current
+ * selection. Idempotent and target-diffed — safe to call on every layout
+ * pass, mirroring how `reconcileFocus` derives focus from interaction state
+ * instead of relying on imperative callers to keep it in sync.
+ */
+export function reconcileBrowserDevtools(): void {
+  const desiredIndex =
+    uiDevtoolsOpen() && uiDevtoolsPanelTab() === 'browser-devtools'
+      ? uiSelectedPageIndex(pages.map((p) => p.id))
+      : null
+  const desiredPageId = desiredIndex !== null ? pages[desiredIndex]?.id ?? null : null
+
+  const currentPage = devtoolsView
+    ? pages.find((page) => page.devtoolsHostView === devtoolsView) ?? null
+    : null
+  const currentPageId = currentPage?.id ?? null
+
+  if (desiredPageId === currentPageId) return
+
+  if (desiredIndex !== null && desiredPageId !== null) {
+    attachBrowserDevtoolsToPage(desiredIndex)
+    return
+  }
+
+  setDevtoolsView(null)
+  requestLayout()
 }
 
 export function getSelectedEntityIds(): string[] {
