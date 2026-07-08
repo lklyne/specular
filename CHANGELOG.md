@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
-## [0.3.4] - 2026-07-08 — Per-Page Themes, Gap Handles, Live File Refresh
+## [0.4.0] - 2026-07-08 — Per-Page Themes, Gap Handles, Live File Refresh
 
 ### New
 
