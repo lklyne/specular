@@ -9,8 +9,8 @@
  * Eligibility is the union of two doors:
  *   - **Selection door** (new, primary): an evenly-spaced loose multi-selection
  *     (`detectReorderableRow` ≠ null) shows a dot on each selected item.
- *   - **Managed group door** (M1, persisted): a managed-row group whose group or
- *     child is selected shows a dot on each child.
+ *   - **Managed group door** (M1, persisted): a managed row/column group whose
+ *     group or child is selected shows a dot on each child.
  *
  * Eligibility runs on *canvas* geometry (fixed gap tolerance, matching the
  * commit's re-detection); the returned `center` is the entity's *screen* center,
@@ -18,6 +18,7 @@
  * Electron, no DOM.
  */
 
+import { managedLineAxis } from './layout-math'
 import { detectReorderableRow, SELECTION_ROW_GAP_TOLERANCE, type Box } from './reorder-row'
 import type { CanvasEntityKind, CanvasSceneEntity } from './types'
 
@@ -53,7 +54,7 @@ function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
  * keeps detection exact: an arranged row's gaps are equal here, before the
  * native views round their bounds to integers.
  */
-function rowBox(entity: CanvasSceneEntity, zoom: number): Box {
+export function rowBox(entity: CanvasSceneEntity, zoom: number): Box {
   if (entity.kind === 'page') {
     const z = zoom || 1
     return {
@@ -77,11 +78,11 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
   const selected = new Set(selectedEntityIds)
   const dots = new Map<string, ReorderDot>()
 
-  // Managed door: map each managed-row group's direct children → group id, then
-  // light a child whose group or self is selected.
+  // Managed door: map each managed row/column group's direct children → group
+  // id, then light a child whose group or self is selected.
   const childToGroup = new Map<string, string>()
   for (const e of entities) {
-    if (e.kind === 'group' && e.managedLayout && e.layoutMode === 'row') {
+    if (e.kind === 'group' && e.managedLayout && managedLineAxis(e.layoutMode) !== null) {
       for (const childId of e.entityIds) childToGroup.set(childId, e.id)
     }
   }

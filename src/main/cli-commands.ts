@@ -183,9 +183,10 @@ const arrange: VerbHandler = async (args) => {
   return 0
 }
 
+// fallow-ignore-next-line complexity
 const update: VerbHandler = async (args) => {
   const id = args.positional[0]
-  if (!id) { printError('usage: specular update <id> [--at x,y] [--size w,h] [--preset N] [--text T] [--color C] [--url U]'); return 1 }
+  if (!id) { printError('usage: specular update <id> [--at x,y] [--size w,h] [--preset N] [--text T] [--color C] [--url U] [--gap N]'); return 1 }
   // No kind: the apply route resolves it from the doc by id (ADR 0019 §4).
   const item: Record<string, unknown> = { id }
   if (args.flags.at) {
@@ -209,6 +210,8 @@ const update: VerbHandler = async (args) => {
   // Text note flags
   if (args.flags.text) item.text = args.flags.text
   if (args.flags.color) item.color = args.flags.color
+  // Group flags — the gap patches a managed group's packing gap (layoutGap).
+  if (args.flags.gap !== undefined) item.layoutGap = Number(args.flags.gap)
   printJson(await upsertEntities([item]))
   return 0
 }
@@ -293,19 +296,20 @@ const ungroup: VerbHandler = async (args) => {
 // converts that group in place. (ADR 0015)
 const autoLayout: VerbHandler = async (args) => {
   if (args.positional.length === 0) {
-    printError('usage: specular auto-layout <entityId> [entityId...]  (or a single groupId)')
+    printError('usage: specular auto-layout <entityId> [entityId...] [--gap N]  (or a single groupId)')
     return 1
   }
   const onlyGroup =
     args.positional.length === 1 && args.positional[0].startsWith('group_')
       ? args.positional[0]
       : undefined
+  const gap = args.flags.gap !== undefined ? Number(args.flags.gap) : undefined
   printJson(await callApp('/groups/auto-layout', {
     method: 'POST',
     body: JSON.stringify(
       onlyGroup
-        ? { groupId: onlyGroup, label: args.flags.label }
-        : { entityIds: args.positional, label: args.flags.label },
+        ? { groupId: onlyGroup, label: args.flags.label, gap }
+        : { entityIds: args.positional, label: args.flags.label, gap },
     ),
   }))
   return 0

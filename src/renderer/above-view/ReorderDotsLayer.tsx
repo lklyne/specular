@@ -1,16 +1,17 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
 import {
   REORDER_DOT_HOVER_RADIUS_PX,
   REORDER_DOT_VISUAL_RADIUS_PX,
 } from '../../shared/canvas-hit-geometry'
 import { reorderableDots } from '../../shared/reorderable-dots'
-import { selectionColor } from '../canvas-bg/canvasBgConstants'
+import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
 
 /**
  * Reorder dots (ADR 0015 D7). Paints the per-entity center dot that hosts the
  * reorder gesture — a geometric overlay (like edge anchors), not DOM buttons.
- * Small at rest, larger when the entity or its managed group is hovered.
+ * A thin pink ring at rest; a solid pink fill when the pointer is over the dot
+ * itself (dot-local hover, not whole-entity hover).
  *
  * Eligibility comes from the one shared `reorderableDots` selector — the same
  * source the hit-tester consumes — so the visible dot and the grabbable target
@@ -23,13 +24,13 @@ import { selectionColor } from '../canvas-bg/canvasBgConstants'
  */
 export function ReorderDotsLayer({
   layoutData,
-  isDark,
 }: {
   layoutData: LayoutUpdateData
-  isDark: boolean
 }) {
-  const color = selectionColor(isDark)
-  const { canvasOrigin, entities, interaction } = layoutData
+  const { canvasOrigin, interaction } = layoutData
+  // Dot-local hover: which dot the pointer is directly over. Whole-entity hover
+  // no longer grows the dot — only the handle itself reacts.
+  const [hoveredDotId, setHoveredDotId] = useState<string | null>(null)
 
   const reordering = interaction.kind === 'reordering-row' ? interaction : null
 
@@ -42,38 +43,19 @@ export function ReorderDotsLayer({
     const eligible = reorderableDots(layoutData)
     if (!eligible.length) return []
 
-    // Grow a dot when its entity is hovered, or when the hovered entity is the
-    // managed-row group that contains it.
-    const hoverId = layoutData.hover?.id ?? null
-    const hoveredGroupChildren = new Set<string>()
-    if (hoverId) {
-      const hovered = entities.find((e) => e.id === hoverId)
-      if (hovered?.kind === 'group' && hovered.managedLayout && hovered.layoutMode === 'row') {
-        for (const childId of hovered.entityIds) hoveredGroupChildren.add(childId)
-      }
-    }
-
-    const out: Array<{ id: string; cx: number; cy: number; r: number }> = []
+    const out: Array<{ id: string; cx: number; cy: number }> = []
     for (const dot of eligible) {
       // The dragged entity is "lifted" — it floats as a ghost under the cursor
       // (Phase D), so it carries no dot.
       if (reordering && reordering.movingId === dot.id) continue
-      const grown = hoverId === dot.id || hoveredGroupChildren.has(dot.id)
       out.push({
         id: dot.id,
         cx: dot.center.x,
         cy: dot.center.y - canvasOrigin.y,
-        r: grown ? REORDER_DOT_HOVER_RADIUS_PX : REORDER_DOT_VISUAL_RADIUS_PX,
       })
     }
     return out
-  }, [
-    entities,
-    interaction.kind,
-    layoutData,
-    canvasOrigin.y,
-    reordering,
-  ])
+  }, [interaction.kind, layoutData, canvasOrigin.y, reordering])
 
   if (!dots.length) return null
 
@@ -82,9 +64,40 @@ export function ReorderDotsLayer({
       className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
       aria-hidden="true"
     >
-      {dots.map((dot) => (
-        <circle key={dot.id} cx={dot.cx} cy={dot.cy} r={dot.r} fill={color} opacity={0.85} />
-      ))}
+      {dots.map((dot) => {
+        const hovered = hoveredDotId === dot.id
+        return (
+          <g key={dot.id}>
+            {hovered ? (
+              // Hovered: solid pink fill, grown.
+              <circle cx={dot.cx} cy={dot.cy} r={REORDER_DOT_HOVER_RADIUS_PX} fill={REARRANGE_COLOR} />
+            ) : (
+              // At rest: thick pink ring (hollow center).
+              <circle
+                cx={dot.cx}
+                cy={dot.cy}
+                r={REORDER_DOT_VISUAL_RADIUS_PX}
+                fill="none"
+                stroke={REARRANGE_COLOR}
+                strokeWidth={2.5}
+              />
+            )}
+            {/* Transparent hit target drives dot-local hover. Pointer-down still
+                routes through the window-level router. */}
+            <circle
+              cx={dot.cx}
+              cy={dot.cy}
+              r={REORDER_DOT_HOVER_RADIUS_PX}
+              fill="transparent"
+              style={{ pointerEvents: 'all' }}
+              onPointerEnter={() => setHoveredDotId(dot.id)}
+              onPointerLeave={() =>
+                setHoveredDotId((current) => (current === dot.id ? null : current))
+              }
+            />
+          </g>
+        )
+      })}
     </svg>
   )
 }

@@ -89,15 +89,18 @@ function evenCells(boxes: readonly Box[], axis: 'x' | 'y'): Map<string, number> 
     Math.min(...boxes.map((b) => lead(b, cross)))
   const extent = Math.max(along, crossExtent)
   const totalSize = sorted.reduce((s, b) => s + size(b, axis), 0)
-  const gap = Math.max((extent - totalSize) / (sorted.length - 1), MIN_GAP)
+  // Snap the *gap* (not each edge) to the grid: one shared gap keeps every pair
+  // exactly equal, so the arranged line still detects as a reorderable row even
+  // when items differ wildly in size. Snapping each edge instead perturbs each
+  // gap by up to half a cell — invisible with equal sizes, but enough to break
+  // row detection once sizes diverge.
+  const gap = snapToGrid(Math.max((extent - totalSize) / (sorted.length - 1), MIN_GAP))
 
   const out = new Map<string, number>()
-  let cursor = lead(first, axis)
+  let cursor = snapToGrid(lead(first, axis))
   for (const box of sorted) {
-    // Every leading edge lands on the grid; the pinned ends bump ≤ half a cell.
-    const snapped = snapToGrid(cursor)
-    out.set(box.id, snapped)
-    cursor = snapped + size(box, axis) + gap
+    out.set(box.id, cursor)
+    cursor += size(box, axis) + gap
   }
   return out
 }

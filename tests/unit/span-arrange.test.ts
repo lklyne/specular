@@ -93,9 +93,9 @@ describe('arrangeInSpan — column', () => {
     const gapAB = b.y - (a.y + a.height)
     const gapBC = c.y - (b.y + b.height)
     expect(gapAB).toBeGreaterThanOrEqual(80)
+    // Exactly equal gaps (not merely both on-grid) — this is what keeps the
+    // arranged line detectable as a reorderable row when sizes diverge.
     expect(gapAB).toBe(gapBC)
-    expect(b.y % 20).toBe(0)
-    expect(c.y % 20).toBe(0)
   })
 
   it('collapsed column re-arranged into a row inherits the y-extent as spacing', () => {

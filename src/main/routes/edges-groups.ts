@@ -72,7 +72,7 @@ export const edgesGroupsRoutes: Route[] = [
     method: 'POST',
     pattern: '/groups/auto-layout',
     async handler({ response, body }) {
-      const payload = body as { entityIds?: string[]; groupId?: string; label?: string }
+      const payload = body as { entityIds?: string[]; groupId?: string; label?: string; gap?: number }
       if (!payload.groupId && !(payload.entityIds && payload.entityIds.length)) {
         writeJson(response, 400, { error: 'groupId or entityIds is required' })
         return

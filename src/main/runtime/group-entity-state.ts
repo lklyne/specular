@@ -56,7 +56,7 @@ export function updateGroupEntity(
   if (!group) return null
   applyPatch(group, patch, [
     'label', 'color', 'canvasX', 'canvasY', 'width', 'height',
-    'parentGroupId', 'layoutMode', 'managedLayout', 'sourceTaskId',
+    'parentGroupId', 'layoutMode', 'layoutGap', 'managedLayout', 'sourceTaskId',
   ])
   if (patch.metadata !== undefined) {
     group.metadata = patch.metadata ? { ...patch.metadata } : undefined
@@ -102,6 +102,7 @@ export function buildGroupSceneEntity(
     parentGroupId: group.parentGroupId,
     layoutMode: group.layoutMode,
     managedLayout: group.managedLayout,
+    layoutGap: group.layoutGap,
     entityIds,
   }
 }
@@ -124,6 +125,7 @@ const WORKSPACE_GROUP_PERSISTED_FIELD_SET = {
   parentGroupId: true,
   color: true,
   layoutMode: true,
+  layoutGap: true,
   managedLayout: true,
   pageIds: true,
   entityIds: true,
@@ -147,6 +149,7 @@ export function persistGroupEntity(group: WorkspaceGroup): PersistedGroupEntity 
     height: group.height,
     parentGroupId: group.parentGroupId,
     layoutMode: group.layoutMode,
+    layoutGap: group.layoutGap,
     managedLayout: group.managedLayout,
     sourceTaskId: group.sourceTaskId,
     metadata: group.metadata ? { ...group.metadata } : undefined,

@@ -182,6 +182,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             parentGroupId: entity.parentGroupId,
             color: entity.color,
             layoutMode: entity.layoutMode,
+            layoutGap: entity.layoutGap,
             managedLayout: entity.managedLayout,
             sourceTaskId: entity.sourceTaskId,
             metadata: entity.metadata ? { ...entity.metadata } : undefined,

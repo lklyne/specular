@@ -159,6 +159,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'begin-marquee',
   'begin-pan',
   'begin-reorder-drag',
+  'begin-gap-drag',
   'begin-placement',
   'begin-comment-gesture',
 ])
@@ -475,6 +476,8 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runPan(api, event)
     case 'begin-reorder-drag':
       return runReorderDrag(action, api, event, layoutRef, setReorderGhost)
+    case 'begin-gap-drag':
+      return runGapDrag(action, api, event, layoutRef)
     case 'begin-placement':
       return runPlacementGesture(action, api, event, layoutRef)
     case 'begin-comment-gesture':
@@ -1074,6 +1077,47 @@ function runReorderDrag(
     onCancel: () => {
       setReorderGhost(null)
       api.reorderDragCancel('blur')
+    },
+    listenBlur: true,
+  })
+  return true
+}
+
+function runGapDrag(
+  action: Extract<CanvasPointerAction, { kind: 'begin-gap-drag' }>,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+): boolean {
+  const startLayout = layoutRef.current
+  const grab = screenPointToCanvasPoint(
+    event.clientX,
+    clientYToWindowY(event.clientY, startLayout),
+    startLayout,
+  )
+
+  // Enter gap-resize mode in main BEFORE any layout-triggering work — same
+  // gesture-begin ordering as resize/reorder (see runtime/CLAUDE.md). With the
+  // mode set to 'resizing-gap', the focus reconciler keeps aboveView focused,
+  // so the window-blur cancel below doesn't fire on the first tick. The grab
+  // point rides along so main can project moves onto the group's axis.
+  api.beginGapResizeDrag(action.groupId, grab.x, grab.y)
+
+  startPointerSession(event, {
+    onMove: (ev) => {
+      const layout = layoutRef.current
+      const point = screenPointToCanvasPoint(
+        ev.clientX,
+        clientYToWindowY(ev.clientY, layout),
+        layout,
+      )
+      api.gapResizeDragMove(point.x, point.y)
+    },
+    onUp: () => {
+      api.gapResizeDragCommit()
+    },
+    onCancel: () => {
+      api.gapResizeDragCancel('blur')
     },
     listenBlur: true,
   })

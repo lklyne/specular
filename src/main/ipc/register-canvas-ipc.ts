@@ -85,12 +85,14 @@ import { enterPageInteractive } from '../runtime/overlay-manager'
 import { registerCanvasDragIpc } from './register-canvas-drag-ipc'
 import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
 import { registerCanvasReorderIpc } from './register-canvas-reorder-ipc'
+import { registerCanvasGapIpc } from './register-canvas-gap-ipc'
 import { reorderSidebarStackOrder } from '../runtime/entity-order-state'
 
 export function registerCanvasIpc(): void {
   registerCanvasDragIpc()
   registerCanvasEntityIpc()
   registerCanvasReorderIpc()
+  registerCanvasGapIpc()
 
   // --- Selection ---
 
