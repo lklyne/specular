@@ -1,5 +1,3 @@
-// fallow-ignore-file circular-dependencies
-// Suppressed: see #141. runtime-core → workspace-restore/window-init import devtools-panel back
 /**
  * DevTools panel lifecycle — open, close, tab switching, resize.
  */
