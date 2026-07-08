@@ -6,13 +6,13 @@
  * IPC; both the IPC handlers and the smoke test routes funnel here so there's one
  * state machine.
  *
- * The gesture, mode, dots, and cancel matrix are shared; only *eligibility* and
+ * The gesture, mode, dots, cancel matrix, and drop-index math are shared: both
+ * doors freeze a `ReorderableRow` at start (slots, gap, order, axis, box sizes)
+ * and run `dropIndexForCursor` against it — freezing avoids a feedback loop
+ * between the live preview and re-detection mid-drag. Only *eligibility* and
  * *commit* branch by door:
- *   - **Selection door** — a loose equal-gap multi-selection. The row is frozen
- *     at start (slots, gap, order, axis, box sizes); `dropIndexForCursor` runs
- *     against the frozen non-moving slots; commit repacks via `reorderSelection`
- *     (positions only, ephemeral). Freezing avoids a feedback loop between the
- *     live preview and re-detection mid-drag.
+ *   - **Selection door** — a loose equal-gap multi-selection. Commit repacks via
+ *     `reorderSelection` (positions only, ephemeral).
  *   - **Managed group door** — a managed row/column group's child. Commit
  *     rewrites the `entityOrder` run via `reorderManagedChild` (persisted).
  *
@@ -32,9 +32,8 @@ import { tryEnter, commitActive, cancelActive } from './runtime/interaction-cont
 import { currentInteractionState, updateReorderingDropIndex } from './runtime/interaction-state'
 import { markUndoBoundary } from './runtime/workspace-undo'
 import type { CancelReason } from '../shared/interaction-types'
-import { managedChildOrder } from './runtime/entity-order-state'
 import {
-  computeReorderDropIndex,
+  buildManagedRow,
   managedGroupForChild,
   reorderManagedChild,
 } from './managed-layout'
@@ -43,7 +42,7 @@ import { dropIndexForCursor, type ReorderableRow } from '../shared/reorder-row'
 import { selectedEntityIds } from './ui-state'
 
 type ActiveGesture =
-  | { door: 'managed'; groupId: string; axis: 'x' | 'y'; movingId: string }
+  | { door: 'managed'; groupId: string; row: ReorderableRow; movingId: string }
   | { door: 'selection'; row: ReorderableRow; movingId: string }
 
 let active: ActiveGesture | null = null
@@ -58,18 +57,19 @@ function clearActive(): void {
 export function startReorderGesture(movingId: string): boolean {
   const managed = managedGroupForChild(movingId)
   if (managed) {
-    const order = managedChildOrder(managed.groupId)
-    const dropIndex = order.indexOf(movingId)
+    const row = buildManagedRow(managed.groupId)
+    if (!row) return false
+    const dropIndex = row.order.indexOf(movingId)
     if (dropIndex === -1) return false
     const token = tryEnter({
       kind: 'reordering-row',
-      ids: order,
+      ids: row.order,
       movingId,
       dropIndex,
-      axis: managed.axis,
+      axis: row.axis,
     })
     if ('refused' in token) return false
-    active = { door: 'managed', ...managed, movingId }
+    active = { door: 'managed', groupId: managed.groupId, row, movingId }
     return true
   }
 
@@ -92,13 +92,6 @@ export function startReorderGesture(movingId: string): boolean {
 /** Update the live drop-index preview from the cursor's canvas-space position. */
 export function moveReorderGesture(cursorCanvasX: number, cursorCanvasY: number): void {
   if (!active) return
-  if (active.door === 'managed') {
-    const cursorAlongAxis = active.axis === 'x' ? cursorCanvasX : cursorCanvasY
-    updateReorderingDropIndex(
-      computeReorderDropIndex(active.groupId, active.movingId, cursorAlongAxis),
-    )
-    return
-  }
   const cursorAlongAxis = active.row.axis === 'x' ? cursorCanvasX : cursorCanvasY
   updateReorderingDropIndex(dropIndexForCursor(active.row, cursorAlongAxis))
 }

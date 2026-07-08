@@ -190,7 +190,7 @@ describe('hit-test integration', () => {
       },
       { x: 140, y: 20 }, // mid-gap, inside the group's body rect
     )
-    expect(target.payload).toEqual({ kind: 'gap-handle', groupId: 'g', axis: 'x' })
+    expect(target.payload).toEqual({ kind: 'gap-handle', groupId: 'g' })
   })
 
   it('the reorder dot wins where dot and gap strip overlap', () => {

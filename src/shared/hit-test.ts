@@ -44,7 +44,7 @@ export type HitPayload =
   | { kind: 'multi-resize-handle'; handle: ResizeHandle }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   | { kind: 'reorder-handle'; entityId: string; entityKind: CanvasEntityKind }
-  | { kind: 'gap-handle'; groupId: string | null; axis: 'x' | 'y' }
+  | { kind: 'gap-handle'; groupId: string | null }
   | { kind: 'page-body'; entityId: string }
   | {
       kind: 'entity-body'
@@ -197,21 +197,39 @@ function multiHandleRect(bbox: SelectionBbox, handle: ResizeHandle): Rect {
   }
 }
 
+/**
+ * Anchor eligibility — the one definition of which entities show (and route)
+ * edge anchors, shared by the EdgeLayer painter and `collectAnchorTargets` so
+ * the visible dots and the routable targets can't drift into invisible-but-
+ * grabbable anchors. Edge creation is a single-node affordance: a
+ * multi-selection suppresses all anchors (so a hidden anchor over the gap
+ * handle can't hijack the gap-spacing drag). Hover stays eligible so a user
+ * can grab an existing edge endpoint to re-route or delete without first
+ * selecting the node; `edgeSelected` suppresses the selection's own anchors
+ * while an edge is selected (hover only).
+ */
+export function anchorEligibleEntityIds(input: {
+  selectedEntityIds: readonly string[]
+  selectedGroupId?: string | null
+  hoveredEntityId?: string | null
+  edgeSelected?: boolean
+}): Set<string> {
+  const eligible = new Set<string>()
+  if (input.selectedEntityIds.length > 1) return eligible
+  if (!input.edgeSelected) {
+    for (const id of input.selectedEntityIds) eligible.add(id)
+    if (input.selectedGroupId) eligible.add(input.selectedGroupId)
+  }
+  if (input.hoveredEntityId) eligible.add(input.hoveredEntityId)
+  return eligible
+}
+
 function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
-  // Mirror EdgeLayer: edge creation is a single-node affordance. With more than
-  // one entity selected the anchors are suppressed visually, so they must be
-  // unroutable too — otherwise a hidden anchor over the gap handle hijacks the
-  // gap-spacing drag.
-  if (inputs.selectedEntityIds.length > 1) return []
-  const eligible = new Set(inputs.selectedEntityIds)
-  if (inputs.selectedGroupId) eligible.add(inputs.selectedGroupId)
-  if (inputs.hoveredEntityId) eligible.add(inputs.hoveredEntityId)
+  const eligible = anchorEligibleEntityIds(inputs)
+  if (eligible.size === 0) return []
   const out: HitTarget[] = []
   for (const entity of inputs.entities) {
     if (!entityHasAnchors(entity.kind)) continue
-    // Mirror EdgeLayer's policy: anchors show on selected + hovered entities,
-    // so both are routable. Hover is what lets a user grab an existing
-    // edge endpoint to re-route or delete without first selecting the node.
     if (!eligible.has(entity.id)) continue
     for (const side of EDGE_SIDES) {
       out.push({
@@ -246,7 +264,7 @@ function collectGapHandleTargets(inputs: HitInputs): HitTarget[] {
   return collectGapHandleZones(inputs).map((zone) => ({
     layer: 'gap-handle' as const,
     region: { kind: 'rect' as const, rect: zone.rect },
-    payload: { kind: 'gap-handle' as const, groupId: zone.groupId, axis: zone.axis },
+    payload: { kind: 'gap-handle' as const, groupId: zone.groupId },
   }))
 }
 

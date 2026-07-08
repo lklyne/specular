@@ -1,6 +1,6 @@
 import type { WorkspaceGroup } from '../shared/types'
 import { CLUSTER_HORIZONTAL_GUTTER, USER_GROUP_PADDING } from '../shared/constants'
-import { dominantAxis, type Box } from '../shared/reorder-row'
+import { dominantAxis, type Box, type ReorderableRow } from '../shared/reorder-row'
 import { computeRowReflow, managedLineAxis, type LayoutBox } from '../shared/layout-math'
 import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
@@ -155,8 +155,7 @@ export function reflowManagedGroup(groupId: string): boolean {
   const originX = snapToGrid(Math.min(...children.map((c) => c.canvasX)))
   const originY = snapToGrid(Math.min(...children.map((c) => c.canvasY)))
 
-  const gap = group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
-  const positions = computeRowReflow(children, gap, originX, originY, axis)
+  const positions = computeRowReflow(children, effectiveLayoutGap(group), originX, originY, axis)
   children.forEach((child, index) => {
     const pos = positions[index]
     child.setOrigin(pos.canvasX, pos.canvasY)
@@ -210,30 +209,41 @@ function resolveLeafParentGroupId(id: string): string | null {
   return null
 }
 
+/** A managed group's effective packing gap: explicit `layoutGap`, else the
+ *  default gutter. The one definition — the reflow and the gap gesture must
+ *  agree or the handle jumps on grab. */
+export function effectiveLayoutGap(group: WorkspaceGroup): number {
+  return group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
+}
+
 /**
- * Drop index for a reorder-in-progress: where `childId` would land if released
- * with the cursor at `cursorAlongAxis` (canvas-space, along the group's packing
- * axis). Counts how many *other* children have their center before the cursor.
- * Returns an index into the without-dragged sequence (0..n-1), directly
- * consumable by `reorderManagedChild`.
+ * A managed row/column group's children as a frozen `ReorderableRow`, so the
+ * managed reorder door runs through the same `dropIndexForCursor` math as the
+ * selection door — one drop-index feel for both. Null when the group isn't a
+ * managed line or has fewer than two resolvable children.
  */
-export function computeReorderDropIndex(
-  groupId: string,
-  childId: string,
-  cursorAlongAxis: number,
-): number {
+export function buildManagedRow(groupId: string): ReorderableRow | null {
   const group = groupById(groupId)
-  const axis = (group ? managedLineAxis(group.layoutMode) : null) ?? 'x'
-  const others = managedChildOrder(groupId).filter((id) => id !== childId)
-  let index = 0
-  for (const id of others) {
+  if (!group || !group.managedLayout) return null
+  const axis = managedLineAxis(group.layoutMode)
+  if (axis === null) return null
+  const boxes: Box[] = managedChildOrder(groupId).flatMap((id) => {
     const child = resolveManagedChild(id)
-    if (!child) continue
-    const center =
-      axis === 'y' ? child.canvasY + child.height / 2 : child.canvasX + child.width / 2
-    if (cursorAlongAxis > center) index++
+    return child
+      ? [{ id, x: child.canvasX, y: child.canvasY, width: child.width, height: child.height }]
+      : []
+  })
+  if (boxes.length < 2) return null
+  return {
+    axis,
+    order: boxes.map((b) => b.id),
+    gap: effectiveLayoutGap(group),
+    origin: {
+      x: Math.min(...boxes.map((b) => b.x)),
+      y: Math.min(...boxes.map((b) => b.y)),
+    },
+    boxesById: new Map(boxes.map((b) => [b.id, b])),
   }
-  return index
 }
 
 function clampIndex(index: number, length: number): number {

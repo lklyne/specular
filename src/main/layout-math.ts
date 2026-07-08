@@ -1,8 +1,6 @@
 import type { BatchLayoutMode } from '../shared/types'
 import type { LayoutBox } from '../shared/layout-math'
 
-export type { LayoutBox }
-
 export interface LayoutMetrics {
   cols: number
   maxW: number

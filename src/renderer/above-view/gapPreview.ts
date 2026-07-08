@@ -13,7 +13,12 @@
  *
  * A nested-group child translates with its whole subtree (matching
  * `reflowManagedGroup`'s subtree translation), and a managed group's own box
- * stretches along the packing axis by the change in total extent.
+ * stretches along the packing axis by the change in total extent. The stretch
+ * is a delta on the broadcast box rather than a from-scratch union+padding
+ * because main's `recomputeGroupBounds` unions *selectable* bounds
+ * (`pageSelectableBounds` — shell insets, device frames) that scene rects
+ * don't carry; anchoring on main's own box keeps the preview exact at drag
+ * start regardless of how those bounds are derived.
  */
 
 import { packedGapPositions } from '../../shared/gap-handles'

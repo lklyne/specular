@@ -23,7 +23,7 @@ import {
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
 } from '../../shared/canvas-hit-geometry'
-import { entityHasAnchors } from '../../shared/hit-test'
+import { anchorEligibleEntityIds, entityHasAnchors } from '../../shared/hit-test'
 import {
   autoSides,
   buildBezierPath,
@@ -296,28 +296,23 @@ export function EdgeLayer({
     return paths
   }, [edges, entityMap, selectedEdgeIds, zoom, originY])
 
-  // Which entities show anchor dots: the single selected entity, or the hovered
-  // one, or all during a drag. Edge creation is a single-node affordance — with
-  // more than one entity selected we suppress the selection and hover anchors so
-  // the multi-select gesture (move/align/gap) isn't crowded by connect dots.
+  // Which entities show anchor dots: the shared eligibility selector (kept in
+  // lockstep with the hit-tester's `collectAnchorTargets`), plus every entity
+  // while an edge drag is live — all anchors are potential drop targets then.
   const anchorEntities = useMemo(() => {
-    const ids = new Set<string>()
-    const multiSelected = selectedEntityIds.length > 1
-    if (!multiSelected) {
-      if (selectedEdgeIds.size === 0) {
-        for (const id of selectedEntityIds) {
-          if (entityMap.has(id)) ids.add(id)
-        }
-      }
-      if (hoveredEntityId && entityMap.has(hoveredEntityId)) ids.add(hoveredEntityId)
-    }
+    const ids = anchorEligibleEntityIds({
+      selectedEntityIds,
+      hoveredEntityId,
+      edgeSelected: selectedEdgeIds.size > 0,
+    })
     if (interaction.kind === 'dragging-edge') {
-      // During drag, show all entity anchors as potential targets
       for (const eId of entityMap.keys()) ids.add(eId)
     }
     return [...ids]
-      .map((id) => entityMap.get(id)!)
-      .filter((entity) => entity && entityHasAnchors(entity.kind))
+      .map((id) => entityMap.get(id))
+      .filter((entity): entity is NonNullable<typeof entity> =>
+        !!entity && entityHasAnchors(entity.kind),
+      )
   }, [selectedEntityIds, selectedEdgeIds, hoveredEntityId, entityMap, interaction.kind])
 
   return (

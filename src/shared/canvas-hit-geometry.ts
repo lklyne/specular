@@ -20,8 +20,6 @@ export const REORDER_HANDLE_HIT_PX = 28
 // gap between adjacent managed children; at small zoom (or gap 0) it expands to
 // this minimum thickness, centered on the seam, so it stays grabbable.
 export const GAP_HANDLE_MIN_HIT_PX = 10
-// Visual width of the center bar painted inside a hovered/active gap strip.
-export const GAP_HANDLE_BAR_THICKNESS_PX = 4
 
 export const MULTI_SELECTION_OUTLINE_PADDING_PX = 8
 

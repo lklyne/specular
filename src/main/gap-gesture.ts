@@ -30,11 +30,10 @@ import { tryEnter, commitActive, cancelActive } from './runtime/interaction-cont
 import { updateGapResizeGap } from './runtime/interaction-state'
 import { markUndoBoundary } from './runtime/workspace-undo'
 import type { CancelReason } from '../shared/interaction-types'
-import { CLUSTER_HORIZONTAL_GUTTER } from '../shared/constants'
 import { managedLineAxis } from '../shared/layout-math'
 import { applySelectionGap, buildSelectionRow } from './runtime/document-commands'
 import { managedChildOrder } from './runtime/entity-order-state'
-import { setGroupLayoutGap } from './managed-layout'
+import { effectiveLayoutGap, setGroupLayoutGap } from './managed-layout'
 import { groupById } from './workspace-entities'
 import { selectedEntityIds } from './ui-state'
 
@@ -77,7 +76,7 @@ export function startGapGesture(
     entityIds = managedChildOrder(groupId)
     if (entityIds.length < 2) return false
     axis = managedAxis
-    startGap = group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
+    startGap = effectiveLayoutGap(group)
   } else {
     const row = buildSelectionRow([...selectedEntityIds()])
     if (!row) return false

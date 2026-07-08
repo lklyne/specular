@@ -93,7 +93,7 @@ export type CanvasPointerAction =
   | { kind: 'begin-reorder-drag'; movingId: string; entityKind: CanvasEntityKind }
   /** Begin dragging a managed group's gap handle — the strip between adjacent
    *  children — to change its `layoutGap` (ADR 0015 Milestone 2). */
-  | { kind: 'begin-gap-drag'; groupId: string | null; axis: 'x' | 'y' }
+  | { kind: 'begin-gap-drag'; groupId: string | null }
   /** Modifier-additive selection toggle (no drag). */
   | { kind: 'toggle-select'; entityId: string; entityKind: CanvasEntityKind }
   /** Background click/drag candidate — clears on click, marquee-selects after threshold. */
@@ -192,7 +192,7 @@ function routeByPayload(
         entityKind: payload.entityKind,
       }
     case 'gap-handle':
-      return { kind: 'begin-gap-drag', groupId: payload.groupId, axis: payload.axis }
+      return { kind: 'begin-gap-drag', groupId: payload.groupId }
     case 'page-body':
       return routePageBody(payload, context)
     case 'entity-body':

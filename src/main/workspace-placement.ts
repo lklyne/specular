@@ -29,7 +29,8 @@ import {
   selectionBounds,
   unionBounds,
 } from './workspace-entities'
-import { computeLayoutMetrics, computeLayoutPositions, type LayoutBox } from './layout-math'
+import { computeLayoutMetrics, computeLayoutPositions } from './layout-math'
+import type { LayoutBox } from '../shared/layout-math'
 
 export function occupiedRegions(): WorkspaceBounds[] {
   return [

@@ -105,8 +105,11 @@ function stripsBetween(
  */
 export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
   const { entities, selectedEntityIds, selectedGroupId, zoom = 1 } = input
+  // Both doors require a selection; the common idle case pays nothing.
+  if (selectedEntityIds.length === 0 && !selectedGroupId) return []
   const selected = new Set(selectedEntityIds)
-  const byId = new Map(entities.map((e) => [e.id, e]))
+  // Lazy: only eligible managed groups need id lookups.
+  let byId: Map<string, CanvasSceneEntity> | null = null
   const out: GapHandleZone[] = []
 
   // Managed door. Also collects managed children so the selection door below
@@ -122,8 +125,9 @@ export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
       selectedGroupId === group.id || group.entityIds.some((id) => selected.has(id))
     if (!eligible) continue
 
+    const lookup = (byId ??= new Map(entities.map((e) => [e.id, e])))
     const children = group.entityIds
-      .map((id) => byId.get(id))
+      .map((id) => lookup.get(id))
       .filter((e): e is CanvasSceneEntity => e !== undefined)
       .map((e) => screenBoxAlong(e, axis))
       .sort((a, b) => a.leading - b.leading)
