@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
-import { GAP_HANDLE_BAR_THICKNESS_PX } from '../../shared/canvas-hit-geometry'
 import { collectGapHandleZones } from '../../shared/gap-handles'
-import { selectionColor } from '../canvas-bg/canvasBgConstants'
+import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
 
 /**
  * Gap handles (ADR 0015 Milestone 2). The strips between adjacent items of a
@@ -20,12 +19,9 @@ import { selectionColor } from '../canvas-bg/canvasBgConstants'
  */
 export function GapHandlesLayer({
   layoutData,
-  isDark,
 }: {
   layoutData: LayoutUpdateData
-  isDark: boolean
 }) {
-  const color = selectionColor(isDark)
   const { canvasOrigin, interaction } = layoutData
 
   const zones = useMemo(() => {
@@ -58,10 +54,11 @@ export function GapHandlesLayer({
             <div
               className="opacity-60 group-hover:opacity-100"
               style={{
-                width: horizontalBar ? '100%' : GAP_HANDLE_BAR_THICKNESS_PX,
-                height: horizontalBar ? GAP_HANDLE_BAR_THICKNESS_PX : '100%',
-                borderRadius: GAP_HANDLE_BAR_THICKNESS_PX / 2,
-                background: color,
+                width: horizontalBar ? 24 : 2,
+                height: horizontalBar ? 2 : 24,
+                borderRadius: 0,
+                background: REARRANGE_COLOR,
+                boxShadow: '0 0 0 1px #ffffff',
                 transition: 'opacity 80ms ease',
               }}
             />

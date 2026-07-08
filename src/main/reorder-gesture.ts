@@ -100,7 +100,7 @@ export function moveReorderGesture(cursorCanvasX: number, cursorCanvasY: number)
     return
   }
   const cursorAlongAxis = active.row.axis === 'x' ? cursorCanvasX : cursorCanvasY
-  updateReorderingDropIndex(dropIndexForCursor(active.row, cursorAlongAxis, active.movingId))
+  updateReorderingDropIndex(dropIndexForCursor(active.row, cursorAlongAxis))
 }
 
 /** Commit the reorder at the current drop index. Returns true if the order

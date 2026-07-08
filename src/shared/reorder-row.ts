@@ -114,22 +114,23 @@ export function detectReorderableRow(
 }
 
 /**
- * Drop index for a cursor position along the row's axis: how many *other* items
- * have their center before the cursor. Generalizes M1's `computeReorderDropIndex`
- * off a `groupId` onto a frozen box list. Returns an index into the
- * without-moving sequence (0..n-1), consumable directly by `reorderRowPositions`.
+ * Drop index for a cursor position along the row's axis. The swap boundaries sit
+ * at the midpoints between *consecutive* item centers, so a swap fires once the
+ * cursor is halfway across the gap to the next slot — half a slot of travel per
+ * swap, not the full slot (and not half the distance from home, which makes far
+ * slots trigger too early). At rest, the cursor sits on the moving item's own
+ * center — half a gap from either neighbouring boundary — so the preview holds
+ * until the cursor actually crosses one. Returns an index into the without-moving
+ * sequence (0..n-1), consumable directly by `reorderRowPositions`.
  */
-export function dropIndexForCursor(
-  row: ReorderableRow,
-  cursorAlongAxis: number,
-  movingId: string,
-): number {
+export function dropIndexForCursor(row: ReorderableRow, cursorAlongAxis: number): number {
+  const centers = row.order
+    .map((id) => row.boxesById.get(id))
+    .filter((b): b is Box => !!b)
+    .map((b) => centerAlong(b, row.axis))
   let index = 0
-  for (const id of row.order) {
-    if (id === movingId) continue
-    const box = row.boxesById.get(id)
-    if (!box) continue
-    if (cursorAlongAxis > centerAlong(box, row.axis)) index++
+  for (let i = 0; i < centers.length - 1; i++) {
+    if (cursorAlongAxis > (centers[i] + centers[i + 1]) / 2) index++
   }
   return index
 }

@@ -88,7 +88,7 @@ export function FilePopup({
                       onCancel={() => setIsRenaming(false)}
                       variant="canvas-chrome"
                       isDark={isDark}
-                      titleClassName="min-w-0 flex-1 truncate text-xs font-medium"
+                      titleClassName="min-w-0 flex-1 truncate pl-1.5 text-xs font-medium"
                       onTitleClick={() => setIsRenaming(true)}
                     />
                   </CanvasItemPopup.Section>

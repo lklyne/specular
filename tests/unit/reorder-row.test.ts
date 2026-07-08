@@ -114,18 +114,29 @@ describe('reorderRowPositions — repack', () => {
 
 describe('dropIndexForCursor', () => {
   const detected = detectReorderableRow(row(100, 20, 3))!
-  // Centers (excluding the moving box): a=50, b=170, c=290.
+  // Centers: a=50, b=170, c=290. Swap boundaries are the consecutive midpoints:
+  // 110 (a↔b) and 230 (b↔c) — each half a gap of travel to the next slot.
 
-  it('returns 0 when the cursor is before all other centers', () => {
-    expect(dropIndexForCursor(detected, 0, 'a')).toBe(0)
+  it('returns 0 when the cursor is before all boundaries', () => {
+    expect(dropIndexForCursor(detected, 0)).toBe(0)
   })
 
-  it('returns the end index when the cursor is past all other centers', () => {
-    expect(dropIndexForCursor(detected, 1000, 'a')).toBe(2)
+  it('returns the end index when the cursor is past all boundaries', () => {
+    expect(dropIndexForCursor(detected, 1000)).toBe(2)
   })
 
-  it('counts other centers left of the cursor', () => {
-    // Moving 'a'; others b(170), c(290). Cursor at 200 → past b only.
-    expect(dropIndexForCursor(detected, 200, 'a')).toBe(1)
+  it('swaps at half the gap to the next slot, not half the distance from home', () => {
+    // First boundary is 110 (half a gap past a), not b's center (170).
+    expect(dropIndexForCursor(detected, 105)).toBe(0)
+    expect(dropIndexForCursor(detected, 115)).toBe(1)
+    // A single half-gap of travel only advances one slot: 200 is past 110 but
+    // not the second boundary 230, so index stays 1 (not eagerly 2).
+    expect(dropIndexForCursor(detected, 200)).toBe(1)
+  })
+
+  it('holds the home index when the cursor rests on a home center', () => {
+    // Cursor on b's center (170) sits between boundaries 110 and 230 → index 1,
+    // so a resting mid-row item keeps its slot.
+    expect(dropIndexForCursor(detected, 170)).toBe(1)
   })
 })

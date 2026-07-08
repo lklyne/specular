@@ -198,6 +198,11 @@ function multiHandleRect(bbox: SelectionBbox, handle: ResizeHandle): Rect {
 }
 
 function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
+  // Mirror EdgeLayer: edge creation is a single-node affordance. With more than
+  // one entity selected the anchors are suppressed visually, so they must be
+  // unroutable too — otherwise a hidden anchor over the gap handle hijacks the
+  // gap-spacing drag.
+  if (inputs.selectedEntityIds.length > 1) return []
   const eligible = new Set(inputs.selectedEntityIds)
   if (inputs.selectedGroupId) eligible.add(inputs.selectedGroupId)
   if (inputs.hoveredEntityId) eligible.add(inputs.hoveredEntityId)

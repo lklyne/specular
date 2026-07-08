@@ -296,15 +296,21 @@ export function EdgeLayer({
     return paths
   }, [edges, entityMap, selectedEdgeIds, zoom, originY])
 
-  // Which entities should show anchor dots: selected + hovered entities, or all during drag
+  // Which entities show anchor dots: the single selected entity, or the hovered
+  // one, or all during a drag. Edge creation is a single-node affordance — with
+  // more than one entity selected we suppress the selection and hover anchors so
+  // the multi-select gesture (move/align/gap) isn't crowded by connect dots.
   const anchorEntities = useMemo(() => {
     const ids = new Set<string>()
-    if (selectedEdgeIds.size === 0) {
-      for (const id of selectedEntityIds) {
-        if (entityMap.has(id)) ids.add(id)
+    const multiSelected = selectedEntityIds.length > 1
+    if (!multiSelected) {
+      if (selectedEdgeIds.size === 0) {
+        for (const id of selectedEntityIds) {
+          if (entityMap.has(id)) ids.add(id)
+        }
       }
+      if (hoveredEntityId && entityMap.has(hoveredEntityId)) ids.add(hoveredEntityId)
     }
-    if (hoveredEntityId && entityMap.has(hoveredEntityId)) ids.add(hoveredEntityId)
     if (interaction.kind === 'dragging-edge') {
       // During drag, show all entity anchors as potential targets
       for (const eId of entityMap.keys()) ids.add(eId)

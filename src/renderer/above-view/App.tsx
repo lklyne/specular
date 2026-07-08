@@ -1165,8 +1165,8 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           <DragCopyPreviewLayer previews={dragCopyPreview} isDark={isDark} />
           <GuideOverlayLayer guides={canvasGuides} layoutData={layoutData} isDark={isDark} />
 
-          <GapHandlesLayer layoutData={renderLayout} isDark={isDark} />
-          <ReorderDotsLayer layoutData={renderLayout} isDark={isDark} />
+          <GapHandlesLayer layoutData={renderLayout} />
+          <ReorderDotsLayer layoutData={renderLayout} />
 
           <GroupRenameOverlay
             api={api}
