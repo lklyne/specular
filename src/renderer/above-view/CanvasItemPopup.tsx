@@ -8,7 +8,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { Columns3, Grid3x3, Maximize2, Rows3 } from 'lucide-react'
+import { Columns2, Grid2x2, Maximize2, Rows2 } from 'lucide-react'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { POPUP_SURFACE_CLASS, popupSurfaceStyle } from '../shared/popupSurface'
 import { Tooltip } from '../shared/Tooltip'
@@ -583,12 +583,12 @@ function EntityActions({
 // (Rows3).
 const ARRANGE_MODES: {
   mode: BatchLayoutMode
-  Icon: typeof Grid3x3
+  Icon: typeof Grid2x2
   label: string
 }[] = [
-  { mode: 'row', Icon: Columns3, label: 'Arrange in a row' },
-  { mode: 'column', Icon: Rows3, label: 'Arrange in a column' },
-  { mode: 'grid', Icon: Grid3x3, label: 'Arrange in a grid' },
+  { mode: 'row', Icon: Columns2, label: 'Arrange in a row' },
+  { mode: 'column', Icon: Rows2, label: 'Arrange in a column' },
+  { mode: 'grid', Icon: Grid2x2, label: 'Arrange in a grid' },
 ]
 
 // Row/column/grid pack buttons. Shown for a real multi-selection (count >= 2);

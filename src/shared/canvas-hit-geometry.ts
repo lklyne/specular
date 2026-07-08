@@ -16,6 +16,11 @@ export const REORDER_DOT_VISUAL_RADIUS_PX = 4
 export const REORDER_DOT_HOVER_RADIUS_PX = 7
 export const REORDER_HANDLE_HIT_PX = 28
 
+// Auto-layout gap handle (ADR 0015 Milestone 2). The hit/paint strip spans the
+// gap between adjacent managed children; at small zoom (or gap 0) it expands to
+// this minimum thickness, centered on the seam, so it stays grabbable.
+export const GAP_HANDLE_MIN_HIT_PX = 10
+
 export const MULTI_SELECTION_OUTLINE_PADDING_PX = 8
 
 export const EDGE_SIDES: readonly EdgeSide[] = ['top', 'right', 'bottom', 'left']

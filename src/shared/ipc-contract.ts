@@ -112,6 +112,10 @@ export interface IpcContract {
   'canvas-forward-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-pointer': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-wheel': { dir: 'renderer→main'; payload: unknown }
+  'canvas-gap-resize-cancel': { dir: 'renderer→main'; payload: unknown }
+  'canvas-gap-resize-commit': { dir: 'renderer→main'; payload: unknown }
+  'canvas-gap-resize-move': { dir: 'renderer→main'; payload: unknown }
+  'canvas-gap-resize-start': { dir: 'renderer→main'; payload: unknown }
   'canvas-group-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-guides': { dir: 'main→renderer'; payload: CanvasGuidesPayload }
   'canvas-hover-page': { dir: 'renderer→main'; payload: unknown }
@@ -398,6 +402,10 @@ export const ipcChannels = {
   canvasForwardPage: 'canvas-forward-page',
   canvasForwardPointer: 'canvas-forward-pointer',
   canvasForwardWheel: 'canvas-forward-wheel',
+  canvasGapResizeCancel: 'canvas-gap-resize-cancel',
+  canvasGapResizeCommit: 'canvas-gap-resize-commit',
+  canvasGapResizeMove: 'canvas-gap-resize-move',
+  canvasGapResizeStart: 'canvas-gap-resize-start',
   canvasGroupSelection: 'canvas-group-selection',
   canvasGuides: 'canvas-guides',
   canvasHoverPage: 'canvas-hover-page',

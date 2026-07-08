@@ -97,6 +97,7 @@ import {
   type Box,
   type ReorderableRow,
 } from '../../shared/reorder-row'
+import { packedGapPositions } from '../../shared/gap-handles'
 import { arrangeInSpan } from '../../shared/span-arrange'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
@@ -936,19 +937,6 @@ function writeReorderedPosition(
 }
 
 /**
- * Selection reorder commit (ADR 0015 D7) — the position-only sibling of
- * `reorderManagedChild`. Geometry is the source of truth: the row is read off
- * the current boxes, repacked with `movingId` at `dropIndex`, and only the
- * changed origins are written through each entity's per-kind mutator inside
- * one gesture session, so the whole reorder collapses to a single undo step
- * (the batched-multi-write shape `resizeMultiSelection` uses). **No**
- * `entityOrder` write, **no** `managedLayout`, **no**
- * `commitAsOneTransaction` — nothing persists but the new positions.
- *
- * No-op (returns false) when the selection isn't an eligible equal-gap row or
- * the move changes nothing.
- */
-/**
  * Build the frozen `ReorderableRow` for a selection from live geometry, or null
  * when the selection isn't an eligible equal-gap row. Shared by the selection
  * reorder door's gesture (freeze at start, drop-index per move) and its commit
@@ -973,25 +961,20 @@ export function buildSelectionRow(orderedIds: string[]): ReorderableRow | null {
   return detectReorderableRow(boxes, { gapTolerance: SELECTION_ROW_GAP_TOLERANCE })
 }
 
-export function reorderSelection(
-  orderedIds: string[],
-  movingId: string,
-  dropIndex: number,
-): boolean {
-  const geometryById = new Map(
-    currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
-  )
-
-  const row = buildSelectionRow(orderedIds)
-  if (!row) return false
-
-  const positions = reorderRowPositions(row, movingId, dropIndex)
+/**
+ * Write a repacked position set through each entity's per-kind mutator inside
+ * one gesture session — the shared commit tail of `reorderSelection` and
+ * `applySelectionGap`. One undo step; nothing persists but the positions.
+ */
+function commitRepackedPositions(positions: Map<string, { x: number; y: number }>): boolean {
   if (positions.size === 0) return false
-
+  const kindById = new Map(
+    currentSnapSnapshotEntities().map((entity) => [entity.id, entity.kind] as const),
+  )
   const session = beginGestureSession()
   let changed = false
   for (const [id, pos] of positions) {
-    const kind = geometryById.get(id)?.kind
+    const kind = kindById.get(id)
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }
   if (changed) scheduleWorkspaceAutosave()
@@ -999,6 +982,55 @@ export function reorderSelection(
 
   if (changed) requestLayout()
   return changed
+}
+
+/**
+ * Selection reorder commit (ADR 0015 D7) — the position-only sibling of
+ * `reorderManagedChild`. Geometry is the source of truth: the row is read off
+ * the current boxes, repacked with `movingId` at `dropIndex`, and only the
+ * changed origins are written. **No** `entityOrder` write, **no**
+ * `managedLayout`, **no** `commitAsOneTransaction` — nothing persists but the
+ * new positions.
+ *
+ * No-op (returns false) when the selection isn't an eligible equal-gap row or
+ * the move changes nothing.
+ */
+export function reorderSelection(
+  orderedIds: string[],
+  movingId: string,
+  dropIndex: number,
+): boolean {
+  const row = buildSelectionRow(orderedIds)
+  if (!row) return false
+  return commitRepackedPositions(reorderRowPositions(row, movingId, dropIndex))
+}
+
+/**
+ * Selection gap commit (ADR 0015 Milestone 2) — the positions-only sibling of
+ * `setGroupLayoutGap`, mirroring how `reorderSelection` sits beside
+ * `reorderManagedChild`. Repacks the entities along `axis` at `gap` (anchored
+ * at the first item, each keeping its own cross-axis coordinate) and writes
+ * only the changed origins through each entity's per-kind mutator inside one
+ * gesture session — a single undo step, nothing persisted but the positions.
+ *
+ * No-op (returns false) when the selection is no longer an eligible equal-gap
+ * row along `axis` (same commit-time re-validation as `reorderSelection`) or
+ * nothing moves.
+ */
+export function applySelectionGap(
+  orderedIds: string[],
+  axis: 'x' | 'y',
+  gap: number,
+): boolean {
+  const row = buildSelectionRow(orderedIds)
+  if (!row || row.axis !== axis) return false
+  const children = row.order.flatMap((id) => {
+    const box = row.boxesById.get(id)
+    return box
+      ? [{ id, canvasX: box.x, canvasY: box.y, width: box.width, height: box.height }]
+      : []
+  })
+  return commitRepackedPositions(packedGapPositions(children, axis, gap, { keepCross: true }))
 }
 
 /**

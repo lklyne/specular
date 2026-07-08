@@ -30,6 +30,7 @@ import type {
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 import { reorderableDots } from './reorderable-dots'
+import { collectGapHandleZones } from './gap-handles'
 import { ENTITY_KIND_CAPS } from './entity-kind-caps'
 import { selectionBbox, type SelectionBbox } from './selection-bbox'
 
@@ -43,6 +44,7 @@ export type HitPayload =
   | { kind: 'multi-resize-handle'; handle: ResizeHandle }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   | { kind: 'reorder-handle'; entityId: string; entityKind: CanvasEntityKind }
+  | { kind: 'gap-handle'; groupId: string | null }
   | { kind: 'page-body'; entityId: string }
   | {
       kind: 'entity-body'
@@ -105,6 +107,8 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
       return collectAnchorTargets(inputs)
     case 'reorder-handle':
       return collectReorderHandleTargets(inputs)
+    case 'gap-handle':
+      return collectGapHandleTargets(inputs)
     case 'body':
       return collectBodyTargets(inputs)
     case 'background':
@@ -193,16 +197,39 @@ function multiHandleRect(bbox: SelectionBbox, handle: ResizeHandle): Rect {
   }
 }
 
+/**
+ * Anchor eligibility — the one definition of which entities show (and route)
+ * edge anchors, shared by the EdgeLayer painter and `collectAnchorTargets` so
+ * the visible dots and the routable targets can't drift into invisible-but-
+ * grabbable anchors. Edge creation is a single-node affordance: a
+ * multi-selection suppresses all anchors (so a hidden anchor over the gap
+ * handle can't hijack the gap-spacing drag). Hover stays eligible so a user
+ * can grab an existing edge endpoint to re-route or delete without first
+ * selecting the node; `edgeSelected` suppresses the selection's own anchors
+ * while an edge is selected (hover only).
+ */
+export function anchorEligibleEntityIds(input: {
+  selectedEntityIds: readonly string[]
+  selectedGroupId?: string | null
+  hoveredEntityId?: string | null
+  edgeSelected?: boolean
+}): Set<string> {
+  const eligible = new Set<string>()
+  if (input.selectedEntityIds.length > 1) return eligible
+  if (!input.edgeSelected) {
+    for (const id of input.selectedEntityIds) eligible.add(id)
+    if (input.selectedGroupId) eligible.add(input.selectedGroupId)
+  }
+  if (input.hoveredEntityId) eligible.add(input.hoveredEntityId)
+  return eligible
+}
+
 function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
-  const eligible = new Set(inputs.selectedEntityIds)
-  if (inputs.selectedGroupId) eligible.add(inputs.selectedGroupId)
-  if (inputs.hoveredEntityId) eligible.add(inputs.hoveredEntityId)
+  const eligible = anchorEligibleEntityIds(inputs)
+  if (eligible.size === 0) return []
   const out: HitTarget[] = []
   for (const entity of inputs.entities) {
     if (!entityHasAnchors(entity.kind)) continue
-    // Mirror EdgeLayer's policy: anchors show on selected + hovered entities,
-    // so both are routable. Hover is what lets a user grab an existing
-    // edge endpoint to re-route or delete without first selecting the node.
     if (!eligible.has(entity.id)) continue
     for (const side of EDGE_SIDES) {
       out.push({
@@ -226,6 +253,18 @@ function collectReorderHandleTargets(inputs: HitInputs): HitTarget[] {
     layer: 'reorder-handle' as const,
     region: { kind: 'rect' as const, rect: reorderHandleRectAt(dot.center) },
     payload: { kind: 'reorder-handle' as const, entityId: dot.id, entityKind: dot.entityKind },
+  }))
+}
+
+// Gap strips between a managed group's adjacent children (ADR 0015 Milestone
+// 2). Geometry and eligibility come from the one shared `collectGapHandleZones`
+// selector — the same source `GapHandlesLayer` paints — so the visible strip
+// and the grabbable target line up by construction.
+function collectGapHandleTargets(inputs: HitInputs): HitTarget[] {
+  return collectGapHandleZones(inputs).map((zone) => ({
+    layer: 'gap-handle' as const,
+    region: { kind: 'rect' as const, rect: zone.rect },
+    payload: { kind: 'gap-handle' as const, groupId: zone.groupId },
   }))
 }
 

@@ -1,6 +1,5 @@
 import type { BatchLayoutMode } from '../shared/types'
-
-export interface LayoutBox { width: number; height: number }
+import type { LayoutBox } from '../shared/layout-math'
 
 export interface LayoutMetrics {
   cols: number
@@ -47,28 +46,6 @@ export function computeLayoutMetrics(
     bbWidth: items.reduce((s, i) => s + i.width, 0) + (items.length - 1) * colGap,
     bbHeight: Math.max(...items.map((i) => i.height)),
   }
-}
-
-/**
- * Pack boxes left-to-right into a single row from an explicit origin, separated
- * by a fixed gap. The managed-layout kernel: each child keeps its own size, the
- * cursor advances by width + gap. All children share the row's top (`originY`);
- * cross-axis alignment is a Milestone 2 concern. Pure — no grid-snap (the caller
- * snaps the origin; see managed-layout reflow, ADR 0015 D5).
- */
-export function computeRowReflow(
-  children: LayoutBox[],
-  gap: number,
-  originX: number,
-  originY: number,
-): Array<{ canvasX: number; canvasY: number }> {
-  const positions: Array<{ canvasX: number; canvasY: number }> = []
-  let cursorX = originX
-  for (const child of children) {
-    positions.push({ canvasX: cursorX, canvasY: originY })
-    cursorX += child.width + gap
-  }
-  return positions
 }
 
 /**

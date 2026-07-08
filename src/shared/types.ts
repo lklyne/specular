@@ -112,6 +112,12 @@ export type CanvasInteractionState =
   | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
+  // Dragging a gap handle. `gap` is the live canvas-space gap; move ticks
+  // update only this field (no doc writes — §6 I5) and the renderer previews
+  // the positions of `entityIds` from it. Commit writes once: the managed
+  // group's `layoutGap` when `groupId` is set, just the entities' positions
+  // for a loose selection (`groupId` null).
+  | { kind: 'resizing-gap'; groupId: string | null; entityIds: string[]; gap: number; axis: 'x' | 'y' }
 
 export interface CanvasScenePageEntity {
   kind: 'page'
@@ -288,6 +294,8 @@ export interface CanvasSceneGroupEntity {
   parentGroupId?: string
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
+  /** Managed-layout packing gap in px; absent → the default gutter. */
+  layoutGap?: number
   entityIds: string[]
 }
 
@@ -414,7 +422,7 @@ export interface PersistedFileEntity extends CanvasEntityBase {
   metadata?: Record<string, unknown>
 }
 
-export type WorkspaceGroupLayoutMode = 'freeform' | 'row' | 'grid'
+export type WorkspaceGroupLayoutMode = 'freeform' | 'row' | 'column' | 'grid'
 
 export interface PersistedGroupEntity extends CanvasEntityBase {
   kind: 'group'
@@ -424,6 +432,8 @@ export interface PersistedGroupEntity extends CanvasEntityBase {
   height: number
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
+  /** Managed-layout packing gap in px; absent → the default gutter. */
+  layoutGap?: number
   sourceTaskId?: string
   metadata?: Record<string, unknown>
 }
@@ -1285,6 +1295,8 @@ export interface WorkspaceGroup {
   color?: string
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
+  /** Managed-layout packing gap in px; absent → the default gutter. */
+  layoutGap?: number
   pageIds?: string[]
   entityIds?: string[]
   sourceTaskId?: string
