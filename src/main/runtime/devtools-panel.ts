@@ -15,7 +15,6 @@ import {
   pages,
   incrementBrowserDevtoolsAttachGeneration,
 } from './runtime-context'
-import { attachBrowserDevtoolsToPage } from './runtime-core'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   focusAnnotation as focusUiAnnotation,
@@ -121,7 +120,6 @@ export function openDevToolsForSelectedPage(): void {
   syncInspectionState()
   recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
-  attachBrowserDevtoolsToPage(selectedPageIdx)
 }
 
 export function openInspectPanel(): void {
