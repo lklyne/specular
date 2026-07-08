@@ -1,6 +1,25 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react'
 import { Popover } from '@base-ui/react/popover'
+import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { POPUP_SURFACE_CLASS, popupSurfaceStyle } from './popupSurface'
+
+// Anchors a toolbar dropdown to the toolbar strip's bottom edge (not the
+// trigger button, which sits inset within the strip) so its gap below the
+// toolbar matches the add-page tool popup, which anchors at the same y in the
+// above-view overlay. `triggerSelector` picks out the specific trigger button
+// (e.g. `[data-zoom-anchor]`) so the popup aligns under it horizontally.
+export function toolbarStripAnchor(triggerSelector: string) {
+  return {
+    getBoundingClientRect: () => {
+      const strip = document.querySelector('.toolbar-bar')?.getBoundingClientRect()
+      const trigger = document.querySelector(triggerSelector)?.getBoundingClientRect()
+      const bottom = strip?.bottom ?? TOOLBAR_HEIGHT
+      const left = trigger?.left ?? 0
+      const width = trigger?.width ?? 0
+      return new DOMRect(left, bottom, width, 0)
+    },
+  }
+}
 
 // Shared popover shell for the toolbar/page pickers: the styled popup frame +
 // portal + positioner. Callers own their open state and render their own body.

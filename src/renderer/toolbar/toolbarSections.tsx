@@ -7,9 +7,11 @@ import {
 } from 'lucide-react'
 import type {
   AgentPresenceCursor,
+  AppThemeMode,
   DrawingBrushType,
   Tool,
 } from '../../shared/types'
+import { ThemeModeDropdown } from './ThemeModeDropdown'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { shortcutDisplay } from '../../shared/bindings'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
@@ -120,9 +122,10 @@ interface CenterActionsProps {
   hasSelection: boolean
   zoomPercent: number
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
+  themeMode: AppThemeMode
   onSetTool: (tool: Tool) => void
   onDropdownOpenChange: (open: boolean) => void
-  onToggleTheme: () => void
+  onThemeModeSelect: (mode: AppThemeMode) => void
   onZoomSet: (value: number) => void
 }
 
@@ -136,9 +139,10 @@ export function CenterActions({
   hasSelection,
   zoomPercent,
   currentPresetValue,
+  themeMode,
   onSetTool,
   onDropdownOpenChange,
-  onToggleTheme,
+  onThemeModeSelect,
   onZoomSet,
 }: CenterActionsProps) {
   const onAddPage = () => onSetTool({ kind: 'add-page' })
@@ -310,16 +314,23 @@ export function CenterActions({
 
         <ToolbarDivider isDark={isDark} />
 
-        <ToolbarTooltip label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
-          <button
-            onClick={onToggleTheme}
-            className={buttonClass(false)}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            type="button"
-          >
-            <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-          </button>
-        </ToolbarTooltip>
+        <ThemeModeDropdown
+          isDark={isDark}
+          activeMode={themeMode}
+          onSelect={onThemeModeSelect}
+          onOpenChange={onDropdownOpenChange}
+          trigger={
+            <button
+              type="button"
+              data-theme-anchor
+              className={buttonClass(false)}
+              aria-label="Theme"
+              title="Theme"
+            >
+              <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            </button>
+          }
+        />
 
         <ZoomPresetDropdown
           isDark={isDark}

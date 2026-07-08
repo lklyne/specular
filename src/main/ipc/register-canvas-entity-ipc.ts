@@ -1,7 +1,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { AnnotationCreateRequest, BatchLayoutMode, CanvasEntityKind } from '../../shared/types'
+import type { AnnotationCreateRequest, BatchLayoutMode, CanvasEntityKind, PageColorScheme } from '../../shared/types'
 import { getEntityKind, hasEntityKind } from '../entities/contract'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
@@ -37,6 +37,7 @@ import {
   deleteTextEntity,
   deleteFileEntity,
   setPageCustom,
+  setPageColorScheme,
   setDeviceOrientation,
   setFileDeviceOrientation,
   setPagePreset,
@@ -322,6 +323,14 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(ipcChannels.canvasSetPageCustom, (_event, { pageId }: { pageId: string }) => {
     setPageCustom(pageId)
   })
+
+  ipcMain.on(
+    ipcChannels.canvasSetPageColorScheme,
+    (_event, { pageId, colorScheme }: { pageId: string; colorScheme: PageColorScheme | null }) => {
+      if (colorScheme !== null && colorScheme !== 'light' && colorScheme !== 'dark') return
+      setPageColorScheme(pageId, colorScheme)
+    },
+  )
 
   ipcMain.on(
     ipcChannels.canvasSetDeviceOrientation,

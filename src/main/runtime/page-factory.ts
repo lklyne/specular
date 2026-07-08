@@ -51,6 +51,7 @@ import { attachBindingDispatcher } from './binding-dispatcher'
 import { openLinkInNewFrame } from './link-open-policy'
 import { looksLikeUrl } from '../../shared/url'
 import { breadcrumb } from '../sentry-context'
+import { installScrollbarCss } from './page-scrollbar-css'
 
 function hostOf(url: string | undefined): string | undefined {
   if (!url) return undefined
@@ -120,6 +121,7 @@ export function createPage(config: PageConfig): Page {
     parentGroupId: config.parentGroupId ?? config.groupId,
     groupId: config.parentGroupId ?? config.groupId,
     metadata: config.metadata,
+    colorScheme: config.colorScheme,
     syncState: {
       suppressNavigationBroadcastUntil: 0,
       suppressNextScrollBroadcastUntil: 0,
@@ -127,6 +129,8 @@ export function createPage(config: PageConfig): Page {
   }
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')
+
+  installScrollbarCss(page.pageView.webContents)
 
   page.pageView.webContents.on('page-title-updated', () => {
     page.title = page.pageView.webContents.getTitle() || undefined

@@ -53,6 +53,8 @@ export interface PageConfig {
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 // --- Generic Canvas Entity Types ---
@@ -146,6 +148,8 @@ export interface CanvasScenePageEntity {
   contentScreenHeight?: number
   /** Use SVG rendering for the device shell (A/B toggle). */
   useSvgDeviceShell?: boolean
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
@@ -366,6 +370,9 @@ export interface CanvasEntityBase {
   parentGroupId?: string
 }
 
+/** A page's color-scheme override. Absent means "follow system". */
+export type PageColorScheme = 'light' | 'dark'
+
 export interface PersistedPageEntity extends CanvasEntityBase {
   kind: 'page'
   name?: string
@@ -375,6 +382,8 @@ export interface PersistedPageEntity extends CanvasEntityBase {
   source?: WorkspacePageSource
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface PersistedTextEntity extends CanvasEntityBase {
@@ -665,8 +674,12 @@ export interface ToolbarSelectionData {
   shapeColor: string
 }
 
+/** App-level theme preference: 'system' follows OS appearance; 'light'/'dark' pin it. */
+export type AppThemeMode = 'system' | 'light' | 'dark'
+
 export interface ThemeData {
   isDark: boolean
+  themeMode: AppThemeMode
 }
 
 export interface ThemeBootstrapData {
@@ -834,6 +847,8 @@ export interface PanelMultiEntitySummary {
   id: string
   kind: CanvasEntityKind
   label: string
+  /** Page entries only — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface DevtoolsPanelData {
@@ -1098,6 +1113,8 @@ export interface WorkspacePageSnapshot {
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface WorkspaceSnapshot {
@@ -1176,6 +1193,8 @@ export interface WorkspacePage {
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface WorkspaceTextEntity {
@@ -1208,6 +1227,8 @@ export interface ClipboardPagePayload {
   presetIndex: number
   dx: number
   dy: number
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface ClipboardPageSelectionPayload {
@@ -1224,6 +1245,8 @@ export interface ClipboardEntityPayload {
   presetIndex?: number
   // Page device metadata (so paste reproduces the device shell)
   metadata?: Record<string, unknown>
+  /** Page-specific — optional, absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
   // Text entity-specific
   text?: string
   color?: string

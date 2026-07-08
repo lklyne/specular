@@ -19,7 +19,7 @@ const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'dangerously', configur
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
-  const isDark = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
+  const { isDark } = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
 
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 

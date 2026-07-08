@@ -19,7 +19,7 @@ import type { DeviceOrientation } from '../../shared/device-catalog'
 import { deviceForPresetIndex } from '../../shared/device-catalog'
 import type { AlignmentReferenceName } from '../../shared/canvas-guides'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
-import type { AnnotationDrawingStroke, BatchLayoutMode, EdgeEnd, EdgeSide, LayoutDirective, WorkspaceBounds } from '../../shared/types'
+import type { AnnotationDrawingStroke, BatchLayoutMode, EdgeEnd, EdgeSide, LayoutDirective, PageColorScheme, WorkspaceBounds } from '../../shared/types'
 import type { WorkspaceGroup } from '../../shared/types'
 import {
   updateSelectionForRemovedEntity,
@@ -1237,6 +1237,22 @@ export function setPagePreset(pageId: string, presetIndex: number): void {
   if (!validPresetIndex(presetIndex)) return
   const target = pageDeviceTarget(pageId)
   if (target) setDevicePreset(target, presetIndex)
+}
+
+/**
+ * Set (or clear) a page's color-scheme override. `null` clears it back to
+ * "follow system" — the field is deliberately deleted rather than set to a
+ * sentinel, since absence is what every downstream reader treats as "system".
+ */
+export function setPageColorScheme(
+  pageId: string,
+  colorScheme: PageColorScheme | null,
+): void {
+  const page = pages.find((p) => p.id === pageId)
+  if (!page) return
+  mutateWorkspace(() => {
+    page.colorScheme = colorScheme ?? undefined
+  })
 }
 
 export function setPageCustom(pageId: string): void {

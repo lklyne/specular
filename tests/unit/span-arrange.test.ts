@@ -44,10 +44,10 @@ describe('arrangeInSpan — row', () => {
     expect(c.x + c.width).toBe(500)
     // Gaps even.
     expect(b.x - (a.x + a.width)).toBeCloseTo(c.x - (b.x + b.width), 5)
-    // Aligned to the top edge (min y = 5).
-    expect(a.y).toBe(5)
-    expect(b.y).toBe(5)
-    expect(c.y).toBe(5)
+    // Aligned to the top edge, snapped to the grid (min y = 5 → 0).
+    expect(a.y).toBe(0)
+    expect(b.y).toBe(0)
+    expect(c.y).toBe(0)
   })
 })
 
@@ -64,12 +64,38 @@ describe('arrangeInSpan — column', () => {
     const c = placed(t, boxes, 'c')
 
     expect(a.y).toBe(0)
-    expect(c.y + c.height).toBe(550)
+    // Trailing edge may bump off the original footprint to land leads on the grid.
+    expect(c.y % 20).toBe(0)
+    expect(Math.abs(c.y + c.height - 550)).toBeLessThanOrEqual(20)
     expect(b.y - (a.y + a.height)).toBeCloseTo(c.y - (b.y + b.height), 5)
-    // Aligned to the left edge (min x = 5).
-    expect(a.x).toBe(5)
-    expect(b.x).toBe(5)
-    expect(c.x).toBe(5)
+    // Aligned to the left edge, snapped to the grid (min x = 5 → 0).
+    expect(a.x).toBe(0)
+    expect(b.x).toBe(0)
+    expect(c.x).toBe(0)
+  })
+
+  it('grows past the footprint rather than overlapping when the span is too tight', () => {
+    // 3 boxes of 50 tall crammed into a ~120px extent: even gap would be
+    // (120 − 150)/2 = −15 (overlap). Floor forces an 80px gap, so the cluster
+    // expands downward from the pinned first edge instead.
+    const boxes: Box[] = [
+      { id: 'a', x: 0, y: 0, width: 80, height: 50 },
+      { id: 'b', x: 0, y: 35, width: 80, height: 50 },
+      { id: 'c', x: 0, y: 70, width: 80, height: 50 },
+    ]
+    const t = arrangeInSpan(boxes, 'column')!
+    const a = placed(t, boxes, 'a')
+    const b = placed(t, boxes, 'b')
+    const c = placed(t, boxes, 'c')
+
+    expect(a.y).toBe(0) // first edge still pinned
+    // Floored gap (≥80), then leads snap to the grid — no overlap, even spacing.
+    const gapAB = b.y - (a.y + a.height)
+    const gapBC = c.y - (b.y + b.height)
+    expect(gapAB).toBeGreaterThanOrEqual(80)
+    expect(gapAB).toBe(gapBC)
+    expect(b.y % 20).toBe(0)
+    expect(c.y % 20).toBe(0)
   })
 
   it('collapsed column re-arranged into a row inherits the y-extent as spacing', () => {

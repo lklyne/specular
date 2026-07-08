@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasScenePageEntity, LayoutUpdateData, PageColorScheme } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
@@ -38,6 +38,51 @@ function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6
     : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900`
 }
 
+function segmentGroupClass(isDark: boolean): string {
+  return isDark
+    ? 'flex h-7 items-center gap-0.5 rounded-[7px] bg-black/15 p-0.5'
+    : 'flex h-7 items-center gap-0.5 rounded-[7px] bg-zinc-900/10 p-0.5'
+}
+
+type ColorSchemeChoice = 'system' | PageColorScheme
+
+const COLOR_SCHEME_OPTIONS: { value: ColorSchemeChoice; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+]
+
+// Segmented System / Light / Dark control for a page's color-scheme override.
+// `value` is null when a batch selection spans more than one scheme, which
+// renders every segment inactive (indeterminate) rather than picking one.
+function ColorSchemeControl({
+  isDark,
+  value,
+  onChange,
+}: {
+  isDark: boolean
+  value: ColorSchemeChoice | null
+  onChange: (value: ColorSchemeChoice) => void
+}) {
+  return (
+    <div className={segmentGroupClass(isDark)} role="group" aria-label="Color scheme">
+      {COLOR_SCHEME_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          className={popupTabButtonClass(isDark, value === opt.value, 'px-2')}
+          title={opt.label}
+          aria-label={`${opt.label} color scheme`}
+          aria-pressed={value === opt.value}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function PagePopup({
   api,
   isDark,
@@ -55,6 +100,7 @@ export function PagePopup({
     | 'toggleDeviceShell'
     | 'setPagePreset'
     | 'setPageCustom'
+    | 'setPageColorScheme'
     | 'focusSelection'
     | 'restoreFocusCamera'
     | 'setFocusPresentationMode'
@@ -392,6 +438,16 @@ export function PagePopup({
                 api.setDeviceOrientation(single.id, orientation)
               }
             />
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <CanvasItemPopup.Section>
+              <ColorSchemeControl
+                isDark={isDark}
+                value={single.colorScheme ?? 'system'}
+                onChange={(choice) =>
+                  api.setPageColorScheme(single.id, choice === 'system' ? null : choice)
+                }
+              />
+            </CanvasItemPopup.Section>
           </>
         ) : null}
         {!isSingle ? (

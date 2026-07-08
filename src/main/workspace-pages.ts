@@ -286,6 +286,7 @@ function duplicatePageInternal(
     source: 'manual',
     parentGroupId: sourcePage.parentGroupId,
     metadata,
+    colorScheme: sourcePage.colorScheme,
   })
   const focusNewPage = input.focus ?? true
   if (focusNewPage) {
@@ -345,6 +346,7 @@ function createBlankFrameInternal(
     source: 'manual',
     parentGroupId: sourcePage.parentGroupId,
     metadata,
+    colorScheme: sourcePage.colorScheme,
   })
 
   selectPageById(newPage.id)

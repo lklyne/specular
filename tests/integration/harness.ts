@@ -210,6 +210,7 @@ function wireDocObservers(): void {
       source: (page as { source?: unknown }).source,
       parentGroupId: page.parentGroupId ?? (page as { groupId?: string }).groupId,
       metadata: page.metadata,
+      colorScheme: (page as { colorScheme?: unknown }).colorScheme,
     }),
     cancelActiveInteraction: () => cancelActiveInteraction('undo'),
     sendInteractiveState,

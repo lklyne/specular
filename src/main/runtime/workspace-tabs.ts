@@ -82,6 +82,7 @@ export function workspaceSnapshot(): WorkspaceSnapshot {
         parentGroupId: page.parentGroupId ?? page.groupId,
         groupId: page.parentGroupId ?? page.groupId,
         metadata: page.metadata,
+        colorScheme: page.colorScheme,
       }),
     ),
     selectedPageIndex: uiSelectedPageIndex(pageIds),

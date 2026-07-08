@@ -198,7 +198,7 @@ function EdgeBody({
         markerEnd={markerEnd}
         markerStart={markerStart}
         stroke={edgeColor}
-        strokeWidth={1.5}
+        strokeWidth={1.5 * zoom}
         strokeDasharray={label ? layout?.dash : undefined}
       />
       {label ? (
@@ -321,17 +321,17 @@ export function EdgeLayer({
     >
       {/* Arrow marker definitions */}
       <defs>
-        <marker id="arrow-default" markerHeight={9} markerUnits="userSpaceOnUse" markerWidth={7} orient="auto" refX={7} refY={4.5}>
-          <path d="M 0 0 L 7 4.5 L 0 9 Z" fill={EDGE_COLOR_DEFAULT} />
+        <marker id="arrow-default" markerHeight={6} markerWidth={5} orient="auto" refX={5} refY={3}>
+          <path d="M 0 0 L 5 3 L 0 6 Z" fill={EDGE_COLOR_DEFAULT} />
         </marker>
-        <marker id="arrow-selected" markerHeight={9} markerUnits="userSpaceOnUse" markerWidth={7} orient="auto" refX={7} refY={4.5}>
-          <path d="M 0 0 L 7 4.5 L 0 9 Z" fill={selectionColor(isDark)} />
+        <marker id="arrow-selected" markerHeight={6} markerWidth={5} orient="auto" refX={5} refY={3}>
+          <path d="M 0 0 L 5 3 L 0 6 Z" fill={selectionColor(isDark)} />
         </marker>
-        <marker id="arrow-start-default" markerHeight={9} markerUnits="userSpaceOnUse" markerWidth={7} orient="auto" refX={0} refY={4.5}>
-          <path d="M 7 0 L 0 4.5 L 7 9 Z" fill={EDGE_COLOR_DEFAULT} />
+        <marker id="arrow-start-default" markerHeight={6} markerWidth={5} orient="auto" refX={0} refY={3}>
+          <path d="M 5 0 L 0 3 L 5 6 Z" fill={EDGE_COLOR_DEFAULT} />
         </marker>
-        <marker id="arrow-start-selected" markerHeight={9} markerUnits="userSpaceOnUse" markerWidth={7} orient="auto" refX={0} refY={4.5}>
-          <path d="M 7 0 L 0 4.5 L 7 9 Z" fill={selectionColor(isDark)} />
+        <marker id="arrow-start-selected" markerHeight={6} markerWidth={5} orient="auto" refX={0} refY={3}>
+          <path d="M 5 0 L 0 3 L 5 6 Z" fill={selectionColor(isDark)} />
         </marker>
         {/* Per-color markers for colored edges (deduplicated) */}
         {[...new Set(edgePaths.map((p) => p.color).filter(Boolean))].map((color) => {
@@ -339,11 +339,11 @@ export function EdgeLayer({
           const safeId = hex.replace('#', '')
           return (
             <g key={safeId}>
-              <marker id={`arrow-color-${safeId}`} markerHeight={9} markerUnits="userSpaceOnUse" markerWidth={7} orient="auto" refX={7} refY={4.5}>
-                <path d="M 0 0 L 7 4.5 L 0 9 Z" fill={hex} />
+              <marker id={`arrow-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={5} refY={3}>
+                <path d="M 0 0 L 5 3 L 0 6 Z" fill={hex} />
               </marker>
-              <marker id={`arrow-start-color-${safeId}`} markerHeight={9} markerUnits="userSpaceOnUse" markerWidth={7} orient="auto" refX={0} refY={4.5}>
-                <path d="M 7 0 L 0 4.5 L 7 9 Z" fill={hex} />
+              <marker id={`arrow-start-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={0} refY={3}>
+                <path d="M 5 0 L 0 3 L 5 6 Z" fill={hex} />
               </marker>
             </g>
           )

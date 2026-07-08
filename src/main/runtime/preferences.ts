@@ -8,6 +8,7 @@ import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import type {
+  AppThemeMode,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
@@ -60,6 +61,8 @@ type PreferencesFile = {
   originBindings?: LegacyOriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
   toolDefaults?: ToolDefaults
+  /** App-level theme preference. Absent means 'system' (pre-existing installs). */
+  themeMode?: AppThemeMode
   debug?: {
     cursorSplineViz?: boolean
     cursorTuning?: CursorTuningParams
@@ -69,6 +72,7 @@ type PreferencesFile = {
 let currentCursorSplineViz = false
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
+let currentThemeMode: AppThemeMode = 'system'
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -147,6 +151,12 @@ export function loadPreferences(): void {
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
+  currentThemeMode = normalizeThemeMode(parsed.themeMode)
+  nativeTheme.themeSource = currentThemeMode
+}
+
+function normalizeThemeMode(mode: unknown): AppThemeMode {
+  return mode === 'light' || mode === 'dark' ? mode : 'system'
 }
 
 export function getToolDefaults(): ToolDefaults {
@@ -196,6 +206,7 @@ export function savePreferences(): void {
     devtoolsPanelTab: uiDevtoolsPanelTab(),
     fixConfig: { model: fixConfig.model, permissions: fixConfig.permissions },
     toolDefaults: currentToolDefaults,
+    themeMode: currentThemeMode,
   })
 }
 
@@ -217,6 +228,27 @@ export function setFixConfig(patch: { model?: FixConfig['model']; permissions?: 
   savePreferences()
 }
 
+/**
+ * Scheme resolution model: OS appearance -> app themeMode -> per-page
+ * colorScheme override (absent = inherit). This is the middle layer:
+ * `nativeTheme.themeSource` mirrors `themeMode` so `isDark()` reflects it,
+ * and the per-page override is applied separately (see page-color-scheme.ts).
+ */
+export function getThemeMode(): AppThemeMode {
+  return currentThemeMode
+}
+
+export function setThemeMode(mode: AppThemeMode): void {
+  currentThemeMode = mode
+  // Assigning themeSource fires nativeTheme's 'updated' event (which calls
+  // broadcastTheme() — see index.ts) only when shouldUseDarkColors actually
+  // flips. Call it directly too so themeMode reaches renderers even when the
+  // resolved light/dark value doesn't change (e.g. 'system' -> 'light' at noon).
+  nativeTheme.themeSource = mode
+  savePreferences()
+  broadcastTheme()
+}
+
 export function isDark(): boolean {
   return nativeTheme.shouldUseDarkColors
 }
@@ -231,7 +263,7 @@ export function broadcastTheme(): void {
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   }
-  broadcast(ipcChannels.themeChanged, { isDark: isDark() })
+  broadcast(ipcChannels.themeChanged, { isDark: isDark(), themeMode: currentThemeMode })
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())

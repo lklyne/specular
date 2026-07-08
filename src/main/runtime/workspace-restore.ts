@@ -212,6 +212,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
         parentGroupId: page.parentGroupId ?? page.groupId,
         groupId: page.parentGroupId ?? page.groupId,
         metadata: page.metadata,
+        colorScheme: page.colorScheme,
       })
       if (page.id) restoredPageIds.add(page.id)
     }
@@ -233,6 +234,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             parentGroupId: entity.parentGroupId ?? entity.groupId,
             groupId: entity.parentGroupId ?? entity.groupId,
             metadata: entity.metadata,
+            colorScheme: entity.colorScheme,
           })
         } else if (entity?.kind === 'text' || (entity as any)?.kind === 'sticky-note') {
           createTextEntityInState({

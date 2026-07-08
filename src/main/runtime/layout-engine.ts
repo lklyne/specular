@@ -77,6 +77,7 @@ import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
+import { applyPageColorScheme } from './page-color-scheme'
 
 export function setBoundsIfChanged(
   view: WebContentsView,
@@ -454,6 +455,19 @@ function layoutAllViews(): void {
           emulatedHeight,
           devtoolsOpen,
         })
+      }
+    }
+
+    // Per-page prefers-color-scheme override (CDP-enforced — no native
+    // webContents equivalent). Applies regardless of fill/device-shell mode;
+    // absent colorScheme means the guest keeps following the live app/OS
+    // theme with no override.
+    if (page.colorScheme !== page.lastColorSchemeKey) {
+      // Commit the key only when the override actually dispatched; a failed
+      // attach (e.g. DevTools already owns the page's debugger) must retry on
+      // the next pass rather than wedge the page on the wrong scheme.
+      if (applyPageColorScheme(page, page.colorScheme ?? null)) {
+        page.lastColorSchemeKey = page.colorScheme
       }
     }
 

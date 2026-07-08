@@ -5,7 +5,7 @@ import type {
   OnboardingProgressEvent,
   OnboardingStatusSnapshot,
 } from '../../shared/types'
-import { isDark } from '../runtime/preferences'
+import { getThemeMode, isDark } from '../runtime/preferences'
 import { loadOnboardingState, saveOnboardingState } from '../runtime/preferences'
 import { getOnboardingStatus } from '../onboarding-status'
 import { runSkillInstallSelections } from '../skill-install-runner'
@@ -24,7 +24,7 @@ function broadcast(event: OnboardingProgressEvent): void {
 
 export function registerOnboardingIpc(): void {
   ipcMain.handle(ipcChannels.onboardingGetInitialData, async () => ({
-    theme: { isDark: isDark() },
+    theme: { isDark: isDark(), themeMode: getThemeMode() },
     status: await getOnboardingStatus(),
     mode: getOnboardingMode(),
   }))

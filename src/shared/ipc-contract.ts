@@ -2,6 +2,7 @@ import type {
   AgentPresenceCursor,
   AnnotationElementSelectionPayload,
   AnnotationLiveBboxUpdate,
+  AppThemeMode,
   ConnectedRepo,
   DevtoolsPanelData,
   FixConfig,
@@ -156,6 +157,7 @@ export interface IpcContract {
   'canvas-set-file-device-orientation': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-focus-annotations-visible': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-focus-presentation-mode': { dir: 'renderer→main'; payload: unknown }
+  'canvas-set-page-color-scheme': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-page-custom': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-page-preset': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-selection-preset': { dir: 'renderer→main'; payload: unknown }
@@ -263,6 +265,7 @@ export interface IpcContract {
   'right-details-panel-set-file-custom': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-file-preset': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-fix-config': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-set-page-color-scheme': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-preset': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
@@ -274,6 +277,7 @@ export interface IpcContract {
   'set-interactive': { dir: 'main→renderer'; payload: unknown }
   'set-multi-selected': { dir: 'main→renderer'; payload: unknown }
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
+  'set-theme-mode': { dir: 'renderer→main'; payload: { mode: AppThemeMode } }
   'settings:close': { dir: 'renderer→main'; payload: unknown }
   'settings:fix-config-changed': { dir: 'main→renderer'; payload: FixConfig }
   'settings:get-initial-data': { dir: 'invoke'; payload: unknown }
@@ -287,7 +291,6 @@ export interface IpcContract {
   'take-dom-snapshot-response': { dir: 'renderer→main'; payload: unknown }
   'toggle-devtools': { dir: 'renderer→main'; payload: unknown }
   'toggle-left-sidebar': { dir: 'renderer→main'; payload: unknown }
-  'toggle-theme': { dir: 'renderer→main'; payload: unknown }
   'tool-defaults-set': { dir: 'renderer→main'; payload: unknown }
   'toolbar-dropdown-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-dropdown-open': { dir: 'renderer→main'; payload: unknown }
@@ -440,6 +443,7 @@ export const ipcChannels = {
   canvasSetFileDeviceOrientation: 'canvas-set-file-device-orientation',
   canvasSetFocusAnnotationsVisible: 'canvas-set-focus-annotations-visible',
   canvasSetFocusPresentationMode: 'canvas-set-focus-presentation-mode',
+  canvasSetPageColorScheme: 'canvas-set-page-color-scheme',
   canvasSetPageCustom: 'canvas-set-page-custom',
   canvasSetPagePreset: 'canvas-set-page-preset',
   canvasSetSelectionPreset: 'canvas-set-selection-preset',
@@ -545,6 +549,7 @@ export const ipcChannels = {
   rightDetailsPanelSetFileCustom: 'right-details-panel-set-file-custom',
   rightDetailsPanelSetFilePreset: 'right-details-panel-set-file-preset',
   rightDetailsPanelSetFixConfig: 'right-details-panel-set-fix-config',
+  rightDetailsPanelSetPageColorScheme: 'right-details-panel-set-page-color-scheme',
   rightDetailsPanelSetPagePreset: 'right-details-panel-set-page-preset',
   rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
@@ -555,6 +560,7 @@ export const ipcChannels = {
   setInspectionMode: 'set-inspection-mode',
   setInteractive: 'set-interactive',
   setMultiSelected: 'set-multi-selected',
+  setThemeMode: 'set-theme-mode',
   settingsClose: 'settings:close',
   settingsFixConfigChanged: 'settings:fix-config-changed',
   settingsGetInitialData: 'settings:get-initial-data',
@@ -568,7 +574,6 @@ export const ipcChannels = {
   takeDomSnapshotResponse: 'take-dom-snapshot-response',
   toggleDevtools: 'toggle-devtools',
   toggleLeftSidebar: 'toggle-left-sidebar',
-  toggleTheme: 'toggle-theme',
   toolDefaultsSet: 'tool-defaults-set',
   toolbarDropdownClose: 'toolbar-dropdown-close',
   toolbarDropdownOpen: 'toolbar-dropdown-open',

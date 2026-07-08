@@ -65,6 +65,8 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelDeleteEdge, { id }),
   setPagePreset: (pageId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetPagePreset, { pageId, presetIndex }),
+  setPageColorScheme: (pageId, colorScheme) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelSetPageColorScheme, { pageId, colorScheme }),
   setPageCustom: (pageId: string) =>
     ipcRenderer.send(ipcChannels.canvasSetPageCustom, { pageId }),
   setDeviceOrientation: (pageId: string, orientation: string) =>

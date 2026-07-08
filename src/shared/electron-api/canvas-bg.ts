@@ -20,6 +20,7 @@ import type {
   ForwardPointerPayload,
   ForwardWheelPayload,
   LayoutUpdateData,
+  PageColorScheme,
   SelectionModifiers,
   SelectionOverlayPayload,
   ThemeData,
@@ -51,6 +52,7 @@ export interface CanvasBgElectronAPI {
   goForwardPage: (pageId: string) => void
   reloadPage: (pageId: string) => void
   setPageCustom: (pageId: string) => void
+  setPageColorScheme: (pageId: string, colorScheme: PageColorScheme | null) => void
   updatePageBounds: (pageId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
   setTool: (tool: Tool) => void

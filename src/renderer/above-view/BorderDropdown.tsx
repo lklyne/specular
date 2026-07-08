@@ -58,17 +58,21 @@ function LineGlyph({ dashed }: { dashed: boolean }) {
   )
 }
 
-function segmentClass(isDark: boolean, active: boolean): string {
-  const base =
-    'flex flex-1 items-center justify-center gap-1 rounded-[6px] px-2 py-1 text-xs leading-none transition-colors'
+/** Background / text / hover colors for a toggleable segment, shared by the
+ *  style segments and the square thickness buttons. */
+function segmentStateClass(isDark: boolean, active: boolean): string {
   if (active) {
     return isDark
-      ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
-      : `${base} bg-[var(--color-stone-200)] text-zinc-900`
+      ? 'bg-[rgba(253,248,245,0.1)] text-zinc-100'
+      : 'bg-[var(--color-stone-200)] text-zinc-900'
   }
   return isDark
-    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.08)] hover:text-zinc-100`
-    : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900`
+    ? 'text-zinc-300 hover:bg-[rgba(253,248,245,0.08)] hover:text-zinc-100'
+    : 'text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900'
+}
+
+function segmentClass(isDark: boolean, active: boolean): string {
+  return `flex flex-1 items-center justify-center gap-1 rounded-[6px] px-2 py-1 text-xs leading-none transition-colors ${segmentStateClass(isDark, active)}`
 }
 
 export function BorderDropdown({
@@ -109,7 +113,7 @@ export function BorderDropdown({
         <Menu.Positioner align="center" side="bottom" sideOffset={8} style={{ zIndex: 50 }}>
           <Menu.Popup
             data-overlay-ui
-            className={`flex w-[220px] flex-col gap-1 ${POPUP_SURFACE_CLASS}`}
+            className={`flex w-[300px] flex-col gap-1.5 ${POPUP_SURFACE_CLASS}`}
             style={popupSurfaceStyle(isDark)}
             onPointerDown={(event) => event.stopPropagation()}
           >
@@ -126,14 +130,12 @@ export function BorderDropdown({
                   <span>{label}</span>
                 </button>
               ))}
-            </div>
-            <div className="flex items-center gap-1">
               {BORDER_WIDTH_PRESETS.map((width) => (
                 <button
                   key={width}
                   type="button"
                   disabled={colorDisabled}
-                  className={`${segmentClass(isDark, strokeWidth === width && !colorDisabled)} disabled:opacity-30 disabled:hover:bg-transparent`}
+                  className={`flex h-6 w-6 items-center justify-center rounded-[6px] text-xs leading-none transition-colors ${segmentStateClass(isDark, strokeWidth === width && !colorDisabled)} disabled:opacity-30 disabled:hover:bg-transparent`}
                   aria-label={`Set border width to ${width}px`}
                   aria-pressed={strokeWidth === width}
                   onClick={() => onSetWidth(width)}
@@ -142,6 +144,7 @@ export function BorderDropdown({
                 </button>
               ))}
             </div>
+            <div className={`my-0.5 h-px ${isDark ? 'bg-zinc-700' : 'bg-zinc-200'}`} />
             <div className={`flex items-center justify-between gap-1 px-0.5 ${colorDisabled ? 'pointer-events-none opacity-30' : ''}`}>
               {paletteSlots(palette).map((slot) => {
                 const swatch = slot.hex ?? resolveCanvasColor(slot.storage, { role: 'fill', isDark })

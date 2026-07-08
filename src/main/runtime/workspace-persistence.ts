@@ -5,6 +5,7 @@ import type {
   Annotation,
   DevtoolsPanelTab,
   LegacyPersistedWorkspaceStore,
+  PageColorScheme,
   PersistedCanvasEntity,
   PersistedPageEntity,
   PersistedWorkspaceRecord,
@@ -47,6 +48,7 @@ type PersistablePageSnapshotInput = {
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  colorScheme?: PageColorScheme
 }
 
 type AutosaveSchedulerOptions = {
@@ -237,6 +239,7 @@ export function buildPageSnapshot(
     parentGroupId: page.parentGroupId ?? page.groupId,
     groupId: page.parentGroupId ?? page.groupId,
     metadata: page.metadata,
+    colorScheme: page.colorScheme,
   }
 }
 
@@ -256,6 +259,7 @@ export function pageSnapshotToEntity(page: WorkspacePageSnapshot): PersistedPage
     parentGroupId: page.parentGroupId ?? page.groupId,
     groupId: page.parentGroupId ?? page.groupId,
     metadata: page.metadata,
+    colorScheme: page.colorScheme,
   }
 }
 
@@ -273,6 +277,7 @@ export function entityToPageSnapshot(entity: PersistedCanvasEntity): WorkspacePa
     parentGroupId: entity.parentGroupId ?? entity.groupId,
     groupId: entity.parentGroupId ?? entity.groupId,
     metadata: entity.metadata,
+    colorScheme: entity.colorScheme,
   }
 }
 
