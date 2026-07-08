@@ -4,6 +4,8 @@
  * https://github.com/obsidianmd/jsoncanvas/blob/main/spec/1.0.md
  */
 
+import type { ShapeKind } from './shapes'
+
 // --- Colors ---
 
 /** Preset color "1"–"6" (red, orange, yellow, green, cyan, purple) or hex "#RRGGBB" */
@@ -54,12 +56,14 @@ export interface JsonCanvasLinkNode extends JsonCanvasNodeBase {
   url: string
   // App-specific extensions (other tools ignore per spec extensibility model)
   presetIndex?: number
-  linked?: boolean
+  syncId?: string | null
   label?: string
   source?: string
   groupId?: string
   parentGroupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: 'light' | 'dark'
 }
 
 export interface JsonCanvasFileNode extends JsonCanvasNodeBase {
@@ -106,9 +110,11 @@ export interface JsonCanvasDrawingNode extends JsonCanvasNodeBase {
  */
 export interface JsonCanvasShapeNode extends JsonCanvasNodeBase {
   type: 'shape'
-  shapeKind: 'rectangle' | 'ellipse' | 'diamond'
+  shapeKind: ShapeKind
   text?: string
   strokeWidth?: number
+  borderStyle?: 'solid' | 'dashed' | 'none'
+  borderColor?: string
   theme?: string
   label?: string
   parentGroupId?: string

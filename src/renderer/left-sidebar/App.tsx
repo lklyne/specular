@@ -44,7 +44,7 @@ export default function App({
   const [pagesSectionExpanded, setPagesSectionExpanded] = useState(true)
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
   const previousActivePageCountRef = useRef<number | null>(null)
-  const isDark = useTheme(initialTheme, api.onThemeChanged)
+  const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
 
   const drag = useDragReorder(sidebarData.tabs.length, (tabId, toIndex) =>

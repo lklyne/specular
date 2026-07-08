@@ -10,7 +10,7 @@
  * silently skip either direction.
  */
 
-import type { PersistedPageEntity } from '../../shared/types'
+import type { PageColorScheme, PersistedPageEntity } from '../../shared/types'
 import type { Page } from './runtime-entities'
 
 // `kind` is implicit in the pages map (the map itself is the kind); `groupId`
@@ -22,10 +22,11 @@ const PAGE_DOC_FIELD_SET = {
   presetIndex: true,
   canvasX: true,
   canvasY: true,
-  linked: true,
+  syncId: true,
   source: true,
   parentGroupId: true,
   metadata: true,
+  colorScheme: true,
 } as const satisfies Record<Exclude<keyof PersistedPageEntity, 'kind' | 'groupId'>, true>
 
 type PageDocField = keyof typeof PAGE_DOC_FIELD_SET
@@ -41,10 +42,11 @@ export function persistPage(page: Page): Record<string, unknown> {
     presetIndex: page.presetIndex,
     canvasX: page.canvasX,
     canvasY: page.canvasY,
-    linked: page.linked,
+    syncId: page.syncId,
     source: page.source,
     parentGroupId: page.parentGroupId ?? page.groupId,
     metadata: page.metadata,
+    colorScheme: page.colorScheme,
   } satisfies Record<PageDocField, unknown>
 }
 
@@ -56,9 +58,11 @@ type PagePatcher = (page: Page, value: unknown) => void
  * - `id` is the reconciliation key — add/remove, never patched in place
  * - `url` — patching would navigate the live WebContents mid-undo
  * - `source` is create-time provenance
- * Geometry, preset, and linked keep their current value when the doc lacks
- * the key; name and group membership overwrite so undo can clear them;
- * metadata applies only when present.
+ * Geometry and preset keep their current value when the doc lacks the key;
+ * name, sync membership, group membership, and color scheme overwrite so
+ * undo can clear them (colorScheme's absence is meaningful — it means
+ * "follow system" — so unlike preset it must NOT fall back to the page's
+ * current value); metadata applies only when present.
  */
 const PAGE_RESTORE_PATCHERS = {
   id: null,
@@ -76,8 +80,8 @@ const PAGE_RESTORE_PATCHERS = {
   canvasY: (page, value) => {
     page.canvasY = (value as number) ?? page.canvasY
   },
-  linked: (page, value) => {
-    page.linked = (value as boolean) ?? page.linked
+  syncId: (page, value) => {
+    page.syncId = (value as string | null) ?? null
   },
   parentGroupId: (page, value) => {
     page.parentGroupId = value as string | undefined
@@ -86,6 +90,9 @@ const PAGE_RESTORE_PATCHERS = {
     if (value !== undefined) {
       page.metadata = value as Record<string, unknown> | undefined
     }
+  },
+  colorScheme: (page, value) => {
+    page.colorScheme = value as PageColorScheme | undefined
   },
 } satisfies Record<PageDocField, PagePatcher | null>
 

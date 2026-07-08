@@ -1,5 +1,4 @@
-import type { Dispatch, RefObject, SetStateAction } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type {
   AgentPresenceCursor,
   DrawingBrushType,
@@ -15,20 +14,13 @@ const EMPTY_SELECTION: ToolbarSelectionData = {
   selectedEntityIds: [],
   selectionCount: 0,
   availablePageCount: 0,
-  displayUrl: '',
-  placeholder: '',
-  canGoBack: false,
-  canGoForward: false,
-  isLoadingActivePage: false,
-  loadingPageCount: 0,
-  isLoadingAnySelected: false,
-  loadingPhase: 'idle',
   activeTabId: null,
   activeTabName: null,
   activeTool: { kind: 'select' },
   drawBrushType: 'pen',
   drawColor: '1',
   stickyColor: 'neutral',
+  shapeColor: '1',
 }
 
 export interface ToolbarState {
@@ -39,10 +31,8 @@ export interface ToolbarState {
   drawBrushType: DrawingBrushType
   drawColor: string
   stickyColor: string
+  shapeColor: string
   selection: ToolbarSelectionData
-  addressValue: string
-  setAddressValue: Dispatch<SetStateAction<string>>
-  addressBarRef: RefObject<HTMLInputElement | null>
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
   hasSelection: boolean
   agentCursors: AgentPresenceCursor[]
@@ -53,9 +43,7 @@ export function useToolbarState(): ToolbarState {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
   const [devtoolsOpen, setDevtoolsOpen] = useState(false)
   const [selection, setSelection] = useState<ToolbarSelectionData>(EMPTY_SELECTION)
-  const [addressValue, setAddressValue] = useState('')
   const [agentCursors, setAgentCursors] = useState<AgentPresenceCursor[]>([])
-  const addressBarRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const cleanupZoom = toolbarApi.onZoomChanged((value) => {
@@ -63,20 +51,11 @@ export function useToolbarState(): ToolbarState {
     })
     const cleanupSelection = toolbarApi.onSelectionChanged((data) => {
       setSelection(data)
-      setAddressValue(data.displayUrl)
     })
     const cleanupLeftSidebar = toolbarApi.onLeftSidebarChanged((open) => setLeftSidebarOpen(open))
     const cleanupDevtools = toolbarApi.onDevtoolsChanged((open) => setDevtoolsOpen(open))
     const cleanupPresence = toolbarApi.onAgentPresenceChanged((cursors) => {
       setAgentCursors(cursors)
-    })
-    let focusTimer: ReturnType<typeof setTimeout> | undefined
-    const cleanupFocusAddress = toolbarApi.onFocusAddressBar(() => {
-      clearTimeout(focusTimer)
-      focusTimer = setTimeout(() => {
-        addressBarRef.current?.focus()
-        addressBarRef.current?.select()
-      }, 50)
     })
 
     return () => {
@@ -85,8 +64,6 @@ export function useToolbarState(): ToolbarState {
       cleanupLeftSidebar()
       cleanupDevtools()
       cleanupPresence()
-      cleanupFocusAddress()
-      clearTimeout(focusTimer)
     }
   }, [])
 
@@ -103,10 +80,8 @@ export function useToolbarState(): ToolbarState {
     drawBrushType: selection.drawBrushType,
     drawColor: selection.drawColor,
     stickyColor: selection.stickyColor,
+    shapeColor: selection.shapeColor,
     selection,
-    addressValue,
-    setAddressValue,
-    addressBarRef,
     currentPresetValue,
     hasSelection,
     agentCursors,

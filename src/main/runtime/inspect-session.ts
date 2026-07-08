@@ -252,7 +252,6 @@ function selectedPageSummary(): DevtoolsPanelSelectionSummary | undefined {
     viewportLabel: vp.label,
     width: page.peekWidth ?? vp.width,
     height: page.peekHeight ?? vp.height,
-    linked: page.linked,
   }
 }
 
@@ -379,11 +378,16 @@ function resolveEntityLabel(entityId: string): string {
 function buildMultiEntitySummaries(entityIds: string[]): PanelMultiEntitySummary[] {
   const { selection } = getUiState()
   const kindsById = selection.kind === 'multi-entity' ? selection.entityKindsById : {}
-  return entityIds.map((id) => ({
-    id,
-    kind: kindsById[id] ?? 'page',
-    label: resolveEntityLabel(id),
-  }))
+  return entityIds.map((id) => {
+    const kind = kindsById[id] ?? 'page'
+    const page = kind === 'page' ? findPageById(id) : undefined
+    return {
+      id,
+      kind,
+      label: resolveEntityLabel(id),
+      colorScheme: page?.colorScheme,
+    }
+  })
 }
 
 function buildEntityDetails(mode: PanelMode): Partial<Pick<DevtoolsPanelData, 'textEntity' | 'fileEntity' | 'drawingEntity' | 'shapeEntity' | 'edgeEntity' | 'groupEntity' | 'multiEntities'>> {
@@ -427,7 +431,6 @@ export function notifyDevtoolsPanelData(): void {
     canGoBack: page.pageView.webContents.canGoBack(),
     canGoForward: page.pageView.webContents.canGoForward(),
     isLoading: page.pageView.webContents.isLoading(),
-    linked: page.linked,
   }))
   devtoolsHeaderView.webContents.send(ipcChannels.rightDetailsPanelData, {
     activeTab: uiDevtoolsPanelTab(),

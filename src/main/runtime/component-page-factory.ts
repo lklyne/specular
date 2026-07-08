@@ -28,6 +28,7 @@ import { breadcrumb } from '../sentry-context'
 import { CARD_BORDER_RADIUS } from './runtime-constants'
 import { requestLayout } from './viewport-control'
 import { persistFileEntity, type FileEntity } from './file-entity-state'
+import { installScrollbarCss } from './page-scrollbar-css'
 
 export interface ComponentView {
   entityId: string
@@ -70,6 +71,7 @@ function createView(entityId: string): ComponentView {
   view.webContents.loadURL('about:blank').catch(() => {})
   // Attachment is owned by the layout pass child-list reconcile.
   wireRendererLogging(view.webContents, `component:${entityId}`)
+  installScrollbarCss(view.webContents)
   view.webContents.on('did-finish-load', () => {
     requestLayout()
   })

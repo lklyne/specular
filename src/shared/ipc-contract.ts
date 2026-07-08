@@ -2,6 +2,7 @@ import type {
   AgentPresenceCursor,
   AnnotationElementSelectionPayload,
   AnnotationLiveBboxUpdate,
+  AppThemeMode,
   ConnectedRepo,
   DevtoolsPanelData,
   FixConfig,
@@ -66,6 +67,7 @@ export interface IpcContract {
   'canvas-create-tab': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-drawing-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-edge': { dir: 'renderer→main'; payload: unknown }
+  'canvas-update-edge': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-file-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-group': { dir: 'renderer→main'; payload: unknown }
@@ -74,7 +76,7 @@ export interface IpcContract {
   'canvas-delete-shape': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-tab': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-text-entity': { dir: 'renderer→main'; payload: unknown }
-  'canvas-distribute-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-arrange-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-copy-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-copy-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-entity': { dir: 'renderer→main'; payload: unknown }
@@ -117,7 +119,6 @@ export interface IpcContract {
   'canvas-group-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-guides': { dir: 'main→renderer'; payload: CanvasGuidesPayload }
   'canvas-hover-page': { dir: 'renderer→main'; payload: unknown }
-  'canvas-morph-text-file': { dir: 'invoke'; payload: unknown }
   'canvas-multi-resize-begin': { dir: 'renderer→main'; payload: unknown }
   'canvas-multi-resize-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-navigate-page': { dir: 'renderer→main'; payload: unknown }
@@ -160,6 +161,7 @@ export interface IpcContract {
   'canvas-set-file-device-orientation': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-focus-annotations-visible': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-focus-presentation-mode': { dir: 'renderer→main'; payload: unknown }
+  'canvas-set-page-color-scheme': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-page-custom': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-page-preset': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-selection-preset': { dir: 'renderer→main'; payload: unknown }
@@ -170,8 +172,8 @@ export interface IpcContract {
   'canvas-toggle-device-shell': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-draw-mode': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-file-device-shell': { dir: 'renderer→main'; payload: unknown }
-  'canvas-toggle-linked-page': { dir: 'renderer→main'; payload: unknown }
-  'canvas-toggle-linked-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-toggle-sync-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-unsync-page': { dir: 'renderer→main'; payload: string }
   'canvas-ungroup-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-ungroup-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-update-entity': { dir: 'renderer→main'; payload: unknown }
@@ -197,7 +199,6 @@ export interface IpcContract {
   'dispatch-scroll': { dir: 'main→renderer'; payload: unknown }
   'dispatch-scroll-result': { dir: 'renderer→main'; payload: unknown }
   'fix-progress-update': { dir: 'main→renderer'; payload: LayoutUpdateData['fixProgress'] }
-  'focus-address-bar': { dir: 'main→renderer'; payload: void }
   'get-canvas-layout-bootstrap': { dir: 'invoke'; payload: unknown }
   'get-floating-ui-bootstrap': { dir: 'renderer→main'; payload: unknown }
   'get-left-sidebar-bootstrap': { dir: 'invoke'; payload: unknown }
@@ -268,8 +269,8 @@ export interface IpcContract {
   'right-details-panel-set-file-custom': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-file-preset': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-fix-config': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-set-page-color-scheme': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-preset': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-toggle-linked-page': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
@@ -280,6 +281,7 @@ export interface IpcContract {
   'set-interactive': { dir: 'main→renderer'; payload: unknown }
   'set-multi-selected': { dir: 'main→renderer'; payload: unknown }
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
+  'set-theme-mode': { dir: 'renderer→main'; payload: { mode: AppThemeMode } }
   'settings:close': { dir: 'renderer→main'; payload: unknown }
   'settings:fix-config-changed': { dir: 'main→renderer'; payload: FixConfig }
   'settings:get-initial-data': { dir: 'invoke'; payload: unknown }
@@ -293,16 +295,13 @@ export interface IpcContract {
   'take-dom-snapshot-response': { dir: 'renderer→main'; payload: unknown }
   'toggle-devtools': { dir: 'renderer→main'; payload: unknown }
   'toggle-left-sidebar': { dir: 'renderer→main'; payload: unknown }
-  'toggle-theme': { dir: 'renderer→main'; payload: unknown }
   'tool-defaults-set': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-back-selection': { dir: 'renderer→main'; payload: unknown }
   'toolbar-dropdown-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-dropdown-open': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-forward-selection': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-navigate-selection': { dir: 'renderer→main'; payload: unknown }
-  'toolbar-reload-selection': { dir: 'renderer→main'; payload: unknown }
   'toolbar-selection-changed': { dir: 'main→renderer'; payload: ToolbarSelectionData }
   'toolbar-set-tool': { dir: 'renderer→main'; payload: unknown }
+  'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
+  'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
   'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
@@ -358,6 +357,7 @@ export const ipcChannels = {
   canvasCreateTab: 'canvas-create-tab',
   canvasDeleteDrawingEntity: 'canvas-delete-drawing-entity',
   canvasDeleteEdge: 'canvas-delete-edge',
+  canvasUpdateEdge: 'canvas-update-edge',
   canvasDeleteEntity: 'canvas-delete-entity',
   canvasDeleteFileEntity: 'canvas-delete-file-entity',
   canvasDeleteGroup: 'canvas-delete-group',
@@ -366,7 +366,7 @@ export const ipcChannels = {
   canvasDeleteShape: 'canvas-delete-shape',
   canvasDeleteTab: 'canvas-delete-tab',
   canvasDeleteTextEntity: 'canvas-delete-text-entity',
-  canvasDistributeSelection: 'canvas-distribute-selection',
+  canvasArrangeSelection: 'canvas-arrange-selection',
   canvasDragCopyGroup: 'canvas-drag-copy-group',
   canvasDragCopySelection: 'canvas-drag-copy-selection',
   canvasDragEntity: 'canvas-drag-entity',
@@ -409,7 +409,6 @@ export const ipcChannels = {
   canvasGroupSelection: 'canvas-group-selection',
   canvasGuides: 'canvas-guides',
   canvasHoverPage: 'canvas-hover-page',
-  canvasMorphTextFile: 'canvas-morph-text-file',
   canvasMultiResizeBegin: 'canvas-multi-resize-begin',
   canvasMultiResizeEnd: 'canvas-multi-resize-end',
   canvasNavigatePage: 'canvas-navigate-page',
@@ -452,6 +451,7 @@ export const ipcChannels = {
   canvasSetFileDeviceOrientation: 'canvas-set-file-device-orientation',
   canvasSetFocusAnnotationsVisible: 'canvas-set-focus-annotations-visible',
   canvasSetFocusPresentationMode: 'canvas-set-focus-presentation-mode',
+  canvasSetPageColorScheme: 'canvas-set-page-color-scheme',
   canvasSetPageCustom: 'canvas-set-page-custom',
   canvasSetPagePreset: 'canvas-set-page-preset',
   canvasSetSelectionPreset: 'canvas-set-selection-preset',
@@ -462,8 +462,8 @@ export const ipcChannels = {
   canvasToggleDeviceShell: 'canvas-toggle-device-shell',
   canvasToggleDrawMode: 'canvas-toggle-draw-mode',
   canvasToggleFileDeviceShell: 'canvas-toggle-file-device-shell',
-  canvasToggleLinkedPage: 'canvas-toggle-linked-page',
-  canvasToggleLinkedSelection: 'canvas-toggle-linked-selection',
+  canvasToggleSyncSelection: 'canvas-toggle-sync-selection',
+  canvasUnsyncPage: 'canvas-unsync-page',
   canvasUngroupGroup: 'canvas-ungroup-group',
   canvasUngroupSelection: 'canvas-ungroup-selection',
   canvasUpdateEntity: 'canvas-update-entity',
@@ -488,7 +488,6 @@ export const ipcChannels = {
   dispatchScroll: 'dispatch-scroll',
   dispatchScrollResult: 'dispatch-scroll-result',
   fixProgressUpdate: 'fix-progress-update',
-  focusAddressBar: 'focus-address-bar',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',
   getLeftSidebarBootstrap: 'get-left-sidebar-bootstrap',
@@ -558,8 +557,8 @@ export const ipcChannels = {
   rightDetailsPanelSetFileCustom: 'right-details-panel-set-file-custom',
   rightDetailsPanelSetFilePreset: 'right-details-panel-set-file-preset',
   rightDetailsPanelSetFixConfig: 'right-details-panel-set-fix-config',
+  rightDetailsPanelSetPageColorScheme: 'right-details-panel-set-page-color-scheme',
   rightDetailsPanelSetPagePreset: 'right-details-panel-set-page-preset',
-  rightDetailsPanelToggleLinkedPage: 'right-details-panel-toggle-linked-page',
   rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',
@@ -569,6 +568,7 @@ export const ipcChannels = {
   setInspectionMode: 'set-inspection-mode',
   setInteractive: 'set-interactive',
   setMultiSelected: 'set-multi-selected',
+  setThemeMode: 'set-theme-mode',
   settingsClose: 'settings:close',
   settingsFixConfigChanged: 'settings:fix-config-changed',
   settingsGetInitialData: 'settings:get-initial-data',
@@ -582,16 +582,13 @@ export const ipcChannels = {
   takeDomSnapshotResponse: 'take-dom-snapshot-response',
   toggleDevtools: 'toggle-devtools',
   toggleLeftSidebar: 'toggle-left-sidebar',
-  toggleTheme: 'toggle-theme',
   toolDefaultsSet: 'tool-defaults-set',
-  toolbarBackSelection: 'toolbar-back-selection',
   toolbarDropdownClose: 'toolbar-dropdown-close',
   toolbarDropdownOpen: 'toolbar-dropdown-open',
-  toolbarForwardSelection: 'toolbar-forward-selection',
-  toolbarNavigateSelection: 'toolbar-navigate-selection',
-  toolbarReloadSelection: 'toolbar-reload-selection',
   toolbarSelectionChanged: 'toolbar-selection-changed',
   toolbarSetTool: 'toolbar-set-tool',
+  toolbarTooltipClose: 'toolbar-tooltip-close',
+  toolbarTooltipOpen: 'toolbar-tooltip-open',
   viewportNudge: 'viewport-nudge',
   writeNoteFile: 'write-note-file',
   zoomChanged: 'zoom-changed',

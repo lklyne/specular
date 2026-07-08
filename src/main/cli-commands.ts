@@ -159,30 +159,27 @@ const add: VerbHandler = async (args) => {
   return 0
 }
 
-// Rearrange existing entities into a row / column / grid (ADR 0019 §1). Compiles
-// to an apply patch whose items are bare ids and whose layout directive the
-// apply spine resolves into new positions — no separate move/resize verbs.
+// Rearrange existing entities into a row / column / grid (ADR 0019 §1) through
+// the same brain as the popup toolbar (`/selection/arrange` → `arrangeEntities`).
+// Default tidies in place (keeps the footprint, evens the gaps); `--gap` packs
+// tight to a fixed gap in reading order instead. No ids uses the current selection.
 const arrange: VerbHandler = async (args) => {
-  const kind = args.positional[0]
-  if (kind !== 'row' && kind !== 'column' && kind !== 'grid') {
-    printError('usage: specular arrange <row|column|grid> <id> [id...] [--gap m] [--cols N]')
+  const mode = args.positional[0]
+  if (mode !== 'row' && mode !== 'column' && mode !== 'grid') {
+    printError('usage: specular arrange <row|column|grid> [id...] [--gap m] [--cols N]  (no ids uses current selection)')
     return 1
   }
-  const ids = args.positional.slice(1)
-  if (ids.length === 0) { printError('arrange: needs at least one entity id'); return 1 }
-  const layout: Record<string, unknown> = { kind }
-  if (args.flags.gap !== undefined) {
-    const n = Number(args.flags.gap)
-    layout.gap = isNaN(n) ? args.flags.gap : n
-  }
-  if (args.flags.cols) layout.cols = Number(args.flags.cols)
-  const err = validateLayoutDirective(layout)
-  if (err) { printError(`arrange: ${err}`); return 1 }
-  const result = await applyPatch({
-    entities: ids.map((id) => ({ id })),
-    layout: layout as unknown as CanvasPatch['layout'],
+  const entityIds = args.positional.slice(1)
+  const gapFlag = args.flags.gap
+  const gap =
+    gapFlag === undefined ? undefined : isNaN(Number(gapFlag)) ? gapFlag : Number(gapFlag)
+  const body = JSON.stringify({
+    mode,
+    ...(entityIds.length > 0 ? { entityIds } : {}),
+    ...(gap !== undefined ? { gap } : {}),
+    ...(args.flags.cols ? { cols: Number(args.flags.cols) } : {}),
   })
-  printJson({ arranged: result.updated })
+  printJson(await callApp('/selection/arrange', { method: 'POST', body }))
   return 0
 }
 
@@ -317,19 +314,6 @@ const autoLayout: VerbHandler = async (args) => {
   return 0
 }
 
-// Even out gaps between 3+ loose entities along their dominant axis. Endpoints
-// stay fixed; the middle items slide to equalize edge-to-edge spacing. (ADR 0015 D7)
-const distribute: VerbHandler = async (args) => {
-  if (args.positional.length > 0 && args.positional.length < 3) {
-    printError('usage: specular distribute <entityId> <entityId> <entityId> [entityId...]  (or no args to use current selection)')
-    return 1
-  }
-  const body = args.positional.length > 0
-    ? JSON.stringify({ entityIds: args.positional })
-    : JSON.stringify({})
-  printJson(await callApp('/selection/distribute', { method: 'POST', body }))
-  return 0
-}
 
 // --- Annotation verbs ---
 
@@ -601,7 +585,6 @@ const VERBS: Record<string, VerbHandler> = {
   group,
   ungroup,
   'auto-layout': autoLayout,
-  distribute,
   annotations,
   annotation,
   annotate,
@@ -638,7 +621,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
-    printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, distribute, find-placement')
+    printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')
     printText('Unknown verbs are passed to agent-browser as raw commands.')
     return 0

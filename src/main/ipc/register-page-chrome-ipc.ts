@@ -36,7 +36,7 @@ export function registerPageChromeIpc(): void {
 
   ipcMain.on(ipcChannels.pageScrollChanged, (event, data: ScrollSyncData) => {
     const page = findPageByPageView(event.sender)
-    if (!page || !page.linked) return
+    if (!page || !page.syncId) return
     if (isScrollSuppressed(page)) return
     propagateScrollFromPage(page, data)
   })

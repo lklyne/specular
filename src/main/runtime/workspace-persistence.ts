@@ -5,6 +5,7 @@ import type {
   Annotation,
   DevtoolsPanelTab,
   LegacyPersistedWorkspaceStore,
+  PageColorScheme,
   PersistedCanvasEntity,
   PersistedPageEntity,
   PersistedWorkspaceRecord,
@@ -42,11 +43,12 @@ type PersistablePageSnapshotInput = {
   presetIndex: number
   canvasX: number
   canvasY: number
-  linked: boolean
+  syncId?: string | null
   source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  colorScheme?: PageColorScheme
 }
 
 type AutosaveSchedulerOptions = {
@@ -232,11 +234,12 @@ export function buildPageSnapshot(
     presetIndex: page.presetIndex,
     canvasX: page.canvasX,
     canvasY: page.canvasY,
-    linked: page.linked,
+    syncId: page.syncId ?? null,
     source: page.source,
     parentGroupId: page.parentGroupId ?? page.groupId,
     groupId: page.parentGroupId ?? page.groupId,
     metadata: page.metadata,
+    colorScheme: page.colorScheme,
   }
 }
 
@@ -251,11 +254,12 @@ export function pageSnapshotToEntity(page: WorkspacePageSnapshot): PersistedPage
     presetIndex: page.presetIndex,
     canvasX: page.canvasX,
     canvasY: page.canvasY,
-    linked: page.linked,
+    syncId: page.syncId ?? null,
     source: page.source,
     parentGroupId: page.parentGroupId ?? page.groupId,
     groupId: page.parentGroupId ?? page.groupId,
     metadata: page.metadata,
+    colorScheme: page.colorScheme,
   }
 }
 
@@ -268,11 +272,12 @@ export function entityToPageSnapshot(entity: PersistedCanvasEntity): WorkspacePa
     presetIndex: entity.presetIndex,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
-    linked: entity.linked,
+    syncId: entity.syncId ?? null,
     source: entity.source,
     parentGroupId: entity.parentGroupId ?? entity.groupId,
     groupId: entity.parentGroupId ?? entity.groupId,
     metadata: entity.metadata,
+    colorScheme: entity.colorScheme,
   }
 }
 

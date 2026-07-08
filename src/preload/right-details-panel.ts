@@ -65,6 +65,8 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelDeleteEdge, { id }),
   setPagePreset: (pageId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetPagePreset, { pageId, presetIndex }),
+  setPageColorScheme: (pageId, colorScheme) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelSetPageColorScheme, { pageId, colorScheme }),
   setPageCustom: (pageId: string) =>
     ipcRenderer.send(ipcChannels.canvasSetPageCustom, { pageId }),
   setDeviceOrientation: (pageId: string, orientation: string) =>
@@ -78,8 +80,6 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelToggleSvgDeviceShell, { pageId }),
   duplicatePage: (pageId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelDuplicatePage, { pageId }),
-  toggleLinkedPage: (pageId: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelToggleLinkedPage, { pageId }),
   deletePage: (pageId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelDeletePage, { pageId }),
   openBrowserDevTools: () => ipcRenderer.send(ipcChannels.rightDetailsPanelOpenBrowserDevtools),

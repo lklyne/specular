@@ -2,17 +2,17 @@
 <g clip-path="url(#clip0_410_35)">
 <g clip-path="url(#clip1_410_35)">
 <rect x="0.5" y="1" width="16" height="12" rx="2" fill="url(#paint0_linear_410_35)"/>
-<rect y="1" width="25" height="5" fill="#65625D" stroke="#C4BEBB"/>
-<circle cx="3.5" cy="3.5" r="1" fill="#C4BEBB"/>
-<circle cx="6.5" cy="3.5" r="1" fill="#C4BEBB"/>
-<circle cx="9.5" cy="3.5" r="1" fill="#C4BEBB"/>
+<rect y="1" width="25" height="5" fill="#65625D" stroke="#E2DEDB"/>
+<circle cx="3.5" cy="3.5" r="1" fill="#E2DEDB"/>
+<circle cx="6.5" cy="3.5" r="1" fill="#E2DEDB"/>
+<circle cx="9.5" cy="3.5" r="1" fill="#E2DEDB"/>
 </g>
-<rect x="0.5" y="1" width="16" height="12" rx="2" stroke="#C4BEBB"/>
+<rect x="0.5" y="1" width="16" height="12" rx="2" stroke="#E2DEDB"/>
 <g clip-path="url(#clip2_410_35)">
 <rect x="11.123" y="3" width="9" height="14" rx="2.32621" transform="rotate(15 11.123 3)" fill="url(#paint1_linear_410_35)"/>
-<line x1="10.5616" y1="14.7548" x2="14.4253" y2="15.7901" stroke="#C4BEBB" stroke-linecap="round"/>
+<line x1="10.5616" y1="14.7548" x2="14.4253" y2="15.7901" stroke="#E2DEDB" stroke-linecap="round"/>
 </g>
-<rect x="11.123" y="3" width="9" height="14" rx="2.32621" transform="rotate(15 11.123 3)" stroke="#C4BEBB"/>
+<rect x="11.123" y="3" width="9" height="14" rx="2.32621" transform="rotate(15 11.123 3)" stroke="#E2DEDB"/>
 </g>
 <defs>
 <linearGradient id="paint0_linear_410_35" x1="8.5" y1="1" x2="8.5" y2="13" gradientUnits="userSpaceOnUse">

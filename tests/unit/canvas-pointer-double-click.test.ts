@@ -29,18 +29,6 @@ describe('routePointerDoubleClick', () => {
     ).toEqual({ kind: 'enter-group', groupId: 'g1' })
   })
 
-  it('group chrome → enter-group-rename', () => {
-    expect(
-      routePointerDoubleClick(target({ kind: 'chrome', entityId: 'g1', entityKind: 'group' })),
-    ).toEqual({ kind: 'enter-group-rename', groupId: 'g1' })
-  })
-
-  it('page chrome → noop (chrome owns its own dbl-click)', () => {
-    expect(
-      routePointerDoubleClick(target({ kind: 'chrome', entityId: 'f1', entityKind: 'page' })),
-    ).toEqual({ kind: 'noop' })
-  })
-
   it('editable file body (markdown/wireframe/video) → request-entity-edit', () => {
     expect(
       routePointerDoubleClick(

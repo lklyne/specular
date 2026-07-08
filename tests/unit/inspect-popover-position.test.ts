@@ -20,7 +20,7 @@ function page(overrides: Partial<CanvasScenePageEntity> = {}): CanvasScenePageEn
     width: 1000,
     height: 800,
     presetIndex: 0,
-    linked: false,
+    synced: false,
     screenX: 300,
     screenY: 120,
     screenWidth: 500,

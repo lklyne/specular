@@ -4,7 +4,6 @@ import type { WorkspaceBounds } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import {
   CARD_BORDER_WIDTH,
-  CHROME_HEADER_HEIGHT,
   LEFT_SIDEBAR_WIDTH,
   TOOLBAR_HEIGHT,
   devtoolsPanelDebug,
@@ -81,9 +80,9 @@ export function pageShellInsets(
  *   unframed: { x: canvasX,             y: canvasY,             w: bodyW, h: bodyH }
  *   framed:   { x: canvasX,             y: canvasY,             w: bodyW + lr, h: bodyH + tb }
  *
- * This is the rect that alignment guides and grid snap should use. Chrome
- * lives above it (see `pageVisualBounds`); the body sits inside it (see
- * `pageBodyCanvasBounds`) — offset by the bezel insets when framed.
+ * This is the rect that alignment guides and grid snap should use. The body
+ * sits inside it (see `pageBodyCanvasBounds`) — offset by the bezel insets
+ * when framed.
  */
 export function pageSnapBounds(
   page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
@@ -127,8 +126,8 @@ export function pageBodyCanvasBounds(
 }
 
 /**
- * Visual bounds = snap rect extended upward by the chrome strip. Used for
- * selection outlines that should wrap chrome and for placement claims.
+ * Visual bounds = the snap rect. Used for selection outlines and placement
+ * claims. Pages have no chrome band, so visual bounds hug the body.
  */
 export function pageVisualBounds(
   page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
@@ -140,26 +139,7 @@ export function pageVisualBoundsForContentSize(
   page: Pick<Page, 'canvasX' | 'canvasY' | 'metadata'>,
   size: { width: number; height: number },
 ): WorkspaceBounds {
-  const snap = pageSnapBoundsForContentSize(page, size)
-  return {
-    x: snap.x,
-    y: snap.y - CHROME_HEADER_HEIGHT,
-    width: snap.width,
-    height: snap.height + CHROME_HEADER_HEIGHT,
-  }
-}
-
-/** Chrome band that floats above the snap rect. */
-export function frameChromeCanvasBounds(
-  page: Pick<Page, 'presetIndex' | 'canvasX' | 'canvasY' | 'peekWidth' | 'peekHeight' | 'metadata'>,
-): WorkspaceBounds {
-  const snap = pageSnapBounds(page)
-  return {
-    x: snap.x,
-    y: snap.y - CHROME_HEADER_HEIGHT,
-    width: snap.width,
-    height: CHROME_HEADER_HEIGHT,
-  }
+  return pageSnapBoundsForContentSize(page, size)
 }
 
 /**
@@ -234,14 +214,12 @@ export function computeScreenBoundsForPage(input: {
   cardBorderWidth: number
 }): {
   frame: { x: number; y: number; width: number; height: number }
-  chrome: { x: number; y: number; width: number; height: number }
   page: { x: number; y: number; width: number; height: number }
   shell: { x: number; y: number; width: number; height: number }
 } {
   const { width: w, height: h } = input.effectivePageContentSize(input.page)
   const bw = input.cardBorderWidth
   const displayZoom = input.zoom
-  const chromeH = Math.round(CHROME_HEADER_HEIGHT * input.zoom)
   const contentW = Math.round(w * displayZoom)
   const fullPageH = Math.round(h * displayZoom)
   const pageH = fullPageH
@@ -252,27 +230,25 @@ export function computeScreenBoundsForPage(input: {
   const insetBottom = Math.round((insets?.bottom ?? 0) * displayZoom)
 
   // `snapTopScreenY` is the snap-rect top in screen space: the bezel top
-  // when framed, body top when not. Body lives at snapTopScreenY + insetTop,
-  // chrome floats above at snapTopScreenY - chromeH.
+  // when framed, body top when not. Body lives at snapTopScreenY + insetTop.
   const snapTopScreenY =
     Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight
   const snapLeftScreenX = Math.round(input.page.canvasX * input.zoom + input.pan.x)
 
-  const rawChromeX = snapLeftScreenX + insetLeft
+  const pageX = snapLeftScreenX + insetLeft
   const pageY = snapTopScreenY + insetTop
-  const chromeY = snapTopScreenY - chromeH
   // Shell rect (device page bezel) wraps the content rect, offset outward by
   // the bezel insets. Anchoring off the content rect keeps the bezel locked
   // to the page body.
   const shellRect = insets
     ? {
-        x: rawChromeX - insetLeft,
+        x: pageX - insetLeft,
         y: pageY - insetTop,
         width: contentW + insetLeft + insetRight,
         height: pageH + insetTop + insetBottom,
       }
     : {
-        x: rawChromeX - bw,
+        x: pageX - bw,
         y: pageY - bw,
         width: contentW + 2 * bw,
         height: pageH + 2 * bw,
@@ -280,19 +256,13 @@ export function computeScreenBoundsForPage(input: {
 
   return {
     frame: {
-      x: rawChromeX - bw,
+      x: pageX - bw,
       y: pageY - bw,
       width: contentW + 2 * bw,
       height: pageH + 2 * bw,
     },
-    chrome: {
-      x: rawChromeX,
-      y: chromeY,
-      width: contentW,
-      height: chromeH,
-    },
     page: {
-      x: rawChromeX,
+      x: pageX,
       y: pageY,
       width: contentW,
       height: pageH,

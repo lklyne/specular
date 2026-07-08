@@ -62,11 +62,10 @@ and reflows its children; it no-ops on unmanaged groups.
 
 | Command | Purpose |
 |---|---|
-| `specular arrange row\|column\|grid <id…> [--gap m] [--cols N]` | Rearrange existing entities |
+| `specular arrange row\|column\|grid [id…] [--cols N]` | Tidy entities (ids, or current selection) in place: keep the footprint, even the gaps. Add `--gap m` to pack tight to a fixed gap instead |
 | `specular group <id…>` | Group entities together |
 | `specular ungroup <groupId>` | Dissolve a group |
 | `specular auto-layout <id…> [--gap N]` | Make a managed auto-layout row or column from a selection (or convert a single group) — the mode follows the selection's dominant axis; children pack along it and can be drag-reordered; `--gap N` sets the packing gap (px) |
-| `specular distribute <id…>` | Even out gaps between 3+ loosely-spaced entities |
 | `specular focus <id…>` | Scroll the viewport so the entity is centered |
 | `specular link <a> <b> [--label <text>]` | Connect two entities with an edge |
 | `specular unlink <edgeId…>` | Remove edges |

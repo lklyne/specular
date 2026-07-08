@@ -28,7 +28,7 @@ export default function App({
     ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV ??
       false) === true
   const bgRef = useRef<HTMLDivElement>(null)
-  const isDark = useTheme(initialTheme, api.onThemeChanged)
+  const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
   const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)

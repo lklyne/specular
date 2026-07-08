@@ -9,7 +9,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { reorderableDots } from '../../src/shared/reorderable-dots'
-import type { CanvasSceneGroupEntity, CanvasSceneTextEntity } from '../../src/shared/types'
+import type {
+  CanvasSceneGroupEntity,
+  CanvasScenePageEntity,
+  CanvasSceneTextEntity,
+} from '../../src/shared/types'
 
 // Canvas and screen coords coincide so the detector and the dot center agree.
 function box(id: string, x: number, w = 100): CanvasSceneTextEntity {
@@ -48,6 +52,36 @@ function managedRow(id: string, entityIds: string[]): CanvasSceneGroupEntity {
   }
 }
 
+/**
+ * A device-framed page at zoom 1: canvas `width` is the web-content size, but
+ * the shell it occupies (and the dot center) adds a `bezel` on each side. The
+ * shell size is carried on the screen bounds; `x` is the shell's left edge.
+ */
+function framedPage(id: string, x: number, contentW: number, bezel: number): CanvasScenePageEntity {
+  const shellW = contentW + bezel * 2
+  return {
+    kind: 'page',
+    id,
+    label: 'p',
+    url: 'https://example.com',
+    canGoBack: false,
+    canGoForward: false,
+    isLoading: false,
+    isCustomSize: false,
+    canvasX: x,
+    canvasY: 200,
+    width: contentW,
+    height: 400,
+    presetIndex: 0,
+    synced: false,
+    screenX: x,
+    screenY: 200,
+    screenWidth: shellW,
+    screenHeight: 400,
+    showDeviceFrame: true,
+  }
+}
+
 const ids = (dots: { id: string }[]) => dots.map((d) => d.id).sort()
 
 describe('reorderableDots — selection door', () => {
@@ -73,6 +107,22 @@ describe('reorderableDots — selection door', () => {
   it('lights nothing on a single selection', () => {
     const entities = [box('a', 100), box('b', 250)]
     expect(reorderableDots({ entities, selectedEntityIds: ['a'] })).toEqual([])
+  })
+
+  it('lights a shell-even row of mixed-frame pages (content gaps differ)', () => {
+    // Shells packed at a constant 40px gap: a[0..200], b[240..440], c[480..680].
+    // But 'a' is unframed and 'b','c' carry a 30px bezel, so the *content*-box
+    // gaps come out unequal — the pre-screen-box detector would drop the dots.
+    const entities = [
+      framedPage('a', 0, 200, 0),
+      framedPage('b', 240, 140, 30),
+      framedPage('c', 480, 140, 30),
+    ]
+    const dots = reorderableDots({ entities, selectedEntityIds: ['a', 'b', 'c'] })
+    expect(ids(dots)).toEqual(['a', 'b', 'c'])
+    // Dot rides the shell center, not the content center.
+    const a = dots.find((d) => d.id === 'a')!
+    expect(a.center.x).toBe(100)
   })
 })
 

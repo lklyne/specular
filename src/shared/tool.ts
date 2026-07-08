@@ -10,6 +10,7 @@ export type Tool =
   | { kind: 'hand' }
   | { kind: 'add-page'; presetIndex?: number; customSize?: boolean; sourcePageId?: string }
   | { kind: 'add-text' }
+  | { kind: 'add-document' }
   | { kind: 'add-sticky' }
   | { kind: 'add-shape' }
   | { kind: 'comment' }
@@ -25,6 +26,7 @@ export const toolDuration: Record<ToolKind, ToolDuration> = {
   hand: 'persistent',
   'add-page': 'one-shot',
   'add-text': 'one-shot',
+  'add-document': 'one-shot',
   'add-sticky': 'one-shot',
   'add-shape': 'one-shot',
   comment: 'persistent',
@@ -49,6 +51,7 @@ export function isPersistent(kind: ToolKind): boolean {
  */
 export function toolHasPopup(tool: Tool): boolean {
   return (
+    tool.kind === 'add-page' ||
     tool.kind === 'add-text' ||
     tool.kind === 'add-sticky' ||
     tool.kind === 'add-shape' ||
@@ -64,6 +67,7 @@ export function isPlacementTool(tool: Tool): boolean {
   return (
     tool.kind === 'add-page' ||
     tool.kind === 'add-text' ||
+    tool.kind === 'add-document' ||
     tool.kind === 'add-sticky' ||
     tool.kind === 'add-shape'
   )
@@ -118,6 +122,8 @@ export function toolGerund(tool: Tool): string {
       return 'adding page'
     case 'add-text':
       return 'adding text'
+    case 'add-document':
+      return 'adding document'
     case 'add-sticky':
       return 'adding sticky note'
     case 'add-shape':

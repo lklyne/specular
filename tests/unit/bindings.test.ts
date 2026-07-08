@@ -282,6 +282,32 @@ describe('dispatchKey — Escape resolution', () => {
     ).toBe('annotation-clear-draft')
   })
 
+  it('returns annotation-clear-draft while typing in the composer (aboveView)', () => {
+    // Without firesWhileTyping this falls through to escape-tool, which
+    // preventDefaults then no-ops while typing — swallowing Escape.
+    const ctx: BindingContext = {
+      ...ACTIVE_CTX,
+      sourceView: 'aboveView',
+      isTextEditing: true,
+      hasPendingAnnotation: true,
+    }
+    expect(
+      dispatchKey(BINDINGS, { key: 'escape', cmd: false, alt: false, shift: false }, ctx),
+    ).toBe('annotation-clear-draft')
+  })
+
+  it('returns annotation-close-thread while typing a reply (aboveView)', () => {
+    const ctx: BindingContext = {
+      ...ACTIVE_CTX,
+      sourceView: 'aboveView',
+      isTextEditing: true,
+      hasOpenAnnotationThread: true,
+    }
+    expect(
+      dispatchKey(BINDINGS, { key: 'escape', cmd: false, alt: false, shift: false }, ctx),
+    ).toBe('annotation-close-thread')
+  })
+
   it('returns escape-tool when no annotation state from aboveView', () => {
     const ctx: BindingContext = {
       ...ACTIVE_CTX,

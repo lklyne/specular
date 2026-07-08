@@ -67,7 +67,7 @@ export const toolSchemas = [
 If id matches an existing entity → update. No id → create.
 
 Kind-specific fields:
-  page — url, presetIndex, canvasX, canvasY, orientation, showDeviceFrame (default true), linked, groupId
+  page — url, presetIndex, canvasX, canvasY, orientation, showDeviceFrame (default true), groupId
   text  — text (Markdown), color (hex "#RRGGBB" or preset 1-6: red/orange/yellow/green/cyan/purple), canvasX, canvasY, width, height
   file  — file (absolute path), subpath, canvasX, canvasY, width, height
          Files ending in .wireframe.json render as interactive wireframe editors (see SKILL.md for schema).
@@ -96,7 +96,6 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
               presetIndex: { type: 'number', description: 'Device preset index (0-8).' },
               orientation: { type: 'string', enum: ['portrait', 'landscape'] },
               showDeviceFrame: { type: 'boolean', description: 'Show device bezel. Default true for new pages.' },
-              linked: { type: 'boolean', description: 'Sync navigation across same-URL pages. Default false.' },
               groupId: { type: 'string' },
               // Text
               text: { type: 'string', description: 'Markdown content (text entity).' },

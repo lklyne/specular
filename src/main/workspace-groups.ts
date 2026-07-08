@@ -52,6 +52,8 @@ function getEntityParentGroupId(entityId: string): string | undefined {
     findPageById(entityId)?.parentGroupId ??
     textEntities.find((entity) => entity.id === entityId)?.parentGroupId ??
     fileEntities.find((entity) => entity.id === entityId)?.parentGroupId ??
+    shapeEntities.find((entity) => entity.id === entityId)?.parentGroupId ??
+    drawingEntities.find((entity) => entity.id === entityId)?.parentGroupId ??
     groupById(entityId)?.parentGroupId
   )
 }
@@ -63,6 +65,10 @@ function setEntityParentGroupId(entityId: string, parentGroupId: string | undefi
   if (textEntity) { textEntity.parentGroupId = parentGroupId; return }
   const fileEntity = fileEntities.find((entity) => entity.id === entityId)
   if (fileEntity) { fileEntity.parentGroupId = parentGroupId; return }
+  const shapeEntity = shapeEntities.find((entity) => entity.id === entityId)
+  if (shapeEntity) { shapeEntity.parentGroupId = parentGroupId; return }
+  const drawingEntity = drawingEntities.find((entity) => entity.id === entityId)
+  if (drawingEntity) { drawingEntity.parentGroupId = parentGroupId; return }
   const childGroup = groupById(entityId)
   if (childGroup) childGroup.parentGroupId = parentGroupId
 }
@@ -200,11 +206,12 @@ function duplicateGroupInternal(
         presetIndex: page.presetIndex,
         canvasX: snapToGrid(page.canvasX + offsetX),
         canvasY: snapToGrid(page.canvasY + offsetY),
-        linked: false,
+        syncId: null,
         suppressInitialNavigationBroadcast: true,
         source: page.source,
         parentGroupId: clonedGroup.id,
         metadata: cloneMetadata(page.metadata),
+        colorScheme: page.colorScheme,
       })
       entityIdMap.set(page.id, duplicatedPage.id)
       duplicatedEntityIds.push(duplicatedPage.id)

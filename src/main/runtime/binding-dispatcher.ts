@@ -1,16 +1,18 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. binding-handlers → runtime-core → page-factory/window-init import binding-dispatcher back
 import { ipcChannels } from '../../shared/ipc-contract'
+import type { Tool } from '../../shared/tool'
 import type { WebContents } from 'electron'
 import {
   BINDINGS,
+  CANVAS_REGION,
   dispatchKey,
   normalizeElectronInput,
   type BindingContext,
   type KeyboardSourceView,
 } from '../../shared/bindings'
 import { setSpaceModifierHeld } from './runtime-context'
-import { activeTool } from './tool-mode'
+import { activeTool, setActiveTool } from './tool-mode'
 import { aboveView } from './view-refs'
 import { mainHandlers } from './binding-handlers'
 import { hasFocusReturnCamera } from './viewport-control'
@@ -59,6 +61,37 @@ export function buildBindingContext(
 
 const attachedWebContents = new WeakSet<WebContents>()
 
+// Hold Space to momentarily switch to the hand tool; release to restore the
+// prior tool. Keyup can't be a binding (the table is keydown-only), so this
+// lives on the raw before-input-event stream. Non-null while held.
+let toolBeforeSpacePan: Tool | null = null
+
+function handleSpacePanToggle(
+  isDown: boolean,
+  sourceView: KeyboardSourceView,
+  webContents: WebContents,
+): void {
+  if (isDown) {
+    // Space types a space in a text field and scrolls a focused page; only
+    // hijack it over the canvas surface.
+    if (!CANVAS_REGION.includes(sourceView)) return
+    if (isTextEditingFor(webContents)) return
+    // Guarding on the live tool (not the latch flag) covers both autorepeat
+    // keyDowns and self-heals a stale latch left by a keyup lost to a
+    // window-focus change: the next real press re-latches from the true tool.
+    const prev = activeTool()
+    if (prev.kind === 'hand') return
+    toolBeforeSpacePan = prev
+    setActiveTool({ kind: 'hand' })
+    return
+  }
+  // Keyup restores unconditionally — if we never latched, this is a no-op.
+  if (!toolBeforeSpacePan) return
+  const restore = toolBeforeSpacePan
+  toolBeforeSpacePan = null
+  setActiveTool(restore)
+}
+
 export function attachBindingDispatcher(
   webContents: WebContents,
   sourceView: KeyboardSourceView,
@@ -75,6 +108,7 @@ export function attachBindingDispatcher(
     // stay in sync even when focus is in an input that consumes Space natively.
     if (input.key === ' ' || input.code === 'Space') {
       setSpaceModifierHeld(input.type === 'keyDown')
+      handleSpacePanToggle(input.type === 'keyDown', sourceView, webContents)
     }
 
     const normalizedKey = normalizeElectronInput(input)

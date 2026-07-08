@@ -10,6 +10,7 @@ function state(overrides: Partial<FocusState> = {}): FocusState {
     focusedPageId: null,
     sidebarTextInputActive: false,
     toolbarTextInputActive: false,
+    toolbarDropdownOpen: false,
     ...overrides,
   }
 }
@@ -69,6 +70,16 @@ describe('expectedFocus', () => {
 
   it('routes to toolbar when toolbarTextInputActive', () => {
     expect(expectedFocus(state({ toolbarTextInputActive: true }))).toEqual({ kind: 'toolbar' })
+  })
+
+  it('routes to toolbar when a toolbar dropdown is open', () => {
+    expect(expectedFocus(state({ toolbarDropdownOpen: true }))).toEqual({ kind: 'toolbar' })
+  })
+
+  it('toolbarDropdownOpen overrides page focus', () => {
+    expect(expectedFocus(state({ toolbarDropdownOpen: true, focusedPageId: 'p1' }))).toEqual({
+      kind: 'toolbar',
+    })
   })
 
   it('toolbarTextInputActive overrides page focus', () => {

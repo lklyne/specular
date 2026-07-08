@@ -208,11 +208,12 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
         presetIndex: normalizePresetIndex(page.presetIndex),
         canvasX: page.canvasX,
         canvasY: page.canvasY,
-        linked: page.linked,
+        syncId: page.syncId ?? null,
         source: page.source ?? 'manual',
         parentGroupId: page.parentGroupId ?? page.groupId,
         groupId: page.parentGroupId ?? page.groupId,
         metadata: page.metadata,
+        colorScheme: page.colorScheme,
       })
       if (page.id) restoredPageIds.add(page.id)
     }
@@ -229,11 +230,12 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             presetIndex: entity.presetIndex,
             canvasX: entity.canvasX,
             canvasY: entity.canvasY,
-            linked: entity.linked,
+            syncId: entity.syncId ?? null,
             source: entity.source ?? 'manual',
             parentGroupId: entity.parentGroupId ?? entity.groupId,
             groupId: entity.parentGroupId ?? entity.groupId,
             metadata: entity.metadata,
+            colorScheme: entity.colorScheme,
           })
         } else if (entity?.kind === 'text' || (entity as any)?.kind === 'sticky-note') {
           createTextEntityInState({

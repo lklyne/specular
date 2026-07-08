@@ -89,7 +89,7 @@ import { capturePointer, startPointerSession } from './pointer-session'
 
 /** Live draft snapshot the comment gesture consults on pointerup — a click
  *  away from an empty composer dismisses it instead of opening a new one. */
-export interface CommentDraftSnapshot {
+interface CommentDraftSnapshot {
   pendingAnnotation: object | null
   pendingRegionRect: object | null
   commentText: string
@@ -129,6 +129,13 @@ interface UseCanvasPointerRouterOptions {
   /** Comment-gesture region marquee commit → region anchor. */
   onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
   commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
+  /** The interactive file entity (HTML iframe) the user has entered, mirrored
+   *  as a ref so each pointerdown reads it live. Renderer-owned state. */
+  enteredEntityIdRef: React.MutableRefObject<string | null>
+  /** Enter interactivity on an interactive file (the select-first / interact-
+   *  second second click, or a double-click). Sets the renderer-local
+   *  entered id, flipping the iframe's pointer-events on. */
+  onEnterEntityInteractive: (entityId: string) => void
 }
 
 /** Canvas-space pointer delta since a reorder grab — drives the floating ghost.
@@ -139,6 +146,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'noop',
   'page-body-press',
   'enter-page-interactive',
+  'enter-entity-interactive',
   'forward-pointer-down',
   'begin-entity-drag',
   'begin-entity-press',
@@ -167,8 +175,6 @@ function layoutToHitInputs(layout: {
   edges?: HitInputs['edges'] | null
   selectedEntityIds: HitInputs['selectedEntityIds']
   selectedGroupId?: string | null
-  keyboardTargetPageId?: string | null
-  focusPresentation?: { pageId: string } | null
   hover?: { id: string } | null
   zoom?: number | null
 }): HitInputs {
@@ -177,8 +183,6 @@ function layoutToHitInputs(layout: {
     edges: layout.edges ?? [],
     selectedEntityIds: layout.selectedEntityIds,
     selectedGroupId: layout.selectedGroupId ?? null,
-    keyboardTargetPageId: layout.keyboardTargetPageId ?? null,
-    focusPresentationPageId: layout.focusPresentation?.pageId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
   }
@@ -199,6 +203,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     onCommentDragMove,
     onCommentDragEnd,
     commentDraftRef,
+    enteredEntityIdRef,
+    onEnterEntityInteractive,
   } = options
   const apiRef = useRef(api)
   apiRef.current = api
@@ -208,6 +214,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
   setEdgeDragStateRef.current = setEdgeDragState
   const commentGestureRef = useRef({ onCommentDragMove, onCommentDragEnd })
   commentGestureRef.current = { onCommentDragMove, onCommentDragEnd }
+  const onEnterEntityInteractiveRef = useRef(onEnterEntityInteractive)
+  onEnterEntityInteractiveRef.current = onEnterEntityInteractive
 
   useEffect(() => {
     if (owner !== 'router' && owner !== 'tool-gesture') return
@@ -234,6 +242,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         editingEntityId:
           layout.interaction.kind === 'editing-entity' ? layout.interaction.entityId : null,
         interactivePageId: layout.interactivePageId ?? null,
+        interactiveEntityId: enteredEntityIdRef.current,
         placement: layout.pendingPlacement
           ? { entityKind: layout.pendingPlacement.entityKind }
           : null,
@@ -252,6 +261,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
         commentDraftRef,
+        onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
       })
       if (dispatched) {
         event.preventDefault()
@@ -297,7 +307,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         const hitEntityId =
           target.payload.kind === 'entity-body' ||
           target.payload.kind === 'page-body' ||
-          target.payload.kind === 'chrome' ||
           target.payload.kind === 'resize-handle' ||
           target.payload.kind === 'anchor'
             ? target.payload.entityId
@@ -321,6 +330,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         altHeld: event.altKey || optionHeldRef.current,
         editingEntityId,
         interactivePageId: layout.interactivePageId ?? null,
+        interactiveEntityId: enteredEntityIdRef.current,
         placement: null,
         commentToolActive: false,
       }
@@ -347,6 +357,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
         commentDraftRef,
+        onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
       })
       if (dispatched) {
         event.preventDefault()
@@ -371,15 +382,12 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         case 'enter-page-interactive':
           apiRef.current.enterPageInteractive(action.entityId)
           break
+        case 'enter-entity-interactive':
+          onEnterEntityInteractiveRef.current(action.entityId)
+          break
         case 'enter-group':
           apiRef.current.enterGroup(action.groupId)
           break
-        case 'enter-group-rename':
-          // GroupRenameLabel handles the dblclick directly via the DOM
-          // (it's tagged data-overlay-ui so isOverlayUiTarget catches it
-          // earlier — this branch only fires if the rename label is hit
-          // through the chrome slot via hit-test).
-          return
       }
       event.preventDefault()
       event.stopPropagation()
@@ -417,6 +425,7 @@ interface DispatchContext {
   onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
   onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
   commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
+  onEnterEntityInteractive: (entityId: string) => void
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
@@ -428,6 +437,9 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runPageBodyPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
     case 'enter-page-interactive':
       api.enterPageInteractive(action.entityId)
+      return true
+    case 'enter-entity-interactive':
+      ctx.onEnterEntityInteractive(action.entityId)
       return true
     case 'forward-pointer-down':
       return runForwardPointer(action, api, event, layoutRef)

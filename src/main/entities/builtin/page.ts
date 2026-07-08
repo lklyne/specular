@@ -12,7 +12,7 @@ import {
   defaultOrientationForDevice,
   deviceForPresetIndex,
 } from '../../../shared/device-catalog'
-import type { PersistedPageEntity } from '../../../shared/types'
+import type { PageColorScheme, PersistedPageEntity } from '../../../shared/types'
 import type { JsonCanvasLinkNode } from '../../../shared/json-canvas-types'
 import { normalizeUserUrl } from '../../../shared/url'
 import { navigatePage } from '../../navigation-sync'
@@ -26,6 +26,7 @@ import {
 } from '../../runtime/page-doc-projection'
 import {
   setDeviceOrientation,
+  setPageColorScheme,
   setPagePreset,
 } from '../../runtime/document-commands'
 import {
@@ -61,10 +62,10 @@ export const pageKind: EntityKindDefinition<'page'> = {
         presetIndex,
         canvasX: (input.canvasX as number | undefined) ?? 0,
         canvasY: (input.canvasY as number | undefined) ?? 0,
-        linked: input.linked as boolean | undefined,
         groupId: input.groupId as string | undefined,
         parentGroupId: input.parentGroupId as string | undefined,
         metadata,
+        colorScheme: input.colorScheme as PageColorScheme | undefined,
       }],
     })
     return pageIds[0]
@@ -88,6 +89,9 @@ export const pageKind: EntityKindDefinition<'page'> = {
     }
     if (patch.canvasX !== undefined) page.canvasX = patch.canvasX as number
     if (patch.canvasY !== undefined) page.canvasY = patch.canvasY as number
+    if (patch.colorScheme !== undefined) {
+      setPageColorScheme(page.id, patch.colorScheme as PageColorScheme | null)
+    }
   },
 
   delete(id) {

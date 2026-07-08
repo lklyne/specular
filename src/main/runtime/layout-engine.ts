@@ -55,6 +55,7 @@ import {
   selectedEntityIds as uiSelectedEntityIds,
   setDevtoolsWidth as setUiDevtoolsWidth,
   toolbarDropdownOpen as uiToolbarDropdownOpen,
+  toolbarTooltipOpen as uiToolbarTooltipOpen,
 } from '../ui-state'
 import {
   backgroundPageOverlays,
@@ -76,6 +77,7 @@ import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
+import { applyPageColorScheme } from './page-color-scheme'
 
 export function setBoundsIfChanged(
   view: WebContentsView,
@@ -102,6 +104,10 @@ import {
 import { boundsOverlap } from './runtime-geometry'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
+
+// Extra px the toolbar view grows by while a tooltip is open — enough for one
+// tip row (sideOffset + line) below the 44px strip, no more.
+const TOOLBAR_TOOLTIP_BAND = 48
 // Emulation-cache sentinel marking a page rendered natively (fill focus mode).
 const FILL_NATIVE_KEY = 'fill-native'
 
@@ -452,6 +458,14 @@ function layoutAllViews(): void {
       }
     }
 
+    if (page.colorScheme !== page.lastColorSchemeKey) {
+      // Commit the key only when the override actually dispatched, so a
+      // failed attach retries on the next pass.
+      if (applyPageColorScheme(page, page.colorScheme ?? null)) {
+        page.lastColorSchemeKey = page.colorScheme
+      }
+    }
+
     // Inject or remove safe-area CSS padding when the device shell is active.
     // Fill mode is chromeless, so it never gets device safe-area padding.
     const orientation = deviceOrientationFromMetadata(page.metadata)
@@ -552,16 +566,21 @@ function layoutAllViews(): void {
   layoutDevtoolsViews()
 
   // --- Toolbar ---
-  // While a toolbar dropdown is open the view grows to full-window bounds
-  // so the menu can overflow the toolbar strip; otherwise it is just the
-  // strip height.
+  // The toolbar view is normally just the strip height. A dropdown grows it
+  // to full-window so the menu can overflow; a tooltip grows it by a shallow
+  // band so the tip paints just below the strip while keeping the transparent
+  // click-swallow region over the canvas small.
   if (toolbarView && win) {
     const { width, height } = win.getBounds()
+    const tooltipBandHeight = Math.min(height, layoutCache.toolbarHeight + TOOLBAR_TOOLTIP_BAND)
+    const toolbarHeight = uiToolbarDropdownOpen()
+      ? height
+      : uiToolbarTooltipOpen()
+        ? tooltipBandHeight
+        : layoutCache.toolbarHeight
     layoutCache.lastToolbarBoundsKey = setBoundsIfChanged(
       toolbarView,
-      uiToolbarDropdownOpen()
-        ? { x: 0, y: 0, width, height }
-        : { x: 0, y: 0, width, height: layoutCache.toolbarHeight },
+      { x: 0, y: 0, width, height: toolbarHeight },
       layoutCache.lastToolbarBoundsKey,
     )
     if (consumeDirty('toolbar')) {

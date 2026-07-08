@@ -25,9 +25,8 @@ export function FilePopup({
     | 'writeNoteFile'
     | 'setFileDeviceOrientation'
     | 'toggleFileDeviceShell'
-    | 'morphTextFile'
     | 'focusSelection'
-    | 'distributeSelection'
+    | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData

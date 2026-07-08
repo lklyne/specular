@@ -13,11 +13,6 @@ import type { CanvasEntityKind } from './types'
 
 export interface EntityKindCaps {
   /**
-   * A chrome strip renders above the entity (page URL bar, file header).
-   * Text/shape have inline editors when selected, not chrome.
-   */
-  hasChrome: boolean
-  /**
    * Edge anchors render on selection/hover for connecting edges. Drawings opt
    * out — the dots crowd the selection chrome and make a selected stroke
    * awkward to grab and drag.
@@ -31,37 +26,31 @@ export interface EntityKindCaps {
 
 export const ENTITY_KIND_CAPS: Record<CanvasEntityKind, EntityKindCaps> = {
   page: {
-    hasChrome: true,
     hasAnchors: true,
     minSize: { width: 320, height: 200 },
     aspectMode: 'off',
   },
   text: {
-    hasChrome: false,
     hasAnchors: true,
     minSize: { width: 100, height: 60 },
     aspectMode: 'off',
   },
   file: {
-    hasChrome: true,
     hasAnchors: true,
     minSize: { width: 80, height: 80 },
     aspectMode: 'off',
   },
   group: {
-    hasChrome: false,
     hasAnchors: true,
     minSize: { width: 120, height: 80 },
     aspectMode: 'off',
   },
   drawing: {
-    hasChrome: false,
     hasAnchors: false,
     minSize: { width: 16, height: 16 },
     aspectMode: 'off',
   },
   shape: {
-    hasChrome: false,
     hasAnchors: true,
     minSize: { width: 24, height: 24 },
     aspectMode: 'shift-locks',
@@ -71,7 +60,6 @@ export const ENTITY_KIND_CAPS: Record<CanvasEntityKind, EntityKindCaps> = {
   // CanvasSceneEntity lists these caps are read against, so this row exists
   // only to keep the Record exhaustive.
   edge: {
-    hasChrome: false,
     hasAnchors: false,
     minSize: { width: 0, height: 0 },
     aspectMode: 'off',

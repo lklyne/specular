@@ -9,15 +9,18 @@ import type {
   AnnotationDrawingStroke,
   AnnotationElementSelectionPayload,
   AnnotationLiveBboxUpdate,
+  BatchLayoutMode,
   CanvasDragStartSelection,
   CanvasEntityKind,
   CanvasLayoutBootstrapData,
+  EdgeEnd,
   EdgeSide,
   EntityUpdatePatchMap,
   FocusPresentationMode,
   ForwardPointerPayload,
   ForwardWheelPayload,
   LayoutUpdateData,
+  PageColorScheme,
   SelectionModifiers,
   SelectionOverlayPayload,
   ThemeData,
@@ -49,6 +52,7 @@ export interface CanvasBgElectronAPI {
   goForwardPage: (pageId: string) => void
   reloadPage: (pageId: string) => void
   setPageCustom: (pageId: string) => void
+  setPageColorScheme: (pageId: string, colorScheme: PageColorScheme | null) => void
   updatePageBounds: (pageId: string, patch: { width?: number; height?: number; canvasX?: number; canvasY?: number }) => void
   placePendingEntity: (canvasX: number, canvasY: number) => void
   setTool: (tool: Tool) => void
@@ -66,7 +70,8 @@ export interface CanvasBgElectronAPI {
   toggleFileDeviceShell: (fileId: string) => void
   renamePage: (pageId: string, name: string) => void
   duplicatePage: (pageId: string) => void
-  toggleLinkedPage: (pageId: string) => void
+  toggleSyncSelection: () => void
+  unsyncPage: (pageId: string) => void
   deletePage: (pageId: string) => void
   showPageContextMenu: (pageId: string) => void
   dropdownOpen: () => void
@@ -128,9 +133,10 @@ export interface CanvasBgElectronAPI {
   endResize: () => void
   beginMultiResize: () => void
   endMultiResize: () => void
-  /** Even out gaps for the current loose multi-selection (ADR 0015 D7). No-op
-   *  when fewer than 3 entities are selected or gaps are already even. */
-  distributeSelection: () => void
+  /** Tidy the current multi-selection into a row, column, or grid — keeping the
+   *  selection's current footprint and evening the gaps inside it. No-op below
+   *  2 selected entities. */
+  arrangeSelection: (mode: BatchLayoutMode) => void
   /** Row reorder drag (ADR 0015 D7). start → move* → commit | cancel. The begin
    *  carries only `movingId`; main resolves which door (selection / managed)
    *  armed the gesture. */
@@ -218,6 +224,10 @@ export interface CanvasBgElectronAPI {
   ) => void
   discardEdgeEdit: (edgeId: string) => void
   deleteEdge: (edgeId: string) => void
+  updateEdge: (
+    edgeId: string,
+    patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string },
+  ) => void
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void
   setTextEditing: (active: boolean) => void
@@ -243,16 +253,6 @@ export interface CanvasBgElectronAPI {
    * `writeNoteFile` for markdown note content.
    */
   applyNoteContent: (entityId: string, content: string) => Promise<boolean>
-  /**
-   * ADR 0013 §3 — morph a plain-text entity into a markdown file entity
-   * (or vice versa) at the same canvas rect. Both halves of the swap (the
-   * entity replacement and the `.md` file write/delete) collapse into a
-   * single undo step on the main-side undo stack.
-   */
-  morphTextFile: (
-    entityId: string,
-    direction: 'text-to-file' | 'file-to-text',
-  ) => Promise<{ kind: 'morphed'; newEntityId: string } | { kind: 'noop'; reason: string }>
   getInitialData: () => Promise<CanvasLayoutBootstrapData>
   /** Connect a Vite repo at the given absolute folder path. Returns the
    *  connected repo, or null if connection fails. */

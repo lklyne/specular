@@ -5,14 +5,12 @@ import { Menu } from '@base-ui/react/menu'
 import {
   ChevronDown,
   ChevronRight,
-  Circle,
-  Diamond,
   Folder,
   FolderOpen,
   PenLine,
-  Square,
   StickyNote,
 } from 'lucide-react'
+import { ShapeGlyph } from '../shared/ShapeGlyph'
 import type { SidebarCanvasItem, SidebarGroupItem, SidebarSectionKey } from '../../shared/types'
 import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-sidebar'
 import { iconForFilePath } from '../shared/fileIcon'
@@ -364,12 +362,10 @@ function SidebarCanvasTreeItem({
   }
 
   if (item.kind === 'shape') {
-    const ShapeIcon =
-      item.shapeKind === 'ellipse' ? Circle : item.shapeKind === 'diamond' ? Diamond : Square
     return (
       <div>
         <EntityListItem
-          icon={<ShapeIcon size={14} className="shrink-0 text-zinc-500" />}
+          icon={<span className="shrink-0 text-zinc-500"><ShapeGlyph kind={item.shapeKind} size={14} /></span>}
           label={item.label}
           active={isSelected}
           isDark={isDark}

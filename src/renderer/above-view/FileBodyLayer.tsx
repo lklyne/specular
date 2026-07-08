@@ -24,6 +24,7 @@ function FileBodyCard({
   entity,
   isDark,
   isSelected,
+  isInteractive,
   canEdit,
   wireframeJsonMode,
   onTextEditingChange,
@@ -31,6 +32,9 @@ function FileBodyCard({
   entity: CanvasSceneFileEntity
   isDark: boolean
   isSelected: boolean
+  /** This is the entered interactive file (HTML iframe) — its content owns
+   *  the pointer so scroll/clicks pass through. */
+  isInteractive: boolean
   canEdit: boolean
   wireframeJsonMode: boolean
   onTextEditingChange: (active: boolean) => void
@@ -76,7 +80,7 @@ function FileBodyCard({
             entity={entity}
             canEdit={canEdit}
             isDark={isDark}
-            isSelected={isSelected}
+            isInteractive={isInteractive}
             wireframeJsonMode={wireframeJsonMode}
             onTextEditingChange={onTextEditingChange}
           />
@@ -154,6 +158,7 @@ const MemoFileBodyCard = memo(FileBodyCard, (prev, next) => {
     prev.entity.componentInferredRepoPath === next.entity.componentInferredRepoPath &&
     prev.isDark === next.isDark &&
     prev.isSelected === next.isSelected &&
+    prev.isInteractive === next.isInteractive &&
     prev.canEdit === next.canEdit &&
     prev.wireframeJsonMode === next.wireframeJsonMode
   )
@@ -167,6 +172,7 @@ export function FileBodyLayer({
   isDark,
   selectedEntityIdSet,
   editingEntityId,
+  interactiveEntityId,
   jsonModeMap,
   canvasOrigin,
   pan,
@@ -179,6 +185,8 @@ export function FileBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  inner editable surface iff `editingEntityId === entity.id`. */
   editingEntityId: string | null
+  /** Entered interactive file (HTML iframe) whose content owns the pointer. */
+  interactiveEntityId: string | null
   jsonModeMap: FileJsonModeMap
   canvasOrigin: { x: number; y: number }
   pan: { x: number; y: number }
@@ -194,6 +202,7 @@ export function FileBodyLayer({
           entity={entity}
           isDark={isDark}
           isSelected={selectedEntityIdSet.has(entity.id)}
+          isInteractive={interactiveEntityId === entity.id}
           canEdit={editingEntityId === entity.id}
           wireframeJsonMode={jsonModeMap.get(entity.id) ?? false}
           onTextEditingChange={onTextEditingChange}

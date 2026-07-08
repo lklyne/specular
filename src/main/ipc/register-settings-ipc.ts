@@ -10,6 +10,7 @@ import type {
 } from '../../shared/types'
 import {
   getFixConfig,
+  getThemeMode,
   isDark,
   setFixConfig,
 } from '../runtime/preferences'
@@ -44,7 +45,7 @@ export function registerSettingsIpc(): void {
   ipcMain.handle(
     ipcChannels.settingsGetInitialData,
     async (): Promise<SettingsBootstrapData> => ({
-      theme: { isDark: isDark() },
+      theme: { isDark: isDark(), themeMode: getThemeMode() },
       status: await getOnboardingStatus(),
       fixConfig: getFixConfig(),
       connectedRepos: listRepos(),

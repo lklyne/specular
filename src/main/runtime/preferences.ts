@@ -8,6 +8,7 @@ import { app, nativeTheme } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import type {
+  AppThemeMode,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
@@ -60,6 +61,7 @@ type PreferencesFile = {
   originBindings?: LegacyOriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
   toolDefaults?: ToolDefaults
+  themeMode?: AppThemeMode
   debug?: {
     cursorSplineViz?: boolean
     cursorTuning?: CursorTuningParams
@@ -69,6 +71,7 @@ type PreferencesFile = {
 let currentCursorSplineViz = false
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
+let currentThemeMode: AppThemeMode = 'system'
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -147,6 +150,12 @@ export function loadPreferences(): void {
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
+  currentThemeMode = normalizeThemeMode(parsed.themeMode)
+  nativeTheme.themeSource = currentThemeMode
+}
+
+function normalizeThemeMode(mode: unknown): AppThemeMode {
+  return mode === 'light' || mode === 'dark' ? mode : 'system'
 }
 
 export function getToolDefaults(): ToolDefaults {
@@ -196,6 +205,7 @@ export function savePreferences(): void {
     devtoolsPanelTab: uiDevtoolsPanelTab(),
     fixConfig: { model: fixConfig.model, permissions: fixConfig.permissions },
     toolDefaults: currentToolDefaults,
+    themeMode: currentThemeMode,
   })
 }
 
@@ -217,6 +227,19 @@ export function setFixConfig(patch: { model?: FixConfig['model']; permissions?: 
   savePreferences()
 }
 
+export function getThemeMode(): AppThemeMode {
+  return currentThemeMode
+}
+
+export function setThemeMode(mode: AppThemeMode): void {
+  currentThemeMode = mode
+  nativeTheme.themeSource = mode
+  savePreferences()
+  // nativeTheme's 'updated' event only fires when shouldUseDarkColors flips;
+  // broadcast directly so themeMode reaches renderers even when it doesn't.
+  broadcastTheme()
+}
+
 export function isDark(): boolean {
   return nativeTheme.shouldUseDarkColors
 }
@@ -231,7 +254,7 @@ export function broadcastTheme(): void {
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   }
-  broadcast(ipcChannels.themeChanged, { isDark: isDark() })
+  broadcast(ipcChannels.themeChanged, { isDark: isDark(), themeMode: currentThemeMode })
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
     page.frameView.setBackgroundColor(frameColor())

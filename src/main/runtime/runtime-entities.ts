@@ -2,6 +2,7 @@ import type { WebContentsView } from 'electron'
 import type {
   ComponentTreeNode,
   InspectNodeDetail,
+  PageColorScheme,
   WorkspacePageSource,
 } from '../../shared/types'
 import type { DeviceOrientation } from '../../shared/device-catalog'
@@ -20,15 +21,16 @@ export interface Page {
   canvasX: number
   /**
    * Top-left of the page's snap rect in canvas coords. With a device frame
-   * this is the bezel top; without, it is the body top. Chrome renders
-   * above at (canvasY - CHROME_HEADER_HEIGHT).
+   * this is the bezel top; without, it is the body top.
    */
   canvasY: number
-  linked: boolean
+  syncId: string | null
   source: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
   componentTree?: ComponentTreeNode[]
   inspectDetailsByNodeId?: Record<string, InspectNodeDetail>
   syncState: {
@@ -41,6 +43,10 @@ export interface Page {
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string
   lastPageEmulationKey?: string
+  /** Last colorScheme applied via CDP (see page-color-scheme.ts). Undefined
+   *  means either "no override applied yet" or "no override needed" —
+   *  both collapse to the same no-op when colorScheme is also absent. */
+  lastColorSchemeKey?: PageColorScheme
   lastPageAnnotationsKey?: string
   lastSelected?: boolean
   lastSafeAreaCssKey?: string

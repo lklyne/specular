@@ -47,19 +47,25 @@ export interface PageConfig {
   presetIndex: number
   canvasX: number
   canvasY: number
-  linked?: boolean
+  syncId?: string | null
   suppressInitialNavigationBroadcast?: boolean
   source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 // --- Generic Canvas Entity Types ---
 
 export type CanvasEntityKind = 'page' | 'text' | 'file' | 'group' | 'edge' | 'drawing' | 'shape'
 
-export type ShapeKind = 'rectangle' | 'ellipse' | 'diamond'
+import type { ShapeKind } from './shapes'
+export type { ShapeKind }
+
+/** Shape border rendering: a drawn outline, a dashed outline, or no outline. */
+export type ShapeBorderStyle = 'solid' | 'dashed' | 'none'
 
 /**
  * Renderer plugin popup contribution tags (ADR 0008 §7). Each tag names a
@@ -74,7 +80,6 @@ export type PopupContributionTag =
   | 'wireframe-theme'
   | 'wireframe-json-mode'
   | 'wireframe-device-controls'
-  | 'markdown-morph-to-text'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -128,7 +133,10 @@ export interface CanvasScenePageEntity {
   width: number
   height: number
   presetIndex: number
-  linked: boolean
+  /** True when this page shares a live sync set (has at least one peer). */
+  synced: boolean
+  /** The page's sync-set id, so a selection can tell "all one set" from "each in some set". */
+  syncId: string | null
   /** Outer screen bounds (includes shell when device page is on). */
   screenX: number
   screenY: number
@@ -145,6 +153,8 @@ export interface CanvasScenePageEntity {
   contentScreenHeight?: number
   /** Use SVG rendering for the device shell (A/B toggle). */
   useSvgDeviceShell?: boolean
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
@@ -231,6 +241,11 @@ export interface CanvasSceneFileEntity {
    *  pointer router. Undefined for unclaimed (fallback) entities — treated
    *  as `false`. */
   rendererEditable?: boolean
+  /** Whether the resolved renderer hosts live content (an iframe) that should
+   *  get the page-like select-first / interact-second treatment: the first
+   *  click selects, a second click enters interactivity so pointer/scroll
+   *  reach the content. Undefined → treated as `false`. */
+  rendererInteractive?: boolean
   /**
    * For component file entities: whether some connected repo claims this
    * file (i.e. resolveUrl will succeed). The renderer suppresses the
@@ -305,6 +320,10 @@ export interface CanvasSceneShapeEntity {
   text: string
   color?: string
   strokeWidth?: number
+  /** Border line style. Absent = 'solid' (backward compat). */
+  borderStyle?: ShapeBorderStyle
+  /** Border color, independent of fill `color`. Absent = derive from `color`. */
+  borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
@@ -333,7 +352,6 @@ export interface ActiveCanvasEntitySelection {
   width: number
   height: number
   presetIndex: number
-  linked: boolean
 }
 
 export interface PendingPlacement {
@@ -359,15 +377,20 @@ export interface CanvasEntityBase {
   parentGroupId?: string
 }
 
+/** A page's color-scheme override. Absent means "follow system". */
+export type PageColorScheme = 'light' | 'dark'
+
 export interface PersistedPageEntity extends CanvasEntityBase {
   kind: 'page'
   name?: string
   url: string
   presetIndex: number
-  linked: boolean
+  syncId: string | null
   source?: WorkspacePageSource
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface PersistedTextEntity extends CanvasEntityBase {
@@ -428,6 +451,8 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   text: string
   color?: string
   strokeWidth?: number
+  borderStyle?: ShapeBorderStyle
+  borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
@@ -467,14 +492,12 @@ export interface LayoutUpdateData {
   leftChromeWidth: number
   /**
    * X-coordinate (in window pixels) of the centerpoint of the toolbar's tool
-   * cluster, when the toolbar is in `showCenterActionsOnly` mode. Popups that
-   * anchor below the toolbar (tool-mode popups, ADR 0008 §1) read this to
-   * align with the tools regardless of platform padding (mac traffic-lights
-   * inset) or sidebar state.
+   * cluster. Popups that anchor below the toolbar (tool-mode popups, ADR 0008
+   * §1) read this to align with the tools regardless of platform padding (mac
+   * traffic-lights inset) or sidebar state.
    *
    * Computed in main from `TOOLBAR_PAD_*` constants and the current window
-   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses in
-   * that mode.
+   * width; mirrors the `grid-cols-[1fr_auto_1fr]` layout the toolbar uses.
    */
   toolbarCenterX: number
   /** Back-to-front stack order across canvas nodes and edges. */
@@ -647,14 +670,6 @@ export interface ToolbarSelectionData {
   selectedEntityIds: string[]
   selectionCount: number
   availablePageCount: number
-  displayUrl: string
-  placeholder: string
-  canGoBack: boolean
-  canGoForward: boolean
-  isLoadingActivePage: boolean
-  loadingPageCount: number
-  isLoadingAnySelected: boolean
-  loadingPhase: 'idle' | 'waiting-response' | 'loading'
   activeTabId: string | null
   activeTabName: string | null
   activeTool: Tool
@@ -664,10 +679,16 @@ export interface ToolbarSelectionData {
   drawColor: string
   /** Current sticky-tool color default (raw stored slot/hex) — tints the sticky glyph. */
   stickyColor: string
+  /** Current shape-tool color default (raw stored slot/hex) — tints the shape glyph. */
+  shapeColor: string
 }
+
+/** App-level theme preference: 'system' follows OS appearance; 'light'/'dark' pin it. */
+export type AppThemeMode = 'system' | 'light' | 'dark'
 
 export interface ThemeData {
   isDark: boolean
+  themeMode: AppThemeMode
 }
 
 export interface ThemeBootstrapData {
@@ -835,6 +856,8 @@ export interface PanelMultiEntitySummary {
   id: string
   kind: CanvasEntityKind
   label: string
+  /** Page entries only — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface DevtoolsPanelData {
@@ -893,7 +916,6 @@ export interface DevtoolsPanelPageSummary {
   canGoBack?: boolean
   canGoForward?: boolean
   isLoading?: boolean
-  linked?: boolean
 }
 
 export type DevtoolsPanelTab = 'comments' | 'inspect' | 'browser-devtools' | 'settings'
@@ -960,7 +982,6 @@ export interface DevtoolsPanelSelectionSummary {
   viewportLabel: string
   width: number
   height: number
-  linked: boolean
 }
 
 export interface DevtoolsPanelDomRect {
@@ -1059,6 +1080,9 @@ export interface UiState {
   /** True while a toolbar dropdown is open — the layout pass grows the
    *  toolbar view to full-window bounds so the menu can overflow the strip. */
   toolbarDropdownOpen: boolean
+  /** True while a toolbar tooltip is open — the layout pass grows the toolbar
+   *  view by a shallow band so the tip can paint just below the strip. */
+  toolbarTooltipOpen: boolean
   devtools: UiDevtoolsState
   overlays: UiOverlayState
 }
@@ -1093,11 +1117,13 @@ export interface WorkspacePageSnapshot {
   presetIndex: number
   canvasX: number
   canvasY: number
-  linked: boolean
+  syncId?: string | null
   source?: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface WorkspaceSnapshot {
@@ -1172,11 +1198,12 @@ export interface WorkspacePage {
   canvasY: number
   width: number
   height: number
-  linkedBrowsing: boolean
   source: WorkspacePageSource
   parentGroupId?: string
   groupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface WorkspaceTextEntity {
@@ -1209,6 +1236,8 @@ export interface ClipboardPagePayload {
   presetIndex: number
   dx: number
   dy: number
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
 }
 
 export interface ClipboardPageSelectionPayload {
@@ -1225,6 +1254,8 @@ export interface ClipboardEntityPayload {
   presetIndex?: number
   // Page device metadata (so paste reproduces the device shell)
   metadata?: Record<string, unknown>
+  /** Page-specific — optional, absent means the page follows the system color scheme. */
+  colorScheme?: PageColorScheme
   // Text entity-specific
   text?: string
   color?: string
@@ -1575,7 +1606,7 @@ export interface EntityUpdatePatchMap {
   text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
   file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
   drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
-  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
+  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; borderStyle?: ShapeBorderStyle; borderColor?: string; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
   group: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }
 }
 

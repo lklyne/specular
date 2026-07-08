@@ -9,6 +9,7 @@ import {
   broadcastCursorSplineViz,
   getCursorSplineViz,
   getCursorTuning,
+  getThemeMode,
   isDark,
   saveCursorSplineViz,
   saveCursorTuning,
@@ -16,7 +17,7 @@ import {
 
 export function registerDebugIpc(): void {
   ipcMain.handle(ipcChannels.debugGetInitialData, async (): Promise<DebugBootstrapData> => ({
-    theme: { isDark: isDark() },
+    theme: { isDark: isDark(), themeMode: getThemeMode() },
     cursorSplineViz: getCursorSplineViz(),
     cursorTuning: getCursorTuning(),
   }))

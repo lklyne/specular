@@ -19,7 +19,7 @@
  */
 
 import { managedLineAxis } from './layout-math'
-import { detectReorderableRow, type Box } from './reorder-row'
+import { detectReorderableRow, SELECTION_ROW_GAP_TOLERANCE, type Box } from './reorder-row'
 import type { CanvasEntityKind, CanvasSceneEntity } from './types'
 
 export interface ReorderDot {
@@ -34,6 +34,9 @@ export interface ReorderableDotsInput {
   entities: readonly CanvasSceneEntity[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
+  /** Live zoom — recovers a page's canvas-space *shell* size from its screen
+   *  bounds. Defaults to 1 (canvas and screen coincide). */
+  zoom?: number
 }
 
 function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
@@ -44,12 +47,34 @@ function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
 }
 
 /**
+ * The box the row is detected on, in canvas space. Non-page entities use their
+ * canvas box directly. A page's canvas `width`/`height` is its web-content size,
+ * but the shell it occupies (and the dot's center) includes the device bezel —
+ * so unproject the screen shell size by zoom. Using canvas space (not screen)
+ * keeps detection exact: an arranged row's gaps are equal here, before the
+ * native views round their bounds to integers.
+ */
+function rowBox(entity: CanvasSceneEntity, zoom: number): Box {
+  if (entity.kind === 'page') {
+    const z = zoom || 1
+    return {
+      id: entity.id,
+      x: entity.canvasX,
+      y: entity.canvasY,
+      width: entity.screenWidth / z,
+      height: entity.screenHeight / z,
+    }
+  }
+  return { id: entity.id, x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height }
+}
+
+/**
  * The union of both reorder doors as a flat dot list, deduped by entity id. The
  * managed door wins ties (a managed child is never also a selection-door dot —
  * managed children are excluded from the loose-selection box set below).
  */
 export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
-  const { entities, selectedEntityIds, selectedGroupId } = input
+  const { entities, selectedEntityIds, selectedGroupId, zoom = 1 } = input
   const selected = new Set(selectedEntityIds)
   const dots = new Map<string, ReorderDot>()
 
@@ -78,10 +103,10 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
     if (e.kind === 'group') continue
     if (!selected.has(e.id)) continue
     if (childToGroup.has(e.id)) continue
-    boxes.push({ id: e.id, x: e.canvasX, y: e.canvasY, width: e.width, height: e.height })
+    boxes.push(rowBox(e, zoom))
     byId.set(e.id, e)
   }
-  const row = detectReorderableRow(boxes)
+  const row = detectReorderableRow(boxes, { gapTolerance: SELECTION_ROW_GAP_TOLERANCE })
   if (row) {
     for (const id of row.order) {
       const e = byId.get(id)

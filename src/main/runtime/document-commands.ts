@@ -19,7 +19,7 @@ import type { DeviceOrientation } from '../../shared/device-catalog'
 import { deviceForPresetIndex } from '../../shared/device-catalog'
 import type { AlignmentReferenceName } from '../../shared/canvas-guides'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
-import type { AnnotationDrawingStroke, EdgeEnd, EdgeSide } from '../../shared/types'
+import type { AnnotationDrawingStroke, BatchLayoutMode, EdgeEnd, EdgeSide, LayoutDirective, PageColorScheme, WorkspaceBounds } from '../../shared/types'
 import type { WorkspaceGroup } from '../../shared/types'
 import {
   updateSelectionForRemovedEntity,
@@ -93,14 +93,17 @@ import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-
 import {
   detectReorderableRow,
   reorderRowPositions,
+  SELECTION_ROW_GAP_TOLERANCE,
   type Box,
   type ReorderableRow,
 } from '../../shared/reorder-row'
-import { distributeRowPositions } from '../../shared/distribute-row'
+import { arrangeInSpan } from '../../shared/span-arrange'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
 import { distributionGuideDetector } from './distribution-guide-detector'
 import { descendantEntityIdsForGroup } from './group-descendants'
+import { applyLayoutDirective } from '../workspace-placement'
+import { entityBoundsById, entityKindById } from '../workspace-entities'
 import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
 import { workspaceEdges, workspaceGroups } from './workspace-model'
 import { beginGestureSession, type GestureSession } from './workspace-gesture-session'
@@ -720,7 +723,34 @@ export function updateDrawingEntity(
   id: string,
   patch: Partial<Omit<DrawingEntity, 'id'>>,
 ): DrawingEntity | null {
-  return updateEntityCommand(id, patch, updateDrawingEntityInState)
+  return updateEntityCommand(id, carryStrokesOnMove(id, patch), updateDrawingEntityInState)
+}
+
+/**
+ * A drawing's strokes live in absolute canvas coords, so writing `canvasX`/
+ * `canvasY` is a move — the ink has to travel with the origin or the box drifts
+ * away from it. Injects shifted strokes into the patch so a bare `update --at`
+ * (or any canvas-apply move) stays correct without a dedicated move verb.
+ * Callers that pass explicit `strokes` (resize) opt out.
+ */
+function carryStrokesOnMove(
+  id: string,
+  patch: Partial<Omit<DrawingEntity, 'id'>>,
+): Partial<Omit<DrawingEntity, 'id'>> {
+  if (patch.strokes !== undefined) return patch
+  if (patch.canvasX === undefined && patch.canvasY === undefined) return patch
+  const cur = drawingEntities.find((d) => d.id === id)
+  if (!cur) return patch
+  const dx = (patch.canvasX ?? cur.canvasX) - cur.canvasX
+  const dy = (patch.canvasY ?? cur.canvasY) - cur.canvasY
+  if (dx === 0 && dy === 0) return patch
+  return {
+    ...patch,
+    strokes: cur.strokes.map((stroke) => ({
+      ...stroke,
+      points: stroke.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+    })),
+  }
 }
 
 export function deleteDrawingEntity(id: string): boolean {
@@ -740,6 +770,8 @@ export function createShapeEntity(input: {
   text?: string
   color?: string
   strokeWidth?: number
+  borderStyle?: ShapeEntity['borderStyle']
+  borderColor?: string
   textSize?: number
   id?: string
 }): ShapeEntity {
@@ -765,7 +797,34 @@ export function updateGroupEntity(
   id: string,
   patch: Partial<Omit<WorkspaceGroup, 'id' | 'kind'>>,
 ): WorkspaceGroup | null {
+  carryChildrenOnMove(id, patch)
   return updateEntityCommand(id, patch, updateGroupEntityInState)
+}
+
+/**
+ * A group's children are absolute-positioned, not relative to the box, so moving
+ * the box has to move them too — the same thing dragging does via drag-id
+ * expansion. Runs inside the caller's transaction (canvas-apply's
+ * `commitAsOneTransaction`), so box + children collapse to one undo step, and
+ * the diff-sync picks up the raw child writes.
+ */
+function carryChildrenOnMove(
+  id: string,
+  patch: Partial<Omit<WorkspaceGroup, 'id' | 'kind'>>,
+): void {
+  if (patch.canvasX === undefined && patch.canvasY === undefined) return
+  const cur = workspaceGroups.find((g) => g.id === id)
+  if (!cur) return
+  const dx = (patch.canvasX ?? cur.canvasX) - cur.canvasX
+  const dy = (patch.canvasY ?? cur.canvasY) - cur.canvasY
+  if (dx === 0 && dy === 0) return
+  for (const descId of descendantEntityIdsForGroup(id)) {
+    const desc = findMovableEntity(descId)
+    if (!desc) continue
+    desc.canvasX += dx
+    desc.canvasY += dy
+    shiftDrawingStrokes(descId, dx, dy)
+  }
 }
 
 /**
@@ -911,7 +970,7 @@ export function buildSelectionRow(orderedIds: string[]): ReorderableRow | null {
       height: entity.height,
     })
   }
-  return detectReorderableRow(boxes)
+  return detectReorderableRow(boxes, { gapTolerance: SELECTION_ROW_GAP_TOLERANCE })
 }
 
 export function reorderSelection(
@@ -943,19 +1002,31 @@ export function reorderSelection(
 }
 
 /**
- * Distribute selection (ADR 0015 D7) — evens edge-to-edge gaps along the
- * dominant axis of a loose 3+ entity selection, keeping the first and last
- * items fixed. Position-only sibling of `reorderSelection`; nothing persists
- * but the new positions — one undo step restores the prior arrangement.
+ * Arrange a set of entities into a row, column, or grid — the shared brain
+ * behind both the popup toolbar (via IPC) and the `arrange` CLI verb (via
+ * `/selection/arrange`). One gesture session = one undo step. No-op (false)
+ * for fewer than 2 movable entities.
  *
- * Returns false when there is nothing to do: fewer than 3 entities, selection
- * is not resolvable, or already even within tolerance (no spurious undo step).
+ * Two modes, chosen by whether the caller passes an explicit `gap`:
+ *
+ * - No gap (toolbar always; CLI default) → *tidy in place*: keep the cluster's
+ *   current footprint and just regularize the spacing inside it (row/column
+ *   even the gaps along one axis and align the other; grid keeps the existing
+ *   2-D structure, holes and all). The footprint the user built is visible and
+ *   intentional — a fixed gap is neither.
+ * - Explicit gap (CLI `--gap`) → *pack*: collapse to that gap from the
+ *   cluster's top-left, in reading order. `cols` only applies here.
  */
-export function distributeSelection(entityIds: string[]): boolean {
+export function arrangeEntities(
+  entityIds: string[],
+  mode: BatchLayoutMode,
+  opts: Pick<LayoutDirective, 'gap' | 'cols'> = {},
+): boolean {
+  if (opts.gap !== undefined) return packEntities(entityIds, mode, opts)
+
   const geometryById = new Map(
     currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
   )
-
   const boxes: Box[] = []
   for (const id of entityIds) {
     const entity = geometryById.get(id)
@@ -969,20 +1040,96 @@ export function distributeSelection(entityIds: string[]): boolean {
     })
   }
 
-  const result = distributeRowPositions(boxes)
-  if (!result) return false
+  const targets = arrangeInSpan(boxes, mode)
+  if (!targets) return false
 
   const session = beginGestureSession()
   let changed = false
-  for (const [id, pos] of result.positions) {
-    const kind = geometryById.get(id)?.kind
-    if (kind && writeReorderedPosition(id, kind, pos)) changed = true
+  for (const [id, pos] of targets) {
+    if (moveEntityTo(id, pos.x, pos.y)) changed = true
   }
   if (changed) scheduleWorkspaceAutosave()
   session.finalize()
-
   if (changed) requestLayout()
   return changed
+}
+
+/**
+ * Pack entities tight into a row/column/grid at a fixed gap from the cluster's
+ * top-left, in reading order (top-to-bottom, left-to-right) so the result
+ * follows reading order regardless of caller id order. The `--gap` path of the
+ * `arrange` verb; the toolbar never reaches here.
+ */
+function packEntities(
+  entityIds: string[],
+  mode: BatchLayoutMode,
+  opts: Pick<LayoutDirective, 'gap' | 'cols'>,
+): boolean {
+  const withBounds = entityIds
+    .map((id) => ({ id, bounds: entityBoundsById(id) }))
+    .filter((e): e is { id: string; bounds: WorkspaceBounds } => e.bounds !== null)
+  if (withBounds.length < 2) return false
+
+  // Reading-order sort. The band tolerates minor vertical misalignment so a
+  // rough row doesn't sort by pixel-exact y. ponytail: fixed band; upgrade to
+  // per-row clustering if rows of very different heights sort wrong.
+  const band = Math.max(GRID_SIZE, Math.min(...withBounds.map((e) => e.bounds.height)) / 2)
+  withBounds.sort((a, b) =>
+    Math.abs(a.bounds.y - b.bounds.y) > band
+      ? a.bounds.y - b.bounds.y
+      : a.bounds.x - b.bounds.x,
+  )
+
+  const ids = withBounds.map((e) => e.id)
+  let positions: { canvasX: number; canvasY: number }[]
+  try {
+    positions = applyLayoutDirective({
+      layout: { kind: mode, gap: opts.gap, cols: opts.cols },
+      items: ids.map((id) => ({ id })),
+    }).positions
+  } catch {
+    return false
+  }
+
+  const session = beginGestureSession()
+  let changed = false
+  for (let i = 0; i < ids.length; i++) {
+    if (moveEntityTo(ids[i], positions[i].canvasX, positions[i].canvasY)) changed = true
+  }
+  if (changed) scheduleWorkspaceAutosave()
+  session.finalize()
+  if (changed) requestLayout()
+  return changed
+}
+
+/**
+ * Move an entity to an absolute canvas position. Groups drag their descendants
+ * by the same delta; drawings carry their strokes (stored in absolute coords,
+ * so a bare origin write would leave the ink behind). Returns false when the
+ * entity is missing or already there.
+ */
+function moveEntityTo(id: string, targetX: number, targetY: number): boolean {
+  const entity = findMovableEntity(id)
+  if (!entity) return false
+  const dx = targetX - entity.canvasX
+  const dy = targetY - entity.canvasY
+  if (dx === 0 && dy === 0) return false
+  entity.canvasX = targetX
+  entity.canvasY = targetY
+  shiftDrawingStrokes(id, dx, dy)
+  if (entityKindById(id) === 'group') {
+    for (const descId of descendantEntityIdsForGroup(id)) {
+      const desc = findMovableEntity(descId)
+      if (!desc) continue
+      desc.canvasX += dx
+      desc.canvasY += dy
+      shiftDrawingStrokes(descId, dx, dy)
+    }
+  }
+  // Direct field writes (unlike the per-kind mutators) don't self-dirty, so the
+  // canvas won't repaint until an unrelated event dirties it — mark it here.
+  markDirty('canvas', 'sidebar')
+  return true
 }
 
 // --- Device Commands (pages and file entities) ---
@@ -1090,6 +1237,17 @@ export function setPagePreset(pageId: string, presetIndex: number): void {
   if (!validPresetIndex(presetIndex)) return
   const target = pageDeviceTarget(pageId)
   if (target) setDevicePreset(target, presetIndex)
+}
+
+export function setPageColorScheme(
+  pageId: string,
+  colorScheme: PageColorScheme | null,
+): void {
+  const page = pages.find((p) => p.id === pageId)
+  if (!page) return
+  mutateWorkspace(() => {
+    page.colorScheme = colorScheme ?? undefined
+  })
 }
 
 export function setPageCustom(pageId: string): void {

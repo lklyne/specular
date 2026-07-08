@@ -1,4 +1,3 @@
-import { ipcChannels } from '../shared/ipc-contract'
 import type {
   CreatePagesRequest,
   CreatePagesResponse,
@@ -39,10 +38,7 @@ import {
 } from './runtime/viewport-control'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
-import { setPendingFocus } from './runtime/runtime-context'
 import { focusSession, repointFocusSession } from './runtime/focus-session'
-import { toolbarView } from './runtime/view-refs'
-import { safeSend } from './runtime/safe-send'
 import { makeId, cloneMetadata, pageCurrentUrl, createGroup } from './workspace-utils'
 import {
   entityBoundsById,
@@ -142,7 +138,7 @@ function addPageFromSourceInternal(input: {
     const page = createPage({
       url,
       presetIndex: input.presetIndex,
-      linked: false,
+      syncId: null,
       canvasX: placement.canvasX,
       canvasY: placement.canvasY,
       source: 'manual',
@@ -176,7 +172,7 @@ function addPageFromSourceInternal(input: {
   const newPage = createPage({
     url,
     presetIndex: input.presetIndex,
-    linked: false,
+    syncId: null,
     suppressInitialNavigationBroadcast: true,
     canvasX: sourcePage.canvasX,
     canvasY: sourcePage.canvasY,
@@ -228,7 +224,7 @@ export function createPageAtPosition(input: {
     const page = createPage({
       url,
       presetIndex: input.presetIndex,
-      linked: false,
+      syncId: null,
       canvasX: snapToGrid(input.canvasX),
       canvasY: snapToGrid(input.canvasY),
       source: 'manual',
@@ -283,13 +279,14 @@ function duplicatePageInternal(
   const newPage = createPage({
     url,
     presetIndex: sourcePage.presetIndex,
-    linked: false,
+    syncId: null,
     suppressInitialNavigationBroadcast: true,
     canvasX: placement.canvasX,
     canvasY: placement.canvasY,
     source: 'manual',
     parentGroupId: sourcePage.parentGroupId,
     metadata,
+    colorScheme: sourcePage.colorScheme,
   })
   const focusNewPage = input.focus ?? true
   if (focusNewPage) {
@@ -314,17 +311,15 @@ function duplicatePageInternal(
 
 export function createBlankFrameFromSource(input: {
   sourcePageId: string
-  focusAddressBar?: boolean
 }): { pageId: string } {
   const sourcePage = findPageById(input.sourcePageId)
   if (!sourcePage) {
     throw new Error(`Unknown page: ${input.sourcePageId}`)
   }
-  return mutateWorkspace(() => createBlankFrameInternal(input, sourcePage))
+  return mutateWorkspace(() => createBlankFrameInternal(sourcePage))
 }
 
 function createBlankFrameInternal(
-  input: { sourcePageId: string; focusAddressBar?: boolean },
   sourcePage: NonNullable<ReturnType<typeof findPageById>>,
 ): { pageId: string } {
   const sourceSize = pageContentSize(sourcePage)
@@ -344,13 +339,14 @@ function createBlankFrameInternal(
   const newPage = createPage({
     url: 'about:blank',
     presetIndex: sourcePage.presetIndex,
-    linked: false,
+    syncId: null,
     suppressInitialNavigationBroadcast: true,
     canvasX: placement.canvasX,
     canvasY: placement.canvasY,
     source: 'manual',
     parentGroupId: sourcePage.parentGroupId,
     metadata,
+    colorScheme: sourcePage.colorScheme,
   })
 
   selectPageById(newPage.id)
@@ -369,10 +365,6 @@ function createBlankFrameInternal(
     )
   }
 
-  if (input.focusAddressBar ?? true) {
-    setPendingFocus({ kind: 'toolbar' })
-    if (toolbarView) safeSend(toolbarView.webContents, ipcChannels.focusAddressBar)
-  }
   return { pageId: newPage.id }
 }
 

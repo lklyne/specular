@@ -1,6 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import type { AnnotationCreateRequest, EdgeEnd, EdgeSide } from '../../shared/types'
+import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, PageColorScheme } from '../../shared/types'
 import { setFixConfig } from '../runtime/preferences'
 import {
   bindOriginToRepoPath,
@@ -16,11 +16,11 @@ import {
   deleteEdge,
   updateEdge,
   setPagePreset,
+  setPageColorScheme,
   toggleSvgDeviceShell,
   setFilePreset,
   setFileCustom,
 } from '../runtime/document-commands'
-import { togglePageLinked } from '../navigation-sync'
 import { deletePages } from '../workspace-entities'
 import { duplicatePageFromSource } from '../workspace-pages'
 import {
@@ -60,6 +60,9 @@ type SingleFieldCommand = {
 const hasPresetIndex = (payload: Record<string, unknown>): boolean =>
   typeof payload.presetIndex === 'number'
 
+const hasValidColorScheme = (payload: Record<string, unknown>): boolean =>
+  payload.colorScheme === null || payload.colorScheme === 'light' || payload.colorScheme === 'dark'
+
 /** Channels that validate one id field, then call one function. */
 const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
   // --- Annotations and fixes ---
@@ -88,6 +91,11 @@ const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
     key: 'pageId',
     accept: hasPresetIndex,
     run: (id, payload) => setPagePreset(id, payload.presetIndex as number),
+  },
+  [ipcChannels.rightDetailsPanelSetPageColorScheme]: {
+    key: 'pageId',
+    accept: hasValidColorScheme,
+    run: (id, payload) => setPageColorScheme(id, payload.colorScheme as PageColorScheme | null),
   },
   [ipcChannels.rightDetailsPanelToggleSvgDeviceShell]: {
     key: 'pageId',
@@ -288,15 +296,6 @@ export function registerRightDetailsPanelIpc(): void {
       if (!payload?.pageId) return
       if (!pages.some((p) => p.id === payload.pageId)) return
       duplicatePageFromSource({ sourcePageId: payload.pageId })
-    },
-  )
-
-  ipcMain.on(
-    ipcChannels.rightDetailsPanelToggleLinkedPage,
-    (_event, payload: { pageId: string }) => {
-      const page = pages.find((p) => p.id === payload?.pageId)
-      if (!page) return
-      togglePageLinked(page)
     },
   )
 

@@ -74,11 +74,12 @@ export function serializeToJsonCanvas(
         presetIndex: page.presetIndex,
         canvasX: page.canvasX,
         canvasY: page.canvasY,
-        linked: page.linked,
+        syncId: page.syncId ?? null,
         source: page.source,
         parentGroupId: page.parentGroupId ?? page.groupId,
         groupId: page.parentGroupId ?? page.groupId,
         metadata: page.metadata,
+        colorScheme: page.colorScheme,
       }
       entities[page.id] = entity
       if (!knownIds.has(page.id)) {
@@ -136,12 +137,13 @@ export function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvas
     url: entity.url,
     // App-specific extensions
     presetIndex: entity.presetIndex,
-    linked: entity.linked,
+    syncId: entity.syncId ?? null,
     label: entity.name,
     source: entity.source,
     groupId: entity.parentGroupId ?? entity.groupId,
     parentGroupId: entity.parentGroupId ?? entity.groupId,
     metadata: entity.metadata,
+    colorScheme: entity.colorScheme,
   }
 }
 
@@ -218,6 +220,8 @@ export function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCan
     text: entity.text,
     color: isNeutral ? '1' : entity.color,
     strokeWidth: entity.strokeWidth,
+    borderStyle: entity.borderStyle,
+    borderColor: entity.borderColor,
     theme: entity.theme,
     label: entity.label,
     parentGroupId: entity.parentGroupId,
@@ -374,10 +378,11 @@ export function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPa
     presetIndex: node.presetIndex ?? 0,
     canvasX: node.x,
     canvasY: node.y,
-    linked: node.linked ?? false,
+    syncId: node.syncId ?? null,
     source: node.source as PersistedPageEntity['source'],
     groupId: node.groupId,
     metadata: node.metadata,
+    colorScheme: node.colorScheme,
   }
 }
 
@@ -433,6 +438,8 @@ export function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): Persiste
     text: node.text ?? '',
     color,
     strokeWidth: node.strokeWidth,
+    borderStyle: node.borderStyle,
+    borderColor: node.borderColor,
     textSize: node.specular?.textSize,
     theme: node.theme,
     canvasX: node.x,

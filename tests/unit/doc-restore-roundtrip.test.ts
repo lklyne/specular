@@ -143,7 +143,7 @@ function makeFakePage(overrides: Partial<Record<string, unknown>> = {}): Page {
     presetIndex: 1,
     canvasX: 0,
     canvasY: 0,
-    linked: false,
+    syncId: null,
     source: 'user',
     parentGroupId: 'g1',
     metadata: { deviceId: 'laptop' },
@@ -292,7 +292,7 @@ describe('doc → runtime restore on undo', () => {
       name: 'Home',
       url: 'http://a.test/',
       presetIndex: 1,
-      linked: false,
+      syncId: null,
       parentGroupId: 'g1',
       metadata: { deviceId: 'laptop' },
     })

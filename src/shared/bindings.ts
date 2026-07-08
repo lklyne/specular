@@ -43,6 +43,7 @@ export type NormalizedKey = {
 
 export type BindingId =
   | 'tool-select'
+  | 'tool-hand'
   | 'tool-add-page'
   | 'tool-add-text'
   | 'tool-add-sticky'
@@ -111,6 +112,7 @@ function k(key: string, cmd = false, shift = false, alt = false): NormalizedKey 
 export const BINDINGS: readonly Binding[] = [
   // Tool selection (canvas-region, plain keys, suppressed while typing)
   { id: 'tool-select', defaultKey: k('v'), scope: CANVAS_REGION, target: 'main', label: 'Select' },
+  { id: 'tool-hand', defaultKey: k('h'), scope: CANVAS_REGION, target: 'main', label: 'Hand tool' },
   { id: 'tool-add-page', defaultKey: k('p'), scope: CANVAS_REGION, target: 'main', label: 'Add page' },
   { id: 'tool-add-text', defaultKey: k('t'), scope: CANVAS_REGION, target: 'main', label: 'Add text' },
   { id: 'tool-add-sticky', defaultKey: k('s'), scope: CANVAS_REGION, target: 'main', label: 'Add sticky' },
@@ -216,12 +218,15 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'nav-up', defaultKey: k('arrowup'), scope: CANVAS_REGION, target: 'main', label: 'Navigate up' },
   { id: 'nav-down', defaultKey: k('arrowdown'), scope: CANVAS_REGION, target: 'main', label: 'Navigate down' },
 
-  // Annotation Escape bindings — renderer-targeted, ordered before escape-tool
+  // Annotation Escape bindings — renderer-targeted, ordered before escape-tool.
+  // firesWhileTyping: the composer textarea is focused whenever a draft/thread
+  // is open, so without it Escape falls through to escape-tool and is swallowed.
   {
     id: 'annotation-close-thread',
     defaultKey: k('escape'),
     scope: ['aboveView'],
     target: 'aboveView',
+    firesWhileTyping: true,
     when: (ctx) => ctx.hasOpenAnnotationThread,
     label: 'Close annotation thread',
   },
@@ -230,6 +235,7 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k('escape'),
     scope: ['aboveView'],
     target: 'aboveView',
+    firesWhileTyping: true,
     when: (ctx) => ctx.hasPendingAnnotation,
     label: 'Clear annotation draft',
   },
@@ -349,4 +355,19 @@ export function bindingById(id: BindingId): Binding {
   const binding = BINDINGS.find((b) => b.id === id)
   if (!binding) throw new Error(`No binding for id: ${id}`)
   return binding
+}
+
+// Compact glyph form for surfacing a shortcut inline (e.g. a tooltip): `V`,
+// `⇧M`, `⌘⇧R` on mac; `Ctrl+Shift+R` elsewhere.
+function shortcutSymbols(key: NormalizedKey, isMac: boolean): string {
+  const parts: string[] = []
+  if (key.cmd) parts.push(isMac ? '⌘' : 'Ctrl')
+  if (key.alt) parts.push(isMac ? '⌥' : 'Alt')
+  if (key.shift) parts.push('⇧')
+  parts.push(toAcceleratorKey(key.key))
+  return parts.join(isMac ? '' : '+')
+}
+
+export function shortcutDisplay(id: BindingId, isMac: boolean): string {
+  return shortcutSymbols(bindingById(id).defaultKey, isMac)
 }

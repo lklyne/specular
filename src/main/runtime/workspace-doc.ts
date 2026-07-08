@@ -124,7 +124,7 @@ export function hydrateDocFromSnapshot(doc: Y.Doc, snapshot: WorkspaceSnapshot):
       presetIndex: page.presetIndex,
       canvasX: page.canvasX,
       canvasY: page.canvasY,
-      linked: page.linked,
+      syncId: page.syncId,
       source: page.source,
       parentGroupId: page.parentGroupId ?? page.groupId,
       metadata: page.metadata,

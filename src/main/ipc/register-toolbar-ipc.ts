@@ -6,7 +6,6 @@ import { pan, zoom } from '../runtime/runtime-context'
 import { requestLayout, setPan, setZoom } from '../runtime/viewport-control'
 import {
   focusSelection,
-  getSelectedEntityIds,
   openInspectPanel,
   restoreFocusCamera,
   selectedPageId,
@@ -15,8 +14,7 @@ import {
   toggleDevTools,
 } from '../runtime/ui-actions'
 import { endDevtoolsResize, setDevtoolsWidthFromScreenX } from '../runtime/window-shell'
-import { applyNavigationToSelectedPages } from '../navigation-sync'
-import { setToolbarDropdownOpen } from '../ui-state'
+import { setToolbarDropdownOpen, setToolbarTooltipOpen } from '../ui-state'
 
 export function registerToolbarIpc(): void {
   ipcMain.on(ipcChannels.zoomIn, () => {
@@ -45,26 +43,6 @@ export function registerToolbarIpc(): void {
     setZoom(level)
     if (level === 1.0 && focusSelection({ animate: false })) return
     requestLayout()
-  })
-
-  ipcMain.on(ipcChannels.toolbarNavigateSelection, (_event, url: string) => {
-    if (!url) return
-    applyNavigationToSelectedPages({ type: 'load-url', url })
-  })
-
-  ipcMain.on(ipcChannels.toolbarBackSelection, () => {
-    if (!getSelectedEntityIds().length) return
-    applyNavigationToSelectedPages({ type: 'go-back', fallbackUrl: 'about:blank' })
-  })
-
-  ipcMain.on(ipcChannels.toolbarForwardSelection, () => {
-    if (!getSelectedEntityIds().length) return
-    applyNavigationToSelectedPages({ type: 'go-forward', fallbackUrl: 'about:blank' })
-  })
-
-  ipcMain.on(ipcChannels.toolbarReloadSelection, () => {
-    if (!getSelectedEntityIds().length) return
-    applyNavigationToSelectedPages({ type: 'reload', fallbackUrl: 'about:blank' })
   })
 
   ipcMain.on(ipcChannels.toolbarSetTool, (_event, payload: Tool) => {
@@ -117,6 +95,16 @@ export function registerToolbarIpc(): void {
 
   ipcMain.on(ipcChannels.toolbarDropdownClose, () => {
     setToolbarDropdownOpen(false)
+    requestLayout()
+  })
+
+  ipcMain.on(ipcChannels.toolbarTooltipOpen, () => {
+    setToolbarTooltipOpen(true)
+    requestLayout()
+  })
+
+  ipcMain.on(ipcChannels.toolbarTooltipClose, () => {
+    setToolbarTooltipOpen(false)
     requestLayout()
   })
 }

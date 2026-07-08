@@ -3,7 +3,7 @@
  * with an optional inner label.
  */
 
-import type { PersistedShapeEntity, ShapeKind } from '../../../shared/types'
+import type { PersistedShapeEntity, ShapeBorderStyle, ShapeKind } from '../../../shared/types'
 import type { JsonCanvasShapeNode } from '../../../shared/json-canvas-types'
 import {
   createShapeEntity,
@@ -40,6 +40,8 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
       text: input.text as string | undefined,
       color: input.color as string | undefined,
       strokeWidth: input.strokeWidth as number | undefined,
+      borderStyle: input.borderStyle as ShapeBorderStyle | undefined,
+      borderColor: input.borderColor as string | undefined,
       textSize: input.textSize as number | undefined,
     })
     return entity.id
@@ -55,6 +57,8 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
       text: patch.text as string | undefined,
       color: patch.color as string | undefined,
       strokeWidth: patch.strokeWidth as number | undefined,
+      borderStyle: patch.borderStyle as ShapeBorderStyle | undefined,
+      borderColor: patch.borderColor as string | undefined,
       textSize: patch.textSize as number | undefined,
       theme: patch.theme as string | undefined,
     })

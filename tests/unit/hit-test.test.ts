@@ -4,6 +4,7 @@ import type {
   CanvasSceneDrawingEntity,
   CanvasSceneEntity,
   CanvasScenePageEntity,
+  CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
   CanvasSceneGroupEntity,
 } from '../../src/shared/types'
@@ -29,7 +30,7 @@ function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): Canva
     width: screenWidth,
     height: screenHeight,
     presetIndex: 0,
-    linked: false,
+    synced: false,
     screenX,
     screenY,
     screenWidth,
@@ -74,6 +75,23 @@ function group(id: string, screenX: number, screenY: number, w = 600, h = 500): 
   }
 }
 
+function shape(id: string, screenX: number, screenY: number, w = 100, h = 80): CanvasSceneShapeEntity {
+  return {
+    kind: 'shape',
+    id,
+    shapeKind: 'rectangle',
+    text: '',
+    canvasX: 0,
+    canvasY: 0,
+    width: w,
+    height: h,
+    screenX,
+    screenY,
+    screenWidth: w,
+    screenHeight: h,
+  }
+}
+
 function drawing(id: string, screenX: number, screenY: number, w = 100, h = 60): CanvasSceneDrawingEntity {
   return {
     kind: 'drawing',
@@ -100,37 +118,31 @@ function inputs(
 
 // --- Collision class tests ---
 
-describe('hit-test — issue #41 anchor near chrome', () => {
-  // Page at screen (200,200), 400×300. Chrome strip is 36px above the page
-  // body, occupying y ∈ [164, 200). The top anchor's hit rect sits 4px
-  // above the page top, height 24px → y ∈ [172, 196). Heavy overlap with
-  // chrome y ∈ [164, 200). The bug: anchor wins. The fix: chrome wins.
+describe('hit-test — top-edge anchors (no chrome band)', () => {
+  // Page at screen (200,200), 400×300. The top anchor's hit rect sits 4px
+  // above the page top, height 24px → y ∈ [172, 196). With the chrome header
+  // retired, nothing shadows the anchor: it wins directly on select/hover.
   const f = page({ id: 'f1', screenX: 200, screenY: 200 })
 
-  it('chrome wins over top anchor when page is hovered but not selected', () => {
+  it('top anchor wins when the page is hovered but not selected', () => {
     const result = hitTest(inputs([f], [], { hoveredEntityId: 'f1' }), { x: 400, y: 185 })
-    expect(result.layer).toBe('chrome')
-    expect(result.payload).toMatchObject({ kind: 'chrome', entityId: 'f1' })
+    expect(result.layer).toBe('anchors')
+    expect(result.payload).toMatchObject({ kind: 'anchor', entityId: 'f1', side: 'top' })
   })
 
-  it('selected pages do not expose a chrome hit target', () => {
+  it('top anchor wins when the page is selected', () => {
     const result = hitTest(inputs([f], ['f1']), { x: 400, y: 185 })
     expect(result.layer).toBe('anchors')
     expect(result.payload).toMatchObject({ kind: 'anchor', side: 'top' })
   })
 
-  it('keyboard-focused pages do not expose a chrome hit target', () => {
-    const result = hitTest(inputs([f], [], { keyboardTargetPageId: 'f1' }), { x: 400, y: 185 })
+  it('a point above the body with no eligible anchor falls through to background', () => {
+    // Page neither selected nor hovered → no anchors → nothing above the body.
+    const result = hitTest(inputs([f], []), { x: 400, y: 185 })
     expect(result.layer).toBe('background')
   })
 
-  it('focus-presented pages do not expose a chrome hit target', () => {
-    const result = hitTest(inputs([f], [], { focusPresentationPageId: 'f1' }), { x: 400, y: 185 })
-    expect(result.layer).toBe('background')
-  })
-
-  it('an anchor click clear of the chrome still hits the anchor', () => {
-    // Right-side anchor: x ∈ [604, 628], y ∈ [338, 362]. Well clear of chrome.
+  it('a right-side anchor still hits the anchor', () => {
     const result = hitTest(inputs([f], ['f1']), { x: 615, y: 350 })
     expect(result.layer).toBe('anchors')
     expect(result.payload).toMatchObject({ kind: 'anchor', side: 'right' })
@@ -214,12 +226,26 @@ describe('hit-test — background fallback', () => {
   })
 })
 
-describe('hit-test — chrome only on chrome-bearing entities', () => {
-  it('text entities have no chrome strip', () => {
-    const t = text('t1', 200, 200, 100, 40)
-    // 36px above text top: y ∈ [164, 200). No chrome should be present.
-    const result = hitTest(inputs([t]), { x: 250, y: 180 })
-    expect(result.payload).toEqual({ kind: 'background' })
+describe('hit-test — item overlapping a page top edge wins (issue #312)', () => {
+  // The retired chrome header used to occupy an invisible 36px band above the
+  // page body and outrank overlapping items, stealing their drags. With chrome
+  // gone, a shape straddling the page's top edge hits as a normal front body.
+  // Page at (200,200), 400×300 → body y ∈ [200, 500].
+  // Shape at (240,170), 100×80 → body y ∈ [170, 250], declared after the page.
+  const p = page({ id: 'p1', screenX: 200, screenY: 200 })
+  const s = shape('s1', 240, 170, 100, 80)
+
+  it('shape over the page top edge wins where the old chrome band used to steal', () => {
+    // y=185 sits in the old chrome band and inside the shape body.
+    const result = hitTest(inputs([p, s]), { x: 280, y: 185 })
+    expect(result.layer).toBe('body')
+    expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 's1', entityKind: 'shape' })
+  })
+
+  it('shape wins over the page body where they overlap below the edge', () => {
+    // y=230 is inside both the shape and the page body.
+    const result = hitTest(inputs([p, s]), { x: 280, y: 230 })
+    expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 's1' })
   })
 })
 
@@ -351,54 +377,43 @@ describe('hit-test — multi-selection resize handles', () => {
   })
 })
 
-describe('hit-test — selected drawing beats page chrome and page body (issue #123)', () => {
-  // Page at (200, 200), 400×300. Chrome strip occupies y ∈ [164, 200).
-  // Drawing at (220, 170), 100×80. Drawing body: x ∈ [220,320], y ∈ [170,250].
-  // This overlaps the page chrome at y ∈ [170, 200) and the page body at
-  // y ∈ [200, 250]. Drawings render in aboveView above all page elements.
+describe('hit-test — drawing over a page wins by normal z-order (issue #123)', () => {
+  // Page at (200, 200), 400×300 → body y ∈ [200, 500]. Drawing at (220, 170),
+  // 100×80 → body x ∈ [220,320], y ∈ [170,250], declared after the page (front).
+  // With chrome retired and the drawing-priority hack gone, the drawing wins
+  // wherever it overlaps purely because it paints in front — selected or not.
   const p = page({ id: 'p1', screenX: 200, screenY: 200 })
   const d = drawing('d1', 220, 170, 100, 80)
 
-  it('selected drawing beats page chrome when overlapping (drag-from-chrome-area)', () => {
-    // y=185 is inside the page chrome strip and inside the drawing body.
-    const result = hitTest(inputs([p, d], ['d1']), { x: 260, y: 185 })
+  it('drawing over the page top edge wins (drag-from-old-chrome-area)', () => {
+    // y=185 is above the page body but inside the drawing body.
+    const result = hitTest(inputs([p, d]), { x: 260, y: 185 })
     expect(result.layer).toBe('body')
     expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 'd1', entityKind: 'drawing' })
   })
 
-  it('selected drawing beats page body when overlapping (drag-from-body-area)', () => {
-    // y=215 is inside the page body and inside the drawing body.
-    const result = hitTest(inputs([p, d], ['d1']), { x: 260, y: 215 })
+  it('drawing beats page body where they overlap', () => {
+    // y=215 is inside both the page body and the drawing body.
+    const result = hitTest(inputs([p, d]), { x: 260, y: 215 })
     expect(result.layer).toBe('body')
     expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 'd1', entityKind: 'drawing' })
   })
 
-  it('page chrome still wins where no selected drawing overlaps', () => {
-    // x=500 is inside the page chrome but outside the drawing (x ∈ [220,320]).
-    const result = hitTest(inputs([p, d], ['d1']), { x: 500, y: 185 })
-    expect(result.layer).toBe('chrome')
-    expect(result.payload).toMatchObject({ kind: 'chrome', entityId: 'p1' })
-  })
-
-  it('unselected drawing does not get the priority boost — page chrome wins', () => {
-    // Same geometry, but drawing is NOT selected.
+  it('the win does not depend on selection (front z-order alone)', () => {
     const result = hitTest(inputs([p, d], []), { x: 260, y: 185 })
-    expect(result.layer).toBe('chrome')
-    expect(result.payload).toMatchObject({ kind: 'chrome', entityId: 'p1' })
+    expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 'd1' })
   })
 
   it('resize handles of the selected drawing still win over drawing body', () => {
-    // SE resize handle of drawing: x ≈ 320+2+6, y ≈ 250+2+6 (2px outline pad for drawing).
-    // Handle half = RESIZE_HANDLE_HIT_PX/2 ≈ 6. Corner at (320+2, 250+2) = (322, 252).
-    // Click at (322, 252) — the handle should win, not the drawing body.
+    // SE resize handle of drawing: corner at (320+2, 250+2) = (322, 252).
     const result = hitTest(inputs([p, d], ['d1']), { x: 322, y: 252 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 'd1' })
   })
 
-  it('selected drawing body does not leak into areas it does not cover', () => {
+  it('the drawing does not leak into areas it does not cover', () => {
     // y=350 is inside the page body only, not the drawing. Should return page-body.
-    const result = hitTest(inputs([p, d], ['d1']), { x: 260, y: 350 })
+    const result = hitTest(inputs([p, d]), { x: 260, y: 350 })
     expect(result.layer).toBe('body')
     expect(result.payload).toMatchObject({ kind: 'page-body', entityId: 'p1' })
   })
