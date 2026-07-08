@@ -19,15 +19,6 @@ describe('ENTITY_KIND_CAPS', () => {
     expect(Object.keys(ENTITY_KIND_CAPS).sort()).toEqual([...kinds].sort())
   })
 
-  it('marks chrome only for pages and files', () => {
-    expect(ENTITY_KIND_CAPS.page.hasChrome).toBe(true)
-    expect(ENTITY_KIND_CAPS.file.hasChrome).toBe(true)
-    expect(ENTITY_KIND_CAPS.text.hasChrome).toBe(false)
-    expect(ENTITY_KIND_CAPS.shape.hasChrome).toBe(false)
-    expect(ENTITY_KIND_CAPS.group.hasChrome).toBe(false)
-    expect(ENTITY_KIND_CAPS.drawing.hasChrome).toBe(false)
-  })
-
   it('withholds anchors from drawings', () => {
     expect(ENTITY_KIND_CAPS.drawing.hasAnchors).toBe(false)
     expect(ENTITY_KIND_CAPS.page.hasAnchors).toBe(true)

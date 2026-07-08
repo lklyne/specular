@@ -203,24 +203,6 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
   })
 
-  it('chrome click on page → begin-entity-drag', () => {
-    const f = page()
-    // Chrome is the 36px strip above screenY.
-    const target = hitTest(inputs([f]), { x: 500, y: f.screenY - 10 })
-    const action = routePointerDown(target, baseCtx)
-    expect(action).toMatchObject({ kind: 'begin-entity-drag', entityId: 'f1', entityKind: 'page' })
-  })
-
-  it('shift-click chrome → toggle-select (no drag)', () => {
-    const f = page()
-    const target = hitTest(inputs([f]), { x: 500, y: f.screenY - 10 })
-    const action = routePointerDown(target, {
-      ...baseCtx,
-      modifiers: { shift: true, meta: false, ctrl: false },
-    })
-    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
-  })
-
   it('anchor click → begin-edge-drag', () => {
     const f = page()
     const target = hitTest(
@@ -467,22 +449,19 @@ describe('routePointerDown', () => {
     })
   })
 
-  // --- Issue #41 regression: chrome wins over anchor in their overlap zone ---
-  it('issue #41: click at the chrome/top-anchor overlap zone goes to chrome, not anchor', () => {
-    // Chrome strip is the 36px band above screenY: x=[100,900], y=[64,100].
-    // Top anchor (when hovered) is centred above the page midpoint, with a
-    // 4px gap. At zoom=1 it's 56×24, centred at (500, 84): x=[472,528],
-    // y=[72,96]. The anchor's hit ring dips into the chrome y-range — that's
-    // the #41 bug class. When the page is not selected/focused and the chrome
-    // is visible, chrome wins.
+  // --- Top-edge anchor routing (chrome header retired, issue #312) ---
+  it('hovered page top anchor → begin-edge-drag', () => {
+    // Top anchor when hovered is centred above the page midpoint with a 4px
+    // gap. At zoom=1 it's 56×24, centred at (500, 84): x=[472,528], y=[72,96].
+    // With chrome gone nothing shadows it — the anchor routes directly.
     const f = page()
     const target = hitTest(inputs([f], [], { hoveredEntityId: 'f1' }), { x: 500, y: 84 })
-    expect(target.payload.kind).toBe('chrome')
+    expect(target.payload.kind).toBe('anchor')
     const action = routePointerDown(target, baseCtx)
-    expect(action.kind).toBe('begin-entity-drag')
+    expect(action.kind).toBe('begin-edge-drag')
   })
 
-  it('selected page chrome strip does not hijack routing', () => {
+  it('selected page top anchor → begin-edge-drag', () => {
     const f = page()
     const target = hitTest(inputs([f], ['f1']), { x: 500, y: 84 })
     expect(target.payload.kind).toBe('anchor')
@@ -490,12 +469,9 @@ describe('routePointerDown', () => {
     expect(action.kind).toBe('begin-edge-drag')
   })
 
-  it('focus-presented page chrome strip routes as background', () => {
+  it('point above the body of an unselected, unhovered page routes as background', () => {
     const f = page()
-    const target = hitTest(inputs([f], [], { focusPresentationPageId: 'f1' }), {
-      x: 500,
-      y: 84,
-    })
+    const target = hitTest(inputs([f], []), { x: 500, y: 84 })
     expect(target.payload.kind).toBe('background')
     const action = routePointerDown(target, baseCtx)
     expect(action.kind).toBe('background-click')

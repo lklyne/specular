@@ -22,52 +22,31 @@ import { fileEntities } from './runtime/file-entity-state'
 import { snapToGrid } from '../shared/gesture-utils'
 import { workspaceGroups } from './runtime/workspace-model'
 import { boundsOverlap, pageSnapBounds } from './runtime/runtime-geometry'
-import { CHROME_HEADER_HEIGHT } from './runtime/runtime-constants'
 import {
   allWorkspacePages,
   entityBoundsById,
-  entityDataInsetsById,
   entityKindById,
   selectionBounds,
   unionBounds,
 } from './workspace-entities'
 import { computeLayoutMetrics, computeLayoutPositions, type LayoutBox } from './layout-math'
 
-// Chrome headers render above each entity's canvasY (see EntityChromeHeader —
-// translateY(-100%)). Extend the occupied rect upward so placement treats the
-// header band as claimed too. Without this, a new entity's body can land
-// flush against the bottom of an entity above, with its own chrome header
-// intruding into the visible gutter.
-function extendUpwardForChrome(bounds: WorkspaceBounds, headerHeight: number): WorkspaceBounds {
-  return {
-    x: bounds.x,
-    y: bounds.y - headerHeight,
-    width: bounds.width,
-    height: bounds.height + headerHeight,
-  }
-}
-
 export function occupiedRegions(): WorkspaceBounds[] {
   return [
-    // Pages: use the snap rect (body + device-frame insets) and extend
-    // upward by the chrome strip.
-    ...pages.map((page) =>
-      extendUpwardForChrome(pageSnapBounds(page), CHROME_HEADER_HEIGHT),
-    ),
+    // Pages: use the snap rect (body + device-frame insets).
+    ...pages.map((page) => pageSnapBounds(page)),
     ...textEntities.map((entity) => ({
       x: entity.canvasX,
       y: entity.canvasY,
       width: entity.width,
       height: entity.height,
     })),
-    // File entities may render a chrome header (markdown/wireframe). Claim the
-    // header band unconditionally — a small over-claim on plain files is fine.
-    ...fileEntities.map((entity) =>
-      extendUpwardForChrome(
-        { x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height },
-        CHROME_HEADER_HEIGHT,
-      ),
-    ),
+    ...fileEntities.map((entity) => ({
+      x: entity.canvasX,
+      y: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })),
     ...workspaceGroups.map((group) => ({
       x: group.canvasX,
       y: group.canvasY,
@@ -90,12 +69,8 @@ function candidateCollides(
   candidate: WorkspaceBounds,
   regions: WorkspaceBounds[] = occupiedRegions(),
 ): boolean {
-  // Reserve a chrome-header band above the candidate body. We don't know the
-  // kind of the entity being placed here, so assume it may have a header —
-  // worst case this leaves 44px of extra headroom for a headerless entity.
-  const inflated = extendUpwardForChrome(candidate, CHROME_HEADER_HEIGHT)
   return regions.some((bounds) =>
-    boundsOverlap(inflated, expandBounds(bounds, CLUSTER_OUTER_MARGIN)),
+    boundsOverlap(candidate, expandBounds(bounds, CLUSTER_OUTER_MARGIN)),
   )
 }
 
@@ -238,7 +213,9 @@ export function applyLayoutDirective(request: ApplyDirectiveRequest): ApplyDirec
         throw new Error(`applyLayoutDirective: unknown entity id "${it.id}" at index ${idx}`)
       }
       items.push({ width: it.width ?? bounds.width, height: it.height ?? bounds.height })
-      itemInsets.push(entityDataInsetsById(it.id))
+      // Existing entities anchor at their data origin (snap top-left); no
+      // outer/inner offset. Caller-supplied insets on id-less items are honored.
+      itemInsets.push({ insetX: 0, insetY: 0 })
       kinds.push(entityKindById(it.id))
       existingBounds.push(bounds)
       continue

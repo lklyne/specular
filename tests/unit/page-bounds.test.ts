@@ -7,7 +7,6 @@ import {
   pageVisualBoundsForContentSize,
 } from '../../src/main/runtime/runtime-geometry'
 import type { Page } from '../../src/main/runtime/runtime-entities'
-import { CHROME_HEADER_HEIGHT } from '../../src/shared/entity-chrome-slots'
 
 type PageStub = Parameters<typeof pageSnapBounds>[0]
 
@@ -57,22 +56,18 @@ describe('page bounds (Path A semantics)', () => {
     })
   })
 
-  it('chrome lives above the snap rect (visual bounds extend upward)', () => {
+  it('visual bounds hug the snap rect (no chrome band above)', () => {
     const page = unframedPage()
-    const visual = pageVisualBounds(page)
-    expect(visual.y).toBe(200 - CHROME_HEADER_HEIGHT)
-    expect(visual.height).toBe(667 + CHROME_HEADER_HEIGHT)
-    expect(visual.x).toBe(100)
-    expect(visual.width).toBe(375)
+    expect(pageVisualBounds(page)).toEqual(pageSnapBounds(page))
   })
 
-  it('visual bounds include the device shell and chrome for framed pages', () => {
+  it('visual bounds include the device shell for framed pages', () => {
     const page = framedPage()
     expect(pageVisualBounds(page)).toEqual({
       x: 100,
-      y: 200 - CHROME_HEADER_HEIGHT,
+      y: 200,
       width: 375 + 24,
-      height: 667 + 24 + CHROME_HEADER_HEIGHT,
+      height: 667 + 24,
     })
   })
 
@@ -80,9 +75,9 @@ describe('page bounds (Path A semantics)', () => {
     const page = framedPage()
     expect(pageVisualBoundsForContentSize(page, { width: 500, height: 300 })).toEqual({
       x: 100,
-      y: 200 - CHROME_HEADER_HEIGHT,
+      y: 200,
       width: 500 + 24,
-      height: 300 + 24 + CHROME_HEADER_HEIGHT,
+      height: 300 + 24,
     })
   })
 

@@ -20,8 +20,7 @@ export interface Page {
   canvasX: number
   /**
    * Top-left of the page's snap rect in canvas coords. With a device frame
-   * this is the bezel top; without, it is the body top. Chrome renders
-   * above at (canvasY - CHROME_HEADER_HEIGHT).
+   * this is the bezel top; without, it is the body top.
    */
   canvasY: number
   syncId: string | null
