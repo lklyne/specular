@@ -183,6 +183,7 @@ const arrange: VerbHandler = async (args) => {
   return 0
 }
 
+// fallow-ignore-next-line complexity
 const update: VerbHandler = async (args) => {
   const id = args.positional[0]
   if (!id) { printError('usage: specular update <id> [--at x,y] [--size w,h] [--preset N] [--text T] [--color C] [--url U] [--gap N]'); return 1 }
