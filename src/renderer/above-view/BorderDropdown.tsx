@@ -58,8 +58,6 @@ function LineGlyph({ dashed }: { dashed: boolean }) {
   )
 }
 
-/** Background / text / hover colors for a toggleable segment, shared by the
- *  style segments and the square thickness buttons. */
 function segmentStateClass(isDark: boolean, active: boolean): string {
   if (active) {
     return isDark

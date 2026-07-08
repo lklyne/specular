@@ -1239,11 +1239,6 @@ export function setPagePreset(pageId: string, presetIndex: number): void {
   if (target) setDevicePreset(target, presetIndex)
 }
 
-/**
- * Set (or clear) a page's color-scheme override. `null` clears it back to
- * "follow system" — the field is deliberately deleted rather than set to a
- * sentinel, since absence is what every downstream reader treats as "system".
- */
 export function setPageColorScheme(
   pageId: string,
   colorScheme: PageColorScheme | null,

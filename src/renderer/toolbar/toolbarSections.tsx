@@ -11,7 +11,7 @@ import type {
   DrawingBrushType,
   Tool,
 } from '../../shared/types'
-import { ThemeModeDropdown } from './ThemeModeDropdown'
+import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { shortcutDisplay } from '../../shared/bindings'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
@@ -27,7 +27,6 @@ import {
   HandToolIcon,
   InspectToolIcon,
   SelectToolIcon,
-  ThemeToolIcon,
   ZoomChevronIcon,
 } from '../shared/CustomIcons'
 import { ToolbarTooltip } from './ToolbarTooltip'
@@ -314,23 +313,21 @@ export function CenterActions({
 
         <ToolbarDivider isDark={isDark} />
 
-        <ThemeModeDropdown
-          isDark={isDark}
-          activeMode={themeMode}
-          onSelect={onThemeModeSelect}
-          onOpenChange={onDropdownOpenChange}
-          trigger={
-            <button
-              type="button"
-              data-theme-anchor
-              className={buttonClass(false)}
-              aria-label="Theme"
-              title="Theme"
-            >
-              <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-            </button>
-          }
-        />
+        {(() => {
+          const ThemeIcon = THEME_MODE_ICON[themeMode]
+          return (
+            <ToolbarTooltip label={`${THEME_MODE_LABEL[themeMode]} theme`}>
+              <button
+                type="button"
+                className={buttonClass(false)}
+                aria-label={`Theme: ${THEME_MODE_LABEL[themeMode]}. Click to change.`}
+                onClick={() => onThemeModeSelect(nextThemeMode(themeMode))}
+              >
+                <ThemeIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+              </button>
+            </ToolbarTooltip>
+          )
+        })()}
 
         <ZoomPresetDropdown
           isDark={isDark}

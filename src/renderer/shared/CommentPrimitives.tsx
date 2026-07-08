@@ -36,7 +36,7 @@ export function CommentInput({
       <textarea
         ref={inputRef}
         autoFocus={autoFocus}
-        className="min-h-[24px] max-h-[120px] w-full resize-none overflow-y-auto bg-transparent py-0.5 pr-9 text-[14px] leading-6 text-zinc-900 outline-none [field-sizing:content] placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+        className="block min-h-[24px] max-h-[120px] w-full resize-none overflow-y-auto bg-transparent py-0.5 pr-9 text-[14px] leading-6 text-zinc-900 outline-none [field-sizing:content] placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
         rows={1}
         placeholder={placeholder}
         value={value}

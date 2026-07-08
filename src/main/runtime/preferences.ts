@@ -61,7 +61,6 @@ type PreferencesFile = {
   originBindings?: LegacyOriginBindings
   fixConfig?: Omit<FixConfig, 'configured'>
   toolDefaults?: ToolDefaults
-  /** App-level theme preference. Absent means 'system' (pre-existing installs). */
   themeMode?: AppThemeMode
   debug?: {
     cursorSplineViz?: boolean
@@ -228,24 +227,16 @@ export function setFixConfig(patch: { model?: FixConfig['model']; permissions?: 
   savePreferences()
 }
 
-/**
- * Scheme resolution model: OS appearance -> app themeMode -> per-page
- * colorScheme override (absent = inherit). This is the middle layer:
- * `nativeTheme.themeSource` mirrors `themeMode` so `isDark()` reflects it,
- * and the per-page override is applied separately (see page-color-scheme.ts).
- */
 export function getThemeMode(): AppThemeMode {
   return currentThemeMode
 }
 
 export function setThemeMode(mode: AppThemeMode): void {
   currentThemeMode = mode
-  // Assigning themeSource fires nativeTheme's 'updated' event (which calls
-  // broadcastTheme() — see index.ts) only when shouldUseDarkColors actually
-  // flips. Call it directly too so themeMode reaches renderers even when the
-  // resolved light/dark value doesn't change (e.g. 'system' -> 'light' at noon).
   nativeTheme.themeSource = mode
   savePreferences()
+  // nativeTheme's 'updated' event only fires when shouldUseDarkColors flips;
+  // broadcast directly so themeMode reaches renderers even when it doesn't.
   broadcastTheme()
 }
 

@@ -246,24 +246,20 @@ describe('page colorScheme', () => {
     await settleSync()
     expect(findPageById(pageId)?.colorScheme).toBeUndefined()
 
-    // absent -> 'dark'
     setPageColorScheme(pageId, 'dark')
     await settleSync()
     expect(findPageById(pageId)?.colorScheme).toBe('dark')
 
-    // undo: 'dark' -> absent again (not merely "unchanged" — the field must
-    // be cleared, since presetIndex-style "keep current value" semantics
-    // would leave it stuck at 'dark').
+    // Undo must clear the field back to absent, not merely leave it unchanged.
     undo()
     expect(findPageById(pageId)?.colorScheme).toBeUndefined()
     expect(docColorScheme(pageId)).toBeUndefined()
 
-    // redo: absent -> 'dark'
     redo()
     expect(findPageById(pageId)?.colorScheme).toBe('dark')
     expect(docColorScheme(pageId)).toBe('dark')
 
-    // Clearing is itself undoable: 'dark' -> null -> undo -> back to 'dark'.
+    // Clearing is itself undoable.
     setPageColorScheme(pageId, null)
     await settleSync()
     expect(findPageById(pageId)?.colorScheme).toBeUndefined()

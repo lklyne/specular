@@ -458,14 +458,9 @@ function layoutAllViews(): void {
       }
     }
 
-    // Per-page prefers-color-scheme override (CDP-enforced — no native
-    // webContents equivalent). Applies regardless of fill/device-shell mode;
-    // absent colorScheme means the guest keeps following the live app/OS
-    // theme with no override.
     if (page.colorScheme !== page.lastColorSchemeKey) {
-      // Commit the key only when the override actually dispatched; a failed
-      // attach (e.g. DevTools already owns the page's debugger) must retry on
-      // the next pass rather than wedge the page on the wrong scheme.
+      // Commit the key only when the override actually dispatched, so a
+      // failed attach retries on the next pass.
       if (applyPageColorScheme(page, page.colorScheme ?? null)) {
         page.lastColorSchemeKey = page.colorScheme
       }

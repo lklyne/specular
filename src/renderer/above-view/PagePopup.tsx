@@ -16,9 +16,10 @@ import {
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { CanvasScenePageEntity, LayoutUpdateData, PageColorScheme } from '../../shared/types'
+import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
+import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -36,51 +37,6 @@ function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6
   return isDark
     ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
     : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900`
-}
-
-function segmentGroupClass(isDark: boolean): string {
-  return isDark
-    ? 'flex h-7 items-center gap-0.5 rounded-[7px] bg-black/15 p-0.5'
-    : 'flex h-7 items-center gap-0.5 rounded-[7px] bg-zinc-900/10 p-0.5'
-}
-
-type ColorSchemeChoice = 'system' | PageColorScheme
-
-const COLOR_SCHEME_OPTIONS: { value: ColorSchemeChoice; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-]
-
-// Segmented System / Light / Dark control for a page's color-scheme override.
-// `value` is null when a batch selection spans more than one scheme, which
-// renders every segment inactive (indeterminate) rather than picking one.
-function ColorSchemeControl({
-  isDark,
-  value,
-  onChange,
-}: {
-  isDark: boolean
-  value: ColorSchemeChoice | null
-  onChange: (value: ColorSchemeChoice) => void
-}) {
-  return (
-    <div className={segmentGroupClass(isDark)} role="group" aria-label="Color scheme">
-      {COLOR_SCHEME_OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          className={popupTabButtonClass(isDark, value === opt.value, 'px-2')}
-          title={opt.label}
-          aria-label={`${opt.label} color scheme`}
-          aria-pressed={value === opt.value}
-          onClick={() => onChange(opt.value)}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 export function PagePopup({
@@ -440,13 +396,23 @@ export function PagePopup({
             />
             <CanvasItemPopup.Divider isDark={isDark} />
             <CanvasItemPopup.Section>
-              <ColorSchemeControl
-                isDark={isDark}
-                value={single.colorScheme ?? 'system'}
-                onChange={(choice) =>
-                  api.setPageColorScheme(single.id, choice === 'system' ? null : choice)
-                }
-              />
+              {(() => {
+                const mode = single.colorScheme ?? 'system'
+                const Icon = THEME_MODE_ICON[mode]
+                return (
+                  <CanvasItemPopup.IconButton
+                    isDark={isDark}
+                    title={`${THEME_MODE_LABEL[mode]} color scheme`}
+                    ariaLabel={`Color scheme: ${THEME_MODE_LABEL[mode]}. Click to change.`}
+                    onClick={() => {
+                      const next = nextThemeMode(mode)
+                      api.setPageColorScheme(single.id, next === 'system' ? null : next)
+                    }}
+                  >
+                    <Icon size={14} isDark={isDark} />
+                  </CanvasItemPopup.IconButton>
+                )
+              })()}
             </CanvasItemPopup.Section>
           </>
         ) : null}

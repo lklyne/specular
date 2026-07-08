@@ -23,8 +23,6 @@ export function MultiEntityPane({ multiEntities }: { multiEntities: PanelMultiEn
   const schemeKeys = new Set(
     multiEntities.filter((e) => e.kind === 'page').map((e) => e.colorScheme ?? 'system'),
   )
-  // Mixed values across the selected pages render every segment inactive
-  // (indeterminate) rather than picking one.
   const activeScheme: ColorSchemeChoice | null = schemeKeys.size === 1 ? [...schemeKeys][0] : null
 
   const setColorScheme = (choice: ColorSchemeChoice) => {
