@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-07-08 — Per-Page Themes, Gap Handles, Live File Refresh
+
+### New
+
+- **Per-page color scheme**: override light/dark/system on a single page, layered over the app theme. A theme-mode button in the toolbar cycles system → light → dark, and the page popup reuses the same control for its per-page override.
+- **Document tool**: Text, Sticky, and Document are now three independent one-shot tools. Document drops a markdown file backed by a fresh `.md` note. (Retires the old text/markdown toggle.)
+- **Draggable gap handles**: grab the gap between children in an auto-layout group and drag to resize it, with a live preview and a single undo step. Works for both row and column layouts.
+- **Live file refresh**: local-file canvas entities reload on their own when the underlying file changes on disk.
+
+### Improvements
+
+- Expanded shape catalog with independent border styling (color and style); rebuilt selection popups and pickers on shared dropdowns.
+- Smoother canvas pan and zoom, with fewer frame hitches and live selection chrome.
+- Escape now works inside the annotation composer while you're typing.
+
+### Fixes
+
+- Browser DevTools follow the selected page instead of staying pinned to whatever page was open when you launched them.
+- Eyedropper opens the inspect panel on click rather than the moment you pick the tool, so it no longer tears down an open DevTools session.
+- Markdown note edits now join the single undo thread, so Cmd+Z steps back through them one at a time instead of deleting the whole note. Placement also previews as a note box.
+- Shape inline edit keeps newlines on Enter.
+- Editing an edge updates it in place instead of duplicating.
+- Images no longer trigger native text selection when dragged.
+- Comment composer polish: send button pinned to the corner, scrollbar at the card edge.
+
 ## [0.3.3] - 2026-06-30 — Agent Browser Fix, Page Panel Controls
 
 ### Fixes
