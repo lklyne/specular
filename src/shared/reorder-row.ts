@@ -63,7 +63,7 @@ function spread(values: number[]): number {
  * Dominant axis: whichever axis has the larger spread of box centers. Used by
  * `detectReorderableRow` to pick the row's axis.
  */
-function dominantAxis(boxes: readonly Box[]): 'x' | 'y' {
+export function dominantAxis(boxes: readonly Box[]): 'x' | 'y' {
   const centersX = boxes.map((b) => centerAlong(b, 'x'))
   const centersY = boxes.map((b) => centerAlong(b, 'y'))
   return spread(centersX) >= spread(centersY) ? 'x' : 'y'
