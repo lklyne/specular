@@ -28,7 +28,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     agentCursors,
   } = useToolbarState()
 
-  const isDark = useTheme(initialTheme, toolbarApi.onThemeChanged)
+  const { isDark, themeMode } = useTheme(initialTheme, toolbarApi.onThemeChanged)
 
   useReportTextEditing(toolbarApi.setTextEditing)
 
@@ -140,6 +140,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
               hasSelection={hasSelection}
               zoomPercent={zoomPercent}
               currentPresetValue={currentPresetValue}
+              themeMode={themeMode}
               onSetTool={toolbarApi.setTool}
               onDropdownOpenChange={(open) => {
                 if (open) {
@@ -150,7 +151,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
                   if (activeTool.kind !== 'select') toolbarApi.setTool({ kind: 'select' })
                 } else toolbarApi.dropdownClose()
               }}
-              onToggleTheme={toolbarApi.toggleTheme}
+              onThemeModeSelect={(mode) => toolbarApi.setThemeMode(mode)}
               onZoomSet={(value) => toolbarApi.zoomSet(value / 100)}
             />
           </div>

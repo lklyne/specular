@@ -136,7 +136,7 @@ function ComposerBox({
       data-overlay-ui
       style={{ left, top, width }}
     >
-      <div className="flex flex-col gap-1 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] p-1.5 shadow-lg">
+      <div className="flex flex-col gap-1 rounded-[8px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] px-1.5 pt-1.5 shadow-lg">
         {showElementName ? (
           <input
             type="text"

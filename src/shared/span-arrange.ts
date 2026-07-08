@@ -17,9 +17,13 @@
  *            current positions, holes preserved), regularize gaps on both axes.
  */
 
+import { snapToGrid } from './gesture-utils'
 import type { Box } from './reorder-row'
 
 export type SpanArrangeMode = 'row' | 'column' | 'grid'
+
+/** Floor for the gap between items/bands, so a too-tight footprint can't overlap. */
+const MIN_GAP = 80
 
 /**
  * Target positions for every input box (caller diffs against current). Returns
@@ -42,7 +46,9 @@ export function arrangeInSpan(
   // row / column: one line. Distribute along the axis, align on the other.
   const axis = mode === 'row' ? 'x' : 'y'
   const along = evenCells(boxes, axis)
-  const cross = mode === 'row' ? Math.min(...boxes.map((b) => b.y)) : Math.min(...boxes.map((b) => b.x))
+  const cross = snapToGrid(
+    mode === 'row' ? Math.min(...boxes.map((b) => b.y)) : Math.min(...boxes.map((b) => b.x)),
+  )
   for (const b of boxes) {
     const lead = along.get(b.id)!
     positions.set(b.id, axis === 'x' ? { x: lead, y: cross } : { x: cross, y: lead })
@@ -63,7 +69,9 @@ function size(box: Box, axis: 'x' | 'y'): number {
  * Even the gaps between a set of leading edges along `axis`, pinning the first
  * item's leading edge and the last item's trailing edge at their current spots.
  *
- *   gap = (extent − Σ sizes) / (n − 1)   — may be negative (overlap)
+ *   gap = max((extent − Σ sizes) / (n − 1), MIN_GAP)   — floored so a tight
+ *                                                        footprint grows instead
+ *                                                        of overlapping
  *
  * Returns each box's new leading edge along the axis, keyed by id.
  */
@@ -81,13 +89,15 @@ function evenCells(boxes: readonly Box[], axis: 'x' | 'y'): Map<string, number> 
     Math.min(...boxes.map((b) => lead(b, cross)))
   const extent = Math.max(along, crossExtent)
   const totalSize = sorted.reduce((s, b) => s + size(b, axis), 0)
-  const gap = (extent - totalSize) / (sorted.length - 1)
+  const gap = Math.max((extent - totalSize) / (sorted.length - 1), MIN_GAP)
 
   const out = new Map<string, number>()
   let cursor = lead(first, axis)
   for (const box of sorted) {
-    out.set(box.id, cursor)
-    cursor += size(box, axis) + gap
+    // Every leading edge lands on the grid; the pinned ends bump ≤ half a cell.
+    const snapped = snapToGrid(cursor)
+    out.set(box.id, snapped)
+    cursor = snapped + size(box, axis) + gap
   }
   return out
 }
@@ -118,8 +128,8 @@ function evenBands(boxes: readonly Box[], axis: 'x' | 'y'): Map<string, number> 
 
   const out = new Map<string, number>()
   if (bands.length < 2) {
-    // One band on this axis — nothing to distribute; keep positions.
-    for (const box of boxes) out.set(box.id, lead(box, axis))
+    // One band on this axis — nothing to distribute; just snap in place.
+    for (const box of boxes) out.set(box.id, snapToGrid(lead(box, axis)))
     return out
   }
 
@@ -131,12 +141,13 @@ function evenBands(boxes: readonly Box[], axis: 'x' | 'y'): Map<string, number> 
   )
   const extent = bandLeads[bands.length - 1] + bandSizes[bands.length - 1] - bandLeads[0]
   const totalSize = bandSizes.reduce((s, x) => s + x, 0)
-  const gap = (extent - totalSize) / (bands.length - 1)
+  const gap = Math.max((extent - totalSize) / (bands.length - 1), MIN_GAP)
 
   let cursor = bandLeads[0]
   for (let i = 0; i < bands.length; i++) {
-    for (const box of bands[i]) out.set(box.id, cursor)
-    cursor += bandSizes[i] + gap
+    const snapped = snapToGrid(cursor)
+    for (const box of bands[i]) out.set(box.id, snapped)
+    cursor = snapped + bandSizes[i] + gap
   }
   return out
 }

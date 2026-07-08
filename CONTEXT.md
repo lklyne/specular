@@ -203,6 +203,14 @@ A **Binding** is one entry in the keyboard registry: `{ id, defaultKey, scope, t
 
 **Keyboard shortcuts and tools.** Every `Tool['kind']` has a default key, enforced by TypeScript exhaustiveness. Variant keys (e.g. Shift+R for diamond, Shift+M for highlight) activate the tool *and* write the variant to **tool defaults** per ADR 0009. Pressing a tool's key while that tool is already active is a no-op (FigJam reference); Escape is the only keyboard path back to `select`.
 
+## Theme & color scheme
+
+Scheme resolution is a three-layer chain: **OS appearance → app theme mode → page color scheme override**. Each layer defaults to inheriting the one above.
+
+- **App theme mode** — the tri-state app preference (`system` | `light` | `dark`), persisted in `preferences.json` and mirrored onto `nativeTheme.themeSource` (`preferences.ts`). Set from the toolbar theme dropdown. Drives the app chrome theme *and* every guest page's `prefers-color-scheme` (Electron derives both from `nativeTheme`) — toggling it previews all non-overridden pages in the other scheme.
+- **Page color scheme override** — per-page `colorScheme` (`'light'` | `'dark'`, absent = inherit). Persisted top-level on the page's link node (alongside `presetIndex` — link-node fields predate the `specular: {}` convention), synced/undoable like any page field, carried through duplicate and copy-paste. Enforced via CDP `Emulation.setEmulatedMedia` in the layout pass (`page-color-scheme.ts`) since webContents has no native per-guest scheme API; absent means *no override*, so the page follows theme changes live. Set from the page popup (single) or the multi-entity pane (2+ pages, indeterminate when mixed).
+- **Guest scrollbar CSS** — a user-origin stylesheet injected into every page webContents (`page-scrollbar-css.ts`) making root scrollbars thin and `prefers-color-scheme`-aware. Exists because device emulation makes Blink paint root scrollbars from the page's *declared* color-scheme only, so undeclared pages got thick light scrollbars in dark mode. User origin keeps page-author scrollbar styling winning.
+
 ## Cloud sync & sharing
 
 Proposed, not yet built — see [ADR 0018](./docs/adr/0018-cloud-sync-and-canvas-sharing.md). The local-first disk path (`.canvas` files) remains the only shipping mode until the auth/token layer lands. Terms recorded ahead of implementation so planning shares vocabulary:

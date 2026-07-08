@@ -16,11 +16,14 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import type { JsonCanvasLinkNode } from '../../src/shared/json-canvas-types'
 import {
+  createShapeEntity,
   createTextEntity,
+  getShapeEntities,
   getTextEntities,
+  setPageColorScheme,
   ungroupSelectedGroup,
 } from '../../src/main/runtime/document-commands'
-import { createUserGroup } from '../../src/main/workspace-groups'
+import { createUserGroup, duplicateGroup } from '../../src/main/workspace-groups'
 import {
   enterGroup,
   selectEntity,
@@ -30,6 +33,8 @@ import {
 import { getSelectionState } from '../../src/main/workspace-entities'
 import { workspaceGroups } from '../../src/main/runtime/workspace-model'
 import { undo, redo } from '../../src/main/runtime/workspace-undo'
+import { applyCanvasPatch } from '../../src/main/canvas-apply'
+import { findPageById } from '../../src/main/runtime/runtime-context'
 
 let harness: WorkspaceHarness
 
@@ -154,6 +159,28 @@ describe('groups + selection', () => {
     expect(membership()).toEqual([group.id, group.id])
   })
 
+  it('groups shape entities and round-trips membership through undo/redo', async () => {
+    const a = createShapeEntity({ canvasX: 0, canvasY: 0, shapeKind: 'rectangle' })
+    const b = createShapeEntity({ canvasX: 200, canvasY: 0, shapeKind: 'rectangle' })
+    await settleSync()
+    const group = createUserGroup([a.id, b.id], 'Shapes')
+    await settleSync()
+
+    const membership = () =>
+      getShapeEntities()
+        .filter((s) => s.id === a.id || s.id === b.id)
+        .map((s) => s.parentGroupId)
+    expect(membership()).toEqual([group.id, group.id])
+
+    undo()
+    expect(workspaceGroups.some((g) => g.id === group.id)).toBe(false)
+    expect(membership()).toEqual([undefined, undefined])
+
+    redo()
+    expect(workspaceGroups.some((g) => g.id === group.id)).toBe(true)
+    expect(membership()).toEqual([group.id, group.id])
+  })
+
   it('undo of grouping restores prior nested membership', async () => {
     const [aId, bId] = await createTextPair()
     const inner = createUserGroup([aId, bId], 'Inner')
@@ -177,5 +204,38 @@ describe('groups + selection', () => {
     redo()
     expect(workspaceGroups.some((g) => g.id === outer.id)).toBe(true)
     expect(innerGroup()?.parentGroupId).toBe(outer.id)
+  })
+})
+
+describe('group duplicate', () => {
+  beforeEach(() => {
+    harness ??= bootWorkspaceHarness()
+    harness.reset()
+    selectNone()
+  })
+
+  afterAll(() => harness?.dispose())
+
+  // Mutation-verified by deleting `colorScheme: page.colorScheme` from the
+  // page-cloning branch of `duplicateGroupInternal` (src/main/workspace-groups.ts).
+  it('carries a member page colorScheme override to its clone', async () => {
+    const result = applyCanvasPatch({
+      entities: [
+        { kind: 'page', url: 'https://example.com', canvasX: 0, canvasY: 0, presetIndex: 0 },
+      ],
+    })
+    const pageId = result.created[0]
+    await settleSync()
+    setPageColorScheme(pageId, 'dark')
+    await settleSync()
+
+    const group = createUserGroup([pageId], 'Page group')
+    await settleSync()
+
+    const { entityIds } = duplicateGroup({ groupId: group.id })
+    await settleSync()
+
+    expect(entityIds).toHaveLength(1)
+    expect(findPageById(entityIds[0])?.colorScheme).toBe('dark')
   })
 })

@@ -7,6 +7,7 @@ import type {
   EntityUpdatePatchMap,
   FixModel,
   FixPermissions,
+  PageColorScheme,
   ThemeBootstrapData,
   ThemeData,
   UpdatableEntityKind,
@@ -51,6 +52,7 @@ export interface DevtoolsPanelElectronAPI {
   updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
   deleteEdge: (id: string) => void
   setPagePreset: (pageId: string, presetIndex: number) => void
+  setPageColorScheme: (pageId: string, colorScheme: PageColorScheme | null) => void
   setPageCustom: (pageId: string) => void
   setDeviceOrientation: (pageId: string, orientation: string) => void
   toggleDeviceShell: (pageId: string) => void

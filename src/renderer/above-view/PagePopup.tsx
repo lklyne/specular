@@ -19,6 +19,7 @@ import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
+import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -55,6 +56,7 @@ export function PagePopup({
     | 'toggleDeviceShell'
     | 'setPagePreset'
     | 'setPageCustom'
+    | 'setPageColorScheme'
     | 'focusSelection'
     | 'restoreFocusCamera'
     | 'setFocusPresentationMode'
@@ -392,6 +394,26 @@ export function PagePopup({
                 api.setDeviceOrientation(single.id, orientation)
               }
             />
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <CanvasItemPopup.Section>
+              {(() => {
+                const mode = single.colorScheme ?? 'system'
+                const Icon = THEME_MODE_ICON[mode]
+                return (
+                  <CanvasItemPopup.IconButton
+                    isDark={isDark}
+                    title={`${THEME_MODE_LABEL[mode]} color scheme`}
+                    ariaLabel={`Color scheme: ${THEME_MODE_LABEL[mode]}. Click to change.`}
+                    onClick={() => {
+                      const next = nextThemeMode(mode)
+                      api.setPageColorScheme(single.id, next === 'system' ? null : next)
+                    }}
+                  >
+                    <Icon size={14} isDark={isDark} />
+                  </CanvasItemPopup.IconButton>
+                )
+              })()}
+            </CanvasItemPopup.Section>
           </>
         ) : null}
         {!isSingle ? (

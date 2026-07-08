@@ -77,6 +77,7 @@ import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
+import { applyPageColorScheme } from './page-color-scheme'
 
 export function setBoundsIfChanged(
   view: WebContentsView,
@@ -454,6 +455,14 @@ function layoutAllViews(): void {
           emulatedHeight,
           devtoolsOpen,
         })
+      }
+    }
+
+    if (page.colorScheme !== page.lastColorSchemeKey) {
+      // Commit the key only when the override actually dispatched, so a
+      // failed attach retries on the next pass.
+      if (applyPageColorScheme(page, page.colorScheme ?? null)) {
+        page.lastColorSchemeKey = page.colorScheme
       }
     }
 

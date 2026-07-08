@@ -218,12 +218,15 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'nav-up', defaultKey: k('arrowup'), scope: CANVAS_REGION, target: 'main', label: 'Navigate up' },
   { id: 'nav-down', defaultKey: k('arrowdown'), scope: CANVAS_REGION, target: 'main', label: 'Navigate down' },
 
-  // Annotation Escape bindings — renderer-targeted, ordered before escape-tool
+  // Annotation Escape bindings — renderer-targeted, ordered before escape-tool.
+  // firesWhileTyping: the composer textarea is focused whenever a draft/thread
+  // is open, so without it Escape falls through to escape-tool and is swallowed.
   {
     id: 'annotation-close-thread',
     defaultKey: k('escape'),
     scope: ['aboveView'],
     target: 'aboveView',
+    firesWhileTyping: true,
     when: (ctx) => ctx.hasOpenAnnotationThread,
     label: 'Close annotation thread',
   },
@@ -232,6 +235,7 @@ export const BINDINGS: readonly Binding[] = [
     defaultKey: k('escape'),
     scope: ['aboveView'],
     target: 'aboveView',
+    firesWhileTyping: true,
     when: (ctx) => ctx.hasPendingAnnotation,
     label: 'Clear annotation draft',
   },

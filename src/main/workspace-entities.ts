@@ -462,6 +462,7 @@ export function toWorkspacePage(pageId: string): WorkspacePage | null {
     parentGroupId: page.parentGroupId,
     groupId: page.parentGroupId,
     metadata: cloneMetadata(page.metadata),
+    colorScheme: page.colorScheme,
   }
 }
 

@@ -428,7 +428,7 @@ export default function App({
     return new Set(selectionOverlay.entityIds)
   }, [selectionOverlay])
 
-  const isDark = useTheme(initialTheme, api.onThemeChanged)
+  const { isDark } = useTheme(initialTheme, api.onThemeChanged)
 
   // Reorder ghost (ADR 0015 D7, Phase D): the canvas-space pointer delta since
   // the dragged item was grabbed, published by the gesture in

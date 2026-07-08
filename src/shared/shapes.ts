@@ -48,12 +48,18 @@ export const SHAPE_DEFS = [
     textInset: { x: 25, y: 25, w: 50, h: 50 },
   },
   {
+    // Equilateral: height = width·√3/2, centered vertically in the square box.
     kind: 'triangle',
     label: 'Triangle',
-    path: 'M50,0 L100,100 L0,100 Z',
-    textInset: { x: 20, y: 48, w: 60, h: 48 },
+    path: 'M50,6.7 L100,93.3 L0,93.3 Z',
+    textInset: { x: 20, y: 48, w: 60, h: 42 },
   },
-  { kind: 'hexagon', label: 'Hexagon', path: 'M25,0 H75 L100,50 L75,100 H25 L0,50 Z' },
+  {
+    // Regular hexagon: height = width·√3/2, centered vertically in the square box.
+    kind: 'hexagon',
+    label: 'Hexagon',
+    path: 'M25,6.7 H75 L100,50 L75,93.3 H25 L0,50 Z',
+  },
   { kind: 'pill', label: 'Pill', path: 'M25,0 H75 A25,50 0 0 1 75,100 H25 A25,50 0 0 1 25,0 Z' },
   {
     kind: 'parallelogram',

@@ -45,11 +45,12 @@ export function DocumentPane({
   const originGroups = useMemo(() => groupAnnotationsByOrigin(annotations), [annotations])
 
   return (
-    <div className="flex h-full flex-col overflow-auto">
+    <div className="flex h-full flex-col">
       <PaneHeader
         label="Document"
       />
 
+      <div className="thin-scrollbar min-h-0 flex-1 overflow-auto">
       <Collapsible.Root defaultOpen>
         <div className="flex items-center">
           <Collapsible.Trigger
@@ -88,6 +89,7 @@ export function DocumentPane({
         divider={divider}
         fixProgress={fixProgress}
       />
+      </div>
     </div>
   )
 }

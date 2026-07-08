@@ -7,9 +7,11 @@ import {
 } from 'lucide-react'
 import type {
   AgentPresenceCursor,
+  AppThemeMode,
   DrawingBrushType,
   Tool,
 } from '../../shared/types'
+import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
 import { summarizePresenceCursor } from '../../shared/agent-presence'
 import { shortcutDisplay } from '../../shared/bindings'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
@@ -25,7 +27,6 @@ import {
   HandToolIcon,
   InspectToolIcon,
   SelectToolIcon,
-  ThemeToolIcon,
   ZoomChevronIcon,
 } from '../shared/CustomIcons'
 import { ToolbarTooltip } from './ToolbarTooltip'
@@ -120,9 +121,10 @@ interface CenterActionsProps {
   hasSelection: boolean
   zoomPercent: number
   currentPresetValue: (typeof ZOOM_PRESETS)[number] | null
+  themeMode: AppThemeMode
   onSetTool: (tool: Tool) => void
   onDropdownOpenChange: (open: boolean) => void
-  onToggleTheme: () => void
+  onThemeModeSelect: (mode: AppThemeMode) => void
   onZoomSet: (value: number) => void
 }
 
@@ -136,9 +138,10 @@ export function CenterActions({
   hasSelection,
   zoomPercent,
   currentPresetValue,
+  themeMode,
   onSetTool,
   onDropdownOpenChange,
-  onToggleTheme,
+  onThemeModeSelect,
   onZoomSet,
 }: CenterActionsProps) {
   const onAddPage = () => onSetTool({ kind: 'add-page' })
@@ -310,16 +313,21 @@ export function CenterActions({
 
         <ToolbarDivider isDark={isDark} />
 
-        <ToolbarTooltip label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
-          <button
-            onClick={onToggleTheme}
-            className={buttonClass(false)}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            type="button"
-          >
-            <ThemeToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
-          </button>
-        </ToolbarTooltip>
+        {(() => {
+          const ThemeIcon = THEME_MODE_ICON[themeMode]
+          return (
+            <ToolbarTooltip label={`${THEME_MODE_LABEL[themeMode]} theme`}>
+              <button
+                type="button"
+                className={buttonClass(false)}
+                aria-label={`Theme: ${THEME_MODE_LABEL[themeMode]}. Click to change.`}
+                onClick={() => onThemeModeSelect(nextThemeMode(themeMode))}
+              >
+                <ThemeIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+              </button>
+            </ToolbarTooltip>
+          )
+        })()}
 
         <ZoomPresetDropdown
           isDark={isDark}

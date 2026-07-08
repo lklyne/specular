@@ -80,6 +80,8 @@ const api: CanvasBgElectronAPI = {
   goForwardPage: (pageId) => ipcRenderer.send(ipcChannels.canvasForwardPage, { pageId }),
   reloadPage: (pageId) => ipcRenderer.send(ipcChannels.canvasReloadPage, { pageId }),
   setPageCustom: (pageId) => ipcRenderer.send(ipcChannels.canvasSetPageCustom, { pageId }),
+  setPageColorScheme: (pageId, colorScheme) =>
+    ipcRenderer.send(ipcChannels.canvasSetPageColorScheme, { pageId, colorScheme }),
   updatePageBounds: (pageId, patch) => ipcRenderer.send(ipcChannels.canvasUpdatePageBounds, { pageId, patch }),
   placePendingEntity: (canvasX, canvasY) =>
     ipcRenderer.send(ipcChannels.canvasPlacePendingEntity, { canvasX, canvasY }),

@@ -1,21 +1,6 @@
 import { type ReactElement, useMemo, useState } from 'react'
-import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { presetRowClass } from './PresetList'
-import { PresetPopover } from './PresetPopover'
-
-// Anchors the popup to the toolbar strip's bottom edge (not the trigger button,
-// which sits inset within the strip) so its gap below the toolbar matches the
-// add-page tool popup — which anchors at the same y in the above-view overlay.
-const stripBottomAnchor = {
-  getBoundingClientRect: () => {
-    const strip = document.querySelector('.toolbar-bar')?.getBoundingClientRect()
-    const trigger = document.querySelector('[data-zoom-anchor]')?.getBoundingClientRect()
-    const bottom = strip?.bottom ?? TOOLBAR_HEIGHT
-    const left = trigger?.left ?? 0
-    const width = trigger?.width ?? 0
-    return new DOMRect(left, bottom, width, 0)
-  },
-}
+import { PresetPopover, toolbarStripAnchor } from './PresetPopover'
 
 // Zoom picker sharing the page-size dropdown's popover shell and row styling.
 // Flat list of zoom levels; the 100% row surfaces its ⌘1 shortcut.
@@ -37,7 +22,7 @@ export function ZoomPresetDropdown({
   trigger: ReactElement
 }) {
   const [open, setOpen] = useState(false)
-  const anchor = useMemo(() => stripBottomAnchor, [])
+  const anchor = useMemo(() => toolbarStripAnchor('[data-zoom-anchor]'), [])
 
   function handle(next: boolean) {
     setOpen(next)

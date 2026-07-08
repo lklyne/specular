@@ -1,10 +1,11 @@
 import { ipcChannels } from '../../shared/ipc-contract'
-import { ipcMain, nativeTheme } from 'electron'
+import { ipcMain } from 'electron'
+import type { AppThemeMode } from '../../shared/types'
 import {
   getCanvasLayoutData,
   getLeftSidebarData,
 } from '../runtime/canvas-layout-data'
-import { isDark } from '../runtime/preferences'
+import { getThemeMode, isDark, setThemeMode } from '../runtime/preferences'
 import { requestLayout } from '../runtime/viewport-control'
 import { rebuildWindowFromSnapshot } from '../runtime/window-shell'
 import {
@@ -32,24 +33,28 @@ export function registerAppIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.toggleTheme, () => {
-    nativeTheme.themeSource = nativeTheme.shouldUseDarkColors ? 'light' : 'dark'
+  ipcMain.on(ipcChannels.setThemeMode, (_event, payload: { mode: AppThemeMode }) => {
+    const mode = payload?.mode
+    if (mode !== 'system' && mode !== 'light' && mode !== 'dark') return
+    setThemeMode(mode)
   })
 
-  ipcMain.handle(ipcChannels.getThemeBootstrap, async () => ({ theme: { isDark: isDark() } }))
+  ipcMain.handle(ipcChannels.getThemeBootstrap, async () => ({
+    theme: { isDark: isDark(), themeMode: getThemeMode() },
+  }))
 
   ipcMain.handle(ipcChannels.getLeftSidebarBootstrap, async () => ({
-    theme: { isDark: isDark() },
+    theme: { isDark: isDark(), themeMode: getThemeMode() },
     sidebarData: getLeftSidebarData(),
   }))
 
   ipcMain.handle(ipcChannels.getCanvasLayoutBootstrap, async () => ({
-    theme: { isDark: isDark() },
+    theme: { isDark: isDark(), themeMode: getThemeMode() },
     layoutData: getCanvasLayoutData(),
   }))
 
   ipcMain.handle(ipcChannels.getFloatingUiBootstrap, async () => ({
-    theme: { isDark: isDark() },
+    theme: { isDark: isDark(), themeMode: getThemeMode() },
     layoutData: getCanvasLayoutData(),
     surfaceOrigin: { x: 0, y: 0 },
   }))

@@ -62,6 +62,8 @@ export interface JsonCanvasLinkNode extends JsonCanvasNodeBase {
   groupId?: string
   parentGroupId?: string
   metadata?: Record<string, unknown>
+  /** Optional — absent means the page follows the system color scheme. */
+  colorScheme?: 'light' | 'dark'
 }
 
 export interface JsonCanvasFileNode extends JsonCanvasNodeBase {

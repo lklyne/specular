@@ -11,7 +11,8 @@ import { darkenHex, lightenHex, NEUTRAL_STORAGE, resolveCanvasColor } from '../.
 //     color. The two toolbar Draw glyphs additionally take `isDark` and
 //     recolor their body gradient + stroke inline — see CenterActions.
 //   - Toolbar icons (Select / Hand / AddSticky / AddShape / AddPage /
-//     AddText / Comment / Inspect / Theme / ZoomChevron): rendered from raw
+//     AddText / Comment / Inspect / Sun / Moon / SunMoon / ZoomChevron):
+//     rendered from raw
 //     SVG assets in ./icons/toolbar/*.svg (light) and ./icons/toolbar/dark/
 //     (dark variants generated via color-substitution: light gradient stops
 //     remap to #65625D → #484744, stroke flips to #E2DEDB). Caller passes
@@ -28,8 +29,10 @@ import addTextUrl from './icons/toolbar/add-text.svg'
 import commentUrl from './icons/toolbar/comment.svg'
 import handUrl from './icons/toolbar/hand.svg'
 import inspectUrl from './icons/toolbar/inspect.svg'
+import moonUrl from './icons/toolbar/moon.svg'
 import selectUrl from './icons/toolbar/select.svg'
-import themeUrl from './icons/toolbar/theme.svg'
+import sunUrl from './icons/toolbar/sun.svg'
+import sunMoonUrl from './icons/toolbar/sun-moon.svg'
 import zoomChevronUrl from './icons/toolbar/zoom-chevron.svg'
 import addDocumentDarkUrl from './icons/toolbar/dark/add-document.svg'
 import addPageDarkUrl from './icons/toolbar/dark/add-page.svg'
@@ -37,8 +40,10 @@ import addTextDarkUrl from './icons/toolbar/dark/add-text.svg'
 import commentDarkUrl from './icons/toolbar/dark/comment.svg'
 import handDarkUrl from './icons/toolbar/dark/hand.svg'
 import inspectDarkUrl from './icons/toolbar/dark/inspect.svg'
+import moonDarkUrl from './icons/toolbar/dark/moon.svg'
 import selectDarkUrl from './icons/toolbar/dark/select.svg'
-import themeDarkUrl from './icons/toolbar/dark/theme.svg'
+import sunDarkUrl from './icons/toolbar/dark/sun.svg'
+import sunMoonDarkUrl from './icons/toolbar/dark/sun-moon.svg'
 import zoomChevronDarkUrl from './icons/toolbar/dark/zoom-chevron.svg'
 
 // ── Toolbar icons ──────────────────────────────────────────────────────────
@@ -632,7 +637,9 @@ export const AddDocumentToolIcon = makeToolbarIcon(
 )
 export const CommentToolIcon = makeToolbarIcon(commentUrl, commentDarkUrl, 'CommentToolIcon')
 export const InspectToolIcon = makeToolbarIcon(inspectUrl, inspectDarkUrl, 'InspectToolIcon')
-export const ThemeToolIcon = makeToolbarIcon(themeUrl, themeDarkUrl, 'ThemeToolIcon')
+export const SunToolIcon = makeToolbarIcon(sunUrl, sunDarkUrl, 'SunToolIcon')
+export const MoonToolIcon = makeToolbarIcon(moonUrl, moonDarkUrl, 'MoonToolIcon')
+export const SunMoonToolIcon = makeToolbarIcon(sunMoonUrl, sunMoonDarkUrl, 'SunMoonToolIcon')
 export const ZoomChevronIcon = makeToolbarIcon(zoomChevronUrl, zoomChevronDarkUrl, 'ZoomChevronIcon')
 
 // ── Pen-popup icons (inline JSX so `ink` can theme dynamically) ────────────

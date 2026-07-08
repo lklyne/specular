@@ -48,6 +48,7 @@ export function copyablePagePayload(
       presetIndex: page.presetIndex,
       dx: page.canvasX - minX,
       dy: page.canvasY - minY,
+      colorScheme: page.colorScheme,
     })),
   }
 }
@@ -105,6 +106,7 @@ export function copyableSelectionPayload():
         metadata: cloneMetadata(page.metadata) as Record<string, unknown> | undefined,
         dx: page.canvasX - minX,
         dy: page.canvasY - minY,
+        colorScheme: page.colorScheme,
       })
       continue
     }
@@ -222,6 +224,7 @@ function pastePagesInternal(input: {
         createdFrom: 'paste',
         showDeviceFrame: true,
       },
+      colorScheme: entry.colorScheme,
     })
     return page.id
   })
@@ -274,6 +277,7 @@ function pasteEntitiesInternal(input: {
         canvasY: snapToGrid(input.canvasY + entity.dy),
         source: 'manual',
         metadata: pasteMetadata,
+        colorScheme: entity.colorScheme,
       })
       entityIds.push(page.id)
     } else if (entity.kind === 'text') {

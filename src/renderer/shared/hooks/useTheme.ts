@@ -3,21 +3,20 @@ import type { ThemeData } from '../../../shared/types'
 
 export function useTheme(
   initialTheme: ThemeData,
-  onThemeChanged: (callback: (data: { isDark: boolean }) => void) => () => void
-): boolean {
-  const [isDark, setIsDark] = useState(() => {
-    const nextIsDark = initialTheme.isDark
-    document.documentElement.classList.toggle('dark', nextIsDark)
-    return nextIsDark
+  onThemeChanged: (callback: (data: ThemeData) => void) => () => void
+): ThemeData {
+  const [theme, setTheme] = useState<ThemeData>(() => {
+    document.documentElement.classList.toggle('dark', initialTheme.isDark)
+    return initialTheme
   })
 
   useEffect(() => {
-    const cleanup = onThemeChanged(({ isDark }) => {
-      setIsDark(isDark)
-      document.documentElement.classList.toggle('dark', isDark)
+    const cleanup = onThemeChanged((data) => {
+      setTheme(data)
+      document.documentElement.classList.toggle('dark', data.isDark)
     })
     return cleanup
   }, [onThemeChanged])
 
-  return isDark
+  return theme
 }

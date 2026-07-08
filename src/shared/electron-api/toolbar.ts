@@ -1,6 +1,7 @@
 import type { Tool } from '../tool'
 import type {
   AgentPresenceCursor,
+  AppThemeMode,
   ConnectedRepo,
   ThemeBootstrapData,
   ThemeData,
@@ -14,7 +15,7 @@ export interface ToolbarElectronAPI {
   zoomSet: (level: number) => void
   setTool: (tool: Tool) => void
   reloadApp: () => void
-  toggleTheme: () => void
+  setThemeMode: (mode: AppThemeMode) => void
   getInitialData: () => Promise<ThemeBootstrapData>
   toggleLeftSidebar: () => void
   toggleDevTools: () => void

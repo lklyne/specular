@@ -79,6 +79,7 @@ export function serializeToJsonCanvas(
         parentGroupId: page.parentGroupId ?? page.groupId,
         groupId: page.parentGroupId ?? page.groupId,
         metadata: page.metadata,
+        colorScheme: page.colorScheme,
       }
       entities[page.id] = entity
       if (!knownIds.has(page.id)) {
@@ -142,6 +143,7 @@ export function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvas
     groupId: entity.parentGroupId ?? entity.groupId,
     parentGroupId: entity.parentGroupId ?? entity.groupId,
     metadata: entity.metadata,
+    colorScheme: entity.colorScheme,
   }
 }
 
@@ -379,6 +381,7 @@ export function deserializeLinkNodeToPage(node: JsonCanvasLinkNode): PersistedPa
     source: node.source as PersistedPageEntity['source'],
     groupId: node.groupId,
     metadata: node.metadata,
+    colorScheme: node.colorScheme,
   }
 }
 
