@@ -17,7 +17,6 @@ import {
   EDGE_ANCHOR_HIT_ALONG_PX,
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
-  CHROME_HEADER_HEIGHT,
   MULTI_SELECTION_OUTLINE_PADDING_PX,
   REORDER_HANDLE_HIT_PX,
   RESIZE_HANDLE_HIT_PX,
@@ -42,7 +41,6 @@ import type { ResizeHandle } from './resize-accumulator'
 export type HitPayload =
   | { kind: 'resize-handle'; entityId: string; entityKind: CanvasEntityKind; handle: ResizeHandle }
   | { kind: 'multi-resize-handle'; handle: ResizeHandle }
-  | { kind: 'chrome'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   | { kind: 'reorder-handle'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'page-body'; entityId: string }
@@ -69,10 +67,6 @@ export interface HitInputs {
   edges: readonly WorkspaceEdge[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
-  /** Page whose native webContents currently owns keyboard/pointer focus. */
-  keyboardTargetPageId?: string | null
-  /** Page currently being presented by the focus camera. */
-  focusPresentationPageId?: string | null
   /** Optional. When set, anchor dots on the hovered entity are routable too —
    *  matches the EdgeLayer renderer policy (selected + hovered show anchors)
    *  and lets users grab an existing edge endpoint without first selecting
@@ -91,14 +85,6 @@ const BACKGROUND_TARGET: HitTarget = {
 
 export function hitTest(inputs: HitInputs, point: Point): HitTarget {
   for (const layer of HIT_LAYER_ORDER) {
-    // Drawings render in aboveView above all page elements, including the
-    // page chrome strip. Give selected drawing bodies priority over chrome so
-    // that dragging a selected drawing that overlaps a page routes to the
-    // drawing rather than the page underneath.
-    if (layer === 'chrome') {
-      const drawingHit = hitSelectedDrawingBody(inputs, point)
-      if (drawingHit) return drawingHit
-    }
     const targets = collectLayerTargets(layer, inputs)
     // First registered match wins within a layer. Selectors are responsible
     // for ordering within a layer (e.g. front-to-back z-order for entities).
@@ -109,34 +95,12 @@ export function hitTest(inputs: HitInputs, point: Point): HitTarget {
   return BACKGROUND_TARGET
 }
 
-// Checks whether the point falls inside any selected drawing's body,
-// iterating front-to-back so the topmost drawing wins in overlap cases.
-function hitSelectedDrawingBody(inputs: HitInputs, point: Point): HitTarget | null {
-  const selectedSet = new Set(inputs.selectedEntityIds)
-  for (let i = inputs.entities.length - 1; i >= 0; i--) {
-    const entity = inputs.entities[i]
-    if (entity.kind !== 'drawing') continue
-    if (!selectedSet.has(entity.id)) continue
-    const rect = bodyRect(entity)
-    if (regionContains({ kind: 'rect', rect }, point)) {
-      return {
-        layer: 'body',
-        region: { kind: 'rect', rect },
-        payload: { kind: 'entity-body', entityId: entity.id, entityKind: 'drawing' },
-      }
-    }
-  }
-  return null
-}
-
 // --- Layer collectors ---
 
 function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
   switch (layer) {
     case 'resize-handles':
       return collectResizeHandles(inputs)
-    case 'chrome':
-      return collectChromeTargets(inputs)
     case 'anchors':
       return collectAnchorTargets(inputs)
     case 'reorder-handle':
@@ -227,23 +191,6 @@ function multiHandleRect(bbox: SelectionBbox, handle: ResizeHandle): Rect {
     case 'e':
       return { x: right - half, y: top, width: RESIZE_HANDLE_HIT_PX, height: bottom - top }
   }
-}
-
-function collectChromeTargets(inputs: HitInputs): HitTarget[] {
-  const out: HitTarget[] = []
-  const selected = new Set(inputs.selectedEntityIds)
-  for (const entity of inputs.entities) {
-    if (!entityHasChrome(entity.kind)) continue
-    if (selected.has(entity.id)) continue
-    if (entity.kind === 'page' && entity.id === inputs.keyboardTargetPageId) continue
-    if (entity.kind === 'page' && entity.id === inputs.focusPresentationPageId) continue
-    out.push({
-      layer: 'chrome',
-      region: { kind: 'rect', rect: chromeRect(entity) },
-      payload: { kind: 'chrome', entityId: entity.id, entityKind: entity.kind },
-    })
-  }
-  return out
 }
 
 function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
@@ -366,15 +313,6 @@ function reorderHandleRectAt(center: { x: number; y: number }): Rect {
   return { x: center.x - half, y: center.y - half, width: REORDER_HANDLE_HIT_PX, height: REORDER_HANDLE_HIT_PX }
 }
 
-function chromeRect(entity: CanvasSceneEntity): Rect {
-  return {
-    x: entity.screenX,
-    y: entity.screenY - CHROME_HEADER_HEIGHT,
-    width: entity.screenWidth,
-    height: CHROME_HEADER_HEIGHT,
-  }
-}
-
 function bodyRect(entity: CanvasSceneEntity): Rect {
   return {
     x: entity.screenX,
@@ -402,10 +340,6 @@ function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Re
     case 'right':
       return { x: entity.screenX + entity.screenWidth + EDGE_ANCHOR_HIT_GAP_PX, y: cy - h / 2, width: w, height: h }
   }
-}
-
-function entityHasChrome(kind: CanvasEntityKind): boolean {
-  return ENTITY_KIND_CAPS[kind].hasChrome
 }
 
 export function entityHasAnchors(kind: CanvasEntityKind): boolean {

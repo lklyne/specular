@@ -174,8 +174,6 @@ function layoutToHitInputs(layout: {
   edges?: HitInputs['edges'] | null
   selectedEntityIds: HitInputs['selectedEntityIds']
   selectedGroupId?: string | null
-  keyboardTargetPageId?: string | null
-  focusPresentation?: { pageId: string } | null
   hover?: { id: string } | null
   zoom?: number | null
 }): HitInputs {
@@ -184,8 +182,6 @@ function layoutToHitInputs(layout: {
     edges: layout.edges ?? [],
     selectedEntityIds: layout.selectedEntityIds,
     selectedGroupId: layout.selectedGroupId ?? null,
-    keyboardTargetPageId: layout.keyboardTargetPageId ?? null,
-    focusPresentationPageId: layout.focusPresentation?.pageId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
   }
@@ -310,7 +306,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         const hitEntityId =
           target.payload.kind === 'entity-body' ||
           target.payload.kind === 'page-body' ||
-          target.payload.kind === 'chrome' ||
           target.payload.kind === 'resize-handle' ||
           target.payload.kind === 'anchor'
             ? target.payload.entityId
@@ -392,12 +387,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         case 'enter-group':
           apiRef.current.enterGroup(action.groupId)
           break
-        case 'enter-group-rename':
-          // GroupRenameLabel handles the dblclick directly via the DOM
-          // (it's tagged data-overlay-ui so isOverlayUiTarget catches it
-          // earlier — this branch only fires if the rename label is hit
-          // through the chrome slot via hit-test).
-          return
       }
       event.preventDefault()
       event.stopPropagation()

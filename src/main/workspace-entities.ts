@@ -35,7 +35,6 @@ import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
 import { pan, zoom } from './runtime/runtime-context'
-import { CHROME_HEADER_HEIGHT } from '../shared/entity-chrome-slots'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import {
@@ -57,8 +56,8 @@ export function pageBoundsById(pageId: string): WorkspaceBounds | null {
 }
 
 /**
- * Bounds for selection/hover/group-outline purposes: the snap rect extended
- * upward by the chrome strip. Wraps everything the user can see.
+ * Bounds for selection/hover/group-outline purposes: the snap rect (body +
+ * device-frame insets). Wraps everything the user can see.
  */
 export function pageSelectableBounds(
   page: Exclude<ReturnType<typeof findPageById>, undefined>,
@@ -84,24 +83,6 @@ export function unionBounds(boundsList: WorkspaceBounds[]): WorkspaceBounds | nu
 
 export function entityBoundsById(entityId: string): WorkspaceBounds | null {
   return entityBoundsByIdWithVisited(entityId, new Set<string>())
-}
-
-/**
- * Offset from the entity's outer top-left (as returned by `entityBoundsById`)
- * to its data origin (`canvasX`/`canvasY`). For pages, `canvasY` is the
- * snap-rect top and `pageSelectableBounds.y` is `canvasY - CHROME_HEADER_HEIGHT`,
- * so the Y inset is the chrome strip; the snap rect's left edge already
- * equals `canvasX` so the X inset is zero.
- */
-export function entityDataInsetsById(entityId: string): { insetX: number; insetY: number } {
-  const page = findPageById(entityId)
-  if (page) {
-    return {
-      insetX: 0,
-      insetY: CHROME_HEADER_HEIGHT,
-    }
-  }
-  return { insetX: 0, insetY: 0 }
 }
 
 type AnyEntity =

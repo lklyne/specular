@@ -3,14 +3,12 @@
  *
  * See docs/adr/0001-click-to-enter-page-focus.md for the load-bearing
  * constraints encoded here:
- *   - Resize handles above chrome: once selected, the next gesture is shaping.
- *   - Chrome above anchors: fixes #41 (anchor ring shadowing chrome).
+ *   - Resize handles above anchors: once selected, the next gesture is shaping.
  *   - Body kind-dispatches: same priority slot, behavior chosen by kind.
  */
 
 export type HitLayer =
   | 'resize-handles'
-  | 'chrome'
   | 'anchors'
   | 'reorder-handle'
   | 'body'
@@ -18,7 +16,6 @@ export type HitLayer =
 
 export const HIT_LAYER_ORDER: readonly HitLayer[] = [
   'resize-handles',
-  'chrome',
   'anchors',
   // Auto-layout reorder dots sit above the child body so dragging the dot
   // reorders, while dragging the body still moves the whole group (ADR 0015 D4).

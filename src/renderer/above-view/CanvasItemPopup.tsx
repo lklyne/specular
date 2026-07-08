@@ -31,7 +31,6 @@ import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
-  type AnchorSlot,
 } from './useAnchoredPosition'
 
 type Placement = 'above' | 'below' | 'overlay' | 'viewport-top'
@@ -40,7 +39,6 @@ type Align = 'stretch' | 'center'
 type RootProps = {
   layout: LayoutUpdateData
   open: boolean
-  slot?: AnchorSlot
   placement?: Placement
   align?: Align
   offset?: number
@@ -54,18 +52,13 @@ function Root(props: RootProps) {
   const {
     layout,
     open,
-    slot = 'body',
     placement = 'below',
     align = 'center',
     offset = 8,
     children,
   } = props
-  const singleRect = useAnchoredPosition(
-    layout,
-    props.entityId ?? '',
-    slot,
-  )
-  const multiRect = useMultiAnchoredPosition(layout, props.entityIds ?? [], slot)
+  const singleRect = useAnchoredPosition(layout, props.entityId ?? '')
+  const multiRect = useMultiAnchoredPosition(layout, props.entityIds ?? [])
   const rect = props.entityIds !== undefined ? multiRect : singleRect
   const anchorVisible =
     rect === null ||

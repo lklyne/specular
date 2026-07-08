@@ -13,12 +13,13 @@
  *   - Renderer event.clientX is window-X.
  *   - aboveView's WCV starts at canvasOrigin.y, so the renderer adds that
  *     before calling us → windowY is window-Y.
- *   - The page WCV's content rect is `screenBoundsForPage(page).page` in
- *     the same window coordinate space, so page-local = window − bounds.page.
+ *   - We subtract the page WCV's *actual placed bounds* (`pageView.getBounds()`),
+ *     which is the single source of truth the layout pass set. Deriving the
+ *     origin independently (e.g. via the camera transform) drifts from where
+ *     the WCV is really painted in focus/fill mode, offsetting every click.
  */
 
 import { findPageById } from './runtime-context'
-import { boundScreenBoundsForPage as screenBoundsForPage } from './runtime-geometry'
 
 export type ForwardWheelPayload = {
   windowX: number
@@ -77,7 +78,11 @@ function pageLocal(pageId: string): {
   if (!page) return null
   const wc = page.pageView.webContents
   if (wc.isDestroyed()) return null
-  const bounds = screenBoundsForPage(page).page
+  // The WCV's own bounds are the source of truth for where its content paints,
+  // in the same window coordinate space as windowX/windowY. This tracks the
+  // layout pass across every mode (normal, fit/device focus, and fill focus —
+  // which pins the WCV to focusFillRegion() rather than the camera transform).
+  const bounds = page.pageView.getBounds()
   return { x: bounds.x, y: bounds.y, webContents: wc }
 }
 

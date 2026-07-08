@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { anchoredSlotRect } from '../../src/renderer/above-view/useAnchoredPosition'
-import { CHROME_HEADER_HEIGHT } from '../../src/shared/entity-chrome-slots'
+import { anchoredRect } from '../../src/renderer/above-view/useAnchoredPosition'
 import type { CanvasScenePageEntity, CanvasSceneTextEntity, LayoutUpdateData } from '../../src/shared/types'
 
 function pageEntity(): CanvasScenePageEntity {
@@ -47,36 +46,20 @@ function makeLayout(entities: LayoutUpdateData['entities'], originY = 60): Layou
   return { entities, canvasOrigin: { x: 0, y: originY } } as unknown as LayoutUpdateData
 }
 
-describe('anchoredSlotRect', () => {
-  it('returns header rect above page body in overlay-local coords', () => {
+describe('anchoredRect', () => {
+  it('returns the page body rect adjusted for overlay origin', () => {
     const layout = makeLayout([pageEntity()])
-    const rect = anchoredSlotRect(layout, 'f1', 'header')
-    expect(rect).toEqual({
-      x: 200,
-      y: 250 - CHROME_HEADER_HEIGHT - 60,
-      width: 400,
-      height: CHROME_HEADER_HEIGHT,
-    })
-  })
-
-  it('returns body rect adjusted for overlay origin', () => {
-    const layout = makeLayout([pageEntity()])
-    const rect = anchoredSlotRect(layout, 'f1', 'body')
+    const rect = anchoredRect(layout, 'f1')
     expect(rect).toEqual({ x: 200, y: 250 - 60, width: 400, height: 300 })
   })
 
   it('returns null for unknown entity', () => {
-    expect(anchoredSlotRect(makeLayout([]), 'nope', 'header')).toBeNull()
+    expect(anchoredRect(makeLayout([]), 'nope')).toBeNull()
   })
 
-  it('returns null when chromeless kind queried for header', () => {
+  it('body equals entity rect (overlay-local) for chromeless kinds', () => {
     const layout = makeLayout([textEntity()])
-    expect(anchoredSlotRect(layout, 't1', 'header')).toBeNull()
-  })
-
-  it('chromeless kind: body equals entity rect (overlay-local)', () => {
-    const layout = makeLayout([textEntity()])
-    expect(anchoredSlotRect(layout, 't1', 'body')).toEqual({
+    expect(anchoredRect(layout, 't1')).toEqual({
       x: 50,
       y: 80 - 60,
       width: 100,

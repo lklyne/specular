@@ -175,19 +175,6 @@ function routeByPayload(
       }
     case 'multi-resize-handle':
       return { kind: 'begin-multi-resize', handle: payload.handle }
-    case 'chrome': {
-      const additive = isAdditive(context.modifiers)
-      if (additive) {
-        return { kind: 'toggle-select', entityId: payload.entityId, entityKind: payload.entityKind }
-      }
-      const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
-      return {
-        kind: 'begin-entity-drag',
-        entityId: payload.entityId,
-        entityKind: payload.entityKind,
-        preserveSelection,
-      }
-    }
     case 'anchor':
       return {
         kind: 'begin-edge-drag',
@@ -218,7 +205,7 @@ function routePageBody(
   // cmd-click on the page body must reach the selection system so users
   // can extend a multi-selection from a single-selected page (the page
   // content blocker is removed in that state, so the click would
-  // otherwise land in the webpage). Mirrors `chrome` and `entity-body`.
+  // otherwise land in the webpage). Mirrors `entity-body`.
   if (isAdditive(context.modifiers)) {
     return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'page' }
   }
@@ -322,11 +309,10 @@ function isSingleSelected(context: CanvasPointerContext, entityId: string): bool
 export type CanvasPointerDoubleClickAction =
   | { kind: 'noop' }
   /** Enter inline edit on any editable canvas item (text, sticky, shape).
-   *  Group rename is dispatched by the rename label's own dblclick (chrome
-   *  hit) and group-body dblclick still descends via `enter-group`. */
+   *  Group rename is dispatched by the rename label's own dblclick; group-body
+   *  dblclick still descends via `enter-group`. */
   | { kind: 'request-entity-edit'; entityId: string }
   | { kind: 'enter-group'; groupId: string }
-  | { kind: 'enter-group-rename'; groupId: string }
   /** Double-click an interactive file (HTML iframe) → enter interactivity.
    *  A reliable enter path mirroring the page-body double-click. */
   | { kind: 'enter-entity-interactive'; entityId: string }
@@ -341,13 +327,6 @@ export function routePointerDoubleClick(
   switch (target.payload.kind) {
     case 'page-body':
       return { kind: 'enter-page-interactive', entityId: target.payload.entityId }
-    case 'chrome':
-      // Group chrome → rename. Page/file chrome dbl-click is a no-op
-      // (chrome owns its own click handlers in aboveView).
-      if (target.payload.entityKind === 'group') {
-        return { kind: 'enter-group-rename', groupId: target.payload.entityId }
-      }
-      return { kind: 'noop' }
     case 'entity-body':
       switch (target.payload.entityKind) {
         case 'shape':

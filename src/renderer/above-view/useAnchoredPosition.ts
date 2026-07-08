@@ -1,27 +1,19 @@
 /**
- * useAnchoredPosition — turn (entityId, slot) into overlay-local screen coords.
+ * useAnchoredPosition — turn an entityId into overlay-local screen coords.
  *
- * Per ADR 0002 §2, all canvas-anchored overlay UI in aboveView positions
- * itself through this hook. The hook reads geometry from the layout broadcast
- * aboveView already subscribes to and applies the per-kind chrome slot
- * geometry from `entity-chrome-slots`.
+ * All canvas-anchored overlay UI in aboveView positions itself through this
+ * hook. The hook reads geometry from the layout broadcast aboveView already
+ * subscribes to.
  *
  * Coords returned are **overlay-local**: aboveView's WCV origin sits at
  * `canvasOrigin.y` (below the toolbar), so we subtract that from window-space
  * `screenY`. Consumers can drop the rect straight into `style.left/top/...`.
  *
- * Today's scene entities expose `screenX/screenY/screenWidth/screenHeight`
- * representing the **body** rect; chrome lives above. ADR §1 unifies this
- * (entity rect = body + chrome stacked). When that migration lands, only
- * `entityRectFor` below changes — every consumer keeps working.
+ * The entity rect is the entity's body rect — `screenX/screenY/screenWidth/
+ * screenHeight` from the layout broadcast. There is no separate chrome band.
  */
 
 import { useMemo } from 'react'
-import {
-  CHROME_HEADER_HEIGHT,
-  entityChromeSlots,
-  type ChromeSlotName,
-} from '../../shared/entity-chrome-slots'
 import type { Rect } from '../../shared/hit-regions'
 import type {
   CanvasSceneEntity,
@@ -29,39 +21,28 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 
-export type AnchorSlot = ChromeSlotName | 'body'
-
 export interface AnchoredRect extends Rect {}
 
-export function anchoredSlotRect(
+export function anchoredRect(
   layout: LayoutUpdateData,
   entityId: string,
-  slot: AnchorSlot,
 ): AnchoredRect | null {
   const entity = findAnchorTarget(layout, entityId)
   if (!entity) return null
-  const entityRect = entityRectFor(entity)
-  const layoutResult = entityChromeSlots(entity.kind, entityRect)
-  const rect =
-    slot === 'body'
-      ? layoutResult.body
-      : layoutResult.slots.find((s) => s.name === slot)?.rect
-  if (!rect) return null
-  return toOverlayLocal(rect, layout)
+  return toOverlayLocal(entityRectFor(entity), layout)
 }
 
 export function useAnchoredPosition(
   layout: LayoutUpdateData,
   entityId: string,
-  slot: AnchorSlot,
 ): AnchoredRect | null {
-  return useMemo(() => anchoredSlotRect(layout, entityId, slot), [layout, entityId, slot])
+  return useMemo(() => anchoredRect(layout, entityId), [layout, entityId])
 }
 
 /**
  * Multi-entity union rect for same-kind multi-select popups (ADR 0008 §4).
- * Returns the bounding box of every resolved entity's slot rect. The popup
- * anchors against this union so it visually spans the selection.
+ * Returns the bounding box of every resolved entity's rect. The popup anchors
+ * against this union so it visually spans the selection.
  *
  * Returns `null` only when `entityIds` is empty. Off-screen entities still
  * contribute their rect — the popup mounts at the (possibly clipped) bbox
@@ -70,7 +51,6 @@ export function useAnchoredPosition(
 export function useMultiAnchoredPosition(
   layout: LayoutUpdateData,
   entityIds: readonly string[],
-  slot: AnchorSlot,
 ): AnchoredRect | null {
   const key = entityIds.join('|')
   return useMemo(() => {
@@ -81,7 +61,7 @@ export function useMultiAnchoredPosition(
     let maxY = -Infinity
     let any = false
     for (const id of entityIds) {
-      const rect = anchoredSlotRect(layout, id, slot)
+      const rect = anchoredRect(layout, id)
       if (!rect) continue
       any = true
       if (rect.x < minX) minX = rect.x
@@ -91,7 +71,7 @@ export function useMultiAnchoredPosition(
     }
     if (!any) return null
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-  }, [layout, key, slot])
+  }, [layout, key])
 }
 
 type AnchorTarget = CanvasSceneEntity | CanvasSceneGroupEntity
@@ -102,21 +82,12 @@ function findAnchorTarget(layout: LayoutUpdateData, id: string): AnchorTarget | 
   return (layout.groups ?? []).find((g) => g.id === id)
 }
 
-/**
- * Returns the unified entity rect (body + chrome) in window-space coords.
- *
- * `entity.screenY` is the snap-rect top — bezel top for framed pages, body
- * top otherwise. Chrome lives `CHROME_HEADER_HEIGHT` above it; extend the
- * rect upward to include the strip for kinds that have chrome.
- */
 function entityRectFor(entity: AnchorTarget): Rect {
-  const hasHeader = entity.kind === 'page' || entity.kind === 'file' || entity.kind === 'group'
-  const headerExtension = hasHeader ? CHROME_HEADER_HEIGHT : 0
   return {
     x: entity.screenX,
-    y: entity.screenY - headerExtension,
+    y: entity.screenY,
     width: entity.screenWidth,
-    height: entity.screenHeight + headerExtension,
+    height: entity.screenHeight,
   }
 }
 
