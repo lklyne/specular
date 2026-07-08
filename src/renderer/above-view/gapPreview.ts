@@ -1,16 +1,18 @@
 /**
  * Live gap-resize preview (ADR 0015 Milestone 2).
  *
- * While a `resizing-gap` drag is in flight, repack the managed group's
- * children at the live broadcast gap so spacing tracks the cursor. Pure
- * renderer ephemera: no IPC, no doc mutation — main only updates the
- * interaction state's `gap` per tick, and the single real reflow happens at
- * commit via `setGroupLayoutGap`. The packing kernel (`packedGapPositions`)
- * lives in `src/shared/gap-handles.ts`, mirroring main's `computeRowReflow`
- * anchored at the first child's current position.
+ * While a `resizing-gap` drag is in flight, repack the line's items at the
+ * live broadcast gap so spacing tracks the cursor. Pure renderer ephemera: no
+ * IPC, no doc mutation — main only updates the interaction state's `gap` per
+ * tick, and the single real write happens at commit (`setGroupLayoutGap` for
+ * a managed group, `applySelectionGap` for a loose selection). The packing
+ * kernel (`packedGapPositions`) lives in `src/shared/gap-handles.ts`,
+ * mirroring main's `computeRowReflow` anchored at the first item's current
+ * position — a loose selection's items each keep their own cross-axis
+ * coordinate, matching the commit.
  *
  * A nested-group child translates with its whole subtree (matching
- * `reflowManagedGroup`'s subtree translation), and the managed group's own box
+ * `reflowManagedGroup`'s subtree translation), and a managed group's own box
  * stretches along the packing axis by the change in total extent.
  */
 
@@ -18,7 +20,7 @@ import { packedGapPositions } from '../../shared/gap-handles'
 import type { CanvasSceneEntity, CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
 
 /**
- * A layout clone with the group's children moved to their previewed slots, or
+ * A layout clone with the line's items moved to their previewed slots, or
  * null when not gap-resizing (or nothing shifts). Callers fall back to the
  * broadcast layout on null.
  */
@@ -26,18 +28,23 @@ export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData
   const { interaction, zoom } = layoutData
   if (interaction.kind !== 'resizing-gap') return null
 
-  const group = layoutData.entities.find(
-    (e): e is CanvasSceneGroupEntity => e.kind === 'group' && e.id === interaction.groupId,
-  )
-  if (!group) return null
+  const group =
+    interaction.groupId === null
+      ? null
+      : (layoutData.entities.find(
+          (e): e is CanvasSceneGroupEntity => e.kind === 'group' && e.id === interaction.groupId,
+        ) ?? null)
+  if (interaction.groupId !== null && !group) return null
 
   const byId = new Map(layoutData.entities.map((e) => [e.id, e]))
-  const children = group.entityIds
+  const children = interaction.entityIds
     .map((id) => byId.get(id))
     .filter((e): e is CanvasSceneEntity => e !== undefined)
   if (children.length < 2) return null
 
-  const changed = packedGapPositions(children, interaction.axis, interaction.gap)
+  const changed = packedGapPositions(children, interaction.axis, interaction.gap, {
+    keepCross: group === null,
+  })
   if (changed.size === 0) return null
 
   // Per-entity translation deltas. A moved nested-group child carries its
@@ -55,7 +62,7 @@ export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData
     if (next) translateSubtree(child.id, next.x - child.canvasX, next.y - child.canvasY)
   }
 
-  // The managed group's box stretches by the change in the children's extent.
+  // A managed group's box stretches by the change in the children's extent.
   const along = interaction.axis === 'x'
   const end = (e: CanvasSceneEntity, dx: number, dy: number) =>
     along ? e.canvasX + dx + e.width : e.canvasY + dy + e.height
@@ -69,7 +76,7 @@ export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData
   const extentDelta = newEnd - oldEnd
 
   const preview = <T extends CanvasSceneEntity>(e: T): T => {
-    if (e.id === group.id && e.kind === 'group' && extentDelta !== 0) {
+    if (group !== null && e.id === group.id && e.kind === 'group' && extentDelta !== 0) {
       return along
         ? { ...e, width: e.width + extentDelta, screenWidth: e.screenWidth + extentDelta * zoom }
         : { ...e, height: e.height + extentDelta, screenHeight: e.screenHeight + extentDelta * zoom }

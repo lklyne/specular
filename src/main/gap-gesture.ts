@@ -2,13 +2,18 @@
  * Gap-resize gesture coordinator (ADR 0015 Milestone 2 — draggable gap
  * handles).
  *
- * Drives the `resizing-gap` interaction mode: a drag of the strip between a
- * managed row/column group's adjacent children. The renderer's `runGapDrag`
- * calls start → move* → commit | cancel through IPC; this module is the one
- * state machine, mirroring `reorder-gesture.ts`.
+ * Drives the `resizing-gap` interaction mode: a drag of the strip between
+ * adjacent items of a line. The renderer's `runGapDrag` calls start → move* →
+ * commit | cancel through IPC; this module is the one state machine, mirroring
+ * `reorder-gesture.ts` — including its two doors:
+ *   - **Managed door** (`groupId` set): a managed row/column group's gap.
+ *     Commit writes the group's persisted `layoutGap` via `setGroupLayoutGap`.
+ *   - **Selection door** (`groupId` null): a loose equal-gap multi-selection.
+ *     Commit just moves the entities via `applySelectionGap` — nothing
+ *     persists but the new positions.
  *
  * Gap derivation is linear and obvious: the cursor's movement along the
- * group's packing axis projects 1:1 onto the gap — drag right/down in a
+ * line's packing axis projects 1:1 onto the gap — drag right/down in a
  * row/column widens, left/up narrows; `gap = startGap + delta`, clamped ≥ 0.
  *
  * Invariants (gesture-begin ordering, §6 I5):
@@ -16,8 +21,8 @@
  *     reconciler sees `resizing-gap` (→ aboveView) and the renderer's
  *     window-blur cancel doesn't fire on the first tick.
  *   - `move` only updates the broadcast `gap` on the interaction state — no
- *     doc writes per tick. The renderer previews child positions from it.
- *   - `commit` writes once via `setGroupLayoutGap` (one undo step).
+ *     doc writes per tick. The renderer previews positions from it.
+ *   - `commit` writes once (one undo step).
  *   - `cancel` restores pre-drag state with no mutation (nothing was written).
  */
 
@@ -27,11 +32,17 @@ import { markUndoBoundary } from './runtime/workspace-undo'
 import type { CancelReason } from '../shared/interaction-types'
 import { CLUSTER_HORIZONTAL_GUTTER } from '../shared/constants'
 import { managedLineAxis } from '../shared/layout-math'
+import { applySelectionGap, buildSelectionRow } from './runtime/document-commands'
+import { managedChildOrder } from './runtime/entity-order-state'
 import { setGroupLayoutGap } from './managed-layout'
 import { groupById } from './workspace-entities'
+import { selectedEntityIds } from './ui-state'
 
 type ActiveGesture = {
-  groupId: string
+  /** Managed group whose `layoutGap` the drag edits, or null for a selection. */
+  groupId: string | null
+  /** The line's items — the selection door's commit repacks exactly these. */
+  entityIds: string[]
   axis: 'x' | 'y'
   startGap: number
   /** Grab point projected onto the packing axis (canvas space). */
@@ -46,22 +57,40 @@ function clearActive(): void {
   active = null
 }
 
-/** Begin a gap drag on `groupId` from a grab point in canvas space. Returns
- *  false (and enters nothing) when the group isn't a managed row/column. */
+/** Begin a gap drag from a grab point in canvas space. `groupId` set → managed
+ *  door; null → selection door (the current selection must be an equal-gap
+ *  row). Returns false (and enters nothing) when the door isn't eligible. */
 export function startGapGesture(
-  groupId: string,
+  groupId: string | null,
   cursorCanvasX: number,
   cursorCanvasY: number,
 ): boolean {
-  const group = groupById(groupId)
-  if (!group || !group.managedLayout) return false
-  const axis = managedLineAxis(group.layoutMode)
-  if (axis === null) return false
-  const startGap = group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
-  const token = tryEnter({ kind: 'resizing-gap', groupId, gap: startGap, axis })
+  let entityIds: string[]
+  let axis: 'x' | 'y'
+  let startGap: number
+
+  if (groupId !== null) {
+    const group = groupById(groupId)
+    if (!group || !group.managedLayout) return false
+    const managedAxis = managedLineAxis(group.layoutMode)
+    if (managedAxis === null) return false
+    entityIds = managedChildOrder(groupId)
+    if (entityIds.length < 2) return false
+    axis = managedAxis
+    startGap = group.layoutGap ?? CLUSTER_HORIZONTAL_GUTTER
+  } else {
+    const row = buildSelectionRow([...selectedEntityIds()])
+    if (!row) return false
+    entityIds = row.order
+    axis = row.axis
+    startGap = Math.round(row.gap)
+  }
+
+  const token = tryEnter({ kind: 'resizing-gap', groupId, entityIds, gap: startGap, axis })
   if ('refused' in token) return false
   active = {
     groupId,
+    entityIds,
     axis,
     startGap,
     startCursor: axis === 'x' ? cursorCanvasX : cursorCanvasY,
@@ -80,10 +109,11 @@ export function moveGapGesture(cursorCanvasX: number, cursorCanvasY: number): vo
   updateGapResizeGap(active.gap)
 }
 
-/** Commit the gap at its live preview value. One undo step (the field write
- *  and the reflow land in one transaction inside `setGroupLayoutGap`). A drag
- *  that didn't change the gap is a clean no-op. Returns whether anything
- *  changed. */
+/** Commit the gap at its live preview value. One undo step (managed door: the
+ *  field write and the reflow land in one transaction inside
+ *  `setGroupLayoutGap`; selection door: the position writes share one gesture
+ *  session inside `applySelectionGap`). A drag that didn't change the gap is a
+ *  clean no-op. Returns whether anything changed. */
 export function commitGapGesture(): boolean {
   const gesture = active
   clearActive()
@@ -92,7 +122,10 @@ export function commitGapGesture(): boolean {
     return false
   }
   const changed =
-    gesture.gap !== gesture.startGap && setGroupLayoutGap(gesture.groupId, gesture.gap)
+    gesture.gap !== gesture.startGap &&
+    (gesture.groupId !== null
+      ? setGroupLayoutGap(gesture.groupId, gesture.gap)
+      : applySelectionGap(gesture.entityIds, gesture.axis, gesture.gap))
   commitActive()
   markUndoBoundary()
   return changed

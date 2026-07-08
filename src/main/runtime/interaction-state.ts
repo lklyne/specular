@@ -107,11 +107,12 @@ export function beginReorderingRow(
 }
 
 export function beginGapResize(
-  groupId: string,
+  groupId: string | null,
+  entityIds: string[],
   gap: number,
   axis: 'x' | 'y',
 ): CanvasInteractionState {
-  const next: CanvasInteractionState = { kind: 'resizing-gap', groupId, gap, axis }
+  const next: CanvasInteractionState = { kind: 'resizing-gap', groupId, entityIds: [...entityIds], gap, axis }
   setInteractionState(next)
   markDirty('canvas')
   requestLayout()

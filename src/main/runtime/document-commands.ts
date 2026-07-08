@@ -97,6 +97,7 @@ import {
   type Box,
   type ReorderableRow,
 } from '../../shared/reorder-row'
+import { packedGapPositions } from '../../shared/gap-handles'
 import { arrangeInSpan } from '../../shared/span-arrange'
 import { alignmentGuideDetector } from './alignment-guide-detector'
 import { broadcastCanvasGuides, clearCanvasGuides } from './canvas-guides'
@@ -986,6 +987,55 @@ export function reorderSelection(
   if (!row) return false
 
   const positions = reorderRowPositions(row, movingId, dropIndex)
+  if (positions.size === 0) return false
+
+  const session = beginGestureSession()
+  let changed = false
+  for (const [id, pos] of positions) {
+    const kind = geometryById.get(id)?.kind
+    if (kind && writeReorderedPosition(id, kind, pos)) changed = true
+  }
+  if (changed) scheduleWorkspaceAutosave()
+  session.finalize()
+
+  if (changed) requestLayout()
+  return changed
+}
+
+/**
+ * Selection gap commit (ADR 0015 Milestone 2) — the positions-only sibling of
+ * `setGroupLayoutGap`, mirroring how `reorderSelection` sits beside
+ * `reorderManagedChild`. Repacks the entities along `axis` at `gap` (anchored
+ * at the first item, each keeping its own cross-axis coordinate) and writes
+ * only the changed origins through each entity's per-kind mutator inside one
+ * gesture session — a single undo step, nothing persisted but the positions.
+ *
+ * No-op (returns false) when fewer than 2 entities resolve or nothing moves.
+ */
+export function applySelectionGap(
+  orderedIds: string[],
+  axis: 'x' | 'y',
+  gap: number,
+): boolean {
+  const geometryById = new Map(
+    currentSnapSnapshotEntities().map((entity) => [entity.id, entity] as const),
+  )
+  const children = orderedIds.flatMap((id) => {
+    const entity = geometryById.get(id)
+    if (!entity) return []
+    return [
+      {
+        id,
+        canvasX: entity.canvasX,
+        canvasY: entity.canvasY,
+        width: entity.width,
+        height: entity.height,
+      },
+    ]
+  })
+  if (children.length < 2) return false
+
+  const positions = packedGapPositions(children, axis, gap, { keepCross: true })
   if (positions.size === 0) return false
 
   const session = beginGestureSession()

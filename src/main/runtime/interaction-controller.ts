@@ -110,7 +110,7 @@ export type TryEnterInput =
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'dragging-edge'; from: CanvasSelectableTarget; fromSide: EdgeSide }
   | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
-  | { kind: 'resizing-gap'; groupId: string; gap: number; axis: 'x' | 'y' }
+  | { kind: 'resizing-gap'; groupId: string | null; entityIds: string[]; gap: number; axis: 'x' | 'y' }
 
 export function peek(): InteractionMode {
   return snapshotMode()
@@ -129,7 +129,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'editing-entity': beginEntityEditing(input.entityId); break
     case 'dragging-edge': beginEdgeDrag(input.from, input.fromSide); break
     case 'reordering-row': beginReorderingRow(input.ids, input.movingId, input.dropIndex, input.axis); break
-    case 'resizing-gap': beginGapResize(input.groupId, input.gap, input.axis); break
+    case 'resizing-gap': beginGapResize(input.groupId, input.entityIds, input.gap, input.axis); break
   }
   const token: InternalToken = {
     id: newTokenId(),

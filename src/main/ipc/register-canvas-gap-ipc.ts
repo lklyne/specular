@@ -9,7 +9,7 @@ import {
 } from '../gap-gesture'
 
 /**
- * IPC for the managed-group gap-resize gesture (ADR 0015 Milestone 2). Thin
+ * IPC for the gap-resize gesture (ADR 0015 Milestone 2). Thin
  * wrappers over the gap-gesture coordinator; the renderer's `runGapDrag`
  * dispatches start → move* → commit | cancel.
  *
@@ -20,7 +20,7 @@ import {
 export function registerCanvasGapIpc(): void {
   ipcMain.on(
     ipcChannels.canvasGapResizeStart,
-    (_event, { groupId, canvasX, canvasY }: { groupId: string; canvasX: number; canvasY: number }) => {
+    (_event, { groupId, canvasX, canvasY }: { groupId: string | null; canvasX: number; canvasY: number }) => {
       startGapGesture(groupId, canvasX, canvasY)
     },
   )

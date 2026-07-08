@@ -29,6 +29,7 @@ import {
   startGapGesture,
 } from '../../src/main/gap-gesture'
 import { currentInteractionState } from '../../src/main/runtime/interaction-state'
+import { selectEntities } from '../../src/main/runtime/selection-controller'
 import { __resetForTests as resetInteraction } from '../../src/main/runtime/interaction-controller'
 import { workspaceGroups } from '../../src/main/runtime/workspace-model'
 import { undo } from '../../src/main/runtime/workspace-undo'
@@ -72,6 +73,7 @@ describe('gap-resize gesture', () => {
     expect(currentInteractionState()).toEqual({
       kind: 'resizing-gap',
       groupId: group.id,
+      entityIds: [a.id, b.id, c.id],
       gap: 80,
       axis: 'x',
     })
@@ -82,7 +84,7 @@ describe('gap-resize gesture', () => {
 
     // §6 I5: ticks update only the broadcast gap — no doc/runtime writes.
     const state = currentInteractionState()
-    expect(state).toEqual({ kind: 'resizing-gap', groupId: group.id, gap: 20, axis: 'x' })
+    expect(state).toMatchObject({ kind: 'resizing-gap', groupId: group.id, gap: 20, axis: 'x' })
     expect(xs([a.id, b.id, c.id])).toEqual([0, 180, 360])
     expect(workspaceGroups.find((g) => g.id === group.id)?.layoutGap).toBeUndefined()
 
@@ -157,5 +159,62 @@ describe('gap-resize gesture', () => {
   it('refuses to start on a non-managed group', async () => {
     expect(startGapGesture('nope', 0, 0)).toBe(false)
     expect(currentInteractionState().kind).toBe('idle')
+  })
+
+  it('selection door: commits by moving the entities, one undo step, cross axis kept', async () => {
+    // Equal 100px gaps along x, deliberately unaligned on y.
+    const a = textAt(0, 0, 'a')
+    const b = textAt(200, 10, 'b')
+    const c = textAt(400, 20, 'c')
+    selectEntities([a.id, b.id, c.id])
+    await settleSync()
+
+    expect(startGapGesture(null, 150, 20)).toBe(true)
+    expect(currentInteractionState()).toEqual({
+      kind: 'resizing-gap',
+      groupId: null,
+      entityIds: [a.id, b.id, c.id],
+      gap: 100,
+      axis: 'x',
+    })
+
+    // §6 I5: ticks update only the broadcast gap — positions stay untouched.
+    moveGapGesture(90, 20)
+    await settleSync()
+    expect(currentInteractionState()).toMatchObject({ kind: 'resizing-gap', gap: 40 })
+    expect(xs([a.id, b.id, c.id])).toEqual([0, 200, 400])
+
+    // Commit repacks at the new gap; each entity keeps its own y.
+    expect(commitGapGesture()).toBe(true)
+    await settleSync()
+    expect(currentInteractionState().kind).toBe('idle')
+    expect(xs([a.id, b.id, c.id])).toEqual([0, 140, 280])
+    const ys = [a.id, b.id, c.id].map(
+      (id) => getTextEntities().find((t) => t.id === id)!.canvasY,
+    )
+    expect(ys).toEqual([0, 10, 20])
+
+    // One undo step restores all positions together.
+    undo()
+    expect(xs([a.id, b.id, c.id])).toEqual([0, 200, 400])
+  })
+
+  it('selection door: refuses an unequal-gap selection; cancel leaves no mutation', async () => {
+    const a = textAt(0, 0, 'a')
+    const b = textAt(200, 0, 'b')
+    const c = textAt(500, 0, 'c') // gaps 100 / 200 — not a row
+    selectEntities([a.id, b.id, c.id])
+    await settleSync()
+    expect(startGapGesture(null, 150, 20)).toBe(false)
+    expect(currentInteractionState().kind).toBe('idle')
+
+    // An eligible selection cancels cleanly: no positions written.
+    selectEntities([a.id, b.id])
+    expect(startGapGesture(null, 150, 20)).toBe(true)
+    moveGapGesture(300, 20)
+    cancelGapGesture('escape')
+    await settleSync()
+    expect(currentInteractionState().kind).toBe('idle')
+    expect(xs([a.id, b.id])).toEqual([0, 200])
   })
 })

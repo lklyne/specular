@@ -44,7 +44,7 @@ export type HitPayload =
   | { kind: 'multi-resize-handle'; handle: ResizeHandle }
   | { kind: 'anchor'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
   | { kind: 'reorder-handle'; entityId: string; entityKind: CanvasEntityKind }
-  | { kind: 'gap-handle'; groupId: string; axis: 'x' | 'y' }
+  | { kind: 'gap-handle'; groupId: string | null; axis: 'x' | 'y' }
   | { kind: 'page-body'; entityId: string }
   | {
       kind: 'entity-body'

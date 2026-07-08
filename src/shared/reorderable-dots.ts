@@ -54,7 +54,7 @@ function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
  * keeps detection exact: an arranged row's gaps are equal here, before the
  * native views round their bounds to integers.
  */
-function rowBox(entity: CanvasSceneEntity, zoom: number): Box {
+export function rowBox(entity: CanvasSceneEntity, zoom: number): Box {
   if (entity.kind === 'page') {
     const z = zoom || 1
     return {

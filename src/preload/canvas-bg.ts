@@ -201,7 +201,7 @@ const api: CanvasBgElectronAPI = {
   reorderDragCommit: () => ipcRenderer.send(ipcChannels.canvasReorderCommit),
   reorderDragCancel: (reason?: CancelReason) =>
     ipcRenderer.send(ipcChannels.canvasReorderCancel, { reason }),
-  beginGapResizeDrag: (groupId: string, canvasX: number, canvasY: number) =>
+  beginGapResizeDrag: (groupId: string | null, canvasX: number, canvasY: number) =>
     ipcRenderer.send(ipcChannels.canvasGapResizeStart, { groupId, canvasX, canvasY }),
   gapResizeDragMove: (canvasX: number, canvasY: number) =>
     ipcRenderer.send(ipcChannels.canvasGapResizeMove, { canvasX, canvasY }),

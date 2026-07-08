@@ -112,11 +112,12 @@ export type CanvasInteractionState =
   | { kind: 'resizing-multi-selection' }
   | { kind: 'editing-entity'; entityId: string }
   | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
-  // Dragging a managed group's gap handle. `gap` is the live canvas-space gap;
-  // move ticks update only this field (no doc writes — §6 I5), the renderer
-  // previews child positions from it, and commit writes once via
-  // `setGroupLayoutGap`.
-  | { kind: 'resizing-gap'; groupId: string; gap: number; axis: 'x' | 'y' }
+  // Dragging a gap handle. `gap` is the live canvas-space gap; move ticks
+  // update only this field (no doc writes — §6 I5) and the renderer previews
+  // the positions of `entityIds` from it. Commit writes once: the managed
+  // group's `layoutGap` when `groupId` is set, just the entities' positions
+  // for a loose selection (`groupId` null).
+  | { kind: 'resizing-gap'; groupId: string | null; entityIds: string[]; gap: number; axis: 'x' | 'y' }
 
 export interface CanvasScenePageEntity {
   kind: 'page'
