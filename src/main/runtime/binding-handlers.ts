@@ -61,6 +61,9 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'highlight' })
   },
+  'tool-laser': () => {
+    setActiveTool({ kind: 'laser' })
+  },
   'tool-inspect': () => {
     setActiveTool({ kind: 'inspect' })
   },

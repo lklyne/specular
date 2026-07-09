@@ -73,6 +73,10 @@ export function annotationOverlayActive(state: CanvasPointerOwnerState): boolean
 
 export function canvasPointerOwner(state: CanvasPointerOwnerState): CanvasPointerOwner {
   if (state.overlayUiTarget) return 'none'
+  // Laser owns its drag directly (React handlers on the aboveView root feed the
+  // ephemeral particle trail); the router stands down so a drag over a page
+  // isn't forwarded into the webview.
+  if (state.toolKind === 'laser') return 'annotation-overlay'
   if (state.toolKind === 'comment') {
     return state.openThread || state.drawingSession ? 'annotation-overlay' : 'tool-gesture'
   }

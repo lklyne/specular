@@ -15,6 +15,7 @@ export type Tool =
   | { kind: 'add-shape' }
   | { kind: 'comment' }
   | { kind: 'draw' }
+  | { kind: 'laser' }
   | { kind: 'inspect' }
 
 export type ToolKind = Tool['kind']
@@ -31,6 +32,7 @@ export const toolDuration: Record<ToolKind, ToolDuration> = {
   'add-shape': 'one-shot',
   comment: 'persistent',
   draw: 'persistent',
+  laser: 'persistent',
   inspect: 'persistent',
 }
 
@@ -132,6 +134,8 @@ export function toolGerund(tool: Tool): string {
       return 'commenting'
     case 'draw':
       return 'drawing'
+    case 'laser':
+      return 'pointing'
     case 'inspect':
       return 'inspecting'
   }

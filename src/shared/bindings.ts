@@ -53,6 +53,7 @@ export type BindingId =
   | 'tool-comment'
   | 'tool-draw-pen'
   | 'tool-draw-highlight'
+  | 'tool-laser'
   | 'tool-inspect'
   | 'undo'
   | 'redo'
@@ -122,6 +123,7 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'tool-comment', defaultKey: k('c'), scope: CANVAS_REGION, target: 'main', label: 'Comment' },
   { id: 'tool-draw-pen', defaultKey: k('m'), scope: CANVAS_REGION, target: 'main', label: 'Pen' },
   { id: 'tool-draw-highlight', defaultKey: k('m', false, true), scope: CANVAS_REGION, target: 'main', label: 'Highlight' },
+  { id: 'tool-laser', defaultKey: k('l'), scope: CANVAS_REGION, target: 'main', label: 'Laser pointer' },
   { id: 'tool-inspect', defaultKey: k('i'), scope: CANVAS_REGION, target: 'main', label: 'Inspect' },
 
   // Global shortcuts — fire from all views, fire while typing

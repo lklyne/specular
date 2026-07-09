@@ -36,6 +36,8 @@ import {
 } from './CommentsLayer'
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
+import { useLaserPointerGesture } from './useLaserPointerGesture'
+import { PresenceParticleTrail } from '../shared/PresenceParticleTrail'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
 import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
@@ -669,6 +671,46 @@ export default function App({
     setPendingAnnotation,
   })
 
+  const laserToolActive = layoutData.activeTool.kind === 'laser'
+  const {
+    laserCursors,
+    handleLaserPointerDown,
+    handleLaserPointerMove,
+    handleLaserPointerUp,
+    handleLaserPointerCancel,
+  } = useLaserPointerGesture({ enabled: laserToolActive })
+
+  // The draw and laser gestures are mutually exclusive tools, so both root
+  // handlers can run per event — whichever tool is inactive early-returns.
+  const onRootPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      handleOverlayPointerDown(event)
+      handleLaserPointerDown(event)
+    },
+    [handleOverlayPointerDown, handleLaserPointerDown],
+  )
+  const onRootPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      handleOverlayPointerMove(event)
+      handleLaserPointerMove(event)
+    },
+    [handleOverlayPointerMove, handleLaserPointerMove],
+  )
+  const onRootPointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      handleOverlayPointerUp(event)
+      handleLaserPointerUp(event)
+    },
+    [handleOverlayPointerUp, handleLaserPointerUp],
+  )
+  const onRootPointerCancel = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      handleOverlayPointerCancel(event)
+      handleLaserPointerCancel(event)
+    },
+    [handleOverlayPointerCancel, handleLaserPointerCancel],
+  )
+
   useEffect(() => {
     api.setAnnotationState(Boolean(openThreadId), Boolean(pendingAnnotation || pendingRegionRect || drawingSession))
   }, [openThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
@@ -753,7 +795,9 @@ export default function App({
   )
 
   const hoverForwardingEnabled =
-    layoutData.activeTool.kind !== 'draw' && layoutData.activeTool.kind !== 'comment'
+    layoutData.activeTool.kind !== 'draw' &&
+    layoutData.activeTool.kind !== 'comment' &&
+    layoutData.activeTool.kind !== 'laser'
   usePageInputForwarding({
     api,
     layoutRef,
@@ -974,12 +1018,16 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     <div
       className="pointer-events-auto relative h-screen w-screen overflow-hidden bg-transparent"
       style={{
-        cursor: drawInteractionEnabled ? DRAW_CURSOR : undefined,
+        cursor: drawInteractionEnabled
+          ? DRAW_CURSOR
+          : laserToolActive
+            ? 'crosshair'
+            : undefined,
       }}
-      onPointerDown={handleOverlayPointerDown}
-      onPointerMove={handleOverlayPointerMove}
-      onPointerUp={handleOverlayPointerUp}
-      onPointerCancel={handleOverlayPointerCancel}
+      onPointerDown={onRootPointerDown}
+      onPointerMove={onRootPointerMove}
+      onPointerUp={onRootPointerUp}
+      onPointerCancel={onRootPointerCancel}
     >
       {/* Translate the whole canvas scene live with the pan gesture so selection
           chrome and entity bodies track the natively-positioned page views
@@ -1221,6 +1269,20 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         </>
       ) : null}
       </div>
+
+      {/* Laser-pointer beam. Mounted outside the pan-translated scene so it
+          reads in raw client space (the drag feeds client coords). Only while
+          the laser tool is active — unmounting tears down its WebGPU context. */}
+      {laserToolActive ? (
+        <PresenceParticleTrail
+          cursors={laserCursors}
+          lifetimeSeconds={1.1}
+          holdSeconds={0.05}
+          driftStrength={10}
+          fadeOutSeconds={0.4}
+          fadeOutGraceSeconds={0.05}
+        />
+      ) : null}
     </div>
   )
 }

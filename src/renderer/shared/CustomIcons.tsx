@@ -78,6 +78,35 @@ function makeToolbarIcon(lightUrl: string, darkUrl: string, name: string) {
 // Default size matches the 20×20 Figma toolbar slot.
 export const SelectToolIcon = makeToolbarIcon(selectUrl, selectDarkUrl, 'SelectToolIcon')
 export const HandToolIcon = makeToolbarIcon(handUrl, handDarkUrl, 'HandToolIcon')
+
+// Placeholder laser-pointer glyph — a bright dot with four radiating beams,
+// drawn in `currentColor` so it inherits the toolbar button's hover/active
+// text color. Swap for a proper Figma asset when the tool graduates.
+export const LaserToolIcon = ({
+  size = 20,
+  style,
+  className,
+}: ToolbarIconProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 20 20"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    style={style}
+    aria-hidden
+  >
+    <circle cx="10" cy="10" r="2.5" fill="currentColor" />
+    <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <path d="M10 1.5v3" />
+      <path d="M10 15.5v3" />
+      <path d="M1.5 10h3" />
+      <path d="M15.5 10h3" />
+    </g>
+  </svg>
+)
+LaserToolIcon.displayName = 'LaserToolIcon'
 // ── Draw toolbar glyphs (inline JSX — `ink` tracks the active draw color) ───
 //
 // The toolbar Draw button swaps glyph by `draw.brushType`: the broad marker

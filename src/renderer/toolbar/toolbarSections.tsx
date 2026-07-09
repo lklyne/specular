@@ -26,6 +26,7 @@ import {
   DrawPenToolIcon,
   HandToolIcon,
   InspectToolIcon,
+  LaserToolIcon,
   SelectToolIcon,
   ZoomChevronIcon,
 } from '../shared/CustomIcons'
@@ -156,6 +157,8 @@ export function CenterActions({
   const onAddDocument = () => onSetTool({ kind: 'add-document' })
   const onToggleCommentMode = () =>
     onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
+  const onToggleLaserMode = () =>
+    onSetTool(activeTool.kind === 'laser' ? { kind: 'select' } : { kind: 'laser' })
   const onToggleInspectMode = () =>
     onSetTool(activeTool.kind === 'inspect' ? { kind: 'select' } : { kind: 'inspect' })
 
@@ -297,6 +300,17 @@ export function CenterActions({
             type="button"
           >
             <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+          </button>
+        </ToolbarTooltip>
+
+        <ToolbarTooltip label="Laser pointer" shortcut={sc('tool-laser')}>
+          <button
+            onClick={onToggleLaserMode}
+            className={buttonClass(activeTool.kind === 'laser')}
+            aria-label="Laser pointer"
+            type="button"
+          >
+            <LaserToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
         </ToolbarTooltip>
 
