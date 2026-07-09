@@ -22,7 +22,7 @@ import {
   vec4,
 } from 'three/tsl'
 
-const MAX_POOL_SIZE = 8192
+const MAX_POOL_SIZE = 16384
 const MAX_CURSORS = 8
 // Hardcoded dispatch ceiling. The actual emits-per-page is a runtime uniform
 // and may be anything in [2, EMIT_PER_FRAME_MAX].
@@ -49,6 +49,8 @@ interface Props {
   size?: number
   /** Peak px/s of random drift (reached when particle is >= referenceDistance from cursor). */
   driftStrength?: number
+  /** Half-width in px of the random spawn scatter around the emit point. 0 = spawn exactly on the line. */
+  spawnJitter?: number
   /** Distance in px at which drift smoothstep-eases up to max. */
   driftReferenceDistance?: number
   /** How fast each particle's drift direction evolves over time. 0 = fixed direction; larger = more swirling. */
@@ -95,6 +97,7 @@ interface Handle {
     lifetimeSeconds: number
     size: number
     driftStrength: number
+    spawnJitter: number
     driftReferenceDistance: number
     driftTurnRate: number
     driftFlowScale: number
@@ -113,6 +116,7 @@ function buildSystem(initial: {
   lifetimeSeconds: number
   size: number
   driftStrength: number
+  spawnJitter: number
   driftReferenceDistance: number
   driftTurnRate: number
   driftFlowScale: number
@@ -174,6 +178,7 @@ function buildSystem(initial: {
   const lifetimeU = uniform(initial.lifetimeSeconds)
   const sizeU = uniform(initial.size)
   const driftStrengthU = uniform(initial.driftStrength)
+  const spawnJitterU = uniform(initial.spawnJitter)
   const driftReferenceDistanceU = uniform(initial.driftReferenceDistance)
   const driftTurnRateU = uniform(initial.driftTurnRate)
   const driftFlowScaleU = uniform(initial.driftFlowScale)
@@ -213,8 +218,8 @@ function buildSystem(initial: {
         const originY = mix(prev.y, curr.y, t)
 
         const jitterSeed = writeHead.add(instanceIndex.mul(uint(17))).add(uint(7))
-        const jx = hash(jitterSeed).sub(0.5).mul(2.0)
-        const jy = hash(jitterSeed.add(uint(53))).sub(0.5).mul(2.0)
+        const jx = hash(jitterSeed).sub(0.5).mul(2.0).mul(spawnJitterU)
+        const jy = hash(jitterSeed.add(uint(53))).sub(0.5).mul(2.0).mul(spawnJitterU)
         positionBuffer
           .element(slot)
           .assign(vec3(originX.add(jx), originY.add(jy), float(0)))
@@ -288,13 +293,19 @@ function buildSystem(initial: {
     const base = cursorColor.element(cIdx)
     const lifeT = age.div(lifetimeU).clamp(0, 1)
     const fadeIn = smoothstep(0, 0.05, lifeT)
-    const fadeOut = float(1).sub(smoothstep(0.3, 1, lifeT))
-    const globalFade = cursorFadeAlpha.element(cIdx)
+    const ageFade = float(1).sub(smoothstep(0.3, 1, lifeT))
+    // Collapse as a front that descends through age, not a flat multiply: as
+    // the per-cursor fade alpha drops (release / rest), the front sweeps from
+    // old to young so the stroke dissipates from the end drawn first instead
+    // of dimming evenly. front=1 (active) leaves everything lit.
+    const SWEEP_BAND = 0.2
+    const front = cursorFadeAlpha.element(cIdx).mul(1 + SWEEP_BAND).sub(SWEEP_BAND)
+    const sweep = float(1).sub(smoothstep(front, front.add(SWEEP_BAND), lifeT))
     // Radial mask: solid core, smoothstep to 0 before the quad edge so the
     // corners are fully transparent and the particle reads as a round point.
     const dist = uv().sub(vec2(0.5, 0.5)).length()
     const radial = float(1).sub(smoothstep(0.1, 0.5, dist))
-    return vec4(base, fadeIn.mul(fadeOut).mul(globalFade).mul(radial))
+    return vec4(base, fadeIn.mul(ageFade).mul(sweep).mul(radial))
   })()
 
   const geometry = new THREE.PlaneGeometry(1, 1)
@@ -352,7 +363,12 @@ function buildSystem(initial: {
 
     renderer.compute(spawnKernel)
     renderer.compute(simulateKernel)
-    writeHeadJS = (writeHeadJS + emitPerFrameU.value * MAX_CURSORS) % activePoolSize
+    // Advance past only the slots this frame's cursors actually claimed
+    // (cIdx<cursorCount, so instanceIndex<cursorCount*emitPerFrame). Advancing
+    // by MAX_CURSORS instead would lap the pool 8× faster for a single cursor,
+    // overwriting still-alive particles and making long lifetimes jank.
+    const slotsUsed = Math.max(cursorCount.value, 1) * emitPerFrameU.value
+    writeHeadJS = (writeHeadJS + slotsUsed) % activePoolSize
     writeHead.value = writeHeadJS
     // After dispatch, current page's cursor positions become "previous"
     // for the next page's segment interpolation.
@@ -400,6 +416,7 @@ function buildSystem(initial: {
       lifetimeU.value = p.lifetimeSeconds
       sizeU.value = p.size
       driftStrengthU.value = p.driftStrength
+      spawnJitterU.value = p.spawnJitter
       driftReferenceDistanceU.value = p.driftReferenceDistance
       driftTurnRateU.value = p.driftTurnRate
       driftFlowScaleU.value = p.driftFlowScale
@@ -437,6 +454,7 @@ export function PresenceParticleTrail({
   lifetimeSeconds = 2.5,
   size = 4,
   driftStrength = 30,
+  spawnJitter = 1,
   driftReferenceDistance = 180,
   driftTurnRate = 0.7,
   driftFlowScale = 0.001,
@@ -493,6 +511,7 @@ export function PresenceParticleTrail({
           lifetimeSeconds,
           size,
           driftStrength,
+          spawnJitter,
           driftReferenceDistance,
           driftTurnRate,
           driftFlowScale,
@@ -552,6 +571,7 @@ export function PresenceParticleTrail({
       lifetimeSeconds,
       size,
       driftStrength,
+      spawnJitter,
       driftReferenceDistance,
       driftTurnRate,
       driftFlowScale,
@@ -568,6 +588,7 @@ export function PresenceParticleTrail({
     lifetimeSeconds,
     size,
     driftStrength,
+    spawnJitter,
     driftReferenceDistance,
     driftTurnRate,
     driftFlowScale,

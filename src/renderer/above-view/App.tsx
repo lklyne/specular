@@ -1276,11 +1276,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       {laserToolActive ? (
         <PresenceParticleTrail
           cursors={laserCursors}
-          lifetimeSeconds={1.1}
-          holdSeconds={0.05}
-          driftStrength={10}
-          fadeOutSeconds={0.4}
-          fadeOutGraceSeconds={0.05}
+          lifetimeSeconds={10}
+          holdSeconds={0.175}
+          driftStrength={4}
+          spawnJitter={0.15}
+          fadeOutSeconds={4}
+          fadeOutGraceSeconds={0.125}
+          particleCount={16384}
         />
       ) : null}
     </div>
