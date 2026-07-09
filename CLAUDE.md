@@ -111,13 +111,9 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 
 ## View modes
 
-Browser and Canvas are different views of the same data:
+Specular is always in canvas mode — the spatial freeform surface. Browser mode was removed in [ADR 0020](./docs/adr/0020-delete-browser-mode-for-focus-selection.md) and replaced by **Focus selection**: an ephemeral camera command that zooms to fit the selected item(s) and stores no persistent view state. Old `.canvas` files with `viewMode: 'browser'` open normally on the canvas with the formerly active page selected.
 
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between pages
-
-Both operate on the same underlying .canvas data and share primitives.
-Maximize overlap between modes.
+Legacy code references to "browser mode" (e.g. the `'fill'` focus kind in `layout-engine.ts`) are compatibility shims for the focus-fill layout, not a separate mode.
 
 ## Code principles
 
@@ -149,7 +145,7 @@ primitives and tools, not dedicated workflow features:
 
 ## Agent integration
 
-Agent interaction is moving to a CLI for better context management.
+Agent interaction is primarily via the `specular` CLI (`src/main/cli.ts`, `src/main/cli-commands.ts`).
 Agents can also read and write .canvas files directly — they are just JSON.
 The HTTP API (src/main/routes/) remains available for runtime interaction.
 

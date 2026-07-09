@@ -12,7 +12,7 @@ Code is the source of truth for making ideas real, but long chat threads and sin
 - Annotate live websites and pass the feedback straight back to an agent
 - Lay out a page at multiple device breakpoints to check responsiveness
 - Ask an agent to share its thinking visually, or ingest a repo's design system
-- Switch to browser mode for a classic tab-based browser
+- Focus-select any item to zoom and center on it, then press Escape to return to the full canvas
 
 ## Key features
 

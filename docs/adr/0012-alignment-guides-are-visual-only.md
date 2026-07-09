@@ -1,4 +1,7 @@
-# Alignment guides are visual-only; grid-snap remains the sole magnet
+# ADR 0012 — Alignment guides are visual-only; grid-snap remains the sole magnet
+
+**Status:** Accepted — `src/main/runtime/alignment-guide-detector.ts` and `distribution-guide-detector.ts` implement post-snap guide detection; guide list broadcast to `aboveView` for paint only.
+**Date:** 2026-05-13
 
 ## Context
 

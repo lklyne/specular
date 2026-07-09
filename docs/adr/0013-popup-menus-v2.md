@@ -1,6 +1,6 @@
 # ADR 0013 — Popup menus v2: palette, text size, cross-kind morph, toolbar regrouping
 
-**Status:** Proposed
+**Status:** Accepted — eight-slot color palette (`src/shared/canvas-colors.ts`), per-entity text size (`src/shared/tool-defaults.ts`), and device-frame toggle in page popup landed. Cross-kind morph UI and annotation element-name field remain deferred.
 **Date:** 2026-05-15
 **Refines:** [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md), [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md), [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md).
 

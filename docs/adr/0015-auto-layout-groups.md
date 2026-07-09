@@ -1,6 +1,6 @@
 # ADR 0015 — Auto-layout groups
 
-**Status:** Proposed
+**Status:** Accepted — core landed: managed groups, reorder-dot gesture, row/column reflow (`src/main/managed-layout.ts`, `src/shared/layout-math.ts`), gap handles, D7 selection reorder. Deferred: grid managed reflow, `layoutAlign`, floating multi-select toolbar.
 **Date:** 2026-05-29
 **Related:** [ADR 0014 — Canvas stack order and the Notes/Pages sidebar](./0014-canvas-stack-order.md), [ADR 0001 — Click to enter page focus](./0001-click-to-enter-page-focus.md).
 **Origin:** Built from [`docs/plans/auto-layout-reorder.md`](../plans/auto-layout-reorder.md) (Milestone 1).
