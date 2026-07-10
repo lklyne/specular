@@ -73,6 +73,47 @@ to Known CLI limitations as one bolded bullet with nested sub-bullets.
   passthrough verbs — harmless today, but a second surface if presence
   coverage is revisited.
 
+### Phase 1B — skill unification + migration (item 6, D1–D3) ✅ verified
+
+- `installAgentBrowser`/`uninstallAgentBrowser`/`bundledAgentBrowserExists`
+  **deleted entirely** rather than reduced — once the onboarding toggle is
+  gone they have zero callers (deviation from the issue's "drop the
+  skill-install branch" wording, but consistent with CLAUDE.md's
+  delete-dead-code rule). `AgentBrowserStatus` loses its `skill` field.
+- `SkillId` narrowed to `'specular'`; agent-browser path/hash helpers kept as
+  narrow named exports (`bundledAgentBrowserSkillHash` etc.) for the migration.
+- New `src/main/skill-migrations.ts`: pure, electron-free
+  `runAgentBrowserSkillRemovalMigration(deps)` with injected deps; wired in
+  `index.ts` at `app.whenReady()` alongside `autoUpdateSkillsIfSafe()`.
+  Guard order: done-flag → not-installed → hash match (recorded primary,
+  bundled fallback) → user binary on PATH → remove. Done-flag +
+  `skillHashes['agent-browser']` both live in the onboarding preferences
+  store. Sentry breadcrumb records every outcome.
+- **Judgment call:** a failed `rmSync` (`remove-failed`) still sets the
+  done-flag — one-time means one evaluation; a same-cause retry loop on every
+  launch was judged worse. Breadcrumb records the outcome.
+- **Known edge (accepted):** if a user manually sets `AGENT_BROWSER_PATH` to
+  their own global install, `detectUserInstall` skips exactly that path, so
+  guard condition 2 could miss their binary and remove a hash-matched stub.
+  Rare + low-harm; noted instead of complicating the guard.
+- Onboarding/settings: `OnboardingComponentId` narrowed to `'cli' | 'skill'`;
+  agentBrowser row is status-only (`SkillInstaller.StatusRow` /
+  `AgentBrowserStatusRow`), fed by the same `OnboardingStatusSnapshot.agentBrowser`
+  field (shape unchanged on the wire minus `skill`).
+- Knock-on fix outside the planned file list: `runtime/app-menu.ts` `SKILL_IDS`
+  trimmed to `['specular']` (type error otherwise — required, not a design change).
+- Surprises: dead `SKILL_INSTALLER_IDS` constant removed from
+  SkillInstaller.tsx; pre-existing gap where `getAgentBrowserStatus` only
+  detects user installs when the bundled binary is healthy was left as-is for
+  display, but the migration's `hasUserOwnedAgentBrowserBinary()` deliberately
+  checks unconditionally.
+- Orchestrator fix: module doc comment in skill-migrations.ts wrongly claimed
+  upstream never shipped `skills get` — corrected (it exists since v0.25.4;
+  the stub was a dead end for different reasons).
+- Tests: `skill-migrations.test.ts` (8 cases, all guard branches),
+  `onboarding-selection.test.ts` updated. forge.config.ts verified unchanged —
+  the bundled stub still ships as the migration's hash source.
+
 ### Sandbox verification caveat (applies to all phases)
 
 `pnpm typecheck`/`pnpm test:unit` wrappers fail in this environment (pnpm's

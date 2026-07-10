@@ -21,12 +21,6 @@ const ROWS: RowConfig[] = [
     title: 'Specular Skill',
     description: 'Teaches agents how to use the Specular CLI.',
   },
-  {
-    id: 'agentBrowser',
-    title: 'agent-browser',
-    description:
-      "Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev.",
-  },
 ]
 
 function statusDetail(status: OnboardingComponentStatus): string | undefined {
@@ -48,7 +42,6 @@ export function SkillsPane({
   const [pending, setPending] = useState<Record<OnboardingComponentId, boolean>>({
     cli: false,
     skill: false,
-    agentBrowser: false,
   })
   const [errors, setErrors] = useState<Partial<Record<OnboardingComponentId, string>>>({})
 
@@ -98,19 +91,14 @@ export function SkillsPane({
           const componentStatus = status[row.id]
           const installed = componentStatus.kind === 'installed'
           const isPending = pending[row.id]
-          const cannotUninstall = row.id === 'agentBrowser' && installed
-          const disabled = isPending || cannotUninstall
+          const disabled = isPending
           const error = errors[row.id]
           const detail = error ?? statusDetail(componentStatus)
           const detailIsError = !!error || componentStatus.kind === 'blocked'
-          const title = cannotUninstall
-            ? 'agent-browser cannot be removed from inside Specular.'
-            : undefined
 
           return (
             <label
               key={row.id}
-              title={title}
               className={`flex items-start gap-3 rounded-[8px] border border-[var(--surface-card-border)] bg-[var(--surface-card)] px-4 py-3 select-none ${
                 disabled ? 'cursor-not-allowed' : 'cursor-pointer'
               }`}
@@ -153,7 +141,41 @@ export function SkillsPane({
             </label>
           )
         })}
+
+        <AgentBrowserStatusRow status={status.agentBrowser} />
       </div>
     </section>
+  )
+}
+
+/**
+ * agent-browser is bundled and auto-configured on launch — nothing here to
+ * toggle, just readout of the bundled driver and any user-owned binary also
+ * on PATH (D3, issue #318).
+ */
+function AgentBrowserStatusRow({ status }: { status: OnboardingComponentStatus }) {
+  const detail = statusDetail(status)
+  const detailIsError = status.kind === 'blocked'
+
+  return (
+    <div className="flex items-start gap-3 rounded-[8px] border border-[var(--surface-card-border)] bg-[var(--surface-card)] px-4 py-3 select-none">
+      <div className="flex-1 min-w-0">
+        <span className="text-[13px] font-medium">agent-browser</span>
+        <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
+          Specular bundles Vercel's agent-browser to capture and interact with live webpages — no setup needed.
+        </p>
+        {detail ? (
+          <p
+            className={
+              detailIsError
+                ? 'mt-1 text-[11px] text-red-600 dark:text-red-400'
+                : 'mt-1 text-[11px] text-[var(--surface-toolbar-foreground)] opacity-60'
+            }
+          >
+            {detail}
+          </p>
+        ) : null}
+      </div>
+    </div>
   )
 }

@@ -23,7 +23,7 @@ import {
   type SkillId,
 } from '../skill-install'
 
-const SKILL_IDS: SkillId[] = ['specular', 'agent-browser']
+const SKILL_IDS: SkillId[] = ['specular']
 
 function pendingSkillUpdates(): number {
   let count = 0

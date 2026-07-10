@@ -707,7 +707,7 @@ export interface LeftSidebarBootstrapData extends ThemeBootstrapData {
 
 // --- Onboarding ---
 
-export type OnboardingComponentId = 'cli' | 'skill' | 'agentBrowser'
+export type OnboardingComponentId = 'cli' | 'skill'
 
 export type OnboardingComponentStatus =
   | { kind: 'installed'; detail?: string }
@@ -742,6 +742,11 @@ export interface OnboardingState {
   /** SHA-256 of each skill's content as we last installed it. Used to
    * detect whether the user has hand-edited the file before auto-updating. */
   skillHashes?: { specular?: string; 'agent-browser'?: string }
+  /** Set once the one-time agent-browser skill removal migration (D2) has
+   * evaluated its guard and either removed the stale skill or deliberately
+   * left it — regardless of outcome, evaluating twice would be wrong for a
+   * one-time migration. See skill-migrations.ts. */
+  agentBrowserSkillMigrationDone?: boolean
 }
 
 // --- Settings window ---

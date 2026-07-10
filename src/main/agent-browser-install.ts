@@ -3,7 +3,6 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 import { spawn } from 'child_process'
 import { resolveAgentBrowserPath } from './shared/browse-handler'
-import { getSkillStatus, installSkill, type SkillStatus } from './skill-install'
 
 const VERSION_TIMEOUT_MS = 4000
 
@@ -22,10 +21,6 @@ function findAgentBrowserOnPath(skip: string): string | null {
     if (existsSync(candidate)) return candidate
   }
   return null
-}
-
-export function bundledAgentBrowserExists(): boolean {
-  return existsSync(bundledAgentBrowserPath())
 }
 
 /**
@@ -76,11 +71,10 @@ export interface AgentBrowserStatus {
     | { kind: 'installed'; path: string; version: string }
     | { kind: 'missing' }
     | { kind: 'blocked'; detail: string }
-  skill: SkillStatus
   userInstall?: { path: string; version: string }
 }
 
-async function detectUserInstall(activePath: string): Promise<
+export async function detectUserInstall(activePath: string): Promise<
   { path: string; version: string } | undefined
 > {
   const candidate = findAgentBrowserOnPath(activePath)
@@ -90,8 +84,18 @@ async function detectUserInstall(activePath: string): Promise<
   return { path: candidate, version: result.version }
 }
 
+/**
+ * True when an agent-browser binary the user installed themselves — distinct
+ * from the one Specular bundles and points `AGENT_BROWSER_PATH` at — is
+ * reachable on PATH. The one-time skill-removal migration (see
+ * skill-migrations.ts) only deletes the bundled skill stub when nothing else
+ * on the system still depends on it for non-Specular work.
+ */
+export async function hasUserOwnedAgentBrowserBinary(): Promise<boolean> {
+  return (await detectUserInstall(resolveAgentBrowserPath())) !== undefined
+}
+
 export async function getAgentBrowserStatus(): Promise<AgentBrowserStatus> {
-  const skill = getSkillStatus('agent-browser')
   const path = resolveAgentBrowserPath()
   let active: AgentBrowserStatus['binary']
   let userInstall: { path: string; version: string } | undefined
@@ -115,48 +119,5 @@ export async function getAgentBrowserStatus(): Promise<AgentBrowserStatus> {
   if (active.kind === 'installed') {
     userInstall = await detectUserInstall(active.path)
   }
-  return { binary: active, skill, userInstall }
-}
-
-export interface AgentBrowserInstallResult {
-  success: boolean
-  message: string
-}
-
-export async function installAgentBrowser(): Promise<AgentBrowserInstallResult> {
-  if (!bundledAgentBrowserExists()) {
-    return {
-      success: false,
-      message: `Bundled agent-browser binary missing at ${bundledAgentBrowserPath()}`,
-    }
-  }
-  configureBundledAgentBrowser()
-  const existingSkill = getSkillStatus('agent-browser')
-  if (existingSkill.kind === 'missing') {
-    const skillResult = installSkill('agent-browser')
-    if (!skillResult.success) return skillResult
-  }
-  const status = await getAgentBrowserStatus()
-  if (status.binary.kind !== 'installed') {
-    const detail =
-      status.binary.kind === 'blocked' ? status.binary.detail : 'binary missing'
-    return { success: false, message: `agent-browser binary check failed: ${detail}` }
-  }
-  return {
-    success: true,
-    message: `agent-browser ${status.binary.version} ready; skill installed.`,
-  }
-}
-
-export interface AgentBrowserUninstallResult {
-  success: boolean
-  message: string
-}
-
-export async function uninstallAgentBrowser(): Promise<AgentBrowserUninstallResult> {
-  return {
-    success: false,
-    message:
-      'agent-browser cannot be removed from inside Specular. Uninstall it from the system if it was installed globally; otherwise the bundled binary ships with the app.',
-  }
+  return { binary: active, userInstall }
 }
