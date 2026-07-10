@@ -1,6 +1,7 @@
 ---
 name: specular
 description: Drive Specular — a spatial canvas for iterating on web UI — from Claude Code. Use this skill whenever you need to pull a live website into a shared canvas, arrange pages at breakpoints, annotate pages, or inspect snapshots.
+allowed-tools: Bash(specular:*)
 ---
 
 # Specular
@@ -113,6 +114,31 @@ specular fill @e7 "search term" -f <pageId>
 
 `specular focus <id>` only scrolls the canvas viewport — it does not set the
 active page.
+
+## Targeting & stale refs
+
+`@refs` from `specular snapshot -i` are assigned fresh per snapshot and die on
+ANY DOM change — hot reload included. After any source edit, re-snapshot
+before using refs.
+
+For iteration loops prefer re-resolving targets, which resolve fresh on every
+call:
+
+```bash
+specular click "#submit" -f <pageId>
+specular click "text=Submit" -f <pageId>
+specular find role button click --name "Submit" -f <pageId>
+```
+
+Wait for expected state instead of sleeping:
+
+```bash
+specular wait --text "Order confirmed" -f <pageId>
+specular wait --url "**/checkout" -f <pageId>
+```
+
+If a ref-based action fails after the page changed, the error says refs may
+be stale — re-snapshot or switch to a selector.
 
 ## Fallback — the JSON door
 
@@ -254,6 +280,13 @@ When you encounter new gaps, append them to the tracking issue (see below).
 - **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
 - **`update <pageId> --url` lags `workspace`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular workspace` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → workspace` chain.
+- **canvas-app (spreadsheet) grids have no per-cell refs** — the grid is a canvas element, not DOM cells. Select cells by address through the Name box, not by ref.
+  - No focusable input exists on the active cell until edit mode — `keyboard type`, `keyboard inserttext`, and `press` write nothing to a selected cell.
+  - The only reliable write path: `click` the formula bar (it becomes a combobox in edit mode) → `type` the value → `press Enter`. One cell per call.
+  - Native autocomplete can hijack the Enter-commit — pre-clear the column before typing into it.
+  - Focus trap: after committing, focus stays in the formula-bar combobox. `click` the Name box between cells; skip it and the next navigation silently no-ops.
+  - A hidden screen-reader textbox can silently swallow input and still report "✓ Done" — treat that as a false success and verify with a screenshot.
+  - General: most silent failures in canvas-app also report "✓ Done" — success is only observable via a screenshot round-trip.
 
 ## Tracking issue (localhost sessions)
 
@@ -269,7 +302,20 @@ Keep entries terse: one-line description, observed behavior, expected behavior. 
 
 When a limitation is fixed (confirmed by testing, not just by a closed issue), **remove it from the "Known CLI limitations" list above** and close or note it on the GitHub issue. A stale warning is worse than no warning.
 
-## See also
+## Passthrough to agent-browser
 
-- `agent-browser` skill — deeper browser-automation reference (invoked via
-  `specular snapshot`, `specular click`, etc. under the hood).
+Unrecognized browse verbs forward to the bundled agent-browser driver —
+useful examples: `eval`, `keyboard inserttext`, `focus`, `clipboard`, `find`.
+
+ALWAYS run them via `specular <verb> ... -f <pageId>` — never by running
+`agent-browser` directly. Calling it directly drives a separate browser
+disconnected from the canvas.
+
+For the deep command reference, run `specular skills get core` — it prints
+the upstream driver's full command docs. Read it as: every verb there runs
+as `specular <verb> -f <pageId>`; ignore the session/launch/open lifecycle
+commands in that reference — Specular owns the browser lifecycle.
+
+Lifecycle verbs (`launch`, `close`, `quit`, `install`, `upgrade`, `connect`)
+are blocked. Use the Specular equivalents instead: `specular delete <id>` to
+close a page, `specular add page <url>` to open one.
