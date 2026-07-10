@@ -34,6 +34,7 @@
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:boot": "vitest run --config vitest.boot.config.ts",
+    "test:contract": "vitest run --config vitest.contract.config.ts",
     "test:agent": "bash tests/agent/run-scenarios.sh",
     "release:patch": "npm version patch && git push --follow-tags",
     "release:minor": "npm version minor && git push --follow-tags"

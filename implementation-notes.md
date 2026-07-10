@@ -149,6 +149,34 @@ to Known CLI limitations as one bolded bullet with nested sub-bullets.
   snapshot-seen route), `staleGenerationWarning` unit coverage. All
   mutation-verified.
 
+### Phase 3 — contract test + agent scenarios (items 9, 10) ✅ verified
+
+- `pnpm test:contract` → `tests/contract/agent-browser.contract.test.ts`
+  (own vitest config, deliberately NOT in CI per D11 — fetch script is
+  darwin-arm64-only; CI wiring is the documented follow-up). Skips loudly
+  when `resources/bin/agent-browser` is absent (confirmed: 10/10 skip cleanly
+  here). Each assertion names the browse-handler assumption it protects:
+  version pin (read from the fetch script, single source), global flag
+  acceptance (parse-vs-connection distinction against an unreachable CDP
+  target, with a bogus-flag negative control), `batch --json --bail` output
+  shape AND the exit-0-on-reported-failure assumption (the riskiest one —
+  spawnAsync rejects on non-zero exit and would never reach JSON.parse),
+  bare `skills get core`, `wait --text/--url` acceptance.
+- Live snapshot check (`@eN` refs + `origin=` in real output) is additionally
+  gated behind `AGENT_BROWSER_CONTRACT_LIVE=1` since it launches a real
+  browser via agent-browser's own `launch`.
+- **To run for real (macOS arm64):** `pnpm fetch:agent-browser && pnpm test:contract`
+  (add `AGENT_BROWSER_CONTRACT_LIVE=1` for the live check).
+- Three new agent-eval scenarios in the existing format: `stale-ref-recovery`,
+  `selector-targeting`, `hot-reload-iteration`. Deviation (documented in each
+  file's Notes): they drive the `specular` CLI directly rather than the MCP
+  `browse` tool the older `dual-surface-workflow.md` uses — the CLI is where
+  this issue's fixes live and is the primary agent surface.
+- Surprises: `tests/` isn't covered by either tsconfig, so `pnpm typecheck`
+  never checks test files (pre-existing); some existing scenarios still use
+  legacy "frame"/`frame_id` terminology and dead `/frames/*` routes —
+  pre-existing drift, left alone, new scenarios use current terms.
+
 ### Sandbox verification caveat (applies to all phases)
 
 `pnpm typecheck`/`pnpm test:unit` wrappers fail in this environment (pnpm's
