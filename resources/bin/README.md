@@ -15,12 +15,25 @@ packaging. The fetched binary is gitignored.
 
 ### How it's resolved at runtime
 
-`src/main/agent-browser-install.ts` calls `configureBundledAgentBrowser()`
-during app startup, which sets `AGENT_BROWSER_PATH` to this binary so the
-existing resolver in `src/main/shared/browse-handler.ts` picks it up
-**before** walking `$PATH`. **Bundled wins.** A user-installed
-`agent-browser` on `$PATH` is detected and surfaced in the Setup window for
-visibility, but is not used by Specular by default.
+There are two independent resolution points, both landing on the same
+`AGENT_BROWSER_PATH` env var and both respecting an existing value:
+
+1. **App process.** `src/main/agent-browser-install.ts` calls
+   `configureBundledAgentBrowser()` during app startup, which sets
+   `AGENT_BROWSER_PATH` to this binary so the resolver in
+   `src/main/shared/browse-handler.ts` picks it up **before** walking
+   `$PATH`. This covers browse commands issued through the running app
+   (HTTP API, IPC).
+2. **CLI wrapper.** `resources/specular-cli.sh` sets `AGENT_BROWSER_PATH` to
+   `$DIR/bin/agent-browser` (relative to the script, so `Resources/bin/` when
+   packaged or `resources/bin/` in dev) before invoking `cli.js`. This covers
+   `specular <verb>` invocations run out-of-process from an agent's shell,
+   which never go through `configureBundledAgentBrowser()`.
+
+**Bundled wins** at both points — a user-installed `agent-browser` on `$PATH`
+is detected and surfaced in the Setup window for visibility, but is not used
+by Specular by default. An explicit `AGENT_BROWSER_PATH` set by the user
+before either entry point always wins over both.
 
 This keeps Specular on a known-good agent-browser version that's tested
 against its CLI command surface.

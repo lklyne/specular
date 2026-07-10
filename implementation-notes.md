@@ -31,6 +31,58 @@ to Known CLI limitations as one bolded bullet with nested sub-bullets.
 - Judgment call (fine): used the file's existing `<pageId>` placeholder
   convention instead of the issue's literal `PAGE_ID`.
 
+### Phase 1A — CLI layer (items 1, 2, 3, 5, 7 + presence labels) ✅ verified
+
+- **Item 1 (D0):** `specular-cli.sh` exports `AGENT_BROWSER_PATH="$DIR/bin/agent-browser"`
+  when unset and executable; `resources/bin/README.md` now documents both
+  resolution points. Needs a live end-to-end check on macOS.
+- **Item 2 (B, D6):** click/fill/type/select targets + text now shell-quoted via
+  a new exported pure helper `buildTargetCommand()`; `wait` forwards `--text`/
+  `--url` (quoted) via `buildWaitCommand()`. Help text updated. Pure helpers
+  were extracted specifically so quoting is unit-testable without mocking.
+- **Item 3 (F):** `staleRefHint()` appended when a ref-targeted mutation fails,
+  in both the single-command path (catch + rethrow) and the batch path
+  (per-entry). Trigger is verb+`@eN` heuristic per the issue's fallback — the
+  exact upstream error text (open item 1) still needs a live check.
+- **Item 5 (D4/D5):** `skills` meta-verb spawns the resolved binary directly
+  (no page/CDP/session flags). `BLOCKED_PASSTHROUGH_VERBS`: launch, connect,
+  close, quit, install, upgrade, **and `open`**.
+- **Open item 3 resolved statically — `open` is BLOCKED.** Evidence:
+  `page-factory.ts:221` `did-navigate` sets `page.url` (runtime only) and never
+  goes through `mutateWorkspace()`, the only seam that syncs to the Y.Doc. So a
+  CDP-driven `open` would silently diverge the live page from the saved
+  `.canvas`. Error points at `specular update PAGE_ID --url`.
+- **Item 7 (D7):** `--echo` on mutation verbs runs `snapshot -i -c` after a
+  successful single-command mutation and appends it; chained/batch ignores
+  `--echo`. Whether `-c` is the right compact flag for v0.31.1 needs a live
+  check.
+- **Presence labels:** eval/find/keyboard/focus/clipboard added to
+  COMMAND_LABELS. **Deviation:** the issue comment suggested a generic
+  `interact_page` label, but that key isn't in the `PresenceLabelKey` allowlist
+  (`src/shared/presence-label-keys.ts`) and `coercePresenceLabelKey` silently
+  drops unknown keys — so existing keys were reused (eval/focus→`inspect_page`,
+  keyboard→`type_text` [orchestrator adjusted from agent's `inspect_page`],
+  find→`find_target`, clipboard→`read_content`). Adding a real generic key
+  would touch the shared allowlist + `PRESENCE_LABELS`; left out of scope.
+- **Open item 4 (scrollintoview selectors):** left ref-only with a why-comment;
+  selector support unverifiable without the binary.
+- Tests: `cli-browse-command-quoting.test.ts`, `cli-blocked-passthrough-verbs.test.ts`
+  (both mutation-verified per tests/README.md convention).
+- Surprise (pre-existing, untouched): `cli-presence.ts` has a second,
+  independent verb→label map (`VERB_PRESENCE`) that doesn't know about
+  passthrough verbs — harmless today, but a second surface if presence
+  coverage is revisited.
+
+### Sandbox verification caveat (applies to all phases)
+
+`pnpm typecheck`/`pnpm test:unit` wrappers fail in this environment (pnpm's
+pre-run dependency check gets a 403 fetching node-gyp; no `node_modules/.bin`).
+Verification ran the underlying tools directly (`node node_modules/typescript/bin/tsc`,
+`node node_modules/vitest/vitest.mjs`). 5 unit suites fail to LOAD because the
+Electron binary isn't installed in the sandbox (`binding-handlers-focus-restore`,
+`claude-spawner`, `doc-restore-roundtrip`, `layer-stack`, `page-bounds`) —
+pre-existing environment limitation, not caused by this work; re-run on macOS.
+
 ## Open items resolution
 
 1. Exact stale-ref error text — **needs live check**; kept the verb+ref heuristic per issue fallback.

@@ -1,7 +1,7 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
 import { callApp } from './shared/app-client'
-import { handleBrowse, shellQuote } from './shared/browse-handler'
+import { handleBrowse, shellQuote, spawnAsync, resolveAgentBrowserPath } from './shared/browse-handler'
 import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
@@ -477,13 +477,39 @@ const componentStates: VerbHandler = async (args) => {
 // --- Browser shortcut verbs ---
 
 function browseCommand(args: ParsedArgs, command: string): Promise<number> {
-  return browseRaw(args, command)
+  return browseRaw(args, command, { echo: args.boolFlags.has('echo') })
 }
 
-async function browseRaw(args: ParsedArgs, command: string): Promise<number> {
-  const result = await handleBrowse({ page_id: pageId(args), command })
+async function browseRaw(args: ParsedArgs, command: string, opts?: { echo?: boolean }): Promise<number> {
+  const result = await handleBrowse({ page_id: pageId(args), command, echo: opts?.echo })
   printContentBlocks(result.content)
   return 0
+}
+
+/** Build a `<verb> <ref> [text]` browse command, quoting each part so
+ * selectors/text containing spaces or embedded quotes survive splitShellArgs
+ * as single tokens. */
+export function buildTargetCommand(verb: string, ref: string, text?: string): string {
+  const parts = [verb, shellQuote(ref)]
+  if (text !== undefined) parts.push(shellQuote(text))
+  return parts.join(' ')
+}
+
+/** Build a `wait` browse command from parsed flags, quoting --text/--url values. */
+export function buildWaitCommand(opts: {
+  load?: string
+  positional?: string
+  timeout?: string
+  text?: string
+  url?: string
+}): string {
+  let cmd = 'wait'
+  if (opts.load) cmd += ` --load ${opts.load}`
+  if (opts.positional) cmd += ` ${opts.positional}`
+  if (opts.timeout) cmd += ` --timeout ${opts.timeout}`
+  if (opts.text) cmd += ` --text ${shellQuote(opts.text)}`
+  if (opts.url) cmd += ` --url ${shellQuote(opts.url)}`
+  return cmd
 }
 
 const snapshot: VerbHandler = async (args) => {
@@ -499,29 +525,29 @@ const snapshot: VerbHandler = async (args) => {
 
 const click: VerbHandler = async (args) => {
   const ref = args.positional[0]
-  if (!ref) { printError('usage: specular click <ref>'); return 1 }
-  return browseCommand(args, `click ${ref}`)
+  if (!ref) { printError('usage: specular click <ref> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('click', ref))
 }
 
 const fill: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const text = args.positional.slice(1).join(' ')
-  if (!ref || !text) { printError('usage: specular fill <ref> <text>'); return 1 }
-  return browseCommand(args, `fill ${ref} "${text}"`)
+  if (!ref || !text) { printError('usage: specular fill <ref> <text> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('fill', ref, text))
 }
 
 const type_: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const text = args.positional.slice(1).join(' ')
-  if (!ref || !text) { printError('usage: specular type <ref> <text>'); return 1 }
-  return browseCommand(args, `type ${ref} "${text}"`)
+  if (!ref || !text) { printError('usage: specular type <ref> <text> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('type', ref, text))
 }
 
 const select: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const value = args.positional.slice(1).join(' ')
-  if (!ref || !value) { printError('usage: specular select <ref> <value>'); return 1 }
-  return browseCommand(args, `select ${ref} "${value}"`)
+  if (!ref || !value) { printError('usage: specular select <ref> <value> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('select', ref, value))
 }
 
 const screenshot: VerbHandler = async (args) => {
@@ -539,11 +565,13 @@ const scroll: VerbHandler = async (args) => {
 }
 
 const wait: VerbHandler = async (args) => {
-  let cmd = 'wait'
-  if (args.flags.load) cmd += ` --load ${args.flags.load}`
-  if (args.positional[0]) cmd += ` ${args.positional[0]}`
-  if (args.flags.timeout) cmd += ` --timeout ${args.flags.timeout}`
-  return browseCommand(args, cmd)
+  return browseCommand(args, buildWaitCommand({
+    load: args.flags.load,
+    positional: args.positional[0],
+    timeout: args.flags.timeout,
+    text: args.flags.text,
+    url: args.flags.url,
+  }))
 }
 
 // --- Passthrough: unknown verbs go to agent-browser ---
@@ -560,9 +588,44 @@ function stripSpecularFlags(argv: string[]): string[] {
   return out
 }
 
+// Passthrough verbs that would fight Specular for ownership of browser
+// lifecycle or the page entity's URL. Specular already owns page creation
+// (`add page`), teardown (`delete`), and — since a CDP-driven navigation
+// never writes back to the page entity's Y.Doc URL (see page-factory.ts's
+// `did-navigate` handler) — navigation (`update --url`). Blocking these
+// up front gives an actionable error instead of a confusing agent-browser
+// failure or a silent divergence between the live page and the saved .canvas.
+const BLOCKED_PASSTHROUGH_VERBS: Record<string, string> = {
+  launch: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
+  connect: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
+  close: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
+  quit: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
+  install: 'the agent-browser driver is bundled with Specular.',
+  upgrade: 'the agent-browser driver is bundled with Specular.',
+  open: "a CDP-driven navigation doesn't update the page entity's URL in the workspace; use `specular update PAGE_ID --url <url>` instead.",
+}
+
 const browsePassthrough: VerbHandler = async (args) => {
+  const blockReason = BLOCKED_PASSTHROUGH_VERBS[args.verb]
+  if (blockReason) {
+    printError(`specular ${args.verb}: blocked — ${blockReason}`)
+    return 1
+  }
   const command = [args.verb, ...stripSpecularFlags(args.rest).map(shellQuote)].join(' ')
   return browseRaw(args, command)
+}
+
+// `skills` is a meta-verb, not a page-scoped browse command: it spawns
+// agent-browser directly (no page resolution, no --cdp/--session) so agents
+// can discover agent-browser's own documented workflows.
+const skills: VerbHandler = async (args) => {
+  const { stdout } = await spawnAsync(
+    resolveAgentBrowserPath(),
+    ['skills', ...stripSpecularFlags(args.rest)],
+    { timeout: 30_000 },
+  )
+  printText(stdout.trimEnd())
+  return 0
 }
 
 // ---------------------------------------------------------------------------
@@ -611,6 +674,8 @@ const VERBS: Record<string, VerbHandler> = {
   console: browsePassthrough,
   errors: browsePassthrough,
   'query-elements': browsePassthrough,
+  // agent-browser meta-verb
+  skills,
 }
 
 export async function dispatch(argv: string[]): Promise<number> {
@@ -624,7 +689,10 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Recording: record <start|stop|status|trim>')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')
-    printText('Unknown verbs are passed to agent-browser as raw commands.')
+    printText('Unknown verbs pass through to the bundled agent-browser as raw commands')
+    printText('(some — launch/close/quit/install/upgrade/connect/open — are blocked in')
+    printText('favor of specular equivalents). See the specular skill\'s passthrough')
+    printText('section for the full command surface, or run `specular skills get core`.')
     return 0
   }
   emitPresenceForVerb(args.verb)

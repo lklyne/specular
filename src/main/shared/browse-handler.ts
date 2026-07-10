@@ -19,6 +19,17 @@ export const COMMAND_LABELS: Record<string, string> = {
   get: 'read_content',
   'query-elements': 'find_target',
   screenshot: 'take_screenshot',
+  // Passthrough verbs (not specular-owned shortcuts) still drive presence so
+  // the cursor doesn't go dark for the skill's documented passthrough
+  // surface. There's no generic "interacting with page" key in the
+  // PresenceLabelKey allowlist (src/shared/presence-label-keys.ts), so these
+  // reuse the closest existing label rather than send a labelKey that
+  // `coercePresenceLabelKey` would silently drop.
+  eval: 'inspect_page',
+  find: 'find_target',
+  keyboard: 'type_text',
+  focus: 'inspect_page',
+  clipboard: 'read_content',
 }
 
 const VALUE_FLAGS = new Set([
@@ -171,6 +182,16 @@ function checkOriginMismatch(output: string, expectedPageUrl: string): string | 
     // URL parsing failed — skip the check
   }
   return null
+}
+
+/**
+ * `@eN` refs come from a prior snapshot's accessibility tree and go stale the
+ * moment the DOM changes underneath them (re-render, route change, list
+ * reorder). A failed ref-targeted mutation is the first signal of that —
+ * point the caller at how to recover instead of leaving a bare CLI error.
+ */
+function staleRefHint(targetPageId: string): string {
+  return `refs may be stale — re-run specular snapshot -i -f ${targetPageId}, or target by text=/CSS selector (re-resolves every call)`
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +363,10 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (isChained) {
       // ---- Chained commands: use batch --json --bail ----
       const parts = chainedParts
-      // Auto-scroll refs into view before mutations
+      // Auto-scroll refs into view before mutations. Ref-only: whether
+      // agent-browser's scrollintoview accepts CSS/text selectors (not just
+      // @eN refs) is unverified against the pinned binary, so selector
+      // targets skip the pre-scroll rather than risk an unsupported call.
       const expanded: string[][] = []
       for (const p of parts) {
         const parsed = parseCommandArgs(p)
@@ -373,7 +397,12 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
       for (const entry of results) {
         if (!entry.success) {
-          contentBlocks.push({ type: 'text', text: `> ${entry.command.join(' ')}\nError: ${entry.error}` })
+          const entryVerb = entry.command[0]
+          const hasRef = entry.command.some((tok) => /^@e\d+$/.test(tok))
+          const hint = entryVerb && MUTATION_VERBS.has(entryVerb) && hasRef
+            ? `\n${staleRefHint(pageId)}`
+            : ''
+          contentBlocks.push({ type: 'text', text: `> ${entry.command.join(' ')}\nError: ${entry.error}${hint}` })
           continue
         }
 
@@ -425,7 +454,8 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     const { argv } = parseCommandArgs(rawCommand)
     const timeoutMs = verb === 'wait' ? 60_000 : 30_000
 
-    // Auto-scroll ref into view before mutations
+    // Auto-scroll ref into view before mutations (ref-only — see the chained
+    // path above for why selector targets don't get this treatment).
     if (verb && MUTATION_VERBS.has(verb) && ref) {
       await spawnAsync(
         abPath,
@@ -438,11 +468,23 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     const useJson = verb === 'screenshot'
     const extraFlags = useJson ? ['--json'] : []
 
-    const { stdout, stderr } = await spawnAsync(
-      abPath,
-      [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, ...extraFlags, ...argv],
-      { timeout: timeoutMs },
-    )
+    let stdout: string
+    let stderr: string
+    try {
+      ;({ stdout, stderr } = await spawnAsync(
+        abPath,
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, ...extraFlags, ...argv],
+        { timeout: timeoutMs },
+      ))
+    } catch (err) {
+      // A ref-targeted mutation failure is most commonly a stale @eN ref —
+      // surface the recovery path instead of a bare CLI error.
+      if (verb && MUTATION_VERBS.has(verb) && ref) {
+        const message = err instanceof Error ? err.message : String(err)
+        throw new Error(`${message}\n${staleRefHint(pageId)}`)
+      }
+      throw err
+    }
 
     // Screenshot: return image content
     if (verb === 'screenshot') {
@@ -484,7 +526,26 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       }
     }
 
-    return { content: [{ type: 'text' as const, text: output || '(no output)' }] }
+    const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> =
+      [{ type: 'text' as const, text: output || '(no output)' }]
+
+    // --echo: re-snapshot after a successful mutation so the caller sees the
+    // resulting DOM without a separate round trip. Only wired for the single
+    // -command path — chained/batch calls ignore --echo.
+    if (verb && MUTATION_VERBS.has(verb) && (args.echo as boolean | undefined)) {
+      try {
+        const { stdout: echoOut } = await spawnAsync(
+          abPath,
+          [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'snapshot', '-i', '-c'],
+          { timeout: 10_000 },
+        )
+        content.push({ type: 'text' as const, text: echoOut.trim() || '(no output)' })
+      } catch {
+        // Best-effort — the mutation already succeeded; don't fail the call for echo
+      }
+    }
+
+    return { content }
 
     } finally {
       // no-op: let server-side expiry clean up the cursor

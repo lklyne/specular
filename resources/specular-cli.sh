@@ -8,6 +8,14 @@ while [ -L "$SOURCE" ]; do
 done
 DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
+# Point the CLI at the bundled agent-browser binary when the caller hasn't
+# already set one. Covers both the packaged app (Contents/Resources/bin/)
+# and dev mode (resources/bin/ after `pnpm fetch:agent-browser`). An
+# existing env var always wins — this only fills in the default.
+if [ -z "$AGENT_BROWSER_PATH" ] && [ -x "$DIR/bin/agent-browser" ]; then
+  export AGENT_BROWSER_PATH="$DIR/bin/agent-browser"
+fi
+
 # Packaged app: cli.js is next to this script in Contents/Resources/
 # Dev mode: cli.js is in out/main/ relative to the project root
 if [ -f "$DIR/cli.js" ]; then
