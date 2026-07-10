@@ -32,7 +32,6 @@ export {
   setDevtoolsPanelTab,
 } from './tool-mode'
 
-export { selectAdjacentPage } from './selection-state'
 
 export { selectedPageId } from './runtime-context'
 

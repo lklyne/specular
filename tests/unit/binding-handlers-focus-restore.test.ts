@@ -18,19 +18,17 @@ vi.mock('../../src/main/runtime/workspace-undo', () => ({ undo: vi.fn(), redo: v
 vi.mock('../../src/main/runtime/document-commands', () => ({
   groupSelectedEntities: vi.fn(),
   makeAutoLayoutFromSelection: vi.fn(),
+  nudgeSelection: vi.fn(),
   ungroupSelectedGroup: vi.fn(),
 }))
-vi.mock('../../src/main/runtime/selection-state', () => ({ selectAdjacentPage: vi.fn() }))
 vi.mock('../../src/main/runtime/selection-controller', () => ({
   selectEntities: vi.fn(),
   selectNone: vi.fn(),
 }))
 vi.mock('../../src/main/runtime/layout-dirty', () => ({ markDirty: vi.fn() }))
 vi.mock('../../src/main/runtime/runtime-context', () => ({
-  arrowNavigationLocked: false,
   pages: [],
   selectedPageId: vi.fn(() => null),
-  setArrowNavigationLocked: vi.fn(),
 }))
 vi.mock('../../src/main/workspace-entities', () => ({ deletePages: vi.fn() }))
 vi.mock('../../src/main/runtime/text-entity-state', () => ({ textEntities: [] }))

@@ -68,10 +68,14 @@ export type BindingId =
   | 'stack-send-backward'
   | 'stack-bring-to-front'
   | 'stack-send-to-back'
-  | 'nav-left'
-  | 'nav-right'
-  | 'nav-up'
-  | 'nav-down'
+  | 'nudge-left'
+  | 'nudge-right'
+  | 'nudge-up'
+  | 'nudge-down'
+  | 'nudge-left-grid'
+  | 'nudge-right-grid'
+  | 'nudge-up-grid'
+  | 'nudge-down-grid'
   | 'restore-focus-camera'
   | 'escape-tool'
   | 'escape-page-focus'
@@ -213,10 +217,14 @@ export const BINDINGS: readonly Binding[] = [
     firesFromPageFocus: true,
     label: 'Delete',
   },
-  { id: 'nav-left', defaultKey: k('arrowleft'), scope: CANVAS_REGION, target: 'main', label: 'Navigate left' },
-  { id: 'nav-right', defaultKey: k('arrowright'), scope: CANVAS_REGION, target: 'main', label: 'Navigate right' },
-  { id: 'nav-up', defaultKey: k('arrowup'), scope: CANVAS_REGION, target: 'main', label: 'Navigate up' },
-  { id: 'nav-down', defaultKey: k('arrowdown'), scope: CANVAS_REGION, target: 'main', label: 'Navigate down' },
+  { id: 'nudge-left', defaultKey: k('arrowleft'), scope: CANVAS_REGION, target: 'main', label: 'Nudge left' },
+  { id: 'nudge-right', defaultKey: k('arrowright'), scope: CANVAS_REGION, target: 'main', label: 'Nudge right' },
+  { id: 'nudge-up', defaultKey: k('arrowup'), scope: CANVAS_REGION, target: 'main', label: 'Nudge up' },
+  { id: 'nudge-down', defaultKey: k('arrowdown'), scope: CANVAS_REGION, target: 'main', label: 'Nudge down' },
+  { id: 'nudge-left-grid', defaultKey: k('arrowleft', false, true), scope: CANVAS_REGION, target: 'main', label: 'Nudge left by grid step' },
+  { id: 'nudge-right-grid', defaultKey: k('arrowright', false, true), scope: CANVAS_REGION, target: 'main', label: 'Nudge right by grid step' },
+  { id: 'nudge-up-grid', defaultKey: k('arrowup', false, true), scope: CANVAS_REGION, target: 'main', label: 'Nudge up by grid step' },
+  { id: 'nudge-down-grid', defaultKey: k('arrowdown', false, true), scope: CANVAS_REGION, target: 'main', label: 'Nudge down by grid step' },
 
   // Annotation Escape bindings — renderer-targeted, ordered before escape-tool.
   // firesWhileTyping: the composer textarea is focused whenever a draft/thread

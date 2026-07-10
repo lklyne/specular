@@ -287,6 +287,10 @@ function guideEntityIdsForDrag(entityIds: string[]): string[] {
 }
 
 export function initializeDrag(entityIds: string[]): void {
+  if (nudgeGuideTimer) {
+    clearTimeout(nudgeGuideTimer)
+    nudgeGuideTimer = null
+  }
   dragAccumulatorById.clear()
   activeDraggedGuideIds = guideEntityIdsForDrag(entityIds)
   activeDragCandidates = snapCandidateSnapshot(
@@ -403,6 +407,54 @@ function shiftDrawingStrokes(entityId: string, deltaX: number, deltaY: number): 
     ...stroke,
     points: stroke.points.map((p) => ({ x: p.x + deltaX, y: p.y + deltaY })),
   }))
+}
+
+const NUDGE_GUIDE_MS = 500
+let nudgeGuideTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Keyboard nudge. Unlike a drag this moves by an exact canvas delta — no
+ * accumulator, no zoom division, no grid snapping: a 5px nudge off-grid must
+ * stay off-grid, and the grid-step nudge lands on-grid only if it started there.
+ */
+export function nudgeSelection(dx: number, dy: number): void {
+  const entityIds = uiSelectedEntityIds()
+  if (!entityIds.length) return
+
+  const moved = mutateWorkspace(
+    () => entityIds.filter((id) => {
+      const entity = findMovableEntity(id)
+      return entity ? moveEntityTo(id, entity.canvasX + dx, entity.canvasY + dy) : false
+    }),
+    { changed: (ids) => ids.length > 0 },
+  )
+  if (moved.length) flashNudgeGuides(moved)
+}
+
+/** Show whatever guides the nudged position happens to align with, then fade. */
+function flashNudgeGuides(entityIds: string[]): void {
+  const candidates = snapCandidateSnapshot(
+    { entities: currentSnapSnapshotEntities() },
+    currentCanvasViewportRect(),
+    entityIds,
+  )
+  const draggedRects = guideEntityIdsForDrag(entityIds)
+    .map(currentSnapCandidateForEntity)
+    .filter((candidate): candidate is SnapCandidate => candidate !== null)
+
+  broadcastCanvasGuides({
+    alignmentGuides: alignmentGuideDetector(draggedRects, candidates),
+    distributionGuides: draggedRects.flatMap((dragged) => [
+      ...distributionGuideDetector(dragged, candidates, 'horizontal'),
+      ...distributionGuideDetector(dragged, candidates, 'vertical'),
+    ]),
+  })
+
+  if (nudgeGuideTimer) clearTimeout(nudgeGuideTimer)
+  nudgeGuideTimer = setTimeout(() => {
+    nudgeGuideTimer = null
+    clearCanvasGuides()
+  }, NUDGE_GUIDE_MS)
 }
 
 /**
