@@ -198,7 +198,7 @@ async function captureRegionInternal(
     }
   }
 
-  // Composite above-view (drawing strokes, annotation overlays) on top.
+  // Composite above-view (entity bodies: drawings, stickies, notes, shapes) on top.
   if (aboveView && !aboveView.webContents.isDestroyed()) {
     const screenRect = canvasRectToScreenRect(canvasRect)
     const aboveCapture = await captureViewRegion(aboveView, screenRect, { dpr })

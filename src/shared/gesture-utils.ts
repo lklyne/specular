@@ -108,6 +108,16 @@ export function isOverlayUiTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest('[data-overlay-ui]'))
 }
 
+// Overlay UI that captures clicks but must NOT swallow canvas pan/zoom — e.g.
+// the region-annotation box: clickable to open its thread, yet the user still
+// expects wheel/middle-drag to pan and zoom the canvas underneath it. Stays
+// `isOverlayUiTarget` for the pointer router (no marquee on click); opts out
+// here so the viewport gesture hooks let the gesture through.
+export function blocksViewportGesture(target: EventTarget | null): boolean {
+  if (target instanceof Element && target.closest('[data-viewport-passthrough]')) return false
+  return isOverlayUiTarget(target)
+}
+
 type ScrollAxis = 'x' | 'y' | 'either'
 
 function isScrollableContainer(el: HTMLElement, axis: ScrollAxis): boolean {

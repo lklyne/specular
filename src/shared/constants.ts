@@ -7,6 +7,7 @@ export const PLAIN_TEXT_PLACEHOLDER = 'Add text'
 
 export const TOOLBAR_HEIGHT = 44
 export const GRID_SIZE = 20
+export const NUDGE_STEP = 5
 export const USER_GROUP_PADDING = 24
 export const CLUSTER_HORIZONTAL_GUTTER = 80
 export const CLUSTER_VERTICAL_GUTTER = 80

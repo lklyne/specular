@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import {
+  blocksViewportGesture,
   classifyViewportWheel,
-  isOverlayUiTarget,
   middleDragDelta,
   shouldStartMouseViewportPan,
 } from '../../../shared/gesture-utils'
@@ -35,7 +35,7 @@ export function useViewportWheelAndMiddlePan(
     let middleDrag: { screenX: number; screenY: number } | null = null
 
     const onWheel = (event: WheelEvent) => {
-      if (isOverlayUiTarget(event.target)) return
+      if (blocksViewportGesture(event.target)) return
       const action = classifyViewportWheel(event)
       if (action.kind === 'pan' && yieldWheelRef.current?.(event)) return
       if (action.kind === 'pan' && routeWheelRef.current?.(event)) {
@@ -53,7 +53,7 @@ export function useViewportWheelAndMiddlePan(
     let middleDragPointerId: number | null = null
 
     const onPointerDown = (event: PointerEvent) => {
-      if (isOverlayUiTarget(event.target)) return
+      if (blocksViewportGesture(event.target)) return
       if (!shouldStartMouseViewportPan(event)) return
       middleDragPointerId = event.pointerId
       middleDrag = { screenX: event.screenX, screenY: event.screenY }

@@ -30,7 +30,6 @@ export function setPanState(value: { x: number; y: number }): void {
 export let selectionOverlayActive = false
 export let hoverTarget: CanvasHoverTarget = null
 export let interactionState: CanvasInteractionState = { kind: 'idle' }
-export let arrowNavigationLocked = false
 export let spaceModifierHeld = false
 export let hoveringCanvasChrome = false
 
@@ -91,10 +90,6 @@ export function setInteractionState(value: CanvasInteractionState): void {
     return
   }
   interactionState = value
-}
-
-export function setArrowNavigationLocked(value: boolean): void {
-  arrowNavigationLocked = value
 }
 
 export function setSpaceModifierHeld(value: boolean): void {

@@ -1,14 +1,14 @@
 import type { BindingContext, BindingId } from '../../shared/bindings'
+import { GRID_SIZE, NUDGE_STEP } from '../../shared/constants'
 import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
 import { setZoom, setPan, focusSelection, restoreFocusCamera } from './viewport-control'
-import { groupSelectedEntities, makeAutoLayoutFromSelection, ungroupSelectedGroup } from './document-commands'
-import { selectAdjacentPage } from './selection-state'
+import { groupSelectedEntities, makeAutoLayoutFromSelection, nudgeSelection, ungroupSelectedGroup } from './document-commands'
 import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
-import { arrowNavigationLocked, setArrowNavigationLocked, interactivePageId, pages, selectedPageId } from './runtime-context'
+import { interactivePageId, pages, selectedPageId } from './runtime-context'
 import { exitPageInteractive } from './overlay-manager'
 import { deletePages } from '../workspace-entities'
 import { textEntities } from './text-entity-state'
@@ -113,17 +113,29 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'stack-send-to-back': (ctx) => {
     reorderStackOrder('send-to-back')
   },
-  'nav-left': () => {
-    selectAdjacentPageOnce('left')
+  'nudge-left': () => {
+    nudgeSelection(-NUDGE_STEP, 0)
   },
-  'nav-right': () => {
-    selectAdjacentPageOnce('right')
+  'nudge-right': () => {
+    nudgeSelection(NUDGE_STEP, 0)
   },
-  'nav-up': () => {
-    selectAdjacentPageOnce('up')
+  'nudge-up': () => {
+    nudgeSelection(0, -NUDGE_STEP)
   },
-  'nav-down': () => {
-    selectAdjacentPageOnce('down')
+  'nudge-down': () => {
+    nudgeSelection(0, NUDGE_STEP)
+  },
+  'nudge-left-grid': () => {
+    nudgeSelection(-GRID_SIZE, 0)
+  },
+  'nudge-right-grid': () => {
+    nudgeSelection(GRID_SIZE, 0)
+  },
+  'nudge-up-grid': () => {
+    nudgeSelection(0, -GRID_SIZE)
+  },
+  'nudge-down-grid': () => {
+    nudgeSelection(0, GRID_SIZE)
   },
   'escape-tool': (ctx) => {
     // While text editing, the renderer commits the edit natively via DOM keydown.
@@ -151,18 +163,6 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     if (!pageId) return
     deletePages({ pageIds: [pageId] })
   },
-}
-
-type ArrowDirection = 'left' | 'right' | 'up' | 'down'
-
-function selectAdjacentPageOnce(direction: ArrowDirection): void {
-  if (arrowNavigationLocked) return
-  const changed = selectAdjacentPage(direction)
-  if (!changed) return
-  setArrowNavigationLocked(true)
-  setTimeout(() => {
-    setArrowNavigationLocked(false)
-  }, 0)
 }
 
 export function selectAllEntities(): void {
