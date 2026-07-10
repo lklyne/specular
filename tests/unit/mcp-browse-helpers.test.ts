@@ -4,6 +4,7 @@ import {
   shellQuote,
   splitChainedCommands,
   parseCommandArgs,
+  staleGenerationWarning,
 } from '../../src/main/mcp-browse'
 
 describe('splitShellArgs', () => {
@@ -132,5 +133,27 @@ describe('parseCommandArgs', () => {
     const result = parseCommandArgs('--cdp ws://localhost:9222 click @e3')
     expect(result.verb).toBe('click')
     expect(result.ref).toBe('@e3')
+  })
+})
+
+// D8 (issue #318): generation-based staleness detection is warn-only. This
+// is the pure comparison at the heart of it — everything else in
+// browse-handler.ts (caching, fresh fetch, prepending) is plumbing around
+// this one `>` check.
+describe('staleGenerationWarning', () => {
+  it('returns null when the page has not navigated since the snapshot', () => {
+    expect(staleGenerationWarning('page_1', 3, 3)).toBeNull()
+  })
+
+  it('returns null when the current generation is somehow behind (never regresses into a warning)', () => {
+    expect(staleGenerationWarning('page_1', 5, 2)).toBeNull()
+  })
+
+  it('warns with the page id and recovery guidance when the generation has moved on', () => {
+    const warning = staleGenerationWarning('page_42', 1, 2)
+    expect(warning).toContain('page changed since your last snapshot')
+    expect(warning).toContain('refs likely stale')
+    expect(warning).toContain('specular snapshot -i -f page_42')
+    expect(warning).toContain('text=/CSS selector')
   })
 })

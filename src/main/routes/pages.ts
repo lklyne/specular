@@ -34,16 +34,27 @@ export const pageRoutes: Route[] = [
     pattern: /^\/pages\/([^/]+)\/cdp-target$/,
     async handler({ request, response, params }) {
       try {
-        const connection = await resolvePageCdpConnection(decodeURIComponent(params[0]))
+        const pageId = decodeURIComponent(params[0])
+        const connection = await resolvePageCdpConnection(pageId)
         const address = getServerAddress()
         if (!address || typeof address === 'string') {
           throw new Error('CDP proxy server is unavailable')
         }
         const resolved = resolveSession(request)
-        writeJson(response, 200, registerPageCdpProxy(connection, address.port, {
+        const registration = registerPageCdpProxy(connection, address.port, {
           sessionId: resolved?.sessionId ?? null,
           clientName: resolved?.session.clientName ?? null,
-        }))
+        })
+        // D8 (issue #318): expose the page's navigation generation and the
+        // baseline recorded at snapshot time so browse-handler.ts can warn
+        // agents when refs from an older snapshot are used after the page
+        // has navigated.
+        const page = findPageById(pageId)
+        writeJson(response, 200, {
+          ...registration,
+          generation: page?.navGeneration ?? 0,
+          lastSnapshotGeneration: page?.lastAgentSnapshotGeneration ?? null,
+        })
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unable to resolve CDP target'
         const status =
@@ -54,6 +65,29 @@ export const pageRoutes: Route[] = [
             : 502
         writeJson(response, status, { error: message })
       }
+    },
+  },
+  {
+    // D8 (issue #318): records the navigation generation an agent snapshot
+    // saw. The baseline lives on the main-process Page object because the
+    // `specular` CLI runs one fresh process per command — CLI-side state
+    // can't survive the snapshot→mutate loop the staleness check spans.
+    method: 'POST',
+    pattern: /^\/pages\/([^/]+)\/snapshot-seen$/,
+    async handler({ response, params, body }) {
+      const pageId = decodeURIComponent(params[0])
+      const page = findPageById(pageId)
+      if (!page) {
+        writeJson(response, 404, { error: `Page not found: ${pageId}` })
+        return
+      }
+      const generation = (body as { generation?: unknown })?.generation
+      if (typeof generation !== 'number' || !Number.isFinite(generation)) {
+        writeJson(response, 400, { error: 'generation is a required number' })
+        return
+      }
+      page.lastAgentSnapshotGeneration = generation
+      writeJson(response, 200, { ok: true })
     },
   },
   {

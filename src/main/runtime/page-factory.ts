@@ -126,6 +126,7 @@ export function createPage(config: PageConfig): Page {
       suppressNavigationBroadcastUntil: 0,
       suppressNextScrollBroadcastUntil: 0,
     },
+    navGeneration: 0,
   }
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')
@@ -218,10 +219,17 @@ export function createPage(config: PageConfig): Page {
       annotations: annotationsForPage(page.id),
     })
   })
+  // Per-page generation counter for D8 (issue #318): a full navigation
+  // typically fires both dom-ready and did-navigate, but the staleness
+  // comparison is `>` rather than `+1`, so double-counting is harmless.
+  page.pageView.webContents.on('dom-ready', () => {
+    page.navGeneration += 1
+  })
   page.pageView.webContents.on('did-navigate', (_event, url) => {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
+    page.navGeneration += 1
     requestLayout()
     invalidateAgentSnapshot(page.id)
     if (isSelectedPage(page)) clearInspectTargets()

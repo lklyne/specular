@@ -136,28 +136,106 @@ export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | 
 // CDP cache
 // ---------------------------------------------------------------------------
 
-const cdpUrlCache = new Map<string, { wsUrl: string; pageUrl: string; expires: number }>()
+const cdpUrlCache = new Map<string, { wsUrl: string; pageUrl: string; generation: number; expires: number }>()
 const CDP_CACHE_TTL_MS = 60_000
 
 interface CdpResolution {
   wsUrl: string
   /** The URL the page is expected to be showing. */
   pageUrl: string
+  /** The page's navigation generation as of this resolution (see D8 below). */
+  generation: number
 }
 
 async function resolveCdpUrl(pageId: string): Promise<CdpResolution> {
   const cached = cdpUrlCache.get(pageId)
-  if (cached && cached.expires > Date.now()) return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl }
-  const result = await callApp<{ webSocketDebuggerUrl: string; url?: string }>(
+  if (cached && cached.expires > Date.now()) {
+    return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl, generation: cached.generation }
+  }
+  const result = await callApp<{ webSocketDebuggerUrl: string; url?: string; generation?: number }>(
     `/pages/${pageId}/cdp-target`,
   )
   const pageUrl = result.url ?? ''
-  cdpUrlCache.set(pageId, { wsUrl: result.webSocketDebuggerUrl, pageUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
-  return { wsUrl: result.webSocketDebuggerUrl, pageUrl }
+  const generation = typeof result.generation === 'number' ? result.generation : 0
+  cdpUrlCache.set(pageId, {
+    wsUrl: result.webSocketDebuggerUrl,
+    pageUrl,
+    generation,
+    expires: Date.now() + CDP_CACHE_TTL_MS,
+  })
+  return { wsUrl: result.webSocketDebuggerUrl, pageUrl, generation }
 }
 
 export function invalidateCdpCache(pageIds: string[]): void {
   for (const id of pageIds) cdpUrlCache.delete(id)
+}
+
+// ---------------------------------------------------------------------------
+// D8 (issue #318): generation-based staleness detection — warn-only.
+//
+// Main bumps a per-page navigation generation on did-navigate/dom-ready.
+// Snapshots record the generation they saw; a ref-based mutation issued
+// against a page whose generation has since moved on gets a prepended
+// warning. HMR partial updates never fire did-navigate, so the counter
+// can't prove the DOM changed underneath a ref — it can only warn, never
+// block.
+//
+// The snapshot-seen baseline lives on the main-process Page object
+// (POST /pages/:id/snapshot-seen), not in module state here: every
+// `specular` CLI invocation is a fresh short-lived process, so only the app
+// outlives the snapshot→mutate loop the comparison spans. The baseline is
+// per-page, not per-client — two agents driving the same page share it;
+// acceptable for a warn-only heuristic.
+// ---------------------------------------------------------------------------
+
+/**
+ * Record the generation an agent snapshot saw. Best-effort — a failed write
+ * only means a later mutation can't warn; it never fails the snapshot.
+ */
+async function recordSnapshotGeneration(pageId: string, generation: number): Promise<void> {
+  await callApp(`/pages/${pageId}/snapshot-seen`, {
+    method: 'POST',
+    body: JSON.stringify({ generation }),
+  }).catch(() => {})
+}
+
+/**
+ * Fetch the page's CURRENT navigation generation plus the snapshot-seen
+ * baseline, bypassing `cdpUrlCache`. The cache has a 60s TTL, so a cached
+ * read at mutation time would hide any navigation that happened within that
+ * window — the fresh read is what makes the staleness check meaningful.
+ * Failure-tolerant: a broken fetch just means the warning gets skipped,
+ * never that the mutation fails.
+ */
+async function fetchFreshGeneration(
+  pageId: string,
+): Promise<{ generation: number; lastSnapshotGeneration: number | null } | null> {
+  try {
+    const result = await callApp<{ generation?: number; lastSnapshotGeneration?: number | null }>(
+      `/pages/${pageId}/cdp-target`,
+    )
+    if (typeof result.generation !== 'number') return null
+    return {
+      generation: result.generation,
+      lastSnapshotGeneration:
+        typeof result.lastSnapshotGeneration === 'number' ? result.lastSnapshotGeneration : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Pure comparison — exported for unit coverage. */
+export function staleGenerationWarning(
+  pageId: string,
+  seenGeneration: number,
+  currentGeneration: number,
+): string | null {
+  if (currentGeneration <= seenGeneration) return null
+  return (
+    `page changed since your last snapshot — refs likely stale; ` +
+    `re-run specular snapshot -i -f ${pageId} or target by text=/CSS selector`
+  )
 }
 
 /**
@@ -321,7 +399,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   const clientName = getClientName()
 
   return withPageLock(pageId, async () => {
-    const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(pageId)
+    const { wsUrl: cdpUrl, pageUrl: expectedPageUrl, generation: resolvedGeneration } = await resolveCdpUrl(pageId)
     const abPath = resolveAgentBrowserPath()
     // One agent-browser daemon per page. Without --session, a single daemon
     // pins the first --cdp URL it saw and silently ignores subsequent --cdp
@@ -432,6 +510,14 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           const mismatch = checkOriginMismatch(snapshotText, expectedPageUrl)
           if (mismatch) contentBlocks.push({ type: 'text', text: mismatch })
           contentBlocks.push({ type: 'text', text: snapshotText })
+          // D8: record the generation seen by this snapshot so a later
+          // mutation against this page can compare against it. The chain
+          // itself does not warn on its own ref-based mutation entries: a
+          // fresh per-entry generation fetch would add a round trip to
+          // every mutation inside an already-batched call, and a stale ref
+          // inside one chain is already surfaced via staleRefHint on
+          // failure.
+          await recordSnapshotGeneration(pageId, resolvedGeneration)
           continue
         }
 
@@ -453,6 +539,19 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     // ---- Single command ----
     const { argv } = parseCommandArgs(rawCommand)
     const timeoutMs = verb === 'wait' ? 60_000 : 30_000
+
+    // D8: for a mutation, check whether the page has navigated since the
+    // last recorded agent snapshot. Fetched fresh (bypassing cdpUrlCache) so
+    // a navigation inside the 60s cache window is still visible. No baseline
+    // recorded yet (lastSnapshotGeneration null) means nothing to compare
+    // against, so the warning is skipped rather than guessed at.
+    let generationWarning: string | null = null
+    if (verb && MUTATION_VERBS.has(verb)) {
+      const fresh = await fetchFreshGeneration(pageId)
+      if (fresh !== null && fresh.lastSnapshotGeneration !== null) {
+        generationWarning = staleGenerationWarning(pageId, fresh.lastSnapshotGeneration, fresh.generation)
+      }
+    }
 
     // Auto-scroll ref into view before mutations (ref-only — see the chained
     // path above for why selector targets don't get this treatment).
@@ -478,10 +577,15 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       ))
     } catch (err) {
       // A ref-targeted mutation failure is most commonly a stale @eN ref —
-      // surface the recovery path instead of a bare CLI error.
-      if (verb && MUTATION_VERBS.has(verb) && ref) {
+      // surface the recovery path instead of a bare CLI error. D8's
+      // generation warning is complementary: it fires on both success and
+      // failure, since the mutation ran against a possibly-stale DOM either
+      // way — never blocks the command, only adds context to the error.
+      if (verb && MUTATION_VERBS.has(verb)) {
         const message = err instanceof Error ? err.message : String(err)
-        throw new Error(`${message}\n${staleRefHint(pageId)}`)
+        const hint = ref ? `\n${staleRefHint(pageId)}` : ''
+        const warningPrefix = generationWarning ? `${generationWarning}\n\n` : ''
+        throw new Error(`${warningPrefix}${message}${hint}`)
       }
       throw err
     }
@@ -510,7 +614,15 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (verb === 'snapshot') {
       const mismatch = checkOriginMismatch(output, expectedPageUrl)
       if (mismatch) output = mismatch + '\n' + output
+      // D8: record the generation this snapshot saw for later mutations
+      // against this page to compare against.
+      await recordSnapshotGeneration(pageId, resolvedGeneration)
     }
+
+    // D8: prepend the staleness warning to a successful mutation's output too
+    // — the mutation itself may have landed on the wrong element even though
+    // the CLI call succeeded.
+    if (generationWarning) output = `${generationWarning}\n\n${output}`
 
     // Auto-append URL after mutations
     if (verb && MUTATION_VERBS.has(verb)) {

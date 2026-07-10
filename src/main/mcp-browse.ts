@@ -11,4 +11,5 @@ export {
   resolveAgentBrowserPath,
   spawnAsync,
   handleBrowse,
+  staleGenerationWarning,
 } from './shared/browse-handler'

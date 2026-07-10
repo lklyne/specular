@@ -114,6 +114,41 @@ to Known CLI limitations as one bolded bullet with nested sub-bullets.
   `onboarding-selection.test.ts` updated. forge.config.ts verified unchanged —
   the bundled stub still ships as the migration's hash source.
 
+### Phase 2A — generation-based staleness warnings (item 8, D8) ✅ verified
+
+- `Page.navGeneration` (ephemeral, never persisted) bumped on `did-navigate` +
+  `dom-ready` in page-factory.ts; comparison is `>` so the double-fire on a
+  full navigation is harmless. Exposed on `GET /pages/:id/cdp-target`.
+- Warn-only wiring in browse-handler: successful ref-mutations get the warning
+  prepended; failing ones get it prepended ahead of the existing staleRefHint.
+  Never blocks.
+- **Significant orchestrator-caught rework:** the agent's first pass stored the
+  snapshot-time baseline in a module-level map inside the handleBrowse
+  process — but each `specular` CLI invocation is a fresh process, so the
+  baseline died between `snapshot` and the next `click` and the warning could
+  never fire on the primary CLI surface (the issue's "record in the existing
+  per-page cache" wording assumed a long-lived process). Reworked: baseline
+  lives on the main-process `Page` (`lastAgentSnapshotGeneration`), written
+  via a new `POST /pages/:id/snapshot-seen` after successful snapshots
+  (single + chained paths), read back alongside `generation` in one FRESH
+  cdp-target call at mutation time (bypassing the 60s cdpUrlCache, which
+  would otherwise hide navigations inside the cache window).
+- Agent-caught subtlety: the CLI hard-exits 50ms after finishing
+  (`cli.ts` setTimeout), so the baseline POST is awaited (still
+  failure-swallowed) rather than fire-and-forget — a pure fire-and-forget
+  write races process death.
+- Accepted caveats (documented in comments): baseline is per-page, not
+  per-client (two agents driving one page share it); chained/batch mutation
+  entries don't warn (would add a round trip per entry; staleRefHint covers
+  failures there); HMR partial updates don't navigate, so the counter can
+  never be authoritative — hence warn-only per D8.
+- Surprise: `tests/integration/electron-stub.ts` had never supported emitting
+  `dom-ready` — the fake webContents lacked `insertCSS`, so the pre-existing
+  scrollbar-CSS listener threw. Stub extended.
+- Tests: `page-generation.test.ts` (8 integration tests: counter behavior +
+  snapshot-seen route), `staleGenerationWarning` unit coverage. All
+  mutation-verified.
+
 ### Sandbox verification caveat (applies to all phases)
 
 `pnpm typecheck`/`pnpm test:unit` wrappers fail in this environment (pnpm's
