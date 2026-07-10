@@ -1026,6 +1026,23 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         </>
       ) : null}
 
+      {/* Persistent entity bodies (drawings, stickies, notes, shapes, files,
+          edges) render in capture mode too — region captures composite the real
+          canvas. Only hover/interaction chrome below stays behind !captureMode.
+          Debug CSS injected into pages is suppressed separately (capture-suppression). */}
+      <StackedCanvasItems
+        layoutData={renderLayout}
+        fileJsonModeMap={fileJsonModeMap}
+        hoveredEntityId={hoveredEntityId}
+        isDark={isDark}
+        selectedEdgeIds={selectedEdgeIds}
+        selectedEntityIdSet={selectedEntityIdSet}
+        editingEntityId={editingEntityId}
+        interactiveEntityId={enteredEntityId}
+        ghostEntity={reorderGhostEntity}
+        hideContext={hideContext}
+      />
+
       {!captureMode ? (
         <>
           <AnnotationThreadPopover
@@ -1055,19 +1072,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               originY={layoutData.canvasOrigin.y}
             />
           ) : null}
-
-          <StackedCanvasItems
-            layoutData={renderLayout}
-            fileJsonModeMap={fileJsonModeMap}
-            hoveredEntityId={hoveredEntityId}
-            isDark={isDark}
-            selectedEdgeIds={selectedEdgeIds}
-            selectedEntityIdSet={selectedEntityIdSet}
-            editingEntityId={editingEntityId}
-            interactiveEntityId={enteredEntityId}
-            ghostEntity={reorderGhostEntity}
-            hideContext={hideContext}
-          />
 
           {/* Live drawing preview renders after StackedCanvasItems so the
               in-progress stroke sits above file entities — matching where a
