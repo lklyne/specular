@@ -1,5 +1,6 @@
+import type { IncomingMessage } from 'http'
 import type { Route } from './types'
-import type { PresenceTargetRect, PresenceTargetRefSource } from '../../shared/types'
+import type { PresenceLabelKey, PresenceTargetQuery, PresenceTargetRect, PresenceTargetRefSource } from '../../shared/types'
 import {
   getPresenceCursors,
   coercePresenceLabelKey,
@@ -17,11 +18,93 @@ import {
   PENDING_INTENT_TTL_MS,
   resolveCanvasPointForPage,
   resolvePresenceTargetRect,
+  findPresenceTarget,
+  type PendingIntent,
 } from '../presence-manager'
 import { mcpSessions, resolveSession } from '../presence-session'
 import { invalidateAgentSnapshot } from '../runtime/agent-snapshot-cache'
 import { cdpProxyRegistrations } from '../cdp-proxy'
 import { writeJson, notifyStatusListeners } from './http-helpers'
+
+function coercePresenceTargetQuery(value: unknown): PresenceTargetQuery | null {
+  if (!value || typeof value !== 'object') return null
+  const payload = value as Record<string, unknown>
+  const selector = typeof payload.selector === 'string' ? payload.selector : null
+  const text = typeof payload.text === 'string' ? payload.text : null
+  const role = typeof payload.role === 'string' ? payload.role : null
+  const name = typeof payload.name === 'string' ? payload.name : null
+  if (!selector && !text && !role) return null
+  return { selector, text, role, name }
+}
+
+/**
+ * Re-resolving targets (CSS selector / `text=` locator / `find role|testid`)
+ * aren't sitting in the agent-snapshot cache the way an `@eN` ref's rect is
+ * — resolving one takes a real DOM query, too slow to block the intent
+ * response on. Kick it off in the background and, if it lands before this
+ * intent is superseded or consumed (by the `mousePressed` that arrives via
+ * the CDP proxy — see app-control-server.ts), apply the result through the
+ * same `upsertPresenceCursor` / `upsertActivePresenceTask` seam every other
+ * late-arriving presence update (typing, the mousePressed dwell-skip check)
+ * already goes through.
+ */
+function resolvePresenceTargetQueryInBackground(
+  request: IncomingMessage,
+  payload: Record<string, unknown>,
+  sessionId: string,
+  pageId: string,
+  intentRecord: PendingIntent,
+  targetQuery: PresenceTargetQuery,
+  labelKey: PresenceLabelKey,
+  taskLabel: string | null,
+  labelHint: string | null,
+): void {
+  const selector = targetQuery.selector ?? (targetQuery.role ? `[role="${targetQuery.role}"]` : null)
+  findPresenceTarget(pageId, {
+    selector,
+    text: targetQuery.text,
+    name: targetQuery.name,
+    interactiveOnly: true,
+  }).then((target) => {
+    if (!target) return
+    // Stale guard: only apply if this intent is still the one in flight.
+    // A newer intent, or the mousePressed that consumes this one, deletes
+    // (or replaces) the pendingIntents entry — applying a resolution that
+    // lands after that would reposition the cursor for an action that's
+    // already finished (or belongs to a different target).
+    if (pendingIntents.get(sessionId) !== intentRecord) return
+    const pagePosition = resolveCanvasPointForPage(pageId, { targetRect: target.targetRect })
+    if (!pagePosition) return
+    upsertActivePresenceTask(request, {
+      body: payload,
+      taskLabel,
+      surface: 'page',
+      pageId,
+      canvasX: pagePosition.canvasX,
+      canvasY: pagePosition.canvasY,
+      targetName: target.targetName,
+      targetRect: target.targetRect,
+      labelHint,
+    })
+    upsertPresenceCursor(request, {
+      body: payload,
+      canvasX: pagePosition.canvasX,
+      canvasY: pagePosition.canvasY,
+      surface: 'page',
+      activity: 'traveling',
+      pageId,
+      pageX: target.pageX,
+      pageY: target.pageY,
+      labelKey,
+      taskLabel,
+      labelHint,
+      targetRef: target.targetRef,
+      targetRefSource: target.targetRefSource,
+      targetName: target.targetName,
+      targetRect: target.targetRect,
+    })
+  }).catch(() => {})
+}
 
 export const sessionRoutes: Route[] = [
   {
@@ -170,10 +253,12 @@ export const sessionRoutes: Route[] = [
         return
       }
 
+      const targetQuery = coercePresenceTargetQuery(payload.targetQuery)
+
       const prev = pendingIntents.get(resolved.sessionId)
       if (prev) clearTimeout(prev.expiryTimer)
       const expiryTimer = setTimeout(() => pendingIntents.delete(resolved.sessionId), PENDING_INTENT_TTL_MS)
-      pendingIntents.set(resolved.sessionId, {
+      const intentRecord: PendingIntent = {
         labelKey,
         pageId,
         targetRef,
@@ -181,7 +266,8 @@ export const sessionRoutes: Route[] = [
         command,
         receivedAt: Date.now(),
         expiryTimer,
-      })
+      }
+      pendingIntents.set(resolved.sessionId, intentRecord)
 
       const targetRect = resolvePresenceTargetRect(pageId, targetRef, targetRefSource, null)
       const observationCommands = new Set(['snapshot', 'wait', 'get'])
@@ -238,6 +324,22 @@ export const sessionRoutes: Route[] = [
         targetName,
         targetRect,
       })
+
+      // pageId is narrowed to string (not null) here — the query is only
+      // meaningful once we know which page to resolve it against.
+      if (pageId && targetQuery && !targetRef) {
+        resolvePresenceTargetQueryInBackground(
+          request,
+          payload,
+          resolved.sessionId,
+          pageId,
+          intentRecord,
+          targetQuery,
+          labelKey,
+          taskLabel,
+          labelHint,
+        )
+      }
 
       scheduleThinkingState(request)
       writeJson(response, 200, { ok: true })

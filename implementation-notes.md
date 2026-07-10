@@ -177,6 +177,29 @@ to Known CLI limitations as one bolded bullet with nested sub-bullets.
   legacy "frame"/`frame_id` terminology and dead `/frames/*` routes —
   pre-existing drift, left alone, new scenarios use current terms.
 
+### Phase 2B — re-resolving targets → presence intent (folded-in item) ✅ verified
+
+- New pure `parseTargetQuery(cmd)` in browse-handler (sibling of
+  `parseCommandArgs`, whose shape is untouched): extracts CSS selectors,
+  `text=` locators, and `find role|testid <value> [--name]` targets from
+  click/fill/type/select/find commands; `@eN` targets return null (ref path
+  unchanged). Sent as `targetQuery` on the existing intent POST.
+- Intent handler (`routes/session.ts`) resolves the query in the background
+  via the pre-existing `findPresenceTarget` (never blocks the intent
+  response), applying the resolved rect through the same
+  `upsertActivePresenceTask`/`upsertPresenceCursor` seam other late-arriving
+  presence updates use. Staleness guard: the resolution only applies if the
+  `pendingIntents` entry is still the same object — a newer intent or the
+  consuming `mousePressed` replaces/deletes it, so late resolutions can't
+  reposition a finished action's cursor.
+- Judgment calls: `role` locators are translated to `[role="..."]` attribute
+  selectors at the resolution site instead of plumbing a role field through
+  `findPresenceTarget`'s scoring (reuses the existing selector path);
+  `testid` is modeled as `[data-testid="..."]`.
+- Scope guard honored: nothing else from #319 (no CDP box-model pre-move for
+  @refs, no adaptive dwell, no choreography tests).
+- Tests: `presence-target-query.test.ts` (12 cases, mutation-verified).
+
 ### Sandbox verification caveat (applies to all phases)
 
 `pnpm typecheck`/`pnpm test:unit` wrappers fail in this environment (pnpm's

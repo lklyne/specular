@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { readFile, unlink } from 'fs/promises'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import type { PresenceTargetQuery } from '../../shared/types'
 import { callApp, sessionId, getClientName } from './app-client'
 
 // ---------------------------------------------------------------------------
@@ -130,6 +131,63 @@ export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | 
     i++
   }
   return { argv, verb, ref }
+}
+
+/**
+ * Parse a re-resolving target (CSS selector, `text=...` locator, or a
+ * `find <role|testid> <value> <action> [--name "..."]` locator) out of a
+ * target-taking command. Returns null for `@eN`-ref commands (those are
+ * already opaque to specular — see `parseCommandArgs`'s `ref`) and for
+ * verbs that don't take a target at all.
+ *
+ * A sibling of `parseCommandArgs` rather than a change to its return shape,
+ * so existing consumers (and the mcp-browse re-export shim) are untouched.
+ */
+export function parseTargetQuery(cmd: string): PresenceTargetQuery | null {
+  const { argv, verb, ref } = parseCommandArgs(cmd)
+  if (!verb) return null
+
+  if (verb === 'find') {
+    // find <locator-kind> <value> <action> [--name "..."]
+    let i = 1
+    let name: string | null = null
+    const positionals: string[] = []
+    while (i < argv.length) {
+      const arg = argv[i]
+      if (arg === '--name') { name = argv[i + 1] ?? null; i += 2; continue }
+      if (VALUE_FLAGS.has(arg)) { i += 2; continue }
+      if (arg.startsWith('-')) { i++; continue }
+      positionals.push(arg)
+      i++
+    }
+    const [locatorKind, value] = positionals
+    if (!locatorKind || !value) return null
+    if (locatorKind === 'role') return { selector: null, text: null, role: value, name }
+    // No native "testid" concept downstream — model it as the CSS attribute
+    // selector every framework's testid convention resolves to.
+    if (locatorKind === 'testid') return { selector: `[data-testid="${value}"]`, text: null, role: null, name }
+    return null
+  }
+
+  if (!MUTATION_VERBS.has(verb) || ref) return null
+
+  // The first positional argument after the verb is the target.
+  let i = 0
+  let sawVerb = false
+  let target: string | null = null
+  while (i < argv.length) {
+    const arg = argv[i]
+    if (VALUE_FLAGS.has(arg)) { i += 2; continue }
+    if (arg.startsWith('-')) { i++; continue }
+    if (!sawVerb) { sawVerb = true; i++; continue }
+    target = arg
+    break
+  }
+  if (!target || /^@e\d+$/.test(target)) return null
+  if (target.startsWith('text=')) {
+    return { selector: null, text: target.slice('text='.length), role: null, name: null }
+  }
+  return { selector: target, text: null, role: null, name: null }
 }
 
 // ---------------------------------------------------------------------------
@@ -395,6 +453,9 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   const firstCmd = isChained ? chainedParts[0] : rawCommand
   const { verb, ref } = parseCommandArgs(firstCmd)
   const labelKey = verb ? COMMAND_LABELS[verb] ?? null : null
+  // Only re-resolving targets (selector/text/find) need a target query — an
+  // @eN ref is already opaque to specular's own resolution.
+  const targetQuery = ref ? null : parseTargetQuery(firstCmd)
 
   const clientName = getClientName()
 
@@ -424,6 +485,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
           targetRef: ref,
           targetRefSource: ref ? 'agent-browser' : null,
+          targetQuery,
         }),
       }).catch(() => {})
     }

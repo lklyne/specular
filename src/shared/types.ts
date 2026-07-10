@@ -552,6 +552,21 @@ export interface PresenceTargetRect {
 
 export type PresenceTargetRefSource = 'specular' | 'agent-browser'
 
+/**
+ * A re-resolving target (CSS selector, text locator, or role/testid +
+ * accessible-name locator) parsed from a browse command, carried through
+ * `/session/presence/intent` so the intent handler can resolve it via
+ * `findPresenceTarget` — the same resolution `specular find` and the
+ * `/pages/find-target` route already use — instead of waiting for the
+ * eventual CDP mouse event to reveal where the cursor should go.
+ */
+export interface PresenceTargetQuery {
+  selector: string | null
+  text: string | null
+  role: string | null
+  name: string | null
+}
+
 export interface AgentPresenceCursor {
   sessionId: string
   clientName: string

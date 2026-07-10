@@ -7,6 +7,7 @@ export {
   shellQuote,
   splitChainedCommands,
   parseCommandArgs,
+  parseTargetQuery,
   invalidateCdpCache,
   resolveAgentBrowserPath,
   spawnAsync,
