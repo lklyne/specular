@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-09 — Region annotation fixes, arrow-key nudge
+
+### Improvements
+
+- Arrow keys now nudge the selected entities by 5px (grid step with Shift) instead of jumping between pages. Each press is its own undo step, and alignment guides flash as you move.
+
+### Fixes
+
+- Region annotations now capture drawings, stickies, notes, shapes, and file bodies — area captures no longer come back missing your content.
+- Pan and zoom pass through region-annotation boxes, so you can scroll and zoom the canvas underneath them.
+
 ## [0.4.0] - 2026-07-08 — Per-Page Themes, Gap Handles, Live File Refresh
 
 ### New
