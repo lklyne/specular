@@ -314,7 +314,7 @@ export function staleGenerationWarning(
   if (currentGeneration <= seenGeneration) return null
   return (
     `page changed since your last snapshot — refs likely stale; ` +
-    `re-run specular snapshot -i -f ${pageId} or target by text=/CSS selector`
+    `re-run specular snapshot -i -f ${pageId}, or target by CSS selector or find text "…" (re-resolves every call)`
   )
 }
 
@@ -349,7 +349,7 @@ function checkOriginMismatch(output: string, expectedPageUrl: string): string | 
  * point the caller at how to recover instead of leaving a bare CLI error.
  */
 function staleRefHint(targetPageId: string): string {
-  return `refs may be stale — re-run specular snapshot -i -f ${targetPageId}, or target by text=/CSS selector (re-resolves every call)`
+  return `refs may be stale — re-run specular snapshot -i -f ${targetPageId}, or target by CSS selector or find text "…" (re-resolves every call)`
 }
 
 // ---------------------------------------------------------------------------

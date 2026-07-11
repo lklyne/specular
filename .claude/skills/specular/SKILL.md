@@ -126,7 +126,7 @@ call:
 
 ```bash
 specular click "#submit" -f <pageId>
-specular click "text=Submit" -f <pageId>
+specular find text "Submit" click -f <pageId>
 specular find role button click --name "Submit" -f <pageId>
 ```
 
