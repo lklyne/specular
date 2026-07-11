@@ -6,7 +6,7 @@
  * are expected to render these inside that wrapper.
  */
 
-import { useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { formatMs } from './format'
 
 export function scaleLinear(domain: [number, number], range: [number, number]) {
@@ -140,7 +140,7 @@ export function TimelineChart({
   const xScale = scaleLinear([0, Math.max(1, bucketCount - 1)], [0, plotW])
   const yScale = scaleLinear([0, maxValue], [plotH, 0])
 
-  const handleMove = (e: MouseEvent<SVGSVGElement>) => {
+  const handleMove = (e: PointerEvent<SVGSVGElement>) => {
     const rect = svgRef.current?.getBoundingClientRect()
     if (!rect || rect.width === 0) return
     const relX = (e.clientX - rect.left) / rect.width
@@ -186,8 +186,8 @@ export function TimelineChart({
           width="100%"
           height={CHART_HEIGHT}
           className="block"
-          onMouseMove={handleMove}
-          onMouseLeave={() => setHoverIndex(null)}
+          onPointerMove={handleMove}
+          onPointerLeave={() => setHoverIndex(null)}
         >
           {gridlineValues.map((v, i) => (
             <line
