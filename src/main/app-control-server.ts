@@ -240,6 +240,7 @@ import { entityRoutes } from './routes/entities'
 import { canvasRoutes } from './routes/canvas'
 import { pageRoutes } from './routes/pages'
 import { stackOrderHttpRoutes } from './routes/stack-order'
+import { perfRoutes } from './routes/perf'
 
 const routes: Route[] = [
   ...pageRoutes,
@@ -252,6 +253,7 @@ const routes: Route[] = [
   ...canvasRoutes,
   ...stackOrderHttpRoutes,
   ...designSystemRoutes,
+  ...perfRoutes,
 ]
 
 async function route(request: IncomingMessage, response: ServerResponse): Promise<void> {

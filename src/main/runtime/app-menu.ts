@@ -22,6 +22,11 @@ import {
   installedSkillHash,
   type SkillId,
 } from '../skill-install'
+import {
+  isPerfTraceRecording,
+  setPerfTraceStateListener,
+  togglePerfTrace,
+} from '../perf-trace'
 
 const SKILL_IDS: SkillId[] = ['specular', 'agent-browser']
 
@@ -181,6 +186,17 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
               } as const,
             ]),
         { type: 'separator' },
+        // All-process Chromium trace for pan/zoom jank attribution — works in
+        // packaged builds (the optimized app is what's worth profiling).
+        // Auto-stops after 30s; the saved file opens at ui.perfetto.dev.
+        {
+          label: isPerfTraceRecording()
+            ? 'Stop Performance Trace'
+            : 'Record Performance Trace',
+          accelerator: 'CmdOrCtrl+Alt+Shift+P',
+          click: () => void togglePerfTrace(),
+        },
+        { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
     },
@@ -211,6 +227,8 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
 }
 
 export function setupAppMenu(): void {
+  // Keep the trace item's Start/Stop label live, including the auto-stop.
+  setPerfTraceStateListener(refreshAppMenu)
   Menu.setApplicationMenu(Menu.buildFromTemplate(buildTemplate()))
 }
 

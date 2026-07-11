@@ -12,6 +12,13 @@ const api: DebugElectronAPI = {
     ipcRenderer.send(ipcChannels.debugUpdateCursorTuning, params),
   resetCursorTuning: () => ipcRenderer.send(ipcChannels.debugResetCursorTuning),
   onThemeChanged: on(ipcChannels.themeChanged),
+  perfTraceGetState: () => ipcRenderer.invoke(ipcChannels.debugPerfTraceGetState),
+  perfTraceToggle: () => ipcRenderer.invoke(ipcChannels.debugPerfTraceToggle),
+  perfTraceList: () => ipcRenderer.invoke(ipcChannels.debugPerfTraceList),
+  perfTraceGetSummary: (fileName) =>
+    ipcRenderer.invoke(ipcChannels.debugPerfTraceGetSummary, fileName),
+  perfTraceReveal: (fileName) => ipcRenderer.send(ipcChannels.debugPerfTraceReveal, fileName),
+  onPerfTraceStateChanged: on(ipcChannels.debugPerfTraceStateChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

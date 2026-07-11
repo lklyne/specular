@@ -37,6 +37,14 @@ Set up in `src/main/index.ts`:
 
 When investigating unexpected quits, `errors.log` is the first place to look — `render-process-gone` entries include a `reason` field (`crashed`, `oom`, `killed`, `launch-failed`).
 
+## Perf tracing
+
+All-process Chromium traces (pan/zoom jank attribution) can be recorded from
+the View menu (`Cmd+Alt+Shift+P`), the debug window's Performance section, or
+by agents over HTTP (`POST localhost:29979/perf/trace/start` / `/stop` with
+`{"summarize": true}`). Trace + summary JSON land in the logs folder above.
+Full instructions and how to read results: `docs/perf-tracing.md`.
+
 ## Architecture (quick reference)
 
 Electron app with four source layers:
