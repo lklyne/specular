@@ -17,6 +17,7 @@ import type {
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
+import type { PerfTraceState } from './electron-api/debug'
 
 /**
  * The single source of truth for every IPC channel: its payload type and which
@@ -189,6 +190,12 @@ export interface IpcContract {
   'cursor-spline-viz-changed': { dir: 'main→renderer'; payload: boolean }
   'debug-log': { dir: 'renderer→main'; payload: unknown }
   'debug:get-initial-data': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-get-state': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-get-summary': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-list': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-reveal': { dir: 'renderer→main'; payload: unknown }
+  'debug:perf-trace-state-changed': { dir: 'main→renderer'; payload: PerfTraceState }
+  'debug:perf-trace-toggle': { dir: 'invoke'; payload: unknown }
   'debug:reset-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-spline-viz': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
