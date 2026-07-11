@@ -65,11 +65,11 @@ if (!BINARY_AVAILABLE) {
   )
 }
 
-// Live-page checks (snapshot refs + origin=) spin up agent-browser's own
-// browser via `launch`, which is heavier (may download/launch a real
-// Chromium) and unverified against the pinned binary from this sandbox.
+// Live-page checks (batch shape, snapshot refs + origin=) spin up
+// agent-browser's own browser via `open`, which is heavier (may download/start
+// a real Chromium) and unverified against the pinned binary from this sandbox.
 // Opt in explicitly so a plain `pnpm test:contract` stays fast and doesn't
-// surprise-launch a browser. See the "snapshot output shape" describe block.
+// surprise-start a browser. See the batch + "snapshot output shape" blocks.
 const LIVE_BROWSER_CHECKS = BINARY_AVAILABLE && process.env.AGENT_BROWSER_CONTRACT_LIVE === '1'
 
 // ---------------------------------------------------------------------------
@@ -196,51 +196,103 @@ describe.skipIf(!BINARY_AVAILABLE)(`agent-browser contract (pinned ${PINNED_VERS
   // batch --json --bail — browse-handler's chained-command path
   // (handleBrowse, the `isChained` branch) pipes a JSON array of argv arrays
   // on stdin and does `JSON.parse(stdout)` expecting
-  // Array<{ command, success, error, result }>.
+  // Array<{ command, success, error, result }>, AND relies on exit 0 even when
+  // a batched command fails under --bail (its spawnAsync rejects on any
+  // non-zero exit and would never reach JSON.parse otherwise).
+  //
+  // v0.31.1 connects to CDP *before* running the batch, so an unreachable
+  // --cdp target quits with a single error object + exit 1 and never produces
+  // the array — the shape is only observable against a live browser. Same
+  // constraint (and same opt-in) as the snapshot live check below.
   // -------------------------------------------------------------------------
-  describe('batch --json --bail (chained-command path)', () => {
-    const batchArgs = [...GLOBAL_AB_FLAGS, '--session', 'contract-test-batch', '--cdp', UNREACHABLE_CDP, 'batch', '--json', '--bail']
-    const batchInput = JSON.stringify([['get', 'url']])
-
-    it('emits a JSON array of {command, success, error, result} on stdout', async () => {
-      // Proves the output shape browse-handler's JSON.parse(stdout) assumes,
-      // using a command that's guaranteed to fail (unreachable CDP) so no
-      // live browser is required.
-      const { stdout, stderr, code } = await run(batchArgs, { input: batchInput, timeoutMs: 15_000 })
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(stdout)
-      } catch (err) {
-        throw new Error(
-          `batch --json --bail did not emit parseable JSON on stdout (exit ${code}).\n` +
-          `stdout: ${stdout}\nstderr: ${stderr}\nparse error: ${String(err)}`,
+  describe('batch --json --bail (chained-command path, live page)', () => {
+    it('writes the {command,success,error,result} array to stdout even when a command fails (non-zero exit)', async (ctx) => {
+      if (!LIVE_BROWSER_CHECKS) {
+        console.warn(
+          'SKIPPING live batch check: set AGENT_BROWSER_CONTRACT_LIVE=1 to run it. ' +
+          'The pinned binary connects to CDP before running the batch, so the array ' +
+          'output shape can only be observed against a real browser (started via ' +
+          "agent-browser's own `open`) — run it on macOS with the fetched binary.",
         )
+        ctx.skip()
+        return
       }
-      expect(Array.isArray(parsed), `expected a JSON array, got: ${stdout}`).toBe(true)
-      const entries = parsed as Array<Record<string, unknown>>
-      expect(entries.length, `expected at least one batch entry: ${stdout}`).toBeGreaterThan(0)
-      const entry = entries[0]
-      for (const key of ['command', 'success', 'error', 'result']) {
-        expect(entry, `batch entry missing "${key}": ${JSON.stringify(entry)}`).toHaveProperty(key)
-      }
-      expect(entry.command).toEqual(['get', 'url'])
-      expect(entry.success).toBe(false)
-      expect(typeof entry.error, `expected entry.error to be a non-empty string: ${JSON.stringify(entry)}`).toBe('string')
-      expect((entry.error as string).length).toBeGreaterThan(0)
-    })
 
-    it('exits 0 even though the batched command failed', async () => {
-      // browse-handler.ts's spawnAsync rejects the whole call on ANY
-      // non-zero exit and never reaches JSON.parse (see handleBrowse's
-      // isChained branch, lines around the `batch --json --bail` spawnAsync
-      // call). If agent-browser exits non-zero when --bail stops a failing
-      // chain, EVERY chained browse command breaks with a raw process error
-      // instead of the formatted per-command failure text — this pins that
-      // exit-0-on-reported-failure assumption specifically, separate from
-      // the JSON-shape assertion above, so a break here points straight at
-      // that spawnAsync call rather than looking like a JSON parsing bug.
-      const { stdout, stderr, code } = await run(batchArgs, { input: batchInput, timeoutMs: 15_000 })
-      expect(code, `batch --json --bail exited ${code} instead of 0 — browse-handler's spawnAsync would reject this and never see the JSON below.\nstdout: ${stdout}\nstderr: ${stderr}`).toBe(0)
+      let server: Server | undefined
+      const sessionName = 'contract-test-batch'
+      try {
+        const html = '<!doctype html><html><body><button id="go">Go</button></body></html>'
+        const port = await new Promise<number>((resolve, reject) => {
+          server = createServer((_req, res) => {
+            res.writeHead(200, { 'content-type': 'text/html' })
+            res.end(html)
+          })
+          server.on('error', reject)
+          server.listen(0, '127.0.0.1', () => {
+            const address = server!.address()
+            if (address && typeof address === 'object') resolve(address.port)
+            else reject(new Error('failed to bind local test server'))
+          })
+        })
+        const url = `http://127.0.0.1:${port}/`
+
+        const launch = await run(['--session', sessionName, 'open', url], { timeoutMs: 20_000 })
+        if (launch.code !== 0) {
+          console.warn(
+            `SKIPPING live batch check: \`open\` did not succeed in this environment ` +
+            `(exit ${launch.code}). Usually no Chrome/Chromium available here, not a ` +
+            `CLI-surface break — investigate manually on a real macOS dev machine.\n` +
+            `stdout: ${launch.stdout}\nstderr: ${launch.stderr}`,
+          )
+          ctx.skip()
+          return
+        }
+
+        // One command that succeeds (`get url`) and one that fails (a click on
+        // a selector that isn't there), under --bail. Verifies the array shape
+        // browse-handler's JSON.parse assumes and a reported per-command
+        // failure (success:false + error string) — the raw material for the
+        // per-command error text + stale-ref hints.
+        //
+        // The binary exits NON-ZERO the moment a --bail command fails, but
+        // still writes the full array to stdout. browse-handler must read that
+        // stdout regardless of exit code (spawnAsync's allowNonZeroExit) — if
+        // it rejected on the exit code, every chained call containing a failure
+        // would surface a raw process error instead of the formatted per-
+        // command output. This test pins both halves: array on stdout, and the
+        // non-zero exit that makes reading-regardless necessary.
+        const batchArgs = [...GLOBAL_AB_FLAGS, '--session', sessionName, 'batch', '--json', '--bail']
+        const batchInput = JSON.stringify([['get', 'url'], ['click', '#no-such-element-xyz']])
+        const { stdout, stderr, code } = await run(batchArgs, { input: batchInput, timeoutMs: 15_000 })
+
+        let parsed: unknown
+        try {
+          parsed = JSON.parse(stdout)
+        } catch (err) {
+          throw new Error(
+            `batch --json --bail did not emit parseable JSON on stdout (exit ${code}).\n` +
+            `stdout: ${stdout}\nstderr: ${stderr}\nparse error: ${String(err)}`,
+          )
+        }
+        expect(Array.isArray(parsed), `expected a JSON array, got: ${stdout}`).toBe(true)
+        const entries = parsed as Array<Record<string, unknown>>
+        expect(entries.length, `expected at least one batch entry: ${stdout}`).toBeGreaterThan(0)
+        for (const entry of entries) {
+          for (const key of ['command', 'success', 'error', 'result']) {
+            expect(entry, `batch entry missing "${key}": ${JSON.stringify(entry)}`).toHaveProperty(key)
+          }
+        }
+        const failed = entries.find((e) => e.success === false)
+        expect(failed, `expected a reported per-command failure: ${stdout}`).toBeTruthy()
+        expect(typeof failed!.error, `expected failed entry.error to be a string: ${JSON.stringify(failed)}`).toBe('string')
+        // The per-command failure JSON above lives on stdout despite this
+        // non-zero exit — the exact reason browse-handler reads stdout with
+        // allowNonZeroExit instead of trusting the exit code.
+        expect(code, `expected a non-zero exit when a --bail command fails; if this is now 0, revisit spawnAsync's allowNonZeroExit in the batch path.\nstdout: ${stdout}\nstderr: ${stderr}`).not.toBe(0)
+      } finally {
+        await run(['--session', sessionName, 'close']).catch(() => {})
+        server?.close()
+      }
     })
   })
 
@@ -283,19 +335,21 @@ describe.skipIf(!BINARY_AVAILABLE)(`agent-browser contract (pinned ${PINNED_VERS
 
   // -------------------------------------------------------------------------
   // snapshot output shape — checkOriginMismatch() in browse-handler.ts
-  // regexes snapshot output for `origin=<url>`, and every ref-targeted
-  // mutation assumes `@eN` tokens in snapshot output. Both require a real
-  // page behind a real CDP connection, which needs agent-browser to launch
-  // its own browser via `launch` — heavier and slower than the other checks,
-  // so it's opt-in (AGENT_BROWSER_CONTRACT_LIVE=1) rather than part of the
-  // default `pnpm test:contract` run.
+  // regexes snapshot output for `origin=<url>`, and the snapshot text is
+  // passed through to the agent, which needs interactable-element refs in it.
+  // The binary prints refs as `[ref=eN]` tokens (agents then target them by
+  // typing `@eN`; browse-handler never parses refs back out of snapshot
+  // output). Needs a real page behind a real CDP connection, which means
+  // agent-browser has to start a browser via `open` — heavier and slower than
+  // the other checks, so it's opt-in (AGENT_BROWSER_CONTRACT_LIVE=1) rather
+  // than part of the default `pnpm test:contract` run.
   // -------------------------------------------------------------------------
   describe('snapshot output shape (live page)', () => {
-    it('contains @eN refs and an origin= annotation', async (ctx) => {
+    it('contains [ref=eN] tokens and an origin= annotation', async (ctx) => {
       if (!LIVE_BROWSER_CHECKS) {
         console.warn(
           'SKIPPING live snapshot check: set AGENT_BROWSER_CONTRACT_LIVE=1 to run it. ' +
-          'It launches a real browser via agent-browser\'s own `launch` command against ' +
+          'It starts a real browser via agent-browser\'s own `open` command against ' +
           'a throwaway local HTTP server, which this sandbox cannot verify (no binary, ' +
           'no display) — run it for real on macOS with the fetched binary.',
         )
@@ -321,10 +375,10 @@ describe.skipIf(!BINARY_AVAILABLE)(`agent-browser contract (pinned ${PINNED_VERS
         })
         const url = `http://127.0.0.1:${port}/`
 
-        const launch = await run(['--session', sessionName, 'launch', url], { timeoutMs: 20_000 })
+        const launch = await run(['--session', sessionName, 'open', url], { timeoutMs: 20_000 })
         if (launch.code !== 0) {
           console.warn(
-            `SKIPPING live snapshot check: \`launch\` did not succeed in this environment ` +
+            `SKIPPING live snapshot check: \`open\` did not succeed in this environment ` +
             `(exit ${launch.code}). This usually means no Chrome/Chromium is available/installed ` +
             `here, not a CLI-surface break — investigate manually if this also fails on a real ` +
             `macOS dev machine with the app installed.\nstdout: ${launch.stdout}\nstderr: ${launch.stderr}`,
@@ -336,7 +390,7 @@ describe.skipIf(!BINARY_AVAILABLE)(`agent-browser contract (pinned ${PINNED_VERS
         const snapshot = await run([...GLOBAL_AB_FLAGS, '--session', sessionName, 'snapshot', '-i'], { timeoutMs: 15_000 })
         expect(snapshot.code, `snapshot exited non-zero.\nstdout: ${snapshot.stdout}\nstderr: ${snapshot.stderr}`).toBe(0)
         const output = snapshot.stdout
-        expect(output, `no @eN ref found in snapshot output:\n${output}`).toMatch(/@e\d+/)
+        expect(output, `no [ref=eN] token found in snapshot output:\n${output}`).toMatch(/\[ref=e\d+\]/)
         expect(output, `no origin= annotation found in snapshot output:\n${output}`).toMatch(/origin=\S+/)
       } finally {
         await run(['--session', sessionName, 'close']).catch(() => {})
