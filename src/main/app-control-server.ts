@@ -19,6 +19,7 @@ import {
   updatePresenceCursor,
   resolveCanvasPointForPage,
   pendingIntents,
+  isMutatingIntentCommand,
 } from './presence-manager'
 import {
   beginPresenceDeparture,
@@ -31,6 +32,7 @@ import { pagePointMatchesTargetRect } from '../shared/presence-targeting'
 import {
   type CdpProxyRegistration,
   type CdpClientBridge,
+  type CdpRect,
   APP_CONTROL_HOST,
   cdpProxyRegistrations,
   cdpProxyRegistrationsByKey,
@@ -42,6 +44,7 @@ import {
   refreshCdpProxyRegistration,
   ensureCdpProxyUpstream,
   pruneExpiredCdpProxyRegistrations,
+  recordPendingRectRequest,
 } from './cdp-proxy'
 import { activeSessions, mcpSessions, resolveSession } from './presence-session'
 import { sendPageIpc } from './runtime/page-ipc'
@@ -376,8 +379,55 @@ export async function startAppControlServer(): Promise<void> {
       const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
       const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
       const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
+      cdpProxyMetrics.dwellWaitMsTotal += remaining
+      cdpProxyMetrics.dwellWaitCount += 1
       if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining))
     }
+
+    // Amortizes the pre-act dwell for opaque `@eN`-ref clicks (issue #319):
+    // agent-browser resolves a ref's coordinates via CDP (DOM.getBoxModel /
+    // Runtime.callFunctionOn) tens of ms before it dispatches the click. If a
+    // pending intent says a mutating command is about to hit this page, the
+    // resolved rect is real element geometry — not a prediction — so moving
+    // the cursor there now starts `lastMoveAt` ticking early, and by the time
+    // mousePressed arrives the dwell (waitForPresenceDwell) is mostly spent.
+    // Read-path calls (snapshot, eval) share these same CDP methods
+    // constantly; the pending-intent + mutating-command check is what keeps
+    // this from firing on every read.
+    const maybePreMovePresenceCursor = (rect: CdpRect): void => {
+      const sessionId = registration.sessionId
+      if (!sessionId) return
+      const intent = pendingIntents.get(sessionId)
+      if (!intent || intent.pageId !== registration.pageId || !isMutatingIntentCommand(intent.command)) {
+        return
+      }
+
+      const resolved = resolveCanvasPointForPage(registration.pageId, { targetRect: rect })
+      if (!resolved) return
+
+      const existing = presenceCursors.get(sessionId)
+      if (existing && existing.pageId === registration.pageId) {
+        const withinRect = pagePointMatchesTargetRect(existing.pageX, existing.pageY, rect, 0)
+        const canvasDistance = Math.hypot(
+          resolved.canvasX - existing.canvasX,
+          resolved.canvasY - existing.canvasY,
+        )
+        if (withinRect || canvasDistance < PRESENCE_CURSOR_POSITION_SKIP_PX) return
+      }
+
+      upsertPresenceCursor(request, {
+        body: pageSessionBody(),
+        surface: 'page',
+        pageId: registration.pageId,
+        pageX: rect.x + rect.width / 2,
+        pageY: rect.y + rect.height / 2,
+        canvasX: resolved.canvasX,
+        canvasY: resolved.canvasY,
+        activity: 'traveling',
+        targetRect: rect,
+      })
+    }
+    bridge.onRectResolved = maybePreMovePresenceCursor
 
     const sendScrollIpc = (
       x: number,
@@ -458,6 +508,7 @@ export async function startAppControlServer(): Promise<void> {
       if (registration.activeBridge?.clientSocket === clientSocket) {
         registration.activeBridge = null
       }
+      registration.pendingRectRequests.clear()
       registration.updatedAt = Date.now()
       endAutomationInteractivePage(registration.pageId)
       restoreAutomationSelectionIfNeeded(registration)
@@ -503,6 +554,9 @@ export async function startAppControlServer(): Promise<void> {
         bridge.pendingMethods.set(id, method)
         if (method === 'Target.attachToTarget') {
           bridge.attachTargetIds.set(id, typeof params?.targetId === 'string' ? params.targetId : '')
+        }
+        if (method === 'DOM.getBoxModel' || method === 'Runtime.callFunctionOn') {
+          recordPendingRectRequest(registration, id, method)
         }
       }
 
@@ -558,6 +612,14 @@ export async function startAppControlServer(): Promise<void> {
                 skipPosition =
                   withinTargetRect ||
                   canvasDistance < PRESENCE_CURSOR_POSITION_SKIP_PX
+                // Amortization scoreboard: only counts when a prior travel
+                // step (selector pre-resolution or box-model pre-move) had
+                // actually predicted a target — a click with no predicted
+                // rect was never a candidate for amortization.
+                if (rect != null) {
+                  if (skipPosition) cdpProxyMetrics.preMoveHits += 1
+                  else cdpProxyMetrics.preMoveMisses += 1
+                }
               }
             }
             upsertPresenceCursor(request, {

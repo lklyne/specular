@@ -47,6 +47,16 @@ export interface PageCdpConnectionInfo {
   browserWebSocketDebuggerUrl: string
 }
 
+/** A DOM rect resolved from a live CDP exchange (`DOM.getBoxModel` content
+ *  quad, or a rect-shaped `Runtime.callFunctionOn` return value). Always
+ *  derived from real page geometry — never predicted or interpolated. */
+export interface CdpRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface CdpProxyRegistration {
   token: string
   key: string
@@ -67,6 +77,13 @@ export interface CdpProxyRegistration {
   activeBridge: CdpClientBridge | null
   connectPromise: Promise<WebSocket> | null
   selectionSnapshot: UiSelection | null
+  /** Client-issued `DOM.getBoxModel` / `Runtime.callFunctionOn` requests
+   *  awaiting their upstream response, keyed by CDP message id, so the
+   *  response can be sniffed for a real element rect (issue #319). Capped
+   *  and cleared independently of `CdpClientBridge.pendingMethods` — that
+   *  map serves unrelated Target.* correlation and isn't meant to carry
+   *  presence-specific bookkeeping. */
+  pendingRectRequests: Map<number, string>
 }
 
 export interface CdpClientBridge {
@@ -75,6 +92,10 @@ export interface CdpClientBridge {
   pendingMethods: Map<number, string>
   attachTargetIds: Map<number, string>
   allowedSessionIds: Set<string>
+  /** Invoked when a sniffed box-model-shaped response resolves for this
+   *  bridge's registration. Set by app-control-server.ts, which owns the
+   *  presence-cursor mutation; cdp-proxy.ts only sniffs and extracts. */
+  onRectResolved?: (rect: CdpRect, method: string) => void
 }
 
 // --- State ---
@@ -88,7 +109,19 @@ export const cdpProxyMetrics = {
   upstreamReconnects: 0,
   interceptedClicks: 0,
   interceptedScrolls: 0,
+  // Amortization scoreboard (issue #319): how often the pre-act dwell found
+  // the cursor already at the target by the time mousePressed arrived, vs.
+  // how often it still had to reposition.
+  preMoveHits: 0,
+  preMoveMisses: 0,
+  dwellWaitMsTotal: 0,
+  dwellWaitCount: 0,
 }
+
+/** Cap on `CdpProxyRegistration.pendingRectRequests` — bounds memory if a
+ *  client sends many box-model-style queries whose responses never arrive
+ *  (e.g. a crashed agent-browser process). */
+const PENDING_RECT_REQUEST_CAP = 32
 
 // --- Logging ---
 
@@ -116,6 +149,86 @@ export function closeSocketQuietly(socket: WebSocket | null | undefined): void {
   if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
     socket.close()
   }
+}
+
+/** Record a client-issued `DOM.getBoxModel` / `Runtime.callFunctionOn`
+ *  request awaiting its upstream response, so the response can be
+ *  correlated back to a method when it arrives. Drops the oldest entry once
+ *  the map exceeds `PENDING_RECT_REQUEST_CAP` — a bounded structure, not an
+ *  unbounded ledger. */
+export function recordPendingRectRequest(
+  registration: CdpProxyRegistration,
+  id: number,
+  method: string,
+): void {
+  registration.pendingRectRequests.set(id, method)
+  while (registration.pendingRectRequests.size > PENDING_RECT_REQUEST_CAP) {
+    const oldestKey = registration.pendingRectRequests.keys().next().value
+    if (oldestKey === undefined) break
+    registration.pendingRectRequests.delete(oldestKey)
+  }
+}
+
+/** Parse a `DOM.getBoxModel` or `Runtime.callFunctionOn` CDP response into a
+ *  rect, or null if the shape doesn't unambiguously describe one. Pure and
+ *  side-effect free so it's unit-testable without a live proxy.
+ *
+ *  - `DOM.getBoxModel`: the content quad is always rect-shaped (four
+ *    corners of the border-box content area), so any well-formed response
+ *    yields a rect.
+ *  - `Runtime.callFunctionOn`: results here are shared with unrelated
+ *    read-path calls (snapshot, eval) that return arbitrary values, so this
+ *    only accepts a plain object whose own keys are exactly
+ *    `{x, y, width, height}` — anything else is ignored rather than
+ *    guessed at. */
+export function extractRectFromCdpResult(method: string, result: unknown): CdpRect | null {
+  if (!result || typeof result !== 'object') return null
+
+  if (method === 'DOM.getBoxModel') {
+    const model = (result as { model?: unknown }).model
+    if (!model || typeof model !== 'object') return null
+    const content = (model as { content?: unknown }).content
+    if (
+      !Array.isArray(content) ||
+      content.length !== 8 ||
+      !content.every((value) => typeof value === 'number' && Number.isFinite(value))
+    ) {
+      return null
+    }
+    const xs = [content[0], content[2], content[4], content[6]] as number[]
+    const ys = [content[1], content[3], content[5], content[7]] as number[]
+    const x = Math.min(...xs)
+    const y = Math.min(...ys)
+    const width = Math.max(...xs) - x
+    const height = Math.max(...ys) - y
+    return width > 0 && height > 0 ? { x, y, width, height } : null
+  }
+
+  if (method === 'Runtime.callFunctionOn') {
+    const inner = (result as { result?: unknown }).result
+    if (!inner || typeof inner !== 'object') return null
+    const value = (inner as { value?: unknown }).value
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+    const keys = Object.keys(value as Record<string, unknown>).sort()
+    const RECT_KEYS = ['height', 'width', 'x', 'y']
+    if (keys.length !== RECT_KEYS.length || !keys.every((key, index) => key === RECT_KEYS[index])) {
+      return null
+    }
+
+    const rect = value as { x: unknown; y: unknown; width: unknown; height: unknown }
+    const { x, y, width, height } = rect
+    if (
+      typeof x !== 'number' || typeof y !== 'number' ||
+      typeof width !== 'number' || typeof height !== 'number' ||
+      ![x, y, width, height].every(Number.isFinite)
+    ) {
+      return null
+    }
+    return width > 0 && height > 0 ? { x, y, width, height } : null
+  }
+
+  return null
 }
 
 export function summarizeCdpProxyRegistration(registration: CdpProxyRegistration): Record<string, unknown> {
@@ -146,6 +259,7 @@ export function disposeCdpProxyRegistration(registration: CdpProxyRegistration):
   registration.upstreamSocket = null
   registration.connectPromise = null
   registration.status = 'closed'
+  registration.pendingRectRequests.clear()
   cdpProxyRegistrations.delete(registration.token)
   cdpProxyRegistrationsByKey.delete(registration.key)
 }
@@ -334,6 +448,13 @@ export async function ensureCdpProxyUpstream(
       }
 
       if (id !== null) {
+        const pendingRectMethod = registration.pendingRectRequests.get(id)
+        if (pendingRectMethod) {
+          registration.pendingRectRequests.delete(id)
+          const rect = extractRectFromCdpResult(pendingRectMethod, (payload as { result?: unknown }).result)
+          if (rect) bridge.onRectResolved?.(rect, pendingRectMethod)
+        }
+
         const pendingMethod = bridge.pendingMethods.get(id)
         bridge.pendingMethods.delete(id)
         if (pendingMethod === 'Target.getTargets') {
@@ -469,6 +590,7 @@ export function registerPageCdpProxy(
     activeBridge: null,
     connectPromise: null,
     selectionSnapshot: null,
+    pendingRectRequests: new Map(),
   }
   cdpProxyRegistrations.set(token, registration)
   cdpProxyRegistrationsByKey.set(key, token)

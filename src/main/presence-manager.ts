@@ -64,6 +64,20 @@ export interface PendingIntent {
 export const pendingIntents = new Map<string, PendingIntent>()
 export const PENDING_INTENT_TTL_MS = PRESENCE_INTENT_TTL_MS
 
+// Mirrors MUTATION_VERBS in src/main/shared/browse-handler.ts. Duplicated
+// rather than imported: that module pulls in the CLI-side app-client, which
+// resolves a session id as a load-time side effect, and this predicate needs
+// to run from the main-process CDP bridge, not the CLI process.
+const PRESENCE_MUTATING_COMMANDS = new Set(['click', 'fill', 'type', 'select'])
+
+/** Whether a pending intent's command implies a mutating input event
+ *  (click/fill/type/select) rather than a read (snapshot, eval, get). Used
+ *  to gate box-model-triggered cursor pre-positioning (issue #319) so reads
+ *  — which share the same CDP methods — never move the cursor. */
+export function isMutatingIntentCommand(command: string): boolean {
+  return PRESENCE_MUTATING_COMMANDS.has(command)
+}
+
 // --- Derivation helpers ---
 
 export function deriveLabelKey(url: string, method: string): PresenceLabelKey | null {
