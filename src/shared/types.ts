@@ -559,11 +559,14 @@ export type PresenceTargetRefSource = 'specular' | 'agent-browser'
  * `findPresenceTarget` — the same resolution `specular find` and the
  * `/pages/find-target` route already use — instead of waiting for the
  * eventual CDP mouse event to reveal where the cursor should go.
+ *
+ * `role`/`testid` locators have no field of their own — `parseTargetQuery`
+ * translates them into `selector` at parse time, so this wire shape only
+ * ever carries a CSS selector, a text locator, or an accessible name.
  */
 export interface PresenceTargetQuery {
   selector: string | null
   text: string | null
-  role: string | null
   name: string | null
 }
 

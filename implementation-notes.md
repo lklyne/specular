@@ -251,24 +251,27 @@ Confirmed-but-accepted (documented, not fixed):
   bundled hash drifted get `left-hash-mismatch` — the stub stays forever.
   This is D2's explicit leave-when-unsure design; the breadcrumb records it.
 
-Optional cleanups surfaced but NOT applied (small, safe to defer):
+Optional cleanups — ALL APPLIED in a follow-up pass (single Sonnet agent,
+user-requested):
 
-- `resolvePresenceTargetQueryInBackground` takes 9 positional args; an
-  options object (or deriving labelKey/pageId from intentRecord) would be
-  tidier (`src/main/routes/session.ts`).
-- `SkillsPane.tsx` hand-rolls `AgentBrowserStatusRow` instead of reusing
-  `SkillInstaller.StatusRow`; `statusDetail`/`statusBadgeState` mappings are
-  near-duplicates across the two files.
-- Four near-identical hash helpers in `skill-install.ts` (generic +
-  agent-browser pairs) could share one `hashFileForDir(dirName)`.
-- `parseTargetQuery` re-implements the flag-skipping positional walk that
-  `parseCommandArgs` already does; returning positionals from the latter
-  would collapse the copies.
-- Locator→selector translation is split: `testid` → attribute selector at
-  parse time (browse-handler), `role` → attribute selector at resolve time
-  (session.ts). New locator kinds need edits in both places.
-- The MCP `browse` tool's inputSchema doesn't advertise the new `echo`
-  option (CLI-only affordance for now).
+- `resolvePresenceTargetQueryInBackground` now takes one options object;
+  `labelKey`/`pageId` are read off `intentRecord`.
+- `SkillsPane.tsx` renders the shared `SkillInstaller.StatusRow` (matching
+  onboarding); `statusBadgeState` folded into `rowBadgeState`. Small visual
+  change: the settings agent-browser row now shows the status badge.
+- The four hash helpers in `skill-install.ts` delegate to one private
+  `hashSkillFile(dirName, which)`.
+- `parseCommandArgs` now also returns `positionals`; `parseTargetQuery`
+  consumes it instead of re-scanning argv. `--name` added to VALUE_FLAGS
+  (only `find` uses it; verified safe for verb/ref extraction).
+- All locator→selector translation now happens at parse time
+  (`parseTargetQuery`); `PresenceTargetQuery.role` removed from the wire
+  type; session.ts does zero translation.
+- MCP `browse` tool inputSchema advertises the `echo` boolean.
+- Skill docs (both copies): the "canvas-app (spreadsheet)" recipe is now
+  framed as **Google Sheets** findings ("and likely other canvas-rendered
+  grids"), avoiding collision with Specular's own canvas concept and
+  honestly scoping the dogfood observations.
 
 ## Open items resolution
 

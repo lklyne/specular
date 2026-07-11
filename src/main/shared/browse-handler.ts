@@ -39,7 +39,7 @@ const VALUE_FLAGS = new Set([
   '--baseline', '--screenshot-format', '--screenshot-quality', '--screenshot-dir',
   '--max-output', '--download-path', '--executable-path', '--extension',
   '--headers', '--body', '--filter', '--profile', '--session-name',
-  '--device', '--color-scheme', '--idle-timeout',
+  '--device', '--color-scheme', '--idle-timeout', '--name',
   '-s', '-d', '-p',
 ])
 
@@ -135,10 +135,19 @@ export function splitShellArgs(cmd: string): string[] {
   return tokens
 }
 
-export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | null; ref: string | null } {
+export function parseCommandArgs(cmd: string): {
+  argv: string[]
+  verb: string | null
+  ref: string | null
+  /** Non-flag args after the verb, in order — the single VALUE_FLAGS-skipping
+   *  positional walk every target-locating caller needs (see
+   *  `parseTargetQuery`, which consumes this instead of re-scanning argv). */
+  positionals: string[]
+} {
   const argv = splitShellArgs(cmd)
   let verb: string | null = null
   let ref: string | null = null
+  const positionals: string[] = []
   let i = 0
   while (i < argv.length) {
     const arg = argv[i]
@@ -146,9 +155,10 @@ export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | 
     if (arg.startsWith('-')) { i++; continue }
     if (!verb) { verb = arg; i++; continue }
     if (!ref && /^@e\d+$/.test(arg)) ref = arg
+    positionals.push(arg)
     i++
   }
-  return { argv, verb, ref }
+  return { argv, verb, ref, positionals }
 }
 
 /**
@@ -158,54 +168,44 @@ export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | 
  * already opaque to specular — see `parseCommandArgs`'s `ref`) and for
  * verbs that don't take a target at all.
  *
+ * Owns all locator-kind knowledge for the presence-intent path: a `role` or
+ * `testid` locator is translated into an attribute `selector` here, at parse
+ * time, so `PresenceTargetQuery` only ever carries a resolved selector, a
+ * text locator, or an accessible name — resolve-time code (session.ts) does
+ * zero further translation.
+ *
  * A sibling of `parseCommandArgs` rather than a change to its return shape,
  * so existing consumers (and the mcp-browse re-export shim) are untouched.
  */
 export function parseTargetQuery(cmd: string): PresenceTargetQuery | null {
-  const { argv, verb, ref } = parseCommandArgs(cmd)
+  const { argv, verb, ref, positionals } = parseCommandArgs(cmd)
   if (!verb) return null
 
   if (verb === 'find') {
-    // find <locator-kind> <value> <action> [--name "..."]
-    let i = 1
-    let name: string | null = null
-    const positionals: string[] = []
-    while (i < argv.length) {
-      const arg = argv[i]
-      if (arg === '--name') { name = argv[i + 1] ?? null; i += 2; continue }
-      if (VALUE_FLAGS.has(arg)) { i += 2; continue }
-      if (arg.startsWith('-')) { i++; continue }
-      positionals.push(arg)
-      i++
-    }
+    // find <locator-kind> <value> <action> [--name "..."]. --name is a
+    // VALUE_FLAGS entry, so parseCommandArgs already excludes it (and its
+    // value) from `positionals` — it still has to be read out of argv here
+    // since VALUE_FLAGS only skips flag values, it doesn't surface them.
     const [locatorKind, value] = positionals
     if (!locatorKind || !value) return null
-    if (locatorKind === 'role') return { selector: null, text: null, role: value, name }
+    const nameIdx = argv.indexOf('--name')
+    const name = nameIdx !== -1 ? argv[nameIdx + 1] ?? null : null
+    if (locatorKind === 'role') return { selector: `[role="${value}"]`, text: null, name }
     // No native "testid" concept downstream — model it as the CSS attribute
     // selector every framework's testid convention resolves to.
-    if (locatorKind === 'testid') return { selector: `[data-testid="${value}"]`, text: null, role: null, name }
+    if (locatorKind === 'testid') return { selector: `[data-testid="${value}"]`, text: null, name }
     return null
   }
 
   if (!MUTATION_VERBS.has(verb) || ref) return null
 
   // The first positional argument after the verb is the target.
-  let i = 0
-  let sawVerb = false
-  let target: string | null = null
-  while (i < argv.length) {
-    const arg = argv[i]
-    if (VALUE_FLAGS.has(arg)) { i += 2; continue }
-    if (arg.startsWith('-')) { i++; continue }
-    if (!sawVerb) { sawVerb = true; i++; continue }
-    target = arg
-    break
-  }
+  const target = positionals[0] ?? null
   if (!target || /^@e\d+$/.test(target)) return null
   if (target.startsWith('text=')) {
-    return { selector: null, text: target.slice('text='.length), role: null, name: null }
+    return { selector: null, text: target.slice('text='.length), name: null }
   }
-  return { selector: target, text: null, role: null, name: null }
+  return { selector: target, text: null, name: null }
 }
 
 // ---------------------------------------------------------------------------

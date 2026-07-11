@@ -109,12 +109,15 @@ function StatusRow({
   description: string
   status: OnboardingComponentStatus
 }) {
+  // No install/uninstall progress for a status-only row — synthesize the
+  // 'idle' snapshot rowBadgeState needs so both rows share one badge mapper.
+  const badgeState = rowBadgeState({ status, progress: 'idle', selected: false })
   return (
     <div className="flex items-start gap-3 rounded-[8px] border border-[var(--surface-card-border)] bg-[var(--surface-card)] px-4 py-3 text-left select-none">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium">{title}</span>
-          <Badge state={statusBadgeState(status)} />
+          <Badge state={badgeState} />
         </div>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
           {description}
@@ -133,13 +136,6 @@ function rowBadgeState(snapshot: InstallerRowSnapshot): BadgeState {
   if (snapshot.progress === 'error') return 'failed'
   if (snapshot.status.kind === 'blocked') return 'blocked'
   if (snapshot.status.kind === 'outdated') return 'outdated'
-  return 'not-installed'
-}
-
-function statusBadgeState(status: OnboardingComponentStatus): BadgeState {
-  if (status.kind === 'installed') return 'installed'
-  if (status.kind === 'blocked') return 'blocked'
-  if (status.kind === 'outdated') return 'outdated'
   return 'not-installed'
 }
 

@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'http'
 import type { Route } from './types'
-import type { PresenceLabelKey, PresenceTargetQuery, PresenceTargetRect, PresenceTargetRefSource } from '../../shared/types'
+import type { PresenceTargetQuery, PresenceTargetRect, PresenceTargetRefSource } from '../../shared/types'
 import {
   getPresenceCursors,
   coercePresenceLabelKey,
@@ -31,10 +31,9 @@ function coercePresenceTargetQuery(value: unknown): PresenceTargetQuery | null {
   const payload = value as Record<string, unknown>
   const selector = typeof payload.selector === 'string' ? payload.selector : null
   const text = typeof payload.text === 'string' ? payload.text : null
-  const role = typeof payload.role === 'string' ? payload.role : null
   const name = typeof payload.name === 'string' ? payload.name : null
-  if (!selector && !text && !role) return null
-  return { selector, text, role, name }
+  if (!selector && !text) return null
+  return { selector, text, name }
 }
 
 /**
@@ -47,21 +46,30 @@ function coercePresenceTargetQuery(value: unknown): PresenceTargetQuery | null {
  * same `upsertPresenceCursor` / `upsertActivePresenceTask` seam every other
  * late-arriving presence update (typing, the mousePressed dwell-skip check)
  * already goes through.
+ *
+ * `targetQuery.selector` is already the fully-resolved CSS selector by the
+ * time it reaches here — role/testid locators are translated to attribute
+ * selectors at parse time (`parseTargetQuery`), so this function owns no
+ * locator-kind knowledge of its own.
  */
-function resolvePresenceTargetQueryInBackground(
-  request: IncomingMessage,
-  payload: Record<string, unknown>,
-  sessionId: string,
-  pageId: string,
-  intentRecord: PendingIntent,
-  targetQuery: PresenceTargetQuery,
-  labelKey: PresenceLabelKey,
-  taskLabel: string | null,
-  labelHint: string | null,
-): void {
-  const selector = targetQuery.selector ?? (targetQuery.role ? `[role="${targetQuery.role}"]` : null)
+function resolvePresenceTargetQueryInBackground(options: {
+  request: IncomingMessage
+  payload: Record<string, unknown>
+  sessionId: string
+  intentRecord: PendingIntent
+  targetQuery: PresenceTargetQuery
+  taskLabel: string | null
+  labelHint: string | null
+}): void {
+  const { request, payload, sessionId, intentRecord, targetQuery, taskLabel, labelHint } = options
+  // The caller only invokes this once pageId has been confirmed truthy (see
+  // call site) — intentRecord.pageId is nullable because PendingIntent also
+  // covers canvas-surface intents, which never reach this function.
+  const pageId = intentRecord.pageId
+  if (!pageId) return
+  const labelKey = intentRecord.labelKey
   findPresenceTarget(pageId, {
-    selector,
+    selector: targetQuery.selector,
     text: targetQuery.text,
     name: targetQuery.name,
     interactiveOnly: true,
@@ -328,17 +336,15 @@ export const sessionRoutes: Route[] = [
       // pageId is narrowed to string (not null) here — the query is only
       // meaningful once we know which page to resolve it against.
       if (pageId && targetQuery && !targetRef) {
-        resolvePresenceTargetQueryInBackground(
+        resolvePresenceTargetQueryInBackground({
           request,
           payload,
-          resolved.sessionId,
-          pageId,
+          sessionId: resolved.sessionId,
           intentRecord,
           targetQuery,
-          labelKey,
           taskLabel,
           labelHint,
-        )
+        })
       }
 
       scheduleThinkingState(request)

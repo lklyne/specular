@@ -50,13 +50,11 @@ export function sha256(data: Buffer): string {
 }
 
 export function bundledSkillHash(skillId: SkillId): string | null {
-  const data = readFileOrNull(bundledSkillPathNamed(skillId))
-  return data ? sha256(data) : null
+  return hashSkillFile(skillId, 'bundled')
 }
 
 export function installedSkillHash(skillId: SkillId): string | null {
-  const data = readFileOrNull(installedSkillPathNamed(skillId))
-  return data ? sha256(data) : null
+  return hashSkillFile(skillId, 'installed')
 }
 
 function readFileOrNull(path: string): Buffer | null {
@@ -65,6 +63,14 @@ function readFileOrNull(path: string): Buffer | null {
   } catch {
     return null
   }
+}
+
+/** Shared body behind the bundled/installed hash getters, for both the
+ *  generic skill flow and the agent-browser migration helpers below. */
+function hashSkillFile(dirName: string, which: 'bundled' | 'installed'): string | null {
+  const path = which === 'bundled' ? bundledSkillPathNamed(dirName) : installedSkillPathNamed(dirName)
+  const data = readFileOrNull(path)
+  return data ? sha256(data) : null
 }
 
 export type SkillStatus =
@@ -136,13 +142,11 @@ export function uninstallSkill(skillId: SkillId): SkillInstallResult {
 // on disk to decide whether it's safe to delete.
 
 export function bundledAgentBrowserSkillHash(): string | null {
-  const data = readFileOrNull(bundledSkillPathNamed(AGENT_BROWSER_SKILL_DIR_NAME))
-  return data ? sha256(data) : null
+  return hashSkillFile(AGENT_BROWSER_SKILL_DIR_NAME, 'bundled')
 }
 
 export function installedAgentBrowserSkillHash(): string | null {
-  const data = readFileOrNull(installedSkillPathNamed(AGENT_BROWSER_SKILL_DIR_NAME))
-  return data ? sha256(data) : null
+  return hashSkillFile(AGENT_BROWSER_SKILL_DIR_NAME, 'installed')
 }
 
 export function installedAgentBrowserSkillDir(): string {

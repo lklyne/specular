@@ -10,43 +10,43 @@ import { parseTargetQuery } from '../../src/main/mcp-browse'
 describe('parseTargetQuery', () => {
   it('extracts a CSS selector target for click', () => {
     expect(parseTargetQuery('click "#submit"')).toEqual({
-      selector: '#submit', text: null, role: null, name: null,
+      selector: '#submit', text: null, name: null,
     })
   })
 
   it('extracts a CSS selector with combinators for select', () => {
     expect(parseTargetQuery('select "div.menu > option" "Second"')).toEqual({
-      selector: 'div.menu > option', text: null, role: null, name: null,
+      selector: 'div.menu > option', text: null, name: null,
     })
   })
 
   it('extracts a text= locator, stripping the prefix', () => {
     expect(parseTargetQuery('click "text=Submit"')).toEqual({
-      selector: null, text: 'Submit', role: null, name: null,
+      selector: null, text: 'Submit', name: null,
     })
   })
 
   it('extracts a text= locator with embedded spaces for fill', () => {
     expect(parseTargetQuery('fill "text=Sign in" "hello"')).toEqual({
-      selector: null, text: 'Sign in', role: null, name: null,
+      selector: null, text: 'Sign in', name: null,
     })
   })
 
-  it('extracts role + --name from the find-form', () => {
+  it('translates find-form role + --name into a [role] attribute selector', () => {
     expect(parseTargetQuery('find role button click --name "Submit"')).toEqual({
-      selector: null, text: null, role: 'button', name: 'Submit',
+      selector: '[role="button"]', text: null, name: 'Submit',
     })
   })
 
-  it('extracts find-form role without --name', () => {
+  it('translates find-form role without --name into a [role] attribute selector', () => {
     expect(parseTargetQuery('find role link click')).toEqual({
-      selector: null, text: null, role: 'link', name: null,
+      selector: '[role="link"]', text: null, name: null,
     })
   })
 
   it('maps find-form testid to a data-testid attribute selector', () => {
     expect(parseTargetQuery('find testid submit-btn click --name "Go"')).toEqual({
-      selector: '[data-testid="submit-btn"]', text: null, role: null, name: 'Go',
+      selector: '[data-testid="submit-btn"]', text: null, name: 'Go',
     })
   })
 
@@ -71,7 +71,7 @@ describe('parseTargetQuery', () => {
 
   it('skips a leading --cdp flag before the verb', () => {
     expect(parseTargetQuery('--cdp ws://localhost:9222 click "#go"')).toEqual({
-      selector: '#go', text: null, role: null, name: null,
+      selector: '#go', text: null, name: null,
     })
   })
 })

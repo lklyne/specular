@@ -277,13 +277,13 @@ specular add page http://localhost:3000 && specular snapshot -i -f <pageId>
 - **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
 - **`update <pageId> --url` lags `workspace`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular workspace` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → workspace` chain.
-- **canvas-app (spreadsheet) grids have no per-cell refs** — the grid is a canvas element, not DOM cells. Select cells by address through the Name box, not by ref.
+- **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells. Select cells by address through the Name box, not by ref. The sub-bullets below are Google Sheets specifics observed at time of writing — treat them as a starting point, not a guarantee, for other canvas-rendered grids.
   - No focusable input exists on the active cell until edit mode — `keyboard type`, `keyboard inserttext`, and `press` write nothing to a selected cell.
   - The only reliable write path: `click` the formula bar (it becomes a combobox in edit mode) → `type` the value → `press Enter`. One cell per call.
   - Native autocomplete can hijack the Enter-commit — pre-clear the column before typing into it.
   - Focus trap: after committing, focus stays in the formula-bar combobox. `click` the Name box between cells; skip it and the next navigation silently no-ops.
   - A hidden screen-reader textbox can silently swallow input and still report "✓ Done" — treat that as a false success and verify with a screenshot.
-  - General: most silent failures in canvas-app also report "✓ Done" — success is only observable via a screenshot round-trip.
+  - General: most silent failures in these apps also report "✓ Done" — success is only observable via a screenshot round-trip.
 
 ## Passthrough to agent-browser
 
