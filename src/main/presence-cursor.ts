@@ -140,10 +140,20 @@ function withLastIntentLabelKey(
   return existing?.lastIntentLabelKey ?? null
 }
 
-let thinkingTimer: NodeJS.Timeout | null = null
-export let activeScanId = 0
-export function bumpActiveScanId(): number {
-  return ++activeScanId
+// Per-session so one session's activity can never cancel another session's
+// in-flight "thinking" transition or scan animation (issue #319 Phase 4) —
+// concurrent agent sessions must not be able to interrupt each other.
+const thinkingTimers = new Map<string, NodeJS.Timeout>()
+const activeScanIds = new Map<string, number>()
+
+export function bumpActiveScanId(sessionId: string): number {
+  const next = (activeScanIds.get(sessionId) ?? 0) + 1
+  activeScanIds.set(sessionId, next)
+  return next
+}
+
+function currentScanId(sessionId: string): number {
+  return activeScanIds.get(sessionId) ?? 0
 }
 
 // --- Presence core ---
@@ -177,6 +187,12 @@ export function deriveColor(sessionId: string): string {
 
 export function removePresenceCursor(id: string): void {
   presenceCursors.delete(id)
+  const timer = thinkingTimers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    thinkingTimers.delete(id)
+  }
+  activeScanIds.delete(id)
 }
 
 /**
@@ -349,8 +365,15 @@ export function upsertPresenceCursor(
   if (!resolved) return
   const { sessionId, session } = resolved
 
+  // Evict a same-clientName cursor left behind by a session that reconnected
+  // with a fresh sessionId (every session defaults to the same clientName,
+  // so without this a stale duplicate would linger forever). Scoped to dead
+  // sessions only — a live concurrent session with the same clientName
+  // keeps its cursor, otherwise two agents sharing the default clientName
+  // would evict each other's cursor on every upsert.
+  const evictionNow = Date.now()
   for (const [id, cursor] of presenceCursors) {
-    if (cursor.clientName === session.clientName && id !== sessionId) {
+    if (cursor.clientName === session.clientName && id !== sessionId && !isSessionLive(id, evictionNow)) {
       removePresenceCursor(id)
     }
   }
@@ -479,18 +502,20 @@ export function clearActivePresenceTask(
 // --- Timer and animation ---
 
 export function scheduleThinkingState(request: IncomingMessage): void {
-  if (thinkingTimer) clearTimeout(thinkingTimer)
-  thinkingTimer = setTimeout(() => {
-    thinkingTimer = null
-    const resolved = resolveSession(request)
-    if (!resolved) return
-    const existing = presenceCursors.get(resolved.sessionId)
+  const resolved = resolveSession(request)
+  if (!resolved) return
+  const { sessionId } = resolved
+  const existingTimer = thinkingTimers.get(sessionId)
+  if (existingTimer) clearTimeout(existingTimer)
+  const timer = setTimeout(() => {
+    thinkingTimers.delete(sessionId)
+    const existing = presenceCursors.get(sessionId)
     if (!existing || existing.activity === 'idle') return
-    const activeTask = activePresenceTasks.get(resolved.sessionId)
+    const activeTask = activePresenceTasks.get(sessionId)
     if (activeTask) {
       activeTask.updatedAt = Date.now()
     }
-    presenceCursors.set(resolved.sessionId, {
+    presenceCursors.set(sessionId, {
       ...existing,
       activity: 'thinking',
       labelKey: 'thinking',
@@ -501,6 +526,7 @@ export function scheduleThinkingState(request: IncomingMessage): void {
     schedulePresenceExpiry()
     notifyPresenceChanged()
   }, PRESENCE_CURSOR_THINKING_DELAY_MS)
+  thinkingTimers.set(sessionId, timer)
 }
 
 export function allEntityPositions(): Array<{ x: number; y: number }> {
@@ -585,7 +611,7 @@ export function movePresenceCursorTo(
   notifyPresenceChanged()
 }
 
-/** Stagger an operation across positions in the background. Cancellable via activeScanId. */
+/** Stagger an operation across positions in the background. Cancellable per-session via activeScanIds. */
 export function staggerOperation(
   request: IncomingMessage,
   items: Array<{ x: number; y: number }>,
@@ -593,13 +619,16 @@ export function staggerOperation(
   perform: (index: number) => void,
 ): void {
   if (items.length === 0) return
-  const scanId = bumpActiveScanId()
+  const resolved = resolveSession(request)
+  if (!resolved) return
+  const { sessionId } = resolved
+  const scanId = bumpActiveScanId(sessionId)
   void (async () => {
     for (let i = 0; i < items.length; i++) {
-      if (activeScanId !== scanId) return
+      if (currentScanId(sessionId) !== scanId) return
       movePresenceCursorTo(request, items[i].x, items[i].y, labelKey)
       await delay(PRESENCE_CURSOR_STEP_DELAY_MS)
-      if (activeScanId !== scanId) return
+      if (currentScanId(sessionId) !== scanId) return
       upsertPresenceCursor(request, {
         canvasX: items[i].x,
         canvasY: items[i].y,

@@ -463,9 +463,11 @@ export function updatePresenceCursor(
   if (url === '/session/presence') return
   if (url === '/session/presence/intent') return
   if (url.startsWith('/mcp/session/')) return
-  bumpActiveScanId()
 
   const resolved = resolveSession(request, body)
+  // Scoped to this session so one agent's mutation can never cancel another
+  // concurrent session's in-flight scan animation (issue #319 Phase 4).
+  if (resolved) bumpActiveScanId(resolved.sessionId)
   const pageId = derivePageId(url, body)
   const labelKey = deriveLabelKey(url, method)
   const existingCursor = resolved ? presenceCursors.get(resolved.sessionId) : null

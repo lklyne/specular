@@ -240,8 +240,17 @@ interface CdpResolution {
   pageUrl: string
 }
 
+// Matches cdpProxyKey (cdp-proxy.ts) — the ws URL a session gets back is
+// specific to that session's CDP proxy registration, so the cache key must
+// include sessionId too. A pageId-only key would hand a second session the
+// first session's per-session ws URL.
+function cdpUrlCacheKey(pageId: string): string {
+  return `${sessionId}::${pageId}`
+}
+
 async function resolveCdpUrl(pageId: string): Promise<CdpResolution> {
-  const cached = cdpUrlCache.get(pageId)
+  const cacheKey = cdpUrlCacheKey(pageId)
+  const cached = cdpUrlCache.get(cacheKey)
   if (cached && cached.expires > Date.now()) {
     return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl }
   }
@@ -249,7 +258,7 @@ async function resolveCdpUrl(pageId: string): Promise<CdpResolution> {
     `/pages/${pageId}/cdp-target`,
   )
   const pageUrl = result.url ?? ''
-  cdpUrlCache.set(pageId, {
+  cdpUrlCache.set(cacheKey, {
     wsUrl: result.webSocketDebuggerUrl,
     pageUrl,
     expires: Date.now() + CDP_CACHE_TTL_MS,
@@ -257,8 +266,14 @@ async function resolveCdpUrl(pageId: string): Promise<CdpResolution> {
   return { wsUrl: result.webSocketDebuggerUrl, pageUrl }
 }
 
+/** Callers pass bare pageIds (e.g. on navigation); delete every cache entry
+ *  for that pageId regardless of which session owns it. */
 export function invalidateCdpCache(pageIds: string[]): void {
-  for (const id of pageIds) cdpUrlCache.delete(id)
+  const targets = new Set(pageIds)
+  for (const key of cdpUrlCache.keys()) {
+    const pageId = key.slice(key.indexOf('::') + 2)
+    if (targets.has(pageId)) cdpUrlCache.delete(key)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -511,12 +526,16 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   return withPageLock(pageId, async () => {
     const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(pageId)
     const abPath = resolveAgentBrowserPath()
-    // One agent-browser daemon per page. Without --session, a single daemon
-    // pins the first --cdp URL it saw and silently ignores subsequent --cdp
-    // values — upstream bug in agent-browser (CLI skips `launch` when daemon
-    // is already running; daemon's relaunch check doesn't compare cdp_url).
-    // Keying by pageId sidesteps both gates.
-    const sessionFlags = ['--session', pageId]
+    // One agent-browser daemon per (session, page). Without --session, a
+    // single daemon pins the first --cdp URL it saw and silently ignores
+    // subsequent --cdp values — upstream bug in agent-browser (CLI skips
+    // `launch` when daemon is already running; daemon's relaunch check
+    // doesn't compare cdp_url). Keying by pageId alone sidesteps that gate
+    // but reintroduces it across sessions: two concurrent specular sessions
+    // driving the same page would share one daemon and one pinned --cdp
+    // URL, so the key includes sessionId to give each session its own
+    // daemon.
+    const sessionFlags = ['--session', `${sessionId}:${pageId}`]
 
     // Fire presence intent (non-blocking). Include pageId so the cursor
     // follows the page we're actually driving — otherwise the server-side
