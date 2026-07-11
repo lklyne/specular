@@ -3,6 +3,7 @@ import {
   PRESENCE_BURST_STEP_DELAY_MS,
   PRESENCE_BURST_WINDOW_MS,
   PRESENCE_STEP_DELAY_MS,
+  computeDwellRemainingMs,
   selectDwellBudgetMs,
 } from '../../src/shared/presence-timing'
 
@@ -37,6 +38,32 @@ describe('selectDwellBudgetMs', () => {
   for (const { label, msSinceLastAct, expected } of cases) {
     it(`${label} -> ${expected}ms`, () => {
       expect(selectDwellBudgetMs(msSinceLastAct)).toBe(expected)
+    })
+  }
+})
+
+// Issue #319 Phase 5: computeDwellRemainingMs is the max(0, budget - elapsed)
+// math `waitForPresenceDwell` (app-control-server.ts) used to inline. Kept
+// event-shaped (plain timestamps) so it ports unchanged to the future
+// presence event timeline (ADR 0029).
+describe('computeDwellRemainingMs', () => {
+  const cases: Array<{
+    label: string
+    lastMoveAt: number
+    budgetMs: number
+    now: number
+    expected: number
+  }> = [
+    { label: 'no time elapsed', lastMoveAt: 1_000, budgetMs: 300, now: 1_000, expected: 300 },
+    { label: 'partway through the budget', lastMoveAt: 1_000, budgetMs: 300, now: 1_100, expected: 200 },
+    { label: 'exactly-elapsed budget', lastMoveAt: 1_000, budgetMs: 300, now: 1_300, expected: 0 },
+    { label: 'elapsed past the budget', lastMoveAt: 1_000, budgetMs: 300, now: 1_500, expected: 0 },
+    { label: 'zero budget', lastMoveAt: 1_000, budgetMs: 0, now: 1_000, expected: 0 },
+  ]
+
+  for (const { label, lastMoveAt, budgetMs, now, expected } of cases) {
+    it(`${label} -> ${expected}ms`, () => {
+      expect(computeDwellRemainingMs(lastMoveAt, budgetMs, now)).toBe(expected)
     })
   }
 })

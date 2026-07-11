@@ -72,3 +72,14 @@ export function selectDwellBudgetMs(msSinceLastAct: number | null): number {
   return PRESENCE_STEP_DELAY_MS
 }
 
+/**
+ * The remaining pre-act dwell (ms) `waitForPresenceDwell` should sleep
+ * before dispatching, given when the cursor last repositioned toward this
+ * act's target. Event-shaped (`lastMoveAt`/`now` timestamps, not a
+ * `PresenceCursorEntry` read) so #319 Phase 5's event-timeline choreography
+ * can port it unchanged (ADR 0029, "Future path: presence event timeline").
+ */
+export function computeDwellRemainingMs(lastMoveAt: number, budgetMs: number, now: number): number {
+  return Math.max(0, budgetMs - (now - lastMoveAt))
+}
+

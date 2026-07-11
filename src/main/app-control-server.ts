@@ -30,7 +30,8 @@ import {
   computeDwellBudgetMs,
   recordPresenceAct,
 } from './presence-cursor'
-import { pagePointMatchesTargetRect } from '../shared/presence-targeting'
+import { shouldSkipReposition } from '../shared/presence-targeting'
+import { computeDwellRemainingMs } from '../shared/presence-timing'
 import {
   type CdpProxyRegistration,
   type CdpClientBridge,
@@ -378,14 +379,15 @@ export async function startAppControlServer(): Promise<void> {
     }
 
     const waitForPresenceDwell = async (sessionId: string | null | undefined): Promise<void> => {
+      const now = Date.now()
       const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
-      const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
       // Read the budget stashed on the cursor by the reposition that
       // preceded this call (adaptive dwell, ADR 0029) rather than
       // recomputing it here — that keeps this wait and the broadcast the
       // renderer caps travel against numerically identical.
       const budget = cursor?.dwellBudgetMs ?? PRESENCE_CURSOR_STEP_DELAY_MS
-      const remaining = Math.max(0, budget - elapsed)
+      const lastMoveAt = cursor ? cursor.lastMoveAt : now
+      const remaining = computeDwellRemainingMs(lastMoveAt, budget, now)
       cdpProxyMetrics.dwellWaitMsTotal += remaining
       cdpProxyMetrics.dwellWaitCount += 1
       if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining))
@@ -414,12 +416,14 @@ export async function startAppControlServer(): Promise<void> {
 
       const existing = presenceCursors.get(sessionId)
       if (existing && existing.pageId === registration.pageId) {
-        const withinRect = pagePointMatchesTargetRect(existing.pageX, existing.pageY, rect, 0)
-        const canvasDistance = Math.hypot(
-          resolved.canvasX - existing.canvasX,
-          resolved.canvasY - existing.canvasY,
-        )
-        if (withinRect || canvasDistance < PRESENCE_CURSOR_POSITION_SKIP_PX) return
+        const skip = shouldSkipReposition({
+          clickPoint: { x: existing.pageX, y: existing.pageY },
+          targetRect: rect,
+          cursorCanvasPoint: { x: existing.canvasX, y: existing.canvasY },
+          clickCanvasPoint: { x: resolved.canvasX, y: resolved.canvasY },
+          skipDistancePx: PRESENCE_CURSOR_POSITION_SKIP_PX,
+        })
+        if (skip) return
       }
 
       upsertPresenceCursor(request, {
@@ -611,15 +615,13 @@ export async function startAppControlServer(): Promise<void> {
                 : undefined
               if (existing && existing.pageId === registration.pageId) {
                 const rect = existing.targetRect
-                const withinTargetRect =
-                  rect != null && pagePointMatchesTargetRect(x, y, rect, 0)
-                const canvasDistance = Math.hypot(
-                  resolved.canvasX - existing.canvasX,
-                  resolved.canvasY - existing.canvasY,
-                )
-                skipPosition =
-                  withinTargetRect ||
-                  canvasDistance < PRESENCE_CURSOR_POSITION_SKIP_PX
+                skipPosition = shouldSkipReposition({
+                  clickPoint: { x, y },
+                  targetRect: rect,
+                  cursorCanvasPoint: { x: existing.canvasX, y: existing.canvasY },
+                  clickCanvasPoint: { x: resolved.canvasX, y: resolved.canvasY },
+                  skipDistancePx: PRESENCE_CURSOR_POSITION_SKIP_PX,
+                })
                 // Amortization scoreboard: only counts when a prior travel
                 // step (selector pre-resolution or box-model pre-move) had
                 // actually predicted a target — a click with no predicted
