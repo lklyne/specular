@@ -158,30 +158,9 @@ the single shape every verb compiles to:
 No `id` → create. `id` present → update. `id` in `delete` → remove. Applied in
 one transaction.
 
-```bash
-# Create three pages in a row at breakpoints
-cat << 'EOF' | specular apply
-{
-  "layout": { "kind": "row", "gap": "m", "originX": 200, "originY": 200 },
-  "entities": [
-    {"kind":"page","url":"https://example.com","presetIndex":0},
-    {"kind":"page","url":"https://example.com","presetIndex":3},
-    {"kind":"page","url":"https://example.com","presetIndex":6}
-  ]
-}
-EOF
-
-# Reorganize 6 existing pages into a 3x2 grid
-cat << 'EOF' | specular apply
-{
-  "layout": { "kind": "grid", "cols": 3, "gap": "m", "near": "frame_a" },
-  "entities": [
-    {"id":"frame_a"}, {"id":"frame_b"}, {"id":"frame_c"},
-    {"id":"frame_d"}, {"id":"frame_e"}, {"id":"frame_f"}
-  ]
-}
-EOF
-```
+See [references/apply.md](references/apply.md) for worked examples — batch
+page creation at breakpoints, reorganizing existing entities into a grid,
+batch wireframe placement.
 
 The `layout` directive takes a `kind` (`row` / `column` / `grid`), a `gap`
 (token or pixel number), and an anchor (`originX`/`originY`, `near: <id>`, or
@@ -280,13 +259,7 @@ When you encounter new gaps, append them to the tracking issue (see below).
 - **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
 - **`update <pageId> --url` lags `workspace`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular workspace` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → workspace` chain.
-- **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells. Select cells by address through the Name box, not by ref. The sub-bullets below are Google Sheets specifics observed at time of writing — treat them as a starting point, not a guarantee, for other canvas-rendered grids.
-  - No focusable input exists on the active cell until edit mode — `keyboard type`, `keyboard inserttext`, and `press` write nothing to a selected cell.
-  - The only reliable write path: `click` the formula bar (it becomes a combobox in edit mode) → `type` the value → `press Enter`. One cell per call.
-  - Native autocomplete can hijack the Enter-commit — pre-clear the column before typing into it.
-  - Focus trap: after committing, focus stays in the formula-bar combobox. `click` the Name box between cells; skip it and the next navigation silently no-ops.
-  - A hidden screen-reader textbox can silently swallow input and still report "✓ Done" — treat that as a false success and verify with a screenshot.
-  - General: most silent failures in these apps also report "✓ Done" — success is only observable via a screenshot round-trip.
+- **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells, so snapshots can never target cells. Before driving Sheets, read [references/google-sheets.md](references/google-sheets.md) — it has the one write path that works (Name box → formula bar) and the focus traps that silently eat input while reporting "✓ Done".
 
 ## Tracking issue (localhost sessions)
 
