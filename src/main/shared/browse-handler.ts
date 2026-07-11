@@ -390,7 +390,7 @@ export function resolveAgentBrowserPath(): string {
 export function spawnAsync(
   cmd: string,
   args: string[],
-  opts: { timeout: number; input?: string; maxBuffer?: number; cwd?: string },
+  opts: { timeout: number; input?: string; maxBuffer?: number; cwd?: string; allowNonZeroExit?: boolean },
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
@@ -429,7 +429,7 @@ export function spawnAsync(
       clearTimeout(timer)
       const stdout = Buffer.concat(stdoutChunks).toString('utf-8')
       const stderr = Buffer.concat(stderrChunks).toString('utf-8')
-      if (code !== 0) {
+      if (code !== 0 && !opts.allowNonZeroExit) {
         reject(new Error(stderr || stdout || `Process exited with code ${code}`))
       } else {
         resolve({ stdout, stderr })
@@ -549,19 +549,33 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       const hasWait = parts.some(p => parseCommandArgs(p).verb === 'wait')
       const timeoutMs = hasWait ? 60_000 : 30_000
 
-      const { stdout } = await spawnAsync(
+      // batch exits non-zero as soon as any command in the chain fails (it
+      // still writes the full per-command JSON array to stdout). The exit code
+      // is redundant — success/failure is encoded per entry — so read stdout
+      // regardless and let the loop below report each failure with its hint.
+      // Rejecting on the exit code instead would throw away exactly the
+      // per-command failures (stale refs, missing elements) this path exists
+      // to surface.
+      const { stdout, stderr } = await spawnAsync(
         abPath,
         [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'batch', '--json', '--bail'],
-        { timeout: timeoutMs, input: batchInput },
+        { timeout: timeoutMs, input: batchInput, allowNonZeroExit: true },
       )
 
-      // Parse batch JSON results
-      const results = JSON.parse(stdout) as Array<{
+      // Parse batch JSON results. A genuine batch-level failure (e.g. CDP
+      // connect refused) produces no JSON array — surface its stderr rather
+      // than a cryptic parse error.
+      let results: Array<{
         command: string[]
         success: boolean
         error: string | null
         result: Record<string, unknown>
       }>
+      try {
+        results = JSON.parse(stdout)
+      } catch {
+        throw new Error(stderr || stdout || 'batch produced no parseable output')
+      }
 
       const contentBlocks: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = []
 
