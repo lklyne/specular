@@ -325,24 +325,14 @@ exactly two: the `sharedTexture` module and MediaStreams.
 
 ### 2.G Measure before building: we have never traced this
 
-Nothing in the codebase uses `contentTracing`. Every hypothesis above
-(raster storm vs surface churn vs browser-CPU vs Viz aggregation) is separable
-in one trace. Recipe, verified against Chromium's
-[debug-janks doc](https://github.com/chromium/chromium/blob/main/docs/speed/debug-janks.md):
+Every hypothesis above (raster storm vs surface churn vs browser-CPU vs Viz
+aggregation) is separable in one trace. Methodology verified against Chromium's
+[debug-janks doc](https://github.com/chromium/chromium/blob/main/docs/speed/debug-janks.md).
 
-```ts
-// main, dev-only command
-import { contentTracing } from 'electron'
-await contentTracing.startRecording({
-  included_categories: [
-    'viz', 'cc', 'gpu', 'benchmark', 'toplevel', 'toplevel.flow',
-    'input', 'latency', 'sequence_manager', 'graphics.pipeline',
-    'electron', 'disabled-by-default-devtools.timeline.frame',
-  ],
-})
-// ... perform a 5s zoom gesture on a 20-page canvas ...
-const path = await contentTracing.stopRecording()
-```
+**Shipped:** `src/main/perf-trace.ts`, menu item **View → Record Performance
+Trace** (`Cmd+Alt+Shift+P`), available in packaged builds. Toggle, perform the
+gesture, toggle again (auto-stops after 30s); the Chrome-JSON trace lands in
+the logs folder and is revealed in Finder.
 
 Open the JSON in ui.perfetto.dev and compare, during the gesture:
 - **`CrBrowserMain` toplevel task lengths** — main-process cost (setBounds loop,
