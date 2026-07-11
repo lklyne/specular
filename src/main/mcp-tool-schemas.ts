@@ -70,7 +70,7 @@ Kind-specific fields:
   page — url, presetIndex, canvasX, canvasY, orientation, showDeviceFrame (default true), groupId
   text  — text (Markdown), color (hex "#RRGGBB" or preset 1-6: red/orange/yellow/green/cyan/purple), canvasX, canvasY, width, height
   file  — file (absolute path), subpath, canvasX, canvasY, width, height
-         Files ending in .wireframe.json render as interactive wireframe editors (see SKILL.md for schema).
+         Files ending in .wireframe.json render as interactive wireframe editors (schema: the specular skill's references/wireframes.md).
 
 Page presets (presetIndex → device):
   0: iPhone SE (375×667, mobile)     3: iPad Mini (744×1133)       6: Laptop (1280×800)

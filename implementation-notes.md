@@ -273,6 +273,28 @@ user-requested):
   grids"), avoiding collision with Specular's own canvas concept and
   honestly scoping the dogfood observations.
 
+### Skill restructure follow-up (separate session, user-requested)
+
+Evaluated the specular skill against skill-writing guidance
+(mattpocock/skills `writing-great-skills`) and applied the accepted findings:
+
+- **Bug:** `references/wireframes.md` still taught the legacy `upsert --json`
+  door with manual canvasX/canvasY — contradicting SKILL.md's own `add file` /
+  `apply` surface. Rewritten (`add file`, anchorless `apply` layout patch);
+  verified against `cli-commands.ts` and the file-kind handler.
+- Progressive disclosure: the Google Sheets recipe (§E) moved to
+  `references/google-sheets.md` (pointer stays in Known CLI limitations); the
+  two `apply` heredoc examples moved to `references/apply.md`. Patch shape,
+  layout-directive rules, spacing tokens, and all stale-ref guidance stay
+  inline. Shipped SKILL.md: 304 → 277 lines.
+- Mirror policy re-examined and kept: the repo-local copy serves in-repo /
+  cloud agents on the current branch; a symlink can't carry the dev-only
+  tracking-issue block (which must not ship). Copies verified to diverge only
+  in that block.
+- `mcp-tool-schemas.ts` upsert_entities description now points wireframe
+  schema at `references/wireframes.md` (was "see SKILL.md", stale even
+  before the split).
+
 ## Open items resolution
 
 1. Exact stale-ref error text — **needs live check**; kept the verb+ref heuristic per issue fallback.
