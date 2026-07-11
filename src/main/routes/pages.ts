@@ -68,26 +68,25 @@ export const pageRoutes: Route[] = [
     },
   },
   {
-    // D8 (issue #318): records the navigation generation an agent snapshot
-    // saw. The baseline lives on the main-process Page object because the
-    // `specular` CLI runs one fresh process per command — CLI-side state
-    // can't survive the snapshot→mutate loop the staleness check spans.
+    // D8 (issue #318): marks that an agent snapshot of this page just
+    // completed. The baseline lives on the main-process Page object because
+    // the `specular` CLI runs one fresh process per command — CLI-side state
+    // can't survive the snapshot→mutate loop the staleness check spans. The
+    // route stamps the page's own current navGeneration rather than trusting
+    // a client-supplied number: a long-lived client (the MCP server) reads
+    // generations through a 60s cache, and a stale-low baseline would fire
+    // false staleness warnings on fresh snapshots.
     method: 'POST',
     pattern: /^\/pages\/([^/]+)\/snapshot-seen$/,
-    async handler({ response, params, body }) {
+    async handler({ response, params }) {
       const pageId = decodeURIComponent(params[0])
       const page = findPageById(pageId)
       if (!page) {
         writeJson(response, 404, { error: `Page not found: ${pageId}` })
         return
       }
-      const generation = (body as { generation?: unknown })?.generation
-      if (typeof generation !== 'number' || !Number.isFinite(generation)) {
-        writeJson(response, 400, { error: 'generation is a required number' })
-        return
-      }
-      page.lastAgentSnapshotGeneration = generation
-      writeJson(response, 200, { ok: true })
+      page.lastAgentSnapshotGeneration = page.navGeneration
+      writeJson(response, 200, { ok: true, generation: page.navGeneration })
     },
   },
   {

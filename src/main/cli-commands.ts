@@ -1,7 +1,7 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
 import { callApp } from './shared/app-client'
-import { handleBrowse, shellQuote, spawnAsync, resolveAgentBrowserPath } from './shared/browse-handler'
+import { handleBrowse, shellQuote, spawnAsync, resolveAgentBrowserPath, BLOCKED_BROWSE_VERBS } from './shared/browse-handler'
 import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
@@ -588,25 +588,10 @@ function stripSpecularFlags(argv: string[]): string[] {
   return out
 }
 
-// Passthrough verbs that would fight Specular for ownership of browser
-// lifecycle or the page entity's URL. Specular already owns page creation
-// (`add page`), teardown (`delete`), and — since a CDP-driven navigation
-// never writes back to the page entity's Y.Doc URL (see page-factory.ts's
-// `did-navigate` handler) — navigation (`update --url`). Blocking these
-// up front gives an actionable error instead of a confusing agent-browser
-// failure or a silent divergence between the live page and the saved .canvas.
-const BLOCKED_PASSTHROUGH_VERBS: Record<string, string> = {
-  launch: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
-  connect: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
-  close: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
-  quit: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
-  install: 'the agent-browser driver is bundled with Specular.',
-  upgrade: 'the agent-browser driver is bundled with Specular.',
-  open: "a CDP-driven navigation doesn't update the page entity's URL in the workspace; use `specular update PAGE_ID --url <url>` instead.",
-}
-
 const browsePassthrough: VerbHandler = async (args) => {
-  const blockReason = BLOCKED_PASSTHROUGH_VERBS[args.verb]
+  // handleBrowse enforces the blocklist too (it's the shared choke point for
+  // CLI and MCP); checking here as well fails fast without page resolution.
+  const blockReason = BLOCKED_BROWSE_VERBS[args.verb]
   if (blockReason) {
     printError(`specular ${args.verb}: blocked — ${blockReason}`)
     return 1

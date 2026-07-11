@@ -14,7 +14,11 @@
  * The `POST /pages/:id/snapshot-seen` block guards the other half of D8:
  * the snapshot-time baseline must land on the main-process Page object,
  * because every `specular` CLI invocation is a fresh process — a baseline
- * held CLI-side would be gone before the mutation that needs it.
+ * held CLI-side would be gone before the mutation that needs it. The route
+ * stamps the page's own CURRENT navGeneration (it ignores any client body):
+ * a long-lived client (the MCP server) reads generations through a 60s
+ * cache, and a stale-low client-supplied baseline would fire false
+ * staleness warnings on fresh snapshots.
  *
  * Mutation-verified by: deleting `page.navGeneration += 1` from the
  * `did-navigate` handler in src/main/runtime/page-factory.ts — "bumps the
@@ -22,10 +26,9 @@
  * the dedicated `dom-ready` listener block in the same file — "bumps the
  * generation on dom-ready" fails (generation stays at 0 instead of
  * incrementing before did-navigate ever fires, which is the HMR case this
- * counter exists to approximate); and by deleting
- * `page.lastAgentSnapshotGeneration = generation` from the snapshot-seen
- * route in src/main/routes/pages.ts — "records the baseline on the runtime
- * page object" fails (field stays undefined).
+ * counter exists to approximate); and by changing the snapshot-seen route
+ * in src/main/routes/pages.ts to stamp a constant instead of
+ * `page.navGeneration` — "stamps the page's current navGeneration" fails.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -133,32 +136,26 @@ describe('POST /pages/:id/snapshot-seen (D8 baseline)', () => {
 
   afterAll(() => harness?.dispose())
 
-  it('records the baseline on the runtime page object', async () => {
+  it("stamps the page's current navGeneration, ignoring any client-supplied number", async () => {
     const pageId = createPage()
     await settleSync()
-    expect(findPageById(pageId)?.lastAgentSnapshotGeneration).toBeUndefined()
+    const page = findPageById(pageId)!
+    expect(page.lastAgentSnapshotGeneration).toBeUndefined()
+    page.pageView.webContents.emit('did-navigate', {}, 'https://example.com/next')
+    page.pageView.webContents.emit('dom-ready')
 
-    const { status, json } = await invoke(pageId, { generation: 3 })
+    const { status, json } = await invoke(pageId, { generation: 999 })
 
     expect(status).toBe(200)
     expect(json.ok).toBe(true)
-    expect(findPageById(pageId)?.lastAgentSnapshotGeneration).toBe(3)
+    expect(page.lastAgentSnapshotGeneration).toBe(page.navGeneration)
+    expect(page.lastAgentSnapshotGeneration).toBe(2)
   })
 
   it('404s for an unknown page without recording anything', async () => {
-    const { status, json } = await invoke('page_nope', { generation: 1 })
+    const { status, json } = await invoke('page_nope', {})
 
     expect(status).toBe(404)
     expect(json.error).toContain('page_nope')
-  })
-
-  it('400s a non-numeric generation and leaves the baseline untouched', async () => {
-    const pageId = createPage()
-    await settleSync()
-
-    const { status } = await invoke(pageId, { generation: 'three' })
-
-    expect(status).toBe(400)
-    expect(findPageById(pageId)?.lastAgentSnapshotGeneration).toBeUndefined()
   })
 })

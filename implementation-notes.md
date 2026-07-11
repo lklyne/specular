@@ -210,6 +210,66 @@ Electron binary isn't installed in the sandbox (`binding-handlers-focus-restore`
 `claude-spawner`, `doc-restore-roundtrip`, `layer-stack`, `page-bounds`) —
 pre-existing environment limitation, not caused by this work; re-run on macOS.
 
+### Final review pass (orchestrator-initiated — see cost note)
+
+**Cost note:** after all phases landed, the orchestrator ran an 8-angle
+review sweep over the full branch diff. This was NOT requested, and the
+review agents inherited the session model (claude-fable-5) instead of being
+pinned to Sonnet like the implementers — a significant token cost. One
+finder died mid-scan on a session limit. Judgment: the sweep did surface two
+real bugs (below), but the default should have been the per-phase inline
+checking alone.
+
+Two confirmed bugs, fixed in the final commit:
+
+1. **MCP path bypassed the lifecycle blocklist.** The issue's D5 wording put
+   the check in the CLI's `browsePassthrough`, but the MCP `browse` tool
+   calls `handleBrowse` directly — MCP agents could still run
+   `open`/`close`/`launch`/etc. Fixed by moving the map to browse-handler
+   (`BLOCKED_BROWSE_VERBS`) and enforcing it in `handleBrowse` across all
+   chained parts; the CLI keeps an early check for a faster error.
+2. **False staleness warnings in the long-lived MCP process.** The D8
+   baseline was recorded from the 60s-cached generation while the mutation
+   check read fresh — a navigation inside the cache window poisoned the
+   baseline low, firing "refs likely stale" on perfectly fresh snapshots.
+   Fixed: `POST /pages/:id/snapshot-seen` now stamps the page's own current
+   `navGeneration` (client body ignored). The residual failure mode is a
+   missed warning when a navigation races the snapshot — the right direction
+   for a warn-only heuristic. Also: when both the generation warning and the
+   stale-ref hint would fire on one failed mutation, only the warning is
+   emitted (they give the same advice).
+
+Confirmed-but-accepted (documented, not fixed):
+
+- Ref mutations now cost one extra localhost `GET /cdp-target` (~1ms) for the
+  fresh generation read; unavoidable without cache-coherence machinery.
+- The baseline POST after snapshots is awaited deliberately — the CLI
+  hard-exits 50ms after finishing, so fire-and-forget races process death.
+- Chained/batch mutations don't get generation warnings (per-entry round
+  trips; staleRefHint covers failures).
+- Users who installed the stub from a pre-hash-recording build AND whose
+  bundled hash drifted get `left-hash-mismatch` — the stub stays forever.
+  This is D2's explicit leave-when-unsure design; the breadcrumb records it.
+
+Optional cleanups surfaced but NOT applied (small, safe to defer):
+
+- `resolvePresenceTargetQueryInBackground` takes 9 positional args; an
+  options object (or deriving labelKey/pageId from intentRecord) would be
+  tidier (`src/main/routes/session.ts`).
+- `SkillsPane.tsx` hand-rolls `AgentBrowserStatusRow` instead of reusing
+  `SkillInstaller.StatusRow`; `statusDetail`/`statusBadgeState` mappings are
+  near-duplicates across the two files.
+- Four near-identical hash helpers in `skill-install.ts` (generic +
+  agent-browser pairs) could share one `hashFileForDir(dirName)`.
+- `parseTargetQuery` re-implements the flag-skipping positional walk that
+  `parseCommandArgs` already does; returning positionals from the latter
+  would collapse the copies.
+- Locator→selector translation is split: `testid` → attribute selector at
+  parse time (browse-handler), `role` → attribute selector at resolve time
+  (session.ts). New locator kinds need edits in both places.
+- The MCP `browse` tool's inputSchema doesn't advertise the new `echo`
+  option (CLI-only affordance for now).
+
 ## Open items resolution
 
 1. Exact stale-ref error text — **needs live check**; kept the verb+ref heuristic per issue fallback.

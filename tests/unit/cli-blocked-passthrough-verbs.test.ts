@@ -1,5 +1,5 @@
-// Mutation-verified: temporarily emptied BLOCKED_PASSTHROUGH_VERBS in
-// src/main/cli-commands.ts and confirmed every case below fails — dispatch()
+// Mutation-verified: temporarily emptied BLOCKED_BROWSE_VERBS in
+// src/main/shared/browse-handler.ts and confirmed every case below fails — dispatch()
 // returns 0 instead of 1, no actionable-error text is written to stderr, and
 // (for the `launch` case) the child_process.spawn mock below throws because
 // the blocked verb fell through to the real agent-browser passthrough.
@@ -51,7 +51,7 @@ describe('blocked passthrough verbs', () => {
   }
 
   it('does not block unrelated passthrough verbs', () => {
-    // `eval` isn't in BLOCKED_PASSTHROUGH_VERBS — this only pins the
+    // `eval` isn't in BLOCKED_BROWSE_VERBS — this only pins the
     // blocklist to the documented set so it can't silently grow.
     const blockedVerbs = cases.map((c) => c.verb)
     expect(blockedVerbs).not.toContain('eval')
