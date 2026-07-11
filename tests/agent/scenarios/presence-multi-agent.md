@@ -62,10 +62,9 @@ presence identities from one shell.
 
 ## Notes
 
-- If Phase 0/Phase 4 have not yet landed on this branch, Part B is expected
-  to fail — that is the point of keeping it as a scenario: it stays red
-  until the daemon-key fix ships, then becomes the regression test that
-  keeps it fixed.
+- The Phase 4 fixes (session-scoped daemon key, cdpUrlCache, clientName
+  eviction) shipped with issue #319 — Part B is the regression net that
+  keeps them fixed. A Part B failure means one of those regressed.
 - Use the HTTP control server (`GET /session/presence`) for verification,
   not just visual screenshots — attribution is precisely what the visible
   cursor position can be ambiguous about with two cursors close together.
