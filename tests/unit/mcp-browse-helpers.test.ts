@@ -4,6 +4,7 @@ import {
   shellQuote,
   splitChainedCommands,
   parseCommandArgs,
+  parseScrollTarget,
   staleGenerationWarning,
 } from '../../src/main/mcp-browse'
 
@@ -154,6 +155,29 @@ describe('staleGenerationWarning', () => {
     expect(warning).toContain('page changed since your last snapshot')
     expect(warning).toContain('refs likely stale')
     expect(warning).toContain('specular snapshot -i -f page_42')
-    expect(warning).toContain('text=/CSS selector')
+    expect(warning).toContain('CSS selector or find text')
+  })
+})
+
+describe('parseScrollTarget', () => {
+  const parse = (cmd: string) => parseScrollTarget(parseCommandArgs(cmd))
+
+  it('returns the ref for ref-targeted mutations', () => {
+    expect(parse('click @e5')).toBe('@e5')
+  })
+
+  it('returns CSS selectors for selector-targeted mutations', () => {
+    expect(parse('click "#submit"')).toBe('#submit')
+    expect(parse('fill "input[name=email]" hello')).toBe('input[name=email]')
+  })
+
+  it('skips text= locators (no scrollintoview text syntax)', () => {
+    expect(parse('click "text=Sign in"')).toBeNull()
+  })
+
+  it('skips non-mutation verbs and targetless commands', () => {
+    expect(parse('snapshot -i')).toBeNull()
+    expect(parse('scroll down')).toBeNull()
+    expect(parse('click')).toBeNull()
   })
 })

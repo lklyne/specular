@@ -208,6 +208,25 @@ export function parseTargetQuery(cmd: string): PresenceTargetQuery | null {
   return { selector: target, text: null, name: null }
 }
 
+/**
+ * The pre-mutation auto-scroll target: an `@eN` ref or a CSS selector.
+ * `text=` locators return null — agent-browser's `scrollintoview` (verified
+ * against v0.31.1) accepts refs and CSS selectors but has no text locator
+ * syntax. Best-effort either way: `click` itself auto-scrolls, so a skipped
+ * pre-scroll degrades gracefully.
+ */
+export function parseScrollTarget(parsed: {
+  verb: string | null
+  ref: string | null
+  positionals: string[]
+}): string | null {
+  if (!parsed.verb || !MUTATION_VERBS.has(parsed.verb)) return null
+  if (parsed.ref) return parsed.ref
+  const target = parsed.positionals[0]
+  if (!target || target.startsWith('text=')) return null
+  return target
+}
+
 // ---------------------------------------------------------------------------
 // CDP cache
 // ---------------------------------------------------------------------------
@@ -533,15 +552,13 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (isChained) {
       // ---- Chained commands: use batch --json --bail ----
       const parts = chainedParts
-      // Auto-scroll refs into view before mutations. Ref-only: whether
-      // agent-browser's scrollintoview accepts CSS/text selectors (not just
-      // @eN refs) is unverified against the pinned binary, so selector
-      // targets skip the pre-scroll rather than risk an unsupported call.
+      // Auto-scroll mutation targets into view first (refs and CSS
+      // selectors; see parseScrollTarget for why text= targets are skipped).
       const expanded: string[][] = []
       for (const p of parts) {
-        const parsed = parseCommandArgs(p)
-        if (parsed.verb && MUTATION_VERBS.has(parsed.verb) && parsed.ref) {
-          expanded.push(['scrollintoview', parsed.ref])
+        const scrollTarget = parseScrollTarget(parseCommandArgs(p))
+        if (scrollTarget) {
+          expanded.push(['scrollintoview', scrollTarget])
         }
         expanded.push(splitShellArgs(p))
       }
@@ -643,7 +660,8 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     }
 
     // ---- Single command ----
-    const { argv } = parseCommandArgs(rawCommand)
+    const singleParsed = parseCommandArgs(rawCommand)
+    const { argv } = singleParsed
     const timeoutMs = verb === 'wait' ? 60_000 : 30_000
 
     // D8: for a mutation, check whether the page has navigated since the
@@ -659,12 +677,13 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       }
     }
 
-    // Auto-scroll ref into view before mutations (ref-only — see the chained
-    // path above for why selector targets don't get this treatment).
-    if (verb && MUTATION_VERBS.has(verb) && ref) {
+    // Auto-scroll the mutation target into view first (refs and CSS
+    // selectors; see parseScrollTarget for why text= targets are skipped).
+    const scrollTarget = parseScrollTarget(singleParsed)
+    if (scrollTarget) {
       await spawnAsync(
         abPath,
-        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', ref],
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', scrollTarget],
         { timeout: 5_000 },
       ).catch(() => {}) // Best-effort — don't fail the click if scroll fails
     }

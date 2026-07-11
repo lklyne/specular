@@ -8,6 +8,7 @@ export {
   splitChainedCommands,
   parseCommandArgs,
   parseTargetQuery,
+  parseScrollTarget,
   invalidateCdpCache,
   resolveAgentBrowserPath,
   spawnAsync,
