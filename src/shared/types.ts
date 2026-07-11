@@ -8,6 +8,7 @@ import type {
 import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
+import type { AmbientDriftMode } from './presence-ambient'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { ToolDefaultPatch } from './tool-defaults'
@@ -596,6 +597,13 @@ export interface AgentPresenceCursor {
    *  fires mid-flight. Absent (or null) before the first act — callers
    *  should fall back to the full step-delay budget. */
   dwellBudgetMs?: number | null
+  /** Which ambient motion, if any, applies while this cursor sits in the
+   *  inter-command gap (issue #319 Phase 3, `selectAmbientMode` in
+   *  `presence-ambient.ts`). Derived server-side from activity and the
+   *  session's last real intent — main never mutates position for this,
+   *  the renderer composites the offset visually on top of the spline
+   *  (ADR 0029 rule 4: no speculative pre-positioning). */
+  ambientMode: AmbientDriftMode
 }
 
 export interface AgentSnapshotNode {

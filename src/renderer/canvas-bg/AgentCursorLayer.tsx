@@ -17,6 +17,7 @@ import {
 import { foldSpline } from '../../shared/cursor-spline'
 import { pagePointMatchesTargetRect } from '../../shared/presence-targeting'
 import { PRESENCE_STEP_DELAY_MS } from '../../shared/presence-timing'
+import { ambientDriftOffset, sessionAmbientSeed } from '../../shared/presence-ambient'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
@@ -269,6 +270,15 @@ interface CursorAnim {
   startedAt: number
   duration: number
   target: Vec2
+  // Ambient drift (issue #319 Phase 3) — a visual-only offset composited on
+  // top of `point`, never fed back into it. `seed` is stable per session so
+  // a cursor's wander is reproducible; `ambientModeStartedAt` is the RAF
+  // clock time the mode most recently switched on, so `ambientDriftOffset`
+  // always starts its ramp from zero instead of popping onto an arbitrary
+  // point on the wander curve.
+  seed: number
+  ambientMode: AgentPresenceCursor['ambientMode']
+  ambientModeStartedAt: number
 }
 
 interface AnimatedCursor {
@@ -288,7 +298,8 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
 
   useEffect(() => {
     const anims = animsRef.current
-    let installedSpline = false
+    let needsRaf = false
+    const rafNow = performance.now()
     for (const c of cursors) {
       const target: Vec2 = { x: c.canvasX, y: c.canvasY }
       const existing = anims.get(c.sessionId)
@@ -300,9 +311,22 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
           startedAt: 0,
           duration: 0,
           target,
+          seed: sessionAmbientSeed(c.sessionId),
+          ambientMode: c.ambientMode,
+          ambientModeStartedAt: c.ambientMode !== 'none' ? rafNow : 0,
         })
+        if (c.ambientMode !== 'none') needsRaf = true
         continue
       }
+      // Real motion always wins: entering/leaving/switching ambient modes
+      // just restarts the wander clock, never touches `point`/`spline`, so
+      // a spline in flight is never fought (ADR 0029: never retro-animate,
+      // never fight the spline).
+      if (existing.ambientMode !== c.ambientMode) {
+        existing.ambientMode = c.ambientMode
+        existing.ambientModeStartedAt = c.ambientMode !== 'none' ? rafNow : 0
+      }
+      if (existing.ambientMode !== 'none') needsRaf = true
       const dx = target.x - existing.point.x
       const dy = target.y - existing.point.y
       if (Math.abs(dx) < POSITION_EPSILON && Math.abs(dy) < POSITION_EPSILON) {
@@ -315,35 +339,44 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
       existing.startedAt = 0
       existing.duration = travelDurationMs(spline.totalLength, c.dwellBudgetMs)
       existing.target = target
-      installedSpline = true
+      needsRaf = true
     }
     const active = new Set(cursors.map((c) => c.sessionId))
     for (const id of anims.keys()) {
       if (!active.has(id)) anims.delete(id)
     }
-    if (installedSpline && rafIdRef.current === 0) {
+    if (needsRaf && rafIdRef.current === 0) {
       const tick = () => {
         let advanced = false
         let stillLive = false
         const now = performance.now()
         for (const anim of animsRef.current.values()) {
-          if (!anim.spline) continue
-          if (anim.startedAt === 0) anim.startedAt = now
-          const progress =
-            anim.duration <= 0
-              ? 1
-              : Math.min(1, (now - anim.startedAt) / anim.duration)
-          const sample = anim.spline.sampleT(
-            easeAt(DEFAULT_CURSOR_MOTION.easing, progress),
-          )
-          anim.point = sample.position
-          anim.tangent = sample.tangent
-          if (progress >= 1) {
-            anim.point = anim.target
-            anim.spline = null
+          if (anim.spline) {
+            if (anim.startedAt === 0) anim.startedAt = now
+            const progress =
+              anim.duration <= 0
+                ? 1
+                : Math.min(1, (now - anim.startedAt) / anim.duration)
+            const sample = anim.spline.sampleT(
+              easeAt(DEFAULT_CURSOR_MOTION.easing, progress),
+            )
+            anim.point = sample.position
+            anim.tangent = sample.tangent
+            if (progress >= 1) {
+              anim.point = anim.target
+              anim.spline = null
+            }
+            advanced = true
           }
-          advanced = true
           if (anim.spline) stillLive = true
+          // Ambient drift has no terminal state — it keeps the RAF loop
+          // alive for as long as the cursor sits in the inter-command gap,
+          // and every tick is a re-render so the offset (computed fresh
+          // below from `performance.now()`) stays current.
+          if (anim.ambientMode !== 'none') {
+            advanced = true
+            stillLive = true
+          }
         }
         if (advanced) setTick((t) => t + 1)
         rafIdRef.current = stillLive ? requestAnimationFrame(tick) : 0
@@ -364,9 +397,18 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
 
   return cursors.map((c) => {
     const anim = animsRef.current.get(c.sessionId)
+    const base = anim?.point ?? { x: c.canvasX, y: c.canvasY }
+    // Ambient drift composites visually on top of the truthful spline
+    // position and is never fed back into `anim.point` or any server call —
+    // ADR 0029 rule 4 (no speculative pre-positioning) and the dwell budget
+    // (`waitForPresenceDwell` in app-control-server.ts) both depend on the
+    // real `canvasX`/`canvasY` never being touched by this.
+    const drift = anim
+      ? ambientDriftOffset(anim.seed, performance.now() - anim.ambientModeStartedAt, anim.ambientMode)
+      : { x: 0, y: 0 }
     return {
       cursor: c,
-      point: anim?.point ?? { x: c.canvasX, y: c.canvasY },
+      point: { x: base.x + drift.x, y: base.y + drift.y },
       isAnimating: !!anim?.spline,
     }
   })

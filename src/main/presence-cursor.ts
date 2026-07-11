@@ -61,6 +61,15 @@ export interface PresenceCursorEntry {
   // broadcast the renderer reads from agree on the same number (ADR 0029:
   // "the renderer must finish travel within the dwell").
   dwellBudgetMs: number | null
+  // The most recent labelKey representing a real agent intent (i.e. not
+  // the synthetic 'thinking'/'idle'/'departing' states `scheduleThinkingState`
+  // and `setPresenceCursorIdle` write). Those two overwrite `labelKey` so
+  // the visible label reads "Thinking…"/nothing, which would otherwise
+  // erase what the agent was actually doing right before the gap started.
+  // Preserved across that overwrite (see `withLastIntentLabelKey`) so
+  // `selectAmbientMode` (issue #319 Phase 3, presence-ambient.ts) can tell
+  // a reading gap from a generic thinking gap.
+  lastIntentLabelKey: PresenceLabelKey | null
 }
 
 export interface ActivePresenceTask {
@@ -115,6 +124,21 @@ const PRESENCE_ACTIVITIES = new Set<PresenceActivity>([
 ])
 
 const PRESENCE_SURFACES = new Set<PresenceSurface>(['canvas', 'page'])
+
+// The synthetic labelKeys `scheduleThinkingState`/`setPresenceCursorIdle`
+// write over a cursor's real labelKey. Excluded from
+// `lastIntentLabelKey` tracking — see that field's doc comment.
+const SYNTHETIC_PRESENCE_LABEL_KEYS = new Set<PresenceLabelKey>(['thinking', 'idle', 'departing'])
+
+/** Next value for `lastIntentLabelKey`: adopt `labelKey` if it's a real
+ *  intent, otherwise carry forward whatever the cursor already had. */
+function withLastIntentLabelKey(
+  existing: PresenceCursorEntry | undefined,
+  labelKey: PresenceLabelKey | null | undefined,
+): PresenceLabelKey | null {
+  if (labelKey && !SYNTHETIC_PRESENCE_LABEL_KEYS.has(labelKey)) return labelKey
+  return existing?.lastIntentLabelKey ?? null
+}
 
 let thinkingTimer: NodeJS.Timeout | null = null
 export let activeScanId = 0
@@ -371,6 +395,7 @@ export function upsertPresenceCursor(
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
     lastActAt: existing?.lastActAt ?? null,
+    lastIntentLabelKey: withLastIntentLabelKey(existing, patch.labelKey),
   }
 
   presenceCursors.set(sessionId, next)
@@ -554,6 +579,7 @@ export function movePresenceCursorTo(
     labelKey,
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing.lastMoveAt,
+    lastIntentLabelKey: withLastIntentLabelKey(existing, labelKey),
   }
   presenceCursors.set(resolved.sessionId, next)
   notifyPresenceChanged()
