@@ -43,3 +43,32 @@ export const PRESENCE_INTENT_TTL_MS = 2_000
  *  delta instantly, so the page motion reads as continuous like the cursor. */
 export const PRESENCE_SCROLL_ANIMATION_MS = 300
 
+/** Below this gap since the session's last real CDP act (mouse press,
+ *  scroll), the session is treated as mid-burst rather than coming out of
+ *  an LLM thinking pause. */
+export const PRESENCE_BURST_WINDOW_MS = 1_000
+
+/** Pre-act dwell budget while mid-burst. The user is already watching
+ *  continuous cursor motion, so a small dwell reads as free — and it caps
+ *  the resolve→dispatch coordinate-staleness race window (ADR 0029) that
+ *  the dwell itself widens. */
+export const PRESENCE_BURST_STEP_DELAY_MS = 120
+
+/**
+ * Regime selection for the pre-act dwell (ADR 0029). After a gap of
+ * `msSinceLastAct` since the session's last real dispatch, decide how much
+ * of the full dwell budget to pay before the next mutating input event
+ * dispatches: the short burst budget mid-sequence, or the full budget after
+ * a thinking pause, where it's perceptually free.
+ *
+ * Pure and event-shaped (`msSinceLastAct`, not a `PresenceCursorEntry`
+ * read) so #319 Phase 5's event-timeline choreography can port it
+ * unchanged (ADR 0029, "Future path: presence event timeline").
+ */
+export function selectDwellBudgetMs(msSinceLastAct: number | null): number {
+  if (msSinceLastAct !== null && msSinceLastAct < PRESENCE_BURST_WINDOW_MS) {
+    return PRESENCE_BURST_STEP_DELAY_MS
+  }
+  return PRESENCE_STEP_DELAY_MS
+}
+

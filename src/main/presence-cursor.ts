@@ -11,6 +11,7 @@ import type {
 import {
   PRESENCE_STEP_DELAY_MS,
   PRESENCE_THINKING_DELAY_MS,
+  selectDwellBudgetMs,
 } from '../shared/presence-timing'
 import { PRESENCE_LABEL_KEYS } from '../shared/presence-label-keys'
 import {
@@ -51,6 +52,15 @@ export interface PresenceCursorEntry {
   // CDP-proxy pre-click sleep so the budget resets when the cursor is
   // actually repositioned (not just re-tagged).
   lastMoveAt: number
+  // Wall-clock time of the session's last real CDP dispatch (mouse press,
+  // scroll) — the burst/gap signal `selectDwellBudgetMs` regimes on (ADR
+  // 0029). Set by `recordPresenceAct`, independent of position changes.
+  lastActAt: number | null
+  // The dwell budget (ms) selected for the act currently in flight, stashed
+  // on the cursor when it repositions so the CDP-proxy wait and the
+  // broadcast the renderer reads from agree on the same number (ADR 0029:
+  // "the renderer must finish travel within the dwell").
+  dwellBudgetMs: number | null
 }
 
 export interface ActivePresenceTask {
@@ -273,6 +283,7 @@ const MERGED_CURSOR_FIELDS = [
   'targetRefSource',
   'targetName',
   'targetRect',
+  'dwellBudgetMs',
 ] as const
 
 /** Task fields merged patch-over-existing-over-null. */
@@ -307,6 +318,7 @@ export function upsertPresenceCursor(
     targetRefSource?: PresenceTargetRefSource | null
     targetName?: string | null
     targetRect?: PresenceTargetRect | null
+    dwellBudgetMs?: number | null
   },
 ): void {
   const resolved = resolveSession(request, patch.body)
@@ -338,6 +350,7 @@ export function upsertPresenceCursor(
     targetRefSource: null,
     targetName: null,
     targetRect: null,
+    dwellBudgetMs: null,
     ...pickDefined(existing, MERGED_CURSOR_FIELDS),
     ...pickDefined(patch, MERGED_CURSOR_FIELDS),
     sessionId,
@@ -357,11 +370,34 @@ export function upsertPresenceCursor(
         : patch.labelHint,
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
+    lastActAt: existing?.lastActAt ?? null,
   }
 
   presenceCursors.set(sessionId, next)
   schedulePresenceExpiry()
   notifyPresenceChanged()
+}
+
+/** The dwell budget (ms) the CDP proxy should pay before the next act on
+ *  `sessionId` — burst-short if the session's last real dispatch landed
+ *  inside the burst window, full otherwise (ADR 0029). Callers repositioning
+ *  the cursor ahead of a dwell should stash this on the patch so the
+ *  broadcast and the actual wait agree on the same number. */
+export function computeDwellBudgetMs(sessionId: string | null | undefined): number {
+  const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
+  const msSinceLastAct = cursor?.lastActAt != null ? Date.now() - cursor.lastActAt : null
+  return selectDwellBudgetMs(msSinceLastAct)
+}
+
+/** Marks `sessionId`'s most recent real CDP dispatch (mouse press, scroll)
+ *  — the regime signal `computeDwellBudgetMs` reads back on the next act.
+ *  Mutates the cursor entry in place rather than going through
+ *  `upsertPresenceCursor`, since this isn't a reposition or a re-tag. */
+export function recordPresenceAct(sessionId: string | null | undefined): void {
+  if (!sessionId) return
+  const existing = presenceCursors.get(sessionId)
+  if (!existing) return
+  existing.lastActAt = Date.now()
 }
 
 export function upsertActivePresenceTask(

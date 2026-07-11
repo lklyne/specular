@@ -590,6 +590,12 @@ export interface AgentPresenceCursor {
   targetName?: string | null
   targetRect?: PresenceTargetRect | null
   updatedAt: number
+  /** The pre-act dwell budget (ms) main selected for the act currently in
+   *  flight (ADR 0029 adaptive dwell). The renderer caps travel duration at
+   *  this value so motion never outlives the server-side dwell and the act
+   *  fires mid-flight. Absent (or null) before the first act — callers
+   *  should fall back to the full step-delay budget. */
+  dwellBudgetMs?: number | null
 }
 
 export interface AgentSnapshotNode {

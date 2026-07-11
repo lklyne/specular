@@ -440,6 +440,7 @@ export function buildCanvasLayoutData(
       targetName: c.targetName,
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
+      dwellBudgetMs: c.dwellBudgetMs,
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
     interactivePageId: interactivePageId(),

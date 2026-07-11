@@ -27,6 +27,8 @@ import {
   presenceCursors,
   PRESENCE_CURSOR_STEP_DELAY_MS,
   PRESENCE_CURSOR_POSITION_SKIP_PX,
+  computeDwellBudgetMs,
+  recordPresenceAct,
 } from './presence-cursor'
 import { pagePointMatchesTargetRect } from '../shared/presence-targeting'
 import {
@@ -378,7 +380,12 @@ export async function startAppControlServer(): Promise<void> {
     const waitForPresenceDwell = async (sessionId: string | null | undefined): Promise<void> => {
       const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
       const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
-      const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
+      // Read the budget stashed on the cursor by the reposition that
+      // preceded this call (adaptive dwell, ADR 0029) rather than
+      // recomputing it here — that keeps this wait and the broadcast the
+      // renderer caps travel against numerically identical.
+      const budget = cursor?.dwellBudgetMs ?? PRESENCE_CURSOR_STEP_DELAY_MS
+      const remaining = Math.max(0, budget - elapsed)
       cdpProxyMetrics.dwellWaitMsTotal += remaining
       cdpProxyMetrics.dwellWaitCount += 1
       if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining))
@@ -425,6 +432,7 @@ export async function startAppControlServer(): Promise<void> {
         canvasY: resolved.canvasY,
         activity: 'traveling',
         targetRect: rect,
+        dwellBudgetMs: computeDwellBudgetMs(sessionId),
       })
     }
     bridge.onRectResolved = maybePreMovePresenceCursor
@@ -644,6 +652,7 @@ export async function startAppControlServer(): Promise<void> {
                   }),
               activity: 'acting',
               labelKey: cdpType === 'mouseMoved' ? undefined : 'click_target',
+              dwellBudgetMs: computeDwellBudgetMs(registration.sessionId),
             })
           }
           if (cdpType === 'mousePressed') {
@@ -685,6 +694,7 @@ export async function startAppControlServer(): Promise<void> {
 
             await wc.debugger.sendCommand('Input.dispatchMouseEvent', params)
             cdpProxyMetrics.interceptedClicks += cdpType === 'mouseMoved' ? 0 : 1
+            if (cdpType === 'mousePressed') recordPresenceAct(registration.sessionId)
 
             if (id !== null) sendToClient(JSON.stringify({ id, result: {} }))
           } catch (error) {
@@ -733,6 +743,7 @@ export async function startAppControlServer(): Promise<void> {
           pageY: y,
           activity: 'acting',
           labelKey: 'scroll_page',
+          dwellBudgetMs: computeDwellBudgetMs(registration.sessionId),
         })
         await waitForPresenceDwell(registration.sessionId)
         try {
@@ -747,6 +758,7 @@ export async function startAppControlServer(): Promise<void> {
             return
           }
           cdpProxyMetrics.interceptedScrolls += 1
+          recordPresenceAct(registration.sessionId)
           cdpProxyLog('timing', 'intercept-scroll-wheel', {
             token: registration.token,
             pageId: registration.pageId,
@@ -772,6 +784,7 @@ export async function startAppControlServer(): Promise<void> {
           pageY: y,
           activity: 'acting',
           labelKey: 'scroll_page',
+          dwellBudgetMs: computeDwellBudgetMs(registration.sessionId),
         })
         await waitForPresenceDwell(registration.sessionId)
         try {
@@ -786,6 +799,7 @@ export async function startAppControlServer(): Promise<void> {
             return
           }
           cdpProxyMetrics.interceptedScrolls += 1
+          recordPresenceAct(registration.sessionId)
           cdpProxyLog('timing', 'intercept-scroll-gesture', {
             token: registration.token,
             pageId: registration.pageId,

@@ -7,16 +7,16 @@ import type {
 import { labelForPresenceCursor } from '../../shared/agent-presence'
 import {
   DEFAULT_CURSOR_MOTION,
-  DISTANCE_SCALE_REFERENCE_PX,
   easeAt,
   type Vec2,
 } from '../../shared/cursor-motion'
+import {
+  DEFAULT_CURSOR_TUNING,
+  distanceSpeedScale,
+} from '../../shared/cursor-tuning'
 import { foldSpline } from '../../shared/cursor-spline'
 import { pagePointMatchesTargetRect } from '../../shared/presence-targeting'
-import {
-  PRESENCE_TRAVEL_MS,
-  PRESENCE_STEP_DELAY_MS,
-} from '../../shared/presence-timing'
+import { PRESENCE_STEP_DELAY_MS } from '../../shared/presence-timing'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
 import {
   CURSOR_TRAIL_OFFSET,
@@ -24,22 +24,34 @@ import {
   type PresenceParticleCursor,
 } from '../shared/PresenceParticleTrail'
 
-const ANIMATE_DURATION_MS = PRESENCE_TRAVEL_MS
-// Short hops complete faster, longer hops cap at ANIMATE_DURATION_MS, so the
-// pre-click dwell budget grows when the cursor only needs to travel a few px.
+// Floor so a sub-pixel hop still reads as motion instead of a snap.
 const MIN_ANIMATE_DURATION_MS = 60
-const PRODUCTION_CURSOR_MOTION = {
-  ...DEFAULT_CURSOR_MOTION,
-  durationMs: ANIMATE_DURATION_MS,
-  distanceScaling: 0,
-}
 const POSITION_EPSILON = 0.5
 
-function animationDurationForDistance(distance: number): number {
-  if (distance <= 0) return 0
-  if (distance >= DISTANCE_SCALE_REFERENCE_PX) return ANIMATE_DURATION_MS
-  const scaled = ANIMATE_DURATION_MS * (distance / DISTANCE_SCALE_REFERENCE_PX)
-  return Math.max(MIN_ANIMATE_DURATION_MS, scaled)
+/**
+ * Travel duration for a hop of `lengthPx` along the folded spline, using the
+ * same speed model as the debug playground (speed = baseSpeedPxS *
+ * distanceSpeedScale(length)) so long hops read at a plausible walking pace
+ * instead of stretching or compressing to a fixed duration.
+ *
+ * Capped at `dwellBudgetMs` — the server's pre-act dwell budget for the act
+ * this hop is traveling toward (ADR 0029 adaptive dwell). Without the cap, a
+ * long hop under the short burst-regime budget would let travel outlive the
+ * dwell and the act would fire mid-flight, breaking visible causality.
+ * `dwellBudgetMs` is absent before a session's first act; PRESENCE_STEP_DELAY_MS
+ * is the pre-adaptive-dwell fallback.
+ */
+function travelDurationMs(
+  lengthPx: number,
+  dwellBudgetMs: number | null | undefined,
+): number {
+  if (lengthPx <= 0) return 0
+  const speedScale = distanceSpeedScale(DEFAULT_CURSOR_TUNING, lengthPx)
+  const effectiveSpeedPxS = DEFAULT_CURSOR_TUNING.baseSpeedPxS * speedScale
+  const speedBasedMs =
+    effectiveSpeedPxS > 0 ? (lengthPx / effectiveSpeedPxS) * 1000 : Infinity
+  const capMs = dwellBudgetMs ?? PRESENCE_STEP_DELAY_MS
+  return Math.max(MIN_ANIMATE_DURATION_MS, Math.min(speedBasedMs, capMs))
 }
 
 function activityStyle(activity: PresenceActivity): CSSProperties {
@@ -298,9 +310,10 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
         existing.spline = null
         continue
       }
-      existing.spline = foldSpline(existing.point, existing.tangent, [target])
+      const spline = foldSpline(existing.point, existing.tangent, [target])
+      existing.spline = spline
       existing.startedAt = 0
-      existing.duration = animationDurationForDistance(Math.hypot(dx, dy))
+      existing.duration = travelDurationMs(spline.totalLength, c.dwellBudgetMs)
       existing.target = target
       installedSpline = true
     }
@@ -321,7 +334,7 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
               ? 1
               : Math.min(1, (now - anim.startedAt) / anim.duration)
           const sample = anim.spline.sampleT(
-            easeAt(PRODUCTION_CURSOR_MOTION.easing, progress),
+            easeAt(DEFAULT_CURSOR_MOTION.easing, progress),
           )
           anim.point = sample.position
           anim.tangent = sample.tangent
