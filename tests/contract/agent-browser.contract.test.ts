@@ -19,11 +19,14 @@
  * why and how to run it for real — see BINARY_AVAILABLE below.
  */
 import { describe, it, expect } from 'vitest'
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createServer, type Server } from 'node:http'
-import { existsSync, accessSync, constants as fsConstants, readFileSync } from 'node:fs'
+import { existsSync, accessSync, constants as fsConstants, readFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { WebSocket as NodeWebSocket, WebSocketServer } from 'ws'
 import { GLOBAL_AB_FLAGS } from '../../src/main/shared/browse-handler'
+import { extractRectFromCdpResult } from '../../src/main/cdp-proxy'
 
 // ---------------------------------------------------------------------------
 // Binary resolution + skip banner
@@ -133,6 +136,142 @@ const UNREACHABLE_CDP = 'ws://127.0.0.1:1/no-such-target'
 // prints the actual output on failure) since the exact wording is upstream's
 // to change.
 const UNKNOWN_FLAG_PATTERN = /unknown|unrecognized|unexpected argument|wasn't expected|invalid value/i
+
+// ---------------------------------------------------------------------------
+// Ref-resolution CDP shape capture (issue #319, Phase 1) — helpers.
+//
+// agent-browser's own `open` command (used by the other live checks above)
+// launches and owns its browser process internally; nothing external gets
+// its CDP websocket URL, so there is no traffic to intercept. Instead this
+// check launches a real headless Chrome itself and fronts its browser-level
+// CDP websocket with a small relaying proxy ("shim"), then points
+// agent-browser at the shim via `--cdp` — the same arrangement
+// src/main/cdp-proxy.ts uses in production (client <-> proxy <-> real
+// browser ws). The shim only relays and records; it owns no app state.
+// ---------------------------------------------------------------------------
+
+function findChromeExecutable(): string | null {
+  const candidates = [
+    process.env.SPECULAR_CONTRACT_CHROME_PATH,
+    process.env.CHROME_PATH,
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+  ].filter((path): path is string => Boolean(path))
+  for (const candidate of candidates) {
+    if (existsSync(candidate) && isExecutable(candidate)) return candidate
+  }
+  return null
+}
+
+async function findFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createServer()
+    probe.on('error', reject)
+    probe.listen(0, '127.0.0.1', () => {
+      const address = probe.address()
+      probe.close(() => {
+        if (address && typeof address === 'object') resolve(address.port)
+        else reject(new Error('failed to find a free port'))
+      })
+    })
+  })
+}
+
+async function waitForChromeVersionInfo(
+  port: number,
+  timeoutMs: number,
+): Promise<{ webSocketDebuggerUrl: string }> {
+  const deadline = Date.now() + timeoutMs
+  let lastError: unknown
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json/version`)
+      if (response.ok) {
+        const info = (await response.json()) as { webSocketDebuggerUrl?: string }
+        if (info.webSocketDebuggerUrl) return { webSocketDebuggerUrl: info.webSocketDebuggerUrl }
+      }
+    } catch (err) {
+      lastError = err
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(`probe Chrome did not become ready on port ${port} within ${timeoutMs}ms: ${String(lastError)}`)
+}
+
+async function openChromeTab(port: number, url: string): Promise<void> {
+  const response = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' })
+  if (!response.ok) {
+    throw new Error(`failed to open a tab in the probe Chrome (${response.status})`)
+  }
+}
+
+interface CdpFrame {
+  direction: 'toUpstream' | 'toClient'
+  payload: Record<string, unknown>
+}
+
+/** Relays a client (agent-browser) websocket to a real browser-level CDP
+ *  websocket, recording every JSON frame that passes through in either
+ *  direction. Deliberately dumb — no correlation, no filtering — the test
+ *  itself does the interpretation, exactly as production `cdp-proxy.ts`
+ *  keeps sniffing (recordPendingRectRequest / extractRectFromCdpResult)
+ *  separate from relaying. */
+function startCdpProxyShim(upstreamUrl: string): Promise<{
+  wsUrl: string
+  frames: CdpFrame[]
+  close: () => Promise<void>
+}> {
+  return new Promise((resolve, reject) => {
+    const frames: CdpFrame[] = []
+    const wss = new WebSocketServer({ port: 0, host: '127.0.0.1' })
+    wss.once('error', reject)
+    wss.once('listening', () => {
+      const address = wss.address()
+      if (!address || typeof address !== 'object') {
+        reject(new Error('shim proxy failed to bind'))
+        return
+      }
+      wss.on('connection', (clientSocket) => {
+        const upstreamSocket = new NodeWebSocket(upstreamUrl)
+        const pendingToUpstream: string[] = []
+        upstreamSocket.on('open', () => {
+          for (const message of pendingToUpstream.splice(0)) upstreamSocket.send(message)
+        })
+        clientSocket.on('message', (raw) => {
+          const text = raw.toString()
+          try {
+            frames.push({ direction: 'toUpstream', payload: JSON.parse(text) })
+          } catch {
+            // Non-JSON frame (shouldn't happen for CDP) — still relay it.
+          }
+          if (upstreamSocket.readyState === NodeWebSocket.OPEN) upstreamSocket.send(text)
+          else pendingToUpstream.push(text)
+        })
+        upstreamSocket.on('message', (raw) => {
+          const text = raw.toString()
+          try {
+            frames.push({ direction: 'toClient', payload: JSON.parse(text) })
+          } catch {
+            // Non-JSON frame — still relay it.
+          }
+          if (clientSocket.readyState === NodeWebSocket.OPEN) clientSocket.send(text)
+        })
+        clientSocket.on('close', () => upstreamSocket.close())
+        upstreamSocket.on('close', () => clientSocket.close())
+      })
+      resolve({
+        wsUrl: `ws://127.0.0.1:${address.port}/devtools/browser/contract-shim`,
+        frames,
+        close: () =>
+          new Promise<void>((res) => {
+            for (const client of wss.clients) client.close()
+            wss.close(() => res())
+          }),
+      })
+    })
+  })
+}
 
 describe.skipIf(!BINARY_AVAILABLE)(`agent-browser contract (pinned ${PINNED_VERSION})`, () => {
   // -------------------------------------------------------------------------
@@ -395,6 +534,159 @@ describe.skipIf(!BINARY_AVAILABLE)(`agent-browser contract (pinned ${PINNED_VERS
       } finally {
         await run(['--session', sessionName, 'close']).catch(() => {})
         server?.close()
+      }
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Ref-resolution CDP shape (issue #319, Phase 1) — cdp-proxy.ts's
+  // recordPendingRectRequest/extractRectFromCdpResult sniff the CDP bridge
+  // for DOM.getBoxModel / Runtime.callFunctionOn request/response pairs so
+  // the presence cursor can pre-position before the click's
+  // Input.dispatchMouseEvent arrives. That sniff assumes agent-browser
+  // resolves an @eN ref to a rect using one of those two methods, in that
+  // shape, before dispatching the click. If a future binary bump changes the
+  // element-resolution strategy (different method, different response
+  // shape), the pre-move head start dies silently — no error, just a cursor
+  // that always pays the full dwell. This pins the assumption against the
+  // real binary.
+  // -------------------------------------------------------------------------
+  describe('ref-resolution CDP shape (live browser, click on @eN ref)', () => {
+    it('issues DOM.getBoxModel or Runtime.callFunctionOn (parseable by extractRectFromCdpResult) before Input.dispatchMouseEvent(mousePressed)', async (ctx) => {
+      if (!LIVE_BROWSER_CHECKS) {
+        console.warn(
+          'SKIPPING ref-resolution CDP shape check: set AGENT_BROWSER_CONTRACT_LIVE=1 to run it. ' +
+          'It launches a real headless Chrome and fronts its CDP websocket with a relaying proxy ' +
+          'to capture traffic — unverifiable in this sandbox (no binary, no Chrome) — run it for ' +
+          'real on macOS with the fetched binary.',
+        )
+        ctx.skip()
+        return
+      }
+
+      const chromePath = findChromeExecutable()
+      if (!chromePath) {
+        console.warn(
+          'SKIPPING ref-resolution CDP shape check: no Chrome/Chromium executable found. Set ' +
+          'SPECULAR_CONTRACT_CHROME_PATH (or CHROME_PATH) to a Chrome/Chromium binary, or install ' +
+          'Google Chrome, to run this for real.',
+        )
+        ctx.skip()
+        return
+      }
+
+      let server: Server | undefined
+      let chrome: ChildProcessWithoutNullStreams | undefined
+      let shim: { wsUrl: string; frames: CdpFrame[]; close: () => Promise<void> } | undefined
+      let userDataDir: string | undefined
+      const sessionName = 'contract-test-ref-resolution'
+      try {
+        // A moving-nothing static page is enough here — the assertion is
+        // about *what CDP calls precede the click*, not about staleness
+        // races (that's tests/agent/scenarios/presence-staleness.md).
+        const html = '<!doctype html><html><body style="margin:40px"><button id="go" style="width:120px;height:40px">Go</button></body></html>'
+        const port = await new Promise<number>((resolve, reject) => {
+          server = createServer((_req, res) => {
+            res.writeHead(200, { 'content-type': 'text/html' })
+            res.end(html)
+          })
+          server.on('error', reject)
+          server.listen(0, '127.0.0.1', () => {
+            const address = server!.address()
+            if (address && typeof address === 'object') resolve(address.port)
+            else reject(new Error('failed to bind local test server'))
+          })
+        })
+        const pageUrl = `http://127.0.0.1:${port}/`
+
+        const chromePort = await findFreePort()
+        userDataDir = mkdtempSync(join(tmpdir(), 'specular-contract-chrome-'))
+        chrome = spawn(chromePath, [
+          '--headless=new',
+          '--disable-gpu',
+          '--no-first-run',
+          '--no-default-browser-check',
+          `--remote-debugging-port=${chromePort}`,
+          `--user-data-dir=${userDataDir}`,
+          'about:blank',
+        ]) as ChildProcessWithoutNullStreams
+        chrome.on('error', () => {}) // surfaced via waitForChromeVersionInfo's timeout instead
+
+        const { webSocketDebuggerUrl } = await waitForChromeVersionInfo(chromePort, 15_000)
+        await openChromeTab(chromePort, pageUrl)
+
+        shim = await startCdpProxyShim(webSocketDebuggerUrl)
+
+        const snapshot = await run(
+          [...GLOBAL_AB_FLAGS, '--session', sessionName, '--cdp', shim.wsUrl, 'snapshot', '-i'],
+          { timeoutMs: 15_000 },
+        )
+        expect(snapshot.code, `snapshot exited non-zero.\nstdout: ${snapshot.stdout}\nstderr: ${snapshot.stderr}`).toBe(0)
+        const refMatch = snapshot.stdout.match(/\[ref=(e\d+)\]/)
+        expect(refMatch, `no [ref=eN] token found in snapshot output:\n${snapshot.stdout}`).toBeTruthy()
+        const ref = refMatch![1]
+
+        const framesBeforeClick = shim.frames.length
+        const click = await run(
+          [...GLOBAL_AB_FLAGS, '--session', sessionName, '--cdp', shim.wsUrl, 'click', `@${ref}`],
+          { timeoutMs: 15_000 },
+        )
+        expect(click.code, `click exited non-zero.\nstdout: ${click.stdout}\nstderr: ${click.stderr}`).toBe(0)
+
+        const clickFrames = shim.frames.slice(framesBeforeClick)
+        const mousePressedIndex = clickFrames.findIndex((frame) => {
+          if (frame.direction !== 'toUpstream') return false
+          if (frame.payload.method !== 'Input.dispatchMouseEvent') return false
+          const params = frame.payload.params as Record<string, unknown> | undefined
+          return params?.type === 'mousePressed'
+        })
+        expect(
+          mousePressedIndex,
+          `no Input.dispatchMouseEvent(mousePressed) frame observed during the click:\n${JSON.stringify(clickFrames, null, 2)}`,
+        ).toBeGreaterThanOrEqual(0)
+
+        const requestsBeforeClick = clickFrames.slice(0, mousePressedIndex).filter(
+          (frame) =>
+            frame.direction === 'toUpstream' &&
+            (frame.payload.method === 'DOM.getBoxModel' || frame.payload.method === 'Runtime.callFunctionOn'),
+        )
+        expect(
+          requestsBeforeClick.length,
+          `expected a DOM.getBoxModel or Runtime.callFunctionOn request before mousePressed — the exact ` +
+          `CDP shape src/main/cdp-proxy.ts's recordPendingRectRequest sniffs for. Observed frames:\n` +
+          `${JSON.stringify(clickFrames, null, 2)}`,
+        ).toBeGreaterThan(0)
+
+        // Every such request must have a response extractRectFromCdpResult
+        // can actually parse into a rect — cdp-proxy.ts's pre-move head
+        // start is dead weight otherwise, even if the method name matches.
+        let parsedAtLeastOneRect = false
+        for (const request of requestsBeforeClick) {
+          const requestId = request.payload.id
+          const method = request.payload.method as string
+          const response = clickFrames.find(
+            (frame) => frame.direction === 'toClient' && frame.payload.id === requestId,
+          )
+          if (!response) continue
+          const rect = extractRectFromCdpResult(method, response.payload.result)
+          if (rect) {
+            parsedAtLeastOneRect = true
+            expect(rect.width, `parsed rect had non-positive width: ${JSON.stringify(rect)}`).toBeGreaterThan(0)
+            expect(rect.height, `parsed rect had non-positive height: ${JSON.stringify(rect)}`).toBeGreaterThan(0)
+          }
+        }
+        expect(
+          parsedAtLeastOneRect,
+          `none of the DOM.getBoxModel/Runtime.callFunctionOn responses before mousePressed were parseable ` +
+          `by extractRectFromCdpResult — the sniffed shape has drifted from what the binary actually emits. ` +
+          `Observed frames:\n${JSON.stringify(clickFrames, null, 2)}`,
+        ).toBe(true)
+      } finally {
+        await run(['--session', sessionName, 'close']).catch(() => {})
+        await shim?.close().catch(() => {})
+        chrome?.kill('SIGKILL')
+        server?.close()
+        if (userDataDir) rmSync(userDataDir, { recursive: true, force: true })
       }
     })
   })
