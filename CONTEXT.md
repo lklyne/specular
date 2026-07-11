@@ -212,6 +212,14 @@ Scheme resolution is a three-layer chain: **OS appearance → app theme mode →
 - **Page color scheme override** — per-page `colorScheme` (`'light'` | `'dark'`, absent = inherit). Persisted top-level on the page's link node (alongside `presetIndex` — link-node fields predate the `specular: {}` convention), synced/undoable like any page field, carried through duplicate and copy-paste. Enforced via CDP `Emulation.setEmulatedMedia` in the layout pass (`page-color-scheme.ts`) since webContents has no native per-guest scheme API; absent means *no override*, so the page follows theme changes live. Set from the page popup (single) or the multi-entity pane (2+ pages, indeterminate when mixed).
 - **Guest scrollbar CSS** — a user-origin stylesheet injected into every page webContents (`page-scrollbar-css.ts`) making root scrollbars thin and `prefers-color-scheme`-aware. Exists because device emulation makes Blink paint root scrollbars from the page's *declared* color-scheme only, so undeclared pages got thick light scrollbars in dark mode. User origin keeps page-author scrollbar styling winning.
 
+## Agent presence
+
+Agent sessions render as live cursors on the canvas so a watching user can follow what an agent is doing. The causality rules are load-bearing — see [ADR 0029](./docs/adr/0029-presence-acts-anchored-to-truth.md).
+
+- **Presence cursor** — the per-session animated cursor (color, position, activity, label) derived from CLI/MCP/HTTP activity. Main owns the state (`presence-cursor.ts`, `presence-manager.ts`); the renderer (`AgentCursorLayer`, in the `agent-layer` child window) only plays it back. Ephemeral: never persisted, expires on idle.
+- **Pre-act dwell** — the bounded pause the CDP proxy inserts before dispatching a mutating input event, so the cursor visibly arrives before the page reacts (`waitForPresenceDwell`; budget in `presence-timing.ts`). The single synchronization point between presence and truth: acts anchor to real dispatch time, reads are never delayed, causality is never retro-animated (ADR 0029).
+- **Presence intent** — the non-blocking head-start the CLI fires before spawning agent-browser (`/session/presence/intent`). Re-resolving targets (CSS / `text=` / `find role|testid`) resolve in the background via `findPresenceTarget` so the cursor pre-travels and the residual dwell at dispatch approaches zero; opaque `@eN` refs cannot pre-travel and pay more of the dwell.
+
 ## Cloud sync & sharing
 
 Proposed, not yet built — see [ADR 0018](./docs/adr/0018-cloud-sync-and-canvas-sharing.md). The local-first disk path (`.canvas` files) remains the only shipping mode until the auth/token layer lands. Terms recorded ahead of implementation so planning shares vocabulary:
