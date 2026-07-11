@@ -9,7 +9,7 @@
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { formatMs } from './format'
 
-export function scaleLinear(domain: [number, number], range: [number, number]) {
+function scaleLinear(domain: [number, number], range: [number, number]) {
   const [d0, d1] = domain
   const [r0, r1] = range
   const span = d1 - d0 || 1
@@ -18,7 +18,7 @@ export function scaleLinear(domain: [number, number], range: [number, number]) {
 
 /** Rounds a domain max up to a "nice" 1/2/5×10^n step, so axis/gridline
  * labels don't land on values like 743.2. */
-export function niceMax(value: number): number {
+function niceMax(value: number): number {
   if (!isFinite(value) || value <= 0) return 1
   const exp = Math.floor(Math.log10(value))
   const base = Math.pow(10, exp)
