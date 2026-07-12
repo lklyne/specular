@@ -17,7 +17,7 @@
 
 /** Duration of the CSS cubic-bezier transition that animates the cursor
  *  between positions. This runs on the renderer and never blocks the agent. */
-export const PRESENCE_TRAVEL_MS = 250
+const PRESENCE_TRAVEL_MS = 250
 
 /** Extra pause after the cursor arrives but before the action fires.
  *  Gives the user a moment to see where the cursor landed. */
