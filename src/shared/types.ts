@@ -8,6 +8,7 @@ import type {
 import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
+import type { AmbientDriftMode } from './presence-ambient'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { ToolDefaultPatch } from './tool-defaults'
@@ -552,6 +553,24 @@ export interface PresenceTargetRect {
 
 export type PresenceTargetRefSource = 'specular' | 'agent-browser'
 
+/**
+ * A re-resolving target (CSS selector, text locator, or role/testid +
+ * accessible-name locator) parsed from a browse command, carried through
+ * `/session/presence/intent` so the intent handler can resolve it via
+ * `findPresenceTarget` — the same resolution `specular find` and the
+ * `/pages/find-target` route already use — instead of waiting for the
+ * eventual CDP mouse event to reveal where the cursor should go.
+ *
+ * `role`/`testid` locators have no field of their own — `parseTargetQuery`
+ * translates them into `selector` at parse time, so this wire shape only
+ * ever carries a CSS selector, a text locator, or an accessible name.
+ */
+export interface PresenceTargetQuery {
+  selector: string | null
+  text: string | null
+  name: string | null
+}
+
 export interface AgentPresenceCursor {
   sessionId: string
   clientName: string
@@ -572,6 +591,19 @@ export interface AgentPresenceCursor {
   targetName?: string | null
   targetRect?: PresenceTargetRect | null
   updatedAt: number
+  /** The pre-act dwell budget (ms) main selected for the act currently in
+   *  flight (ADR 0029 adaptive dwell). The renderer caps travel duration at
+   *  this value so motion never outlives the server-side dwell and the act
+   *  fires mid-flight. Absent (or null) before the first act — callers
+   *  should fall back to the full step-delay budget. */
+  dwellBudgetMs?: number | null
+  /** Which ambient motion, if any, applies while this cursor sits in the
+   *  inter-command gap (issue #319 Phase 3, `selectAmbientMode` in
+   *  `presence-ambient.ts`). Derived server-side from activity and the
+   *  session's last real intent — main never mutates position for this,
+   *  the renderer composites the offset visually on top of the spline
+   *  (ADR 0029 rule 4: no speculative pre-positioning). */
+  ambientMode: AmbientDriftMode
 }
 
 export interface AgentSnapshotNode {
@@ -707,7 +739,7 @@ export interface LeftSidebarBootstrapData extends ThemeBootstrapData {
 
 // --- Onboarding ---
 
-export type OnboardingComponentId = 'cli' | 'skill' | 'agentBrowser'
+export type OnboardingComponentId = 'cli' | 'skill'
 
 export type OnboardingComponentStatus =
   | { kind: 'installed'; detail?: string }
@@ -742,6 +774,11 @@ export interface OnboardingState {
   /** SHA-256 of each skill's content as we last installed it. Used to
    * detect whether the user has hand-edited the file before auto-updating. */
   skillHashes?: { specular?: string; 'agent-browser'?: string }
+  /** Set once the one-time agent-browser skill removal migration (D2) has
+   * evaluated its guard and either removed the stale skill or deliberately
+   * left it — regardless of outcome, evaluating twice would be wrong for a
+   * one-time migration. See skill-migrations.ts. */
+  agentBrowserSkillMigrationDone?: boolean
 }
 
 // --- Settings window ---

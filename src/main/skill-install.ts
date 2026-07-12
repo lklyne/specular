@@ -9,30 +9,36 @@ import {
   rmSync,
 } from 'fs'
 
-export type SkillId = 'specular' | 'agent-browser'
+export type SkillId = 'specular'
 
 const SKILL_FILENAME = 'SKILL.md'
 
-function bundledSkillDir(skillId: SkillId): string {
+/** Name of the (no-longer-shipped) agent-browser skill directory. Kept as a
+ *  plain string rather than a `SkillId` member — it isn't installable
+ *  through the generic skill flow anymore, but skill-migrations.ts still
+ *  needs to read its bundled/installed hashes to run the one-time removal. */
+const AGENT_BROWSER_SKILL_DIR_NAME = 'agent-browser'
+
+function bundledSkillDirNamed(dirName: string): string {
   return app.isPackaged
-    ? join(process.resourcesPath, 'skills', skillId)
-    : join(process.cwd(), 'resources', 'skills', skillId)
+    ? join(process.resourcesPath, 'skills', dirName)
+    : join(process.cwd(), 'resources', 'skills', dirName)
 }
 
-function bundledSkillPath(skillId: SkillId): string {
-  return join(bundledSkillDir(skillId), SKILL_FILENAME)
+function bundledSkillPathNamed(dirName: string): string {
+  return join(bundledSkillDirNamed(dirName), SKILL_FILENAME)
 }
 
 export function claudeSkillsDir(): string {
   return join(homedir(), '.claude', 'skills')
 }
 
-export function installedSkillDir(skillId: SkillId): string {
-  return join(claudeSkillsDir(), skillId)
+function installedSkillDirNamed(dirName: string): string {
+  return join(claudeSkillsDir(), dirName)
 }
 
-export function installedSkillPath(skillId: SkillId): string {
-  return join(installedSkillDir(skillId), SKILL_FILENAME)
+function installedSkillPathNamed(dirName: string): string {
+  return join(installedSkillDirNamed(dirName), SKILL_FILENAME)
 }
 
 export function claudeDirExists(): boolean {
@@ -44,13 +50,11 @@ export function sha256(data: Buffer): string {
 }
 
 export function bundledSkillHash(skillId: SkillId): string | null {
-  const data = readFileOrNull(bundledSkillPath(skillId))
-  return data ? sha256(data) : null
+  return hashSkillFile(skillId, 'bundled')
 }
 
 export function installedSkillHash(skillId: SkillId): string | null {
-  const data = readFileOrNull(installedSkillPath(skillId))
-  return data ? sha256(data) : null
+  return hashSkillFile(skillId, 'installed')
 }
 
 function readFileOrNull(path: string): Buffer | null {
@@ -61,6 +65,14 @@ function readFileOrNull(path: string): Buffer | null {
   }
 }
 
+/** Shared body behind the bundled/installed hash getters, for both the
+ *  generic skill flow and the agent-browser migration helpers below. */
+function hashSkillFile(dirName: string, which: 'bundled' | 'installed'): string | null {
+  const path = which === 'bundled' ? bundledSkillPathNamed(dirName) : installedSkillPathNamed(dirName)
+  const data = readFileOrNull(path)
+  return data ? sha256(data) : null
+}
+
 export type SkillStatus =
   | { kind: 'installed' }
   | { kind: 'outdated'; detail: string }
@@ -68,16 +80,15 @@ export type SkillStatus =
   | { kind: 'blocked'; detail: string }
 
 export function getSkillStatus(skillId: SkillId): SkillStatus {
-  const bundled = readFileOrNull(bundledSkillPath(skillId))
+  const bundled = readFileOrNull(bundledSkillPathNamed(skillId))
   if (!bundled) {
     return {
       kind: 'blocked',
-      detail: `Bundled skill source missing at ${bundledSkillPath(skillId)}`,
+      detail: `Bundled skill source missing at ${bundledSkillPathNamed(skillId)}`,
     }
   }
-  const installed = readFileOrNull(installedSkillPath(skillId))
+  const installed = readFileOrNull(installedSkillPathNamed(skillId))
   if (!installed) return { kind: 'missing' }
-  if (skillId === 'agent-browser') return { kind: 'installed' }
   if (sha256(bundled) === sha256(installed)) return { kind: 'installed' }
   return { kind: 'outdated', detail: 'Installed skill differs from bundled version.' }
 }
@@ -88,16 +99,16 @@ export interface SkillInstallResult {
 }
 
 export function installSkill(skillId: SkillId): SkillInstallResult {
-  const srcDir = bundledSkillDir(skillId)
-  const srcFile = bundledSkillPath(skillId)
+  const srcDir = bundledSkillDirNamed(skillId)
+  const srcFile = bundledSkillPathNamed(skillId)
   if (!existsSync(srcFile)) {
     return { success: false, message: `Bundled skill source missing at ${srcFile}` }
   }
   try {
-    cpSync(srcDir, installedSkillDir(skillId), { recursive: true })
+    cpSync(srcDir, installedSkillDirNamed(skillId), { recursive: true })
     return {
       success: true,
-      message: `${skillId} skill installed at ${installedSkillPath(skillId)}.`,
+      message: `${skillId} skill installed at ${installedSkillPathNamed(skillId)}.`,
     }
   } catch (error) {
     return {
@@ -108,7 +119,7 @@ export function installSkill(skillId: SkillId): SkillInstallResult {
 }
 
 export function uninstallSkill(skillId: SkillId): SkillInstallResult {
-  const dir = installedSkillDir(skillId)
+  const dir = installedSkillDirNamed(skillId)
   if (!existsSync(dir)) {
     return { success: true, message: `${skillId} skill was not installed.` }
   }
@@ -121,4 +132,23 @@ export function uninstallSkill(skillId: SkillId): SkillInstallResult {
       message: `Failed to remove ${skillId} skill: ${(error as Error).message}`,
     }
   }
+}
+
+// --- agent-browser skill migration helpers (D2) ---
+//
+// The agent-browser skill stub is no longer installed through the generic
+// flow above, but the one-time removal migration (skill-migrations.ts)
+// still needs to read its bundled/installed hashes and know where it lives
+// on disk to decide whether it's safe to delete.
+
+export function bundledAgentBrowserSkillHash(): string | null {
+  return hashSkillFile(AGENT_BROWSER_SKILL_DIR_NAME, 'bundled')
+}
+
+export function installedAgentBrowserSkillHash(): string | null {
+  return hashSkillFile(AGENT_BROWSER_SKILL_DIR_NAME, 'installed')
+}
+
+export function installedAgentBrowserSkillDir(): string {
+  return installedSkillDirNamed(AGENT_BROWSER_SKILL_DIR_NAME)
 }

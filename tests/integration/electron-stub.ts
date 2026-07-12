@@ -93,6 +93,13 @@ class FakeWebContents extends EventEmitter {
     return Promise.resolve(undefined)
   }
 
+  // Chained with .catch() by installScrollbarCss's dom-ready listener
+  // (src/main/runtime/page-scrollbar-css.ts) — needs a real promise, not the
+  // bare `undefined` the noop Proxy fallback would return.
+  insertCSS(): Promise<void> {
+    return Promise.resolve(undefined)
+  }
+
   capturePage(): Promise<{ toPNG(): Buffer; toDataURL(): string }> {
     return Promise.resolve({ toPNG: () => Buffer.alloc(0), toDataURL: () => '' })
   }

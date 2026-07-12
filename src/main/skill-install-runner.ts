@@ -6,7 +6,6 @@ import type {
 import { getOnboardingStatus } from './onboarding-status'
 import { installCli, uninstallCli } from './cli-install'
 import { installSkill, uninstallSkill } from './skill-install'
-import { installAgentBrowser, uninstallAgentBrowser } from './agent-browser-install'
 import { recordInstalledSkillHash } from './skill-auto-update'
 
 export type ProgressBroadcaster = (event: OnboardingProgressEvent) => void
@@ -46,11 +45,6 @@ export async function runSkillInstallSelections(
       if (result.success) recordInstalledSkillHash('specular')
       return result
     }),
-    runOne('agentBrowser', selections.agentBrowser, broadcast, async () => {
-      const result = await installAgentBrowser()
-      if (result.success) recordInstalledSkillHash('agent-browser')
-      return result
-    }),
   ])
   const status = await getOnboardingStatus()
   broadcast({ kind: 'done', status })
@@ -68,11 +62,6 @@ async function runInstall(
       if (result.success) recordInstalledSkillHash('specular')
       return result
     }
-    case 'agentBrowser': {
-      const result = await installAgentBrowser()
-      if (result.success) recordInstalledSkillHash('agent-browser')
-      return result
-    }
   }
 }
 
@@ -84,8 +73,6 @@ async function runUninstall(
       return uninstallCli()
     case 'skill':
       return uninstallSkill('specular')
-    case 'agentBrowser':
-      return uninstallAgentBrowser()
   }
 }
 

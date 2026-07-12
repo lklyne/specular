@@ -2,6 +2,7 @@
 // Suppressed: see #141. document-commands → … → canvas-layout-data / layout-engine import presence-cursor back
 import type { IncomingMessage } from 'http'
 import type {
+  AgentPresenceCursor,
   PresenceActivity,
   PresenceLabelKey,
   PresenceSurface,
@@ -11,6 +12,7 @@ import type {
 import {
   PRESENCE_STEP_DELAY_MS,
   PRESENCE_THINKING_DELAY_MS,
+  selectDwellBudgetMs,
 } from '../shared/presence-timing'
 import { PRESENCE_LABEL_KEYS } from '../shared/presence-label-keys'
 import {
@@ -27,30 +29,33 @@ import {
 
 // --- Types ---
 
-export interface PresenceCursorEntry {
-  sessionId: string
-  clientName: string
-  color: string
-  canvasX: number
-  canvasY: number
-  surface: PresenceSurface
-  activity: PresenceActivity
-  pageId?: string | null
-  pageX?: number | null
-  pageY?: number | null
-  labelKey: PresenceLabelKey | null
-  taskLabel?: string | null
-  labelHint?: string | null
-  labelParams?: Record<string, string | number | boolean> | null
-  targetRef?: string | null
-  targetRefSource?: PresenceTargetRefSource | null
-  targetName?: string | null
-  targetRect?: PresenceTargetRect | null
-  updatedAt: number
+// The main-process cursor record: the broadcast shape plus bookkeeping that
+// never leaves main. `ambientMode` is derived at broadcast time
+// (canvas-layout-data.ts), not stored here.
+export interface PresenceCursorEntry
+  extends Omit<AgentPresenceCursor, 'ambientMode' | 'dwellBudgetMs'> {
   // Wall-clock time of the most recent canvasX/canvasY change. Drives the
   // CDP-proxy pre-click sleep so the budget resets when the cursor is
   // actually repositioned (not just re-tagged).
   lastMoveAt: number
+  // Wall-clock time of the session's last real CDP dispatch (mouse press,
+  // scroll) — the burst/gap signal `selectDwellBudgetMs` regimes on (ADR
+  // 0029). Set by `recordPresenceAct`, independent of position changes.
+  lastActAt: number | null
+  // The dwell budget (ms) selected for the act currently in flight, stashed
+  // on the cursor when it repositions so the CDP-proxy wait and the
+  // broadcast the renderer reads from agree on the same number (ADR 0029:
+  // "the renderer must finish travel within the dwell").
+  dwellBudgetMs: number | null
+  // The most recent labelKey representing a real agent intent (i.e. not
+  // the synthetic 'thinking'/'idle'/'departing' states `scheduleThinkingState`
+  // and `setPresenceCursorIdle` write). Those two overwrite `labelKey` so
+  // the visible label reads "Thinking…"/nothing, which would otherwise
+  // erase what the agent was actually doing right before the gap started.
+  // Preserved across that overwrite (see `withLastIntentLabelKey`) so
+  // `selectAmbientMode` (issue #319 Phase 3, presence-ambient.ts) can tell
+  // a reading gap from a generic thinking gap.
+  lastIntentLabelKey: PresenceLabelKey | null
 }
 
 export interface ActivePresenceTask {
@@ -79,10 +84,6 @@ let presenceExpiryTimer: NodeJS.Timeout | null = null
 // --- Constants ---
 
 export const PRESENCE_CURSOR_STEP_DELAY_MS = PRESENCE_STEP_DELAY_MS
-/** Canvas-space distance below which a CDP-time reposition is treated as a
- *  no-op correction — the cursor stays where the intent placed it rather than
- *  restarting its animation to a few-pixel-off coordinate. */
-export const PRESENCE_CURSOR_POSITION_SKIP_PX = 30
 const PRESENCE_CURSOR_THINKING_DELAY_MS = PRESENCE_THINKING_DELAY_MS
 const PRESENCE_DEPARTURE_GRACE_MS = 1500
 const PRESENCE_IDLE_RETIRE_MS = 10_000
@@ -106,10 +107,35 @@ const PRESENCE_ACTIVITIES = new Set<PresenceActivity>([
 
 const PRESENCE_SURFACES = new Set<PresenceSurface>(['canvas', 'page'])
 
-let thinkingTimer: NodeJS.Timeout | null = null
-export let activeScanId = 0
-export function bumpActiveScanId(): number {
-  return ++activeScanId
+// The synthetic labelKeys `scheduleThinkingState`/`setPresenceCursorIdle`
+// write over a cursor's real labelKey. Excluded from
+// `lastIntentLabelKey` tracking — see that field's doc comment.
+const SYNTHETIC_PRESENCE_LABEL_KEYS = new Set<PresenceLabelKey>(['thinking', 'idle', 'departing'])
+
+/** Next value for `lastIntentLabelKey`: adopt `labelKey` if it's a real
+ *  intent, otherwise carry forward whatever the cursor already had. */
+function withLastIntentLabelKey(
+  existing: PresenceCursorEntry | undefined,
+  labelKey: PresenceLabelKey | null | undefined,
+): PresenceLabelKey | null {
+  if (labelKey && !SYNTHETIC_PRESENCE_LABEL_KEYS.has(labelKey)) return labelKey
+  return existing?.lastIntentLabelKey ?? null
+}
+
+// Per-session so one session's activity can never cancel another session's
+// in-flight "thinking" transition or scan animation (issue #319 Phase 4) —
+// concurrent agent sessions must not be able to interrupt each other.
+const thinkingTimers = new Map<string, NodeJS.Timeout>()
+const activeScanIds = new Map<string, number>()
+
+export function bumpActiveScanId(sessionId: string): number {
+  const next = (activeScanIds.get(sessionId) ?? 0) + 1
+  activeScanIds.set(sessionId, next)
+  return next
+}
+
+function currentScanId(sessionId: string): number {
+  return activeScanIds.get(sessionId) ?? 0
 }
 
 // --- Presence core ---
@@ -143,6 +169,12 @@ export function deriveColor(sessionId: string): string {
 
 export function removePresenceCursor(id: string): void {
   presenceCursors.delete(id)
+  const timer = thinkingTimers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    thinkingTimers.delete(id)
+  }
+  activeScanIds.delete(id)
 }
 
 /**
@@ -273,6 +305,7 @@ const MERGED_CURSOR_FIELDS = [
   'targetRefSource',
   'targetName',
   'targetRect',
+  'dwellBudgetMs',
 ] as const
 
 /** Task fields merged patch-over-existing-over-null. */
@@ -307,14 +340,22 @@ export function upsertPresenceCursor(
     targetRefSource?: PresenceTargetRefSource | null
     targetName?: string | null
     targetRect?: PresenceTargetRect | null
+    dwellBudgetMs?: number | null
   },
 ): void {
   const resolved = resolveSession(request, patch.body)
   if (!resolved) return
   const { sessionId, session } = resolved
 
+  // Evict a same-clientName cursor left behind by a session that reconnected
+  // with a fresh sessionId (every session defaults to the same clientName,
+  // so without this a stale duplicate would linger forever). Scoped to dead
+  // sessions only — a live concurrent session with the same clientName
+  // keeps its cursor, otherwise two agents sharing the default clientName
+  // would evict each other's cursor on every upsert.
+  const evictionNow = Date.now()
   for (const [id, cursor] of presenceCursors) {
-    if (cursor.clientName === session.clientName && id !== sessionId) {
+    if (cursor.clientName === session.clientName && id !== sessionId && !isSessionLive(id, evictionNow)) {
       removePresenceCursor(id)
     }
   }
@@ -338,6 +379,7 @@ export function upsertPresenceCursor(
     targetRefSource: null,
     targetName: null,
     targetRect: null,
+    dwellBudgetMs: null,
     ...pickDefined(existing, MERGED_CURSOR_FIELDS),
     ...pickDefined(patch, MERGED_CURSOR_FIELDS),
     sessionId,
@@ -357,11 +399,35 @@ export function upsertPresenceCursor(
         : patch.labelHint,
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
+    lastActAt: existing?.lastActAt ?? null,
+    lastIntentLabelKey: withLastIntentLabelKey(existing, patch.labelKey),
   }
 
   presenceCursors.set(sessionId, next)
   schedulePresenceExpiry()
   notifyPresenceChanged()
+}
+
+/** The dwell budget (ms) the CDP proxy should pay before the next act on
+ *  `sessionId` — burst-short if the session's last real dispatch landed
+ *  inside the burst window, full otherwise (ADR 0029). Callers repositioning
+ *  the cursor ahead of a dwell should stash this on the patch so the
+ *  broadcast and the actual wait agree on the same number. */
+export function computeDwellBudgetMs(sessionId: string | null | undefined): number {
+  const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
+  const msSinceLastAct = cursor?.lastActAt != null ? Date.now() - cursor.lastActAt : null
+  return selectDwellBudgetMs(msSinceLastAct)
+}
+
+/** Marks `sessionId`'s most recent real CDP dispatch (mouse press, scroll)
+ *  — the regime signal `computeDwellBudgetMs` reads back on the next act.
+ *  Mutates the cursor entry in place rather than going through
+ *  `upsertPresenceCursor`, since this isn't a reposition or a re-tag. */
+export function recordPresenceAct(sessionId: string | null | undefined): void {
+  if (!sessionId) return
+  const existing = presenceCursors.get(sessionId)
+  if (!existing) return
+  existing.lastActAt = Date.now()
 }
 
 export function upsertActivePresenceTask(
@@ -418,18 +484,20 @@ export function clearActivePresenceTask(
 // --- Timer and animation ---
 
 export function scheduleThinkingState(request: IncomingMessage): void {
-  if (thinkingTimer) clearTimeout(thinkingTimer)
-  thinkingTimer = setTimeout(() => {
-    thinkingTimer = null
-    const resolved = resolveSession(request)
-    if (!resolved) return
-    const existing = presenceCursors.get(resolved.sessionId)
+  const resolved = resolveSession(request)
+  if (!resolved) return
+  const { sessionId } = resolved
+  const existingTimer = thinkingTimers.get(sessionId)
+  if (existingTimer) clearTimeout(existingTimer)
+  const timer = setTimeout(() => {
+    thinkingTimers.delete(sessionId)
+    const existing = presenceCursors.get(sessionId)
     if (!existing || existing.activity === 'idle') return
-    const activeTask = activePresenceTasks.get(resolved.sessionId)
+    const activeTask = activePresenceTasks.get(sessionId)
     if (activeTask) {
       activeTask.updatedAt = Date.now()
     }
-    presenceCursors.set(resolved.sessionId, {
+    presenceCursors.set(sessionId, {
       ...existing,
       activity: 'thinking',
       labelKey: 'thinking',
@@ -440,6 +508,7 @@ export function scheduleThinkingState(request: IncomingMessage): void {
     schedulePresenceExpiry()
     notifyPresenceChanged()
   }, PRESENCE_CURSOR_THINKING_DELAY_MS)
+  thinkingTimers.set(sessionId, timer)
 }
 
 export function allEntityPositions(): Array<{ x: number; y: number }> {
@@ -518,12 +587,13 @@ export function movePresenceCursorTo(
     labelKey,
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing.lastMoveAt,
+    lastIntentLabelKey: withLastIntentLabelKey(existing, labelKey),
   }
   presenceCursors.set(resolved.sessionId, next)
   notifyPresenceChanged()
 }
 
-/** Stagger an operation across positions in the background. Cancellable via activeScanId. */
+/** Stagger an operation across positions in the background. Cancellable per-session via activeScanIds. */
 export function staggerOperation(
   request: IncomingMessage,
   items: Array<{ x: number; y: number }>,
@@ -531,13 +601,16 @@ export function staggerOperation(
   perform: (index: number) => void,
 ): void {
   if (items.length === 0) return
-  const scanId = bumpActiveScanId()
+  const resolved = resolveSession(request)
+  if (!resolved) return
+  const { sessionId } = resolved
+  const scanId = bumpActiveScanId(sessionId)
   void (async () => {
     for (let i = 0; i < items.length; i++) {
-      if (activeScanId !== scanId) return
+      if (currentScanId(sessionId) !== scanId) return
       movePresenceCursorTo(request, items[i].x, items[i].y, labelKey)
       await delay(PRESENCE_CURSOR_STEP_DELAY_MS)
-      if (activeScanId !== scanId) return
+      if (currentScanId(sessionId) !== scanId) return
       upsertPresenceCursor(request, {
         canvasX: items[i].x,
         canvasY: items[i].y,

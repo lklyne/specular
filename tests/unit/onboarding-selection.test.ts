@@ -5,6 +5,10 @@ import {
   installableSelections,
 } from '../../src/renderer/onboarding/onboardingSelection'
 
+// agentBrowser is intentionally excluded from OnboardingComponentId: it's a
+// status-only row (D3, issue #318) with no install/uninstall selection, so
+// OnboardingStatusSnapshot.agentBrowser is set here to satisfy the type but
+// never appears in a `selections` record.
 const baseStatus: OnboardingStatusSnapshot = {
   cli: { kind: 'missing' },
   skill: { kind: 'missing' },
@@ -13,7 +17,7 @@ const baseStatus: OnboardingStatusSnapshot = {
 }
 
 function selections(value: boolean): Record<OnboardingComponentId, boolean> {
-  return { cli: value, skill: value, agentBrowser: value }
+  return { cli: value, skill: value }
 }
 
 describe('onboarding selection helpers', () => {
@@ -27,16 +31,14 @@ describe('onboarding selection helpers', () => {
     expect(installableSelections(status, selections(true))).toEqual({
       cli: false,
       skill: true,
-      agentBrowser: true,
     })
   })
 
   it('ignores checked installed rows when deciding if install can run', () => {
     const status: OnboardingStatusSnapshot = {
+      ...baseStatus,
       cli: { kind: 'installed' },
       skill: { kind: 'installed' },
-      agentBrowser: { kind: 'installed' },
-      claudeDirExists: true,
     }
 
     expect(hasInstallableSelection(status, selections(true))).toBe(false)

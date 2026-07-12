@@ -19,18 +19,22 @@ import {
   updatePresenceCursor,
   resolveCanvasPointForPage,
   pendingIntents,
+  isMutatingIntentCommand,
 } from './presence-manager'
 import {
   beginPresenceDeparture,
   upsertPresenceCursor,
   presenceCursors,
   PRESENCE_CURSOR_STEP_DELAY_MS,
-  PRESENCE_CURSOR_POSITION_SKIP_PX,
+  computeDwellBudgetMs,
+  recordPresenceAct,
 } from './presence-cursor'
-import { pagePointMatchesTargetRect } from '../shared/presence-targeting'
+import { shouldSkipReposition } from '../shared/presence-targeting'
+import { computeDwellRemainingMs } from '../shared/presence-timing'
 import {
   type CdpProxyRegistration,
   type CdpClientBridge,
+  type CdpRect,
   APP_CONTROL_HOST,
   cdpProxyRegistrations,
   cdpProxyRegistrationsByKey,
@@ -42,9 +46,11 @@ import {
   refreshCdpProxyRegistration,
   ensureCdpProxyUpstream,
   pruneExpiredCdpProxyRegistrations,
+  recordPendingRectRequest,
 } from './cdp-proxy'
 import { activeSessions, mcpSessions, resolveSession } from './presence-session'
 import { sendPageIpc } from './runtime/page-ipc'
+import { pageContentSize } from './runtime/runtime-geometry'
 
 // Re-export for external consumers
 export { getPresenceCursors, onPresenceCursorsChanged } from './presence-cursor'
@@ -375,11 +381,64 @@ export async function startAppControlServer(): Promise<void> {
     }
 
     const waitForPresenceDwell = async (sessionId: string | null | undefined): Promise<void> => {
+      const now = Date.now()
       const cursor = sessionId ? presenceCursors.get(sessionId) : undefined
-      const elapsed = cursor ? Date.now() - cursor.lastMoveAt : 0
-      const remaining = Math.max(0, PRESENCE_CURSOR_STEP_DELAY_MS - elapsed)
+      // Read the budget stashed on the cursor by the reposition that
+      // preceded this call (adaptive dwell, ADR 0029) rather than
+      // recomputing it here — that keeps this wait and the broadcast the
+      // renderer caps travel against numerically identical.
+      const budget = cursor?.dwellBudgetMs ?? PRESENCE_CURSOR_STEP_DELAY_MS
+      const lastMoveAt = cursor ? cursor.lastMoveAt : now
+      const remaining = computeDwellRemainingMs(lastMoveAt, budget, now)
+      cdpProxyMetrics.dwellWaitMsTotal += remaining
+      cdpProxyMetrics.dwellWaitCount += 1
       if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining))
     }
+
+    // Amortizes the pre-act dwell for opaque `@eN`-ref clicks (issue #319):
+    // agent-browser resolves a ref's coordinates via CDP (DOM.getBoxModel /
+    // Runtime.callFunctionOn) tens of ms before it dispatches the click. If a
+    // pending intent says a mutating command is about to hit this page, the
+    // resolved rect is real element geometry — not a prediction — so moving
+    // the cursor there now starts `lastMoveAt` ticking early, and by the time
+    // mousePressed arrives the dwell (waitForPresenceDwell) is mostly spent.
+    // Read-path calls (snapshot, eval) share these same CDP methods
+    // constantly; the pending-intent + mutating-command check is what keeps
+    // this from firing on every read.
+    const maybePreMovePresenceCursor = (rect: CdpRect): void => {
+      const sessionId = registration.sessionId
+      if (!sessionId) return
+      const intent = pendingIntents.get(sessionId)
+      if (!intent || intent.pageId !== registration.pageId || !isMutatingIntentCommand(intent.command)) {
+        return
+      }
+
+      const resolved = resolveCanvasPointForPage(registration.pageId, { targetRect: rect })
+      if (!resolved) return
+
+      const existing = presenceCursors.get(sessionId)
+      if (existing && existing.pageId === registration.pageId) {
+        const skip = shouldSkipReposition({
+          clickPoint: { x: existing.pageX, y: existing.pageY },
+          targetRect: rect,
+        })
+        if (skip) return
+      }
+
+      upsertPresenceCursor(request, {
+        body: pageSessionBody(),
+        surface: 'page',
+        pageId: registration.pageId,
+        pageX: rect.x + rect.width / 2,
+        pageY: rect.y + rect.height / 2,
+        canvasX: resolved.canvasX,
+        canvasY: resolved.canvasY,
+        activity: 'traveling',
+        targetRect: rect,
+        dwellBudgetMs: computeDwellBudgetMs(sessionId),
+      })
+    }
+    bridge.onRectResolved = maybePreMovePresenceCursor
 
     const sendScrollIpc = (
       x: number,
@@ -460,6 +519,7 @@ export async function startAppControlServer(): Promise<void> {
       if (registration.activeBridge?.clientSocket === clientSocket) {
         registration.activeBridge = null
       }
+      registration.pendingRectRequests.clear()
       registration.updatedAt = Date.now()
       endAutomationInteractivePage(registration.pageId)
       restoreAutomationSelectionIfNeeded(registration)
@@ -506,6 +566,9 @@ export async function startAppControlServer(): Promise<void> {
         if (method === 'Target.attachToTarget') {
           bridge.attachTargetIds.set(id, typeof params?.targetId === 'string' ? params.targetId : '')
         }
+        if (method === 'DOM.getBoxModel' || method === 'Runtime.callFunctionOn') {
+          recordPendingRectRequest(registration, id, method)
+        }
       }
 
       if ((method === 'Target.attachToTarget' || method === 'Target.activateTarget') && params) {
@@ -551,15 +614,18 @@ export async function startAppControlServer(): Promise<void> {
                 : undefined
               if (existing && existing.pageId === registration.pageId) {
                 const rect = existing.targetRect
-                const withinTargetRect =
-                  rect != null && pagePointMatchesTargetRect(x, y, rect, 0)
-                const canvasDistance = Math.hypot(
-                  resolved.canvasX - existing.canvasX,
-                  resolved.canvasY - existing.canvasY,
-                )
-                skipPosition =
-                  withinTargetRect ||
-                  canvasDistance < PRESENCE_CURSOR_POSITION_SKIP_PX
+                skipPosition = shouldSkipReposition({
+                  clickPoint: { x, y },
+                  targetRect: rect,
+                })
+                // Amortization scoreboard: only counts when a prior travel
+                // step (selector pre-resolution or box-model pre-move) had
+                // actually predicted a target — a click with no predicted
+                // rect was never a candidate for amortization.
+                if (rect != null) {
+                  if (skipPosition) cdpProxyMetrics.preMoveHits += 1
+                  else cdpProxyMetrics.preMoveMisses += 1
+                }
               }
             }
             upsertPresenceCursor(request, {
@@ -584,6 +650,7 @@ export async function startAppControlServer(): Promise<void> {
                   }),
               activity: 'acting',
               labelKey: cdpType === 'mouseMoved' ? undefined : 'click_target',
+              dwellBudgetMs: computeDwellBudgetMs(registration.sessionId),
             })
           }
           if (cdpType === 'mousePressed') {
@@ -625,6 +692,7 @@ export async function startAppControlServer(): Promise<void> {
 
             await wc.debugger.sendCommand('Input.dispatchMouseEvent', params)
             cdpProxyMetrics.interceptedClicks += cdpType === 'mouseMoved' ? 0 : 1
+            if (cdpType === 'mousePressed') recordPresenceAct(registration.sessionId)
 
             if (id !== null) sendToClient(JSON.stringify({ id, result: {} }))
           } catch (error) {
@@ -673,6 +741,7 @@ export async function startAppControlServer(): Promise<void> {
           pageY: y,
           activity: 'acting',
           labelKey: 'scroll_page',
+          dwellBudgetMs: computeDwellBudgetMs(registration.sessionId),
         })
         await waitForPresenceDwell(registration.sessionId)
         try {
@@ -687,6 +756,7 @@ export async function startAppControlServer(): Promise<void> {
             return
           }
           cdpProxyMetrics.interceptedScrolls += 1
+          recordPresenceAct(registration.sessionId)
           cdpProxyLog('timing', 'intercept-scroll-wheel', {
             token: registration.token,
             pageId: registration.pageId,
@@ -712,6 +782,7 @@ export async function startAppControlServer(): Promise<void> {
           pageY: y,
           activity: 'acting',
           labelKey: 'scroll_page',
+          dwellBudgetMs: computeDwellBudgetMs(registration.sessionId),
         })
         await waitForPresenceDwell(registration.sessionId)
         try {
@@ -726,6 +797,7 @@ export async function startAppControlServer(): Promise<void> {
             return
           }
           cdpProxyMetrics.interceptedScrolls += 1
+          recordPresenceAct(registration.sessionId)
           cdpProxyLog('timing', 'intercept-scroll-gesture', {
             token: registration.token,
             pageId: registration.pageId,
@@ -736,6 +808,72 @@ export async function startAppControlServer(): Promise<void> {
           sendProtocolError(id, error instanceof Error ? error.message : 'Scroll gesture failed')
         }
         return
+      }
+
+      // Agent-browser scrolls via JS, never a CDP wheel/gesture event, so the
+      // presence cursor would otherwise never animate on scroll. Two shapes:
+      // the bare scroll verb is `Runtime.evaluate` `window.scrollBy(dx, dy)`;
+      // selector-scoped scrolls are `Runtime.callFunctionOn` `this.scrollBy`.
+      // For a scroll-intent session, drift the cursor toward the scroll
+      // direction, pay the pre-act dwell, and rewrite the instant scrollBy
+      // into a smooth one so the page glides instead of teleporting — the
+      // scroll itself stays with agent-browser (#319, ADR 0029). Scoped to
+      // the scroll verb only: pre-click scrollintoview must stay instant,
+      // since a click dispatched mid-smooth-scroll lands on stale
+      // coordinates (R1). Falls through to the forward below.
+      if (
+        (method === 'Runtime.callFunctionOn' || method === 'Runtime.evaluate') &&
+        params &&
+        page &&
+        !page.pageView.webContents.isDestroyed()
+      ) {
+        const scrollSessionId = registration.sessionId
+        const intent = scrollSessionId ? pendingIntents.get(scrollSessionId) : undefined
+        let dy: number | null = null
+        if (intent?.command === 'scroll' && method === 'Runtime.callFunctionOn') {
+          const fnDecl =
+            typeof params.functionDeclaration === 'string' ? params.functionDeclaration : ''
+          if (/scroll(By|To|IntoView)/.test(fnDecl)) {
+            const callArgs = Array.isArray(params.arguments) ? params.arguments : []
+            const dyArg = (callArgs[1] as { value?: unknown } | undefined)?.value
+            dy = typeof dyArg === 'number' ? dyArg : 1
+            if (/scrollBy/.test(fnDecl)) {
+              params.functionDeclaration =
+                "function(dx, dy) { this.scrollBy({ left: dx, top: dy, behavior: 'smooth' }); }"
+            }
+          }
+        } else if (intent?.command === 'scroll' && method === 'Runtime.evaluate') {
+          const expr = typeof params.expression === 'string' ? params.expression : ''
+          const scrollByCall = expr.match(/window\.scrollBy\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/)
+          if (scrollByCall) {
+            dy = Number(scrollByCall[2])
+            params.expression = expr.replace(
+              scrollByCall[0],
+              `window.scrollBy({ left: ${scrollByCall[1]}, top: ${scrollByCall[2]}, behavior: 'smooth' })`,
+            )
+          }
+        }
+        if (dy !== null) {
+          // Presence pageX/pageY are page CSS pixels (same space as CDP input
+          // coords) — pageContentSize, not getBounds, which is zoom-scaled
+          // window space and pushes the cursor off the page when zoomed in.
+          const contentSize = pageContentSize(page)
+          upsertPresenceCursor(request, {
+            body: pageSessionBody(),
+            surface: 'page',
+            pageId: registration.pageId,
+            pageX: contentSize.width / 2,
+            // Sit toward the edge the page is heading for — lower on a scroll
+            // down, upper on a scroll up — so the drift reads as intent.
+            pageY: dy < 0 ? contentSize.height * 0.28 : contentSize.height * 0.72,
+            activity: 'acting',
+            labelKey: 'scroll_page',
+            dwellBudgetMs: computeDwellBudgetMs(scrollSessionId),
+          })
+          await waitForPresenceDwell(scrollSessionId)
+          recordPresenceAct(scrollSessionId)
+          cdpProxyMetrics.interceptedScrolls += 1
+        }
       }
 
       try {

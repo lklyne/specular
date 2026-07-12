@@ -28,7 +28,7 @@ import {
   togglePerfTrace,
 } from '../perf-trace'
 
-const SKILL_IDS: SkillId[] = ['specular', 'agent-browser']
+const SKILL_IDS: SkillId[] = ['specular']
 
 function pendingSkillUpdates(): number {
   let count = 0

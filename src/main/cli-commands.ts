@@ -1,7 +1,7 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
 import { callApp } from './shared/app-client'
-import { handleBrowse, shellQuote } from './shared/browse-handler'
+import { handleBrowse, shellQuote, spawnAsync, resolveAgentBrowserPath, BLOCKED_BROWSE_VERBS } from './shared/browse-handler'
 import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
@@ -477,51 +477,83 @@ const componentStates: VerbHandler = async (args) => {
 // --- Browser shortcut verbs ---
 
 function browseCommand(args: ParsedArgs, command: string): Promise<number> {
-  return browseRaw(args, command)
+  return browseRaw(args, command, { echo: args.boolFlags.has('echo') })
 }
 
-async function browseRaw(args: ParsedArgs, command: string): Promise<number> {
-  const result = await handleBrowse({ page_id: pageId(args), command })
+async function browseRaw(args: ParsedArgs, command: string, opts?: { echo?: boolean }): Promise<number> {
+  const result = await handleBrowse({ page_id: pageId(args), command, echo: opts?.echo })
   printContentBlocks(result.content)
   return 0
 }
 
+/** Build a `<verb> <ref> [text]` browse command, quoting each part so
+ * selectors/text containing spaces or embedded quotes survive splitShellArgs
+ * as single tokens. */
+export function buildTargetCommand(verb: string, ref: string, text?: string): string {
+  const parts = [verb, shellQuote(ref)]
+  if (text !== undefined) parts.push(shellQuote(text))
+  return parts.join(' ')
+}
+
+/** Build a `wait` browse command from parsed flags, quoting --text/--url values. */
+export function buildWaitCommand(opts: {
+  load?: string
+  positional?: string
+  timeout?: string
+  text?: string
+  url?: string
+}): string {
+  let cmd = 'wait'
+  if (opts.load) cmd += ` --load ${opts.load}`
+  if (opts.positional) cmd += ` ${opts.positional}`
+  if (opts.timeout) cmd += ` --timeout ${opts.timeout}`
+  if (opts.text) cmd += ` --text ${shellQuote(opts.text)}`
+  if (opts.url) cmd += ` --url ${shellQuote(opts.url)}`
+  return cmd
+}
+
 const snapshot: VerbHandler = async (args) => {
-  // Reconstruct agent-browser snapshot command from flags
+  return browseCommand(args, buildSnapshotCommand(args))
+}
+
+export function buildSnapshotCommand(args: ParsedArgs): string {
   let cmd = 'snapshot'
-  if (args.boolFlags.has('i')) cmd += ' -i'
-  if (args.flags.s) cmd += ` -s "${args.flags.s}"`
-  if (args.flags.selector) cmd += ` -s "${args.flags.selector}"`
+  if (args.boolFlags.has('i') || args.boolFlags.has('interactive')) cmd += ' -i'
+  if (args.boolFlags.has('c') || args.boolFlags.has('compact')) cmd += ' -c'
+  if (args.boolFlags.has('u') || args.boolFlags.has('urls')) cmd += ' -u'
+  if (args.flags.s) cmd += ` -s ${shellQuote(args.flags.s)}`
+  if (args.flags.selector) cmd += ` -s ${shellQuote(args.flags.selector)}`
+  if (args.flags.d) cmd += ` -d ${args.flags.d}`
   if (args.flags.depth) cmd += ` -d ${args.flags.depth}`
   if (args.flags.format) cmd += ` --format ${args.flags.format}`
-  return browseCommand(args, cmd)
+  return cmd
 }
 
 const click: VerbHandler = async (args) => {
   const ref = args.positional[0]
-  if (!ref) { printError('usage: specular click <ref>'); return 1 }
-  return browseCommand(args, `click ${ref}`)
+  if (!ref) { printError('usage: specular click <ref> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('click', ref))
 }
 
 const fill: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const text = args.positional.slice(1).join(' ')
-  if (!ref || !text) { printError('usage: specular fill <ref> <text>'); return 1 }
-  return browseCommand(args, `fill ${ref} "${text}"`)
+  if (!ref || !text) { printError('usage: specular fill <ref> <text> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('fill', ref, text))
 }
 
 const type_: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const text = args.positional.slice(1).join(' ')
-  if (!ref || !text) { printError('usage: specular type <ref> <text>'); return 1 }
-  return browseCommand(args, `type ${ref} "${text}"`)
+  if (!ref || !text) { printError('usage: specular type <ref> <text> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('type', ref, text))
 }
 
 const select: VerbHandler = async (args) => {
   const ref = args.positional[0]
   const value = args.positional.slice(1).join(' ')
-  if (!ref || !value) { printError('usage: specular select <ref> <value>'); return 1 }
-  return browseCommand(args, `select ${ref} "${value}"`)
+  if (!ref || !value) { printError('usage: specular select <ref> <value> [--echo]'); return 1 }
+  return browseCommand(args, buildTargetCommand('select', ref, value))
 }
 
 const screenshot: VerbHandler = async (args) => {
@@ -539,11 +571,13 @@ const scroll: VerbHandler = async (args) => {
 }
 
 const wait: VerbHandler = async (args) => {
-  let cmd = 'wait'
-  if (args.flags.load) cmd += ` --load ${args.flags.load}`
-  if (args.positional[0]) cmd += ` ${args.positional[0]}`
-  if (args.flags.timeout) cmd += ` --timeout ${args.flags.timeout}`
-  return browseCommand(args, cmd)
+  return browseCommand(args, buildWaitCommand({
+    load: args.flags.load,
+    positional: args.positional[0],
+    timeout: args.flags.timeout,
+    text: args.flags.text,
+    url: args.flags.url,
+  }))
 }
 
 // --- Passthrough: unknown verbs go to agent-browser ---
@@ -561,8 +595,28 @@ function stripSpecularFlags(argv: string[]): string[] {
 }
 
 const browsePassthrough: VerbHandler = async (args) => {
+  // handleBrowse enforces the blocklist too (it's the shared choke point for
+  // CLI and MCP); checking here as well fails fast without page resolution.
+  const blockReason = BLOCKED_BROWSE_VERBS[args.verb]
+  if (blockReason) {
+    printError(`specular ${args.verb}: blocked — ${blockReason}`)
+    return 1
+  }
   const command = [args.verb, ...stripSpecularFlags(args.rest).map(shellQuote)].join(' ')
   return browseRaw(args, command)
+}
+
+// `skills` is a meta-verb, not a page-scoped browse command: it spawns
+// agent-browser directly (no page resolution, no --cdp/--session) so agents
+// can discover agent-browser's own documented workflows.
+const skills: VerbHandler = async (args) => {
+  const { stdout } = await spawnAsync(
+    resolveAgentBrowserPath(),
+    ['skills', ...stripSpecularFlags(args.rest)],
+    { timeout: 30_000 },
+  )
+  printText(stdout.trimEnd())
+  return 0
 }
 
 // ---------------------------------------------------------------------------
@@ -611,6 +665,8 @@ const VERBS: Record<string, VerbHandler> = {
   console: browsePassthrough,
   errors: browsePassthrough,
   'query-elements': browsePassthrough,
+  // agent-browser meta-verb
+  skills,
 }
 
 export async function dispatch(argv: string[]): Promise<number> {
@@ -624,7 +680,10 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Recording: record <start|stop|status|trim>')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')
-    printText('Unknown verbs are passed to agent-browser as raw commands.')
+    printText('Unknown verbs pass through to the bundled agent-browser as raw commands')
+    printText('(some — launch/close/quit/install/upgrade/connect/open — are blocked in')
+    printText('favor of specular equivalents). See the specular skill\'s passthrough')
+    printText('section for the full command surface, or run `specular skills get core`.')
     return 0
   }
   emitPresenceForVerb(args.verb)

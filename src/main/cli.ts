@@ -1,8 +1,28 @@
+import { existsSync } from 'fs'
+import { dirname, join } from 'path'
 import { setClientName } from './shared/app-client'
 import { notifySessionState } from './shared/app-client'
 import { dispatch } from './cli-commands'
 
 setClientName('specular-cli')
+
+// Point the browse resolver at the bundled agent-browser before any command
+// runs. The Electron main does this via configureBundledAgentBrowser(), but the
+// CLI is a standalone node process that never boots the app — without this it
+// falls through to PATH and picks up a stale global install (or nothing at all).
+// Packaged: bin/ sits beside cli.js in Contents/Resources. Dev: cli.js is in
+// out/main/, the binary in resources/bin at the repo root.
+function configureBundledAgentBrowser(): void {
+  if (process.env.AGENT_BROWSER_PATH) return
+  const candidates = [
+    join(__dirname, 'bin', 'agent-browser'),
+    join(__dirname, '..', '..', 'resources', 'bin', 'agent-browser'),
+  ]
+  const bundled = candidates.find(existsSync)
+  if (bundled) process.env.AGENT_BROWSER_PATH = bundled
+}
+
+configureBundledAgentBrowser()
 
 async function main(): Promise<void> {
   // Ping the session open — but never close it explicitly.

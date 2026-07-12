@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import { readFile, unlink } from 'fs/promises'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import type { PresenceTargetQuery } from '../../shared/types'
 import { callApp, sessionId, getClientName } from './app-client'
 
 // ---------------------------------------------------------------------------
@@ -19,6 +20,17 @@ export const COMMAND_LABELS: Record<string, string> = {
   get: 'read_content',
   'query-elements': 'find_target',
   screenshot: 'take_screenshot',
+  // Passthrough verbs (not specular-owned shortcuts) still drive presence so
+  // the cursor doesn't go dark for the skill's documented passthrough
+  // surface. There's no generic "interacting with page" key in the
+  // PresenceLabelKey allowlist (src/shared/presence-label-keys.ts), so these
+  // reuse the closest existing label rather than send a labelKey that
+  // `coercePresenceLabelKey` would silently drop.
+  eval: 'inspect_page',
+  find: 'find_target',
+  keyboard: 'type_text',
+  focus: 'inspect_page',
+  clipboard: 'read_content',
 }
 
 const VALUE_FLAGS = new Set([
@@ -27,11 +39,42 @@ const VALUE_FLAGS = new Set([
   '--baseline', '--screenshot-format', '--screenshot-quality', '--screenshot-dir',
   '--max-output', '--download-path', '--executable-path', '--extension',
   '--headers', '--body', '--filter', '--profile', '--session-name',
-  '--device', '--color-scheme', '--idle-timeout',
+  '--device', '--color-scheme', '--idle-timeout', '--name',
   '-s', '-d', '-p',
 ])
 
 export const MUTATION_VERBS = new Set(['click', 'fill', 'type', 'select'])
+
+const FIND_LOCATOR_KINDS = new Set([
+  'role',
+  'text',
+  'label',
+  'placeholder',
+  'alt',
+  'title',
+  'testid',
+  'first',
+  'last',
+])
+const FIND_CLICK_LIKE_ACTIONS = new Set(['check', 'uncheck', 'dblclick', 'tap'])
+
+// Verbs that would fight Specular for ownership of browser lifecycle or the
+// page entity's URL. Specular owns page creation (`add page`), teardown
+// (`delete`), and — since a CDP-driven navigation never writes back to the
+// page entity's Y.Doc URL (see page-factory.ts's `did-navigate` handler) —
+// navigation (`update --url`). Enforced here in handleBrowse (the choke
+// point every browse surface funnels through: CLI passthrough AND the MCP
+// `browse` tool) so no caller can reach agent-browser with them; the CLI
+// additionally checks before page resolution for a faster, cleaner error.
+export const BLOCKED_BROWSE_VERBS: Record<string, string> = {
+  launch: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
+  connect: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
+  close: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
+  quit: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
+  install: 'the agent-browser driver is bundled with Specular.',
+  upgrade: 'the agent-browser driver is bundled with Specular.',
+  open: "a CDP-driven navigation doesn't update the page entity's URL in the workspace; use `specular update PAGE_ID --url <url>` instead.",
+}
 
 export const GLOBAL_AB_FLAGS = ['--content-boundaries', '--max-output', '100000']
 
@@ -105,10 +148,19 @@ export function splitShellArgs(cmd: string): string[] {
   return tokens
 }
 
-export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | null; ref: string | null } {
+export function parseCommandArgs(cmd: string): {
+  argv: string[]
+  verb: string | null
+  ref: string | null
+  /** Non-flag args after the verb, in order — the single VALUE_FLAGS-skipping
+   *  positional walk every target-locating caller needs (see
+   *  `parseTargetQuery`, which consumes this instead of re-scanning argv). */
+  positionals: string[]
+} {
   const argv = splitShellArgs(cmd)
   let verb: string | null = null
   let ref: string | null = null
+  const positionals: string[] = []
   let i = 0
   while (i < argv.length) {
     const arg = argv[i]
@@ -116,9 +168,123 @@ export function parseCommandArgs(cmd: string): { argv: string[]; verb: string | 
     if (arg.startsWith('-')) { i++; continue }
     if (!verb) { verb = arg; i++; continue }
     if (!ref && /^@e\d+$/.test(arg)) ref = arg
+    positionals.push(arg)
     i++
   }
-  return { argv, verb, ref }
+  return { argv, verb, ref, positionals }
+}
+
+function findSubaction(positionals: string[]): string | null {
+  const locatorKind = positionals[0]
+  if (!locatorKind) return null
+  if (locatorKind === 'nth') return positionals[3] ?? null
+  if (!FIND_LOCATOR_KINDS.has(locatorKind)) return null
+  return positionals[2] ?? null
+}
+
+/**
+ * The browser command as Specular should understand it for orchestration.
+ *
+ * `find` is a semantic-locator wrapper around another action: agent-browser
+ * still owns target resolution and receives the original argv, but Specular's
+ * presence/staleness/URL bookkeeping should see `find text "Submit" click`
+ * as a click intent so the CDP proxy can pre-move to the real rect that
+ * agent-browser resolves.
+ */
+export function effectiveBrowseCommand(parsed: {
+  verb: string | null
+  positionals: string[]
+}): string | null {
+  if (!parsed.verb) return null
+  if (parsed.verb !== 'find') return parsed.verb
+
+  const action = findSubaction(parsed.positionals)
+  if (!action) return 'find'
+  if (MUTATION_VERBS.has(action)) return action
+  if (FIND_CLICK_LIKE_ACTIONS.has(action)) return 'click'
+  return 'find'
+}
+
+export function mutationVerbForCommand(parsed: {
+  verb: string | null
+  positionals: string[]
+}): string | null {
+  const effective = effectiveBrowseCommand(parsed)
+  return effective && MUTATION_VERBS.has(effective) ? effective : null
+}
+
+export function labelKeyForCommand(parsed: {
+  verb: string | null
+  positionals: string[]
+}): string | null {
+  const effective = effectiveBrowseCommand(parsed)
+  return effective ? COMMAND_LABELS[effective] ?? null : null
+}
+
+/**
+ * Parse a re-resolving target (CSS selector, `text=...` locator, or a
+ * `find <role|testid> <value> <action> [--name "..."]` locator) out of a
+ * target-taking command. Returns null for `@eN`-ref commands (those are
+ * already opaque to specular — see `parseCommandArgs`'s `ref`) and for
+ * verbs that don't take a target at all.
+ *
+ * Owns all locator-kind knowledge for the presence-intent path: a `role` or
+ * `testid` locator is translated into an attribute `selector` here, at parse
+ * time, so `PresenceTargetQuery` only ever carries a resolved selector, a
+ * text locator, or an accessible name — resolve-time code (session.ts) does
+ * zero further translation.
+ *
+ * A sibling of `parseCommandArgs` rather than a change to its return shape,
+ * so existing consumers (and the mcp-browse re-export shim) are untouched.
+ */
+export function parseTargetQuery(cmd: string): PresenceTargetQuery | null {
+  const { argv, verb, ref, positionals } = parseCommandArgs(cmd)
+  if (!verb) return null
+
+  if (verb === 'find') {
+    // find <locator-kind> <value> <action> [--name "..."]. --name is a
+    // VALUE_FLAGS entry, so parseCommandArgs already excludes it (and its
+    // value) from `positionals` — it still has to be read out of argv here
+    // since VALUE_FLAGS only skips flag values, it doesn't surface them.
+    const [locatorKind, value] = positionals
+    if (!locatorKind || !value) return null
+    const nameIdx = argv.indexOf('--name')
+    const name = nameIdx !== -1 ? argv[nameIdx + 1] ?? null : null
+    if (locatorKind === 'role') return { selector: `[role="${value}"]`, text: null, name }
+    // No native "testid" concept downstream — model it as the CSS attribute
+    // selector every framework's testid convention resolves to.
+    if (locatorKind === 'testid') return { selector: `[data-testid="${value}"]`, text: null, name }
+    return null
+  }
+
+  if (!MUTATION_VERBS.has(verb) || ref) return null
+
+  // The first positional argument after the verb is the target.
+  const target = positionals[0] ?? null
+  if (!target || /^@e\d+$/.test(target)) return null
+  if (target.startsWith('text=')) {
+    return { selector: null, text: target.slice('text='.length), name: null }
+  }
+  return { selector: target, text: null, name: null }
+}
+
+/**
+ * The pre-mutation auto-scroll target: an `@eN` ref or a CSS selector.
+ * `text=` locators return null — agent-browser's `scrollintoview` (verified
+ * against v0.31.1) accepts refs and CSS selectors but has no text locator
+ * syntax. Best-effort either way: `click` itself auto-scrolls, so a skipped
+ * pre-scroll degrades gracefully.
+ */
+export function parseScrollTarget(parsed: {
+  verb: string | null
+  ref: string | null
+  positionals: string[]
+}): string | null {
+  if (!parsed.verb || !MUTATION_VERBS.has(parsed.verb)) return null
+  if (parsed.ref) return parsed.ref
+  const target = parsed.positionals[0]
+  if (!target || target.startsWith('text=')) return null
+  return target
 }
 
 // ---------------------------------------------------------------------------
@@ -134,19 +300,116 @@ interface CdpResolution {
   pageUrl: string
 }
 
+// Matches cdpProxyKey (cdp-proxy.ts) — the ws URL a session gets back is
+// specific to that session's CDP proxy registration, so the cache key must
+// include sessionId too. A pageId-only key would hand a second session the
+// first session's per-session ws URL.
+function cdpUrlCacheKey(pageId: string): string {
+  return `${sessionId}::${pageId}`
+}
+
 async function resolveCdpUrl(pageId: string): Promise<CdpResolution> {
-  const cached = cdpUrlCache.get(pageId)
-  if (cached && cached.expires > Date.now()) return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl }
+  const cacheKey = cdpUrlCacheKey(pageId)
+  const cached = cdpUrlCache.get(cacheKey)
+  if (cached && cached.expires > Date.now()) {
+    return { wsUrl: cached.wsUrl, pageUrl: cached.pageUrl }
+  }
   const result = await callApp<{ webSocketDebuggerUrl: string; url?: string }>(
     `/pages/${pageId}/cdp-target`,
   )
   const pageUrl = result.url ?? ''
-  cdpUrlCache.set(pageId, { wsUrl: result.webSocketDebuggerUrl, pageUrl, expires: Date.now() + CDP_CACHE_TTL_MS })
+  cdpUrlCache.set(cacheKey, {
+    wsUrl: result.webSocketDebuggerUrl,
+    pageUrl,
+    expires: Date.now() + CDP_CACHE_TTL_MS,
+  })
   return { wsUrl: result.webSocketDebuggerUrl, pageUrl }
 }
 
+/** Callers pass bare pageIds (e.g. on navigation); delete every cache entry
+ *  for that pageId regardless of which session owns it. */
 export function invalidateCdpCache(pageIds: string[]): void {
-  for (const id of pageIds) cdpUrlCache.delete(id)
+  const targets = new Set(pageIds)
+  for (const key of cdpUrlCache.keys()) {
+    const pageId = key.slice(key.indexOf('::') + 2)
+    if (targets.has(pageId)) cdpUrlCache.delete(key)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// D8 (issue #318): generation-based staleness detection — warn-only.
+//
+// Main bumps a per-page navigation generation on did-navigate/dom-ready.
+// Snapshots record the generation they saw; a ref-based mutation issued
+// against a page whose generation has since moved on gets a prepended
+// warning. HMR partial updates never fire did-navigate, so the counter
+// can't prove the DOM changed underneath a ref — it can only warn, never
+// block.
+//
+// The snapshot-seen baseline lives on the main-process Page object
+// (POST /pages/:id/snapshot-seen), not in module state here: every
+// `specular` CLI invocation is a fresh short-lived process, so only the app
+// outlives the snapshot→mutate loop the comparison spans. The baseline is
+// per-page, not per-client — two agents driving the same page share it;
+// acceptable for a warn-only heuristic.
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark that an agent snapshot of this page just completed. The route stamps
+ * the page's CURRENT navGeneration server-side rather than trusting a
+ * client-supplied number: in a long-lived process (the MCP server) the
+ * client's view of the generation comes from the 60s cdpUrlCache and can be
+ * stale-low after a navigation, which would poison the baseline and produce
+ * false "refs likely stale" warnings on perfectly fresh snapshots. The
+ * server-side stamp can only err the other way (a navigation racing the
+ * snapshot yields a too-high baseline → a missed warning), which is the
+ * right failure mode for a warn-only heuristic. Best-effort — a failed
+ * write only means a later mutation can't warn; it never fails the snapshot.
+ */
+async function recordSnapshotGeneration(pageId: string): Promise<void> {
+  await callApp(`/pages/${pageId}/snapshot-seen`, {
+    method: 'POST',
+    body: '{}',
+  }).catch(() => {})
+}
+
+/**
+ * Fetch the page's CURRENT navigation generation plus the snapshot-seen
+ * baseline, bypassing `cdpUrlCache`. The cache has a 60s TTL, so a cached
+ * read at mutation time would hide any navigation that happened within that
+ * window — the fresh read is what makes the staleness check meaningful.
+ * Failure-tolerant: a broken fetch just means the warning gets skipped,
+ * never that the mutation fails.
+ */
+async function fetchFreshGeneration(
+  pageId: string,
+): Promise<{ generation: number; lastSnapshotGeneration: number | null } | null> {
+  try {
+    const result = await callApp<{ generation?: number; lastSnapshotGeneration?: number | null }>(
+      `/pages/${pageId}/cdp-target`,
+    )
+    if (typeof result.generation !== 'number') return null
+    return {
+      generation: result.generation,
+      lastSnapshotGeneration:
+        typeof result.lastSnapshotGeneration === 'number' ? result.lastSnapshotGeneration : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Pure comparison — exported for unit coverage. */
+export function staleGenerationWarning(
+  pageId: string,
+  seenGeneration: number,
+  currentGeneration: number,
+): string | null {
+  if (currentGeneration <= seenGeneration) return null
+  return (
+    `page changed since your last snapshot — refs likely stale; ` +
+    `re-run specular snapshot -i -f ${pageId}, or target by CSS selector or find text "…" (re-resolves every call)`
+  )
 }
 
 /**
@@ -171,6 +434,16 @@ function checkOriginMismatch(output: string, expectedPageUrl: string): string | 
     // URL parsing failed — skip the check
   }
   return null
+}
+
+/**
+ * `@eN` refs come from a prior snapshot's accessibility tree and go stale the
+ * moment the DOM changes underneath them (re-render, route change, list
+ * reorder). A failed ref-targeted mutation is the first signal of that —
+ * point the caller at how to recover instead of leaving a bare CLI error.
+ */
+function staleRefHint(targetPageId: string): string {
+  return `refs may be stale — re-run specular snapshot -i -f ${targetPageId}, or target by CSS selector or find text "…" (re-resolves every call)`
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +484,7 @@ export function resolveAgentBrowserPath(): string {
 export function spawnAsync(
   cmd: string,
   args: string[],
-  opts: { timeout: number; input?: string; maxBuffer?: number; cwd?: string },
+  opts: { timeout: number; input?: string; maxBuffer?: number; cwd?: string; allowNonZeroExit?: boolean },
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
@@ -250,7 +523,7 @@ export function spawnAsync(
       clearTimeout(timer)
       const stdout = Buffer.concat(stdoutChunks).toString('utf-8')
       const stderr = Buffer.concat(stderrChunks).toString('utf-8')
-      if (code !== 0) {
+      if (code !== 0 && !opts.allowNonZeroExit) {
         reject(new Error(stderr || stdout || `Process exited with code ${code}`))
       } else {
         resolve({ stdout, stderr })
@@ -292,22 +565,39 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   const chainedParts = splitChainedCommands(rawCommand)
   const isChained = chainedParts.length > 1
 
+  for (const part of chainedParts) {
+    const blockedVerb = parseCommandArgs(part).verb
+    const blockReason = blockedVerb ? BLOCKED_BROWSE_VERBS[blockedVerb] : undefined
+    if (blockedVerb && blockReason) {
+      throw new Error(`${blockedVerb}: blocked — ${blockReason}`)
+    }
+  }
+
   // Parse first command for presence animation
   const firstCmd = isChained ? chainedParts[0] : rawCommand
-  const { verb, ref } = parseCommandArgs(firstCmd)
-  const labelKey = verb ? COMMAND_LABELS[verb] ?? null : null
+  const firstParsed = parseCommandArgs(firstCmd)
+  const { verb, ref } = firstParsed
+  const intentCommand = effectiveBrowseCommand(firstParsed)
+  const labelKey = labelKeyForCommand(firstParsed)
+  // Only re-resolving targets (selector/text/find) need a target query — an
+  // @eN ref is already opaque to specular's own resolution.
+  const targetQuery = ref ? null : parseTargetQuery(firstCmd)
 
   const clientName = getClientName()
 
   return withPageLock(pageId, async () => {
     const { wsUrl: cdpUrl, pageUrl: expectedPageUrl } = await resolveCdpUrl(pageId)
     const abPath = resolveAgentBrowserPath()
-    // One agent-browser daemon per page. Without --session, a single daemon
-    // pins the first --cdp URL it saw and silently ignores subsequent --cdp
-    // values — upstream bug in agent-browser (CLI skips `launch` when daemon
-    // is already running; daemon's relaunch check doesn't compare cdp_url).
-    // Keying by pageId sidesteps both gates.
-    const sessionFlags = ['--session', pageId]
+    // One agent-browser daemon per (session, page). Without --session, a
+    // single daemon pins the first --cdp URL it saw and silently ignores
+    // subsequent --cdp values — upstream bug in agent-browser (CLI skips
+    // `launch` when daemon is already running; daemon's relaunch check
+    // doesn't compare cdp_url). Keying by pageId alone sidesteps that gate
+    // but reintroduces it across sessions: two concurrent specular sessions
+    // driving the same page would share one daemon and one pinned --cdp
+    // URL, so the key includes sessionId to give each session its own
+    // daemon.
+    const sessionFlags = ['--session', `${sessionId}:${pageId}`]
 
     // Fire presence intent (non-blocking). Include pageId so the cursor
     // follows the page we're actually driving — otherwise the server-side
@@ -319,12 +609,13 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
         body: JSON.stringify({
           sessionId,
           clientName,
-          command: verb,
+          command: intentCommand,
           labelKey,
           pageId,
-          labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
+          labelHint: intentCommand === 'fill' || intentCommand === 'type' ? 'editing control' : null,
           targetRef: ref,
           targetRefSource: ref ? 'agent-browser' : null,
+          targetQuery,
         }),
       }).catch(() => {})
     }
@@ -342,12 +633,13 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (isChained) {
       // ---- Chained commands: use batch --json --bail ----
       const parts = chainedParts
-      // Auto-scroll refs into view before mutations
+      // Auto-scroll mutation targets into view first (refs and CSS
+      // selectors; see parseScrollTarget for why text= targets are skipped).
       const expanded: string[][] = []
       for (const p of parts) {
-        const parsed = parseCommandArgs(p)
-        if (parsed.verb && MUTATION_VERBS.has(parsed.verb) && parsed.ref) {
-          expanded.push(['scrollintoview', parsed.ref])
+        const scrollTarget = parseScrollTarget(parseCommandArgs(p))
+        if (scrollTarget) {
+          expanded.push(['scrollintoview', scrollTarget])
         }
         expanded.push(splitShellArgs(p))
       }
@@ -355,25 +647,44 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       const hasWait = parts.some(p => parseCommandArgs(p).verb === 'wait')
       const timeoutMs = hasWait ? 60_000 : 30_000
 
-      const { stdout } = await spawnAsync(
+      // batch exits non-zero as soon as any command in the chain fails (it
+      // still writes the full per-command JSON array to stdout). The exit code
+      // is redundant — success/failure is encoded per entry — so read stdout
+      // regardless and let the loop below report each failure with its hint.
+      // Rejecting on the exit code instead would throw away exactly the
+      // per-command failures (stale refs, missing elements) this path exists
+      // to surface.
+      const { stdout, stderr } = await spawnAsync(
         abPath,
         [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'batch', '--json', '--bail'],
-        { timeout: timeoutMs, input: batchInput },
+        { timeout: timeoutMs, input: batchInput, allowNonZeroExit: true },
       )
 
-      // Parse batch JSON results
-      const results = JSON.parse(stdout) as Array<{
+      // Parse batch JSON results. A genuine batch-level failure (e.g. CDP
+      // connect refused) produces no JSON array — surface its stderr rather
+      // than a cryptic parse error.
+      let results: Array<{
         command: string[]
         success: boolean
         error: string | null
         result: Record<string, unknown>
       }>
+      try {
+        results = JSON.parse(stdout)
+      } catch {
+        throw new Error(stderr || stdout || 'batch produced no parseable output')
+      }
 
       const contentBlocks: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = []
 
       for (const entry of results) {
         if (!entry.success) {
-          contentBlocks.push({ type: 'text', text: `> ${entry.command.join(' ')}\nError: ${entry.error}` })
+          const hasRef = entry.command.some((tok) => /^@e\d+$/.test(tok))
+          const entryParsed = parseCommandArgs(entry.command.map(shellQuote).join(' '))
+          const hint = mutationVerbForCommand(entryParsed) && hasRef
+            ? `\n${staleRefHint(pageId)}`
+            : ''
+          contentBlocks.push({ type: 'text', text: `> ${entry.command.join(' ')}\nError: ${entry.error}${hint}` })
           continue
         }
 
@@ -403,6 +714,14 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           const mismatch = checkOriginMismatch(snapshotText, expectedPageUrl)
           if (mismatch) contentBlocks.push({ type: 'text', text: mismatch })
           contentBlocks.push({ type: 'text', text: snapshotText })
+          // D8: mark the snapshot baseline (the route stamps the page's
+          // current generation server-side). The chain
+          // itself does not warn on its own ref-based mutation entries: a
+          // fresh per-entry generation fetch would add a round trip to
+          // every mutation inside an already-batched call, and a stale ref
+          // inside one chain is already surfaced via staleRefHint on
+          // failure.
+          await recordSnapshotGeneration(pageId)
           continue
         }
 
@@ -422,14 +741,31 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     }
 
     // ---- Single command ----
-    const { argv } = parseCommandArgs(rawCommand)
+    const singleParsed = parseCommandArgs(rawCommand)
+    const { argv } = singleParsed
+    const singleMutationVerb = mutationVerbForCommand(singleParsed)
     const timeoutMs = verb === 'wait' ? 60_000 : 30_000
 
-    // Auto-scroll ref into view before mutations
-    if (verb && MUTATION_VERBS.has(verb) && ref) {
+    // D8: for a mutation, check whether the page has navigated since the
+    // last recorded agent snapshot. Fetched fresh (bypassing cdpUrlCache) so
+    // a navigation inside the 60s cache window is still visible. No baseline
+    // recorded yet (lastSnapshotGeneration null) means nothing to compare
+    // against, so the warning is skipped rather than guessed at.
+    let generationWarning: string | null = null
+    if (singleMutationVerb) {
+      const fresh = await fetchFreshGeneration(pageId)
+      if (fresh !== null && fresh.lastSnapshotGeneration !== null) {
+        generationWarning = staleGenerationWarning(pageId, fresh.lastSnapshotGeneration, fresh.generation)
+      }
+    }
+
+    // Auto-scroll the mutation target into view first (refs and CSS
+    // selectors; see parseScrollTarget for why text= targets are skipped).
+    const scrollTarget = parseScrollTarget(singleParsed)
+    if (scrollTarget) {
       await spawnAsync(
         abPath,
-        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', ref],
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', scrollTarget],
         { timeout: 5_000 },
       ).catch(() => {}) // Best-effort — don't fail the click if scroll fails
     }
@@ -438,11 +774,30 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     const useJson = verb === 'screenshot'
     const extraFlags = useJson ? ['--json'] : []
 
-    const { stdout, stderr } = await spawnAsync(
-      abPath,
-      [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, ...extraFlags, ...argv],
-      { timeout: timeoutMs },
-    )
+    let stdout: string
+    let stderr: string
+    try {
+      ;({ stdout, stderr } = await spawnAsync(
+        abPath,
+        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, ...extraFlags, ...argv],
+        { timeout: timeoutMs },
+      ))
+    } catch (err) {
+      // A ref-targeted mutation failure is most commonly a stale @eN ref —
+      // surface the recovery path instead of a bare CLI error. D8's
+      // generation warning is complementary: it fires on both success and
+      // failure, since the mutation ran against a possibly-stale DOM either
+      // way — never blocks the command, only adds context to the error.
+      if (singleMutationVerb) {
+        const message = err instanceof Error ? err.message : String(err)
+        // The generation warning and the stale-ref hint give the same
+        // recovery advice — emit whichever applies, never both.
+        const hint = ref && !generationWarning ? `\n${staleRefHint(pageId)}` : ''
+        const warningPrefix = generationWarning ? `${generationWarning}\n\n` : ''
+        throw new Error(`${warningPrefix}${message}${hint}`)
+      }
+      throw err
+    }
 
     // Screenshot: return image content
     if (verb === 'screenshot') {
@@ -468,10 +823,18 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (verb === 'snapshot') {
       const mismatch = checkOriginMismatch(output, expectedPageUrl)
       if (mismatch) output = mismatch + '\n' + output
+      // D8: mark the snapshot baseline for later mutations to compare
+      // against (the route stamps the page's current generation).
+      await recordSnapshotGeneration(pageId)
     }
 
+    // D8: prepend the staleness warning to a successful mutation's output too
+    // — the mutation itself may have landed on the wrong element even though
+    // the CLI call succeeded.
+    if (generationWarning) output = `${generationWarning}\n\n${output}`
+
     // Auto-append URL after mutations
-    if (verb && MUTATION_VERBS.has(verb)) {
+    if (singleMutationVerb) {
       try {
         const { stdout: urlOut } = await spawnAsync(
           abPath,
@@ -484,7 +847,26 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       }
     }
 
-    return { content: [{ type: 'text' as const, text: output || '(no output)' }] }
+    const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> =
+      [{ type: 'text' as const, text: output || '(no output)' }]
+
+    // --echo: re-snapshot after a successful mutation so the caller sees the
+    // resulting DOM without a separate round trip. Only wired for the single
+    // -command path — chained/batch calls ignore --echo.
+    if (singleMutationVerb && (args.echo as boolean | undefined)) {
+      try {
+        const { stdout: echoOut } = await spawnAsync(
+          abPath,
+          [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'snapshot', '-i', '-c'],
+          { timeout: 10_000 },
+        )
+        content.push({ type: 'text' as const, text: echoOut.trim() || '(no output)' })
+      } catch {
+        // Best-effort — the mutation already succeeded; don't fail the call for echo
+      }
+    }
+
+    return { content }
 
     } finally {
       // no-op: let server-side expiry clean up the cursor

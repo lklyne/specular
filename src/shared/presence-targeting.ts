@@ -40,3 +40,28 @@ export function pagePointMatchesTargetRect(
     pageY <= targetRect.y + targetRect.height + tolerance
   )
 }
+
+/**
+ * Whether a presence cursor reposition toward a click/target point should be
+ * suppressed because the cursor is already on the target — the point sits
+ * inside `targetRect`. Shared by the CDP proxy's box-model pre-move (issue
+ * #318 amortization) and its mousePressed skip check (ADR 0029) so both agree
+ * on one definition of "already there, don't re-travel."
+ *
+ * Only within-rect counts: a distance heuristic was measured in canvas units,
+ * so it suppressed legitimate travel more aggressively the further the canvas
+ * was zoomed out (#319). Every hop to a different element now animates.
+ *
+ * Event-shaped (a point and a rect, not a `PresenceCursorEntry` read) so
+ * #319 Phase 5's event-timeline choreography can port it unchanged (ADR
+ * 0029, "Future path: presence event timeline").
+ */
+export function shouldSkipReposition({
+  clickPoint,
+  targetRect,
+}: {
+  clickPoint: { x: number | null | undefined; y: number | null | undefined }
+  targetRect: PresenceTargetRect | null | undefined
+}): boolean {
+  return targetRect != null && pagePointMatchesTargetRect(clickPoint.x, clickPoint.y, targetRect, 0)
+}

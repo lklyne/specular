@@ -3,7 +3,7 @@ import type {
   OnboardingStatusSnapshot,
 } from '../../shared/types'
 
-const ONBOARDING_COMPONENT_IDS: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
+const ONBOARDING_COMPONENT_IDS: OnboardingComponentId[] = ['cli', 'skill']
 
 export function installableSelections(
   status: OnboardingStatusSnapshot,

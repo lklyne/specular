@@ -31,18 +31,28 @@ function skillToStatus(status: SkillStatus): OnboardingComponentStatus {
   }
 }
 
+/**
+ * agent-browser is bundled and auto-configured on launch (configureBundledAgentBrowser
+ * in index.ts) — there's nothing for the user to install or toggle. This status is
+ * display-only: bundled driver readiness, plus a note when a separate user-owned
+ * binary is also on PATH (see D3, issue #318).
+ */
+function agentBrowserStatus(agent: Awaited<ReturnType<typeof getAgentBrowserStatus>>): OnboardingComponentStatus {
+  if (agent.binary.kind === 'installed') {
+    const detail = agent.userInstall
+      ? `Bundled ${agent.binary.version}; user install ${agent.userInstall.version} also detected on PATH.`
+      : `Bundled ${agent.binary.version}.`
+    return { kind: 'installed', detail }
+  }
+  if (agent.binary.kind === 'blocked') {
+    return { kind: 'blocked', detail: agent.binary.detail }
+  }
+  return { kind: 'missing' }
+}
+
 export async function getOnboardingStatus(): Promise<OnboardingStatusSnapshot> {
   const agent = await getAgentBrowserStatus()
-  let agentBrowser: OnboardingComponentStatus
-  if (agent.binary.kind === 'installed' && agent.skill.kind === 'installed') {
-    agentBrowser = { kind: 'installed', detail: `${agent.binary.version} of agent-browser already installed` }
-  } else if (agent.binary.kind === 'blocked') {
-    agentBrowser = { kind: 'blocked', detail: agent.binary.detail }
-  } else if (agent.skill.kind === 'blocked') {
-    agentBrowser = { kind: 'blocked', detail: agent.skill.detail }
-  } else {
-    agentBrowser = { kind: 'missing' }
-  }
+  const agentBrowser = agentBrowserStatus(agent)
 
   return {
     cli: cliStatus(),

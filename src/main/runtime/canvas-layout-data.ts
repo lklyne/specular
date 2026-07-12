@@ -21,6 +21,7 @@ import type {
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
+import { selectAmbientMode } from '../../shared/presence-ambient'
 import { isUnresolved } from '../../shared/annotation-utils'
 import {
   aboveView,
@@ -440,6 +441,8 @@ export function buildCanvasLayoutData(
       targetName: c.targetName,
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
+      dwellBudgetMs: c.dwellBudgetMs,
+      ambientMode: selectAmbientMode(c.activity, c.lastIntentLabelKey),
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
     interactivePageId: interactivePageId(),

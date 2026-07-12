@@ -10,8 +10,6 @@ import type {
   OnboardingComponentStatus,
 } from '../../shared/types'
 
-const SKILL_INSTALLER_IDS: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
-
 export type RowProgress = 'idle' | 'installing' | 'success' | 'error'
 
 export type InstallerRowSnapshot = {
@@ -75,7 +73,7 @@ function Row({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium">{title}</span>
-          <StatusBadge snapshot={snapshot} />
+          <Badge state={rowBadgeState(snapshot)} />
         </div>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
           {description}
@@ -96,8 +94,53 @@ function Row({
   )
 }
 
-function StatusBadge({ snapshot }: { snapshot: InstallerRowSnapshot }) {
-  if (snapshot.progress === 'installing') {
+/**
+ * A row with no install/uninstall action — status is reported, not toggled
+ * (e.g. agent-browser, which is bundled and configured automatically; see
+ * D3, issue #318). Shares the Row shell's visuals without the switch or the
+ * click-to-select affordance.
+ */
+function StatusRow({
+  title,
+  description,
+  status,
+}: {
+  title: string
+  description: string
+  status: OnboardingComponentStatus
+}) {
+  // No install/uninstall progress for a status-only row — synthesize the
+  // 'idle' snapshot rowBadgeState needs so both rows share one badge mapper.
+  const badgeState = rowBadgeState({ status, progress: 'idle', selected: false })
+  return (
+    <div className="flex items-start gap-3 rounded-[8px] border border-[var(--surface-card-border)] bg-[var(--surface-card)] px-4 py-3 text-left select-none">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-medium">{title}</span>
+          <Badge state={badgeState} />
+        </div>
+        <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
+          {description}
+        </p>
+        <StatusDetail status={status} />
+      </div>
+    </div>
+  )
+}
+
+type BadgeState = 'installing' | 'installed' | 'blocked' | 'failed' | 'outdated' | 'not-installed'
+
+function rowBadgeState(snapshot: InstallerRowSnapshot): BadgeState {
+  if (snapshot.progress === 'installing') return 'installing'
+  if (snapshot.progress === 'success' || snapshot.status.kind === 'installed') return 'installed'
+  if (snapshot.progress === 'error') return 'failed'
+  if (snapshot.status.kind === 'blocked') return 'blocked'
+  if (snapshot.status.kind === 'outdated') return 'outdated'
+  return 'not-installed'
+}
+
+function Badge({ state }: { state: BadgeState }) {
+  if (state === 'installing') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[var(--surface-toolbar-foreground)] opacity-80">
         <Loader2 size={12} className="animate-spin" />
@@ -105,7 +148,7 @@ function StatusBadge({ snapshot }: { snapshot: InstallerRowSnapshot }) {
       </span>
     )
   }
-  if (snapshot.progress === 'success' || snapshot.status.kind === 'installed') {
+  if (state === 'installed') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[var(--surface-toolbar-foreground)]">
         <Check size={12} strokeWidth={3} />
@@ -113,15 +156,15 @@ function StatusBadge({ snapshot }: { snapshot: InstallerRowSnapshot }) {
       </span>
     )
   }
-  if (snapshot.progress === 'error' || snapshot.status.kind === 'blocked') {
+  if (state === 'failed' || state === 'blocked') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400">
         <CircleAlert size={12} />
-        {snapshot.progress === 'error' ? 'Failed' : 'Blocked'}
+        {state === 'failed' ? 'Failed' : 'Blocked'}
       </span>
     )
   }
-  if (snapshot.status.kind === 'outdated') {
+  if (state === 'outdated') {
     return (
       <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
         Update available
@@ -153,4 +196,17 @@ function RowDetail({ snapshot }: { snapshot: InstallerRowSnapshot }) {
   return <p className={cls}>{text}</p>
 }
 
-export const SkillInstaller = { Root, Row }
+function StatusDetail({ status }: { status: OnboardingComponentStatus }) {
+  const text =
+    status.kind === 'installed' || status.kind === 'outdated' || status.kind === 'blocked'
+      ? status.detail
+      : undefined
+  if (!text) return null
+  const cls =
+    status.kind === 'blocked'
+      ? 'mt-1 text-[11px] text-red-600 dark:text-red-400'
+      : 'mt-1 text-[11px] text-[var(--surface-toolbar-foreground)] opacity-60'
+  return <p className={cls}>{text}</p>
+}
+
+export const SkillInstaller = { Root, Row, StatusRow }
