@@ -48,6 +48,7 @@ const MAX_SUMMARIZABLE_BYTES = 500 * 1024 * 1024
 let recording = false
 let startedAt: number | null = null
 let autoStopTimer: NodeJS.Timeout | null = null
+let revealOnAutoStop = true
 let stateListener: (() => void) | null = null
 
 /** Register a callback fired whenever recording starts or stops (including
@@ -79,7 +80,7 @@ export async function togglePerfTrace(): Promise<void> {
   }
 }
 
-export async function startPerfTrace(): Promise<void> {
+export async function startPerfTrace(options: { revealOnAutoStop?: boolean } = {}): Promise<void> {
   if (recording) return
   await contentTracing.startRecording({
     included_categories: TRACE_CATEGORIES,
@@ -88,17 +89,17 @@ export async function startPerfTrace(): Promise<void> {
   })
   recording = true
   startedAt = Date.now()
+  revealOnAutoStop = options.revealOnAutoStop !== false
   autoStopTimer = setTimeout(() => {
-    void stopPerfTrace()
+    void stopPerfTrace({ reveal: revealOnAutoStop })
   }, MAX_TRACE_MS)
   notifyStateChange()
 }
 
-/** Stops the active recording and returns the saved trace's absolute path
- * (null if nothing was recording). Always reveals the file in Finder — the
- * HTTP route also wants the path, so revealing unconditionally is simpler
- * than threading a "silent" flag through both callers. */
-export async function stopPerfTrace(): Promise<string | null> {
+/** Stops the active recording and returns the saved trace's absolute path.
+ * Interactive callers reveal the artifact by default; headless callers can
+ * suppress Finder so collecting agent diagnostics does not steal focus. */
+export async function stopPerfTrace(options: { reveal?: boolean } = {}): Promise<string | null> {
   if (!recording) return null
   if (autoStopTimer) {
     clearTimeout(autoStopTimer)
@@ -110,7 +111,7 @@ export async function stopPerfTrace(): Promise<string | null> {
   const outPath = path.join(app.getPath('logs'), `specular-trace-${stamp}.json`)
   const savedPath = await contentTracing.stopRecording(outPath)
   notifyStateChange()
-  shell.showItemInFolder(savedPath)
+  if (options.reveal !== false) shell.showItemInFolder(savedPath)
   return savedPath
 }
 

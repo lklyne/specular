@@ -17,13 +17,20 @@ When a domain term resolves during a session (rename, new concept, deprecation),
 
 ```
 pnpm install                 # install dependencies
-pnpm dev                     # start the Electron app
+pnpm dev                     # human foreground use only; agents use devctl
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
 pnpm test:integration        # real runtime in-process (no Electron, seconds)
 pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
 pnpm build                   # package for distribution
 ```
+
+Dev app workflow:
+- Humans run `pnpm dev` for a foreground, human-owned app.
+- Agents must not run `pnpm dev` directly; run `pnpm devctl start` instead.
+- Use `pnpm devctl status|logs|restart|stop` to manage an agent-owned app.
+- `devctl` never restarts or stops a foreground `pnpm dev` it did not start.
+- `pnpm devctl context` prints recent logs, errors, and performance metadata.
 
 After any structural change, run `typecheck` + `test:unit` at minimum.
 After changes to runtime, IPC, or persistence, run `test:integration`.
