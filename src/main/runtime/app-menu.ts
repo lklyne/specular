@@ -23,10 +23,12 @@ import {
   type SkillId,
 } from '../skill-install'
 import {
+  getPerfTraceOwner,
   isPerfTraceRecording,
   setPerfTraceStateListener,
   togglePerfTrace,
 } from '../perf-trace'
+import { stopPanZoomPerfTest } from '../pan-zoom-perf-test'
 
 const SKILL_IDS: SkillId[] = ['specular']
 
@@ -190,11 +192,19 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
         // packaged builds (the optimized app is what's worth profiling).
         // Auto-stops after 30s; the saved file opens at ui.perfetto.dev.
         {
-          label: isPerfTraceRecording()
-            ? 'Stop Performance Trace'
-            : 'Record Performance Trace',
+          label: getPerfTraceOwner() === 'pan-zoom-test'
+            ? 'Stop Pan/Zoom Performance Test'
+            : isPerfTraceRecording()
+              ? 'Stop Performance Trace'
+              : 'Record Performance Trace',
           accelerator: 'CmdOrCtrl+Alt+Shift+P',
-          click: () => void togglePerfTrace(),
+          click: () => {
+            if (getPerfTraceOwner() === 'pan-zoom-test') {
+              void stopPanZoomPerfTest()
+            } else {
+              void togglePerfTrace()
+            }
+          },
         },
         { type: 'separator' },
         { role: 'togglefullscreen' },

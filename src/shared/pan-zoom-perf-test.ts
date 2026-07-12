@@ -20,6 +20,7 @@ export interface PanZoomPerfStep {
 
 export interface PanZoomPerfTestState {
   running: boolean
+  stopping: boolean
   phase: string | null
   startedAt: number | null
 }

@@ -15,15 +15,18 @@ import {
   stopPerfTrace,
 } from './perf-trace'
 import { pan, zoom } from './runtime/runtime-context'
+import { isFocusSessionActive } from './runtime/focus-session'
 import { applyViewportInputDelta } from './runtime/viewport-input'
 import { requestLayout, setPan, setZoom } from './runtime/viewport-control'
 import { win } from './runtime/view-refs'
+import { activeWorkspaceTabId } from './runtime/workspace-model'
 
 const WARMUP_MS = 300
 const RESTORE_SETTLE_MS = 300
 
 let state: PanZoomPerfTestState = {
   running: false,
+  stopping: false,
   phase: null,
   startedAt: null,
 }
@@ -60,9 +63,13 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
 async function executePanZoomPerfTest(signal: AbortSignal): Promise<PanZoomPerfTestResult> {
   if (!win) throw new Error('Main window is not ready')
   if (isPerfTraceRecording()) throw new Error('A performance trace is already active')
+  if (isFocusSessionActive()) {
+    throw new Error('Exit frame focus before running the pan/zoom performance test')
+  }
 
   const initialPan = { ...pan }
   const initialZoom = zoom
+  const initialTabId = activeWorkspaceTabId
   const contentBounds = win.getContentBounds()
   const anchor = {
     mouseX: contentBounds.x + contentBounds.width / 2,
@@ -73,7 +80,7 @@ async function executePanZoomPerfTest(signal: AbortSignal): Promise<PanZoomPerfT
 
   try {
     setPhase('Starting trace')
-    await startPerfTrace({ revealOnAutoStop: false })
+    await startPerfTrace({ revealOnAutoStop: false, owner: 'pan-zoom-test' })
     traceStarted = true
     await wait(WARMUP_MS, signal)
 
@@ -81,6 +88,7 @@ async function executePanZoomPerfTest(signal: AbortSignal): Promise<PanZoomPerfT
       if (signal.aborted) break
       setPhase(phase.label)
       for (const step of buildPanZoomPerfSteps(phase)) {
+        if (activeWorkspaceTabId !== initialTabId) abortController?.abort()
         if (signal.aborted) break
         applyViewportInputDelta({
           panDeltaX: step.panX,
@@ -93,15 +101,17 @@ async function executePanZoomPerfTest(signal: AbortSignal): Promise<PanZoomPerfT
       if (!signal.aborted) await wait(PAN_ZOOM_PERF_PHASE_GAP_MS, signal)
     }
   } finally {
-    setPhase('Restoring camera')
-    setZoom(initialZoom)
-    setPan(initialPan.x, initialPan.y)
-    requestLayout()
-    await wait(RESTORE_SETTLE_MS, new AbortController().signal)
+    if (activeWorkspaceTabId === initialTabId) {
+      setPhase('Restoring camera')
+      setZoom(initialZoom)
+      setPan(initialPan.x, initialPan.y)
+      requestLayout()
+      await wait(RESTORE_SETTLE_MS, new AbortController().signal)
+    }
 
     if (traceStarted && isPerfTraceRecording()) {
       setPhase('Saving trace')
-      tracePath = await stopPerfTrace({ reveal: false })
+      tracePath = await stopPerfTrace({ reveal: false, owner: 'pan-zoom-test' })
     }
   }
 
@@ -116,18 +126,19 @@ async function executePanZoomPerfTest(signal: AbortSignal): Promise<PanZoomPerfT
 export function runPanZoomPerfTest(): Promise<PanZoomPerfTestResult> {
   if (activeRun) return activeRun
   abortController = new AbortController()
-  setState({ running: true, phase: 'Preparing', startedAt: Date.now() })
+  setState({ running: true, stopping: false, phase: 'Preparing', startedAt: Date.now() })
   const signal = abortController.signal
   activeRun = executePanZoomPerfTest(signal).finally(() => {
     abortController = null
     activeRun = null
-    setState({ running: false, phase: null, startedAt: null })
+    setState({ running: false, stopping: false, phase: null, startedAt: null })
   })
   return activeRun
 }
 
 export async function stopPanZoomPerfTest(): Promise<void> {
   if (!activeRun) return
+  setState({ ...state, stopping: true, phase: 'Stopping' })
   abortController?.abort()
   await activeRun
 }

@@ -56,4 +56,32 @@ describe('performance trace lifecycle', () => {
 
     expect(trace.getPerfTraceState().status).toBe('idle')
   })
+
+  it('does not let manual controls stop a trace owned by the pan/zoom test', async () => {
+    electron.stopRecording.mockResolvedValue('/tmp/specular-trace-test.json')
+    const trace = await import('../../src/main/perf-trace')
+
+    await trace.startPerfTrace({ revealOnAutoStop: false, owner: 'pan-zoom-test' })
+    expect(await trace.stopPerfTrace({ reveal: false, owner: 'manual' })).toBeNull()
+    expect(trace.getPerfTraceState().status).toBe('recording')
+
+    await trace.stopPerfTrace({ reveal: false, owner: 'pan-zoom-test' })
+    expect(trace.getPerfTraceState().status).toBe('idle')
+  })
+
+  it('keeps tracing when a state listener throws', async () => {
+    electron.stopRecording.mockResolvedValue('/tmp/specular-trace-test.json')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const trace = await import('../../src/main/perf-trace')
+    trace.setPerfTraceStateListener(() => {
+      throw new Error('menu refresh failed')
+    })
+
+    await trace.startPerfTrace({ revealOnAutoStop: false })
+    expect(trace.getPerfTraceState().status).toBe('recording')
+    await trace.stopPerfTrace({ reveal: false })
+    expect(trace.getPerfTraceState().status).toBe('idle')
+
+    errorSpy.mockRestore()
+  })
 })

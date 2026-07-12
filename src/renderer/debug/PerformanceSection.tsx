@@ -27,6 +27,7 @@ export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
   })
   const [panZoomState, setPanZoomState] = useState<PanZoomPerfTestState>({
     running: false,
+    stopping: false,
     phase: null,
     startedAt: null,
   })
@@ -254,14 +255,14 @@ function PerformanceHeader({
         <button
           type="button"
           onClick={onPanZoomTest}
-          disabled={!panZoomState.running && traceState.status !== 'idle'}
+          disabled={panZoomState.stopping || (!panZoomState.running && traceState.status !== 'idle')}
           className={
             panZoomState.running
               ? 'shrink-0 rounded border border-red-400/60 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-500/20 dark:border-red-500/50 dark:text-red-400'
               : 'shrink-0 rounded border border-zinc-300 px-2 py-1 text-[11px] font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
           }
         >
-          {panZoomState.running ? 'Stop test' : 'Run test'}
+          {panZoomState.stopping ? 'Stopping…' : panZoomState.running ? 'Stop test' : 'Run test'}
         </button>
       </div>
     </div>
