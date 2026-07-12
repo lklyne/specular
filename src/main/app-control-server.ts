@@ -9,7 +9,8 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws'
 
 import { APP_CONTROL_DISCOVERY_FILE, APP_CONTROL_PORT, APP_CONTROL_VERSION } from '../shared/constants'
 import { getUiState } from './ui-state'
-import { findPageById, clearAutomationInteractivePageIds, automationInteractivePageCounts, getZoom } from './runtime/runtime-context'
+import { findPageById, clearAutomationInteractivePageIds, automationInteractivePageCounts } from './runtime/runtime-context'
+import { createClickScaleSnapshot, compensateMousePointForDispatch } from './cdp-input-compensation'
 import {
   beginAutomationInteractivePage,
   endAutomationInteractivePage,
@@ -362,7 +363,7 @@ export async function startAppControlServer(): Promise<void> {
 
     // Snapshot emulation scale on mousePressed so mouseReleased uses the
     // same transform even if the user zooms between the two events.
-    let clickEmulationScale: number | null = null
+    const clickScaleSnapshot = createClickScaleSnapshot()
 
     const sendToClient = (message: string): void => {
       if (clientSocket.readyState === WebSocket.OPEN) clientSocket.send(message)
@@ -667,24 +668,16 @@ export async function startAppControlServer(): Promise<void> {
           }
 
           // DOM.getBoxModel returns CSS viewport coords; Input.dispatchMouseEvent
-          // expects physical view coords. With enableDeviceEmulation({ scale }),
-          // Chromium maps physical→CSS by dividing by scale. So to hit a CSS
-          // target at (x, y), we send (x * scale, y * scale).
-          // Snapshot scale on mousePressed; reuse for mouseReleased so a
+          // expects physical view coords. Compensate for the emulation scale,
+          // snapshotting on mousePressed and reusing for mouseReleased so a
           // mid-click zoom change doesn't split the pair across scales.
-          if (cdpType === 'mousePressed') {
-            clickEmulationScale = getZoom()
-          }
-          const emulationScale = clickEmulationScale ?? getZoom()
-          if (cdpType === 'mouseReleased') {
-            clickEmulationScale = null
-          }
-          const origX = params.x as number
-          const origY = params.y as number
-          if (emulationScale !== 1) {
-            params.x = origX * emulationScale
-            params.y = origY * emulationScale
-          }
+          const compensated = compensateMousePointForDispatch(
+            clickScaleSnapshot,
+            cdpType,
+            { x: params.x as number, y: params.y as number },
+          )
+          params.x = compensated.x
+          params.y = compensated.y
 
           const wc = page.pageView.webContents
           try {

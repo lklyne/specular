@@ -29,6 +29,7 @@ import {
 import { selectionDebug } from './runtime-constants'
 import { requestLayout } from './viewport-control'
 import { safeSend } from './safe-send'
+import { refreshInteractionSyncCapture } from '../interaction-sync'
 
 export function pageSelectionOverlayStates(): Array<{
   pageId: string
@@ -98,6 +99,7 @@ export function enterPageInteractive(pageId: string): void {
   if (interactivePageId() === pageId) return
   setInteractivePageId(pageId)
   sendInteractiveState()
+  refreshInteractionSyncCapture()
   requestLayout()
 }
 
@@ -106,6 +108,7 @@ export function exitPageInteractive(): void {
   if (interactivePageId() === null) return
   setInteractivePageId(null)
   sendInteractiveState()
+  refreshInteractionSyncCapture()
   requestLayout()
 }
 

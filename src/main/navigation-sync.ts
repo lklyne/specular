@@ -9,6 +9,7 @@ import {
   findPageById,
 } from './runtime/page-runtime'
 import { mutateWorkspace } from './runtime/mutate-workspace'
+import { refreshInteractionSyncCapture } from './interaction-sync'
 
 const LINKED_SCROLL_SUPPRESSION_MS = 150
 
@@ -81,6 +82,9 @@ export function dissolveOrphanSyncSets(): void {
   for (const page of pages) {
     if (page.syncId && (counts.get(page.syncId) ?? 0) < 2) page.syncId = null
   }
+  // Single chokepoint for every sync-membership change (set/unset/page delete):
+  // recompute which page, if any, captures interaction sync (D1).
+  refreshInteractionSyncCapture()
 }
 
 const LINKED_NAV_SUPPRESSION_MS = 1500

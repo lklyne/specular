@@ -47,6 +47,7 @@ import {
   markNavigationSuppressed,
   propagateNavigationFromPage,
 } from '../navigation-sync'
+import { refreshInteractionSyncCapture } from '../interaction-sync'
 import { attachBindingDispatcher } from './binding-dispatcher'
 import { openLinkInNewFrame } from './link-open-policy'
 import { looksLikeUrl } from '../../shared/url'
@@ -210,6 +211,7 @@ export function createPage(config: PageConfig): Page {
     syncInspectionState()
     page.pageView.webContents.send(ipcChannels.setAnnotateMode, toolAnnotateOverlay(uiActiveTool()))
     sendInteractiveState()
+    refreshInteractionSyncCapture()
     broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)
     if (overrides) {
