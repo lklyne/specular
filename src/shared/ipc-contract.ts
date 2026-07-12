@@ -18,6 +18,7 @@ import type {
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
 import type { PerfTraceState } from './electron-api/debug'
+import type { PanZoomPerfTestState } from './pan-zoom-perf-test'
 
 /**
  * The single source of truth for every IPC channel: its payload type and which
@@ -192,7 +193,7 @@ export interface IpcContract {
   'debug:get-initial-data': { dir: 'invoke'; payload: unknown }
   'debug:perf-pan-zoom-get-state': { dir: 'invoke'; payload: unknown }
   'debug:perf-pan-zoom-run': { dir: 'invoke'; payload: unknown }
-  'debug:perf-pan-zoom-state-changed': { dir: 'main→renderer'; payload: unknown }
+  'debug:perf-pan-zoom-state-changed': { dir: 'main→renderer'; payload: PanZoomPerfTestState }
   'debug:perf-pan-zoom-stop': { dir: 'invoke'; payload: unknown }
   'debug:perf-trace-get-state': { dir: 'invoke'; payload: unknown }
   'debug:perf-trace-get-summary': { dir: 'invoke'; payload: unknown }
