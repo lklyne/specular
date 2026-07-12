@@ -9,6 +9,7 @@ import type {
   PresenceTargetRect,
   PresenceTargetRefSource,
 } from '../shared/types'
+import { SYNCED_CURSOR_COLOR } from '../shared/types'
 import {
   PRESENCE_STEP_DELAY_MS,
   PRESENCE_THINKING_DELAY_MS,
@@ -19,7 +20,8 @@ import {
   getTextEntities,
   getFileEntities,
 } from './runtime/document-commands'
-import { pages } from './runtime/runtime-context'
+import { pages, findPageById } from './runtime/runtime-context'
+import { pageContentSize } from './runtime/runtime-geometry'
 import { workspaceGroups } from './runtime/workspace-model'
 import {
   resolveSession,
@@ -175,6 +177,11 @@ export function removePresenceCursor(id: string): void {
     thinkingTimers.delete(id)
   }
   activeScanIds.delete(id)
+  const wiggleTimer = syncedWiggleTimers.get(id)
+  if (wiggleTimer) {
+    clearTimeout(wiggleTimer)
+    syncedWiggleTimers.delete(id)
+  }
 }
 
 // --- Synced cursors (interaction sync, ADR 0030) ---
@@ -199,15 +206,146 @@ export interface SyncedCursorPosition {
   } | null
 }
 
-export function upsertSyncedCursor(_input: {
+const SYNCED_CURSOR_KEY_PREFIX = 'interaction-sync:'
+
+function syncedCursorKey(peerPageId: string): string {
+  return `${SYNCED_CURSOR_KEY_PREFIX}${peerPageId}`
+}
+
+// The activity a synced cursor sits in whenever it isn't mid-wiggle: plain
+// motion, not an inter-command gap, so it never qualifies for ambient drift
+// (`selectAmbientMode` gates on 'waiting'/'thinking' only) and the broadcast
+// path (canvas-layout-data.ts) forces its ambientMode to 'none' regardless.
+const SYNCED_CURSOR_GLIDE_ACTIVITY: PresenceActivity = 'traveling'
+
+// How long the 'refused' activity holds before reverting — long enough for
+// the renderer's lateral-shake keyframe (AgentCursorLayer.tsx) to play out.
+const SYNCED_CURSOR_WIGGLE_MS = 360
+
+// Per-peer revert timers, isolated the same way `thinkingTimers` isolates
+// per-session timers: one peer's wiggle must not cancel or be cancelled by
+// another peer's. Presence of a timer here IS "this cursor is wiggling" —
+// `upsertSyncedCursor` reads it instead of a redundant boolean field.
+const syncedWiggleTimers = new Map<string, NodeJS.Timeout>()
+
+export function upsertSyncedCursor(input: {
   peerPageId: string
   position: SyncedCursorPosition
   label: string
-}): void {}
+}): void {
+  const { peerPageId, position, label } = input
+  const peerPage = findPageById(peerPageId)
+  // The peer may have been destroyed between capture and this call (e.g. a
+  // fast unsync/close race); nothing to anchor the cursor to.
+  if (!peerPage) return
 
-export function wiggleSyncedCursor(_peerPageId: string): void {}
+  let pageX: number
+  let pageY: number
+  let targetRect: PresenceTargetRect | null
+  if (position.anchor) {
+    // Anchored: the peer resolved the locator confidently. The rect is what
+    // makes TargetHalo render (ADR 0030 — the halo is the honesty tell, only
+    // where a click would actually land).
+    const { rect, offsetX, offsetY } = position.anchor
+    pageX = rect.x + offsetX * rect.width
+    pageY = rect.y + offsetY * rect.height
+    targetRect = rect
+  } else {
+    // Proportional: no element matched, so the cursor glides at the same
+    // viewport fraction as the source, mapped onto the peer's own logical
+    // CSS content size (never zoom-scaled screen bounds) — D6.
+    const size = pageContentSize(peerPage)
+    pageX = position.viewportX * size.width
+    pageY = position.viewportY * size.height
+    targetRect = null
+  }
 
-export function removeSyncedCursorsForSource(_sourcePageId: string): void {}
+  const key = syncedCursorKey(peerPageId)
+  const existing = presenceCursors.get(key)
+  const isWiggling = syncedWiggleTimers.has(key)
+  const now = Date.now()
+  const positionChanged =
+    !existing || existing.pageX !== pageX || existing.pageY !== pageY
+  const next: PresenceCursorEntry = {
+    sessionId: key,
+    clientName: 'You',
+    color: SYNCED_CURSOR_COLOR,
+    source: 'interaction-sync',
+    canvasX: existing?.canvasX ?? 0,
+    canvasY: existing?.canvasY ?? 0,
+    surface: 'page',
+    // A pending wiggle owns the activity until its own timer reverts it —
+    // a mousemove landing mid-wiggle must not cut the refusal short.
+    activity: isWiggling ? 'refused' : SYNCED_CURSOR_GLIDE_ACTIVITY,
+    pageId: peerPageId,
+    pageX,
+    pageY,
+    labelKey: null,
+    labelParams: null,
+    // Plain taskLabel (no labelKey) renders as-is via labelForPresenceCursor
+    // — the caller already carries the gerund voice ("Clicking …").
+    taskLabel: label,
+    labelHint: null,
+    targetRef: null,
+    targetRefSource: null,
+    targetName: null,
+    targetRect,
+    updatedAt: now,
+    dwellBudgetMs: null,
+    lastMoveAt: positionChanged ? now : (existing?.lastMoveAt ?? now),
+    lastActAt: existing?.lastActAt ?? null,
+    // Synced cursors never enter the synthetic thinking/idle states this
+    // field disambiguates against (ADR 0029 territory is agent-only); kept
+    // null so `selectAmbientMode` — even though its activity gate already
+    // excludes synced cursors — has nothing to key off.
+    lastIntentLabelKey: null,
+  }
+  presenceCursors.set(key, next)
+  schedulePresenceExpiry()
+  notifyPresenceChanged()
+}
+
+export function wiggleSyncedCursor(peerPageId: string): void {
+  const key = syncedCursorKey(peerPageId)
+  const existing = presenceCursors.get(key)
+  // Nothing to wiggle if this peer has no tracked cursor (e.g. refused
+  // before the first hover/move ever anchored one).
+  if (!existing) return
+
+  const priorTimer = syncedWiggleTimers.get(key)
+  if (priorTimer) clearTimeout(priorTimer)
+
+  presenceCursors.set(key, { ...existing, activity: 'refused', updatedAt: Date.now() })
+  notifyPresenceChanged()
+
+  const timer = setTimeout(() => {
+    syncedWiggleTimers.delete(key)
+    const current = presenceCursors.get(key)
+    // Only revert if still mid-wiggle — a removal or a newer wiggle already
+    // moved the cursor on.
+    if (!current || current.activity !== 'refused') return
+    presenceCursors.set(key, {
+      ...current,
+      activity: SYNCED_CURSOR_GLIDE_ACTIVITY,
+      updatedAt: Date.now(),
+    })
+    notifyPresenceChanged()
+  }, SYNCED_CURSOR_WIGGLE_MS)
+  syncedWiggleTimers.set(key, timer)
+}
+
+export function removeSyncedCursorsForSource(_sourcePageId: string): void {
+  // The source page only ever drives one active synced-cursor set at a time
+  // (D6), so removing every interaction-sync:* key is equivalent to — and
+  // simpler than — filtering by which peers belonged to this source.
+  let removedAny = false
+  for (const [id, cursor] of presenceCursors) {
+    if (cursor.source !== 'interaction-sync') continue
+    removePresenceCursor(id)
+    removedAny = true
+  }
+  if (removedAny) notifyPresenceChanged()
+}
 
 /**
  * Transition a presence cursor to `departing` and schedule its removal.
@@ -256,7 +394,10 @@ function expirePresenceCursors(now: number): void {
       }
       continue
     }
-    if (!isSessionLive(id, now)) {
+    // Synced cursors (ADR 0030) have no backing MCP session — `isSessionLive`
+    // is always false for their key, so this check must skip them entirely
+    // and let the idle-retire check below be their only liveness signal.
+    if (cursor.source !== 'interaction-sync' && !isSessionLive(id, now)) {
       beginPresenceDeparture(id)
       continue
     }
@@ -387,6 +528,10 @@ export function upsertPresenceCursor(
   // would evict each other's cursor on every upsert.
   const evictionNow = Date.now()
   for (const [id, cursor] of presenceCursors) {
+    // Synced cursors (ADR 0030) aren't MCP sessions and are never live by
+    // `isSessionLive`'s definition — without this guard a coincidental
+    // clientName match would evict a perfectly current synced cursor.
+    if (cursor.source === 'interaction-sync') continue
     if (cursor.clientName === session.clientName && id !== sessionId && !isSessionLive(id, evictionNow)) {
       removePresenceCursor(id)
     }

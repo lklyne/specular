@@ -427,6 +427,7 @@ export function buildCanvasLayoutData(
       sessionId: c.sessionId,
       clientName: c.clientName,
       color: c.color,
+      source: c.source,
       surface: c.surface,
       activity: c.activity,
       pageId: c.pageId,
@@ -442,7 +443,10 @@ export function buildCanvasLayoutData(
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
       dwellBudgetMs: c.dwellBudgetMs,
-      ambientMode: selectAmbientMode(c.activity, c.lastIntentLabelKey),
+      // Synced cursors mirror a real user cursor and must never wander —
+      // idle-drift/reading-scan are agent-thinking-gap semantics (ADR 0029)
+      // that don't apply here, so force 'none' regardless of activity.
+      ambientMode: c.source === 'interaction-sync' ? 'none' : selectAmbientMode(c.activity, c.lastIntentLabelKey),
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
     interactivePageId: interactivePageId(),

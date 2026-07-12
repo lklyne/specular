@@ -74,7 +74,17 @@ function activityStyle(activity: PresenceActivity): CSSProperties {
     case 'departing':
       return { opacity: 0.7, transform: 'scale(0.96)' }
     case 'refused':
-      return { opacity: 1, transform: 'scale(1.02)', filter: 'saturate(1.15)' }
+      // A refused mirrored click (ADR 0030): a brief lateral shake, exactly
+      // one meaning ("can't do that here"). `forwards` holds the keyframe's
+      // final frame (already at rest) instead of popping back to the base
+      // `transform` above the instant the one-shot animation ends.
+      return {
+        opacity: 1,
+        transform: 'scale(1.02)',
+        filter: 'saturate(1.15)',
+        animation: 'synced-cursor-wiggle 360ms ease-in-out 1',
+        animationFillMode: 'forwards',
+      }
   }
 }
 
@@ -431,7 +441,15 @@ export function AgentCursorLayer({
       style={{ zIndex: 9999 }}
     >
       <style>
-        {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }`}
+        {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes synced-cursor-wiggle {
+  0% { transform: translateX(0) scale(1.02); }
+  20% { transform: translateX(-5px) scale(1.02); }
+  40% { transform: translateX(5px) scale(1.02); }
+  60% { transform: translateX(-3px) scale(1.02); }
+  80% { transform: translateX(2px) scale(1.02); }
+  100% { transform: translateX(0) scale(1); }
+}`}
       </style>
       <PresenceParticleTrail cursors={trailCursors} />
       {cursors.map((cursor) => (
