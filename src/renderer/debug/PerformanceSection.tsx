@@ -8,31 +8,21 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import type {
   DebugElectronAPI,
   PerfTraceFileEntry,
-  PerfTraceState,
 } from '../../shared/electron-api/debug'
 import type { TraceSummary } from '../../shared/trace-summary'
-import type { PanZoomPerfTestState } from '../../shared/pan-zoom-perf-test'
 import { HorizontalBarChart, TimelineChart } from './charts'
-import { formatClock, formatMs, formatModified, humanBytes } from './format'
+import { formatMs, formatModified, humanBytes } from './format'
+import { PerformanceHeader } from './PerformanceHeader'
+import {
+  usePerformanceRunState,
+  useTraceElapsedSeconds,
+} from './usePerformanceRunState'
 
-const RECORD_MAX_SECONDS = 30
 const MAX_BARS = 12
 const MAX_MARKER_LABEL = 40
 
 export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
-  const [traceState, setTraceState] = useState<PerfTraceState>({
-    recording: false,
-    status: 'idle',
-    startedAt: null,
-  })
-  const [panZoomState, setPanZoomState] = useState<PanZoomPerfTestState>({
-    running: false,
-    stopping: false,
-    phase: null,
-    startedAt: null,
-  })
   const [actionError, setActionError] = useState<string | null>(null)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [traces, setTraces] = useState<PerfTraceFileEntry[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -54,59 +44,15 @@ export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
     }
   }, [api])
 
-  // Initial recording state — onPerfTraceStateChanged only fires on change.
-  useEffect(() => {
-    let cancelled = false
-    void Promise.all([api.perfTraceGetState(), api.perfPanZoomGetState()]).then(
-      ([nextTraceState, nextPanZoomState]) => {
-        if (cancelled) return
-        setTraceState(nextTraceState)
-        setPanZoomState(nextPanZoomState)
-      },
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [api])
-
-  useEffect(
-    () =>
-      api.onPerfTraceStateChanged((state) => {
-        setTraceState((prev) => {
-          if (prev.status === 'stopping' && state.status === 'idle') {
-            // Recording just stopped (manually or via the 30s auto-stop) —
-            // the new file won't show up until we ask again.
-            void refreshList()
-          }
-          return state
-        })
-      }),
-    [api, refreshList],
-  )
-
-  useEffect(
-    () => api.onPerfPanZoomStateChanged(setPanZoomState),
-    [api],
-  )
+  const handleTraceSaved = useCallback(() => {
+    void refreshList()
+  }, [refreshList])
+  const { traceState, panZoomState } = usePerformanceRunState(api, handleTraceSaved)
+  const elapsedSeconds = useTraceElapsedSeconds(traceState)
 
   useEffect(() => {
     void refreshList()
   }, [refreshList])
-
-  useEffect(() => {
-    if (!traceState.recording || traceState.startedAt === null) {
-      setElapsedSeconds(0)
-      return
-    }
-    const startedAt = traceState.startedAt
-    const tick = () =>
-      setElapsedSeconds(
-        Math.min(RECORD_MAX_SECONDS, Math.floor((Date.now() - startedAt) / 1000)),
-      )
-    tick()
-    const id = setInterval(tick, 250)
-    return () => clearInterval(id)
-  }, [traceState.recording, traceState.startedAt])
 
   const handleAnalyze = async (fileName: string) => {
     setAnalyzingFile(fileName)
@@ -179,91 +125,6 @@ export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
           <div className="px-4 py-2 text-[11px] text-red-500">{summaryError}</div>
         ) : null}
         {summary ? <SummaryView summary={summary} fileName={selectedFile} /> : null}
-      </div>
-    </div>
-  )
-}
-
-function PerformanceHeader({
-  traceState,
-  panZoomState,
-  elapsedSeconds,
-  onToggle,
-  onPanZoomTest,
-  onRefresh,
-}: {
-  traceState: PerfTraceState
-  panZoomState: PanZoomPerfTestState
-  elapsedSeconds: number
-  onToggle: () => void
-  onPanZoomTest: () => void
-  onRefresh: () => void
-}) {
-  const traceBusy = traceState.status === 'starting' || traceState.status === 'stopping'
-  const recording = traceState.status === 'recording'
-  return (
-    <div className="shrink-0 border-b border-[var(--surface-popover-border)] px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[13px] font-semibold">Performance</div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="rounded border border-zinc-300 px-2 py-1 text-[11px] hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={onToggle}
-            disabled={traceBusy || panZoomState.running}
-            className={
-              recording || traceState.status === 'stopping'
-                ? 'flex items-center gap-2 rounded border border-red-400/60 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-500/20 disabled:opacity-50 dark:border-red-500/50 dark:text-red-400'
-                : 'flex items-center gap-2 rounded border border-zinc-300 px-2 py-1 text-[11px] font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
-            }
-          >
-            {traceState.status === 'stopping' ? (
-              <span>Saving…</span>
-            ) : traceState.status === 'starting' ? (
-              <span>Starting…</span>
-            ) : recording ? (
-              <>
-                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-red-500" />
-                <span className="tabular-nums">{formatClock(elapsedSeconds)}</span>
-                <span>Stop</span>
-              </>
-            ) : (
-              <span>Record trace</span>
-            )}
-          </button>
-        </div>
-      </div>
-      <div className="mt-1 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-        Traces are saved to the app logs folder; recording auto-stops after{' '}
-        {RECORD_MAX_SECONDS}s.
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-3 rounded border border-zinc-200 p-2 dark:border-zinc-800">
-        <div className="min-w-0">
-          <div className="text-[11px] font-medium">Pan/zoom test</div>
-          <div className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">
-            {panZoomState.running
-              ? panZoomState.phase ?? 'Running'
-              : 'Slow and fast pan, zoom, diagonal, and combined gestures'}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onPanZoomTest}
-          disabled={panZoomState.stopping || (!panZoomState.running && traceState.status !== 'idle')}
-          className={
-            panZoomState.running
-              ? 'shrink-0 rounded border border-red-400/60 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-500/20 dark:border-red-500/50 dark:text-red-400'
-              : 'shrink-0 rounded border border-zinc-300 px-2 py-1 text-[11px] font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800'
-          }
-        >
-          {panZoomState.stopping ? 'Stopping…' : panZoomState.running ? 'Stop test' : 'Run test'}
-        </button>
       </div>
     </div>
   )
