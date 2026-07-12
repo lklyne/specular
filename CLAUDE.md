@@ -117,15 +117,12 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 - Files must be diffable, versionable, and editable by agents and other tools
 - No proprietary blobs, no server dependencies for core data
 
-## View modes
+## View model
 
-Browser and Canvas are different views of the same data:
+Specular has one view: the canvas. Browser mode has been deleted ([ADR 0020](./docs/adr/0020-delete-browser-mode-for-focus-selection.md)).
 
 - **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between pages
-
-Both operate on the same underlying .canvas data and share primitives.
-Maximize overlap between modes.
+- **Focus selection** — ephemeral camera command that zooms to fit the selection; not a mode, not persisted (see CONTEXT.md "Focus selection")
 
 ## Code principles
 
@@ -157,14 +154,15 @@ primitives and tools, not dedicated workflow features:
 
 ## Agent integration
 
-Agent interaction is moving to a CLI for better context management.
+Agents interact with Specular primarily via the `specular` CLI (`src/main/cli.ts`).
 Agents can also read and write .canvas files directly — they are just JSON.
+An MCP server (`src/main/mcp-tools.ts`) covers the same operations for clients that prefer it.
 The HTTP API (src/main/routes/) remains available for runtime interaction.
 
 ## Testing patterns
 
 - **Unit tests** — pure logic, no Electron. `tests/unit/`
-- **Integration tests** — the real main-process runtime, in-process (electron aliased to a stub). `tests/integration/`, gated in CI. See ADR 0024.
+- **Integration tests** — the real main-process runtime, in-process (electron aliased to a stub). `tests/integration/`, gated in CI. See ADR 0031.
 - **Boot tests** — real Electron, ~3 checks, pre-release only. `tests/boot/`
 - **Agent tests** — scenario scripts. `tests/agent/`
 - **Harness** — `bootWorkspaceHarness()` in `tests/integration/harness.ts` boots the runtime against a temp dir; tests call the same mutators the IPC handlers call and assert on runtime arrays, the Y.Doc, and `.canvas` files.

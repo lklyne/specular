@@ -224,7 +224,7 @@ export interface CanvasSceneFileEntity {
   rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component' | 'html'
   /**
    * Markdown note content, present only once the note has entered the
-   * Y.Doc `notes` mirror (i.e. edited at least once — ADR 0023). Undefined
+   * Y.Doc `notes` mirror (i.e. edited at least once — ADR 0030). Undefined
    * means the renderer should fall back to reading the `.md` file directly;
    * once defined, this scene field is the source of truth and reflects
    * undo/redo immediately on the next broadcast.

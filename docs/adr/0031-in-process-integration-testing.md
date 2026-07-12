@@ -1,4 +1,4 @@
-# ADR 0024 — In-process integration suite replaces the Electron smoke suite
+# ADR 0031 — In-process integration suite replaces the Electron smoke suite
 
 **Status:** Accepted
 **Date:** 2026-07-02

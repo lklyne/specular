@@ -1,5 +1,5 @@
 /**
- * Markdown note content ↔ Y.Doc mirror (issue #262, ADR 0023).
+ * Markdown note content ↔ Y.Doc mirror (issue #262, ADR 0030).
  *
  * Note text lives in a `.md` file on disk (source of truth) with an
  * undo-tracked mirror in the `notes` Y.Map. These tests drive the same

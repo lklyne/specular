@@ -455,7 +455,7 @@ Retained as separate bundles: `toolbar/`, `left-sidebar/`, `devtools-*`. Retired
 
 ### Integration (in-process)
 
-The Electron smoke layer this section originally specified is retired ([ADR 0024](./adr/0024-in-process-integration-testing.md)) — it exercised a test-only HTTP facade and was gated nowhere. What remains covered, and where:
+The Electron smoke layer this section originally specified is retired ([ADR 0031](./adr/0031-in-process-integration-testing.md)) — it exercised a test-only HTTP facade and was gated nowhere. What remains covered, and where:
 
 - Gesture state-machine behavior (begin/commit/cancel, concurrent refusal, stale tokens) — unit, against `InteractionController`'s public API.
 - Cross-module batch/undo integrity (a refused gesture-begin must not corrupt the undo batch, I3) — `tests/integration/interaction-batch.test.ts`, driving the same call sequence as the IPC handlers.

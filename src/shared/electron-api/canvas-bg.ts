@@ -249,7 +249,7 @@ export interface CanvasBgElectronAPI {
   ) => () => void
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   /**
-   * ADR 0023 — commit a markdown note edit through the Y.Doc so it
+   * ADR 0030 — commit a markdown note edit through the Y.Doc so it
    * participates in the unified UndoManager. Prefer this over
    * `writeNoteFile` for markdown note content.
    */

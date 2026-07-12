@@ -72,7 +72,7 @@ If you can't name a mutation that breaks the test, the test is testing nothing (
 
 ## What's intentionally uncovered
 
-These were considered and deliberately deferred — see issue [#81](https://github.com/lklyne/specular/issues/81) "Non-goals" and [ADR 0024](../docs/adr/0024-in-process-integration-testing.md):
+These were considered and deliberately deferred — see issue [#81](https://github.com/lklyne/specular/issues/81) "Non-goals" and [ADR 0031](../docs/adr/0031-in-process-integration-testing.md):
 
 - **Renderer E2E with Playwright+Electron** — high flake/maintenance tax. Reconsider once a UI regression slips past users.
 - **View geometry / focus routing / overlay interactivity** — needs real views; covered indirectly by unit tests on the controllers (`focus-reconciler`, `interaction-controller`, `layout-*` math) and by dogfooding. The old Electron smoke tests for these passed without protecting anything (see #278).

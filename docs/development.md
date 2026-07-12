@@ -12,7 +12,8 @@ pnpm install
 pnpm dev                     # start the Electron app
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
-pnpm test:smoke              # integration tests (spawns Electron, uses HTTP API)
+pnpm test:integration        # in-process integration tests (no Electron, seconds)
+pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
 pnpm build                   # package for distribution
 ```
 

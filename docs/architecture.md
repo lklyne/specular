@@ -52,7 +52,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
                    │
 ┌──────────────────┴──────────────────────────────────────────┐
 │ External clients                                             │
-│  CLI (planned)     Agent interaction via command line        │
+│  CLI               Agent interaction via command line        │
 │  HTTP API          Runtime queries and mutations             │
 │  CDP proxy         Chrome DevTools Protocol (WebSocket)      │
 └─────────────────────────────────────────────────────────────┘
@@ -96,6 +96,8 @@ All canvas content is a **node** (following the JSON Canvas spec):
 | `text` | `text` | Text/markdown note |
 | `file` | `file` | Reference to a local file (image, etc.) |
 | `group` | `group` | Visual container for other nodes |
+| `drawing` | `drawing` | Freehand drawing on the canvas |
+| `shape` | `shape` | Geometric shape (rectangle, ellipse, diamond, etc.) |
 
 Plus **edges** (connections between nodes) and **annotations** (freehand
 drawings overlaid on the canvas).
@@ -136,13 +138,14 @@ layout, camera, inspector, presence. Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 
-The main spatial surface. Key components:
+The below-pages plane. Key components:
 - `CanvasGridSurface` — SVG canvas with pan/zoom
-- `SelectableEntityShell` — draggable/resizable node wrapper
-- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
-- `EdgeLayer` — connector lines
-- `GroupBoundsLayer` — group outlines
-- `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
+- `PageBorderLayer` — page border rendering
+- `GroupBackgroundLayer` — group fill/background rendering
+- `DeviceShellLayer` — device frame chrome (iPhone, iPad, etc.)
+- `AgentCursorLayer` — agent presence cursors; defined here but mounted in the `agent-layer` child window (see `src/renderer/agent-layer/`)
+
+Entity bodies (sticky notes, shapes, files, drawings), edges, selection outlines, resize handles, and group bounds all render in `src/renderer/above-view/` — not in canvas-bg. Key above-view layer components: `StickyBodyLayer`, `FileBodyLayer`, `ShapeBodyLayer`, `DrawingsLayer`, `EdgeLayer`, `SelectionOutlineLayer`, `GroupBoundsLayer`.
 
 ### src/shared/
 

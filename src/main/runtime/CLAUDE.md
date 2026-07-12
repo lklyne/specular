@@ -68,7 +68,7 @@ Not tracked: viewport zoom/pan (in a separate Y.Map excluded from UndoManager sc
 
 This is a high-risk layer: a bug in persistence, forward/reverse sync, or undo batching can lose user work silently. When you change anything in `workspace-*.ts` or the diff-sync path:
 
-- Add or update integration coverage under `tests/integration/` for the behavior change. Persistence, undo, and sync each have a dedicated file (`persistence.test.ts`, `undo.test.ts`, `sync.test.ts`) driving the real runtime in-process via `bootWorkspaceHarness()` — see [ADR 0024](../../../docs/adr/0024-in-process-integration-testing.md).
+- Add or update integration coverage under `tests/integration/` for the behavior change. Persistence, undo, and sync each have a dedicated file (`persistence.test.ts`, `undo.test.ts`, `sync.test.ts`) driving the real runtime in-process via `bootWorkspaceHarness()` — see [ADR 0031](../../../docs/adr/0031-in-process-integration-testing.md).
 - Mutation-verify the test before committing — name the production-code change you used to confirm the test catches it. See `tests/README.md` for the convention.
 - Forward sync changes need a "one mutation → one Y.Doc transaction" assertion. Reverse sync changes need an "undo applies without re-triggering forward sync" assertion.
 - Undo batching changes need a "logically-grouped mutations collapse to one undo step; distinct user actions remain distinct" assertion.

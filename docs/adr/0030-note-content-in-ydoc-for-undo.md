@@ -1,4 +1,4 @@
-# ADR 0023 — Markdown note content mirrored into the Y.Doc for undo
+# ADR 0030 — Markdown note content mirrored into the Y.Doc for undo
 
 **Status:** Accepted
 **Date:** 2026-07-01
