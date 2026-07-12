@@ -263,6 +263,9 @@ function useAnimatedCursors(cursors: AgentPresenceCursor[]): AnimatedCursor[] {
   const rafIdRef = useRef(0)
   const [, setTick] = useState(0)
 
+  // One RAF loop drives spline travel and ambient drift for every cursor by
+  // design (single interpolation clock); splitting it would fork that clock.
+  // fallow-ignore-next-line complexity
   useEffect(() => {
     const anims = animsRef.current
     let needsRaf = false

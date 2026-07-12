@@ -2,6 +2,7 @@
 // Suppressed: see #141. document-commands → … → canvas-layout-data / layout-engine import presence-cursor back
 import type { IncomingMessage } from 'http'
 import type {
+  AgentPresenceCursor,
   PresenceActivity,
   PresenceLabelKey,
   PresenceSurface,
@@ -28,26 +29,11 @@ import {
 
 // --- Types ---
 
-export interface PresenceCursorEntry {
-  sessionId: string
-  clientName: string
-  color: string
-  canvasX: number
-  canvasY: number
-  surface: PresenceSurface
-  activity: PresenceActivity
-  pageId?: string | null
-  pageX?: number | null
-  pageY?: number | null
-  labelKey: PresenceLabelKey | null
-  taskLabel?: string | null
-  labelHint?: string | null
-  labelParams?: Record<string, string | number | boolean> | null
-  targetRef?: string | null
-  targetRefSource?: PresenceTargetRefSource | null
-  targetName?: string | null
-  targetRect?: PresenceTargetRect | null
-  updatedAt: number
+// The main-process cursor record: the broadcast shape plus bookkeeping that
+// never leaves main. `ambientMode` is derived at broadcast time
+// (canvas-layout-data.ts), not stored here.
+export interface PresenceCursorEntry
+  extends Omit<AgentPresenceCursor, 'ambientMode' | 'dwellBudgetMs'> {
   // Wall-clock time of the most recent canvasX/canvasY change. Drives the
   // CDP-proxy pre-click sleep so the budget resets when the cursor is
   // actually repositioned (not just re-tagged).

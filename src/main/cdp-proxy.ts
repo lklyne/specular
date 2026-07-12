@@ -183,52 +183,53 @@ export function recordPendingRectRequest(
  *    guessed at. */
 export function extractRectFromCdpResult(method: string, result: unknown): CdpRect | null {
   if (!result || typeof result !== 'object') return null
-
-  if (method === 'DOM.getBoxModel') {
-    const model = (result as { model?: unknown }).model
-    if (!model || typeof model !== 'object') return null
-    const content = (model as { content?: unknown }).content
-    if (
-      !Array.isArray(content) ||
-      content.length !== 8 ||
-      !content.every((value) => typeof value === 'number' && Number.isFinite(value))
-    ) {
-      return null
-    }
-    const xs = [content[0], content[2], content[4], content[6]] as number[]
-    const ys = [content[1], content[3], content[5], content[7]] as number[]
-    const x = Math.min(...xs)
-    const y = Math.min(...ys)
-    const width = Math.max(...xs) - x
-    const height = Math.max(...ys) - y
-    return width > 0 && height > 0 ? { x, y, width, height } : null
-  }
-
-  if (method === 'Runtime.callFunctionOn') {
-    const inner = (result as { result?: unknown }).result
-    if (!inner || typeof inner !== 'object') return null
-    const value = (inner as { value?: unknown }).value
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-
-    const keys = Object.keys(value as Record<string, unknown>).sort()
-    const RECT_KEYS = ['height', 'width', 'x', 'y']
-    if (keys.length !== RECT_KEYS.length || !keys.every((key, index) => key === RECT_KEYS[index])) {
-      return null
-    }
-
-    const rect = value as { x: unknown; y: unknown; width: unknown; height: unknown }
-    const { x, y, width, height } = rect
-    if (
-      typeof x !== 'number' || typeof y !== 'number' ||
-      typeof width !== 'number' || typeof height !== 'number' ||
-      ![x, y, width, height].every(Number.isFinite)
-    ) {
-      return null
-    }
-    return width > 0 && height > 0 ? { x, y, width, height } : null
-  }
-
+  if (method === 'DOM.getBoxModel') return rectFromBoxModel(result)
+  if (method === 'Runtime.callFunctionOn') return rectFromCallFunctionOn(result)
   return null
+}
+
+function rectFromBoxModel(result: object): CdpRect | null {
+  const model = (result as { model?: unknown }).model
+  if (!model || typeof model !== 'object') return null
+  const content = (model as { content?: unknown }).content
+  if (
+    !Array.isArray(content) ||
+    content.length !== 8 ||
+    !content.every((value) => typeof value === 'number' && Number.isFinite(value))
+  ) {
+    return null
+  }
+  const xs = [content[0], content[2], content[4], content[6]] as number[]
+  const ys = [content[1], content[3], content[5], content[7]] as number[]
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  const width = Math.max(...xs) - x
+  const height = Math.max(...ys) - y
+  return width > 0 && height > 0 ? { x, y, width, height } : null
+}
+
+function rectFromCallFunctionOn(result: object): CdpRect | null {
+  const inner = (result as { result?: unknown }).result
+  if (!inner || typeof inner !== 'object') return null
+  const value = (inner as { value?: unknown }).value
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const keys = Object.keys(value as Record<string, unknown>).sort()
+  const RECT_KEYS = ['height', 'width', 'x', 'y']
+  if (keys.length !== RECT_KEYS.length || !keys.every((key, index) => key === RECT_KEYS[index])) {
+    return null
+  }
+
+  const rect = value as { x: unknown; y: unknown; width: unknown; height: unknown }
+  const { x, y, width, height } = rect
+  if (
+    typeof x !== 'number' || typeof y !== 'number' ||
+    typeof width !== 'number' || typeof height !== 'number' ||
+    ![x, y, width, height].every(Number.isFinite)
+  ) {
+    return null
+  }
+  return width > 0 && height > 0 ? { x, y, width, height } : null
 }
 
 export function summarizeCdpProxyRegistration(registration: CdpProxyRegistration): Record<string, unknown> {
