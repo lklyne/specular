@@ -45,6 +45,19 @@ const VALUE_FLAGS = new Set([
 
 export const MUTATION_VERBS = new Set(['click', 'fill', 'type', 'select'])
 
+const FIND_LOCATOR_KINDS = new Set([
+  'role',
+  'text',
+  'label',
+  'placeholder',
+  'alt',
+  'title',
+  'testid',
+  'first',
+  'last',
+])
+const FIND_CLICK_LIKE_ACTIONS = new Set(['check', 'uncheck', 'dblclick', 'tap'])
+
 // Verbs that would fight Specular for ownership of browser lifecycle or the
 // page entity's URL. Specular owns page creation (`add page`), teardown
 // (`delete`), and — since a CDP-driven navigation never writes back to the
@@ -159,6 +172,53 @@ export function parseCommandArgs(cmd: string): {
     i++
   }
   return { argv, verb, ref, positionals }
+}
+
+function findSubaction(positionals: string[]): string | null {
+  const locatorKind = positionals[0]
+  if (!locatorKind) return null
+  if (locatorKind === 'nth') return positionals[3] ?? null
+  if (!FIND_LOCATOR_KINDS.has(locatorKind)) return null
+  return positionals[2] ?? null
+}
+
+/**
+ * The browser command as Specular should understand it for orchestration.
+ *
+ * `find` is a semantic-locator wrapper around another action: agent-browser
+ * still owns target resolution and receives the original argv, but Specular's
+ * presence/staleness/URL bookkeeping should see `find text "Submit" click`
+ * as a click intent so the CDP proxy can pre-move to the real rect that
+ * agent-browser resolves.
+ */
+export function effectiveBrowseCommand(parsed: {
+  verb: string | null
+  positionals: string[]
+}): string | null {
+  if (!parsed.verb) return null
+  if (parsed.verb !== 'find') return parsed.verb
+
+  const action = findSubaction(parsed.positionals)
+  if (!action) return 'find'
+  if (MUTATION_VERBS.has(action)) return action
+  if (FIND_CLICK_LIKE_ACTIONS.has(action)) return 'click'
+  return 'find'
+}
+
+export function mutationVerbForCommand(parsed: {
+  verb: string | null
+  positionals: string[]
+}): string | null {
+  const effective = effectiveBrowseCommand(parsed)
+  return effective && MUTATION_VERBS.has(effective) ? effective : null
+}
+
+export function labelKeyForCommand(parsed: {
+  verb: string | null
+  positionals: string[]
+}): string | null {
+  const effective = effectiveBrowseCommand(parsed)
+  return effective ? COMMAND_LABELS[effective] ?? null : null
 }
 
 /**
@@ -515,8 +575,10 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
   // Parse first command for presence animation
   const firstCmd = isChained ? chainedParts[0] : rawCommand
-  const { verb, ref } = parseCommandArgs(firstCmd)
-  const labelKey = verb ? COMMAND_LABELS[verb] ?? null : null
+  const firstParsed = parseCommandArgs(firstCmd)
+  const { verb, ref } = firstParsed
+  const intentCommand = effectiveBrowseCommand(firstParsed)
+  const labelKey = labelKeyForCommand(firstParsed)
   // Only re-resolving targets (selector/text/find) need a target query — an
   // @eN ref is already opaque to specular's own resolution.
   const targetQuery = ref ? null : parseTargetQuery(firstCmd)
@@ -547,10 +609,10 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
         body: JSON.stringify({
           sessionId,
           clientName,
-          command: verb,
+          command: intentCommand,
           labelKey,
           pageId,
-          labelHint: verb === 'fill' || verb === 'type' ? 'editing control' : null,
+          labelHint: intentCommand === 'fill' || intentCommand === 'type' ? 'editing control' : null,
           targetRef: ref,
           targetRefSource: ref ? 'agent-browser' : null,
           targetQuery,
@@ -617,9 +679,9 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
 
       for (const entry of results) {
         if (!entry.success) {
-          const entryVerb = entry.command[0]
           const hasRef = entry.command.some((tok) => /^@e\d+$/.test(tok))
-          const hint = entryVerb && MUTATION_VERBS.has(entryVerb) && hasRef
+          const entryParsed = parseCommandArgs(entry.command.map(shellQuote).join(' '))
+          const hint = mutationVerbForCommand(entryParsed) && hasRef
             ? `\n${staleRefHint(pageId)}`
             : ''
           contentBlocks.push({ type: 'text', text: `> ${entry.command.join(' ')}\nError: ${entry.error}${hint}` })
@@ -681,6 +743,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     // ---- Single command ----
     const singleParsed = parseCommandArgs(rawCommand)
     const { argv } = singleParsed
+    const singleMutationVerb = mutationVerbForCommand(singleParsed)
     const timeoutMs = verb === 'wait' ? 60_000 : 30_000
 
     // D8: for a mutation, check whether the page has navigated since the
@@ -689,7 +752,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     // recorded yet (lastSnapshotGeneration null) means nothing to compare
     // against, so the warning is skipped rather than guessed at.
     let generationWarning: string | null = null
-    if (verb && MUTATION_VERBS.has(verb)) {
+    if (singleMutationVerb) {
       const fresh = await fetchFreshGeneration(pageId)
       if (fresh !== null && fresh.lastSnapshotGeneration !== null) {
         generationWarning = staleGenerationWarning(pageId, fresh.lastSnapshotGeneration, fresh.generation)
@@ -725,7 +788,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       // generation warning is complementary: it fires on both success and
       // failure, since the mutation ran against a possibly-stale DOM either
       // way — never blocks the command, only adds context to the error.
-      if (verb && MUTATION_VERBS.has(verb)) {
+      if (singleMutationVerb) {
         const message = err instanceof Error ? err.message : String(err)
         // The generation warning and the stale-ref hint give the same
         // recovery advice — emit whichever applies, never both.
@@ -771,7 +834,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     if (generationWarning) output = `${generationWarning}\n\n${output}`
 
     // Auto-append URL after mutations
-    if (verb && MUTATION_VERBS.has(verb)) {
+    if (singleMutationVerb) {
       try {
         const { stdout: urlOut } = await spawnAsync(
           abPath,
@@ -790,7 +853,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     // --echo: re-snapshot after a successful mutation so the caller sees the
     // resulting DOM without a separate round trip. Only wired for the single
     // -command path — chained/batch calls ignore --echo.
-    if (verb && MUTATION_VERBS.has(verb) && (args.echo as boolean | undefined)) {
+    if (singleMutationVerb && (args.echo as boolean | undefined)) {
       try {
         const { stdout: echoOut } = await spawnAsync(
           abPath,

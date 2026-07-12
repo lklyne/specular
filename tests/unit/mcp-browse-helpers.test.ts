@@ -5,6 +5,9 @@ import {
   splitChainedCommands,
   parseCommandArgs,
   parseScrollTarget,
+  effectiveBrowseCommand,
+  mutationVerbForCommand,
+  labelKeyForCommand,
   staleGenerationWarning,
 } from '../../src/main/mcp-browse'
 
@@ -134,6 +137,43 @@ describe('parseCommandArgs', () => {
     const result = parseCommandArgs('--cdp ws://localhost:9222 click @e3')
     expect(result.verb).toBe('click')
     expect(result.ref).toBe('@e3')
+  })
+})
+
+describe('effectiveBrowseCommand', () => {
+  const parse = (cmd: string) => parseCommandArgs(cmd)
+
+  it('keeps first-class browse verbs unchanged', () => {
+    expect(effectiveBrowseCommand(parse('click @e5'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('snapshot -i'))).toBe('snapshot')
+  })
+
+  it('normalizes find commands to their mutating subaction', () => {
+    expect(effectiveBrowseCommand(parse('find text "Oviedo (Spain)" click --exact'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('find label "Email" fill "user@test.com"'))).toBe('fill')
+    expect(effectiveBrowseCommand(parse('find placeholder "Search" type "query"'))).toBe('type')
+    expect(effectiveBrowseCommand(parse('find role option select --name "Two"'))).toBe('select')
+  })
+
+  it('maps click-like find subactions onto click presence', () => {
+    expect(effectiveBrowseCommand(parse('find testid agree check'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('find testid agree uncheck'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('find first ".item" dblclick'))).toBe('click')
+  })
+
+  it('does not pretend non-mutating find subactions are mutations', () => {
+    expect(effectiveBrowseCommand(parse('find nth 2 "a.external" hover'))).toBe('find')
+    expect(mutationVerbForCommand(parse('find nth 2 "a.external" hover'))).toBeNull()
+  })
+
+  it('drives labels and mutation checks from the effective command', () => {
+    const clickFind = parse('find text "Submit" click')
+    const fillFind = parse('find label "Email" fill "user@test.com"')
+
+    expect(labelKeyForCommand(clickFind)).toBe('click_target')
+    expect(mutationVerbForCommand(clickFind)).toBe('click')
+    expect(labelKeyForCommand(fillFind)).toBe('type_text')
+    expect(mutationVerbForCommand(fillFind)).toBe('fill')
   })
 })
 

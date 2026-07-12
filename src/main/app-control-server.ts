@@ -26,7 +26,6 @@ import {
   upsertPresenceCursor,
   presenceCursors,
   PRESENCE_CURSOR_STEP_DELAY_MS,
-  PRESENCE_CURSOR_POSITION_SKIP_PX,
   computeDwellBudgetMs,
   recordPresenceAct,
 } from './presence-cursor'
@@ -419,9 +418,6 @@ export async function startAppControlServer(): Promise<void> {
         const skip = shouldSkipReposition({
           clickPoint: { x: existing.pageX, y: existing.pageY },
           targetRect: rect,
-          cursorCanvasPoint: { x: existing.canvasX, y: existing.canvasY },
-          clickCanvasPoint: { x: resolved.canvasX, y: resolved.canvasY },
-          skipDistancePx: PRESENCE_CURSOR_POSITION_SKIP_PX,
         })
         if (skip) return
       }
@@ -618,9 +614,6 @@ export async function startAppControlServer(): Promise<void> {
                 skipPosition = shouldSkipReposition({
                   clickPoint: { x, y },
                   targetRect: rect,
-                  cursorCanvasPoint: { x: existing.canvasX, y: existing.canvasY },
-                  clickCanvasPoint: { x: resolved.canvasX, y: resolved.canvasY },
-                  skipDistancePx: PRESENCE_CURSOR_POSITION_SKIP_PX,
                 })
                 // Amortization scoreboard: only counts when a prior travel
                 // step (selector pre-resolution or box-model pre-move) had

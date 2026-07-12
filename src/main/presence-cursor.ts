@@ -98,10 +98,6 @@ let presenceExpiryTimer: NodeJS.Timeout | null = null
 // --- Constants ---
 
 export const PRESENCE_CURSOR_STEP_DELAY_MS = PRESENCE_STEP_DELAY_MS
-/** Canvas-space distance below which a CDP-time reposition is treated as a
- *  no-op correction — the cursor stays where the intent placed it rather than
- *  restarting its animation to a few-pixel-off coordinate. */
-export const PRESENCE_CURSOR_POSITION_SKIP_PX = 30
 const PRESENCE_CURSOR_THINKING_DELAY_MS = PRESENCE_THINKING_DELAY_MS
 const PRESENCE_DEPARTURE_GRACE_MS = 1500
 const PRESENCE_IDLE_RETIRE_MS = 10_000

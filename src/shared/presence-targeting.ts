@@ -43,35 +43,25 @@ export function pagePointMatchesTargetRect(
 
 /**
  * Whether a presence cursor reposition toward a click/target point should be
- * suppressed because the cursor is already close enough — either the point
- * already sits inside `targetRect`, or the canvas-space gap between the
- * cursor's current position and the point's resolved canvas position is
- * under `skipDistancePx`. Shared by the CDP proxy's box-model pre-move
- * (issue #318 amortization) and its mousePressed skip check (ADR 0029) so
- * both agree on one definition of "close enough not to re-travel."
+ * suppressed because the cursor is already on the target — the point sits
+ * inside `targetRect`. Shared by the CDP proxy's box-model pre-move (issue
+ * #318 amortization) and its mousePressed skip check (ADR 0029) so both agree
+ * on one definition of "already there, don't re-travel."
  *
- * Event-shaped (points and a rect, not a `PresenceCursorEntry` read) so
+ * Only within-rect counts: a distance heuristic was measured in canvas units,
+ * so it suppressed legitimate travel more aggressively the further the canvas
+ * was zoomed out (#319). Every hop to a different element now animates.
+ *
+ * Event-shaped (a point and a rect, not a `PresenceCursorEntry` read) so
  * #319 Phase 5's event-timeline choreography can port it unchanged (ADR
  * 0029, "Future path: presence event timeline").
  */
 export function shouldSkipReposition({
   clickPoint,
   targetRect,
-  cursorCanvasPoint,
-  clickCanvasPoint,
-  skipDistancePx,
 }: {
   clickPoint: { x: number | null | undefined; y: number | null | undefined }
   targetRect: PresenceTargetRect | null | undefined
-  cursorCanvasPoint: { x: number; y: number }
-  clickCanvasPoint: { x: number; y: number }
-  skipDistancePx: number
 }): boolean {
-  const withinRect =
-    targetRect != null && pagePointMatchesTargetRect(clickPoint.x, clickPoint.y, targetRect, 0)
-  const canvasDistance = Math.hypot(
-    clickCanvasPoint.x - cursorCanvasPoint.x,
-    clickCanvasPoint.y - cursorCanvasPoint.y,
-  )
-  return withinRect || canvasDistance < skipDistancePx
+  return targetRect != null && pagePointMatchesTargetRect(clickPoint.x, clickPoint.y, targetRect, 0)
 }

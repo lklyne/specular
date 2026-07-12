@@ -114,87 +114,16 @@ function TargetHalo({
   )
 }
 
-const RIPPLE_SIZE = 96
-const RIPPLE_DURATION_MS = 100
-
-/**
- * Delay before the ripple animation starts, so it coincides with real
- * dispatch (ADR 0029: the act moment anchors to dispatch) instead of a
- * module-wide constant that desyncs whenever the actual dwell differs from
- * the nominal full-budget case — a short hop that arrives early, or Phase
- * 2's adaptive burst dwell (budget as low as `PRESENCE_BURST_STEP_DELAY_MS`).
- *
- * `msSinceReposition` is how long ago (client wall clock) this cursor last
- * repositioned toward the click target — the client-side analogue of the
- * server's `lastMoveAt` that `computeDwellRemainingMs` reads. The server
- * dispatches `dwellBudgetMs` after that reposition regardless of how much
- * of it was travel vs. settle, so budget-minus-elapsed is the renderer's
- * best knowable estimate of time-to-dispatch; network/IPC latency between
- * the two processes is the unknowable residual, which this formula ignores
- * by design — floored at 0, it can only degrade toward "ripple at travel
- * completion," never later than the old fixed constant.
- */
-function computeRippleDelayMs(dwellBudgetMs: number | null | undefined, msSinceReposition: number): number {
-  const budget = dwellBudgetMs ?? PRESENCE_STEP_DELAY_MS
-  return Math.max(0, budget - msSinceReposition - RIPPLE_DURATION_MS)
-}
-
-function ClickRipple({ color, delayMs }: { color: string; delayMs: number }) {
-  return (
-    <div
-      className="absolute rounded-full"
-      style={{
-        width: RIPPLE_SIZE,
-        height: RIPPLE_SIZE,
-        left: -(RIPPLE_SIZE / 2),
-        top: -(RIPPLE_SIZE / 2),
-        background: `color-mix(in srgb, ${color} 40%, transparent)`,
-        animation: `agent-click-ripple ${RIPPLE_DURATION_MS}ms ease-out ${delayMs}ms forwards`,
-        opacity: 0,
-        pointerEvents: 'none',
-      }}
-    />
-  )
-}
-
 function AgentCursor({
   cursor,
   point,
   zoom,
-  repositionedAt,
 }: {
   cursor: AgentPresenceCursor
   point: Vec2
   zoom: number
-  /** performance.now() timestamp of this cursor's last reposition toward a
-   *  target — see `computeRippleDelayMs`. */
-  repositionedAt: number
 }) {
   const label = labelForPresenceCursor(cursor)
-  const [ripple, setRipple] = useState<{ key: number; delayMs: number } | null>(null)
-  const rippleCounterRef = useRef(0)
-  const prevActivity = useRef(cursor.activity)
-
-  useEffect(() => {
-    const wasClick =
-      cursor.activity === 'acting' &&
-      cursor.labelKey === 'click_target' &&
-      prevActivity.current !== 'acting'
-    prevActivity.current = cursor.activity
-    if (wasClick) {
-      const msSinceReposition = performance.now() - repositionedAt
-      setRipple({
-        key: ++rippleCounterRef.current,
-        delayMs: computeRippleDelayMs(cursor.dwellBudgetMs, msSinceReposition),
-      })
-    }
-    // Deliberately keyed on activity/labelKey only: repositionedAt updates
-    // continuously as the cursor travels, and re-running this effect on
-    // every tick would miss the activity transition edge the ripple fires
-    // on. The closure still reads the freshest repositionedAt prop, since
-    // this effect only actually runs on the render where the transition
-    // itself occurred.
-  }, [cursor.activity, cursor.labelKey])
 
   const positionStyle: CSSProperties = useMemo(
     () => ({
@@ -206,7 +135,7 @@ function AgentCursor({
     [point.x, point.y],
   )
 
-  // Counter-scale keeps icon, label, and ripple at constant screen size
+  // Counter-scale keeps icon and label at constant screen size
   // regardless of canvas zoom.
   const counterScaleStyle: CSSProperties = {
     transform: `scale(${1 / zoom})`,
@@ -224,9 +153,6 @@ function AgentCursor({
     <div className="absolute" style={positionStyle}>
       <div style={counterScaleStyle}>
         <div style={activityTransformStyle}>
-          {ripple && (
-            <ClickRipple key={ripple.key} color={cursor.color} delayMs={ripple.delayMs} />
-          )}
           <FilledCursorIcon color={cursor.color} size={24} />
           {label ? (
             <div
@@ -500,8 +426,7 @@ export function AgentCursorLayer({
       style={{ zIndex: 9999 }}
     >
       <style>
-        {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes agent-click-ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }`}
+        {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }`}
       </style>
       <PresenceParticleTrail cursors={trailCursors} />
       {cursors.map((cursor) => (
@@ -522,13 +447,12 @@ export function AgentCursorLayer({
           transform: `translate(${canvasOrigin.x + pan.x}px, ${canvasOrigin.y + pan.y - overlayOffsetY}px) scale(${zoom})`,
         }}
       >
-        {animated.map(({ cursor, point, repositionedAt }) => (
+        {animated.map(({ cursor, point }) => (
           <AgentCursor
             key={cursor.sessionId}
             cursor={cursor}
             point={point}
             zoom={zoom}
-            repositionedAt={repositionedAt}
           />
         ))}
       </div>

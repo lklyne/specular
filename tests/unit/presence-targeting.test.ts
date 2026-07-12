@@ -83,103 +83,30 @@ describe('pagePointMatchesTargetRect', () => {
   })
 })
 
-// Issue #319 Phase 5: shouldSkipReposition is the "already close enough, no
-// need to re-travel" check the CDP proxy inlined twice (box-model pre-move
-// and the mousePressed skip check) before it was extracted here (ADR 0029).
+// shouldSkipReposition is the "already on the target, no need to re-travel"
+// check the CDP proxy inlined twice (box-model pre-move and the mousePressed
+// skip check) before it was extracted here (ADR 0029). Skip is within-rect
+// only: a canvas-space distance heuristic suppressed travel more the further
+// the canvas was zoomed out, so every hop to a distinct element now animates
+// (#319).
 describe('shouldSkipReposition', () => {
   const rect = { x: 10, y: 20, width: 100, height: 50 }
-  const origin = { x: 0, y: 0 }
 
   it('skips when the click point is inside the target rect', () => {
-    expect(
-      shouldSkipReposition({
-        clickPoint: { x: 50, y: 40 },
-        targetRect: rect,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 1_000, y: 1_000 }, // far in canvas space, rect match still wins
-        skipDistancePx: 30,
-      }),
-    ).toBe(true)
+    expect(shouldSkipReposition({ clickPoint: { x: 50, y: 40 }, targetRect: rect })).toBe(true)
   })
 
   it('skips when the click point sits exactly on the rect edge', () => {
     expect(
-      shouldSkipReposition({
-        clickPoint: { x: rect.x, y: rect.y },
-        targetRect: rect,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 1_000, y: 1_000 },
-        skipDistancePx: 30,
-      }),
+      shouldSkipReposition({ clickPoint: { x: rect.x, y: rect.y }, targetRect: rect }),
     ).toBe(true)
   })
 
-  it('does not skip when the click point is outside the rect and no rect matches', () => {
-    expect(
-      shouldSkipReposition({
-        clickPoint: { x: 500, y: 500 },
-        targetRect: rect,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 1_000, y: 1_000 },
-        skipDistancePx: 30,
-      }),
-    ).toBe(false)
+  it('does not skip when the click point is outside the rect', () => {
+    expect(shouldSkipReposition({ clickPoint: { x: 500, y: 500 }, targetRect: rect })).toBe(false)
   })
 
-  it('skips when outside the rect but within the canvas skip distance', () => {
-    expect(
-      shouldSkipReposition({
-        clickPoint: { x: 500, y: 500 },
-        targetRect: rect,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 10, y: 0 }, // distance 10 < skipDistancePx 30
-        skipDistancePx: 30,
-      }),
-    ).toBe(true)
-  })
-
-  it('does not skip exactly at the skip distance boundary (strict <)', () => {
-    expect(
-      shouldSkipReposition({
-        clickPoint: { x: 500, y: 500 },
-        targetRect: rect,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 30, y: 0 }, // distance exactly 30
-        skipDistancePx: 30,
-      }),
-    ).toBe(false)
-  })
-
-  it('does not skip just past the skip distance boundary', () => {
-    expect(
-      shouldSkipReposition({
-        clickPoint: { x: 500, y: 500 },
-        targetRect: rect,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 30.01, y: 0 },
-        skipDistancePx: 30,
-      }),
-    ).toBe(false)
-  })
-
-  it('never matches a null targetRect on rect grounds, only on canvas distance', () => {
-    expect(
-      shouldSkipReposition({
-        clickPoint: { x: 50, y: 40 },
-        targetRect: null,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 1_000, y: 1_000 },
-        skipDistancePx: 30,
-      }),
-    ).toBe(false)
-    expect(
-      shouldSkipReposition({
-        clickPoint: { x: 50, y: 40 },
-        targetRect: null,
-        cursorCanvasPoint: origin,
-        clickCanvasPoint: { x: 5, y: 0 },
-        skipDistancePx: 30,
-      }),
-    ).toBe(true)
+  it('does not skip a null targetRect — a rect-less target always travels', () => {
+    expect(shouldSkipReposition({ clickPoint: { x: 50, y: 40 }, targetRect: null })).toBe(false)
   })
 })
