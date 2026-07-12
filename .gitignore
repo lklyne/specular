@@ -4,6 +4,7 @@ out/
 build/*
 !build/icon.icns
 .vite/
+.dev/
 .context/
 .DS_Store
 .env

@@ -19,7 +19,8 @@
   "packageManager": "pnpm@11.10.0",
   "scripts": {
     "dev": "pnpm fetch:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
-    "dev:restart": "bash scripts/dev-restart.sh",
+    "devctl": "node scripts/devctl.mjs",
+    "dev:restart": "pnpm devctl restart",
     "sync:agent-browser": "bash scripts/sync-agent-browser-skill.sh",
     "fetch:agent-browser": "bash scripts/fetch-agent-browser.sh",
     "check:agent-browser": "bash scripts/check-agent-browser.sh",
@@ -60,12 +61,12 @@
     "yjs": "^13.6.30"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.0.0",
-    "@electron-forge/maker-dmg": "^7.0.0",
-    "@electron-forge/maker-zip": "^7.0.0",
-    "@electron-forge/plugin-vite": "^7.0.0",
-    "@electron-forge/publisher-github": "^7.11.1",
-    "@electron-forge/shared-types": "^7.11.1",
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-dmg": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
+    "@electron-forge/plugin-vite": "^7.11.2",
+    "@electron-forge/publisher-github": "^7.11.2",
+    "@electron-forge/shared-types": "^7.11.2",
     "@electron/notarize": "^3.1.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^19.0.0",
