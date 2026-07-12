@@ -73,6 +73,8 @@ function activityStyle(activity: PresenceActivity): CSSProperties {
       return { opacity: 0.38, transform: 'scale(0.96)' }
     case 'departing':
       return { opacity: 0.7, transform: 'scale(0.96)' }
+    case 'refused':
+      return { opacity: 1, transform: 'scale(1.02)', filter: 'saturate(1.15)' }
   }
 }
 

@@ -6,7 +6,11 @@ import type {
   ConnectedRepo,
   DevtoolsPanelData,
   FixConfig,
+  InteractionSyncCapturePayload,
+  InteractionSyncEvent,
   LayoutUpdateData,
+  LocatorResolveRequest,
+  LocatorResolveResponse,
   LeftSidebarData,
   OnboardingProgressEvent,
   SelectionOverlayPayload,
@@ -220,6 +224,7 @@ export interface IpcContract {
   'inspect-node-hover': { dir: 'renderer→main'; payload: unknown }
   'inspect-node-select': { dir: 'renderer→main'; payload: unknown }
   'inspect-tree-update': { dir: 'renderer→main'; payload: unknown }
+  'interaction-sync-event': { dir: 'renderer→main'; payload: InteractionSyncEvent }
   'left-sidebar-changed': { dir: 'main→renderer'; payload: boolean }
   'left-sidebar-data': { dir: 'main→renderer'; payload: LeftSidebarData }
   'onboarding:complete': { dir: 'renderer→main'; payload: unknown }
@@ -256,6 +261,8 @@ export interface IpcContract {
   'repo-disconnect': { dir: 'invoke'; payload: unknown }
   'repo-find-for-path': { dir: 'renderer→main'; payload: unknown }
   'repo-list': { dir: 'renderer→main'; payload: unknown }
+  'resolve-interaction-locator': { dir: 'main→renderer'; payload: LocatorResolveRequest }
+  'resolve-interaction-locator-response': { dir: 'renderer→main'; payload: LocatorResolveResponse }
   'resolve-node-detail': { dir: 'main→renderer'; payload: unknown }
   'resolve-node-detail-response': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-clear-inspect-selection': { dir: 'renderer→main'; payload: unknown }
@@ -290,6 +297,7 @@ export interface IpcContract {
   'set-canvas-zoom': { dir: 'main→renderer'; payload: unknown }
   'set-design-system-manifest': { dir: 'main→renderer'; payload: unknown }
   'set-inspection-mode': { dir: 'main→renderer'; payload: unknown }
+  'set-interaction-sync-capture': { dir: 'main→renderer'; payload: InteractionSyncCapturePayload }
   'set-interactive': { dir: 'main→renderer'; payload: unknown }
   'set-multi-selected': { dir: 'main→renderer'; payload: unknown }
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
@@ -519,6 +527,7 @@ export const ipcChannels = {
   inspectNodeHover: 'inspect-node-hover',
   inspectNodeSelect: 'inspect-node-select',
   inspectTreeUpdate: 'inspect-tree-update',
+  interactionSyncEvent: 'interaction-sync-event',
   leftSidebarChanged: 'left-sidebar-changed',
   leftSidebarData: 'left-sidebar-data',
   onboardingComplete: 'onboarding:complete',
@@ -554,6 +563,8 @@ export const ipcChannels = {
   repoDisconnect: 'repo-disconnect',
   repoFindForPath: 'repo-find-for-path',
   repoList: 'repo-list',
+  resolveInteractionLocator: 'resolve-interaction-locator',
+  resolveInteractionLocatorResponse: 'resolve-interaction-locator-response',
   resolveNodeDetail: 'resolve-node-detail',
   resolveNodeDetailResponse: 'resolve-node-detail-response',
   rightDetailsPanelClearInspectSelection: 'right-details-panel-clear-inspect-selection',
@@ -588,6 +599,7 @@ export const ipcChannels = {
   setCanvasZoom: 'set-canvas-zoom',
   setDesignSystemManifest: 'set-design-system-manifest',
   setInspectionMode: 'set-inspection-mode',
+  setInteractionSyncCapture: 'set-interaction-sync-capture',
   setInteractive: 'set-interactive',
   setMultiSelected: 'set-multi-selected',
   setThemeMode: 'set-theme-mode',

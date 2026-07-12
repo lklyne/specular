@@ -177,6 +177,38 @@ export function removePresenceCursor(id: string): void {
   activeScanIds.delete(id)
 }
 
+// --- Synced cursors (interaction sync, ADR 0030) ---
+//
+// A synced cursor is a presence cursor sourced from the user's mirrored input
+// rather than an agent (`source: 'interaction-sync'`), one per peer page while
+// the source receives input. These are typed stubs so the relay and dispatcher
+// (packages B2/B3) compile against a stable surface; the presence package
+// replaces the bodies with the real store mutations.
+
+/** Two-tier synced-cursor position: a viewport-fraction base with an optional
+ *  anchored element rect + within-element offset. The anchor is present only
+ *  when the peer resolved the locator confidently (element-snap + halo);
+ *  absent means proportional glide. */
+export interface SyncedCursorPosition {
+  viewportX: number
+  viewportY: number
+  anchor?: {
+    rect: PresenceTargetRect
+    offsetX: number
+    offsetY: number
+  } | null
+}
+
+export function upsertSyncedCursor(_input: {
+  peerPageId: string
+  position: SyncedCursorPosition
+  label: string
+}): void {}
+
+export function wiggleSyncedCursor(_peerPageId: string): void {}
+
+export function removeSyncedCursorsForSource(_sourcePageId: string): void {}
+
 /**
  * Transition a presence cursor to `departing` and schedule its removal.
  * Called from session close, CDP transport drop, and the expiry sweep when
