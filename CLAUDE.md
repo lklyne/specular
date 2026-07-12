@@ -25,10 +25,12 @@ pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
 pnpm build                   # package for distribution
 ```
 
-For unattended or agent-owned app runs, use `pnpm devctl start|status|logs|restart|stop`.
-`devctl` refuses to restart or stop a foreground `pnpm dev` that it did not
-start. `pnpm devctl context` prints process state, recent dev/error logs, and
-performance-trace metadata as one agent-readable JSON document.
+Dev app workflow:
+- Humans run `pnpm dev` for a foreground, human-owned app.
+- Agents run `pnpm devctl start`; repeated starts are safe.
+- Use `pnpm devctl status|logs|restart|stop` to manage an agent-owned app.
+- `devctl` never restarts or stops a foreground `pnpm dev` it did not start.
+- `pnpm devctl context` prints recent logs, errors, and performance metadata.
 
 After any structural change, run `typecheck` + `test:unit` at minimum.
 After changes to runtime, IPC, or persistence, run `test:integration`.
