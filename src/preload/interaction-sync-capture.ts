@@ -1,6 +1,6 @@
 import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
-import { bestElementName, buildElementPath, compactText } from './dom-element-utils'
+import { describeElementForLocator } from './dom-element-utils'
 import { isPageOverlayTarget } from './gesture-forwarding'
 import type { LocatorBundle } from '../shared/locator-kernel'
 import type { InteractionSyncEvent } from '../shared/types'
@@ -20,6 +20,12 @@ let hasSentHover = false
 let lastHoverElement: Element | null = null
 let lastHoverOffsetX = 0
 let lastHoverOffsetY = 0
+let lastHoverViewportX = 0
+let lastHoverViewportY = 0
+// Keyed implicitly by `lastHoverElement`: the bundle built the last time the
+// hovered element itself changed. Offset-only moves within one element patch
+// this instead of re-walking the DOM (innerText forces layout).
+let lastHoverBundle: LocatorBundle | null = null
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -56,15 +62,16 @@ function viewportFraction(clientX: number, clientY: number): { viewportX: number
 }
 
 function buildLocatorBundle(element: Element, offsetX: number, offsetY: number): LocatorBundle {
+  const descriptor = describeElementForLocator(element)
   return {
-    id: element.getAttribute('id') || undefined,
-    testId: element.getAttribute('data-testid') || undefined,
-    role: element.getAttribute('role') || undefined,
-    name: bestElementName(element) || undefined,
-    text: compactText(element.textContent, 80),
-    tag: element.tagName.toLowerCase(),
-    elementPath: buildElementPath(element, 4),
-    fullPath: buildElementPath(element, 10),
+    id: descriptor.id ?? undefined,
+    testId: descriptor.testId ?? undefined,
+    role: descriptor.role ?? undefined,
+    name: descriptor.name ?? undefined,
+    text: descriptor.text ?? undefined,
+    tag: descriptor.tag,
+    elementPath: descriptor.elementPath,
+    fullPath: descriptor.fullPath,
     offsetX,
     offsetY,
   }
@@ -80,6 +87,9 @@ function resetHoverState(): void {
   lastHoverElement = null
   lastHoverOffsetX = 0
   lastHoverOffsetY = 0
+  lastHoverViewportX = 0
+  lastHoverViewportY = 0
+  lastHoverBundle = null
 }
 
 /** Toggle capture (ADR 0030 D1). Disabled is the default; everything is
@@ -98,9 +108,19 @@ function flushHover(): void {
   const { viewportX, viewportY } = viewportFraction(event.clientX, event.clientY)
 
   if (!target) {
-    if (hasSentHover && lastHoverElement === null) return
+    // No element under the cursor, but the cursor itself can still be
+    // sweeping across the region (e.g. page padding) — keep a peer's
+    // proportional glide live instead of freezing it at the last real
+    // element's position.
+    const viewportMoved =
+      Math.abs(viewportX - lastHoverViewportX) > HOVER_OFFSET_EPSILON ||
+      Math.abs(viewportY - lastHoverViewportY) > HOVER_OFFSET_EPSILON
+    if (hasSentHover && lastHoverElement === null && !viewportMoved) return
     hasSentHover = true
     lastHoverElement = null
+    lastHoverBundle = null
+    lastHoverViewportX = viewportX
+    lastHoverViewportY = viewportY
     sendInteractionSyncEvent({ kind: 'hover', bundle: null, viewportX, viewportY })
     return
   }
@@ -116,12 +136,14 @@ function flushHover(): void {
   lastHoverElement = target
   lastHoverOffsetX = offsetX
   lastHoverOffsetY = offsetY
-  sendInteractionSyncEvent({
-    kind: 'hover',
-    bundle: buildLocatorBundle(target, offsetX, offsetY),
-    viewportX,
-    viewportY,
-  })
+  lastHoverViewportX = viewportX
+  lastHoverViewportY = viewportY
+  const bundle: LocatorBundle =
+    !elementChanged && lastHoverBundle
+      ? { ...lastHoverBundle, offsetX, offsetY }
+      : buildLocatorBundle(target, offsetX, offsetY)
+  lastHoverBundle = bundle
+  sendInteractionSyncEvent({ kind: 'hover', bundle, viewportX, viewportY })
 }
 
 /** rAF-coalesced: multiple mousemoves within a frame collapse to one
@@ -146,10 +168,19 @@ export function handleInteractionSyncClick(event: MouseEvent): void {
   if (!target) return
   const { offsetX, offsetY } = offsetWithin(target, event.clientX, event.clientY)
   const { viewportX, viewportY } = viewportFraction(event.clientX, event.clientY)
-  sendInteractionSyncEvent({
-    kind: 'click',
-    bundle: buildLocatorBundle(target, offsetX, offsetY),
-    viewportX,
-    viewportY,
-  })
+  const bundle = buildLocatorBundle(target, offsetX, offsetY)
+  sendInteractionSyncEvent({ kind: 'click', bundle, viewportX, viewportY })
+
+  // A queued rAF hover flush (from a mousemove just before this click) must
+  // not ship after the click and re-anchor the peer elsewhere (A3). Drop it
+  // and re-prime the change-gate at the click's own position so the next
+  // real hover is compared against where the click actually landed.
+  pendingHoverEvent = null
+  hasSentHover = true
+  lastHoverElement = target
+  lastHoverOffsetX = offsetX
+  lastHoverOffsetY = offsetY
+  lastHoverViewportX = viewportX
+  lastHoverViewportY = viewportY
+  lastHoverBundle = bundle
 }
