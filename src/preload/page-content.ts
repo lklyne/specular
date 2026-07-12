@@ -8,6 +8,8 @@ import type {
   Annotation,
   AnnotationBboxSubscription,
   CommentToolPagePreviewState,
+  InteractionSyncCapturePayload,
+  LocatorResolveRequest,
   ScrollSyncData,
 } from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
@@ -73,6 +75,12 @@ import {
   seedScrollSyncBaseline,
   stopFollowerAnimation,
 } from './scroll-sync-handler'
+import {
+  handleInteractionSyncClick,
+  handleInteractionSyncPointerMove,
+  setInteractionSyncCaptureEnabled,
+} from './interaction-sync-capture'
+import { handleInteractionLocatorResolveRequest } from './interaction-sync-resolver'
 
 let interactive = false
 let multiSelected = false
@@ -465,6 +473,20 @@ ipcRenderer.on(ipcChannels.applyLinkedScroll, (_event, data: ScrollSyncData) => 
   applyIncomingLinkedScroll(data)
 })
 
+// ADR 0030 — interaction sync. Capture toggles on/off per D1 (source page
+// authority + sync membership, decided in main); resolution answers a peer's
+// live-DOM lookup for a bundle captured on the source.
+ipcRenderer.on(
+  ipcChannels.setInteractionSyncCapture,
+  (_event, payload: InteractionSyncCapturePayload | undefined) => {
+    setInteractionSyncCaptureEnabled(Boolean(payload?.enabled))
+  },
+)
+
+ipcRenderer.on(ipcChannels.resolveInteractionLocator, (_event, payload: LocatorResolveRequest) => {
+  handleInteractionLocatorResolveRequest(payload)
+})
+
 // --- MCP page inspection handlers ---
 
 ipcRenderer.on(ipcChannels.takeDomSnapshot, (_event, payload: { requestId: string; maxDepth?: number; structured?: boolean }) => {
@@ -762,6 +784,12 @@ window.addEventListener(
 window.addEventListener('blur', () => {
   hideCommentBadgeHover()
 })
+
+// ADR 0030 — interaction sync capture. Capture-phase on window so mirrored
+// input is seen ahead of any in-page stopPropagation(); a no-op while
+// capture is disabled (see interaction-sync-capture.ts).
+window.addEventListener('mousemove', handleInteractionSyncPointerMove, { capture: true, passive: true })
+window.addEventListener('click', handleInteractionSyncClick, { capture: true, passive: true })
 
 // --- Resize handle ---
 
