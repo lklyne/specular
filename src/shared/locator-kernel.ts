@@ -88,6 +88,11 @@ export interface DescriptorScoreInput {
   interactive: boolean
   boundsX: number
   boundsY: number
+  // ARIA role and tag name are weak tiebreak signals: agreement nudges the
+  // score, a mismatch never rejects. Optional so presence targeting (which
+  // scores agent-snapshot nodes without them) keeps its existing behavior.
+  role?: string | null
+  tag?: string | null
 }
 
 export interface DescriptorQuery {
@@ -95,6 +100,8 @@ export interface DescriptorQuery {
   text?: string | null
   elementPath?: string | null
   fullPath?: string | null
+  role?: string | null
+  tag?: string | null
   interactiveOnly?: boolean
 }
 
@@ -194,6 +201,20 @@ export function scoreDescriptorMatch(
     return Number.NEGATIVE_INFINITY
   }
 
+  // Role/tag agreement — modest tiebreak signals that separate otherwise-equal
+  // structural matches (two same-text controls where one is a <button> and the
+  // other a link). Only agreement adds points; a mismatch is not a hard reject,
+  // since these rank below the name/text/path identity tiers. Together they can
+  // clear the runner-up margin, promoting a would-be ambiguous match.
+  const wantedRole = normalizeSearchText(query.role)
+  if (wantedRole && normalizeSearchText(candidate.role) === wantedRole) {
+    score += 80
+  }
+  const wantedTag = normalizeSearchText(query.tag)
+  if (wantedTag && normalizeSearchText(candidate.tag) === wantedTag) {
+    score += 40
+  }
+
   score += Math.max(0, 100 - candidate.boundsX * 0.01 - candidate.boundsY * 0.01)
   return score
 }
@@ -259,6 +280,8 @@ function toScoreInput(candidate: LocatorCandidate): DescriptorScoreInput {
     interactive: candidate.interactive,
     boundsX: candidate.rect.x,
     boundsY: candidate.rect.y,
+    role: candidate.role,
+    tag: candidate.tag,
   }
 }
 
@@ -282,6 +305,8 @@ export function resolveLocator(
     text: bundle.text ?? null,
     elementPath: bundle.elementPath ?? null,
     fullPath: bundle.fullPath ?? null,
+    role: bundle.role ?? null,
+    tag: bundle.tag ?? null,
   }
 
   let best: LocatorCandidate | null = null

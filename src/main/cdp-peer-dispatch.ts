@@ -55,13 +55,26 @@ export async function dispatchPeerClick(
   point: { x: number; y: number },
 ): Promise<void> {
   const snapshot = createClickScaleSnapshot()
+  let pressed = false
   try {
     await dispatchMouse(page, 'mousePressed', point, snapshot)
+    pressed = true
     await dispatchMouse(page, 'mouseReleased', point, snapshot)
   } catch (error) {
     console.warn('[interaction-sync] peer click dispatch failed', {
       pageId: page.id,
       error: error instanceof Error ? error.message : String(error),
     })
+    if (pressed) {
+      // The press landed but the release rejected — the peer now holds a
+      // phantom left button, so the next mouseMoved would read as a drag.
+      // Best-effort compensating release (a fresh snapshot; position barely
+      // matters, only the button-up does).
+      try {
+        await dispatchMouse(page, 'mouseReleased', point, createClickScaleSnapshot())
+      } catch {
+        // Nothing more we can do; the debugger is likely gone.
+      }
+    }
   }
 }

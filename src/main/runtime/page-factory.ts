@@ -47,7 +47,7 @@ import {
   markNavigationSuppressed,
   propagateNavigationFromPage,
 } from '../navigation-sync'
-import { refreshInteractionSyncCapture } from '../interaction-sync'
+import { invalidateInteractionSyncResolution } from '../interaction-sync'
 import { attachBindingDispatcher } from './binding-dispatcher'
 import { openLinkInNewFrame } from './link-open-policy'
 import { looksLikeUrl } from '../../shared/url'
@@ -211,7 +211,6 @@ export function createPage(config: PageConfig): Page {
     syncInspectionState()
     page.pageView.webContents.send(ipcChannels.setAnnotateMode, toolAnnotateOverlay(uiActiveTool()))
     sendInteractiveState()
-    refreshInteractionSyncCapture()
     broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)
     if (overrides) {
@@ -234,6 +233,9 @@ export function createPage(config: PageConfig): Page {
     page.navGeneration += 1
     requestLayout()
     invalidateAgentSnapshot(page.id)
+    // The page's cached element rects (interaction-sync resolution cache) and
+    // origin are stale after a full navigation — a fresh sync point (ADR 0030).
+    invalidateInteractionSyncResolution(page.id)
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     if (isNavigationSuppressed(page)) return

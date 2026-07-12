@@ -9,6 +9,7 @@ export const PRESENCE_LABEL_KEYS = [
   'inspect_page',
   'find_target',
   'click_target',
+  'point_target',
   'type_text',
   'select_option',
   'wait_page',

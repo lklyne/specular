@@ -87,6 +87,13 @@ export function sendInteractiveState(): void {
     safeSend(wc, ipcChannels.setInteractive, isSelected)
     safeSend(wc, ipcChannels.setMultiSelected, isMultiSelected)
   }
+  // The single altitude for interaction-sync capture on every entered-page
+  // transition: every path that changes which page is entered (enter/exit,
+  // focus, selection, page delete, undo/redo, tab switch) broadcasts through
+  // here, so capture eligibility recomputes in lockstep (D1). Sync-membership
+  // changes that don't broadcast interactive state refresh separately, from
+  // `dissolveOrphanSyncSets`.
+  refreshInteractionSyncCapture()
 }
 
 /**
@@ -99,7 +106,6 @@ export function enterPageInteractive(pageId: string): void {
   if (interactivePageId() === pageId) return
   setInteractivePageId(pageId)
   sendInteractiveState()
-  refreshInteractionSyncCapture()
   requestLayout()
 }
 
@@ -108,7 +114,6 @@ export function exitPageInteractive(): void {
   if (interactivePageId() === null) return
   setInteractivePageId(null)
   sendInteractiveState()
-  refreshInteractionSyncCapture()
   requestLayout()
 }
 

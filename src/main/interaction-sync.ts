@@ -9,8 +9,9 @@
 // peers, drives each peer's synced cursor, and — only for confident peer
 // resolutions — replays trusted input via the CDP dispatcher.
 import type { WebContents } from 'electron'
-import type { InteractionSyncEvent, LocatorResolveResponse } from '../shared/types'
-import type { LocatorBundle } from '../shared/locator-kernel'
+import type { InteractionSyncEvent, LocatorResolveResponse, PresenceLabelKey } from '../shared/types'
+import type { LocatorBundle, LocatorCandidate } from '../shared/locator-kernel'
+import { dispatchPointForCandidate } from '../shared/locator-kernel'
 import { ipcChannels } from '../shared/ipc-contract'
 import { safeSend } from './runtime/safe-send'
 import {
@@ -26,84 +27,205 @@ import { syncPeersOf, isPageSynced } from './navigation-sync'
 import {
   upsertSyncedCursor,
   wiggleSyncedCursor,
-  removeSyncedCursorsForSource,
+  removeAllSyncedCursors,
+  removeSyncedCursorForPeer,
+  setSyncedCursorLivenessProbe,
 } from './presence-cursor'
 import { dispatchPeerHover, dispatchPeerClick } from './cdp-peer-dispatch'
 
-// One outstanding resolve request per peer (D7): a fresh request supersedes any
-// earlier one, and a response is honoured only if its requestId still matches.
+// One outstanding resolve request per peer PER KIND (D7). A fresh request of a
+// kind supersedes the earlier one of that kind; a response is honoured only if
+// its requestId still matches. Hover and click are tracked separately so a
+// hover captured one frame after a click can't supersede the click's request
+// and drop its response (a hover never dispatches an action, a click does).
 interface PendingResolve {
   requestId: number
-  sourcePageId: string
   kind: 'hover' | 'click'
   bundle: LocatorBundle
   viewportX: number
   viewportY: number
 }
 
-const pendingByPeer = new Map<string, PendingResolve>()
+interface PeerPending {
+  hover: PendingResolve | null
+  click: PendingResolve | null
+}
+
+// The last confident resolution per peer, keyed by the bundle's identity
+// (id/testId/fullPath). An offset-only hover over the SAME element reuses this
+// rect to anchor the cursor and dispatch a hover in main — no resolve
+// round-trip, no peer DOM walk (A9). Read for hover display only: clicks always
+// re-resolve so "confident-or-skip" stays honest for actions (ADR 0030).
+interface CachedResolution {
+  identity: string
+  candidate: LocatorCandidate
+}
+
+const pendingByPeer = new Map<string, PeerPending>()
+const resolutionCacheByPeer = new Map<string, CachedResolution>()
+// Per-page current URL → origin, so the hot per-event origin gate parses each
+// URL once. Self-validating: a navigation changes the URL and forces a
+// recompute (an in-page nav keeps the origin, so a needless recompute there is
+// harmless).
+const originCache = new Map<string, { url: string; origin: string | null }>()
+// Peers that currently carry a live synced cursor. Diffed on capture refresh to
+// retire a peer that left the set (A2) — one peer leaving a 3+ set never
+// changes the source identity, so nothing else catches it.
+const syncedPeerIds = new Set<string>()
 let resolveRequestSeq = 0
 
 // The page whose captured input is currently mirrored (entered + synced), if
-// any. Tracked so exiting/unsyncing/dissolving can retire its synced cursors.
+// any. Tracked so exiting/unsyncing/dissolving can retire its synced cursors,
+// and so the presence idle sweep can tell "still capturing" from "gone" (A8).
 let capturingSourcePageId: string | null = null
 
-/** The peer's live URL origin, or null if it has no parseable origin
- *  (about:blank, file:, invalid) — such peers are skipped entirely (D3). */
+/** The peer's live URL origin, or null if it has no usable origin — an
+ *  unparseable URL, or an opaque origin (file:, about:blank, data:) whose
+ *  `origin` serializes to the literal string 'null'. Opaque documents must not
+ *  all alias to one origin and cross-mirror, so they are skipped entirely (D3). */
 function originOf(page: Page): string | null {
   const wc = page.pageView.webContents
   if (wc.isDestroyed()) return null
+  const url = wc.getURL()
+  const cached = originCache.get(page.id)
+  if (cached && cached.url === url) return cached.origin
+  let origin: string | null
   try {
-    return new URL(wc.getURL()).origin
+    const parsed = new URL(url).origin
+    origin = parsed === 'null' ? null : parsed
   } catch {
-    return null
+    origin = null
   }
+  originCache.set(page.id, { url, origin })
+  return origin
 }
 
 function bundleName(bundle: LocatorBundle): string {
   return bundle.name ?? bundle.text ?? bundle.testId ?? bundle.id ?? bundle.tag
 }
 
-/** Gerund-voice synced-cursor label from the bundle's best human name. */
-function labelFor(kind: 'hover' | 'click', bundle: LocatorBundle | null): string {
-  if (!bundle) return ''
-  const name = bundleName(bundle)
-  return kind === 'click' ? `clicking ${name}` : `pointing at ${name}`
+/** Gerund-voice label for the synced cursor, expressed in the shared presence
+ *  vocabulary (labelKey + targetName) so `labelForPresenceCursor` renders it
+ *  as 'Clicking "X"' / 'Pointing at "X"'. */
+function labelInfo(
+  kind: 'hover' | 'click',
+  bundle: LocatorBundle | null,
+): { labelKey: PresenceLabelKey | null; targetName: string | null } {
+  if (!bundle) return { labelKey: null, targetName: null }
+  return {
+    labelKey: kind === 'click' ? 'click_target' : 'point_target',
+    targetName: bundleName(bundle),
+  }
 }
 
-function retireSource(sourcePageId: string): void {
-  removeSyncedCursorsForSource(sourcePageId)
-  for (const [peerId, pending] of pendingByPeer) {
-    if (pending.sourcePageId === sourcePageId) pendingByPeer.delete(peerId)
+/** The identity a resolution cache entry is keyed by — the same keys the kernel
+ *  treats as unique (id, then testId), falling back to the structural fullPath.
+ *  Null when the bundle carries none (nothing stable to reuse a rect against). */
+function bundleIdentity(bundle: LocatorBundle): string | null {
+  if (bundle.id) return `id:${bundle.id}`
+  if (bundle.testId) return `testId:${bundle.testId}`
+  if (bundle.fullPath) return `path:${bundle.fullPath}`
+  return null
+}
+
+function peerPending(peerId: string): PeerPending {
+  let entry = pendingByPeer.get(peerId)
+  if (!entry) {
+    entry = { hover: null, click: null }
+    pendingByPeer.set(peerId, entry)
   }
+  return entry
+}
+
+function retirePeer(peerId: string): void {
+  removeSyncedCursorForPeer(peerId)
+  pendingByPeer.delete(peerId)
+  resolutionCacheByPeer.delete(peerId)
+  syncedPeerIds.delete(peerId)
+}
+
+function retireSource(): void {
+  removeAllSyncedCursors()
+  pendingByPeer.clear()
+  resolutionCacheByPeer.clear()
+  syncedPeerIds.clear()
+}
+
+/** Reuse a cached confident rect for an offset-only hover over the same element
+ *  (A9): anchor the cursor and dispatch a trusted hover with no resolve
+ *  round-trip. Returns false (fall through to a fresh resolve) on a cache miss
+ *  or a bundle with no stable identity. */
+function tryCachedHover(
+  peer: Page,
+  bundle: LocatorBundle,
+  viewportX: number,
+  viewportY: number,
+): boolean {
+  const identity = bundleIdentity(bundle)
+  if (!identity) return false
+  const cached = resolutionCacheByPeer.get(peer.id)
+  if (!cached || cached.identity !== identity) return false
+
+  const { rect } = cached.candidate
+  const { labelKey, targetName } = labelInfo('hover', bundle)
+  upsertSyncedCursor({
+    peerPageId: peer.id,
+    position: { viewportX, viewportY, anchor: { rect, offsetX: bundle.offsetX, offsetY: bundle.offsetY } },
+    labelKey,
+    targetName,
+  })
+  void dispatchPeerHover(peer, dispatchPointForCandidate(rect, bundle.offsetX, bundle.offsetY))
+  return true
 }
 
 /**
  * Recompute and resend the per-page capture flag (D1): a page captures iff it
- * is the user-entered page AND it has a live sync peer. Call on
- * enter/exit-interactive, sync-membership changes, and page (re)loads. When the
- * capturing source changes, the previous source's synced cursors are retired.
+ * is the user-entered page AND it has a live sync peer. This is the single
+ * chokepoint for every interactive/sync-membership transition — reached via
+ * `sendInteractiveState` (enter/exit/focus/selection/undo/page-delete) and
+ * `dissolveOrphanSyncSets` (sync set/unset). When the capturing source changes,
+ * the previous source's synced cursors are retired wholesale; when it stays but
+ * a single peer has left the set, only that peer is retired (A2).
  */
 export function refreshInteractionSyncCapture(): void {
   const enteredId = interactivePageId()
-  let nextSource: string | null = null
+  let nextSource: Page | null = null
   for (const page of pages) {
     const enabled = enteredId === page.id && isPageSynced(page)
-    if (enabled) nextSource = page.id
+    if (enabled) nextSource = page
     safeSend(page.pageView.webContents, ipcChannels.setInteractionSyncCapture, { enabled })
   }
-  if (capturingSourcePageId && capturingSourcePageId !== nextSource) {
-    retireSource(capturingSourcePageId)
+
+  if (!nextSource || nextSource.id !== capturingSourcePageId) {
+    if (capturingSourcePageId) retireSource()
+    capturingSourcePageId = nextSource?.id ?? null
+    return
   }
-  capturingSourcePageId = nextSource
+
+  // Same source still capturing: retire any peer that has dropped out of the
+  // set (unsync or close of one peer in a 3+ set) — its cursor and per-peer
+  // bookkeeping would otherwise ghost until the idle sweep.
+  const currentPeerIds = new Set(syncPeersOf(nextSource).map((peer) => peer.id))
+  for (const peerId of [...syncedPeerIds]) {
+    if (!currentPeerIds.has(peerId)) retirePeer(peerId)
+  }
+}
+
+/** Drop the resolution cache (and any outstanding resolve) for a page that has
+ *  navigated — its element rects are stale and identity keys may no longer
+ *  resolve. Called from the page's did-navigate handler. */
+export function invalidateInteractionSyncResolution(pageId: string): void {
+  resolutionCacheByPeer.delete(pageId)
+  originCache.delete(pageId)
 }
 
 /**
  * Relay a hover/click captured on the source page to its same-origin peers.
  * Drops events unless the sender is the user-entered page and is not currently
- * driven by agent automation (D1). Every eligible peer's synced cursor gets the
- * proportional base; peers additionally resolve the bundle (if any) to decide
- * whether to anchor + replay.
+ * driven by agent automation (D1). Each eligible peer's synced cursor gets the
+ * proportional base; agent-driven peers are skipped entirely (A6). A hover over
+ * a cached element replays from main; otherwise the peer resolves the bundle to
+ * decide whether to anchor + replay.
  */
 export function handleInteractionSyncEvent(
   sender: WebContents,
@@ -117,26 +239,54 @@ export function handleInteractionSyncEvent(
   const sourceOrigin = originOf(source)
   if (!sourceOrigin) return
 
-  const label = labelFor(event.kind, event.bundle)
+  const { labelKey, targetName } = labelInfo(event.kind, event.bundle)
   for (const peer of syncPeersOf(source)) {
+    // The agent owns input on a page it is driving; mirroring trusted input
+    // into it would interleave with the automation (A6).
+    if (automationInteractivePageCounts.has(peer.id)) continue
     if (originOf(peer) !== sourceOrigin) continue
 
+    syncedPeerIds.add(peer.id)
     upsertSyncedCursor({
       peerPageId: peer.id,
       position: { viewportX: event.viewportX, viewportY: event.viewportY, anchor: null },
-      label,
+      labelKey,
+      targetName,
     })
 
-    if (!event.bundle) continue
+    if (!event.bundle) {
+      // Cursor moved off any element: drop the peer's outstanding hover resolve
+      // (A4) and its cached anchor (A9) so a late/stale response — or a reused
+      // rect — can't re-anchor where the source no longer points. A pending
+      // click is untouched (D4).
+      peerPending(peer.id).hover = null
+      resolutionCacheByPeer.delete(peer.id)
+      continue
+    }
+
+    if (event.kind === 'hover' && tryCachedHover(peer, event.bundle, event.viewportX, event.viewportY)) {
+      // Served from cache — no round-trip, so nothing is left pending.
+      peerPending(peer.id).hover = null
+      continue
+    }
+
     const requestId = ++resolveRequestSeq
-    pendingByPeer.set(peer.id, {
+    const pending: PendingResolve = {
       requestId,
-      sourcePageId: source.id,
       kind: event.kind,
       bundle: event.bundle,
       viewportX: event.viewportX,
       viewportY: event.viewportY,
-    })
+    }
+    const slots = peerPending(peer.id)
+    if (event.kind === 'click') {
+      // A newer click supersedes anything: also drop a stale hover so its late
+      // response can't dispatch a mouseMoved after the click lands.
+      slots.click = pending
+      slots.hover = null
+    } else {
+      slots.hover = pending
+    }
     safeSend(peer.pageView.webContents, ipcChannels.resolveInteractionLocator, {
       requestId,
       bundle: event.bundle,
@@ -145,10 +295,12 @@ export function handleInteractionSyncEvent(
 }
 
 /**
- * Apply a peer's resolution. Correlated by requestId; a superseded response is
- * dropped (D7). Confident → anchor the synced cursor and replay trusted input
+ * Apply a peer's resolution. Correlated by requestId against the matching kind's
+ * pending slot; a superseded/stale response finds no slot and is dropped (D7).
+ * Confident → cache the rect, anchor the synced cursor, and replay trusted input
  * (hover mouseMoved, or click press+release) at the peer's own point (D4/D5).
- * Ambiguous/none → the cursor stays proportional; a refused click wiggles.
+ * Ambiguous/none → the cursor stays proportional and the stale cache is dropped;
+ * a refused click wiggles.
  */
 export function handleResolveInteractionLocatorResponse(
   sender: WebContents,
@@ -156,12 +308,27 @@ export function handleResolveInteractionLocatorResponse(
 ): void {
   const peer = findPageByPageView(sender)
   if (!peer) return
-  const pending = pendingByPeer.get(peer.id)
-  if (!pending || pending.requestId !== response.requestId) return
-  pendingByPeer.delete(peer.id)
+  if (automationInteractivePageCounts.has(peer.id)) return
+
+  const slots = pendingByPeer.get(peer.id)
+  if (!slots) return
+  let pending: PendingResolve | null = null
+  if (slots.hover?.requestId === response.requestId) {
+    pending = slots.hover
+    slots.hover = null
+  } else if (slots.click?.requestId === response.requestId) {
+    pending = slots.click
+    slots.click = null
+  }
+  if (!pending) return
 
   const { resolution } = response
   if (resolution.kind === 'confident') {
+    const identity = bundleIdentity(pending.bundle)
+    if (identity) {
+      resolutionCacheByPeer.set(peer.id, { identity, candidate: resolution.candidate })
+    }
+    const { labelKey, targetName } = labelInfo(pending.kind, pending.bundle)
     upsertSyncedCursor({
       peerPageId: peer.id,
       position: {
@@ -173,7 +340,8 @@ export function handleResolveInteractionLocatorResponse(
           offsetY: pending.bundle.offsetY,
         },
       },
-      label: labelFor(pending.kind, pending.bundle),
+      labelKey,
+      targetName,
     })
     if (pending.kind === 'hover') void dispatchPeerHover(peer, resolution.point)
     else void dispatchPeerClick(peer, resolution.point)
@@ -181,6 +349,14 @@ export function handleResolveInteractionLocatorResponse(
   }
 
   // Ambiguous or unmatched: the proportional cursor (set when the request went
-  // out) stands. A refused click wiggles; a refused hover does nothing.
+  // out) stands, and any prior confident rect is now suspect — drop it so it
+  // can't re-anchor a later hover. A refused click wiggles; a refused hover
+  // does nothing.
+  resolutionCacheByPeer.delete(peer.id)
   if (pending.kind === 'click') wiggleSyncedCursor(peer.id)
 }
+
+// The presence idle sweep treats a synced cursor as alive whenever a source is
+// still capturing (A8) — a still mouse over a tooltip sends no events but must
+// not depart.
+setSyncedCursorLivenessProbe(() => capturingSourcePageId !== null)

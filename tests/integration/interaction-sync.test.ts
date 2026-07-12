@@ -25,11 +25,21 @@
  *  - dropping the requestId staleness check in
  *    handleResolveInteractionLocatorResponse — the stale response then
  *    dispatches.
- *  - making `removeSyncedCursorsForSource` a no-op — the unsync test then still
+ *  - making `removeAllSyncedCursors` a no-op — the unsync test then still
  *    finds a synced cursor after the set dissolves.
  *  - removing the `currentUrl === action.url` early return in
  *    applyNavigationAction (navigation-sync.ts) — the D5 "peer navigates first"
  *    ordering then double-navigates the source.
+ *  - dropping the opaque-origin guard (`parsed === 'null' ? null`) in originOf —
+ *    the two file: peers alias and the event mirrors.
+ *  - dropping the peer automation `continue` in handleInteractionSyncEvent — the
+ *    agent-driven peer then gets a cursor + resolve request.
+ *  - collapsing the per-kind pending slots to one (a hover overwriting the click
+ *    slot) — the click's confident answer is then dropped, dispatching nothing.
+ *  - dropping the null-bundle `slots.hover = null` — the stale hover answer then
+ *    dispatches a mouseMoved after the source left the element.
+ *  - dropping the per-peer retire loop in refreshInteractionSyncCapture — the
+ *    unsynced peer's cursor survives in the 3-page set.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -51,7 +61,7 @@ import {
 } from '../../src/main/interaction-sync'
 import {
   getPresenceCursors,
-  removeSyncedCursorsForSource,
+  removeAllSyncedCursors,
 } from '../../src/main/presence-cursor'
 import { ipcChannels } from '../../src/shared/ipc-contract'
 import type { LocatorBundle } from '../../src/shared/locator-kernel'
@@ -118,6 +128,11 @@ function requestIdFor(peerId: string): number {
   return (req!.args[0] as { requestId: number }).requestId
 }
 
+function requestIdAt(peerId: string, index: number): number {
+  const req = resolveRequestsTo(peerId).at(index)
+  return (req!.args[0] as { requestId: number }).requestId
+}
+
 function dispatchesOn(peerId: string) {
   return wc(peerId).debuggerCommands.filter((c) => c.method === 'Input.dispatchMouseEvent')
 }
@@ -168,9 +183,8 @@ describe('interaction sync relay', () => {
     harness.reset()
     clearAutomationInteractivePageIds()
     exitPageInteractive()
-    // Belt-and-braces: retire any synced cursors a prior test left behind
-    // (the source arg is ignored — all interaction-sync cursors are cleared).
-    removeSyncedCursorsForSource('reset')
+    // Belt-and-braces: retire any synced cursors a prior test left behind.
+    removeAllSyncedCursors()
     harness.clearBroadcasts()
   })
 
@@ -223,6 +237,119 @@ describe('interaction sync relay', () => {
       expect(syncedCursorFor(crossOrigin)).toBeUndefined()
       expect(resolveRequestsTo(crossOrigin)).toHaveLength(0)
       expect(dispatchesOn(crossOrigin)).toHaveLength(0)
+    })
+
+    it('drops the whole event when the source has an opaque origin', async () => {
+      // Two different file: documents both serialize their origin to the literal
+      // string 'null'. Aliasing them would cross-mirror unrelated pages, so an
+      // opaque source origin is treated as no-origin and the event is dropped.
+      const [a, b] = await makeSyncedSet(['file:///a.html', 'file:///b.html'])
+      enterPageInteractive(a)
+      harness.clearBroadcasts()
+
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+
+      expect(syncedCursors()).toHaveLength(0)
+      expect(resolveRequestsTo(b)).toHaveLength(0)
+      expect(dispatchesOn(b)).toHaveLength(0)
+    })
+  })
+
+  describe('peer automation gating (A6)', () => {
+    it('skips a peer currently driven by agent automation', async () => {
+      const [a, driven, free] = await makeSyncedSet([
+        `${SAME_ORIGIN}/a`,
+        `${SAME_ORIGIN}/b`,
+        `${SAME_ORIGIN}/c`,
+      ])
+      enterPageInteractive(a)
+      // An agent owns input on `driven`; mirrored trusted input must not
+      // interleave with it.
+      addAutomationInteractivePageId(driven)
+      harness.clearBroadcasts()
+
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+
+      expect(syncedCursorFor(driven)).toBeUndefined()
+      expect(resolveRequestsTo(driven)).toHaveLength(0)
+      expect(dispatchesOn(driven)).toHaveLength(0)
+      // The un-driven same-origin peer still mirrors.
+      expect(syncedCursorFor(free)).toBeDefined()
+      expect(resolveRequestsTo(free)).toHaveLength(1)
+    })
+  })
+
+  describe('kind-aware pending (A3/A4)', () => {
+    it('a later hover does not supersede an outstanding click', async () => {
+      const [a, b] = await makeSyncedSet([`${SAME_ORIGIN}/a`, `${SAME_ORIGIN}/b`])
+      enterPageInteractive(a)
+      harness.clearBroadcasts()
+
+      // Click, then a hover one frame later — the hover must not clobber the
+      // click's pending resolve.
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, clickEvent())
+      const clickRequestId = requestIdAt(b, 0)
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      const hoverRequestId = requestIdAt(b, 1)
+      expect(hoverRequestId).not.toBe(clickRequestId)
+
+      // The click's confident answer still dispatches the trusted press+release.
+      handleResolveInteractionLocatorResponse(
+        findPageById(b)!.pageView.webContents as never,
+        confidentResponse(clickRequestId),
+      )
+      await settleSync()
+      expect(dispatchesOn(b)).toHaveLength(2)
+    })
+
+    it('a null-bundle hover invalidates the peer’s pending hover', async () => {
+      const [a, b] = await makeSyncedSet([`${SAME_ORIGIN}/a`, `${SAME_ORIGIN}/b`])
+      enterPageInteractive(a)
+      harness.clearBroadcasts()
+
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      const staleHoverId = requestIdFor(b)
+
+      // The cursor leaves every element before the peer answers.
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent(null))
+      // Proportional again — no anchor.
+      expect(syncedCursorFor(b)?.targetRect).toBeNull()
+
+      // The now-stale confident answer must not re-anchor or dispatch.
+      handleResolveInteractionLocatorResponse(
+        findPageById(b)!.pageView.webContents as never,
+        confidentResponse(staleHoverId),
+      )
+      await settleSync()
+      expect(dispatchesOn(b)).toHaveLength(0)
+    })
+  })
+
+  describe('per-peer retire (A2)', () => {
+    it('retires only the unsynced peer when one leaves a 3-page set', async () => {
+      const [a, b, c] = await makeSyncedSet([
+        `${SAME_ORIGIN}/a`,
+        `${SAME_ORIGIN}/b`,
+        `${SAME_ORIGIN}/c`,
+      ])
+      enterPageInteractive(a)
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      expect(syncedCursorFor(b)).toBeDefined()
+      expect(syncedCursorFor(c)).toBeDefined()
+
+      // c leaves; a and b remain a valid 2-page set, so only c's cursor and
+      // per-peer state should be retired.
+      unsyncPage(c)
+      await settleSync()
+      expect(syncedCursorFor(c)).toBeUndefined()
+      expect(syncedCursorFor(b)).toBeDefined()
+
+      harness.clearBroadcasts()
+      // Further input mirrors to b only.
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      expect(syncedCursorFor(b)).toBeDefined()
+      expect(syncedCursorFor(c)).toBeUndefined()
+      expect(resolveRequestsTo(c)).toHaveLength(0)
     })
   })
 
@@ -344,7 +471,7 @@ describe('interaction sync — navigation race (D5)', () => {
     harness.reset()
     clearAutomationInteractivePageIds()
     exitPageInteractive()
-    removeSyncedCursorsForSource('reset')
+    removeAllSyncedCursors()
     harness.clearBroadcasts()
   })
 

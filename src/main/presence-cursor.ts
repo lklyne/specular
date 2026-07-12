@@ -188,9 +188,7 @@ export function removePresenceCursor(id: string): void {
 //
 // A synced cursor is a presence cursor sourced from the user's mirrored input
 // rather than an agent (`source: 'interaction-sync'`), one per peer page while
-// the source receives input. These are typed stubs so the relay and dispatcher
-// (packages B2/B3) compile against a stable surface; the presence package
-// replaces the bodies with the real store mutations.
+// the source receives input.
 
 /** Two-tier synced-cursor position: a viewport-fraction base with an optional
  *  anchored element rect + within-element offset. The anchor is present only
@@ -228,12 +226,31 @@ const SYNCED_CURSOR_WIGGLE_MS = 360
 // `upsertSyncedCursor` reads it instead of a redundant boolean field.
 const syncedWiggleTimers = new Map<string, NodeJS.Timeout>()
 
+// Injected by the interaction-sync relay (avoids a presence→relay import
+// cycle, mirroring how `isSessionLive` gates agent cursors): reports whether
+// the source page is still capturing. A still mouse over a tooltip sends no
+// events for seconds, so the idle sweep must treat "capturing" as alive rather
+// than departing the cursor. Left null when no relay has registered — then the
+// idle-retire backstop is the only liveness signal.
+let syncedCursorLivenessProbe: (() => boolean) | null = null
+
+export function setSyncedCursorLivenessProbe(probe: (() => boolean) | null): void {
+  syncedCursorLivenessProbe = probe
+}
+
+function targetRectEquals(a: PresenceTargetRect | null, b: PresenceTargetRect | null): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
+
 export function upsertSyncedCursor(input: {
   peerPageId: string
   position: SyncedCursorPosition
-  label: string
+  labelKey: PresenceLabelKey | null
+  targetName: string | null
 }): void {
-  const { peerPageId, position, label } = input
+  const { peerPageId, position, labelKey, targetName } = input
   const peerPage = findPageById(peerPageId)
   // The peer may have been destroyed between capture and this call (e.g. a
   // fast unsync/close race); nothing to anchor the cursor to.
@@ -263,6 +280,26 @@ export function upsertSyncedCursor(input: {
   const key = syncedCursorKey(peerPageId)
   const existing = presenceCursors.get(key)
   const isWiggling = syncedWiggleTimers.has(key)
+  const activity: PresenceActivity = isWiggling ? 'refused' : SYNCED_CURSOR_GLIDE_ACTIVITY
+
+  // Change-gate at hover rate (a confident hover upserts ~60×/sec while the
+  // mouse moves): a byte-equal reposition would otherwise fire a full canvas
+  // rebuild + broadcast for nothing. Skip when everything the broadcast reads
+  // is unchanged. `updatedAt` deliberately stays frozen — the idle sweep's
+  // liveness comes from the capture probe (A8), not from re-stamping no-ops.
+  if (
+    existing &&
+    existing.pageX === pageX &&
+    existing.pageY === pageY &&
+    existing.surface === 'page' &&
+    existing.activity === activity &&
+    existing.labelKey === labelKey &&
+    existing.targetName === targetName &&
+    targetRectEquals(existing.targetRect ?? null, targetRect)
+  ) {
+    return
+  }
+
   const now = Date.now()
   const positionChanged =
     !existing || existing.pageX !== pageX || existing.pageY !== pageY
@@ -271,29 +308,31 @@ export function upsertSyncedCursor(input: {
     clientName: 'You',
     color: SYNCED_CURSOR_COLOR,
     source: 'interaction-sync',
-    canvasX: existing?.canvasX ?? 0,
-    canvasY: existing?.canvasY ?? 0,
+    // A synced cursor lives entirely in page space; its canvas coordinates are
+    // derived at broadcast time, so these never change.
+    canvasX: 0,
+    canvasY: 0,
     surface: 'page',
     // A pending wiggle owns the activity until its own timer reverts it —
     // a mousemove landing mid-wiggle must not cut the refusal short.
-    activity: isWiggling ? 'refused' : SYNCED_CURSOR_GLIDE_ACTIVITY,
+    activity,
     pageId: peerPageId,
     pageX,
     pageY,
-    labelKey: null,
+    // Existing presence vocabulary renders the gerund voice
+    // ('Clicking "X"' / 'Pointing at "X"') from labelKey + targetName.
+    labelKey,
     labelParams: null,
-    // Plain taskLabel (no labelKey) renders as-is via labelForPresenceCursor
-    // — the caller already carries the gerund voice ("Clicking …").
-    taskLabel: label,
+    taskLabel: null,
     labelHint: null,
     targetRef: null,
     targetRefSource: null,
-    targetName: null,
+    targetName,
     targetRect,
     updatedAt: now,
     dwellBudgetMs: null,
     lastMoveAt: positionChanged ? now : (existing?.lastMoveAt ?? now),
-    lastActAt: existing?.lastActAt ?? null,
+    lastActAt: null,
     // Synced cursors never enter the synthetic thinking/idle states this
     // field disambiguates against (ADR 0029 territory is agent-only); kept
     // null so `selectAmbientMode` — even though its activity gate already
@@ -334,10 +373,20 @@ export function wiggleSyncedCursor(peerPageId: string): void {
   syncedWiggleTimers.set(key, timer)
 }
 
-export function removeSyncedCursorsForSource(_sourcePageId: string): void {
-  // The source page only ever drives one active synced-cursor set at a time
-  // (D6), so removing every interaction-sync:* key is equivalent to — and
-  // simpler than — filtering by which peers belonged to this source.
+/** Retire one peer's synced cursor (a single peer leaving a 3+ set, or a peer
+ *  webContents tearing down). Only the relay's per-peer bookkeeping — pending
+ *  resolve, resolution cache — is retired alongside it. */
+export function removeSyncedCursorForPeer(peerPageId: string): void {
+  const key = syncedCursorKey(peerPageId)
+  if (!presenceCursors.has(key)) return
+  removePresenceCursor(key)
+  notifyPresenceChanged()
+}
+
+/** Retire every synced cursor at once — the source stopped capturing (exit,
+ *  unsync, dissolve, or the source page tearing down). Only one source drives
+ *  synced cursors at a time (D6), so this clears the whole set. */
+export function removeAllSyncedCursors(): void {
   let removedAny = false
   for (const [id, cursor] of presenceCursors) {
     if (cursor.source !== 'interaction-sync') continue
@@ -394,10 +443,14 @@ function expirePresenceCursors(now: number): void {
       }
       continue
     }
-    // Synced cursors (ADR 0030) have no backing MCP session — `isSessionLive`
-    // is always false for their key, so this check must skip them entirely
-    // and let the idle-retire check below be their only liveness signal.
-    if (cursor.source !== 'interaction-sync' && !isSessionLive(id, now)) {
+    if (cursor.source === 'interaction-sync') {
+      // Synced cursors (ADR 0030) have no backing MCP session, so `isSessionLive`
+      // never applies. While the source is still capturing they are alive even
+      // when perfectly still (a mouse held over a tooltip sends nothing) — the
+      // capture probe is that liveness signal. Idle-retire stays a backstop for
+      // when no probe is registered or the source has already stopped.
+      if (syncedCursorLivenessProbe?.()) continue
+    } else if (!isSessionLive(id, now)) {
       beginPresenceDeparture(id)
       continue
     }

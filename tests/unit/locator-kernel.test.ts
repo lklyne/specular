@@ -127,6 +127,22 @@ describe('resolveLocator structural scoring', () => {
     expect(result.kind).toBe('ambiguous')
   })
 
+  it('role + tag agreement disambiguates two same-text controls', () => {
+    // Same text (+320) and interactive (+50) on both, far so proximity is 0 —
+    // a tie without role/tag. The bundle is a <button role="button">; the
+    // matching control agrees (+80 role, +40 tag) while the link twin does not,
+    // clearing the runner-up margin so the button resolves confidently.
+    const result = resolveLocator(
+      bundle({ text: 'Add to cart', role: 'button', tag: 'button' }),
+      [
+        candidate({ text: 'Add to cart', interactive: true, role: 'button', tag: 'button', rect: FAR_RECT }),
+        candidate({ text: 'Add to cart', interactive: true, role: 'link', tag: 'a', rect: FAR_RECT }),
+      ],
+    )
+    expect(result.kind).toBe('confident')
+    if (result.kind === 'confident') expect(result.candidate.role).toBe('button')
+  })
+
   it('an absent element resolves to none', () => {
     const result = resolveLocator(bundle({ id: 'missing', name: 'Ghost button' }), [
       candidate({ id: 'other', name: 'Something else', text: 'unrelated' }),
