@@ -3,14 +3,51 @@ import type { Route } from './types'
 import { writeJson } from './http-helpers'
 import {
   getPerfTraceState,
+  getPerfTraceOwner,
   getTraceSummary,
   isPerfTraceRecording,
   listPerfTraces,
   startPerfTrace,
   stopPerfTrace,
 } from '../perf-trace'
+import {
+  getPanZoomPerfTestState,
+  runPanZoomPerfTest,
+  stopPanZoomPerfTest,
+} from '../pan-zoom-perf-test'
 
 export const perfRoutes: Route[] = [
+  {
+    method: 'GET',
+    pattern: '/perf/pan-zoom/status',
+    async handler({ response }) {
+      writeJson(response, 200, getPanZoomPerfTestState())
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/perf/pan-zoom/run',
+    async handler({ response, body }) {
+      if (isPerfTraceRecording() && !getPanZoomPerfTestState().running) {
+        writeJson(response, 409, { error: 'A performance trace is already active' })
+        return
+      }
+      const result = await runPanZoomPerfTest()
+      const payload = body as { summarize?: boolean }
+      const summary = payload.summarize
+        ? await getTraceSummary(result.fileName)
+        : undefined
+      writeJson(response, 200, { ...result, summary })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/perf/pan-zoom/stop',
+    async handler({ response }) {
+      await stopPanZoomPerfTest()
+      writeJson(response, 200, getPanZoomPerfTestState())
+    },
+  },
   {
     method: 'GET',
     pattern: '/perf/trace/status',
@@ -22,7 +59,8 @@ export const perfRoutes: Route[] = [
     method: 'POST',
     pattern: '/perf/trace/start',
     async handler({ response }) {
-      if (isPerfTraceRecording()) {
+      const state = getPerfTraceState()
+      if (state.status !== 'idle') {
         writeJson(response, 409, { error: 'Already recording' })
         return
       }
@@ -34,11 +72,20 @@ export const perfRoutes: Route[] = [
     method: 'POST',
     pattern: '/perf/trace/stop',
     async handler({ response, body }) {
-      if (!isPerfTraceRecording()) {
+      const state = getPerfTraceState()
+      if (state.status === 'idle') {
         writeJson(response, 409, { error: 'Not recording' })
         return
       }
-      const tracePath = await stopPerfTrace({ reveal: false })
+      if (state.status === 'starting') {
+        writeJson(response, 409, { error: 'Trace is still starting' })
+        return
+      }
+      if (getPerfTraceOwner() !== 'manual') {
+        writeJson(response, 409, { error: 'Trace belongs to the pan/zoom test; stop the test instead' })
+        return
+      }
+      const tracePath = await stopPerfTrace({ reveal: false, owner: 'manual' })
       if (!tracePath) {
         writeJson(response, 500, { error: 'Failed to stop trace' })
         return

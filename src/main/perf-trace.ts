@@ -45,11 +45,14 @@ const SUMMARY_SUFFIX = '.summary.json'
 /** Above this size, parsing synchronously on main is too disruptive to attempt. */
 const MAX_SUMMARIZABLE_BYTES = 500 * 1024 * 1024
 
-let recording = false
+let status: PerfTraceState['status'] = 'idle'
 let startedAt: number | null = null
 let autoStopTimer: NodeJS.Timeout | null = null
 let revealOnAutoStop = true
 let stateListener: (() => void) | null = null
+let stopPromise: Promise<string | null> | null = null
+export type PerfTraceOwner = 'manual' | 'pan-zoom-test'
+let traceOwner: PerfTraceOwner | null = null
 
 /** Register a callback fired whenever recording starts or stops (including
  * the auto-stop), so UI like the app menu can refresh its label. */
@@ -58,61 +61,103 @@ export function setPerfTraceStateListener(listener: () => void): void {
 }
 
 export function isPerfTraceRecording(): boolean {
-  return recording
+  return status !== 'idle'
+}
+
+export function getPerfTraceOwner(): PerfTraceOwner | null {
+  return traceOwner
 }
 
 export function getPerfTraceState(): PerfTraceState {
-  return { recording, startedAt }
+  return { recording: status === 'recording', status, startedAt }
 }
 
 function notifyStateChange(): void {
-  stateListener?.()
-  // Returns null when the debug window isn't open (or has been destroyed);
-  // nothing to broadcast to in that case.
-  getDebugWebContents()?.send(ipcChannels.debugPerfTraceStateChanged, getPerfTraceState())
-}
-
-export async function togglePerfTrace(): Promise<void> {
-  if (recording) {
-    await stopPerfTrace()
-  } else {
-    await startPerfTrace()
+  try {
+    stateListener?.()
+  } catch (error) {
+    console.error('Failed to refresh performance trace state listener', error)
+  }
+  try {
+    // Returns null when the debug window isn't open (or has been destroyed);
+    // nothing to broadcast to in that case.
+    getDebugWebContents()?.send(ipcChannels.debugPerfTraceStateChanged, getPerfTraceState())
+  } catch (error) {
+    console.error('Failed to broadcast performance trace state', error)
   }
 }
 
-export async function startPerfTrace(options: { revealOnAutoStop?: boolean } = {}): Promise<void> {
-  if (recording) return
-  await contentTracing.startRecording({
-    included_categories: TRACE_CATEGORIES,
-    recording_mode: 'record-until-full',
-    trace_buffer_size_in_kb: TRACE_BUFFER_KB,
-  })
-  recording = true
-  startedAt = Date.now()
-  revealOnAutoStop = options.revealOnAutoStop !== false
-  autoStopTimer = setTimeout(() => {
-    void stopPerfTrace({ reveal: revealOnAutoStop })
-  }, MAX_TRACE_MS)
+export async function togglePerfTrace(): Promise<void> {
+  if (status === 'recording') {
+    await stopPerfTrace({ owner: 'manual' })
+  } else if (status === 'idle') {
+    await startPerfTrace({ owner: 'manual' })
+  }
+}
+
+export async function startPerfTrace(
+  options: { revealOnAutoStop?: boolean; owner?: PerfTraceOwner } = {},
+): Promise<void> {
+  if (status !== 'idle') return
+  status = 'starting'
+  traceOwner = options.owner ?? 'manual'
   notifyStateChange()
+  try {
+    await contentTracing.startRecording({
+      included_categories: TRACE_CATEGORIES,
+      recording_mode: 'record-until-full',
+      trace_buffer_size_in_kb: TRACE_BUFFER_KB,
+    })
+    status = 'recording'
+    startedAt = Date.now()
+    revealOnAutoStop = options.revealOnAutoStop !== false
+    autoStopTimer = setTimeout(() => {
+      void stopPerfTrace({ reveal: revealOnAutoStop, owner: traceOwner ?? undefined }).catch(
+        (error) => console.error('Failed to auto-stop performance trace', error),
+      )
+    }, MAX_TRACE_MS)
+    notifyStateChange()
+  } catch (error) {
+    status = 'idle'
+    startedAt = null
+    traceOwner = null
+    notifyStateChange()
+    throw error
+  }
 }
 
 /** Stops the active recording and returns the saved trace's absolute path.
  * Interactive callers reveal the artifact by default; headless callers can
  * suppress Finder so collecting agent diagnostics does not steal focus. */
-export async function stopPerfTrace(options: { reveal?: boolean } = {}): Promise<string | null> {
-  if (!recording) return null
+export async function stopPerfTrace(
+  options: { reveal?: boolean; owner?: PerfTraceOwner } = {},
+): Promise<string | null> {
+  const requestedOwner = options.owner ?? 'manual'
+  if (traceOwner !== null && traceOwner !== requestedOwner) return null
+  if (status === 'stopping') return stopPromise
+  if (status !== 'recording') return null
   if (autoStopTimer) {
     clearTimeout(autoStopTimer)
     autoStopTimer = null
   }
-  recording = false
-  startedAt = null
+  status = 'stopping'
+  notifyStateChange()
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const outPath = path.join(app.getPath('logs'), `specular-trace-${stamp}.json`)
-  const savedPath = await contentTracing.stopRecording(outPath)
-  notifyStateChange()
-  if (options.reveal !== false) shell.showItemInFolder(savedPath)
-  return savedPath
+  stopPromise = (async () => {
+    try {
+      const savedPath = await contentTracing.stopRecording(outPath)
+      if (options.reveal !== false) shell.showItemInFolder(savedPath)
+      return savedPath
+    } finally {
+      status = 'idle'
+      startedAt = null
+      traceOwner = null
+      stopPromise = null
+      notifyStateChange()
+    }
+  })()
+  return stopPromise
 }
 
 export async function listPerfTraces(): Promise<PerfTraceFileEntry[]> {

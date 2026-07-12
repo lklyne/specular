@@ -14,11 +14,15 @@ const api: DebugElectronAPI = {
   onThemeChanged: on(ipcChannels.themeChanged),
   perfTraceGetState: () => ipcRenderer.invoke(ipcChannels.debugPerfTraceGetState),
   perfTraceToggle: () => ipcRenderer.invoke(ipcChannels.debugPerfTraceToggle),
+  perfPanZoomGetState: () => ipcRenderer.invoke(ipcChannels.debugPerfPanZoomGetState),
+  perfPanZoomRun: () => ipcRenderer.invoke(ipcChannels.debugPerfPanZoomRun),
+  perfPanZoomStop: () => ipcRenderer.invoke(ipcChannels.debugPerfPanZoomStop),
   perfTraceList: () => ipcRenderer.invoke(ipcChannels.debugPerfTraceList),
   perfTraceGetSummary: (fileName) =>
     ipcRenderer.invoke(ipcChannels.debugPerfTraceGetSummary, fileName),
   perfTraceReveal: (fileName) => ipcRenderer.send(ipcChannels.debugPerfTraceReveal, fileName),
   onPerfTraceStateChanged: on(ipcChannels.debugPerfTraceStateChanged),
+  onPerfPanZoomStateChanged: on(ipcChannels.debugPerfPanZoomStateChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

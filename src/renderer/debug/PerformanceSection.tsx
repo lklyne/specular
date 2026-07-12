@@ -8,22 +8,21 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import type {
   DebugElectronAPI,
   PerfTraceFileEntry,
-  PerfTraceState,
 } from '../../shared/electron-api/debug'
 import type { TraceSummary } from '../../shared/trace-summary'
 import { HorizontalBarChart, TimelineChart } from './charts'
-import { formatClock, formatMs, formatModified, humanBytes } from './format'
+import { formatMs, formatModified, humanBytes } from './format'
+import { PerformanceHeader } from './PerformanceHeader'
+import {
+  usePerformanceRunState,
+  useTraceElapsedSeconds,
+} from './usePerformanceRunState'
 
-const RECORD_MAX_SECONDS = 30
 const MAX_BARS = 12
 const MAX_MARKER_LABEL = 40
 
 export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
-  const [traceState, setTraceState] = useState<PerfTraceState>({
-    recording: false,
-    startedAt: null,
-  })
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [traces, setTraces] = useState<PerfTraceFileEntry[]>([])
   const [loadingList, setLoadingList] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
@@ -45,50 +44,15 @@ export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
     }
   }, [api])
 
-  // Initial recording state — onPerfTraceStateChanged only fires on change.
-  useEffect(() => {
-    let cancelled = false
-    void api.perfTraceGetState().then((state) => {
-      if (!cancelled) setTraceState(state)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [api])
-
-  useEffect(
-    () =>
-      api.onPerfTraceStateChanged((state) => {
-        setTraceState((prev) => {
-          if (prev.recording && !state.recording) {
-            // Recording just stopped (manually or via the 30s auto-stop) —
-            // the new file won't show up until we ask again.
-            void refreshList()
-          }
-          return state
-        })
-      }),
-    [api, refreshList],
-  )
+  const handleTraceSaved = useCallback(() => {
+    void refreshList()
+  }, [refreshList])
+  const { traceState, panZoomState } = usePerformanceRunState(api, handleTraceSaved)
+  const elapsedSeconds = useTraceElapsedSeconds(traceState)
 
   useEffect(() => {
     void refreshList()
   }, [refreshList])
-
-  useEffect(() => {
-    if (!traceState.recording || traceState.startedAt === null) {
-      setElapsedSeconds(0)
-      return
-    }
-    const startedAt = traceState.startedAt
-    const tick = () =>
-      setElapsedSeconds(
-        Math.min(RECORD_MAX_SECONDS, Math.floor((Date.now() - startedAt) / 1000)),
-      )
-    tick()
-    const id = setInterval(tick, 250)
-    return () => clearInterval(id)
-  }, [traceState.recording, traceState.startedAt])
 
   const handleAnalyze = async (fileName: string) => {
     setAnalyzingFile(fileName)
@@ -108,14 +72,45 @@ export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
     }
   }
 
+  const handleTraceToggle = async () => {
+    setActionError(null)
+    try {
+      await api.perfTraceToggle()
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not change trace state.')
+    }
+  }
+
+  const handlePanZoomTest = async () => {
+    setActionError(null)
+    try {
+      if (panZoomState.running) {
+        await api.perfPanZoomStop()
+        return
+      }
+      const result = await api.perfPanZoomRun()
+      await refreshList()
+      await handleAnalyze(result.fileName)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not run the pan/zoom test.')
+    }
+  }
+
   return (
     <div className="flex h-full w-full min-w-0 flex-col">
       <PerformanceHeader
-        recording={traceState.recording}
+        traceState={traceState}
+        panZoomState={panZoomState}
         elapsedSeconds={elapsedSeconds}
-        onToggle={() => void api.perfTraceToggle()}
+        onToggle={() => void handleTraceToggle()}
+        onPanZoomTest={() => void handlePanZoomTest()}
         onRefresh={() => void refreshList()}
       />
+      {actionError ? (
+        <div className="border-b border-[var(--surface-popover-border)] px-4 py-2 text-[11px] text-red-500">
+          {actionError}
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <TraceList
           traces={traces}
@@ -130,58 +125,6 @@ export function PerformanceSection({ api }: { api: DebugElectronAPI }) {
           <div className="px-4 py-2 text-[11px] text-red-500">{summaryError}</div>
         ) : null}
         {summary ? <SummaryView summary={summary} fileName={selectedFile} /> : null}
-      </div>
-    </div>
-  )
-}
-
-function PerformanceHeader({
-  recording,
-  elapsedSeconds,
-  onToggle,
-  onRefresh,
-}: {
-  recording: boolean
-  elapsedSeconds: number
-  onToggle: () => void
-  onRefresh: () => void
-}) {
-  return (
-    <div className="shrink-0 border-b border-[var(--surface-popover-border)] px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[13px] font-semibold">Performance</div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="rounded border border-zinc-300 px-2 py-1 text-[11px] hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            Refresh
-          </button>
-          <button
-            type="button"
-            onClick={onToggle}
-            className={
-              recording
-                ? 'flex items-center gap-2 rounded border border-red-400/60 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-500/20 dark:border-red-500/50 dark:text-red-400'
-                : 'flex items-center gap-2 rounded border border-zinc-300 px-2 py-1 text-[11px] font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800'
-            }
-          >
-            {recording ? (
-              <>
-                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-red-500" />
-                <span className="tabular-nums">{formatClock(elapsedSeconds)}</span>
-                <span>Stop</span>
-              </>
-            ) : (
-              <span>Record trace</span>
-            )}
-          </button>
-        </div>
-      </div>
-      <div className="mt-1 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-        Traces are saved to the app logs folder; recording auto-stops after{' '}
-        {RECORD_MAX_SECONDS}s.
       </div>
     </div>
   )
