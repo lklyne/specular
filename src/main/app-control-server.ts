@@ -50,6 +50,7 @@ import {
 } from './cdp-proxy'
 import { activeSessions, mcpSessions, resolveSession } from './presence-session'
 import { sendPageIpc } from './runtime/page-ipc'
+import { pageContentSize } from './runtime/runtime-geometry'
 
 // Re-export for external consumers
 export { getPresenceCursors, onPresenceCursorsChanged } from './presence-cursor'
@@ -805,6 +806,72 @@ export async function startAppControlServer(): Promise<void> {
           sendProtocolError(id, error instanceof Error ? error.message : 'Scroll gesture failed')
         }
         return
+      }
+
+      // Agent-browser scrolls via JS, never a CDP wheel/gesture event, so the
+      // presence cursor would otherwise never animate on scroll. Two shapes:
+      // the bare scroll verb is `Runtime.evaluate` `window.scrollBy(dx, dy)`;
+      // selector-scoped scrolls are `Runtime.callFunctionOn` `this.scrollBy`.
+      // For a scroll-intent session, drift the cursor toward the scroll
+      // direction, pay the pre-act dwell, and rewrite the instant scrollBy
+      // into a smooth one so the page glides instead of teleporting — the
+      // scroll itself stays with agent-browser (#319, ADR 0029). Scoped to
+      // the scroll verb only: pre-click scrollintoview must stay instant,
+      // since a click dispatched mid-smooth-scroll lands on stale
+      // coordinates (R1). Falls through to the forward below.
+      if (
+        (method === 'Runtime.callFunctionOn' || method === 'Runtime.evaluate') &&
+        params &&
+        page &&
+        !page.pageView.webContents.isDestroyed()
+      ) {
+        const scrollSessionId = registration.sessionId
+        const intent = scrollSessionId ? pendingIntents.get(scrollSessionId) : undefined
+        let dy: number | null = null
+        if (intent?.command === 'scroll' && method === 'Runtime.callFunctionOn') {
+          const fnDecl =
+            typeof params.functionDeclaration === 'string' ? params.functionDeclaration : ''
+          if (/scroll(By|To|IntoView)/.test(fnDecl)) {
+            const callArgs = Array.isArray(params.arguments) ? params.arguments : []
+            const dyArg = (callArgs[1] as { value?: unknown } | undefined)?.value
+            dy = typeof dyArg === 'number' ? dyArg : 1
+            if (/scrollBy/.test(fnDecl)) {
+              params.functionDeclaration =
+                "function(dx, dy) { this.scrollBy({ left: dx, top: dy, behavior: 'smooth' }); }"
+            }
+          }
+        } else if (intent?.command === 'scroll' && method === 'Runtime.evaluate') {
+          const expr = typeof params.expression === 'string' ? params.expression : ''
+          const scrollByCall = expr.match(/window\.scrollBy\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/)
+          if (scrollByCall) {
+            dy = Number(scrollByCall[2])
+            params.expression = expr.replace(
+              scrollByCall[0],
+              `window.scrollBy({ left: ${scrollByCall[1]}, top: ${scrollByCall[2]}, behavior: 'smooth' })`,
+            )
+          }
+        }
+        if (dy !== null) {
+          // Presence pageX/pageY are page CSS pixels (same space as CDP input
+          // coords) — pageContentSize, not getBounds, which is zoom-scaled
+          // window space and pushes the cursor off the page when zoomed in.
+          const contentSize = pageContentSize(page)
+          upsertPresenceCursor(request, {
+            body: pageSessionBody(),
+            surface: 'page',
+            pageId: registration.pageId,
+            pageX: contentSize.width / 2,
+            // Sit toward the edge the page is heading for — lower on a scroll
+            // down, upper on a scroll up — so the drift reads as intent.
+            pageY: dy < 0 ? contentSize.height * 0.28 : contentSize.height * 0.72,
+            activity: 'acting',
+            labelKey: 'scroll_page',
+            dwellBudgetMs: computeDwellBudgetMs(scrollSessionId),
+          })
+          await waitForPresenceDwell(scrollSessionId)
+          recordPresenceAct(scrollSessionId)
+          cdpProxyMetrics.interceptedScrolls += 1
+        }
       }
 
       try {
