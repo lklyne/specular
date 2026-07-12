@@ -45,11 +45,12 @@ const SUMMARY_SUFFIX = '.summary.json'
 /** Above this size, parsing synchronously on main is too disruptive to attempt. */
 const MAX_SUMMARIZABLE_BYTES = 500 * 1024 * 1024
 
-let recording = false
+let status: PerfTraceState['status'] = 'idle'
 let startedAt: number | null = null
 let autoStopTimer: NodeJS.Timeout | null = null
 let revealOnAutoStop = true
 let stateListener: (() => void) | null = null
+let stopPromise: Promise<string | null> | null = null
 
 /** Register a callback fired whenever recording starts or stops (including
  * the auto-stop), so UI like the app menu can refresh its label. */
@@ -58,11 +59,11 @@ export function setPerfTraceStateListener(listener: () => void): void {
 }
 
 export function isPerfTraceRecording(): boolean {
-  return recording
+  return status !== 'idle'
 }
 
 export function getPerfTraceState(): PerfTraceState {
-  return { recording, startedAt }
+  return { recording: status === 'recording', status, startedAt }
 }
 
 function notifyStateChange(): void {
@@ -73,46 +74,65 @@ function notifyStateChange(): void {
 }
 
 export async function togglePerfTrace(): Promise<void> {
-  if (recording) {
+  if (status === 'recording') {
     await stopPerfTrace()
-  } else {
+  } else if (status === 'idle') {
     await startPerfTrace()
   }
 }
 
 export async function startPerfTrace(options: { revealOnAutoStop?: boolean } = {}): Promise<void> {
-  if (recording) return
-  await contentTracing.startRecording({
-    included_categories: TRACE_CATEGORIES,
-    recording_mode: 'record-until-full',
-    trace_buffer_size_in_kb: TRACE_BUFFER_KB,
-  })
-  recording = true
-  startedAt = Date.now()
-  revealOnAutoStop = options.revealOnAutoStop !== false
-  autoStopTimer = setTimeout(() => {
-    void stopPerfTrace({ reveal: revealOnAutoStop })
-  }, MAX_TRACE_MS)
+  if (status !== 'idle') return
+  status = 'starting'
   notifyStateChange()
+  try {
+    await contentTracing.startRecording({
+      included_categories: TRACE_CATEGORIES,
+      recording_mode: 'record-until-full',
+      trace_buffer_size_in_kb: TRACE_BUFFER_KB,
+    })
+    status = 'recording'
+    startedAt = Date.now()
+    revealOnAutoStop = options.revealOnAutoStop !== false
+    autoStopTimer = setTimeout(() => {
+      void stopPerfTrace({ reveal: revealOnAutoStop })
+    }, MAX_TRACE_MS)
+    notifyStateChange()
+  } catch (error) {
+    status = 'idle'
+    startedAt = null
+    notifyStateChange()
+    throw error
+  }
 }
 
 /** Stops the active recording and returns the saved trace's absolute path.
  * Interactive callers reveal the artifact by default; headless callers can
  * suppress Finder so collecting agent diagnostics does not steal focus. */
 export async function stopPerfTrace(options: { reveal?: boolean } = {}): Promise<string | null> {
-  if (!recording) return null
+  if (status === 'stopping') return stopPromise
+  if (status !== 'recording') return null
   if (autoStopTimer) {
     clearTimeout(autoStopTimer)
     autoStopTimer = null
   }
-  recording = false
-  startedAt = null
+  status = 'stopping'
+  notifyStateChange()
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const outPath = path.join(app.getPath('logs'), `specular-trace-${stamp}.json`)
-  const savedPath = await contentTracing.stopRecording(outPath)
-  notifyStateChange()
-  if (options.reveal !== false) shell.showItemInFolder(savedPath)
-  return savedPath
+  stopPromise = (async () => {
+    try {
+      const savedPath = await contentTracing.stopRecording(outPath)
+      if (options.reveal !== false) shell.showItemInFolder(savedPath)
+      return savedPath
+    } finally {
+      status = 'idle'
+      startedAt = null
+      stopPromise = null
+      notifyStateChange()
+    }
+  })()
+  return stopPromise
 }
 
 export async function listPerfTraces(): Promise<PerfTraceFileEntry[]> {

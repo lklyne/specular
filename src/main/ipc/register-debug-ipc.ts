@@ -7,6 +7,10 @@ import {
 import type { DebugBootstrapData } from '../../shared/types'
 import type { PerfTraceFileEntry, PerfTraceState } from '../../shared/electron-api/debug'
 import type { TraceSummary } from '../../shared/trace-summary'
+import type {
+  PanZoomPerfTestResult,
+  PanZoomPerfTestState,
+} from '../../shared/pan-zoom-perf-test'
 import {
   broadcastCursorSplineViz,
   getCursorSplineViz,
@@ -23,6 +27,11 @@ import {
   revealTrace,
   togglePerfTrace,
 } from '../perf-trace'
+import {
+  getPanZoomPerfTestState,
+  runPanZoomPerfTest,
+  stopPanZoomPerfTest,
+} from '../pan-zoom-perf-test'
 
 export function registerDebugIpc(): void {
   ipcMain.handle(ipcChannels.debugGetInitialData, async (): Promise<DebugBootstrapData> => ({
@@ -48,6 +57,20 @@ export function registerDebugIpc(): void {
 
   ipcMain.handle(ipcChannels.debugPerfTraceToggle, async (): Promise<void> => {
     await togglePerfTrace()
+  })
+
+  ipcMain.handle(
+    ipcChannels.debugPerfPanZoomGetState,
+    async (): Promise<PanZoomPerfTestState> => getPanZoomPerfTestState(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.debugPerfPanZoomRun,
+    async (): Promise<PanZoomPerfTestResult> => runPanZoomPerfTest(),
+  )
+
+  ipcMain.handle(ipcChannels.debugPerfPanZoomStop, async (): Promise<void> => {
+    await stopPanZoomPerfTest()
   })
 
   ipcMain.handle(ipcChannels.debugPerfTraceList, async (): Promise<PerfTraceFileEntry[]> => listPerfTraces())

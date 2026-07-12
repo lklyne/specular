@@ -27,15 +27,8 @@ import {
 import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
-import { pan, zoom } from '../runtime/runtime-context'
-import {
-  cancelCameraAnimation,
-  requestLayout,
-  setPan,
-  setZoom,
-} from '../runtime/viewport-control'
-import { boundCanvasOrigin as canvasOrigin } from '../runtime/runtime-geometry'
-import { win } from '../runtime/view-refs'
+import { requestLayout } from '../runtime/viewport-control'
+import { enqueueViewportInputDelta } from '../runtime/viewport-input'
 import { isFocusSessionActive } from '../runtime/focus-session'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
 import {
@@ -55,8 +48,6 @@ import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
 
-const VIEWPORT_EVENT_FRAME_MS = 16
-
 // The entity currently being resized, captured at resize-begin so resize-end can
 // reflow its managed group (if any) before committing the gesture's undo step.
 let resizingEntityId: string | null = null
@@ -64,67 +55,6 @@ let resizingEntityId: string | null = null
 // One variable serves both resize and multi-resize: the interaction token
 // (I2) guarantees the two gestures never overlap.
 let resizeSession: GestureSession | null = null
-
-let pendingViewportDelta = {
-  zoomDeltaY: 0,
-  panDeltaX: 0,
-  panDeltaY: 0,
-  mouseX: null as number | null,
-  mouseY: null as number | null,
-}
-let pendingViewportTimer: NodeJS.Timeout | null = null
-
-function flushViewportDelta(): void {
-  pendingViewportTimer = null
-
-  const { zoomDeltaY, panDeltaX, panDeltaY, mouseX, mouseY } =
-    pendingViewportDelta
-  pendingViewportDelta = {
-    zoomDeltaY: 0,
-    panDeltaX: 0,
-    panDeltaY: 0,
-    mouseX: null,
-    mouseY: null,
-  }
-
-  if (zoomDeltaY !== 0) {
-    const oldZoom = zoom
-    setZoom(zoom - zoomDeltaY * 0.002)
-    const newZoom = zoom
-
-    if (win && mouseX !== null && mouseY !== null) {
-      const contentBounds = win.getContentBounds()
-      const mouseClientX = mouseX - contentBounds.x
-      const mouseClientY = mouseY - contentBounds.y
-      const origin = canvasOrigin()
-      const viewportMouseX = mouseClientX - origin.x
-      const viewportMouseY = mouseClientY - origin.y
-      const canvasX = (viewportMouseX - pan.x) / oldZoom
-      const canvasY = (viewportMouseY - pan.y) / oldZoom
-
-      setPan(
-        viewportMouseX - canvasX * newZoom,
-        viewportMouseY - canvasY * newZoom,
-      )
-    }
-  }
-
-  if (panDeltaX !== 0 || panDeltaY !== 0) {
-    setPan(pan.x + panDeltaX, pan.y + panDeltaY)
-  }
-
-  // A manual pan/zoom supersedes any in-flight camera animation.
-  if (zoomDeltaY !== 0 || panDeltaX !== 0 || panDeltaY !== 0) {
-    cancelCameraAnimation()
-  }
-
-  requestLayout()
-}
-
-function scheduleViewportDelta(): void {
-  if (pendingViewportTimer) return
-  pendingViewportTimer = setTimeout(flushViewportDelta, VIEWPORT_EVENT_FRAME_MS)
-}
 
 function resolveDraggedPageIds(pageId: string): string[] {
   return selectedDragEntityIds(pageId)
@@ -189,18 +119,17 @@ export function registerCanvasDragIpc(): void {
     (_event, data: { deltaY: number; mouseX: number; mouseY: number }) => {
       // Focus presentation locks the camera on the page; exit is escape/button/dim-click only.
       if (isFocusSessionActive()) return
-      pendingViewportDelta.zoomDeltaY += data.deltaY
-      pendingViewportDelta.mouseX = data.mouseX
-      pendingViewportDelta.mouseY = data.mouseY
-      scheduleViewportDelta()
+      enqueueViewportInputDelta({
+        zoomDeltaY: data.deltaY,
+        mouseX: data.mouseX,
+        mouseY: data.mouseY,
+      })
     },
   )
 
   ipcMain.on(ipcChannels.canvasPan, (_event, { deltaX, deltaY }: { deltaX: number; deltaY: number }) => {
     if (isFocusSessionActive()) return
-    pendingViewportDelta.panDeltaX -= deltaX
-    pendingViewportDelta.panDeltaY -= deltaY
-    scheduleViewportDelta()
+    enqueueViewportInputDelta({ panDeltaX: -deltaX, panDeltaY: -deltaY })
   })
 
   ipcMain.on(

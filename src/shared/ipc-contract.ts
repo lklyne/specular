@@ -190,6 +190,10 @@ export interface IpcContract {
   'cursor-spline-viz-changed': { dir: 'main→renderer'; payload: boolean }
   'debug-log': { dir: 'renderer→main'; payload: unknown }
   'debug:get-initial-data': { dir: 'invoke'; payload: unknown }
+  'debug:perf-pan-zoom-get-state': { dir: 'invoke'; payload: unknown }
+  'debug:perf-pan-zoom-run': { dir: 'invoke'; payload: unknown }
+  'debug:perf-pan-zoom-state-changed': { dir: 'main→renderer'; payload: unknown }
+  'debug:perf-pan-zoom-stop': { dir: 'invoke'; payload: unknown }
   'debug:perf-trace-get-state': { dir: 'invoke'; payload: unknown }
   'debug:perf-trace-get-summary': { dir: 'invoke'; payload: unknown }
   'debug:perf-trace-list': { dir: 'invoke'; payload: unknown }
@@ -485,6 +489,10 @@ export const ipcChannels = {
   cursorSplineVizChanged: 'cursor-spline-viz-changed',
   debugLog: 'debug-log',
   debugGetInitialData: 'debug:get-initial-data',
+  debugPerfPanZoomGetState: 'debug:perf-pan-zoom-get-state',
+  debugPerfPanZoomRun: 'debug:perf-pan-zoom-run',
+  debugPerfPanZoomStateChanged: 'debug:perf-pan-zoom-state-changed',
+  debugPerfPanZoomStop: 'debug:perf-pan-zoom-stop',
   debugPerfTraceGetState: 'debug:perf-trace-get-state',
   debugPerfTraceGetSummary: 'debug:perf-trace-get-summary',
   debugPerfTraceList: 'debug:perf-trace-list',

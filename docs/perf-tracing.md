@@ -61,6 +61,34 @@ curl -H "x-specular-secret: $SECRET" \
   "http://localhost:29979/perf/trace/summary?file=specular-trace-....json"
 ```
 
+## Repeatable pan/zoom test
+
+The debug window's Performance section has a **Run test** button. It records one
+trace while driving the real main-process viewport path through five fixed
+profiles: slow pan, slow zoom, fast diagonal pan, slow pan + zoom, and fast pan
+and zoom. The original camera is restored before the trace is saved. **Stop test**
+cancels the remaining profiles, restores the camera, and saves the partial trace.
+
+Agents can run the identical test through the control API:
+
+```bash
+SECRET=$(jq -r .secret ~/.specular/specular-mcp.json)
+
+curl -X POST http://localhost:29979/perf/pan-zoom/run \
+  -H "x-specular-secret: $SECRET" \
+  -H 'Content-Type: application/json' -d '{"summarize": true}'
+# -> { "cancelled": false, "tracePath": "...", "fileName": "...", "summary": { ... } }
+
+curl -H "x-specular-secret: $SECRET" \
+  http://localhost:29979/perf/pan-zoom/status
+
+curl -X POST http://localhost:29979/perf/pan-zoom/stop \
+  -H "x-specular-secret: $SECRET"
+```
+
+The run request remains open until the test and trace flush finish. Send the stop
+request from a second process when cancellation is needed.
+
 ## Reading the summary
 
 `TraceSummary` (built by `src/shared/trace-summary.ts`, all values ms):
@@ -94,4 +122,5 @@ latency flows), drag the raw trace into <https://ui.perfetto.dev>.
   hitch on first analyze of a large file. Traces over 500 MB are not analyzed
   (summary returns null); use Perfetto for those.
 - Recording auto-stops at 30 s; start/stop responses are immediate but trace
-  flushing on stop can take a moment on big captures.
+  flushing on stop can take a moment on big captures. The debug UI shows
+  **Saving…** during that flush and ignores repeated start/stop toggles.
