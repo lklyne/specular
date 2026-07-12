@@ -37,22 +37,28 @@ trace can be tens–hundreds of MB.
 ## Recording from an agent (HTTP API)
 
 The app-control server listens on `http://localhost:29979` while the app runs.
+All perf routes require the secret from `~/.specular/specular-mcp.json`:
 
 ```bash
+SECRET=$(jq -r .secret ~/.specular/specular-mcp.json)
+
 # start recording
-curl -X POST http://localhost:29979/perf/trace/start
+curl -X POST http://localhost:29979/perf/trace/start \
+  -H "x-specular-secret: $SECRET"
 
 # ...drive the gesture under test (e.g. via the CLI / control API)...
 
 # stop, analyze, and get the summary in one call
 curl -X POST http://localhost:29979/perf/trace/stop \
+  -H "x-specular-secret: $SECRET" \
   -H 'Content-Type: application/json' -d '{"summarize": true}'
 # -> { "tracePath": "...", "fileName": "specular-trace-....json", "summary": { ... } }
 
 # other endpoints
-curl http://localhost:29979/perf/trace/status          # { recording, startedAt }
-curl http://localhost:29979/perf/traces                # list of trace files
-curl "http://localhost:29979/perf/trace/summary?file=specular-trace-....json"
+curl -H "x-specular-secret: $SECRET" http://localhost:29979/perf/trace/status
+curl -H "x-specular-secret: $SECRET" http://localhost:29979/perf/traces
+curl -H "x-specular-secret: $SECRET" \
+  "http://localhost:29979/perf/trace/summary?file=specular-trace-....json"
 ```
 
 ## Reading the summary

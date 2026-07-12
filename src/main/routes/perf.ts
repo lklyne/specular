@@ -26,7 +26,7 @@ export const perfRoutes: Route[] = [
         writeJson(response, 409, { error: 'Already recording' })
         return
       }
-      await startPerfTrace()
+      await startPerfTrace({ revealOnAutoStop: false })
       writeJson(response, 200, { recording: true })
     },
   },
@@ -38,7 +38,7 @@ export const perfRoutes: Route[] = [
         writeJson(response, 409, { error: 'Not recording' })
         return
       }
-      const tracePath = await stopPerfTrace()
+      const tracePath = await stopPerfTrace({ reveal: false })
       if (!tracePath) {
         writeJson(response, 500, { error: 'Failed to stop trace' })
         return
