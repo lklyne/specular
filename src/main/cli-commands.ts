@@ -513,14 +513,20 @@ export function buildWaitCommand(opts: {
 }
 
 const snapshot: VerbHandler = async (args) => {
-  // Reconstruct agent-browser snapshot command from flags
+  return browseCommand(args, buildSnapshotCommand(args))
+}
+
+export function buildSnapshotCommand(args: ParsedArgs): string {
   let cmd = 'snapshot'
-  if (args.boolFlags.has('i')) cmd += ' -i'
-  if (args.flags.s) cmd += ` -s "${args.flags.s}"`
-  if (args.flags.selector) cmd += ` -s "${args.flags.selector}"`
+  if (args.boolFlags.has('i') || args.boolFlags.has('interactive')) cmd += ' -i'
+  if (args.boolFlags.has('c') || args.boolFlags.has('compact')) cmd += ' -c'
+  if (args.boolFlags.has('u') || args.boolFlags.has('urls')) cmd += ' -u'
+  if (args.flags.s) cmd += ` -s ${shellQuote(args.flags.s)}`
+  if (args.flags.selector) cmd += ` -s ${shellQuote(args.flags.selector)}`
+  if (args.flags.d) cmd += ` -d ${args.flags.d}`
   if (args.flags.depth) cmd += ` -d ${args.flags.depth}`
   if (args.flags.format) cmd += ` --format ${args.flags.format}`
-  return browseCommand(args, cmd)
+  return cmd
 }
 
 const click: VerbHandler = async (args) => {

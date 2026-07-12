@@ -29,7 +29,8 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 |---|---|
 | `specular workspace` | Print the canvas state as JSON Canvas (entities, edges, groups) |
 | `specular selection` | Print the currently selected entities |
-| `specular snapshot -i -f <id>` | Capture an accessibility snapshot of a page, with refs |
+| `specular snapshot -i -c -f <id>` | Capture a compact interactive-elements snapshot of a page, with refs |
+| `specular snapshot -i -s "<selector>" -f <id>` | Scope a snapshot to one section/container |
 | `specular screenshot -f <id>` | Screenshot a page |
 
 ## Add — kind is the subcommand
@@ -120,6 +121,18 @@ active page.
 `@refs` from `specular snapshot -i` are assigned fresh per snapshot and die on
 ANY DOM change — hot reload included. After any source edit, re-snapshot
 before using refs.
+
+Prefer progressive disclosure for noisy pages:
+
+```bash
+specular snapshot -i -c -f <pageId>                 # compact interactive refs
+specular snapshot -i -c -s "#main" -f <pageId>      # scoped section
+specular snapshot -i -c -d 3 -f <pageId>            # depth-limited
+specular snapshot -i -u -c -f <pageId>              # include link hrefs only when needed
+specular get text "#main" -f <pageId>               # read text without a full ref tree
+specular read --outline -f <pageId>                 # passthrough: compact page outline
+specular read --filter "pricing" -f <pageId>        # passthrough: filtered page read
+```
 
 For iteration loops prefer re-resolving targets, which resolve fresh on every
 call:
@@ -260,6 +273,7 @@ When you encounter new gaps, append them to the tracking issue (see below).
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
 - **`update <pageId> --url` lags `workspace`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular workspace` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → workspace` chain.
 - **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells, so snapshots can never target cells. Before driving Sheets, read [references/google-sheets.md](references/google-sheets.md) — it has the one write path that works (Name box → formula bar) and the focus traps that silently eat input while reporting "✓ Done".
+- **Wrapped inline links can click dead space** — upstream agent-browser may click the center of a multi-line link's union bounding box, report success, and not navigate. If `find text ... click` or `click @ref` succeeds but URL/state does not change, assert with `wait --url` / `get url` and fall back to deterministic DOM navigation (`specular eval "location.href = document.querySelector('a[href*=...]').href" -f <pageId>`). Tracked in [lklyne/specular#324](https://github.com/lklyne/specular/issues/324).
 
 ## Tracking issue (localhost sessions)
 
