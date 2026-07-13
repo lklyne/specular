@@ -45,12 +45,6 @@ function applyHint(baseLabel: string | null, hint?: string | null, taskLabel?: s
   return baseLabel
 }
 
-export function labelForPresenceCursor(
-  cursor: Pick<AgentPresenceCursor, 'labelKey' | 'targetName' | 'labelHint' | 'taskLabel'>,
-): string | null {
-  return applyHint(labelForKey(cursor.labelKey, cursor.targetName), cursor.labelHint, cursor.taskLabel)
-}
-
 export function summarizePresenceCursor(
   cursor: Pick<AgentPresenceCursor, 'labelKey' | 'targetName' | 'surface' | 'labelHint' | 'taskLabel'>,
 ): string | null {

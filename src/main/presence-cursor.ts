@@ -522,6 +522,8 @@ function pickDefined<T extends object, K extends keyof T>(
 /** Cursor fields merged patch-over-existing-over-null. The rest of
  *  `PresenceCursorEntry` has bespoke fallbacks and is set explicitly. */
 const MERGED_CURSOR_FIELDS = [
+  'surface',
+  'activity',
   'pageId',
   'pageX',
   'pageY',
@@ -547,49 +549,62 @@ const MERGED_TASK_FIELDS = [
   'labelHint',
 ] as const
 
-export function upsertPresenceCursor(
-  request: IncomingMessage,
-  patch: {
-    body?: Record<string, unknown>
-    canvasX?: number
-    canvasY?: number
-    surface?: PresenceSurface
-    activity?: PresenceActivity
-    pageId?: string | null
-    pageX?: number | null
-    pageY?: number | null
-    labelKey?: PresenceLabelKey | null
-    taskLabel?: string | null
-    labelHint?: string | null
-    labelParams?: Record<string, string | number | boolean> | null
-    targetRef?: string | null
-    targetRefSource?: PresenceTargetRefSource | null
-    targetName?: string | null
-    targetRect?: PresenceTargetRect | null
-    dwellBudgetMs?: number | null
-  },
-): void {
-  const resolved = resolveSession(request, patch.body)
-  if (!resolved) return
-  const { sessionId, session } = resolved
+interface PresenceCursorPatch {
+  body?: Record<string, unknown>
+  canvasX?: number
+  canvasY?: number
+  surface?: PresenceSurface
+  activity?: PresenceActivity
+  pageId?: string | null
+  pageX?: number | null
+  pageY?: number | null
+  labelKey?: PresenceLabelKey | null
+  taskLabel?: string | null
+  labelHint?: string | null
+  labelParams?: Record<string, string | number | boolean> | null
+  targetRef?: string | null
+  targetRefSource?: PresenceTargetRefSource | null
+  targetName?: string | null
+  targetRect?: PresenceTargetRect | null
+  dwellBudgetMs?: number | null
+}
 
-  // Evict a same-clientName cursor left behind by a session that reconnected
-  // with a fresh sessionId (every session defaults to the same clientName,
-  // so without this a stale duplicate would linger forever). Scoped to dead
-  // sessions only — a live concurrent session with the same clientName
-  // keeps its cursor, otherwise two agents sharing the default clientName
-  // would evict each other's cursor on every upsert.
-  const evictionNow = Date.now()
+/** Evict a same-clientName cursor left behind by a session that reconnected
+ *  with a fresh sessionId (every session defaults to the same clientName, so
+ *  without this a stale duplicate would linger forever). Scoped to dead
+ *  sessions only — a live concurrent session with the same clientName keeps its
+ *  cursor, otherwise two agents sharing the default clientName would evict each
+ *  other's cursor on every upsert. */
+function evictReconnectedCursors(sessionId: string, clientName: string): void {
+  const now = Date.now()
   for (const [id, cursor] of presenceCursors) {
     // Synced cursors (ADR 0030) aren't MCP sessions and are never live by
     // `isSessionLive`'s definition — without this guard a coincidental
     // clientName match would evict a perfectly current synced cursor.
     if (cursor.source === 'interaction-sync') continue
-    if (cursor.clientName === session.clientName && id !== sessionId && !isSessionLive(id, evictionNow)) {
+    if (cursor.clientName === clientName && id !== sessionId && !isSessionLive(id, now)) {
       removePresenceCursor(id)
     }
   }
+}
 
+/** Task-derived cursor fields carry an explicit-null meaning: a patch that sets
+ *  the field to null clears it, while an absent field falls back to the existing
+ *  cursor and then to the session's active task. */
+function mergeTaskField(
+  patchValue: string | null | undefined,
+  existingValue: string | null | undefined,
+  taskValue: string | null | undefined,
+): string | null {
+  if (patchValue !== undefined) return patchValue
+  return existingValue ?? taskValue ?? null
+}
+
+function buildCursorEntry(
+  sessionId: string,
+  clientName: string,
+  patch: PresenceCursorPatch,
+): PresenceCursorEntry {
   const existing = presenceCursors.get(sessionId)
   const resolvedCanvasX = patch.canvasX ?? existing?.canvasX ?? 0
   const resolvedCanvasY = patch.canvasY ?? existing?.canvasY ?? 0
@@ -599,7 +614,7 @@ export function upsertPresenceCursor(
     existing.canvasY !== resolvedCanvasY
   const now = Date.now()
   const activeTask = activePresenceTasks.get(sessionId)
-  const next: PresenceCursorEntry = {
+  return {
     pageId: null,
     pageX: null,
     pageY: null,
@@ -610,30 +625,31 @@ export function upsertPresenceCursor(
     targetName: null,
     targetRect: null,
     dwellBudgetMs: null,
+    surface: 'canvas',
+    activity: 'acting',
     ...pickDefined(existing, MERGED_CURSOR_FIELDS),
     ...pickDefined(patch, MERGED_CURSOR_FIELDS),
     sessionId,
-    clientName: session.clientName,
+    clientName,
     color: existing?.color ?? deriveColor(sessionId),
     canvasX: resolvedCanvasX,
     canvasY: resolvedCanvasY,
-    surface: patch.surface ?? existing?.surface ?? 'canvas',
-    activity: patch.activity ?? existing?.activity ?? 'acting',
-    taskLabel:
-      patch.taskLabel === undefined
-        ? existing?.taskLabel ?? activeTask?.taskLabel ?? null
-        : patch.taskLabel,
-    labelHint:
-      patch.labelHint === undefined
-        ? existing?.labelHint ?? activeTask?.labelHint ?? null
-        : patch.labelHint,
+    taskLabel: mergeTaskField(patch.taskLabel, existing?.taskLabel, activeTask?.taskLabel),
+    labelHint: mergeTaskField(patch.labelHint, existing?.labelHint, activeTask?.labelHint),
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
     lastActAt: existing?.lastActAt ?? null,
     lastIntentLabelKey: withLastIntentLabelKey(existing, patch.labelKey),
   }
+}
 
-  presenceCursors.set(sessionId, next)
+export function upsertPresenceCursor(request: IncomingMessage, patch: PresenceCursorPatch): void {
+  const resolved = resolveSession(request, patch.body)
+  if (!resolved) return
+  const { sessionId, session } = resolved
+
+  evictReconnectedCursors(sessionId, session.clientName)
+  presenceCursors.set(sessionId, buildCursorEntry(sessionId, session.clientName, patch))
   schedulePresenceExpiry()
   notifyPresenceChanged()
 }

@@ -105,7 +105,7 @@ function bundleName(bundle: LocatorBundle): string {
 }
 
 /** Gerund-voice label for the synced cursor, expressed in the shared presence
- *  vocabulary (labelKey + targetName) so `labelForPresenceCursor` renders it
+ *  vocabulary (labelKey + targetName) so the presence label vocabulary renders it
  *  as 'Clicking "X"' / 'Pointing at "X"'. */
 function labelInfo(
   kind: 'hover' | 'click',
@@ -188,6 +188,7 @@ function tryCachedHover(
  * a single peer has left the set, only that peer is retired (A2).
  */
 export function refreshInteractionSyncCapture(): void {
+  ensureLivenessProbe()
   const enteredId = interactivePageId()
   let nextSource: Page | null = null
   for (const page of pages) {
@@ -358,5 +359,12 @@ export function handleResolveInteractionLocatorResponse(
 
 // The presence idle sweep treats a synced cursor as alive whenever a source is
 // still capturing (A8) — a still mouse over a tooltip sends no events but must
-// not depart.
-setSyncedCursorLivenessProbe(() => capturingSourcePageId !== null)
+// not depart. Registered on first capture refresh rather than at import time:
+// presence-cursor reaches this module through a cycle, so an import-time call
+// would hit its module bindings before they initialize.
+let livenessProbeRegistered = false
+function ensureLivenessProbe(): void {
+  if (livenessProbeRegistered) return
+  livenessProbeRegistered = true
+  setSyncedCursorLivenessProbe(() => capturingSourcePageId !== null)
+}

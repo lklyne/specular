@@ -105,10 +105,35 @@ export interface DescriptorQuery {
   interactiveOnly?: boolean
 }
 
-export function normalizeSearchText(value: string | null | undefined): string | null {
+function normalizeSearchText(value: string | null | undefined): string | null {
   if (!value) return null
   const normalized = value.trim().toLowerCase()
   return normalized.length > 0 ? normalized : null
+}
+
+/** One tier a requested field can match against: a candidate value, the points
+ *  for an exact match, and the points for a substring match. Tiers are tried in
+ *  order — the first hit wins, so they are listed strongest-first. */
+type MatchTier = [value: string | null, exact: number, partial: number]
+
+/** Points for one requested field, or `NEGATIVE_INFINITY` if no tier matched (a
+ *  hard reject — the field was asked for and the candidate cannot satisfy it).
+ *  Returns 0 when the field was not requested. */
+function scoreField(wanted: string | null, tiers: MatchTier[]): number {
+  if (!wanted) return 0
+  for (const [value, exact, partial] of tiers) {
+    if (value === wanted) return exact
+    if (value?.includes(wanted)) return partial
+  }
+  return Number.NEGATIVE_INFINITY
+}
+
+/** Points for a modest tiebreak signal: agreement scores, disagreement is free.
+ *  Ranks below the identity tiers, so a mismatch is never a hard reject. */
+function scoreAgreement(wanted: string | null | undefined, value: string | null | undefined, points: number): number {
+  const wantedNorm = normalizeSearchText(wanted)
+  if (!wantedNorm) return 0
+  return normalizeSearchText(value) === wantedNorm ? points : 0
 }
 
 /**
@@ -125,98 +150,29 @@ export function scoreDescriptorMatch(
 ): number {
   if (query.interactiveOnly && !candidate.interactive) return Number.NEGATIVE_INFINITY
 
-  const normalizedName = normalizeSearchText(candidate.name)
-  const normalizedText = normalizeSearchText(candidate.text)
-  const normalizedElementPath = normalizeSearchText(candidate.elementPath)
-  const normalizedFullPath = normalizeSearchText(candidate.fullPath)
-  const wantedName = normalizeSearchText(query.name)
-  const wantedText = normalizeSearchText(query.text)
-  const wantedElementPath = normalizeSearchText(query.elementPath)
-  const wantedFullPath = normalizeSearchText(query.fullPath)
+  const name = normalizeSearchText(candidate.name)
+  const text = normalizeSearchText(candidate.text)
+  const elementPath = normalizeSearchText(candidate.elementPath)
+  const fullPath = normalizeSearchText(candidate.fullPath)
 
-  let score = candidate.interactive ? 50 : 0
-  let matched = false
+  // A requested name may be satisfied by the candidate's text (and vice versa),
+  // at a discount — the accessible name and the visible text are often the same
+  // string surfaced two ways.
+  const fields =
+    scoreField(normalizeSearchText(query.name), [[name, 400, 280], [text, 220, 140]]) +
+    scoreField(normalizeSearchText(query.text), [[text, 320, 200], [name, 180, 120]]) +
+    scoreField(normalizeSearchText(query.elementPath), [[elementPath, 260, 140]]) +
+    scoreField(normalizeSearchText(query.fullPath), [[fullPath, 260, 140]])
+  if (fields === Number.NEGATIVE_INFINITY) return Number.NEGATIVE_INFINITY
 
-  if (wantedName) {
-    if (normalizedName === wantedName) {
-      score += 400
-      matched = true
-    } else if (normalizedName?.includes(wantedName)) {
-      score += 280
-      matched = true
-    } else if (normalizedText === wantedName) {
-      score += 220
-      matched = true
-    } else if (normalizedText?.includes(wantedName)) {
-      score += 140
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
+  // Role/tag agreement separates otherwise-equal structural matches (two
+  // same-text controls where one is a <button> and the other a link). Together
+  // they can clear the runner-up margin, promoting a would-be ambiguous match.
+  const agreement =
+    scoreAgreement(query.role, candidate.role, 80) + scoreAgreement(query.tag, candidate.tag, 40)
 
-  if (wantedText) {
-    if (normalizedText === wantedText) {
-      score += 320
-      matched = true
-    } else if (normalizedText?.includes(wantedText)) {
-      score += 200
-      matched = true
-    } else if (normalizedName === wantedText) {
-      score += 180
-      matched = true
-    } else if (normalizedName?.includes(wantedText)) {
-      score += 120
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
-
-  if (wantedElementPath) {
-    if (normalizedElementPath === wantedElementPath) {
-      score += 260
-      matched = true
-    } else if (normalizedElementPath?.includes(wantedElementPath)) {
-      score += 140
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
-
-  if (wantedFullPath) {
-    if (normalizedFullPath === wantedFullPath) {
-      score += 260
-      matched = true
-    } else if (normalizedFullPath?.includes(wantedFullPath)) {
-      score += 140
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
-
-  if (!matched && (wantedName || wantedText || wantedElementPath || wantedFullPath)) {
-    return Number.NEGATIVE_INFINITY
-  }
-
-  // Role/tag agreement — modest tiebreak signals that separate otherwise-equal
-  // structural matches (two same-text controls where one is a <button> and the
-  // other a link). Only agreement adds points; a mismatch is not a hard reject,
-  // since these rank below the name/text/path identity tiers. Together they can
-  // clear the runner-up margin, promoting a would-be ambiguous match.
-  const wantedRole = normalizeSearchText(query.role)
-  if (wantedRole && normalizeSearchText(candidate.role) === wantedRole) {
-    score += 80
-  }
-  const wantedTag = normalizeSearchText(query.tag)
-  if (wantedTag && normalizeSearchText(candidate.tag) === wantedTag) {
-    score += 40
-  }
-
-  score += Math.max(0, 100 - candidate.boundsX * 0.01 - candidate.boundsY * 0.01)
-  return score
+  const proximity = Math.max(0, 100 - candidate.boundsX * 0.01 - candidate.boundsY * 0.01)
+  return (candidate.interactive ? 50 : 0) + fields + agreement + proximity
 }
 
 // --- Dispatch geometry ---
