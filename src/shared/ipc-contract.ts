@@ -218,7 +218,6 @@ export interface IpcContract {
   'onboarding:refresh-status': { dir: 'renderer→main'; payload: unknown }
   'override-props': { dir: 'main→renderer'; payload: unknown }
   'override-token': { dir: 'main→renderer'; payload: unknown }
-  'page-annotations-update': { dir: 'main→renderer'; payload: unknown }
   'page-deselect': { dir: 'renderer→main'; payload: unknown }
   'page-hover': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-changed': { dir: 'renderer→main'; payload: unknown }
@@ -507,7 +506,6 @@ export const ipcChannels = {
   onboardingRefreshStatus: 'onboarding:refresh-status',
   overrideProps: 'override-props',
   overrideToken: 'override-token',
-  pageAnnotationsUpdate: 'page-annotations-update',
   pageDeselect: 'page-deselect',
   pageScrollChanged: 'page-scroll-changed',
   peekResizeEnd: 'peek-resize-end',

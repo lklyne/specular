@@ -41,7 +41,6 @@ import {
 import { clearPendingRequestsForPage } from './page-ipc'
 import { sendInteractiveState } from './overlay-manager'
 import { broadcastCanvasZoomToPages } from './viewport-control'
-import { annotationsForPage } from './canvas-layout-data'
 import { invalidateAgentSnapshot } from './agent-snapshot-cache'
 import {
   isNavigationSuppressed,
@@ -202,7 +201,6 @@ export function createPage(config: PageConfig): Page {
     }
     invalidateAgentSnapshot(page.id)
     page.lastPageEmulationKey = undefined
-    page.lastPageAnnotationsKey = undefined
     page.lastSafeAreaCssKey = undefined
     page.lastSafeAreaCssId = undefined
     if (isSelectedPage(page)) clearInspectTargets()
@@ -215,9 +213,6 @@ export function createPage(config: PageConfig): Page {
     if (overrides) {
       page.pageView.webContents.send(ipcChannels.applyPageOverrides, overrides)
     }
-    page.pageView.webContents.send(ipcChannels.pageAnnotationsUpdate, {
-      annotations: annotationsForPage(page.id),
-    })
   })
   page.pageView.webContents.on('did-navigate', (_event, url) => {
     selectionDebug('page:did-navigate', { pageId: page.id, url })

@@ -47,7 +47,6 @@ export interface Page {
    *  means either "no override applied yet" or "no override needed" —
    *  both collapse to the same no-op when colorScheme is also absent. */
   lastColorSchemeKey?: PageColorScheme
-  lastPageAnnotationsKey?: string
   lastSelected?: boolean
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string

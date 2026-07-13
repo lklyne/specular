@@ -5,7 +5,6 @@ import {
   CAPTURE_SUPPRESSION_STYLE_ID,
 } from './capture-suppression'
 import type {
-  Annotation,
   AnnotationBboxSubscription,
   CommentToolPagePreviewState,
   ScrollSyncData,
@@ -25,13 +24,6 @@ import {
   getInspectableElementByNodeId,
   initComponentInspector,
 } from './component-inspector'
-import {
-  hideCommentBadgeHover,
-  isCommentHoverActive,
-  queueRenderCommentBadges,
-  renderCommentBadges,
-  setPageAnnotations,
-} from './comment-badges'
 import {
   applyCommentHoverOverlay,
   clearCommentHoverOverlay,
@@ -89,7 +81,6 @@ function setCaptureSuppression(active: boolean): void {
     captureSuppressionStyleEl = null
     queueRefreshCommentHoverOverlay()
     queueRefreshDomInspectionOverlay()
-    queueRenderCommentBadges()
     return
   }
   if (captureSuppressionStyleEl?.isConnected) return
@@ -376,7 +367,6 @@ ipcRenderer.on(ipcChannels.setInteractive, (_event, value: boolean) => {
     seedScrollSyncBaseline()
   }
   applyInteractiveState()
-  renderCommentBadges()
 })
 
 ipcRenderer.on(ipcChannels.setCanvasZoom, (_event, value: number) => {
@@ -432,14 +422,6 @@ ipcRenderer.on(
   ipcChannels.annotationBboxSubscriptions,
   (_event, payload: { subscriptions?: AnnotationBboxSubscription[] } | undefined) => {
     setAnnotationBboxSubscriptions(payload?.subscriptions ?? [])
-  },
-)
-
-ipcRenderer.on(
-  ipcChannels.pageAnnotationsUpdate,
-  (_event, payload: { annotations?: Annotation[] } | undefined) => {
-    setPageAnnotations(payload?.annotations ?? [])
-    queueRenderCommentBadges()
   },
 )
 
@@ -727,7 +709,6 @@ window.addEventListener(
   'scroll',
   () => {
     queueScrollSyncBroadcast(interactive)
-    queueRenderCommentBadges()
     queueRefreshDomInspectionOverlay()
     queueRefreshCommentHoverOverlay()
     queueRecomputeAnnotationBboxes()
@@ -736,31 +717,9 @@ window.addEventListener(
 )
 
 window.addEventListener('resize', () => {
-  queueRenderCommentBadges()
   queueRefreshDomInspectionOverlay()
   queueRefreshCommentHoverOverlay()
   queueRecomputeAnnotationBboxes()
-})
-
-window.addEventListener(
-  'pointerdown',
-  () => {
-    if (!isCommentHoverActive()) return
-    hideCommentBadgeHover()
-  },
-  { capture: true },
-)
-
-window.addEventListener(
-  'wheel',
-  () => {
-    queueRenderCommentBadges()
-  },
-  { passive: true, capture: true },
-)
-
-window.addEventListener('blur', () => {
-  hideCommentBadgeHover()
 })
 
 // --- Resize handle ---

@@ -183,17 +183,6 @@ export function annotationsForPage(pageId: string): Annotation[] {
   })
 }
 
-export function pageAnnotationsKey(annotations: Annotation[]): string {
-  return annotations
-    .map((annotation) => {
-      const repliesKey = annotation.replies
-        .map((reply) => [reply.author, reply.timestamp, reply.text].join('~'))
-        .join(',')
-      return [annotation.id, annotation.author, annotation.status, annotation.text, repliesKey].join(':')
-    })
-    .join('|')
-}
-
 export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
   if (aboveView) safeSend(aboveView.webContents, ipcChannels.layoutUpdate, payload)
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed()) {
