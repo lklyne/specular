@@ -16,7 +16,6 @@ import {
 } from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
-import { ActivePageHighlightLayer } from '../canvas-bg/AgentCursorLayer'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
@@ -1062,16 +1061,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           />
 
           <MarqueeLayer overlay={selectionOverlay} />
-
-          {layoutData.presenceCursors.length > 0 ? (
-            <ActivePageHighlightLayer
-              cursors={layoutData.presenceCursors}
-              pages={layoutData.entities.filter(
-                (e): e is CanvasScenePageEntity => e.kind === 'page',
-              )}
-              originY={layoutData.canvasOrigin.y}
-            />
-          ) : null}
 
           {/* Live drawing preview renders after StackedCanvasItems so the
               in-progress stroke sits above file entities — matching where a
