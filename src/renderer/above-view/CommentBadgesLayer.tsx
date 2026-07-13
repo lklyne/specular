@@ -6,6 +6,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { isUnresolved } from '../../shared/annotation-utils'
+import { pageViewportToScreen } from '../../shared/page-space'
 import type { AnnotationLiveBboxLookup } from './annotationMath'
 
 interface CommentBadge {
@@ -218,18 +219,5 @@ function elementAnnotationRect(
   if (annotation.anchor.type !== 'element') return null
   const bbox = liveBboxes.get(annotation.id) ?? annotation.anchor.boundingBox
   if (!bbox) return null
-
-  const contentScreenX = page.contentScreenX ?? page.screenX
-  const contentScreenY = page.contentScreenY ?? page.screenY
-  const contentScreenWidth = page.contentScreenWidth ?? page.screenWidth
-  const contentScreenHeight = page.contentScreenHeight ?? page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
-
-  return {
-    left: contentScreenX + bbox.x * scaleX,
-    top: contentScreenY + bbox.y * scaleY - layoutData.canvasOrigin.y,
-    width: bbox.width * scaleX,
-    height: bbox.height * scaleY,
-  }
+  return pageViewportToScreen(bbox, page, layoutData)
 }

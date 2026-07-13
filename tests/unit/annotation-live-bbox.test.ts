@@ -75,6 +75,28 @@ describe('annotationScreenPos with live bboxes', () => {
     expect(pos!.x).toBeCloseTo(342, 6)
   })
 
+  it('anchors thread popovers to the outer page frame even on device pages', () => {
+    // Pins the deliberate divergence in annotationScreenPos: the thread
+    // popover maps through the entity's OUTER frame, not the device content
+    // viewport. Mutation-verified by switching its pageViewportToScreen call
+    // to the default 'content' frame — this test then sees the content-frame
+    // x (230 + 150 * 0.5 - 8 = 297) instead of 342.
+    const devicePage = {
+      ...PAGE,
+      contentScreenX: 230,
+      contentScreenY: 140,
+      contentScreenWidth: 200,
+      contentScreenHeight: 150,
+    }
+    const ann = elementAnnotation({ x: 50, y: 80, width: 100, height: 40 })
+    const pos = annotationScreenPos(ann, layout({ entities: [devicePage] }))
+    expect(pos).not.toBeNull()
+    // page.screenX (200) + (50 + 100) * (400/400) - rightInset(8) = 342
+    expect(pos!.x).toBeCloseTo(342, 6)
+    // toOverlayY(page.screenY (100) + 80 * (300/300)) + topInset(8) = 138
+    expect(pos!.y).toBeCloseTo(138, 6)
+  })
+
   it('still positions canvas-anchored annotations the same way', () => {
     const ann: Annotation = {
       id: 'canv-1',

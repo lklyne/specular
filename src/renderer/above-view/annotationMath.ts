@@ -12,6 +12,7 @@ import {
   canvasToScreenY,
   toOverlayY,
 } from '../../shared/gesture-utils'
+import { pageViewportToScreen } from '../../shared/page-space'
 
 
 export interface PendingAnnotation {
@@ -196,28 +197,26 @@ export function annotationScreenPos(
       // stale the moment the page scrolls.
       const liveBbox = liveBboxes?.get(annotation.id)
       const bb = liveBbox ?? anchor.boundingBox
-      const x =
-        page.screenX +
-        (bb.x + bb.width) *
-          (page.screenWidth / page.width) -
-        rightInset
-      const y =
-        page.screenY +
-        bb.y * (page.screenHeight / page.height) +
-        topInset
-      const clampedX = Math.max(
+      // The thread popover maps through the entity's outer frame (device
+      // shell included), then tucks the popover just inside the element's
+      // top-right corner and clamps it within the page bounds. That
+      // divergence from the content-frame default is deliberate — it lives
+      // here as post-processing on the shared transform, not as a second
+      // transform.
+      const rect = pageViewportToScreen(bb, page, layout, 'entity')
+      const pageTop = toOverlayY(layout, page.screenY)
+      const x = Math.max(
         page.screenX + rightInset,
-        Math.min(x, page.screenX + page.screenWidth - rightInset),
+        Math.min(
+          rect.left + rect.width - rightInset,
+          page.screenX + page.screenWidth - rightInset,
+        ),
       )
-      const clampedY = Math.max(
-        page.screenY + topInset,
-        Math.min(y, page.screenY + page.screenHeight - topInset),
+      const y = Math.max(
+        pageTop + topInset,
+        Math.min(rect.top + topInset, pageTop + page.screenHeight - topInset),
       )
-      return {
-        x: clampedX,
-        y: toOverlayY(layout, clampedY),
-        transform: 'translate(-100%, 0)',
-      }
+      return { x, y, transform: 'translate(-100%, 0)' }
     }
     if (anchor.type === 'page') {
       const y = toOverlayY(layout, page.screenY + anchor.offsetY * page.screenHeight)
@@ -281,26 +280,7 @@ export function pendingElementScreenRect(
   if (!bbox) return null
   const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
   if (!page) return null
-  const contentScreenX =
-    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
-  const contentScreenY =
-    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
-  const contentScreenWidth =
-    'contentScreenWidth' in page && page.contentScreenWidth != null
-      ? page.contentScreenWidth
-      : page.screenWidth
-  const contentScreenHeight =
-    'contentScreenHeight' in page && page.contentScreenHeight != null
-      ? page.contentScreenHeight
-      : page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
-  return {
-    left: contentScreenX + bbox.x * scaleX,
-    top: toOverlayY(layout, contentScreenY + bbox.y * scaleY),
-    width: bbox.width * scaleX,
-    height: bbox.height * scaleY,
-  }
+  return pageViewportToScreen(bbox, page, layout)
 }
 
 /**

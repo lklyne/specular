@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AnnotationAnchor, AnnotationElementSelectionPayload, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/gesture-utils'
+import { pageViewportToScreen } from '../../shared/page-space'
 import {
   drawingBounds,
   elementAnchoredComposerPosition,
@@ -201,32 +202,18 @@ function buildPendingAnnotation(
 ): PendingAnnotation | null {
   const page = layout.entities.find((candidate) => candidate.id === payload.pageId)
   if (!page) return null
-  const bb = payload.boundingBox
-  const contentScreenX =
-    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
-  const contentScreenY =
-    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
-  const contentScreenWidth =
-    'contentScreenWidth' in page && page.contentScreenWidth != null
-      ? page.contentScreenWidth
-      : page.screenWidth
-  const contentScreenHeight =
-    'contentScreenHeight' in page && page.contentScreenHeight != null
-      ? page.contentScreenHeight
-      : page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
-  const elementLeft = contentScreenX + (bb ? bb.x * scaleX : contentScreenWidth / 2)
-  const elementTop = toOverlayY(
+  // No bounding box → anchor the composer to the page-content center (a
+  // zero-size rect at the viewport midpoint maps to exactly that point).
+  const rect = pageViewportToScreen(
+    payload.boundingBox ?? { x: page.width / 2, y: page.height / 2, width: 0, height: 0 },
+    page,
     layout,
-    contentScreenY + (bb ? bb.y * scaleY : contentScreenHeight / 2),
   )
-  const elementHeight = bb ? bb.height * scaleY : 0
   const composerWidth = Math.min(420, window.innerWidth - VIEWPORT_PADDING * 2)
   const { composerX, composerY } = elementAnchoredComposerPosition({
-    elementLeft,
-    elementTop,
-    elementHeight,
+    elementLeft: rect.left,
+    elementTop: rect.top,
+    elementHeight: rect.height,
     composerWidth,
   })
   const anchor: AnnotationAnchor = {
