@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-13 — Interaction Sync
+
+### New
+
+- **Interaction sync**: hover and click a page, and its same-origin peers follow along.
+- Synced cursors show where each peer is pointing, anchored to the matching element.
+
+### Improvements
+
+- Specular CLI targets like `text=Sign in` survive quoting.
+- `wait` forwards `--text` and `--url`.
+- Failed ref-targeted actions give a stale-ref recovery hint.
+- agent-browser passthrough verbs that can't work now fail with a real error.
+- The bundled agent-browser driver resolves correctly — no separate install needed.
+
 ## [0.4.1] - 2026-07-09 — Region annotation fixes, arrow-key nudge
 
 ### Improvements
