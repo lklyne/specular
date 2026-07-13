@@ -9,11 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import {
-  matchesPageUrl,
-  pageAnchorFor,
-  pageAnchorOnCurrentUrl,
-} from '../../src/shared/page-anchor'
+import { matchesPageUrl, pageAnchorFor } from '../../src/shared/page-anchor'
 
 const PAGE_A = {
   id: 'page-a',
@@ -62,16 +58,6 @@ describe('pageAnchorFor', () => {
       { ...PAGE_A, url: '' },
     ])
     expect(anchor).toEqual({ pageId: 'page-a' })
-  })
-})
-
-describe('pageAnchorOnCurrentUrl', () => {
-  it('matches while the page shows the anchor URL (hash-insensitive), rejects other documents', () => {
-    const anchor = { pageId: 'page-a', pageUrl: 'https://example.com/a' }
-    expect(pageAnchorOnCurrentUrl(anchor, 'https://example.com/a#pricing')).toBe(true)
-    expect(pageAnchorOnCurrentUrl(anchor, 'https://example.com/other')).toBe(false)
-    expect(pageAnchorOnCurrentUrl({ pageId: 'page-a' }, 'https://example.com/other')).toBe(true)
-    expect(pageAnchorOnCurrentUrl(undefined, 'https://example.com/a')).toBe(true)
   })
 })
 

@@ -10,7 +10,6 @@
 import type {
   ActiveCanvasEntitySelection,
   AgentPresenceCursor,
-  Annotation,
   CanvasSceneEntity,
   CanvasScenePageEntity,
   FocusPresentationData,
@@ -21,8 +20,7 @@ import type {
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
-import { annotationMatchesPageUrl, isUnresolved } from '../../shared/annotation-utils'
-import { entityHiddenByPageAnchor } from './page-anchor-state'
+import { annotationHiddenByPageDocument, entityHiddenByPageAnchor } from './document-binding'
 import {
   aboveView,
   cursorOverlayWindow,
@@ -170,18 +168,6 @@ export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
   }
 }
 
-
-export function annotationsForPage(pageId: string): Annotation[] {
-  const page = findPageById(pageId)
-  const currentPageUrl = page?.pageView.webContents.getURL() ?? null
-  return workspaceAnnotations.filter((annotation) => {
-    if (!isUnresolved(annotation.status)) return false
-    if (annotation.anchor.type === 'canvas') return false
-    if (annotation.anchor.type === 'region') return false
-    if (annotation.anchor.pageId !== pageId) return false
-    return annotationMatchesPageUrl(annotation, currentPageUrl)
-  })
-}
 
 export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
   if (aboveView) safeSend(aboveView.webContents, ipcChannels.layoutUpdate, payload)
@@ -367,7 +353,13 @@ export function buildCanvasLayoutData(
     activeSelection,
     activeTool: tool,
     toolDefaults: getToolDefaults(),
-    annotations: [...workspaceAnnotations],
+    // Annotations bound to a page's document leave the broadcast while that
+    // page shows a different URL — the same gate the anchored entities above
+    // pass through. The right-details panel is unaffected: it reads full
+    // records from the inspect-session payload, not this one.
+    annotations: workspaceAnnotations.filter(
+      (annotation) => !annotationHiddenByPageDocument(annotation),
+    ),
     inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),
     selectedGroupId: uiSelectedGroupId(),

@@ -69,15 +69,6 @@ export function matchesPageUrl(
   return recorded === current
 }
 
-/** Whether an anchored item belongs on the page's current document. */
-export function pageAnchorOnCurrentUrl(
-  anchor: PageAnchor | undefined,
-  currentPageUrl: string | undefined | null,
-): boolean {
-  if (!anchor) return true
-  return matchesPageUrl(anchor.pageUrl, currentPageUrl)
-}
-
 /**
  * Resolve the anchor for an entity from its bounds: the topmost page whose
  * body contains the entity's center, or null when the entity sits on empty

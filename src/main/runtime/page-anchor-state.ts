@@ -4,9 +4,10 @@
  *
  * - resolving an anchor from where an entity sits (creation, drag end)
  * - expanding drag/nudge id sets so anchored entities travel with their page
- * - hiding anchored entities from the scene while their page is on a
- *   different URL
  * - clearing anchors when their page is deleted
+ *
+ * The document-binding gate (hide while the page shows a different URL)
+ * lives in document-binding.ts.
  *
  * Anchorable kinds today: text and drawing. The mechanism is generic — a kind
  * opts in by carrying a `pageAnchor` field and appearing in
@@ -14,12 +15,11 @@
  */
 
 import {
-  matchesPageUrl,
   pageAnchorFor,
   type PageAnchor,
   type PageAnchorTarget,
 } from '../../shared/page-anchor'
-import { findPageById, pages } from './runtime-context'
+import { pages } from './runtime-context'
 import { pageBodyCanvasBounds } from './runtime-geometry'
 import { textEntities } from './text-entity-state'
 import { drawingEntities } from './drawing-entity-state'
@@ -128,18 +128,4 @@ export function clearPageAnchorsForPage(pageId: string): void {
     changed = true
   }
   if (changed) markDirty('canvas', 'sidebar')
-}
-
-/**
- * Whether an anchored entity is off its page's current document — the page
- * exists and shows a different URL than the one the entity was placed on.
- * Hidden entities are omitted from the scene payload, which removes them
- * from rendering and renderer-side hit-testing in one place.
- */
-export function entityHiddenByPageAnchor(entity: { id: string; pageAnchor?: PageAnchor }): boolean {
-  const anchor = entity.pageAnchor
-  if (!anchor) return false
-  const page = findPageById(anchor.pageId)
-  if (!page) return false
-  return !matchesPageUrl(anchor.pageUrl, page.url)
 }

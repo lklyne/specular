@@ -28,10 +28,8 @@ import {
   finalizeDrag,
   initializeDrag,
 } from '../../src/main/runtime/document-commands'
-import {
-  entityHiddenByPageAnchor,
-  withPageAnchoredEntityIds,
-} from '../../src/main/runtime/page-anchor-state'
+import { entityHiddenByPageAnchor } from '../../src/main/runtime/document-binding'
+import { withPageAnchoredEntityIds } from '../../src/main/runtime/page-anchor-state'
 import { textEntities } from '../../src/main/runtime/text-entity-state'
 import { drawingEntities } from '../../src/main/runtime/drawing-entity-state'
 import { pages } from '../../src/main/runtime/runtime-context'

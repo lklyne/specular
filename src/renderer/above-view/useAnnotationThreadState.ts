@@ -1,29 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Annotation, LayoutUpdateData } from '../../shared/types'
+import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import {
-  annotationContextPageId,
-  annotationMatchesPageUrl,
-} from '../../shared/annotation-utils'
 import { annotationScreenPos, type AnnotationLiveBboxLookup } from './annotationMath'
-
-/**
- * Whether a page-anchored annotation's page is still showing the document
- * the annotation was created on. True for canvas anchors, missing pages,
- * and annotations without a recorded URL.
- */
-export function annotationPageIsCurrent(
-  annotation: Annotation,
-  layoutData: LayoutUpdateData,
-): boolean {
-  const pageId = annotationContextPageId(annotation)
-  if (!pageId) return true
-  const page = layoutData.entities.find(
-    (entity) => entity.kind === 'page' && entity.id === pageId,
-  )
-  if (!page || page.kind !== 'page') return true
-  return annotationMatchesPageUrl(annotation, page.url)
-}
 
 const VIEWPORT_PADDING = 8
 const THREAD_CARD_WIDTH = 360
@@ -74,19 +52,13 @@ export function useAnnotationThreadState({
     return () => window.cancelAnimationFrame(id)
   }, [openThreadId, threadInputRef])
 
+  // The open thread vanished from the payload — deleted, resolved, or its
+  // page navigated off the annotation's document — so close the popover.
   useEffect(() => {
     if (!openThreadId) return
     if (openThread) return
     closeThread()
   }, [closeThread, openThread, openThreadId])
-
-  // Close the popover when the anchoring page navigates away — the thread
-  // refers to content that is no longer in the page's document.
-  useEffect(() => {
-    if (!openThread) return
-    if (annotationPageIsCurrent(openThread, layoutData)) return
-    closeThread()
-  }, [closeThread, layoutData, openThread])
 
   useEffect(() => {
     if (!openThreadId) {

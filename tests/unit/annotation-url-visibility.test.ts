@@ -1,44 +1,36 @@
 /**
- * Page-anchored annotations hide when their page navigates away from the URL
- * they were created on (comment badges key off the scene page's live `url`).
+ * Page-bound annotations hide when their page navigates away from the URL
+ * they were created on. The gate is main-side (`annotationHiddenByPageDocument`
+ * in document-binding.ts): hidden annotations are dropped from the layout
+ * broadcast, so renderers never re-derive visibility from URLs.
  *
- * Mutation-verified by: (1) removing the `annotationMatchesPageUrl` skip in
- * `commentBadgesForLayout` — the "hides badges after navigation" cases fail;
- * (2) deleting the `parsed.hash = ''` line in `canonicalAnnotationUrl` — the
- * hash-insensitivity cases fail.
+ * Mutation-verified by: (1) making `offPageDocument` return false
+ * unconditionally (document-binding.ts) — the navigation-hiding cases fail;
+ * (2) deleting the `parsed.hash = ''` line in `canonicalPageUrl`
+ * (page-anchor.ts) — the hash-insensitivity cases fail.
  */
 
-import { describe, expect, it } from 'vitest'
-import { commentBadgesForLayout } from '../../src/renderer/above-view/CommentBadgesLayer'
-import type { AnnotationLiveBboxLookup } from '../../src/renderer/above-view/annotationMath'
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  annotationHiddenByPageDocument,
+  entityHiddenByPageAnchor,
+} from '../../src/main/runtime/document-binding'
+import { pages } from '../../src/main/runtime/runtime-context'
+import type { Page } from '../../src/main/runtime/runtime-entities'
 import {
   annotationContextPageId,
   annotationMatchesPageUrl,
   canonicalAnnotationUrl,
 } from '../../src/shared/annotation-utils'
-import type { Annotation, LayoutUpdateData } from '../../src/shared/types'
+import type { Annotation } from '../../src/shared/types'
 
+const PAGE_ID = 'page-1'
 const PAGE_URL = 'https://example.com/pricing'
 
-const PAGE = {
-  id: 'page-1',
-  kind: 'page' as const,
-  url: PAGE_URL,
-  screenX: 200,
-  screenY: 100,
-  screenWidth: 400,
-  screenHeight: 300,
-  width: 400,
-  height: 300,
-}
-
-function layout(pageUrl: string): LayoutUpdateData {
-  return {
-    canvasOrigin: { x: 0, y: 50 },
-    pan: { x: 0, y: 0 },
-    zoom: 1,
-    entities: [{ ...PAGE, url: pageUrl }],
-  } as LayoutUpdateData
+/** Point the runtime's page registry at a single page showing `url`. */
+function showPage(url: string): void {
+  pages.length = 0
+  pages.push({ id: PAGE_ID, url } as unknown as Page)
 }
 
 function annotation(partial: Partial<Annotation>): Annotation {
@@ -46,7 +38,7 @@ function annotation(partial: Partial<Annotation>): Annotation {
     id: 'ann-1',
     anchor: {
       type: 'element',
-      pageId: PAGE.id,
+      pageId: PAGE_ID,
       selector: 'main > section.hero',
       boundingBox: { x: 50, y: 40, width: 100, height: 20 },
     },
@@ -58,11 +50,6 @@ function annotation(partial: Partial<Annotation>): Annotation {
     metadata: { pageUrl: PAGE_URL },
     ...partial,
   }
-}
-
-const noLiveBboxes: AnnotationLiveBboxLookup = {
-  get: () => undefined,
-  isStale: () => false,
 }
 
 describe('canonicalAnnotationUrl', () => {
@@ -103,7 +90,7 @@ describe('annotationMatchesPageUrl', () => {
 
 describe('annotationContextPageId', () => {
   it('reads the pageId off element and page anchors', () => {
-    expect(annotationContextPageId(annotation({}))).toBe(PAGE.id)
+    expect(annotationContextPageId(annotation({}))).toBe(PAGE_ID)
     expect(
       annotationContextPageId(
         annotation({ anchor: { type: 'page', pageId: 'page-9', offsetX: 0.5, offsetY: 0.5 } }),
@@ -129,43 +116,61 @@ describe('annotationContextPageId', () => {
   })
 })
 
-describe('commentBadgesForLayout page-URL gating', () => {
-  it('shows the badge while the page is on the annotation URL', () => {
-    const badges = commentBadgesForLayout([annotation({})], layout(PAGE_URL), noLiveBboxes)
-    expect(badges).toHaveLength(1)
+describe('annotationHiddenByPageDocument (main-side layout gate)', () => {
+  afterEach(() => {
+    pages.length = 0
   })
 
-  it('hides element badges after the page navigates away', () => {
-    const badges = commentBadgesForLayout(
-      [annotation({})],
-      layout('https://example.com/about'),
-      noLiveBboxes,
-    )
-    expect(badges).toHaveLength(0)
+  it('shows the annotation while the page is on its URL, hides it after navigation', () => {
+    showPage(PAGE_URL)
+    expect(annotationHiddenByPageDocument(annotation({}))).toBe(false)
+
+    showPage('https://example.com/about')
+    expect(annotationHiddenByPageDocument(annotation({}))).toBe(true)
   })
 
-  it('hides page-anchored badges after the page navigates away', () => {
-    const pageAnchored = annotation({
-      anchor: { type: 'page', pageId: PAGE.id, offsetX: 0.5, offsetY: 0.5 },
-    })
+  it('gates page-anchored and region annotations through their context page', () => {
+    showPage('https://example.com/about')
     expect(
-      commentBadgesForLayout([pageAnchored], layout(PAGE_URL), noLiveBboxes),
-    ).toHaveLength(1)
-    expect(
-      commentBadgesForLayout([pageAnchored], layout('https://example.com/about'), noLiveBboxes),
-    ).toHaveLength(0)
-  })
-
-  it('keeps hash-only navigation and URL-less annotations visible', () => {
-    expect(
-      commentBadgesForLayout([annotation({})], layout(`${PAGE_URL}#faq`), noLiveBboxes),
-    ).toHaveLength(1)
-    expect(
-      commentBadgesForLayout(
-        [annotation({ metadata: undefined })],
-        layout('https://example.com/about'),
-        noLiveBboxes,
+      annotationHiddenByPageDocument(
+        annotation({ anchor: { type: 'page', pageId: PAGE_ID, offsetX: 0.5, offsetY: 0.5 } }),
       ),
-    ).toHaveLength(1)
+    ).toBe(true)
+    expect(
+      annotationHiddenByPageDocument(
+        annotation({
+          anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
+          metadata: {
+            pageUrl: PAGE_URL,
+            regionComponents: [{ pageId: PAGE_ID, pageName: 'Page 1', components: [] }],
+          },
+        }),
+      ),
+    ).toBe(true)
+  })
+
+  it('never hides hash-only navigation, URL-less annotations, canvas anchors, or missing pages', () => {
+    showPage(`${PAGE_URL}#faq`)
+    expect(annotationHiddenByPageDocument(annotation({}))).toBe(false)
+
+    showPage('https://example.com/about')
+    expect(annotationHiddenByPageDocument(annotation({ metadata: undefined }))).toBe(false)
+    expect(
+      annotationHiddenByPageDocument(
+        annotation({ anchor: { type: 'canvas', canvasX: 1, canvasY: 2 } }),
+      ),
+    ).toBe(false)
+
+    pages.length = 0
+    expect(annotationHiddenByPageDocument(annotation({}))).toBe(false)
+  })
+
+  it('applies the same gate to page-anchored entities', () => {
+    const entity = { id: 'sticky-1', pageAnchor: { pageId: PAGE_ID, pageUrl: PAGE_URL } }
+    showPage(PAGE_URL)
+    expect(entityHiddenByPageAnchor(entity)).toBe(false)
+    showPage('https://example.com/about')
+    expect(entityHiddenByPageAnchor(entity)).toBe(true)
+    expect(entityHiddenByPageAnchor({ id: 'sticky-1' })).toBe(false)
   })
 })

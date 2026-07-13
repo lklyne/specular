@@ -190,7 +190,7 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 
 **Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
 
-**Navigation hides page-anchored visuals.** Every page-anchored annotation records the page's URL at creation (`metadata.pageUrl`, hash-insensitive). When the page navigates to a different URL, its badges, region rects, live-bbox subscriptions, and any open thread popover hide until the page returns to that URL — the anchored content isn't in the current document. Annotations without a recorded URL always show. The shared predicate is `annotationMatchesPageUrl` in `src/shared/annotation-utils.ts`.
+**Navigation hides page-anchored visuals.** Every page-anchored annotation records the page's URL at creation (`metadata.pageUrl`, hash-insensitive). When the page navigates to a different URL, the annotation is dropped from the layout broadcast main-side (`annotationHiddenByPageDocument`, `src/main/runtime/document-binding.ts`) — badges, region rects, live-bbox subscriptions, and any open thread popover disappear with it until the page returns to that URL. The anchored content isn't in the current document. Annotations without a recorded URL always show. The shared predicate is `annotationMatchesPageUrl` in `src/shared/annotation-utils.ts`; renderers never re-derive visibility from URLs, and the sidebar applies the predicate with a dim-not-hide policy.
 
 **Sidebar shows the anchoring relationship.** A page acts as a folder for content anchored to it: unresolved page-anchored annotations render as collapsible child rows under the page in the left sidebar (click opens the thread; rows dim when the page has navigated away from the annotation's URL).
 
@@ -200,7 +200,7 @@ The generic "hook to a page" utility ([ADR 0029](./docs/adr/0029-page-anchored-e
 
 - **Placement decides.** An entity whose center lands inside a page's body anchors to it — on creation and on drag end. Dragging it off the page frees it. Grouped entities never auto-anchor.
 - **Anchored entities travel with their page.** Drag/nudge id sets expand to include them; positions stay in canvas coordinates (no stored offset).
-- **Anchored means document-bound.** While the page shows a different URL than the anchor's, the entity leaves the scene (not rendered, not hit-testable) and its sidebar row dims — same URL predicate annotations use.
+- **Anchored means document-bound.** While the page shows a different URL than the anchor's, the entity leaves the scene (not rendered, not hit-testable) and its sidebar row dims — same URL predicate annotations use, applied by the same main-side gate (`src/main/runtime/document-binding.ts`).
 - **Sidebar nesting.** Anchored entities render as child rows of their page, alongside page-anchored annotations, instead of in the root Notes list.
 - Anchors persist as a `pageAnchor` field on the JSON Canvas node (`specular` extension block for text nodes). Scroll tracking is a deliberate non-feature for now — see the ADR's follow-ups.
 

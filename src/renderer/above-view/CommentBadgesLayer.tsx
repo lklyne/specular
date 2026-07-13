@@ -5,7 +5,7 @@ import type {
   CanvasScenePageEntity,
   LayoutUpdateData,
 } from '../../shared/types'
-import { annotationMatchesPageUrl, isUnresolved } from '../../shared/annotation-utils'
+import { isUnresolved } from '../../shared/annotation-utils'
 import type { AnnotationLiveBboxLookup } from './annotationMath'
 
 interface CommentBadge {
@@ -126,10 +126,6 @@ export function commentBadgesForLayout(
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))) {
     const anchor = annotation.anchor
     if (anchor.type !== 'element' && anchor.type !== 'page') continue
-    // Hide badges whose page has navigated away from the URL the annotation
-    // was created on — the anchored content isn't in the document anymore.
-    const anchorPage = pagesById.get(anchor.pageId)
-    if (anchorPage && !annotationMatchesPageUrl(annotation, anchorPage.url)) continue
     const key =
       anchor.type === 'page'
         ? `page:${anchor.pageId}:${anchor.offsetX}:${anchor.offsetY}`
