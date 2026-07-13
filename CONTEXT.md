@@ -194,6 +194,16 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 
 **Sidebar shows the anchoring relationship.** A page acts as a folder for content anchored to it: unresolved page-anchored annotations render as collapsible child rows under the page in the left sidebar (click opens the thread; rows dim when the page has navigated away from the annotation's URL).
 
+## Page anchoring
+
+The generic "hook to a page" utility ([ADR 0029](./docs/adr/0029-page-anchored-entities.md), `src/shared/page-anchor.ts`). A canvas entity is either **free-form** (default) or carries a `PageAnchor { pageId, pageUrl? }`. Anchorable kinds today: `text` (stickies) and `drawing`.
+
+- **Placement decides.** An entity whose center lands inside a page's body anchors to it — on creation and on drag end. Dragging it off the page frees it. Grouped entities never auto-anchor.
+- **Anchored entities travel with their page.** Drag/nudge id sets expand to include them; positions stay in canvas coordinates (no stored offset).
+- **Anchored means document-bound.** While the page shows a different URL than the anchor's, the entity leaves the scene (not rendered, not hit-testable) and its sidebar row dims — same URL predicate annotations use.
+- **Sidebar nesting.** Anchored entities render as child rows of their page, alongside page-anchored annotations, instead of in the root Notes list.
+- Anchors persist as a `pageAnchor` field on the JSON Canvas node (`specular` extension block for text nodes). Scroll tracking is a deliberate non-feature for now — see the ADR's follow-ups.
+
 ## Keyboard bindings
 
 A **Binding** is one entry in the keyboard registry: `{ id, defaultKey, scope, target, when?, firesWhileTyping?, firesFromPageFocus?, label }`. The registry is the single source of truth — the dispatcher reads it, the app menu reads it, future tooltips and Bindings settings read it. See [ADR 0010](./docs/adr/0010-main-as-sole-shortcut-dispatch-site.md) and [`docs/plans/keyboard-binding-registry.md`](./docs/plans/keyboard-binding-registry.md).

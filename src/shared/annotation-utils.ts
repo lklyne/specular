@@ -1,4 +1,5 @@
 import type { Annotation, AnnotationStatus } from './types'
+import { canonicalPageUrl, matchesPageUrl } from './page-anchor'
 
 export function truncate(value: string, max: number): string {
   if (value.length <= max) return value
@@ -19,22 +20,9 @@ export function annotationOrigin(annotation: Annotation): string | null {
   }
 }
 
-/**
- * Canonical form for page-URL comparison: hash stripped, otherwise the URL
- * as-is. Non-URL strings pass through so file:// fixtures and dev servers
- * with unusual schemes still compare by exact string.
- */
+/** Annotation-flavored alias for the shared page-anchor canonicalization. */
 export function canonicalAnnotationUrl(value: string | undefined | null): string | undefined {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  try {
-    const parsed = new URL(trimmed)
-    parsed.hash = ''
-    return parsed.toString()
-  } catch {
-    return trimmed
-  }
+  return canonicalPageUrl(value)
 }
 
 /**
@@ -66,8 +54,5 @@ export function annotationMatchesPageUrl(
   annotation: Annotation,
   currentPageUrl: string | undefined | null,
 ): boolean {
-  const annotationUrl = canonicalAnnotationUrl(annotation.metadata?.pageUrl)
-  const pageUrl = canonicalAnnotationUrl(currentPageUrl)
-  if (!annotationUrl || !pageUrl) return true
-  return annotationUrl === pageUrl
+  return matchesPageUrl(annotation.metadata?.pageUrl, currentPageUrl)
 }

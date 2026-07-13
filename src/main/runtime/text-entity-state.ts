@@ -10,6 +10,7 @@
 import { randomUUID } from 'crypto'
 import type {
   CanvasSceneTextEntity,
+  PageAnchor,
   PersistedTextEntity,
   TextEntityStyle,
   TextWidthMode,
@@ -31,6 +32,8 @@ export interface TextEntity {
   height: number
   parentGroupId?: string
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 /** Plain text starts auto-sized; sticky is always fixed. */
@@ -56,6 +59,7 @@ export function createTextEntity(input: {
   id?: string
   parentGroupId?: string
   label?: string
+  pageAnchor?: PageAnchor
 }): TextEntity {
   const textStyle = input.textStyle ?? 'sticky'
   const entity: TextEntity = {
@@ -73,6 +77,7 @@ export function createTextEntity(input: {
     height: input.height ?? DEFAULT_TEXT_HEIGHT,
     parentGroupId: input.parentGroupId,
     label: input.label,
+    pageAnchor: input.pageAnchor,
   }
   textEntities.push(entity)
   markDirty('canvas', 'sidebar')
@@ -84,7 +89,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (!entity) return null
   applyPatch(entity, patch, [
     'text', 'color', 'textStyle', 'widthMode', 'textSize',
-    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
+    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId', 'pageAnchor',
   ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
@@ -151,6 +156,7 @@ const TEXT_ENTITY_PERSISTED_FIELD_SET = {
   height: true,
   parentGroupId: true,
   label: true,
+  pageAnchor: true,
 } as const satisfies Record<keyof PersistedTextEntity, true>
 
 export const TEXT_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
@@ -172,5 +178,6 @@ export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
     height: entity.height,
     parentGroupId: entity.parentGroupId,
     label: entity.label,
+    pageAnchor: entity.pageAnchor,
   }
 }

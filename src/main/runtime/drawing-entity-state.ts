@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto'
 import type {
   AnnotationDrawingStroke,
   CanvasSceneDrawingEntity,
+  PageAnchor,
   PersistedDrawingEntity,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
@@ -24,6 +25,8 @@ export interface DrawingEntity {
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export const drawingEntities: DrawingEntity[] = []
@@ -41,6 +44,7 @@ export function createDrawingEntity(input: {
   id?: string
   parentGroupId?: string
   label?: string
+  pageAnchor?: PageAnchor
 }): DrawingEntity {
   const entity: DrawingEntity = {
     id: input.id ?? `drawing_${randomUUID()}`,
@@ -51,6 +55,7 @@ export function createDrawingEntity(input: {
     strokes: input.strokes,
     parentGroupId: input.parentGroupId,
     label: input.label,
+    pageAnchor: input.pageAnchor,
   }
   drawingEntities.push(entity)
   markDirty('canvas', 'sidebar')
@@ -72,7 +77,7 @@ export function updateDrawingEntity(
   const entity = drawingEntities.find((candidate) => candidate.id === id)
   if (!entity) return null
   applyPatch(entity, patch, [
-    'canvasX', 'canvasY', 'width', 'height', 'strokes', 'parentGroupId',
+    'canvasX', 'canvasY', 'width', 'height', 'strokes', 'parentGroupId', 'pageAnchor',
   ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
@@ -123,6 +128,7 @@ const DRAWING_ENTITY_PERSISTED_FIELD_SET = {
   strokes: true,
   parentGroupId: true,
   label: true,
+  pageAnchor: true,
 } as const satisfies Record<keyof PersistedDrawingEntity, true>
 
 export const DRAWING_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
@@ -140,5 +146,6 @@ export function persistDrawingEntity(entity: DrawingEntity): PersistedDrawingEnt
     strokes: entity.strokes,
     parentGroupId: entity.parentGroupId,
     label: entity.label,
+    pageAnchor: entity.pageAnchor,
   }
 }

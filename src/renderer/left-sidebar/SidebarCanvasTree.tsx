@@ -184,30 +184,37 @@ function AnnotationListItem({
 }
 
 /**
- * A page row that acts as a folder for content anchored to it: annotations
- * render as indented children behind a chevron, mirroring the group tree.
+ * A page row that acts as a folder for content anchored to it: anchored
+ * canvas entities and annotations render as indented children behind a
+ * chevron, mirroring the group tree. Anchored rows dim when the page has
+ * navigated away from their anchor URL (their canvas visuals are hidden).
  */
 function PageTreeItem({
   page,
   depth,
-  active,
+  selectedEntityIds,
+  selectedGroupId,
   isDark,
   api,
+  section,
 }: {
   page: SidebarPageItem
   depth: number
-  active: boolean
+  selectedEntityIds: string[]
+  selectedGroupId: string | null
   isDark: boolean
   api: LeftSidebarElectronAPI
+  section: SidebarSectionKey
 }) {
   const [expanded, setExpanded] = useState(true)
   const annotations = page.annotations ?? []
+  const anchored = page.anchored ?? []
   const contentPaddingLeft =
     LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP
   const row = (
     <PageListItem
       page={page}
-      active={active}
+      active={selectedEntityIds.includes(page.id)}
       isDark={isDark}
       contentPaddingLeft={contentPaddingLeft}
       contentPaddingRight={LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING}
@@ -216,7 +223,7 @@ function PageTreeItem({
       onDelete={() => api.deletePage(page.id)}
     />
   )
-  if (annotations.length === 0) return row
+  if (annotations.length === 0 && anchored.length === 0) return row
 
   return (
     <Collapsible.Root open={expanded} onOpenChange={setExpanded}>
@@ -231,6 +238,23 @@ function PageTreeItem({
         </Collapsible.Trigger>
       </div>
       <Collapsible.Panel>
+        {anchored.map((item) => (
+          <div
+            key={item.id}
+            className={item.onCurrentPage ? undefined : 'opacity-50'}
+            title={item.onCurrentPage ? undefined : 'Page navigated away from this item’s URL'}
+          >
+            <SidebarCanvasTreeItem
+              item={item}
+              depth={depth + 1}
+              selectedEntityIds={selectedEntityIds}
+              selectedGroupId={selectedGroupId}
+              isDark={isDark}
+              api={api}
+              section={section}
+            />
+          </div>
+        ))}
         {annotations.map((annotation) => (
           <AnnotationListItem
             key={annotation.id}
@@ -424,9 +448,11 @@ function SidebarCanvasTreeItem({
       <PageTreeItem
         page={item}
         depth={depth}
-        active={isSelected}
+        selectedEntityIds={selectedEntityIds}
+        selectedGroupId={selectedGroupId}
         isDark={isDark}
         api={api}
+        section={section}
       />
     )
   }

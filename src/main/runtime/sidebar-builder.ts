@@ -8,6 +8,7 @@ import type {
   Annotation,
   LeftSidebarData,
   LeftSidebarSections,
+  SidebarAnchoredEntityItem,
   SidebarAnnotationItem,
   SidebarCanvasItem,
   SidebarDrawingItem,
@@ -18,6 +19,8 @@ import type {
   WorkspaceBounds,
   WorkspaceGroup,
 } from '../../shared/types'
+import { matchesPageUrl } from '../../shared/page-anchor'
+import { findAnchorableEntity } from './page-anchor-state'
 import {
   annotationMatchesPageUrl,
   isUnresolved,
@@ -129,6 +132,42 @@ function sidebarAnnotationsForPage(
     }))
 }
 
+/**
+ * Whether a leaf entity is hooked to an existing page (shared/page-anchor.ts)
+ * — it nests under that page in the sidebar instead of the root list.
+ * Grouped entities stay under their group.
+ */
+function anchoredPageIdFor(entityId: string): string | null {
+  const entity = findAnchorableEntity(entityId)
+  if (!entity || entity.parentGroupId) return null
+  const pageId = entity.pageAnchor?.pageId
+  if (!pageId) return null
+  return pages.some((page) => page.id === pageId) ? pageId : null
+}
+
+/** Canvas entities anchored to a page, projected as child rows in stack order. */
+function sidebarAnchoredItemsForPage(
+  pageId: string,
+  currentPageUrl: string | undefined,
+  ranks: Map<string, number>,
+): SidebarAnchoredEntityItem[] {
+  const items: (SidebarAnchoredEntityItem & { sortKey: number })[] = []
+  for (const entity of sidebarLeafEntities()) {
+    if (anchoredPageIdFor(entity.id) !== pageId) continue
+    const leaf = describeSidebarLeaf(entity.id)
+    if (!leaf || leaf.kind === 'page') continue
+    const anchor = findAnchorableEntity(entity.id)?.pageAnchor
+    items.push({
+      ...leaf,
+      onCurrentPage: matchesPageUrl(anchor?.pageUrl, currentPageUrl),
+      sortKey: ranks.get(entity.id) ?? Number.MAX_SAFE_INTEGER,
+    })
+  }
+  return items
+    .sort((a, b) => b.sortKey - a.sortKey)
+    .map(({ sortKey: _sortKey, ...item }) => item)
+}
+
 function sidebarAnnotationLabel(annotation: Annotation): string {
   const name = annotation.elementName?.trim()
   if (name) return name
@@ -142,6 +181,7 @@ function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
   const page = findPageById(entityId)
   if (page) {
     const annotations = sidebarAnnotationsForPage(entityId, page.url)
+    const anchored = sidebarAnchoredItemsForPage(entityId, page.url, entityOrderRank())
     return {
       kind: 'page',
       id: entityId,
@@ -150,6 +190,7 @@ function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
       width: page.peekWidth,
       height: page.peekHeight,
       ...(annotations.length ? { annotations } : {}),
+      ...(anchored.length ? { anchored } : {}),
     }
   }
 
@@ -261,6 +302,8 @@ export function buildSidebarSections(): LeftSidebarSections {
   )
   const rootLeafItems = sidebarLeafEntities()
     .filter((entity) => !groupedEntityIds.has(entity.id))
+    // Page-anchored entities nest under their page row, not the root list.
+    .filter((entity) => anchoredPageIdFor(entity.id) === null)
     .map((entity) => buildSidebarLeafItem(entity.id, ranks))
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
 

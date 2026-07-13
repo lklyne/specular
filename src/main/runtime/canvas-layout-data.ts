@@ -22,6 +22,7 @@ import type {
 import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { annotationMatchesPageUrl, isUnresolved } from '../../shared/annotation-utils'
+import { entityHiddenByPageAnchor } from './page-anchor-state'
 import {
   aboveView,
   cursorOverlayWindow,
@@ -327,7 +328,12 @@ export function buildCanvasLayoutData(
   const entities = [
     ...pages,
     ...leafSceneSources.flatMap(({ kind, source }) =>
-      source.map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
+      source
+        // Page-anchored entities belong to a specific document — while their
+        // page shows a different URL they leave the scene entirely (not
+        // rendered, not hit-testable). The sidebar still lists them, dimmed.
+        .filter((entity) => !entityHiddenByPageAnchor(entity))
+        .map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
     ),
     ...groupEntities,
   ] as CanvasSceneEntity[]

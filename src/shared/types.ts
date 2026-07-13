@@ -7,9 +7,11 @@ import type {
 } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
+import type { PageAnchor } from './page-anchor'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
 
 export type { DrawingBrushType, Tool } from './tool'
+export type { PageAnchor } from './page-anchor'
 export type { ToolDefaultPatch } from './tool-defaults'
 
 // --- IPC Channel Types ---
@@ -407,6 +409,8 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   /** Optional — renderer defaults to 14 ("Small") when absent. ADR 0013 §2. */
   textSize?: number
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
@@ -444,6 +448,8 @@ export interface PersistedDrawingEntity extends CanvasEntityBase {
   height: number
   strokes: AnnotationDrawingStroke[]
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export interface PersistedShapeEntity extends CanvasEntityBase {
@@ -611,6 +617,19 @@ export interface SidebarAnnotationItem {
   onCurrentPage: boolean
 }
 
+/**
+ * A canvas entity hooked to this page (shared/page-anchor.ts), shown as a
+ * child row of the page in the sidebar. `onCurrentPage` is false when the
+ * page has navigated away from the entity's anchor URL — the entity's canvas
+ * visuals are hidden, so the row renders dimmed.
+ */
+export type SidebarAnchoredEntityItem = (
+  | SidebarTextItem
+  | SidebarFileItem
+  | SidebarDrawingItem
+  | SidebarShapeItem
+) & { onCurrentPage: boolean }
+
 export interface SidebarPageItem {
   kind: 'page'
   id: string
@@ -620,6 +639,8 @@ export interface SidebarPageItem {
   height?: number
   /** Unresolved annotations anchored to this page, newest first. */
   annotations?: SidebarAnnotationItem[]
+  /** Canvas entities anchored to this page, in stack order. */
+  anchored?: SidebarAnchoredEntityItem[]
 }
 
 export interface SidebarTextItem {

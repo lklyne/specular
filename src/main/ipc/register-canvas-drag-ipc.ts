@@ -52,6 +52,7 @@ import {
   pasteEntitiesFromClipboard,
 } from '../workspace-clipboard'
 import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
+import { withPageAnchoredEntityIds } from '../runtime/page-anchor-state'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
 
@@ -153,9 +154,11 @@ function applyDragStartSelection(
 
 function beginDragSession(
   kind: 'page' | 'entity' | 'group',
-  entityIds: string[],
+  ids: string[],
 ): boolean {
-  if (!entityIds.length) return false
+  if (!ids.length) return false
+  // Entities anchored to a dragged page travel with it (shared/page-anchor.ts).
+  const entityIds = withPageAnchoredEntityIds(ids)
   if (activeDragSession && currentInteractionState().kind === 'idle') {
     activeDragSession = null
   }

@@ -30,6 +30,7 @@ import { normalizePresetIndex } from './runtime-serialization'
 import type { Page } from './runtime-entities'
 import { pageOverridesFromMetadata } from './runtime-entities'
 import { markDirty } from './layout-dirty'
+import { clearPageAnchorsForPage } from './page-anchor-state'
 import { requestLayout } from './viewport-control'
 import { endFocusSession, focusSession } from './focus-session'
 import {
@@ -328,6 +329,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // focus() call lands at the end of the next layout pass via reconcileFocus.
   setPendingFocus({ kind: 'aboveView' })
   pages.splice(idx, 1)
+  clearPageAnchorsForPage(page.id)
   markDirty('canvas', 'sidebar', 'toolbar')
   invalidateAgentSnapshot(page.id)
   const previousSelectedIndex = uiSelectedPageIndex(pages.map((p) => p.id))
