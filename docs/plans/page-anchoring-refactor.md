@@ -59,12 +59,12 @@ Vocabulary: **module / interface / seam / depth / locality / leverage** as defin
 
 - **Scroll tracking itself.** This refactor is the prerequisite, not the feature. (ADR 0029 follow-ups.)
 - **New anchorable kinds** (shape/file). Phase 5 is triggered by demand, not scheduled.
-- **Changing anchoring semantics.** Placement-decides, center-inside-body, group-wins, hide-on-navigation all stay as shipped (ADR 0029).
+- **Changing *entity* anchoring semantics.** Placement-decides, center-inside-body, group-wins, hide-on-navigation all stay as shipped (ADR 0029). Region-*annotation* semantics do change — phase 4 resolves the region hybrid into an explicit canvas-/page-anchored split (see phase 4's Decision block).
 - Re-litigating ADR 0006's resting-visual asymmetry or ADR 0021's binary show/hide.
 
 ## Phases
 
-Ordered by leverage-per-risk; each phase lands independently green (typecheck + unit + integration) and is a separate commit/PR.
+Ordered by leverage-per-risk; each phase lands independently green (typecheck + unit + integration) as its own commit. Phases 1–4 ship together on `claude/canvas-items-page-anchoring-endpw3` as one PR; phase 5 stays deferred.
 
 ### Phase 1 — Delete the dead preload badge module
 
@@ -111,21 +111,28 @@ Ordered by leverage-per-risk; each phase lands independently green (typecheck + 
 **Tests**
 - Unit: direct tests on `pageViewportToScreen` (contentScreen fallback to screen bounds, scale, canvasOrigin). Existing `annotation-live-bbox.test.ts` position expectations act as regression pins — they must not change. Mutation: break the scale term → both suites fail.
 
-### Phase 4 — Annotations adopt `PageAnchor`
+### Phase 4 — Annotations adopt `PageAnchor`; regions split into canvas- vs page-anchored
 
-The heaviest phase; schedule when annotation persistence is next open, not before phases 1–3.
+The heaviest phase; schedule after phases 1–3.
+
+**Decision (2026-07-13).** Region annotations stop being a hybrid (today: hide on navigation but don't travel with page drags and don't nest in the sidebar). A region is one of two things, decided at creation with no mode or toggle:
+
+- **Page-anchored** — the marquee **grabbed** page content: `regionComponents`/`regionElements` came back non-empty from `executeRegionSelect` (`region-select.ts:19-46`). Anchors to the page that contributed the grab (first group when several pages intersect). Behavior: translates with page drags/nudges, hides while the page is off its anchor URL, nests under the page in the sidebar, and will scroll-follow when scroll tracking lands.
+- **Canvas-anchored** — the marquee grabbed nothing. Marks canvas space: never moves with pages, never hides, stays top-level. (This matches the existing `canvas` vs `page`/`element` split for point comments — regions are the one anchor type that was left between the two worlds.)
+
+**No backwards compatibility.** `annotation.pageAnchor` is the *only* page-binding read. Annotations in existing `.canvas` files that lack it are simply canvas-bound — they never hide and never travel. (Element/page-anchored annotations still position relative to their page; that's structural in the anchor. They only lose the URL gate until recreated.) No legacy read fallback, no compat shim, and `metadata.pageUrl` is no longer written. Accepted deliberately; note it in the changelog.
 
 **Change**
-- `Annotation` gains `pageAnchor?: PageAnchor`, written at creation by `enrichedAnnotationMetadata`'s successor (also the moment to split that function: URL/name context enrichment vs React-component enrichment are unrelated concerns fused today, `workspace-annotations.ts:47-98`).
-- Read path prefers `annotation.pageAnchor`, falls back to legacy `metadata.pageUrl` + `annotationContextPageId` — old `.canvas` files keep working unmodified (same transparent-extension posture as `Annotation.kind` retirement in ADR 0006).
-- Collapses: `annotationContextPageId` vs `anchoredPageIdFor` → one accessor; `sidebarAnnotationsForPage` + `sidebarAnchoredItemsForPage` → one "content belonging to a page" builder over a common item shape (annotation rows keep their thread-count/label projection; the `SidebarAnnotationItem` / `SidebarAnchoredEntityItem` split narrows to presentation).
-- Decide and record: do we keep writing `metadata.pageUrl` for one release for downgrade tolerance? (Recommend yes, then drop.)
+- `Annotation` gains `pageAnchor?: PageAnchor`, written at creation by `enrichedAnnotationMetadata`'s successor (also the moment to split that function: URL/name context enrichment vs React-component enrichment are unrelated concerns fused today, `workspace-annotations.ts:47-98`). Element/page anchors derive it from `anchor.pageId`; regions per the grab rule above; canvas points never carry one.
+- Read path: `annotation.pageAnchor` only (see No-backwards-compatibility above). Delete `annotationContextPageId`, `regionPrimaryPageId`-as-binding, and the `metadata.pageUrl` stamp.
+- Page-anchored regions join the drag/nudge id-set expansion so their `canvasRect` translates with their page (extend `withPageAnchoredEntityIds` or add an annotation counterpart at the same call sites, `document-commands.ts:426`, `register-canvas-drag-ipc.ts:161`). The translate must land inside the gesture's single undo step (gesture batching per `src/main/runtime/CLAUDE.md`).
+- Sidebar: `sidebarAnnotationsForPage` includes page-anchored regions (today it filters to `element`/`page` anchors only, `sidebar-builder.ts:121`). Collapses: one page-binding accessor; `sidebarAnnotationsForPage` + `sidebarAnchoredItemsForPage` → one "content belonging to a page" builder over a common item shape (annotation rows keep their thread-count/label projection; the `SidebarAnnotationItem` / `SidebarAnchoredEntityItem` split narrows to presentation).
 
 **Tests**
-- Integration: legacy fixture (`metadata.pageUrl`, no `pageAnchor`) hides on navigation and nests in sidebar identically to a new-format annotation; round-trip write emits `pageAnchor`. Mutation: drop the legacy fallback → fixture test fails.
-- `tests/unit/workspace-annotations.test.ts` and `annotation-url-visibility.test.ts` updated to the unified accessor.
+- Integration: region-with-grab → `pageAnchor` written; drag its page → `canvasRect` translates by the same delta, one undo step round-trips both; navigate → dropped from the layout payload, navigate back → returns; nests under its page in the sidebar payload. Region-without-grab → no `pageAnchor`, page drag leaves it in place, never hidden. Annotation without `pageAnchor` (legacy shape) → treated as canvas-bound. Each mutation-verified per `tests/README.md`.
+- `tests/unit/workspace-annotations.test.ts` and `annotation-url-visibility.test.ts` updated to the unified accessor; delete legacy-fallback cases.
 
-**Docs:** amend ADR 0029 (annotations now consume the utility; the "annotations predate this" caveat in `page-anchor.ts` header goes away) and CONTEXT.md §Annotations/§Page anchoring.
+**Docs:** amend ADR 0029 (annotations now consume the utility; the "annotations predate this" caveat in `page-anchor.ts` header goes away; the "region annotations as anchor consumers" follow-up is resolved) and CONTEXT.md §Annotations/§Page anchoring — the "regions mark canvas space, not page content" note becomes the canvas-anchored half of the split.
 
 ### Phase 5 (triggered, not scheduled) — Anchorable opt-in via the entity-kind registry
 
@@ -149,13 +156,14 @@ Phases 1–3 are the prerequisite for scroll tracking, in order: the absolute sc
 | Phase 2 hides annotations from a consumer that needed the full record | Verified: panel uses `inspect-session` payload; only other `layoutData.annotations` consumers are the four above-view layers + a dev debug count |
 | Phase 2 changes thread-open-from-panel UX | It doesn't (open→instant auto-close today ≡ never-opens after); noted in the phase so the reviewer checks it deliberately |
 | Phase 3 accidentally "fixes" the divergent inset math and moves popovers | Keep the divergence as explicit post-processing; position expectations in existing unit tests pin it |
-| Phase 4 breaks old `.canvas` files | Legacy-fixture integration test is written first (red/green), fallback read path mandatory |
+| Phase 4 leaves legacy annotations without the URL gate | Accepted deliberately (see phase 4's no-backwards-compatibility block); changelog note; a legacy-shaped annotation must still load, render, and behave as canvas-bound — integration test covers that |
+| Phase 4 region translate corrupts undo grouping | Integration test asserts page-drag + region translate round-trip as one undo step |
 
 ## Acceptance criteria
 
 - `matchesPageUrl` has exactly one wrapper per concern: the main-side gate (broadcast filtering), the sidebar dim, and the annotation-metadata legacy read (until phase 4 retires it). No renderer re-derives document-binding visibility.
 - `rg 'PAGE_COMMENT_BADGES_ENABLED|pageAnnotationsUpdate|__canvas-comment-badges'` returns nothing.
 - One `pageViewportToScreen` definition; `rg 'contentScreenWidth / page.width'` (and variants) hits only it.
-- After phase 4: one page-binding accessor, one sidebar child-row builder, `metadata.pageUrl` written only by the compat shim (then deleted).
+- After phase 4: one page-binding accessor (`annotation.pageAnchor`), one sidebar child-row builder, `metadata.pageUrl` written nowhere; page-anchored regions translate with page drags and nest in the sidebar; grab-less regions never hide or move.
 - Every phase: `pnpm typecheck`, `test:unit`, `test:integration` green; new tests mutation-verified per `tests/README.md`, with the mutation named in the test header and commit message.
 - Net LOC for phases 1–3 is negative.
