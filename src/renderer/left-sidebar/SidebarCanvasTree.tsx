@@ -207,8 +207,7 @@ function PageTreeItem({
   section: SidebarSectionKey
 }) {
   const [expanded, setExpanded] = useState(true)
-  const annotations = page.annotations ?? []
-  const anchored = page.anchored ?? []
+  const children = page.children ?? []
   const contentPaddingLeft =
     LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP
   const row = (
@@ -223,7 +222,7 @@ function PageTreeItem({
       onDelete={() => api.deletePage(page.id)}
     />
   )
-  if (annotations.length === 0 && anchored.length === 0) return row
+  if (children.length === 0) return row
 
   return (
     <Collapsible.Root open={expanded} onOpenChange={setExpanded}>
@@ -238,32 +237,33 @@ function PageTreeItem({
         </Collapsible.Trigger>
       </div>
       <Collapsible.Panel>
-        {anchored.map((item) => (
-          <div
-            key={item.id}
-            className={item.onCurrentPage ? undefined : 'opacity-50'}
-            title={item.onCurrentPage ? undefined : 'Page navigated away from this item’s URL'}
-          >
-            <SidebarCanvasTreeItem
-              item={item}
+        {children.map((item) =>
+          item.kind === 'annotation' ? (
+            <AnnotationListItem
+              key={item.id}
+              annotation={item}
               depth={depth + 1}
-              selectedEntityIds={selectedEntityIds}
-              selectedGroupId={selectedGroupId}
               isDark={isDark}
               api={api}
-              section={section}
             />
-          </div>
-        ))}
-        {annotations.map((annotation) => (
-          <AnnotationListItem
-            key={annotation.id}
-            annotation={annotation}
-            depth={depth + 1}
-            isDark={isDark}
-            api={api}
-          />
-        ))}
+          ) : (
+            <div
+              key={item.id}
+              className={item.onCurrentPage ? undefined : 'opacity-50'}
+              title={item.onCurrentPage ? undefined : 'Page navigated away from this item’s URL'}
+            >
+              <SidebarCanvasTreeItem
+                item={item}
+                depth={depth + 1}
+                selectedEntityIds={selectedEntityIds}
+                selectedGroupId={selectedGroupId}
+                isDark={isDark}
+                api={api}
+                section={section}
+              />
+            </div>
+          ),
+        )}
       </Collapsible.Panel>
     </Collapsible.Root>
   )

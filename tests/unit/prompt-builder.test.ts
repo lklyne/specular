@@ -11,8 +11,8 @@ function baseAnnotation(overrides: Partial<Annotation> = {}): Annotation {
     status: 'pending',
     replies: [],
     createdAt: new Date().toISOString(),
+    pageAnchor: { pageId: 'page-a', pageUrl: 'http://localhost:4321/garden' },
     metadata: {
-      pageUrl: 'http://localhost:4321/garden',
       pageName: 'Desktop 1280×800',
     },
     ...overrides,
@@ -37,7 +37,6 @@ describe('buildFixPrompt', () => {
           elementPath: 'body > header',
         },
         metadata: {
-          pageUrl: 'http://localhost:4321/garden',
           inspectContext: {
             id: 'node-1',
             nodeId: 'node-1',

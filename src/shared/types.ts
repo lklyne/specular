@@ -630,6 +630,14 @@ export type SidebarAnchoredEntityItem = (
   | SidebarShapeItem
 ) & { onCurrentPage: boolean }
 
+/**
+ * Content belonging to a page, shown as child rows under its sidebar row:
+ * anchored canvas entities in stack order, then unresolved page-anchored
+ * annotations newest first. One builder produces the list; the item kinds
+ * only differ in presentation.
+ */
+export type SidebarPageChildItem = SidebarAnchoredEntityItem | SidebarAnnotationItem
+
 export interface SidebarPageItem {
   kind: 'page'
   id: string
@@ -637,10 +645,9 @@ export interface SidebarPageItem {
   faviconUrl?: string | null
   width?: number
   height?: number
-  /** Unresolved annotations anchored to this page, newest first. */
-  annotations?: SidebarAnnotationItem[]
-  /** Canvas entities anchored to this page, in stack order. */
-  anchored?: SidebarAnchoredEntityItem[]
+  /** Content anchored to this page (entities in stack order, then
+   *  unresolved annotations newest first). */
+  children?: SidebarPageChildItem[]
 }
 
 export interface SidebarTextItem {
@@ -1775,10 +1782,9 @@ export interface RegionElementGroup {
 
 export interface AnnotationMetadata extends Record<string, unknown> {
   inspectContext?: AnnotationInspectContext
-  /** Human-readable page label, e.g. "iPad Mini 768×1024" */
+  /** Human-readable page label, e.g. "iPad Mini 768×1024". Display context
+   *  only — the page binding lives in `Annotation.pageAnchor`. */
   pageName?: string
-  /** Canonical page URL (hash removed) associated with the annotation anchor. */
-  pageUrl?: string
   /** Base64-encoded PNG screenshot of the selected region. */
   regionScreenshot?: string
   /** React components found in the selected region, grouped by page. */
@@ -1858,6 +1864,12 @@ export interface Annotation {
    *  like "Submit button" or "Hero CTA", displayed in the composer and thread.
    *  Canvas-point and region anchors leave this undefined. */
   elementName?: string
+  /** Present when the annotation is bound to a page's document (see
+   *  shared/page-anchor.ts) — the ONLY page-binding read. Written at
+   *  creation: element/page anchors from their anchor page; region anchors
+   *  iff the marquee grabbed page content; canvas points never. Annotations
+   *  without one are canvas-bound: they never hide and never travel. */
+  pageAnchor?: PageAnchor
   metadata?: AnnotationMetadata
 }
 

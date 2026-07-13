@@ -16,7 +16,7 @@ export function buildFixPrompt(annotation: Annotation): string {
   lines.push('You are responding to a comment left on a live web page.')
   lines.push('')
 
-  const pageUrl = annotation.metadata?.pageUrl
+  const pageUrl = annotation.pageAnchor?.pageUrl
   if (pageUrl) {
     lines.push(`Page URL: ${pageUrl}`)
   }

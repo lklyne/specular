@@ -241,10 +241,10 @@ export async function getAnnotationsSlim(args: {
       | undefined
     const inspectContext = metadata?.inspectContext as Record<string, unknown> | undefined
 
-    // Build slim metadata — keep only pageName and pageUrl.
+    // Build slim metadata — keep only the pageName display label. The page
+    // binding (id + URL) rides on the record's `pageAnchor` field.
     const slimMeta: Record<string, unknown> = {}
     if (metadata?.pageName) slimMeta.pageName = metadata.pageName
-    if (metadata?.pageUrl) slimMeta.pageUrl = metadata.pageUrl
 
     // Add unified summary with type discriminator. ADR 0006 retired
     // `Annotation.kind` — the anchor type is now the source of truth.
@@ -280,6 +280,7 @@ export async function getAnnotationsSlim(args: {
       status: ann.status,
       createdAt: ann.createdAt,
       replies: ann.replies,
+      ...(ann.pageAnchor ? { pageAnchor: ann.pageAnchor } : {}),
       ...(Object.keys(slimMeta).length ? { metadata: slimMeta } : {}),
     }
   })

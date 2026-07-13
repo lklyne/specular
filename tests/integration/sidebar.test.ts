@@ -181,10 +181,10 @@ describe('left sidebar', () => {
     expect(idsInOrder(currentEntityOrder(), ids)).toEqual(['page-c', 'page-a', 'page-b'])
   })
 
-  // Mutation-verified by: removing the `...(annotations.length ? { annotations } : {})`
+  // Mutation-verified by: removing the `...(children.length ? { children } : {})`
   // spread in `describeSidebarLeaf` (sidebar-builder.ts) — the nesting and
-  // resolution cases fail; removing the `annotationMatchesPageUrl` call in
-  // `sidebarAnnotationsForPage` — the navigation case fails.
+  // resolution cases fail; hard-coding `onCurrentPage: true` in the annotation
+  // projection of `sidebarPageChildren` — the navigation case fails.
   it('nests page-anchored annotations under their page and dims them after navigation', async () => {
     harness.loadFixture({
       name: 'Sidebar annotations',
@@ -206,7 +206,7 @@ describe('left sidebar', () => {
       return item && item.kind === 'page' ? item : null
     }
 
-    expect(pageItem()?.annotations).toEqual([
+    expect(pageItem()?.children).toEqual([
       {
         kind: 'annotation',
         id: created.id,
@@ -221,12 +221,12 @@ describe('left sidebar', () => {
     const page = pages.find((candidate) => candidate.id === 'page-a')
     expect(page).toBeDefined()
     page!.url = 'https://example.com/elsewhere'
-    expect(pageItem()?.annotations?.[0]?.onCurrentPage).toBe(false)
+    expect(pageItem()?.children?.[0]?.onCurrentPage).toBe(false)
 
     // Resolving the thread removes the child row entirely.
     updateAnnotationStatus(created.id, 'resolved', undefined, 'user')
     await settleSync()
-    expect(pageItem()?.annotations).toBeUndefined()
+    expect(pageItem()?.children).toBeUndefined()
   })
 
   it('reorders note rows without moving page or edge stack slots', async () => {

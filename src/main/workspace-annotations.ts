@@ -7,6 +7,7 @@ import type {
   AnnotationStatusFilter,
 } from '../shared/types'
 import { canonicalAnnotationUrl, isUnresolved } from '../shared/annotation-utils'
+import type { PageAnchor } from '../shared/page-anchor'
 import {
   findPageById,
   getComponentAncestryByNodeId,
@@ -14,7 +15,6 @@ import {
 } from './runtime/page-runtime'
 import { markDirty } from './runtime/layout-dirty'
 import { mutateWorkspace } from './runtime/mutate-workspace'
-import { requestLayout } from './runtime/viewport-control'
 import { workspaceAnnotations } from './runtime/workspace-model'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { makeId } from './workspace-utils'
@@ -29,71 +29,71 @@ function resolvePageName(pageId: string): string | undefined {
   return `${label} ${preset.width}×${preset.height}`
 }
 
-function resolvePageUrl(pageId: string): string | undefined {
+/**
+ * The page an annotation binds to, decided at creation. Element and page
+ * anchors name their page structurally. A region binds iff its marquee
+ * grabbed page content — `regionComponents`/`regionElements` came back
+ * non-empty from the region select; the first group is the page that
+ * contributed the grab. Canvas points never bind.
+ */
+function annotationAnchorPageId(request: AnnotationCreateRequest): string | undefined {
+  const anchor = request.anchor
+  if (anchor.type === 'page' || anchor.type === 'element') return anchor.pageId
+  if (anchor.type === 'region') {
+    return (
+      request.metadata?.regionComponents?.[0]?.pageId ??
+      request.metadata?.regionElements?.[0]?.pageId
+    )
+  }
+  return undefined
+}
+
+/** The anchor for a live page: its id plus the document URL it shows now. */
+function pageAnchorForPage(pageId: string): PageAnchor | undefined {
   const page = findPageById(pageId)
   if (!page) return undefined
-  return canonicalAnnotationUrl(page.pageView.webContents.getURL())
+  const pageUrl = canonicalAnnotationUrl(page.url)
+  return { pageId, ...(pageUrl ? { pageUrl } : {}) }
 }
 
-function regionPrimaryPageId(
+/** Display context: a human-readable page label for panel and prompt copy.
+ *  The page *binding* lives in `Annotation.pageAnchor`, not in metadata. */
+function withPageNameMetadata(
   metadata: AnnotationMetadata | undefined,
-): string | undefined {
-  return (
-    metadata?.regionComponents?.[0]?.pageId ??
-    metadata?.regionElements?.[0]?.pageId
-  )
+  pageId: string | undefined,
+): AnnotationMetadata | undefined {
+  const pageName = pageId ? resolvePageName(pageId) : undefined
+  if (!pageName) return metadata
+  return { ...(metadata ?? {}), pageName }
 }
 
-function enrichedAnnotationMetadata(
+/** Element anchors: resolve React component ancestry and source location for
+ *  the inspected node from the page's cached component tree. */
+function withInspectEnrichment(
   request: AnnotationCreateRequest,
+  metadata: AnnotationMetadata | undefined,
 ): AnnotationMetadata | undefined {
-  const anchor = request.anchor
-  const contextPageId =
-    anchor.type === 'page' || anchor.type === 'element'
-      ? anchor.pageId
-      : anchor.type === 'region'
-        ? regionPrimaryPageId(request.metadata)
-        : undefined
-  const pageName = contextPageId ? resolvePageName(contextPageId) : undefined
-  const pageUrl = contextPageId ? resolvePageUrl(contextPageId) : undefined
-
-  const metadata = request.metadata ? { ...request.metadata } : undefined
-  const metadataWithContext: AnnotationMetadata = {
-    ...(metadata ?? {}),
-    ...(pageName ? { pageName } : {}),
-    ...(pageUrl ? { pageUrl } : {}),
-  }
-
-  // For non-element anchors, just attach pageName if available
-  if (anchor.type !== 'element') {
-    return Object.keys(metadataWithContext).length ? metadataWithContext : undefined
-  }
-
-  const inspectContext = metadataWithContext.inspectContext
-  if (!inspectContext?.nodeId) {
-    return Object.keys(metadataWithContext).length ? metadataWithContext : undefined
-  }
+  if (request.anchor.type !== 'element') return metadata
+  const inspectContext = metadata?.inspectContext
+  if (!inspectContext?.nodeId) return metadata
 
   const reactComponents = getComponentAncestryByNodeId(
-    anchor.pageId,
+    request.anchor.pageId,
     inspectContext.nodeId,
   )
   const sourceLocation = getComponentSourceLocationByNodeId(
-    anchor.pageId,
+    request.anchor.pageId,
     inspectContext.nodeId,
   )
+  if (!reactComponents.length && !sourceLocation) return metadata
 
   return {
-    ...metadataWithContext,
-    ...((reactComponents.length || sourceLocation)
-      ? {
-          inspectContext: {
-            ...inspectContext,
-            ...(reactComponents.length ? { reactComponents } : {}),
-            ...(sourceLocation ? { sourceLocation } : {}),
-          },
-        }
-      : {}),
+    ...metadata,
+    inspectContext: {
+      ...inspectContext,
+      ...(reactComponents.length ? { reactComponents } : {}),
+      ...(sourceLocation ? { sourceLocation } : {}),
+    },
   }
 }
 
@@ -111,19 +111,13 @@ export function getAnnotations(filters?: {
         return false
       }
     }
-    if (filters?.pageId) {
-      if (annotation.anchor.type === 'canvas') return false
-      if (annotation.anchor.type === 'region') {
-        const match = annotation.metadata?.regionComponents?.some(
-          (g) => g.pageId === filters.pageId,
-        ) ?? false
-        if (!match) return false
-      } else if (annotation.anchor.pageId !== filters.pageId) {
-        return false
-      }
+    // Page binding reads `pageAnchor` only — annotations without one are
+    // canvas-bound and match no page/url filter.
+    if (filters?.pageId && annotation.pageAnchor?.pageId !== filters.pageId) {
+      return false
     }
     if (targetUrl) {
-      const annotationUrl = canonicalAnnotationUrl(annotation.metadata?.pageUrl)
+      const annotationUrl = canonicalAnnotationUrl(annotation.pageAnchor?.pageUrl)
       if (!annotationUrl || annotationUrl !== targetUrl) return false
     }
     return true
@@ -161,6 +155,15 @@ function createAnnotationInternal(request: AnnotationCreateRequest): Annotation 
     request.anchor.type === 'element'
       ? request.elementName?.trim() || undefined
       : undefined
+  const anchorPageId = annotationAnchorPageId(request)
+  const pageAnchor = anchorPageId ? pageAnchorForPage(anchorPageId) : undefined
+  const metadata = withInspectEnrichment(
+    request,
+    withPageNameMetadata(
+      request.metadata ? { ...request.metadata } : undefined,
+      anchorPageId,
+    ),
+  )
   const annotation: Annotation = {
     id: makeId('ann'),
     anchor: request.anchor,
@@ -170,7 +173,8 @@ function createAnnotationInternal(request: AnnotationCreateRequest): Annotation 
     replies: [],
     createdAt: new Date().toISOString(),
     ...(elementName ? { elementName } : {}),
-    metadata: enrichedAnnotationMetadata(request),
+    ...(pageAnchor ? { pageAnchor } : {}),
+    metadata: metadata && Object.keys(metadata).length ? metadata : undefined,
   }
   workspaceAnnotations.push(annotation)
   markDirty('sidebar')

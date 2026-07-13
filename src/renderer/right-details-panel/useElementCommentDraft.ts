@@ -35,7 +35,6 @@ export function useElementCommentDraft({
       text,
       metadata: {
         pageName: selection?.viewportLabel,
-        pageUrl: selection?.url,
         inspectContext: {
           pageId: activeDetail.pageId,
           nodeId: activeDetail.nodeId,

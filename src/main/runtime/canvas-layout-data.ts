@@ -20,7 +20,7 @@ import type {
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
-import { annotationHiddenByPageDocument, entityHiddenByPageAnchor } from './document-binding'
+import { hiddenByPageAnchor } from './document-binding'
 import {
   aboveView,
   cursorOverlayWindow,
@@ -307,7 +307,7 @@ export function buildCanvasLayoutData(
         // Page-anchored entities belong to a specific document — while their
         // page shows a different URL they leave the scene entirely (not
         // rendered, not hit-testable). The sidebar still lists them, dimmed.
-        .filter((entity) => !entityHiddenByPageAnchor(entity))
+        .filter((entity) => !hiddenByPageAnchor(entity))
         .map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
     ),
     ...groupEntities,
@@ -358,7 +358,7 @@ export function buildCanvasLayoutData(
     // pass through. The right-details panel is unaffected: it reads full
     // records from the inspect-session payload, not this one.
     annotations: workspaceAnnotations.filter(
-      (annotation) => !annotationHiddenByPageDocument(annotation),
+      (annotation) => !hiddenByPageAnchor(annotation),
     ),
     inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),

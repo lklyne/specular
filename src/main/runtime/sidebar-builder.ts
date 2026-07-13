@@ -9,10 +9,10 @@ import type {
   LeftSidebarData,
   LeftSidebarSections,
   SidebarAnchoredEntityItem,
-  SidebarAnnotationItem,
   SidebarCanvasItem,
   SidebarDrawingItem,
   SidebarFileItem,
+  SidebarPageChildItem,
   SidebarPageItem,
   SidebarShapeItem,
   SidebarTextItem,
@@ -21,11 +21,7 @@ import type {
 } from '../../shared/types'
 import { matchesPageUrl } from '../../shared/page-anchor'
 import { findAnchorableEntity } from './page-anchor-state'
-import {
-  annotationMatchesPageUrl,
-  isUnresolved,
-  truncate,
-} from '../../shared/annotation-utils'
+import { isUnresolved, truncate } from '../../shared/annotation-utils'
 import {
   findPageById,
   interactionState,
@@ -74,10 +70,11 @@ function entityOrderRank(): Map<string, number> {
   )
 }
 
-function sortSidebarItems(items: SortableSidebarItem[]): SidebarCanvasItem[] {
+/** Sort by stack rank (top of stack first) and strip the transient key. */
+function sortSidebarItems<T>(items: (T & { sortKey: number })[]): T[] {
   return items
     .sort((a, b) => b.sortKey - a.sortKey)
-    .map(({ sortKey: _sortKey, ...item }) => item)
+    .map(({ sortKey: _sortKey, ...item }) => item as T)
 }
 
 /**
@@ -106,33 +103,6 @@ function buildSidebarLeafItem(
 }
 
 /**
- * Unresolved annotations anchored to a page, projected as sidebar child rows
- * (the page acts as a folder for content anchored to it). Newest first,
- * matching the badge layer's ordering. `onCurrentPage` flags annotations
- * whose page has navigated away from the URL they were created on.
- */
-function sidebarAnnotationsForPage(
-  pageId: string,
-  currentPageUrl: string | undefined,
-): SidebarAnnotationItem[] {
-  const anchored = workspaceAnnotations.filter((annotation) => {
-    if (!isUnresolved(annotation.status)) return false
-    const anchor = annotation.anchor
-    if (anchor.type !== 'element' && anchor.type !== 'page') return false
-    return anchor.pageId === pageId
-  })
-  return anchored
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-    .map((annotation) => ({
-      kind: 'annotation',
-      id: annotation.id,
-      label: sidebarAnnotationLabel(annotation),
-      messageCount: 1 + annotation.replies.length,
-      onCurrentPage: annotationMatchesPageUrl(annotation, currentPageUrl),
-    }))
-}
-
-/**
  * Whether a leaf entity is hooked to an existing page (shared/page-anchor.ts)
  * — it nests under that page in the sidebar instead of the root list.
  * Grouped entities stay under their group.
@@ -145,27 +115,49 @@ function anchoredPageIdFor(entityId: string): string | null {
   return pages.some((page) => page.id === pageId) ? pageId : null
 }
 
-/** Canvas entities anchored to a page, projected as child rows in stack order. */
-function sidebarAnchoredItemsForPage(
+/**
+ * Content belonging to a page, projected as sidebar child rows (the page
+ * acts as a folder for content anchored to it): anchored canvas entities in
+ * stack order, then unresolved page-anchored annotations newest first. The
+ * binding read is `pageAnchor` for both — annotations without one are
+ * canvas-bound and stay out of the tree. `onCurrentPage` dims rows whose
+ * page has navigated away from the URL they were placed on.
+ */
+function sidebarPageChildren(
   pageId: string,
   currentPageUrl: string | undefined,
   ranks: Map<string, number>,
-): SidebarAnchoredEntityItem[] {
-  const items: (SidebarAnchoredEntityItem & { sortKey: number })[] = []
+): SidebarPageChildItem[] {
+  const anchored: (SidebarAnchoredEntityItem & { sortKey: number })[] = []
   for (const entity of sidebarLeafEntities()) {
     if (anchoredPageIdFor(entity.id) !== pageId) continue
     const leaf = describeSidebarLeaf(entity.id)
     if (!leaf || leaf.kind === 'page') continue
     const anchor = findAnchorableEntity(entity.id)?.pageAnchor
-    items.push({
+    anchored.push({
       ...leaf,
       onCurrentPage: matchesPageUrl(anchor?.pageUrl, currentPageUrl),
       sortKey: ranks.get(entity.id) ?? Number.MAX_SAFE_INTEGER,
     })
   }
-  return items
-    .sort((a, b) => b.sortKey - a.sortKey)
-    .map(({ sortKey: _sortKey, ...item }) => item)
+
+  const annotations = workspaceAnnotations
+    .filter(
+      (annotation) =>
+        isUnresolved(annotation.status) && annotation.pageAnchor?.pageId === pageId,
+    )
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map(
+      (annotation): SidebarPageChildItem => ({
+        kind: 'annotation',
+        id: annotation.id,
+        label: sidebarAnnotationLabel(annotation),
+        messageCount: 1 + annotation.replies.length,
+        onCurrentPage: matchesPageUrl(annotation.pageAnchor?.pageUrl, currentPageUrl),
+      }),
+    )
+
+  return [...sortSidebarItems(anchored), ...annotations]
 }
 
 function sidebarAnnotationLabel(annotation: Annotation): string {
@@ -180,8 +172,7 @@ function sidebarAnnotationLabel(annotation: Annotation): string {
 function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
   const page = findPageById(entityId)
   if (page) {
-    const annotations = sidebarAnnotationsForPage(entityId, page.url)
-    const anchored = sidebarAnchoredItemsForPage(entityId, page.url, entityOrderRank())
+    const children = sidebarPageChildren(entityId, page.url, entityOrderRank())
     return {
       kind: 'page',
       id: entityId,
@@ -189,8 +180,7 @@ function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
       faviconUrl: page.faviconUrl ?? null,
       width: page.peekWidth,
       height: page.peekHeight,
-      ...(annotations.length ? { annotations } : {}),
-      ...(anchored.length ? { anchored } : {}),
+      ...(children.length ? { children } : {}),
     }
   }
 

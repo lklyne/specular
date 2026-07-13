@@ -28,7 +28,7 @@ import {
   finalizeDrag,
   initializeDrag,
 } from '../../src/main/runtime/document-commands'
-import { entityHiddenByPageAnchor } from '../../src/main/runtime/document-binding'
+import { hiddenByPageAnchor } from '../../src/main/runtime/document-binding'
 import { withPageAnchoredEntityIds } from '../../src/main/runtime/page-anchor-state'
 import { textEntities } from '../../src/main/runtime/text-entity-state'
 import { drawingEntities } from '../../src/main/runtime/drawing-entity-state'
@@ -188,13 +188,13 @@ describe('page-anchored entities', () => {
     loadHostPage()
     const sticky = createTextEntity({ ...ON_PAGE, text: 'document-bound sticky' })
     const entity = textEntities.find((candidate) => candidate.id === sticky.id)!
-    expect(entityHiddenByPageAnchor(entity)).toBe(false)
+    expect(hiddenByPageAnchor(entity)).toBe(false)
 
     const sidebarPage = () => {
       const item = getLeftSidebarData().sections.pages.find((entry) => entry.id === PAGE_ID)
       return item && item.kind === 'page' ? item : null
     }
-    expect(sidebarPage()?.anchored?.[0]).toMatchObject({ id: sticky.id, onCurrentPage: true })
+    expect(sidebarPage()?.children?.[0]).toMatchObject({ id: sticky.id, onCurrentPage: true })
     // Nested under the page — not in the root notes list.
     expect(
       getLeftSidebarData().sections.notes.some((entry) => entry.id === sticky.id),
@@ -203,11 +203,11 @@ describe('page-anchored entities', () => {
     // did-navigate updates page.url in place.
     const page = pages.find((candidate) => candidate.id === PAGE_ID)!
     page.url = 'https://example.com/elsewhere'
-    expect(entityHiddenByPageAnchor(entity)).toBe(true)
-    expect(sidebarPage()?.anchored?.[0]).toMatchObject({ id: sticky.id, onCurrentPage: false })
+    expect(hiddenByPageAnchor(entity)).toBe(true)
+    expect(sidebarPage()?.children?.[0]).toMatchObject({ id: sticky.id, onCurrentPage: false })
 
     page.url = PAGE_URL
-    expect(entityHiddenByPageAnchor(entity)).toBe(false)
+    expect(hiddenByPageAnchor(entity)).toBe(false)
   })
 
   it('clears anchors when the page is deleted; the entity goes free-form', async () => {

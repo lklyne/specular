@@ -1,8 +1,11 @@
 /**
- * Page-bound annotations hide when their page navigates away from the URL
- * they were created on. The gate is main-side (`annotationHiddenByPageDocument`
- * in document-binding.ts): hidden annotations are dropped from the layout
- * broadcast, so renderers never re-derive visibility from URLs.
+ * Page-bound items hide when their page navigates away from the URL they
+ * were placed on. The binding is `pageAnchor { pageId, pageUrl }` — one
+ * field for anchored entities and annotations alike — and the gate is
+ * main-side (`hiddenByPageAnchor` in document-binding.ts): hidden items are
+ * dropped from the layout broadcast, so renderers never re-derive
+ * visibility from URLs. Annotations without a `pageAnchor` (legacy records,
+ * canvas points, grab-less regions) are canvas-bound and never hide.
  *
  * Mutation-verified by: (1) making `offPageDocument` return false
  * unconditionally (document-binding.ts) — the navigation-hiding cases fail;
@@ -11,17 +14,10 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  annotationHiddenByPageDocument,
-  entityHiddenByPageAnchor,
-} from '../../src/main/runtime/document-binding'
+import { hiddenByPageAnchor } from '../../src/main/runtime/document-binding'
 import { pages } from '../../src/main/runtime/runtime-context'
 import type { Page } from '../../src/main/runtime/runtime-entities'
-import {
-  annotationContextPageId,
-  annotationMatchesPageUrl,
-  canonicalAnnotationUrl,
-} from '../../src/shared/annotation-utils'
+import { canonicalAnnotationUrl } from '../../src/shared/annotation-utils'
 import type { Annotation } from '../../src/shared/types'
 
 const PAGE_ID = 'page-1'
@@ -47,7 +43,7 @@ function annotation(partial: Partial<Annotation>): Annotation {
     status: 'pending',
     replies: [],
     createdAt: '2026-01-01T00:00:00Z',
-    metadata: { pageUrl: PAGE_URL },
+    pageAnchor: { pageId: PAGE_ID, pageUrl: PAGE_URL },
     ...partial,
   }
 }
@@ -70,107 +66,68 @@ describe('canonicalAnnotationUrl', () => {
   })
 })
 
-describe('annotationMatchesPageUrl', () => {
-  it('matches when only the hash differs', () => {
-    expect(annotationMatchesPageUrl(annotation({}), `${PAGE_URL}#faq`)).toBe(true)
-  })
-
-  it('rejects a different path on the same origin', () => {
-    expect(annotationMatchesPageUrl(annotation({}), 'https://example.com/about')).toBe(false)
-  })
-
-  it('matches when the annotation has no recorded pageUrl', () => {
-    expect(annotationMatchesPageUrl(annotation({ metadata: undefined }), PAGE_URL)).toBe(true)
-  })
-
-  it('matches when the page has no URL yet (loading / about:blank-less)', () => {
-    expect(annotationMatchesPageUrl(annotation({}), '')).toBe(true)
-  })
-})
-
-describe('annotationContextPageId', () => {
-  it('reads the pageId off element and page anchors', () => {
-    expect(annotationContextPageId(annotation({}))).toBe(PAGE_ID)
-    expect(
-      annotationContextPageId(
-        annotation({ anchor: { type: 'page', pageId: 'page-9', offsetX: 0.5, offsetY: 0.5 } }),
-      ),
-    ).toBe('page-9')
-  })
-
-  it('reads the primary page off region metadata and returns null for canvas anchors', () => {
-    expect(
-      annotationContextPageId(
-        annotation({
-          anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
-          metadata: {
-            pageUrl: PAGE_URL,
-            regionComponents: [{ pageId: 'page-7', pageName: 'Page 7', components: [] }],
-          },
-        }),
-      ),
-    ).toBe('page-7')
-    expect(
-      annotationContextPageId(annotation({ anchor: { type: 'canvas', canvasX: 1, canvasY: 2 } })),
-    ).toBeNull()
-  })
-})
-
-describe('annotationHiddenByPageDocument (main-side layout gate)', () => {
+describe('hiddenByPageAnchor (main-side layout gate)', () => {
   afterEach(() => {
     pages.length = 0
   })
 
   it('shows the annotation while the page is on its URL, hides it after navigation', () => {
     showPage(PAGE_URL)
-    expect(annotationHiddenByPageDocument(annotation({}))).toBe(false)
+    expect(hiddenByPageAnchor(annotation({}))).toBe(false)
 
     showPage('https://example.com/about')
-    expect(annotationHiddenByPageDocument(annotation({}))).toBe(true)
+    expect(hiddenByPageAnchor(annotation({}))).toBe(true)
   })
 
-  it('gates page-anchored and region annotations through their context page', () => {
+  it('gates region annotations through their pageAnchor, not anchor internals', () => {
     showPage('https://example.com/about')
     expect(
-      annotationHiddenByPageDocument(
-        annotation({ anchor: { type: 'page', pageId: PAGE_ID, offsetX: 0.5, offsetY: 0.5 } }),
-      ),
-    ).toBe(true)
-    expect(
-      annotationHiddenByPageDocument(
+      hiddenByPageAnchor(
         annotation({
           anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
-          metadata: {
-            pageUrl: PAGE_URL,
-            regionComponents: [{ pageId: PAGE_ID, pageName: 'Page 1', components: [] }],
-          },
         }),
       ),
     ).toBe(true)
   })
 
-  it('never hides hash-only navigation, URL-less annotations, canvas anchors, or missing pages', () => {
+  it('never hides hash-only navigation, URL-less anchors, or missing pages', () => {
     showPage(`${PAGE_URL}#faq`)
-    expect(annotationHiddenByPageDocument(annotation({}))).toBe(false)
+    expect(hiddenByPageAnchor(annotation({}))).toBe(false)
 
     showPage('https://example.com/about')
-    expect(annotationHiddenByPageDocument(annotation({ metadata: undefined }))).toBe(false)
     expect(
-      annotationHiddenByPageDocument(
-        annotation({ anchor: { type: 'canvas', canvasX: 1, canvasY: 2 } }),
-      ),
+      hiddenByPageAnchor(annotation({ pageAnchor: { pageId: PAGE_ID } })),
     ).toBe(false)
 
     pages.length = 0
-    expect(annotationHiddenByPageDocument(annotation({}))).toBe(false)
+    expect(hiddenByPageAnchor(annotation({}))).toBe(false)
+  })
+
+  it('treats an annotation without a pageAnchor as canvas-bound — legacy metadata.pageUrl is not a binding', () => {
+    showPage('https://example.com/about')
+    // Legacy-shaped record: pre-pageAnchor files carry the URL in metadata.
+    // That read is retired — the record loads and never hides.
+    expect(
+      hiddenByPageAnchor(
+        annotation({ pageAnchor: undefined, metadata: { pageUrl: PAGE_URL } }),
+      ),
+    ).toBe(false)
+    expect(
+      hiddenByPageAnchor(
+        annotation({
+          pageAnchor: undefined,
+          anchor: { type: 'canvas', canvasX: 1, canvasY: 2 },
+        }),
+      ),
+    ).toBe(false)
   })
 
   it('applies the same gate to page-anchored entities', () => {
     const entity = { id: 'sticky-1', pageAnchor: { pageId: PAGE_ID, pageUrl: PAGE_URL } }
     showPage(PAGE_URL)
-    expect(entityHiddenByPageAnchor(entity)).toBe(false)
+    expect(hiddenByPageAnchor(entity)).toBe(false)
     showPage('https://example.com/about')
-    expect(entityHiddenByPageAnchor(entity)).toBe(true)
-    expect(entityHiddenByPageAnchor({ id: 'sticky-1' })).toBe(false)
+    expect(hiddenByPageAnchor(entity)).toBe(true)
+    expect(hiddenByPageAnchor({ id: 'sticky-1' })).toBe(false)
   })
 })

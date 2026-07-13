@@ -7,7 +7,7 @@
  * window reports destroyed), so tests call `getCanvasLayoutData()` directly —
  * the exact builder whose output every `layoutUpdate` broadcast carries.
  *
- * Mutation-verified by: replacing the `annotationHiddenByPageDocument` filter
+ * Mutation-verified by: replacing the `hiddenByPageAnchor` annotations filter
  * in `buildCanvasLayoutData` (canvas-layout-data.ts) with
  * `[...workspaceAnnotations]` — the "drops page-bound annotations" case fails.
  */

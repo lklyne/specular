@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-13
+**Amended:** 2026-07-13 — annotations now consume the utility (see Amendment below).
 **Related:** [ADR 0006 — Unified comment tool](./0006-unified-comment-tool.md) (annotations pioneered the URL-gating this generalizes); [ADR 0024 — Entity-kind registry](./0024-entity-kind-registry-spans-runtime-and-persistence.md) (persisted-field plumbing the anchor rides on).
 
 ## Context
@@ -76,6 +77,34 @@ drag gesture lands in that gesture's single undo step.
   absolute scroll-offset broadcast per page (the current scroll-sync payload
   carries progress ratios only), then a `docX/docY` variant of the anchor.
 - **Other kinds** (`shape`, `file`) — mechanical once wanted.
-- **Region annotations as anchor consumers** (ADR 0006 alternative F).
+- ~~**Region annotations as anchor consumers** (ADR 0006 alternative F).~~
+  Resolved by the amendment below.
 - **Reveal affordance** for a hidden anchored entity's sidebar row (e.g.
   navigate the page back to the anchor URL on click).
+
+## Amendment (2026-07-13) — annotations consume the utility
+
+Annotations no longer predate this mechanism; they use it. `Annotation`
+carries the same `pageAnchor?: PageAnchor`, written **once at creation** and
+never re-resolved (an annotation's binding is part of what it says —
+placement-decides applies to entities only):
+
+- **Element/page anchors** bind to their anchor page and the URL it shows.
+- **Region anchors split**: a region whose marquee grabbed page content
+  (`regionComponents`/`regionElements` non-empty; first group wins when
+  several pages intersect) is page-anchored — it translates with page
+  drags/nudges (`translateAnnotationsAnchoredToPage` runs inside the
+  gesture's undo step), hides while the page is off its URL, and nests under
+  the page in the sidebar. A grab-less region is canvas-anchored: it marks
+  canvas space, never moves with pages, never hides. This resolves the
+  "region annotations as anchor consumers" follow-up (ADR 0006 alt F's
+  spirit, without a new anchor variant).
+- **Canvas points** never bind.
+
+`pageAnchor` is the **only** page-binding read — the legacy
+`metadata.pageUrl` stamp is no longer written or read, with **no compat
+shim**: annotations in existing files without a `pageAnchor` load fine and
+behave as canvas-bound (they lose the URL gate until recreated; accepted
+deliberately, noted in the changelog). One gate accessor
+(`hiddenByPageAnchor`, document-binding.ts) and one sidebar child-row
+builder (`sidebarPageChildren`) now serve entities and annotations alike.

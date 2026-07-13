@@ -10,13 +10,16 @@
  * which page owns this item (sidebar nesting), and which document it belongs
  * to (visuals hide when the page navigates to a different URL).
  *
- * Anchoring is decided by placement, not by a mode: an entity created with
- * its center inside a page's body anchors to that page; dragging it off
- * clears the anchor; dropping it onto a page sets one. Grouped entities never
- * auto-anchor — group membership already owns their movement.
+ * For entities, anchoring is decided by placement, not by a mode: an entity
+ * created with its center inside a page's body anchors to that page;
+ * dragging it off clears the anchor; dropping it onto a page sets one.
+ * Grouped entities never auto-anchor — group membership already owns their
+ * movement.
  *
- * Annotations predate this utility and carry the same idea in
- * `metadata.pageUrl`; both share the URL canonicalization below.
+ * Annotations carry the same `pageAnchor`, written once at creation
+ * (element/page anchors from their anchor page; region anchors iff the
+ * marquee grabbed page content; canvas points never) and never re-resolved —
+ * an annotation's binding is part of what it says.
  */
 
 export interface PageAnchor {

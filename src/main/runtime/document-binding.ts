@@ -1,17 +1,15 @@
 /**
  * Document binding — "is this item on its page's current document?"
  *
- * Page-bound items record the URL their page showed when they were placed:
- * anchored entities in `PageAnchor.pageUrl`, annotations in
- * `metadata.pageUrl`. While the page shows a different URL the item is
+ * Page-bound items — anchored entities and page-anchored annotations alike —
+ * record their binding in one place: `pageAnchor { pageId, pageUrl }`
+ * (shared/page-anchor.ts). While the page shows a different URL the item is
  * off-document and leaves the layout broadcast entirely — main owns the gate
  * at this seam, so renderers never re-derive visibility from URLs. The
  * sidebar shares the underlying predicate with a different policy: it dims
  * off-document rows instead of hiding them (sidebar-builder.ts).
  */
 
-import type { Annotation } from '../../shared/types'
-import { annotationContextPageId } from '../../shared/annotation-utils'
 import { matchesPageUrl, type PageAnchor } from '../../shared/page-anchor'
 import { findPageById } from './runtime-context'
 
@@ -32,20 +30,13 @@ export function offPageDocument(
 }
 
 /**
- * Whether an anchored entity is off its page's current document. Hidden
- * entities are omitted from the scene payload, which removes them from
- * rendering and renderer-side hit-testing in one place.
+ * Whether a page-bound item (anchored entity or annotation) is off its
+ * page's current document. Hidden items are omitted from the layout
+ * broadcast, which removes them from rendering and renderer-side
+ * hit-testing in one place. Items without a `pageAnchor` are canvas-bound
+ * and never hide.
  */
-export function entityHiddenByPageAnchor(entity: { id: string; pageAnchor?: PageAnchor }): boolean {
-  const anchor = entity.pageAnchor
+export function hiddenByPageAnchor(item: { id?: string; pageAnchor?: PageAnchor }): boolean {
+  const anchor = item.pageAnchor
   return anchor ? offPageDocument(anchor.pageId, anchor.pageUrl) : false
-}
-
-/**
- * Whether an annotation is off its context page's current document. Hidden
- * annotations are omitted from the layout broadcast — badges, region rects,
- * thread popovers, and live-bbox subscriptions all disappear with them.
- */
-export function annotationHiddenByPageDocument(annotation: Annotation): boolean {
-  return offPageDocument(annotationContextPageId(annotation), annotation.metadata?.pageUrl)
 }
