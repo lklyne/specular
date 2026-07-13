@@ -21,7 +21,7 @@ import type {
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
-import { isUnresolved } from '../../shared/annotation-utils'
+import { annotationMatchesPageUrl, isUnresolved } from '../../shared/annotation-utils'
 import {
   aboveView,
   cursorOverlayWindow,
@@ -170,30 +170,15 @@ export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
 }
 
 
-function canonicalAnnotationUrl(value: string | undefined | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  try {
-    const parsed = new URL(trimmed)
-    parsed.hash = ''
-    return parsed.toString()
-  } catch {
-    return trimmed
-  }
-}
-
 export function annotationsForPage(pageId: string): Annotation[] {
   const page = findPageById(pageId)
-  const currentPageUrl = canonicalAnnotationUrl(page?.pageView.webContents.getURL() ?? null)
+  const currentPageUrl = page?.pageView.webContents.getURL() ?? null
   return workspaceAnnotations.filter((annotation) => {
     if (!isUnresolved(annotation.status)) return false
     if (annotation.anchor.type === 'canvas') return false
     if (annotation.anchor.type === 'region') return false
     if (annotation.anchor.pageId !== pageId) return false
-    const annotationPageUrl = canonicalAnnotationUrl(annotation.metadata?.pageUrl)
-    if (!annotationPageUrl || !currentPageUrl) return true
-    return annotationPageUrl === currentPageUrl
+    return annotationMatchesPageUrl(annotation, currentPageUrl)
   })
 }
 

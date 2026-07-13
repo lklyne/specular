@@ -5,8 +5,10 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { shapeDef } from '../../shared/shapes'
 import type {
+  Annotation,
   LeftSidebarData,
   LeftSidebarSections,
+  SidebarAnnotationItem,
   SidebarCanvasItem,
   SidebarDrawingItem,
   SidebarFileItem,
@@ -17,11 +19,20 @@ import type {
   WorkspaceGroup,
 } from '../../shared/types'
 import {
+  annotationMatchesPageUrl,
+  isUnresolved,
+  truncate,
+} from '../../shared/annotation-utils'
+import {
   findPageById,
   interactionState,
   pages,
 } from './runtime-context'
-import { activeWorkspaceTabId, workspaceGroups } from './workspace-model'
+import {
+  activeWorkspaceTabId,
+  workspaceAnnotations,
+  workspaceGroups,
+} from './workspace-model'
 import { leftSidebarView } from './view-refs'
 import {
   leftSidebarOpen as uiLeftSidebarOpen,
@@ -91,10 +102,46 @@ function buildSidebarLeafItem(
   return { ...leaf, sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER }
 }
 
+/**
+ * Unresolved annotations anchored to a page, projected as sidebar child rows
+ * (the page acts as a folder for content anchored to it). Newest first,
+ * matching the badge layer's ordering. `onCurrentPage` flags annotations
+ * whose page has navigated away from the URL they were created on.
+ */
+function sidebarAnnotationsForPage(
+  pageId: string,
+  currentPageUrl: string | undefined,
+): SidebarAnnotationItem[] {
+  const anchored = workspaceAnnotations.filter((annotation) => {
+    if (!isUnresolved(annotation.status)) return false
+    const anchor = annotation.anchor
+    if (anchor.type !== 'element' && anchor.type !== 'page') return false
+    return anchor.pageId === pageId
+  })
+  return anchored
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map((annotation) => ({
+      kind: 'annotation',
+      id: annotation.id,
+      label: sidebarAnnotationLabel(annotation),
+      messageCount: 1 + annotation.replies.length,
+      onCurrentPage: annotationMatchesPageUrl(annotation, currentPageUrl),
+    }))
+}
+
+function sidebarAnnotationLabel(annotation: Annotation): string {
+  const name = annotation.elementName?.trim()
+  if (name) return name
+  const text = annotation.text.trim()
+  if (text) return truncate(text, 60)
+  return 'Comment'
+}
+
 // The kind-specific projection, minus sort position (the caller stamps that).
 function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
   const page = findPageById(entityId)
   if (page) {
+    const annotations = sidebarAnnotationsForPage(entityId, page.url)
     return {
       kind: 'page',
       id: entityId,
@@ -102,6 +149,7 @@ function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
       faviconUrl: page.faviconUrl ?? null,
       width: page.peekWidth,
       height: page.peekHeight,
+      ...(annotations.length ? { annotations } : {}),
     }
   }
 

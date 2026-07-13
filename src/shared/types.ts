@@ -595,6 +595,22 @@ export interface AgentSnapshotPage {
   nodes: AgentSnapshotNode[]
 }
 
+/**
+ * A page-anchored annotation shown as a child row of its page in the sidebar
+ * (the page acts as a folder for content anchored to it). Not a canvas
+ * entity — annotation rows don't participate in stack-order reordering.
+ */
+export interface SidebarAnnotationItem {
+  kind: 'annotation'
+  id: string
+  label: string
+  /** Thread size: the root comment plus replies. */
+  messageCount: number
+  /** False when the page has navigated away from the annotation's URL —
+   *  the canvas visuals are hidden, so the row renders dimmed. */
+  onCurrentPage: boolean
+}
+
 export interface SidebarPageItem {
   kind: 'page'
   id: string
@@ -602,6 +618,8 @@ export interface SidebarPageItem {
   faviconUrl?: string | null
   width?: number
   height?: number
+  /** Unresolved annotations anchored to this page, newest first. */
+  annotations?: SidebarAnnotationItem[]
 }
 
 export interface SidebarTextItem {

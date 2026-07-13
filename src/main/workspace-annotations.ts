@@ -6,7 +6,7 @@ import type {
   AnnotationStatus,
   AnnotationStatusFilter,
 } from '../shared/types'
-import { isUnresolved } from '../shared/annotation-utils'
+import { canonicalAnnotationUrl, isUnresolved } from '../shared/annotation-utils'
 import {
   findPageById,
   getComponentAncestryByNodeId,
@@ -19,19 +19,6 @@ import { workspaceAnnotations } from './runtime/workspace-model'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { makeId } from './workspace-utils'
 import { VIEWPORT_PRESETS } from '../shared/constants'
-
-function canonicalAnnotationUrl(value: string | undefined | null): string | undefined {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  try {
-    const parsed = new URL(trimmed)
-    parsed.hash = ''
-    return parsed.toString()
-  } catch {
-    return trimmed
-  }
-}
 
 function resolvePageName(pageId: string): string | undefined {
   const page = findPageById(pageId)
@@ -186,6 +173,7 @@ function createAnnotationInternal(request: AnnotationCreateRequest): Annotation 
     metadata: enrichedAnnotationMetadata(request),
   }
   workspaceAnnotations.push(annotation)
+  markDirty('sidebar')
   if (onAnnotationCreatedListener) {
     try {
       onAnnotationCreatedListener(annotation)
@@ -206,6 +194,7 @@ export function updateAnnotationStatus(
     const annotation = workspaceAnnotations.find((a) => a.id === id)
     if (!annotation) return null
     annotation.status = status
+    markDirty('sidebar')
     const metadataPatch: AnnotationMetadata = { ...annotation.metadata }
     if (reason) {
       metadataPatch.dismissReason = reason
@@ -243,6 +232,7 @@ export function addAnnotationReply(
     if (!annotation) return null
     const reply: AnnotationReply = { author, text, timestamp: new Date().toISOString() }
     annotation.replies = [...annotation.replies, reply]
+    markDirty('sidebar')
     if (author === 'user' && annotation.status === 'resolved') {
       updateAnnotationStatus(id, 'pending')
     }
@@ -262,6 +252,7 @@ export function deleteAnnotation(id: string): boolean {
     const idx = workspaceAnnotations.findIndex((a) => a.id === id)
     if (idx === -1) return false
     workspaceAnnotations.splice(idx, 1)
+    markDirty('sidebar')
     return true
   }, { changed: (deleted) => deleted })
 }

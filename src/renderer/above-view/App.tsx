@@ -37,7 +37,11 @@ import {
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
-import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
+import {
+  useAnnotationThreadState,
+  annotationThreadPosition,
+  annotationPageIsCurrent,
+} from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
 import { useCanvasFileDrop } from './useCanvasFileDrop'
@@ -562,7 +566,11 @@ export default function App({
         selector: anchor.selector,
       })
     }
-    if (openThread && openThread.anchor.type === 'element') {
+    if (
+      openThread &&
+      openThread.anchor.type === 'element' &&
+      annotationPageIsCurrent(openThread, layoutData)
+    ) {
       pushSub({
         pageId: openThread.anchor.pageId,
         annotationId: openThread.id,
@@ -571,6 +579,9 @@ export default function App({
     }
     for (const annotation of layoutData.annotations) {
       if (!isUnresolved(annotation.status) || annotation.anchor.type !== 'element') continue
+      // A navigated-away page must not resolve this selector — it would match
+      // an unrelated element in the new document and report a bogus bbox.
+      if (!annotationPageIsCurrent(annotation, layoutData)) continue
       pushSub({
         pageId: annotation.anchor.pageId,
         annotationId: annotation.id,
@@ -578,7 +589,7 @@ export default function App({
       })
     }
     return subs
-  }, [layoutData.annotations, openThread, pendingAnnotation])
+  }, [layoutData, openThread, pendingAnnotation])
 
   const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
 

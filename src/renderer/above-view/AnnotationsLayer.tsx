@@ -1,5 +1,22 @@
 import type { Annotation, LayoutUpdateData } from '../../shared/types'
+import {
+  annotationContextPageId,
+  annotationMatchesPageUrl,
+} from '../../shared/annotation-utils'
 import { canvasRectToScreenRect } from './annotationMath'
+
+// A region rect drawn over a page refers to that page's document; once the
+// page navigates elsewhere the rect would outline unrelated content, so it
+// hides until the page returns to the annotation's URL.
+function regionPageStillCurrent(annotation: Annotation, layoutData: LayoutUpdateData): boolean {
+  const pageId = annotationContextPageId(annotation)
+  if (!pageId) return true
+  const page = layoutData.entities.find(
+    (entity) => entity.kind === 'page' && entity.id === pageId,
+  )
+  if (!page || page.kind !== 'page') return true
+  return annotationMatchesPageUrl(annotation, page.url)
+}
 
 export function RegionSelectAnnotations({
   annotations,
@@ -16,7 +33,8 @@ export function RegionSelectAnnotations({
     (a) =>
       a.anchor.type === 'region' &&
       a.status !== 'resolved' &&
-      a.status !== 'dismissed',
+      a.status !== 'dismissed' &&
+      regionPageStillCurrent(a, layoutData),
   )
   if (regionAnnotations.length === 0) return null
 

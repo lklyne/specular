@@ -190,6 +190,10 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 
 **Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
 
+**Navigation hides page-anchored visuals.** Every page-anchored annotation records the page's URL at creation (`metadata.pageUrl`, hash-insensitive). When the page navigates to a different URL, its badges, region rects, live-bbox subscriptions, and any open thread popover hide until the page returns to that URL — the anchored content isn't in the current document. Annotations without a recorded URL always show. The shared predicate is `annotationMatchesPageUrl` in `src/shared/annotation-utils.ts`.
+
+**Sidebar shows the anchoring relationship.** A page acts as a folder for content anchored to it: unresolved page-anchored annotations render as collapsible child rows under the page in the left sidebar (click opens the thread; rows dim when the page has navigated away from the annotation's URL).
+
 ## Keyboard bindings
 
 A **Binding** is one entry in the keyboard registry: `{ id, defaultKey, scope, target, when?, firesWhileTyping?, firesFromPageFocus?, label }`. The registry is the single source of truth — the dispatcher reads it, the app menu reads it, future tooltips and Bindings settings read it. See [ADR 0010](./docs/adr/0010-main-as-sole-shortcut-dispatch-site.md) and [`docs/plans/keyboard-binding-registry.md`](./docs/plans/keyboard-binding-registry.md).

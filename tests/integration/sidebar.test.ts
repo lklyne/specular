@@ -25,8 +25,13 @@ import {
   reorderSidebarStackOrder,
 } from '../../src/main/runtime/entity-order-state'
 import { selectNone } from '../../src/main/runtime/selection-controller'
+import { pages } from '../../src/main/runtime/runtime-context'
 import { workspaceGroups } from '../../src/main/runtime/workspace-model'
 import { undo, redo } from '../../src/main/runtime/workspace-undo'
+import {
+  createAnnotation,
+  updateAnnotationStatus,
+} from '../../src/main/workspace-annotations'
 
 let harness: WorkspaceHarness
 
@@ -174,6 +179,54 @@ describe('left sidebar', () => {
 
     redo()
     expect(idsInOrder(currentEntityOrder(), ids)).toEqual(['page-c', 'page-a', 'page-b'])
+  })
+
+  // Mutation-verified by: removing the `...(annotations.length ? { annotations } : {})`
+  // spread in `describeSidebarLeaf` (sidebar-builder.ts) — the nesting and
+  // resolution cases fail; removing the `annotationMatchesPageUrl` call in
+  // `sidebarAnnotationsForPage` — the navigation case fails.
+  it('nests page-anchored annotations under their page and dims them after navigation', async () => {
+    harness.loadFixture({
+      name: 'Sidebar annotations',
+      doc: {
+        nodes: [linkNode('page-a', 120)],
+        edges: [],
+        appState: { zoom: 1, pan: { x: 0, y: 0 } },
+      },
+    })
+
+    const created = createAnnotation({
+      anchor: { type: 'page', pageId: 'page-a', offsetX: 0.5, offsetY: 0.4 },
+      text: 'Tighten the hero spacing before shipping',
+    })
+    await settleSync()
+
+    const pageItem = () => {
+      const item = getLeftSidebarData().sections.pages.find((entry) => entry.id === 'page-a')
+      return item && item.kind === 'page' ? item : null
+    }
+
+    expect(pageItem()?.annotations).toEqual([
+      {
+        kind: 'annotation',
+        id: created.id,
+        label: 'Tighten the hero spacing before shipping',
+        messageCount: 1,
+        onCurrentPage: true,
+      },
+    ])
+
+    // did-navigate updates page.url in place; the sidebar must flag the
+    // annotation as no longer on the page's current document.
+    const page = pages.find((candidate) => candidate.id === 'page-a')
+    expect(page).toBeDefined()
+    page!.url = 'https://example.com/elsewhere'
+    expect(pageItem()?.annotations?.[0]?.onCurrentPage).toBe(false)
+
+    // Resolving the thread removes the child row entirely.
+    updateAnnotationStatus(created.id, 'resolved', undefined, 'user')
+    await settleSync()
+    expect(pageItem()?.annotations).toBeUndefined()
   })
 
   it('reorders note rows without moving page or edge stack slots', async () => {

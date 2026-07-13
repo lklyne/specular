@@ -222,6 +222,9 @@ export function createPage(config: PageConfig): Page {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
+    // Annotation visibility and the sidebar's page children key off the
+    // page's current URL, so a navigation must re-send both payloads.
+    markDirty('canvas', 'sidebar')
     requestLayout()
     invalidateAgentSnapshot(page.id)
     if (isSelectedPage(page)) clearInspectTargets()
@@ -233,6 +236,7 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
     selectionDebug('page:did-navigate-in-page', { pageId: page.id, url, isMainFrame })
     if (isMainFrame) page.url = url
+    if (isMainFrame) markDirty('canvas', 'sidebar')
     if (isMainFrame) requestLayout()
     if (isMainFrame) invalidateAgentSnapshot(page.id)
     if (isSelectedPage(page)) clearInspectTargets()
