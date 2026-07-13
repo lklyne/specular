@@ -149,6 +149,23 @@ describe('page-anchored region annotations', () => {
     expect(diskRecord?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
   })
 
+  it('does not bind a region that intersected a page but grabbed nothing', () => {
+    // The region select emits a group per intersecting page even when its
+    // inner list is empty — overlap alone is not a grab.
+    // Mutation-verified: reverting annotationAnchorPageId's region branch to
+    // `regionComponents?.[0]?.pageId ?? regionElements?.[0]?.pageId` fails this.
+    loadHostPage()
+    const region = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 140, y: 140, width: 80, height: 60 } },
+      text: 'overlapped but empty-handed',
+      metadata: {
+        regionComponents: [{ pageId: PAGE_ID, pageName: 'Host', components: [] }],
+        regionElements: [{ pageId: PAGE_ID, pageName: 'Host', elements: [] }],
+      },
+    })
+    expect(region.pageAnchor).toBeUndefined()
+  })
+
   it('leaves a grab-less region canvas-anchored: no pageAnchor, never hidden, stays put on page drag', async () => {
     loadHostPage()
     const region = createGrablessRegion()

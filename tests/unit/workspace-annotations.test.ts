@@ -195,14 +195,17 @@ describe('createAnnotation pageAnchor derivation', () => {
     expect(created.metadata?.pageUrl).toBeUndefined()
   })
 
-  it('binds a region iff the marquee grabbed page content (first group wins)', () => {
+  it('binds a region iff the marquee grabbed page content (first grabbing group wins)', () => {
+    // The region select emits a group per intersecting page even when its
+    // inner list is empty — the grab is a non-empty components/elements list,
+    // not group presence.
     const grabbed = createAnnotation({
       anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
       text: 'grabbed region',
       metadata: {
         regionComponents: [
-          { pageId: 'page-live', pageName: 'Live', components: [] },
           { pageId: 'page-other', pageName: 'Other', components: [] },
+          { pageId: 'page-live', pageName: 'Live', components: [{ name: 'Hero', count: 1 }] },
         ],
       },
     })
@@ -210,6 +213,16 @@ describe('createAnnotation pageAnchor derivation', () => {
       pageId: 'page-live',
       pageUrl: 'https://example.com/pricing',
     })
+
+    const overlappedEmptyHanded = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
+      text: 'overlapped but empty-handed',
+      metadata: {
+        regionComponents: [{ pageId: 'page-live', pageName: 'Live', components: [] }],
+        regionElements: [{ pageId: 'page-live', pageName: 'Live', elements: [] }],
+      },
+    })
+    expect(overlappedEmptyHanded.pageAnchor).toBeUndefined()
 
     const grabless = createAnnotation({
       anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },

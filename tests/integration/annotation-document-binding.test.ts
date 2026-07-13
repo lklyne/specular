@@ -76,7 +76,7 @@ describe('annotation document binding in the layout payload', () => {
     const region = createAnnotation({
       anchor: { type: 'region', canvasRect: { x: 140, y: 140, width: 80, height: 60 } },
       metadata: {
-        regionComponents: [{ pageId: PAGE_ID, pageName: 'Host', components: [] }],
+        regionComponents: [{ pageId: PAGE_ID, pageName: 'Host', components: [{ name: 'Hero', count: 1 }] }],
       },
       text: 'region note',
     })

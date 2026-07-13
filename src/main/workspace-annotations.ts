@@ -32,18 +32,20 @@ function resolvePageName(pageId: string): string | undefined {
 /**
  * The page an annotation binds to, decided at creation. Element and page
  * anchors name their page structurally. A region binds iff its marquee
- * grabbed page content — `regionComponents`/`regionElements` came back
- * non-empty from the region select; the first group is the page that
- * contributed the grab. Canvas points never bind.
+ * grabbed page content — some `regionComponents`/`regionElements` group has a
+ * non-empty inner list (the region select emits a group per *intersecting*
+ * page even when nothing was grabbed, so group presence alone is not a grab);
+ * the first grabbing group is the page that contributed it. Canvas points
+ * never bind.
  */
 function annotationAnchorPageId(request: AnnotationCreateRequest): string | undefined {
   const anchor = request.anchor
   if (anchor.type === 'page' || anchor.type === 'element') return anchor.pageId
   if (anchor.type === 'region') {
-    return (
-      request.metadata?.regionComponents?.[0]?.pageId ??
-      request.metadata?.regionElements?.[0]?.pageId
-    )
+    const grabbed =
+      request.metadata?.regionComponents?.find((group) => group.components.length > 0) ??
+      request.metadata?.regionElements?.find((group) => group.elements.length > 0)
+    return grabbed?.pageId
   }
   return undefined
 }
