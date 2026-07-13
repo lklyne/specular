@@ -4,7 +4,6 @@ import type {
   CanvasScenePageEntity,
   PresenceActivity,
 } from '../../shared/types'
-import { labelForPresenceCursor } from '../../shared/agent-presence'
 import {
   DEFAULT_CURSOR_MOTION,
   easeAt,
@@ -15,7 +14,6 @@ import {
   distanceSpeedScale,
 } from '../../shared/cursor-tuning'
 import { foldSpline } from '../../shared/cursor-spline'
-import { pagePointMatchesTargetRect } from '../../shared/presence-targeting'
 import { PRESENCE_STEP_DELAY_MS } from '../../shared/presence-timing'
 import { ambientDriftOffset, sessionAmbientSeed } from '../../shared/presence-ambient'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
@@ -73,45 +71,19 @@ function activityStyle(activity: PresenceActivity): CSSProperties {
       return { opacity: 0.38, transform: 'scale(0.96)' }
     case 'departing':
       return { opacity: 0.7, transform: 'scale(0.96)' }
+    case 'refused':
+      // A refused mirrored click (ADR 0030): a brief lateral shake, exactly
+      // one meaning ("can't do that here"). `forwards` holds the keyframe's
+      // final frame (already at rest) instead of popping back to the base
+      // `transform` above the instant the one-shot animation ends.
+      return {
+        opacity: 1,
+        transform: 'scale(1.02)',
+        filter: 'saturate(1.15)',
+        animation: 'synced-cursor-wiggle 360ms ease-in-out 1',
+        animationFillMode: 'forwards',
+      }
   }
-}
-
-function TargetHalo({
-  cursor,
-  page,
-  overlayOffsetY,
-}: {
-  cursor: AgentPresenceCursor
-  page: CanvasScenePageEntity | null
-  overlayOffsetY: number
-}) {
-  if (
-    !page ||
-    !cursor.targetRect ||
-    !pagePointMatchesTargetRect(
-      cursor.pageX,
-      cursor.pageY,
-      cursor.targetRect,
-    )
-  ) {
-    return null
-  }
-  const scaleX = page.screenWidth / Math.max(page.width, 1)
-  const scaleY = page.screenHeight / Math.max(page.height, 1)
-  return (
-    <div
-      className="absolute rounded-xl border"
-      style={{
-        left: page.screenX + cursor.targetRect.x * scaleX - 6,
-        top: page.screenY + cursor.targetRect.y * scaleY - overlayOffsetY - 6,
-        width: cursor.targetRect.width * scaleX + 12,
-        height: cursor.targetRect.height * scaleY + 12,
-        borderColor: cursor.color,
-        boxShadow: `0 0 0 2px color-mix(in srgb, ${cursor.color} 32%, transparent)`,
-        background: `color-mix(in srgb, ${cursor.color} 14%, transparent)`,
-      }}
-    />
-  )
 }
 
 function AgentCursor({
@@ -123,8 +95,6 @@ function AgentCursor({
   point: Vec2
   zoom: number
 }) {
-  const label = labelForPresenceCursor(cursor)
-
   const positionStyle: CSSProperties = useMemo(
     () => ({
       left: 0,
@@ -135,7 +105,7 @@ function AgentCursor({
     [point.x, point.y],
   )
 
-  // Counter-scale keeps icon and label at constant screen size
+  // Counter-scale keeps the icon at constant screen size
   // regardless of canvas zoom.
   const counterScaleStyle: CSSProperties = {
     transform: `scale(${1 / zoom})`,
@@ -154,72 +124,9 @@ function AgentCursor({
       <div style={counterScaleStyle}>
         <div style={activityTransformStyle}>
           <FilledCursorIcon color={cursor.color} size={24} />
-          {label ? (
-            <div
-              className="ml-4 -mt-1.5 whitespace-nowrap rounded px-2 py-0.5"
-              style={{
-                backgroundColor: cursor.color,
-                fontSize: 10,
-                lineHeight: '14px',
-                color: 'white',
-                boxShadow:
-                  cursor.activity === 'acting'
-                    ? '0 2px 8px rgba(0,0,0,0.28)'
-                    : '0 1px 3px rgba(0,0,0,0.2)',
-              }}
-            >
-              {label}
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
-  )
-}
-
-/** Halo around an agent-active page so it's discoverable while CDP runs.
- *  Pass `originY={canvasOrigin.y}` when mounted in aboveView so page coords
- *  align against the WCV whose origin sits at the toolbar inset. */
-export function ActivePageHighlightLayer({
-  cursors,
-  pages,
-  originY = 0,
-}: {
-  cursors: AgentPresenceCursor[]
-  pages: CanvasScenePageEntity[]
-  originY?: number
-}) {
-  const activePages = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const cursor of cursors) {
-      if (cursor.pageId && !map.has(cursor.pageId)) {
-        map.set(cursor.pageId, cursor.color)
-      }
-    }
-    return map
-  }, [cursors])
-
-  if (activePages.size === 0) return null
-  const inset = -4
-  return (
-    <>
-      {pages
-        .filter((page) => activePages.has(page.id))
-        .map((page) => (
-          <div
-            key={`page-highlight-${page.id}`}
-            className="absolute rounded-sm pointer-events-none"
-            style={{
-              left: page.screenX + inset,
-              top: page.screenY + inset - originY,
-              width: page.screenWidth - inset * 2,
-              height: page.screenHeight - inset * 2,
-              boxShadow: `0 0 0 2px ${activePages.get(page.id)!}, 0 0 24px 4px color-mix(in srgb, ${activePages.get(page.id)!} 25%, transparent)`,
-              transition: 'box-shadow 300ms ease-out',
-            }}
-          />
-        ))}
-    </>
   )
 }
 
@@ -429,21 +336,17 @@ export function AgentCursorLayer({
       style={{ zIndex: 9999 }}
     >
       <style>
-        {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }`}
+        {`@keyframes agent-presence-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes synced-cursor-wiggle {
+  0% { transform: translateX(0) scale(1.02); }
+  20% { transform: translateX(-5px) scale(1.02); }
+  40% { transform: translateX(5px) scale(1.02); }
+  60% { transform: translateX(-3px) scale(1.02); }
+  80% { transform: translateX(2px) scale(1.02); }
+  100% { transform: translateX(0) scale(1); }
+}`}
       </style>
       <PresenceParticleTrail cursors={trailCursors} />
-      {cursors.map((cursor) => (
-        <TargetHalo
-          key={`halo-${cursor.sessionId}`}
-          cursor={cursor}
-          page={
-            cursor.pageId
-              ? (pages.find((page) => page.id === cursor.pageId) ?? null)
-              : null
-          }
-          overlayOffsetY={overlayOffsetY}
-        />
-      ))}
       <div
         className="absolute left-0 top-0 origin-top-left"
         style={{

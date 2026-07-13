@@ -7,6 +7,7 @@ import type {
   PresenceTargetRefSource,
 } from '../shared/types'
 import { resolvePresencePagePoint } from '../shared/presence-targeting'
+import { scoreDescriptorMatch, type DescriptorQuery } from '../shared/locator-kernel'
 import { PRESENCE_INTENT_TTL_MS } from '../shared/presence-timing'
 import {
   takePageAgentSnapshot,
@@ -285,102 +286,22 @@ function normalizeQueryElementCandidate(candidate: unknown): PresenceTargetCandi
   }
 }
 
-function normalizeSearchText(value: string | null | undefined): string | null {
-  if (!value) return null
-  const normalized = value.trim().toLowerCase()
-  return normalized.length > 0 ? normalized : null
-}
-
 function scorePresenceTargetCandidate(
   candidate: PresenceTargetCandidate,
-  query: {
-    name?: string | null
-    text?: string | null
-    elementPath?: string | null
-    fullPath?: string | null
-    interactiveOnly?: boolean
-  },
+  query: DescriptorQuery,
 ): number {
-  if (query.interactiveOnly && !candidate.interactive) return Number.NEGATIVE_INFINITY
-
-  const normalizedName = normalizeSearchText(candidate.name)
-  const normalizedText = normalizeSearchText(candidate.text)
-  const normalizedElementPath = normalizeSearchText(candidate.elementPath)
-  const normalizedFullPath = normalizeSearchText(candidate.fullPath)
-  const wantedName = normalizeSearchText(query.name)
-  const wantedText = normalizeSearchText(query.text)
-  const wantedElementPath = normalizeSearchText(query.elementPath)
-  const wantedFullPath = normalizeSearchText(query.fullPath)
-
-  let score = candidate.interactive ? 50 : 0
-  let matched = false
-
-  if (wantedName) {
-    if (normalizedName === wantedName) {
-      score += 400
-      matched = true
-    } else if (normalizedName?.includes(wantedName)) {
-      score += 280
-      matched = true
-    } else if (normalizedText === wantedName) {
-      score += 220
-      matched = true
-    } else if (normalizedText?.includes(wantedName)) {
-      score += 140
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
-
-  if (wantedText) {
-    if (normalizedText === wantedText) {
-      score += 320
-      matched = true
-    } else if (normalizedText?.includes(wantedText)) {
-      score += 200
-      matched = true
-    } else if (normalizedName === wantedText) {
-      score += 180
-      matched = true
-    } else if (normalizedName?.includes(wantedText)) {
-      score += 120
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
-
-  if (wantedElementPath) {
-    if (normalizedElementPath === wantedElementPath) {
-      score += 260
-      matched = true
-    } else if (normalizedElementPath?.includes(wantedElementPath)) {
-      score += 140
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
-
-  if (wantedFullPath) {
-    if (normalizedFullPath === wantedFullPath) {
-      score += 260
-      matched = true
-    } else if (normalizedFullPath?.includes(wantedFullPath)) {
-      score += 140
-      matched = true
-    } else {
-      return Number.NEGATIVE_INFINITY
-    }
-  }
-
-  if (!matched && (wantedName || wantedText || wantedElementPath || wantedFullPath)) {
-    return Number.NEGATIVE_INFINITY
-  }
-
-  score += Math.max(0, 100 - candidate.bounds.x * 0.01 - candidate.bounds.y * 0.01)
-  return score
+  return scoreDescriptorMatch(
+    {
+      name: candidate.name,
+      text: candidate.text,
+      elementPath: candidate.elementPath,
+      fullPath: candidate.fullPath,
+      interactive: candidate.interactive,
+      boundsX: candidate.bounds.x,
+      boundsY: candidate.bounds.y,
+    },
+    query,
+  )
 }
 
 export async function findPresenceTarget(pageId: string, query: {

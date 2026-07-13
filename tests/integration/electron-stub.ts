@@ -56,6 +56,15 @@ let nextWebContentsId = 1
 class FakeWebContents extends EventEmitter {
   id = nextWebContentsId++
 
+  // Every loadURL() call, in order — the navigation-sync suite counts these to
+  // assert "exactly one navigation per peer" through the real relay machinery.
+  loadedUrls: string[] = []
+
+  // Every debugger.sendCommand() call, in order — the interaction-sync suite
+  // reads Input.dispatchMouseEvent entries to assert a confident peer replay
+  // actually dispatched trusted input at the resolved point.
+  debuggerCommands: Array<{ method: string; params: unknown }> = []
+
   send(channel: string, ...args: unknown[]): void {
     __broadcasts.push({ channel, args, webContentsId: this.id })
   }
@@ -65,7 +74,10 @@ class FakeWebContents extends EventEmitter {
   private currentUrl = 'about:blank'
 
   loadURL(url?: string): Promise<void> {
-    if (typeof url === 'string') this.currentUrl = url
+    if (typeof url === 'string') {
+      this.currentUrl = url
+      this.loadedUrls.push(url)
+    }
     return Promise.resolve()
   }
 
@@ -106,7 +118,10 @@ class FakeWebContents extends EventEmitter {
 
   session = withNoopFallback({})
   debugger = withNoopFallback({
-    sendCommand: () => Promise.resolve({}),
+    sendCommand: (method: string, params: unknown) => {
+      this.debuggerCommands.push({ method, params })
+      return Promise.resolve({})
+    },
     isAttached: () => false,
   })
 

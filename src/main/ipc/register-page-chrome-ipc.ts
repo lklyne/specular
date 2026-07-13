@@ -1,7 +1,12 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
+import type {
+  InteractionSyncEvent,
+  LocatorResolveResponse,
+  ScrollSyncData,
+  SelectionModifiers,
+} from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
 import { bgView } from '../runtime/view-refs'
 import { zoom } from '../runtime/runtime-context'
@@ -17,6 +22,10 @@ import {
   isScrollSuppressed,
   propagateScrollFromPage,
 } from '../navigation-sync'
+import {
+  handleInteractionSyncEvent,
+  handleResolveInteractionLocatorResponse,
+} from '../interaction-sync'
 import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerPageChromeIpc(): void {
@@ -40,6 +49,17 @@ export function registerPageChromeIpc(): void {
     if (isScrollSuppressed(page)) return
     propagateScrollFromPage(page, data)
   })
+
+  ipcMain.on(ipcChannels.interactionSyncEvent, (event, payload: InteractionSyncEvent) => {
+    handleInteractionSyncEvent(event.sender, payload)
+  })
+
+  ipcMain.on(
+    ipcChannels.resolveInteractionLocatorResponse,
+    (event, payload: LocatorResolveResponse) => {
+      handleResolveInteractionLocatorResponse(event.sender, payload)
+    },
+  )
 
   ipcMain.on(ipcChannels.canvasBgDropdownOpen, () => {
     if (!bgView || !win) return

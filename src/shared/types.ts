@@ -9,6 +9,7 @@ import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
 import type { AmbientDriftMode } from './presence-ambient'
+import type { LocatorBundle, LocatorResolution } from './locator-kernel'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { ToolDefaultPatch } from './tool-defaults'
@@ -540,7 +541,16 @@ export interface LayoutUpdateData {
 
 export type PresenceSurface = 'canvas' | 'page'
 
-export type PresenceActivity = 'traveling' | 'acting' | 'waiting' | 'thinking' | 'idle' | 'departing'
+export type PresenceActivity =
+  | 'traveling'
+  | 'acting'
+  | 'waiting'
+  | 'thinking'
+  | 'idle'
+  | 'departing'
+  // A refused mirrored click (interaction sync): the synced cursor plays a
+  // brief lateral wiggle then decays to its prior state. Exactly one meaning.
+  | 'refused'
 
 export type PresenceLabelKey = (typeof PRESENCE_LABEL_KEYS)[number]
 
@@ -571,10 +581,22 @@ export interface PresenceTargetQuery {
   name: string | null
 }
 
+/**
+ * Reserved color for synced cursors — a presence cursor sourced from the
+ * user's mirrored input (ADR 0030) rather than an agent session. Fixed and
+ * distinct from `deriveColor`'s hsl(hue, 70%, 55%) space so a synced cursor
+ * never collides with an agent's derived hue.
+ */
+export const SYNCED_CURSOR_COLOR = '#00C2FF'
+
+export type PresenceCursorSource = 'agent' | 'interaction-sync'
+
 export interface AgentPresenceCursor {
   sessionId: string
   clientName: string
   color: string
+  /** Origin of this cursor. Absent ⇒ 'agent' (every existing path). */
+  source?: PresenceCursorSource
   canvasX: number
   canvasY: number
   surface: PresenceSurface
@@ -625,6 +647,43 @@ export interface AgentSnapshotPage {
   url: string
   title: string
   nodes: AgentSnapshotNode[]
+}
+
+// --- Interaction sync (ADR 0030) ---
+
+/**
+ * A hover or click captured on the source page, carried to main and fanned out
+ * to same-origin peers. `bundle` is null only for a hover over no element (the
+ * cursor still glides proportionally); `viewportX`/`viewportY` are the source
+ * cursor as a viewport fraction 0..1, driving the peer's proportional base
+ * position when nothing resolves.
+ */
+export interface InteractionSyncEvent {
+  kind: 'hover' | 'click'
+  bundle: LocatorBundle | null
+  viewportX: number
+  viewportY: number
+}
+
+/** Main → guest: toggle interaction-sync capture on the source page (D1). */
+export interface InteractionSyncCapturePayload {
+  enabled: boolean
+}
+
+/**
+ * Main → peer guest: resolve a captured bundle against the peer's live DOM.
+ * `requestId` correlates the response; stale responses (a superseded requestId
+ * for the same peer) are dropped (D7).
+ */
+export interface LocatorResolveRequest {
+  requestId: number
+  bundle: LocatorBundle
+}
+
+/** Peer guest → main: the peer's resolution for a `requestId`. */
+export interface LocatorResolveResponse {
+  requestId: number
+  resolution: LocatorResolution
 }
 
 export interface SidebarPageItem {
