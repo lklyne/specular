@@ -27,7 +27,7 @@ export function useElementCommentDraft({
       anchor: {
         type: 'element',
         pageId: activeDetail.pageId,
-        selector: activeDetail.fullPath || activeDetail.elementPath,
+        selector: activeDetail.uniqueSelector || activeDetail.fullPath || activeDetail.elementPath,
         elementPath: activeDetail.elementPath,
         boundingBox: activeDetail.boundingBox,
       },

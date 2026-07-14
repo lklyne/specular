@@ -219,7 +219,7 @@ function buildPendingAnnotation(
   const anchor: AnnotationAnchor = {
     type: 'element',
     pageId: payload.pageId,
-    selector: payload.elementPath,
+    selector: payload.uniqueSelector || payload.elementPath,
     elementPath: payload.fullPath,
     boundingBox: payload.boundingBox,
   }

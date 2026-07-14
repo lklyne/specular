@@ -1052,6 +1052,8 @@ export interface DevtoolsPanelDomTarget {
   role?: string
   elementPath: string
   fullPath: string
+  /** Unique nth-of-type path — the selector to re-resolve this element by. */
+  uniqueSelector?: string
   cssClasses: string[]
   textPreview?: string
   nearbyText?: string
@@ -1741,6 +1743,8 @@ export interface AnnotationElementSelectionPayload {
   role?: string
   elementPath: string
   fullPath: string
+  /** Unique nth-of-type path — the selector to re-resolve this element by. */
+  uniqueSelector?: string
   cssClasses: string[]
   textPreview?: string
   nearbyText?: string
