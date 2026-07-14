@@ -9,8 +9,8 @@ Each entry: what the plan said, what we did instead, and why.
 - [x] Phase 2 — The transform learns about scroll
 - [x] Phase 3 — The document-anchored region variant
 - [x] Phase 4 — Clicking a comment scrolls its page to it
-- [~] Docs — ADR 0029 amended, CONTEXT.md updated (Phase 3). file-formats.md
-  `docRect` shape still owed (defer to the docs pass with Phase 4).
+- [x] Docs — ADR 0029 amended + CONTEXT.md updated (Phase 3);
+  `docs/file-formats.md` documents the `docRect` anchor shape (docs pass).
 
 ## Environment / verification baseline (pre-change)
 
