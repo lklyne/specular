@@ -23,6 +23,12 @@ Each entry: what the plan said, what we did instead, and why.
   (`binding-handlers-focus-restore`, `claude-spawner`, `doc-restore-roundtrip`,
   `layer-stack`, `page-bounds` — all import real electron). Unrelated to this
   feature; recorded so a later reviewer doesn't attribute them to scroll work.
+- **Commit signing is non-functional here:** the configured SSH signing key
+  (`/home/claude/.ssh/commit_signing_key.pub`) is a 0-byte placeholder with no
+  private counterpart and no ssh-agent, so `commit.gpgsign=true` silently
+  produces unsigned commits. Disabled it locally to avoid the failing-sign
+  noise. Commits are correctly authored (`noreply@anthropic.com` / `Claude`);
+  GitHub's "Unverified" badge is an environment limitation, not a config error.
 - **Green baseline confirmed:** node + web typecheck clean; unit 819 tests pass
   (79/84 suites; 5 electron-blocked); integration 135 tests pass (23/23 suites).
   Integration uses `tests/integration/electron-stub.ts`, so it is unaffected.
