@@ -14,6 +14,7 @@ import {
   handleNodeDetailResponse,
 } from '../runtime/page-runtime'
 import { regionCanvasRect } from '../runtime/page-anchor-state'
+import { dispatchScrollToAnnotation } from '../runtime/annotation-scroll-target'
 import { getZoom, setPendingFocus } from '../runtime/runtime-context'
 import { requestLayout, setZoom } from '../runtime/viewport-control'
 import {
@@ -99,6 +100,14 @@ export function registerAnnotationInspectionIpc(): void {
           annotationId,
         })
       }
+      // Reveal the commented content on the page itself: canvas focus alone
+      // leaves a long page pointing at content the user can't see. Fire-and-
+      // forget; no-op for canvas points and canvas-anchored regions, which mark
+      // canvas space, not page content (scroll-tracking phase 4). Ungated by
+      // surface — revealing content is the intended meaning of "open this
+      // comment" whether the click came from the panel, sidebar, or a region
+      // overlay.
+      void dispatchScrollToAnnotation(annotation)
     },
   )
 

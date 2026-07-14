@@ -48,12 +48,19 @@ export function registerPageChromeIpc(): void {
   // ephemeral runtime page; the layout broadcast carries it.
   ipcMain.on(
     ipcChannels.pageScrollOffset,
-    (event, data: { scrollX: number; scrollY: number }) => {
+    (event, data: { scrollX: number; scrollY: number; scrollHeight: number }) => {
       const page = findPageByPageView(event.sender)
       if (!page) return
-      if (page.scrollX === data.scrollX && page.scrollY === data.scrollY) return
+      if (
+        page.scrollX === data.scrollX &&
+        page.scrollY === data.scrollY &&
+        page.scrollHeight === data.scrollHeight
+      ) {
+        return
+      }
       page.scrollX = data.scrollX
       page.scrollY = data.scrollY
+      page.scrollHeight = data.scrollHeight
       markDirty('canvas')
       requestLayout()
     },

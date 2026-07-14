@@ -8,7 +8,7 @@ Each entry: what the plan said, what we did instead, and why.
 - [x] Phase 1 — Broadcast the page's absolute scroll offset
 - [x] Phase 2 — The transform learns about scroll
 - [x] Phase 3 — The document-anchored region variant
-- [ ] Phase 4 — Clicking a comment scrolls its page to it
+- [x] Phase 4 — Clicking a comment scrolls its page to it
 - [~] Docs — ADR 0029 amended, CONTEXT.md updated (Phase 3). file-formats.md
   `docRect` shape still owed (defer to the docs pass with Phase 4).
 
@@ -119,3 +119,59 @@ _Plan line references were otherwise accurate._
    (`applyDragDelta`, `nudgeSelection` in `document-commands.ts`) and its import.
    Grep confirms no remaining callers in `src/`. A docRect is page-relative, so
    drag/nudge move it via the transform — no anchor translation.
+
+### Phase 4
+
+1. **Target computation extracted as a pure function**, per the task's
+   testability requirement (the plan didn't name it). `computeAnnotationScrollTarget(annotation)`
+   in the new `src/main/runtime/annotation-scroll-target.ts` returns
+   `{ pageId; documentY } | null` — documentY in the page's document CSS px, or
+   null when there's nothing to reveal. Pure and synchronous, so it's assertable
+   under the electron stub (the IPC send is not). The impure `dispatchScrollToAnnotation`
+   in the same module layers the ~1/3-down offset, the current-scroll delta, and
+   the `sendPageIpc(dispatchScroll)` ramp on top.
+2. **Phase-1 offset broadcast extended to carry `scrollHeight`.** The page anchor
+   case needs the document height (`offsetY × height`), which main didn't know.
+   Added `scrollHeight` (of the same `resolveScrollTarget()` container) to
+   `flushScrollOffset` in `page-content.ts`, to the `page-scroll-offset` IPC
+   payload (`ipc-contract.ts`), stored on the runtime `Page` (`runtime-entities.ts`,
+   initialized in `page-factory.ts`), and gated into the dedupe/store in
+   `register-page-chrome-ipc.ts`. **Main-side only** — not added to
+   `CanvasScenePageEntity`, since no renderer consumes it (plan permitted this).
+3. **Dispatch hooked into the shared `annotation-open-thread` handler**
+   (`register-annotation-inspection-ipc.ts`), fire-and-forget after the existing
+   focus logic. **Ungated by surface:** the channel is invoked from the panel
+   (`CommentsPane`), the sidebar (`SidebarCanvasTree`), and the canvas region
+   overlay (`canvas-bg`). All three mean "open this comment", and revealing its
+   content is the intended behavior in each — canvas-anchored/canvas-point
+   comments already no-op (null target), so no surface produces a surprising
+   scroll. Not carrying a surface flag through the payload keeps the handler and
+   the IPC contract unchanged.
+4. **Element anchor: reused `queryPageElements` for live re-resolution**, no new
+   IPC. `dispatchScrollToAnnotation` re-resolves the anchor's selector against
+   the live page and reads `inspectionPayload`'s `position.documentY`
+   (`rect.top + window.scrollY`, already computed page-side). Falls back to the
+   pure function's stored-bbox target (`boundingBox.y + page.scrollY`) when the
+   selector is stale/empty or the query fails — never throws. Element anchors
+   already scroll-follow, so this is the secondary/best-effort path the plan
+   described.
+5. **1/3-down + delta math** (in `dispatchScrollToAnnotation`):
+   `targetScrollY = max(0, documentY − pageViewportHeight/3)`, `deltaY =
+   targetScrollY − page.scrollY`, dispatched as `{ x: width/2, y: height/2,
+   deltaX: 0, deltaY }`. `pageViewportHeight`/width come from
+   `pageBodyCanvasBounds(page)` (the body is 1:1 with the page's CSS viewport at
+   this layer); the x/y probe point is the viewport center so `resolveScrollTarget`
+   finds the real (possibly inner) scroll container.
+6. **Tests in a new file** `tests/integration/annotation-scroll-target.test.ts`
+   (modeled on `annotation-page-anchor.test.ts`) rather than extending the anchor
+   file — separate concern (scroll targeting vs. anchor lifecycle). Asserts the
+   pure function across all anchor cases; the IPC dispatch is not asserted (not
+   observable under the stub, and the element path's async query would risk a
+   5 s stub timeout). Mutation-verified: page-anchored `docRect.y` target
+   (revert the region branch to `return null`); canvas-anchored → null (drop the
+   `'docRect' in anchor` gate).
+
+### Docs still owed (unchanged from Phase 3)
+
+`docs/file-formats.md` `docRect` anchor shape. Deferred to the docs pass; not a
+code change.

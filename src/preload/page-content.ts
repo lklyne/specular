@@ -639,16 +639,29 @@ function resolveScrollTarget(
 let pendingScrollOffsetFlush = 0
 let lastSentScrollX = Number.NaN
 let lastSentScrollY = Number.NaN
+let lastSentScrollHeight = Number.NaN
 
 function flushScrollOffset(): void {
   pendingScrollOffsetFlush = 0
   const target = resolveScrollTarget()
   const scrollX = Math.round(target.scrollLeft)
   const scrollY = Math.round(target.scrollTop)
-  if (scrollX === lastSentScrollX && scrollY === lastSentScrollY) return
+  // scrollHeight rides along so main can turn a page anchor's `offsetY`
+  // fraction into a document position for scroll-to-comment (phase 4). It is a
+  // property of the same container the offset comes from, so it is captured
+  // here rather than in a second query.
+  const scrollHeight = Math.round(target.scrollHeight)
+  if (
+    scrollX === lastSentScrollX &&
+    scrollY === lastSentScrollY &&
+    scrollHeight === lastSentScrollHeight
+  ) {
+    return
+  }
   lastSentScrollX = scrollX
   lastSentScrollY = scrollY
-  ipcRenderer.send(ipcChannels.pageScrollOffset, { scrollX, scrollY })
+  lastSentScrollHeight = scrollHeight
+  ipcRenderer.send(ipcChannels.pageScrollOffset, { scrollX, scrollY, scrollHeight })
 }
 
 function queueScrollOffsetBroadcast(): void {

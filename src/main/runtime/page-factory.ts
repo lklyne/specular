@@ -128,6 +128,7 @@ export function createPage(config: PageConfig): Page {
     },
     scrollX: 0,
     scrollY: 0,
+    scrollHeight: 0,
   }
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')
