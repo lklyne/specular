@@ -147,6 +147,8 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       contentScreenHeight: bounds.page.height,
       useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
       colorScheme: page.colorScheme,
+      scrollX: page.scrollX ?? 0,
+      scrollY: page.scrollY ?? 0,
     }
   })
 }

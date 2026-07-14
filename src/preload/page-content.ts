@@ -605,6 +605,57 @@ ipcRenderer.on(
 )
 
 
+// Find the real scroll container under a viewport point. Next.js/v0 shells
+// scroll an inner `overflow: auto` div while `document.scrollingElement`
+// stays at 0, so both the scroll-command ramp and the offset broadcast must
+// probe from a concrete point and walk up to the nearest scrollable ancestor.
+// Defaults to the viewport center, which resolves the primary scroll
+// container when there is no pointer (the offset broadcast has none).
+function resolveScrollTarget(
+  x: number = window.innerWidth / 2,
+  y: number = window.innerHeight / 2,
+): Element {
+  const isScrollable = (el: Element): boolean => {
+    const style = window.getComputedStyle(el)
+    const overflowY = style.overflowY
+    const overflowX = style.overflowX
+    const canScrollY =
+      /(auto|scroll|overlay)/.test(overflowY) &&
+      el.scrollHeight > el.clientHeight
+    const canScrollX =
+      /(auto|scroll|overlay)/.test(overflowX) &&
+      el.scrollWidth > el.clientWidth
+    return canScrollY || canScrollX
+  }
+  let node: Element | null = document.elementFromPoint(x, y)
+  while (node && !isScrollable(node)) node = node.parentElement
+  return node || document.scrollingElement || document.documentElement
+}
+
+// Always-on absolute-pixel scroll broadcast (see docs/plans/scroll-tracking.md
+// §Trap: separate from the linked-scroll `pageScrollChanged`, which carries
+// progress fractions, is gated on `interactive`, and is dropped unless the
+// page is linked). rAF-coalesced; sends only when the offset actually changed.
+let pendingScrollOffsetFlush = 0
+let lastSentScrollX = Number.NaN
+let lastSentScrollY = Number.NaN
+
+function flushScrollOffset(): void {
+  pendingScrollOffsetFlush = 0
+  const target = resolveScrollTarget()
+  const scrollX = Math.round(target.scrollLeft)
+  const scrollY = Math.round(target.scrollTop)
+  if (scrollX === lastSentScrollX && scrollY === lastSentScrollY) return
+  lastSentScrollX = scrollX
+  lastSentScrollY = scrollY
+  ipcRenderer.send(ipcChannels.pageScrollOffset, { scrollX, scrollY })
+}
+
+function queueScrollOffsetBroadcast(): void {
+  if (pendingScrollOffsetFlush) return
+  pendingScrollOffsetFlush = window.requestAnimationFrame(flushScrollOffset)
+}
+
 let activeScrollToken = 0
 
 ipcRenderer.on(
@@ -619,22 +670,7 @@ ipcRenderer.on(
       deltaY: number
     },
   ) => {
-    const isScrollable = (el: Element): boolean => {
-      const style = window.getComputedStyle(el)
-      const overflowY = style.overflowY
-      const overflowX = style.overflowX
-      const canScrollY =
-        /(auto|scroll|overlay)/.test(overflowY) &&
-        el.scrollHeight > el.clientHeight
-      const canScrollX =
-        /(auto|scroll|overlay)/.test(overflowX) &&
-        el.scrollWidth > el.clientWidth
-      return canScrollY || canScrollX
-    }
-    let node: Element | null = document.elementFromPoint(payload.x, payload.y)
-    while (node && !isScrollable(node)) node = node.parentElement
-    const target =
-      node || document.scrollingElement || document.documentElement
+    const target = resolveScrollTarget(payload.x, payload.y)
     if (!target) {
       ipcRenderer.send(ipcChannels.dispatchScrollResult, {
         requestId: payload.requestId,
@@ -709,6 +745,7 @@ window.addEventListener(
   'scroll',
   () => {
     queueScrollSyncBroadcast(interactive)
+    queueScrollOffsetBroadcast()
     queueRefreshDomInspectionOverlay()
     queueRefreshCommentHoverOverlay()
     queueRecomputeAnnotationBboxes()
@@ -717,6 +754,7 @@ window.addEventListener(
 )
 
 window.addEventListener('resize', () => {
+  queueScrollOffsetBroadcast()
   queueRefreshDomInspectionOverlay()
   queueRefreshCommentHoverOverlay()
   queueRecomputeAnnotationBboxes()
@@ -806,6 +844,9 @@ function onDomReady(): void {
   applyDomInspectionState()
   applyAnnotateState()
   seedScrollSyncBaseline()
+  // Emit once on load so a page that restores its scroll position (bfcache,
+  // Next.js scroll restoration) starts correct even without a scroll event.
+  queueScrollOffsetBroadcast()
   initComponentInspector()
 }
 

@@ -126,6 +126,8 @@ export function createPage(config: PageConfig): Page {
       suppressNavigationBroadcastUntil: 0,
       suppressNextScrollBroadcastUntil: 0,
     },
+    scrollX: 0,
+    scrollY: 0,
   }
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')

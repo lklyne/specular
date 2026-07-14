@@ -6,6 +6,7 @@ import { isAdditiveSelection } from '../../shared/selection-modifiers'
 import { bgView } from '../runtime/view-refs'
 import { zoom } from '../runtime/runtime-context'
 import { requestLayout } from '../runtime/viewport-control'
+import { markDirty } from '../runtime/layout-dirty'
 import {
   deselectAll,
 } from '../runtime/ui-actions'
@@ -40,6 +41,23 @@ export function registerPageChromeIpc(): void {
     if (isScrollSuppressed(page)) return
     propagateScrollFromPage(page, data)
   })
+
+  // Always-on absolute-pixel scroll offset (docs/plans/scroll-tracking.md).
+  // Unlike `pageScrollChanged` this has no `syncId` gate — every page reports
+  // its offset so page-anchored regions can scroll-follow. Stored on the
+  // ephemeral runtime page; the layout broadcast carries it.
+  ipcMain.on(
+    ipcChannels.pageScrollOffset,
+    (event, data: { scrollX: number; scrollY: number }) => {
+      const page = findPageByPageView(event.sender)
+      if (!page) return
+      if (page.scrollX === data.scrollX && page.scrollY === data.scrollY) return
+      page.scrollX = data.scrollX
+      page.scrollY = data.scrollY
+      markDirty('canvas')
+      requestLayout()
+    },
+  )
 
   ipcMain.on(ipcChannels.canvasBgDropdownOpen, () => {
     if (!bgView || !win) return

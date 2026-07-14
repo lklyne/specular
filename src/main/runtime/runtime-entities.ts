@@ -39,6 +39,11 @@ export interface Page {
   }
   peekWidth?: number
   peekHeight?: number
+  /** Page's absolute scroll offset in raw CSS pixels, broadcast from the
+   *  page preload (ephemeral view state — never persisted, never in the
+   *  Y.Doc). Absent until the first offset broadcast arrives. */
+  scrollX?: number
+  scrollY?: number
   lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string

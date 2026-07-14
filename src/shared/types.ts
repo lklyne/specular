@@ -158,6 +158,10 @@ export interface CanvasScenePageEntity {
   useSvgDeviceShell?: boolean
   /** Optional — absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
+  /** Page's absolute scroll offset in raw CSS pixels, default 0. Document
+   *  coordinates minus this are viewport coordinates (see phase 2). */
+  scrollX: number
+  scrollY: number
 }
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'

@@ -5,7 +5,7 @@ Each entry: what the plan said, what we did instead, and why.
 
 ## Status
 
-- [ ] Phase 1 — Broadcast the page's absolute scroll offset
+- [x] Phase 1 — Broadcast the page's absolute scroll offset
 - [ ] Phase 2 — The transform learns about scroll
 - [ ] Phase 3 — The document-anchored region variant
 - [ ] Phase 4 — Clicking a comment scrolls its page to it
@@ -29,4 +29,26 @@ Each entry: what the plan said, what we did instead, and why.
 
 ## Divergences
 
-_(none yet)_
+### Phase 1
+
+1. **`CanvasScenePageEntity.scrollX/scrollY` are required `number`, not optional.**
+   Plan (line 89) said "defaulting to 0". Implemented as required fields with the
+   single default applied at the only production builder site
+   (`backgroundPageOverlays`, `?? 0`). Cleaner for phase-2 consumers, which never
+   have to null-check; no other production construction site exists.
+2. **Load seeding uses `onDomReady()` only**, not a separate `did-finish-load`
+   hook. Plan (line 82) offered the choice; the preload has no `did-finish-load`
+   seam and `onDomReady` already fires on every navigation, covering scroll
+   restore, so it stayed preload-side per the plan's "preload is simplest."
+3. **`resolveScrollTarget()` returns a non-null `Element`** (fallback chain
+   `elementFromPoint → scrollable ancestor → document.scrollingElement →
+   document.documentElement`). This makes the pre-existing `if (!target)`
+   no-scroll-target guard in the `dispatchScroll` handler unreachable. It was
+   already effectively dead before this change (`documentElement` is non-null),
+   so the guard was left untouched to keep the diff surgical and behavior
+   identical — flagged, not a regression.
+4. **Offset is rounded to integer CSS pixels** before dedupe/send
+   (`Math.round`), mirroring `annotation-bbox-tracker`, so sub-pixel jitter
+   doesn't spam IPC. Plan didn't specify; matches the sibling pattern.
+
+_Plan line references were otherwise accurate._
