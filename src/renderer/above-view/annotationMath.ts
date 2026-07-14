@@ -4,6 +4,7 @@ import type {
   AnnotationDrawing,
   AnnotationDrawingPoint,
   AnnotationDrawingStroke,
+  CanvasScenePageEntity,
   DevtoolsPanelDomRect,
   LayoutUpdateData,
 } from '../../shared/types'
@@ -12,7 +13,7 @@ import {
   canvasToScreenY,
   toOverlayY,
 } from '../../shared/gesture-utils'
-import { pageViewportToScreen } from '../../shared/page-space'
+import { pageDocumentToScreen, pageViewportToScreen } from '../../shared/page-space'
 
 
 export interface PendingAnnotation {
@@ -172,17 +173,35 @@ export function annotationScreenPos(
     }
   }
   if (anchor.type === 'region') {
-    const centerX = canvasToScreenX(
-      layout,
-      anchor.canvasRect.x + anchor.canvasRect.width / 2,
-    )
-    const bottom = canvasToScreenY(
-      layout,
-      anchor.canvasRect.y + anchor.canvasRect.height,
-    )
+    if (!('docRect' in anchor)) {
+      const centerX = canvasToScreenX(
+        layout,
+        anchor.canvasRect.x + anchor.canvasRect.width / 2,
+      )
+      const bottom = canvasToScreenY(
+        layout,
+        anchor.canvasRect.y + anchor.canvasRect.height,
+      )
+      return {
+        x: centerX,
+        y: toOverlayY(layout, bottom),
+        transform: 'translate(-50%, 0)',
+      }
+    }
+    // Page-anchored region: derive the thread anchor from the page-relative
+    // document rect so it scroll-follows, exactly like the region overlay.
+    const pageId = annotation.pageAnchor?.pageId
+    const page = pageId
+      ? layout.entities.find(
+          (entity): entity is CanvasScenePageEntity =>
+            entity.kind === 'page' && entity.id === pageId,
+        )
+      : undefined
+    if (!page) return null
+    const rect = pageDocumentToScreen(anchor.docRect, page, layout)
     return {
-      x: centerX,
-      y: toOverlayY(layout, bottom),
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height,
       transform: 'translate(-50%, 0)',
     }
   }

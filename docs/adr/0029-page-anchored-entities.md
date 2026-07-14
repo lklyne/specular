@@ -72,10 +72,13 @@ drag gesture lands in that gesture's single undo step.
 
 ## Out of scope (follow-ups)
 
-- **Scroll tracking.** Anchored items are pinned to the page frame, not to
-  document coordinates — they don't move when the page scrolls. Needs an
-  absolute scroll-offset broadcast per page (the current scroll-sync payload
-  carries progress ratios only), then a `docX/docY` variant of the anchor.
+- ~~**Scroll tracking.**~~ Landed for **region annotations** (the
+  `anchor.docRect` variant above; see `docs/plans/scroll-tracking.md`). A
+  per-page absolute scroll-offset broadcast (`page.scrollX/scrollY`) feeds the
+  `pageDocumentToScreen` transform. **Anchored entities** (stickies, drawings)
+  deliberately stay pinned to the page frame and do **not** scroll-follow —
+  `docRect` is an annotation concept only (see the scroll-tracking plan's
+  "entities stay in canvas space" resolution).
 - **Other kinds** (`shape`, `file`) — mechanical once wanted.
 - ~~**Region annotations as anchor consumers** (ADR 0006 alternative F).~~
   Resolved by the amendment below.
@@ -92,13 +95,14 @@ placement-decides applies to entities only):
 - **Element/page anchors** bind to their anchor page and the URL it shows.
 - **Region anchors split**: a region whose marquee grabbed page content
   (`regionComponents`/`regionElements` non-empty; first group wins when
-  several pages intersect) is page-anchored — it translates with page
-  drags/nudges (`translateAnnotationsAnchoredToPage` runs inside the
-  gesture's undo step), hides while the page is off its URL, and nests under
-  the page in the sidebar. A grab-less region is canvas-anchored: it marks
-  canvas space, never moves with pages, never hides. This resolves the
-  "region annotations as anchor consumers" follow-up (ADR 0006 alt F's
-  spirit, without a new anchor variant).
+  several pages intersect) is page-anchored — it stores its rect in the
+  page's *document* space (`anchor.docRect`, page CSS px), so it travels with
+  page drags/nudges **and scroll-follows** for free (the transform moves it;
+  no anchor translation), hides while the page is off its URL, and nests
+  under the page in the sidebar. A grab-less region is canvas-anchored: it
+  stores `anchor.canvasRect`, marks canvas space, never moves with pages,
+  never hides. This resolves the "region annotations as anchor consumers"
+  follow-up (ADR 0006 alt F's spirit, without a new anchor variant).
 - **Canvas points** never bind.
 
 `pageAnchor` is the **only** page-binding read — the legacy

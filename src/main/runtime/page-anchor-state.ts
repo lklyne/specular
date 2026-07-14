@@ -4,7 +4,9 @@
  *
  * - resolving an entity's anchor from where it sits (creation, drag end)
  * - expanding drag/nudge id sets so anchored entities travel with their page
- * - translating page-anchored region annotations when their page moves
+ * - converting a region marquee's canvas rect into the page-relative document
+ *   rect stored on page-anchored regions, and back to canvas space for
+ *   main-side consumers (region↔page geometry lives here)
  * - clearing anchors when their page is deleted
  *
  * The document-binding gate (hide while the page shows a different URL)
@@ -21,6 +23,7 @@ import {
   type PageAnchor,
   type PageAnchorTarget,
 } from '../../shared/page-anchor'
+import type { Annotation, WorkspaceBounds } from '../../shared/types'
 import { pages } from './runtime-context'
 import { pageBodyCanvasBounds } from './runtime-geometry'
 import { textEntities } from './text-entity-state'
@@ -123,32 +126,54 @@ export function withPageAnchoredEntityIds(ids: string[]): string[] {
 }
 
 /**
- * Translate the rects of region annotations anchored to a page by the page's
- * applied movement delta. Regions aren't entities, so they can't join the
- * drag/nudge id set — instead the two movement paths (the drag tick in
- * `applyDragDelta` and the keyboard nudge) call this per moved page. Runs
- * inside the caller's gesture session / `mutateWorkspace` transaction, so
- * the translate lands in the same single undo step as the page move and
- * forward-syncs to the Y.Doc annotations map with it.
+ * Convert a region marquee's canvas rect into the page-relative document rect
+ * stored on a page-anchored region. A page body occupies canvas space 1:1 with
+ * its own CSS pixels at this layer (region-select already treats them so), so
+ * the only terms are the page body's canvas origin and its current scroll
+ * offset: `docRect = canvasRect - pageBodyOrigin + scroll`. Returns null if the
+ * page is gone (caller keeps the canvasRect anchor — a defensive fallback; the
+ * page id came from a live grab, so this shouldn't happen).
  */
-export function translateAnnotationsAnchoredToPage(
+export function canvasRectToPageDocRect(
+  canvasRect: WorkspaceBounds,
   pageId: string,
-  dx: number,
-  dy: number,
-): void {
-  if (dx === 0 && dy === 0) return
-  let changed = false
-  for (const annotation of workspaceAnnotations) {
-    if (annotation.pageAnchor?.pageId !== pageId) continue
-    if (annotation.anchor.type !== 'region') continue
-    const rect = annotation.anchor.canvasRect
-    annotation.anchor = {
-      ...annotation.anchor,
-      canvasRect: { ...rect, x: rect.x + dx, y: rect.y + dy },
-    }
-    changed = true
+): WorkspaceBounds | null {
+  const page = pages.find((candidate) => candidate.id === pageId)
+  if (!page) return null
+  const body = pageBodyCanvasBounds(page)
+  return {
+    x: canvasRect.x - body.x + (page.scrollX ?? 0),
+    y: canvasRect.y - body.y + (page.scrollY ?? 0),
+    width: canvasRect.width,
+    height: canvasRect.height,
   }
-  if (changed) markDirty('canvas')
+}
+
+/**
+ * The current canvas rect of a region annotation, for main-side consumers
+ * (focus/zoom bounds, presence cursor) that need where the region sits on the
+ * surface right now. A canvas-anchored region returns its stored `canvasRect`
+ * unchanged. A page-anchored region's `docRect` is inverted through its page's
+ * body origin and live scroll offset, so it tracks the page as it moves and
+ * scrolls. Null when the page a `docRect` names is gone.
+ */
+export function regionCanvasRect(
+  annotation: Pick<Annotation, 'anchor' | 'pageAnchor'>,
+): WorkspaceBounds | null {
+  const anchor = annotation.anchor
+  if (anchor.type !== 'region') return null
+  if (!('docRect' in anchor)) return anchor.canvasRect
+  const pageId = annotation.pageAnchor?.pageId
+  if (!pageId) return null
+  const page = pages.find((candidate) => candidate.id === pageId)
+  if (!page) return null
+  const body = pageBodyCanvasBounds(page)
+  return {
+    x: body.x + anchor.docRect.x - (page.scrollX ?? 0),
+    y: body.y + anchor.docRect.y - (page.scrollY ?? 0),
+    width: anchor.docRect.width,
+    height: anchor.docRect.height,
+  }
 }
 
 /** Anchors referencing a deleted page are cleared — the item goes canvas-bound. */

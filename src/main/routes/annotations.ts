@@ -1,5 +1,6 @@
 import type { Route } from './types'
-import type { AnnotationAnchor, AnnotationStatusFilter } from '../../shared/types'
+import type { Annotation, AnnotationAnchor, AnnotationStatusFilter } from '../../shared/types'
+import { regionCanvasRect } from '../runtime/page-anchor-state'
 import {
   addAnnotationReply,
   createAnnotation,
@@ -16,18 +17,21 @@ import { findEntityPosition, movePresenceCursorTo } from '../presence-cursor'
 import { writeJson } from './http-helpers'
 import type { IncomingMessage } from 'http'
 
-/** Resolve an annotation's anchor to a canvas position. Returns null for
- * page/element anchors where the page can't be found; those are rare
- * enough that a silent miss is fine. */
+/** Resolve an annotation's anchor to a canvas position. Takes the annotation
+ * (not just its anchor) so a page-anchored region's document rect can be
+ * resolved to its current canvas position via `regionCanvasRect`. Returns null
+ * for page/element anchors where the page can't be found (and for a docRect
+ * region whose page is gone); those are rare enough that a silent miss is
+ * fine. */
 function annotationAnchorPosition(
-  anchor: AnnotationAnchor,
+  annotation: Pick<Annotation, 'anchor' | 'pageAnchor'>,
 ): { x: number; y: number } | null {
+  const anchor = annotation.anchor
   if (anchor.type === 'canvas') return { x: anchor.canvasX, y: anchor.canvasY }
   if (anchor.type === 'region') {
-    return {
-      x: anchor.canvasRect.x + anchor.canvasRect.width / 2,
-      y: anchor.canvasRect.y + anchor.canvasRect.height / 2,
-    }
+    const rect = regionCanvasRect(annotation)
+    if (!rect) return null
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
   }
   if (anchor.type === 'page' || anchor.type === 'element') {
     return findEntityPosition(anchor.pageId)
@@ -38,7 +42,7 @@ function annotationAnchorPosition(
 function moveCursorToAnnotation(request: IncomingMessage, id: string): void {
   const annotation = getAnnotationById(id)
   if (!annotation) return
-  const pos = annotationAnchorPosition(annotation.anchor)
+  const pos = annotationAnchorPosition(annotation)
   if (pos) movePresenceCursorTo(request, pos.x, pos.y, null)
 }
 
@@ -90,7 +94,9 @@ export const annotationRoutes: Route[] = [
         writeJson(response, 400, { error: 'anchor and text are required' })
         return
       }
-      const pos = annotationAnchorPosition(payload.anchor as AnnotationAnchor)
+      // Pre-creation: the request carries the raw region canvasRect (the
+      // marquee), so resolving the cursor position from it directly is right.
+      const pos = annotationAnchorPosition({ anchor: payload.anchor as AnnotationAnchor })
       if (pos) movePresenceCursorTo(request, pos.x, pos.y, null)
       writeJson(
         response,

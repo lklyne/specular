@@ -1707,7 +1707,15 @@ export type AnnotationAnchor =
   | { type: 'canvas'; canvasX: number; canvasY: number }
   | { type: 'page'; pageId: string; offsetX: number; offsetY: number }
   | { type: 'element'; pageId: string; selector: string; elementPath?: string; boundingBox?: DevtoolsPanelDomRect }
+  // Region annotations split by the grab rule. A grab-less marquee marks
+  // canvas space and stores `canvasRect`; a marquee that grabbed page content
+  // is page-anchored and stores `docRect` in the page's document CSS pixels,
+  // relative to the page named by `Annotation.pageAnchor` (ADR 0029 — the
+  // pageAnchor is the single source of truth for which page). A region
+  // without `docRect` (all existing files) is canvas-anchored, full stop.
+  // Narrow the two arms with `'docRect' in anchor` after `type === 'region'`.
   | { type: 'region'; canvasRect: WorkspaceBounds }
+  | { type: 'region'; docRect: WorkspaceBounds }
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
 export type AnnotationStatusFilter = AnnotationStatus | 'unresolved' | 'all'

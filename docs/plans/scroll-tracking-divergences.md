@@ -7,9 +7,10 @@ Each entry: what the plan said, what we did instead, and why.
 
 - [x] Phase 1 — Broadcast the page's absolute scroll offset
 - [x] Phase 2 — The transform learns about scroll
-- [ ] Phase 3 — The document-anchored region variant
+- [x] Phase 3 — The document-anchored region variant
 - [ ] Phase 4 — Clicking a comment scrolls its page to it
-- [ ] Docs — ADR 0029 amend, CONTEXT.md, file-formats.md
+- [~] Docs — ADR 0029 amended, CONTEXT.md updated (Phase 3). file-formats.md
+  `docRect` shape still owed (defer to the docs pass with Phase 4).
 
 ## Environment / verification baseline (pre-change)
 
@@ -70,3 +71,51 @@ _Plan line references were otherwise accurate._
    transform), so pre-existing `pageViewportToScreen` callers — which only ever
    hold viewport-space rects — are untouched. `CanvasScenePageEntity`
    (scroll fields required since Phase 1) satisfies it structurally.
+
+### Phase 3
+
+1. **No `pageId` in the region anchor (contra plan line 137's sketch).** The
+   plan sketched the page-anchored arm as `{ type:'region'; docRect; pageAnchor:… }`.
+   Per ADR 0029's Amendment, `Annotation.pageAnchor.pageId` is the single
+   page-binding read, so storing a page id (or a whole pageAnchor) inside the
+   anchor would duplicate it and invite divergence. The two arms are therefore
+   `{ type:'region'; canvasRect }` and `{ type:'region'; docRect }`, narrowed by
+   `'docRect' in anchor`; the docRect's page is `annotation.pageAnchor.pageId`.
+   The plan's line-137 `pageAnchor:` was a conceptual note, confirmed.
+2. **`regionCanvasRect(annotation)` runtime helper — plan didn't name it.** The
+   plan named `canvasRectToPageDocRect` (creation-side) but left the inverse
+   unnamed. Added `regionCanvasRect` in `page-anchor-state.ts` for main-side
+   consumers needing a docRect region's *current* canvas rect (tracks page move
+   + scroll): canvasRect variant returns as-is, docRect variant inverts through
+   the live page body + scroll, null if the page is gone. Its param is widened
+   to `Pick<Annotation, 'anchor' | 'pageAnchor'>` so the HTTP create path (no
+   full annotation yet) can reuse it.
+3. **Consumers touched beyond the plan's enumerated list (D1–D5):**
+   - `src/main/agent-fix/prompt-builder.ts` (region prompt line) — reads the
+     region rect in canvas coords; switched to `regionCanvasRect`. The union
+     split surfaced it in the node typecheck; the plan's D-list missed it.
+   - `src/main/routes/annotations.ts` POST handler passes a synthetic
+     `{ anchor }` (no full annotation exists pre-creation) to the now
+     annotation-taking `annotationAnchorPosition`; the region canvasRect it
+     carries is the marquee, so the cursor lands correctly.
+4. **Conversion co-located in a `anchoredRequestAnchor` helper**, called from
+   `createAnnotationInternal` right after `anchorPageId`/`pageAnchor` are
+   computed (same `anchorPageId` gate feeds both), guaranteeing docRect and
+   pageAnchor are written together and cannot diverge. `region-select.ts` still
+   passes `{ type:'region', canvasRect }` — converted through the one gate.
+5. **Two unit suites needed an electron-free stub** (`workspace-annotations.test.ts`,
+   `prompt-builder.test.ts`): both now transitively import `page-anchor-state`
+   (which imports `runtime-context` → electron), so each `vi.mock`s
+   `page-anchor-state`. The real conversion is covered by the integration suite.
+   No behavior change — restores the pre-Phase-3 unit baseline (only the 5
+   electron-blocked suites fail).
+6. **Renderer clip/edge-fade modeled, not shared.** `AnnotationsLayer.tsx` gets
+   a local `regionContentOpacity` mirroring `CommentBadgesLayer`'s private
+   `badgeOpacity` (same content-frame overflow math, `REGION_FADE_MARGIN=48`),
+   rather than exporting the badge helper — the plan said "reuse/model". Inline
+   opacity is applied only while a page-anchored region is fading (opacity < 1)
+   so a fully-visible region keeps its class-based `opacity-50 hover:opacity-100`.
+7. **`translateAnnotationsAnchoredToPage` deleted** along with both call sites
+   (`applyDragDelta`, `nudgeSelection` in `document-commands.ts`) and its import.
+   Grep confirms no remaining callers in `src/`. A docRect is page-relative, so
+   drag/nudge move it via the transform — no anchor translation.

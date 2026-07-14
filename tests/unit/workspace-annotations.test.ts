@@ -28,6 +28,14 @@ vi.mock('../../src/main/runtime/workspace-model', () => ({
   workspaceAnnotations: mockAnnotations,
 }))
 
+// The docRect conversion is exercised end-to-end against the real runtime in
+// tests/integration/annotation-page-anchor.test.ts. Here we only need the
+// symbol to resolve without dragging in the electron-touching runtime; the
+// stub echoes the rect so a grabbed region still lands as a docRect variant.
+vi.mock('../../src/main/runtime/page-anchor-state', () => ({
+  canvasRectToPageDocRect: vi.fn((rect: unknown) => ({ ...(rect as object) })),
+}))
+
 vi.mock('../../src/main/runtime/page-runtime', () => ({
   findPageById: vi.fn((pageId: string) =>
     pageId === 'page-live'

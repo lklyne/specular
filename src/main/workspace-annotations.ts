@@ -1,5 +1,6 @@
 import type {
   Annotation,
+  AnnotationAnchor,
   AnnotationCreateRequest,
   AnnotationMetadata,
   AnnotationReply,
@@ -13,6 +14,7 @@ import {
   getComponentAncestryByNodeId,
   getComponentSourceLocationByNodeId,
 } from './runtime/page-runtime'
+import { canvasRectToPageDocRect } from './runtime/page-anchor-state'
 import { markDirty } from './runtime/layout-dirty'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { workspaceAnnotations } from './runtime/workspace-model'
@@ -48,6 +50,26 @@ function annotationAnchorPageId(request: AnnotationCreateRequest): string | unde
     return grabbed?.pageId
   }
   return undefined
+}
+
+/**
+ * The anchor to store, given the page (if any) a region grabbed. A grabbed
+ * region's canvas rect is converted to the page's document space so it
+ * scroll-follows and travels with the page without any per-move bookkeeping;
+ * `pageAnchor.pageId` (the same `anchorPageId`) is the page the docRect is
+ * relative to, so docRect and pageAnchor are written together and cannot
+ * diverge. Every other anchor (canvas-anchored region, element, page, canvas)
+ * passes through unchanged.
+ */
+function anchoredRequestAnchor(
+  anchor: AnnotationAnchor,
+  anchorPageId: string | undefined,
+): AnnotationAnchor {
+  if (anchor.type !== 'region' || !('canvasRect' in anchor) || !anchorPageId) {
+    return anchor
+  }
+  const docRect = canvasRectToPageDocRect(anchor.canvasRect, anchorPageId)
+  return docRect ? { type: 'region', docRect } : anchor
 }
 
 /** The anchor for a live page: its id plus the document URL it shows now. */
@@ -159,6 +181,12 @@ function createAnnotationInternal(request: AnnotationCreateRequest): Annotation 
       : undefined
   const anchorPageId = annotationAnchorPageId(request)
   const pageAnchor = anchorPageId ? pageAnchorForPage(anchorPageId) : undefined
+  // Grab decision and the docRect conversion are co-located so a region can
+  // never end up page-anchored-with-canvasRect (or the reverse): a grabbed
+  // region (anchorPageId set) stores its rect page-relative; every other
+  // region keeps the incoming canvasRect. This is the one gate all creation
+  // paths (region-select UI, MCP, HTTP, tests) pass through.
+  const anchor = anchoredRequestAnchor(request.anchor, anchorPageId)
   const metadata = withInspectEnrichment(
     request,
     withPageNameMetadata(
@@ -168,7 +196,7 @@ function createAnnotationInternal(request: AnnotationCreateRequest): Annotation 
   )
   const annotation: Annotation = {
     id: makeId('ann'),
-    anchor: request.anchor,
+    anchor,
     author: request.author ?? 'user',
     text: request.text,
     status: 'pending',

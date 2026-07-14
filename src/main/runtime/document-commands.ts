@@ -54,7 +54,6 @@ import { markDirty } from './layout-dirty'
 import { mutateWorkspace } from './mutate-workspace'
 import {
   reanchorEntityById,
-  translateAnnotationsAnchoredToPage,
   withPageAnchoredEntityIds,
 } from './page-anchor-state'
 import { pages } from './page-runtime'
@@ -381,9 +380,6 @@ export function applyDragDelta(
     acc.appliedX = next.x
     acc.appliedY = next.y
     shiftDrawingStrokes(id, entity.canvasX - prevX, entity.canvasY - prevY)
-    // Region annotations anchored to a dragged page travel in lockstep with
-    // it, by the page's applied (snapped) delta. No-op for non-page ids.
-    translateAnnotationsAnchoredToPage(id, entity.canvasX - prevX, entity.canvasY - prevY)
   }
   if (entityIds.length) {
     const draggedRects = activeDraggedGuideIds
@@ -438,10 +434,6 @@ export function nudgeSelection(dx: number, dy: number): void {
         const entity = findMovableEntity(id)
         return entity ? moveEntityTo(id, entity.canvasX + dx, entity.canvasY + dy) : false
       })
-      // Region annotations anchored to a nudged page travel by the same exact
-      // delta, inside this same transaction (one undo step). No-op for
-      // non-page ids.
-      for (const id of movedIds) translateAnnotationsAnchoredToPage(id, dx, dy)
       for (const id of selectedIds) reanchorEntityById(id)
       return movedIds
     },

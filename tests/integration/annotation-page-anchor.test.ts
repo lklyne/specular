@@ -2,36 +2,43 @@
  * Page-anchored annotations (`Annotation.pageAnchor`, shared/page-anchor.ts)
  * against the real runtime, in-process. Regions split at creation with no
  * mode: a marquee that grabbed page content (non-empty regionComponents/
- * regionElements) binds to the grab's page — it travels with page drags and
- * nudges, hides while the page is off its anchor URL, nests under the page
- * in the sidebar, and persists the anchor to disk. A grab-less region is
- * canvas-anchored: it never moves with pages and never hides. Annotations
- * from older files without a `pageAnchor` (even ones carrying the retired
- * `metadata.pageUrl`) load fine and behave as canvas-bound.
+ * regionElements) binds to the grab's page and stores its rect in that page's
+ * *document* space (`anchor.docRect`) — so it scroll-follows and travels with
+ * page drags for free (the transform moves; nothing translates the anchor),
+ * hides while the page is off its anchor URL, nests under the page in the
+ * sidebar, and persists the anchor to disk. A grab-less region is
+ * canvas-anchored: it stores `canvasRect`, never moves with pages, never
+ * hides. Annotations from older files without a `pageAnchor` (even ones
+ * carrying the retired `metadata.pageUrl`) load fine and behave as
+ * canvas-bound, keeping their `canvasRect`.
  *
  * Mutation-verified by:
+ * - making `anchoredRequestAnchor` return the incoming anchor unchanged
+ *   (skip the canvasRect→docRect conversion) in `createAnnotationInternal`
+ *   (workspace-annotations.ts) — the docRect-on-creation, scroll-follow, and
+ *   drag-tracking cases fail (the region stays a `canvasRect` variant);
+ * - dropping the `- (page.scrollY ?? 0)` term in `regionCanvasRect`
+ *   (page-anchor-state.ts) — the scroll-follow case fails;
+ * - freezing `regionCanvasRect`'s `body.x` to the creation origin instead of
+ *   the live `pageBodyCanvasBounds(page)` — the drag-tracking case fails;
  * - removing the `...(pageAnchor ? { pageAnchor } : {})` spread in
- *   `createAnnotationInternal` (workspace-annotations.ts) — the grab-rule,
- *   persistence, travel, and sidebar cases fail;
- * - removing the `translateAnnotationsAnchoredToPage` call in
- *   `applyDragDelta` (document-commands.ts) — the drag-travel and one-undo-
- *   step cases fail;
- * - removing the `translateAnnotationsAnchoredToPage` call in
- *   `nudgeSelection` (document-commands.ts) — the nudge case fails;
- * - moving the drag translate out of the gesture session (calling it after
- *   `dragSession?.finalize()` in `finalizeDrag` with its own autosave) — the
- *   single-transaction and one-undo-step assertions fail;
+ *   `createAnnotationInternal` — the grab-rule, persistence, and sidebar
+ *   cases fail;
  * - replacing the `hiddenByPageAnchor` annotations filter in
  *   `buildCanvasLayoutData` (canvas-layout-data.ts) with
  *   `[...workspaceAnnotations]` — the navigation cases fail;
  * - dropping the annotations half of `sidebarPageChildren`
  *   (sidebar-builder.ts) — the sidebar-nesting case fails.
+ *
+ * `translateAnnotationsAnchoredToPage` is gone: a docRect is page-relative, so
+ * page drag/nudge no longer touches the anchor. The single-undo-step guarantee
+ * now rides the page move alone (gesture batching).
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import type { JsonCanvasLinkNode } from '../../src/shared/json-canvas-types'
-import type { Annotation } from '../../src/shared/types'
+import type { Annotation, WorkspaceBounds } from '../../src/shared/types'
 import { createAnnotation } from '../../src/main/workspace-annotations'
 import {
   applyDragDelta,
@@ -39,6 +46,7 @@ import {
   initializeDrag,
   nudgeSelection,
 } from '../../src/main/runtime/document-commands'
+import { regionCanvasRect } from '../../src/main/runtime/page-anchor-state'
 import { getCanvasLayoutData, getLeftSidebarData } from '../../src/main/runtime/canvas-layout-data'
 import { workspaceAnnotations } from '../../src/main/runtime/workspace-model'
 import { pages } from '../../src/main/runtime/runtime-context'
@@ -74,7 +82,11 @@ function loadHostPage(): void {
   })
 }
 
-/** A region annotation whose marquee grabbed content from the host page. */
+/**
+ * A region annotation whose marquee grabbed content from the host page. The
+ * marquee is at canvas x140/y140 w80/h60; the page body sits at canvas
+ * x120/y120 with scroll 0, so the stored docRect is x20/y20/w80/h60.
+ */
 function createGrabbedRegion(): Annotation {
   return createAnnotation({
     anchor: { type: 'region', canvasRect: { x: 140, y: 140, width: 80, height: 60 } },
@@ -99,10 +111,25 @@ function liveAnnotation(id: string): Annotation | undefined {
   return workspaceAnnotations.find((candidate) => candidate.id === id)
 }
 
-function regionRect(id: string): { x: number; y: number } {
+/** The page-relative document rect of a page-anchored region. Throws for a
+ *  canvas-anchored region — the split is the whole point. */
+function regionDocRect(id: string): WorkspaceBounds {
   const annotation = liveAnnotation(id)
-  if (annotation?.anchor.type !== 'region') throw new Error(`not a region: ${id}`)
-  return { x: annotation.anchor.canvasRect.x, y: annotation.anchor.canvasRect.y }
+  if (annotation?.anchor.type !== 'region' || !('docRect' in annotation.anchor)) {
+    throw new Error(`not a page-anchored region: ${id}`)
+  }
+  return annotation.anchor.docRect
+}
+
+/** Where a region sits on the canvas *now* — canvasRect as-is for
+ *  canvas-anchored, the docRect inverted through the live page for
+ *  page-anchored. Mirrors what main-side consumers read. */
+function regionCanvasXY(id: string): { x: number; y: number } {
+  const annotation = liveAnnotation(id)
+  if (!annotation) throw new Error(`missing annotation: ${id}`)
+  const rect = regionCanvasRect(annotation)
+  if (!rect) throw new Error(`no canvas rect for region: ${id}`)
+  return { x: rect.x, y: rect.y }
 }
 
 /** Count Y.Doc afterTransaction events during `fn` + the settled sync. */
@@ -130,9 +157,12 @@ describe('page-anchored region annotations', () => {
 
   afterAll(() => harness?.dispose())
 
-  it('binds a grabbed region to the grab page and persists the anchor to doc and disk', async () => {
+  it('stores a grabbed region as a page-relative docRect and binds it to the grab page; persists both to doc and disk', async () => {
     loadHostPage()
     const region = createGrabbedRegion()
+    // The canvas marquee is converted to the page's document space at creation.
+    expect('docRect' in region.anchor).toBe(true)
+    expect(regionDocRect(region.id)).toEqual({ x: 20, y: 20, width: 80, height: 60 })
     expect(region.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
     // The retired metadata binding is not written.
     expect(region.metadata?.pageUrl).toBeUndefined()
@@ -141,12 +171,21 @@ describe('page-anchored region annotations', () => {
     const docRecord = harness.doc.getMap('annotations').get(region.id) as
       | { toJSON(): Record<string, unknown> }
       | undefined
-    expect(docRecord?.toJSON().pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    const docJson = docRecord?.toJSON()
+    expect(docJson?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(docJson?.anchor).toEqual({
+      type: 'region',
+      docRect: { x: 20, y: 20, width: 80, height: 60 },
+    })
 
     const diskRecord = (harness.diskDoc()?.annotations as Annotation[] | undefined)?.find(
       (candidate) => candidate.id === region.id,
     )
     expect(diskRecord?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(diskRecord?.anchor).toEqual({
+      type: 'region',
+      docRect: { x: 20, y: 20, width: 80, height: 60 },
+    })
   })
 
   it('does not bind a region that intersected a page but grabbed nothing', () => {
@@ -164,33 +203,38 @@ describe('page-anchored region annotations', () => {
       },
     })
     expect(region.pageAnchor).toBeUndefined()
+    // No grab → keeps its canvas rect, no docRect.
+    expect(region.anchor.type === 'region' && 'canvasRect' in region.anchor).toBe(true)
   })
 
-  it('leaves a grab-less region canvas-anchored: no pageAnchor, never hidden, stays put on page drag', async () => {
+  it('scroll-follows: the region tracks page scroll while its stored docRect is unchanged', async () => {
     loadHostPage()
-    const region = createGrablessRegion()
-    expect(region.pageAnchor).toBeUndefined()
+    const region = createGrabbedRegion()
     await settleSync()
 
-    initializeDrag([PAGE_ID])
-    applyDragDelta([PAGE_ID], 240, 0)
-    finalizeDrag()
-    await settleSync()
-    expect(regionRect(region.id)).toEqual({ x: 900, y: 900 })
+    // Before scroll the region sits at its marquee canvas position.
+    expect(regionCanvasXY(region.id)).toEqual({ x: 140, y: 140 })
 
     const page = pages.find((candidate) => candidate.id === PAGE_ID)!
-    page.url = 'https://example.com/elsewhere'
-    expect(getCanvasLayoutData().annotations.map((a) => a.id)).toContain(region.id)
+    page.scrollY = 200
+    // The document rect is scroll-independent; the canvas position moves up by
+    // the scroll delta (transform-side), so nothing rewrote the anchor.
+    expect(regionDocRect(region.id)).toEqual({ x: 20, y: 20, width: 80, height: 60 })
+    expect(regionCanvasXY(region.id)).toEqual({ x: 140, y: 140 - 200 })
+
+    page.scrollY = 0
+    expect(regionCanvasXY(region.id)).toEqual({ x: 140, y: 140 })
   })
 
-  it('translates a grabbed region with its page drag, as one Y.Doc transaction and one undo step', async () => {
+  it('travels with its page drag without rewriting docRect: one Y.Doc transaction, one undo step', async () => {
     loadHostPage()
     const region = createGrabbedRegion()
     await settleSync()
 
     const page = pages.find((candidate) => candidate.id === PAGE_ID)!
     const pageStartX = page.canvasX
-    const rectStart = regionRect(region.id)
+    const docBefore = regionDocRect(region.id)
+    const canvasBefore = regionCanvasXY(region.id)
 
     const transactions = await observeTransactions(() => {
       initializeDrag([PAGE_ID])
@@ -198,28 +242,31 @@ describe('page-anchored region annotations', () => {
       applyDragDelta([PAGE_ID], 100, -60)
       finalizeDrag()
     })
-    // The whole gesture — page move + region translate — is one forward-sync
-    // transaction (gesture batching), hence one undo step.
+    // Only the page moves — the docRect is page-relative, so the whole gesture
+    // is one forward-sync transaction (gesture batching), hence one undo step.
     expect(transactions).toBe(1)
 
-    const pageDelta = page.canvasX - pageStartX
-    expect(pageDelta).toBe(240)
-    expect(regionRect(region.id)).toEqual({ x: rectStart.x + 240, y: rectStart.y })
+    expect(page.canvasX - pageStartX).toBe(240)
+    // Anchor untouched; canvas position tracks the page.
+    expect(regionDocRect(region.id)).toEqual(docBefore)
+    expect(regionCanvasXY(region.id)).toEqual({ x: canvasBefore.x + 240, y: canvasBefore.y })
 
     undo()
     expect(pages.find((candidate) => candidate.id === PAGE_ID)!.canvasX).toBe(pageStartX)
-    expect(regionRect(region.id)).toEqual(rectStart)
+    expect(regionDocRect(region.id)).toEqual(docBefore)
+    expect(regionCanvasXY(region.id)).toEqual(canvasBefore)
 
     redo()
     expect(pages.find((candidate) => candidate.id === PAGE_ID)!.canvasX).toBe(pageStartX + 240)
-    expect(regionRect(region.id)).toEqual({ x: rectStart.x + 240, y: rectStart.y })
+    expect(regionCanvasXY(region.id)).toEqual({ x: canvasBefore.x + 240, y: canvasBefore.y })
   })
 
-  it('translates a grabbed region with a keyboard nudge of its page', async () => {
+  it('travels with a keyboard nudge of its page without rewriting docRect', async () => {
     loadHostPage()
     const region = createGrabbedRegion()
     await settleSync()
-    const rectStart = regionRect(region.id)
+    const docBefore = regionDocRect(region.id)
+    const canvasBefore = regionCanvasXY(region.id)
     const page = pages.find((candidate) => candidate.id === PAGE_ID)!
     const pageStartX = page.canvasX
 
@@ -228,12 +275,35 @@ describe('page-anchored region annotations', () => {
     await settleSync()
 
     expect(page.canvasX).toBe(pageStartX + 5)
-    expect(regionRect(region.id)).toEqual({ x: rectStart.x + 5, y: rectStart.y - 7 })
+    expect(regionDocRect(region.id)).toEqual(docBefore)
+    expect(regionCanvasXY(region.id)).toEqual({ x: canvasBefore.x + 5, y: canvasBefore.y - 7 })
 
-    // The nudge — page + region — round-trips as one undo step.
+    // The nudge round-trips as one undo step (the page move alone).
     undo()
     expect(page.canvasX).toBe(pageStartX)
-    expect(regionRect(region.id)).toEqual(rectStart)
+    expect(regionCanvasXY(region.id)).toEqual(canvasBefore)
+  })
+
+  it('leaves a grab-less region canvas-anchored: keeps canvasRect, ignores scroll and page drag', async () => {
+    loadHostPage()
+    const region = createGrablessRegion()
+    expect(region.pageAnchor).toBeUndefined()
+    expect(region.anchor.type === 'region' && 'canvasRect' in region.anchor).toBe(true)
+    await settleSync()
+
+    const page = pages.find((candidate) => candidate.id === PAGE_ID)!
+    page.scrollY = 300
+    expect(regionCanvasXY(region.id)).toEqual({ x: 900, y: 900 })
+    page.scrollY = 0
+
+    initializeDrag([PAGE_ID])
+    applyDragDelta([PAGE_ID], 240, 0)
+    finalizeDrag()
+    await settleSync()
+    expect(regionCanvasXY(region.id)).toEqual({ x: 900, y: 900 })
+
+    page.url = 'https://example.com/elsewhere'
+    expect(getCanvasLayoutData().annotations.map((a) => a.id)).toContain(region.id)
   })
 
   it('drops a grabbed region from the layout payload while the page is off its URL, restores it on return', async () => {
@@ -252,7 +322,7 @@ describe('page-anchored region annotations', () => {
     expect(payloadIds()).toContain(region.id)
   })
 
-  it('nests a grabbed region under its page in the sidebar; canvas-anchored and legacy ones stay out', async () => {
+  it('nests a grabbed region under its page in the sidebar; canvas-anchored ones stay out', async () => {
     loadHostPage()
     const grabbed = createGrabbedRegion()
     const grabless = createGrablessRegion()
@@ -293,6 +363,8 @@ describe('page-anchored region annotations', () => {
     const loaded = liveAnnotation('ann-legacy')
     expect(loaded).toBeDefined()
     expect(loaded?.pageAnchor).toBeUndefined()
+    // Loads with its canvasRect intact — no migration to docRect.
+    expect(loaded?.anchor.type === 'region' && 'canvasRect' in loaded.anchor).toBe(true)
 
     // Never hides — the legacy metadata URL is not a binding.
     const page = pages.find((candidate) => candidate.id === PAGE_ID)!
@@ -311,6 +383,6 @@ describe('page-anchored region annotations', () => {
     applyDragDelta([PAGE_ID], 240, 0)
     finalizeDrag()
     await settleSync()
-    expect(regionRect('ann-legacy')).toEqual({ x: 150, y: 150 })
+    expect(regionCanvasXY('ann-legacy')).toEqual({ x: 150, y: 150 })
   })
 })

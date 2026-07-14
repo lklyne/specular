@@ -13,6 +13,7 @@ import {
   handlePageIpcResponse,
   handleNodeDetailResponse,
 } from '../runtime/page-runtime'
+import { regionCanvasRect } from '../runtime/page-anchor-state'
 import { getZoom, setPendingFocus } from '../runtime/runtime-context'
 import { requestLayout, setZoom } from '../runtime/viewport-control'
 import {
@@ -47,7 +48,9 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
         height: POINT_FOCUS_SIZE,
       }
     case 'region':
-      return anchor.canvasRect
+      // A page-anchored region stores a document rect; resolve it to where the
+      // region sits on the canvas right now (tracks page move + scroll).
+      return regionCanvasRect(annotation)
     case 'element': {
       const page = findPageById(anchor.pageId)
       if (!page) return null
