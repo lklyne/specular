@@ -6,7 +6,7 @@ Each entry: what the plan said, what we did instead, and why.
 ## Status
 
 - [x] Phase 1 — Broadcast the page's absolute scroll offset
-- [ ] Phase 2 — The transform learns about scroll
+- [x] Phase 2 — The transform learns about scroll
 - [ ] Phase 3 — The document-anchored region variant
 - [ ] Phase 4 — Clicking a comment scrolls its page to it
 - [ ] Docs — ADR 0029 amend, CONTEXT.md, file-formats.md
@@ -52,3 +52,15 @@ Each entry: what the plan said, what we did instead, and why.
    doesn't spam IPC. Plan didn't specify; matches the sibling pattern.
 
 _Plan line references were otherwise accurate._
+
+### Phase 2
+
+1. **`pageDocumentToScreen` takes a `frame: PageFrameKind = 'content'` param**
+   the plan's pseudocode (line 114) omitted. Added so document-anchored callers
+   can select the content vs entity (device-shell) frame exactly like
+   `pageViewportToScreen` callers — otherwise a page-anchored popover in the
+   device-shell case couldn't target the content frame. Passes straight through.
+2. **`PageScreenFrame.scrollX/scrollY` are optional** (default-0 in the
+   transform), so pre-existing `pageViewportToScreen` callers — which only ever
+   hold viewport-space rects — are untouched. `CanvasScenePageEntity`
+   (scroll fields required since Phase 1) satisfies it structurally.

@@ -30,6 +30,14 @@ export interface PageScreenFrame {
   contentScreenY?: number
   contentScreenWidth?: number
   contentScreenHeight?: number
+  /**
+   * Page-viewport scroll offset, in page CSS pixels. Optional so callers of
+   * `pageViewportToScreen` that only ever hold viewport-space rects (and
+   * broadcasts that predate scroll tracking) keep working unchanged;
+   * `pageDocumentToScreen` treats a missing value as zero scroll.
+   */
+  scrollX?: number
+  scrollY?: number
 }
 
 /**
@@ -69,4 +77,32 @@ export function pageViewportToScreen(
     width: rect.width * scaleX,
     height: rect.height * scaleY,
   }
+}
+
+/**
+ * Map a page-*document* rect to where it renders on screen. A document rect
+ * lives in the page's full-document CSS pixel space (e.g. a stored
+ * annotation anchor) rather than the current viewport — document coords
+ * minus the page's scroll offset *are* viewport coords, so this composes
+ * with `pageViewportToScreen` by subtracting scroll before delegating. This
+ * is the one place that subtraction happens; do not re-derive it at call
+ * sites.
+ *
+ * Callers holding a live DOM rect (element anchors, inspect popovers, hover
+ * overlay) are already in viewport space and must call `pageViewportToScreen`
+ * directly — subtracting scroll again would double-count it. Callers holding
+ * a rect stored in document space (a persisted anchor) belong here.
+ */
+export function pageDocumentToScreen(
+  rect: PageViewportRect,
+  page: PageScreenFrame,
+  layout: Pick<LayoutUpdateData, 'canvasOrigin'>,
+  frame: PageFrameKind = 'content',
+): PageScreenRect {
+  return pageViewportToScreen(
+    { ...rect, x: rect.x - (page.scrollX ?? 0), y: rect.y - (page.scrollY ?? 0) },
+    page,
+    layout,
+    frame,
+  )
 }
