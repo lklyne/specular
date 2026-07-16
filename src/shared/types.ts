@@ -1895,6 +1895,10 @@ export interface AnnotationCreateRequest {
   text: string
   elementName?: string
   metadata?: AnnotationMetadata
+  /** Explicit page binding for a region anchor, decided by the caller (e.g.
+   *  region select binds geometrically: majority of the marquee over the page
+   *  body). When absent, region binding falls back to the grab rule. */
+  anchorPageId?: string
 }
 
 // --- Comment-tool page-paints contract (ADR 0006) ---

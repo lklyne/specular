@@ -33,7 +33,8 @@ function resolvePageName(pageId: string): string | undefined {
 
 /**
  * The page an annotation binds to, decided at creation. Element and page
- * anchors name their page structurally. A region binds iff its marquee
+ * anchors name their page structurally. A region binds to the request's
+ * explicit `anchorPageId` when the caller set one; otherwise iff its marquee
  * grabbed page content — some `regionComponents`/`regionElements` group has a
  * non-empty inner list (the region select emits a group per *intersecting*
  * page even when nothing was grabbed, so group presence alone is not a grab);
@@ -44,6 +45,10 @@ function annotationAnchorPageId(request: AnnotationCreateRequest): string | unde
   const anchor = request.anchor
   if (anchor.type === 'page' || anchor.type === 'element') return anchor.pageId
   if (anchor.type === 'region') {
+    // Callers that can judge geometry (region select) bind explicitly; the
+    // grab rule remains the fallback for creation paths that only carry
+    // element metadata.
+    if (request.anchorPageId) return request.anchorPageId
     const grabbed =
       request.metadata?.regionComponents?.find((group) => group.components.length > 0) ??
       request.metadata?.regionElements?.find((group) => group.elements.length > 0)

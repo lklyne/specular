@@ -221,6 +221,11 @@ export function createPage(config: PageConfig): Page {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
+    // The new document starts unscrolled; keeping the old document's offset
+    // would shift every page-anchored region until the first scroll event.
+    page.scrollX = 0
+    page.scrollY = 0
+    page.scrollHeight = 0
     // Annotation visibility and the sidebar's page children key off the
     // page's current URL, so a navigation must re-send both payloads.
     markDirty('canvas', 'sidebar')

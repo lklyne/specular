@@ -77,4 +77,17 @@ describe('page scroll offset in the layout broadcast', () => {
 
     expect(pageSceneEntity(PAGE_ID)).toEqual({ scrollX: 42, scrollY: 1337 })
   })
+
+  it('resets the offset when the page navigates to a new document', () => {
+    loadHostPage()
+    const page = pages.find((candidate) => candidate.id === PAGE_ID)!
+    page.scrollX = 42
+    page.scrollY = 1337
+    page.scrollHeight = 5000
+
+    page.pageView.webContents.emit('did-navigate', {}, 'https://example.com/other')
+
+    expect(pageSceneEntity(PAGE_ID)).toEqual({ scrollX: 0, scrollY: 0 })
+    expect(page.scrollHeight).toBe(0)
+  })
 })

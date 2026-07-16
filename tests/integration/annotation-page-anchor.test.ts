@@ -207,6 +207,26 @@ describe('page-anchored region annotations', () => {
     expect(region.anchor.type === 'region' && 'canvasRect' in region.anchor).toBe(true)
   })
 
+  it('binds a grab-less region when the request carries an explicit anchorPageId', () => {
+    // Region select decides binding geometrically (majority of the marquee
+    // over the page body) and passes it explicitly; static page content grabs
+    // no interactive elements but the region is still "about" the page.
+    // Mutation-verified: removing the `request.anchorPageId` branch from
+    // annotationAnchorPageId fails this.
+    loadHostPage()
+    const region = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 140, y: 140, width: 80, height: 60 } },
+      text: 'static text region',
+      anchorPageId: PAGE_ID,
+      metadata: {
+        regionComponents: [{ pageId: PAGE_ID, pageName: 'Host', components: [] }],
+        regionElements: [{ pageId: PAGE_ID, pageName: 'Host', elements: [] }],
+      },
+    })
+    expect(region.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(regionDocRect(region.id)).toEqual({ x: 20, y: 20, width: 80, height: 60 })
+  })
+
   it('scroll-follows: the region tracks page scroll while its stored docRect is unchanged', async () => {
     loadHostPage()
     const region = createGrabbedRegion()

@@ -641,9 +641,21 @@ let lastSentScrollX = Number.NaN
 let lastSentScrollY = Number.NaN
 let lastSentScrollHeight = Number.NaN
 
+// The container whose offset the broadcast reports. The document wins
+// whenever it scrolls at all — the center probe exists only for shells where
+// the document is pinned and an inner div scrolls. Probing first is fragile:
+// whatever sits at viewport center (an open mega-menu, a modal, a hover
+// panel) hijacks the offset and shifts every page-anchored region by its
+// scrollTop.
+function scrollOffsetSource(): Element {
+  const doc = document.scrollingElement ?? document.documentElement
+  if (doc.scrollHeight > doc.clientHeight) return doc
+  return resolveScrollTarget()
+}
+
 function flushScrollOffset(): void {
   pendingScrollOffsetFlush = 0
-  const target = resolveScrollTarget()
+  const target = scrollOffsetSource()
   const scrollX = Math.round(target.scrollLeft)
   const scrollY = Math.round(target.scrollTop)
   // scrollHeight rides along so main can turn a page anchor's `offsetY`
@@ -668,6 +680,14 @@ function queueScrollOffsetBroadcast(): void {
   if (pendingScrollOffsetFlush) return
   pendingScrollOffsetFlush = window.requestAnimationFrame(flushScrollOffset)
 }
+
+// Scroll events are the primary trigger, but app shells can unmount or
+// replace their scroll container without a final scroll event (client
+// navigation, virtualized lists, closing menus) — the last broadcast offset
+// then sticks in main and every page-anchored region maps against a dead
+// scroll position. A slow heartbeat re-reads the live DOM; the send-on-change
+// dedupe above makes the quiet case free.
+window.setInterval(queueScrollOffsetBroadcast, 2000)
 
 let activeScrollToken = 0
 
