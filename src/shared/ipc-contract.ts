@@ -221,6 +221,7 @@ export interface IpcContract {
   'page-deselect': { dir: 'renderer→main'; payload: unknown }
   'page-hover': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-changed': { dir: 'renderer→main'; payload: unknown }
+  'page-scroll-live': { dir: 'main→renderer'; payload: { pageId: string; scrollX: number; scrollY: number } }
   'page-scroll-offset': { dir: 'renderer→main'; payload: { scrollX: number; scrollY: number; scrollHeight: number } }
   'peek-resize-end': { dir: 'renderer→main'; payload: unknown }
   'peek-resize-move': { dir: 'renderer→main'; payload: unknown }
@@ -509,6 +510,7 @@ export const ipcChannels = {
   overrideToken: 'override-token',
   pageDeselect: 'page-deselect',
   pageScrollChanged: 'page-scroll-changed',
+  pageScrollLive: 'page-scroll-live',
   pageScrollOffset: 'page-scroll-offset',
   peekResizeEnd: 'peek-resize-end',
   peekResizeMove: 'peek-resize-move',

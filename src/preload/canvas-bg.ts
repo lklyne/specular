@@ -301,6 +301,9 @@ const api: CanvasBgElectronAPI = {
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),
   onLayoutUpdate: on(ipcChannels.layoutUpdate),
+  onPageScrollLive: on<{ pageId: string; scrollX: number; scrollY: number }>(
+    ipcChannels.pageScrollLive,
+  ),
   onViewportNudge: on<ViewportNudge>(ipcChannels.viewportNudge),
   onFixProgressUpdate: on<LayoutUpdateData['fixProgress']>(ipcChannels.fixProgressUpdate),
   onThemeChanged: on(ipcChannels.themeChanged),

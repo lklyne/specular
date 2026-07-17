@@ -656,8 +656,11 @@ function scrollOffsetSource(): Element {
 function flushScrollOffset(): void {
   pendingScrollOffsetFlush = 0
   const target = scrollOffsetSource()
-  const scrollX = Math.round(target.scrollLeft)
-  const scrollY = Math.round(target.scrollTop)
+  // Fractional, not rounded — momentum scrolling produces sub-pixel offsets,
+  // and rounding makes scroll-following overlays stair-step against the
+  // smoothly compositing page.
+  const scrollX = target.scrollLeft
+  const scrollY = target.scrollTop
   // scrollHeight rides along so main can turn a page anchor's `offsetY`
   // fraction into a document position for scroll-to-comment (phase 4). It is a
   // property of the same container the offset comes from, so it is captured

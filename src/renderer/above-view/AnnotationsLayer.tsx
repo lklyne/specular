@@ -111,7 +111,7 @@ export function RegionSelectAnnotations({
         )
         if (!page) return null
         return (
-          <PageOverlayBand key={pageId} page={page} layoutData={layoutData}>
+          <PageOverlayBand key={pageId} page={page} layoutData={layoutData} followScroll>
             {group.map((entry) => renderRegion(entry.annotation, entry.geom))}
           </PageOverlayBand>
         )

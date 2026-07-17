@@ -3,7 +3,8 @@ import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
-import { bgView } from '../runtime/view-refs'
+import { aboveView, bgView } from '../runtime/view-refs'
+import { safeSend } from '../runtime/safe-send'
 import { zoom } from '../runtime/runtime-context'
 import { requestLayout } from '../runtime/viewport-control'
 import { markDirty } from '../runtime/layout-dirty'
@@ -61,6 +62,18 @@ export function registerPageChromeIpc(): void {
       page.scrollX = data.scrollX
       page.scrollY = data.scrollY
       page.scrollHeight = data.scrollHeight
+      // Fast path: scroll-following overlays (shapes, region annotations) get
+      // the raw offset immediately and shift themselves with a CSS transform,
+      // instead of waiting out the debounced layout rebuild below — that
+      // multi-hop path lags the page's native compositor scroll and reads as
+      // jitter. The full broadcast still follows and reconciles.
+      if (aboveView) {
+        safeSend(aboveView.webContents, ipcChannels.pageScrollLive, {
+          pageId: page.id,
+          scrollX: data.scrollX,
+          scrollY: data.scrollY,
+        })
+      }
       markDirty('canvas')
       requestLayout()
     },
