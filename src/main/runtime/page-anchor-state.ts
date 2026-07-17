@@ -12,8 +12,8 @@
  * The document-binding gate (hide while the page shows a different URL)
  * lives in document-binding.ts.
  *
- * Anchorable entity kinds today: text and drawing. The mechanism is generic
- * — a kind opts in by carrying a `pageAnchor` field and appearing in
+ * Anchorable entity kinds today: text, drawing, and shape. The mechanism is
+ * generic — a kind opts in by carrying a `pageAnchor` field and appearing in
  * `anchorableEntities()` below. Annotations bind through the same
  * `pageAnchor` field, written once at creation (workspace-annotations.ts).
  */
@@ -54,16 +54,6 @@ export function findAnchorableEntity(id: string): AnchorableEntity | undefined {
     drawingEntities.find((entity) => entity.id === id) ??
     shapeEntities.find((entity) => entity.id === id)
   )
-}
-
-/**
- * Whether an anchored entity of this kind scroll-follows its page (renders
- * shifted by the page's scroll since the anchor was written) rather than
- * staying pinned to the page frame. Shapes today; a kind opts in here plus a
- * `pageAnchorScrollShift` term in its scene builder.
- */
-function scrollFollows(entityId: string): boolean {
-  return shapeEntities.some((entity) => entity.id === entityId)
 }
 
 /** Runtime pages as anchor targets, in back-to-front stack order. */
@@ -114,6 +104,15 @@ function rebaseAnchorScroll(entity: AnchorableEntity): boolean {
   if (!page) return false
   entity.canvasX -= shift.x
   entity.canvasY -= shift.y
+  // Drawing strokes are stored in absolute canvas coords, so they move with
+  // the folded shift or the bbox drifts away from the visible ink.
+  const drawing = drawingEntities.find((candidate) => candidate.id === entity.id)
+  if (drawing) {
+    drawing.strokes = drawing.strokes.map((stroke) => ({
+      ...stroke,
+      points: stroke.points.map((point) => ({ x: point.x - shift.x, y: point.y - shift.y })),
+    }))
+  }
   // A fresh object, not an in-place mutation — the doc diff-sync detects
   // object fields by identity.
   entity.pageAnchor = {
@@ -147,11 +146,11 @@ export function reanchorEntityById(entityId: string): boolean {
     return rebased
   }
   if (next) {
-    if (scrollFollows(entityId)) {
-      const page = pages.find((candidate) => candidate.id === next.pageId)
-      next.scrollX = page?.scrollX ?? 0
-      next.scrollY = page?.scrollY ?? 0
-    }
+    // Anchored entities scroll-follow: stamp the page's scroll offset so the
+    // scene projection can shift by the delta since (page-anchor-scroll.ts).
+    const page = pages.find((candidate) => candidate.id === next.pageId)
+    next.scrollX = page?.scrollX ?? 0
+    next.scrollY = page?.scrollY ?? 0
     entity.pageAnchor = next
   } else {
     delete entity.pageAnchor

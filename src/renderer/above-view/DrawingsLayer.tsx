@@ -3,8 +3,10 @@ import type {
   AnnotationDrawing,
   AnnotationDrawingStroke,
   CanvasSceneEntity,
+  CanvasScenePageEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import { PageOverlayBand } from './PageOverlayBand'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
 import {
   paletteForBrushType,
@@ -240,7 +242,7 @@ export function SavedDrawingEntities({
     <>
       {drawings.map((drawing) => {
         const isSelected = selectedEntityIds.includes(drawing.id)
-        return (
+        const layer = (
           <DrawingLayer
             key={drawing.id}
             drawing={{ version: 1, bounds: { x: drawing.canvasX, y: drawing.canvasY, width: drawing.width, height: drawing.height }, strokes: drawing.strokes }}
@@ -248,6 +250,22 @@ export function SavedDrawingEntities({
             active={isSelected}
             isDark={isDark}
           />
+        )
+        // A page-anchored drawing scroll-follows its page (main shifts the
+        // scene strokes), so it clips and edge-fades inside the page's
+        // overlay band like shapes do.
+        const anchorPageId = drawing.pageAnchor?.pageId
+        const page = anchorPageId
+          ? layoutData.entities.find(
+              (entity): entity is CanvasScenePageEntity =>
+                entity.kind === 'page' && entity.id === anchorPageId,
+            )
+          : undefined
+        if (!page) return layer
+        return (
+          <PageOverlayBand key={drawing.id} page={page} layoutData={layoutData} followScroll>
+            {layer}
+          </PageOverlayBand>
         )
       })}
     </>

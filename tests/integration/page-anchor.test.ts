@@ -39,8 +39,14 @@ import {
   reanchorEntityById,
   withPageAnchoredEntityIds,
 } from '../../src/main/runtime/page-anchor-state'
-import { textEntities } from '../../src/main/runtime/text-entity-state'
-import { drawingEntities } from '../../src/main/runtime/drawing-entity-state'
+import {
+  buildTextEntitySceneEntity,
+  textEntities,
+} from '../../src/main/runtime/text-entity-state'
+import {
+  buildDrawingEntitySceneEntity,
+  drawingEntities,
+} from '../../src/main/runtime/drawing-entity-state'
 import {
   buildShapeEntitySceneEntity,
   shapeEntities,
@@ -97,13 +103,13 @@ describe('page-anchored entities', () => {
   it('anchors a sticky created on a page and persists the anchor to disk', async () => {
     loadHostPage()
     const sticky = createTextEntity({ ...ON_PAGE, text: 'anchored sticky' })
-    expect(sticky.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(sticky.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
     await settleSync()
 
     const node = harness
       .diskDoc()
       ?.nodes.find((candidate) => candidate.id === sticky.id) as JsonCanvasTextNode | undefined
-    expect(node?.specular?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(node?.specular?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
   })
 
   it('anchors a drawing created on a page and persists the anchor to disk', async () => {
@@ -122,13 +128,13 @@ describe('page-anchored entities', () => {
         },
       ],
     })
-    expect(drawing.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(drawing.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
     await settleSync()
 
     const node = harness
       .diskDoc()
       ?.nodes.find((candidate) => candidate.id === drawing.id) as JsonCanvasDrawingNode | undefined
-    expect(node?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(node?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
   })
 
   it('creates free-form on empty canvas', () => {
@@ -148,14 +154,14 @@ describe('page-anchored entities', () => {
     await settleSync()
 
     const entity = () => textEntities.find((candidate) => candidate.id === sticky.id)
-    expect(entity()?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(entity()?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
 
     undo()
     expect(entity()?.canvasX).toBe(OFF_PAGE.canvasX)
     expect(entity()?.pageAnchor).toBeUndefined()
 
     redo()
-    expect(entity()?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL })
+    expect(entity()?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
   })
 
   it('drag off a page clears the anchor', async () => {
@@ -361,5 +367,84 @@ describe('scroll-following shapes', () => {
     loadHostPage()
     const created = createShapeEntity({ ...ON_PAGE, shapeKind: 'rectangle' })
     expect(withPageAnchoredEntityIds([PAGE_ID])).toContain(created.id)
+  })
+})
+
+/**
+ * Text and drawings scroll-follow their page like shapes. Drawings store
+ * stroke points in absolute canvas coords, so both the scene projection and
+ * the reanchor rebase must shift the points along with the bounds.
+ *
+ * Mutation-verified by:
+ * - dropping the `pageAnchorScrollShift` term in `buildTextEntitySceneEntity`
+ *   — the text scroll-follow case fails;
+ * - dropping the stroke shift in `buildDrawingEntitySceneEntity` — the
+ *   drawing scene case fails on the stroke point;
+ * - dropping the stroke shift in `rebaseAnchorScroll` (page-anchor-state.ts)
+ *   — the rebase case fails on the stored stroke point.
+ */
+describe('scroll-following text and drawings', () => {
+  beforeEach(() => {
+    harness ??= bootWorkspaceHarness()
+    harness.reset()
+    selectNone()
+  })
+
+  const hostPage = () => pages.find((candidate) => candidate.id === PAGE_ID)!
+  const ORIGIN = { zoom: 1, pan: { x: 0, y: 0 }, canvasOrigin: { x: 0, y: 0 } }
+
+  it('text scene position shifts with page scroll, stored coords unchanged', () => {
+    loadHostPage()
+    const created = createTextEntity({ ...ON_PAGE, text: 'following sticky' })
+    hostPage().scrollY = 200
+    const scene = buildTextEntitySceneEntity(created, ORIGIN.zoom, ORIGIN.pan, ORIGIN.canvasOrigin)
+    expect(scene.canvasY).toBe(ON_PAGE.canvasY - 200)
+    expect(created.canvasY).toBe(ON_PAGE.canvasY)
+  })
+
+  it('drawing scene bounds and stroke points shift with page scroll', () => {
+    loadHostPage()
+    const created = createDrawingEntity({
+      ...ON_PAGE,
+      strokes: [
+        { id: 's1', color: '#ff0000', width: 4, points: [{ x: 160, y: 160 }] },
+      ],
+    })
+    hostPage().scrollY = 200
+    const scene = buildDrawingEntitySceneEntity(
+      created, ORIGIN.zoom, ORIGIN.pan, ORIGIN.canvasOrigin,
+    )
+    expect(scene.canvasY).toBe(ON_PAGE.canvasY - 200)
+    expect(scene.strokes[0].points[0]).toEqual({ x: 160, y: -40 })
+    expect(created.strokes[0].points[0]).toEqual({ x: 160, y: 160 })
+  })
+
+  it('drawing rebase folds the shift into stored stroke points', async () => {
+    loadHostPage()
+    const created = createDrawingEntity({
+      canvasX: 160,
+      canvasY: 160,
+      width: 100,
+      height: 100,
+      strokes: [
+        { id: 's1', color: '#ff0000', width: 4, points: [{ x: 180, y: 180 }] },
+      ],
+    })
+    await settleSync()
+
+    hostPage().scrollY = 40
+    initializeDrag([created.id])
+    applyDragDelta([created.id], 0, 0)
+    finalizeDrag()
+    await settleSync()
+
+    const entity = () => drawingEntities.find((candidate) => candidate.id === created.id)!
+    expect(entity().canvasY).toBe(120)
+    expect(entity().strokes[0].points[0]).toEqual({ x: 180, y: 140 })
+    expect(entity().pageAnchor?.scrollY).toBe(40)
+
+    undo()
+    expect(entity().canvasY).toBe(160)
+    expect(entity().strokes[0].points[0]).toEqual({ x: 180, y: 180 })
   })
 })

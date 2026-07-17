@@ -199,6 +199,8 @@ export interface CanvasSceneTextEntity {
   widthMode: TextWidthMode
   /** Per-entity text size in px. Missing → renderer default (18). ADR 0013 §2. */
   textSize?: number
+  /** Apparent position: for page-anchored text the scroll-follow shift is
+   *  already applied (see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
   canvasY: number
   width: number
@@ -208,6 +210,9 @@ export interface CanvasSceneTextEntity {
   screenWidth: number
   screenHeight: number
   parentGroupId?: string
+  /** Present when the text is hooked to a page (see shared/page-anchor.ts).
+   *  The renderer clips/fades it inside that page's overlay band. */
+  pageAnchor?: PageAnchor
 }
 
 export interface CanvasSceneFileEntity {
@@ -308,6 +313,9 @@ export interface CanvasSceneGroupEntity {
 export interface CanvasSceneDrawingEntity {
   kind: 'drawing'
   id: string
+  /** Apparent position: for page-anchored drawings the scroll-follow shift is
+   *  already applied to bounds *and* stroke points (strokes are absolute
+   *  canvas coords — see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
   canvasY: number
   width: number
@@ -318,6 +326,9 @@ export interface CanvasSceneDrawingEntity {
   screenHeight: number
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
+  /** Present when the drawing is hooked to a page (see shared/page-anchor.ts).
+   *  The renderer clips/fades it inside that page's overlay band. */
+  pageAnchor?: PageAnchor
 }
 
 export interface CanvasSceneShapeEntity {

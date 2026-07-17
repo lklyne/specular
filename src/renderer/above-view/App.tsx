@@ -282,9 +282,7 @@ function StackedCanvasItems({
           isDark={isDark}
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
+          layoutData={layoutData}
           onUpdateText={(textId, text) => api.updateEntity('text', textId, { text })}
           onUpdateSize={(textId, width, height) =>
             api.updateEntity('text', textId, { width, height })

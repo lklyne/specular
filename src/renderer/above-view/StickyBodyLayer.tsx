@@ -23,13 +23,18 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
-import type { CanvasSceneTextEntity } from '../../shared/types'
+import type {
+  CanvasScenePageEntity,
+  CanvasSceneTextEntity,
+  LayoutUpdateData,
+} from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { remarkLineBreaks } from '../shared/remark-line-breaks'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
 import { lineHeightForTextSize } from './TextSizeDropdown'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
+import { PageOverlayBand } from './PageOverlayBand'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
@@ -286,9 +291,7 @@ export function StickyBodyLayer({
   isDark,
   selectedEntityIdSet,
   editingEntityId,
-  canvasOrigin,
-  pan,
-  zoom,
+  layoutData,
   onUpdateText,
   onUpdateSize,
   onCommitEdit,
@@ -299,16 +302,18 @@ export function StickyBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  editor iff `editingEntityId === note.id`. */
   editingEntityId: string | null
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
+  layoutData: LayoutUpdateData
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
   onCommitEdit: () => void
 }) {
   if (!entities.length) return null
-  return (
-    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+  const viewport = (
+    <CanvasViewportLayer
+      canvasOrigin={layoutData.canvasOrigin}
+      pan={layoutData.pan}
+      zoom={layoutData.zoom}
+    >
       {entities.map((note) => (
         <MemoStickyCard
           key={note.id}
@@ -322,5 +327,22 @@ export function StickyBodyLayer({
         />
       ))}
     </CanvasViewportLayer>
+  )
+  // A page-anchored text scroll-follows its page (main shifts the scene
+  // coords), so it clips and edge-fades inside the page's overlay band like
+  // shapes do. App mounts one layer per entity, so the single entity's
+  // anchor decides the wrapping.
+  const anchorPageId = entities[0].pageAnchor?.pageId
+  const page = anchorPageId
+    ? layoutData.entities.find(
+        (entity): entity is CanvasScenePageEntity =>
+          entity.kind === 'page' && entity.id === anchorPageId,
+      )
+    : undefined
+  if (!page) return viewport
+  return (
+    <PageOverlayBand page={page} layoutData={layoutData} followScroll>
+      {viewport}
+    </PageOverlayBand>
   )
 }

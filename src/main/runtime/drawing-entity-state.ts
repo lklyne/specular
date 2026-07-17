@@ -15,6 +15,7 @@ import type {
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
+import { pageAnchorScrollShift } from './page-anchor-scroll'
 
 export interface DrawingEntity {
   id: string
@@ -94,21 +95,35 @@ export function buildDrawingEntitySceneEntity(
   pan: { x: number; y: number },
   canvasOrigin: { x: number; y: number },
 ): CanvasSceneDrawingEntity {
-  const screenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+  // Scroll-follow: project the apparent position — stored coords shifted by
+  // the page's scroll since the anchor was written (see shape builder).
+  // Strokes are absolute canvas coords, so the shift applies to every point.
+  const shift = pageAnchorScrollShift(entity.pageAnchor)
+  const canvasX = entity.canvasX - shift.x
+  const canvasY = entity.canvasY - shift.y
+  const strokes =
+    shift.x || shift.y
+      ? entity.strokes.map((stroke) => ({
+          ...stroke,
+          points: stroke.points.map((point) => ({ x: point.x - shift.x, y: point.y - shift.y })),
+        }))
+      : entity.strokes
+  const screenX = canvasOrigin.x + canvasX * zoom + pan.x
+  const screenY = canvasOrigin.y + canvasY * zoom + pan.y
   return {
     kind: 'drawing',
     id: entity.id,
-    canvasX: entity.canvasX,
-    canvasY: entity.canvasY,
+    canvasX,
+    canvasY,
     width: entity.width,
     height: entity.height,
     screenX,
     screenY,
     screenWidth: entity.width * zoom,
     screenHeight: entity.height * zoom,
-    strokes: entity.strokes,
+    strokes,
     parentGroupId: entity.parentGroupId,
+    pageAnchor: entity.pageAnchor,
   }
 }
 
