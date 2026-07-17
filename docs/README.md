@@ -34,6 +34,7 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [0027 — Sync sets decouple navigation sync from groups](adr/0027-sync-sets-decouple-navigation-sync-from-groups.md) — replaces the per-page `linked` boolean (scoped by group) with independent sync sets, so linked pages no longer need to share a group.
 - [0028 — Retire the chrome-header slot model](adr/0028-retire-chrome-header-slot-model.md) — removes the unbuilt chrome-header band from entity rects (ADR 0002 §1); entity rect == body rect.
 - [0029 — Page-anchored entities (the "hook to a page" utility)](adr/0029-page-anchored-entities.md) — generalizes URL-gated page-anchoring (pioneered by annotations) into a reusable utility for any entity kind tied to a page's content.
+- [0030 — Element attachment](adr/0030-element-attachment.md) — page-anchored items carry a derived DOM-element reference and render corrected by its live position, so ink survives page reflow; canvas coords stay authoritative, attachment is outside undo, never a visibility gate.
 
 ## Docs
 

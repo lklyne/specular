@@ -73,13 +73,16 @@ drag gesture lands in that gesture's single undo step.
 ## Out of scope (follow-ups)
 
 - ~~**Scroll tracking.**~~ Landed for **region annotations** (the
-  `anchor.docRect` variant above; see `docs/plans/scroll-tracking.md`). A
-  per-page absolute scroll-offset broadcast (`page.scrollX/scrollY`) feeds the
-  `pageDocumentToScreen` transform. **Anchored entities** (stickies, drawings)
-  deliberately stay pinned to the page frame and do **not** scroll-follow —
-  `docRect` is an annotation concept only (see the scroll-tracking plan's
-  "entities stay in canvas space" resolution).
-- **Other kinds** (`shape`, `file`) — mechanical once wanted.
+  `anchor.docRect` variant above; see `docs/plans/scroll-tracking.md`) and
+  subsequently for **all anchored entities** (shapes, stickies, drawings):
+  the anchor stamps a scroll reference (`scrollX/scrollY`) and scene builders
+  shift by the live delta. The original "entities stay pinned to the page
+  frame" resolution is superseded — see
+  [ADR 0030](./0030-element-attachment.md), which also adds reflow tracking
+  via a derived element reference and narrows this ADR's "no stored offset"
+  clause to positional authority only.
+- ~~**Other kinds** (`shape`)~~ — landed with scroll tracking. `file` remains
+  mechanical once wanted.
 - ~~**Region annotations as anchor consumers** (ADR 0006 alternative F).~~
   Resolved by the amendment below.
 - **Reveal affordance** for a hidden anchored entity's sidebar row (e.g.
