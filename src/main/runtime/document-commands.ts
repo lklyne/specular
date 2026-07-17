@@ -851,7 +851,11 @@ export function createShapeEntity(input: {
   textSize?: number
   id?: string
 }): ShapeEntity {
-  return mutateWorkspace(() => createShapeEntityInState(input))
+  return mutateWorkspace(() => {
+    const entity = createShapeEntityInState(input)
+    reanchorEntityById(entity.id)
+    return entity
+  })
 }
 
 export function updateShapeEntity(

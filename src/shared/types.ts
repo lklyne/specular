@@ -334,11 +334,16 @@ export interface CanvasSceneShapeEntity {
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
+  /** Apparent position: for page-anchored shapes the scroll-follow shift is
+   *  already applied (see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
   canvasY: number
   width: number
   height: number
   parentGroupId?: string
+  /** Present when the shape is hooked to a page (see shared/page-anchor.ts).
+   *  The renderer clips/fades the shape inside that page's overlay band. */
+  pageAnchor?: PageAnchor
   screenX: number
   screenY: number
   screenWidth: number
@@ -470,6 +475,8 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   width: number
   height: number
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export type PersistedCanvasEntity =

@@ -10,10 +10,15 @@
  */
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CanvasSceneShapeEntity } from '../../shared/types'
+import type {
+  CanvasScenePageEntity,
+  CanvasSceneShapeEntity,
+  LayoutUpdateData,
+} from '../../shared/types'
 import { darkenHex, lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
 import { shapeDef } from '../../shared/shapes'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
+import { PageOverlayBand } from './PageOverlayBand'
 
 const DEFAULT_STROKE_WIDTH = 2
 /** ADR 0013 §2 — shapes without textSize render their label at this size. */
@@ -328,9 +333,7 @@ export function ShapeBodyLayer({
   isDark,
   selectedEntityIdSet,
   editingEntityId,
-  canvasOrigin,
-  pan,
-  zoom,
+  layoutData,
   onUpdateText,
   onCommitEdit,
 }: {
@@ -340,15 +343,17 @@ export function ShapeBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  contentEditable iff `editingEntityId === shape.id`. */
   editingEntityId: string | null
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
+  layoutData: LayoutUpdateData
   onUpdateText: (id: string, text: string) => void
   onCommitEdit: () => void
 }) {
   if (!entities.length) return null
-  return (
-    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+  const viewport = (
+    <CanvasViewportLayer
+      canvasOrigin={layoutData.canvasOrigin}
+      pan={layoutData.pan}
+      zoom={layoutData.zoom}
+    >
       {entities.map((shape) => (
         <ShapeCard
           key={shape.id}
@@ -361,5 +366,22 @@ export function ShapeBodyLayer({
         />
       ))}
     </CanvasViewportLayer>
+  )
+  // A page-anchored shape scroll-follows its page (main shifts the scene
+  // coords), so it clips and edge-fades inside the page's overlay band like
+  // annotations do. App mounts one layer per entity, so the single entity's
+  // anchor decides the wrapping.
+  const anchorPageId = entities[0].pageAnchor?.pageId
+  const page = anchorPageId
+    ? layoutData.entities.find(
+        (entity): entity is CanvasScenePageEntity =>
+          entity.kind === 'page' && entity.id === anchorPageId,
+      )
+    : undefined
+  if (!page) return viewport
+  return (
+    <PageOverlayBand page={page} layoutData={layoutData} followScroll>
+      {viewport}
+    </PageOverlayBand>
   )
 }

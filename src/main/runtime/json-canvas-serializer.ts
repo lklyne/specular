@@ -229,6 +229,7 @@ export function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCan
     theme: entity.theme,
     label: entity.label,
     parentGroupId: entity.parentGroupId,
+    pageAnchor: entity.pageAnchor,
   }
   if (isNeutral || entity.textSize !== undefined) {
     node.specular = {}
@@ -454,6 +455,7 @@ export function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): Persiste
     height: node.height,
     label: node.label,
     parentGroupId: node.parentGroupId,
+    pageAnchor: node.pageAnchor,
   }
 }
 

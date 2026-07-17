@@ -20,18 +20,31 @@
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
-import type { JsonCanvasLinkNode, JsonCanvasTextNode, JsonCanvasDrawingNode } from '../../src/shared/json-canvas-types'
+import type {
+  JsonCanvasLinkNode,
+  JsonCanvasTextNode,
+  JsonCanvasDrawingNode,
+  JsonCanvasShapeNode,
+} from '../../src/shared/json-canvas-types'
 import {
   applyDragDelta,
   createDrawingEntity,
+  createShapeEntity,
   createTextEntity,
   finalizeDrag,
   initializeDrag,
 } from '../../src/main/runtime/document-commands'
 import { hiddenByPageAnchor } from '../../src/main/runtime/document-binding'
-import { withPageAnchoredEntityIds } from '../../src/main/runtime/page-anchor-state'
+import {
+  reanchorEntityById,
+  withPageAnchoredEntityIds,
+} from '../../src/main/runtime/page-anchor-state'
 import { textEntities } from '../../src/main/runtime/text-entity-state'
 import { drawingEntities } from '../../src/main/runtime/drawing-entity-state'
+import {
+  buildShapeEntitySceneEntity,
+  shapeEntities,
+} from '../../src/main/runtime/shape-entity-state'
 import { pages } from '../../src/main/runtime/runtime-context'
 import { removePageById } from '../../src/main/runtime/page-runtime'
 import { getLeftSidebarData } from '../../src/main/runtime/canvas-layout-data'
@@ -254,5 +267,99 @@ describe('page-anchored entities', () => {
 
     const drawing = drawingEntities.length
     expect(drawing).toBe(0)
+  })
+})
+
+/**
+ * Shapes anchor like other entities but additionally scroll-follow: the
+ * anchor stamps the page's scroll offset at placement, the scene projection
+ * renders shifted by the scroll delta since, and reanchoring folds the
+ * accumulated shift into the stored coordinates (see shared/page-anchor.ts).
+ *
+ * Mutation-verified by:
+ * - removing the scroll stamp in `reanchorEntityById` (page-anchor-state.ts)
+ *   — the stamp/persistence case fails;
+ * - dropping the `pageAnchorScrollShift` term in `buildShapeEntitySceneEntity`
+ *   (shape-entity-state.ts) — the scroll-follow case fails;
+ * - removing the `rebaseAnchorScroll` call in `reanchorEntityById` — the
+ *   rebase case fails.
+ */
+describe('scroll-following shapes', () => {
+  beforeEach(() => {
+    harness ??= bootWorkspaceHarness()
+    harness.reset()
+    selectNone()
+  })
+
+  const hostPage = () => pages.find((candidate) => candidate.id === PAGE_ID)!
+  const shape = (id: string) => shapeEntities.find((candidate) => candidate.id === id)!
+  const sceneCanvasY = (id: string) =>
+    buildShapeEntitySceneEntity(shape(id), 1, { x: 0, y: 0 }, { x: 0, y: 0 }).canvasY
+
+  it('anchors a shape created on a page, stamps the scroll reference, and persists it', async () => {
+    loadHostPage()
+    hostPage().scrollY = 120
+    const created = createShapeEntity({ ...ON_PAGE, shapeKind: 'rectangle' })
+    expect(created.pageAnchor).toEqual({
+      pageId: PAGE_ID,
+      pageUrl: PAGE_URL,
+      scrollX: 0,
+      scrollY: 120,
+    })
+    await settleSync()
+
+    const node = harness
+      .diskDoc()
+      ?.nodes.find((candidate) => candidate.id === created.id) as JsonCanvasShapeNode | undefined
+    expect(node?.pageAnchor).toEqual({
+      pageId: PAGE_ID,
+      pageUrl: PAGE_URL,
+      scrollX: 0,
+      scrollY: 120,
+    })
+  })
+
+  it('scroll-follows: the scene position shifts with page scroll, stored coords unchanged', () => {
+    loadHostPage()
+    const created = createShapeEntity({ ...ON_PAGE, shapeKind: 'rectangle' })
+    expect(sceneCanvasY(created.id)).toBe(ON_PAGE.canvasY)
+
+    hostPage().scrollY = 200
+    expect(sceneCanvasY(created.id)).toBe(ON_PAGE.canvasY - 200)
+    expect(shape(created.id).canvasY).toBe(ON_PAGE.canvasY)
+  })
+
+  it('rebases on reanchor: the shift folds into stored coords, apparent position unchanged', async () => {
+    loadHostPage()
+    // Grid-aligned so the drag's snap doesn't move the shape on its own.
+    const onGrid = { canvasX: 160, canvasY: 160, width: 100, height: 100 }
+    const created = createShapeEntity({ ...onGrid, shapeKind: 'rectangle' })
+    await settleSync()
+
+    // Small enough that the shape's apparent center stays inside the page
+    // body — a larger scroll legitimately unanchors it at drag end (the
+    // placement rule sees it apparently off the page).
+    hostPage().scrollY = 40
+    const apparentBefore = sceneCanvasY(created.id)
+    // A zero-delta drag end runs the reanchor pass the way the app does.
+    initializeDrag([created.id])
+    applyDragDelta([created.id], 0, 0)
+    finalizeDrag()
+    await settleSync()
+
+    expect(shape(created.id).canvasY).toBe(onGrid.canvasY - 40)
+    expect(shape(created.id).pageAnchor?.scrollY).toBe(40)
+    expect(sceneCanvasY(created.id)).toBe(apparentBefore)
+
+    // The rebase is a tracked mutation: undo restores coords and reference.
+    undo()
+    expect(shape(created.id).canvasY).toBe(onGrid.canvasY)
+    expect(shape(created.id).pageAnchor?.scrollY).toBe(0)
+  })
+
+  it('travels with its page in a drag set like other anchored entities', () => {
+    loadHostPage()
+    const created = createShapeEntity({ ...ON_PAGE, shapeKind: 'rectangle' })
+    expect(withPageAnchoredEntityIds([PAGE_ID])).toContain(created.id)
   })
 })

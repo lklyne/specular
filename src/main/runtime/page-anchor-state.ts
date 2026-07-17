@@ -28,6 +28,8 @@ import { pages } from './runtime-context'
 import { pageBodyCanvasBounds } from './runtime-geometry'
 import { textEntities } from './text-entity-state'
 import { drawingEntities } from './drawing-entity-state'
+import { shapeEntities } from './shape-entity-state'
+import { pageAnchorScrollShift } from './page-anchor-scroll'
 import { workspaceAnnotations } from './workspace-model'
 import { markDirty } from './layout-dirty'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
@@ -43,14 +45,25 @@ export interface AnchorableEntity {
 }
 
 function anchorableEntities(): AnchorableEntity[] {
-  return [...textEntities, ...drawingEntities]
+  return [...textEntities, ...drawingEntities, ...shapeEntities]
 }
 
 export function findAnchorableEntity(id: string): AnchorableEntity | undefined {
   return (
     textEntities.find((entity) => entity.id === id) ??
-    drawingEntities.find((entity) => entity.id === id)
+    drawingEntities.find((entity) => entity.id === id) ??
+    shapeEntities.find((entity) => entity.id === id)
   )
+}
+
+/**
+ * Whether an anchored entity of this kind scroll-follows its page (renders
+ * shifted by the page's scroll since the anchor was written) rather than
+ * staying pinned to the page frame. Shapes today; a kind opts in here plus a
+ * `pageAnchorScrollShift` term in its scene builder.
+ */
+function scrollFollows(entityId: string): boolean {
+  return shapeEntities.some((entity) => entity.id === entityId)
 }
 
 /** Runtime pages as anchor targets, in back-to-front stack order. */
@@ -86,6 +99,32 @@ function sameAnchor(a: PageAnchor | undefined, b: PageAnchor | null): boolean {
 }
 
 /**
+ * Fold a scroll-following entity's accumulated scroll shift into its stored
+ * coordinates and refresh the anchor's scroll reference — the apparent
+ * position is unchanged, but stored coords now mean what the user sees, so
+ * the placement test below (and every canvas-coordinate consumer) is honest.
+ * Returns true when coordinates moved.
+ */
+function rebaseAnchorScroll(entity: AnchorableEntity): boolean {
+  const anchor = entity.pageAnchor
+  if (!anchor || anchor.scrollY === undefined) return false
+  const shift = pageAnchorScrollShift(anchor)
+  if (!shift.x && !shift.y) return false
+  const page = pages.find((candidate) => candidate.id === anchor.pageId)
+  if (!page) return false
+  entity.canvasX -= shift.x
+  entity.canvasY -= shift.y
+  // A fresh object, not an in-place mutation — the doc diff-sync detects
+  // object fields by identity.
+  entity.pageAnchor = {
+    ...anchor,
+    scrollX: page.scrollX ?? 0,
+    scrollY: page.scrollY ?? 0,
+  }
+  return true
+}
+
+/**
  * Recompute an entity's anchor from where it currently sits: anchored when
  * its center is inside a page's body, free otherwise. Grouped entities never
  * anchor — group membership already owns their movement. Returns true when
@@ -94,6 +133,7 @@ function sameAnchor(a: PageAnchor | undefined, b: PageAnchor | null): boolean {
 export function reanchorEntityById(entityId: string): boolean {
   const entity = findAnchorableEntity(entityId)
   if (!entity) return false
+  const rebased = rebaseAnchorScroll(entity)
   const next = entity.parentGroupId
     ? null
     : resolvePageAnchorForBounds({
@@ -102,9 +142,20 @@ export function reanchorEntityById(entityId: string): boolean {
         width: entity.width,
         height: entity.height,
       })
-  if (sameAnchor(entity.pageAnchor, next)) return false
-  if (next) entity.pageAnchor = next
-  else delete entity.pageAnchor
+  if (sameAnchor(entity.pageAnchor, next)) {
+    if (rebased) markDirty('canvas', 'sidebar')
+    return rebased
+  }
+  if (next) {
+    if (scrollFollows(entityId)) {
+      const page = pages.find((candidate) => candidate.id === next.pageId)
+      next.scrollX = page?.scrollX ?? 0
+      next.scrollY = page?.scrollY ?? 0
+    }
+    entity.pageAnchor = next
+  } else {
+    delete entity.pageAnchor
+  }
   markDirty('canvas', 'sidebar')
   return true
 }

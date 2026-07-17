@@ -291,6 +291,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             textSize: (entity as any).textSize,
             theme: (entity as any).theme,
             parentGroupId: (entity as any).parentGroupId,
+            pageAnchor: (entity as any).pageAnchor,
             label: (entity as any).label,
           })
         }

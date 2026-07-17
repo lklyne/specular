@@ -268,9 +268,7 @@ function StackedCanvasItems({
           isDark={isDark}
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
+          layoutData={layoutData}
           onUpdateText={(shapeId, text) => api.updateEntity('shape', shapeId, { text })}
           onCommitEdit={api.commitEntityEdit}
         />

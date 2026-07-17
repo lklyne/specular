@@ -125,6 +125,10 @@ export interface JsonCanvasShapeNode extends JsonCanvasNodeBase {
   theme?: string
   label?: string
   parentGroupId?: string
+  /** Hooks the shape to a page entity + URL; `scrollX/scrollY` record the
+   *  page scroll at placement so the shape scroll-follows the document.
+   *  See shared/page-anchor.ts. */
+  pageAnchor?: { pageId: string; pageUrl?: string; scrollX?: number; scrollY?: number }
   specular?: SpecularNodeExtensions
 }
 

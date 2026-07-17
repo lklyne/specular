@@ -29,6 +29,16 @@ export interface PageAnchor {
    *  Absent when the page had no URL at placement — such anchors always
    *  count as "on the current page". */
   pageUrl?: string
+  /**
+   * Page scroll offset (page CSS px) recorded when the anchor was written.
+   * Present iff the entity kind scroll-follows: the entity renders shifted by
+   * the delta between the page's live scroll and this reference, so it tracks
+   * the document content it was placed over (like an annotation's docRect,
+   * expressed as a delta so `canvasX/Y` stays the stored truth). Absent means
+   * frame-pinned — the entity ignores page scroll (text and drawings today).
+   */
+  scrollX?: number
+  scrollY?: number
 }
 
 export interface PageAnchorTarget {
