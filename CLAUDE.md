@@ -10,6 +10,10 @@ Read docs/architecture.md for the full system map.
 Read docs/file-formats.md for .canvas spec and persistence details.
 Read docs/interaction-layer.md before adding gestures, overlays, focus
 handoffs, or drop targets — the invariants in §6 are load-bearing.
+Read docs/README.md for a one-line map of every doc and ADR — check it
+before starting deep work in an area. Rejected/superseded ADRs record
+approaches that were tried and abandoned; read their postmortems before
+re-attempting anything in their territory.
 
 When a domain term resolves during a session (rename, new concept, deprecation), update CONTEXT.md inline. If the decision is hard to reverse and surprising without context, add an ADR under docs/adr/ and link it from the relevant CONTEXT.md entry.
 
