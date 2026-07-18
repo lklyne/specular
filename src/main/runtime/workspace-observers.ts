@@ -44,8 +44,8 @@ import {
   projectNoteContentToDisk,
   clearNoteContentState,
 } from './note-content-state'
-import { anchorableEntities } from './page-anchor-state'
-import { captureElementForEntity } from './element-attachment-capture'
+import { anchorableEntities } from './anchorable-entity-store'
+import { recaptureElementAttachments } from './element-attachment-recapture'
 
 // ---------------------------------------------------------------------------
 // Runtime state references (set during initialization)
@@ -313,9 +313,11 @@ function syncDocToRuntime(doc: Y.Doc): void {
     // Element attachments are derived metadata outside undo. Geometry restored
     // from Y.Doc may therefore no longer match the captured element left by the
     // later state; re-derive every restored anchored entity after undo/redo.
-    for (const entity of anchorableEntities()) {
-      if (entity.pageAnchor) captureElementForEntity(entity.id)
-    }
+    recaptureElementAttachments(
+      anchorableEntities()
+        .filter((entity) => entity.pageAnchor)
+        .map((entity) => entity.id),
+    )
 
     // Note content: pull the reverted `notes` Y.Map back into the runtime
     // mirror, then project just the ids that actually changed to disk.

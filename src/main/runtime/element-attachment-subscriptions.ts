@@ -20,7 +20,7 @@
 
 import { ipcChannels } from '../../shared/ipc-contract'
 import { pages } from './runtime-context'
-import { anchorableEntities } from './page-anchor-state'
+import { anchorableEntities } from './anchorable-entity-store'
 import { workspaceAnnotations } from './workspace-model'
 import { safeSend } from './safe-send'
 

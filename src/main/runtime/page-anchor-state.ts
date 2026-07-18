@@ -34,28 +34,13 @@ import { workspaceAnnotations } from './workspace-model'
 import { markDirty } from './layout-dirty'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
 import { captureElementForEntity } from './element-attachment-capture'
+import {
+  anchorableEntities,
+  findAnchorableEntity,
+  type AnchorableEntity,
+} from './anchorable-entity-store'
 
-export interface AnchorableEntity {
-  id: string
-  canvasX: number
-  canvasY: number
-  width: number
-  height: number
-  parentGroupId?: string
-  pageAnchor?: PageAnchor
-}
-
-export function anchorableEntities(): AnchorableEntity[] {
-  return [...textEntities, ...drawingEntities, ...shapeEntities]
-}
-
-export function findAnchorableEntity(id: string): AnchorableEntity | undefined {
-  return (
-    textEntities.find((entity) => entity.id === id) ??
-    drawingEntities.find((entity) => entity.id === id) ??
-    shapeEntities.find((entity) => entity.id === id)
-  )
-}
+export { anchorableEntities, findAnchorableEntity }
 
 /** Runtime pages as anchor targets, in back-to-front stack order. */
 function pageAnchorTargets(): PageAnchorTarget[] {

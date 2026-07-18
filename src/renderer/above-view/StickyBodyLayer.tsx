@@ -23,19 +23,14 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
-import type {
-  CanvasScenePageEntity,
-  CanvasSceneTextEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { remarkLineBreaks } from '../shared/remark-line-breaks'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
 import { lineHeightForTextSize } from './TextSizeDropdown'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
-import { PageOverlayBand } from './PageOverlayBand'
+import { AnchoredEntityOverlayBand } from './PageOverlayBand'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
@@ -333,25 +328,10 @@ export function StickyBodyLayer({
   // coords), so it clips and edge-fades inside the page's overlay band like
   // shapes do. App mounts one layer per entity, so the single entity's
   // anchor decides the wrapping.
-  const anchorPageId = entities[0].pageAnchor?.pageId
-  const page = anchorPageId
-    ? layoutData.entities.find(
-        (entity): entity is CanvasScenePageEntity =>
-          entity.kind === 'page' && entity.id === anchorPageId,
-      )
-    : undefined
-  if (!page) return viewport
   const anchor = entities[0].pageAnchor
-  const liveElement = anchor?.element
-    ? page.elementPositions?.[anchor.element.selector]
-    : undefined
   return (
-    <PageOverlayBand
-      page={page}
-      layoutData={layoutData}
-      followScroll={shouldFastFollowPageScroll(anchor, liveElement)}
-    >
+    <AnchoredEntityOverlayBand anchor={anchor} layoutData={layoutData}>
       {viewport}
-    </PageOverlayBand>
+    </AnchoredEntityOverlayBand>
   )
 }

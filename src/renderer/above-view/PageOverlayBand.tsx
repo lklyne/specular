@@ -1,5 +1,10 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
-import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
+import type {
+  CanvasScenePageEntity,
+  LayoutUpdateData,
+  PageAnchor,
+} from '../../shared/types'
+import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   scrollFollowTransform,
@@ -16,7 +21,7 @@ function electronApi(): CanvasBgElectronAPI {
 // content band before it is fully clipped. The band's gradient mask fades
 // exactly this strip, so an overlay straddling the band edge fades only the
 // part that has left the page instead of the whole element at once.
-export const BAND_FADE_MARGIN = 48
+const BAND_FADE_MARGIN = 48
 
 /**
  * Per-page clipping container for page-anchored overlays (region rects,
@@ -130,5 +135,34 @@ export function PageOverlayBand({
         {children}
       </div>
     </div>
+  )
+}
+
+export function AnchoredEntityOverlayBand({
+  anchor,
+  layoutData,
+  children,
+}: {
+  anchor: PageAnchor | undefined
+  layoutData: LayoutUpdateData
+  children: ReactNode
+}) {
+  if (!anchor) return children
+  const page = layoutData.entities.find(
+    (entity): entity is CanvasScenePageEntity =>
+      entity.kind === 'page' && entity.id === anchor.pageId,
+  )
+  if (!page) return children
+  const liveElement = anchor.element
+    ? page.elementPositions?.[anchor.element.selector]
+    : undefined
+  return (
+    <PageOverlayBand
+      page={page}
+      layoutData={layoutData}
+      followScroll={shouldFastFollowPageScroll(anchor, liveElement)}
+    >
+      {children}
+    </PageOverlayBand>
   )
 }

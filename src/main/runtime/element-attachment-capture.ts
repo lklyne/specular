@@ -25,7 +25,9 @@
 import type * as Y from 'yjs'
 import type { PageAnchor } from '../../shared/page-anchor'
 import { captureElementAtPageDocumentPoint } from './page-queries'
-import { canvasRectToPageDocRect, findAnchorableEntity } from './page-anchor-state'
+import { findAnchorableEntity } from './anchorable-entity-store'
+import { pageBodyCanvasBounds } from './runtime-geometry'
+import { pages } from './runtime-context'
 import { workspaceAnnotations } from './workspace-model'
 import { requestAttachmentSubscriptionRefresh } from './element-attachment-subscriptions'
 import {
@@ -34,6 +36,7 @@ import {
   DOC_MAP_ANNOTATIONS,
 } from './workspace-doc'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
+import { registerElementAttachmentRecapture } from './element-attachment-recapture'
 
 /** Untracked transaction origin for the enrichment doc write — outside the
  *  UndoManager's `trackedOrigins` ({null, 'user'}), so the stamp is never an
@@ -127,11 +130,15 @@ export function captureElementForEntity(entityId: string): void {
   const entity = findAnchorableEntity(entityId)
   const anchor = entity?.pageAnchor
   if (!entity || !anchor) return
-  const docRect = canvasRectToPageDocRect(
-    { x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height },
-    anchor.pageId,
-  )
-  if (!docRect) return
+  const page = pages.find((candidate) => candidate.id === anchor.pageId)
+  if (!page) return
+  const body = pageBodyCanvasBounds(page)
+  const docRect = {
+    x: entity.canvasX - body.x + (page.scrollX ?? 0),
+    y: entity.canvasY - body.y + (page.scrollY ?? 0),
+    width: entity.width,
+    height: entity.height,
+  }
   const docX = docRect.x + docRect.width / 2
   const docY = docRect.y + docRect.height / 2
   const snapshot: CaptureSnapshot = {
@@ -143,6 +150,8 @@ export function captureElementForEntity(entityId: string): void {
     .then((data) => stampEntityElement(entityId, snapshot, data))
     .catch(() => {})
 }
+
+registerElementAttachmentRecapture(captureElementForEntity)
 
 /**
  * Stamp a captured element onto a region annotation's anchor. Annotations

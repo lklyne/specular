@@ -59,42 +59,6 @@ export function snapPointTo45Degrees(
   }
 }
 
-export function pathD(points: AnnotationDrawingPoint[]): string {
-  if (!points.length) return ''
-  if (points.length === 1) {
-    const [point] = points
-    return `M ${point.x} ${point.y} L ${point.x + 0.01} ${point.y + 0.01}`
-  }
-  if (points.length === 2) {
-    return points
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-      .join(' ')
-  }
-
-  const [firstPoint, secondPoint] = points
-  let path = `M ${firstPoint.x} ${firstPoint.y}`
-  const firstMidpoint = {
-    x: (firstPoint.x + secondPoint.x) / 2,
-    y: (firstPoint.y + secondPoint.y) / 2,
-  }
-
-  path += ` Q ${firstPoint.x} ${firstPoint.y} ${firstMidpoint.x} ${firstMidpoint.y}`
-
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const point = points[index]
-    const nextPoint = points[index + 1]
-    const midpoint = {
-      x: (point.x + nextPoint.x) / 2,
-      y: (point.y + nextPoint.y) / 2,
-    }
-    path += ` Q ${point.x} ${point.y} ${midpoint.x} ${midpoint.y}`
-  }
-
-  const lastPoint = points[points.length - 1]
-  path += ` Q ${lastPoint.x} ${lastPoint.y} ${lastPoint.x} ${lastPoint.y}`
-  return path
-}
-
 export function drawingBounds(
   strokes: AnnotationDrawingStroke[],
 ): AnnotationDrawing['bounds'] {
@@ -342,4 +306,3 @@ export function pendingElementComposerPosition(
   })
   return { left: composerX, top: composerY, width: composerWidth }
 }
-
