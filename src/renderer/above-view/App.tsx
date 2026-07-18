@@ -842,6 +842,7 @@ export default function App({
   // controller state.
   const spaceHeldRef = useRef(false)
   const optionHeldRef = useRef(false)
+  const commandHeldRef = useRef(false)
   const handToolActiveRef = useRef(layoutData.activeTool.kind === 'hand')
   handToolActiveRef.current = layoutData.activeTool.kind === 'hand'
   useEffect(() => {
@@ -850,12 +851,23 @@ export default function App({
       if (event.key === 'Alt' || event.code === 'AltLeft' || event.code === 'AltRight') {
         optionHeldRef.current = down
       }
+      if (
+        event.key === 'Meta' ||
+        event.key === 'Control' ||
+        event.code === 'MetaLeft' ||
+        event.code === 'MetaRight' ||
+        event.code === 'ControlLeft' ||
+        event.code === 'ControlRight'
+      ) {
+        commandHeldRef.current = down
+      }
     }
     const onDown = (e: KeyboardEvent) => onKey(e, true)
     const onUp = (e: KeyboardEvent) => onKey(e, false)
     const onBlur = () => {
       spaceHeldRef.current = false
       optionHeldRef.current = false
+      commandHeldRef.current = false
     }
     window.addEventListener('keydown', onDown)
     window.addEventListener('keyup', onUp)
@@ -868,6 +880,8 @@ export default function App({
   }, [])
   const [edgeDragState, setEdgeDragState] = useState<EdgeDragState>(EDGE_DRAG_IDLE)
   const [dragCopyPreview, setDragCopyPreview] = useState<DragCopyPreviewBox[]>([])
+  const [groupDropTargetId, setGroupDropTargetId] = useState<string | null>(null)
+  const [dropBindingSuppressed, setDropBindingSuppressed] = useState(false)
   // Interactive file (HTML iframe) the user has entered: select-first /
   // interact-second, mirroring pages. Renderer-local — the iframe lives in
   // this WCV's DOM, so entering just flips its pointer-events (no cross-
@@ -892,7 +906,10 @@ export default function App({
     spaceHeldRef,
     handToolActiveRef,
     optionHeldRef,
+    commandHeldRef,
     setDragCopyPreview,
+    setGroupDropTarget: setGroupDropTargetId,
+    setDropBindingSuppressed,
     setEdgeDragState,
     setReorderGhost,
     onCommentDragMove: onDragMove,
@@ -1110,6 +1127,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               zoom={layoutData.zoom}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}
+              dropTargetGroupId={groupDropTargetId}
             />
           ) : null}
 
@@ -1136,6 +1154,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             reorderGhostId={reorderGhostEntity?.id ?? null}
             reorderGhostSpan={reorderGhostSpan}
             suppressPageId={focus.pageId}
+            suppressPageHover={dropBindingSuppressed}
           />
 
           <EdgeDragLayer state={edgeDragState} layoutData={layoutData} isDark={isDark} />
@@ -1151,7 +1170,10 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             isDark={isDark}
             editingEntityId={editingEntityId}
             optionHeldRef={optionHeldRef}
+            commandHeldRef={commandHeldRef}
             setDragCopyPreview={setDragCopyPreview}
+            setGroupDropTarget={setGroupDropTargetId}
+            setDropBindingSuppressed={setDropBindingSuppressed}
           />
 
           {/* Tool-vs-selection mutex (ADR 0008 §2): the active tool's popup wins

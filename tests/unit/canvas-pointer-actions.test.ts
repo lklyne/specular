@@ -8,6 +8,7 @@ import {
 import type {
   CanvasSceneEntity,
   CanvasSceneFileEntity,
+  CanvasSceneGroupEntity,
   CanvasScenePageEntity,
   CanvasSceneShapeEntity,
   CanvasSceneTextEntity,
@@ -58,6 +59,7 @@ function inputs(
 
 const baseCtx: CanvasPointerContext = {
   selectedEntityIds: [],
+  selectedGroupId: null,
   isPrimaryButton: true,
   button: 'left',
   modifiers: { shift: false, meta: false, ctrl: false },
@@ -68,6 +70,26 @@ const baseCtx: CanvasPointerContext = {
   interactiveEntityId: null,
   placement: null,
   commentToolActive: false,
+}
+
+function group(over: Partial<CanvasSceneGroupEntity> = {}): CanvasSceneGroupEntity {
+  return {
+    id: 'g1',
+    kind: 'group',
+    label: 'Group',
+    canvasX: 0,
+    canvasY: 0,
+    width: 600,
+    height: 500,
+    screenX: 100,
+    screenY: 100,
+    screenWidth: 600,
+    screenHeight: 500,
+    layoutMode: 'freeform',
+    managedLayout: false,
+    entityIds: [],
+    ...over,
+  }
 }
 
 function shape(over: Partial<CanvasSceneShapeEntity> = {}): CanvasSceneShapeEntity {
@@ -108,6 +130,47 @@ function file(over: Partial<CanvasSceneFileEntity> = {}): CanvasSceneFileEntity 
 }
 
 describe('routePointerDown', () => {
+  it('an unselected group interior defers group selection until release', () => {
+    const target = hitTest(inputs([group()]), { x: 350, y: 350 })
+    expect(routePointerDown(target, baseCtx)).toEqual({
+      kind: 'group-background-press',
+      groupId: 'g1',
+    })
+  })
+
+  it('a selected group interior starts a group drag', () => {
+    const target = hitTest(inputs([group()], [], { selectedGroupId: 'g1' }), { x: 350, y: 350 })
+    expect(routePointerDown(target, { ...baseCtx, selectedGroupId: 'g1' })).toEqual({
+      kind: 'begin-group-drag',
+      groupId: 'g1',
+      preserveSelection: true,
+    })
+  })
+
+  it('an unselected group border starts a group drag directly', () => {
+    const target = hitTest(inputs([group()]), { x: 102, y: 350 })
+    expect(routePointerDown(target, baseCtx)).toEqual({
+      kind: 'begin-group-drag',
+      groupId: 'g1',
+      preserveSelection: false,
+    })
+  })
+
+  it('a group in a heterogeneous multi-selection starts the batch entity drag', () => {
+    const target = hitTest(inputs([group()]), { x: 350, y: 350 })
+    expect(
+      routePointerDown(target, {
+        ...baseCtx,
+        selectedEntityIds: ['g1', 'other'],
+      }),
+    ).toEqual({
+      kind: 'begin-entity-drag',
+      entityId: 'g1',
+      entityKind: 'group',
+      preserveSelection: true,
+    })
+  })
+
   it('page body pointerdown → page-body-press', () => {
     const f = page()
     const target = hitTest(inputs([f]), { x: 500, y: 400 })

@@ -38,7 +38,9 @@ sets expand to include entities anchored to any moved page.
 **Placement decides anchoring; there is no mode.** An entity whose center
 lands inside a page's body (topmost page wins) anchors on creation and on
 drag end; dragging it off clears the anchor. Grouped entities never
-auto-anchor — group membership already owns their movement. Deleting a page
+auto-anchor — group membership already owns their movement. Holding Command
+during a drag suppresses drag-end anchoring so the entity stays canvas-bound
+above the page. Deleting a page
 frees its anchored entities in place.
 
 **Anchored means document-bound.** While the page shows a different URL than
@@ -85,8 +87,10 @@ drag gesture lands in that gesture's single undo step.
   mechanical once wanted.
 - ~~**Region annotations as anchor consumers** (ADR 0006 alternative F).~~
   Resolved by the amendment below.
-- **Reveal affordance** for a hidden anchored entity's sidebar row (e.g.
-  navigate the page back to the anchor URL on click).
+- ~~**Reveal affordance** for a hidden anchored entity's sidebar row.~~ Landed:
+  selecting an anchored entity restores its recorded page URL and smooth-scrolls
+  the page to the entity's document position through the shared page-anchor
+  reveal orchestrator described below.
 
 ## Amendment (2026-07-13) — annotations consume the utility
 
@@ -167,3 +171,12 @@ existing smooth-scroll command:
 The target is placed roughly one third down the viewport to leave context and
 avoid sticky site headers. The same scroll-container resolution is used for
 both reporting and commanded scrolling.
+
+## Amendment (2026-07-18) — anchored-item reveal
+
+Selecting a page-anchored canvas item from the left sidebar now uses the same
+document-restoration and smooth-scroll orchestration. Its document target is
+derived from the item's stored canvas Y relative to the page body, plus the
+anchor's placement-time scroll reference and live element-attachment
+correction. Comments and canvas items therefore share navigation timing and
+the eased page scroll ramp; only their target derivation remains kind-specific.

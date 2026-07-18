@@ -55,6 +55,7 @@ let nextWebContentsId = 1
 
 class FakeWebContents extends EventEmitter {
   id = nextWebContentsId++
+  ipc = new EventEmitter()
 
   // Every loadURL() call, in order — the navigation-sync suite counts these to
   // assert "exactly one navigation per peer" through the real relay machinery.

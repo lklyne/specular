@@ -61,6 +61,7 @@ import { createAnnotation } from '../../src/main/workspace-annotations'
 import { workspaceAnnotations } from '../../src/main/runtime/workspace-model'
 import { undo, redo } from '../../src/main/runtime/workspace-undo'
 import { selectNone } from '../../src/main/runtime/selection-controller'
+import { currentEntityOrder } from '../../src/main/runtime/entity-order-state'
 
 let harness: WorkspaceHarness
 
@@ -167,6 +168,62 @@ describe('page-anchored entities', () => {
 
     redo()
     expect(entity()?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
+  })
+
+  it('Command-drop on a page leaves the dragged entity canvas-bound', async () => {
+    loadHostPage()
+    const sticky = createTextEntity({ ...OFF_PAGE, text: 'floating above page' })
+    await settleSync()
+
+    initializeDrag([sticky.id])
+    applyDragDelta(
+      [sticky.id],
+      ON_PAGE.canvasX - OFF_PAGE.canvasX,
+      ON_PAGE.canvasY - OFF_PAGE.canvasY,
+    )
+    finalizeDrag({ reanchor: false })
+    await settleSync()
+
+    expect(textEntities.find((candidate) => candidate.id === sticky.id)?.pageAnchor).toBeUndefined()
+  })
+
+  it('drop on a newer page anchors without rewriting cross-plane stack order', async () => {
+    const stickyId = 'older-sticky'
+    harness.loadFixture({
+      name: 'Older sticky behind newer page',
+      doc: {
+        nodes: [
+          {
+            id: stickyId,
+            type: 'text',
+            x: OFF_PAGE.canvasX,
+            y: OFF_PAGE.canvasY,
+            width: OFF_PAGE.width,
+            height: OFF_PAGE.height,
+            text: 'drag me onto the page',
+            color: '3',
+          } as JsonCanvasTextNode,
+          hostPageNode(),
+        ],
+        edges: [],
+        appState: { zoom: 1, pan: { x: 0, y: 0 } },
+      },
+    })
+    expect(currentEntityOrder()).toEqual([stickyId, PAGE_ID])
+
+    initializeDrag([stickyId])
+    applyDragDelta([stickyId], ON_PAGE.canvasX - OFF_PAGE.canvasX, ON_PAGE.canvasY - OFF_PAGE.canvasY)
+    finalizeDrag()
+    await settleSync()
+
+    expect(textEntities.find((candidate) => candidate.id === stickyId)?.pageAnchor?.pageId).toBe(PAGE_ID)
+    // Notes paint and hit-test in aboveView over page WCVs. Anchoring must not
+    // rewrite persisted order to compensate for that physical plane priority.
+    expect(currentEntityOrder()).toEqual([stickyId, PAGE_ID])
+
+    undo()
+    expect(currentEntityOrder()).toEqual([stickyId, PAGE_ID])
+    expect(textEntities.find((candidate) => candidate.id === stickyId)?.pageAnchor).toBeUndefined()
   })
 
   it('drag off a page clears the anchor', async () => {

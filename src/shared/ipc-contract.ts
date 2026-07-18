@@ -91,9 +91,6 @@ export interface IpcContract {
   'canvas-drag-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-entity-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-entity-start': { dir: 'renderer→main'; payload: unknown }
-  'canvas-drag-group': { dir: 'renderer→main'; payload: unknown }
-  'canvas-drag-group-end': { dir: 'renderer→main'; payload: unknown }
-  'canvas-drag-group-start': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-page-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-drag-page-start': { dir: 'renderer→main'; payload: unknown }
@@ -146,6 +143,7 @@ export interface IpcContract {
   'canvas-reorder-commit': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-move': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-sidebar-item': { dir: 'renderer→main'; payload: unknown }
+  'canvas-reparent-sidebar-items': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-stack': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-start': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-tab': { dir: 'renderer→main'; payload: unknown }
@@ -402,9 +400,6 @@ export const ipcChannels = {
   canvasDragEntity: 'canvas-drag-entity',
   canvasDragEntityEnd: 'canvas-drag-entity-end',
   canvasDragEntityStart: 'canvas-drag-entity-start',
-  canvasDragGroup: 'canvas-drag-group',
-  canvasDragGroupEnd: 'canvas-drag-group-end',
-  canvasDragGroupStart: 'canvas-drag-group-start',
   canvasDragPage: 'canvas-drag-page',
   canvasDragPageEnd: 'canvas-drag-page-end',
   canvasDragPageStart: 'canvas-drag-page-start',
@@ -457,6 +452,7 @@ export const ipcChannels = {
   canvasReorderCommit: 'canvas-reorder-commit',
   canvasReorderMove: 'canvas-reorder-move',
   canvasReorderSidebarItem: 'canvas-reorder-sidebar-item',
+  canvasReparentSidebarItems: 'canvas-reparent-sidebar-items',
   canvasReorderStack: 'canvas-reorder-stack',
   canvasReorderStart: 'canvas-reorder-start',
   canvasReorderTab: 'canvas-reorder-tab',

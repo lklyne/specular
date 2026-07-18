@@ -30,6 +30,7 @@ export interface LeftSidebarElectronAPI {
     position: 'before' | 'after',
     parentId: string | null,
   ) => void
+  reparentSidebarItems: (entityIds: string[], parentGroupId: string | null) => void
   deletePage: (pageId: string) => void
   setTextEditing: (active: boolean) => void
   getInitialData: () => Promise<LeftSidebarBootstrapData>

@@ -13,6 +13,8 @@ import type { HitPayload, HitTarget, ResizeHandle } from './hit-test'
 export type CanvasPointerContext = {
   /** Currently-selected entity ids in main's authoritative state. */
   selectedEntityIds: readonly string[]
+  /** Selected group is separate from the ordinary entity selection. */
+  selectedGroupId: string | null
   /** True for left-button (button === 0) primary clicks; false for middle/right. */
   isPrimaryButton: boolean
   /** Which mouse button fired this event ('left'|'middle'|'right'). */
@@ -96,6 +98,10 @@ export type CanvasPointerAction =
   | { kind: 'begin-gap-drag'; groupId: string | null }
   /** Modifier-additive selection toggle (no drag). */
   | { kind: 'toggle-select'; entityId: string; entityKind: CanvasEntityKind }
+  /** Unselected group interior click/drag candidate. A stationary release
+   *  selects the group; threshold-crossing movement behaves exactly like a
+   *  background marquee so children remain directly grabbable. */
+  | { kind: 'group-background-press'; groupId: string }
   /** Background click/drag candidate — clears on click, marquee-selects after threshold. */
   | { kind: 'background-click' }
   /** Background drag — start marquee. Renderer is the coordinator since
@@ -200,6 +206,23 @@ function routeByPayload(
       return { kind: 'begin-gap-drag', groupId: payload.groupId }
     case 'page-body':
       return routePageBody(payload, context)
+    case 'group-border':
+      if (
+        context.selectedEntityIds.length > 1 &&
+        context.selectedEntityIds.includes(payload.groupId)
+      ) {
+        return {
+          kind: 'begin-entity-drag',
+          entityId: payload.groupId,
+          entityKind: 'group',
+          preserveSelection: true,
+        }
+      }
+      return {
+        kind: 'begin-group-drag',
+        groupId: payload.groupId,
+        preserveSelection: context.selectedGroupId === payload.groupId,
+      }
     case 'entity-body':
       return routeEntityBody(payload, context)
     case 'background':
@@ -263,8 +286,21 @@ function routeEntityBody(
     return { kind: 'toggle-select', entityId: payload.entityId, entityKind: payload.entityKind }
   }
   if (payload.entityKind === 'group') {
-    const preserveSelection = context.selectedEntityIds.includes(payload.entityId)
-    return { kind: 'begin-group-drag', groupId: payload.entityId, preserveSelection }
+    if (
+      context.selectedEntityIds.length > 1 &&
+      context.selectedEntityIds.includes(payload.entityId)
+    ) {
+      return {
+        kind: 'begin-entity-drag',
+        entityId: payload.entityId,
+        entityKind: 'group',
+        preserveSelection: true,
+      }
+    }
+    if (context.selectedGroupId !== payload.entityId) {
+      return { kind: 'group-background-press', groupId: payload.entityId }
+    }
+    return { kind: 'begin-group-drag', groupId: payload.entityId, preserveSelection: true }
   }
   // Interactive file renderers (HTML iframe): select-first / interact-
   // second, mirroring page-body. A click on the single-selected (not yet

@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 
+export const SIDEBAR_ITEM_DRAG_TYPE = 'application/x-specular-sidebar-item'
+
 interface DragReorderState {
   draggedId: string | null
   dropTargetIndex: number | null
@@ -88,6 +90,7 @@ export function useDragReorder(
           dropTargetRef.current = null
           setDropTargetIndex(null)
           e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData(SIDEBAR_ITEM_DRAG_TYPE, id)
         },
         onDragEnd: () => {
           setDraggedId(null)

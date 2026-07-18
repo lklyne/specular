@@ -35,6 +35,8 @@ const api: LeftSidebarElectronAPI = {
       position,
       parentId,
     }),
+  reparentSidebarItems: (entityIds, parentGroupId) =>
+    ipcRenderer.send(ipcChannels.canvasReparentSidebarItems, { entityIds, parentGroupId }),
   deletePage: (pageId) => ipcRenderer.send(ipcChannels.canvasDeletePage, { pageId }),
   setTextEditing: (active) => ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getLeftSidebarBootstrap),

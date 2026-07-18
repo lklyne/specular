@@ -88,6 +88,7 @@ import { registerCanvasEntityIpc } from './register-canvas-entity-ipc'
 import { registerCanvasReorderIpc } from './register-canvas-reorder-ipc'
 import { registerCanvasGapIpc } from './register-canvas-gap-ipc'
 import { reorderSidebarStackOrder } from '../runtime/entity-order-state'
+import { reparentEntities } from '../runtime/group-membership'
 
 export function registerCanvasIpc(): void {
   registerCanvasDragIpc()
@@ -177,7 +178,7 @@ export function registerCanvasIpc(): void {
   })
 
   const VALID_ENTITY_KINDS: ReadonlySet<CanvasEntityKind> = new Set<CanvasEntityKind>([
-    'page', 'text', 'file', 'drawing', 'shape', 'edge',
+    'page', 'text', 'file', 'drawing', 'shape', 'group', 'edge',
   ])
   ipcMain.on(
     ipcChannels.canvasSelectEntity,
@@ -370,6 +371,17 @@ export function registerCanvasIpc(): void {
       if (payload.section !== 'notes' && payload.section !== 'pages') return
       if (payload.position !== 'before' && payload.position !== 'after') return
       reorderSidebarStackOrder(payload)
+    },
+  )
+
+  ipcMain.on(
+    ipcChannels.canvasReparentSidebarItems,
+    (
+      _event,
+      payload: { entityIds: string[]; parentGroupId: string | null },
+    ) => {
+      if (!Array.isArray(payload.entityIds)) return
+      reparentEntities(payload.entityIds, payload.parentGroupId)
     },
   )
 

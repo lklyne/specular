@@ -131,6 +131,7 @@ function normalizeEntitySelection(entityIds: string[]): SelectionCommand {
     if (fileEntities.some((entity) => entity.id === entityId)) return true
     if (drawingEntities.some((entity) => entity.id === entityId)) return true
     if (shapeEntities.some((entity) => entity.id === entityId)) return true
+    if (workspaceGroups.some((group) => group.id === entityId)) return true
     return workspaceEdges.some((edge) => edge.id === entityId)
   })
 

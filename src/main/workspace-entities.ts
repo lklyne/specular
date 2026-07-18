@@ -11,11 +11,7 @@ import type {
   WorkspaceSelection,
 } from '../shared/types'
 import type { SelectionMutationMode } from '../shared/selection-modifiers'
-import {
-  pointInsideRect,
-  rectSelectsBounds,
-  type MarqueeSelectionMode,
-} from '../shared/marquee-selection'
+import { pointInsideRect, type MarqueeSelectionMode } from '../shared/marquee-selection'
 import { allEntities } from './entities/contract'
 import { dissolveOrphanSyncSets } from './navigation-sync'
 import { applyEntitySelectionMutation } from './runtime/selection-controller'
@@ -51,6 +47,7 @@ import { cloneMetadata } from './workspace-utils'
 import { removeEdgesTouchingEntities } from './workspace-edges'
 import { occupiedRegions } from './workspace-placement'
 import { cancelEditingEntityIfMatches } from './runtime/editing-entity-runtime'
+import { resolveMarqueeSelectionIds } from '../shared/gesture-utils'
 
 // --- Bounds helpers ---
 
@@ -298,63 +295,84 @@ export function selectEntitiesInRect(
   const mode = options.mode ?? 'replace'
   const selectionMode = options.selectionMode ?? 'intersect'
   const excludedIds = new Set(options.excludedEntityIds ?? [])
-  const selects = (candidate: WorkspaceBounds) =>
-    rectSelectsBounds(bounds, candidate, selectionMode)
-  const pageIds = pages
-    .filter((page) => !excludedIds.has(page.id) && selects(pageSelectableBounds(page)))
-    .map((page) => page.id)
-  const textIds = textEntities
-    .filter((note) =>
-      !excludedIds.has(note.id) &&
-      selects(
-        {
-          x: note.canvasX,
-          y: note.canvasY,
-          width: note.width,
-          height: note.height,
-        },
-      ),
-    )
-    .map((note) => note.id)
-  const fileIds = fileEntities
-    .filter((fe) =>
-      !excludedIds.has(fe.id) &&
-      selects(
-        {
-          x: fe.canvasX,
-          y: fe.canvasY,
-          width: fe.width,
-          height: fe.height,
-        },
-      ),
-    )
-    .map((fe) => fe.id)
-  const drawingIds = !includeDrawings ? [] : drawingEntities
-    .filter((de) =>
-      !excludedIds.has(de.id) &&
-      selects(
-        {
-          x: de.canvasX,
-          y: de.canvasY,
-          width: de.width,
-          height: de.height,
-        },
-      ),
-    )
-    .map((de) => de.id)
-  const shapeIds = shapeEntities
-    .filter((se) =>
-      !excludedIds.has(se.id) &&
-      selects(
-        {
-          x: se.canvasX,
-          y: se.canvasY,
-          width: se.width,
-          height: se.height,
-        },
-      ),
-    )
-    .map((se) => se.id)
+  const marqueeCandidates = [
+    ...pages.map((page) => {
+      const pageBounds = pageSelectableBounds(page)
+      return {
+        id: page.id,
+        kind: 'page' as const,
+        parentGroupId: page.parentGroupId,
+        left: pageBounds.x,
+        top: pageBounds.y,
+        width: pageBounds.width,
+        height: pageBounds.height,
+      }
+    }),
+    ...textEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'text' as const,
+      parentGroupId: entity.parentGroupId,
+      left: entity.canvasX,
+      top: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })),
+    ...fileEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'file' as const,
+      parentGroupId: entity.parentGroupId,
+      left: entity.canvasX,
+      top: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })),
+    ...(includeDrawings
+      ? drawingEntities.map((entity) => ({
+          id: entity.id,
+          kind: 'drawing' as const,
+          parentGroupId: entity.parentGroupId,
+          left: entity.canvasX,
+          top: entity.canvasY,
+          width: entity.width,
+          height: entity.height,
+        }))
+      : []),
+    ...shapeEntities.map((entity) => ({
+      id: entity.id,
+      kind: 'shape' as const,
+      parentGroupId: entity.parentGroupId,
+      left: entity.canvasX,
+      top: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })),
+    ...workspaceGroups.map((group) => ({
+      id: group.id,
+      kind: 'group' as const,
+      parentGroupId: group.parentGroupId,
+      left: group.canvasX,
+      top: group.canvasY,
+      width: group.width,
+      height: group.height,
+    })),
+  ]
+  const marqueeIds = resolveMarqueeSelectionIds(
+    marqueeCandidates,
+    {
+      left: bounds.x,
+      top: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    },
+    { mode: selectionMode, excludedIds },
+  )
+
+  const marqueeIdSet = new Set(marqueeIds)
+  const pageIds = pages.filter((page) => marqueeIdSet.has(page.id)).map((page) => page.id)
+  const textIds = textEntities.filter((entity) => marqueeIdSet.has(entity.id)).map((entity) => entity.id)
+  const fileIds = fileEntities.filter((entity) => marqueeIdSet.has(entity.id)).map((entity) => entity.id)
+  const drawingIds = drawingEntities.filter((entity) => marqueeIdSet.has(entity.id)).map((entity) => entity.id)
+  const shapeIds = shapeEntities.filter((entity) => marqueeIdSet.has(entity.id)).map((entity) => entity.id)
   const edgeIds = workspaceEdges
     .filter((edge) => {
       if (excludedIds.has(edge.id)) return false
@@ -369,7 +387,10 @@ export function selectEntitiesInRect(
     })
     .map((edge) => edge.id)
 
-  const entityIds = [...pageIds, ...textIds, ...fileIds, ...drawingIds, ...shapeIds, ...edgeIds]
+  const groupIds = workspaceGroups
+    .filter((group) => marqueeIdSet.has(group.id))
+    .map((group) => group.id)
+  const entityIds = [...marqueeIds, ...edgeIds]
 
   if (mode !== 'replace') {
     // Additive / toggle / remove modes: preserve existing selection outside the rect
@@ -389,6 +410,7 @@ export function selectEntitiesInRect(
     !fileIds.length &&
     !drawingIds.length &&
     !shapeIds.length &&
+    !groupIds.length &&
     !edgeIds.length
   ) {
     if (pageIds.length === 1) {

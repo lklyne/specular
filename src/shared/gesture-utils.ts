@@ -1,7 +1,7 @@
 import type { CanvasInteractionState, CanvasSceneEntity, LayoutUpdateData } from './types'
 import type { InteractionMode } from './interaction-types'
 import { GRID_SIZE } from './constants'
-import { entityIdsInScreenRect } from './marquee-selection'
+import type { MarqueeSelectionMode } from './marquee-selection'
 
 export const DRAG_THRESHOLD = 4
 
@@ -230,15 +230,139 @@ export function middleDragDelta(
   }
 }
 
+export interface MarqueeSelectionCandidate {
+  id: string
+  kind: CanvasSceneEntity['kind']
+  parentGroupId?: string
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export interface MarqueeSelectionRect {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+function rectsOverlap(
+  candidate: MarqueeSelectionCandidate,
+  rect: MarqueeSelectionRect,
+): boolean {
+  const right = rect.left + rect.width
+  const bottom = rect.top + rect.height
+  return (
+    rect.left < candidate.left + candidate.width &&
+    right > candidate.left &&
+    rect.top < candidate.top + candidate.height &&
+    bottom > candidate.top
+  )
+}
+
+function rectContains(
+  rect: MarqueeSelectionRect,
+  candidate: MarqueeSelectionCandidate,
+): boolean {
+  return (
+    rect.left <= candidate.left &&
+    rect.top <= candidate.top &&
+    rect.left + rect.width >= candidate.left + candidate.width &&
+    rect.top + rect.height >= candidate.top + candidate.height
+  )
+}
+
+export interface MarqueeSelectionOptions {
+  /** Leaf hit test: 'intersect' selects overlapping items, 'contain' only fully enclosed ones (Cmd/Ctrl marquee). */
+  mode?: MarqueeSelectionMode
+  /** Ids excluded from the result — e.g. the item under the marquee's origin click. */
+  excludedIds?: ReadonlySet<string>
+}
+
 /**
- * Entities whose screen-space bounding box overlaps `rect`. Used by the
- * marquee gesture to publish a "would-be selected" preview each pointermove.
- * Touch-only intersection (>= edge equality) is excluded; matches the old
- * marquee preview hook exactly.
+ * Resolve marquee targets with group-aware containment:
+ *
+ * - a group is selectable only when the marquee fully encloses its bounds;
+ * - a partially crossed group is transparent, exposing overlapping children;
+ * - fully enclosed nested groups collapse to their outer fully enclosed group;
+ * - independent full groups and loose hits from partial groups batch together.
+ *
+ * Group enclosure always uses full containment (a group is a unit only when
+ * fully covered); `mode` only governs the leaf hit test, and `excludedIds`
+ * drops the origin item so a Cmd-marquee can begin through a body.
+ */
+export function resolveMarqueeSelectionIds(
+  candidates: readonly MarqueeSelectionCandidate[],
+  rect: MarqueeSelectionRect,
+  { mode = 'intersect', excludedIds }: MarqueeSelectionOptions = {},
+): string[] {
+  const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]))
+  const fullyEnclosedGroupIds = new Set(
+    candidates
+      .filter((candidate) => candidate.kind === 'group' && rectContains(rect, candidate))
+      .map((candidate) => candidate.id),
+  )
+  const outerFullyEnclosedGroups = candidates.filter((candidate) => {
+    if (!fullyEnclosedGroupIds.has(candidate.id)) return false
+    let parentGroupId = candidate.parentGroupId
+    while (parentGroupId) {
+      if (fullyEnclosedGroupIds.has(parentGroupId)) return false
+      parentGroupId = candidateById.get(parentGroupId)?.parentGroupId
+    }
+    return true
+  })
+  const selectedGroupIds = new Set(outerFullyEnclosedGroups.map((group) => group.id))
+  const isInsideSelectedGroup = (candidate: MarqueeSelectionCandidate): boolean => {
+    let parentGroupId = candidate.parentGroupId
+    while (parentGroupId) {
+      if (selectedGroupIds.has(parentGroupId)) return true
+      parentGroupId = candidateById.get(parentGroupId)?.parentGroupId
+    }
+    return false
+  }
+
+  return candidates
+    .filter((candidate) => {
+      if (excludedIds?.has(candidate.id)) return false
+      if (selectedGroupIds.has(candidate.id)) return true
+      if (candidate.kind === 'group' || isInsideSelectedGroup(candidate)) return false
+      return mode === 'contain'
+        ? rectContains(rect, candidate)
+        : rectsOverlap(candidate, rect)
+    })
+    .map((candidate) => candidate.id)
+}
+
+/**
+ * Scene-entity adapter used by the renderer's live marquee preview.
  */
 export function entitiesOverlappingRect(
   entities: readonly CanvasSceneEntity[],
-  rect: { left: number; top: number; width: number; height: number },
+  rect: MarqueeSelectionRect,
+  options?: MarqueeSelectionOptions,
 ): string[] {
-  return entityIdsInScreenRect(entities, rect, 'intersect')
+  const parentGroupByChildId = new Map<string, string>()
+  for (const entity of entities) {
+    if (entity.kind !== 'group') continue
+    for (const childId of entity.entityIds) {
+      parentGroupByChildId.set(childId, entity.id)
+    }
+  }
+  return resolveMarqueeSelectionIds(
+    entities.map((entity) => ({
+      id: entity.id,
+      kind: entity.kind,
+      parentGroupId:
+        'parentGroupId' in entity
+          ? entity.parentGroupId
+          : parentGroupByChildId.get(entity.id),
+      left: entity.screenX,
+      top: entity.screenY,
+      width: entity.screenWidth,
+      height: entity.screenHeight,
+    })),
+    rect,
+    options,
+  )
 }

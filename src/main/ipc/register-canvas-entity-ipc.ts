@@ -105,6 +105,11 @@ import {
   reorderStackOrder,
   type StackOrderAction,
 } from '../runtime/entity-order-state'
+import {
+  dispatchScrollToEntity,
+  revealPageAnchoredContent,
+} from '../runtime/page-anchor-reveal'
+import { findAnchorableEntity } from '../runtime/anchorable-entity-store'
 
 function isStackOrderAction(action: string): action is StackOrderAction {
   return (
@@ -269,6 +274,12 @@ export function registerCanvasEntityIpc(): void {
       const entity = te ?? fe ?? de ?? se
       if (entity) {
         focusCanvasBounds({ x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height })
+        const anchoredEntity = findAnchorableEntity(entityId)
+        if (anchoredEntity) {
+          revealPageAnchoredContent(anchoredEntity.pageAnchor, () =>
+            dispatchScrollToEntity(anchoredEntity),
+          )
+        }
       }
     },
   )

@@ -194,17 +194,19 @@ function GroupSelectionOverlay({
   group,
   originY,
   isDark,
+  showResizeHandles,
 }: {
   group: CanvasSceneGroupEntity
   originY: number
   isDark: boolean
+  showResizeHandles: boolean
 }) {
   return (
     <SelectionOutlineBox
       span={group}
       originY={originY}
       isDark={isDark}
-      showResizeHandles
+      showResizeHandles={showResizeHandles}
     />
   )
 }
@@ -216,6 +218,7 @@ export function SelectionOutlineLayer({
   reorderGhostId,
   reorderGhostSpan,
   suppressPageId,
+  suppressPageHover = false,
 }: {
   layoutData: LayoutUpdateData
   isDark: boolean
@@ -224,6 +227,9 @@ export function SelectionOutlineLayer({
    *  and resize handles are suppressed for a clean read, but every other item's
    *  selection/hover outline still renders so annotations stay interactive. */
   suppressPageId?: string | null
+  /** Command-drag places an item above a page without binding to it, so the
+   *  page's hover outline must disappear with the disabled drop target. */
+  suppressPageHover?: boolean
   /** While a reorder drag is in flight (ADR 0015 D7, Phase D), drop this entity's
    *  *per-item* outline — a crisp box fights the grayscale placeholder at its
    *  destination slot and the 50% ghost under the cursor. It stays in the
@@ -241,6 +247,9 @@ export function SelectionOutlineLayer({
     [layoutData.selectedEntityIds],
   )
   const isMultiSelect = selectedIdSet.size > 1
+  const hasSelectedGroup = (layoutData.groups ?? []).some((group) =>
+    selectedIdSet.has(group.id),
+  )
   const hoveredEntityId = layoutData.hover?.id ?? null
 
   const pages = useMemo(
@@ -287,10 +296,10 @@ export function SelectionOutlineLayer({
           f.id !== reorderGhostId &&
           f.id !== suppressPageId &&
           (selectedIdSet.has(f.id) ||
-            f.id === hoveredEntityId ||
+            (!suppressPageHover && f.id === hoveredEntityId) ||
             marqueePreviewIds?.has(f.id)),
       ),
-    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressPageId],
+    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressPageHover, suppressPageId],
   )
 
   // Non-page entities render outline if selected, hovered, or in marquee preview.
@@ -328,15 +337,23 @@ export function SelectionOutlineLayer({
   // canvas-bg `GroupSelectionOverlayLayer` used to suppress this when the
   // group had a descendant page (handing off to the legacy aboveView path);
   // now aboveView owns it unconditionally, so we render in both cases.
-  const selectedGroupId = layoutData.selectedGroupId ?? null
-  const selectedGroup = useMemo(() => {
-    if (!selectedGroupId) return null
-    return (layoutData.groups ?? []).find((g) => g.id === selectedGroupId) ?? null
-  }, [selectedGroupId, layoutData.groups])
+  const selectedGroups = useMemo(
+    () => (layoutData.groups ?? []).filter((group) => selectedIdSet.has(group.id)),
+    [layoutData.groups, selectedIdSet],
+  )
+  const marqueePreviewGroups = useMemo(
+    () =>
+      (layoutData.groups ?? []).filter(
+        (group) =>
+          !selectedIdSet.has(group.id) &&
+          marqueePreviewIds?.has(group.id),
+      ),
+    [layoutData.groups, marqueePreviewIds, selectedIdSet],
+  )
 
   return (
     <>
-      {isMultiSelect && allSelectedEntities.length > 1 ? (
+      {isMultiSelect && !hasSelectedGroup && allSelectedEntities.length > 1 ? (
         <MultiSelectionBoundingBox
           selectedEntities={allSelectedEntities}
           originY={originY}
@@ -378,13 +395,24 @@ export function SelectionOutlineLayer({
           />
         )
       })}
-      {selectedGroup ? (
+      {selectedGroups.map((group) => (
         <GroupSelectionOverlay
-          group={selectedGroup}
+          key={`selection-outline-${group.id}`}
+          group={group}
           originY={originY}
           isDark={isDark}
+          showResizeHandles={!isMultiSelect}
         />
-      ) : null}
+      ))}
+      {marqueePreviewGroups.map((group) => (
+        <GroupSelectionOverlay
+          key={`marquee-outline-${group.id}`}
+          group={group}
+          originY={originY}
+          isDark={isDark}
+          showResizeHandles={false}
+        />
+      ))}
     </>
   )
 }
