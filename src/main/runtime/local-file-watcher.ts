@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
 import { readFileSync, watch, type FSWatcher } from 'fs'
+import { basename, dirname } from 'path'
 
 type OnFilesChanged = (entityIds: string[]) => void
 
@@ -17,6 +18,13 @@ export function initFileWatcher(onChanged: OnFilesChanged): void {
 
 export function getFileReloadVersion(entityId: string): number {
   return fileReloadVersions.get(entityId) ?? 0
+}
+
+/** Force a reload signal for one entity without waiting on the watcher —
+ *  the manual "Refresh" action. */
+export function bumpFileReloadVersion(entityId: string): void {
+  fileReloadVersions.set(entityId, (fileReloadVersions.get(entityId) ?? 0) + 1)
+  onChangedCallback?.([entityId])
 }
 
 export function watchEntityFile(entityId: string, filePath: string): void {
@@ -68,13 +76,26 @@ function toLocalPath(filePath: string): string | null {
   return filePath
 }
 
+// Watches the parent directory rather than the file itself. Editors and
+// agents commonly save atomically (write a temp file, then rename it over
+// the target), which replaces the target's inode — a watch on the file
+// itself fires once for the rename and then silently stops reporting
+// changes, since the inode it's attached to no longer has that path. The
+// directory's inode survives every rename inside it, so watching the
+// directory and filtering by filename keeps reporting changes across
+// atomic saves without needing to re-arm anything.
 function startWatcher(localPath: string): void {
+  const dir = dirname(localPath)
+  const targetName = basename(localPath)
   try {
-    const watcher = watch(localPath, () => scheduleChangeHandling(localPath))
+    const watcher = watch(dir, (_eventType, filename) => {
+      if (filename !== null && filename !== targetName) return
+      scheduleChangeHandling(localPath)
+    })
     watcher.on('error', () => stopWatcher(localPath))
     fileWatchers.set(localPath, watcher)
   } catch {
-    // file doesn't exist or cannot be watched — skip silently
+    // directory doesn't exist or cannot be watched — skip silently
   }
 }
 

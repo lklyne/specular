@@ -9,10 +9,16 @@
  * Mutation-verified by: commenting out the `watchEntityFile(...)` call in
  * `createFileEntity` (src/main/runtime/file-entity-state.ts) — "edit bumps
  * fileReloadVersion" fails because the version stays 0 after the disk write.
+ *
+ * The atomic-save test is mutation-verified by reverting `startWatcher` in
+ * `src/main/runtime/local-file-watcher.ts` to `watch(localPath, ...)` (watch
+ * the file itself instead of its parent directory) — the rename in that test
+ * then silently kills the watch, and the post-rename write never bumps the
+ * version again.
  */
 
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdtempSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { bootWorkspaceHarness, type WorkspaceHarness } from './harness'
@@ -61,6 +67,30 @@ describe('local-file watcher', () => {
     writeFileSync(filePath, '<h1>v2</h1>', 'utf8')
 
     expect(await waitForVersionAbove(id, 0)).toBeGreaterThan(0)
+  })
+
+  it('keeps reporting changes after an atomic save (write-temp-then-rename)', async () => {
+    // Editors and agents commonly save atomically: write a temp file, then
+    // rename it over the target. The rename replaces the target's inode —
+    // a watch on the file itself would fire once for the rename and then go
+    // silent forever, which is the bug this test guards against.
+    const filePath = join(tmpDir!, 'atomic.html')
+    writeFileSync(filePath, '<h1>v1</h1>', 'utf8')
+
+    const { id } = createFileEntity({ canvasX: 0, canvasY: 0, file: filePath })
+    await sleep(50)
+
+    const tmpPath = join(tmpDir!, '.atomic.html.tmp')
+    writeFileSync(tmpPath, '<h1>v2</h1>', 'utf8')
+    renameSync(tmpPath, filePath)
+    const afterRename = await waitForVersionAbove(id, 0)
+    expect(afterRename).toBeGreaterThan(0)
+
+    // The watcher must still be alive post-rename: a subsequent in-place
+    // write should keep bumping the version, not silently stop.
+    await sleep(50)
+    writeFileSync(filePath, '<h1>v3</h1>', 'utf8')
+    expect(await waitForVersionAbove(id, afterRename)).toBeGreaterThan(afterRename)
   })
 
   it('stops watching once the entity is deleted', async () => {
