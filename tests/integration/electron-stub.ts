@@ -196,13 +196,25 @@ export const nativeTheme = withNoopFallback({
 })
 
 let clipboardText = ''
+const clipboardBuffers = new Map<string, Buffer>()
 export const clipboard = withNoopFallback({
   writeText: (text: string) => {
     clipboardText = text
+    clipboardBuffers.clear()
   },
   readText: () => clipboardText,
   readImage: () => ({ isEmpty: () => true }),
-  availableFormats: () => [] as string[],
+  writeBuffer: (format: string, buffer: Buffer) => {
+    clipboardText = ''
+    clipboardBuffers.clear()
+    clipboardBuffers.set(format, buffer)
+  },
+  readBuffer: (format: string) => clipboardBuffers.get(format) ?? Buffer.alloc(0),
+  availableFormats: () => Array.from(clipboardBuffers.keys()),
+  clear: () => {
+    clipboardText = ''
+    clipboardBuffers.clear()
+  },
 })
 
 export const ipcMain = withNoopFallback(new EventEmitter())
@@ -210,7 +222,14 @@ export const shell = withNoopFallback({})
 export const dialog = withNoopFallback({})
 export const session = withNoopFallback({ defaultSession: withNoopFallback({}) })
 export const Menu = withNoopFallback({ buildFromTemplate: () => withNoopFallback({}), setApplicationMenu: noop })
-export const nativeImage = withNoopFallback({ createFromBuffer: () => withNoopFallback({}), createEmpty: () => withNoopFallback({}) })
+export const nativeImage = withNoopFallback({
+  createFromBuffer: (buffer: Buffer) => withNoopFallback({
+    isEmpty: () => buffer.length === 0,
+    toPNG: () => buffer,
+    getSize: () => ({ width: 1, height: 1 }),
+  }),
+  createEmpty: () => withNoopFallback({ isEmpty: () => true }),
+})
 export const crashReporter = withNoopFallback({})
 export const protocol = withNoopFallback({})
 export const net = withNoopFallback({})
