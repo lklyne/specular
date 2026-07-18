@@ -939,8 +939,10 @@ function runBackgroundSelectionGesture(
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
-  const selectionMode: MarqueeSelectionMode =
-    event.metaKey || event.ctrlKey ? 'contain' : 'intersect'
+  // Sample the mode modifier live off each event: Cmd/Ctrl can be pressed or
+  // released mid-drag to toggle intersect vs. full containment.
+  const marqueeMode = (ev: PointerEvent): MarqueeSelectionMode =>
+    ev.metaKey || ev.ctrlKey ? 'contain' : 'intersect'
   const excludedIds = originEntity ? new Set([originEntity.entityId]) : new Set<string>()
   let dragged = false
 
@@ -961,7 +963,7 @@ function runBackgroundSelectionGesture(
         height: rect.height,
       }
       const entityIds = entitiesOverlappingRect(layout.entities, windowRect, {
-        mode: selectionMode,
+        mode: marqueeMode(ev),
         excludedIds,
       })
       api.setSelectionOverlayRect({
@@ -1011,7 +1013,7 @@ function runBackgroundSelectionGesture(
         screenRectToCanvasRect(windowRect, layout),
         modifiers,
         {
-          selectionMode,
+          selectionMode: marqueeMode(ev),
           excludedEntityIds: [...excludedIds],
         },
       )
