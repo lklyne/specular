@@ -1,4 +1,4 @@
-import { clipboard } from 'electron'
+import { clipboard, nativeImage } from 'electron'
 import { existsSync } from 'fs'
 import { DESKTOP_PRESET_INDEX } from '../shared/constants'
 import { looksLikeUrl, normalizeUserUrl } from '../shared/url'
@@ -212,6 +212,50 @@ function createStructuredContentEntity(input: {
   return false
 }
 
+function isNativeRasterImageFormat(format: string): boolean {
+  return /^(?:public\.)?(?:png|jpe?g|tiff?)$/i.test(format) ||
+    /^image\/(?:png|jpe?g|tiff?)$/i.test(format) ||
+    /^nspasteboardtype(?:png|jpe?g|tiff?)$/i.test(format) ||
+    format === 'NeXT TIFF v4.0 pasteboard type'
+}
+
+function readClipboardImage(): {
+  buffer: Buffer
+  width: number
+  height: number
+} | null {
+  try {
+    const image = clipboard.readImage()
+    if (!image.isEmpty()) {
+      return { buffer: image.toPNG(), ...image.getSize() }
+    }
+  } catch {
+    // Some macOS clipboard owners expose only the native pasteboard buffer.
+  }
+
+  let formats: string[]
+  try {
+    formats = clipboard.availableFormats()
+  } catch {
+    return null
+  }
+
+  for (const format of formats) {
+    if (!isNativeRasterImageFormat(format)) continue
+    try {
+      const source = clipboard.readBuffer(format)
+      if (source.length === 0) continue
+      const image = nativeImage.createFromBuffer(source)
+      if (image.isEmpty()) continue
+      return { buffer: image.toPNG(), ...image.getSize() }
+    } catch {
+      // Keep trying other advertised raster representations.
+    }
+  }
+
+  return null
+}
+
 // Smart-paste resolution order: entity JSON → local file refs → native image
 // → structured renderer-backed text → markdown document → URL → sticky text.
 // Tested via tests/integration/clipboard-paste.test.ts.
@@ -245,10 +289,10 @@ export function pasteFromClipboard(input: { canvasX: number; canvasY: number }):
     return
   }
 
-  const clipImage = clipboard.readImage()
-  if (!clipImage.isEmpty()) {
-    const file = saveImageBuffer(clipImage.toPNG(), 'png')
-    const { width, height } = clipImage.getSize()
+  const clipImage = readClipboardImage()
+  if (clipImage) {
+    const file = saveImageBuffer(clipImage.buffer, 'png')
+    const { width, height } = clipImage
     createFileEntity({ canvasX, canvasY, file, width, height })
     return
   }
