@@ -1956,4 +1956,29 @@ export interface AnnotationLiveBboxUpdate {
   boundingBox: DevtoolsPanelDomRect | null
 }
 
+/** Element-attachment reflow tracking (ADR 0030). Main declares, per page, the
+ *  distinct DOM selectors that anchored items reference; the page resolves them
+ *  to document positions and reports back on reflow. Unlike the bbox
+ *  subscription this is a plain declaration (no per-item id) — items sharing a
+ *  selector share one subscription, and the position is keyed by selector. */
+export interface ElementAttachmentSubscriptions {
+  selectors: string[]
+}
+
+/** One resolved element document position (scroll-invariant): the element's
+ *  top-left in document space, matching the capture convention
+ *  (`rect.left + scrollX`, `rect.top + scrollY`). */
+export interface ElementAttachmentPosition {
+  selector: string
+  docX: number
+  docY: number
+}
+
+/** Batched reflow report (page → main): the current document positions of the
+ *  subscribed selectors that resolved this flush. Selectors that fail to
+ *  resolve are omitted — main keeps their last-known position; never a hide. */
+export interface ElementAttachmentPositionsUpdate {
+  positions: ElementAttachmentPosition[]
+}
+
 // --- Electron API Interfaces ---

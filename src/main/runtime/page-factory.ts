@@ -31,6 +31,7 @@ import type { Page } from './runtime-entities'
 import { pageOverridesFromMetadata } from './runtime-entities'
 import { markDirty } from './layout-dirty'
 import { clearPageAnchorsForPage } from './page-anchor-state'
+import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
 import { endFocusSession, focusSession } from './focus-session'
 import {
@@ -203,6 +204,9 @@ export function createPage(config: PageConfig): Page {
       page.pageView.webContents.send(ipcChannels.queryFavicon)
     }
     invalidateAgentSnapshot(page.id)
+    // A finished load starts the page preload with no subscriptions; re-declare
+    // the selectors this page's anchored items track (ADR 0030).
+    resetAttachmentSubscriptionsForPage(page.id)
     page.lastPageEmulationKey = undefined
     page.lastSafeAreaCssKey = undefined
     page.lastSafeAreaCssId = undefined
@@ -226,6 +230,10 @@ export function createPage(config: PageConfig): Page {
     page.scrollX = 0
     page.scrollY = 0
     page.scrollHeight = 0
+    // The new document dropped the old preload's subscriptions and its element
+    // positions no longer apply — re-declare and clear (ADR 0030).
+    page.elementPositions = undefined
+    resetAttachmentSubscriptionsForPage(page.id)
     // Annotation visibility and the sidebar's page children key off the
     // page's current URL, so a navigation must re-send both payloads.
     markDirty('canvas', 'sidebar')

@@ -49,6 +49,13 @@ export interface Page {
    *  position for scroll-to-comment (scroll-tracking phase 4). Ephemeral;
    *  absent until the first offset broadcast arrives. */
   scrollHeight?: number
+  /** Live document positions of the DOM selectors anchored items reference,
+   *  keyed by selector (ADR 0030 element attachment). The page's reflow tracker
+   *  broadcasts these on real reflow events; scene builders read them as a
+   *  render-time correction. Ephemeral — never persisted, never in the Y.Doc;
+   *  a selector is absent until its first resolution and keeps its last-known
+   *  position thereafter. */
+  elementPositions?: Map<string, { docX: number; docY: number }>
   lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string

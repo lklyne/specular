@@ -27,6 +27,7 @@ import type { PageAnchor } from '../../shared/page-anchor'
 import { captureElementAtPageDocumentPoint } from './page-queries'
 import { canvasRectToPageDocRect, findAnchorableEntity } from './page-anchor-state'
 import { workspaceAnnotations } from './workspace-model'
+import { requestAttachmentSubscriptionRefresh } from './element-attachment-subscriptions'
 import {
   getActiveDoc,
   DOC_MAP_ENTITIES,
@@ -109,6 +110,9 @@ export function stampEntityElement(
   // Fresh object — the diff-sync detects anchor changes by field identity.
   entity.pageAnchor = { ...anchor, element: captured }
   writeAnchorElementToDoc(DOC_MAP_ENTITIES, entityId, entity.pageAnchor)
+  // The page must now track this selector — the stamp bypasses the mutation
+  // seam (it is outside undo), so it refreshes subscriptions itself.
+  requestAttachmentSubscriptionRefresh()
 }
 
 /**
@@ -154,6 +158,7 @@ export function stampAnnotationElement(
   if (!annotation || !anchor || !anchorMatchesSnapshot(anchor, snapshot)) return
   annotation.pageAnchor = { ...anchor, element: captured }
   writeAnchorElementToDoc(DOC_MAP_ANNOTATIONS, annotationId, annotation.pageAnchor)
+  requestAttachmentSubscriptionRefresh()
 }
 
 /**

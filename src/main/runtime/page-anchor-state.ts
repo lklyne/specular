@@ -45,7 +45,7 @@ export interface AnchorableEntity {
   pageAnchor?: PageAnchor
 }
 
-function anchorableEntities(): AnchorableEntity[] {
+export function anchorableEntities(): AnchorableEntity[] {
   return [...textEntities, ...drawingEntities, ...shapeEntities]
 }
 

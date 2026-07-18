@@ -1,7 +1,11 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { ScrollSyncData, SelectionModifiers } from '../../shared/types'
+import type {
+  ElementAttachmentPositionsUpdate,
+  ScrollSyncData,
+  SelectionModifiers,
+} from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
 import { aboveView, bgView } from '../runtime/view-refs'
 import { safeSend } from '../runtime/safe-send'
@@ -74,6 +78,37 @@ export function registerPageChromeIpc(): void {
           scrollY: data.scrollY,
         })
       }
+      markDirty('canvas')
+      requestLayout()
+    },
+  )
+
+  // ADR 0030 — element-attachment reflow positions. The page's tracker
+  // broadcasts the live document positions of its subscribed selectors on real
+  // reflow events (resize, load, debounced mutations). Stored on the ephemeral
+  // runtime page keyed by selector; scene builders read them as a render-time
+  // correction. No fast-path nudge — reflow is debounced by nature, so the
+  // debounced layout rebuild is timely enough (the scroll fast path is
+  // untouched).
+  ipcMain.on(
+    ipcChannels.elementAttachmentPositions,
+    (event, data: ElementAttachmentPositionsUpdate | undefined) => {
+      const page = findPageByPageView(event.sender)
+      if (!page) return
+      const positions = Array.isArray(data?.positions) ? data.positions : []
+      if (!positions.length) return
+      const map = page.elementPositions ?? new Map<string, { docX: number; docY: number }>()
+      let changed = false
+      for (const position of positions) {
+        if (typeof position?.selector !== 'string') continue
+        if (typeof position.docX !== 'number' || typeof position.docY !== 'number') continue
+        const prev = map.get(position.selector)
+        if (prev && prev.docX === position.docX && prev.docY === position.docY) continue
+        map.set(position.selector, { docX: position.docX, docY: position.docY })
+        changed = true
+      }
+      if (!changed) return
+      page.elementPositions = map
       markDirty('canvas')
       requestLayout()
     },

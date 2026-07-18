@@ -5,6 +5,8 @@ import type {
   AppThemeMode,
   ConnectedRepo,
   DevtoolsPanelData,
+  ElementAttachmentPositionsUpdate,
+  ElementAttachmentSubscriptions,
   FixConfig,
   LayoutUpdateData,
   LeftSidebarData,
@@ -200,6 +202,8 @@ export interface IpcContract {
   'devtools-resize-start': { dir: 'renderer→main'; payload: unknown }
   'dispatch-scroll': { dir: 'main→renderer'; payload: unknown }
   'dispatch-scroll-result': { dir: 'renderer→main'; payload: unknown }
+  'element-attachment-positions': { dir: 'renderer→main'; payload: ElementAttachmentPositionsUpdate }
+  'element-attachment-subscriptions': { dir: 'main→renderer'; payload: ElementAttachmentSubscriptions }
   'fix-progress-update': { dir: 'main→renderer'; payload: LayoutUpdateData['fixProgress'] }
   'get-canvas-layout-bootstrap': { dir: 'invoke'; payload: unknown }
   'get-floating-ui-bootstrap': { dir: 'renderer→main'; payload: unknown }
@@ -492,6 +496,8 @@ export const ipcChannels = {
   devtoolsResizeStart: 'devtools-resize-start',
   dispatchScroll: 'dispatch-scroll',
   dispatchScrollResult: 'dispatch-scroll-result',
+  elementAttachmentPositions: 'element-attachment-positions',
+  elementAttachmentSubscriptions: 'element-attachment-subscriptions',
   fixProgressUpdate: 'fix-progress-update',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',

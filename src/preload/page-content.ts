@@ -34,6 +34,11 @@ import {
   setAnnotationBboxSubscriptions,
 } from './annotation-bbox-tracker'
 import {
+  queueRecomputeElementPositions,
+  refreshElementAttachmentObserver,
+  setElementAttachmentSubscriptions,
+} from './element-position-tracker'
+import {
   buildElementPath,
   buildStructuredDomSnapshot,
   compactText,
@@ -426,6 +431,18 @@ ipcRenderer.on(
   },
 )
 
+// ADR 0030 — element-attachment reflow subscriptions. Main declares the set of
+// distinct selectors that anchored items on this page reference; the page
+// resolves them to document positions and reports back via
+// `element-attachment-positions`, installing a MutationObserver only while the
+// set is non-empty.
+ipcRenderer.on(
+  ipcChannels.elementAttachmentSubscriptions,
+  (_event, payload: { selectors?: string[] } | undefined) => {
+    setElementAttachmentSubscriptions(payload?.selectors ?? [])
+  },
+)
+
 ipcRenderer.on(ipcChannels.setInspectionMode, (_event, payload: { enabled?: boolean } | undefined) => {
   selectionDebug('ipc:set-inspection-mode', { enabled: Boolean(payload?.enabled) })
   setDomInspectionEnabled(Boolean(payload?.enabled))
@@ -798,6 +815,7 @@ window.addEventListener(
     queueRefreshDomInspectionOverlay()
     queueRefreshCommentHoverOverlay()
     queueRecomputeAnnotationBboxes()
+    queueRecomputeElementPositions()
   },
   { passive: true, capture: true }
 )
@@ -807,6 +825,7 @@ window.addEventListener('resize', () => {
   queueRefreshDomInspectionOverlay()
   queueRefreshCommentHoverOverlay()
   queueRecomputeAnnotationBboxes()
+  queueRecomputeElementPositions()
 })
 
 // --- Resize handle ---
@@ -896,6 +915,10 @@ function onDomReady(): void {
   // Emit once on load so a page that restores its scroll position (bfcache,
   // Next.js scroll restoration) starts correct even without a scroll event.
   queueScrollOffsetBroadcast()
+  // A (re)load replaces document.body: reattach the reflow observer to the new
+  // body and re-resolve subscribed selectors against the fresh layout.
+  refreshElementAttachmentObserver()
+  queueRecomputeElementPositions()
   initComponentInspector()
 }
 

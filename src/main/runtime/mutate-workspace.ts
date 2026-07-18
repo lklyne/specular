@@ -23,6 +23,7 @@ import { markDirty } from './layout-dirty'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
 import { requestLayout } from './viewport-control'
 import { markUndoBoundary } from './workspace-undo'
+import { requestAttachmentSubscriptionRefresh } from './element-attachment-subscriptions'
 
 export interface MutateWorkspaceOptions<T> {
   /**
@@ -53,6 +54,10 @@ export function mutateWorkspace<T>(fn: () => T, opts?: MutateWorkspaceOptions<T>
   markDirty('canvas')
   scheduleWorkspaceAutosave()
   requestLayout()
+  // Re-derive which selectors each page must track (ADR 0030). Coalesced and
+  // no-op unless the anchored-item set changed, so it rides the mutation seam
+  // instead of every anchor/delete/reanchor call site.
+  requestAttachmentSubscriptionRefresh()
   if (!gestureSessionActive()) markUndoBoundary()
   return result
 }
