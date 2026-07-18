@@ -83,6 +83,10 @@ function FileBodyCard({
           />
         </ContextMenu.Trigger>
         <Menu.Portal>
+          <ContextMenu.Backdrop
+            data-overlay-ui
+            className="fixed inset-0 z-40"
+          />
           <Menu.Positioner sideOffset={6} style={{ zIndex: 50 }}>
             <Menu.Popup data-overlay-ui className={menuPopupClass}>
               <Menu.Item
