@@ -139,7 +139,22 @@ export function hydrateDocFromSnapshot(doc: Y.Doc, snapshot: WorkspaceSnapshot):
           yPages.set(id, objectToYMap(entity as unknown as Record<string, unknown>))
         }
       } else {
-        yEntities.set(id, objectToYMap(entity as unknown as Record<string, unknown>))
+        const data = entity as unknown as Record<string, unknown>
+        const pageAnchor = data.pageAnchor as
+          | (Record<string, unknown> & { element?: unknown })
+          | undefined
+        const yEntity = objectToYMap({
+          ...data,
+          ...(pageAnchor
+            ? {
+                pageAnchor: Object.fromEntries(
+                  Object.entries(pageAnchor).filter(([key]) => key !== 'element'),
+                ),
+              }
+            : {}),
+        })
+        if (pageAnchor?.element) yEntity.set('pageAnchorElement', pageAnchor.element)
+        yEntities.set(id, yEntity)
       }
     }
   }
@@ -276,7 +291,20 @@ function syncMapFromArray<T extends { id: string }>(
   const runtimeIds = new Set<string>()
   for (const item of runtimeArray) {
     runtimeIds.add(item.id)
-    const data = serialize(item)
+    const serialized = serialize(item)
+    const pageAnchor = serialized.pageAnchor as
+      | (Record<string, unknown> & { element?: unknown })
+      | undefined
+    // Attachment metadata has its own untracked field. The undoable
+    // `pageAnchor` field contains only geometric/document binding state.
+    const data = pageAnchor
+      ? {
+          ...serialized,
+          pageAnchor: Object.fromEntries(
+            Object.entries(pageAnchor).filter(([key]) => key !== 'element'),
+          ),
+        }
+      : { ...serialized, pageAnchorElement: undefined }
     const existing = ymap.get(item.id)
     if (!existing) {
       ymap.set(item.id, objectToYMap(data))

@@ -104,6 +104,10 @@ export function registerPageChromeIpc(): void {
       let changed = false
       for (const position of positions) {
         if (typeof position?.selector !== 'string') continue
+        if (position.resolved === false) {
+          changed = map.delete(position.selector) || changed
+          continue
+        }
         if (typeof position.docX !== 'number' || typeof position.docY !== 'number') continue
         const prev = map.get(position.selector)
         if (
@@ -120,7 +124,7 @@ export function registerPageChromeIpc(): void {
         changed = true
       }
       if (!changed) return
-      page.elementPositions = map
+      page.elementPositions = map.size ? map : undefined
       markDirty('canvas')
       requestLayout()
     },

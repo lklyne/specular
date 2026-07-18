@@ -147,7 +147,7 @@ describe('element attachment capture', () => {
     expect(liveText(sticky.id)?.pageAnchor?.element).toEqual(element)
 
     const yEntity = harness.doc.getMap('entities').get(sticky.id) as { toJSON(): Record<string, unknown> } | undefined
-    expect((yEntity?.toJSON().pageAnchor as { element?: unknown }).element).toEqual(element)
+    expect(yEntity?.toJSON().pageAnchorElement).toEqual(element)
 
     const node = harness
       .diskDoc()
@@ -209,6 +209,39 @@ describe('element attachment capture', () => {
     expect(liveText(sticky.id)?.pageAnchor).toBeUndefined()
   })
 
+  it('re-derives the attachment from restored geometry after undo', async () => {
+    loadPages()
+    harness.clearBroadcasts()
+    const sticky = createTextEntity({ ...ON_PAGE_A, text: 'undo traveller' })
+    await settleSync()
+    respond(captureRequests()[0], { selector: '#on-a', docX: 10, docY: 20 })
+    await settleSync()
+
+    harness.clearBroadcasts()
+    initializeDrag([sticky.id])
+    applyDragDelta([sticky.id], ON_PAGE_B.canvasX - ON_PAGE_A.canvasX, 0)
+    finalizeDrag()
+    await settleSync()
+    respond(captureRequests()[0], { selector: '#on-b', docX: 30, docY: 40 })
+    await settleSync()
+    expect(liveText(sticky.id)?.pageAnchor).toMatchObject({
+      pageId: PAGE_B,
+      element: { selector: '#on-b' },
+    })
+
+    harness.clearBroadcasts()
+    undo()
+    expect(liveText(sticky.id)?.pageAnchor).toMatchObject({ pageId: PAGE_A })
+    const restoredCapture = captureRequests()
+    expect(restoredCapture).toHaveLength(1)
+    respond(restoredCapture[0], { selector: '#on-a', docX: 10, docY: 20 })
+    await settleSync()
+    expect(liveText(sticky.id)?.pageAnchor).toMatchObject({
+      pageId: PAGE_A,
+      element: { selector: '#on-a' },
+    })
+  })
+
   it('stamps a page-anchored region annotation at creation', async () => {
     loadPages()
     harness.clearBroadcasts()
@@ -225,6 +258,6 @@ describe('element attachment capture', () => {
     expect(liveAnnotation(region.id)?.pageAnchor?.element).toEqual(element)
 
     const yAnn = harness.doc.getMap('annotations').get(region.id) as { toJSON(): Record<string, unknown> } | undefined
-    expect((yAnn?.toJSON().pageAnchor as { element?: unknown }).element).toEqual(element)
+    expect(yAnn?.toJSON().pageAnchorElement).toEqual(element)
   })
 })

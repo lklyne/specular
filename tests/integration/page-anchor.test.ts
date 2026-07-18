@@ -535,7 +535,7 @@ describe('element-attachment following', () => {
     expect(created.strokes[0].points[0]).toEqual({ x: 160, y: 160 })
   })
 
-  it('rebase folds the element shift into stored coords and its reference; one undo restores', async () => {
+  it('rebase folds the element shift; undo restores geometry and schedules derived recapture', async () => {
     loadHostPage()
     const onGrid = { canvasX: 160, canvasY: 160, width: 100, height: 100 }
     const created = createShapeEntity({ ...onGrid, shapeKind: 'rectangle' })
@@ -559,7 +559,10 @@ describe('element-attachment following', () => {
 
     undo()
     expect(shape(created.id).canvasY).toBe(onGrid.canvasY)
-    expect(shape(created.id).pageAnchor?.element?.docY).toBe(100)
+    // Derived metadata is outside undo. Reverse sync restores the geometric
+    // anchor immediately and asynchronously re-captures its element.
+    expect(shape(created.id).pageAnchor?.pageId).toBe(PAGE_ID)
+    expect(shape(created.id).pageAnchor?.element).toBeUndefined()
   })
 
   it('regionCanvasRect reflects the element shift; the stored docRect is unchanged', () => {

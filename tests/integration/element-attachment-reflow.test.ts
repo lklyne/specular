@@ -85,7 +85,12 @@ function pushedSelectorSets(): string[][] {
 
 /** Deliver a page → main reflow position message, exactly as `ipcRenderer.send`
  *  from the page would surface it on `ipcMain` (event.sender = the page view). */
-function emitPositions(positions: Array<{ selector: string; docX: number; docY: number }>): void {
+function emitPositions(
+  positions: Array<
+    | { selector: string; docX: number; docY: number }
+    | { selector: string; resolved: false }
+  >,
+): void {
   const page = livePage()
   ipcMain.emit(
     'element-attachment-positions',
@@ -143,6 +148,14 @@ describe('element-attachment reflow pipeline', () => {
     // A moved element updates in place and re-dirties.
     emitPositions([{ selector: '#hero', docX: 40, docY: 900 }])
     expect(page.elementPositions?.get('#hero')).toEqual({ docX: 40, docY: 900 })
+    expect(isDirty('canvas')).toBe(true)
+
+    // Resolution loss removes stale correction; consumers now receive the
+    // shared formula's zero-shift fallback instead of the last known position.
+    consumeDirty('canvas')
+    emitPositions([{ selector: '#hero', resolved: false }])
+    expect(page.elementPositions?.has('#hero')).toBe(false)
+    expect(page.elementPositions?.get('#footer')).toEqual({ docX: 40, docY: 3200 })
     expect(isDirty('canvas')).toBe(true)
   })
 

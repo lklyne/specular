@@ -16,10 +16,10 @@
  *
  * - **Outside undo.** The user never chose the element — placement did — so the
  *   stamp must not occupy an undo slot (same reasoning as viewport zoom/pan).
- *   The runtime object is mutated *and* the same value is written straight into
- *   the Y.Doc under an untracked origin, so the subsequent diff-sync sees no
- *   difference and opens no tracked transaction. Persistence still flows: the
- *   autosave record is built from runtime state, so the element reaches disk.
+ *   The runtime object is mutated and the attachment is written to a dedicated
+ *   Y.Doc field under an untracked origin. The undoable geometric anchor is
+ *   never replaced by enrichment. Persistence still flows from runtime state,
+ *   where the public shape remains `pageAnchor.element`.
  */
 
 import type * as Y from 'yjs'
@@ -78,11 +78,9 @@ function anchorMatchesSnapshot(anchor: PageAnchor, snapshot: CaptureSnapshot): b
 }
 
 /**
- * Write the enriched anchor straight into the item's Y.Map under the untracked
- * origin, matching the diff-sync's per-field granularity (`pageAnchor` is one
- * whole-object field). When the item hasn't synced yet the pending diff-sync
- * folds the element into its create transaction instead — either way no
- * separate undo step. Scheduling autosave persists the runtime value to disk.
+ * Write derived attachment metadata into its own Y.Map field under the
+ * untracked origin. The diff-sync strips `element` from the undoable
+ * `pageAnchor` field. Scheduling autosave persists the runtime value to disk.
  */
 function writeAnchorElementToDoc(mapName: string, itemId: string, anchor: PageAnchor): void {
   const doc = getActiveDoc()
@@ -90,7 +88,7 @@ function writeAnchorElementToDoc(mapName: string, itemId: string, anchor: PageAn
   const yItem = ymap.get(itemId)
   if (yItem) {
     doc.transact(() => {
-      yItem.set('pageAnchor', anchor)
+      yItem.set('pageAnchorElement', anchor.element)
     }, ANCHOR_ELEMENT_CAPTURE_ORIGIN)
   }
   scheduleWorkspaceAutosave()

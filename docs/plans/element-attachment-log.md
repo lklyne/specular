@@ -10,19 +10,19 @@ empty sections mean the step landed as planned.
 - Re-capture also fires on keyboard nudge (routes through `reanchorEntityById`),
   not just creation/drag-end. Correct behavior, slightly broader than the plan's
   wording; token-guarded.
-- No undo-triggered re-capture: `syncDocToRuntime` never calls
-  `reanchorEntityById`, so after undo the pre-undo `element` persists until the
-  next placement re-captures. Plan's "re-capture re-derives on undo" is not
-  wired; acceptable (attachment is never a visibility gate).
+- Undo/redo reverse sync schedules derived re-capture for every restored
+  anchored entity. The enrichment remains outside undo, while restored
+  geometry cannot retain the later state's element binding.
 - Per-entity capture-token Map is never pruned (bounded, self-correcting);
   left unwired from `resetDocSync` to avoid an import cycle.
 
 ## Step 3 — reflow pipeline
 
-- Tracker built as a focused sibling module (`element-position-tracker.ts`)
-  instead of growing `annotation-bbox-tracker.ts`; bbox tracker untouched.
-  Same discipline, two channels: `element-attachment-subscriptions` (main→page,
-  `{selectors}`) and `element-attachment-positions` (page→main, batched).
+- The annotation bbox tracker is the single DOM element tracking module with
+  two consumers. It shares selector resolution and scheduling while retaining
+  consumer-specific subscriptions, triggers, projections, and IPC channels.
+- Resolution loss is broadcast explicitly; main deletes stale live positions
+  so the ADR's zero-correction fallback takes effect immediately.
 - Subscription recompute rides `mutateWorkspace` (the single mutation seam)
   rather than the layout path — `layoutAllViews` early-returns in the harness.
   Stamps and page load/navigation refresh outside the seam by design.

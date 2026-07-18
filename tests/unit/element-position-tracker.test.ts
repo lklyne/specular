@@ -26,7 +26,7 @@ import {
   isElementAttachmentObserverInstalled,
   refreshElementAttachmentObserver,
   setElementAttachmentSubscriptions,
-} from '../../src/preload/element-position-tracker'
+} from '../../src/preload/annotation-bbox-tracker'
 
 interface ObserveCall {
   target: unknown

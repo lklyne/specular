@@ -31,13 +31,11 @@ import {
 } from './comment-hover-overlay'
 import {
   queueRecomputeAnnotationBboxes,
-  setAnnotationBboxSubscriptions,
-} from './annotation-bbox-tracker'
-import {
   queueRecomputeElementPositions,
   refreshElementAttachmentObserver,
+  setAnnotationBboxSubscriptions,
   setElementAttachmentSubscriptions,
-} from './element-position-tracker'
+} from './annotation-bbox-tracker'
 import {
   buildElementPath,
   buildStructuredDomSnapshot,

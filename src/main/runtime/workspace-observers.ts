@@ -44,6 +44,8 @@ import {
   projectNoteContentToDisk,
   clearNoteContentState,
 } from './note-content-state'
+import { anchorableEntities } from './page-anchor-state'
+import { captureElementForEntity } from './element-attachment-capture'
 
 // ---------------------------------------------------------------------------
 // Runtime state references (set during initialization)
@@ -224,7 +226,12 @@ function rebuildArrayFromYMap<T>(target: T[], ymap: Y.Map<Y.Map<unknown>>): void
 function mapSnapshots(ymap: Y.Map<Y.Map<unknown>>): Record<string, unknown>[] {
   const out: Record<string, unknown>[] = []
   for (const [, ym] of ymap.entries()) {
-    out.push(ym.toJSON() as Record<string, unknown>)
+    const snapshot = ym.toJSON() as Record<string, unknown>
+    const pageAnchor = snapshot.pageAnchor as Record<string, unknown> | undefined
+    const element = snapshot.pageAnchorElement
+    if (pageAnchor && element) snapshot.pageAnchor = { ...pageAnchor, element }
+    delete snapshot.pageAnchorElement
+    out.push(snapshot)
   }
   return out
 }
@@ -302,6 +309,13 @@ function syncDocToRuntime(doc: Y.Doc): void {
 
     rebuildArrayFromYMap(_refs!.workspaceEdges, doc.getMap(DOC_MAP_EDGES) as Y.Map<Y.Map<unknown>>)
     rebuildArrayFromYMap(_refs!.workspaceAnnotations, doc.getMap(DOC_MAP_ANNOTATIONS) as Y.Map<Y.Map<unknown>>)
+
+    // Element attachments are derived metadata outside undo. Geometry restored
+    // from Y.Doc may therefore no longer match the captured element left by the
+    // later state; re-derive every restored anchored entity after undo/redo.
+    for (const entity of anchorableEntities()) {
+      if (entity.pageAnchor) captureElementForEntity(entity.id)
+    }
 
     // Note content: pull the reverted `notes` Y.Map back into the runtime
     // mirror, then project just the ids that actually changed to disk.

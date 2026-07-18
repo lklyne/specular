@@ -1980,16 +1980,26 @@ export interface ElementAttachmentSubscriptions {
  *  (`rect.left + scrollX`, `rect.top + scrollY`). */
 export interface ElementAttachmentPosition {
   selector: string
+  /** False when the selector no longer resolves. Main removes any cached live
+   * position so render correction falls back to stored geometry. */
+  resolved: false
+  docX?: never
+  docY?: never
+  viewportPositioned?: never
+}
+
+export interface ResolvedElementAttachmentPosition {
+  selector: string
+  resolved?: true
   docX: number
   docY: number
   viewportPositioned?: boolean
 }
 
-/** Batched reflow report (page → main): the current document positions of the
- *  subscribed selectors that resolved this flush. Selectors that fail to
- *  resolve are omitted — main keeps their last-known position; never a hide. */
+/** Batched reflow report (page → main). Resolution loss is explicit so main
+ *  can discard stale correction while keeping the item itself visible. */
 export interface ElementAttachmentPositionsUpdate {
-  positions: ElementAttachmentPosition[]
+  positions: Array<ElementAttachmentPosition | ResolvedElementAttachmentPosition>
 }
 
 // --- Electron API Interfaces ---
