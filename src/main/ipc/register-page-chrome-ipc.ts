@@ -47,7 +47,7 @@ export function registerPageChromeIpc(): void {
     propagateScrollFromPage(page, data)
   })
 
-  // Always-on absolute-pixel scroll offset (docs/plans/scroll-tracking.md).
+  // Always-on absolute-pixel scroll offset (ADR 0029 scroll amendment).
   // Unlike `pageScrollChanged` this has no `syncId` gate — every page reports
   // its offset so page-anchored regions can scroll-follow. Stored on the
   // ephemeral runtime page; the layout broadcast carries it.

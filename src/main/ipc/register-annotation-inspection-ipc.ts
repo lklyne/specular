@@ -116,7 +116,7 @@ export function registerAnnotationInspectionIpc(): void {
       // Reveal the commented content on the page itself: canvas focus alone
       // leaves a long page pointing at content the user can't see. Fire-and-
       // forget; no-op for canvas points and canvas-anchored regions, which mark
-      // canvas space, not page content (scroll-tracking phase 4). Ungated by
+      // canvas space, not page content (ADR 0029). Ungated by
       // surface — revealing content is the intended meaning of "open this
       // comment" whether the click came from the panel, sidebar, or a region
       // overlay.

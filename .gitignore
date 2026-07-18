@@ -42,3 +42,7 @@ harness/
 
 # Fetched at build time by scripts/fetch-agent-browser.sh (pinned binary)
 resources/bin/agent-browser
+
+# Generated local dev/runtime artifacts
+.dev/
+resources/skills/core/

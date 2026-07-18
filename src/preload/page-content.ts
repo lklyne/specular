@@ -660,8 +660,8 @@ function resolveScrollTarget(
   return node || document.scrollingElement || document.documentElement
 }
 
-// Always-on absolute-pixel scroll broadcast (see docs/plans/scroll-tracking.md
-// §Trap: separate from the linked-scroll `pageScrollChanged`, which carries
+// Always-on absolute-pixel scroll broadcast (ADR 0029 scroll amendment).
+// Separate from linked-scroll `pageScrollChanged`, which carries
 // progress fractions, is gated on `interactive`, and is dropped unless the
 // page is linked). rAF-coalesced; sends only when the offset actually changed.
 let pendingScrollOffsetFlush = 0
@@ -690,7 +690,7 @@ function flushScrollOffset(): void {
   const scrollX = target.scrollLeft
   const scrollY = target.scrollTop
   // scrollHeight rides along so main can turn a page anchor's `offsetY`
-  // fraction into a document position for scroll-to-comment (phase 4). It is a
+  // fraction into a document position for scroll-to-comment (ADR 0029). It is a
   // property of the same container the offset comes from, so it is captured
   // here rather than in a second query.
   const scrollHeight = Math.round(target.scrollHeight)

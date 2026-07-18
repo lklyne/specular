@@ -73,7 +73,7 @@ drag gesture lands in that gesture's single undo step.
 ## Out of scope (follow-ups)
 
 - ~~**Scroll tracking.**~~ Landed for **region annotations** (the
-  `anchor.docRect` variant above; see `docs/plans/scroll-tracking.md`) and
+  `anchor.docRect` variant described below) and
   subsequently for **all anchored entities** (shapes, stickies, drawings):
   the anchor stamps a scroll reference (`scrollX/scrollY`) and scene builders
   shift by the live delta. The original "entities stay pinned to the page
@@ -115,3 +115,55 @@ behave as canvas-bound (they lose the URL gate until recreated; accepted
 deliberately, noted in the changelog). One gate accessor
 (`hiddenByPageAnchor`, document-binding.ts) and one sidebar child-row
 builder (`sidebarPageChildren`) now serve entities and annotations alike.
+
+## Amendment (2026-07-17) — scroll tracking and reveal
+
+Page scroll is ephemeral view state. Every live page reports its absolute
+scroll offset in raw CSS pixels through a dedicated, always-on broadcast;
+main stores `scrollX`, `scrollY`, and `scrollHeight` on the runtime `Page` and
+includes the offsets in layout data. This transport is intentionally separate
+from linked-scroll synchronization:
+
+- anchoring needs absolute pixels, while linked scroll needs progress fractions
+  across documents of different heights;
+- anchoring must work whether or not the page is interactive or belongs to a
+  sync set;
+- anchor movement must not inherit linked scroll's coarse progress threshold.
+
+The preload resolves the actual scroll container—walking from the event target
+to a scrollable ancestor and falling back to the document scrolling element—so
+application shells with an inner `overflow: auto` container behave the same as
+document-scrolling pages. Scroll broadcasts are rAF-coalesced and integer
+rounded to avoid redundant IPC.
+
+Two coordinate transforms remain distinct:
+
+- `pageViewportToScreen` consumes live DOM rectangles already expressed in
+  viewport space.
+- `pageDocumentToScreen` consumes stored document rectangles and subtracts the
+  page's live scroll offset before delegating to the viewport transform.
+
+Page-anchored regions store `docRect` in document CSS pixels. Grab-less regions
+store `canvasRect`. There is no dual interpretation or migration heuristic: a
+region without `docRect` is canvas-bound. A `docRect` moves with its page
+through projection, so page drag/nudge never rewrites it.
+
+Shapes, text, and drawings keep authoritative canvas coordinates and stamp the
+page's scroll offset when anchored. Scene projection applies the live scroll
+delta; reanchor folds that delta back into stored coordinates. Drawing stroke
+points fold with their entity bounds. ADR 0030 extends the same projection with
+derived DOM-element correction.
+
+Opening a page-bound comment also reveals its content through the page's
+existing smooth-scroll command:
+
+| Annotation anchor | Document target |
+| --- | --- |
+| Element | Live selector document position; stored bbox fallback |
+| Page-anchored region | `docRect.y` |
+| Page offset | `offsetY × scrollHeight` |
+| Canvas point or canvas-bound region | No page scroll |
+
+The target is placed roughly one third down the viewport to leave context and
+avoid sticky site headers. The same scroll-container resolution is used for
+both reporting and commanded scrolling.

@@ -1,5 +1,5 @@
 /**
- * Scroll-to-comment targeting (docs/plans/scroll-tracking.md phase 4).
+ * Scroll-to-comment targeting (ADR 0029 scroll amendment).
  *
  * Clicking a comment should smooth-scroll its page until the commented content
  * is in view. The eased scroll ramp already exists (the page preload's
@@ -34,7 +34,7 @@ export interface AnnotationScrollTarget {
  * - **region, canvas-anchored** (no `docRect`) → null. Same reason (plan
  *   decision, 2026-07-13).
  * - **region, page-anchored** (`docRect`) → `docRect.y`. The clean primary
- *   case: phase 3 stores exactly this.
+ *   case: ADR 0029 stores exactly this.
  * - **element** → best-effort from the stored bbox (`boundingBox.y` plus the
  *   page's current scroll). Element anchors already scroll-follow via the live
  *   bbox round trip, so this is a fallback; `dispatchScrollToAnnotation`

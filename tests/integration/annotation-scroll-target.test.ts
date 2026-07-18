@@ -1,10 +1,10 @@
 /**
- * Scroll-to-comment targeting (docs/plans/scroll-tracking.md phase 4) against
+ * Scroll-to-comment targeting (ADR 0029 scroll amendment) against
  * the real runtime, in-process. Clicking a comment smooth-scrolls its page to
  * reveal the commented content; the *where* is `computeAnnotationScrollTarget`,
  * a pure function per anchor type. The IPC dispatch itself is not observable
  * under the electron stub, so these assert the pure target — the one new piece
- * of logic phase 4 adds.
+ * of logic the amendment adds.
  *
  * Guards:
  * - page-anchored region → `{ pageId, documentY: docRect.y }`

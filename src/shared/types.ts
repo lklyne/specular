@@ -159,7 +159,7 @@ export interface CanvasScenePageEntity {
   /** Optional — absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
   /** Page's absolute scroll offset in raw CSS pixels, default 0. Document
-   *  coordinates minus this are viewport coordinates (see phase 2). */
+   *  coordinates minus this are viewport coordinates (ADR 0029). */
   scrollX: number
   scrollY: number
   /** Live document positions of the DOM selectors this page's anchored items

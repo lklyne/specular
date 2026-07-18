@@ -46,7 +46,7 @@ export interface Page {
   scrollY?: number
   /** scrollHeight of the same scroll container the offset comes from, in CSS
    *  px. Lets main map a page anchor's `offsetY` fraction to a document
-   *  position for scroll-to-comment (scroll-tracking phase 4). Ephemeral;
+   *  position for scroll-to-comment (ADR 0029). Ephemeral;
    *  absent until the first offset broadcast arrives. */
   scrollHeight?: number
   /** True between Electron's did-start-loading/did-stop-loading events.

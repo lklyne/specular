@@ -1,5 +1,5 @@
 /**
- * Phase 1 of scroll tracking (docs/plans/scroll-tracking.md): a page's absolute
+ * ADR 0029 scroll tracking: a page's absolute
  * scroll offset in raw CSS pixels rides the layout broadcast. The page preload
  * reports `{ scrollX, scrollY }` on a dedicated always-on channel, main stores
  * it on the ephemeral runtime page (`page.scrollX` / `page.scrollY`), and the
