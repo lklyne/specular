@@ -30,6 +30,30 @@ function rootIds(ids: readonly string[]): string[] {
   })
 }
 
+function canReparentEntity(id: string, parentGroupId: string | null): boolean {
+  if (!parentGroupId) return true
+  if (id === parentGroupId) return false
+  const isGroup = workspaceGroups.some((group) => group.id === id)
+  return !isGroup || !isGroupDescendant(parentGroupId, id)
+}
+
+function applyParentChange(
+  id: string,
+  parentGroupId: string | null,
+  affectedGroups: Set<string>,
+): boolean {
+  const entity = entityById(id)
+  if (!entity || !canReparentEntity(id, parentGroupId)) return false
+
+  const previousParentId = entity.parentGroupId
+  const nextParentId = parentGroupId ?? undefined
+  if (previousParentId === nextParentId) return false
+  if (previousParentId) affectedGroups.add(previousParentId)
+  if (nextParentId) affectedGroups.add(nextParentId)
+  entity.parentGroupId = nextParentId
+  return true
+}
+
 /**
  * Raw membership writer for an already-open gesture transaction. The caller
  * owns persistence/undo finalization.
@@ -43,24 +67,7 @@ export function reparentEntitiesInGesture(
   const changed: string[] = []
   const affectedGroups = new Set<string>()
   for (const id of rootIds(ids)) {
-    const entity = entityById(id)
-    if (!entity) continue
-    if (
-      parentGroupId &&
-      (
-        id === parentGroupId ||
-        (workspaceGroups.some((group) => group.id === id) && isGroupDescendant(parentGroupId, id))
-      )
-    ) {
-      continue
-    }
-    const previousParentId = entity.parentGroupId
-    const nextParentId = parentGroupId ?? undefined
-    if (previousParentId === nextParentId) continue
-    if (previousParentId) affectedGroups.add(previousParentId)
-    if (nextParentId) affectedGroups.add(nextParentId)
-    entity.parentGroupId = nextParentId
-    changed.push(id)
+    if (applyParentChange(id, parentGroupId, affectedGroups)) changed.push(id)
   }
 
   for (const groupId of affectedGroups) reflowManagedGroup(groupId)

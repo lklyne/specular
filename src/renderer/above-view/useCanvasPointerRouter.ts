@@ -45,6 +45,7 @@ import {
   beginPressGesture,
   pressGestureIgnoresBlur,
   pressGestureStep,
+  type PressGestureState,
 } from '../../shared/press-gesture'
 import {
   applyHandleDelta,
@@ -107,9 +108,21 @@ interface CommentDraftSnapshot {
   clearDraft: () => void
 }
 
-interface UseCanvasPointerRouterOptions {
+interface PointerDispatchDependencies {
   api: CanvasBgElectronAPI
   layoutRef: React.MutableRefObject<LayoutUpdateData>
+  optionHeldRef: React.MutableRefObject<boolean>
+  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
+  setGroupDropTarget: (groupId: string | null) => void
+  setEdgeDragState: (state: EdgeDragState) => void
+  setReorderGhost: (ghost: ReorderGhostOffset) => void
+  onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
+  onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
+  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
+  onEnterEntityInteractive: (entityId: string) => void
+}
+
+interface UseCanvasPointerRouterOptions extends PointerDispatchDependencies {
   /** Who owns canvas pointerdowns (`canvasPointerOwner`). 'router' runs the
    *  hit-test + routing matrix; 'tool-gesture' captures every canvas
    *  pointerdown for the active placement / comment tool; anything else
@@ -123,24 +136,6 @@ interface UseCanvasPointerRouterOptions {
   /** Hand-tool mirror — when the toolbar's hand tool is active, pan-on-
    *  background fires regardless of space. ADR 0013 §5 nav group. */
   handToolActiveRef: React.MutableRefObject<boolean>
-  /** Option-modifier mirror. Pointer events can miss mid-drag key changes,
-   *  so drag-copy reads this live throughout the gesture. */
-  optionHeldRef: React.MutableRefObject<boolean>
-  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
-  setGroupDropTarget: (groupId: string | null) => void
-  /** Edge-drag visual state setter. The router updates this so
-   *  `EdgeDragLayer` can render the rubber-band. */
-  setEdgeDragState: (state: EdgeDragState) => void
-  /** Reorder-ghost offset setter (ADR 0015 D7, Phase D). The router publishes
-   *  the live canvas-space pointer delta since grab so App can float the
-   *  dragged item under the cursor as a ghost. Null when not reordering. */
-  setReorderGhost: (ghost: ReorderGhostOffset) => void
-  /** Comment-gesture region marquee: live drag rect (ADR 0006). Lives with
-   *  App because it feeds the comment-preview pointer broadcast. */
-  onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
-  /** Comment-gesture region marquee commit → region anchor. */
-  onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
-  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
   /** The interactive file entity (HTML iframe) the user has entered, mirrored
    *  as a ref so each pointerdown reads it live. Renderer-owned state. */
   enteredEntityIdRef: React.MutableRefObject<string | null>
@@ -437,20 +432,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
 // --- Dispatch ---
 
-interface DispatchContext {
+interface DispatchContext extends PointerDispatchDependencies {
   action: CanvasPointerAction
-  api: CanvasBgElectronAPI
   event: PointerEvent
-  layoutRef: React.MutableRefObject<LayoutUpdateData>
-  optionHeldRef: React.MutableRefObject<boolean>
-  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
-  setGroupDropTarget: (groupId: string | null) => void
-  setEdgeDragState: (state: EdgeDragState) => void
-  setReorderGhost: (ghost: ReorderGhostOffset) => void
-  onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
-  onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
-  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
-  onEnterEntityInteractive: (entityId: string) => void
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
@@ -459,7 +443,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'noop':
       return false
     case 'page-body-press':
-      return runPageBodyPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
+      return runPageBodyPress(action, event, ctx)
     case 'enter-page-interactive':
       api.enterPageInteractive(action.entityId)
       return true
@@ -484,11 +468,11 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'background-click':
       return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-entity-drag':
-      return runEntityDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
+      return runEntityDrag(action, event, ctx)
     case 'begin-entity-press':
-      return runEntityPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
+      return runEntityPress(action, event, ctx)
     case 'begin-group-drag':
-      return runGroupDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
+      return runGroupDrag(action, event, ctx)
     case 'begin-resize':
       return runResize(action, api, event, layoutRef)
     case 'begin-multi-resize':
@@ -521,182 +505,156 @@ function dispatchAction(ctx: DispatchContext): boolean {
 
 function runEntityDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-entity-drag' }>,
-  api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
-  optionHeldRef: React.MutableRefObject<boolean>,
-  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
-  setGroupDropTarget: (groupId: string | null) => void,
+  ctx: PointerDispatchDependencies,
 ): boolean {
   const releasePointer = capturePointer(event)
   startOptionAwareEntityDrag({
-    api,
-    layout: layoutRef.current,
+    api: ctx.api,
+    layout: ctx.layoutRef.current,
     entityId: action.entityId,
     entityKind: action.entityKind,
     preserveSelection: action.preserveSelection,
     event,
     releasePointer,
-    isOptionHeld: () => optionHeldRef.current,
-    setPreview: setDragCopyPreview,
-    setGroupDropTarget,
+    isOptionHeld: () => ctx.optionHeldRef.current,
+    setPreview: ctx.setDragCopyPreview,
+    setGroupDropTarget: ctx.setGroupDropTarget,
+  })
+  return true
+}
+
+function runPromotablePress(input: {
+  event: PointerEvent
+  promoteToDrag: (pointer: PointerEvent, releasePointer: (() => void) | null) => void
+  commitPress: (pointer: PointerEvent) => void
+  endDrag: () => void
+  ignoreBlurWhileArmed?: boolean
+}): boolean {
+  let press: PressGestureState = beginPressGesture(input.event.screenX, input.event.screenY)
+  const finishIfDragging = (type: 'up' | 'cancel') => {
+    if (pressGestureStep(press, { type }).outcome !== 'end-drag') return false
+    input.endDrag()
+    return true
+  }
+  const session = startPointerSession(input.event, {
+    onMove: (pointer) => {
+      const step = pressGestureStep(press, {
+        type: 'move',
+        x: pointer.screenX,
+        y: pointer.screenY,
+      })
+      press = step.state
+      if (step.outcome !== 'promote-to-drag') return
+      session.end()
+      input.promoteToDrag(pointer, session.releasePointer)
+    },
+    onUp: (pointer) => {
+      if (!finishIfDragging('up')) input.commitPress(pointer)
+    },
+    onCancel: () => {
+      finishIfDragging('cancel')
+    },
+    listenBlur: true,
+    ...(input.ignoreBlurWhileArmed
+      ? { ignoreBlur: () => pressGestureIgnoresBlur(press) }
+      : {}),
   })
   return true
 }
 
 function runEntityPress(
   action: Extract<CanvasPointerAction, { kind: 'begin-entity-press' }>,
-  api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
-  optionHeldRef: React.MutableRefObject<boolean>,
-  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
-  setGroupDropTarget: (groupId: string | null) => void,
+  ctx: PointerDispatchDependencies,
 ): boolean {
-  let press = beginPressGesture(event.screenX, event.screenY)
-
-  const session = startPointerSession(event, {
-    onMove: (ev) => {
-      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
-      press = step.state
-      if (step.outcome !== 'promote-to-drag') return
-      session.end()
+  return runPromotablePress({
+    event,
+    promoteToDrag: (initialPointer, releasePointer) => {
       startOptionAwareEntityDrag({
-        api,
-        layout: layoutRef.current,
+        api: ctx.api,
+        layout: ctx.layoutRef.current,
         entityId: action.entityId,
         entityKind: action.entityKind,
         preserveSelection: true,
         event,
-        releasePointer: session.releasePointer,
-        initialPointer: ev,
-        isOptionHeld: () => optionHeldRef.current,
-        setPreview: setDragCopyPreview,
-        setGroupDropTarget,
+        releasePointer,
+        initialPointer,
+        isOptionHeld: () => ctx.optionHeldRef.current,
+        setPreview: ctx.setDragCopyPreview,
+        setGroupDropTarget: ctx.setGroupDropTarget,
       })
     },
-    onUp: () => {
-      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
-        api.endDragEntity()
-        return
-      }
-      api.requestEntityEdit(action.entityId)
-    },
-    onCancel: () => {
-      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
-        api.endDragEntity()
-      }
-    },
-    listenBlur: true,
-    ignoreBlur: () => pressGestureIgnoresBlur(press),
+    commitPress: () => ctx.api.requestEntityEdit(action.entityId),
+    endDrag: ctx.api.endDragEntity,
+    ignoreBlurWhileArmed: true,
   })
-  return true
 }
 
 function runPageBodyPress(
   action: Extract<CanvasPointerAction, { kind: 'page-body-press' }>,
-  api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
-  optionHeldRef: React.MutableRefObject<boolean>,
-  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
-  setGroupDropTarget: (groupId: string | null) => void,
+  ctx: PointerDispatchDependencies,
 ): boolean {
-  let press = beginPressGesture(event.screenX, event.screenY)
-
-  const session = startPointerSession(event, {
-    onMove: (ev) => {
-      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
-      press = step.state
-      if (step.outcome !== 'promote-to-drag') return
-      session.end()
+  return runPromotablePress({
+    event,
+    promoteToDrag: (initialPointer, releasePointer) => {
       startOptionAwareEntityDrag({
-        api,
-        layout: layoutRef.current,
+        api: ctx.api,
+        layout: ctx.layoutRef.current,
         entityId: action.entityId,
         entityKind: 'page',
         preserveSelection: action.preserveSelection,
         event,
-        releasePointer: session.releasePointer,
-        initialPointer: ev,
-        isOptionHeld: () => optionHeldRef.current,
-        setPreview: setDragCopyPreview,
-        setGroupDropTarget,
+        releasePointer,
+        initialPointer,
+        isOptionHeld: () => ctx.optionHeldRef.current,
+        setPreview: ctx.setDragCopyPreview,
+        setGroupDropTarget: ctx.setGroupDropTarget,
       })
     },
-    onUp: (ev) => {
-      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
-        api.endDragPage()
-        return
-      }
+    commitPress: (pointer) => {
       // Thread modifiers through so a shift/cmd-click on an unselected or
       // multi-selected page body extends the selection instead of replacing
       // it. Routing already converts additive clicks on page-body to
       // toggle-select, but reading the live modifier state here keeps the
       // gesture honest if the user presses shift between down and up.
-      api.selectPage(action.entityId, {
-        shift: ev.shiftKey,
-        meta: ev.metaKey,
-        ctrl: ev.ctrlKey,
+      ctx.api.selectPage(action.entityId, {
+        shift: pointer.shiftKey,
+        meta: pointer.metaKey,
+        ctrl: pointer.ctrlKey,
       })
     },
-    onCancel: () => {
-      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
-        api.endDragPage()
-      }
-    },
-    listenBlur: true,
-    ignoreBlur: () => pressGestureIgnoresBlur(press),
+    endDrag: ctx.api.endDragPage,
+    ignoreBlurWhileArmed: true,
   })
-  return true
 }
 
 function runGroupDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-group-drag' }>,
-  api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
-  optionHeldRef: React.MutableRefObject<boolean>,
-  setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
-  setGroupDropTarget: (groupId: string | null) => void,
+  ctx: PointerDispatchDependencies,
 ): boolean {
-  let press = beginPressGesture(event.screenX, event.screenY)
-
-  const session = startPointerSession(event, {
-    onMove: (ev) => {
-      const step = pressGestureStep(press, { type: 'move', x: ev.screenX, y: ev.screenY })
-      press = step.state
-      if (step.outcome !== 'promote-to-drag') return
-      session.end()
+  return runPromotablePress({
+    event,
+    promoteToDrag: (initialPointer, releasePointer) => {
       startOptionAwareGroupDrag({
-        api,
-        layout: layoutRef.current,
+        api: ctx.api,
+        layout: ctx.layoutRef.current,
         groupId: action.groupId,
         event,
-        releasePointer: session.releasePointer,
-        initialPointer: ev,
-        isOptionHeld: () => optionHeldRef.current,
-        setPreview: setDragCopyPreview,
-        setGroupDropTarget,
+        releasePointer,
+        initialPointer,
+        isOptionHeld: () => ctx.optionHeldRef.current,
+        setPreview: ctx.setDragCopyPreview,
+        setGroupDropTarget: ctx.setGroupDropTarget,
       })
     },
-    onUp: () => {
-      if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
-        api.endDragEntity()
-        return
-      }
-      api.selectGroup(action.groupId)
-    },
-    onCancel: () => {
-      if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
-        api.endDragEntity()
-      }
-    },
+    commitPress: () => ctx.api.selectGroup(action.groupId),
+    endDrag: ctx.api.endDragEntity,
     // No phantom-blur guard here (§4.6 documents it for entity/page presses
     // only): a window blur cancels a group press even while armed.
-    listenBlur: true,
   })
-  return true
 }
 
 function runResize(
