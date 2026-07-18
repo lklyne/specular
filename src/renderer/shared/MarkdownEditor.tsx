@@ -28,6 +28,7 @@ export function MarkdownEditor({
   className,
   style,
   lineWrap = true,
+  selectAllOnAutoFocus = false,
 }: {
   value: string
   onChange: (value: string) => void
@@ -42,6 +43,8 @@ export function MarkdownEditor({
   style?: React.CSSProperties
   /** Disable to let the editor's container expand horizontally to fit content. */
   lineWrap?: boolean
+  /** Select the full value when auto-focusing; intended for short text nodes. */
+  selectAllOnAutoFocus?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -119,7 +122,10 @@ export function MarkdownEditor({
     if (autoFocus) {
       view.focus()
       view.dispatch({
-        selection: autofocusEditorSelection(view.state.doc.length),
+        selection: autofocusEditorSelection(
+          view.state.doc.length,
+          selectAllOnAutoFocus,
+        ),
       })
     }
 

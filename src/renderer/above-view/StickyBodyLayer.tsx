@@ -245,6 +245,7 @@ function StickyCard({
             onEscape={commitNow}
             isDark={editorIsDark}
             autoFocus
+            selectAllOnAutoFocus
             placeholder={placeholder}
             className={editorClassName}
             style={editorStyle}
