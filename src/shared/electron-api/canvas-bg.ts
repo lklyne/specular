@@ -87,6 +87,7 @@ export interface CanvasBgElectronAPI {
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   deleteFileEntity: (id: string) => void
+  refreshFileEntity: (id: string) => void
   duplicateFileEntity: (id: string) => void
   deleteDrawingEntity: (id: string) => void
   duplicateDrawingEntity: (id: string) => void

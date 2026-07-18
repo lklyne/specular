@@ -99,6 +99,14 @@ function FileBodyCard({
                   Copy as PNG
                 </Menu.Item>
               )}
+              {entity.rendererTag === 'html' && (
+                <Menu.Item
+                  className={menuItemClass}
+                  onClick={() => fileApi.refreshFileEntity(entity.id)}
+                >
+                  Refresh
+                </Menu.Item>
+              )}
               <div
                 role="separator"
                 className={isDark ? 'my-1 h-px bg-zinc-700' : 'my-1 h-px bg-zinc-200'}

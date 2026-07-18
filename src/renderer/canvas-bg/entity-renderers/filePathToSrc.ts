@@ -23,6 +23,7 @@ export function filePathToSrcVersioned(filePath: string, version = 0): string {
 export interface RendererFileApi {
   showFileInFinder: (path: string) => void
   copyFileAsPng: (path: string) => void
+  refreshFileEntity: (id: string) => void
   reorderStack: (
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
     targetId?: string,

@@ -130,6 +130,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasDeleteTextEntity, { id }),
   deleteFileEntity: (id: string) =>
     ipcRenderer.send(ipcChannels.canvasDeleteFileEntity, { id }),
+  refreshFileEntity: (id: string) =>
+    ipcRenderer.send(ipcChannels.canvasRefreshFileEntity, { id }),
   duplicateFileEntity: (id: string) =>
     ipcRenderer.send(ipcChannels.canvasDuplicateFileEntity, { id }),
   deleteDrawingEntity: (id: string) =>

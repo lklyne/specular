@@ -2,3 +2,17 @@
 @import "../shared/surfaceTheme.css";
 @import "../shared/markdownStyles.css";
 @variant dark (&:where(.dark, .dark *));
+
+/* Brief "updated" pulse on a file entity when its content reloads from disk
+   (live-edit by an agent or external tool) or a manual refresh fires. */
+@keyframes file-refresh-flash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.file-refresh-flash {
+  animation: file-refresh-flash 900ms ease-out forwards;
+}
