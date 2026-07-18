@@ -112,49 +112,72 @@ const apply: VerbHandler = async () => {
   return 0
 }
 
+// Pure option→patch shaping for the `add` verb: each builder returns the
+// create item for its kind, or a usage string when the required positional is
+// missing.
+function atPosition(args: ParsedArgs): Record<string, unknown> {
+  if (!args.flags.at) return {}
+  const [x, y] = args.flags.at.split(',').map(Number)
+  return {
+    ...(isNaN(x) ? {} : { canvasX: x }),
+    ...(isNaN(y) ? {} : { canvasY: y }),
+  }
+}
+
+function deviceFrameFlag(args: ParsedArgs): Record<string, unknown> {
+  if (args.boolFlags.has('device-frame')) return { showDeviceFrame: true }
+  if (args.boolFlags.has('no-device-frame')) return { showDeviceFrame: false }
+  return {}
+}
+
+const ADD_ITEM_BUILDERS: Record<string, (args: ParsedArgs) => Record<string, unknown> | string> = {
+  page: (args) => {
+    const url = args.positional[1]
+    if (!url) return 'usage: specular add page <url> [--at x,y] [--preset N]'
+    return {
+      kind: 'page',
+      url,
+      presetIndex: args.flags.preset ? Number(args.flags.preset) : 6, // default to Laptop
+      ...atPosition(args),
+      ...(args.boolFlags.has('landscape') ? { orientation: 'landscape' } : {}),
+      ...deviceFrameFlag(args),
+    }
+  },
+  note: (args) => {
+    const text = args.positional.slice(1).join(' ')
+    if (!text) return 'usage: specular add note <text> [--at x,y] [--color N]'
+    // Long / structured text auto-routes to a `.md` note file on the apply
+    // spine (file kind's claimsAsNote); short text stays a text entity.
+    return {
+      kind: 'text',
+      text,
+      ...atPosition(args),
+      ...(args.flags.color ? { color: args.flags.color } : {}),
+    }
+  },
+  file: (args) => {
+    const path = args.positional[1]
+    if (!path) return 'usage: specular add file <path> [--at x,y]'
+    // The file handler infers the renderer from the extension (md / html /
+    // image / video) and sizes images/video from the file.
+    return {
+      kind: 'file',
+      file: path,
+      ...atPosition(args),
+      ...deviceFrameFlag(args),
+    }
+  },
+}
+
 // Add — kind is the subcommand (ADR 0019 §1, like `git remote add`). Each
-// branch builds one create item; `applyPatch` runs the placement pre-pass and
+// builder shapes one create item; `applyPatch` runs the placement pre-pass and
 // routes it through the single apply spine. `add` is the only create surface;
 // drawing/shape (no ergonomic verb) are created via `apply` with a patch.
 const add: VerbHandler = async (args) => {
-  const kind = args.positional[0]
-  const item: Record<string, unknown> = {}
-  const applyAt = () => {
-    if (!args.flags.at) return
-    const [x, y] = args.flags.at.split(',').map(Number)
-    if (!isNaN(x)) item.canvasX = x
-    if (!isNaN(y)) item.canvasY = y
-  }
-  if (kind === 'page') {
-    const url = args.positional[1]
-    if (!url) { printError('usage: specular add page <url> [--at x,y] [--preset N]'); return 1 }
-    item.kind = 'page'
-    item.url = url
-    item.presetIndex = args.flags.preset ? Number(args.flags.preset) : 6 // default to Laptop
-    applyAt()
-    if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
-    if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
-  } else if (kind === 'note') {
-    const text = args.positional.slice(1).join(' ')
-    if (!text) { printError('usage: specular add note <text> [--at x,y] [--color N]'); return 1 }
-    // Long / structured text auto-routes to a `.md` note file on the apply
-    // spine (file kind's claimsAsNote); short text stays a text entity.
-    item.kind = 'text'
-    item.text = text
-    applyAt()
-    if (args.flags.color) item.color = args.flags.color
-  } else if (kind === 'file') {
-    const path = args.positional[1]
-    if (!path) { printError('usage: specular add file <path> [--at x,y]'); return 1 }
-    // The file handler infers the renderer from the extension (md / html /
-    // image / video) and sizes images/video from the file.
-    item.kind = 'file'
-    item.file = path
-    applyAt()
-    if (args.boolFlags.has('device-frame')) item.showDeviceFrame = true
-    if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
-  } else {
-    printError('usage: specular add <page|note|file> ...')
+  const build = ADD_ITEM_BUILDERS[args.positional[0]]
+  const item = build ? build(args) : 'usage: specular add <page|note|file> ...'
+  if (typeof item === 'string') {
+    printError(item)
     return 1
   }
   printJson({ created: (await applyPatch({ entities: [item] })).created })
