@@ -537,11 +537,13 @@ export function previewDragGuides(
   })
 }
 
-export function finalizeDrag(): void {
+export function finalizeDrag(options?: { reanchor?: boolean }): void {
   // Placement decides anchoring: entities dropped on a page hook to it,
   // entities dragged off go free-form. Runs before the session finalizes so
   // the anchor change lands in the drag's single undo step.
-  for (const id of dragAccumulatorById.keys()) reanchorEntityById(id)
+  if (options?.reanchor !== false) {
+    for (const id of dragAccumulatorById.keys()) reanchorEntityById(id)
+  }
   dragAccumulatorById.clear()
   activeDragCandidates = []
   activeDraggedGuideIds = []

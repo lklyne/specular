@@ -38,7 +38,9 @@ sets expand to include entities anchored to any moved page.
 **Placement decides anchoring; there is no mode.** An entity whose center
 lands inside a page's body (topmost page wins) anchors on creation and on
 drag end; dragging it off clears the anchor. Grouped entities never
-auto-anchor — group membership already owns their movement. Deleting a page
+auto-anchor — group membership already owns their movement. Holding Command
+during a drag suppresses drag-end anchoring so the entity stays canvas-bound
+above the page. Deleting a page
 frees its anchored entities in place.
 
 **Anchored means document-bound.** While the page shows a different URL than

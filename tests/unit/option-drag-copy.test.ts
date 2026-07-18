@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  createGroupDropTargetTracker,
   createOptionDragCopySession,
   type DragCopyPreviewBox,
 } from '../../src/renderer/above-view/optionDragCopy'
@@ -98,5 +99,44 @@ describe('createOptionDragCopySession', () => {
 
     expect(deltas).toEqual([[40, 20]])
     expect(copies).toEqual([])
+  })
+})
+
+describe('createGroupDropTargetTracker', () => {
+  it('clears and restores live group feedback when Command changes mid-drag', () => {
+    const dragLayout = layout()
+    dragLayout.entities.push({
+      id: 'g1',
+      kind: 'group',
+      canvasX: 0,
+      canvasY: 0,
+      width: 400,
+      height: 400,
+      screenX: 200,
+      screenY: 40,
+      screenWidth: 400,
+      screenHeight: 400,
+      entityIds: [],
+    })
+    let commandHeld = false
+    const targets: Array<string | null> = []
+    const suppressed: boolean[] = []
+    const tracker = createGroupDropTargetTracker({
+      layout: dragLayout,
+      entityIds: ['t1'],
+      isCommandHeld: () => commandHeld,
+      setGroupDropTarget: (id) => targets.push(id),
+      setDropBindingSuppressed: (value) => suppressed.push(value),
+    })
+    const pointer = { screenX: 0, screenY: 0, clientX: 250, clientY: 100 }
+
+    tracker.update(pointer)
+    commandHeld = true
+    tracker.update(pointer)
+    commandHeld = false
+    tracker.update(pointer)
+
+    expect(targets).toEqual(['g1', null, 'g1'])
+    expect(suppressed).toEqual([false, true, false])
   })
 })

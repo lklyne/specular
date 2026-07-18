@@ -130,13 +130,14 @@ function activeDragIds(
 function endDragSession(
   kind: 'page' | 'entity',
   parentGroupId?: string | null,
+  suppressDropBinding = false,
 ): void {
   if (!activeDragSession || activeDragSession.kind !== kind) return
-  if (parentGroupId !== undefined) {
+  if (!suppressDropBinding && parentGroupId !== undefined) {
     reparentEntitiesInGesture(activeDragSession.membershipIds, parentGroupId)
   }
   activeDragSession = null
-  finalizeDrag()
+  finalizeDrag({ reanchor: !suppressDropBinding })
   commitActive()
 }
 
@@ -209,10 +210,23 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.canvasDragPageEnd, (_event, payload?: { parentGroupId?: string | null }) => {
-    endDragSession('page', payload?.parentGroupId)
-    requestLayout()
-  })
+  ipcMain.on(
+    ipcChannels.canvasDragPageEnd,
+    (
+      _event,
+      payload?: {
+        parentGroupId?: string | null
+        suppressDropBinding?: boolean
+      },
+    ) => {
+      endDragSession(
+        'page',
+        payload?.parentGroupId,
+        payload?.suppressDropBinding,
+      )
+      requestLayout()
+    },
+  )
 
   ipcMain.on(
     ipcChannels.canvasDragCopySelection,
@@ -264,10 +278,23 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.canvasDragEntityEnd, (_event, payload?: { parentGroupId?: string | null }) => {
-    endDragSession('entity', payload?.parentGroupId)
-    requestLayout()
-  })
+  ipcMain.on(
+    ipcChannels.canvasDragEntityEnd,
+    (
+      _event,
+      payload?: {
+        parentGroupId?: string | null
+        suppressDropBinding?: boolean
+      },
+    ) => {
+      endDragSession(
+        'entity',
+        payload?.parentGroupId,
+        payload?.suppressDropBinding,
+      )
+      requestLayout()
+    },
+  )
 
   ipcMain.on(
     ipcChannels.canvasDragPreview,

@@ -218,6 +218,7 @@ export function SelectionOutlineLayer({
   reorderGhostId,
   reorderGhostSpan,
   suppressPageId,
+  suppressPageHover = false,
 }: {
   layoutData: LayoutUpdateData
   isDark: boolean
@@ -226,6 +227,9 @@ export function SelectionOutlineLayer({
    *  and resize handles are suppressed for a clean read, but every other item's
    *  selection/hover outline still renders so annotations stay interactive. */
   suppressPageId?: string | null
+  /** Command-drag places an item above a page without binding to it, so the
+   *  page's hover outline must disappear with the disabled drop target. */
+  suppressPageHover?: boolean
   /** While a reorder drag is in flight (ADR 0015 D7, Phase D), drop this entity's
    *  *per-item* outline — a crisp box fights the grayscale placeholder at its
    *  destination slot and the 50% ghost under the cursor. It stays in the
@@ -292,10 +296,10 @@ export function SelectionOutlineLayer({
           f.id !== reorderGhostId &&
           f.id !== suppressPageId &&
           (selectedIdSet.has(f.id) ||
-            f.id === hoveredEntityId ||
+            (!suppressPageHover && f.id === hoveredEntityId) ||
             marqueePreviewIds?.has(f.id)),
       ),
-    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressPageId],
+    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressPageHover, suppressPageId],
   )
 
   // Non-page entities render outline if selected, hovered, or in marquee preview.

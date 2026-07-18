@@ -24,16 +24,20 @@ export function GroupRenameOverlay({
   isDark,
   editingEntityId,
   optionHeldRef,
+  commandHeldRef,
   setDragCopyPreview,
   setGroupDropTarget,
+  setDropBindingSuppressed,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
   isDark: boolean
   editingEntityId: string | null
   optionHeldRef: MutableRefObject<boolean>
+  commandHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   setGroupDropTarget: (groupId: string | null) => void
+  setDropBindingSuppressed: (suppressed: boolean) => void
 }) {
   const groups = layoutData.groups ?? []
   if (!groups.length) return null
@@ -48,8 +52,10 @@ export function GroupRenameOverlay({
           isDark={isDark}
           isRenaming={editingEntityId === group.id}
           optionHeldRef={optionHeldRef}
+          commandHeldRef={commandHeldRef}
           setDragCopyPreview={setDragCopyPreview}
           setGroupDropTarget={setGroupDropTarget}
+          setDropBindingSuppressed={setDropBindingSuppressed}
         />
       ))}
     </>
@@ -63,8 +69,10 @@ function GroupRenameItem({
   isDark,
   isRenaming,
   optionHeldRef,
+  commandHeldRef,
   setDragCopyPreview,
   setGroupDropTarget,
+  setDropBindingSuppressed,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
@@ -72,8 +80,10 @@ function GroupRenameItem({
   isDark: boolean
   isRenaming: boolean
   optionHeldRef: MutableRefObject<boolean>
+  commandHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   setGroupDropTarget: (groupId: string | null) => void
+  setDropBindingSuppressed: (suppressed: boolean) => void
 }) {
   const labelColorClass = group.color
     ? isDark ? 'text-zinc-100' : 'text-zinc-900'
@@ -118,8 +128,10 @@ function GroupRenameItem({
               event: event.nativeEvent,
               initialPointer: ev,
               isOptionHeld: () => optionHeldRef.current,
+              isCommandHeld: () => commandHeldRef.current,
               setPreview: setDragCopyPreview,
               setGroupDropTarget,
+              setDropBindingSuppressed,
             })
             return
           }

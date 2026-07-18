@@ -112,8 +112,10 @@ interface PointerDispatchDependencies {
   api: CanvasBgElectronAPI
   layoutRef: React.MutableRefObject<LayoutUpdateData>
   optionHeldRef: React.MutableRefObject<boolean>
+  commandHeldRef: React.MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
   setGroupDropTarget: (groupId: string | null) => void
+  setDropBindingSuppressed: (suppressed: boolean) => void
   setEdgeDragState: (state: EdgeDragState) => void
   setReorderGhost: (ghost: ReorderGhostOffset) => void
   onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
@@ -205,8 +207,10 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     spaceHeldRef,
     handToolActiveRef,
     optionHeldRef,
+    commandHeldRef,
     setDragCopyPreview,
     setGroupDropTarget,
+    setDropBindingSuppressed,
     setEdgeDragState,
     setReorderGhost,
     onCommentDragMove,
@@ -265,8 +269,10 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         event,
         layoutRef,
         optionHeldRef,
+        commandHeldRef,
         setDragCopyPreview,
         setGroupDropTarget,
+        setDropBindingSuppressed,
         setEdgeDragState: setEdgeDragStateRef.current,
         setReorderGhost,
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
@@ -369,8 +375,10 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         event,
         layoutRef,
         optionHeldRef,
+        commandHeldRef,
         setDragCopyPreview,
         setGroupDropTarget,
+        setDropBindingSuppressed,
         setEdgeDragState: setEdgeDragStateRef.current,
         setReorderGhost,
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
@@ -427,7 +435,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [owner, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget, setReorderGhost, spaceHeldRef])
+  }, [owner, commandHeldRef, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setDropBindingSuppressed, setGroupDropTarget, setReorderGhost, spaceHeldRef])
 }
 
 // --- Dispatch ---
@@ -518,8 +526,10 @@ function runEntityDrag(
     event,
     releasePointer,
     isOptionHeld: () => ctx.optionHeldRef.current,
+    isCommandHeld: () => ctx.commandHeldRef.current,
     setPreview: ctx.setDragCopyPreview,
     setGroupDropTarget: ctx.setGroupDropTarget,
+    setDropBindingSuppressed: ctx.setDropBindingSuppressed,
   })
   return true
 }
@@ -581,8 +591,10 @@ function runEntityPress(
         releasePointer,
         initialPointer,
         isOptionHeld: () => ctx.optionHeldRef.current,
+        isCommandHeld: () => ctx.commandHeldRef.current,
         setPreview: ctx.setDragCopyPreview,
         setGroupDropTarget: ctx.setGroupDropTarget,
+        setDropBindingSuppressed: ctx.setDropBindingSuppressed,
       })
     },
     commitPress: () => ctx.api.requestEntityEdit(action.entityId),
@@ -609,8 +621,10 @@ function runPageBodyPress(
         releasePointer,
         initialPointer,
         isOptionHeld: () => ctx.optionHeldRef.current,
+        isCommandHeld: () => ctx.commandHeldRef.current,
         setPreview: ctx.setDragCopyPreview,
         setGroupDropTarget: ctx.setGroupDropTarget,
+        setDropBindingSuppressed: ctx.setDropBindingSuppressed,
       })
     },
     commitPress: (pointer) => {
@@ -646,8 +660,10 @@ function runGroupDrag(
         releasePointer,
         initialPointer,
         isOptionHeld: () => ctx.optionHeldRef.current,
+        isCommandHeld: () => ctx.commandHeldRef.current,
         setPreview: ctx.setDragCopyPreview,
         setGroupDropTarget: ctx.setGroupDropTarget,
+        setDropBindingSuppressed: ctx.setDropBindingSuppressed,
       })
     },
     commitPress: () => ctx.api.selectGroup(action.groupId),

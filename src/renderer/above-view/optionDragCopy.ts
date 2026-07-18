@@ -22,21 +22,31 @@ type DragPointer = {
   clientX?: number
   clientY?: number
   altKey?: boolean
+  metaKey?: boolean
+  ctrlKey?: boolean
   shiftKey?: boolean
 }
 
-function createGroupDropTargetTracker(input: {
+export function createGroupDropTargetTracker(input: {
   layout: LayoutUpdateData
   entityIds: readonly string[]
-  isOptionHeld: () => boolean
+  isOptionHeld?: () => boolean
+  isCommandHeld: () => boolean
   setGroupDropTarget: (groupId: string | null) => void
+  setDropBindingSuppressed: (suppressed: boolean) => void
 }) {
   const excludedIds = new Set(input.entityIds)
   let targetGroupId: string | null = null
+  let bindingSuppressed = false
   return {
     update(pointer: DragPointer) {
+      bindingSuppressed =
+        input.isCommandHeld() ||
+        Boolean(pointer.metaKey) ||
+        Boolean(pointer.ctrlKey)
       const canTarget =
-        !input.isOptionHeld() &&
+        !bindingSuppressed &&
+        !input.isOptionHeld?.() &&
         !pointer.altKey &&
         pointer.clientX !== undefined &&
         pointer.clientY !== undefined
@@ -48,12 +58,17 @@ function createGroupDropTargetTracker(input: {
           )
         : null
       input.setGroupDropTarget(targetGroupId)
+      input.setDropBindingSuppressed(bindingSuppressed)
     },
     current() {
       return targetGroupId
     },
+    bindingSuppressed() {
+      return bindingSuppressed
+    },
     clear() {
       input.setGroupDropTarget(null)
+      input.setDropBindingSuppressed(false)
     },
   }
 }
@@ -292,8 +307,10 @@ export function startOptionAwareEntityDrag(input: {
   captureTarget?: Element | null
   initialPointer?: DragPointer
   isOptionHeld: () => boolean
+  isCommandHeld: () => boolean
   setPreview: (preview: DragCopyPreviewBox[]) => void
   setGroupDropTarget: (groupId: string | null) => void
+  setDropBindingSuppressed: (suppressed: boolean) => void
 }) {
   const pointerId = input.event.pointerId
   const entityIds = draggedEntityIdsForSelection(input.layout, input.entityId)
@@ -338,20 +355,32 @@ export function startOptionAwareEntityDrag(input: {
     previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
     endDrag: (outcome, copied) => {
       release()
+      const suppressDropBinding =
+        outcome === 'finish' && groupTarget.bindingSuppressed()
+      const membership =
+        outcome === 'finish' && !copied && !suppressDropBinding
+          ? groupTarget.current()
+          : undefined
       groupTarget.clear()
-      const membership = outcome === 'finish' && !copied ? groupTarget.current() : undefined
-      if (input.entityKind === 'page') input.api.endDragPage(membership)
-      else input.api.endDragEntity(membership)
+      if (input.entityKind === 'page') {
+        input.api.endDragPage(membership, suppressDropBinding)
+      } else {
+        input.api.endDragEntity(membership, suppressDropBinding)
+      }
     },
     copyAt: (canvasX, canvasY) => input.api.dragCopySelection(canvasX, canvasY),
   })
-  if (input.initialPointer) session.move(input.initialPointer)
+  if (input.initialPointer) {
+    groupTarget.update(input.initialPointer)
+    session.move(input.initialPointer)
+  }
 
   return installOptionAwareDragListeners({
     pointerId,
     session,
     isOptionHeld: input.isOptionHeld,
     onPointer: groupTarget.update,
+    initialPointer: input.initialPointer,
   })
 }
 
@@ -364,8 +393,10 @@ export function startOptionAwareGroupDrag(input: {
   captureTarget?: Element | null
   initialPointer?: DragPointer
   isOptionHeld: () => boolean
+  isCommandHeld: () => boolean
   setPreview: (preview: DragCopyPreviewBox[]) => void
   setGroupDropTarget: (groupId: string | null) => void
+  setDropBindingSuppressed: (suppressed: boolean) => void
 }) {
   const pointerId = input.event.pointerId
   const entityIds = draggedEntityIdsForGroup(input.layout, input.groupId)
@@ -400,20 +431,28 @@ export function startOptionAwareGroupDrag(input: {
     previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
     endDrag: (outcome, copied) => {
       release()
+      const suppressDropBinding =
+        outcome === 'finish' && groupTarget.bindingSuppressed()
+      const membership =
+        outcome === 'finish' && !copied && !suppressDropBinding
+          ? groupTarget.current()
+          : undefined
       groupTarget.clear()
-      input.api.endDragEntity(
-        outcome === 'finish' && !copied ? groupTarget.current() : undefined,
-      )
+      input.api.endDragEntity(membership, suppressDropBinding)
     },
     copyAt: (canvasX, canvasY) => input.api.dragCopyGroup(input.groupId, canvasX, canvasY),
   })
-  if (input.initialPointer) session.move(input.initialPointer)
+  if (input.initialPointer) {
+    groupTarget.update(input.initialPointer)
+    session.move(input.initialPointer)
+  }
 
   return installOptionAwareDragListeners({
     pointerId,
     session,
     isOptionHeld: input.isOptionHeld,
     onPointer: groupTarget.update,
+    initialPointer: input.initialPointer,
   })
 }
 
@@ -422,8 +461,9 @@ function installOptionAwareDragListeners(input: {
   session: ReturnType<typeof createOptionDragCopySession>
   isOptionHeld: () => boolean
   onPointer: (pointer: DragPointer) => void
+  initialPointer?: DragPointer
 }) {
-  let lastPointer: DragPointer | null = null
+  let lastPointer: DragPointer | null = input.initialPointer ?? null
   const cleanup = () => {
     window.removeEventListener('pointermove', onPointerMove)
     window.removeEventListener('pointerup', onPointerUp)
@@ -447,7 +487,14 @@ function installOptionAwareDragListeners(input: {
   const onKeyChange = (event: KeyboardEvent) => {
     input.session.setShiftKey(event.shiftKey)
     input.session.setOptionHeld(input.isOptionHeld())
-    if (lastPointer) input.onPointer(lastPointer)
+    if (lastPointer) {
+      lastPointer = {
+        ...lastPointer,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+      }
+      input.onPointer(lastPointer)
+    }
   }
   const onCancel = () => {
     cleanup()

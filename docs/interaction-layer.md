@@ -209,8 +209,9 @@ clear, drag to marquee); its border and title remain direct drag handles. Once
 selected, the interior moves the group subtree. During entity/group drags, the
 renderer evaluates the pointer against the groups' pre-drag bounds, paints the
 innermost target outline, and commits membership in the drag's existing undo
-transaction. Releasing outside removes prior membership. Option-drag suppresses
-both target feedback and membership changes.
+transaction. Releasing outside removes prior membership. Command-drag
+suppresses group/page drop binding and clears its target feedback live;
+Option-drag also suppresses group targeting while copying.
 
 A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the router installs a window-level `dblclick` capture listener and dispatches `enter-shape-edit` / `enter-group` / `request-text-edit` (and yields `enter-group-rename` to the GroupRenameLabel's own DOM `onDoubleClick`). The text/shape branches use the `canvas-request-text-edit` / `canvas-request-shape-edit` IPC channels, which select the entity in main and signal bgView to focus its inline editor.
 

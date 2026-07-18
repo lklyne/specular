@@ -170,6 +170,23 @@ describe('page-anchored entities', () => {
     expect(entity()?.pageAnchor).toEqual({ pageId: PAGE_ID, pageUrl: PAGE_URL, scrollX: 0, scrollY: 0 })
   })
 
+  it('Command-drop on a page leaves the dragged entity canvas-bound', async () => {
+    loadHostPage()
+    const sticky = createTextEntity({ ...OFF_PAGE, text: 'floating above page' })
+    await settleSync()
+
+    initializeDrag([sticky.id])
+    applyDragDelta(
+      [sticky.id],
+      ON_PAGE.canvasX - OFF_PAGE.canvasX,
+      ON_PAGE.canvasY - OFF_PAGE.canvasY,
+    )
+    finalizeDrag({ reanchor: false })
+    await settleSync()
+
+    expect(textEntities.find((candidate) => candidate.id === sticky.id)?.pageAnchor).toBeUndefined()
+  })
+
   it('drop on a newer page anchors without rewriting cross-plane stack order', async () => {
     const stickyId = 'older-sticky'
     harness.loadFixture({
