@@ -155,7 +155,7 @@ Freehand drawings/annotations stored in an `annotations` array:
 #### Comment anchors
 
 Comment annotations carry an `anchor` (discriminated by `anchor.type`) and,
-when page-bound, a `pageAnchor { pageId, pageUrl? }` (see ADR 0029). The
+when page-bound, a `pageAnchor { pageId, pageUrl? }` (see ADR 0031). The
 anchor variants:
 
 ```json

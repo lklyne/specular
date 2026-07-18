@@ -12,9 +12,29 @@ pnpm install
 pnpm dev                     # start the Electron app
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
-pnpm test:smoke              # integration tests (spawns Electron, uses HTTP API)
+pnpm test:integration        # real runtime in-process (no Electron)
 pnpm build                   # package for distribution
 ```
+
+## Managing the dev app
+
+`pnpm dev` remains the foreground, human-owned workflow. Agents and unattended
+shells should use `devctl`, which only restarts or stops processes it started:
+
+```bash
+pnpm devctl start             # idempotent background start
+pnpm devctl status --json
+pnpm devctl logs --tail=200
+pnpm devctl logs --errors
+pnpm devctl restart
+pnpm devctl stop
+pnpm devctl context           # status + recent logs/errors + perf trace metadata
+```
+
+If a foreground `pnpm dev` is already healthy, `start` reports it as external
+and exits successfully. `restart` and `stop` then refuse to signal it. Managed
+Forge/Vite/Electron output lives in `.dev/dev.log`; persistent app errors and
+performance traces remain in Electron's app logs directory.
 
 ## Environment variables
 

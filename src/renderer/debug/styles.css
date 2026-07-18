@@ -24,3 +24,31 @@ body,
 .titlebar-drag select {
   -webkit-app-region: no-drag;
 }
+
+/* Performance section chart colors — theme-aware, scoped so they never leak
+ * into ordinary text (which always uses the surrounding zinc text colors). */
+.perf-viz {
+  --perf-hue: #2a78d6;
+  --perf-series-1: #2a78d6;
+  --perf-series-2: #1baf7a;
+  --perf-series-3: #eda100;
+  --perf-series-4: #008300;
+  --perf-series-5: #4a3aa7;
+  --perf-series-6: #e34948;
+  --perf-gridline: #e1e0d9;
+  --perf-baseline: #c3c2b7;
+  --perf-muted: #898781;
+}
+
+.dark .perf-viz {
+  --perf-hue: #3987e5;
+  --perf-series-1: #3987e5;
+  --perf-series-2: #199e70;
+  --perf-series-3: #c98500;
+  --perf-series-4: #008300;
+  --perf-series-5: #9085e9;
+  --perf-series-6: #e66767;
+  --perf-gridline: #2c2c2a;
+  --perf-baseline: #383835;
+  --perf-muted: #898781;
+}

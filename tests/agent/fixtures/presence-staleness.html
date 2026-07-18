@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Presence staleness fixture</title>
+</head>
+<body style="margin:0;font-family:sans-serif;background:#fff;">
+  <!-- Re-layouts every 800ms (see the interval below) so a click dispatched
+       against a coordinate resolved before the reflow lands on empty space
+       instead of the button. This is the R1 race from ADR 0029 / issue #319:
+       agent-browser resolves the element's rect, the presence dwell delays
+       dispatch, and the element can move in that window. -->
+  <div id="wrap" style="position:relative;width:640px;height:200px;">
+    <button
+      id="target"
+      onclick="document.getElementById('hits').textContent = String(Number(document.getElementById('hits').textContent) + 1)"
+      style="position:absolute;top:80px;left:40px;width:140px;height:44px;font-size:16px;"
+    >Click me</button>
+  </div>
+  <div style="padding:12px 0 0 12px;">Hits: <span id="hits">0</span></div>
+  <script>
+    var target = document.getElementById('target')
+    var toggled = false
+    setInterval(function () {
+      toggled = !toggled
+      target.style.left = toggled ? '440px' : '40px'
+    }, 800)
+  </script>
+</body>
+</html>

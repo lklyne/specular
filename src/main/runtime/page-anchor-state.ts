@@ -161,7 +161,7 @@ export function reanchorEntityById(entityId: string): boolean {
     if (rebased) markDirty('canvas', 'sidebar')
     // Drag-end over the same page keeps the anchor object but sits over
     // (possibly) different content, so re-capture the reference element
-    // (ADR 0030). No-op when the entity is free.
+    // (ADR 0032). No-op when the entity is free.
     if (entity.pageAnchor) captureElementForEntity(entityId)
     return rebased
   }
@@ -241,7 +241,7 @@ export function regionCanvasRect(
   const page = pages.find((candidate) => candidate.id === pageId)
   if (!page) return null
   const body = pageBodyCanvasBounds(page)
-  // Element-follow (ADR 0030): the region tracks the element under its center
+  // Element-follow (ADR 0032): the region tracks the element under its center
   // through page reflow, alongside the scroll-follow subtraction below.
   const element = pageAnchorElementShift(annotation.pageAnchor)
   return {

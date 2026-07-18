@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import { execFileSync } from 'child_process'
 import { readFileSync, writeFileSync } from 'fs'
 import { isAbsolute, join } from 'path'
 import { homedir, tmpdir } from 'os'
@@ -50,12 +51,98 @@ function loadDiscovery(): DiscoveryPayload {
 // Session identity
 // ---------------------------------------------------------------------------
 
+const MAX_ANCESTOR_WALK_DEPTH = 15
+// Matches the agent CLI host process whose lifetime spans one conversation —
+// every Bash call and MCP subprocess the conversation spawns descends from
+// it, so its pid is a stable per-conversation identity. Extend this pattern
+// (not the depth bound) to recognize another agent CLI.
+const AGENT_HOST_COMMAND_PATTERN = /\bclaude\b/i
+
+export interface ProcessAncestorInfo {
+  ppid: number
+  command: string
+}
+
+/** Reads a process's parent pid and command name. Platform-specific and
+ *  side-effecting (shells out / reads /proc); injected into
+ *  `findAgentHostAncestorId` so the walk itself is a pure function of its
+ *  inputs and testable without spawning real processes. */
+export type ParentPidReader = (pid: number) => ProcessAncestorInfo | null
+
+function readParentPidDarwin(pid: number): ProcessAncestorInfo | null {
+  try {
+    const out = execFileSync('ps', ['-o', 'ppid=,comm=', '-p', String(pid)], {
+      encoding: 'utf8',
+    }).trim()
+    if (!out) return null
+    const match = out.match(/^(\d+)\s+(.+)$/)
+    if (!match) return null
+    return { ppid: Number(match[1]), command: match[2] }
+  } catch {
+    return null
+  }
+}
+
+function readParentPidLinux(pid: number): ProcessAncestorInfo | null {
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+    // Format: "pid (comm) state ppid ...". comm is parenthesized and may
+    // itself contain spaces or parens, so split on the *last* ')'.
+    const closeParen = stat.lastIndexOf(')')
+    if (closeParen === -1) return null
+    const command = stat.slice(stat.indexOf('(') + 1, closeParen)
+    const rest = stat.slice(closeParen + 2).trim().split(/\s+/)
+    const ppid = Number(rest[1])
+    if (!Number.isFinite(ppid)) return null
+    return { ppid, command }
+  } catch {
+    return null
+  }
+}
+
+function defaultParentPidReader(pid: number): ProcessAncestorInfo | null {
+  return process.platform === 'linux' ? readParentPidLinux(pid) : readParentPidDarwin(pid)
+}
+
+/**
+ * Walk the parent-PID chain from `startPid` looking for the nearest ancestor
+ * whose command matches the invoking agent CLI. All Bash calls and MCP
+ * subprocesses spawned within one agent conversation share that ancestor, so
+ * `ancestor-<pid>` groups them into a single presence session — while two
+ * concurrent conversations (two different agent-host processes) resolve to
+ * two different ids. Returns null if no matching ancestor is found within
+ * `maxDepth` (bounded so a detached/reparented process can't walk to pid 1).
+ */
+export function findAgentHostAncestorId(
+  startPid: number,
+  readInfo: ParentPidReader = defaultParentPidReader,
+  maxDepth: number = MAX_ANCESTOR_WALK_DEPTH,
+): string | null {
+  let pid = startPid
+  for (let depth = 0; depth < maxDepth; depth++) {
+    const info = readInfo(pid)
+    if (!info) return null
+    if (AGENT_HOST_COMMAND_PATTERN.test(info.command)) return `ancestor-${pid}`
+    if (!Number.isFinite(info.ppid) || info.ppid <= 1 || info.ppid === pid) return null
+    pid = info.ppid
+  }
+  return null
+}
+
 function resolveSessionId(): string {
   // Explicit override takes priority
   if (process.env.SPECULAR_SESSION_ID) return process.env.SPECULAR_SESSION_ID
 
-  // Fixed session file — all CLI calls share one session ID.
-  // Server-side 10s expiry clears the cursor after the last call.
+  // One process tree per agent conversation — group by the nearest
+  // recognizable agent-CLI ancestor so many short-lived Bash/MCP
+  // invocations within a conversation read as one cursor, while two
+  // concurrent conversations (distinct ancestors) don't collide.
+  const ancestorId = findAgentHostAncestorId(process.pid)
+  if (ancestorId) return ancestorId
+
+  // Fallback for processes with no recognizable agent-CLI ancestor (e.g. run
+  // directly by a human): a fixed session file, so all such calls share one
+  // ID. Server-side 10s expiry clears the cursor after the last call.
   const sessionFile = join(tmpdir(), 'specular-session.id')
   try {
     return readFileSync(sessionFile, 'utf8').trim()

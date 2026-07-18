@@ -1,5 +1,5 @@
 /**
- * Element-attachment render correction (ADR 0030). A page-anchored item stores
+ * Element-attachment render correction (ADR 0032). A page-anchored item stores
  * the document position its reference DOM element sat at when the anchor was
  * captured. When the page reflows, the element moves to a new document
  * position and the item follows it. This module is the one formula for that

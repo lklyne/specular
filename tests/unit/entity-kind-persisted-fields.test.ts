@@ -63,7 +63,7 @@ describe('persist projections match the declared persisted field lists', () => {
     expect(keysOf(persistTextEntity(entity))).toEqual([...TEXT_ENTITY_PERSISTED_FIELDS].sort())
   })
 
-  // ADR 0030: `pageAnchor.element` is opaque to these projections — they
+  // ADR 0032: `pageAnchor.element` is opaque to these projections — they
   // copy `entity.pageAnchor` as one field, never reconstructing it key by
   // key — so a fresh nested field survives without any projection change.
   // Mutation-verified by rebuilding `pageAnchor` field-by-field (dropping

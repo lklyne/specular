@@ -9,6 +9,8 @@ import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
 import type { PageAnchor } from './page-anchor'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
+import type { AmbientDriftMode } from './presence-ambient'
+import type { LocatorBundle, LocatorResolution } from './locator-kernel'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { PageAnchor } from './page-anchor'
@@ -159,11 +161,11 @@ export interface CanvasScenePageEntity {
   /** Optional — absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
   /** Page's absolute scroll offset in raw CSS pixels, default 0. Document
-   *  coordinates minus this are viewport coordinates (ADR 0029). */
+   *  coordinates minus this are viewport coordinates (ADR 0031). */
   scrollX: number
   scrollY: number
   /** Live document positions of the DOM selectors this page's anchored items
-   *  reference, keyed by selector (ADR 0030 element attachment). Present only
+   *  reference, keyed by selector (ADR 0032 element attachment). Present only
    *  when the page is tracking at least one element. The renderer applies them
    *  as a render-time correction to page-anchored region `docRect`s, the same
    *  correction main applies to canvas-space consumers (page-anchor-scroll.ts).
@@ -577,7 +579,16 @@ export interface LayoutUpdateData {
 
 export type PresenceSurface = 'canvas' | 'page'
 
-export type PresenceActivity = 'traveling' | 'acting' | 'waiting' | 'thinking' | 'idle' | 'departing'
+export type PresenceActivity =
+  | 'traveling'
+  | 'acting'
+  | 'waiting'
+  | 'thinking'
+  | 'idle'
+  | 'departing'
+  // A refused mirrored click (interaction sync): the synced cursor plays a
+  // brief lateral wiggle then decays to its prior state. Exactly one meaning.
+  | 'refused'
 
 export type PresenceLabelKey = (typeof PRESENCE_LABEL_KEYS)[number]
 
@@ -590,10 +601,40 @@ export interface PresenceTargetRect {
 
 export type PresenceTargetRefSource = 'specular' | 'agent-browser'
 
+/**
+ * A re-resolving target (CSS selector, text locator, or role/testid +
+ * accessible-name locator) parsed from a browse command, carried through
+ * `/session/presence/intent` so the intent handler can resolve it via
+ * `findPresenceTarget` — the same resolution `specular find` and the
+ * `/pages/find-target` route already use — instead of waiting for the
+ * eventual CDP mouse event to reveal where the cursor should go.
+ *
+ * `role`/`testid` locators have no field of their own — `parseTargetQuery`
+ * translates them into `selector` at parse time, so this wire shape only
+ * ever carries a CSS selector, a text locator, or an accessible name.
+ */
+export interface PresenceTargetQuery {
+  selector: string | null
+  text: string | null
+  name: string | null
+}
+
+/**
+ * Reserved color for synced cursors — a presence cursor sourced from the
+ * user's mirrored input (ADR 0030) rather than an agent session. Fixed and
+ * distinct from `deriveColor`'s hsl(hue, 70%, 55%) space so a synced cursor
+ * never collides with an agent's derived hue.
+ */
+export const SYNCED_CURSOR_COLOR = '#00C2FF'
+
+export type PresenceCursorSource = 'agent' | 'interaction-sync'
+
 export interface AgentPresenceCursor {
   sessionId: string
   clientName: string
   color: string
+  /** Origin of this cursor. Absent ⇒ 'agent' (every existing path). */
+  source?: PresenceCursorSource
   canvasX: number
   canvasY: number
   surface: PresenceSurface
@@ -610,6 +651,19 @@ export interface AgentPresenceCursor {
   targetName?: string | null
   targetRect?: PresenceTargetRect | null
   updatedAt: number
+  /** The pre-act dwell budget (ms) main selected for the act currently in
+   *  flight (ADR 0029 adaptive dwell). The renderer caps travel duration at
+   *  this value so motion never outlives the server-side dwell and the act
+   *  fires mid-flight. Absent (or null) before the first act — callers
+   *  should fall back to the full step-delay budget. */
+  dwellBudgetMs?: number | null
+  /** Which ambient motion, if any, applies while this cursor sits in the
+   *  inter-command gap (issue #319 Phase 3, `selectAmbientMode` in
+   *  `presence-ambient.ts`). Derived server-side from activity and the
+   *  session's last real intent — main never mutates position for this,
+   *  the renderer composites the offset visually on top of the spline
+   *  (ADR 0029 rule 4: no speculative pre-positioning). */
+  ambientMode: AmbientDriftMode
 }
 
 export interface AgentSnapshotNode {
@@ -669,6 +723,43 @@ export type SidebarAnchoredEntityItem = (
  * only differ in presentation.
  */
 export type SidebarPageChildItem = SidebarAnchoredEntityItem | SidebarAnnotationItem
+
+// --- Interaction sync (ADR 0030) ---
+
+/**
+ * A hover or click captured on the source page, carried to main and fanned out
+ * to same-origin peers. `bundle` is null only for a hover over no element (the
+ * cursor still glides proportionally); `viewportX`/`viewportY` are the source
+ * cursor as a viewport fraction 0..1, driving the peer's proportional base
+ * position when nothing resolves.
+ */
+export interface InteractionSyncEvent {
+  kind: 'hover' | 'click'
+  bundle: LocatorBundle | null
+  viewportX: number
+  viewportY: number
+}
+
+/** Main → guest: toggle interaction-sync capture on the source page (D1). */
+export interface InteractionSyncCapturePayload {
+  enabled: boolean
+}
+
+/**
+ * Main → peer guest: resolve a captured bundle against the peer's live DOM.
+ * `requestId` correlates the response; stale responses (a superseded requestId
+ * for the same peer) are dropped (D7).
+ */
+export interface LocatorResolveRequest {
+  requestId: number
+  bundle: LocatorBundle
+}
+
+/** Peer guest → main: the peer's resolution for a `requestId`. */
+export interface LocatorResolveResponse {
+  requestId: number
+  resolution: LocatorResolution
+}
 
 export interface SidebarPageItem {
   kind: 'page'
@@ -785,7 +876,7 @@ export interface LeftSidebarBootstrapData extends ThemeBootstrapData {
 
 // --- Onboarding ---
 
-export type OnboardingComponentId = 'cli' | 'skill' | 'agentBrowser'
+export type OnboardingComponentId = 'cli' | 'skill'
 
 export type OnboardingComponentStatus =
   | { kind: 'installed'; detail?: string }
@@ -820,6 +911,11 @@ export interface OnboardingState {
   /** SHA-256 of each skill's content as we last installed it. Used to
    * detect whether the user has hand-edited the file before auto-updating. */
   skillHashes?: { specular?: string; 'agent-browser'?: string }
+  /** Set once the one-time agent-browser skill removal migration (D2) has
+   * evaluated its guard and either removed the stale skill or deliberately
+   * left it — regardless of outcome, evaluating twice would be wrong for a
+   * one-time migration. See skill-migrations.ts. */
+  agentBrowserSkillMigrationDone?: boolean
 }
 
 // --- Settings window ---
@@ -1738,7 +1834,7 @@ export type AnnotationAnchor =
   // Region annotations split by the grab rule. A grab-less marquee marks
   // canvas space and stores `canvasRect`; a marquee that grabbed page content
   // is page-anchored and stores `docRect` in the page's document CSS pixels,
-  // relative to the page named by `Annotation.pageAnchor` (ADR 0029 — the
+  // relative to the page named by `Annotation.pageAnchor` (ADR 0031 — the
   // pageAnchor is the single source of truth for which page). A region
   // without `docRect` (all existing files) is canvas-anchored, full stop.
   // Narrow the two arms with `'docRect' in anchor` after `type === 'region'`.
@@ -1966,7 +2062,7 @@ export interface AnnotationLiveBboxUpdate {
   boundingBox: DevtoolsPanelDomRect | null
 }
 
-/** Element-attachment reflow tracking (ADR 0030). Main declares, per page, the
+/** Element-attachment reflow tracking (ADR 0032). Main declares, per page, the
  *  distinct DOM selectors that anchored items reference; the page resolves them
  *  to document positions and reports back on reflow. Unlike the bbox
  *  subscription this is a plain declaration (no per-item id) — items sharing a

@@ -4,6 +4,11 @@ import {
   shellQuote,
   splitChainedCommands,
   parseCommandArgs,
+  parseScrollTarget,
+  effectiveBrowseCommand,
+  mutationVerbForCommand,
+  labelKeyForCommand,
+  staleGenerationWarning,
 } from '../../src/main/mcp-browse'
 
 describe('splitShellArgs', () => {
@@ -132,5 +137,87 @@ describe('parseCommandArgs', () => {
     const result = parseCommandArgs('--cdp ws://localhost:9222 click @e3')
     expect(result.verb).toBe('click')
     expect(result.ref).toBe('@e3')
+  })
+})
+
+describe('effectiveBrowseCommand', () => {
+  const parse = (cmd: string) => parseCommandArgs(cmd)
+
+  it('keeps first-class browse verbs unchanged', () => {
+    expect(effectiveBrowseCommand(parse('click @e5'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('snapshot -i'))).toBe('snapshot')
+  })
+
+  it('normalizes find commands to their mutating subaction', () => {
+    expect(effectiveBrowseCommand(parse('find text "Oviedo (Spain)" click --exact'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('find label "Email" fill "user@test.com"'))).toBe('fill')
+    expect(effectiveBrowseCommand(parse('find placeholder "Search" type "query"'))).toBe('type')
+    expect(effectiveBrowseCommand(parse('find role option select --name "Two"'))).toBe('select')
+  })
+
+  it('maps click-like find subactions onto click presence', () => {
+    expect(effectiveBrowseCommand(parse('find testid agree check'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('find testid agree uncheck'))).toBe('click')
+    expect(effectiveBrowseCommand(parse('find first ".item" dblclick'))).toBe('click')
+  })
+
+  it('does not pretend non-mutating find subactions are mutations', () => {
+    expect(effectiveBrowseCommand(parse('find nth 2 "a.external" hover'))).toBe('find')
+    expect(mutationVerbForCommand(parse('find nth 2 "a.external" hover'))).toBeNull()
+  })
+
+  it('drives labels and mutation checks from the effective command', () => {
+    const clickFind = parse('find text "Submit" click')
+    const fillFind = parse('find label "Email" fill "user@test.com"')
+
+    expect(labelKeyForCommand(clickFind)).toBe('click_target')
+    expect(mutationVerbForCommand(clickFind)).toBe('click')
+    expect(labelKeyForCommand(fillFind)).toBe('type_text')
+    expect(mutationVerbForCommand(fillFind)).toBe('fill')
+  })
+})
+
+// D8 (issue #318): generation-based staleness detection is warn-only. This
+// is the pure comparison at the heart of it — everything else in
+// browse-handler.ts (caching, fresh fetch, prepending) is plumbing around
+// this one `>` check.
+describe('staleGenerationWarning', () => {
+  it('returns null when the page has not navigated since the snapshot', () => {
+    expect(staleGenerationWarning('page_1', 3, 3)).toBeNull()
+  })
+
+  it('returns null when the current generation is somehow behind (never regresses into a warning)', () => {
+    expect(staleGenerationWarning('page_1', 5, 2)).toBeNull()
+  })
+
+  it('warns with the page id and recovery guidance when the generation has moved on', () => {
+    const warning = staleGenerationWarning('page_42', 1, 2)
+    expect(warning).toContain('page changed since your last snapshot')
+    expect(warning).toContain('refs likely stale')
+    expect(warning).toContain('specular snapshot -i -f page_42')
+    expect(warning).toContain('CSS selector or find text')
+  })
+})
+
+describe('parseScrollTarget', () => {
+  const parse = (cmd: string) => parseScrollTarget(parseCommandArgs(cmd))
+
+  it('returns the ref for ref-targeted mutations', () => {
+    expect(parse('click @e5')).toBe('@e5')
+  })
+
+  it('returns CSS selectors for selector-targeted mutations', () => {
+    expect(parse('click "#submit"')).toBe('#submit')
+    expect(parse('fill "input[name=email]" hello')).toBe('input[name=email]')
+  })
+
+  it('skips text= locators (no scrollintoview text syntax)', () => {
+    expect(parse('click "text=Sign in"')).toBeNull()
+  })
+
+  it('skips non-mutation verbs and targetless commands', () => {
+    expect(parse('snapshot -i')).toBeNull()
+    expect(parse('scroll down')).toBeNull()
+    expect(parse('click')).toBeNull()
   })
 })

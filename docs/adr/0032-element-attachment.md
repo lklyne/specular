@@ -1,8 +1,8 @@
-# ADR 0030 — Element attachment (anchored items track page content through reflow)
+# ADR 0032 — Element attachment (anchored items track page content through reflow)
 
 **Status:** Accepted
 **Date:** 2026-07-17
-**Related:** [ADR 0029 — Page-anchored entities](./0029-page-anchored-entities.md) (supersedes its "no stored offset" clause and its scroll-tracking follow-up); [ADR 0006 — Unified comment tool](./0006-unified-comment-tool.md) (element anchors pioneered the selector + live-requery pattern this generalizes).
+**Related:** [ADR 0031 — Page-anchored entities](./0031-page-anchored-entities.md) (supersedes its "no stored offset" clause and its scroll-tracking follow-up); [ADR 0006 — Unified comment tool](./0006-unified-comment-tool.md) (element anchors pioneered the selector + live-requery pattern this generalizes).
 
 ## Context
 
@@ -19,7 +19,7 @@ and re-query the live element's position. That principle — "attached to what's
 on the page, not to where it was" — matches the user's mental model for
 *everything* anchored to a page.
 
-ADR 0029 decided "positions stay in canvas coordinates; the anchor stores no
+ADR 0031 decided "positions stay in canvas coordinates; the anchor stores no
 offset." That keeps canvas coordinates the universal currency every subsystem
 speaks (hit-testing, drag, undo, `.canvas` files, agent tooling), and this ADR
 does not reverse it. But its implicit corollary — that geometry alone is
@@ -48,7 +48,7 @@ Scene builders apply *(element's live document position − recorded
 the correction folds into stored coordinates on reanchor (the same rebase
 pattern). An unresolvable selector means zero correction — the item renders at
 its stored geometry, never hides. Attachment is **never a visibility gate**;
-the URL gate (ADR 0029) is untouched and decides *whether* an item shows,
+the URL gate (ADR 0031) is untouched and decides *whether* an item shows,
 while the element decides *where*.
 
 **Capture is derived, not chosen.** At creation and drag-end, a fire-and-forget
@@ -92,7 +92,7 @@ survive restarts).
 | Item | Position model |
 |---|---|
 | Shapes, stickies, drawings | canvas coords + scroll stamp + element correction |
-| Page-anchored regions (`docRect`) | docRect + element correction (capture at creation only — a region's binding is written once, ADR 0029 amendment; the attachment is tracking, not binding) |
+| Page-anchored regions (`docRect`) | docRect + element correction (capture at creation only — a region's binding is written once, ADR 0031 amendment; the attachment is tracking, not binding) |
 | Element comments | unchanged — already element-attached; tracker unifies underneath |
 | Page-offset comment badges (`offsetY`) | unchanged — deliberately positional ("this far down the document"), not content-bound |
 | Canvas points, grab-less regions, free entities | unchanged — never page-anchored |
@@ -157,7 +157,7 @@ depends on it.
 
 ## Consequences
 
-- ADR 0029's "no stored offset" clause is narrowed: the anchor still stores
+- ADR 0031's "no stored offset" clause is narrowed: the anchor still stores
   no *positional authority* outside canvas space, but it now stores derived
   element metadata. Its scroll-tracking follow-up ("entities stay pinned to
   the page frame") is superseded — all anchored entities scroll-follow and,

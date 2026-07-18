@@ -455,7 +455,7 @@ describe('scroll-following text and drawings', () => {
 })
 
 /**
- * Element attachment (ADR 0030): a page-anchored item stores the document
+ * Element attachment (ADR 0032): a page-anchored item stores the document
  * position of its reference element, and the scene projection shifts stored
  * geometry by how far that element has since moved — so ink and stickies stay
  * glued to page content through reflow. Stored coords stay authoritative; the

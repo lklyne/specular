@@ -40,7 +40,7 @@ export async function queryElementsInRect(
 }
 
 /**
- * Ask a page to capture the reference element at a *document* point (ADR 0030
+ * Ask a page to capture the reference element at a *document* point (ADR 0032
  * element attachment). Returns the element's selector plus its document
  * position, or `null` if the page has no body / is gone. Fire-and-forget
  * enrichment — callers ignore rejection (timeout, destroyed page).

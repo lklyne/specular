@@ -48,6 +48,7 @@ import {
   markNavigationSuppressed,
   propagateNavigationFromPage,
 } from '../navigation-sync'
+import { invalidateInteractionSyncResolution } from '../interaction-sync'
 import { attachBindingDispatcher } from './binding-dispatcher'
 import { openLinkInNewFrame } from './link-open-policy'
 import { looksLikeUrl } from '../../shared/url'
@@ -130,6 +131,7 @@ export function createPage(config: PageConfig): Page {
     scrollX: 0,
     scrollY: 0,
     scrollHeight: 0,
+    navGeneration: 0,
   }
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')
@@ -208,7 +210,7 @@ export function createPage(config: PageConfig): Page {
     }
     invalidateAgentSnapshot(page.id)
     // A finished load starts the page preload with no subscriptions; re-declare
-    // the selectors this page's anchored items track (ADR 0030).
+    // the selectors this page's anchored items track (ADR 0032).
     resetAttachmentSubscriptionsForPage(page.id)
     page.lastPageEmulationKey = undefined
     page.lastSafeAreaCssKey = undefined
@@ -224,6 +226,12 @@ export function createPage(config: PageConfig): Page {
       page.pageView.webContents.send(ipcChannels.applyPageOverrides, overrides)
     }
   })
+  // Per-page generation counter for D8 (issue #318): a full navigation
+  // typically fires both dom-ready and did-navigate, but the staleness
+  // comparison is `>` rather than `+1`, so double-counting is harmless.
+  page.pageView.webContents.on('dom-ready', () => {
+    page.navGeneration += 1
+  })
   page.pageView.webContents.on('did-navigate', (_event, url) => {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
@@ -234,14 +242,18 @@ export function createPage(config: PageConfig): Page {
     page.scrollY = 0
     page.scrollHeight = 0
     // The new document dropped the old preload's subscriptions and its element
-    // positions no longer apply — re-declare and clear (ADR 0030).
+    // positions no longer apply — re-declare and clear (ADR 0032).
     page.elementPositions = undefined
     resetAttachmentSubscriptionsForPage(page.id)
     // Annotation visibility and the sidebar's page children key off the
     // page's current URL, so a navigation must re-send both payloads.
     markDirty('canvas', 'sidebar')
+    page.navGeneration += 1
     requestLayout()
     invalidateAgentSnapshot(page.id)
+    // The page's cached element rects (interaction-sync resolution cache) and
+    // origin are stale after a full navigation — a fresh sync point (ADR 0030).
+    invalidateInteractionSyncResolution(page.id)
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     if (isNavigationSuppressed(page)) return

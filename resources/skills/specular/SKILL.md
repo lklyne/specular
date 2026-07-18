@@ -1,6 +1,7 @@
 ---
 name: specular
 description: Drive Specular — a spatial canvas for iterating on web UI — from Claude Code. Use this skill whenever you need to pull a live website into a shared canvas, arrange pages at breakpoints, annotate pages, or inspect snapshots.
+allowed-tools: Bash(specular:*)
 ---
 
 # Specular
@@ -114,6 +115,31 @@ specular fill @e7 "search term" -f <pageId>
 `specular focus <id>` only scrolls the canvas viewport — it does not set the
 active page.
 
+## Targeting & stale refs
+
+`@refs` from `specular snapshot -i` are assigned fresh per snapshot and die on
+ANY DOM change — hot reload included. After any source edit, re-snapshot
+before using refs.
+
+For iteration loops prefer re-resolving targets, which resolve fresh on every
+call:
+
+```bash
+specular click "#submit" -f <pageId>
+specular find text "Submit" click -f <pageId>
+specular find role button click --name "Submit" -f <pageId>
+```
+
+Wait for expected state instead of sleeping:
+
+```bash
+specular wait --text "Order confirmed" -f <pageId>
+specular wait --url "**/checkout" -f <pageId>
+```
+
+If a ref-based action fails after the page changed, the error says refs may
+be stale — re-snapshot or switch to a selector.
+
 ## Fallback — the JSON door
 
 `specular apply` is the one declarative door, for the genuinely batch case
@@ -132,30 +158,9 @@ the single shape every verb compiles to:
 No `id` → create. `id` present → update. `id` in `delete` → remove. Applied in
 one transaction.
 
-```bash
-# Create three pages in a row at breakpoints
-cat << 'EOF' | specular apply
-{
-  "layout": { "kind": "row", "gap": "m", "originX": 200, "originY": 200 },
-  "entities": [
-    {"kind":"page","url":"https://example.com","presetIndex":0},
-    {"kind":"page","url":"https://example.com","presetIndex":3},
-    {"kind":"page","url":"https://example.com","presetIndex":6}
-  ]
-}
-EOF
-
-# Reorganize 6 existing pages into a 3x2 grid
-cat << 'EOF' | specular apply
-{
-  "layout": { "kind": "grid", "cols": 3, "gap": "m", "near": "frame_a" },
-  "entities": [
-    {"id":"frame_a"}, {"id":"frame_b"}, {"id":"frame_c"},
-    {"id":"frame_d"}, {"id":"frame_e"}, {"id":"frame_f"}
-  ]
-}
-EOF
-```
+See [references/apply.md](references/apply.md) for worked examples — batch
+page creation at breakpoints, reorganizing existing entities into a grid,
+batch wireframe placement.
 
 The `layout` directive takes a `kind` (`row` / `column` / `grid`), a `gap`
 (token or pixel number), and an anchor (`originX`/`originY`, `near: <id>`, or
@@ -251,8 +256,22 @@ specular add page http://localhost:3000 && specular snapshot -i -f <pageId>
 - **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
 - **`update <pageId> --url` lags `workspace`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular workspace` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → workspace` chain.
+- **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells, so snapshots can never target cells. Before driving Sheets, read [references/google-sheets.md](references/google-sheets.md) — it has the one write path that works (Name box → formula bar) and the focus traps that silently eat input while reporting "✓ Done".
 
-## See also
+## Passthrough to agent-browser
 
-- `agent-browser` skill — deeper browser-automation reference (invoked via
-  `specular snapshot`, `specular click`, etc. under the hood).
+Unrecognized browse verbs forward to the bundled agent-browser driver —
+useful examples: `eval`, `keyboard inserttext`, `focus`, `clipboard`, `find`.
+
+ALWAYS run them via `specular <verb> ... -f <pageId>` — never by running
+`agent-browser` directly. Calling it directly drives a separate browser
+disconnected from the canvas.
+
+For the deep command reference, run `specular skills get core` — it prints
+the upstream driver's full command docs. Read it as: every verb there runs
+as `specular <verb> -f <pageId>`; ignore the session/launch/open lifecycle
+commands in that reference — Specular owns the browser lifecycle.
+
+Lifecycle verbs (`launch`, `close`, `quit`, `install`, `upgrade`, `connect`)
+are blocked. Use the Specular equivalents instead: `specular delete <id>` to
+close a page, `specular add page <url>` to open one.

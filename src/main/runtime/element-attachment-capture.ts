@@ -1,5 +1,5 @@
 /**
- * Element-attachment enrichment (ADR 0030).
+ * Element-attachment enrichment (ADR 0032).
  *
  * When a page-anchored item is placed or moved, a fire-and-forget preload
  * query finds the DOM element under the item's document-space center and
@@ -168,7 +168,7 @@ export function stampAnnotationElement(
  * Fire a one-shot capture for a freshly created region annotation from its
  * region's document-space center. No-op unless the annotation carries a page
  * anchor and a `docRect` region (a region's binding is written once — the
- * attachment is tracking, not binding; ADR 0030).
+ * attachment is tracking, not binding; ADR 0032).
  */
 export function captureElementForAnnotation(annotationId: string): void {
   const annotation = workspaceAnnotations.find((candidate) => candidate.id === annotationId)

@@ -8,7 +8,11 @@ import type {
   ElementAttachmentPositionsUpdate,
   ElementAttachmentSubscriptions,
   FixConfig,
+  InteractionSyncCapturePayload,
+  InteractionSyncEvent,
   LayoutUpdateData,
+  LocatorResolveRequest,
+  LocatorResolveResponse,
   LeftSidebarData,
   OnboardingProgressEvent,
   SelectionOverlayPayload,
@@ -19,6 +23,8 @@ import type {
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
+import type { PerfTraceState } from './electron-api/debug'
+import type { PanZoomPerfTestState } from './pan-zoom-perf-test'
 
 /**
  * The single source of truth for every IPC channel: its payload type and which
@@ -193,6 +199,16 @@ export interface IpcContract {
   'cursor-spline-viz-changed': { dir: 'main→renderer'; payload: boolean }
   'debug-log': { dir: 'renderer→main'; payload: unknown }
   'debug:get-initial-data': { dir: 'invoke'; payload: unknown }
+  'debug:perf-pan-zoom-get-state': { dir: 'invoke'; payload: unknown }
+  'debug:perf-pan-zoom-run': { dir: 'invoke'; payload: unknown }
+  'debug:perf-pan-zoom-state-changed': { dir: 'main→renderer'; payload: PanZoomPerfTestState }
+  'debug:perf-pan-zoom-stop': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-get-state': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-get-summary': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-list': { dir: 'invoke'; payload: unknown }
+  'debug:perf-trace-reveal': { dir: 'renderer→main'; payload: unknown }
+  'debug:perf-trace-state-changed': { dir: 'main→renderer'; payload: PerfTraceState }
+  'debug:perf-trace-toggle': { dir: 'invoke'; payload: unknown }
   'debug:reset-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-spline-viz': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
@@ -214,6 +230,7 @@ export interface IpcContract {
   'inspect-node-hover': { dir: 'renderer→main'; payload: unknown }
   'inspect-node-select': { dir: 'renderer→main'; payload: unknown }
   'inspect-tree-update': { dir: 'renderer→main'; payload: unknown }
+  'interaction-sync-event': { dir: 'renderer→main'; payload: InteractionSyncEvent }
   'left-sidebar-changed': { dir: 'main→renderer'; payload: boolean }
   'left-sidebar-data': { dir: 'main→renderer'; payload: LeftSidebarData }
   'onboarding:complete': { dir: 'renderer→main'; payload: unknown }
@@ -251,6 +268,8 @@ export interface IpcContract {
   'repo-disconnect': { dir: 'invoke'; payload: unknown }
   'repo-find-for-path': { dir: 'renderer→main'; payload: unknown }
   'repo-list': { dir: 'renderer→main'; payload: unknown }
+  'resolve-interaction-locator': { dir: 'main→renderer'; payload: LocatorResolveRequest }
+  'resolve-interaction-locator-response': { dir: 'renderer→main'; payload: LocatorResolveResponse }
   'resolve-node-detail': { dir: 'main→renderer'; payload: unknown }
   'resolve-node-detail-response': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-clear-inspect-selection': { dir: 'renderer→main'; payload: unknown }
@@ -285,6 +304,7 @@ export interface IpcContract {
   'set-canvas-zoom': { dir: 'main→renderer'; payload: unknown }
   'set-design-system-manifest': { dir: 'main→renderer'; payload: unknown }
   'set-inspection-mode': { dir: 'main→renderer'; payload: unknown }
+  'set-interaction-sync-capture': { dir: 'main→renderer'; payload: InteractionSyncCapturePayload }
   'set-interactive': { dir: 'main→renderer'; payload: unknown }
   'set-multi-selected': { dir: 'main→renderer'; payload: unknown }
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
@@ -487,6 +507,16 @@ export const ipcChannels = {
   cursorSplineVizChanged: 'cursor-spline-viz-changed',
   debugLog: 'debug-log',
   debugGetInitialData: 'debug:get-initial-data',
+  debugPerfPanZoomGetState: 'debug:perf-pan-zoom-get-state',
+  debugPerfPanZoomRun: 'debug:perf-pan-zoom-run',
+  debugPerfPanZoomStateChanged: 'debug:perf-pan-zoom-state-changed',
+  debugPerfPanZoomStop: 'debug:perf-pan-zoom-stop',
+  debugPerfTraceGetState: 'debug:perf-trace-get-state',
+  debugPerfTraceGetSummary: 'debug:perf-trace-get-summary',
+  debugPerfTraceList: 'debug:perf-trace-list',
+  debugPerfTraceReveal: 'debug:perf-trace-reveal',
+  debugPerfTraceStateChanged: 'debug:perf-trace-state-changed',
+  debugPerfTraceToggle: 'debug:perf-trace-toggle',
   debugResetCursorTuning: 'debug:reset-cursor-tuning',
   debugUpdateCursorSplineViz: 'debug:update-cursor-spline-viz',
   debugUpdateCursorTuning: 'debug:update-cursor-tuning',
@@ -508,6 +538,7 @@ export const ipcChannels = {
   inspectNodeHover: 'inspect-node-hover',
   inspectNodeSelect: 'inspect-node-select',
   inspectTreeUpdate: 'inspect-tree-update',
+  interactionSyncEvent: 'interaction-sync-event',
   leftSidebarChanged: 'left-sidebar-changed',
   leftSidebarData: 'left-sidebar-data',
   onboardingComplete: 'onboarding:complete',
@@ -544,6 +575,8 @@ export const ipcChannels = {
   repoDisconnect: 'repo-disconnect',
   repoFindForPath: 'repo-find-for-path',
   repoList: 'repo-list',
+  resolveInteractionLocator: 'resolve-interaction-locator',
+  resolveInteractionLocatorResponse: 'resolve-interaction-locator-response',
   resolveNodeDetail: 'resolve-node-detail',
   resolveNodeDetailResponse: 'resolve-node-detail-response',
   rightDetailsPanelClearInspectSelection: 'right-details-panel-clear-inspect-selection',
@@ -578,6 +611,7 @@ export const ipcChannels = {
   setCanvasZoom: 'set-canvas-zoom',
   setDesignSystemManifest: 'set-design-system-manifest',
   setInspectionMode: 'set-inspection-mode',
+  setInteractionSyncCapture: 'set-interaction-sync-capture',
   setInteractive: 'set-interactive',
   setMultiSelected: 'set-multi-selected',
   setThemeMode: 'set-theme-mode',

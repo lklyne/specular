@@ -21,13 +21,20 @@ When a domain term resolves during a session (rename, new concept, deprecation),
 
 ```
 pnpm install                 # install dependencies
-pnpm dev                     # start the Electron app
+pnpm dev                     # human foreground use only; agents use devctl
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
 pnpm test:integration        # real runtime in-process (no Electron, seconds)
 pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
 pnpm build                   # package for distribution
 ```
+
+Dev app workflow:
+- Humans run `pnpm dev` for a foreground, human-owned app.
+- Agents must not run `pnpm dev` directly; run `pnpm devctl start` instead.
+- Use `pnpm devctl status|logs|restart|stop` to manage an agent-owned app.
+- `devctl` never restarts or stops a foreground `pnpm dev` it did not start.
+- `pnpm devctl context` prints recent logs, errors, and performance metadata.
 
 After any structural change, run `typecheck` + `test:unit` at minimum.
 After changes to runtime, IPC, or persistence, run `test:integration`.
@@ -40,6 +47,14 @@ Set up in `src/main/index.ts`:
 - Native crash dumps (Crashpad) → `~/Library/Application Support/Specular/Crashpad/completed/*.dmp`
 
 When investigating unexpected quits, `errors.log` is the first place to look — `render-process-gone` entries include a `reason` field (`crashed`, `oom`, `killed`, `launch-failed`).
+
+## Perf tracing
+
+All-process Chromium traces (pan/zoom jank attribution) can be recorded from
+the View menu (`Cmd+Alt+Shift+P`), the debug window's Performance section, or
+by agents over HTTP (`POST localhost:29979/perf/trace/start` / `/stop` with
+`{"summarize": true}`). Trace + summary JSON land in the logs folder above.
+Full instructions and how to read results: `docs/perf-tracing.md`.
 
 ## Architecture (quick reference)
 

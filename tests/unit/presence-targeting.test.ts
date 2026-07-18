@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   resolvePresencePagePoint,
   pagePointMatchesTargetRect,
+  shouldSkipReposition,
 } from '../../src/shared/presence-targeting'
 
 describe('resolvePresencePagePoint', () => {
@@ -79,5 +80,33 @@ describe('pagePointMatchesTargetRect', () => {
   it('respects custom tolerance', () => {
     expect(pagePointMatchesTargetRect(5, 20, rect, 10)).toBe(true)
     expect(pagePointMatchesTargetRect(5, 20, rect, 1)).toBe(false)
+  })
+})
+
+// shouldSkipReposition is the "already on the target, no need to re-travel"
+// check the CDP proxy inlined twice (box-model pre-move and the mousePressed
+// skip check) before it was extracted here (ADR 0029). Skip is within-rect
+// only: a canvas-space distance heuristic suppressed travel more the further
+// the canvas was zoomed out, so every hop to a distinct element now animates
+// (#319).
+describe('shouldSkipReposition', () => {
+  const rect = { x: 10, y: 20, width: 100, height: 50 }
+
+  it('skips when the click point is inside the target rect', () => {
+    expect(shouldSkipReposition({ clickPoint: { x: 50, y: 40 }, targetRect: rect })).toBe(true)
+  })
+
+  it('skips when the click point sits exactly on the rect edge', () => {
+    expect(
+      shouldSkipReposition({ clickPoint: { x: rect.x, y: rect.y }, targetRect: rect }),
+    ).toBe(true)
+  })
+
+  it('does not skip when the click point is outside the rect', () => {
+    expect(shouldSkipReposition({ clickPoint: { x: 500, y: 500 }, targetRect: rect })).toBe(false)
+  })
+
+  it('does not skip a null targetRect — a rect-less target always travels', () => {
+    expect(shouldSkipReposition({ clickPoint: { x: 50, y: 40 }, targetRect: null })).toBe(false)
   })
 })

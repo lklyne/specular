@@ -1,5 +1,5 @@
 /**
- * Element attachment capture (ADR 0030).
+ * Element attachment capture (ADR 0032).
  *
  * Finds the DOM element under a document point and returns a selector plus
  * that element's document position — the raw material for `PageAnchor.element`
@@ -118,7 +118,7 @@ function nearestMeaningfulAtY(docX: number, docY: number): Element | null {
 }
 
 /**
- * Capture the reference element at a document point, per the ADR 0030 rule.
+ * Capture the reference element at a document point, per the ADR 0032 rule.
  * Returns null only when the page has no `document.body` to fall back to.
  */
 export function captureElementAtDocumentPoint(docX: number, docY: number): CapturedElementAnchor | null {

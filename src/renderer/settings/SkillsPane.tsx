@@ -3,6 +3,7 @@ import { Switch } from '@base-ui/react/switch'
 import { Loader2 } from 'lucide-react'
 import type { OnboardingComponentId, OnboardingComponentStatus, OnboardingStatusSnapshot } from '../../shared/types'
 import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
+import { SkillInstaller } from '../shared/SkillInstaller'
 
 type RowConfig = {
   id: OnboardingComponentId
@@ -20,12 +21,6 @@ const ROWS: RowConfig[] = [
     id: 'skill',
     title: 'Specular Skill',
     description: 'Teaches agents how to use the Specular CLI.',
-  },
-  {
-    id: 'agentBrowser',
-    title: 'agent-browser',
-    description:
-      "Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev.",
   },
 ]
 
@@ -48,7 +43,6 @@ export function SkillsPane({
   const [pending, setPending] = useState<Record<OnboardingComponentId, boolean>>({
     cli: false,
     skill: false,
-    agentBrowser: false,
   })
   const [errors, setErrors] = useState<Partial<Record<OnboardingComponentId, string>>>({})
 
@@ -98,19 +92,14 @@ export function SkillsPane({
           const componentStatus = status[row.id]
           const installed = componentStatus.kind === 'installed'
           const isPending = pending[row.id]
-          const cannotUninstall = row.id === 'agentBrowser' && installed
-          const disabled = isPending || cannotUninstall
+          const disabled = isPending
           const error = errors[row.id]
           const detail = error ?? statusDetail(componentStatus)
           const detailIsError = !!error || componentStatus.kind === 'blocked'
-          const title = cannotUninstall
-            ? 'agent-browser cannot be removed from inside Specular.'
-            : undefined
 
           return (
             <label
               key={row.id}
-              title={title}
               className={`flex items-start gap-3 rounded-[8px] border border-[var(--surface-card-border)] bg-[var(--surface-card)] px-4 py-3 select-none ${
                 disabled ? 'cursor-not-allowed' : 'cursor-pointer'
               }`}
@@ -153,6 +142,15 @@ export function SkillsPane({
             </label>
           )
         })}
+
+        {/* agent-browser is bundled and auto-configured on launch — nothing
+            here to toggle, just readout of the bundled driver and any
+            user-owned binary also on PATH (D3, issue #318). */}
+        <SkillInstaller.StatusRow
+          title="agent-browser"
+          description="Specular bundles Vercel's agent-browser to capture and interact with live webpages — no setup needed."
+          status={status.agentBrowser}
+        />
       </div>
     </section>
   )

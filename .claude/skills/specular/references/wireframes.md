@@ -6,38 +6,35 @@ alongside live frames.
 
 ## Creating wireframes
 
-Wireframes are file entities. Create them with `specular upsert --json`:
+Wireframes are file entities. Write the JSON to disk first, then add it:
 
 ```bash
-cat << 'EOF' | specular upsert --json
-[{
-  "kind": "file",
-  "file": "/tmp/my-layout.wireframe.json",
-  "canvasX": 500,
-  "canvasY": 200,
-  "width": 300
-}]
-EOF
+specular add file /tmp/my-layout.wireframe.json --at 500,200
 ```
 
-The file must exist on disk and end in `.wireframe.json`. Write the JSON first,
-then upsert it as a file entity.
+The file must exist on disk and end in `.wireframe.json`. New file entities
+default to 200×200; wireframes usually want more room. Resize after creation
+with `specular update <id> --size 300,400`, or set `width` up front by
+creating through `apply` (below).
 
 ## Batch placement
 
-Place multiple wireframes side-by-side in one call:
+Place multiple wireframes side-by-side in one `apply` patch. The `layout`
+directive handles the spacing; without an anchor (`originX`/`originY` or
+`near`) it finds open canvas space automatically:
 
 ```bash
-cat << 'EOF' | specular upsert --json
-[
-  { "kind": "file", "file": "/tmp/v1.wireframe.json", "canvasX": 100, "canvasY": 100, "width": 280 },
-  { "kind": "file", "file": "/tmp/v2.wireframe.json", "canvasX": 430, "canvasY": 100, "width": 280 },
-  { "kind": "file", "file": "/tmp/v3.wireframe.json", "canvasX": 760, "canvasY": 100, "width": 280 }
-]
+cat << 'EOF' | specular apply
+{
+  "layout": { "kind": "row", "gap": "m" },
+  "entities": [
+    { "kind": "file", "file": "/tmp/v1.wireframe.json", "width": 280 },
+    { "kind": "file", "file": "/tmp/v2.wireframe.json", "width": 280 },
+    { "kind": "file", "file": "/tmp/v3.wireframe.json", "width": 280 }
+  ]
+}
 EOF
 ```
-
-Use `specular find-placement` to find open canvas space before placing.
 
 ## File format
 
@@ -197,4 +194,4 @@ Changes persist back to the `.wireframe.json` file on disk.
 - Use `"width": "fill"` on the root frame and section frames so they stretch to the entity width on the canvas.
 - Write wireframe files to `/tmp/` for throwaway explorations; write to the project directory if they should persist.
 - Create a title label as a text note alongside wireframes for context:
-  `{ "kind": "text", "text": "V1: Stacked list", "canvasX": 100, "canvasY": 80 }`
+  `specular add note "V1: Stacked list" --at 100,80`

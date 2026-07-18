@@ -4,6 +4,14 @@ import type { DebugElectronAPI } from '../../shared/electron-api/debug'
 import { DEFAULT_CURSOR_TUNING } from '../../shared/cursor-tuning'
 import { useTheme } from '../shared/hooks/useTheme'
 import { PresenceSection } from './PresenceSection'
+import { PerformanceSection } from './PerformanceSection'
+
+const SECTIONS = [
+  { id: 'presence', label: 'Presence' },
+  { id: 'performance', label: 'Performance' },
+] as const
+
+type SectionId = (typeof SECTIONS)[number]['id']
 
 export default function App({
   api,
@@ -13,6 +21,7 @@ export default function App({
   initialData: DebugBootstrapData
 }) {
   useTheme(initialData.theme, api.onThemeChanged)
+  const [activeSection, setActiveSection] = useState<SectionId>('presence')
   const [splineViz, setSplineViz] = useState<boolean>(initialData.cursorSplineViz)
   const [cursorTuning, setCursorTuning] = useState<CursorTuningParams>(
     initialData.cursorTuning,
@@ -43,18 +52,33 @@ export default function App({
           <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider opacity-50">
             Debug
           </div>
-          <div className="rounded bg-zinc-200 px-2 py-1 text-left text-[12px] text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
-            Presence
-          </div>
+          {SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setActiveSection(section.id)}
+              className={
+                activeSection === section.id
+                  ? 'rounded bg-zinc-200 px-2 py-1 text-left text-[12px] text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+                  : 'rounded px-2 py-1 text-left text-[12px] text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800/60'
+              }
+            >
+              {section.label}
+            </button>
+          ))}
         </nav>
         <main className="flex min-h-0 min-w-0 flex-1">
-          <PresenceSection
-            splineViz={splineViz}
-            onSplineVizChange={commitSplineViz}
-            tuning={cursorTuning}
-            onTuningChange={commitCursorTuning}
-            onTuningReset={resetCursorTuning}
-          />
+          {activeSection === 'presence' ? (
+            <PresenceSection
+              splineViz={splineViz}
+              onSplineVizChange={commitSplineViz}
+              tuning={cursorTuning}
+              onTuningChange={commitCursorTuning}
+              onTuningReset={resetCursorTuning}
+            />
+          ) : (
+            <PerformanceSection api={api} />
+          )}
         </main>
       </div>
     </div>

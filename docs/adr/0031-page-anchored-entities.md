@@ -1,4 +1,4 @@
-# ADR 0029 — Page-anchored entities (the "hook to a page" utility)
+# ADR 0031 — Page-anchored entities (the "hook to a page" utility)
 
 **Status:** Accepted
 **Date:** 2026-07-13
@@ -78,7 +78,7 @@ drag gesture lands in that gesture's single undo step.
   the anchor stamps a scroll reference (`scrollX/scrollY`) and scene builders
   shift by the live delta. The original "entities stay pinned to the page
   frame" resolution is superseded — see
-  [ADR 0030](./0030-element-attachment.md), which also adds reflow tracking
+  [ADR 0032](./0032-element-attachment.md), which also adds reflow tracking
   via a derived element reference and narrows this ADR's "no stored offset"
   clause to positional authority only.
 - ~~**Other kinds** (`shape`)~~ — landed with scroll tracking. `file` remains
@@ -151,7 +151,7 @@ through projection, so page drag/nudge never rewrites it.
 Shapes, text, and drawings keep authoritative canvas coordinates and stamp the
 page's scroll offset when anchored. Scene projection applies the live scroll
 delta; reanchor folds that delta back into stored coordinates. Drawing stroke
-points fold with their entity bounds. ADR 0030 extends the same projection with
+points fold with their entity bounds. ADR 0032 extends the same projection with
 derived DOM-element correction.
 
 Opening a page-bound comment also reveals its content through the page's

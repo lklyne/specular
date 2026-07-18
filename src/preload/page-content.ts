@@ -7,6 +7,8 @@ import {
 import type {
   AnnotationBboxSubscription,
   CommentToolPagePreviewState,
+  InteractionSyncCapturePayload,
+  LocatorResolveRequest,
   ScrollSyncData,
 } from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
@@ -69,6 +71,12 @@ import {
   seedScrollSyncBaseline,
   stopFollowerAnimation,
 } from './scroll-sync-handler'
+import {
+  handleInteractionSyncClick,
+  handleInteractionSyncPointerMove,
+  setInteractionSyncCaptureEnabled,
+} from './interaction-sync-capture'
+import { handleInteractionLocatorResolveRequest } from './interaction-sync-resolver'
 
 let interactive = false
 let multiSelected = false
@@ -429,7 +437,7 @@ ipcRenderer.on(
   },
 )
 
-// ADR 0030 — element-attachment reflow subscriptions. Main declares the set of
+// ADR 0032 — element-attachment reflow subscriptions. Main declares the set of
 // distinct selectors that anchored items on this page reference; the page
 // resolves them to document positions and reports back via
 // `element-attachment-positions`, installing a MutationObserver only while the
@@ -461,6 +469,20 @@ ipcRenderer.on(
 
 ipcRenderer.on(ipcChannels.applyLinkedScroll, (_event, data: ScrollSyncData) => {
   applyIncomingLinkedScroll(data)
+})
+
+// ADR 0030 — interaction sync. Capture toggles on/off per D1 (source page
+// authority + sync membership, decided in main); resolution answers a peer's
+// live-DOM lookup for a bundle captured on the source.
+ipcRenderer.on(
+  ipcChannels.setInteractionSyncCapture,
+  (_event, payload: InteractionSyncCapturePayload | undefined) => {
+    setInteractionSyncCaptureEnabled(Boolean(payload?.enabled))
+  },
+)
+
+ipcRenderer.on(ipcChannels.resolveInteractionLocator, (_event, payload: LocatorResolveRequest) => {
+  handleInteractionLocatorResolveRequest(payload)
 })
 
 // --- MCP page inspection handlers ---
@@ -522,7 +544,7 @@ ipcRenderer.on(
 ipcRenderer.on(
   ipcChannels.captureElementAtPoint,
   (_event, payload: { requestId: string; docX: number; docY: number }) => {
-    // ADR 0030 — element attachment. Find the reference element under a
+    // ADR 0032 — element attachment. Find the reference element under a
     // document point so an anchored item can track it through page reflow.
     ipcRenderer.send(ipcChannels.captureElementAtPointResponse, {
       requestId: payload.requestId,
@@ -660,7 +682,7 @@ function resolveScrollTarget(
   return node || document.scrollingElement || document.documentElement
 }
 
-// Always-on absolute-pixel scroll broadcast (ADR 0029 scroll amendment).
+// Always-on absolute-pixel scroll broadcast (ADR 0031 scroll amendment).
 // Separate from linked-scroll `pageScrollChanged`, which carries
 // progress fractions, is gated on `interactive`, and is dropped unless the
 // page is linked). rAF-coalesced; sends only when the offset actually changed.
@@ -690,7 +712,7 @@ function flushScrollOffset(): void {
   const scrollX = target.scrollLeft
   const scrollY = target.scrollTop
   // scrollHeight rides along so main can turn a page anchor's `offsetY`
-  // fraction into a document position for scroll-to-comment (ADR 0029). It is a
+  // fraction into a document position for scroll-to-comment (ADR 0031). It is a
   // property of the same container the offset comes from, so it is captured
   // here rather than in a second query.
   const scrollHeight = Math.round(target.scrollHeight)
@@ -825,6 +847,12 @@ window.addEventListener('resize', () => {
   queueRecomputeAnnotationBboxes()
   queueRecomputeElementPositions()
 })
+
+// ADR 0030 — interaction sync capture. Capture-phase on window so mirrored
+// input is seen ahead of any in-page stopPropagation(); a no-op while
+// capture is disabled (see interaction-sync-capture.ts).
+window.addEventListener('mousemove', handleInteractionSyncPointerMove, { capture: true, passive: true })
+window.addEventListener('click', handleInteractionSyncClick, { capture: true, passive: true })
 
 // --- Resize handle ---
 

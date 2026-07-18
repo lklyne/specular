@@ -215,7 +215,7 @@ function createAnnotationInternal(request: AnnotationCreateRequest): Annotation 
   workspaceAnnotations.push(annotation)
   markDirty('sidebar')
   // A page-anchored region tracks the element under its center through page
-  // reflow (ADR 0030). Fire-and-forget, once at creation — a region's binding
+  // reflow (ADR 0032). Fire-and-forget, once at creation — a region's binding
   // is written once, so it never re-captures. No-op for every other anchor.
   captureElementForAnnotation(annotation.id)
   if (onAnnotationCreatedListener) {

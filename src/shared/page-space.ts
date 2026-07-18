@@ -6,7 +6,7 @@ import type { LayoutUpdateData } from './types'
  * carries where that viewport sits on screen. This module is the one home of
  * the ratio between the two — every overlay that positions chrome over page
  * content (comment badges, pending composers, thread popovers, inspect
- * popovers) maps through here. Scroll tracking (ADR 0029 follow-up) extends
+ * popovers) maps through here. Scroll tracking (ADR 0031 follow-up) extends
  * this seam, not a call site.
  */
 

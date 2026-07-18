@@ -18,7 +18,6 @@ type ProgressAction =
 const INITIAL_PROGRESS: RowProgressMap = {
   cli: { progress: 'idle' },
   skill: { progress: 'idle' },
-  agentBrowser: { progress: 'idle' },
 }
 
 function progressReducer(state: RowProgressMap, action: ProgressAction): RowProgressMap {
@@ -38,7 +37,7 @@ function allInstalledOrSkipped(
   status: OnboardingStatusSnapshot,
   progress: RowProgressMap,
 ): boolean {
-  const ids: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
+  const ids: OnboardingComponentId[] = ['cli', 'skill']
   return ids.every(
     (id) => status[id].kind === 'installed' || progress[id].progress === 'success',
   )
@@ -87,7 +86,6 @@ function SetupScreen({
   const [selections, setSelections] = useState<Record<OnboardingComponentId, boolean>>({
     cli: true,
     skill: true,
-    agentBrowser: true,
   })
 
   useEffect(() => {
@@ -117,7 +115,7 @@ function SetupScreen({
 
   const rows = useMemo<Record<OnboardingComponentId, InstallerRowSnapshot>>(
     () => {
-      const ids: OnboardingComponentId[] = ['cli', 'skill', 'agentBrowser']
+      const ids: OnboardingComponentId[] = ['cli', 'skill']
       return Object.fromEntries(
         ids.map((id) => [id, {
           status: status[id],
@@ -187,12 +185,15 @@ function SetupScreen({
             title="Specular Skill"
             description="Teaches agents how to use the Specular CLI."
           />
-          <SkillInstaller.Row
-            id="agentBrowser"
-            title="agent-browser"
-            description="Specular uses Vercel's agent-browser to capture and interact with live webpages. You can install it here or at agent-browser.dev."
-          />
         </SkillInstaller.Root>
+
+        <div className="mt-2">
+          <SkillInstaller.StatusRow
+            title="agent-browser"
+            description="Specular bundles Vercel's agent-browser to capture and interact with live webpages — no setup needed."
+            status={status.agentBrowser}
+          />
+        </div>
       </div>
 
       <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--surface-popover-border)] bg-[var(--surface-panel)] px-8 py-4">

@@ -25,7 +25,7 @@ export function pageAnchorScrollShift(anchor: PageAnchor | undefined): { x: numb
 }
 
 /**
- * Element-attachment shift for an anchor (ADR 0030): how far the anchor's
+ * Element-attachment shift for an anchor (ADR 0032): how far the anchor's
  * reference element has moved in the page's document since the anchor was
  * captured, in the same subtraction convention as `pageAnchorScrollShift`
  * (consumers compute `stored − shift`). Zero when the anchor carries no

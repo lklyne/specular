@@ -21,6 +21,8 @@ import type {
 import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { hiddenByPageAnchor } from './document-binding'
+import { selectAmbientMode } from '../../shared/presence-ambient'
+import { isUnresolved } from '../../shared/annotation-utils'
 import {
   aboveView,
   cursorOverlayWindow,
@@ -403,6 +405,7 @@ export function buildCanvasLayoutData(
       sessionId: c.sessionId,
       clientName: c.clientName,
       color: c.color,
+      source: c.source,
       surface: c.surface,
       activity: c.activity,
       pageId: c.pageId,
@@ -417,6 +420,11 @@ export function buildCanvasLayoutData(
       targetName: c.targetName,
       targetRect: c.targetRect,
       updatedAt: c.updatedAt,
+      dwellBudgetMs: c.dwellBudgetMs,
+      // Synced cursors mirror a real user cursor and must never wander —
+      // idle-drift/reading-scan are agent-thinking-gap semantics (ADR 0029)
+      // that don't apply here, so force 'none' regardless of activity.
+      ambientMode: c.source === 'interaction-sync' ? 'none' : selectAmbientMode(c.activity, c.lastIntentLabelKey),
     })),
     keyboardTargetPageId: currentKeyboardTargetPageId(),
     interactivePageId: interactivePageId(),

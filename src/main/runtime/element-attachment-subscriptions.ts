@@ -1,5 +1,5 @@
 /**
- * Element-attachment subscription source (ADR 0030).
+ * Element-attachment subscription source (ADR 0032).
  *
  * For each live page, the set of distinct DOM selectors that anchored items
  * reference is *main-side truth* — derived from workspace state, not from

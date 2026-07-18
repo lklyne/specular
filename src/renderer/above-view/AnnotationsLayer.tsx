@@ -50,7 +50,7 @@ function regionScreenGeometry(
       )
     : undefined
   if (!page) return null
-  // Element-follow (ADR 0030): shift the docRect by how far its reference
+  // Element-follow (ADR 0032): shift the docRect by how far its reference
   // element has moved before mapping to screen, so the region tracks page
   // content through reflow — the same correction main applies in regionCanvasRect.
   const docRect = correctDocRectForElement(

@@ -1,5 +1,5 @@
 /**
- * Element attachment (ADR 0030) capture wiring against the real runtime,
+ * Element attachment (ADR 0032) capture wiring against the real runtime,
  * in-process. Placement fires a fire-and-forget preload query; the response
  * stamps `pageAnchor.element` onto the item. Coverage:
  *

@@ -1,5 +1,5 @@
 /**
- * Capture fallback chain (ADR 0030): center hit on a meaningful element,
+ * Capture fallback chain (ADR 0032): center hit on a meaningful element,
  * center hit on a trivial wrapper (walks up), center over nothing
  * (nearest-at-Y scan), and an empty page (body).
  *

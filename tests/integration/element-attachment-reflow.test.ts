@@ -1,5 +1,5 @@
 /**
- * Element-attachment reflow pipeline (ADR 0030, plan step 3) against the real
+ * Element-attachment reflow pipeline (ADR 0032, plan step 3) against the real
  * runtime, in-process. Two legs:
  *
  * - Broadcast round-trip: a page → main `element-attachment-positions` message

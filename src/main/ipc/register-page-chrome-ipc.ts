@@ -3,6 +3,8 @@ import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
   ElementAttachmentPositionsUpdate,
+  InteractionSyncEvent,
+  LocatorResolveResponse,
   ScrollSyncData,
   SelectionModifiers,
 } from '../../shared/types'
@@ -23,6 +25,10 @@ import {
   isScrollSuppressed,
   propagateScrollFromPage,
 } from '../navigation-sync'
+import {
+  handleInteractionSyncEvent,
+  handleResolveInteractionLocatorResponse,
+} from '../interaction-sync'
 import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerPageChromeIpc(): void {
@@ -47,7 +53,7 @@ export function registerPageChromeIpc(): void {
     propagateScrollFromPage(page, data)
   })
 
-  // Always-on absolute-pixel scroll offset (ADR 0029 scroll amendment).
+  // Always-on absolute-pixel scroll offset (ADR 0031 scroll amendment).
   // Unlike `pageScrollChanged` this has no `syncId` gate — every page reports
   // its offset so page-anchored regions can scroll-follow. Stored on the
   // ephemeral runtime page; the layout broadcast carries it.
@@ -83,7 +89,7 @@ export function registerPageChromeIpc(): void {
     },
   )
 
-  // ADR 0030 — element-attachment reflow positions. The page's tracker
+  // ADR 0032 — element-attachment reflow positions. The page's tracker
   // broadcasts the live document positions of its subscribed selectors on real
   // reflow events (resize, load, debounced mutations). Stored on the ephemeral
   // runtime page keyed by selector; scene builders read them as a render-time
@@ -127,6 +133,17 @@ export function registerPageChromeIpc(): void {
       page.elementPositions = map.size ? map : undefined
       markDirty('canvas')
       requestLayout()
+    },
+  )
+
+  ipcMain.on(ipcChannels.interactionSyncEvent, (event, payload: InteractionSyncEvent) => {
+    handleInteractionSyncEvent(event.sender, payload)
+  })
+
+  ipcMain.on(
+    ipcChannels.resolveInteractionLocatorResponse,
+    (event, payload: LocatorResolveResponse) => {
+      handleResolveInteractionLocatorResponse(event.sender, payload)
     },
   )
 

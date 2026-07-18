@@ -1,5 +1,5 @@
 /**
- * Pure reconciliation math for ADR 0030's page-scroll follower contract.
+ * Pure reconciliation math for ADR 0032's page-scroll follower contract.
  *
  * Layout positions already incorporate the authoritative scroll offset. The
  * overlay transform therefore carries only the portion of the latest live

@@ -29,6 +29,7 @@ import {
 import { selectionDebug } from './runtime-constants'
 import { requestLayout } from './viewport-control'
 import { safeSend } from './safe-send'
+import { refreshInteractionSyncCapture } from '../interaction-sync'
 
 export function pageSelectionOverlayStates(): Array<{
   pageId: string
@@ -86,6 +87,13 @@ export function sendInteractiveState(): void {
     safeSend(wc, ipcChannels.setInteractive, isSelected)
     safeSend(wc, ipcChannels.setMultiSelected, isMultiSelected)
   }
+  // The single altitude for interaction-sync capture on every entered-page
+  // transition: every path that changes which page is entered (enter/exit,
+  // focus, selection, page delete, undo/redo, tab switch) broadcasts through
+  // here, so capture eligibility recomputes in lockstep (D1). Sync-membership
+  // changes that don't broadcast interactive state refresh separately, from
+  // `dissolveOrphanSyncSets`.
+  refreshInteractionSyncCapture()
 }
 
 /**

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 import { parseArgs, CLI_VALUE_FLAGS } from '../../src/main/cli-parser'
+import { buildSnapshotCommand } from '../../src/main/cli-commands'
 
 describe('parseArgs', () => {
   it('extracts verb from simple command', () => {
@@ -105,6 +106,20 @@ describe('parseArgs', () => {
     const result = parseArgs(['--help'])
     expect(result.boolFlags.has('help')).toBe(true)
     expect(result.verb).toBe('')
+  })
+
+  it('preserves agent-browser snapshot context reducers', () => {
+    const result = parseArgs([
+      'snapshot',
+      '-i',
+      '--compact',
+      '--urls',
+      '-s',
+      '#External_links',
+      '-d',
+      '3',
+    ])
+    expect(buildSnapshotCommand(result)).toBe("snapshot -i -c -u -s '#External_links' -d 3")
   })
 })
 

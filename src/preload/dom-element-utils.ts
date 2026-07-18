@@ -46,6 +46,34 @@ function simpleElementSegment(element: Element): string {
   return `${tag}${remainder}`
 }
 
+/** The descriptor fields shared by the interaction-sync capture bundle and
+ *  the resolver's candidate list — same extraction, two wire shapes (one
+ *  `undefined`-omitting, one `null`-filled). Keep both derived from here so
+ *  they can't drift (ADR 0030). */
+export interface LocatorElementDescriptor {
+  id: string | null
+  testId: string | null
+  role: string | null
+  name: string | null
+  text: string | null
+  tag: string
+  elementPath: string
+  fullPath: string
+}
+
+export function describeElementForLocator(element: Element): LocatorElementDescriptor {
+  return {
+    id: element.getAttribute('id') || null,
+    testId: element.getAttribute('data-testid') || null,
+    role: element.getAttribute('role') || null,
+    name: bestElementName(element) || null,
+    text: compactText(element.textContent, 80) ?? null,
+    tag: element.tagName.toLowerCase(),
+    elementPath: buildElementPath(element, 4),
+    fullPath: buildElementPath(element, 10),
+  }
+}
+
 export function buildElementPath(element: Element, maxDepth: number): string {
   const segments: string[] = []
   let current: Element | null = element

@@ -4,6 +4,7 @@ out/
 build/*
 !build/icon.icns
 .vite/
+.dev/
 .context/
 .DS_Store
 .env
@@ -40,9 +41,10 @@ node-compile-cache/
 experiments/
 harness/
 
-# Fetched at build time by scripts/fetch-agent-browser.sh (pinned binary)
+# Fetched at build time by scripts/fetch-agent-browser.sh (pinned binary +
+# upstream 'core' skill vendored at the same tag)
 resources/bin/agent-browser
+resources/skills/core/
 
 # Generated local dev/runtime artifacts
 .dev/
-resources/skills/core/

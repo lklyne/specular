@@ -199,7 +199,7 @@ export function annotationScreenPos(
         )
       : undefined
     if (!page) return null
-    // Element-follow (ADR 0030): correct the docRect for its reference
+    // Element-follow (ADR 0032): correct the docRect for its reference
     // element's movement before mapping, matching the region overlay.
     const docRect = correctDocRectForElement(
       anchor.docRect,

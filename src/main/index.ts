@@ -22,11 +22,18 @@ import {
 import { markDirty } from './runtime/layout-dirty'
 import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
-import { loadOnboardingState } from './runtime/preferences'
+import { loadOnboardingState, saveOnboardingState } from './runtime/preferences'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
-import { configureBundledAgentBrowser } from './agent-browser-install'
+import { configureBundledAgentBrowser, hasUserOwnedAgentBrowserBinary } from './agent-browser-install'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
+import { runAgentBrowserSkillRemovalMigration } from './skill-migrations'
+import {
+  bundledAgentBrowserSkillHash,
+  installedAgentBrowserSkillDir,
+  installedAgentBrowserSkillHash,
+} from './skill-install'
+import { rmSync } from 'node:fs'
 import { registerBuiltInPlugins } from './plugins'
 import { registerBuiltInEntityKinds } from './entities'
 import {
@@ -157,6 +164,15 @@ app.whenReady().then(async () => {
   // Silently update skills the user hasn't hand-edited; surfaces drift via the
   // app menu label (refreshed below).
   autoUpdateSkillsIfSafe()
+  void runAgentBrowserSkillRemovalMigration({
+    loadState: loadOnboardingState,
+    saveState: saveOnboardingState,
+    installedHash: installedAgentBrowserSkillHash,
+    bundledHash: bundledAgentBrowserSkillHash,
+    installedDir: installedAgentBrowserSkillDir,
+    hasUserBinary: hasUserOwnedAgentBrowserBinary,
+    removeDir: (dir) => rmSync(dir, { recursive: true, force: true }),
+  })
   refreshAppMenu()
 
   const skipOnboarding = process.env.SPECULAR_SKIP_ONBOARDING === '1'

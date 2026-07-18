@@ -1,5 +1,5 @@
 /**
- * Element-attachment reflow tracker (ADR 0030) — MutationObserver lifecycle.
+ * Element-attachment reflow tracker (ADR 0032) — MutationObserver lifecycle.
  *
  * The valuable, testable seam is the install/uninstall rule: the observer is
  * installed only while there are subscriptions and disconnected the moment the

@@ -76,6 +76,23 @@ export interface Page {
   lastSafeAreaCssId?: string
   crashedAt?: number
   crashReason?: Electron.RenderProcessGoneDetails['reason']
+  /**
+   * Bumped on every `did-navigate` / `dom-ready` of the page's webContents.
+   * Not persisted — HMR partial updates don't navigate, so this can't be an
+   * authoritative "has the DOM changed" signal, only a warn-only staleness
+   * heuristic for ref-based agent mutations (see D8, issue #318).
+   */
+  navGeneration: number
+  /**
+   * navGeneration as of the last agent snapshot, recorded via
+   * POST /pages/:id/snapshot-seen. Lives here (not in the CLI process)
+   * because every `specular` CLI invocation is a fresh short-lived process —
+   * only the main app outlives the snapshot→mutate loop the D8 comparison
+   * spans. Same ephemeral/not-persisted semantics as navGeneration.
+   * Per-page, not per-client: two agents driving the same page share the
+   * baseline — acceptable for a warn-only heuristic.
+   */
+  lastAgentSnapshotGeneration?: number
 }
 
 // ---------------------------------------------------------------------------

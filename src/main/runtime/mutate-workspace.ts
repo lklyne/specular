@@ -54,7 +54,7 @@ export function mutateWorkspace<T>(fn: () => T, opts?: MutateWorkspaceOptions<T>
   markDirty('canvas')
   scheduleWorkspaceAutosave()
   requestLayout()
-  // Re-derive which selectors each page must track (ADR 0030). Coalesced and
+  // Re-derive which selectors each page must track (ADR 0032). Coalesced and
   // no-op unless the anchored-item set changed, so it rides the mutation seam
   // instead of every anchor/delete/reanchor call site.
   requestAttachmentSubscriptionRefresh()
