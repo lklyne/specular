@@ -1,6 +1,7 @@
 import type { CanvasInteractionState, CanvasSceneEntity, LayoutUpdateData } from './types'
 import type { InteractionMode } from './interaction-types'
 import { GRID_SIZE } from './constants'
+import { entityIdsInScreenRect } from './marquee-selection'
 
 export const DRAG_THRESHOLD = 4
 
@@ -239,18 +240,5 @@ export function entitiesOverlappingRect(
   entities: readonly CanvasSceneEntity[],
   rect: { left: number; top: number; width: number; height: number },
 ): string[] {
-  const ids: string[] = []
-  const right = rect.left + rect.width
-  const bottom = rect.top + rect.height
-  for (const entity of entities) {
-    if (
-      rect.left < entity.screenX + entity.screenWidth &&
-      right > entity.screenX &&
-      rect.top < entity.screenY + entity.screenHeight &&
-      bottom > entity.screenY
-    ) {
-      ids.push(entity.id)
-    }
-  }
-  return ids
+  return entityIdsInScreenRect(entities, rect, 'intersect')
 }

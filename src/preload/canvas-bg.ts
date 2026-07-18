@@ -64,8 +64,8 @@ const api: CanvasBgElectronAPI = {
   canvasPan: (deltaX, deltaY) => ipcRenderer.send(ipcChannels.canvasPan, { deltaX, deltaY }),
   setSelectionOverlayRect: (overlay) => ipcRenderer.send(ipcChannels.canvasSelectionOverlay, overlay),
   onSelectionOverlayChanged: on<SelectionOverlayPayload | null>(ipcChannels.canvasSelectionOverlay),
-  canvasSelectInRect: (rect, modifiers) =>
-    ipcRenderer.send(ipcChannels.canvasSelectInRect, { ...rect, modifiers }),
+  canvasSelectInRect: (rect, modifiers, options) =>
+    ipcRenderer.send(ipcChannels.canvasSelectInRect, { ...rect, modifiers, ...options }),
   canvasDeselect: (modifiers) => ipcRenderer.send(ipcChannels.pageDeselect, { modifiers }),
   focusSelection: () => ipcRenderer.send(ipcChannels.canvasFocusSelection),
   restoreFocusCamera: () => ipcRenderer.send(ipcChannels.canvasRestoreFocusCamera),
@@ -115,6 +115,8 @@ const api: CanvasBgElectronAPI = {
   unsyncPage: (pageId: string) => ipcRenderer.send(ipcChannels.canvasUnsyncPage, pageId),
   deletePage: (pageId) => ipcRenderer.send(ipcChannels.canvasDeletePage, { pageId }),
   showPageContextMenu: (pageId) => ipcRenderer.send(ipcChannels.canvasShowPageContextMenu, { pageId }),
+  showCanvasItemContextMenu: (entityId) =>
+    ipcRenderer.send(ipcChannels.canvasShowItemContextMenu, { entityId }),
   dropdownOpen: () => ipcRenderer.send(ipcChannels.canvasBgDropdownOpen),
   dropdownClose: () => ipcRenderer.send(ipcChannels.canvasBgDropdownClose),
   copySelection: () => ipcRenderer.send(ipcChannels.canvasCopySelection),

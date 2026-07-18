@@ -486,6 +486,7 @@ export const ipcChannels = {
   canvasSetSelectionPreset: 'canvas-set-selection-preset',
   canvasSetTextEditing: 'canvas-set-text-editing',
   canvasShowFileInFinder: 'canvas-show-file-in-finder',
+  canvasShowItemContextMenu: 'canvas-show-item-context-menu',
   canvasShowPageContextMenu: 'canvas-show-page-context-menu',
   canvasToggleAnnotateMode: 'canvas-toggle-annotate-mode',
   canvasToggleDeviceShell: 'canvas-toggle-device-shell',

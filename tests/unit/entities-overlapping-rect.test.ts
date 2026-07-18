@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { entitiesOverlappingRect } from '../../src/shared/gesture-utils'
+import { entityIdsInScreenRect } from '../../src/shared/marquee-selection'
 import type { CanvasSceneEntity, CanvasScenePageEntity } from '../../src/shared/types'
 
 function page(over: Partial<CanvasScenePageEntity> & { id: string }): CanvasScenePageEntity {
@@ -51,5 +52,24 @@ describe('entitiesOverlappingRect', () => {
   it('preserves entity input order', () => {
     const ids = entitiesOverlappingRect(entities, { left: 0, top: 0, width: 300, height: 300 })
     expect(ids).toEqual(['a', 'b', 'c'])
+  })
+
+  it('can require full containment and exclude the item under the first click', () => {
+    const ids = entityIdsInScreenRect(
+      entities,
+      { left: 40, top: 40, width: 220, height: 120 },
+      'contain',
+      new Set(['c']),
+    )
+    expect(ids).toEqual([])
+
+    expect(
+      entityIdsInScreenRect(
+        entities,
+        { left: -10, top: -10, width: 320, height: 170 },
+        'contain',
+        new Set(['a']),
+      ),
+    ).toEqual(['b', 'c'])
   })
 })

@@ -1,4 +1,9 @@
 import { ipcChannels } from '../../shared/ipc-contract'
+import {
+  acceleratorString,
+  bindingById,
+  type BindingId,
+} from '../../shared/bindings'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { AnnotationCreateRequest, BatchLayoutMode, CanvasEntityKind, PageColorScheme } from '../../shared/types'
@@ -95,7 +100,11 @@ import { deleteSelection } from '../runtime/delete-selection'
 import { arrangeEntities } from '../runtime/document-commands'
 import { selectedEntityIds } from '../ui-state'
 import { duplicateSelection } from '../runtime/duplicate-selection'
-import { reorderStackOrder, type StackOrderAction } from '../runtime/entity-order-state'
+import {
+  currentEntityIds,
+  reorderStackOrder,
+  type StackOrderAction,
+} from '../runtime/entity-order-state'
 
 function isStackOrderAction(action: string): action is StackOrderAction {
   return (
@@ -107,28 +116,23 @@ function isStackOrderAction(action: string): action is StackOrderAction {
 }
 
 function stackOrderMenuItems(targetId: string): MenuItemConstructorOptions[] {
-  return [
-    {
-      label: 'Bring forward',
-      accelerator: 'CmdOrCtrl+]',
-      click: () => reorderStackOrder('bring-forward', targetId),
-    },
-    {
-      label: 'Send backward',
-      accelerator: 'CmdOrCtrl+[',
-      click: () => reorderStackOrder('send-backward', targetId),
-    },
-    {
-      label: 'Bring to front',
-      accelerator: 'CmdOrCtrl+Shift+]',
-      click: () => reorderStackOrder('bring-to-front', targetId),
-    },
-    {
-      label: 'Send to back',
-      accelerator: 'CmdOrCtrl+Shift+[',
-      click: () => reorderStackOrder('send-to-back', targetId),
-    },
+  const items: Array<{
+    action: StackOrderAction
+    bindingId: BindingId
+  }> = [
+    { action: 'bring-forward', bindingId: 'stack-bring-forward' },
+    { action: 'send-backward', bindingId: 'stack-send-backward' },
+    { action: 'bring-to-front', bindingId: 'stack-bring-to-front' },
+    { action: 'send-to-back', bindingId: 'stack-send-to-back' },
   ]
+  return items.map(({ action, bindingId }) => {
+    const binding = bindingById(bindingId)
+    return {
+      label: binding.label,
+      accelerator: acceleratorString(binding.defaultKey),
+      click: () => reorderStackOrder(action, targetId),
+    }
+  })
 }
 
 export function registerCanvasEntityIpc(): void {
@@ -426,6 +430,14 @@ export function registerCanvasEntityIpc(): void {
     ])
     menu.popup()
   })
+
+  ipcMain.on(
+    ipcChannels.canvasShowItemContextMenu,
+    (_event, { entityId }: { entityId: string }) => {
+      if (!currentEntityIds().has(entityId)) return
+      Menu.buildFromTemplate(stackOrderMenuItems(entityId)).popup()
+    },
+  )
 
   ipcMain.on(
     ipcChannels.canvasReorderStack,

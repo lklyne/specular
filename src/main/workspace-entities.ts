@@ -11,6 +11,11 @@ import type {
   WorkspaceSelection,
 } from '../shared/types'
 import type { SelectionMutationMode } from '../shared/selection-modifiers'
+import {
+  pointInsideRect,
+  rectSelectsBounds,
+  type MarqueeSelectionMode,
+} from '../shared/marquee-selection'
 import { allEntities } from './entities/contract'
 import { dissolveOrphanSyncSets } from './navigation-sync'
 import { applyEntitySelectionMutation } from './runtime/selection-controller'
@@ -38,7 +43,6 @@ import { pan, zoom } from './runtime/runtime-context'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import {
-  boundsOverlap,
   pageContentSize,
   pageSnapBounds,
   pageVisualBounds,
@@ -286,73 +290,82 @@ export function selectEntitiesInRect(
   options: {
     includeDrawings?: boolean
     mode?: SelectionMutationMode
+    selectionMode?: MarqueeSelectionMode
+    excludedEntityIds?: readonly string[]
   } = {},
 ): { entityIds: string[] } {
   const includeDrawings = options.includeDrawings ?? true
   const mode = options.mode ?? 'replace'
+  const selectionMode = options.selectionMode ?? 'intersect'
+  const excludedIds = new Set(options.excludedEntityIds ?? [])
+  const selects = (candidate: WorkspaceBounds) =>
+    rectSelectsBounds(bounds, candidate, selectionMode)
   const pageIds = pages
-    .filter((page) => boundsOverlap(pageSelectableBounds(page), bounds))
+    .filter((page) => !excludedIds.has(page.id) && selects(pageSelectableBounds(page)))
     .map((page) => page.id)
   const textIds = textEntities
     .filter((note) =>
-      boundsOverlap(
+      !excludedIds.has(note.id) &&
+      selects(
         {
           x: note.canvasX,
           y: note.canvasY,
           width: note.width,
           height: note.height,
         },
-        bounds,
       ),
     )
     .map((note) => note.id)
   const fileIds = fileEntities
     .filter((fe) =>
-      boundsOverlap(
+      !excludedIds.has(fe.id) &&
+      selects(
         {
           x: fe.canvasX,
           y: fe.canvasY,
           width: fe.width,
           height: fe.height,
         },
-        bounds,
       ),
     )
     .map((fe) => fe.id)
   const drawingIds = !includeDrawings ? [] : drawingEntities
     .filter((de) =>
-      boundsOverlap(
+      !excludedIds.has(de.id) &&
+      selects(
         {
           x: de.canvasX,
           y: de.canvasY,
           width: de.width,
           height: de.height,
         },
-        bounds,
       ),
     )
     .map((de) => de.id)
   const shapeIds = shapeEntities
     .filter((se) =>
-      boundsOverlap(
+      !excludedIds.has(se.id) &&
+      selects(
         {
           x: se.canvasX,
           y: se.canvasY,
           width: se.width,
           height: se.height,
         },
-        bounds,
       ),
     )
     .map((se) => se.id)
   const edgeIds = workspaceEdges
     .filter((edge) => {
+      if (excludedIds.has(edge.id)) return false
       const fromBounds = entityBoundsById(edge.fromEntityId)
       const toBounds = entityBoundsById(edge.toEntityId)
       if (!fromBounds || !toBounds) return false
       const from = sideAnchorPoint(fromBounds, edge.fromSide)
       const to = sideAnchorPoint(toBounds, edge.toSide)
-      return segmentIntersectsRect(from, to, bounds)
+      return selectionMode === 'contain'
+        ? pointInsideRect(from, bounds) && pointInsideRect(to, bounds)
+        : segmentIntersectsRect(from, to, bounds)
     })
     .map((edge) => edge.id)
 

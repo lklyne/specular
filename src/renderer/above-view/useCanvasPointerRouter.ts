@@ -62,7 +62,6 @@ import {
   canvasToScreenX,
   canvasToScreenY,
   clientYToWindowY,
-  entitiesOverlappingRect,
   DRAG_THRESHOLD,
   isOverlayUiTarget,
   isTypingTarget,
@@ -73,6 +72,10 @@ import {
   snapToGrid,
   squareConstrainedRect,
 } from '../../shared/gesture-utils'
+import {
+  entityIdsInScreenRect,
+  type MarqueeSelectionMode,
+} from '../../shared/marquee-selection'
 import type { CanvasPointerOwner } from '../../shared/canvas-pointer-owner'
 import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
 import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
@@ -410,12 +413,48 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       event.stopPropagation()
     }
 
+    const handleContextMenu = (event: MouseEvent) => {
+      if (event.defaultPrevented || isTypingTarget(event.target)) return
+
+      const edgeId =
+        event.target instanceof Element
+          ? event.target.closest<Element>('[data-edge-id]')?.getAttribute('data-edge-id')
+          : null
+      if (edgeId) {
+        apiRef.current.showCanvasItemContextMenu(edgeId)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+      if (isOverlayUiTarget(event.target)) return
+
+      const layout = layoutRef.current
+      const target = hitTest(
+        layoutToHitInputs(layout),
+        { x: event.clientX, y: clientYToWindowY(event.clientY, layout) },
+      )
+      if (target.payload.kind === 'page-body') {
+        apiRef.current.showPageContextMenu(target.payload.entityId)
+      } else if (
+        target.payload.kind === 'entity-body' &&
+        // Files retain their richer DOM context menu (Finder/copy/refresh).
+        target.payload.entityKind !== 'file'
+      ) {
+        apiRef.current.showCanvasItemContextMenu(target.payload.entityId)
+      } else {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
     window.addEventListener('pointerdown', handlePointerDown, { capture: true })
     // Dblclick routing (edit / enter-group / enter-page) is router-mode
     // only — a double click while a tool gesture owns pointers is just two
     // tool gestures.
     if (!toolGestureOwns) {
       window.addEventListener('dblclick', handleDblClick, { capture: true })
+      window.addEventListener('contextmenu', handleContextMenu)
     }
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown, {
@@ -424,6 +463,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       window.removeEventListener('dblclick', handleDblClick, {
         capture: true,
       } as EventListenerOptions)
+      window.removeEventListener('contextmenu', handleContextMenu)
     }
   }, [owner, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setReorderGhost, spaceHeldRef])
 }
@@ -488,7 +528,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'begin-edge-drag':
       return runEdgeDrag(action, api, event, layoutRef, setEdgeDragState)
     case 'begin-marquee':
-      return runBackgroundSelectionGesture(api, event, layoutRef)
+      return runBackgroundSelectionGesture(api, event, layoutRef, action.originEntity)
     case 'begin-pan':
       return runPan(api, event)
     case 'begin-reorder-drag':
@@ -902,9 +942,13 @@ function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  originEntity?: { entityId: string; entityKind: CanvasSceneEntity['kind'] },
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
+  const selectionMode: MarqueeSelectionMode =
+    event.metaKey || event.ctrlKey ? 'contain' : 'intersect'
+  const excludedIds = originEntity ? new Set([originEntity.entityId]) : new Set<string>()
   let dragged = false
 
   startPointerSession(event, {
@@ -923,7 +967,12 @@ function runBackgroundSelectionGesture(
         width: rect.width,
         height: rect.height,
       }
-      const entityIds = entitiesOverlappingRect(layout.entities, windowRect)
+      const entityIds = entityIdsInScreenRect(
+        layout.entities,
+        windowRect,
+        selectionMode,
+        excludedIds,
+      )
       api.setSelectionOverlayRect({
         rect: {
           ...rect,
@@ -948,6 +997,16 @@ function runBackgroundSelectionGesture(
         ctrl: ev.ctrlKey,
       }
       if (!dragged) {
+        if (originEntity) {
+          if (originEntity.entityKind === 'page') {
+            api.selectPage(originEntity.entityId, modifiers)
+          } else if (originEntity.entityKind === 'group') {
+            api.selectGroup(originEntity.entityId)
+          } else {
+            api.selectEntity(originEntity.entityId, originEntity.entityKind, modifiers)
+          }
+          return
+        }
         api.canvasDeselect(modifiers)
         return
       }
@@ -957,7 +1016,14 @@ function runBackgroundSelectionGesture(
         return
       }
       const windowRect = { ...rect, top: rect.top + layout.canvasOrigin.y }
-      api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout), modifiers)
+      api.canvasSelectInRect(
+        screenRectToCanvasRect(windowRect, layout),
+        modifiers,
+        {
+          selectionMode,
+          excludedEntityIds: [...excludedIds],
+        },
+      )
     },
     onCancel: () => {
       api.setSelectionOverlayRect(null)

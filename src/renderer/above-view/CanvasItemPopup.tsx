@@ -78,6 +78,7 @@ function Root(props: RootProps) {
     <div
       ref={popupMotion.layoutRef}
       data-overlay-ui
+      data-viewport-passthrough
       data-popup-placement={placement}
       className="pointer-events-auto absolute"
       // z-index above EdgeLayer (5) so edges don't paint over canvas-item toolbars.
@@ -353,12 +354,14 @@ function ViewportAnchor({
           clicks fall through to the canvas. */}
       <div
         data-overlay-ui
+        data-viewport-passthrough
         aria-hidden
         className="pointer-events-auto absolute left-0 right-0"
         style={{ top: 0, height: top, zIndex: 20 }}
       />
       <div
         data-overlay-ui
+        data-viewport-passthrough
         className="pointer-events-auto absolute"
         style={{
           top,
@@ -405,7 +408,11 @@ function Frame({
           boxShadow: 'none',
         }
       : popupSurfaceStyle(isDark),
-    onPointerDown: (event: PointerEvent) => event.stopPropagation(),
+    // Primary clicks stay with popup controls. Middle-drag bubbles to the
+    // viewport hook so a visible popup never creates a dead pan region.
+    onPointerDown: (event: PointerEvent) => {
+      if (event.button === 0) event.stopPropagation()
+    },
   }
   const contentProps = {
     'data-popup-frame-content': true,
