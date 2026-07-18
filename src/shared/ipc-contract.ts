@@ -176,6 +176,7 @@ export interface IpcContract {
   'canvas-set-selection-preset': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-text-editing': { dir: 'renderer→main'; payload: unknown }
   'canvas-show-file-in-finder': { dir: 'renderer→main'; payload: unknown }
+  'canvas-show-item-context-menu': { dir: 'renderer→main'; payload: unknown }
   'canvas-show-page-context-menu': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-annotate-mode': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-device-shell': { dir: 'renderer→main'; payload: unknown }
