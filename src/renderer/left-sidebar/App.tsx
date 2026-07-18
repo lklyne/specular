@@ -157,7 +157,7 @@ export default function App({
                           paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
                         }}
                       >
-                        <File size={14} className="shrink-0 text-zinc-500" />
+                        <File size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
                         <InlineEditLabel
                           value={tab.name}
                           isEditing
@@ -191,7 +191,7 @@ export default function App({
                         onDoubleClick={() => startRenameTab(tab.id)}
                         title={tab.name}
                       >
-                        <File size={14} className="shrink-0 text-zinc-500" />
+                        <File size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
                         <span className="truncate">{tab.name}</span>
                         {tab.isActive ? <Check size={14} className="ml-auto shrink-0" /> : null}
                       </button>

@@ -1,3 +1,8 @@
+@theme {
+  /* was zinc-900 (#18181b) */
+  --color-zinc-900: #3b3d3f;
+}
+
 :root {
   --surface-panel: var(--color-stone-100);
   --surface-panel-border: var(--color-stone-200);

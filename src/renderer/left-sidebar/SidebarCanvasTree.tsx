@@ -194,7 +194,7 @@ function AnnotationListItem({
           : `${annotation.label} — page navigated away from this comment's URL`
       }
     >
-      <MessageSquare size={13} className="shrink-0 text-zinc-500" />
+      <MessageSquare size={13} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
       <span className="min-w-0 flex-1 truncate">{annotation.label}</span>
       {annotation.messageCount > 1 ? (
         <span className="ml-auto shrink-0 text-xs text-zinc-400">{annotation.messageCount}</span>
@@ -255,7 +255,7 @@ function PageTreeItem({
       <div className="relative">
         {row}
         <Collapsible.Trigger
-          className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-500"
+          className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-900 dark:text-zinc-500"
           style={{ left: contentPaddingLeft - 16 }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -349,9 +349,9 @@ function GroupTreeItem({
             {isEditing ? (
               <div className={rowClassName} style={rowStyle}>
                 {expanded ? (
-                  <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+                  <FolderOpen size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
                 ) : (
-                  <Folder size={14} className="shrink-0 text-zinc-500" />
+                  <Folder size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
                 )}
                 <InlineEditLabel
                   value={group.label}
@@ -380,16 +380,16 @@ function GroupTreeItem({
                 title={group.label}
               >
                 {expanded ? (
-                  <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+                  <FolderOpen size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
                 ) : (
-                  <Folder size={14} className="shrink-0 text-zinc-500" />
+                  <Folder size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
                 )}
                 <span className="min-w-0 truncate">{group.label}</span>
                 <span className="ml-auto shrink-0 text-xs text-zinc-400">{group.entityCount}</span>
               </button>
             )}
             <Collapsible.Trigger
-              className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-500"
+              className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-900 dark:text-zinc-500"
               style={{ left: chevronLeft }}
               onClick={(event) => event.stopPropagation()}
             >
@@ -501,7 +501,7 @@ function SidebarCanvasTreeItem({
     return (
       <div>
         <EntityListItem
-          icon={<StickyNote size={14} className="shrink-0 text-zinc-500" />}
+          icon={<StickyNote size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />}
           label={item.label}
           active={isSelected}
           isDark={isDark}
@@ -522,7 +522,7 @@ function SidebarCanvasTreeItem({
     return (
       <div>
         <EntityListItem
-          icon={<PenLine size={14} className="shrink-0 text-zinc-500" />}
+          icon={<PenLine size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />}
           label={item.label}
           active={isSelected}
           isDark={isDark}
@@ -544,7 +544,7 @@ function SidebarCanvasTreeItem({
     return (
       <div>
         <EntityListItem
-          icon={<span className="shrink-0 text-zinc-500"><ShapeGlyph kind={item.shapeKind} size={14} /></span>}
+          icon={<span className="shrink-0 text-zinc-900 dark:text-zinc-500"><ShapeGlyph kind={item.shapeKind} size={14} /></span>}
           label={item.label}
           active={isSelected}
           isDark={isDark}
@@ -565,7 +565,7 @@ function SidebarCanvasTreeItem({
   return (
     <div>
       <EntityListItem
-        icon={<FileIcon size={14} className="shrink-0 text-zinc-500" />}
+        icon={<FileIcon size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />}
         label={item.label}
         active={isSelected}
         isDark={isDark}

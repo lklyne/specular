@@ -63,7 +63,7 @@ function PageGlyph({
     )
   }
 
-  return <Icon size={14} className="shrink-0 text-zinc-500" />
+  return <Icon size={14} className="shrink-0 text-zinc-900 dark:text-zinc-500" />
 }
 
 export function PageListItem({
