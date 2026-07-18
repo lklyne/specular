@@ -99,9 +99,9 @@ The change is sweeping but coherent; it ships as one PR rather than incrementall
 
 | Step | State | Notes |
 |---|---|---|
-| 1. `entity-chrome-slots.ts` | ✅ landed | + `tests/unit/entity-chrome-slots.test.ts` |
+| 1. `entity-chrome-slots.ts` | ✅ landed → 🗑️ deleted | + `tests/unit/entity-chrome-slots.test.ts`; subsequently deleted by ADR 0028 (retire-chrome-header-slot-model, 2026-07-07) |
 | 2. `useAnchoredPosition` | ✅ landed | + `tests/unit/use-anchored-position.test.ts` |
-| 3. `CanvasItemChrome` / `CanvasItemPopup` | ✅ landed | `src/renderer/shared/EntityChrome.tsx` is the moved compound |
+| 3. `CanvasItemChrome` / `CanvasItemPopup` | ⚠️ partial | `CanvasItemPopup` landed (see ADR 0008). `CanvasItemChrome` was **never built** — overlay UI shipped as `CanvasItemPopup` anchored to the body rect; see ADR header note. `EntityChrome.tsx` was a stepping-stone compound but ships without the chrome-header band. |
 | 4. `<FrameChrome>`, `<FileChrome>`, `<GroupRenameLabel>` consumers in aboveView | ✅ landed | `src/renderer/above-view/{FrameChrome,FileChrome,GroupRenameLabel}.tsx`; canvas-bg mounts removed |
 | 5. Per-page chrome IPC + retire `chromeView` WCV | ✅ landed | Page type, layout-engine, navigation-sync, runtime-core, preferences all stripped of `chromeView`; `chrome-header` preload + renderer + Vite/Forge entries deleted; `register-page-chrome-ipc.ts` chrome-* handlers removed |
 | 6. `routePointerDoubleClick` extension + IPC dispatcher | ✅ landed | `canvas-request-text-edit` / `canvas-request-shape-edit` IPCs added; `text-begin-edit` listener wired; `pendingTextEditId` auto-focuses the textarea in `TextBlockLayer` |

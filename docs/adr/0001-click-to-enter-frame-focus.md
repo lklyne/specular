@@ -12,6 +12,8 @@ Issue #41 surfaced a representative bug from the interim state: edge anchor dots
 
 ## Decision
 
+> **Implementation note:** Several specifics below evolved in later ADRs. `frameFocus` was renamed and restructured by ADR 0021 (`FocusSession`). The "total focus" model (Escape to exit, two clicks to act elsewhere) was replaced by ADR 0022 (select-first/interact-second: `interactivePageId` in runtime-context). The hit-priority table grew `reorder-handle` and `gap-handle` layers (ADR 0015) and lost the `chrome` layer (ADR 0028). For the current model read ADRs 0021 and 0022. The core commitment — WebContentsViews stay live; `aboveView` is the default pointer authority — still holds.
+
 Frames remain live `WebContentsView` instances at all times — they paint, run JS, play media, fire timers. They do **not** receive native pointer input until explicitly focused.
 
 A new runtime variable `frameFocus: { id } | null` lives in main. The input gate predicate becomes:

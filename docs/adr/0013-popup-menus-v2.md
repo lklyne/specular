@@ -5,7 +5,7 @@
 > variant) was deleted wholesale — see the "delete wireframe mode" PR. The
 > renderer-plugin popup contribution surface it depended on was removed too.
 
-**Status:** Proposed
+**Status:** Accepted — core decisions landed: eight-slot color palette (§1, `src/shared/canvas-colors.ts`), `textSize` per-entity property (§2, `src/shared/tool-defaults.ts`), `add-sticky` as an independent tool (§4), toolbar regrouping (§5). Cross-kind morph (§3) was **superseded** — `add-document` was kept as a separate tool (alternative C), not removed, and the `short/long` toggle was never built. See inline *(2026-07)* note in §3. Wireframe FilePopup popup contributions (§6–7 dependencies) were deleted wholesale.
 **Date:** 2026-05-15
 **Refines:** [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md), [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md), [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md).
 

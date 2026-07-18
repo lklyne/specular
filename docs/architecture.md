@@ -18,7 +18,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │  ├─ canvas, toolbar, sidebar, inspector, chrome, etc.       │
 │                                                              │
 │  HTTP API (src/main/routes/)                                │
-│  ├─ /workspace, /pages, /entities, /selection, etc.         │
+│  ├─ /workspace, /pages, /entities, /canvas, /session, etc.  │
 │                                                              │
 │  Persistence                                                 │
 │  └─ .canvas files on disk (autosave, 350ms debounce)        │
@@ -39,11 +39,11 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │                    floating UI (merged from former          │
 │                    interaction-overlay/floating-ui/         │
 │                    annotation-overlay bundles)               │
-│  agent-layer/      Click-through overlay for agent           │
-│                    presence cursors (paint-only). Loaded    │
-│                    into a child BrowserWindow sibling of    │
-│                    the main window, not a WCV — see         │
-│                    docs/interaction-layer.md §3.1.          │
+│  agent-layer/      Click-through overlay (agent cursors +    │
+│                    inspect popovers). Loaded into a child   │
+│                    BrowserWindow sibling of the main window, │
+│                    not a WCV — see docs/interaction-layer.md │
+│                    §3.1.                                    │
 │  toolbar/          Zoom, tool modes, navigation             │
 │  left-sidebar/     Workspace tree (canvases, pages)         │
 │  right-details-panel/  Inspector (properties, settings)     │
@@ -131,18 +131,19 @@ renderer surface (canvas, toolbar, sidebar, inspector, chrome, etc.).
 
 ### src/main/routes/
 
-HTTP API endpoints grouped by domain: workspace, pages, entities, selection,
-layout, camera, inspector, presence. Used by CLI, tests, and automation.
+HTTP API endpoints grouped by domain: workspace, pages, entities, canvas,
+annotations, edges-groups, stack-order, session, design-system, perf, recording.
+Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 
-The main spatial surface. Key components:
-- `CanvasGridSurface` — SVG canvas with pan/zoom
-- `SelectableEntityShell` — draggable/resizable node wrapper
-- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
-- `EdgeLayer` — connector lines
-- `GroupBoundsLayer` — group outlines
-- `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
+The below-pages plane: grid, camera transform, page borders, and device shells. Key components:
+- `CanvasGridSurface` — SVG canvas with pan/zoom transform
+- `PageBorderLayer` — page border frames and device shells
+- `ResizeHandles` / `SelectionResizeGrid` — resize affordances
+- `AgentCursorLayer` — agent presence cursors (component lives here; rendered in the `agent-layer` child window)
+
+Entity bodies (sticky, shape, file, drawing), edges, group bounds, and selection outlines all render in `src/renderer/above-view/`, not canvas-bg. This split happened in the aboveView interactive-layer migration (2026-05-06).
 
 ### src/shared/
 
@@ -204,9 +205,10 @@ call `webContents.focus()` directly. If you feel the urge to
 `setTimeout(0)`, you're mutating view state during dispatch — mark dirty
 instead.
 
-**Renderer gesture code uses `src/renderer/shared/useDragGesture.ts`.**
-Pointer events only; no `mouse*` handlers in new code. The hook owns
-pointer capture, blur/escape cancel, and threshold-before-begin.
+**Renderer gesture code uses pointer events only; no `mouse*` handlers in new code.**
+The former `useDragGesture.ts` hook was deleted in PR #140; pointer capture,
+blur/escape cancel, and threshold-before-begin are now handled inline within
+the interaction-controller gesture path.
 
 **Canvas coord math lives in `src/shared/coords.ts`** — single source for
 both main and renderer so hit-tests don't drift.

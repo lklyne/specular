@@ -48,7 +48,7 @@ The component itself is shared. Only the positioning hook differs (entity-anchor
 
 ### 2. Mutex rule: tool wins when active
 
-When the active tool is anything other than `select` AND that tool has a popup, only the tool popup shows. The selection popup is suppressed even if entities are selected. When the active tool is `select`, or the active tool has no popup (`region-select`, `inspect`, `comment`, `add-page`, `add-document`), the selection popup behaves normally.
+When the active tool is anything other than `select` AND that tool has a popup, only the tool popup shows. The selection popup is suppressed even if entities are selected. When the active tool is `select`, or the active tool has no popup (`region-select`, `inspect`, `comment`, `add-document`), the selection popup behaves normally. **Note (post-ADR):** `add-page` gained a tool popup (`PageToolPopup.tsx`), contrary to the original decision; the `toolHasPopup` predicate in `src/shared/tool.ts` returns true for it.
 
 Rationale: the active tool is the user's current verb. If they've left `select`, their intent is no longer about the previously-selected thing. Showing two popups simultaneously, or switching to `draw` and *still* seeing the sticky's color picker, surfaces stale context.
 

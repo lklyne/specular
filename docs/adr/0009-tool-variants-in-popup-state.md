@@ -2,7 +2,7 @@
 
 **Status:** Accepted (landed alongside ADR 0008 step 6)
 **Date:** 2026-05-10
-**Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0008](./0008-unified-canvas-item-popup.md)). `add-text` is a deliberate exception.
+**Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0008](./0008-unified-canvas-item-popup.md)). `add-text` style was a deliberate exception **at the time of this ADR**; it was subsequently removed by [ADR 0013](./0013-popup-menus-v2.md). `region-select` was removed by ADR 0006. `add-sticky` and `hand` were added later. See `src/shared/tool.ts` for the current union.
 **Companion to:** [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md).
 
 ## Context
@@ -44,6 +44,8 @@ type Tool =
   | { kind: 'region-select' }                       // persistent
   | { kind: 'inspect' }                             // persistent
 ```
+
+> **Note (post-ADR):** The union above reflects the state after this ADR landed. Subsequent ADRs changed it further: `region-select` was removed (ADR 0006), `add-text.style` was removed and `add-sticky` + `hand` were added (ADR 0013). The current union is in `src/shared/tool.ts`.
 
 - **`add-shape`** carries no `shapeKind`. Defaults are read from `tool-defaults.add-shape.{shapeKind, color, strokeWidth}`. The tool-mode popup shows all three variants as buttons; clicking one updates the default and is persisted.
 - **`draw`** unchanged at the union level (no field added). `tool-defaults.draw.{brushType, color, strokeWidth}` replaces the implicit `activeDrawBrush` lookup. The tool-mode popup shows pen + highlight as buttons.

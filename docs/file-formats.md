@@ -68,7 +68,7 @@ by other tools. Specular adds:
 
 **On link nodes:**
 - `presetIndex` — viewport preset (device catalog index)
-- `linked` — whether this page is linked to others for sync
+- `syncId` — sync-set identifier (string | null); pages with the same non-null `syncId` navigate in lockstep (replaces the old boolean `linked` field, which was removed by ADR 0027)
 - `label` — display name
 - `parentGroupId` — group membership
 - `metadata` — open-ended key-value store

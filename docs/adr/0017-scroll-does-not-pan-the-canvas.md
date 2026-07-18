@@ -46,6 +46,10 @@ drag all behave exactly as before.
 - The split lives in the bgView handler's `viewMode` check; the aboveView
   authority is unchanged.
 
+## Implementation note
+
+The `viewMode === 'canvas'` guard described in the Decision was the fix as originally coded, but it became redundant and was removed when ADR 0020 deleted browser mode entirely. `useCanvasViewportGestures.ts` now pans unconditionally — the structural removal of browser mode is the guard. Wheel-pan over empty canvas still only reaches bgView when aboveView does not intercept it first, which matches the original logic.
+
 ## Note
 
 This does not address a separate, pre-existing browser-mode bug: the page's

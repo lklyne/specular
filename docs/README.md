@@ -51,8 +51,8 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [input-authority-audit.md](input-authority-audit.md) — live classification table of every canvas gesture path (router-owned vs native vs visual-only) post input-authority refactor.
 - [interaction-layer.md](interaction-layer.md) — architecture spec for gestures/overlays/focus handoffs; §6 load-bearing invariants must be read before touching input.
 - [offscreen-rendering-research.md](offscreen-rendering-research.md) — research into GPU offscreen rendering (e.g. Ultralight) as a strategy for scaling many live web frames.
-- [pan-zoom-perf-unknowns.md](pan-zoom-perf-unknowns.md) — *(not on this branch, present on main)* — deep research sweep of Chromium/Electron internals for pan/zoom perf options beyond bitmap-freeze/WCV-fold; corrects part of the ADR 0023 postmortem.
-- [perf-tracing.md](perf-tracing.md) — *(not on this branch, present on main)* — how to record and read Chromium performance traces of Specular via UI or HTTP API.
+- [pan-zoom-perf-unknowns.md](pan-zoom-perf-unknowns.md) — deep research sweep of Chromium/Electron internals for pan/zoom perf options beyond bitmap-freeze/WCV-fold; corrects part of the ADR 0023 postmortem.
+- [perf-tracing.md](perf-tracing.md) — how to record and read Chromium performance traces of Specular via UI or HTTP API.
 - [product.md](product.md) — product philosophy: who Specular is for, what it is, and the open/local-first core beliefs.
 
 Subdirectories (see files within for detail, not indexed individually here):

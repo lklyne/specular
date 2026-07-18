@@ -1,6 +1,6 @@
 # ADR 0015 — Auto-layout groups
 
-**Status:** Proposed
+**Status:** Accepted — Milestone 1 landed: `src/main/managed-layout.ts` (`reflowManagedGroup`, `reflowManagedGroupForChild`), `src/main/reorder-gesture.ts`, `src/shared/reorder-row.ts`, the `reorder-handle` hit-test layer, and the `reordering-row` interaction mode. Milestone 2 (gap/alignment toolbar) remains pending.
 **Date:** 2026-05-29
 **Related:** [ADR 0014 — Canvas stack order and the Notes/Pages sidebar](./0014-canvas-stack-order.md), [ADR 0001 — Click to enter page focus](./0001-click-to-enter-page-focus.md).
 **Origin:** Built from [`docs/plans/auto-layout-reorder.md`](../plans/auto-layout-reorder.md) (Milestone 1).

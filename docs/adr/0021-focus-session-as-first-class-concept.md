@@ -49,6 +49,13 @@ state, not a transition edge).
    reset-viewport — was considered and dropped: nothing creates one today, so
    the nullability was speculative. Add it back the day a producer needs it.)
 
+   **Amendment (see below):** `returnCamera` was dropped in favour of
+   `annotationsVisible` (eye toggle state). The actual interface as of the
+   Amendments is `{ pageId, mode, annotationsVisible: boolean }` in
+   `src/main/runtime/focus-session.ts`. The "presence of a session is the
+   restorable test" still holds — exit is always zoom-out-in-place, no stored
+   camera to restore.
+
 2. **One writer, enumerated exits.** Every exit funnels through
    `endFocusSession(reason)`. The reasons are a closed set:
    - `dismiss` — the graceful, camera-restoring exit (X button, Escape,
