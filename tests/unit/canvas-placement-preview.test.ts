@@ -50,4 +50,19 @@ describe('placement preview', () => {
     expect(element.props.style).toMatchObject({ left: 20, top: 30 })
     expect(element.props.style).not.toHaveProperty('background')
   })
+
+  it('keeps generic placement placeholders square', () => {
+    const element = PlacementPreviewLayer({
+      isDark: false,
+      preview: {
+        entityKind: 'page',
+        left: 20,
+        top: 30,
+        width: 200,
+        height: 120,
+      },
+    }) as { props: { className: string } }
+
+    expect(element.props.className).not.toContain('rounded')
+  })
 })

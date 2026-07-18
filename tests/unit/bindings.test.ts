@@ -259,6 +259,24 @@ describe('dispatchKey — modifier shortcuts', () => {
   })
 })
 
+describe('dispatchKey — edit selection', () => {
+  it('returns edit-selection for Enter on the canvas', () => {
+    expect(
+      dispatchKey(BINDINGS, { key: 'enter', cmd: false, alt: false, shift: false }, BASE_CTX),
+    ).toBe('edit-selection')
+  })
+
+  it('lets an active editor handle Enter natively', () => {
+    expect(
+      dispatchKey(
+        BINDINGS,
+        { key: 'enter', cmd: false, alt: false, shift: false },
+        { ...BASE_CTX, isTextEditing: true },
+      ),
+    ).toBeNull()
+  })
+})
+
 describe('dispatchKey — Escape resolution', () => {
   it('returns annotation-close-thread when open thread exists (aboveView)', () => {
     const ctx: BindingContext = {

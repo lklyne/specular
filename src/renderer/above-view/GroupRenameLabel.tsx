@@ -11,7 +11,7 @@
  * from `editingEntityId === group.id`, never local state.
  */
 
-import { FolderOpen } from 'lucide-react'
+import { Group } from 'lucide-react'
 import type { MutableRefObject } from 'react'
 import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -160,7 +160,7 @@ function GroupRenameItem({
       onDoubleClick={() => api.requestEntityEdit(group.id)}
     >
       <span className="inline-flex items-center gap-1 pb-1">
-        <FolderOpen size={14} className={`shrink-0 ${iconColorClass}`} />
+        <Group size={14} className={`shrink-0 ${iconColorClass}`} />
         <InlineEditLabel
           value={group.label}
           isEditing={isRenaming}
@@ -172,7 +172,7 @@ function GroupRenameItem({
           onCancel={() => api.cancelEntityEdit()}
           variant="canvas-chrome"
           isDark={isDark}
-          titleClassName="min-w-0 truncate"
+          titleClassName="whitespace-nowrap"
           inputClassName="min-w-[120px] border-0 bg-transparent text-[11px] font-medium outline-none focus:outline-none"
         />
       </span>

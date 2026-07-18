@@ -19,6 +19,8 @@ import { deleteSelection } from './delete-selection'
 import { duplicateSelection } from './duplicate-selection'
 import { reorderStackOrder } from './entity-order-state'
 import { createBlankFrameFromSource } from '../workspace-pages'
+import { beginEditingEntity } from './editing-entity-runtime'
+import { getUiState } from '../ui-state'
 
 type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
 
@@ -97,6 +99,15 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     const pageId = selectedPageId()
     if (!pageId) return
     createBlankFrameFromSource({ sourcePageId: pageId })
+  },
+  'edit-selection': () => {
+    const selection = getUiState().selection
+    if (
+      selection.kind === 'single-entity' &&
+      (selection.entityKind === 'text' || selection.entityKind === 'group')
+    ) {
+      beginEditingEntity(selection.entityId)
+    }
   },
   'delete-selection': () => {
     deleteSelection()

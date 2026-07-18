@@ -1,4 +1,4 @@
-import { FolderOpen } from 'lucide-react'
+import { Group } from 'lucide-react'
 import type { PanelGroupEntityDetail } from '../../../shared/types'
 import { resolveCanvasColor } from '../../../shared/canvas-colors'
 import { mutedClass } from '../rightDetailsPanelHelpers'
@@ -16,7 +16,7 @@ export function GroupEntityPane({ groupEntity }: { groupEntity: PanelGroupEntity
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<FolderOpen size={14} className="shrink-0 text-zinc-500" />}
+        icon={<Group size={14} className="shrink-0 text-zinc-500" />}
         label={groupEntity.label || 'Group'}
       />
 
