@@ -325,7 +325,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
           type: 'object',
           additionalProperties: true,
           description:
-            "Annotation anchor. Examples: { type: 'canvas', canvasX, canvasY }, { type: 'page', pageId, offsetX, offsetY }, { type: 'element', pageId, selector, elementPath?, boundingBox? }, { type: 'region', canvasRect: { x, y, width, height } }",
+            "Annotation anchor. Examples: { type: 'canvas', canvasX, canvasY }, { type: 'page', pageId, offsetX, offsetY }, { type: 'element', pageId, selector, elementPath?, boundingBox? }, { type: 'region', canvasRect: { x, y, width, height } }. Always pass a region as canvasRect; a marquee that grabbed page content is stored page-relative internally so it scroll-follows.",
         },
         metadata: {
           type: 'object',

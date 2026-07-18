@@ -1,5 +1,6 @@
 import type { Annotation } from '../../shared/types'
 import { truncate } from '../../shared/annotation-utils'
+import { regionCanvasRect } from '../runtime/page-anchor-state'
 
 const REPLY_FORMAT = [
   'Reply format — REQUIRED:',
@@ -16,7 +17,7 @@ export function buildFixPrompt(annotation: Annotation): string {
   lines.push('You are responding to a comment left on a live web page.')
   lines.push('')
 
-  const pageUrl = annotation.metadata?.pageUrl
+  const pageUrl = annotation.pageAnchor?.pageUrl
   if (pageUrl) {
     lines.push(`Page URL: ${pageUrl}`)
   }
@@ -63,10 +64,14 @@ export function buildFixPrompt(annotation: Annotation): string {
   }
 
   if (annotation.anchor.type === 'region') {
-    const { canvasRect } = annotation.anchor
-    lines.push(
-      `Region: x=${Math.round(canvasRect.x)} y=${Math.round(canvasRect.y)} w=${Math.round(canvasRect.width)} h=${Math.round(canvasRect.height)} (canvas coords)`,
-    )
+    // A page-anchored region stores a document rect; report its current canvas
+    // position so the coordinates read the same for both region variants.
+    const canvasRect = regionCanvasRect(annotation)
+    if (canvasRect) {
+      lines.push(
+        `Region: x=${Math.round(canvasRect.x)} y=${Math.round(canvasRect.y)} w=${Math.round(canvasRect.width)} h=${Math.round(canvasRect.height)} (canvas coords)`,
+      )
+    }
     const components = annotation.metadata?.regionComponents ?? []
     for (const group of components) {
       if (!group.components.length) continue

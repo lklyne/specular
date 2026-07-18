@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Improvements
+
+- Region comments that captured page content now belong to that page: they move with page drags and arrow-key nudges, hide while the page shows a different URL, and nest under the page in the left sidebar. Region comments drawn over empty canvas stay put and always show.
+
+### Breaking
+
+- Comments record their page binding in a `pageAnchor` field instead of `metadata.pageUrl`. Comments in existing `.canvas` files still load and render, but legacy ones lose the hide-on-navigation URL gate (they behave as canvas-bound) until recreated.
+
 ## [0.4.2] - 2026-07-13 — Interaction Sync
 
 ### New

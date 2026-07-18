@@ -4,6 +4,7 @@ import type {
   AnnotationDrawing,
   AnnotationDrawingPoint,
   AnnotationDrawingStroke,
+  CanvasScenePageEntity,
   DevtoolsPanelDomRect,
   LayoutUpdateData,
 } from '../../shared/types'
@@ -12,6 +13,8 @@ import {
   canvasToScreenY,
   toOverlayY,
 } from '../../shared/gesture-utils'
+import { pageDocumentToScreen, pageViewportToScreen } from '../../shared/page-space'
+import { correctDocRectForElement } from '../../shared/element-attachment'
 
 
 export interface PendingAnnotation {
@@ -54,42 +57,6 @@ export function snapPointTo45Degrees(
     x: origin.x + Math.cos(snappedAngle) * distance,
     y: origin.y + Math.sin(snappedAngle) * distance,
   }
-}
-
-export function pathD(points: AnnotationDrawingPoint[]): string {
-  if (!points.length) return ''
-  if (points.length === 1) {
-    const [point] = points
-    return `M ${point.x} ${point.y} L ${point.x + 0.01} ${point.y + 0.01}`
-  }
-  if (points.length === 2) {
-    return points
-      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-      .join(' ')
-  }
-
-  const [firstPoint, secondPoint] = points
-  let path = `M ${firstPoint.x} ${firstPoint.y}`
-  const firstMidpoint = {
-    x: (firstPoint.x + secondPoint.x) / 2,
-    y: (firstPoint.y + secondPoint.y) / 2,
-  }
-
-  path += ` Q ${firstPoint.x} ${firstPoint.y} ${firstMidpoint.x} ${firstMidpoint.y}`
-
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const point = points[index]
-    const nextPoint = points[index + 1]
-    const midpoint = {
-      x: (point.x + nextPoint.x) / 2,
-      y: (point.y + nextPoint.y) / 2,
-    }
-    path += ` Q ${point.x} ${point.y} ${midpoint.x} ${midpoint.y}`
-  }
-
-  const lastPoint = points[points.length - 1]
-  path += ` Q ${lastPoint.x} ${lastPoint.y} ${lastPoint.x} ${lastPoint.y}`
-  return path
 }
 
 export function drawingBounds(
@@ -171,17 +138,42 @@ export function annotationScreenPos(
     }
   }
   if (anchor.type === 'region') {
-    const centerX = canvasToScreenX(
-      layout,
-      anchor.canvasRect.x + anchor.canvasRect.width / 2,
+    if (!('docRect' in anchor)) {
+      const centerX = canvasToScreenX(
+        layout,
+        anchor.canvasRect.x + anchor.canvasRect.width / 2,
+      )
+      const bottom = canvasToScreenY(
+        layout,
+        anchor.canvasRect.y + anchor.canvasRect.height,
+      )
+      return {
+        x: centerX,
+        y: toOverlayY(layout, bottom),
+        transform: 'translate(-50%, 0)',
+      }
+    }
+    // Page-anchored region: derive the thread anchor from the page-relative
+    // document rect so it scroll-follows, exactly like the region overlay.
+    const pageId = annotation.pageAnchor?.pageId
+    const page = pageId
+      ? layout.entities.find(
+          (entity): entity is CanvasScenePageEntity =>
+            entity.kind === 'page' && entity.id === pageId,
+        )
+      : undefined
+    if (!page) return null
+    // Element-follow (ADR 0032): correct the docRect for its reference
+    // element's movement before mapping, matching the region overlay.
+    const docRect = correctDocRectForElement(
+      anchor.docRect,
+      annotation.pageAnchor?.element,
+      page.elementPositions,
     )
-    const bottom = canvasToScreenY(
-      layout,
-      anchor.canvasRect.y + anchor.canvasRect.height,
-    )
+    const rect = pageDocumentToScreen(docRect, page, layout)
     return {
-      x: centerX,
-      y: toOverlayY(layout, bottom),
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height,
       transform: 'translate(-50%, 0)',
     }
   }
@@ -196,28 +188,26 @@ export function annotationScreenPos(
       // stale the moment the page scrolls.
       const liveBbox = liveBboxes?.get(annotation.id)
       const bb = liveBbox ?? anchor.boundingBox
-      const x =
-        page.screenX +
-        (bb.x + bb.width) *
-          (page.screenWidth / page.width) -
-        rightInset
-      const y =
-        page.screenY +
-        bb.y * (page.screenHeight / page.height) +
-        topInset
-      const clampedX = Math.max(
+      // The thread popover maps through the entity's outer frame (device
+      // shell included), then tucks the popover just inside the element's
+      // top-right corner and clamps it within the page bounds. That
+      // divergence from the content-frame default is deliberate — it lives
+      // here as post-processing on the shared transform, not as a second
+      // transform.
+      const rect = pageViewportToScreen(bb, page, layout, 'entity')
+      const pageTop = toOverlayY(layout, page.screenY)
+      const x = Math.max(
         page.screenX + rightInset,
-        Math.min(x, page.screenX + page.screenWidth - rightInset),
+        Math.min(
+          rect.left + rect.width - rightInset,
+          page.screenX + page.screenWidth - rightInset,
+        ),
       )
-      const clampedY = Math.max(
-        page.screenY + topInset,
-        Math.min(y, page.screenY + page.screenHeight - topInset),
+      const y = Math.max(
+        pageTop + topInset,
+        Math.min(rect.top + topInset, pageTop + page.screenHeight - topInset),
       )
-      return {
-        x: clampedX,
-        y: toOverlayY(layout, clampedY),
-        transform: 'translate(-100%, 0)',
-      }
+      return { x, y, transform: 'translate(-100%, 0)' }
     }
     if (anchor.type === 'page') {
       const y = toOverlayY(layout, page.screenY + anchor.offsetY * page.screenHeight)
@@ -281,26 +271,7 @@ export function pendingElementScreenRect(
   if (!bbox) return null
   const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
   if (!page) return null
-  const contentScreenX =
-    'contentScreenX' in page && page.contentScreenX != null ? page.contentScreenX : page.screenX
-  const contentScreenY =
-    'contentScreenY' in page && page.contentScreenY != null ? page.contentScreenY : page.screenY
-  const contentScreenWidth =
-    'contentScreenWidth' in page && page.contentScreenWidth != null
-      ? page.contentScreenWidth
-      : page.screenWidth
-  const contentScreenHeight =
-    'contentScreenHeight' in page && page.contentScreenHeight != null
-      ? page.contentScreenHeight
-      : page.screenHeight
-  const scaleX = contentScreenWidth / page.width
-  const scaleY = contentScreenHeight / page.height
-  return {
-    left: contentScreenX + bbox.x * scaleX,
-    top: toOverlayY(layout, contentScreenY + bbox.y * scaleY),
-    width: bbox.width * scaleX,
-    height: bbox.height * scaleY,
-  }
+  return pageViewportToScreen(bbox, page, layout)
 }
 
 /**
@@ -335,4 +306,3 @@ export function pendingElementComposerPosition(
   })
   return { left: composerX, top: composerY, width: composerWidth }
 }
-

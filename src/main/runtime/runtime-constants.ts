@@ -33,7 +33,6 @@ export const PREFERENCES_FILE = 'preferences.json'
 
 // --- Debug ---
 export const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
-export const COMMENT_BADGE_DEBUG = process.env.CANVAS_DEBUG_COMMENT_BADGES === '1'
 export const DEVTOOLS_PANEL_DEBUG = process.env.CANVAS_DEBUG_DEVTOOLS_PANEL === '1'
 
 export function selectionDebug(event: string, details?: Record<string, unknown>): void {

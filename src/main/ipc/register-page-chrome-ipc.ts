@@ -2,15 +2,18 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type {
+  ElementAttachmentPositionsUpdate,
   InteractionSyncEvent,
   LocatorResolveResponse,
   ScrollSyncData,
   SelectionModifiers,
 } from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
-import { bgView } from '../runtime/view-refs'
+import { aboveView, bgView } from '../runtime/view-refs'
+import { safeSend } from '../runtime/safe-send'
 import { zoom } from '../runtime/runtime-context'
 import { requestLayout } from '../runtime/viewport-control'
+import { markDirty } from '../runtime/layout-dirty'
 import {
   deselectAll,
 } from '../runtime/ui-actions'
@@ -27,6 +30,7 @@ import {
   handleResolveInteractionLocatorResponse,
 } from '../interaction-sync'
 import { selectionDebug } from '../runtime/runtime-constants'
+import { applyElementAttachmentPositions } from '../runtime/element-attachment-positions'
 
 export function registerPageChromeIpc(): void {
   ipcMain.on(
@@ -49,6 +53,58 @@ export function registerPageChromeIpc(): void {
     if (isScrollSuppressed(page)) return
     propagateScrollFromPage(page, data)
   })
+
+  // Always-on absolute-pixel scroll offset (ADR 0031 scroll amendment).
+  // Unlike `pageScrollChanged` this has no `syncId` gate — every page reports
+  // its offset so page-anchored regions can scroll-follow. Stored on the
+  // ephemeral runtime page; the layout broadcast carries it.
+  ipcMain.on(
+    ipcChannels.pageScrollOffset,
+    (event, data: { scrollX: number; scrollY: number; scrollHeight: number }) => {
+      const page = findPageByPageView(event.sender)
+      if (!page) return
+      if (
+        page.scrollX === data.scrollX &&
+        page.scrollY === data.scrollY &&
+        page.scrollHeight === data.scrollHeight
+      ) {
+        return
+      }
+      page.scrollX = data.scrollX
+      page.scrollY = data.scrollY
+      page.scrollHeight = data.scrollHeight
+      // Fast path: scroll-following overlays (shapes, region annotations) get
+      // the raw offset immediately and shift themselves with a CSS transform,
+      // instead of waiting out the debounced layout rebuild below — that
+      // multi-hop path lags the page's native compositor scroll and reads as
+      // jitter. The full broadcast still follows and reconciles.
+      if (aboveView) {
+        safeSend(aboveView.webContents, ipcChannels.pageScrollLive, {
+          pageId: page.id,
+          scrollX: data.scrollX,
+          scrollY: data.scrollY,
+        })
+      }
+      markDirty('canvas')
+      requestLayout()
+    },
+  )
+
+  // ADR 0032 — element-attachment reflow positions. The page's tracker
+  // broadcasts the live document positions of its subscribed selectors on real
+  // reflow events (resize, load, debounced mutations). Stored on the ephemeral
+  // runtime page keyed by selector; scene builders read them as a render-time
+  // correction. No fast-path nudge — reflow is debounced by nature, so the
+  // debounced layout rebuild is timely enough (the scroll fast path is
+  // untouched).
+  ipcMain.on(
+    ipcChannels.elementAttachmentPositions,
+    (event, data: ElementAttachmentPositionsUpdate | undefined) => {
+      if (!applyElementAttachmentPositions(event.sender, data)) return
+      markDirty('canvas')
+      requestLayout()
+    },
+  )
 
   ipcMain.on(ipcChannels.interactionSyncEvent, (event, payload: InteractionSyncEvent) => {
     handleInteractionSyncEvent(event.sender, payload)

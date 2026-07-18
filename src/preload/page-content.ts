@@ -5,7 +5,6 @@ import {
   CAPTURE_SUPPRESSION_STYLE_ID,
 } from './capture-suppression'
 import type {
-  Annotation,
   AnnotationBboxSubscription,
   CommentToolPagePreviewState,
   InteractionSyncCapturePayload,
@@ -28,20 +27,16 @@ import {
   initComponentInspector,
 } from './component-inspector'
 import {
-  hideCommentBadgeHover,
-  isCommentHoverActive,
-  queueRenderCommentBadges,
-  renderCommentBadges,
-  setPageAnnotations,
-} from './comment-badges'
-import {
   applyCommentHoverOverlay,
   clearCommentHoverOverlay,
   queueRefreshCommentHoverOverlay,
 } from './comment-hover-overlay'
 import {
   queueRecomputeAnnotationBboxes,
+  queueRecomputeElementPositions,
+  refreshElementAttachmentObserver,
   setAnnotationBboxSubscriptions,
+  setElementAttachmentSubscriptions,
 } from './annotation-bbox-tracker'
 import {
   buildElementPath,
@@ -54,6 +49,7 @@ import {
   rectFullyContainedInRegion,
   rectIntersectsRegion,
 } from './dom-element-utils'
+import { captureElementAtDocumentPoint } from './element-attachment-capture'
 import {
   applyDomInspectionState,
   handleInspectFocusNode,
@@ -97,7 +93,6 @@ function setCaptureSuppression(active: boolean): void {
     captureSuppressionStyleEl = null
     queueRefreshCommentHoverOverlay()
     queueRefreshDomInspectionOverlay()
-    queueRenderCommentBadges()
     return
   }
   if (captureSuppressionStyleEl?.isConnected) return
@@ -384,7 +379,6 @@ ipcRenderer.on(ipcChannels.setInteractive, (_event, value: boolean) => {
     seedScrollSyncBaseline()
   }
   applyInteractiveState()
-  renderCommentBadges()
 })
 
 ipcRenderer.on(ipcChannels.setCanvasZoom, (_event, value: number) => {
@@ -443,11 +437,15 @@ ipcRenderer.on(
   },
 )
 
+// ADR 0032 — element-attachment reflow subscriptions. Main declares the set of
+// distinct selectors that anchored items on this page reference; the page
+// resolves them to document positions and reports back via
+// `element-attachment-positions`, installing a MutationObserver only while the
+// set is non-empty.
 ipcRenderer.on(
-  ipcChannels.pageAnnotationsUpdate,
-  (_event, payload: { annotations?: Annotation[] } | undefined) => {
-    setPageAnnotations(payload?.annotations ?? [])
-    queueRenderCommentBadges()
+  ipcChannels.elementAttachmentSubscriptions,
+  (_event, payload: { selectors?: string[] } | undefined) => {
+    setElementAttachmentSubscriptions(payload?.selectors ?? [])
   },
 )
 
@@ -539,6 +537,18 @@ ipcRenderer.on(
     ipcRenderer.send(ipcChannels.queryElementAtPointResponse, {
       requestId: payload.requestId,
       data: inspectionPayload(target),
+    })
+  },
+)
+
+ipcRenderer.on(
+  ipcChannels.captureElementAtPoint,
+  (_event, payload: { requestId: string; docX: number; docY: number }) => {
+    // ADR 0032 — element attachment. Find the reference element under a
+    // document point so an anchored item can track it through page reflow.
+    ipcRenderer.send(ipcChannels.captureElementAtPointResponse, {
+      requestId: payload.requestId,
+      data: captureElementAtDocumentPoint(payload.docX, payload.docY),
     })
   },
 )
@@ -645,6 +655,93 @@ ipcRenderer.on(
 )
 
 
+// Find the real scroll container under a viewport point. Next.js/v0 shells
+// scroll an inner `overflow: auto` div while `document.scrollingElement`
+// stays at 0, so both the scroll-command ramp and the offset broadcast must
+// probe from a concrete point and walk up to the nearest scrollable ancestor.
+// Defaults to the viewport center, which resolves the primary scroll
+// container when there is no pointer (the offset broadcast has none).
+function resolveScrollTarget(
+  x: number = window.innerWidth / 2,
+  y: number = window.innerHeight / 2,
+): Element {
+  const isScrollable = (el: Element): boolean => {
+    const style = window.getComputedStyle(el)
+    const overflowY = style.overflowY
+    const overflowX = style.overflowX
+    const canScrollY =
+      /(auto|scroll|overlay)/.test(overflowY) &&
+      el.scrollHeight > el.clientHeight
+    const canScrollX =
+      /(auto|scroll|overlay)/.test(overflowX) &&
+      el.scrollWidth > el.clientWidth
+    return canScrollY || canScrollX
+  }
+  let node: Element | null = document.elementFromPoint(x, y)
+  while (node && !isScrollable(node)) node = node.parentElement
+  return node || document.scrollingElement || document.documentElement
+}
+
+// Always-on absolute-pixel scroll broadcast (ADR 0031 scroll amendment).
+// Separate from linked-scroll `pageScrollChanged`, which carries
+// progress fractions, is gated on `interactive`, and is dropped unless the
+// page is linked). rAF-coalesced; sends only when the offset actually changed.
+let pendingScrollOffsetFlush = 0
+let lastSentScrollX = Number.NaN
+let lastSentScrollY = Number.NaN
+let lastSentScrollHeight = Number.NaN
+
+// The container whose offset the broadcast reports. The document wins
+// whenever it scrolls at all — the center probe exists only for shells where
+// the document is pinned and an inner div scrolls. Probing first is fragile:
+// whatever sits at viewport center (an open mega-menu, a modal, a hover
+// panel) hijacks the offset and shifts every page-anchored region by its
+// scrollTop.
+function scrollOffsetSource(): Element {
+  const doc = document.scrollingElement ?? document.documentElement
+  if (doc.scrollHeight > doc.clientHeight) return doc
+  return resolveScrollTarget()
+}
+
+function flushScrollOffset(): void {
+  pendingScrollOffsetFlush = 0
+  const target = scrollOffsetSource()
+  // Fractional, not rounded — momentum scrolling produces sub-pixel offsets,
+  // and rounding makes scroll-following overlays stair-step against the
+  // smoothly compositing page.
+  const scrollX = target.scrollLeft
+  const scrollY = target.scrollTop
+  // scrollHeight rides along so main can turn a page anchor's `offsetY`
+  // fraction into a document position for scroll-to-comment (ADR 0031). It is a
+  // property of the same container the offset comes from, so it is captured
+  // here rather than in a second query.
+  const scrollHeight = Math.round(target.scrollHeight)
+  if (
+    scrollX === lastSentScrollX &&
+    scrollY === lastSentScrollY &&
+    scrollHeight === lastSentScrollHeight
+  ) {
+    return
+  }
+  lastSentScrollX = scrollX
+  lastSentScrollY = scrollY
+  lastSentScrollHeight = scrollHeight
+  ipcRenderer.send(ipcChannels.pageScrollOffset, { scrollX, scrollY, scrollHeight })
+}
+
+function queueScrollOffsetBroadcast(): void {
+  if (pendingScrollOffsetFlush) return
+  pendingScrollOffsetFlush = window.requestAnimationFrame(flushScrollOffset)
+}
+
+// Scroll events are the primary trigger, but app shells can unmount or
+// replace their scroll container without a final scroll event (client
+// navigation, virtualized lists, closing menus) — the last broadcast offset
+// then sticks in main and every page-anchored region maps against a dead
+// scroll position. A slow heartbeat re-reads the live DOM; the send-on-change
+// dedupe above makes the quiet case free.
+window.setInterval(queueScrollOffsetBroadcast, 2000)
+
 let activeScrollToken = 0
 
 ipcRenderer.on(
@@ -659,22 +756,7 @@ ipcRenderer.on(
       deltaY: number
     },
   ) => {
-    const isScrollable = (el: Element): boolean => {
-      const style = window.getComputedStyle(el)
-      const overflowY = style.overflowY
-      const overflowX = style.overflowX
-      const canScrollY =
-        /(auto|scroll|overlay)/.test(overflowY) &&
-        el.scrollHeight > el.clientHeight
-      const canScrollX =
-        /(auto|scroll|overlay)/.test(overflowX) &&
-        el.scrollWidth > el.clientWidth
-      return canScrollY || canScrollX
-    }
-    let node: Element | null = document.elementFromPoint(payload.x, payload.y)
-    while (node && !isScrollable(node)) node = node.parentElement
-    const target =
-      node || document.scrollingElement || document.documentElement
+    const target = resolveScrollTarget(payload.x, payload.y)
     if (!target) {
       ipcRenderer.send(ipcChannels.dispatchScrollResult, {
         requestId: payload.requestId,
@@ -749,40 +831,21 @@ window.addEventListener(
   'scroll',
   () => {
     queueScrollSyncBroadcast(interactive)
-    queueRenderCommentBadges()
+    queueScrollOffsetBroadcast()
     queueRefreshDomInspectionOverlay()
     queueRefreshCommentHoverOverlay()
     queueRecomputeAnnotationBboxes()
+    queueRecomputeElementPositions()
   },
   { passive: true, capture: true }
 )
 
 window.addEventListener('resize', () => {
-  queueRenderCommentBadges()
+  queueScrollOffsetBroadcast()
   queueRefreshDomInspectionOverlay()
   queueRefreshCommentHoverOverlay()
   queueRecomputeAnnotationBboxes()
-})
-
-window.addEventListener(
-  'pointerdown',
-  () => {
-    if (!isCommentHoverActive()) return
-    hideCommentBadgeHover()
-  },
-  { capture: true },
-)
-
-window.addEventListener(
-  'wheel',
-  () => {
-    queueRenderCommentBadges()
-  },
-  { passive: true, capture: true },
-)
-
-window.addEventListener('blur', () => {
-  hideCommentBadgeHover()
+  queueRecomputeElementPositions()
 })
 
 // ADR 0030 — interaction sync capture. Capture-phase on window so mirrored
@@ -875,6 +938,13 @@ function onDomReady(): void {
   applyDomInspectionState()
   applyAnnotateState()
   seedScrollSyncBaseline()
+  // Emit once on load so a page that restores its scroll position (bfcache,
+  // Next.js scroll restoration) starts correct even without a scroll event.
+  queueScrollOffsetBroadcast()
+  // A (re)load replaces document.body: reattach the reflow observer to the new
+  // body and re-resolve subscribed selectors against the fresh layout.
+  refreshElementAttachmentObserver()
+  queueRecomputeElementPositions()
   initComponentInspector()
 }
 

@@ -43,6 +43,11 @@ export interface SpecularNodeExtensions {
    * (inner label). Missing → renderer defaults to 14 ("Small"). ADR 0013 §2.
    */
   textSize?: number
+  /**
+   * Hooks the node to a page entity and the URL that page showed when the
+   * node was placed. See shared/page-anchor.ts.
+   */
+  pageAnchor?: { pageId: string; pageUrl?: string }
 }
 
 export interface JsonCanvasTextNode extends JsonCanvasNodeBase {
@@ -102,6 +107,8 @@ export interface JsonCanvasDrawingNode extends JsonCanvasNodeBase {
   strokes: AnnotationDrawingStroke[]
   label?: string
   parentGroupId?: string
+  /** Hooks the drawing to a page entity + URL. See shared/page-anchor.ts. */
+  pageAnchor?: { pageId: string; pageUrl?: string }
 }
 
 /**
@@ -118,6 +125,10 @@ export interface JsonCanvasShapeNode extends JsonCanvasNodeBase {
   theme?: string
   label?: string
   parentGroupId?: string
+  /** Hooks the shape to a page entity + URL; `scrollX/scrollY` record the
+   *  page scroll at placement so the shape scroll-follows the document.
+   *  See shared/page-anchor.ts. */
+  pageAnchor?: { pageId: string; pageUrl?: string; scrollX?: number; scrollY?: number }
   specular?: SpecularNodeExtensions
 }
 

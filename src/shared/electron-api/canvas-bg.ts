@@ -259,6 +259,12 @@ export interface CanvasBgElectronAPI {
    *  connected repo, or null if connection fails. */
   repoConnect: (absolutePath: string) => Promise<unknown>
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
+  /** Fast-path page scroll offset, sent per scroll frame ahead of the
+   *  debounced layout broadcast so scroll-following overlays track the
+   *  page's native scroll without jitter. */
+  onPageScrollLive: (
+    callback: (data: { pageId: string; scrollX: number; scrollY: number }) => void,
+  ) => () => void
   onViewportNudge: (callback: (data: ViewportNudge) => void) => () => void
   onFixProgressUpdate: (
     callback: (data: LayoutUpdateData['fixProgress']) => void,

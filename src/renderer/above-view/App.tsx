@@ -36,7 +36,10 @@ import {
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
-import { useAnnotationThreadState, annotationThreadPosition } from './useAnnotationThreadState'
+import {
+  useAnnotationThreadState,
+  annotationThreadPosition,
+} from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
 import { useCanvasFileDrop } from './useCanvasFileDrop'
@@ -264,9 +267,7 @@ function StackedCanvasItems({
           isDark={isDark}
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
+          layoutData={layoutData}
           onUpdateText={(shapeId, text) => api.updateEntity('shape', shapeId, { text })}
           onCommitEdit={api.commitEntityEdit}
         />
@@ -280,9 +281,7 @@ function StackedCanvasItems({
           isDark={isDark}
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
+          layoutData={layoutData}
           onUpdateText={(textId, text) => api.updateEntity('text', textId, { text })}
           onUpdateSize={(textId, width, height) =>
             api.updateEntity('text', textId, { width, height })

@@ -13,8 +13,10 @@ import {
   handlePageIpcResponse,
   handleNodeDetailResponse,
 } from '../runtime/page-runtime'
-import { getZoom, setPendingFocus } from '../runtime/runtime-context'
-import { requestLayout, setZoom } from '../runtime/viewport-control'
+import { regionCanvasRect } from '../runtime/page-anchor-state'
+import { dispatchScrollToAnnotation } from '../runtime/annotation-scroll-target'
+import { setPendingFocus } from '../runtime/runtime-context'
+import { requestLayout } from '../runtime/viewport-control'
 import {
   focusCanvasBounds,
   openCommentsPanel,
@@ -27,6 +29,8 @@ import {
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
 import { markDirty } from '../runtime/layout-dirty'
+import { offPageDocument } from '../runtime/document-binding'
+import { navigatePage } from '../navigation-sync'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -34,7 +38,6 @@ import {
 } from './component-override'
 
 const POINT_FOCUS_SIZE = 100
-const FOCUS_MIN_ZOOM = 0.8
 
 function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null {
   const { anchor } = annotation
@@ -47,7 +50,9 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
         height: POINT_FOCUS_SIZE,
       }
     case 'region':
-      return anchor.canvasRect
+      // A page-anchored region stores a document rect; resolve it to where the
+      // region sits on the canvas right now (tracks page move + scroll).
+      return regionCanvasRect(annotation)
     case 'element': {
       const page = findPageById(anchor.pageId)
       if (!page) return null
@@ -81,10 +86,22 @@ export function registerAnnotationInspectionIpc(): void {
       if (!annotationId) return
       const annotation = getAnnotationById(annotationId)
       if (!annotation) return
-      if (annotation.anchor.type !== 'canvas' && annotation.anchor.type !== 'region') {
-        selectPageById(annotation.anchor.pageId)
+      const pageAnchor = annotation.pageAnchor
+      let scrollAfterNavigation = false
+      if (
+        pageAnchor?.pageUrl &&
+        offPageDocument(pageAnchor.pageId, pageAnchor.pageUrl)
+      ) {
+        const page = findPageById(pageAnchor.pageId)
+        if (page && !page.pageView.webContents.isDestroyed()) {
+          scrollAfterNavigation = true
+          page.pageView.webContents.once('did-finish-load', () => {
+            void dispatchScrollToAnnotation(annotation)
+          })
+          navigatePage(page, { type: 'load-url', url: pageAnchor.pageUrl })
+        }
       }
-      if (getZoom() < FOCUS_MIN_ZOOM) setZoom(1.0)
+      if (pageAnchor) selectPageById(pageAnchor.pageId)
       const bounds = annotationCanvasBounds(annotation)
       if (bounds) focusCanvasBounds(bounds)
       focusAnnotation(annotationId)
@@ -96,6 +113,14 @@ export function registerAnnotationInspectionIpc(): void {
           annotationId,
         })
       }
+      // Reveal the commented content on the page itself: canvas focus alone
+      // leaves a long page pointing at content the user can't see. Fire-and-
+      // forget; no-op for canvas points and canvas-anchored regions, which mark
+      // canvas space, not page content (ADR 0029). Ungated by
+      // surface — revealing content is the intended meaning of "open this
+      // comment" whether the click came from the panel, sidebar, or a region
+      // overlay.
+      if (!scrollAfterNavigation) void dispatchScrollToAnnotation(annotation)
     },
   )
 
@@ -170,6 +195,11 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(ipcChannels.queryElementAtPointResponse, (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
+  ipcMain.on(ipcChannels.captureElementAtPointResponse, (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })

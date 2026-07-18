@@ -8,6 +8,7 @@
 - A "stale anchor" affordance in the popover header (e.g. a muted indicator) when the live-bbox lookup reports the selector no longer resolves. The state plumbing is in place (`AnnotationLiveBboxLookup.isStale`); the UI surface is a follow-up.
 **Date:** 2026-05-09
 **Amends:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Removes `{ kind: 'region-select' }` from the `Tool` union; the comment tool now covers both element/point clicks and region drags.
+**Amended by:** [ADR 0031](./0031-page-anchored-entities.md) amendment (2026-07-13) — region anchors are no longer uniformly canvas-space: a region whose marquee grabbed page content is page-anchored (travels with page drags, hides off-URL, nests in the sidebar); only grab-less regions mark canvas space. Alternative F's payoff landed via `pageAnchor`, without a new anchor variant.
 **Related:** [ADR 0001 — Click-to-enter page focus](./0001-click-to-enter-frame-focus.md) (gate predicate); [ADR 0002 — Canvas-anchored overlay UI](./0002-canvas-anchored-overlay-ui.md) (where the composer renders).
 
 ## Context

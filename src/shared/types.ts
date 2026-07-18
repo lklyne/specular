@@ -7,11 +7,13 @@ import type {
 } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
+import type { PageAnchor } from './page-anchor'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
 import type { AmbientDriftMode } from './presence-ambient'
 import type { LocatorBundle, LocatorResolution } from './locator-kernel'
 
 export type { DrawingBrushType, Tool } from './tool'
+export type { PageAnchor } from './page-anchor'
 export type { ToolDefaultPatch } from './tool-defaults'
 
 // --- IPC Channel Types ---
@@ -158,6 +160,20 @@ export interface CanvasScenePageEntity {
   useSvgDeviceShell?: boolean
   /** Optional — absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
+  /** Page's absolute scroll offset in raw CSS pixels, default 0. Document
+   *  coordinates minus this are viewport coordinates (ADR 0031). */
+  scrollX: number
+  scrollY: number
+  /** Live document positions of the DOM selectors this page's anchored items
+   *  reference, keyed by selector (ADR 0032 element attachment). Present only
+   *  when the page is tracking at least one element. The renderer applies them
+   *  as a render-time correction to page-anchored region `docRect`s, the same
+   *  correction main applies to canvas-space consumers (page-anchor-scroll.ts).
+   *  Ephemeral — never persisted. */
+  elementPositions?: Record<
+    string,
+    { docX: number; docY: number; viewportPositioned?: boolean }
+  >
 }
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
@@ -195,6 +211,8 @@ export interface CanvasSceneTextEntity {
   widthMode: TextWidthMode
   /** Per-entity text size in px. Missing → renderer default (18). ADR 0013 §2. */
   textSize?: number
+  /** Apparent position: for page-anchored text the scroll-follow shift is
+   *  already applied (see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
   canvasY: number
   width: number
@@ -204,6 +222,9 @@ export interface CanvasSceneTextEntity {
   screenWidth: number
   screenHeight: number
   parentGroupId?: string
+  /** Present when the text is hooked to a page (see shared/page-anchor.ts).
+   *  The renderer clips/fades it inside that page's overlay band. */
+  pageAnchor?: PageAnchor
 }
 
 export interface CanvasSceneFileEntity {
@@ -304,6 +325,9 @@ export interface CanvasSceneGroupEntity {
 export interface CanvasSceneDrawingEntity {
   kind: 'drawing'
   id: string
+  /** Apparent position: for page-anchored drawings the scroll-follow shift is
+   *  already applied to bounds *and* stroke points (strokes are absolute
+   *  canvas coords — see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
   canvasY: number
   width: number
@@ -314,6 +338,9 @@ export interface CanvasSceneDrawingEntity {
   screenHeight: number
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
+  /** Present when the drawing is hooked to a page (see shared/page-anchor.ts).
+   *  The renderer clips/fades it inside that page's overlay band. */
+  pageAnchor?: PageAnchor
 }
 
 export interface CanvasSceneShapeEntity {
@@ -330,11 +357,16 @@ export interface CanvasSceneShapeEntity {
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
   theme?: string
+  /** Apparent position: for page-anchored shapes the scroll-follow shift is
+   *  already applied (see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
   canvasY: number
   width: number
   height: number
   parentGroupId?: string
+  /** Present when the shape is hooked to a page (see shared/page-anchor.ts).
+   *  The renderer clips/fades the shape inside that page's overlay band. */
+  pageAnchor?: PageAnchor
   screenX: number
   screenY: number
   screenWidth: number
@@ -409,6 +441,8 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   /** Optional — renderer defaults to 14 ("Small") when absent. ADR 0013 §2. */
   textSize?: number
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export type FileObjectFit = 'contain' | 'cover' | 'fill'
@@ -446,6 +480,8 @@ export interface PersistedDrawingEntity extends CanvasEntityBase {
   height: number
   strokes: AnnotationDrawingStroke[]
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export interface PersistedShapeEntity extends CanvasEntityBase {
@@ -462,6 +498,8 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   width: number
   height: number
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export type PersistedCanvasEntity =
@@ -649,6 +687,43 @@ export interface AgentSnapshotPage {
   nodes: AgentSnapshotNode[]
 }
 
+/**
+ * A page-anchored annotation shown as a child row of its page in the sidebar
+ * (the page acts as a folder for content anchored to it). Not a canvas
+ * entity — annotation rows don't participate in stack-order reordering.
+ */
+export interface SidebarAnnotationItem {
+  kind: 'annotation'
+  id: string
+  label: string
+  /** Thread size: the root comment plus replies. */
+  messageCount: number
+  /** False when the page has navigated away from the annotation's URL —
+   *  the canvas visuals are hidden, so the row renders dimmed. */
+  onCurrentPage: boolean
+}
+
+/**
+ * A canvas entity hooked to this page (shared/page-anchor.ts), shown as a
+ * child row of the page in the sidebar. `onCurrentPage` is false when the
+ * page has navigated away from the entity's anchor URL — the entity's canvas
+ * visuals are hidden, so the row renders dimmed.
+ */
+export type SidebarAnchoredEntityItem = (
+  | SidebarTextItem
+  | SidebarFileItem
+  | SidebarDrawingItem
+  | SidebarShapeItem
+) & { onCurrentPage: boolean }
+
+/**
+ * Content belonging to a page, shown as child rows under its sidebar row:
+ * anchored canvas entities in stack order, then unresolved page-anchored
+ * annotations newest first. One builder produces the list; the item kinds
+ * only differ in presentation.
+ */
+export type SidebarPageChildItem = SidebarAnchoredEntityItem | SidebarAnnotationItem
+
 // --- Interaction sync (ADR 0030) ---
 
 /**
@@ -693,6 +768,9 @@ export interface SidebarPageItem {
   faviconUrl?: string | null
   width?: number
   height?: number
+  /** Content anchored to this page (entities in stack order, then
+   *  unresolved annotations newest first). */
+  children?: SidebarPageChildItem[]
 }
 
 export interface SidebarTextItem {
@@ -1102,6 +1180,8 @@ export interface DevtoolsPanelDomTarget {
   role?: string
   elementPath: string
   fullPath: string
+  /** Unique nth-of-type path — the selector to re-resolve this element by. */
+  uniqueSelector?: string
   cssClasses: string[]
   textPreview?: string
   nearbyText?: string
@@ -1751,7 +1831,15 @@ export type AnnotationAnchor =
   | { type: 'canvas'; canvasX: number; canvasY: number }
   | { type: 'page'; pageId: string; offsetX: number; offsetY: number }
   | { type: 'element'; pageId: string; selector: string; elementPath?: string; boundingBox?: DevtoolsPanelDomRect }
+  // Region annotations split by the grab rule. A grab-less marquee marks
+  // canvas space and stores `canvasRect`; a marquee that grabbed page content
+  // is page-anchored and stores `docRect` in the page's document CSS pixels,
+  // relative to the page named by `Annotation.pageAnchor` (ADR 0031 — the
+  // pageAnchor is the single source of truth for which page). A region
+  // without `docRect` (all existing files) is canvas-anchored, full stop.
+  // Narrow the two arms with `'docRect' in anchor` after `type === 'region'`.
   | { type: 'region'; canvasRect: WorkspaceBounds }
+  | { type: 'region'; docRect: WorkspaceBounds }
 
 export type AnnotationStatus = 'pending' | 'acknowledged' | 'resolved' | 'dismissed'
 export type AnnotationStatusFilter = AnnotationStatus | 'unresolved' | 'all'
@@ -1791,6 +1879,8 @@ export interface AnnotationElementSelectionPayload {
   role?: string
   elementPath: string
   fullPath: string
+  /** Unique nth-of-type path — the selector to re-resolve this element by. */
+  uniqueSelector?: string
   cssClasses: string[]
   textPreview?: string
   nearbyText?: string
@@ -1832,10 +1922,9 @@ export interface RegionElementGroup {
 
 export interface AnnotationMetadata extends Record<string, unknown> {
   inspectContext?: AnnotationInspectContext
-  /** Human-readable page label, e.g. "iPad Mini 768×1024" */
+  /** Human-readable page label, e.g. "iPad Mini 768×1024". Display context
+   *  only — the page binding lives in `Annotation.pageAnchor`. */
   pageName?: string
-  /** Canonical page URL (hash removed) associated with the annotation anchor. */
-  pageUrl?: string
   /** Base64-encoded PNG screenshot of the selected region. */
   regionScreenshot?: string
   /** React components found in the selected region, grouped by page. */
@@ -1915,6 +2004,12 @@ export interface Annotation {
    *  like "Submit button" or "Hero CTA", displayed in the composer and thread.
    *  Canvas-point and region anchors leave this undefined. */
   elementName?: string
+  /** Present when the annotation is bound to a page's document (see
+   *  shared/page-anchor.ts) — the ONLY page-binding read. Written at
+   *  creation: element/page anchors from their anchor page; region anchors
+   *  iff the marquee grabbed page content; canvas points never. Annotations
+   *  without one are canvas-bound: they never hide and never travel. */
+  pageAnchor?: PageAnchor
   metadata?: AnnotationMetadata
 }
 
@@ -1924,6 +2019,10 @@ export interface AnnotationCreateRequest {
   text: string
   elementName?: string
   metadata?: AnnotationMetadata
+  /** Explicit page binding for a region anchor, decided by the caller (e.g.
+   *  region select binds geometrically: majority of the marquee over the page
+   *  body). When absent, region binding falls back to the grab rule. */
+  anchorPageId?: string
 }
 
 // --- Comment-tool page-paints contract (ADR 0006) ---
@@ -1961,6 +2060,42 @@ export interface AnnotationLiveBboxUpdate {
   pageId: string
   annotationId: string
   boundingBox: DevtoolsPanelDomRect | null
+}
+
+/** Element-attachment reflow tracking (ADR 0032). Main declares, per page, the
+ *  distinct DOM selectors that anchored items reference; the page resolves them
+ *  to document positions and reports back on reflow. Unlike the bbox
+ *  subscription this is a plain declaration (no per-item id) — items sharing a
+ *  selector share one subscription, and the position is keyed by selector. */
+export interface ElementAttachmentSubscriptions {
+  selectors: string[]
+}
+
+/** One resolved element document position (scroll-invariant): the element's
+ *  top-left in document space, matching the capture convention
+ *  (`rect.left + scrollX`, `rect.top + scrollY`). */
+export interface ElementAttachmentPosition {
+  selector: string
+  /** False when the selector no longer resolves. Main removes any cached live
+   * position so render correction falls back to stored geometry. */
+  resolved: false
+  docX?: never
+  docY?: never
+  viewportPositioned?: never
+}
+
+export interface ResolvedElementAttachmentPosition {
+  selector: string
+  resolved?: true
+  docX: number
+  docY: number
+  viewportPositioned?: boolean
+}
+
+/** Batched reflow report (page → main). Resolution loss is explicit so main
+ *  can discard stale correction while keeping the item itself visible. */
+export interface ElementAttachmentPositionsUpdate {
+  positions: Array<ElementAttachmentPosition | ResolvedElementAttachmentPosition>
 }
 
 // --- Electron API Interfaces ---

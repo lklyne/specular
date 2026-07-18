@@ -6,6 +6,8 @@ import { on } from './ipc-helpers'
 
 const api: LeftSidebarElectronAPI = {
   revealPage: (pageId) => ipcRenderer.send(ipcChannels.canvasRevealPage, { pageId }),
+  openAnnotationThread: (annotationId) =>
+    ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId }),
   revealEntity: (entityId, entityKind) =>
     ipcRenderer.send(ipcChannels.canvasRevealEntity, { entityId, entityKind }),
   deleteEntity: (entityId, entityKind) =>

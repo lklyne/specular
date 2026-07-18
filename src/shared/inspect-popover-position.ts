@@ -1,3 +1,4 @@
+import { pageViewportToScreen } from './page-space'
 import type {
   CanvasScenePageEntity,
   DevtoolsPanelDomRect,
@@ -35,20 +36,15 @@ export function inspectTargetScreenRect(
   return domRectToPageScreenRect(box, page)
 }
 
+// The inspect popover works in raw window coordinates — its caller applies
+// the overlay offset itself — so the transform runs with a zero canvas origin.
+const WINDOW_ORIGIN = { canvasOrigin: { x: 0, y: 0 } }
+
 export function domRectToPageScreenRect(
   rect: DevtoolsPanelDomRect,
   page: CanvasScenePageEntity,
 ): InspectOverlayRect {
-  const contentX = page.contentScreenX ?? page.screenX
-  const contentY = page.contentScreenY ?? page.screenY
-  const contentWidth = page.contentScreenWidth ?? page.screenWidth
-  const contentHeight = page.contentScreenHeight ?? page.screenHeight
-  const scaleX = page.width > 0 ? contentWidth / page.width : 1
-  const scaleY = page.height > 0 ? contentHeight / page.height : 1
-  const left = contentX + rect.x * scaleX
-  const top = contentY + rect.y * scaleY
-  const width = rect.width * scaleX
-  const height = rect.height * scaleY
+  const { left, top, width, height } = pageViewportToScreen(rect, page, WINDOW_ORIGIN)
   return {
     left,
     top,

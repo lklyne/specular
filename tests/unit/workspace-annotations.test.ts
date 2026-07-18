@@ -1,3 +1,17 @@
+/**
+ * Annotation store: creation-time `pageAnchor` derivation and the
+ * status/page/url query filters.
+ *
+ * Mutation-verified by:
+ * - removing the `...(pageAnchor ? { pageAnchor } : {})` spread in
+ *   `createAnnotationInternal` (workspace-annotations.ts) — every
+ *   "writes a pageAnchor" case fails;
+ * - hard-coding the region branch of `annotationAnchorPageId` to a page id
+ *   (anchoring regions regardless of grab) — the grab-less region case fails;
+ * - reading the structural `anchor.pageId` instead of `pageAnchor` in the
+ *   `getAnnotations` pageId filter — the legacy-record filter case fails.
+ */
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Annotation } from '../../src/shared/types'
 
@@ -14,8 +28,20 @@ vi.mock('../../src/main/runtime/workspace-model', () => ({
   workspaceAnnotations: mockAnnotations,
 }))
 
+// The docRect conversion is exercised end-to-end against the real runtime in
+// tests/integration/annotation-page-anchor.test.ts. Here we only need the
+// symbol to resolve without dragging in the electron-touching runtime; the
+// stub echoes the rect so a grabbed region still lands as a docRect variant.
+vi.mock('../../src/main/runtime/page-anchor-state', () => ({
+  canvasRectToPageDocRect: vi.fn((rect: unknown) => ({ ...(rect as object) })),
+}))
+
 vi.mock('../../src/main/runtime/page-runtime', () => ({
-  findPageById: vi.fn(),
+  findPageById: vi.fn((pageId: string) =>
+    pageId === 'page-live'
+      ? { id: 'page-live', url: 'https://example.com/pricing#hero', presetIndex: 0 }
+      : undefined,
+  ),
   getComponentAncestryByNodeId: vi.fn(() => []),
   getComponentSourceLocationByNodeId: vi.fn(),
 }))
@@ -92,15 +118,17 @@ describe('getAnnotations', () => {
     expect(getAnnotations({ status: 'all' })).toHaveLength(4)
   })
 
-  it('filters by pageId for page-anchored annotations', () => {
+  it('filters by pageId through the pageAnchor binding', () => {
     mockAnnotations.push(
       makeAnnotation({
-        anchor: { type: 'page', pageId: 'f1', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f1', offsetX: 0, offsetY: 0 },
+        pageAnchor: { pageId: 'f1' },
       }),
     )
     mockAnnotations.push(
       makeAnnotation({
-        anchor: { type: 'page', pageId: 'f2', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f2', offsetX: 0, offsetY: 0 },
+        pageAnchor: { pageId: 'f2' },
       }),
     )
     mockAnnotations.push(
@@ -111,33 +139,119 @@ describe('getAnnotations', () => {
 
     const result = getAnnotations({ pageId: 'f1' })
     expect(result).toHaveLength(1)
-    expect(result[0].anchor.type === 'page' && result[0].anchor.pageId).toBe('f1')
+    expect(result[0].pageAnchor?.pageId).toBe('f1')
   })
 
-  it('excludes canvas-anchored annotations when filtering by pageId', () => {
+  it('excludes canvas-bound annotations (no pageAnchor) from pageId and url filters', () => {
+    // Legacy-shaped record: structural page anchor but no pageAnchor field.
     mockAnnotations.push(
       makeAnnotation({
-        anchor: { type: 'canvas', canvasX: 0, canvasY: 0 },
+        anchor: { type: 'page', pageId: 'f1', offsetX: 0, offsetY: 0 },
+        metadata: { pageUrl: 'https://example.com/pricing' },
       }),
     )
     expect(getAnnotations({ pageId: 'f1' })).toHaveLength(0)
+    expect(getAnnotations({ url: 'https://example.com/pricing' })).toHaveLength(0)
+  })
+
+  it('filters by url through the pageAnchor binding, hash-insensitively', () => {
+    mockAnnotations.push(
+      makeAnnotation({
+        anchor: { type: 'page', pageId: 'f1', offsetX: 0, offsetY: 0 },
+        pageAnchor: { pageId: 'f1', pageUrl: 'https://example.com/pricing' },
+      }),
+    )
+    expect(getAnnotations({ url: 'https://example.com/pricing#faq' })).toHaveLength(1)
+    expect(getAnnotations({ url: 'https://example.com/about' })).toHaveLength(0)
   })
 
   it('combines status and pageId filters', () => {
     mockAnnotations.push(
       makeAnnotation({
         status: 'pending',
-        anchor: { type: 'page', pageId: 'f1', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f1', offsetX: 0, offsetY: 0 },
+        pageAnchor: { pageId: 'f1' },
       }),
     )
     mockAnnotations.push(
       makeAnnotation({
         status: 'resolved',
-        anchor: { type: 'page', pageId: 'f1', pageX: 0, pageY: 0 },
+        anchor: { type: 'page', pageId: 'f1', offsetX: 0, offsetY: 0 },
+        pageAnchor: { pageId: 'f1' },
       }),
     )
 
     expect(getAnnotations({ status: 'unresolved', pageId: 'f1' })).toHaveLength(1)
+  })
+})
+
+describe('createAnnotation pageAnchor derivation', () => {
+  beforeEach(() => {
+    mockAnnotations.length = 0
+  })
+
+  it('binds element and page anchors to their page with its canonical URL', () => {
+    const created = createAnnotation({
+      anchor: { type: 'page', pageId: 'page-live', offsetX: 0.5, offsetY: 0.5 },
+      text: 'page note',
+    })
+    // Hash stripped: the page mock shows .../pricing#hero.
+    expect(created.pageAnchor).toEqual({
+      pageId: 'page-live',
+      pageUrl: 'https://example.com/pricing',
+    })
+    expect(created.metadata?.pageUrl).toBeUndefined()
+  })
+
+  it('binds a region iff the marquee grabbed page content (first grabbing group wins)', () => {
+    // The region select emits a group per intersecting page even when its
+    // inner list is empty — the grab is a non-empty components/elements list,
+    // not group presence.
+    const grabbed = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
+      text: 'grabbed region',
+      metadata: {
+        regionComponents: [
+          { pageId: 'page-other', pageName: 'Other', components: [] },
+          { pageId: 'page-live', pageName: 'Live', components: [{ name: 'Hero', count: 1 }] },
+        ],
+      },
+    })
+    expect(grabbed.pageAnchor).toEqual({
+      pageId: 'page-live',
+      pageUrl: 'https://example.com/pricing',
+    })
+
+    const overlappedEmptyHanded = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
+      text: 'overlapped but empty-handed',
+      metadata: {
+        regionComponents: [{ pageId: 'page-live', pageName: 'Live', components: [] }],
+        regionElements: [{ pageId: 'page-live', pageName: 'Live', elements: [] }],
+      },
+    })
+    expect(overlappedEmptyHanded.pageAnchor).toBeUndefined()
+
+    const grabless = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 0, y: 0, width: 10, height: 10 } },
+      text: 'canvas region',
+      metadata: { regionComponents: [], regionElements: [] },
+    })
+    expect(grabless.pageAnchor).toBeUndefined()
+  })
+
+  it('never binds canvas points, and skips the anchor when the page is gone', () => {
+    const canvasPoint = createAnnotation({
+      anchor: { type: 'canvas', canvasX: 5, canvasY: 5 },
+      text: 'free note',
+    })
+    expect(canvasPoint.pageAnchor).toBeUndefined()
+
+    const orphan = createAnnotation({
+      anchor: { type: 'page', pageId: 'page-gone', offsetX: 0, offsetY: 0 },
+      text: 'orphan note',
+    })
+    expect(orphan.pageAnchor).toBeUndefined()
   })
 })
 

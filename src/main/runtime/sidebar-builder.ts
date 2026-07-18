@@ -5,23 +5,33 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { shapeDef } from '../../shared/shapes'
 import type {
+  Annotation,
   LeftSidebarData,
   LeftSidebarSections,
+  SidebarAnchoredEntityItem,
   SidebarCanvasItem,
   SidebarDrawingItem,
   SidebarFileItem,
+  SidebarPageChildItem,
   SidebarPageItem,
   SidebarShapeItem,
   SidebarTextItem,
   WorkspaceBounds,
   WorkspaceGroup,
 } from '../../shared/types'
+import { matchesPageUrl } from '../../shared/page-anchor'
+import { findAnchorableEntity } from './page-anchor-state'
+import { isUnresolved, truncate } from '../../shared/annotation-utils'
 import {
   findPageById,
   interactionState,
   pages,
 } from './runtime-context'
-import { activeWorkspaceTabId, workspaceGroups } from './workspace-model'
+import {
+  activeWorkspaceTabId,
+  workspaceAnnotations,
+  workspaceGroups,
+} from './workspace-model'
 import { leftSidebarView } from './view-refs'
 import {
   leftSidebarOpen as uiLeftSidebarOpen,
@@ -60,10 +70,11 @@ function entityOrderRank(): Map<string, number> {
   )
 }
 
-function sortSidebarItems(items: SortableSidebarItem[]): SidebarCanvasItem[] {
+/** Sort by stack rank (top of stack first) and strip the transient key. */
+function sortSidebarItems<T>(items: (T & { sortKey: number })[]): T[] {
   return items
     .sort((a, b) => b.sortKey - a.sortKey)
-    .map(({ sortKey: _sortKey, ...item }) => item)
+    .map(({ sortKey: _sortKey, ...item }) => item as T)
 }
 
 /**
@@ -91,10 +102,77 @@ function buildSidebarLeafItem(
   return { ...leaf, sortKey: ranks.get(entityId) ?? Number.MAX_SAFE_INTEGER }
 }
 
+/**
+ * Whether a leaf entity is hooked to an existing page (shared/page-anchor.ts)
+ * — it nests under that page in the sidebar instead of the root list.
+ * Grouped entities stay under their group.
+ */
+function anchoredPageIdFor(entityId: string): string | null {
+  const entity = findAnchorableEntity(entityId)
+  if (!entity || entity.parentGroupId) return null
+  const pageId = entity.pageAnchor?.pageId
+  if (!pageId) return null
+  return pages.some((page) => page.id === pageId) ? pageId : null
+}
+
+/**
+ * Content belonging to a page, projected as sidebar child rows (the page
+ * acts as a folder for content anchored to it): anchored canvas entities in
+ * stack order, then unresolved page-anchored annotations newest first. The
+ * binding read is `pageAnchor` for both — annotations without one are
+ * canvas-bound and stay out of the tree. `onCurrentPage` dims rows whose
+ * page has navigated away from the URL they were placed on.
+ */
+function sidebarPageChildren(
+  pageId: string,
+  currentPageUrl: string | undefined,
+  ranks: Map<string, number>,
+): SidebarPageChildItem[] {
+  const anchored: (SidebarAnchoredEntityItem & { sortKey: number })[] = []
+  for (const entity of sidebarLeafEntities()) {
+    if (anchoredPageIdFor(entity.id) !== pageId) continue
+    const leaf = describeSidebarLeaf(entity.id)
+    if (!leaf || leaf.kind === 'page') continue
+    const anchor = findAnchorableEntity(entity.id)?.pageAnchor
+    anchored.push({
+      ...leaf,
+      onCurrentPage: matchesPageUrl(anchor?.pageUrl, currentPageUrl),
+      sortKey: ranks.get(entity.id) ?? Number.MAX_SAFE_INTEGER,
+    })
+  }
+
+  const annotations = workspaceAnnotations
+    .filter(
+      (annotation) =>
+        isUnresolved(annotation.status) && annotation.pageAnchor?.pageId === pageId,
+    )
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map(
+      (annotation): SidebarPageChildItem => ({
+        kind: 'annotation',
+        id: annotation.id,
+        label: sidebarAnnotationLabel(annotation),
+        messageCount: 1 + annotation.replies.length,
+        onCurrentPage: matchesPageUrl(annotation.pageAnchor?.pageUrl, currentPageUrl),
+      }),
+    )
+
+  return [...sortSidebarItems(anchored), ...annotations]
+}
+
+function sidebarAnnotationLabel(annotation: Annotation): string {
+  const name = annotation.elementName?.trim()
+  if (name) return name
+  const text = annotation.text.trim()
+  if (text) return truncate(text, 60)
+  return 'Comment'
+}
+
 // The kind-specific projection, minus sort position (the caller stamps that).
 function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
   const page = findPageById(entityId)
   if (page) {
+    const children = sidebarPageChildren(entityId, page.url, entityOrderRank())
     return {
       kind: 'page',
       id: entityId,
@@ -102,6 +180,7 @@ function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
       faviconUrl: page.faviconUrl ?? null,
       width: page.peekWidth,
       height: page.peekHeight,
+      ...(children.length ? { children } : {}),
     }
   }
 
@@ -213,6 +292,8 @@ export function buildSidebarSections(): LeftSidebarSections {
   )
   const rootLeafItems = sidebarLeafEntities()
     .filter((entity) => !groupedEntityIds.has(entity.id))
+    // Page-anchored entities nest under their page row, not the root list.
+    .filter((entity) => anchoredPageIdFor(entity.id) === null)
     .map((entity) => buildSidebarLeafItem(entity.id, ranks))
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
 

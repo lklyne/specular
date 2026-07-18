@@ -7,11 +7,18 @@ import {
   ChevronRight,
   Folder,
   FolderOpen,
+  MessageSquare,
   PenLine,
   StickyNote,
 } from 'lucide-react'
 import { ShapeGlyph } from '../shared/ShapeGlyph'
-import type { SidebarCanvasItem, SidebarGroupItem, SidebarSectionKey } from '../../shared/types'
+import type {
+  SidebarAnnotationItem,
+  SidebarCanvasItem,
+  SidebarGroupItem,
+  SidebarPageItem,
+  SidebarSectionKey,
+} from '../../shared/types'
 import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-sidebar'
 import { iconForFilePath } from '../shared/fileIcon'
 import { PageListItem } from '../shared/pageListItem'
@@ -134,6 +141,131 @@ function EntityListItem({
         </Menu.Positioner>
       </Menu.Portal>
     </ContextMenu.Root>
+  )
+}
+
+function AnnotationListItem({
+  annotation,
+  depth,
+  isDark,
+  api,
+}: {
+  annotation: SidebarAnnotationItem
+  depth: number
+  isDark: boolean
+  api: LeftSidebarElectronAPI
+}) {
+  return (
+    <button
+      type="button"
+      className={`flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
+        isDark
+          ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
+          : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
+      } ${annotation.onCurrentPage ? '' : 'opacity-50'}`}
+      style={{
+        paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
+        paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
+      }}
+      onClick={() => api.openAnnotationThread(annotation.id)}
+      title={
+        annotation.onCurrentPage
+          ? annotation.label
+          : `${annotation.label} — page navigated away from this comment's URL`
+      }
+    >
+      <MessageSquare size={13} className="shrink-0 text-zinc-500" />
+      <span className="min-w-0 flex-1 truncate">{annotation.label}</span>
+      {annotation.messageCount > 1 ? (
+        <span className="ml-auto shrink-0 text-xs text-zinc-400">{annotation.messageCount}</span>
+      ) : null}
+    </button>
+  )
+}
+
+/**
+ * A page row that acts as a folder for content anchored to it: anchored
+ * canvas entities and annotations render as indented children behind a
+ * chevron, mirroring the group tree. Anchored rows dim when the page has
+ * navigated away from their anchor URL (their canvas visuals are hidden).
+ */
+function PageTreeItem({
+  page,
+  depth,
+  selectedEntityIds,
+  selectedGroupId,
+  isDark,
+  api,
+  section,
+}: {
+  page: SidebarPageItem
+  depth: number
+  selectedEntityIds: string[]
+  selectedGroupId: string | null
+  isDark: boolean
+  api: LeftSidebarElectronAPI
+  section: SidebarSectionKey
+}) {
+  const [expanded, setExpanded] = useState(true)
+  const children = page.children ?? []
+  const contentPaddingLeft =
+    LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP
+  const row = (
+    <PageListItem
+      page={page}
+      active={selectedEntityIds.includes(page.id)}
+      isDark={isDark}
+      contentPaddingLeft={contentPaddingLeft}
+      contentPaddingRight={LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING}
+      onClick={() => api.revealPage(page.id)}
+      onRename={(name) => api.renamePage(page.id, name)}
+      onDelete={() => api.deletePage(page.id)}
+    />
+  )
+  if (children.length === 0) return row
+
+  return (
+    <Collapsible.Root open={expanded} onOpenChange={setExpanded}>
+      <div className="relative">
+        {row}
+        <Collapsible.Trigger
+          className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-500"
+          style={{ left: contentPaddingLeft - 16 }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </Collapsible.Trigger>
+      </div>
+      <Collapsible.Panel>
+        {children.map((item) =>
+          item.kind === 'annotation' ? (
+            <AnnotationListItem
+              key={item.id}
+              annotation={item}
+              depth={depth + 1}
+              isDark={isDark}
+              api={api}
+            />
+          ) : (
+            <div
+              key={item.id}
+              className={item.onCurrentPage ? undefined : 'opacity-50'}
+              title={item.onCurrentPage ? undefined : 'Page navigated away from this item’s URL'}
+            >
+              <SidebarCanvasTreeItem
+                item={item}
+                depth={depth + 1}
+                selectedEntityIds={selectedEntityIds}
+                selectedGroupId={selectedGroupId}
+                isDark={isDark}
+                api={api}
+                section={section}
+              />
+            </div>
+          ),
+        )}
+      </Collapsible.Panel>
+    </Collapsible.Root>
   )
 }
 
@@ -313,15 +445,14 @@ function SidebarCanvasTreeItem({
   const isSelected = selectedEntityIds.includes(item.id)
   if (item.kind === 'page') {
     return (
-      <PageListItem
+      <PageTreeItem
         page={item}
-        active={isSelected}
+        depth={depth}
+        selectedEntityIds={selectedEntityIds}
+        selectedGroupId={selectedGroupId}
         isDark={isDark}
-        contentPaddingLeft={LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP}
-        contentPaddingRight={LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING}
-        onClick={() => api.revealPage(item.id)}
-        onRename={(name) => api.renamePage(item.id, name)}
-        onDelete={() => api.deletePage(item.id)}
+        api={api}
+        section={section}
       />
     )
   }

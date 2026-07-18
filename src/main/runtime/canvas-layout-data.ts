@@ -10,7 +10,6 @@
 import type {
   ActiveCanvasEntitySelection,
   AgentPresenceCursor,
-  Annotation,
   CanvasSceneEntity,
   CanvasScenePageEntity,
   FocusPresentationData,
@@ -21,6 +20,7 @@ import type {
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
+import { hiddenByPageAnchor } from './document-binding'
 import { selectAmbientMode } from '../../shared/presence-ambient'
 import { isUnresolved } from '../../shared/annotation-utils'
 import {
@@ -149,6 +149,11 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       contentScreenHeight: bounds.page.height,
       useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
       colorScheme: page.colorScheme,
+      scrollX: page.scrollX ?? 0,
+      scrollY: page.scrollY ?? 0,
+      ...(page.elementPositions?.size
+        ? { elementPositions: Object.fromEntries(page.elementPositions) }
+        : {}),
     }
   })
 }
@@ -170,44 +175,6 @@ export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
   }
 }
 
-
-function canonicalAnnotationUrl(value: string | undefined | null): string | null {
-  if (!value) return null
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  try {
-    const parsed = new URL(trimmed)
-    parsed.hash = ''
-    return parsed.toString()
-  } catch {
-    return trimmed
-  }
-}
-
-export function annotationsForPage(pageId: string): Annotation[] {
-  const page = findPageById(pageId)
-  const currentPageUrl = canonicalAnnotationUrl(page?.pageView.webContents.getURL() ?? null)
-  return workspaceAnnotations.filter((annotation) => {
-    if (!isUnresolved(annotation.status)) return false
-    if (annotation.anchor.type === 'canvas') return false
-    if (annotation.anchor.type === 'region') return false
-    if (annotation.anchor.pageId !== pageId) return false
-    const annotationPageUrl = canonicalAnnotationUrl(annotation.metadata?.pageUrl)
-    if (!annotationPageUrl || !currentPageUrl) return true
-    return annotationPageUrl === currentPageUrl
-  })
-}
-
-export function pageAnnotationsKey(annotations: Annotation[]): string {
-  return annotations
-    .map((annotation) => {
-      const repliesKey = annotation.replies
-        .map((reply) => [reply.author, reply.timestamp, reply.text].join('~'))
-        .join(',')
-      return [annotation.id, annotation.author, annotation.status, annotation.text, repliesKey].join(':')
-    })
-    .join('|')
-}
 
 export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
   if (aboveView) safeSend(aboveView.webContents, ipcChannels.layoutUpdate, payload)
@@ -343,7 +310,12 @@ export function buildCanvasLayoutData(
   const entities = [
     ...pages,
     ...leafSceneSources.flatMap(({ kind, source }) =>
-      source.map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
+      source
+        // Page-anchored entities belong to a specific document — while their
+        // page shows a different URL they leave the scene entirely (not
+        // rendered, not hit-testable). The sidebar still lists them, dimmed.
+        .filter((entity) => !hiddenByPageAnchor(entity))
+        .map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
     ),
     ...groupEntities,
   ] as CanvasSceneEntity[]
@@ -388,7 +360,13 @@ export function buildCanvasLayoutData(
     activeSelection,
     activeTool: tool,
     toolDefaults: getToolDefaults(),
-    annotations: [...workspaceAnnotations],
+    // Annotations bound to a page's document leave the broadcast while that
+    // page shows a different URL — the same gate the anchored entities above
+    // pass through. The right-details panel is unaffected: it reads full
+    // records from the inspect-session payload, not this one.
+    annotations: workspaceAnnotations.filter(
+      (annotation) => !hiddenByPageAnchor(annotation),
+    ),
     inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),
     selectedGroupId: uiSelectedGroupId(),

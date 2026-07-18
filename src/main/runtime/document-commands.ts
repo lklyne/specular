@@ -52,6 +52,10 @@ import {
 } from './group-entity-state'
 import { markDirty } from './layout-dirty'
 import { mutateWorkspace } from './mutate-workspace'
+import {
+  reanchorEntityById,
+  withPageAnchoredEntityIds,
+} from './page-anchor-state'
 import { pages } from './page-runtime'
 import {
   clearCustomPageSizeMetadata,
@@ -418,14 +422,21 @@ let nudgeGuideTimer: ReturnType<typeof setTimeout> | null = null
  * stay off-grid, and the grid-step nudge lands on-grid only if it started there.
  */
 export function nudgeSelection(dx: number, dy: number): void {
-  const entityIds = uiSelectedEntityIds()
-  if (!entityIds.length) return
+  const selectedIds = uiSelectedEntityIds()
+  if (!selectedIds.length) return
+  // Entities anchored to a nudged page travel with it; the directly-nudged
+  // entities re-resolve their anchor from where they land.
+  const entityIds = withPageAnchoredEntityIds(selectedIds)
 
   const moved = mutateWorkspace(
-    () => entityIds.filter((id) => {
-      const entity = findMovableEntity(id)
-      return entity ? moveEntityTo(id, entity.canvasX + dx, entity.canvasY + dy) : false
-    }),
+    () => {
+      const movedIds = entityIds.filter((id) => {
+        const entity = findMovableEntity(id)
+        return entity ? moveEntityTo(id, entity.canvasX + dx, entity.canvasY + dy) : false
+      })
+      for (const id of selectedIds) reanchorEntityById(id)
+      return movedIds
+    },
     { changed: (ids) => ids.length > 0 },
   )
   if (moved.length) flashNudgeGuides(moved)
@@ -526,6 +537,10 @@ export function previewDragGuides(
 }
 
 export function finalizeDrag(): void {
+  // Placement decides anchoring: entities dropped on a page hook to it,
+  // entities dragged off go free-form. Runs before the session finalizes so
+  // the anchor change lands in the drag's single undo step.
+  for (const id of dragAccumulatorById.keys()) reanchorEntityById(id)
   dragAccumulatorById.clear()
   activeDragCandidates = []
   activeDraggedGuideIds = []
@@ -720,7 +735,11 @@ export function createTextEntity(input: {
   height?: number
   id?: string
 }): TextEntity {
-  return mutateWorkspace(() => createTextEntityInState(input))
+  return mutateWorkspace(() => {
+    const entity = createTextEntityInState(input)
+    reanchorEntityById(entity.id)
+    return entity
+  })
 }
 
 export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id'>>): TextEntity | null {
@@ -769,7 +788,11 @@ export function createDrawingEntity(input: {
   strokes: AnnotationDrawingStroke[]
   id?: string
 }): DrawingEntity {
-  return mutateWorkspace(() => createDrawingEntityInState(input))
+  return mutateWorkspace(() => {
+    const entity = createDrawingEntityInState(input)
+    reanchorEntityById(entity.id)
+    return entity
+  })
 }
 
 export function updateDrawingEntity(
@@ -828,7 +851,11 @@ export function createShapeEntity(input: {
   textSize?: number
   id?: string
 }): ShapeEntity {
-  return mutateWorkspace(() => createShapeEntityInState(input))
+  return mutateWorkspace(() => {
+    const entity = createShapeEntityInState(input)
+    reanchorEntityById(entity.id)
+    return entity
+  })
 }
 
 export function updateShapeEntity(

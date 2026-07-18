@@ -5,6 +5,8 @@ import type {
   AppThemeMode,
   ConnectedRepo,
   DevtoolsPanelData,
+  ElementAttachmentPositionsUpdate,
+  ElementAttachmentSubscriptions,
   FixConfig,
   InteractionSyncCapturePayload,
   InteractionSyncEvent,
@@ -185,6 +187,8 @@ export interface IpcContract {
   'canvas-update-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-update-page-bounds': { dir: 'renderer→main'; payload: unknown }
   'canvas-zoom': { dir: 'renderer→main'; payload: unknown }
+  'capture-element-at-point': { dir: 'main→renderer'; payload: { requestId: string; docX: number; docY: number } }
+  'capture-element-at-point-response': { dir: 'renderer→main'; payload: { requestId: string; data: unknown } }
   'capture-mode': { dir: 'main→renderer'; payload: boolean }
   'comment-canvas-point-committed': { dir: 'main→renderer'; payload: { canvasX: number; canvasY: number } }
   'comment-overlay-set-active': { dir: 'renderer→main'; payload: unknown }
@@ -214,6 +218,8 @@ export interface IpcContract {
   'devtools-resize-start': { dir: 'renderer→main'; payload: unknown }
   'dispatch-scroll': { dir: 'main→renderer'; payload: unknown }
   'dispatch-scroll-result': { dir: 'renderer→main'; payload: unknown }
+  'element-attachment-positions': { dir: 'renderer→main'; payload: ElementAttachmentPositionsUpdate }
+  'element-attachment-subscriptions': { dir: 'main→renderer'; payload: ElementAttachmentSubscriptions }
   'fix-progress-update': { dir: 'main→renderer'; payload: LayoutUpdateData['fixProgress'] }
   'get-canvas-layout-bootstrap': { dir: 'invoke'; payload: unknown }
   'get-floating-ui-bootstrap': { dir: 'renderer→main'; payload: unknown }
@@ -235,10 +241,11 @@ export interface IpcContract {
   'onboarding:refresh-status': { dir: 'renderer→main'; payload: unknown }
   'override-props': { dir: 'main→renderer'; payload: unknown }
   'override-token': { dir: 'main→renderer'; payload: unknown }
-  'page-annotations-update': { dir: 'main→renderer'; payload: unknown }
   'page-deselect': { dir: 'renderer→main'; payload: unknown }
   'page-hover': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-changed': { dir: 'renderer→main'; payload: unknown }
+  'page-scroll-live': { dir: 'main→renderer'; payload: { pageId: string; scrollX: number; scrollY: number } }
+  'page-scroll-offset': { dir: 'renderer→main'; payload: { scrollX: number; scrollY: number; scrollHeight: number } }
   'peek-resize-end': { dir: 'renderer→main'; payload: unknown }
   'peek-resize-move': { dir: 'renderer→main'; payload: unknown }
   'peek-resize-start': { dir: 'renderer→main'; payload: unknown }
@@ -489,6 +496,8 @@ export const ipcChannels = {
   canvasUpdateEntity: 'canvas-update-entity',
   canvasUpdatePageBounds: 'canvas-update-page-bounds',
   canvasZoom: 'canvas-zoom',
+  captureElementAtPoint: 'capture-element-at-point',
+  captureElementAtPointResponse: 'capture-element-at-point-response',
   captureMode: 'capture-mode',
   commentCanvasPointCommitted: 'comment-canvas-point-committed',
   commentOverlaySetActive: 'comment-overlay-set-active',
@@ -517,6 +526,8 @@ export const ipcChannels = {
   devtoolsResizeStart: 'devtools-resize-start',
   dispatchScroll: 'dispatch-scroll',
   dispatchScrollResult: 'dispatch-scroll-result',
+  elementAttachmentPositions: 'element-attachment-positions',
+  elementAttachmentSubscriptions: 'element-attachment-subscriptions',
   fixProgressUpdate: 'fix-progress-update',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',
@@ -538,9 +549,10 @@ export const ipcChannels = {
   onboardingRefreshStatus: 'onboarding:refresh-status',
   overrideProps: 'override-props',
   overrideToken: 'override-token',
-  pageAnnotationsUpdate: 'page-annotations-update',
   pageDeselect: 'page-deselect',
   pageScrollChanged: 'page-scroll-changed',
+  pageScrollLive: 'page-scroll-live',
+  pageScrollOffset: 'page-scroll-offset',
   peekResizeEnd: 'peek-resize-end',
   peekResizeMove: 'peek-resize-move',
   peekResizeStart: 'peek-resize-start',

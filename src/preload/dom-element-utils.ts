@@ -92,6 +92,33 @@ export function buildElementPath(element: Element, maxDepth: number): string {
   return segments.join(' > ')
 }
 
+/**
+ * A selector that resolves back to *this* element, not merely one shaped like
+ * it. `buildElementPath` is a readable 4-deep class path — on a grid or list
+ * it matches every sibling card, so re-resolving it lands on the first match.
+ * Anything that re-finds an element later (annotation anchors) needs this
+ * instead: an nth-of-type chain to the root, unique by construction.
+ */
+export function buildUniqueSelector(element: Element): string {
+  const segments: string[] = []
+  let current: Element | null = element
+  while (current && current.parentElement) {
+    const tag = current.tagName.toLowerCase()
+    const id = current.getAttribute('id')
+    if (id && current.ownerDocument.querySelectorAll(`#${CSS.escape(id)}`).length === 1) {
+      segments.unshift(`#${CSS.escape(id)}`)
+      return segments.join(' > ')
+    }
+    const twins = [...current.parentElement.children].filter(
+      (sibling) => sibling.tagName === current!.tagName,
+    )
+    segments.unshift(twins.length > 1 ? `${tag}:nth-of-type(${twins.indexOf(current) + 1})` : tag)
+    current = current.parentElement
+  }
+  if (current) segments.unshift(current.tagName.toLowerCase())
+  return segments.join(' > ')
+}
+
 function nearbyElements(element: Element): string[] {
   return [...(element.parentElement?.children ?? [])]
     .filter((candidate) => candidate !== element)
@@ -198,6 +225,7 @@ export function inspectionPayload(element: Element) {
     role: element.getAttribute('role') ?? undefined,
     elementPath: buildElementPath(element, 4),
     fullPath: buildElementPath(element, 10),
+    uniqueSelector: buildUniqueSelector(element),
     cssClasses: elementClasses(element),
     textPreview: compactText(element.textContent, 160),
     nearbyText: nearbyText(element),

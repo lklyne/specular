@@ -1,37 +1,27 @@
 import type {
   Annotation,
+  AnnotationAnchor,
   AnnotationCreateRequest,
   AnnotationMetadata,
   AnnotationReply,
   AnnotationStatus,
   AnnotationStatusFilter,
 } from '../shared/types'
-import { isUnresolved } from '../shared/annotation-utils'
+import { canonicalAnnotationUrl, isUnresolved } from '../shared/annotation-utils'
+import type { PageAnchor } from '../shared/page-anchor'
 import {
   findPageById,
   getComponentAncestryByNodeId,
   getComponentSourceLocationByNodeId,
 } from './runtime/page-runtime'
+import { canvasRectToPageDocRect } from './runtime/page-anchor-state'
+import { captureElementForAnnotation } from './runtime/element-attachment-capture'
 import { markDirty } from './runtime/layout-dirty'
 import { mutateWorkspace } from './runtime/mutate-workspace'
-import { requestLayout } from './runtime/viewport-control'
 import { workspaceAnnotations } from './runtime/workspace-model'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { makeId } from './workspace-utils'
 import { VIEWPORT_PRESETS } from '../shared/constants'
-
-function canonicalAnnotationUrl(value: string | undefined | null): string | undefined {
-  if (!value) return undefined
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  try {
-    const parsed = new URL(trimmed)
-    parsed.hash = ''
-    return parsed.toString()
-  } catch {
-    return trimmed
-  }
-}
 
 function resolvePageName(pageId: string): string | undefined {
   const page = findPageById(pageId)
@@ -42,71 +32,98 @@ function resolvePageName(pageId: string): string | undefined {
   return `${label} ${preset.width}×${preset.height}`
 }
 
-function resolvePageUrl(pageId: string): string | undefined {
+/**
+ * The page an annotation binds to, decided at creation. Element and page
+ * anchors name their page structurally. A region binds to the request's
+ * explicit `anchorPageId` when the caller set one; otherwise iff its marquee
+ * grabbed page content — some `regionComponents`/`regionElements` group has a
+ * non-empty inner list (the region select emits a group per *intersecting*
+ * page even when nothing was grabbed, so group presence alone is not a grab);
+ * the first grabbing group is the page that contributed it. Canvas points
+ * never bind.
+ */
+function annotationAnchorPageId(request: AnnotationCreateRequest): string | undefined {
+  const anchor = request.anchor
+  if (anchor.type === 'page' || anchor.type === 'element') return anchor.pageId
+  if (anchor.type === 'region') {
+    // Callers that can judge geometry (region select) bind explicitly; the
+    // grab rule remains the fallback for creation paths that only carry
+    // element metadata.
+    if (request.anchorPageId) return request.anchorPageId
+    const grabbed =
+      request.metadata?.regionComponents?.find((group) => group.components.length > 0) ??
+      request.metadata?.regionElements?.find((group) => group.elements.length > 0)
+    return grabbed?.pageId
+  }
+  return undefined
+}
+
+/**
+ * The anchor to store, given the page (if any) a region grabbed. A grabbed
+ * region's canvas rect is converted to the page's document space so it
+ * scroll-follows and travels with the page without any per-move bookkeeping;
+ * `pageAnchor.pageId` (the same `anchorPageId`) is the page the docRect is
+ * relative to, so docRect and pageAnchor are written together and cannot
+ * diverge. Every other anchor (canvas-anchored region, element, page, canvas)
+ * passes through unchanged.
+ */
+function anchoredRequestAnchor(
+  anchor: AnnotationAnchor,
+  anchorPageId: string | undefined,
+): AnnotationAnchor {
+  if (anchor.type !== 'region' || !('canvasRect' in anchor) || !anchorPageId) {
+    return anchor
+  }
+  const docRect = canvasRectToPageDocRect(anchor.canvasRect, anchorPageId)
+  return docRect ? { type: 'region', docRect } : anchor
+}
+
+/** The anchor for a live page: its id plus the document URL it shows now. */
+function pageAnchorForPage(pageId: string): PageAnchor | undefined {
   const page = findPageById(pageId)
   if (!page) return undefined
-  return canonicalAnnotationUrl(page.pageView.webContents.getURL())
+  const pageUrl = canonicalAnnotationUrl(page.url)
+  return { pageId, ...(pageUrl ? { pageUrl } : {}) }
 }
 
-function regionPrimaryPageId(
+/** Display context: a human-readable page label for panel and prompt copy.
+ *  The page *binding* lives in `Annotation.pageAnchor`, not in metadata. */
+function withPageNameMetadata(
   metadata: AnnotationMetadata | undefined,
-): string | undefined {
-  return (
-    metadata?.regionComponents?.[0]?.pageId ??
-    metadata?.regionElements?.[0]?.pageId
-  )
+  pageId: string | undefined,
+): AnnotationMetadata | undefined {
+  const pageName = pageId ? resolvePageName(pageId) : undefined
+  if (!pageName) return metadata
+  return { ...(metadata ?? {}), pageName }
 }
 
-function enrichedAnnotationMetadata(
+/** Element anchors: resolve React component ancestry and source location for
+ *  the inspected node from the page's cached component tree. */
+function withInspectEnrichment(
   request: AnnotationCreateRequest,
+  metadata: AnnotationMetadata | undefined,
 ): AnnotationMetadata | undefined {
-  const anchor = request.anchor
-  const contextPageId =
-    anchor.type === 'page' || anchor.type === 'element'
-      ? anchor.pageId
-      : anchor.type === 'region'
-        ? regionPrimaryPageId(request.metadata)
-        : undefined
-  const pageName = contextPageId ? resolvePageName(contextPageId) : undefined
-  const pageUrl = contextPageId ? resolvePageUrl(contextPageId) : undefined
-
-  const metadata = request.metadata ? { ...request.metadata } : undefined
-  const metadataWithContext: AnnotationMetadata = {
-    ...(metadata ?? {}),
-    ...(pageName ? { pageName } : {}),
-    ...(pageUrl ? { pageUrl } : {}),
-  }
-
-  // For non-element anchors, just attach pageName if available
-  if (anchor.type !== 'element') {
-    return Object.keys(metadataWithContext).length ? metadataWithContext : undefined
-  }
-
-  const inspectContext = metadataWithContext.inspectContext
-  if (!inspectContext?.nodeId) {
-    return Object.keys(metadataWithContext).length ? metadataWithContext : undefined
-  }
+  if (request.anchor.type !== 'element') return metadata
+  const inspectContext = metadata?.inspectContext
+  if (!inspectContext?.nodeId) return metadata
 
   const reactComponents = getComponentAncestryByNodeId(
-    anchor.pageId,
+    request.anchor.pageId,
     inspectContext.nodeId,
   )
   const sourceLocation = getComponentSourceLocationByNodeId(
-    anchor.pageId,
+    request.anchor.pageId,
     inspectContext.nodeId,
   )
+  if (!reactComponents.length && !sourceLocation) return metadata
 
   return {
-    ...metadataWithContext,
-    ...((reactComponents.length || sourceLocation)
-      ? {
-          inspectContext: {
-            ...inspectContext,
-            ...(reactComponents.length ? { reactComponents } : {}),
-            ...(sourceLocation ? { sourceLocation } : {}),
-          },
-        }
-      : {}),
+    ...metadata,
+    inspectContext: {
+      ...inspectContext,
+      ...(reactComponents.length ? { reactComponents } : {}),
+      ...(sourceLocation ? { sourceLocation } : {}),
+    },
   }
 }
 
@@ -124,19 +141,13 @@ export function getAnnotations(filters?: {
         return false
       }
     }
-    if (filters?.pageId) {
-      if (annotation.anchor.type === 'canvas') return false
-      if (annotation.anchor.type === 'region') {
-        const match = annotation.metadata?.regionComponents?.some(
-          (g) => g.pageId === filters.pageId,
-        ) ?? false
-        if (!match) return false
-      } else if (annotation.anchor.pageId !== filters.pageId) {
-        return false
-      }
+    // Page binding reads `pageAnchor` only — annotations without one are
+    // canvas-bound and match no page/url filter.
+    if (filters?.pageId && annotation.pageAnchor?.pageId !== filters.pageId) {
+      return false
     }
     if (targetUrl) {
-      const annotationUrl = canonicalAnnotationUrl(annotation.metadata?.pageUrl)
+      const annotationUrl = canonicalAnnotationUrl(annotation.pageAnchor?.pageUrl)
       if (!annotationUrl || annotationUrl !== targetUrl) return false
     }
     return true
@@ -174,18 +185,39 @@ function createAnnotationInternal(request: AnnotationCreateRequest): Annotation 
     request.anchor.type === 'element'
       ? request.elementName?.trim() || undefined
       : undefined
+  const anchorPageId = annotationAnchorPageId(request)
+  const pageAnchor = anchorPageId ? pageAnchorForPage(anchorPageId) : undefined
+  // Grab decision and the docRect conversion are co-located so a region can
+  // never end up page-anchored-with-canvasRect (or the reverse): a grabbed
+  // region (anchorPageId set) stores its rect page-relative; every other
+  // region keeps the incoming canvasRect. This is the one gate all creation
+  // paths (region-select UI, MCP, HTTP, tests) pass through.
+  const anchor = anchoredRequestAnchor(request.anchor, anchorPageId)
+  const metadata = withInspectEnrichment(
+    request,
+    withPageNameMetadata(
+      request.metadata ? { ...request.metadata } : undefined,
+      anchorPageId,
+    ),
+  )
   const annotation: Annotation = {
     id: makeId('ann'),
-    anchor: request.anchor,
+    anchor,
     author: request.author ?? 'user',
     text: request.text,
     status: 'pending',
     replies: [],
     createdAt: new Date().toISOString(),
     ...(elementName ? { elementName } : {}),
-    metadata: enrichedAnnotationMetadata(request),
+    ...(pageAnchor ? { pageAnchor } : {}),
+    metadata: metadata && Object.keys(metadata).length ? metadata : undefined,
   }
   workspaceAnnotations.push(annotation)
+  markDirty('sidebar')
+  // A page-anchored region tracks the element under its center through page
+  // reflow (ADR 0032). Fire-and-forget, once at creation — a region's binding
+  // is written once, so it never re-captures. No-op for every other anchor.
+  captureElementForAnnotation(annotation.id)
   if (onAnnotationCreatedListener) {
     try {
       onAnnotationCreatedListener(annotation)
@@ -206,6 +238,7 @@ export function updateAnnotationStatus(
     const annotation = workspaceAnnotations.find((a) => a.id === id)
     if (!annotation) return null
     annotation.status = status
+    markDirty('sidebar')
     const metadataPatch: AnnotationMetadata = { ...annotation.metadata }
     if (reason) {
       metadataPatch.dismissReason = reason
@@ -243,6 +276,7 @@ export function addAnnotationReply(
     if (!annotation) return null
     const reply: AnnotationReply = { author, text, timestamp: new Date().toISOString() }
     annotation.replies = [...annotation.replies, reply]
+    markDirty('sidebar')
     if (author === 'user' && annotation.status === 'resolved') {
       updateAnnotationStatus(id, 'pending')
     }
@@ -262,6 +296,7 @@ export function deleteAnnotation(id: string): boolean {
     const idx = workspaceAnnotations.findIndex((a) => a.id === id)
     if (idx === -1) return false
     workspaceAnnotations.splice(idx, 1)
+    markDirty('sidebar')
     return true
   }, { changed: (deleted) => deleted })
 }

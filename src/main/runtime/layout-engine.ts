@@ -69,8 +69,6 @@ import {
   sendAnnotationLayoutUpdate,
   toolbarSelectionData,
   notifyLeftSidebarData,
-  annotationsForPage,
-  pageAnnotationsKey,
 } from './canvas-layout-data'
 import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
@@ -496,14 +494,6 @@ function layoutAllViews(): void {
       page.lastSelected = themeKey
     }
 
-    const pageAnnotations = annotationsForPage(page.id)
-    const nextPageAnnotationsKey = pageAnnotationsKey(pageAnnotations)
-    if (nextPageAnnotationsKey !== page.lastPageAnnotationsKey) {
-      page.pageView.webContents.send(ipcChannels.pageAnnotationsUpdate, {
-        annotations: pageAnnotations,
-      })
-      page.lastPageAnnotationsKey = nextPageAnnotationsKey
-    }
     devtoolsPanelDebug('layout:page', {
       pageId: page.id,
       durationMs: Date.now() - pageStart,

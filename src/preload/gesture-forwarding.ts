@@ -4,8 +4,6 @@ import { ipcRenderer } from 'electron'
 
 const PAGE_OVERLAY_ROOT_SELECTORS = [
   '[data-overlay-ui]',
-  '#__canvas-comment-badges-layer',
-  '#__canvas-comment-hover-summary',
   '#__canvas-comment-preview-layer',
   '#__canvas-blocking-overlay',
   '#__canvas-resize-handle',

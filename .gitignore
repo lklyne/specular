@@ -45,3 +45,6 @@ harness/
 # upstream 'core' skill vendored at the same tag)
 resources/bin/agent-browser
 resources/skills/core/
+
+# Generated local dev/runtime artifacts
+.dev/

@@ -27,7 +27,7 @@ export function useElementCommentDraft({
       anchor: {
         type: 'element',
         pageId: activeDetail.pageId,
-        selector: activeDetail.fullPath || activeDetail.elementPath,
+        selector: activeDetail.uniqueSelector || activeDetail.fullPath || activeDetail.elementPath,
         elementPath: activeDetail.elementPath,
         boundingBox: activeDetail.boundingBox,
       },
@@ -35,7 +35,6 @@ export function useElementCommentDraft({
       text,
       metadata: {
         pageName: selection?.viewportLabel,
-        pageUrl: selection?.url,
         inspectContext: {
           pageId: activeDetail.pageId,
           nodeId: activeDetail.nodeId,

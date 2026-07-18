@@ -30,6 +30,8 @@ import { normalizePresetIndex } from './runtime-serialization'
 import type { Page } from './runtime-entities'
 import { pageOverridesFromMetadata } from './runtime-entities'
 import { markDirty } from './layout-dirty'
+import { clearPageAnchorsForPage } from './page-anchor-state'
+import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
 import { endFocusSession, focusSession } from './focus-session'
 import {
@@ -40,7 +42,6 @@ import {
 import { clearPendingRequestsForPage } from './page-ipc'
 import { sendInteractiveState } from './overlay-manager'
 import { broadcastCanvasZoomToPages } from './viewport-control'
-import { annotationsForPage } from './canvas-layout-data'
 import { invalidateAgentSnapshot } from './agent-snapshot-cache'
 import {
   isNavigationSuppressed,
@@ -127,6 +128,9 @@ export function createPage(config: PageConfig): Page {
       suppressNavigationBroadcastUntil: 0,
       suppressNextScrollBroadcastUntil: 0,
     },
+    scrollX: 0,
+    scrollY: 0,
+    scrollHeight: 0,
     navGeneration: 0,
   }
   pages.push(page)
@@ -145,6 +149,7 @@ export function createPage(config: PageConfig): Page {
   })
   page.pageView.webContents.on('did-start-loading', () => {
     selectionDebug('page:did-start-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
+    page.isLoading = true
     page.crashedAt = undefined
     page.crashReason = undefined
     requestLayout()
@@ -165,6 +170,8 @@ export function createPage(config: PageConfig): Page {
   })
   page.pageView.webContents.on('did-stop-loading', () => {
     selectionDebug('page:did-stop-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
+    page.isLoading = false
+    markDirty('canvas', 'sidebar')
     requestLayout()
   })
   page.pageView.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
@@ -202,8 +209,10 @@ export function createPage(config: PageConfig): Page {
       page.pageView.webContents.send(ipcChannels.queryFavicon)
     }
     invalidateAgentSnapshot(page.id)
+    // A finished load starts the page preload with no subscriptions; re-declare
+    // the selectors this page's anchored items track (ADR 0032).
+    resetAttachmentSubscriptionsForPage(page.id)
     page.lastPageEmulationKey = undefined
-    page.lastPageAnnotationsKey = undefined
     page.lastSafeAreaCssKey = undefined
     page.lastSafeAreaCssId = undefined
     if (isSelectedPage(page)) clearInspectTargets()
@@ -216,9 +225,6 @@ export function createPage(config: PageConfig): Page {
     if (overrides) {
       page.pageView.webContents.send(ipcChannels.applyPageOverrides, overrides)
     }
-    page.pageView.webContents.send(ipcChannels.pageAnnotationsUpdate, {
-      annotations: annotationsForPage(page.id),
-    })
   })
   // Per-page generation counter for D8 (issue #318): a full navigation
   // typically fires both dom-ready and did-navigate, but the staleness
@@ -230,6 +236,18 @@ export function createPage(config: PageConfig): Page {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
+    // The new document starts unscrolled; keeping the old document's offset
+    // would shift every page-anchored region until the first scroll event.
+    page.scrollX = 0
+    page.scrollY = 0
+    page.scrollHeight = 0
+    // The new document dropped the old preload's subscriptions and its element
+    // positions no longer apply — re-declare and clear (ADR 0032).
+    page.elementPositions = undefined
+    resetAttachmentSubscriptionsForPage(page.id)
+    // Annotation visibility and the sidebar's page children key off the
+    // page's current URL, so a navigation must re-send both payloads.
+    markDirty('canvas', 'sidebar')
     page.navGeneration += 1
     requestLayout()
     invalidateAgentSnapshot(page.id)
@@ -245,6 +263,7 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
     selectionDebug('page:did-navigate-in-page', { pageId: page.id, url, isMainFrame })
     if (isMainFrame) page.url = url
+    if (isMainFrame) markDirty('canvas', 'sidebar')
     if (isMainFrame) requestLayout()
     if (isMainFrame) invalidateAgentSnapshot(page.id)
     if (isSelectedPage(page)) clearInspectTargets()
@@ -336,6 +355,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // focus() call lands at the end of the next layout pass via reconcileFocus.
   setPendingFocus({ kind: 'aboveView' })
   pages.splice(idx, 1)
+  clearPageAnchorsForPage(page.id)
   markDirty('canvas', 'sidebar', 'toolbar')
   invalidateAgentSnapshot(page.id)
   const previousSelectedIndex = uiSelectedPageIndex(pages.map((p) => p.id))

@@ -5,8 +5,10 @@ import type {
   ShapeBorderStyle,
   ShapeKind,
 } from '../../shared/types'
+import type { PageAnchor } from '../../shared/page-anchor'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
+import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface ShapeEntity {
   id: string
@@ -24,6 +26,7 @@ export interface ShapeEntity {
   width: number
   height: number
   parentGroupId?: string
+  pageAnchor?: PageAnchor
   label?: string
 }
 
@@ -55,6 +58,7 @@ export function createShapeEntity(input: {
   theme?: string
   id?: string
   parentGroupId?: string
+  pageAnchor?: PageAnchor
   label?: string
 }): ShapeEntity {
   const shapeKind = input.shapeKind ?? 'rectangle'
@@ -74,6 +78,7 @@ export function createShapeEntity(input: {
     width: input.width ?? fallback.width,
     height: input.height ?? fallback.height,
     parentGroupId: input.parentGroupId,
+    pageAnchor: input.pageAnchor,
     label: input.label,
   }
   shapeEntities.push(entity)
@@ -89,7 +94,7 @@ export function updateShapeEntity(
   if (!entity) return null
   applyPatch(entity, patch, [
     'shapeKind', 'text', 'strokeWidth', 'borderStyle', 'textSize',
-    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
+    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId', 'pageAnchor',
   ])
   if (patch.color !== undefined) entity.color = patch.color || undefined
   if (patch.borderColor !== undefined) entity.borderColor = patch.borderColor || undefined
@@ -130,6 +135,7 @@ function shapeCoreFields(entity: ShapeEntity) {
     width: entity.width,
     height: entity.height,
     parentGroupId: entity.parentGroupId,
+    pageAnchor: entity.pageAnchor,
   }
 }
 
@@ -139,10 +145,21 @@ export function buildShapeEntitySceneEntity(
   pan: { x: number; y: number },
   canvasOrigin: { x: number; y: number },
 ): CanvasSceneShapeEntity {
+  // Scroll- and element-follow: the scene projects the *apparent* position —
+  // stored canvas coords shifted by how far the anchor page has scrolled and
+  // how far its reference element has moved since the anchor was written. The
+  // stored coords stay untouched (both shifts are ephemeral; see
+  // rebaseAnchorScroll in page-anchor-state.ts for when they're folded).
+  const scroll = pageAnchorScrollShift(entity.pageAnchor)
+  const element = pageAnchorElementShift(entity.pageAnchor)
+  const canvasX = entity.canvasX - scroll.x - element.x
+  const canvasY = entity.canvasY - scroll.y - element.y
   return {
     ...shapeCoreFields(entity),
-    screenX: canvasOrigin.x + entity.canvasX * zoom + pan.x,
-    screenY: canvasOrigin.y + entity.canvasY * zoom + pan.y,
+    canvasX,
+    canvasY,
+    screenX: canvasOrigin.x + canvasX * zoom + pan.x,
+    screenY: canvasOrigin.y + canvasY * zoom + pan.y,
     screenWidth: entity.width * zoom,
     screenHeight: entity.height * zoom,
   }
@@ -170,6 +187,7 @@ const SHAPE_ENTITY_PERSISTED_FIELD_SET = {
   width: true,
   height: true,
   parentGroupId: true,
+  pageAnchor: true,
   label: true,
 } as const satisfies Record<keyof PersistedShapeEntity, true>
 

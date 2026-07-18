@@ -152,6 +152,32 @@ Freehand drawings/annotations stored in an `annotations` array:
 }
 ```
 
+#### Comment anchors
+
+Comment annotations carry an `anchor` (discriminated by `anchor.type`) and,
+when page-bound, a `pageAnchor { pageId, pageUrl? }` (see ADR 0031). The
+anchor variants:
+
+```json
+{ "type": "canvas", "canvasX": 100, "canvasY": 200 }
+{ "type": "page", "pageId": "p1", "offsetX": 0.5, "offsetY": 0.25 }
+{ "type": "element", "pageId": "p1", "selector": "…", "boundingBox": { … } }
+{ "type": "region", "canvasRect": { "x": 0, "y": 0, "width": 80, "height": 60 } }
+{ "type": "region", "docRect":   { "x": 20, "y": 20, "width": 80, "height": 60 } }
+```
+
+**Region anchors have two arms**, distinguished by which rect field is present:
+
+- `canvasRect` — a **canvas-anchored** region (its marquee grabbed no page
+  content). The rect is in canvas coordinates; it marks canvas space and never
+  moves with a page.
+- `docRect` — a **page-anchored** region (its marquee grabbed page content).
+  The rect is in the *document* CSS pixels of the page named by `pageAnchor`,
+  so the region scroll-follows and travels with the page (rendered through the
+  scroll-aware transform). Read `docRect` iff the field is present; a region
+  with only `canvasRect` — including every file written before scroll
+  tracking — is canvas-anchored, with no migration.
+
 ## workspace-meta.json
 
 Metadata about the canvas tabs within a space:

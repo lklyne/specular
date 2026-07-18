@@ -63,6 +63,57 @@ describe('persist projections match the declared persisted field lists', () => {
     expect(keysOf(persistTextEntity(entity))).toEqual([...TEXT_ENTITY_PERSISTED_FIELDS].sort())
   })
 
+  // ADR 0032: `pageAnchor.element` is opaque to these projections — they
+  // copy `entity.pageAnchor` as one field, never reconstructing it key by
+  // key — so a fresh nested field survives without any projection change.
+  // Mutation-verified by rebuilding `pageAnchor` field-by-field (dropping
+  // `element`) in `persistTextEntity`/`persistDrawingEntity`/
+  // `persistShapeEntity` — each assertion below then fails.
+  it('pageAnchor.element survives persistTextEntity/persistDrawingEntity/persistShapeEntity untouched', () => {
+    const pageAnchor: TextEntity['pageAnchor'] = {
+      pageId: 'page1',
+      pageUrl: 'http://localhost:3000/',
+      element: { selector: '#hero', docX: 12, docY: 34 },
+    }
+
+    const text: TextEntity = {
+      id: 't2',
+      text: 'hello',
+      color: '#FFE18E',
+      textStyle: 'sticky',
+      widthMode: 'fixed',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 200,
+      pageAnchor,
+    }
+    expect(persistTextEntity(text).pageAnchor).toEqual(pageAnchor)
+
+    const drawing: DrawingEntity = {
+      id: 'd2',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 200,
+      strokes: [],
+      pageAnchor,
+    }
+    expect(persistDrawingEntity(drawing).pageAnchor).toEqual(pageAnchor)
+
+    const shape: ShapeEntity = {
+      id: 's2',
+      shapeKind: 'rectangle',
+      text: '',
+      canvasX: 0,
+      canvasY: 0,
+      width: 200,
+      height: 120,
+      pageAnchor,
+    }
+    expect(persistShapeEntity(shape).pageAnchor).toEqual(pageAnchor)
+  })
+
   it('file', () => {
     const entity: FileEntity = {
       id: 'f1',

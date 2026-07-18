@@ -250,6 +250,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             width: (entity as any).width,
             height: (entity as any).height,
             parentGroupId: (entity as any).parentGroupId,
+            pageAnchor: (entity as any).pageAnchor,
           })
         } else if (entity?.kind === 'file') {
           createFileEntityInState({
@@ -274,6 +275,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             height: (entity as any).height,
             strokes: (entity as any).strokes ?? [],
             parentGroupId: (entity as any).parentGroupId,
+            pageAnchor: (entity as any).pageAnchor,
           })
         } else if (entity?.kind === 'shape') {
           createShapeEntityInState({
@@ -289,6 +291,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             textSize: (entity as any).textSize,
             theme: (entity as any).theme,
             parentGroupId: (entity as any).parentGroupId,
+            pageAnchor: (entity as any).pageAnchor,
             label: (entity as any).label,
           })
         }

@@ -1,4 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// prompt-builder reads a region's current canvas rect via regionCanvasRect,
+// which lives in the electron-touching runtime. Stub it so this pure
+// prompt-shaping test stays Electron-free; region coordinates are covered by
+// the integration suite.
+vi.mock('../../src/main/runtime/page-anchor-state', () => ({
+  regionCanvasRect: vi.fn((annotation: { anchor?: { canvasRect?: unknown } }) =>
+    annotation.anchor?.canvasRect ?? null,
+  ),
+}))
+
 import { buildFixPrompt } from '../../src/main/agent-fix/prompt-builder'
 import type { Annotation } from '../../src/shared/types'
 
@@ -11,8 +22,8 @@ function baseAnnotation(overrides: Partial<Annotation> = {}): Annotation {
     status: 'pending',
     replies: [],
     createdAt: new Date().toISOString(),
+    pageAnchor: { pageId: 'page-a', pageUrl: 'http://localhost:4321/garden' },
     metadata: {
-      pageUrl: 'http://localhost:4321/garden',
       pageName: 'Desktop 1280×800',
     },
     ...overrides,
@@ -37,7 +48,6 @@ describe('buildFixPrompt', () => {
           elementPath: 'body > header',
         },
         metadata: {
-          pageUrl: 'http://localhost:4321/garden',
           inspectContext: {
             id: 'node-1',
             nodeId: 'node-1',

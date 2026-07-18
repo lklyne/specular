@@ -52,6 +52,8 @@ export function useAnnotationThreadState({
     return () => window.cancelAnimationFrame(id)
   }, [openThreadId, threadInputRef])
 
+  // The open thread vanished from the payload — deleted, resolved, or its
+  // page navigated off the annotation's document — so close the popover.
   useEffect(() => {
     if (!openThreadId) return
     if (openThread) return

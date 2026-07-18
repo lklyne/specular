@@ -10,12 +10,14 @@
 import { randomUUID } from 'crypto'
 import type {
   CanvasSceneTextEntity,
+  PageAnchor,
   PersistedTextEntity,
   TextEntityStyle,
   TextWidthMode,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
+import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface TextEntity {
   id: string
@@ -31,6 +33,8 @@ export interface TextEntity {
   height: number
   parentGroupId?: string
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 /** Plain text starts auto-sized; sticky is always fixed. */
@@ -56,6 +60,7 @@ export function createTextEntity(input: {
   id?: string
   parentGroupId?: string
   label?: string
+  pageAnchor?: PageAnchor
 }): TextEntity {
   const textStyle = input.textStyle ?? 'sticky'
   const entity: TextEntity = {
@@ -73,6 +78,7 @@ export function createTextEntity(input: {
     height: input.height ?? DEFAULT_TEXT_HEIGHT,
     parentGroupId: input.parentGroupId,
     label: input.label,
+    pageAnchor: input.pageAnchor,
   }
   textEntities.push(entity)
   markDirty('canvas', 'sidebar')
@@ -84,7 +90,7 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
   if (!entity) return null
   applyPatch(entity, patch, [
     'text', 'color', 'textStyle', 'widthMode', 'textSize',
-    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId',
+    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId', 'pageAnchor',
   ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
@@ -109,8 +115,15 @@ export function buildTextEntitySceneEntity(
   pan: { x: number; y: number },
   canvasOrigin: { x: number; y: number },
 ): CanvasSceneTextEntity {
-  const screenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+  // Scroll- and element-follow: project the apparent position — stored coords
+  // shifted by the page's scroll and its reference element's movement since the
+  // anchor was written (see shape builder).
+  const scroll = pageAnchorScrollShift(entity.pageAnchor)
+  const element = pageAnchorElementShift(entity.pageAnchor)
+  const canvasX = entity.canvasX - scroll.x - element.x
+  const canvasY = entity.canvasY - scroll.y - element.y
+  const screenX = canvasOrigin.x + canvasX * zoom + pan.x
+  const screenY = canvasOrigin.y + canvasY * zoom + pan.y
   return {
     kind: 'text',
     id: entity.id,
@@ -119,11 +132,12 @@ export function buildTextEntitySceneEntity(
     textStyle: entity.textStyle,
     widthMode: entity.widthMode,
     textSize: entity.textSize,
-    canvasX: entity.canvasX,
-    canvasY: entity.canvasY,
+    canvasX,
+    canvasY,
     width: entity.width,
     height: entity.height,
     parentGroupId: entity.parentGroupId,
+    pageAnchor: entity.pageAnchor,
     screenX,
     screenY,
     screenWidth: entity.width * zoom,
@@ -151,6 +165,7 @@ const TEXT_ENTITY_PERSISTED_FIELD_SET = {
   height: true,
   parentGroupId: true,
   label: true,
+  pageAnchor: true,
 } as const satisfies Record<keyof PersistedTextEntity, true>
 
 export const TEXT_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
@@ -172,5 +187,6 @@ export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
     height: entity.height,
     parentGroupId: entity.parentGroupId,
     label: entity.label,
+    pageAnchor: entity.pageAnchor,
   }
 }

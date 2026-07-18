@@ -10,10 +10,12 @@ import { randomUUID } from 'crypto'
 import type {
   AnnotationDrawingStroke,
   CanvasSceneDrawingEntity,
+  PageAnchor,
   PersistedDrawingEntity,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
+import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface DrawingEntity {
   id: string
@@ -24,6 +26,8 @@ export interface DrawingEntity {
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
   label?: string
+  /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
+  pageAnchor?: PageAnchor
 }
 
 export const drawingEntities: DrawingEntity[] = []
@@ -41,6 +45,7 @@ export function createDrawingEntity(input: {
   id?: string
   parentGroupId?: string
   label?: string
+  pageAnchor?: PageAnchor
 }): DrawingEntity {
   const entity: DrawingEntity = {
     id: input.id ?? `drawing_${randomUUID()}`,
@@ -51,6 +56,7 @@ export function createDrawingEntity(input: {
     strokes: input.strokes,
     parentGroupId: input.parentGroupId,
     label: input.label,
+    pageAnchor: input.pageAnchor,
   }
   drawingEntities.push(entity)
   markDirty('canvas', 'sidebar')
@@ -72,7 +78,7 @@ export function updateDrawingEntity(
   const entity = drawingEntities.find((candidate) => candidate.id === id)
   if (!entity) return null
   applyPatch(entity, patch, [
-    'canvasX', 'canvasY', 'width', 'height', 'strokes', 'parentGroupId',
+    'canvasX', 'canvasY', 'width', 'height', 'strokes', 'parentGroupId', 'pageAnchor',
   ])
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
@@ -89,21 +95,39 @@ export function buildDrawingEntitySceneEntity(
   pan: { x: number; y: number },
   canvasOrigin: { x: number; y: number },
 ): CanvasSceneDrawingEntity {
-  const screenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
+  // Scroll- and element-follow: project the apparent position — stored coords
+  // shifted by the page's scroll and its reference element's movement since the
+  // anchor was written (see shape builder). Strokes are absolute canvas coords,
+  // so the combined shift applies to every point.
+  const scroll = pageAnchorScrollShift(entity.pageAnchor)
+  const element = pageAnchorElementShift(entity.pageAnchor)
+  const shiftX = scroll.x + element.x
+  const shiftY = scroll.y + element.y
+  const canvasX = entity.canvasX - shiftX
+  const canvasY = entity.canvasY - shiftY
+  const strokes =
+    shiftX || shiftY
+      ? entity.strokes.map((stroke) => ({
+          ...stroke,
+          points: stroke.points.map((point) => ({ x: point.x - shiftX, y: point.y - shiftY })),
+        }))
+      : entity.strokes
+  const screenX = canvasOrigin.x + canvasX * zoom + pan.x
+  const screenY = canvasOrigin.y + canvasY * zoom + pan.y
   return {
     kind: 'drawing',
     id: entity.id,
-    canvasX: entity.canvasX,
-    canvasY: entity.canvasY,
+    canvasX,
+    canvasY,
     width: entity.width,
     height: entity.height,
     screenX,
     screenY,
     screenWidth: entity.width * zoom,
     screenHeight: entity.height * zoom,
-    strokes: entity.strokes,
+    strokes,
     parentGroupId: entity.parentGroupId,
+    pageAnchor: entity.pageAnchor,
   }
 }
 
@@ -123,6 +147,7 @@ const DRAWING_ENTITY_PERSISTED_FIELD_SET = {
   strokes: true,
   parentGroupId: true,
   label: true,
+  pageAnchor: true,
 } as const satisfies Record<keyof PersistedDrawingEntity, true>
 
 export const DRAWING_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
@@ -140,5 +165,6 @@ export function persistDrawingEntity(entity: DrawingEntity): PersistedDrawingEnt
     strokes: entity.strokes,
     parentGroupId: entity.parentGroupId,
     label: entity.label,
+    pageAnchor: entity.pageAnchor,
   }
 }

@@ -164,6 +164,7 @@ export function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvas
     entity.widthMode,
     isNeutral,
     entity.textSize,
+    entity.pageAnchor,
   )
   if (specular) node.specular = specular
   return node
@@ -174,12 +175,14 @@ function buildSpecularExtensions(
   widthMode: PersistedTextEntity['widthMode'] | undefined,
   isNeutral: boolean,
   textSize: number | undefined,
+  pageAnchor: PersistedTextEntity['pageAnchor'],
 ): JsonCanvasTextNode['specular'] {
   if (
     textStyle === undefined &&
     widthMode === undefined &&
     !isNeutral &&
-    textSize === undefined
+    textSize === undefined &&
+    pageAnchor === undefined
   ) {
     return undefined
   }
@@ -188,6 +191,7 @@ function buildSpecularExtensions(
   if (widthMode !== undefined) ext.widthMode = widthMode
   if (isNeutral) ext.colorRole = 'neutral'
   if (textSize !== undefined) ext.textSize = textSize
+  if (pageAnchor !== undefined) ext.pageAnchor = pageAnchor
   return ext
 }
 
@@ -225,6 +229,7 @@ export function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCan
     theme: entity.theme,
     label: entity.label,
     parentGroupId: entity.parentGroupId,
+    pageAnchor: entity.pageAnchor,
   }
   if (isNeutral || entity.textSize !== undefined) {
     node.specular = {}
@@ -245,6 +250,7 @@ export function serializeDrawingToDrawingNode(entity: PersistedDrawingEntity): J
     strokes: entity.strokes,
     label: entity.label,
     parentGroupId: entity.parentGroupId,
+    pageAnchor: entity.pageAnchor,
   }
 }
 
@@ -409,6 +415,7 @@ export function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTe
     canvasY: node.y,
     width: node.width,
     height: node.height,
+    pageAnchor: node.specular?.pageAnchor,
   }
 }
 
@@ -448,6 +455,7 @@ export function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): Persiste
     height: node.height,
     label: node.label,
     parentGroupId: node.parentGroupId,
+    pageAnchor: node.pageAnchor,
   }
 }
 
@@ -462,6 +470,7 @@ export function deserializeDrawingNodeToDrawing(node: JsonCanvasDrawingNode): Pe
     strokes: node.strokes,
     label: node.label,
     parentGroupId: node.parentGroupId,
+    pageAnchor: node.pageAnchor,
   }
 }
 

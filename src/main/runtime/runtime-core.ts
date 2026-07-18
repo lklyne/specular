@@ -57,7 +57,6 @@ import {
   savePreferences,
 } from './preferences'
 import {
-  COMMENT_BADGE_DEBUG,
   SELECTION_DEBUG,
 } from './runtime-constants'
 
@@ -207,13 +206,6 @@ export function setSelectedEntities(
 ): void {
   commitSelectedEntities(entityIds)
   scheduleWorkspaceAutosave()
-}
-
-// backgroundLayoutKey, annotationsForPage, pageAnnotationsKey,
-
-function commentBadgeDebug(event: string, details?: Record<string, unknown>): void {
-  if (!COMMENT_BADGE_DEBUG) return
-  console.log('[comment-badge-debug:main]', { ts: Date.now(), event, ...details })
 }
 
 function selectionDebug(event: string, details?: Record<string, unknown>): void {

@@ -8,6 +8,7 @@ import type {
 
 export interface LeftSidebarElectronAPI {
   revealPage: (pageId: string) => void
+  openAnnotationThread: (annotationId: string) => void
   revealEntity: (entityId: string, entityKind: CanvasEntityKind) => void
   deleteEntity: (entityId: string, entityKind: CanvasEntityKind) => void
   revealGroup: (groupId: string) => void

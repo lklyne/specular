@@ -39,6 +39,30 @@ export interface Page {
   }
   peekWidth?: number
   peekHeight?: number
+  /** Page's absolute scroll offset in raw CSS pixels, broadcast from the
+   *  page preload (ephemeral view state — never persisted, never in the
+   *  Y.Doc). Absent until the first offset broadcast arrives. */
+  scrollX?: number
+  scrollY?: number
+  /** scrollHeight of the same scroll container the offset comes from, in CSS
+   *  px. Lets main map a page anchor's `offsetY` fraction to a document
+   *  position for scroll-to-comment (ADR 0029). Ephemeral;
+   *  absent until the first offset broadcast arrives. */
+  scrollHeight?: number
+  /** True between Electron's did-start-loading/did-stop-loading events.
+   * Document-bound items keep their previous visibility during this interval
+   * so a provisional route does not strip the canvas before it settles. */
+  isLoading?: boolean
+  /** Live document positions of the DOM selectors anchored items reference,
+   *  keyed by selector (ADR 0030 element attachment). The page's reflow tracker
+   *  broadcasts these on real reflow events; scene builders read them as a
+   *  render-time correction. Ephemeral — never persisted, never in the Y.Doc;
+   *  a selector is absent until its first resolution and keeps its last-known
+   *  position thereafter. */
+  elementPositions?: Map<
+    string,
+    { docX: number; docY: number; viewportPositioned?: boolean }
+  >
   lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string
@@ -47,7 +71,6 @@ export interface Page {
    *  means either "no override applied yet" or "no override needed" —
    *  both collapse to the same no-op when colorScheme is also absent. */
   lastColorSchemeKey?: PageColorScheme
-  lastPageAnnotationsKey?: string
   lastSelected?: boolean
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string
