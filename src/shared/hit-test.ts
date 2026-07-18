@@ -46,6 +46,7 @@ export type HitPayload =
   | { kind: 'reorder-handle'; entityId: string; entityKind: CanvasEntityKind }
   | { kind: 'gap-handle'; groupId: string | null }
   | { kind: 'page-body'; entityId: string }
+  | { kind: 'group-border'; groupId: string }
   | {
       kind: 'entity-body'
       entityId: string
@@ -120,6 +121,11 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
 
 function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   const out: HitTarget[] = []
+  const selectedIds = new Set(inputs.selectedEntityIds)
+  const multiSelectionContainsGroup =
+    inputs.selectedEntityIds.length > 1 &&
+    inputs.entities.some((entity) => entity.kind === 'group' && selectedIds.has(entity.id))
+  if (multiSelectionContainsGroup) return out
 
   // Multi-selection: per-entity handles are visually hidden in favor of one
   // bbox spanning the selection. Mirror that here — emit the eight multi-bbox
@@ -269,15 +275,15 @@ function collectGapHandleTargets(inputs: HitInputs): HitTarget[] {
 }
 
 function collectBodyTargets(inputs: HitInputs): HitTarget[] {
-  // Front-to-back hit order. `inputs.entities` is back-to-front (paint order:
-  // first item painted first, last item on top — matches JSON Canvas array
-  // order and `entityOrder`). For hit-testing we want the front-most entity
-  // to win, so non-group bodies iterate in reverse. Groups stay last in the
-  // hit list because they're containers — members painted above them must
-  // hit first ("click inside group selects inner"). Page and non-group
-  // entity bodies sort together; the front-most wins regardless of kind.
+  // Mirror the physical paint planes first, then entityOrder within each
+  // plane. Notes (all non-page bodies) live in aboveView and therefore always
+  // paint above page WCVs, even when the flat persisted entityOrder ranks a
+  // page later. Within Notes and within Pages, reverse the back-to-front input
+  // order so the front-most sibling wins. Groups stay last because they're
+  // containers — members painted inside them must hit first.
   const groups: HitTarget[] = []
-  const others: HitTarget[] = []
+  const notes: HitTarget[] = []
+  const pages: HitTarget[] = []
   for (let i = inputs.entities.length - 1; i >= 0; i--) {
     const entity = inputs.entities[i]
     const target: HitTarget = {
@@ -296,10 +302,28 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
                 entity.kind === 'file' ? entity.rendererInteractive === true : undefined,
             },
     }
-    if (entity.kind === 'group') groups.push(target)
-    else others.push(target)
+    if (entity.kind === 'group') {
+      const border = 8
+      const { screenX: x, screenY: y, screenWidth: width, screenHeight: height } = entity
+      const borderRects: Rect[] = [
+        { x, y, width, height: border },
+        { x, y: y + height - border, width, height: border },
+        { x, y: y + border, width: border, height: Math.max(0, height - border * 2) },
+        { x: x + width - border, y: y + border, width: border, height: Math.max(0, height - border * 2) },
+      ]
+      groups.push(
+        ...borderRects.map((rect) => ({
+          layer: 'body' as const,
+          region: { kind: 'rect' as const, rect },
+          payload: { kind: 'group-border' as const, groupId: entity.id },
+        })),
+        target,
+      )
+    }
+    else if (entity.kind === 'page') pages.push(target)
+    else notes.push(target)
   }
-  return [...others, ...groups]
+  return [...notes, ...pages, ...groups]
 }
 
 // --- Geometry helpers ---

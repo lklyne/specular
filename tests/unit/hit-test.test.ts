@@ -250,10 +250,11 @@ describe('hit-test — item overlapping a page top edge wins (issue #312)', () =
 })
 
 describe('hit-test — body z-order (front-to-back)', () => {
-  // entityOrder semantics: array order is back-to-front (paint order — the
-  // last item paints on top, matching JSON Canvas v1.0). The hit-test must
-  // walk the body layer front-to-back so a sticky painted over a page
-  // resolves to the sticky, not the page body underneath.
+  // entityOrder semantics within a physical plane: array order is
+  // back-to-front (paint order — the last item paints on top, matching JSON
+  // Canvas v1.0). Across planes, Notes always paint in aboveView over page
+  // WCVs, so a visible sticky must beat a page regardless of their flat
+  // persisted order.
   //
   // Page body at (200,200), 400×300. Sticky at (300,300), 100×40.
   // The sticky is fully inside the page.
@@ -271,13 +272,18 @@ describe('hit-test — body z-order (front-to-back)', () => {
     })
   })
 
-  it('reverse z-order (sticky behind page) returns page-body', () => {
+  it('sticky still wins when flat entityOrder ranks the page in front', () => {
     const f = page({ id: 'f1', screenX: 200, screenY: 200 })
     const t = text('t1', 300, 300)
-    // Text first (back), page after (front).
+    // Text first, page after in the flat order. They occupy different physical
+    // planes, so this cannot make the page visually cover the sticky.
     const result = hitTest(inputs([t, f]), { x: 320, y: 320 })
     expect(result.layer).toBe('body')
-    expect(result.payload).toEqual({ kind: 'page-body', entityId: 'f1' })
+    expect(result.payload).toEqual({
+      kind: 'entity-body',
+      entityId: 't1',
+      entityKind: 'text',
+    })
   })
 
   it('two non-group entities — last in entities wins (front)', () => {
@@ -331,6 +337,13 @@ describe('hit-test — group resize handles', () => {
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'se' })
   })
+
+  it('does not expose invisible resize handles when a group is batch-selected', () => {
+    const sibling = text('t1', 800, 100, 100, 100)
+    const result = hitTest(inputs([g, sibling], ['g1', 't1']), { x: 700, y: 600 })
+    expect(result.payload.kind).not.toBe('resize-handle')
+    expect(result.payload.kind).not.toBe('multi-resize-handle')
+  })
 })
 
 describe('hit-test — multi-selection resize handles', () => {
@@ -367,13 +380,12 @@ describe('hit-test — multi-selection resize handles', () => {
     expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 't1' })
   })
 
-  it('skips the multi-bbox when fewer than two non-group entities are selected', () => {
-    // Selection includes a group + one entity — multi-bbox needs 2+
-    // non-group entities, so this should fall to per-entity handles only.
+  it('suppresses resizing when a multi-selection contains a group', () => {
+    // Group-inclusive proportional resize is unsupported. Do not fall back to
+    // a per-entity handle that the renderer hides for the batch selection.
     const g = group('g1', 0, 0, 50, 50)
     const result = hitTest(inputs([t1, g], ['t1', 'g1']), { x: 100, y: 100 })
-    expect(result.layer).toBe('resize-handles')
-    expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 't1' })
+    expect(result.layer).not.toBe('resize-handles')
   })
 })
 

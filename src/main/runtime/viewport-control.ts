@@ -27,6 +27,7 @@ import { requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
+  boundCanvasOrigin as canvasOrigin,
   boundCanvasOriginX as canvasOriginX,
   boundEffectivePageContentSize as effectivePageContentSize,
   pageContentSize,
@@ -40,10 +41,12 @@ import {
   FOCUS_VIEWPORT_PADDING_PX,
   computeFocusZoomForBounds as computeFocusZoomForBoundsValue,
   computePanToCenterBoundsAtZoom as computePanToCenterBoundsAtZoomValue,
+  isBoundsFullyVisibleInCamera,
 } from '../../shared/focus-camera'
 import {
   CAMERA_TRANSITION_FRAME_MS,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
+  FOCUS_CAMERA_TRANSITION_DURATION_MS,
   type CanvasCamera,
   interpolateCamera,
 } from '../../shared/camera-transition'
@@ -198,9 +201,27 @@ export function focusCanvasBounds(
   options?: { animate?: boolean },
 ): void {
   if (!win) return
+  const viewport = availableCanvasViewportRect()
+  if (
+    isBoundsFullyVisibleInCamera({
+      bounds,
+      viewport,
+      canvasOrigin: canvasOrigin(),
+      zoom,
+      pan,
+    })
+  ) {
+    // A repeated reveal should also stop an older camera intent from carrying
+    // the now-visible target back out of frame.
+    cancelCameraAnimation()
+    return
+  }
   moveCameraTo(
     { zoom, pan: panToCenterBoundsAtZoom(bounds, zoom) },
-    { animate: options?.animate ?? false },
+    {
+      animate: options?.animate ?? true,
+      durationMs: FOCUS_CAMERA_TRANSITION_DURATION_MS,
+    },
   )
 }
 

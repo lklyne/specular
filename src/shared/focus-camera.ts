@@ -28,3 +28,26 @@ export function computePanToCenterBoundsAtZoom(input: {
     y: Math.round(viewport.height / 2 - (bounds.y + bounds.height / 2) * zoom),
   }
 }
+
+export function isBoundsFullyVisibleInCamera(input: {
+  bounds: WorkspaceBounds
+  viewport: { x: number; y: number; width: number; height: number }
+  canvasOrigin: { x: number; y: number }
+  zoom: number
+  pan: { x: number; y: number }
+}): boolean {
+  const { bounds, viewport, canvasOrigin, zoom, pan } = input
+  if (!Number.isFinite(zoom) || zoom <= 0) return false
+
+  const left = canvasOrigin.x + bounds.x * zoom + pan.x
+  const top = canvasOrigin.y + bounds.y * zoom + pan.y
+  const right = left + bounds.width * zoom
+  const bottom = top + bounds.height * zoom
+
+  return (
+    left >= viewport.x &&
+    top >= viewport.y &&
+    right <= viewport.x + viewport.width &&
+    bottom <= viewport.y + viewport.height
+  )
+}

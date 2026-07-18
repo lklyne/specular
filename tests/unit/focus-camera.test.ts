@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeFocusZoomForBounds,
   computePanToCenterBoundsAtZoom,
+  isBoundsFullyVisibleInCamera,
 } from '../../src/shared/focus-camera'
 
 describe('focus camera', () => {
@@ -36,5 +37,29 @@ describe('focus camera', () => {
     const screenCenterY = bounds.y + bounds.height / 2 + pan.y
     expect(screenCenterX).toBe(320 + 880 / 2)
     expect(screenCenterY).toBe(756 / 2)
+  })
+
+  it('recognizes bounds fully inside the chrome-inset camera viewport', () => {
+    expect(
+      isBoundsFullyVisibleInCamera({
+        bounds: { x: 400, y: 100, width: 200, height: 120 },
+        viewport: { x: 280, y: 44, width: 1160, height: 856 },
+        canvasOrigin: { x: 0, y: 44 },
+        zoom: 1,
+        pan: { x: 0, y: 0 },
+      }),
+    ).toBe(true)
+  })
+
+  it('treats partially clipped bounds as outside the camera viewport', () => {
+    expect(
+      isBoundsFullyVisibleInCamera({
+        bounds: { x: 200, y: 100, width: 200, height: 120 },
+        viewport: { x: 280, y: 44, width: 1160, height: 856 },
+        canvasOrigin: { x: 0, y: 44 },
+        zoom: 1,
+        pan: { x: 0, y: 0 },
+      }),
+    ).toBe(false)
   })
 })

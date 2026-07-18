@@ -537,11 +537,13 @@ export function previewDragGuides(
   })
 }
 
-export function finalizeDrag(): void {
+export function finalizeDrag(options?: { reanchor?: boolean }): void {
   // Placement decides anchoring: entities dropped on a page hook to it,
   // entities dragged off go free-form. Runs before the session finalizes so
   // the anchor change lands in the drag's single undo step.
-  for (const id of dragAccumulatorById.keys()) reanchorEntityById(id)
+  if (options?.reanchor !== false) {
+    for (const id of dragAccumulatorById.keys()) reanchorEntityById(id)
+  }
   dragAccumulatorById.clear()
   activeDragCandidates = []
   activeDraggedGuideIds = []
@@ -911,6 +913,11 @@ function carryChildrenOnMove(
   id: string,
   patch: Partial<Omit<WorkspaceGroup, 'id' | 'kind'>>,
 ): void {
+  // A north/west resize changes canvasX/canvasY to keep the opposite edge
+  // fixed. That moves only the container border; children remain in absolute
+  // canvas coordinates. A pure origin patch is a true group move and carries
+  // the subtree.
+  if (patch.width !== undefined || patch.height !== undefined) return
   if (patch.canvasX === undefined && patch.canvasY === undefined) return
   const cur = workspaceGroups.find((g) => g.id === id)
   if (!cur) return

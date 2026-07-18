@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { entitiesOverlappingRect } from '../../src/shared/gesture-utils'
-import type { CanvasSceneEntity, CanvasScenePageEntity } from '../../src/shared/types'
+import type {
+  CanvasSceneEntity,
+  CanvasSceneGroupEntity,
+  CanvasScenePageEntity,
+} from '../../src/shared/types'
 
 function page(over: Partial<CanvasScenePageEntity> & { id: string }): CanvasScenePageEntity {
   return {
@@ -18,6 +22,28 @@ function page(over: Partial<CanvasScenePageEntity> & { id: string }): CanvasScen
     rendererTag: 'web',
     ...over,
   } as CanvasScenePageEntity
+}
+
+function group(
+  over: Partial<CanvasSceneGroupEntity> & { id: string },
+): CanvasSceneGroupEntity {
+  return {
+    id: over.id,
+    kind: 'group',
+    label: 'Group',
+    canvasX: over.screenX ?? 0,
+    canvasY: over.screenY ?? 0,
+    width: over.screenWidth ?? 300,
+    height: over.screenHeight ?? 300,
+    screenX: 0,
+    screenY: 0,
+    screenWidth: 300,
+    screenHeight: 300,
+    layoutMode: 'freeform',
+    managedLayout: false,
+    entityIds: [],
+    ...over,
+  }
 }
 
 describe('entitiesOverlappingRect', () => {
@@ -51,5 +77,125 @@ describe('entitiesOverlappingRect', () => {
   it('preserves entity input order', () => {
     const ids = entitiesOverlappingRect(entities, { left: 0, top: 0, width: 300, height: 300 })
     expect(ids).toEqual(['a', 'b', 'c'])
+  })
+
+  it('returns a fully enclosed group instead of its overlapping children', () => {
+    const grouped: CanvasSceneEntity[] = [
+      page({ id: 'child-a', screenX: 20, screenY: 20, parentGroupId: 'group-1' }),
+      page({ id: 'child-b', screenX: 180, screenY: 180, parentGroupId: 'group-1' }),
+      group({
+        id: 'group-1',
+        screenX: 0,
+        screenY: 0,
+        screenWidth: 300,
+        screenHeight: 300,
+        entityIds: ['child-a', 'child-b'],
+      }),
+    ]
+
+    expect(
+      entitiesOverlappingRect(grouped, { left: -10, top: -10, width: 320, height: 320 }),
+    ).toEqual(['group-1'])
+  })
+
+  it('treats a partially enclosed group as transparent and returns intersected children', () => {
+    const grouped: CanvasSceneEntity[] = [
+      page({ id: 'child-a', screenX: 20, screenY: 20, parentGroupId: 'group-1' }),
+      page({ id: 'child-b', screenX: 180, screenY: 180, parentGroupId: 'group-1' }),
+      group({
+        id: 'group-1',
+        screenX: 0,
+        screenY: 0,
+        screenWidth: 300,
+        screenHeight: 300,
+        entityIds: ['child-a', 'child-b'],
+      }),
+    ]
+
+    expect(
+      entitiesOverlappingRect(grouped, { left: 10, top: 10, width: 120, height: 120 }),
+    ).toEqual(['child-a'])
+  })
+
+  it('prefers a fully enclosed outer group over its nested group', () => {
+    const nested: CanvasSceneEntity[] = [
+      page({ id: 'child', screenX: 80, screenY: 80, parentGroupId: 'inner' }),
+      group({
+        id: 'inner',
+        screenX: 50,
+        screenY: 50,
+        screenWidth: 200,
+        screenHeight: 200,
+        parentGroupId: 'outer',
+        entityIds: ['child'],
+      }),
+      group({
+        id: 'outer',
+        screenX: 0,
+        screenY: 0,
+        screenWidth: 300,
+        screenHeight: 300,
+        entityIds: ['inner'],
+      }),
+    ]
+
+    expect(
+      entitiesOverlappingRect(nested, { left: -10, top: -10, width: 320, height: 320 }),
+    ).toEqual(['outer'])
+  })
+
+  it('batches multiple fully enclosed groups', () => {
+    const grouped: CanvasSceneEntity[] = [
+      page({ id: 'a', screenX: 20, screenY: 20, parentGroupId: 'group-a' }),
+      group({
+        id: 'group-a',
+        screenX: 0,
+        screenY: 0,
+        screenWidth: 140,
+        screenHeight: 140,
+        entityIds: ['a'],
+      }),
+      page({ id: 'b', screenX: 220, screenY: 20, parentGroupId: 'group-b' }),
+      group({
+        id: 'group-b',
+        screenX: 200,
+        screenY: 0,
+        screenWidth: 140,
+        screenHeight: 140,
+        entityIds: ['b'],
+      }),
+    ]
+
+    expect(
+      entitiesOverlappingRect(grouped, { left: -10, top: -10, width: 360, height: 160 }),
+    ).toEqual(['group-a', 'group-b'])
+  })
+
+  it('batches a full group with intersected children from a partial group', () => {
+    const grouped: CanvasSceneEntity[] = [
+      page({ id: 'inside-full', screenX: 20, screenY: 20, parentGroupId: 'full' }),
+      group({
+        id: 'full',
+        screenX: 0,
+        screenY: 0,
+        screenWidth: 140,
+        screenHeight: 140,
+        entityIds: ['inside-full'],
+      }),
+      page({ id: 'inside-partial', screenX: 220, screenY: 20, parentGroupId: 'partial' }),
+      page({ id: 'outside-marquee', screenX: 380, screenY: 20, parentGroupId: 'partial' }),
+      group({
+        id: 'partial',
+        screenX: 200,
+        screenY: 0,
+        screenWidth: 320,
+        screenHeight: 140,
+        entityIds: ['inside-partial', 'outside-marquee'],
+      }),
+    ]
+
+    expect(
+      entitiesOverlappingRect(grouped, { left: -10, top: -10, width: 350, height: 160 }),
+    ).toEqual(['full', 'inside-partial'])
   })
 })
