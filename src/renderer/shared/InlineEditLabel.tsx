@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { focusAndSelectAll } from '../../shared/editor-selection'
+import { useRef, useState } from 'react'
+import { useInlineEditFocus } from './hooks/useInlineEditFocus'
 
 type Variant = 'canvas-chrome' | 'sidebar-row'
 
@@ -50,33 +50,7 @@ export function InlineEditLabel({
 }: InlineEditLabelProps) {
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
-  const valueRef = useRef(value)
-  const requestFocusRef = useRef(onRequestFocus)
-  valueRef.current = value
-  requestFocusRef.current = onRequestFocus
-
-  useEffect(() => {
-    if (!isEditing) return
-    const focusInput = () => {
-      if (inputRef.current) focusAndSelectAll(inputRef.current)
-    }
-    // Electron focuses the host WebContentsView separately from the DOM
-    // element. Re-assert the editor focus once that outer handoff lands.
-    window.addEventListener('focus', focusInput)
-    // A renderer-local input.focus() can update activeElement without
-    // reclaiming keyboard ownership for this WebContentsView. Give hosts
-    // with an external focus arbiter a chance to request that handoff first.
-    requestFocusRef.current?.()
-    setDraft(valueRef.current)
-    focusInput()
-    // The controlled value update above can reset the native selection after
-    // this effect. Re-apply it after React has committed that update.
-    const frame = requestAnimationFrame(focusInput)
-    return () => {
-      cancelAnimationFrame(frame)
-      window.removeEventListener('focus', focusInput)
-    }
-  }, [isEditing])
+  useInlineEditFocus(inputRef, isEditing, value, setDraft, onRequestFocus)
 
   function commit() {
     const trimmed = draft.trim()
