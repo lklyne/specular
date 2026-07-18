@@ -56,7 +56,19 @@ export function copyablePagePayload(
 export function copyableSelectionPayload():
   | ClipboardEntitySelectionPayload
   | null {
-  const entityIds = getSelectedEntityIds()
+  return copyableEntityPayload(getSelectedEntityIds())
+}
+
+/**
+ * Serializes an explicit set of entity ids into the same clipboard-entity
+ * shape `pasteEntitiesFromClipboard` consumes. This is the single clone
+ * source for both clipboard copy (current selection) and single-entity
+ * duplicate (an explicit id, independent of selection) — see
+ * `duplicateEntity` in workspace-pages.ts.
+ */
+export function copyableEntityPayload(
+  entityIds: string[],
+): ClipboardEntitySelectionPayload | null {
   if (!entityIds.length) return null
 
   const entities: ClipboardEntityPayload[] = []
@@ -273,8 +285,8 @@ function pasteEntitiesInternal(input: {
         url: entity.url!,
         presetIndex: entity.presetIndex!,
         syncId: null,
-        canvasX: snapToGrid(input.canvasX + entity.dx),
-        canvasY: snapToGrid(input.canvasY + entity.dy),
+        canvasX: input.canvasX + entity.dx,
+        canvasY: input.canvasY + entity.dy,
         source: 'manual',
         metadata: pasteMetadata,
         colorScheme: entity.colorScheme,
@@ -282,8 +294,8 @@ function pasteEntitiesInternal(input: {
       entityIds.push(page.id)
     } else if (entity.kind === 'text') {
       const note = createTextEntityInState({
-        canvasX: snapToGrid(input.canvasX + entity.dx),
-        canvasY: snapToGrid(input.canvasY + entity.dy),
+        canvasX: input.canvasX + entity.dx,
+        canvasY: input.canvasY + entity.dy,
         text: entity.text,
         color: entity.color,
         textStyle: entity.textStyle,
@@ -295,8 +307,8 @@ function pasteEntitiesInternal(input: {
     } else if (entity.kind === 'file') {
       if (typeof entity.file !== 'string' || !entity.file.trim().length) continue
       const file = createFileEntityInState({
-        canvasX: snapToGrid(input.canvasX + entity.dx),
-        canvasY: snapToGrid(input.canvasY + entity.dy),
+        canvasX: input.canvasX + entity.dx,
+        canvasY: input.canvasY + entity.dy,
         file: entity.file,
         subpath: entity.subpath,
         width: entity.width,
@@ -308,8 +320,8 @@ function pasteEntitiesInternal(input: {
       entityIds.push(file.id)
     } else if (entity.kind === 'shape') {
       const shape = createShapeEntityInState({
-        canvasX: snapToGrid(input.canvasX + entity.dx),
-        canvasY: snapToGrid(input.canvasY + entity.dy),
+        canvasX: input.canvasX + entity.dx,
+        canvasY: input.canvasY + entity.dy,
         shapeKind: entity.shapeKind,
         text: entity.text,
         color: entity.color,
@@ -322,8 +334,8 @@ function pasteEntitiesInternal(input: {
       })
       entityIds.push(shape.id)
     } else if (entity.kind === 'drawing') {
-      const canvasX = snapToGrid(input.canvasX + entity.dx)
-      const canvasY = snapToGrid(input.canvasY + entity.dy)
+      const canvasX = input.canvasX + entity.dx
+      const canvasY = input.canvasY + entity.dy
       const drawing = createDrawingEntityInState({
         canvasX,
         canvasY,

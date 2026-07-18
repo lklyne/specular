@@ -4,7 +4,7 @@ import {
 } from '../workspace-entities'
 import { duplicateGroup } from '../workspace-groups'
 import { findDuplicatePlacement } from '../workspace-placement'
-import { duplicateEntity, duplicatePageFromSource } from '../workspace-pages'
+import { duplicatePageFromSource } from '../workspace-pages'
 import {
   copyableSelectionPayload,
   pasteEntitiesFromClipboard,
@@ -26,12 +26,12 @@ export function duplicateSelection(): void {
       duplicatePageFromSource({ sourcePageId: id, focus: true })
       return
     }
-    duplicateEntity({ entityId: id, focus: true })
-    return
   }
 
-  // Multi-selection: reuse copy/paste machinery so duplicates retain
-  // their relative layout and every selected item is included.
+  // Text/file/shape/drawing entities (single or multi-selected) all clone
+  // through copy/paste machinery, so duplicates retain their relative
+  // layout and cmd-D behaves like copy + paste-in-place with the usual
+  // duplicate offset.
   const payload = copyableSelectionPayload()
   if (!payload) return
   const bounds = groupBoundsForEntityIds(entityIds)
