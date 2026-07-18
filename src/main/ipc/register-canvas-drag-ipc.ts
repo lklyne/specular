@@ -1,7 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { CanvasDragStartSelection, CanvasHoverTarget } from '../../shared/types'
-import { pages } from '../runtime/page-runtime'
 import {
   applyDragDelta,
   finalizeDrag,
@@ -12,7 +11,6 @@ import {
 } from '../runtime/document-commands'
 import {
   getSelectedEntityIds,
-  selectPage,
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import {
@@ -171,10 +169,6 @@ export function registerCanvasDragIpc(): void {
     ) => {
       const pageIds = activeDragIds('page', pageId)
       if (!pageIds) return
-      if (pageIds.length === 1) {
-        const idx = pages.findIndex((candidate) => candidate.id === pageId)
-        if (idx !== -1) selectPage(idx)
-      }
       applyDragDelta(pageIds, dx, dy, { shiftKey })
       requestLayout()
     },
