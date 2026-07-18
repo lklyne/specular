@@ -186,6 +186,8 @@ describe('canvas apply', () => {
     expect(byId.get(groupId)).toBe('group')
   })
 
+  // Mutation-verified by dropping fillStyle/textAlign/textVerticalAlign from
+  // shapeKind.update; the updated specular fields remain at their seeded values.
   it('round-trips shape styling and undo restores the prior fill, border, and text alignment', async () => {
     const { created } = applyCanvasPatch({
       entities: [

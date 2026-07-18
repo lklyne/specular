@@ -866,10 +866,13 @@ export function createShapeEntity(input: {
   height?: number
   text?: string
   color?: string
+  fillStyle?: ShapeEntity['fillStyle']
   strokeWidth?: number
   borderStyle?: ShapeEntity['borderStyle']
   borderColor?: string
   textSize?: number
+  textAlign?: ShapeEntity['textAlign']
+  textVerticalAlign?: ShapeEntity['textVerticalAlign']
   id?: string
 }): ShapeEntity {
   return mutateWorkspace(() => {
