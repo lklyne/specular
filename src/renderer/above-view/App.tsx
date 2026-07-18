@@ -90,7 +90,7 @@ function DragCopyPreviewLayer({
       {previews.map((preview) => (
         <div
           key={`drag-copy-preview-${preview.id}`}
-          className="pointer-events-none absolute rounded-[8px] border"
+          className="pointer-events-none absolute border"
           style={{
             left: preview.left,
             top: preview.top,

@@ -24,7 +24,6 @@ import { textEntities, createTextEntity as createTextEntityInState } from './run
 import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
 import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from './runtime/drawing-entity-state'
-import { snapToGrid } from '../shared/gesture-utils'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
 import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
 import { markDirty } from './runtime/layout-dirty'
@@ -174,7 +173,7 @@ function duplicateGroupInternal(
 
   const sourceBounds = groupBounds(sourceGroup)
   const placement = input.placement
-    ? { canvasX: snapToGrid(input.placement.canvasX), canvasY: snapToGrid(input.placement.canvasY) }
+    ? input.placement
     : sourceBounds
       ? findDuplicatePlacement(sourceBounds)
       : { canvasX: sourceGroup.canvasX + CLUSTER_HORIZONTAL_GUTTER, canvasY: sourceGroup.canvasY }
@@ -190,8 +189,8 @@ function duplicateGroupInternal(
     const clonedGroup: WorkspaceGroup = {
       ...group,
       id: makeId('group'),
-      canvasX: snapToGrid(group.canvasX + offsetX),
-      canvasY: snapToGrid(group.canvasY + offsetY),
+      canvasX: group.canvasX + offsetX,
+      canvasY: group.canvasY + offsetY,
       parentGroupId,
       metadata: cloneMetadata(group.metadata),
     }
@@ -204,8 +203,8 @@ function duplicateGroupInternal(
         name: page.name,
         url: pageCurrentUrl(page.id) ?? page.url ?? 'about:blank',
         presetIndex: page.presetIndex,
-        canvasX: snapToGrid(page.canvasX + offsetX),
-        canvasY: snapToGrid(page.canvasY + offsetY),
+        canvasX: page.canvasX + offsetX,
+        canvasY: page.canvasY + offsetY,
         syncId: null,
         suppressInitialNavigationBroadcast: true,
         source: page.source,
@@ -220,8 +219,8 @@ function duplicateGroupInternal(
     const childTextEntities = textEntities.filter((entity) => entity.parentGroupId === group.id)
     for (const entity of childTextEntities) {
       const duplicatedEntity = createTextEntityInState({
-        canvasX: snapToGrid(entity.canvasX + offsetX),
-        canvasY: snapToGrid(entity.canvasY + offsetY),
+        canvasX: entity.canvasX + offsetX,
+        canvasY: entity.canvasY + offsetY,
         text: entity.text,
         color: entity.color,
         textStyle: entity.textStyle,
@@ -236,8 +235,8 @@ function duplicateGroupInternal(
     const childFileEntities = fileEntities.filter((entity) => entity.parentGroupId === group.id)
     for (const entity of childFileEntities) {
       const duplicatedEntity = createFileEntityInState({
-        canvasX: snapToGrid(entity.canvasX + offsetX),
-        canvasY: snapToGrid(entity.canvasY + offsetY),
+        canvasX: entity.canvasX + offsetX,
+        canvasY: entity.canvasY + offsetY,
         file: entity.file,
         subpath: entity.subpath,
         width: entity.width,
@@ -254,8 +253,8 @@ function duplicateGroupInternal(
     const childShapeEntities = shapeEntities.filter((entity) => entity.parentGroupId === group.id)
     for (const entity of childShapeEntities) {
       const duplicatedEntity = createShapeEntityInState({
-        canvasX: snapToGrid(entity.canvasX + offsetX),
-        canvasY: snapToGrid(entity.canvasY + offsetY),
+        canvasX: entity.canvasX + offsetX,
+        canvasY: entity.canvasY + offsetY,
         shapeKind: entity.shapeKind,
         text: entity.text,
         color: entity.color,
@@ -273,8 +272,8 @@ function duplicateGroupInternal(
     const childDrawingEntities = drawingEntities.filter((entity) => entity.parentGroupId === group.id)
     for (const entity of childDrawingEntities) {
       const duplicatedEntity = createDrawingEntityInState({
-        canvasX: snapToGrid(entity.canvasX + offsetX),
-        canvasY: snapToGrid(entity.canvasY + offsetY),
+        canvasX: entity.canvasX + offsetX,
+        canvasY: entity.canvasY + offsetY,
         width: entity.width,
         height: entity.height,
         strokes: entity.strokes.map((stroke) => ({

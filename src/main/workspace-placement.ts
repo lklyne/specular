@@ -19,6 +19,8 @@ import {
 import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
+import { shapeEntities } from './runtime/shape-entity-state'
+import { drawingEntities } from './runtime/drawing-entity-state'
 import { snapToGrid } from '../shared/gesture-utils'
 import { workspaceGroups } from './runtime/workspace-model'
 import { boundsOverlap, pageSnapBounds } from './runtime/runtime-geometry'
@@ -43,6 +45,18 @@ export function occupiedRegions(): WorkspaceBounds[] {
       height: entity.height,
     })),
     ...fileEntities.map((entity) => ({
+      x: entity.canvasX,
+      y: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })),
+    ...shapeEntities.map((entity) => ({
+      x: entity.canvasX,
+      y: entity.canvasY,
+      width: entity.width,
+      height: entity.height,
+    })),
+    ...drawingEntities.map((entity) => ({
       x: entity.canvasX,
       y: entity.canvasY,
       width: entity.width,

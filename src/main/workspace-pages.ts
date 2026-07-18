@@ -19,17 +19,9 @@ import {
 import {
   getSelectedEntityIds,
   selectPageById,
-  setSelectedEntities,
   setSelectedPages,
   setSelectedGroupId,
 } from './runtime/ui-actions'
-import { textEntities, createTextEntity as createTextEntityInState } from './runtime/text-entity-state'
-import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
-import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
-import {
-  drawingEntities,
-  createDrawingEntity as createDrawingEntityInState,
-} from './runtime/drawing-entity-state'
 import { pageContentSize } from './runtime/runtime-geometry'
 import { snapToGrid } from '../shared/gesture-utils'
 import {
@@ -47,6 +39,7 @@ import {
 } from './workspace-entities'
 import { findDuplicatePlacement } from './workspace-placement'
 import { reflowManagedGroup } from './managed-layout'
+import { copyableEntityPayload, pasteEntitiesFromClipboard } from './workspace-clipboard'
 
 // --- Helpers ---
 
@@ -437,6 +430,13 @@ function tidySelectedPagesInternal(): { pageIds: string[] } {
   return { pageIds: pagesToTidy.map((page) => page.id) }
 }
 
+/**
+ * Single-entity duplicate (cmd-D, per-kind context-menu "Duplicate"). Clones
+ * through the same copy/paste machinery `pasteEntitiesFromClipboard` uses
+ * for clipboard paste and drag-copy, rather than a parallel per-kind clone —
+ * one clone mechanism instead of three (see workspace-clipboard.ts,
+ * workspace-groups.ts for the other two entity-graph clone paths).
+ */
 export function duplicateEntity(input: {
   entityId: string
   focus?: boolean
@@ -449,117 +449,30 @@ export function duplicateEntity(input: {
     })
     return { entityId: result.pageId }
   }
-  return mutateWorkspace(() => duplicateEntityInternal(input))
+  return duplicateEntityInternal(input)
 }
 
+// `pasteEntitiesFromClipboard` is itself a `mutateWorkspace` mutator, so this
+// stays a plain function — wrapping it again would double the undo boundary
+// and autosave scheduling for a single cmd-D.
 function duplicateEntityInternal(input: {
   entityId: string
   focus?: boolean
 }): { entityId: string } {
-  const note = textEntities.find((n) => n.id === input.entityId)
-  if (note) {
-    const notePlacement = findDuplicatePlacement({
-      x: note.canvasX,
-      y: note.canvasY,
-      width: note.width,
-      height: note.height,
-    })
-    const newNote = createTextEntityInState({
-      canvasX: notePlacement.canvasX,
-      canvasY: notePlacement.canvasY,
-      text: note.text,
-      color: note.color,
-      textStyle: note.textStyle,
-      widthMode: note.widthMode,
-      textSize: note.textSize,
-      width: note.width,
-      height: note.height,
-    })
-    if (input.focus ?? true) {
-      setSelectedEntities([newNote.id])
-    }
-    return { entityId: newNote.id }
+  const payload = copyableEntityPayload([input.entityId])
+  const bounds = entityBoundsById(input.entityId)
+  if (!payload || !bounds) {
+    throw new Error(`Unknown entity: ${input.entityId}`)
   }
-
-  const file = fileEntities.find((f) => f.id === input.entityId)
-  if (file) {
-    const filePlacement = findDuplicatePlacement({
-      x: file.canvasX,
-      y: file.canvasY,
-      width: file.width,
-      height: file.height,
-    })
-    const newFile = createFileEntityInState({
-      canvasX: filePlacement.canvasX,
-      canvasY: filePlacement.canvasY,
-      file: file.file,
-      subpath: file.subpath,
-      width: file.width,
-      height: file.height,
-      presetIndex: file.presetIndex,
-      metadata: file.metadata ? { ...file.metadata } : undefined,
-      objectFit: file.objectFit,
-    })
-    if (input.focus ?? true) {
-      setSelectedEntities([newFile.id])
-    }
-    return { entityId: newFile.id }
+  const placement = findDuplicatePlacement(bounds)
+  const result = pasteEntitiesFromClipboard({
+    payload,
+    canvasX: placement.canvasX,
+    canvasY: placement.canvasY,
+  })
+  const entityId = result.entityIds[0]
+  if (!entityId) {
+    throw new Error(`Unknown entity: ${input.entityId}`)
   }
-
-  const shape = shapeEntities.find((s) => s.id === input.entityId)
-  if (shape) {
-    const shapePlacement = findDuplicatePlacement({
-      x: shape.canvasX,
-      y: shape.canvasY,
-      width: shape.width,
-      height: shape.height,
-    })
-    const newShape = createShapeEntityInState({
-      canvasX: shapePlacement.canvasX,
-      canvasY: shapePlacement.canvasY,
-      shapeKind: shape.shapeKind,
-      text: shape.text,
-      color: shape.color,
-      strokeWidth: shape.strokeWidth,
-      textSize: shape.textSize,
-      theme: shape.theme,
-      width: shape.width,
-      height: shape.height,
-      label: shape.label,
-    })
-    if (input.focus ?? true) {
-      setSelectedEntities([newShape.id])
-    }
-    return { entityId: newShape.id }
-  }
-
-  const drawing = drawingEntities.find((d) => d.id === input.entityId)
-  if (drawing) {
-    const drawingPlacement = findDuplicatePlacement({
-      x: drawing.canvasX,
-      y: drawing.canvasY,
-      width: drawing.width,
-      height: drawing.height,
-    })
-    const dx = drawingPlacement.canvasX - drawing.canvasX
-    const dy = drawingPlacement.canvasY - drawing.canvasY
-    const newDrawing = createDrawingEntityInState({
-      canvasX: drawingPlacement.canvasX,
-      canvasY: drawingPlacement.canvasY,
-      width: drawing.width,
-      height: drawing.height,
-      strokes: drawing.strokes.map((stroke) => ({
-        ...stroke,
-        id: `${stroke.id}_dup_${Math.random().toString(36).slice(2, 8)}`,
-        points: stroke.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
-      })),
-      label: drawing.label,
-    })
-    if (input.focus ?? true) {
-      setSelectedEntities([newDrawing.id])
-    }
-    return { entityId: newDrawing.id }
-  }
-
-  throw new Error(`Unknown entity: ${input.entityId}`)
+  return { entityId }
 }

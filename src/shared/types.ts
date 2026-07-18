@@ -1406,6 +1406,13 @@ export interface ClipboardEntityPayload {
   // Page-specific
   url?: string
   presetIndex?: number
+  /** Page-specific — the copied page's id, so anchored items copied alongside
+   *  it can re-attach to this page's clone on paste. */
+  sourceId?: string
+  /** Anchorable entity kinds (text/shape/drawing) — the source's page
+   *  attachment. On paste, remapped to the cloned page when both were copied
+   *  together; otherwise placement re-resolves the anchor (ADR 0031). */
+  pageAnchor?: { pageId: string; pageUrl?: string }
   // Page device metadata (so paste reproduces the device shell)
   metadata?: Record<string, unknown>
   /** Page-specific — optional, absent means the page follows the system color scheme. */
