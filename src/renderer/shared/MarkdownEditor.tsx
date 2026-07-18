@@ -6,6 +6,7 @@ import {
   externalUpdate,
   reconfigureTheme,
 } from '../canvas-bg/entity-renderers/markdown-codemirror'
+import { autofocusEditorSelection } from '../../shared/editor-selection'
 
 /**
  * CodeMirror-based markdown editor. Renders the source as live-styled
@@ -117,7 +118,9 @@ export function MarkdownEditor({
 
     if (autoFocus) {
       view.focus()
-      view.dispatch({ selection: { anchor: view.state.doc.length } })
+      view.dispatch({
+        selection: autofocusEditorSelection(view.state.doc.length),
+      })
     }
 
     return () => {
