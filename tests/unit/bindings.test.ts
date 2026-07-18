@@ -163,6 +163,19 @@ describe('dispatchKey — modifier shortcuts', () => {
     ).toBe('group')
   })
 
+  it('groups and deletes a multi-selection from the left sidebar', () => {
+    const ctx: BindingContext = { ...BASE_CTX, sourceView: 'leftSidebar' }
+    expect(
+      dispatchKey(BINDINGS, { key: 'g', cmd: true, alt: false, shift: false }, ctx),
+    ).toBe('group')
+    expect(
+      dispatchKey(BINDINGS, { key: 'delete', cmd: false, alt: false, shift: false }, ctx),
+    ).toBe('delete-selection')
+    expect(
+      dispatchKey(BINDINGS, { key: 'backspace', cmd: false, alt: false, shift: false }, ctx),
+    ).toBe('delete-selection')
+  })
+
   it('returns ungroup for Cmd+Shift+G', () => {
     expect(
       dispatchKey(BINDINGS, { key: 'g', cmd: true, alt: false, shift: true }, BASE_CTX),

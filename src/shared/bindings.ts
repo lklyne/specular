@@ -144,7 +144,13 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'close-tab', defaultKey: k('w', true), scope: ALL_VIEWS, target: 'main', firesWhileTyping: true, label: 'Close tab' },
 
   // Canvas-region modifier shortcuts
-  { id: 'group', defaultKey: k('g', true), scope: CANVAS_REGION, target: 'main', label: 'Group' },
+  {
+    id: 'group',
+    defaultKey: k('g', true),
+    scope: [...CANVAS_REGION, 'leftSidebar'],
+    target: 'main',
+    label: 'Group',
+  },
   { id: 'ungroup', defaultKey: k('g', true, true), scope: CANVAS_REGION, target: 'main', label: 'Ungroup' },
   { id: 'make-auto-layout', defaultKey: k('a', true, true), scope: CANVAS_REGION, target: 'main', label: 'Auto-layout' },
   { id: 'select-all', defaultKey: k('a', true), scope: CANVAS_REGION, target: 'main', label: 'Select all' },
@@ -212,7 +218,7 @@ export const BINDINGS: readonly Binding[] = [
   {
     id: 'delete-selection',
     defaultKey: k('delete'),
-    scope: CANVAS_OR_PAGE_REGION,
+    scope: [...CANVAS_OR_PAGE_REGION, 'leftSidebar'],
     target: 'main',
     firesFromPageFocus: true,
     label: 'Delete',
@@ -220,7 +226,7 @@ export const BINDINGS: readonly Binding[] = [
   {
     id: 'delete-selection',
     defaultKey: k('backspace'),
-    scope: CANVAS_OR_PAGE_REGION,
+    scope: [...CANVAS_OR_PAGE_REGION, 'leftSidebar'],
     target: 'main',
     firesFromPageFocus: true,
     label: 'Delete',

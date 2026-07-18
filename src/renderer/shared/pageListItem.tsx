@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType, type MouseEventHandler } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { Laptop, Smartphone, Tablet } from 'lucide-react'
@@ -22,9 +22,11 @@ interface PageListItemProps {
   contentPaddingLeft?: number
   contentPaddingRight?: number
   isDark: boolean
-  onClick: () => void
-  onRename?: (name: string) => void
+  onClick: MouseEventHandler<HTMLButtonElement>
+  selectableId?: string
+  onRename?: (name: string) => Promise<boolean>
   onDelete?: () => void
+  onRequestEditFocus?: () => void
 }
 
 function viewportIcon(label: string, width?: number) {
@@ -74,8 +76,10 @@ export function PageListItem({
   contentPaddingRight,
   isDark,
   onClick,
+  selectableId,
   onRename,
   onDelete,
+  onRequestEditFocus,
 }: PageListItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const Icon = viewportIcon(page.label, page.width)
@@ -86,9 +90,8 @@ export function PageListItem({
     setIsEditing(true)
   }
 
-  function commitRename(next: string) {
-    setIsEditing(false)
-    if (onRename && next && next !== page.label) onRename(next)
+  async function commitRename(next: string) {
+    if (onRename && next !== page.label && await onRename(next)) setIsEditing(false)
   }
 
   const rootClassName = `flex items-center gap-1 text-left text-xs font-normal ${
@@ -124,6 +127,7 @@ export function PageListItem({
         onCancel={() => setIsEditing(false)}
         variant="sidebar-row"
         isDark={isDark}
+        onRequestFocus={onRequestEditFocus}
       />
       {showDimensions && page.width && page.height ? (
         <span className="ml-auto shrink-0 text-xs text-zinc-400">
@@ -138,6 +142,17 @@ export function PageListItem({
         className={`${rootClassName} box-border appearance-none border-0`}
         style={horizontalPaddingStyle}
         onClick={onClick}
+        data-sidebar-selectable-id={selectableId}
+        onPointerDown={
+          onRename
+            ? (event) => {
+                if (event.detail !== 2) return
+                event.preventDefault()
+                event.stopPropagation()
+                startRename()
+              }
+            : undefined
+        }
         onDoubleClick={startRename}
         title={page.label}
       >

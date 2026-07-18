@@ -43,15 +43,16 @@ export type FocusState = {
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
-  if (state.pendingFocus) return state.pendingFocus
-
   // Sidebar rename input is open — keep focus in the sidebar so keystrokes
-  // reach the input rather than firing canvas shortcuts.
+  // reach the input rather than firing canvas shortcuts. This must beat a
+  // pending canvas focus left by the click that opened the editor.
   if (state.sidebarTextInputActive) return { kind: 'sidebar' }
 
   // Toolbar address input is open — keep focus in the toolbar so browser-like
   // commands such as Cmd+T can leave the user ready to type a destination.
   if (state.toolbarTextInputActive) return { kind: 'toolbar' }
+
+  if (state.pendingFocus) return state.pendingFocus
 
   // Toolbar dropdown open — keep focus in the toolbar so its popover handles
   // Escape/keyboard dismissal itself instead of the keystroke landing on the

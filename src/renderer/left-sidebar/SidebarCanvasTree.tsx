@@ -26,6 +26,11 @@ import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { SIDEBAR_ITEM_DRAG_TYPE, useDragReorder } from './useDragReorder'
 
 const RENAMABLE_FILE_PATTERN = /\.md$/i
+type SidebarSelectHandler = (
+  event: React.MouseEvent<HTMLButtonElement>,
+  id: string,
+  kind: Exclude<SidebarCanvasItem['kind'], 'group'>,
+) => void
 
 const LIST_OUTER_LEFT_PADDING = 14
 const LIST_OUTER_RIGHT_PADDING = 8
@@ -40,18 +45,22 @@ function EntityListItem({
   onClick,
   onRename,
   onDelete,
+  onRequestEditFocus,
   deleteLabel = 'Delete',
   depth,
+  selectableId,
 }: {
   icon: React.ReactNode
   label: string
   active: boolean
   isDark: boolean
-  onClick: () => void
-  onRename?: (name: string) => void
+  onClick: React.MouseEventHandler<HTMLButtonElement>
+  onRename?: (name: string) => Promise<boolean>
   onDelete: () => void
+  onRequestEditFocus?: () => void
   deleteLabel?: string
   depth: number
+  selectableId: string
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const rootClassName = `flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
@@ -72,9 +81,8 @@ function EntityListItem({
     setIsEditing(true)
   }
 
-  function commitRename(next: string) {
-    setIsEditing(false)
-    if (onRename && next && next !== label) onRename(next)
+  async function commitRename(next: string) {
+    if (onRename && next !== label && await onRename(next)) setIsEditing(false)
   }
 
   const row = isEditing ? (
@@ -87,6 +95,7 @@ function EntityListItem({
         onCancel={() => setIsEditing(false)}
         variant="sidebar-row"
         isDark={isDark}
+        onRequestFocus={onRequestEditFocus}
       />
     </div>
   ) : (
@@ -95,6 +104,17 @@ function EntityListItem({
       className={rootClassName}
       style={rowStyle}
       onClick={onClick}
+      data-sidebar-selectable-id={selectableId}
+      onPointerDown={
+        onRename
+          ? (event) => {
+              if (event.detail !== 2) return
+              event.preventDefault()
+              event.stopPropagation()
+              startRename()
+            }
+          : undefined
+      }
       onDoubleClick={onRename ? startRename : undefined}
       title={label}
     >
@@ -197,6 +217,7 @@ function PageTreeItem({
   isDark,
   api,
   section,
+  onSelect,
 }: {
   page: SidebarPageItem
   depth: number
@@ -205,6 +226,7 @@ function PageTreeItem({
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
+  onSelect: SidebarSelectHandler
 }) {
   const [expanded, setExpanded] = useState(true)
   const children = page.children ?? []
@@ -217,9 +239,13 @@ function PageTreeItem({
       isDark={isDark}
       contentPaddingLeft={contentPaddingLeft}
       contentPaddingRight={LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING}
-      onClick={() => api.revealPage(page.id)}
+      onClick={(event) => onSelect(event, page.id, 'page')}
+      selectableId={page.id}
       onRename={(name) => api.renamePage(page.id, name)}
-      onDelete={() => api.deletePage(page.id)}
+      onRequestEditFocus={() => api.setTextEditing(true)}
+      onDelete={() =>
+        selectedEntityIds.includes(page.id) ? api.deleteSelection() : api.deletePage(page.id)
+      }
     />
   )
   if (children.length === 0) return row
@@ -260,6 +286,7 @@ function PageTreeItem({
                 isDark={isDark}
                 api={api}
                 section={section}
+                onSelect={onSelect}
               />
             </div>
           ),
@@ -277,6 +304,7 @@ function GroupTreeItem({
   isDark,
   api,
   section,
+  onSelect,
 }: {
   group: SidebarGroupItem
   depth: number
@@ -285,6 +313,7 @@ function GroupTreeItem({
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
+  onSelect: SidebarSelectHandler
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -295,9 +324,8 @@ function GroupTreeItem({
     setIsEditing(true)
   }
 
-  function commitRename(next: string) {
-    setIsEditing(false)
-    if (next && next !== group.label) api.renameGroup(group.id, next)
+  async function commitRename(next: string) {
+    if (next !== group.label && await api.renameGroup(group.id, next)) setIsEditing(false)
   }
 
   const rowPaddingLeft = LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP
@@ -356,6 +384,7 @@ function GroupTreeItem({
                   onCancel={() => setIsEditing(false)}
                   variant="sidebar-row"
                   isDark={isDark}
+                  onRequestFocus={() => api.setTextEditing(true)}
                 />
                 <span className="ml-auto shrink-0 text-xs text-zinc-400">{group.entityCount}</span>
               </div>
@@ -365,6 +394,12 @@ function GroupTreeItem({
                 className={rowClassName}
                 style={rowStyle}
                 onClick={() => api.revealGroup(group.id)}
+                onPointerDown={(event) => {
+                  if (event.detail !== 2) return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  startRename()
+                }}
                 onDoubleClick={startRename}
                 title={group.label}
               >
@@ -395,6 +430,7 @@ function GroupTreeItem({
               api={api}
               section={section}
               parentId={group.id}
+              onSelect={onSelect}
             />
           </Collapsible.Panel>
         </Collapsible.Root>
@@ -443,6 +479,7 @@ function SidebarCanvasTreeItem({
   isDark,
   api,
   section,
+  onSelect,
 }: {
   item: SidebarCanvasItem
   depth: number
@@ -451,6 +488,7 @@ function SidebarCanvasTreeItem({
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
+  onSelect: SidebarSelectHandler
 }) {
   if (item.kind === 'group') {
     return (
@@ -462,6 +500,7 @@ function SidebarCanvasTreeItem({
         isDark={isDark}
         api={api}
         section={section}
+        onSelect={onSelect}
       />
     )
   }
@@ -477,6 +516,7 @@ function SidebarCanvasTreeItem({
         isDark={isDark}
         api={api}
         section={section}
+        onSelect={onSelect}
       />
     )
   }
@@ -490,9 +530,13 @@ function SidebarCanvasTreeItem({
           active={isSelected}
           isDark={isDark}
           depth={depth}
-          onClick={() => api.revealEntity(item.id, 'text')}
+          onClick={(event) => onSelect(event, item.id, 'text')}
+          selectableId={item.id}
           onRename={(name) => api.renameTextEntity(item.id, name)}
-          onDelete={() => api.deleteEntity(item.id, 'text')}
+          onRequestEditFocus={() => api.setTextEditing(true)}
+          onDelete={() =>
+            isSelected ? api.deleteSelection() : api.deleteEntity(item.id, 'text')
+          }
         />
       </div>
     )
@@ -507,9 +551,13 @@ function SidebarCanvasTreeItem({
           active={isSelected}
           isDark={isDark}
           depth={depth}
-          onClick={() => api.revealEntity(item.id, 'drawing')}
+          onClick={(event) => onSelect(event, item.id, 'drawing')}
+          selectableId={item.id}
           onRename={(name) => api.renameDrawingEntity(item.id, name)}
-          onDelete={() => api.deleteEntity(item.id, 'drawing')}
+          onRequestEditFocus={() => api.setTextEditing(true)}
+          onDelete={() =>
+            isSelected ? api.deleteSelection() : api.deleteEntity(item.id, 'drawing')
+          }
           deleteLabel="Delete Drawing"
         />
       </div>
@@ -525,8 +573,11 @@ function SidebarCanvasTreeItem({
           active={isSelected}
           isDark={isDark}
           depth={depth}
-          onClick={() => api.revealEntity(item.id, 'shape')}
-          onDelete={() => api.deleteEntity(item.id, 'shape')}
+          onClick={(event) => onSelect(event, item.id, 'shape')}
+          selectableId={item.id}
+          onDelete={() =>
+            isSelected ? api.deleteSelection() : api.deleteEntity(item.id, 'shape')
+          }
           deleteLabel="Delete Shape"
         />
       </div>
@@ -543,9 +594,13 @@ function SidebarCanvasTreeItem({
         active={isSelected}
         isDark={isDark}
         depth={depth}
-        onClick={() => api.revealEntity(item.id, 'file')}
+        onClick={(event) => onSelect(event, item.id, 'file')}
+        selectableId={item.id}
         onRename={canRenameFile ? (name) => api.renameFileEntity(item.id, name) : undefined}
-        onDelete={() => api.deleteEntity(item.id, 'file')}
+        onRequestEditFocus={() => api.setTextEditing(true)}
+        onDelete={() =>
+          isSelected ? api.deleteSelection() : api.deleteEntity(item.id, 'file')
+        }
       />
     </div>
   )
@@ -560,6 +615,7 @@ function SidebarCanvasTreeList({
   api,
   section,
   parentId,
+  onSelect,
 }: {
   items: SidebarCanvasItem[]
   depth: number
@@ -569,6 +625,7 @@ function SidebarCanvasTreeList({
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
   parentId: string | null
+  onSelect: SidebarSelectHandler
 }) {
   const drag = useDragReorder(items.length, (id, toIndex) => {
     const withoutDragged = items.filter((item) => item.id !== id)
@@ -591,6 +648,7 @@ function SidebarCanvasTreeList({
             isDark={isDark}
             api={api}
             section={section}
+            onSelect={onSelect}
           />
         </div>
       ))}
@@ -605,6 +663,7 @@ export function SidebarCanvasTree(props: {
   isDark: boolean
   api: LeftSidebarElectronAPI
   section: SidebarSectionKey
+  onSelect: SidebarSelectHandler
 }) {
   return <SidebarCanvasTreeList {...props} depth={0} parentId={null} />
 }

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { focusAndSelectAll } from '../../shared/editor-selection'
+import { useRef, useState } from 'react'
+import { useInlineEditFocus } from './hooks/useInlineEditFocus'
 
 type Variant = 'canvas-chrome' | 'sidebar-row'
 
@@ -16,6 +16,7 @@ interface InlineEditLabelProps {
   inputClassName?: string
   onTitleClick?: () => void
   displayValue?: string
+  onRequestFocus?: () => void
 }
 
 const DEFAULT_TITLE_CLASS: Record<Variant, string> = {
@@ -27,7 +28,7 @@ function defaultInputClass(variant: Variant, isDark: boolean): string {
   if (variant === 'canvas-chrome') {
     return 'min-w-0 flex-1 border-0 bg-transparent text-xs font-medium outline-none placeholder:text-zinc-400 focus:outline-none'
   }
-  return `min-w-0 flex-1 -ml-1 rounded-[4px] ring-1 px-1 py-0 text-xs leading-[inherit] font-[inherit] outline-none ${
+  return `min-w-0 flex-1 -my-0.5 -ml-0.5 rounded-[4px] ring-1 px-0.5 py-0.5 text-xs leading-[inherit] font-[inherit] outline-none ${
     isDark ? 'ring-zinc-600 bg-zinc-950 text-zinc-100' : 'ring-zinc-300 bg-white text-zinc-900'
   }`
 }
@@ -45,23 +46,11 @@ export function InlineEditLabel({
   inputClassName,
   onTitleClick,
   displayValue,
+  onRequestFocus,
 }: InlineEditLabelProps) {
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
-  const valueRef = useRef(value)
-  valueRef.current = value
-
-  useEffect(() => {
-    if (!isEditing) return
-    setDraft(valueRef.current)
-    if (inputRef.current) focusAndSelectAll(inputRef.current)
-    // The controlled value update above can reset the native selection after
-    // this effect. Re-apply it after React has committed that update.
-    const frame = requestAnimationFrame(() => {
-      if (inputRef.current) focusAndSelectAll(inputRef.current)
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [isEditing])
+  useInlineEditFocus(inputRef, isEditing, value, setDraft, onRequestFocus)
 
   function commit() {
     const trimmed = draft.trim()

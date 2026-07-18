@@ -12,7 +12,7 @@ import { pages } from '../runtime/page-runtime'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { setHoverEntity, setHoveredPage } from '../runtime/runtime-core'
 import { activeTool as uiActiveTool } from '../ui-state'
-import { pan, zoom } from '../runtime/runtime-context'
+import { pan, setPendingFocus, zoom } from '../runtime/runtime-context'
 import { requestLayout } from '../runtime/viewport-control'
 import { boundCanvasOrigin as canvasOrigin } from '../runtime/runtime-geometry'
 import { saveImageBuffer } from '../runtime/image-assets'
@@ -62,6 +62,7 @@ import {
 import { scheduleWorkspaceAutosave } from '../runtime/workspace-autosave'
 import { deleteEdges } from '../workspace-edges'
 import { updateEdge } from '../runtime/document-commands'
+import { notifyLeftSidebarData } from '../runtime/sidebar-builder'
 
 type EdgeUpdatePatch = {
   fromEnd?: EdgeEnd
@@ -265,6 +266,7 @@ export function registerCanvasIpc(): void {
     // pass so reconcileFocus() immediately gives focus to the sidebar —
     // preventing any in-flight layout pass from stealing it back to aboveView.
     if (event.sender === leftSidebarView?.webContents) {
+      if (active) setPendingFocus({ kind: 'sidebar' })
       requestLayout()
     }
   })
@@ -286,45 +288,57 @@ export function registerCanvasIpc(): void {
     createWorkspaceTab()
   })
 
-  ipcMain.on(
+  ipcMain.handle(
     ipcChannels.canvasRenameTab,
     (_event, { tabId, name }: { tabId: string; name: string }) => {
-      renameWorkspaceTab(tabId, name)
+      const renamed = renameWorkspaceTab(tabId, name)
+      if (renamed) notifyLeftSidebarData()
+      return renamed
     },
   )
 
-  ipcMain.on(
+  ipcMain.handle(
     ipcChannels.canvasRenamePage,
     (_event, { pageId, name }: { pageId: string; name: string }) => {
-      renameWorkspacePage(pageId, name)
+      const renamed = renameWorkspacePage(pageId, name)
+      if (renamed) notifyLeftSidebarData()
+      return renamed
     },
   )
 
-  ipcMain.on(
+  ipcMain.handle(
     ipcChannels.canvasRenameGroup,
     (_event, { groupId, name }: { groupId: string; name: string }) => {
-      renameWorkspaceGroup(groupId, name)
+      const renamed = renameWorkspaceGroup(groupId, name)
+      if (renamed) notifyLeftSidebarData()
+      return renamed
     },
   )
 
-  ipcMain.on(
+  ipcMain.handle(
     ipcChannels.canvasRenameFileEntity,
     (_event, { entityId, name }: { entityId: string; name: string }) => {
-      renameWorkspaceFileEntity(entityId, name)
+      const renamed = renameWorkspaceFileEntity(entityId, name)
+      if (renamed) notifyLeftSidebarData()
+      return renamed
     },
   )
 
-  ipcMain.on(
+  ipcMain.handle(
     ipcChannels.canvasRenameTextEntity,
     (_event, { entityId, name }: { entityId: string; name: string }) => {
-      renameWorkspaceTextEntity(entityId, name)
+      const renamed = renameWorkspaceTextEntity(entityId, name)
+      if (renamed) notifyLeftSidebarData()
+      return renamed
     },
   )
 
-  ipcMain.on(
+  ipcMain.handle(
     ipcChannels.canvasRenameDrawingEntity,
     (_event, { entityId, name }: { entityId: string; name: string }) => {
-      renameWorkspaceDrawingEntity(entityId, name)
+      const renamed = renameWorkspaceDrawingEntity(entityId, name)
+      if (renamed) notifyLeftSidebarData()
+      return renamed
     },
   )
 
