@@ -41,6 +41,9 @@ export interface ResizeStart {
 export interface ResizeAccumulator extends ResizeStart {
   /** Cached aspect ratio (width/height at gesture start). */
   aspect: number
+  /** Pixel-aligned stationary edges captured at gesture start. */
+  fixedRight: number
+  fixedBottom: number
 }
 
 export interface ResizeConfig {
@@ -65,6 +68,8 @@ export function startResize(start: ResizeStart): ResizeAccumulator {
   return {
     ...start,
     aspect: start.height === 0 ? 1 : start.width / start.height,
+    fixedRight: Math.round(start.canvasX + start.width),
+    fixedBottom: Math.round(start.canvasY + start.height),
   }
 }
 
@@ -107,8 +112,8 @@ export function applyCornerDelta(
 
   const { roundedW, roundedH } = roundWithAspect(acc.width, acc.height, acc.aspect, aspectLock, 'w')
   const patch: EntityResizePatch = { width: roundedW, height: roundedH }
-  if (flipX === -1) patch.canvasX = Math.round(acc.canvasX)
-  if (flipY === -1) patch.canvasY = Math.round(acc.canvasY)
+  if (flipX === -1) patch.canvasX = acc.fixedRight - roundedW
+  if (flipY === -1) patch.canvasY = acc.fixedBottom - roundedH
   return patch
 }
 
@@ -156,8 +161,8 @@ export function applyEdgeDelta(
     isHorizontal ? 'w' : 'h',
   )
   const patch: EntityResizePatch = { width: roundedW, height: roundedH }
-  if (edge === 'left') patch.canvasX = Math.round(acc.canvasX)
-  if (edge === 'top') patch.canvasY = Math.round(acc.canvasY)
+  if (edge === 'left') patch.canvasX = acc.fixedRight - roundedW
+  if (edge === 'top') patch.canvasY = acc.fixedBottom - roundedH
   return patch
 }
 

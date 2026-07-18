@@ -32,6 +32,21 @@ describe('resize-accumulator', () => {
   })
 
   describe('applyCornerDelta', () => {
+    it('keeps the opposite edges fixed while rounding a top-left resize', () => {
+      const acc = startResize({ width: 99.8, height: 79.8, canvasX: 0.4, canvasY: 0.4 })
+      const fixedRight = Math.round(acc.canvasX + acc.width)
+      const fixedBottom = Math.round(acc.canvasY + acc.height)
+      const patch = applyCornerDelta(
+        acc,
+        'top-left',
+        { screenDx: 0.2, screenDy: 0.2, zoom: 1, shiftKey: false },
+        FREE,
+      )
+
+      expect((patch.canvasX ?? 0) + patch.width).toBe(fixedRight)
+      expect((patch.canvasY ?? 0) + patch.height).toBe(fixedBottom)
+    })
+
     it('bottom-right grows width and height by the screen delta divided by zoom', () => {
       const acc = fresh()
       const patch = applyCornerDelta(
@@ -126,6 +141,32 @@ describe('resize-accumulator', () => {
   })
 
   describe('applyEdgeDelta', () => {
+    it('keeps the opposite edge fixed while rounding a left resize', () => {
+      const acc = startResize({ width: 99.8, height: 100, canvasX: 0.4, canvasY: 0 })
+      const fixedRight = Math.round(acc.canvasX + acc.width)
+      const patch = applyEdgeDelta(
+        acc,
+        'left',
+        { screenDx: 0.2, screenDy: 0, zoom: 1, shiftKey: false },
+        FREE,
+      )
+
+      expect((patch.canvasX ?? 0) + patch.width).toBe(fixedRight)
+    })
+
+    it('keeps the opposite edge fixed while rounding a top resize', () => {
+      const acc = startResize({ width: 100, height: 99.8, canvasX: 0, canvasY: 0.4 })
+      const fixedBottom = Math.round(acc.canvasY + acc.height)
+      const patch = applyEdgeDelta(
+        acc,
+        'top',
+        { screenDx: 0, screenDy: 0.2, zoom: 1, shiftKey: false },
+        FREE,
+      )
+
+      expect((patch.canvasY ?? 0) + patch.height).toBe(fixedBottom)
+    })
+
     it('right edge moves width only', () => {
       const acc = fresh()
       const patch = applyEdgeDelta(

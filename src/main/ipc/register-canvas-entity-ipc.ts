@@ -65,7 +65,6 @@ import {
   setSelectedEntities,
 } from '../runtime/ui-actions'
 import { requestLayout } from '../runtime/viewport-control'
-import { snapToGrid } from '../../shared/gesture-utils'
 import { markDirty } from '../runtime/layout-dirty'
 import { pageBodyCanvasBounds, pageContentSize } from '../runtime/runtime-geometry'
 import {
@@ -356,8 +355,8 @@ export function registerCanvasEntityIpc(): void {
       if (!page) return
       const currentSize = pageContentSize(page)
       const nextSize = {
-        width: patch.width !== undefined ? snapToGrid(patch.width) : currentSize.width,
-        height: patch.height !== undefined ? snapToGrid(patch.height) : currentSize.height,
+        width: patch.width ?? currentSize.width,
+        height: patch.height ?? currentSize.height,
       }
       const sizeWasResized = patch.width !== undefined || patch.height !== undefined
       const sizeChanged =
@@ -370,8 +369,8 @@ export function registerCanvasEntityIpc(): void {
         }
         page.metadata = meta
       }
-      if (patch.canvasX !== undefined) page.canvasX = snapToGrid(patch.canvasX)
-      if (patch.canvasY !== undefined) page.canvasY = snapToGrid(patch.canvasY)
+      if (patch.canvasX !== undefined) page.canvasX = patch.canvasX
+      if (patch.canvasY !== undefined) page.canvasY = patch.canvasY
       updateResizeGuides(pageId)
       scheduleWorkspaceAutosave()
       markDirty('canvas')
