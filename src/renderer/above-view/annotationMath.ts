@@ -14,6 +14,7 @@ import {
   toOverlayY,
 } from '../../shared/gesture-utils'
 import { pageDocumentToScreen, pageViewportToScreen } from '../../shared/page-space'
+import { correctDocRectForElement } from '../../shared/element-attachment'
 
 
 export interface PendingAnnotation {
@@ -198,7 +199,14 @@ export function annotationScreenPos(
         )
       : undefined
     if (!page) return null
-    const rect = pageDocumentToScreen(anchor.docRect, page, layout)
+    // Element-follow (ADR 0030): correct the docRect for its reference
+    // element's movement before mapping, matching the region overlay.
+    const docRect = correctDocRectForElement(
+      anchor.docRect,
+      annotation.pageAnchor?.element,
+      page.elementPositions,
+    )
+    const rect = pageDocumentToScreen(docRect, page, layout)
     return {
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height,

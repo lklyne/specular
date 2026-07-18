@@ -8,7 +8,7 @@ import type {
 import type { PageAnchor } from '../../shared/page-anchor'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
-import { pageAnchorScrollShift } from './page-anchor-scroll'
+import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface ShapeEntity {
   id: string
@@ -145,13 +145,15 @@ export function buildShapeEntitySceneEntity(
   pan: { x: number; y: number },
   canvasOrigin: { x: number; y: number },
 ): CanvasSceneShapeEntity {
-  // Scroll-follow: the scene projects the *apparent* position — stored canvas
-  // coords shifted by how far the anchor page has scrolled since the anchor
-  // was written. The stored coords stay untouched (scroll is ephemeral; see
+  // Scroll- and element-follow: the scene projects the *apparent* position —
+  // stored canvas coords shifted by how far the anchor page has scrolled and
+  // how far its reference element has moved since the anchor was written. The
+  // stored coords stay untouched (both shifts are ephemeral; see
   // rebaseAnchorScroll in page-anchor-state.ts for when they're folded).
-  const shift = pageAnchorScrollShift(entity.pageAnchor)
-  const canvasX = entity.canvasX - shift.x
-  const canvasY = entity.canvasY - shift.y
+  const scroll = pageAnchorScrollShift(entity.pageAnchor)
+  const element = pageAnchorElementShift(entity.pageAnchor)
+  const canvasX = entity.canvasX - scroll.x - element.x
+  const canvasY = entity.canvasY - scroll.y - element.y
   return {
     ...shapeCoreFields(entity),
     canvasX,

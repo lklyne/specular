@@ -149,6 +149,9 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       colorScheme: page.colorScheme,
       scrollX: page.scrollX ?? 0,
       scrollY: page.scrollY ?? 0,
+      ...(page.elementPositions?.size
+        ? { elementPositions: Object.fromEntries(page.elementPositions) }
+        : {}),
     }
   })
 }

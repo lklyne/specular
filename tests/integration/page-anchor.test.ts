@@ -50,10 +50,15 @@ import {
 import {
   buildShapeEntitySceneEntity,
   shapeEntities,
+  type ShapeEntity,
 } from '../../src/main/runtime/shape-entity-state'
+import type { WorkspaceBounds } from '../../src/shared/types'
 import { pages } from '../../src/main/runtime/runtime-context'
 import { removePageById } from '../../src/main/runtime/page-runtime'
 import { getLeftSidebarData } from '../../src/main/runtime/canvas-layout-data'
+import { regionCanvasRect } from '../../src/main/runtime/page-anchor-state'
+import { createAnnotation } from '../../src/main/workspace-annotations'
+import { workspaceAnnotations } from '../../src/main/runtime/workspace-model'
 import { undo, redo } from '../../src/main/runtime/workspace-undo'
 import { selectNone } from '../../src/main/runtime/selection-controller'
 
@@ -446,5 +451,141 @@ describe('scroll-following text and drawings', () => {
     undo()
     expect(entity().canvasY).toBe(160)
     expect(entity().strokes[0].points[0]).toEqual({ x: 180, y: 180 })
+  })
+})
+
+/**
+ * Element attachment (ADR 0030): a page-anchored item stores the document
+ * position of its reference element, and the scene projection shifts stored
+ * geometry by how far that element has since moved — so ink and stickies stay
+ * glued to page content through reflow. Stored coords stay authoritative; the
+ * shift folds into them on reanchor and undoes as one step. An unresolved
+ * selector is zero shift, never a hide.
+ *
+ * The reflow tracker's live positions are set directly on the runtime page
+ * (`page.elementPositions`), the same state the Step-3 IPC handler writes.
+ *
+ * Mutation-verified by:
+ * - dropping the `pageAnchorElementShift` term in `buildShapeEntitySceneEntity`
+ *   — the "element down → item down" case fails;
+ * - dropping the stroke shift's `element` term in `buildDrawingEntitySceneEntity`
+ *   — the drawing stroke-point case fails;
+ * - dropping the `element` term from the fold in `rebaseAnchorScroll`
+ *   (page-anchor-state.ts) — the rebase-fold case fails;
+ * - dropping the `element` term in `regionCanvasRect` — the region case fails.
+ */
+describe('element-attachment following', () => {
+  beforeEach(() => {
+    harness ??= bootWorkspaceHarness()
+    harness.reset()
+    selectNone()
+  })
+
+  const hostPage = () => pages.find((candidate) => candidate.id === PAGE_ID)!
+  const shape = (id: string) => shapeEntities.find((candidate) => candidate.id === id)!
+  const sceneCanvasY = (id: string) =>
+    buildShapeEntitySceneEntity(shape(id), 1, { x: 0, y: 0 }, { x: 0, y: 0 }).canvasY
+  const attachElement = (
+    anchor: NonNullable<ShapeEntity['pageAnchor']> | undefined,
+    docX: number,
+    docY: number,
+  ) => ({ ...anchor!, element: { selector: '#hero', docX, docY } })
+  const livePositions = (docX: number, docY: number) =>
+    new Map([['#hero', { docX, docY }]])
+
+  it('element moves down → item moves down by the same delta, stored coords unchanged', () => {
+    loadHostPage()
+    const created = createShapeEntity({ ...ON_PAGE, shapeKind: 'rectangle' })
+    shape(created.id).pageAnchor = attachElement(shape(created.id).pageAnchor, 100, 100)
+    // The element moved DOWN 60px in the document.
+    hostPage().elementPositions = livePositions(100, 160)
+    expect(sceneCanvasY(created.id)).toBe(ON_PAGE.canvasY + 60)
+    expect(shape(created.id).canvasY).toBe(ON_PAGE.canvasY)
+  })
+
+  it('composes the element shift with the scroll shift', () => {
+    loadHostPage()
+    const created = createShapeEntity({ ...ON_PAGE, shapeKind: 'rectangle' })
+    shape(created.id).pageAnchor = attachElement(shape(created.id).pageAnchor, 0, 100)
+    hostPage().scrollY = 200 // scroll shift: item up 200
+    hostPage().elementPositions = livePositions(0, 130) // element down 30: item down 30
+    expect(sceneCanvasY(created.id)).toBe(ON_PAGE.canvasY - 200 + 30)
+  })
+
+  it('renders at stored geometry when the selector is unresolved', () => {
+    loadHostPage()
+    const created = createShapeEntity({ ...ON_PAGE, shapeKind: 'rectangle' })
+    shape(created.id).pageAnchor = attachElement(shape(created.id).pageAnchor, 0, 100)
+    // A different selector resolved; ours never did → zero shift.
+    hostPage().elementPositions = new Map([['#other', { docX: 0, docY: 999 }]])
+    expect(sceneCanvasY(created.id)).toBe(ON_PAGE.canvasY)
+  })
+
+  it('shifts drawing stroke points with the anchored element', () => {
+    loadHostPage()
+    const created = createDrawingEntity({
+      ...ON_PAGE,
+      strokes: [{ id: 's1', color: '#ff0000', width: 4, points: [{ x: 160, y: 160 }] }],
+    })
+    created.pageAnchor = attachElement(created.pageAnchor, 0, 100)
+    hostPage().elementPositions = livePositions(0, 150) // element down 50
+    const scene = buildDrawingEntitySceneEntity(created, 1, { x: 0, y: 0 }, { x: 0, y: 0 })
+    expect(scene.canvasY).toBe(ON_PAGE.canvasY + 50)
+    expect(scene.strokes[0].points[0]).toEqual({ x: 160, y: 210 })
+    expect(created.strokes[0].points[0]).toEqual({ x: 160, y: 160 })
+  })
+
+  it('rebase folds the element shift into stored coords and its reference; one undo restores', async () => {
+    loadHostPage()
+    const onGrid = { canvasX: 160, canvasY: 160, width: 100, height: 100 }
+    const created = createShapeEntity({ ...onGrid, shapeKind: 'rectangle' })
+    // Attach synchronously so the pending create sync writes it to the doc as
+    // the pre-fold baseline undo reverts to.
+    shape(created.id).pageAnchor = attachElement(shape(created.id).pageAnchor, 0, 100)
+    await settleSync()
+
+    // The element moved DOWN 40 (small enough to keep the apparent center on
+    // the page body, so drag end reanchors to the same page).
+    hostPage().elementPositions = livePositions(0, 140)
+    const apparentBefore = sceneCanvasY(created.id)
+    initializeDrag([created.id])
+    applyDragDelta([created.id], 0, 0)
+    finalizeDrag()
+    await settleSync()
+
+    expect(shape(created.id).canvasY).toBe(onGrid.canvasY + 40)
+    expect(shape(created.id).pageAnchor?.element?.docY).toBe(140)
+    expect(sceneCanvasY(created.id)).toBe(apparentBefore)
+
+    undo()
+    expect(shape(created.id).canvasY).toBe(onGrid.canvasY)
+    expect(shape(created.id).pageAnchor?.element?.docY).toBe(100)
+  })
+
+  it('regionCanvasRect reflects the element shift; the stored docRect is unchanged', () => {
+    loadHostPage()
+    const region = createAnnotation({
+      anchor: { type: 'region', canvasRect: { x: 140, y: 140, width: 80, height: 60 } },
+      metadata: {
+        regionComponents: [
+          { pageId: PAGE_ID, pageName: 'Host', components: [{ name: 'Hero', count: 1 }] },
+        ],
+      },
+      text: 'region note',
+    })
+    const stored = () => workspaceAnnotations.find((candidate) => candidate.id === region.id)!
+    const anchor = stored().anchor
+    // Grabbing PAGE_ID converted the canvasRect to a page-relative docRect.
+    expect(anchor.type === 'region' && 'docRect' in anchor).toBe(true)
+    const docRectBefore = { ...(anchor as { docRect: WorkspaceBounds }).docRect }
+
+    const base = regionCanvasRect(stored())!
+    stored().pageAnchor = { ...stored().pageAnchor!, element: { selector: '#hero', docX: 0, docY: 100 } }
+    hostPage().elementPositions = livePositions(0, 130) // element down 30
+    const shifted = regionCanvasRect(stored())!
+
+    expect(shifted.y).toBe(base.y + 30)
+    expect(shifted.x).toBe(base.x)
+    expect((stored().anchor as { docRect: WorkspaceBounds }).docRect).toEqual(docRectBefore)
   })
 })

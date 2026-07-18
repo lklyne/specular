@@ -4,6 +4,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { pageDocumentToScreen } from '../../shared/page-space'
+import { correctDocRectForElement } from '../../shared/element-attachment'
 import { canvasRectToScreenRect } from './annotationMath'
 import { PageOverlayBand } from './PageOverlayBand'
 
@@ -48,7 +49,15 @@ function regionScreenGeometry(
       )
     : undefined
   if (!page) return null
-  const rect = pageDocumentToScreen(anchor.docRect, page, layoutData)
+  // Element-follow (ADR 0030): shift the docRect by how far its reference
+  // element has moved before mapping to screen, so the region tracks page
+  // content through reflow — the same correction main applies in regionCanvasRect.
+  const docRect = correctDocRectForElement(
+    anchor.docRect,
+    annotation.pageAnchor?.element,
+    page.elementPositions,
+  )
+  const rect = pageDocumentToScreen(docRect, page, layoutData)
   return { left: rect.left, top: rect.top, width: rect.width, height: rect.height, pageId }
 }
 

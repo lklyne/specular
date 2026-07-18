@@ -29,7 +29,7 @@ import { pageBodyCanvasBounds } from './runtime-geometry'
 import { textEntities } from './text-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
-import { pageAnchorScrollShift } from './page-anchor-scroll'
+import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 import { workspaceAnnotations } from './workspace-model'
 import { markDirty } from './layout-dirty'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
@@ -90,36 +90,51 @@ function sameAnchor(a: PageAnchor | undefined, b: PageAnchor | null): boolean {
 }
 
 /**
- * Fold a scroll-following entity's accumulated scroll shift into its stored
- * coordinates and refresh the anchor's scroll reference — the apparent
- * position is unchanged, but stored coords now mean what the user sees, so
- * the placement test below (and every canvas-coordinate consumer) is honest.
- * Returns true when coordinates moved.
+ * Fold an anchored entity's accumulated scroll and element-attachment shifts
+ * into its stored coordinates and refresh the anchor's references — the
+ * apparent position is unchanged, but stored coords now mean what the user
+ * sees, so the placement test below (and every canvas-coordinate consumer) is
+ * honest. Both references ride this tracked mutation (a real user move), so
+ * undo restores the pre-fold coords and references together. Returns true when
+ * coordinates moved.
  */
 function rebaseAnchorScroll(entity: AnchorableEntity): boolean {
   const anchor = entity.pageAnchor
-  if (!anchor || anchor.scrollY === undefined) return false
-  const shift = pageAnchorScrollShift(anchor)
-  if (!shift.x && !shift.y) return false
+  if (!anchor) return false
+  const scroll = pageAnchorScrollShift(anchor)
+  const element = pageAnchorElementShift(anchor)
+  const shiftX = scroll.x + element.x
+  const shiftY = scroll.y + element.y
+  if (!shiftX && !shiftY) return false
   const page = pages.find((candidate) => candidate.id === anchor.pageId)
   if (!page) return false
-  entity.canvasX -= shift.x
-  entity.canvasY -= shift.y
+  entity.canvasX -= shiftX
+  entity.canvasY -= shiftY
   // Drawing strokes are stored in absolute canvas coords, so they move with
   // the folded shift or the bbox drifts away from the visible ink.
   const drawing = drawingEntities.find((candidate) => candidate.id === entity.id)
   if (drawing) {
     drawing.strokes = drawing.strokes.map((stroke) => ({
       ...stroke,
-      points: stroke.points.map((point) => ({ x: point.x - shift.x, y: point.y - shift.y })),
+      points: stroke.points.map((point) => ({ x: point.x - shiftX, y: point.y - shiftY })),
     }))
   }
   // A fresh object, not an in-place mutation — the doc diff-sync detects
-  // object fields by identity.
+  // object fields by identity. Reset each reference the fold consumed: the
+  // scroll offset to the page's live scroll (only when scroll-following, to
+  // keep a frame-pinned anchor frame-pinned), and the element to its live
+  // document position so the folded element shift isn't re-applied.
+  const liveElement = anchor.element
+    ? page.elementPositions?.get(anchor.element.selector)
+    : undefined
   entity.pageAnchor = {
     ...anchor,
-    scrollX: page.scrollX ?? 0,
-    scrollY: page.scrollY ?? 0,
+    ...(anchor.scrollY === undefined
+      ? {}
+      : { scrollX: page.scrollX ?? 0, scrollY: page.scrollY ?? 0 }),
+    ...(anchor.element && liveElement
+      ? { element: { ...anchor.element, docX: liveElement.docX, docY: liveElement.docY } }
+      : {}),
   }
   return true
 }
@@ -226,9 +241,12 @@ export function regionCanvasRect(
   const page = pages.find((candidate) => candidate.id === pageId)
   if (!page) return null
   const body = pageBodyCanvasBounds(page)
+  // Element-follow (ADR 0030): the region tracks the element under its center
+  // through page reflow, alongside the scroll-follow subtraction below.
+  const element = pageAnchorElementShift(annotation.pageAnchor)
   return {
-    x: body.x + anchor.docRect.x - (page.scrollX ?? 0),
-    y: body.y + anchor.docRect.y - (page.scrollY ?? 0),
+    x: body.x + anchor.docRect.x - element.x - (page.scrollX ?? 0),
+    y: body.y + anchor.docRect.y - element.y - (page.scrollY ?? 0),
     width: anchor.docRect.width,
     height: anchor.docRect.height,
   }

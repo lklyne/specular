@@ -162,6 +162,13 @@ export interface CanvasScenePageEntity {
    *  coordinates minus this are viewport coordinates (see phase 2). */
   scrollX: number
   scrollY: number
+  /** Live document positions of the DOM selectors this page's anchored items
+   *  reference, keyed by selector (ADR 0030 element attachment). Present only
+   *  when the page is tracking at least one element. The renderer applies them
+   *  as a render-time correction to page-anchored region `docRect`s, the same
+   *  correction main applies to canvas-space consumers (page-anchor-scroll.ts).
+   *  Ephemeral — never persisted. */
+  elementPositions?: Record<string, { docX: number; docY: number }>
 }
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'

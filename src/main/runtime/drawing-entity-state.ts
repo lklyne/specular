@@ -15,7 +15,7 @@ import type {
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
-import { pageAnchorScrollShift } from './page-anchor-scroll'
+import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface DrawingEntity {
   id: string
@@ -95,17 +95,21 @@ export function buildDrawingEntitySceneEntity(
   pan: { x: number; y: number },
   canvasOrigin: { x: number; y: number },
 ): CanvasSceneDrawingEntity {
-  // Scroll-follow: project the apparent position — stored coords shifted by
-  // the page's scroll since the anchor was written (see shape builder).
-  // Strokes are absolute canvas coords, so the shift applies to every point.
-  const shift = pageAnchorScrollShift(entity.pageAnchor)
-  const canvasX = entity.canvasX - shift.x
-  const canvasY = entity.canvasY - shift.y
+  // Scroll- and element-follow: project the apparent position — stored coords
+  // shifted by the page's scroll and its reference element's movement since the
+  // anchor was written (see shape builder). Strokes are absolute canvas coords,
+  // so the combined shift applies to every point.
+  const scroll = pageAnchorScrollShift(entity.pageAnchor)
+  const element = pageAnchorElementShift(entity.pageAnchor)
+  const shiftX = scroll.x + element.x
+  const shiftY = scroll.y + element.y
+  const canvasX = entity.canvasX - shiftX
+  const canvasY = entity.canvasY - shiftY
   const strokes =
-    shift.x || shift.y
+    shiftX || shiftY
       ? entity.strokes.map((stroke) => ({
           ...stroke,
-          points: stroke.points.map((point) => ({ x: point.x - shift.x, y: point.y - shift.y })),
+          points: stroke.points.map((point) => ({ x: point.x - shiftX, y: point.y - shiftY })),
         }))
       : entity.strokes
   const screenX = canvasOrigin.x + canvasX * zoom + pan.x

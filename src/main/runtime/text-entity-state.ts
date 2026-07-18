@@ -17,7 +17,7 @@ import type {
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
-import { pageAnchorScrollShift } from './page-anchor-scroll'
+import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface TextEntity {
   id: string
@@ -115,11 +115,13 @@ export function buildTextEntitySceneEntity(
   pan: { x: number; y: number },
   canvasOrigin: { x: number; y: number },
 ): CanvasSceneTextEntity {
-  // Scroll-follow: project the apparent position — stored coords shifted by
-  // the page's scroll since the anchor was written (see shape builder).
-  const shift = pageAnchorScrollShift(entity.pageAnchor)
-  const canvasX = entity.canvasX - shift.x
-  const canvasY = entity.canvasY - shift.y
+  // Scroll- and element-follow: project the apparent position — stored coords
+  // shifted by the page's scroll and its reference element's movement since the
+  // anchor was written (see shape builder).
+  const scroll = pageAnchorScrollShift(entity.pageAnchor)
+  const element = pageAnchorElementShift(entity.pageAnchor)
+  const canvasX = entity.canvasX - scroll.x - element.x
+  const canvasY = entity.canvasY - scroll.y - element.y
   const screenX = canvasOrigin.x + canvasX * zoom + pan.x
   const screenY = canvasOrigin.y + canvasY * zoom + pan.y
   return {
