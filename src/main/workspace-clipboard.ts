@@ -2,6 +2,7 @@ import type {
   ClipboardEntityPayload,
   ClipboardEntitySelectionPayload,
   ClipboardPageSelectionPayload,
+  PageAnchor,
 } from '../shared/types'
 import {
   createPage,
@@ -25,6 +26,11 @@ import {
 } from './runtime/drawing-entity-state'
 import { snapToGrid } from '../shared/gesture-utils'
 import { mutateWorkspace } from './runtime/mutate-workspace'
+import {
+  anchorEntityToPage,
+  reanchorEntityById,
+  withPageAnchoredEntityIds,
+} from './runtime/page-anchor-state'
 import { cloneMetadata } from './workspace-utils'
 
 export function copyablePagePayload(
@@ -65,11 +71,16 @@ export function copyableSelectionPayload():
  * source for both clipboard copy (current selection) and single-entity
  * duplicate (an explicit id, independent of selection) — see
  * `duplicateEntity` in workspace-pages.ts.
+ *
+ * Copying a page carries its page-anchored items the same way dragging a
+ * page carries them (ADR 0031); the paste side re-attaches the cloned items
+ * to the cloned page.
  */
 export function copyableEntityPayload(
-  entityIds: string[],
+  ids: string[],
 ): ClipboardEntitySelectionPayload | null {
-  if (!entityIds.length) return null
+  if (!ids.length) return null
+  const entityIds = withPageAnchoredEntityIds(ids)
 
   const entities: ClipboardEntityPayload[] = []
 
@@ -113,6 +124,7 @@ export function copyableEntityPayload(
     if (page) {
       entities.push({
         kind: 'page',
+        sourceId: page.id,
         url: page.pageView.webContents.getURL() || 'about:blank',
         presetIndex: page.presetIndex,
         metadata: cloneMetadata(page.metadata) as Record<string, unknown> | undefined,
@@ -134,6 +146,7 @@ export function copyableEntityPayload(
         height: note.height,
         dx: note.canvasX - minX,
         dy: note.canvasY - minY,
+        ...payloadAnchor(note.pageAnchor),
       })
       continue
     }
@@ -168,6 +181,7 @@ export function copyableEntityPayload(
         height: shape.height,
         dx: shape.canvasX - minX,
         dy: shape.canvasY - minY,
+        ...payloadAnchor(shape.pageAnchor),
       })
       continue
     }
@@ -187,6 +201,7 @@ export function copyableEntityPayload(
         label: drawing.label,
         dx: drawing.canvasX - minX,
         dy: drawing.canvasY - minY,
+        ...payloadAnchor(drawing.pageAnchor),
       })
     }
   }
@@ -194,6 +209,18 @@ export function copyableEntityPayload(
   if (!entities.length) return null
 
   return { version: 2, entities }
+}
+
+function payloadAnchor(
+  anchor: PageAnchor | undefined,
+): Pick<ClipboardEntityPayload, 'pageAnchor'> {
+  if (!anchor) return {}
+  return {
+    pageAnchor: {
+      pageId: anchor.pageId,
+      ...(anchor.pageUrl ? { pageUrl: anchor.pageUrl } : {}),
+    },
+  }
 }
 
 export function pastePagesFromClipboard(input: {
@@ -267,6 +294,9 @@ function pasteEntitiesInternal(input: {
   canvasY: number
 }): { entityIds: string[] } {
   const entityIds: string[] = []
+  /** Copied page id → its clone's id, for re-attaching anchored items. */
+  const clonedPageIds = new Map<string, string>()
+  const anchorables: Array<{ id: string; sourceAnchorPageId?: string }> = []
 
   for (const entity of input.payload.entities) {
     if (!Number.isFinite(entity.dx) || !Number.isFinite(entity.dy)) continue
@@ -291,6 +321,7 @@ function pasteEntitiesInternal(input: {
         metadata: pasteMetadata,
         colorScheme: entity.colorScheme,
       })
+      if (entity.sourceId) clonedPageIds.set(entity.sourceId, page.id)
       entityIds.push(page.id)
     } else if (entity.kind === 'text') {
       const note = createTextEntityInState({
@@ -303,6 +334,7 @@ function pasteEntitiesInternal(input: {
         width: entity.width,
         height: entity.height,
       })
+      anchorables.push({ id: note.id, sourceAnchorPageId: entity.pageAnchor?.pageId })
       entityIds.push(note.id)
     } else if (entity.kind === 'file') {
       if (typeof entity.file !== 'string' || !entity.file.trim().length) continue
@@ -332,6 +364,7 @@ function pasteEntitiesInternal(input: {
         width: entity.width,
         height: entity.height,
       })
+      anchorables.push({ id: shape.id, sourceAnchorPageId: entity.pageAnchor?.pageId })
       entityIds.push(shape.id)
     } else if (entity.kind === 'drawing') {
       const canvasX = input.canvasX + entity.dx
@@ -351,11 +384,24 @@ function pasteEntitiesInternal(input: {
         })),
         label: entity.label,
       })
+      anchorables.push({ id: drawing.id, sourceAnchorPageId: entity.pageAnchor?.pageId })
       entityIds.push(drawing.id)
     }
   }
 
   if (!entityIds.length) return { entityIds: [] }
+
+  // Attachment lifecycle for the clones: an item copied together with its
+  // page re-attaches to the page's clone; otherwise placement decides
+  // (ADR 0031) — the clone keeps the original page iff it still sits on it,
+  // and detaches when it lands on empty canvas.
+  for (const item of anchorables) {
+    const clonePageId = item.sourceAnchorPageId
+      ? clonedPageIds.get(item.sourceAnchorPageId)
+      : undefined
+    if (clonePageId) anchorEntityToPage(item.id, clonePageId)
+    else reanchorEntityById(item.id)
+  }
 
   setSelectedEntities(entityIds)
   return { entityIds }

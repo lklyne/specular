@@ -19,6 +19,7 @@
  */
 
 import {
+  canonicalPageUrl,
   pageAnchorFor,
   type PageAnchor,
   type PageAnchorTarget,
@@ -163,6 +164,30 @@ export function reanchorEntityById(entityId: string): boolean {
   } else {
     delete entity.pageAnchor
   }
+  markDirty('canvas', 'sidebar')
+  return true
+}
+
+/**
+ * Attach an entity to a specific page, bypassing placement resolution — used
+ * when a page and its anchored items are cloned together (paste, duplicate)
+ * and the clones must re-attach to the cloned page rather than whatever page
+ * happens to sit under them. Stamps the page's live scroll reference and
+ * re-derives the element attachment (ADR 0032: the attachment is derived
+ * metadata, so a clone re-captures rather than inheriting the source's).
+ */
+export function anchorEntityToPage(entityId: string, pageId: string): boolean {
+  const entity = findAnchorableEntity(entityId)
+  const page = pages.find((candidate) => candidate.id === pageId)
+  if (!entity || !page) return false
+  const pageUrl = canonicalPageUrl(page.url)
+  entity.pageAnchor = {
+    pageId,
+    ...(pageUrl ? { pageUrl } : {}),
+    scrollX: page.scrollX ?? 0,
+    scrollY: page.scrollY ?? 0,
+  }
+  captureElementForEntity(entityId)
   markDirty('canvas', 'sidebar')
   return true
 }

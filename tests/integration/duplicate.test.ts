@@ -30,6 +30,15 @@
  *   via the paste path": throwing from `duplicateEntity` before it delegates
  *   to `copyableEntityPayload`/`pasteEntitiesFromClipboard`
  *   (src/main/workspace-pages.ts) fails the creation assertion.
+ * - "duplicating a page carries its anchored sticky, re-attached to the
+ *   cloned page": deleting the `anchorables` attachment loop at the end of
+ *   `pasteEntitiesInternal` (src/main/workspace-clipboard.ts) leaves the
+ *   cloned sticky with no `pageAnchor`; deleting the
+ *   `withPageAnchoredEntityIds` expansion in `copyableEntityPayload` leaves
+ *   the sticky uncloned entirely.
+ * - "pasting an anchored sticky without its page re-resolves the anchor by
+ *   placement": replacing the attachment loop's `reanchorEntityById`
+ *   fallback with a no-op leaves the pasted-onto-page clone unanchored.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -44,6 +53,9 @@ import {
 } from '../../src/main/runtime/document-commands'
 import { duplicateSelection } from '../../src/main/runtime/duplicate-selection'
 import { duplicateEntity } from '../../src/main/workspace-pages'
+import { applyCanvasPatch } from '../../src/main/canvas-apply'
+import { pages } from '../../src/main/runtime/runtime-context'
+import { copyableEntityPayload } from '../../src/main/workspace-clipboard'
 import { selectEntity, selectNone } from '../../src/main/runtime/selection-controller'
 import { createUserGroup, duplicateGroup } from '../../src/main/workspace-groups'
 import { copyableSelectionPayload, pasteEntitiesFromClipboard } from '../../src/main/workspace-clipboard'
@@ -144,5 +156,70 @@ describe('unified duplicate path', () => {
     const clone = workspaceGroups.find((g) => g.id === groupId)
     expect(clone?.canvasX).toBe(137)
     expect(clone?.canvasY).toBe(213)
+  })
+
+  it('duplicating a page carries its anchored sticky, re-attached to the cloned page', async () => {
+    const { created } = applyCanvasPatch({
+      entities: [
+        { kind: 'page', url: 'https://example.com', canvasX: 0, canvasY: 0, presetIndex: 0 },
+      ],
+    })
+    const pageId = created[0]
+    await settleSync()
+
+    // createTextEntity resolves the anchor by placement — center on the page body.
+    const sticky = createTextEntity({ canvasX: 40, canvasY: 100, text: 'on page' })
+    await settleSync()
+    expect(getTextEntities().find((t) => t.id === sticky.id)?.pageAnchor?.pageId).toBe(pageId)
+
+    selectEntity(pageId, 'page')
+    duplicateSelection()
+    await settleSync()
+
+    expect(pages).toHaveLength(2)
+    const clonePage = pages.find((p) => p.id !== pageId)
+    const cloneSticky = getTextEntities().find((t) => t.id !== sticky.id)
+    expect(clonePage).toBeDefined()
+    expect(cloneSticky).toBeDefined()
+    expect(cloneSticky?.pageAnchor?.pageId).toBe(clonePage!.id)
+
+    undo()
+    expect(pages).toHaveLength(1)
+    expect(getTextEntities()).toHaveLength(1)
+
+    redo()
+    await settleSync()
+    expect(pages).toHaveLength(2)
+    const redonePage = pages.find((p) => p.id !== pageId)
+    const redoneSticky = getTextEntities().find((t) => t.id !== sticky.id)
+    expect(redoneSticky?.pageAnchor?.pageId).toBe(redonePage!.id)
+  })
+
+  it('pasting an anchored sticky without its page re-resolves the anchor by placement', async () => {
+    const { created } = applyCanvasPatch({
+      entities: [
+        { kind: 'page', url: 'https://example.com', canvasX: 0, canvasY: 0, presetIndex: 0 },
+      ],
+    })
+    const pageId = created[0]
+    await settleSync()
+    const sticky = createTextEntity({ canvasX: 40, canvasY: 100, text: 'on page' })
+    await settleSync()
+    expect(getTextEntities().find((t) => t.id === sticky.id)?.pageAnchor?.pageId).toBe(pageId)
+
+    const payload = copyableEntityPayload([sticky.id])
+    expect(payload).toBeTruthy()
+
+    // Far from any page: the clone detaches.
+    const far = pasteEntitiesFromClipboard({ payload: payload!, canvasX: 4000, canvasY: 4000 })
+    await settleSync()
+    expect(getTextEntities().find((t) => t.id === far.entityIds[0])?.pageAnchor).toBeUndefined()
+
+    // Back onto the original page body: the clone anchors to the original page.
+    const onPage = pasteEntitiesFromClipboard({ payload: payload!, canvasX: 60, canvasY: 120 })
+    await settleSync()
+    expect(
+      getTextEntities().find((t) => t.id === onPage.entityIds[0])?.pageAnchor?.pageId,
+    ).toBe(pageId)
   })
 })
