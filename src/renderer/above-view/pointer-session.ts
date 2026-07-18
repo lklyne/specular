@@ -4,11 +4,19 @@
  * A session owns the mechanical part every gesture repeats: pointer capture
  * on the originating element, pointerId-filtered window listeners for
  * pointermove/pointerup (any pointercancel cancels the session, no
- * pointerId filter), an optional window-blur cancel, and one teardown that
- * releases capture and removes every listener before the up/cancel
+ * pointerId filter), an optional window-blur cancel, optional live modifier
+ * tracking (keydown/keyup while the pointer is stationary), and one teardown
+ * that releases capture and removes every listener before the up/cancel
  * callback runs. Gesture semantics (thresholds, IPC dispatch,
  * commit-vs-cancel outcomes) stay at the call site.
  */
+
+export interface ModifierState {
+  metaKey: boolean
+  ctrlKey: boolean
+  shiftKey: boolean
+  altKey: boolean
+}
 
 export interface PointerSessionHandlers {
   /** Pointermove for this session's pointerId. */
@@ -18,6 +26,14 @@ export interface PointerSessionHandlers {
   /** Runs after teardown on pointercancel, and on window blur when
    *  `listenBlur` is set and the blur is not ignored. */
   onCancel?: (ev: Event) => void
+  /** Fires when a modifier key transitions (keydown/keyup) mid-gesture.
+   *  Pointermove already carries live modifiers, so this exists for the
+   *  stationary-pointer case: toggling Cmd/Shift/etc. without moving. The
+   *  session hands back the most recent pointer event (the pointerdown until
+   *  the first move) so a gesture can re-render against the current cursor
+   *  position. Key auto-repeat is deduped — this fires only on an actual
+   *  change in modifier state, not on every key event. */
+  onModifiers?: (mods: ModifierState, lastPointer: PointerEvent) => void
   /** Treat window blur as a cancel. Off by default — some gestures
    *  (pointer forwarding to a page) deliberately survive aboveView losing
    *  focus mid-gesture. */
@@ -62,9 +78,18 @@ export function startPointerSession(
   event: PointerEvent,
   handlers: PointerSessionHandlers,
 ): PointerSession {
-  const { onMove, onUp, onCancel, listenBlur = false, ignoreBlur } = handlers
+  const { onMove, onUp, onCancel, onModifiers, listenBlur = false, ignoreBlur } = handlers
   const pointerId = event.pointerId
   const releasePointer = capturePointer(event)
+
+  const modifiersOf = (e: ModifierState): ModifierState => ({
+    metaKey: e.metaKey,
+    ctrlKey: e.ctrlKey,
+    shiftKey: e.shiftKey,
+    altKey: e.altKey,
+  })
+  let lastPointer = event
+  let lastModifiers = modifiersOf(event)
 
   let ended = false
   const end = () => {
@@ -74,12 +99,31 @@ export function startPointerSession(
     window.removeEventListener('pointermove', handleMove)
     window.removeEventListener('pointerup', handleUp)
     window.removeEventListener('pointercancel', handleCancel)
+    if (onModifiers) {
+      window.removeEventListener('keydown', handleKey)
+      window.removeEventListener('keyup', handleKey)
+    }
     if (listenBlur) window.removeEventListener('blur', handleBlur)
   }
 
   const handleMove = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
+    lastPointer = ev
+    lastModifiers = modifiersOf(ev)
     onMove?.(ev)
+  }
+  const handleKey = (ev: KeyboardEvent) => {
+    const next = modifiersOf(ev)
+    if (
+      next.metaKey === lastModifiers.metaKey &&
+      next.ctrlKey === lastModifiers.ctrlKey &&
+      next.shiftKey === lastModifiers.shiftKey &&
+      next.altKey === lastModifiers.altKey
+    ) {
+      return
+    }
+    lastModifiers = next
+    onModifiers?.(next, lastPointer)
   }
   const handleUp = (ev: PointerEvent) => {
     if (ev.pointerId !== pointerId) return
@@ -99,6 +143,10 @@ export function startPointerSession(
   window.addEventListener('pointermove', handleMove)
   window.addEventListener('pointerup', handleUp)
   window.addEventListener('pointercancel', handleCancel)
+  if (onModifiers) {
+    window.addEventListener('keydown', handleKey)
+    window.addEventListener('keyup', handleKey)
+  }
   if (listenBlur) window.addEventListener('blur', handleBlur)
 
   return { end, releasePointer }

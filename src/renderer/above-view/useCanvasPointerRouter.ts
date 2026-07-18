@@ -939,12 +939,36 @@ function runBackgroundSelectionGesture(
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
-  // Sample the mode modifier live off each event: Cmd/Ctrl can be pressed or
-  // released mid-drag to toggle intersect vs. full containment.
-  const marqueeMode = (ev: PointerEvent): MarqueeSelectionMode =>
-    ev.metaKey || ev.ctrlKey ? 'contain' : 'intersect'
+  // Sample the mode modifier live: Cmd/Ctrl can be pressed or released mid-drag
+  // to toggle intersect vs. full containment. Accepts any modifier-bearing
+  // shape so both pointer and key events feed it.
+  const marqueeMode = (m: { metaKey: boolean; ctrlKey: boolean }): MarqueeSelectionMode =>
+    m.metaKey || m.ctrlKey ? 'contain' : 'intersect'
   const excludedIds = originEntity ? new Set([originEntity.entityId]) : new Set<string>()
   let dragged = false
+
+  const renderPreview = (clientX: number, clientY: number, mode: MarqueeSelectionMode) => {
+    const layout = layoutRef.current
+    const rect = normalizeRect(startClientX, startClientY, clientX, clientY)
+    const windowRect = {
+      left: rect.left,
+      top: rect.top + layout.canvasOrigin.y,
+      width: rect.width,
+      height: rect.height,
+    }
+    const entityIds = entitiesOverlappingRect(layout.entities, windowRect, {
+      mode,
+      excludedIds,
+    })
+    api.setSelectionOverlayRect({
+      rect: {
+        ...rect,
+        top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
+      },
+      variant: 'default',
+      entityIds,
+    })
+  }
 
   startPointerSession(event, {
     onMove: (ev) => {
@@ -954,26 +978,13 @@ function runBackgroundSelectionGesture(
         if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
         dragged = true
       }
-      const layout = layoutRef.current
-      const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
-      const windowRect = {
-        left: rect.left,
-        top: rect.top + layout.canvasOrigin.y,
-        width: rect.width,
-        height: rect.height,
-      }
-      const entityIds = entitiesOverlappingRect(layout.entities, windowRect, {
-        mode: marqueeMode(ev),
-        excludedIds,
-      })
-      api.setSelectionOverlayRect({
-        rect: {
-          ...rect,
-          top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
-        },
-        variant: 'default',
-        entityIds,
-      })
+      renderPreview(ev.clientX, ev.clientY, marqueeMode(ev))
+    },
+    // Cmd/Ctrl toggled without moving the pointer: re-render at the last
+    // cursor position so the preview reflects the new mode immediately.
+    onModifiers: (mods, lastPointer) => {
+      if (!dragged) return
+      renderPreview(lastPointer.clientX, lastPointer.clientY, marqueeMode(mods))
     },
     onUp: (ev) => {
       api.setSelectionOverlayRect(null)
