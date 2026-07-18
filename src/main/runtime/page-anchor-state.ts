@@ -33,6 +33,7 @@ import { pageAnchorScrollShift } from './page-anchor-scroll'
 import { workspaceAnnotations } from './workspace-model'
 import { markDirty } from './layout-dirty'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
+import { captureElementForEntity } from './element-attachment-capture'
 
 export interface AnchorableEntity {
   id: string
@@ -143,6 +144,10 @@ export function reanchorEntityById(entityId: string): boolean {
       })
   if (sameAnchor(entity.pageAnchor, next)) {
     if (rebased) markDirty('canvas', 'sidebar')
+    // Drag-end over the same page keeps the anchor object but sits over
+    // (possibly) different content, so re-capture the reference element
+    // (ADR 0030). No-op when the entity is free.
+    if (entity.pageAnchor) captureElementForEntity(entityId)
     return rebased
   }
   if (next) {
@@ -152,6 +157,9 @@ export function reanchorEntityById(entityId: string): boolean {
     next.scrollX = page?.scrollX ?? 0
     next.scrollY = page?.scrollY ?? 0
     entity.pageAnchor = next
+    // Newly anchored (creation or drop-on): find the element under the item's
+    // center. Dragging off deletes the anchor, which clears the attachment.
+    captureElementForEntity(entityId)
   } else {
     delete entity.pageAnchor
   }

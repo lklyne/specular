@@ -44,6 +44,7 @@ import {
   rectFullyContainedInRegion,
   rectIntersectsRegion,
 } from './dom-element-utils'
+import { captureElementAtDocumentPoint } from './element-attachment-capture'
 import {
   applyDomInspectionState,
   handleInspectFocusNode,
@@ -499,6 +500,18 @@ ipcRenderer.on(
     ipcRenderer.send(ipcChannels.queryElementAtPointResponse, {
       requestId: payload.requestId,
       data: inspectionPayload(target),
+    })
+  },
+)
+
+ipcRenderer.on(
+  ipcChannels.captureElementAtPoint,
+  (_event, payload: { requestId: string; docX: number; docY: number }) => {
+    // ADR 0030 — element attachment. Find the reference element under a
+    // document point so an anchored item can track it through page reflow.
+    ipcRenderer.send(ipcChannels.captureElementAtPointResponse, {
+      requestId: payload.requestId,
+      data: captureElementAtDocumentPoint(payload.docX, payload.docY),
     })
   },
 )

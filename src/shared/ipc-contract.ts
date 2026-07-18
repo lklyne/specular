@@ -179,6 +179,8 @@ export interface IpcContract {
   'canvas-update-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-update-page-bounds': { dir: 'renderer→main'; payload: unknown }
   'canvas-zoom': { dir: 'renderer→main'; payload: unknown }
+  'capture-element-at-point': { dir: 'main→renderer'; payload: { requestId: string; docX: number; docY: number } }
+  'capture-element-at-point-response': { dir: 'renderer→main'; payload: { requestId: string; data: unknown } }
   'capture-mode': { dir: 'main→renderer'; payload: boolean }
   'comment-canvas-point-committed': { dir: 'main→renderer'; payload: { canvasX: number; canvasY: number } }
   'comment-overlay-set-active': { dir: 'renderer→main'; payload: unknown }
@@ -470,6 +472,8 @@ export const ipcChannels = {
   canvasUpdateEntity: 'canvas-update-entity',
   canvasUpdatePageBounds: 'canvas-update-page-bounds',
   canvasZoom: 'canvas-zoom',
+  captureElementAtPoint: 'capture-element-at-point',
+  captureElementAtPointResponse: 'capture-element-at-point-response',
   captureMode: 'capture-mode',
   commentCanvasPointCommitted: 'comment-canvas-point-committed',
   commentOverlaySetActive: 'comment-overlay-set-active',

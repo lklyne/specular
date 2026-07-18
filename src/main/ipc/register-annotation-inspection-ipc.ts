@@ -186,6 +186,11 @@ export function registerAnnotationInspectionIpc(): void {
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
   })
 
+  ipcMain.on(ipcChannels.captureElementAtPointResponse, (_event, payload) => {
+    if (!payload || typeof payload !== 'object') return
+    handlePageIpcResponse(payload as { requestId: string; data: unknown })
+  })
+
   ipcMain.on(ipcChannels.dispatchScrollResult, (_event, payload) => {
     if (!payload || typeof payload !== 'object') return
     handlePageIpcResponse(payload as { requestId: string; data: unknown })
