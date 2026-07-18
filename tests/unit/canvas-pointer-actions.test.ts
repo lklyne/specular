@@ -375,9 +375,9 @@ describe('routePointerDown', () => {
       expect(action).toEqual({ kind: 'noop' })
     })
 
-    // Issue #49 follow-up: editable file renderers (markdown, wireframe,
-    // video) opt into the same press-deferral. Image / component
-    // placeholders gracefully fall through to drag.
+    // Issue #49 follow-up: editable file renderers (markdown, video) opt
+    // into the same press-deferral. Image / component placeholders
+    // gracefully fall through to drag.
     it('click on solo-selected editable file body → begin-entity-press', () => {
       const f = file({ rendererEditable: true })
       const target = hitTest(inputs([f], ['fi1']), { x: f.screenX + 50, y: f.screenY + 30 })

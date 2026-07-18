@@ -278,8 +278,8 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       // Yield to typing targets (textarea, input, contenteditable) so focus
       // and cursor positioning land normally. Without this, the router's
       // preventDefault on entity-body hits eats the click before the
-      // editable element can react — affects sticky textareas, markdown /
-      // wireframe-JSON file textareas, and any future inline editor.
+      // editable element can react — affects sticky textareas, markdown
+      // file textareas, and any future inline editor.
       if (isTypingTarget(event.target)) return
       if (event.button !== 0 && event.button !== 1 && event.button !== 2) return
 

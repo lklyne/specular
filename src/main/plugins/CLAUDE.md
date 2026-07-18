@@ -20,7 +20,7 @@ Dispatch is **first match wins** by registration order, with `priority` as the o
 
 `EntityRendererClaim` is a discriminated union:
 
-- **`InlineRendererClaim`** — content renders inside the canvas DOM as a React component. Markdown, wireframe, image, video are all inline. No process boundary, synchronous render.
+- **`InlineRendererClaim`** — content renders inside the canvas DOM as a React component. Markdown, image, video are all inline. No process boundary, synchronous render.
 - **`WcvPageRendererClaim`** — content loads inside its own Electron `WebContentsView` (a separate renderer process). The plugin provides `resolveUrl(entity)`; the host eventually creates the WCV pointed at it. Component-render is the only `wcv-page` plugin today.
 
 Both kinds share one registry because the dispatch key — file extension — is shared. The discriminated union enforces that `wcv-page` carries `resolveUrl` and `inline` does not.
@@ -35,8 +35,8 @@ Both kinds share one registry because the dispatch key — file extension — is
      id: 'specular.your-renderer',
      kind: 'inline',
      rendererTag: 'your-tag',
-     // True if the renderer reacts to canEdit (markdown, wireframe,
-     // video); false if it ignores it (image, placeholder).
+     // True if the renderer reacts to canEdit (markdown, video); false if
+     // it ignores it (image, placeholder).
      editable: true,
      claims: (entity) => /\.your-ext$/i.test(entity.file),
    }
@@ -57,7 +57,7 @@ Same five steps, except:
 
 ## Conventions
 
-- **Priority.** Default 0. Set higher when your file pattern is more specific than another plugin's (e.g. wireframe's `priority: 10` so `.wireframe.json` beats a hypothetical generic `.json`).
+- **Priority.** Default 0. Set higher when your file pattern is more specific than another plugin's (e.g. a `.foo.json` claim beating a hypothetical generic `.json` plugin).
 - **Metadata is namespaced.** Per-instance plugin data on a file entity goes in `metadata.<plugin-id>.*` (e.g. `metadata.componentRender.{repoId, repoRelativePath}`). The serializer round-trips `metadata` on file nodes; document new keys in `docs/file-formats.md`.
 - **Plugin IDs are not persisted.** A renderer is recovered from the file at load time, never stored. This is deliberate — file-on-disk is the source of truth, and the renderer follows.
 - **Layer rule.** Renderer-side dispatch is by string tag broadcast over IPC. Never import `registry.ts` from `src/renderer/`; the `RendererSwitch` already knows everything it needs.

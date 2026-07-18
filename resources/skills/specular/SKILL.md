@@ -37,7 +37,7 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 ```bash
 specular add page <url> [--at x,y] [--preset N] [--landscape]
 specular add note <text> [--at x,y] [--color 3]
-specular add file <path>      # md / wireframe / html / image / video — kind inferred from extension
+specular add file <path>      # md / html / image / video — kind inferred from extension
 ```
 
 `add page` defaults to the Laptop preset; pass `--preset N` for another
@@ -159,8 +159,7 @@ No `id` → create. `id` present → update. `id` in `delete` → remove. Applie
 one transaction.
 
 See [references/apply.md](references/apply.md) for worked examples — batch
-page creation at breakpoints, reorganizing existing entities into a grid,
-batch wireframe placement.
+page creation at breakpoints, reorganizing existing entities into a grid.
 
 The `layout` directive takes a `kind` (`row` / `column` / `grid`), a `gap`
 (token or pixel number), and an anchor (`originX`/`originY`, `near: <id>`, or
@@ -211,18 +210,6 @@ to pages on the canvas. Only pass an explicit `--size` when there's a real
 reason (e.g. a long-form card that needs more room). Custom sizes tend to look
 off against the rest of the workspace.
 
-## Wireframes
-
-Files ending in `.wireframe.json` render as interactive wireframe editors on
-the canvas. Use them to sketch UI layouts, explore design variants, and iterate
-spatially alongside live pages. Write the JSON file to disk, then add it:
-
-```bash
-specular add file /tmp/my-layout.wireframe.json
-```
-
-See [references/wireframes.md](references/wireframes.md) for the full node
-schema, layout patterns, and examples.
 
 ## HTML pages
 

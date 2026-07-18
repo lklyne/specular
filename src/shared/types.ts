@@ -71,20 +71,6 @@ export type { ShapeKind }
 /** Shape border rendering: a drawn outline, a dashed outline, or no outline. */
 export type ShapeBorderStyle = 'solid' | 'dashed' | 'none'
 
-/**
- * Renderer plugin popup contribution tags (ADR 0008 §7). Each tag names a
- * single piece of UI a renderer plugin can opt into in the file selection
- * popup. The main-side registry declares which tags a renderer claims; the
- * renderer-side `renderPopupContributions` switch picks the React component.
- *
- * Adding a tag requires both ends: a literal here + a case in
- * `src/renderer/above-view/file-popup-contributions/index.tsx`.
- */
-export type PopupContributionTag =
-  | 'wireframe-theme'
-  | 'wireframe-json-mode'
-  | 'wireframe-device-controls'
-
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
   id: string
@@ -243,7 +229,7 @@ export interface CanvasSceneFileEntity {
   parentGroupId?: string
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
-  rendererTag?: 'image' | 'video' | 'markdown' | 'wireframe' | 'component' | 'html'
+  rendererTag?: 'image' | 'video' | 'markdown' | 'component' | 'html'
   /**
    * Markdown note content, present only once the note has entered the
    * Y.Doc `notes` mirror (i.e. edited at least once — ADR 0023). Undefined
@@ -252,14 +238,6 @@ export interface CanvasSceneFileEntity {
    * undo/redo immediately on the next broadcast.
    */
   noteContent?: string
-  /**
-   * Static contribution tags declared by the picked renderer plugin (ADR 0008
-   * §7). The `FilePopup` reads these to compose plugin-specific controls
-   * (e.g. wireframe theme picker). Empty array means no contributions. The
-   * tag → component switch lives renderer-side; this string list is the
-   * cross-layer contract.
-   */
-  popupContributions?: PopupContributionTag[]
   /** Whether the resolved renderer has a meaningful inline-edit affordance.
    *  Drives both the dblclick and click-on-solo-selected paths in the
    *  pointer router. Undefined for unclaimed (fallback) entities — treated
@@ -978,7 +956,6 @@ export type PanelFileType =
   | 'image'
   | 'video'
   | 'markdown'
-  | 'wireframe'
   | 'component'
   | 'html'
   | 'other'

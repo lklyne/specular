@@ -25,7 +25,7 @@ import { PageListItem } from '../shared/pageListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { useDragReorder } from './useDragReorder'
 
-const RENAMABLE_FILE_PATTERN = /\.(md|wireframe\.json)$/i
+const RENAMABLE_FILE_PATTERN = /\.md$/i
 
 const LIST_OUTER_LEFT_PADDING = 14
 const LIST_OUTER_RIGHT_PADDING = 8

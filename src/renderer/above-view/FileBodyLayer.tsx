@@ -1,13 +1,13 @@
 /**
- * FileBodyLayer — file-entity bodies (image, video, markdown, wireframe,
+ * FileBodyLayer — file-entity bodies (image, video, markdown,
  * component placeholder, fallback). Mounted in aboveView so a file placed
  * over a page is actually drawn above it.
  *
  * Hit-tests run in `useCanvasPointerRouter` against the layout snapshot
  * (front-to-back), so this layer is purely visual for selection/drag/resize.
- * The contenteditable inside markdown / wireframe renderers is the one
- * exception — it needs real DOM events, and works because the cards mount
- * inside aboveView's WCV which already holds keyboard focus during edit.
+ * The contenteditable inside the markdown renderer is the one exception —
+ * it needs real DOM events, and works because the cards mount inside
+ * aboveView's WCV which already holds keyboard focus during edit.
  */
 
 import { memo } from 'react'
@@ -26,7 +26,6 @@ function FileBodyCard({
   isSelected,
   isInteractive,
   canEdit,
-  wireframeJsonMode,
   onTextEditingChange,
 }: {
   entity: CanvasSceneFileEntity
@@ -36,7 +35,6 @@ function FileBodyCard({
    *  the pointer so scroll/clicks pass through. */
   isInteractive: boolean
   canEdit: boolean
-  wireframeJsonMode: boolean
   onTextEditingChange: (active: boolean) => void
 }) {
   const fileApi = getFileApi()
@@ -81,7 +79,6 @@ function FileBodyCard({
             canEdit={canEdit}
             isDark={isDark}
             isInteractive={isInteractive}
-            wireframeJsonMode={wireframeJsonMode}
             onTextEditingChange={onTextEditingChange}
           />
         </ContextMenu.Trigger>
@@ -159,13 +156,9 @@ const MemoFileBodyCard = memo(FileBodyCard, (prev, next) => {
     prev.isDark === next.isDark &&
     prev.isSelected === next.isSelected &&
     prev.isInteractive === next.isInteractive &&
-    prev.canEdit === next.canEdit &&
-    prev.wireframeJsonMode === next.wireframeJsonMode
+    prev.canEdit === next.canEdit
   )
 })
-
-/** Map of entityId → wireframe jsonMode. AboveView owns this state now. */
-export type FileJsonModeMap = Map<string, boolean>
 
 export function FileBodyLayer({
   entities,
@@ -173,7 +166,6 @@ export function FileBodyLayer({
   selectedEntityIdSet,
   editingEntityId,
   interactiveEntityId,
-  jsonModeMap,
   canvasOrigin,
   pan,
   zoom,
@@ -187,7 +179,6 @@ export function FileBodyLayer({
   editingEntityId: string | null
   /** Entered interactive file (HTML iframe) whose content owns the pointer. */
   interactiveEntityId: string | null
-  jsonModeMap: FileJsonModeMap
   canvasOrigin: { x: number; y: number }
   pan: { x: number; y: number }
   zoom: number
@@ -204,7 +195,6 @@ export function FileBodyLayer({
           isSelected={selectedEntityIdSet.has(entity.id)}
           isInteractive={interactiveEntityId === entity.id}
           canEdit={editingEntityId === entity.id}
-          wireframeJsonMode={jsonModeMap.get(entity.id) ?? false}
           onTextEditingChange={onTextEditingChange}
         />
       ))}

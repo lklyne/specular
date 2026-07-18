@@ -128,12 +128,12 @@ describe('entity-renderer registry', () => {
     registerEntityRenderer({
       id: 'high',
       kind: 'inline',
-      rendererTag: 'wireframe',
+      rendererTag: 'markdown',
       priority: 10,
       editable: true,
-      claims: (e) => /\.wireframe\.json$/i.test(e.file),
+      claims: (e) => /\.special\.json$/i.test(e.file),
     })
-    expect(pickRenderer(fileEntity({ file: 'foo.wireframe.json' }))?.id).toBe('high')
+    expect(pickRenderer(fileEntity({ file: 'foo.special.json' }))?.id).toBe('high')
     expect(pickRenderer(fileEntity({ file: 'foo.json' }))?.id).toBe('low')
   })
 
@@ -193,23 +193,5 @@ describe('built-in component-render plugin', () => {
     expect(componentRenderPlugin.claims(fileEntity({ file: 'Foo.jsx' }))).toBe(true)
     expect(componentRenderPlugin.claims(fileEntity({ file: 'Foo.ts' }))).toBe(false)
     expect(componentRenderPlugin.claims(fileEntity({ file: 'a.md' }))).toBe(false)
-  })
-})
-
-describe('built-in wireframe-render plugin', () => {
-  it('contributes wireframe popup controls only through the wireframe claim', async () => {
-    const { wireframeRenderPlugin } = await import(
-      '../../src/main/plugins/builtin/wireframe-render'
-    )
-
-    expect(wireframeRenderPlugin.claims(fileEntity({ file: 'flow.wireframe.json' }))).toBe(
-      true,
-    )
-    expect(wireframeRenderPlugin.claims(fileEntity({ file: 'notes.md' }))).toBe(false)
-    expect(wireframeRenderPlugin.popupContributionTags).toEqual([
-      'wireframe-theme',
-      'wireframe-json-mode',
-      'wireframe-device-controls',
-    ])
   })
 })

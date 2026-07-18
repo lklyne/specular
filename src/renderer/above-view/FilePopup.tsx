@@ -1,5 +1,4 @@
-// ADR 0008 §7 — file selection popup. Per-renderer contributions come from
-// `entity.popupContributions` via the plugin contribution surface.
+// ADR 0008 §7 — file selection popup.
 
 import { useEffect, useState } from 'react'
 import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
@@ -7,7 +6,6 @@ import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { fileDisplayName } from '../canvas-bg/entityConstants'
-import { renderPopupContributions } from './file-popup-contributions'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function FilePopup({
@@ -16,24 +14,15 @@ export function FilePopup({
   layout,
   selectedFiles,
   interactionIdle,
-  fileJsonModeMap,
-  setFileJsonMode,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'renameFileEntity'
-    | 'writeNoteFile'
-    | 'setFileDeviceOrientation'
-    | 'toggleFileDeviceShell'
-    | 'focusSelection'
-    | 'arrangeSelection'
+    'renameFileEntity' | 'focusSelection' | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
   interactionIdle: boolean
-  fileJsonModeMap: ReadonlyMap<string, boolean>
-  setFileJsonMode: (entityId: string, jsonMode: boolean) => void
 }) {
   const count = selectedFiles.length
   const ids = selectedFiles.map((f) => f.id).join('|')
@@ -60,43 +49,27 @@ export function FilePopup({
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
-        {single
-          ? (() => {
-              const contributions = renderPopupContributions(single, {
-                api,
-                isDark,
-                jsonMode: fileJsonModeMap.get(single.id) ?? false,
-                onJsonModeChange: setFileJsonMode,
-              })
-              return (
-                <>
-                  {contributions.length > 0 ? (
-                    <>
-                      {contributions}
-                      <CanvasItemPopup.Divider isDark={isDark} />
-                    </>
-                  ) : null}
-                  <CanvasItemPopup.Section grow>
-                    <InlineEditLabel
-                      value={fileDisplayName(single.file)}
-                      isEditing={isRenaming}
-                      onStartEdit={() => setIsRenaming(true)}
-                      onCommit={(next) => {
-                        setIsRenaming(false)
-                        api.renameFileEntity(single.id, next)
-                      }}
-                      onCancel={() => setIsRenaming(false)}
-                      variant="canvas-chrome"
-                      isDark={isDark}
-                      titleClassName="min-w-0 flex-1 truncate pl-1.5 text-xs font-medium"
-                      onTitleClick={() => setIsRenaming(true)}
-                    />
-                  </CanvasItemPopup.Section>
-                  <CanvasItemPopup.Divider isDark={isDark} />
-                </>
-              )
-            })()
-          : null}
+        {single ? (
+          <>
+            <CanvasItemPopup.Section grow>
+              <InlineEditLabel
+                value={fileDisplayName(single.file)}
+                isEditing={isRenaming}
+                onStartEdit={() => setIsRenaming(true)}
+                onCommit={(next) => {
+                  setIsRenaming(false)
+                  api.renameFileEntity(single.id, next)
+                }}
+                onCancel={() => setIsRenaming(false)}
+                variant="canvas-chrome"
+                isDark={isDark}
+                titleClassName="min-w-0 flex-1 truncate pl-1.5 text-xs font-medium"
+                onTitleClick={() => setIsRenaming(true)}
+              />
+            </CanvasItemPopup.Section>
+            <CanvasItemPopup.Divider isDark={isDark} />
+          </>
+        ) : null}
         <CanvasItemPopup.EntityActions
           isDark={isDark}
           noun={noun}

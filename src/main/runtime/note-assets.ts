@@ -63,11 +63,7 @@ export function writeNoteFile(filePath: string, content: string): void {
 export function renameNoteFile(oldFilePath: string, newName: string): string | null {
   const dir = join(oldFilePath, '..')
   const baseName = oldFilePath.split('/').pop() ?? oldFilePath
-  const ext = /\.wireframe\.json$/i.test(baseName)
-    ? '.wireframe.json'
-    : /\.md$/i.test(baseName)
-      ? '.md'
-      : ''
+  const ext = /\.md$/i.test(baseName) ? '.md' : ''
   const sanitized = sanitizeNoteName(newName)
   let fileName = `${sanitized}${ext}`
   let newPath = join(dir, fileName)
@@ -90,8 +86,8 @@ export function renameNoteFile(oldFilePath: string, newName: string): string | n
 }
 
 /**
- * Whether a file path is a renamable workspace-managed note (markdown or wireframe).
+ * Whether a file path is a renamable workspace-managed note (markdown).
  */
 export function isRenamableNotePath(filePath: string): boolean {
-  return /\.md$/i.test(filePath) || /\.wireframe\.json$/i.test(filePath)
+  return /\.md$/i.test(filePath)
 }

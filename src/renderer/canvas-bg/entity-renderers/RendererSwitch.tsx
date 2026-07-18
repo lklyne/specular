@@ -4,7 +4,6 @@ import {
   IMAGE_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
   VIDEO_EXTENSIONS,
-  WIREFRAME_EXTENSIONS,
 } from '../entityConstants'
 import { ComponentPlaceholderRenderer } from './ComponentPlaceholderRenderer'
 import { FileFallbackRenderer } from './FileFallbackRenderer'
@@ -12,7 +11,6 @@ import { HtmlInlineRenderer } from './HtmlInlineRenderer'
 import { ImageInlineRenderer } from './ImageInlineRenderer'
 import { MarkdownInlineRenderer } from './MarkdownInlineRenderer'
 import { VideoInlineRenderer } from './VideoInlineRenderer'
-import { WireframeInlineRenderer } from './WireframeInlineRenderer'
 
 /**
  * Pick the inline renderer for a file entity. The registry's rendererTag
@@ -24,7 +22,6 @@ function resolveTag(entity: CanvasSceneFileEntity): CanvasSceneFileEntity['rende
   if (entity.rendererTag) return entity.rendererTag
   if (IMAGE_EXTENSIONS.test(entity.file)) return 'image'
   if (VIDEO_EXTENSIONS.test(entity.file)) return 'video'
-  if (WIREFRAME_EXTENSIONS.test(entity.file)) return 'wireframe'
   if (MARKDOWN_EXTENSIONS.test(entity.file)) return 'markdown'
   if (HTML_EXTENSIONS.test(entity.file)) return 'html'
   return undefined
@@ -35,7 +32,6 @@ export function RendererSwitch({
   canEdit,
   isDark,
   isInteractive,
-  wireframeJsonMode,
   onTextEditingChange,
 }: {
   entity: CanvasSceneFileEntity
@@ -43,7 +39,6 @@ export function RendererSwitch({
   isDark: boolean
   /** The entered interactive file (HTML iframe): its content owns the pointer. */
   isInteractive: boolean
-  wireframeJsonMode: boolean
   onTextEditingChange: (active: boolean) => void
 }) {
   const tag = resolveTag(entity)
@@ -59,15 +54,6 @@ export function RendererSwitch({
           canEdit={canEdit}
           isDark={isDark}
           onTextEditingChange={onTextEditingChange}
-        />
-      )
-    case 'wireframe':
-      return (
-        <WireframeInlineRenderer
-          entity={entity}
-          canEdit={canEdit}
-          isDark={isDark}
-          jsonMode={wireframeJsonMode}
         />
       )
     case 'component':
