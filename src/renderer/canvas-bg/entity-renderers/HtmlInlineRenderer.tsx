@@ -31,7 +31,7 @@ export function HtmlInlineRenderer({
       />
       {flash !== null ? (
         <div
-          key={flash}
+          key={`flash-${flash}`}
           aria-hidden
           className="file-refresh-flash pointer-events-none absolute inset-0"
           style={{ boxShadow: 'inset 0 0 0 2px var(--color-blue-500, #3b82f6)' }}
