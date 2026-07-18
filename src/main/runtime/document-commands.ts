@@ -72,7 +72,7 @@ import {
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
-import { pan, zoom } from './runtime-context'
+import { interactionState, pan, zoom } from './runtime-context'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import {
   snapGeometryPatch,
@@ -704,7 +704,15 @@ function updateEntityCommand<P extends Partial<Record<GeometryPatchKey, number>>
   snapKeys?: readonly GeometryPatchKey[],
 ): E | null {
   return mutateWorkspace(() => {
-    const entity = updateInState(id, snapGeometryPatch(patch, snapKeys))
+    // The renderer's resize accumulator already resolves all four bounds as
+    // one edge-consistent patch. Re-snapping origin and size independently
+    // here moves the supposedly stationary edge (and makes it flicker between
+    // grid cells). Other update doors retain their established grid snapping.
+    const geometryPatch =
+      interactionState.kind === 'resizing-entity' && interactionState.entity.id === id
+        ? patch
+        : snapGeometryPatch(patch, snapKeys)
+    const entity = updateInState(id, geometryPatch)
     if (entity) updateResizeGuides(id)
     return entity
   }, { changed: (entity) => entity !== null })
