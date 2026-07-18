@@ -31,7 +31,30 @@ import {
   reanchorEntityById,
   withPageAnchoredEntityIds,
 } from './runtime/page-anchor-state'
+import {
+  pageAnchorElementShift,
+  pageAnchorScrollShift,
+} from './runtime/page-anchor-scroll'
 import { cloneMetadata } from './workspace-utils'
+
+/**
+ * An anchored entity's apparent canvas position — stored coords shifted by its
+ * page's scroll and reference-element movement, the same projection the scene
+ * builders use. Copy must serialize what the user sees: the clone re-anchors
+ * with fresh references, so stale stored coords would paste at the wrong spot.
+ */
+function apparentPosition(entity: {
+  canvasX: number
+  canvasY: number
+  pageAnchor?: PageAnchor
+}): { canvasX: number; canvasY: number } {
+  const scroll = pageAnchorScrollShift(entity.pageAnchor)
+  const element = pageAnchorElementShift(entity.pageAnchor)
+  return {
+    canvasX: entity.canvasX - scroll.x - element.x,
+    canvasY: entity.canvasY - scroll.y - element.y,
+  }
+}
 
 export function copyablePagePayload(
   pageIds: string[],
@@ -95,7 +118,7 @@ export function copyableEntityPayload(
     }
     const note = textEntities.find((n) => n.id === id)
     if (note) {
-      allPositions.push({ canvasX: note.canvasX, canvasY: note.canvasY })
+      allPositions.push(apparentPosition(note))
       continue
     }
     const file = fileEntities.find((f) => f.id === id)
@@ -105,12 +128,12 @@ export function copyableEntityPayload(
     }
     const shape = shapeEntities.find((s) => s.id === id)
     if (shape) {
-      allPositions.push({ canvasX: shape.canvasX, canvasY: shape.canvasY })
+      allPositions.push(apparentPosition(shape))
       continue
     }
     const drawing = drawingEntities.find((d) => d.id === id)
     if (drawing) {
-      allPositions.push({ canvasX: drawing.canvasX, canvasY: drawing.canvasY })
+      allPositions.push(apparentPosition(drawing))
     }
   }
 
@@ -144,8 +167,8 @@ export function copyableEntityPayload(
         textSize: note.textSize,
         width: note.width,
         height: note.height,
-        dx: note.canvasX - minX,
-        dy: note.canvasY - minY,
+        dx: apparentPosition(note).canvasX - minX,
+        dy: apparentPosition(note).canvasY - minY,
         ...payloadAnchor(note.pageAnchor),
       })
       continue
@@ -179,8 +202,8 @@ export function copyableEntityPayload(
         label: shape.label,
         width: shape.width,
         height: shape.height,
-        dx: shape.canvasX - minX,
-        dy: shape.canvasY - minY,
+        dx: apparentPosition(shape).canvasX - minX,
+        dy: apparentPosition(shape).canvasY - minY,
         ...payloadAnchor(shape.pageAnchor),
       })
       continue
@@ -199,8 +222,10 @@ export function copyableEntityPayload(
           })),
         })),
         label: drawing.label,
-        dx: drawing.canvasX - minX,
-        dy: drawing.canvasY - minY,
+        // Stroke points stay relative to the STORED origin: points and origin
+        // shift together, so the offsets are shift-invariant.
+        dx: apparentPosition(drawing).canvasX - minX,
+        dy: apparentPosition(drawing).canvasY - minY,
         ...payloadAnchor(drawing.pageAnchor),
       })
     }

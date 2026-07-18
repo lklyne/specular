@@ -39,6 +39,10 @@
  * - "pasting an anchored sticky without its page re-resolves the anchor by
  *   placement": replacing the attachment loop's `reanchorEntityById`
  *   fallback with a no-op leaves the pasted-onto-page clone unanchored.
+ * - "copying a scrolled page keeps the anchored sticky's apparent offset":
+ *   reverting `apparentPosition(...)` to raw `canvasX/canvasY` in
+ *   `copyableEntityPayload` (src/main/workspace-clipboard.ts) pastes the
+ *   clone at the stale pre-scroll offset (100 instead of 70).
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -193,6 +197,40 @@ describe('unified duplicate path', () => {
     const redonePage = pages.find((p) => p.id !== pageId)
     const redoneSticky = getTextEntities().find((t) => t.id !== sticky.id)
     expect(redoneSticky?.pageAnchor?.pageId).toBe(redonePage!.id)
+  })
+
+  it('copying a scrolled page keeps the anchored sticky\'s apparent offset', async () => {
+    const { created } = applyCanvasPatch({
+      entities: [
+        { kind: 'page', url: 'https://example.com', canvasX: 0, canvasY: 0, presetIndex: 0 },
+      ],
+    })
+    const pageId = created[0]
+    await settleSync()
+
+    // Anchored at scroll 0; the page then scrolls down 30px, so the sticky
+    // appears 30px higher than its stored coords (scroll-follow projection).
+    const sticky = createTextEntity({ canvasX: 40, canvasY: 100, text: 'on page' })
+    await settleSync()
+    expect(getTextEntities().find((t) => t.id === sticky.id)?.pageAnchor?.pageId).toBe(pageId)
+    const page = pages.find((p) => p.id === pageId)!
+    page.scrollY = 30
+
+    const payload = copyableEntityPayload([pageId])
+    expect(payload).toBeTruthy()
+    const result = pasteEntitiesFromClipboard({ payload: payload!, canvasX: 1000, canvasY: 1000 })
+    await settleSync()
+
+    const clonePage = pages.find((p) => result.entityIds.includes(p.id))
+    const cloneSticky = getTextEntities().find(
+      (t) => t.id !== sticky.id && result.entityIds.includes(t.id),
+    )
+    expect(clonePage).toBeDefined()
+    expect(cloneSticky).toBeDefined()
+    // The clone reproduces what the user SAW: 70px below the page top, not
+    // the stale stored offset of 100px.
+    expect(cloneSticky!.canvasX - clonePage!.canvasX).toBe(40)
+    expect(cloneSticky!.canvasY - clonePage!.canvasY).toBe(70)
   })
 
   it('pasting an anchored sticky without its page re-resolves the anchor by placement', async () => {
