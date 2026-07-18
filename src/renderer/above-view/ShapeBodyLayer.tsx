@@ -17,6 +17,7 @@ import type {
 } from '../../shared/types'
 import { darkenHex, lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
 import { shapeDef } from '../../shared/shapes'
+import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 import { PageOverlayBand } from './PageOverlayBand'
 
@@ -379,8 +380,16 @@ export function ShapeBodyLayer({
       )
     : undefined
   if (!page) return viewport
+  const anchor = entities[0].pageAnchor
+  const liveElement = anchor?.element
+    ? page.elementPositions?.[anchor.element.selector]
+    : undefined
   return (
-    <PageOverlayBand page={page} layoutData={layoutData} followScroll>
+    <PageOverlayBand
+      page={page}
+      layoutData={layoutData}
+      followScroll={shouldFastFollowPageScroll(anchor, liveElement)}
+    >
       {viewport}
     </PageOverlayBand>
   )

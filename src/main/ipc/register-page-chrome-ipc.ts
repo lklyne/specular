@@ -97,14 +97,26 @@ export function registerPageChromeIpc(): void {
       if (!page) return
       const positions = Array.isArray(data?.positions) ? data.positions : []
       if (!positions.length) return
-      const map = page.elementPositions ?? new Map<string, { docX: number; docY: number }>()
+      const map = page.elementPositions ?? new Map<
+        string,
+        { docX: number; docY: number; viewportPositioned?: boolean }
+      >()
       let changed = false
       for (const position of positions) {
         if (typeof position?.selector !== 'string') continue
         if (typeof position.docX !== 'number' || typeof position.docY !== 'number') continue
         const prev = map.get(position.selector)
-        if (prev && prev.docX === position.docX && prev.docY === position.docY) continue
-        map.set(position.selector, { docX: position.docX, docY: position.docY })
+        if (
+          prev &&
+          prev.docX === position.docX &&
+          prev.docY === position.docY &&
+          prev.viewportPositioned === position.viewportPositioned
+        ) continue
+        map.set(position.selector, {
+          docX: position.docX,
+          docY: position.docY,
+          ...(position.viewportPositioned === true ? { viewportPositioned: true } : {}),
+        })
         changed = true
       }
       if (!changed) return

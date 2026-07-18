@@ -22,6 +22,7 @@
 import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import type { ElementAttachmentPosition } from '../shared/types'
+import { isViewportPositionedElement } from './element-attachment-capture'
 
 // Continuous layout animation is chased at mutation-debounce granularity
 // rather than per-frame (ADR 0030 accepted ceiling).
@@ -53,11 +54,12 @@ function resolveDocumentPosition(selector: string): ElementAttachmentPosition | 
     selector,
     docX: Math.round(rect.left + window.scrollX),
     docY: Math.round(rect.top + window.scrollY),
+    ...(isViewportPositionedElement(element) ? { viewportPositioned: true } : {}),
   }
 }
 
 function positionKey(position: ElementAttachmentPosition): string {
-  return `${position.docX}:${position.docY}`
+  return `${position.docX}:${position.docY}:${position.viewportPositioned === true ? 'viewport' : 'document'}`
 }
 
 function flush(): void {

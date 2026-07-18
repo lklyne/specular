@@ -1,6 +1,10 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import {
+  scrollFollowTransform,
+  type PageScrollOffset,
+} from './page-overlay-scroll-follow'
 
 // Resolved lazily — this module is imported by files that node-env unit
 // tests load, where `window` doesn't exist.
@@ -47,27 +51,65 @@ export function PageOverlayBand({
   children: ReactNode
 }) {
   const innerRef = useRef<HTMLDivElement>(null)
-  const liveOffsetRef = useRef<{ pageId: string; scrollX: number; scrollY: number } | null>(null)
+  const liveOffsetRef = useRef<PageScrollOffset | null>(null)
+  const incorporatedOffsetRef = useRef<PageScrollOffset>({
+    pageId: page.id,
+    scrollX: page.scrollX ?? 0,
+    scrollY: page.scrollY ?? 0,
+  })
+  const scaleRef = useRef({ x: 1, y: 1 })
 
-  useEffect(() => {
-    if (!followScroll) return
-    const apply = (live: { pageId: string; scrollX: number; scrollY: number }) => {
-      if (live.pageId !== page.id) return
-      liveOffsetRef.current = live
-      const scaleX = page.width > 0 ? (page.contentScreenWidth ?? page.screenWidth) / page.width : 1
-      const scaleY =
-        page.height > 0 ? (page.contentScreenHeight ?? page.screenHeight) / page.height : 1
-      const dx = (live.scrollX - (page.scrollX ?? 0)) * scaleX
-      const dy = (live.scrollY - (page.scrollY ?? 0)) * scaleY
-      if (innerRef.current) innerRef.current.style.transform = `translate(${-dx}px, ${-dy}px)`
+  const applyResidual = (live: PageScrollOffset | null) => {
+    if (innerRef.current) {
+      innerRef.current.style.transform = scrollFollowTransform(
+        live,
+        incorporatedOffsetRef.current,
+        scaleRef.current,
+      )
     }
-    // Re-baseline against the fresh broadcast: children were just positioned
-    // from `page.scrollX/Y`, so the residual shift is live-minus-broadcast
-    // (usually zero once the broadcast catches up).
-    if (innerRef.current) innerRef.current.style.transform = ''
-    if (liveOffsetRef.current) apply(liveOffsetRef.current)
+  }
+
+  // Reconcile a fresh authoritative layout before the browser paints it.
+  // Children have already rendered from page.scrollX/Y at this point, so the
+  // only valid transform is latest-live minus that incorporated baseline.
+  useLayoutEffect(() => {
+    const scaleX = page.width > 0 ? (page.contentScreenWidth ?? page.screenWidth) / page.width : 1
+    const scaleY =
+      page.height > 0 ? (page.contentScreenHeight ?? page.screenHeight) / page.height : 1
+    incorporatedOffsetRef.current = {
+      pageId: page.id,
+      scrollX: page.scrollX ?? 0,
+      scrollY: page.scrollY ?? 0,
+    }
+    scaleRef.current = { x: scaleX, y: scaleY }
+    applyResidual(followScroll ? liveOffsetRef.current : null)
+  }, [
+    followScroll,
+    page.id,
+    page.scrollX,
+    page.scrollY,
+    page.width,
+    page.height,
+    page.contentScreenWidth,
+    page.contentScreenHeight,
+    page.screenWidth,
+    page.screenHeight,
+  ])
+
+  // The live-scroll subscription belongs to the page identity, not the
+  // freshly rebuilt scene object. This avoids dropping events while every
+  // authoritative layout unsubscribes and resubscribes the listener.
+  useLayoutEffect(() => {
+    liveOffsetRef.current = null
+    applyResidual(null)
+    if (!followScroll) return
+    const apply = (live: PageScrollOffset) => {
+      if (live.pageId !== incorporatedOffsetRef.current.pageId) return
+      liveOffsetRef.current = live
+      applyResidual(live)
+    }
     return electronApi().onPageScrollLive(apply)
-  }, [followScroll, page])
+  }, [followScroll, page.id])
 
   // Horizontal extent is the outer page bounds, not the content band: badges
   // pin to the page's right edge, which a device shell insets out of the

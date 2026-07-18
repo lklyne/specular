@@ -11,7 +11,10 @@ import type { PageAnchor } from './page-anchor'
 
 /** Live document positions of a page's tracked selectors, keyed by selector.
  *  The broadcast form of the runtime page's `elementPositions` map. */
-export type ElementLivePositions = Record<string, { docX: number; docY: number }>
+export type ElementLivePositions = Record<
+  string,
+  { docX: number; docY: number; viewportPositioned?: boolean }
+>
 
 /**
  * The element-attachment shift, in the same *subtraction* convention as the

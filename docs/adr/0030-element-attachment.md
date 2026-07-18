@@ -36,6 +36,7 @@ PageAnchor {
   element?: {
     selector: string            // DOM selector for the reference element
     docX: number, docY: number  // element's document position at capture
+    viewportPositioned?: true   // inside a fixed/sticky containing rail
   }
 }
 ```
@@ -69,6 +70,15 @@ broadcasts document positions per page in one message; main applies them as
 corrections and marks layout dirty. This extends the existing annotation
 bbox tracker into one tracker with two consumers (popover bboxes, attachment
 corrections) rather than adding a parallel pipeline.
+
+**Fixed and sticky containing rails opt out of the generic fast scroll
+transform.** Capture walks the selected element's ancestors and stamps
+`viewportPositioned` when any establishes `position: fixed` or
+`position: sticky`. Their authoritative document-position correction already
+accounts for scroll; applying the overlay band's fast document-scroll residual
+as well would briefly move the item twice before reconciliation. These items
+remain clipped to their page but follow only the authoritative element
+projection. Ordinary document-flow attachments retain the fast path.
 
 **The attachment is outside undo scope.** The user never chose the element —
 placement chose it — so the machine's memo of "what was under this item" does

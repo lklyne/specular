@@ -64,7 +64,12 @@ function toCapturedElement(data: unknown): CapturedElement | null {
   const record = data as Record<string, unknown>
   if (typeof record.selector !== 'string') return null
   if (typeof record.docX !== 'number' || typeof record.docY !== 'number') return null
-  return { selector: record.selector, docX: record.docX, docY: record.docY }
+  return {
+    selector: record.selector,
+    docX: record.docX,
+    docY: record.docY,
+    ...(record.viewportPositioned === true ? { viewportPositioned: true } : {}),
+  }
 }
 
 /** Whether the anchor still names the same page/url the query was fired for. */

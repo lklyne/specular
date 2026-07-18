@@ -55,11 +55,9 @@ import {
   activeTool,
   finishOneShotPlacement,
   focusCanvasBounds,
-  focusSelectedPage,
   getSelectedEntityIds,
   selectEntity,
   openDevToolsForSelectedPage,
-  refocusActiveSession,
   selectPage,
   selectPageById,
   selectedPageId,
@@ -69,7 +67,7 @@ import {
 import { requestLayout } from '../runtime/viewport-control'
 import { snapToGrid } from '../../shared/gesture-utils'
 import { markDirty } from '../runtime/layout-dirty'
-import { pageContentSize } from '../runtime/runtime-geometry'
+import { pageBodyCanvasBounds, pageContentSize } from '../runtime/runtime-geometry'
 import {
   scheduleWorkspaceAutosave,
 } from '../runtime/workspace-autosave'
@@ -255,10 +253,8 @@ export function registerCanvasEntityIpc(): void {
     (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
       if (entityKind === 'page') {
         if (!selectPageById(entityId)) return
-        // Switching between already-focused pages cuts instantly — animating the
-        // camera across large canvas distances makes the pinned focus bar jitter.
-        if (refocusActiveSession(entityId, { animate: false })) return
-        focusSelectedPage()
+        const page = pages.find((candidate) => candidate.id === entityId)
+        if (page) focusCanvasBounds(pageBodyCanvasBounds(page))
         return
       }
       selectEntity(entityId, entityKind)
@@ -441,8 +437,8 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(ipcChannels.canvasRevealPage, (_event, { pageId }: { pageId: string }) => {
     if (!selectPageById(pageId)) return
-    if (refocusActiveSession(pageId, { animate: false })) return
-    focusSelectedPage()
+    const page = pages.find((candidate) => candidate.id === pageId)
+    if (page) focusCanvasBounds(pageBodyCanvasBounds(page))
   })
 
   ipcMain.on(ipcChannels.canvasSetSelectionPreset, (_event, index: number) => {

@@ -57,7 +57,25 @@ export interface PageAnchor {
     selector: string
     docX: number
     docY: number
+    /** The selected element lives inside a fixed or sticky containing rail.
+     * Its authoritative element correction already accounts for scrolling,
+     * so the generic fast document-scroll transform must not also move it. */
+    viewportPositioned?: boolean
   }
+}
+
+/** Whether an anchored item's renderer should apply the live document-scroll
+ * residual. Fixed/sticky attachments are already positioned by the element
+ * correction and would otherwise receive the scroll delta twice. */
+export function shouldFastFollowPageScroll(
+  anchor: PageAnchor | undefined,
+  liveElement?: { viewportPositioned?: boolean },
+): boolean {
+  return (
+    anchor?.scrollY !== undefined &&
+    anchor.element?.viewportPositioned !== true &&
+    liveElement?.viewportPositioned !== true
+  )
 }
 
 export interface PageAnchorTarget {

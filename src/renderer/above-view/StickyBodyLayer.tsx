@@ -29,6 +29,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
+import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { remarkLineBreaks } from '../shared/remark-line-breaks'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
@@ -340,8 +341,16 @@ export function StickyBodyLayer({
       )
     : undefined
   if (!page) return viewport
+  const anchor = entities[0].pageAnchor
+  const liveElement = anchor?.element
+    ? page.elementPositions?.[anchor.element.selector]
+    : undefined
   return (
-    <PageOverlayBand page={page} layoutData={layoutData} followScroll>
+    <PageOverlayBand
+      page={page}
+      layoutData={layoutData}
+      followScroll={shouldFastFollowPageScroll(anchor, liveElement)}
+    >
       {viewport}
     </PageOverlayBand>
   )

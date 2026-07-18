@@ -5,6 +5,7 @@ import type {
 } from '../../shared/types'
 import { pageDocumentToScreen } from '../../shared/page-space'
 import { correctDocRectForElement } from '../../shared/element-attachment'
+import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import { canvasRectToScreenRect } from './annotationMath'
 import { PageOverlayBand } from './PageOverlayBand'
 
@@ -100,12 +101,31 @@ export function RegionSelectAnnotations({
     .map((annotation) => ({ annotation, geom: regionScreenGeometry(annotation, layoutData) }))
     .filter((entry): entry is { annotation: Annotation; geom: RegionGeometry } => entry.geom !== null)
 
-  const byPage = new Map<string, typeof placed>()
+  const byPage = new Map<
+    string,
+    { pageId: string; followScroll: boolean; entries: typeof placed }
+  >()
   for (const entry of placed) {
     if (!entry.geom.pageId) continue
-    const group = byPage.get(entry.geom.pageId)
-    if (group) group.push(entry)
-    else byPage.set(entry.geom.pageId, [entry])
+    const anchor = entry.annotation.pageAnchor
+    const page = layoutData.entities.find(
+      (entity): entity is CanvasScenePageEntity =>
+        entity.kind === 'page' && entity.id === entry.geom.pageId,
+    )
+    const liveElement = anchor?.element
+      ? page?.elementPositions?.[anchor.element.selector]
+      : undefined
+    const followScroll = shouldFastFollowPageScroll(anchor, liveElement)
+    const key = `${entry.geom.pageId}:${followScroll ? 'document' : 'viewport'}`
+    const group = byPage.get(key)
+    if (group) group.entries.push(entry)
+    else {
+      byPage.set(key, {
+        pageId: entry.geom.pageId,
+        followScroll,
+        entries: [entry],
+      })
+    }
   }
 
   return (
@@ -113,15 +133,20 @@ export function RegionSelectAnnotations({
       {placed
         .filter((entry) => !entry.geom.pageId)
         .map((entry) => renderRegion(entry.annotation, entry.geom))}
-      {[...byPage.entries()].map(([pageId, group]) => {
+      {[...byPage.entries()].map(([key, group]) => {
         const page = layoutData.entities.find(
           (entity): entity is CanvasScenePageEntity =>
-            entity.kind === 'page' && entity.id === pageId,
+            entity.kind === 'page' && entity.id === group.pageId,
         )
         if (!page) return null
         return (
-          <PageOverlayBand key={pageId} page={page} layoutData={layoutData} followScroll>
-            {group.map((entry) => renderRegion(entry.annotation, entry.geom))}
+          <PageOverlayBand
+            key={key}
+            page={page}
+            layoutData={layoutData}
+            followScroll={group.followScroll}
+          >
+            {group.entries.map((entry) => renderRegion(entry.annotation, entry.geom))}
           </PageOverlayBand>
         )
       })}

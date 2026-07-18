@@ -86,7 +86,15 @@ function captureRequests(): CaptureRequest[] {
 }
 
 /** Feed a synthetic capture response, as the response IPC listener would. */
-function respond(request: CaptureRequest, element: { selector: string; docX: number; docY: number }): void {
+function respond(
+  request: CaptureRequest,
+  element: {
+    selector: string
+    docX: number
+    docY: number
+    viewportPositioned?: boolean
+  },
+): void {
   handlePageIpcResponse({ requestId: request.requestId, data: element })
 }
 
@@ -127,7 +135,12 @@ describe('element attachment capture', () => {
 
     const requests = captureRequests()
     expect(requests).toHaveLength(1)
-    const element = { selector: '#hero', docX: 12, docY: 34 }
+    const element = {
+      selector: '#hero',
+      docX: 12,
+      docY: 34,
+      viewportPositioned: true,
+    }
     respond(requests[0], element)
     await settleSync()
 

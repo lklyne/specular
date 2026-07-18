@@ -79,6 +79,16 @@ describe('hiddenByPageAnchor (main-side layout gate)', () => {
     expect(hiddenByPageAnchor(annotation({}))).toBe(true)
   })
 
+  it('keeps page-bound items visible until a full-document navigation settles', () => {
+    showPage('https://example.com/about')
+    const page = pages[0]!
+    page.isLoading = true
+    expect(hiddenByPageAnchor(annotation({}))).toBe(false)
+
+    page.isLoading = false
+    expect(hiddenByPageAnchor(annotation({}))).toBe(true)
+  })
+
   it('gates region annotations through their pageAnchor, not anchor internals', () => {
     showPage('https://example.com/about')
     expect(

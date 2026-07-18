@@ -168,7 +168,10 @@ export interface CanvasScenePageEntity {
    *  as a render-time correction to page-anchored region `docRect`s, the same
    *  correction main applies to canvas-space consumers (page-anchor-scroll.ts).
    *  Ephemeral — never persisted. */
-  elementPositions?: Record<string, { docX: number; docY: number }>
+  elementPositions?: Record<
+    string,
+    { docX: number; docY: number; viewportPositioned?: boolean }
+  >
 }
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
@@ -1979,6 +1982,7 @@ export interface ElementAttachmentPosition {
   selector: string
   docX: number
   docY: number
+  viewportPositioned?: boolean
 }
 
 /** Batched reflow report (page → main): the current document positions of the

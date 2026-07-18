@@ -8,6 +8,7 @@ import type {
 } from '../../shared/types'
 import { PageOverlayBand } from './PageOverlayBand'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
+import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import {
   paletteForBrushType,
   resolveCanvasColor,
@@ -262,8 +263,16 @@ export function SavedDrawingEntities({
             )
           : undefined
         if (!page) return layer
+        const liveElement = drawing.pageAnchor?.element
+          ? page.elementPositions?.[drawing.pageAnchor.element.selector]
+          : undefined
         return (
-          <PageOverlayBand key={drawing.id} page={page} layoutData={layoutData} followScroll>
+          <PageOverlayBand
+            key={drawing.id}
+            page={page}
+            layoutData={layoutData}
+            followScroll={shouldFastFollowPageScroll(drawing.pageAnchor, liveElement)}
+          >
             {layer}
           </PageOverlayBand>
         )

@@ -26,6 +26,7 @@ export interface CapturedElementAnchor {
   selector: string
   docX: number
   docY: number
+  viewportPositioned?: boolean
 }
 
 // An element smaller than this in either dimension reads as a bare inline
@@ -77,6 +78,19 @@ function documentPosition(element: Element): { docX: number; docY: number } {
   return { docX: rect.left + window.scrollX, docY: rect.top + window.scrollY }
 }
 
+/** Fixed descendants and sticky rails move in viewport space during scroll.
+ * Walk ancestors because the meaningful element is often a plain child of
+ * the element that actually establishes the positioning behavior. */
+export function isViewportPositionedElement(element: Element): boolean {
+  let current: Element | null = element
+  while (current && current !== document.body) {
+    const position = window.getComputedStyle(current).position
+    if (position === 'fixed' || position === 'sticky') return true
+    current = current.parentElement
+  }
+  return false
+}
+
 /**
  * Rare fallback for when the hit-test and walk-up come up empty (a miss, or
  * every ancestor up to `body` is a trivial wrapper): scan for meaningful
@@ -116,5 +130,10 @@ export function captureElementAtDocumentPoint(docX: number, docY: number): Captu
   const meaningful = hit ? walkUpToMeaningful(hit) : null
   const target = meaningful ?? nearestMeaningfulAtY(docX, docY) ?? document.body
 
-  return { selector: buildUniqueSelector(target), ...documentPosition(target) }
+  const viewportPositioned = isViewportPositionedElement(target)
+  return {
+    selector: buildUniqueSelector(target),
+    ...documentPosition(target),
+    ...(viewportPositioned ? { viewportPositioned: true } : {}),
+  }
 }

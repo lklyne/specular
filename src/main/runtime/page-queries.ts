@@ -49,10 +49,20 @@ export async function captureElementAtPageDocumentPoint(
   pageId: string,
   docX: number,
   docY: number,
-): Promise<{ selector: string; docX: number; docY: number } | null> {
+): Promise<{
+  selector: string
+  docX: number
+  docY: number
+  viewportPositioned?: boolean
+} | null> {
   const data = await sendPageIpc(pageId, ipcChannels.captureElementAtPoint, { docX, docY })
   if (!data || typeof data !== 'object') return null
-  return data as { selector: string; docX: number; docY: number }
+  return data as {
+    selector: string
+    docX: number
+    docY: number
+    viewportPositioned?: boolean
+  }
 }
 
 /**

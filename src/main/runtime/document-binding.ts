@@ -26,6 +26,11 @@ export function offPageDocument(
   if (!pageId) return false
   const page = findPageById(pageId)
   if (!page) return false
+  // `did-navigate` can publish the destination URL before the replacement
+  // document is usable (and transient navigations may reverse before load
+  // settles). Keep the existing canvas context stable through that interval;
+  // did-stop-loading dirties canvas/sidebar and re-evaluates the gate.
+  if (page.isLoading) return false
   return !matchesPageUrl(recordedUrl, page.url)
 }
 

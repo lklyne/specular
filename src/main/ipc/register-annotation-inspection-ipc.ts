@@ -15,8 +15,8 @@ import {
 } from '../runtime/page-runtime'
 import { regionCanvasRect } from '../runtime/page-anchor-state'
 import { dispatchScrollToAnnotation } from '../runtime/annotation-scroll-target'
-import { getZoom, setPendingFocus } from '../runtime/runtime-context'
-import { requestLayout, setZoom } from '../runtime/viewport-control'
+import { setPendingFocus } from '../runtime/runtime-context'
+import { requestLayout } from '../runtime/viewport-control'
 import {
   focusCanvasBounds,
   openCommentsPanel,
@@ -29,6 +29,8 @@ import {
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
 import { markDirty } from '../runtime/layout-dirty'
+import { offPageDocument } from '../runtime/document-binding'
+import { navigatePage } from '../navigation-sync'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -36,7 +38,6 @@ import {
 } from './component-override'
 
 const POINT_FOCUS_SIZE = 100
-const FOCUS_MIN_ZOOM = 0.8
 
 function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null {
   const { anchor } = annotation
@@ -85,10 +86,22 @@ export function registerAnnotationInspectionIpc(): void {
       if (!annotationId) return
       const annotation = getAnnotationById(annotationId)
       if (!annotation) return
-      if (annotation.anchor.type !== 'canvas' && annotation.anchor.type !== 'region') {
-        selectPageById(annotation.anchor.pageId)
+      const pageAnchor = annotation.pageAnchor
+      let scrollAfterNavigation = false
+      if (
+        pageAnchor?.pageUrl &&
+        offPageDocument(pageAnchor.pageId, pageAnchor.pageUrl)
+      ) {
+        const page = findPageById(pageAnchor.pageId)
+        if (page && !page.pageView.webContents.isDestroyed()) {
+          scrollAfterNavigation = true
+          page.pageView.webContents.once('did-finish-load', () => {
+            void dispatchScrollToAnnotation(annotation)
+          })
+          navigatePage(page, { type: 'load-url', url: pageAnchor.pageUrl })
+        }
       }
-      if (getZoom() < FOCUS_MIN_ZOOM) setZoom(1.0)
+      if (pageAnchor) selectPageById(pageAnchor.pageId)
       const bounds = annotationCanvasBounds(annotation)
       if (bounds) focusCanvasBounds(bounds)
       focusAnnotation(annotationId)
@@ -107,7 +120,7 @@ export function registerAnnotationInspectionIpc(): void {
       // surface — revealing content is the intended meaning of "open this
       // comment" whether the click came from the panel, sidebar, or a region
       // overlay.
-      void dispatchScrollToAnnotation(annotation)
+      if (!scrollAfterNavigation) void dispatchScrollToAnnotation(annotation)
     },
   )
 

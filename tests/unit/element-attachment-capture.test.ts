@@ -37,6 +37,7 @@ class FakeElement {
   shadowRoot: null = null
   ownerDocument!: FakeDocument
   private attrs = new Map<string, string>()
+  position = 'static'
 
   constructor(tagName: string) {
     this.tagName = tagName.toUpperCase()
@@ -129,7 +130,13 @@ beforeEach(() => {
   doc = new FakeDocument()
   doc.body.rect = { left: 0, top: 0, width: 1000, height: 4000 }
   ;(globalThis as any).document = doc
-  ;(globalThis as any).window = { scrollX: 0, scrollY: 0, innerWidth: 800, innerHeight: 600 }
+  ;(globalThis as any).window = {
+    scrollX: 0,
+    scrollY: 0,
+    innerWidth: 800,
+    innerHeight: 600,
+    getComputedStyle: (element: FakeElement) => ({ position: element.position }),
+  }
   ;(globalThis as any).CSS = { escape: (value: string) => value }
 })
 
@@ -193,6 +200,19 @@ describe('captureElementAtDocumentPoint', () => {
     const result = captureElementAtDocumentPoint(100, 350)
 
     expect(result).toEqual({ selector: '#hero', docX: 0, docY: 350 })
+  })
+
+  it('marks an element inside a sticky or fixed rail as viewport-positioned', () => {
+    const rail = doc.body.appendChild(el('nav', { id: 'rail' }, { left: 0, top: 20, width: 220, height: 500 }))
+    rail.position = 'sticky'
+    rail.appendChild(el('div', { id: 'rail-item' }, { left: 20, top: 100, width: 160, height: 80 }))
+
+    expect(captureElementAtDocumentPoint(50, 120)).toEqual({
+      selector: '#rail-item',
+      docX: 20,
+      docY: 100,
+      viewportPositioned: true,
+    })
   })
 
   it('returns null when the page has no body', () => {

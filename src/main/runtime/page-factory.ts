@@ -147,6 +147,7 @@ export function createPage(config: PageConfig): Page {
   })
   page.pageView.webContents.on('did-start-loading', () => {
     selectionDebug('page:did-start-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
+    page.isLoading = true
     page.crashedAt = undefined
     page.crashReason = undefined
     requestLayout()
@@ -167,6 +168,8 @@ export function createPage(config: PageConfig): Page {
   })
   page.pageView.webContents.on('did-stop-loading', () => {
     selectionDebug('page:did-stop-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
+    page.isLoading = false
+    markDirty('canvas', 'sidebar')
     requestLayout()
   })
   page.pageView.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
