@@ -50,3 +50,6 @@ automated tests:
 - Kill the dev server mid-session: items hold last geometry, nothing hides.
 - Undo-then-reflow edge: after undo, the pre-undo `element` reference persists
   until the next placement re-captures (no undo-triggered re-capture wired).
+- Drive-by fix (pre-existing, unrelated): Escape mid area-comment marquee left
+  the region-select overlay rect painted. Smoke: drag an area comment, hit
+  Escape mid-drag — the blue box should vanish immediately.

@@ -1234,7 +1234,7 @@ function runPlacementGesture(
  * canvas-point anchor. Drag past threshold → marquee → region anchor on
  * pointerup. Threshold matches the rest of the canvas pointer router. Every
  * move/up consults the live tool so leaving comment mode mid-gesture stops
- * it dispatching.
+ * it dispatching and clears any marquee overlay it had painted.
  */
 function runCommentGesture(
   api: CanvasBgElectronAPI,
@@ -1248,9 +1248,15 @@ function runCommentGesture(
   const startY = event.clientY
   let crossedThreshold = false
 
-  startPointerSession(event, {
+  const session = startPointerSession(event, {
     onMove: (ev) => {
-      if (layoutRef.current.activeTool.kind !== 'comment') return
+      if (layoutRef.current.activeTool.kind !== 'comment') {
+        if (crossedThreshold) {
+          api.setSelectionOverlayRect(null)
+        }
+        session.end()
+        return
+      }
       if (!crossedThreshold) {
         const dx = ev.clientX - startX
         const dy = ev.clientY - startY
@@ -1263,7 +1269,12 @@ function runCommentGesture(
     },
     onUp: (ev) => {
       const current = layoutRef.current
-      if (current.activeTool.kind !== 'comment') return
+      if (current.activeTool.kind !== 'comment') {
+        if (crossedThreshold) {
+          api.setSelectionOverlayRect(null)
+        }
+        return
+      }
       if (crossedThreshold) {
         // Drag past threshold → region anchor.
         onDragEnd(startX, startY, ev.clientX, ev.clientY)
