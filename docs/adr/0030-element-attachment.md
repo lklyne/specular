@@ -87,6 +87,44 @@ survive restarts).
 | Page-offset comment badges (`offsetY`) | unchanged — deliberately positional ("this far down the document"), not content-bound |
 | Canvas points, grab-less regions, free entities | unchanged — never page-anchored |
 
+## Sync model: the follower contract
+
+Pages render in their own WebContentsViews, composited by the OS; anchored
+overlay ink renders in a separate WCV. Electron cannot atomically commit two
+WCVs in one display frame, so every cross-surface sync is an event pipeline
+and **the two surfaces can never be frame-locked**. The architectural floor is
+a constant one-frame lag on whichever surface is downstream of the input —
+zero is not reachable without moving both into one compositor.
+
+Two consequences shape every anchored-position design:
+
+- **Whichever surface is closest to the input moves first; the other chases.**
+  On page scroll the page's compositor leads and anchored overlays chase. On
+  pan/zoom the overlay renderer originates the gesture and the WCVs chase.
+  The lag is a property of being downstream, not of any particular surface.
+- **Constant lag reads as attached; oscillating lag reads as jitter.** The
+  quality target for a follower pipeline is minimal *variance*, not minimal
+  latency — and relative sync between the two surfaces matters more to the
+  eye than absolute latency to the input.
+
+The pattern this codebase has converged on — independently for pan (#264) and
+for scroll (the overlay band fast path) — is the **follower contract**: the
+downstream surface applies a cheap local transform immediately from a live
+signal, and reconciles to authoritative geometry when the full (debounced)
+layout broadcast lands, resetting the local offset. Stored truth never moves
+off main; the local transform is transient and reconciled away on every
+broadcast. New anchored-position work should extend this contract, not invent
+a parallel sync path. This ADR's element correction rides the same seams: it
+shifts stored geometry at scene-build time and folds on reanchor, leaving the
+per-frame scroll path untouched.
+
+Pipeline-tightening work (constant-latency scroll path, pan timer collapse
+and phase-matching, snapshot-zoom) is tracked in
+[#340](https://github.com/lklyne/specular/issues/340), with the companion
+CPU-cost work in [#265](https://github.com/lklyne/specular/issues/265). That
+work is transport-layer and lands after this refactor; nothing in this ADR
+depends on it.
+
 ## Alternatives considered
 
 - **Element-authoritative storage** (store only selector + offset, derive
