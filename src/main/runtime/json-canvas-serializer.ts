@@ -231,10 +231,21 @@ export function serializeShapeToShapeNode(entity: PersistedShapeEntity): JsonCan
     parentGroupId: entity.parentGroupId,
     pageAnchor: entity.pageAnchor,
   }
-  if (isNeutral || entity.textSize !== undefined) {
+  if (
+    isNeutral
+    || entity.textSize !== undefined
+    || entity.fillStyle !== undefined
+    || entity.textAlign !== undefined
+    || entity.textVerticalAlign !== undefined
+  ) {
     node.specular = {}
     if (isNeutral) node.specular.colorRole = 'neutral'
     if (entity.textSize !== undefined) node.specular.textSize = entity.textSize
+    if (entity.fillStyle !== undefined) node.specular.fillStyle = entity.fillStyle
+    if (entity.textAlign !== undefined) node.specular.textAlign = entity.textAlign
+    if (entity.textVerticalAlign !== undefined) {
+      node.specular.textVerticalAlign = entity.textVerticalAlign
+    }
   }
   return node
 }
@@ -444,10 +455,13 @@ export function deserializeShapeNodeToShape(node: JsonCanvasShapeNode): Persiste
     shapeKind: node.shapeKind,
     text: node.text ?? '',
     color,
+    fillStyle: node.specular?.fillStyle,
     strokeWidth: node.strokeWidth,
     borderStyle: node.borderStyle,
     borderColor: node.borderColor,
     textSize: node.specular?.textSize,
+    textAlign: node.specular?.textAlign,
+    textVerticalAlign: node.specular?.textVerticalAlign,
     theme: node.theme,
     canvasX: node.x,
     canvasY: node.y,

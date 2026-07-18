@@ -43,6 +43,7 @@ function ShapeText({
   editing,
   textColor,
   fontSize,
+  textAlign,
   onChange,
   onCommit,
   containerStyle,
@@ -51,6 +52,7 @@ function ShapeText({
   editing: boolean
   textColor: string
   fontSize: number
+  textAlign: 'left' | 'center' | 'right'
   onChange: (value: string) => void
   onCommit: (value: string) => void
   containerStyle: React.CSSProperties
@@ -102,7 +104,7 @@ function ShapeText({
           lineHeight: 1.4,
           color: textColor,
           fontFamily: 'system-ui, sans-serif',
-          textAlign: 'center',
+          textAlign,
           overflow: 'hidden',
           wordBreak: 'break-word',
           whiteSpace: 'pre-wrap',
@@ -130,6 +132,7 @@ function shapeVisuals(shape: CanvasSceneShapeEntity, isDark: boolean, editing: b
   const fill = isDark
     ? darkenHex(resolvedColor, FILL_DARKEN)
     : lightenHex(resolvedColor, FILL_LIGHTEN)
+  const renderedFill = shape.fillStyle === 'none' ? 'none' : fill
   // Border color is independent of fill; absent, it derives from the fill hue.
   const borderBase = shape.borderColor
     ? resolveCanvasColor(shape.borderColor, { role: 'fill', isDark, palette: 'soft' })
@@ -149,12 +152,26 @@ function shapeVisuals(shape: CanvasSceneShapeEntity, isDark: boolean, editing: b
     ...(inset ? { width: `${inset.w}%`, height: `${inset.h}%` } : { right: 0, bottom: 0 }),
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent:
+      shape.textVerticalAlign === 'top'
+        ? 'flex-start'
+        : shape.textVerticalAlign === 'bottom'
+          ? 'flex-end'
+          : 'center',
     padding: 8,
     boxSizing: 'border-box',
     pointerEvents: editing ? 'auto' : 'none',
   }
-  return { def, fill, hasBorder, stroke, strokeColor, dash, textColor, textContainerStyle }
+  return {
+    def,
+    fill: renderedFill,
+    hasBorder,
+    stroke,
+    strokeColor,
+    dash,
+    textColor,
+    textContainerStyle,
+  }
 }
 
 function ShapeBody({
@@ -217,6 +234,7 @@ function ShapeBody({
       editing={editing}
       textColor={textColor}
       fontSize={shape.textSize ?? DEFAULT_TEXT_SIZE}
+      textAlign={shape.textAlign ?? 'center'}
       containerStyle={textContainerStyle}
       onChange={setLocalText}
       onCommit={(value) => {
@@ -271,10 +289,13 @@ const MemoShapeBody = memo(ShapeBody, (a, b) => {
     a.shape.shapeKind === b.shape.shapeKind &&
     a.shape.text === b.shape.text &&
     a.shape.color === b.shape.color &&
+    a.shape.fillStyle === b.shape.fillStyle &&
     a.shape.strokeWidth === b.shape.strokeWidth &&
     a.shape.borderStyle === b.shape.borderStyle &&
     a.shape.borderColor === b.shape.borderColor &&
     a.shape.textSize === b.shape.textSize &&
+    a.shape.textAlign === b.shape.textAlign &&
+    a.shape.textVerticalAlign === b.shape.textVerticalAlign &&
     a.shape.width === b.shape.width &&
     a.shape.height === b.shape.height &&
     a.isDark === b.isDark &&

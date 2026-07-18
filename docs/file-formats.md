@@ -91,6 +91,39 @@ by other tools. Specular adds:
 **On all nodes:**
 - `color` — preset color "1"-"6" or hex "#RRGGBB"
 
+**Shape nodes (`type: "shape"`):**
+
+Shapes are a Specular node-type extension. Their geometry and border remain
+plain, readable top-level fields (`shapeKind`, `text`, `strokeWidth`,
+`borderStyle`, and `borderColor`). New Specular-only presentation fields live
+in the namespaced `specular` object:
+
+```json
+{
+  "id": "shape1",
+  "type": "shape",
+  "x": 100,
+  "y": 100,
+  "width": 240,
+  "height": 120,
+  "shapeKind": "rectangle",
+  "text": "Review",
+  "color": "4",
+  "strokeWidth": 2,
+  "borderStyle": "solid",
+  "specular": {
+    "fillStyle": "none",
+    "textAlign": "left",
+    "textVerticalAlign": "top"
+  }
+}
+```
+
+Missing `fillStyle` means `solid`; missing text alignment means
+`center`/`middle`. This preserves existing files without migration. JSON Canvas
+readers that do not support shapes or these optional fields can ignore them,
+while the file stays valid, transparent JSON.
+
 ### Edges
 
 Connections between two nodes:

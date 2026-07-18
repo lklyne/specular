@@ -43,6 +43,11 @@ export interface SpecularNodeExtensions {
    * (inner label). Missing → renderer defaults to 14 ("Small"). ADR 0013 §2.
    */
   textSize?: number
+  /** Shape fill visibility. Missing → 'solid'. */
+  fillStyle?: 'solid' | 'none'
+  /** Shape inner-label alignment. Missing → center/middle. */
+  textAlign?: 'left' | 'center' | 'right'
+  textVerticalAlign?: 'top' | 'middle' | 'bottom'
   /**
    * Hooks the node to a page entity and the URL that page showed when the
    * node was placed. See shared/page-anchor.ts.

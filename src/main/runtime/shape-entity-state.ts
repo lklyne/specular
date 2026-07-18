@@ -3,7 +3,10 @@ import type {
   CanvasSceneShapeEntity,
   PersistedShapeEntity,
   ShapeBorderStyle,
+  ShapeFillStyle,
   ShapeKind,
+  ShapeTextAlign,
+  ShapeTextVerticalAlign,
 } from '../../shared/types'
 import type { PageAnchor } from '../../shared/page-anchor'
 import { markDirty } from './layout-dirty'
@@ -15,11 +18,14 @@ export interface ShapeEntity {
   shapeKind: ShapeKind
   text: string
   color?: string
+  fillStyle?: ShapeFillStyle
   strokeWidth?: number
   borderStyle?: ShapeBorderStyle
   borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
+  textAlign?: ShapeTextAlign
+  textVerticalAlign?: ShapeTextVerticalAlign
   theme?: string
   canvasX: number
   canvasY: number
@@ -51,10 +57,13 @@ export function createShapeEntity(input: {
   height?: number
   text?: string
   color?: string
+  fillStyle?: ShapeFillStyle
   strokeWidth?: number
   borderStyle?: ShapeBorderStyle
   borderColor?: string
   textSize?: number
+  textAlign?: ShapeTextAlign
+  textVerticalAlign?: ShapeTextVerticalAlign
   theme?: string
   id?: string
   parentGroupId?: string
@@ -68,10 +77,13 @@ export function createShapeEntity(input: {
     shapeKind,
     text: input.text ?? '',
     color: input.color,
+    fillStyle: input.fillStyle,
     strokeWidth: input.strokeWidth,
     borderStyle: input.borderStyle,
     borderColor: input.borderColor,
     textSize: input.textSize,
+    textAlign: input.textAlign,
+    textVerticalAlign: input.textVerticalAlign,
     theme: input.theme,
     canvasX: input.canvasX,
     canvasY: input.canvasY,
@@ -93,7 +105,8 @@ export function updateShapeEntity(
   const entity = shapeEntities.find((s) => s.id === id)
   if (!entity) return null
   applyPatch(entity, patch, [
-    'shapeKind', 'text', 'strokeWidth', 'borderStyle', 'textSize',
+    'shapeKind', 'text', 'fillStyle', 'strokeWidth', 'borderStyle', 'textSize',
+    'textAlign', 'textVerticalAlign',
     'canvasX', 'canvasY', 'width', 'height', 'parentGroupId', 'pageAnchor',
   ])
   if (patch.color !== undefined) entity.color = patch.color || undefined
@@ -125,10 +138,13 @@ function shapeCoreFields(entity: ShapeEntity) {
     shapeKind: entity.shapeKind,
     text: entity.text,
     color: entity.color,
+    fillStyle: entity.fillStyle,
     strokeWidth: entity.strokeWidth,
     borderStyle: entity.borderStyle,
     borderColor: entity.borderColor,
     textSize: entity.textSize,
+    textAlign: entity.textAlign,
+    textVerticalAlign: entity.textVerticalAlign,
     theme: entity.theme,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
@@ -177,10 +193,13 @@ const SHAPE_ENTITY_PERSISTED_FIELD_SET = {
   shapeKind: true,
   text: true,
   color: true,
+  fillStyle: true,
   strokeWidth: true,
   borderStyle: true,
   borderColor: true,
   textSize: true,
+  textAlign: true,
+  textVerticalAlign: true,
   theme: true,
   canvasX: true,
   canvasY: true,

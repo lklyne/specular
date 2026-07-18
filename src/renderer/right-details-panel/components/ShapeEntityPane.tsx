@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Trash2 } from 'lucide-react'
 import type { PanelShapeEntityDetail } from '../../../shared/types'
 import { SHAPE_DEFS, shapeDef } from '../../../shared/shapes'
 import { ShapeGlyph } from '../../shared/ShapeGlyph'
@@ -64,29 +64,118 @@ export function ShapeEntityPane({ shapeEntity }: { shapeEntity: PanelShapeEntity
       </div>
 
       <PaneSection.Root>
-        <PaneSection.Label>color</PaneSection.Label>
-        <ColorSwatchPicker
-          activeColor={shapeEntity.color ?? null}
-          isDark={isDark}
-          allowNone
-          palette="soft"
-          onSelectColor={(color) => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { color })}
-        />
+        <PaneSection.Label>fill</PaneSection.Label>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className={segmentBtn((shapeEntity.fillStyle ?? 'solid') === 'solid')}
+              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { fillStyle: 'solid' })}
+            >
+              Solid
+            </button>
+            <button
+              type="button"
+              className={segmentBtn(shapeEntity.fillStyle === 'none')}
+              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { fillStyle: 'none' })}
+            >
+              Transparent
+            </button>
+          </div>
+          <ColorSwatchPicker
+            activeColor={shapeEntity.color ?? null}
+            isDark={isDark}
+            palette="soft"
+            onSelectColor={(color) => {
+              rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, {
+                color,
+                fillStyle: 'solid',
+              })
+            }}
+          />
+        </div>
       </PaneSection.Root>
 
       <PaneSection.Root>
-        <PaneSection.Label>stroke</PaneSection.Label>
-        <div className="flex items-center gap-1">
-          {STROKE_WIDTHS.map((value) => (
+        <PaneSection.Label>border</PaneSection.Label>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1">
+            {(['solid', 'dashed', 'none'] as const).map((style) => (
+              <button
+                key={style}
+                type="button"
+                className={segmentBtn((shapeEntity.borderStyle ?? 'solid') === style)}
+                onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { borderStyle: style })}
+              >
+                {style[0].toUpperCase() + style.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
+            {STROKE_WIDTHS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                disabled={shapeEntity.borderStyle === 'none'}
+                className={`${segmentBtn(currentStroke === value)} disabled:opacity-30`}
+                onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { strokeWidth: value })}
+                aria-label={`Set border width to ${value}px`}
+              >
+                {value}px
+              </button>
+            ))}
+          </div>
+          <ColorSwatchPicker
+            activeColor={shapeEntity.borderColor ?? null}
+            isDark={isDark}
+            palette="soft"
+            onSelectColor={(borderColor) => {
+              rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, {
+                borderColor,
+                borderStyle: shapeEntity.borderStyle === 'none' ? 'solid' : shapeEntity.borderStyle,
+              })
+            }}
+          />
+        </div>
+      </PaneSection.Root>
+
+      <PaneSection.Root>
+        <PaneSection.Label>text alignment</PaneSection.Label>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1">
+            {([
+              ['left', AlignLeft],
+              ['center', AlignCenter],
+              ['right', AlignRight],
+            ] as const).map(([alignment, Icon]) => (
+              <button
+                key={alignment}
+                type="button"
+                className={segmentBtn((shapeEntity.textAlign ?? 'center') === alignment)}
+                onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { textAlign: alignment })}
+                aria-label={`Align text ${alignment}`}
+                title={`Align text ${alignment}`}
+              >
+                <Icon size={13} />
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
+            {(['top', 'middle', 'bottom'] as const).map((alignment) => (
             <button
-              key={value}
+              key={alignment}
               type="button"
-              className={segmentBtn(currentStroke === value)}
-              onClick={() => rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, { strokeWidth: value })}
+              className={segmentBtn((shapeEntity.textVerticalAlign ?? 'middle') === alignment)}
+              onClick={() => {
+                rightDetailsPanelApi.updateEntity('shape', shapeEntity.id, {
+                  textVerticalAlign: alignment,
+                })
+              }}
             >
-              <span>{value}</span>
+              {alignment[0].toUpperCase() + alignment.slice(1)}
             </button>
-          ))}
+            ))}
+          </div>
         </div>
       </PaneSection.Root>
 

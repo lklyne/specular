@@ -322,7 +322,13 @@ function buildShapeEntityDetail(entityId: string): PanelShapeEntityDetail | unde
     shapeKind: entity.shapeKind,
     text: entity.text,
     color: entity.color,
+    fillStyle: entity.fillStyle,
     strokeWidth: entity.strokeWidth,
+    borderStyle: entity.borderStyle,
+    borderColor: entity.borderColor,
+    textSize: entity.textSize,
+    textAlign: entity.textAlign,
+    textVerticalAlign: entity.textVerticalAlign,
     width: entity.width,
     height: entity.height,
   }

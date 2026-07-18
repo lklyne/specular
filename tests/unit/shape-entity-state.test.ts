@@ -100,17 +100,37 @@ describe('shape-entity-state', () => {
     })
   })
 
-  it('carries textSize through create, update, scene, and persist', () => {
+  it('carries fill and label styling through create, update, scene, and persist', () => {
     const entity = createShapeEntity({
       canvasX: 0,
       canvasY: 0,
+      fillStyle: 'none',
       textSize: 56,
+      textAlign: 'left',
+      textVerticalAlign: 'top',
     })
+    expect(entity.fillStyle).toBe('none')
     expect(entity.textSize).toBe(56)
-    updateShapeEntity(entity.id, { textSize: 32 })
+    updateShapeEntity(entity.id, {
+      fillStyle: 'solid',
+      textSize: 32,
+      textAlign: 'right',
+      textVerticalAlign: 'bottom',
+    })
+    expect(entity.fillStyle).toBe('solid')
     expect(entity.textSize).toBe(32)
     const scene = buildShapeEntitySceneEntity(entity, 1, { x: 0, y: 0 }, { x: 0, y: 0 })
-    expect(scene.textSize).toBe(32)
-    expect(persistShapeEntity(entity).textSize).toBe(32)
+    expect(scene).toMatchObject({
+      fillStyle: 'solid',
+      textSize: 32,
+      textAlign: 'right',
+      textVerticalAlign: 'bottom',
+    })
+    expect(persistShapeEntity(entity)).toMatchObject({
+      fillStyle: 'solid',
+      textSize: 32,
+      textAlign: 'right',
+      textVerticalAlign: 'bottom',
+    })
   })
 })

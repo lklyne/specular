@@ -159,7 +159,13 @@ describe('json-canvas-serializer drawings', () => {
       shapeKind: 'diamond',
       text: 'Approve?',
       color: '2',
+      fillStyle: 'none',
       strokeWidth: 3,
+      borderStyle: 'dashed',
+      borderColor: '4',
+      textSize: 24,
+      textAlign: 'left',
+      textVerticalAlign: 'bottom',
       canvasX: 10,
       canvasY: 20,
       width: 200,
@@ -178,6 +184,14 @@ describe('json-canvas-serializer drawings', () => {
       text: 'Approve?',
       color: '2',
       strokeWidth: 3,
+      borderStyle: 'dashed',
+      borderColor: '4',
+      specular: {
+        fillStyle: 'none',
+        textSize: 24,
+        textAlign: 'left',
+        textVerticalAlign: 'bottom',
+      },
     })
 
     const { snapshot: restored } = deserializeFromJsonCanvas(doc)
