@@ -39,6 +39,25 @@ export interface PageAnchor {
    */
   scrollX?: number
   scrollY?: number
+  /**
+   * Element attachment (ADR 0030): a DOM selector for the item's reference
+   * element, plus that element's document position at the moment it was
+   * captured. Written by a fire-and-forget preload query at creation and
+   * drag-end — the user never chooses the element, placement does, so this
+   * is derived metadata, not a decision.
+   *
+   * `canvasX/Y` (or `docRect`, for regions) stays the stored truth. At render
+   * time, `(element's live document position − docX/docY)` is applied as a
+   * shift alongside the scroll-follow shift above, and folds into stored
+   * coordinates on reanchor the same way. This is a render-time correction,
+   * never a visibility gate: an unresolvable selector means zero shift — the
+   * item renders at its stored geometry, it never hides.
+   */
+  element?: {
+    selector: string
+    docX: number
+    docY: number
+  }
 }
 
 export interface PageAnchorTarget {
