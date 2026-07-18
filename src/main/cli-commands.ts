@@ -151,6 +151,8 @@ const add: VerbHandler = async (args) => {
     item.kind = 'file'
     item.file = path
     applyAt()
+    if (args.boolFlags.has('device-frame')) item.showDeviceFrame = true
+    if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
   } else {
     printError('usage: specular add <page|note|file> ...')
     return 1
@@ -206,6 +208,7 @@ const update: VerbHandler = async (args) => {
   if (args.flags.url) item.url = args.flags.url
   if (args.boolFlags.has('landscape')) item.orientation = 'landscape'
   if (args.boolFlags.has('portrait')) item.orientation = 'portrait'
+  if (args.boolFlags.has('device-frame')) item.showDeviceFrame = true
   if (args.boolFlags.has('no-device-frame')) item.showDeviceFrame = false
   // Text note flags
   if (args.flags.text) item.text = args.flags.text
