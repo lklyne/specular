@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { focusAndSelectAll } from '../../shared/editor-selection'
 
 type Variant = 'canvas-chrome' | 'sidebar-row'
 
@@ -53,8 +54,13 @@ export function InlineEditLabel({
   useEffect(() => {
     if (!isEditing) return
     setDraft(valueRef.current)
-    inputRef.current?.focus()
-    inputRef.current?.select()
+    if (inputRef.current) focusAndSelectAll(inputRef.current)
+    // The controlled value update above can reset the native selection after
+    // this effect. Re-apply it after React has committed that update.
+    const frame = requestAnimationFrame(() => {
+      if (inputRef.current) focusAndSelectAll(inputRef.current)
+    })
+    return () => cancelAnimationFrame(frame)
   }, [isEditing])
 
   function commit() {
