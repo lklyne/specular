@@ -63,9 +63,11 @@ describe('expectedFocus', () => {
       .toEqual({ kind: 'sidebar' })
   })
 
-  it('sidebarTextInputActive yields to explicit pendingFocus', () => {
-    expect(expectedFocus(state({ sidebarTextInputActive: true, pendingFocus: { kind: 'toolbar' } })))
-      .toEqual({ kind: 'toolbar' })
+  it('sidebarTextInputActive overrides stale explicit canvas focus', () => {
+    expect(expectedFocus(state({
+      sidebarTextInputActive: true,
+      pendingFocus: { kind: 'aboveView' },
+    }))).toEqual({ kind: 'sidebar' })
   })
 
   it('routes to toolbar when toolbarTextInputActive', () => {

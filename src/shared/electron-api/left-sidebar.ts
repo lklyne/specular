@@ -26,12 +26,12 @@ export interface LeftSidebarElectronAPI {
   ungroupGroup: (groupId: string) => void
   selectTab: (tabId: string) => void
   createTab: () => void
-  renameTab: (tabId: string, name: string) => void
-  renamePage: (pageId: string, name: string) => void
-  renameGroup: (groupId: string, name: string) => void
-  renameFileEntity: (entityId: string, name: string) => void
-  renameTextEntity: (entityId: string, name: string) => void
-  renameDrawingEntity: (entityId: string, name: string) => void
+  renameTab: (tabId: string, name: string) => Promise<boolean>
+  renamePage: (pageId: string, name: string) => Promise<boolean>
+  renameGroup: (groupId: string, name: string) => Promise<boolean>
+  renameFileEntity: (entityId: string, name: string) => Promise<boolean>
+  renameTextEntity: (entityId: string, name: string) => Promise<boolean>
+  renameDrawingEntity: (entityId: string, name: string) => Promise<boolean>
   deleteTab: (tabId: string) => void
   reorderTab: (tabId: string, toIndex: number) => void
   reorderSidebarItem: (

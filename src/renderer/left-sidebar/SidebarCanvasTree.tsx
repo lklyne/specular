@@ -45,6 +45,7 @@ function EntityListItem({
   onClick,
   onRename,
   onDelete,
+  onRequestEditFocus,
   deleteLabel = 'Delete',
   depth,
   selectableId,
@@ -54,8 +55,9 @@ function EntityListItem({
   active: boolean
   isDark: boolean
   onClick: React.MouseEventHandler<HTMLButtonElement>
-  onRename?: (name: string) => void
+  onRename?: (name: string) => Promise<boolean>
   onDelete: () => void
+  onRequestEditFocus?: () => void
   deleteLabel?: string
   depth: number
   selectableId: string
@@ -79,9 +81,8 @@ function EntityListItem({
     setIsEditing(true)
   }
 
-  function commitRename(next: string) {
-    setIsEditing(false)
-    if (onRename && next && next !== label) onRename(next)
+  async function commitRename(next: string) {
+    if (onRename && next !== label && await onRename(next)) setIsEditing(false)
   }
 
   const row = isEditing ? (
@@ -94,6 +95,7 @@ function EntityListItem({
         onCancel={() => setIsEditing(false)}
         variant="sidebar-row"
         isDark={isDark}
+        onRequestFocus={onRequestEditFocus}
       />
     </div>
   ) : (
@@ -103,6 +105,16 @@ function EntityListItem({
       style={rowStyle}
       onClick={onClick}
       data-sidebar-selectable-id={selectableId}
+      onPointerDown={
+        onRename
+          ? (event) => {
+              if (event.detail !== 2) return
+              event.preventDefault()
+              event.stopPropagation()
+              startRename()
+            }
+          : undefined
+      }
       onDoubleClick={onRename ? startRename : undefined}
       title={label}
     >
@@ -230,6 +242,7 @@ function PageTreeItem({
       onClick={(event) => onSelect(event, page.id, 'page')}
       selectableId={page.id}
       onRename={(name) => api.renamePage(page.id, name)}
+      onRequestEditFocus={() => api.setTextEditing(true)}
       onDelete={() =>
         selectedEntityIds.includes(page.id) ? api.deleteSelection() : api.deletePage(page.id)
       }
@@ -310,9 +323,8 @@ function GroupTreeItem({
     setIsEditing(true)
   }
 
-  function commitRename(next: string) {
-    setIsEditing(false)
-    if (next && next !== group.label) api.renameGroup(group.id, next)
+  async function commitRename(next: string) {
+    if (next !== group.label && await api.renameGroup(group.id, next)) setIsEditing(false)
   }
 
   const rowPaddingLeft = LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP
@@ -348,6 +360,7 @@ function GroupTreeItem({
                   onCancel={() => setIsEditing(false)}
                   variant="sidebar-row"
                   isDark={isDark}
+                  onRequestFocus={() => api.setTextEditing(true)}
                 />
                 <span className="ml-auto shrink-0 text-xs text-zinc-400">{group.entityCount}</span>
               </div>
@@ -357,6 +370,12 @@ function GroupTreeItem({
                 className={rowClassName}
                 style={rowStyle}
                 onClick={() => api.revealGroup(group.id)}
+                onPointerDown={(event) => {
+                  if (event.detail !== 2) return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  startRename()
+                }}
                 onDoubleClick={startRename}
                 title={group.label}
               >
@@ -490,6 +509,7 @@ function SidebarCanvasTreeItem({
           onClick={(event) => onSelect(event, item.id, 'text')}
           selectableId={item.id}
           onRename={(name) => api.renameTextEntity(item.id, name)}
+          onRequestEditFocus={() => api.setTextEditing(true)}
           onDelete={() =>
             isSelected ? api.deleteSelection() : api.deleteEntity(item.id, 'text')
           }
@@ -510,6 +530,7 @@ function SidebarCanvasTreeItem({
           onClick={(event) => onSelect(event, item.id, 'drawing')}
           selectableId={item.id}
           onRename={(name) => api.renameDrawingEntity(item.id, name)}
+          onRequestEditFocus={() => api.setTextEditing(true)}
           onDelete={() =>
             isSelected ? api.deleteSelection() : api.deleteEntity(item.id, 'drawing')
           }
@@ -552,6 +573,7 @@ function SidebarCanvasTreeItem({
         onClick={(event) => onSelect(event, item.id, 'file')}
         selectableId={item.id}
         onRename={canRenameFile ? (name) => api.renameFileEntity(item.id, name) : undefined}
+        onRequestEditFocus={() => api.setTextEditing(true)}
         onDelete={() =>
           isSelected ? api.deleteSelection() : api.deleteEntity(item.id, 'file')
         }

@@ -18,15 +18,15 @@ const api: LeftSidebarElectronAPI = {
   ungroupGroup: (groupId) => ipcRenderer.send(ipcChannels.canvasUngroupGroup, { groupId }),
   selectTab: (tabId) => ipcRenderer.send(ipcChannels.canvasSelectTab, { tabId }),
   createTab: () => ipcRenderer.send(ipcChannels.canvasCreateTab),
-  renameTab: (tabId, name) => ipcRenderer.send(ipcChannels.canvasRenameTab, { tabId, name }),
-  renamePage: (pageId, name) => ipcRenderer.send(ipcChannels.canvasRenamePage, { pageId, name }),
-  renameGroup: (groupId, name) => ipcRenderer.send(ipcChannels.canvasRenameGroup, { groupId, name }),
+  renameTab: (tabId, name) => ipcRenderer.invoke(ipcChannels.canvasRenameTab, { tabId, name }),
+  renamePage: (pageId, name) => ipcRenderer.invoke(ipcChannels.canvasRenamePage, { pageId, name }),
+  renameGroup: (groupId, name) => ipcRenderer.invoke(ipcChannels.canvasRenameGroup, { groupId, name }),
   renameFileEntity: (entityId, name) =>
-    ipcRenderer.send(ipcChannels.canvasRenameFileEntity, { entityId, name }),
+    ipcRenderer.invoke(ipcChannels.canvasRenameFileEntity, { entityId, name }),
   renameTextEntity: (entityId, name) =>
-    ipcRenderer.send(ipcChannels.canvasRenameTextEntity, { entityId, name }),
+    ipcRenderer.invoke(ipcChannels.canvasRenameTextEntity, { entityId, name }),
   renameDrawingEntity: (entityId, name) =>
-    ipcRenderer.send(ipcChannels.canvasRenameDrawingEntity, { entityId, name }),
+    ipcRenderer.invoke(ipcChannels.canvasRenameDrawingEntity, { entityId, name }),
   deleteTab: (tabId) => ipcRenderer.send(ipcChannels.canvasDeleteTab, { tabId }),
   reorderTab: (tabId, toIndex) => ipcRenderer.send(ipcChannels.canvasReorderTab, { tabId, toIndex }),
   reorderSidebarItem: (section, draggedId, anchorId, position, parentId) =>

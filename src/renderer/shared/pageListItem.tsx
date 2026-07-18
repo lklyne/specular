@@ -24,8 +24,9 @@ interface PageListItemProps {
   isDark: boolean
   onClick: MouseEventHandler<HTMLButtonElement>
   selectableId?: string
-  onRename?: (name: string) => void
+  onRename?: (name: string) => Promise<boolean>
   onDelete?: () => void
+  onRequestEditFocus?: () => void
 }
 
 function viewportIcon(label: string, width?: number) {
@@ -78,6 +79,7 @@ export function PageListItem({
   selectableId,
   onRename,
   onDelete,
+  onRequestEditFocus,
 }: PageListItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const Icon = viewportIcon(page.label, page.width)
@@ -88,9 +90,8 @@ export function PageListItem({
     setIsEditing(true)
   }
 
-  function commitRename(next: string) {
-    setIsEditing(false)
-    if (onRename && next && next !== page.label) onRename(next)
+  async function commitRename(next: string) {
+    if (onRename && next !== page.label && await onRename(next)) setIsEditing(false)
   }
 
   const rootClassName = `flex items-center gap-1 text-left text-xs font-normal ${
@@ -126,6 +127,7 @@ export function PageListItem({
         onCancel={() => setIsEditing(false)}
         variant="sidebar-row"
         isDark={isDark}
+        onRequestFocus={onRequestEditFocus}
       />
       {showDimensions && page.width && page.height ? (
         <span className="ml-auto shrink-0 text-xs text-zinc-400">
@@ -141,6 +143,16 @@ export function PageListItem({
         style={horizontalPaddingStyle}
         onClick={onClick}
         data-sidebar-selectable-id={selectableId}
+        onPointerDown={
+          onRename
+            ? (event) => {
+                if (event.detail !== 2) return
+                event.preventDefault()
+                event.stopPropagation()
+                startRename()
+              }
+            : undefined
+        }
         onDoubleClick={startRename}
         title={page.label}
       >

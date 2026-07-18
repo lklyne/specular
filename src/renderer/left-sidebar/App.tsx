@@ -67,9 +67,8 @@ export default function App({
     setEditingTabId(null)
   }
 
-  function commitRenameTab(tabId: string, currentName: string, nextName: string) {
-    if (nextName && nextName !== currentName) api.renameTab(tabId, nextName)
-    cancelRenameTab()
+  async function commitRenameTab(tabId: string, currentName: string, nextName: string) {
+    if (nextName !== currentName && await api.renameTab(tabId, nextName)) cancelRenameTab()
   }
 
   function handleSidebarSelect(
@@ -166,6 +165,7 @@ export default function App({
                           onCancel={cancelRenameTab}
                           variant="sidebar-row"
                           isDark={isDark}
+                          onRequestFocus={() => api.setTextEditing(true)}
                         />
                         {tab.isActive ? <Check size={14} className="ml-auto shrink-0" /> : null}
                       </div>
@@ -182,6 +182,12 @@ export default function App({
                           paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
                         }}
                         onClick={() => api.selectTab(tab.id)}
+                        onPointerDown={(event) => {
+                          if (event.detail !== 2) return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          startRenameTab(tab.id)
+                        }}
                         onDoubleClick={() => startRenameTab(tab.id)}
                         title={tab.name}
                       >

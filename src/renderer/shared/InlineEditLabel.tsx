@@ -16,6 +16,7 @@ interface InlineEditLabelProps {
   inputClassName?: string
   onTitleClick?: () => void
   displayValue?: string
+  onRequestFocus?: () => void
 }
 
 const DEFAULT_TITLE_CLASS: Record<Variant, string> = {
@@ -27,7 +28,7 @@ function defaultInputClass(variant: Variant, isDark: boolean): string {
   if (variant === 'canvas-chrome') {
     return 'min-w-0 flex-1 border-0 bg-transparent text-xs font-medium outline-none placeholder:text-zinc-400 focus:outline-none'
   }
-  return `min-w-0 flex-1 -ml-1 rounded-[4px] ring-1 px-1 py-0 text-xs leading-[inherit] font-[inherit] outline-none ${
+  return `min-w-0 flex-1 -my-0.5 -ml-0.5 rounded-[4px] ring-1 px-0.5 py-0.5 text-xs leading-[inherit] font-[inherit] outline-none ${
     isDark ? 'ring-zinc-600 bg-zinc-950 text-zinc-100' : 'ring-zinc-300 bg-white text-zinc-900'
   }`
 }
@@ -45,22 +46,36 @@ export function InlineEditLabel({
   inputClassName,
   onTitleClick,
   displayValue,
+  onRequestFocus,
 }: InlineEditLabelProps) {
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
   const valueRef = useRef(value)
+  const requestFocusRef = useRef(onRequestFocus)
   valueRef.current = value
+  requestFocusRef.current = onRequestFocus
 
   useEffect(() => {
     if (!isEditing) return
+    const focusInput = () => {
+      if (inputRef.current) focusAndSelectAll(inputRef.current)
+    }
+    // Electron focuses the host WebContentsView separately from the DOM
+    // element. Re-assert the editor focus once that outer handoff lands.
+    window.addEventListener('focus', focusInput)
+    // A renderer-local input.focus() can update activeElement without
+    // reclaiming keyboard ownership for this WebContentsView. Give hosts
+    // with an external focus arbiter a chance to request that handoff first.
+    requestFocusRef.current?.()
     setDraft(valueRef.current)
-    if (inputRef.current) focusAndSelectAll(inputRef.current)
+    focusInput()
     // The controlled value update above can reset the native selection after
     // this effect. Re-apply it after React has committed that update.
-    const frame = requestAnimationFrame(() => {
-      if (inputRef.current) focusAndSelectAll(inputRef.current)
-    })
-    return () => cancelAnimationFrame(frame)
+    const frame = requestAnimationFrame(focusInput)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('focus', focusInput)
+    }
   }, [isEditing])
 
   function commit() {
