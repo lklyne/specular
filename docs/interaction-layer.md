@@ -203,6 +203,15 @@ A single window-level pointerdown listener inside `aboveView` (`src/renderer/abo
 
 The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan. In **browser mode** a plain wheel/two-finger scroll does **not** pan the canvas (ADR 0017) — only zoom applies, so scrolling doesn't drag the canvas behind the browser page; **canvas mode** keeps wheel-pan unchanged.
 
+Group movement uses the entity-drag IPC/session rather than a parallel gesture
+channel. An unselected group's interior routes as canvas background (click to
+clear, drag to marquee); its border and title remain direct drag handles. Once
+selected, the interior moves the group subtree. During entity/group drags, the
+renderer evaluates the pointer against the groups' pre-drag bounds, paints the
+innermost target outline, and commits membership in the drag's existing undo
+transaction. Releasing outside removes prior membership. Option-drag suppresses
+both target feedback and membership changes.
+
 A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the router installs a window-level `dblclick` capture listener and dispatches `enter-shape-edit` / `enter-group` / `request-text-edit` (and yields `enter-group-rename` to the GroupRenameLabel's own DOM `onDoubleClick`). The text/shape branches use the `canvas-request-text-edit` / `canvas-request-shape-edit` IPC channels, which select the entity in main and signal bgView to focus its inline editor.
 
 **Click-on-solo-selected → edit (issue #49).** A click on a solo-selected text/sticky/shape body — or an editable file body — with no modifier and no active inline edit emits `begin-entity-press` rather than `begin-entity-drag`. The router defers resolution: a stationary release fires `canvas-request-entity-edit` (the same IPC the dblclick fast-path uses), and a pointermove that crosses the existing entity-press drag threshold falls through to a normal entity drag with `preserveSelection: true`. File entities qualify when the resolved renderer plugin declares `editable: true` in its registry claim — the value is broadcast as `rendererEditable` on the file scene entity and surfaced in the `entity-body` hit payload. Markdown / video opt in; image / component placeholders fall through to drag, and dblclick on those kinds is also a clean noop rather than entering `editing-entity` state with no editor on screen. Group, drawing, and page keep their kind-specific routes; group rename remains driven by `GroupRenameLabel`'s own `onDoubleClick`. Press-pending state lives as a hook-local ref inside `useCanvasPointerRouter`'s `runEntityPress`; no new `InteractionMode` is introduced (per §5.6 — payload changes suffice).

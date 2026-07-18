@@ -194,17 +194,19 @@ function GroupSelectionOverlay({
   group,
   originY,
   isDark,
+  showResizeHandles,
 }: {
   group: CanvasSceneGroupEntity
   originY: number
   isDark: boolean
+  showResizeHandles: boolean
 }) {
   return (
     <SelectionOutlineBox
       span={group}
       originY={originY}
       isDark={isDark}
-      showResizeHandles
+      showResizeHandles={showResizeHandles}
     />
   )
 }
@@ -241,6 +243,9 @@ export function SelectionOutlineLayer({
     [layoutData.selectedEntityIds],
   )
   const isMultiSelect = selectedIdSet.size > 1
+  const hasSelectedGroup = (layoutData.groups ?? []).some((group) =>
+    selectedIdSet.has(group.id),
+  )
   const hoveredEntityId = layoutData.hover?.id ?? null
 
   const pages = useMemo(
@@ -328,15 +333,23 @@ export function SelectionOutlineLayer({
   // canvas-bg `GroupSelectionOverlayLayer` used to suppress this when the
   // group had a descendant page (handing off to the legacy aboveView path);
   // now aboveView owns it unconditionally, so we render in both cases.
-  const selectedGroupId = layoutData.selectedGroupId ?? null
-  const selectedGroup = useMemo(() => {
-    if (!selectedGroupId) return null
-    return (layoutData.groups ?? []).find((g) => g.id === selectedGroupId) ?? null
-  }, [selectedGroupId, layoutData.groups])
+  const selectedGroups = useMemo(
+    () => (layoutData.groups ?? []).filter((group) => selectedIdSet.has(group.id)),
+    [layoutData.groups, selectedIdSet],
+  )
+  const marqueePreviewGroups = useMemo(
+    () =>
+      (layoutData.groups ?? []).filter(
+        (group) =>
+          !selectedIdSet.has(group.id) &&
+          marqueePreviewIds?.has(group.id),
+      ),
+    [layoutData.groups, marqueePreviewIds, selectedIdSet],
+  )
 
   return (
     <>
-      {isMultiSelect && allSelectedEntities.length > 1 ? (
+      {isMultiSelect && !hasSelectedGroup && allSelectedEntities.length > 1 ? (
         <MultiSelectionBoundingBox
           selectedEntities={allSelectedEntities}
           originY={originY}
@@ -378,13 +391,24 @@ export function SelectionOutlineLayer({
           />
         )
       })}
-      {selectedGroup ? (
+      {selectedGroups.map((group) => (
         <GroupSelectionOverlay
-          group={selectedGroup}
+          key={`selection-outline-${group.id}`}
+          group={group}
           originY={originY}
           isDark={isDark}
+          showResizeHandles={!isMultiSelect}
         />
-      ) : null}
+      ))}
+      {marqueePreviewGroups.map((group) => (
+        <GroupSelectionOverlay
+          key={`marquee-outline-${group.id}`}
+          group={group}
+          originY={originY}
+          isDark={isDark}
+          showResizeHandles={false}
+        />
+      ))}
     </>
   )
 }

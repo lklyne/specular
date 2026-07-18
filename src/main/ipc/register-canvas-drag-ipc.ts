@@ -48,6 +48,7 @@ import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
 import { withPageAnchoredEntityIds } from '../runtime/page-anchor-state'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
+import { reparentEntitiesInGesture } from '../runtime/group-membership'
 
 // The entity currently being resized, captured at resize-begin so resize-end can
 // reflow its managed group (if any) before committing the gesture's undo step.
@@ -57,17 +58,33 @@ let resizingEntityId: string | null = null
 // (I2) guarantees the two gestures never overlap.
 let resizeSession: GestureSession | null = null
 
-function resolveDraggedPageIds(pageId: string): string[] {
-  return selectedDragEntityIds(pageId)
+function expandDraggedGroupIds(entityIds: string[]): string[] {
+  const expanded = new Set<string>()
+  for (const entityId of entityIds) {
+    expanded.add(entityId)
+    if (resolveEntityKind(entityId) !== 'group') continue
+    for (const descendantId of descendantEntityIdsForGroup(entityId)) {
+      expanded.add(descendantId)
+    }
+  }
+  return [...expanded]
 }
 
-function resolveDraggedEntityIds(entityId: string): string[] {
-  return selectedDragEntityIds(entityId)
+function resolveDraggedSelection(entityId: string): {
+  entityIds: string[]
+  membershipIds: string[]
+} {
+  const membershipIds = selectedDragEntityIds(entityId)
+  return {
+    entityIds: expandDraggedGroupIds(membershipIds),
+    membershipIds,
+  }
 }
 
 let activeDragSession: {
-  kind: 'page' | 'entity' | 'group'
+  kind: 'page' | 'entity'
   ids: string[]
+  membershipIds: string[]
 } | null = null
 
 function applyDragStartSelection(
@@ -83,8 +100,9 @@ function applyDragStartSelection(
 }
 
 function beginDragSession(
-  kind: 'page' | 'entity' | 'group',
+  kind: 'page' | 'entity',
   ids: string[],
+  membershipIds: string[] = ids,
 ): boolean {
   if (!ids.length) return false
   // Entities anchored to a dragged page travel with it (shared/page-anchor.ts).
@@ -95,13 +113,13 @@ function beginDragSession(
   if (activeDragSession) return false
   const token = tryEnter({ kind: 'dragging-entities', entityIds })
   if ('refused' in token) return false
-  activeDragSession = { kind, ids: [...entityIds] }
+  activeDragSession = { kind, ids: [...entityIds], membershipIds: [...membershipIds] }
   initializeDrag(entityIds)
   return true
 }
 
 function activeDragIds(
-  kind: 'page' | 'entity' | 'group',
+  kind: 'page' | 'entity',
   anchorId: string,
 ): string[] | null {
   if (!activeDragSession || activeDragSession.kind !== kind) return null
@@ -109,8 +127,14 @@ function activeDragIds(
   return activeDragSession.ids
 }
 
-function endDragSession(kind: 'page' | 'entity' | 'group'): void {
+function endDragSession(
+  kind: 'page' | 'entity',
+  parentGroupId?: string | null,
+): void {
   if (!activeDragSession || activeDragSession.kind !== kind) return
+  if (parentGroupId !== undefined) {
+    reparentEntitiesInGesture(activeDragSession.membershipIds, parentGroupId)
+  }
   activeDragSession = null
   finalizeDrag()
   commitActive()
@@ -158,7 +182,12 @@ export function registerCanvasDragIpc(): void {
       // and unless interactionState.kind has left 'idle' by then the focus
       // reconciler routes focus to bgView and aboveView blurs, which the
       // drag's window blur listener treats as a cancel.
-      const started = beginDragSession('page', resolveDraggedPageIds(pageId))
+      const dragSelection = resolveDraggedSelection(pageId)
+      const started = beginDragSession(
+        'page',
+        dragSelection.entityIds,
+        dragSelection.membershipIds,
+      )
       if (started) applyDragStartSelection(pageId, selection)
     },
   )
@@ -180,8 +209,8 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.canvasDragPageEnd, () => {
-    endDragSession('page')
+  ipcMain.on(ipcChannels.canvasDragPageEnd, (_event, payload?: { parentGroupId?: string | null }) => {
+    endDragSession('page', payload?.parentGroupId)
     requestLayout()
   })
 
@@ -212,7 +241,12 @@ export function registerCanvasDragIpc(): void {
     ) => {
       // See canvas-drag-page-start: enter drag mode before applying selection
       // so the focus reconciler keeps aboveView focused through the layout pass.
-      const started = beginDragSession('entity', resolveDraggedEntityIds(entityId))
+      const dragSelection = resolveDraggedSelection(entityId)
+      const started = beginDragSession(
+        'entity',
+        dragSelection.entityIds,
+        dragSelection.membershipIds,
+      )
       if (started) applyDragStartSelection(entityId, selection)
     },
   )
@@ -230,8 +264,8 @@ export function registerCanvasDragIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.canvasDragEntityEnd, () => {
-    endDragSession('entity')
+  ipcMain.on(ipcChannels.canvasDragEntityEnd, (_event, payload?: { parentGroupId?: string | null }) => {
+    endDragSession('entity', payload?.parentGroupId)
     requestLayout()
   })
 
@@ -244,29 +278,6 @@ export function registerCanvasDragIpc(): void {
       previewDragGuides(dx, dy, { shiftKey })
     },
   )
-
-  ipcMain.on(ipcChannels.canvasDragGroupStart, (_event, { groupId }: { groupId: string }) => {
-    const entityIds = [groupId, ...descendantEntityIdsForGroup(groupId)]
-    beginDragSession('group', entityIds)
-  })
-
-  ipcMain.on(
-    ipcChannels.canvasDragGroup,
-    (
-      _event,
-      { groupId, dx, dy, shiftKey }: { groupId: string; dx: number; dy: number; shiftKey?: boolean },
-    ) => {
-      const entityIds = activeDragIds('group', groupId)
-      if (!entityIds) return
-      applyDragDelta(entityIds, dx, dy, { shiftKey })
-      requestLayout()
-    },
-  )
-
-  ipcMain.on(ipcChannels.canvasDragGroupEnd, () => {
-    endDragSession('group')
-    requestLayout()
-  })
 
   ipcMain.on(
     ipcChannels.canvasResizeBegin,

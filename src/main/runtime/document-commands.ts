@@ -911,6 +911,11 @@ function carryChildrenOnMove(
   id: string,
   patch: Partial<Omit<WorkspaceGroup, 'id' | 'kind'>>,
 ): void {
+  // A north/west resize changes canvasX/canvasY to keep the opposite edge
+  // fixed. That moves only the container border; children remain in absolute
+  // canvas coordinates. A pure origin patch is a true group move and carries
+  // the subtree.
+  if (patch.width !== undefined || patch.height !== undefined) return
   if (patch.canvasX === undefined && patch.canvasY === undefined) return
   const cur = workspaceGroups.find((g) => g.id === id)
   if (!cur) return

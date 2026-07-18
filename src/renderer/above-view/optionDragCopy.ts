@@ -3,8 +3,9 @@ import type {
 } from 'react'
 import type { CanvasEntityKind, CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { canvasToScreenX, canvasToScreenY, snapToGrid } from '../../shared/gesture-utils'
+import { canvasToScreenX, canvasToScreenY, clientYToWindowY, snapToGrid } from '../../shared/gesture-utils'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
+import { groupDropTargetAt } from '../../shared/group-drop-target'
 
 export type DragCopyPreviewBox = {
   id: string
@@ -18,6 +19,8 @@ export type DragCopyPreviewBox = {
 type DragPointer = {
   screenX: number
   screenY: number
+  clientX?: number
+  clientY?: number
   altKey?: boolean
   shiftKey?: boolean
 }
@@ -25,7 +28,7 @@ type DragPointer = {
 type DragCopyCallbacks = {
   applyDelta: (dx: number, dy: number, shiftKey: boolean) => void
   previewDelta: (totalDx: number, totalDy: number, shiftKey: boolean) => void
-  endDrag: () => void
+  endDrag: (outcome: 'finish' | 'cancel', copied: boolean) => void
   copyAt: (canvasX: number, canvasY: number) => void
   setPreview: (preview: DragCopyPreviewBox[]) => void
 }
@@ -49,9 +52,19 @@ function draggedEntityIdsForSelection(
   layout: LayoutUpdateData,
   anchorEntityId: string,
 ): string[] {
-  return layout.selectedEntityIds.includes(anchorEntityId)
+  const selectedIds = layout.selectedEntityIds.includes(anchorEntityId)
     ? [...layout.selectedEntityIds]
     : [anchorEntityId]
+  const expanded = new Set<string>()
+  for (const id of selectedIds) {
+    const entity = layout.entities.find((candidate) => candidate.id === id)
+    if (entity?.kind === 'group') {
+      for (const groupId of draggedEntityIdsForGroup(layout, id)) expanded.add(groupId)
+    } else {
+      expanded.add(id)
+    }
+  }
+  return [...expanded]
 }
 
 function draggedEntityIdsForGroup(
@@ -217,7 +230,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
       }
       finished = true
       options.setPreview([])
-      options.endDrag()
+      options.endDrag('finish', shouldCopy)
       if (shouldCopy) {
         const point = targetCanvasPoint()
         options.copyAt(point.canvasX, point.canvasY)
@@ -230,7 +243,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
       }
       finished = true
       options.setPreview([])
-      options.endDrag()
+      options.endDrag('cancel', false)
     },
   }
 }
@@ -247,9 +260,29 @@ export function startOptionAwareEntityDrag(input: {
   initialPointer?: DragPointer
   isOptionHeld: () => boolean
   setPreview: (preview: DragCopyPreviewBox[]) => void
+  setGroupDropTarget: (groupId: string | null) => void
 }) {
   const pointerId = input.event.pointerId
   const entityIds = draggedEntityIdsForSelection(input.layout, input.entityId)
+  const excludedIds = new Set(entityIds)
+  let targetGroupId: string | null = null
+  const updateGroupTarget = (pointer: DragPointer) => {
+    if (
+      input.isOptionHeld() ||
+      pointer.altKey ||
+      pointer.clientX === undefined ||
+      pointer.clientY === undefined
+    ) {
+      targetGroupId = null
+    } else {
+      targetGroupId = groupDropTargetAt(
+        input.layout.entities,
+        { x: pointer.clientX, y: clientYToWindowY(pointer.clientY, input.layout) },
+        excludedIds,
+      )
+    }
+    input.setGroupDropTarget(targetGroupId)
+  }
   if (input.entityKind === 'page') {
     input.api.startDragPage(input.entityId, {
       entityKind: 'page',
@@ -288,10 +321,12 @@ export function startOptionAwareEntityDrag(input: {
       else input.api.dragEntity(input.entityId, dx, dy, shiftKey)
     },
     previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
-    endDrag: () => {
+    endDrag: (outcome, copied) => {
       release()
-      if (input.entityKind === 'page') input.api.endDragPage()
-      else input.api.endDragEntity()
+      input.setGroupDropTarget(null)
+      const membership = outcome === 'finish' && !copied ? targetGroupId : undefined
+      if (input.entityKind === 'page') input.api.endDragPage(membership)
+      else input.api.endDragEntity(membership)
     },
     copyAt: (canvasX, canvasY) => input.api.dragCopySelection(canvasX, canvasY),
   })
@@ -301,6 +336,7 @@ export function startOptionAwareEntityDrag(input: {
     pointerId,
     session,
     isOptionHeld: input.isOptionHeld,
+    onPointer: updateGroupTarget,
   })
 }
 
@@ -314,10 +350,33 @@ export function startOptionAwareGroupDrag(input: {
   initialPointer?: DragPointer
   isOptionHeld: () => boolean
   setPreview: (preview: DragCopyPreviewBox[]) => void
+  setGroupDropTarget: (groupId: string | null) => void
 }) {
   const pointerId = input.event.pointerId
   const entityIds = draggedEntityIdsForGroup(input.layout, input.groupId)
-  input.api.startDragGroup(input.groupId)
+  const excludedIds = new Set(entityIds)
+  let targetGroupId: string | null = null
+  const updateGroupTarget = (pointer: DragPointer) => {
+    if (
+      input.isOptionHeld() ||
+      pointer.altKey ||
+      pointer.clientX === undefined ||
+      pointer.clientY === undefined
+    ) {
+      targetGroupId = null
+    } else {
+      targetGroupId = groupDropTargetAt(
+        input.layout.entities,
+        { x: pointer.clientX, y: clientYToWindowY(pointer.clientY, input.layout) },
+        excludedIds,
+      )
+    }
+    input.setGroupDropTarget(targetGroupId)
+  }
+  input.api.startDragEntity(input.groupId, {
+    entityKind: 'group',
+    preserveSelection: input.layout.selectedGroupId === input.groupId,
+  })
 
   const release = () => {
     input.releasePointer?.()
@@ -340,11 +399,12 @@ export function startOptionAwareGroupDrag(input: {
     startShiftKey: input.event.shiftKey,
     isOptionHeld: input.isOptionHeld,
     setPreview: input.setPreview,
-    applyDelta: (dx, dy, shiftKey) => input.api.dragGroup(input.groupId, dx, dy, shiftKey),
+    applyDelta: (dx, dy, shiftKey) => input.api.dragEntity(input.groupId, dx, dy, shiftKey),
     previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
-    endDrag: () => {
+    endDrag: (outcome, copied) => {
       release()
-      input.api.endDragGroup()
+      input.setGroupDropTarget(null)
+      input.api.endDragEntity(outcome === 'finish' && !copied ? targetGroupId : undefined)
     },
     copyAt: (canvasX, canvasY) => input.api.dragCopyGroup(input.groupId, canvasX, canvasY),
   })
@@ -354,6 +414,7 @@ export function startOptionAwareGroupDrag(input: {
     pointerId,
     session,
     isOptionHeld: input.isOptionHeld,
+    onPointer: updateGroupTarget,
   })
 }
 
@@ -361,7 +422,9 @@ function installOptionAwareDragListeners(input: {
   pointerId: number
   session: ReturnType<typeof createOptionDragCopySession>
   isOptionHeld: () => boolean
+  onPointer: (pointer: DragPointer) => void
 }) {
+  let lastPointer: DragPointer | null = null
   const cleanup = () => {
     window.removeEventListener('pointermove', onPointerMove)
     window.removeEventListener('pointerup', onPointerUp)
@@ -372,16 +435,20 @@ function installOptionAwareDragListeners(input: {
   }
   const onPointerMove = (event: PointerEvent) => {
     if (event.pointerId !== input.pointerId) return
+    lastPointer = event
+    input.onPointer(event)
     input.session.move(event)
   }
   const onPointerUp = (event: PointerEvent) => {
     if (event.pointerId !== input.pointerId) return
     cleanup()
+    input.onPointer(event)
     input.session.finish(event)
   }
   const onKeyChange = (event: KeyboardEvent) => {
     input.session.setShiftKey(event.shiftKey)
     input.session.setOptionHeld(input.isOptionHeld())
+    if (lastPointer) input.onPointer(lastPointer)
   }
   const onCancel = () => {
     cleanup()

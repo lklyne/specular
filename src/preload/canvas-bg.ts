@@ -93,7 +93,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasDragPageStart, { pageId, selection }),
   dragPage: (pageId, dx, dy, shiftKey = false) =>
     ipcRenderer.send(ipcChannels.canvasDragPage, { pageId, dx, dy, shiftKey }),
-  endDragPage: () => ipcRenderer.send(ipcChannels.canvasDragPageEnd),
+  endDragPage: (parentGroupId) =>
+    ipcRenderer.send(ipcChannels.canvasDragPageEnd, { parentGroupId }),
   dragCopySelection: (canvasX, canvasY) =>
     ipcRenderer.send(ipcChannels.canvasDragCopySelection, { canvasX, canvasY }),
   dragCopyGroup: (groupId, canvasX, canvasY) =>
@@ -171,16 +172,12 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasEnterGroup, { groupId }),
   enterPageInteractive: (pageId: string) =>
     ipcRenderer.send(ipcChannels.canvasEnterPageInteractive, { pageId }),
-  startDragGroup: (groupId: string) =>
-    ipcRenderer.send(ipcChannels.canvasDragGroupStart, { groupId }),
-  dragGroup: (groupId: string, dx: number, dy: number, shiftKey = false) =>
-    ipcRenderer.send(ipcChannels.canvasDragGroup, { groupId, dx, dy, shiftKey }),
-  endDragGroup: () => ipcRenderer.send(ipcChannels.canvasDragGroupEnd),
   startDragEntity: (entityId: string, selection) =>
     ipcRenderer.send(ipcChannels.canvasDragEntityStart, { entityId, selection }),
   dragEntity: (entityId: string, dx: number, dy: number, shiftKey: boolean) =>
     ipcRenderer.send(ipcChannels.canvasDragEntity, { entityId, dx, dy, shiftKey }),
-  endDragEntity: () => ipcRenderer.send(ipcChannels.canvasDragEntityEnd),
+  endDragEntity: (parentGroupId) =>
+    ipcRenderer.send(ipcChannels.canvasDragEntityEnd, { parentGroupId }),
   beginResize: (entityId, entityKind, handle) =>
     ipcRenderer.send(ipcChannels.canvasResizeBegin, { entityId, entityKind, handle }),
   endResize: () => ipcRenderer.send(ipcChannels.canvasResizeEnd),

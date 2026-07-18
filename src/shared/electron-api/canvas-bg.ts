@@ -59,7 +59,7 @@ export interface CanvasBgElectronAPI {
   setToolDefault: (patch: import('../tool-defaults').ToolDefaultPatch) => void
   startDragPage: (pageId: string, selection?: CanvasDragStartSelection) => void
   dragPage: (pageId: string, dx: number, dy: number, shiftKey?: boolean) => void
-  endDragPage: () => void
+  endDragPage: (parentGroupId?: string | null) => void
   dragCopySelection: (canvasX: number, canvasY: number) => void
   dragCopyGroup: (groupId: string, canvasX: number, canvasY: number) => void
   dragPreview: (dx: number, dy: number, shiftKey?: boolean) => void
@@ -124,12 +124,9 @@ export interface CanvasBgElectronAPI {
   selectGroup: (groupId: string) => void
   enterGroup: (groupId: string) => void
   enterPageInteractive: (pageId: string) => void
-  startDragGroup: (groupId: string) => void
-  dragGroup: (groupId: string, dx: number, dy: number, shiftKey?: boolean) => void
-  endDragGroup: () => void
   startDragEntity: (entityId: string, selection?: CanvasDragStartSelection) => void
   dragEntity: (entityId: string, dx: number, dy: number, shiftKey: boolean) => void
-  endDragEntity: () => void
+  endDragEntity: (parentGroupId?: string | null) => void
   beginResize: (entityId: string, entityKind: CanvasEntityKind, handle: ResizeHandle) => void
   endResize: () => void
   beginMultiResize: () => void

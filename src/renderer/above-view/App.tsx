@@ -868,6 +868,7 @@ export default function App({
   }, [])
   const [edgeDragState, setEdgeDragState] = useState<EdgeDragState>(EDGE_DRAG_IDLE)
   const [dragCopyPreview, setDragCopyPreview] = useState<DragCopyPreviewBox[]>([])
+  const [groupDropTargetId, setGroupDropTargetId] = useState<string | null>(null)
   // Interactive file (HTML iframe) the user has entered: select-first /
   // interact-second, mirroring pages. Renderer-local — the iframe lives in
   // this WCV's DOM, so entering just flips its pointer-events (no cross-
@@ -893,6 +894,7 @@ export default function App({
     handToolActiveRef,
     optionHeldRef,
     setDragCopyPreview,
+    setGroupDropTarget: setGroupDropTargetId,
     setEdgeDragState,
     setReorderGhost,
     onCommentDragMove: onDragMove,
@@ -1110,6 +1112,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               zoom={layoutData.zoom}
               canvasOrigin={layoutData.canvasOrigin}
               pan={layoutData.pan}
+              dropTargetGroupId={groupDropTargetId}
             />
           ) : null}
 
@@ -1152,6 +1155,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             editingEntityId={editingEntityId}
             optionHeldRef={optionHeldRef}
             setDragCopyPreview={setDragCopyPreview}
+            setGroupDropTarget={setGroupDropTargetId}
           />
 
           {/* Tool-vs-selection mutex (ADR 0008 §2): the active tool's popup wins

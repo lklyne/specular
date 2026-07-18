@@ -15,6 +15,7 @@ import {
 } from '../runtime/page-runtime'
 import { regionCanvasRect } from '../runtime/page-anchor-state'
 import { dispatchScrollToAnnotation } from '../runtime/annotation-scroll-target'
+import { revealPageAnchoredContent } from '../runtime/page-anchor-reveal'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { requestLayout } from '../runtime/viewport-control'
 import {
@@ -29,8 +30,6 @@ import {
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
 import { markDirty } from '../runtime/layout-dirty'
-import { offPageDocument } from '../runtime/document-binding'
-import { navigatePage } from '../navigation-sync'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -87,20 +86,6 @@ export function registerAnnotationInspectionIpc(): void {
       const annotation = getAnnotationById(annotationId)
       if (!annotation) return
       const pageAnchor = annotation.pageAnchor
-      let scrollAfterNavigation = false
-      if (
-        pageAnchor?.pageUrl &&
-        offPageDocument(pageAnchor.pageId, pageAnchor.pageUrl)
-      ) {
-        const page = findPageById(pageAnchor.pageId)
-        if (page && !page.pageView.webContents.isDestroyed()) {
-          scrollAfterNavigation = true
-          page.pageView.webContents.once('did-finish-load', () => {
-            void dispatchScrollToAnnotation(annotation)
-          })
-          navigatePage(page, { type: 'load-url', url: pageAnchor.pageUrl })
-        }
-      }
       if (pageAnchor) selectPageById(pageAnchor.pageId)
       const bounds = annotationCanvasBounds(annotation)
       if (bounds) focusCanvasBounds(bounds)
@@ -120,7 +105,9 @@ export function registerAnnotationInspectionIpc(): void {
       // surface — revealing content is the intended meaning of "open this
       // comment" whether the click came from the panel, sidebar, or a region
       // overlay.
-      if (!scrollAfterNavigation) void dispatchScrollToAnnotation(annotation)
+      revealPageAnchoredContent(pageAnchor, () =>
+        dispatchScrollToAnnotation(annotation),
+      )
     },
   )
 

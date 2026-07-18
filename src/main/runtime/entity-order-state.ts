@@ -258,6 +258,14 @@ export function appendStackOrderIdsAtTop(ids: readonly string[]): boolean {
   return true
 }
 
+export function normalizeGroupStackContiguity(): boolean {
+  const order = currentEntityOrder()
+  const nextOrder = enforceGroupContiguity(order, groupsForContiguity())
+  if (JSON.stringify(order) === JSON.stringify(nextOrder)) return false
+  writeEntityOrder(nextOrder)
+  return true
+}
+
 export function reorderSidebarStackOrder(input: {
   section: SidebarSectionKey
   draggedId: string

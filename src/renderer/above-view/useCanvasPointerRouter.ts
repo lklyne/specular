@@ -127,6 +127,7 @@ interface UseCanvasPointerRouterOptions {
    *  so drag-copy reads this live throughout the gesture. */
   optionHeldRef: React.MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
+  setGroupDropTarget: (groupId: string | null) => void
   /** Edge-drag visual state setter. The router updates this so
    *  `EdgeDragLayer` can render the rubber-band. */
   setEdgeDragState: (state: EdgeDragState) => void
@@ -166,6 +167,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'begin-multi-resize',
   'begin-edge-drag',
   'toggle-select',
+  'group-background-press',
   'background-click',
   'begin-marquee',
   'begin-pan',
@@ -209,6 +211,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     handToolActiveRef,
     optionHeldRef,
     setDragCopyPreview,
+    setGroupDropTarget,
     setEdgeDragState,
     setReorderGhost,
     onCommentDragMove,
@@ -245,6 +248,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
       const context: CanvasPointerContext = {
         selectedEntityIds: layout.selectedEntityIds,
+        selectedGroupId: layout.selectedGroupId ?? null,
         isPrimaryButton: true,
         button: 'left',
         modifiers: { shift: event.shiftKey, meta: event.metaKey, ctrl: event.ctrlKey },
@@ -267,6 +271,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         layoutRef,
         optionHeldRef,
         setDragCopyPreview,
+        setGroupDropTarget,
         setEdgeDragState: setEdgeDragStateRef.current,
         setReorderGhost,
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
@@ -340,6 +345,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       }
       const context: CanvasPointerContext = {
         selectedEntityIds: layout.selectedEntityIds,
+        selectedGroupId: layout.selectedGroupId ?? null,
         isPrimaryButton: event.button === 0,
         button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
         modifiers,
@@ -369,6 +375,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         layoutRef,
         optionHeldRef,
         setDragCopyPreview,
+        setGroupDropTarget,
         setEdgeDragState: setEdgeDragStateRef.current,
         setReorderGhost,
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
@@ -425,7 +432,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         capture: true,
       } as EventListenerOptions)
     }
-  }, [owner, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setReorderGhost, spaceHeldRef])
+  }, [owner, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget, setReorderGhost, spaceHeldRef])
 }
 
 // --- Dispatch ---
@@ -437,6 +444,7 @@ interface DispatchContext {
   layoutRef: React.MutableRefObject<LayoutUpdateData>
   optionHeldRef: React.MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
+  setGroupDropTarget: (groupId: string | null) => void
   setEdgeDragState: (state: EdgeDragState) => void
   setReorderGhost: (ghost: ReorderGhostOffset) => void
   onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
@@ -446,12 +454,12 @@ interface DispatchContext {
 }
 
 function dispatchAction(ctx: DispatchContext): boolean {
-  const { action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setEdgeDragState, setReorderGhost } = ctx
+  const { action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget, setEdgeDragState, setReorderGhost } = ctx
   switch (action.kind) {
     case 'noop':
       return false
     case 'page-body-press':
-      return runPageBodyPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
+      return runPageBodyPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
     case 'enter-page-interactive':
       api.enterPageInteractive(action.entityId)
       return true
@@ -463,8 +471,6 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'toggle-select':
       if (action.entityKind === 'page') {
         api.selectPage(action.entityId, { shift: true, meta: false, ctrl: false })
-      } else if (action.entityKind === 'group') {
-        api.selectGroup(action.entityId)
       } else {
         api.selectEntity(action.entityId, action.entityKind, {
           shift: true,
@@ -473,14 +479,16 @@ function dispatchAction(ctx: DispatchContext): boolean {
         })
       }
       return true
+    case 'group-background-press':
+      return runBackgroundSelectionGesture(api, event, layoutRef, action.groupId)
     case 'background-click':
       return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-entity-drag':
-      return runEntityDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
+      return runEntityDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
     case 'begin-entity-press':
-      return runEntityPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
+      return runEntityPress(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
     case 'begin-group-drag':
-      return runGroupDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview)
+      return runGroupDrag(action, api, event, layoutRef, optionHeldRef, setDragCopyPreview, setGroupDropTarget)
     case 'begin-resize':
       return runResize(action, api, event, layoutRef)
     case 'begin-multi-resize':
@@ -518,6 +526,7 @@ function runEntityDrag(
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
+  setGroupDropTarget: (groupId: string | null) => void,
 ): boolean {
   const releasePointer = capturePointer(event)
   startOptionAwareEntityDrag({
@@ -530,6 +539,7 @@ function runEntityDrag(
     releasePointer,
     isOptionHeld: () => optionHeldRef.current,
     setPreview: setDragCopyPreview,
+    setGroupDropTarget,
   })
   return true
 }
@@ -541,6 +551,7 @@ function runEntityPress(
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
+  setGroupDropTarget: (groupId: string | null) => void,
 ): boolean {
   let press = beginPressGesture(event.screenX, event.screenY)
 
@@ -561,6 +572,7 @@ function runEntityPress(
         initialPointer: ev,
         isOptionHeld: () => optionHeldRef.current,
         setPreview: setDragCopyPreview,
+        setGroupDropTarget,
       })
     },
     onUp: () => {
@@ -588,6 +600,7 @@ function runPageBodyPress(
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
+  setGroupDropTarget: (groupId: string | null) => void,
 ): boolean {
   let press = beginPressGesture(event.screenX, event.screenY)
 
@@ -608,6 +621,7 @@ function runPageBodyPress(
         initialPointer: ev,
         isOptionHeld: () => optionHeldRef.current,
         setPreview: setDragCopyPreview,
+        setGroupDropTarget,
       })
     },
     onUp: (ev) => {
@@ -644,6 +658,7 @@ function runGroupDrag(
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
   optionHeldRef: React.MutableRefObject<boolean>,
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void,
+  setGroupDropTarget: (groupId: string | null) => void,
 ): boolean {
   let press = beginPressGesture(event.screenX, event.screenY)
 
@@ -662,18 +677,19 @@ function runGroupDrag(
         initialPointer: ev,
         isOptionHeld: () => optionHeldRef.current,
         setPreview: setDragCopyPreview,
+        setGroupDropTarget,
       })
     },
     onUp: () => {
       if (pressGestureStep(press, { type: 'up' }).outcome === 'end-drag') {
-        api.endDragGroup()
+        api.endDragEntity()
         return
       }
       api.selectGroup(action.groupId)
     },
     onCancel: () => {
       if (pressGestureStep(press, { type: 'cancel' }).outcome === 'end-drag') {
-        api.endDragGroup()
+        api.endDragEntity()
       }
     },
     // No phantom-blur guard here (§4.6 documents it for entity/page presses
@@ -902,6 +918,7 @@ function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  selectGroupId?: string,
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
@@ -948,7 +965,8 @@ function runBackgroundSelectionGesture(
         ctrl: ev.ctrlKey,
       }
       if (!dragged) {
-        api.canvasDeselect(modifiers)
+        if (selectGroupId) api.selectGroup(selectGroupId)
+        else api.canvasDeselect(modifiers)
         return
       }
       const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)

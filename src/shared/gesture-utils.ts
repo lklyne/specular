@@ -229,28 +229,122 @@ export function middleDragDelta(
   }
 }
 
+export interface MarqueeSelectionCandidate {
+  id: string
+  kind: CanvasSceneEntity['kind']
+  parentGroupId?: string
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export interface MarqueeSelectionRect {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+function rectsOverlap(
+  candidate: MarqueeSelectionCandidate,
+  rect: MarqueeSelectionRect,
+): boolean {
+  const right = rect.left + rect.width
+  const bottom = rect.top + rect.height
+  return (
+    rect.left < candidate.left + candidate.width &&
+    right > candidate.left &&
+    rect.top < candidate.top + candidate.height &&
+    bottom > candidate.top
+  )
+}
+
+function rectContains(
+  rect: MarqueeSelectionRect,
+  candidate: MarqueeSelectionCandidate,
+): boolean {
+  return (
+    rect.left <= candidate.left &&
+    rect.top <= candidate.top &&
+    rect.left + rect.width >= candidate.left + candidate.width &&
+    rect.top + rect.height >= candidate.top + candidate.height
+  )
+}
+
 /**
- * Entities whose screen-space bounding box overlaps `rect`. Used by the
- * marquee gesture to publish a "would-be selected" preview each pointermove.
- * Touch-only intersection (>= edge equality) is excluded; matches the old
- * marquee preview hook exactly.
+ * Resolve marquee targets with group-aware containment:
+ *
+ * - a group is selectable only when the marquee fully encloses its bounds;
+ * - a partially crossed group is transparent, exposing overlapping children;
+ * - fully enclosed nested groups collapse to their outer fully enclosed group;
+ * - independent full groups and loose hits from partial groups batch together.
+ */
+export function resolveMarqueeSelectionIds(
+  candidates: readonly MarqueeSelectionCandidate[],
+  rect: MarqueeSelectionRect,
+): string[] {
+  const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]))
+  const fullyEnclosedGroupIds = new Set(
+    candidates
+      .filter((candidate) => candidate.kind === 'group' && rectContains(rect, candidate))
+      .map((candidate) => candidate.id),
+  )
+  const outerFullyEnclosedGroups = candidates.filter((candidate) => {
+    if (!fullyEnclosedGroupIds.has(candidate.id)) return false
+    let parentGroupId = candidate.parentGroupId
+    while (parentGroupId) {
+      if (fullyEnclosedGroupIds.has(parentGroupId)) return false
+      parentGroupId = candidateById.get(parentGroupId)?.parentGroupId
+    }
+    return true
+  })
+  const selectedGroupIds = new Set(outerFullyEnclosedGroups.map((group) => group.id))
+  const isInsideSelectedGroup = (candidate: MarqueeSelectionCandidate): boolean => {
+    let parentGroupId = candidate.parentGroupId
+    while (parentGroupId) {
+      if (selectedGroupIds.has(parentGroupId)) return true
+      parentGroupId = candidateById.get(parentGroupId)?.parentGroupId
+    }
+    return false
+  }
+
+  return candidates
+    .filter((candidate) => {
+      if (selectedGroupIds.has(candidate.id)) return true
+      if (candidate.kind === 'group' || isInsideSelectedGroup(candidate)) return false
+      return rectsOverlap(candidate, rect)
+    })
+    .map((candidate) => candidate.id)
+}
+
+/**
+ * Scene-entity adapter used by the renderer's live marquee preview.
  */
 export function entitiesOverlappingRect(
   entities: readonly CanvasSceneEntity[],
-  rect: { left: number; top: number; width: number; height: number },
+  rect: MarqueeSelectionRect,
 ): string[] {
-  const ids: string[] = []
-  const right = rect.left + rect.width
-  const bottom = rect.top + rect.height
+  const parentGroupByChildId = new Map<string, string>()
   for (const entity of entities) {
-    if (
-      rect.left < entity.screenX + entity.screenWidth &&
-      right > entity.screenX &&
-      rect.top < entity.screenY + entity.screenHeight &&
-      bottom > entity.screenY
-    ) {
-      ids.push(entity.id)
+    if (entity.kind !== 'group') continue
+    for (const childId of entity.entityIds) {
+      parentGroupByChildId.set(childId, entity.id)
     }
   }
-  return ids
+  return resolveMarqueeSelectionIds(
+    entities.map((entity) => ({
+      id: entity.id,
+      kind: entity.kind,
+      parentGroupId:
+        'parentGroupId' in entity
+          ? entity.parentGroupId
+          : parentGroupByChildId.get(entity.id),
+      left: entity.screenX,
+      top: entity.screenY,
+      width: entity.screenWidth,
+      height: entity.screenHeight,
+    })),
+    rect,
+  )
 }

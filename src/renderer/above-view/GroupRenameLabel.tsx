@@ -25,6 +25,7 @@ export function GroupRenameOverlay({
   editingEntityId,
   optionHeldRef,
   setDragCopyPreview,
+  setGroupDropTarget,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
@@ -32,6 +33,7 @@ export function GroupRenameOverlay({
   editingEntityId: string | null
   optionHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
+  setGroupDropTarget: (groupId: string | null) => void
 }) {
   const groups = layoutData.groups ?? []
   if (!groups.length) return null
@@ -47,6 +49,7 @@ export function GroupRenameOverlay({
           isRenaming={editingEntityId === group.id}
           optionHeldRef={optionHeldRef}
           setDragCopyPreview={setDragCopyPreview}
+          setGroupDropTarget={setGroupDropTarget}
         />
       ))}
     </>
@@ -61,6 +64,7 @@ function GroupRenameItem({
   isRenaming,
   optionHeldRef,
   setDragCopyPreview,
+  setGroupDropTarget,
 }: {
   api: CanvasBgElectronAPI
   layoutData: LayoutUpdateData
@@ -69,6 +73,7 @@ function GroupRenameItem({
   isRenaming: boolean
   optionHeldRef: MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
+  setGroupDropTarget: (groupId: string | null) => void
 }) {
   const labelColorClass = group.color
     ? isDark ? 'text-zinc-100' : 'text-zinc-900'
@@ -114,6 +119,7 @@ function GroupRenameItem({
               initialPointer: ev,
               isOptionHeld: () => optionHeldRef.current,
               setPreview: setDragCopyPreview,
+              setGroupDropTarget,
             })
             return
           }
@@ -127,14 +133,14 @@ function GroupRenameItem({
           if (ev.pointerId !== pointerId) return
           cleanup()
           if (dragging) {
-            api.endDragGroup()
+            api.endDragEntity()
             return
           }
           api.selectGroup(group.id)
         }
         const onCancel = () => {
           cleanup()
-          if (dragging) api.endDragGroup()
+          if (dragging) api.endDragEntity()
         }
         window.addEventListener('pointermove', onMove)
         window.addEventListener('pointerup', onUp)

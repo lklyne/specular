@@ -23,7 +23,7 @@ import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-side
 import { iconForFilePath } from '../shared/fileIcon'
 import { PageListItem } from '../shared/pageListItem'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
-import { useDragReorder } from './useDragReorder'
+import { SIDEBAR_ITEM_DRAG_TYPE, useDragReorder } from './useDragReorder'
 
 const RENAMABLE_FILE_PATTERN = /\.md$/i
 
@@ -288,6 +288,7 @@ function GroupTreeItem({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [isDropTarget, setIsDropTarget] = useState(false)
   const isSelected = selectedGroupId === group.id
 
   function startRename() {
@@ -317,7 +318,30 @@ function GroupTreeItem({
     <ContextMenu.Root>
       <ContextMenu.Trigger className="block w-full">
         <Collapsible.Root open={expanded} onOpenChange={setExpanded}>
-          <div className="relative">
+          <div
+            className={`relative ${isDropTarget ? 'ring-2 ring-blue-500 ring-inset' : ''}`}
+            onDragOver={(event) => {
+              if (!event.dataTransfer.types.includes(SIDEBAR_ITEM_DRAG_TYPE)) return
+              event.preventDefault()
+              event.stopPropagation()
+              event.dataTransfer.dropEffect = 'move'
+              setIsDropTarget(true)
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                setIsDropTarget(false)
+              }
+            }}
+            onDrop={(event) => {
+              const draggedId = event.dataTransfer.getData(SIDEBAR_ITEM_DRAG_TYPE)
+              if (!draggedId) return
+              event.preventDefault()
+              event.stopPropagation()
+              setIsDropTarget(false)
+              api.reparentSidebarItems([draggedId], group.id)
+              setExpanded(true)
+            }}
+          >
             {isEditing ? (
               <div className={rowClassName} style={rowStyle}>
                 {expanded ? (

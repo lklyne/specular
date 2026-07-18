@@ -9,22 +9,20 @@
  * `computeAnnotationScrollTarget` is pure and synchronous — it answers "what
  * document position should be revealed", nothing more — so it is trivially
  * testable under the electron stub, where the IPC send is not observable.
- * `dispatchScrollToAnnotation` layers the impure parts on top: the ~1/3-down
- * offset, the current-scroll delta, and the `sendPageIpc` ramp dispatch.
+ * `dispatchScrollToAnnotation` refines element anchors against the live DOM,
+ * then delegates the viewport offset and eased ramp to the shared page-anchor
+ * reveal utility used by anchored canvas items.
  */
 
-import { ipcChannels } from '../../shared/ipc-contract'
 import type { Annotation } from '../../shared/types'
 import { pages } from './runtime-context'
-import { pageBodyCanvasBounds } from './runtime-geometry'
-import { sendPageIpc } from './page-ipc'
 import { queryPageElements } from './page-queries'
+import {
+  dispatchScrollToDocumentTarget,
+  type PageDocumentScrollTarget,
+} from './page-anchor-reveal'
 
-export interface AnnotationScrollTarget {
-  pageId: string
-  /** Position in the page's document CSS px to bring into view. */
-  documentY: number
-}
+export type AnnotationScrollTarget = PageDocumentScrollTarget
 
 /**
  * The document position a comment click should reveal, per anchor type, or null
@@ -70,11 +68,6 @@ export function computeAnnotationScrollTarget(
   }
 }
 
-/** Land the anchor ~1/3 down the viewport rather than flush at the top: a
- *  sticky site header often covers top-pinned content, and content at the very
- *  top edge reads as cut off (plan lines 203-205). */
-const VIEWPORT_ANCHOR_FRACTION = 1 / 3
-
 /**
  * Re-resolve an element anchor's selector against the live page and read the
  * hit element's document Y. Returns null when the selector is stale/empty or
@@ -107,25 +100,11 @@ export async function dispatchScrollToAnnotation(
 ): Promise<void> {
   const target = computeAnnotationScrollTarget(annotation)
   if (!target) return
-  const page = pages.find((candidate) => candidate.id === target.pageId)
-  if (!page) return
-
   let documentY = target.documentY
   if (annotation.anchor.type === 'element') {
     const liveY = await resolveElementDocumentY(annotation.anchor.pageId, annotation.anchor.selector)
     if (liveY != null) documentY = liveY
   }
 
-  const body = pageBodyCanvasBounds(page)
-  const targetScrollY = Math.max(0, documentY - body.height * VIEWPORT_ANCHOR_FRACTION)
-  const deltaY = targetScrollY - (page.scrollY ?? 0)
-  // Probe `resolveScrollTarget` from the page's viewport center — the page body
-  // occupies canvas space 1:1 with its own CSS px, so body.width/height are the
-  // viewport dimensions.
-  await sendPageIpc(page.id, ipcChannels.dispatchScroll, {
-    x: body.width / 2,
-    y: body.height / 2,
-    deltaX: 0,
-    deltaY,
-  }).catch(() => {})
+  await dispatchScrollToDocumentTarget({ ...target, documentY })
 }
