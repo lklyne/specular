@@ -5,13 +5,15 @@ import { ipcChannels } from '../shared/ipc-contract'
 import { on } from './ipc-helpers'
 
 const api: LeftSidebarElectronAPI = {
-  revealPage: (pageId) => ipcRenderer.send(ipcChannels.canvasRevealPage, { pageId }),
+  revealPage: (pageId, selectionIds, mode) =>
+    ipcRenderer.send(ipcChannels.canvasRevealPage, { pageId, selectionIds, mode }),
   openAnnotationThread: (annotationId) =>
     ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId }),
-  revealEntity: (entityId, entityKind) =>
-    ipcRenderer.send(ipcChannels.canvasRevealEntity, { entityId, entityKind }),
+  revealEntity: (entityId, entityKind, selectionIds, mode) =>
+    ipcRenderer.send(ipcChannels.canvasRevealEntity, { entityId, entityKind, selectionIds, mode }),
   deleteEntity: (entityId, entityKind) =>
     ipcRenderer.send(ipcChannels.canvasDeleteEntity, { entityId, entityKind }),
+  deleteSelection: () => ipcRenderer.send(ipcChannels.canvasDeleteSelection),
   revealGroup: (groupId) => ipcRenderer.send(ipcChannels.canvasRevealGroup, { groupId }),
   ungroupGroup: (groupId) => ipcRenderer.send(ipcChannels.canvasUngroupGroup, { groupId }),
   selectTab: (tabId) => ipcRenderer.send(ipcChannels.canvasSelectTab, { tabId }),

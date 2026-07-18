@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType, type MouseEventHandler } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { Laptop, Smartphone, Tablet } from 'lucide-react'
@@ -22,7 +22,8 @@ interface PageListItemProps {
   contentPaddingLeft?: number
   contentPaddingRight?: number
   isDark: boolean
-  onClick: () => void
+  onClick: MouseEventHandler<HTMLButtonElement>
+  selectableId?: string
   onRename?: (name: string) => void
   onDelete?: () => void
 }
@@ -74,6 +75,7 @@ export function PageListItem({
   contentPaddingRight,
   isDark,
   onClick,
+  selectableId,
   onRename,
   onDelete,
 }: PageListItemProps) {
@@ -138,6 +140,7 @@ export function PageListItem({
         className={`${rootClassName} box-border appearance-none border-0`}
         style={horizontalPaddingStyle}
         onClick={onClick}
+        data-sidebar-selectable-id={selectableId}
         onDoubleClick={startRename}
         title={page.label}
       >

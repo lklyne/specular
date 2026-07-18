@@ -5,12 +5,23 @@ import type {
   SidebarSectionKey,
   ThemeData,
 } from '../types'
+import type { SelectionMutationMode } from '../selection-modifiers'
 
 export interface LeftSidebarElectronAPI {
-  revealPage: (pageId: string) => void
+  revealPage: (
+    pageId: string,
+    selectionIds?: string[],
+    mode?: SelectionMutationMode,
+  ) => void
   openAnnotationThread: (annotationId: string) => void
-  revealEntity: (entityId: string, entityKind: CanvasEntityKind) => void
+  revealEntity: (
+    entityId: string,
+    entityKind: CanvasEntityKind,
+    selectionIds?: string[],
+    mode?: SelectionMutationMode,
+  ) => void
   deleteEntity: (entityId: string, entityKind: CanvasEntityKind) => void
+  deleteSelection: () => void
   revealGroup: (groupId: string) => void
   ungroupGroup: (groupId: string) => void
   selectTab: (tabId: string) => void

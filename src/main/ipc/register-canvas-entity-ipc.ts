@@ -2,6 +2,7 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { AnnotationCreateRequest, BatchLayoutMode, CanvasEntityKind, PageColorScheme } from '../../shared/types'
+import type { SelectionMutationMode } from '../../shared/selection-modifiers'
 import { getEntityKind, hasEntityKind } from '../entities/contract'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
@@ -60,7 +61,6 @@ import {
   selectEntity,
   openDevToolsForSelectedPage,
   selectPage,
-  selectPageById,
   selectedPageId,
   setActiveTool,
   setSelectedEntities,
@@ -90,7 +90,7 @@ import {
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
 import { copyableSelectionPayload } from '../workspace-clipboard'
 import { workspaceGroups } from '../runtime/workspace-model'
-import { selectGroup } from '../runtime/selection-controller'
+import { applyEntitySelectionMutation, selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
 import { arrangeEntities } from '../runtime/document-commands'
 import { selectedEntityIds } from '../ui-state'
@@ -104,6 +104,10 @@ function isStackOrderAction(action: string): action is StackOrderAction {
     action === 'bring-to-front' ||
     action === 'send-to-back'
   )
+}
+
+function sidebarSelectionMode(mode: unknown): SelectionMutationMode {
+  return mode === 'add' || mode === 'remove' || mode === 'toggle' ? mode : 'replace'
 }
 
 function stackOrderMenuItems(targetId: string): MenuItemConstructorOptions[] {
@@ -250,20 +254,34 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(
     ipcChannels.canvasRevealEntity,
-    (_event, { entityId, entityKind }: { entityId: string; entityKind: string }) => {
+    (
+      _event,
+      {
+        entityId,
+        entityKind,
+        selectionIds,
+        mode,
+      }: {
+        entityId: string
+        entityKind: CanvasEntityKind
+        selectionIds?: string[]
+        mode?: SelectionMutationMode
+      },
+    ) => {
       if (entityKind === 'page') {
-        if (!selectPageById(entityId)) return
         const page = pages.find((candidate) => candidate.id === entityId)
-        if (page) focusCanvasBounds(pageBodyCanvasBounds(page))
+        if (!page) return
+        applyEntitySelectionMutation(selectionIds ?? [entityId], sidebarSelectionMode(mode))
+        focusCanvasBounds(pageBodyCanvasBounds(page))
         return
       }
-      selectEntity(entityId, entityKind)
       const te = textEntities.find((t) => t.id === entityId)
       const fe = fileEntities.find((f) => f.id === entityId)
       const de = drawingEntities.find((d) => d.id === entityId)
       const se = shapeEntities.find((s) => s.id === entityId)
       const entity = te ?? fe ?? de ?? se
       if (entity) {
+        applyEntitySelectionMutation(selectionIds ?? [entityId], sidebarSelectionMode(mode))
         focusCanvasBounds({ x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height })
       }
     },
@@ -435,10 +453,18 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
-  ipcMain.on(ipcChannels.canvasRevealPage, (_event, { pageId }: { pageId: string }) => {
-    if (!selectPageById(pageId)) return
+  ipcMain.on(ipcChannels.canvasRevealPage, (
+    _event,
+    {
+      pageId,
+      selectionIds,
+      mode,
+    }: { pageId: string; selectionIds?: string[]; mode?: SelectionMutationMode },
+  ) => {
     const page = pages.find((candidate) => candidate.id === pageId)
-    if (page) focusCanvasBounds(pageBodyCanvasBounds(page))
+    if (!page) return
+    applyEntitySelectionMutation(selectionIds ?? [pageId], sidebarSelectionMode(mode))
+    focusCanvasBounds(pageBodyCanvasBounds(page))
   })
 
   ipcMain.on(ipcChannels.canvasSetSelectionPreset, (_event, index: number) => {

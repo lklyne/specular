@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { Check, ChevronDown, ChevronRight, File, Plus } from 'lucide-react'
-import type { LeftSidebarData, SidebarCanvasItem, ThemeData } from '../../shared/types'
+import type { CanvasEntityKind, LeftSidebarData, ThemeData } from '../../shared/types'
 import type { LeftSidebarElectronAPI } from '../../shared/electron-api/left-sidebar'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { SidebarCanvasTree } from './SidebarCanvasTree'
+import { sidebarSelectionIntent } from './sidebar-selection'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useDragReorder } from './useDragReorder'
@@ -15,21 +16,6 @@ const LIST_OUTER_RIGHT_PADDING = 8
 const LIST_ROW_INNER_X_PADDING = 8
 
 const api = (window as unknown as { electronAPI: LeftSidebarElectronAPI }).electronAPI
-
-function findSidebarItemById(items: SidebarCanvasItem[], targetId: string): SidebarCanvasItem | null {
-  for (const item of items) {
-    if (item.id === targetId) return item
-    if (item.kind !== 'group') continue
-    const childMatch = findSidebarItemById(item.children, targetId)
-    if (childMatch) return childMatch
-  }
-  return null
-}
-
-function allSidebarItems(data: LeftSidebarData): SidebarCanvasItem[] {
-  if (data.sections) return [...data.sections.notes, ...data.sections.pages]
-  return data.items
-}
 
 export default function App({
   initialSidebarData,
@@ -44,6 +30,7 @@ export default function App({
   const [pagesSectionExpanded, setPagesSectionExpanded] = useState(true)
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
   const previousActivePageCountRef = useRef<number | null>(null)
+  const lastClickedEntityIdRef = useRef<string | null>(null)
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
 
@@ -52,42 +39,6 @@ export default function App({
   )
 
   useEffect(() => api.onSidebarData((data) => setSidebarData(data)), [])
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!document.hasFocus()) return
-      const target = event.target
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        (target instanceof HTMLElement && target.isContentEditable)
-      ) {
-        return
-      }
-
-      if (event.key !== 'Delete' && event.key !== 'Backspace') return
-      if (!sidebarData.selectedEntityIds.length) return
-
-      let deletedAny = false
-      const items = allSidebarItems(sidebarData)
-      for (const entityId of sidebarData.selectedEntityIds) {
-        const item = findSidebarItemById(items, entityId)
-        if (!item || item.kind === 'group') continue
-        if (item.kind === 'page') {
-          api.deletePage(item.id)
-        } else {
-          api.deleteEntity(item.id, item.kind)
-        }
-        deletedAny = true
-      }
-
-      if (!deletedAny) return
-      event.preventDefault()
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [sidebarData, sidebarData.selectedEntityIds])
 
   useEffect(() => {
     if (!editingTabId) return
@@ -119,6 +70,30 @@ export default function App({
   function commitRenameTab(tabId: string, currentName: string, nextName: string) {
     if (nextName && nextName !== currentName) api.renameTab(tabId, nextName)
     cancelRenameTab()
+  }
+
+  function handleSidebarSelect(
+    event: React.MouseEvent<HTMLButtonElement>,
+    id: string,
+    kind: Exclude<CanvasEntityKind, 'group' | 'edge'>,
+  ) {
+    const orderedVisibleIds = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-sidebar-selectable-id]'),
+      (element) => element.dataset.sidebarSelectableId,
+    ).filter((candidate): candidate is string => Boolean(candidate))
+    const intent = sidebarSelectionIntent({
+      clickedId: id,
+      orderedVisibleIds,
+      lastClickedId: lastClickedEntityIdRef.current,
+      shiftKey: event.shiftKey,
+      toggleKey: event.metaKey || event.ctrlKey,
+    })
+    lastClickedEntityIdRef.current = intent.nextAnchorId
+    if (kind === 'page') {
+      api.revealPage(id, intent.ids, intent.mode)
+    } else {
+      api.revealEntity(id, kind, intent.ids, intent.mode)
+    }
   }
 
   return (
@@ -277,6 +252,7 @@ export default function App({
                 isDark={isDark}
                 api={api}
                 section="notes"
+                onSelect={handleSidebarSelect}
               />
             ) : null}
           </div>
@@ -301,6 +277,7 @@ export default function App({
                 isDark={isDark}
                 api={api}
                 section="pages"
+                onSelect={handleSidebarSelect}
               />
             ) : null}
           </div>
