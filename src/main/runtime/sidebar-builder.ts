@@ -192,7 +192,7 @@ function describeSidebarLeaf(entityId: string): SidebarLeafItem | null {
   const fe = fileEntities.find((entity) => entity.id === entityId)
   if (fe) {
     const fileName = fe.file.split('/').pop() ?? fe.file
-    const displayName = fileName.replace(/\.wireframe\.json$/i, '').replace(/\.md$/i, '')
+    const displayName = fileName.replace(/\.md$/i, '')
     return { kind: 'file', id: entityId, label: displayName, file: fe.file }
   }
 

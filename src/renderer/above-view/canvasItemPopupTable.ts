@@ -6,7 +6,6 @@ import type {
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { ToolKind } from '../../shared/tool'
-import type { FileJsonModeMap } from './FileBodyLayer'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
 import { DrawingPopup } from './DrawingPopup'
@@ -62,8 +61,6 @@ export type PopupContext = {
   sameKindSelection: SameKindSelection
   selectedGroup: CanvasSceneGroupEntity | null
   textPopupReady: boolean
-  fileJsonModeMap: FileJsonModeMap
-  setFileJsonMode: (entityId: string, jsonMode: boolean) => void
 }
 
 export type ToolPopupRow = {
@@ -142,8 +139,6 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     layout: ctx.layout,
     selectedFiles: sameKindEntities(ctx.sameKindSelection, 'file'),
     interactionIdle: ctx.interactionIdle,
-    fileJsonModeMap: ctx.fileJsonModeMap,
-    setFileJsonMode: ctx.setFileJsonMode,
   })),
   // Mixed-kind fallback: renders only when the selection spans kinds, so it
   // never doubles up with a per-kind popup.

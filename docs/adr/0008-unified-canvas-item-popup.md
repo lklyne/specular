@@ -1,5 +1,13 @@
 # ADR 0008 — Unified canvas-item popup, selection-driven and tool-driven
 
+> **Partially superseded (2026-07).** The wireframe entity-renderer mode was
+> deleted wholesale — see the "delete wireframe mode" PR. The renderer-plugin
+> popup contribution surface (`popupContributionTags` / `PopupContributionTag`
+> / `src/renderer/above-view/file-popup-contributions/`) existed solely to
+> carry the wireframe theme picker and JSON-mode toggle and was removed with
+> it. `FilePopup` is filename rename + entity actions only now. The rest of
+> this ADR (selection vs tool anchor modes, `CanvasItemPopup`) still holds.
+
 **Status:** Accepted (all 11 migration steps landed)
 **Date:** 2026-05-10
 **Builds on:** [ADR 0002 — Canvas-anchored overlay UI in aboveView](./0002-canvas-anchored-overlay-ui.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md).

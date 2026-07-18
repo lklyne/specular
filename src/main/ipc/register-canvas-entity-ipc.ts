@@ -648,8 +648,7 @@ export function registerCanvasEntityIpc(): void {
     clipboard.writeImage(nativeImage.createFromPath(filePath))
   })
 
-  // Raw disk write — still used by non-markdown note-backed renderers
-  // (wireframe JSON) that aren't Y.Doc-backed yet (issue #262 non-goals).
+  // Raw disk write for non-Y.Doc-backed note content (issue #262 non-goals).
   ipcMain.handle(ipcChannels.writeNoteFile, (_event, { filePath, content }: { filePath: string; content: string }) => {
     writeNoteFile(filePath, content)
     return true

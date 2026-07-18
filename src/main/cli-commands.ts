@@ -146,8 +146,8 @@ const add: VerbHandler = async (args) => {
   } else if (kind === 'file') {
     const path = args.positional[1]
     if (!path) { printError('usage: specular add file <path> [--at x,y]'); return 1 }
-    // The file handler infers the renderer from the extension (md / wireframe /
-    // html / image / video) and sizes images/video from the file.
+    // The file handler infers the renderer from the extension (md / html /
+    // image / video) and sizes images/video from the file.
     item.kind = 'file'
     item.file = path
     applyAt()

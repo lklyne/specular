@@ -6,7 +6,6 @@ import { PaneField } from './PaneSection'
 import { ImageFilePane } from './ImageFilePane'
 import { ComponentFilePane } from './ComponentFilePane'
 import { MarkdownFilePane } from './MarkdownFilePane'
-import { WireframeFilePane } from './WireframeFilePane'
 import { FileDeviceSection } from './FileDeviceSection'
 import { FileEntityShell } from './FileEntityShell'
 
@@ -52,8 +51,6 @@ export function FileEntityPane({ fileEntity }: { fileEntity: PanelFileEntityDeta
       return <ImageFilePane fileEntity={fileEntity} />
     case 'markdown':
       return <MarkdownFilePane fileEntity={fileEntity} />
-    case 'wireframe':
-      return <WireframeFilePane fileEntity={fileEntity} />
     case 'component':
       return <ComponentFilePane fileEntity={fileEntity} />
     case 'video':

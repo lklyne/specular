@@ -19,7 +19,7 @@ import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
-import { FileBodyLayer, type FileJsonModeMap } from './FileBodyLayer'
+import { FileBodyLayer } from './FileBodyLayer'
 import { focusContext } from '../../shared/focus-context'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
@@ -189,7 +189,6 @@ function GuideOverlayLayer({
 
 function StackedCanvasItems({
   layoutData,
-  fileJsonModeMap,
   hoveredEntityId,
   isDark,
   selectedEdgeIds,
@@ -200,7 +199,6 @@ function StackedCanvasItems({
   hideContext,
 }: {
   layoutData: LayoutUpdateData
-  fileJsonModeMap: FileJsonModeMap
   hoveredEntityId: string | null
   isDark: boolean
   selectedEdgeIds: ReadonlySet<string>
@@ -299,7 +297,6 @@ function StackedCanvasItems({
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
           interactiveEntityId={interactiveEntityId}
-          jsonModeMap={fileJsonModeMap}
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
           zoom={layoutData.zoom}
@@ -367,15 +364,6 @@ export default function App({
     distributionGuides: [],
   })
   const [captureMode, setCaptureMode] = useState(false)
-  const [fileJsonModeMap, setFileJsonModeMap] = useState<FileJsonModeMap>(() => new Map())
-  const setFileJsonMode = useCallback((entityId: string, jsonMode: boolean) => {
-    setFileJsonModeMap((prev) => {
-      const next = new Map(prev)
-      if (jsonMode) next.set(entityId, true)
-      else next.delete(entityId)
-      return next
-    })
-  }, [])
   useEffect(() => api.onCaptureMode(setCaptureMode), [])
 
   useEffect(() => api.onSelectionOverlayChanged(setSelectionOverlay), [])
@@ -961,8 +949,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     sameKindSelection,
     selectedGroup: selectedGroupEntity,
     textPopupReady,
-    fileJsonModeMap,
-    setFileJsonMode,
   }
 
   return (
@@ -1030,7 +1016,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           Debug CSS injected into pages is suppressed separately (capture-suppression). */}
       <StackedCanvasItems
         layoutData={renderLayout}
-        fileJsonModeMap={fileJsonModeMap}
         hoveredEntityId={hoveredEntityId}
         isDark={isDark}
         selectedEdgeIds={selectedEdgeIds}

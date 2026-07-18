@@ -11,17 +11,11 @@
  * registerBuiltInPlugins() in src/main/plugins/index.ts.
  */
 
-import type { PersistedFileEntity, PopupContributionTag } from '../../shared/types'
+import type { PersistedFileEntity } from '../../shared/types'
 
 export type EntityRendererKind = 'inline' | 'wcv-page'
 
-export type EntityRendererTag =
-  | 'markdown'
-  | 'wireframe'
-  | 'image'
-  | 'video'
-  | 'component'
-  | 'html'
+export type EntityRendererTag = 'markdown' | 'image' | 'video' | 'component' | 'html'
 
 interface BaseRendererClaim {
   /** Stable id used for telemetry, debugging, and unregister. */
@@ -38,10 +32,8 @@ interface BaseRendererClaim {
   claims: (entity: PersistedFileEntity) => boolean
   /**
    * Higher priority claims are tested first. Defaults to 0. Use a higher
-   * value when the file pattern is more specific than another plugin's
-   * (e.g. wireframe's `.wireframe.json` is more specific than a future
-   * generic `.json`). Same-priority claims fall back to registration
-   * order for tie-breaking.
+   * value when the file pattern is more specific than another plugin's.
+   * Same-priority claims fall back to registration order for tie-breaking.
    */
   priority?: number
   /** Whether the renderer has a meaningful inline-edit affordance. Drives
@@ -51,13 +43,6 @@ interface BaseRendererClaim {
   /** Whether the renderer hosts live content (an iframe) that gets the
    *  page-like select-first / interact-second treatment. Defaults to false. */
   interactive?: boolean
-  /**
-   * Popup contribution tags this renderer surfaces in the file selection
-   * popup (ADR 0008 §7). The renderer side owns the React components — the
-   * registry only declares which tags apply. Omit or empty for "no plugin
-   * contributions".
-   */
-  popupContributionTags?: readonly PopupContributionTag[]
 }
 
 export interface InlineRendererClaim extends BaseRendererClaim {
@@ -130,18 +115,6 @@ export function pickRenderer(entity: PersistedFileEntity): EntityRendererClaim |
 /** Convenience: tag broadcast to the renderer; null when no plugin claims. */
 export function getRendererTagFor(entity: PersistedFileEntity): EntityRendererTag | null {
   return pickRenderer(entity)?.rendererTag ?? null
-}
-
-/**
- * Static popup contribution tags from the picked renderer. Broadcast to the
- * file selection popup as part of the scene data (ADR 0008 §7). Returns an
- * empty array when no plugin claims the entity, or when the picked plugin
- * declares no contributions.
- */
-export function getPopupContributionTagsFor(
-  entity: PersistedFileEntity,
-): readonly PopupContributionTag[] {
-  return pickRenderer(entity)?.popupContributionTags ?? []
 }
 
 /** Snapshot for debugging; not part of any IPC contract. */

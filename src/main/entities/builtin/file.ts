@@ -1,6 +1,6 @@
 /**
  * `file` entity kind — a file-on-disk projected onto the canvas (md /
- * wireframe / html / image / video; the renderer is picked by the
+ * html / image / video; the renderer is picked by the
  * entity-renderer registry).
  *
  * This kind also claims long or structured *text*: the apply path routes a

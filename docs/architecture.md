@@ -168,7 +168,7 @@ following commitments are load-bearing and costly to unwind later.
 views in the middle, one merged `aboveView` on top. Post-aboveView
 migration (2026-05-06), `bgView` carries only the canvas grid + camera
 transform plus a small amount of page chrome (page borders, device
-shells); every entity body (sticky, shape, file/markdown/wireframe/
+shells); every entity body (sticky, shape, file/markdown/
 component/image/video), every edge, every selection outline / resize
 handle / hover indicator, every group bound, the keyboard-target focus
 ring, and the agent-active halo render in `aboveView`. `aboveView` is

@@ -29,7 +29,7 @@ describe('routePointerDoubleClick', () => {
     ).toEqual({ kind: 'enter-group', groupId: 'g1' })
   })
 
-  it('editable file body (markdown/wireframe/video) → request-entity-edit', () => {
+  it('editable file body (markdown/video) → request-entity-edit', () => {
     expect(
       routePointerDoubleClick(
         target({ kind: 'entity-body', entityId: 'fi1', entityKind: 'file', rendererEditable: true }),

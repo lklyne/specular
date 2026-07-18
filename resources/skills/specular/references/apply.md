@@ -36,8 +36,3 @@ cat << 'EOF' | specular apply
 }
 EOF
 ```
-
-## Batch wireframe placement
-
-See [wireframes.md](wireframes.md) — the same pattern with `kind: "file"`
-entities and an anchorless layout (falls back to `find-placement`).

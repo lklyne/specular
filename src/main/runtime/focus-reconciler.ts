@@ -82,8 +82,8 @@ export function expectedFocus(state: FocusState): FocusTarget {
       return { kind: 'aboveView' }
     case 'editing-entity':
       // Inline canvas editors (sticky notes, shapes, markdown files,
-      // wireframes, group rename) render in aboveView, so keyboard focus
-      // lives there while typing.
+      // group rename) render in aboveView, so keyboard focus lives there
+      // while typing.
       return { kind: 'aboveView' }
     case 'idle':
       break
