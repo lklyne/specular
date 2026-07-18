@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { AnnotationCreateRequest, DevtoolsPanelData } from '../shared/types'
 import type { DevtoolsPanelElectronAPI } from '../shared/electron-api/right-details-panel'
 import { ipcChannels } from '../shared/ipc-contract'
+import { entityMutationBridge } from './entity-mutation-bridge'
 import { on } from './ipc-helpers'
 
 const api: DevtoolsPanelElectronAPI = {
@@ -37,16 +38,7 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelRemoveOriginBinding, { origin }),
   setFixConfig: (config: { model: string; permissions: string }) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFixConfig, config),
-  updateEntity: (kind, id, patch) =>
-    ipcRenderer.send(ipcChannels.canvasUpdateEntity, { kind, id, patch }),
-  duplicateTextEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDuplicateTextEntity, { id }),
-  deleteTextEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDeleteTextEntity, { id }),
-  duplicateFileEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDuplicateFileEntity, { id }),
-  deleteFileEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDeleteFileEntity, { id }),
+  ...entityMutationBridge,
   setFilePreset: (fileId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFilePreset, { fileId, presetIndex }),
   setFileCustom: (fileId: string) =>

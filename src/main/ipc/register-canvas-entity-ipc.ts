@@ -36,6 +36,7 @@ import {
   deleteShapeEntity,
   deleteTextEntity,
   deleteFileEntity,
+  refreshFileEntity,
   setPageCustom,
   setPageColorScheme,
   setDeviceOrientation,
@@ -619,6 +620,10 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(ipcChannels.canvasDeleteFileEntity, (_event, { id }: { id: string }) => {
     deleteFileEntity(id)
+  })
+
+  ipcMain.on(ipcChannels.canvasRefreshFileEntity, (_event, { id }: { id: string }) => {
+    refreshFileEntity(id)
   })
 
   ipcMain.on(ipcChannels.canvasDuplicateFileEntity, (_event, { id }: { id: string }) => {

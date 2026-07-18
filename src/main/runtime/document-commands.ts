@@ -46,6 +46,7 @@ import {
   fileEntities,
   type FileEntity,
 } from './file-entity-state'
+import { bumpFileReloadVersion } from './local-file-watcher'
 import {
   deleteGroupEntity as deleteGroupEntityInState,
   updateGroupEntity as updateGroupEntityInState,
@@ -774,6 +775,16 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
 
 export function deleteFileEntity(id: string): boolean {
   return deleteEntityCommand(id, deleteFileEntityInState)
+}
+
+/** Manual "Refresh" action: re-mounts the entity's renderer even if the
+ *  watcher's own change signal never arrived. Not undo-tracked — it doesn't
+ *  change persisted document data, just forces a re-fetch from disk. */
+export function refreshFileEntity(id: string): void {
+  if (!fileEntities.some((e) => e.id === id)) return
+  bumpFileReloadVersion(id)
+  markDirty('canvas')
+  requestLayout()
 }
 
 export function getFileEntities(): FileEntity[] {

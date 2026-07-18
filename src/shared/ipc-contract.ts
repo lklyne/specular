@@ -78,6 +78,7 @@ export interface IpcContract {
   'canvas-update-edge': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-file-entity': { dir: 'renderer→main'; payload: unknown }
+  'canvas-refresh-file-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-selection': { dir: 'renderer→main'; payload: unknown }
@@ -387,6 +388,7 @@ export const ipcChannels = {
   canvasUpdateEdge: 'canvas-update-edge',
   canvasDeleteEntity: 'canvas-delete-entity',
   canvasDeleteFileEntity: 'canvas-delete-file-entity',
+  canvasRefreshFileEntity: 'canvas-refresh-file-entity',
   canvasDeleteGroup: 'canvas-delete-group',
   canvasDeletePage: 'canvas-delete-page',
   canvasDeleteSelection: 'canvas-delete-selection',

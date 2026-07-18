@@ -69,7 +69,7 @@ If id matches an existing entity → update. No id → create.
 Kind-specific fields:
   page — url, presetIndex, canvasX, canvasY, orientation, showDeviceFrame (default true), groupId
   text  — text (Markdown), color (hex "#RRGGBB" or preset 1-6: red/orange/yellow/green/cyan/purple), canvasX, canvasY, width, height
-  file  — file (absolute path), subpath, canvasX, canvasY, width, height
+  file  — file (absolute path), subpath, canvasX, canvasY, width, height, presetIndex, orientation, showDeviceFrame (default false — set true to add a border/device frame, e.g. on an html entity)
 
 Page presets (presetIndex → device):
   0: iPhone SE (375×667, mobile)     3: iPad Mini (744×1133)       6: Laptop (1280×800)

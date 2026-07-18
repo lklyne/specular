@@ -15,6 +15,8 @@ import type { JsonCanvasFileNode } from '../../../shared/json-canvas-types'
 import {
   createFileEntity,
   deleteFileEntity,
+  setFileDeviceOrientation,
+  setFilePreset,
   updateFileEntity,
 } from '../../runtime/document-commands'
 import {
@@ -31,6 +33,10 @@ import {
   imageSizeFromPath,
   videoSizeFromPath,
 } from '../../runtime/image-sizing'
+import {
+  setShowDeviceFrameMetadata,
+  showDeviceFrameFromMetadata,
+} from '../../runtime/runtime-entities'
 import {
   deserializeFileNodeToFile,
   serializeFileToFileNode,
@@ -125,6 +131,19 @@ export const fileKind: EntityKindDefinition<'file'> = {
       canvasX: patch.canvasX as number | undefined,
       canvasY: patch.canvasY as number | undefined,
     })
+    // Device frame / border — same fields and mutators as the page kind
+    // (builtin/page.ts), just addressed at a file entity instead of a page.
+    if (patch.presetIndex !== undefined) setFilePreset(id, patch.presetIndex as number)
+    if (patch.orientation !== undefined) {
+      setFileDeviceOrientation(id, patch.orientation as 'portrait' | 'landscape')
+    }
+    if (patch.showDeviceFrame !== undefined) {
+      const entity = fileEntities.find((e) => e.id === id)
+      const next = patch.showDeviceFrame as boolean
+      if (entity && showDeviceFrameFromMetadata(entity.metadata) !== next) {
+        entity.metadata = setShowDeviceFrameMetadata(entity.metadata, next)
+      }
+    }
   },
 
   delete(id) {

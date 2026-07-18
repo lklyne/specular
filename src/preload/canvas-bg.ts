@@ -5,6 +5,7 @@ import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
 import type { CanvasGuidesPayload } from '../shared/canvas-guides'
 import { ipcChannels } from '../shared/ipc-contract'
+import { entityMutationBridge } from './entity-mutation-bridge'
 import { on } from './ipc-helpers'
 
 function installSelectionOverlayBridge(): void {
@@ -122,16 +123,9 @@ const api: CanvasBgElectronAPI = {
   deleteSelectedEntities: () => ipcRenderer.send(ipcChannels.canvasDeleteSelection),
   reorderStack: (action, targetId) =>
     ipcRenderer.send(ipcChannels.canvasReorderStack, { action, targetId }),
-  updateEntity: (kind, id, patch) =>
-    ipcRenderer.send(ipcChannels.canvasUpdateEntity, { kind, id, patch }),
-  duplicateTextEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDuplicateTextEntity, { id }),
-  deleteTextEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDeleteTextEntity, { id }),
-  deleteFileEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDeleteFileEntity, { id }),
-  duplicateFileEntity: (id: string) =>
-    ipcRenderer.send(ipcChannels.canvasDuplicateFileEntity, { id }),
+  ...entityMutationBridge,
+  refreshFileEntity: (id: string) =>
+    ipcRenderer.send(ipcChannels.canvasRefreshFileEntity, { id }),
   deleteDrawingEntity: (id: string) =>
     ipcRenderer.send(ipcChannels.canvasDeleteDrawingEntity, { id }),
   duplicateDrawingEntity: (id) =>
