@@ -87,6 +87,17 @@ import {
 } from './optionDragCopy'
 import { capturePointer, startPointerSession } from './pointer-session'
 
+export function commitInlineEditBeforePointerAction(
+  blurActiveEditor: () => void,
+  commitEntityEdit: () => void,
+): void {
+  // Pointer-down arrives before the browser's native blur. Main closing edit
+  // mode first would unmount the editor and discard its draft, so force blur
+  // synchronously while the input and its onBlur commit handler still exist.
+  blurActiveEditor()
+  commitEntityEdit()
+}
+
 /** Live draft snapshot the comment gesture consults on pointerup — a click
  *  away from an empty composer dismisses it instead of opening a new one. */
 interface CommentDraftSnapshot {
@@ -312,7 +323,13 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
             ? target.payload.entityId
             : null
         if (hitEntityId !== editingEntityId) {
-          apiRef.current.commitEntityEdit()
+          commitInlineEditBeforePointerAction(
+            () => {
+              const activeElement = document.activeElement
+              if (activeElement instanceof HTMLElement) activeElement.blur()
+            },
+            apiRef.current.commitEntityEdit,
+          )
         }
       }
 

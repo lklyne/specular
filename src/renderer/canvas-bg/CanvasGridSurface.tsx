@@ -188,7 +188,7 @@ export function PlacementPreviewLayer({
   }
   return (
     <div
-      className={`pointer-events-none absolute border ${isTextEntity || isFileEntity ? '' : 'rounded-[8px]'}`}
+      className="pointer-events-none absolute border"
       style={{
         ...previewBoxStyle(isDark, preview),
         ...(isStickyPreview && preview.color
@@ -229,7 +229,7 @@ function DragCopyPreviewLayer({
       {dragCopyPreview.map((preview) => (
         <div
           key={`drag-copy-preview-${preview.id}`}
-          className="pointer-events-none absolute rounded-[8px] border"
+          className="pointer-events-none absolute border"
           style={previewBoxStyle(isDark, preview)}
         />
       ))}

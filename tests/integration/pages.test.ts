@@ -28,6 +28,7 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { ipcMain } from 'electron'
 import type * as Y from 'yjs'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
@@ -38,8 +39,12 @@ import { setPageColorScheme } from '../../src/main/runtime/document-commands'
 import { duplicatePageFromSource } from '../../src/main/workspace-pages'
 import { copyableSelectionPayload, pasteEntitiesFromClipboard } from '../../src/main/workspace-clipboard'
 import { selectPageById } from '../../src/main/runtime/ui-actions'
+import { registerCanvasEntityIpc } from '../../src/main/ipc/register-canvas-entity-ipc'
+import { ipcChannels } from '../../src/shared/ipc-contract'
+import { pageContentSize } from '../../src/main/runtime/runtime-geometry'
 
 let harness: WorkspaceHarness
+let canvasEntityIpcRegistered = false
 
 /**
  * Count Y.Doc afterTransaction events during `fn`, including the
@@ -86,7 +91,28 @@ function createPageViaPatch(overrides: Record<string, unknown> = {}): string {
 describe('pages', () => {
   beforeEach(() => {
     harness ??= bootWorkspaceHarness()
+    if (!canvasEntityIpcRegistered) {
+      registerCanvasEntityIpc()
+      canvasEntityIpcRegistered = true
+    }
     harness.reset()
+  })
+
+  it('preserves the shared resize geometry without independently re-snapping page edges', () => {
+    const pageId = createPageViaPatch()
+
+    ipcMain.emit(
+      ipcChannels.canvasUpdatePageBounds,
+      {},
+      { pageId, patch: { canvasX: 13, canvasY: 17, width: 102, height: 203 } },
+    )
+
+    const page = findPageById(pageId)
+    expect(page).toMatchObject({ canvasX: 13, canvasY: 17 })
+    expect(page).toBeDefined()
+    const size = pageContentSize(page!)
+    expect(page!.canvasX + size.width).toBe(115)
+    expect(page!.canvasY + size.height).toBe(220)
   })
 
   afterAll(() => harness?.dispose())

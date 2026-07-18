@@ -12,6 +12,8 @@
  * Lives in src/shared so the router and tests can both import it.
  */
 
+import { snapToGrid } from './gesture-utils'
+
 // These types are re-declared here so this module stays free of renderer
 // imports. Renderer-facing constants (handle size, cursor maps, min sizes)
 // live in `src/renderer/canvas-bg/entityConstants.ts`.
@@ -41,6 +43,11 @@ export interface ResizeStart {
 export interface ResizeAccumulator extends ResizeStart {
   /** Cached aspect ratio (width/height at gesture start). */
   aspect: number
+  /** Stationary edges captured exactly at gesture start. */
+  fixedLeft: number
+  fixedTop: number
+  fixedRight: number
+  fixedBottom: number
 }
 
 export interface ResizeConfig {
@@ -65,6 +72,10 @@ export function startResize(start: ResizeStart): ResizeAccumulator {
   return {
     ...start,
     aspect: start.height === 0 ? 1 : start.width / start.height,
+    fixedLeft: start.canvasX,
+    fixedTop: start.canvasY,
+    fixedRight: start.canvasX + start.width,
+    fixedBottom: start.canvasY + start.height,
   }
 }
 
@@ -86,6 +97,7 @@ export function applyCornerDelta(
 
   let newW = Math.max(config.minWidth, acc.width + dx * flipX)
   let newH = Math.max(config.minHeight, acc.height + dy * flipY)
+  let primary: 'w' | 'h' = 'w'
   if (aspectLock) {
     const dxAbs = Math.abs(newW - acc.width)
     const dyAbs = Math.abs(newH - acc.height)
@@ -93,6 +105,7 @@ export function applyCornerDelta(
       newH = Math.max(config.minHeight, newW / acc.aspect)
       newW = newH * acc.aspect
     } else {
+      primary = 'h'
       newW = Math.max(config.minWidth, newH * acc.aspect)
       newH = newW / acc.aspect
     }
@@ -105,10 +118,34 @@ export function applyCornerDelta(
   if (flipX === -1) acc.canvasX += clampedDx
   if (flipY === -1) acc.canvasY += clampedDy
 
-  const { roundedW, roundedH } = roundWithAspect(acc.width, acc.height, acc.aspect, aspectLock, 'w')
-  const patch: EntityResizePatch = { width: roundedW, height: roundedH }
-  if (flipX === -1) patch.canvasX = Math.round(acc.canvasX)
-  if (flipY === -1) patch.canvasY = Math.round(acc.canvasY)
+  const movesLeft = flipX === -1
+  const movesTop = flipY === -1
+  let horizontal: AxisBounds
+  let vertical: AxisBounds
+  if (!aspectLock) {
+    horizontal = snapHorizontalBounds(acc, movesLeft, config.minWidth)
+    vertical = snapVerticalBounds(acc, movesTop, config.minHeight)
+  } else if (primary === 'w') {
+    horizontal = snapHorizontalBounds(
+      acc,
+      movesLeft,
+      Math.max(config.minWidth, config.minHeight * acc.aspect),
+    )
+    const height = horizontal.size / acc.aspect
+    vertical = boundsFromDerivedSize(acc.fixedTop, acc.fixedBottom, height, movesTop)
+  } else {
+    vertical = snapVerticalBounds(
+      acc,
+      movesTop,
+      Math.max(config.minHeight, config.minWidth / acc.aspect),
+    )
+    const width = vertical.size * acc.aspect
+    horizontal = boundsFromDerivedSize(acc.fixedLeft, acc.fixedRight, width, movesLeft)
+  }
+
+  const patch: EntityResizePatch = { width: horizontal.size, height: vertical.size }
+  if (movesLeft) patch.canvasX = horizontal.start
+  if (movesTop) patch.canvasY = vertical.start
   return patch
 }
 
@@ -148,17 +185,9 @@ export function applyEdgeDelta(
   if (edge === 'left') acc.canvasX -= dw
   if (edge === 'top') acc.canvasY -= dh
 
-  const { roundedW, roundedH } = roundWithAspect(
-    acc.width,
-    acc.height,
-    acc.aspect,
-    aspectLock,
-    isHorizontal ? 'w' : 'h',
-  )
-  const patch: EntityResizePatch = { width: roundedW, height: roundedH }
-  if (edge === 'left') patch.canvasX = Math.round(acc.canvasX)
-  if (edge === 'top') patch.canvasY = Math.round(acc.canvasY)
-  return patch
+  return isHorizontal
+    ? horizontalEdgePatch(acc, edge === 'left', aspectLock, config)
+    : verticalEdgePatch(acc, edge === 'top', aspectLock, config)
 }
 
 /**
@@ -184,20 +213,83 @@ function shouldLockAspect(mode: AspectRatioResizeMode, shiftKey: boolean): boole
   return shiftKey
 }
 
-function roundWithAspect(
-  w: number,
-  h: number,
-  aspect: number,
-  lock: boolean,
-  primary: 'w' | 'h',
-): { roundedW: number; roundedH: number } {
-  if (!lock) return { roundedW: Math.round(w), roundedH: Math.round(h) }
-  if (primary === 'w') {
-    const rw = Math.round(w)
-    return { roundedW: rw, roundedH: rw / aspect }
+interface AxisBounds {
+  start: number
+  size: number
+}
+
+function horizontalEdgePatch(
+  acc: ResizeAccumulator,
+  movesLeft: boolean,
+  aspectLock: boolean,
+  config: ResizeConfig,
+): EntityResizePatch {
+  const minWidth = aspectLock
+    ? Math.max(config.minWidth, config.minHeight * acc.aspect)
+    : config.minWidth
+  const horizontal = snapHorizontalBounds(acc, movesLeft, minWidth)
+  const height = aspectLock ? horizontal.size / acc.aspect : acc.height
+  const patch: EntityResizePatch = { width: horizontal.size, height }
+  if (movesLeft) patch.canvasX = horizontal.start
+  return patch
+}
+
+function verticalEdgePatch(
+  acc: ResizeAccumulator,
+  movesTop: boolean,
+  aspectLock: boolean,
+  config: ResizeConfig,
+): EntityResizePatch {
+  const minHeight = aspectLock
+    ? Math.max(config.minHeight, config.minWidth / acc.aspect)
+    : config.minHeight
+  const vertical = snapVerticalBounds(acc, movesTop, minHeight)
+  const width = aspectLock ? vertical.size * acc.aspect : acc.width
+  const patch: EntityResizePatch = { width, height: vertical.size }
+  if (movesTop) patch.canvasY = vertical.start
+  return patch
+}
+
+function snapHorizontalBounds(
+  acc: ResizeAccumulator,
+  movesLeft: boolean,
+  minWidth: number,
+): AxisBounds {
+  const rawEdge = movesLeft ? acc.canvasX : acc.canvasX + acc.width
+  const snappedEdge = snapToGrid(rawEdge)
+  if (movesLeft) {
+    const left = Math.min(snappedEdge, acc.fixedRight - minWidth)
+    return { start: left, size: acc.fixedRight - left }
   }
-  const rh = Math.round(h)
-  return { roundedW: rh * aspect, roundedH: rh }
+  const right = Math.max(snappedEdge, acc.fixedLeft + minWidth)
+  return { start: acc.fixedLeft, size: right - acc.fixedLeft }
+}
+
+function snapVerticalBounds(
+  acc: ResizeAccumulator,
+  movesTop: boolean,
+  minHeight: number,
+): AxisBounds {
+  const rawEdge = movesTop ? acc.canvasY : acc.canvasY + acc.height
+  const snappedEdge = snapToGrid(rawEdge)
+  if (movesTop) {
+    const top = Math.min(snappedEdge, acc.fixedBottom - minHeight)
+    return { start: top, size: acc.fixedBottom - top }
+  }
+  const bottom = Math.max(snappedEdge, acc.fixedTop + minHeight)
+  return { start: acc.fixedTop, size: bottom - acc.fixedTop }
+}
+
+function boundsFromDerivedSize(
+  fixedStart: number,
+  fixedEnd: number,
+  size: number,
+  movesStart: boolean,
+): AxisBounds {
+  return {
+    start: movesStart ? fixedEnd - size : fixedStart,
+    size,
+  }
 }
 
 function handleToCorner(handle: ResizeHandle): ResizeCorner | null {

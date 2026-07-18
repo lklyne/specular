@@ -63,6 +63,7 @@ export type BindingId =
   | 'select-all'
   | 'duplicate'
   | 'new-frame'
+  | 'edit-selection'
   | 'delete-selection'
   | 'stack-bring-forward'
   | 'stack-send-backward'
@@ -201,6 +202,13 @@ export const BINDINGS: readonly Binding[] = [
   },
 
   // Canvas-region plain shortcuts
+  {
+    id: 'edit-selection',
+    defaultKey: k('enter'),
+    scope: CANVAS_REGION,
+    target: 'main',
+    label: 'Edit selection',
+  },
   {
     id: 'delete-selection',
     defaultKey: k('delete'),

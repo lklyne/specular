@@ -153,13 +153,25 @@ export function applyMultiHandleDelta(
   const scaleY = acc.initialBbox.height > 0 ? acc.accH / acc.initialBbox.height : 1
 
   return acc.initialEntities.map((entity) => {
+    const left = Math.round(
+      acc.accX + (entity.canvasX - acc.initialBbox.x) * scaleX,
+    )
+    const right = Math.round(
+      acc.accX + (entity.canvasX + entity.width - acc.initialBbox.x) * scaleX,
+    )
+    const top = Math.round(
+      acc.accY + (entity.canvasY - acc.initialBbox.y) * scaleY,
+    )
+    const bottom = Math.round(
+      acc.accY + (entity.canvasY + entity.height - acc.initialBbox.y) * scaleY,
+    )
     const entry: MultiResizeEntry = {
       id: entity.id,
       kind: entity.kind,
-      width: Math.round(Math.max(1, entity.width * scaleX)),
-      height: Math.round(Math.max(1, entity.height * scaleY)),
-      canvasX: Math.round(acc.accX + (entity.canvasX - acc.initialBbox.x) * scaleX),
-      canvasY: Math.round(acc.accY + (entity.canvasY - acc.initialBbox.y) * scaleY),
+      canvasX: left,
+      canvasY: top,
+      width: Math.max(1, right - left),
+      height: Math.max(1, bottom - top),
     }
     if (entity.strokes) {
       entry.strokes = scaleStrokesToBounds(

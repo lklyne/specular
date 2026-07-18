@@ -17,6 +17,37 @@ function fresh(): ResizeAccumulator {
 }
 
 describe('resize-accumulator', () => {
+  it.each([
+    ['n', false, false, true, false],
+    ['s', false, false, false, true],
+    ['e', false, true, false, false],
+    ['w', true, false, false, false],
+    ['ne', false, true, true, false],
+    ['nw', true, false, true, false],
+    ['se', false, true, false, true],
+    ['sw', true, false, false, true],
+  ] as const)(
+    '%s snaps only its moving edges and keeps its opposite edges fixed',
+    (handle, movesLeft, movesRight, movesTop, movesBottom) => {
+      const start = { width: 102, height: 103, canvasX: 13, canvasY: 17 }
+      const patch = applyHandleDelta(
+        startResize(start),
+        handle,
+        { screenDx: 17, screenDy: 17, zoom: 1, shiftKey: false },
+        FREE,
+      )
+      const left = patch.canvasX ?? start.canvasX
+      const top = patch.canvasY ?? start.canvasY
+      const right = left + patch.width
+      const bottom = top + patch.height
+
+      expect(left).toBe(movesLeft ? 40 : start.canvasX)
+      expect(right).toBe(movesRight ? 140 : start.canvasX + start.width)
+      expect(top).toBe(movesTop ? 40 : start.canvasY)
+      expect(bottom).toBe(movesBottom ? 140 : start.canvasY + start.height)
+    },
+  )
+
   describe('startResize', () => {
     it('captures aspect ratio at start', () => {
       const acc = startResize({ width: 200, height: 100, canvasX: 50, canvasY: 25 })
@@ -32,6 +63,21 @@ describe('resize-accumulator', () => {
   })
 
   describe('applyCornerDelta', () => {
+    it('keeps the exact opposite edges fixed while snapping a top-left resize', () => {
+      const acc = startResize({ width: 99.8, height: 79.8, canvasX: 0.4, canvasY: 0.4 })
+      const fixedRight = acc.canvasX + acc.width
+      const fixedBottom = acc.canvasY + acc.height
+      const patch = applyCornerDelta(
+        acc,
+        'top-left',
+        { screenDx: 0.2, screenDy: 0.2, zoom: 1, shiftKey: false },
+        FREE,
+      )
+
+      expect((patch.canvasX ?? 0) + patch.width).toBe(fixedRight)
+      expect((patch.canvasY ?? 0) + patch.height).toBe(fixedBottom)
+    })
+
     it('bottom-right grows width and height by the screen delta divided by zoom', () => {
       const acc = fresh()
       const patch = applyCornerDelta(
@@ -40,8 +86,8 @@ describe('resize-accumulator', () => {
         { screenDx: 50, screenDy: 30, zoom: 1, shiftKey: false },
         FREE,
       )
-      expect(patch.width).toBe(250)
-      expect(patch.height).toBe(130)
+      expect(patch.width).toBe(260)
+      expect(patch.height).toBe(140)
       // No origin movement on bottom-right.
       expect(patch.canvasX).toBeUndefined()
       expect(patch.canvasY).toBeUndefined()
@@ -57,10 +103,10 @@ describe('resize-accumulator', () => {
       )
       // Dragging top-left toward bottom-right shrinks both dims; flipX=-1, flipY=-1.
       expect(patch.width).toBe(180)
-      expect(patch.height).toBe(90)
-      // Origin moves by the clamped delta (= -dx*flipX, -dy*flipY -> +dx, +dy).
+      expect(patch.height).toBe(80)
+      // Both actively dragged edges snap to the grid.
       expect(patch.canvasX).toBe(20)
-      expect(patch.canvasY).toBe(10)
+      expect(patch.canvasY).toBe(20)
     })
 
     it('clamps to minWidth/minHeight', () => {
@@ -71,8 +117,8 @@ describe('resize-accumulator', () => {
         { screenDx: -100, screenDy: -100, zoom: 1, shiftKey: false },
         FREE,
       )
-      expect(patch.width).toBe(10)
-      expect(patch.height).toBe(10)
+      expect(patch.width).toBe(20)
+      expect(patch.height).toBe(20)
     })
 
     it('shift-locks: aspect locked when shift held', () => {
@@ -120,12 +166,38 @@ describe('resize-accumulator', () => {
         { screenDx: 100, screenDy: 50, zoom: 2, shiftKey: false },
         FREE,
       )
-      expect(patch.width).toBe(250)
-      expect(patch.height).toBe(125)
+      expect(patch.width).toBe(260)
+      expect(patch.height).toBe(120)
     })
   })
 
   describe('applyEdgeDelta', () => {
+    it('keeps the exact opposite edge fixed while snapping a left resize', () => {
+      const acc = startResize({ width: 99.8, height: 100, canvasX: 0.4, canvasY: 0 })
+      const fixedRight = acc.canvasX + acc.width
+      const patch = applyEdgeDelta(
+        acc,
+        'left',
+        { screenDx: 0.2, screenDy: 0, zoom: 1, shiftKey: false },
+        FREE,
+      )
+
+      expect((patch.canvasX ?? 0) + patch.width).toBe(fixedRight)
+    })
+
+    it('keeps the exact opposite edge fixed while snapping a top resize', () => {
+      const acc = startResize({ width: 100, height: 99.8, canvasX: 0, canvasY: 0.4 })
+      const fixedBottom = acc.canvasY + acc.height
+      const patch = applyEdgeDelta(
+        acc,
+        'top',
+        { screenDx: 0, screenDy: 0.2, zoom: 1, shiftKey: false },
+        FREE,
+      )
+
+      expect((patch.canvasY ?? 0) + patch.height).toBe(fixedBottom)
+    })
+
     it('right edge moves width only', () => {
       const acc = fresh()
       const patch = applyEdgeDelta(
@@ -147,9 +219,9 @@ describe('resize-accumulator', () => {
         { screenDx: 30, screenDy: 0, zoom: 1, shiftKey: false },
         FREE,
       )
-      // Dragging left edge right by 30 shrinks width by 30 and pushes origin by 30.
-      expect(patch.width).toBe(170)
-      expect(patch.canvasX).toBe(30)
+      // The moving left edge snaps from raw x=30 to grid x=40.
+      expect(patch.width).toBe(160)
+      expect(patch.canvasX).toBe(40)
     })
 
     it('top edge moves canvasY', () => {
@@ -174,6 +246,20 @@ describe('resize-accumulator', () => {
       )
       expect(patch.width).toBe(300)
       expect(patch.height).toBe(150)
+    })
+
+    it('snaps the primary edge while preserving aspect and the opposite edge', () => {
+      const start = { width: 200, height: 100, canvasX: 13, canvasY: 17 }
+      const patch = applyEdgeDelta(
+        startResize(start),
+        'left',
+        { screenDx: 17, screenDy: 0, zoom: 1, shiftKey: true },
+        SHIFT_LOCKS,
+      )
+
+      expect(patch.canvasX).toBe(40)
+      expect((patch.canvasX ?? 0) + patch.width).toBe(213)
+      expect(patch.width / patch.height).toBe(2)
     })
   })
 
@@ -223,8 +309,8 @@ describe('resize-accumulator', () => {
         { screenDx: 20, screenDy: 0, zoom: 1, shiftKey: false },
         FREE,
       )
-      // First tick widened to 230; second adds another 20 → 250.
-      expect(second.width).toBe(250)
+      // The raw accumulated width reaches 250; its active edge snaps to 260.
+      expect(second.width).toBe(260)
     })
   })
 })

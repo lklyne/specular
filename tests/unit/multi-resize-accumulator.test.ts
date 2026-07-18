@@ -162,6 +162,21 @@ describe('multi-resize-accumulator', () => {
   })
 
   describe('applyMultiHandleDelta — edges', () => {
+    it('keeps shared and opposite edges stable when fractional scaling rounds', () => {
+      const acc = startMultiResize({
+        bbox: { x: 0.4, y: 0, width: 99.8, height: 100 },
+        entities: [
+          { id: 'a', kind: 'shape', canvasX: 0.4, canvasY: 0, width: 49.9, height: 100 },
+          { id: 'b', kind: 'shape', canvasX: 50.3, canvasY: 0, width: 49.9, height: 100 },
+        ],
+      })
+      const out = applyMultiHandleDelta(acc, 'w', { screenDx: 0.2, screenDy: 0, zoom: 1 })
+      const fixedRight = Math.round(0.4 + 99.8)
+
+      expect(out[0].canvasX + out[0].width).toBe(out[1].canvasX)
+      expect(out[1].canvasX + out[1].width).toBe(fixedRight)
+    })
+
     it('e grows width only', () => {
       const acc = fresh()
       const out = applyMultiHandleDelta(acc, 'e', { screenDx: 50, screenDy: 999, zoom: 1 })

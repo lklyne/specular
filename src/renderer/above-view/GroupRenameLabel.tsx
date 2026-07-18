@@ -11,7 +11,6 @@
  * from `editingEntityId === group.id`, never local state.
  */
 
-import { FolderOpen } from 'lucide-react'
 import type { MutableRefObject } from 'react'
 import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -74,9 +73,6 @@ function GroupRenameItem({
   const labelColorClass = group.color
     ? isDark ? 'text-zinc-100' : 'text-zinc-900'
     : isDark ? 'text-zinc-300' : 'text-zinc-700'
-  const iconColorClass = group.color
-    ? isDark ? 'text-zinc-300' : 'text-zinc-600'
-    : 'text-zinc-500'
   // The label sits above group.screenY and inside aboveView's overlay-local
   // coordinate space; subtract canvasOrigin.y to drop into overlay coords.
   const left = group.screenX
@@ -159,8 +155,7 @@ function GroupRenameItem({
       onPointerDown={onPointerDown}
       onDoubleClick={() => api.requestEntityEdit(group.id)}
     >
-      <span className="inline-flex items-center gap-1 pb-1">
-        <FolderOpen size={14} className={`shrink-0 ${iconColorClass}`} />
+      <span className="inline-flex items-center pb-1">
         <InlineEditLabel
           value={group.label}
           isEditing={isRenaming}
@@ -172,7 +167,7 @@ function GroupRenameItem({
           onCancel={() => api.cancelEntityEdit()}
           variant="canvas-chrome"
           isDark={isDark}
-          titleClassName="min-w-0 truncate"
+          titleClassName="whitespace-nowrap"
           inputClassName="min-w-[120px] border-0 bg-transparent text-[11px] font-medium outline-none focus:outline-none"
         />
       </span>
