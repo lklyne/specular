@@ -942,7 +942,9 @@ function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
-  originEntity?: { entityId: string; entityKind: CanvasSceneEntity['kind'] },
+  originEntity?: NonNullable<
+    Extract<CanvasPointerAction, { kind: 'begin-marquee' }>['originEntity']
+  >,
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
