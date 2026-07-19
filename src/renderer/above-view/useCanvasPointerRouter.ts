@@ -148,6 +148,13 @@ interface UseCanvasPointerRouterOptions extends PointerDispatchDependencies {
   onEnterEntityInteractive: (entityId: string) => void
 }
 
+interface RouterPointerDependencies extends PointerDispatchDependencies {
+  consume: ReadonlySet<CanvasPointerAction['kind']>
+  spaceHeld: boolean
+  handToolActive: boolean
+  enteredEntityId: string | null
+}
+
 /** Canvas-space pointer delta since a reorder grab — drives the floating ghost.
  *  Null outside a reorder drag (ADR 0015 D7, Phase D). */
 export type ReorderGhostOffset = { dx: number; dy: number } | null
@@ -289,91 +296,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
     const handlePointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
-      if (toolGestureOwns) {
-        handleToolGesturePointerDown(event)
-        return
-      }
-      // Yield to typing targets (textarea, input, contenteditable) so focus
-      // and cursor positioning land normally. Without this, the router's
-      // preventDefault on entity-body hits eats the click before the
-      // editable element can react — affects sticky textareas, markdown
-      // file textareas, and any future inline editor.
-      if (isTypingTarget(event.target)) return
-      if (event.button !== 0 && event.button !== 1 && event.button !== 2) return
-
-      const layout = layoutRef.current
-
-      // aboveView's WCV starts at canvasOrigin.y; scene entities use
-      // window-relative screenY, so add the offset before hit-testing.
-      const windowY = clientYToWindowY(event.clientY, layout)
-      const inputs = layoutToHitInputs(layout)
-      const target = hitTest(inputs, { x: event.clientX, y: windowY })
-
-      // Inline-edit outside-click (primary button) commits the active edit
-      // and falls through to normal routing, so the same click also acts
-      // (deselect on background, switch selection on another entity, etc.)
-      // — two clicks to enter edit, one click to exit. This differs from
-      // ADR 0001's frame-focus rule (two clicks to act after focus) because
-      // inline entity edits don't capture native input the way focused
-      // frames do. Right/middle clicks ignore edit mode entirely so context
-      // menus and middle-click pan keep working.
-      const editingEntityId =
-        layout.interaction.kind === 'editing-entity'
-          ? layout.interaction.entityId
-          : null
-      if (editingEntityId !== null && event.button === 0) {
-        const hitEntityId =
-          target.payload.kind === 'entity-body' ||
-          target.payload.kind === 'page-body' ||
-          target.payload.kind === 'resize-handle' ||
-          target.payload.kind === 'anchor'
-            ? target.payload.entityId
-            : null
-        if (hitEntityId !== editingEntityId) {
-          commitInlineEditBeforePointerAction(
-            () => {
-              const activeElement = document.activeElement
-              if (activeElement instanceof HTMLElement) activeElement.blur()
-            },
-            apiRef.current.commitEntityEdit,
-          )
-        }
-      }
-
-      const modifiers: SelectionModifiers = {
-        shift: event.shiftKey,
-        meta: event.metaKey,
-        ctrl: event.ctrlKey,
-      }
-      const context: CanvasPointerContext = {
-        selectedEntityIds: layout.selectedEntityIds,
-        selectedGroupId: layout.selectedGroupId ?? null,
-        isPrimaryButton: event.button === 0,
-        button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
-        modifiers,
-        spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
-        altHeld: event.altKey || optionHeldRef.current,
-        editingEntityId,
-        interactivePageId: layout.interactivePageId ?? null,
-        interactiveEntityId: enteredEntityIdRef.current,
-        placement: null,
-        commentToolActive: false,
-      }
-
-      // Hand tool: primary-button drag pans globally regardless of hit
-      // target. Space-held still defers to the routing matrix (pan on
-      // background, modifier elsewhere) — hand tool is the explicit
-      // pan-only mode that suppresses entity drag/resize/edge gestures.
-      const action: CanvasPointerAction =
-        handToolActiveRef.current && event.button === 0
-          ? { kind: 'begin-pan' }
-          : routePointerDown(target, context)
-      if (!consumeRef.current.has(action.kind)) return
-
-      const dispatched = dispatchAction({
-        action,
+      if (toolGestureOwns) return handleToolGesturePointerDown(event)
+      handleRouterPointerDown(event, {
         api: apiRef.current,
-        event,
         layoutRef,
         optionHeldRef,
         commandHeldRef,
@@ -386,11 +311,11 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
         commentDraftRef,
         onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
+        consume: consumeRef.current,
+        spaceHeld: spaceHeldRef.current,
+        handToolActive: handToolActiveRef.current,
+        enteredEntityId: enteredEntityIdRef.current,
       })
-      if (dispatched) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
     }
 
     const handleDblClick = (event: MouseEvent) => {
@@ -474,6 +399,73 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       window.removeEventListener('contextmenu', handleContextMenu)
     }
   }, [owner, commandHeldRef, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setDropBindingSuppressed, setGroupDropTarget, setReorderGhost, spaceHeldRef])
+}
+
+function handleRouterPointerDown(event: PointerEvent, deps: RouterPointerDependencies): void {
+  if (isTypingTarget(event.target) || !isCanvasPointerButton(event.button)) return
+  const layout = deps.layoutRef.current
+  const target = hitTest(layoutToHitInputs(layout), {
+    x: event.clientX,
+    y: clientYToWindowY(event.clientY, layout),
+  })
+  const editingEntityId = layout.interaction.kind === 'editing-entity'
+    ? layout.interaction.entityId
+    : null
+  commitOutsideInlineEdit(event, target.payload, editingEntityId, deps.api)
+  const context = canvasPointerContext(event, layout, editingEntityId, deps)
+  const action: CanvasPointerAction = deps.handToolActive && event.button === 0
+    ? { kind: 'begin-pan' }
+    : routePointerDown(target, context)
+  if (!deps.consume.has(action.kind)) return
+  if (!dispatchAction({ ...deps, action, event })) return
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function isCanvasPointerButton(button: number): boolean {
+  return button === 0 || button === 1 || button === 2
+}
+
+function commitOutsideInlineEdit(
+  event: PointerEvent,
+  payload: ReturnType<typeof hitTest>['payload'],
+  editingEntityId: string | null,
+  api: CanvasBgElectronAPI,
+): void {
+  if (editingEntityId === null || event.button !== 0) return
+  const entityId = 'entityId' in payload ? payload.entityId : null
+  if (entityId === editingEntityId) return
+  commitInlineEditBeforePointerAction(() => {
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) activeElement.blur()
+  }, api.commitEntityEdit)
+}
+
+function canvasPointerContext(
+  event: PointerEvent,
+  layout: LayoutUpdateData,
+  editingEntityId: string | null,
+  deps: RouterPointerDependencies,
+): CanvasPointerContext {
+  const modifiers: SelectionModifiers = {
+    shift: event.shiftKey,
+    meta: event.metaKey,
+    ctrl: event.ctrlKey,
+  }
+  return {
+    selectedEntityIds: layout.selectedEntityIds,
+    selectedGroupId: layout.selectedGroupId ?? null,
+    isPrimaryButton: event.button === 0,
+    button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
+    modifiers,
+    spaceHeld: deps.spaceHeld || deps.handToolActive,
+    altHeld: event.altKey || deps.optionHeldRef.current,
+    editingEntityId,
+    interactivePageId: layout.interactivePageId ?? null,
+    interactiveEntityId: deps.enteredEntityId,
+    placement: null,
+    commentToolActive: false,
+  }
 }
 
 // --- Dispatch ---

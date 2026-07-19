@@ -47,6 +47,58 @@ export function MarkdownEditor({
   selectAllOnAutoFocus?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  useMarkdownEditor({
+    containerRef,
+    value,
+    onChange,
+    onFocus,
+    onBlur,
+    onEscape,
+    isDark,
+    autoFocus,
+    placeholder,
+    lineWrap,
+    selectAllOnAutoFocus,
+  })
+
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={style}
+      onPointerDown={(e) => e.stopPropagation()}
+    />
+  )
+}
+
+interface MarkdownEditorRuntimeOptions {
+  containerRef: React.MutableRefObject<HTMLDivElement | null>
+  value: string
+  onChange: (value: string) => void
+  onFocus?: () => void
+  onBlur?: () => void
+  onEscape?: () => void
+  isDark: boolean
+  autoFocus: boolean
+  placeholder?: string
+  lineWrap: boolean
+  selectAllOnAutoFocus: boolean
+}
+
+function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
+  const {
+    containerRef,
+    value,
+    onChange,
+    onFocus,
+    onBlur,
+    onEscape,
+    isDark,
+    autoFocus,
+    placeholder,
+    lineWrap,
+    selectAllOnAutoFocus,
+  } = options
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -163,12 +215,4 @@ export function MarkdownEditor({
     })
   }, [value])
 
-  return (
-    <div
-      ref={containerRef}
-      className={className}
-      style={style}
-      onPointerDown={(e) => e.stopPropagation()}
-    />
-  )
 }

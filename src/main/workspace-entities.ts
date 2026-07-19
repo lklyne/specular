@@ -458,23 +458,24 @@ function segmentIntersectsRect(
   const yMax = rect.y + rect.height
   const p = [-dx, dx, -dy, dy]
   const q = [p1.x - xMin, xMax - p1.x, p1.y - yMin, yMax - p1.y]
-  let t0 = 0
-  let t1 = 1
-  for (let i = 0; i < 4; i++) {
-    if (p[i] === 0) {
-      if (q[i] < 0) return false
-    } else {
-      const t = q[i] / p[i]
-      if (p[i] < 0) {
-        if (t > t1) return false
-        if (t > t0) t0 = t
-      } else {
-        if (t < t0) return false
-        if (t < t1) t1 = t
-      }
-    }
+  let range: [number, number] | null = [0, 1]
+  for (let i = 0; i < p.length && range; i++) {
+    range = clipSegmentRange(range, p[i], q[i])
   }
-  return true
+  return range !== null
+}
+
+function clipSegmentRange(
+  [start, end]: [number, number],
+  direction: number,
+  distance: number,
+): [number, number] | null {
+  if (direction === 0) return distance < 0 ? null : [start, end]
+  const intersection = distance / direction
+  if (direction < 0) {
+    return intersection > end ? null : [Math.max(start, intersection), end]
+  }
+  return intersection < start ? null : [start, Math.min(end, intersection)]
 }
 
 // --- Workspace graph ---
