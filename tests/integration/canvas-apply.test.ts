@@ -186,7 +186,9 @@ describe('canvas apply', () => {
     expect(byId.get(groupId)).toBe('group')
   })
 
-  it('round-trips shape border style/color/width and undo restores the prior border', async () => {
+  // Mutation-verified by dropping fillStyle/textAlign/textVerticalAlign from
+  // shapeKind.update; the updated specular fields remain at their seeded values.
+  it('round-trips shape styling and undo restores the prior fill, border, and text alignment', async () => {
     const { created } = applyCanvasPatch({
       entities: [
         {
@@ -194,9 +196,12 @@ describe('canvas apply', () => {
           shapeKind: 'rectangle',
           canvasX: 0,
           canvasY: 0,
+          fillStyle: 'solid',
           borderStyle: 'solid',
           borderColor: '4',
           strokeWidth: 3,
+          textAlign: 'center',
+          textVerticalAlign: 'middle',
         },
       ],
     })
@@ -206,27 +211,66 @@ describe('canvas apply', () => {
     // Create carries the border fields through persist → serialize (the GET
     // /canvas shape node).
     const seeded = getCanvas().nodes.find((n) => n.id === id) as
-      | { borderStyle?: string; borderColor?: string; strokeWidth?: number }
+      | {
+          specular?: { fillStyle?: string; textAlign?: string; textVerticalAlign?: string }
+          borderStyle?: string
+          borderColor?: string
+          strokeWidth?: number
+        }
       | undefined
+    expect(seeded?.specular).toMatchObject({
+      fillStyle: 'solid',
+      textAlign: 'center',
+      textVerticalAlign: 'middle',
+    })
     expect(seeded?.borderStyle).toBe('solid')
     expect(seeded?.borderColor).toBe('4')
     expect(seeded?.strokeWidth).toBe(3)
 
     applyCanvasPatch({
-      entities: [{ id, kind: 'shape', borderStyle: 'none', borderColor: '1', strokeWidth: 1 }],
+      entities: [{
+        id,
+        kind: 'shape',
+        fillStyle: 'none',
+        borderStyle: 'none',
+        borderColor: '1',
+        strokeWidth: 1,
+        textAlign: 'right',
+        textVerticalAlign: 'bottom',
+      }],
     })
     await settleSync()
     const updated = getCanvas().nodes.find((n) => n.id === id) as
-      | { borderStyle?: string; borderColor?: string; strokeWidth?: number }
+      | {
+          specular?: { fillStyle?: string; textAlign?: string; textVerticalAlign?: string }
+          borderStyle?: string
+          borderColor?: string
+          strokeWidth?: number
+        }
       | undefined
+    expect(updated?.specular).toMatchObject({
+      fillStyle: 'none',
+      textAlign: 'right',
+      textVerticalAlign: 'bottom',
+    })
     expect(updated?.borderStyle).toBe('none')
     expect(updated?.borderColor).toBe('1')
     expect(updated?.strokeWidth).toBe(1)
 
     undo()
     const reverted = getCanvas().nodes.find((n) => n.id === id) as
-      | { borderStyle?: string; borderColor?: string; strokeWidth?: number }
+      | {
+          specular?: { fillStyle?: string; textAlign?: string; textVerticalAlign?: string }
+          borderStyle?: string
+          borderColor?: string
+          strokeWidth?: number
+        }
       | undefined
+    expect(reverted?.specular).toMatchObject({
+      fillStyle: 'solid',
+      textAlign: 'center',
+      textVerticalAlign: 'middle',
+    })
     expect(reverted?.borderStyle).toBe('solid')
     expect(reverted?.borderColor).toBe('4')
     expect(reverted?.strokeWidth).toBe(3)

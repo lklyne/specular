@@ -1,4 +1,5 @@
 :root {
+  --surface-focus-ring: var(--color-blue-500);
   --surface-panel: var(--color-stone-100);
   --surface-panel-border: var(--color-stone-200);
   --surface-toolbar: var(--color-stone-300);
@@ -27,6 +28,7 @@
 }
 
 .dark {
+  --surface-focus-ring: var(--color-blue-400);
   --surface-panel: var(--color-stone-800);
   --surface-panel-border: var(--color-stone-700);
   --surface-toolbar: var(--color-stone-700);
@@ -52,4 +54,16 @@
   --surface-switch-track-checked-border: var(--surface-input-border);
   --surface-device: var(--color-stone-800);
   --surface-device-border: var(--color-stone-600);
+}
+
+/* Pointer clicks can move focus without implying keyboard navigation. Keep
+   focus apparent for keyboard users while avoiding Chromium's system-colored
+   outline during pointer interaction. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--surface-focus-ring);
+  outline-offset: 2px;
 }

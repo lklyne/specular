@@ -1,14 +1,23 @@
 // ADR 0008/0009 — shape selection popup. Variant morph per ADR 0009.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import type { CanvasSceneShapeEntity, LayoutUpdateData, ShapeKind } from '../../shared/types'
+import type {
+  CanvasSceneShapeEntity,
+  LayoutUpdateData,
+  ShapeKind,
+} from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { BorderDropdown } from './BorderDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { ShapeDropdown } from './ShapeDropdown'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
-import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
+import { TextAlignDropdown } from './TextAlignDropdown'
+import {
+  POPUP_OFFSET_Y,
+  sharedValue,
+  usePopupDelayedKey,
+} from './usePopupDelayedKey'
 
 export function ShapePopup({
   api,
@@ -19,9 +28,7 @@ export function ShapePopup({
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    | 'updateEntity'
-    | 'focusSelection'
-    | 'arrangeSelection'
+    'updateEntity' | 'focusSelection' | 'arrangeSelection'
   >
   isDark: boolean
   layout: LayoutUpdateData
@@ -35,13 +42,25 @@ export function ShapePopup({
 
   const sharedShapeKind = sharedValue(selectedShapes.map((s) => s.shapeKind))
   const sharedColorRaw = sharedValue(selectedShapes.map((s) => s.color ?? null))
+  const sharedFillStyle = sharedValue(
+    selectedShapes.map((s) => s.fillStyle ?? 'solid'),
+  )
   const activeSlot = slotForStorage(sharedColorRaw)
-  const sharedBorderStyle = sharedValue(selectedShapes.map((s) => s.borderStyle ?? 'solid'))
-  const sharedBorderColorRaw = sharedValue(selectedShapes.map((s) => s.borderColor ?? null))
+  const sharedBorderStyle = sharedValue(
+    selectedShapes.map((s) => s.borderStyle ?? 'solid'),
+  )
+  const sharedBorderColorRaw = sharedValue(
+    selectedShapes.map((s) => s.borderColor ?? null),
+  )
   const borderColorSlot = slotForStorage(sharedBorderColorRaw)
-  const sharedStrokeWidth = sharedValue(selectedShapes.map((s) => s.strokeWidth ?? 2))
+  const sharedStrokeWidth = sharedValue(
+    selectedShapes.map((s) => s.strokeWidth ?? 2),
+  )
   const sharedTextSize = sharedValue(
     selectedShapes.map((s) => s.textSize ?? TEXT_SIZE_DEFAULT),
+  )
+  const sharedTextAlign = sharedValue(
+    selectedShapes.map((s) => s.textAlign ?? 'center'),
   )
 
   const entityIds = selectedShapes.map((s) => s.id)
@@ -61,8 +80,11 @@ export function ShapePopup({
           activeKind={sharedShapeKind ?? null}
           noun={noun}
           onPick={(kind) => {
-            const patch: { shapeKind: ShapeKind } = { shapeKind: kind as ShapeKind }
-            for (const s of selectedShapes) api.updateEntity('shape', s.id, patch)
+            const patch: { shapeKind: ShapeKind } = {
+              shapeKind: kind as ShapeKind,
+            }
+            for (const s of selectedShapes)
+              api.updateEntity('shape', s.id, patch)
           }}
         />
         <CanvasItemPopup.Divider isDark={isDark} />
@@ -79,15 +101,35 @@ export function ShapePopup({
           />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
+        <CanvasItemPopup.Section>
+          <TextAlignDropdown
+            isDark={isDark}
+            alignment={sharedTextAlign}
+            onPick={(textAlign) => {
+              for (const s of selectedShapes)
+                api.updateEntity('shape', s.id, { textAlign })
+            }}
+          />
+        </CanvasItemPopup.Section>
+        <CanvasItemPopup.Divider isDark={isDark} />
         <ColorDropdown
           isDark={isDark}
           palette="soft"
           activeSlot={activeSlot}
           role="fill"
           noun={noun}
+          transparentActive={sharedFillStyle === 'none'}
+          onPickTransparent={() => {
+            for (const s of selectedShapes) {
+              api.updateEntity('shape', s.id, { fillStyle: 'none' })
+            }
+          }}
           onPick={(storage) => {
             for (const s of selectedShapes) {
-              api.updateEntity('shape', s.id, { color: storage })
+              api.updateEntity('shape', s.id, {
+                color: storage,
+                fillStyle: 'solid',
+              })
             }
           }}
         />

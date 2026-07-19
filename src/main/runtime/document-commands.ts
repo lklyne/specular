@@ -663,6 +663,8 @@ export function updateEdge(
     toSide?: EdgeSide
     color?: string
     label?: string
+    strokeWidth?: number
+    lineStyle?: import('../../shared/types').EdgeLineStyle
   },
 ): boolean {
   return mutateWorkspace(() => {
@@ -676,6 +678,8 @@ export function updateEdge(
     if (patch.toSide !== undefined) edge.toSide = patch.toSide
     if (patch.color !== undefined) edge.color = patch.color || undefined
     if (patch.label !== undefined) edge.label = patch.label || undefined
+    if (patch.strokeWidth !== undefined) edge.strokeWidth = patch.strokeWidth
+    if (patch.lineStyle !== undefined) edge.lineStyle = patch.lineStyle
     return true
   }, { changed: (updated) => updated })
 }
@@ -866,10 +870,13 @@ export function createShapeEntity(input: {
   height?: number
   text?: string
   color?: string
+  fillStyle?: ShapeEntity['fillStyle']
   strokeWidth?: number
   borderStyle?: ShapeEntity['borderStyle']
   borderColor?: string
   textSize?: number
+  textAlign?: ShapeEntity['textAlign']
+  textVerticalAlign?: ShapeEntity['textVerticalAlign']
   id?: string
 }): ShapeEntity {
   return mutateWorkspace(() => {

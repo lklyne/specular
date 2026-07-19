@@ -54,6 +54,7 @@ import { pointerOverPageContent } from '../../shared/page-hit-test'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
 import { EdgePopup } from './EdgePopup'
+import { edgeForPopup } from './edgePopupSelection'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
 import { gapPreviewLayout } from './gapPreview'
@@ -584,12 +585,11 @@ export default function App({
     }
     return ids
   }, [layoutData.selection])
-  // Single-edge selection drives the edge popup (basics: one edge at a time).
+  // The single edge must also be the entire selection. Otherwise the combined
+  // selection popup owns the interaction surface.
   const selectedEdge = useMemo(() => {
-    if (selectedEdgeIds.size !== 1) return null
-    const [id] = selectedEdgeIds
-    return layoutData.edges.find((edge) => edge.id === id) ?? null
-  }, [selectedEdgeIds, layoutData.edges])
+    return edgeForPopup(layoutData.selection, layoutData.edges)
+  }, [layoutData.selection, layoutData.edges])
   const hoveredEntityId = layoutData.hover?.id ?? null
   const focus = focusContext(layoutData)
   const focusPresentationActive = focus.active

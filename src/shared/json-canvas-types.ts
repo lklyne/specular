@@ -43,6 +43,11 @@ export interface SpecularNodeExtensions {
    * (inner label). Missing → renderer defaults to 14 ("Small"). ADR 0013 §2.
    */
   textSize?: number
+  /** Shape fill visibility. Missing → 'solid'. */
+  fillStyle?: 'solid' | 'none'
+  /** Shape inner-label alignment. Missing → center/middle. */
+  textAlign?: 'left' | 'center' | 'right'
+  textVerticalAlign?: 'top' | 'middle' | 'bottom'
   /**
    * Hooks the node to a page entity and the URL that page showed when the
    * node was placed. See shared/page-anchor.ts.
@@ -142,8 +147,8 @@ export type JsonCanvasNode =
 
 // --- Edges ---
 
-import type { AnnotationDrawingStroke, EdgeSide, EdgeEnd } from './types'
-export type { EdgeSide, EdgeEnd }
+import type { AnnotationDrawingStroke, EdgeSide, EdgeEnd, EdgeLineStyle } from './types'
+export type { EdgeSide, EdgeEnd, EdgeLineStyle }
 
 export interface JsonCanvasEdge {
   id: string
@@ -156,6 +161,8 @@ export interface JsonCanvasEdge {
   color?: CanvasColor
   label?: string
   // App-specific extensions
+  strokeWidth?: number
+  lineStyle?: EdgeLineStyle
   edgeKind?: string
   edgeMetadata?: Record<string, unknown>
 }

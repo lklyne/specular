@@ -28,7 +28,7 @@ const STYLE_OPTIONS: { style: ShapeBorderStyle; label: string }[] = [
 
 /** The border glyph, exported verbatim from Figma (node 527:63), themed via
  *  currentColor so it tracks the trigger's text color. */
-function BorderGlyph({ size = 14 }: { size?: number }) {
+export function BorderGlyph({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 14 14" fill="none" aria-hidden>
       <path

@@ -4,7 +4,7 @@
 // points arrive in overlay coords (y already offset by canvasOrigin.y).
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeftFromLine, ArrowRightToLine, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Trash2, type LucideIcon } from 'lucide-react'
 import type {
   CanvasSceneEntity,
   LayoutUpdateData,
@@ -15,8 +15,42 @@ import { slotForStorage } from '../../shared/canvas-colors'
 import { autoSides, getAnchorPoint } from '../../shared/edge-geometry'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
+import { EdgeStrokeDropdown } from './EdgeStrokeDropdown'
 
 const POPUP_OFFSET_Y = 12
+
+function EndpointToggle({
+  isDark,
+  active,
+  label,
+  Icon,
+  onClick,
+}: {
+  isDark: boolean
+  active: boolean
+  label: string
+  Icon: LucideIcon
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={`flex h-6 w-6 items-center justify-center rounded-[6px] border-0 bg-transparent transition-[background-color,color,opacity] ${
+        active ? 'opacity-100' : 'opacity-45 hover:opacity-100'
+      } ${
+        isDark
+          ? 'text-zinc-100 hover:bg-[rgba(253,248,245,0.1)]'
+          : 'text-zinc-900 hover:bg-[var(--color-stone-100)]'
+      }`}
+      onClick={onClick}
+    >
+      <Icon size={14} />
+    </button>
+  )
+}
 
 export function EdgePopup({
   api,
@@ -85,28 +119,32 @@ export function EdgePopup({
           onPick={(storage) => api.updateEdge(edge.id, { color: storage })}
         />
         <CanvasItemPopup.Divider isDark={isDark} />
-        <CanvasItemPopup.IconButton
+        <EdgeStrokeDropdown
+          isDark={isDark}
+          lineStyle={edge.lineStyle ?? 'solid'}
+          strokeWidth={edge.strokeWidth ?? 1.5}
+          onSetStyle={(lineStyle) => api.updateEdge(edge.id, { lineStyle })}
+          onSetWidth={(strokeWidth) => api.updateEdge(edge.id, { strokeWidth })}
+        />
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <EndpointToggle
           isDark={isDark}
           active={fromEnd === 'arrow'}
-          title="Start arrowhead"
-          ariaLabel="Toggle start arrowhead"
+          label="Toggle start arrowhead"
+          Icon={ArrowLeft}
           onClick={() =>
             api.updateEdge(edge.id, { fromEnd: fromEnd === 'arrow' ? 'none' : 'arrow' })
           }
-        >
-          <ArrowLeftFromLine size={14} />
-        </CanvasItemPopup.IconButton>
-        <CanvasItemPopup.IconButton
+        />
+        <EndpointToggle
           isDark={isDark}
           active={toEnd === 'arrow'}
-          title="End arrowhead"
-          ariaLabel="Toggle end arrowhead"
+          label="Toggle end arrowhead"
+          Icon={ArrowRight}
           onClick={() =>
             api.updateEdge(edge.id, { toEnd: toEnd === 'arrow' ? 'none' : 'arrow' })
           }
-        >
-          <ArrowRightToLine size={14} />
-        </CanvasItemPopup.IconButton>
+        />
         <CanvasItemPopup.Divider isDark={isDark} />
         <input
           type="text"

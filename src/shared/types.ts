@@ -70,6 +70,9 @@ export type { ShapeKind }
 
 /** Shape border rendering: a drawn outline, a dashed outline, or no outline. */
 export type ShapeBorderStyle = 'solid' | 'dashed' | 'none'
+export type ShapeFillStyle = 'solid' | 'none'
+export type ShapeTextAlign = 'left' | 'center' | 'right'
+export type ShapeTextVerticalAlign = 'top' | 'middle' | 'bottom'
 
 export interface CanvasEntityRef {
   kind: CanvasEntityKind
@@ -327,6 +330,8 @@ export interface CanvasSceneShapeEntity {
   shapeKind: ShapeKind
   text: string
   color?: string
+  /** Fill visibility. Absent = 'solid' (backward compat). */
+  fillStyle?: ShapeFillStyle
   strokeWidth?: number
   /** Border line style. Absent = 'solid' (backward compat). */
   borderStyle?: ShapeBorderStyle
@@ -334,6 +339,9 @@ export interface CanvasSceneShapeEntity {
   borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
+  /** Inner-label alignment. Missing fields default to center/middle. */
+  textAlign?: ShapeTextAlign
+  textVerticalAlign?: ShapeTextVerticalAlign
   theme?: string
   /** Apparent position: for page-anchored shapes the scroll-follow shift is
    *  already applied (see shared/page-anchor.ts `scrollX/scrollY`). */
@@ -467,11 +475,14 @@ export interface PersistedShapeEntity extends CanvasEntityBase {
   shapeKind: ShapeKind
   text: string
   color?: string
+  fillStyle?: ShapeFillStyle
   strokeWidth?: number
   borderStyle?: ShapeBorderStyle
   borderColor?: string
   /** Per-entity text size in px for the inner label. ADR 0013 §2. */
   textSize?: number
+  textAlign?: ShapeTextAlign
+  textVerticalAlign?: ShapeTextVerticalAlign
   theme?: string
   width: number
   height: number
@@ -939,7 +950,13 @@ export interface PanelShapeEntityDetail {
   shapeKind: ShapeKind
   text: string
   color?: string
+  fillStyle?: ShapeFillStyle
   strokeWidth?: number
+  borderStyle?: ShapeBorderStyle
+  borderColor?: string
+  textSize?: number
+  textAlign?: ShapeTextAlign
+  textVerticalAlign?: ShapeTextVerticalAlign
   width: number
   height: number
 }
@@ -993,6 +1010,8 @@ export interface PanelEdgeEntityDetail {
   toEnd?: EdgeEnd
   color?: string
   label?: string
+  strokeWidth?: number
+  lineStyle?: EdgeLineStyle
   kind: 'breakpoint_variant' | 'connection'
 }
 
@@ -1501,6 +1520,7 @@ export type WorkspaceCanvasEntity =
 
 export type EdgeSide = 'top' | 'right' | 'bottom' | 'left'
 export type EdgeEnd = 'none' | 'arrow'
+export type EdgeLineStyle = 'solid' | 'dashed'
 
 export interface WorkspaceEdge {
   id: string
@@ -1512,6 +1532,8 @@ export interface WorkspaceEdge {
   toEnd?: EdgeEnd
   color?: string
   label?: string
+  strokeWidth?: number
+  lineStyle?: EdgeLineStyle
   kind: 'breakpoint_variant' | 'connection'
   metadata?: Record<string, unknown>
 }
@@ -1767,7 +1789,7 @@ export interface EntityUpdatePatchMap {
   text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
   file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
   drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
-  shape: { shapeKind?: ShapeKind; text?: string; color?: string; strokeWidth?: number; borderStyle?: ShapeBorderStyle; borderColor?: string; textSize?: number; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
+  shape: { shapeKind?: ShapeKind; text?: string; color?: string; fillStyle?: ShapeFillStyle; strokeWidth?: number; borderStyle?: ShapeBorderStyle; borderColor?: string; textSize?: number; textAlign?: ShapeTextAlign; textVerticalAlign?: ShapeTextVerticalAlign; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
   group: { width?: number; height?: number; canvasX?: number; canvasY?: number; label?: string; color?: string }
 }
 

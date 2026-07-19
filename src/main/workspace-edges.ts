@@ -33,6 +33,8 @@ function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
       existing.toEnd = edge.toEnd
       existing.color = edge.color
       existing.label = edge.label
+      existing.strokeWidth = edge.strokeWidth
+      existing.lineStyle = edge.lineStyle
       existing.kind = edge.kind
       existing.metadata = cloneMetadata(edge.metadata)
       edgeIds.push(existing.id)
@@ -48,6 +50,8 @@ function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
       toEnd: edge.toEnd,
       color: edge.color,
       label: edge.label,
+      strokeWidth: edge.strokeWidth,
+      lineStyle: edge.lineStyle,
       kind: edge.kind,
       metadata: cloneMetadata(edge.metadata),
     }
