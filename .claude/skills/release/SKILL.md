@@ -1,12 +1,12 @@
 ---
 name: release
-description: Cut a new Specular release. Bumps the version, updates CHANGELOG.md, tags, and pushes — CI builds and publishes. Use when the user says "cut a release", "ship a release", "release v0.2.6", "bump the version", or wants to update the changelog and tag.
-allowed-tools: Bash(git *), Bash(pnpm *), Bash(npm version*), Edit, Write, Read, AskUserQuestion
+description: Cut a new Specular release. Bumps the version, updates CHANGELOG.md, tags, pushes, then builds and publishes locally. Use when the user says "cut a release", "ship a release", "release v0.2.6", "bump the version", or wants to update the changelog and tag.
+allowed-tools: Bash(git *), Bash(pnpm *), Bash(npm version*), Bash(bash scripts/release-local.sh), Edit, Write, Read, AskUserQuestion
 ---
 
 # Release Skill
 
-Cuts a new release of Specular. Updates the changelog, bumps the version, tags, and pushes. The `release.yml` GitHub Action handles build and publish.
+Cuts a new release of Specular. Updates the changelog, bumps the version, tags, pushes, then builds and publishes the macOS app locally via `scripts/release-local.sh`. There is no GitHub-hosted release job — the repo is private, and macOS runners bill at 10x Actions minutes, so the build/sign/notarize/publish step runs on your own Mac.
 
 ## Guiding principles
 
@@ -137,14 +137,26 @@ npm 10+ refuses to run `npm version` when the tree has any porcelain output — 
 
 Result: two commits land (`docs: changelog ...` then the version bump), with the tag on the bump commit. If `npm version` still errors about a dirty tree, stop and investigate — something unexpected is staged or modified.
 
-### Step 8: Report
+### Step 8: Build and publish locally
+
+There is no CI release job — build and publish from the local Mac:
+
+```
+bash scripts/release-local.sh
+```
+
+The script checks it's on a tag, then builds, signs, notarizes, uploads to GitHub Releases, and populates the release notes from `changelog.md`. It needs these env vars set (see the script header): `APPLE_ID`, `APPLE_PASSWORD` (app-specific password), `APPLE_TEAM_ID`, `GITHUB_TOKEN` (PAT with `repo` scope), and optionally `SENTRY_DSN`.
+
+This only works on macOS with the Developer ID signing cert in the login keychain. If the skill is running somewhere without those (e.g. a Linux agent session), stop after the push and tell the user to run `scripts/release-local.sh` on their Mac.
+
+### Step 9: Report
 
 Tell the user:
 
 - New version and tag (e.g., `v0.2.6`)
-- Tag has been pushed; the `release.yml` workflow will build and publish
-- Link to the Actions tab: `https://github.com/lklyne/specular/actions`
-- Reminder to check the GitHub Release draft and flip "prerelease" off if needed before publishing
+- Whether the local build/publish ran, or that they need to run `scripts/release-local.sh` on their Mac
+- Link to the release: `https://github.com/lklyne/specular/releases`
+- Reminder to check the GitHub Release and flip "prerelease" off if needed before publishing
 
 ## Notes
 
