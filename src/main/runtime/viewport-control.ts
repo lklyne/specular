@@ -70,11 +70,18 @@ export function setZoom(value: number): void {
   const nextZoom = clampCanvasZoom(value)
   if (nextZoom === zoom) return
   setZoomState(nextZoom)
-  markDirty('canvas', 'toolbar')
+  // De-dirty zoom: the scene container rides the viewport nudge (CSS
+  // translate+scale), so skip the per-tick full-scene rebuild+broadcast and
+  // re-baseline once on settle. Native page geometry still updates every
+  // tick via requestLayout.
+  markDirty('toolbar')
   broadcastViewportNudge()
   broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
-  markZoomMotion(() => requestLayout())
+  markZoomMotion(() => {
+    markDirty('canvas')
+    requestLayout()
+  })
 }
 
 export function broadcastCanvasZoomToPages(): void {

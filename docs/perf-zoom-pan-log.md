@@ -210,8 +210,52 @@ later GPU-composite phases).
   cursors (cursor overlay is a separate window not yet on the nudge channel — may
   lag during pan until settle; not present in benchmark).
 
-## Summary of wins so far
-- **Zoom (primary):** raster ms −80%, GPU main −12% (Exp A). Remaining lever =
-  zoom IPC broadcast (~1720ms), deferred as risky.
-- **Pan (secondary):** scene-broadcast IPC eliminated, renderer main −48% (Exp B).
-- Both coexist; no regressions. Tunables: `BUCKETS_PER_OCTAVE`, `SETTLE_MS`.
+### Exp C — Zoom de-dirty via translate+scale scene transform (SHIPPED)
+- **Mechanism:** extended the pan-only nudge hook into a full camera transform.
+  `useScenePanOffset` → `useSceneCameraTransform` now returns `{x,y,scale}` with
+  `s = nudge.zoom/payload.zoom`, `x = nudge.pan.x − s·payload.pan.x` (same for y),
+  applied as `translate3d(x,y,0) scale(s)` with `transform-origin:0 0` on both
+  scene containers (canvas-bg + above-view). This exactly maps payload-baseline
+  screen coords to the live camera, so the DOM scene tracks the native pages
+  (which move via exact per-tick setBounds) with NO rebuild. `setZoom` drops
+  `markDirty('canvas')` (keeps `'toolbar'`); the zoom settle re-baselines
+  (markDirty('canvas')+requestLayout) → snaps crisp when zoom stops.
+- **Why this isn't the rejected ADR:** ADR 0023 rejected a *permanent*
+  renderer-owned GPU-composited camera (worse HUD stats, setBounds-can't-scale
+  assumption). This is a *motion-only* CSS transform that self-reconciles to
+  identity on settle; main-side setBounds still authoritative. Contained + revertible.
+- **Files:** `useScenePanOffset.ts` (rewritten/renamed `useSceneCameraTransform`);
+  `canvas-bg/App.tsx:110`, `above-view/App.tsx:992` (transform+origin);
+  `viewport-control.ts` setZoom.
+- **Measured (slow-zoom 1400ms):** `ipc_contextbridge_ms` **~1720 → 0**,
+  `ipc_messageport_ms` ~1965 → ~1615 (−18%), layout_recalc ~15800 → ~14100.
+  Raster unchanged from Exp A (~4-5k, still quantized).
+- **Combined slow-pan-zoom (A+B+C):** `ipc_contextbridge_ms` = **0** (real-world
+  gesture broadcast eliminated), raster count ~1767 (vs ~2466 A+B).
+- **Visual:** mid-zoom (30%) + settled (21%) screencaptures — pages crisp,
+  selection chrome frames the page with NO native-vs-DOM shear, grid consistent,
+  crisp snap on settle.
+- **Status:** KEEP (provisional). Benchmark = pages + selection chrome only.
+  HUMAN eyeball needed on real content before shipping: DOM text/shape/drawing
+  entities (CSS-scaled → blurry mid-zoom, crisp on settle — expected), edges,
+  annotations, and especially **agent-presence cursors** (separate overlay window,
+  NOT on the nudge channel → will lag during zoom until settle; wire it up before
+  ship). Also test fast pinch + extreme zoom ratios.
+
+## Summary of wins (A+B+C on branch perf/zoom-emulation-pan-dedirty)
+- **Zoom (primary):** raster ms **−80%** (A) + zoom scene-broadcast IPC **eliminated** (C).
+- **Pan (secondary):** scene-broadcast IPC **eliminated**, renderer-main **−48%** (B).
+- **Combined pan+zoom (real-world):** ContextBridge IPC **0**, raster kept low.
+- No regressions across pan / zoom / combined; visuals verified. Tunables:
+  `BUCKETS_PER_OCTAVE`, `SETTLE_MS` in `zoom-motion.ts`.
+
+## Manual test checklist (before merge)
+1. Interactive pinch/scroll zoom on a canvas with **text + shape + drawing entities**
+   and **edges** — confirm entities/edges track the camera, blur-then-crisp on
+   settle is acceptable, no permanent drift.
+2. Zoom/pan with an **active selection** — selection chrome stays glued to entities.
+3. Zoom/pan with **agent-presence cursors** live — expected to lag (known gap);
+   decide whether to wire cursorOverlayWindow onto the nudge before ship.
+4. Fast flick pan + fast pinch zoom — no stuck/blurry frames after motion stops.
+5. Undo/redo across a zoom (viewport isn't undoable, but confirm no desync).
+6. Multi-monitor / non-retina (nativeScale differs) — emulation quantization still crisp.

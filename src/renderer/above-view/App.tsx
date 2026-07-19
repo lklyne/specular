@@ -73,7 +73,7 @@ import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
 import { buildAboveViewHandlers } from './binding-handlers'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHandlers'
-import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
+import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
@@ -355,7 +355,7 @@ export default function App({
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
-  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
+  const t = useSceneCameraTransform(api.onViewportNudge, layoutData)
   const [fixProgress, setFixProgress] = useState<LayoutUpdateData['fixProgress']>(
     initialLayoutData.fixProgress,
   )
@@ -982,14 +982,15 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       onPointerUp={handleOverlayPointerUp}
       onPointerCancel={handleOverlayPointerCancel}
     >
-      {/* Translate the whole canvas scene live with the pan gesture so selection
-          chrome and entity bodies track the natively-positioned page views
-          instead of trailing until the next layout-update rebuild (#257). Pan is
-          disabled during focus, where the only viewport-pinned chrome exists, so
-          every layer here is canvas-space and moves together. */}
+      {/* Translate+scale the whole canvas scene live with the pan/zoom gesture
+          so selection chrome and entity bodies track the natively-positioned
+          page views instead of trailing until the next layout-update rebuild
+          (#257). Pan/zoom is disabled during focus, where the only
+          viewport-pinned chrome exists, so every layer here is canvas-space
+          and moves together. */}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
+        style={{ transform: `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`, transformOrigin: '0 0' }}
       >
       {!captureMode ? (
         <>

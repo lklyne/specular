@@ -13,7 +13,7 @@ import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
-import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
+import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -31,10 +31,10 @@ export default function App({
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
+  const t = useSceneCameraTransform(api.onViewportNudge, layoutData)
   const livePan = useMemo(
-    () => ({ x: layoutData.pan.x + panOffset.x, y: layoutData.pan.y + panOffset.y }),
-    [layoutData.pan.x, layoutData.pan.y, panOffset.x, panOffset.y],
+    () => ({ x: layoutData.pan.x + t.x, y: layoutData.pan.y + t.y }),
+    [layoutData.pan.x, layoutData.pan.y, t.x, t.y],
   )
 
   useCanvasViewportGestures({
@@ -102,12 +102,13 @@ export default function App({
         pan={livePan}
         zoom={layoutData.zoom}
       />
-      {/* Translate the page chrome live with the pan gesture so borders and
-          device shells track the natively-positioned page views instead of
-          trailing until the next layout-update rebuild lands (#257). */}
+      {/* Translate+scale the page chrome live with the pan/zoom gesture so
+          borders and device shells track the natively-positioned page views
+          instead of trailing until the next layout-update rebuild lands
+          (#257). */}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
+        style={{ transform: `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`, transformOrigin: '0 0' }}
       >
         <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
         <div className="pointer-events-none absolute inset-0">
