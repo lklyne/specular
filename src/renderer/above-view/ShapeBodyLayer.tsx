@@ -10,8 +10,15 @@
  */
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CanvasSceneShapeEntity, LayoutUpdateData } from '../../shared/types'
-import { darkenHex, lightenHex, resolveCanvasColor } from '../../shared/canvas-colors'
+import type {
+  CanvasSceneShapeEntity,
+  LayoutUpdateData,
+} from '../../shared/types'
+import {
+  darkenHex,
+  lightenHex,
+  resolveCanvasColor,
+} from '../../shared/canvas-colors'
 import { shapeDef } from '../../shared/shapes'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 import { AnchoredEntityOverlayBand } from './PageOverlayBand'
@@ -87,7 +94,9 @@ function ShapeText({
         contentEditable={editing}
         suppressContentEditableWarning
         onInput={(e) => onChange(readInnerText(e.target as HTMLDivElement))}
-        onPointerDown={(e) => { if (editing) e.stopPropagation() }}
+        onPointerDown={(e) => {
+          if (editing) e.stopPropagation()
+        }}
         onBlur={(e) => {
           onCommit(readInnerText(e.target as HTMLDivElement))
         }}
@@ -120,7 +129,11 @@ function ShapeText({
 
 // Pure fill/border/text derivation for a shape — kept out of the component so
 // its render stays about state and layout, not color math.
-function shapeVisuals(shape: CanvasSceneShapeEntity, isDark: boolean, editing: boolean) {
+function shapeVisuals(
+  shape: CanvasSceneShapeEntity,
+  isDark: boolean,
+  editing: boolean,
+) {
   const stroke = shape.strokeWidth ?? DEFAULT_STROKE_WIDTH
   const borderStyle = shape.borderStyle ?? 'solid'
   const hasBorder = borderStyle !== 'none'
@@ -135,12 +148,19 @@ function shapeVisuals(shape: CanvasSceneShapeEntity, isDark: boolean, editing: b
   const renderedFill = shape.fillStyle === 'none' ? 'none' : fill
   // Border color is independent of fill; absent, it derives from the fill hue.
   const borderBase = shape.borderColor
-    ? resolveCanvasColor(shape.borderColor, { role: 'fill', isDark, palette: 'soft' })
+    ? resolveCanvasColor(shape.borderColor, {
+        role: 'fill',
+        isDark,
+        palette: 'soft',
+      })
     : resolvedColor
   // Dark mode: the pastel hue is already a light outline on the dark fill.
   // Light mode: darken it so the edge reads against the light canvas.
-  const strokeColor = isDark ? borderBase : darkenHex(borderBase, BORDER_DARKEN_LIGHT)
-  const dash = borderStyle === 'dashed' ? `${stroke * 2} ${stroke * 1.5}` : undefined
+  const strokeColor = isDark
+    ? borderBase
+    : darkenHex(borderBase, BORDER_DARKEN_LIGHT)
+  const dash =
+    borderStyle === 'dashed' ? `${stroke * 2} ${stroke * 1.5}` : undefined
   const textColor = isDark ? 'rgb(220, 220, 220)' : 'rgb(20, 20, 20)'
 
   const def = shapeDef(shape.shapeKind)
@@ -149,16 +169,13 @@ function shapeVisuals(shape: CanvasSceneShapeEntity, isDark: boolean, editing: b
     position: 'absolute',
     left: inset ? `${inset.x}%` : 0,
     top: inset ? `${inset.y}%` : 0,
-    ...(inset ? { width: `${inset.w}%`, height: `${inset.h}%` } : { right: 0, bottom: 0 }),
+    ...(inset
+      ? { width: `${inset.w}%`, height: `${inset.h}%` }
+      : { right: 0, bottom: 0 }),
     display: 'flex',
     alignItems: 'center',
-    justifyContent:
-      shape.textVerticalAlign === 'top'
-        ? 'flex-start'
-        : shape.textVerticalAlign === 'bottom'
-          ? 'flex-end'
-          : 'center',
-    padding: 8,
+    justifyContent: 'center',
+    padding: '8px 12px',
     boxSizing: 'border-box',
     pointerEvents: editing ? 'auto' : 'none',
   }
@@ -225,8 +242,16 @@ function ShapeBody({
     setLocalText(shape.text)
   }, [editing, shape.text])
 
-  const { def, fill, hasBorder, stroke, strokeColor, dash, textColor, textContainerStyle } =
-    shapeVisuals(shape, isDark, editing)
+  const {
+    def,
+    fill,
+    hasBorder,
+    stroke,
+    strokeColor,
+    dash,
+    textColor,
+    textContainerStyle,
+  } = shapeVisuals(shape, isDark, editing)
 
   const text = (
     <ShapeText
@@ -256,7 +281,12 @@ function ShapeBody({
         height="100%"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          overflow: 'visible',
+        }}
       >
         <path
           d={def.path}
