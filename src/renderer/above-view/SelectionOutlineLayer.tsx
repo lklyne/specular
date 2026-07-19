@@ -47,7 +47,7 @@ function SelectionOutlineBox({
 }) {
   return (
     <div
-      className="absolute border-2"
+      className="absolute border"
       style={{
         left: span.screenX - 2,
         top: span.screenY - 2 - originY,
@@ -166,7 +166,7 @@ function MultiSelectionBoundingBox({
 
   return (
     <div
-      className="absolute border-2"
+      className="absolute border"
       style={{
         left: screenBbox.x - pad,
         top: screenBbox.y - pad - originY,
