@@ -9,7 +9,7 @@ import {
 import { BorderGlyph } from './BorderDropdown'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
 
-export const EDGE_STROKE_WIDTHS = [1.5, 3] as const
+const EDGE_STROKE_WIDTHS = [1.5, 3] as const
 
 function LineGlyph({
   dashed,
