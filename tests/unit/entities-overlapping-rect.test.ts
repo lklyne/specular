@@ -79,6 +79,23 @@ describe('entitiesOverlappingRect', () => {
     expect(ids).toEqual(['a', 'b', 'c'])
   })
 
+  it('can require full containment and exclude the item under the first click', () => {
+    const ids = entitiesOverlappingRect(
+      entities,
+      { left: 40, top: 40, width: 220, height: 120 },
+      { mode: 'contain', excludedIds: new Set(['c']) },
+    )
+    expect(ids).toEqual([])
+
+    expect(
+      entitiesOverlappingRect(
+        entities,
+        { left: -10, top: -10, width: 320, height: 170 },
+        { mode: 'contain', excludedIds: new Set(['a']) },
+      ),
+    ).toEqual(['b', 'c'])
+  })
+
   it('returns a fully enclosed group instead of its overlapping children', () => {
     const grouped: CanvasSceneEntity[] = [
       page({ id: 'child-a', screenX: 20, screenY: 20, parentGroupId: 'group-1' }),

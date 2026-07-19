@@ -95,129 +95,16 @@ function StickyCard({
   onUpdateSize: (id: string, width: number, height: number) => void
   onCommitEdit: () => void
 }) {
-  const [localText, setLocalText] = useState(note.text)
-  // Tracks the most recent value we sent upstream. When an incoming
-  // `note.text` differs from this, we treat it as external (e.g. Yjs undo)
-  // and pull it into local state — even mid-edit. When it matches, the
-  // round-trip is just our own commit echoing back; ignore it so we don't
-  // clobber characters typed since the last commit.
-  const lastSentRef = useRef<string>(note.text)
   const shellRef = useRef<HTMLDivElement | null>(null)
-  const lastReportedSizeRef = useRef<{ w: number; h: number } | null>(null)
-
-  useEffect(() => {
-    if (!canEdit) {
-      lastSentRef.current = note.text
-      setLocalText(note.text)
-      return
-    }
-    if (note.text !== lastSentRef.current) {
-      lastSentRef.current = note.text
-      setLocalText(note.text)
-    }
-  }, [canEdit, note.text])
-
-  const debouncedWrite = useDebouncedWrite((value) => {
-    lastSentRef.current = value
-    onUpdateText(note.id, value)
+  const { localText, handleTextChange, commitNow } = useStickyText({
+    note,
+    canEdit,
+    onUpdateText,
+    onCommitEdit,
   })
-
-  const commitNow = () => {
-    debouncedWrite.cancel()
-    lastSentRef.current = localText
-    onUpdateText(note.id, localText)
-    onCommitEdit()
-  }
-
-  const handleTextChange = (value: string) => {
-    setLocalText(value)
-    debouncedWrite.schedule(value)
-  }
-
-  const textStyle = note.textStyle
-  const isPlain = textStyle === 'plain'
+  const isPlain = note.textStyle === 'plain'
   const isAuto = note.widthMode === 'auto'
-
-  // Auto-size: measure the rendered card and push size back to main so the
-  // selection outline tracks the actual content. Only active in 'auto' mode
-  // — once flipped to 'fixed' (sticky always, or after a manual resize), the
-  // entity keeps its explicit width/height. Coalesces with rAF so a burst of
-  // ResizeObserver entries during typing only triggers one IPC.
-  useEffect(() => {
-    if (!isAuto) return
-    const el = shellRef.current
-    if (!el) return
-    let pendingFrame = 0
-    let pending: { w: number; h: number } | null = null
-    const flush = () => {
-      pendingFrame = 0
-      if (!pending) return
-      const { w, h } = pending
-      pending = null
-      const last = lastReportedSizeRef.current
-      if (last && last.w === w && last.h === h) return
-      lastReportedSizeRef.current = { w, h }
-      onUpdateSize(note.id, w, h)
-    }
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) return
-      const rect = entry.contentRect
-      pending = {
-        w: Math.max(PLAIN_MIN_WIDTH, Math.round(rect.width)),
-        h: Math.max(PLAIN_MIN_HEIGHT, Math.round(rect.height)),
-      }
-      if (!pendingFrame) pendingFrame = requestAnimationFrame(flush)
-    })
-    observer.observe(el)
-    return () => {
-      observer.disconnect()
-      if (pendingFrame) cancelAnimationFrame(pendingFrame)
-    }
-  }, [isAuto, note.id, onUpdateSize])
-
-  // Stickies render with a light fill in both themes (neutral is pinned light
-  // below via `isDark: false`), so non-plain text always uses dark ink.
-  const editorIsDark = isPlain ? isDark : false
-  const textColor = isPlain ? (isDark ? '#e7e5e4' : '#1c1917') : '#1c1917'
-  const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
-
-  const innerColumnStyle: React.CSSProperties =
-    isPlain && isAuto
-      ? { display: 'flex', flexDirection: 'column' }
-      : {
-          width: note.width,
-          height: note.height,
-          display: 'flex',
-          flexDirection: 'column',
-        }
-
-  const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
-  // CodeMirror's `.cm-scroller` and `.text-block-markdown` both inherit
-  // line-height from this wrapper, so edit and view modes stay in sync.
-  const lineHeight = lineHeightForTextSize(fontSize)
-  const editorClassName = isPlain
-    ? 'w-full pl-0 pr-2 py-0'
-    : 'flex-1 w-full px-2.5 pb-2'
-  const editorStyle: React.CSSProperties = {
-    boxSizing: 'border-box',
-    fontSize,
-    lineHeight,
-    color: textColor,
-    fontFamily: 'system-ui, sans-serif',
-    paddingTop: isPlain ? 0 : '0.3em',
-  }
-
-  const viewClassName = isPlain
-    ? 'select-none text-block-markdown pr-2'
-    : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'
-  const viewStyle: React.CSSProperties = {
-    fontSize,
-    lineHeight,
-    color: textColor,
-    fontFamily: 'system-ui, sans-serif',
-    wordBreak: 'break-word',
-  }
+  useStickyAutoSize(shellRef, isAuto, note.id, onUpdateSize)
 
   return (
     <EntityShell
@@ -227,41 +114,171 @@ function StickyCard({
       style={stickyShellStyle({ note, isDark, isSelected, isPlain, isAuto })}
       shellRef={shellRef}
     >
-      <div style={innerColumnStyle}>
-        {!isPlain ? (
-          <div
-            style={{ minHeight: 8, cursor: 'grab' }}
-            onPointerDown={(e) => {
-              if (e.button !== 0) return
-              e.stopPropagation()
-            }}
-          />
-        ) : null}
-        {canEdit ? (
-          <MarkdownEditor
-            value={localText}
-            onChange={handleTextChange}
-            onBlur={commitNow}
-            onEscape={commitNow}
-            isDark={editorIsDark}
-            autoFocus
-            placeholder={placeholder}
-            className={editorClassName}
-            style={editorStyle}
-            lineWrap={!isAuto}
-          />
-        ) : (
-          <div className={viewClassName} style={viewStyle}>
-            {localText ? (
-              <Markdown remarkPlugins={[remarkLineBreaks]}>{localText}</Markdown>
-            ) : (
-              <span>{placeholder}</span>
-            )}
-          </div>
-        )}
-      </div>
+      <StickyContent
+        note={note}
+        isDark={isDark}
+        canEdit={canEdit}
+        isPlain={isPlain}
+        isAuto={isAuto}
+        localText={localText}
+        onChange={handleTextChange}
+        onCommit={commitNow}
+      />
     </EntityShell>
   )
+}
+
+function useStickyText({ note, canEdit, onUpdateText, onCommitEdit }: {
+  note: CanvasSceneTextEntity
+  canEdit: boolean
+  onUpdateText: (id: string, text: string) => void
+  onCommitEdit: () => void
+}) {
+  const [localText, setLocalText] = useState(note.text)
+  const lastSentRef = useRef(note.text)
+  useEffect(() => {
+    if (!canEdit || note.text !== lastSentRef.current) {
+      lastSentRef.current = note.text
+      setLocalText(note.text)
+    }
+  }, [canEdit, note.text])
+  const debouncedWrite = useDebouncedWrite((value) => {
+    lastSentRef.current = value
+    onUpdateText(note.id, value)
+  })
+  return {
+    localText,
+    handleTextChange: (value: string) => {
+      setLocalText(value)
+      debouncedWrite.schedule(value)
+    },
+    commitNow: () => {
+      debouncedWrite.cancel()
+      lastSentRef.current = localText
+      onUpdateText(note.id, localText)
+      onCommitEdit()
+    },
+  }
+}
+
+function useStickyAutoSize(
+  shellRef: React.MutableRefObject<HTMLDivElement | null>,
+  isAuto: boolean,
+  noteId: string,
+  onUpdateSize: (id: string, width: number, height: number) => void,
+): void {
+  const lastReportedSizeRef = useRef<{ w: number; h: number } | null>(null)
+  useEffect(() => {
+    const el = shellRef.current
+    if (!isAuto || !el) return
+    let pendingFrame = 0
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      if (pendingFrame) cancelAnimationFrame(pendingFrame)
+      pendingFrame = requestAnimationFrame(() => {
+        const size = {
+          w: Math.max(PLAIN_MIN_WIDTH, Math.round(entry.contentRect.width)),
+          h: Math.max(PLAIN_MIN_HEIGHT, Math.round(entry.contentRect.height)),
+        }
+        const last = lastReportedSizeRef.current
+        if (last?.w === size.w && last.h === size.h) return
+        lastReportedSizeRef.current = size
+        onUpdateSize(noteId, size.w, size.h)
+      })
+    })
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      if (pendingFrame) cancelAnimationFrame(pendingFrame)
+    }
+  }, [isAuto, noteId, onUpdateSize, shellRef])
+}
+
+function StickyContent({ note, isDark, canEdit, isPlain, isAuto, localText, onChange, onCommit }: {
+  note: CanvasSceneTextEntity
+  isDark: boolean
+  canEdit: boolean
+  isPlain: boolean
+  isAuto: boolean
+  localText: string
+  onChange: (value: string) => void
+  onCommit: () => void
+}) {
+  const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
+  const color = isPlain && isDark ? '#e7e5e4' : '#1c1917'
+  const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
+  const textStyle: React.CSSProperties = {
+    fontSize,
+    lineHeight: lineHeightForTextSize(fontSize),
+    color,
+    fontFamily: 'system-ui, sans-serif',
+  }
+  const columnStyle: React.CSSProperties = isPlain && isAuto
+    ? { display: 'flex', flexDirection: 'column' }
+    : { width: note.width, height: note.height, display: 'flex', flexDirection: 'column' }
+  return <div style={columnStyle}>
+    {!isPlain && <StickyDragStrip />}
+    {canEdit
+      ? <StickyEditor
+          value={localText}
+          onChange={onChange}
+          onCommit={onCommit}
+          isDark={isPlain && isDark}
+          isPlain={isPlain}
+          isAuto={isAuto}
+          placeholder={placeholder}
+          textStyle={textStyle}
+        />
+      : <StickyMarkdown
+          value={localText}
+          isPlain={isPlain}
+          placeholder={placeholder}
+          textStyle={textStyle}
+        />}
+  </div>
+}
+
+function StickyDragStrip() {
+  return <div style={{ minHeight: 8, cursor: 'grab' }} onPointerDown={(event) => {
+    if (event.button === 0) event.stopPropagation()
+  }} />
+}
+
+function StickyEditor({ value, onChange, onCommit, isDark, isPlain, isAuto, placeholder, textStyle }: {
+  value: string
+  onChange: (value: string) => void
+  onCommit: () => void
+  isDark: boolean
+  isPlain: boolean
+  isAuto: boolean
+  placeholder: string
+  textStyle: React.CSSProperties
+}) {
+  return <MarkdownEditor
+    value={value}
+    onChange={onChange}
+    onBlur={onCommit}
+    onEscape={onCommit}
+    isDark={isDark}
+    autoFocus
+    selectAllOnAutoFocus
+    placeholder={placeholder}
+    className={isPlain ? 'w-full pl-0 pr-2 py-0' : 'flex-1 w-full px-2.5 pb-2'}
+    style={{ ...textStyle, boxSizing: 'border-box', paddingTop: isPlain ? 0 : '0.3em' }}
+    lineWrap={!isAuto}
+  />
+}
+
+function StickyMarkdown({ value, isPlain, placeholder, textStyle }: {
+  value: string
+  isPlain: boolean
+  placeholder: string
+  textStyle: React.CSSProperties
+}) {
+  return <div
+    className={isPlain ? 'select-none text-block-markdown pr-2' : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'}
+    style={{ ...textStyle, wordBreak: 'break-word' }}
+  >{value ? <Markdown remarkPlugins={[remarkLineBreaks]}>{value}</Markdown> : <span>{placeholder}</span>}</div>
 }
 
 const MemoStickyCard = memo(StickyCard, (prev, next) => {

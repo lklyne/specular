@@ -11,8 +11,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       watch: {
-        usePolling: true,
-        interval: 1000,
+        ignored: ['**/*.md'],
       },
     },
     define: {

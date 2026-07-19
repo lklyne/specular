@@ -7,6 +7,7 @@ import type {
   SidebarSectionKey,
 } from '../../shared/types'
 import type { EdgeEnd, EdgeSide } from '../../shared/types'
+import type { MarqueeSelectionMode } from '../../shared/marquee-selection'
 import { selectionMutationMode } from '../../shared/selection-modifiers'
 import { pages } from '../runtime/page-runtime'
 import { setCommentOverlayActive } from '../runtime/runtime-core'
@@ -108,10 +109,25 @@ export function registerCanvasIpc(): void {
         width: number
         height: number
         modifiers?: SelectionModifiers
+        selectionMode?: MarqueeSelectionMode
+        excludedEntityIds?: string[]
       },
     ) => {
-      const { modifiers, ...bounds } = payload
-      selectEntitiesInRect(bounds, { mode: selectionMutationMode(modifiers) })
+      const {
+        modifiers,
+        selectionMode: requestedMode,
+        excludedEntityIds,
+        ...bounds
+      } = payload
+      const selectionMode =
+        requestedMode === 'contain' ? 'contain' : 'intersect'
+      selectEntitiesInRect(bounds, {
+        mode: selectionMutationMode(modifiers),
+        selectionMode,
+        excludedEntityIds: Array.isArray(excludedEntityIds)
+          ? excludedEntityIds.filter((id): id is string => typeof id === 'string')
+          : [],
+      })
     },
   )
 

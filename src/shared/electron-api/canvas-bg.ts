@@ -1,6 +1,7 @@
 import type { BindingId } from '../bindings'
 import type { CanvasGuidesPayload } from '../canvas-guides'
 import type { CancelReason } from '../interaction-types'
+import type { MarqueeSelectionMode } from '../marquee-selection'
 import type { ResizeHandle } from '../resize-accumulator'
 import type { Tool } from '../tool'
 import type {
@@ -39,7 +40,14 @@ export interface CanvasBgElectronAPI {
   setSelectionOverlayRect: (
     overlay: SelectionOverlayPayload | null,
   ) => void
-  canvasSelectInRect: (rect: WorkspaceBounds, modifiers?: SelectionModifiers) => void
+  canvasSelectInRect: (
+    rect: WorkspaceBounds,
+    modifiers?: SelectionModifiers,
+    options?: {
+      selectionMode?: MarqueeSelectionMode
+      excludedEntityIds?: string[]
+    },
+  ) => void
   canvasDeselect: (modifiers?: SelectionModifiers) => void
   focusSelection: () => void
   restoreFocusCamera: () => void
@@ -77,6 +85,7 @@ export interface CanvasBgElectronAPI {
   unsyncPage: (pageId: string) => void
   deletePage: (pageId: string) => void
   showPageContextMenu: (pageId: string) => void
+  showCanvasItemContextMenu: (entityId: string) => void
   dropdownOpen: () => void
   dropdownClose: () => void
   copySelection: () => void

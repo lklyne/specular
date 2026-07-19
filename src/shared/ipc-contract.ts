@@ -174,6 +174,7 @@ export interface IpcContract {
   'canvas-set-selection-preset': { dir: 'renderer→main'; payload: unknown }
   'canvas-set-text-editing': { dir: 'renderer→main'; payload: unknown }
   'canvas-show-file-in-finder': { dir: 'renderer→main'; payload: unknown }
+  'canvas-show-item-context-menu': { dir: 'renderer→main'; payload: unknown }
   'canvas-show-page-context-menu': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-annotate-mode': { dir: 'renderer→main'; payload: unknown }
   'canvas-toggle-device-shell': { dir: 'renderer→main'; payload: unknown }
@@ -482,6 +483,7 @@ export const ipcChannels = {
   canvasSetSelectionPreset: 'canvas-set-selection-preset',
   canvasSetTextEditing: 'canvas-set-text-editing',
   canvasShowFileInFinder: 'canvas-show-file-in-finder',
+  canvasShowItemContextMenu: 'canvas-show-item-context-menu',
   canvasShowPageContextMenu: 'canvas-show-page-context-menu',
   canvasToggleAnnotateMode: 'canvas-toggle-annotate-mode',
   canvasToggleDeviceShell: 'canvas-toggle-device-shell',

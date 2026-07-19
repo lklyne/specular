@@ -242,7 +242,7 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
   })
 
-  it('cmd-click on unselected page body → toggle-select (extends selection)', () => {
+  it('cmd press on a page body arms containment marquee while preserving click fallback', () => {
     const f = page()
     const t = text()
     const target = hitTest(inputs([f, t], ['t1']), { x: 500, y: 400 })
@@ -251,7 +251,10 @@ describe('routePointerDown', () => {
       selectedEntityIds: ['t1'],
       modifiers: { shift: false, meta: true, ctrl: false },
     })
-    expect(action).toEqual({ kind: 'toggle-select', entityId: 'f1', entityKind: 'page' })
+    expect(action).toEqual({
+      kind: 'begin-marquee',
+      originEntity: { entityId: 'f1', entityKind: 'page' },
+    })
   })
 
   it('shift-click on multi-selected page body → toggle-select (drops it from selection)', () => {
@@ -382,7 +385,7 @@ describe('routePointerDown', () => {
       expect(action).toEqual({ kind: 'toggle-select', entityId: 't1', entityKind: 'text' })
     })
 
-    it('cmd-click on solo-selected shape → toggle-select (no press deferral)', () => {
+    it('cmd press on a shape ignores its body and arms containment marquee', () => {
       const s = shape()
       const target = hitTest(inputs([s], ['s1']), { x: s.screenX + 50, y: s.screenY + 30 })
       const action = routePointerDown(target, {
@@ -390,7 +393,10 @@ describe('routePointerDown', () => {
         selectedEntityIds: ['s1'],
         modifiers: { shift: false, meta: true, ctrl: false },
       })
-      expect(action).toEqual({ kind: 'toggle-select', entityId: 's1', entityKind: 'shape' })
+      expect(action).toEqual({
+        kind: 'begin-marquee',
+        originEntity: { entityId: 's1', entityKind: 'shape' },
+      })
     })
 
     it('alt-click on solo-selected text → begin-entity-drag (alt-clone semantics preserved)', () => {

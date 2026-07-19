@@ -106,7 +106,12 @@ export type CanvasPointerAction =
   | { kind: 'background-click' }
   /** Background drag — start marquee. Renderer is the coordinator since
    *  marquee feedback is renderer-local. */
-  | { kind: 'begin-marquee' }
+  | {
+      kind: 'begin-marquee'
+      /** Cmd/Ctrl-drag may begin through a body. That body remains available
+       *  for the stationary click fallback but is excluded from the marquee. */
+      originEntity?: { entityId: string; entityKind: CanvasEntityKind }
+    }
   /** Hold-to-pan on background. */
   | { kind: 'begin-pan' }
   /** Placement-tool gesture: click places the pending entity at the press
@@ -229,6 +234,12 @@ function routePageBody(
   payload: Extract<HitPayload, { kind: 'page-body' }>,
   context: CanvasPointerContext,
 ): CanvasPointerAction {
+  if (commandModifierHeld(context.modifiers)) {
+    return {
+      kind: 'begin-marquee',
+      originEntity: { entityId: payload.entityId, entityKind: 'page' },
+    }
+  }
   // Additive modifier wins over the forward-into-page shortcut: shift/
   // cmd-click on the page body must reach the selection system so users
   // can extend a multi-selection from a single-selected page (the page
@@ -265,6 +276,12 @@ function routeEntityBody(
   payload: Extract<HitPayload, { kind: 'entity-body' }>,
   context: CanvasPointerContext,
 ): CanvasPointerAction {
+  if (commandModifierHeld(context.modifiers)) {
+    return {
+      kind: 'begin-marquee',
+      originEntity: { entityId: payload.entityId, entityKind: payload.entityKind },
+    }
+  }
   if (isAdditive(context.modifiers)) {
     return { kind: 'toggle-select', entityId: payload.entityId, entityKind: payload.entityKind }
   }
@@ -328,6 +345,10 @@ function routeEntityBody(
 
 function isAdditive(modifiers: SelectionModifiers): boolean {
   return Boolean(modifiers.shift || modifiers.meta || modifiers.ctrl)
+}
+
+function commandModifierHeld(modifiers: SelectionModifiers): boolean {
+  return Boolean(modifiers.meta || modifiers.ctrl)
 }
 
 function isSingleSelected(context: CanvasPointerContext, entityId: string): boolean {

@@ -379,6 +379,7 @@ export function EdgeLayer({
           <path
             d={d}
             data-overlay-ui
+            data-edge-id={id}
             fill="none"
             stroke="transparent"
             strokeWidth={edgeSelectionHitWidth}

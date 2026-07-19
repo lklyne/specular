@@ -5,8 +5,11 @@ export interface SelectableTextInput {
 
 export function autofocusEditorSelection(
   documentLength: number,
+  selectAll: boolean,
 ): { anchor: number; head: number } {
-  return { anchor: 0, head: documentLength }
+  return selectAll
+    ? { anchor: 0, head: documentLength }
+    : { anchor: documentLength, head: documentLength }
 }
 
 export function focusAndSelectAll(input: SelectableTextInput): void {

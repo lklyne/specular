@@ -8,8 +8,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     watch: {
-      usePolling: true,
-      interval: 1000,
+      ignored: ['**/*.md'],
     },
   },
   build: {

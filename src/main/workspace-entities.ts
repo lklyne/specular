@@ -11,6 +11,7 @@ import type {
   WorkspaceSelection,
 } from '../shared/types'
 import type { SelectionMutationMode } from '../shared/selection-modifiers'
+import { pointInsideRect, type MarqueeSelectionMode } from '../shared/marquee-selection'
 import { allEntities } from './entities/contract'
 import { dissolveOrphanSyncSets } from './navigation-sync'
 import { applyEntitySelectionMutation } from './runtime/selection-controller'
@@ -38,7 +39,6 @@ import { pan, zoom } from './runtime/runtime-context'
 import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import {
-  boundsOverlap,
   pageContentSize,
   pageSnapBounds,
   pageVisualBounds,
@@ -287,10 +287,14 @@ export function selectEntitiesInRect(
   options: {
     includeDrawings?: boolean
     mode?: SelectionMutationMode
+    selectionMode?: MarqueeSelectionMode
+    excludedEntityIds?: readonly string[]
   } = {},
 ): { entityIds: string[] } {
   const includeDrawings = options.includeDrawings ?? true
   const mode = options.mode ?? 'replace'
+  const selectionMode = options.selectionMode ?? 'intersect'
+  const excludedIds = new Set(options.excludedEntityIds ?? [])
   const marqueeCandidates = [
     ...pages.map((page) => {
       const pageBounds = pageSelectableBounds(page)
@@ -352,12 +356,16 @@ export function selectEntitiesInRect(
       height: group.height,
     })),
   ]
-  const marqueeIds = resolveMarqueeSelectionIds(marqueeCandidates, {
-    left: bounds.x,
-    top: bounds.y,
-    width: bounds.width,
-    height: bounds.height,
-  })
+  const marqueeIds = resolveMarqueeSelectionIds(
+    marqueeCandidates,
+    {
+      left: bounds.x,
+      top: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    },
+    { mode: selectionMode, excludedIds },
+  )
 
   const marqueeIdSet = new Set(marqueeIds)
   const pageIds = pages.filter((page) => marqueeIdSet.has(page.id)).map((page) => page.id)
@@ -367,12 +375,15 @@ export function selectEntitiesInRect(
   const shapeIds = shapeEntities.filter((entity) => marqueeIdSet.has(entity.id)).map((entity) => entity.id)
   const edgeIds = workspaceEdges
     .filter((edge) => {
+      if (excludedIds.has(edge.id)) return false
       const fromBounds = entityBoundsById(edge.fromEntityId)
       const toBounds = entityBoundsById(edge.toEntityId)
       if (!fromBounds || !toBounds) return false
       const from = sideAnchorPoint(fromBounds, edge.fromSide)
       const to = sideAnchorPoint(toBounds, edge.toSide)
-      return segmentIntersectsRect(from, to, bounds)
+      return selectionMode === 'contain'
+        ? pointInsideRect(from, bounds) && pointInsideRect(to, bounds)
+        : segmentIntersectsRect(from, to, bounds)
     })
     .map((edge) => edge.id)
 
@@ -447,23 +458,24 @@ function segmentIntersectsRect(
   const yMax = rect.y + rect.height
   const p = [-dx, dx, -dy, dy]
   const q = [p1.x - xMin, xMax - p1.x, p1.y - yMin, yMax - p1.y]
-  let t0 = 0
-  let t1 = 1
-  for (let i = 0; i < 4; i++) {
-    if (p[i] === 0) {
-      if (q[i] < 0) return false
-    } else {
-      const t = q[i] / p[i]
-      if (p[i] < 0) {
-        if (t > t1) return false
-        if (t > t0) t0 = t
-      } else {
-        if (t < t0) return false
-        if (t < t1) t1 = t
-      }
-    }
+  let range: [number, number] | null = [0, 1]
+  for (let i = 0; i < p.length && range; i++) {
+    range = clipSegmentRange(range, p[i], q[i])
   }
-  return true
+  return range !== null
+}
+
+function clipSegmentRange(
+  [start, end]: [number, number],
+  direction: number,
+  distance: number,
+): [number, number] | null {
+  if (direction === 0) return distance < 0 ? null : [start, end]
+  const intersection = distance / direction
+  if (direction < 0) {
+    return intersection > end ? null : [Math.max(start, intersection), end]
+  }
+  return intersection < start ? null : [start, Math.min(end, intersection)]
 }
 
 // --- Workspace graph ---

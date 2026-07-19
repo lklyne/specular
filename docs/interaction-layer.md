@@ -203,6 +203,8 @@ A single window-level pointerdown listener inside `aboveView` (`src/renderer/abo
 
 The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan. In **browser mode** a plain wheel/two-finger scroll does **not** pan the canvas (ADR 0017) — only zoom applies, so scrolling doesn't drag the canvas behind the browser page; **canvas mode** keeps wheel-pan unchanged.
 
+Marquee selection is direction-independent: the default mode selects every item whose bounds intersect the marquee. Holding Cmd/Ctrl switches to full containment and lets the gesture begin through an item body; that origin item is excluded from the marquee. A stationary Cmd/Ctrl press still follows the normal additive-click selection path. Marquee resolution is group-aware in every mode: a fully enclosed group resolves to the group, while a partially crossed group is transparent and exposes its overlapping children.
+
 Group movement uses the entity-drag IPC/session rather than a parallel gesture
 channel. An unselected group's interior routes as canvas background (click to
 clear, drag to marquee); its border and title remain direct drag handles. Once

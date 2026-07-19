@@ -63,8 +63,8 @@ import {
   canvasToScreenX,
   canvasToScreenY,
   clientYToWindowY,
-  entitiesOverlappingRect,
   DRAG_THRESHOLD,
+  entitiesOverlappingRect,
   isOverlayUiTarget,
   isTypingTarget,
   middleDragDelta,
@@ -74,6 +74,7 @@ import {
   snapToGrid,
   squareConstrainedRect,
 } from '../../shared/gesture-utils'
+import type { MarqueeSelectionMode } from '../../shared/marquee-selection'
 import type { CanvasPointerOwner } from '../../shared/canvas-pointer-owner'
 import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants'
 import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
@@ -145,6 +146,13 @@ interface UseCanvasPointerRouterOptions extends PointerDispatchDependencies {
    *  second second click, or a double-click). Sets the renderer-local
    *  entered id, flipping the iframe's pointer-events on. */
   onEnterEntityInteractive: (entityId: string) => void
+}
+
+interface RouterPointerDependencies extends PointerDispatchDependencies {
+  consume: ReadonlySet<CanvasPointerAction['kind']>
+  spaceHeld: boolean
+  handToolActive: boolean
+  enteredEntityId: string | null
 }
 
 /** Canvas-space pointer delta since a reorder grab — drives the floating ghost.
@@ -288,91 +296,9 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
 
     const handlePointerDown = (event: PointerEvent) => {
       if (isOverlayUiTarget(event.target)) return
-      if (toolGestureOwns) {
-        handleToolGesturePointerDown(event)
-        return
-      }
-      // Yield to typing targets (textarea, input, contenteditable) so focus
-      // and cursor positioning land normally. Without this, the router's
-      // preventDefault on entity-body hits eats the click before the
-      // editable element can react — affects sticky textareas, markdown
-      // file textareas, and any future inline editor.
-      if (isTypingTarget(event.target)) return
-      if (event.button !== 0 && event.button !== 1 && event.button !== 2) return
-
-      const layout = layoutRef.current
-
-      // aboveView's WCV starts at canvasOrigin.y; scene entities use
-      // window-relative screenY, so add the offset before hit-testing.
-      const windowY = clientYToWindowY(event.clientY, layout)
-      const inputs = layoutToHitInputs(layout)
-      const target = hitTest(inputs, { x: event.clientX, y: windowY })
-
-      // Inline-edit outside-click (primary button) commits the active edit
-      // and falls through to normal routing, so the same click also acts
-      // (deselect on background, switch selection on another entity, etc.)
-      // — two clicks to enter edit, one click to exit. This differs from
-      // ADR 0001's frame-focus rule (two clicks to act after focus) because
-      // inline entity edits don't capture native input the way focused
-      // frames do. Right/middle clicks ignore edit mode entirely so context
-      // menus and middle-click pan keep working.
-      const editingEntityId =
-        layout.interaction.kind === 'editing-entity'
-          ? layout.interaction.entityId
-          : null
-      if (editingEntityId !== null && event.button === 0) {
-        const hitEntityId =
-          target.payload.kind === 'entity-body' ||
-          target.payload.kind === 'page-body' ||
-          target.payload.kind === 'resize-handle' ||
-          target.payload.kind === 'anchor'
-            ? target.payload.entityId
-            : null
-        if (hitEntityId !== editingEntityId) {
-          commitInlineEditBeforePointerAction(
-            () => {
-              const activeElement = document.activeElement
-              if (activeElement instanceof HTMLElement) activeElement.blur()
-            },
-            apiRef.current.commitEntityEdit,
-          )
-        }
-      }
-
-      const modifiers: SelectionModifiers = {
-        shift: event.shiftKey,
-        meta: event.metaKey,
-        ctrl: event.ctrlKey,
-      }
-      const context: CanvasPointerContext = {
-        selectedEntityIds: layout.selectedEntityIds,
-        selectedGroupId: layout.selectedGroupId ?? null,
-        isPrimaryButton: event.button === 0,
-        button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
-        modifiers,
-        spaceHeld: spaceHeldRef.current || handToolActiveRef.current,
-        altHeld: event.altKey || optionHeldRef.current,
-        editingEntityId,
-        interactivePageId: layout.interactivePageId ?? null,
-        interactiveEntityId: enteredEntityIdRef.current,
-        placement: null,
-        commentToolActive: false,
-      }
-
-      // Hand tool: primary-button drag pans globally regardless of hit
-      // target. Space-held still defers to the routing matrix (pan on
-      // background, modifier elsewhere) — hand tool is the explicit
-      // pan-only mode that suppresses entity drag/resize/edge gestures.
-      const action: CanvasPointerAction =
-        handToolActiveRef.current && event.button === 0
-          ? { kind: 'begin-pan' }
-          : routePointerDown(target, context)
-      if (!consumeRef.current.has(action.kind)) return
-
-      const dispatched = dispatchAction({
-        action,
+      if (toolGestureOwns) return handleToolGesturePointerDown(event)
+      handleRouterPointerDown(event, {
         api: apiRef.current,
-        event,
         layoutRef,
         optionHeldRef,
         commandHeldRef,
@@ -385,11 +311,11 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
         commentDraftRef,
         onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
+        consume: consumeRef.current,
+        spaceHeld: spaceHeldRef.current,
+        handToolActive: handToolActiveRef.current,
+        enteredEntityId: enteredEntityIdRef.current,
       })
-      if (dispatched) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
     }
 
     const handleDblClick = (event: MouseEvent) => {
@@ -420,12 +346,48 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       event.stopPropagation()
     }
 
+    const handleContextMenu = (event: MouseEvent) => {
+      if (event.defaultPrevented || isTypingTarget(event.target)) return
+
+      const edgeId =
+        event.target instanceof Element
+          ? event.target.closest<Element>('[data-edge-id]')?.getAttribute('data-edge-id')
+          : null
+      if (edgeId) {
+        apiRef.current.showCanvasItemContextMenu(edgeId)
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+      if (isOverlayUiTarget(event.target)) return
+
+      const layout = layoutRef.current
+      const target = hitTest(
+        layoutToHitInputs(layout),
+        { x: event.clientX, y: clientYToWindowY(event.clientY, layout) },
+      )
+      if (target.payload.kind === 'page-body') {
+        apiRef.current.showPageContextMenu(target.payload.entityId)
+      } else if (
+        target.payload.kind === 'entity-body' &&
+        // Files retain their richer DOM context menu (Finder/copy/refresh).
+        target.payload.entityKind !== 'file'
+      ) {
+        apiRef.current.showCanvasItemContextMenu(target.payload.entityId)
+      } else {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
     window.addEventListener('pointerdown', handlePointerDown, { capture: true })
     // Dblclick routing (edit / enter-group / enter-page) is router-mode
     // only — a double click while a tool gesture owns pointers is just two
     // tool gestures.
     if (!toolGestureOwns) {
       window.addEventListener('dblclick', handleDblClick, { capture: true })
+      window.addEventListener('contextmenu', handleContextMenu)
     }
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown, {
@@ -434,8 +396,76 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       window.removeEventListener('dblclick', handleDblClick, {
         capture: true,
       } as EventListenerOptions)
+      window.removeEventListener('contextmenu', handleContextMenu)
     }
   }, [owner, commandHeldRef, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setDropBindingSuppressed, setGroupDropTarget, setReorderGhost, spaceHeldRef])
+}
+
+function handleRouterPointerDown(event: PointerEvent, deps: RouterPointerDependencies): void {
+  if (isTypingTarget(event.target) || !isCanvasPointerButton(event.button)) return
+  const layout = deps.layoutRef.current
+  const target = hitTest(layoutToHitInputs(layout), {
+    x: event.clientX,
+    y: clientYToWindowY(event.clientY, layout),
+  })
+  const editingEntityId = layout.interaction.kind === 'editing-entity'
+    ? layout.interaction.entityId
+    : null
+  commitOutsideInlineEdit(event, target.payload, editingEntityId, deps.api)
+  const context = canvasPointerContext(event, layout, editingEntityId, deps)
+  const action: CanvasPointerAction = deps.handToolActive && event.button === 0
+    ? { kind: 'begin-pan' }
+    : routePointerDown(target, context)
+  if (!deps.consume.has(action.kind)) return
+  if (!dispatchAction({ ...deps, action, event })) return
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function isCanvasPointerButton(button: number): boolean {
+  return button === 0 || button === 1 || button === 2
+}
+
+function commitOutsideInlineEdit(
+  event: PointerEvent,
+  payload: ReturnType<typeof hitTest>['payload'],
+  editingEntityId: string | null,
+  api: CanvasBgElectronAPI,
+): void {
+  if (editingEntityId === null || event.button !== 0) return
+  const entityId = 'entityId' in payload ? payload.entityId : null
+  if (entityId === editingEntityId) return
+  commitInlineEditBeforePointerAction(() => {
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) activeElement.blur()
+  }, api.commitEntityEdit)
+}
+
+function canvasPointerContext(
+  event: PointerEvent,
+  layout: LayoutUpdateData,
+  editingEntityId: string | null,
+  deps: RouterPointerDependencies,
+): CanvasPointerContext {
+  const modifiers: SelectionModifiers = {
+    shift: event.shiftKey,
+    meta: event.metaKey,
+    ctrl: event.ctrlKey,
+  }
+  return {
+    selectedEntityIds: layout.selectedEntityIds,
+    selectedGroupId: layout.selectedGroupId ?? null,
+    isPrimaryButton: event.button === 0,
+    button: event.button === 1 ? 'middle' : event.button === 2 ? 'right' : 'left',
+    modifiers,
+    spaceHeld: deps.spaceHeld || deps.handToolActive,
+    altHeld: event.altKey || deps.optionHeldRef.current,
+    editingEntityId,
+    interactivePageId: layout.interactivePageId ?? null,
+    interactiveEntityId: deps.enteredEntityId,
+    placement: null,
+    commentToolActive: false,
+  }
 }
 
 // --- Dispatch ---
@@ -472,7 +502,10 @@ function dispatchAction(ctx: DispatchContext): boolean {
       }
       return true
     case 'group-background-press':
-      return runBackgroundSelectionGesture(api, event, layoutRef, action.groupId)
+      return runBackgroundSelectionGesture(api, event, layoutRef, {
+        entityId: action.groupId,
+        entityKind: 'group',
+      })
     case 'background-click':
       return runBackgroundSelectionGesture(api, event, layoutRef)
     case 'begin-entity-drag':
@@ -488,7 +521,7 @@ function dispatchAction(ctx: DispatchContext): boolean {
     case 'begin-edge-drag':
       return runEdgeDrag(action, api, event, layoutRef, setEdgeDragState)
     case 'begin-marquee':
-      return runBackgroundSelectionGesture(api, event, layoutRef)
+      return runBackgroundSelectionGesture(api, event, layoutRef, action.originEntity)
     case 'begin-pan':
       return runPan(api, event)
     case 'begin-reorder-drag':
@@ -892,11 +925,42 @@ function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
   layoutRef: React.MutableRefObject<LayoutUpdateData>,
-  selectGroupId?: string,
+  originEntity?: NonNullable<
+    Extract<CanvasPointerAction, { kind: 'begin-marquee' }>['originEntity']
+  >,
 ): boolean {
   const startClientX = event.clientX
   const startClientY = event.clientY
+  // Sample the mode modifier live: Cmd/Ctrl can be pressed or released mid-drag
+  // to toggle intersect vs. full containment. Accepts any modifier-bearing
+  // shape so both pointer and key events feed it.
+  const marqueeMode = (m: { metaKey: boolean; ctrlKey: boolean }): MarqueeSelectionMode =>
+    m.metaKey || m.ctrlKey ? 'contain' : 'intersect'
+  const excludedIds = originEntity ? new Set([originEntity.entityId]) : new Set<string>()
   let dragged = false
+
+  const renderPreview = (clientX: number, clientY: number, mode: MarqueeSelectionMode) => {
+    const layout = layoutRef.current
+    const rect = normalizeRect(startClientX, startClientY, clientX, clientY)
+    const windowRect = {
+      left: rect.left,
+      top: rect.top + layout.canvasOrigin.y,
+      width: rect.width,
+      height: rect.height,
+    }
+    const entityIds = entitiesOverlappingRect(layout.entities, windowRect, {
+      mode,
+      excludedIds,
+    })
+    api.setSelectionOverlayRect({
+      rect: {
+        ...rect,
+        top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
+      },
+      variant: 'default',
+      entityIds,
+    })
+  }
 
   startPointerSession(event, {
     onMove: (ev) => {
@@ -906,23 +970,13 @@ function runBackgroundSelectionGesture(
         if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return
         dragged = true
       }
-      const layout = layoutRef.current
-      const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
-      const windowRect = {
-        left: rect.left,
-        top: rect.top + layout.canvasOrigin.y,
-        width: rect.width,
-        height: rect.height,
-      }
-      const entityIds = entitiesOverlappingRect(layout.entities, windowRect)
-      api.setSelectionOverlayRect({
-        rect: {
-          ...rect,
-          top: rect.top + (layout.canvasOrigin.y - TOOLBAR_HEIGHT),
-        },
-        variant: 'default',
-        entityIds,
-      })
+      renderPreview(ev.clientX, ev.clientY, marqueeMode(ev))
+    },
+    // Cmd/Ctrl toggled without moving the pointer: re-render at the last
+    // cursor position so the preview reflects the new mode immediately.
+    onModifiers: (mods, lastPointer) => {
+      if (!dragged) return
+      renderPreview(lastPointer.clientX, lastPointer.clientY, marqueeMode(mods))
     },
     onUp: (ev) => {
       api.setSelectionOverlayRect(null)
@@ -939,8 +993,17 @@ function runBackgroundSelectionGesture(
         ctrl: ev.ctrlKey,
       }
       if (!dragged) {
-        if (selectGroupId) api.selectGroup(selectGroupId)
-        else api.canvasDeselect(modifiers)
+        if (originEntity) {
+          if (originEntity.entityKind === 'page') {
+            api.selectPage(originEntity.entityId, modifiers)
+          } else if (originEntity.entityKind === 'group') {
+            api.selectGroup(originEntity.entityId)
+          } else {
+            api.selectEntity(originEntity.entityId, originEntity.entityKind, modifiers)
+          }
+          return
+        }
+        api.canvasDeselect(modifiers)
         return
       }
       const rect = normalizeRect(startClientX, startClientY, ev.clientX, ev.clientY)
@@ -949,7 +1012,14 @@ function runBackgroundSelectionGesture(
         return
       }
       const windowRect = { ...rect, top: rect.top + layout.canvasOrigin.y }
-      api.canvasSelectInRect(screenRectToCanvasRect(windowRect, layout), modifiers)
+      api.canvasSelectInRect(
+        screenRectToCanvasRect(windowRect, layout),
+        modifiers,
+        {
+          selectionMode: marqueeMode(ev),
+          excludedEntityIds: [...excludedIds],
+        },
+      )
     },
     onCancel: () => {
       api.setSelectionOverlayRect(null)

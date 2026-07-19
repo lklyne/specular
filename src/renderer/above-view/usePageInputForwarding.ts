@@ -83,6 +83,13 @@ export function usePageInputForwarding({
         clearHover()
         return
       }
+      // A held button means a drag is in flight (marquee, item drag). Hover
+      // would paint a per-item highlight that fights the marquee's own
+      // "will be selected" preview, so suppress it for the duration.
+      if (event.buttons !== 0) {
+        clearHover()
+        return
+      }
       if (pendingPlacement) {
         setPlacementCursor({
           clientX: event.clientX,
