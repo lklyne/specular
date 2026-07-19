@@ -63,25 +63,52 @@ import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './workspace-model'
 import { pageUsesCustomSize } from './runtime-entities'
+import {
+  beginAutomaticZoomSnapshotFreeze,
+  endAutomaticZoomSnapshotFreeze,
+  scheduleZoomSnapshotPreparation,
+} from './zoom-snapshot-freeze'
 
-export function setZoom(value: number): void {
+export function setViewportCamera(
+  value: number,
+  nextPan: { x: number; y: number },
+): void {
   if (!suppressCameraAnimationCancel) cancelCameraAnimation()
   endFocusOnCameraChange()
   const nextZoom = clampCanvasZoom(value)
-  if (nextZoom === zoom) return
-  setZoomState(nextZoom)
-  // De-dirty zoom: the scene container rides the viewport nudge (CSS
-  // translate+scale), so skip the per-tick full-scene rebuild+broadcast and
-  // re-baseline once on settle. Native page geometry still updates every
-  // tick via requestLayout.
-  markDirty('toolbar')
+  const zoomChanged = nextZoom !== zoom
+  const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
+  if (!zoomChanged && !panChanged) return
+
+  if (zoomChanged) beginAutomaticZoomSnapshotFreeze()
+  if (zoomChanged) setZoomState(nextZoom)
+  if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
+
+  // Zoom and its anchor-correcting pan are one camera update. Publish only
+  // after both values land so renderer transforms never observe a half-camera
+  // and the full-window grid redraws once per physical input tick.
+  if (zoomChanged) markDirty('toolbar')
   broadcastViewportNudge()
-  broadcastCanvasZoomToPages()
+  if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
-  markZoomMotion(() => {
-    markDirty('canvas')
-    requestLayout()
-  })
+  if (zoomChanged) {
+    markZoomMotion(() => {
+      endAutomaticZoomSnapshotFreeze()
+      markDirty('canvas')
+      requestLayout()
+      scheduleZoomSnapshotPreparation()
+    })
+  }
+  if (panChanged) {
+    markPanMotion(() => {
+      markDirty('canvas')
+      requestLayout()
+    })
+  }
+}
+
+export function setZoom(value: number): void {
+  setViewportCamera(value, pan)
 }
 
 export function broadcastCanvasZoomToPages(): void {
@@ -91,19 +118,7 @@ export function broadcastCanvasZoomToPages(): void {
 }
 
 export function setPan(x: number, y: number): void {
-  if (!suppressCameraAnimationCancel) cancelCameraAnimation()
-  endFocusOnCameraChange()
-  if (pan.x === x && pan.y === y) return
-  setPanState({ x, y })
-  // De-dirty pan: the scene container rides the viewport nudge (CSS translate),
-  // so skip the per-tick full-scene rebuild+broadcast and re-baseline once on
-  // settle. Native page geometry still updates every tick via requestLayout.
-  broadcastViewportNudge()
-  markPanMotion(() => {
-    markDirty('canvas')
-    requestLayout()
-  })
-  if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
+  setViewportCamera(zoom, { x, y })
 }
 
 // `requestLayout` lives in layout-engine (co-located with the private
@@ -150,8 +165,7 @@ function syncInteractiveToFocus(): void {
 function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }): void {
   suppressFocusReturnClear = true
   try {
-    setZoom(nextZoom)
-    setPan(nextPan.x, nextPan.y)
+    setViewportCamera(nextZoom, nextPan)
   } finally {
     suppressFocusReturnClear = false
   }
@@ -280,8 +294,7 @@ function applyCamera(camera: CanvasCamera, preserveFocusSession: boolean): void 
       setCameraForFocus(camera.zoom, camera.pan)
       return
     }
-    setZoom(camera.zoom)
-    setPan(camera.pan.x, camera.pan.y)
+    setViewportCamera(camera.zoom, camera.pan)
   } finally {
     suppressCameraAnimationCancel = false
     suppressCameraAutosave = false

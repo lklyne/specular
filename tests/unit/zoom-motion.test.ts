@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { quantizeZoomForEmulation } from '../../src/main/runtime/zoom-motion'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  isZoomInMotion,
+  markZoomMotion,
+  quantizeZoomForEmulation,
+} from '../../src/main/runtime/zoom-motion'
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('quantizeZoomForEmulation', () => {
   it('returns a positive number for positive input', () => {
@@ -26,5 +34,26 @@ describe('quantizeZoomForEmulation', () => {
   it('passes zoom <= 0 through unchanged', () => {
     expect(quantizeZoomForEmulation(0)).toBe(0)
     expect(quantizeZoomForEmulation(-1)).toBe(-1)
+  })
+})
+
+describe('zoom motion lifecycle', () => {
+  it('does not settle inside a fast trackpad gesture burst gap', () => {
+    vi.useFakeTimers()
+    const onSettle = vi.fn()
+
+    markZoomMotion(onSettle)
+    vi.advanceTimersByTime(250)
+
+    expect(isZoomInMotion()).toBe(true)
+    expect(onSettle).not.toHaveBeenCalled()
+
+    markZoomMotion(onSettle)
+    vi.advanceTimersByTime(299)
+    expect(onSettle).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1)
+    expect(isZoomInMotion()).toBe(false)
+    expect(onSettle).toHaveBeenCalledOnce()
   })
 })

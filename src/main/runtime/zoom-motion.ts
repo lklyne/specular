@@ -5,8 +5,12 @@ let settleTimer: ReturnType<typeof setTimeout> | null = null
 
 /** Buckets per doubling of zoom. Higher = crisper mid-gesture but more re-raster. */
 const BUCKETS_PER_OCTAVE = 4
-/** How long after the last zoom change we treat the gesture as settled. */
-const SETTLE_MS = 120
+/**
+ * How long after the last zoom change we treat the gesture as settled.
+ * macOS trackpad momentum commonly pauses for 150–250ms inside one perceived
+ * fast pinch; a shorter lease exposes live page views in the middle.
+ */
+const SETTLE_MS = 300
 
 export function isZoomInMotion(): boolean {
   return inMotion

@@ -80,6 +80,10 @@ import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared
 import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
+import {
+  isZoomSnapshotFreezeActive,
+  scheduleZoomSnapshotPreparation,
+} from './zoom-snapshot-freeze'
 
 let buildMsSink: ((ms: number) => void) | null = null
 
@@ -352,6 +356,20 @@ function layoutAllViews(): void {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
 
+    if (isZoomSnapshotFreezeActive()) {
+      page.lastFrameBoundsKey = setBoundsIfChanged(
+        page.frameView,
+        HIDDEN_BOUNDS,
+        page.lastFrameBoundsKey,
+      )
+      page.lastPageBoundsKey = setBoundsIfChanged(
+        page.pageView,
+        HIDDEN_BOUNDS,
+        page.lastPageBoundsKey,
+      )
+      continue
+    }
+
     if (
       focusedPresentationPageId &&
       page.id !== focusedPresentationPageId &&
@@ -607,6 +625,7 @@ function layoutAllViews(): void {
     selectedPageIds,
     activeTab: devtoolsPanelTab,
   })
+  scheduleZoomSnapshotPreparation()
 }
 
 /**

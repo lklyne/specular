@@ -47,6 +47,7 @@ import { withPageAnchoredEntityIds } from '../runtime/page-anchor-state'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
 import { reparentEntitiesInGesture } from '../runtime/group-membership'
+import { markZoomSnapshotRendererReady } from '../runtime/zoom-snapshot-freeze'
 
 // The entity currently being resized, captured at resize-begin so resize-end can
 // reflow its managed group (if any) before committing the gesture's undo step.
@@ -140,6 +141,12 @@ function endDragSession(
 }
 
 export function registerCanvasDragIpc(): void {
+  ipcMain.on(
+    ipcChannels.zoomSnapshotReady,
+    (_event, { revision }: { revision: number }) => {
+      if (Number.isFinite(revision)) markZoomSnapshotRendererReady(revision)
+    },
+  )
   ipcMain.on(
     ipcChannels.canvasZoom,
     (_event, data: { deltaY: number; mouseX: number; mouseY: number }) => {

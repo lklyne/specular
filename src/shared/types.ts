@@ -1778,6 +1778,23 @@ export interface ViewportNudge {
   zoom: number
 }
 
+export interface ZoomSnapshotFrame {
+  pageId: string
+  dataUrl: string
+  capturedWidth: number
+  capturedHeight: number
+}
+
+/**
+ * Experimental frozen-page substrate used by the pan/zoom performance spike.
+ * Frames are preloaded into canvas-bg before live WebContentsViews are hidden.
+ */
+export interface ZoomSnapshotState {
+  revision: number
+  active: boolean
+  frames: ZoomSnapshotFrame[]
+}
+
 /**
  * Per-kind interactive update patch shapes. `updateEntity` is typed by this map
  * so a text patch sent with `kind: 'shape'` is a compile error at the call

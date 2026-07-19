@@ -1,5 +1,5 @@
-import { useMemo, useRef } from 'react'
-import type { CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, ThemeData } from '../../shared/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, ThemeData, ZoomSnapshotState } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -14,6 +14,8 @@ import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
+import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
+import { ZoomSnapshotLayer } from './ZoomSnapshotLayer'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -31,10 +33,41 @@ export default function App({
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const t = useSceneCameraTransform(api.onViewportNudge, layoutData)
-  const livePan = useMemo(
-    () => ({ x: layoutData.pan.x + t.x, y: layoutData.pan.y + t.y }),
-    [layoutData.pan.x, layoutData.pan.y, t.x, t.y],
+  const [zoomSnapshot, setZoomSnapshot] = useState<ZoomSnapshotState>({
+    revision: 0,
+    active: false,
+    frames: [],
+  })
+  useEffect(() => api.onZoomSnapshotState(setZoomSnapshot), [])
+  useEffect(() => {
+    if (zoomSnapshot.frames.length === 0) return
+    let cancelled = false
+    const images = zoomSnapshot.frames.map((frame) => {
+      const image = new Image()
+      image.src = frame.dataUrl
+      return image
+    })
+    void Promise.allSettled(
+      images.map((image) =>
+        typeof image.decode === 'function'
+          ? image.decode()
+          : Promise.resolve(),
+      ),
+    ).then(() => {
+      if (!cancelled) api.zoomSnapshotReady(zoomSnapshot.revision)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [zoomSnapshot.revision])
+  const t = useSceneCameraTransform(
+    api.onViewportNudge,
+    layoutData,
+    layoutData.canvasOrigin,
+  )
+  const liveCamera = useMemo(
+    () => cameraAfterSceneTransform(layoutData, t, layoutData.canvasOrigin),
+    [layoutData, t],
   )
 
   useCanvasViewportGestures({
@@ -99,8 +132,8 @@ export default function App({
         bgRef={bgRef}
         isDark={isDark}
         canvasOrigin={layoutData.canvasOrigin}
-        pan={livePan}
-        zoom={layoutData.zoom}
+        pan={liveCamera.pan}
+        zoom={liveCamera.zoom}
       />
       {/* Translate+scale the page chrome live with the pan/zoom gesture so
           borders and device shells track the natively-positioned page views
@@ -125,6 +158,7 @@ export default function App({
             pages={svgDeviceShellPages}
             isDark={isDark}
           />
+          <ZoomSnapshotLayer pages={pageEntities} snapshot={zoomSnapshot} />
         </div>
       </div>
 

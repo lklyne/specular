@@ -355,7 +355,10 @@ export default function App({
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
-  const t = useSceneCameraTransform(api.onViewportNudge, layoutData)
+  const t = useSceneCameraTransform(api.onViewportNudge, layoutData, {
+    x: layoutData.canvasOrigin.x,
+    y: 0,
+  })
   const [fixProgress, setFixProgress] = useState<LayoutUpdateData['fixProgress']>(
     initialLayoutData.fixProgress,
   )

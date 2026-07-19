@@ -20,6 +20,7 @@ import type {
   ToolbarSelectionData,
   ViewportNudge,
   WorkspaceBounds,
+  ZoomSnapshotState,
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
@@ -330,6 +331,8 @@ export interface IpcContract {
   'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
   'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
+  'zoom-snapshot-ready': { dir: 'renderer→main'; payload: { revision: number } }
+  'zoom-snapshot-state': { dir: 'main→renderer'; payload: ZoomSnapshotState }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
   'zoom-changed': { dir: 'main→renderer'; payload: number }
@@ -636,6 +639,8 @@ export const ipcChannels = {
   toolbarTooltipClose: 'toolbar-tooltip-close',
   toolbarTooltipOpen: 'toolbar-tooltip-open',
   viewportNudge: 'viewport-nudge',
+  zoomSnapshotReady: 'zoom-snapshot-ready',
+  zoomSnapshotState: 'zoom-snapshot-state',
   writeNoteFile: 'write-note-file',
   zoomChanged: 'zoom-changed',
   zoomIn: 'zoom-in',
