@@ -25,6 +25,7 @@ import {
 import { win } from './view-refs'
 import { requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
+import { markPanMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -73,6 +74,7 @@ export function setZoom(value: number): void {
   broadcastViewportNudge()
   broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
+  markZoomMotion(() => requestLayout())
 }
 
 export function broadcastCanvasZoomToPages(): void {
@@ -86,8 +88,14 @@ export function setPan(x: number, y: number): void {
   endFocusOnCameraChange()
   if (pan.x === x && pan.y === y) return
   setPanState({ x, y })
-  markDirty('canvas')
+  // De-dirty pan: the scene container rides the viewport nudge (CSS translate),
+  // so skip the per-tick full-scene rebuild+broadcast and re-baseline once on
+  // settle. Native page geometry still updates every tick via requestLayout.
   broadcastViewportNudge()
+  markPanMotion(() => {
+    markDirty('canvas')
+    requestLayout()
+  })
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
 }
 

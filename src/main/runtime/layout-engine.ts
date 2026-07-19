@@ -81,6 +81,12 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
 
+let buildMsSink: ((ms: number) => void) | null = null
+
+export function setBuildMsSink(fn: ((ms: number) => void) | null): void {
+  buildMsSink = fn
+}
+
 export function setBoundsIfChanged(
   view: WebContentsView,
   bounds: { x: number; y: number; width: number; height: number },
@@ -104,6 +110,7 @@ import {
   devtoolsPanelDebug,
 } from './runtime-constants'
 import { boundsOverlap } from './runtime-geometry'
+import { isZoomInMotion, quantizeZoomForEmulation } from './zoom-motion'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
 
@@ -245,6 +252,7 @@ function layoutAllViews(): void {
       const buildStart = performance.now()
       const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
       layoutData.buildMs = performance.now() - buildStart
+      buildMsSink?.(layoutData.buildMs)
       bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
       sendAnnotationLayoutUpdate(layoutData)
     }
@@ -444,7 +452,7 @@ function layoutAllViews(): void {
     } else {
       const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
       const nativeScale = screen.getPrimaryDisplay().scaleFactor
-      const pageScale = zoom
+      const pageScale = isZoomInMotion() ? quantizeZoomForEmulation(zoom) : zoom
       const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsOpen ? devtoolsWidth : 0}`
       if (pageEmulationKey !== page.lastPageEmulationKey) {
         const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0

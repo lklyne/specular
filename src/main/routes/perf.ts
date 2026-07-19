@@ -15,6 +15,7 @@ import {
   runPanZoomPerfTest,
   stopPanZoomPerfTest,
 } from '../pan-zoom-perf-test'
+import type { PanZoomPerfPhase } from '../../shared/pan-zoom-perf-test'
 
 export const perfRoutes: Route[] = [
   {
@@ -32,8 +33,11 @@ export const perfRoutes: Route[] = [
         writeJson(response, 409, { error: 'A performance trace is already active' })
         return
       }
-      const result = await runPanZoomPerfTest()
-      const payload = body as { summarize?: boolean }
+      const payload = body as { summarize?: boolean; profiles?: string[]; durationMs?: number }
+      const result = await runPanZoomPerfTest({
+        phaseIds: payload.profiles as PanZoomPerfPhase['id'][] | undefined,
+        durationMs: payload.durationMs,
+      })
       const summary = payload.summarize
         ? await getTraceSummary(result.fileName)
         : undefined
