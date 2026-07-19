@@ -72,6 +72,8 @@ type EdgeUpdatePatch = {
   toSide?: EdgeSide
   color?: string
   label?: string
+  strokeWidth?: number
+  lineStyle?: import('../../shared/types').EdgeLineStyle
 }
 import { selectEntitiesInRect } from '../workspace-entities'
 import { createFileEntity } from '../runtime/document-commands'

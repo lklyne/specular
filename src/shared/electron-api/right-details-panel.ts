@@ -49,7 +49,7 @@ export interface DevtoolsPanelElectronAPI {
   toggleFileDeviceShell: (fileId: string) => void
   deleteDrawingEntity: (id: string) => void
   deleteShapeEntity: (id: string) => void
-  updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string }) => void
+  updateEdge: (id: string, patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string; strokeWidth?: number; lineStyle?: import('../types').EdgeLineStyle }) => void
   deleteEdge: (id: string) => void
   setPagePreset: (pageId: string, presetIndex: number) => void
   setPageColorScheme: (pageId: string, colorScheme: PageColorScheme | null) => void

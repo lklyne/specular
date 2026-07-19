@@ -1010,6 +1010,8 @@ export interface PanelEdgeEntityDetail {
   toEnd?: EdgeEnd
   color?: string
   label?: string
+  strokeWidth?: number
+  lineStyle?: EdgeLineStyle
   kind: 'breakpoint_variant' | 'connection'
 }
 
@@ -1518,6 +1520,7 @@ export type WorkspaceCanvasEntity =
 
 export type EdgeSide = 'top' | 'right' | 'bottom' | 'left'
 export type EdgeEnd = 'none' | 'arrow'
+export type EdgeLineStyle = 'solid' | 'dashed'
 
 export interface WorkspaceEdge {
   id: string
@@ -1529,6 +1532,8 @@ export interface WorkspaceEdge {
   toEnd?: EdgeEnd
   color?: string
   label?: string
+  strokeWidth?: number
+  lineStyle?: EdgeLineStyle
   kind: 'breakpoint_variant' | 'connection'
   metadata?: Record<string, unknown>
 }

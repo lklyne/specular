@@ -298,6 +298,8 @@ function serializeEdge(edge: WorkspaceEdge): JsonCanvasEdge {
     color: edge.color,
     label: edge.label,
     // App-specific extensions
+    strokeWidth: edge.strokeWidth,
+    lineStyle: edge.lineStyle,
     edgeKind: edge.kind,
     edgeMetadata: edge.metadata,
   }
@@ -518,6 +520,8 @@ function deserializeEdgeToWorkspaceEdge(edge: JsonCanvasEdge): WorkspaceEdge {
     toEnd: edge.toEnd,
     color: edge.color,
     label: edge.label,
+    strokeWidth: edge.strokeWidth,
+    lineStyle: edge.lineStyle,
     kind: (edge.edgeKind as WorkspaceEdge['kind']) ?? 'breakpoint_variant',
     metadata: edge.edgeMetadata,
   }

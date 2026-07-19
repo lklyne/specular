@@ -349,6 +349,8 @@ function buildEdgeEntityDetail(entityId: string): PanelEdgeEntityDetail | undefi
     toEnd: edge.toEnd,
     color: edge.color,
     label: edge.label,
+    strokeWidth: edge.strokeWidth,
+    lineStyle: edge.lineStyle,
     kind: edge.kind,
   }
 }

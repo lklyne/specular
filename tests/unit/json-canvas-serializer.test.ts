@@ -445,6 +445,8 @@ describe('json-canvas-serializer drawings', () => {
       id: 'e1',
       fromEntityId: 't1',
       toEntityId: 'sh1',
+      strokeWidth: 3,
+      lineStyle: 'dashed',
       kind: 'breakpoint_variant',
     }
     const snapshot = emptySnapshot()
@@ -474,6 +476,7 @@ describe('json-canvas-serializer drawings', () => {
     const doc = serializeToJsonCanvas(snapshot)
     expect(doc.nodes.map((node) => node.id)).toEqual(['t1', 'sh1'])
     expect(doc.edges.map((jsonEdge) => jsonEdge.id)).toEqual(['e1'])
+    expect(doc.edges[0]).toMatchObject({ strokeWidth: 3, lineStyle: 'dashed' })
     expect(doc.specular?.entityOrder).toEqual(['t1', 'e1', 'sh1'])
 
     const { snapshot: restored } = deserializeFromJsonCanvas(doc)

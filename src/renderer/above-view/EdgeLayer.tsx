@@ -12,6 +12,7 @@ import type {
   CanvasInteractionState,
   CanvasSceneEntity,
   EdgeEnd,
+  EdgeLineStyle,
   EdgeSide,
   WorkspaceEdge,
 } from '../../shared/types'
@@ -40,6 +41,10 @@ const EDGE_SELECTION_HIT_WIDTH = 14
 const LABEL_FONT_SIZE = 16 // canvas units, scaled by zoom
 const LABEL_GAP_PAD_X = 6 // canvas units of horizontal clearance on each side of the text
 const LABEL_GAP_PAD_Y = 0 // canvas units of vertical clearance above/below the text
+// Pull arrowheads slightly past the path endpoints so thick strokes terminate
+// underneath the triangle instead of leaving a square tip visible beyond it.
+const END_ARROW_REF_X = 4.25
+const START_ARROW_REF_X = 0.75
 
 // --- Geometry helpers ---
 
@@ -151,6 +156,8 @@ function EdgeBody({
   zoom,
   markerEnd,
   markerStart,
+  strokeWidth,
+  lineStyle,
 }: {
   d: string
   edgeColor: string
@@ -159,6 +166,8 @@ function EdgeBody({
   zoom: number
   markerEnd: string | undefined
   markerStart: string | undefined
+  strokeWidth: number
+  lineStyle: EdgeLineStyle
 }) {
   const pathRef = useRef<SVGPathElement>(null)
   const textRef = useRef<SVGTextElement>(null)
@@ -198,8 +207,14 @@ function EdgeBody({
         markerEnd={markerEnd}
         markerStart={markerStart}
         stroke={edgeColor}
-        strokeWidth={1.5 * zoom}
-        strokeDasharray={label ? layout?.dash : undefined}
+        strokeWidth={strokeWidth * zoom}
+        strokeDasharray={
+          label
+            ? layout?.dash
+            : lineStyle === 'dashed'
+              ? `${strokeWidth * 3 * zoom} ${strokeWidth * 2 * zoom}`
+              : undefined
+        }
       />
       {label ? (
         <text
@@ -269,6 +284,8 @@ export function EdgeLayer({
       toEnd: EdgeEnd
       color?: string
       label?: string
+      strokeWidth: number
+      lineStyle: EdgeLineStyle
     }> = []
 
     for (const edge of edges) {
@@ -291,6 +308,8 @@ export function EdgeLayer({
         toEnd: edge.toEnd ?? 'arrow',
         color: edge.color,
         label: edge.label?.trim() || undefined,
+        strokeWidth: edge.strokeWidth ?? 1.5,
+        lineStyle: edge.lineStyle ?? 'solid',
       })
     }
     return paths
@@ -322,28 +341,32 @@ export function EdgeLayer({
     >
       {/* Arrow marker definitions */}
       <defs>
-        <marker id="arrow-default" markerHeight={6} markerWidth={5} orient="auto" refX={5} refY={3}>
+        <marker id="arrow-default" markerHeight={6} markerWidth={5} orient="auto" refX={END_ARROW_REF_X} refY={3} overflow="visible">
           <path d="M 0 0 L 5 3 L 0 6 Z" fill={EDGE_COLOR_DEFAULT} />
         </marker>
-        <marker id="arrow-selected" markerHeight={6} markerWidth={5} orient="auto" refX={5} refY={3}>
+        <marker id="arrow-selected" markerHeight={6} markerWidth={5} orient="auto" refX={END_ARROW_REF_X} refY={3} overflow="visible">
           <path d="M 0 0 L 5 3 L 0 6 Z" fill={selectionColor(isDark)} />
         </marker>
-        <marker id="arrow-start-default" markerHeight={6} markerWidth={5} orient="auto" refX={0} refY={3}>
+        <marker id="arrow-start-default" markerHeight={6} markerWidth={5} orient="auto" refX={START_ARROW_REF_X} refY={3} overflow="visible">
           <path d="M 5 0 L 0 3 L 5 6 Z" fill={EDGE_COLOR_DEFAULT} />
         </marker>
-        <marker id="arrow-start-selected" markerHeight={6} markerWidth={5} orient="auto" refX={0} refY={3}>
+        <marker id="arrow-start-selected" markerHeight={6} markerWidth={5} orient="auto" refX={START_ARROW_REF_X} refY={3} overflow="visible">
           <path d="M 5 0 L 0 3 L 5 6 Z" fill={selectionColor(isDark)} />
         </marker>
         {/* Per-color markers for colored edges (deduplicated) */}
         {[...new Set(edgePaths.map((p) => p.color).filter(Boolean))].map((color) => {
-          const hex = resolveCanvasColor(color!, { palette: 'vivid' })
+          const hex = resolveCanvasColor(color!, {
+            palette: 'vivid',
+            role: 'ink',
+            isDark,
+          })
           const safeId = hex.replace('#', '')
           return (
             <g key={safeId}>
-              <marker id={`arrow-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={5} refY={3}>
+              <marker id={`arrow-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={END_ARROW_REF_X} refY={3} overflow="visible">
                 <path d="M 0 0 L 5 3 L 0 6 Z" fill={hex} />
               </marker>
-              <marker id={`arrow-start-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={0} refY={3}>
+              <marker id={`arrow-start-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={START_ARROW_REF_X} refY={3} overflow="visible">
                 <path d="M 5 0 L 0 3 L 5 6 Z" fill={hex} />
               </marker>
             </g>
@@ -352,8 +375,10 @@ export function EdgeLayer({
       </defs>
 
       {/* Existing edges */}
-      {edgePaths.map(({ id, d, selected, fromEnd, toEnd, color, label }) => {
-        const resolvedColor = color ? resolveCanvasColor(color, { palette: 'vivid' }) : null
+      {edgePaths.map(({ id, d, selected, fromEnd, toEnd, color, label, strokeWidth, lineStyle }) => {
+        const resolvedColor = color
+          ? resolveCanvasColor(color, { palette: 'vivid', role: 'ink', isDark })
+          : null
         const edgeColor = selected
           ? selectionColor(isDark)
           : resolvedColor ?? EDGE_COLOR_DEFAULT
@@ -372,6 +397,8 @@ export function EdgeLayer({
             zoom={zoom}
             markerEnd={toEnd === 'arrow' ? `url(#arrow-${markerSuffix})` : undefined}
             markerStart={fromEnd === 'arrow' ? `url(#arrow-start-${markerSuffix})` : undefined}
+            strokeWidth={strokeWidth}
+            lineStyle={lineStyle}
           />
           {/* Zoom-scaled invisible hit target. Tagged `data-overlay-ui` so
               the canvas pointer router skips its pointerdown — edge selection

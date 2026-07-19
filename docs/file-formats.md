@@ -136,11 +136,15 @@ Connections between two nodes:
   "fromSide": "right",
   "toSide": "left",
   "color": "3",
+  "strokeWidth": 3,
+  "lineStyle": "dashed",
   "label": "navigates to"
 }
 ```
 
-Specular extensions: `edgeKind`, `edgeMetadata`.
+Specular extensions: `strokeWidth`, `lineStyle` (`solid` or `dashed`),
+`edgeKind`, and `edgeMetadata`. Missing stroke fields render as a 1.5px solid
+connection for compatibility with existing canvases.
 
 ### App state (extension)
 

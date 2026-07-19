@@ -240,7 +240,7 @@ export interface CanvasBgElectronAPI {
   deleteEdge: (edgeId: string) => void
   updateEdge: (
     edgeId: string,
-    patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string },
+    patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string; strokeWidth?: number; lineStyle?: import('../types').EdgeLineStyle },
   ) => void
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void

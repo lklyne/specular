@@ -147,8 +147,8 @@ export type JsonCanvasNode =
 
 // --- Edges ---
 
-import type { AnnotationDrawingStroke, EdgeSide, EdgeEnd } from './types'
-export type { EdgeSide, EdgeEnd }
+import type { AnnotationDrawingStroke, EdgeSide, EdgeEnd, EdgeLineStyle } from './types'
+export type { EdgeSide, EdgeEnd, EdgeLineStyle }
 
 export interface JsonCanvasEdge {
   id: string
@@ -161,6 +161,8 @@ export interface JsonCanvasEdge {
   color?: CanvasColor
   label?: string
   // App-specific extensions
+  strokeWidth?: number
+  lineStyle?: EdgeLineStyle
   edgeKind?: string
   edgeMetadata?: Record<string, unknown>
 }
