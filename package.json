@@ -1,7 +1,7 @@
 {
   "name": "specular",
   "productName": "Specular",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/specular",
   "repository": {
