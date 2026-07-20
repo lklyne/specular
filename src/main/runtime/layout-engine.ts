@@ -302,13 +302,15 @@ function layoutAllViews(): void {
   // Child BrowserWindow for agent-presence cursors. Bounds are in screen
   // coordinates (not win-relative), derived from the main window's
   // content bounds + the toolbar inset. Shown only when click-through
-  // screen overlays exist.
+  // screen overlays exist and the main window is focused. Showing an
+  // OS-level child window while the app is in the background can raise the
+  // application on macOS even when showInactive() leaves keyboard focus alone.
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed() && win) {
     const hasCursors = getPresenceCursors().length > 0
     const hasInspectPopover =
       getUiState().activeTool.kind === 'inspect' &&
       Boolean(inspectHoveredTarget ?? inspectSelectedTarget)
-    if (!hasCursors && !hasInspectPopover) {
+    if ((!hasCursors && !hasInspectPopover) || !win.isFocused()) {
       if (cursorOverlayWindow.isVisible()) cursorOverlayWindow.hide()
       layoutCache.lastCursorOverlayBoundsKey = null
     } else {
