@@ -7,18 +7,17 @@
  *
  * Mounted in aboveView (not the canvas-bg chrome canvas) because labels must
  * stay visible above native page views (ADR 0002). Purely visual — pointer
- * input still lands on the invisible DOM label in GroupRenameOverlay, and a
+ * input routes through the shared hit-test's `group-label` target, and a
  * group being renamed skips canvas drawing so the DOM input shows instead.
  */
 import { useCallback, useEffect, useRef } from 'react'
+import {
+  GROUP_LABEL_BOTTOM_GAP,
+  GROUP_LABEL_FONT,
+  GROUP_LABEL_LINE_HEIGHT,
+} from '../../shared/group-label-geometry'
 import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
 import type { CanvasSceneGroupEntity } from '../../shared/types'
-
-export const GROUP_LABEL_FONT = '500 11px system-ui, sans-serif'
-/** Matches the DOM label's inherited 1.5 line-height at 11px. */
-const LINE_HEIGHT = 16.5
-/** The label span's pb-1 gap between text and group top edge. */
-const BOTTOM_GAP = 4
 
 export function groupLabelColor(
   group: CanvasSceneGroupEntity,
@@ -67,7 +66,7 @@ export function drawGroupLabels({
   const contentHeight =
     metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent
   const baselineFromBottom =
-    Math.max(0, (LINE_HEIGHT - contentHeight) / 2) +
+    Math.max(0, (GROUP_LABEL_LINE_HEIGHT - contentHeight) / 2) +
     metrics.fontBoundingBoxDescent
 
   for (const group of groups) {
@@ -75,7 +74,7 @@ export function drawGroupLabels({
     const x = transform.x + transform.scale * group.screenX
     const groupTop = transform.y + transform.scale * (group.screenY - originY)
     ctx.fillStyle = groupLabelColor(group, isDark)
-    ctx.fillText(group.label, x, groupTop - BOTTOM_GAP - baselineFromBottom)
+    ctx.fillText(group.label, x, groupTop - GROUP_LABEL_BOTTOM_GAP - baselineFromBottom)
   }
 }
 

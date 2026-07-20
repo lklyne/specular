@@ -80,6 +80,7 @@ import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants
 import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
+import { GROUP_LABEL_FONT } from '../../shared/group-label-geometry'
 import type { CanvasSceneEntity, EdgeSide, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
@@ -188,6 +189,33 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
  *  and edge gestures. */
 export const FULL_ROUTER_CONSUME = ALL_KINDS
 
+// Group-label widths for hit geometry, measured with the same font the
+// canvas label painter uses so the routable target matches the drawn text.
+// Cached per label string; hit-test falls back to an estimate without them.
+let labelMeasureCtx: CanvasRenderingContext2D | null = null
+const labelWidthCache = new Map<string, number>()
+
+function measureGroupLabelWidth(label: string): number | null {
+  const cached = labelWidthCache.get(label)
+  if (cached !== undefined) return cached
+  labelMeasureCtx ??= document.createElement('canvas').getContext('2d')
+  if (!labelMeasureCtx) return null
+  labelMeasureCtx.font = GROUP_LABEL_FONT
+  const width = labelMeasureCtx.measureText(label).width
+  labelWidthCache.set(label, width)
+  return width
+}
+
+function groupLabelWidths(entities: HitInputs['entities']): Map<string, number> {
+  const widths = new Map<string, number>()
+  for (const entity of entities) {
+    if (entity.kind !== 'group' || !entity.label) continue
+    const width = measureGroupLabelWidth(entity.label)
+    if (width !== null) widths.set(entity.id, width)
+  }
+  return widths
+}
+
 function layoutToHitInputs(layout: {
   entities: HitInputs['entities']
   edges?: HitInputs['edges'] | null
@@ -203,6 +231,7 @@ function layoutToHitInputs(layout: {
     selectedGroupId: layout.selectedGroupId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
+    groupLabelWidths: groupLabelWidths(layout.entities),
   }
 }
 

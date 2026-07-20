@@ -1174,11 +1174,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             layoutData={layoutData}
             isDark={isDark}
             editingEntityId={editingEntityId}
-            optionHeldRef={optionHeldRef}
-            commandHeldRef={commandHeldRef}
-            setDragCopyPreview={setDragCopyPreview}
-            setGroupDropTarget={setGroupDropTargetId}
-            setDropBindingSuppressed={setDropBindingSuppressed}
           />
 
           {/* Tool-vs-selection mutex (ADR 0008 §2): the active tool's popup wins
