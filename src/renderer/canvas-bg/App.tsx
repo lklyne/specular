@@ -6,9 +6,8 @@ import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
-import { DeviceShellLayer } from './DeviceShellLayer'
+import { ChromeCanvasSurface } from './ChromeCanvasSurface'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
-import { PageBorderLayer } from './PageBorderLayer'
 import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
@@ -102,10 +101,6 @@ export default function App({
   // Hoist per-layer slices so the memoized layers receive stable array refs and
   // skip re-rendering on every pan/zoom nudge (props only change on a real
   // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
-  const deviceShellPages = useMemo(
-    () => chromePages.filter((f) => !f.useSvgDeviceShell),
-    [chromePages],
-  )
   const svgDeviceShellPages = useMemo(
     () => chromePages.filter((f) => f.useSvgDeviceShell),
     [chromePages],
@@ -145,15 +140,6 @@ export default function App({
       >
         <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
         <div className="pointer-events-none absolute inset-0">
-          <PageBorderLayer
-            pages={chromePages}
-            fileEntities={chromeFiles}
-          />
-          <DeviceShellLayer
-            pages={deviceShellPages}
-            fileEntities={chromeFiles}
-            isDark={isDark}
-          />
           <SvgDeviceShellLayer
             pages={svgDeviceShellPages}
             isDark={isDark}
@@ -161,6 +147,15 @@ export default function App({
           <ZoomSnapshotLayer pages={pageEntities} snapshot={zoomSnapshot} />
         </div>
       </div>
+      {/* Borders and device shells draw in screen space from the live camera,
+          outside the scene transform, so their strokes stay crisp mid-zoom
+          instead of being bitmap-scaled with the settled layout baseline. */}
+      <ChromeCanvasSurface
+        pages={chromePages}
+        fileEntities={chromeFiles}
+        transform={t}
+        isDark={isDark}
+      />
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
           Selected page menu lives in the floating-ui view. */}
