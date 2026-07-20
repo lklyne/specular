@@ -157,18 +157,34 @@ export async function prepareZoomSnapshotFreeze(options?: {
     }),
   )
 
-  const candidateFrames = frames.filter(
+  const capturedFrames = frames.filter(
     (frame): frame is ZoomSnapshotFrame => frame !== null,
   )
   const captureMs = performance.now() - startedAt
-  // Never replace the prepared set with a partial capture: a page parked at
-  // hidden bounds (frozen gesture, focus presentation) captures nothing, and
-  // publishing fewer frames than pages guarantees a dropout for the rest.
-  if (candidateFrames.length < pages.length) {
+  // Culled (off-screen) pages sit at zero bounds and can never capture, so a
+  // whole-set discard would leave the prepared frames permanently stale on any
+  // canvas with an off-screen page — they'd then be shown scaled far past
+  // their captured resolution. Instead, capture what's visible and carry the
+  // prior frame forward for pages that can't capture right now. A page with
+  // no prior frame stays absent (blank only if it scrolls into view
+  // mid-gesture, which live-view restore covers at gesture end).
+  const capturableCount = pages.filter((page) => {
+    if (page.pageView.webContents.isDestroyed()) return false
+    const bounds = page.pageView.getBounds()
+    return bounds.width > 0 && bounds.height > 0
+  }).length
+  const capturedIds = new Set(capturedFrames.map((frame) => frame.pageId))
+  const candidateFrames = [
+    ...capturedFrames,
+    ...preparedFrames.filter((frame) => !capturedIds.has(frame.pageId)),
+  ]
+  // A page that was visible but still failed to capture (mid-teardown, empty
+  // paint) is a transient state — keep the prior set and retry later.
+  if (capturedFrames.length < capturableCount) {
     slog('prepare-partial-discarded', {
       revision,
-      captured: candidateFrames.length,
-      expected: pages.length,
+      captured: capturedFrames.length,
+      expected: capturableCount,
       captureMs: Math.round(captureMs),
     })
     return {
