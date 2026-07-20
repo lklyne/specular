@@ -25,7 +25,7 @@ import {
 import { win } from './view-refs'
 import { requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
-import { markPanMotion, markZoomMotion } from './zoom-motion'
+import { isZoomInMotion, markPanMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -67,7 +67,10 @@ import {
   beginAutomaticZoomSnapshotFreeze,
   endAutomaticZoomSnapshotFreeze,
   scheduleZoomSnapshotPreparation,
+  slog,
 } from './zoom-snapshot-freeze'
+
+let zoomGestureGen = 0
 
 export function setViewportCamera(
   value: number,
@@ -80,6 +83,10 @@ export function setViewportCamera(
   const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
   if (!zoomChanged && !panChanged) return
 
+  if (zoomChanged && !isZoomInMotion()) {
+    zoomGestureGen += 1
+    slog('gesture-start', { gen: zoomGestureGen, zoom: nextZoom })
+  }
   if (zoomChanged) beginAutomaticZoomSnapshotFreeze()
   if (zoomChanged) setZoomState(nextZoom)
   if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
@@ -93,6 +100,7 @@ export function setViewportCamera(
   if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
   if (zoomChanged) {
     markZoomMotion(() => {
+      slog('gesture-settle', { gen: zoomGestureGen, zoom })
       endAutomaticZoomSnapshotFreeze()
       markDirty('canvas')
       requestLayout()

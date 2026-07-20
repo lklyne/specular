@@ -83,7 +83,10 @@ import { applyPageColorScheme } from './page-color-scheme'
 import {
   isZoomSnapshotFreezeActive,
   scheduleZoomSnapshotPreparation,
+  slog,
 } from './zoom-snapshot-freeze'
+
+let lastLayoutFrozen: boolean | null = null
 
 let buildMsSink: ((ms: number) => void) | null = null
 
@@ -344,6 +347,13 @@ function layoutAllViews(): void {
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
   // --- Per-page bounds, emulation, annotations ---
+  const layoutFrozen = isZoomSnapshotFreezeActive()
+  if (layoutFrozen !== lastLayoutFrozen) {
+    slog(layoutFrozen ? 'layout-pages-parked' : 'layout-pages-live', {
+      pageCount: pages.length,
+    })
+    lastLayoutFrozen = layoutFrozen
+  }
   const focusSessionValue = focusSession()
   const focusedPresentationPageId = focusSessionValue?.pageId ?? null
   // Eye on (non-fill focus): other pages' live content returns as surrounding
