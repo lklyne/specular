@@ -6,9 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-20 — Page Anchoring, Scroll Tracking, Shape Styling
+
+### New
+
+- **Annotations stick to pages.** Comments, stickies, drawings, text, and shapes drawn over a page now belong to that page: they move with it, scroll with its content, fade at the page edges, and hide when the page navigates elsewhere. Anything drawn over empty canvas stays put, as before.
+- **Comments can attach to an element.** Point a comment at a button or heading and it tracks that element by a unique selector — through scrolls, reflows, and re-renders. Clicking the comment scrolls the page back to it.
+- **Multi-selection in the left sidebar**, with page-anchored items nested under their page.
+- **Shape styling**: fill, border color and style, text alignment, and edge stroke controls, all in the selection popup.
+
 ### Improvements
 
-- Region comments that captured page content now belong to that page: they move with page drags and arrow-key nudges, hide while the page shows a different URL, and nest under the page in the left sidebar. Region comments drawn over empty canvas stay put and always show.
+- Marquee selection reads Cmd/Ctrl live during the drag, so you can toggle intersect vs. contain mid-marquee.
+- Stack-order menus (bring forward, send back) on canvas item right-click.
+- Single-page drags are noticeably faster; group drag and membership handling is more predictable, and Cmd-drag pulls an item out without re-binding it.
+- Entering edit mode selects all the text; clicking away saves instead of discarding.
+- Resizing only snaps the edges you're actually dragging — the opposite edges stay put.
+- Live files: a manual refresh action, an update flash when content changes, and a watcher that survives atomic saves and in-place writes.
+- Images pasted from the native macOS clipboard now land on the canvas.
+
+### Fixes
+
+- File context menus close on an outside click.
+- Escape mid-drag clears the comment tool's marquee overlay.
+- Duplicating a page re-attaches its anchored comments and copies anchored items at their apparent position.
+- Device-frame and border settings apply to file entities again.
+
+### Misc
+
+- Removed the wireframe renderer mode.
 
 ### Breaking
 
