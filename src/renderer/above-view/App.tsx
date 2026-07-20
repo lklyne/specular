@@ -59,6 +59,7 @@ import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
 import { gapPreviewLayout } from './gapPreview'
 import { GapHandlesLayer } from './GapHandlesLayer'
+import { GroupLabelCanvasSurface } from './GroupLabelCanvasSurface'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import {
   computeSameKindSelection,
@@ -1224,6 +1225,19 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         </>
       ) : null}
       </div>
+      {/* Outside the CSS scene transform: group titles redraw in screen space
+          from the live camera each tick so they hold their 11px size and stay
+          crisp mid-zoom. The DOM labels above stay mounted as invisible hit
+          targets (drag/select/rename). */}
+      {!captureMode && (layoutData.groups?.length ?? 0) > 0 ? (
+        <GroupLabelCanvasSurface
+          groups={layoutData.groups ?? []}
+          transform={t}
+          originY={layoutData.canvasOrigin.y}
+          isDark={isDark}
+          editingEntityId={editingEntityId}
+        />
+      ) : null}
     </div>
   )
 }

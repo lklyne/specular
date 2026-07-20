@@ -85,9 +85,15 @@ function GroupRenameItem({
   setGroupDropTarget: (groupId: string | null) => void
   setDropBindingSuppressed: (suppressed: boolean) => void
 }) {
-  const labelColorClass = group.color
-    ? isDark ? 'text-zinc-100' : 'text-zinc-900'
-    : isDark ? 'text-zinc-300' : 'text-zinc-700'
+  // The visible glyphs are painted by GroupLabelCanvasSurface in screen space
+  // (crisp at any zoom); this DOM label stays mounted only as the hit target
+  // for drag/select/rename, so its resting text is transparent. The real
+  // color returns while renaming, when the InlineEditLabel input inherits it.
+  const labelColorClass = !isRenaming
+    ? 'text-transparent'
+    : group.color
+      ? isDark ? 'text-zinc-100' : 'text-zinc-900'
+      : isDark ? 'text-zinc-300' : 'text-zinc-700'
   // The label sits above group.screenY and inside aboveView's overlay-local
   // coordinate space; subtract canvasOrigin.y to drop into overlay coords.
   const left = group.screenX
