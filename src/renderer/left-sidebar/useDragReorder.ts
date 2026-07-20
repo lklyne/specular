@@ -99,13 +99,14 @@ export function useDragReorder(
           setDropTargetIndex(null)
         },
         className: isDragged ? 'opacity-40' : '',
+        // Drop indicators use inset box-shadow, not border: box-shadow doesn't
+        // occupy layout space, so the indicator can't nudge neighboring rows.
         style: {
-          borderTop: showTopIndicator
-            ? '2px solid var(--surface-toolbar-border)'
-            : '2px solid transparent',
-          borderBottom: showBottomIndicator
-            ? '2px solid var(--surface-toolbar-border)'
-            : '2px solid transparent',
+          boxShadow: showTopIndicator
+            ? 'inset 0 2px 0 0 var(--surface-toolbar-border)'
+            : showBottomIndicator
+              ? 'inset 0 -2px 0 0 var(--surface-toolbar-border)'
+              : 'none',
         } as React.CSSProperties,
       }
     },
