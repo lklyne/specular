@@ -159,6 +159,24 @@ per-tick `setBounds`, emulation-scale update, visibility toggle, or capture on
 the live views. Apply their final geometry once behind the still-visible raster,
 then swap back atomically.
 
+## Broader scope discovered: everything scene-anchored needs a zoom story
+
+The de-dirty wins came from *not* rebuilding the scene per input tick. The
+consequence is that anything positioned against the settled scene layout is
+stale during motion and only corrects on settle. Page borders and group titles
+have been moved to screen-space canvas layers, but the same rethink is still
+owed to:
+
+- popup/context menus and other scene-anchored overlays (they float at the old
+  position or wrong scale during zoom);
+- selection outlines, handles, and similar chrome;
+- any future overlay that reads settled layout instead of the live camera.
+
+The likely shape is a single rule: overlays either derive from the live camera
+(like the grid now does) or hide during motion and reappear on settle. This is
+a bigger scope than the original pan/zoom perf task and should be designed
+once, not patched per-overlay.
+
 ## Verification status
 
 Before this handoff:
