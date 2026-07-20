@@ -158,6 +158,7 @@ export function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvas
     height: entity.height,
     text: entity.text,
     color: isNeutral ? '1' : entity.color,
+    parentGroupId: entity.parentGroupId,
   }
   const specular = buildSpecularExtensions(
     entity.textStyle,
@@ -207,6 +208,7 @@ export function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvas
     subpath: entity.subpath,
     objectFit: entity.objectFit,
     presetIndex: entity.presetIndex,
+    parentGroupId: entity.parentGroupId,
     metadata: entity.metadata,
   }
 }
@@ -428,6 +430,7 @@ export function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTe
     canvasY: node.y,
     width: node.width,
     height: node.height,
+    parentGroupId: node.parentGroupId,
     pageAnchor: node.specular?.pageAnchor,
   }
 }
@@ -444,6 +447,7 @@ export function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFi
     height: node.height,
     objectFit: node.objectFit,
     presetIndex: node.presetIndex,
+    parentGroupId: node.parentGroupId,
     metadata: node.metadata,
   }
 }

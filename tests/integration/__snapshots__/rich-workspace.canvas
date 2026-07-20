@@ -9,6 +9,7 @@
       "height": 100,
       "text": "hello canvas",
       "color": "3",
+      "parentGroupId": "generated-id-5",
       "specular": {
         "textStyle": "sticky",
         "widthMode": "fixed"
@@ -21,7 +22,8 @@
       "y": 300,
       "width": 220,
       "height": 180,
-      "file": "notes/fixture.md"
+      "file": "notes/fixture.md",
+      "parentGroupId": "generated-id-5"
     },
     {
       "id": "generated-id-3",

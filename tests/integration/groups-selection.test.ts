@@ -208,6 +208,32 @@ describe('groups + selection', () => {
     }
   })
 
+  it('persists text and file member parentGroupId to disk and restores it', async () => {
+    const text = createTextEntity({ canvasX: 0, canvasY: 0, text: 'member text' })
+    const file = applyCanvasPatch({
+      entities: [
+        { kind: 'file', canvasX: 200, canvasY: 0, file: 'notes/member.md', width: 220, height: 180 },
+      ],
+    }).created[0]
+    await settleSync()
+    const group = createUserGroup([text.id, file], 'Mixed members')
+    await settleSync()
+
+    const disk = harness.diskDoc()
+    expect(disk?.nodes.find((n) => n.id === text.id)).toMatchObject({
+      type: 'text',
+      parentGroupId: group.id,
+    })
+    expect(disk?.nodes.find((n) => n.id === file)).toMatchObject({
+      type: 'file',
+      parentGroupId: group.id,
+    })
+
+    // Deserialize direction: reloading the on-disk doc restores membership.
+    harness.loadFixture({ name: 'Mixed restore', doc: disk! })
+    expect(getTextEntities().find((t) => t.id === text.id)?.parentGroupId).toBe(group.id)
+  })
+
   it('round-trips group creation through undo/redo', async () => {
     const [aId, bId] = await createTextPair()
     const group = createUserGroup([aId, bId], 'Undoable group')

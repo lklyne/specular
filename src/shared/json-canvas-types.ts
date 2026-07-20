@@ -58,6 +58,7 @@ export interface SpecularNodeExtensions {
 export interface JsonCanvasTextNode extends JsonCanvasNodeBase {
   type: 'text'
   text: string
+  parentGroupId?: string
   specular?: SpecularNodeExtensions
 }
 
@@ -83,6 +84,7 @@ export interface JsonCanvasFileNode extends JsonCanvasNodeBase {
   // App-specific extensions (other tools ignore per spec extensibility model)
   objectFit?: 'contain' | 'cover' | 'fill'
   presetIndex?: number
+  parentGroupId?: string
   metadata?: Record<string, unknown>
 }
 
