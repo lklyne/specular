@@ -2,6 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-06-08
+**Updated:** 2026-07-21 — content-addressed assets, sandbox serving origin, snapshot-tile web client, and the HTML prototyping loop as the first slice.
 **Builds on:** the existing Yjs state layer (`src/main/runtime/workspace-doc.ts`, `workspace-observers.ts`) and the asset model (`src/main/runtime/image-assets.ts`). No code has landed for this ADR; it records the intended architecture before any of it is built.
 **Related:** [ADR 0003 — `Page` as the canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md) (live pages are the entity kind with no cloud-renderable pixels), [`docs/architecture.md`](../architecture.md) (two-layer state model), [`docs/file-formats.md`](../file-formats.md) (`.canvas` and the `assets/` folder).
 
@@ -47,6 +48,8 @@ This mirrors what the app already does locally (`image-assets.ts`: bytes to `ass
 
 Upload flow: client/agent uploads bytes via a Worker (presigned R2 PUT or proxied) → Worker returns the key → the reference is written into the file entity → propagates to all peers → peers GET bytes from R2 (CDN-cached).
 
+**HTML assets are active content and are served from a separate sandbox origin.** Images and video are inert; agent- and user-authored HTML executes in viewers' browsers. It is served from a dedicated origin (the GitHub-usercontent pattern), embedded via sandboxed iframes, and never from the app or Worker origin — a generated page must have no path to tokens or the auth surface. Whether the sandbox CSP permits external network access (CDN scripts) or forces self-contained files is an open implementation choice; self-contained is the safer default and the shape agents already produce.
+
 ### 3. Asset-id indirection — keep `.canvas` portable
 
 A file entity stores a **stable asset id**, not a location. Location is **resolved per environment**:
@@ -57,6 +60,10 @@ A file entity stores a **stable asset id**, not a location. Location is **resolv
 | Cloud | R2 object key |
 
 The resolver is the single place the two location schemes meet — the same shape as the serializer being the only place `page` ⇄ JSON Canvas `link` meet (ADR 0003). This preserves the file-format invariant ("a `.canvas` is portable and tool-readable") and means the same canvas opens in the desktop app and the cloud service without rewriting paths. The concrete on-disk encoding (e.g. an `id` field under the entity's `specular` namespace per CONTEXT.md's extension convention) is left to implementation, but the **principle — store an id, resolve a location — is the decision.**
+
+**Asset versions are content-addressed and immutable.** Each write lands at a key derived from a hash of the bytes; the doc reference names the current version by hash and editing repoints it. Chosen over a mutable key + version counter because prototyping overwrites the same entity many times per session, and a mutable key fights CDN caching — the same problem `filePathToSrcVersioned` papers over locally with a query-string cache-buster. Content addressing makes cache-busting structural (a new hash is a new URL), dedupes unchanged re-uploads for free, and retains every iteration as a side effect: the doc history plus the hash trail is a scrubbable timeline of an agent's revisions. Orphaned hashes become a background GC chore, not a correctness problem.
+
+An asset id maps to a single object. HTML with relative references (`index.html` + `style.css`) is deferred: v1 requires self-contained single files (the shape agents are already trained into by artifact-style tooling); folder-as-asset — a bundle served under a key prefix so relative URLs resolve — is the planned extension when single-file hurts.
 
 ### 4. Sharing — capability links, agents as peers
 
@@ -70,7 +77,18 @@ A **share link** is a URL carrying the **doc id** plus a **capability token**: `
 
 **Presence** uses Yjs awareness, wired into the cursor layer that already exists (`presence-manager.ts`, the `agent-layer` overlay / `AgentCursorLayer`). This is an extension of existing surfaces, not a new subsystem.
 
-### 5. Render-dependent features — explicit two-case model
+### 5. The HTML prototyping loop — the cloud-native iteration workflow
+
+An emergent workflow shapes the substrate: **agents prototype by writing HTML files** onto the canvas. Locally this is the html-renderer file entity — an iframe on `local-file://` with a watcher-driven reload (`HtmlInlineRenderer.tsx`, `fileReloadVersion`). It is the one "webpage" kind that needs zero cloud rendering infrastructure: the content is static files at a URL, and every peer's browser renders it natively.
+
+The cloud loop replaces the file watcher with the doc itself: agent PUTs bytes → writes the new content hash into the file entity's reference → the DO propagates → every peer's iframe reloads (the existing reload-flash affordance carries over). Change signal and content update are one transaction — no watcher races — and the round trip is one small PUT plus one CRDT message.
+
+Two consequences:
+
+- **The file entity, not the `page`, is the canonical prototyping surface for cloud agents.** Locally an agent may iterate against a localhost dev server in a page; in the cloud, localhost is unreachable and unnecessary — the agent writes the files it is iterating on. Steer agents accordingly in the skill guidance when this ships.
+- **The agent's visual feedback loop runs fully server-side.** An HTML file entity is a static URL, so screenshotting it in the cloud is trivial (Browser Rendering or any headless browser) — none of the render-path work in §6 applies. Write → look → revise needs no desktop app.
+
+### 6. Render-dependent features — pages become snapshot tiles on the web
 
 Because live pages have no cloud pixels, **browser multiplayer** and **cloud screenshots** are governed by where rendering happens:
 
@@ -78,12 +96,20 @@ Because live pages have no cloud pixels, **browser multiplayer** and **cloud scr
 |---|---|---|
 | Edit structured content (text/shape/edge/image refs) | Full | Full |
 | Edit/place via agent | Full | Full |
-| Render live page nodes | Full (live `WebContentsView`) | Needs a render path: iframes (cross-origin limited) or cached R2 snapshots |
-| Screenshot the canvas | **Today, via existing pipeline** (`region-capture.ts` / `frame-compositor.ts`, `/frames/screenshot-composite`) | Needs Cloudflare Browser Rendering for live pages, or composite from cached page snapshots (`agent-snapshot-cache.ts`) for structured + last-known page tiles |
+| Render HTML file entities | Full (iframe on `local-file://`) | Full (sandboxed iframe on the R2-backed sandbox origin) |
+| Render live page nodes | Full (live `WebContentsView`) | **Snapshot tile** (decision below) |
+| Screenshot the canvas | **Today, via existing pipeline** (`region-capture.ts` / `frame-compositor.ts`, `/frames/screenshot-composite`) | Needs Cloudflare Browser Rendering for live pages, or composite from cached page snapshots for structured + last-known page tiles |
 
-The decision is to **lean on the existing app-side capture pipeline as the high-fidelity path**, and treat cloud-side rendering (Browser Rendering / cached-snapshot compositing) as an additive capability, not a prerequisite for sync or sharing.
+**In the web client, a `page` renders as its last-captured snapshot.** This is the decision that makes a link-based web version cheap: with it, every entity kind has a static web rendering, and the web client is a pan/zoom scene renderer with no live-web machinery. Mechanics:
 
-### 6. Cost posture (guesstimate, recorded for context)
+- The desktop app is the only process with page pixels, so it captures — riding the existing pipeline — on load/navigation, debounced after interaction, and periodically while connected, and uploads each capture as an ordinary content-addressed asset. The page's doc projection carries the snapshot reference plus a captured-at timestamp; content addressing means an unchanged page re-uploads nothing.
+- **Freshness is bound to the last connected desktop session.** The web client surfaces this ("captured 2h ago") rather than passing a snapshot off as live. The trade also *solves* localhost visibility: a page pointed at a dev server becomes viewable by remote peers because the pixels travel instead of the URL.
+- **Snapshot references live outside UndoManager scope**, like viewport zoom/pan. Background captures are ambient side effects; if they entered the tracked maps, every capture would inject a garbage undo step into the single global undo stack.
+- A snapshot tile is not scrollable or clickable, and that is acceptable: the share-link workflows that matter — panning the arrangement, reading it, **dropping a comment on a page** — all work, because comments anchor positionally in page space and sync back through the doc to land on the live page in the desktop app.
+
+Cloud-side live rendering (Browser Rendering, tunnels to localhost) stays an **additive capability, not a prerequisite** — the app-side capture pipeline remains the high-fidelity path.
+
+### 7. Cost posture (guesstimate, recorded for context)
 
 Order-of-magnitude on the Cloudflare stack; the Workers Paid floor dominates until there are real users, after which marginal cost is roughly **$1–2/user/month**, driven by Durable Object active duration (hibernation is the main lever), request volume (Yjs message chattiness — batch/debounce), then R2 storage. R2's zero egress is what keeps a media product viable. **LLM inference for agents will dwarf hosting** — hosting is the rounding error.
 
@@ -116,8 +142,9 @@ Order-of-magnitude on the Cloudflare stack; the Workers Paid floor dominates unt
 
 **New to build:**
 - The **token/auth layer** (issue, scope, expire, revoke; D1/KV grants) — the real work, not the sync.
-- A **web canvas client** *iff* browser-based multiplayer is wanted (the desktop renderer is Electron-coupled; live pages degrade to iframes/snapshots in a browser).
-- The **asset resolver** (id → local path | R2 key) and upload Worker.
+- A **web client, staged**: a **view + comment client** first (static scene renderer; pages as snapshot tiles per §6; comments are doc entities dropped as pins) — a fraction of a full editor, and it already covers "a person opens the link, looks, and leaves comments". Full web editing is a later stage, wanted only when browser-based *editing* is in scope.
+- The **asset resolver** (id → local path | R2 key), the upload Worker, and the **sandbox serving origin** for HTML assets (§2).
+- **Snapshot capture-and-upload** in the desktop app (riding the existing capture pipeline), plus the snapshot reference + captured-at on the page projection, excluded from undo scope (§6).
 - Generalizing the Y.Doc → runtime observer beyond undo to absorb remote transactions, plus origin tagging for remote/agent edits.
 
 **Costs / accepted trade-offs:**
@@ -126,13 +153,13 @@ Order-of-magnitude on the Cloudflare stack; the Workers Paid floor dominates unt
 - **Cloudflare's $5 Workers Paid floor** exists even at single-user scale (Durable Objects require it).
 
 **Non-goals:**
-- Choosing the exact on-disk encoding of the asset id, the token format, or the wire framing — implementation details, not decisions of record.
+- Choosing the token format, the wire framing, or the exact field encoding of asset references under the `specular` namespace — implementation details, not decisions of record. (The reference *model* — content-addressed, immutable versions — is decided in §3.)
 - Replacing local-first. Disk `.canvas` files remain a first-class, fully-functional mode; cloud sync is additive. A canvas must remain openable and editable offline with no server.
-- Building cloud-side live-page rendering now. It is additive (case-by-case per §5), not a prerequisite for sync or sharing.
+- Building cloud-side live-page rendering now. It is additive (case-by-case per §6), not a prerequisite for sync or sharing — snapshot tiles are the shipping shape for pages on the web.
 - A managed multi-tenant billing/quota system — that's product work downstream of this substrate decision.
 
 ## Adoption trigger
 
-This is the target architecture, not a mandate to build it now. The natural first slice is a **spike**: attach a `y-partykit` Durable Object to `getActiveDoc()`, add an R2 upload Worker plus the asset-id resolver, and prove a headless Node agent joining a share link and editing a canvas live. Promote from spike to product when the **auth/token layer and (if browser multiplayer is in scope) the web canvas client** are scheduled — those, not the sync, gate a chargeable service. Until then, the local-first disk path remains the only shipping mode.
+This is the target architecture, not a mandate to build it now. The natural first slice is a **spike proving the HTML prototyping loop end-to-end (§5)**: attach a `y-partykit` Durable Object to `getActiveDoc()`, add the upload Worker plus the asset resolver, and show a headless Node agent joining a share link, writing an HTML file entity, and every connected peer's iframe reloading. That one loop exercises every substrate piece — doc sync, content-addressed assets, agent-as-peer — with zero render-path work. Promote from spike to product when the **auth/token layer and the view + comment web client** are scheduled — those, not the sync, gate a chargeable service. Until then, the local-first disk path remains the only shipping mode.
 
-When adopted, add a **Cloud sync & sharing** entry to `CONTEXT.md` (doc id, Durable Object per canvas, capability link, asset id, agent-as-peer), document the resolver and token model under `src/main/` once they exist, and note the `.canvas` asset-id encoding in `docs/file-formats.md`.
+The **Cloud sync & sharing** glossary entry in `CONTEXT.md` records the vocabulary (doc id, Durable Object per canvas, capability link, asset id, snapshot tile, sandbox origin, agent-as-peer). When adopted, document the resolver and token model under `src/main/` once they exist, and note the `.canvas` asset-reference encoding in `docs/file-formats.md`.
