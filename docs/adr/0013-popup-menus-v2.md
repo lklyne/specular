@@ -97,6 +97,15 @@ Sticky is **not** in this toggle. Sticky has its own toolbar entry and its own p
 
 ### 4. `Tool` union restructure
 
+> **Partially adopted (2026-07).** `add-sticky` was added as a first-class tool
+> and `add-text.style` was removed — those two changes landed. However,
+> `add-document` was **not** removed (§3's cross-kind morph was retired instead,
+> so the short→long toggle that was meant to replace `add-document` was never
+> built). The live `Tool` union in `src/shared/tool.ts` includes both
+> `add-document` and `add-sticky`, and `add-text` has no `style` field.
+> The union described below is the original proposal; the current code differs
+> in that `add-document` remains a first-class tool.
+
 ```ts
 type Tool =
   | { kind: 'select' }       // default

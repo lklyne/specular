@@ -18,7 +18,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │  ├─ canvas, toolbar, sidebar, inspector, chrome, etc.       │
 │                                                              │
 │  HTTP API (src/main/routes/)                                │
-│  ├─ /workspace, /pages, /entities, /selection, etc.         │
+│  ├─ /canvas, /canvas/apply, /pages, /groups, /layout, etc.  │
 │                                                              │
 │  Persistence                                                 │
 │  └─ .canvas files on disk (autosave, 350ms debounce)        │
@@ -52,7 +52,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
                    │
 ┌──────────────────┴──────────────────────────────────────────┐
 │ External clients                                             │
-│  CLI (planned)     Agent interaction via command line        │
+│  CLI               Agent interaction via command line        │
 │  HTTP API          Runtime queries and mutations             │
 │  CDP proxy         Chrome DevTools Protocol (WebSocket)      │
 └─────────────────────────────────────────────────────────────┘
@@ -66,8 +66,9 @@ layout data via IPC broadcasts and re-render.
 **Actions flow up.** User interactions in renderers call preload API methods,
 which send IPC messages to main, which mutates state and broadcasts updates.
 
-**External access.** The HTTP API and CLI provide the same mutation capabilities
-as IPC, used by agents and tests.
+**External access.** The HTTP API (`GET /canvas`, `POST /canvas/apply`) and the
+CLI (`specular create/update/delete/arrange/apply`) provide the same mutation
+capabilities as IPC, used by agents and tests.
 
 ## Two-layer state model
 
@@ -93,12 +94,13 @@ All canvas content is a **node** (following the JSON Canvas spec):
 | Node type | Internal kind | Description |
 |-----------|--------------|-------------|
 | `link` | `page` | Live web page in an Electron webview |
-| `text` | `text` | Text/markdown note |
-| `file` | `file` | Reference to a local file (image, etc.) |
-| `group` | `group` | Visual container for other nodes |
+| `text` | `text` | Text or sticky-note on the canvas |
+| `file` | `file` | Reference to a local file (image, video, markdown, component, etc.) |
+| `group` | `group` | Visual container for other nodes; may be auto-layout managed |
+| (Specular ext.) | `drawing` | Freehand pen/highlight strokes as a first-class entity |
+| (Specular ext.) | `shape` | Rectangle, ellipse, or diamond with optional text label |
 
-Plus **edges** (connections between nodes) and **annotations** (freehand
-drawings overlaid on the canvas).
+Plus **edges** (connections between nodes).
 
 Each entity type has:
 - `Persisted*Entity` — serializable fields (saved to .canvas)
@@ -123,6 +125,12 @@ Each entity type has:
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |
 | `json-canvas-serializer.ts` | JSON Canvas <-> internal format conversion |
+| `mutate-workspace.ts` | Single mutation seam: dirty→autosave→layout→undo boundary ([ADR 0025](adr/0025-single-workspace-mutation-seam.md)) |
+| `focus-session.ts` | First-class focus session state and lifecycle ([ADR 0021](adr/0021-focus-session-as-first-class-concept.md)) |
+| `note-content-state.ts` | Y.Doc-backed note/document text content for undo ([ADR 0023](adr/0023-note-content-in-ydoc-for-undo.md)) |
+| `binding-dispatcher.ts` | Sole keyboard shortcut dispatch site ([ADR 0010](adr/0010-main-as-sole-shortcut-dispatch-site.md)) |
+| `entity-order-state.ts` | `entityOrder` stack mutations ([ADR 0014](adr/0014-canvas-stack-order.md)) |
+| `canvas-apply.ts` | `POST /canvas/apply` — canonical CLI/HTTP mutation surface ([ADR 0019](adr/0019-canvas-as-document-cli.md), [ADR 0024](adr/0024-entity-kind-registry-spans-runtime-and-persistence.md)) |
 
 ### src/main/ipc/
 

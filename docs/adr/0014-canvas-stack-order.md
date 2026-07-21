@@ -1,7 +1,13 @@
 # ADR 0014 — Canvas stack order and the Notes/Pages sidebar
 
-**Status:** Proposed
+**Status:** Partially Accepted
 **Date:** 2026-05-11
+
+> **Note (2026-07).** Migration slices 1–4 have landed (pure math module,
+> sidebar sort by `entityOrder`, page WCV re-stack, and `aboveView`
+> paint-iteration in `entityOrder` order). Slices 5–9 (sidebar drag-to-reorder,
+> context-menu shortcuts, edges in `entityOrder`, one-time migration, HTTP API
+> routes) remain open.
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md), [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md).
 **Supersedes premise of:** the sidebar's position-based sort (`compareSidebarPositions` in `sidebar-builder.ts`) and the implicit "edges always paint above all entities" rule.
 **Origin:** Grilled out from [`docs/canvas-stacking-research.md`](../canvas-stacking-research.md) (branch `claude/research-canvas-stacking-NQ7Lh`) and the grilling session on branch `claude/plan-canvas-stacking-s1th2`.

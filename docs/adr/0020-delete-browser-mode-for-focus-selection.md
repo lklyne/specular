@@ -1,8 +1,8 @@
 # ADR 0020 — Delete Browser Mode for Focus Selection
 
-Status: Accepted
+**Status:** Accepted
 
-Date: 2026-06-24
+**Date:** 2026-06-24
 
 ## Context
 

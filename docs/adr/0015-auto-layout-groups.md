@@ -1,7 +1,12 @@
 # ADR 0015 — Auto-layout groups
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-29
+
+> **Note (2026-07).** This ADR has been implemented. Gap handles (`layoutGap`,
+> `resizing-gap` gesture) and column direction (`layoutMode: 'column'`) have
+> landed as Milestone 2. Still deferred: `'grid'` managed reflow, `layoutAlign`,
+> and the floating multi-select toolbar.
 **Related:** [ADR 0014 — Canvas stack order and the Notes/Pages sidebar](./0014-canvas-stack-order.md), [ADR 0001 — Click to enter page focus](./0001-click-to-enter-page-focus.md).
 **Origin:** Built from [`docs/plans/auto-layout-reorder.md`](../plans/auto-layout-reorder.md) (Milestone 1).
 

@@ -1,8 +1,8 @@
 # ADR 0021 — Focus Session as a First-Class Concept
 
-Status: Accepted
+**Status:** Accepted
 
-Date: 2026-06-28
+**Date:** 2026-06-28
 
 ## Context
 
