@@ -4,6 +4,8 @@ Executes the first slice of [ADR 0018](../adr/0018-cloud-sync-and-canvas-sharing
 
 ## Recorded implementation choices
 
+- **The synced unit in the spike is the workspace doc, not one doc per canvas.** The runtime owns exactly one `Y.Doc` per process and tabs are a data slice inside it (`workspace-doc.ts`), so the spike maps one Durable Object to one *workspace*; every tab's `.canvas` carries the same `specular.server` docId. ADR 0018's one-DO-per-canvas granularity requires splitting the runtime doc per tab — a recorded follow-up, not spike work.
+
 These are the owner's calls plus their consequences; steps below assume them.
 
 - **`server/` workspace package.** All cloud code — Worker, `YServer` Durable Object, better-auth setup, D1 schema/migrations, grant + redemption endpoints — lives in a `server/` folder as a pnpm workspace package in this repo. Protocol types shared with the desktop app go in `src/shared/` (which stays side-effect-free; `server/` may import from `src/shared/`, never the reverse).
