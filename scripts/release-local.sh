@@ -70,7 +70,7 @@ awk -v ver="$VERSION" '
     printf "%s%s\n", blanks, $0
     blanks = ""
   }
-' changelog.md > "$NOTES"
+' CHANGELOG.md > "$NOTES"
 
 if [ ! -s "$NOTES" ]; then
   echo "No changelog section for $VERSION; leaving release notes empty"
