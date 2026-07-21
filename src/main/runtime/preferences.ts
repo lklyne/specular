@@ -65,10 +65,30 @@ type PreferencesFile = {
   debug?: {
     cursorSplineViz?: boolean
     cursorTuning?: CursorTuningParams
+    /** Cloud-share dev flag (ADR 0018 §4b). OFF by default; the whole share
+     *  surface stays hidden until `enabled` is set. */
+    cloudShare?: { enabled?: boolean; serverUrl?: string }
+  }
+}
+
+/** Default sync server the share flow targets when the flag is on. */
+const DEFAULT_CLOUD_SHARE_SERVER_URL = 'http://localhost:8787'
+
+export interface CloudShareConfig {
+  enabled: boolean
+  serverUrl: string
+}
+
+function normalizeCloudShare(raw: { enabled?: boolean; serverUrl?: string } | undefined): CloudShareConfig {
+  const url = typeof raw?.serverUrl === 'string' ? raw.serverUrl.trim() : ''
+  return {
+    enabled: raw?.enabled === true,
+    serverUrl: url || DEFAULT_CLOUD_SHARE_SERVER_URL,
   }
 }
 
 let currentCursorSplineViz = false
+let currentCloudShare: CloudShareConfig = { enabled: false, serverUrl: DEFAULT_CLOUD_SHARE_SERVER_URL }
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
 let currentThemeMode: AppThemeMode = 'system'
@@ -148,6 +168,7 @@ export function loadPreferences(): void {
     fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
   }
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
+  currentCloudShare = normalizeCloudShare(parsed.debug?.cloudShare)
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
   currentThemeMode = normalizeThemeMode(parsed.themeMode)
@@ -178,6 +199,19 @@ export function saveCursorSplineViz(next: boolean): void {
   writePreferencesFile({
     ...parsed,
     debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
+  })
+}
+
+export function getCloudShareConfig(): CloudShareConfig {
+  return currentCloudShare
+}
+
+export function saveCloudShareConfig(next: { enabled: boolean; serverUrl?: string }): void {
+  currentCloudShare = normalizeCloudShare(next)
+  const parsed = readPreferencesFile()
+  writePreferencesFile({
+    ...parsed,
+    debug: { ...parsed.debug, cloudShare: currentCloudShare },
   })
 }
 

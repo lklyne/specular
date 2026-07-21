@@ -52,6 +52,17 @@ function tokenFromFragment(hash: string): string | null {
   return params.get('t')
 }
 
+/**
+ * Build a canonical share link (`<base>/c/<docId>#t=<token>`, ADR 0018 §4b) —
+ * the inverse of `parseShareLink`. The token rides the fragment so it never
+ * reaches the server in a request line. Trailing slashes on the base are
+ * dropped so `http://host/` and `http://host` produce the same link.
+ */
+export function buildShareLink(params: { base: string; docId: string; token: string }): string {
+  const base = params.base.replace(/\/+$/, '')
+  return `${base}/c/${params.docId}#t=${params.token}`
+}
+
 /** Exchange a grant token for a short-TTL connection token (`POST /redeem`). */
 export async function redeemLink(base: string, grantToken: string): Promise<ConnectionToken> {
   const res = await fetch(`${base}/redeem`, {

@@ -28,6 +28,12 @@ const api: ToolbarElectronAPI = {
   onAgentPresenceChanged: on<AgentPresenceCursor[]>(ipcChannels.agentPresenceChanged),
   repoConnectViaPicker: () => ipcRenderer.invoke(ipcChannels.repoConnectViaPicker),
   repoDisconnect: (id) => ipcRenderer.invoke(ipcChannels.repoDisconnect, { id }),
+  shareState: () => ipcRenderer.invoke(ipcChannels.shareState),
+  sharePublish: () => ipcRenderer.invoke(ipcChannels.sharePublish),
+  shareCopyLink: (scope) => ipcRenderer.invoke(ipcChannels.shareCopyLink, { scope }),
+  shareListLinks: () => ipcRenderer.invoke(ipcChannels.shareListLinks),
+  shareResetLink: (grantId) => ipcRenderer.invoke(ipcChannels.shareResetLink, { grantId }),
+  shareRevokeLink: (grantId) => ipcRenderer.invoke(ipcChannels.shareRevokeLink, { grantId }),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

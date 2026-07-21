@@ -14,6 +14,15 @@ import {
 } from '../runtime/ui-actions'
 import { endDevtoolsResize, setDevtoolsWidthFromScreenX } from '../runtime/window-shell'
 import { setToolbarDropdownOpen, setToolbarTooltipOpen } from '../ui-state'
+import type { ShareScope } from '../../shared/share'
+import {
+  shareCopyLink,
+  shareListLinks,
+  sharePublish,
+  shareResetLink,
+  shareRevokeLink,
+  shareState,
+} from '../runtime/share-actions'
 
 export function registerToolbarIpc(): void {
   ipcMain.on(ipcChannels.zoomIn, () => {
@@ -109,4 +118,19 @@ export function registerToolbarIpc(): void {
     setToolbarTooltipOpen(false)
     requestLayout()
   })
+
+  // Cloud share (dev-flagged, ADR 0018 §4b). All request/response; share-actions
+  // returns typed results, so these never reject across the boundary.
+  ipcMain.handle(ipcChannels.shareState, () => shareState())
+  ipcMain.handle(ipcChannels.sharePublish, () => sharePublish())
+  ipcMain.handle(ipcChannels.shareCopyLink, (_event, payload: { scope?: ShareScope }) =>
+    shareCopyLink(payload?.scope ?? 'comment'),
+  )
+  ipcMain.handle(ipcChannels.shareListLinks, () => shareListLinks())
+  ipcMain.handle(ipcChannels.shareResetLink, (_event, payload: { grantId?: string }) =>
+    shareResetLink(payload?.grantId ?? ''),
+  )
+  ipcMain.handle(ipcChannels.shareRevokeLink, (_event, payload: { grantId?: string }) =>
+    shareRevokeLink(payload?.grantId ?? ''),
+  )
 }

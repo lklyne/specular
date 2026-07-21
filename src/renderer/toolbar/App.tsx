@@ -11,6 +11,7 @@ import {
   RightPanelToggle,
   ToolbarStatusActions,
 } from './toolbarSections'
+import { ShareButton } from './SharePopover'
 import { useToolbarState } from './useToolbarState'
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
@@ -162,6 +163,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
             isDark={isDark}
             agentCursors={agentCursors}
           />
+          <ShareButton isDark={isDark} />
           <RightPanelToggle
             isDark={isDark}
             devtoolsOpen={devtoolsOpen}

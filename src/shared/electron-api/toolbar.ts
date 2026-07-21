@@ -7,6 +7,12 @@ import type {
   ThemeData,
   ToolbarSelectionData,
 } from '../types'
+import type {
+  ShareLinkInfo,
+  ShareResult,
+  ShareScope,
+  ShareStateData,
+} from '../share'
 
 export interface ToolbarElectronAPI {
   zoomIn: () => void
@@ -32,4 +38,10 @@ export interface ToolbarElectronAPI {
   onAgentPresenceChanged: (callback: (cursors: AgentPresenceCursor[]) => void) => () => void
   repoConnectViaPicker: () => Promise<ConnectedRepo | null>
   repoDisconnect: (id: string) => Promise<void>
+  shareState: () => Promise<ShareStateData>
+  sharePublish: () => Promise<ShareResult<ShareStateData>>
+  shareCopyLink: (scope: ShareScope) => Promise<ShareResult<{ url: string }>>
+  shareListLinks: () => Promise<ShareResult<ShareLinkInfo[]>>
+  shareResetLink: (grantId: string) => Promise<ShareResult<ShareLinkInfo>>
+  shareRevokeLink: (grantId: string) => Promise<ShareResult<{ revoked: string }>>
 }
