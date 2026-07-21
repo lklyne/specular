@@ -1,0 +1,33 @@
+{
+  "name": "@specular/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Specular cloud server: y-partyserver sync Durable Object, better-auth identity, and asset storage on Cloudflare.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --conditions=workerd,worker,browser --main-fields=module,main --external:node:* --external:cloudflare:* --outfile=dist/worker.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@better-auth/api-key": "^1.6.23",
+    "better-auth": "^1.6.23",
+    "drizzle-orm": "^0.45.2",
+    "partyserver": "^0.5.8",
+    "y-partyserver": "^2.2.0",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.30"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.27.4",
+    "miniflare": "^4.20260714.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.1",
+    "ws": "^8.20.0"
+  }
+}
