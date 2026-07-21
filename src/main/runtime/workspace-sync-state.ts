@@ -49,3 +49,29 @@ export function adoptBinding(binding: SyncBinding, status: SyncStatus): void {
   state.binding = binding
   state.status = status
 }
+
+// ---------------------------------------------------------------------------
+// Remote-origin registry
+//
+// The network transport (`workspace-sync-transport.ts`) applies remote Yjs
+// updates with its provider instance as the transaction origin — not the
+// static `REMOTE_SYNC_ORIGIN` symbol that `applyRemoteUpdate` uses. The
+// Y.Doc→runtime observer must treat both as "remote" so remote work patches
+// the runtime arrays; the UndoManager (tracked origins {null,'user'}) ignores
+// both automatically, since a provider instance is neither. Kept here — pure,
+// electron-free — so the observer can consult it without importing transport.
+// ---------------------------------------------------------------------------
+
+const remoteOrigins = new Set<unknown>()
+
+export function registerRemoteOrigin(origin: unknown): void {
+  remoteOrigins.add(origin)
+}
+
+export function unregisterRemoteOrigin(origin: unknown): void {
+  remoteOrigins.delete(origin)
+}
+
+export function isRemoteOrigin(origin: unknown): boolean {
+  return remoteOrigins.has(origin)
+}

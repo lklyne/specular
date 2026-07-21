@@ -6,6 +6,7 @@ import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAn
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
 import { emitPresenceForVerb } from './cli-presence'
+import { connectCommand } from './connect-command'
 
 // ---------------------------------------------------------------------------
 // Verb handlers
@@ -686,6 +687,8 @@ const VERBS: Record<string, VerbHandler> = {
   screenshot,
   scroll,
   wait,
+  // Headless cloud peer (talks to the sync server, not a running app)
+  connect: connectCommand,
   // Read-only browser verbs
   get: browsePassthrough,
   console: browsePassthrough,
@@ -704,10 +707,11 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
+    printText('Cloud: connect <link> --html <path> | --status  (headless sync peer)')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')
     printText('Unknown verbs pass through to the bundled agent-browser as raw commands')
-    printText('(some — launch/close/quit/install/upgrade/connect/open — are blocked in')
+    printText('(some — launch/close/quit/install/upgrade/open — are blocked in')
     printText('favor of specular equivalents). See the specular skill\'s passthrough')
     printText('section for the full command surface, or run `specular skills get core`.')
     return 0

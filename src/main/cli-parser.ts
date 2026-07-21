@@ -23,6 +23,8 @@ export const CLI_VALUE_FLAGS = new Set([
   '--anchor', '--label', '--color', '--layout', '--gap',
   '--status', '--url', '--page-id',
   '--reason', '--text',
+  // `connect` (headless cloud peer)
+  '--html', '--x', '--y', '--id',
   '--output', '--fps', '--quality',
   '--min-idle', '--speed-factor',
   '--kind',
