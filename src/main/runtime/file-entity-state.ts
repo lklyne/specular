@@ -31,6 +31,8 @@ import {
   teardownAllFileWatchers,
   getFileReloadVersion,
 } from './local-file-watcher'
+import { isAssetReference, resolveAssetReference } from './asset-resolver'
+import { getSyncBinding } from './workspace-sync-state'
 
 export interface FileEntity {
   id: string
@@ -147,7 +149,7 @@ export function buildFileEntitySceneEntity(
   return {
     kind: 'file',
     id: entity.id,
-    file: entity.file,
+    file: resolveEntityFileField(entity.file),
     subpath: entity.subpath,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
@@ -168,6 +170,41 @@ export function buildFileEntitySceneEntity(
     contentScreenHeight: showShell ? contentScreenH : undefined,
     fileReloadVersion: getFileReloadVersion(entity.id),
     ...rendererSceneFields(entity),
+  }
+}
+
+/**
+ * Resolve a persisted `entity.file` to the location this scene entity should
+ * carry. Non-asset references (a local path, `local-file://…`, `http(s)://…`)
+ * already are that location and pass through untouched — the asset-id
+ * indirection (ADR 0018 §3) only applies to `asset://` references. Local wins
+ * over remote so a machine with the bytes already on disk never round-trips
+ * to the sync server. An unresolvable reference (no local copy, no sync
+ * binding — e.g. an offline agent's upload hasn't landed yet) degrades to the
+ * raw reference string rather than dropping the scene entity: renderers treat
+ * it like any other broken `file` path (a dead `local-file://` src today),
+ * which is the least-invasive representation with no new failure mode to add.
+ */
+function resolveEntityFileField(file: string): string {
+  if (!isAssetReference(file)) return file
+  const resolved = resolveAssetReference(file, {
+    syncBaseUrl: getSyncBinding()?.url ?? null,
+    localAssetsDir: localAssetsDir(),
+  })
+  if (!resolved) return file
+  return resolved.kind === 'remote' ? resolved.url : resolved.path
+}
+
+/**
+ * Lazy so this module stays loadable without an electron runtime —
+ * `image-assets` resolves the assets dir from `app.getPath('userData')`.
+ */
+function localAssetsDir(): string | null {
+  try {
+    const { assetsDir } = require('./image-assets') as typeof import('./image-assets')
+    return assetsDir()
+  } catch {
+    return null
   }
 }
 

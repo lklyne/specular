@@ -29,6 +29,7 @@ import {
   workspacesDir,
 } from './workspace-persistence'
 import { scheduleWorkspaceAutosave } from './workspace-autosave'
+import { adoptBinding, setSyncBinding, type SyncBinding } from './workspace-sync-state'
 
 /**
  * Origin stamped on every remote transaction. A unique symbol cannot collide
@@ -38,47 +39,14 @@ import { scheduleWorkspaceAutosave } from './workspace-autosave'
  */
 export const REMOTE_SYNC_ORIGIN: unique symbol = Symbol('specular:remote-sync')
 
-export type SyncStatus = 'off' | 'connecting' | 'connected' | 'error'
-
-export interface SyncBinding {
-  docId: string
-  url: string
-}
-
-interface SyncState {
-  binding: SyncBinding | null
-  status: SyncStatus
-}
-
-const state: SyncState = { binding: null, status: 'off' }
-
-// ---------------------------------------------------------------------------
-// In-memory sync state
-// ---------------------------------------------------------------------------
-
-export function getSyncBinding(): SyncBinding | null {
-  return state.binding
-}
-
-export function getSyncStatus(): SyncStatus {
-  return state.status
-}
-
-export function setSyncStatus(status: SyncStatus): void {
-  state.status = status
-}
-
-/** Set the in-memory binding without persisting (used by the load path). */
-export function setSyncBinding(binding: SyncBinding | null): void {
-  state.binding = binding
-  if (!binding) state.status = 'off'
-}
-
-/** Reset the in-memory sync state (workspace unload / test isolation). */
-export function resetSyncState(): void {
-  state.binding = null
-  state.status = 'off'
-}
+export {
+  getSyncBinding,
+  getSyncStatus,
+  setSyncStatus,
+  setSyncBinding,
+  resetSyncState,
+} from './workspace-sync-state'
+export type { SyncBinding, SyncStatus } from './workspace-sync-state'
 
 // ---------------------------------------------------------------------------
 // Remote update ingress
@@ -169,15 +137,13 @@ function workspacePathFor(userDataPath: string, workspaceId: string): string {
 export function publishBinding(binding: SyncBinding, workspaceId: string = DEFAULT_WORKSPACE_ID): void {
   const userDataPath = app.getPath('userData')
   registerDoc(userDataPath, binding.docId, workspacePathFor(userDataPath, workspaceId))
-  state.binding = binding
-  state.status = 'connecting'
+  adoptBinding(binding, 'connecting')
   scheduleWorkspaceAutosave()
 }
 
 /** Clear the binding (un-publish locally) and persist the removal. */
 export function clearSyncBinding(): void {
-  state.binding = null
-  state.status = 'off'
+  setSyncBinding(null)
   scheduleWorkspaceAutosave()
 }
 
