@@ -63,6 +63,57 @@ export const verification = sqliteTable("verification", {
   updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull(),
 });
 
+/**
+ * Cloud-sync ownership + capability-link tables (ADR 0018 §4). Every doc and
+ * every grant hangs off an (anonymous) better-auth principal so the account
+ * tier attaches to existing rows later with no migration.
+ */
+
+/** One row per synced canvas. `ownerId` is the principal that published it. */
+export const docs = sqliteTable("docs", {
+  docId: text("docId").primaryKey(),
+  ownerId: text("ownerId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+});
+
+/**
+ * One durable capability link per (docId, scope). `token` is an opaque random
+ * lookup key (≥128-bit); revoke = delete the row, reset = rotate `token` in
+ * place (same grantId). Never a self-contained signed token — validation is a
+ * row lookup so links stay individually enumerable, revocable, and attributable.
+ */
+export const grants = sqliteTable("grants", {
+  grantId: text("grantId").primaryKey(),
+  docId: text("docId")
+    .notNull()
+    .references(() => docs.docId, { onDelete: "cascade" }),
+  scope: text("scope").notNull(), // 'view' | 'comment' | 'edit'
+  token: text("token").notNull().unique(),
+  createdBy: text("createdBy").notNull(),
+  createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }),
+});
+
+/**
+ * Short-TTL connection tokens minted by link redemption or the owner shortcut.
+ * A redemption-derived token pins `parentGrantId` + `grantToken` (the parent's
+ * token value at mint time); it stays valid only while the parent grant exists
+ * with that same token generation, so a reset/revoke of the link transitively
+ * kills every connection token derived from the old generation. Owner-shortcut
+ * tokens have no parent (parentGrantId null) and are gated by ownership + TTL.
+ */
+export const connectionTokens = sqliteTable("connection_tokens", {
+  token: text("token").primaryKey(),
+  docId: text("docId").notNull(),
+  scope: text("scope").notNull(),
+  parentGrantId: text("parentGrantId"),
+  grantToken: text("grantToken"),
+  userId: text("userId"),
+  expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
+});
+
 export const apikey = sqliteTable("apikey", {
   id: text("id").primaryKey(),
   configId: text("configId").notNull().default("default"),

@@ -8,6 +8,13 @@
       "when": 1784623079753,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784624060979,
+      "tag": "0001_wandering_kang",
+      "breakpoints": true
     }
   ]
 }

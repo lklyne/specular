@@ -2,39 +2,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import WebSocket from "ws";
-import YProvider from "y-partyserver/provider";
 import * as Y from "yjs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { bootServerHarness, type ServerHarness } from "./harness";
-
-/** Provider host is scheme-less; localhost triggers the ws:// (not wss) path. */
-function hostOf(url: string): string {
-  return new URL(url).host;
-}
-
-function connect(url: string, docId: string, doc: Y.Doc): YProvider {
-  return new YProvider(hostOf(url), docId, doc, {
-    party: "canvas-doc",
-    WebSocketPolyfill: WebSocket as unknown as typeof globalThis.WebSocket,
-    // No BroadcastChannel: force sync through the server, not peer tabs.
-    disableBc: true,
-  });
-}
-
-async function waitFor(
-  predicate: () => boolean,
-  timeoutMs = 10_000,
-): Promise<void> {
-  const start = Date.now();
-  while (!predicate()) {
-    if (Date.now() - start > timeoutMs) throw new Error("waitFor timed out");
-    await new Promise((r) => setTimeout(r, 20));
-  }
-}
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import {
+  connectWithToken,
+  delay,
+  ownedEditDoc,
+  ownerConnect,
+  signInAnonymous,
+  createDoc,
+  waitFor,
+  type Principal,
+} from "./helpers";
 
 describe("CanvasDoc sync", () => {
   let harness: ServerHarness;
@@ -48,11 +29,19 @@ describe("CanvasDoc sync", () => {
   });
 
   it("converges two headless Yjs clients through the DO", async () => {
-    const docId = "converge-canvas";
+    // Both clients present edit-scope connection tokens for the same doc; the
+    // owner mints two independent tokens against one doc.
+    const { principal, docId, editToken } = await ownedEditDoc(harness.url);
+    const second = await ownerConnect(
+      harness.url,
+      { cookie: (principal as Principal).cookie },
+      docId,
+    );
+
     const docA = new Y.Doc();
     const docB = new Y.Doc();
-    const providerA = connect(harness.url, docId, docA);
-    const providerB = connect(harness.url, docId, docB);
+    const providerA = connectWithToken(harness, docId, docA, editToken);
+    const providerB = connectWithToken(harness, docId, docB, second.token);
 
     await waitFor(() => providerA.synced && providerB.synced);
 
@@ -75,9 +64,9 @@ describe("CanvasDoc sync", () => {
   });
 
   it("loads persisted state for a fresh client after all disconnect", async () => {
-    const docId = "persist-canvas";
+    const { docId, editToken } = await ownedEditDoc(harness.url);
     const writer = new Y.Doc();
-    const writerProvider = connect(harness.url, docId, writer);
+    const writerProvider = connectWithToken(harness, docId, writer, editToken);
     await waitFor(() => writerProvider.synced);
 
     writer.getMap("canvas").set("kept", "value");
@@ -87,7 +76,7 @@ describe("CanvasDoc sync", () => {
     await delay(200);
 
     const reader = new Y.Doc();
-    const readerProvider = connect(harness.url, docId, reader);
+    const readerProvider = connectWithToken(harness, docId, reader, editToken);
     await waitFor(() => reader.getMap("canvas").get("kept") === "value");
 
     expect(reader.getMap("canvas").get("kept")).toBe("value");
@@ -107,11 +96,15 @@ describe("CanvasDoc persistence across a DO restart", () => {
   });
 
   it("survives a full miniflare restart via onSave/onLoad", async () => {
-    const docId = "durable-canvas";
-
     const first = await bootServerHarness({ persistRoot });
+    // The D1 rows (principal, doc, connection token) persist with the DO, so a
+    // token minted against the first instance is still valid on the second.
+    const principal = await signInAnonymous(first.url);
+    const docId = await createDoc(first.url, { cookie: principal.cookie });
+    const conn = await ownerConnect(first.url, { cookie: principal.cookie }, docId);
+
     const writer = new Y.Doc();
-    const writerProvider = connect(first.url, docId, writer);
+    const writerProvider = connectWithToken(first, docId, writer, conn.token);
     await waitFor(() => writerProvider.synced);
     writer.getMap("canvas").set("persisted", "on-disk");
     await delay(700); // onSave debounce flushes to the persisted DO storage.
@@ -122,7 +115,7 @@ describe("CanvasDoc persistence across a DO restart", () => {
     // through onLoad — proving the chunked storage round-trips.
     const second = await bootServerHarness({ persistRoot });
     const reader = new Y.Doc();
-    const readerProvider = connect(second.url, docId, reader);
+    const readerProvider = connectWithToken(second, docId, reader, conn.token);
     await waitFor(() => reader.getMap("canvas").get("persisted") === "on-disk");
     expect(reader.getMap("canvas").get("persisted")).toBe("on-disk");
     readerProvider.destroy();

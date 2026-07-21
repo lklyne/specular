@@ -29,22 +29,29 @@ async function bundleWorker(): Promise<string> {
   return result.outputFiles[0].text;
 }
 
+/** Migration files applied in order; extend as new migrations land. */
+const MIGRATION_FILES = ["0000_init.sql", "0001_wandering_kang.sql"];
+
 async function applyMigrations(mf: Miniflare): Promise<void> {
   const db = await mf.getD1Database("DB");
+  // Gate on the last-migration table so a persisted DB reused across boots
+  // (the DO-restart test) is not re-migrated, while a fresh DB runs every file.
   const existing = await db
     .prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='user'",
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='connection_tokens'",
     )
     .first();
-  if (existing) return; // Already migrated (persisted DB reused across boots).
+  if (existing) return;
 
-  const sql = await readFile(join(serverRoot, "migrations/0000_init.sql"), "utf8");
-  const statements = sql
-    .split("--> statement-breakpoint")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  for (const statement of statements) {
-    await db.prepare(statement).run();
+  for (const file of MIGRATION_FILES) {
+    const sql = await readFile(join(serverRoot, "migrations", file), "utf8");
+    const statements = sql
+      .split("--> statement-breakpoint")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const statement of statements) {
+      await db.prepare(statement).run();
+    }
   }
 }
 
