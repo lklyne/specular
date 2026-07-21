@@ -449,8 +449,9 @@ export function writeTabAsCanvasFile(
   userDataPath: string,
   workspaceId: string,
   tab: PersistedWorkspaceTab,
+  server?: { docId: string; url: string } | null,
 ): void {
-  const doc = serializeToJsonCanvas(tab.snapshot, tab.annotations)
+  const doc = serializeToJsonCanvas(tab.snapshot, tab.annotations, server)
   const filePath = canvasFilePath(userDataPath, workspaceId, tab.name)
   writeCanvasFileSync(filePath, doc)
 }
@@ -459,10 +460,30 @@ export function writeAllTabsAsCanvasFiles(
   userDataPath: string,
   workspaceId: string,
   tabs: PersistedWorkspaceTab[],
+  server?: { docId: string; url: string } | null,
 ): void {
   for (const tab of tabs) {
-    writeTabAsCanvasFile(userDataPath, workspaceId, tab)
+    writeTabAsCanvasFile(userDataPath, workspaceId, tab, server)
   }
+}
+
+/**
+ * Read the cloud sync binding (docId + url) from a workspace's `.canvas` files.
+ * The binding is workspace-doc-level and mirrored into every tab file, so the
+ * first tab that carries it wins. Returns null when no tab is published.
+ */
+export function readWorkspaceServerBinding(
+  userDataPath: string,
+  workspaceId: string,
+): { docId: string; url: string } | null {
+  const meta = readWorkspaceMeta(userDataPath, workspaceId)
+  if (!meta) return null
+  for (const tabMeta of meta.tabs) {
+    const doc = readCanvasFile(canvasFilePath(userDataPath, workspaceId, tabMeta.name))
+    const server = doc?.specular?.server
+    if (server?.docId && server?.url) return { docId: server.docId, url: server.url }
+  }
+  return null
 }
 
 export function writeWorkspaceMetaSync(

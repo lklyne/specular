@@ -37,6 +37,7 @@ import {
   DOC_MAP_ANNOTATIONS,
 } from './workspace-doc'
 import { getActiveUndoManager } from './workspace-undo'
+import { REMOTE_SYNC_ORIGIN } from './workspace-sync'
 import { makeEmptyTabSnapshot } from './workspace-tabs'
 import {
   noteContentEntries,
@@ -88,8 +89,14 @@ export function initializeDocObservers(refs: RuntimeStateRefs): void {
   requestDocSyncImmediate()
 
   const handler = (transaction: { origin: unknown }) => {
+    // Rebuild runtime arrays when the doc changed underneath them: an undo/redo
+    // (UndoManager origin) or a remote/agent edit (REMOTE_SYNC_ORIGIN). Local
+    // forward-sync transactions (`'user'`/`null`) already came from the runtime
+    // and must not round-trip back.
     const undoManager = getActiveUndoManager()
-    if (!undoManager || transaction.origin !== undoManager) return
+    const isUndo = undoManager !== null && transaction.origin === undoManager
+    const isRemote = transaction.origin === REMOTE_SYNC_ORIGIN
+    if (!isUndo && !isRemote) return
     syncDocToRuntime(doc)
   }
   doc.on('afterTransaction', handler)
