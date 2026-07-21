@@ -30,15 +30,30 @@ async function bundleWorker(): Promise<string> {
 }
 
 async function applyMigrations(mf: Miniflare): Promise<void> {
+  const db = await mf.getD1Database("DB");
+  const existing = await db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='user'",
+    )
+    .first();
+  if (existing) return; // Already migrated (persisted DB reused across boots).
+
   const sql = await readFile(join(serverRoot, "migrations/0000_init.sql"), "utf8");
   const statements = sql
     .split("--> statement-breakpoint")
     .map((s) => s.trim())
     .filter(Boolean);
-  const db = await mf.getD1Database("DB");
   for (const statement of statements) {
     await db.prepare(statement).run();
   }
+}
+
+export interface HarnessOptions {
+  /**
+   * Directory for miniflare to persist DO / D1 / R2 state. Point two harnesses
+   * at the same dir to prove a canvas survives a Durable Object restart.
+   */
+  persistRoot?: string;
 }
 
 /**
@@ -46,7 +61,9 @@ async function applyMigrations(mf: Miniflare): Promise<void> {
  * applies the auth migration to D1, and exposes a real port so Node WebSocket
  * clients can connect. Mirrors `bootWorkspaceHarness()` for the server package.
  */
-export async function bootServerHarness(): Promise<ServerHarness> {
+export async function bootServerHarness(
+  options: HarnessOptions = {},
+): Promise<ServerHarness> {
   const script = await bundleWorker();
 
   const mf = new Miniflare({
@@ -54,6 +71,7 @@ export async function bootServerHarness(): Promise<ServerHarness> {
     modulesRoot: "/",
     compatibilityDate: "2026-07-14",
     compatibilityFlags: ["nodejs_compat"],
+    defaultPersistRoot: options.persistRoot,
     durableObjects: {
       CANVAS_DOC: { className: "CanvasDoc", useSQLite: true },
     },

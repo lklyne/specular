@@ -20,7 +20,13 @@ export function createAuth(env: Env) {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     basePath: "/api/auth",
-    plugins: [anonymous(), apiKey()],
+    plugins: [
+      anonymous(),
+      // Agents present their key via the `x-api-key` header and get resolved
+      // to the owning principal's session — the agent-as-peer path (ADR 0018
+      // §4, tier 3).
+      apiKey({ enableSessionForAPIKeys: true }),
+    ],
   });
 }
 

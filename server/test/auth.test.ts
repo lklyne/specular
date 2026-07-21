@@ -56,28 +56,41 @@ describe("better-auth on D1", () => {
       headers: { "content-type": "application/json" },
       body: "{}",
     });
-    const cookie = signIn.headers.get("set-cookie")!.split(";")[0];
+    const owner = (await signIn.json()) as { user: { id: string } };
+    const cookie = signIn.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .join("; ");
 
     const created = await fetch(`${harness.url}/api/auth/api-key/create`, {
       method: "POST",
-      headers: { "content-type": "application/json", cookie },
+      // Origin must be a trusted origin (baseURL) — better-auth's CSRF check
+      // rejects cookie-authenticated writes with a missing/foreign Origin.
+      headers: {
+        "content-type": "application/json",
+        origin: "http://localhost",
+        cookie,
+      },
       body: JSON.stringify({ name: "agent-token" }),
     });
     expect(created.status).toBe(200);
     const createdBody = (await created.json()) as { key?: string; id?: string };
     expect(createdBody.key).toBeTruthy();
 
-    const verified = await fetch(`${harness.url}/api/auth/api-key/verify`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key: createdBody.key }),
+    // The HTTP verify path is presenting the key: the plugin resolves an
+    // `x-api-key` header into the owning principal's session.
+    const session = await fetch(`${harness.url}/api/auth/get-session`, {
+      headers: { "x-api-key": createdBody.key! },
     });
-    expect(verified.status).toBe(200);
-    const verifiedBody = (await verified.json()) as {
-      valid: boolean;
-      key?: { id: string } | null;
-    };
-    expect(verifiedBody.valid).toBe(true);
-    expect(verifiedBody.key?.id).toBe(createdBody.id);
+    expect(session.status).toBe(200);
+    const sessionBody = (await session.json()) as {
+      user?: { id: string };
+    } | null;
+    expect(sessionBody?.user?.id).toBe(owner.user.id);
+
+    // Without the key, the same endpoint yields no session — the key is what
+    // produced the principal above.
+    const anon = await fetch(`${harness.url}/api/auth/get-session`);
+    expect(await anon.json()).toBeNull();
   });
 });
