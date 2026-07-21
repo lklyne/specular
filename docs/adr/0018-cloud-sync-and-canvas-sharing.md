@@ -28,7 +28,7 @@ Adopt a **Yjs-over-Cloudflare** sync substrate, a **split data plane** (CRDT doc
 
 ### 1. Sync substrate — attach a provider to the existing `Y.Doc`
 
-Each **canvas maps to one Durable Object**, keyed by a stable **doc id**. The DO runs a Yjs sync server (`y-partykit` on Cloudflare, with WebSocket Hibernation). Clients — desktop app, web client, agents — connect to the DO and share one `Y.Doc`; CRDT merge handles concurrent edits with no conflict resolution code.
+Each **canvas maps to one Durable Object**, keyed by a stable **doc id**. The DO runs a Yjs sync server: **`y-partyserver`** (Cloudflare-maintained in the `cloudflare/partykit` monorepo; its `YServer` extends `DurableObject` directly, with WebSocket Hibernation supported as of 2.1.0). Clients — desktop app, web client, agents — connect to the DO and share one `Y.Doc`; CRDT merge handles concurrent edits with no conflict resolution code. One obligation is ours, not the library's: `YServer` holds the doc only while clients are connected, so **doc persistence to DO storage is wired through its `onLoad`/`onSave` hooks and is first-slice work** — without it, "a canvas lives in the cloud whether or not any app is connected" is false.
 
 Integration points already exist:
 - The provider attaches to the doc from `getActiveDoc()` (`workspace-doc.ts`) — one site.
@@ -155,7 +155,7 @@ Order-of-magnitude on the Cloudflare stack; the Workers Paid floor dominates unt
 
 **E. Swap Yjs for another local-first engine (Jazz, Triplit, ElectricSQL, PowerSync, Automerge-repo).** Excellent tools, but adopting one means replacing the CRDT/state layer we already have working, with no win over attaching a provider to the existing `Y.Doc`. Rejected absent a concrete wall hit with Yjs.
 
-**F. Raw Cloudflare Durable Objects without `y-partykit`.** The platform is converging on plain DOs; `y-partykit` is the ergonomic on-ramp. Decision: start with `y-partykit` for DX, knowing we can drop to raw DOs later **without leaving the ecosystem or changing the data model**. No third-party lock-in.
+**F. Raw Cloudflare Durable Objects without a Yjs framework.** Originally weighed as `y-partykit` vs. raw DOs; resolved by the ecosystem itself — PartyKit was acquired by Cloudflare (2024) and its successor `y-partyserver` *is* a thin layer over a plain `DurableObject`, deployed with wrangler like any Worker. Decision: `y-partyserver` for the sync framing/awareness plumbing, knowing dropping to `y-protocols` on a bare DO remains a small step, **without leaving the ecosystem or changing the data model**. No third-party lock-in.
 
 ## Consequences
 
@@ -187,7 +187,7 @@ Order-of-magnitude on the Cloudflare stack; the Workers Paid floor dominates unt
 
 ## Adoption trigger
 
-This is the target architecture, not a mandate to build it now. The natural first slice is a **spike proving the HTML prototyping loop end-to-end (§5)**: attach a `y-partykit` Durable Object to `getActiveDoc()`, add the upload Worker plus the asset resolver, and show a headless Node agent joining a share link, writing an HTML file entity, and every connected peer's iframe reloading. That one loop exercises every substrate piece — doc sync, content-addressed assets, agent-as-peer — with zero render-path work.
+This is the target architecture, not a mandate to build it now. The natural first slice is a **spike proving the HTML prototyping loop end-to-end (§5)**: attach a `y-partyserver` Durable Object to `getActiveDoc()`, add the upload Worker plus the asset resolver, and show a headless Node agent joining a share link, writing an HTML file entity, and every connected peer's iframe reloading. The slice is buildable and verifiable entirely against local Workers emulation (miniflare / `wrangler dev`) — no Cloudflare account gates it; deploy is a follow-on step. The implementation plan lives at [`docs/plans/cloud-sync-spike.md`](../plans/cloud-sync-spike.md), including the recorded implementation choices (the `server/` workspace package, the `specular.server` block in `.canvas`, first-attach seeding rules). That one loop exercises every substrate piece — doc sync, content-addressed assets, agent-as-peer — with zero render-path work.
 
 **The first cut is deliberately account-shaped without accounts.** Even in the spike, tokens are D1 grant rows owned by an anonymous better-auth principal — never stateless signed tokens — so the account tier (sign-in, space-level sync, billing) later attaches to existing rows instead of forcing a re-issue or migration. The two forward-compatibility constraints from §4 (opaque grants, owner principal from day one) are the only parts of the spike where cutting the corner would cost the destination.
 
