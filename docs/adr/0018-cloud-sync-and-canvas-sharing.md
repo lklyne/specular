@@ -1,9 +1,9 @@
 # ADR 0018 — Cloud sync, canvas sharing, and agents as peers
 
-**Status:** Proposed
+**Status:** Proposed — spike landed behind a dev flag (see [`docs/plans/cloud-sync-spike.md`](../plans/cloud-sync-spike.md))
 **Date:** 2026-06-08
 **Updated:** 2026-07-21 — content-addressed assets, sandbox serving origin, snapshot-tile web client, and the HTML prototyping loop as the first slice. Second amendment same day: §4 rewritten around the tiered auth model (accounts for sync, capability links for guests, better-auth as the identity layer), the sharing workflow, and the server-readable-by-design decision.
-**Builds on:** the existing Yjs state layer (`src/main/runtime/workspace-doc.ts`, `workspace-observers.ts`) and the asset model (`src/main/runtime/image-assets.ts`). No code has landed for this ADR; it records the intended architecture before any of it is built.
+**Builds on:** the existing Yjs state layer (`src/main/runtime/workspace-doc.ts`, `workspace-observers.ts`) and the asset model (`src/main/runtime/image-assets.ts`). Recorded before implementation; the first slice (the spike in the adoption trigger) has since landed behind a dev flag.
 **Related:** [ADR 0003 — `Page` as the canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md) (live pages are the entity kind with no cloud-renderable pixels), [`docs/architecture.md`](../architecture.md) (two-layer state model), [`docs/file-formats.md`](../file-formats.md) (`.canvas` and the `assets/` folder).
 
 ## Context
@@ -192,5 +192,7 @@ This is the target architecture, not a mandate to build it now. The natural firs
 **The first cut is deliberately account-shaped without accounts.** Even in the spike, tokens are D1 grant rows owned by an anonymous better-auth principal — never stateless signed tokens — so the account tier (sign-in, space-level sync, billing) later attaches to existing rows instead of forcing a re-issue or migration. The two forward-compatibility constraints from §4 (opaque grants, owner principal from day one) are the only parts of the spike where cutting the corner would cost the destination.
 
 Promote from spike to product when the **auth layer and the view + comment web client** are scheduled — those, not the sync, gate a chargeable service. Until then, the local-first disk path remains the only shipping mode.
+
+**Spike outcome.** The slice landed: `server/` (better-auth anonymous + apiKey on D1, the `CanvasDoc` Durable Object with chunked `onLoad`/`onSave` persistence and scope-enforced WebSocket auth, content-addressed R2 asset upload/serving), the desktop transport (`YProvider` attached to `getActiveDoc()`, origin-tagged remote transactions, the `specular.server` binding in `.canvas` with fork-on-duplicate), the share popover (dev-flagged behind `debug.cloudShare`), and the `specular connect` headless-agent CLI verb — all verified under miniflare with no Cloudflare account. The recorded deviation: the spike syncs one Durable Object per **workspace**, not per canvas as this ADR specifies, because the runtime's single `Y.Doc`-per-process shape makes workspace the natural first unit; splitting the doc per tab to reach one-DO-per-canvas is unstarted follow-up work. What still gates a chargeable product: a deployed (non-local) server, the view + comment web client, and real sign-in (the owner principal today is anonymous-only plumbing).
 
 The **Cloud sync & sharing** glossary entry in `CONTEXT.md` records the vocabulary (doc id, Durable Object per canvas, owner principal, capability link, asset id, snapshot tile, sandbox origin, agent-as-peer). When adopted, document the resolver and grant model under `src/main/` once they exist, and note the `.canvas` asset-reference encoding in `docs/file-formats.md`.

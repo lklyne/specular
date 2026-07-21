@@ -215,6 +215,47 @@ Load-bearing invariants (I1–I10) are listed in `interaction-layer.md` §6.
 ESLint rules `no-direct-view-mutation` and `no-mouse-events` enforce I1
 and I8 (currently as warnings — legacy sites pending cleanup).
 
+## Cloud sync (spike, dev-flagged)
+
+ADR 0018's substrate, spiked behind the `debug.cloudShare` preference flag —
+see `docs/plans/cloud-sync-spike.md` for status and CONTEXT.md's "Cloud sync &
+sharing" entries for vocabulary.
+
+```
+┌──────────────────────────────┐        ┌──────────────────────────────────┐
+│ Desktop app (src/main/)      │        │ server/ (Cloudflare Worker)       │
+│                              │        │                                  │
+│ workspace-sync.ts             │  WS    │ CanvasDoc (Durable Object)       │
+│  binding + docId registry    │◄──────►│  extends y-partyserver YServer    │
+│ workspace-sync-transport.ts  │  Yjs   │  onLoad/onSave -> DO storage      │
+│  YProvider on getActiveDoc() │  sync  │  isReadOnly() scope enforcement   │
+│                              │        │                                  │
+│ share-actions.ts              │  HTTP  │ routes.ts                        │
+│  publish/copy-link/reset/     │───────►│  /docs, /docs/:id/links,         │
+│  revoke, clipboard main-side │        │  /redeem, /docs/:id/connect,      │
+│ cloud-credentials.ts          │        │  /docs/:id/assets, /assets/:hash │
+│  anonymous device session     │        │                                  │
+│                              │        │ auth.ts — better-auth             │
+│ asset-resolver.ts             │  HTTP  │  (anonymous + apiKey, D1)         │
+│  asset:// -> local | remote   │───────►│                                  │
+└──────────────────────────────┘        │ R2 (asset bytes) + D1 (docs,      │
+                                         │ grants, connection_tokens)        │
+sync-client/ (headless peer,             └──────────────────────────────────┘
+`specular connect` CLI verb) joins the same DO as an ordinary Yjs peer to
+redeem a link and write HTML file entities — the agent door, no desktop app
+required.
+```
+
+One Durable Object currently syncs one **workspace** doc (all tabs share a
+`docId`), a deliberate spike-scoped deviation from ADR 0018's one-DO-per-canvas
+target — splitting the runtime doc per tab is recorded follow-up work, not
+done here. Remote Yjs transactions are origin-tagged (`REMOTE_SYNC_ORIGIN`, or
+the `YProvider` instance for networked peers) so the existing Y.Doc -> runtime
+observer absorbs them the same way it absorbs undo, and the UndoManager (which
+only tracks `{null, 'user'}`) leaves them out of the local undo stack. The
+`specular.server` binding lives in the `.canvas` file, not the Y.Doc — see
+`docs/file-formats.md`.
+
 ## Focus Selection
 
 Specular has one primary view: the canvas. Pages, notes, files, groups, and
