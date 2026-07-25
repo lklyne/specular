@@ -188,7 +188,11 @@ function ensureDevtoolsView(page: Page): WebContentsView | null {
   if (!page.devtoolsHostView) {
     // Construction only — the layout pass child-list reconcile attaches it
     // and `layoutDevtoolsViews()` parks it off-screen until it goes active.
-    page.devtoolsHostView = new WebContentsView()
+    page.devtoolsHostView = new WebContentsView({
+      webPreferences: {
+        focusOnNavigation: false,
+      },
+    })
     page.devtoolsHostView.setBackgroundColor('#242424')
   }
   return page.devtoolsHostView

@@ -62,6 +62,7 @@ function createView(entityId: string): ComponentView {
   if (!win) throw new Error('Window not initialized')
   const view = new WebContentsView({
     webPreferences: {
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
