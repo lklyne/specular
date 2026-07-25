@@ -149,9 +149,9 @@ Per-tool, persistent app settings (not per-canvas, not in `.canvas`). Read by cr
 
 | Tool | Defaults keys |
 |---|---|
-| `add-text` (plain) | `color` |
-| `add-text` (sticky) | `color` |
-| `add-shape` | `shapeKind`, `color`, `strokeWidth` |
+| `add-text` | `color`, `textSize` |
+| `add-sticky` | `color`, `textSize` |
+| `add-shape` | `shapeKind`, `color`, `strokeWidth`, `textSize` |
 | `draw` | `brushType`, `color`, `strokeWidth` |
 
 Tool defaults never participate in undo/redo and never round-trip through Y.Doc — they're user preferences, not document data. See [ADR 0008](./docs/adr/0008-unified-canvas-item-popup.md) §"Tool defaults".
@@ -163,8 +163,10 @@ A **Tool** is the single representation of "what does my next click/gesture do?"
 ```ts
 type Tool =
   | { kind: 'select' }                              // default
+  | { kind: 'hand' }                                // persistent — pan canvas
   | { kind: 'add-page' }                            // one-shot
-  | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot
+  | { kind: 'add-text' }                            // one-shot — plain text (no style variant)
+  | { kind: 'add-sticky' }                          // one-shot — sticky note
   | { kind: 'add-document' }                        // one-shot
   | { kind: 'add-shape' }                           // one-shot — shapeKind in tool defaults
   | { kind: 'comment' }                             // persistent — click for point/element comment, drag for region comment
@@ -175,8 +177,8 @@ type Tool =
 - **One-shot tools** auto-revert to `select` after one placement.
 - **Persistent tools** stay active until toggled off, replaced, or Escape.
 - The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
-- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
-- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0009). `add-text` is the deliberate exception — `style` stays in the union because plain vs sticky has been a long-established two-button affordance ([ADR 0004](./docs/adr/0004-text-affordances-and-spec-extensions.md)).
+- Tool name → cursor-label gerund: `select` → "selecting", `hand` → "panning", `add-page` → "adding page", `add-text` → "adding text", `add-sticky` → "adding sticky note", `add-document` → "adding document", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
+- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0009). Plain text and sticky are separate tools (`add-text` and `add-sticky`) — the earlier `{ kind: 'add-text', style: 'plain' | 'sticky' }` variant was retired in favour of two independent toolbar entries (ADR 0013).
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 
