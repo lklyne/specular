@@ -92,7 +92,11 @@ export function createPage(config: PageConfig): Page {
 
   // Construction only — the layout pass child-list reconcile (layer-stack)
   // owns attachment. createPage just pushes to pages[] and requests layout.
-  const frameView = new WebContentsView()
+  const frameView = new WebContentsView({
+    webPreferences: {
+      focusOnNavigation: false,
+    },
+  })
   frameView.setBackgroundColor(frameColor())
   frameView.setBorderRadius(CARD_BORDER_RADIUS)
   frameView.webContents.loadURL('about:blank')
@@ -100,6 +104,7 @@ export function createPage(config: PageConfig): Page {
   const pageView = new WebContentsView({
     webPreferences: {
       preload: preloadPath('page-content'),
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
