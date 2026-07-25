@@ -22,7 +22,7 @@
     {
       "binding": "DB",
       "database_name": "specular-auth",
-      "database_id": "local-dev",
+      "database_id": "c0c4787e-516e-4b12-bd77-9e41cc57567e",
       "migrations_dir": "migrations"
     }
   ],
