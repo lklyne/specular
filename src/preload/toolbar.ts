@@ -31,6 +31,7 @@ const api: ToolbarElectronAPI = {
   shareState: () => ipcRenderer.invoke(ipcChannels.shareState),
   sharePublish: () => ipcRenderer.invoke(ipcChannels.sharePublish),
   shareCopyLink: (scope) => ipcRenderer.invoke(ipcChannels.shareCopyLink, { scope }),
+  shareJoin: (link) => ipcRenderer.invoke(ipcChannels.shareJoin, { link }),
   shareListLinks: () => ipcRenderer.invoke(ipcChannels.shareListLinks),
   shareResetLink: (grantId) => ipcRenderer.invoke(ipcChannels.shareResetLink, { grantId }),
   shareRevokeLink: (grantId) => ipcRenderer.invoke(ipcChannels.shareRevokeLink, { grantId }),

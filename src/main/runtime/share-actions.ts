@@ -23,7 +23,8 @@ import type {
   ShareScope,
   ShareStateData,
 } from '../../shared/share'
-import { buildShareLink } from '../sync-client/share-link'
+import { allEntities } from '../entities/contract'
+import { buildShareLink, parseShareLink, redeemLink } from '../sync-client/share-link'
 import {
   getStoredSession,
   storeSession,
@@ -41,6 +42,16 @@ function isScope(value: unknown): value is ShareScope {
 
 function ownerHeaders(cookie: string): Record<string, string> {
   return { 'content-type': 'application/json', cookie }
+}
+
+/**
+ * No entities anywhere in the workspace — the precondition for a safe join.
+ * Reads the runtime stores, not the Y.Doc: forward sync runs on a microtask
+ * after `scheduleWorkspaceAutosave()`, so a just-created entity is in the
+ * runtime and not yet in the doc.
+ */
+function isWorkspaceEmpty(): boolean {
+  return allEntities().length === 0
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +231,32 @@ export async function shareCopyLink(scope: ShareScope): Promise<ShareResult<{ ur
     const url = buildShareLink({ base: serverUrl, docId: binding.docId, token: link.token })
     clipboard.writeText(url)
     return { url }
+  })
+}
+
+/**
+ * Join someone else's canvas from a share link: redeem the grant for a
+ * connection token, adopt their docId as this workspace's binding, attach.
+ *
+ * Refuses when the local workspace already holds entities. The runtime owns one
+ * Y.Doc for the whole workspace, so attaching to a remote doc merges both
+ * sides' entities in both directions — joining from a populated workspace would
+ * silently union two people's canvases with no way back. Per-canvas doc
+ * granularity (ADR 0018) is what lifts this restriction; until then an empty
+ * workspace (a second profile via `--user-data-dir`) is the supported path.
+ */
+export async function shareJoin(link: string): Promise<ShareResult<ShareStateData>> {
+  return guard(async () => {
+    if (getSyncBinding()) throw new Error('this workspace is already published — join from an empty one')
+    if (!isWorkspaceEmpty()) {
+      throw new Error('joining would merge both canvases — join from an empty workspace')
+    }
+
+    const parsed = parseShareLink(link.trim())
+    const connection = await redeemLink(parsed.base, parsed.token)
+    publishBinding({ docId: connection.docId, url: parsed.base })
+    connectSyncTransport(connection.token)
+    return shareState()
   })
 }
 

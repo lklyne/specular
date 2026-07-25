@@ -25,10 +25,12 @@ function iconBtnClass(isDark: boolean): string {
  * links list with reset/revoke.
  */
 export function ShareButton({ isDark }: { isDark: boolean }) {
-  const { enabled, state, busy, refresh, copyLink, resetLink, revokeLink } = useShareState()
+  const { enabled, state, busy, refresh, copyLink, join, resetLink, revokeLink } = useShareState()
   const [open, setOpen] = useState(false)
   const [scope, setScope] = useState<ShareScope>('comment')
   const [copied, setCopied] = useState(false)
+  const [joinLink, setJoinLink] = useState('')
+  const [joinError, setJoinError] = useState<string | null>(null)
   const anchor = useMemo(() => toolbarStripAnchor('[data-share-anchor]'), [])
 
   if (!enabled) return null
@@ -40,6 +42,7 @@ export function ShareButton({ isDark }: { isDark: boolean }) {
   function handleOpenChange(next: boolean) {
     setOpen(next)
     setCopied(false)
+    setJoinError(null)
     if (next) void refresh()
   }
 
@@ -49,6 +52,12 @@ export function ShareButton({ isDark }: { isDark: boolean }) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     }
+  }
+
+  async function onJoin() {
+    const error = await join(joinLink)
+    setJoinError(error)
+    if (!error) setJoinLink('')
   }
 
   const copyLabel = busy ? 'Syncing…' : copied ? 'Copied' : 'Copy link'
@@ -148,6 +157,42 @@ export function ShareButton({ isDark }: { isDark: boolean }) {
             <p className={isDark ? 'px-1.5 text-zinc-400' : 'px-1.5 text-zinc-500'}>
               {shared ? 'No active links yet.' : 'Copy a link to start sharing this canvas.'}
             </p>
+          )}
+
+          {!shared && (
+            <div className={`flex flex-col gap-1.5 border-t pt-2 ${isDark ? 'border-white/10' : 'border-zinc-900/10'}`}>
+              <div className="flex items-center gap-1.5">
+                <input
+                  aria-label="Share link to join"
+                  placeholder="Paste a link to join"
+                  value={joinLink}
+                  onChange={(e) => {
+                    setJoinLink(e.target.value)
+                    setJoinError(null)
+                  }}
+                  className={`h-7 min-w-0 flex-1 rounded-[6px] border px-2 text-xs ${
+                    isDark
+                      ? 'border-white/10 bg-transparent text-zinc-200 placeholder:text-zinc-500'
+                      : 'border-zinc-900/10 bg-transparent text-zinc-700 placeholder:text-zinc-400'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={onJoin}
+                  disabled={busy || !joinLink.trim()}
+                  className={`h-7 rounded-[6px] border px-2.5 font-medium disabled:opacity-50 ${
+                    isDark
+                      ? 'border-white/10 text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
+                      : 'border-zinc-900/10 text-zinc-700 hover:bg-[var(--surface-interactive-hover)]'
+                  }`}
+                >
+                  Join
+                </button>
+              </div>
+              {joinError && (
+                <p className={isDark ? 'px-0.5 text-red-400' : 'px-0.5 text-red-600'}>{joinError}</p>
+              )}
+            </div>
           )}
         </div>
       </PresetPopover>

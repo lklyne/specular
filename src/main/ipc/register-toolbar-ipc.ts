@@ -17,6 +17,7 @@ import { setToolbarDropdownOpen, setToolbarTooltipOpen } from '../ui-state'
 import type { ShareScope } from '../../shared/share'
 import {
   shareCopyLink,
+  shareJoin,
   shareListLinks,
   sharePublish,
   shareResetLink,
@@ -125,6 +126,9 @@ export function registerToolbarIpc(): void {
   ipcMain.handle(ipcChannels.sharePublish, () => sharePublish())
   ipcMain.handle(ipcChannels.shareCopyLink, (_event, payload: { scope?: ShareScope }) =>
     shareCopyLink(payload?.scope ?? 'comment'),
+  )
+  ipcMain.handle(ipcChannels.shareJoin, (_event, payload: { link?: string }) =>
+    shareJoin(payload?.link ?? ''),
   )
   ipcMain.handle(ipcChannels.shareListLinks, () => shareListLinks())
   ipcMain.handle(ipcChannels.shareResetLink, (_event, payload: { grantId?: string }) =>

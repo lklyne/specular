@@ -310,6 +310,7 @@ export interface IpcContract {
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
   'set-theme-mode': { dir: 'renderer→main'; payload: { mode: AppThemeMode } }
   'share-copy-link': { dir: 'invoke'; payload: unknown }
+  'share-join': { dir: 'invoke'; payload: unknown }
   'share-list-links': { dir: 'invoke'; payload: unknown }
   'share-publish': { dir: 'invoke'; payload: unknown }
   'share-reset-link': { dir: 'invoke'; payload: unknown }
@@ -622,6 +623,7 @@ export const ipcChannels = {
   setMultiSelected: 'set-multi-selected',
   setThemeMode: 'set-theme-mode',
   shareCopyLink: 'share-copy-link',
+  shareJoin: 'share-join',
   shareListLinks: 'share-list-links',
   sharePublish: 'share-publish',
   shareResetLink: 'share-reset-link',

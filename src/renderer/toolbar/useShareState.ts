@@ -34,6 +34,20 @@ export function useShareState() {
     [refresh],
   )
 
+  const join = useCallback(
+    async (link: string): Promise<string | null> => {
+      setBusy(true)
+      try {
+        const result = await toolbarApi.shareJoin(link)
+        await refresh()
+        return result.ok ? null : result.error
+      } finally {
+        setBusy(false)
+      }
+    },
+    [refresh],
+  )
+
   const resetLink = useCallback(
     async (grantId: string) => {
       await toolbarApi.shareResetLink(grantId)
@@ -57,6 +71,8 @@ export function useShareState() {
     busy,
     refresh,
     copyLink,
+    /** Resolves to an error message, or null on success. */
+    join,
     resetLink,
     revokeLink,
   }

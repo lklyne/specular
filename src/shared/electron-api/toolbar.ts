@@ -41,6 +41,7 @@ export interface ToolbarElectronAPI {
   shareState: () => Promise<ShareStateData>
   sharePublish: () => Promise<ShareResult<ShareStateData>>
   shareCopyLink: (scope: ShareScope) => Promise<ShareResult<{ url: string }>>
+  shareJoin: (link: string) => Promise<ShareResult<ShareStateData>>
   shareListLinks: () => Promise<ShareResult<ShareLinkInfo[]>>
   shareResetLink: (grantId: string) => Promise<ShareResult<ShareLinkInfo>>
   shareRevokeLink: (grantId: string) => Promise<ShareResult<{ revoked: string }>>
