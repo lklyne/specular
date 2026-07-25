@@ -9,6 +9,7 @@ import {
   restoreFocusCamera,
   selectedPageId,
   setActiveTool,
+  setFocusPresentationMode,
   toggleLeftSidebar,
   toggleDevTools,
 } from '../runtime/ui-actions'
@@ -29,6 +30,7 @@ export function registerToolbarIpc(): void {
   })
 
   ipcMain.on(ipcChannels.zoomReset, () => {
+    if (setFocusPresentationMode('fill')) return
     if (restoreFocusCamera()) return
     setZoom(1.0)
     if (!focusSelection({ animate: false })) {
@@ -38,6 +40,7 @@ export function registerToolbarIpc(): void {
   })
 
   ipcMain.on(ipcChannels.zoomSet, (_event, level: number) => {
+    if (level === 1.0 && setFocusPresentationMode('fill')) return
     if (restoreFocusCamera()) return
     setZoom(level)
     if (level === 1.0 && focusSelection({ animate: false })) return
