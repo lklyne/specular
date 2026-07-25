@@ -33,6 +33,6 @@
     }
   ],
   "vars": {
-    "BETTER_AUTH_URL": "http://localhost:8787"
+    "BETTER_AUTH_URL": "https://specular-server.lyle-klyne.workers.dev"
   }
 }

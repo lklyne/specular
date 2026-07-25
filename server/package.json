@@ -8,7 +8,9 @@
     "build": "esbuild src/worker.ts --bundle --format=esm --platform=neutral --conditions=workerd,worker,browser --main-fields=module,main --external:node:* --external:cloudflare:* --outfile=dist/worker.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "wrangler d1 migrations apply specular-auth --remote",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@better-auth/api-key": "^1.6.23",
@@ -28,6 +30,7 @@
     "miniflare": "^4.20260714.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.1",
+    "wrangler": "^4.114.0",
     "ws": "^8.20.0"
   }
 }
