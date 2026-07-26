@@ -237,6 +237,8 @@ function handleCdpProxyUpgrade(request: IncomingMessage, socket: Duplex, head: B
 }
 
 import type { Route } from './routes/types'
+import type { PersistedWorkspaceTab } from '../shared/types'
+import { resolveWorkspaceTabRef } from './runtime/workspace-tab-refs'
 import { designSystemRoutes } from './routes/design-system'
 import { workspaceRoutes } from './routes/workspace'
 import { sessionRoutes } from './routes/session'
@@ -307,7 +309,27 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
         }
       }
 
-      await r.handler({ request, response, url, body, params })
+      // `--tab` resolves exactly once, here, rather than per verb (ADR 0019 —
+      // one spine). A ref that names nothing, or two tabs, is an error with
+      // candidates rather than a guess.
+      const tabRef = request.headers['x-specular-tab']
+      let targetTab: PersistedWorkspaceTab | undefined
+      if (typeof tabRef === 'string' && tabRef.length > 0) {
+        if (!r.tabScoped) {
+          writeJson(response, 400, {
+            error: `--tab is not supported for ${method} ${url}`,
+          })
+          return
+        }
+        const resolved = resolveWorkspaceTabRef(decodeURIComponent(tabRef))
+        if (!resolved.ok) {
+          writeJson(response, 400, { error: resolved.error })
+          return
+        }
+        targetTab = resolved.tab
+      }
+
+      await r.handler({ request, response, url, body, params, targetTab })
       return
     }
 

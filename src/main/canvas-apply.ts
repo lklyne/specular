@@ -25,6 +25,7 @@ import { entityKindById } from './workspace-entities'
 import { createEdges, edgeExists } from './workspace-edges'
 import { deleteEdge, updateEdge } from './runtime/document-commands'
 import { commitAsOneTransaction } from './runtime/workspace-observers'
+import { activeBackgroundTabContext } from './runtime/workspace-tab-context'
 
 export interface CanvasPatch {
   entities?: Array<Record<string, unknown>>
@@ -66,6 +67,36 @@ function resolveKind(item: Record<string, unknown>): CanvasEntityKind | null {
 }
 
 /**
+ * Pages are `WebContentsView`-backed, and a background-tab write carries the
+ * target's pages through as snapshot data rather than instantiating them
+ * (issue #360 §5). Every page item in such a patch would therefore either mint
+ * a view onto a canvas nobody is looking at, or silently no-op against an
+ * empty runtime array — so refuse the whole patch up front and say why.
+ * Deferred webview instantiation is a separate problem.
+ */
+function rejectPageWorkOnBackgroundTab(
+  patch: CanvasPatch,
+  entities: Array<Record<string, unknown>>,
+): void {
+  const context = activeBackgroundTabContext()
+  if (!context) return
+  const refuse = (what: string): never => {
+    throw new CanvasPatchError(
+      `${what}: pages cannot be created, edited, or deleted on a background tab — ` +
+        'switch to it first (`specular tab switch <ref>`), then retry without --tab',
+    )
+  }
+  for (let i = 0; i < entities.length; i++) {
+    const item = entities[i]
+    const id = typeof item.id === 'string' ? item.id : null
+    if (id ? context.pageIds.has(id) : item.kind === 'page') refuse(`entities[${i}]`)
+  }
+  for (const id of patch.delete ?? []) {
+    if (context.pageIds.has(id)) refuse(`delete '${id}'`)
+  }
+}
+
+/**
  * Apply a patch as one transaction / one undo step.
  * Throws `CanvasPatchError` before mutating anything if an item doesn't
  * resolve to a registered kind, so a bad item can't leave a half-applied
@@ -73,6 +104,11 @@ function resolveKind(item: Record<string, unknown>): CanvasEntityKind | null {
  */
 export function applyCanvasPatch(patch: CanvasPatch): CanvasApplyResult {
   const entities = patch.entities ?? []
+
+  // Before kind resolution: a page id on a background tab resolves to no kind
+  // at all (its runtime entity was never instantiated), which would surface as
+  // a misleading "unknown kind".
+  rejectPageWorkOnBackgroundTab(patch, entities)
 
   for (let i = 0; i < entities.length; i++) {
     if (!resolveKind(entities[i])) {

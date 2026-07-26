@@ -19,6 +19,9 @@ export interface ParsedArgs {
 
 export const CLI_VALUE_FLAGS = new Set([
   '--page', '-f',
+  // Names the canvas a verb targets (issue #360). Resolved once on the main
+  // side; omitted means the tab the user is looking at.
+  '--tab',
   '--preset', '--presets', '--at', '--width', '--height', '--size', '--cols',
   '--anchor', '--label', '--color', '--layout', '--gap',
   '--status', '--url', '--page-id',

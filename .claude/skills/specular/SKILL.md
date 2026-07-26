@@ -33,6 +33,27 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 | `specular snapshot -i -s "<selector>" -f <id>` | Scope a snapshot to one section/container |
 | `specular screenshot -f <id>` | Screenshot a page |
 
+## Targeting a tab
+
+Every verb writes to the canvas the **user is looking at** unless you say
+otherwise. Name the target instead of inheriting their focus:
+
+```bash
+specular workspace                        # appState.activeTab + appState.tabs (ids, names)
+specular tab new "sync-roads"             # create a canvas; prints its id; does NOT switch focus
+specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
+specular add note "…" --tab <tab-id>      # write to that canvas in the background
+specular apply --tab <tab-id> < patch.json
+```
+
+`--tab` takes a tab id or an exact tab name; an ambiguous or unknown ref errors
+with the candidates rather than guessing. Snapshot the tab id from `workspace`
+before a batch and confirm it after — the user can switch canvases mid-session.
+
+Two limits: pages can't be created or edited on a background tab (they need a
+live view — `tab switch` first), and background writes are not on the user's
+undo stack, so Cmd+Z will not reverse them.
+
 ## Add — kind is the subcommand
 
 ```bash

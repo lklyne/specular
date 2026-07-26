@@ -175,6 +175,20 @@ export function getClientName(): string {
 }
 
 // ---------------------------------------------------------------------------
+// Tab targeting
+// ---------------------------------------------------------------------------
+
+// The `--tab` ref for this process, set once from the parsed args. It rides
+// every request as a header so the main side can resolve it in one place
+// rather than each verb re-deriving a target (issue #360 §3). Encoded because
+// tab names are free text and headers are latin-1.
+let targetTabRef: string | null = null
+
+export function setTargetTabRef(ref: string | null): void {
+  targetTabRef = ref && ref.trim() ? ref.trim() : null
+}
+
+// ---------------------------------------------------------------------------
 // HTTP client
 // ---------------------------------------------------------------------------
 
@@ -187,6 +201,7 @@ export async function callApp<T>(path: string, init?: RequestInit): Promise<T> {
       'x-specular-secret': discovery.secret,
       'x-specular-session-id': sessionId,
       'x-specular-client-name': clientName,
+      ...(targetTabRef ? { 'x-specular-tab': encodeURIComponent(targetTabRef) } : {}),
       ...(init?.headers ?? {}),
     },
   })

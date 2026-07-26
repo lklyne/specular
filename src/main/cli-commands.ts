@@ -1,6 +1,6 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
-import { callApp } from './shared/app-client'
+import { callApp, setTargetTabRef } from './shared/app-client'
 import { handleBrowse, shellQuote, spawnAsync, resolveAgentBrowserPath, BLOCKED_BROWSE_VERBS } from './shared/browse-handler'
 import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
@@ -728,6 +728,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('')
     printText('Canvas: workspace, add, update, delete, arrange, focus, group, ungroup')
     printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>')
+    printText('  --tab <tab-id|tab-name> targets another canvas without switching focus')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
@@ -739,6 +740,9 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('section for the full command surface, or run `specular skills get core`.')
     return 0
   }
+  // `--tab` is set once for the whole invocation and rides every request as a
+  // header; the main side resolves the ref in one place (issue #360 §3).
+  setTargetTabRef(args.flags.tab ?? null)
   emitPresenceForVerb(args.verb)
   const handler = VERBS[args.verb] ?? browsePassthrough
   return handler(args)
