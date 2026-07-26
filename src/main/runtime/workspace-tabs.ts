@@ -4,6 +4,7 @@ import type {
   WorkspaceSnapshot,
   WorkspaceTabSummary,
 } from '../../shared/types'
+import type { JsonCanvasTabIdentity } from '../../shared/json-canvas-types'
 import {
   pages,
   zoom,
@@ -199,6 +200,24 @@ export function ensureWorkspaceTabsInitialized(): void {
 export function workspaceTabSummaries(): WorkspaceTabSummary[] {
   syncActiveTabRecord()
   return workspaceTabs.map(buildTabSummary)
+}
+
+export interface WorkspaceTabIdentity {
+  activeTab: { id: string; name: string } | null
+  tabs: JsonCanvasTabIdentity[]
+}
+
+/** Which canvas a read answered from, and what else is open. `workspaceTabSummaries()`
+ *  syncs the active tab record first, so its `entityCount` reflects live runtime
+ *  state rather than the last persisted snapshot. */
+export function workspaceTabIdentity(): WorkspaceTabIdentity {
+  ensureWorkspaceTabsInitialized()
+  const summaries = workspaceTabSummaries()
+  const active = summaries.find((tab) => tab.isActive) ?? summaries[0]
+  return {
+    activeTab: active ? { id: active.id, name: active.name } : null,
+    tabs: summaries.map(({ id, name, entityCount }) => ({ id, name, entityCount })),
+  }
 }
 
 export function activeWorkspaceTabSummary(): WorkspaceTabSummary | null {

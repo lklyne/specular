@@ -66,6 +66,16 @@ export function makeWorkspaceTabId(): string {
   return `tab_${randomUUID()}`
 }
 
+/** Canvas participants in a tab: entity-store entries plus any page carried
+ *  only in the legacy `pages` array. Edges are not entities and don't count. */
+function tabEntityCount(snapshot: WorkspaceSnapshot): number {
+  const ids = new Set(Object.keys(snapshot.entities ?? {}))
+  for (const page of snapshot.pages) {
+    if (page.id) ids.add(page.id)
+  }
+  return ids.size
+}
+
 export function buildWorkspaceTabSummary(
   tab: PersistedWorkspaceTab,
   activeWorkspaceTabId: string | null,
@@ -76,6 +86,7 @@ export function buildWorkspaceTabSummary(
     expanded: tab.expanded ?? true,
     isActive: tab.id === activeWorkspaceTabId,
     pageCount: tab.snapshot.pages.length,
+    entityCount: tabEntityCount(tab.snapshot),
     pages: tab.snapshot.pages.map((page) => {
       const preset = viewportPresetForIndex(page.presetIndex)
       const customSize = pageCustomSizeFromMetadata(page.metadata)

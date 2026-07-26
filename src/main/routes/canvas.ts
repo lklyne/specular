@@ -11,16 +11,32 @@
 
 import type { Route } from './types'
 import { applyCanvasPatch, CanvasPatchError, type CanvasPatch } from '../canvas-apply'
-import { workspaceSnapshot } from '../runtime/workspace-tabs'
+import { workspaceSnapshot, workspaceTabIdentity } from '../runtime/workspace-tabs'
 import { serializeToJsonCanvas } from '../runtime/json-canvas-serializer'
 import { writeJson } from './http-helpers'
+import type { JsonCanvasDocument } from '../../shared/json-canvas-types'
+
+/**
+ * The live read carries tab identity so a reader knows which canvas answered.
+ * It is added here rather than in the serializer: a `.canvas` file on disk
+ * describes one tab and has nothing to say about its siblings.
+ */
+export function readCanvasDocument(): JsonCanvasDocument {
+  const doc = serializeToJsonCanvas(workspaceSnapshot())
+  const identity = workspaceTabIdentity()
+  if (doc.appState) {
+    doc.appState.activeTab = identity.activeTab ?? undefined
+    doc.appState.tabs = identity.tabs
+  }
+  return doc
+}
 
 export const canvasRoutes: Route[] = [
   {
     method: 'GET',
     pattern: '/canvas',
     async handler({ response }) {
-      writeJson(response, 200, serializeToJsonCanvas(workspaceSnapshot()))
+      writeJson(response, 200, readCanvasDocument())
     },
   },
   {

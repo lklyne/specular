@@ -98,22 +98,50 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
   })
 }
 
-export function createWorkspaceTab(name?: string): string {
-  ensureWorkspaceTabsInitialized()
-  syncActiveTabRecord()
-  const now = new Date().toISOString()
-  const nextTab: PersistedWorkspaceTab = {
+function newWorkspaceTabRecord(name: string): PersistedWorkspaceTab {
+  return {
     id: makeWorkspaceTabId(),
-    name: name?.trim() || `Canvas ${workspaceTabs.length + 1}`,
-    updatedAt: now,
+    name,
+    updatedAt: new Date().toISOString(),
     snapshot: makeEmptyTabSnapshot(),
     annotations: [],
     expanded: true,
   }
+}
+
+export function createWorkspaceTab(name?: string): string {
+  ensureWorkspaceTabsInitialized()
+  syncActiveTabRecord()
+  const nextTab = newWorkspaceTabRecord(name?.trim() || `Canvas ${workspaceTabs.length + 1}`)
   workspaceTabs.push(nextTab)
   setActiveWorkspaceTab(nextTab.id)
   scheduleWorkspaceAutosave()
   return nextTab.id
+}
+
+export type CreateBackgroundTabResult = { ok: true; id: string } | { ok: false; error: string }
+
+/**
+ * Create a tab without moving the user's focus to it — the agent-facing
+ * counterpart of `createWorkspaceTab`.
+ *
+ * Duplicate names are refused because `.canvas` filenames derive from the tab
+ * name: two same-named tabs would share one file on disk.
+ */
+export function createBackgroundWorkspaceTab(name: string): CreateBackgroundTabResult {
+  const trimmed = name.trim()
+  if (!trimmed) return { ok: false, error: 'tab name is required' }
+  ensureWorkspaceTabsInitialized()
+  syncActiveTabRecord()
+  if (workspaceTabs.some((tab) => tab.name.trim() === trimmed)) {
+    return { ok: false, error: `a tab named '${trimmed}' already exists` }
+  }
+  const nextTab = newWorkspaceTabRecord(trimmed)
+  workspaceTabs.push(nextTab)
+  markDirty('sidebar')
+  requestLayout()
+  scheduleWorkspaceAutosave()
+  return { ok: true, id: nextTab.id }
 }
 
 export function renameWorkspaceTab(tabId: string, name: string): boolean {

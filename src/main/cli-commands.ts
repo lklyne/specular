@@ -25,6 +25,31 @@ const workspace: VerbHandler = async () => {
   return 0
 }
 
+// Tab identity (issue #360): agents name the canvas they are writing to rather
+// than inheriting the user's focus. `new` deliberately does not activate —
+// only `switch` moves what the user is looking at.
+const tab: VerbHandler = async (args) => {
+  const sub = args.positional[0]
+  if (!sub) {
+    printJson(await callApp('/tabs'))
+    return 0
+  }
+  if (sub === 'new') {
+    const name = args.positional.slice(1).join(' ')
+    if (!name) { printError('usage: specular tab new <name>'); return 1 }
+    printJson(await callApp('/tabs', { method: 'POST', body: JSON.stringify({ name }) }))
+    return 0
+  }
+  if (sub === 'switch') {
+    const ref = args.positional.slice(1).join(' ')
+    if (!ref) { printError('usage: specular tab switch <tab-id|tab-name>'); return 1 }
+    printJson(await callApp('/tabs/switch', { method: 'POST', body: JSON.stringify({ ref }) }))
+    return 0
+  }
+  printError('usage: specular tab [new <name> | switch <tab-id|tab-name>]')
+  return 1
+}
+
 const selection: VerbHandler = async () => {
   printJson(await callApp('/selection'))
   return 0
@@ -651,6 +676,7 @@ const skills: VerbHandler = async (args) => {
 
 const VERBS: Record<string, VerbHandler> = {
   workspace,
+  tab,
   selection,
   'find-placement': findPlacement,
   breakpoints,
@@ -701,6 +727,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('usage: specular <verb> [args...] [--flag value]')
     printText('')
     printText('Canvas: workspace, add, update, delete, arrange, focus, group, ungroup')
+    printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')

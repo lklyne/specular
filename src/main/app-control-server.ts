@@ -245,6 +245,7 @@ import { recordingRoutes } from './routes/recording'
 import { annotationRoutes } from './routes/annotations'
 import { entityRoutes } from './routes/entities'
 import { canvasRoutes } from './routes/canvas'
+import { tabRoutes } from './routes/tabs'
 import { pageRoutes } from './routes/pages'
 import { stackOrderHttpRoutes } from './routes/stack-order'
 import { perfRoutes } from './routes/perf'
@@ -258,6 +259,7 @@ const routes: Route[] = [
   ...annotationRoutes,
   ...entityRoutes,
   ...canvasRoutes,
+  ...tabRoutes,
   ...stackOrderHttpRoutes,
   ...designSystemRoutes,
   ...perfRoutes,
