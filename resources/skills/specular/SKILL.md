@@ -90,6 +90,24 @@ canvas space). There is no `--kind` flag on `specular annotate`; pass
 | `specular annotation <id>` | Get full detail for one annotation (elements, screenshot, replies) |
 | `specular ack <id>` / `specular resolve <id>` / `specular dismiss <id>` | Respond to an annotation |
 | `specular reply <id> "<text>"` | Reply on a thread |
+| `specular annotate-selection "<text>" [--ids id1,id2]` | One region comment over a multi-selection's union bounds; omit `--ids` to use the current selection |
+
+**Selection annotations.** `annotate-selection` records which entities were
+selected and, when they name one artifact, what the request targets:
+`specular annotation <id>` output can carry `metadata.selectionEntityIds`
+(the selected entity ids) and `metadata.selectionTarget` (the one page or
+file entity the request is about — present only when the selection names
+exactly one; omitted for selections spanning several artifacts).
+
+**Duplicate vs. edit.** When acting on a request that names a target (a
+selection annotation's `selectionTarget`, or any comment on a live page):
+- Page served from a repo bound in the Comments panel → edit the source in
+  place; don't duplicate anything on the canvas.
+- File entity in the user's space folder (no repo bound) → don't overwrite
+  the original. Duplicate it beside the original
+  (`specular find-placement` + `specular add file <copy> --at x,y`) and edit
+  the copy.
+- An explicit instruction in the comment always wins over this default.
 
 ## Drive a page
 
