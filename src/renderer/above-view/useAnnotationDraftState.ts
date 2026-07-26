@@ -30,6 +30,11 @@ export function useAnnotationDraftState({
 }) {
   const [pendingAnnotation, setPendingAnnotation] = useState<PendingAnnotation | null>(null)
   const [pendingRegionRect, setPendingRegionRect] = useState<WorkspaceBounds | null>(null)
+  // Selection popup's Annotate button vs. the comment-tool region drag: both
+  // land in `pendingRegionRect`, but only the selection-born one carries these
+  // ids and routes its submit to `api.annotateSelection` instead of
+  // `api.createRegionAnnotation` — see `submitRegionAnnotation` below.
+  const [pendingRegionSelectionIds, setPendingRegionSelectionIds] = useState<string[] | null>(null)
   const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null)
   const [drawingStrokeActive, setDrawingStrokeActive] = useState(false)
   const [commentText, setCommentText] = useState('')
@@ -39,11 +44,26 @@ export function useAnnotationDraftState({
     activeStrokeRef.current = null
     setPendingAnnotation(null)
     setPendingRegionRect(null)
+    setPendingRegionSelectionIds(null)
     setDrawingSession(null)
     setDrawingStrokeActive(false)
     setCommentText('')
     setElementNameDraft('')
   }, [activeStrokeRef])
+
+  // Renderer-local handoff for the selection popup's Annotate button (ADR
+  // 0019 one door): pre-anchors the same region composer the comment tool's
+  // drag gesture opens, over the selection's union bounds instead of a drag
+  // rect. No IPC round-trip — the popup already has everything it needs
+  // (the layout broadcast's entities) to compute the rect itself.
+  const beginSelectionAnnotation = useCallback((entityIds: string[], rect: WorkspaceBounds) => {
+    setPendingRegionRect(rect)
+    setPendingRegionSelectionIds(entityIds)
+    setPendingAnnotation(null)
+    setDrawingSession(null)
+    setCommentText('')
+    setElementNameDraft('')
+  }, [])
 
   const submitPendingAnnotation = useCallback(() => {
     if (!pendingAnnotation) return
@@ -64,9 +84,13 @@ export function useAnnotationDraftState({
     if (!pendingRegionRect) return
     const nextText = commentText.trim()
     if (!nextText) return
-    api.createRegionAnnotation(pendingRegionRect, nextText)
+    if (pendingRegionSelectionIds) {
+      api.annotateSelection({ entityIds: pendingRegionSelectionIds, text: nextText })
+    } else {
+      api.createRegionAnnotation(pendingRegionRect, nextText)
+    }
     clearDraft()
-  }, [api, clearDraft, commentText, pendingRegionRect])
+  }, [api, clearDraft, commentText, pendingRegionRect, pendingRegionSelectionIds])
 
   const submitDrawing = useCallback(() => {
     if (!drawingSession || !drawingSession.strokes.length) return
@@ -107,6 +131,7 @@ export function useAnnotationDraftState({
   useEffect(() => {
     const cleanup = api.onRegionSelectCommitted(({ canvasRect }) => {
       setPendingRegionRect(canvasRect)
+      setPendingRegionSelectionIds(null)
       setPendingAnnotation(null)
       setDrawingSession(null)
       setCommentText('')
@@ -123,6 +148,7 @@ export function useAnnotationDraftState({
       const pending = buildCanvasPointPendingAnnotation(canvasX, canvasY, layoutRef.current)
       setPendingAnnotation(pending)
       setPendingRegionRect(null)
+      setPendingRegionSelectionIds(null)
       setDrawingSession(null)
       setCommentText('')
       setElementNameDraft('')
@@ -147,11 +173,23 @@ export function useAnnotationDraftState({
       setPendingAnnotation(null)
       setCommentText('')
     }
-    if (pendingRegionRect) {
+    // A selection-born region draft (the popup's Annotate button) isn't tied
+    // to the comment tool being active — it opens over whatever tool the
+    // selection popup was mounted under, so it's exempt from this
+    // left-comment-tool cleanup. Cleared by clearDraft (submit / Escape /
+    // click-outside) instead.
+    if (pendingRegionRect && !pendingRegionSelectionIds) {
       setPendingRegionRect(null)
       setCommentText('')
     }
-  }, [activeStrokeRef, drawingSession, activeToolKind, pendingAnnotation, pendingRegionRect])
+  }, [
+    activeStrokeRef,
+    drawingSession,
+    activeToolKind,
+    pendingAnnotation,
+    pendingRegionRect,
+    pendingRegionSelectionIds,
+  ])
 
   useEffect(() => {
     if (activeToolKind === 'draw') return
@@ -177,6 +215,7 @@ export function useAnnotationDraftState({
   }, [commentInputRef, pendingAnnotation, pendingRegionRect])
 
   return {
+    beginSelectionAnnotation,
     clearDraft,
     commentText,
     drawingSession,
@@ -184,6 +223,7 @@ export function useAnnotationDraftState({
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
+    pendingRegionSelectionIds,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,

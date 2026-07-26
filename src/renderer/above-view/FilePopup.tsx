@@ -1,7 +1,7 @@
 // ADR 0008 §7 — file selection popup.
 
 import { useEffect, useState } from 'react'
-import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasSceneFileEntity, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
@@ -14,6 +14,7 @@ export function FilePopup({
   layout,
   selectedFiles,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -23,6 +24,7 @@ export function FilePopup({
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
   interactionIdle: boolean
+  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
 }) {
   const count = selectedFiles.length
   const ids = selectedFiles.map((f) => f.id).join('|')
@@ -75,6 +77,9 @@ export function FilePopup({
           noun={noun}
           count={count}
           api={api}
+          layout={layout}
+          entityIds={entityIds}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

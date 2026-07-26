@@ -34,6 +34,7 @@ export function PendingAnnotationComposer({
   pendingAnnotation,
   pendingPosition,
   pendingRegionRect,
+  pendingRegionSelectionIds,
   setCommentText,
   setElementNameDraft,
   submitPendingAnnotation,
@@ -47,6 +48,15 @@ export function PendingAnnotationComposer({
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
+  /** Non-null exactly for a selection-born region draft (the popup's Annotate
+   *  button). Unlike the comment-tool's region drag, this draft isn't backed
+   *  by an active tool gesture, so the router (`useCanvasPointerRouter`)
+   *  stands down entirely while it's open (I8' — `annotation-overlay` pointer
+   *  owner) and nothing else dismisses it on an outside click. This backdrop
+   *  supplies that: same commit-if-typed / discard-if-empty rule the
+   *  comment-tool's own click-away path uses (`runCommentGesture`'s
+   *  `hasEmptyDraft` check). */
+  pendingRegionSelectionIds: string[] | null
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
   submitPendingAnnotation: () => void
@@ -83,6 +93,17 @@ export function PendingAnnotationComposer({
     const composerY = overlayTop + screen.height + REGION_COMPOSER_MARGIN
     return (
       <>
+        {pendingRegionSelectionIds ? (
+          <div
+            className="pointer-events-auto absolute inset-0 z-30"
+            data-overlay-ui
+            onPointerDown={(event) => {
+              if (event.pointerType === 'mouse' && event.button !== 0) return
+              if (commentText.trim()) submitRegionAnnotation()
+              else clearDraft()
+            }}
+          />
+        ) : null}
         <div
           className="pointer-events-none absolute rounded border-2 border-dashed border-blue-500/90 bg-blue-500/10"
           style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}

@@ -5,8 +5,10 @@ import type {
   AnnotationDrawingPoint,
   AnnotationDrawingStroke,
   CanvasScenePageEntity,
+  CanvasSceneEntity,
   DevtoolsPanelDomRect,
   LayoutUpdateData,
+  WorkspaceBounds,
 } from '../../shared/types'
 import {
   canvasToScreenX,
@@ -15,6 +17,7 @@ import {
 } from '../../shared/gesture-utils'
 import { pageDocumentToScreen, pageViewportToScreen } from '../../shared/page-space'
 import { correctDocRectForElement } from '../../shared/element-attachment'
+import { selectionBbox } from '../../shared/selection-bbox'
 
 
 export interface PendingAnnotation {
@@ -106,6 +109,26 @@ export function canvasRectToScreenRect(
     width: Math.max(minSize, right - left),
     height: Math.max(minSize, bottom - top),
   }
+}
+
+/**
+ * Canvas-space union bounds for the selection popup's Annotate button:
+ * the shared `selectionBbox` union for a real multi-selection (2+ non-group
+ * entities), or — the one case `selectionBbox` deliberately excludes — a
+ * lone selected group's own rect. Null when neither applies, which the
+ * caller reads as "no Annotate button" (single non-group entity selected).
+ */
+export function selectionAnnotationBounds(
+  entities: readonly CanvasSceneEntity[],
+  entityIds: readonly string[],
+): WorkspaceBounds | null {
+  if (entityIds.length === 1) {
+    const entity = entities.find((candidate) => candidate.id === entityIds[0])
+    if (entity?.kind === 'group') {
+      return { x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height }
+    }
+  }
+  return selectionBbox(entities, entityIds, 'canvas')
 }
 
 export function annotationScreenPos(

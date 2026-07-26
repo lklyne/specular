@@ -8,7 +8,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { Columns2, Grid2x2, Maximize2, Rows2 } from 'lucide-react'
+import { Columns2, Grid2x2, Maximize2, MessageSquarePlus, Rows2 } from 'lucide-react'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { POPUP_SURFACE_CLASS, popupSurfaceStyle } from '../shared/popupSurface'
 import { Tooltip } from '../shared/Tooltip'
@@ -26,8 +26,9 @@ import {
   type CanvasPalette,
 } from '../../shared/canvas-colors'
 import type { Rect } from '../../shared/hit-regions'
-import type { BatchLayoutMode, LayoutUpdateData } from '../../shared/types'
+import type { BatchLayoutMode, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { selectionAnnotationBounds } from './annotationMath'
 import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
@@ -559,18 +560,48 @@ function EntityActions({
   noun,
   count,
   api,
+  layout,
+  entityIds,
+  onAnnotate,
 }: {
   isDark: boolean
   noun: string
   count: number
   api?: Pick<CanvasBgElectronAPI, 'focusSelection'> &
     Partial<Pick<CanvasBgElectronAPI, 'arrangeSelection'>>
+  /** Layout + the ids this popup's actions apply to — both needed to derive
+   *  the Annotate button's union bounds. Omit to suppress the button (e.g.
+   *  a popup that has no natural id set to hand it). */
+  layout?: LayoutUpdateData
+  entityIds?: readonly string[]
+  /** Opens the region composer pre-anchored to the selection's union bounds
+   *  (renderer-local handoff — see useAnnotationDraftState.beginSelectionAnnotation).
+   *  Omitted → no Annotate button, regardless of `layout`/`entityIds`. */
+  onAnnotate?: (entityIds: string[], rect: WorkspaceBounds) => void
 }) {
   const arrange = api?.arrangeSelection
-  // Focus stays pinned to the right; arrange (row/column/grid) sits before it.
+  // Null for a single non-group entity (selectionBbox's 2+-entity floor, per
+  // the comment on selectionAnnotationBounds) — that's exactly when the
+  // button should be absent, so no extra count check is needed here.
+  const annotateRect =
+    onAnnotate && layout && entityIds
+      ? selectionAnnotationBounds(layout.entities, entityIds)
+      : null
+  // Focus stays pinned to the right; arrange (row/column/grid) and annotate
+  // sit before it.
   return (
     <Section>
       <ArrangeButtons isDark={isDark} count={count} arrange={arrange} />
+      {annotateRect && onAnnotate && entityIds && (
+        <IconButton
+          isDark={isDark}
+          title={`Annotate ${noun}`}
+          ariaLabel={`Annotate ${noun}`}
+          onClick={() => onAnnotate([...entityIds], annotateRect)}
+        >
+          <MessageSquarePlus size={14} />
+        </IconButton>
+      )}
       {api && (
         <IconButton
           isDark={isDark}

@@ -5,6 +5,7 @@ import type {
   CanvasSceneShapeEntity,
   LayoutUpdateData,
   ShapeKind,
+  WorkspaceBounds,
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { BorderDropdown } from './BorderDropdown'
@@ -25,6 +26,7 @@ export function ShapePopup({
   layout,
   selectedShapes,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -34,6 +36,7 @@ export function ShapePopup({
   layout: LayoutUpdateData
   selectedShapes: CanvasSceneShapeEntity[]
   interactionIdle: boolean
+  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
 }) {
   const count = selectedShapes.length
   const ids = selectedShapes.map((e) => e.id).join('|')
@@ -163,6 +166,9 @@ export function ShapePopup({
           noun={noun}
           count={count}
           api={api}
+          layout={layout}
+          entityIds={entityIds}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

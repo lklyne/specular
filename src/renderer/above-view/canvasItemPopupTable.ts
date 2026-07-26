@@ -3,6 +3,7 @@ import type {
   CanvasSceneEntity,
   CanvasSceneGroupEntity,
   LayoutUpdateData,
+  WorkspaceBounds,
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { ToolKind } from '../../shared/tool'
@@ -61,6 +62,10 @@ export type PopupContext = {
   sameKindSelection: SameKindSelection
   selectedGroup: CanvasSceneGroupEntity | null
   textPopupReady: boolean
+  /** Opens the region composer pre-anchored to a selection's union bounds
+   *  (see useAnnotationDraftState.beginSelectionAnnotation). Every popup's
+   *  Annotate button forwards to the same renderer-local handoff. */
+  beginSelectionAnnotation: (entityIds: string[], rect: WorkspaceBounds) => void
 }
 
 export type ToolPopupRow = {
@@ -111,6 +116,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     layout: ctx.layout,
     selectedTextEntities: sameKindEntities(ctx.sameKindSelection, 'text'),
     popupReady: ctx.textPopupReady,
+    onAnnotate: ctx.beginSelectionAnnotation,
   })),
   selectionRow('group', GroupPopup, (ctx) => ({
     api: ctx.api,
@@ -118,6 +124,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     layout: ctx.layout,
     selectedGroup: ctx.selectedGroup,
     interactionIdle: ctx.interactionIdle,
+    onAnnotate: ctx.beginSelectionAnnotation,
   })),
   selectionRow('shape', ShapePopup, (ctx) => ({
     api: ctx.api,
@@ -125,6 +132,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     layout: ctx.layout,
     selectedShapes: sameKindEntities(ctx.sameKindSelection, 'shape'),
     interactionIdle: ctx.interactionIdle,
+    onAnnotate: ctx.beginSelectionAnnotation,
   })),
   selectionRow('drawing', DrawingPopup, (ctx) => ({
     api: ctx.api,
@@ -132,6 +140,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     layout: ctx.layout,
     selectedDrawings: sameKindEntities(ctx.sameKindSelection, 'drawing'),
     interactionIdle: ctx.interactionIdle,
+    onAnnotate: ctx.beginSelectionAnnotation,
   })),
   selectionRow('file', FilePopup, (ctx) => ({
     api: ctx.api,
@@ -139,6 +148,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     layout: ctx.layout,
     selectedFiles: sameKindEntities(ctx.sameKindSelection, 'file'),
     interactionIdle: ctx.interactionIdle,
+    onAnnotate: ctx.beginSelectionAnnotation,
   })),
   // Mixed-kind fallback: renders only when the selection spans kinds, so it
   // never doubles up with a per-kind popup.
@@ -147,6 +157,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     isDark: ctx.isDark,
     layout: ctx.layout,
     mixed: ctx.sameKindSelection === null,
+    onAnnotate: ctx.beginSelectionAnnotation,
   })),
   selectionRow(
     'page',
@@ -157,6 +168,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
       layout: ctx.layout,
       selectedPages: sameKindEntities(ctx.sameKindSelection, 'page'),
       interactionIdle: ctx.interactionIdle,
+      onAnnotate: ctx.beginSelectionAnnotation,
     }),
     true,
   ),
