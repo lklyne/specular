@@ -226,12 +226,22 @@ Metadata about the canvas tabs within a space:
     {
       "id": "tab_1",
       "name": "Research",
+      "file": "Research.canvas",
       "updatedAt": "2025-01-15T10:30:00Z",
       "expanded": true
     }
   ]
 }
 ```
+
+`file` is the authoritative id -> `.canvas` filename mapping for the tab —
+it, not `name`, decides which file on disk holds the tab's content. Two tabs
+with the same `name` get distinct `file` values (`Research.canvas`,
+`Research-2.canvas`); renaming a tab does not change existing content until
+the next save reassigns `file` for the new name. Tabs without a `file` field
+(pre-existing workspaces) fall back to a name-derived path and get backfilled
+on next save — don't rely on that fallback when writing tooling against this
+format; always prefer `file` when present.
 
 Older metadata may contain `viewMode`; Specular reads it only as a legacy
 restore hint and no longer writes it.

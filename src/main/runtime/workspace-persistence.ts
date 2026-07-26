@@ -97,6 +97,9 @@ export function buildPersistedWorkspaceRecord(params: {
   workspaceTabs: PersistedWorkspaceTab[]
   activeWorkspaceTabId: string
 }): PersistedWorkspaceRecord {
+  // Mutates the live tabs in place so tab-operations (rename/delete) see the
+  // same authoritative file mapping that gets persisted.
+  assignWorkspaceTabFiles(params.workspaceTabs)
   return {
     id: DEFAULT_WORKSPACE_ID,
     name: DEFAULT_WORKSPACE_NAME,
@@ -427,6 +430,50 @@ export function canvasFilePath(
   return join(workspaceDir(userDataPath, workspaceId), `${sanitizeTabName(tabName)}.canvas`)
 }
 
+/**
+ * Resolve the .canvas file path for a tab using its authoritative `file`
+ * field when present, falling back to name-derivation for tabs that predate
+ * the field (existing workspaces) or haven't been saved yet.
+ */
+export function canvasFilePathForTab(
+  userDataPath: string,
+  workspaceId: string,
+  tab: { name: string; file?: string },
+): string {
+  if (tab.file) return join(workspaceDir(userDataPath, workspaceId), tab.file)
+  return canvasFilePath(userDataPath, workspaceId, tab.name)
+}
+
+function resolveUniqueTabFileName(usedFiles: Set<string>, name: string): string {
+  const base = sanitizeTabName(name)
+  let candidate = `${base}.canvas`
+  let suffix = 2
+  while (usedFiles.has(candidate)) {
+    candidate = `${base}-${suffix}.canvas`
+    suffix += 1
+  }
+  return candidate
+}
+
+/**
+ * Backfill the `file` field for any tab missing one, so the name -> file
+ * mapping is explicit rather than re-derived. Same-named tabs get a `-2`,
+ * `-3`, ... suffix instead of silently colliding on one file. Mutates in
+ * place — safe to call repeatedly, only fills gaps.
+ */
+export function assignWorkspaceTabFiles(tabs: Array<{ name: string; file?: string }>): void {
+  const usedFiles = new Set<string>()
+  for (const tab of tabs) {
+    if (tab.file) usedFiles.add(tab.file)
+  }
+  for (const tab of tabs) {
+    if (tab.file) continue
+    const file = resolveUniqueTabFileName(usedFiles, tab.name)
+    usedFiles.add(file)
+    tab.file = file
+  }
+}
+
 export function writeCanvasFileSync(
   filePath: string,
   doc: JsonCanvasDocument,
@@ -451,7 +498,7 @@ export function writeTabAsCanvasFile(
   tab: PersistedWorkspaceTab,
 ): void {
   const doc = serializeToJsonCanvas(tab.snapshot, tab.annotations)
-  const filePath = canvasFilePath(userDataPath, workspaceId, tab.name)
+  const filePath = canvasFilePathForTab(userDataPath, workspaceId, tab)
   writeCanvasFileSync(filePath, doc)
 }
 
@@ -465,13 +512,21 @@ export function writeAllTabsAsCanvasFiles(
   }
 }
 
+type WorkspaceMetaTabEntry = {
+  id: string
+  name: string
+  updatedAt: string
+  expanded?: boolean
+  file?: string
+}
+
 export function writeWorkspaceMetaSync(
   userDataPath: string,
   workspaceId: string,
   meta: {
     activeTabId: string
     viewMode?: string
-    tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
+    tabs: WorkspaceMetaTabEntry[]
   },
 ): void {
   const dir = workspaceDir(userDataPath, workspaceId)
@@ -484,7 +539,7 @@ export function writeWorkspaceMetaSync(
 export function readWorkspaceMeta(
   userDataPath: string,
   workspaceId: string,
-): { activeTabId: string; viewMode?: string; tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> } | null {
+): { activeTabId: string; viewMode?: string; tabs: WorkspaceMetaTabEntry[] } | null {
   const filePath = join(workspaceDir(userDataPath, workspaceId), 'workspace-meta.json')
   if (!existsSync(filePath)) return null
   try {
@@ -503,7 +558,9 @@ export function migrateWorkspaceStoreToCanvasFiles(
   store: PersistedWorkspaceStore,
 ): void {
   for (const workspace of store.workspaces) {
-    // Write each tab as a .canvas file
+    // Assign distinct filenames before writing so same-named legacy tabs
+    // don't clobber each other on their first .canvas write.
+    assignWorkspaceTabFiles(workspace.tabs)
     writeAllTabsAsCanvasFiles(userDataPath, workspace.id, workspace.tabs)
 
     // Write workspace metadata
@@ -515,6 +572,7 @@ export function migrateWorkspaceStoreToCanvasFiles(
         name: t.name,
         updatedAt: t.updatedAt,
         expanded: t.expanded,
+        file: t.file,
       })),
     })
   }
@@ -535,7 +593,7 @@ export function loadWorkspaceFromCanvasFiles(
 
   const tabs: PersistedWorkspaceTab[] = []
   for (const tabMeta of meta.tabs) {
-    const filePath = canvasFilePath(userDataPath, workspaceId, tabMeta.name)
+    const filePath = canvasFilePathForTab(userDataPath, workspaceId, tabMeta)
     const doc = readCanvasFile(filePath)
     if (!doc) continue
     const { snapshot, annotations } = deserializeFromJsonCanvas(doc)
@@ -544,6 +602,7 @@ export function loadWorkspaceFromCanvasFiles(
     tabs.push({
       id: tabMeta.id,
       name: tabMeta.name,
+      file: tabMeta.file,
       updatedAt: tabMeta.updatedAt,
       expanded: tabMeta.expanded ?? true,
       snapshot,
@@ -564,14 +623,16 @@ export function loadWorkspaceFromCanvasFiles(
 }
 
 /**
- * Delete a .canvas file for a tab. Used when renaming or deleting tabs.
+ * Delete a tab's own .canvas file. Used when renaming or deleting tabs.
+ * Resolves via the tab's `file` field so same-named tabs never delete each
+ * other's file.
  */
-export function deleteCanvasFile(
+export function deleteCanvasFileForTab(
   userDataPath: string,
   workspaceId: string,
-  tabName: string,
+  tab: { name: string; file?: string },
 ): void {
-  const filePath = canvasFilePath(userDataPath, workspaceId, tabName)
+  const filePath = canvasFilePathForTab(userDataPath, workspaceId, tab)
   try {
     if (existsSync(filePath)) unlinkSync(filePath)
   } catch {

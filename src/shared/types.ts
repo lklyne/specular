@@ -1324,6 +1324,10 @@ export interface WorkspaceSnapshot {
 export interface PersistedWorkspaceTab {
   id: string
   name: string
+  /** Authoritative .canvas filename (with extension) for this tab. Falls back
+   * to a name-derived path when absent (pre-existing workspaces, freshly
+   * created tabs not yet saved). Backfilled on next save. */
+  file?: string
   updatedAt: string
   snapshot: WorkspaceSnapshot
   annotations: Annotation[]

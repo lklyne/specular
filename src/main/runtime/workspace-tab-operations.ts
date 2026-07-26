@@ -42,7 +42,7 @@ import {
 import {
   DEFAULT_TAB_NAME,
   DEFAULT_WORKSPACE_ID,
-  deleteCanvasFile,
+  deleteCanvasFileForTab,
   makeWorkspaceTabId,
 } from './workspace-persistence'
 import { app } from 'electron'
@@ -120,10 +120,13 @@ export function renameWorkspaceTab(tabId: string, name: string): boolean {
   const tab = workspaceTabs.find((candidate) => candidate.id === tabId)
   const trimmed = name.trim()
   if (!tab || !trimmed) return false
-  // Delete old .canvas file before renaming (next autosave writes the new one)
+  // Delete old .canvas file before renaming (next autosave writes the new one
+  // and assigns a fresh `file` for the new name, suffixed on collision).
   const oldName = tab.name
+  const oldFile = tab.file
   if (oldName !== trimmed) {
-    deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, oldName)
+    deleteCanvasFileForTab(app.getPath('userData'), DEFAULT_WORKSPACE_ID, { name: oldName, file: oldFile })
+    tab.file = undefined
   }
   tab.name = trimmed
   tab.updatedAt = new Date().toISOString()
@@ -246,14 +249,19 @@ export function deleteWorkspaceTab(tabId: string): boolean {
   const index = workspaceTabs.findIndex((candidate) => candidate.id === tabId)
   if (index === -1) return false
   const deletedTabName = workspaceTabs[index].name
+  const deletedTabFile = workspaceTabs[index].file
   if (workspaceTabs.length === 1) {
     // Delete old canvas file if the tab is being reset to defaults with a new name
     if (deletedTabName !== DEFAULT_TAB_NAME) {
-      deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTabName)
+      deleteCanvasFileForTab(app.getPath('userData'), DEFAULT_WORKSPACE_ID, {
+        name: deletedTabName,
+        file: deletedTabFile,
+      })
     }
     workspaceTabs[index] = {
       ...workspaceTabs[index],
       name: DEFAULT_TAB_NAME,
+      file: deletedTabName === DEFAULT_TAB_NAME ? deletedTabFile : undefined,
       updatedAt: new Date().toISOString(),
       snapshot: makeEmptyTabSnapshot(),
       annotations: [],
@@ -268,7 +276,10 @@ export function deleteWorkspaceTab(tabId: string): boolean {
     return true
   }
   // Delete the .canvas file for the removed tab
-  deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTabName)
+  deleteCanvasFileForTab(app.getPath('userData'), DEFAULT_WORKSPACE_ID, {
+    name: deletedTabName,
+    file: deletedTabFile,
+  })
   const fallback = workspaceTabs[index + 1] ?? workspaceTabs[index - 1] ?? null
   workspaceTabs.splice(index, 1)
   if (!fallback) return false

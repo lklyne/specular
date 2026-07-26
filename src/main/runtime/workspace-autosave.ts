@@ -74,6 +74,7 @@ export function saveWorkspaceStore(): void {
         name: t.name,
         updatedAt: t.updatedAt,
         expanded: t.expanded,
+        file: t.file,
       })),
     })
   } catch (error) {
