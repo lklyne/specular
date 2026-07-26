@@ -195,6 +195,17 @@ describe('buildFixPrompt — selection annotations', () => {
     expect(prompt).toContain('An explicit instruction in the comment overrides all of the above.')
   })
 
+  // Regression: a repo-bound fix that creates a new route used to be told
+  // "do not duplicate anything on the canvas", so the new page landed on disk
+  // only and the run looked like a no-op to the user.
+  it('tells a repo-bound target to put a newly created page on the canvas', () => {
+    const prompt = buildFixPrompt(selectionAnnotation(), selectionContext)
+    expect(prompt).toContain('What to put on the canvas:')
+    expect(prompt).toContain('Creating a new page or route: add it to the canvas')
+    expect(prompt).toContain('specular add page <full url> --at x,y')
+    expect(prompt).not.toContain('Do not duplicate anything on the canvas')
+  })
+
   it('tells a space-folder target to copy the file and place the copy', () => {
     const annotation = selectionAnnotation({
       metadata: {

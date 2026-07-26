@@ -161,7 +161,10 @@ export function buildFixPrompt(annotation: Annotation, context?: FixPromptContex
   lines.push('- If it is a question or needs no change, just answer it. Do not edit code only to have made a change.')
 
   if (isSelectionComment || isSpaceFolderFix) {
-    lines.push(...editingPolicyLines(annotation, context?.target ?? null))
+    const target = context?.target ?? null
+    lines.push(...whereToWriteLines(annotation, target))
+    lines.push(...whatToSurfaceLines(target))
+    lines.push('- An explicit instruction in the comment overrides all of the above.')
   }
 
   // Nothing to inspect when the request is about a file on disk and no page is
@@ -303,31 +306,83 @@ function selectionLines(
 }
 
 /**
- * The facts that decide where the change lands, plus the default the user
- * expects when the comment does not say. Source is edited in place; an artifact
- * sitting in the user's space folder is copied first, because the original is
- * the user's own file and overwriting it destroys the "before".
+ * Two independent questions, two exhaustive switches. Conflating them is how a
+ * target kind ends up with a write policy and no surfacing policy: the prompt
+ * still reads as a complete instruction, and the work lands somewhere the user
+ * never looks. Keep them apart so a new FixTarget kind cannot compile until it
+ * answers both.
  */
-function editingPolicyLines(annotation: Annotation, target: FixTarget | null): string[] {
+type FixTargetKind = FixTarget['kind'] | 'none'
+
+function targetKind(target: FixTarget | null): FixTargetKind {
+  return target?.kind ?? 'none'
+}
+
+/**
+ * Where the bytes land. Source is edited in place; an artifact sitting in the
+ * user's space folder is copied first, because the original is the user's own
+ * file and overwriting it destroys the "before".
+ */
+function whereToWriteLines(annotation: Annotation, target: FixTarget | null): string[] {
   const lines: string[] = ['', 'Where the change goes:']
   const selectionTarget = annotation.metadata?.selectionTarget
-  if (target?.kind === 'repo') {
-    lines.push(`- ${target.origin} is served from the repo at ${target.cwd} (your working directory).`)
-    if (selectionTarget?.kind === 'page' && selectionTarget.url) {
-      lines.push(`- Target page: ${selectionTarget.url}`)
+  const kind = targetKind(target)
+  switch (kind) {
+    case 'repo': {
+      const repo = target as Extract<FixTarget, { kind: 'repo' }>
+      lines.push(`- ${repo.origin} is served from the repo at ${repo.cwd} (your working directory).`)
+      if (selectionTarget?.kind === 'page' && selectionTarget.url) {
+        lines.push(`- Target page: ${selectionTarget.url}`)
+      }
+      lines.push('- Edit the source in place. Do not copy a file just to make an edit to it.')
+      break
     }
-    lines.push('- Edit the source in place. Do not duplicate anything on the canvas.')
-  } else if (target?.kind === 'space-folder') {
-    lines.push(`- Target file: ${target.filePath}`)
-    lines.push(`- It lives in the user's space folder (${target.cwd}, your working directory). No repo is bound to it.`)
-    lines.push('- Do not overwrite the original: write your edit to a new file beside it (e.g. `name-2.ext`),')
-    lines.push('  then place the copy on the canvas next to the original:')
-    lines.push('    specular find-placement --width W --height H   # a free spot')
-    lines.push('    specular add file <copy-path> --at x,y         # put the copy there')
-  } else {
-    lines.push('- No repo is bound to this artifact and no file target was recorded; say what you would change instead of guessing where to write it.')
+    case 'space-folder': {
+      const folder = target as Extract<FixTarget, { kind: 'space-folder' }>
+      lines.push(`- Target file: ${folder.filePath}`)
+      lines.push(`- It lives in the user's space folder (${folder.cwd}, your working directory). No repo is bound to it.`)
+      lines.push('- Do not overwrite the original: write your edit to a new file beside it (e.g. `name-2.ext`).')
+      break
+    }
+    case 'none':
+      lines.push('- No repo is bound to this artifact and no file target was recorded; say what you would change instead of guessing where to write it.')
+      break
+    default: {
+      const exhaustive: never = kind
+      return exhaustive
+    }
   }
-  lines.push('- An explicit instruction in the comment overrides all of the above.')
+  return lines
+}
+
+/**
+ * What the user ends up looking at. The canvas is the surface — a run that
+ * produces something new and leaves it only on disk reads as a run that did
+ * nothing, however accurate the reply.
+ */
+function whatToSurfaceLines(target: FixTarget | null): string[] {
+  const lines: string[] = ['', 'What to put on the canvas:']
+  const kind = targetKind(target)
+  switch (kind) {
+    case 'repo':
+      lines.push('- Editing an existing page: nothing to add — the page on the canvas reloads itself.')
+      lines.push('- Creating a new page or route: add it to the canvas beside the one it came from.')
+      lines.push('    specular find-placement --width 1440 --height 900   # a free spot')
+      lines.push('    specular add page <full url> --at x,y               # put the new page there')
+      break
+    case 'space-folder':
+      lines.push('- Place the copy you wrote next to the original.')
+      lines.push('    specular find-placement --width W --height H   # a free spot')
+      lines.push('    specular add file <copy-path> --at x,y         # put the copy there')
+      break
+    case 'none':
+      lines.push('- Nothing — no change is being written.')
+      break
+    default: {
+      const exhaustive: never = kind
+      return exhaustive
+    }
+  }
   return lines
 }
 
