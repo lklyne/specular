@@ -56,7 +56,7 @@ workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
 runtime-core.ts      High-level state mutations
 runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
 selection-*          Selection state and mutations
-page-*.ts            Frame (webview) creation and lifecycle
+page-*.ts            Page (webview) creation and lifecycle
 layout-*.ts          View positioning, z-order, dirty tracking
 *-entity-state.ts    Per-entity-kind mutations (text, file, group, drawing)
 ```
@@ -77,7 +77,7 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 - **Edge** — a connection between two nodes
 - **Canvas** — a single .canvas file; the spatial document
 - **Space** — a folder of canvases (like an Obsidian vault)
-- **Frame** — our current UI term for link nodes (live web pages)
+- **Page** — Specular's term for live web items (link nodes). "Frame" was the old term and was renamed per [ADR 0003](docs/adr/0003-page-as-canonical-name-for-live-web-items.md). Use "page" everywhere.
 
 ## File format principles
 
@@ -88,11 +88,9 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 
 ## View modes
 
-Browser and Canvas are different views of the same data:
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between frames
+Specular has one primary view: **Canvas mode** — a spatial freeform surface where all items are arranged freely.
 
-Both operate on the same underlying .canvas data and share primitives.
+Browser mode was deleted — see [ADR 0020](docs/adr/0020-delete-browser-mode-for-focus-selection.md). Do not add code paths for a browser mode.
 
 ## Code principles
 

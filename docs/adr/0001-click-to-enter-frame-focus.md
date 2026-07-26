@@ -12,38 +12,38 @@ Issue #41 surfaced a representative bug from the interim state: edge anchor dots
 
 ## Decision
 
-Frames remain live `WebContentsView` instances at all times — they paint, run JS, play media, fire timers. They do **not** receive native pointer input until explicitly focused.
+Pages remain live `WebContentsView` instances at all times — they paint, run JS, play media, fire timers. They do **not** receive native pointer input until explicitly focused.
 
-A new runtime variable `frameFocus: { id } | null` lives in main. The input gate predicate becomes:
+The input gate predicate is:
 
 ```ts
-shouldGateBeOpen(s) === (s.frameFocus === null)
+shouldGateBeOpen(s) === (no page is currently entered for native interaction)
 ```
 
-When `frameFocus === null` (canvas mode), `aboveView` is `setVisible(true)` and is the sole input authority. When `frameFocus` is set, `aboveView` is `setVisible(false)` and the focused frame receives native input. Exit detection rides on the focused frame's `webContents` `blur` event — when the user clicks any other view, blur fires and main clears `frameFocus`.
+When no page is entered (canvas mode), `aboveView` is `setVisible(true)` and is the sole input authority. When a page is entered, `aboveView` is `setVisible(false)` and the focused page receives native input. Exit detection rides on the focused page's `webContents` `blur` event — when the user clicks any other view, blur fires and main clears the entered page.
 
 **Focus model — total focus.**
-- Click on a frame body → enter focus.
-- Click anywhere else (canvas, another frame, sidebar) → blur fires → exit focus. The exit click does **not** double as the next interaction; two clicks to act on another canvas element.
+- Click on a page body → enter focus.
+- Click anywhere else (canvas, another page, sidebar) → blur fires → exit focus. The exit click does **not** double as the next interaction; two clicks to act on another canvas element.
 - Escape → exit focus.
 - DevTools attach is treated as a companion to focus, not an exit (focus *intent* in main is tracked separately from actual webContents focus; `FocusReconciler` reasserts).
 
-**Hit-region priority table — 5 layers, top wins.**
+**Hit-region priority table — 4 layers, top wins.**
 
 | # | Layer | Action |
 |---|---|---|
 | 1 | resize-handles | begin resize |
-| 2 | chrome (frame + entity) | drag / select |
-| 3 | edge anchors | begin edge drag |
-| 4 | body | frame → enterFocus; other entities → select |
-| 5 | background | marquee / pan |
+| 2 | edge anchors | begin edge drag |
+| 3 | body | page → enterFocus; other entities → select |
+| 4 | background | marquee / pan |
+
+The chrome-header geometric layer was retired per [ADR 0028](./0028-retire-chrome-header-slot-model.md) — entity rect now equals body rect and chrome renders as plain DOM in `aboveView`. Reorder-handle and gap-handle layers sit above `body` but below `anchors` per ADR 0015.
 
 Load-bearing constraints encoded:
-- Resize handles above chrome — once selected, the next gesture is shaping.
-- Chrome above anchors — fixes #41.
+- Resize handles above anchors — once selected, the next gesture is shaping.
 - Body kind-dispatches — same priority slot, behavior chosen by entity kind.
 
-Edges visually cross frame bodies; clicking such an overlap goes to the frame body (focus). Clicking inside a group selects the inner entity, not the group. Group bounds folds into the body layer.
+Edges visually cross page bodies; clicking such an overlap goes to the page body (focus). Clicking inside a group selects the inner entity, not the group. Group bounds folds into the body layer.
 
 ## Consequences
 

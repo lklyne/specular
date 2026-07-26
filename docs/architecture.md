@@ -52,7 +52,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
                    │
 ┌──────────────────┴──────────────────────────────────────────┐
 │ External clients                                             │
-│  CLI (planned)     Agent interaction via command line        │
+│  CLI               Agent interaction via command line        │
 │  HTTP API          Runtime queries and mutations             │
 │  CDP proxy         Chrome DevTools Protocol (WebSocket)      │
 └─────────────────────────────────────────────────────────────┘
@@ -93,12 +93,13 @@ All canvas content is a **node** (following the JSON Canvas spec):
 | Node type | Internal kind | Description |
 |-----------|--------------|-------------|
 | `link` | `page` | Live web page in an Electron webview |
-| `text` | `text` | Text/markdown note |
-| `file` | `file` | Reference to a local file (image, etc.) |
+| `text` | `text` | Text note (plain or sticky style) |
+| `file` | `file` | Reference to a local file (image, markdown, component, etc.) |
 | `group` | `group` | Visual container for other nodes |
+| *(Specular-only)* | `drawing` | Freehand drawing (pen or highlighter strokes) |
+| *(Specular-only)* | `shape` | Vector shape (rectangle, ellipse, diamond, etc.) |
 
-Plus **edges** (connections between nodes) and **annotations** (freehand
-drawings overlaid on the canvas).
+Plus **edges** (connections between nodes).
 
 Each entity type has:
 - `Persisted*Entity` — serializable fields (saved to .canvas)

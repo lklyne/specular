@@ -52,3 +52,7 @@ This does not address a separate, pre-existing browser-mode bug: the page's
 bgView backing card is positioned at canvas coordinates while the live page is
 re-centered/fit to the browser viewport, so the two diverge (visibly at
 non-100% zoom). That is tracked separately.
+
+## Supersession note
+
+Browser mode was deleted entirely by [ADR 0020](./0020-delete-browser-mode-for-focus-selection.md). The `viewMode === 'canvas'` guard in the bgView wheel handler remains valid (canvas mode pan is unchanged), but the motivation for this ADR — protecting users in browser mode from unintended canvas pan — is no longer relevant. The retained behavior (canvas-mode-only wheel pan) is correct and unchanged; the browser-mode code path it guarded is gone.

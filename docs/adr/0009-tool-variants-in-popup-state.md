@@ -34,16 +34,18 @@ Keeping the variant in the union forces:
 
 ```ts
 type Tool =
-  | { kind: 'select' }                              // default
-  | { kind: 'add-page' }                            // one-shot
-  | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot
-  | { kind: 'add-document' }                        // one-shot
-  | { kind: 'add-shape' }                           // one-shot
-  | { kind: 'comment' }                             // persistent
-  | { kind: 'draw' }                                // persistent
-  | { kind: 'region-select' }                       // persistent
-  | { kind: 'inspect' }                             // persistent
+  | { kind: 'select' }       // default
+  | { kind: 'hand' }         // persistent
+  | { kind: 'add-page' }     // one-shot
+  | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot — note: style removed from union by ADR 0013 §4
+  | { kind: 'add-document' } // one-shot
+  | { kind: 'add-shape' }    // one-shot
+  | { kind: 'comment' }      // persistent
+  | { kind: 'draw' }         // persistent
+  | { kind: 'inspect' }      // persistent
 ```
+
+> **Note:** `region-select` shown in earlier drafts was removed by [ADR 0006](./0006-unified-comment-tool.md) before this ADR landed. `add-text.style` was subsequently removed and `add-sticky` added as a first-class tool by [ADR 0013](./0013-popup-menus-v2.md) §4. See `src/shared/tool.ts` for the current union.
 
 - **`add-shape`** carries no `shapeKind`. Defaults are read from `tool-defaults.add-shape.{shapeKind, color, strokeWidth}`. The tool-mode popup shows all three variants as buttons; clicking one updates the default and is persisted.
 - **`draw`** unchanged at the union level (no field added). `tool-defaults.draw.{brushType, color, strokeWidth}` replaces the implicit `activeDrawBrush` lookup. The tool-mode popup shows pen + highlight as buttons.

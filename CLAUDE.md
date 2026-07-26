@@ -62,7 +62,7 @@ Electron app with four source layers:
 
 ```
 src/main/          Main process: state, persistence, HTTP API, CLI, IPC routing
-src/preload/       Context bridges: one per renderer overlay (9 total)
+src/preload/       Context bridges: one per renderer overlay (10 total)
 src/renderer/      React apps: canvas-bg, toolbar, sidebar, inspector, overlays
 src/shared/        Types and pure utilities shared across processes
 ```
@@ -130,13 +130,9 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 
 ## View modes
 
-Browser and Canvas are different views of the same data:
+Specular has one primary view: **Canvas mode** — a spatial freeform surface where all items are arranged freely.
 
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between pages
-
-Both operate on the same underlying .canvas data and share primitives.
-Maximize overlap between modes.
+Browser mode was deleted — see [ADR 0020](docs/adr/0020-delete-browser-mode-for-focus-selection.md). Legacy workspace metadata may still contain `viewMode: 'browser'`; the runtime treats it as a compatibility hint and opens the canvas with the formerly active page selected. Do not add code paths for a browser mode.
 
 ## Code principles
 

@@ -5,7 +5,7 @@
 > variant) was deleted wholesale — see the "delete wireframe mode" PR. The
 > renderer-plugin popup contribution surface it depended on was removed too.
 
-**Status:** Proposed
+**Status:** Partially Accepted — see postmortem below
 **Date:** 2026-05-15
 **Refines:** [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md), [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md), [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md).
 
@@ -322,3 +322,34 @@ Vertical slices, each green on `typecheck` + `test:unit` + `test:smoke`. May shi
 ## Deferred
 
 - **Shape border width control.** The shape popup originally exposed two stroke-width swatches (thin / thick) alongside fill color and size. The current Figma lock for shapes omits the border-width row entirely, so the swatches are commented out in `ShapePopup.tsx` and `ShapeToolPopup.tsx`. The underlying `strokeWidth` property and `STROKE_WIDTH_PRESETS` helpers remain — when border width returns to the visual design (either as inline swatches, a numeric input, or a "Style" sub-popup), uncomment the section and revisit placement relative to `Size` and color.
+
+## Postmortem (2026-07)
+
+This ADR shipped in parts; several sections were cut or superseded. Current state:
+
+**Shipped:**
+- §1 Eight-slot color palette and theme-aware neutral — landed.
+- §2 Text size as a per-entity property (`textSize`) — landed.
+- §4 `Tool` union restructure — **landed** with modifications: `add-sticky` added, `add-text.style` removed, `add-document` retained (not removed as originally planned; the cross-kind morph alternative that was supposed to replace it was cut instead — see §3 below).
+- §5 Toolbar regrouping — landed.
+- §6 Element name on element-anchored annotations — landed.
+- §7 Page popup device-frame and rotate controls — landed.
+- §8 Visual treatment / token lock — landed.
+
+**Cut:**
+- §3 Cross-kind morph (text ↔ file) — **superseded and deleted**. The morph IPC channel, `TextKindToggle`, and the markdown-morph popup contribution were all removed. Alternative C from this ADR's own "Alternatives considered" section is what shipped: `add-document` remains a separate top-level tool, and convert-in-place is not offered.
+
+**Net current `Tool` union** (see `src/shared/tool.ts` for authoritative source):
+```ts
+type Tool =
+  | { kind: 'select' }
+  | { kind: 'hand' }
+  | { kind: 'add-page' }
+  | { kind: 'add-text' }     // plain text; no style field
+  | { kind: 'add-sticky' }   // first-class sticky tool
+  | { kind: 'add-document' } // retained (cross-kind morph was cut)
+  | { kind: 'add-shape' }
+  | { kind: 'comment' }
+  | { kind: 'draw' }
+  | { kind: 'inspect' }
+```
