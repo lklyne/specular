@@ -1,3 +1,4 @@
+import { resolve as resolvePath } from 'node:path'
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
 import { callApp } from './shared/app-client'
@@ -161,9 +162,12 @@ const ADD_ITEM_BUILDERS: Record<string, (args: ParsedArgs) => Record<string, unk
     if (!path) return 'usage: specular add file <path> [--at x,y]'
     // The file handler infers the renderer from the extension (md / html /
     // image / video) and sizes images/video from the file.
+    // Resolve here, in the CLI process: this is the only process that knows the
+    // user's cwd, and the stored reference outlives it. A bare relative path
+    // persists into the .canvas and resolves to nothing on the next launch.
     return {
       kind: 'file',
-      file: path,
+      file: resolvePath(path),
       ...atPosition(args),
       ...deviceFrameFlag(args),
     }
