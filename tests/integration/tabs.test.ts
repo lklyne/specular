@@ -16,6 +16,12 @@
  * assignment in `readCanvasDocument` — the read case fails; (e) building the
  * identity from unsynced tab records instead of `workspaceTabSummaries()` —
  * the active tab's entityCount reads back as 0 instead of 1.
+ *
+ * Also guards the side-effect half of a tab switch (`applyTabState`), which
+ * data assertions alone leave unprotected. Mutation-verified by: (f) dropping
+ * the `resetUiStateForTabSwitch()` call in `applyTabState` — the selection
+ * survives the switch; (g) dropping the `applyEmptyTabViewState(...)` call —
+ * the outgoing tab's zoom and pan survive the switch to an empty canvas.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -29,6 +35,12 @@ import {
 } from '../../src/main/runtime/workspace-tab-operations'
 import { resolveWorkspaceTabRef } from '../../src/main/runtime/workspace-tab-refs'
 import { activeWorkspaceTabId, workspaceTabs } from '../../src/main/runtime/workspace-model'
+import { selectEntity } from '../../src/main/runtime/selection-controller'
+import { getSelectionState } from '../../src/main/workspace-entities'
+import { setPan, setZoom } from '../../src/main/runtime/viewport-control'
+import { getZoom } from '../../src/main/runtime/runtime-context'
+import { workspaceSnapshot } from '../../src/main/runtime/workspace-tabs'
+import { getUiState } from '../../src/main/ui-state'
 
 let harness: WorkspaceHarness
 
@@ -92,6 +104,23 @@ describe('tab identity', () => {
     const byName = resolveWorkspaceTabRef('Blank')
     expect(byName.ok && setActiveWorkspaceTab(byName.tab.id)).toBe(true)
     expect(activeWorkspaceTabId).not.toBe(id)
+  })
+
+  it('clears selection and resets the viewport when switching to an empty tab', async () => {
+    const note = createTextEntity({ canvasX: 120, canvasY: 40, text: 'selected' })
+    selectEntity(note.id, 'text')
+    setZoom(2)
+    setPan(400, 300)
+    await settleSync()
+    expect(getSelectionState().selectedEntityIds).toEqual([note.id])
+
+    const created = createBackgroundWorkspaceTab('empty')
+    expect(setActiveWorkspaceTab(created.ok ? created.id : '')).toBe(true)
+
+    expect(getSelectionState().selectedEntityIds ?? []).toEqual([])
+    expect(getUiState().selection).toEqual({ kind: 'none' })
+    expect(getZoom()).toBe(1)
+    expect(workspaceSnapshot().pan).toEqual({ x: 0, y: 0 })
   })
 
   it('errors with candidate ids for an ambiguous name', () => {

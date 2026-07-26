@@ -286,15 +286,28 @@ export function withTabContext<T>(tabId: string, fn: () => T, options?: TabConte
       const result = fn()
 
       if (commit) {
-        tab.snapshot = mergeIntoTabSnapshot(tab.snapshot)
-        tab.annotations = cloneAnnotationsForPersistence(workspaceAnnotations)
-        tab.updatedAt = new Date().toISOString()
-        writeTabAsCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, tab)
+        // Disk first, record second. If the write throws (full disk, bad
+        // permissions) the tab record still describes what is on disk, so the
+        // next autosave has nothing phantom to preserve.
+        const snapshot = mergeIntoTabSnapshot(tab.snapshot)
+        const annotations = cloneAnnotationsForPersistence(workspaceAnnotations)
+        const updatedAt = new Date().toISOString()
+        writeTabAsCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, {
+          ...tab,
+          snapshot,
+          annotations,
+          updatedAt,
+        })
+        tab.snapshot = snapshot
+        tab.annotations = annotations
+        tab.updatedAt = updatedAt
       }
       return result
     } finally {
       backgroundContext = restoreContext
       withSuppressedDocSync(() => restoreRuntimeState(saved))
+      // The detached doc carries observers; an AFK run does hundreds of these.
+      detached.destroy()
     }
   })
 }

@@ -49,6 +49,13 @@ specular apply --tab <tab-id> < patch.json
 with the candidates rather than guessing. Snapshot the tab id from `workspace`
 before a batch and confirm it after — the user can switch canvases mid-session.
 
+Not every verb takes it. `workspace` reads, `apply`, and `add` (including the
+placement lookups `add` runs) are tab-scoped; the rest — `unlink`, `ungroup`,
+`auto-layout`, `arrange`, the annotation verbs — reject `--tab` with a 400
+rather than quietly writing to the active canvas. Selection-driven verbs like
+`arrange` are active-tab-only by nature: selection is UI state, so only the
+canvas the user is looking at has one.
+
 Two limits: pages can't be created or edited on a background tab (they need a
 live view — `tab switch` first), and background writes are not on the user's
 undo stack, so Cmd+Z will not reverse them.

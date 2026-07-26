@@ -160,11 +160,20 @@ export const workspaceRoutes: Route[] = [
       })
     },
   },
+  // Single-item placement, same story as the batch pre-pass below: the
+  // occupied regions it avoids belong to the target canvas, not the one the
+  // user is looking at. Read-only, so the context commits nothing back.
   {
     method: 'POST',
     pattern: '/layout/find-placement',
-    async handler({ response, body }) {
-      writeJson(response, 200, findPlacement(body as PlacementRequest))
+    tabScoped: true,
+    async handler({ response, body, targetTab }) {
+      const compute = (): unknown => findPlacement(body as PlacementRequest)
+      writeJson(
+        response,
+        200,
+        targetTab ? withTabContext(targetTab.id, compute, { commit: false }) : compute(),
+      )
     },
   },
   // The placement pre-pass every write runs before `/canvas/apply`. It honors
