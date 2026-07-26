@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 4 — Live multiplayer</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+.bar.warn i{background:#b45309}
+strong{font-weight:600}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:18px 20px;margin:0 0 14px;font-size:14px}
+.warncard{background:#fdf8f3;border-color:#f0e0cc}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 4 of 6 · the current ADR</p>
+<h1>Live multiplayer</h1>
+<p class="lede">One shared document per canvas, living in the cloud. Humans, browser viewers and agents all connect as equal peers and edit at the same time. The server reads everything, and that is what makes the rest possible.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 230" role="img" aria-label="Several peers connected to one readable server document">
+  <g class="node" data-i="0"><rect x="205" y="14" width="150" height="72" rx="9" fill="#fbf1e8" stroke="#e2c9a8"/><text class="nlab" x="280" y="44" text-anchor="middle">Shared document</text><text class="slab" x="280" y="63" text-anchor="middle">👁 server reads all</text></g>
+  <g class="node" data-i="1"><rect x="15" y="150" width="120" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="75" y="178" text-anchor="middle">You</text><text class="slab" x="75" y="196" text-anchor="middle">desktop</text></g>
+  <g class="node" data-i="2"><rect x="150" y="150" width="120" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="210" y="178" text-anchor="middle">Teammate</text><text class="slab" x="210" y="196" text-anchor="middle">desktop</text></g>
+  <g class="node" data-i="3"><rect x="285" y="150" width="120" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="345" y="178" text-anchor="middle">Reviewer</text><text class="slab" x="345" y="196" text-anchor="middle">browser</text></g>
+  <g class="node" data-i="4"><rect x="420" y="150" width="120" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="480" y="178" text-anchor="middle">Agent</text><text class="slab" x="480" y="196" text-anchor="middle">headless</text></g>
+  <path d="M255 90 L85 147" stroke="#ddd7cf" stroke-width="1.5"/><path d="M270 90 L215 147" stroke="#ddd7cf" stroke-width="1.5"/>
+  <path d="M292 90 L340 147" stroke="#ddd7cf" stroke-width="1.5"/><path d="M308 90 L470 147" stroke="#ddd7cf" stroke-width="1.5"/>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">Everything.</span> Live co-editing, cursors, a browser client that can actually render, cloud agents, server-side screenshots, thumbnails, search, recovery.</li>
+<li><span class="pro">One substrate, many features.</span> Device sync and multiplayer are literally the same code path with a different number of participants.</li>
+<li><span class="pro">The familiar product.</span> Nobody needs the model explained; it's how Figma works.</li>
+<li><span class="pro">Mostly built.</span> The spike already has the sync server, capability links, asset storage, and a headless agent peer working.</li>
+</ul>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">Custody-free positioning.</span> "Local-first" becomes "local-capable." You hold readable copies of your users' work, forever, at rest.</li>
+<li><span class="con">A quiet life.</span> Breach exposure, retention policy, employee access controls, deletion requests, DPAs the moment one company adopts it.</li>
+<li><span class="con">Reversibility.</span> A link, once opened, gave someone a complete replica. Revocation stops future sync; it does not recall data.</li>
+</ul>
+
+<div class="card warncard"><strong>Two sharp edges specific to this product, not to multiplayer in general:</strong>
+<ul style="margin:8px 0 0">
+<li>A shared canvas full of live pages pointed at <code>localhost</code> renders against <em>the other person's</em> localhost — the same URL, a different site, no warning.</li>
+<li>A peer with an edit link can write an HTML entity into your canvas, which your app then renders. That is someone else's arbitrary code executing inside your desktop app.</li>
+</ul></div>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar warn"><i style="width:80%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar warn"><i style="width:70%"></i></div></div>
+<div class="meter"><span>Legal / trust</span><div class="bar warn"><i style="width:85%"></i></div></div>
+<p class="who">The sync was the easy part and it's done. The auth layer, the web client, attribution, multiplayer undo, and the entire duty-of-care surface are ahead.</p>
+
+<h2>Who does this</h2>
+<p class="who">Figma, Miro, Notion, Linear. Every one of them is a custodian, and every one of them has an enterprise trust page, a security team, and a breach plan.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> the most capable road and the only genuinely irreversible one. Roads 1, 2, 3 and 5 can each become another later. This one, once real users' work is sitting readable on your server, is where you stay.</p>
+</div>
+<script>
+const C=["One live document in the cloud. Because the server can read it, it can also render it, thumbnail it, screenshot it, and search it — every convenience downstream of this is downstream of readability.",
+"Your desktop app is a peer like any other. It has no special authority; the cloud copy exists whether you're online or not.",
+"Their edits land in your canvas in real time. There is no review step, no approval, no undo that only affects their work.",
+"They need no app — the browser renders from the server. This is the feature that makes links worth having, and it is impossible without a readable server.",
+"An agent joins with a token and edits as a peer. Trivial here, which is the strongest argument for this road."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

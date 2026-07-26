@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 1 — Solo vault</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:20px 22px;margin:0 0 14px}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}
+.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+.bar.warn i{background:#b45309}
+strong{font-weight:600}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 1 of 6 · no cloud</p>
+<h1>Solo vault</h1>
+<p class="lede">Specular never talks to a server. A space is a folder on your disk. Sharing means handing someone files. Multiplayer does not exist, and that is the point.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 190" role="img" aria-label="Two devices, no server">
+  <g class="node" data-i="0"><rect x="30" y="45" width="150" height="90" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="105" y="82" text-anchor="middle">Your Mac</text><text class="slab" x="105" y="102" text-anchor="middle">~/work/*.canvas</text></g>
+  <g class="node" data-i="1"><rect x="380" y="45" width="150" height="90" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="455" y="82" text-anchor="middle">Someone else</text><text class="slab" x="455" y="102" text-anchor="middle">a copy you sent</text></g>
+  <g class="node" data-i="2"><rect x="215" y="65" width="130" height="50" rx="9" fill="#faf8f5" stroke="#ece8e2" stroke-dasharray="4 4"/><text class="slab" x="280" y="94" text-anchor="middle">zip · git · AirDrop</text></g>
+  <path d="M182 90 H213" stroke="#ddd7cf" stroke-width="1.5"/><path d="M347 90 H378" stroke="#ddd7cf" stroke-width="1.5"/>
+  <text class="slab" x="280" y="168" text-anchor="middle">no server anywhere in this picture</text>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">Absolute privacy.</span> Not a policy or an encryption scheme — an absence. There is nothing to breach, subpoena, or leak.</li>
+<li><span class="pro">No consent surface.</span> No moment where a button quietly uploads someone's work.</li>
+<li><span class="pro">Zero infrastructure.</span> No Cloudflare bill, no on-call, no auth layer, no key management.</li>
+<li><span class="pro">Agents still work.</span> Claude Code on your machine already drives the canvas over the local CLI. The single most valuable form of "multiplayer" needs no cloud at all.</li>
+<li><span class="pro">Nothing rots.</span> The app works identically in ten years with no company behind it.</li>
+</ul>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">Device sync</span>, unless you delegate it to iCloud/Dropbox/git — which is a real trap: those tools sync files on a timer while the app is writing them, and a half-written <code>.canvas</code> is a corrupted canvas.</li>
+<li><span class="con">Any share link.</span> Showing your work means exporting or screen-sharing.</li>
+<li><span class="con">Remote agents.</span> An agent on someone else's machine can't reach your canvas.</li>
+<li><span class="con">A recurring revenue model.</span> This is a one-time-purchase app.</li>
+</ul>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar"><i style="width:4%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:2%"></i></div></div>
+<div class="meter"><span>Support burden</span><div class="bar"><i style="width:12%"></i></div></div>
+<p class="who">This is where the product is today. The only real work is letting people choose their folder.</p>
+
+<h2>Who does this</h2>
+<p class="who">Obsidian without Sync. Sublime Text. Affinity. Most software before 2015 — and a growing amount of software after 2024, as people notice the subscription treadmill.</p>
+
+<p class="kicker"><strong>The honest question:</strong> is the thing you're building a tool one person uses to think, or a place several people meet? If it's genuinely the former, every other road on this list is optional — and the cost of skipping them is one feature request you decline, repeatedly, forever.</p>
+</div>
+<script>
+const C=["Your work lives in a folder you chose. Every canvas is a plain JSON file you can read, diff, and back up with anything.",
+"They have a copy — a fork, not a view. Their edits never come back to you, and yours never reach them. There is no merge.",
+"The transport is whatever you already use. Fast to build, but it means versions diverge silently and nobody knows which copy is current."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

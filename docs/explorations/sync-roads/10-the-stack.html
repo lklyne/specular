@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 10 — The stack</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:700px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:44px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:20px 22px;margin:0 0 14px}
+.card h3{margin:0 0 8px;font-size:14px;font-weight:600}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}
+.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:46px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+strong{font-weight:600}
+code{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3f0ea;padding:1px 5px;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:#fff;border:1px solid #ece8e2;border-radius:10px;overflow:hidden;margin:0 0 14px}
+th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#a09a92;font-weight:600;padding:11px 12px;border-bottom:1px solid #ece8e2;vertical-align:bottom}
+td{padding:10px 12px;border-bottom:1px solid #f4f1ec;vertical-align:top}
+tr:last-child td{border-bottom:0}
+.warnbox{background:#fffaf2;border:1px solid #f0e2cc;border-radius:10px;padding:18px 20px;margin:0 0 14px}
+.warnbox h3{margin:0 0 8px;font-size:14px;font-weight:600;color:#8a5a10}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 10 of 10 · the composite</p>
+<h1>The stack</h1>
+<p class="lede">Roads 7, 8 and 9 aren't three alternatives. They're four layers and a choice of transport — local by default, sync when you want it, a link when you need one, and cloud agents throughout, with you never holding a readable copy of anyone's work.</p>
+
+<h2>The layers</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 300" role="img" aria-label="Five stacked layers from local vault to optional live multiplayer">
+  <g class="node" data-i="0"><rect x="80" y="248" width="400" height="40" rx="8" fill="#fff" stroke="#c8bfae"/><text class="nlab" x="100" y="273">L0 · Local vault</text><text class="slab" x="462" y="273" text-anchor="end">shipped</text></g>
+  <g class="node" data-i="1"><rect x="80" y="200" width="400" height="40" rx="8" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="100" y="225">L1 · Canonical file + update log</text><text class="slab" x="462" y="225" text-anchor="end">prerequisite</text></g>
+  <g class="node" data-i="2"><rect x="80" y="152" width="400" height="40" rx="8" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="100" y="177">L2 · Attribution &amp; change review</text><text class="slab" x="462" y="177" text-anchor="end">valuable alone</text></g>
+  <g class="node" data-i="3"><rect x="80" y="104" width="400" height="40" rx="8" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="100" y="129">L3 · Sync driver — bucket or git</text><text class="slab" x="462" y="129" text-anchor="end">roads 7 · 8</text></g>
+  <g class="node" data-i="4"><rect x="80" y="56" width="400" height="40" rx="8" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="100" y="81">L4 · Viewer bundle + hosted comments</text><text class="slab" x="462" y="81" text-anchor="end">road 9</text></g>
+  <g class="node" data-i="5"><rect x="80" y="8" width="400" height="40" rx="8" fill="#faf8f5" stroke="#ece8e2" stroke-dasharray="4 4"/><text class="nlab" x="100" y="33">L5 · Live co-edit, per canvas</text><text class="slab" x="462" y="33" text-anchor="end">optional, later</text></g>
+</svg>
+<div id="cap">Click a layer.</div>
+</div>
+
+<h2>Why this order</h2>
+<p>Each layer is useful on the day it ships, and no layer commits you to the one above it.</p>
+<ul>
+<li><strong>L1 pays for itself immediately.</strong> A canonical, stable-ordered serializer plus a Yjs update log on disk is what makes an agent editing a <code>.canvas</code> file safe today — no half-written file, no lost concurrent edit. It happens to also be the exact substrate both Road 7 and Road 8 need. Build it for the local case; get the sync case free.</li>
+<li><strong>L2 is Road 6's product work</strong> — author fields, a task-granularity diff, an activity timeline. It is wasted under no scenario and it's the layer that makes agent delegation actually usable rather than merely possible.</li>
+<li><strong>L3 is one interface with two implementations</strong>, which is the only abstraction in this whole exploration that earns its keep. A bucket driver and a git driver both do: list what's new, fetch it, append mine. Users pick whichever infrastructure they already have.</li>
+<li><strong>L4 is a build target</strong>, not a service — except the comment endpoint, which is the single piece of infrastructure you run.</li>
+<li><strong>L5 stays optional and per-canvas.</strong> Not a product-wide custody decision. If it ever ships, it ships for the canvases someone deliberately opts in.</li>
+</ul>
+
+<h2>What you can claim, and it's true</h2>
+<div class="card">
+<h3>"Your canvases live where you put them. We never hold a copy."</h3>
+<p>Not a cryptographic claim, so no key management, no recovery phrases, no support tickets from people who lost a passphrase and lost a year of work. Just an architecture where the storage credentials were never yours.</p>
+<p>And unlike Road 5, it doesn't foreclose the future: their storage holds plaintext, so <em>their</em> search, <em>their</em> backups, <em>their</em> agents all work on it. The features E2EE kills are alive here — they just run on the user's side of the line.</p>
+</div>
+
+<h2>Where the cloud agents run</h2>
+<table>
+<thead><tr><th style="width:26%">Transport</th><th>How an agent gets in</th><th>What you hold</th></tr></thead>
+<tbody>
+<tr><td>Bucket (7)</td><td>the user's bucket credentials, scoped to one space</td><td>nothing</td></tr>
+<tr><td>Git (8)</td><td>repo access; works on a branch, opens a PR</td><td>nothing</td></tr>
+<tr><td>Local (6)</td><td>the CLI, as today</td><td>nothing</td></tr>
+</tbody>
+</table>
+<p>Worth stating plainly, because it's the result the first six roads couldn't reach: <strong>remote agent edits and zero custody are compatible</strong>, and the way you get there is by not being the one who stores things. Road 5 tried to solve the same problem with encryption and failed at exactly this point — a cloud agent has to decrypt, so somebody's server sees plaintext. Here nobody's server does, because the agent runs against storage the user already trusts.</p>
+
+<div class="warnbox">
+<h3>The risk this stack carries</h3>
+<p><strong>The setup wall is the whole bet.</strong> Both transports ask the user to bring infrastructure. If "how do I sync?" is answered with "create a bucket" or "connect a repo," a large share of the design audience stops there — and the developer half, who won't, is the half least likely to need convincing about anything.</p>
+<p>The mitigation everyone reaches for is a hosted default on the same driver. It works, and it quietly converts the claim from <em>"we cannot read your work"</em> to <em>"you can opt out of us."</em> That's still a good product. It just isn't the differentiated one, and it's worth deciding on purpose rather than discovering after the onboarding metrics come in.</p>
+<p>The version of this that stays honest: <strong>a first-run choice, not a default with an escape hatch.</strong> Local-only, your storage, or ours — asked once, in plain language, at the moment it matters.</p>
+</div>
+
+<h2>What's still deferred</h2>
+<ul>
+<li><span class="con">Live co-editing.</span> Two cursors in one canvas is L5, and L5 may never come. Everything below it is turn-taking.</li>
+<li><span class="con">A zero-setup share for non-technical reviewers</span> requires the hosted publish destination (Road 9C). Small custody, deliberately taken.</li>
+<li><span class="con">Binary assets under git</span> remain awkward. The bucket transport handles them better; a content-addressed store shared by both is the fix, and it isn't free.</li>
+<li><span class="con">Undo versus history.</span> Two timelines, one Cmd+Z. Unsolved on every road, and it gets sharper the moment a pull can change the canvas under you.</li>
+</ul>
+
+<p class="kicker"><strong>The strategic read:</strong> the first six roads framed privacy and collaboration as opposed, and Road 5 as the expensive way to have both. This stack gets most of both by asking a different question — not "how do we hold data safely?" but "what if we don't hold it?" It costs live co-editing and it costs onboarding friction. It buys cloud agents, sharing, version history and a trust claim that needs no cryptography to be literally true.</p>
+</div>
+<script>
+const C=["Where the product is today. A space is a folder; a canvas is JSON on disk. Everything above this layer is optional and additive — nobody is forced up the stack.",
+"A deterministic serializer with stable ordering, plus an append-only Yjs update log beside each canvas. Ships value immediately by making external agent file edits safe, and is the exact substrate both sync transports need.",
+"Author fields on entities, a diff you can accept in pieces, an activity timeline, revert at task granularity. Road 6's list. Pure product work, useful with or without any server.",
+"One interface, two implementations: a bucket driver and a git driver. Both answer list-fetch-append. The user brings whichever infrastructure they already have — and the agent story comes with it.",
+"The static viewer bundle from Road 9, published to a bucket, to Pages, or to a small service. The service is the only thing you operate, and it exists for one reason: comments coming back.",
+"Live co-editing, opted into one canvas at a time. Deliberately last and deliberately optional — this is the only layer that takes custody, and it should never be a product-wide decision."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

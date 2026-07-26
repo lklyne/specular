@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 3 — Publish &amp; comment</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+strong{font-weight:600}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:18px 20px;margin:0 0 14px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 3 of 6 · asymmetric</p>
+<h1>Publish &amp; comment</h1>
+<p class="lede">Editing stays local and solo. "Share" publishes a snapshot to a URL. Others open it in a browser, pan around, and leave comments that flow back to you. Nobody else ever edits your canvas.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 220" role="img" aria-label="One editor publishing a snapshot that reviewers comment on">
+  <g class="node" data-i="0"><rect x="20" y="70" width="140" height="80" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="90" y="103" text-anchor="middle">You (desktop)</text><text class="slab" x="90" y="122" text-anchor="middle">sole editor</text></g>
+  <g class="node" data-i="1"><rect x="210" y="70" width="140" height="80" rx="9" fill="#f7f4f0" stroke="#ddd7cf"/><text class="nlab" x="280" y="97" text-anchor="middle">Published</text><text class="nlab" x="280" y="114" text-anchor="middle">snapshot</text><text class="slab" x="280" y="133" text-anchor="middle">a version, frozen</text></g>
+  <g class="node" data-i="2"><rect x="400" y="70" width="140" height="80" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="470" y="103" text-anchor="middle">Reviewers</text><text class="slab" x="470" y="122" text-anchor="middle">browser, no app</text></g>
+  <path d="M162 100 H207" stroke="#ddd7cf" stroke-width="1.5" marker-end="url(#a)"/>
+  <path d="M352 100 H397" stroke="#ddd7cf" stroke-width="1.5" marker-end="url(#a)"/>
+  <path d="M400 138 Q280 195 160 138" stroke="#1f5f9e" stroke-width="1.5" fill="none" marker-end="url(#b)"/>
+  <text class="slab" x="280" y="192" text-anchor="middle" fill="#1f5f9e">comments only</text>
+  <text class="slab" x="184" y="92">publish</text><text class="slab" x="368" y="92">read</text>
+  <defs>
+    <marker id="a" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#ddd7cf"/></marker>
+    <marker id="b" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#1f5f9e"/></marker>
+  </defs>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">The share link people actually want.</span> Most "can you share this" requests are a review, not a co-editing session.</li>
+<li><span class="pro">Un-share genuinely works.</span> The published copy is a separate artifact — delete it and it's gone. In live multiplayer, every guest holds a full replica you can never take back.</li>
+<li><span class="pro">A real consent moment.</span> You publish a version, deliberately, rather than opening a live window onto your working file.</li>
+<li><span class="pro">No hard problems.</span> No live sync server, no presence, no multiplayer undo, no merge semantics, no per-canvas document splitting.</li>
+<li><span class="pro">Live pages become tractable.</span> A snapshot has pixels; there's no confusion about whose <code>localhost</code> a shared page points at.</li>
+</ul>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">Co-editing and presence.</span> Two people cannot be in the same canvas.</li>
+<li><span class="con">Freshness.</span> Republishing is a manual act — or automatic, at which point you've quietly rebuilt a live feed with none of the safeguards.</li>
+<li><span class="con">Remote agents editing.</span> An agent can read a published canvas but has nowhere to write.</li>
+<li><span class="con">The privacy absolute.</span> The server reads what you publish, because it has to render it.</li>
+</ul>
+
+<div class="card"><strong>Underrated property:</strong> this is the only road where "what changed since you last looked" is trivial, because versions are discrete. In a live CRDT there is no version — just a continuously moving present, and every review workflow has to invent one.</div>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar"><i style="width:30%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:20%"></i></div></div>
+<div class="meter"><span>Support burden</span><div class="bar"><i style="width:18%"></i></div></div>
+<p class="who">A snapshot upload, a static viewer, and a comment write-back. No Durable Objects, no CRDT server, no auth beyond an unguessable URL.</p>
+
+<h2>Who does this</h2>
+<p class="who">Figma's prototype links before multiplayer. Loom. Whimsical share links. Google Docs "published to the web." Almost every design tool shipped this before it shipped co-editing, because it's where the value density is.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> the cheapest road that produces a link, and the one most likely to reveal whether anyone actually wants co-editing. If reviewers only ever comment, Road 4 was never necessary.</p>
+</div>
+<script>
+const C=["Your canvas never leaves your machine as a live document. You keep editing while a published version sits frozen elsewhere.",
+"A rendered, read-only version of the canvas at a moment in time. The server can read this — it has to, to draw it — but only this, and only what you chose to publish.",
+"They need no account and no app. They can look and comment; they cannot move anything, and nothing they do can surprise you mid-edit."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>
