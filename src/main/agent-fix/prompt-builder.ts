@@ -164,7 +164,6 @@ export function buildFixPrompt(annotation: Annotation, context?: FixPromptContex
     const target = context?.target ?? null
     lines.push(...whereToWriteLines(annotation, target))
     lines.push(...whatToSurfaceLines(target))
-    lines.push('- An explicit instruction in the comment overrides all of the above.')
   }
 
   // Nothing to inspect when the request is about a file on disk and no page is
@@ -319,29 +318,29 @@ function targetKind(target: FixTarget | null): FixTargetKind {
 }
 
 /**
- * Where the bytes land. Source is edited in place; an artifact sitting in the
- * user's space folder is copied first, because the original is the user's own
- * file and overwriting it destroys the "before".
+ * Facts about the target, not instructions about it. Whether a request wants
+ * an in-place edit or a new variant beside the original is the comment's to
+ * say — duplicating a prototype to iterate on it is a workflow, not a mistake
+ * to guard against. What the agent cannot infer is which tree it is standing
+ * in and whether the artifact has version control behind it.
  */
 function whereToWriteLines(annotation: Annotation, target: FixTarget | null): string[] {
-  const lines: string[] = ['', 'Where the change goes:']
+  const lines: string[] = ['', 'The artifact:']
   const selectionTarget = annotation.metadata?.selectionTarget
   const kind = targetKind(target)
   switch (kind) {
     case 'repo': {
       const repo = target as Extract<FixTarget, { kind: 'repo' }>
-      lines.push(`- ${repo.origin} is served from the repo at ${repo.cwd} (your working directory).`)
+      lines.push(`- ${repo.origin} is served from the repo at ${repo.cwd} (your working directory), under version control.`)
       if (selectionTarget?.kind === 'page' && selectionTarget.url) {
         lines.push(`- Target page: ${selectionTarget.url}`)
       }
-      lines.push('- Edit the source in place. Do not copy a file just to make an edit to it.')
       break
     }
     case 'space-folder': {
       const folder = target as Extract<FixTarget, { kind: 'space-folder' }>
       lines.push(`- Target file: ${folder.filePath}`)
-      lines.push(`- It lives in the user's space folder (${folder.cwd}, your working directory). No repo is bound to it.`)
-      lines.push('- Do not overwrite the original: write your edit to a new file beside it (e.g. `name-2.ext`).')
+      lines.push(`- It sits in the user's space folder (${folder.cwd}, your working directory) — their own file, no repo and no version control behind it.`)
       break
     }
     case 'none':
@@ -356,27 +355,23 @@ function whereToWriteLines(annotation: Annotation, target: FixTarget | null): st
 }
 
 /**
- * What the user ends up looking at. The canvas is the surface — a run that
- * produces something new and leaves it only on disk reads as a run that did
- * nothing, however accurate the reply.
+ * The canvas is the surface the user works on. A run that produces something
+ * new and leaves it only on disk reads as a run that did nothing, however
+ * accurate the reply — that is the one thing worth saying outright.
  */
 function whatToSurfaceLines(target: FixTarget | null): string[] {
-  const lines: string[] = ['', 'What to put on the canvas:']
+  const lines: string[] = ['', 'What the user sees:']
   const kind = targetKind(target)
   switch (kind) {
     case 'repo':
-      lines.push('- Editing an existing page: nothing to add — the page on the canvas reloads itself.')
-      lines.push('- Creating a new page or route: add it to the canvas beside the one it came from.')
-      lines.push('    specular find-placement --width 1440 --height 900   # a free spot')
-      lines.push('    specular add page <full url> --at x,y               # put the new page there')
+      lines.push('- Pages already on the canvas reload themselves from source.')
+      lines.push('- Anything new you create reaches the user only once it is on the canvas: `specular add page <full url> --at x,y` (`specular find-placement` gives you a free spot).')
       break
     case 'space-folder':
-      lines.push('- Place the copy you wrote next to the original.')
-      lines.push('    specular find-placement --width W --height H   # a free spot')
-      lines.push('    specular add file <copy-path> --at x,y         # put the copy there')
+      lines.push('- Anything new you write reaches the user only once it is on the canvas: `specular add file <path> --at x,y` (`specular find-placement` gives you a free spot).')
       break
     case 'none':
-      lines.push('- Nothing — no change is being written.')
+      lines.push('- Nothing is being written.')
       break
     default: {
       const exhaustive: never = kind

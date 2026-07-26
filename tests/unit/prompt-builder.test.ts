@@ -1,9 +1,8 @@
 /**
  * Selection-annotation cases mutation-verified by flipping the horizontal
  * thirds in positionInRegion (item positions then read mirrored), by dropping
- * the target line from selectionLines, and by dropping the "do not overwrite
- * the original" rule from the space-folder editing policy — each broke the
- * cases below.
+ * the target line from selectionLines, and by dropping the canvas-surfacing
+ * line from whatToSurfaceLines — each broke the cases below.
  */
 
 import { describe, expect, it, vi } from 'vitest'
@@ -108,7 +107,7 @@ describe('buildFixPrompt', () => {
   it('says nothing about a selection or an editing policy for a plain page comment', () => {
     const prompt = buildFixPrompt(baseAnnotation())
     expect(prompt).not.toContain('Selected items:')
-    expect(prompt).not.toContain('Where the change goes:')
+    expect(prompt).not.toContain('What the user sees:')
   })
 })
 
@@ -187,26 +186,30 @@ describe('buildFixPrompt — selection annotations', () => {
     expect(prompt).toContain('[pending] "Nav is misaligned" (on header.site-header)')
   })
 
-  it('tells a repo-bound target to edit source in place', () => {
+  it('states where a repo-bound artifact lives without prescribing how to change it', () => {
     const prompt = buildFixPrompt(selectionAnnotation(), selectionContext)
-    expect(prompt).toContain('http://localhost:4321 is served from the repo at /Users/x/dev/site')
-    expect(prompt).toContain('Edit the source in place.')
-    expect(prompt).not.toContain('Do not overwrite the original')
-    expect(prompt).toContain('An explicit instruction in the comment overrides all of the above.')
+    expect(prompt).toContain(
+      'http://localhost:4321 is served from the repo at /Users/x/dev/site (your working directory), under version control.',
+    )
+    expect(prompt).toContain('Target page: http://localhost:4321/garden')
+    // Duplicating a prototype to iterate on it is a workflow, not a mistake to
+    // guard against — the comment decides, so the prompt bans neither path.
+    expect(prompt).not.toMatch(/Do not (duplicate|copy)/)
+    expect(prompt).not.toContain('Edit the source in place')
   })
 
-  // Regression: a repo-bound fix that creates a new route used to be told
+  // Regression: a repo-bound fix that created a new route used to be told
   // "do not duplicate anything on the canvas", so the new page landed on disk
   // only and the run looked like a no-op to the user.
-  it('tells a repo-bound target to put a newly created page on the canvas', () => {
+  it('says new artifacts only reach the user via the canvas', () => {
     const prompt = buildFixPrompt(selectionAnnotation(), selectionContext)
-    expect(prompt).toContain('What to put on the canvas:')
-    expect(prompt).toContain('Creating a new page or route: add it to the canvas')
+    expect(prompt).toContain('What the user sees:')
+    expect(prompt).toContain('Pages already on the canvas reload themselves from source.')
+    expect(prompt).toContain('Anything new you create reaches the user only once it is on the canvas')
     expect(prompt).toContain('specular add page <full url> --at x,y')
-    expect(prompt).not.toContain('Do not duplicate anything on the canvas')
   })
 
-  it('tells a space-folder target to copy the file and place the copy', () => {
+  it('states a space-folder target lacks version control and how a new file reaches the canvas', () => {
     const annotation = selectionAnnotation({
       metadata: {
         selectionEntityIds: ['file-1'],
@@ -230,9 +233,11 @@ describe('buildFixPrompt — selection annotations', () => {
     })
     expect(prompt).toContain('Target file: /Users/x/space/hero.png')
     expect(prompt).toContain("space folder (/Users/x/space, your working directory)")
-    expect(prompt).toContain('Do not overwrite the original')
-    expect(prompt).toContain('specular add file <copy-path> --at x,y')
-    expect(prompt).not.toContain('Edit the source in place.')
+    // The fact that motivated the old "do not overwrite" rule, stated as a
+    // fact so the model can weigh it against what the comment actually asks.
+    expect(prompt).toContain('no repo and no version control behind it')
+    expect(prompt).not.toContain('Do not overwrite the original')
+    expect(prompt).toContain('specular add file <path> --at x,y')
     // No page is in play, so the live-page inspection block is dead weight.
     expect(prompt).not.toContain('Inspecting the live page')
   })

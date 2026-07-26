@@ -100,15 +100,17 @@ selected and, when they name one artifact, what the request targets:
 file entity the request is about — present only when the selection names
 exactly one; omitted for selections spanning several artifacts).
 
-**Duplicate vs. edit.** When acting on a request that names a target (a
-selection annotation's `selectionTarget`, or any comment on a live page):
-- Page served from a repo bound in the Comments panel → edit the source in
-  place; don't duplicate anything on the canvas.
-- File entity in the user's space folder (no repo bound) → don't overwrite
-  the original. Duplicate it beside the original
-  (`specular find-placement` + `specular add file <copy> --at x,y`) and edit
-  the copy.
-- An explicit instruction in the comment always wins over this default.
+**Results belong on the canvas.** The canvas is the surface the user works
+on, so anything you create while acting on a comment — a new route, a
+duplicated prototype, a variant — is invisible until it is placed there
+(`specular find-placement` for a free spot, then `specular add page <url>`
+or `specular add file <path> --at x,y`). Pages already on the canvas reload
+themselves, so an in-place source edit needs nothing extra.
+
+Files in the user's space folder have no version control behind them; the
+repo bound in the Comments panel does. Weigh that when a request is
+ambiguous about whether it wants the original changed or a copy to compare
+against.
 
 ## Drive a page
 
