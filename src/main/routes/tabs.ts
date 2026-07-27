@@ -2,14 +2,21 @@
  * Tab routes — the transport behind `specular tab`.
  *
  * `GET /tabs` names every canvas in the workspace and marks the one the user
- * is looking at. `POST /tabs` creates a canvas without stealing focus.
- * `POST /tabs/switch` is the one verb that does move focus.
+ * is looking at. `POST /tabs` creates a canvas without stealing focus, and
+ * `POST /tabs/delete` removes one the same way — an agent that can create a
+ * canvas can tidy it up again. `POST /tabs/switch` is the one verb that does
+ * move focus.
  */
 
 import type { Route } from './types'
 import { workspaceTabIdentity } from '../runtime/workspace-tabs'
-import { createBackgroundWorkspaceTab, setActiveWorkspaceTab } from '../runtime/workspace-tab-operations'
+import {
+  createBackgroundWorkspaceTab,
+  deleteWorkspaceTab,
+  setActiveWorkspaceTab,
+} from '../runtime/workspace-tab-operations'
 import { resolveWorkspaceTabRef } from '../runtime/workspace-tab-refs'
+import { workspaceTabs } from '../runtime/workspace-model'
 import { writeJson } from './http-helpers'
 
 export const tabRoutes: Route[] = [
@@ -31,6 +38,31 @@ export const tabRoutes: Route[] = [
         return
       }
       writeJson(response, 200, { id: result.id, name: (name ?? '').trim(), activated: false })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/tabs/delete',
+    async handler({ response, body }) {
+      const { ref } = body as { ref?: string }
+      const resolved = resolveWorkspaceTabRef(ref ?? '')
+      if (!resolved.ok) {
+        writeJson(response, 400, { error: resolved.error })
+        return
+      }
+      const { id, name } = resolved.tab
+      // The last tab cannot be removed — it resets to an empty default canvas
+      // instead, so say which happened rather than reporting a bare success.
+      const wasLast = workspaceTabs.length === 1
+      if (!deleteWorkspaceTab(id)) {
+        writeJson(response, 400, { error: `could not delete tab '${name}'` })
+        return
+      }
+      writeJson(response, 200, {
+        deleted: { id, name },
+        reset: wasLast,
+        activeTab: workspaceTabIdentity().activeTab,
+      })
     },
   },
   {

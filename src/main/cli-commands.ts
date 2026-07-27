@@ -46,7 +46,13 @@ const tab: VerbHandler = async (args) => {
     printJson(await callApp('/tabs/switch', { method: 'POST', body: JSON.stringify({ ref }) }))
     return 0
   }
-  printError('usage: specular tab [new <name> | switch <tab-id|tab-name>]')
+  if (sub === 'delete') {
+    const ref = args.positional.slice(1).join(' ')
+    if (!ref) { printError('usage: specular tab delete <tab-id|tab-name>'); return 1 }
+    printJson(await callApp('/tabs/delete', { method: 'POST', body: JSON.stringify({ ref }) }))
+    return 0
+  }
+  printError('usage: specular tab [new <name> | switch <tab-id|tab-name> | delete <tab-id|tab-name>]')
   return 1
 }
 
@@ -748,7 +754,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('usage: specular <verb> [args...] [--flag value]')
     printText('')
     printText('Canvas: workspace, add, update, delete, arrange, focus, group, ungroup')
-    printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>')
+    printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>')
     printText('  --tab <tab-id|tab-name> targets another canvas without switching focus')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply')

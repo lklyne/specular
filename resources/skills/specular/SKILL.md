@@ -41,6 +41,7 @@ otherwise. Name the target instead of inheriting their focus:
 specular workspace                        # appState.activeTab + appState.tabs (ids, names)
 specular tab new "sync-roads"             # create a canvas; prints its id; does NOT switch focus
 specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
+specular tab delete <tab-id|tab-name>     # remove a canvas; deleting a background one does NOT move the user
 specular add note "…" --tab <tab-id>      # write to that canvas in the background
 specular apply --tab <tab-id> < patch.json
 ```

@@ -329,6 +329,15 @@ export function deleteWorkspaceTab(tabId: string): boolean {
   }
   // Delete the .canvas file for the removed tab
   deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTabName)
+  // Removing a canvas the user is not looking at is a bookkeeping change: drop
+  // the record and leave their view where it is. Only losing the active tab
+  // forces a move, and then the neighbour is the least surprising landing spot.
+  if (tabId !== activeWorkspaceTabId) {
+    workspaceTabs.splice(index, 1)
+    markDirty('sidebar')
+    scheduleWorkspaceAutosave()
+    return true
+  }
   const fallback = workspaceTabs[index + 1] ?? workspaceTabs[index - 1] ?? null
   workspaceTabs.splice(index, 1)
   if (!fallback) return false

@@ -17,6 +17,13 @@
  * identity from unsynced tab records instead of `workspaceTabSummaries()` —
  * the active tab's entityCount reads back as 0 instead of 1.
  *
+ * Deletion is the other half of the create surface: removing a canvas the user
+ * is not looking at must not move them (`deleteWorkspaceTab`). Mutation-verified
+ * by: (h) dropping the `tabId !== activeWorkspaceTabId` early return there —
+ * the background-delete case re-activates a neighbour and fails. The scenario
+ * needs three tabs; with two, the fallback coincides with the active tab and
+ * the regression is invisible.
+ *
  * Also guards the side-effect half of a tab switch (`applyTabState`), which
  * data assertions alone leave unprotected. Mutation-verified by: (f) dropping
  * the `resetUiStateForTabSwitch()` call in `applyTabState` — the selection
@@ -31,6 +38,7 @@ import { readCanvasDocument } from '../../src/main/routes/canvas'
 import {
   createBackgroundWorkspaceTab,
   createWorkspaceTab,
+  deleteWorkspaceTab,
   setActiveWorkspaceTab,
 } from '../../src/main/runtime/workspace-tab-operations'
 import { resolveWorkspaceTabRef } from '../../src/main/runtime/workspace-tab-refs'
@@ -133,6 +141,46 @@ describe('tab identity', () => {
       ok: false,
       error: `tab name 'scratch' matches 2 tabs: ${first}, ${second} — use an id`,
     })
+  })
+
+  it('deletes a background tab without moving the user', () => {
+    // Three tabs, with the doomed one last and the user on the first: the
+    // neighbour the old fallback would jump to is neither, so a regression
+    // that re-activates on every delete is visible here (with two tabs the
+    // fallback coincides with the active tab and the bug hides).
+    const middle = createBackgroundWorkspaceTab('middle')
+    const doomed = createBackgroundWorkspaceTab('doomed')
+    const doomedId = doomed.ok ? doomed.id : ''
+    const activeBefore = activeWorkspaceTabId
+    expect(workspaceTabs).toHaveLength(3)
+    expect(middle.ok && middle.id).not.toBe(activeBefore)
+
+    expect(deleteWorkspaceTab(doomedId)).toBe(true)
+
+    expect(workspaceTabs.map((tab) => tab.id)).not.toContain(doomedId)
+    expect(activeWorkspaceTabId).toBe(activeBefore)
+  })
+
+  it('falls back to a neighbour when the active tab is deleted', () => {
+    const created = createBackgroundWorkspaceTab('scratch')
+    const scratchId = created.ok ? created.id : ''
+    const blankId = activeWorkspaceTabId
+    expect(setActiveWorkspaceTab(scratchId)).toBe(true)
+
+    expect(deleteWorkspaceTab(scratchId)).toBe(true)
+
+    expect(workspaceTabs.map((tab) => tab.id)).toEqual([blankId])
+    expect(activeWorkspaceTabId).toBe(blankId)
+  })
+
+  it('resets the last tab to an empty default rather than removing it', () => {
+    const note = createTextEntity({ canvasX: 0, canvasY: 0, text: 'gone' })
+    expect(workspaceTabs).toHaveLength(1)
+
+    expect(deleteWorkspaceTab(activeWorkspaceTabId)).toBe(true)
+
+    expect(workspaceTabs).toHaveLength(1)
+    expect(Object.keys(workspaceSnapshot().entities ?? {})).not.toContain(note.id)
   })
 
   it('errors with the available tabs for an unknown ref', () => {
