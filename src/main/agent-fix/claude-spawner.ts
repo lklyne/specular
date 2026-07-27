@@ -1,5 +1,5 @@
 import { spawn } from 'child_process'
-import type { FixProgressEvent } from '../../shared/types'
+import type { FixConfig, FixProgressEvent } from '../../shared/types'
 import { truncate } from '../../shared/annotation-utils'
 import { getFixConfig } from '../runtime/preferences'
 import { parseStreamLine } from './stream-json-parser'
@@ -28,6 +28,35 @@ const ALLOWED_TOOLS = [
   'Bash(npm run typecheck:*)', 'Bash(tsc:*)',
 ]
 
+/** The CLI argv a fix run spawns with. Pure so the permission modes are testable. */
+export function claudeArgs(
+  prompt: string,
+  config: FixConfig,
+  resumeSessionId?: string,
+): string[] {
+  const args = [
+    '-p', prompt,
+    '--output-format', 'stream-json',
+    '--verbose',
+  ]
+  if (resumeSessionId) {
+    args.push('--resume', resumeSessionId)
+  }
+  if (config.model !== 'opus') {
+    args.push('--model', `claude-${config.model}-4-6`)
+  }
+  if (config.permissions === 'dangerously') {
+    args.push('--dangerously-skip-permissions')
+  } else if (config.permissions === 'acceptEdits') {
+    // Headless: there is no TTY to answer a prompt, so anything outside this
+    // set is denied and the agent works around it. Keep the allowlist to the
+    // file edits a fix makes plus the read-only commands that verify them.
+    args.push('--permission-mode', 'acceptEdits')
+    args.push('--allowedTools', ALLOWED_TOOLS.join(' '))
+  }
+  return args
+}
+
 type SpawnerFn = (
   prompt: string,
   repoPath: string,
@@ -49,27 +78,7 @@ export function invokeClaude(
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS
 
   return new Promise<FixResult>((resolve, reject) => {
-    const config = getFixConfig()
-    const args = [
-      '-p', prompt,
-      '--output-format', 'stream-json',
-      '--verbose',
-    ]
-    if (options.resumeSessionId) {
-      args.push('--resume', options.resumeSessionId)
-    }
-    if (config.model !== 'opus') {
-      args.push('--model', `claude-${config.model}-4-6`)
-    }
-    if (config.permissions === 'dangerously') {
-      args.push('--dangerously-skip-permissions')
-    } else if (config.permissions === 'acceptEdits') {
-      // Headless: there is no TTY to answer a prompt, so anything outside this
-      // set is denied and the agent works around it. Keep the allowlist to the
-      // read-only/verify commands a fix run actually needs.
-      args.push('--permission-mode', 'acceptEdits')
-      args.push('--allowedTools', ALLOWED_TOOLS.join(' '))
-    }
+    const args = claudeArgs(prompt, getFixConfig(), options.resumeSessionId)
     const child = spawn(
       'claude',
       args,
