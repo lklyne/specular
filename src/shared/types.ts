@@ -1975,7 +1975,7 @@ export type OriginBindings = Record<string, OriginBinding>
 // --- Fix config (model + permissions for the Claude subprocess) ---
 
 export type FixModel = 'opus' | 'sonnet' | 'haiku'
-export type FixPermissions = 'dangerously' | 'default'
+export type FixPermissions = 'dangerously' | 'acceptEdits' | 'default'
 
 export interface FixConfig {
   model: FixModel

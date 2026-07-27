@@ -11,9 +11,16 @@ const MODEL_OPTIONS: { value: FixModel; label: string }[] = [
 ]
 
 const PERMISSION_OPTIONS: { value: FixPermissions; label: string }[] = [
+  { value: 'acceptEdits', label: 'Edit and verify' },
   { value: 'dangerously', label: 'Bypass permissions' },
-  { value: 'default', label: 'Default (approve each tool)' },
+  { value: 'default', label: 'Read only' },
 ]
+
+const PERMISSION_HINTS: Record<FixPermissions, string> = {
+  acceptEdits: 'Claude can read and edit files and run typecheck, tests, and read-only git. Anything else is skipped.',
+  dangerously: 'Claude runs every tool without asking, including arbitrary shell commands. Only use this on repos you trust.',
+  default: 'Claude can read and search but not edit or run commands — it will describe the fix instead of making it.',
+}
 
 export function FixConfigPane({
   api,
@@ -54,11 +61,7 @@ export function FixConfigPane({
           value={permissions}
           onValueChange={setPermissions}
           options={PERMISSION_OPTIONS}
-          hint={
-            permissions === 'dangerously'
-              ? 'Claude will read and write files without asking. Only use this on repos you trust.'
-              : undefined
-          }
+          hint={PERMISSION_HINTS[permissions]}
         />
 
         <div className="flex justify-end">

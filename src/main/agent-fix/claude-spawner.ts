@@ -21,6 +21,13 @@ export interface InvokeOptions {
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 
+const ALLOWED_TOOLS = [
+  'Read', 'Edit', 'Write', 'Grep', 'Glob',
+  'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)',
+  'Bash(pnpm typecheck:*)', 'Bash(pnpm test:unit:*)', 'Bash(pnpm lint:*)',
+  'Bash(npm run typecheck:*)', 'Bash(tsc:*)',
+]
+
 type SpawnerFn = (
   prompt: string,
   repoPath: string,
@@ -56,6 +63,12 @@ export function invokeClaude(
     }
     if (config.permissions === 'dangerously') {
       args.push('--dangerously-skip-permissions')
+    } else if (config.permissions === 'acceptEdits') {
+      // Headless: there is no TTY to answer a prompt, so anything outside this
+      // set is denied and the agent works around it. Keep the allowlist to the
+      // read-only/verify commands a fix run actually needs.
+      args.push('--permission-mode', 'acceptEdits')
+      args.push('--allowedTools', ALLOWED_TOOLS.join(' '))
     }
     const child = spawn(
       'claude',
