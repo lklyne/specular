@@ -130,11 +130,32 @@ const upsert: VerbHandler = async (args) => {
   return 0
 }
 
+const APPLY_USAGE =
+  'usage: specular apply [--tab <tab-id|tab-name>] < patch.json  (the patch is read from stdin; `--json` is upsert\'s flag, not apply\'s)'
+
 // The one declarative door (ADR 0019). A patch is { entities, edges, delete,
 // layout } — no id creates, id present updates, id in delete removes — applied
 // in one transaction. Documented as the batch fallback; verbs are primary.
 const apply: VerbHandler = async () => {
-  const patch = JSON.parse(await readStdin()) as CanvasPatch
+  // The patch arrives on stdin, not in a flag. Without these guards a bare
+  // `apply` hangs on an interactive terminal, and a typo'd `--json '{...}'`
+  // (that's `upsert`'s door) surfaces as a bare JSON parse error.
+  if (process.stdin.isTTY) {
+    printError(APPLY_USAGE)
+    return 1
+  }
+  const input = (await readStdin()).trim()
+  if (!input) {
+    printError(APPLY_USAGE)
+    return 1
+  }
+  let patch: CanvasPatch
+  try {
+    patch = JSON.parse(input) as CanvasPatch
+  } catch (error) {
+    printError(`apply: patch is not valid JSON (${(error as Error).message})\n${APPLY_USAGE}`)
+    return 1
+  }
   if (patch.layout) {
     const err = validateLayoutDirective(patch.layout)
     if (err) { printError(`apply: ${err}`); return 1 }
