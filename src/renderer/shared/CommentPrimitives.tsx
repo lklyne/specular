@@ -55,7 +55,7 @@ export function CommentInput({
         aria-label={submitLabel}
         className={`absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full text-[12px] transition disabled:opacity-40 ${
           hasContent
-            ? 'bg-blue-500 text-white hover:bg-blue-600'
+            ? 'bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
             : inactiveBtn
         }`}
         disabled={disabled || !hasContent}

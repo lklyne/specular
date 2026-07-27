@@ -231,9 +231,7 @@ function FixProgressButton({
                   onClick={() => rightDetailsPanelApi.fixSingleAnnotation(progress.annotationId)}
                   className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
                     progress.status === 'failed'
-                      ? isDark
-                        ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
-                        : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      ? 'border-transparent bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
                       : isDark
                         ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                         : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
@@ -291,9 +289,7 @@ export function CommentsPane({
             type="button"
             className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
               annotateEnabled
-                ? isDark
-                  ? 'border-blue-500 bg-blue-600 text-white'
-                  : 'border-blue-200 bg-blue-50 text-blue-700'
+                ? 'border-transparent bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
                 : isDark
                   ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                   : 'border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-200'

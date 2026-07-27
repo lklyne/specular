@@ -127,11 +127,9 @@ function FixMenu({
   }
 
   const borderClass = isPrimary
-    ? isDark ? 'border-blue-500/70' : 'border-blue-200'
+    ? 'border-transparent'
     : isDark ? 'border-zinc-600' : 'border-zinc-300'
-  const primaryBtnClass = isDark
-    ? 'bg-blue-600/80 text-white hover:bg-blue-600'
-    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+  const primaryBtnClass = 'bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
   const secondaryBtnClass = isDark
     ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
     : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-200'
@@ -358,7 +356,7 @@ function FixOperationsView({
           disabled={!hasBinding || totalUnresolved === 0 || working}
           className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
             isPrimary
-              ? isDark ? 'bg-blue-600/80 text-white hover:bg-blue-600' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              ? 'bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
               : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
           }`}
         >

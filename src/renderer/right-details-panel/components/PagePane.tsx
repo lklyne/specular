@@ -308,9 +308,7 @@ function PageCommentsSection({
       rightDetailsPanelApi.fixSingleAnnotation(annotation.id)
     }
   }
-  const fixBtnClass = isDark
-    ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
-    : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+  const fixBtnClass = 'border-transparent bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
   return (
     <section className={`border-t ${divider}`}>
       <Collapsible.Root defaultOpen>

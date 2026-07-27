@@ -25,6 +25,9 @@
   --surface-switch-track-checked-border: var(--surface-toolbar-foreground);
   --surface-device: var(--color-stone-300);
   --surface-device-border: var(--color-stone-400);
+  --surface-primary: var(--color-stone-900);
+  --surface-primary-hover: var(--color-stone-700);
+  --surface-primary-foreground: var(--color-stone-50);
 }
 
 .dark {
@@ -54,6 +57,9 @@
   --surface-switch-track-checked-border: var(--surface-input-border);
   --surface-device: var(--color-stone-800);
   --surface-device-border: var(--color-stone-600);
+  --surface-primary: var(--color-stone-100);
+  --surface-primary-hover: var(--color-stone-300);
+  --surface-primary-foreground: var(--color-stone-900);
 }
 
 /* Pointer clicks can move focus without implying keyboard navigation. Keep
@@ -63,7 +69,10 @@
   outline: none;
 }
 
-:focus-visible {
+/* Text fields announce focus with their caret, so the ring would only ever be
+   redundant noise on them — Chromium matches :focus-visible on text entry even
+   for pointer focus. */
+:focus-visible:not(:is(input:is([type='text'], [type='url'], [type='search'], :not([type])), textarea, [contenteditable])) {
   outline: 2px solid var(--surface-focus-ring);
   outline-offset: 2px;
 }
