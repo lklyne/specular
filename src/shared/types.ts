@@ -1573,6 +1573,7 @@ export interface WorkspaceTabSummary {
   expanded: boolean
   isActive: boolean
   pageCount: number
+  entityCount: number
   pages: WorkspaceTabPageSummary[]
 }
 

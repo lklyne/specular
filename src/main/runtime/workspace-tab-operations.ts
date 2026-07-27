@@ -57,63 +57,123 @@ function makePageId(): string {
   return `page_${randomUUID()}`
 }
 
+/**
+ * Side-effect half of a tab switch: reset the per-tab UI state — selection,
+ * active tool, devtools, overlays.
+ */
+function resetUiStateForTabSwitch(): void {
+  replaceUiState({
+    ...getUiState(),
+    selection: { kind: 'none' },
+    activeTool: { kind: 'select' },
+    devtools: {
+      ...getUiState().devtools,
+      open: false,
+      activeTab: uiDevtoolsPanelTab(),
+      focusedAnnotationId: null,
+      width: uiDevtoolsWidth(),
+    },
+    overlays: {
+      commentOverlayVisible: false,
+      selectionMarqueeVisible: false,
+    },
+  })
+}
+
+/**
+ * Data half of a tab switch: swap the tab's annotations, groups, edges, and
+ * entities into the runtime arrays. Returns whether the snapshot carried
+ * content worth restoring — when it did not, the caller still owns the
+ * viewport/panel state that `restoreWorkspaceSnapshot` would have applied
+ * (see `applyEmptyTabViewState`).
+ *
+ * `destroyActivePages()` lives here rather than with the UI side effects
+ * because it is what clears the runtime entity arrays, and it must run after
+ * the annotation swap: it reaches `clearPageAnchorsForPage`, which strips
+ * `pageAnchor` from `workspaceAnnotations`.
+ */
+export function hydrateTabRuntimeState(tab: PersistedWorkspaceTab): boolean {
+  workspaceAnnotations.length = 0
+  workspaceAnnotations.push(...cloneAnnotationsForPersistence(tab.annotations))
+  destroyActivePages()
+  workspaceGroups.length = 0
+  workspaceEdges.length = 0
+  if (tab.snapshot.pages.length || (tab.snapshot.entities && Object.keys(tab.snapshot.entities).length)) {
+    restoreWorkspaceSnapshot(tab.snapshot)
+    return true
+  }
+  return false
+}
+
+/**
+ * Side-effect half for a tab with nothing to restore: apply the viewport and
+ * panel state that `restoreWorkspaceSnapshot` applies on the populated path.
+ */
+function applyEmptyTabViewState(snapshot: WorkspaceSnapshot): void {
+  setZoom(snapshot.zoom)
+  setPan(snapshot.pan.x, snapshot.pan.y)
+  setUiDevtoolsOpen(false)
+  clearInspectTargets()
+  sendInteractiveState()
+  syncInspectionState()
+  notifyDevtoolsPanelData()
+}
+
 export function applyTabState(tab: PersistedWorkspaceTab): void {
   // Tab switch is a hard transition — drop any in-flight inline edit
   // before swapping entities. The renderer's blur handler saves the
   // text on unmount; this just clears the editing-entity mode token.
   cancelActiveInteraction('tab-switch')
   withWorkspacePersistenceSuspended(() => {
-    replaceUiState({
-      ...getUiState(),
-      selection: { kind: 'none' },
-      activeTool: { kind: 'select' },
-      devtools: {
-        ...getUiState().devtools,
-        open: false,
-        activeTab: uiDevtoolsPanelTab(),
-        focusedAnnotationId: null,
-        width: uiDevtoolsWidth(),
-      },
-      overlays: {
-        commentOverlayVisible: false,
-        selectionMarqueeVisible: false,
-      },
-    })
-    workspaceAnnotations.length = 0
-    workspaceAnnotations.push(...cloneAnnotationsForPersistence(tab.annotations))
-    destroyActivePages()
-    workspaceGroups.length = 0
-    workspaceEdges.length = 0
-    if (tab.snapshot.pages.length || (tab.snapshot.entities && Object.keys(tab.snapshot.entities).length)) {
-      restoreWorkspaceSnapshot(tab.snapshot)
-    } else {
-      setZoom(tab.snapshot.zoom)
-      setPan(tab.snapshot.pan.x, tab.snapshot.pan.y)
-      setUiDevtoolsOpen(false)
-      clearInspectTargets()
-      sendInteractiveState()
-      syncInspectionState()
-      notifyDevtoolsPanelData()
-    }
+    resetUiStateForTabSwitch()
+    if (!hydrateTabRuntimeState(tab)) applyEmptyTabViewState(tab.snapshot)
   })
+}
+
+function newWorkspaceTabRecord(name: string): PersistedWorkspaceTab {
+  return {
+    id: makeWorkspaceTabId(),
+    name,
+    updatedAt: new Date().toISOString(),
+    snapshot: makeEmptyTabSnapshot(),
+    annotations: [],
+    expanded: true,
+  }
 }
 
 export function createWorkspaceTab(name?: string): string {
   ensureWorkspaceTabsInitialized()
   syncActiveTabRecord()
-  const now = new Date().toISOString()
-  const nextTab: PersistedWorkspaceTab = {
-    id: makeWorkspaceTabId(),
-    name: name?.trim() || `Canvas ${workspaceTabs.length + 1}`,
-    updatedAt: now,
-    snapshot: makeEmptyTabSnapshot(),
-    annotations: [],
-    expanded: true,
-  }
+  const nextTab = newWorkspaceTabRecord(name?.trim() || `Canvas ${workspaceTabs.length + 1}`)
   workspaceTabs.push(nextTab)
   setActiveWorkspaceTab(nextTab.id)
   scheduleWorkspaceAutosave()
   return nextTab.id
+}
+
+export type CreateBackgroundTabResult = { ok: true; id: string } | { ok: false; error: string }
+
+/**
+ * Create a tab without moving the user's focus to it — the agent-facing
+ * counterpart of `createWorkspaceTab`.
+ *
+ * Duplicate names are refused because `.canvas` filenames derive from the tab
+ * name: two same-named tabs would share one file on disk.
+ */
+export function createBackgroundWorkspaceTab(name: string): CreateBackgroundTabResult {
+  const trimmed = name.trim()
+  if (!trimmed) return { ok: false, error: 'tab name is required' }
+  ensureWorkspaceTabsInitialized()
+  syncActiveTabRecord()
+  if (workspaceTabs.some((tab) => tab.name.trim() === trimmed)) {
+    return { ok: false, error: `a tab named '${trimmed}' already exists` }
+  }
+  const nextTab = newWorkspaceTabRecord(trimmed)
+  workspaceTabs.push(nextTab)
+  markDirty('sidebar')
+  requestLayout()
+  scheduleWorkspaceAutosave()
+  return { ok: true, id: nextTab.id }
 }
 
 export function renameWorkspaceTab(tabId: string, name: string): boolean {
@@ -269,6 +329,15 @@ export function deleteWorkspaceTab(tabId: string): boolean {
   }
   // Delete the .canvas file for the removed tab
   deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTabName)
+  // Removing a canvas the user is not looking at is a bookkeeping change: drop
+  // the record and leave their view where it is. Only losing the active tab
+  // forces a move, and then the neighbour is the least surprising landing spot.
+  if (tabId !== activeWorkspaceTabId) {
+    workspaceTabs.splice(index, 1)
+    markDirty('sidebar')
+    scheduleWorkspaceAutosave()
+    return true
+  }
   const fallback = workspaceTabs[index + 1] ?? workspaceTabs[index - 1] ?? null
   workspaceTabs.splice(index, 1)
   if (!fallback) return false

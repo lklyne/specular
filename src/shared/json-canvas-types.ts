@@ -196,4 +196,15 @@ export interface JsonCanvasAppState {
   devtoolsPanelTab?: string
   devtoolsWidth?: number
   browserTabMode?: string
+  /** Which canvas answered this read, and what else is open. Present on the
+   *  live `GET /canvas` read only — a `.canvas` file describes one tab and
+   *  says nothing about its siblings. */
+  activeTab?: JsonCanvasTabIdentity
+  tabs?: JsonCanvasTabIdentity[]
+}
+
+export interface JsonCanvasTabIdentity {
+  id: string
+  name: string
+  entityCount?: number
 }

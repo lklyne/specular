@@ -29,6 +29,7 @@ import {
   selectPageById as selectSelectionPageById,
 } from '../runtime/selection-controller'
 import { pageSelectionOverlayStates } from '../runtime/overlay-manager'
+import { withTabContext } from '../runtime/workspace-tab-context'
 import { writeJson } from './http-helpers'
 
 export const workspaceRoutes: Route[] = [
@@ -186,32 +187,58 @@ export const workspaceRoutes: Route[] = [
       })
     },
   },
+  // Single-item placement, same story as the batch pre-pass below: the
+  // occupied regions it avoids belong to the target canvas, not the one the
+  // user is looking at. Read-only, so the context commits nothing back.
   {
     method: 'POST',
     pattern: '/layout/find-placement',
-    async handler({ response, body }) {
-      writeJson(response, 200, findPlacement(body as PlacementRequest))
+    tabScoped: true,
+    async handler({ response, body, targetTab }) {
+      const compute = (): unknown => findPlacement(body as PlacementRequest)
+      writeJson(
+        response,
+        200,
+        targetTab ? withTabContext(targetTab.id, compute, { commit: false }) : compute(),
+      )
     },
   },
+  // The placement pre-pass every write runs before `/canvas/apply`. It honors
+  // `--tab` for the same reason the write does: positions computed against the
+  // canvas the user happens to be looking at would land the batch on top of
+  // whatever already occupies the target. Read-only, so the context commits
+  // nothing back.
   {
     method: 'POST',
     pattern: '/layout/batch-placement',
-    async handler({ response, body }) {
-      writeJson(response, 200, findBatchPlacement(body as BatchPlacementRequest))
+    tabScoped: true,
+    async handler({ response, body, targetTab }) {
+      const compute = (): unknown => findBatchPlacement(body as BatchPlacementRequest)
+      writeJson(
+        response,
+        200,
+        targetTab ? withTabContext(targetTab.id, compute, { commit: false }) : compute(),
+      )
     },
   },
   {
     method: 'POST',
     pattern: '/layout/apply-directive',
-    async handler({ response, body }) {
+    tabScoped: true,
+    async handler({ response, body, targetTab }) {
       const req = body as ApplyDirectiveRequest
       const err = validateLayoutDirective(req?.layout)
       if (err) {
         writeJson(response, 400, { error: err })
         return
       }
+      const compute = (): unknown => applyLayoutDirective(req)
       try {
-        writeJson(response, 200, applyLayoutDirective(req))
+        writeJson(
+          response,
+          200,
+          targetTab ? withTabContext(targetTab.id, compute, { commit: false }) : compute(),
+        )
       } catch (e) {
         writeJson(response, 400, { error: e instanceof Error ? e.message : String(e) })
       }
