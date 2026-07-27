@@ -210,6 +210,8 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 
 **Sidebar shows the anchoring relationship.** A page acts as a folder for content anchored to it: unresolved page-bound annotations — element, page, and page-anchored region anchors alike — render as collapsible child rows under the page in the left sidebar, after the page's anchored entities (one builder, `sidebarPageChildren` in `sidebar-builder.ts`). Click opens the thread; rows dim when the page has navigated away from the annotation's URL.
 
+**Selection annotation** — a region annotation created from a multi-selection (the selection popup's Annotate button, `POST /selection/annotate`, or `specular annotate-selection`). It is a plain region anchor over the selection's union bounds; there is no dedicated anchor type. Selected-entity membership rides in `metadata.selectionEntityIds`, and `metadata.selectionTarget` names the one artifact the request is about — the selected page or file entity — derived only when the selection names exactly one (ambiguous selections omit it). The agent-fix loop reads both to enrich its prompt with per-member context and to pick where an unbound (file-entity) fix runs.
+
 ## Page anchoring
 
 The generic "hook to a page" utility ([ADR 0031](./docs/adr/0031-page-anchored-entities.md), `src/shared/page-anchor.ts`). A canvas item is either **free-form / canvas-bound** (default) or carries a `PageAnchor { pageId, pageUrl? }`. Consumers today: `text` (stickies), `drawing`, `shape`, and annotations (§Annotations).

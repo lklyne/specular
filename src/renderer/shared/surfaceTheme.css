@@ -25,6 +25,9 @@
   --surface-switch-track-checked-border: var(--surface-toolbar-foreground);
   --surface-device: var(--color-stone-300);
   --surface-device-border: var(--color-stone-400);
+  --surface-primary: var(--color-stone-900);
+  --surface-primary-hover: var(--color-stone-700);
+  --surface-primary-foreground: var(--color-stone-50);
 }
 
 .dark {
@@ -54,6 +57,9 @@
   --surface-switch-track-checked-border: var(--surface-input-border);
   --surface-device: var(--color-stone-800);
   --surface-device-border: var(--color-stone-600);
+  --surface-primary: var(--color-stone-100);
+  --surface-primary-hover: var(--color-stone-300);
+  --surface-primary-foreground: var(--color-stone-900);
 }
 
 /* Pointer clicks can move focus without implying keyboard navigation. Keep
@@ -66,4 +72,17 @@
 :focus-visible {
   outline: 2px solid var(--surface-focus-ring);
   outline-offset: 2px;
+}
+
+/* Chromium matches :focus-visible on text entry even for pointer focus, so on
+   these the selector cannot tell a Tab from a click and the recorded modality
+   decides instead (see focusModality.ts). Tabbing to a field still rings; a
+   click into one leaves the caret to say it, as it already does. */
+:root:not([data-focus-modality='keyboard'])
+  :is(
+    input:is([type='text'], [type='url'], [type='search'], :not([type])),
+    textarea,
+    [contenteditable]
+  ):focus-visible {
+  outline: none;
 }

@@ -413,6 +413,26 @@ const annotate: VerbHandler = async (args) => {
   return 0
 }
 
+// One region comment over a multi-selection's union bounds, carrying the
+// selected ids (and the page/file the request is about) so the fix loop reads
+// the whole request at once. No ids uses the current selection.
+const annotateSelection: VerbHandler = async (args) => {
+  const text = args.positional.join(' ')
+  if (!text) {
+    printError('usage: specular annotate-selection "<text>" [--ids id1,id2]  (no ids uses current selection)')
+    return 1
+  }
+  const entityIds = args.flags.ids?.split(',').map((id) => id.trim()).filter(Boolean) ?? []
+  printJson(await callApp('/selection/annotate', {
+    method: 'POST',
+    body: JSON.stringify({
+      text,
+      ...(entityIds.length > 0 ? { entityIds } : {}),
+    }),
+  }))
+  return 0
+}
+
 const ack: VerbHandler = async (args) => {
   const id = args.positional[0]
   if (!id) { printError('usage: specular ack <annotation-id>'); return 1 }
@@ -695,6 +715,7 @@ const VERBS: Record<string, VerbHandler> = {
   annotations,
   annotation,
   annotate,
+  'annotate-selection': annotateSelection,
   ack,
   resolve,
   dismiss,
@@ -730,7 +751,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>')
     printText('  --tab <tab-id|tab-name> targets another canvas without switching focus')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
-    printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
+    printText('Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')

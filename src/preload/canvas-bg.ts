@@ -255,6 +255,8 @@ const api: CanvasBgElectronAPI = {
   onAnnotationLiveBbox: on<AnnotationLiveBboxUpdate>(ipcChannels.annotationLiveBbox),
   createRegionAnnotation: (canvasRect, text) =>
     ipcRenderer.send(ipcChannels.canvasCreateRegionAnnotation, { canvasRect, text }),
+  annotateSelection: (input) =>
+    ipcRenderer.send(ipcChannels.canvasAnnotateSelection, input),
   onAnnotationThreadOpen: on<{ annotationId: string }>(ipcChannels.annotationThreadOpen),
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) =>
     ipcRenderer.send(ipcChannels.canvasEdgeDragBegin, { fromEntityId, fromSide }),

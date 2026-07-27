@@ -10,6 +10,7 @@ import {
   EyeClosed,
   Link2,
   Maximize2,
+  MessageSquarePlus,
   RotateCw,
   Smartphone,
   X,
@@ -20,6 +21,8 @@ import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
+import { selectionAnnotationBounds } from './annotationMath'
+import type { AnnotateHandler } from './annotationMath'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -45,6 +48,7 @@ export function PagePopup({
   layout,
   selectedPages,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -69,6 +73,7 @@ export function PagePopup({
   layout: LayoutUpdateData
   selectedPages: CanvasScenePageEntity[]
   interactionIdle: boolean
+  onAnnotate: AnnotateHandler
 }) {
   // During a focus session the bar belongs to the focused page regardless of
   // selection — draw/placement tools clear or reassign selection mid-session,
@@ -484,6 +489,22 @@ export function PagePopup({
               <Link2 size={14} />
             </CanvasItemPopup.IconButton>
           ) : null}
+          {!isSingle
+            ? (() => {
+                const annotateRect = selectionAnnotationBounds(layout.entities, entityIds)
+                if (!annotateRect) return null
+                return (
+                  <CanvasItemPopup.IconButton
+                    isDark={isDark}
+                    title={`Annotate ${count} pages`}
+                    ariaLabel={`Annotate ${count} pages`}
+                    onClick={() => onAnnotate(entityIds, annotateRect)}
+                  >
+                    <MessageSquarePlus size={14} />
+                  </CanvasItemPopup.IconButton>
+                )
+              })()
+            : null}
           {single && single.synced ? (
             <CanvasItemPopup.IconButton
               isDark={isDark}

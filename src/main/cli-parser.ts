@@ -28,7 +28,7 @@ export const CLI_VALUE_FLAGS = new Set([
   '--tab',
   '--preset', '--presets', '--at', '--width', '--height', '--size', '--cols',
   '--anchor', '--label', '--color', '--layout', '--gap',
-  '--status', '--url', '--page-id',
+  '--status', '--url', '--page-id', '--ids',
   '--reason', '--text',
   '--output', '--fps', '--quality',
   '--min-idle', '--speed-factor',

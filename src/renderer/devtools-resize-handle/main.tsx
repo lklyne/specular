@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
+import { installFocusModality } from '../shared/focusModality'
 import type { DevtoolsResizeHandleElectronAPI } from '../../shared/electron-api/devtools-resize-handle'
 
 initRendererSentry()
+installFocusModality()
 
 const api =
   (window as unknown as { electronAPI: DevtoolsResizeHandleElectronAPI }).electronAPI

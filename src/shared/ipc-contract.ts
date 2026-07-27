@@ -59,6 +59,7 @@ export interface IpcContract {
   'apply-linked-scroll': { dir: 'main→renderer'; payload: unknown }
   'apply-page-overrides': { dir: 'main→renderer'; payload: unknown }
   'binding-fire': { dir: 'main→renderer'; payload: BindingId }
+  'canvas-annotate-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-back-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-bg-dropdown-close': { dir: 'renderer→main'; payload: unknown }
   'canvas-bg-dropdown-open': { dir: 'renderer→main'; payload: unknown }
@@ -381,6 +382,7 @@ export const ipcChannels = {
   canvasCreateAnnotation: 'canvas-create-annotation',
   canvasCreateDrawing: 'canvas-create-drawing',
   canvasCreateRegionAnnotation: 'canvas-create-region-annotation',
+  canvasAnnotateSelection: 'canvas-annotate-selection',
   canvasCreateTab: 'canvas-create-tab',
   canvasDeleteDrawingEntity: 'canvas-delete-drawing-entity',
   canvasDeleteEdge: 'canvas-delete-edge',

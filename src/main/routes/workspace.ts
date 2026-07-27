@@ -12,6 +12,7 @@ import type {
 import { validateLayoutDirective } from '../../shared/layout-directive'
 import { getSelectionState } from '../workspace-entities'
 import { arrangeEntities } from '../runtime/document-commands'
+import { annotateSelectionRegion } from '../runtime/annotate-selection'
 import { selectedEntityIds as currentSelectionIds } from '../ui-state'
 import { applyLayoutDirective, findBatchPlacement, findPlacement } from '../workspace-placement'
 import {
@@ -78,6 +79,32 @@ export const workspaceRoutes: Route[] = [
         cols: payload.cols,
       })
       writeJson(response, 200, { changed })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/selection/annotate',
+    async handler({ response, body }) {
+      const payload = body as { entityIds?: string[]; text?: string }
+      const text = payload.text?.trim()
+      if (!text) {
+        writeJson(response, 400, { error: 'text is required' })
+        return
+      }
+      try {
+        const annotation = await annotateSelectionRegion({
+          entityIds: payload.entityIds,
+          text,
+        })
+        writeJson(response, 200, {
+          id: annotation.id,
+          anchor: annotation.anchor,
+          selectionEntityIds: annotation.metadata?.selectionEntityIds,
+          selectionTarget: annotation.metadata?.selectionTarget,
+        })
+      } catch (e) {
+        writeJson(response, 400, { error: e instanceof Error ? e.message : String(e) })
+      }
     },
   },
   {

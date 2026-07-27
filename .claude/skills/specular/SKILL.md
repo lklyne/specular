@@ -119,6 +119,26 @@ canvas space). There is no `--kind` flag on `specular annotate`; pass
 | `specular annotation <id>` | Get full detail for one annotation (elements, screenshot, replies) |
 | `specular ack <id>` / `specular resolve <id>` / `specular dismiss <id>` | Respond to an annotation |
 | `specular reply <id> "<text>"` | Reply on a thread |
+| `specular annotate-selection "<text>" [--ids id1,id2]` | One region comment over a multi-selection's union bounds; omit `--ids` to use the current selection |
+
+**Selection annotations.** `annotate-selection` records which entities were
+selected and, when they name one artifact, what the request targets:
+`specular annotation <id>` output can carry `metadata.selectionEntityIds`
+(the selected entity ids) and `metadata.selectionTarget` (the one page or
+file entity the request is about — present only when the selection names
+exactly one; omitted for selections spanning several artifacts).
+
+**Results belong on the canvas.** The canvas is the surface the user works
+on, so anything you create while acting on a comment — a new route, a
+duplicated prototype, a variant — is invisible until it is placed there
+(`specular find-placement` for a free spot, then `specular add page <url>`
+or `specular add file <path> --at x,y`). Pages already on the canvas reload
+themselves, so an in-place source edit needs nothing extra.
+
+Files in the user's space folder have no version control behind them; the
+repo bound in the Comments panel does. Weigh that when a request is
+ambiguous about whether it wants the original changed or a copy to compare
+against.
 
 ## Drive a page
 

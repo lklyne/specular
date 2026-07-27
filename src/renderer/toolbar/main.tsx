@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
+import { installFocusModality } from '../shared/focusModality'
 import { toolbarApi } from './toolbarApi'
 
 initRendererSentry()
+installFocusModality()
 
 async function bootstrap() {
   const initialData = await toolbarApi.getInitialData()

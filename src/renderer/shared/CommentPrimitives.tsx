@@ -1,4 +1,5 @@
 import type { RefObject, KeyboardEvent } from 'react'
+import { PRIMARY_BUTTON_CLASS } from './primaryButton'
 
 /**
  * Shared textarea + submit button for comment composers.
@@ -55,7 +56,7 @@ export function CommentInput({
         aria-label={submitLabel}
         className={`absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full text-[12px] transition disabled:opacity-40 ${
           hasContent
-            ? 'bg-blue-500 text-white hover:bg-blue-600'
+            ? PRIMARY_BUTTON_CLASS
             : inactiveBtn
         }`}
         disabled={disabled || !hasContent}
