@@ -11,6 +11,8 @@ import {
 } from '../workspace-annotations'
 import { getOriginBindingView as getOriginBinding } from '../runtime/dev-server-manager'
 import { buildFixPrompt, buildFollowUpPrompt } from './prompt-builder'
+import { fixTargetKey, resolveFixTarget, type FixTarget } from './fix-target'
+import { resolveSelectionContext } from './selection-context'
 import { invokeClaude, type FixResult } from './claude-spawner'
 import {
   isAnnotationInFlight,
@@ -25,6 +27,12 @@ import {
 
 const MAX_AGENT_REPLIES = 20
 
+/**
+ * Auto-fix is an opt-in that lives on an origin→repo binding, so only
+ * page-bound comments can fire on their own. A comment targeting a file in the
+ * user's space folder has nothing to opt in with and runs only when the user
+ * asks (`POST /annotations/fix`).
+ */
 export function initFixOrchestrator(): void {
   setOnAnnotationCreated((annotation) => {
     if (annotation.author !== 'user') return
@@ -71,14 +79,16 @@ function fixAnnotationCore(
 ): boolean {
   if (isAnnotationInFlight(annotation.id)) return false
 
-  const origin = annotationOrigin(annotation)
-  if (!origin) {
-    addAnnotationReply(annotation.id, 'agent', 'Cannot fix: annotation has no associated page URL.')
-    return false
-  }
-  const binding = getOriginBinding(origin)
-  if (!binding) {
-    addAnnotationReply(annotation.id, 'agent', `Cannot fix: no repo linked to ${origin}. Link one in the Comments panel.`)
+  const target = resolveFixTarget(annotation, getOriginBinding)
+  if (!target) {
+    const origin = annotationOrigin(annotation)
+    addAnnotationReply(
+      annotation.id,
+      'agent',
+      origin
+        ? `Cannot fix: no repo linked to ${origin}. Link one in the Comments panel.`
+        : 'Cannot fix: annotation has no associated page URL.',
+    )
     return false
   }
   const agentReplies = annotation.replies.filter((r) => r.author === 'agent').length
@@ -91,15 +101,19 @@ function fixAnnotationCore(
   // so the agent keeps its prior context. The first fix (or a stale session)
   // falls back to the full-context prompt.
   const resumeSessionId = annotation.metadata?.fixSessionId
-  const fullPrompt = buildFixPrompt(annotation)
+  const fullPrompt = buildFixPrompt(annotation, {
+    selection: resolveSelectionContext(annotation),
+    target,
+  })
   const prompt = resumeSessionId
     ? buildFollowUpPrompt(opts?.followUpText ?? latestUserReplyText(annotation))
     : fullPrompt
 
+  const trackingKey = fixTargetKey(target)
   updateAnnotationStatus(annotation.id, 'acknowledged')
-  startFixProgress(annotation.id, origin)
-  markFixStarted(annotation.id, origin)
-  void runFix(annotation.id, origin, binding.repoPath, { prompt, resumeSessionId, fullPrompt })
+  startFixProgress(annotation.id, trackingKey)
+  markFixStarted(annotation.id, trackingKey)
+  void runFix(annotation.id, target, { prompt, resumeSessionId, fullPrompt })
   return true
 }
 
@@ -112,16 +126,16 @@ function latestUserReplyText(annotation: Annotation): string {
 
 async function runFix(
   annotationId: string,
-  origin: string,
-  repoPath: string,
+  target: FixTarget,
   plan: { prompt: string; resumeSessionId?: string; fullPrompt: string },
 ): Promise<void> {
   let result: FixResult | null = null
   let error: Error | null = null
+  const trackingKey = fixTargetKey(target)
   const onEvent = (event: FixProgressEvent) =>
     appendFixEvent(annotationId, event.kind, event.text)
   try {
-    result = await invokeClaude(plan.prompt, repoPath, { resumeSessionId: plan.resumeSessionId, onEvent })
+    result = await invokeClaude(plan.prompt, target.cwd, { resumeSessionId: plan.resumeSessionId, onEvent })
   } catch (err) {
     error = err instanceof Error ? err : new Error(String(err))
     // A stale/missing session can't be resumed (cleaned up, or the .canvas
@@ -130,13 +144,13 @@ async function runFix(
       appendFixEvent(annotationId, 'system', 'Could not resume prior session — starting fresh.')
       error = null
       try {
-        result = await invokeClaude(plan.fullPrompt, repoPath, { onEvent })
+        result = await invokeClaude(plan.fullPrompt, target.cwd, { onEvent })
       } catch (retryErr) {
         error = retryErr instanceof Error ? retryErr : new Error(String(retryErr))
       }
     }
   } finally {
-    markFixFinished(annotationId, origin)
+    markFixFinished(annotationId, trackingKey)
   }
   if (result?.sessionId) setAnnotationFixSession(annotationId, result.sessionId)
   handleCompletion(annotationId, result, error)

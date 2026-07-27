@@ -10,9 +10,22 @@ const MODEL_OPTIONS: { value: FixModel; label: string }[] = [
   { value: 'haiku', label: 'Haiku' },
 ]
 
-const PERMISSION_OPTIONS: { value: FixPermissions; label: string }[] = [
-  { value: 'dangerously', label: 'Bypass permissions' },
-  { value: 'default', label: 'Default (approve each tool)' },
+const PERMISSION_OPTIONS: { value: FixPermissions; label: string; hint: string }[] = [
+  {
+    value: 'acceptEdits',
+    label: 'Edit and verify',
+    hint: 'Claude can read and edit files and run typecheck, tests, and read-only git. Anything else is skipped.',
+  },
+  {
+    value: 'dangerously',
+    label: 'Bypass permissions',
+    hint: 'Claude runs every tool without asking, including arbitrary shell commands. Only use this on repos you trust.',
+  },
+  {
+    value: 'default',
+    label: 'Read only',
+    hint: 'Claude can read and search but not edit or run commands — it will describe the fix instead of making it.',
+  },
 ]
 
 export function FixConfigPane({
@@ -54,11 +67,7 @@ export function FixConfigPane({
           value={permissions}
           onValueChange={setPermissions}
           options={PERMISSION_OPTIONS}
-          hint={
-            permissions === 'dangerously'
-              ? 'Claude will read and write files without asking. Only use this on repos you trust.'
-              : undefined
-          }
+          hint={PERMISSION_OPTIONS.find((o) => o.value === permissions)?.hint}
         />
 
         <div className="flex justify-end">

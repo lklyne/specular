@@ -7,6 +7,7 @@ import { CanvasItemPopup } from './CanvasItemPopup'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { fileDisplayName } from '../canvas-bg/entityConstants'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
+import type { AnnotateHandler } from './annotationMath'
 
 export function FilePopup({
   api,
@@ -14,6 +15,7 @@ export function FilePopup({
   layout,
   selectedFiles,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -23,6 +25,7 @@ export function FilePopup({
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
   interactionIdle: boolean
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedFiles.length
   const ids = selectedFiles.map((f) => f.id).join('|')
@@ -75,6 +78,9 @@ export function FilePopup({
           noun={noun}
           count={count}
           api={api}
+          layout={layout}
+          entityIds={entityIds}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

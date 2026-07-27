@@ -1926,8 +1926,24 @@ export interface RegionElementGroup {
   elements: unknown[]
 }
 
+/**
+ * The primary artifact a selection annotation is about: the one page (by url)
+ * or the one file entity (by absolute path on disk) in the selection. Absent
+ * when the selection names neither exactly once.
+ */
+export interface AnnotationSelectionTarget {
+  entityId: string
+  kind: 'page' | 'file'
+  url?: string
+  filePath?: string
+}
+
 export interface AnnotationMetadata extends Record<string, unknown> {
   inspectContext?: AnnotationInspectContext
+  /** Entity ids the user had selected when the annotation was created. */
+  selectionEntityIds?: string[]
+  /** The artifact the request is about, derived from the selection. */
+  selectionTarget?: AnnotationSelectionTarget
   /** Human-readable page label, e.g. "iPad Mini 768×1024". Display context
    *  only — the page binding lives in `Annotation.pageAnchor`. */
   pageName?: string
@@ -1959,7 +1975,7 @@ export type OriginBindings = Record<string, OriginBinding>
 // --- Fix config (model + permissions for the Claude subprocess) ---
 
 export type FixModel = 'opus' | 'sonnet' | 'haiku'
-export type FixPermissions = 'dangerously' | 'default'
+export type FixPermissions = 'dangerously' | 'acceptEdits' | 'default'
 
 export interface FixConfig {
   model: FixModel

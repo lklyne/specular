@@ -223,6 +223,12 @@ export interface CanvasBgElectronAPI {
     callback: (update: AnnotationLiveBboxUpdate) => void,
   ) => () => void
   createRegionAnnotation: (canvasRect: WorkspaceBounds, text: string) => void
+  /** Selection-born region annotation (ADR 0019 §"one door"): the selection
+   *  popup's Annotate button and its composer handoff both land here. Main
+   *  recomputes the union bbox from the ids passed — the renderer sends the
+   *  ids it displayed rather than relying on the current selection, so a
+   *  selection change mid-composer can't race the submit. */
+  annotateSelection: (input: { entityIds: string[]; text: string }) => void
   onAnnotationThreadOpen: (
     callback: (data: { annotationId: string }) => void,
   ) => () => void

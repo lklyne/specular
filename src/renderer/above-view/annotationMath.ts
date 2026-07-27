@@ -5,8 +5,10 @@ import type {
   AnnotationDrawingPoint,
   AnnotationDrawingStroke,
   CanvasScenePageEntity,
+  CanvasSceneEntity,
   DevtoolsPanelDomRect,
   LayoutUpdateData,
+  WorkspaceBounds,
 } from '../../shared/types'
 import {
   canvasToScreenX,
@@ -106,6 +108,43 @@ export function canvasRectToScreenRect(
     width: Math.max(minSize, right - left),
     height: Math.max(minSize, bottom - top),
   }
+}
+
+/**
+ * Opens the region composer pre-anchored to a selection's union bounds — the
+ * renderer-local handoff every selection popup's Annotate button calls
+ * (see useAnnotationDraftState.beginSelectionAnnotation).
+ */
+export type AnnotateHandler = (entityIds: string[], rect: WorkspaceBounds) => void
+
+/**
+ * Canvas-space union bounds for the selection popup's Annotate button.
+ *
+ * Deliberately not `selectionBbox`: that union floors at two non-group
+ * entities because a multi-selection bbox is a hit-testing and drag-chrome
+ * concept. An annotation only needs a rect, and one selected item is a
+ * perfectly good thing to comment on — a lone file entity is how the fix loop
+ * gets a `selectionTarget` it can duplicate beside. Groups count here too,
+ * since a group's own rect is its bounds.
+ */
+export function selectionAnnotationBounds(
+  entities: readonly CanvasSceneEntity[],
+  entityIds: readonly string[],
+): WorkspaceBounds | null {
+  const ids = new Set(entityIds)
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const entity of entities) {
+    if (!ids.has(entity.id)) continue
+    minX = Math.min(minX, entity.canvasX)
+    minY = Math.min(minY, entity.canvasY)
+    maxX = Math.max(maxX, entity.canvasX + entity.width)
+    maxY = Math.max(maxY, entity.canvasY + entity.height)
+  }
+  if (minX === Infinity) return null
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
 export function annotationScreenPos(

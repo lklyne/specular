@@ -483,6 +483,7 @@ export default function App({
   useEffect(() => api.onFixProgressUpdate(setFixProgress), [])
 
   const {
+    beginSelectionAnnotation,
     clearDraft,
     commentText,
     drawingSession,
@@ -490,6 +491,7 @@ export default function App({
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
+    pendingRegionSelectionIds,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
@@ -966,6 +968,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     sameKindSelection,
     selectedGroup: selectedGroupEntity,
     textPopupReady,
+    beginSelectionAnnotation,
   }
 
   return (
@@ -1018,6 +1021,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             pendingAnnotation={pendingAnnotation}
             pendingPosition={pendingComposerPosition}
             pendingRegionRect={pendingRegionRect}
+            pendingRegionSelectionIds={pendingRegionSelectionIds}
             setCommentText={setCommentText}
             setElementNameDraft={setElementNameDraft}
             submitPendingAnnotation={submitPendingAnnotation}
@@ -1191,13 +1195,19 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               />
             ),
           )}
-          {SELECTION_POPUPS.filter((row) =>
-            row.focusExempt
-              ? !toolHasPopup(layoutData.activeTool) || focusPresentationActive
-              : !toolHasPopup(layoutData.activeTool),
-          ).map(({ key, Component, mapProps }) => (
-            <Component key={key} {...mapProps(popupContext)} />
-          ))}
+          {/* Selection-vs-composer mutex: a selection-born region draft (the
+              popup's Annotate button) hides every selection popup while its
+              composer is open, mirroring the tool-vs-selection mutex above —
+              the source that opened the composer shouldn't stay clickable
+              underneath it. */}
+          {!pendingRegionSelectionIds &&
+            SELECTION_POPUPS.filter((row) =>
+              row.focusExempt
+                ? !toolHasPopup(layoutData.activeTool) || focusPresentationActive
+                : !toolHasPopup(layoutData.activeTool),
+            ).map(({ key, Component, mapProps }) => (
+              <Component key={key} {...mapProps(popupContext)} />
+            ))}
 
           {/* Edges aren't scene entities, so they sit outside SELECTION_POPUPS.
               Mount off the single selected edge, under the same tool mutex. */}

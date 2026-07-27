@@ -8,6 +8,7 @@ import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
+import type { AnnotateHandler } from './annotationMath'
 
 export function StickyNotePopover({
   api,
@@ -15,6 +16,7 @@ export function StickyNotePopover({
   layout,
   selectedTextEntities,
   popupReady,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -26,6 +28,7 @@ export function StickyNotePopover({
   layout: LayoutUpdateData
   selectedTextEntities: CanvasSceneTextEntity[]
   popupReady: boolean
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedTextEntities.length
   const ids = selectedTextEntities.map((e) => e.id).join('|')
@@ -81,6 +84,9 @@ export function StickyNotePopover({
           noun={noun}
           count={count}
           api={api}
+          layout={layout}
+          entityIds={entityIds}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

@@ -7,12 +7,14 @@ import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { POPUP_OFFSET_Y } from './usePopupDelayedKey'
+import type { AnnotateHandler } from './annotationMath'
 
 export function MultiSelectPopup({
   api,
   isDark,
   layout,
   mixed,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -23,6 +25,7 @@ export function MultiSelectPopup({
   /** True only when the selection spans more than one kind — same-kind
    *  selections already get their per-kind popup, which carries these actions. */
   mixed: boolean
+  onAnnotate: AnnotateHandler
 }) {
   const entityIds = layout.selectedEntityIds
   if (!mixed || entityIds.length < 2) return null
@@ -42,6 +45,9 @@ export function MultiSelectPopup({
           noun={noun}
           count={entityIds.length}
           api={api}
+          layout={layout}
+          entityIds={entityIds}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

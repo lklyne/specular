@@ -15,6 +15,7 @@ import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
+import { annotateSelectionRegion } from '../runtime/annotate-selection'
 import { queryElementAtPoint } from '../runtime/page-queries'
 import {
   pageAtWindowPoint,
@@ -569,6 +570,19 @@ export function registerCanvasEntityIpc(): void {
     (_event, payload: { canvasRect: { x: number; y: number; width: number; height: number }; text: string }) => {
       executeRegionSelect(payload.canvasRect, payload.text).catch((err) => {
         console.error('[region-select] failed:', err)
+      })
+    },
+  )
+
+  // Selection popup's Annotate button + composer handoff (ADR 0019 one door).
+  // The renderer passes the ids it displayed rather than trusting the current
+  // selection, so a selection change between button-click and submit can't
+  // silently annotate a different set of entities.
+  ipcMain.on(
+    ipcChannels.canvasAnnotateSelection,
+    (_event, payload: { entityIds: string[]; text: string }) => {
+      annotateSelectionRegion(payload).catch((err) => {
+        console.error('[annotate-selection] failed:', err)
       })
     },
   )

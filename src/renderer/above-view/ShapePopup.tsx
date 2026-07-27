@@ -13,6 +13,7 @@ import { ColorDropdown } from './ColorDropdown'
 import { ShapeDropdown } from './ShapeDropdown'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { TextAlignDropdown } from './TextAlignDropdown'
+import type { AnnotateHandler } from './annotationMath'
 import {
   POPUP_OFFSET_Y,
   sharedValue,
@@ -25,6 +26,7 @@ export function ShapePopup({
   layout,
   selectedShapes,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -34,6 +36,7 @@ export function ShapePopup({
   layout: LayoutUpdateData
   selectedShapes: CanvasSceneShapeEntity[]
   interactionIdle: boolean
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedShapes.length
   const ids = selectedShapes.map((e) => e.id).join('|')
@@ -163,6 +166,9 @@ export function ShapePopup({
           noun={noun}
           count={count}
           api={api}
+          layout={layout}
+          entityIds={entityIds}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

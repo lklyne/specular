@@ -2,6 +2,7 @@ import { Collapsible } from '@base-ui/react/collapsible'
 import { Popover } from '@base-ui/react/popover'
 import { ChevronDown, ChevronRight, FolderOpen, Loader2, Play, Settings, Zap } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { PRIMARY_BUTTON_CLASS } from '../../shared/primaryButton'
 import type {
   Annotation,
   DevtoolsPanelPageSummary,
@@ -127,11 +128,9 @@ function FixMenu({
   }
 
   const borderClass = isPrimary
-    ? isDark ? 'border-blue-500/70' : 'border-blue-200'
+    ? 'border-transparent'
     : isDark ? 'border-zinc-600' : 'border-zinc-300'
-  const primaryBtnClass = isDark
-    ? 'bg-blue-600/80 text-white hover:bg-blue-600'
-    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+  const primaryBtnClass = PRIMARY_BUTTON_CLASS
   const secondaryBtnClass = isDark
     ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
     : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-200'
@@ -358,7 +357,7 @@ function FixOperationsView({
           disabled={!hasBinding || totalUnresolved === 0 || working}
           className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
             isPrimary
-              ? isDark ? 'bg-blue-600/80 text-white hover:bg-blue-600' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              ? PRIMARY_BUTTON_CLASS
               : isDark ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
           }`}
         >

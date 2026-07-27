@@ -6,6 +6,7 @@ import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
+import type { AnnotateHandler } from './annotationMath'
 
 export function GroupPopup({
   api,
@@ -13,12 +14,14 @@ export function GroupPopup({
   layout,
   selectedGroup,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<CanvasBgElectronAPI, 'updateEntity' | 'focusSelection'>
   isDark: boolean
   layout: LayoutUpdateData
   selectedGroup: CanvasSceneGroupEntity | null
   interactionIdle: boolean
+  onAnnotate: AnnotateHandler
 }) {
   const open = usePopupDelayedKey(
     selectedGroup?.id ?? '',
@@ -50,6 +53,9 @@ export function GroupPopup({
           noun="group"
           count={1}
           api={api}
+          layout={layout}
+          entityIds={[selectedGroup.id]}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

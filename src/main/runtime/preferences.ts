@@ -129,7 +129,7 @@ export function clampDevtoolsWidth(value: number): number {
 
 let pendingLegacyOriginBindings: LegacyOriginBindings | null = null
 
-const DEFAULT_FIX_CONFIG: FixConfig = { model: 'opus', permissions: 'dangerously', configured: false }
+const DEFAULT_FIX_CONFIG: FixConfig = { model: 'opus', permissions: 'acceptEdits', configured: false }
 let fixConfig: FixConfig = { ...DEFAULT_FIX_CONFIG }
 
 export function loadPreferences(): void {
