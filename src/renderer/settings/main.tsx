@@ -21,4 +21,7 @@ async function bootstrap() {
   )
 }
 
-void bootstrap()
+bootstrap().catch((err) => {
+  console.error('settings bootstrap failed', err)
+  document.getElementById('root')!.textContent = `Settings failed to load: ${String(err)}`
+})
