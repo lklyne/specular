@@ -15,6 +15,21 @@ const COMPOSER_MARGIN = 8
 const COMPOSER_MIN_HEIGHT = 52
 const CANVAS_POINT_COMPOSER_WIDTH = 320
 
+/** What opening a draft sets. Anything left out returns to the closed value. */
+interface DraftOpen {
+  pending: PendingAnnotation | null
+  regionRect: WorkspaceBounds | null
+  regionSelectionIds: string[] | null
+  elementName: string
+}
+
+const NO_DRAFT: DraftOpen = {
+  pending: null,
+  regionRect: null,
+  regionSelectionIds: null,
+  elementName: '',
+}
+
 export function useAnnotationDraftState({
   api,
   layoutData,
@@ -35,47 +50,55 @@ export function useAnnotationDraftState({
   // ids and routes its submit to `api.annotateSelection` instead of
   // `api.createRegionAnnotation` — see `submitRegionAnnotation` below.
   const [pendingRegionSelectionIds, setPendingRegionSelectionIds] = useState<string[] | null>(null)
-  const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null)
-  const [drawingStrokeActive, setDrawingStrokeActive] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [elementNameDraft, setElementNameDraft] = useState('')
 
+  const drawing = useDrawingSession(api, activeStrokeRef)
+  const { drawingSession, setDrawingSession, clearDrawing, commitDrawing } = drawing
+
   const clearDraft = useCallback(() => {
-    activeStrokeRef.current = null
+    clearDrawing()
     setPendingAnnotation(null)
     setPendingRegionRect(null)
     setPendingRegionSelectionIds(null)
-    setDrawingSession(null)
-    setDrawingStrokeActive(false)
     setCommentText('')
     setElementNameDraft('')
-  }, [activeStrokeRef])
+  }, [clearDrawing])
+
+  /**
+   * Open one draft, closing every other. The composer is singular — a draft of
+   * any kind supersedes whatever was open, and always starts with empty text.
+   */
+  const openDraft = useCallback((next: Partial<DraftOpen>) => {
+    const draft = { ...NO_DRAFT, ...next }
+    setPendingAnnotation(draft.pending)
+    setPendingRegionRect(draft.regionRect)
+    setPendingRegionSelectionIds(draft.regionSelectionIds)
+    clearDrawing()
+    setCommentText('')
+    setElementNameDraft(draft.elementName)
+  }, [clearDrawing])
 
   // Renderer-local handoff for the selection popup's Annotate button (ADR
   // 0019 one door): pre-anchors the same region composer the comment tool's
   // drag gesture opens, over the selection's union bounds instead of a drag
   // rect. No IPC round-trip — the popup already has everything it needs
   // (the layout broadcast's entities) to compute the rect itself.
-  const beginSelectionAnnotation = useCallback((entityIds: string[], rect: WorkspaceBounds) => {
-    setPendingRegionRect(rect)
-    setPendingRegionSelectionIds(entityIds)
-    setPendingAnnotation(null)
-    setDrawingSession(null)
-    setCommentText('')
-    setElementNameDraft('')
-  }, [])
+  const beginSelectionAnnotation = useCallback(
+    (entityIds: string[], rect: WorkspaceBounds) => {
+      openDraft({ regionRect: rect, regionSelectionIds: entityIds })
+    },
+    [openDraft],
+  )
 
   const submitPendingAnnotation = useCallback(() => {
     if (!pendingAnnotation) return
     const nextText = commentText.trim()
     if (!nextText) return
-    const trimmedName = elementNameDraft.trim()
     api.createAnnotation({
       ...pendingAnnotation.request,
       text: nextText,
-      ...(pendingAnnotation.request.anchor.type === 'element' && trimmedName
-        ? { elementName: trimmedName }
-        : {}),
+      ...elementNameField(pendingAnnotation, elementNameDraft),
     })
     clearDraft()
   }, [api, clearDraft, commentText, elementNameDraft, pendingAnnotation])
@@ -84,77 +107,45 @@ export function useAnnotationDraftState({
     if (!pendingRegionRect) return
     const nextText = commentText.trim()
     if (!nextText) return
-    if (pendingRegionSelectionIds) {
-      api.annotateSelection({ entityIds: pendingRegionSelectionIds, text: nextText })
-    } else {
-      api.createRegionAnnotation(pendingRegionRect, nextText)
-    }
+    sendRegionAnnotation(api, pendingRegionRect, pendingRegionSelectionIds, nextText)
     clearDraft()
   }, [api, clearDraft, commentText, pendingRegionRect, pendingRegionSelectionIds])
 
   const submitDrawing = useCallback(() => {
-    if (!drawingSession || !drawingSession.strokes.length) return
-    api.createDrawing({
-      canvasX: drawingSession.bounds.x,
-      canvasY: drawingSession.bounds.y,
-      width: drawingSession.bounds.width,
-      height: drawingSession.bounds.height,
-      strokes: drawingSession.strokes,
-    })
+    commitDrawing()
     clearDraft()
-  }, [api, clearDraft, drawingSession])
+  }, [clearDraft, commitDrawing])
 
-  const undoLastStroke = useCallback(() => {
-    setDrawingSession((current) => {
-      if (!current || current.strokes.length === 0) return null
-      const nextStrokes = current.strokes.slice(0, -1)
-      if (!nextStrokes.length) return null
-      return {
-        strokes: nextStrokes,
-        bounds: drawingBounds(nextStrokes),
-      }
-    })
-  }, [])
+  useEffect(
+    () =>
+      api.onAnnotateElementSelected((payload) => {
+        const pending = buildPendingAnnotation(payload, layoutRef.current)
+        if (!pending) return
+        openDraft({ pending, elementName: payload.name?.trim() })
+      }),
+    [api, layoutRef, openDraft],
+  )
 
-  useEffect(() => {
-    const cleanup = api.onAnnotateElementSelected((payload) => {
-      const pending = buildPendingAnnotation(payload, layoutRef.current)
-      if (!pending) return
-      setPendingAnnotation(pending)
-      setDrawingSession(null)
-      setCommentText('')
-      setElementNameDraft(payload.name?.trim() ?? '')
-    })
-    return cleanup
-  }, [api, layoutRef])
+  useEffect(
+    () =>
+      api.onRegionSelectCommitted(({ canvasRect }) => {
+        openDraft({ regionRect: canvasRect })
+      }),
+    [api, openDraft],
+  )
 
-  useEffect(() => {
-    const cleanup = api.onRegionSelectCommitted(({ canvasRect }) => {
-      setPendingRegionRect(canvasRect)
-      setPendingRegionSelectionIds(null)
-      setPendingAnnotation(null)
-      setDrawingSession(null)
-      setCommentText('')
-      setElementNameDraft('')
-    })
-    return cleanup
-  }, [api])
-
-  useEffect(() => {
-    // ADR 0006: comment-tool click that landed off-page (or in a page slot
-    // with no DOM element) becomes a canvas-point pending annotation. We
-    // mount the composer adjacent to the click in screen coords.
-    const cleanup = api.onCommentCanvasPointCommitted(({ canvasX, canvasY }) => {
-      const pending = buildCanvasPointPendingAnnotation(canvasX, canvasY, layoutRef.current)
-      setPendingAnnotation(pending)
-      setPendingRegionRect(null)
-      setPendingRegionSelectionIds(null)
-      setDrawingSession(null)
-      setCommentText('')
-      setElementNameDraft('')
-    })
-    return cleanup
-  }, [api, layoutRef])
+  useEffect(
+    () =>
+      // ADR 0006: comment-tool click that landed off-page (or in a page slot
+      // with no DOM element) becomes a canvas-point pending annotation. We
+      // mount the composer adjacent to the click in screen coords.
+      api.onCommentCanvasPointCommitted(({ canvasX, canvasY }) => {
+        openDraft({
+          pending: buildCanvasPointPendingAnnotation(canvasX, canvasY, layoutRef.current),
+        })
+      }),
+    [api, layoutRef, openDraft],
+  )
 
   const activeToolKind = layoutData.activeTool.kind
   useEffect(() => {
@@ -163,8 +154,7 @@ export function useAnnotationDraftState({
       // drags (ADR 0006). Drafts of either kind persist across these
       // gestures; only the (mutually exclusive) drawing session is cleared.
       if (drawingSession) {
-        activeStrokeRef.current = null
-        setDrawingSession(null)
+        clearDrawing()
         setCommentText('')
       }
       return
@@ -183,7 +173,7 @@ export function useAnnotationDraftState({
       setCommentText('')
     }
   }, [
-    activeStrokeRef,
+    clearDrawing,
     drawingSession,
     activeToolKind,
     pendingAnnotation,
@@ -191,20 +181,12 @@ export function useAnnotationDraftState({
     pendingRegionSelectionIds,
   ])
 
+  // Leaving the draw tool commits whatever was drawn rather than dropping it.
   useEffect(() => {
-    if (activeToolKind === 'draw') return
-    if (!drawingSession) return
-    if (drawingSession.strokes.length > 0) {
-      api.createDrawing({
-        canvasX: drawingSession.bounds.x,
-        canvasY: drawingSession.bounds.y,
-        width: drawingSession.bounds.width,
-        height: drawingSession.bounds.height,
-        strokes: drawingSession.strokes,
-      })
-    }
+    if (activeToolKind === 'draw' || !drawingSession) return
+    commitDrawing()
     clearDraft()
-  }, [api, clearDraft, drawingSession, activeToolKind])
+  }, [clearDraft, commitDrawing, drawingSession, activeToolKind])
 
   useEffect(() => {
     if (!pendingAnnotation && !pendingRegionRect) return
@@ -219,21 +201,95 @@ export function useAnnotationDraftState({
     clearDraft,
     commentText,
     drawingSession,
-    drawingStrokeActive,
+    drawingStrokeActive: drawing.drawingStrokeActive,
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
     pendingRegionSelectionIds,
     setCommentText,
     setDrawingSession,
-    setDrawingStrokeActive,
+    setDrawingStrokeActive: drawing.setDrawingStrokeActive,
     setElementNameDraft,
     setPendingAnnotation,
     submitDrawing,
     submitPendingAnnotation,
     submitRegionAnnotation,
+    undoLastStroke: drawing.undoLastStroke,
+  }
+}
+
+/**
+ * The in-progress freehand drawing. Mutually exclusive with an annotation
+ * draft, but its own concern: strokes accumulate across pointer gestures and
+ * commit as one entity when the drawing ends.
+ */
+function useDrawingSession(
+  api: CanvasBgElectronAPI,
+  activeStrokeRef: React.MutableRefObject<{ pointerId: number; strokeId: string } | null>,
+) {
+  const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null)
+  const [drawingStrokeActive, setDrawingStrokeActive] = useState(false)
+
+  const clearDrawing = useCallback(() => {
+    activeStrokeRef.current = null
+    setDrawingSession(null)
+    setDrawingStrokeActive(false)
+  }, [activeStrokeRef])
+
+  /** Writes the strokes out as a drawing entity. A stroke-less session is a
+   *  no-op, so callers can commit unconditionally before clearing. */
+  const commitDrawing = useCallback(() => {
+    if (!drawingSession?.strokes.length) return
+    api.createDrawing({
+      canvasX: drawingSession.bounds.x,
+      canvasY: drawingSession.bounds.y,
+      width: drawingSession.bounds.width,
+      height: drawingSession.bounds.height,
+      strokes: drawingSession.strokes,
+    })
+  }, [api, drawingSession])
+
+  const undoLastStroke = useCallback(() => {
+    setDrawingSession((current) => {
+      const remaining = current?.strokes.slice(0, -1)
+      if (!remaining?.length) return null
+      return { strokes: remaining, bounds: drawingBounds(remaining) }
+    })
+  }, [])
+
+  return {
+    clearDrawing,
+    commitDrawing,
+    drawingSession,
+    drawingStrokeActive,
+    setDrawingSession,
+    setDrawingStrokeActive,
     undoLastStroke,
   }
+}
+
+/** Only element anchors carry a nameable target, and only a typed name counts. */
+function elementNameField(
+  pending: PendingAnnotation,
+  draft: string,
+): { elementName?: string } {
+  const name = draft.trim()
+  if (pending.request.anchor.type !== 'element' || !name) return {}
+  return { elementName: name }
+}
+
+/**
+ * A selection-born draft names the entities it was drawn over, so it goes
+ * through the annotate-selection door; a comment-tool drag only has the rect.
+ */
+function sendRegionAnnotation(
+  api: CanvasBgElectronAPI,
+  rect: WorkspaceBounds,
+  selectionIds: string[] | null,
+  text: string,
+): void {
+  if (selectionIds) api.annotateSelection({ entityIds: selectionIds, text })
+  else api.createRegionAnnotation(rect, text)
 }
 
 function buildPendingAnnotation(

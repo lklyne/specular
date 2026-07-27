@@ -63,66 +63,135 @@ export function PendingAnnotationComposer({
   submitRegionAnnotation: () => void
 }) {
   if (pendingAnnotation) {
-    const left = pendingPosition?.left ?? pendingAnnotation.composerX
-    const top = pendingPosition?.top ?? pendingAnnotation.composerY
-    const width = pendingPosition?.width ?? pendingAnnotation.composerWidth
-    const isElementAnchor = pendingAnnotation.request.anchor.type === 'element'
     return (
-      <ComposerBox
+      <PointDraft
         clearDraft={clearDraft}
         commentInputRef={commentInputRef}
         commentText={commentText}
-        left={left}
-        top={top}
-        width={width}
+        elementNameDraft={elementNameDraft}
+        pendingAnnotation={pendingAnnotation}
+        pendingPosition={pendingPosition}
         setCommentText={setCommentText}
+        setElementNameDraft={setElementNameDraft}
         submit={submitPendingAnnotation}
-        submitLabel="Submit comment"
-        elementNameDraft={isElementAnchor ? elementNameDraft : undefined}
-        setElementNameDraft={isElementAnchor ? setElementNameDraft : undefined}
       />
     )
   }
   if (pendingRegionRect) {
-    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
-    const overlayTop = screen.top - layoutData.canvasOrigin.y
-    const composerX = Math.min(
-      Math.max(screen.left, 8),
-      window.innerWidth - REGION_COMPOSER_WIDTH - 8,
-    )
-    const composerY = overlayTop + screen.height + REGION_COMPOSER_MARGIN
     return (
-      <>
-        {pendingRegionSelectionIds ? (
-          <div
-            className="pointer-events-auto absolute inset-0 z-30"
-            data-overlay-ui
-            onPointerDown={(event) => {
-              if (event.pointerType === 'mouse' && event.button !== 0) return
-              if (commentText.trim()) submitRegionAnnotation()
-              else clearDraft()
-            }}
-          />
-        ) : null}
-        <div
-          className="pointer-events-none absolute rounded border-2 border-dashed border-blue-500/90 bg-blue-500/10"
-          style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}
-        />
-        <ComposerBox
-          clearDraft={clearDraft}
-          commentInputRef={commentInputRef}
-          commentText={commentText}
-          left={composerX}
-          top={composerY}
-          width={REGION_COMPOSER_WIDTH}
-          setCommentText={setCommentText}
-          submit={submitRegionAnnotation}
-          submitLabel="Submit region annotation"
-        />
-      </>
+      <RegionDraft
+        clearDraft={clearDraft}
+        commentInputRef={commentInputRef}
+        commentText={commentText}
+        layoutData={layoutData}
+        rect={pendingRegionRect}
+        selectionIds={pendingRegionSelectionIds}
+        setCommentText={setCommentText}
+        submit={submitRegionAnnotation}
+      />
     )
   }
   return null
+}
+
+/** Element- and canvas-point drafts: the composer alone, at the anchor. */
+function PointDraft({
+  clearDraft,
+  commentInputRef,
+  commentText,
+  elementNameDraft,
+  pendingAnnotation,
+  pendingPosition,
+  setCommentText,
+  setElementNameDraft,
+  submit,
+}: {
+  clearDraft: () => void
+  commentInputRef: React.RefObject<HTMLTextAreaElement | null>
+  commentText: string
+  elementNameDraft: string
+  pendingAnnotation: PendingAnnotation
+  pendingPosition: { left: number; top: number; width: number } | null
+  setCommentText: React.Dispatch<React.SetStateAction<string>>
+  setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
+  submit: () => void
+}) {
+  // Only element anchors carry a nameable target, so the name field is theirs.
+  const isElementAnchor = pendingAnnotation.request.anchor.type === 'element'
+  return (
+    <ComposerBox
+      clearDraft={clearDraft}
+      commentInputRef={commentInputRef}
+      commentText={commentText}
+      left={pendingPosition?.left ?? pendingAnnotation.composerX}
+      top={pendingPosition?.top ?? pendingAnnotation.composerY}
+      width={pendingPosition?.width ?? pendingAnnotation.composerWidth}
+      setCommentText={setCommentText}
+      submit={submit}
+      submitLabel="Submit comment"
+      elementNameDraft={isElementAnchor ? elementNameDraft : undefined}
+      setElementNameDraft={isElementAnchor ? setElementNameDraft : undefined}
+    />
+  )
+}
+
+/** Region drafts: the dashed rect, the composer below it, and — for a
+ *  selection-born draft — the backdrop that stands in for the tool gesture. */
+function RegionDraft({
+  clearDraft,
+  commentInputRef,
+  commentText,
+  layoutData,
+  rect,
+  selectionIds,
+  setCommentText,
+  submit,
+}: {
+  clearDraft: () => void
+  commentInputRef: React.RefObject<HTMLTextAreaElement | null>
+  commentText: string
+  layoutData: LayoutUpdateData
+  rect: WorkspaceBounds
+  selectionIds: string[] | null
+  setCommentText: React.Dispatch<React.SetStateAction<string>>
+  submit: () => void
+}) {
+  const screen = canvasRectToScreenRect(layoutData, rect)
+  const overlayTop = screen.top - layoutData.canvasOrigin.y
+  const composerX = Math.min(
+    Math.max(screen.left, 8),
+    window.innerWidth - REGION_COMPOSER_WIDTH - 8,
+  )
+  return (
+    <>
+      {selectionIds ? (
+        <div
+          className="pointer-events-auto absolute inset-0 z-30"
+          data-overlay-ui
+          onPointerDown={(event) => {
+            if (event.pointerType === 'mouse' && event.button !== 0) return
+            if (commentText.trim()) submit()
+            else clearDraft()
+          }}
+        />
+      ) : null}
+      <div
+        className="pointer-events-none absolute rounded border-2 border-dashed border-blue-500/90 bg-blue-500/10"
+        style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}
+      />
+      <ComposerBox
+        clearDraft={clearDraft}
+        commentInputRef={commentInputRef}
+        commentText={commentText}
+        left={composerX}
+        top={overlayTop + screen.height + REGION_COMPOSER_MARGIN}
+        width={REGION_COMPOSER_WIDTH}
+        setCommentText={setCommentText}
+        submit={submit}
+        submitLabel="Submit region annotation"
+      />
+    </>
+  )
 }
 
 function ComposerBox({

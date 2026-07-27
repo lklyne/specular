@@ -228,37 +228,47 @@ function quoted(text: string): string {
   return `"${truncate(text.replace(/\s+/g, ' ').trim(), 240)}"`
 }
 
+/** Where a member sits in the region, as prose the prompt can use two ways. */
+interface MemberPlace {
+  /** "top-left", or '' when the region or the member's bounds are unknown. */
+  at: string
+  /** The same, ready to append to a noun: " at top-left" or ''. */
+  suffix: string
+}
+
+/**
+ * One line per selected member. Split per kind so each stays a single readable
+ * template — the shapes of these lines have nothing in common beyond position.
+ */
+const MEMBER_LINE: Partial<
+  Record<CanvasEntityKind, (m: SelectionMemberSummary, p: MemberPlace) => string>
+> = {
+  text: (m, p) => {
+    const noun = m.textStyle === 'sticky' ? 'sticky' : 'text note'
+    return `${noun}${p.suffix}: ${m.text ? quoted(m.text) : '(empty)'}`
+  },
+  drawing: (m, p) => {
+    const size = m.bounds
+      ? ` (${Math.round(m.bounds.width)}×${Math.round(m.bounds.height)})`
+      : ''
+    return `freehand drawing${p.at ? ` overlays ${p.at}` : ''}${size} — see the screenshot`
+  },
+  shape: (m, p) =>
+    `${m.shapeKind ?? 'shape'} shape${p.suffix}${m.text ? `: ${quoted(m.text)}` : ''}`,
+  page: (m, p) =>
+    `page${p.suffix}: ${m.url ?? '(no url)'}${m.pageName ? ` — ${m.pageName}` : ''}`,
+  file: (m, p) => `file${p.suffix}: ${m.filePath ?? '(no path)'}`,
+  group: (m, p) => `group${p.suffix}${m.label ? `: ${quoted(m.label)}` : ''}`,
+}
+
 function memberLine(
   member: SelectionMemberSummary,
   region: WorkspaceBounds | null,
 ): string {
-  const at = positionInRegion(region, member.bounds)
-  const place = at ? ` at ${at}` : ''
-  switch (member.kind) {
-    case 'text': {
-      const noun = member.textStyle === 'sticky' ? 'sticky' : 'text note'
-      return `${noun}${place}: ${member.text ? quoted(member.text) : '(empty)'}`
-    }
-    case 'drawing': {
-      const size = member.bounds
-        ? ` (${Math.round(member.bounds.width)}×${Math.round(member.bounds.height)})`
-        : ''
-      return `freehand drawing${at ? ` overlays ${at}` : ''}${size} — see the screenshot`
-    }
-    case 'shape': {
-      const kind = member.shapeKind ?? 'shape'
-      const label = member.text ? `: ${quoted(member.text)}` : ''
-      return `${kind} shape${place}${label}`
-    }
-    case 'page':
-      return `page${place}: ${member.url ?? '(no url)'}${member.pageName ? ` — ${member.pageName}` : ''}`
-    case 'file':
-      return `file${place}: ${member.filePath ?? '(no path)'}`
-    case 'group':
-      return `group${place}${member.label ? `: ${quoted(member.label)}` : ''}`
-    default:
-      return `${member.kind}${place}`
-  }
+  const at = positionInRegion(region, member.bounds) ?? ''
+  const place: MemberPlace = { at, suffix: at ? ` at ${at}` : '' }
+  const format = MEMBER_LINE[member.kind]
+  return format ? format(member, place) : `${member.kind}${place.suffix}`
 }
 
 function targetLine(annotation: Annotation): string {
