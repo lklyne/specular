@@ -69,10 +69,20 @@
   outline: none;
 }
 
-/* Text fields announce focus with their caret, so the ring would only ever be
-   redundant noise on them — Chromium matches :focus-visible on text entry even
-   for pointer focus. */
-:focus-visible:not(:is(input:is([type='text'], [type='url'], [type='search'], :not([type])), textarea, [contenteditable])) {
+:focus-visible {
   outline: 2px solid var(--surface-focus-ring);
   outline-offset: 2px;
+}
+
+/* Chromium matches :focus-visible on text entry even for pointer focus, so on
+   these the selector cannot tell a Tab from a click and the recorded modality
+   decides instead (see focusModality.ts). Tabbing to a field still rings; a
+   click into one leaves the caret to say it, as it already does. */
+:root:not([data-focus-modality='keyboard'])
+  :is(
+    input:is([type='text'], [type='url'], [type='search'], :not([type])),
+    textarea,
+    [contenteditable]
+  ):focus-visible {
+  outline: none;
 }
