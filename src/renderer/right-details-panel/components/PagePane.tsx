@@ -1,4 +1,5 @@
 import { Collapsible } from '@base-ui/react/collapsible'
+import { PRIMARY_BUTTON_BORDERED_CLASS } from '../../shared/primaryButton'
 import {
   ChevronDown,
   ChevronRight,
@@ -308,7 +309,7 @@ function PageCommentsSection({
       rightDetailsPanelApi.fixSingleAnnotation(annotation.id)
     }
   }
-  const fixBtnClass = 'border-transparent bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
+  const fixBtnClass = PRIMARY_BUTTON_BORDERED_CLASS
   return (
     <section className={`border-t ${divider}`}>
       <Collapsible.Root defaultOpen>

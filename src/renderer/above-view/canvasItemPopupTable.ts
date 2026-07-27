@@ -3,7 +3,6 @@ import type {
   CanvasSceneEntity,
   CanvasSceneGroupEntity,
   LayoutUpdateData,
-  WorkspaceBounds,
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { ToolKind } from '../../shared/tool'
@@ -18,6 +17,7 @@ import { ShapePopup } from './ShapePopup'
 import { ShapeToolPopup } from './ShapeToolPopup'
 import { StickyNotePopover } from './StickyNotePopover'
 import { TextToolPopup } from './TextToolPopup'
+import type { AnnotateHandler } from './annotationMath'
 
 /**
  * Same-kind multi-select (ADR 0008 §4): the selected entities plus their shared
@@ -65,7 +65,7 @@ export type PopupContext = {
   /** Opens the region composer pre-anchored to a selection's union bounds
    *  (see useAnnotationDraftState.beginSelectionAnnotation). Every popup's
    *  Annotate button forwards to the same renderer-local handoff. */
-  beginSelectionAnnotation: (entityIds: string[], rect: WorkspaceBounds) => void
+  beginSelectionAnnotation: AnnotateHandler
 }
 
 export type ToolPopupRow = {

@@ -170,6 +170,28 @@ export function groupDescendantIds(groupId: string): string[] {
   return ids
 }
 
+/**
+ * A selected group reads as its members — that is what the user pointed at.
+ * `keepGroupId` decides whether the group itself stays in the result: a prompt
+ * describing the selection wants it, a target derived from the selection does
+ * not (a group is not an artifact anything can be written against).
+ */
+export function expandSelectedGroups(
+  entityIds: string[],
+  { keepGroupId }: { keepGroupId: boolean },
+): string[] {
+  const expanded: string[] = []
+  for (const entityId of entityIds) {
+    if (entityKindById(entityId) !== 'group') {
+      expanded.push(entityId)
+      continue
+    }
+    if (keepGroupId) expanded.push(entityId)
+    expanded.push(...groupDescendantIds(entityId))
+  }
+  return [...new Set(expanded)]
+}
+
 export function groupBounds(group: import('../shared/types').WorkspaceGroup): WorkspaceBounds | null {
   const bounds = groupChildIds(group.id)
     .map(entityBoundsById)

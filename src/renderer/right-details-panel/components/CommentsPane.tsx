@@ -6,6 +6,7 @@ import type {
   DevtoolsPanelPageSummary,
   FixProgressEntry,
 } from '../../../shared/types'
+import { PRIMARY_BUTTON_BORDERED_CLASS } from '../../shared/primaryButton'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import {
   authorLabel,
@@ -231,7 +232,7 @@ function FixProgressButton({
                   onClick={() => rightDetailsPanelApi.fixSingleAnnotation(progress.annotationId)}
                   className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
                     progress.status === 'failed'
-                      ? 'border-transparent bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
+                      ? PRIMARY_BUTTON_BORDERED_CLASS
                       : isDark
                         ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                         : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
@@ -289,7 +290,7 @@ export function CommentsPane({
             type="button"
             className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
               annotateEnabled
-                ? 'border-transparent bg-[var(--surface-primary)] text-[var(--surface-primary-foreground)] hover:bg-[var(--surface-primary-hover)]'
+                ? PRIMARY_BUTTON_BORDERED_CLASS
                 : isDark
                   ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
                   : 'border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-200'

@@ -10,12 +10,12 @@ import type {
   AnnotationDrawingStroke,
   CanvasSceneDrawingEntity,
   LayoutUpdateData,
-  WorkspaceBounds,
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { drawingBounds } from './annotationMath'
+import type { AnnotateHandler } from './annotationMath'
 import {
   BRUSH_VARIANT_OPTIONS,
   nearestStrokeWidthPreset,
@@ -42,7 +42,7 @@ export function DrawingPopup({
   layout: LayoutUpdateData
   selectedDrawings: CanvasSceneDrawingEntity[]
   interactionIdle: boolean
-  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedDrawings.length
   const ids = selectedDrawings.map((e) => e.id).join('|')

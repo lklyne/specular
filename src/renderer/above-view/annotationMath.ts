@@ -111,6 +111,13 @@ export function canvasRectToScreenRect(
 }
 
 /**
+ * Opens the region composer pre-anchored to a selection's union bounds — the
+ * renderer-local handoff every selection popup's Annotate button calls
+ * (see useAnnotationDraftState.beginSelectionAnnotation).
+ */
+export type AnnotateHandler = (entityIds: string[], rect: WorkspaceBounds) => void
+
+/**
  * Canvas-space union bounds for the selection popup's Annotate button.
  *
  * Deliberately not `selectionBbox`: that union floors at two non-group

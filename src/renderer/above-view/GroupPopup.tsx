@@ -1,11 +1,12 @@
 // ADR 0008 — group selection popup. Replaces canvas-bg GroupInlineMenu.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import type { CanvasSceneGroupEntity, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
+import type { AnnotateHandler } from './annotationMath'
 
 export function GroupPopup({
   api,
@@ -20,7 +21,7 @@ export function GroupPopup({
   layout: LayoutUpdateData
   selectedGroup: CanvasSceneGroupEntity | null
   interactionIdle: boolean
-  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
+  onAnnotate: AnnotateHandler
 }) {
   const open = usePopupDelayedKey(
     selectedGroup?.id ?? '',

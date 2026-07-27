@@ -29,6 +29,7 @@ import type { Rect } from '../../shared/hit-regions'
 import type { BatchLayoutMode, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { selectionAnnotationBounds } from './annotationMath'
+import type { AnnotateHandler } from './annotationMath'
 import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
@@ -577,7 +578,7 @@ function EntityActions({
   /** Opens the region composer pre-anchored to the selection's union bounds
    *  (renderer-local handoff — see useAnnotationDraftState.beginSelectionAnnotation).
    *  Omitted → no Annotate button, regardless of `layout`/`entityIds`. */
-  onAnnotate?: (entityIds: string[], rect: WorkspaceBounds) => void
+  onAnnotate?: AnnotateHandler
 }) {
   const arrange = api?.arrangeSelection
   // Null only when none of the ids resolve against the current layout.

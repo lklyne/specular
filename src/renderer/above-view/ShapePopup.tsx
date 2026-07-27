@@ -5,7 +5,6 @@ import type {
   CanvasSceneShapeEntity,
   LayoutUpdateData,
   ShapeKind,
-  WorkspaceBounds,
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { BorderDropdown } from './BorderDropdown'
@@ -14,6 +13,7 @@ import { ColorDropdown } from './ColorDropdown'
 import { ShapeDropdown } from './ShapeDropdown'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { TextAlignDropdown } from './TextAlignDropdown'
+import type { AnnotateHandler } from './annotationMath'
 import {
   POPUP_OFFSET_Y,
   sharedValue,
@@ -36,7 +36,7 @@ export function ShapePopup({
   layout: LayoutUpdateData
   selectedShapes: CanvasSceneShapeEntity[]
   interactionIdle: boolean
-  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedShapes.length
   const ids = selectedShapes.map((e) => e.id).join('|')

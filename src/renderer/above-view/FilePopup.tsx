@@ -1,12 +1,13 @@
 // ADR 0008 §7 — file selection popup.
 
 import { useEffect, useState } from 'react'
-import type { CanvasSceneFileEntity, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { fileDisplayName } from '../canvas-bg/entityConstants'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
+import type { AnnotateHandler } from './annotationMath'
 
 export function FilePopup({
   api,
@@ -24,7 +25,7 @@ export function FilePopup({
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
   interactionIdle: boolean
-  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedFiles.length
   const ids = selectedFiles.map((f) => f.id).join('|')

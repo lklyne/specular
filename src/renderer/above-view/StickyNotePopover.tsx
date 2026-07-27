@@ -2,12 +2,13 @@
 // for color so color edits apply uniformly across both in multi-select.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import type { CanvasSceneTextEntity, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
+import type { AnnotateHandler } from './annotationMath'
 
 export function StickyNotePopover({
   api,
@@ -27,7 +28,7 @@ export function StickyNotePopover({
   layout: LayoutUpdateData
   selectedTextEntities: CanvasSceneTextEntity[]
   popupReady: boolean
-  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedTextEntities.length
   const ids = selectedTextEntities.map((e) => e.id).join('|')

@@ -17,11 +17,12 @@ import {
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { CanvasScenePageEntity, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
 import { selectionAnnotationBounds } from './annotationMath'
+import type { AnnotateHandler } from './annotationMath'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -72,7 +73,7 @@ export function PagePopup({
   layout: LayoutUpdateData
   selectedPages: CanvasScenePageEntity[]
   interactionIdle: boolean
-  onAnnotate: (entityIds: string[], rect: WorkspaceBounds) => void
+  onAnnotate: AnnotateHandler
 }) {
   // During a focus session the bar belongs to the focused page regardless of
   // selection — draw/placement tools clear or reassign selection mid-session,

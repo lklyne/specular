@@ -7,7 +7,7 @@
 
 import { isAbsolute, resolve } from 'path'
 import type { Annotation, AnnotationSelectionTarget } from '../../shared/types'
-import { entityKindById, groupBoundsForEntityIds, groupDescendantIds } from '../workspace-entities'
+import { entityKindById, expandSelectedGroups, groupBoundsForEntityIds } from '../workspace-entities'
 import { selectedEntityIds } from '../ui-state'
 import { fileEntities } from './file-entity-state'
 import { findPageById } from './page-runtime'
@@ -17,23 +17,6 @@ export interface AnnotateSelectionInput {
   /** Omitted or empty → the current canvas selection. */
   entityIds?: string[]
   text: string
-}
-
-/**
- * The ids the target is derived from: the selection with every selected group
- * replaced by its descendants, so selecting the group that holds one page
- * reads the same as selecting that page.
- */
-function targetCandidateIds(entityIds: string[]): string[] {
-  const expanded: string[] = []
-  for (const entityId of entityIds) {
-    if (entityKindById(entityId) === 'group') {
-      expanded.push(...groupDescendantIds(entityId))
-    } else {
-      expanded.push(entityId)
-    }
-  }
-  return [...new Set(expanded)]
 }
 
 /** File entity paths are stored as written; a relative one resolves against cwd. */
@@ -47,7 +30,9 @@ function fileEntityPath(file: string): string {
  * would be a guess).
  */
 export function selectionTargetFor(entityIds: string[]): AnnotationSelectionTarget | undefined {
-  const candidates = targetCandidateIds(entityIds)
+  // Groups drop out: selecting the group that holds one page must read the
+  // same as selecting that page.
+  const candidates = expandSelectedGroups(entityIds, { keepGroupId: false })
   const pageIds = candidates.filter((id) => entityKindById(id) === 'page')
   if (pageIds.length === 1) {
     const page = findPageById(pageIds[0])

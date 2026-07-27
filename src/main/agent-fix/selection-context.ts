@@ -12,7 +12,7 @@ import { isUnresolved } from '../../shared/annotation-utils'
 import {
   entityBoundsById,
   entityKindById,
-  groupDescendantIds,
+  expandSelectedGroups,
   groupById,
 } from '../workspace-entities'
 import { getAnnotations } from '../workspace-annotations'
@@ -27,18 +27,6 @@ import type {
   SelectionMemberSummary,
   SelectionPromptContext,
 } from './prompt-builder'
-
-/** A selected group reads as its members — that is what the user pointed at. */
-function expandGroups(entityIds: string[]): string[] {
-  const expanded: string[] = []
-  for (const entityId of entityIds) {
-    expanded.push(entityId)
-    if (entityKindById(entityId) === 'group') {
-      expanded.push(...groupDescendantIds(entityId))
-    }
-  }
-  return [...new Set(expanded)]
-}
 
 function describeMember(entityId: string): SelectionMemberSummary | null {
   const kind = entityKindById(entityId)
@@ -109,7 +97,7 @@ function priorFeedbackFor(annotation: Annotation, memberIds: Set<string>): Prior
 export function resolveSelectionContext(annotation: Annotation): SelectionPromptContext | null {
   const selectionEntityIds = annotation.metadata?.selectionEntityIds
   if (!selectionEntityIds?.length) return null
-  const memberIds = expandGroups(selectionEntityIds)
+  const memberIds = expandSelectedGroups(selectionEntityIds, { keepGroupId: true })
   return {
     members: memberIds
       .map(describeMember)
