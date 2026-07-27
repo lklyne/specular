@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 2 — Private sync</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+strong{font-weight:600}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:18px 20px;margin:0 0 14px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 2 of 6 · encrypted, one participant</p>
+<h1>Private sync</h1>
+<p class="lede">An account syncs your spaces across your own devices. The server stores ciphertext it cannot read. No sharing, no multiplayer, no web view — the sync is a backup and a commute, not a meeting place.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 220" role="img" aria-label="Two of your devices syncing through a blind server">
+  <g class="node" data-i="0"><rect x="20" y="120" width="140" height="76" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="90" y="152" text-anchor="middle">Your Mac</text><text class="slab" x="90" y="171" text-anchor="middle">plaintext</text></g>
+  <g class="node" data-i="1"><rect x="400" y="120" width="140" height="76" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="470" y="152" text-anchor="middle">Your laptop</text><text class="slab" x="470" y="171" text-anchor="middle">plaintext</text></g>
+  <g class="node" data-i="2"><rect x="205" y="18" width="150" height="76" rx="9" fill="#f7f4f0" stroke="#ddd7cf"/><text class="nlab" x="280" y="50" text-anchor="middle">Sync server</text><text class="slab" x="280" y="69" text-anchor="middle">🔒 ciphertext only</text></g>
+  <path d="M120 118 L235 96" stroke="#ddd7cf" stroke-width="1.5"/><path d="M440 118 L325 96" stroke="#ddd7cf" stroke-width="1.5"/>
+  <text class="slab" x="163" y="100">encrypted</text><text class="slab" x="352" y="100">encrypted</text>
+  <text class="slab" x="280" y="212" text-anchor="middle">the key never leaves your devices</text>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">A privacy claim you can put on the pricing page</span> and mean literally: we cannot read your work.</li>
+<li><span class="pro">A subscription business</span> that doesn't require you to become a social product.</li>
+<li><span class="pro">Version history and real backup</span> — arguably more valuable day to day than sharing.</li>
+<li><span class="pro">Multi-device</span>, which for a desktop-heavy tool is the most-requested feature that isn't collaboration.</li>
+</ul>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">Everything social.</span> No links, no comments from people who don't own the app, no web viewing.</li>
+<li><span class="con">Cloud agents.</span> An agent that isn't on your machine can't decrypt anything.</li>
+<li><span class="con">Server-side anything</span> — no thumbnails, no search, no rendering, no "open in browser."</li>
+</ul>
+
+<div class="card"><strong>The support cost people underestimate:</strong> end-to-end encryption means losing the key means losing the data, permanently, with you unable to help. Every E2EE product either builds a recovery-phrase flow users hate, or eats angry support tickets forever. Budget for it as a product surface, not a footnote.</div>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar"><i style="width:45%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:35%"></i></div></div>
+<div class="meter"><span>Support burden</span><div class="bar"><i style="width:60%"></i></div></div>
+<p class="who">The sync is the easy half. Key management, device enrolment, and recovery are the real project.</p>
+
+<h2>Who does this</h2>
+<p class="who">Obsidian Sync. Apple Notes over iCloud. Standard Notes. 1Password. All of them sell trust as the feature, and all of them took years to add any sharing at all.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> this is the cheapest road to a real business that doesn't compromise the privacy story. It's also a one-way door in the opposite direction from Road 4 — once you've told people you can't read their work, adding a server that renders it is a promise you have to break.</p>
+</div>
+<script>
+const C=["Your canvases are plaintext here, in a folder you own. Encryption happens on the way out.",
+"A second device you own. It holds the same key, so it can decrypt what the server is storing.",
+"The server sees encrypted blobs, their sizes, and when they changed. That metadata is not nothing — but it isn't your work."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

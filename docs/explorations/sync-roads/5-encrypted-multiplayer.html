@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 5 — Encrypted multiplayer</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+.bar.warn i{background:#b45309}
+strong{font-weight:600}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:18px 20px;margin:0 0 14px;font-size:14px}
+.good{background:#f4faf6;border-color:#cfe6d8}
+code{font:12.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:#f4f1ec;padding:1px 5px;border-radius:4px}
+a{color:#1f5f9e}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 5 of 6 · the frontier</p>
+<h1>Encrypted multiplayer</h1>
+<p class="lede">Real co-editing where the server is a relay that holds only ciphertext. Access is a cryptographic capability rather than a row in your database — sharing a link means sharing a key. You host the collaboration and cannot read it.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 230" role="img" aria-label="Peers sharing keys through a blind relay">
+  <g class="node" data-i="0"><rect x="205" y="14" width="150" height="72" rx="9" fill="#f7f4f0" stroke="#ddd7cf"/><text class="nlab" x="280" y="44" text-anchor="middle">Relay + blob store</text><text class="slab" x="280" y="63" text-anchor="middle">🔒 ciphertext only</text></g>
+  <g class="node" data-i="1"><rect x="20" y="150" width="140" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="90" y="178" text-anchor="middle">You</text><text class="slab" x="90" y="196" text-anchor="middle">holds key 🔑</text></g>
+  <g class="node" data-i="2"><rect x="205" y="150" width="150" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="280" y="178" text-anchor="middle">Invited peer</text><text class="slab" x="280" y="196" text-anchor="middle">key from link 🔑</text></g>
+  <g class="node" data-i="3"><rect x="400" y="150" width="140" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="470" y="178" text-anchor="middle">Web viewer</text><text class="slab" x="470" y="196" text-anchor="middle">key in URL #hash</text></g>
+  <path d="M250 90 L100 147" stroke="#ddd7cf" stroke-width="1.5"/><path d="M280 90 L280 147" stroke="#ddd7cf" stroke-width="1.5"/><path d="M312 90 L458 147" stroke="#ddd7cf" stroke-width="1.5"/>
+  <text class="slab" x="150" y="126">encrypted</text><text class="slab" x="288" y="126">encrypted</text><text class="slab" x="378" y="126">encrypted</text>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<h2>The trick that makes it work</h2>
+<div class="card good">A share link looks like <code>…/c/abc123#k=&lt;key&gt;</code>. Everything after the <code>#</code> is <strong>never sent to the server</strong> — browsers don't transmit the fragment. So the viewer's own browser downloads ciphertext, reads the key out of its own address bar, and decrypts locally. You get a zero-install web link <em>and</em> a server that can't read the document. This one browser behaviour is the difference between "E2EE means no web client" and "E2EE with a web client."</div>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">Collaboration without custody.</span> The genuinely differentiated position: multiplayer, sharing, sync, and a promise that you cannot read any of it.</li>
+<li><span class="pro">Sharing that composes with privacy</span> rather than trading against it — which is the tension that started this whole exploration.</li>
+<li><span class="pro">Agents as peers still works.</span> An agent gets a key like anyone else.</li>
+<li><span class="pro">A defensible story</span> against Figma and Miro that isn't "same thing, smaller." Nobody in this category can say it.</li>
+<li><span class="pro">Less duty of care.</span> A breach exposes ciphertext. No employee can look. There is little to hand over.</li>
+</ul>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">Every server-side convenience.</span> No thumbnails, no server-rendered previews, no cloud screenshots, no full-text search, no moderation, no "recover my deleted canvas" beyond blobs.</li>
+<li><span class="con">Simple revocation.</span> You can rotate keys so future updates are unreadable, but everyone who ever held a key still has what they downloaded. Revocation becomes a re-key, not a delete.</li>
+<li><span class="con">Key recovery.</span> Same support burden as Road 2, multiplied by every person you shared with.</li>
+<li><span class="con">Maturity.</span> This is the youngest tooling on the list.</li>
+</ul>
+
+<div class="card"><strong>Where the tooling actually is (2026):</strong>
+<ul style="margin:8px 0 0">
+<li><strong>Obsidian Sync</strong> ships E2EE vaults with collaborators today. Proof this is a product, not a thesis.</li>
+<li><strong>Jazz</strong> has E2EE, permissions and auth built into the sync layer and is usable now.</li>
+<li><strong><a href="https://www.inkandswitch.com/keyhive/notebook/">Keyhive + Beelay</a></strong> (Ink &amp; Switch) is the most complete design — capability-based access control with a sync protocol built so the server can't decrypt — but is an explicit early preview, "not for production."</li>
+</ul>
+<p style="margin:10px 0 0">The catch for this codebase: Beelay is an Automerge protocol. Taking that route means leaving Yjs and the Durable Object substrate the spike already built.</p></div>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar warn"><i style="width:95%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:40%"></i></div></div>
+<div class="meter"><span>Legal / trust</span><div class="bar"><i style="width:20%"></i></div></div>
+<div class="meter"><span>Support burden</span><div class="bar warn"><i style="width:80%"></i></div></div>
+
+<h2>Who does this</h2>
+<p class="who">Obsidian Sync (shared vaults). Proton Docs. CryptPad. Signal, as the general shape — group membership as cryptography rather than a permissions table.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> the road that dissolves the premise that privacy and multiplayer are opposed. It costs the most to build, forecloses every server-side feature, and would likely mean rebuilding the sync substrate on different foundations. It is also the only road where the thing you'd want to say about your product is true.</p>
+</div>
+<script>
+const C=["It forwards encrypted updates and stores encrypted blobs. It knows document sizes, timing, and who talks to whom — real metadata — but never content.",
+"You hold the key. Encryption and decryption happen entirely on your machine; the plaintext canvas exists nowhere else.",
+"They got a key when they opened your link. Access is the key itself, not a permission the server grants — which is why the server can stay blind.",
+"The key rides in the URL fragment, which browsers never send to servers. The page downloads ciphertext and decrypts it in the tab. Zero install, still end-to-end."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

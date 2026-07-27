@@ -1,3 +1,4 @@
+import { resolve as resolvePath } from 'node:path'
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
 import { callApp, setTargetTabRef } from './shared/app-client'
@@ -6,6 +7,7 @@ import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAn
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
 import { parseArgs, type ParsedArgs } from './cli-parser'
 import { emitPresenceForVerb } from './cli-presence'
+import { connectCommand } from './connect-command'
 
 // ---------------------------------------------------------------------------
 // Verb handlers
@@ -212,9 +214,12 @@ const ADD_ITEM_BUILDERS: Record<string, (args: ParsedArgs) => Record<string, unk
     if (!path) return 'usage: specular add file <path> [--at x,y]'
     // The file handler infers the renderer from the extension (md / html /
     // image / video) and sizes images/video from the file.
+    // Resolve here, in the CLI process: this is the only process that knows the
+    // user's cwd, and the stored reference outlives it. A bare relative path
+    // persists into the .canvas and resolves to nothing on the next launch.
     return {
       kind: 'file',
-      file: path,
+      file: resolvePath(path),
       ...atPosition(args),
       ...deviceFrameFlag(args),
     }
@@ -760,6 +765,8 @@ const VERBS: Record<string, VerbHandler> = {
   screenshot,
   scroll,
   wait,
+  // Headless cloud peer (talks to the sync server, not a running app)
+  connect: connectCommand,
   // Read-only browser verbs
   get: browsePassthrough,
   console: browsePassthrough,
@@ -780,10 +787,11 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
+    printText('Cloud: connect <link> --html <path> | --status  (headless sync peer)')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')
     printText('Unknown verbs pass through to the bundled agent-browser as raw commands')
-    printText('(some — launch/close/quit/install/upgrade/connect/open — are blocked in')
+    printText('(some — launch/close/quit/install/upgrade/open — are blocked in')
     printText('favor of specular equivalents). See the specular skill\'s passthrough')
     printText('section for the full command surface, or run `specular skills get core`.')
     return 0

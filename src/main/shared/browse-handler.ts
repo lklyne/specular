@@ -68,7 +68,6 @@ const FIND_CLICK_LIKE_ACTIONS = new Set(['check', 'uncheck', 'dblclick', 'tap'])
 // additionally checks before page resolution for a faster, cleaner error.
 export const BLOCKED_BROWSE_VERBS: Record<string, string> = {
   launch: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
-  connect: 'pages are driven in place: `specular add page <url>` then `specular snapshot -f PAGE_ID`.',
   close: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
   quit: 'Specular owns browser lifecycle; to remove a page use `specular delete <id>`.',
   install: 'the agent-browser driver is bundled with Specular.',

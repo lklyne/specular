@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 9 — View-only links without custody</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:20px 22px;margin:0 0 14px}
+.card h3{margin:0 0 8px;font-size:14px;font-weight:600}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}
+.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+.bar.warn i{background:#b45309}
+strong{font-weight:600}
+code{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3f0ea;padding:1px 5px;border-radius:4px}
+pre{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:16px 18px;overflow-x:auto;margin:0 0 14px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3d3934}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:#fff;border:1px solid #ece8e2;border-radius:10px;overflow:hidden;margin:0 0 14px}
+th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#a09a92;font-weight:600;padding:11px 12px;border-bottom:1px solid #ece8e2;vertical-align:bottom}
+td{padding:10px 12px;border-bottom:1px solid #f4f1ec;vertical-align:top}
+tr:last-child td{border-bottom:0}
+.warnbox{background:#fffaf2;border:1px solid #f0e2cc;border-radius:10px;padding:18px 20px;margin:0 0 14px}
+.warnbox h3{margin:0 0 8px;font-size:14px;font-weight:600;color:#8a5a10}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 9 of 10 · composes with 7 and 8</p>
+<h1>View-only links without custody</h1>
+<p class="lede">If you hold none of the data, where does a share link come from? From a build step. The viewer is one self-contained artifact; publishing is choosing where to put it. Three places, three different tradeoffs, one piece of code.</p>
+
+<h2>The reframe</h2>
+<div class="card">
+<h3>Publishing is a build target, not an architecture</h3>
+<p>Road 3 treated publishing as a service you run. It doesn't have to be. Build a static viewer once — an HTML bundle that reads a frozen <code>.canvas</code> plus its assets and renders it with pan, zoom and read-only inspection, no server, no network:</p>
+<pre>publish/&lt;id&gt;/
+  index.html        ← the viewer, inlined
+  canvas.json       ← frozen snapshot, live pages already flattened
+  assets/&lt;sha256&gt;</pre>
+<p>Now "share" is a copy. To a bucket, to a Pages deploy, to a service — the artifact is identical every time. Every road on the map that wants a link wants this same folder, which makes it the highest-leverage thing to build in the whole exploration.</p>
+</div>
+
+<h2>Three places to put it</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 230" role="img" aria-label="One viewer bundle, three destinations">
+  <g class="node" data-i="0"><rect x="20" y="82" width="130" height="64" rx="9" fill="#faf8f5" stroke="#c8bfae"/><text class="nlab" x="85" y="109" text-anchor="middle">Viewer bundle</text><text class="slab" x="85" y="127" text-anchor="middle">built once</text></g>
+  <g class="node" data-i="1"><rect x="330" y="12" width="210" height="56" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="435" y="36" text-anchor="middle">A · their bucket</text><text class="slab" x="435" y="54" text-anchor="middle">signed or public URL</text></g>
+  <g class="node" data-i="2"><rect x="330" y="86" width="210" height="56" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="435" y="110" text-anchor="middle">B · Pages from the repo</text><text class="slab" x="435" y="128" text-anchor="middle">a link per commit</text></g>
+  <g class="node" data-i="3"><rect x="330" y="160" width="210" height="56" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="435" y="184" text-anchor="middle">C · a service you host</text><text class="slab" x="435" y="202" text-anchor="middle">the only one with comments</text></g>
+  <path d="M152 114 Q 250 114 250 40 H328" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <path d="M152 114 H328" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <path d="M152 114 Q 250 114 250 188 H328" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<table>
+<thead><tr><th>&nbsp;</th><th>You hold</th><th>Un-share</th><th>Comments back</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td><strong>A · Bucket</strong></td><td>nothing</td><td>delete the object</td><td>no</td><td>tiny</td></tr>
+<tr><td><strong>B · Pages</strong></td><td>nothing</td><td>a commit</td><td>as PR comments</td><td>tiny</td></tr>
+<tr><td><strong>C · Service</strong></td><td>published only</td><td>a delete button</td><td>yes</td><td>low</td></tr>
+</tbody>
+</table>
+
+<h2>What each one really buys</h2>
+<ul>
+<li><span class="pro">A — their bucket.</span> Pairs with Road 7. The client writes the bundle under a <code>public/</code> prefix and hands back a signed URL. You operate nothing; expiry is a bucket policy. The catch is that most people's buckets aren't configured to serve public objects, and telling a designer to edit a CORS policy is the setup wall again, one level deeper.</li>
+<li><span class="pro">B — Pages from the repo.</span> Pairs with Road 8, and it's the best of the three. Publishing is a push; un-publishing is a commit; and because a commit is a version, you get something no other road on the map has: <strong>a share link pinned to an exact state</strong>, alongside a link that always shows latest. "Here's what it looked like Tuesday" is a URL.</li>
+<li><span class="pro">C — a small service.</span> The only one where a reviewer can leave a comment that reaches you. You take custody, but of published snapshots only — an explicit, per-artifact, deliberate act, not a product-wide posture.</li>
+</ul>
+
+<h2>The one thing you can't get for free: comments coming back</h2>
+<p>Everything else on this page works with no server. A reply channel does not — someone has to accept the write. The honest options, worst to best:</p>
+<ul>
+<li><span class="con">Reviewer exports a comments file and emails it to you.</span> Technically zero infrastructure. Nobody will do this.</li>
+<li><span class="con">Comments as GitHub issues or PR comments.</span> Free and excellent for a developer reviewer. Useless for the PM, the client, and the founder — which is most of who "can you share this?" is aimed at.</li>
+<li><span class="pro">Host comments, not canvases.</span> A tiny append-only service keyed by publish id. You take custody of comment threads and nothing else — a blast radius so much smaller than a workspace that it barely registers on the same scale, and it buys the entire review loop that made Road 3 worth wanting.</li>
+</ul>
+<p>That split is the recommendation: <strong>the work stays theirs, the conversation about the work is yours to host.</strong> It's also the only piece of infrastructure in this whole row that you'd actually run, which keeps the ops surface to one small thing.</p>
+
+<div class="warnbox">
+<h3>The viewer is where the sharp edges get contained</h3>
+<p>Road 4 flagged two hazards as multiplayer problems. They aren't — they belong to any road that moves a canvas to another machine, this one included.</p>
+<p><strong>Live pages must be frozen at publish.</strong> A page entity pointed at <code>localhost:3000</code> renders against <em>the reviewer's</em> localhost — same URL, different site, no warning. Publishing has to flatten live pages to snapshots, not carry their URLs.</p>
+<p><strong>HTML entities must be sanitised or sandboxed.</strong> An HTML entity in a published canvas is arbitrary code running in whoever opens the link. Third-party iframe origin, CSP, no same-origin access.</p>
+<p>Both are one-time fixes in one artifact — which is a further argument for building exactly one viewer rather than a viewer per destination.</p>
+</div>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Viewer (once)</span><div class="bar"><i style="width:40%"></i></div></div>
+<div class="meter"><span>Per destination</span><div class="bar"><i style="width:8%"></i></div></div>
+<div class="meter"><span>Comment service</span><div class="bar"><i style="width:18%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:10%"></i></div></div>
+<p class="who">The viewer is most of it, and it's reusable under every road including Road 5's key-in-fragment web client — that road's viewer is this bundle plus a decrypt step. Build it early; it de-risks four different futures at once.</p>
+
+<h2>Who does this</h2>
+<p class="who">Excalidraw's export-to-link. Observable's static notebook exports. tldraw's static viewer. Every static-site generator's preview deploy. Figma's prototype links are the hosted version of the same idea, with custody attached.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> the share link was never the reason to take custody — rendering server-side was, and a static bundle removes the need. What actually requires a server is the reply channel, and that's a much smaller thing to hold than someone's workspace. Publish theirs, host the conversation.</p>
+</div>
+<script>
+const C=["A self-contained folder: viewer HTML, a frozen canvas JSON, hashed assets. No server, no network, no live pages. Build it once and every share mechanism is a copy operation.",
+"Written into a public prefix of the user's own bucket. You operate nothing and hold nothing. Expiry and access are their bucket policy, which is both the appeal and the support burden.",
+"CI builds the bundle from a commit and deploys it. A push publishes, a commit un-publishes, and every link can be pinned to an exact version — the one capability no live-CRDT road can offer.",
+"A small service you run. It takes the bundle, serves it, and — the actual reason it exists — accepts comments and routes them back to the desktop app. Custody of published snapshots and threads, nothing more."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

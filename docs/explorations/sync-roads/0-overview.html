@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Six roads for sync &amp; multiplayer</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:700px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 40px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:44px 0 14px;font-weight:600}
+p{margin:0 0 14px}
+ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:20px 22px;margin:0 0 14px}
+strong{font-weight:600}
+.muted{color:#8a847c}
+.chart{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:20px;margin:0 0 16px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.dot{cursor:pointer;transition:r .15s}
+.dot:hover{r:11}
+.axlab{font-size:10px;fill:#a09a92;letter-spacing:.08em;text-transform:uppercase}
+.ptlab{font-size:11px;fill:#54504b;font-weight:500;pointer-events:none}
+#detail{min-height:78px;border-left:3px solid #1f5f9e;padding:2px 0 2px 16px;margin-top:6px}
+#detail h3{margin:0 0 5px;font-size:15px;font-weight:600}
+#detail p{margin:0;font-size:14px;color:#54504b}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:#fff;border:1px solid #ece8e2;border-radius:10px;overflow:hidden}
+th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#a09a92;font-weight:600;padding:11px 10px;border-bottom:1px solid #ece8e2;vertical-align:bottom}
+td{padding:10px;border-bottom:1px solid #f4f1ec}
+tr:last-child td{border-bottom:0}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#faf8f5}
+tbody tr.on{background:#f2f6fb}
+.y{color:#2f7d51;font-weight:600}
+.n{color:#b0aaa2}
+.p{color:#b45309;font-weight:600}
+.scroller{overflow-x:auto;margin:0 0 14px}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:#f0ece6;color:#6b655d;margin-right:6px}
+.note{font-size:13.5px;color:#8a847c;margin-top:18px}
+a{color:#1f5f9e}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Specular · exploration</p>
+<h1>Six roads for sync &amp; multiplayer</h1>
+<p class="lede">Multiplayer and privacy pull against each other, but not as hard as it first looks. Six coherent destinations, what each buys, and what each costs. Most of them compose — only two are genuinely exclusive.</p>
+
+<h2>The map</h2>
+<div class="chart">
+  <svg viewBox="0 0 620 400" role="img" aria-label="Roads plotted by collaboration power and data custody">
+    <line x1="70" y1="350" x2="600" y2="350" stroke="#e4dfd8"/>
+    <line x1="70" y1="20" x2="70" y2="350" stroke="#e4dfd8"/>
+    <line x1="70" y1="185" x2="600" y2="185" stroke="#f2efea" stroke-dasharray="3 4"/>
+    <text class="axlab" x="70" y="378">Solo</text>
+    <text class="axlab" x="530" y="378">Live multiplayer</text>
+    <text class="axlab" x="0" y="30">Server blind</text>
+    <text class="axlab" x="0" y="348">Server reads all</text>
+    <text class="axlab" x="300" y="396" text-anchor="middle">Collaboration power →</text>
+
+    <g id="pts">
+      <circle class="dot" data-i="0" cx="105" cy="45"  r="8" fill="#1f5f9e"/>
+      <text class="ptlab" x="120" y="49">1 · Solo vault</text>
+      <circle class="dot" data-i="1" cx="185" cy="62"  r="8" fill="#1f5f9e"/>
+      <text class="ptlab" x="200" y="66">2 · Private sync</text>
+      <circle class="dot" data-i="2" cx="300" cy="250" r="8" fill="#b45309"/>
+      <text class="ptlab" x="315" y="254">3 · Publish &amp; comment</text>
+      <circle class="dot" data-i="3" cx="545" cy="325" r="8" fill="#b45309"/>
+      <text class="ptlab" x="440" y="348" text-anchor="middle">4 · Live multiplayer</text>
+      <circle class="dot" data-i="4" cx="520" cy="70"  r="8" fill="#2f7d51"/>
+      <text class="ptlab" x="415" y="52" text-anchor="middle">5 · Encrypted multiplayer</text>
+      <circle class="dot" data-i="5" cx="250" cy="120" r="8" fill="#1f5f9e"/>
+      <text class="ptlab" x="265" y="124">6 · Agent-first</text>
+    </g>
+  </svg>
+  <div id="detail"><h3 class="muted" style="font-weight:500">Click a point</h3><p>Each road is a coherent product, not a phase. The vertical axis is the one that's hard to change later.</p></div>
+</div>
+
+<h2>What each road can and can't do</h2>
+<div class="scroller">
+<table>
+<thead><tr><th>Road</th><th>Server<br>can read</th><th>Live<br>co-edit</th><th>Browser<br>viewing</th><th>Cloud<br>agents</th><th>Build<br>cost</th></tr></thead>
+<tbody>
+<tr data-i="0"><td><strong>1</strong> Solo vault</td><td class="n">no server</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">none</td></tr>
+<tr data-i="1"><td><strong>2</strong> Private sync</td><td class="y">no</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="p">medium</td></tr>
+<tr data-i="2"><td><strong>3</strong> Publish &amp; comment</td><td class="p">published only</td><td class="n">—</td><td class="y">yes</td><td class="n">—</td><td class="y">low</td></tr>
+<tr data-i="3"><td><strong>4</strong> Live multiplayer</td><td class="n">everything</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="p">high</td></tr>
+<tr data-i="4"><td><strong>5</strong> Encrypted multiplayer</td><td class="y">no</td><td class="y">yes</td><td class="p">key-holders</td><td class="p">key-holders</td><td class="p">highest</td></tr>
+<tr data-i="5"><td><strong>6</strong> Agent-first</td><td class="y">optional</td><td class="n">—</td><td class="n">—</td><td class="p">optional</td><td class="y">low</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The one real fork</h2>
+<div class="card">
+<p><strong>Custody.</strong> Roads 1, 2, 5 and (local) 6 mean you never hold readable copies of anyone's work. Roads 3 and 4 mean you do.</p>
+<p>Everything else is sequencing — you can add publishing later, add agents later, add sharing later. Custody is the decision that's expensive to reverse, because every feature you build on top of a readable server (web rendering, thumbnails, server-side screenshots, search, moderation) stops working the day you encrypt.</p>
+<p class="muted" style="margin:0">The corollary nobody likes: <strong>a server that can render your canvas is a server that can read it.</strong> Browser-based viewing and E2EE are not simultaneously free — Road 5 buys them back only by putting a key in the viewer's URL fragment.</p>
+</div>
+
+<h2>What composes</h2>
+<div class="card">
+<p><span class="tag">1 → 2</span> <span class="tag">1 → 3</span> <span class="tag">2 → 5</span> <span class="tag">6 → anything</span></p>
+<p>Road 1 is where you are. Road 6 sits underneath all of them — a local agent needs no server at all. Roads 2 and 5 are the same product at different maturity, since private device sync is just multiplayer with one participant.</p>
+<p style="margin:0"><strong>Road 4 is the one that closes doors.</strong> Once real users' work is on a readable server, moving to 5 is a migration, a re-architecture, and a promise you have to walk back.</p>
+</div>
+
+<p class="note">Prior art worth reading: <a href="https://www.inkandswitch.com/keyhive/notebook/">Ink &amp; Switch's Keyhive</a> (capability-based access control for local-first data, with a sync protocol the server can't decrypt — early preview, not production), <a href="https://www.inkandswitch.com/local-first-software/">the original local-first essay</a>, and Obsidian Sync, which ships end-to-end encrypted <em>shared</em> vaults today and is the clearest existence proof that Road 5 is a business, not a research project.</p>
+</div>
+
+<script>
+const D = [
+ ["Road 1 · Solo vault","No server exists. A space is a folder; sharing means handing over files. Perfect privacy, zero infrastructure, no way to collaborate or view on the web."],
+ ["Road 2 · Private sync","An account syncs your spaces across your own devices, encrypted so the server stores ciphertext only. A billable subscription with no sharing story — the Obsidian Sync shape."],
+ ["Road 3 · Publish & comment","Editing stays solo and local. Sharing publishes a snapshot to a URL that others view and comment on. Asymmetric by design, and the only road where 'un-share' genuinely works."],
+ ["Road 4 · Live multiplayer","One CRDT document per canvas in the cloud; humans, browsers and agents are all peers. Everything works, and you become the custodian of everyone's work."],
+ ["Road 5 · Encrypted multiplayer","Real co-editing where the server is a relay that holds only ciphertext. Access is cryptographic capability, not a database row. The strongest position and the youngest tooling."],
+ ["Road 6 · Agent-first","The multiplayer that matters is you plus your agents. Local agents need no server whatsoever — the missing primitives are attribution and change review, not sync."]
+];
+function show(i){
+  const d = document.getElementById('detail');
+  d.innerHTML = '<h3>'+D[i][0]+'</h3><p>'+D[i][1]+'</p>';
+  document.querySelectorAll('#pts .dot').forEach(c=>c.setAttribute('r', c.dataset.i==i?11:8));
+  document.querySelectorAll('tbody tr').forEach(r=>r.classList.toggle('on', r.dataset.i==i));
+}
+document.querySelectorAll('.dot, tbody tr').forEach(el=>el.addEventListener('click',()=>show(el.dataset.i)));
+</script>
+</body>
+</html>

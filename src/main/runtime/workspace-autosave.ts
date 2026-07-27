@@ -23,6 +23,7 @@ import {
   writeWorkspaceMetaSync,
 } from './workspace-persistence'
 import { buildPersistedWorkspaceRecord } from './workspace-tabs'
+import { getSyncBinding, loadSyncBinding } from './workspace-sync'
 
 function shouldPersistWorkspace(): boolean {
   return (
@@ -39,7 +40,10 @@ export function loadWorkspace(): PersistedWorkspaceRecord | null {
   try {
     // Primary: load from .canvas files
     const record = loadWorkspaceFromCanvasFiles(userDataPath, DEFAULT_WORKSPACE_ID)
-    if (record) return record
+    if (record) {
+      loadSyncBinding(userDataPath, DEFAULT_WORKSPACE_ID)
+      return record
+    }
   } catch (error) {
     console.error('Failed to load workspace from .canvas files:', error)
   }
@@ -65,7 +69,7 @@ export function saveWorkspaceStore(): void {
   try {
     const record = buildPersistedWorkspaceRecord()
     const userDataPath = app.getPath('userData')
-    writeAllTabsAsCanvasFiles(userDataPath, record.id, record.tabs)
+    writeAllTabsAsCanvasFiles(userDataPath, record.id, record.tabs, getSyncBinding())
     projectAllNoteContentToDisk()
     writeWorkspaceMetaSync(userDataPath, record.id, {
       activeTabId: record.activeTabId,

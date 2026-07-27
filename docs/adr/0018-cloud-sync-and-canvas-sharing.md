@@ -1,9 +1,9 @@
 # ADR 0018 — Cloud sync, canvas sharing, and agents as peers
 
-**Status:** Proposed
+**Status:** Proposed — spike landed behind a dev flag (see [`docs/plans/cloud-sync-spike.md`](../plans/cloud-sync-spike.md))
 **Date:** 2026-06-08
-**Updated:** 2026-07-21 — content-addressed assets, sandbox serving origin, snapshot-tile web client, and the HTML prototyping loop as the first slice.
-**Builds on:** the existing Yjs state layer (`src/main/runtime/workspace-doc.ts`, `workspace-observers.ts`) and the asset model (`src/main/runtime/image-assets.ts`). No code has landed for this ADR; it records the intended architecture before any of it is built.
+**Updated:** 2026-07-21 — content-addressed assets, sandbox serving origin, snapshot-tile web client, and the HTML prototyping loop as the first slice. Second amendment same day: §4 rewritten around the tiered auth model (accounts for sync, capability links for guests, better-auth as the identity layer), the sharing workflow, and the server-readable-by-design decision.
+**Builds on:** the existing Yjs state layer (`src/main/runtime/workspace-doc.ts`, `workspace-observers.ts`) and the asset model (`src/main/runtime/image-assets.ts`). Recorded before implementation; the first slice (the spike in the adoption trigger) has since landed behind a dev flag.
 **Related:** [ADR 0003 — `Page` as the canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md) (live pages are the entity kind with no cloud-renderable pixels), [`docs/architecture.md`](../architecture.md) (two-layer state model), [`docs/file-formats.md`](../file-formats.md) (`.canvas` and the `assets/` folder).
 
 ## Context
@@ -24,11 +24,11 @@ Two things are *not* free and shape every decision below:
 
 ## Decision
 
-Adopt a **Yjs-over-Cloudflare** sync substrate, a **split data plane** (CRDT doc vs blob storage), an **asset-id indirection** that keeps `.canvas` portable, and a **capability-link** sharing model in which agents are ordinary authenticated peers.
+Adopt a **Yjs-over-Cloudflare** sync substrate, a **split data plane** (CRDT doc vs blob storage), an **asset-id indirection** that keeps `.canvas` portable, and a **tiered auth model** — accounts (better-auth) own sync, capability links grant guest access, and agents are ordinary authenticated peers.
 
 ### 1. Sync substrate — attach a provider to the existing `Y.Doc`
 
-Each **canvas maps to one Durable Object**, keyed by a stable **doc id**. The DO runs a Yjs sync server (`y-partykit` on Cloudflare, with WebSocket Hibernation). Clients — desktop app, web client, agents — connect to the DO and share one `Y.Doc`; CRDT merge handles concurrent edits with no conflict resolution code.
+Each **canvas maps to one Durable Object**, keyed by a stable **doc id**. The DO runs a Yjs sync server: **`y-partyserver`** (Cloudflare-maintained in the `cloudflare/partykit` monorepo; its `YServer` extends `DurableObject` directly, with WebSocket Hibernation supported as of 2.1.0). Clients — desktop app, web client, agents — connect to the DO and share one `Y.Doc`; CRDT merge handles concurrent edits with no conflict resolution code. One obligation is ours, not the library's: `YServer` holds the doc only while clients are connected, so **doc persistence to DO storage is wired through its `onLoad`/`onSave` hooks and is first-slice work** — without it, "a canvas lives in the cloud whether or not any app is connected" is false.
 
 Integration points already exist:
 - The provider attaches to the doc from `getActiveDoc()` (`workspace-doc.ts`) — one site.
@@ -65,17 +65,41 @@ The resolver is the single place the two location schemes meet — the same shap
 
 An asset id maps to a single object. HTML with relative references (`index.html` + `style.css`) is deferred: v1 requires self-contained single files (the shape agents are already trained into by artifact-style tooling); folder-as-asset — a bundle served under a key prefix so relative URLs resolve — is the planned extension when single-file hurts.
 
-### 4. Sharing — capability links, agents as peers
+### 4. Auth and sharing — accounts own sync, capability links grant guests, agents are peers
 
-A **share link** is a URL carrying the **doc id** plus a **capability token**: `…/c/{docId}#t={token}`. Opening it connects another peer to the same DO. The token, not the link path, is the security boundary:
+The destination is **Obsidian-Sync-shaped**: a hosted sync layer someone signs up and pays for, where spaces stay local-first and an account syncs them privately across devices. Sharing is a feature *of* that service, not the service itself. Auth therefore has three tiers, and the first cut is built account-shaped even before a login screen exists.
 
-- **Scoped roles** baked into the token: `view` | `comment` | `edit`.
-- **Expiry and revocability**: a Worker issues and validates tokens; the grant lives in D1/KV; revoke = delete the grant.
-- **Agent tokens are first-class and distinct**: narrower scope, short TTL, audit-logged, separately revocable from human share links. Granting an agent edit access is its own act, not reuse of a human session.
+**Identity layer: [better-auth](https://better-auth.com).** The Worker runs better-auth against D1. Two of its plugins map directly onto this design: the **`anonymous` plugin** implements the owner principal below (including the account-linking hook for when real sign-in arrives), and the **`apiKey` plugin** implements account-scoped agent credentials. Chosen over hand-rolling token issuance because the account tier — sessions, sign-in methods, linking, device management — is exactly the commodity work an auth framework exists to absorb, and better-auth runs on Workers/D1 without a third-party identity SaaS (consistent with the no-external-data-plane stance).
 
-**An agent is just another authenticated peer.** Paste the link to a cloud agent; it opens a headless `Y.Doc` in Node, connects to the DO with the token, and mutates the maps. Edits appear live to every human on the link. The agent never renders — it only edits data — which is precisely why the CRDT route makes "paste link → agent edits" trivial.
+**Tier 1 — owner accounts and device sync (the billable unit).** An account syncs chosen spaces across its devices: private by default, nobody else involved, background CRDT sync via the same DOs that serve multiplayer (Yjs gives device sync and live co-editing as one code path). Billing, quota, and "my canvases" all hang off the account.
 
-**Presence** uses Yjs awareness, wired into the cursor layer that already exists (`presence-manager.ts`, the `agent-layer` overlay / `AgentCursorLayer`). This is an extension of existing surfaces, not a new subsystem.
+- **The owner principal exists from day one, anonymous at first.** On first cloud contact the desktop app mints a device credential and better-auth creates an anonymous account; every doc id and every grant is owned by that principal. No login UI ships in v1 — the principal is plumbing, deliberately not user-visible (no cloud dashboard, no device management) until real sign-in anchors it. When sign-in lands, it *links an identity to the existing principal* rather than migrating data. This is the stepping-stone constraint: v1 is account-shaped without accounts.
+- v1 scope: sync-to-cloud is triggered per-canvas by the first share (below). The space-level "sync this space" toggle is the same attach-to-principal operation surfaced in settings later; the operation doesn't change, only the entry point generalizes.
+
+**Tier 2 — capability links for guests.** A **share link** is a URL carrying the **doc id** plus a **capability token**: `…/c/{docId}#t={token}`. Opening it connects another peer to the same DO with no account required. The token, not the link path, is the security boundary:
+
+- **Scoped roles**: `view` | `comment` | `edit`. An edit link is a write capability — treat like a password.
+- **Grants are opaque rows, never self-contained signed tokens.** The token is the lookup key for a D1 grant row (`{grantId, docId, scope, expiresAt, createdBy}`); the Worker validates by lookup. This is a hard constraint, not an implementation suggestion: stateless signed tokens can't be enumerated, revoked individually, or attributed to an owner — all three of which the account tier requires. Revoke = delete the row.
+- **One durable link per scope per canvas.** "Copy link" is idempotent — clicking twice returns the same URL. A separate **reset** rotates the token and invalidates the old link (and any agent tokens derived from it). Chosen over mint-per-click because per-click tokens proliferate write capabilities nobody can enumerate, and one-link-per-scope is what makes a revoke list comprehensible.
+
+**Tier 3 — agents as peers, two doors to the same tokens.** An agent opens a headless `Y.Doc` in Node, connects to the DO, and mutates the maps; edits appear live to every peer. The agent never renders — it only edits data — which is why the CRDT route makes agent access trivial. Agent connection tokens are first-class: narrow scope, short TTL, audit-logged, separately revocable. They are issued through two doors:
+
+- **Owner's agents (primary): account-scoped credentials** via the better-auth `apiKey` plugin — durable, per-agent, revocable from the account, no link involved.
+- **Guest agents (secondary): link redemption.** Paste an ordinary share link to any agent; it exchanges the link at a Worker endpoint for a derived agent token scoped ≤ the link, revoked transitively when the link is reset or revoked. The user-facing gesture stays "paste a link"; the token layer keeps its properties. A local agent beside a running desktop app keeps using the HTTP API and needs no link at all — links are for the cloud/remote case.
+
+**Server-readable by design — explicitly not E2EE.** Obsidian Sync's end-to-end encryption is the one property of the model we deliberately do not copy: the view+comment web client, snapshot tiles, the sandbox origin serving HTML, and cloud agents editing as peers all require the service to read plaintext. Sharing, web viewing, and agents *are* the product, so the privacy posture is encryption at rest plus owner-operated infrastructure. If E2EE ever matters it would be a per-space mode that disables sharing/web/agents — a footnote, not a v1 concern. Recorded here so the first synced byte is a decision, not an accident.
+
+**Presence** uses Yjs awareness, wired into the cursor layer that already exists (`presence-manager.ts`, the `agent-layer` overlay / `AgentCursorLayer`). This is an extension of existing surfaces, not a new subsystem. Account members present with their account identity; anonymous guest-link peers self-report a display name (client-side, unauthenticated — a choice, not an accident).
+
+### 4b. Sharing workflow — copy link is the entry point
+
+The user-facing surface for tier 2, kept deliberately small:
+
+- **The first "Copy link" is the publish moment.** A canvas has zero server footprint until the user shares it. One click attaches the canvas to the owner principal's cloud set, pushes the doc to its DO, uploads referenced assets, mints the grant, and puts the URL on the clipboard — behind a brief "Syncing…" state. Sharing *is* the cloud opt-in; there is no separate sync setting in v1.
+- **A share popover** (toolbar-anchored) holds the whole surface: Copy link with a scope dropdown (default **comment**, not edit — edit is a deliberate act), the canvas's active links with scope and reset/revoke actions, and nothing else. A visible shared-state indicator (cloud glyph, presence avatars) answers "is this canvas exposed?" at a glance.
+- **The link always resolves in a plain browser** to the view+comment web client (§6) — the zero-install path. The web client offers "Open in Specular" via a `specular://` protocol handler for desktop users. The link must never require the app.
+- Sharing lives at the **canvas** level (one doc id ⇔ one DO ⇔ one link set). Space-level sharing is not a thing; space-level *sync* is the tier-1 follow-on.
+- **Un-share** = revoke all links. The cloud copy remains (it is the owner's synced copy, not the guests'); removing the canvas from the cloud entirely is a separate owner action.
 
 ### 5. The HTML prototyping loop — the cloud-native iteration workflow
 
@@ -131,17 +155,18 @@ Order-of-magnitude on the Cloudflare stack; the Workers Paid floor dominates unt
 
 **E. Swap Yjs for another local-first engine (Jazz, Triplit, ElectricSQL, PowerSync, Automerge-repo).** Excellent tools, but adopting one means replacing the CRDT/state layer we already have working, with no win over attaching a provider to the existing `Y.Doc`. Rejected absent a concrete wall hit with Yjs.
 
-**F. Raw Cloudflare Durable Objects without `y-partykit`.** The platform is converging on plain DOs; `y-partykit` is the ergonomic on-ramp. Decision: start with `y-partykit` for DX, knowing we can drop to raw DOs later **without leaving the ecosystem or changing the data model**. No third-party lock-in.
+**F. Raw Cloudflare Durable Objects without a Yjs framework.** Originally weighed as `y-partykit` vs. raw DOs; resolved by the ecosystem itself — PartyKit was acquired by Cloudflare (2024) and its successor `y-partyserver` *is* a thin layer over a plain `DurableObject`, deployed with wrangler like any Worker. Decision: `y-partyserver` for the sync framing/awareness plumbing, knowing dropping to `y-protocols` on a bare DO remains a small step, **without leaving the ecosystem or changing the data model**. No third-party lock-in.
 
 ## Consequences
 
 **Enables:**
 - Cloud storage + edit access for agents with no desktop app required (data plane is the DO).
 - Share-link multiplayer and paste-link-to-agent editing as outputs of the same substrate, not separate features.
-- A billable, owner-operated service on infrastructure with no per-third-party data dependency.
+- A billable, owner-operated service on infrastructure with no per-third-party data dependency — with the account tier (Obsidian-Sync-style device sync) reachable from the first cut without a data migration, because every v1 grant and doc already hangs off an (anonymous) owner principal.
 
 **New to build:**
-- The **token/auth layer** (issue, scope, expire, revoke; D1/KV grants) — the real work, not the sync.
+- The **auth layer** (better-auth on Workers/D1: anonymous owner principals, grant rows, agent credentials, the link-redemption exchange endpoint) — the real work, not the sync.
+- The **share popover** (copy link + scope, active-link list with reset/revoke) and the shared-state indicator (§4b).
 - A **web client, staged**: a **view + comment client** first (static scene renderer; pages as snapshot tiles per §6; comments are doc entities dropped as pins) — a fraction of a full editor, and it already covers "a person opens the link, looks, and leaves comments". Full web editing is a later stage, wanted only when browser-based *editing* is in scope.
 - The **asset resolver** (id → local path | R2 key), the upload Worker, and the **sandbox serving origin** for HTML assets (§2).
 - **Snapshot capture-and-upload** in the desktop app (riding the existing capture pipeline), plus the snapshot reference + captured-at on the page projection, excluded from undo scope (§6).
@@ -149,17 +174,25 @@ Order-of-magnitude on the Cloudflare stack; the Workers Paid floor dominates unt
 
 **Costs / accepted trade-offs:**
 - **Live page fidelity splits by environment.** Full in the desktop app; degraded (iframe/snapshot) in a browser; requires Browser Rendering or cached snapshots for cloud screenshots. We accept "edit in app / view in browser" as a legitimate shipping shape rather than forcing full page fidelity everywhere.
-- **A share link with an edit token is a write capability** — treated like a password, mitigated by scoping/expiry/revocation. Agent tokens are deliberately narrower and separately revocable.
+- **A share link with an edit token is a write capability** — treated like a password, mitigated by scoping/expiry/revocation (and by defaulting Copy link to `comment` scope). Agent tokens are deliberately narrower and separately revocable.
+- **Synced content is server-readable.** E2EE is forgone by design (§4); the mitigation is encryption at rest and owning the infrastructure, not client-side crypto.
 - **Cloudflare's $5 Workers Paid floor** exists even at single-user scale (Durable Objects require it).
 
 **Non-goals:**
-- Choosing the token format, the wire framing, or the exact field encoding of asset references under the `specular` namespace — implementation details, not decisions of record. (The reference *model* — content-addressed, immutable versions — is decided in §3.)
+- Choosing the token format, the wire framing, or the exact field encoding of asset references under the `specular` namespace — implementation details, not decisions of record. (The reference *model* — content-addressed, immutable versions — is decided in §3; the grant *model* — opaque revocable rows owned by a principal — is decided in §4.)
+- Shipping login UI, a cloud dashboard, or device management in the first cut. The owner principal stays invisible plumbing until real sign-in anchors it (§4, tier 1).
 - Replacing local-first. Disk `.canvas` files remain a first-class, fully-functional mode; cloud sync is additive. A canvas must remain openable and editable offline with no server.
 - Building cloud-side live-page rendering now. It is additive (case-by-case per §6), not a prerequisite for sync or sharing — snapshot tiles are the shipping shape for pages on the web.
 - A managed multi-tenant billing/quota system — that's product work downstream of this substrate decision.
 
 ## Adoption trigger
 
-This is the target architecture, not a mandate to build it now. The natural first slice is a **spike proving the HTML prototyping loop end-to-end (§5)**: attach a `y-partykit` Durable Object to `getActiveDoc()`, add the upload Worker plus the asset resolver, and show a headless Node agent joining a share link, writing an HTML file entity, and every connected peer's iframe reloading. That one loop exercises every substrate piece — doc sync, content-addressed assets, agent-as-peer — with zero render-path work. Promote from spike to product when the **auth/token layer and the view + comment web client** are scheduled — those, not the sync, gate a chargeable service. Until then, the local-first disk path remains the only shipping mode.
+This is the target architecture, not a mandate to build it now. The natural first slice is a **spike proving the HTML prototyping loop end-to-end (§5)**: attach a `y-partyserver` Durable Object to `getActiveDoc()`, add the upload Worker plus the asset resolver, and show a headless Node agent joining a share link, writing an HTML file entity, and every connected peer's iframe reloading. The slice is buildable and verifiable entirely against local Workers emulation (miniflare / `wrangler dev`) — no Cloudflare account gates it; deploy is a follow-on step. The implementation plan lives at [`docs/plans/cloud-sync-spike.md`](../plans/cloud-sync-spike.md), including the recorded implementation choices (the `server/` workspace package, the `specular.server` block in `.canvas`, first-attach seeding rules). That one loop exercises every substrate piece — doc sync, content-addressed assets, agent-as-peer — with zero render-path work.
 
-The **Cloud sync & sharing** glossary entry in `CONTEXT.md` records the vocabulary (doc id, Durable Object per canvas, capability link, asset id, snapshot tile, sandbox origin, agent-as-peer). When adopted, document the resolver and token model under `src/main/` once they exist, and note the `.canvas` asset-reference encoding in `docs/file-formats.md`.
+**The first cut is deliberately account-shaped without accounts.** Even in the spike, tokens are D1 grant rows owned by an anonymous better-auth principal — never stateless signed tokens — so the account tier (sign-in, space-level sync, billing) later attaches to existing rows instead of forcing a re-issue or migration. The two forward-compatibility constraints from §4 (opaque grants, owner principal from day one) are the only parts of the spike where cutting the corner would cost the destination.
+
+Promote from spike to product when the **auth layer and the view + comment web client** are scheduled — those, not the sync, gate a chargeable service. Until then, the local-first disk path remains the only shipping mode.
+
+**Spike outcome.** The slice landed: `server/` (better-auth anonymous + apiKey on D1, the `CanvasDoc` Durable Object with chunked `onLoad`/`onSave` persistence and scope-enforced WebSocket auth, content-addressed R2 asset upload/serving), the desktop transport (`YProvider` attached to `getActiveDoc()`, origin-tagged remote transactions, the `specular.server` binding in `.canvas` with fork-on-duplicate), the share popover (dev-flagged behind `debug.cloudShare`), and the `specular connect` headless-agent CLI verb — all verified under miniflare with no Cloudflare account. The recorded deviation: the spike syncs one Durable Object per **workspace**, not per canvas as this ADR specifies, because the runtime's single `Y.Doc`-per-process shape makes workspace the natural first unit; splitting the doc per tab to reach one-DO-per-canvas is unstarted follow-up work. What still gates a chargeable product: a deployed (non-local) server, the view + comment web client, and real sign-in (the owner principal today is anonymous-only plumbing).
+
+The **Cloud sync & sharing** glossary entry in `CONTEXT.md` records the vocabulary (doc id, Durable Object per canvas, owner principal, capability link, asset id, snapshot tile, sandbox origin, agent-as-peer). When adopted, document the resolver and grant model under `src/main/` once they exist, and note the `.canvas` asset-reference encoding in `docs/file-formats.md`.

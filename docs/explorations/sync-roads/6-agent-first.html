@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 6 — Agent-first</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+strong{font-weight:600}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:18px 20px;margin:0 0 14px;font-size:14px}
+.good{background:#f4faf6;border-color:#cfe6d8}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 6 of 6 · reframe</p>
+<h1>Agent-first</h1>
+<p class="lede">Humans mostly work alone. The multiplayer that matters is you and the agents you delegate to. The canvas is a shared workspace between a person and a set of processes — and a local agent needs no server at all.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 220" role="img" aria-label="One person, several agents, an optional cloud">
+  <g class="node" data-i="0"><rect x="200" y="130" width="160" height="72" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="280" y="160" text-anchor="middle">You + your canvas</text><text class="slab" x="280" y="179" text-anchor="middle">one machine</text></g>
+  <g class="node" data-i="1"><rect x="30" y="30" width="130" height="64" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="95" y="58" text-anchor="middle">Local agent</text><text class="slab" x="95" y="76" text-anchor="middle">no network</text></g>
+  <g class="node" data-i="2"><rect x="215" y="30" width="130" height="64" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="280" y="58" text-anchor="middle">Local agent</text><text class="slab" x="280" y="76" text-anchor="middle">no network</text></g>
+  <g class="node" data-i="3"><rect x="400" y="30" width="130" height="64" rx="9" fill="#faf8f5" stroke="#e4dfd8" stroke-dasharray="4 4"/><text class="nlab" x="465" y="58" text-anchor="middle">Cloud agent</text><text class="slab" x="465" y="76" text-anchor="middle">optional</text></g>
+  <path d="M120 97 L245 128" stroke="#ddd7cf" stroke-width="1.5"/><path d="M280 97 L280 128" stroke="#ddd7cf" stroke-width="1.5"/><path d="M440 97 L320 128" stroke="#e4dfd8" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <text class="slab" x="280" y="216" text-anchor="middle">the dashed line is the only part that needs a server</text>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<div class="card good"><strong>The observation this road is built on:</strong> agents already drive the canvas today, through a local CLI, with no cloud involved. Everything valuable about "multiplayer" — something else changing your canvas while you watch — already works. What's missing isn't sync. It's <em>knowing what happened</em>.</div>
+
+<h2>What's actually missing</h2>
+<ul>
+<li><strong>Attribution.</strong> Entities have no author field. Comments know <em>user</em> vs <em>agent</em> but not which one. After an hour of agent work, the canvas can't tell you who made what.</li>
+<li><strong>Change review.</strong> There's no "here's what the agent did while you were away — keep this, drop that." Undo is a linear stack, not a diff you can accept in pieces.</li>
+<li><strong>An activity timeline.</strong> Spatial tools lose history; a canvas that several actors touch needs a readable record of the touching.</li>
+<li><strong>Batch revert.</strong> The unit an agent works in is a task, not a keystroke. Undo should have a granularity that matches.</li>
+</ul>
+<p>Presence is the exception — live agent cursors already exist and already work.</p>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">The differentiated workflow</span>, not a smaller Figma. Design tools with human multiplayer are a crowded field; design tools built around delegating to agents are not.</li>
+<li><span class="pro">Privacy for free.</span> Local agents mean no server, no custody, no consent surface — Road 1's posture with none of its limitations.</li>
+<li><span class="pro">Cheap.</span> Attribution and review are product work, not distributed-systems work.</li>
+<li><span class="pro">It composes with every other road</span> and forecloses none of them.</li>
+</ul>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">Human collaboration is deferred</span>, possibly indefinitely.</li>
+<li><span class="con">No share link</span> unless you also take Road 3 or 5.</li>
+<li><span class="con">A bet on a premise:</span> that the audience is one designer with agents, not a team.</li>
+</ul>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar"><i style="width:30%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:5%"></i></div></div>
+<div class="meter"><span>Legal / trust</span><div class="bar"><i style="width:5%"></i></div></div>
+
+<h2>Who does this</h2>
+<p class="who">Claude Code and Cursor — enormously valuable, effectively single-player, with the collaboration being human↔machine. Neither has multiplayer and neither is hurt by that.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> this road argues the whole sync question is downstream of a product question nobody's answered — whether the second actor in a canvas is a colleague or a process. If it's a process, most of the cloud architecture is solving for a user who isn't there.</p>
+</div>
+<script>
+const C=["Your canvas, your machine, your files. Nothing about this changes on any of these roads — it's the constant.",
+"Runs on your machine and drives the canvas through the local CLI. No account, no network, no server. This works today.",
+"Several agents can work at once. The hard part isn't letting them in — it's telling you afterwards what each of them did.",
+"The only piece that needs infrastructure: an agent that isn't on your machine. Worth asking how much of the cloud architecture exists purely for this one box."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

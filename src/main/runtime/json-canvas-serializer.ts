@@ -53,6 +53,7 @@ const NODE_TYPE_TO_KIND: Record<JsonCanvasNode['type'], CanvasEntityKind> = {
 export function serializeToJsonCanvas(
   snapshot: WorkspaceSnapshot,
   annotations?: Annotation[],
+  server?: { docId: string; url: string } | null,
 ): JsonCanvasDocument {
   const nodes: JsonCanvasNode[] = []
   const edges: JsonCanvasEdge[] = []
@@ -109,8 +110,10 @@ export function serializeToJsonCanvas(
   }
 
   const doc: JsonCanvasDocument = { nodes, edges }
-  if (orderedIds.length) {
-    doc.specular = { entityOrder: orderedIds }
+  if (orderedIds.length || server) {
+    doc.specular = {}
+    if (orderedIds.length) doc.specular.entityOrder = orderedIds
+    if (server) doc.specular.server = { docId: server.docId, url: server.url }
   }
 
   // Add annotations as extension
@@ -322,6 +325,7 @@ function serializeAppState(snapshot: WorkspaceSnapshot): JsonCanvasAppState {
 export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
   snapshot: WorkspaceSnapshot
   annotations: Annotation[]
+  server: { docId: string; url: string } | null
 } {
   const entities: Record<string, PersistedCanvasEntity> = {}
   const nodeOrder: string[] = []
@@ -358,7 +362,12 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
 
   const annotations = (doc.annotations ?? []) as Annotation[]
 
-  return { snapshot, annotations }
+  const server =
+    doc.specular?.server?.docId && doc.specular.server.url
+      ? { docId: doc.specular.server.docId, url: doc.specular.server.url }
+      : null
+
+  return { snapshot, annotations, server }
 }
 
 function uniqueKnownIds(ids: readonly string[], knownIds: ReadonlySet<string>): string[] {

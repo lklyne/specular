@@ -167,6 +167,49 @@ Other tools ignore this field per the spec's extensibility model. Older files
 may contain `browserTabMode`; Specular reads it only as a legacy restore hint
 and no longer writes it.
 
+### Cloud sync binding (extension)
+
+A canvas published to the cloud-sync spike carries a top-level `specular.server`
+block (ADR 0018, `docs/plans/cloud-sync-spike.md`):
+
+```json
+{
+  "nodes": [...],
+  "edges": [...],
+  "specular": {
+    "server": { "docId": "a1b2c3…", "url": "http://localhost:8787" }
+  }
+}
+```
+
+- Written the first time a workspace is shared ("Copy link" is the publish
+  moment) and mirrored into every tab's `.canvas` file in the workspace, since
+  the spike syncs one Durable Object per **workspace**, not per canvas —
+  every tab carries the same `docId`.
+- Removed on un-publish; a canvas with no `specular.server` block has zero
+  server footprint.
+- Never carries tokens or device credentials — `docId` is not a secret, but
+  the capability tokens that grant access to it are a security boundary and
+  live only in the server's grant table and the desktop app's device
+  credential file, never in a `.canvas` file.
+- A `.canvas` file copied to a new path keeps the same `docId`. Opening a
+  second workspace path that claims a `docId` already registered to another
+  path forks it on load (the binding is dropped until the copy is
+  re-published with a fresh `docId`), so two workspace folders never
+  silently double-sync one Durable Object.
+
+### Asset references (extension)
+
+A `file` node whose content has been published to the cloud stores an
+`asset://<sha256hex>[.<ext>]` reference instead of a local path (ADR 0018 §3).
+The hash names an immutable, content-addressed version; the resolver (single
+seam, one per process — desktop or server) maps the reference to a location
+per environment: a local `assets/<hash>[.<ext>]` file when this machine
+already has a copy, otherwise the sync server's `GET /assets/<hash>` endpoint
+once the canvas is published. Everything else in the app keeps working with
+whichever shape it already understood (a filesystem path or an http(s) URL);
+only the resolver knows both.
+
 ### Annotations (extension)
 
 Freehand drawings/annotations stored in an `annotations` array:

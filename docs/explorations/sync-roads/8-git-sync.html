@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 8 — Git as the sync layer</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:20px 22px;margin:0 0 14px}
+.card h3{margin:0 0 8px;font-size:14px;font-weight:600}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}
+.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+.bar.warn i{background:#b45309}
+strong{font-weight:600}
+code{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3f0ea;padding:1px 5px;border-radius:4px}
+pre{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:16px 18px;overflow-x:auto;margin:0 0 14px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3d3934}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:#fff;border:1px solid #ece8e2;border-radius:10px;overflow:hidden;margin:0 0 14px}
+th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#a09a92;font-weight:600;padding:11px 12px;border-bottom:1px solid #ece8e2}
+td{padding:10px 12px;border-bottom:1px solid #f4f1ec;vertical-align:top}
+tr:last-child td{border-bottom:0}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 8 of 10 · sync you don't build</p>
+<h1>Git as the sync layer</h1>
+<p class="lede">A space is a repo. Canvases sync by push and pull. History, branching, attribution, review and revert arrive fully built — and a cloud agent becomes a CI job that opens a pull request against your canvas.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 250" role="img" aria-label="Devices, an agent and a viewer around a git remote">
+  <g class="node" data-i="0"><rect x="20" y="30" width="140" height="62" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="90" y="57" text-anchor="middle">Your Mac</text><text class="slab" x="90" y="75" text-anchor="middle">commit · push</text></g>
+  <g class="node" data-i="1"><rect x="20" y="152" width="140" height="62" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="90" y="179" text-anchor="middle">Your laptop</text><text class="slab" x="90" y="197" text-anchor="middle">pull · merge</text></g>
+  <g class="node" data-i="2"><rect x="210" y="91" width="140" height="62" rx="9" fill="#faf8f5" stroke="#c8bfae"/><text class="nlab" x="280" y="118" text-anchor="middle">Remote</text><text class="slab" x="280" y="136" text-anchor="middle">GitHub · self-host</text></g>
+  <g class="node" data-i="3"><rect x="400" y="30" width="140" height="62" rx="9" fill="#fff" stroke="#ddd7cf" stroke-dasharray="4 4"/><text class="nlab" x="470" y="57" text-anchor="middle">Cloud agent</text><text class="slab" x="470" y="75" text-anchor="middle">opens a PR</text></g>
+  <g class="node" data-i="4"><rect x="400" y="152" width="140" height="62" rx="9" fill="#fff" stroke="#ddd7cf" stroke-dasharray="4 4"/><text class="nlab" x="470" y="179" text-anchor="middle">Reviewer</text><text class="slab" x="470" y="197" text-anchor="middle">built static page</text></g>
+  <path d="M162 61 Q 210 61 235 93" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <path d="M162 183 Q 210 183 235 151" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <path d="M352 93 Q 380 61 398 61" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <path d="M352 151 Q 380 183 398 183" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <text class="slab" x="280" y="238" text-anchor="middle">the remote runs code you didn't write and can't be blamed for</text>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<h2>Road 6 asked for four things. Git is all four.</h2>
+<table>
+<thead><tr><th style="width:42%">What Road 6 said was missing</th><th>What it already is</th></tr></thead>
+<tbody>
+<tr><td>Attribution — entities have no author</td><td><code>git blame</code> on the canvas file, per line, forever</td></tr>
+<tr><td>Change review — accept some, drop some</td><td>a diff, a branch, a partial staging of hunks</td></tr>
+<tr><td>An activity timeline</td><td><code>git log</code>, with messages the agent wrote</td></tr>
+<tr><td>Batch revert at task granularity</td><td><code>git revert &lt;commit&gt;</code> — the commit <em>is</em> the task</td></tr>
+</tbody>
+</table>
+<p>That table is the argument for this road. Road 6 correctly identified the missing primitives and then priced them as new product work. Half of them are a dependency away, in a tool the frontend half of the audience already has open.</p>
+
+<h2>The trick that makes it work</h2>
+<div class="card">
+<h3>Commit the CRDT log, render the JSON</h3>
+<p>A raw <code>.canvas</code> file is a bad merge target: dragging one entity rewrites coordinates, reordering churns the array, and two people editing different corners of the same canvas produce a conflict a designer cannot resolve.</p>
+<p>So don't merge the JSON. Commit both, and let each format do the thing it's good at:</p>
+<pre>foo.canvas          ← generated, canonical, diffable, .gitattributes: merge=ours
+foo.canvas.log      ← append-only Yjs updates, merge=union</pre>
+<p>Yjs updates merge in any order, so a union merge driver on an append-only log is <em>always</em> correct — no conflict is possible. After merge, the app replays the log and regenerates <code>foo.canvas</code> deterministically. The JSON exists for humans, diffs, agents and review; the log exists for correctness.</p>
+<p>This is Road 8's equivalent of Road 5's URL-fragment trick: one existing mechanism, used precisely, turning an apparently blocking problem into a config line.</p>
+</div>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">Cloud agent edits as pull requests.</span> The strongest agent story on the map. An agent gets repo access, works on a branch, and hands you a diff you review and merge — in a review UI that already exists and that you didn't build.</li>
+<li><span class="pro">Discrete versions.</span> Road 3 flagged that "what changed since you last looked" is trivial with snapshots and impossible in a live CRDT. Here it's a commit range, and every share link can point at a specific one.</li>
+<li><span class="pro">Branching as a design feature.</span> Explore a variant of a layout, keep it or throw it away, without polluting the canvas. No spatial tool in this category has this, and for iteration work it's genuinely differentiated.</li>
+<li><span class="pro">Zero custody, zero ops.</span> Same absence as Road 7. Their remote — GitHub, GitLab, a bare repo on a NAS, a folder in their own storage.</li>
+<li><span class="pro">The audience is half-ready.</span> "Designers and frontend developers." For the developers, git isn't friction, it's home — and it makes Specular a peer of the repo the design is about, not a separate silo.</li>
+</ul>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">Binary assets rot the repo.</span> Screenshots, images, video — committed once, carried forever. LFS or a content-addressed sidecar store, and either way it's real work that Road 7 gets for free.</li>
+<li><span class="con">No live co-editing, no presence.</span> Commit granularity. Two people work in turns, not at once.</li>
+<li><span class="con">Conflicts you can't fully hide.</span> The log trick removes them from canvas content — but not from a renamed file, a rebase, a detached head, or a user who pushed from a machine that was offline for a week. Some day a designer sees the word "conflict" and you own that moment.</li>
+<li><span class="con">A worse setup wall than Road 7 for non-developers.</span> Auth tokens, remotes, and the word "repository" all cost you people.</li>
+<li><span class="con">Your undo stack and git's history are two different histories.</span> Deciding which one is authoritative — and what Cmd+Z means after a pull — is a genuine design problem, not a detail.</li>
+</ul>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar"><i style="width:52%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:3%"></i></div></div>
+<div class="meter"><span>Legal / trust</span><div class="bar"><i style="width:5%"></i></div></div>
+<div class="meter"><span>Support burden</span><div class="bar warn"><i style="width:48%"></i></div></div>
+<p class="who">The sync is free. The spend is a canonical serializer, the log-plus-merge-driver setup, asset handling, and a UI that hides git from people who don't want to see it. Note that the canonical serializer is worth building anyway — it's what makes agent edits to <code>.canvas</code> files safe under any road.</p>
+
+<h2>Who does this</h2>
+<p class="who">Obsidian Git. Logseq. TiddlyWiki on a repo. Excalidraw files checked into design-adjacent repos. Every dotfiles setup ever. The pattern is well-trodden for text; nobody has done it properly for a spatial surface, which is either an opportunity or a warning.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> the cheapest route to remote agent edits on the entire map, because the review workflow, the attribution and the revert story are all pre-built and battle-tested. It composes cleanly with Road 7 — both are just transports behind one sync driver — and it's the only road where the second actor being a process rather than a person is a natural fit rather than a compromise.</p>
+</div>
+<script>
+const C=["Your machine is a working copy. Edits land in the Yjs log continuously and get committed in batches — on save, on idle, or when you name a version.",
+"A second device pulls and replays. The union merge on the log means the merge always succeeds; the regenerated JSON is deterministic, so both machines land byte-identical.",
+"An ordinary git remote. It stores objects and resolves nothing. Whoever hosts it holds custody — and it doesn't have to be you.",
+"A headless agent with repo access. It branches, edits, commits with a message, and opens a PR. You wake up to a diff instead of a mystery.",
+"Not a git user at all. CI builds a static viewer from a commit and publishes it — a view-only link pinned to an exact version. See Road 9."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

@@ -34,7 +34,6 @@ describe('blocked passthrough verbs', () => {
 
   const cases: Array<{ verb: string; args: string[]; expectFragment: string }> = [
     { verb: 'launch', args: ['launch'], expectFragment: 'specular add page' },
-    { verb: 'connect', args: ['connect'], expectFragment: 'specular add page' },
     { verb: 'close', args: ['close'], expectFragment: 'specular delete' },
     { verb: 'quit', args: ['quit'], expectFragment: 'specular delete' },
     { verb: 'install', args: ['install'], expectFragment: 'bundled with Specular' },

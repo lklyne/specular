@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Road 7 — Bring your own backend</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#fbfaf8;color:#1b1a18;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:660px;margin:0 auto;padding:56px 28px 90px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a09a92;margin:0 0 10px}
+h1{font:600 31px/1.18 "Iowan Old Style",Georgia,serif;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:17px;line-height:1.55;color:#54504b;margin:0 0 38px}
+h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#a09a92;margin:42px 0 14px;font-weight:600}
+p{margin:0 0 14px}ul{margin:0 0 14px;padding-left:19px}li{margin:0 0 7px}
+.card{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:20px 22px;margin:0 0 14px}
+.card h3{margin:0 0 8px;font-size:14px;font-weight:600}
+.diagram{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:22px 20px 16px;margin:0 0 14px}
+svg{display:block;width:100%;height:auto}
+.node{cursor:pointer}
+.node rect{transition:fill .15s,stroke .15s}
+.node.on rect{fill:#eef3f9;stroke:#1f5f9e}
+.nlab{font-size:12px;fill:#1b1a18;font-weight:500;pointer-events:none}
+.slab{font-size:10.5px;fill:#8a847c;pointer-events:none}
+#cap{font-size:13.5px;color:#54504b;border-left:3px solid #1f5f9e;padding:3px 0 3px 14px;margin-top:14px;min-height:42px}
+.pro{color:#2f7d51;font-weight:600}.con{color:#b45309;font-weight:600}
+.who{font-size:13.5px;color:#8a847c}
+.meter{display:flex;align-items:center;gap:10px;margin:0 0 9px;font-size:13.5px}
+.meter span:first-child{width:130px;color:#8a847c;flex:none}
+.bar{flex:1;height:7px;background:#f0ece6;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:#1f5f9e;border-radius:4px}
+.bar.warn i{background:#b45309}
+strong{font-weight:600}
+code{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3f0ea;padding:1px 5px;border-radius:4px}
+pre{background:#fff;border:1px solid #ece8e2;border-radius:10px;padding:16px 18px;overflow-x:auto;margin:0 0 14px;font:12.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3d3934}
+.kicker{font-size:13.5px;color:#8a847c;margin-top:20px;padding-top:16px;border-top:1px solid #ece8e2}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="eyebrow">Road 7 of 10 · custody by absence</p>
+<h1>Bring your own backend</h1>
+<p class="lede">You ship the sync client. The user supplies the storage — their R2 bucket, their S3, their NAS. Canvases sync across their devices and to their agents, and you never hold a byte. Not because it's encrypted, but because it was never yours.</p>
+
+<h2>Shape</h2>
+<div class="diagram">
+<svg viewBox="0 0 560 250" role="img" aria-label="Two devices and an agent syncing through a user-owned bucket">
+  <g class="node" data-i="0"><rect x="20" y="30" width="150" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="95" y="58" text-anchor="middle">Your Mac</text><text class="slab" x="95" y="76" text-anchor="middle">plaintext</text></g>
+  <g class="node" data-i="1"><rect x="20" y="150" width="150" height="66" rx="9" fill="#fff" stroke="#ddd7cf"/><text class="nlab" x="95" y="178" text-anchor="middle">Your laptop</text><text class="slab" x="95" y="196" text-anchor="middle">plaintext</text></g>
+  <g class="node" data-i="2"><rect x="215" y="90" width="150" height="66" rx="9" fill="#faf8f5" stroke="#c8bfae"/><text class="nlab" x="290" y="118" text-anchor="middle">Their bucket</text><text class="slab" x="290" y="136" text-anchor="middle">R2 · S3 · WebDAV</text></g>
+  <g class="node" data-i="3"><rect x="410" y="90" width="130" height="66" rx="9" fill="#fff" stroke="#ddd7cf" stroke-dasharray="4 4"/><text class="nlab" x="475" y="118" text-anchor="middle">Cloud agent</text><text class="slab" x="475" y="136" text-anchor="middle">their creds</text></g>
+  <path d="M172 68 Q 215 68 240 92" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <path d="M172 180 Q 215 180 240 154" stroke="#ddd7cf" stroke-width="1.5" fill="none"/>
+  <path d="M367 123 H408" stroke="#ddd7cf" stroke-width="1.5"/>
+  <text class="slab" x="290" y="234" text-anchor="middle">your servers do not appear in this picture either</text>
+</svg>
+<div id="cap">Click a box.</div>
+</div>
+
+<h2>What you get</h2>
+<ul>
+<li><span class="pro">Custody eliminated by construction.</span> Road 5's promise without Road 5's cryptography. There is no key to lose, no recovery phrase, no ciphertext to relay — the data simply lives somewhere you have no credentials for.</li>
+<li><span class="pro">Cloud agents work.</span> This is the one Road 5 couldn't do. An agent runs with the user's bucket credentials, on their infra or on a runner they authorise, reading plaintext they already own. You get remote agent edits without ever holding readable work.</li>
+<li><span class="pro">Enterprise unblocks itself.</span> "Where does our data live?" — in your bucket, in your region, under your retention policy. The security review you'd otherwise spend a year answering becomes a config screen.</li>
+<li><span class="pro">Plaintext at rest is a feature here.</span> Because it's <em>their</em> storage, their own tooling works on it: grep, backup, versioning, lifecycle rules, their own search index. Road 5 forecloses all of that; this road hands it back.</li>
+<li><span class="pro">Ops cost near zero.</span> No storage bill, no bandwidth bill, no retention policy, no deletion requests, no on-call for someone else's canvases.</li>
+</ul>
+
+<h2>The hard part: object storage is not a sync protocol</h2>
+<div class="card">
+<h3>Buckets have no coordination primitive</h3>
+<p>There's no locking, no ordering, no notification. Naive last-writer-wins on whole <code>.canvas</code> files loses work the first time two devices are open at once.</p>
+<p>The shape that works is an append-only log of Yjs updates, one object per client per batch — because CRDT updates merge in any order, so a bucket that only ever gains objects is a valid transport:</p>
+<pre>spaces/&lt;space&gt;/&lt;canvas&gt;/
+  snapshot.bin          ← periodic compaction
+  updates/&lt;clientId&gt;/0007.bin
+  updates/&lt;clientId&gt;/0008.bin
+  assets/&lt;sha256&gt;</pre>
+<p>Each client writes only under its own prefix, so writes never collide. Reading is a list + fetch of what you haven't seen. Compaction is any client rewriting <code>snapshot.bin</code> and deleting folded-in updates. Sync latency is your poll interval — minutes by default, seconds if someone's watching.</p>
+</div>
+
+<h2>What you give up</h2>
+<ul>
+<li><span class="con">The setup wall.</span> The honest failure mode of this entire road. If the answer to "how do I sync?" is "create an R2 bucket and paste an access key," most designers stop there. Everything else on this page is downstream of solving that.</li>
+<li><span class="con">Live co-editing and presence.</span> Polling a bucket gives you sync, not a session. Two people in one canvas at once is not this road.</li>
+<li><span class="con">N backends to support.</span> Every provider has its own auth, its own CORS quirks, its own listing semantics. Ship one blessed provider and one generic S3-compatible field, or this becomes the whole job.</li>
+<li><span class="con">You can't help when it breaks.</span> Their bucket, their credentials, their misconfigured lifecycle rule that deleted last month's updates. Support without access is a different discipline.</li>
+<li><span class="con">A share link for people who don't own the app</span> — unless the bucket serves one. See Road 9; it's more tractable here than it looks.</li>
+</ul>
+
+<h2>Cost to build</h2>
+<div class="meter"><span>Engineering</span><div class="bar"><i style="width:48%"></i></div></div>
+<div class="meter"><span>Ongoing ops</span><div class="bar"><i style="width:6%"></i></div></div>
+<div class="meter"><span>Legal / trust</span><div class="bar"><i style="width:8%"></i></div></div>
+<div class="meter"><span>Support burden</span><div class="bar warn"><i style="width:55%"></i></div></div>
+<p class="who">Cheaper than Road 2 and far cheaper than Road 5, because the expensive half of E2EE — key management, device enrolment, recovery — evaporates. The cost moves to onboarding and to supporting infrastructure you can't see.</p>
+
+<h2>The hosted-default question</h2>
+<p>The same client, pointed at a bucket <em>you</em> operate, is Road 4's custody with none of Road 4's architecture. That's tempting and it's the obvious way over the setup wall: hosted by default, BYO for anyone who asks.</p>
+<p>Be honest about what it costs. The moment the default user's canvases sit in your bucket, the claim degrades from <strong>"we cannot read your work"</strong> to <strong>"you can opt out of us."</strong> Those are different products with different trust stories, and the second one is the one you'd actually be shipping to most people.</p>
+
+<h2>Who does this</h2>
+<p class="who">Obsidian's Remotely Save and Self-hosted LiveSync. Anytype. Syncthing. Joplin with a custom WebDAV target. Zotero with your own storage. Bitwarden self-hosted. In every case the sophisticated minority self-hosts and the majority takes the vendor's bucket — which tells you what the adoption curve looks like.</p>
+
+<p class="kicker"><strong>The strategic read:</strong> the only road that delivers cloud agents and zero custody at the same time, which is precisely the combination the other six couldn't produce. It buys that by converting a product decision into a customer setup task — and the conversion rate on setup tasks is brutal. Worth building the driver; be very careful about making it the only door in.</p>
+</div>
+<script>
+const C=["Your machine holds the truth and writes updates into the bucket under its own client prefix. Nothing is encrypted, because nothing leaves the user's control.",
+"A second device you own. It lists the bucket, fetches update objects it hasn't seen, and merges them. Same code path as a second person would use — there just isn't one.",
+"Storage the user pays for and controls. It stores objects and answers list requests. It runs no code, resolves no conflicts, and knows nothing about canvases.",
+"An agent with the user's credentials, running anywhere. It merges into the same log as a human peer. This is the road's punchline: remote agent edits with zero custody on your side."];
+document.querySelectorAll('.node').forEach(n=>n.addEventListener('click',()=>{
+  document.querySelectorAll('.node').forEach(m=>m.classList.remove('on'));
+  n.classList.add('on');document.getElementById('cap').textContent=C[n.dataset.i];}));
+</script>
+</body>
+</html>

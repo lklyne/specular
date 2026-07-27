@@ -8,6 +8,7 @@ build/*
 .context/
 .DS_Store
 .env
+.dev.vars
 package-lock.json
 bun.lock
 tests/agent/results/

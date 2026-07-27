@@ -20,7 +20,7 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [0015 — Auto-layout groups](adr/0015-auto-layout-groups.md) — **Proposed** — Figma-style auto-layout: selected group packs children into row/grid with reorder-on-drag.
 - [0016 — Tools as a capability registry](adr/0016-tools-as-capability-registry.md) — **Proposed** — unifies per-tool axes (enablement, palette, cursor, popup, bindings) behind one registry, extending 0005's identity unification.
 - [0017 — Scroll does not pan the canvas in browser mode](adr/0017-scroll-does-not-pan-the-canvas.md) — plain wheel/trackpad scroll only pans in canvas mode; browser mode scroll stays native to the page.
-- [0018 — Cloud sync, canvas sharing, and agents as peers](adr/0018-cloud-sync-and-canvas-sharing.md) — **Proposed**, no code landed — architecture sketch for server-optional cloud access to Y.Doc-backed canvases.
+- [0018 — Cloud sync, canvas sharing, and agents as peers](adr/0018-cloud-sync-and-canvas-sharing.md) — **Proposed**, spike landed behind a dev flag ([`docs/plans/cloud-sync-spike.md`](plans/cloud-sync-spike.md)) — architecture sketch for server-optional cloud access to Y.Doc-backed canvases.
 - [0019 — Canvas as a document: verb-primary CLI over one entity-kind registry](adr/0019-canvas-as-document-cli.md) — CLI surface becomes verb-first (create/move/delete) dispatched through one `CanvasEntityKind` registry instead of per-kind commands.
 - [0020 — Delete Browser Mode for Focus Selection](adr/0020-delete-browser-mode-for-focus-selection.md) — removes the separate tab-based Browser mode; replaces it with an ephemeral Focus selection camera command.
 - [0021 — Focus Session as a First-Class Concept](adr/0021-focus-session-as-first-class-concept.md) — promotes focus selection from a presentation-only camera command to a stateful session concept.
@@ -40,7 +40,7 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 
 ## Docs
 
-- [architecture.md](architecture.md) — process model, IPC/HTTP surfaces, and the two-layer (Y.Doc + runtime) state model.
+- [architecture.md](architecture.md) — process model, IPC/HTTP surfaces, the two-layer (Y.Doc + runtime) state model, and the cloud-sync spike's server/transport layer.
 - [architecture-audit.md](architecture-audit.md) — how to run a simplify/deepen audit pass without gutting load-bearing nuance; invariant preamble to paste into audit runs.
 - [canvas-motion-research.md](canvas-motion-research.md) — research note on canvas-anchored overlay animation jitter and how to make motion smooth without per-frame IPC.
 - [canvas-stacking-research.md](canvas-stacking-research.md) — historical research note that seeded ADR 0014 (canvas stack order / sidebar tree); read the ADR instead unless doing archaeology.

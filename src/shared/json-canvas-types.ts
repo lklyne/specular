@@ -185,6 +185,15 @@ export interface JsonCanvasSpecularExtensions {
    * interleaving without changing the spec arrays.
    */
   entityOrder?: string[]
+  /**
+   * Cloud sync binding for the workspace doc: the Durable Object's stable id
+   * and the URL its provider connects to, written on first publish. In-file
+   * (not a sidecar) keeps the binding diffable, portable, and agent-readable —
+   * the file system stays the data model. Tokens and device credentials never
+   * appear here: the docId names a rendezvous, not a capability.
+   * See docs/adr/0018-cloud-sync-and-canvas-sharing.md §1/§4.
+   */
+  server?: { docId: string; url: string }
 }
 
 export interface JsonCanvasAppState {
