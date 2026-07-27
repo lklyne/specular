@@ -17,7 +17,6 @@ import {
 } from '../../shared/gesture-utils'
 import { pageDocumentToScreen, pageViewportToScreen } from '../../shared/page-space'
 import { correctDocRectForElement } from '../../shared/element-attachment'
-import { selectionBbox } from '../../shared/selection-bbox'
 
 
 export interface PendingAnnotation {
@@ -112,23 +111,33 @@ export function canvasRectToScreenRect(
 }
 
 /**
- * Canvas-space union bounds for the selection popup's Annotate button:
- * the shared `selectionBbox` union for a real multi-selection (2+ non-group
- * entities), or — the one case `selectionBbox` deliberately excludes — a
- * lone selected group's own rect. Null when neither applies, which the
- * caller reads as "no Annotate button" (single non-group entity selected).
+ * Canvas-space union bounds for the selection popup's Annotate button.
+ *
+ * Deliberately not `selectionBbox`: that union floors at two non-group
+ * entities because a multi-selection bbox is a hit-testing and drag-chrome
+ * concept. An annotation only needs a rect, and one selected item is a
+ * perfectly good thing to comment on — a lone file entity is how the fix loop
+ * gets a `selectionTarget` it can duplicate beside. Groups count here too,
+ * since a group's own rect is its bounds.
  */
 export function selectionAnnotationBounds(
   entities: readonly CanvasSceneEntity[],
   entityIds: readonly string[],
 ): WorkspaceBounds | null {
-  if (entityIds.length === 1) {
-    const entity = entities.find((candidate) => candidate.id === entityIds[0])
-    if (entity?.kind === 'group') {
-      return { x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height }
-    }
+  const ids = new Set(entityIds)
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const entity of entities) {
+    if (!ids.has(entity.id)) continue
+    minX = Math.min(minX, entity.canvasX)
+    minY = Math.min(minY, entity.canvasY)
+    maxX = Math.max(maxX, entity.canvasX + entity.width)
+    maxY = Math.max(maxY, entity.canvasY + entity.height)
   }
-  return selectionBbox(entities, entityIds, 'canvas')
+  if (minX === Infinity) return null
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
 export function annotationScreenPos(

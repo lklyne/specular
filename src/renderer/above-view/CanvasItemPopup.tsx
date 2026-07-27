@@ -580,9 +580,7 @@ function EntityActions({
   onAnnotate?: (entityIds: string[], rect: WorkspaceBounds) => void
 }) {
   const arrange = api?.arrangeSelection
-  // Null for a single non-group entity (selectionBbox's 2+-entity floor, per
-  // the comment on selectionAnnotationBounds) — that's exactly when the
-  // button should be absent, so no extra count check is needed here.
+  // Null only when none of the ids resolve against the current layout.
   const annotateRect =
     onAnnotate && layout && entityIds
       ? selectionAnnotationBounds(layout.entities, entityIds)
