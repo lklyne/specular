@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-27 — Tab Targeting, Selection Annotations
+
+### New
+
+- **Annotate a selection.** Select anything, hit Annotate, and the comment covers the whole selection — the fix loop knows which items you meant.
+- **Agents work across tabs.** `--tab <ref>` targets a background canvas; `specular tab` lists, creates, switches, and deletes them.
+
+### Improvements
+
+- Agents don't steal focus when editing a background canvas.
+- The fix loop knows where a change belongs: repo-bound pages get edited in place, space-folder files get worked on beside the original, and the comment always wins.
+- Fix runs default to edit-and-verify permissions instead of all-or-nothing.
+- Focus rings show on Tab, not on click.
+- Primary buttons read right in light and dark.
+- Bundled agent-browser updated to v0.33.0.
+
+### Fixes
+
+- `specular apply` explains itself instead of hanging on empty stdin.
+- Deleting a background tab leaves the one you're on alone.
+- The settings window shows an error instead of a blank pane when it fails to boot.
+
 ## [0.5.0] - 2026-07-20 — Page Anchoring, Scroll Tracking, Shape Styling
 
 ### New
