@@ -175,23 +175,25 @@ The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When 
 **Visibility predicate (single source of truth, post-aboveView migration):**
 
 ```ts
-function shouldGateBeOpen(s: AppState): boolean {
-  // Inspect & annotate-comment drive feedback off the page's webContents
-  // mousemove (eyedropper, comment hover); keep the gate closed unless the
-  // composer is open.
-  if (s.toolMode === 'inspect' || s.toolMode === 'annotate-comment') {
-    return s.commentOverlayActive
+// src/main/runtime/gate-predicate.ts
+export type GateInputs = {
+  activeTool: Tool
+  commentOverlayActive: boolean
+}
+
+export function shouldGateBeOpen(inputs: GateInputs): boolean {
+  // Inspect drives feedback off the page's webContents mousemove
+  // (eyedropper). Keep the gate closed unless the comment composer has been
+  // opened by a different UI path.
+  if (inputs.activeTool.kind === 'inspect') {
+    return inputs.commentOverlayActive
   }
-  // Canvas mode: aboveView is always-on. Inline edit (sticky / shape /
-  // group rename) also runs in aboveView (the contenteditable lives
-  // there post-Phase C), so the gate stays open during `editing-entity`
-  // rather than ducking to bgView.
-  if (s.viewMode === 'canvas') return true
-  return browserModeNeedsGate(s)
+  // Always open — browser mode was deleted (ADR 0020); there is only canvas mode.
+  return true
 }
 ```
 
-Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it.
+Evaluated inside `layoutAllViews()`. `aboveView` bounds are set to a full-coverage rect when `shouldGateBeOpen` returns true, or a zero-size rect when false. This is the only call site.
 
 The OR-chain in canvas mode has collapsed: the canvas-pointer-router (§4.2.1) classifies all pointerdowns from the always-on aboveView via `src/shared/hit-test.ts`, and every interactive surface that used to live in `bgView` or in a per-page `chromeView` WCV has moved into aboveView's React tree as `CanvasItemPopup` (`data-overlay-ui` so the router yields to them structurally). The per-page `chromeView` WCV and its `chrome-header` preload + renderer were retired wholesale; the chrome-action IPCs (`canvas-navigate-frame` / `canvas-back-frame` / etc., addressed by `frameId`) replace the sender-based `chrome-*` channels.
 
@@ -201,7 +203,7 @@ The `frameFocus` runtime field that ADR 0001 introduced no longer exists: keyboa
 
 A single window-level pointerdown listener inside `aboveView` (`src/renderer/above-view/useCanvasPointerRouter.ts`) runs the shared `hitTest()` against the current layout snapshot and dispatches a typed `CanvasPointerAction` (`src/shared/canvas-pointer-actions.ts`). The hit-test priority table — resize-handle > anchor > body > background — is encoded once and tested in isolation (`tests/unit/canvas-pointer-actions.test.ts`). The former `chrome` layer was retired with the chrome-header slot model ([ADR 0028](./adr/0028-retire-chrome-header-slot-model.md)); overlay UI anchors to the body rect and yields structurally via `data-overlay-ui`.
 
-The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan. In **browser mode** a plain wheel/two-finger scroll does **not** pan the canvas (ADR 0017) — only zoom applies, so scrolling doesn't drag the canvas behind the browser page; **canvas mode** keeps wheel-pan unchanged.
+The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan. Wheel-pan is canvas-navigation only; page scroll is forwarded into the page's webContents natively (browser mode was deleted — ADR 0020).
 
 Marquee selection is direction-independent: the default mode selects every item whose bounds intersect the marquee. Holding Cmd/Ctrl switches to full containment and lets the gesture begin through an item body; that origin item is excluded from the marquee. A stationary Cmd/Ctrl press still follows the normal additive-click selection path. Marquee resolution is group-aware in every mode: a fully enclosed group resolves to the group, while a partially crossed group is transparent and exposes its overlapping children.
 
