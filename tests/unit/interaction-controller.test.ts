@@ -86,6 +86,17 @@ describe('InteractionController', () => {
     }
   })
 
+  it('editing-entity does not expire', () => {
+    vi.useFakeTimers()
+    try {
+      expectGranted(tryEnter({ kind: 'editing-entity', entityId: 'n1' }))
+      vi.advanceTimersByTime(TOKEN_EXPIRY_MS * 10)
+      expect(interactionState.kind).toBe('editing-entity')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('cancelActive on idle is a no-op', () => {
     cancelActive('external')
     expect(interactionState.kind).toBe('idle')

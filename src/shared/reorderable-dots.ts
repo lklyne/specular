@@ -28,6 +28,8 @@ export interface ReorderDot {
   entityKind: CanvasEntityKind
   /** Screen-space center of the entity (and so of its dot). */
   center: { x: number; y: number }
+  /** Screen-space size of the entity — caps how big the dot's hit square gets. */
+  size: { width: number; height: number }
 }
 
 export interface ReorderableDotsInput {
@@ -44,6 +46,10 @@ function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
     x: entity.screenX + entity.screenWidth / 2,
     y: entity.screenY + entity.screenHeight / 2,
   }
+}
+
+function screenSize(entity: CanvasSceneEntity): { width: number; height: number } {
+  return { width: entity.screenWidth, height: entity.screenHeight }
 }
 
 /**
@@ -91,7 +97,7 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
     const groupId = childToGroup.get(e.id)
     if (!groupId) continue
     if (selectedGroupId !== groupId && !selected.has(e.id)) continue
-    dots.set(e.id, { id: e.id, entityKind: e.kind, center: screenCenter(e) })
+    dots.set(e.id, { id: e.id, entityKind: e.kind, center: screenCenter(e), size: screenSize(e) })
   }
 
   // Selection door: a loose equal-gap multi-selection. Managed children are
@@ -110,7 +116,8 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
   if (row) {
     for (const id of row.order) {
       const e = byId.get(id)
-      if (e && !dots.has(id)) dots.set(id, { id, entityKind: e.kind, center: screenCenter(e) })
+      if (e && !dots.has(id))
+        dots.set(id, { id, entityKind: e.kind, center: screenCenter(e), size: screenSize(e) })
     }
   }
 
