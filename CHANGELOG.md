@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-28 — Bug Fixes
+
+### Fixes
+
+- Fixed a bug where tabs with the same name would fight.
+- Improved bug with reordering when zoomed out.
+- Fixed bug with sticky notes defocusing.
+
+### Misc
+
+- Bundled agent-browser updated to v0.33.1.
+
 ## [0.5.1] - 2026-07-27 — Tab Targeting, Selection Annotations
 
 ### New
