@@ -24,7 +24,6 @@ import { currentEntityOrder } from '../../src/main/runtime/entity-order-state'
 import { getSelectionState } from '../../src/main/workspace-entities'
 import {
   DEFAULT_WORKSPACE_ID,
-  canvasFilePath,
   readCanvasFile,
 } from '../../src/main/runtime/workspace-persistence'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
@@ -46,7 +45,7 @@ describe('persistence', () => {
   it('autosave writes a mutation to the .canvas file on disk', async () => {
     // The one intentionally-sleeping test: it verifies the real 350ms
     // debounce fires on its own, so it must NOT flush.
-    const path = canvasFilePath(harness.userDataPath, DEFAULT_WORKSPACE_ID, 'Blank')
+    const path = harness.diskPath('Blank')
     const beforeIds = diskTextIds(readCanvasFile(path))
 
     const entity = createTextEntity({ canvasX: 120, canvasY: 240, text: 'persisted text' })

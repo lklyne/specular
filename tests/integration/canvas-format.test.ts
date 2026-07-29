@@ -25,7 +25,6 @@ import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harne
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
 import {
   DEFAULT_WORKSPACE_ID,
-  canvasFilePath,
 } from '../../src/main/runtime/workspace-persistence'
 
 let harness: WorkspaceHarness
@@ -87,7 +86,7 @@ describe('.canvas format', () => {
     harness.flush()
 
     const raw = readFileSync(
-      canvasFilePath(harness.userDataPath, DEFAULT_WORKSPACE_ID, 'Blank'),
+      harness.diskPath('Blank'),
       'utf8',
     )
 

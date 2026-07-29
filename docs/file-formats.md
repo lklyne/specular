@@ -11,12 +11,17 @@ to an Obsidian vault. The file system structure is the organizational model:
 
 ```
 my-project/                      # a space
-  research.canvas                # a canvas
-  homepage-redesign.canvas
-  breakpoint-review.canvas
+  research-8f21.canvas           # a canvas
+  homepage-redesign-b04c.canvas
+  breakpoint-review-1d7e.canvas
   assets/                        # referenced files
     screenshot.png
 ```
+
+A canvas file is named for its tab, suffixed with the first four characters of
+the tab's id. The suffix is what makes the path unique: two tabs sharing a name
+would otherwise share one file, and saving, renaming, or deleting either would
+clobber the other. Renaming a tab renames its file; the suffix stays.
 
 Canvases are auto-saved. The location is currently:
 `~/.config/Specular/workspaces/default/`

@@ -157,8 +157,8 @@ export type CreateBackgroundTabResult = { ok: true; id: string } | { ok: false; 
  * Create a tab without moving the user's focus to it — the agent-facing
  * counterpart of `createWorkspaceTab`.
  *
- * Duplicate names are refused because `.canvas` filenames derive from the tab
- * name: two same-named tabs would share one file on disk.
+ * Duplicate names are refused because a tab ref resolves by exact name: a
+ * second tab called `notes` makes `--tab notes` ambiguous for every caller.
  */
 export function createBackgroundWorkspaceTab(name: string): CreateBackgroundTabResult {
   const trimmed = name.trim()
@@ -183,7 +183,7 @@ export function renameWorkspaceTab(tabId: string, name: string): boolean {
   // Delete old .canvas file before renaming (next autosave writes the new one)
   const oldName = tab.name
   if (oldName !== trimmed) {
-    deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, oldName)
+    deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, { id: tab.id, name: oldName })
   }
   tab.name = trimmed
   tab.updatedAt = new Date().toISOString()
@@ -305,11 +305,11 @@ export function deleteWorkspaceTab(tabId: string): boolean {
   syncActiveTabRecord()
   const index = workspaceTabs.findIndex((candidate) => candidate.id === tabId)
   if (index === -1) return false
-  const deletedTabName = workspaceTabs[index].name
+  const deletedTab = workspaceTabs[index]
   if (workspaceTabs.length === 1) {
     // Delete old canvas file if the tab is being reset to defaults with a new name
-    if (deletedTabName !== DEFAULT_TAB_NAME) {
-      deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTabName)
+    if (deletedTab.name !== DEFAULT_TAB_NAME) {
+      deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTab)
     }
     workspaceTabs[index] = {
       ...workspaceTabs[index],
@@ -328,7 +328,7 @@ export function deleteWorkspaceTab(tabId: string): boolean {
     return true
   }
   // Delete the .canvas file for the removed tab
-  deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTabName)
+  deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTab)
   // Removing a canvas the user is not looking at is a bookkeeping change: drop
   // the record and leave their view where it is. Only losing the active tab
   // forces a move, and then the neighbour is the least surprising landing spot.
