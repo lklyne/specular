@@ -18,7 +18,7 @@ import {
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
   MULTI_SELECTION_OUTLINE_PADDING_PX,
-  REORDER_HANDLE_HIT_PX,
+  reorderHandleHitPx,
   RESIZE_HANDLE_HIT_PX,
   scaleEdgeAnchorHitSize,
 } from './canvas-hit-geometry'
@@ -29,7 +29,7 @@ import type {
   WorkspaceEdge,
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
-import { reorderableDots } from './reorderable-dots'
+import { reorderableDots, type ReorderDot } from './reorderable-dots'
 import { collectGapHandleZones } from './gap-handles'
 import { ENTITY_KIND_CAPS } from './entity-kind-caps'
 import { selectionBbox, type SelectionBbox } from './selection-bbox'
@@ -257,7 +257,7 @@ function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
 function collectReorderHandleTargets(inputs: HitInputs): HitTarget[] {
   return reorderableDots(inputs).map((dot) => ({
     layer: 'reorder-handle' as const,
-    region: { kind: 'rect' as const, rect: reorderHandleRectAt(dot.center) },
+    region: { kind: 'rect' as const, rect: reorderHandleRectAt(dot) },
     payload: { kind: 'reorder-handle' as const, entityId: dot.id, entityKind: dot.entityKind },
   }))
 }
@@ -371,9 +371,10 @@ function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
   }
 }
 
-function reorderHandleRectAt(center: { x: number; y: number }): Rect {
-  const half = REORDER_HANDLE_HIT_PX / 2
-  return { x: center.x - half, y: center.y - half, width: REORDER_HANDLE_HIT_PX, height: REORDER_HANDLE_HIT_PX }
+function reorderHandleRectAt(dot: ReorderDot): Rect {
+  const size = reorderHandleHitPx(dot.size.width, dot.size.height)
+  const half = size / 2
+  return { x: dot.center.x - half, y: dot.center.y - half, width: size, height: size }
 }
 
 function bodyRect(entity: CanvasSceneEntity): Rect {

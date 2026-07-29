@@ -194,14 +194,14 @@ describe('hit-test integration', () => {
   })
 
   it('the reorder dot wins where dot and gap strip overlap', () => {
-    // Tiny children: the 28px dot hit square around b's center (x 23) reaches
-    // into the expanded gap strip between a and b (seam at x 14).
+    // Flush tiny children: b's dot square (4px around center x 15) overlaps the
+    // expanded gap strip (10px around the seam at x 10) on x ∈ [13, 15].
     const entities = [
       box('a', 0, 0, 10, 10),
-      box('b', 18, 0, 10, 10),
+      box('b', 10, 0, 10, 10),
       managedGroup('g', ['a', 'b']),
     ]
-    const point = { x: 12, y: 5 } // inside both b's dot square and the strip
+    const point = { x: 14, y: 5 } // inside both b's dot square and the strip
     const target = hitTest(
       { entities, edges: [], selectedEntityIds: [], selectedGroupId: 'g', zoom: 1 },
       point,

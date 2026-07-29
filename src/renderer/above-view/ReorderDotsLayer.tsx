@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
 import {
-  REORDER_DOT_HOVER_RADIUS_PX,
   REORDER_DOT_VISUAL_RADIUS_PX,
+  reorderHandleHitPx,
 } from '../../shared/canvas-hit-geometry'
 import { reorderableDots } from '../../shared/reorderable-dots'
 import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
@@ -10,8 +10,11 @@ import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
 /**
  * Reorder dots (ADR 0015 D7). Paints the per-entity center dot that hosts the
  * reorder gesture — a geometric overlay (like edge anchors), not DOM buttons.
- * A thin pink ring at rest; a solid pink fill when the pointer is over the dot
- * itself (dot-local hover, not whole-entity hover).
+ * A thin pink ring at rest; a solid pink fill when the pointer is over the ring
+ * itself (dot-local hover, not whole-entity hover). The grown circle is drawn at
+ * exactly the hit-tester's grab radius, so the hover state is an honest picture
+ * of where a press starts a reorder — you arm it on the small ring and lose it
+ * on the grown edge.
  *
  * Eligibility comes from the one shared `reorderableDots` selector — the same
  * source the hit-tester consumes — so the visible dot and the grabbable target
@@ -34,6 +37,11 @@ export function ReorderDotsLayer({
 
   const reordering = interaction.kind === 'reordering-row' ? interaction : null
 
+  // The dragged dot is unmounted for the duration of the drag, so it never gets
+  // a pointerleave — clear hover on both edges of the gesture or it stays lit
+  // after a drop that lands away from the dot.
+  useEffect(() => setHoveredDotId(null), [reordering !== null])
+
   const dots = useMemo(() => {
     if (layoutData.activeTool.kind !== 'select') return []
     // Show dots only at rest or while reordering; hide during drag/resize/
@@ -43,7 +51,7 @@ export function ReorderDotsLayer({
     const eligible = reorderableDots(layoutData)
     if (!eligible.length) return []
 
-    const out: Array<{ id: string; cx: number; cy: number }> = []
+    const out: Array<{ id: string; cx: number; cy: number; hitRadius: number }> = []
     for (const dot of eligible) {
       // The dragged entity is "lifted" — it floats as a ghost under the cursor
       // (Phase D), so it carries no dot.
@@ -52,6 +60,9 @@ export function ReorderDotsLayer({
         id: dot.id,
         cx: dot.center.x,
         cy: dot.center.y - canvasOrigin.y,
+        // Mirrors the hit-tester's square exactly, so the ring only lights up
+        // where a press would actually start a reorder.
+        hitRadius: reorderHandleHitPx(dot.size.width, dot.size.height) / 2,
       })
     }
     return out
@@ -70,24 +81,25 @@ export function ReorderDotsLayer({
           <g key={dot.id}>
             {hovered ? (
               // Hovered: solid pink fill, grown.
-              <circle cx={dot.cx} cy={dot.cy} r={REORDER_DOT_HOVER_RADIUS_PX} fill={REARRANGE_COLOR} />
+              <circle cx={dot.cx} cy={dot.cy} r={dot.hitRadius} fill={REARRANGE_COLOR} />
             ) : (
               // At rest: thick pink ring (hollow center).
               <circle
                 cx={dot.cx}
                 cy={dot.cy}
-                r={REORDER_DOT_VISUAL_RADIUS_PX}
+                r={Math.min(REORDER_DOT_VISUAL_RADIUS_PX, dot.hitRadius)}
                 fill="none"
                 stroke={REARRANGE_COLOR}
                 strokeWidth={2.5}
               />
             )}
-            {/* Transparent hit target drives dot-local hover. Pointer-down still
+            {/* The small ring itself arms hover; the grown circle it becomes is
+                then the honest picture of the grabbable area. Pointer-down still
                 routes through the window-level router. */}
             <circle
               cx={dot.cx}
               cy={dot.cy}
-              r={REORDER_DOT_HOVER_RADIUS_PX}
+              r={hovered ? dot.hitRadius : Math.min(REORDER_DOT_VISUAL_RADIUS_PX, dot.hitRadius)}
               fill="transparent"
               style={{ pointerEvents: 'all' }}
               onPointerEnter={() => setHoveredDotId(dot.id)}

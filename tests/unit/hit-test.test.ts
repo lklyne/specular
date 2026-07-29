@@ -433,8 +433,8 @@ describe('hit-test — drawing over a page wins by normal z-order (issue #123)',
 
 describe('hit-test — auto-layout reorder dots (ADR 0015)', () => {
   // Managed-row group g1 with two text children c1, c2. Child c1 at screen
-  // (220,220) 100×40 → center (270,240); reorder hit square is 28px centered →
-  // x ∈ [256,284], y ∈ [226,254].
+  // (220,220) 100×40 → center (270,240); reorder hit square is 14px centered →
+  // x ∈ [263,277], y ∈ [233,247].
   const managedGroup = (entityIds: string[]): CanvasSceneGroupEntity => ({
     ...group('g1', 200, 200, 600, 200),
     layoutMode: 'row',
@@ -472,6 +472,27 @@ describe('hit-test — auto-layout reorder dots (ADR 0015)', () => {
       center,
     )
     expect(result.payload.kind).not.toBe('reorder-handle')
+  })
+
+  it('the reorder square shrinks with the child so a zoomed-out body stays draggable', () => {
+    // Zoomed way out: c1 is 20×8 on screen. A fixed 28px handle would swallow
+    // the whole child, making group-drag unreachable; the capped one leaves the
+    // body grabbable 3px off center.
+    const tiny = { ...text('c1', 220, 220, 20, 8), canvasX: 220, canvasY: 220 }
+    const tiny2 = { ...text('c2', 260, 220, 20, 8), canvasX: 260, canvasY: 220 }
+    const scene = [managedGroup(['c1', 'c2']), tiny, tiny2]
+    const groupSelected = {
+      entities: scene,
+      edges: [],
+      selectedEntityIds: [],
+      selectedGroupId: 'g1',
+      zoom: 1,
+    }
+    expect(hitTest(groupSelected, { x: 230, y: 224 }).layer).toBe('reorder-handle')
+    // 8px tall → hit square is 8*0.4 = 3.2px, so ±3px off center is body.
+    const offCenter = hitTest(groupSelected, { x: 233, y: 224 })
+    expect(offCenter.payload.kind).not.toBe('reorder-handle')
+    expect(offCenter.payload).toMatchObject({ entityId: 'c1' })
   })
 
   it('child resize handle still wins over the reorder dot at the corner', () => {
