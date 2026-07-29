@@ -430,7 +430,25 @@ function sanitizeTabName(name: string): string {
   return name.replace(/[/\\:*?"<>|]/g, '_').trim() || 'Untitled'
 }
 
+/**
+ * A tab's `.canvas` file. The id suffix is what makes the path unique — two
+ * tabs sharing a name would otherwise share one file, so saving, renaming, or
+ * deleting either one would clobber the other.
+ */
 export function canvasFilePath(
+  userDataPath: string,
+  workspaceId: string,
+  tab: { id: string; name: string },
+): string {
+  const suffix = tab.id.replace(/^tab_/, '').slice(0, 4)
+  return join(
+    workspaceDir(userDataPath, workspaceId),
+    `${sanitizeTabName(tab.name)}-${suffix}.canvas`,
+  )
+}
+
+/** Pre-id-suffix filename. Read-only — kept so existing workspaces load. */
+function legacyCanvasFilePath(
   userDataPath: string,
   workspaceId: string,
   tabName: string,
@@ -462,7 +480,7 @@ export function writeTabAsCanvasFile(
   tab: PersistedWorkspaceTab,
 ): void {
   const doc = serializeToJsonCanvas(tab.snapshot, tab.annotations)
-  const filePath = canvasFilePath(userDataPath, workspaceId, tab.name)
+  const filePath = canvasFilePath(userDataPath, workspaceId, tab)
   writeCanvasFileSync(filePath, doc)
 }
 
@@ -545,9 +563,19 @@ export function loadWorkspaceFromCanvasFiles(
   if (!meta || !meta.tabs.length) return null
 
   const tabs: PersistedWorkspaceTab[] = []
+  const legacyPaths = new Set<string>()
   for (const tabMeta of meta.tabs) {
-    const filePath = canvasFilePath(userDataPath, workspaceId, tabMeta.name)
-    const doc = readCanvasFile(filePath)
+    const filePath = canvasFilePath(userDataPath, workspaceId, tabMeta)
+    let doc = readCanvasFile(filePath)
+    if (!doc) {
+      // Workspace written before filenames carried an id. Read the old file and
+      // retire it, so the next autosave doesn't leave a stale twin on disk.
+      // Retired after the loop, not here: same-named tabs share one legacy file
+      // and every one of them still has to read it.
+      const legacyPath = legacyCanvasFilePath(userDataPath, workspaceId, tabMeta.name)
+      doc = readCanvasFile(legacyPath)
+      if (doc) legacyPaths.add(legacyPath)
+    }
     if (!doc) continue
     const { snapshot, annotations } = deserializeFromJsonCanvas(doc)
     // Populate legacy pages array from entities for backward compat
@@ -563,6 +591,14 @@ export function loadWorkspaceFromCanvasFiles(
   }
 
   if (!tabs.length) return null
+
+  for (const legacyPath of legacyPaths) {
+    try {
+      unlinkSync(legacyPath)
+    } catch {
+      // Ignore — the suffixed files are authoritative from here on
+    }
+  }
 
   return {
     id: workspaceId,
@@ -580,9 +616,9 @@ export function loadWorkspaceFromCanvasFiles(
 export function deleteCanvasFile(
   userDataPath: string,
   workspaceId: string,
-  tabName: string,
+  tab: { id: string; name: string },
 ): void {
-  const filePath = canvasFilePath(userDataPath, workspaceId, tabName)
+  const filePath = canvasFilePath(userDataPath, workspaceId, tab)
   try {
     if (existsSync(filePath)) unlinkSync(filePath)
   } catch {

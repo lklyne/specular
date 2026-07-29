@@ -38,7 +38,6 @@ import { getActiveDoc } from '../../src/main/runtime/workspace-doc'
 import { getActiveUndoManager, undo } from '../../src/main/runtime/workspace-undo'
 import {
   DEFAULT_WORKSPACE_ID,
-  canvasFilePath,
   readCanvasFile,
 } from '../../src/main/runtime/workspace-persistence'
 import type { PersistedWorkspaceTab } from '../../src/shared/types'
@@ -52,12 +51,12 @@ function newBackgroundTab(name: string): PersistedWorkspaceTab {
   return workspaceTabs.find((tab) => tab.id === created.id)!
 }
 
-function tabFilePath(name: string): string {
-  return canvasFilePath(harness.userDataPath, DEFAULT_WORKSPACE_ID, name)
+function tabFilePath(tab: string | PersistedWorkspaceTab): string {
+  return harness.diskPath(tab)
 }
 
-function textsOnDisk(name: string): string[] {
-  const doc = readCanvasFile(tabFilePath(name))
+function textsOnDisk(tab: string | PersistedWorkspaceTab): string[] {
+  const doc = readCanvasFile(tabFilePath(tab))
   return nodeTexts(doc)
 }
 
@@ -140,7 +139,7 @@ describe('background-tab writes', () => {
     expect(textEntities.some((entity) => entity.id === userEntity.id)).toBe(false)
     // ...and the agent's write is untouched by it.
     expect(snapshotTexts(scratch)).toEqual(['agent note'])
-    expect(textsOnDisk('scratch')).toEqual(['agent note'])
+    expect(textsOnDisk(scratch)).toEqual(['agent note'])
   })
 
   it('writes the whole batch as one transaction in the detached doc', () => {
