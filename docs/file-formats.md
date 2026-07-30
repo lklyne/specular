@@ -73,9 +73,11 @@ by other tools. Specular adds:
 
 **On link nodes:**
 - `presetIndex` — viewport preset (device catalog index)
-- `linked` — whether this page is linked to others for sync
+- `syncId` — sync-set membership; pages sharing a `syncId` navigate in lockstep (see ADR 0027)
+- `colorScheme` — forced color scheme for the page's webview (`'light' | 'dark'`)
 - `label` — display name
 - `parentGroupId` — group membership
+- `pageAnchor` — canvas entities anchored to this page reference it here (see ADR 0031)
 - `metadata` — open-ended key-value store
 
 **On file nodes:**
@@ -174,7 +176,13 @@ and no longer writes it.
 
 ### Annotations (extension)
 
-Freehand drawings/annotations stored in an `annotations` array:
+Comment threads stored in an `annotations` array. Each annotation has an
+`anchor` (where it is attached), an optional `pageAnchor` (which page it
+belongs to when page-bound), and the thread content (`author`, `text`,
+`status`, `replies`, etc.).
+
+Freehand drawings are **not** stored here — they are `type: "drawing"` nodes
+in the `nodes` array (see §Nodes above).
 
 ```json
 {
@@ -183,12 +191,11 @@ Freehand drawings/annotations stored in an `annotations` array:
   "annotations": [
     {
       "id": "ann1",
-      "canvasX": 100,
-      "canvasY": 200,
-      "width": 300,
-      "height": 150,
-      "strokes": [...],
-      "color": "#ff0000"
+      "anchor": { "type": "canvas", "canvasX": 100, "canvasY": 200 },
+      "author": "user",
+      "text": "Looks good",
+      "status": "open",
+      "replies": []
     }
   ]
 }

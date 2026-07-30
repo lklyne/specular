@@ -128,16 +128,6 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 - Files must be diffable, versionable, and editable by agents and other tools
 - No proprietary blobs, no server dependencies for core data
 
-## View modes
-
-Browser and Canvas are different views of the same data:
-
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between pages
-
-Both operate on the same underlying .canvas data and share primitives.
-Maximize overlap between modes.
-
 ## Code principles
 
 Build toward small, obvious pieces.
@@ -168,9 +158,7 @@ primitives and tools, not dedicated workflow features:
 
 ## Agent integration
 
-Agent interaction is moving to a CLI for better context management.
-Agents can also read and write .canvas files directly — they are just JSON.
-The HTTP API (src/main/routes/) remains available for runtime interaction.
+Agents interact with the canvas via the `specular` CLI (primary) or the HTTP API (src/main/routes/) as a fallback. Agents can also read and write .canvas files directly — they are just JSON.
 
 ## Testing patterns
 

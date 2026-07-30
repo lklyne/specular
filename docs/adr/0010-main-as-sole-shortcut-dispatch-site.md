@@ -1,6 +1,6 @@
 # ADR 0010 — Main is the sole shortcut dispatch site
 
-**Status:** Proposed
+**Status:** Implemented — `src/main/runtime/binding-dispatcher.ts`, `binding-handlers.ts`, and `src/shared/bindings.ts` ship the full pattern. `keyboard-shortcuts.ts`, renderer shortcut hooks (`useAnnotateToggleShortcut`, `useAnnotationOverlayShortcuts`, `useCanvasGlobalShortcuts` shortcut branches), and the `wireKeyboardShortcuts` setter are all deleted.
 **Date:** 2026-05-12
 **Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). ADR 0005 §"Decision" identified keyboard shortcuts as the follow-up enabled by unifying `Tool` but left out of that ADR. This is that follow-up.
 **Companion to:** [ADR 0011 — Page focus respects native shortcuts](./0011-page-focus-respects-native-shortcuts.md). See [`docs/plans/keyboard-binding-registry.md`](../plans/keyboard-binding-registry.md) for the implementation plan.

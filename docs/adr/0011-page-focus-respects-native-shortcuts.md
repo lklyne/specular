@@ -1,6 +1,6 @@
 # ADR 0011 — Page focus respects native shortcuts
 
-**Status:** Proposed
+**Status:** Implemented — `firesFromPageFocus: true` is set on `escape-page-focus`, `reset-viewport`, `escape-tool`, `restore-focus-camera`, and `new-frame` bindings in `src/shared/bindings.ts`; `dispatchKey()` guards all other bindings when page focus is active.
 **Date:** 2026-05-12
 **Refines:** [ADR 0001 — Click to enter frame focus](./0001-click-to-enter-frame-focus.md). ADR 0001 established the page-focus mode where the focused page receives native pointer input; this ADR extends the same trust to keyboard input.
 **Companion to:** [ADR 0010 — Main is the sole shortcut dispatch site](./0010-main-as-sole-shortcut-dispatch-site.md). See [`docs/plans/keyboard-binding-registry.md`](../plans/keyboard-binding-registry.md) for the implementation plan.

@@ -1,6 +1,6 @@
 # ADR 0009 — Tool variants live in popup state, not in the `Tool` union
 
-**Status:** Accepted (landed alongside ADR 0008 step 6)
+**Status:** Accepted (landed alongside ADR 0008 step 6). Further refined by [ADR 0013](./0013-popup-menus-v2.md): `add-text.style` (the deliberate exception noted below) was subsequently removed — `add-text` now carries no style variant, and `add-sticky` became a separate top-level tool kind. `region-select` was removed by [ADR 0006](./0006-unified-comment-tool.md) before this ADR landed. See ADR 0005's status note for the current union.
 **Date:** 2026-05-10
 **Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0008](./0008-unified-canvas-item-popup.md)). `add-text` is a deliberate exception.
 **Companion to:** [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md).

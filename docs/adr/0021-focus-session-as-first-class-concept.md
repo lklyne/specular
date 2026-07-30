@@ -42,12 +42,13 @@ it is not itself a gesture (per §5.6, modes are expensive; this is session
 state, not a transition edge).
 
 1. **Unify the state.** One `FocusSession` object owns `{ pageId, mode,
-   returnCamera }`, captured when the session begins. The two old variables are
+   annotationsVisible }`, captured when the session begins. (The original design
+   also included `returnCamera`, but the Amendment below replaced that with
+   `annotationsVisible` — the return camera is managed by `viewport-control.ts`
+   independently and not stored on the session.) The two old variables are
    deleted. A session always carries a return camera, so the presence of a
    session *is* the "is this restorable" test — `hasFocusReturnCamera()` is just
-   `isFocusSessionActive()`. (A return-point-less session — e.g. one entered via
-   reset-viewport — was considered and dropped: nothing creates one today, so
-   the nullability was speculative. Add it back the day a producer needs it.)
+   `isFocusSessionActive()`.
 
 2. **One writer, enumerated exits.** Every exit funnels through
    `endFocusSession(reason)`. The reasons are a closed set:

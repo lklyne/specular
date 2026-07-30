@@ -1,6 +1,22 @@
 # ADR 0005 — Unified `Tool` concept
 
-**Status:** Accepted — refined by [ADR 0009](./0009-tool-variants-in-popup-state.md) (variants `shapeKind` and the implicit brush state move out of the union into popup-managed tool defaults; `add-text` style remains in the union).
+**Status:** Accepted — refined by [ADR 0009](./0009-tool-variants-in-popup-state.md) (variants `shapeKind` and the implicit brush state move out of the union into popup-managed tool defaults; `add-text` style remains in the union) and further by [ADR 0013](./0013-popup-menus-v2.md) (`add-text.style` removed; `add-sticky` added as a first-class tool; `add-document` added; `region-select` removed in favour of `comment`'s marquee mode per [ADR 0006](./0006-unified-comment-tool.md); `hand` added for pan tool).
+
+**Current union (as of ADR 0013):**
+```ts
+type Tool =
+  | { kind: 'select' }
+  | { kind: 'hand' }
+  | { kind: 'add-page' }
+  | { kind: 'add-text' }
+  | { kind: 'add-document' }
+  | { kind: 'add-sticky' }
+  | { kind: 'add-shape' }
+  | { kind: 'comment' }
+  | { kind: 'draw' }
+  | { kind: 'inspect' }
+```
+See `src/shared/tool.ts` for the authoritative definition.
 **Implementation:** Landed. `src/shared/tool.ts` defines the `Tool` union and `toolDuration` table; `UiState.activeTool` is the single source of truth; the toolbar/canvas-bg/right-details preload bridges expose one `setTool(tool)` method (IPC channel `toolbar-set-tool`); `tool-changed` is layered onto the existing `toolbar-selection-changed` and `layout-update` broadcasts via `ToolbarSelectionData.activeTool` and `LayoutUpdateData.activeTool`. The three legacy state machines (`pendingPlacement`, `AnnotationMode`, the `inspect` boolean) and their IPC families are gone. `add-page` carries `presetIndex` / `customSize` / `sourceFrameId` on the variant — a small departure from the ADR's illustrative shape, kept so the existing preset-picker UX survives without re-introducing a parallel state machine. Unit tests cover one-shot auto-revert, persistent stay-active, Escape-to-select, and the gerund mapping for every kind.
 **Date:** 2026-05-08
 **Supersedes premise of:** the three parallel state machines for `pendingPlacement`, `AnnotationMode` (`'off' | 'comment' | 'draw' | 'region_select'`), and the standalone `inspect` boolean. Also retires the term "annotation mode" as a name for runtime state.
