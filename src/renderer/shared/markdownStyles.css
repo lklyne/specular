@@ -1,13 +1,11 @@
 /* Shared styles for rendered markdown bodies (react-markdown output).
-   Used by sticky notes and file-entity markdown renderers in the
-   above-view overlay.
+   Used by the .md file-entity renderer. Sticky/text entities do not use
+   this — they render through MarkdownEditor in both view and edit mode so
+   the two modes can't disagree on metrics.
 
    Heading/spacing metrics here MUST stay in sync with MARKDOWN_TOKENS in
    src/renderer/canvas-bg/entity-renderers/markdown-codemirror.ts so the
-   view↔edit transition doesn't reflow text. line-height is NOT a shared
-   token: text/sticky bodies set it inline (size-scaled — see
-   lineHeightForTextSize), so the 1.5 below is only the fallback for the
-   fixed-size .md file renderer. */
+   .md renderer's view↔edit transition doesn't reflow text. */
 
 .text-block-markdown {
   line-height: 1.5;

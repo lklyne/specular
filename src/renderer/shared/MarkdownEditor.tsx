@@ -13,8 +13,17 @@ import { autofocusEditorSelection } from '../../shared/editor-selection'
  * markdown (heading sizes, bold, links) so edit and view modes share the
  * same visual metrics — see MARKDOWN_TOKENS in markdown-codemirror.ts.
  *
- * The host stops mousedown propagation so the canvas pointer router
- * doesn't treat clicks inside the editor as canvas drags.
+ * `readOnly` renders the same view non-editable, so a text body can be
+ * displayed by this component in both view and edit mode. That is the point:
+ * a second renderer for view mode (react-markdown) can't reproduce the
+ * source's literal line breaks, so mode swaps reflow. Read-only mode also
+ * leaves pointer events alone so the canvas router still gets the drag.
+ *
+ * While editable the host stops mousedown propagation so the canvas pointer
+ * router doesn't treat clicks inside the editor as canvas drags.
+ *
+ * `readOnly` is read at mount only — give the element a `key` that changes
+ * with the mode so it remounts.
  */
 export function MarkdownEditor({
   value,
@@ -29,6 +38,7 @@ export function MarkdownEditor({
   style,
   lineWrap = true,
   selectAllOnAutoFocus = false,
+  readOnly = false,
 }: {
   value: string
   onChange: (value: string) => void
@@ -45,6 +55,8 @@ export function MarkdownEditor({
   lineWrap?: boolean
   /** Select the full value when auto-focusing; intended for short text nodes. */
   selectAllOnAutoFocus?: boolean
+  /** Display the value without a caret, focus, or text selection. */
+  readOnly?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   useMarkdownEditor({
@@ -59,14 +71,15 @@ export function MarkdownEditor({
     placeholder,
     lineWrap,
     selectAllOnAutoFocus,
+    readOnly,
   })
 
   return (
     <div
       ref={containerRef}
       className={className}
-      style={style}
-      onPointerDown={(e) => e.stopPropagation()}
+      style={readOnly ? { ...style, userSelect: 'none' } : style}
+      onPointerDown={readOnly ? undefined : (e) => e.stopPropagation()}
     />
   )
 }
@@ -83,6 +96,7 @@ interface MarkdownEditorRuntimeOptions {
   placeholder?: string
   lineWrap: boolean
   selectAllOnAutoFocus: boolean
+  readOnly: boolean
 }
 
 function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
@@ -98,6 +112,7 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
     placeholder,
     lineWrap,
     selectAllOnAutoFocus,
+    readOnly,
   } = options
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
@@ -119,7 +134,11 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
     const { extensions, themeCompartment } = createMarkdownExtensions(isDark, { lineWrap })
     themeCompartmentRef.current = themeCompartment
 
-    const editorExtensions: Extension[] = [
+    const editorExtensions: Extension[] = readOnly ? [
+      ...extensions,
+      EditorView.editable.of(false),
+      EditorState.readOnly.of(true),
+    ] : [
       ...extensions,
       EditorView.updateListener.of((update) => {
         if (!update.docChanged) return
@@ -161,6 +180,7 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
       }),
     ]
     if (placeholder) editorExtensions.push(placeholderExtension(placeholder))
+    // `readOnly` above is captured at mount; the hook has no deps by design.
 
     const view = new EditorView({
       state: EditorState.create({

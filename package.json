@@ -47,6 +47,7 @@
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.42.1",
+    "@lezer/common": "^1.5.2",
     "@lezer/highlight": "^1.2.3",
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@sentry/electron": "^5.11.0",

@@ -1,10 +1,12 @@
 import { Annotation, Compartment, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
-import { markdown } from '@codemirror/lang-markdown'
+import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
 import { smartPasteExtension } from './markdown-smart-paste'
+import { markdownLivePreview } from './markdown-live-preview'
+import { markdownFormattingKeymap } from './markdown-commands'
 
 export const externalUpdate = Annotation.define<boolean>()
 
@@ -38,6 +40,8 @@ const markdownHighlightStyle = HighlightStyle.define([
     tag: t.monospace,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   },
+  // Markup punctuation is collapsed entirely by markdownLivePreview except on
+  // the cursor's line; these opacities are how it looks when revealed there.
   { tag: t.processingInstruction, opacity: '0.45' },
   { tag: t.contentSeparator, opacity: '0.45' },
   { tag: t.quote, fontStyle: 'italic' },
@@ -92,9 +96,18 @@ export function createMarkdownExtensions(
     // in main, not by per-editor CodeMirror history. Cmd+Z falls through
     // to the canvas keyboard handler so text and canvas edits share one
     // unified undo stack.
+    // Cmd+B / Cmd+I / Cmd+K etc.
+    keymap.of(markdownFormattingKeymap),
+    // Enter continues the current list/quote markup, Backspace peels one level
+    // off. Bound here rather than via markdown()'s `addKeymap` so it outranks
+    // defaultKeymap's plain-newline Enter.
+    keymap.of(markdownKeymap),
     keymap.of(defaultKeymap),
-    markdown(),
+    // GFM base, so strikethrough and task lists parse — the highlight style
+    // and live preview below both style them.
+    markdown({ base: markdownLanguage, addKeymap: false }),
     syntaxHighlighting(markdownHighlightStyle),
+    markdownLivePreview(),
     smartPasteExtension(),
   ]
   // When wrap is off (auto-width plain text), the editor's container shrinks

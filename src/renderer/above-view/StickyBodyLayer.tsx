@@ -8,6 +8,10 @@
  * DOM events, and works because the cards mount inside aboveView's WCV
  * which already holds keyboard focus during edit.
  *
+ * Both view and edit mode render through the same `MarkdownEditor`
+ * (read-only when not editing), so the two modes share one set of padding
+ * and line boxes and the mode swap can't reflow the text.
+ *
  * Plain text in `widthMode: 'auto'` hugs its content. The shell has no fixed
  * width/height; instead a ResizeObserver measures the rendered card and
  * pushes the size back to main via `onUpdateSize`, which keeps the stored
@@ -21,12 +25,10 @@
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
-import Markdown from 'react-markdown'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
-import { remarkLineBreaks } from '../shared/remark-line-breaks'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
 import { lineHeightForTextSize } from './TextSizeDropdown'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
@@ -55,10 +57,8 @@ function stickyShellStyle({
       // The containing viewport layer holds only absolutely-positioned
       // children, so its intrinsic width is 0. Without an explicit
       // `width`, our absolute shell's shrink-to-fit collapses to
-      // `min-content` (longest word) once view mode swaps CodeMirror's
-      // `white-space: pre` content for a wrapping `<p>`. `max-content`
-      // pins the shell to the unwrapped line width, matching what the
-      // editor showed.
+      // `min-content` (longest word). `max-content` pins the shell to the
+      // unwrapped line width of CodeMirror's `white-space: pre` content.
       width: 'max-content',
       minWidth: PLAIN_MIN_WIDTH,
       minHeight: PLAIN_MIN_HEIGHT,
@@ -204,37 +204,36 @@ function StickyContent({ note, isDark, canEdit, isPlain, isAuto, localText, onCh
   onChange: (value: string) => void
   onCommit: () => void
 }) {
-  const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
-  const color = isPlain && isDark ? '#e7e5e4' : '#1c1917'
   const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
-  const textStyle: React.CSSProperties = {
-    fontSize,
-    lineHeight: lineHeightForTextSize(fontSize),
-    color,
-    fontFamily: 'system-ui, sans-serif',
-  }
   const columnStyle: React.CSSProperties = isPlain && isAuto
     ? { display: 'flex', flexDirection: 'column' }
     : { width: note.width, height: note.height, display: 'flex', flexDirection: 'column' }
   return <div style={columnStyle}>
     {!isPlain && <StickyDragStrip />}
-    {canEdit
-      ? <StickyEditor
-          value={localText}
-          onChange={onChange}
-          onCommit={onCommit}
-          isDark={isPlain && isDark}
-          isPlain={isPlain}
-          isAuto={isAuto}
-          placeholder={placeholder}
-          textStyle={textStyle}
-        />
-      : <StickyMarkdown
-          value={localText}
-          isPlain={isPlain}
-          placeholder={placeholder}
-          textStyle={textStyle}
-        />}
+    {/* One renderer for both modes: same padding, same line boxes, so
+        entering and leaving edit mode can't reflow the text. `key` forces
+        the remount MarkdownEditor's mount-time `readOnly` needs. */}
+    <MarkdownEditor
+      key={canEdit ? 'edit' : 'view'}
+      readOnly={!canEdit}
+      value={localText}
+      onChange={onChange}
+      onBlur={onCommit}
+      onEscape={onCommit}
+      isDark={isPlain && isDark}
+      autoFocus={canEdit}
+      selectAllOnAutoFocus
+      placeholder={isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'}
+      className={isPlain ? 'w-full pl-0 pr-2 py-0' : 'flex-1 w-full overflow-hidden px-2 pb-2'}
+      style={{
+        fontSize,
+        lineHeight: lineHeightForTextSize(fontSize),
+        color: isPlain && isDark ? '#e7e5e4' : '#1c1917',
+        fontFamily: 'system-ui, sans-serif',
+        boxSizing: 'border-box',
+      }}
+      lineWrap={!isAuto}
+    />
   </div>
 }
 
@@ -242,43 +241,6 @@ function StickyDragStrip() {
   return <div style={{ minHeight: 8, cursor: 'grab' }} onPointerDown={(event) => {
     if (event.button === 0) event.stopPropagation()
   }} />
-}
-
-function StickyEditor({ value, onChange, onCommit, isDark, isPlain, isAuto, placeholder, textStyle }: {
-  value: string
-  onChange: (value: string) => void
-  onCommit: () => void
-  isDark: boolean
-  isPlain: boolean
-  isAuto: boolean
-  placeholder: string
-  textStyle: React.CSSProperties
-}) {
-  return <MarkdownEditor
-    value={value}
-    onChange={onChange}
-    onBlur={onCommit}
-    onEscape={onCommit}
-    isDark={isDark}
-    autoFocus
-    selectAllOnAutoFocus
-    placeholder={placeholder}
-    className={isPlain ? 'w-full pl-0 pr-2 py-0' : 'flex-1 w-full px-2.5 pb-2'}
-    style={{ ...textStyle, boxSizing: 'border-box', paddingTop: isPlain ? 0 : '0.3em' }}
-    lineWrap={!isAuto}
-  />
-}
-
-function StickyMarkdown({ value, isPlain, placeholder, textStyle }: {
-  value: string
-  isPlain: boolean
-  placeholder: string
-  textStyle: React.CSSProperties
-}) {
-  return <div
-    className={isPlain ? 'select-none text-block-markdown pr-2' : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'}
-    style={{ ...textStyle, wordBreak: 'break-word' }}
-  >{value ? <Markdown remarkPlugins={[remarkLineBreaks]}>{value}</Markdown> : <span>{placeholder}</span>}</div>
 }
 
 const MemoStickyCard = memo(StickyCard, (prev, next) => {
