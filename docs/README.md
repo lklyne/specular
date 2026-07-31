@@ -37,6 +37,7 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [0030 — Interaction sync is semantic, not positional](adr/0030-interaction-sync-is-semantic-not-positional.md) — synced page interaction resolves semantic locator bundles on each peer.
 - [0031 — Page-anchored entities (the "hook to a page" utility)](adr/0031-page-anchored-entities.md) — generalizes URL-gated page-anchoring into a reusable utility for content tied to a page.
 - [0032 — Element attachment](adr/0032-element-attachment.md) — page-anchored items render corrected by a derived live DOM-element reference so ink survives reflow.
+- [0033 — The space folder is user-chosen, and one space is open per window](adr/0033-user-chosen-space-folder.md) — **Proposed** — replaces the hard-coded `userData/workspaces/default/` with a folder the user picks in onboarding/Settings; migration and missing-folder cases prompt rather than guess.
 
 ## Docs
 
