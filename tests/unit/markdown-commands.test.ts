@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EditorState, type StateCommand, type Transaction } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { markdownCommandsForTest } from '../../src/renderer/canvas-bg/entity-renderers/markdown-commands'
+import { markdownCommandsForTest } from '../../src/renderer/shared/markdown/markdown-commands'
 
 const { toggleWrap, insertLink } = markdownCommandsForTest
 

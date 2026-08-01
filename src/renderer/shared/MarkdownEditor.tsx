@@ -5,7 +5,7 @@ import {
   createMarkdownExtensions,
   externalUpdate,
   reconfigureTheme,
-} from '../canvas-bg/entity-renderers/markdown-codemirror'
+} from './markdown/markdown-codemirror'
 import { autofocusEditorSelection } from '../../shared/editor-selection'
 
 /**

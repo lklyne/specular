@@ -5,7 +5,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import {
   buildLinkMarks,
   buildMarkdownDecorations,
-} from '../../src/renderer/canvas-bg/entity-renderers/markdown-live-preview'
+} from '../../src/renderer/shared/markdown/markdown-live-preview'
 
 /** What the reader sees: source minus every collapsed range. */
 function visibleText(doc: string, editable: boolean, cursor?: number): string {

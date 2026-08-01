@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   detectSmartPaste,
   wrapInFence,
-} from '../../src/renderer/canvas-bg/entity-renderers/markdown-smart-paste'
+} from '../../src/renderer/shared/markdown/markdown-smart-paste'
 
 function mockPasteData(types: string[], data: Record<string, string>) {
   return {
