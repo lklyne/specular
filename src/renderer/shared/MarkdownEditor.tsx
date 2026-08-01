@@ -3,6 +3,7 @@ import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, placeholder as placeholderExtension } from '@codemirror/view'
 import {
   createMarkdownExtensions,
+  createStickyTextExtensions,
   externalUpdate,
   reconfigureTheme,
 } from './markdown/markdown-codemirror'
@@ -40,6 +41,9 @@ export function MarkdownEditor({
   lineWrap = true,
   selectAllOnAutoFocus = false,
   readOnly = false,
+  variant = 'markdown',
+  onViewReady,
+  onSelectionChange,
 }: {
   value: string
   onChange: (value: string) => void
@@ -60,6 +64,17 @@ export function MarkdownEditor({
   selectAllOnAutoFocus?: boolean
   /** Display the value without a caret, focus, or text selection. */
   readOnly?: boolean
+  /** Which CodeMirror extension stack to mount. Read at mount only, like
+   *  `readOnly` — give the element a `key` that changes with the variant so
+   *  it remounts. Defaults to the full markdown stack. */
+  variant?: 'markdown' | 'sticky'
+  /** Called with the live EditorView right after creation, and with `null`
+   *  in the unmount cleanup before it's destroyed. Lets a host drive
+   *  formatting commands against the view directly. */
+  onViewReady?: (view: EditorView | null) => void
+  /** Called on every selection/doc change with the live EditorState — lets a
+   *  host derive cursor-relative UI (e.g. active formatting state). */
+  onSelectionChange?: (state: EditorState) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   useMarkdownEditor({
@@ -76,6 +91,9 @@ export function MarkdownEditor({
     lineWrap,
     selectAllOnAutoFocus,
     readOnly,
+    variant,
+    onViewReady,
+    onSelectionChange,
   })
   const readOnlyLink = useReadOnlyLinkClicks(readOnly ? onOpenLink : undefined)
 
@@ -155,6 +173,9 @@ interface MarkdownEditorRuntimeOptions {
   lineWrap: boolean
   selectAllOnAutoFocus: boolean
   readOnly: boolean
+  variant: 'markdown' | 'sticky'
+  onViewReady?: (view: EditorView | null) => void
+  onSelectionChange?: (state: EditorState) => void
 }
 
 function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
@@ -172,6 +193,9 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
     lineWrap,
     selectAllOnAutoFocus,
     readOnly,
+    variant,
+    onViewReady,
+    onSelectionChange,
   } = options
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
@@ -182,17 +206,22 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
   const onBlurRef = useRef(onBlur)
   const onEscapeRef = useRef(onEscape)
   const onOpenLinkRef = useRef(onOpenLink)
+  const onSelectionChangeRef = useRef(onSelectionChange)
   onChangeRef.current = onChange
   onFocusRef.current = onFocus
   onBlurRef.current = onBlur
   onEscapeRef.current = onEscape
   onOpenLinkRef.current = onOpenLink
+  onSelectionChangeRef.current = onSelectionChange
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const { extensions, themeCompartment } = createMarkdownExtensions(isDark, { lineWrap })
+    const { extensions, themeCompartment } =
+      variant === 'sticky'
+        ? createStickyTextExtensions(isDark, { lineWrap })
+        : createMarkdownExtensions(isDark, { lineWrap })
     themeCompartmentRef.current = themeCompartment
 
     const editorExtensions: Extension[] = readOnly ? [
@@ -202,6 +231,9 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
     ] : [
       ...extensions,
       EditorView.updateListener.of((update) => {
+        if (update.selectionSet || update.docChanged) {
+          onSelectionChangeRef.current?.(update.state)
+        }
         if (!update.docChanged) return
         if (update.transactions.some((tr) => tr.annotation(externalUpdate))) {
           return
@@ -260,6 +292,7 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
       parent: container,
     })
     viewRef.current = view
+    onViewReady?.(view)
 
     if (autoFocus) {
       view.focus()
@@ -276,6 +309,7 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
         clearTimeout(blurTimerRef.current)
         blurTimerRef.current = null
       }
+      onViewReady?.(null)
       view.destroy()
       viewRef.current = null
       themeCompartmentRef.current = null
