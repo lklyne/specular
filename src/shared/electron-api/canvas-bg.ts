@@ -90,6 +90,8 @@ export interface CanvasBgElectronAPI {
   dropdownClose: () => void
   copySelection: () => void
   pasteSelection: (canvasX: number, canvasY: number) => void
+  /** Open a link found in an entity's text as a page on the canvas. */
+  openEntityLink: (entityId: string, url: string) => void
   deleteSelectedEntities: () => void
   reorderStack: (
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',

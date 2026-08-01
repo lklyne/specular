@@ -7,6 +7,7 @@ import type {
 import {
   CLUSTER_HORIZONTAL_GUTTER,
   CLUSTER_OUTER_MARGIN,
+  DESKTOP_PRESET_INDEX,
   USER_GROUP_PADDING,
   VIEWPORT_PRESETS,
 } from '../shared/constants'
@@ -37,7 +38,13 @@ import {
   groupById,
   groupChildIds,
 } from './workspace-entities'
-import { findDuplicatePlacement } from './workspace-placement'
+import {
+  findDuplicatePlacement,
+  findPlacement,
+  findPlacementBeside,
+} from './workspace-placement'
+import { createEdges } from './workspace-edges'
+import { normalizeUserUrl } from '../shared/url'
 import { reflowManagedGroup } from './managed-layout'
 import { copyableEntityPayload, pasteEntitiesFromClipboard } from './workspace-clipboard'
 
@@ -437,6 +444,84 @@ function tidySelectedPagesInternal(): { pageIds: string[] } {
  * one clone mechanism instead of three (see workspace-clipboard.ts,
  * workspace-groups.ts for the other two entity-graph clone paths).
  */
+/** Trailing-slash-insensitive canonical form for matching page URLs. */
+function canonicalPageUrl(value: string | null | undefined): string | null {
+  if (!value) return null
+  try {
+    return normalizeUserUrl(value).replace(/\/$/, '')
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Open a link found inside an entity's text as a page on the canvas. A page
+ * already showing the URL is revealed instead of duplicated; otherwise a new
+ * page opens beside the source entity, connected to it with an edge so the
+ * note visibly owns its reference.
+ */
+export function openLinkFromEntity(input: {
+  entityId: string
+  url: string
+}): { pageId: string } | null {
+  let url: string
+  try {
+    url = normalizeUserUrl(input.url)
+  } catch {
+    return null
+  }
+  const canonical = canonicalPageUrl(url)
+
+  const existing = pages.find(
+    (page) => canonicalPageUrl(pageCurrentUrl(page.id) ?? page.url) === canonical,
+  )
+  if (existing) {
+    selectPageById(existing.id)
+    const size = pageContentSize(existing)
+    focusCanvasBounds(
+      { x: existing.canvasX, y: existing.canvasY, width: size.width, height: size.height },
+      { animate: true },
+    )
+    return { pageId: existing.id }
+  }
+
+  const preset = VIEWPORT_PRESETS[DESKTOP_PRESET_INDEX]
+  const anchor = entityBoundsById(input.entityId)
+  const placement = anchor
+    ? findPlacementBeside(anchor, preset.width, preset.height)
+    : findPlacement({
+        width: preset.width,
+        height: preset.height,
+        anchor: 'selection_or_empty_region',
+      })
+  const { pageId } = createPageAtPosition({
+    presetIndex: DESKTOP_PRESET_INDEX,
+    canvasX: placement.canvasX,
+    canvasY: placement.canvasY,
+    mode: 'paste_url',
+    focus: true,
+    url,
+  })
+  if (anchor) {
+    createEdges({
+      edges: [
+        {
+          fromEntityId: input.entityId,
+          toEntityId: pageId,
+          fromSide: 'right',
+          toSide: 'left',
+          kind: 'connection',
+        },
+      ],
+    })
+  }
+  focusCanvasBounds(
+    { x: placement.canvasX, y: placement.canvasY, width: preset.width, height: preset.height },
+    { animate: true },
+  )
+  return { pageId }
+}
+
 export function duplicateEntity(input: {
   entityId: string
   focus?: boolean

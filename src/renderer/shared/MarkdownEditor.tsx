@@ -31,6 +31,7 @@ export function MarkdownEditor({
   onFocus,
   onBlur,
   onEscape,
+  onOpenLink,
   isDark,
   autoFocus = false,
   placeholder,
@@ -46,6 +47,8 @@ export function MarkdownEditor({
   onBlur?: () => void
   /** Called when the user presses Escape inside the editor. */
   onEscape?: () => void
+  /** Called with a link's URL: Cmd+click while editing, plain click read-only. */
+  onOpenLink?: (url: string) => void
   isDark: boolean
   autoFocus?: boolean
   placeholder?: string
@@ -66,6 +69,7 @@ export function MarkdownEditor({
     onFocus,
     onBlur,
     onEscape,
+    onOpenLink,
     isDark,
     autoFocus,
     placeholder,
@@ -73,15 +77,68 @@ export function MarkdownEditor({
     selectAllOnAutoFocus,
     readOnly,
   })
+  const readOnlyLink = useReadOnlyLinkClicks(readOnly ? onOpenLink : undefined)
 
   return (
     <div
       ref={containerRef}
       className={className}
       style={readOnly ? { ...style, userSelect: 'none' } : style}
-      onPointerDown={readOnly ? undefined : (e) => e.stopPropagation()}
+      onPointerDown={readOnly ? readOnlyLink.onPointerDown : (e) => e.stopPropagation()}
+      onClick={readOnly ? readOnlyLink.onClick : undefined}
+      onDoubleClick={readOnly ? readOnlyLink.onDoubleClick : undefined}
     />
   )
+}
+
+function linkUrlAtEventTarget(target: EventTarget | null): string | null {
+  if (!(target instanceof Element)) return null
+  return target.closest('[data-md-url]')?.getAttribute('data-md-url') ?? null
+}
+
+/**
+ * Plain click on a link in a read-only editor opens it. The canvas pointer
+ * router still owns the pointerdown (select/drag), so this listens to the
+ * browser's `click` and filters out the two gestures that share its
+ * anatomy: a drag (pointer moved between down and up) and the first click
+ * of a double-click (which means "edit", not "open" — the open is deferred
+ * one double-click window and cancelled by dblclick).
+ */
+function useReadOnlyLinkClicks(onOpenLink: ((url: string) => void) | undefined) {
+  const pressPosRef = useRef<{ x: number; y: number } | null>(null)
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (openTimerRef.current) clearTimeout(openTimerRef.current)
+    },
+    [],
+  )
+
+  return {
+    onPointerDown: (event: React.PointerEvent) => {
+      pressPosRef.current = { x: event.clientX, y: event.clientY }
+    },
+    onClick: (event: React.MouseEvent) => {
+      if (!onOpenLink || event.detail !== 1) return
+      const press = pressPosRef.current
+      if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 4) {
+        return
+      }
+      const url = linkUrlAtEventTarget(event.target)
+      if (!url) return
+      if (openTimerRef.current) clearTimeout(openTimerRef.current)
+      openTimerRef.current = setTimeout(() => {
+        openTimerRef.current = null
+        onOpenLink(url)
+      }, 250)
+    },
+    onDoubleClick: () => {
+      if (openTimerRef.current) {
+        clearTimeout(openTimerRef.current)
+        openTimerRef.current = null
+      }
+    },
+  }
 }
 
 interface MarkdownEditorRuntimeOptions {
@@ -91,6 +148,7 @@ interface MarkdownEditorRuntimeOptions {
   onFocus?: () => void
   onBlur?: () => void
   onEscape?: () => void
+  onOpenLink?: (url: string) => void
   isDark: boolean
   autoFocus: boolean
   placeholder?: string
@@ -107,6 +165,7 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
     onFocus,
     onBlur,
     onEscape,
+    onOpenLink,
     isDark,
     autoFocus,
     placeholder,
@@ -122,10 +181,12 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
   const onFocusRef = useRef(onFocus)
   const onBlurRef = useRef(onBlur)
   const onEscapeRef = useRef(onEscape)
+  const onOpenLinkRef = useRef(onOpenLink)
   onChangeRef.current = onChange
   onFocusRef.current = onFocus
   onBlurRef.current = onBlur
   onEscapeRef.current = onEscape
+  onOpenLinkRef.current = onOpenLink
 
   useEffect(() => {
     const container = containerRef.current
@@ -166,6 +227,15 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
           return false
         },
         mousedown: (event) => {
+          if (event.metaKey && onOpenLinkRef.current) {
+            const url = linkUrlAtEventTarget(event.target)
+            if (url) {
+              event.preventDefault()
+              event.stopPropagation()
+              onOpenLinkRef.current(url)
+              return true
+            }
+          }
           event.stopPropagation()
           return false
         },

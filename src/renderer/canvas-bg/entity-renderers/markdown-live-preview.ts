@@ -23,6 +23,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view'
 import type { SyntaxNodeRef } from '@lezer/common'
+import { looksLikeUrl } from '../../../shared/url'
 
 /** Punctuation that carries no meaning once the syntax highlighter has styled the text. */
 const INLINE_MARKS = new Set([
@@ -209,6 +210,76 @@ export function buildMarkdownDecorations(
   return Decoration.set(decorations, true)
 }
 
+/** The URL a link-ish node points at: its own text for a bare `URL`, the
+ *  `URL` child's text for `Link` / `Autolink`. */
+function linkTargetUrl(node: SyntaxNodeRef, text: string): string | null {
+  if (node.name === 'URL') return text.slice(node.from, node.to)
+  for (let child = node.node.firstChild; child; child = child.nextSibling) {
+    if (child.name === 'URL') return text.slice(child.from, child.to)
+  }
+  return null
+}
+
+/**
+ * `data-md-url` marks over links make the target URL readable from any DOM
+ * event (Cmd+click while editing, plain click read-only) without re-parsing
+ * the document. Kept out of `livePreviewPlugin` because that plugin's
+ * decorations double as atomic ranges — link marks there would make the
+ * cursor skip over link text. Pure over `state` + ranges, like
+ * `buildMarkdownDecorations`, so it's testable without a DOM.
+ */
+export function buildLinkMarks(
+  state: EditorState,
+  ranges: readonly { from: number; to: number }[],
+): DecorationSet {
+  const decorations: Range<Decoration>[] = []
+  const text = state.doc.toString()
+  for (const { from, to } of ranges) {
+    syntaxTree(state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (node.name !== 'Link' && node.name !== 'URL' && node.name !== 'Autolink') {
+          return undefined
+        }
+        // A `URL` inside a Link/Autolink is covered by its parent's mark.
+        if (node.name === 'URL') {
+          const parent = node.node.parent?.name
+          if (parent === 'Link' || parent === 'Image' || parent === 'Autolink') {
+            return undefined
+          }
+        }
+        const url = linkTargetUrl(node, text)
+        // Relative paths and non-http(s) schemes can't become pages.
+        if (url && looksLikeUrl(url)) {
+          decorations.push(
+            Decoration.mark({
+              class: 'cm-md-link',
+              attributes: { 'data-md-url': url },
+            }).range(node.from, node.to),
+          )
+        }
+        return false
+      },
+    })
+  }
+  return Decoration.set(decorations, true)
+}
+
+const linkTargetsPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet
+    constructor(view: EditorView) {
+      this.decorations = buildLinkMarks(view.state, view.visibleRanges)
+    }
+    update(update: ViewUpdate) {
+      if (!update.docChanged && !update.viewportChanged) return
+      this.decorations = buildLinkMarks(update.view.state, update.view.visibleRanges)
+    }
+  },
+  { decorations: (plugin) => plugin.decorations },
+)
+
 const livePreviewPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
@@ -237,6 +308,13 @@ const livePreviewTheme = EditorView.theme({
   },
   '.cm-md-bullet': { opacity: '0.6' },
   '.cm-md-task': { opacity: '0.6' },
+  // Read-only editors (contenteditable off) open links on plain click, so
+  // links advertise themselves; while editing, the caret stays a text cursor
+  // and Cmd+click opens.
+  '.cm-content[contenteditable="false"] .cm-md-link': { cursor: 'pointer' },
+  '.cm-content[contenteditable="false"] .cm-md-link:hover': {
+    textDecoration: 'underline',
+  },
   '.cm-line hr': {
     border: 'none',
     borderTop: '1px solid currentColor',
@@ -248,5 +326,5 @@ const livePreviewTheme = EditorView.theme({
 })
 
 export function markdownLivePreview(): Extension {
-  return [livePreviewPlugin, livePreviewTheme]
+  return [livePreviewPlugin, linkTargetsPlugin, livePreviewTheme]
 }

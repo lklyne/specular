@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { buildMarkdownDecorations } from '../../src/renderer/canvas-bg/entity-renderers/markdown-live-preview'
+import {
+  buildLinkMarks,
+  buildMarkdownDecorations,
+} from '../../src/renderer/canvas-bg/entity-renderers/markdown-live-preview'
 
 /** What the reader sees: source minus every collapsed range. */
 function visibleText(doc: string, editable: boolean, cursor?: number): string {
@@ -59,5 +62,44 @@ describe('markdown live preview', () => {
 
   it('reveals nothing when the editor is not editable, cursor or not', () => {
     expect(visibleText('**one**\n**two**', false, 2)).toBe('one\ntwo')
+  })
+})
+
+/** Every link mark in the doc as (covered text, target URL) pairs. */
+function linkMarks(doc: string): Array<{ text: string; url: string }> {
+  const state = EditorState.create({
+    doc,
+    extensions: [markdown({ base: markdownLanguage })],
+  })
+  const set = buildLinkMarks(state, [{ from: 0, to: doc.length }])
+  const out: Array<{ text: string; url: string }> = []
+  set.between(0, doc.length, (from, to, value) => {
+    out.push({
+      text: doc.slice(from, to),
+      url: String(value.spec.attributes?.['data-md-url']),
+    })
+  })
+  return out
+}
+
+describe('markdown link target marks', () => {
+  it('marks an inline link with its target URL', () => {
+    expect(linkMarks('see [the docs](https://example.com)')).toEqual([
+      { text: '[the docs](https://example.com)', url: 'https://example.com' },
+    ])
+  })
+
+  it('marks a bare autolinked URL with itself', () => {
+    expect(linkMarks('go to https://example.com now')).toEqual([
+      { text: 'https://example.com', url: 'https://example.com' },
+    ])
+  })
+
+  it('emits one mark per link, not a nested one for the URL child', () => {
+    expect(linkMarks('[a](https://a.com) and [b](https://b.com)')).toHaveLength(2)
+  })
+
+  it('ignores targets that cannot become pages (relative paths, other schemes)', () => {
+    expect(linkMarks('see [local](./notes.md) or [mail](mailto:x@y.com)')).toEqual([])
   })
 })
