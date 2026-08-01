@@ -290,7 +290,6 @@ function StackedCanvasItems({
           }
           onContentHeight={onContentHeight}
           onCommitEdit={api.commitEntityEdit}
-          onOpenLink={api.openEntityLink}
         />
       )
     }

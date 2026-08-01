@@ -51,16 +51,14 @@ const markdownHighlightStyle = HighlightStyle.define([
 ])
 
 // Sticky notes only ever render the reduced subset of markdown that stays
-// live — bold/italic/strikethrough/links. No heading sizes, no monospace,
-// no dimmed-punctuation styling: everything else (`#`, `>`, backticks) is
-// literal text `markdownLivePreview(STICKY_LIVE_PREVIEW)` never collapses,
-// so it must read as plain body copy, not styled markup.
+// live — bold/italic/strikethrough. No heading sizes, no monospace, no link
+// colors, no dimmed-punctuation styling: everything else (`#`, `>`,
+// backticks, URLs) is literal text `markdownLivePreview(STICKY_LIVE_PREVIEW)`
+// never collapses, so it must read as plain body copy, not styled markup.
 const stickyHighlightStyle = HighlightStyle.define([
   { tag: t.strong, fontWeight: MARKDOWN_TOKENS.headingWeight },
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strikethrough, textDecoration: 'line-through' },
-  { tag: t.link, textDecoration: 'underline', color: MARKDOWN_TOKENS.linkColor },
-  { tag: t.url, color: MARKDOWN_TOKENS.linkColor },
 ])
 
 function buildEditorTheme(isDark: boolean): Extension {

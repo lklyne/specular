@@ -92,7 +92,6 @@ function StickyCard({
   onUpdateSize,
   onContentHeight,
   onCommitEdit,
-  onOpenLink,
 }: {
   note: CanvasSceneTextEntity
   isDark: boolean
@@ -101,7 +100,6 @@ function StickyCard({
   onUpdateSize: (id: string, width: number, height: number) => void
   onContentHeight: (id: string, height: number) => void
   onCommitEdit: () => void
-  onOpenLink: (id: string, url: string) => void
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -134,7 +132,6 @@ function StickyCard({
         localText={localText}
         onChange={handleTextChange}
         onCommit={commitNow}
-        onOpenLink={(url) => onOpenLink(note.id, url)}
       />
     </EntityShell>
   )
@@ -224,7 +221,7 @@ function useStickyHeight(
   }, [height, note.id, onContentHeight])
 }
 
-function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, localText, onChange, onCommit, onOpenLink }: {
+function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, localText, onChange, onCommit }: {
   note: CanvasSceneTextEntity
   contentRef: React.MutableRefObject<HTMLDivElement | null>
   isDark: boolean
@@ -234,7 +231,6 @@ function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, loc
   localText: string
   onChange: (value: string) => void
   onCommit: () => void
-  onOpenLink: (url: string) => void
 }) {
   const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
   const editorBridge = useEditorBridge(note.id, canEdit)
@@ -257,7 +253,6 @@ function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, loc
       onChange={onChange}
       onBlur={onCommit}
       onEscape={onCommit}
-      onOpenLink={onOpenLink}
       onViewReady={editorBridge.onViewReady}
       onSelectionChange={editorBridge.onSelectionChange}
       isDark={isPlain && isDark}
@@ -309,7 +304,6 @@ export function StickyBodyLayer({
   onUpdateSize,
   onContentHeight,
   onCommitEdit,
-  onOpenLink,
 }: {
   entities: CanvasSceneTextEntity[]
   isDark: boolean
@@ -322,8 +316,6 @@ export function StickyBodyLayer({
   /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */
   onContentHeight: (id: string, height: number) => void
   onCommitEdit: () => void
-  /** Open a link inside a note as a page on the canvas. */
-  onOpenLink: (id: string, url: string) => void
 }) {
   if (!entities.length) return null
   const viewport = (
@@ -342,7 +334,6 @@ export function StickyBodyLayer({
           onUpdateSize={onUpdateSize}
           onContentHeight={onContentHeight}
           onCommitEdit={onCommitEdit}
-          onOpenLink={onOpenLink}
         />
       ))}
     </CanvasViewportLayer>

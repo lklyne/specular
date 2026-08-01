@@ -66,6 +66,9 @@ export interface LivePreviewOptions {
   bullets: boolean
   /** Re-reveal markup on the line holding the cursor while editable. */
   revealOnCursor: boolean
+  /** Mark URLs as click/Cmd+click-openable targets (`data-md-url`). Off
+   *  means links are just text — no color, no pointer, no opening. */
+  linkTargets: boolean
 }
 
 export const FULL_LIVE_PREVIEW: LivePreviewOptions = {
@@ -77,6 +80,7 @@ export const FULL_LIVE_PREVIEW: LivePreviewOptions = {
   linkChrome: true,
   bullets: true,
   revealOnCursor: true,
+  linkTargets: true,
 }
 
 export const STICKY_LIVE_PREVIEW: LivePreviewOptions = {
@@ -88,6 +92,7 @@ export const STICKY_LIVE_PREVIEW: LivePreviewOptions = {
   linkChrome: false,
   bullets: true,
   revealOnCursor: false,
+  linkTargets: false,
 }
 
 const HIDDEN = Decoration.replace({})
@@ -395,5 +400,7 @@ const livePreviewTheme = EditorView.theme({
 })
 
 export function markdownLivePreview(options: LivePreviewOptions = FULL_LIVE_PREVIEW): Extension {
-  return [createLivePreviewPlugin(options), linkTargetsPlugin, livePreviewTheme]
+  const parts: Extension[] = [createLivePreviewPlugin(options), livePreviewTheme]
+  if (options.linkTargets) parts.push(linkTargetsPlugin)
+  return parts
 }
