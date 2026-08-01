@@ -1,7 +1,6 @@
 // ADR 0008 §4 — text selection popup. Plain and sticky count as same kind
 // for color so color edits apply uniformly across both in multi-select.
 
-import { Bold, List, Strikethrough } from 'lucide-react'
 import { slotForStorage } from '../../shared/canvas-colors'
 import { toggleBulletList, toggleWrap } from '../shared/markdown/markdown-commands'
 import {
@@ -13,7 +12,8 @@ import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
-import { useActiveStickyEditor } from './stickyEditorBridge'
+import { EditorFormattingButtons } from './EditorFormattingButtons'
+import { useActiveTextEditor } from './textEditorBridge'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 import type { AnnotateHandler } from './annotationMath'
@@ -24,7 +24,7 @@ const toggleStrikethrough = toggleWrap('~~')
 /**
  * Bold/strikethrough/bullet-list toggles. While a selected sticky is being
  * edited, commands dispatch into its live CodeMirror view (via
- * `stickyEditorBridge`) and reflect the cursor's format. Otherwise they
+ * `textEditorBridge`) and reflect the cursor's format. Otherwise they
  * apply to the whole text of every selected entity, like color and size.
  */
 function FormattingSection({
@@ -36,7 +36,7 @@ function FormattingSection({
   isDark: boolean
   selectedTextEntities: CanvasSceneTextEntity[]
 }) {
-  const activeEditor = useActiveStickyEditor()
+  const activeEditor = useActiveTextEditor()
   const editor =
     selectedTextEntities.length === 1 &&
     activeEditor?.entityId === selectedTextEntities[0].id
@@ -68,43 +68,13 @@ function FormattingSection({
     : () => applyToNotes(toggleWholeNoteBullets)
 
   return (
-    <>
-      {/* Pressing a toggle must not blur the editor — a blur commits the
-          deferred blur handler and exits edit mode before the click's
-          command can run against the live selection. */}
-      <div onMouseDown={(e) => e.preventDefault()}>
-        <CanvasItemPopup.Section>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            active={format.bold}
-            title="Bold"
-            ariaLabel="Bold"
-            onClick={onBold}
-          >
-            <Bold size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            active={format.strikethrough}
-            title="Strikethrough"
-            ariaLabel="Strikethrough"
-            onClick={onStrikethrough}
-          >
-            <Strikethrough size={14} />
-          </CanvasItemPopup.IconButton>
-          <CanvasItemPopup.IconButton
-            isDark={isDark}
-            active={format.bulletList}
-            title="Bullet list"
-            ariaLabel="Bullet list"
-            onClick={onBulletList}
-          >
-            <List size={14} />
-          </CanvasItemPopup.IconButton>
-        </CanvasItemPopup.Section>
-      </div>
-      <CanvasItemPopup.Divider isDark={isDark} />
-    </>
+    <EditorFormattingButtons
+      format={format}
+      isDark={isDark}
+      onBold={onBold}
+      onStrikethrough={onStrikethrough}
+      onBulletList={onBulletList}
+    />
   )
 }
 

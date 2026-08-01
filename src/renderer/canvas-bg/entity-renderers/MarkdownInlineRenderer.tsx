@@ -1,3 +1,5 @@
+import type { EditorState } from '@codemirror/state'
+import type { EditorView } from '@codemirror/view'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { MarkdownEditor } from '../../shared/MarkdownEditor'
 import { useNoteContent } from './useNoteContent'
@@ -8,12 +10,20 @@ export function MarkdownInlineRenderer({
   isDark,
   onTextEditingChange,
   onOpenLink,
+  onViewReady,
+  onSelectionChange,
 }: {
   entity: CanvasSceneFileEntity
   canEdit: boolean
   isDark: boolean
   onTextEditingChange: (active: boolean) => void
   onOpenLink: (id: string, url: string) => void
+  /** Publishes the live CodeMirror view to `textEditorBridge` (above-view)
+   *  while editing, so the .md file popover can render formatting toggles.
+   *  Threaded down from FileBodyLayer — this file lives under canvas-bg/
+   *  and must not import above-view directly. */
+  onViewReady?: (view: EditorView | null) => void
+  onSelectionChange?: (state: EditorState) => void
 }) {
   const { mdContent, localText, handleChange, handleFocus, handleBlur } = useNoteContent(
     entity,
@@ -43,6 +53,8 @@ export function MarkdownInlineRenderer({
         onFocus={handleFocus}
         onBlur={handleBlur}
         onOpenLink={(url) => onOpenLink(entity.id, url)}
+        onViewReady={onViewReady}
+        onSelectionChange={onSelectionChange}
         isDark={isDark}
         autoFocus={canEdit}
         placeholder="Write your note..."

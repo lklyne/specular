@@ -1,20 +1,46 @@
 // ADR 0008 §7 — file selection popup.
 
 import { useEffect, useState } from 'react'
+import { toggleBulletList, toggleWrap } from '../shared/markdown/markdown-commands'
 import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { EditorFormattingButtons } from './EditorFormattingButtons'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { fileDisplayName } from '../canvas-bg/entityConstants'
+import { useActiveTextEditor } from './textEditorBridge'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 import type { AnnotateHandler } from './annotationMath'
+
+const toggleBold = toggleWrap('**')
+const toggleStrikethrough = toggleWrap('~~')
+
+/**
+ * Bold/strikethrough/bullet-list toggles for the single selected .md file,
+ * shown only while it's being edited — a file popup has no whole-note
+ * fallback like StickyNotePopover's, since it doesn't hold the file's
+ * content, only a reference to it.
+ */
+function FormattingSection({ fileId, isDark }: { fileId: string; isDark: boolean }) {
+  const activeEditor = useActiveTextEditor()
+  if (activeEditor?.entityId !== fileId) return null
+  return (
+    <EditorFormattingButtons
+      format={activeEditor.format}
+      isDark={isDark}
+      onBold={() => activeEditor.exec(toggleBold)}
+      onStrikethrough={() => activeEditor.exec(toggleStrikethrough)}
+      onBulletList={() => activeEditor.exec(toggleBulletList)}
+    />
+  )
+}
 
 export function FilePopup({
   api,
   isDark,
   layout,
   selectedFiles,
-  interactionIdle,
+  popupReady,
   onAnnotate,
 }: {
   api: Pick<
@@ -24,12 +50,12 @@ export function FilePopup({
   isDark: boolean
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
-  interactionIdle: boolean
+  popupReady: boolean
   onAnnotate: AnnotateHandler
 }) {
   const count = selectedFiles.length
   const ids = selectedFiles.map((f) => f.id).join('|')
-  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
+  const open = usePopupDelayedKey(ids, popupReady && count > 0)
 
   const [isRenaming, setIsRenaming] = useState(false)
   useEffect(() => {
@@ -71,6 +97,7 @@ export function FilePopup({
               />
             </CanvasItemPopup.Section>
             <CanvasItemPopup.Divider isDark={isDark} />
+            <FormattingSection fileId={single.id} isDark={isDark} />
           </>
         ) : null}
         <CanvasItemPopup.EntityActions

@@ -411,6 +411,17 @@ export default function App({
           (entity) => entity.id === editingEntityId,
         ),
     )
+  // Mirrors textPopupReady: a selected .md file stays editable behind its
+  // popover (FilePopup's FormattingSection) instead of the popover hiding
+  // the moment interaction leaves 'idle'.
+  const filePopupReady =
+    interactionIdle ||
+    Boolean(
+      editingEntityId &&
+        sameKindEntities(sameKindSelection, 'file').some(
+          (entity) => entity.id === editingEntityId,
+        ),
+    )
 
   const marqueePreviewIds = useMemo(() => {
     if (
@@ -993,6 +1004,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     sameKindSelection,
     selectedGroup: selectedGroupEntity,
     textPopupReady,
+    filePopupReady,
     beginSelectionAnnotation,
   }
 

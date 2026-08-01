@@ -19,6 +19,7 @@ import {
 } from '../canvas-bg/entity-renderers/RendererSwitch'
 import { getFileApi } from '../canvas-bg/entity-renderers/filePathToSrc'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
+import { useEditorBridge } from './useEditorBridge'
 
 function FileBodyCard({
   entity,
@@ -41,6 +42,9 @@ function FileBodyCard({
   onOpenLink: (id: string, url: string) => void
 }) {
   const fileApi = getFileApi()
+  // Only markdown's editor calls these; other renderers ignore them
+  // (see RendererSwitch), same as onOpenLink.
+  const editorBridge = useEditorBridge(entity.id, canEdit)
 
   // Bare entities (images, device-framed pages) show no card: transparent
   // background, no shadow, square corners.
@@ -84,6 +88,8 @@ function FileBodyCard({
             isInteractive={isInteractive}
             onTextEditingChange={onTextEditingChange}
             onOpenLink={onOpenLink}
+            onViewReady={editorBridge.onViewReady}
+            onSelectionChange={editorBridge.onSelectionChange}
           />
         </ContextMenu.Trigger>
         <Menu.Portal>

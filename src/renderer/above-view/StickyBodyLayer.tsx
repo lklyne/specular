@@ -24,21 +24,18 @@
  * width/height, wrap on. Stickies are always 'fixed'.
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import type { EditorState, StateCommand } from '@codemirror/state'
-import type { EditorView } from '@codemirror/view'
+import { memo, useEffect, useRef, useState } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
 import { useMeasuredSize } from '../shared/useMeasuredSize'
 import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
-import { selectionFormatState } from '../shared/markdown/markdown-format-state'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
 import { lineHeightForTextSize } from './TextSizeDropdown'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 import { AnchoredEntityOverlayBand } from './PageOverlayBand'
-import { publishStickyEditor } from './stickyEditorBridge'
+import { useEditorBridge } from './useEditorBridge'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
@@ -227,48 +224,6 @@ function useStickyHeight(
   }, [height, note.id, onContentHeight])
 }
 
-/**
- * Publishes the editing sticky's live EditorView + cursor formatting state
- * to `stickyEditorBridge` so StickyNotePopover can render a formatting
- * section and dispatch commands into this exact editor. Only one sticky
- * edits at a time (main-owned `editingEntityId`), so the bridge's single
- * slot is always this hook's own note while `canEdit` is true.
- */
-function useStickyEditorBridge(
-  noteId: string,
-  canEdit: boolean,
-): {
-  onViewReady?: (view: EditorView | null) => void
-  onSelectionChange?: (state: EditorState) => void
-} {
-  const viewRef = useRef<EditorView | null>(null)
-  const exec = useCallback((command: StateCommand) => {
-    const view = viewRef.current
-    if (!view) return
-    command({ state: view.state, dispatch: view.dispatch })
-    view.focus()
-  }, [])
-  const onViewReady = useCallback(
-    (view: EditorView | null) => {
-      viewRef.current = view
-      if (!view) {
-        publishStickyEditor(null)
-        return
-      }
-      publishStickyEditor({ entityId: noteId, format: selectionFormatState(view.state), exec })
-    },
-    [noteId, exec],
-  )
-  const onSelectionChange = useCallback(
-    (state: EditorState) => {
-      publishStickyEditor({ entityId: noteId, format: selectionFormatState(state), exec })
-    },
-    [noteId, exec],
-  )
-  if (!canEdit) return {}
-  return { onViewReady, onSelectionChange }
-}
-
 function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, localText, onChange, onCommit, onOpenLink }: {
   note: CanvasSceneTextEntity
   contentRef: React.MutableRefObject<HTMLDivElement | null>
@@ -282,7 +237,7 @@ function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, loc
   onOpenLink: (url: string) => void
 }) {
   const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
-  const editorBridge = useStickyEditorBridge(note.id, canEdit)
+  const editorBridge = useEditorBridge(note.id, canEdit)
   const columnStyle: React.CSSProperties = isPlain && isAuto
     ? { display: 'flex', flexDirection: 'column' }
     : isPlain
