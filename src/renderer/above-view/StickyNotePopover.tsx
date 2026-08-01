@@ -4,6 +4,11 @@
 import { Bold, List, Strikethrough } from 'lucide-react'
 import { slotForStorage } from '../../shared/canvas-colors'
 import { toggleBulletList, toggleWrap } from '../shared/markdown/markdown-commands'
+import {
+  toggleWholeNoteBullets,
+  toggleWholeNoteWrap,
+  wholeNoteFormatState,
+} from '../shared/markdown/whole-note-format'
 import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
@@ -17,22 +22,51 @@ const toggleBold = toggleWrap('**')
 const toggleStrikethrough = toggleWrap('~~')
 
 /**
- * Bold/strikethrough/bullet-list toggles for the sticky currently being
- * edited. Only rendered while exactly one text entity is selected and it's
- * the one live in `stickyEditorBridge` — otherwise there's no CodeMirror
- * view to dispatch commands into.
+ * Bold/strikethrough/bullet-list toggles. While a selected sticky is being
+ * edited, commands dispatch into its live CodeMirror view (via
+ * `stickyEditorBridge`) and reflect the cursor's format. Otherwise they
+ * apply to the whole text of every selected entity, like color and size.
  */
 function FormattingSection({
+  api,
   isDark,
   selectedTextEntities,
 }: {
+  api: Pick<CanvasBgElectronAPI, 'updateEntity'>
   isDark: boolean
   selectedTextEntities: CanvasSceneTextEntity[]
 }) {
   const activeEditor = useActiveStickyEditor()
-  if (selectedTextEntities.length !== 1) return null
-  if (!activeEditor || activeEditor.entityId !== selectedTextEntities[0].id) return null
-  const { format, exec } = activeEditor
+  const editor =
+    selectedTextEntities.length === 1 &&
+    activeEditor?.entityId === selectedTextEntities[0].id
+      ? activeEditor
+      : null
+
+  const wholeNoteStates = selectedTextEntities.map((e) => wholeNoteFormatState(e.text))
+  const format = editor
+    ? editor.format
+    : {
+        bold: wholeNoteStates.every((s) => s.bold),
+        strikethrough: wholeNoteStates.every((s) => s.strikethrough),
+        bulletList: wholeNoteStates.every((s) => s.bulletList),
+      }
+
+  const applyToNotes = (transform: (text: string) => string) => {
+    for (const e of selectedTextEntities) {
+      api.updateEntity('text', e.id, { text: transform(e.text) })
+    }
+  }
+  const onBold = editor
+    ? () => editor.exec(toggleBold)
+    : () => applyToNotes((text) => toggleWholeNoteWrap(text, '**'))
+  const onStrikethrough = editor
+    ? () => editor.exec(toggleStrikethrough)
+    : () => applyToNotes((text) => toggleWholeNoteWrap(text, '~~'))
+  const onBulletList = editor
+    ? () => editor.exec(toggleBulletList)
+    : () => applyToNotes(toggleWholeNoteBullets)
+
   return (
     <>
       {/* Pressing a toggle must not blur the editor — a blur commits the
@@ -45,7 +79,7 @@ function FormattingSection({
             active={format.bold}
             title="Bold"
             ariaLabel="Bold"
-            onClick={() => exec(toggleBold)}
+            onClick={onBold}
           >
             <Bold size={14} />
           </CanvasItemPopup.IconButton>
@@ -54,7 +88,7 @@ function FormattingSection({
             active={format.strikethrough}
             title="Strikethrough"
             ariaLabel="Strikethrough"
-            onClick={() => exec(toggleStrikethrough)}
+            onClick={onStrikethrough}
           >
             <Strikethrough size={14} />
           </CanvasItemPopup.IconButton>
@@ -63,7 +97,7 @@ function FormattingSection({
             active={format.bulletList}
             title="Bullet list"
             ariaLabel="Bullet list"
-            onClick={() => exec(toggleBulletList)}
+            onClick={onBulletList}
           >
             <List size={14} />
           </CanvasItemPopup.IconButton>
@@ -117,7 +151,6 @@ export function StickyNotePopover({
       offset={POPUP_OFFSET_Y}
     >
       <CanvasItemPopup.Frame isDark={isDark}>
-        <FormattingSection isDark={isDark} selectedTextEntities={selectedTextEntities} />
         <CanvasItemPopup.Section>
           <TextSizeDropdown
             isDark={isDark}
@@ -144,6 +177,7 @@ export function StickyNotePopover({
           }}
         />
         <CanvasItemPopup.Divider isDark={isDark} />
+        <FormattingSection api={api} isDark={isDark} selectedTextEntities={selectedTextEntities} />
         <CanvasItemPopup.EntityActions
           isDark={isDark}
           noun={noun}
