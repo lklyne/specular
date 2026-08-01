@@ -57,6 +57,7 @@ import { EdgePopup } from './EdgePopup'
 import { edgeForPopup } from './edgePopupSelection'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
+import { contentHeightLayout } from './contentHeightPreview'
 import { gapPreviewLayout } from './gapPreview'
 import { GapHandlesLayer } from './GapHandlesLayer'
 import { GroupRenameOverlay } from './GroupRenameLabel'
@@ -198,6 +199,7 @@ function StackedCanvasItems({
   interactiveEntityId,
   ghostEntity,
   hideContext,
+  onContentHeight,
 }: {
   layoutData: LayoutUpdateData
   hoveredEntityId: string | null
@@ -216,6 +218,8 @@ function StackedCanvasItems({
    *  grayscale placeholder (the drop location); the ghost itself renders last at
    *  50% opacity, floating over the settling siblings under the cursor. */
   ghostEntity?: CanvasSceneEntity | null
+  /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */
+  onContentHeight: (id: string, height: number) => void
 }) {
   const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
@@ -278,14 +282,15 @@ function StackedCanvasItems({
           key={`text-${entity.id}`}
           entities={[entity]}
           isDark={isDark}
-          selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
           layoutData={layoutData}
           onUpdateText={(textId, text) => api.updateEntity('text', textId, { text })}
           onUpdateSize={(textId, width, height) =>
             api.updateEntity('text', textId, { width, height })
           }
+          onContentHeight={onContentHeight}
           onCommitEdit={api.commitEntityEdit}
+          onOpenLink={api.openEntityLink}
         />
       )
     }
@@ -425,16 +430,35 @@ export default function App({
   // not reordering.
   const [reorderGhost, setReorderGhost] = useState<ReorderGhostOffset>(null)
 
+  // Measured heights of content-sized entities (stickies), keyed by id. Written
+  // by the body layer as the text lays out, read by `renderLayout` below, and
+  // forwarded to main for persistence and hit-testing.
+  const [contentHeights, setContentHeights] = useState<Map<string, number>>(new Map())
+  const reportContentHeight = useCallback(
+    (id: string, height: number) => {
+      setContentHeights((prev) => {
+        if (prev.get(id) === height) return prev
+        const next = new Map(prev)
+        next.set(id, height)
+        return next
+      })
+      api.updateEntity('text', id, { height })
+    },
+    [api],
+  )
+
   // During a reorder drag the *siblings* render at their previewed slots so the
   // row visibly opens a gap to receive the dragged item (ADR 0015 D7, Phase D).
   // The dragged item's slot stays reserved here but its body is skipped (drawn
   // as the ghost instead), so the reserved slot reads as the open gap. Pure
   // renderer ephemera — the broadcast layout is untouched. Falls back to the
   // broadcast layout when not reordering.
-  const renderLayout = useMemo(
-    () => reorderPreviewLayout(layoutData) ?? gapPreviewLayout(layoutData) ?? layoutData,
-    [layoutData],
-  )
+  const renderLayout = useMemo(() => {
+    const base = reorderPreviewLayout(layoutData) ?? gapPreviewLayout(layoutData) ?? layoutData
+    // Applied last: a measured content height wins over the broadcast value on
+    // that axis, and every layer downstream reads the same rect.
+    return contentHeightLayout(base, contentHeights) ?? base
+  }, [layoutData, contentHeights])
 
   // The dragged entity floated at grab-origin + cursor-delta. Read from the
   // *broadcast* layout (its untouched resting position) — never `renderLayout`,
@@ -1037,6 +1061,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           Debug CSS injected into pages is suppressed separately (capture-suppression). */}
       <StackedCanvasItems
         layoutData={renderLayout}
+        onContentHeight={reportContentHeight}
         hoveredEntityId={hoveredEntityId}
         isDark={isDark}
         selectedEdgeIds={selectedEdgeIds}
