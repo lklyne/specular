@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { EditorState, type StateCommand, type Transaction } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { markdownCommandsForTest } from '../../src/renderer/shared/markdown/markdown-commands'
+import {
+  markdownCommandsForTest,
+  toggleBulletList,
+} from '../../src/renderer/shared/markdown/markdown-commands'
 
 const { toggleWrap, insertLink } = markdownCommandsForTest
 
@@ -103,5 +106,53 @@ describe('formatting never swallows block markup', () => {
 
   it('links a list item without eating its bullet', () => {
     expect(run(insertLink, '|- the docs|')).toBe('- [the docs](|)')
+  })
+})
+
+/** Run `toggleBulletList` over `doc` with the selection spanning [anchor, head), returning the resulting text. */
+function runBulletToggle(doc: string, anchor: number, head: number): string {
+  const state = EditorState.create({
+    doc,
+    selection: { anchor, head },
+    extensions: [markdown({ base: markdownLanguage })],
+  })
+  let next = state
+  toggleBulletList({
+    state,
+    dispatch: (transaction: Transaction) => {
+      next = transaction.state
+    },
+  })
+  return next.doc.toString()
+}
+
+describe('toggleBulletList', () => {
+  it('bullets every line spanned by the selection', () => {
+    expect(runBulletToggle('milk\neggs', 0, 9)).toBe('- milk\n- eggs')
+  })
+
+  it('strips the bullet when every selected line already has one', () => {
+    expect(runBulletToggle('- milk\n- eggs', 0, 13)).toBe('milk\neggs')
+  })
+
+  it('adds a bullet only to lines missing one, in a mixed selection', () => {
+    expect(runBulletToggle('- milk\neggs', 0, 11)).toBe('- milk\n- eggs')
+  })
+
+  it('is a no-op on a read-only document', () => {
+    const state = EditorState.create({
+      doc: 'milk',
+      selection: { anchor: 0, head: 4 },
+      extensions: [markdown({ base: markdownLanguage }), EditorState.readOnly.of(true)],
+    })
+    let dispatched = false
+    const handled = toggleBulletList({
+      state,
+      dispatch: () => {
+        dispatched = true
+      },
+    })
+    expect(handled).toBe(false)
+    expect(dispatched).toBe(false)
   })
 })

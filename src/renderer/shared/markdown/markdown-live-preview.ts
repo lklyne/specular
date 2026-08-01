@@ -36,6 +36,60 @@ const INLINE_MARKS = new Set([
   'LinkMark',
 ])
 
+/** Only the marker pairs the sticky variant still formats. */
+const STICKY_INLINE_MARKS = new Set(['EmphasisMark', 'StrikethroughMark'])
+
+/**
+ * Knobs `buildMarkdownDecorations` and `revealedLines` gate their decoration
+ * cases on. The full editor (`FULL_LIVE_PREVIEW`) is Obsidian-style: every
+ * markdown construct collapses, and collapsed markup reveals itself on the
+ * cursor's line. The sticky-note variant (`STICKY_LIVE_PREVIEW`) formats a
+ * reduced subset — bold, italic, strikethrough, bullets — and renders
+ * everything else (headings, quotes, tasks, rules, link chrome) as literal
+ * text; the marks it does support stay hidden even on the cursor's line,
+ * since a sticky note has no "source view" to fall back into.
+ */
+export interface LivePreviewOptions {
+  /** Inline mark node names collapsed to zero width (e.g. `EmphasisMark`). */
+  inlineMarks: ReadonlySet<string>
+  /** Collapse `HeaderMark` (and setext underlines, once handled). */
+  headings: boolean
+  /** Collapse `QuoteMark` and draw the blockquote border line. */
+  quotes: boolean
+  /** Replace `TaskMarker` with a ☐/☑ glyph. */
+  taskMarkers: boolean
+  /** Replace a horizontal rule with a rendered `<hr>`. */
+  horizontalRules: boolean
+  /** Collapse `[label](url)` down to just the label. */
+  linkChrome: boolean
+  /** Replace a bullet `ListMark` with a `•` glyph. */
+  bullets: boolean
+  /** Re-reveal markup on the line holding the cursor while editable. */
+  revealOnCursor: boolean
+}
+
+export const FULL_LIVE_PREVIEW: LivePreviewOptions = {
+  inlineMarks: INLINE_MARKS,
+  headings: true,
+  quotes: true,
+  taskMarkers: true,
+  horizontalRules: true,
+  linkChrome: true,
+  bullets: true,
+  revealOnCursor: true,
+}
+
+export const STICKY_LIVE_PREVIEW: LivePreviewOptions = {
+  inlineMarks: STICKY_INLINE_MARKS,
+  headings: false,
+  quotes: false,
+  taskMarkers: false,
+  horizontalRules: false,
+  linkChrome: false,
+  bullets: true,
+  revealOnCursor: false,
+}
+
 const HIDDEN = Decoration.replace({})
 const HIDDEN_LINE = Decoration.line({ class: 'cm-md-hidden-line' })
 const QUOTE_LINE = Decoration.line({ class: 'cm-md-quote' })
@@ -74,8 +128,9 @@ class RuleWidget extends WidgetType {
 }
 
 /** Line numbers whose markup should stay visible because the user is editing there. */
-function revealedLines(state: EditorState): Set<number> {
+function revealedLines(state: EditorState, options: LivePreviewOptions): Set<number> {
   const lines = new Set<number>()
+  if (!options.revealOnCursor) return lines
   if (!state.facet(EditorView.editable)) return lines
   const doc = state.doc
   for (const range of state.selection.ranges) {
@@ -139,10 +194,11 @@ function collapseLinkChrome(
 export function buildMarkdownDecorations(
   state: EditorState,
   ranges: readonly { from: number; to: number }[],
+  options: LivePreviewOptions = FULL_LIVE_PREVIEW,
 ): DecorationSet {
   const decorations: Range<Decoration>[] = []
   const doc = state.doc
-  const revealed = revealedLines(state)
+  const revealed = revealedLines(state, options)
   const text = doc.toString()
 
   for (const { from, to } of ranges) {
@@ -154,6 +210,7 @@ export function buildMarkdownDecorations(
         // not the line is revealed — otherwise the quote loses its outline
         // the moment the cursor enters it.
         if (node.name === 'Blockquote') {
+          if (!options.quotes) return undefined
           const first = doc.lineAt(node.from).number
           const last = doc.lineAt(node.to).number
           for (let n = first; n <= last; n += 1) {
@@ -166,14 +223,17 @@ export function buildMarkdownDecorations(
         switch (node.name) {
           case 'Link':
           case 'Image':
+            if (!options.linkChrome) return undefined
             collapseLinkChrome(decorations, node, state)
             return false
           case 'HorizontalRule':
+            if (!options.horizontalRules) return undefined
             decorations.push(
               Decoration.replace({ widget: new RuleWidget() }).range(node.from, node.to),
             )
             return false
           case 'ListMark': {
+            if (!options.bullets) return undefined
             // Ordered markers ("1.") already read as a list; only bullets lose
             // their meaning when the `-` is hidden.
             if (!/^[-*+]$/.test(text.slice(node.from, node.to))) return false
@@ -185,6 +245,7 @@ export function buildMarkdownDecorations(
             return false
           }
           case 'TaskMarker': {
+            if (!options.taskMarkers) return undefined
             const done = /x/i.test(text.slice(node.from, node.to))
             decorations.push(
               Decoration.replace({
@@ -194,13 +255,15 @@ export function buildMarkdownDecorations(
             return false
           }
           case 'QuoteMark':
+            if (!options.quotes) return undefined
             hideMarkup(decorations, state, node.from, eatTrailingSpace(text, node.to))
             return false
           case 'HeaderMark':
+            if (!options.headings) return undefined
             hideMarkup(decorations, state, node.from, eatTrailingSpace(text, node.to))
             return false
           default:
-            if (!INLINE_MARKS.has(node.name)) return undefined
+            if (!options.inlineMarks.has(node.name)) return undefined
             hideMarkup(decorations, state, node.from, node.to)
             return false
         }
@@ -280,24 +343,30 @@ const linkTargetsPlugin = ViewPlugin.fromClass(
   { decorations: (plugin) => plugin.decorations },
 )
 
-const livePreviewPlugin = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet
-    constructor(view: EditorView) {
-      this.decorations = buildMarkdownDecorations(view.state, view.visibleRanges)
-    }
-    update(update: ViewUpdate) {
-      if (!update.docChanged && !update.selectionSet && !update.viewportChanged) return
-      this.decorations = buildMarkdownDecorations(update.view.state, update.view.visibleRanges)
-    }
-  },
-  {
-    decorations: (plugin) => plugin.decorations,
-    // Without this, arrow keys strand the cursor inside a zero-width marker.
-    provide: (plugin) =>
-      EditorView.atomicRanges.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none),
-  },
-)
+function createLivePreviewPlugin(options: LivePreviewOptions) {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet
+      constructor(view: EditorView) {
+        this.decorations = buildMarkdownDecorations(view.state, view.visibleRanges, options)
+      }
+      update(update: ViewUpdate) {
+        if (!update.docChanged && !update.selectionSet && !update.viewportChanged) return
+        this.decorations = buildMarkdownDecorations(
+          update.view.state,
+          update.view.visibleRanges,
+          options,
+        )
+      }
+    },
+    {
+      decorations: (plugin) => plugin.decorations,
+      // Without this, arrow keys strand the cursor inside a zero-width marker.
+      provide: (plugin) =>
+        EditorView.atomicRanges.of((view) => view.plugin(plugin)?.decorations ?? Decoration.none),
+    },
+  )
+}
 
 const livePreviewTheme = EditorView.theme({
   '.cm-md-hidden-line': { display: 'none' },
@@ -325,6 +394,6 @@ const livePreviewTheme = EditorView.theme({
   },
 })
 
-export function markdownLivePreview(): Extension {
-  return [livePreviewPlugin, linkTargetsPlugin, livePreviewTheme]
+export function markdownLivePreview(options: LivePreviewOptions = FULL_LIVE_PREVIEW): Extension {
+  return [createLivePreviewPlugin(options), linkTargetsPlugin, livePreviewTheme]
 }

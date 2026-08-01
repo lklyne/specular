@@ -71,7 +71,7 @@ function inlineContentRange(
  * With an empty selection this inserts the pair and drops the cursor between
  * them, so Cmd+B then typing works like it does in a rich-text editor.
  */
-function toggleWrap(marker: string): StateCommand {
+export function toggleWrap(marker: string): StateCommand {
   return ({ state, dispatch }) => {
     if (state.readOnly) return false
     const width = marker.length
@@ -140,6 +140,52 @@ const insertLink: StateCommand = ({ state, dispatch }) => {
   return true
 }
 
+const BULLET_LINE = /^(\s*)[-*+] /
+
+/**
+ * Toggle every non-blank line spanned by the selection between bulleted and
+ * plain: strips the marker when every such line already has one, otherwise
+ * adds one to whichever lines lack it (a mixed selection becomes fully
+ * bulleted rather than fully stripped — "add" is the more common intent).
+ */
+export const toggleBulletList: StateCommand = ({ state, dispatch }) => {
+  if (state.readOnly) return false
+
+  const lineNumbers = new Set<number>()
+  for (const range of state.selection.ranges) {
+    const first = state.doc.lineAt(range.from).number
+    const last = state.doc.lineAt(range.to).number
+    for (let n = first; n <= last; n += 1) lineNumbers.add(n)
+  }
+  const lines = [...lineNumbers].sort((a, b) => a - b).map((n) => state.doc.line(n))
+  const nonEmpty = lines.filter((line) => line.text.trim().length > 0)
+  if (nonEmpty.length === 0) return true
+  const allBulleted = nonEmpty.every((line) => BULLET_LINE.test(line.text))
+
+  const changes: Array<{ from: number; to?: number; insert: string }> = []
+  for (const line of nonEmpty) {
+    if (allBulleted) {
+      const match = BULLET_LINE.exec(line.text)
+      if (match) changes.push({ from: line.from, to: line.from + match[0].length, insert: '' })
+    } else if (!BULLET_LINE.test(line.text)) {
+      const indent = /^\s*/.exec(line.text)?.[0].length ?? 0
+      changes.push({ from: line.from + indent, insert: '- ' })
+    }
+  }
+  if (changes.length === 0) return true
+
+  const changeSet = state.changes(changes)
+  dispatch(
+    state.update({
+      changes: changeSet,
+      selection: state.selection.map(changeSet),
+      scrollIntoView: true,
+      userEvent: 'input',
+    }),
+  )
+  return true
+}
+
 /** Bind above defaultKeymap so these win where the two overlap. */
 export const markdownFormattingKeymap: readonly KeyBinding[] = [
   { key: 'Mod-b', run: toggleWrap('**'), preventDefault: true },
@@ -147,6 +193,15 @@ export const markdownFormattingKeymap: readonly KeyBinding[] = [
   { key: 'Mod-e', run: toggleWrap('`'), preventDefault: true },
   { key: 'Mod-Shift-x', run: toggleWrap('~~'), preventDefault: true },
   { key: 'Mod-k', run: insertLink, preventDefault: true },
+  { key: 'Mod-Shift-8', run: toggleBulletList, preventDefault: true },
+]
+
+/** Sticky notes support a smaller formatting surface: no inline code (Mod-e) or links (Mod-k). */
+export const stickyFormattingKeymap: readonly KeyBinding[] = [
+  { key: 'Mod-b', run: toggleWrap('**'), preventDefault: true },
+  { key: 'Mod-i', run: toggleWrap('*'), preventDefault: true },
+  { key: 'Mod-Shift-x', run: toggleWrap('~~'), preventDefault: true },
+  { key: 'Mod-Shift-8', run: toggleBulletList, preventDefault: true },
 ]
 
 export const markdownCommandsForTest = { toggleWrap, insertLink }
