@@ -48,7 +48,7 @@ export default function App({
   }, [editingTabId, sidebarData.tabs])
 
   const activeTab = sidebarData.tabs.find((tab) => tab.id === sidebarData.activeTabId) ?? null
-  const pagesHeaderLabel = pagesExpanded ? 'Workspaces' : activeTab?.name ?? 'Workspaces'
+  const canvasesHeaderLabel = pagesExpanded ? 'Canvases' : activeTab?.name ?? 'Canvases'
 
   useEffect(() => {
     const nextCount = activeTab?.pages.length ?? 0
@@ -115,9 +115,9 @@ export default function App({
             type="button"
             className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
             onClick={() => setPagesExpanded((value) => !value)}
-            title={pagesHeaderLabel}
+            title={canvasesHeaderLabel}
           >
-            <span className="truncate text-[12px] font-medium">{pagesHeaderLabel}</span>
+            <span className="truncate text-[12px] font-medium">{canvasesHeaderLabel}</span>
             {pagesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
           <button
@@ -128,7 +128,7 @@ export default function App({
                 : 'bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 active:bg-zinc-200'
             }`}
             onClick={() => api.createTab()}
-            title="Add workspace"
+            title="Add canvas"
           >
             <Plus size={14} />
           </button>
@@ -214,7 +214,7 @@ export default function App({
                           }`}
                           onClick={() => startRenameTab(tab.id)}
                         >
-                          <span>Rename workspace</span>
+                          <span>Rename canvas</span>
                         </Menu.Item>
                         <Menu.Item
                           className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
@@ -224,7 +224,7 @@ export default function App({
                           }`}
                           onClick={() => api.deleteTab(tab.id)}
                         >
-                          <span>Delete workspace</span>
+                          <span>Delete canvas</span>
                         </Menu.Item>
                       </Menu.Popup>
                     </Menu.Positioner>

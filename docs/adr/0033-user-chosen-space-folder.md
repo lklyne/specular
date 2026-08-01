@@ -117,6 +117,42 @@ new step.
 change here and possibly the highest-value one: it is the affordance that makes
 the file-system-as-model claim true from inside the app.
 
+### 7. One vocabulary, three levels: space, canvas, tab — "workspace" is retired
+
+The word "workspace" currently means the folder level in code
+(`workspace-persistence.ts`, `workspaceTabs`) and the document level in the UI
+(the sidebar's "Workspaces" section lists `.canvas` files). Introducing "space"
+in Settings and onboarding one panel away from a sidebar that says "Workspaces"
+would ship both meanings to users simultaneously. This ADR settles the language:
+
+- **Space** — the folder. Matches `docs/product.md` ("a space is a folder") and
+  the vault model this ADR commits to: one per window, changed by reopen,
+  defaulting to a single `~/Specular`.
+- **Canvas** — the document. The sidebar section becomes **Canvases**; its
+  actions become "Add canvas" / "Rename canvas" / "Delete canvas". Matches
+  product.md ("a canvas is a file") and the `.canvas` extension users see in
+  Finder, so the name is self-verifying against the disk.
+- **Tab** — a canvas open in the app. Internal and CLI term only
+  (`specular tab new/switch`); the sidebar presents tabs as canvases.
+- **Workspace** — retired. It appears in no user-facing copy, and code
+  converges during implementation: the folder-level modules rename
+  `workspace-*` → `space-*` (`workspaceTabs` → `spaceTabs`, `workspaceDir()`
+  already becomes `spaceDir()` per §1), and the CLI's `specular workspace` verb
+  becomes `specular canvas` — it prints the current canvas, so the old name was
+  wrong twice — with `workspace` kept as a hidden alias so existing agent
+  skills don't break mid-transition. After implementation, "workspace" appears
+  nowhere: space-level code says space, document-level UI says canvas,
+  document-level code says tab.
+
+The sidebar rename is copy-only and ships with this ADR. The identifier and
+CLI renames land with the implementation, each as its own mechanical commit.
+
+A refinement deliberately left open: the sidebar header could show the space
+name itself (rows listed under it), doubling as the in-app affordance for
+"this is a folder on your disk" and a natural home for Reveal in Finder. That
+is sidebar design, not a decision that is expensive to reverse, so it is noted
+and not decided.
+
 ## Consequences
 
 `src/main/runtime/workspace-persistence.ts` is already fully parameterized on
@@ -168,3 +204,17 @@ Revisit when multi-window lands.
 **Fall back to the default space when the configured one is missing.** Rejected
 in §4 — the failure mode is silent divergence between the real space and the one
 being written to.
+
+**Keep "Workspaces" as the document noun, renaming the folder to "Project".**
+"Project" is a genuinely good folder name for this audience — a designer's
+space will often sit alongside a repo, and "choose where your project lives" is
+the most natural onboarding sentence any option produces. Rejected because it
+keeps the expensive half of the problem: "workspace" would still swap meaning
+between all existing ADRs/history (where it means the whole open folder) and
+new usage (a single document), the folder-level code rename is mandatory either
+way, and product.md's "a space is a folder, a canvas is a file" would need
+rewriting rather than converging on. It also inverts outside intuition — in
+Slack, Notion, VS Code, and Figma, a workspace is the *largest* container, not
+a single file. If the vault model later gives way to cheap folder-switching and
+one-folder-per-repo usage, renaming *space* → *project* at the app level is a
+clean swap that none of this ADR's decisions make more expensive.
