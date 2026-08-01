@@ -33,6 +33,7 @@ export function RendererSwitch({
   isDark,
   isInteractive,
   onTextEditingChange,
+  onOpenLink,
 }: {
   entity: CanvasSceneFileEntity
   canEdit: boolean
@@ -40,6 +41,9 @@ export function RendererSwitch({
   /** The entered interactive file (HTML iframe): its content owns the pointer. */
   isInteractive: boolean
   onTextEditingChange: (active: boolean) => void
+  /** Open a link inside a markdown note as a page on the canvas. Ignored by
+   *  every renderer except markdown. */
+  onOpenLink: (id: string, url: string) => void
 }) {
   const tag = resolveTag(entity)
   switch (tag) {
@@ -54,6 +58,7 @@ export function RendererSwitch({
           canEdit={canEdit}
           isDark={isDark}
           onTextEditingChange={onTextEditingChange}
+          onOpenLink={onOpenLink}
         />
       )
     case 'component':

@@ -307,6 +307,7 @@ function StackedCanvasItems({
           pan={layoutData.pan}
           zoom={layoutData.zoom}
           onTextEditingChange={api.setTextEditing}
+          onOpenLink={api.openEntityLink}
         />
       )
     }

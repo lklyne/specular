@@ -15,10 +15,10 @@ import { autofocusEditorSelection } from '../../shared/editor-selection'
  * same visual metrics — see MARKDOWN_TOKENS in markdown-codemirror.ts.
  *
  * `readOnly` renders the same view non-editable, so a text body can be
- * displayed by this component in both view and edit mode. That is the point:
- * a second renderer for view mode (react-markdown) can't reproduce the
- * source's literal line breaks, so mode swaps reflow. Read-only mode also
- * leaves pointer events alone so the canvas router still gets the drag.
+ * displayed by this component in both view and edit mode — one set of
+ * padding and line boxes, so the mode swap can't reflow the text. Read-only
+ * mode also leaves pointer events alone so the canvas router still gets the
+ * drag.
  *
  * While editable the host stops mousedown propagation so the canvas pointer
  * router doesn't treat clicks inside the editor as canvas drags.

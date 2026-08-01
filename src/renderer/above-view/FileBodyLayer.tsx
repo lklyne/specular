@@ -27,6 +27,7 @@ function FileBodyCard({
   isInteractive,
   canEdit,
   onTextEditingChange,
+  onOpenLink,
 }: {
   entity: CanvasSceneFileEntity
   isDark: boolean
@@ -36,6 +37,8 @@ function FileBodyCard({
   isInteractive: boolean
   canEdit: boolean
   onTextEditingChange: (active: boolean) => void
+  /** Open a link inside a markdown note as a page on the canvas. */
+  onOpenLink: (id: string, url: string) => void
 }) {
   const fileApi = getFileApi()
 
@@ -80,6 +83,7 @@ function FileBodyCard({
             isDark={isDark}
             isInteractive={isInteractive}
             onTextEditingChange={onTextEditingChange}
+            onOpenLink={onOpenLink}
           />
         </ContextMenu.Trigger>
         <Menu.Portal>
@@ -182,6 +186,7 @@ export function FileBodyLayer({
   pan,
   zoom,
   onTextEditingChange,
+  onOpenLink,
 }: {
   entities: CanvasSceneFileEntity[]
   isDark: boolean
@@ -195,6 +200,8 @@ export function FileBodyLayer({
   pan: { x: number; y: number }
   zoom: number
   onTextEditingChange: (active: boolean) => void
+  /** Open a link inside a markdown note as a page on the canvas. */
+  onOpenLink: (id: string, url: string) => void
 }) {
   if (!entities.length) return null
   return (
@@ -208,6 +215,7 @@ export function FileBodyLayer({
           isInteractive={interactiveEntityId === entity.id}
           canEdit={editingEntityId === entity.id}
           onTextEditingChange={onTextEditingChange}
+          onOpenLink={onOpenLink}
         />
       ))}
     </CanvasViewportLayer>

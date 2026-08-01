@@ -15,8 +15,6 @@ import { stickyDeleteKeymap, stickyListKeymap } from './sticky-editing'
 
 export const externalUpdate = Annotation.define<boolean>()
 
-// Shared metrics — must match `.text-block-markdown` rules in
-// shared/markdownStyles.css so view↔edit mode swap doesn't reflow.
 // fontSize and lineHeight are inherited from the editor's wrapper so
 // per-entity `textSize` and its size-scaled leading (ADR 0013 §2) flow
 // through to CodeMirror; heading sizes stay relative via `em`.
