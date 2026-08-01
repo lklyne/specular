@@ -8,12 +8,16 @@ import { CanvasItemPopup } from './CanvasItemPopup'
 export function EditorFormattingButtons({
   format,
   isDark,
+  disabled = false,
   onBold,
   onStrikethrough,
   onBulletList,
 }: {
   format: Pick<StickyFormatState, 'bold' | 'strikethrough' | 'bulletList'>
   isDark: boolean
+  /** Keeps the buttons visible (no layout shift) when there's nothing to
+   *  apply them to — e.g. a .md note that isn't in edit mode. */
+  disabled?: boolean
   onBold: () => void
   onStrikethrough: () => void
   onBulletList: () => void
@@ -28,6 +32,7 @@ export function EditorFormattingButtons({
           <CanvasItemPopup.IconButton
             isDark={isDark}
             active={format.bold}
+            disabled={disabled}
             title="Bold"
             ariaLabel="Bold"
             onClick={onBold}
@@ -37,6 +42,7 @@ export function EditorFormattingButtons({
           <CanvasItemPopup.IconButton
             isDark={isDark}
             active={format.strikethrough}
+            disabled={disabled}
             title="Strikethrough"
             ariaLabel="Strikethrough"
             onClick={onStrikethrough}
@@ -46,6 +52,7 @@ export function EditorFormattingButtons({
           <CanvasItemPopup.IconButton
             isDark={isDark}
             active={format.bulletList}
+            disabled={disabled}
             title="Bullet list"
             ariaLabel="Bullet list"
             onClick={onBulletList}

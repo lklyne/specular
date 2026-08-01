@@ -15,22 +15,26 @@ import type { AnnotateHandler } from './annotationMath'
 const toggleBold = toggleWrap('**')
 const toggleStrikethrough = toggleWrap('~~')
 
+const INACTIVE_FORMAT = { bold: false, strikethrough: false, bulletList: false }
+
 /**
- * Bold/strikethrough/bullet-list toggles for the single selected .md file,
- * shown only while it's being edited — a file popup has no whole-note
+ * Bold/strikethrough/bullet-list toggles for the single selected .md file.
+ * Always rendered so entering edit mode causes no layout shift, but only
+ * enabled while the file is being edited — a file popup has no whole-note
  * fallback like StickyNotePopover's, since it doesn't hold the file's
  * content, only a reference to it.
  */
 function FormattingSection({ fileId, isDark }: { fileId: string; isDark: boolean }) {
   const activeEditor = useActiveTextEditor()
-  if (activeEditor?.entityId !== fileId) return null
+  const editor = activeEditor?.entityId === fileId ? activeEditor : null
   return (
     <EditorFormattingButtons
-      format={activeEditor.format}
+      format={editor ? editor.format : INACTIVE_FORMAT}
       isDark={isDark}
-      onBold={() => activeEditor.exec(toggleBold)}
-      onStrikethrough={() => activeEditor.exec(toggleStrikethrough)}
-      onBulletList={() => activeEditor.exec(toggleBulletList)}
+      disabled={!editor}
+      onBold={() => editor?.exec(toggleBold)}
+      onStrikethrough={() => editor?.exec(toggleStrikethrough)}
+      onBulletList={() => editor?.exec(toggleBulletList)}
     />
   )
 }
@@ -97,7 +101,9 @@ export function FilePopup({
               />
             </CanvasItemPopup.Section>
             <CanvasItemPopup.Divider isDark={isDark} />
-            <FormattingSection fileId={single.id} isDark={isDark} />
+            {single.rendererTag === 'markdown' ? (
+              <FormattingSection fileId={single.id} isDark={isDark} />
+            ) : null}
           </>
         ) : null}
         <CanvasItemPopup.EntityActions
