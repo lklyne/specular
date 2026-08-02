@@ -1,64 +1,64 @@
-import Markdown from 'react-markdown'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { MarkdownEditor } from '../../shared/MarkdownEditor'
+import { useEditorBridge } from '../../shared/markdown/text-editor-bridge'
 import { useNoteContent } from './useNoteContent'
-
-function renderMarkdownBody(mdContent: string | null) {
-  if (mdContent == null) return <span style={{ opacity: 0.4 }}>Loading...</span>
-  if (mdContent === '') return <span style={{ opacity: 0.4 }}>Write your note...</span>
-  return <Markdown>{mdContent}</Markdown>
-}
 
 export function MarkdownInlineRenderer({
   entity,
   canEdit,
   isDark,
   onTextEditingChange,
+  onOpenLink,
 }: {
   entity: CanvasSceneFileEntity
   canEdit: boolean
   isDark: boolean
   onTextEditingChange: (active: boolean) => void
+  onOpenLink: (id: string, url: string) => void
 }) {
   const { mdContent, localText, handleChange, handleFocus, handleBlur } = useNoteContent(
     entity,
     canEdit,
     onTextEditingChange,
   )
+  // Publishes the live CodeMirror view while editing, so the .md file
+  // popover can render formatting toggles.
+  const editorBridge = useEditorBridge(entity.id, canEdit)
 
   const textColor = isDark ? '#e7e5e4' : '#1c1917'
 
+  if (!canEdit && mdContent === null) {
+    return (
+      <div style={{ width: '100%', height: '100%', overflow: 'auto', padding: 12 }}>
+        <span style={{ opacity: 0.4, fontSize: 14, color: textColor, fontFamily: 'system-ui, sans-serif' }}>
+          Loading...
+        </span>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ width: '100%', height: '100%', overflow: 'auto', padding: 12 }}>
-      {canEdit ? (
-        <MarkdownEditor
-          value={localText}
-          onChange={handleChange}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          isDark={isDark}
-          autoFocus
-          style={{
-            width: '100%',
-            height: '100%',
-            fontSize: 14,
-            lineHeight: 1.5,
-            color: textColor,
-          }}
-        />
-      ) : (
-        <div
-          className="text-block-markdown"
-          style={{
-            fontSize: 14,
-            color: textColor,
-            fontFamily: 'system-ui, sans-serif',
-            wordBreak: 'break-word',
-          }}
-        >
-          {renderMarkdownBody(mdContent)}
-        </div>
-      )}
+    <div style={{ width: '100%', height: '100%', overflow: 'hidden', padding: 12 }}>
+      <MarkdownEditor
+        readOnly={!canEdit}
+        value={localText}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onOpenLink={(url) => onOpenLink(entity.id, url)}
+        onViewReady={editorBridge.onViewReady}
+        onSelectionChange={editorBridge.onSelectionChange}
+        isDark={isDark}
+        autoFocus={canEdit}
+        placeholder="Write your note..."
+        style={{
+          width: '100%',
+          height: '100%',
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: textColor,
+        }}
+      />
     </div>
   )
 }

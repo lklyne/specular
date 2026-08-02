@@ -92,6 +92,7 @@ import {
   createPageAtPosition,
   duplicateEntity,
   duplicatePageFromSource,
+  openLinkFromEntity,
 } from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
 import { copyableSelectionPayload } from '../workspace-clipboard'
@@ -517,6 +518,13 @@ export function registerCanvasEntityIpc(): void {
     ipcChannels.canvasPasteSelection,
     (_event, { canvasX, canvasY }: { canvasX: number; canvasY: number }) => {
       pasteFromClipboard({ canvasX, canvasY })
+    },
+  )
+
+  ipcMain.on(
+    ipcChannels.canvasOpenEntityLink,
+    (_event, { entityId, url }: { entityId: string; url: string }) => {
+      openLinkFromEntity({ entityId, url })
     },
   )
 

@@ -62,6 +62,7 @@ export type PopupContext = {
   sameKindSelection: SameKindSelection
   selectedGroup: CanvasSceneGroupEntity | null
   textPopupReady: boolean
+  filePopupReady: boolean
   /** Opens the region composer pre-anchored to a selection's union bounds
    *  (see useAnnotationDraftState.beginSelectionAnnotation). Every popup's
    *  Annotate button forwards to the same renderer-local handoff. */
@@ -147,7 +148,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     isDark: ctx.isDark,
     layout: ctx.layout,
     selectedFiles: sameKindEntities(ctx.sameKindSelection, 'file'),
-    interactionIdle: ctx.interactionIdle,
+    popupReady: ctx.filePopupReady,
     onAnnotate: ctx.beginSelectionAnnotation,
   })),
   // Mixed-kind fallback: renders only when the selection spans kinds, so it

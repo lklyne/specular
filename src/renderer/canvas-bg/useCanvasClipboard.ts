@@ -16,7 +16,14 @@ export function useCanvasClipboard(input: {
 
   useEffect(() => {
     const shouldHijack = (event: ClipboardEvent): boolean => {
+      // An editor that consumed the event (e.g. CodeMirror) prevents default.
+      if (event.defaultPrevented) return false
+      // Check activeElement as well as target: pasting on an empty CodeMirror
+      // line targets the line's placeholder <br>, which the editor's own
+      // handler detaches before this bubbles up — and a detached node reports
+      // isContentEditable false. activeElement stays the editor throughout.
       if (isTypingTarget(event.target)) return false
+      if (isTypingTarget(document.activeElement)) return false
       const sel = window.getSelection()
       if (sel && sel.toString().length > 0) return false
       return true
