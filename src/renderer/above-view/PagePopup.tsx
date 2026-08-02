@@ -10,7 +10,7 @@ import {
   EyeClosed,
   Link2,
   Maximize2,
-  MessageSquarePlus,
+  MessageCircle,
   RotateCw,
   Smartphone,
   X,
@@ -500,7 +500,7 @@ export function PagePopup({
                     ariaLabel={`Annotate ${count} pages`}
                     onClick={() => onAnnotate(entityIds, annotateRect)}
                   >
-                    <MessageSquarePlus size={14} />
+                    <MessageCircle size={14} />
                   </CanvasItemPopup.IconButton>
                 )
               })()
