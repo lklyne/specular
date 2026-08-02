@@ -340,11 +340,19 @@ const linkTargetsPlugin = ViewPlugin.fromClass(
   { decorations: (plugin) => plugin.decorations },
 )
 
+function sameLineSet(a: Set<number>, b: Set<number>): boolean {
+  if (a.size !== b.size) return false
+  for (const n of a) if (!b.has(n)) return false
+  return true
+}
+
 function createLivePreviewPlugin(options: LivePreviewOptions) {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet
+      revealed: Set<number>
       constructor(view: EditorView) {
+        this.revealed = revealedLines(view.state, options)
         this.decorations = buildMarkdownDecorations(view.state, view.visibleRanges, options)
       }
       update(update: ViewUpdate) {
@@ -358,6 +366,11 @@ function createLivePreviewPlugin(options: LivePreviewOptions) {
         if (!update.docChanged && !cursorMatters && !update.viewportChanged && !editableChanged) {
           return
         }
+        // A cursor-only move within the same line(s) can't change the output.
+        const revealed = revealedLines(update.state, options)
+        const cursorOnly = !update.docChanged && !update.viewportChanged && !editableChanged
+        if (cursorOnly && sameLineSet(revealed, this.revealed)) return
+        this.revealed = revealed
         this.decorations = buildMarkdownDecorations(
           update.view.state,
           update.view.visibleRanges,
