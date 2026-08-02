@@ -16,7 +16,7 @@ import { setSpacePath } from './preferences'
 import { spaceDir } from './space-dir'
 import { hasCanvasFiles, migrateSpace } from './space-migration'
 import { requestLayout } from './viewport-control'
-import { flushSpaceAutosaveSync, loadSpace } from './space-autosave'
+import { flushSpaceAutosaveSync, loadSpace, withSpacePersistenceSuspended } from './space-autosave'
 import {
   setActiveSpaceTabId,
   workspaceAnnotations,
@@ -44,6 +44,12 @@ export async function changeSpaceViaPicker(win: BrowserWindow): Promise<string |
   const destination = picked.filePaths[0]
   if (destination === currentSpace) return null
 
+  // "Move my canvases" already flushes and migrates the old root's files
+  // below; every other path (opening an existing space, starting fresh)
+  // still has unflushed in-memory edits sitting against `currentSpace`, so
+  // the switch below must flush there first.
+  let alreadyFlushedOldRoot = false
+
   if (hasCanvasFiles(destination)) {
     // Someone re-opening an existing space — not a migration question.
     // Merging two populated spaces is out of scope (ADR 0033 §3).
@@ -67,7 +73,15 @@ export async function changeSpaceViaPicker(win: BrowserWindow): Promise<string |
     })
     if (response === 2) return null
     if (response === 0) {
+      // Flush first so the files migrateSpace copies reflect the latest
+      // in-memory state, not whatever last hit disk on the debounce.
+      // migrateSpace() then deletes the originals from currentSpace — the
+      // switch below must NOT flush again before setSpacePath, or it would
+      // write the (still-old-space) runtime state straight back into the
+      // now-empty currentSpace it just cleaned up.
+      flushSpaceAutosaveSync()
       migrateSpace(currentSpace, destination)
+      alreadyFlushedOldRoot = true
     } else {
       mkdirSync(destination, { recursive: true })
       await dialog.showMessageBox(win, {
@@ -80,9 +94,46 @@ export async function changeSpaceViaPicker(win: BrowserWindow): Promise<string |
   }
 
   mkdirSync(destination, { recursive: true })
-  setSpacePath(destination)
-  reopenAtCurrentSpace()
+  changeSpaceTo(destination, { flushOldRoot: !alreadyFlushedOldRoot })
   return spaceDir()
+}
+
+/**
+ * Re-point `spaceDir()` at `destination` and reopen the window against it.
+ *
+ * Ordering matters: `spaceDir()` is a resolver, not cached state, so the
+ * instant `setSpacePath()` runs, every persistence call — including any
+ * autosave that fires mid-teardown while the runtime arrays still hold the
+ * *old* space's content — starts writing into the *new* root. Flushing
+ * against the old root must happen strictly before `setSpacePath()`, and
+ * persistence must stay suspended from `setSpacePath()` until the new
+ * root's content has been hydrated, so nothing in between can land
+ * old-space state in the new folder.
+ */
+export function changeSpaceTo(destination: string, opts: { flushOldRoot?: boolean } = {}): void {
+  reopenSpaceAt(destination, reopenAtCurrentSpace, opts)
+}
+
+/**
+ * The ordering both `changeSpaceTo()` and the reopen tests exercise: flush
+ * the old root (unless the caller already did, e.g. right after a
+ * migration that deleted the old root's originals), suspend persistence,
+ * re-point `spaceDir()`, run `reload` (hydrate the new root's content —
+ * with or without a window rebuild), then resume. Factored out so tests can
+ * cover the exact flush/suspend/setSpacePath/reload sequence production
+ * code runs, swapping in the window-independent `reload` callback instead
+ * of the Electron-dependent window rebuild.
+ */
+export function reopenSpaceAt(
+  destination: string,
+  reload: () => void,
+  opts: { flushOldRoot?: boolean } = {},
+): void {
+  if (opts.flushOldRoot !== false) flushSpaceAutosaveSync()
+  withSpacePersistenceSuspended(() => {
+    setSpacePath(destination)
+    reload()
+  })
 }
 
 /**
@@ -91,10 +142,12 @@ export async function changeSpaceViaPicker(win: BrowserWindow): Promise<string |
  * (§4), which sets the space before the first window ever opens and so has
  * no window to reopen — callers on that path skip this and let `initWindow()`
  * pick up the resolved root normally.
+ *
+ * Does not flush or suspend itself — `reopenSpaceAt()` above owns that
+ * ordering, since the flush must happen before `setSpacePath()` re-points
+ * `spaceDir()` and this function only ever runs after that.
  */
 export function reopenAtCurrentSpace(): void {
-  flushSpaceAutosaveSync()
-
   // rebuildWindowFromSnapshot tears down and rebuilds the window shell
   // (views, timers, ui-state, layout cache) the same way the dev-only
   // reload-app IPC does. An empty snapshot is intentional: real content for
