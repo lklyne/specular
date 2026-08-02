@@ -1,9 +1,10 @@
-import { Bot, FolderGit2, Sparkles } from 'lucide-react'
+import { Bot, FolderGit2, Settings2, Sparkles } from 'lucide-react'
 import type { ComponentType } from 'react'
 
-export type SettingsSection = 'skills' | 'models' | 'repos'
+export type SettingsSection = 'general' | 'skills' | 'models' | 'repos'
 
 const ITEMS: { id: SettingsSection; label: string; icon: ComponentType<{ size?: number }> }[] = [
+  { id: 'general', label: 'General', icon: Settings2 },
   { id: 'skills', label: 'Skills', icon: Sparkles },
   { id: 'models', label: 'Models', icon: Bot },
   { id: 'repos', label: 'Repos', icon: FolderGit2 },
