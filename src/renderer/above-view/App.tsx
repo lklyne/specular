@@ -58,6 +58,7 @@ import { edgeForPopup } from './edgePopupSelection'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
 import { contentHeightLayout } from './contentHeightPreview'
+import { useContentHeights } from './useContentHeights'
 import { gapPreviewLayout } from './gapPreview'
 import { GapHandlesLayer } from './GapHandlesLayer'
 import { GroupRenameOverlay } from './GroupRenameLabel'
@@ -435,34 +436,9 @@ export default function App({
   // not reordering.
   const [reorderGhost, setReorderGhost] = useState<ReorderGhostOffset>(null)
 
-  // Measured heights of content-sized entities (stickies), keyed by id. Written
-  // by the body layer as the text lays out, read by `renderLayout` below, and
-  // forwarded to main for persistence and hit-testing.
-  const [contentHeights, setContentHeights] = useState<Map<string, number>>(new Map())
-  const reportContentHeight = useCallback(
-    (id: string, height: number) => {
-      setContentHeights((prev) => {
-        if (prev.get(id) === height) return prev
-        const next = new Map(prev)
-        next.set(id, height)
-        return next
-      })
-      api.updateEntity('text', id, { height })
-    },
-    [api],
-  )
-  // Entries for deleted entities would otherwise pin the map (and defeat its
-  // empty fast path in `contentHeightLayout`) forever. Entries for live
-  // entities stay even once main agrees — a measured height keeps winning
-  // over broadcast values (e.g. an undo reverting the height).
-  useEffect(() => {
-    setContentHeights((prev) => {
-      if (prev.size === 0) return prev
-      const live = new Set(layoutData.entities.map((entity) => entity.id))
-      if ([...prev.keys()].every((id) => live.has(id))) return prev
-      return new Map([...prev].filter(([id]) => live.has(id)))
-    })
-  }, [layoutData.entities])
+  // Measured heights of content-sized entities (stickies), read by
+  // `renderLayout` below and reported (debounced) to main.
+  const { contentHeights, reportContentHeight } = useContentHeights(api, layoutData)
 
   // During a reorder drag the *siblings* render at their previewed slots so the
   // row visibly opens a gap to receive the dragged item (ADR 0015 D7, Phase D).
