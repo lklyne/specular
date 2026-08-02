@@ -1,6 +1,6 @@
 # ADR 0033 — The space folder is user-chosen, and one space is open per window
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-07-31
 **Related:** [ADR 0018 — Cloud sync and canvas sharing](./0018-cloud-sync-and-canvas-sharing.md) (store-an-id/resolve-a-location for assets; a chosen space root is the desktop half of that resolution); [ADR 0025 — Single workspace mutation seam](./0025-single-workspace-mutation-seam.md) (the seam this threads a resolved root through)
 
