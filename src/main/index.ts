@@ -1,4 +1,5 @@
-import { app, crashReporter, net, nativeTheme, protocol } from 'electron'
+import { app, crashReporter, dialog, net, nativeTheme, protocol } from 'electron'
+import { basename } from 'path'
 import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
 import {
@@ -22,7 +23,8 @@ import {
 import { markDirty } from './runtime/layout-dirty'
 import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
-import { loadOnboardingState, saveOnboardingState } from './runtime/preferences'
+import { getSpacePath, loadOnboardingState, saveOnboardingState, setSpacePath } from './runtime/preferences'
+import { isSpaceAvailable } from './runtime/space-dir'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser, hasUserOwnedAgentBrowserBinary } from './agent-browser-install'
@@ -101,6 +103,47 @@ if (userDataDirArg) {
 }
 
 let quitRequested = false
+
+/**
+ * A missing space at boot prompts; it never falls back (ADR 0033 §4). Loops
+ * a windowless dialog until the user locates the folder, opts into the
+ * default space, or quits — silently falling back would autosave into a
+ * different root than the one the user thinks they're working in.
+ * Returns false when the app is quitting and boot should stop.
+ */
+async function resolveSpaceAtBoot(): Promise<boolean> {
+  for (;;) {
+    const configured = getSpacePath()
+    if (!configured || isSpaceAvailable(configured)) return true
+
+    const { response } = await dialog.showMessageBox({
+      type: 'warning',
+      buttons: ['Locate…', 'Open the default space', 'Quit'],
+      defaultId: 0,
+      cancelId: 2,
+      title: "Specular can't find your space.",
+      message: "Specular can't find your space.",
+      detail: `The folder "${basename(configured)}" may be on a drive that isn't connected, or it was moved or renamed.`,
+    })
+
+    if (response === 2) {
+      app.quit()
+      return false
+    }
+    if (response === 1) {
+      console.log(`Your space was at "${configured}" — now using the default space.`)
+      setSpacePath(undefined)
+      return true
+    }
+    const located = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    const candidate = !located.canceled ? located.filePaths[0] : undefined
+    if (candidate && isSpaceAvailable(candidate)) {
+      setSpacePath(candidate)
+      return true
+    }
+    // Canceled or still unusable — loop back to the message box.
+  }
+}
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
@@ -182,6 +225,8 @@ app.whenReady().then(async () => {
     breadcrumb('onboarding', reason)
     if (quitRequested) return
   }
+
+  if (!(await resolveSpaceAtBoot())) return
 
   initWindow()
   setMcpConnectionStatus(getMcpConnectionStatus())

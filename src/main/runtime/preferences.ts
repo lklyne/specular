@@ -179,10 +179,19 @@ export function getSpacePath(): string | undefined {
   return currentSpacePath
 }
 
-export function setSpacePath(path: string): void {
+/** Set the space folder, or pass `undefined` to clear it — `spaceDir()` then
+ *  resolves back to the legacy default (used by the boot recovery flow,
+ *  ADR 0033 §4, when the configured folder is missing and the user opts
+ *  into the default rather than locating it). */
+export function setSpacePath(path: string | undefined): void {
   currentSpacePath = path
   const parsed = readPreferencesFile()
-  writePreferencesFile({ ...parsed, spacePath: currentSpacePath })
+  if (path === undefined) {
+    const { spacePath: _drop, ...rest } = parsed
+    writePreferencesFile(rest)
+  } else {
+    writePreferencesFile({ ...parsed, spacePath: path })
+  }
 }
 
 export function getCursorSplineViz(): boolean {
