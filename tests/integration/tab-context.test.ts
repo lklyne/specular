@@ -36,10 +36,7 @@ import { textEntities } from '../../src/main/runtime/text-entity-state'
 import { pages } from '../../src/main/runtime/runtime-context'
 import { getActiveDoc } from '../../src/main/runtime/workspace-doc'
 import { getActiveUndoManager, undo } from '../../src/main/runtime/workspace-undo'
-import {
-  DEFAULT_WORKSPACE_ID,
-  readCanvasFile,
-} from '../../src/main/runtime/workspace-persistence'
+import { readCanvasFile } from '../../src/main/runtime/workspace-persistence'
 import type { PersistedWorkspaceTab } from '../../src/shared/types'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 

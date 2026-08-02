@@ -22,10 +22,7 @@ import {
 } from '../../src/main/runtime/document-commands'
 import { currentEntityOrder } from '../../src/main/runtime/entity-order-state'
 import { getSelectionState } from '../../src/main/workspace-entities'
-import {
-  DEFAULT_WORKSPACE_ID,
-  readCanvasFile,
-} from '../../src/main/runtime/workspace-persistence'
+import { readCanvasFile } from '../../src/main/runtime/workspace-persistence'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 let harness: WorkspaceHarness

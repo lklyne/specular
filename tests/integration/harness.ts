@@ -55,13 +55,13 @@ import { sendInteractiveState } from '../../src/main/runtime/overlay-manager'
 import { getUiState, setSelection } from '../../src/main/ui-state'
 import { loadWorkspace, flushWorkspaceAutosaveSync } from '../../src/main/runtime/workspace-autosave'
 import {
-  DEFAULT_WORKSPACE_ID,
   canvasFilePath,
   readCanvasFile,
   readWorkspaceMeta,
   writeCanvasFileSync,
   writeWorkspaceMetaSync,
 } from '../../src/main/runtime/workspace-persistence'
+import { spaceDir } from '../../src/main/runtime/space-dir'
 import { registerBuiltInEntityKinds } from '../../src/main/entities'
 
 export interface WorkspaceHarness {
@@ -121,7 +121,7 @@ export function bootWorkspaceHarness(fixture: CanvasFixture = BLANK_FIXTURE): Wo
   setAboveView(new WebContentsView() as never)
   setBgView(new WebContentsView() as never)
 
-  writeFixtureToDisk(userDataPath, fixture)
+  writeFixtureToDisk(fixture)
   const record = loadWorkspace()
   if (!record || !restorePersistedWorkspace(record)) {
     throw new Error('harness failed to load initial workspace fixture')
@@ -155,11 +155,11 @@ export function bootWorkspaceHarness(fixture: CanvasFixture = BLANK_FIXTURE): Wo
           ? workspaceTabs.find((candidate) => candidate.name === ref)
           : (ref ?? activeTab())
       if (!tab) throw new Error(`no tab named ${String(ref)}`)
-      return canvasFilePath(userDataPath, DEFAULT_WORKSPACE_ID, tab)
+      return canvasFilePath(spaceDir(), tab)
     },
-    diskMeta: () => readWorkspaceMeta(userDataPath, DEFAULT_WORKSPACE_ID),
+    diskMeta: () => readWorkspaceMeta(spaceDir()),
     loadFixture: (next: CanvasFixture) => {
-      writeFixtureToDisk(userDataPath, next)
+      writeFixtureToDisk(next)
       const nextRecord = loadWorkspace()
       if (!nextRecord || !restorePersistedWorkspace(nextRecord)) {
         throw new Error('harness failed to load fixture workspace')
@@ -185,11 +185,11 @@ function activeTab() {
   return workspaceTabs.find((t) => t.id === activeWorkspaceTabId) ?? workspaceTabs[0]
 }
 
-function writeFixtureToDisk(userDataPath: string, fixture: CanvasFixture): void {
+function writeFixtureToDisk(fixture: CanvasFixture): void {
   const name = fixture.name?.trim() || 'Fixture'
   const tabId = 'fixture-tab'
-  writeCanvasFileSync(canvasFilePath(userDataPath, DEFAULT_WORKSPACE_ID, { id: tabId, name }), fixture.doc)
-  writeWorkspaceMetaSync(userDataPath, DEFAULT_WORKSPACE_ID, {
+  writeCanvasFileSync(canvasFilePath(spaceDir(), { id: tabId, name }), fixture.doc)
+  writeWorkspaceMetaSync(spaceDir(), {
     activeTabId: tabId,
     tabs: [{ id: tabId, name, updatedAt: new Date().toISOString(), expanded: true }],
   })

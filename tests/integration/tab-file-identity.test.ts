@@ -24,12 +24,12 @@ import {
 } from '../../src/main/runtime/workspace-tab-operations'
 import { activeWorkspaceTabId, workspaceTabs } from '../../src/main/runtime/workspace-model'
 import {
-  DEFAULT_WORKSPACE_ID,
   canvasFilePath,
   loadWorkspaceFromCanvasFiles,
   readCanvasFile,
   writeWorkspaceMetaSync,
 } from '../../src/main/runtime/workspace-persistence'
+import { spaceDir } from '../../src/main/runtime/space-dir'
 
 let harness: WorkspaceHarness
 
@@ -44,7 +44,7 @@ function makeTwinTabs(): [string, string] {
 function tabFile(tabId: string): string {
   const tab = workspaceTabs.find((candidate) => candidate.id === tabId)
   if (!tab) throw new Error(`no tab ${tabId}`)
-  return canvasFilePath(harness.userDataPath, DEFAULT_WORKSPACE_ID, tab)
+  return canvasFilePath(spaceDir(), tab)
 }
 
 function textIn(filePath: string): string[] {
@@ -101,21 +101,20 @@ describe('tab file identity', () => {
   })
 
   it('loads a workspace written before filenames carried an id, and retires the file', () => {
-    const userDataPath = harness.userDataPath
     const tabId = 'tab_legacy'
-    const legacyPath = join(userDataPath, 'workspaces', DEFAULT_WORKSPACE_ID, 'Notes.canvas')
+    const legacyPath = join(spaceDir(), 'Notes.canvas')
     setActiveWorkspaceTab(activeWorkspaceTabId)
     createTextEntity({ canvasX: 0, canvasY: 0, text: 'from the old file' })
     harness.flush()
     const doc = readCanvasFile(tabFile(activeWorkspaceTabId))
     expect(doc).toBeTruthy()
     writeFileSync(legacyPath, JSON.stringify(doc), 'utf8')
-    writeWorkspaceMetaSync(userDataPath, DEFAULT_WORKSPACE_ID, {
+    writeWorkspaceMetaSync(spaceDir(), {
       activeTabId: tabId,
       tabs: [{ id: tabId, name: 'Notes', updatedAt: new Date().toISOString(), expanded: true }],
     })
 
-    const record = loadWorkspaceFromCanvasFiles(userDataPath, DEFAULT_WORKSPACE_ID)
+    const record = loadWorkspaceFromCanvasFiles(spaceDir())
 
     expect(record?.tabs.map((tab) => tab.name)).toEqual(['Notes'])
     expect(existsSync(legacyPath)).toBe(false)
