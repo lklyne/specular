@@ -35,7 +35,7 @@ import { useDebouncedWrite } from '../shared/useDebouncedWrite'
 import { lineHeightForTextSize } from './TextSizeDropdown'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 import { AnchoredEntityOverlayBand } from './PageOverlayBand'
-import { useEditorBridge } from './useEditorBridge'
+import { useEditorBridge } from '../shared/markdown/text-editor-bridge'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
@@ -163,8 +163,13 @@ function useStickyText({ note, canEdit, onUpdateText, onCommitEdit }: {
     },
     commitNow: () => {
       debouncedWrite.cancel()
-      lastSentRef.current = localText
-      onUpdateText(note.id, localText)
+      // Escape commits and then main flips the editor read-only, which blurs
+      // it and commits again. Re-sending identical text would be a second
+      // Y.Doc transaction, i.e. an extra undo step for one edit.
+      if (localText !== lastSentRef.current) {
+        lastSentRef.current = localText
+        onUpdateText(note.id, localText)
+      }
       onCommitEdit()
     },
   }
@@ -182,10 +187,11 @@ function useStickyAutoSize(
   onUpdateSize: (id: string, width: number, height: number) => void,
 ): void {
   const measured = useMeasuredSize(shellRef, enabled)
-  const width = measured ? Math.max(PLAIN_MIN_WIDTH, Math.round(measured.width)) : note.width
-  const height = measured ? Math.max(PLAIN_MIN_HEIGHT, Math.round(measured.height)) : note.height
+  const width = measured ? Math.max(PLAIN_MIN_WIDTH, Math.round(measured.width)) : null
+  const height = measured ? Math.max(PLAIN_MIN_HEIGHT, Math.round(measured.height)) : null
   useEffect(() => {
-    if (!enabled || (width === note.width && height === note.height)) return
+    if (!enabled || width === null || height === null) return
+    if (width === note.width && height === note.height) return
     onUpdateSize(note.id, width, height)
   }, [enabled, width, height, note.id, note.width, note.height, onUpdateSize])
 }
@@ -243,10 +249,8 @@ function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, loc
   return <div ref={contentRef} style={columnStyle}>
     {!isPlain && <StickyDragStrip />}
     {/* One renderer for both modes: same padding, same line boxes, so
-        entering and leaving edit mode can't reflow the text. `key` forces
-        the remount MarkdownEditor's mount-time `readOnly` needs. */}
+        entering and leaving edit mode can't reflow the text. */}
     <MarkdownEditor
-      key={canEdit ? 'edit' : 'view'}
       variant="sticky"
       readOnly={!canEdit}
       value={localText}

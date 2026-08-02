@@ -2,7 +2,11 @@
 // for color so color edits apply uniformly across both in multi-select.
 
 import { slotForStorage } from '../../shared/canvas-colors'
-import { toggleBulletList, toggleWrap } from '../shared/markdown/markdown-commands'
+import {
+  toggleBold,
+  toggleBulletList,
+  toggleStrikethrough,
+} from '../shared/markdown/markdown-commands'
 import {
   toggleWholeNoteBullets,
   toggleWholeNoteWrap,
@@ -13,13 +17,19 @@ import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { EditorFormattingButtons } from './EditorFormattingButtons'
-import { useActiveTextEditor } from './textEditorBridge'
+import { useActiveTextEditor } from '../shared/markdown/text-editor-bridge'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 import type { AnnotateHandler } from './annotationMath'
 
-const toggleBold = toggleWrap('**')
-const toggleStrikethrough = toggleWrap('~~')
+function wholeNoteFallbackFormat(entities: CanvasSceneTextEntity[]) {
+  const states = entities.map((e) => wholeNoteFormatState(e.text))
+  return {
+    bold: states.every((s) => s.bold),
+    strikethrough: states.every((s) => s.strikethrough),
+    bulletList: states.every((s) => s.bulletList),
+  }
+}
 
 /**
  * Bold/strikethrough/bullet-list toggles. While a selected sticky is being
@@ -43,14 +53,9 @@ function FormattingSection({
       ? activeEditor
       : null
 
-  const wholeNoteStates = selectedTextEntities.map((e) => wholeNoteFormatState(e.text))
-  const format = editor
-    ? editor.format
-    : {
-        bold: wholeNoteStates.every((s) => s.bold),
-        strikethrough: wholeNoteStates.every((s) => s.strikethrough),
-        bulletList: wholeNoteStates.every((s) => s.bulletList),
-      }
+  // The whole-note fallback re-derives from full note text, so only pay for
+  // it when there is no live editor (whose cursor moves re-render this).
+  const format = editor ? editor.format : wholeNoteFallbackFormat(selectedTextEntities)
 
   const applyToNotes = (transform: (text: string) => string) => {
     for (const e of selectedTextEntities) {

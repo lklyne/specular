@@ -444,8 +444,13 @@ function tidySelectedPagesInternal(): { pageIds: string[] } {
  * one clone mechanism instead of three (see workspace-clipboard.ts,
  * workspace-groups.ts for the other two entity-graph clone paths).
  */
-/** Trailing-slash-insensitive canonical form for matching page URLs. */
-function canonicalPageUrl(value: string | null | undefined): string | null {
+/**
+ * Trailing-slash-insensitive form for "is a page already showing this URL".
+ * Deliberately not the hash-insensitive `canonicalPageUrl` from
+ * `src/shared/page-anchor.ts`: a trailing slash is the one difference this
+ * match tolerates.
+ */
+function linkMatchUrl(value: string | null | undefined): string | null {
   if (!value) return null
   try {
     return normalizeUserUrl(value).replace(/\/$/, '')
@@ -470,10 +475,10 @@ export function openLinkFromEntity(input: {
   } catch {
     return null
   }
-  const canonical = canonicalPageUrl(url)
+  const canonical = linkMatchUrl(url)
 
   const existing = pages.find(
-    (page) => canonicalPageUrl(pageCurrentUrl(page.id) ?? page.url) === canonical,
+    (page) => linkMatchUrl(pageCurrentUrl(page.id) ?? page.url) === canonical,
   )
   if (existing) {
     selectPageById(existing.id)

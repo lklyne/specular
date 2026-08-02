@@ -7,8 +7,9 @@
  * a list marker).
  */
 
+import { BULLET_LINE } from './bullet-line'
+
 const LINE_PARTS = /^(\s*)([-*+] )?(.*)$/
-const BULLET_LINE = /^\s*[-*+] /
 
 export type WholeNoteMarker = '**' | '~~'
 

@@ -11,6 +11,7 @@
 import { syntaxTree } from '@codemirror/language'
 import { EditorSelection, type EditorState, type StateCommand } from '@codemirror/state'
 import type { KeyBinding } from '@codemirror/view'
+import { BULLET_LINE } from './bullet-line'
 
 /**
  * Markup that owns the head of a line. It is structure, not prose, so no
@@ -121,7 +122,7 @@ export function toggleWrap(marker: string): StateCommand {
  * cursor lands in the empty target. Either way the cursor is on the part the
  * user still has to type.
  */
-const insertLink: StateCommand = ({ state, dispatch }) => {
+export const insertLink: StateCommand = ({ state, dispatch }) => {
   if (state.readOnly) return false
   const transaction = state.changeByRange((selection) => {
     const range = inlineContentRange(state, selection.from, selection.to)
@@ -140,7 +141,21 @@ const insertLink: StateCommand = ({ state, dispatch }) => {
   return true
 }
 
-const BULLET_LINE = /^(\s*)[-*+] /
+export const toggleBold = toggleWrap('**')
+export const toggleItalic = toggleWrap('*')
+export const toggleInlineCode = toggleWrap('`')
+export const toggleStrikethrough = toggleWrap('~~')
+
+/** Line numbers spanned by the selection, both endpoints' lines inclusive. */
+export function selectedLineNumbers(state: EditorState): Set<number> {
+  const lines = new Set<number>()
+  for (const range of state.selection.ranges) {
+    const first = state.doc.lineAt(range.from).number
+    const last = state.doc.lineAt(range.to).number
+    for (let n = first; n <= last; n += 1) lines.add(n)
+  }
+  return lines
+}
 
 /**
  * Toggle every non-blank line spanned by the selection between bulleted and
@@ -151,13 +166,9 @@ const BULLET_LINE = /^(\s*)[-*+] /
 export const toggleBulletList: StateCommand = ({ state, dispatch }) => {
   if (state.readOnly) return false
 
-  const lineNumbers = new Set<number>()
-  for (const range of state.selection.ranges) {
-    const first = state.doc.lineAt(range.from).number
-    const last = state.doc.lineAt(range.to).number
-    for (let n = first; n <= last; n += 1) lineNumbers.add(n)
-  }
-  const lines = [...lineNumbers].sort((a, b) => a - b).map((n) => state.doc.line(n))
+  const lines = [...selectedLineNumbers(state)]
+    .sort((a, b) => a - b)
+    .map((n) => state.doc.line(n))
   const nonEmpty = lines.filter((line) => line.text.trim().length > 0)
   if (nonEmpty.length === 0) return true
   const allBulleted = nonEmpty.every((line) => BULLET_LINE.test(line.text))
@@ -188,20 +199,18 @@ export const toggleBulletList: StateCommand = ({ state, dispatch }) => {
 
 /** Bind above defaultKeymap so these win where the two overlap. */
 export const markdownFormattingKeymap: readonly KeyBinding[] = [
-  { key: 'Mod-b', run: toggleWrap('**'), preventDefault: true },
-  { key: 'Mod-i', run: toggleWrap('*'), preventDefault: true },
-  { key: 'Mod-e', run: toggleWrap('`'), preventDefault: true },
-  { key: 'Mod-Shift-x', run: toggleWrap('~~'), preventDefault: true },
+  { key: 'Mod-b', run: toggleBold, preventDefault: true },
+  { key: 'Mod-i', run: toggleItalic, preventDefault: true },
+  { key: 'Mod-e', run: toggleInlineCode, preventDefault: true },
+  { key: 'Mod-Shift-x', run: toggleStrikethrough, preventDefault: true },
   { key: 'Mod-k', run: insertLink, preventDefault: true },
   { key: 'Mod-Shift-8', run: toggleBulletList, preventDefault: true },
 ]
 
 /** Sticky notes support a smaller formatting surface: no inline code (Mod-e) or links (Mod-k). */
 export const stickyFormattingKeymap: readonly KeyBinding[] = [
-  { key: 'Mod-b', run: toggleWrap('**'), preventDefault: true },
-  { key: 'Mod-i', run: toggleWrap('*'), preventDefault: true },
-  { key: 'Mod-Shift-x', run: toggleWrap('~~'), preventDefault: true },
+  { key: 'Mod-b', run: toggleBold, preventDefault: true },
+  { key: 'Mod-i', run: toggleItalic, preventDefault: true },
+  { key: 'Mod-Shift-x', run: toggleStrikethrough, preventDefault: true },
   { key: 'Mod-Shift-8', run: toggleBulletList, preventDefault: true },
 ]
-
-export const markdownCommandsForTest = { toggleWrap, insertLink }

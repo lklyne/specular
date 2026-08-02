@@ -7,6 +7,7 @@
 
 import { syntaxTree } from '@codemirror/language'
 import type { EditorState } from '@codemirror/state'
+import { BULLET_LINE } from './bullet-line'
 
 export interface StickyFormatState {
   bold: boolean
@@ -14,8 +15,6 @@ export interface StickyFormatState {
   strikethrough: boolean
   bulletList: boolean
 }
-
-const BULLET_LINE = /^\s*[-*+] /
 
 export function selectionFormatState(state: EditorState): StickyFormatState {
   const head = state.selection.main.head

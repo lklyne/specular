@@ -95,9 +95,9 @@ export function commitInlineEditBeforePointerAction(
   blurActiveEditor: () => void,
   commitEntityEdit: () => void,
 ): void {
-  // Pointer-down arrives before the browser's native blur. Main closing edit
-  // mode first would unmount the editor and discard its draft, so force blur
-  // synchronously while the input and its onBlur commit handler still exist.
+  // Pointer-down arrives before the browser's native blur. Force the blur
+  // synchronously so the editor's onBlur commits its draft before main is
+  // told to leave edit mode, rather than a tick later on the way out.
   blurActiveEditor()
   commitEntityEdit()
 }

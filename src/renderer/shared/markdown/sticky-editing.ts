@@ -19,6 +19,7 @@ import { syntaxTree } from '@codemirror/language'
 import type { EditorState, TransactionSpec } from '@codemirror/state'
 import type { KeyBinding } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
+import { BULLET_LINE } from './bullet-line'
 
 /** Node names of the styled spans sticky notes still format. */
 const STYLED_NAMES = new Set(['Emphasis', 'StrongEmphasis', 'Strikethrough'])
@@ -119,8 +120,6 @@ export const stickyDeleteKeymap: readonly KeyBinding[] = [
     },
   },
 ]
-
-const BULLET_LINE = /^(\s*)[-*+] /
 
 /**
  * Enter on a bullet line continues the list at the same indent, or — on an

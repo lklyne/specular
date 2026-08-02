@@ -24,6 +24,7 @@ import {
 } from '@codemirror/view'
 import type { SyntaxNodeRef } from '@lezer/common'
 import { looksLikeUrl } from '../../../shared/url'
+import { selectedLineNumbers } from './markdown-commands'
 
 /** Punctuation that carries no meaning once the syntax highlighter has styled the text. */
 const INLINE_MARKS = new Set([
@@ -134,22 +135,15 @@ class RuleWidget extends WidgetType {
 
 /** Line numbers whose markup should stay visible because the user is editing there. */
 function revealedLines(state: EditorState, options: LivePreviewOptions): Set<number> {
-  const lines = new Set<number>()
-  if (!options.revealOnCursor) return lines
-  if (!state.facet(EditorView.editable)) return lines
-  const doc = state.doc
-  for (const range of state.selection.ranges) {
-    const first = doc.lineAt(range.from).number
-    const last = doc.lineAt(range.to).number
-    for (let n = first; n <= last; n += 1) lines.add(n)
-  }
-  return lines
+  if (!options.revealOnCursor) return new Set()
+  if (!state.facet(EditorView.editable)) return new Set()
+  return selectedLineNumbers(state)
 }
 
 /** `# ` and `> ` own their trailing space; leaving it behind indents the line. */
-function eatTrailingSpace(text: string, to: number): number {
+function eatTrailingSpace(state: EditorState, to: number): number {
   let end = to
-  while (text[end] === ' ') end += 1
+  while (state.sliceDoc(end, end + 1) === ' ') end += 1
   return end
 }
 
@@ -204,7 +198,6 @@ export function buildMarkdownDecorations(
   const decorations: Range<Decoration>[] = []
   const doc = state.doc
   const revealed = revealedLines(state, options)
-  const text = doc.toString()
 
   for (const { from, to } of ranges) {
     syntaxTree(state).iterate({
@@ -241,7 +234,7 @@ export function buildMarkdownDecorations(
             if (!options.bullets) return undefined
             // Ordered markers ("1.") already read as a list; only bullets lose
             // their meaning when the `-` is hidden.
-            if (!/^[-*+]$/.test(text.slice(node.from, node.to))) return false
+            if (!/^[-*+]$/.test(state.sliceDoc(node.from, node.to))) return false
             decorations.push(
               Decoration.replace({
                 widget: new GlyphWidget('•', 'cm-md-bullet'),
@@ -251,7 +244,7 @@ export function buildMarkdownDecorations(
           }
           case 'TaskMarker': {
             if (!options.taskMarkers) return undefined
-            const done = /x/i.test(text.slice(node.from, node.to))
+            const done = /x/i.test(state.sliceDoc(node.from, node.to))
             decorations.push(
               Decoration.replace({
                 widget: new GlyphWidget(done ? '☑' : '☐', 'cm-md-task'),
@@ -261,11 +254,11 @@ export function buildMarkdownDecorations(
           }
           case 'QuoteMark':
             if (!options.quotes) return undefined
-            hideMarkup(decorations, state, node.from, eatTrailingSpace(text, node.to))
+            hideMarkup(decorations, state, node.from, eatTrailingSpace(state, node.to))
             return false
           case 'HeaderMark':
             if (!options.headings) return undefined
-            hideMarkup(decorations, state, node.from, eatTrailingSpace(text, node.to))
+            hideMarkup(decorations, state, node.from, eatTrailingSpace(state, node.to))
             return false
           default:
             if (!options.inlineMarks.has(node.name)) return undefined
@@ -280,10 +273,10 @@ export function buildMarkdownDecorations(
 
 /** The URL a link-ish node points at: its own text for a bare `URL`, the
  *  `URL` child's text for `Link` / `Autolink`. */
-function linkTargetUrl(node: SyntaxNodeRef, text: string): string | null {
-  if (node.name === 'URL') return text.slice(node.from, node.to)
+function linkTargetUrl(node: SyntaxNodeRef, state: EditorState): string | null {
+  if (node.name === 'URL') return state.sliceDoc(node.from, node.to)
   for (let child = node.node.firstChild; child; child = child.nextSibling) {
-    if (child.name === 'URL') return text.slice(child.from, child.to)
+    if (child.name === 'URL') return state.sliceDoc(child.from, child.to)
   }
   return null
 }
@@ -301,7 +294,6 @@ export function buildLinkMarks(
   ranges: readonly { from: number; to: number }[],
 ): DecorationSet {
   const decorations: Range<Decoration>[] = []
-  const text = state.doc.toString()
   for (const { from, to } of ranges) {
     syntaxTree(state).iterate({
       from,
@@ -317,7 +309,7 @@ export function buildLinkMarks(
             return undefined
           }
         }
-        const url = linkTargetUrl(node, text)
+        const url = linkTargetUrl(node, state)
         // Relative paths and non-http(s) schemes can't become pages.
         if (url && looksLikeUrl(url)) {
           decorations.push(
@@ -356,7 +348,16 @@ function createLivePreviewPlugin(options: LivePreviewOptions) {
         this.decorations = buildMarkdownDecorations(view.state, view.visibleRanges, options)
       }
       update(update: ViewUpdate) {
-        if (!update.docChanged && !update.selectionSet && !update.viewportChanged) return
+        // Cursor moves only matter when they can reveal/re-hide markup.
+        const cursorMatters = options.revealOnCursor && update.selectionSet
+        // The view/edit swap reconfigures `editable`, which gates the
+        // cursor-line reveal (see revealedLines) — without this the markup
+        // left revealed on entry stays revealed after exit.
+        const editableChanged =
+          update.startState.facet(EditorView.editable) !== update.state.facet(EditorView.editable)
+        if (!update.docChanged && !cursorMatters && !update.viewportChanged && !editableChanged) {
+          return
+        }
         this.decorations = buildMarkdownDecorations(
           update.view.state,
           update.view.visibleRanges,

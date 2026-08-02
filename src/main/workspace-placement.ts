@@ -135,6 +135,7 @@ export function findPlacementBeside(
   anchor: WorkspaceBounds,
   width: number,
   height: number,
+  reason = 'entity_anchor',
 ): PlacementResult {
   const w = snapToGrid(width)
   const h = snapToGrid(height)
@@ -146,7 +147,7 @@ export function findPlacementBeside(
       canvasX: initialX,
       canvasY: initialY,
       fallbackUsed: false,
-      reason: 'entity_anchor',
+      reason,
     }
   }
   return scanForPlacement(w, h, initialX, initialY)
@@ -158,20 +159,7 @@ export function findPlacement(request: PlacementRequest): PlacementResult {
 
   if (request.anchor === 'selection_or_empty_region') {
     const anchor = selectionBounds()
-    if (anchor) {
-      const initialX = snapToGrid(anchor.x + anchor.width + ANCHOR_OFFSET_X)
-      const initialY = snapToGrid(anchor.y + ANCHOR_OFFSET_Y)
-      const candidate = { x: initialX, y: initialY, width, height }
-      if (!candidateCollides(candidate)) {
-        return {
-          canvasX: initialX,
-          canvasY: initialY,
-          fallbackUsed: false,
-          reason: 'selection_anchor',
-        }
-      }
-      return scanForPlacement(width, height, initialX, initialY)
-    }
+    if (anchor) return findPlacementBeside(anchor, width, height, 'selection_anchor')
   }
 
   return scanForPlacement(width, height, CLUSTER_OUTER_MARGIN, CLUSTER_OUTER_MARGIN)

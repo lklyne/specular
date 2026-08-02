@@ -1,19 +1,20 @@
 // ADR 0008 §7 — file selection popup.
 
 import { useEffect, useState } from 'react'
-import { toggleBulletList, toggleWrap } from '../shared/markdown/markdown-commands'
+import {
+  toggleBold,
+  toggleBulletList,
+  toggleStrikethrough,
+} from '../shared/markdown/markdown-commands'
 import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { EditorFormattingButtons } from './EditorFormattingButtons'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { fileDisplayName } from '../canvas-bg/entityConstants'
-import { useActiveTextEditor } from './textEditorBridge'
+import { useActiveTextEditor } from '../shared/markdown/text-editor-bridge'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 import type { AnnotateHandler } from './annotationMath'
-
-const toggleBold = toggleWrap('**')
-const toggleStrikethrough = toggleWrap('~~')
 
 const INACTIVE_FORMAT = { bold: false, strikethrough: false, bulletList: false }
 

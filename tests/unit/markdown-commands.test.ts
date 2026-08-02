@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { EditorState, type StateCommand, type Transaction } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import {
-  markdownCommandsForTest,
+  insertLink,
   toggleBulletList,
+  toggleWrap,
 } from '../../src/renderer/shared/markdown/markdown-commands'
-
-const { toggleWrap, insertLink } = markdownCommandsForTest
 
 /**
  * Run a command over `doc` with the selection marked by `|` (one for a

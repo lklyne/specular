@@ -23,8 +23,10 @@ import { autofocusEditorSelection } from '../../shared/editor-selection'
  * While editable the host stops mousedown propagation so the canvas pointer
  * router doesn't treat clicks inside the editor as canvas drags.
  *
- * `readOnly` is read at mount only — give the element a `key` that changes
- * with the mode so it remounts.
+ * `readOnly` swaps live through a CodeMirror compartment — the view is never
+ * torn down for a mode change. A remount would blank the note for a frame
+ * (the view is built in an effect, so the browser paints the empty container
+ * first) and would throw away scroll position and the parsed document.
  */
 export function MarkdownEditor({
   value,
@@ -62,11 +64,10 @@ export function MarkdownEditor({
   lineWrap?: boolean
   /** Select the full value when auto-focusing; intended for short text nodes. */
   selectAllOnAutoFocus?: boolean
-  /** Display the value without a caret, focus, or text selection. */
+  /** Display the value without a caret, focus, or text selection. Swaps live. */
   readOnly?: boolean
-  /** Which CodeMirror extension stack to mount. Read at mount only, like
-   *  `readOnly` — give the element a `key` that changes with the variant so
-   *  it remounts. Defaults to the full markdown stack. */
+  /** Which CodeMirror extension stack to mount. Read at mount only — an
+   *  entity never changes variant. Defaults to the full markdown stack. */
   variant?: 'markdown' | 'sticky'
   /** Called with the live EditorView right after creation, and with `null`
    *  in the unmount cleanup before it's destroyed. Lets a host drive
@@ -199,6 +200,7 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
   } = options
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
+  const modeCompartmentRef = useRef<Compartment | null>(null)
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const onChangeRef = useRef(onChange)
@@ -214,6 +216,65 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
   onOpenLinkRef.current = onOpenLink
   onSelectionChangeRef.current = onSelectionChange
 
+  // The half of the stack that differs between view and edit mode. Lives in
+  // a compartment so the mode can swap without rebuilding the view. Closes
+  // over callback refs only, so the mount effect can hold on to one copy.
+  const modeExtensions = (mode: boolean): Extension =>
+    mode
+      ? [EditorView.editable.of(false), EditorState.readOnly.of(true)]
+      : [
+          EditorView.updateListener.of((update) => {
+            if (update.selectionSet || update.docChanged) {
+              onSelectionChangeRef.current?.(update.state)
+            }
+            if (!update.docChanged) return
+            if (update.transactions.some((tr) => tr.annotation(externalUpdate))) {
+              return
+            }
+            onChangeRef.current(update.state.doc.toString())
+          }),
+          EditorView.domEventHandlers({
+            focus: () => {
+              onFocusRef.current?.()
+              return false
+            },
+            blur: () => {
+              // Defer one tick: an Electron WCV layout/focus-reconcile can
+              // briefly steal focus from contentDOM and immediately return
+              // it. Firing onBlur synchronously would commit on every
+              // spurious thrash.
+              if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+              blurTimerRef.current = setTimeout(() => {
+                blurTimerRef.current = null
+                if (viewRef.current?.hasFocus) return
+                onBlurRef.current?.()
+              }, 0)
+              return false
+            },
+            mousedown: (event) => {
+              if (event.metaKey && onOpenLinkRef.current) {
+                const url = linkUrlAtEventTarget(event.target)
+                if (url) {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onOpenLinkRef.current(url)
+                  return true
+                }
+              }
+              event.stopPropagation()
+              return false
+            },
+            keydown: (event) => {
+              if (event.key === 'Escape' && onEscapeRef.current) {
+                event.preventDefault()
+                onEscapeRef.current()
+                return true
+              }
+              return false
+            },
+          }),
+        ]
+
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -223,66 +284,14 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
         ? createStickyTextExtensions(isDark, { lineWrap })
         : createMarkdownExtensions(isDark, { lineWrap })
     themeCompartmentRef.current = themeCompartment
+    const modeCompartment = new Compartment()
+    modeCompartmentRef.current = modeCompartment
 
-    const editorExtensions: Extension[] = readOnly ? [
+    const editorExtensions: Extension[] = [
       ...extensions,
-      EditorView.editable.of(false),
-      EditorState.readOnly.of(true),
-    ] : [
-      ...extensions,
-      EditorView.updateListener.of((update) => {
-        if (update.selectionSet || update.docChanged) {
-          onSelectionChangeRef.current?.(update.state)
-        }
-        if (!update.docChanged) return
-        if (update.transactions.some((tr) => tr.annotation(externalUpdate))) {
-          return
-        }
-        onChangeRef.current(update.state.doc.toString())
-      }),
-      EditorView.domEventHandlers({
-        focus: () => {
-          onFocusRef.current?.()
-          return false
-        },
-        blur: () => {
-          // Defer one tick: an Electron WCV layout/focus-reconcile can
-          // briefly steal focus from contentDOM and immediately return
-          // it. Firing onBlur synchronously would commit on every
-          // spurious thrash.
-          if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
-          blurTimerRef.current = setTimeout(() => {
-            blurTimerRef.current = null
-            if (viewRef.current?.hasFocus) return
-            onBlurRef.current?.()
-          }, 0)
-          return false
-        },
-        mousedown: (event) => {
-          if (event.metaKey && onOpenLinkRef.current) {
-            const url = linkUrlAtEventTarget(event.target)
-            if (url) {
-              event.preventDefault()
-              event.stopPropagation()
-              onOpenLinkRef.current(url)
-              return true
-            }
-          }
-          event.stopPropagation()
-          return false
-        },
-        keydown: (event) => {
-          if (event.key === 'Escape' && onEscapeRef.current) {
-            event.preventDefault()
-            onEscapeRef.current()
-            return true
-          }
-          return false
-        },
-      }),
+      modeCompartment.of(modeExtensions(readOnly)),
     ]
     if (placeholder) editorExtensions.push(placeholderExtension(placeholder))
-    // `readOnly` above is captured at mount; the hook has no deps by design.
 
     const view = new EditorView({
       state: EditorState.create({
@@ -294,16 +303,6 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
     viewRef.current = view
     onViewReady?.(view)
 
-    if (autoFocus) {
-      view.focus()
-      view.dispatch({
-        selection: autofocusEditorSelection(
-          view.state.doc.length,
-          selectAllOnAutoFocus,
-        ),
-      })
-    }
-
     return () => {
       if (blurTimerRef.current) {
         clearTimeout(blurTimerRef.current)
@@ -313,8 +312,36 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
       view.destroy()
       viewRef.current = null
       themeCompartmentRef.current = null
+      modeCompartmentRef.current = null
     }
   }, [])
+
+  // Mode swap. The mount effect already applied `readOnly`, so the ref skips
+  // this effect's own first run and it reconfigures only on a real change.
+  const readOnlyRef = useRef(readOnly)
+  useEffect(() => {
+    const view = viewRef.current
+    const compartment = modeCompartmentRef.current
+    if (!view || !compartment) return
+    if (readOnlyRef.current === readOnly) return
+    readOnlyRef.current = readOnly
+    view.dispatch({ effects: compartment.reconfigure(modeExtensions(readOnly)) })
+    // Leaving edit mode: drop focus explicitly rather than trusting the
+    // browser to blur a now-uneditable contentDOM, so the deferred blur
+    // handler still runs and the host commits.
+    if (readOnly) view.contentDOM.blur()
+  }, [readOnly])
+
+  // Autofocus on mount and on every entry into edit mode. Declared after the
+  // mode swap so the view is already editable when focus lands.
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view || !autoFocus || readOnly) return
+    view.focus()
+    view.dispatch({
+      selection: autofocusEditorSelection(view.state.doc.length, selectAllOnAutoFocus),
+    })
+  }, [readOnly, autoFocus])
 
   useEffect(() => {
     const view = viewRef.current

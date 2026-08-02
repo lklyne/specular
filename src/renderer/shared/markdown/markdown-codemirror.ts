@@ -96,6 +96,36 @@ export function reconfigureTheme(
   view.dispatch({ effects: compartment.reconfigure(buildEditorTheme(isDark)) })
 }
 
+/** GFM base, so strikethrough and task lists parse — each variant's
+ *  highlight style and live preview both style them. */
+function markdownLanguageExtension(): Extension {
+  return markdown({ base: markdownLanguage, addKeymap: false })
+}
+
+/**
+ * Shared assembly tail for both editor variants: the variant's stack
+ * (keymaps, language, styling), then optional line wrapping and the theme
+ * compartment. Neither variant mounts `history()`: undo/redo is owned by
+ * the Yjs UndoManager in main, so Cmd+Z falls through to the canvas
+ * keyboard handler and text and canvas edits share one unified undo stack.
+ */
+function assembleEditorStack(
+  isDark: boolean,
+  lineWrap: boolean,
+  stack: Extension[],
+): {
+  extensions: Extension[]
+  themeCompartment: Compartment
+} {
+  const themeCompartment = new Compartment()
+  const extensions = [...stack]
+  // When wrap is off (auto-width plain text), the editor's container shrinks
+  // to fit each line's natural width instead of forcing single-character wrap.
+  if (lineWrap) extensions.push(EditorView.lineWrapping)
+  extensions.push(themeCompartment.of(buildEditorTheme(isDark)))
+  return { extensions, themeCompartment }
+}
+
 export function createMarkdownExtensions(
   isDark: boolean,
   options: { lineWrap?: boolean } = {},
@@ -103,13 +133,7 @@ export function createMarkdownExtensions(
   extensions: Extension[]
   themeCompartment: Compartment
 } {
-  const themeCompartment = new Compartment()
-  const lineWrap = options.lineWrap ?? true
-  const extensions: Extension[] = [
-    // No `history()` extension: undo/redo is owned by the Yjs UndoManager
-    // in main, not by per-editor CodeMirror history. Cmd+Z falls through
-    // to the canvas keyboard handler so text and canvas edits share one
-    // unified undo stack.
+  return assembleEditorStack(isDark, options.lineWrap ?? true, [
     // Cmd+B / Cmd+I / Cmd+K etc.
     keymap.of(markdownFormattingKeymap),
     // Enter continues the current list/quote markup, Backspace peels one level
@@ -117,18 +141,11 @@ export function createMarkdownExtensions(
     // defaultKeymap's plain-newline Enter.
     keymap.of(markdownKeymap),
     keymap.of(defaultKeymap),
-    // GFM base, so strikethrough and task lists parse — the highlight style
-    // and live preview below both style them.
-    markdown({ base: markdownLanguage, addKeymap: false }),
+    markdownLanguageExtension(),
     syntaxHighlighting(markdownHighlightStyle),
     markdownLivePreview(FULL_LIVE_PREVIEW),
     smartPasteExtension(),
-  ]
-  // When wrap is off (auto-width plain text), the editor's container shrinks
-  // to fit each line's natural width instead of forcing single-character wrap.
-  if (lineWrap) extensions.push(EditorView.lineWrapping)
-  extensions.push(themeCompartment.of(buildEditorTheme(isDark)))
-  return { extensions, themeCompartment }
+  ])
 }
 
 /**
@@ -147,9 +164,7 @@ export function createStickyTextExtensions(
   extensions: Extension[]
   themeCompartment: Compartment
 } {
-  const themeCompartment = new Compartment()
-  const lineWrap = options.lineWrap ?? true
-  const extensions: Extension[] = [
+  return assembleEditorStack(isDark, options.lineWrap ?? true, [
     // Order matters: each keymap's Backspace/Enter binding falls through
     // (returns false) to the next when it doesn't apply, so mark-unwrap
     // outranks bullet-prefix strip outranks plain formatting outranks
@@ -158,11 +173,8 @@ export function createStickyTextExtensions(
     keymap.of(stickyListKeymap),
     keymap.of(stickyFormattingKeymap),
     keymap.of(defaultKeymap),
-    markdown({ base: markdownLanguage, addKeymap: false }),
+    markdownLanguageExtension(),
     syntaxHighlighting(stickyHighlightStyle),
     markdownLivePreview(STICKY_LIVE_PREVIEW),
-  ]
-  if (lineWrap) extensions.push(EditorView.lineWrapping)
-  extensions.push(themeCompartment.of(buildEditorTheme(isDark)))
-  return { extensions, themeCompartment }
+  ])
 }

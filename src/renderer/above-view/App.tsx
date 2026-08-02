@@ -402,25 +402,19 @@ export default function App({
     layoutData.interaction.kind === 'editing-entity'
       ? layoutData.interaction.entityId
       : null
-  const textPopupReady =
-    interactionIdle ||
-    Boolean(
-      editingEntityId &&
-        sameKindEntities(sameKindSelection, 'text').some(
-          (entity) => entity.id === editingEntityId,
-        ),
-    )
-  // Mirrors textPopupReady: a selected .md file stays editable behind its
-  // popover (FilePopup's FormattingSection) instead of the popover hiding
+  // A selected entity stays editable behind its popover (the formatting
+  // sections in StickyNotePopover/FilePopup) instead of the popover hiding
   // the moment interaction leaves 'idle'.
-  const filePopupReady =
+  const popupReadyFor = (kind: 'text' | 'file') =>
     interactionIdle ||
     Boolean(
       editingEntityId &&
-        sameKindEntities(sameKindSelection, 'file').some(
+        sameKindEntities(sameKindSelection, kind).some(
           (entity) => entity.id === editingEntityId,
         ),
     )
+  const textPopupReady = popupReadyFor('text')
+  const filePopupReady = popupReadyFor('file')
 
   const marqueePreviewIds = useMemo(() => {
     if (
@@ -457,6 +451,18 @@ export default function App({
     },
     [api],
   )
+  // Entries for deleted entities would otherwise pin the map (and defeat its
+  // empty fast path in `contentHeightLayout`) forever. Entries for live
+  // entities stay even once main agrees — a measured height keeps winning
+  // over broadcast values (e.g. an undo reverting the height).
+  useEffect(() => {
+    setContentHeights((prev) => {
+      if (prev.size === 0) return prev
+      const live = new Set(layoutData.entities.map((entity) => entity.id))
+      if ([...prev.keys()].every((id) => live.has(id))) return prev
+      return new Map([...prev].filter(([id]) => live.has(id)))
+    })
+  }, [layoutData.entities])
 
   // During a reorder drag the *siblings* render at their previewed slots so the
   // row visibly opens a gap to receive the dragged item (ADR 0015 D7, Phase D).

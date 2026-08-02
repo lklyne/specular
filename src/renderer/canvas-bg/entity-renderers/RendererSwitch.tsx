@@ -1,5 +1,3 @@
-import type { EditorState } from '@codemirror/state'
-import type { EditorView } from '@codemirror/view'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import {
   HTML_EXTENSIONS,
@@ -36,8 +34,6 @@ export function RendererSwitch({
   isInteractive,
   onTextEditingChange,
   onOpenLink,
-  onViewReady,
-  onSelectionChange,
 }: {
   entity: CanvasSceneFileEntity
   canEdit: boolean
@@ -48,10 +44,6 @@ export function RendererSwitch({
   /** Open a link inside a markdown note as a page on the canvas. Ignored by
    *  every renderer except markdown. */
   onOpenLink: (id: string, url: string) => void
-  /** Publishes the live CodeMirror view to `textEditorBridge` (above-view)
-   *  while editing. Ignored by every renderer except markdown. */
-  onViewReady?: (view: EditorView | null) => void
-  onSelectionChange?: (state: EditorState) => void
 }) {
   const tag = resolveTag(entity)
   switch (tag) {
@@ -67,8 +59,6 @@ export function RendererSwitch({
           isDark={isDark}
           onTextEditingChange={onTextEditingChange}
           onOpenLink={onOpenLink}
-          onViewReady={onViewReady}
-          onSelectionChange={onSelectionChange}
         />
       )
     case 'component':
