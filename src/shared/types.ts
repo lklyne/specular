@@ -885,6 +885,11 @@ export type OnboardingMode = 'welcome' | 'settings'
 export interface OnboardingBootstrapData extends ThemeBootstrapData {
   status: OnboardingStatusSnapshot
   mode: OnboardingMode
+  /** Offered default (`~/Specular`) for the space step's "accept default"
+   *  one-click path (ADR 0033 §5). */
+  defaultSpacePath: string
+  /** The currently configured space, or null when unset. */
+  spacePath: string | null
 }
 
 export type OnboardingProgressEvent =
@@ -913,6 +918,9 @@ export interface SettingsBootstrapData extends ThemeBootstrapData {
   status: OnboardingStatusSnapshot
   fixConfig: FixConfig
   connectedRepos: ConnectedRepo[]
+  /** The current space (ADR 0033 §6): its resolved path, and whether it's
+   *  the legacy default (`spacePath` unset) or a folder the user chose. */
+  space: { path: string; isDefault: boolean }
 }
 
 export type {

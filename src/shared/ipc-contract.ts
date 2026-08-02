@@ -320,6 +320,11 @@ export interface IpcContract {
   'settings:set-component-installed': { dir: 'invoke'; payload: unknown }
   'settings:set-fix-config': { dir: 'renderer→main'; payload: unknown }
   'settings:skill-progress': { dir: 'main→renderer'; payload: OnboardingProgressEvent }
+  'space-change-via-picker': { dir: 'invoke'; payload: unknown }
+  'space-changed': { dir: 'main→renderer'; payload: { path: string; isDefault: boolean } }
+  'space-choose-via-picker': { dir: 'invoke'; payload: unknown }
+  'space-commit': { dir: 'invoke'; payload: unknown }
+  'space-reveal-in-finder': { dir: 'renderer→main'; payload: unknown }
   'take-dom-snapshot': { dir: 'main→renderer'; payload: unknown }
   'take-dom-snapshot-response': { dir: 'renderer→main'; payload: unknown }
   'toggle-devtools': { dir: 'renderer→main'; payload: unknown }
@@ -628,6 +633,11 @@ export const ipcChannels = {
   settingsSetComponentInstalled: 'settings:set-component-installed',
   settingsSetFixConfig: 'settings:set-fix-config',
   settingsSkillProgress: 'settings:skill-progress',
+  spaceChangeViaPicker: 'space-change-via-picker',
+  spaceChanged: 'space-changed',
+  spaceChooseViaPicker: 'space-choose-via-picker',
+  spaceCommit: 'space-commit',
+  spaceRevealInFinder: 'space-reveal-in-finder',
   takeDomSnapshot: 'take-dom-snapshot',
   takeDomSnapshotResponse: 'take-dom-snapshot-response',
   toggleDevtools: 'toggle-devtools',
