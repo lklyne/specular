@@ -1,13 +1,13 @@
 # ADR 0011 — Page focus respects native shortcuts
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-12
 **Refines:** [ADR 0001 — Click to enter frame focus](./0001-click-to-enter-frame-focus.md). ADR 0001 established the page-focus mode where the focused page receives native pointer input; this ADR extends the same trust to keyboard input.
 **Companion to:** [ADR 0010 — Main is the sole shortcut dispatch site](./0010-main-as-sole-shortcut-dispatch-site.md). See [`docs/plans/keyboard-binding-registry.md`](../plans/keyboard-binding-registry.md) for the implementation plan.
 
 ## Context
 
-When a page is keyboard-focused (per ADR 0001's `pageFocus` runtime state), main's `before-input-event` listener intercepts the keystroke first via `watchModifierKeys` attached at `page-factory.ts:262`. Today the handler runs *all* registered shortcuts before the page sees the keystroke:
+When a page is keyboard-focused (per ADR 0001's `pageFocus` runtime state), main's `before-input-event` listener intercepts the keystroke first. Today the handler runs *all* registered shortcuts before the page sees the keystroke:
 
 - `Cmd+Z` fires our Yjs undo even if the user is editing a GitHub comment box, a Notion page, or any other web app that has its own undo stack.
 - `Cmd+G`, `Cmd+W`, arrow keys, and other shortcuts likewise pre-empt the page.
@@ -28,7 +28,7 @@ Three policies considered:
 Policy **P2**. When `pageFocus` is non-null:
 
 1. The only bindings that fire are those with `firesFromPageFocus: true`.
-2. Exactly two bindings opt in:
+2. The initial set of opted-in bindings is `escape-page-focus` and `reset-viewport`; additional bindings may opt in by setting the same flag (e.g. `new-frame`, `delete-selection`, `escape-tool`, `restore-focus-camera`):
    - `escape-page-focus` — Escape returns the user to canvas mode (deselects the page, runs the focus reconciler).
    - `reset-viewport` — Cmd+1 resets zoom/pan. Doesn't mutate the document; safe to interrupt anything.
 3. Every other binding (Cmd+Z, Cmd+G, Cmd+W, arrows, single-letter tool keys, etc.) falls through to the page natively — the dispatcher returns `null` and does not call `event.preventDefault()`.

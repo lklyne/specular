@@ -22,5 +22,5 @@ One seam owns the ritual: `mutateWorkspace(fn, opts)` runs the mutation and then
 - The one-transaction-per-mutation and one-undo-step-per-gesture invariants become properties of a single testable module.
 - `document-commands.ts` shrinks substantially; the `snapToGrid` prelude (5 copies) folds into one shared geometry helper alongside.
 - A forgotten session during a new gesture yields too-granular undo — visible and cheap to fix, unlike today's silent merged-undo failure mode.
-- PRs touching this land under the smoke-coverage requirement for `workspace-*.ts` (CLAUDE.md test contract).
+- PRs touching this land under the integration-coverage requirement for `workspace-*.ts` (CLAUDE.md test contract).
 - Implementation plan: `docs/plans/deepen-runtime.md` (steps sequenced after ADR 0024's registry work — same files).

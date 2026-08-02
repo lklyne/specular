@@ -46,6 +46,10 @@ drag all behave exactly as before.
 - The split lives in the bgView handler's `viewMode` check; the aboveView
   authority is unchanged.
 
+## Amendment — ADR 0020 (2026-06-24)
+
+[ADR 0020](./0020-delete-browser-mode-for-focus-selection.md) deleted browser mode entirely. The `viewMode === 'canvas'` guard described in the Decision section no longer exists in `useCanvasViewportGestures`; the bgView handler now pans unconditionally on wheel events because browser mode can never be active. The scroll-isolation concern this ADR solved is moot; the Decision section is preserved as a record of the reasoning.
+
 ## Note
 
 This does not address a separate, pre-existing browser-mode bug: the page's

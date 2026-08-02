@@ -1,4 +1,7 @@
-# Alignment guides are visual-only; grid-snap remains the sole magnet
+# ADR 0012 — Alignment guides are visual-only; grid-snap remains the sole magnet
+
+**Status:** Accepted
+**Date:** 2026-06-01
 
 ## Context
 

@@ -136,13 +136,12 @@ layout, camera, inspector, presence. Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 
-The main spatial surface. Key components:
+The below-pages plane. Post-aboveView migration (2026-05-06) this carries only:
 - `CanvasGridSurface` — SVG canvas with pan/zoom
-- `SelectableEntityShell` — draggable/resizable node wrapper
-- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
-- `EdgeLayer` — connector lines
-- `GroupBoundsLayer` — group outlines
+- Page chrome — borders, device shells (shared with entity data, not entity bodies)
 - `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
+
+Entity bodies, edges (`EdgeLayer`), group bounds (`GroupBoundsLayer`), selection outlines, resize handles, and hover indicators all render in `aboveView`.
 
 ### src/shared/
 
@@ -205,9 +204,10 @@ call `webContents.focus()` directly. If you feel the urge to
 `setTimeout(0)`, you're mutating view state during dispatch — mark dirty
 instead.
 
-**Renderer gesture code uses `src/renderer/shared/useDragGesture.ts`.**
-Pointer events only; no `mouse*` handlers in new code. The hook owns
-pointer capture, blur/escape cancel, and threshold-before-begin.
+**Renderer gesture code uses pointer events only; no `mouse*` handlers in
+new code.** The `useDragGesture` hook (deleted in #140) is no longer
+available — pointer capture, blur/escape cancel, and threshold-before-begin
+are handled directly in gesture handlers or via the `InteractionController`.
 
 **Canvas coord math lives in `src/shared/coords.ts`** — single source for
 both main and renderer so hit-tests don't drift.

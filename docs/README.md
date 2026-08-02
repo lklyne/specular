@@ -12,8 +12,8 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [0006 — Unified comment tool (subsumes region-select)](adr/0006-unified-comment-tool.md) — one comment tool handles element/point clicks and region drags; amended by 0029 for page-anchored regions.
 - [0008 — Unified canvas-item popup, selection-driven and tool-driven](adr/0008-unified-canvas-item-popup.md) — one `CanvasItemPopup` component replaces per-kind menu implementations.
 - [0009 — Tool variants live in popup state, not in the `Tool` union](adr/0009-tool-variants-in-popup-state.md) — `shapeKind`/`brushType` move out of the `Tool` union into popup-managed tool defaults.
-- [0010 — Main is the sole shortcut dispatch site](adr/0010-main-as-sole-shortcut-dispatch-site.md) — **Proposed** — consolidates keyboard shortcut handling (currently split across 3 locations) into main.
-- [0011 — Page focus respects native shortcuts](adr/0011-page-focus-respects-native-shortcuts.md) — **Proposed** — a keyboard-focused page should see native shortcuts (Cmd+Z etc.) before app-level handlers.
+- [0010 — Main is the sole shortcut dispatch site](adr/0010-main-as-sole-shortcut-dispatch-site.md) — consolidates keyboard shortcut handling into main via `binding-dispatcher.ts`; renderer keyboard hooks removed.
+- [0011 — Page focus respects native shortcuts](adr/0011-page-focus-respects-native-shortcuts.md) — a keyboard-focused page sees native shortcuts (Cmd+Z etc.) before app-level handlers; only `firesFromPageFocus: true` bindings fire while a page is focused.
 - [0012 — Alignment guides are visual-only](adr/0012-alignment-guides-are-visual-only.md) — FigJam-style alignment guides render but never pull; grid-snap remains the only magnetic drag force.
 - [0013 — Popup menus v2: palette, text size, cross-kind morph, toolbar regrouping](adr/0013-popup-menus-v2.md) — **Proposed** — locks down popup visual design decisions left soft by ADR 0008/0009.
 - [0014 — Canvas stack order and the Notes/Pages sidebar](adr/0014-canvas-stack-order.md) — **Proposed** — flat `entityOrder` + group-contiguity invariant defines front-to-back stacking; sidebar splits into Notes/Pages sections.
@@ -51,8 +51,8 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [input-authority-audit.md](input-authority-audit.md) — live classification table of every canvas gesture path (router-owned vs native vs visual-only) post input-authority refactor.
 - [interaction-layer.md](interaction-layer.md) — architecture spec for gestures/overlays/focus handoffs; §6 load-bearing invariants must be read before touching input.
 - [offscreen-rendering-research.md](offscreen-rendering-research.md) — research into GPU offscreen rendering (e.g. Ultralight) as a strategy for scaling many live web frames.
-- [pan-zoom-perf-unknowns.md](pan-zoom-perf-unknowns.md) — *(not on this branch, present on main)* — deep research sweep of Chromium/Electron internals for pan/zoom perf options beyond bitmap-freeze/WCV-fold; corrects part of the ADR 0023 postmortem.
-- [perf-tracing.md](perf-tracing.md) — *(not on this branch, present on main)* — how to record and read Chromium performance traces of Specular via UI or HTTP API.
+- [pan-zoom-perf-unknowns.md](pan-zoom-perf-unknowns.md) — deep research sweep of Chromium/Electron internals for pan/zoom perf options beyond bitmap-freeze/WCV-fold; corrects part of the ADR 0023 postmortem.
+- [perf-tracing.md](perf-tracing.md) — how to record and read Chromium performance traces of Specular via UI or HTTP API.
 - [product.md](product.md) — product philosophy: who Specular is for, what it is, and the open/local-first core beliefs.
 
 Subdirectories (see files within for detail, not indexed individually here):

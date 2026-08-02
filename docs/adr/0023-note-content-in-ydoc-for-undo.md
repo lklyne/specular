@@ -41,15 +41,17 @@ Lifecycle (`src/main/runtime/note-content-state.ts`, `note-commands.ts`):
   never itself an undo step — otherwise the first Cmd+Z on an untouched note
   would blank it instead of reverting nothing.
 - **Edit** — `commitNoteContent(entityId, content)` is the single mutation
-  seam: ensure baseline → update the runtime mirror → write the `.md` file
-  → `scheduleWorkspaceAutosave()`. The renderer calls it via
+  seam: ensure baseline → update the runtime mirror → write the `.md` file.
+  No autosave is scheduled — a note edit touches nothing in the `.canvas`
+  file, only the `.md` file on disk. The renderer calls it via
   `applyNoteContent` (IPC), replacing the old direct `writeNoteFile` write
   for markdown notes specifically.
-- **Forward sync** — the existing diff-sync engine (`syncRuntimeToDoc`)
-  gained a `noteContent` parameter; changed entries are written into the
-  `notes` Y.Map under the normal `'user'` origin on the existing
-  autosave/`requestDocSync` microtask, so each edit becomes exactly one
-  `UndoManager` step, same as every other tracked mutation.
+- **Forward sync** — `setNoteContent` (`note-content-state.ts`) writes the
+  changed entry into the `notes` Y.Map immediately and synchronously under
+  the `'user'` origin, so each edit becomes exactly one `UndoManager` step.
+  The write is not deferred through the `syncRuntimeToDoc` microtask; a
+  direct immediate write avoids gesture-batch-folding that would otherwise
+  merge many edits into one undo step.
 - **Undo/redo** — the undo observer (`workspace-observers.ts`) reads the
   reverted `notes` Y.Map back into the runtime mirror
   (`applyNoteContentsFromDoc`) and projects only the changed ids back to the

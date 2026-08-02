@@ -35,7 +35,7 @@ that:
 
 (The original design restored a stored pre-focus camera; [ADR 0021](./0021-focus-session-as-first-class-concept.md)'s
 session rework dropped that in favor of the zoom-out-in-place exit above. The
-`returnCamera` field is still captured but no longer read.)
+`returnCamera` field has been fully removed from `FocusSession`.)
 
 Legacy `viewMode` and `browserTabMode` fields remain readable for old files.
 On restore, Browser-mode metadata selects the formerly active page and then the
