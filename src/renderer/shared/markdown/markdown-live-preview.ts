@@ -186,6 +186,73 @@ function collapseLinkChrome(
   hideMarkup(decorations, state, marks[1].from, node.to)
 }
 
+/** One collapsed-node renderer per markdown node name. Each returns what the
+ *  tree visitor should: `undefined` to keep descending (feature disabled),
+ *  `false` to stop at this node. */
+type NodeDecorator = (
+  decorations: Range<Decoration>[],
+  node: SyntaxNodeRef,
+  state: EditorState,
+  options: LivePreviewOptions,
+) => boolean | undefined
+
+const collapseLink: NodeDecorator = (decorations, node, state, options) => {
+  if (!options.linkChrome) return undefined
+  collapseLinkChrome(decorations, node, state)
+  return false
+}
+
+const collapseRule: NodeDecorator = (decorations, node, _state, options) => {
+  if (!options.horizontalRules) return undefined
+  decorations.push(Decoration.replace({ widget: new RuleWidget() }).range(node.from, node.to))
+  return false
+}
+
+const collapseListMark: NodeDecorator = (decorations, node, state, options) => {
+  if (!options.bullets) return undefined
+  // Ordered markers ("1.") already read as a list; only bullets lose
+  // their meaning when the `-` is hidden.
+  if (!/^[-*+]$/.test(state.sliceDoc(node.from, node.to))) return false
+  decorations.push(
+    Decoration.replace({ widget: new GlyphWidget('•', 'cm-md-bullet') }).range(node.from, node.to),
+  )
+  return false
+}
+
+const collapseTaskMarker: NodeDecorator = (decorations, node, state, options) => {
+  if (!options.taskMarkers) return undefined
+  const done = /x/i.test(state.sliceDoc(node.from, node.to))
+  decorations.push(
+    Decoration.replace({ widget: new GlyphWidget(done ? '☑' : '☐', 'cm-md-task') }).range(
+      node.from,
+      node.to,
+    ),
+  )
+  return false
+}
+
+const collapseQuoteMark: NodeDecorator = (decorations, node, state, options) => {
+  if (!options.quotes) return undefined
+  hideMarkup(decorations, state, node.from, eatTrailingSpace(state, node.to))
+  return false
+}
+
+const collapseHeaderMark: NodeDecorator = (decorations, node, state, options) => {
+  if (!options.headings) return undefined
+  hideMarkup(decorations, state, node.from, eatTrailingSpace(state, node.to))
+  return false
+}
+
+const NODE_DECORATORS: Record<string, NodeDecorator> = {
+  Link: collapseLink,
+  Image: collapseLink,
+  HorizontalRule: collapseRule,
+  ListMark: collapseListMark,
+  TaskMarker: collapseTaskMarker,
+  QuoteMark: collapseQuoteMark,
+  HeaderMark: collapseHeaderMark,
+}
+
 /**
  * Pure over `state` + the ranges to cover, so it can be exercised without a
  * live EditorView (and therefore without a DOM).
@@ -218,53 +285,11 @@ export function buildMarkdownDecorations(
         }
         if (revealed.has(doc.lineAt(node.from).number)) return undefined
 
-        switch (node.name) {
-          case 'Link':
-          case 'Image':
-            if (!options.linkChrome) return undefined
-            collapseLinkChrome(decorations, node, state)
-            return false
-          case 'HorizontalRule':
-            if (!options.horizontalRules) return undefined
-            decorations.push(
-              Decoration.replace({ widget: new RuleWidget() }).range(node.from, node.to),
-            )
-            return false
-          case 'ListMark': {
-            if (!options.bullets) return undefined
-            // Ordered markers ("1.") already read as a list; only bullets lose
-            // their meaning when the `-` is hidden.
-            if (!/^[-*+]$/.test(state.sliceDoc(node.from, node.to))) return false
-            decorations.push(
-              Decoration.replace({
-                widget: new GlyphWidget('•', 'cm-md-bullet'),
-              }).range(node.from, node.to),
-            )
-            return false
-          }
-          case 'TaskMarker': {
-            if (!options.taskMarkers) return undefined
-            const done = /x/i.test(state.sliceDoc(node.from, node.to))
-            decorations.push(
-              Decoration.replace({
-                widget: new GlyphWidget(done ? '☑' : '☐', 'cm-md-task'),
-              }).range(node.from, node.to),
-            )
-            return false
-          }
-          case 'QuoteMark':
-            if (!options.quotes) return undefined
-            hideMarkup(decorations, state, node.from, eatTrailingSpace(state, node.to))
-            return false
-          case 'HeaderMark':
-            if (!options.headings) return undefined
-            hideMarkup(decorations, state, node.from, eatTrailingSpace(state, node.to))
-            return false
-          default:
-            if (!options.inlineMarks.has(node.name)) return undefined
-            hideMarkup(decorations, state, node.from, node.to)
-            return false
-        }
+        const decorate = NODE_DECORATORS[node.name]
+        if (decorate) return decorate(decorations, node, state, options)
+        if (!options.inlineMarks.has(node.name)) return undefined
+        hideMarkup(decorations, state, node.from, node.to)
+        return false
       },
     })
   }

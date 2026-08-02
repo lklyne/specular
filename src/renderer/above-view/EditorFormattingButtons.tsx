@@ -27,7 +27,7 @@ export function EditorFormattingButtons({
       {/* Pressing a toggle must not blur the editor — a blur commits the
           deferred blur handler and exits edit mode before the click's
           command can run against the live selection. */}
-      <div onMouseDown={(e) => e.preventDefault()}>
+      <div onPointerDown={(e) => e.preventDefault()}>
         <CanvasItemPopup.Section>
           <CanvasItemPopup.IconButton
             isDark={isDark}

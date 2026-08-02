@@ -28,25 +28,7 @@ import { autofocusEditorSelection } from '../../shared/editor-selection'
  * (the view is built in an effect, so the browser paints the empty container
  * first) and would throw away scroll position and the parsed document.
  */
-export function MarkdownEditor({
-  value,
-  onChange,
-  onFocus,
-  onBlur,
-  onEscape,
-  onOpenLink,
-  isDark,
-  autoFocus = false,
-  placeholder,
-  className,
-  style,
-  lineWrap = true,
-  selectAllOnAutoFocus = false,
-  readOnly = false,
-  variant = 'markdown',
-  onViewReady,
-  onSelectionChange,
-}: {
+export interface MarkdownEditorProps {
   value: string
   onChange: (value: string) => void
   onFocus?: () => void
@@ -76,26 +58,12 @@ export function MarkdownEditor({
   /** Called on every selection/doc change with the live EditorState — lets a
    *  host derive cursor-relative UI (e.g. active formatting state). */
   onSelectionChange?: (state: EditorState) => void
-}) {
+}
+
+export function MarkdownEditor(props: MarkdownEditorProps) {
+  const { className, style, onOpenLink, readOnly = false } = props
   const containerRef = useRef<HTMLDivElement | null>(null)
-  useMarkdownEditor({
-    containerRef,
-    value,
-    onChange,
-    onFocus,
-    onBlur,
-    onEscape,
-    onOpenLink,
-    isDark,
-    autoFocus,
-    placeholder,
-    lineWrap,
-    selectAllOnAutoFocus,
-    readOnly,
-    variant,
-    onViewReady,
-    onSelectionChange,
-  })
+  useMarkdownEditor(containerRef, props)
   const readOnlyLink = useReadOnlyLinkClicks(readOnly ? onOpenLink : undefined)
 
   return (
@@ -160,28 +128,11 @@ function useReadOnlyLinkClicks(onOpenLink: ((url: string) => void) | undefined) 
   }
 }
 
-interface MarkdownEditorRuntimeOptions {
-  containerRef: React.MutableRefObject<HTMLDivElement | null>
-  value: string
-  onChange: (value: string) => void
-  onFocus?: () => void
-  onBlur?: () => void
-  onEscape?: () => void
-  onOpenLink?: (url: string) => void
-  isDark: boolean
-  autoFocus: boolean
-  placeholder?: string
-  lineWrap: boolean
-  selectAllOnAutoFocus: boolean
-  readOnly: boolean
-  variant: 'markdown' | 'sticky'
-  onViewReady?: (view: EditorView | null) => void
-  onSelectionChange?: (state: EditorState) => void
-}
-
-function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
+function useMarkdownEditor(
+  containerRef: React.MutableRefObject<HTMLDivElement | null>,
+  props: MarkdownEditorProps,
+): void {
   const {
-    containerRef,
     value,
     onChange,
     onFocus,
@@ -189,15 +140,15 @@ function useMarkdownEditor(options: MarkdownEditorRuntimeOptions): void {
     onEscape,
     onOpenLink,
     isDark,
-    autoFocus,
+    autoFocus = false,
     placeholder,
-    lineWrap,
-    selectAllOnAutoFocus,
-    readOnly,
-    variant,
+    lineWrap = true,
+    selectAllOnAutoFocus = false,
+    readOnly = false,
+    variant = 'markdown',
     onViewReady,
     onSelectionChange,
-  } = options
+  } = props
   const viewRef = useRef<EditorView | null>(null)
   const themeCompartmentRef = useRef<Compartment | null>(null)
   const modeCompartmentRef = useRef<Compartment | null>(null)

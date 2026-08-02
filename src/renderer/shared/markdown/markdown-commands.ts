@@ -142,8 +142,8 @@ export const insertLink: StateCommand = ({ state, dispatch }) => {
 }
 
 export const toggleBold = toggleWrap('**')
-export const toggleItalic = toggleWrap('*')
-export const toggleInlineCode = toggleWrap('`')
+const toggleItalic = toggleWrap('*')
+const toggleInlineCode = toggleWrap('`')
 export const toggleStrikethrough = toggleWrap('~~')
 
 /** Line numbers spanned by the selection, both endpoints' lines inclusive. */

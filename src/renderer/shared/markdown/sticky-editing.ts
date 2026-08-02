@@ -49,48 +49,27 @@ export function unwrapMarkAtBoundary(
   // node that *starts* at (or contains) that character regardless of which
   // key triggered the check.
   const biasPos = side === 'before' ? pos - 1 : pos
-  if (side === 'before' && biasPos < 0) return null
-  if (side === 'after' && biasPos >= state.doc.length) return null
+  if (biasPos < 0 || biasPos >= state.doc.length) return null
 
-  const node = syntaxTree(state).resolveInner(biasPos, 1)
+  const span = styledSpanAt(state, biasPos)
+  if (!span) return null
+  const pair = markPair(span.styled)
+  if (!pair) return null
+  const { open, close } = pair
 
-  let styled: SyntaxNode | null = null
-  let viaMark = false
-  if (MARK_NAMES.has(node.name) && node.parent && STYLED_NAMES.has(node.parent.name)) {
-    styled = node.parent
-    viaMark = true
-  } else if (STYLED_NAMES.has(node.name)) {
-    // `biasPos` sits in the span's content, not a marker.
-    styled = node
-  } else {
-    return null
-  }
-
-  const marks: Array<{ from: number; to: number }> = []
-  for (let child = styled.firstChild; child; child = child.nextSibling) {
-    if (MARK_NAMES.has(child.name)) marks.push({ from: child.from, to: child.to })
-  }
-  if (marks.length < 2) return null
-  const open = marks[0]
-  const close = marks[marks.length - 1]
-  const contentFrom = open.to
-  const contentTo = close.from
-  if (contentTo <= contentFrom) return null
-
-  if (!viaMark) {
-    // Deleting the one remaining content char would leave the bare markers
-    // (`****`) behind — remove the whole span instead.
-    const soleChar = contentTo - contentFrom === 1
-    if (!soleChar) return null
+  if (!span.viaMark) {
+    // `biasPos` sits in the span's content. Deleting the one remaining
+    // content char would leave the bare markers (`****`) behind — remove the
+    // whole span instead.
+    if (close.from - open.to !== 1) return null
     return {
-      changes: { from: styled.from, to: styled.to },
-      selection: { anchor: styled.from },
+      changes: { from: span.styled.from, to: span.styled.to },
+      selection: { anchor: span.styled.from },
     }
   }
 
-  const openLen = open.to - open.from
   const contentStartNew = open.from
-  const contentEndNew = contentTo - openLen
+  const contentEndNew = close.from - (open.to - open.from)
   return {
     changes: [
       { from: open.from, to: open.to },
@@ -98,6 +77,36 @@ export function unwrapMarkAtBoundary(
     ],
     selection: { anchor: side === 'before' ? contentEndNew : contentStartNew },
   }
+}
+
+/** The styled span (bold/italic/strikethrough) that owns `biasPos`, and
+ *  whether `biasPos` landed on one of its markers or in its content. */
+function styledSpanAt(
+  state: EditorState,
+  biasPos: number,
+): { styled: SyntaxNode; viaMark: boolean } | null {
+  const node = syntaxTree(state).resolveInner(biasPos, 1)
+  if (MARK_NAMES.has(node.name) && node.parent && STYLED_NAMES.has(node.parent.name)) {
+    return { styled: node.parent, viaMark: true }
+  }
+  if (STYLED_NAMES.has(node.name)) return { styled: node, viaMark: false }
+  return null
+}
+
+/** The span's opening and closing marker ranges, or `null` when it doesn't
+ *  have a complete pair wrapping non-empty content. */
+function markPair(
+  styled: SyntaxNode,
+): { open: { from: number; to: number }; close: { from: number; to: number } } | null {
+  const marks: Array<{ from: number; to: number }> = []
+  for (let child = styled.firstChild; child; child = child.nextSibling) {
+    if (MARK_NAMES.has(child.name)) marks.push({ from: child.from, to: child.to })
+  }
+  if (marks.length < 2) return null
+  const open = marks[0]
+  const close = marks[marks.length - 1]
+  if (close.from <= open.to) return null
+  return { open, close }
 }
 
 export const stickyDeleteKeymap: readonly KeyBinding[] = [
