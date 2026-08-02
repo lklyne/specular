@@ -17,7 +17,7 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 
 ## Core workflow
 
-1. `specular workspace` — read the current canvas: pages, groups, edges, annotations.
+1. `specular canvas` — read the current canvas: pages, groups, edges, annotations.
 2. `specular add page <url>` — pull a live site onto the canvas as a page.
 3. `specular snapshot -i -f <pageId>` — get element refs for a page.
 4. `specular click @<ref>` / `specular fill @<ref> "<text>"` — interact.
@@ -27,7 +27,7 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 
 | Command | Purpose |
 |---|---|
-| `specular workspace` | Print the canvas state as JSON Canvas (entities, edges, groups) |
+| `specular canvas` | Print the canvas state as JSON Canvas (entities, edges, groups) |
 | `specular selection` | Print the currently selected entities |
 | `specular snapshot -i -f <id>` | Capture an accessibility snapshot of a page, with refs |
 | `specular screenshot -f <id>` | Screenshot a page |
@@ -38,7 +38,7 @@ Every verb writes to the canvas the **user is looking at** unless you say
 otherwise. Name the target instead of inheriting their focus:
 
 ```bash
-specular workspace                        # appState.activeTab + appState.tabs (ids, names)
+specular canvas                           # appState.activeTab + appState.tabs (ids, names)
 specular tab new "sync-roads"             # create a canvas; prints its id; does NOT switch focus
 specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
 specular tab delete <tab-id|tab-name>     # remove a canvas; deleting a background one does NOT move the user
@@ -47,10 +47,10 @@ specular apply --tab <tab-id> < patch.json
 ```
 
 `--tab` takes a tab id or an exact tab name; an ambiguous or unknown ref errors
-with the candidates rather than guessing. Snapshot the tab id from `workspace`
+with the candidates rather than guessing. Snapshot the tab id from `canvas`
 before a batch and confirm it after — the user can switch canvases mid-session.
 
-Not every verb takes it. `workspace` reads, `apply`, and `add` (including the
+Not every verb takes it. `canvas` reads, `apply`, and `add` (including the
 placement lookups `add` runs) are tab-scoped; the rest — `unlink`, `ungroup`,
 `auto-layout`, `arrange`, the annotation verbs — reject `--tab` with a 400
 rather than quietly writing to the active canvas. Selection-driven verbs like
@@ -291,7 +291,7 @@ specular add page http://localhost:3000 && specular snapshot -i -f <pageId>
 - **`specular breakpoints <url>` may produce malformed page URLs** — confirm the new pages loaded the intended host before relying on them.
 - **`specular link` does not validate entity ids** — self-edges and edges to nonexistent ids are accepted and stored. Confirm both endpoints exist before calling `link`.
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
-- **`update <pageId> --url` lags `workspace`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular workspace` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → workspace` chain.
+- **`update <pageId> --url` lags `canvas`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular canvas` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → canvas` chain.
 - **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells, so snapshots can never target cells. Before driving Sheets, read [references/google-sheets.md](references/google-sheets.md) — it has the one write path that works (Name box → formula bar) and the focus traps that silently eat input while reporting "✓ Done".
 
 ## Passthrough to agent-browser
