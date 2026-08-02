@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { Folder } from 'lucide-react'
 import type { OnboardingBootstrapData, OnboardingComponentId, OnboardingProgressEvent, OnboardingStatusSnapshot } from '../../shared/types'
 import type { OnboardingElectronAPI } from '../../shared/electron-api/onboarding'
 import { SkillInstaller, type InstallerRowSnapshot, type RowProgress } from '../shared/SkillInstaller'
@@ -6,6 +7,52 @@ import {
   hasInstallableSelection,
   installableSelections,
 } from './onboardingSelection'
+
+/** Splits a folder path into its basename and parent for the space row's
+ *  two-line display, e.g. "/Users/lyle/Specular" -> ("Specular", "Users/lyle"). */
+function splitSpacePath(path: string): { base: string; parent: string } {
+  const segments = path.split('/').filter(Boolean)
+  const base = segments.at(-1) ?? path
+  const parent = segments.slice(0, -1).join(' › ')
+  return { base, parent }
+}
+
+function SpaceSection({
+  path,
+  onChange,
+}: {
+  path: string
+  onChange: () => void
+}) {
+  const { base, parent } = splitSpacePath(path)
+  return (
+    <div className="mb-6">
+      <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-[var(--surface-toolbar-foreground)] opacity-60">
+        Where your work lives
+      </div>
+      <div className="flex items-center justify-between gap-3 rounded-[8px] border border-[var(--surface-card-border)] bg-[var(--surface-card)] px-[11px] py-[9px]">
+        <div className="flex min-w-0 items-center gap-[9px]">
+          <Folder size={17} className="shrink-0 text-[var(--surface-toolbar-foreground)] opacity-70" />
+          <div className="min-w-0">
+            <div className="truncate text-[12.5px] font-medium">{base}</div>
+            {parent ? (
+              <div className="truncate text-[11px] text-[var(--surface-toolbar-foreground)] opacity-60">
+                {parent}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="shrink-0 rounded-[6px] border border-[var(--surface-card-border)] px-[11px] py-[5px] text-[12px] hover:bg-[var(--surface-card-border)]"
+          onClick={onChange}
+        >
+          Change…
+        </button>
+      </div>
+    </div>
+  )
+}
 
 type RowProgressMap = Record<OnboardingComponentId, { progress: RowProgress; detail?: string }>
 
@@ -87,6 +134,14 @@ function SetupScreen({
     cli: true,
     skill: true,
   })
+  const [spacePath, setSpacePath] = useState(
+    initialData.spacePath ?? initialData.defaultSpacePath,
+  )
+
+  const handleChangeSpace = useCallback(async () => {
+    const picked = await api.spaceChooseViaPicker()
+    if (picked) setSpacePath(picked)
+  }, [api])
 
   useEffect(() => {
     return api.onProgress((event: OnboardingProgressEvent) => {
@@ -134,12 +189,23 @@ function SetupScreen({
     setInstalling(true)
     dispatchProgress({ kind: 'reset' })
     try {
+      await api.spaceCommit(spacePath)
       const next = await api.install(selectionsToInstall)
       setStatus(next)
     } finally {
       setInstalling(false)
     }
-  }, [api, installing, status, selections])
+  }, [api, installing, status, selections, spacePath])
+
+  const handleSkip = useCallback(async () => {
+    await api.spaceCommit(spacePath)
+    api.dismiss()
+  }, [api, spacePath])
+
+  const handleFinish = useCallback(async () => {
+    await api.spaceCommit(spacePath)
+    api.complete()
+  }, [api, spacePath])
 
   const isSettingsMode = initialData.mode === 'settings'
   const canFinish = allInstalledOrSkipped(status, progress)
@@ -151,7 +217,7 @@ function SetupScreen({
       ? 'Installing\u2026'
       : 'Install selected'
 
-  const primaryAction = canFinish ? () => api.complete() : handleInstall
+  const primaryAction = canFinish ? handleFinish : handleInstall
 
   return (
     <div className="flex h-full flex-col">
@@ -167,6 +233,8 @@ function SetupScreen({
               : "You'll need to set up a few tools so agents know how this thing works."}
           </p>
         </header>
+
+        <SpaceSection path={spacePath} onChange={handleChangeSpace} />
 
         {!status.claudeDirExists ? (
           <div className="mb-4 rounded-[8px] border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
@@ -201,7 +269,7 @@ function SetupScreen({
           type="button"
           className="text-[12px] text-[var(--surface-toolbar-foreground)] opacity-70 hover:opacity-100 disabled:opacity-40"
           disabled={installing}
-          onClick={() => api.dismiss()}
+          onClick={isSettingsMode ? () => api.dismiss() : handleSkip}
         >
           {isSettingsMode ? 'Close' : 'Skip for now'}
         </button>
