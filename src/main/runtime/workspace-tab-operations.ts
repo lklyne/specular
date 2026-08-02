@@ -41,11 +41,10 @@ import {
 } from './workspace-tabs'
 import {
   DEFAULT_TAB_NAME,
-  DEFAULT_WORKSPACE_ID,
   deleteCanvasFile,
   makeWorkspaceTabId,
 } from './workspace-persistence'
-import { app } from 'electron'
+import { spaceDir } from './space-dir'
 import { findPageById } from './runtime-context'
 import { destroyActivePages } from './workspace-restore'
 import { restoreWorkspaceSnapshot, transitionToTab } from './workspace-restore'
@@ -183,7 +182,7 @@ export function renameWorkspaceTab(tabId: string, name: string): boolean {
   // Delete old .canvas file before renaming (next autosave writes the new one)
   const oldName = tab.name
   if (oldName !== trimmed) {
-    deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, { id: tab.id, name: oldName })
+    deleteCanvasFile(spaceDir(), { id: tab.id, name: oldName })
   }
   tab.name = trimmed
   tab.updatedAt = new Date().toISOString()
@@ -309,7 +308,7 @@ export function deleteWorkspaceTab(tabId: string): boolean {
   if (workspaceTabs.length === 1) {
     // Delete old canvas file if the tab is being reset to defaults with a new name
     if (deletedTab.name !== DEFAULT_TAB_NAME) {
-      deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTab)
+      deleteCanvasFile(spaceDir(), deletedTab)
     }
     workspaceTabs[index] = {
       ...workspaceTabs[index],
@@ -328,7 +327,7 @@ export function deleteWorkspaceTab(tabId: string): boolean {
     return true
   }
   // Delete the .canvas file for the removed tab
-  deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTab)
+  deleteCanvasFile(spaceDir(), deletedTab)
   // Removing a canvas the user is not looking at is a bookkeeping change: drop
   // the record and leave their view where it is. Only losing the active tab
   // forces a move, and then the neighbour is the least surprising landing spot.

@@ -2,6 +2,7 @@ import { app } from 'electron'
 import type { PersistedWorkspaceRecord } from '../../shared/types'
 import { requestDocSync } from './workspace-observers'
 import { projectAllNoteContentToDisk } from './note-content-state'
+import { spaceDir } from './space-dir'
 import {
   pages,
   workspaceAutosaveTimer,
@@ -13,7 +14,6 @@ import {
 import { workspaceTabs } from './workspace-model'
 import {
   activePersistedWorkspace as resolveActivePersistedWorkspace,
-  DEFAULT_WORKSPACE_ID,
   flushWorkspaceAutosaveSync as flushAutosaveNow,
   loadWorkspaceFromCanvasFiles,
   loadWorkspaceStore as loadPersistedWorkspaceStore,
@@ -35,17 +35,18 @@ function shouldPersistWorkspace(): boolean {
  * Load workspace from .canvas files (primary), falling back to legacy workspace-store.json.
  */
 export function loadWorkspace(): PersistedWorkspaceRecord | null {
-  const userDataPath = app.getPath('userData')
   try {
     // Primary: load from .canvas files
-    const record = loadWorkspaceFromCanvasFiles(userDataPath, DEFAULT_WORKSPACE_ID)
+    const record = loadWorkspaceFromCanvasFiles(spaceDir())
     if (record) return record
   } catch (error) {
     console.error('Failed to load workspace from .canvas files:', error)
   }
   try {
-    // Fallback: load from legacy workspace-store.json
-    const store = loadPersistedWorkspaceStore(workspaceStorePath(userDataPath))
+    // Fallback: load from legacy workspace-store.json. Predates the .canvas
+    // format and always lived at the userData root, not inside a space — an
+    // unset spacePath's legacy fallback is nested under it instead.
+    const store = loadPersistedWorkspaceStore(workspaceStorePath(app.getPath('userData')))
     if (store) {
       console.log('Loaded from legacy workspace-store.json — next save will write .canvas files')
       return resolveActivePersistedWorkspace(store)
@@ -64,10 +65,10 @@ export function saveWorkspaceStore(): void {
   if (!shouldPersistWorkspace()) return
   try {
     const record = buildPersistedWorkspaceRecord()
-    const userDataPath = app.getPath('userData')
-    writeAllTabsAsCanvasFiles(userDataPath, record.id, record.tabs)
+    const spacePath = spaceDir()
+    writeAllTabsAsCanvasFiles(spacePath, record.tabs)
     projectAllNoteContentToDisk()
-    writeWorkspaceMetaSync(userDataPath, record.id, {
+    writeWorkspaceMetaSync(spacePath, {
       activeTabId: record.activeTabId,
       tabs: record.tabs.map((t) => ({
         id: t.id,

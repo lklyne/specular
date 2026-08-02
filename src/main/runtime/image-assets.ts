@@ -1,11 +1,10 @@
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { app } from 'electron'
-import { DEFAULT_WORKSPACE_ID } from './workspace-persistence'
+import { spaceDir } from './space-dir'
 
 function assetsDir(): string {
-  const dir = join(app.getPath('userData'), 'workspaces', DEFAULT_WORKSPACE_ID, 'assets')
+  const dir = join(spaceDir(), 'assets')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }

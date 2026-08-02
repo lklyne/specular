@@ -56,6 +56,9 @@ type PreferencesFile = {
   devtoolsWidth?: number
   devtoolsPanelTab?: DevtoolsPanelTab | 'elements' | 'devtools'
   onboarding?: OnboardingState
+  /** The user-chosen space folder. Unset resolves to the legacy
+   *  userData/workspaces/default location (ADR 0033). */
+  spacePath?: string
   /** Legacy: bindings now live in repos.json under ConnectedRepo.boundOrigins.
    *  Read once at startup for migration, then stripped from this file. */
   originBindings?: LegacyOriginBindings
@@ -72,6 +75,7 @@ let currentCursorSplineViz = false
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
 let currentThemeMode: AppThemeMode = 'system'
+let currentSpacePath: string | undefined
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -151,6 +155,7 @@ export function loadPreferences(): void {
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
   currentThemeMode = normalizeThemeMode(parsed.themeMode)
+  currentSpacePath = typeof parsed.spacePath === 'string' ? parsed.spacePath : undefined
   nativeTheme.themeSource = currentThemeMode
 }
 
@@ -166,6 +171,18 @@ export function saveToolDefaults(next: ToolDefaults): void {
   currentToolDefaults = normalizeToolDefaults(next)
   const parsed = readPreferencesFile()
   writePreferencesFile({ ...parsed, toolDefaults: currentToolDefaults })
+}
+
+/** The user-chosen space folder, or undefined when unset (spaceDir() resolves
+ *  the legacy default in that case). */
+export function getSpacePath(): string | undefined {
+  return currentSpacePath
+}
+
+export function setSpacePath(path: string): void {
+  currentSpacePath = path
+  const parsed = readPreferencesFile()
+  writePreferencesFile({ ...parsed, spacePath: currentSpacePath })
 }
 
 export function getCursorSplineViz(): boolean {

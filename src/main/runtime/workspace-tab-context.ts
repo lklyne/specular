@@ -29,7 +29,6 @@
 // with no UndoManager attached, so the user's undo stack is untouched and
 // Cmd+Z after an agent write is a no-op with respect to it (issue #360 §6).
 
-import { app } from 'electron'
 import type * as Y from 'yjs'
 import type { CanvasEntityKind, PersistedWorkspaceTab, WorkspaceSnapshot } from '../../shared/types'
 import { forEachEntityKind, type RuntimeEntity } from '../entities/contract'
@@ -49,10 +48,8 @@ import {
 } from './workspace-doc'
 import { getActiveUndoManager, setActiveUndoManager } from './workspace-undo'
 import { withWorkspacePersistenceSuspended } from './workspace-autosave'
-import {
-  DEFAULT_WORKSPACE_ID,
-  writeTabAsCanvasFile,
-} from './workspace-persistence'
+import { writeTabAsCanvasFile } from './workspace-persistence'
+import { spaceDir } from './space-dir'
 import {
   cloneAnnotationsForPersistence,
   cloneWorkspaceSnapshot,
@@ -292,7 +289,7 @@ export function withTabContext<T>(tabId: string, fn: () => T, options?: TabConte
         const snapshot = mergeIntoTabSnapshot(tab.snapshot)
         const annotations = cloneAnnotationsForPersistence(workspaceAnnotations)
         const updatedAt = new Date().toISOString()
-        writeTabAsCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, {
+        writeTabAsCanvasFile(spaceDir(), {
           ...tab,
           snapshot,
           annotations,
