@@ -8,7 +8,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { Columns2, Grid2x2, Maximize2, MessageSquarePlus, Rows2 } from 'lucide-react'
+import { Columns2, Grid2x2, Maximize2, MessageCircle, Rows2 } from 'lucide-react'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { POPUP_SURFACE_CLASS, popupSurfaceStyle } from '../shared/popupSurface'
 import { Tooltip } from '../shared/Tooltip'
@@ -598,7 +598,7 @@ function EntityActions({
           ariaLabel={`Annotate ${noun}`}
           onClick={() => onAnnotate([...entityIds], annotateRect)}
         >
-          <MessageSquarePlus size={14} />
+          <MessageCircle size={14} />
         </IconButton>
       )}
       {api && (
