@@ -2,7 +2,7 @@ import type {
   PersistedWorkspaceRecord,
   PersistedWorkspaceTab,
   WorkspaceSnapshot,
-  WorkspaceTabSummary,
+  SpaceTabSummary,
 } from '../../shared/types'
 import type { JsonCanvasTabIdentity } from '../../shared/json-canvas-types'
 import {
@@ -11,13 +11,13 @@ import {
   pan,
 } from './runtime-context'
 import {
-  activeWorkspaceTabId,
-  workspaceTabs,
-  setActiveWorkspaceTabId,
+  activeSpaceTabId,
+  spaceTabs,
+  setActiveSpaceTabId,
   workspaceAnnotations,
   workspaceGroups,
   workspaceEdges,
-} from './workspace-model'
+} from './space-model'
 import {
   devtoolsPanelTab as uiDevtoolsPanelTab,
   devtoolsWidth as uiDevtoolsWidth,
@@ -28,14 +28,14 @@ import {
   devtoolsOpen as uiDevtoolsOpen,
 } from '../ui-state'
 import {
-  buildWorkspaceTabSummary,
-  makeWorkspaceTabId,
+  buildSpaceTabSummary,
+  makeSpaceTabId,
   DEFAULT_TAB_NAME,
   buildPersistedWorkspaceRecord as createPersistedWorkspaceRecord,
   makeEmptyWorkspaceSnapshot,
   buildWorkspaceSnapshot,
   buildPageSnapshot,
-} from './workspace-persistence'
+} from './space-persistence'
 import {
   cloneAnnotationsForPersistence,
   cloneWorkspaceSnapshot,
@@ -57,9 +57,9 @@ import {
   persistShapeEntity,
 } from './shape-entity-state'
 import { persistGroupEntity } from './group-entity-state'
-import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
-export function workspaceSnapshot(): WorkspaceSnapshot {
+export function spaceSnapshot(): WorkspaceSnapshot {
   const pageIds = pages.map((p) => p.id)
   const selectedIndex = uiSelectedPageIndex(pageIds)
   const selectedPageId =
@@ -170,23 +170,23 @@ export function makeEmptyTabSnapshot(): WorkspaceSnapshot {
 }
 
 export function syncActiveTabRecord(): void {
-  if (!activeWorkspaceTabId || !workspaceTabs.length) return
-  const tab = workspaceTabs.find((candidate) => candidate.id === activeWorkspaceTabId)
+  if (!activeSpaceTabId || !spaceTabs.length) return
+  const tab = spaceTabs.find((candidate) => candidate.id === activeSpaceTabId)
   if (!tab) return
   tab.updatedAt = new Date().toISOString()
-  tab.snapshot = cloneWorkspaceSnapshot(workspaceSnapshot())
+  tab.snapshot = cloneWorkspaceSnapshot(spaceSnapshot())
   tab.annotations = cloneAnnotationsForPersistence(workspaceAnnotations)
 }
 
-function buildTabSummary(tab: PersistedWorkspaceTab): WorkspaceTabSummary {
-  return buildWorkspaceTabSummary(tab, activeWorkspaceTabId)
+function buildTabSummary(tab: PersistedWorkspaceTab): SpaceTabSummary {
+  return buildSpaceTabSummary(tab, activeSpaceTabId)
 }
 
-export function ensureWorkspaceTabsInitialized(): void {
-  if (workspaceTabs.length) return
+export function ensureSpaceTabsInitialized(): void {
+  if (spaceTabs.length) return
   const now = new Date().toISOString()
-  const id = makeWorkspaceTabId()
-  workspaceTabs.push({
+  const id = makeSpaceTabId()
+  spaceTabs.push({
     id,
     name: DEFAULT_TAB_NAME,
     updatedAt: now,
@@ -194,25 +194,25 @@ export function ensureWorkspaceTabsInitialized(): void {
     annotations: [],
     expanded: true,
   })
-  setActiveWorkspaceTabId(id)
+  setActiveSpaceTabId(id)
 }
 
-export function workspaceTabSummaries(): WorkspaceTabSummary[] {
+export function spaceTabSummaries(): SpaceTabSummary[] {
   syncActiveTabRecord()
-  return workspaceTabs.map(buildTabSummary)
+  return spaceTabs.map(buildTabSummary)
 }
 
-export interface WorkspaceTabIdentity {
+export interface SpaceTabIdentity {
   activeTab: { id: string; name: string } | null
   tabs: JsonCanvasTabIdentity[]
 }
 
-/** Which canvas a read answered from, and what else is open. `workspaceTabSummaries()`
+/** Which canvas a read answered from, and what else is open. `spaceTabSummaries()`
  *  syncs the active tab record first, so its `entityCount` reflects live runtime
  *  state rather than the last persisted snapshot. */
-export function workspaceTabIdentity(): WorkspaceTabIdentity {
-  ensureWorkspaceTabsInitialized()
-  const summaries = workspaceTabSummaries()
+export function spaceTabIdentity(): SpaceTabIdentity {
+  ensureSpaceTabsInitialized()
+  const summaries = spaceTabSummaries()
   const active = summaries.find((tab) => tab.isActive) ?? summaries[0]
   return {
     activeTab: active ? { id: active.id, name: active.name } : null,
@@ -220,31 +220,31 @@ export function workspaceTabIdentity(): WorkspaceTabIdentity {
   }
 }
 
-export function activeWorkspaceTabSummary(): WorkspaceTabSummary | null {
-  ensureWorkspaceTabsInitialized()
-  const active = workspaceTabs.find((tab) => tab.id === activeWorkspaceTabId) ?? workspaceTabs[0]
+export function activeSpaceTabSummary(): SpaceTabSummary | null {
+  ensureSpaceTabsInitialized()
+  const active = spaceTabs.find((tab) => tab.id === activeSpaceTabId) ?? spaceTabs[0]
   return active ? buildTabSummary(active) : null
 }
 
 export function buildPersistedWorkspaceRecord(): PersistedWorkspaceRecord {
   syncActiveTabRecord()
-  if (!workspaceTabs.length) {
+  if (!spaceTabs.length) {
     const now = new Date().toISOString()
-    workspaceTabs.push({
-      id: makeWorkspaceTabId(),
+    spaceTabs.push({
+      id: makeSpaceTabId(),
       name: DEFAULT_TAB_NAME,
       updatedAt: now,
-      snapshot: cloneWorkspaceSnapshot(workspaceSnapshot()),
+      snapshot: cloneWorkspaceSnapshot(spaceSnapshot()),
       annotations: cloneAnnotationsForPersistence(workspaceAnnotations),
       expanded: true,
     })
   }
-  if (!activeWorkspaceTabId || !workspaceTabs.some((tab) => tab.id === activeWorkspaceTabId)) {
-    setActiveWorkspaceTabId(workspaceTabs[0]?.id ?? null)
+  if (!activeSpaceTabId || !spaceTabs.some((tab) => tab.id === activeSpaceTabId)) {
+    setActiveSpaceTabId(spaceTabs[0]?.id ?? null)
   }
   return createPersistedWorkspaceRecord({
-    workspaceTabs,
-    activeWorkspaceTabId: activeWorkspaceTabId ?? workspaceTabs[0]!.id,
+    spaceTabs,
+    activeSpaceTabId: activeSpaceTabId ?? spaceTabs[0]!.id,
   })
 }
 

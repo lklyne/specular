@@ -1,5 +1,5 @@
 // fallow-ignore-file circular-dependencies
-// Suppressed: see #141. workspace-tab-operations imports workspace-restore creating a mutual dependency
+// Suppressed: see #141. space-tab-operations imports space-restore creating a mutual dependency
 import { markAllDirty } from './layout-dirty'
 import type {
   PersistedWorkspaceRecord,
@@ -25,29 +25,29 @@ import {
   DOC_MAP_VIEWPORT,
   DOC_ENTITY_MAP_NAMES,
   DOC_ARRAY_ENTITY_ORDER,
-} from './workspace-doc'
-import { markUndoBoundary } from './workspace-undo'
-import { resetDocSync } from './workspace-observers'
+} from './space-doc'
+import { markUndoBoundary } from './space-undo'
+import { resetDocSync } from './space-observers'
 import {
-  scheduleWorkspaceAutosave,
-  withWorkspacePersistenceSuspended,
-} from './workspace-autosave'
+  scheduleSpaceAutosave,
+  withSpacePersistenceSuspended,
+} from './space-autosave'
 import { setZoom, setPan, requestLayout } from './viewport-control'
 import {
-  activeWorkspaceTabId,
-  setActiveWorkspaceTabId,
+  activeSpaceTabId,
+  setActiveSpaceTabId,
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
-  workspaceTabs,
-} from './workspace-model'
+  spaceTabs,
+} from './space-model'
 import {
   pages,
   setInspectHoveredTarget,
   setInspectSelectedTarget,
   setInspectActivePageId,
-  workspaceAutosaveTimer,
-  setWorkspaceAutosaveTimer,
+  spaceAutosaveTimer,
+  setSpaceAutosaveTimer,
   setSelectionOverlayActive,
 } from './runtime-context'
 import {
@@ -58,10 +58,10 @@ import {
 import { sendInteractiveState } from './overlay-manager'
 import {
   clonePersistedWorkspaceTabs,
-} from './workspace-persistence'
+} from './space-persistence'
 import {
-  ensureWorkspaceTabsInitialized,
-} from './workspace-tabs'
+  ensureSpaceTabsInitialized,
+} from './space-tabs'
 import {
   normalizePresetIndex,
 } from './runtime-serialization'
@@ -114,8 +114,8 @@ import {
   TOOLBAR_HEIGHT,
 } from './runtime-constants'
 import { initWindow } from './window-init'
-import { applyTabState } from './workspace-tab-operations'
-import { migrateSnapshotEntityOrderForRestore } from './workspace-restore-migration'
+import { applyTabState } from './space-tab-operations'
+import { migrateSnapshotEntityOrderForRestore } from './space-restore-migration'
 
 export function destroyActivePages(): void {
   clearTextEntities()
@@ -147,7 +147,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
   const hasEntities = snapshot.entities && Object.keys(snapshot.entities).length > 0
   if (!snapshot.pages.length && !hasEntities) return false
 
-  withWorkspacePersistenceSuspended(() => {
+  withSpacePersistenceSuspended(() => {
     setZoom(snapshot.zoom)
     setPan(snapshot.pan.x, snapshot.pan.y)
     setUiLeftSidebarOpen(snapshot.leftSidebarOpen ?? true)
@@ -343,7 +343,7 @@ export function transitionToTab(snapshot: WorkspaceSnapshot, tabId: string): voi
   const doc = getActiveDoc()
   doc.transact(() => {
     setDocActiveTabId(doc, tabId)
-    setDocTabList(doc, workspaceTabs.map((t) => ({ id: t.id, name: t.name })))
+    setDocTabList(doc, spaceTabs.map((t) => ({ id: t.id, name: t.name })))
     for (const name of [DOC_MAP_VIEWPORT, ...DOC_ENTITY_MAP_NAMES]) {
       const map = doc.getMap(name)
       for (const k of [...map.keys()]) map.delete(k)
@@ -357,21 +357,21 @@ export function transitionToTab(snapshot: WorkspaceSnapshot, tabId: string): voi
   resetDocSync()
 }
 
-export function restorePersistedWorkspace(
+export function restorePersistedSpace(
   record: PersistedWorkspaceRecord,
 ): boolean {
-  workspaceTabs.length = 0
-  workspaceTabs.push(...clonePersistedWorkspaceTabs(record.tabs))
+  spaceTabs.length = 0
+  spaceTabs.push(...clonePersistedWorkspaceTabs(record.tabs))
   let migratedEntityOrder = false
-  for (const tab of workspaceTabs) {
+  for (const tab of spaceTabs) {
     migratedEntityOrder = migrateSnapshotEntityOrderForRestore(tab.snapshot) || migratedEntityOrder
   }
-  setActiveWorkspaceTabId(
-    record.activeTabId && workspaceTabs.some((tab) => tab.id === record.activeTabId)
+  setActiveSpaceTabId(
+    record.activeTabId && spaceTabs.some((tab) => tab.id === record.activeTabId)
       ? record.activeTabId
-      : workspaceTabs[0]?.id ?? null,
+      : spaceTabs[0]?.id ?? null,
   )
-  const activeTab = workspaceTabs.find((tab) => tab.id === activeWorkspaceTabId)
+  const activeTab = spaceTabs.find((tab) => tab.id === activeSpaceTabId)
   if (!activeTab) return false
   applyTabState(activeTab)
   if (record.viewMode === 'browser') {
@@ -384,7 +384,7 @@ export function restorePersistedWorkspace(
   // phantom entries.
   if (migratedEntityOrder) {
     markAllDirty()
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
   }
   return true
 }
@@ -394,9 +394,9 @@ function resetWindowState(): void {
     clearTimeout(layoutCache.layoutTimer)
     layoutCache.layoutTimer = null
   }
-  if (workspaceAutosaveTimer) {
-    clearTimeout(workspaceAutosaveTimer)
-    setWorkspaceAutosaveTimer(null)
+  if (spaceAutosaveTimer) {
+    clearTimeout(spaceAutosaveTimer)
+    setSpaceAutosaveTimer(null)
   }
 
   setBgView(null)
@@ -424,8 +424,8 @@ function resetWindowState(): void {
   workspaceGroups.length = 0
   workspaceEdges.length = 0
   workspaceAnnotations.length = 0
-  workspaceTabs.length = 0
-  setActiveWorkspaceTabId(null)
+  spaceTabs.length = 0
+  setActiveSpaceTabId(null)
   setWin(null)
 }
 

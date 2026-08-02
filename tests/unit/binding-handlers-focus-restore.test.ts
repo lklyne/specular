@@ -22,7 +22,7 @@ const ui = vi.hoisted(() => ({
 vi.mock('../../src/shared/featureFlags', () => ({ DRAWING_FEATURE_ENABLED: true }))
 vi.mock('../../src/main/runtime/tool-mode', () => ({ setActiveTool: vi.fn() }))
 vi.mock('../../src/main/runtime/tool-defaults', () => ({ applyToolDefaultPatch: vi.fn() }))
-vi.mock('../../src/main/runtime/workspace-undo', () => ({ undo: vi.fn(), redo: vi.fn() }))
+vi.mock('../../src/main/runtime/space-undo', () => ({ undo: vi.fn(), redo: vi.fn() }))
 vi.mock('../../src/main/runtime/document-commands', () => ({
   groupSelectedEntities: vi.fn(),
   makeAutoLayoutFromSelection: vi.fn(),

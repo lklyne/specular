@@ -33,34 +33,34 @@ import {
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
-  workspaceTabs,
-  activeWorkspaceTabId,
-  setActiveWorkspaceTabId,
-} from '../../src/main/runtime/workspace-model'
+  spaceTabs,
+  activeSpaceTabId,
+  setActiveSpaceTabId,
+} from '../../src/main/runtime/space-model'
 import { textEntities } from '../../src/main/runtime/text-entity-state'
 import { fileEntities } from '../../src/main/runtime/file-entity-state'
 import { drawingEntities } from '../../src/main/runtime/drawing-entity-state'
 import { shapeEntities } from '../../src/main/runtime/shape-entity-state'
-import { getActiveDoc } from '../../src/main/runtime/workspace-doc'
+import { getActiveDoc } from '../../src/main/runtime/space-doc'
 import {
   createCanvasUndoManager,
   setUndoSelectionHooks,
   clearUndoHistory,
-} from '../../src/main/runtime/workspace-undo'
-import { initializeDocObservers } from '../../src/main/runtime/workspace-observers'
+} from '../../src/main/runtime/space-undo'
+import { initializeDocObservers } from '../../src/main/runtime/space-observers'
 import { createPage, removePageById } from '../../src/main/runtime/page-runtime'
-import { destroyActivePages, restorePersistedWorkspace } from '../../src/main/runtime/workspace-restore'
+import { destroyActivePages, restorePersistedSpace } from '../../src/main/runtime/space-restore'
 import { cancelActive as cancelActiveInteraction } from '../../src/main/runtime/interaction-controller'
 import { sendInteractiveState } from '../../src/main/runtime/overlay-manager'
 import { getUiState, setSelection } from '../../src/main/ui-state'
-import { loadWorkspace, flushWorkspaceAutosaveSync } from '../../src/main/runtime/workspace-autosave'
+import { loadSpace, flushSpaceAutosaveSync } from '../../src/main/runtime/space-autosave'
 import {
   canvasFilePath,
   readCanvasFile,
-  readWorkspaceMeta,
+  readSpaceMeta,
   writeCanvasFileSync,
-  writeWorkspaceMetaSync,
-} from '../../src/main/runtime/workspace-persistence'
+  writeSpaceMetaSync,
+} from '../../src/main/runtime/space-persistence'
 import { spaceDir } from '../../src/main/runtime/space-dir'
 import { registerBuiltInEntityKinds } from '../../src/main/entities'
 
@@ -122,8 +122,8 @@ export function bootWorkspaceHarness(fixture: CanvasFixture = BLANK_FIXTURE): Wo
   setBgView(new WebContentsView() as never)
 
   writeFixtureToDisk(fixture)
-  const record = loadWorkspace()
-  if (!record || !restorePersistedWorkspace(record)) {
+  const record = loadSpace()
+  if (!record || !restorePersistedSpace(record)) {
     throw new Error('harness failed to load initial workspace fixture')
   }
 
@@ -144,24 +144,24 @@ export function bootWorkspaceHarness(fixture: CanvasFixture = BLANK_FIXTURE): Wo
     clearBroadcasts: () => {
       __broadcasts.length = 0
     },
-    flush: () => flushWorkspaceAutosaveSync(),
+    flush: () => flushSpaceAutosaveSync(),
     diskDoc: (tabName?: string) => {
-      flushWorkspaceAutosaveSync()
+      flushSpaceAutosaveSync()
       return readCanvasFile(harness.diskPath(tabName))
     },
     diskPath: (ref?: string | { id: string; name: string }) => {
       const tab =
         typeof ref === 'string'
-          ? workspaceTabs.find((candidate) => candidate.name === ref)
+          ? spaceTabs.find((candidate) => candidate.name === ref)
           : (ref ?? activeTab())
       if (!tab) throw new Error(`no tab named ${String(ref)}`)
       return canvasFilePath(spaceDir(), tab)
     },
-    diskMeta: () => readWorkspaceMeta(spaceDir()),
+    diskMeta: () => readSpaceMeta(spaceDir()),
     loadFixture: (next: CanvasFixture) => {
       writeFixtureToDisk(next)
-      const nextRecord = loadWorkspace()
-      if (!nextRecord || !restorePersistedWorkspace(nextRecord)) {
+      const nextRecord = loadSpace()
+      if (!nextRecord || !restorePersistedSpace(nextRecord)) {
         throw new Error('harness failed to load fixture workspace')
       }
       // Restore replaces the runtime arrays and rehydrates the doc; the
@@ -182,14 +182,14 @@ export function bootWorkspaceHarness(fixture: CanvasFixture = BLANK_FIXTURE): Wo
 }
 
 function activeTab() {
-  return workspaceTabs.find((t) => t.id === activeWorkspaceTabId) ?? workspaceTabs[0]
+  return spaceTabs.find((t) => t.id === activeSpaceTabId) ?? spaceTabs[0]
 }
 
 function writeFixtureToDisk(fixture: CanvasFixture): void {
   const name = fixture.name?.trim() || 'Fixture'
   const tabId = 'fixture-tab'
   writeCanvasFileSync(canvasFilePath(spaceDir(), { id: tabId, name }), fixture.doc)
-  writeWorkspaceMetaSync(spaceDir(), {
+  writeSpaceMetaSync(spaceDir(), {
     activeTabId: tabId,
     tabs: [{ id: tabId, name, updatedAt: new Date().toISOString(), expanded: true }],
   })
@@ -225,9 +225,9 @@ function wireDocObservers(): void {
     createPage: (data) => createPage(data as never),
     removePageById,
     destroyActivePages,
-    getActiveTabId: () => activeWorkspaceTabId,
-    setActiveTabId: setActiveWorkspaceTabId,
-    workspaceTabs,
+    getActiveTabId: () => activeSpaceTabId,
+    setActiveTabId: setActiveSpaceTabId,
+    spaceTabs,
   })
 }
 

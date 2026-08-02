@@ -11,7 +11,7 @@ import { app } from 'electron'
 import { accessSync, constants as fsConstants, statSync } from 'fs'
 import { join } from 'path'
 import { getSpacePath } from './preferences'
-import { DEFAULT_WORKSPACE_ID } from './workspace-persistence'
+import { DEFAULT_WORKSPACE_ID } from './space-persistence'
 
 const LEGACY_WORKSPACES_DIR = 'workspaces'
 

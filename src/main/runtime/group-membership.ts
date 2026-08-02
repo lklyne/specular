@@ -3,7 +3,7 @@ import { reflowManagedGroup } from '../managed-layout'
 import { normalizeGroupStackContiguity } from './entity-order-state'
 import { markDirty } from './layout-dirty'
 import { mutateWorkspace } from './mutate-workspace'
-import { workspaceGroups } from './workspace-model'
+import { workspaceGroups } from './space-model'
 
 function entityById(id: string) {
   return allEntities().find(({ entity }) => entity.id === id)?.entity ?? null

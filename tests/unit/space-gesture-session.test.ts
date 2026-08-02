@@ -15,18 +15,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { calls } = vi.hoisted(() => ({ calls: [] as string[] }))
 
-vi.mock('../../src/main/runtime/workspace-observers', () => ({
+vi.mock('../../src/main/runtime/space-observers', () => ({
   beginBatch: vi.fn(() => calls.push('beginBatch')),
   endBatch: vi.fn(() => calls.push('endBatch')),
 }))
-vi.mock('../../src/main/runtime/workspace-undo', () => ({
+vi.mock('../../src/main/runtime/space-undo', () => ({
   markUndoBoundary: vi.fn(() => calls.push('markUndoBoundary')),
 }))
 vi.mock('../../src/main/runtime/layout-dirty', () => ({
   markDirty: vi.fn(),
 }))
-vi.mock('../../src/main/runtime/workspace-autosave', () => ({
-  scheduleWorkspaceAutosave: vi.fn(),
+vi.mock('../../src/main/runtime/space-autosave', () => ({
+  scheduleSpaceAutosave: vi.fn(),
 }))
 vi.mock('../../src/main/runtime/viewport-control', () => ({
   requestLayout: vi.fn(),
@@ -36,7 +36,7 @@ import {
   isGestureSessionActive,
   mutateWorkspace,
 } from '../../src/main/runtime/mutate-workspace'
-import { beginGestureSession } from '../../src/main/runtime/workspace-gesture-session'
+import { beginGestureSession } from '../../src/main/runtime/space-gesture-session'
 
 beforeEach(() => {
   calls.length = 0

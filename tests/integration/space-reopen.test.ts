@@ -27,7 +27,7 @@ import { createTextEntity, getTextEntities } from '../../src/main/runtime/docume
 import { pages } from '../../src/main/runtime/runtime-context'
 import { setSpacePath } from '../../src/main/runtime/preferences'
 import { reloadWorkspaceDataFromCurrentSpace } from '../../src/main/runtime/space-change'
-import { readCanvasFile } from '../../src/main/runtime/workspace-persistence'
+import { readCanvasFile } from '../../src/main/runtime/space-persistence'
 
 let harness: WorkspaceHarness
 const chosenDirs: string[] = []

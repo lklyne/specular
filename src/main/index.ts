@@ -3,10 +3,10 @@ import { basename } from 'path'
 import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
 import {
-  flushWorkspaceAutosaveSync,
-  loadWorkspace,
-} from './runtime/workspace-autosave'
-import { restorePersistedWorkspace } from './runtime/workspace-restore'
+  flushSpaceAutosaveSync,
+  loadSpace,
+} from './runtime/space-autosave'
+import { restorePersistedSpace } from './runtime/space-restore'
 import { createPage, pages, setMcpConnectionStatus } from './runtime/page-runtime'
 import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
 import { duplicatePageFromSource } from './workspace-pages'
@@ -43,13 +43,13 @@ import {
   shutdownDevServerManager,
 } from './runtime/dev-server-manager'
 import { spawn as nodeSpawn } from 'node:child_process'
-import { initializeDocObservers } from './runtime/workspace-observers'
+import { initializeDocObservers } from './runtime/space-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
-import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from './runtime/workspace-undo'
-import { getActiveDoc } from './runtime/workspace-doc'
+import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from './runtime/space-undo'
+import { getActiveDoc } from './runtime/space-doc'
 import { zoom, pan } from './runtime/runtime-context'
-import { workspaceGroups, workspaceEdges, workspaceAnnotations, workspaceTabs, activeWorkspaceTabId, setActiveWorkspaceTabId } from './runtime/workspace-model'
+import { workspaceGroups, workspaceEdges, workspaceAnnotations, spaceTabs, activeSpaceTabId, setActiveSpaceTabId } from './runtime/space-model'
 import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
@@ -249,9 +249,9 @@ app.whenReady().then(async () => {
   }, 5_000)
 
   // Load workspace from .canvas files (primary), falling back to legacy workspace-store.json
-  const persistedWorkspace = loadWorkspace()
+  const persistedWorkspace = loadSpace()
   const restoredPersistedWorkspace = persistedWorkspace
-    ? restorePersistedWorkspace(persistedWorkspace)
+    ? restorePersistedSpace(persistedWorkspace)
     : false
 
   if (!restoredPersistedWorkspace) {
@@ -285,9 +285,9 @@ app.whenReady().then(async () => {
     cancelActiveInteraction: () => cancelActiveInteraction('undo'),
     sendInteractiveState,
     destroyActivePages,
-    getActiveTabId: () => activeWorkspaceTabId,
-    setActiveTabId: setActiveWorkspaceTabId,
-    workspaceTabs,
+    getActiveTabId: () => activeSpaceTabId,
+    setActiveTabId: setActiveSpaceTabId,
+    spaceTabs,
   })
   // Clear any undo entries created by the initial doc sync
   clearUndoHistory()
@@ -314,7 +314,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   quitRequested = true
-  flushWorkspaceAutosaveSync()
+  flushSpaceAutosaveSync()
   teardownAllFileWatchers()
   void shutdownDevServerManager()
 })

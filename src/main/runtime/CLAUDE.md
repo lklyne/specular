@@ -4,7 +4,7 @@
 
 | Layer | What | Where |
 |---|---|---|
-| **Y.Doc** | Workspace data (entities, groups, edges, annotations, viewport, active tab) | `workspace-doc.ts` |
+| **Y.Doc** | Workspace data (entities, groups, edges, annotations, viewport, active tab) | `space-doc.ts` |
 | **Module variables** | Electron views, interaction mode, hover, drag, layout cache, timers, pages | `runtime-context.ts` |
 
 Pages are hybrid: serializable fields (position, URL, preset) mirror to Y.Doc, but WebContentsView refs stay in `runtime-context.ts`.
@@ -18,10 +18,10 @@ One undo stack spans all tabs. Tab switches are tracked transactions in Y.Doc, s
 Y.Doc is NOT the sole source of truth. Runtime arrays are mutated by existing code, then a diff-sync copies changes to Y.Doc:
 
 ```
-mutation → runtime arrays → scheduleWorkspaceAutosave() → requestDocSync() → microtask → syncRuntimeToDoc()
+mutation → runtime arrays → scheduleSpaceAutosave() → requestDocSync() → microtask → syncRuntimeToDoc()
 ```
 
-`syncRuntimeToDoc()` compares runtime state against Y.Doc and writes only the differences. This avoids modifying every mutation site — the sync is automatic via the existing `scheduleWorkspaceAutosave()` hook.
+`syncRuntimeToDoc()` compares runtime state against Y.Doc and writes only the differences. This avoids modifying every mutation site — the sync is automatic via the existing `scheduleSpaceAutosave()` hook.
 
 ## Undo/redo flow
 
@@ -45,7 +45,7 @@ Tab switches write to Y.Doc via `transitionToTab()`:
 
 Gestures (drag, resize, reorder, distribute) produce many small updates. Without batching, each would be a separate undo step.
 
-- `beginGestureSession()` (`workspace-gesture-session.ts`) suppresses doc sync and registers with `mutateWorkspace` so per-tick calls defer their undo boundary
+- `beginGestureSession()` (`space-gesture-session.ts`) suppresses doc sync and registers with `mutateWorkspace` so per-tick calls defer their undo boundary
 - Tick functions (`applyDragDelta`, `resizeMultiSelection`, registry updates) mutate freely while sync is held
 - `session.finalize()` — one sync for the entire gesture, then one `markUndoBoundary()`
 - At most one session at a time (one interaction token); a second begin warns and finalizes the stale session
@@ -58,15 +58,15 @@ Not tracked: viewport zoom/pan (in a separate Y.Map excluded from UndoManager sc
 
 ## Key files
 
-- `workspace-doc.ts` — Y.Doc lifecycle, workspace accessors, snapshot hydration, diff-sync engine
-- `workspace-undo.ts` — UndoManager setup, undo/redo API, selection metadata on undo steps
-- `workspace-observers.ts` — forward sync (runtime→Y.Doc), undo sync (Y.Doc→runtime), cross-tab undo detection, batch control
-- `workspace-model.ts` — owns workspace data arrays (edges, groups, annotations, tabs)
+- `space-doc.ts` — Y.Doc lifecycle, workspace accessors, snapshot hydration, diff-sync engine
+- `space-undo.ts` — UndoManager setup, undo/redo API, selection metadata on undo steps
+- `space-observers.ts` — forward sync (runtime→Y.Doc), undo sync (Y.Doc→runtime), cross-tab undo detection, batch control
+- `space-model.ts` — owns workspace data arrays (edges, groups, annotations, tabs)
 - `runtime-context.ts` — ephemeral state only (views, interaction, layout cache, timers, pages)
 
 ## Test coverage for this layer
 
-This is a high-risk layer: a bug in persistence, forward/reverse sync, or undo batching can lose user work silently. When you change anything in `workspace-*.ts` or the diff-sync path:
+This is a high-risk layer: a bug in persistence, forward/reverse sync, or undo batching can lose user work silently. When you change anything in `space-*.ts` or the diff-sync path:
 
 - Add or update integration coverage under `tests/integration/` for the behavior change. Persistence, undo, and sync each have a dedicated file (`persistence.test.ts`, `undo.test.ts`, `sync.test.ts`) driving the real runtime in-process via `bootWorkspaceHarness()` — see [ADR 0024](../../../docs/adr/0024-in-process-integration-testing.md).
 - Mutation-verify the test before committing — name the production-code change you used to confirm the test catches it. See `tests/README.md` for the convention.
@@ -77,7 +77,7 @@ See `tests/README.md` for the test bar and the harness API available to integrat
 
 ## Gotchas
 
-- **Suppress flag**: `withSuppressedDocSync()` prevents sync loops during restore and undo. If you call `scheduleWorkspaceAutosave()` from inside an undo observer without suppressing, you create a feedback loop where each undo generates a new undo entry.
+- **Suppress flag**: `withSuppressedDocSync()` prevents sync loops during restore and undo. If you call `scheduleSpaceAutosave()` from inside an undo observer without suppressing, you create a feedback loop where each undo generates a new undo entry.
 - **Tab switch suppress**: `applyTabState()` is called within `withSuppressedDocSync` during tab switches to prevent the normal forward-sync from running. The Y.Doc write happens separately in `transitionToTab()`.
 - **Focus on page delete**: `removePageAtIndex()` transfers focus to `aboveView` after destroying page webContents, so keyboard shortcuts (including undo) keep working. (Pre-Phase-F this targeted bgView; aboveView now owns canvas-mode keyboard input.)
 - **Undo observer side effects**: The undo observer runs `cancelActiveInteraction`, `sendInteractiveState`, `markAllDirty`, and `requestLayout` synchronously inside Y.Doc's `afterTransaction`. The 16ms debounce inside `requestLayout()` provides enough deferral to avoid stepping on Electron's event routing — no explicit `setTimeout(0)` needed since the controller is reentrancy-safe (Phase 5d-v2 E1).

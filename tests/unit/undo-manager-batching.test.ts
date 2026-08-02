@@ -1,7 +1,7 @@
 /**
  * UndoManager batching unit tests.
  *
- * Exercises `createCanvasUndoManager()` from src/main/runtime/workspace-undo.ts
+ * Exercises `createCanvasUndoManager()` from src/main/runtime/space-undo.ts
  * against a raw Y.Doc — no Electron — so we can assert the batching
  * invariants the runtime depends on:
  *
@@ -27,8 +27,8 @@ import {
   canUndo,
   canRedo,
   clearUndoHistory,
-} from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_ENTITIES } from '../../src/main/runtime/workspace-doc'
+} from '../../src/main/runtime/space-undo'
+import { DOC_MAP_ENTITIES } from '../../src/main/runtime/space-doc'
 
 let doc: Y.Doc
 let manager: Y.UndoManager

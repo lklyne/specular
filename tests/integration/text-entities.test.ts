@@ -11,7 +11,7 @@
  *   - passing `{}` instead of the snapped patch to `updateTextEntityInState`
  *     in `updateTextEntity` (src/main/runtime/document-commands.ts) —
  *     "updates a text entity" fails.
- *   - removing the `scheduleWorkspaceAutosave()` call from `createTextEntity`
+ *   - removing the `scheduleSpaceAutosave()` call from `createTextEntity`
  *     — "round-trips a created text entity through undo/redo" fails because
  *     the create never syncs to the Y.Doc, so there is nothing to undo.
  *     (The disk case survives that mutation: `diskDoc()`'s flush still
@@ -26,8 +26,8 @@ import {
   getTextEntities,
   updateTextEntity,
 } from '../../src/main/runtime/document-commands'
-import { undo, redo } from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_ENTITIES } from '../../src/main/runtime/workspace-doc'
+import { undo, redo } from '../../src/main/runtime/space-undo'
+import { DOC_MAP_ENTITIES } from '../../src/main/runtime/space-doc'
 
 let harness: WorkspaceHarness
 

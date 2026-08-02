@@ -9,7 +9,7 @@ import {
   DOC_MAP_WORKSPACE,
   DOC_MAP_NOTES,
   DOC_ARRAY_ENTITY_ORDER,
-} from './workspace-doc'
+} from './space-doc'
 import { breadcrumb } from '../sentry-context'
 
 const MAX_UNDO_STACK = 100

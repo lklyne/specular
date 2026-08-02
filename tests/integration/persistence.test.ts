@@ -7,7 +7,7 @@
  * next launch. Also guards the load-time migrations (group stack-order
  * normalization, legacy Browser-mode appState restore).
  *
- * Mutation-verified by: commenting out `scheduleWorkspaceAutosave()` in
+ * Mutation-verified by: commenting out `scheduleSpaceAutosave()` in
  * `createTextEntity` (src/main/runtime/document-commands.ts) — "autosave
  * writes a mutation to the .canvas file on disk" fails because the disk
  * snapshot stays empty after the debounce window.
@@ -22,7 +22,7 @@ import {
 } from '../../src/main/runtime/document-commands'
 import { currentEntityOrder } from '../../src/main/runtime/entity-order-state'
 import { getSelectionState } from '../../src/main/workspace-entities'
-import { readCanvasFile } from '../../src/main/runtime/workspace-persistence'
+import { readCanvasFile } from '../../src/main/runtime/space-persistence'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 let harness: WorkspaceHarness

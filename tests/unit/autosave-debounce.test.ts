@@ -1,23 +1,23 @@
 /**
  * Autosave debounce unit tests.
  *
- * Drives the pure `scheduleWorkspaceAutosave` / `flushWorkspaceAutosaveSync`
- * helpers from src/main/runtime/workspace-persistence.ts directly — no
+ * Drives the pure `scheduleSpaceAutosave` / `flushSpaceAutosaveSync`
+ * helpers from src/main/runtime/space-persistence.ts directly — no
  * Electron involved. Both helpers take their state (timer ref, persist
  * predicate, write-callback) as injected options, so unit testing is
  * faithful to the real call shape.
  *
  * Mutation-verified by commenting out the `clearTimeout(options.autosaveTimer)`
- * call inside `scheduleWorkspaceAutosave` — "coalesces rapid back-to-back
+ * call inside `scheduleSpaceAutosave` — "coalesces rapid back-to-back
  * mutations" then sees five writes instead of one.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   AUTOSAVE_DEBOUNCE_MS,
-  flushWorkspaceAutosaveSync,
-  scheduleWorkspaceAutosave,
-} from '../../src/main/runtime/workspace-persistence'
+  flushSpaceAutosaveSync,
+  scheduleSpaceAutosave,
+} from '../../src/main/runtime/space-persistence'
 
 function makeHarness(opts: { shouldPersist?: () => boolean } = {}) {
   let timer: NodeJS.Timeout | null = null
@@ -29,17 +29,17 @@ function makeHarness(opts: { shouldPersist?: () => boolean } = {}) {
   return {
     save,
     schedule: () =>
-      scheduleWorkspaceAutosave({
+      scheduleSpaceAutosave({
         autosaveTimer: timer,
         setAutosaveTimer: setTimer,
         shouldPersist,
-        saveWorkspaceStore: save,
+        saveSpaceStore: save,
       }),
     flush: () =>
-      flushWorkspaceAutosaveSync({
+      flushSpaceAutosaveSync({
         autosaveTimer: timer,
         setAutosaveTimer: setTimer,
-        saveWorkspaceStore: save,
+        saveSpaceStore: save,
       }),
     getTimer: () => timer,
   }
@@ -53,7 +53,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('scheduleWorkspaceAutosave', () => {
+describe('scheduleSpaceAutosave', () => {
   it('debounces a single mutation', () => {
     const h = makeHarness()
     h.schedule()
@@ -91,7 +91,7 @@ describe('scheduleWorkspaceAutosave', () => {
   })
 })
 
-describe('flushWorkspaceAutosaveSync', () => {
+describe('flushSpaceAutosaveSync', () => {
   it('writes immediately even if a pending timer exists', () => {
     const h = makeHarness()
     h.schedule()

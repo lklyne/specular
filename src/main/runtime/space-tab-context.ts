@@ -34,27 +34,27 @@ import type { CanvasEntityKind, PersistedWorkspaceTab, WorkspaceSnapshot } from 
 import { forEachEntityKind, type RuntimeEntity } from '../entities/contract'
 import { pages } from './runtime-context'
 import {
-  activeWorkspaceTabId,
+  activeSpaceTabId,
   workspaceAnnotations,
   workspaceEdges,
-  workspaceTabs,
-} from './workspace-model'
+  spaceTabs,
+} from './space-model'
 import {
   createWorkspaceDoc,
   getActiveDoc,
   hydrateDocFromSnapshot,
   setActiveDoc,
   withSuppressedDocSync,
-} from './workspace-doc'
-import { getActiveUndoManager, setActiveUndoManager } from './workspace-undo'
-import { withWorkspacePersistenceSuspended } from './workspace-autosave'
-import { writeTabAsCanvasFile } from './workspace-persistence'
+} from './space-doc'
+import { getActiveUndoManager, setActiveUndoManager } from './space-undo'
+import { withSpacePersistenceSuspended } from './space-autosave'
+import { writeTabAsCanvasFile } from './space-persistence'
 import { spaceDir } from './space-dir'
 import {
   cloneAnnotationsForPersistence,
   cloneWorkspaceSnapshot,
 } from './runtime-serialization'
-import { syncActiveTabRecord, workspaceSnapshot } from './workspace-tabs'
+import { syncActiveTabRecord, spaceSnapshot } from './space-tabs'
 
 // ---------------------------------------------------------------------------
 // Background-context probe (read by the patch door to reject page creates)
@@ -205,7 +205,7 @@ function hydrateTargetTab(tab: PersistedWorkspaceTab, doc: Y.Doc): void {
  * variables still describe the canvas the user is looking at.
  */
 function mergeIntoTabSnapshot(original: WorkspaceSnapshot): WorkspaceSnapshot {
-  const live = workspaceSnapshot()
+  const live = spaceSnapshot()
   const pageEntities = Object.fromEntries(
     Object.entries(original.entities ?? {}).filter(([, entity]) => entity?.kind === 'page'),
   )
@@ -252,9 +252,9 @@ export interface TabContextOptions {
  * is a no-op passthrough, so callers can hand a resolved ref straight in.
  */
 export function withTabContext<T>(tabId: string, fn: () => T, options?: TabContextOptions): T {
-  const tab = workspaceTabs.find((candidate) => candidate.id === tabId)
+  const tab = spaceTabs.find((candidate) => candidate.id === tabId)
   if (!tab) throw new Error(`unknown tab '${tabId}'`)
-  if (tab.id === activeWorkspaceTabId) return fn()
+  if (tab.id === activeSpaceTabId) return fn()
 
   const commit = options?.commit !== false
 
@@ -265,7 +265,7 @@ export function withTabContext<T>(tabId: string, fn: () => T, options?: TabConte
   // rewrites every tab from its record.
   syncActiveTabRecord()
 
-  return withWorkspacePersistenceSuspended(() => {
+  return withSpacePersistenceSuspended(() => {
     const saved = liftRuntimeState()
     const detached = createWorkspaceDoc()
     const restoreContext = backgroundContext

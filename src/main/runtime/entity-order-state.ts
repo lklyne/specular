@@ -11,12 +11,12 @@ import {
   type MovePosition,
 } from '../../shared/entity-order-math'
 import { allEntities } from '../entities/contract'
-import { getActiveDoc, DOC_ARRAY_ENTITY_ORDER } from './workspace-doc'
+import { getActiveDoc, DOC_ARRAY_ENTITY_ORDER } from './space-doc'
 import { markDirty } from './layout-dirty'
 import { mutateWorkspace } from './mutate-workspace'
 import { selectedEntityIds as uiSelectedEntityIds, selectedGroupId as uiSelectedGroupId } from '../ui-state'
-import { scheduleWorkspaceAutosave } from './workspace-autosave'
-import { workspaceEdges, workspaceGroups } from './workspace-model'
+import { scheduleSpaceAutosave } from './space-autosave'
+import { workspaceEdges, workspaceGroups } from './space-model'
 
 type EntityKindForOrder = 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group' | 'edge'
 export type StackOrderAction = 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back'
@@ -244,7 +244,7 @@ export function writeManagedChildOrder(
 
   writeEntityOrder(nextOrder)
   markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 

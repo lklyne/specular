@@ -5,7 +5,7 @@ import { createUserGroup, deleteGroups, focusTargets } from '../workspace-groups
 import { makeAutoLayoutGroup, reorderManagedChild } from '../managed-layout'
 import { ungroupSelectedGroup } from '../runtime/document-commands'
 import { selectGroup as selectSelectionGroup } from '../runtime/selection-controller'
-import { workspaceEdges, workspaceGroups } from '../runtime/workspace-model'
+import { workspaceEdges, workspaceGroups } from '../runtime/space-model'
 import { findEntityPosition, movePresenceCursorTo } from '../presence-cursor'
 import { writeJson } from './http-helpers'
 

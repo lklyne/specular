@@ -1,7 +1,7 @@
 /**
  * `applyCanvasPatch` — the single canvas mutation door (ADR 0019) — driven
  * in-process. This is the exact function POST /canvas/apply calls, and the
- * read side uses the same `serializeToJsonCanvas(workspaceSnapshot())` GET
+ * read side uses the same `serializeToJsonCanvas(spaceSnapshot())` GET
  * /canvas serves, so the tested path IS the shipping path.
  *
  * Guards: create/update/delete dispatch with kind resolved from the doc
@@ -28,15 +28,15 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import { applyCanvasPatch, CanvasPatchError } from '../../src/main/canvas-apply'
 import { serializeToJsonCanvas } from '../../src/main/runtime/json-canvas-serializer'
-import { workspaceSnapshot } from '../../src/main/runtime/workspace-tabs'
+import { spaceSnapshot } from '../../src/main/runtime/space-tabs'
 import { getDrawingEntities, getTextEntities } from '../../src/main/runtime/document-commands'
-import { workspaceEdges, workspaceGroups } from '../../src/main/runtime/workspace-model'
-import { undo } from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_ENTITIES } from '../../src/main/runtime/workspace-doc'
+import { workspaceEdges, workspaceGroups } from '../../src/main/runtime/space-model'
+import { undo } from '../../src/main/runtime/space-undo'
+import { DOC_MAP_ENTITIES } from '../../src/main/runtime/space-doc'
 
 /** The same read shape GET /canvas serves. */
 function getCanvas() {
-  return serializeToJsonCanvas(workspaceSnapshot())
+  return serializeToJsonCanvas(spaceSnapshot())
 }
 
 let harness: WorkspaceHarness

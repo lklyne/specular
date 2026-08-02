@@ -24,7 +24,7 @@ const { mockAnnotations } = vi.hoisted(() => {
   return { mockAnnotations }
 })
 
-vi.mock('../../src/main/runtime/workspace-model', () => ({
+vi.mock('../../src/main/runtime/space-model', () => ({
   workspaceAnnotations: mockAnnotations,
 }))
 
@@ -54,8 +54,8 @@ vi.mock('../../src/main/runtime/viewport-control', () => ({
   requestLayout: vi.fn(),
 }))
 
-vi.mock('../../src/main/runtime/workspace-autosave', () => ({
-  scheduleWorkspaceAutosave: vi.fn(),
+vi.mock('../../src/main/runtime/space-autosave', () => ({
+  scheduleSpaceAutosave: vi.fn(),
 }))
 
 vi.mock('../../src/main/workspace-utils', () => ({

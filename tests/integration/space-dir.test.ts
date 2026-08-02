@@ -11,9 +11,9 @@
  *
  * Mutation-verified by: (a) hard-coding `spaceDir()` to ignore `getSpacePath()`
  * — the "no workspaces/ nesting" and asset-location assertions fail; (b)
- * changing `writeWorkspaceMetaSync` to write straight into `spacePath` instead
+ * changing `writeSpaceMetaSync` to write straight into `spacePath` instead
  * of `spacePath/.specular` — the `.specular/` assertion fails; (c) dropping the
- * legacy-path fallback branch in `readWorkspaceMeta` — the root-meta test
+ * legacy-path fallback branch in `readSpaceMeta` — the root-meta test
  * fails to find anything.
  */
 
@@ -26,7 +26,7 @@ import { createTextEntity } from '../../src/main/runtime/document-commands'
 import { setSpacePath } from '../../src/main/runtime/preferences'
 import { saveImageBuffer } from '../../src/main/runtime/image-assets'
 import { createNoteFile } from '../../src/main/runtime/note-assets'
-import { readWorkspaceMeta } from '../../src/main/runtime/workspace-persistence'
+import { readSpaceMeta } from '../../src/main/runtime/space-persistence'
 
 let harness: WorkspaceHarness
 const chosenDirs: string[] = []
@@ -89,7 +89,7 @@ describe('user-chosen space folder', () => {
       }
       writeFileSync(join(dir, 'workspace-meta.json'), JSON.stringify(legacyMeta), 'utf8')
 
-      expect(readWorkspaceMeta(dir)).toEqual(legacyMeta)
+      expect(readSpaceMeta(dir)).toEqual(legacyMeta)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }

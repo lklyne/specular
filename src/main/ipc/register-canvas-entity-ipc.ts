@@ -75,8 +75,8 @@ import { requestLayout } from '../runtime/viewport-control'
 import { markDirty } from '../runtime/layout-dirty'
 import { pageBodyCanvasBounds, pageContentSize } from '../runtime/runtime-geometry'
 import {
-  scheduleWorkspaceAutosave,
-} from '../runtime/workspace-autosave'
+  scheduleSpaceAutosave,
+} from '../runtime/space-autosave'
 import { navigatePage, setSyncForSelection, unsyncPage } from '../navigation-sync'
 import {
   deviceIdFromMetadata,
@@ -96,7 +96,7 @@ import {
 } from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
 import { copyableSelectionPayload } from '../workspace-clipboard'
-import { workspaceGroups } from '../runtime/workspace-model'
+import { workspaceGroups } from '../runtime/space-model'
 import { applyEntitySelectionMutation, selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
 import { arrangeEntities } from '../runtime/document-commands'
@@ -408,7 +408,7 @@ export function registerCanvasEntityIpc(): void {
       if (patch.canvasX !== undefined) page.canvasX = patch.canvasX
       if (patch.canvasY !== undefined) page.canvasY = patch.canvasY
       updateResizeGuides(pageId)
-      scheduleWorkspaceAutosave()
+      scheduleSpaceAutosave()
       markDirty('canvas')
       requestLayout()
     },

@@ -39,8 +39,8 @@ import {
 } from './preferences'
 import { bindOriginToRepoPath } from './dev-server-manager'
 import {
-  ensureWorkspaceTabsInitialized,
-} from './workspace-tabs'
+  ensureSpaceTabsInitialized,
+} from './space-tabs'
 import {
   wireMcpEmptyState,
   notifyDevtoolsPanelData,
@@ -140,7 +140,7 @@ export function initWindow(): void {
     if (aboveView) safeSend(aboveView.webContents, ipcChannels.fixProgressUpdate, getFixProgress())
     notifyDevtoolsPanelData()
   })
-  ensureWorkspaceTabsInitialized()
+  ensureSpaceTabsInitialized()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 
   setWin(new BaseWindow({

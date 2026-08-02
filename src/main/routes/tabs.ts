@@ -9,14 +9,14 @@
  */
 
 import type { Route } from './types'
-import { workspaceTabIdentity } from '../runtime/workspace-tabs'
+import { spaceTabIdentity } from '../runtime/space-tabs'
 import {
-  createBackgroundWorkspaceTab,
-  deleteWorkspaceTab,
-  setActiveWorkspaceTab,
-} from '../runtime/workspace-tab-operations'
-import { resolveWorkspaceTabRef } from '../runtime/workspace-tab-refs'
-import { workspaceTabs } from '../runtime/workspace-model'
+  createBackgroundSpaceTab,
+  deleteSpaceTab,
+  setActiveSpaceTab,
+} from '../runtime/space-tab-operations'
+import { resolveSpaceTabRef } from '../runtime/space-tab-refs'
+import { spaceTabs } from '../runtime/space-model'
 import { writeJson } from './http-helpers'
 
 export const tabRoutes: Route[] = [
@@ -24,7 +24,7 @@ export const tabRoutes: Route[] = [
     method: 'GET',
     pattern: '/tabs',
     async handler({ response }) {
-      writeJson(response, 200, workspaceTabIdentity())
+      writeJson(response, 200, spaceTabIdentity())
     },
   },
   {
@@ -32,7 +32,7 @@ export const tabRoutes: Route[] = [
     pattern: '/tabs',
     async handler({ response, body }) {
       const { name } = body as { name?: string }
-      const result = createBackgroundWorkspaceTab(name ?? '')
+      const result = createBackgroundSpaceTab(name ?? '')
       if (!result.ok) {
         writeJson(response, 400, { error: result.error })
         return
@@ -45,7 +45,7 @@ export const tabRoutes: Route[] = [
     pattern: '/tabs/delete',
     async handler({ response, body }) {
       const { ref } = body as { ref?: string }
-      const resolved = resolveWorkspaceTabRef(ref ?? '')
+      const resolved = resolveSpaceTabRef(ref ?? '')
       if (!resolved.ok) {
         writeJson(response, 400, { error: resolved.error })
         return
@@ -53,15 +53,15 @@ export const tabRoutes: Route[] = [
       const { id, name } = resolved.tab
       // The last tab cannot be removed — it resets to an empty default canvas
       // instead, so say which happened rather than reporting a bare success.
-      const wasLast = workspaceTabs.length === 1
-      if (!deleteWorkspaceTab(id)) {
+      const wasLast = spaceTabs.length === 1
+      if (!deleteSpaceTab(id)) {
         writeJson(response, 400, { error: `could not delete tab '${name}'` })
         return
       }
       writeJson(response, 200, {
         deleted: { id, name },
         reset: wasLast,
-        activeTab: workspaceTabIdentity().activeTab,
+        activeTab: spaceTabIdentity().activeTab,
       })
     },
   },
@@ -70,12 +70,12 @@ export const tabRoutes: Route[] = [
     pattern: '/tabs/switch',
     async handler({ response, body }) {
       const { ref } = body as { ref?: string }
-      const resolved = resolveWorkspaceTabRef(ref ?? '')
+      const resolved = resolveSpaceTabRef(ref ?? '')
       if (!resolved.ok) {
         writeJson(response, 400, { error: resolved.error })
         return
       }
-      setActiveWorkspaceTab(resolved.tab.id)
+      setActiveSpaceTab(resolved.tab.id)
       writeJson(response, 200, { activeTab: { id: resolved.tab.id, name: resolved.tab.name } })
     },
   },

@@ -28,7 +28,7 @@
 
 import { tryEnter, commitActive, cancelActive } from './runtime/interaction-controller'
 import { updateGapResizeGap } from './runtime/interaction-state'
-import { markUndoBoundary } from './runtime/workspace-undo'
+import { markUndoBoundary } from './runtime/space-undo'
 import type { CancelReason } from '../shared/interaction-types'
 import { managedLineAxis } from '../shared/layout-math'
 import { applySelectionGap, buildSelectionRow } from './runtime/document-commands'

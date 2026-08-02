@@ -817,7 +817,7 @@ export interface LeftSidebarData {
   width: number
   selectedEntityIds: string[]
   selectedGroupId?: string | null
-  tabs: WorkspaceTabSummary[]
+  tabs: SpaceTabSummary[]
   activeTabId: string | null
   hasPages: boolean
   sections: LeftSidebarSections
@@ -1575,7 +1575,7 @@ export interface WorkspaceTabPageSummary {
   height?: number
 }
 
-export interface WorkspaceTabSummary {
+export interface SpaceTabSummary {
   id: string
   name: string
   expanded: boolean

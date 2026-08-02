@@ -28,9 +28,9 @@ import {
   getTextEntities,
 } from '../../src/main/runtime/document-commands'
 import { createUserGroup } from '../../src/main/workspace-groups'
-import { workspaceGroups } from '../../src/main/runtime/workspace-model'
+import { workspaceGroups } from '../../src/main/runtime/space-model'
 import { selectEntities, selectNone } from '../../src/main/runtime/selection-controller'
-import { undo } from '../../src/main/runtime/workspace-undo'
+import { undo } from '../../src/main/runtime/space-undo'
 import { workspaceRoutes } from '../../src/main/routes/workspace'
 import type { ServerResponse } from 'node:http'
 

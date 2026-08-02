@@ -36,7 +36,7 @@ import { fileEntities } from './runtime/file-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
 import { pan, zoom } from './runtime/runtime-context'
-import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
+import { workspaceEdges, workspaceGroups } from './runtime/space-model'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import {
   pageContentSize,

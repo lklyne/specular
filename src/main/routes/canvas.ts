@@ -16,9 +16,9 @@
 import type { Route } from './types'
 import type { PersistedWorkspaceTab } from '../../shared/types'
 import { applyCanvasPatch, CanvasPatchError, type CanvasPatch } from '../canvas-apply'
-import { workspaceSnapshot, workspaceTabIdentity } from '../runtime/workspace-tabs'
-import { activeWorkspaceTabId } from '../runtime/workspace-model'
-import { withTabContext } from '../runtime/workspace-tab-context'
+import { spaceSnapshot, spaceTabIdentity } from '../runtime/space-tabs'
+import { activeSpaceTabId } from '../runtime/space-model'
+import { withTabContext } from '../runtime/space-tab-context'
 import { serializeToJsonCanvas } from '../runtime/json-canvas-serializer'
 import { writeJson } from './http-helpers'
 import type { JsonCanvasDocument } from '../../shared/json-canvas-types'
@@ -28,16 +28,16 @@ import type { JsonCanvasDocument } from '../../shared/json-canvas-types'
  * It is added here rather than in the serializer: a `.canvas` file on disk
  * describes one tab and has nothing to say about its siblings.
  *
- * A background tab is read from its own record. `workspaceTabIdentity()` syncs
+ * A background tab is read from its own record. `spaceTabIdentity()` syncs
  * the active tab first, so when the target IS the active tab the record is
  * already current and the two paths agree.
  */
 export function readCanvasDocument(targetTab?: PersistedWorkspaceTab): JsonCanvasDocument {
-  const identity = workspaceTabIdentity()
+  const identity = spaceTabIdentity()
   const doc =
-    targetTab && targetTab.id !== activeWorkspaceTabId
+    targetTab && targetTab.id !== activeSpaceTabId
       ? serializeToJsonCanvas(targetTab.snapshot, targetTab.annotations)
-      : serializeToJsonCanvas(workspaceSnapshot())
+      : serializeToJsonCanvas(spaceSnapshot())
   if (doc.appState) {
     doc.appState.activeTab = identity.activeTab ?? undefined
     doc.appState.tabs = identity.tabs

@@ -5,7 +5,7 @@ import { fileEntities } from './file-entity-state'
 import { pages } from './page-runtime'
 import { shapeEntities } from './shape-entity-state'
 import { textEntities } from './text-entity-state'
-import { workspaceGroups } from './workspace-model'
+import { workspaceGroups } from './space-model'
 
 export function descendantEntityIdsForGroup(groupId: string): string[] {
   const ids: string[] = []

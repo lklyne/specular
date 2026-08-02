@@ -16,17 +16,17 @@ import { setSpacePath } from './preferences'
 import { spaceDir } from './space-dir'
 import { hasCanvasFiles, migrateSpace } from './space-migration'
 import { requestLayout } from './viewport-control'
-import { flushWorkspaceAutosaveSync, loadWorkspace } from './workspace-autosave'
+import { flushSpaceAutosaveSync, loadSpace } from './space-autosave'
 import {
-  setActiveWorkspaceTabId,
+  setActiveSpaceTabId,
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
-  workspaceTabs,
-} from './workspace-model'
-import { makeEmptyWorkspaceSnapshot } from './workspace-persistence'
-import { destroyActivePages, restorePersistedWorkspace, rebuildWindowFromSnapshot } from './workspace-restore'
-import { clearUndoHistory } from './workspace-undo'
+  spaceTabs,
+} from './space-model'
+import { makeEmptyWorkspaceSnapshot } from './space-persistence'
+import { destroyActivePages, restorePersistedSpace, rebuildWindowFromSnapshot } from './space-restore'
+import { clearUndoHistory } from './space-undo'
 
 /**
  * Drives the folder picker and the migration prompts, then persists and
@@ -93,7 +93,7 @@ export async function changeSpaceViaPicker(win: BrowserWindow): Promise<string |
  * pick up the resolved root normally.
  */
 export function reopenAtCurrentSpace(): void {
-  flushWorkspaceAutosaveSync()
+  flushSpaceAutosaveSync()
 
   // rebuildWindowFromSnapshot tears down and rebuilds the window shell
   // (views, timers, ui-state, layout cache) the same way the dev-only
@@ -122,10 +122,10 @@ export function reopenAtCurrentSpace(): void {
  * has no in-process test double.
  */
 export function reloadWorkspaceDataFromCurrentSpace(): void {
-  const record = loadWorkspace()
-  const restored = record ? restorePersistedWorkspace(record) : false
+  const record = loadSpace()
+  const restored = record ? restorePersistedSpace(record) : false
   if (!restored) {
-    // restorePersistedWorkspace clears the old space's pages/entities/tabs
+    // restorePersistedSpace clears the old space's pages/entities/tabs
     // as part of hydrating the new ones; the empty-space fallback has no
     // such hydration step, so it must clear them itself before seeding the
     // starter pages — otherwise they'd sit alongside the old space's content
@@ -134,8 +134,8 @@ export function reloadWorkspaceDataFromCurrentSpace(): void {
     workspaceGroups.length = 0
     workspaceEdges.length = 0
     workspaceAnnotations.length = 0
-    workspaceTabs.length = 0
-    setActiveWorkspaceTabId(null)
+    spaceTabs.length = 0
+    setActiveSpaceTabId(null)
     for (const cfg of DEFAULT_PAGES) {
       createPage(cfg)
     }

@@ -22,8 +22,8 @@ import { validateLayoutDirective } from '../../src/shared/layout-directive'
 import type { ApplyDirectiveRequest } from '../../src/shared/types'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
 import { pages } from '../../src/main/runtime/runtime-context'
-import { undo, redo } from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_PAGES } from '../../src/main/runtime/workspace-doc'
+import { undo, redo } from '../../src/main/runtime/space-undo'
+import { DOC_MAP_PAGES } from '../../src/main/runtime/space-doc'
 
 /** Mirrors POST /layout/apply-directive: validate at the boundary, then apply. */
 function apply(request: ApplyDirectiveRequest) {

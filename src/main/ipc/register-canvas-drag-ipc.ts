@@ -21,7 +21,7 @@ import { tryEnter, commitActive, cancelActive } from '../runtime/interaction-con
 import {
   beginGestureSession,
   type GestureSession,
-} from '../runtime/workspace-gesture-session'
+} from '../runtime/space-gesture-session'
 import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'

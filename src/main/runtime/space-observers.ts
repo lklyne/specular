@@ -35,9 +35,9 @@ import {
   DOC_MAP_GROUPS,
   DOC_MAP_EDGES,
   DOC_MAP_ANNOTATIONS,
-} from './workspace-doc'
-import { getActiveUndoManager } from './workspace-undo'
-import { makeEmptyTabSnapshot } from './workspace-tabs'
+} from './space-doc'
+import { getActiveUndoManager } from './space-undo'
+import { makeEmptyTabSnapshot } from './space-tabs'
 import {
   noteContentEntries,
   applyNoteContentsFromDoc,
@@ -65,7 +65,7 @@ interface RuntimeStateRefs {
   getActiveTabId: () => string | null
   setActiveTabId: (id: string | null) => void
   // Tab list for undo of create/delete tab
-  workspaceTabs: PersistedWorkspaceTab[]
+  spaceTabs: PersistedWorkspaceTab[]
 }
 
 let _refs: RuntimeStateRefs | null = null
@@ -109,7 +109,7 @@ let _docSyncSatisfied = false
 /**
  * Begin batching: suppress doc sync until endBatch() is called, coalescing a
  * series of fine-grained mutations (e.g. drag increments) into a single
- * Y.Doc transaction. The gesture session (workspace-gesture-session.ts) is
+ * Y.Doc transaction. The gesture session (space-gesture-session.ts) is
  * the caller — it pairs the batch with the gesture's one undo boundary.
  */
 export function beginBatch(): void {
@@ -140,7 +140,7 @@ export function commitAsOneTransaction(mutate: () => void): void {
     mutate()
     return
   }
-  // Suppress the microtask sync that `scheduleWorkspaceAutosave()` would queue
+  // Suppress the microtask sync that `scheduleSpaceAutosave()` would queue
   // from inside `mutate` — we sync once, synchronously, inside the transaction.
   // Without this, that trailing (empty) sync fires a second transaction.
   const wasBatching = _batchingActive
@@ -166,7 +166,7 @@ export function commitAsOneTransaction(mutate: () => void): void {
 /**
  * Schedule a diff-sync from runtime state to Y.Doc.
  * Uses queueMicrotask so multiple mutations in the same tick become one sync.
- * Call this from scheduleWorkspaceAutosave().
+ * Call this from scheduleSpaceAutosave().
  */
 export function requestDocSync(): void {
   if (_docSyncSatisfied) {
@@ -207,7 +207,7 @@ function requestDocSyncImmediate(): void {
     zoom: _refs.getZoom(),
     pan: _refs.getPan(),
     activeTabId: _refs.getActiveTabId(),
-    workspaceTabs: _refs.workspaceTabs,
+    spaceTabs: _refs.spaceTabs,
     noteContent: noteContentEntries(),
   }, persistPage as (page: { id: string }) => Record<string, unknown>)
 }
@@ -247,17 +247,17 @@ function syncDocToRuntime(doc: Y.Doc): void {
     const docTabs = getDocTabList(doc)
     if (docTabs.length > 0) {
       const docTabIds = new Set(docTabs.map((t) => t.id))
-      const runtimeTabIds = new Set(_refs!.workspaceTabs.map((t) => t.id))
+      const runtimeTabIds = new Set(_refs!.spaceTabs.map((t) => t.id))
 
-      for (let i = _refs!.workspaceTabs.length - 1; i >= 0; i--) {
-        if (!docTabIds.has(_refs!.workspaceTabs[i].id)) {
-          _refs!.workspaceTabs.splice(i, 1)
+      for (let i = _refs!.spaceTabs.length - 1; i >= 0; i--) {
+        if (!docTabIds.has(_refs!.spaceTabs[i].id)) {
+          _refs!.spaceTabs.splice(i, 1)
         }
       }
 
       for (const docTab of docTabs) {
         if (!runtimeTabIds.has(docTab.id)) {
-          _refs!.workspaceTabs.push({
+          _refs!.spaceTabs.push({
             id: docTab.id,
             name: docTab.name,
             updatedAt: new Date().toISOString(),
@@ -269,7 +269,7 @@ function syncDocToRuntime(doc: Y.Doc): void {
       }
 
       for (const docTab of docTabs) {
-        const runtimeTab = _refs!.workspaceTabs.find((t) => t.id === docTab.id)
+        const runtimeTab = _refs!.spaceTabs.find((t) => t.id === docTab.id)
         if (runtimeTab && runtimeTab.name !== docTab.name) {
           runtimeTab.name = docTab.name
         }

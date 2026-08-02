@@ -19,7 +19,7 @@ import {
   currentEntityOrder,
   reorderStackOrderIds,
 } from '../../src/main/runtime/entity-order-state'
-import { undo } from '../../src/main/runtime/workspace-undo'
+import { undo } from '../../src/main/runtime/space-undo'
 
 let harness: WorkspaceHarness
 
