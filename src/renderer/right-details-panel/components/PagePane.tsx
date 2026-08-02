@@ -124,7 +124,7 @@ export function PagePane({
           />
         ) : (
           <PaneHeader
-            icon={<Laptop size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+            icon={<Laptop size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
             label="Waiting for page data…"
           />
         )}
@@ -155,7 +155,7 @@ export function PagePane({
               <div className="group relative pr-3">
                 <button
                   type="button"
-                  className={`rounded p-1 opacity-30 hover:opacity-100 ${muted} hover:text-[var(--surface-panel-foreground-muted)] dark:hover:text-[var(--surface-panel-foreground-muted)]`}
+                  className={`rounded p-1 opacity-30 hover:opacity-100 ${muted}`}
                   aria-label="Show inspect diagnostics"
                   title="Show inspect diagnostics"
                 >
@@ -164,8 +164,8 @@ export function PagePane({
                 <div
                   className={`pointer-events-none invisible absolute top-5 right-0 z-20 w-64 rounded border px-2 py-1.5 text-[10px] leading-4 opacity-0 shadow-sm transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${
                     isDark
-                      ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-panel-foreground-muted)]'
-                      : 'border-zinc-300 bg-zinc-50 text-[var(--surface-panel-foreground-muted)]'
+                      ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-foreground-muted)]'
+                      : 'border-zinc-300 bg-zinc-50 text-[var(--surface-foreground-muted)]'
                   }`}
                 >
                   <div>Mode: {inspect.mode === 'page_locked' ? 'Page locked' : 'Global target'}</div>
@@ -372,10 +372,10 @@ function PageHeaderActions({
   isDark: boolean
 }) {
   const btnClass = `rounded p-1 ${
-    isDark ? 'text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-700 hover:text-[var(--surface-panel-foreground)]' : 'text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-200 hover:text-[var(--surface-panel-foreground-muted)]'
+    isDark ? 'text-[var(--surface-foreground-muted)] hover:bg-zinc-700 hover:text-[var(--surface-foreground)]' : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
   }`
   const deleteBtnClass = `rounded p-1 ${
-    isDark ? 'text-[var(--surface-panel-foreground-muted)] hover:bg-red-500/12 hover:text-red-400' : 'text-[var(--surface-panel-foreground-muted)] hover:bg-red-50 hover:text-red-600'
+    isDark ? 'text-[var(--surface-foreground-muted)] hover:bg-red-500/12 hover:text-red-400' : 'text-[var(--surface-foreground-muted)] hover:bg-red-50 hover:text-red-600'
   }`
 
   return (
@@ -418,7 +418,7 @@ function PageFavicon({
   }
 
   const Icon = viewportIcon(label, width)
-  return <Icon size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
+  return <Icon size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
 }
 
 function viewportIcon(label?: string, width?: number) {

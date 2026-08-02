@@ -11,7 +11,7 @@ export function ComponentFilePane({ fileEntity }: { fileEntity: PanelFileEntityD
 
   return (
     <FileEntityShell
-      icon={<Code2 size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+      icon={<Code2 size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
       label={fileEntityLabel(fileEntity.file)}
       entityId={fileEntity.id}
     >

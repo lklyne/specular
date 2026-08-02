@@ -34,12 +34,12 @@ function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6
     `flex h-6 ${widthClass} items-center justify-center gap-1 rounded-[6px] border-0 text-xs transition-colors`
   if (active) {
     return isDark
-      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-panel-foreground)]`
-      : `${base} bg-[var(--surface-popup)] text-[var(--surface-panel-foreground)]`
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-foreground)]`
+      : `${base} bg-[var(--surface-popup)] text-[var(--surface-foreground)]`
   }
   return isDark
-    ? `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-panel-foreground)]`
-    : `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)]`
+    ? `${base} text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]`
+    : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]`
 }
 
 export function PagePopup({
@@ -212,8 +212,8 @@ export function PagePopup({
     : null
 
   const sizeTriggerClass = isDark
-    ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-[var(--surface-panel-foreground-muted)] transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-panel-foreground)]'
-    : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-[var(--surface-panel-foreground-muted)] transition-colors hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)]'
+    ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-[var(--surface-foreground-muted)] transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]'
+    : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-[var(--surface-foreground-muted)] transition-colors hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]'
   const focusSizeTriggerClass = popupTabButtonClass(isDark, focusMode === 'device', 'px-2')
   const tabGroupClass = isDark
     ? 'flex h-7 items-center gap-0.5 rounded-[7px] bg-black/15 p-0.5'
@@ -282,8 +282,8 @@ export function PagePopup({
             onPointerDown={(e) => e.stopPropagation()}
             className={`min-w-0 flex-1 rounded-[6px] border px-2 py-1 text-xs outline-none focus:ring-1 ${
               isDark
-                ? 'border-zinc-700 bg-zinc-950 text-[var(--surface-panel-foreground)] placeholder:text-[var(--surface-panel-foreground-muted)] focus:ring-blue-500/40'
-                : 'border-zinc-300 bg-white text-[var(--surface-panel-foreground)] placeholder:text-[var(--surface-panel-foreground-muted)] focus:ring-blue-500/40'
+                ? 'border-zinc-700 bg-zinc-950 text-[var(--surface-foreground)] placeholder:text-[var(--surface-foreground-muted)] focus:ring-blue-500/40'
+                : 'border-zinc-300 bg-white text-[var(--surface-foreground)] placeholder:text-[var(--surface-foreground-muted)] focus:ring-blue-500/40'
             }`}
             style={{ minWidth: URL_INPUT_MIN_WIDTH }}
           />

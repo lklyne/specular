@@ -110,7 +110,7 @@ export function CommentBadgesLayer({
       })}
       {hoveredBadge ? (
         <div
-          className="pointer-events-none absolute z-[19] w-[260px] whitespace-pre-wrap rounded-[14px] border border-zinc-400/80 bg-white px-2.5 py-2 text-[11px] leading-[1.4] text-[var(--surface-panel-foreground)] shadow-[0_8px_16px_rgba(0,0,0,0.15)] dark:border-zinc-600 dark:bg-zinc-900"
+          className="pointer-events-none absolute z-[19] w-[260px] whitespace-pre-wrap rounded-[14px] border border-zinc-400/80 bg-white px-2.5 py-2 text-[11px] leading-[1.4] text-[var(--surface-foreground)] shadow-[0_8px_16px_rgba(0,0,0,0.15)] dark:border-zinc-600 dark:bg-zinc-900"
           style={{
             left: Math.max(8, Math.min(hoveredBadge.x - 240, window.innerWidth - 268)),
             top: Math.max(8, Math.min(hoveredBadge.y + 22, window.innerHeight - 108)),

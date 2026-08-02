@@ -32,14 +32,14 @@ export function MultiEntityPane({ multiEntities }: { multiEntities: PanelMultiEn
 
   const tabBg = 'bg-[var(--surface-interactive)] border border-[var(--surface-input-border)]'
   const tabActive = isDark
-    ? 'bg-[var(--surface-toolbar)] text-[var(--surface-panel-foreground)]'
-    : 'bg-[var(--surface-input)] text-[var(--surface-panel-foreground)] shadow-sm'
-  const tabInactive = 'text-[var(--surface-panel-foreground-muted)] hover:text-[var(--surface-panel-foreground-muted)]'
+    ? 'bg-[var(--surface-toolbar)] text-[var(--surface-foreground)]'
+    : 'bg-[var(--surface-input)] text-[var(--surface-foreground)] shadow-sm'
+  const tabInactive = 'text-[var(--surface-foreground-muted)]'
 
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<Layers size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+        icon={<Layers size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label={`${multiEntities.length} items selected`}
       />
 

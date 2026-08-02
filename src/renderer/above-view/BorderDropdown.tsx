@@ -61,12 +61,12 @@ function LineGlyph({ dashed }: { dashed: boolean }) {
 function segmentStateClass(isDark: boolean, active: boolean): string {
   if (active) {
     return isDark
-      ? 'bg-[rgba(253,248,245,0.1)] text-[var(--surface-panel-foreground)]'
-      : 'bg-[var(--color-stone-200)] text-[var(--surface-panel-foreground)]'
+      ? 'bg-[rgba(253,248,245,0.1)] text-[var(--surface-foreground)]'
+      : 'bg-[var(--color-stone-200)] text-[var(--surface-foreground)]'
   }
   return isDark
-    ? 'text-[var(--surface-panel-foreground-muted)] hover:bg-[rgba(253,248,245,0.08)] hover:text-[var(--surface-panel-foreground)]'
-    : 'text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)]'
+    ? 'text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.08)] hover:text-[var(--surface-foreground)]'
+    : 'text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]'
 }
 
 function segmentClass(isDark: boolean, active: boolean): string {

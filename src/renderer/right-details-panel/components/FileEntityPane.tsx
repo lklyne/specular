@@ -15,7 +15,7 @@ function GenericFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetail }) 
 
   return (
     <FileEntityShell
-      icon={<File size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+      icon={<File size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
       label={fileEntityLabel(fileEntity.file)}
       entityId={fileEntity.id}
     >

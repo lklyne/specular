@@ -44,10 +44,10 @@ function InspectTreeNode({
     LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP + 16
   const rowClassName = `group relative w-full border border-transparent text-[12px] leading-4 ${
     isSelected
-      ? 'bg-[var(--surface-interactive)] text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive)] dark:hover:bg-[var(--surface-interactive)]'
+      ? 'bg-[var(--surface-interactive)] text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive)] dark:hover:bg-[var(--surface-interactive)]'
       : isHovered
-        ? 'bg-[var(--surface-interactive-hover)] text-[var(--surface-panel-foreground)]'
-        : 'text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)] dark:hover:bg-[var(--surface-interactive-hover)]'
+        ? 'bg-[var(--surface-interactive-hover)] text-[var(--surface-foreground)]'
+        : 'text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)] dark:hover:bg-[var(--surface-interactive-hover)]'
   }`
   const rowButtonClassName =
     'flex w-full items-center gap-1.5 text-left font-normal focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500'
@@ -76,7 +76,7 @@ function InspectTreeNode({
     >
       <span className="truncate">{node.name}</span>
       {node.dsComponentName ? (
-        <span className="truncate text-[10px] text-[var(--surface-panel-foreground-muted)]">
+        <span className="truncate text-[10px] text-[var(--surface-foreground-muted)]">
           {node.dsComponentName}
         </span>
       ) : null}
@@ -128,7 +128,7 @@ function InspectTreeNode({
         onPointerLeave={() => rightDetailsPanelApi.setInspectHoverNode(pageId, null)}
       >
         <Collapsible.Trigger
-          className="absolute top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--surface-interactive-hover)] hover:text-[var(--surface-panel-foreground)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:hover:bg-[var(--surface-interactive-hover)] dark:hover:text-[var(--surface-panel-foreground)]"
+          className="absolute top-1/2 inline-flex size-4 -translate-y-1/2 items-center justify-center text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-interactive-hover)] hover:text-[var(--surface-foreground)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:hover:bg-[var(--surface-interactive-hover)] dark:hover:text-[var(--surface-foreground)]"
           style={{ left: `${indentOffset}px` }}
           aria-label={isExpanded ? 'Collapse' : 'Expand'}
         >

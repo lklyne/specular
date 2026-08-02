@@ -86,8 +86,8 @@ function GroupRenameItem({
   setDropBindingSuppressed: (suppressed: boolean) => void
 }) {
   const labelColorClass = group.color
-    ? 'text-[var(--surface-panel-foreground)]'
-    : 'text-[var(--surface-panel-foreground-muted)]'
+    ? 'text-[var(--surface-foreground)]'
+    : 'text-[var(--surface-foreground-muted)]'
   // The label sits above group.screenY and inside aboveView's overlay-local
   // coordinate space; subtract canvasOrigin.y to drop into overlay coords.
   const left = group.screenX

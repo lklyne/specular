@@ -16,7 +16,7 @@ export function GroupEntityPane({ groupEntity }: { groupEntity: PanelGroupEntity
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<Group size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+        icon={<Group size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label={groupEntity.label || 'Group'}
       />
 

@@ -21,6 +21,6 @@ export function popupSurfaceStyle(isDark: boolean): CSSProperties {
 export function dropdownTriggerClass(isDark: boolean, padding: string): string {
   const base = `flex h-6 items-center gap-1 rounded-[6px] border-0 ${padding} transition-colors`
   return isDark
-    ? `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-panel-foreground)] data-[popup-open]:bg-[rgba(253,248,245,0.1)] data-[popup-open]:text-[var(--surface-panel-foreground)]`
-    : `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)] data-[popup-open]:bg-[var(--color-stone-200)] data-[popup-open]:text-[var(--surface-panel-foreground)]`
+    ? `${base} text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)] data-[popup-open]:bg-[rgba(253,248,245,0.1)] data-[popup-open]:text-[var(--surface-foreground)]`
+    : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)] data-[popup-open]:bg-[var(--color-stone-200)] data-[popup-open]:text-[var(--surface-foreground)]`
 }

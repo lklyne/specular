@@ -97,7 +97,7 @@ export default function App({
 
   return (
     <aside
-      className="flex h-screen w-screen flex-col overflow-hidden border-r border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-[var(--surface-panel-foreground)]"
+      className="flex h-screen w-screen flex-col overflow-hidden border-r border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-[var(--surface-foreground)]"
     >
       <div
         className={
@@ -120,8 +120,8 @@ export default function App({
             type="button"
             className={`rounded-[8px] border border-transparent p-1.5 ${
               isDark
-                ? 'bg-transparent text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-700/70 hover:text-[var(--surface-panel-foreground)]'
-                : 'bg-transparent text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-100 hover:text-[var(--surface-panel-foreground)] active:bg-zinc-200'
+                ? 'bg-transparent text-[var(--surface-foreground-muted)] hover:bg-zinc-700/70 hover:text-[var(--surface-foreground)]'
+                : 'bg-transparent text-[var(--surface-foreground-muted)] hover:bg-zinc-100 hover:text-[var(--surface-foreground)] active:bg-zinc-200'
             }`}
             onClick={() => api.createTab()}
             title="Add workspace"
@@ -143,13 +143,13 @@ export default function App({
                   <ContextMenu.Trigger className="block w-full">
                     {editingTabId === tab.id ? (
                       <div
-                        className="flex w-full items-center gap-1 py-1.5 text-xs font-normal text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)]"
+                        className="flex w-full items-center gap-1 py-1.5 text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]"
                         style={{
                           paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
                           paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
                         }}
                       >
-                        <File size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
+                        <File size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
                         <InlineEditLabel
                           value={tab.name}
                           isEditing
@@ -164,7 +164,7 @@ export default function App({
                     ) : (
                       <button
                         type="button"
-                        className="flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)]"
+                        className="flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]"
                         style={{
                           paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
                           paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
@@ -179,7 +179,7 @@ export default function App({
                         onDoubleClick={() => startRenameTab(tab.id)}
                         title={tab.name}
                       >
-                        <File size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
+                        <File size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
                         <span className="truncate">{tab.name}</span>
                         {tab.isActive ? <Check size={14} className="ml-auto shrink-0" /> : null}
                       </button>
@@ -188,16 +188,16 @@ export default function App({
                   <Menu.Portal>
                     <Menu.Positioner sideOffset={6}>
                       <Menu.Popup
-                        className="z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-[var(--surface-panel-foreground)]"
+                        className="z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-[var(--surface-foreground)]"
                       >
                         <Menu.Item
-                          className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-panel-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
+                          className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
                           onClick={() => startRenameTab(tab.id)}
                         >
                           <span>Rename workspace</span>
                         </Menu.Item>
                         <Menu.Item
-                          className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-panel-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
+                          className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
                           onClick={() => api.deleteTab(tab.id)}
                         >
                           <span>Delete workspace</span>
@@ -266,7 +266,7 @@ export default function App({
 
           {!sidebarData.items.length ? (
             <div
-              className="py-1 text-[11px] text-[var(--surface-panel-foreground-muted)]"
+              className="py-1 text-[11px] text-[var(--surface-foreground-muted)]"
               style={{
                 paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
                 paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,

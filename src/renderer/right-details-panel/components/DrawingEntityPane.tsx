@@ -12,7 +12,7 @@ export function DrawingEntityPane({ drawingEntity }: { drawingEntity: PanelDrawi
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<PenLine size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+        icon={<PenLine size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label={`Drawing (${drawingEntity.strokeCount} stroke${drawingEntity.strokeCount === 1 ? '' : 's'})`}
         actions={
           <button

@@ -13,7 +13,7 @@ export function MarkdownFilePane({ fileEntity }: { fileEntity: PanelFileEntityDe
 
   return (
     <FileEntityShell
-      icon={<FileText size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+      icon={<FileText size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
       label={label}
       entityId={fileEntity.id}
     >

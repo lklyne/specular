@@ -63,7 +63,7 @@ function PageGlyph({
     )
   }
 
-  return <Icon size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
+  return <Icon size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
 }
 
 export function PageListItem({
@@ -98,13 +98,13 @@ export function PageListItem({
     compact
       ? `w-full min-w-0 max-w-[240px] ${fullBleedCompact ? 'h-full py-0' : 'py-1.5'} ${
           active
-            ? 'bg-[var(--surface-interactive)] text-[var(--surface-panel-foreground)]'
-            : `text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)] dark:hover:bg-[var(--surface-interactive-hover)]`
+            ? 'bg-[var(--surface-interactive)] text-[var(--surface-foreground)]'
+            : `text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)] dark:hover:bg-[var(--surface-interactive-hover)]`
         }`
       : `w-full py-1.5 ${
           active
-            ? 'bg-[var(--surface-interactive)] text-[var(--surface-panel-foreground)]'
-            : 'text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)] dark:hover:bg-[var(--surface-interactive-hover)]'
+            ? 'bg-[var(--surface-interactive)] text-[var(--surface-foreground)]'
+            : 'text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)] dark:hover:bg-[var(--surface-interactive-hover)]'
         }`
   }`
   const horizontalPaddingStyle = {
@@ -126,7 +126,7 @@ export function PageListItem({
         onRequestFocus={onRequestEditFocus}
       />
       {showDimensions && page.width && page.height ? (
-        <span className="ml-auto shrink-0 text-xs text-[var(--surface-panel-foreground-muted)]">
+        <span className="ml-auto shrink-0 text-xs text-[var(--surface-foreground-muted)]">
           {page.width}&times;{page.height}
         </span>
       ) : null}
@@ -155,7 +155,7 @@ export function PageListItem({
         <PageGlyph faviconUrl={page.faviconUrl} Icon={Icon} />
         <span className="min-w-0 flex-1 truncate">{page.label}</span>
         {showDimensions && page.width && page.height ? (
-          <span className="ml-auto shrink-0 text-xs text-[var(--surface-panel-foreground-muted)]">
+          <span className="ml-auto shrink-0 text-xs text-[var(--surface-foreground-muted)]">
             {page.width}&times;{page.height}
           </span>
         ) : null}
@@ -181,16 +181,16 @@ export function PageListItem({
           <Menu.Popup
             className={`z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
               isDark
-                ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-panel-foreground)]'
-                : 'border-zinc-200 bg-white text-[var(--surface-panel-foreground)]'
+                ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-foreground)]'
+                : 'border-zinc-200 bg-white text-[var(--surface-foreground)]'
             }`}
           >
             {onRename ? (
               <Menu.Item
                 className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
                   isDark
-                    ? 'text-[var(--surface-panel-foreground)] data-[highlighted]:bg-zinc-800'
-                    : 'text-[var(--surface-panel-foreground)] data-[highlighted]:bg-zinc-100'
+                    ? 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-800'
+                    : 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-100'
                 }`}
                 onClick={startRename}
               >
@@ -201,8 +201,8 @@ export function PageListItem({
               <Menu.Item
                 className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
                   isDark
-                    ? 'text-[var(--surface-panel-foreground)] data-[highlighted]:bg-zinc-800'
-                    : 'text-[var(--surface-panel-foreground)] data-[highlighted]:bg-zinc-100'
+                    ? 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-800'
+                    : 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-100'
                 }`}
                 onClick={onDelete}
               >

@@ -132,20 +132,20 @@ function FixMenu({
     : isDark ? 'border-zinc-600' : 'border-zinc-300'
   const primaryBtnClass = PRIMARY_BUTTON_CLASS
   const secondaryBtnClass = isDark
-    ? 'bg-zinc-800 text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-700'
-    : 'bg-zinc-50 text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-200'
+    ? 'bg-zinc-800 text-[var(--surface-foreground-muted)] hover:bg-zinc-700'
+    : 'bg-zinc-50 text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
   const btnClass = isPrimary ? primaryBtnClass : secondaryBtnClass
 
   const popupClass = `z-50 w-[256px] rounded-[10px] border shadow-xl outline-none ${
     isDark
-      ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-panel-foreground)]'
-      : 'border-zinc-200 bg-white text-[var(--surface-panel-foreground)]'
+      ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-foreground)]'
+      : 'border-zinc-200 bg-white text-[var(--surface-foreground)]'
   }`
   const dividerClass = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const iconBtnClass = `rounded p-1 transition-colors ${
     isDark ? 'hover:bg-zinc-700' : 'hover:bg-zinc-100'
   }`
-  const muted = 'text-[var(--surface-panel-foreground-muted)]'
+  const muted = 'text-[var(--surface-foreground-muted)]'
 
   return (
     <Popover.Root>
@@ -233,8 +233,8 @@ function FixSettingsView({
 
   const selectClass = `w-full rounded-md border px-2 py-1.5 text-[12px] ${
     isDark
-      ? 'border-zinc-600 bg-zinc-800 text-[var(--surface-panel-foreground)]'
-      : 'border-zinc-300 bg-white text-[var(--surface-panel-foreground)]'
+      ? 'border-zinc-600 bg-zinc-800 text-[var(--surface-foreground)]'
+      : 'border-zinc-300 bg-white text-[var(--surface-foreground)]'
   }`
 
   const handleConfirm = () => {
@@ -244,7 +244,7 @@ function FixSettingsView({
 
   return (
     <div className="w-full">
-      <div className="px-3 py-2.5 text-[12px] leading-relaxed text-pretty text-[var(--surface-panel-foreground-muted)]">
+      <div className="px-3 py-2.5 text-[12px] leading-relaxed text-pretty text-[var(--surface-foreground-muted)]">
         Fix uses Claude Code to read your comments and make changes in linked repositories.
         Pick a model and permission level below.
       </div>
@@ -287,8 +287,8 @@ function FixSettingsView({
           onClick={handleConfirm}
           className={`w-full rounded-md border px-3 py-1.5 text-[12px] font-medium ${
             isDark
-              ? 'border-zinc-600 bg-zinc-800 text-[var(--surface-panel-foreground)] hover:bg-zinc-700'
-              : 'border-zinc-300 bg-white text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-100'
+              ? 'border-zinc-600 bg-zinc-800 text-[var(--surface-foreground)] hover:bg-zinc-700'
+              : 'border-zinc-300 bg-white text-[var(--surface-foreground-muted)] hover:bg-zinc-100'
           }`}
         >
           {fixConfig.configured ? 'Save' : 'Get started'}
@@ -345,7 +345,7 @@ function FixOperationsView({
           className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
             anyAutoFix
               ? isDark ? 'bg-emerald-600/80 text-white' : 'bg-emerald-50 text-emerald-700'
-              : isDark ? 'bg-zinc-800 text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-700' : 'bg-zinc-100 text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-200'
+              : isDark ? 'bg-zinc-800 text-[var(--surface-foreground-muted)] hover:bg-zinc-700' : 'bg-zinc-100 text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
           }`}
         >
           <Zap size={11} className="shrink-0" />
@@ -358,7 +358,7 @@ function FixOperationsView({
           className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
             isPrimary
               ? PRIMARY_BUTTON_CLASS
-              : isDark ? 'bg-zinc-800 text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-700' : 'bg-zinc-100 text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-200'
+              : isDark ? 'bg-zinc-800 text-[var(--surface-foreground-muted)] hover:bg-zinc-700' : 'bg-zinc-100 text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
           }`}
         >
           {working ? <Loader2 size={11} className="animate-spin shrink-0" /> : <Play size={11} className="shrink-0" />}
@@ -394,8 +394,8 @@ function FixOperationsView({
                 onClick={() => rightDetailsPanelApi.pickRepoForOrigin(group.origin)}
                 className={`min-w-0 flex-1 truncate text-left text-[11px] transition-colors ${
                   binding
-                    ? isDark ? 'text-[var(--surface-panel-foreground-muted)] hover:text-white' : 'text-[var(--surface-panel-foreground-muted)] hover:text-[var(--surface-panel-foreground)]'
-                    : 'text-[var(--surface-panel-foreground-muted)] hover:text-[var(--surface-panel-foreground-muted)]'
+                    ? isDark ? 'text-[var(--surface-foreground-muted)] hover:text-white' : 'text-[var(--surface-foreground-muted)] hover:text-[var(--surface-foreground)]'
+                    : 'text-[var(--surface-foreground-muted)]'
                 }`}
                 title={binding ? binding.repoPath : 'Choose a repo folder…'}
               >
@@ -433,7 +433,7 @@ function FixOperationsView({
               ) : null}
               <span
                 className={`ml-1 inline-flex min-w-[20px] shrink-0 items-center justify-center rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
-                  isDark ? 'bg-zinc-800 text-[var(--surface-panel-foreground-muted)]' : 'bg-zinc-100 text-[var(--surface-panel-foreground-muted)]'
+                  isDark ? 'bg-zinc-800 text-[var(--surface-foreground-muted)]' : 'bg-zinc-100 text-[var(--surface-foreground-muted)]'
                 }`}
               >
                 {group.unresolvedCount}

@@ -13,12 +13,12 @@ function cellClass(isDark: boolean, active: boolean): string {
     'flex h-8 w-8 cursor-default items-center justify-center rounded-md outline-none transition-colors'
   if (active) {
     return isDark
-      ? `${base} bg-[rgba(253,248,245,0.14)] text-[var(--surface-panel-foreground)]`
-      : `${base} bg-[var(--color-stone-200)] text-[var(--surface-panel-foreground)]`
+      ? `${base} bg-[rgba(253,248,245,0.14)] text-[var(--surface-foreground)]`
+      : `${base} bg-[var(--color-stone-200)] text-[var(--surface-foreground)]`
   }
   return isDark
-    ? `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-panel-foreground)]`
-    : `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)]`
+    ? `${base} text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]`
+    : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]`
 }
 
 export function ShapeDropdown({

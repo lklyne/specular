@@ -397,7 +397,7 @@ function Frame({
   }`
   const frameProps = {
     'data-popup-frame': flush ? 'flush' : 'floating',
-    className: `${shapeClass} text-[var(--surface-panel-foreground)] ${className}`.trim(),
+    className: `${shapeClass} text-[var(--surface-foreground)] ${className}`.trim(),
     style: flush
       ? {
           // Flush focus bar matches the toolbar height so 'fill' page content,
@@ -447,12 +447,12 @@ function popupIconButtonClass(isDark: boolean, active = false): string {
     'flex h-6 w-6 items-center justify-center rounded-[6px] border-0 transition-colors'
   if (active) {
     return isDark
-      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-panel-foreground)]`
-      : `${base} bg-[var(--color-stone-200)] text-[var(--surface-panel-foreground)]`
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-foreground)]`
+      : `${base} bg-[var(--color-stone-200)] text-[var(--surface-foreground)]`
   }
   return isDark
-    ? `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-panel-foreground)]`
-    : `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)]`
+    ? `${base} text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]`
+    : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]`
 }
 
 function IconButton({

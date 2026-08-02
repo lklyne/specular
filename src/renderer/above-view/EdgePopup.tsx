@@ -42,8 +42,8 @@ function EndpointToggle({
         active ? 'opacity-100' : 'opacity-45 hover:opacity-100'
       } ${
         isDark
-          ? 'text-[var(--surface-panel-foreground)] hover:bg-[rgba(253,248,245,0.1)]'
-          : 'text-[var(--surface-panel-foreground)] hover:bg-[var(--color-stone-100)]'
+          ? 'text-[var(--surface-foreground)] hover:bg-[rgba(253,248,245,0.1)]'
+          : 'text-[var(--surface-foreground)] hover:bg-[var(--color-stone-100)]'
       }`}
       onClick={onClick}
     >
@@ -148,7 +148,7 @@ export function EdgePopup({
         <CanvasItemPopup.Divider isDark={isDark} />
         <input
           type="text"
-          className="h-6 w-28 rounded-[6px] border-0 bg-transparent px-1.5 text-[12px] outline-none text-[var(--surface-panel-foreground)] placeholder:text-[var(--surface-panel-foreground-muted)]"
+          className="h-6 w-28 rounded-[6px] border-0 bg-transparent px-1.5 text-[12px] outline-none text-[var(--surface-foreground)] placeholder:text-[var(--surface-foreground-muted)]"
           placeholder="Label…"
           value={labelValue}
           onChange={(e) => {

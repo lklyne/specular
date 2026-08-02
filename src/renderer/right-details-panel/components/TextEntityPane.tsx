@@ -14,7 +14,7 @@ export function TextEntityPane({ textEntity }: { textEntity: PanelTextEntityDeta
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<StickyNote size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+        icon={<StickyNote size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label={textEntity.text.slice(0, 40) || 'Text'}
         actions={
           <>

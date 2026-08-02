@@ -31,12 +31,12 @@ function SelectField({
   isDark: boolean
 }) {
   const selectClass = isDark
-    ? 'rounded bg-zinc-800 px-1.5 py-1 text-[11px] text-[var(--surface-panel-foreground)] border border-zinc-700'
-    : 'rounded bg-zinc-100 px-1.5 py-1 text-[11px] text-[var(--surface-panel-foreground)] border border-zinc-200'
+    ? 'rounded bg-zinc-800 px-1.5 py-1 text-[11px] text-[var(--surface-foreground)] border border-zinc-700'
+    : 'rounded bg-zinc-100 px-1.5 py-1 text-[11px] text-[var(--surface-foreground)] border border-zinc-200'
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[10px] font-medium text-[var(--surface-panel-foreground-muted)]">{label}</span>
+      <span className="text-[10px] font-medium text-[var(--surface-foreground-muted)]">{label}</span>
       <select
         className={selectClass}
         value={value}
@@ -60,7 +60,7 @@ export function EdgeEntityPane({ edgeEntity }: { edgeEntity: PanelEdgeEntityDeta
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<ArrowRight size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+        icon={<ArrowRight size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label="Edge"
         actions={
           <>
@@ -93,8 +93,8 @@ export function EdgeEntityPane({ edgeEntity }: { edgeEntity: PanelEdgeEntityDeta
           type="text"
           className={`w-full rounded px-2 py-1 text-[11px] ${
             isDark
-              ? 'bg-zinc-800 text-[var(--surface-panel-foreground)] border border-zinc-700 placeholder:text-[var(--surface-panel-foreground-muted)]'
-              : 'bg-zinc-100 text-[var(--surface-panel-foreground)] border border-zinc-200 placeholder:text-[var(--surface-panel-foreground-muted)]'
+              ? 'bg-zinc-800 text-[var(--surface-foreground)] border border-zinc-700 placeholder:text-[var(--surface-foreground-muted)]'
+              : 'bg-zinc-100 text-[var(--surface-foreground)] border border-zinc-200 placeholder:text-[var(--surface-foreground-muted)]'
           }`}
           placeholder="Optional label…"
           value={labelValue}

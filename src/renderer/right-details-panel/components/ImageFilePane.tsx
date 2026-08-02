@@ -20,7 +20,7 @@ export function ImageFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetai
 
   return (
     <FileEntityShell
-      icon={<Image size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
+      icon={<Image size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
       label={fileEntityLabel(fileEntity.file)}
       entityId={fileEntity.id}
     >
@@ -36,11 +36,11 @@ export function ImageFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetai
               className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
                 activeFit === opt.value
                   ? isDark
-                    ? 'bg-zinc-700 text-[var(--surface-panel-foreground)]'
-                    : 'bg-zinc-200 text-[var(--surface-panel-foreground)]'
+                    ? 'bg-zinc-700 text-[var(--surface-foreground)]'
+                    : 'bg-zinc-200 text-[var(--surface-foreground)]'
                   : isDark
-                    ? 'text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-800 hover:text-[var(--surface-panel-foreground)]'
-                    : 'text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-100 hover:text-[var(--surface-panel-foreground-muted)]'
+                    ? 'text-[var(--surface-foreground-muted)] hover:bg-zinc-800 hover:text-[var(--surface-foreground)]'
+                    : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-100'
               }`}
             >
               {opt.label}

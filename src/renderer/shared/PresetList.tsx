@@ -22,12 +22,12 @@ export function presetRowClass(isDark: boolean, active: boolean): string {
     'flex w-full cursor-pointer items-center justify-between gap-4 rounded-[6px] px-2 py-1.5 text-left transition-colors'
   if (active) {
     return isDark
-      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-panel-foreground)]`
-      : `${base} bg-[var(--color-stone-200)] text-[var(--surface-panel-foreground)]`
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-foreground)]`
+      : `${base} bg-[var(--color-stone-200)] text-[var(--surface-foreground)]`
   }
   return isDark
-    ? `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-panel-foreground)]`
-    : `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)]`
+    ? `${base} text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]`
+    : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]`
 }
 
 function PresetRow({
@@ -54,7 +54,7 @@ function PresetRow({
       aria-label={ariaLabel}
     >
       <span className="truncate text-xs font-medium leading-none">{label}</span>
-      <span className="whitespace-nowrap text-xs font-normal leading-none tabular-nums text-[var(--surface-panel-foreground-muted)]">
+      <span className="whitespace-nowrap text-xs font-normal leading-none tabular-nums text-[var(--surface-foreground-muted)]">
         {dims ?? ''}
       </span>
     </button>
