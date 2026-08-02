@@ -11,11 +11,11 @@ import { FileEntityShell } from './FileEntityShell'
 
 function GenericFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetail }) {
   const isDark = usePaneTheme()
-  const muted = mutedClass(isDark)
+  const muted = mutedClass
 
   return (
     <FileEntityShell
-      icon={<File size={14} className="shrink-0 text-zinc-500" />}
+      icon={<File size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
       label={fileEntityLabel(fileEntity.file)}
       entityId={fileEntity.id}
     >

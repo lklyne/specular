@@ -1,6 +1,8 @@
 :root {
   --surface-focus-ring: var(--color-blue-500);
-  --surface-panel: var(--color-stone-100);
+  --surface-panel: #f2f2f2;
+  --surface-panel-foreground: #303030;
+  --surface-panel-foreground-muted: color-mix(in srgb, var(--surface-panel-foreground) 58%, transparent);
   --surface-panel-border: var(--color-stone-200);
   --surface-toolbar: var(--color-stone-300);
   --surface-toolbar-foreground: var(--color-stone-800);
@@ -33,6 +35,8 @@
 .dark {
   --surface-focus-ring: var(--color-blue-400);
   --surface-panel: var(--color-stone-800);
+  --surface-panel-foreground: #f4f4f5;
+  --surface-panel-foreground-muted: color-mix(in srgb, var(--surface-panel-foreground) 62%, transparent);
   --surface-panel-border: var(--color-stone-700);
   --surface-toolbar: var(--color-stone-700);
   --surface-toolbar-foreground: var(--color-stone-200);

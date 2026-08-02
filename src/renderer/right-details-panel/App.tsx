@@ -23,9 +23,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
 
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 
-  const pageClass = isDark
-    ? 'h-screen w-screen overflow-hidden border-l border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-zinc-100'
-    : 'h-screen w-screen overflow-hidden border-l border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-zinc-900'
+  const pageClass = 'h-screen w-screen overflow-hidden border-l border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-[var(--surface-panel-foreground)]'
   const pages = panelData.pages ?? []
   const annotations = panelData.annotations ?? []
   const { panelMode } = panelData

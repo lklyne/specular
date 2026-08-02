@@ -14,7 +14,7 @@ function Root({ children }: { children: ReactNode }) {
 function Label({ children }: { children: ReactNode }) {
   const isDark = usePaneTheme()
   return (
-    <div className={`mb-1 text-[10px] font-medium ${mutedClass(isDark)}`}>
+    <div className={`mb-1 text-[10px] font-medium ${mutedClass}`}>
       {children}
     </div>
   )

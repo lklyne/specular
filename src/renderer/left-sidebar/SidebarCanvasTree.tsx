@@ -65,12 +65,8 @@ function EntityListItem({
   const [isEditing, setIsEditing] = useState(false)
   const rootClassName = `flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
     active
-      ? isDark
-        ? 'bg-[var(--surface-interactive)] text-zinc-100'
-        : 'bg-[var(--surface-interactive)] text-zinc-900'
-      : isDark
-        ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
-        : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
+      ? 'bg-[var(--surface-interactive)] text-[var(--surface-panel-foreground)]'
+      : 'text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)]'
   }`
   const rowStyle = {
     paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
@@ -129,30 +125,18 @@ function EntityListItem({
       <Menu.Portal>
         <Menu.Positioner sideOffset={6}>
           <Menu.Popup
-            className={`z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
-              isDark
-                ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
-                : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
-            }`}
+            className="z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-[var(--surface-panel-foreground)]"
           >
             {onRename ? (
               <Menu.Item
-                className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                  isDark
-                    ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-                    : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-                }`}
+                className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-panel-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
                 onClick={startRename}
               >
                 <span>Rename</span>
               </Menu.Item>
             ) : null}
             <Menu.Item
-              className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                isDark
-                  ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-                  : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-              }`}
+              className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-panel-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
               onClick={onDelete}
             >
               <span>{deleteLabel}</span>
@@ -178,11 +162,7 @@ function AnnotationListItem({
   return (
     <button
       type="button"
-      className={`flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
-        isDark
-          ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
-          : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
-      } ${annotation.onCurrentPage ? '' : 'opacity-50'}`}
+      className={`flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)] ${annotation.onCurrentPage ? '' : 'opacity-50'}`}
       style={{
         paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
         paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
@@ -194,10 +174,10 @@ function AnnotationListItem({
           : `${annotation.label} — page navigated away from this comment's URL`
       }
     >
-      <MessageSquare size={13} className="shrink-0 text-zinc-500" />
+      <MessageSquare size={13} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
       <span className="min-w-0 flex-1 truncate">{annotation.label}</span>
       {annotation.messageCount > 1 ? (
-        <span className="ml-auto shrink-0 text-xs text-zinc-400">{annotation.messageCount}</span>
+        <span className="ml-auto shrink-0 text-xs text-[var(--surface-panel-foreground-muted)]">{annotation.messageCount}</span>
       ) : null}
     </button>
   )
@@ -255,7 +235,7 @@ function PageTreeItem({
       <div className="relative">
         {row}
         <Collapsible.Trigger
-          className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-500"
+          className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-[var(--surface-panel-foreground-muted)]"
           style={{ left: contentPaddingLeft - 16 }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -333,12 +313,8 @@ function GroupTreeItem({
   const chevronLeft = rowPaddingLeft - 16
   const rowClassName = `flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
     isSelected
-      ? isDark
-        ? 'bg-[var(--surface-interactive)] text-zinc-100'
-        : 'bg-[var(--surface-interactive)] text-zinc-900'
-      : isDark
-        ? 'text-zinc-200 hover:bg-[var(--surface-interactive-hover)]'
-        : 'text-zinc-800 hover:bg-[var(--surface-interactive-hover)]'
+      ? 'bg-[var(--surface-interactive)] text-[var(--surface-panel-foreground)]'
+      : 'text-[var(--surface-panel-foreground)] hover:bg-[var(--surface-interactive-hover)]'
   }`
   const rowStyle = { paddingLeft: rowPaddingLeft, paddingRight: rowPaddingRight }
 
@@ -373,9 +349,9 @@ function GroupTreeItem({
             {isEditing ? (
               <div className={rowClassName} style={rowStyle}>
                 {expanded ? (
-                  <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+                  <FolderOpen size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
                 ) : (
-                  <Folder size={14} className="shrink-0 text-zinc-500" />
+                  <Folder size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
                 )}
                 <InlineEditLabel
                   value={group.label}
@@ -386,7 +362,7 @@ function GroupTreeItem({
                   isDark={isDark}
                   onRequestFocus={() => api.setTextEditing(true)}
                 />
-                <span className="ml-auto shrink-0 text-xs text-zinc-400">{group.entityCount}</span>
+                <span className="ml-auto shrink-0 text-xs text-[var(--surface-panel-foreground-muted)]">{group.entityCount}</span>
               </div>
             ) : (
               <button
@@ -404,16 +380,16 @@ function GroupTreeItem({
                 title={group.label}
               >
                 {expanded ? (
-                  <FolderOpen size={14} className="shrink-0 text-zinc-500" />
+                  <FolderOpen size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
                 ) : (
-                  <Folder size={14} className="shrink-0 text-zinc-500" />
+                  <Folder size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />
                 )}
                 <span className="min-w-0 truncate">{group.label}</span>
-                <span className="ml-auto shrink-0 text-xs text-zinc-400">{group.entityCount}</span>
+                <span className="ml-auto shrink-0 text-xs text-[var(--surface-panel-foreground-muted)]">{group.entityCount}</span>
               </button>
             )}
             <Collapsible.Trigger
-              className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-zinc-500"
+              className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center text-[var(--surface-panel-foreground-muted)]"
               style={{ left: chevronLeft }}
               onClick={(event) => event.stopPropagation()}
             >
@@ -438,28 +414,16 @@ function GroupTreeItem({
       <Menu.Portal>
         <Menu.Positioner sideOffset={6}>
           <Menu.Popup
-            className={`z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
-              isDark
-                ? 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-100'
-                : 'border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900'
-            }`}
+            className="z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-[var(--surface-panel-foreground)]"
           >
             <Menu.Item
-              className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                isDark
-                  ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-                  : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-              }`}
+              className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-panel-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
               onClick={startRename}
             >
               <span>Rename</span>
             </Menu.Item>
             <Menu.Item
-              className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                isDark
-                  ? 'text-zinc-100 data-[highlighted]:bg-[var(--surface-popover)]'
-                  : 'text-zinc-900 data-[highlighted]:bg-[var(--surface-popover)]'
-              }`}
+              className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-panel-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
               onClick={() => api.ungroupGroup(group.id)}
             >
               <span>Ungroup</span>
@@ -525,7 +489,7 @@ function SidebarCanvasTreeItem({
     return (
       <div>
         <EntityListItem
-          icon={<StickyNote size={14} className="shrink-0 text-zinc-500" />}
+          icon={<StickyNote size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
           label={item.label}
           active={isSelected}
           isDark={isDark}
@@ -546,7 +510,7 @@ function SidebarCanvasTreeItem({
     return (
       <div>
         <EntityListItem
-          icon={<PenLine size={14} className="shrink-0 text-zinc-500" />}
+          icon={<PenLine size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
           label={item.label}
           active={isSelected}
           isDark={isDark}
@@ -568,7 +532,7 @@ function SidebarCanvasTreeItem({
     return (
       <div>
         <EntityListItem
-          icon={<span className="shrink-0 text-zinc-500"><ShapeGlyph kind={item.shapeKind} size={14} /></span>}
+          icon={<span className="shrink-0 text-[var(--surface-panel-foreground-muted)]"><ShapeGlyph kind={item.shapeKind} size={14} /></span>}
           label={item.label}
           active={isSelected}
           isDark={isDark}
@@ -589,7 +553,7 @@ function SidebarCanvasTreeItem({
   return (
     <div>
       <EntityListItem
-        icon={<FileIcon size={14} className="shrink-0 text-zinc-500" />}
+        icon={<FileIcon size={14} className="shrink-0 text-[var(--surface-panel-foreground-muted)]" />}
         label={item.label}
         active={isSelected}
         isDark={isDark}

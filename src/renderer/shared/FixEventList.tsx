@@ -8,11 +8,11 @@ export function fixStatusLabel(status: FixProgressEntry['status']): string {
 }
 
 const kindColor: Record<FixProgressEvent['kind'], string> = {
-  system: 'text-zinc-500',
-  text: 'text-zinc-800 dark:text-zinc-200',
+  system: 'text-[var(--surface-panel-foreground-muted)]',
+  text: 'text-[var(--surface-panel-foreground)]',
   tool_use: 'text-blue-700 dark:text-blue-300',
   tool_result: 'text-emerald-700 dark:text-emerald-300',
-  result: 'text-zinc-900 dark:text-zinc-100',
+  result: 'text-[var(--surface-panel-foreground)]',
   stderr: 'text-amber-700 dark:text-amber-300',
   error: 'text-red-700 dark:text-red-300',
 }
@@ -40,7 +40,7 @@ export function FixEventList({
     >
       {events.map((event, i) => (
         <Fragment key={`${event.timestamp}-${i}`}>
-          <span className="text-zinc-400 dark:text-zinc-600">
+          <span className="text-[var(--surface-panel-foreground-muted)]">
             {event.kind.replace('_', ' ')}
           </span>
           <span className={`break-words ${kindColor[event.kind]}`}>

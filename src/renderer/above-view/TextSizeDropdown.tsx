@@ -49,32 +49,32 @@ export function lineHeightForTextSize(px: number): number {
 function popupClass(isDark: boolean): string {
   const base = 'z-50 min-w-[140px] rounded-[10px] border p-1 shadow-xl outline-none'
   return isDark
-    ? `${base} border-zinc-700 bg-zinc-900 text-zinc-100`
-    : `${base} border-zinc-200 bg-white text-zinc-900`
+    ? `${base} border-zinc-700 bg-zinc-900 text-[var(--surface-panel-foreground)]`
+    : `${base} border-zinc-200 bg-white text-[var(--surface-panel-foreground)]`
 }
 
 function itemClass(isDark: boolean): string {
   const base =
     'flex cursor-default items-center justify-between gap-3 rounded-[7px] px-2 py-1 text-xs outline-none'
   return isDark
-    ? `${base} text-zinc-100 data-[highlighted]:bg-zinc-800`
-    : `${base} text-zinc-900 data-[highlighted]:bg-zinc-100`
+    ? `${base} text-[var(--surface-panel-foreground)] data-[highlighted]:bg-zinc-800`
+    : `${base} text-[var(--surface-panel-foreground)] data-[highlighted]:bg-zinc-100`
 }
 
 function triggerClass(isDark: boolean): string {
   const base =
     'flex h-6 items-center gap-1 rounded-[6px] border-0 px-1.5 text-xs leading-none transition-colors'
   return isDark
-    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100 data-[popup-open]:bg-[rgba(253,248,245,0.1)] data-[popup-open]:text-zinc-100`
-    : `${base} text-zinc-700 hover:bg-[var(--color-stone-100)] hover:text-zinc-900 data-[popup-open]:bg-[var(--color-stone-200)] data-[popup-open]:text-zinc-900`
+    ? `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-panel-foreground)] data-[popup-open]:bg-[rgba(253,248,245,0.1)] data-[popup-open]:text-[var(--surface-panel-foreground)]`
+    : `${base} text-[var(--surface-panel-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-panel-foreground)] data-[popup-open]:bg-[var(--color-stone-200)] data-[popup-open]:text-[var(--surface-panel-foreground)]`
 }
 
 function inputClass(isDark: boolean): string {
   const base =
     'h-6 w-full rounded-[6px] border bg-transparent px-2 text-xs outline-none'
   return isDark
-    ? `${base} border-zinc-700 text-zinc-100 focus:border-zinc-500`
-    : `${base} border-zinc-300 text-zinc-900 focus:border-zinc-500`
+    ? `${base} border-zinc-700 text-[var(--surface-panel-foreground)] focus:border-zinc-500`
+    : `${base} border-zinc-300 text-[var(--surface-panel-foreground)] focus:border-zinc-500`
 }
 
 export function TextSizeDropdown({

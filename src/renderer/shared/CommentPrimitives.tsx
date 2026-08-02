@@ -30,14 +30,14 @@ export function CommentInput({
   buttonClassName?: string
 }) {
   const hasContent = value.trim().length > 0
-  const inactiveBtn = buttonClassName ?? 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600 dark:hover:text-zinc-100'
+  const inactiveBtn = buttonClassName ?? 'bg-zinc-100 text-[var(--surface-panel-foreground-muted)] hover:bg-zinc-200 hover:text-[var(--surface-panel-foreground-muted)] dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:hover:text-[var(--surface-panel-foreground)]'
 
   return (
     <>
       <textarea
         ref={inputRef}
         autoFocus={autoFocus}
-        className="block min-h-[24px] max-h-[120px] w-full resize-none overflow-y-auto bg-transparent py-0.5 pr-9 text-[14px] leading-6 text-zinc-900 outline-none [field-sizing:content] placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+        className="block min-h-[24px] max-h-[120px] w-full resize-none overflow-y-auto bg-transparent py-0.5 pr-9 text-[14px] leading-6 text-[var(--surface-panel-foreground)] outline-none [field-sizing:content] placeholder:text-[var(--surface-panel-foreground-muted)]"
         rows={1}
         placeholder={placeholder}
         value={value}
@@ -82,15 +82,15 @@ export function CommentBubble({
 }) {
   return (
     <div>
-      <div className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+      <div className="text-xs font-medium text-[var(--surface-panel-foreground)]">
         {author === 'agent' ? 'Agent' : 'You'}
       </div>
       {text ? (
-        <div className="mt-1 inline-block max-w-full whitespace-pre-wrap rounded-2xl bg-zinc-100 px-3 py-1.5 text-[12px] text-zinc-900 dark:bg-zinc-700/60 dark:text-zinc-100">
+        <div className="mt-1 inline-block max-w-full whitespace-pre-wrap rounded-2xl bg-zinc-100 px-3 py-1.5 text-[12px] text-[var(--surface-panel-foreground)] dark:bg-zinc-700/60">
           {text}
         </div>
       ) : fallback ? (
-        <div className="mt-1 text-[12px] italic text-zinc-500 dark:text-zinc-400">
+        <div className="mt-1 text-[12px] italic text-[var(--surface-panel-foreground-muted)]">
           {fallback}
         </div>
       ) : null}
