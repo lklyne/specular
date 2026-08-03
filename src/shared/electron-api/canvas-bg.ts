@@ -270,6 +270,11 @@ export interface CanvasBgElectronAPI {
   onPageCursorChange: (
     callback: (data: { type: string | null }) => void,
   ) => () => void
+  /** Current on-disk content of a markdown note, or null if unreadable.
+   *  Main owns disk access, so this goes over IPC rather than a
+   *  `local-file://` fetch — that scheme isn't CORS-enabled, and a renderer
+   *  served from the dev server is cross-origin to it. */
+  readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   /**
    * ADR 0023 — commit a markdown note edit through the Y.Doc so it

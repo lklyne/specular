@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { useDebouncedWrite } from '../../shared/useDebouncedWrite'
-import { filePathToSrc, getFileApi } from './filePathToSrc'
+import { getFileApi } from './filePathToSrc'
 
 /**
  * Owns a markdown note's content lifecycle: initial disk load, Y.Doc-driven
@@ -42,10 +42,14 @@ export function useNoteContent(
     if (entity.noteContent !== undefined) return
     let cancelled = false
     const fetchContent = () => {
-      fetch(filePathToSrc(entity.file) + `?t=${Date.now()}`)
-        .then((res) => res.text())
+      fileApi
+        .readNoteFile(entity.file)
         .then((text) => {
           if (cancelled) return
+          if (text === null) {
+            setMdContent(null)
+            return
+          }
           setMdContent(text)
           if (!isFocusedRef.current) setLocalText(text)
         })
