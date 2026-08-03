@@ -25,6 +25,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
 import { getSpacePath, loadOnboardingState, saveOnboardingState, setSpacePath } from './runtime/preferences'
 import { isSpaceAvailable } from './runtime/space-dir'
+import { spacePickerDefaultPath } from './runtime/picker-defaults'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser, hasUserOwnedAgentBrowserBinary } from './agent-browser-install'
@@ -144,7 +145,10 @@ async function resolveSpaceAtBoot(): Promise<boolean> {
       setSpacePath(undefined)
       return true
     }
-    const located = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    const located = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      defaultPath: spacePickerDefaultPath(),
+    })
     const candidate = !located.canceled ? located.filePaths[0] : undefined
     if (candidate && isSpaceAvailable(candidate)) {
       setSpacePath(candidate)

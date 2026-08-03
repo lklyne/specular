@@ -426,8 +426,8 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(ipcChannels.canvasShowPageContextMenu, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    const canGoBack = page.pageView.webContents.canGoBack()
-    const canGoForward = page.pageView.webContents.canGoForward()
+    const canGoBack = page.pageView.webContents.navigationHistory.canGoBack()
+    const canGoForward = page.pageView.webContents.navigationHistory.canGoForward()
     const menu = Menu.buildFromTemplate([
       {
         label: 'Back',
