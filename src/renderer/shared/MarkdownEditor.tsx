@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { Compartment, EditorState, type Extension } from '@codemirror/state'
-import { EditorView, placeholder as placeholderExtension } from '@codemirror/view'
+import { EditorView } from '@codemirror/view'
 import {
   createMarkdownExtensions,
   createStickyTextExtensions,
   externalUpdate,
   reconfigureTheme,
 } from './markdown/markdown-codemirror'
+import { placeholderExtension } from './markdown/markdown-placeholder'
 import { autofocusEditorSelection } from '../../shared/editor-selection'
 
 /**
