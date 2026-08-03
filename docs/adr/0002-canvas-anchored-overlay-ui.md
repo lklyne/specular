@@ -113,7 +113,7 @@ The change is sweeping but coherent; it ships as one PR rather than incrementall
 
 - `pnpm typecheck` — clean.
 - `pnpm test:unit` — 355/355 pass.
-- `pnpm test:smoke` — 76/76 pass (after 2026-05-07 fix). Initial gate-end run reported 3 failures (`agent-canvas presence cleanup`, `cdp-proxy reuses stable proxy url`, `selection > group overlay non-interactive/multiSelected`); root-caused to test pollution, not the gate flip. The smoke config ran files in parallel against a single shared Electron HTTP server, so concurrent files raced on selection / cdp-proxy / presence state. Adding `fileParallelism: false` to `vitest.smoke.config.ts` makes file execution serial; all three failures cleared on both `aboveview-migration` and `main`. The hypothesised `getSelectionOverlayState.interactive` regression was a false lead.
+- `pnpm test:integration` — 76/76 pass (after 2026-05-07 fix). Initial gate-end run reported 3 failures (`agent-canvas presence cleanup`, `cdp-proxy reuses stable proxy url`, `selection > group overlay non-interactive/multiSelected`); root-caused to test pollution, not the gate flip. The integration config ran files in parallel against a single shared Electron HTTP server, so concurrent files raced on selection / cdp-proxy / presence state. Adding `fileParallelism: false` to `vitest.integration.config.ts` makes file execution serial; all three failures cleared on both `aboveview-migration` and `main`. The hypothesised `getSelectionOverlayState.interactive` regression was a false lead.
 
 ### Open follow-ups
 

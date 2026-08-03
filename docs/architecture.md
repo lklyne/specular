@@ -132,18 +132,25 @@ renderer surface (canvas, toolbar, sidebar, inspector, chrome, etc.).
 
 ### src/main/routes/
 
-HTTP API endpoints grouped by domain: workspace, pages, entities, selection,
-layout, camera, inspector, presence. Used by CLI, tests, and automation.
+HTTP API endpoints grouped by domain: pages, entities, selection, layout,
+camera, inspector, presence. Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 
-The main spatial surface. Key components:
-- `CanvasGridSurface` — SVG canvas with pan/zoom
-- `SelectableEntityShell` — draggable/resizable node wrapper
-- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
-- `EdgeLayer` — connector lines
-- `GroupBoundsLayer` — group outlines
+The below-pages plane. Key components:
+- `CanvasGridSurface` — SVG canvas with pan/zoom transform
+- `PageBorderLayer` — page border/device-shell chrome
+- `GroupBackgroundLayer` — group background fills
 - `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
+
+### src/renderer/above-view/
+
+The above-pages plane: gesture capture, entity bodies, overlays. Key components:
+- `FileBodyLayer`, `StickyBodyLayer`, `ShapeBodyLayer` — entity body rendering
+- `DrawingsLayer` — freehand drawing entities
+- `EdgeLayer` — connector lines
+- `GroupBoundsLayer` — group outlines and selection chrome
+- `GapHandlesLayer`, `ReorderDotsLayer` — auto-layout interaction handles
 
 ### src/shared/
 

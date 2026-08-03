@@ -68,7 +68,7 @@ by other tools. Specular adds:
 
 **On link nodes:**
 - `presetIndex` — viewport preset (device catalog index)
-- `linked` — whether this page is linked to others for sync
+- `syncId` — sync group membership (null = not synced); renamed from `linked` in ADR 0027
 - `label` — display name
 - `parentGroupId` — group membership
 - `metadata` — open-ended key-value store
@@ -83,8 +83,8 @@ by other tools. Specular adds:
   specific repo is connected later.
 
 **On group nodes:**
-- `groupKind` — type of group (e.g., breakpoint set)
 - `layoutMode` — auto-layout algorithm
+- `layoutGap` — gap between children in managed layout
 - `entityIds` / `pageIds` — member references
 - `managedLayout` — whether the group controls child positions
 
