@@ -98,6 +98,8 @@ export interface CanvasBgElectronAPI {
     targetId?: string,
   ) => void
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
+  /** Publish a sticky's measured content height (never its own undo step). */
+  reportContentHeight: (id: string, height: number) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   deleteFileEntity: (id: string) => void

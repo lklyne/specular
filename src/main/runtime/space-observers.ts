@@ -135,21 +135,42 @@ export function endBatch(): void {
  * merges them. Reorder + reflow is the canonical caller (ADR 0015 undo
  * batching).
  */
-export function commitAsOneTransaction(mutate: () => void): void {
-  if (!_refs) {
-    mutate()
-    return
-  }
+export function commitAsOneTransaction<T>(mutate: () => T): T {
+  return commitWithOrigin(mutate, 'user')
+}
+
+/**
+ * Run `mutate` in a transaction the UndoManager does not track, so the write
+ * persists but never occupies an undo step.
+ *
+ * For state derived from a user action rather than authored by one — a sticky's
+ * measured content height is the current caller. Derived state lands a frame or
+ * two after the mutation that caused it, so it cannot ride that mutation's
+ * transaction: with `captureTimeout: 0` it would be an undo step of its own,
+ * and undo would spend a press restoring a value about to be re-derived anyway.
+ *
+ * Only correct while no gesture session is open — this syncs immediately, and
+ * inside a session that would flush the whole gesture's accumulated diff as
+ * untracked. Callers check `isGestureSessionActive()` and let the session's
+ * batch absorb the write instead.
+ */
+export function commitUntracked<T>(mutate: () => T): T {
+  return commitWithOrigin(mutate, 'measure')
+}
+
+function commitWithOrigin<T>(mutate: () => T, origin: string): T {
+  if (!_refs) return mutate()
   // Suppress the microtask sync that `scheduleSpaceAutosave()` would queue
   // from inside `mutate` — we sync once, synchronously, inside the transaction.
   // Without this, that trailing (empty) sync fires a second transaction.
   const wasBatching = _batchingActive
   _batchingActive = true
+  let result: T
   try {
     getActiveDoc().transact(() => {
-      mutate()
+      result = mutate()
       requestDocSyncImmediate()
-    }, 'user')
+    }, origin)
   } finally {
     _batchingActive = wasBatching
   }
@@ -161,6 +182,7 @@ export function commitAsOneTransaction(mutate: () => void): void {
   queueMicrotask(() => {
     _docSyncSatisfied = false
   })
+  return result!
 }
 
 /**

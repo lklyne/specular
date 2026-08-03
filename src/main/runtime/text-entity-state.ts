@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from 'crypto'
+import { STICKY_BASE_HEIGHT } from '../../shared/constants'
 import type {
   CanvasSceneTextEntity,
   PageAnchor,
@@ -43,7 +44,8 @@ export function defaultWidthMode(textStyle: TextEntityStyle): TextWidthMode {
 }
 
 export const DEFAULT_TEXT_WIDTH = 200
-export const DEFAULT_TEXT_HEIGHT = 200
+/** A fresh note is created at its default-text-size height. */
+export const DEFAULT_TEXT_HEIGHT = STICKY_BASE_HEIGHT
 
 export const textEntities: TextEntity[] = []
 

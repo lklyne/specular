@@ -132,6 +132,8 @@ const api: CanvasBgElectronAPI = {
   reorderStack: (action, targetId) =>
     ipcRenderer.send(ipcChannels.canvasReorderStack, { action, targetId }),
   ...entityMutationBridge,
+  reportContentHeight: (id, height) =>
+    ipcRenderer.send(ipcChannels.canvasReportContentHeight, { id, height }),
   refreshFileEntity: (id: string) =>
     ipcRenderer.send(ipcChannels.canvasRefreshFileEntity, { id }),
   deleteDrawingEntity: (id: string) =>
