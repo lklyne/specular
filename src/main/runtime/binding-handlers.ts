@@ -3,7 +3,13 @@ import { GRID_SIZE, NUDGE_STEP } from '../../shared/constants'
 import { setActiveTool } from './tool-mode'
 import { applyToolDefaultPatch } from './tool-defaults'
 import { undo, redo } from './workspace-undo'
-import { setZoom, setPan, focusSelection, restoreFocusCamera } from './viewport-control'
+import {
+  setZoom,
+  setPan,
+  focusSelection,
+  restoreFocusCamera,
+  setFocusPresentationMode,
+} from './viewport-control'
 import { groupSelectedEntities, makeAutoLayoutFromSelection, nudgeSelection, ungroupSelectedGroup } from './document-commands'
 import { selectEntities, selectNone } from './selection-controller'
 import { markDirty } from './layout-dirty'
@@ -73,6 +79,7 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     redo()
   },
   'reset-viewport': () => {
+    if (setFocusPresentationMode('fill')) return
     if (restoreFocusCamera()) return
     setZoom(1.0)
     if (!focusSelection({ storeReturnCamera: false, animate: false })) {

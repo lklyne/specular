@@ -5,6 +5,7 @@ const viewport = vi.hoisted(() => ({
   restoreFocusCamera: vi.fn(),
   setPan: vi.fn(),
   setZoom: vi.fn(),
+  setFocusPresentationMode: vi.fn(),
 }))
 
 const layout = vi.hoisted(() => ({
@@ -55,11 +56,12 @@ const { mainHandlers } = await import('../../src/main/runtime/binding-handlers')
 describe('binding handlers focus restore', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    viewport.setFocusPresentationMode.mockReturnValue(false)
     ui.getUiState.mockReturnValue({ selection: { kind: 'none' } })
   })
 
-  it('reset viewport restores the focus camera instead of applying a manual camera move', () => {
-    viewport.restoreFocusCamera.mockReturnValue(true)
+  it('reset viewport switches a focused page to fill mode', () => {
+    viewport.setFocusPresentationMode.mockReturnValue(true)
 
     mainHandlers['reset-viewport']({
       focusReturnCameraActive: true,
@@ -67,7 +69,8 @@ describe('binding handlers focus restore', () => {
       view: 'aboveView',
     })
 
-    expect(viewport.restoreFocusCamera).toHaveBeenCalledOnce()
+    expect(viewport.setFocusPresentationMode).toHaveBeenCalledWith('fill')
+    expect(viewport.restoreFocusCamera).not.toHaveBeenCalled()
     expect(viewport.setZoom).not.toHaveBeenCalled()
     expect(viewport.setPan).not.toHaveBeenCalled()
     expect(layout.requestLayout).not.toHaveBeenCalled()
