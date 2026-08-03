@@ -25,7 +25,7 @@
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
-import { PLAIN_TEXT_PLACEHOLDER, STICKY_MIN_HEIGHT } from '../../shared/constants'
+import { PLAIN_TEXT_PLACEHOLDER, STICKY_BASE_HEIGHT } from '../../shared/constants'
 import { useMeasuredSize } from '../shared/useMeasuredSize'
 import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
@@ -214,11 +214,14 @@ function useStickyHeight(
   onContentHeight: (id: string, height: number) => void,
 ): void {
   const measured = useMeasuredSize(contentRef, enabled)
-  // Floored at the created sticky height so an empty note stays note-shaped
-  // rather than collapsing to one line of padding. A floor that tracked the
-  // width instead would make every wide note tall, which is exactly what a
-  // side-handle reflow is trying to undo.
-  const height = measured ? Math.max(STICKY_MIN_HEIGHT, Math.ceil(measured.height)) : null
+  // Floored so an empty note stays note-shaped rather than collapsing to one
+  // line of padding. The floor scales with the text because that is what a
+  // corner or n/s drag does to a sticky — hold it fixed and the box stops
+  // shrinking while the font keeps going, so the note can never get smaller
+  // than the size it was created at. A floor tracking the *width* instead
+  // would make every wide note tall, which is what a reflow is trying to undo.
+  const floor = (STICKY_BASE_HEIGHT * (note.textSize ?? DEFAULT_TEXT_SIZE)) / DEFAULT_TEXT_SIZE
+  const height = measured ? Math.ceil(Math.max(floor, measured.height)) : null
   useEffect(() => {
     if (height === null) return
     onContentHeight(note.id, height)

@@ -6,11 +6,17 @@ export { VIEWPORT_PRESETS, DESKTOP_PRESET_INDEX } from './device-catalog'
 export const PLAIN_TEXT_PLACEHOLDER = 'Add text'
 
 /**
- * Floor for a sticky's content-sized height, and the height a fresh sticky is
- * created at. An empty or one-line note stays note-shaped instead of hugging
- * its text down to a strip of padding.
+ * A sticky's height at the default text size — what a fresh note is created
+ * at, and the floor its measured height is held to so an empty or one-line
+ * note stays note-shaped instead of hugging its text down to a strip of
+ * padding.
+ *
+ * Not a hard minimum. The floor scales with the note's text size, because
+ * scaling is what a corner or n/s handle drag means for a sticky: the font
+ * tracks the drag and the box follows the text. A fixed floor would stop the
+ * box at this height while the font kept shrinking under it.
  */
-export const STICKY_MIN_HEIGHT = 200
+export const STICKY_BASE_HEIGHT = 200
 
 export const TOOLBAR_HEIGHT = 44
 export const GRID_SIZE = 20
