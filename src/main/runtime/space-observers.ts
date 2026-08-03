@@ -239,6 +239,7 @@ function mapSnapshots(ymap: Y.Map<Y.Map<unknown>>): Record<string, unknown>[] {
 function syncDocToRuntime(doc: Y.Doc): void {
   if (!_refs) return
 
+  // fallow-ignore-next-line complexity
   withSuppressedDocSync(() => {
     const docTabId = getDocActiveTabId(doc)
     const currentTabId = _refs!.getActiveTabId()

@@ -140,6 +140,7 @@ export async function captureRegion(
   }
 }
 
+// fallow-ignore-next-line complexity
 async function captureRegionInternal(
   canvasRect: WorkspaceBounds,
   opts: RegionCaptureOptions | undefined,

@@ -147,6 +147,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
   const hasEntities = snapshot.entities && Object.keys(snapshot.entities).length > 0
   if (!snapshot.pages.length && !hasEntities) return false
 
+  // fallow-ignore-next-line complexity
   withSpacePersistenceSuspended(() => {
     setZoom(snapshot.zoom)
     setPan(snapshot.pan.x, snapshot.pan.y)

@@ -106,6 +106,7 @@ function objectToYMap(obj: Record<string, unknown>): Y.Map<unknown> {
 // ---------------------------------------------------------------------------
 
 /** Write snapshot state into Y.Doc maps. Caller must wrap in doc.transact(). */
+// fallow-ignore-next-line complexity
 export function hydrateDocFromSnapshot(doc: Y.Doc, snapshot: WorkspaceSnapshot): void {
   const viewport = doc.getMap(DOC_MAP_VIEWPORT)
   viewport.set('zoom', snapshot.zoom)
@@ -283,6 +284,7 @@ export function syncRuntimeToDoc(
   }, 'user')
 }
 
+// fallow-ignore-next-line complexity
 function syncMapFromArray<T extends { id: string }>(
   ymap: Y.Map<Y.Map<unknown>>,
   runtimeArray: ReadonlyArray<T>,

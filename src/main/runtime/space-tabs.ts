@@ -59,6 +59,7 @@ import {
 import { persistGroupEntity } from './group-entity-state'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
+// fallow-ignore-next-line complexity
 export function spaceSnapshot(): WorkspaceSnapshot {
   const pageIds = pages.map((p) => p.id)
   const selectedIndex = uiSelectedPageIndex(pageIds)

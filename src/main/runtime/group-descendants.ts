@@ -1,5 +1,3 @@
-// fallow-ignore-file circular-dependencies
-// Suppressed: see #141. page-runtime → runtime-core → selection-controller import back
 import { drawingEntities } from './drawing-entity-state'
 import { fileEntities } from './file-entity-state'
 import { pages } from './page-runtime'
