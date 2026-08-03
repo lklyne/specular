@@ -5,9 +5,12 @@
  *
  * The local map updates immediately — rendering must not wait a frame — but
  * the report to main is debounced: during a side-handle reflow drag or while
- * typing, the raw stream is one measurement per frame, and each would be its
- * own IPC message and Y.Doc transaction (`captureTimeout: 0` means one undo
- * step each). Main only needs the settled value, so it gets the trailing one.
+ * typing, the raw stream is one measurement per frame, and main only needs the
+ * settled value, so it gets the trailing one.
+ *
+ * The report goes through its own door (`reportContentHeight`) rather than a
+ * generic entity update: a measurement is derived state, and main writes it
+ * without spending an undo step (see the command's contract).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -17,7 +20,7 @@ import type { LayoutUpdateData } from '../../shared/types'
 const REPORT_DELAY_MS = 300
 
 export function useContentHeights(
-  api: Pick<CanvasBgElectronAPI, 'updateEntity'>,
+  api: Pick<CanvasBgElectronAPI, 'reportContentHeight'>,
   layoutData: LayoutUpdateData,
 ): {
   contentHeights: Map<string, number>
@@ -30,7 +33,7 @@ export function useContentHeights(
   const flush = useCallback(() => {
     timerRef.current = null
     for (const [id, height] of pendingRef.current) {
-      api.updateEntity('text', id, { height })
+      api.reportContentHeight(id, height)
     }
     pendingRef.current.clear()
   }, [api])

@@ -44,6 +44,7 @@ import {
   deleteTextEntity,
   deleteFileEntity,
   refreshFileEntity,
+  reportContentHeight,
   setPageCustom,
   setPageColorScheme,
   setDeviceOrientation,
@@ -655,6 +656,16 @@ export function registerCanvasEntityIpc(): void {
     (_event, { kind, id, patch }: { kind: CanvasEntityKind; id: string; patch: Record<string, unknown> }) => {
       if (!hasEntityKind(kind)) return
       getEntityKind(kind).update(id, patch, {})
+    },
+  )
+
+  // Measured content height (stickies) — its own door because it is derived
+  // state, not a user edit: see `reportContentHeight` for the undo contract.
+  ipcMain.on(
+    ipcChannels.canvasReportContentHeight,
+    (_event, { id, height }: { id: string; height: number }) => {
+      if (!Number.isFinite(height)) return
+      reportContentHeight(id, height)
     },
   )
 

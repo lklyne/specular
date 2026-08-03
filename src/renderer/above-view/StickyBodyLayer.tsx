@@ -25,8 +25,7 @@
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
-import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
-import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
+import { PLAIN_TEXT_PLACEHOLDER, STICKY_MIN_HEIGHT } from '../../shared/constants'
 import { useMeasuredSize } from '../shared/useMeasuredSize'
 import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
@@ -39,7 +38,6 @@ import { useEditorBridge } from '../shared/markdown/text-editor-bridge'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
-const STICKY_MIN_HEIGHT = ENTITY_KIND_CAPS.text.minSize.height
 /** ADR 0013 §2 — entities without textSize render at this size ("Small"). */
 const DEFAULT_TEXT_SIZE = 14
 
@@ -216,7 +214,7 @@ function useStickyHeight(
   onContentHeight: (id: string, height: number) => void,
 ): void {
   const measured = useMeasuredSize(contentRef, enabled)
-  // Floored at the kind's min height so an empty sticky stays note-shaped
+  // Floored at the created sticky height so an empty note stays note-shaped
   // rather than collapsing to one line of padding. A floor that tracked the
   // width instead would make every wide note tall, which is exactly what a
   // side-handle reflow is trying to undo.

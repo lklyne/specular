@@ -8,6 +8,7 @@
  */
 
 import { randomUUID } from 'crypto'
+import { STICKY_MIN_HEIGHT } from '../../shared/constants'
 import type {
   CanvasSceneTextEntity,
   PageAnchor,
@@ -43,7 +44,8 @@ export function defaultWidthMode(textStyle: TextEntityStyle): TextWidthMode {
 }
 
 export const DEFAULT_TEXT_WIDTH = 200
-export const DEFAULT_TEXT_HEIGHT = 200
+/** Same value as the sticky height floor — a fresh note is already at it. */
+export const DEFAULT_TEXT_HEIGHT = STICKY_MIN_HEIGHT
 
 export const textEntities: TextEntity[] = []
 

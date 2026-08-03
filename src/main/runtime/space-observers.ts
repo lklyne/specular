@@ -136,6 +136,29 @@ export function endBatch(): void {
  * batching).
  */
 export function commitAsOneTransaction(mutate: () => void): void {
+  commitWithOrigin(mutate, 'user')
+}
+
+/**
+ * Run `mutate` in a transaction the UndoManager does not track, so the write
+ * persists but never occupies an undo step.
+ *
+ * For derived state the renderer measures rather than the user authors — a
+ * sticky's content-sized height. Such a measurement lands a frame or two after
+ * the mutation that caused it, so it cannot ride that mutation's transaction:
+ * with `captureTimeout: 0` it would be an undo step of its own, and undo would
+ * spend a press restoring a height about to be re-measured anyway.
+ *
+ * Only correct while no gesture session is open — this syncs immediately, and
+ * inside a session that would flush the whole gesture's accumulated diff as
+ * untracked. Callers check `isGestureSessionActive()` and let the session's
+ * batch absorb the measurement instead.
+ */
+export function commitUntracked(mutate: () => void): void {
+  commitWithOrigin(mutate, 'measure')
+}
+
+function commitWithOrigin(mutate: () => void, origin: string): void {
   if (!_refs) {
     mutate()
     return
@@ -149,7 +172,7 @@ export function commitAsOneTransaction(mutate: () => void): void {
     getActiveDoc().transact(() => {
       mutate()
       requestDocSyncImmediate()
-    }, 'user')
+    }, origin)
   } finally {
     _batchingActive = wasBatching
   }

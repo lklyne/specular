@@ -52,7 +52,8 @@ import {
   updateGroupEntity as updateGroupEntityInState,
 } from './group-entity-state'
 import { markDirty } from './layout-dirty'
-import { mutateWorkspace } from './mutate-workspace'
+import { isGestureSessionActive, mutateWorkspace } from './mutate-workspace'
+import { commitUntracked } from './space-observers'
 import {
   reanchorEntityById,
   withPageAnchoredEntityIds,
@@ -759,6 +760,34 @@ export function createTextEntity(input: {
 
 export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id'>>): TextEntity | null {
   return updateEntityCommand(id, patch, updateTextEntityInState)
+}
+
+/**
+ * A sticky's measured content height (CONTEXT.md, content-sized bounds). The
+ * renderer measures the laid-out text and reports the settled value here.
+ *
+ * Not a user action, so it must not cost an undo press. During a resize the
+ * gesture session's batch absorbs it into the gesture's one step; the report
+ * that lands after the gesture (the measurement trails the last width tick by
+ * a frame, then debounces) is written untracked instead of becoming a step of
+ * its own — undo restores the width, and the height re-derives from the next
+ * measurement.
+ */
+export function reportContentHeight(id: string, height: number): void {
+  if (isGestureSessionActive()) {
+    updateTextEntity(id, { height })
+    return
+  }
+  mutateWorkspace(
+    () => {
+      let entity: TextEntity | null = null
+      commitUntracked(() => {
+        entity = updateTextEntityInState(id, { height })
+      })
+      return entity as TextEntity | null
+    },
+    { changed: (entity) => entity !== null },
+  )
 }
 
 export function deleteTextEntity(id: string): boolean {

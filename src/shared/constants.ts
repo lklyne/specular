@@ -5,6 +5,13 @@ export { VIEWPORT_PRESETS, DESKTOP_PRESET_INDEX } from './device-catalog'
 
 export const PLAIN_TEXT_PLACEHOLDER = 'Add text'
 
+/**
+ * Floor for a sticky's content-sized height, and the height a fresh sticky is
+ * created at. An empty or one-line note stays note-shaped instead of hugging
+ * its text down to a strip of padding.
+ */
+export const STICKY_MIN_HEIGHT = 200
+
 export const TOOLBAR_HEIGHT = 44
 export const GRID_SIZE = 20
 export const NUDGE_STEP = 5

@@ -149,6 +149,7 @@ export interface IpcContract {
   'canvas-reorder-stack': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-start': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-tab': { dir: 'renderer→main'; payload: unknown }
+  'canvas-report-content-height': { dir: 'renderer→main'; payload: { id: string; height: number } }
   'canvas-request-entity-edit': { dir: 'renderer→main'; payload: unknown }
   'canvas-resize-begin': { dir: 'renderer→main'; payload: unknown }
   'canvas-resize-end': { dir: 'renderer→main'; payload: unknown }
@@ -466,6 +467,7 @@ export const ipcChannels = {
   canvasReorderStack: 'canvas-reorder-stack',
   canvasReorderStart: 'canvas-reorder-start',
   canvasReorderTab: 'canvas-reorder-tab',
+  canvasReportContentHeight: 'canvas-report-content-height',
   canvasRequestEntityEdit: 'canvas-request-entity-edit',
   canvasResizeBegin: 'canvas-resize-begin',
   canvasResizeEnd: 'canvas-resize-end',

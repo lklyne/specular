@@ -49,6 +49,7 @@ Gestures (drag, resize, reorder, distribute) produce many small updates. Without
 - Tick functions (`applyDragDelta`, `resizeMultiSelection`, registry updates) mutate freely while sync is held
 - `session.finalize()` — one sync for the entire gesture, then one `markUndoBoundary()`
 - At most one session at a time (one interaction token); a second begin warns and finalizes the stale session
+- Derived state the renderer measures (a sticky's content height) arrives after the gesture closed. `commitUntracked` in `space-observers.ts` writes it in a transaction the UndoManager doesn't track, so it persists without becoming an undo step; inside a session the batch absorbs it instead (`reportContentHeight`)
 
 ## UndoManager scope
 
