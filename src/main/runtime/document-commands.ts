@@ -774,18 +774,16 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
  * measurement.
  */
 export function reportContentHeight(id: string, height: number): void {
+  // The measurement stream re-reports a settled height whenever the observer
+  // refires without a size delta; each one would otherwise cost a transaction,
+  // a full-registry sync, and a relayout for no observable change.
+  if (textEntities.find((entity) => entity.id === id)?.height === height) return
   if (isGestureSessionActive()) {
     updateTextEntity(id, { height })
     return
   }
   mutateWorkspace(
-    () => {
-      let entity: TextEntity | null = null
-      commitUntracked(() => {
-        entity = updateTextEntityInState(id, { height })
-      })
-      return entity as TextEntity | null
-    },
+    () => commitUntracked(() => updateTextEntityInState(id, { height })),
     { changed: (entity) => entity !== null },
   )
 }
