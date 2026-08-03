@@ -22,6 +22,7 @@ opencode.json
 config/mcporter.json
 
 # scratch artifacts (dogfood runs, manual captures, regression snapshots, ad-hoc logs)
+.dev/
 tmp/
 tmp-page*.png
 dogfood-output/

@@ -73,6 +73,14 @@ initSentry()
 
 crashReporter.start({ submitURL: '', uploadToServer: false, ignoreSystemCrashHandler: false })
 
+// An app that outlives the terminal that owned its stdout — an orphaned dev
+// run, a detached launch — has a closed pipe under every console call. Each
+// write then throws EPIPE straight into the uncaughtException handler below,
+// which logs it, at one entry per console call for the life of the process.
+// Swallowing here costs nothing: output nobody can read is already lost.
+process.stdout.on('error', () => {})
+process.stderr.on('error', () => {})
+
 process.on('uncaughtException', (err) => logCrash('uncaughtException', err))
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason))
 app.on('render-process-gone', (_e, wc, details) => {
