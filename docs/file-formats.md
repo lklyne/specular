@@ -23,8 +23,10 @@ the tab's id. The suffix is what makes the path unique: two tabs sharing a name
 would otherwise share one file, and saving, renaming, or deleting either would
 clobber the other. Renaming a tab renames its file; the suffix stays.
 
-Canvases are auto-saved. The location is currently:
-`~/.config/Specular/workspaces/default/`
+Canvases are auto-saved. The location is currently hard-coded to
+`<userData>/workspaces/default/` — on macOS,
+`~/Library/Application Support/Specular/workspaces/default/`. Making it a folder
+the user picks is [ADR 0033](adr/0033-user-chosen-space-folder.md) (proposed).
 
 ## .canvas (JSON Canvas v1.0)
 
