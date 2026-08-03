@@ -29,6 +29,7 @@ export interface SettingsElectronAPI {
    *  Returns the new resolved space path, or null if canceled at any step. */
   spaceChangeViaPicker: () => Promise<string | null>
   spaceRevealInFinder: () => void
+  checkForUpdates: () => void
   close: () => void
   onSkillProgress: (callback: (event: OnboardingProgressEvent) => void) => () => void
   onFixConfigChanged: (callback: (config: FixConfig) => void) => () => void

@@ -311,6 +311,7 @@ export interface IpcContract {
   'set-multi-selected': { dir: 'main→renderer'; payload: unknown }
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
   'set-theme-mode': { dir: 'renderer→main'; payload: { mode: AppThemeMode } }
+  'settings:check-for-updates': { dir: 'renderer→main'; payload: unknown }
   'settings:close': { dir: 'renderer→main'; payload: unknown }
   'settings:fix-config-changed': { dir: 'main→renderer'; payload: FixConfig }
   'settings:get-initial-data': { dir: 'invoke'; payload: unknown }
@@ -624,6 +625,7 @@ export const ipcChannels = {
   setInteractive: 'set-interactive',
   setMultiSelected: 'set-multi-selected',
   setThemeMode: 'set-theme-mode',
+  settingsCheckForUpdates: 'settings:check-for-updates',
   settingsClose: 'settings:close',
   settingsFixConfigChanged: 'settings:fix-config-changed',
   settingsGetInitialData: 'settings:get-initial-data',

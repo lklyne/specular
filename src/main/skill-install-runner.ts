@@ -46,7 +46,7 @@ export async function runSkillInstallSelections(
       return result
     }),
   ])
-  const status = await getOnboardingStatus()
+  const status = getOnboardingStatus()
   broadcast({ kind: 'done', status })
   return status
 }
@@ -96,7 +96,7 @@ export async function runComponentToggle(
       detail: error instanceof Error ? error.message : String(error),
     })
   }
-  const status = await getOnboardingStatus()
+  const status = getOnboardingStatus()
   broadcast({ kind: 'done', status })
   return status
 }

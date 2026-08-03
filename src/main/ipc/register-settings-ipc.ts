@@ -1,5 +1,5 @@
 import { ipcChannels } from '../../shared/ipc-contract'
-import { BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import type {
   FixModel,
   FixPermissions,
@@ -18,12 +18,17 @@ import {
 import { changeSpaceViaPicker } from '../runtime/space-change'
 import { spaceDir } from '../runtime/space-dir'
 import { listRepos, removeBindingByOrigin } from '../runtime/dev-server-manager'
-import { getOnboardingStatus } from '../onboarding-status'
+import {
+  getOnboardingStatus,
+  onOnboardingStatusChanged,
+  refreshOnboardingStatus,
+} from '../onboarding-status'
 import {
   runComponentToggle,
   runSkillInstallSelections,
 } from '../skill-install-runner'
 import { refreshAppMenu } from '../runtime/app-menu'
+import { checkForUpdatesManually } from '../auto-updater'
 import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
   closeSettingsWindow,
@@ -49,11 +54,14 @@ function broadcastSpaceChanged(path: string): void {
 }
 
 export function registerSettingsIpc(): void {
+  onOnboardingStatusChanged((status) => broadcastProgress({ kind: 'done', status }))
+
   ipcMain.handle(
     ipcChannels.settingsGetInitialData,
-    async (): Promise<SettingsBootstrapData> => ({
+    (): SettingsBootstrapData => ({
       theme: { isDark: isDark(), themeMode: getThemeMode() },
-      status: await getOnboardingStatus(),
+      version: app.getVersion(),
+      status: getOnboardingStatus(),
       fixConfig: getFixConfig(),
       connectedRepos: listRepos(),
       space: { path: spaceDir(), isDefault: getSpacePath() === undefined },
@@ -68,12 +76,16 @@ export function registerSettingsIpc(): void {
     return newPath
   })
 
+  ipcMain.on(ipcChannels.settingsCheckForUpdates, () => {
+    void checkForUpdatesManually()
+  })
+
   ipcMain.on(ipcChannels.spaceRevealInFinder, () => {
     void shell.openPath(spaceDir())
   })
 
   ipcMain.handle(ipcChannels.settingsRefreshStatus, async (): Promise<OnboardingStatusSnapshot> => {
-    return await getOnboardingStatus()
+    return await refreshOnboardingStatus()
   })
 
   ipcMain.handle(

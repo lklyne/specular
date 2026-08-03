@@ -16,7 +16,11 @@ import {
   saveOnboardingState,
   setSpacePath,
 } from '../runtime/preferences'
-import { getOnboardingStatus } from '../onboarding-status'
+import {
+  getOnboardingStatus,
+  onOnboardingStatusChanged,
+  refreshOnboardingStatus,
+} from '../onboarding-status'
 import { runSkillInstallSelections } from '../skill-install-runner'
 import { refreshAppMenu } from '../runtime/app-menu'
 import {
@@ -32,9 +36,11 @@ function broadcast(event: OnboardingProgressEvent): void {
 }
 
 export function registerOnboardingIpc(): void {
-  ipcMain.handle(ipcChannels.onboardingGetInitialData, async (): Promise<OnboardingBootstrapData> => ({
+  onOnboardingStatusChanged((status) => broadcast({ kind: 'done', status }))
+
+  ipcMain.handle(ipcChannels.onboardingGetInitialData, (): OnboardingBootstrapData => ({
     theme: { isDark: isDark(), themeMode: getThemeMode() },
-    status: await getOnboardingStatus(),
+    status: getOnboardingStatus(),
     mode: getOnboardingMode(),
     defaultSpacePath: join(app.getPath('home'), 'Specular'),
     spacePath: getSpacePath() ?? null,
@@ -63,7 +69,7 @@ export function registerOnboardingIpc(): void {
   })
 
   ipcMain.handle(ipcChannels.onboardingRefreshStatus, async (): Promise<OnboardingStatusSnapshot> => {
-    return await getOnboardingStatus()
+    return await refreshOnboardingStatus()
   })
 
   ipcMain.handle(

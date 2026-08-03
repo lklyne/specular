@@ -24,3 +24,8 @@ body,
 .titlebar-drag input {
   -webkit-app-region: no-drag;
 }
+
+/* Focus rings for keyboard users only — a click shouldn't leave one behind. */
+:focus:not(:focus-visible) {
+  outline: none;
+}

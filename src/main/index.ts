@@ -28,6 +28,7 @@ import { isSpaceAvailable } from './runtime/space-dir'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser, hasUserOwnedAgentBrowserBinary } from './agent-browser-install'
+import { refreshOnboardingStatus } from './onboarding-status'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { runAgentBrowserSkillRemovalMigration } from './skill-migrations'
 import {
@@ -181,6 +182,9 @@ app.whenReady().then(async () => {
 
   identifyInstall()
   configureBundledAgentBrowser()
+  // Probes the binary in the background; windows read the snapshot and get a
+  // push once it lands, so nobody blocks on the spawn.
+  void refreshOnboardingStatus()
   registerBuiltInPlugins()
   registerBuiltInEntityKinds()
   // New-tab links from a page open as a duplicate frame on the canvas rather

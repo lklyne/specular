@@ -18,6 +18,7 @@ const api: SettingsElectronAPI = {
     ipcRenderer.invoke(ipcChannels.repoBindOrigin, { repoId, origin }),
   spaceChangeViaPicker: () => ipcRenderer.invoke(ipcChannels.spaceChangeViaPicker),
   spaceRevealInFinder: () => ipcRenderer.send(ipcChannels.spaceRevealInFinder),
+  checkForUpdates: () => ipcRenderer.send(ipcChannels.settingsCheckForUpdates),
   close: () => ipcRenderer.send(ipcChannels.settingsClose),
   onSkillProgress: on<OnboardingProgressEvent>(ipcChannels.settingsSkillProgress),
   onFixConfigChanged: on<FixConfig>(ipcChannels.settingsFixConfigChanged),

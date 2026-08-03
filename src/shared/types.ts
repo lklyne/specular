@@ -915,6 +915,7 @@ export interface OnboardingState {
 // --- Settings window ---
 
 export interface SettingsBootstrapData extends ThemeBootstrapData {
+  version: string
   status: OnboardingStatusSnapshot
   fixConfig: FixConfig
   connectedRepos: ConnectedRepo[]

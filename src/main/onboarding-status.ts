@@ -50,14 +50,33 @@ function agentBrowserStatus(agent: Awaited<ReturnType<typeof getAgentBrowserStat
   return { kind: 'missing' }
 }
 
-export async function getOnboardingStatus(): Promise<OnboardingStatusSnapshot> {
-  const agent = await getAgentBrowserStatus()
-  const agentBrowser = agentBrowserStatus(agent)
+/**
+ * Probing the agent-browser binary means spawning it, which can stall out to
+ * its version timeout. Every other field is a cheap sync fs check, so the probe
+ * result is held here and refreshed deliberately — windows read a snapshot, they
+ * never wait on a subprocess to open.
+ */
+let agentBrowser: OnboardingComponentStatus = { kind: 'missing' }
+const listeners = new Set<(status: OnboardingStatusSnapshot) => void>()
 
+export function getOnboardingStatus(): OnboardingStatusSnapshot {
   return {
     cli: cliStatus(),
     skill: skillToStatus(getSkillStatus('specular')),
     agentBrowser,
     claudeDirExists: claudeDirExists(),
   }
+}
+
+export async function refreshOnboardingStatus(): Promise<OnboardingStatusSnapshot> {
+  agentBrowser = agentBrowserStatus(await getAgentBrowserStatus())
+  const status = getOnboardingStatus()
+  for (const listener of listeners) listener(status)
+  return status
+}
+
+export function onOnboardingStatusChanged(
+  listener: (status: OnboardingStatusSnapshot) => void,
+): void {
+  listeners.add(listener)
 }
