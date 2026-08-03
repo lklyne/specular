@@ -117,17 +117,28 @@ canvas space). There is no `--kind` flag on `specular annotate`; pass
 | `specular annotations` | List unresolved annotations (pending + acknowledged) |
 | `specular annotations --status <s>` | Filter by status (`pending`, `acknowledged`, `resolved`, `dismissed`) |
 | `specular annotations --all` | Include resolved + dismissed too |
-| `specular annotation <id>` | Get full detail for one annotation (elements, screenshot, replies) |
+| `specular annotation <id>` | Get full detail for one annotation (selection contents, elements, screenshot, replies) |
 | `specular ack <id>` / `specular resolve <id>` / `specular dismiss <id>` | Respond to an annotation |
 | `specular reply <id> "<text>"` | Reply on a thread |
 | `specular annotate-selection "<text>" [--ids id1,id2]` | One region comment over a multi-selection's union bounds; omit `--ids` to use the current selection |
 
-**Selection annotations.** `annotate-selection` records which entities were
-selected and, when they name one artifact, what the request targets:
-`specular annotation <id>` output can carry `metadata.selectionEntityIds`
-(the selected entity ids) and `metadata.selectionTarget` (the one page or
-file entity the request is about — present only when the selection names
-exactly one; omitted for selections spanning several artifacts).
+**Selection annotations.** `specular annotation <id>` is the whole context
+bundle for a selection comment — one call, no canvas read, no filtering by
+id. Alongside the comment text it carries:
+
+- `selection.members` — every selected entity resolved: a text note's `text`,
+  a page's `url` and `pageName`, a file's `filePath`, a group's `label`, plus
+  `bounds`. A selected group expands to its descendants.
+- `selection.priorFeedback` — unresolved comments already sitting on those
+  same items, so you don't re-litigate feedback the user already left.
+- `metadata.selectionTarget` — the one page or file entity the request is
+  about, present only when the selection names exactly one (omitted for
+  selections spanning several artifacts).
+
+The command also writes the region's screenshot to a temp PNG and prints the
+path — read it to see what the user was looking at. It captures the visible
+part of the region, so a selection larger than the window comes back with
+canvas-background fill where the offscreen part was.
 
 **Results belong on the canvas.** The canvas is the surface the user works
 on, so anything you create while acting on a comment — a new route, a
