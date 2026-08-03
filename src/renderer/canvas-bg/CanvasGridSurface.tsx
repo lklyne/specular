@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
-import { shapeDef } from '../../shared/shapes'
+import { shapeDef, shapeRender } from '../../shared/shapes'
 import { buildCanvasGridStyle, drawCanvasGrid } from './canvasGridStyle'
 
 function previewBoxStyle(
@@ -163,25 +163,29 @@ export function PlacementPreviewLayer({
     const baseStyle = previewBoxStyle(isDark, preview)
     const stroke = isDark ? 'rgba(168, 162, 158, 0.6)' : 'rgba(120, 113, 108, 0.6)'
     const def = shapeDef(preview.shapeKind ?? 'rectangle')
+    // The preview box is in screen px; `shapeRender` works in canvas units, so
+    // un-zoom the size before building the path and let the svg scale it back.
+    const zoom = preview.zoom ?? 1
+    const render = shapeRender(def, baseStyle.width / zoom, baseStyle.height / zoom)
     return (
       <svg
         className="pointer-events-none absolute"
         width={baseStyle.width}
         height={baseStyle.height}
-        viewBox="0 0 100 100"
+        viewBox={render.viewBox}
         preserveAspectRatio="none"
         style={{ left: baseStyle.left, top: baseStyle.top, overflow: 'visible' }}
       >
         <path
-          d={def.path}
+          d={render.d}
           fill="transparent"
           stroke={stroke}
           strokeWidth={1}
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
-        {def.line ? (
-          <path d={def.line} fill="none" stroke={stroke} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        {render.line ? (
+          <path d={render.line} fill="none" stroke={stroke} strokeWidth={1} vectorEffect="non-scaling-stroke" />
         ) : null}
       </svg>
     )
