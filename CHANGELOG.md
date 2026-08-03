@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-03 — Markdown Live Preview, Your Own Space Folder
+
+### New
+
+- **Markdown notes read like prose.** `.md` notes render formatted inline — the syntax collapses until your cursor lands on that line, so you're always editing the real source. Cmd+B/I/K work, Enter continues a list, and links open as pages on the canvas with an edge back to the note.
+- **Sticky notes grow with their text** and pick up light formatting: bold, strikethrough, and bullets from the selection popup. Side handles rewrap the text, corner handles scale it.
+- **You choose where your work lives.** Onboarding asks for a space folder, and Settings → General can change it later — with the option to move your canvases along or start fresh. If the folder goes missing, the app asks instead of quietly saving somewhere else.
+
+### Improvements
+
+- Upgraded to Electron 43 — Chromium 150, faster cold start.
+- Folder pickers open next to what you're picking for instead of Downloads.
+- Rounded rectangles and pills keep their corner radius at any size.
+- Panels read cleaner in light mode.
+- The settings window opens instantly, shows your version, and can check for updates.
+- `.canvas` files round their geometry, so re-saving doesn't churn the diff.
+- "Workspace" is now three clearer words: space (your folder), canvas (a document), tab (a canvas you have open). The sidebar is Canvases, and `specular workspace` is now `specular canvas` — the old verb still works.
+
+### Fixes
+
+- Markdown notes load their content again instead of coming up empty.
+- Sticky notes show a caret on the first click, can shrink below the size they were created at, and no longer spend an undo step on a height measurement.
+- Region captures that reach past the view edge line up correctly.
+- An app that outlives its terminal no longer floods `errors.log`.
+
+### Misc
+
+- Bundled agent-browser updated to v0.33.2.
+- `specular annotation` returns the resolved selection — text, urls, files, group members, prior feedback — so agents don't need a second canvas read.
+
 ## [0.5.2] - 2026-07-28 — Bug Fixes
 
 ### Fixes
