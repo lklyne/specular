@@ -18,23 +18,10 @@ pnpm build                   # package for distribution
 
 ## Managing the dev app
 
-`pnpm dev` remains the foreground, human-owned workflow. Agents and unattended
-shells should use `devctl`, which only restarts or stops processes it started:
-
-```bash
-pnpm devctl start             # idempotent background start
-pnpm devctl status --json
-pnpm devctl logs --tail=200
-pnpm devctl logs --errors
-pnpm devctl restart
-pnpm devctl stop
-pnpm devctl context           # status + recent logs/errors + perf trace metadata
-```
-
-If a foreground `pnpm dev` is already healthy, `start` reports it as external
-and exits successfully. `restart` and `stop` then refuse to signal it. Managed
-Forge/Vite/Electron output lives in `.dev/dev.log`; persistent app errors and
-performance traces remain in Electron's app logs directory.
+`pnpm dev` runs the app in the foreground; Forge/Vite/Electron output goes to
+that terminal. Run it in its own terminal or pane so it can be watched and
+stopped independently of other work. Persistent app errors and performance
+traces land in Electron's app logs directory.
 
 ## Environment variables
 

@@ -19,8 +19,6 @@
   "packageManager": "pnpm@11.10.0",
   "scripts": {
     "dev": "pnpm fetch:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge start",
-    "devctl": "node scripts/devctl.mjs",
-    "dev:restart": "pnpm devctl restart",
     "sync:agent-browser": "bash scripts/sync-agent-browser-skill.sh",
     "fetch:agent-browser": "bash scripts/fetch-agent-browser.sh",
     "check:agent-browser": "bash scripts/check-agent-browser.sh",
