@@ -58,7 +58,7 @@ import {
   updateResizeGuides,
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
-import { writeNoteFile } from '../runtime/note-assets'
+import { readNoteFile, writeNoteFile } from '../runtime/note-assets'
 import { commitNoteContent } from '../runtime/note-commands'
 import {
   activeTool,
@@ -732,6 +732,11 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(ipcChannels.canvasCopyFileAsPng, (_event, { filePath }: { filePath: string }) => {
     clipboard.writeImage(nativeImage.createFromPath(filePath))
+  })
+
+  // Initial disk read for a note that hasn't entered the Y.Doc mirror yet.
+  ipcMain.handle(ipcChannels.readNoteFile, (_event, { filePath }: { filePath: string }) => {
+    return readNoteFile(filePath)
   })
 
   // Raw disk write for non-Y.Doc-backed note content (issue #262 non-goals).
