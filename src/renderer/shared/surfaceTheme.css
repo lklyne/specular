@@ -1,6 +1,10 @@
 :root {
   --surface-focus-ring: var(--color-blue-500);
-  --surface-panel: var(--color-stone-100);
+  /* Text on every chrome surface — panels, popovers, popups. Only the toolbar
+     keeps its own foreground, since it sits on a darker tone. */
+  --surface-foreground: #303030;
+  --surface-foreground-muted: color-mix(in srgb, var(--surface-foreground) 58%, transparent);
+  --surface-panel: #f2f2f2;
   --surface-panel-border: var(--color-stone-200);
   --surface-toolbar: var(--color-stone-300);
   --surface-toolbar-foreground: var(--color-stone-800);
@@ -32,6 +36,8 @@
 
 .dark {
   --surface-focus-ring: var(--color-blue-400);
+  --surface-foreground: #f4f4f5;
+  --surface-foreground-muted: color-mix(in srgb, var(--surface-foreground) 62%, transparent);
   --surface-panel: var(--color-stone-800);
   --surface-panel-border: var(--color-stone-700);
   --surface-toolbar: var(--color-stone-700);

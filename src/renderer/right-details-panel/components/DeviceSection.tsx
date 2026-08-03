@@ -62,11 +62,9 @@ export function DeviceSection({
     'flex h-7 min-w-0 flex-1 items-center justify-between gap-1 rounded-md border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-2 text-[11px] hover:border-[var(--surface-toolbar-border)]'
   const tabBg = 'bg-[var(--surface-interactive)] border border-[var(--surface-input-border)]'
   const tabActive = isDark
-    ? 'bg-[var(--surface-toolbar)] text-zinc-100'
-    : 'bg-[var(--surface-input)] text-zinc-800 shadow-sm'
-  const tabInactive = isDark
-    ? 'text-zinc-500 hover:text-zinc-300'
-    : 'text-zinc-400 hover:text-zinc-600'
+    ? 'bg-[var(--surface-toolbar)] text-[var(--surface-foreground)]'
+    : 'bg-[var(--surface-input)] text-[var(--surface-foreground)] shadow-sm'
+  const tabInactive = 'text-[var(--surface-foreground-muted)]'
 
   return (
     <section className={`border-t ${divider}`}>
