@@ -1,20 +1,51 @@
 // ADR 0008 §7 — file selection popup.
 
 import { useEffect, useState } from 'react'
+import {
+  toggleBold,
+  toggleBulletList,
+  toggleStrikethrough,
+} from '../shared/markdown/markdown-commands'
 import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
+import { EditorFormattingButtons } from './EditorFormattingButtons'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 import { fileDisplayName } from '../canvas-bg/entityConstants'
+import { useActiveTextEditor } from '../shared/markdown/text-editor-bridge'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 import type { AnnotateHandler } from './annotationMath'
+
+const INACTIVE_FORMAT = { bold: false, strikethrough: false, bulletList: false }
+
+/**
+ * Bold/strikethrough/bullet-list toggles for the single selected .md file.
+ * Always rendered so entering edit mode causes no layout shift, but only
+ * enabled while the file is being edited — a file popup has no whole-note
+ * fallback like StickyNotePopover's, since it doesn't hold the file's
+ * content, only a reference to it.
+ */
+function FormattingSection({ fileId, isDark }: { fileId: string; isDark: boolean }) {
+  const activeEditor = useActiveTextEditor()
+  const editor = activeEditor?.entityId === fileId ? activeEditor : null
+  return (
+    <EditorFormattingButtons
+      format={editor ? editor.format : INACTIVE_FORMAT}
+      isDark={isDark}
+      disabled={!editor}
+      onBold={() => editor?.exec(toggleBold)}
+      onStrikethrough={() => editor?.exec(toggleStrikethrough)}
+      onBulletList={() => editor?.exec(toggleBulletList)}
+    />
+  )
+}
 
 export function FilePopup({
   api,
   isDark,
   layout,
   selectedFiles,
-  interactionIdle,
+  popupReady,
   onAnnotate,
 }: {
   api: Pick<
@@ -24,12 +55,12 @@ export function FilePopup({
   isDark: boolean
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
-  interactionIdle: boolean
+  popupReady: boolean
   onAnnotate: AnnotateHandler
 }) {
   const count = selectedFiles.length
   const ids = selectedFiles.map((f) => f.id).join('|')
-  const open = usePopupDelayedKey(ids, interactionIdle && count > 0)
+  const open = usePopupDelayedKey(ids, popupReady && count > 0)
 
   const [isRenaming, setIsRenaming] = useState(false)
   useEffect(() => {
@@ -71,6 +102,9 @@ export function FilePopup({
               />
             </CanvasItemPopup.Section>
             <CanvasItemPopup.Divider isDark={isDark} />
+            {single.rendererTag === 'markdown' ? (
+              <FormattingSection fileId={single.id} isDark={isDark} />
+            ) : null}
           </>
         ) : null}
         <CanvasItemPopup.EntityActions

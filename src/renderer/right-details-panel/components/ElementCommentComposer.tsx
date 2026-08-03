@@ -25,7 +25,7 @@ export function ElementCommentComposer({
         onSubmit={onSubmit}
         placeholder={active ? 'Add a comment...' : 'Select an element to comment'}
         disabled={!active}
-        buttonClassName="bg-[var(--surface-interactive)] text-zinc-500 hover:bg-[var(--surface-interactive)] hover:text-zinc-700 dark:text-zinc-300 dark:hover:bg-[var(--surface-interactive)] dark:hover:text-zinc-100"
+        buttonClassName="bg-[var(--surface-interactive)] text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-interactive)] dark:hover:bg-[var(--surface-interactive)] dark:hover:text-[var(--surface-foreground)]"
       />
     </div>
   )

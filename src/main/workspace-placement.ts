@@ -126,26 +126,40 @@ function scanForPlacement(
   throw new Error('No legal placement found within scan bounds')
 }
 
+/**
+ * Place a width×height item beside an explicit anchor's bounds — to its
+ * right, offset like the selection anchor — scanning outward when that
+ * spot collides.
+ */
+export function findPlacementBeside(
+  anchor: WorkspaceBounds,
+  width: number,
+  height: number,
+  reason = 'entity_anchor',
+): PlacementResult {
+  const w = snapToGrid(width)
+  const h = snapToGrid(height)
+  const initialX = snapToGrid(anchor.x + anchor.width + ANCHOR_OFFSET_X)
+  const initialY = snapToGrid(anchor.y + ANCHOR_OFFSET_Y)
+  const candidate = { x: initialX, y: initialY, width: w, height: h }
+  if (!candidateCollides(candidate)) {
+    return {
+      canvasX: initialX,
+      canvasY: initialY,
+      fallbackUsed: false,
+      reason,
+    }
+  }
+  return scanForPlacement(w, h, initialX, initialY)
+}
+
 export function findPlacement(request: PlacementRequest): PlacementResult {
   const width = snapToGrid(request.width)
   const height = snapToGrid(request.height)
 
   if (request.anchor === 'selection_or_empty_region') {
     const anchor = selectionBounds()
-    if (anchor) {
-      const initialX = snapToGrid(anchor.x + anchor.width + ANCHOR_OFFSET_X)
-      const initialY = snapToGrid(anchor.y + ANCHOR_OFFSET_Y)
-      const candidate = { x: initialX, y: initialY, width, height }
-      if (!candidateCollides(candidate)) {
-        return {
-          canvasX: initialX,
-          canvasY: initialY,
-          fallbackUsed: false,
-          reason: 'selection_anchor',
-        }
-      }
-      return scanForPlacement(width, height, initialX, initialY)
-    }
+    if (anchor) return findPlacementBeside(anchor, width, height, 'selection_anchor')
   }
 
   return scanForPlacement(width, height, CLUSTER_OUTER_MARGIN, CLUSTER_OUTER_MARGIN)

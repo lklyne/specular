@@ -130,6 +130,7 @@ export interface IpcContract {
   'canvas-multi-resize-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-navigate-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-open-devtools-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-open-entity-link': { dir: 'renderer→main'; payload: unknown }
   'canvas-pan': { dir: 'renderer→main'; payload: unknown }
   'canvas-paste-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-place-pending-entity': { dir: 'renderer→main'; payload: unknown }
@@ -440,6 +441,7 @@ export const ipcChannels = {
   canvasMultiResizeEnd: 'canvas-multi-resize-end',
   canvasNavigatePage: 'canvas-navigate-page',
   canvasOpenDevtoolsSelection: 'canvas-open-devtools-selection',
+  canvasOpenEntityLink: 'canvas-open-entity-link',
   canvasPan: 'canvas-pan',
   canvasPasteSelection: 'canvas-paste-selection',
   canvasPlacePendingEntity: 'canvas-place-pending-entity',

@@ -126,6 +126,8 @@ const api: CanvasBgElectronAPI = {
   copySelection: () => ipcRenderer.send(ipcChannels.canvasCopySelection),
   pasteSelection: (canvasX, canvasY) =>
     ipcRenderer.send(ipcChannels.canvasPasteSelection, { canvasX, canvasY }),
+  openEntityLink: (entityId, url) =>
+    ipcRenderer.send(ipcChannels.canvasOpenEntityLink, { entityId, url }),
   deleteSelectedEntities: () => ipcRenderer.send(ipcChannels.canvasDeleteSelection),
   reorderStack: (action, targetId) =>
     ipcRenderer.send(ipcChannels.canvasReorderStack, { action, targetId }),
