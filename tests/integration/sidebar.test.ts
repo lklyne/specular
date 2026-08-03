@@ -26,8 +26,8 @@ import {
 } from '../../src/main/runtime/entity-order-state'
 import { selectNone } from '../../src/main/runtime/selection-controller'
 import { pages } from '../../src/main/runtime/runtime-context'
-import { workspaceGroups } from '../../src/main/runtime/workspace-model'
-import { undo, redo } from '../../src/main/runtime/workspace-undo'
+import { workspaceGroups } from '../../src/main/runtime/space-model'
+import { undo, redo } from '../../src/main/runtime/space-undo'
 import {
   createAnnotation,
   updateAnnotationStatus,

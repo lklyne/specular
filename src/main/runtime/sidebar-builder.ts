@@ -28,10 +28,10 @@ import {
   pages,
 } from './runtime-context'
 import {
-  activeWorkspaceTabId,
+  activeSpaceTabId,
   workspaceAnnotations,
   workspaceGroups,
-} from './workspace-model'
+} from './space-model'
 import { leftSidebarView } from './view-refs'
 import {
   leftSidebarOpen as uiLeftSidebarOpen,
@@ -43,9 +43,9 @@ import { fileEntities } from './file-entity-state'
 import { drawingEntitiesForUi } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { pageDisplayLabel } from './runtime-serialization'
-import { workspaceTabSummaries } from './workspace-tabs'
+import { spaceTabSummaries } from './space-tabs'
 import { LEFT_SIDEBAR_WIDTH } from './runtime-constants'
-import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 type SidebarLeafItem =
   | SidebarPageItem
@@ -338,8 +338,8 @@ export function buildLeftSidebarData(): LeftSidebarData {
     width: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
     selectedEntityIds: uiSelectedEntityIds(),
     selectedGroupId: uiSelectedGroupId(),
-    tabs: workspaceTabSummaries(),
-    activeTabId: activeWorkspaceTabId,
+    tabs: spaceTabSummaries(),
+    activeTabId: activeSpaceTabId,
     hasPages: pages.length > 0,
     sections,
     items: [...sections.notes, ...sections.pages],

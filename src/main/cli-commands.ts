@@ -20,7 +20,7 @@ function pageId(args: ParsedArgs): string | undefined {
 // --- Canvas verbs ---
 
 // Reads the canvas as a JSON Canvas document (GET /canvas — the doc read shape).
-const workspace: VerbHandler = async () => {
+const canvas: VerbHandler = async () => {
   printJson(await callApp('/canvas'))
   return 0
 }
@@ -722,7 +722,9 @@ const skills: VerbHandler = async (args) => {
 // ---------------------------------------------------------------------------
 
 const VERBS: Record<string, VerbHandler> = {
-  workspace,
+  canvas,
+  // Hidden alias, kept so existing agent skills don't break mid-transition.
+  workspace: canvas,
   tab,
   selection,
   'find-placement': findPlacement,
@@ -774,7 +776,7 @@ export async function dispatch(argv: string[]): Promise<number> {
   if (!args.verb || args.verb === '--help' || args.verb === '-h') {
     printText('usage: specular <verb> [args...] [--flag value]')
     printText('')
-    printText('Canvas: workspace, add, update, delete, arrange, focus, group, ungroup')
+    printText('Canvas: canvas, add, update, delete, arrange, focus, group, ungroup')
     printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>')
     printText('  --tab <tab-id|tab-name> targets another canvas without switching focus')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')

@@ -49,18 +49,18 @@ import {
   type ForwardWheelPayload,
 } from '../runtime/page-input-forwarding'
 import {
-  createWorkspaceTab,
-  deleteWorkspaceTab,
+  createSpaceTab,
+  deleteSpaceTab,
   renameWorkspaceDrawingEntity,
   renameWorkspaceFileEntity,
   renameWorkspacePage,
   renameWorkspaceGroup,
-  renameWorkspaceTab,
+  renameSpaceTab,
   renameWorkspaceTextEntity,
-  reorderWorkspaceTab,
-  setActiveWorkspaceTab,
-} from '../runtime/workspace-tab-operations'
-import { scheduleWorkspaceAutosave } from '../runtime/workspace-autosave'
+  reorderSpaceTab,
+  setActiveSpaceTab,
+} from '../runtime/space-tab-operations'
+import { scheduleSpaceAutosave } from '../runtime/space-autosave'
 import { deleteEdges } from '../workspace-edges'
 import { updateEdge } from '../runtime/document-commands'
 import { notifyLeftSidebarData } from '../runtime/sidebar-builder'
@@ -299,17 +299,17 @@ export function registerCanvasIpc(): void {
   // --- Tab management ---
 
   ipcMain.on(ipcChannels.canvasSelectTab, (_event, { tabId }: { tabId: string }) => {
-    setActiveWorkspaceTab(tabId)
+    setActiveSpaceTab(tabId)
   })
 
   ipcMain.on(ipcChannels.canvasCreateTab, () => {
-    createWorkspaceTab()
+    createSpaceTab()
   })
 
   ipcMain.handle(
     ipcChannels.canvasRenameTab,
     (_event, { tabId, name }: { tabId: string; name: string }) => {
-      const renamed = renameWorkspaceTab(tabId, name)
+      const renamed = renameSpaceTab(tabId, name)
       if (renamed) notifyLeftSidebarData()
       return renamed
     },
@@ -362,13 +362,13 @@ export function registerCanvasIpc(): void {
 
 
   ipcMain.on(ipcChannels.canvasDeleteTab, (_event, { tabId }: { tabId: string }) => {
-    deleteWorkspaceTab(tabId)
+    deleteSpaceTab(tabId)
   })
 
   ipcMain.on(
     ipcChannels.canvasReorderTab,
     (_event, { tabId, toIndex }: { tabId: string; toIndex: number }) => {
-      reorderWorkspaceTab(tabId, toIndex)
+      reorderSpaceTab(tabId, toIndex)
     },
   )
 

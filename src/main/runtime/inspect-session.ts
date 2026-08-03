@@ -59,7 +59,7 @@ import {
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
-} from './workspace-model'
+} from './space-model'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'

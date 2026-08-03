@@ -10,9 +10,9 @@ import { requestLayout } from '../runtime/viewport-control'
 import { rebuildWindowFromSnapshot } from '../runtime/window-shell'
 import {
   currentPersistedWorkspaceRecord,
-  workspaceSnapshot,
-} from '../runtime/workspace-tabs'
-import { restorePersistedWorkspace } from '../runtime/workspace-restore'
+  spaceSnapshot,
+} from '../runtime/space-tabs'
+import { restorePersistedSpace } from '../runtime/space-restore'
 import { selectionDebug } from '../runtime/runtime-constants'
 
 export function registerAppIpc(): void {
@@ -63,8 +63,8 @@ export function registerAppIpc(): void {
     selectionDebug('ipc:reload-app')
     try {
       const record = currentPersistedWorkspaceRecord()
-      rebuildWindowFromSnapshot(workspaceSnapshot())
-      restorePersistedWorkspace(record)
+      rebuildWindowFromSnapshot(spaceSnapshot())
+      restorePersistedSpace(record)
       requestLayout()
     } catch (error) {
       console.error('Failed to relaunch app with current state:', error)

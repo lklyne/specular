@@ -7,7 +7,7 @@
  * only the frame the comment was drawn over.
  */
 
-import type { Annotation } from '../../shared/types'
+import type { Annotation, WorkspaceBounds } from '../../shared/types'
 import { isUnresolved } from '../../shared/annotation-utils'
 import {
   entityBoundsById,
@@ -28,10 +28,21 @@ import type {
   SelectionPromptContext,
 } from './prompt-builder'
 
+/** Sub-pixel precision is noise in a prompt or a CLI read — round it off. */
+function roundBounds(bounds: WorkspaceBounds | null): WorkspaceBounds | undefined {
+  if (!bounds) return undefined
+  return {
+    x: Math.round(bounds.x * 100) / 100,
+    y: Math.round(bounds.y * 100) / 100,
+    width: Math.round(bounds.width * 100) / 100,
+    height: Math.round(bounds.height * 100) / 100,
+  }
+}
+
 function describeMember(entityId: string): SelectionMemberSummary | null {
   const kind = entityKindById(entityId)
   if (!kind) return null
-  const bounds = entityBoundsById(entityId) ?? undefined
+  const bounds = roundBounds(entityBoundsById(entityId))
   const base = { id: entityId, kind, bounds }
   switch (kind) {
     case 'text': {

@@ -20,9 +20,9 @@
  */
 
 import { markDirty } from './layout-dirty'
-import { scheduleWorkspaceAutosave } from './workspace-autosave'
+import { scheduleSpaceAutosave } from './space-autosave'
 import { requestLayout } from './viewport-control'
-import { markUndoBoundary } from './workspace-undo'
+import { markUndoBoundary } from './space-undo'
 import { requestAttachmentSubscriptionRefresh } from './element-attachment-subscriptions'
 
 export interface MutateWorkspaceOptions<T> {
@@ -36,7 +36,7 @@ export interface MutateWorkspaceOptions<T> {
 let gestureSessionActive: () => boolean = () => false
 
 /**
- * Registered by the gesture session (workspace-gesture-session.ts) so
+ * Registered by the gesture session (space-gesture-session.ts) so
  * per-tick `mutateWorkspace` calls inside an active session defer their undo
  * boundary to the session's finalize.
  */
@@ -52,7 +52,7 @@ export function mutateWorkspace<T>(fn: () => T, opts?: MutateWorkspaceOptions<T>
   const result = fn()
   if (opts?.changed && !opts.changed(result)) return result
   markDirty('canvas')
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   requestLayout()
   // Re-derive which selectors each page must track (ADR 0032). Coalesced and
   // no-op unless the anchored-item set changed, so it rides the mutation seam

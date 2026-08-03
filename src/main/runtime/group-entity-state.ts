@@ -5,7 +5,7 @@ import type {
   WorkspaceGroup,
   WorkspaceGroupLayoutMode,
 } from '../../shared/types'
-import { workspaceGroups } from './workspace-model'
+import { workspaceGroups } from './space-model'
 import { markDirty } from './layout-dirty'
 import { applyPatch } from './apply-patch'
 

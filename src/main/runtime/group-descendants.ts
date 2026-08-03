@@ -1,11 +1,9 @@
-// fallow-ignore-file circular-dependencies
-// Suppressed: see #141. page-runtime → runtime-core → selection-controller import back
 import { drawingEntities } from './drawing-entity-state'
 import { fileEntities } from './file-entity-state'
 import { pages } from './page-runtime'
 import { shapeEntities } from './shape-entity-state'
 import { textEntities } from './text-entity-state'
-import { workspaceGroups } from './workspace-model'
+import { workspaceGroups } from './space-model'
 
 export function descendantEntityIdsForGroup(groupId: string): string[] {
   const ids: string[] = []

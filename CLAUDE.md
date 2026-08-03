@@ -83,7 +83,7 @@ Persistence: Y.Doc -> .canvas files on disk (350ms debounce).
 ### Key domains in src/main/runtime/
 
 ```
-workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
+space-*              Persistence, tabs, model, Y.Doc, undo, autosave
 runtime-core.ts      High-level state mutations
 runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
 selection-*          Selection state and mutations
@@ -187,7 +187,7 @@ The suite stays small on purpose. To prevent drift back to a pile of low-value t
 
 - Any new entity kind ships with integration coverage of its persistence + undo round-trip.
 - Any new runtime mutator ships with forward/reverse sync coverage (one Y.Doc transaction per mutation; undo round-trips cleanly).
-- PRs touching `src/main/runtime/workspace-*.ts` require integration coverage updates unless the change is pure refactor with no behavior delta.
+- PRs touching `src/main/runtime/space-*.ts` require integration coverage updates unless the change is pure refactor with no behavior delta.
 - No new `.todo()` test merged without a linked issue describing what would unblock it.
 - Before writing a test, re-read `tests/README.md` and confirm it clears the four-criterion bar.
 

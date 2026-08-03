@@ -6,14 +6,14 @@
 // (`tab switch`, `--tab`) agrees on what a ref means and errors identically.
 
 import type { PersistedWorkspaceTab } from '../../shared/types'
-import { workspaceTabs } from './workspace-model'
+import { spaceTabs } from './space-model'
 
-export type ResolvedWorkspaceTabRef =
+export type ResolvedSpaceTabRef =
   | { ok: true; tab: PersistedWorkspaceTab }
   | { ok: false; error: string }
 
 function describeAvailableTabs(): string {
-  return workspaceTabs.map((tab) => `${tab.id} (${tab.name})`).join(', ')
+  return spaceTabs.map((tab) => `${tab.id} (${tab.name})`).join(', ')
 }
 
 /**
@@ -22,14 +22,14 @@ function describeAvailableTabs(): string {
  * Never guesses. An ambiguous name lists the matching ids and an unknown ref
  * lists every tab, so a caller can retry without another round-trip.
  */
-export function resolveWorkspaceTabRef(ref: string): ResolvedWorkspaceTabRef {
+export function resolveSpaceTabRef(ref: string): ResolvedSpaceTabRef {
   const trimmed = ref.trim()
   if (!trimmed) return { ok: false, error: 'a tab ref (id or name) is required' }
 
-  const byId = workspaceTabs.find((tab) => tab.id === trimmed)
+  const byId = spaceTabs.find((tab) => tab.id === trimmed)
   if (byId) return { ok: true, tab: byId }
 
-  const byName = workspaceTabs.filter((tab) => tab.name.trim() === trimmed)
+  const byName = spaceTabs.filter((tab) => tab.name.trim() === trimmed)
   if (byName.length === 1) return { ok: true, tab: byName[0] }
   if (byName.length > 1) {
     return {

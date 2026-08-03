@@ -11,7 +11,7 @@
  *   using an untracked origin so seeding existing content is not itself an
  *   undo step.
  * - `setNoteContent` records a new edit in the mirror; the caller is
- *   responsible for triggering the forward diff-sync (`scheduleWorkspaceAutosave`).
+ *   responsible for triggering the forward diff-sync (`scheduleSpaceAutosave`).
  * - `applyNoteContentsFromDoc` is the reverse direction: after Y.Doc reverts
  *   (undo/redo), pull the notes map back into the mirror.
  */
@@ -20,7 +20,7 @@ import type * as Y from 'yjs'
 import { fileEntities } from './file-entity-state'
 import { MARKDOWN_EXTENSIONS } from '../../shared/file-extensions'
 import { readNoteFile, writeNoteFile } from './note-assets'
-import { getActiveDoc, DOC_MAP_NOTES } from './workspace-doc'
+import { getActiveDoc, DOC_MAP_NOTES } from './space-doc'
 
 const noteContentMirror = new Map<string, string>()
 

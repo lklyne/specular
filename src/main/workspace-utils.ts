@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto'
 import type { WorkspaceGroup } from '../shared/types'
 import { findPageById } from './runtime/page-runtime'
-import { workspaceGroups } from './runtime/workspace-model'
+import { workspaceGroups } from './runtime/space-model'
 import { markDirty } from './runtime/layout-dirty'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { scheduleSpaceAutosave } from './runtime/space-autosave'
 
 export function makeId(prefix: string): string {
   return `${prefix}_${randomUUID()}`
@@ -24,7 +24,7 @@ export function createGroup(group: WorkspaceGroup): WorkspaceGroup {
   }
   workspaceGroups.push(nextGroup)
   markDirty('canvas', 'sidebar')
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return nextGroup
 }
 

@@ -12,7 +12,7 @@ import { createUserGroup } from '../../workspace-groups'
 import { setGroupLayoutGap } from '../../managed-layout'
 import { deleteGroupEntity, updateGroupEntity } from '../../runtime/document-commands'
 import { WORKSPACE_GROUP_PERSISTED_FIELDS } from '../../runtime/group-entity-state'
-import { workspaceGroups } from '../../runtime/workspace-model'
+import { workspaceGroups } from '../../runtime/space-model'
 import {
   deserializeGroupNodeToGroup,
   serializeGroupEntityToGroupNode,

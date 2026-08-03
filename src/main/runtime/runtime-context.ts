@@ -130,19 +130,19 @@ export function setInspectSelectedTarget(value: InspectNodeDetail | null): void 
 
 // --- Workspace persistence ---
 
-export let workspaceAutosaveTimer: NodeJS.Timeout | null = null
-export let workspacePersistenceSuspendCount = 0
+export let spaceAutosaveTimer: NodeJS.Timeout | null = null
+export let spacePersistenceSuspendCount = 0
 
-export function setWorkspaceAutosaveTimer(value: NodeJS.Timeout | null): void {
-  workspaceAutosaveTimer = value
+export function setSpaceAutosaveTimer(value: NodeJS.Timeout | null): void {
+  spaceAutosaveTimer = value
 }
 
-export function incrementWorkspacePersistenceSuspendCount(): void {
-  workspacePersistenceSuspendCount += 1
+export function incrementSpacePersistenceSuspendCount(): void {
+  spacePersistenceSuspendCount += 1
 }
 
-export function decrementWorkspacePersistenceSuspendCount(): void {
-  workspacePersistenceSuspendCount = Math.max(0, workspacePersistenceSuspendCount - 1)
+export function decrementSpacePersistenceSuspendCount(): void {
+  spacePersistenceSuspendCount = Math.max(0, spacePersistenceSuspendCount - 1)
 }
 
 // --- MCP / DevTools state ---

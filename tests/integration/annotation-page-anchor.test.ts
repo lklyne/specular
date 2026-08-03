@@ -48,10 +48,10 @@ import {
 } from '../../src/main/runtime/document-commands'
 import { regionCanvasRect } from '../../src/main/runtime/page-anchor-state'
 import { getCanvasLayoutData, getLeftSidebarData } from '../../src/main/runtime/canvas-layout-data'
-import { workspaceAnnotations } from '../../src/main/runtime/workspace-model'
+import { workspaceAnnotations } from '../../src/main/runtime/space-model'
 import { pages } from '../../src/main/runtime/runtime-context'
 import { selectEntities, selectNone } from '../../src/main/runtime/selection-controller'
-import { undo, redo } from '../../src/main/runtime/workspace-undo'
+import { undo, redo } from '../../src/main/runtime/space-undo'
 
 let harness: WorkspaceHarness
 

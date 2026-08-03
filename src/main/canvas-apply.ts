@@ -24,8 +24,8 @@ import { claimsAsNote } from './entities/builtin/file'
 import { entityKindById } from './workspace-entities'
 import { createEdges, edgeExists } from './workspace-edges'
 import { deleteEdge, updateEdge } from './runtime/document-commands'
-import { commitAsOneTransaction } from './runtime/workspace-observers'
-import { activeBackgroundTabContext } from './runtime/workspace-tab-context'
+import { commitAsOneTransaction } from './runtime/space-observers'
+import { activeBackgroundTabContext } from './runtime/space-tab-context'
 
 export interface CanvasPatch {
   entities?: Array<Record<string, unknown>>

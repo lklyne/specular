@@ -121,7 +121,26 @@ export function serializeToJsonCanvas(
   // Add app state as extension
   doc.appState = serializeAppState(snapshot)
 
-  return doc
+  return roundCanvasNumbers(doc)
+}
+
+/**
+ * Canvas geometry is measured in pixels, so anything past a hundredth of one
+ * is noise — a float op away from `210.95454545454547` vs `…548`, which reads
+ * as a real change in a `.canvas` diff. Rounding once on the way out keeps
+ * files diffable and is idempotent, so values don't drift on re-save.
+ *
+ * Zoom is the exception: it is a multiplier, not a pixel measure, and two
+ * decimals is a visible step at the low end.
+ */
+function roundCanvasNumbers(doc: JsonCanvasDocument): JsonCanvasDocument {
+  return JSON.parse(
+    JSON.stringify(doc, (key, value) =>
+      typeof value === 'number' && Number.isFinite(value) && key !== 'zoom'
+        ? Math.round(value * 100) / 100
+        : value,
+    ),
+  ) as JsonCanvasDocument
 }
 
 export function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNode {

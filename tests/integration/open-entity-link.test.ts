@@ -20,9 +20,9 @@ import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harne
 import { openLinkFromEntity } from '../../src/main/workspace-pages'
 import { createTextEntity } from '../../src/main/runtime/document-commands'
 import { pages } from '../../src/main/runtime/runtime-context'
-import { workspaceEdges } from '../../src/main/runtime/workspace-model'
-import { undo } from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_EDGES, DOC_MAP_PAGES } from '../../src/main/runtime/workspace-doc'
+import { workspaceEdges } from '../../src/main/runtime/space-model'
+import { undo } from '../../src/main/runtime/space-undo'
+import { DOC_MAP_EDGES, DOC_MAP_PAGES } from '../../src/main/runtime/space-doc'
 
 let harness: WorkspaceHarness
 

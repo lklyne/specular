@@ -1,5 +1,5 @@
 import { ipcChannels } from '../../shared/ipc-contract'
-import { ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import type {
   FixModel,
   FixPermissions,
@@ -10,17 +10,25 @@ import type {
 } from '../../shared/types'
 import {
   getFixConfig,
+  getSpacePath,
   getThemeMode,
   isDark,
   setFixConfig,
 } from '../runtime/preferences'
+import { changeSpaceViaPicker } from '../runtime/space-change'
+import { spaceDir } from '../runtime/space-dir'
 import { listRepos, removeBindingByOrigin } from '../runtime/dev-server-manager'
-import { getOnboardingStatus } from '../onboarding-status'
+import {
+  getOnboardingStatus,
+  onOnboardingStatusChanged,
+  refreshOnboardingStatus,
+} from '../onboarding-status'
 import {
   runComponentToggle,
   runSkillInstallSelections,
 } from '../skill-install-runner'
 import { refreshAppMenu } from '../runtime/app-menu'
+import { checkForUpdatesManually } from '../auto-updater'
 import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
   closeSettingsWindow,
@@ -41,19 +49,43 @@ function broadcastFixConfig(): void {
   sendToSettings(ipcChannels.settingsFixConfigChanged, getFixConfig())
 }
 
+function broadcastSpaceChanged(path: string): void {
+  sendToSettings(ipcChannels.spaceChanged, { path, isDefault: getSpacePath() === undefined })
+}
+
 export function registerSettingsIpc(): void {
+  onOnboardingStatusChanged((status) => broadcastProgress({ kind: 'done', status }))
+
   ipcMain.handle(
     ipcChannels.settingsGetInitialData,
-    async (): Promise<SettingsBootstrapData> => ({
+    (): SettingsBootstrapData => ({
       theme: { isDark: isDark(), themeMode: getThemeMode() },
-      status: await getOnboardingStatus(),
+      version: app.getVersion(),
+      status: getOnboardingStatus(),
       fixConfig: getFixConfig(),
       connectedRepos: listRepos(),
+      space: { path: spaceDir(), isDefault: getSpacePath() === undefined },
     }),
   )
 
+  ipcMain.handle(ipcChannels.spaceChangeViaPicker, async (event): Promise<string | null> => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return null
+    const newPath = await changeSpaceViaPicker(win)
+    if (newPath) broadcastSpaceChanged(newPath)
+    return newPath
+  })
+
+  ipcMain.on(ipcChannels.settingsCheckForUpdates, () => {
+    void checkForUpdatesManually()
+  })
+
+  ipcMain.on(ipcChannels.spaceRevealInFinder, () => {
+    void shell.openPath(spaceDir())
+  })
+
   ipcMain.handle(ipcChannels.settingsRefreshStatus, async (): Promise<OnboardingStatusSnapshot> => {
-    return await getOnboardingStatus()
+    return await refreshOnboardingStatus()
   })
 
   ipcMain.handle(

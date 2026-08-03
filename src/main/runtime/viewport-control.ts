@@ -1,5 +1,5 @@
 // fallow-ignore-file circular-dependencies
-// Suppressed: see #141. workspace-autosave → workspace-observers import viewport-control back
+// Suppressed: see #141. space-autosave → space-observers import viewport-control back
 import { ipcChannels } from '../../shared/ipc-contract'
 import {
   interactivePageId,
@@ -33,7 +33,7 @@ import {
   pageContentSize,
   pageVisualBoundsForContentSize,
 } from './runtime-geometry'
-import { scheduleWorkspaceAutosave } from './workspace-autosave'
+import { scheduleSpaceAutosave } from './space-autosave'
 import { broadcastViewportNudge } from './viewport-nudge'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
@@ -60,7 +60,7 @@ import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
-import { workspaceGroups, workspaceEdges } from './workspace-model'
+import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
 
 export function setZoom(value: number): void {
@@ -72,7 +72,7 @@ export function setZoom(value: number): void {
   markDirty('canvas', 'toolbar')
   broadcastViewportNudge()
   broadcastCanvasZoomToPages()
-  if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
+  if (!suppressCameraAutosave) scheduleSpaceAutosave()
 }
 
 export function broadcastCanvasZoomToPages(): void {
@@ -88,7 +88,7 @@ export function setPan(x: number, y: number): void {
   setPanState({ x, y })
   markDirty('canvas')
   broadcastViewportNudge()
-  if (!suppressCameraAutosave) scheduleWorkspaceAutosave()
+  if (!suppressCameraAutosave) scheduleSpaceAutosave()
 }
 
 // `requestLayout` lives in layout-engine (co-located with the private
@@ -103,7 +103,7 @@ function panToCenterBounds(bounds: WorkspaceBounds): { x: number; y: number } {
 
 let suppressFocusReturnClear = false
 let suppressCameraAnimationCancel = false
-// Per-frame camera tweens shouldn't fire scheduleWorkspaceAutosave() (full
+// Per-frame camera tweens shouldn't fire scheduleSpaceAutosave() (full
 // runtime→Y.Doc diff-sync + debounce reset) ~20× per transition. applyCamera
 // suppresses it; moveCameraTo schedules a single autosave when the move lands.
 let suppressCameraAutosave = false
@@ -295,7 +295,7 @@ export function moveCameraTo(targetCamera: CanvasCamera, options: CameraMoveOpti
   const duration = Math.max(0, options.durationMs ?? DEFAULT_CAMERA_TRANSITION_DURATION_MS)
   if (!options.animate || duration === 0 || camerasEqual(startCamera, target)) {
     applyCamera(target, preserveFocusSession)
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
     requestLayout()
     return
   }
@@ -308,7 +308,7 @@ export function moveCameraTo(targetCamera: CanvasCamera, options: CameraMoveOpti
     requestLayout()
     if (t >= 1) {
       cancelCameraAnimation()
-      scheduleWorkspaceAutosave()
+      scheduleSpaceAutosave()
     }
   }, CAMERA_TRANSITION_FRAME_MS)
 }

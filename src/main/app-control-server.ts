@@ -238,7 +238,7 @@ function handleCdpProxyUpgrade(request: IncomingMessage, socket: Duplex, head: B
 
 import type { Route } from './routes/types'
 import type { PersistedWorkspaceTab } from '../shared/types'
-import { resolveWorkspaceTabRef } from './runtime/workspace-tab-refs'
+import { resolveSpaceTabRef } from './runtime/space-tab-refs'
 import { designSystemRoutes } from './routes/design-system'
 import { workspaceRoutes } from './routes/workspace'
 import { sessionRoutes } from './routes/session'
@@ -321,7 +321,7 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
           })
           return
         }
-        const resolved = resolveWorkspaceTabRef(decodeURIComponent(tabRef))
+        const resolved = resolveSpaceTabRef(decodeURIComponent(tabRef))
         if (!resolved.ok) {
           writeJson(response, 400, { error: resolved.error })
           return

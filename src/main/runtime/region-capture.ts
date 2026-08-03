@@ -8,7 +8,11 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { nativeImage, screen as electronScreen, type WebContents } from 'electron'
 import type { WorkspaceBounds } from '../../shared/types'
-import { captureFrameComposited, captureViewRegion } from './frame-compositor'
+import {
+  captureFrameComposited,
+  captureViewRegion,
+  type CompositedCapture,
+} from './frame-compositor'
 import { boundCanvasOrigin, boundsOverlap, pageBodyCanvasBounds } from './runtime-geometry'
 import { pages, zoom, pan } from './runtime-context'
 import { aboveView, bgView } from './view-refs'
@@ -62,6 +66,39 @@ function pageCornerRadiusPx(page: Page, dpr: number): number {
   return Math.round(contentCornerRadiusForDevice(deviceId, orientation) * zoom * dpr)
 }
 
+/**
+ * Draw a view capture into the output buffer at the offset it was captured
+ * from, clipping anything past the edges. `blend` alpha-composites (overlay
+ * layers); without it the source replaces the destination (base layer).
+ */
+export function blitCapture(
+  capture: CompositedCapture,
+  outBuf: Buffer,
+  outW: number,
+  outH: number,
+  opts: { blend: boolean },
+): void {
+  const { bitmap: src, width: srcW, height: srcH } = capture
+  const offsetX = capture.offsetX ?? 0
+  const offsetY = capture.offsetY ?? 0
+  const rowEnd = Math.min(srcH, outH - offsetY)
+  const colEnd = Math.min(srcW, outW - offsetX)
+
+  for (let row = 0; row < rowEnd; row++) {
+    for (let col = 0; col < colEnd; col++) {
+      const srcIdx = (row * srcW + col) * 4
+      const destIdx = ((offsetY + row) * outW + offsetX + col) * 4
+      const alpha = src[srcIdx + 3] / 255
+      if (opts.blend && alpha === 0) continue
+      const blend = opts.blend ? alpha : 1
+      outBuf[destIdx] = Math.round(src[srcIdx] * blend + outBuf[destIdx] * (1 - blend))
+      outBuf[destIdx + 1] = Math.round(src[srcIdx + 1] * blend + outBuf[destIdx + 1] * (1 - blend))
+      outBuf[destIdx + 2] = Math.round(src[srcIdx + 2] * blend + outBuf[destIdx + 2] * (1 - blend))
+      outBuf[destIdx + 3] = 0xff
+    }
+  }
+}
+
 interface RegionCaptureResult {
   base64: string
   width: number
@@ -103,6 +140,7 @@ export async function captureRegion(
   }
 }
 
+// fallow-ignore-next-line complexity
 async function captureRegionInternal(
   canvasRect: WorkspaceBounds,
   opts: RegionCaptureOptions | undefined,
@@ -123,27 +161,19 @@ async function captureRegionInternal(
     throw new Error('Region has zero dimensions')
   }
 
-  // Base layer: either bgView capture or solid gray fill.
-  let outBuf: Buffer
+  // Base layer: canvas-background gray, with the bgView capture drawn over it.
+  // A region larger than the window captures only its visible part, so the
+  // fill stays visible around whatever pixels came back.
+  const outBuf = Buffer.alloc(outW * outH * 4)
+  for (let i = 0; i < outBuf.length; i += 4) {
+    outBuf[i] = 0xf5; outBuf[i + 1] = 0xf5; outBuf[i + 2] = 0xf5; outBuf[i + 3] = 0xff
+  }
 
   if (opts?.includeBgView && bgView && !bgView.webContents.isDestroyed()) {
     // Convert canvas rect to screen coordinates for the bgView crop.
     const screenRect = canvasRectToScreenRect(canvasRect)
     const bgCapture = await captureViewRegion(bgView, screenRect, { dpr })
-    if (bgCapture && bgCapture.width === outW && bgCapture.height === outH) {
-      outBuf = bgCapture.bitmap
-    } else {
-      // Fallback: solid gray fill if bgView capture doesn't match dimensions.
-      outBuf = Buffer.alloc(outW * outH * 4)
-      for (let i = 0; i < outBuf.length; i += 4) {
-        outBuf[i] = 0xf5; outBuf[i + 1] = 0xf5; outBuf[i + 2] = 0xf5; outBuf[i + 3] = 0xff
-      }
-    }
-  } else {
-    outBuf = Buffer.alloc(outW * outH * 4)
-    for (let i = 0; i < outBuf.length; i += 4) {
-      outBuf[i] = 0xf5; outBuf[i + 1] = 0xf5; outBuf[i + 2] = 0xf5; outBuf[i + 3] = 0xff
-    }
+    if (bgCapture) blitCapture(bgCapture, outBuf, outW, outH, { blend: false })
   }
 
   // Capture each intersecting page and blit into output buffer.
@@ -202,17 +232,7 @@ async function captureRegionInternal(
   if (aboveView && !aboveView.webContents.isDestroyed()) {
     const screenRect = canvasRectToScreenRect(canvasRect)
     const aboveCapture = await captureViewRegion(aboveView, screenRect, { dpr })
-    if (aboveCapture && aboveCapture.width === outW && aboveCapture.height === outH) {
-      const src = aboveCapture.bitmap
-      for (let i = 0; i < outBuf.length; i += 4) {
-        const alpha = src[i + 3] / 255
-        if (alpha === 0) continue
-        outBuf[i] = Math.round(src[i] * alpha + outBuf[i] * (1 - alpha))
-        outBuf[i + 1] = Math.round(src[i + 1] * alpha + outBuf[i + 1] * (1 - alpha))
-        outBuf[i + 2] = Math.round(src[i + 2] * alpha + outBuf[i + 2] * (1 - alpha))
-        outBuf[i + 3] = 0xff
-      }
-    }
+    if (aboveCapture) blitCapture(aboveCapture, outBuf, outW, outH, { blend: true })
   }
 
   const result = nativeImage.createFromBitmap(outBuf, { width: outW, height: outH })

@@ -75,7 +75,6 @@ export function SkillsPane({
   return (
     <section>
       <header className="mb-4 mt-2">
-        <h2 className="text-[15px] font-semibold">Skills</h2>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
           Toggle the integrations that let Claude Code drive Specular.
         </p>

@@ -15,40 +15,39 @@ import {
   devtoolsWidth as uiDevtoolsWidth,
   setDevtoolsOpen as setUiDevtoolsOpen,
 } from '../ui-state'
-import { withSuppressedDocSync } from './workspace-doc'
+import { withSuppressedDocSync } from './space-doc'
 import {
-  scheduleWorkspaceAutosave,
-  withWorkspacePersistenceSuspended,
-} from './workspace-autosave'
+  scheduleSpaceAutosave,
+  withSpacePersistenceSuspended,
+} from './space-autosave'
 import { requestLayout } from './viewport-control'
 import { setZoom, setPan } from './viewport-control'
 import {
-  activeWorkspaceTabId,
-  setActiveWorkspaceTabId,
+  activeSpaceTabId,
+  setActiveSpaceTabId,
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
-  workspaceTabs,
-} from './workspace-model'
+  spaceTabs,
+} from './space-model'
 import {
   cloneAnnotationsForPersistence,
   cloneWorkspaceSnapshot,
 } from './runtime-serialization'
 import {
-  ensureWorkspaceTabsInitialized,
+  ensureSpaceTabsInitialized,
   syncActiveTabRecord,
   makeEmptyTabSnapshot,
-} from './workspace-tabs'
+} from './space-tabs'
 import {
   DEFAULT_TAB_NAME,
-  DEFAULT_WORKSPACE_ID,
   deleteCanvasFile,
-  makeWorkspaceTabId,
-} from './workspace-persistence'
-import { app } from 'electron'
+  makeSpaceTabId,
+} from './space-persistence'
+import { spaceDir } from './space-dir'
 import { findPageById } from './runtime-context'
-import { destroyActivePages } from './workspace-restore'
-import { restoreWorkspaceSnapshot, transitionToTab } from './workspace-restore'
+import { destroyActivePages } from './space-restore'
+import { restoreWorkspaceSnapshot, transitionToTab } from './space-restore'
 import { clearInspectTargets, syncInspectionState, notifyDevtoolsPanelData } from './inspect-session'
 import { sendInteractiveState } from './overlay-manager'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
@@ -124,7 +123,7 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
   // before swapping entities. The renderer's blur handler saves the
   // text on unmount; this just clears the editing-entity mode token.
   cancelActiveInteraction('tab-switch')
-  withWorkspacePersistenceSuspended(() => {
+  withSpacePersistenceSuspended(() => {
     resetUiStateForTabSwitch()
     if (!hydrateTabRuntimeState(tab)) applyEmptyTabViewState(tab.snapshot)
   })
@@ -132,7 +131,7 @@ export function applyTabState(tab: PersistedWorkspaceTab): void {
 
 function newWorkspaceTabRecord(name: string): PersistedWorkspaceTab {
   return {
-    id: makeWorkspaceTabId(),
+    id: makeSpaceTabId(),
     name,
     updatedAt: new Date().toISOString(),
     snapshot: makeEmptyTabSnapshot(),
@@ -141,13 +140,13 @@ function newWorkspaceTabRecord(name: string): PersistedWorkspaceTab {
   }
 }
 
-export function createWorkspaceTab(name?: string): string {
-  ensureWorkspaceTabsInitialized()
+export function createSpaceTab(name?: string): string {
+  ensureSpaceTabsInitialized()
   syncActiveTabRecord()
-  const nextTab = newWorkspaceTabRecord(name?.trim() || `Canvas ${workspaceTabs.length + 1}`)
-  workspaceTabs.push(nextTab)
-  setActiveWorkspaceTab(nextTab.id)
-  scheduleWorkspaceAutosave()
+  const nextTab = newWorkspaceTabRecord(name?.trim() || `Canvas ${spaceTabs.length + 1}`)
+  spaceTabs.push(nextTab)
+  setActiveSpaceTab(nextTab.id)
+  scheduleSpaceAutosave()
   return nextTab.id
 }
 
@@ -155,41 +154,41 @@ export type CreateBackgroundTabResult = { ok: true; id: string } | { ok: false; 
 
 /**
  * Create a tab without moving the user's focus to it — the agent-facing
- * counterpart of `createWorkspaceTab`.
+ * counterpart of `createSpaceTab`.
  *
  * Duplicate names are refused because a tab ref resolves by exact name: a
  * second tab called `notes` makes `--tab notes` ambiguous for every caller.
  */
-export function createBackgroundWorkspaceTab(name: string): CreateBackgroundTabResult {
+export function createBackgroundSpaceTab(name: string): CreateBackgroundTabResult {
   const trimmed = name.trim()
   if (!trimmed) return { ok: false, error: 'tab name is required' }
-  ensureWorkspaceTabsInitialized()
+  ensureSpaceTabsInitialized()
   syncActiveTabRecord()
-  if (workspaceTabs.some((tab) => tab.name.trim() === trimmed)) {
+  if (spaceTabs.some((tab) => tab.name.trim() === trimmed)) {
     return { ok: false, error: `a tab named '${trimmed}' already exists` }
   }
   const nextTab = newWorkspaceTabRecord(trimmed)
-  workspaceTabs.push(nextTab)
+  spaceTabs.push(nextTab)
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return { ok: true, id: nextTab.id }
 }
 
-export function renameWorkspaceTab(tabId: string, name: string): boolean {
-  const tab = workspaceTabs.find((candidate) => candidate.id === tabId)
+export function renameSpaceTab(tabId: string, name: string): boolean {
+  const tab = spaceTabs.find((candidate) => candidate.id === tabId)
   const trimmed = name.trim()
   if (!tab || !trimmed) return false
   // Delete old .canvas file before renaming (next autosave writes the new one)
   const oldName = tab.name
   if (oldName !== trimmed) {
-    deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, { id: tab.id, name: oldName })
+    deleteCanvasFile(spaceDir(), { id: tab.id, name: oldName })
   }
   tab.name = trimmed
   tab.updatedAt = new Date().toISOString()
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
@@ -200,7 +199,7 @@ export function renameWorkspacePage(pageId: string, name: string): boolean {
   page.name = trimmed
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
@@ -211,7 +210,7 @@ export function renameWorkspaceGroup(groupId: string, name: string): boolean {
   group.label = trimmed
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
@@ -225,7 +224,7 @@ export function renameWorkspaceFileEntity(entityId: string, name: string): boole
   if (newPath === entity.file) return true
   updateFileEntity(entity.id, { file: newPath })
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
@@ -236,7 +235,7 @@ export function renameWorkspaceTextEntity(entityId: string, name: string): boole
   if (trimmed === entity.label) return true
   updateTextEntity(entity.id, { label: trimmed })
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
@@ -247,14 +246,14 @@ export function renameWorkspaceDrawingEntity(entityId: string, name: string): bo
   if (trimmed === entity.label) return true
   updateDrawingEntity(entity.id, { label: trimmed })
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
-export function duplicateWorkspaceTab(tabId: string): string | null {
-  ensureWorkspaceTabsInitialized()
+export function duplicateSpaceTab(tabId: string): string | null {
+  ensureSpaceTabsInitialized()
   syncActiveTabRecord()
-  const source = workspaceTabs.find((candidate) => candidate.id === tabId)
+  const source = spaceTabs.find((candidate) => candidate.id === tabId)
   if (!source) return null
   const now = new Date().toISOString()
   const snapshot = cloneWorkspaceSnapshot(source.snapshot)
@@ -286,108 +285,108 @@ export function duplicateWorkspaceTab(tabId: string): string | null {
     return { ...annotation, id: `annotation_${randomUUID()}`, anchor }
   })
   const duplicate: PersistedWorkspaceTab = {
-    id: makeWorkspaceTabId(),
+    id: makeSpaceTabId(),
     name: `${source.name} Copy`,
     updatedAt: now,
     snapshot,
     annotations,
     expanded: source.expanded ?? true,
   }
-  const sourceIndex = workspaceTabs.findIndex((candidate) => candidate.id === tabId)
-  workspaceTabs.splice(sourceIndex + 1, 0, duplicate)
-  setActiveWorkspaceTab(duplicate.id)
-  scheduleWorkspaceAutosave()
+  const sourceIndex = spaceTabs.findIndex((candidate) => candidate.id === tabId)
+  spaceTabs.splice(sourceIndex + 1, 0, duplicate)
+  setActiveSpaceTab(duplicate.id)
+  scheduleSpaceAutosave()
   return duplicate.id
 }
 
-export function deleteWorkspaceTab(tabId: string): boolean {
-  ensureWorkspaceTabsInitialized()
+export function deleteSpaceTab(tabId: string): boolean {
+  ensureSpaceTabsInitialized()
   syncActiveTabRecord()
-  const index = workspaceTabs.findIndex((candidate) => candidate.id === tabId)
+  const index = spaceTabs.findIndex((candidate) => candidate.id === tabId)
   if (index === -1) return false
-  const deletedTab = workspaceTabs[index]
-  if (workspaceTabs.length === 1) {
+  const deletedTab = spaceTabs[index]
+  if (spaceTabs.length === 1) {
     // Delete old canvas file if the tab is being reset to defaults with a new name
     if (deletedTab.name !== DEFAULT_TAB_NAME) {
-      deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTab)
+      deleteCanvasFile(spaceDir(), deletedTab)
     }
-    workspaceTabs[index] = {
-      ...workspaceTabs[index],
+    spaceTabs[index] = {
+      ...spaceTabs[index],
       name: DEFAULT_TAB_NAME,
       updatedAt: new Date().toISOString(),
       snapshot: makeEmptyTabSnapshot(),
       annotations: [],
       expanded: true,
     }
-    setActiveWorkspaceTabId(workspaceTabs[index].id)
-    withSuppressedDocSync(() => applyTabState(workspaceTabs[index]))
-    transitionToTab(workspaceTabs[index].snapshot, workspaceTabs[index].id)
+    setActiveSpaceTabId(spaceTabs[index].id)
+    withSuppressedDocSync(() => applyTabState(spaceTabs[index]))
+    transitionToTab(spaceTabs[index].snapshot, spaceTabs[index].id)
     markDirty('sidebar')
     requestLayout()
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
     return true
   }
   // Delete the .canvas file for the removed tab
-  deleteCanvasFile(app.getPath('userData'), DEFAULT_WORKSPACE_ID, deletedTab)
+  deleteCanvasFile(spaceDir(), deletedTab)
   // Removing a canvas the user is not looking at is a bookkeeping change: drop
   // the record and leave their view where it is. Only losing the active tab
   // forces a move, and then the neighbour is the least surprising landing spot.
-  if (tabId !== activeWorkspaceTabId) {
-    workspaceTabs.splice(index, 1)
+  if (tabId !== activeSpaceTabId) {
+    spaceTabs.splice(index, 1)
     markDirty('sidebar')
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
     return true
   }
-  const fallback = workspaceTabs[index + 1] ?? workspaceTabs[index - 1] ?? null
-  workspaceTabs.splice(index, 1)
+  const fallback = spaceTabs[index + 1] ?? spaceTabs[index - 1] ?? null
+  spaceTabs.splice(index, 1)
   if (!fallback) return false
-  setActiveWorkspaceTabId(fallback.id)
+  setActiveSpaceTabId(fallback.id)
   withSuppressedDocSync(() => applyTabState(fallback))
   transitionToTab(fallback.snapshot, fallback.id)
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
-export function reorderWorkspaceTab(tabId: string, toIndex: number): boolean {
-  const fromIndex = workspaceTabs.findIndex((candidate) => candidate.id === tabId)
+export function reorderSpaceTab(tabId: string, toIndex: number): boolean {
+  const fromIndex = spaceTabs.findIndex((candidate) => candidate.id === tabId)
   if (fromIndex === -1) return false
-  const clamped = Math.max(0, Math.min(toIndex, workspaceTabs.length - 1))
+  const clamped = Math.max(0, Math.min(toIndex, spaceTabs.length - 1))
   if (fromIndex === clamped) return false
-  const [tab] = workspaceTabs.splice(fromIndex, 1)
-  workspaceTabs.splice(clamped, 0, tab)
+  const [tab] = spaceTabs.splice(fromIndex, 1)
+  spaceTabs.splice(clamped, 0, tab)
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
-export function setWorkspaceTabExpanded(tabId: string, expanded: boolean): boolean {
-  const tab = workspaceTabs.find((candidate) => candidate.id === tabId)
+export function setSpaceTabExpanded(tabId: string, expanded: boolean): boolean {
+  const tab = spaceTabs.find((candidate) => candidate.id === tabId)
   if (!tab) return false
   tab.expanded = expanded
   tab.updatedAt = new Date().toISOString()
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }
 
-export function setActiveWorkspaceTab(tabId: string): boolean {
-  ensureWorkspaceTabsInitialized()
-  if (tabId === activeWorkspaceTabId) {
+export function setActiveSpaceTab(tabId: string): boolean {
+  ensureSpaceTabsInitialized()
+  if (tabId === activeSpaceTabId) {
     requestLayout()
     return true
   }
   syncActiveTabRecord()
-  const nextTab = workspaceTabs.find((candidate) => candidate.id === tabId)
+  const nextTab = spaceTabs.find((candidate) => candidate.id === tabId)
   if (!nextTab) return false
-  setActiveWorkspaceTabId(nextTab.id)
+  setActiveSpaceTabId(nextTab.id)
   withSuppressedDocSync(() => applyTabState(nextTab))
   transitionToTab(nextTab.snapshot, nextTab.id)
   markDirty('sidebar')
   requestLayout()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
   return true
 }

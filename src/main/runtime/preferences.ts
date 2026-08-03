@@ -56,6 +56,9 @@ type PreferencesFile = {
   devtoolsWidth?: number
   devtoolsPanelTab?: DevtoolsPanelTab | 'elements' | 'devtools'
   onboarding?: OnboardingState
+  /** The user-chosen space folder. Unset resolves to the legacy
+   *  userData/workspaces/default location (ADR 0033). */
+  spacePath?: string
   /** Legacy: bindings now live in repos.json under ConnectedRepo.boundOrigins.
    *  Read once at startup for migration, then stripped from this file. */
   originBindings?: LegacyOriginBindings
@@ -72,6 +75,7 @@ let currentCursorSplineViz = false
 let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
 let currentThemeMode: AppThemeMode = 'system'
+let currentSpacePath: string | undefined
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -151,6 +155,7 @@ export function loadPreferences(): void {
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
   currentThemeMode = normalizeThemeMode(parsed.themeMode)
+  currentSpacePath = typeof parsed.spacePath === 'string' ? parsed.spacePath : undefined
   nativeTheme.themeSource = currentThemeMode
 }
 
@@ -166,6 +171,27 @@ export function saveToolDefaults(next: ToolDefaults): void {
   currentToolDefaults = normalizeToolDefaults(next)
   const parsed = readPreferencesFile()
   writePreferencesFile({ ...parsed, toolDefaults: currentToolDefaults })
+}
+
+/** The user-chosen space folder, or undefined when unset (spaceDir() resolves
+ *  the legacy default in that case). */
+export function getSpacePath(): string | undefined {
+  return currentSpacePath
+}
+
+/** Set the space folder, or pass `undefined` to clear it — `spaceDir()` then
+ *  resolves back to the legacy default (used by the boot recovery flow,
+ *  ADR 0033 §4, when the configured folder is missing and the user opts
+ *  into the default rather than locating it). */
+export function setSpacePath(path: string | undefined): void {
+  currentSpacePath = path
+  const parsed = readPreferencesFile()
+  if (path === undefined) {
+    const { spacePath: _drop, ...rest } = parsed
+    writePreferencesFile(rest)
+  } else {
+    writePreferencesFile({ ...parsed, spacePath: path })
+  }
 }
 
 export function getCursorSplineViz(): boolean {

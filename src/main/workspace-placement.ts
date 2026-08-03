@@ -22,7 +22,7 @@ import { fileEntities } from './runtime/file-entity-state'
 import { shapeEntities } from './runtime/shape-entity-state'
 import { drawingEntities } from './runtime/drawing-entity-state'
 import { snapToGrid } from '../shared/gesture-utils'
-import { workspaceGroups } from './runtime/workspace-model'
+import { workspaceGroups } from './runtime/space-model'
 import { boundsOverlap, pageSnapBounds } from './runtime/runtime-geometry'
 import {
   allWorkspacePages,

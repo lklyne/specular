@@ -28,14 +28,14 @@ import { captureElementAtPageDocumentPoint } from './page-queries'
 import { findAnchorableEntity } from './anchorable-entity-store'
 import { pageBodyCanvasBounds } from './runtime-geometry'
 import { pages } from './runtime-context'
-import { workspaceAnnotations } from './workspace-model'
+import { workspaceAnnotations } from './space-model'
 import { requestAttachmentSubscriptionRefresh } from './element-attachment-subscriptions'
 import {
   getActiveDoc,
   DOC_MAP_ENTITIES,
   DOC_MAP_ANNOTATIONS,
-} from './workspace-doc'
-import { scheduleWorkspaceAutosave } from './workspace-autosave'
+} from './space-doc'
+import { scheduleSpaceAutosave } from './space-autosave'
 import { registerElementAttachmentRecapture } from './element-attachment-recapture'
 
 /** Untracked transaction origin for the enrichment doc write — outside the
@@ -94,7 +94,7 @@ function writeAnchorElementToDoc(mapName: string, itemId: string, anchor: PageAn
       yItem.set('pageAnchorElement', anchor.element)
     }, ANCHOR_ELEMENT_CAPTURE_ORIGIN)
   }
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
 }
 
 /**

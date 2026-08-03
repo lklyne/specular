@@ -26,8 +26,8 @@ import {
   commitActive,
   __resetForTests as resetInteraction,
 } from '../../src/main/runtime/interaction-controller'
-import { beginBatch, endBatch } from '../../src/main/runtime/workspace-observers'
-import { undo, canUndo, markUndoBoundary } from '../../src/main/runtime/workspace-undo'
+import { beginBatch, endBatch } from '../../src/main/runtime/space-observers'
+import { undo, canUndo, markUndoBoundary } from '../../src/main/runtime/space-undo'
 
 let harness: WorkspaceHarness
 

@@ -9,11 +9,11 @@
  * `afterTransaction`, so a forward-sync echo shows up as an extra count.
  *
  * Mutation-verified by:
- *   - commenting out `scheduleWorkspaceAutosave()` in `createTextEntity`
+ *   - commenting out `scheduleSpaceAutosave()` in `createTextEntity`
  *     (src/main/runtime/document-commands.ts) — the forward sync never fires,
  *     so both create-count assertions fail (0 transactions instead of 1/2+).
  *   - commenting out the `syncDocToRuntime(doc)` call in the afterTransaction
- *     observer (src/main/runtime/workspace-observers.ts) — "undo does not
+ *     observer (src/main/runtime/space-observers.ts) — "undo does not
  *     re-trigger a forward sync" fails because the runtime still holds the
  *     undone entity.
  * (The smoke suite's mutations — dropping the `'user'` origin or the
@@ -27,7 +27,7 @@ import {
   createTextEntity,
   getTextEntities,
 } from '../../src/main/runtime/document-commands'
-import { undo } from '../../src/main/runtime/workspace-undo'
+import { undo } from '../../src/main/runtime/space-undo'
 
 let harness: WorkspaceHarness
 
