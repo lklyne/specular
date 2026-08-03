@@ -31,8 +31,8 @@ import {
   incrementBrowserDevtoolsAttachGeneration,
 } from './runtime-context'
 import {
-  scheduleWorkspaceAutosave,
-} from './workspace-autosave'
+  scheduleSpaceAutosave,
+} from './space-autosave'
 import {
   recenterFocusPresentation,
   requestLayout,
@@ -60,24 +60,24 @@ import {
   SELECTION_DEBUG,
 } from './runtime-constants'
 
-export { destroyActivePages } from './workspace-restore'
+export { destroyActivePages } from './space-restore'
 
 export {
-  createWorkspaceTab,
-  deleteWorkspaceTab,
-  duplicateWorkspaceTab,
+  createSpaceTab,
+  deleteSpaceTab,
+  duplicateSpaceTab,
   renameWorkspacePage,
   renameWorkspaceGroup,
-  renameWorkspaceTab,
-  setActiveWorkspaceTab,
-  setWorkspaceTabExpanded,
-} from './workspace-tab-operations'
+  renameSpaceTab,
+  setActiveSpaceTab,
+  setSpaceTabExpanded,
+} from './space-tab-operations'
 
 export {
-  restorePersistedWorkspace,
+  restorePersistedSpace,
   restoreWorkspaceSnapshot,
   rebuildWindowFromSnapshot,
-} from './workspace-restore'
+} from './space-restore'
 
 export { initWindow } from './window-init'
 
@@ -86,7 +86,7 @@ function setDevtoolsWidth(width: number): void {
   if (nextWidth === uiDevtoolsWidth()) return
   setUiDevtoolsWidth(nextWidth)
   savePreferences()
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
 }
 
 export function attachBrowserDevtoolsToPage(index: number): void {
@@ -175,7 +175,7 @@ export function setSelectedGroupId(value: string | null): void {
   } else if (uiSelectedGroupId()) {
     commitSelectNone()
   }
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
 }
 
 function selectedPages(): Page[] {
@@ -209,7 +209,7 @@ export function setSelectedEntities(
   entityIds: string[],
 ): void {
   commitSelectedEntities(entityIds)
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
 }
 
 function selectionDebug(event: string, details?: Record<string, unknown>): void {

@@ -111,9 +111,9 @@ import { descendantEntityIdsForGroup } from './group-descendants'
 import { applyLayoutDirective } from '../workspace-placement'
 import { entityBoundsById, entityKindById } from '../workspace-entities'
 import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
-import { workspaceEdges, workspaceGroups } from './workspace-model'
-import { beginGestureSession, type GestureSession } from './workspace-gesture-session'
-import { scheduleWorkspaceAutosave } from './workspace-autosave'
+import { workspaceEdges, workspaceGroups } from './space-model'
+import { beginGestureSession, type GestureSession } from './space-gesture-session'
+import { scheduleSpaceAutosave } from './space-autosave'
 import {
   boundAvailableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -394,7 +394,7 @@ export function applyDragDelta(
       ]),
     })
     markDirty('canvas', 'sidebar')
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
   }
 }
 
@@ -1022,7 +1022,7 @@ export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
     }
   }
   if (changed) {
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
     requestLayout()
   }
 }
@@ -1089,7 +1089,7 @@ function commitRepackedPositions(positions: Map<string, { x: number; y: number }
     const kind = kindById.get(id)
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }
-  if (changed) scheduleWorkspaceAutosave()
+  if (changed) scheduleSpaceAutosave()
   session.finalize()
 
   if (changed) requestLayout()
@@ -1192,7 +1192,7 @@ export function arrangeEntities(
   for (const [id, pos] of targets) {
     if (moveEntityTo(id, pos.x, pos.y)) changed = true
   }
-  if (changed) scheduleWorkspaceAutosave()
+  if (changed) scheduleSpaceAutosave()
   session.finalize()
   if (changed) requestLayout()
   return changed
@@ -1240,7 +1240,7 @@ function packEntities(
   for (let i = 0; i < ids.length; i++) {
     if (moveEntityTo(ids[i], positions[i].canvasX, positions[i].canvasY)) changed = true
   }
-  if (changed) scheduleWorkspaceAutosave()
+  if (changed) scheduleSpaceAutosave()
   session.finalize()
   if (changed) requestLayout()
   return changed

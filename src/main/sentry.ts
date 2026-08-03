@@ -8,7 +8,7 @@ import {
   markSentryEnabled,
   setAutoUpdateChannel,
 } from './sentry-context'
-import { workspaceGroups, workspaceTabs } from './runtime/workspace-model'
+import { workspaceGroups, spaceTabs } from './runtime/space-model'
 import { pages } from './runtime/page-runtime'
 import { textEntities } from './runtime/text-entity-state'
 import { fileEntities } from './runtime/file-entity-state'
@@ -63,7 +63,7 @@ export function initSentry(): void {
  */
 function readAppStateTags(): Record<string, string> {
   return {
-    tab_count: String(workspaceTabs.length),
+    tab_count: String(spaceTabs.length),
     page_count: String(pages.length),
     canvas_entity_count: String(
       textEntities.length +

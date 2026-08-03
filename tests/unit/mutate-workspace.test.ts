@@ -15,13 +15,13 @@ const { calls } = vi.hoisted(() => ({ calls: [] as string[] }))
 vi.mock('../../src/main/runtime/layout-dirty', () => ({
   markDirty: vi.fn((...surfaces: string[]) => calls.push(`markDirty(${surfaces.join(',')})`)),
 }))
-vi.mock('../../src/main/runtime/workspace-autosave', () => ({
-  scheduleWorkspaceAutosave: vi.fn(() => calls.push('scheduleWorkspaceAutosave')),
+vi.mock('../../src/main/runtime/space-autosave', () => ({
+  scheduleSpaceAutosave: vi.fn(() => calls.push('scheduleSpaceAutosave')),
 }))
 vi.mock('../../src/main/runtime/viewport-control', () => ({
   requestLayout: vi.fn(() => calls.push('requestLayout')),
 }))
-vi.mock('../../src/main/runtime/workspace-undo', () => ({
+vi.mock('../../src/main/runtime/space-undo', () => ({
   markUndoBoundary: vi.fn(() => calls.push('markUndoBoundary')),
 }))
 
@@ -50,7 +50,7 @@ describe('mutateWorkspace', () => {
     expect(calls).toEqual([
       'fn',
       'markDirty(canvas)',
-      'scheduleWorkspaceAutosave',
+      'scheduleSpaceAutosave',
       'requestLayout',
       'markUndoBoundary',
     ])
@@ -82,7 +82,7 @@ describe('mutateWorkspace', () => {
     expect(calls).toEqual([
       'fn',
       'markDirty(canvas)',
-      'scheduleWorkspaceAutosave',
+      'scheduleSpaceAutosave',
       'requestLayout',
     ])
   })

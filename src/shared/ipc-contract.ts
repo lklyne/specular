@@ -311,6 +311,7 @@ export interface IpcContract {
   'set-multi-selected': { dir: 'main→renderer'; payload: unknown }
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
   'set-theme-mode': { dir: 'renderer→main'; payload: { mode: AppThemeMode } }
+  'settings:check-for-updates': { dir: 'renderer→main'; payload: unknown }
   'settings:close': { dir: 'renderer→main'; payload: unknown }
   'settings:fix-config-changed': { dir: 'main→renderer'; payload: FixConfig }
   'settings:get-initial-data': { dir: 'invoke'; payload: unknown }
@@ -320,6 +321,11 @@ export interface IpcContract {
   'settings:set-component-installed': { dir: 'invoke'; payload: unknown }
   'settings:set-fix-config': { dir: 'renderer→main'; payload: unknown }
   'settings:skill-progress': { dir: 'main→renderer'; payload: OnboardingProgressEvent }
+  'space-change-via-picker': { dir: 'invoke'; payload: unknown }
+  'space-changed': { dir: 'main→renderer'; payload: { path: string; isDefault: boolean } }
+  'space-choose-via-picker': { dir: 'invoke'; payload: unknown }
+  'space-commit': { dir: 'invoke'; payload: unknown }
+  'space-reveal-in-finder': { dir: 'renderer→main'; payload: unknown }
   'take-dom-snapshot': { dir: 'main→renderer'; payload: unknown }
   'take-dom-snapshot-response': { dir: 'renderer→main'; payload: unknown }
   'toggle-devtools': { dir: 'renderer→main'; payload: unknown }
@@ -619,6 +625,7 @@ export const ipcChannels = {
   setInteractive: 'set-interactive',
   setMultiSelected: 'set-multi-selected',
   setThemeMode: 'set-theme-mode',
+  settingsCheckForUpdates: 'settings:check-for-updates',
   settingsClose: 'settings:close',
   settingsFixConfigChanged: 'settings:fix-config-changed',
   settingsGetInitialData: 'settings:get-initial-data',
@@ -628,6 +635,11 @@ export const ipcChannels = {
   settingsSetComponentInstalled: 'settings:set-component-installed',
   settingsSetFixConfig: 'settings:set-fix-config',
   settingsSkillProgress: 'settings:skill-progress',
+  spaceChangeViaPicker: 'space-change-via-picker',
+  spaceChanged: 'space-changed',
+  spaceChooseViaPicker: 'space-choose-via-picker',
+  spaceCommit: 'space-commit',
+  spaceRevealInFinder: 'space-reveal-in-finder',
   takeDomSnapshot: 'take-dom-snapshot',
   takeDomSnapshotResponse: 'take-dom-snapshot-response',
   toggleDevtools: 'toggle-devtools',

@@ -42,9 +42,9 @@ import {
 } from '../../src/main/runtime/document-commands'
 import { createAnnotation } from '../../src/main/workspace-annotations'
 import { textEntities } from '../../src/main/runtime/text-entity-state'
-import { workspaceAnnotations } from '../../src/main/runtime/workspace-model'
+import { workspaceAnnotations } from '../../src/main/runtime/space-model'
 import { handlePageIpcResponse } from '../../src/main/runtime/page-ipc'
-import { undo } from '../../src/main/runtime/workspace-undo'
+import { undo } from '../../src/main/runtime/space-undo'
 import { selectNone } from '../../src/main/runtime/selection-controller'
 
 let harness: WorkspaceHarness

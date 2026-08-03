@@ -31,9 +31,9 @@ import { textEntities } from './text-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
-import { workspaceAnnotations } from './workspace-model'
+import { workspaceAnnotations } from './space-model'
 import { markDirty } from './layout-dirty'
-import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 import { captureElementForEntity } from './element-attachment-capture'
 import {
   anchorableEntities,

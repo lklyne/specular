@@ -8,7 +8,7 @@
  *
  * Mutation-verified by: (a) dropping the id suffix from `canvasFilePath` —
  * the distinct-files and delete cases fail; (b) dropping the legacy fallback
- * in `loadWorkspaceFromCanvasFiles` — the pre-suffix workspace loads as null.
+ * in `loadSpaceFromCanvasFiles` — the pre-suffix workspace loads as null.
  */
 
 import { existsSync, writeFileSync } from 'fs'
@@ -17,34 +17,34 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, type WorkspaceHarness } from './harness'
 import { createTextEntity } from '../../src/main/runtime/document-commands'
 import {
-  createWorkspaceTab,
-  deleteWorkspaceTab,
-  renameWorkspaceTab,
-  setActiveWorkspaceTab,
-} from '../../src/main/runtime/workspace-tab-operations'
-import { activeWorkspaceTabId, workspaceTabs } from '../../src/main/runtime/workspace-model'
+  createSpaceTab,
+  deleteSpaceTab,
+  renameSpaceTab,
+  setActiveSpaceTab,
+} from '../../src/main/runtime/space-tab-operations'
+import { activeSpaceTabId, spaceTabs } from '../../src/main/runtime/space-model'
 import {
-  DEFAULT_WORKSPACE_ID,
   canvasFilePath,
-  loadWorkspaceFromCanvasFiles,
+  loadSpaceFromCanvasFiles,
   readCanvasFile,
-  writeWorkspaceMetaSync,
-} from '../../src/main/runtime/workspace-persistence'
+  writeSpaceMetaSync,
+} from '../../src/main/runtime/space-persistence'
+import { spaceDir } from '../../src/main/runtime/space-dir'
 
 let harness: WorkspaceHarness
 
 /** Two tabs both named `scratch` — the rename path has no duplicate guard. */
 function makeTwinTabs(): [string, string] {
-  const first = createWorkspaceTab('scratch')
-  const second = createWorkspaceTab('other')
-  expect(renameWorkspaceTab(second, 'scratch')).toBe(true)
+  const first = createSpaceTab('scratch')
+  const second = createSpaceTab('other')
+  expect(renameSpaceTab(second, 'scratch')).toBe(true)
   return [first, second]
 }
 
 function tabFile(tabId: string): string {
-  const tab = workspaceTabs.find((candidate) => candidate.id === tabId)
+  const tab = spaceTabs.find((candidate) => candidate.id === tabId)
   if (!tab) throw new Error(`no tab ${tabId}`)
-  return canvasFilePath(harness.userDataPath, DEFAULT_WORKSPACE_ID, tab)
+  return canvasFilePath(spaceDir(), tab)
 }
 
 function textIn(filePath: string): string[] {
@@ -63,9 +63,9 @@ describe('tab file identity', () => {
   it('gives two same-named tabs distinct files', () => {
     const [first, second] = makeTwinTabs()
 
-    setActiveWorkspaceTab(first)
+    setActiveSpaceTab(first)
     createTextEntity({ canvasX: 0, canvasY: 0, text: 'first canvas' })
-    setActiveWorkspaceTab(second)
+    setActiveSpaceTab(second)
     createTextEntity({ canvasX: 0, canvasY: 0, text: 'second canvas' })
     harness.flush()
 
@@ -76,12 +76,12 @@ describe('tab file identity', () => {
 
   it('leaves a same-named sibling on disk when one is deleted', () => {
     const [first, second] = makeTwinTabs()
-    setActiveWorkspaceTab(first)
+    setActiveSpaceTab(first)
     createTextEntity({ canvasX: 0, canvasY: 0, text: 'survivor' })
     harness.flush()
     const survivorFile = tabFile(first)
 
-    expect(deleteWorkspaceTab(second)).toBe(true)
+    expect(deleteSpaceTab(second)).toBe(true)
 
     expect(existsSync(survivorFile)).toBe(true)
     expect(textIn(survivorFile)).toEqual(['survivor'])
@@ -89,33 +89,32 @@ describe('tab file identity', () => {
 
   it('renames one twin without disturbing the other file', () => {
     const [first, second] = makeTwinTabs()
-    setActiveWorkspaceTab(first)
+    setActiveSpaceTab(first)
     createTextEntity({ canvasX: 0, canvasY: 0, text: 'survivor' })
     harness.flush()
     const survivorFile = tabFile(first)
 
-    expect(renameWorkspaceTab(second, 'renamed')).toBe(true)
+    expect(renameSpaceTab(second, 'renamed')).toBe(true)
 
     expect(existsSync(survivorFile)).toBe(true)
     expect(textIn(survivorFile)).toEqual(['survivor'])
   })
 
   it('loads a workspace written before filenames carried an id, and retires the file', () => {
-    const userDataPath = harness.userDataPath
     const tabId = 'tab_legacy'
-    const legacyPath = join(userDataPath, 'workspaces', DEFAULT_WORKSPACE_ID, 'Notes.canvas')
-    setActiveWorkspaceTab(activeWorkspaceTabId)
+    const legacyPath = join(spaceDir(), 'Notes.canvas')
+    setActiveSpaceTab(activeSpaceTabId)
     createTextEntity({ canvasX: 0, canvasY: 0, text: 'from the old file' })
     harness.flush()
-    const doc = readCanvasFile(tabFile(activeWorkspaceTabId))
+    const doc = readCanvasFile(tabFile(activeSpaceTabId))
     expect(doc).toBeTruthy()
     writeFileSync(legacyPath, JSON.stringify(doc), 'utf8')
-    writeWorkspaceMetaSync(userDataPath, DEFAULT_WORKSPACE_ID, {
+    writeSpaceMetaSync(spaceDir(), {
       activeTabId: tabId,
       tabs: [{ id: tabId, name: 'Notes', updatedAt: new Date().toISOString(), expanded: true }],
     })
 
-    const record = loadWorkspaceFromCanvasFiles(userDataPath, DEFAULT_WORKSPACE_ID)
+    const record = loadSpaceFromCanvasFiles(spaceDir())
 
     expect(record?.tabs.map((tab) => tab.name)).toEqual(['Notes'])
     expect(existsSync(legacyPath)).toBe(false)

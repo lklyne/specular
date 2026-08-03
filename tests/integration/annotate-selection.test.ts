@@ -33,8 +33,8 @@ import { applyCanvasPatch } from '../../src/main/canvas-apply'
 import { createFileEntity, createShapeEntity } from '../../src/main/runtime/document-commands'
 import { createUserGroup } from '../../src/main/workspace-groups'
 import { selectEntities, selectNone } from '../../src/main/runtime/selection-controller'
-import { workspaceAnnotations } from '../../src/main/runtime/workspace-model'
-import { undo } from '../../src/main/runtime/workspace-undo'
+import { workspaceAnnotations } from '../../src/main/runtime/space-model'
+import { undo } from '../../src/main/runtime/space-undo'
 import { workspaceRoutes } from '../../src/main/routes/workspace'
 
 let harness: WorkspaceHarness

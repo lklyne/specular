@@ -32,8 +32,8 @@ import {
   setGroupLayoutGap,
 } from '../../src/main/managed-layout'
 import { createUserGroup } from '../../src/main/workspace-groups'
-import { workspaceGroups } from '../../src/main/runtime/workspace-model'
-import { undo } from '../../src/main/runtime/workspace-undo'
+import { workspaceGroups } from '../../src/main/runtime/space-model'
+import { undo } from '../../src/main/runtime/space-undo'
 
 let harness: WorkspaceHarness
 

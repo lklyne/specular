@@ -1,11 +1,12 @@
-import { app, crashReporter, net, nativeTheme, protocol } from 'electron'
+import { app, crashReporter, dialog, net, nativeTheme, protocol } from 'electron'
+import { basename } from 'path'
 import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
 import {
-  flushWorkspaceAutosaveSync,
-  loadWorkspace,
-} from './runtime/workspace-autosave'
-import { restorePersistedWorkspace } from './runtime/workspace-restore'
+  flushSpaceAutosaveSync,
+  loadSpace,
+} from './runtime/space-autosave'
+import { restorePersistedSpace } from './runtime/space-restore'
 import { createPage, pages, setMcpConnectionStatus } from './runtime/page-runtime'
 import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
 import { duplicatePageFromSource } from './workspace-pages'
@@ -22,10 +23,12 @@ import {
 import { markDirty } from './runtime/layout-dirty'
 import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
-import { loadOnboardingState, saveOnboardingState } from './runtime/preferences'
+import { getSpacePath, loadOnboardingState, saveOnboardingState, setSpacePath } from './runtime/preferences'
+import { isSpaceAvailable } from './runtime/space-dir'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser, hasUserOwnedAgentBrowserBinary } from './agent-browser-install'
+import { refreshOnboardingStatus } from './onboarding-status'
 import { autoUpdateSkillsIfSafe } from './skill-auto-update'
 import { runAgentBrowserSkillRemovalMigration } from './skill-migrations'
 import {
@@ -41,13 +44,13 @@ import {
   shutdownDevServerManager,
 } from './runtime/dev-server-manager'
 import { spawn as nodeSpawn } from 'node:child_process'
-import { initializeDocObservers } from './runtime/workspace-observers'
+import { initializeDocObservers } from './runtime/space-observers'
 import { cancelActive as cancelActiveInteraction } from './runtime/interaction-controller'
 import { sendInteractiveState } from './runtime/overlay-manager'
-import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from './runtime/workspace-undo'
-import { getActiveDoc } from './runtime/workspace-doc'
+import { createCanvasUndoManager, setUndoSelectionHooks, clearUndoHistory } from './runtime/space-undo'
+import { getActiveDoc } from './runtime/space-doc'
 import { zoom, pan } from './runtime/runtime-context'
-import { workspaceGroups, workspaceEdges, workspaceAnnotations, workspaceTabs, activeWorkspaceTabId, setActiveWorkspaceTabId } from './runtime/workspace-model'
+import { workspaceGroups, workspaceEdges, workspaceAnnotations, spaceTabs, activeSpaceTabId, setActiveSpaceTabId } from './runtime/space-model'
 import { getUiState, setSelection } from './ui-state'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
@@ -102,6 +105,47 @@ if (userDataDirArg) {
 
 let quitRequested = false
 
+/**
+ * A missing space at boot prompts; it never falls back (ADR 0033 §4). Loops
+ * a windowless dialog until the user locates the folder, opts into the
+ * default space, or quits — silently falling back would autosave into a
+ * different root than the one the user thinks they're working in.
+ * Returns false when the app is quitting and boot should stop.
+ */
+async function resolveSpaceAtBoot(): Promise<boolean> {
+  for (;;) {
+    const configured = getSpacePath()
+    if (!configured || isSpaceAvailable(configured)) return true
+
+    const { response } = await dialog.showMessageBox({
+      type: 'warning',
+      buttons: ['Locate…', 'Open the default space', 'Quit'],
+      defaultId: 0,
+      cancelId: 2,
+      title: "Specular can't find your space.",
+      message: "Specular can't find your space.",
+      detail: `The folder "${basename(configured)}" may be on a drive that isn't connected, or it was moved or renamed.`,
+    })
+
+    if (response === 2) {
+      app.quit()
+      return false
+    }
+    if (response === 1) {
+      console.log(`Your space was at "${configured}" — now using the default space.`)
+      setSpacePath(undefined)
+      return true
+    }
+    const located = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    const candidate = !located.canceled ? located.filePaths[0] : undefined
+    if (candidate && isSpaceAvailable(candidate)) {
+      setSpacePath(candidate)
+      return true
+    }
+    // Canceled or still unusable — loop back to the message box.
+  }
+}
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) {
   app.quit()
@@ -138,6 +182,9 @@ app.whenReady().then(async () => {
 
   identifyInstall()
   configureBundledAgentBrowser()
+  // Probes the binary in the background; windows read the snapshot and get a
+  // push once it lands, so nobody blocks on the spawn.
+  void refreshOnboardingStatus()
   registerBuiltInPlugins()
   registerBuiltInEntityKinds()
   // New-tab links from a page open as a duplicate frame on the canvas rather
@@ -183,6 +230,8 @@ app.whenReady().then(async () => {
     if (quitRequested) return
   }
 
+  if (!(await resolveSpaceAtBoot())) return
+
   initWindow()
   setMcpConnectionStatus(getMcpConnectionStatus())
   onMcpConnectionStatusChanged((status) => {
@@ -204,9 +253,9 @@ app.whenReady().then(async () => {
   }, 5_000)
 
   // Load workspace from .canvas files (primary), falling back to legacy workspace-store.json
-  const persistedWorkspace = loadWorkspace()
+  const persistedWorkspace = loadSpace()
   const restoredPersistedWorkspace = persistedWorkspace
-    ? restorePersistedWorkspace(persistedWorkspace)
+    ? restorePersistedSpace(persistedWorkspace)
     : false
 
   if (!restoredPersistedWorkspace) {
@@ -240,9 +289,9 @@ app.whenReady().then(async () => {
     cancelActiveInteraction: () => cancelActiveInteraction('undo'),
     sendInteractiveState,
     destroyActivePages,
-    getActiveTabId: () => activeWorkspaceTabId,
-    setActiveTabId: setActiveWorkspaceTabId,
-    workspaceTabs,
+    getActiveTabId: () => activeSpaceTabId,
+    setActiveTabId: setActiveSpaceTabId,
+    spaceTabs,
   })
   // Clear any undo entries created by the initial doc sync
   clearUndoHistory()
@@ -269,7 +318,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   quitRequested = true
-  flushWorkspaceAutosaveSync()
+  flushSpaceAutosaveSync()
   teardownAllFileWatchers()
   void shutdownDevServerManager()
 })

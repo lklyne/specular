@@ -20,6 +20,11 @@ export interface CompositedCapture {
   bitmap: Buffer
   width: number // physical pixels
   height: number // physical pixels
+  /** Where the captured pixels sit inside the requested rect, in physical
+   *  pixels. Non-zero when the rect ran past the view's edge and only part of
+   *  it could be captured. */
+  offsetX?: number
+  offsetY?: number
 }
 
 /**
@@ -166,8 +171,12 @@ export async function captureViewRegion(
   const viewBounds = view.getBounds()
   const cropX = Math.round(Math.max(0, screenRect.x - viewBounds.x) * dpr)
   const cropY = Math.round(Math.max(0, screenRect.y - viewBounds.y) * dpr)
-  const cropW = Math.round(screenRect.width * dpr)
-  const cropH = Math.round(screenRect.height * dpr)
+  // A rect starting left of / above the view captures from the view's origin,
+  // so those pixels belong that far into the requested rect — not at 0,0.
+  const offsetX = Math.round(Math.max(0, viewBounds.x - screenRect.x) * dpr)
+  const offsetY = Math.round(Math.max(0, viewBounds.y - screenRect.y) * dpr)
+  const cropW = Math.round(screenRect.width * dpr) - offsetX
+  const cropH = Math.round(screenRect.height * dpr) - offsetY
 
   if (cropW <= 0 || cropH <= 0) return null
 
@@ -177,5 +186,5 @@ export async function captureViewRegion(
   if (safeW <= 0 || safeH <= 0) return null
 
   const cropped = fullImage.crop({ x: cropX, y: cropY, width: safeW, height: safeH })
-  return { bitmap: cropped.toBitmap(), width: safeW, height: safeH }
+  return { bitmap: cropped.toBitmap(), width: safeW, height: safeH, offsetX, offsetY }
 }

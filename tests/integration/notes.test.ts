@@ -7,12 +7,12 @@
  * runtime mirror, the Y.Doc, and the `.md` file.
  *
  * Mutation-verified by:
- *   - removing `DOC_MAP_NOTES` from `undoableTypes` in workspace-undo.ts —
+ *   - removing `DOC_MAP_NOTES` from `undoableTypes` in space-undo.ts —
  *     "undo reverts the last edit" fails (undo no-ops on note content).
  *   - dropping the `'note-seed'` origin (transacting the baseline under
  *     'user') — "baseline seed is not an undo step" fails (undo blanks to '').
  *   - removing `projectNoteContentToDisk` from the undo observer in
- *     workspace-observers.ts — the on-disk asserts after undo/redo fail.
+ *     space-observers.ts — the on-disk asserts after undo/redo fail.
  */
 
 import { readFileSync } from 'fs'
@@ -28,9 +28,9 @@ import {
 import { createNoteFile } from '../../src/main/runtime/note-assets'
 import { commitNoteContent } from '../../src/main/runtime/note-commands'
 import { getNoteContent } from '../../src/main/runtime/note-content-state'
-import { undo, redo, canUndo } from '../../src/main/runtime/workspace-undo'
-import { beginGestureSession } from '../../src/main/runtime/workspace-gesture-session'
-import { DOC_MAP_NOTES } from '../../src/main/runtime/workspace-doc'
+import { undo, redo, canUndo } from '../../src/main/runtime/space-undo'
+import { beginGestureSession } from '../../src/main/runtime/space-gesture-session'
+import { DOC_MAP_NOTES } from '../../src/main/runtime/space-doc'
 
 let harness: WorkspaceHarness
 

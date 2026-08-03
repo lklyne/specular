@@ -24,8 +24,8 @@ import { textEntities, createTextEntity as createTextEntityInState } from './run
 import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
 import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
 import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from './runtime/drawing-entity-state'
-import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { workspaceEdges, workspaceGroups } from './runtime/space-model'
+import { scheduleSpaceAutosave } from './runtime/space-autosave'
 import { markDirty } from './runtime/layout-dirty'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { makeId, cloneMetadata, pageCurrentUrl } from './workspace-utils'
@@ -395,7 +395,7 @@ export function focusTargets(input: {
 }): { focused: boolean } {
   if (input.bounds) {
     focusCanvasBounds(input.bounds)
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
     return { focused: true }
   }
 
@@ -411,7 +411,7 @@ export function focusTargets(input: {
     if (bounds) {
       setSelectedGroupId(groups[0].id)
       focusCanvasBounds(bounds)
-      scheduleWorkspaceAutosave()
+      scheduleSpaceAutosave()
       return { focused: true }
     }
   }
@@ -425,7 +425,7 @@ export function focusTargets(input: {
     if (bounds) {
       selectPageById(input.pageIds[0])
       focusCanvasBounds(bounds)
-      scheduleWorkspaceAutosave()
+      scheduleSpaceAutosave()
       return { focused: true }
     }
   }

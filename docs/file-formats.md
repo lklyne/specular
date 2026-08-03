@@ -23,10 +23,19 @@ the tab's id. The suffix is what makes the path unique: two tabs sharing a name
 would otherwise share one file, and saving, renaming, or deleting either would
 clobber the other. Renaming a tab renames its file; the suffix stays.
 
-Canvases are auto-saved. The location is currently hard-coded to
-`<userData>/workspaces/default/` — on macOS,
-`~/Library/Application Support/Specular/workspaces/default/`. Making it a folder
-the user picks is [ADR 0033](adr/0033-user-chosen-space-folder.md) (proposed).
+Canvases are auto-saved to whatever `spaceDir()` resolves to
+([ADR 0033](adr/0033-user-chosen-space-folder.md)): the user-chosen
+`spacePath` preference, with `.canvas` files and `assets/` sitting directly
+inside it — no `workspaces/<id>/` nesting. A new install picks its space
+during onboarding, defaulting to `~/Specular` (one click to accept); an
+existing space can be changed later from Settings → General, which prompts
+to move canvases into the new folder, start fresh there, or cancel — it
+never guesses. Installs that predate the ADR keep an unset `spacePath`,
+which resolves to the legacy location — on macOS,
+`~/Library/Application Support/Specular/workspaces/default/` — until the
+user changes it. App metadata (`workspace-meta.json`) lives in a
+`.specular/` subdirectory of the space, with a read-side fallback to a meta
+file at the space's root for spaces written before that convention existed.
 
 ## .canvas (JSON Canvas v1.0)
 

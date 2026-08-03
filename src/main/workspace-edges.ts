@@ -1,5 +1,5 @@
 import type { CreateEdgesRequest, CreateEdgesResponse, WorkspaceEdge } from '../shared/types'
-import { workspaceEdges } from './runtime/workspace-model'
+import { workspaceEdges } from './runtime/space-model'
 import { markDirty } from './runtime/layout-dirty'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { appendStackOrderIdsAtTop } from './runtime/entity-order-state'

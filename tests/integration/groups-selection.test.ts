@@ -36,8 +36,8 @@ import {
   getSelectionState,
   selectEntitiesInRect,
 } from '../../src/main/workspace-entities'
-import { workspaceGroups } from '../../src/main/runtime/workspace-model'
-import { undo, redo } from '../../src/main/runtime/workspace-undo'
+import { workspaceGroups } from '../../src/main/runtime/space-model'
+import { undo, redo } from '../../src/main/runtime/space-undo'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
 import { findPageById } from '../../src/main/runtime/runtime-context'
 

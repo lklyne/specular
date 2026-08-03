@@ -63,8 +63,8 @@ import { copyableEntityPayload } from '../../src/main/workspace-clipboard'
 import { selectEntity, selectNone } from '../../src/main/runtime/selection-controller'
 import { createUserGroup, duplicateGroup } from '../../src/main/workspace-groups'
 import { copyableSelectionPayload, pasteEntitiesFromClipboard } from '../../src/main/workspace-clipboard'
-import { undo, redo } from '../../src/main/runtime/workspace-undo'
-import { workspaceGroups } from '../../src/main/runtime/workspace-model'
+import { undo, redo } from '../../src/main/runtime/space-undo'
+import { workspaceGroups } from '../../src/main/runtime/space-model'
 
 let harness: WorkspaceHarness
 

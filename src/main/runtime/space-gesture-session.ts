@@ -20,8 +20,8 @@
  */
 
 import { setGestureSessionProbe } from './mutate-workspace'
-import { beginBatch, endBatch } from './workspace-observers'
-import { markUndoBoundary } from './workspace-undo'
+import { beginBatch, endBatch } from './space-observers'
+import { markUndoBoundary } from './space-undo'
 
 export interface GestureSession {
   /**

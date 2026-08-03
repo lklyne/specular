@@ -25,30 +25,27 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
 import { readCanvasDocument } from '../../src/main/routes/canvas'
-import { withTabContext } from '../../src/main/runtime/workspace-tab-context'
+import { withTabContext } from '../../src/main/runtime/space-tab-context'
 import {
-  createBackgroundWorkspaceTab,
-  setActiveWorkspaceTab,
-} from '../../src/main/runtime/workspace-tab-operations'
-import { activeWorkspaceTabId, workspaceTabs } from '../../src/main/runtime/workspace-model'
+  createBackgroundSpaceTab,
+  setActiveSpaceTab,
+} from '../../src/main/runtime/space-tab-operations'
+import { activeSpaceTabId, spaceTabs } from '../../src/main/runtime/space-model'
 import { createTextEntity } from '../../src/main/runtime/document-commands'
 import { textEntities } from '../../src/main/runtime/text-entity-state'
 import { pages } from '../../src/main/runtime/runtime-context'
-import { getActiveDoc } from '../../src/main/runtime/workspace-doc'
-import { getActiveUndoManager, undo } from '../../src/main/runtime/workspace-undo'
-import {
-  DEFAULT_WORKSPACE_ID,
-  readCanvasFile,
-} from '../../src/main/runtime/workspace-persistence'
+import { getActiveDoc } from '../../src/main/runtime/space-doc'
+import { getActiveUndoManager, undo } from '../../src/main/runtime/space-undo'
+import { readCanvasFile } from '../../src/main/runtime/space-persistence'
 import type { PersistedWorkspaceTab } from '../../src/shared/types'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 let harness: WorkspaceHarness
 
 function newBackgroundTab(name: string): PersistedWorkspaceTab {
-  const created = createBackgroundWorkspaceTab(name)
+  const created = createBackgroundSpaceTab(name)
   if (!created.ok) throw new Error(created.error)
-  return workspaceTabs.find((tab) => tab.id === created.id)!
+  return spaceTabs.find((tab) => tab.id === created.id)!
 }
 
 function tabFilePath(tab: string | PersistedWorkspaceTab): string {
@@ -118,7 +115,7 @@ describe('background-tab writes', () => {
     expect(textsOnDisk('scratch')).toEqual(['agent note'])
     expect(readFileSync(tabFilePath('Blank'), 'utf8')).toBe(activeBytes)
     expect(textEntities.map((entity) => entity.text)).toEqual(['user note'])
-    expect(activeWorkspaceTabId).toBe(workspaceTabs[0].id)
+    expect(activeSpaceTabId).toBe(spaceTabs[0].id)
   })
 
   it('does not touch the user\'s undo stack, and undo is a no-op on the write', async () => {
@@ -174,7 +171,7 @@ describe('background-tab writes', () => {
     expect(nodeTexts(doc)).toEqual(['agent note'])
     // The read names the canvas the user is still on, and nothing swapped.
     expect(doc.appState?.activeTab?.name).toBe('Blank')
-    expect(activeWorkspaceTabId).toBe(workspaceTabs[0].id)
+    expect(activeSpaceTabId).toBe(spaceTabs[0].id)
     expect(textEntities.map((entity) => entity.text)).toEqual(['user note'])
   })
 
@@ -204,9 +201,9 @@ describe('background-tab writes', () => {
     })
     const pageId = created.created[0]
     const scratch = newBackgroundTab('scratch')
-    const withPage = workspaceTabs[0]
+    const withPage = spaceTabs[0]
     await settleSync()
-    setActiveWorkspaceTab(scratch.id)
+    setActiveSpaceTab(scratch.id)
     await settleSync()
     expect(pages).toHaveLength(0)
 

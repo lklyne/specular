@@ -23,9 +23,6 @@ import { readFileSync } from 'fs'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import { applyCanvasPatch } from '../../src/main/canvas-apply'
-import {
-  DEFAULT_WORKSPACE_ID,
-} from '../../src/main/runtime/workspace-persistence'
 
 let harness: WorkspaceHarness
 

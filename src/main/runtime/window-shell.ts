@@ -19,4 +19,4 @@ export {
 
 export { initWindow } from './window-init'
 
-export { rebuildWindowFromSnapshot } from './workspace-restore'
+export { rebuildWindowFromSnapshot } from './space-restore'

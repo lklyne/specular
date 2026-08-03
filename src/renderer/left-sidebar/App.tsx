@@ -134,6 +134,7 @@ export default function App({
         <div className="thin-scrollbar min-h-0 flex-1 overflow-auto">
         {pagesExpanded ? (
           <div className="pt-0.5 pb-2" {...drag.containerProps}>
+            {/* fallow-ignore-next-line complexity */}
             {sidebarData.tabs.map((tab, tabIndex) => (
               <div
                 key={tab.id}

@@ -30,7 +30,7 @@
 
 import { tryEnter, commitActive, cancelActive } from './runtime/interaction-controller'
 import { currentInteractionState, updateReorderingDropIndex } from './runtime/interaction-state'
-import { markUndoBoundary } from './runtime/workspace-undo'
+import { markUndoBoundary } from './runtime/space-undo'
 import type { CancelReason } from '../shared/interaction-types'
 import {
   buildManagedRow,

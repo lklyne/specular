@@ -16,7 +16,7 @@ import type {
   WorkspaceGroup,
   WorkspacePageSnapshot,
   WorkspaceSnapshot,
-  WorkspaceTabSummary,
+  SpaceTabSummary,
   WorkspaceViewMode,
 } from '../../shared/types'
 import {
@@ -55,14 +55,14 @@ type AutosaveSchedulerOptions = {
   autosaveTimer: NodeJS.Timeout | null
   shouldPersist: () => boolean
   setAutosaveTimer: (timer: NodeJS.Timeout | null) => void
-  saveWorkspaceStore: () => void
+  saveSpaceStore: () => void
 }
 
 export function workspaceStorePath(userDataPath: string): string {
   return join(userDataPath, WORKSPACE_STORE_FILE)
 }
 
-export function makeWorkspaceTabId(): string {
+export function makeSpaceTabId(): string {
   return `tab_${randomUUID()}`
 }
 
@@ -76,15 +76,15 @@ function tabEntityCount(snapshot: WorkspaceSnapshot): number {
   return ids.size
 }
 
-export function buildWorkspaceTabSummary(
+export function buildSpaceTabSummary(
   tab: PersistedWorkspaceTab,
-  activeWorkspaceTabId: string | null,
-): WorkspaceTabSummary {
+  activeSpaceTabId: string | null,
+): SpaceTabSummary {
   return {
     id: tab.id,
     name: tab.name,
     expanded: tab.expanded ?? true,
-    isActive: tab.id === activeWorkspaceTabId,
+    isActive: tab.id === activeSpaceTabId,
     pageCount: tab.snapshot.pages.length,
     entityCount: tabEntityCount(tab.snapshot),
     pages: tab.snapshot.pages.map((page) => {
@@ -105,15 +105,15 @@ export function buildWorkspaceTabSummary(
 }
 
 export function buildPersistedWorkspaceRecord(params: {
-  workspaceTabs: PersistedWorkspaceTab[]
-  activeWorkspaceTabId: string
+  spaceTabs: PersistedWorkspaceTab[]
+  activeSpaceTabId: string
 }): PersistedWorkspaceRecord {
   return {
     id: DEFAULT_WORKSPACE_ID,
     name: DEFAULT_WORKSPACE_NAME,
     updatedAt: new Date().toISOString(),
-    activeTabId: params.activeWorkspaceTabId,
-    tabs: params.workspaceTabs.map((tab) => ({
+    activeTabId: params.activeSpaceTabId,
+    tabs: params.spaceTabs.map((tab) => ({
       ...tab,
       expanded: tab.expanded ?? true,
       snapshot: cloneWorkspaceSnapshot(tab.snapshot),
@@ -170,7 +170,7 @@ export function migrateLegacyWorkspaceStore(
     version: WORKSPACE_STORE_VERSION,
     activeWorkspaceId: legacy.activeWorkspaceId,
     workspaces: legacy.workspaces.map((workspace) => {
-      const tabId = makeWorkspaceTabId()
+      const tabId = makeSpaceTabId()
       return {
         id: workspace.id,
         name: workspace.name,
@@ -377,27 +377,27 @@ export function buildWorkspaceSnapshot(params: {
   }
 }
 
-export function scheduleWorkspaceAutosave(options: AutosaveSchedulerOptions): void {
+export function scheduleSpaceAutosave(options: AutosaveSchedulerOptions): void {
   if (!options.shouldPersist()) return
   if (options.autosaveTimer) clearTimeout(options.autosaveTimer)
   options.setAutosaveTimer(
     setTimeout(() => {
       options.setAutosaveTimer(null)
-      options.saveWorkspaceStore()
+      options.saveSpaceStore()
     }, AUTOSAVE_DEBOUNCE_MS),
   )
 }
 
-export function flushWorkspaceAutosaveSync(options: {
+export function flushSpaceAutosaveSync(options: {
   autosaveTimer: NodeJS.Timeout | null
   setAutosaveTimer: (timer: NodeJS.Timeout | null) => void
-  saveWorkspaceStore: () => void
+  saveSpaceStore: () => void
 }): void {
   if (options.autosaveTimer) {
     clearTimeout(options.autosaveTimer)
     options.setAutosaveTimer(null)
   }
-  options.saveWorkspaceStore()
+  options.saveSpaceStore()
 }
 
 // --- JSON Canvas File I/O ---
@@ -408,20 +408,16 @@ import {
 } from './json-canvas-serializer'
 import type { JsonCanvasDocument } from '../../shared/json-canvas-types'
 
-const WORKSPACES_DIR = 'workspaces'
+const SPACE_META_DIR = '.specular'
+const WORKSPACE_META_FILE = 'workspace-meta.json'
 
-export function workspacesDir(userDataPath: string): string {
-  return join(userDataPath, WORKSPACES_DIR)
+function ensureSpaceDir(spacePath: string): string {
+  if (!existsSync(spacePath)) mkdirSync(spacePath, { recursive: true })
+  return spacePath
 }
 
-function ensureWorkspacesDir(userDataPath: string): string {
-  const dir = workspacesDir(userDataPath)
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return dir
-}
-
-function workspaceDir(userDataPath: string, workspaceId: string): string {
-  const dir = join(ensureWorkspacesDir(userDataPath), workspaceId)
+function ensureSpaceMetaDir(spacePath: string): string {
+  const dir = join(spacePath, SPACE_META_DIR)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -436,24 +432,19 @@ function sanitizeTabName(name: string): string {
  * deleting either one would clobber the other.
  */
 export function canvasFilePath(
-  userDataPath: string,
-  workspaceId: string,
+  spacePath: string,
   tab: { id: string; name: string },
 ): string {
   const suffix = tab.id.replace(/^tab_/, '').slice(0, 4)
   return join(
-    workspaceDir(userDataPath, workspaceId),
+    ensureSpaceDir(spacePath),
     `${sanitizeTabName(tab.name)}-${suffix}.canvas`,
   )
 }
 
 /** Pre-id-suffix filename. Read-only — kept so existing workspaces load. */
-function legacyCanvasFilePath(
-  userDataPath: string,
-  workspaceId: string,
-  tabName: string,
-): string {
-  return join(workspaceDir(userDataPath, workspaceId), `${sanitizeTabName(tabName)}.canvas`)
+function legacyCanvasFilePath(spacePath: string, tabName: string): string {
+  return join(ensureSpaceDir(spacePath), `${sanitizeTabName(tabName)}.canvas`)
 }
 
 export function writeCanvasFileSync(
@@ -475,49 +466,49 @@ export function readCanvasFile(filePath: string): JsonCanvasDocument | null {
 }
 
 export function writeTabAsCanvasFile(
-  userDataPath: string,
-  workspaceId: string,
+  spacePath: string,
   tab: PersistedWorkspaceTab,
 ): void {
   const doc = serializeToJsonCanvas(tab.snapshot, tab.annotations)
-  const filePath = canvasFilePath(userDataPath, workspaceId, tab)
+  const filePath = canvasFilePath(spacePath, tab)
   writeCanvasFileSync(filePath, doc)
 }
 
 export function writeAllTabsAsCanvasFiles(
-  userDataPath: string,
-  workspaceId: string,
+  spacePath: string,
   tabs: PersistedWorkspaceTab[],
 ): void {
   for (const tab of tabs) {
-    writeTabAsCanvasFile(userDataPath, workspaceId, tab)
+    writeTabAsCanvasFile(spacePath, tab)
   }
 }
 
-export function writeWorkspaceMetaSync(
-  userDataPath: string,
-  workspaceId: string,
+export function writeSpaceMetaSync(
+  spacePath: string,
   meta: {
     activeTabId: string
     viewMode?: string
     tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
   },
 ): void {
-  const dir = workspaceDir(userDataPath, workspaceId)
-  const filePath = join(dir, 'workspace-meta.json')
+  // Writes always land in .specular/, even when the meta was last read from
+  // the legacy root location — the next load picks up the new copy and the
+  // old file is harmless litter, not a second source of truth.
+  const filePath = join(ensureSpaceMetaDir(spacePath), WORKSPACE_META_FILE)
   const tmpFile = `${filePath}.tmp`
   writeFileSync(tmpFile, JSON.stringify(meta, null, 2), 'utf8')
   renameSync(tmpFile, filePath)
 }
 
-export function readWorkspaceMeta(
-  userDataPath: string,
-  workspaceId: string,
+export function readSpaceMeta(
+  spacePath: string,
 ): { activeTabId: string; viewMode?: string; tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> } | null {
-  const filePath = join(workspaceDir(userDataPath, workspaceId), 'workspace-meta.json')
-  if (!existsSync(filePath)) return null
+  const filePath = join(spacePath, SPACE_META_DIR, WORKSPACE_META_FILE)
+  const legacyFilePath = join(spacePath, WORKSPACE_META_FILE)
+  const target = existsSync(filePath) ? filePath : legacyFilePath
+  if (!existsSync(target)) return null
   try {
-    return JSON.parse(readFileSync(filePath, 'utf8'))
+    return JSON.parse(readFileSync(target, 'utf8'))
   } catch {
     return null
   }
@@ -528,15 +519,15 @@ export function readWorkspaceMeta(
  * Called once on first launch with the new format.
  */
 export function migrateWorkspaceStoreToCanvasFiles(
-  userDataPath: string,
+  spacePath: string,
   store: PersistedWorkspaceStore,
 ): void {
   for (const workspace of store.workspaces) {
     // Write each tab as a .canvas file
-    writeAllTabsAsCanvasFiles(userDataPath, workspace.id, workspace.tabs)
+    writeAllTabsAsCanvasFiles(spacePath, workspace.tabs)
 
-    // Write workspace metadata
-    writeWorkspaceMetaSync(userDataPath, workspace.id, {
+    // Write space metadata
+    writeSpaceMetaSync(spacePath, {
       activeTabId: workspace.activeTabId,
       viewMode: workspace.viewMode,
       tabs: workspace.tabs.map((t) => ({
@@ -549,30 +540,29 @@ export function migrateWorkspaceStoreToCanvasFiles(
   }
 }
 
-// --- Load workspace from .canvas files ---
+// --- Load space from .canvas files ---
 
 /**
- * Load a workspace from individual .canvas files + workspace-meta.json.
+ * Load a space from individual .canvas files + workspace-meta.json.
  * This is the primary load path — .canvas files are the source of truth.
  */
-export function loadWorkspaceFromCanvasFiles(
-  userDataPath: string,
-  workspaceId: string,
+export function loadSpaceFromCanvasFiles(
+  spacePath: string,
 ): PersistedWorkspaceRecord | null {
-  const meta = readWorkspaceMeta(userDataPath, workspaceId)
+  const meta = readSpaceMeta(spacePath)
   if (!meta || !meta.tabs.length) return null
 
   const tabs: PersistedWorkspaceTab[] = []
   const legacyPaths = new Set<string>()
   for (const tabMeta of meta.tabs) {
-    const filePath = canvasFilePath(userDataPath, workspaceId, tabMeta)
+    const filePath = canvasFilePath(spacePath, tabMeta)
     let doc = readCanvasFile(filePath)
     if (!doc) {
       // Workspace written before filenames carried an id. Read the old file and
       // retire it, so the next autosave doesn't leave a stale twin on disk.
       // Retired after the loop, not here: same-named tabs share one legacy file
       // and every one of them still has to read it.
-      const legacyPath = legacyCanvasFilePath(userDataPath, workspaceId, tabMeta.name)
+      const legacyPath = legacyCanvasFilePath(spacePath, tabMeta.name)
       doc = readCanvasFile(legacyPath)
       if (doc) legacyPaths.add(legacyPath)
     }
@@ -601,7 +591,7 @@ export function loadWorkspaceFromCanvasFiles(
   }
 
   return {
-    id: workspaceId,
+    id: DEFAULT_WORKSPACE_ID,
     name: DEFAULT_WORKSPACE_NAME,
     updatedAt: new Date().toISOString(),
     activeTabId: meta.activeTabId,
@@ -614,11 +604,10 @@ export function loadWorkspaceFromCanvasFiles(
  * Delete a .canvas file for a tab. Used when renaming or deleting tabs.
  */
 export function deleteCanvasFile(
-  userDataPath: string,
-  workspaceId: string,
+  spacePath: string,
   tab: { id: string; name: string },
 ): void {
-  const filePath = canvasFilePath(userDataPath, workspaceId, tab)
+  const filePath = canvasFilePath(spacePath, tab)
   try {
     if (existsSync(filePath)) unlinkSync(filePath)
   } catch {

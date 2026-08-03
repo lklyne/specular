@@ -1,7 +1,7 @@
 /**
  * Forward-sync clear-field unit tests.
  *
- * Exercises `syncRuntimeToDoc()` from src/main/runtime/workspace-doc.ts against
+ * Exercises `syncRuntimeToDoc()` from src/main/runtime/space-doc.ts against
  * a raw Y.Doc — no Electron — to assert that clearing a runtime field to
  * `undefined` (e.g. `parentGroupId` after ungrouping) deletes the stale key
  * from the Y.Doc entity map instead of leaving it behind, and that the
@@ -14,7 +14,7 @@
 
 import * as Y from 'yjs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { syncRuntimeToDoc, DOC_MAP_PAGES } from '../../src/main/runtime/workspace-doc'
+import { syncRuntimeToDoc, DOC_MAP_PAGES } from '../../src/main/runtime/space-doc'
 import {
   createCanvasUndoManager,
   setActiveUndoManager,
@@ -22,7 +22,7 @@ import {
   undo as undoActive,
   redo as redoActive,
   clearUndoHistory,
-} from '../../src/main/runtime/workspace-undo'
+} from '../../src/main/runtime/space-undo'
 
 interface FakePage {
   id: string

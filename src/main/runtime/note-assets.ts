@@ -1,10 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, renameSync } from 'fs'
 import { join } from 'path'
-import { app } from 'electron'
-import { DEFAULT_WORKSPACE_ID } from './workspace-persistence'
+import { spaceDir } from './space-dir'
 
 function workspaceNoteDir(): string {
-  const dir = join(app.getPath('userData'), 'workspaces', DEFAULT_WORKSPACE_ID)
+  const dir = spaceDir()
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }

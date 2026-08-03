@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkspaceSnapshot } from '../../src/shared/types'
-import { migrateSnapshotEntityOrderForRestore } from '../../src/main/runtime/workspace-restore-migration'
+import { migrateSnapshotEntityOrderForRestore } from '../../src/main/runtime/space-restore-migration'
 
 function snapshot(input: Partial<WorkspaceSnapshot>): WorkspaceSnapshot {
   return {

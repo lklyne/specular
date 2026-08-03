@@ -18,7 +18,7 @@ import {
   setHoverTarget,
   setInteractivePageId,
 } from './runtime-context'
-import { workspaceEdges, workspaceGroups } from './workspace-model'
+import { workspaceEdges, workspaceGroups } from './space-model'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
 import { clearInspectTargets, notifyDevtoolsPanelData, syncInspectionState } from './inspect-session'
 import { requestLayout } from './viewport-control'

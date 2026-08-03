@@ -21,7 +21,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { pages } from './runtime-context'
 import { anchorableEntities } from './anchorable-entity-store'
-import { workspaceAnnotations } from './workspace-model'
+import { workspaceAnnotations } from './space-model'
 import { safeSend } from './safe-send'
 
 // Last selector set *sent* to each page, joined into a stable key, so a

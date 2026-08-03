@@ -46,7 +46,7 @@ import {
   cameraTransitionStartedAt,
 } from './runtime-context'
 import { focusSession } from './focus-session'
-import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
+import { activeSpaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './space-model'
 import { getToolDefaults } from './tool-defaults'
 import {
   activeTool as uiActiveTool,
@@ -100,10 +100,10 @@ import { buildGroupSceneEntity } from './group-entity-state'
 import { getEntityKind, type RuntimeEntity } from '../entities/contract'
 import type { CanvasEntityKind } from '../../shared/types'
 import type { Page } from './runtime-entities'
-import { workspaceTabSummaries } from './workspace-tabs'
+import { spaceTabSummaries } from './space-tabs'
 import { getPresenceCursors } from '../presence-cursor'
 import { getFixProgress } from '../agent-fix/fix-progress'
-import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // --- Exported data builders ---
 
@@ -471,7 +471,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
   const activePage = selectedPage() ?? targets[0] ?? null
   const availablePageCount = pages.length
   const activeTabName =
-    workspaceTabSummaries().find((t) => t.isActive)?.name ?? null
+    spaceTabSummaries().find((t) => t.isActive)?.name ?? null
 
   if (!targets.length || !activePage) {
     return {
@@ -479,7 +479,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       selectedEntityIds: [],
       selectionCount: 0,
       availablePageCount,
-      activeTabId: activeWorkspaceTabId,
+      activeTabId: activeSpaceTabId,
       activeTabName,
       activeTool: uiActiveTool(),
       drawBrushType: getToolDefaults().draw.brushType,
@@ -494,7 +494,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     selectedEntityIds: targets.map((page) => page.id),
     selectionCount: targets.length,
     availablePageCount,
-    activeTabId: activeWorkspaceTabId,
+    activeTabId: activeSpaceTabId,
     activeTabName,
     activeTool: uiActiveTool(),
     drawBrushType: getToolDefaults().draw.brushType,

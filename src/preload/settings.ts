@@ -16,11 +16,15 @@ const api: SettingsElectronAPI = {
   repoDisconnect: (id) => ipcRenderer.invoke(ipcChannels.repoDisconnect, { id }),
   repoBindOrigin: (repoId, origin) =>
     ipcRenderer.invoke(ipcChannels.repoBindOrigin, { repoId, origin }),
+  spaceChangeViaPicker: () => ipcRenderer.invoke(ipcChannels.spaceChangeViaPicker),
+  spaceRevealInFinder: () => ipcRenderer.send(ipcChannels.spaceRevealInFinder),
+  checkForUpdates: () => ipcRenderer.send(ipcChannels.settingsCheckForUpdates),
   close: () => ipcRenderer.send(ipcChannels.settingsClose),
   onSkillProgress: on<OnboardingProgressEvent>(ipcChannels.settingsSkillProgress),
   onFixConfigChanged: on<FixConfig>(ipcChannels.settingsFixConfigChanged),
   onConnectedReposChanged: on<ConnectedRepo[]>(ipcChannels.repoChanged),
   onThemeChanged: on(ipcChannels.themeChanged),
+  onSpaceChanged: on<{ path: string; isDefault: boolean }>(ipcChannels.spaceChanged),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

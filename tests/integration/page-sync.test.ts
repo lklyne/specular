@@ -22,8 +22,8 @@ import {
   unsyncPage,
   isPageSynced,
 } from '../../src/main/navigation-sync'
-import { undo, redo } from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_PAGES } from '../../src/main/runtime/workspace-doc'
+import { undo, redo } from '../../src/main/runtime/space-undo'
+import { DOC_MAP_PAGES } from '../../src/main/runtime/space-doc'
 
 let harness: WorkspaceHarness
 

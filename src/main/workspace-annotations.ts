@@ -18,8 +18,8 @@ import { canvasRectToPageDocRect } from './runtime/page-anchor-state'
 import { captureElementForAnnotation } from './runtime/element-attachment-capture'
 import { markDirty } from './runtime/layout-dirty'
 import { mutateWorkspace } from './runtime/mutate-workspace'
-import { workspaceAnnotations } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { workspaceAnnotations } from './runtime/space-model'
+import { scheduleSpaceAutosave } from './runtime/space-autosave'
 import { makeId } from './workspace-utils'
 import { VIEWPORT_PRESETS } from '../shared/constants'
 
@@ -263,7 +263,7 @@ export function setAnnotationFixSession(id: string, sessionId: string): void {
   if (annotation.metadata?.fixSessionId === sessionId) return
   annotation.metadata = { ...annotation.metadata, fixSessionId: sessionId }
   markDirty('canvas')
-  scheduleWorkspaceAutosave()
+  scheduleSpaceAutosave()
 }
 
 export function addAnnotationReply(

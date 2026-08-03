@@ -2,7 +2,7 @@
  * Undo/redo round-trips against the real runtime, in-process.
  *
  * Drives the same mutators the IPC handlers call (document-commands) and the
- * same undo stack the Cmd+Z binding calls (workspace-undo), then asserts on
+ * same undo stack the Cmd+Z binding calls (space-undo), then asserts on
  * runtime arrays and the Y.Doc.
  *
  * Mutation-verified by:
@@ -19,8 +19,8 @@ import {
   deleteTextEntity,
   getTextEntities,
 } from '../../src/main/runtime/document-commands'
-import { undo, redo, canUndo, canRedo } from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_ENTITIES } from '../../src/main/runtime/workspace-doc'
+import { undo, redo, canUndo, canRedo } from '../../src/main/runtime/space-undo'
+import { DOC_MAP_ENTITIES } from '../../src/main/runtime/space-doc'
 
 let harness: WorkspaceHarness
 

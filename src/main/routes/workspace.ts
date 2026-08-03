@@ -29,7 +29,7 @@ import {
   selectPageById as selectSelectionPageById,
 } from '../runtime/selection-controller'
 import { pageSelectionOverlayStates } from '../runtime/overlay-manager'
-import { withTabContext } from '../runtime/workspace-tab-context'
+import { withTabContext } from '../runtime/space-tab-context'
 import { writeJson } from './http-helpers'
 
 export const workspaceRoutes: Route[] = [

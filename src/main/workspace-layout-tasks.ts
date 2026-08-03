@@ -17,7 +17,7 @@ import {
   setSelectedGroupId,
 } from './runtime/ui-actions'
 import { mutateWorkspace } from './runtime/mutate-workspace'
-import { workspaceGroups } from './runtime/workspace-model'
+import { workspaceGroups } from './runtime/space-model'
 import { getManifest } from './design-system-store'
 import { normalizeUserUrl } from '../shared/url'
 import { makeId, createGroup } from './workspace-utils'

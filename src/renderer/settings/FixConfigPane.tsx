@@ -48,7 +48,6 @@ export function FixConfigPane({
   return (
     <section>
       <header className="mb-4 mt-2">
-        <h2 className="text-[15px] font-semibold">Models</h2>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
           Fix uses Claude Code to read your comments and make changes in linked repositories. Pick a model and permission level.
         </p>
