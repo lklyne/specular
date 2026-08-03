@@ -21,6 +21,7 @@ import {
   onOnboardingStatusChanged,
   refreshOnboardingStatus,
 } from '../onboarding-status'
+import { spacePickerDefaultPath } from '../runtime/picker-defaults'
 import { runSkillInstallSelections } from '../skill-install-runner'
 import { refreshAppMenu } from '../runtime/app-menu'
 import {
@@ -52,12 +53,14 @@ export function registerOnboardingIpc(): void {
   // down or migrate from.
   ipcMain.handle(ipcChannels.spaceChooseViaPicker, async (event): Promise<string | null> => {
     const win = BrowserWindow.fromWebContents(event.sender)
+    const dialogOpts: Electron.OpenDialogOptions = {
+      title: 'Choose a space folder',
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: spacePickerDefaultPath(),
+    }
     const result = win
-      ? await dialog.showOpenDialog(win, {
-          title: 'Choose a space folder',
-          properties: ['openDirectory', 'createDirectory'],
-        })
-      : await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
+      ? await dialog.showOpenDialog(win, dialogOpts)
+      : await dialog.showOpenDialog(dialogOpts)
     if (result.canceled || !result.filePaths.length) return null
     return result.filePaths[0]
   })

@@ -34,6 +34,7 @@ import {
 } from '../runtime/ui-actions'
 import { requestLayout } from '../runtime/viewport-control'
 import { markDirty } from '../runtime/layout-dirty'
+import { repoPickerDefaultPath } from '../runtime/picker-defaults'
 import {
   addAnnotationReply,
   createAnnotation,
@@ -244,7 +245,11 @@ export function registerRightDetailsPanelIpc(): void {
       const origin = payload?.origin?.trim()
       if (!origin) return
       const win = BrowserWindow.fromWebContents(event.sender) ?? BrowserWindow.getFocusedWindow()
-      const dialogOpts: Electron.OpenDialogOptions = { title: `Choose repo for ${origin}`, properties: ['openDirectory'] }
+      const dialogOpts: Electron.OpenDialogOptions = {
+        title: `Choose repo for ${origin}`,
+        properties: ['openDirectory'],
+        defaultPath: repoPickerDefaultPath(),
+      }
       const result = win
         ? await dialog.showOpenDialog(win, dialogOpts)
         : await dialog.showOpenDialog(dialogOpts)

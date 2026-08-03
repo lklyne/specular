@@ -12,6 +12,7 @@ import { mkdirSync } from 'fs'
 import { basename } from 'path'
 import { DEFAULT_PAGES } from '../../shared/constants'
 import { createPage } from './page-factory'
+import { spacePickerDefaultPath } from './picker-defaults'
 import { setSpacePath } from './preferences'
 import { spaceDir } from './space-dir'
 import { hasCanvasFiles, migrateSpace } from './space-migration'
@@ -39,6 +40,7 @@ export async function changeSpaceViaPicker(win: BrowserWindow): Promise<string |
   const picked = await dialog.showOpenDialog(win, {
     title: 'Choose a space folder',
     properties: ['openDirectory', 'createDirectory'],
+    defaultPath: spacePickerDefaultPath(),
   })
   if (picked.canceled || !picked.filePaths.length) return null
   const destination = picked.filePaths[0]
