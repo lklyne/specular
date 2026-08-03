@@ -16,7 +16,7 @@ const COLOR_SCHEME_OPTIONS: { value: ColorSchemeChoice; label: string }[] = [
 
 export function MultiEntityPane({ multiEntities }: { multiEntities: PanelMultiEntitySummary[] }) {
   const isDark = usePaneTheme()
-  const muted = mutedClass(isDark)
+  const muted = mutedClass
   const divider = dividerClass(isDark)
 
   const selectedPageIds = multiEntities.filter((e) => e.kind === 'page').map((e) => e.id)
@@ -32,16 +32,14 @@ export function MultiEntityPane({ multiEntities }: { multiEntities: PanelMultiEn
 
   const tabBg = 'bg-[var(--surface-interactive)] border border-[var(--surface-input-border)]'
   const tabActive = isDark
-    ? 'bg-[var(--surface-toolbar)] text-zinc-100'
-    : 'bg-[var(--surface-input)] text-zinc-800 shadow-sm'
-  const tabInactive = isDark
-    ? 'text-zinc-500 hover:text-zinc-300'
-    : 'text-zinc-400 hover:text-zinc-600'
+    ? 'bg-[var(--surface-toolbar)] text-[var(--surface-foreground)]'
+    : 'bg-[var(--surface-input)] text-[var(--surface-foreground)] shadow-sm'
+  const tabInactive = 'text-[var(--surface-foreground-muted)]'
 
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<Layers size={14} className="shrink-0 text-zinc-500" />}
+        icon={<Layers size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label={`${multiEntities.length} items selected`}
       />
 

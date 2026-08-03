@@ -15,12 +15,12 @@ const FIT_OPTIONS: Array<{ value: 'contain' | 'cover' | 'fill'; label: string }>
 
 export function ImageFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetail }) {
   const isDark = usePaneTheme()
-  const muted = mutedClass(isDark)
+  const muted = mutedClass
   const activeFit = fileEntity.objectFit ?? 'contain'
 
   return (
     <FileEntityShell
-      icon={<Image size={14} className="shrink-0 text-zinc-500" />}
+      icon={<Image size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
       label={fileEntityLabel(fileEntity.file)}
       entityId={fileEntity.id}
     >
@@ -36,11 +36,11 @@ export function ImageFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetai
               className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
                 activeFit === opt.value
                   ? isDark
-                    ? 'bg-zinc-700 text-zinc-100'
-                    : 'bg-zinc-200 text-zinc-900'
+                    ? 'bg-zinc-700 text-[var(--surface-foreground)]'
+                    : 'bg-zinc-200 text-[var(--surface-foreground)]'
                   : isDark
-                    ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-                    : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
+                    ? 'text-[var(--surface-foreground-muted)] hover:bg-zinc-800 hover:text-[var(--surface-foreground)]'
+                    : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-100'
               }`}
             >
               {opt.label}

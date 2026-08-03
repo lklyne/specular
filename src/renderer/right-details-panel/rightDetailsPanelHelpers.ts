@@ -73,9 +73,7 @@ export function authorLabel(author: 'user' | 'agent'): string {
   return author === 'agent' ? 'Agent' : 'You'
 }
 
-export function mutedClass(isDark: boolean): string {
-  return isDark ? 'text-zinc-400' : 'text-zinc-500'
-}
+export const mutedClass = 'text-[var(--surface-foreground-muted)]'
 
 export function dividerClass(isDark: boolean): string {
   return isDark ? 'border-zinc-700/50' : 'border-zinc-200'
@@ -83,14 +81,14 @@ export function dividerClass(isDark: boolean): string {
 
 export function paneActionBtnClass(isDark: boolean): string {
   return isDark
-    ? 'rounded p-0.5 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100'
-    : 'rounded p-0.5 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900'
+    ? 'rounded p-0.5 text-[var(--surface-foreground-muted)] hover:bg-zinc-700 hover:text-[var(--surface-foreground)]'
+    : 'rounded p-0.5 text-[var(--surface-foreground-muted)] hover:bg-zinc-200 hover:text-[var(--surface-foreground)]'
 }
 
 export function paneDeleteBtnClass(isDark: boolean): string {
   return isDark
-    ? 'rounded p-0.5 text-zinc-400 hover:bg-red-500/12 hover:text-red-400'
-    : 'rounded p-0.5 text-zinc-500 hover:bg-red-50 hover:text-red-600'
+    ? 'rounded p-0.5 text-[var(--surface-foreground-muted)] hover:bg-red-500/12 hover:text-red-400'
+    : 'rounded p-0.5 text-[var(--surface-foreground-muted)] hover:bg-red-50 hover:text-red-600'
 }
 
 export function fileEntityLabel(path: string): string {

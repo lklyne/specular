@@ -59,7 +59,7 @@ export function PagePane({
   originBindings: OriginBindings
 }) {
   const isDark = usePaneTheme()
-  const muted = mutedClass(isDark)
+  const muted = mutedClass
   const divider = dividerClass(isDark)
   const elementsSectionRef = useRef<HTMLElement>(null)
   const activePage = inspect.activePageId
@@ -124,7 +124,7 @@ export function PagePane({
           />
         ) : (
           <PaneHeader
-            icon={<Laptop size={14} className="shrink-0 text-zinc-500" />}
+            icon={<Laptop size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
             label="Waiting for page data…"
           />
         )}
@@ -146,7 +146,7 @@ export function PagePane({
           <Collapsible.Root defaultOpen>
             <div className="flex items-center">
               <Collapsible.Trigger
-                className={`group flex flex-1 items-center gap-1.5 px-2 py-2 text-[12px] font-medium`}
+                className="group flex flex-1 items-center gap-1.5 px-2 py-2 text-[12px] font-medium"
               >
                 <ChevronDown size={12} className="hidden group-data-[panel-open]:block" />
                 <ChevronRight size={12} className="block group-data-[panel-open]:hidden" />
@@ -155,7 +155,7 @@ export function PagePane({
               <div className="group relative pr-3">
                 <button
                   type="button"
-                  className={`rounded p-1 opacity-30 hover:opacity-100 ${muted} hover:text-zinc-600 dark:hover:text-zinc-300`}
+                  className={`rounded p-1 opacity-30 hover:opacity-100 ${muted}`}
                   aria-label="Show inspect diagnostics"
                   title="Show inspect diagnostics"
                 >
@@ -164,8 +164,8 @@ export function PagePane({
                 <div
                   className={`pointer-events-none invisible absolute top-5 right-0 z-20 w-64 rounded border px-2 py-1.5 text-[10px] leading-4 opacity-0 shadow-sm transition-all group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 ${
                     isDark
-                      ? 'border-zinc-700 bg-zinc-900 text-zinc-300'
-                      : 'border-zinc-300 bg-zinc-50 text-zinc-700'
+                      ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-foreground-muted)]'
+                      : 'border-zinc-300 bg-zinc-50 text-[var(--surface-foreground-muted)]'
                   }`}
                 >
                   <div>Mode: {inspect.mode === 'page_locked' ? 'Page locked' : 'Global target'}</div>
@@ -221,7 +221,7 @@ export function PagePane({
         <section className={`border-t ${divider}`}>
           <Collapsible.Root defaultOpen>
             <Collapsible.Trigger
-              className={`group flex w-full items-center gap-1.5 px-2 py-2 text-[12px] font-medium`}
+              className="group flex w-full items-center gap-1.5 px-2 py-2 text-[12px] font-medium"
             >
               <ChevronDown size={12} className="hidden group-data-[panel-open]:block" />
               <ChevronRight size={12} className="block group-data-[panel-open]:hidden" />
@@ -232,7 +232,6 @@ export function PagePane({
                 <InspectDetailSection
                   activeDetail={activeDetail}
                   hoveredDetail={hoveredDetail}
-                  isDark={isDark}
                   mutedClass={muted}
                   selectedDetail={selectedDetail}
                 />
@@ -315,7 +314,7 @@ function PageCommentsSection({
       <Collapsible.Root defaultOpen>
         <div className="flex items-center">
           <Collapsible.Trigger
-            className={`group flex flex-1 items-center gap-1.5 px-2 py-2 text-[12px] font-medium`}
+            className="group flex flex-1 items-center gap-1.5 px-2 py-2 text-[12px] font-medium"
           >
             <ChevronDown size={12} className="hidden group-data-[panel-open]:block" />
             <ChevronRight size={12} className="block group-data-[panel-open]:hidden" />
@@ -373,10 +372,10 @@ function PageHeaderActions({
   isDark: boolean
 }) {
   const btnClass = `rounded p-1 ${
-    isDark ? 'text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-700'
+    isDark ? 'text-[var(--surface-foreground-muted)] hover:bg-zinc-700 hover:text-[var(--surface-foreground)]' : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
   }`
   const deleteBtnClass = `rounded p-1 ${
-    isDark ? 'text-zinc-400 hover:bg-red-500/12 hover:text-red-400' : 'text-zinc-500 hover:bg-red-50 hover:text-red-600'
+    isDark ? 'text-[var(--surface-foreground-muted)] hover:bg-red-500/12 hover:text-red-400' : 'text-[var(--surface-foreground-muted)] hover:bg-red-50 hover:text-red-600'
   }`
 
   return (
@@ -419,7 +418,7 @@ function PageFavicon({
   }
 
   const Icon = viewportIcon(label, width)
-  return <Icon size={14} className="shrink-0 text-zinc-500" />
+  return <Icon size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
 }
 
 function viewportIcon(label?: string, width?: number) {
