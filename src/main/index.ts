@@ -59,7 +59,6 @@ import { initFileWatcher, teardownAllFileWatchers } from './runtime/local-file-w
 import {
   breadcrumb,
   identifyInstall,
-  isSentryEnabled,
   setTag,
   setWorkspaceSource,
 } from './sentry-context'
@@ -72,12 +71,7 @@ app.setName('Specular')
 // run before the local crashReporter.start() call below.
 initSentry()
 
-// Starting a second Crashpad handler on macOS makes it fight for the mach
-// exception port and respawn-crash in a loop, so only start ours when Sentry
-// did not already start one.
-if (!isSentryEnabled()) {
-  crashReporter.start({ submitURL: '', uploadToServer: false, ignoreSystemCrashHandler: false })
-}
+crashReporter.start({ submitURL: '', uploadToServer: false, ignoreSystemCrashHandler: false })
 
 process.on('uncaughtException', (err) => logCrash('uncaughtException', err))
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason))
