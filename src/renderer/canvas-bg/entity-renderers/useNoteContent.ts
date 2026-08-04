@@ -3,6 +3,9 @@ import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { useDebouncedWrite } from '../../shared/useDebouncedWrite'
 import { getFileApi } from './filePathToSrc'
 
+/** Surfaced in place of the note body when the file can't be read from disk. */
+const LOAD_ERROR = 'This note’s file could not be read.'
+
 /**
  * Owns a markdown note's content lifecycle: initial disk load, Y.Doc-driven
  * (undo/redo) reflection, debounced writes, and focus tracking. The `.md` file
@@ -55,7 +58,7 @@ export function useNoteContent(
         .then((text) => {
           if (cancelled) return
           if (text === null) {
-            setLoadError('This note’s file could not be read.')
+            setLoadError(LOAD_ERROR)
             return
           }
           setLoadError(null)
@@ -64,7 +67,7 @@ export function useNoteContent(
         })
         .catch(() => {
           if (cancelled) return
-          setLoadError('This note’s file could not be read.')
+          setLoadError(LOAD_ERROR)
         })
     }
     if (!dirtyRef.current) fetchContent()

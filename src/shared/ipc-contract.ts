@@ -342,7 +342,6 @@ export interface IpcContract {
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'read-note-file': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
-  'read-note-file': { dir: 'invoke'; payload: unknown }
   'zoom-changed': { dir: 'main→renderer'; payload: number }
   'zoom-in': { dir: 'renderer→main'; payload: unknown }
   'zoom-out': { dir: 'renderer→main'; payload: unknown }
@@ -658,7 +657,6 @@ export const ipcChannels = {
   toolbarTooltipOpen: 'toolbar-tooltip-open',
   viewportNudge: 'viewport-nudge',
   writeNoteFile: 'write-note-file',
-  readNoteFile: 'read-note-file',
   zoomChanged: 'zoom-changed',
   zoomIn: 'zoom-in',
   zoomOut: 'zoom-out',

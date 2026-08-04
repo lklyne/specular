@@ -6,18 +6,12 @@
 // consumer reads `focusSession()`; every exit funnels through
 // `endFocusSession(reason)` so "what ends focus" is one auditable list.
 
-import type { FocusPresentationMode } from '../../shared/types'
-
-/**
- * What the session frames. A page target is the classic browser-style focus; a
- * file target is a note (or other fillFocus-claiming renderer) blown up to the
- * viewport. Page-specific consumers read `focusedPageId()` so they no-op
- * cleanly during a file session.
- */
-export type FocusSessionTarget = { kind: 'page' | 'file'; id: string }
+import type { FocusPresentationMode, FocusTarget } from '../../shared/types'
 
 export interface FocusSession {
-  target: FocusSessionTarget
+  /** Page-specific consumers read `focusedPageId()` so they no-op cleanly
+   *  during a file session. */
+  target: FocusTarget
   mode: FocusPresentationMode
   /**
    * Are annotations (stickies/text/shapes/drawings/edges) shown over the

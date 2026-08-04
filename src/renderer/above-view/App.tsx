@@ -626,8 +626,21 @@ export default function App({
   // latches it on (ADR 0021). Binary show/hide, never a dim.
   const hideContext = focus.active && !focus.showsContext
   // A file-target session frames a note: FocusedNoteLayer draws it fullscreen,
-  // so its canvas card and its selection chrome are suppressed by id.
-  const focusedNoteId = focus.target?.kind === 'file' ? focus.target.id : null
+  // so its canvas card and its selection chrome are suppressed by id. Resolved
+  // once here — the fullscreen layer and the focus bar both need the entity, and
+  // a session whose note has gone missing resolves to null so both fall back to
+  // ordinary selection behavior.
+  const focusedNoteId = focus.fileId
+  const focusedNoteEntity = useMemo(
+    () =>
+      focusedNoteId === null
+        ? null
+        : (layoutData.entities.find(
+            (candidate): candidate is CanvasSceneFileEntity =>
+              candidate.kind === 'file' && candidate.id === focusedNoteId,
+          ) ?? null),
+    [focusedNoteId, layoutData.entities],
+  )
   const pointerOwnerState = {
     toolKind: layoutData.activeTool.kind,
     pendingPlacement: Boolean(layoutData.pendingPlacement),
@@ -794,18 +807,17 @@ export default function App({
   const routeWheel = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
-      const focus = focusContext(layout)
       // A note session: the card is overlay UI, so a wheel over it never
       // reaches here (blocksViewportGesture bails first) and scrolls the editor
       // natively. Anything that does reach here is off the card — swallow it,
       // because panning is a camera-change and would end the session. Checked
       // before the idle guard: the session auto-enters inline editing, so the
       // interaction is 'editing-entity' throughout.
-      if (focus.target?.kind === 'file') return true
+      if (layout.focusPresentation?.target.kind === 'file') return true
       if (layout.interaction.kind !== 'idle') return false
       // In focus presentation the page isn't single-selected, but the wheel
       // should still scroll it instead of panning (which would exit focus).
-      const focusedPageId = focus.pageId
+      const focusedPageId = focusContext(layout).pageId
       const selected = layout.selectedEntityIds
       const pageId = focusedPageId ?? (selected.length === 1 ? selected[0] : null)
       if (!pageId) return false
@@ -1006,6 +1018,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     selectedGroup: selectedGroupEntity,
     textPopupReady,
     filePopupReady,
+    focusedNoteEntity,
     beginSelectionAnnotation,
   }
 
@@ -1278,9 +1291,10 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           The pan translate is identity here (pan is blocked during a session),
           so the layer is still effectively screen-fixed. Renders in capture
           mode too: the note is content, not chrome. */}
-      {focusedNoteId ? (
+      {focusedNoteEntity ? (
         <FocusedNoteLayer
           layout={layoutData}
+          entity={focusedNoteEntity}
           isDark={isDark}
           editingEntityId={editingEntityId}
           onExitFocus={api.restoreFocusCamera}

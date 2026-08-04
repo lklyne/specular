@@ -442,7 +442,6 @@ function buildFocusPresentationData(
     const file = fileEntities.find((entity) => entity.id === focus.target.id)
     if (!file) return null
     return {
-      pageId: null,
       target: focus.target,
       mode: focus.mode,
       authoredLabel: 'Note',
@@ -460,7 +459,6 @@ function buildFocusPresentationData(
   const preset = viewportPresetForIndex(page.presetIndex)
   const authoredLabel = pageUsesCustomSize(page.metadata) ? 'Custom' : preset.label
   return {
-    pageId: page.id,
     target: focus.target,
     mode: focus.mode,
     authoredLabel,

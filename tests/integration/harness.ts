@@ -189,10 +189,9 @@ function writeFixtureToDisk(fixture: CanvasFixture): void {
   const name = fixture.name?.trim() || 'Fixture'
   const tabId = 'fixture-tab'
   // The fixture's meta replaces the whole index, so the previous test's
-  // .canvas files have to go with it. A real space is never in the state
-  // "files on disk that the index doesn't know about" — it loads from the
-  // index it wrote — and leaving them behind here makes every test inherit
-  // its predecessors' canvases.
+  // .canvas files have to go with it: loading a space adopts every .canvas
+  // file it finds there, so leaving them behind makes each test inherit its
+  // predecessors' canvases as extra tabs.
   if (existsSync(spaceDir())) {
     for (const entry of readdirSync(spaceDir())) {
       if (entry.endsWith('.canvas')) rmSync(join(spaceDir(), entry), { force: true })

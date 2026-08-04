@@ -110,8 +110,8 @@ describe('tab file identity', () => {
     expect(doc).toBeTruthy()
     writeFileSync(legacyPath, JSON.stringify(doc), 'utf8')
     // The legacy file is the only canvas this space has; the id-suffixed one
-    // it was copied from would otherwise be adopted into the index alongside
-    // it (writeSpaceMetaSync never drops a canvas that exists on disk).
+    // it was copied from would otherwise load as a second tab beside it
+    // (loading a space adopts every .canvas file the index doesn't list).
     rmSync(tabFile(activeSpaceTabId), { force: true })
     writeSpaceMetaSync(spaceDir(), {
       activeTabId: tabId,

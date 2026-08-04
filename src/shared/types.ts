@@ -167,12 +167,15 @@ export interface CanvasScenePageEntity {
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
 
+/**
+ * What a focus session frames. A page target is the classic browser-style
+ * focus; a file target is a note (or other fillFocus-claiming renderer) blown
+ * up to the viewport.
+ */
+export type FocusTarget = { kind: 'page'; id: string } | { kind: 'file'; id: string }
+
 export interface FocusPresentationData {
-  /** The focused page id, or null when the session frames a file entity.
-   *  Page consumers key off this and must no-op when it's null. */
-  pageId: string | null
-  /** What the session frames. `file` is a note blown up to the viewport. */
-  target: { kind: 'page' | 'file'; id: string }
+  target: FocusTarget
   mode: FocusPresentationMode
   authoredLabel: string
   authoredWidth: number
@@ -255,9 +258,6 @@ export interface CanvasSceneFileEntity {
    *  click selects, a second click enters interactivity so pointer/scroll
    *  reach the content. Undefined → treated as `false`. */
   rendererInteractive?: boolean
-  /** Whether the resolved renderer supports a fullscreen 'fill' focus session
-   *  (markdown notes today). Undefined → treated as `false`. */
-  rendererFillFocus?: boolean
   /**
    * For component file entities: whether some connected repo claims this
    * file (i.e. resolveUrl will succeed). The renderer suppresses the

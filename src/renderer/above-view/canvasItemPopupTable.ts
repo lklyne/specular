@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import type {
   CanvasSceneEntity,
+  CanvasSceneFileEntity,
   CanvasSceneGroupEntity,
   LayoutUpdateData,
 } from '../../shared/types'
@@ -63,6 +64,9 @@ export type PopupContext = {
   selectedGroup: CanvasSceneGroupEntity | null
   textPopupReady: boolean
   filePopupReady: boolean
+  /** The note framed by a file-target focus session, resolved once by App;
+   *  null outside such a session or when its entity has gone missing. */
+  focusedNoteEntity: CanvasSceneFileEntity | null
   /** Opens the region composer pre-anchored to a selection's union bounds
    *  (see useAnnotationDraftState.beginSelectionAnnotation). Every popup's
    *  Annotate button forwards to the same renderer-local handoff. */
@@ -159,6 +163,7 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
       layout: ctx.layout,
       selectedFiles: sameKindEntities(ctx.sameKindSelection, 'file'),
       popupReady: ctx.filePopupReady,
+      focusedNoteEntity: ctx.focusedNoteEntity,
       onAnnotate: ctx.beginSelectionAnnotation,
     }),
     focusTargetKindIs('file'),

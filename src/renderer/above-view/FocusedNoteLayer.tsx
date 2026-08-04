@@ -23,7 +23,13 @@ import {
   CAMERA_SPRING_CSS_EASING,
   DEFAULT_CAMERA_TRANSITION_DURATION_MS,
 } from '../../shared/camera-transition'
-import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/coords'
+import {
+  canvasToScreenX,
+  canvasToScreenY,
+  toOverlayY,
+  type ScreenRect,
+} from '../../shared/coords'
+import { DRAG_THRESHOLD } from '../../shared/gesture-utils'
 import { focusContext } from '../../shared/focus-context'
 import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
 import { RendererSwitch } from '../canvas-bg/entity-renderers/RendererSwitch'
@@ -41,8 +47,6 @@ const FOCUSED_NOTE_PADDING = '36px'
 /** Vertical gap between the card and the focus bar above / window edge below. */
 const FOCUSED_NOTE_Y_MARGIN = 16
 
-type Rect = { left: number; top: number; width: number; height: number }
-
 /**
  * The fixed card geometry, in overlay-local coords (y=0 is the toolbar's bottom
  * edge — the aboveView WCV starts at `canvasOrigin.y`).
@@ -53,7 +57,7 @@ type Rect = { left: number; top: number; width: number; height: number }
  * The card itself floats FOCUSED_NOTE_Y_MARGIN below the bar and above the
  * window's bottom edge.
  */
-function focusedNoteGeometry(layout: LayoutUpdateData): { span: Rect; card: Rect } {
+function focusedNoteGeometry(layout: LayoutUpdateData): { span: ScreenRect; card: ScreenRect } {
   const left = layout.leftChromeWidth
   const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
   const right = Math.max(left, layout.windowWidth - rightInset)
@@ -78,7 +82,7 @@ function focusedNoteGeometry(layout: LayoutUpdateData): { span: Rect; card: Rect
 }
 
 /** Where the note's ordinary canvas card sits right now, in overlay coords. */
-function liveEntityRect(layout: LayoutUpdateData, entity: CanvasSceneFileEntity): Rect {
+function liveEntityRect(layout: LayoutUpdateData, entity: CanvasSceneFileEntity): ScreenRect {
   return {
     left: canvasToScreenX(layout, entity.canvasX),
     top: toOverlayY(layout, canvasToScreenY(layout, entity.canvasY)),
@@ -117,19 +121,16 @@ function useFocusedNoteEnterMorph({
 }: {
   cardRef: React.RefObject<HTMLDivElement | null>
   backdropRef: React.RefObject<HTMLDivElement | null>
-  from: Rect
-  to: Rect
+  from: ScreenRect
+  to: ScreenRect
   cameraTransitionStartedAt: number | null
 }) {
   // Read at mount only — later renders must not restart the morph.
-  const fromRef = useRef(from)
-  const toRef = useRef(to)
-  const startedAtRef = useRef(cameraTransitionStartedAt)
+  const mountRef = useRef({ from, to, startedAt: cameraTransitionStartedAt })
   useLayoutEffect(() => {
     const card = cardRef.current
     if (!card) return
-    const start = fromRef.current
-    const end = toRef.current
+    const { from: start, to: end, startedAt } = mountRef.current
     const timing = {
       duration: DEFAULT_CAMERA_TRANSITION_DURATION_MS,
       easing: CAMERA_SPRING_CSS_EASING,
@@ -152,7 +153,6 @@ function useFocusedNoteEnterMorph({
     if (backdrop) {
       animations.push(backdrop.animate([{ opacity: 0 }, { opacity: 1 }], timing))
     }
-    const startedAt = startedAtRef.current
     if (startedAt !== null) {
       const elapsed = Math.min(
         DEFAULT_CAMERA_TRANSITION_DURATION_MS,
@@ -168,6 +168,7 @@ function useFocusedNoteEnterMorph({
 
 export function FocusedNoteLayer({
   layout,
+  entity,
   isDark,
   editingEntityId,
   onExitFocus,
@@ -175,6 +176,9 @@ export function FocusedNoteLayer({
   onOpenLink,
 }: {
   layout: LayoutUpdateData
+  /** The focused note, resolved by the mount site — which also mounts this layer
+   *  only while a file-target session frames a live entity. */
+  entity: CanvasSceneFileEntity
   isDark: boolean
   /** id of the entity in inline-edit mode; drives the editor's `canEdit`. */
   editingEntityId: string | null
@@ -191,25 +195,16 @@ export function FocusedNoteLayer({
   // the router's `!dragged` guard on its own focus-exit branch.
   const pressRef = useRef<{ x: number; y: number } | null>(null)
   const focus = focusContext(layout)
-  const targetId = focus.target?.kind === 'file' ? focus.target.id : null
-  const entity =
-    targetId === null
-      ? null
-      : (layout.entities.find(
-          (candidate): candidate is CanvasSceneFileEntity =>
-            candidate.kind === 'file' && candidate.id === targetId,
-        ) ?? null)
   const { span, card } = focusedNoteGeometry(layout)
   // The live rect is overlay-absolute; card coords are span-relative.
-  const live = entity ? liveEntityRect(layout, entity) : null
+  const live = liveEntityRect(layout, entity)
   useFocusedNoteEnterMorph({
     cardRef,
     backdropRef,
-    from: live ? { ...live, left: live.left - span.left } : card,
+    from: { ...live, left: live.left - span.left },
     to: card,
     cameraTransitionStartedAt: layout.cameraTransitionStartedAt,
   })
-  if (!entity) return null
 
   const surface = fileCardSurface(isDark)
   return (
@@ -242,7 +237,7 @@ export function FocusedNoteLayer({
           const press = pressRef.current
           pressRef.current = null
           if (!press) return
-          if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > 4) return
+          if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG_THRESHOLD) return
           onExitFocus()
         }}
       />

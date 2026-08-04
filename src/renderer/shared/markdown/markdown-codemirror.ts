@@ -70,7 +70,7 @@ const stickyHighlightStyle = HighlightStyle.define([
  * scroller can span the full card.
  *
  * Surfaces that pad outside the editor (sticky notes size their shell to the
- * measured content column) pass the default '0' and keep their own layout.
+ * measured content column) pass '0' and keep their own layout.
  */
 function buildEditorTheme(isDark: boolean, contentPadding: string): Extension {
   return EditorView.theme(
@@ -103,7 +103,7 @@ export function reconfigureTheme(
   view: EditorView,
   compartment: Compartment,
   isDark: boolean,
-  contentPadding = '0',
+  contentPadding: string,
 ) {
   view.dispatch({
     effects: compartment.reconfigure(buildEditorTheme(isDark, contentPadding)),
@@ -116,6 +116,8 @@ function markdownLanguageExtension(): Extension {
   return markdown({ base: markdownLanguage, addKeymap: false })
 }
 
+type EditorStackOptions = { lineWrap?: boolean; contentPadding: string }
+
 /**
  * Shared assembly tail for both editor variants: the variant's stack
  * (keymaps, language, styling), then optional line wrapping and the theme
@@ -124,43 +126,44 @@ function markdownLanguageExtension(): Extension {
  * keyboard handler and text and canvas edits share one unified undo stack.
  */
 function assembleEditorStack(
-  isDark: boolean,
-  lineWrap: boolean,
-  contentPadding: string,
-  stack: Extension[],
+  options: EditorStackOptions & { isDark: boolean; stack: Extension[] },
 ): {
   extensions: Extension[]
   themeCompartment: Compartment
 } {
   const themeCompartment = new Compartment()
-  const extensions = [...stack]
+  const extensions = [...options.stack]
   // When wrap is off (auto-width plain text), the editor's container shrinks
   // to fit each line's natural width instead of forcing single-character wrap.
-  if (lineWrap) extensions.push(EditorView.lineWrapping)
-  extensions.push(themeCompartment.of(buildEditorTheme(isDark, contentPadding)))
+  if (options.lineWrap ?? true) extensions.push(EditorView.lineWrapping)
+  extensions.push(themeCompartment.of(buildEditorTheme(options.isDark, options.contentPadding)))
   return { extensions, themeCompartment }
 }
 
 export function createMarkdownExtensions(
   isDark: boolean,
-  options: { lineWrap?: boolean; contentPadding?: string } = {},
+  options: EditorStackOptions,
 ): {
   extensions: Extension[]
   themeCompartment: Compartment
 } {
-  return assembleEditorStack(isDark, options.lineWrap ?? true, options.contentPadding ?? '0', [
-    // Cmd+B / Cmd+I / Cmd+K etc.
-    keymap.of(markdownFormattingKeymap),
-    // Enter continues the current list/quote markup, Backspace peels one level
-    // off. Bound here rather than via markdown()'s `addKeymap` so it outranks
-    // defaultKeymap's plain-newline Enter.
-    keymap.of(markdownKeymap),
-    keymap.of(defaultKeymap),
-    markdownLanguageExtension(),
-    syntaxHighlighting(markdownHighlightStyle),
-    markdownLivePreview(FULL_LIVE_PREVIEW),
-    smartPasteExtension(),
-  ])
+  return assembleEditorStack({
+    ...options,
+    isDark,
+    stack: [
+      // Cmd+B / Cmd+I / Cmd+K etc.
+      keymap.of(markdownFormattingKeymap),
+      // Enter continues the current list/quote markup, Backspace peels one
+      // level off. Bound here rather than via markdown()'s `addKeymap` so it
+      // outranks defaultKeymap's plain-newline Enter.
+      keymap.of(markdownKeymap),
+      keymap.of(defaultKeymap),
+      markdownLanguageExtension(),
+      syntaxHighlighting(markdownHighlightStyle),
+      markdownLivePreview(FULL_LIVE_PREVIEW),
+      smartPasteExtension(),
+    ],
+  })
 }
 
 /**
@@ -174,22 +177,26 @@ export function createMarkdownExtensions(
  */
 export function createStickyTextExtensions(
   isDark: boolean,
-  options: { lineWrap?: boolean; contentPadding?: string } = {},
+  options: EditorStackOptions,
 ): {
   extensions: Extension[]
   themeCompartment: Compartment
 } {
-  return assembleEditorStack(isDark, options.lineWrap ?? true, options.contentPadding ?? '0', [
-    // Order matters: each keymap's Backspace/Enter binding falls through
-    // (returns false) to the next when it doesn't apply, so mark-unwrap
-    // outranks bullet-prefix strip outranks plain formatting outranks
-    // CodeMirror's default character deletion / newline.
-    keymap.of(stickyDeleteKeymap),
-    keymap.of(stickyListKeymap),
-    keymap.of(stickyFormattingKeymap),
-    keymap.of(defaultKeymap),
-    markdownLanguageExtension(),
-    syntaxHighlighting(stickyHighlightStyle),
-    markdownLivePreview(STICKY_LIVE_PREVIEW),
-  ])
+  return assembleEditorStack({
+    ...options,
+    isDark,
+    stack: [
+      // Order matters: each keymap's Backspace/Enter binding falls through
+      // (returns false) to the next when it doesn't apply, so mark-unwrap
+      // outranks bullet-prefix strip outranks plain formatting outranks
+      // CodeMirror's default character deletion / newline.
+      keymap.of(stickyDeleteKeymap),
+      keymap.of(stickyListKeymap),
+      keymap.of(stickyFormattingKeymap),
+      keymap.of(defaultKeymap),
+      markdownLanguageExtension(),
+      syntaxHighlighting(stickyHighlightStyle),
+      markdownLivePreview(STICKY_LIVE_PREVIEW),
+    ],
+  })
 }

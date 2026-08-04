@@ -62,6 +62,7 @@ function FileBodyCard({
   // Bare entities (images, device-framed pages) show no card: transparent
   // background, no shadow, square corners.
   const isChromeless = entity.rendererTag === 'image' || entity.showDeviceFrame
+  const surface = fileCardSurface(isDark)
 
   const menuPopupClass = `z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
     isDark
@@ -82,8 +83,8 @@ function FileBodyCard({
       style={{
         width: entity.width,
         height: entity.height,
-        background: isChromeless ? 'transparent' : fileCardSurface(isDark).background,
-        boxShadow: isChromeless ? undefined : fileCardSurface(isDark).boxShadow,
+        background: isChromeless ? 'transparent' : surface.background,
+        boxShadow: isChromeless ? undefined : surface.boxShadow,
         overflow: isSelected ? 'visible' : 'hidden',
         borderRadius: isChromeless ? 0 : 4,
       }}

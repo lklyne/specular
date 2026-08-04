@@ -22,6 +22,7 @@ import {
   repointFocusSession,
   setFocusSessionMode,
   setFocusAnnotationsVisible as setSessionAnnotationsVisible,
+  type FocusExitReason,
   type FocusSession,
 } from './focus-session'
 import {
@@ -124,15 +125,22 @@ function endFocusOnCameraChange(): void {
   if (suppressFocusReturnClear) return
   if (!isFocusSessionActive()) return
   if (isWorkingTool(uiActiveTool())) return
-  commitEditIfSessionFile(endFocusSession('camera-change'))
+  exitFocusSession('camera-change')
+}
+
+// The single teardown path for leaving a focus session: end it, close the note
+// editor the session opened, and drop page interactivity back to selected-only.
+// Every exit needs all three, so they live together here.
+function exitFocusSession(reason: FocusExitReason): void {
+  commitEditIfSessionFile(endFocusSession(reason))
   syncInteractiveToFocus()
 }
 
 // A file-target session hands the note to the inline markdown editor on entry;
 // leaving the session has to close that editor so the edit lands in the doc.
-function commitEditIfSessionFile(ended: FocusSession | null): void {
-  if (ended?.target.kind !== 'file') return
-  if (currentEditingEntityId() !== ended.target.id) return
+function commitEditIfSessionFile(session: FocusSession | null): void {
+  if (session?.target.kind !== 'file') return
+  if (currentEditingEntityId() !== session.target.id) return
   commitEditingEntity()
 }
 
@@ -166,8 +174,7 @@ const FOCUS_EXIT_ZOOM_OUT = 0.85
 export function restoreFocusCamera(): boolean {
   // The graceful, camera-restoring exit (X button / Escape / dimmed-click).
   if (!focusSession()) return false
-  commitEditIfSessionFile(endFocusSession('dismiss'))
-  syncInteractiveToFocus()
+  exitFocusSession('dismiss')
   // Keep the current camera position; zoom out slightly, anchored on the
   // viewport center so the focused content stays put as we pull back.
   const viewport = availableCanvasViewportRect()
@@ -368,7 +375,7 @@ function resolveEntityBounds(entityId: string): WorkspaceBounds | null {
   const page = pages.find((p) => p.id === entityId)
   if (page) {
     const focus = focusSession()
-    return focus && focusedPageId() === page.id
+    return focus?.target.kind === 'page' && focus.target.id === page.id
       ? focusPageBounds(page.id, focus.mode)
       : pageVisualBoundsForContentSize(page, effectivePageContentSize(page))
   }
@@ -418,12 +425,6 @@ function focusPageBounds(pageId: string, mode: FocusPresentationMode): Workspace
   return pageVisualBoundsForContentSize(page, size)
 }
 
-function fileEntityBounds(fileId: string): WorkspaceBounds | null {
-  const file = fileEntities.find((entity) => entity.id === fileId)
-  if (!file) return null
-  return { x: file.canvasX, y: file.canvasY, width: file.width, height: file.height }
-}
-
 export function setFocusPresentationMode(mode: FocusPresentationMode): boolean {
   const current = focusSession()
   if (!current) return false
@@ -460,7 +461,7 @@ export function refocusActiveSession(pageId: string, options?: { animate?: boole
   const current = focusSession()
   if (!current) return false
   if (!pages.some((page) => page.id === pageId)) return false
-  commitEditIfSessionFile(current.target.kind === 'file' ? current : null)
+  commitEditIfSessionFile(current)
   repointFocusSession(pageId)
   return recenterFocusPresentation(pageId, options)
 }
@@ -474,7 +475,7 @@ export function recenterFocusPresentation(
   if (pageId && (current.target.kind !== 'page' || current.target.id !== pageId)) return false
   const isFile = current.target.kind === 'file'
   const bounds = isFile
-    ? fileEntityBounds(current.target.id)
+    ? resolveEntityBounds(current.target.id)
     : focusPageBounds(current.target.id, current.mode)
   if (!bounds) return false
   const viewport = availableCanvasViewportRect()
@@ -539,7 +540,7 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
       annotationsVisible: false,
     })
   } else {
-    commitEditIfSessionFile(endFocusSession('re-focus'))
+    exitFocusSession('re-focus')
   }
   syncInteractiveToFocus()
 

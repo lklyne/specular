@@ -35,12 +35,13 @@
  *    new space" fails because the doc still carries the previous space's
  *    entities and tab list.
  *  - dropping the `adoptUnreferencedCanvasFiles` merge in
- *    `writeSpaceMetaSync` — "a meta write never orphans a .canvas file"
- *    fails because the stranded canvas disappears from the index (this is
- *    the regression that cost a real user their tab list: a space change
- *    left the runtime holding another space's tabs, and the next autosave
- *    wrote that list over the destination's index, orphaning 15 canvases
- *    that were still sitting on disk).
+ *    `loadSpaceFromCanvasFiles` — "opening a space picks up a .canvas file
+ *    its index never listed" fails because the stranded canvas never becomes
+ *    a tab and the next autosave writes the index over it (this is the
+ *    regression that cost a real user their tab list: a space change left
+ *    the runtime holding another space's tabs, and the next autosave wrote
+ *    that list over the destination's index, orphaning 15 canvases that were
+ *    still sitting on disk).
  */
 
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs'
@@ -178,18 +179,22 @@ describe('reopening a space', () => {
     expect(readSpaceMeta(spaceB)?.tabs.map((tab) => tab.id)).toEqual(bTabIds)
   })
 
-  it('a meta write never orphans a .canvas file the space already has', () => {
+  it('opening a space picks up a .canvas file its index never listed, so the next save cannot orphan it', () => {
     const space = freshSpaceDir()
     reopenSpaceAt(space, reloadWorkspaceDataFromCurrentSpace)
     createTextEntity({ canvasX: 0, canvasY: 0, text: 'one tab' })
     harness.flush()
 
-    // A canvas this runtime knows nothing about — the shape left behind by
-    // any drift between the in-memory tab list and the space on disk. The
-    // user's loss came from exactly this: a tab list belonging to another
-    // space, written over an index whose canvases were all still on disk.
+    // A canvas the index knows nothing about — the shape left behind by any
+    // drift between the tab list and the space on disk. The user's loss came
+    // from exactly this: a tab list belonging to another space, written over
+    // an index whose canvases were all still on disk.
     const strandedName = 'Stranded-abcd.canvas'
     writeCanvasFileSync(join(space, strandedName), { nodes: [], edges: [] })
+
+    // Opening the space is where the index is reconciled with the folder.
+    reopenSpaceAt(space, reloadWorkspaceDataFromCurrentSpace)
+    expect(spaceTabs.map((tab) => tab.name)).toContain('Stranded')
 
     createTextEntity({ canvasX: 5, canvasY: 5, text: 'later edit' })
     harness.flush()

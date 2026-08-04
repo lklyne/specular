@@ -171,25 +171,26 @@ export function buildFileEntitySceneEntity(
   }
 }
 
+function claimForFileEntity(entity: FileEntity) {
+  return pickRenderer(persistFileEntity(entity))
+}
+
 function rendererSceneFields(entity: FileEntity): {
   rendererTag: CanvasSceneFileEntity['rendererTag']
   rendererEditable: CanvasSceneFileEntity['rendererEditable']
   rendererInteractive: CanvasSceneFileEntity['rendererInteractive']
-  rendererFillFocus: boolean
   componentHasRepo: CanvasSceneFileEntity['componentHasRepo']
   componentInferredRepoPath: CanvasSceneFileEntity['componentInferredRepoPath']
 } {
-  const claim = pickRenderer(persistFileEntity(entity))
+  const claim = claimForFileEntity(entity)
   const tag = claim?.rendererTag ?? undefined
   const rendererEditable = claim?.editable ?? false
   const rendererInteractive = claim?.interactive ?? false
-  const rendererFillFocus = rendererClaimsFillFocus(claim)
   if (tag !== 'component') {
     return {
       rendererTag: tag,
       rendererEditable,
       rendererInteractive,
-      rendererFillFocus,
       componentHasRepo: undefined,
       componentInferredRepoPath: undefined,
     }
@@ -199,7 +200,6 @@ function rendererSceneFields(entity: FileEntity): {
     rendererTag: tag,
     rendererEditable,
     rendererInteractive,
-    rendererFillFocus,
     componentHasRepo: hasRepo,
     componentInferredRepoPath: hasRepo ? undefined : inferRepoRoot(entity.file),
   }
@@ -209,7 +209,7 @@ function rendererSceneFields(entity: FileEntity): {
 export function fileEntitySupportsFillFocus(id: string): boolean {
   const entity = fileEntities.find((candidate) => candidate.id === id)
   if (!entity) return false
-  return rendererClaimsFillFocus(pickRenderer(persistFileEntity(entity)))
+  return rendererClaimsFillFocus(claimForFileEntity(entity))
 }
 
 /**

@@ -28,11 +28,8 @@ import {
 } from './space-model'
 import {
   DOC_ALL_MAP_NAMES,
-  DOC_ARRAY_ENTITY_ORDER,
   getActiveDoc,
-  hydrateDocFromSnapshot,
-  setDocActiveTabId,
-  setDocTabList,
+  rewriteDocToSnapshot,
   withSuppressedDocSync,
 } from './space-doc'
 import { resetDocSync } from './space-observers'
@@ -231,19 +228,12 @@ function resetDocToCurrentSpace(): void {
   const doc = getActiveDoc()
   const activeTab = spaceTabs.find((tab) => tab.id === activeSpaceTabId)
   withSuppressedDocSync(() => {
-    doc.transact(() => {
-      for (const name of DOC_ALL_MAP_NAMES) {
-        const map = doc.getMap(name)
-        for (const key of [...map.keys()]) map.delete(key)
-      }
-      const order = doc.getArray(DOC_ARRAY_ENTITY_ORDER)
-      if (order.length) order.delete(0, order.length)
-      if (activeTab) {
-        hydrateDocFromSnapshot(doc, activeTab.snapshot)
-        setDocActiveTabId(doc, activeTab.id)
-        setDocTabList(doc, spaceTabs.map((tab) => ({ id: tab.id, name: tab.name })))
-      }
-    }, 'space-reopen')
+    rewriteDocToSnapshot(doc, {
+      mapNames: DOC_ALL_MAP_NAMES,
+      origin: 'space-reopen',
+      tab: activeTab ? { id: activeTab.id, snapshot: activeTab.snapshot } : null,
+      tabs: spaceTabs.map((tab) => ({ id: tab.id, name: tab.name })),
+    })
   })
   // Drops the previous space's note mirror, which is keyed by entity id and
   // would otherwise be projected back to disk under the new root.

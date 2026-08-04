@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
+import { focusContext } from '../../shared/focus-context'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -79,10 +80,11 @@ export function PagePopup({
   // selection — draw/placement tools clear or reassign selection mid-session,
   // but the focus bar must stay pinned. Outside focus it's a normal
   // single-page selection popup.
-  const focusedPageEntity = layout.focusPresentation
+  const focusedPageId = focusContext(layout).pageId
+  const focusedPageEntity = focusedPageId
     ? (layout.entities.find(
         (entity): entity is CanvasScenePageEntity =>
-          entity.kind === 'page' && entity.id === layout.focusPresentation!.pageId,
+          entity.kind === 'page' && entity.id === focusedPageId,
       ) ?? null)
     : null
 
@@ -129,9 +131,7 @@ export function PagePopup({
   }, [sharedUrl, draftUrl])
 
   const focusPresentation =
-    single && layout.focusPresentation?.pageId === single.id
-      ? layout.focusPresentation
-      : null
+    single && focusedPageId === single.id ? layout.focusPresentation : null
   const focusMode = focusPresentation?.mode ?? null
   useEffect(() => {
     if (focusMode !== 'device') {

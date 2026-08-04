@@ -18,7 +18,7 @@ import { CUSTOM_SHELL_INSETS, shellInsetsForDevice, sizeForOrientation } from '.
 import { win } from './view-refs'
 import { layoutCache } from './layout-cache'
 import { pages, pan, zoom } from './runtime-context'
-import { focusSession, focusedPageId } from './focus-session'
+import { focusSession } from './focus-session'
 import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsWidth as uiDevtoolsWidth,
@@ -360,7 +360,7 @@ export function boundEffectivePageContentSize(
   page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'> & { id?: string },
 ): { width: number; height: number } {
   const focus = focusSession()
-  if (focus && page.id && focusedPageId() === page.id) {
+  if (page.id && focus?.target.kind === 'page' && focus.target.id === page.id) {
     const mode = focus.mode
     if (mode === 'fill') {
       const region = focusFillRegion()

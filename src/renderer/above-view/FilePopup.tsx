@@ -47,6 +47,7 @@ export function FilePopup({
   layout,
   selectedFiles,
   popupReady,
+  focusedNoteEntity,
   onAnnotate,
 }: {
   api: Pick<
@@ -61,32 +62,26 @@ export function FilePopup({
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
   popupReady: boolean
+  /** The note framed by a file-target focus session, or null. Non-null turns
+   *  this popup into the focus bar: it belongs to the focused note regardless of
+   *  selection, because draw/placement tools clear or reassign selection
+   *  mid-session and the bar must stay pinned. */
+  focusedNoteEntity: CanvasSceneFileEntity | null
   onAnnotate: AnnotateHandler
 }) {
-  // During a file-target focus session the bar belongs to the focused note
-  // regardless of selection — draw/placement tools clear or reassign selection
-  // mid-session, but the focus bar must stay pinned. Outside focus it's a normal
-  // file selection popup.
-  const fileSession =
-    layout.focusPresentation?.target.kind === 'file' ? layout.focusPresentation : null
-  const focusedFileEntity = fileSession
-    ? (layout.entities.find(
-        (entity): entity is CanvasSceneFileEntity =>
-          entity.kind === 'file' && entity.id === fileSession.target.id,
-      ) ?? null)
-    : null
-  // Only drive the focus bar once the target actually resolves; a session whose
-  // note has gone missing falls back to plain selection behavior.
-  const focusPresentation = focusedFileEntity ? fileSession : null
+  const focusBar =
+    focusedNoteEntity && layout.focusPresentation?.target.kind === 'file'
+      ? { entity: focusedNoteEntity, session: layout.focusPresentation }
+      : null
 
-  const count = focusedFileEntity ? 1 : selectedFiles.length
-  const ids = focusedFileEntity ? focusedFileEntity.id : selectedFiles.map((f) => f.id).join('|')
+  const count = focusBar ? 1 : selectedFiles.length
+  const ids = focusBar ? focusBar.entity.id : selectedFiles.map((f) => f.id).join('|')
   // The show-delay is for transient selections (rubber-band, rapid clicks). The
   // focus bar is deliberate chrome, so skip it while focused — the session
   // auto-enters editing, which takes interaction out of 'idle' and would
   // otherwise close the bar the moment the note is being typed in.
   const delayedOpen = usePopupDelayedKey(ids, popupReady && count > 0)
-  const open = focusedFileEntity != null || delayedOpen
+  const open = focusBar !== null || delayedOpen
 
   const [isRenaming, setIsRenaming] = useState(false)
   useEffect(() => {
@@ -95,7 +90,7 @@ export function FilePopup({
 
   if (count === 0) return null
   const isSingle = count === 1
-  const single = focusedFileEntity ?? (isSingle ? selectedFiles[0] : null)
+  const single = focusBar?.entity ?? (isSingle ? selectedFiles[0] : null)
   const entityIds = single ? [single.id] : selectedFiles.map((f) => f.id)
   const noun = isSingle ? 'file' : `${count} files`
 
@@ -107,15 +102,11 @@ export function FilePopup({
       // Pin to the viewport top only while focused; on leave, flip back to the
       // file-anchored placement immediately so the FLIP tween rides the camera
       // restore as one motion (durations match in restoreFocusCamera).
-      placement={focusPresentation ? 'viewport-top' : 'above'}
+      placement={focusBar ? 'viewport-top' : 'above'}
       align={isSingle ? 'stretch' : 'center'}
       offset={POPUP_OFFSET_Y}
     >
-      <CanvasItemPopup.Frame
-        isDark={isDark}
-        flush={focusPresentation !== null}
-        fullWidth={focusPresentation !== null}
-      >
+      <CanvasItemPopup.Frame isDark={isDark} flush={focusBar !== null} fullWidth={focusBar !== null}>
         {single ? (
           <>
             <CanvasItemPopup.Section grow>
@@ -140,21 +131,21 @@ export function FilePopup({
             ) : null}
           </>
         ) : null}
-        {focusPresentation ? (
+        {focusBar ? (
           // Focused: the eye and the exit are the whole action row. Arrange and
           // annotate act on a canvas selection, which the session doesn't have.
           <CanvasItemPopup.Section>
             <CanvasItemPopup.IconButton
               isDark={isDark}
-              title={focusPresentation.annotationsVisible ? 'Hide other items' : 'Show other items'}
+              title={focusBar.session.annotationsVisible ? 'Hide other items' : 'Show other items'}
               ariaLabel={
-                focusPresentation.annotationsVisible ? 'Hide other items' : 'Show other items'
+                focusBar.session.annotationsVisible ? 'Hide other items' : 'Show other items'
               }
               onClick={() =>
-                api.setFocusAnnotationsVisible(!focusPresentation.annotationsVisible)
+                api.setFocusAnnotationsVisible(!focusBar.session.annotationsVisible)
               }
             >
-              {focusPresentation.annotationsVisible ? <Eye size={14} /> : <EyeClosed size={14} />}
+              {focusBar.session.annotationsVisible ? <Eye size={14} /> : <EyeClosed size={14} />}
             </CanvasItemPopup.IconButton>
             <CanvasItemPopup.IconButton
               isDark={isDark}
