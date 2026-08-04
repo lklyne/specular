@@ -4,7 +4,7 @@ import { useEditorBridge } from '../../shared/markdown/text-editor-bridge'
 import { useNoteContent } from './useNoteContent'
 
 /** Reading padding on an ordinary canvas note card. */
-export const NOTE_CONTENT_PADDING = '12px'
+const NOTE_CONTENT_PADDING = '12px'
 
 export function MarkdownInlineRenderer({
   entity,

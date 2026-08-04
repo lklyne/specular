@@ -504,66 +504,84 @@ function unionBounds(boundsArr: WorkspaceBounds[]): WorkspaceBounds | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
+/** The session a selection elects, or null when the selection only warrants a
+ *  plain reveal (multi-select, an unsupported entity, or a caller that opted
+ *  out of session creation). */
+type ElectedFocusTarget =
+  | { kind: 'page'; id: string; mode: FocusPresentationMode }
+  | { kind: 'file'; id: string }
+
+function electFocusTarget(
+  targets: ReturnType<typeof uiSelectedCanvasTargets>,
+  allowSession: boolean,
+): ElectedFocusTarget | null {
+  if (!allowSession || targets.length !== 1) return null
+  const only = targets[0]!
+  if (only.kind === 'page') {
+    const page = pages.find((candidate) => candidate.id === only.id)
+    return page ? { kind: 'page', id: page.id, mode: defaultFocusPresentationMode(page) } : null
+  }
+  // A single note (or any renderer claiming fillFocus) gets the same session
+  // machinery as a page, always in 'fill'.
+  if (only.kind === 'file' && fileEntitySupportsFillFocus(only.id)) {
+    return { kind: 'file', id: only.id }
+  }
+  return null
+}
+
+function enterElectedFocus(elected: ElectedFocusTarget | null): void {
+  if (!elected) {
+    exitFocusSession('re-focus')
+  } else {
+    beginFocusSession({
+      target: { kind: elected.kind, id: elected.id },
+      mode: elected.kind === 'page' ? elected.mode : 'fill',
+      annotationsVisible: false,
+    })
+  }
+  syncInteractiveToFocus()
+}
+
+function collectEdgeEndpointBounds(edgeId: string, out: WorkspaceBounds[]): void {
+  const edge = workspaceEdges.find((e) => e.id === edgeId)
+  if (!edge) return
+  const fromBounds = resolveEntityBounds(edge.fromEntityId)
+  const toBounds = resolveEntityBounds(edge.toEntityId)
+  if (fromBounds) out.push(fromBounds)
+  if (toBounds) out.push(toBounds)
+}
+
+/** Bounds the camera has to frame: every selected entity, plus both endpoints
+ *  of every selected edge (an edge has no bounds of its own). */
+function selectionFrameBounds(
+  targets: ReturnType<typeof uiSelectedCanvasTargets>,
+): WorkspaceBounds | null {
+  const allBounds: WorkspaceBounds[] = []
+  for (const { id, kind } of targets) {
+    if (kind === 'edge') {
+      collectEdgeEndpointBounds(id, allBounds)
+      continue
+    }
+    const bounds = resolveEntityBounds(id)
+    if (bounds) allBounds.push(bounds)
+  }
+  return unionBounds(allBounds)
+}
+
 export function focusSelection(options?: { storeReturnCamera?: boolean; animate?: boolean }): boolean {
   if (!win) return false
   const targets = uiSelectedCanvasTargets()
   if (!targets.length) return false
 
   const shouldCreateFocusSession = options?.storeReturnCamera !== false
-  const singlePageTarget =
-    targets.length === 1 && targets[0]?.kind === 'page'
-      ? pages.find((page) => page.id === targets[0]!.id) ?? null
-      : null
-  // A single note (or any renderer claiming fillFocus) gets the same session
-  // machinery as a page, always in 'fill'.
-  const singleFillFocusFileId =
-    !singlePageTarget &&
-    shouldCreateFocusSession &&
-    targets.length === 1 &&
-    targets[0]?.kind === 'file' &&
-    fileEntitySupportsFillFocus(targets[0].id)
-      ? targets[0].id
-      : null
-  const focusMode = singlePageTarget && shouldCreateFocusSession
-    ? defaultFocusPresentationMode(singlePageTarget)
-    : null
-  if (singlePageTarget && focusMode) {
-    beginFocusSession({
-      target: { kind: 'page', id: singlePageTarget.id },
-      mode: focusMode,
-      annotationsVisible: false,
-    })
-  } else if (singleFillFocusFileId) {
-    beginFocusSession({
-      target: { kind: 'file', id: singleFillFocusFileId },
-      mode: 'fill',
-      annotationsVisible: false,
-    })
-  } else {
-    exitFocusSession('re-focus')
-  }
-  syncInteractiveToFocus()
+  const elected = electFocusTarget(targets, shouldCreateFocusSession)
+  enterElectedFocus(elected)
 
-  const allBounds: WorkspaceBounds[] = []
-  for (const { id, kind } of targets) {
-    if (kind === 'edge') {
-      const edge = workspaceEdges.find((e) => e.id === id)
-      if (edge) {
-        const fromBounds = resolveEntityBounds(edge.fromEntityId)
-        const toBounds = resolveEntityBounds(edge.toEntityId)
-        if (fromBounds) allBounds.push(fromBounds)
-        if (toBounds) allBounds.push(toBounds)
-      }
-      continue
-    }
-    const bounds = resolveEntityBounds(id)
-    if (bounds) allBounds.push(bounds)
-  }
-
-  const combined = unionBounds(allBounds)
+  const combined = selectionFrameBounds(targets)
   if (!combined) return false
 
   const viewport = availableCanvasViewportRect()
+  const focusMode = elected?.kind === 'page' ? elected.mode : null
   const nextZoom = computeFocusZoomForPresentation(combined, viewport, focusMode)
   moveCameraTo(
     { zoom: nextZoom, pan: panToCenterBoundsAtZoom(combined, nextZoom) },
@@ -574,7 +592,7 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
   )
   // Focusing a note goes straight into its markdown editor — the fullscreen
   // read and the edit are the same state for a note.
-  if (singleFillFocusFileId) beginEditingEntity(singleFillFocusFileId)
+  if (elected?.kind === 'file') beginEditingEntity(elected.id)
   return true
 }
 

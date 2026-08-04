@@ -325,12 +325,15 @@ export function SelectionOutlineLayer({
   // still dropped below, so only the group box tracks them, not a crisp outline.
   const allSelectedEntities: SelectedEntitySpan[] = useMemo(() => {
     if (!isMultiSelect) return []
-    const out: SelectedEntitySpan[] = []
-    for (const f of pages) if (selectedIdSet.has(f.id) && f.id !== suppressFocusedId) out.push(f)
-    for (const e of textEntities) if (selectedIdSet.has(e.id)) out.push(e)
-    for (const e of fileEntities) if (selectedIdSet.has(e.id) && e.id !== suppressFocusedId) out.push(e)
-    for (const e of drawingEntities) if (selectedIdSet.has(e.id)) out.push(e)
-    for (const e of shapeEntities) if (selectedIdSet.has(e.id)) out.push(e)
+    const contributes = (id: string) => selectedIdSet.has(id) && id !== suppressFocusedId
+    const byKind: SelectedEntitySpan[][] = [
+      pages,
+      textEntities,
+      fileEntities,
+      drawingEntities,
+      shapeEntities,
+    ]
+    const out = byKind.flatMap((spans) => spans.filter((span) => contributes(span.id)))
     if (reorderGhostSpan) out.push(reorderGhostSpan)
     return out
   }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, reorderGhostSpan, suppressFocusedId])
