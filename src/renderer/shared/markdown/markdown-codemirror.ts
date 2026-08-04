@@ -61,7 +61,18 @@ const stickyHighlightStyle = HighlightStyle.define([
   { tag: t.strikethrough, textDecoration: 'line-through' },
 ])
 
-function buildEditorTheme(isDark: boolean): Extension {
+/**
+ * Reading padding belongs on `.cm-content`, inside the scroller, not on a
+ * wrapper around the editor. A padded wrapper leaves the scroller inset from
+ * the card: the scrollbar floats off the right edge, and scrolled text slides
+ * under the top padding and clips there instead of scrolling out of a gutter
+ * that travels with it. Padding on the content is part of what scrolls, so the
+ * scroller can span the full card.
+ *
+ * Surfaces that pad outside the editor (sticky notes size their shell to the
+ * measured content column) pass the default '0' and keep their own layout.
+ */
+function buildEditorTheme(isDark: boolean, contentPadding: string): Extension {
   return EditorView.theme(
     {
       '&': {
@@ -72,7 +83,7 @@ function buildEditorTheme(isDark: boolean): Extension {
         height: '100%',
       },
       '.cm-content': {
-        padding: '0',
+        padding: contentPadding,
         caretColor: isDark ? '#e7e5e4' : '#1c1917',
       },
       '.cm-line': { padding: '0' },
@@ -92,8 +103,11 @@ export function reconfigureTheme(
   view: EditorView,
   compartment: Compartment,
   isDark: boolean,
+  contentPadding = '0',
 ) {
-  view.dispatch({ effects: compartment.reconfigure(buildEditorTheme(isDark)) })
+  view.dispatch({
+    effects: compartment.reconfigure(buildEditorTheme(isDark, contentPadding)),
+  })
 }
 
 /** GFM base, so strikethrough and task lists parse — each variant's
@@ -112,6 +126,7 @@ function markdownLanguageExtension(): Extension {
 function assembleEditorStack(
   isDark: boolean,
   lineWrap: boolean,
+  contentPadding: string,
   stack: Extension[],
 ): {
   extensions: Extension[]
@@ -122,18 +137,18 @@ function assembleEditorStack(
   // When wrap is off (auto-width plain text), the editor's container shrinks
   // to fit each line's natural width instead of forcing single-character wrap.
   if (lineWrap) extensions.push(EditorView.lineWrapping)
-  extensions.push(themeCompartment.of(buildEditorTheme(isDark)))
+  extensions.push(themeCompartment.of(buildEditorTheme(isDark, contentPadding)))
   return { extensions, themeCompartment }
 }
 
 export function createMarkdownExtensions(
   isDark: boolean,
-  options: { lineWrap?: boolean } = {},
+  options: { lineWrap?: boolean; contentPadding?: string } = {},
 ): {
   extensions: Extension[]
   themeCompartment: Compartment
 } {
-  return assembleEditorStack(isDark, options.lineWrap ?? true, [
+  return assembleEditorStack(isDark, options.lineWrap ?? true, options.contentPadding ?? '0', [
     // Cmd+B / Cmd+I / Cmd+K etc.
     keymap.of(markdownFormattingKeymap),
     // Enter continues the current list/quote markup, Backspace peels one level
@@ -159,12 +174,12 @@ export function createMarkdownExtensions(
  */
 export function createStickyTextExtensions(
   isDark: boolean,
-  options: { lineWrap?: boolean } = {},
+  options: { lineWrap?: boolean; contentPadding?: string } = {},
 ): {
   extensions: Extension[]
   themeCompartment: Compartment
 } {
-  return assembleEditorStack(isDark, options.lineWrap ?? true, [
+  return assembleEditorStack(isDark, options.lineWrap ?? true, options.contentPadding ?? '0', [
     // Order matters: each keymap's Backspace/Enter binding falls through
     // (returns false) to the next when it doesn't apply, so mark-unwrap
     // outranks bullet-prefix strip outranks plain formatting outranks

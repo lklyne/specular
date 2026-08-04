@@ -19,12 +19,23 @@ import { hasCanvasFiles, migrateSpace } from './space-migration'
 import { requestLayout } from './viewport-control'
 import { flushSpaceAutosaveSync, loadSpace, withSpacePersistenceSuspended } from './space-autosave'
 import {
+  activeSpaceTabId,
   setActiveSpaceTabId,
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
   spaceTabs,
 } from './space-model'
+import {
+  DOC_ALL_MAP_NAMES,
+  DOC_ARRAY_ENTITY_ORDER,
+  getActiveDoc,
+  hydrateDocFromSnapshot,
+  setDocActiveTabId,
+  setDocTabList,
+  withSuppressedDocSync,
+} from './space-doc'
+import { resetDocSync } from './space-observers'
 import { makeEmptyWorkspaceSnapshot } from './space-persistence'
 import { destroyActivePages, restorePersistedSpace, rebuildWindowFromSnapshot } from './space-restore'
 import { clearUndoHistory } from './space-undo'
@@ -198,6 +209,43 @@ export function reloadWorkspaceDataFromCurrentSpace(): void {
   // Doc observers and the undo manager are already wired from app boot and
   // operate on the same module-level arrays rebuildWindowFromSnapshot just
   // reset — no need to recreate them.
+  //
+  // The Y.Doc, though, still holds the *previous* space: unlike a tab switch
+  // (`transitionToTab`), `restorePersistedSpace` rebuilds the runtime arrays
+  // without touching the doc. Leaving it stale points the two layers at
+  // different spaces, and every doc -> runtime path — an undo, a reverse
+  // sync — then reinstates the old space's entities and tab list under the
+  // new root, where autosave writes them out as if they belonged to it.
+  resetDocToCurrentSpace()
   clearUndoHistory()
   requestLayout()
+}
+
+/**
+ * Rewrite the Y.Doc to match the freshly-loaded space: the active tab's
+ * content, the new tab list, and no trace of the space we came from. Runs
+ * untracked — this is a reopen, not a user edit, and `clearUndoHistory()`
+ * follows it anyway.
+ */
+function resetDocToCurrentSpace(): void {
+  const doc = getActiveDoc()
+  const activeTab = spaceTabs.find((tab) => tab.id === activeSpaceTabId)
+  withSuppressedDocSync(() => {
+    doc.transact(() => {
+      for (const name of DOC_ALL_MAP_NAMES) {
+        const map = doc.getMap(name)
+        for (const key of [...map.keys()]) map.delete(key)
+      }
+      const order = doc.getArray(DOC_ARRAY_ENTITY_ORDER)
+      if (order.length) order.delete(0, order.length)
+      if (activeTab) {
+        hydrateDocFromSnapshot(doc, activeTab.snapshot)
+        setDocActiveTabId(doc, activeTab.id)
+        setDocTabList(doc, spaceTabs.map((tab) => ({ id: tab.id, name: tab.name })))
+      }
+    }, 'space-reopen')
+  })
+  // Drops the previous space's note mirror, which is keyed by entity id and
+  // would otherwise be projected back to disk under the new root.
+  resetDocSync()
 }

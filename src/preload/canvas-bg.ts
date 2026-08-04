@@ -301,6 +301,8 @@ const api: CanvasBgElectronAPI = {
   readNoteFile: (filePath: string) => ipcRenderer.invoke(ipcChannels.readNoteFile, { filePath }),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke(ipcChannels.writeNoteFile, { filePath, content }),
+  readNoteFile: (filePath: string) =>
+    ipcRenderer.invoke(ipcChannels.readNoteFile, { filePath }),
   applyNoteContent: (entityId: string, content: string) =>
     ipcRenderer.invoke(ipcChannels.applyNoteContent, { entityId, content }),
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getCanvasLayoutBootstrap),

@@ -11,8 +11,11 @@ import type {
 export interface FocusContext {
   /** A focus session is active. */
   active: boolean
-  /** The focused page id, or null when no session is active. */
+  /** The focused page id — null when no session is active *or* the session
+   *  frames a file entity. Page-specific consumers key off this. */
   pageId: string | null
+  /** What the session frames; null when no session is active. */
+  target: { kind: 'page' | 'file'; id: string } | null
   mode: FocusPresentationMode | null
   data: FocusPresentationData | null
   /**
@@ -32,6 +35,7 @@ export function focusContext(layout: LayoutUpdateData): FocusContext {
   return {
     active,
     pageId: data?.pageId ?? null,
+    target: data?.target ?? null,
     mode: data?.mode ?? null,
     data,
     showsContext: !active || data.annotationsVisible,

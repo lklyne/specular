@@ -30,6 +30,7 @@ export interface RendererFileApi {
   ) => void
   readNoteFile: (path: string) => Promise<string | null>
   writeNoteFile: (path: string, content: string) => Promise<boolean>
+  readNoteFile: (path: string) => Promise<string | null>
   applyNoteContent: (entityId: string, content: string) => Promise<boolean>
 }
 

@@ -1,6 +1,15 @@
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
+import { basename, join } from 'path'
 import type {
   Annotation,
   DevtoolsPanelTab,
@@ -410,6 +419,7 @@ import type { JsonCanvasDocument } from '../../shared/json-canvas-types'
 
 const SPACE_META_DIR = '.specular'
 const WORKSPACE_META_FILE = 'workspace-meta.json'
+const CANVAS_FILE_EXT = '.canvas'
 
 function ensureSpaceDir(spacePath: string): string {
   if (!existsSync(spacePath)) mkdirSync(spacePath, { recursive: true })
@@ -483,6 +493,63 @@ export function writeAllTabsAsCanvasFiles(
   }
 }
 
+/**
+ * Tab entries for `.canvas` files sitting in `spacePath` that `tabs` doesn't
+ * account for.
+ *
+ * The meta file is the space's index: `loadSpaceFromCanvasFiles` only ever
+ * surfaces tabs listed there, so a `.canvas` file no entry points at is
+ * unreachable data. Every legitimate way to retire a tab (delete, rename)
+ * removes or moves its file first, so an unreferenced file always means the
+ * in-memory tab list has drifted from this root — a space change that left
+ * the runtime holding another space's tabs is one way in — and writing that
+ * list verbatim would silently strand the user's canvases.
+ *
+ * Adopting them keeps the index a superset of what's on disk. The recovered
+ * id only has to agree with the filename's 4-char suffix for
+ * `canvasFilePath` to resolve back to the same file; the rest of the
+ * original id is not recoverable from the filename and nothing depends on
+ * it. Legacy unsuffixed files are adopted under a fresh id and reached
+ * through the by-name fallback in `loadSpaceFromCanvasFiles`.
+ */
+function adoptUnreferencedCanvasFiles(
+  spacePath: string,
+  tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>,
+): Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> {
+  let names: string[]
+  try {
+    names = readdirSync(spacePath).filter((name) => name.endsWith(CANVAS_FILE_EXT))
+  } catch {
+    return []
+  }
+  // A tab reaches its file by id suffix, or — for a space written before
+  // filenames carried one — by bare name through the fallback in
+  // `loadSpaceFromCanvasFiles`. Both count as referenced; treating a legacy
+  // file as unreferenced would adopt it as a duplicate of the tab already
+  // reading it.
+  const referenced = new Set<string>()
+  for (const tab of tabs) {
+    referenced.add(basename(canvasFilePath(spacePath, tab)))
+    referenced.add(`${sanitizeTabName(tab.name)}${CANVAS_FILE_EXT}`)
+  }
+  const adopted: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> = []
+  for (const fileName of names) {
+    if (referenced.has(fileName)) continue
+    const stem = fileName.slice(0, -CANVAS_FILE_EXT.length)
+    const suffixed = /^(.+)-([0-9a-f]{4})$/.exec(stem)
+    const id = suffixed ? `tab_${suffixed[2]}${randomUUID().slice(4)}` : `tab_${randomUUID()}`
+    const name = suffixed ? suffixed[1] : stem
+    let updatedAt: string
+    try {
+      updatedAt = statSync(join(spacePath, fileName)).mtime.toISOString()
+    } catch {
+      updatedAt = new Date().toISOString()
+    }
+    adopted.push({ id, name, updatedAt, expanded: true })
+  }
+  return adopted
+}
+
 export function writeSpaceMetaSync(
   spacePath: string,
   meta: {
@@ -491,6 +558,8 @@ export function writeSpaceMetaSync(
     tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
   },
 ): void {
+  const adopted = adoptUnreferencedCanvasFiles(spacePath, meta.tabs)
+  if (adopted.length) meta = { ...meta, tabs: [...meta.tabs, ...adopted] }
   // Writes always land in .specular/, even when the meta was last read from
   // the legacy root location — the next load picks up the new copy and the
   // old file is harmless litter, not a second source of truth.

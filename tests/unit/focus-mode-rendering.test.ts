@@ -44,6 +44,7 @@ function focusedLayout(annotationsVisible = false): LayoutUpdateData {
     selectedEntityIds: [focused.id],
     focusPresentation: {
       pageId: focused.id,
+      target: { kind: 'page', id: focused.id },
       mode: 'fit',
       authoredLabel: 'Desktop',
       authoredWidth: 300,

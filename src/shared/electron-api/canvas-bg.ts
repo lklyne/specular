@@ -276,6 +276,10 @@ export interface CanvasBgElectronAPI {
    *  served from the dev server is cross-origin to it. */
   readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
+  /** A note's `.md` content from disk, or null if it could not be read.
+   *  Goes through main because `local-file` is not CORS-enabled — the
+   *  renderer cannot fetch it from its own http origin. */
+  readNoteFile: (filePath: string) => Promise<string | null>
   /**
    * ADR 0023 — commit a markdown note edit through the Y.Doc so it
    * participates in the unified UndoManager. Prefer this over

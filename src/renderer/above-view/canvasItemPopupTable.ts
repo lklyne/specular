@@ -89,16 +89,18 @@ export type SelectionPopupRow = {
   key: string
   Component: ComponentType<any>
   mapProps: (ctx: PopupContext) => Record<string, unknown>
-  /** PagePopup doubles as the focus bar — exempt it from the tool mutex while a
-   *  focus session is active so the focus controls stay visible (ADR 0021). */
-  focusExempt?: boolean
+  /** PagePopup and FilePopup double as the focus bar for their target kind —
+   *  exempt the one that owns the running session from the tool mutex so the
+   *  focus controls stay visible (ADR 0021). The other stays under the mutex,
+   *  so only ever one bar is exempt. */
+  focusExempt?: (ctx: PopupContext) => boolean
 }
 
 function selectionRow<P extends object>(
   key: string,
   Component: ComponentType<P>,
   mapProps: (ctx: PopupContext) => P,
-  focusExempt = false,
+  focusExempt?: (ctx: PopupContext) => boolean,
 ): SelectionPopupRow {
   return {
     key,
@@ -107,6 +109,11 @@ function selectionRow<P extends object>(
     focusExempt,
   }
 }
+
+const focusTargetKindIs =
+  (kind: 'page' | 'file') =>
+  (ctx: PopupContext): boolean =>
+    ctx.layout.focusPresentation?.target.kind === kind
 
 // Selection-mode popups (ADR 0008 §4): all mount together under the mutex; each
 // early-returns to nothing when its slice is empty, so the row list is static.
@@ -143,14 +150,19 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
     interactionIdle: ctx.interactionIdle,
     onAnnotate: ctx.beginSelectionAnnotation,
   })),
-  selectionRow('file', FilePopup, (ctx) => ({
-    api: ctx.api,
-    isDark: ctx.isDark,
-    layout: ctx.layout,
-    selectedFiles: sameKindEntities(ctx.sameKindSelection, 'file'),
-    popupReady: ctx.filePopupReady,
-    onAnnotate: ctx.beginSelectionAnnotation,
-  })),
+  selectionRow(
+    'file',
+    FilePopup,
+    (ctx) => ({
+      api: ctx.api,
+      isDark: ctx.isDark,
+      layout: ctx.layout,
+      selectedFiles: sameKindEntities(ctx.sameKindSelection, 'file'),
+      popupReady: ctx.filePopupReady,
+      onAnnotate: ctx.beginSelectionAnnotation,
+    }),
+    focusTargetKindIs('file'),
+  ),
   // Mixed-kind fallback: renders only when the selection spans kinds, so it
   // never doubles up with a per-kind popup.
   selectionRow('multi', MultiSelectPopup, (ctx) => ({
@@ -171,6 +183,6 @@ export const SELECTION_POPUPS: SelectionPopupRow[] = [
       interactionIdle: ctx.interactionIdle,
       onAnnotate: ctx.beginSelectionAnnotation,
     }),
-    true,
+    focusTargetKindIs('page'),
   ),
 ]

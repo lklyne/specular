@@ -15,7 +15,7 @@
  * load-canvas-fixture), so coverage here exercises the same code paths.
  */
 
-import { mkdtempSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import type * as Y from 'yjs'
@@ -188,6 +188,16 @@ function activeTab() {
 function writeFixtureToDisk(fixture: CanvasFixture): void {
   const name = fixture.name?.trim() || 'Fixture'
   const tabId = 'fixture-tab'
+  // The fixture's meta replaces the whole index, so the previous test's
+  // .canvas files have to go with it. A real space is never in the state
+  // "files on disk that the index doesn't know about" — it loads from the
+  // index it wrote — and leaving them behind here makes every test inherit
+  // its predecessors' canvases.
+  if (existsSync(spaceDir())) {
+    for (const entry of readdirSync(spaceDir())) {
+      if (entry.endsWith('.canvas')) rmSync(join(spaceDir(), entry), { force: true })
+    }
+  }
   writeCanvasFileSync(canvasFilePath(spaceDir(), { id: tabId, name }), fixture.doc)
   writeSpaceMetaSync(spaceDir(), {
     activeTabId: tabId,

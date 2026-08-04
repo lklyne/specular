@@ -45,7 +45,7 @@ import {
   zoom,
   cameraTransitionStartedAt,
 } from './runtime-context'
-import { focusSession } from './focus-session'
+import { focusSession, focusedPageId } from './focus-session'
 import { activeSpaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './space-model'
 import { getToolDefaults } from './tool-defaults'
 import {
@@ -108,7 +108,7 @@ import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 // --- Exported data builders ---
 
 export function backgroundPageOverlays(): CanvasScenePageEntity[] {
-  const focusedPresentationPageId = focusSession()?.pageId ?? null
+  const focusedPresentationPageId = focusedPageId()
   const visiblePages = focusedPresentationPageId
     ? pages.filter((page) => page.id === focusedPresentationPageId)
     : pages
@@ -438,14 +438,30 @@ function buildFocusPresentationData(
 ): FocusPresentationData | null {
   const focus = focusSession()
   if (!focus) return null
-  const page = findPageById(focus.pageId)
-  const scenePage = scenePages.find((candidate) => candidate.id === focus.pageId)
+  if (focus.target.kind === 'file') {
+    const file = fileEntities.find((entity) => entity.id === focus.target.id)
+    if (!file) return null
+    return {
+      pageId: null,
+      target: focus.target,
+      mode: focus.mode,
+      authoredLabel: 'Note',
+      authoredWidth: file.width,
+      authoredHeight: file.height,
+      effectiveWidth: file.width,
+      effectiveHeight: file.height,
+      annotationsVisible: focus.annotationsVisible,
+    }
+  }
+  const page = findPageById(focus.target.id)
+  const scenePage = scenePages.find((candidate) => candidate.id === focus.target.id)
   if (!page || !scenePage) return null
   const authored = pageContentSize(page)
   const preset = viewportPresetForIndex(page.presetIndex)
   const authoredLabel = pageUsesCustomSize(page.metadata) ? 'Custom' : preset.label
   return {
     pageId: page.id,
+    target: focus.target,
     mode: focus.mode,
     authoredLabel,
     authoredWidth: authored.width,

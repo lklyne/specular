@@ -11,7 +11,7 @@
  * in `loadSpaceFromCanvasFiles` — the pre-suffix workspace loads as null.
  */
 
-import { existsSync, writeFileSync } from 'fs'
+import { existsSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, type WorkspaceHarness } from './harness'
@@ -109,6 +109,10 @@ describe('tab file identity', () => {
     const doc = readCanvasFile(tabFile(activeSpaceTabId))
     expect(doc).toBeTruthy()
     writeFileSync(legacyPath, JSON.stringify(doc), 'utf8')
+    // The legacy file is the only canvas this space has; the id-suffixed one
+    // it was copied from would otherwise be adopted into the index alongside
+    // it (writeSpaceMetaSync never drops a canvas that exists on disk).
+    rmSync(tabFile(activeSpaceTabId), { force: true })
     writeSpaceMetaSync(spaceDir(), {
       activeTabId: tabId,
       tabs: [{ id: tabId, name: 'Notes', updatedAt: new Date().toISOString(), expanded: true }],

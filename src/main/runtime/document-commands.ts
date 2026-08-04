@@ -74,6 +74,7 @@ import {
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
+import { endFocusSession, focusedFileId } from './focus-session'
 import { interactionState, pan, zoom } from './runtime-context'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import {
@@ -730,6 +731,10 @@ function updateEntityCommand<P extends Partial<Record<GeometryPatchKey, number>>
 function deleteEntityCommand(id: string, deleteInState: (id: string) => boolean): boolean {
   return mutateWorkspace(() => {
     cancelEditingEntityIfMatches(id)
+    // A focus session aimed at the entity being deleted would survive as a
+    // stale session that freezes the canvas (mirrors the page-delete exit in
+    // page-factory). No exit camera animation — the target is gone.
+    if (focusedFileId() === id) endFocusSession('dismiss')
     const deleted = deleteInState(id)
     if (deleted) {
       removeEdgesTouchingEntities(new Set([id]))

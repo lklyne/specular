@@ -47,6 +47,9 @@ interface BaseRendererClaim {
 
 export interface InlineRendererClaim extends BaseRendererClaim {
   kind: 'inline'
+  /** Whether the renderer supports a fullscreen 'fill' focus session — the
+   *  note-style blow-up entered from `focusSelection`. Defaults to false. */
+  fillFocus?: boolean
 }
 
 export interface WcvPageRendererClaim extends BaseRendererClaim {
@@ -115,6 +118,11 @@ export function pickRenderer(entity: PersistedFileEntity): EntityRendererClaim |
 /** Convenience: tag broadcast to the renderer; null when no plugin claims. */
 export function getRendererTagFor(entity: PersistedFileEntity): EntityRendererTag | null {
   return pickRenderer(entity)?.rendererTag ?? null
+}
+
+/** Whether the claiming renderer opts into fullscreen 'fill' focus sessions. */
+export function rendererClaimsFillFocus(claim: EntityRendererClaim | null): boolean {
+  return claim?.kind === 'inline' && claim.fillFocus === true
 }
 
 /** Snapshot for debugging; not part of any IPC contract. */

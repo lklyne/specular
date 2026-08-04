@@ -30,10 +30,21 @@
  *    fails because the pending mutation gets written into the new root
  *    instead of the old one (this is the exact regression a real user hit:
  *    "Start fresh here" wrote every old canvas into the new folder).
+ *  - deleting `resetDocToCurrentSpace()` from
+ *    `reloadWorkspaceDataFromCurrentSpace` — "leaves the Y.Doc holding the
+ *    new space" fails because the doc still carries the previous space's
+ *    entities and tab list.
+ *  - dropping the `adoptUnreferencedCanvasFiles` merge in
+ *    `writeSpaceMetaSync` — "a meta write never orphans a .canvas file"
+ *    fails because the stranded canvas disappears from the index (this is
+ *    the regression that cost a real user their tab list: a space change
+ *    left the runtime holding another space's tabs, and the next autosave
+ *    wrote that list over the destination's index, orphaning 15 canvases
+ *    that were still sitting on disk).
  */
 
-import { mkdtempSync, readdirSync, rmSync } from 'fs'
-import { join } from 'path'
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs'
+import { basename, join } from 'path'
 import { tmpdir } from 'os'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
@@ -45,7 +56,14 @@ import {
   reloadWorkspaceDataFromCurrentSpace,
   reopenSpaceAt,
 } from '../../src/main/runtime/space-change'
-import { readCanvasFile } from '../../src/main/runtime/space-persistence'
+import {
+  canvasFilePath,
+  readCanvasFile,
+  readSpaceMeta,
+  writeCanvasFileSync,
+} from '../../src/main/runtime/space-persistence'
+import { spaceTabs } from '../../src/main/runtime/space-model'
+import { getDocTabList } from '../../src/main/runtime/space-doc'
 
 let harness: WorkspaceHarness
 const chosenDirs: string[] = []
@@ -126,6 +144,64 @@ describe('reopening a space', () => {
     const newDoc = readCanvasFile(harness.diskPath())
     expect(newDoc?.nodes.some((n) => n.id === oldEntity.id)).toBe(false)
     expect(pages.length).toBe(2)
+  })
+
+  it('leaves the Y.Doc holding the new space, so nothing can sync the old space back under the new root', async () => {
+    // Space B, with content of its own to come back to.
+    const spaceB = freshSpaceDir()
+    reopenSpaceAt(spaceB, reloadWorkspaceDataFromCurrentSpace)
+    const bEntity = createTextEntity({ canvasX: 0, canvasY: 0, text: 'B content' })
+    await settleSync()
+    harness.flush()
+    const bTabIds = spaceTabs.map((tab) => tab.id)
+
+    // Away to A, where the user does some work...
+    const spaceA = freshSpaceDir()
+    reopenSpaceAt(spaceA, reloadWorkspaceDataFromCurrentSpace)
+    const aEntity = createTextEntity({ canvasX: 0, canvasY: 0, text: 'A content' })
+    await settleSync()
+    harness.flush()
+
+    // ...and back into B. The doc must describe B, not A: while it held A,
+    // any doc -> runtime path (undo, reverse sync) would reinstate A's
+    // entities and tab list, and the next autosave would write them into B.
+    reopenSpaceAt(spaceB, reloadWorkspaceDataFromCurrentSpace)
+    const entities = harness.doc.getMap('entities')
+    expect(entities.has(aEntity.id)).toBe(false)
+    expect(entities.has(bEntity.id)).toBe(true)
+    expect(getDocTabList(harness.doc).map((tab) => tab.id)).toEqual(bTabIds)
+
+    // Belt and braces on the outcome that actually cost data: B's index on
+    // disk still lists B's tabs after the switch settles.
+    await settleSync()
+    harness.flush()
+    expect(readSpaceMeta(spaceB)?.tabs.map((tab) => tab.id)).toEqual(bTabIds)
+  })
+
+  it('a meta write never orphans a .canvas file the space already has', () => {
+    const space = freshSpaceDir()
+    reopenSpaceAt(space, reloadWorkspaceDataFromCurrentSpace)
+    createTextEntity({ canvasX: 0, canvasY: 0, text: 'one tab' })
+    harness.flush()
+
+    // A canvas this runtime knows nothing about — the shape left behind by
+    // any drift between the in-memory tab list and the space on disk. The
+    // user's loss came from exactly this: a tab list belonging to another
+    // space, written over an index whose canvases were all still on disk.
+    const strandedName = 'Stranded-abcd.canvas'
+    writeCanvasFileSync(join(space, strandedName), { nodes: [], edges: [] })
+
+    createTextEntity({ canvasX: 5, canvasY: 5, text: 'later edit' })
+    harness.flush()
+
+    const meta = readSpaceMeta(space)
+    const files = readdirSync(space).filter((f) => f.endsWith('.canvas'))
+    const referenced = new Set(
+      (meta?.tabs ?? []).map((tab) => basename(canvasFilePath(space, tab))),
+    )
+    expect(files.length).toBeGreaterThan(1)
+    for (const file of files) expect(referenced.has(file)).toBe(true)
+    expect(existsSync(join(space, strandedName))).toBe(true)
   })
 
   it('switching to an empty space replaces old-space pages instead of piling default pages on top of them', () => {
