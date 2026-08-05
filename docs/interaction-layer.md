@@ -446,7 +446,7 @@ src/renderer/
     CommentsLayer.tsx
     AnnotationsLayer.tsx
     FloatingUiLayer.tsx
-  bg-view/                          # canvas-bg, extended with:
+  canvas-bg/                        # extended with:
     PageBitmapLayer.tsx             # bitmap compositor for inactive pages
     (...existing canvas chrome)
 ```

@@ -1,8 +1,10 @@
 # ADR 0001 — Click-to-enter frame focus replaces rasterization-dependent gate
 
-**Status:** Accepted
+**Status:** Accepted — implementation evolved; see note below.
 **Date:** 2026-05-04
 **Supersedes premise of:** `docs/interaction-layer.md` §4.2 (input gate) and §4.7 (bitmap compositor)
+
+> **Implementation note (ADR 0022, 2026-06-15).** The core principle — pages receive input only when explicitly interacted with — still holds, but the mechanism changed. `frameFocus: { id } | null` was replaced by `interactivePageId` (`runtime-context.ts`). `aboveView` is no longer hidden (`setVisible(false)`) when a page is interactive; instead `aboveView` passes pointer events through to the page WCV via Electron's `setIgnoreMouseEvents` path. The "total focus" model (click anywhere else to exit) was replaced by the select-first/interact-second model defined in ADR 0022. The hit-region priority table (§ below) remains accurate.
 
 ## Context
 
