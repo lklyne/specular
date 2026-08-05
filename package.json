@@ -27,6 +27,8 @@
     "build:cli": "esbuild src/main/cli.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main/cli.js",
     "mcp": "node ./out/main/mcp-helper.js",
     "cli": "node ./out/main/cli.js",
+    "papercut": "node ./scripts/papercut.mjs",
+    "papercut:review": "node ./scripts/papercut-review.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint src",
     "dist:mac": "pnpm fetch:agent-browser && pnpm sync:agent-browser && pnpm build:mcp-helper && pnpm build:cli && electron-forge make --platform darwin",

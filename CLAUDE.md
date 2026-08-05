@@ -39,6 +39,22 @@ After any structural change, run `typecheck` + `test:unit` at minimum.
 After changes to runtime, IPC, or persistence, run `test:integration`.
 `test:boot` needs a built app + the Electron binary; run it before releases, not per-change.
 
+## Log papercuts
+
+Important! When you hit a small friction while working — a tool call that missed
+and had to be retried, a confusing or undocumented setup step, a flaky command, a
+stale cache, a misleading error, a non-obvious gotcha — log it to `PAPERCUTS.md`
+via `pnpm papercut -m <model> "message"`. One or two sentences: what you were
+doing → what got in the way (a guess at the cause/fix is a bonus). Do this
+proactively, in the moment, even though none of these are blocking — logged
+together they show where the repo needs sanding down. This is distinct from what
+you accomplished, and from GitHub issues (real bugs / tracked work).
+
+To mine a whole session for papercuts at once, `pnpm papercut:review` feeds the
+session transcript to a cheap model (Gemini Flash, via `GOOGLE_API_KEY` in
+`.env`) and appends what it finds. This is user-triggered via the `/papercut`
+slash command — don't run the review yourself unprompted.
+
 ## Crash logs
 
 Set up in `src/main/index.ts`:
