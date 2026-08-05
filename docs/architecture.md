@@ -112,13 +112,13 @@ Each entity type has:
 |--------|------|
 | `runtime-core.ts` | High-level state mutations (create, delete, select) |
 | `runtime-context.ts` | All ephemeral state (views, zoom, pan, interaction) |
-| `workspace-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
-| `workspace-model.ts` | Workspace data arrays (groups, edges, annotations, tabs) |
-| `workspace-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
-| `workspace-persistence.ts` | Disk I/O (.canvas read/write) |
-| `workspace-autosave.ts` | Autosave scheduling |
-| `workspace-undo.ts` | UndoManager setup, undo/redo API |
-| `workspace-tab-operations.ts` | Tab CRUD and switching |
+| `space-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
+| `space-model.ts` | Space data arrays (groups, edges, annotations, tabs) |
+| `space-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
+| `space-persistence.ts` | Disk I/O (.canvas read/write) |
+| `space-autosave.ts` | Autosave scheduling |
+| `space-undo.ts` | UndoManager setup, undo/redo API |
+| `space-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |

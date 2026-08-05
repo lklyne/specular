@@ -5,8 +5,9 @@
 > variant) was deleted wholesale — see the "delete wireframe mode" PR. The
 > renderer-plugin popup contribution surface it depended on was removed too.
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-15
+**Implemented:** 2026-07 (palette resolver, Tool union restructure including `add-sticky`/`add-document` split, text size control, visual token lock, toolbar regrouping, and popup content shipped). §3 cross-kind morph was superseded — see inline note. §7 wireframe `FilePopup` additions were deleted alongside wireframe mode removal.
 **Refines:** [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md), [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md), [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md).
 
 ## Context
