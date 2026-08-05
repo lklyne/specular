@@ -6,5 +6,6 @@ export const markdownRenderPlugin: InlineRendererClaim = {
   kind: 'inline',
   rendererTag: 'markdown',
   editable: true,
+  fillFocus: true,
   claims: (entity) => MARKDOWN_EXTENSIONS.test(entity.file),
 }

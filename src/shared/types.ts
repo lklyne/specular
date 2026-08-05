@@ -167,8 +167,15 @@ export interface CanvasScenePageEntity {
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
 
+/**
+ * What a focus session frames. A page target is the classic browser-style
+ * focus; a file target is a note (or other fillFocus-claiming renderer) blown
+ * up to the viewport.
+ */
+export type FocusTarget = { kind: 'page'; id: string } | { kind: 'file'; id: string }
+
 export interface FocusPresentationData {
-  pageId: string
+  target: FocusTarget
   mode: FocusPresentationMode
   authoredLabel: string
   authoredWidth: number

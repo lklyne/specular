@@ -45,6 +45,10 @@ export interface MarkdownEditorProps {
   style?: React.CSSProperties
   /** Disable to let the editor's container expand horizontally to fit content. */
   lineWrap?: boolean
+  /** Reading padding, applied INSIDE the scroller (`.cm-content`) so the
+   *  scrollbar hugs the host's edge and the padding scrolls with the text.
+   *  Hosts that pad around the editor instead leave this at '0'. */
+  contentPadding?: string
   /** Select the full value when auto-focusing; intended for short text nodes. */
   selectAllOnAutoFocus?: boolean
   /** Display the value without a caret, focus, or text selection. Swaps live. */
@@ -144,6 +148,7 @@ function useMarkdownEditor(
     autoFocus = false,
     placeholder,
     lineWrap = true,
+    contentPadding = '0',
     selectAllOnAutoFocus = false,
     readOnly = false,
     variant = 'markdown',
@@ -233,8 +238,8 @@ function useMarkdownEditor(
 
     const { extensions, themeCompartment } =
       variant === 'sticky'
-        ? createStickyTextExtensions(isDark, { lineWrap })
-        : createMarkdownExtensions(isDark, { lineWrap })
+        ? createStickyTextExtensions(isDark, { lineWrap, contentPadding })
+        : createMarkdownExtensions(isDark, { lineWrap, contentPadding })
     themeCompartmentRef.current = themeCompartment
     const modeCompartment = new Compartment()
     modeCompartmentRef.current = modeCompartment
@@ -299,8 +304,8 @@ function useMarkdownEditor(
     const view = viewRef.current
     const compartment = themeCompartmentRef.current
     if (!view || !compartment) return
-    reconfigureTheme(view, compartment, isDark)
-  }, [isDark])
+    reconfigureTheme(view, compartment, isDark, contentPadding)
+  }, [isDark, contentPadding])
 
   useEffect(() => {
     const view = viewRef.current

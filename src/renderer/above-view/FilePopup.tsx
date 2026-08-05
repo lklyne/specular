@@ -1,6 +1,7 @@
 // ADR 0008 §7 — file selection popup.
 
 import { useEffect, useState } from 'react'
+import { Eye, EyeClosed, X } from 'lucide-react'
 import {
   toggleBold,
   toggleBulletList,
@@ -40,82 +41,218 @@ function FormattingSection({ fileId, isDark }: { fileId: string; isDark: boolean
   )
 }
 
+/** Name + formatting toggles for the one file the popup is about. */
+function FileIdentitySections({
+  file,
+  isDark,
+  isRenaming,
+  setIsRenaming,
+  onRename,
+}: {
+  file: CanvasSceneFileEntity
+  isDark: boolean
+  isRenaming: boolean
+  setIsRenaming: (renaming: boolean) => void
+  onRename: (id: string, next: string) => void
+}) {
+  return (
+    <>
+      <CanvasItemPopup.Section grow>
+        <InlineEditLabel
+          value={fileDisplayName(file.file)}
+          isEditing={isRenaming}
+          onStartEdit={() => setIsRenaming(true)}
+          onCommit={(next) => {
+            setIsRenaming(false)
+            onRename(file.id, next)
+          }}
+          onCancel={() => setIsRenaming(false)}
+          variant="canvas-chrome"
+          isDark={isDark}
+          titleClassName="min-w-0 flex-1 truncate pl-1.5 text-xs font-medium"
+          onTitleClick={() => setIsRenaming(true)}
+        />
+      </CanvasItemPopup.Section>
+      <CanvasItemPopup.Divider isDark={isDark} />
+      {file.rendererTag === 'markdown' ? (
+        <FormattingSection fileId={file.id} isDark={isDark} />
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * The eye and the exit are the whole action row while focused. Arrange and
+ * annotate act on a canvas selection, which the session doesn't have.
+ */
+function FocusBarActions({
+  api,
+  isDark,
+  annotationsVisible,
+}: {
+  api: Pick<CanvasBgElectronAPI, 'restoreFocusCamera' | 'setFocusAnnotationsVisible'>
+  isDark: boolean
+  annotationsVisible: boolean
+}) {
+  const eyeLabel = annotationsVisible ? 'Hide other items' : 'Show other items'
+  return (
+    <CanvasItemPopup.Section>
+      <CanvasItemPopup.IconButton
+        isDark={isDark}
+        title={eyeLabel}
+        ariaLabel={eyeLabel}
+        onClick={() => api.setFocusAnnotationsVisible(!annotationsVisible)}
+      >
+        {annotationsVisible ? <Eye size={14} /> : <EyeClosed size={14} />}
+      </CanvasItemPopup.IconButton>
+      <CanvasItemPopup.IconButton
+        isDark={isDark}
+        title="Exit focus"
+        ariaLabel="Exit focus"
+        onClick={() => api.restoreFocusCamera()}
+      >
+        <X size={14} />
+      </CanvasItemPopup.IconButton>
+    </CanvasItemPopup.Section>
+  )
+}
+
+/**
+ * The focus bar belongs to the focused note regardless of selection, because
+ * draw/placement tools clear or reassign selection mid-session and the bar must
+ * stay pinned.
+ */
+function resolveFocusBar(
+  focusedNoteEntity: CanvasSceneFileEntity | null,
+  layout: LayoutUpdateData,
+): { entity: CanvasSceneFileEntity; annotationsVisible: boolean } | null {
+  const session = layout.focusPresentation
+  if (!focusedNoteEntity || session?.target.kind !== 'file') return null
+  return { entity: focusedNoteEntity, annotationsVisible: session.annotationsVisible }
+}
+
+/** What the popup is about: the focused note if there is one, otherwise the
+ *  file selection. */
+type FilePopupSubject = {
+  count: number
+  /** Identity key for the show-delay and the rename reset. */
+  ids: string
+  isSingle: boolean
+  single: CanvasSceneFileEntity | null
+  entityIds: string[]
+  noun: string
+}
+
+function describeSubject(
+  focusedFile: CanvasSceneFileEntity | null,
+  selectedFiles: CanvasSceneFileEntity[],
+): FilePopupSubject {
+  if (focusedFile) {
+    return {
+      count: 1,
+      ids: focusedFile.id,
+      isSingle: true,
+      single: focusedFile,
+      entityIds: [focusedFile.id],
+      noun: 'file',
+    }
+  }
+  const count = selectedFiles.length
+  const isSingle = count === 1
+  const single = isSingle ? selectedFiles[0]! : null
+  return {
+    count,
+    ids: selectedFiles.map((f) => f.id).join('|'),
+    isSingle,
+    single,
+    entityIds: single ? [single.id] : selectedFiles.map((f) => f.id),
+    noun: isSingle ? 'file' : `${count} files`,
+  }
+}
+
 export function FilePopup({
   api,
   isDark,
   layout,
   selectedFiles,
   popupReady,
+  focusedNoteEntity,
   onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
-    'renameFileEntity' | 'focusSelection' | 'arrangeSelection'
+    | 'renameFileEntity'
+    | 'focusSelection'
+    | 'arrangeSelection'
+    | 'restoreFocusCamera'
+    | 'setFocusAnnotationsVisible'
   >
   isDark: boolean
   layout: LayoutUpdateData
   selectedFiles: CanvasSceneFileEntity[]
   popupReady: boolean
+  /** The note framed by a file-target focus session, or null. Non-null turns
+   *  this popup into the focus bar. */
+  focusedNoteEntity: CanvasSceneFileEntity | null
   onAnnotate: AnnotateHandler
 }) {
-  const count = selectedFiles.length
-  const ids = selectedFiles.map((f) => f.id).join('|')
-  const open = usePopupDelayedKey(ids, popupReady && count > 0)
+  const focusBar = resolveFocusBar(focusedNoteEntity, layout)
+  const isFocused = focusBar !== null
+  const subject = describeSubject(focusBar?.entity ?? null, selectedFiles)
+
+  // The show-delay is for transient selections (rubber-band, rapid clicks). The
+  // focus bar is deliberate chrome, so skip it while focused — the session
+  // auto-enters editing, which takes interaction out of 'idle' and would
+  // otherwise close the bar the moment the note is being typed in.
+  const delayedOpen = usePopupDelayedKey(subject.ids, popupReady && subject.count > 0)
+  const open = isFocused || delayedOpen
 
   const [isRenaming, setIsRenaming] = useState(false)
   useEffect(() => {
     setIsRenaming(false)
-  }, [ids])
+  }, [subject.ids])
 
-  if (count === 0) return null
-  const isSingle = count === 1
-  const single = isSingle ? selectedFiles[0] : null
-  const entityIds = selectedFiles.map((f) => f.id)
-  const noun = isSingle ? 'file' : `${count} files`
+  if (subject.count === 0) return null
 
   return (
     <CanvasItemPopup.Root
-      entityIds={entityIds}
+      entityIds={subject.entityIds}
       layout={layout}
       open={open}
-      placement="above"
-      align={isSingle ? 'stretch' : 'center'}
+      // Pin to the viewport top only while focused; on leave, flip back to the
+      // file-anchored placement immediately so the FLIP tween rides the camera
+      // restore as one motion (durations match in restoreFocusCamera).
+      placement={isFocused ? 'viewport-top' : 'above'}
+      align={subject.isSingle ? 'stretch' : 'center'}
       offset={POPUP_OFFSET_Y}
     >
-      <CanvasItemPopup.Frame isDark={isDark}>
-        {single ? (
-          <>
-            <CanvasItemPopup.Section grow>
-              <InlineEditLabel
-                value={fileDisplayName(single.file)}
-                isEditing={isRenaming}
-                onStartEdit={() => setIsRenaming(true)}
-                onCommit={(next) => {
-                  setIsRenaming(false)
-                  api.renameFileEntity(single.id, next)
-                }}
-                onCancel={() => setIsRenaming(false)}
-                variant="canvas-chrome"
-                isDark={isDark}
-                titleClassName="min-w-0 flex-1 truncate pl-1.5 text-xs font-medium"
-                onTitleClick={() => setIsRenaming(true)}
-              />
-            </CanvasItemPopup.Section>
-            <CanvasItemPopup.Divider isDark={isDark} />
-            {single.rendererTag === 'markdown' ? (
-              <FormattingSection fileId={single.id} isDark={isDark} />
-            ) : null}
-          </>
+      <CanvasItemPopup.Frame isDark={isDark} flush={isFocused} fullWidth={isFocused}>
+        {subject.single ? (
+          <FileIdentitySections
+            file={subject.single}
+            isDark={isDark}
+            isRenaming={isRenaming}
+            setIsRenaming={setIsRenaming}
+            onRename={(id, next) => api.renameFileEntity(id, next)}
+          />
         ) : null}
-        <CanvasItemPopup.EntityActions
-          isDark={isDark}
-          noun={noun}
-          count={count}
-          api={api}
-          layout={layout}
-          entityIds={entityIds}
-          onAnnotate={onAnnotate}
-        />
+        {focusBar ? (
+          <FocusBarActions
+            api={api}
+            isDark={isDark}
+            annotationsVisible={focusBar.annotationsVisible}
+          />
+        ) : (
+          <CanvasItemPopup.EntityActions
+            isDark={isDark}
+            noun={subject.noun}
+            count={subject.count}
+            api={api}
+            layout={layout}
+            entityIds={subject.entityIds}
+            onAnnotate={onAnnotate}
+          />
+        )}
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>
   )

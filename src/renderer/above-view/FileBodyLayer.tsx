@@ -20,6 +20,23 @@ import {
 import { getFileApi } from '../canvas-bg/entity-renderers/filePathToSrc'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 
+/**
+ * The card surface a file body sits on. Shared with the fullscreen focused-note
+ * card (`FocusedNoteLayer`) so the two read as the same object across the focus
+ * morph instead of two similar-looking cards.
+ */
+export function fileCardSurface(isDark: boolean): {
+  background: string
+  boxShadow: string
+} {
+  return {
+    background: isDark ? '#1c1917' : '#fafaf9',
+    boxShadow: isDark
+      ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+      : '0 2px 8px rgba(0, 0, 0, 0.08)',
+  }
+}
+
 function FileBodyCard({
   entity,
   isDark,
@@ -45,6 +62,7 @@ function FileBodyCard({
   // Bare entities (images, device-framed pages) show no card: transparent
   // background, no shadow, square corners.
   const isChromeless = entity.rendererTag === 'image' || entity.showDeviceFrame
+  const surface = fileCardSurface(isDark)
 
   const menuPopupClass = `z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
     isDark
@@ -65,12 +83,8 @@ function FileBodyCard({
       style={{
         width: entity.width,
         height: entity.height,
-        background: isChromeless ? 'transparent' : isDark ? '#1c1917' : '#fafaf9',
-        boxShadow: isChromeless
-          ? undefined
-          : isDark
-            ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-            : '0 2px 8px rgba(0, 0, 0, 0.08)',
+        background: isChromeless ? 'transparent' : surface.background,
+        boxShadow: isChromeless ? undefined : surface.boxShadow,
         overflow: isSelected ? 'visible' : 'hidden',
         borderRadius: isChromeless ? 0 : 4,
       }}

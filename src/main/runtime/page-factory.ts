@@ -33,7 +33,7 @@ import { markDirty } from './layout-dirty'
 import { clearPageAnchorsForPage } from './page-anchor-state'
 import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
-import { endFocusSession, focusSession } from './focus-session'
+import { endFocusSession, focusedPageId } from './focus-session'
 import {
   clearInspectTargets,
   notifyDevtoolsPanelData,
@@ -346,7 +346,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // survives as a stale session that freezes the canvas (zoom/pan IPC
   // early-returns while focus is active) with no visible affordance to recover.
   // Full select-first / interact-second delete behavior is tracked in #124.
-  if (focusSession()?.pageId === page.id) endFocusSession('dismiss')
+  if (focusedPageId() === page.id) endFocusSession('dismiss')
   if (interactivePageId() === page.id) setInteractivePageId(null)
   breadcrumb('page', 'remove', { host: hostOf(page.url) })
   clearPendingRequestsForPage(page.id)

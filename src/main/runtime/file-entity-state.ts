@@ -23,7 +23,7 @@ import {
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
-import { pickRenderer } from '../plugins/registry'
+import { pickRenderer, rendererClaimsFillFocus } from '../plugins/registry'
 import { findRepoForPath } from './dev-server-manager'
 import {
   watchEntityFile,
@@ -171,6 +171,10 @@ export function buildFileEntitySceneEntity(
   }
 }
 
+function claimForFileEntity(entity: FileEntity) {
+  return pickRenderer(persistFileEntity(entity))
+}
+
 function rendererSceneFields(entity: FileEntity): {
   rendererTag: CanvasSceneFileEntity['rendererTag']
   rendererEditable: CanvasSceneFileEntity['rendererEditable']
@@ -178,7 +182,7 @@ function rendererSceneFields(entity: FileEntity): {
   componentHasRepo: CanvasSceneFileEntity['componentHasRepo']
   componentInferredRepoPath: CanvasSceneFileEntity['componentInferredRepoPath']
 } {
-  const claim = pickRenderer(persistFileEntity(entity))
+  const claim = claimForFileEntity(entity)
   const tag = claim?.rendererTag ?? undefined
   const rendererEditable = claim?.editable ?? false
   const rendererInteractive = claim?.interactive ?? false
@@ -199,6 +203,13 @@ function rendererSceneFields(entity: FileEntity): {
     componentHasRepo: hasRepo,
     componentInferredRepoPath: hasRepo ? undefined : inferRepoRoot(entity.file),
   }
+}
+
+/** Does the renderer claiming this file entity support fullscreen focus. */
+export function fileEntitySupportsFillFocus(id: string): boolean {
+  const entity = fileEntities.find((candidate) => candidate.id === id)
+  if (!entity) return false
+  return rendererClaimsFillFocus(claimForFileEntity(entity))
 }
 
 /**

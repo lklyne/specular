@@ -11,6 +11,7 @@
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, unlinkSync } from 'fs'
 import { dirname, join } from 'path'
+import { listCanvasFileNames } from './space-persistence'
 
 const SPACE_META_DIR = '.specular'
 const ASSETS_DIR = 'assets'
@@ -60,10 +61,7 @@ function spaceRelativeFiles(spacePath: string): string[] {
  *  signal used to distinguish "someone re-opening an existing space" from
  *  "an empty destination" (ADR 0033 §3). */
 export function hasCanvasFiles(spacePath: string): boolean {
-  if (!existsSync(spacePath)) return false
-  return readdirSync(spacePath, { withFileTypes: true }).some(
-    (entry) => entry.isFile() && entry.name.endsWith('.canvas'),
-  )
+  return listCanvasFileNames(spacePath).length > 0
 }
 
 /**

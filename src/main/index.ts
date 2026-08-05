@@ -1,5 +1,6 @@
 import { app, crashReporter, dialog, net, nativeTheme, protocol } from 'electron'
 import { basename } from 'path'
+import { pathToFileURL } from 'url'
 import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
 import {
@@ -189,7 +190,10 @@ app.whenReady().then(async () => {
     // renderers append ?v=<fileReloadVersion> to force a fresh fetch on disk change.
     const raw = request.url.slice('local-file://'.length).split(/[?#]/)[0]
     const filePath = decodeURIComponent(raw)
-    return net.fetch(`file://${filePath}`)
+    // pathToFileURL, not string concatenation: a path containing `#` or `?`
+    // would otherwise be re-parsed as a fragment or query and resolve to a
+    // file that isn't there.
+    return net.fetch(pathToFileURL(filePath).toString())
   })
 
   identifyInstall()

@@ -2,14 +2,16 @@
 //
 // Sibling to InteractionController / FocusReconciler, not an InteractionMode:
 // focus spans gestures, it is not itself a gesture. This module holds the
-// session state (page, mode) and is the sole writer. Every
+// session state (target, mode) and is the sole writer. Every
 // consumer reads `focusSession()`; every exit funnels through
 // `endFocusSession(reason)` so "what ends focus" is one auditable list.
 
-import type { FocusPresentationMode } from '../../shared/types'
+import type { FocusPresentationMode, FocusTarget } from '../../shared/types'
 
 export interface FocusSession {
-  pageId: string
+  /** Page-specific consumers read `focusedPageId()` so they no-op cleanly
+   *  during a file session. */
+  target: FocusTarget
   mode: FocusPresentationMode
   /**
    * Are annotations (stickies/text/shapes/drawings/edges) shown over the
@@ -41,6 +43,16 @@ export function isFocusSessionActive(): boolean {
   return session !== null
 }
 
+/** The focused page id — null when there's no session or the target is a file. */
+export function focusedPageId(): string | null {
+  return session?.target.kind === 'page' ? session.target.id : null
+}
+
+/** The focused file entity id — null when there's no session or the target is a page. */
+export function focusedFileId(): string | null {
+  return session?.target.kind === 'file' ? session.target.id : null
+}
+
 /** Start or replace the focus session. */
 export function beginFocusSession(next: FocusSession): void {
   session = next
@@ -51,9 +63,10 @@ export function setFocusSessionMode(mode: FocusPresentationMode): void {
   session = { ...session, mode }
 }
 
+/** Retarget an active session at another page (page switching mid-session). */
 export function repointFocusSession(pageId: string): void {
   if (!session) return
-  session = { ...session, pageId }
+  session = { ...session, target: { kind: 'page', id: pageId } }
 }
 
 export function setFocusAnnotationsVisible(visible: boolean): void {
