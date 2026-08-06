@@ -1,6 +1,8 @@
-# Interaction sync is semantic, not positional
+# ADR 0030 — Interaction sync is semantic, not positional
 
-Status: accepted
+**Status:** Accepted
+**Date:** 2026-07-13
+**Related:** [ADR 0027 — Sync sets decouple navigation sync from groups](./0027-sync-sets-decouple-navigation-sync-from-groups.md), [ADR 0029 — Presence acts anchored to truth](./0029-presence-acts-anchored-to-truth.md), [ADR 0022 — Pages adopt select-first / interact-second interactivity](./0022-pages-select-first-interact-second.md).
 
 Sync sets shared navigation and scroll but not interactions: clicking a menu on one page did nothing on its peers, so multi-breakpoint iteration broke the moment a flow left the URL bar. We decided to complete the sync family with **interaction sync** — the source page's hover and clicks replay on every peer — and to make the replay **element-anchored rather than coordinate-based**. The source page's preload captures each event with a descriptive locator bundle (id / testid / role+accessible-name / text / structural path, plus a within-element offset fraction); each peer scores that bundle against its own live DOM (the same scoring vocabulary as `findPresenceTarget`, shared via `src/shared/`) and dispatches trusted input via CDP (`webContents.debugger` `Input.dispatch*`) at *its own* element's position. A **synced cursor** — a presence cursor sourced from the user's mirrored input — renders on each peer, always on: it glides viewport-proportionally when no element is matched and snaps to the peer-resolved element when one is.
 

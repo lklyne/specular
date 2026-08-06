@@ -44,10 +44,12 @@ Crucially, verb-ergonomics and single-spine plumbing are **not a tradeoff**: eve
 
 **Read** — what's there
 ```
-specular workspace          # canvas state as JSON Canvas (entities, edges, groups)
+specular canvas             # canvas state as JSON Canvas (entities, edges, groups)
 specular snapshot [-f id]    # live DOM accessibility tree of a page (refs for interaction)
 specular screenshot [-f id]  # pixels
 ```
+
+> **Note (ADR 0033, v0.6.0):** `specular workspace` was renamed to `specular canvas` as part of the vocabulary cleanup that retired "workspace" (space = folder, canvas = document). The old verb is preserved as a hidden alias so existing agent skills don't break mid-transition.
 
 **Add** — kind is the subcommand (like `git remote add`)
 ```

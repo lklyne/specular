@@ -12,16 +12,15 @@ Code is the source of truth for making ideas real, but long chat threads and sin
 - Annotate live websites and pass the feedback straight back to an agent
 - Lay out a page at multiple device breakpoints to check responsiveness
 - Ask an agent to share its thinking visually, or ingest a repo's design system
-- Switch to browser mode for a classic tab-based browser
 
 ## Key features
 
 - **Canvas** — Real browser windows on an infinite, zoomable canvas
-- **Agent-friendly** — Agents drive the canvas through a `specular` CLI (primary) or MCP server (fallback): creating frames, navigating, inspecting the DOM, clicking, typing, screenshotting
+- **Agent-friendly** — Agents drive the canvas through a `specular` CLI (primary) or MCP server (fallback): creating pages, navigating, inspecting the DOM, clicking, typing, screenshotting
 - **Agent presence** — See an agent's live cursor and task status as it works alongside you
-- **Annotations** — Comment on any frame, usable by people and agents
+- **Annotations** — Comment on any page, usable by people and agents
 - **Device frames** — Preview sites at preset device sizes with visual device shells
-- **Groups & edges** — Organize frames into freeform/row/grid groups and draw connections between them
+- **Groups & edges** — Organize pages into freeform/row/grid groups and draw connections between them
 - **Local-first** — No sign-in, no account; full undo history backed by Yjs CRDTs
 - **Open formats** — Layout uses [JSON Canvas](https://jsoncanvas.org); text and media are plain `.md`, `.png`, and `.webm` files on disk
 
@@ -49,8 +48,8 @@ The `specular` CLI is the main interface for agents — composable commands that
 
 ```bash
 specular canvas                          # inspect the current canvas
-specular create frame <url>              # pull a live page onto the canvas
-specular snapshot -i                     # get element refs for the selected frame
+specular add page <url>                  # pull a live page onto the canvas
+specular snapshot -i                     # get element refs for the selected page
 specular annotate "<feedback>"           # leave a comment for a human or agent
 ```
 

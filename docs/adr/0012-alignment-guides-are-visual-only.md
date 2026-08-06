@@ -1,4 +1,8 @@
-# Alignment guides are visual-only; grid-snap remains the sole magnet
+# ADR 0012 — Alignment guides are visual-only; grid-snap remains the sole magnet
+
+**Status:** Accepted
+**Date:** 2026-05-14
+**Related:** [CONTEXT.md §Drag affordances](../../CONTEXT.md), [docs/interaction-layer.md](../interaction-layer.md) §4 (input authority).
 
 ## Context
 

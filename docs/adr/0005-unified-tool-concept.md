@@ -36,11 +36,12 @@ type Tool =
   | { kind: 'add-text'; style: 'plain' | 'sticky' }                          // one-shot
   | { kind: 'add-document' }                                                 // one-shot
   | { kind: 'add-shape'; shapeKind: 'rectangle' | 'ellipse' | 'diamond' }    // one-shot
-  | { kind: 'comment' }                                                      // persistent
+  | { kind: 'comment' }                                                      // persistent — supersedes region-select (ADR 0006)
   | { kind: 'draw' }                                                         // persistent — creates drawing entities
-  | { kind: 'region-select' }                                                // persistent
   | { kind: 'inspect' }                                                      // persistent
 ```
+
+> **Note:** `region-select` was replaced by `comment` (ADR 0006); `add-sticky` was split from `add-text` (ADR 0013). The union above shows the shape at the time of this ADR's decision. **For the current exhaustive list see `src/shared/tool.ts`.** ADR 0006, ADR 0013, and later additions extended it without changing the core model.
 
 Stored in main runtime as `activeTool: Tool` (default `{ kind: 'select' }`). A small per-kind lookup table `toolDuration: Record<Tool['kind'], 'one-shot' | 'persistent'>` lets the runtime decide when to auto-revert to `select`.
 

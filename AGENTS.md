@@ -32,7 +32,7 @@ Electron app with four source layers:
 
 ```
 src/main/          Main process: state, persistence, HTTP API, CLI, IPC routing
-src/preload/       Context bridges: one per renderer overlay (10 total)
+src/preload/       Context bridges: one per renderer overlay (9 total)
 src/renderer/      React apps: canvas-bg, toolbar, sidebar, inspector, overlays
 src/shared/        Types and pure utilities shared across processes
 ```
@@ -50,11 +50,11 @@ Runtime variables    Ephemeral state (views, interaction mode, hover, timers)
 ### Key domains in src/main/runtime/
 
 ```
-workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
+space-*              Persistence, tabs, model, Y.Doc, undo, autosave
 runtime-core.ts      High-level state mutations
 runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
 selection-*          Selection state and mutations
-page-*.ts            Frame (webview) creation and lifecycle
+page-*.ts            Page (webview) creation and lifecycle
 layout-*.ts          View positioning, z-order, dirty tracking
 *-entity-state.ts    Per-entity-kind mutations (text, file, group, drawing)
 ```
@@ -75,7 +75,7 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 - **Edge** — a connection between two nodes
 - **Canvas** — a single .canvas file; the spatial document
 - **Space** — a folder of canvases (like an Obsidian vault)
-- **Frame** — our current UI term for link nodes (live web pages)
+- **Page** — the document term for link nodes (live web pages)
 
 ## File format principles
 
@@ -83,14 +83,6 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 - .canvas files follow JSON Canvas v1.0 with transparent app extensions
 - Files live on disk in the user's space folder — the file system is the data model
 - Files must be diffable, versionable, and editable by agents and other tools
-
-## View modes
-
-Browser and Canvas are different views of the same data:
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between frames
-
-Both operate on the same underlying .canvas data and share primitives.
 
 ## Code principles
 

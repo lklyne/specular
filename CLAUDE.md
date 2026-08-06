@@ -127,16 +127,6 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 - Files must be diffable, versionable, and editable by agents and other tools
 - No proprietary blobs, no server dependencies for core data
 
-## View modes
-
-Browser and Canvas are different views of the same data:
-
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between pages
-
-Both operate on the same underlying .canvas data and share primitives.
-Maximize overlap between modes.
-
 ## Code principles
 
 Build toward small, obvious pieces.
@@ -193,7 +183,7 @@ The suite stays small on purpose. To prevent drift back to a pile of low-value t
 
 ## Specular CLI
 
-- Always pass full URLs (including scheme and host) to `specular create page`. The canvas can contain pages from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
+- Always pass full URLs (including scheme and host) to `specular add page`. The canvas can contain pages from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
 
 ## Skill files
 

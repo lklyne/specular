@@ -39,9 +39,8 @@ type Tool =
   | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot
   | { kind: 'add-document' }                        // one-shot
   | { kind: 'add-shape' }                           // one-shot
-  | { kind: 'comment' }                             // persistent
+  | { kind: 'comment' }                             // persistent — supersedes region-select (ADR 0006)
   | { kind: 'draw' }                                // persistent
-  | { kind: 'region-select' }                       // persistent
   | { kind: 'inspect' }                             // persistent
 ```
 
