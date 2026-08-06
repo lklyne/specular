@@ -1273,3 +1273,16 @@ Noticed (no action):
 - **#358, #330**: no new information since their last-logged checkpoints; not re-querying nightly per standing calls.
 - **Journal PR #169 now at day 68** (68 consecutive daily entries), `mergeable_state: clean`, still unmerged. Not yet at the informal 90-day naming point flagged Aug 2 (~Aug 27).
 Hint for next run: check #373 at day 4+; if it hits day 7 (Aug 9) with zero engagement, that's worth a plain note on whether the 0/7 process-step record was really about proposal *shape* or about something in the review channel itself, since #373 was explicitly filed as the different-lever test case. Watch PR #169 toward its ~Aug 27 90-day mark. No fixed checkpoints outstanding on #330/#358/#359 — keep as background watches; #359 vs #382 is resolved (adjacent, not conflicting), drop from active comparison.
+
+---
+
+## 2026-08-06
+Surveyed: a fully quiet window since the Aug 5 entry — zero new commits to `main` (still `960abe3`, PR #382), zero new issues, zero new or updated open PRs — against every standing watch item: #373 at day 4, needs-triage and `agent-in-progress` recounts, PR #169's day count, #358/#330/#359 background status.
+Acted: Nothing filed or closed. Proposal queue: #373 remains the sole open item, zero comments/reactions, day 4 — below the day-7 (Aug 9) threshold named yesterday. No orchestrator-owned PRs beyond #169 to clean up. Process-step-proposal genre stays retired per the July 25 reflection (0/7 record unchanged); nothing tonight is a second instance of any open pattern.
+Noticed (no action):
+- **Second consecutive fully silent night on `main`.** No commits, no new PRs, no new issues since PR #382 merged Aug 5 06:19 UTC.
+- **needs-triage: 23 items, unchanged composition** — #124 still oldest (now 82 days), #330 and the four `Deepen:` issues (#333-336) unchanged, #365 still newest. Eleventh-plus straight night with no growth or drain; drain-proposal genre stays retired.
+- **`agent-in-progress` unchanged at 3**: #1, #111 (83 days orphaned since PR #136 closed without merging), #135 (81 days orphaned since PR #144 closed without merging). No sweep yet — #373 hasn't landed.
+- **Open PR roster unchanged from Aug 5**: #359 (Cursor draft, day 12), #358 (cloud-sync spike, no push since Jul 26), #355, #246, #236, #204, #32 — all long-idle, all out of orchestrator scope (Lyle's own exploratory/product PRs, not agent-authored work awaiting review).
+- **Journal PR #169 now at day 69** (69 consecutive daily entries appended), `mergeable_state: clean`, still unmerged. 21 days short of the informal ~Aug 27 90-day naming point.
+Hint for next run: check #373 at day 5 — day 7 (Aug 9) is the threshold to note whether the 0/7 process-step record was about proposal *shape* or the review channel itself. Watch PR #169 toward ~Aug 27. No fixed checkpoints outstanding on #330/#358/#359 — keep as background watches.
