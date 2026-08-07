@@ -18,7 +18,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │  ├─ canvas, toolbar, sidebar, inspector, chrome, etc.       │
 │                                                              │
 │  HTTP API (src/main/routes/)                                │
-│  ├─ /workspace, /pages, /entities, /selection, etc.         │
+│  ├─ /canvas, /pages, /entities, /selection, /tabs, etc.     │
 │                                                              │
 │  Persistence                                                 │
 │  └─ .canvas files on disk (autosave, 350ms debounce)        │
@@ -45,14 +45,14 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │                    the main window, not a WCV — see         │
 │                    docs/interaction-layer.md §3.1.          │
 │  toolbar/          Zoom, tool modes, navigation             │
-│  left-sidebar/     Workspace tree (canvases, pages)         │
+│  left-sidebar/     Canvases panel (canvases, pages)          │
 │  right-details-panel/  Inspector (properties, settings)     │
 │  devtools-resize-handle/  Devtools panel splitter           │
 └─────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────┴──────────────────────────────────────────┐
 │ External clients                                             │
-│  CLI (planned)     Agent interaction via command line        │
+│  CLI               Agent interaction via command line        │
 │  HTTP API          Runtime queries and mutations             │
 │  CDP proxy         Chrome DevTools Protocol (WebSocket)      │
 └─────────────────────────────────────────────────────────────┘
@@ -60,7 +60,7 @@ Specular is an Electron app with a main process and multiple renderer processes.
 
 ## Data flow
 
-**State flows down.** Main process owns all workspace state. Renderers receive
+**State flows down.** Main process owns all space state. Renderers receive
 layout data via IPC broadcasts and re-render.
 
 **Actions flow up.** User interactions in renderers call preload API methods,
@@ -75,7 +75,7 @@ See `src/main/runtime/CLAUDE.md` for the full technical reference.
 
 | Layer | What it holds | Where |
 |-------|--------------|-------|
-| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `workspace-doc.ts` |
+| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `space-doc.ts` |
 | Runtime variables | Electron views, interaction mode, hover, drag, timers | `runtime-context.ts` |
 
 **Forward sync:** mutations update runtime arrays -> `scheduleWorkspaceAutosave()`
@@ -112,13 +112,13 @@ Each entity type has:
 |--------|------|
 | `runtime-core.ts` | High-level state mutations (create, delete, select) |
 | `runtime-context.ts` | All ephemeral state (views, zoom, pan, interaction) |
-| `workspace-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
-| `workspace-model.ts` | Workspace data arrays (groups, edges, annotations, tabs) |
-| `workspace-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
-| `workspace-persistence.ts` | Disk I/O (.canvas read/write) |
-| `workspace-autosave.ts` | Autosave scheduling |
-| `workspace-undo.ts` | UndoManager setup, undo/redo API |
-| `workspace-tab-operations.ts` | Tab CRUD and switching |
+| `space-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
+| `space-model.ts` | Space data arrays (groups, edges, annotations, tabs) |
+| `space-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
+| `space-persistence.ts` | Disk I/O (.canvas read/write) |
+| `space-autosave.ts` | Autosave scheduling |
+| `space-undo.ts` | UndoManager setup, undo/redo API |
+| `space-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |

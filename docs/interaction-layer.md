@@ -176,18 +176,16 @@ The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When 
 
 ```ts
 function shouldGateBeOpen(s: AppState): boolean {
-  // Inspect & annotate-comment drive feedback off the page's webContents
-  // mousemove (eyedropper, comment hover); keep the gate closed unless the
+  // Inspect tool drives feedback off the page's webContents mousemove
+  // (eyedropper, comment hover); keep the gate closed unless the
   // composer is open.
-  if (s.toolMode === 'inspect' || s.toolMode === 'annotate-comment') {
+  if (s.activeTool.kind === 'inspect') {
     return s.commentOverlayActive
   }
-  // Canvas mode: aboveView is always-on. Inline edit (sticky / shape /
-  // group rename) also runs in aboveView (the contenteditable lives
-  // there post-Phase C), so the gate stays open during `editing-entity`
+  // aboveView is always-on. Inline edit (sticky / shape / group rename)
+  // also runs in aboveView, so the gate stays open during `editing-entity`
   // rather than ducking to bgView.
-  if (s.viewMode === 'canvas') return true
-  return browserModeNeedsGate(s)
+  return true
 }
 ```
 

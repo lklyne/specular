@@ -1,6 +1,6 @@
 # ADR 0001 — Click-to-enter frame focus replaces rasterization-dependent gate
 
-**Status:** Accepted
+**Status:** Accepted (gate mechanism superseded — see postmortem below)
 **Date:** 2026-05-04
 **Supersedes premise of:** `docs/interaction-layer.md` §4.2 (input gate) and §4.7 (bitmap compositor)
 
@@ -65,3 +65,16 @@ Edges visually cross frame bodies; clicking such an overlap goes to the frame bo
 **Out of scope:**
 - Bitmap compositor / Phase 6. Still tracked separately if memory/CPU regressions of N live frames demand it.
 - Per-page sub-region carve-outs (the "partial focus" alternative considered and rejected).
+
+## Postmortem — gate mechanism superseded
+
+The `frameFocus` runtime variable and `aboveView.setVisible(false)` gate flip described in the Decision section were never the final implementation. The aboveView migration (post-2026-05-06) made the gate always-open: `aboveView` stays visible at all times and is never hidden when a page is focused. The **select-first / interact-second** model ([ADR 0022](./0022-pages-select-first-interact-second.md)) replaced single-click focus.
+
+Current mechanism (see `src/main/runtime/gate-predicate.ts` and `interaction-layer.md` §4.2):
+
+- `interactivePageId` (in `runtime-context.ts`) replaces `frameFocus`. A page enters interactive state on second-click or double-click.
+- When a page is interactive, pointer events that land on it are **forwarded** by main via `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`). The gate does **not** close.
+- The gate stays open (`aboveView.setVisible(true)`) except when the `inspect` tool is active with `commentOverlayActive === false`.
+- Exit via Escape, click-away, selecting elsewhere, or leaving focus (the same gestures this ADR described).
+
+The blur-event exit-detection approach (Costs §3) was not required: exit is driven by canvas gesture events, not `webContents.blur`. The decision to keep frames always-live and arbitrate in main still stands; only the specific gate mechanism changed.

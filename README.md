@@ -12,12 +12,12 @@ Code is the source of truth for making ideas real, but long chat threads and sin
 - Annotate live websites and pass the feedback straight back to an agent
 - Lay out a page at multiple device breakpoints to check responsiveness
 - Ask an agent to share its thinking visually, or ingest a repo's design system
-- Switch to browser mode for a classic tab-based browser
+- Open a page in fullscreen fill focus to work with it directly
 
 ## Key features
 
 - **Canvas** — Real browser windows on an infinite, zoomable canvas
-- **Agent-friendly** — Agents drive the canvas through a `specular` CLI (primary) or MCP server (fallback): creating frames, navigating, inspecting the DOM, clicking, typing, screenshotting
+- **Agent-friendly** — Agents drive the canvas through a `specular` CLI (primary) or MCP server (fallback): creating pages, navigating, inspecting the DOM, clicking, typing, screenshotting
 - **Agent presence** — See an agent's live cursor and task status as it works alongside you
 - **Annotations** — Comment on any frame, usable by people and agents
 - **Device frames** — Preview sites at preset device sizes with visual device shells
@@ -49,7 +49,7 @@ The `specular` CLI is the main interface for agents — composable commands that
 
 ```bash
 specular canvas                          # inspect the current canvas
-specular create frame <url>              # pull a live page onto the canvas
+specular add page <url>                  # pull a live page onto the canvas
 specular snapshot -i                     # get element refs for the selected frame
 specular annotate "<feedback>"           # leave a comment for a human or agent
 ```

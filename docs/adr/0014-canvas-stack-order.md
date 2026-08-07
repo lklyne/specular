@@ -1,6 +1,6 @@
 # ADR 0014 — Canvas stack order and the Notes/Pages sidebar
 
-**Status:** Proposed
+**Status:** Accepted (slices 1–4 implemented; drag reorder, keyboard shortcuts, and edges-in-entityOrder are later additions)
 **Date:** 2026-05-11
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md), [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md).
 **Supersedes premise of:** the sidebar's position-based sort (`compareSidebarPositions` in `sidebar-builder.ts`) and the implicit "edges always paint above all entities" rule.
