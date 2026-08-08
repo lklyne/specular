@@ -5,7 +5,7 @@
 > variant) was deleted wholesale — see the "delete wireframe mode" PR. The
 > renderer-plugin popup contribution surface it depended on was removed too.
 
-**Status:** Proposed
+**Status:** Accepted (§3 cross-kind morph superseded — see inline note)
 **Date:** 2026-05-15
 **Refines:** [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md), [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md), [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md).
 

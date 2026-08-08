@@ -54,7 +54,7 @@ workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
 runtime-core.ts      High-level state mutations
 runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
 selection-*          Selection state and mutations
-page-*.ts            Frame (webview) creation and lifecycle
+page-*.ts            Page (webview) creation and lifecycle
 layout-*.ts          View positioning, z-order, dirty tracking
 *-entity-state.ts    Per-entity-kind mutations (text, file, group, drawing)
 ```
@@ -75,7 +75,7 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 - **Edge** — a connection between two nodes
 - **Canvas** — a single .canvas file; the spatial document
 - **Space** — a folder of canvases (like an Obsidian vault)
-- **Frame** — our current UI term for link nodes (live web pages)
+- **Page** — Specular's term for live web items (a URL rendered at a position on the canvas). See [ADR 0003](./docs/adr/0003-page-as-canonical-name-for-live-web-items.md).
 
 ## File format principles
 
@@ -83,14 +83,6 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 - .canvas files follow JSON Canvas v1.0 with transparent app extensions
 - Files live on disk in the user's space folder — the file system is the data model
 - Files must be diffable, versionable, and editable by agents and other tools
-
-## View modes
-
-Browser and Canvas are different views of the same data:
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between frames
-
-Both operate on the same underlying .canvas data and share primitives.
 
 ## Code principles
 
