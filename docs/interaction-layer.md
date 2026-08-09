@@ -93,7 +93,7 @@ The cursor overlay is deliberately outside the three-plane model. It sits in its
 | Plane | Owns visuals | Owns input | Number of WCVs |
 |---|---|---|---|
 | `bgView` | Canvas grid + camera transform + frame borders/device shells + (future) inactive-page bitmaps | Nothing (always `setVisible(true)`; never holds keyboard focus post-migration) | 1 |
-| `liveViews` | Active web content | Native page input + keyboard, only while the `shouldFocusSelectedFrame` predicate elects a single page as keyboard target | 0-N |
+| `liveViews` | Active web content | Native page input + keyboard, only while the `shouldFocusSelectedPage` predicate elects a single page as keyboard target | 0-N |
 | `aboveView` | Entity bodies, edges, group bounds, selection outlines + resize handles, focus ring, agent halo, canvas-anchored popups, marquee + drag visuals, comments / annotations / floating UI | All canvas-level pointer input + canvas-mode keyboard (default `FocusTarget`) | 1 |
 | `toolbar` / `sidebar` / `devtools` | Their own UI | Their own UI | 1 each |
 | `cursorOverlayWindow` | Agent-presence cursors (paint-only, shown only while `win` is focused) | Nothing — `setIgnoreMouseEvents(true)` | Not a WCV; sibling child `BrowserWindow` of `win` |
@@ -176,32 +176,25 @@ The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When 
 
 ```ts
 function shouldGateBeOpen(s: AppState): boolean {
-  // Inspect & annotate-comment drive feedback off the page's webContents
-  // mousemove (eyedropper, comment hover); keep the gate closed unless the
-  // composer is open.
-  if (s.toolMode === 'inspect' || s.toolMode === 'annotate-comment') {
-    return s.commentOverlayActive
-  }
-  // Canvas mode: aboveView is always-on. Inline edit (sticky / shape /
-  // group rename) also runs in aboveView (the contenteditable lives
-  // there post-Phase C), so the gate stays open during `editing-entity`
-  // rather than ducking to bgView.
-  if (s.viewMode === 'canvas') return true
-  return browserModeNeedsGate(s)
+  // Inspect drives feedback off the page's webContents mousemove (eyedropper);
+  // close the gate so the page receives native events.
+  if (s.activeTool.kind === 'inspect') return false
+  // aboveView is always-on in all other cases.
+  return true
 }
 ```
 
-Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it.
+Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it. See `src/main/runtime/gate-predicate.ts`.
 
-The OR-chain in canvas mode has collapsed: the canvas-pointer-router (§4.2.1) classifies all pointerdowns from the always-on aboveView via `src/shared/hit-test.ts`, and every interactive surface that used to live in `bgView` or in a per-page `chromeView` WCV has moved into aboveView's React tree as `CanvasItemPopup` (`data-overlay-ui` so the router yields to them structurally). The per-page `chromeView` WCV and its `chrome-header` preload + renderer were retired wholesale; the chrome-action IPCs (`canvas-navigate-frame` / `canvas-back-frame` / etc., addressed by `frameId`) replace the sender-based `chrome-*` channels.
+The OR-chain from earlier drafts has collapsed: the canvas-pointer-router (§4.2.1) classifies all pointerdowns from the always-on aboveView via `src/shared/hit-test.ts`, and every interactive surface that used to live in `bgView` or in a per-page `chromeView` WCV has moved into aboveView's React tree as `CanvasItemPopup` (`data-overlay-ui` so the router yields to them structurally). The per-page `chromeView` WCV and its `chrome-header` preload + renderer were retired wholesale; the chrome-action IPCs now use `canvas-navigate-page` (addressed by `pageId`) in place of the old sender-based `chrome-*` channels.
 
-The `frameFocus` runtime field that ADR 0001 introduced no longer exists: keyboard target is derived from selection via `shouldFocusSelectedFrame` (a pure predicate), and the gate stays open in canvas mode regardless. Pointer events that should reach a focused page are forwarded by main via `sendInputEvent` — see `src/main/runtime/page-input-forwarding.ts`.
+The `frameFocus` runtime field that ADR 0001 introduced no longer exists: keyboard target is derived from selection via `shouldFocusSelectedPage` (a pure predicate), and the gate stays open in canvas mode regardless. Pointer events that should reach a focused page are forwarded by main via `sendInputEvent` — see `src/main/runtime/page-input-forwarding.ts`.
 
 ### 4.2.1 Canvas pointer router (Phase 2 substrate)
 
 A single window-level pointerdown listener inside `aboveView` (`src/renderer/above-view/useCanvasPointerRouter.ts`) runs the shared `hitTest()` against the current layout snapshot and dispatches a typed `CanvasPointerAction` (`src/shared/canvas-pointer-actions.ts`). The hit-test priority table — resize-handle > anchor > body > background — is encoded once and tested in isolation (`tests/unit/canvas-pointer-actions.test.ts`). The former `chrome` layer was retired with the chrome-header slot model ([ADR 0028](./adr/0028-retire-chrome-header-slot-model.md)); overlay UI anchors to the body rect and yields structurally via `data-overlay-ui`.
 
-The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan. In **browser mode** a plain wheel/two-finger scroll does **not** pan the canvas (ADR 0017) — only zoom applies, so scrolling doesn't drag the canvas behind the browser page; **canvas mode** keeps wheel-pan unchanged.
+The router consumes the full action set (`FULL_ROUTER_CONSUME`): `enter-frame-focus`, `begin-entity-drag`, `begin-group-drag`, `begin-resize`, `begin-edge-drag`, `toggle-select`, `background-click`, `begin-marquee`, `begin-pan`. The remaining viewport helper is limited to wheel zoom/pan and middle-button pan.
 
 Marquee selection is direction-independent: the default mode selects every item whose bounds intersect the marquee. Holding Cmd/Ctrl switches to full containment and lets the gesture begin through an item body; that origin item is excluded from the marquee. A stationary Cmd/Ctrl press still follows the normal additive-click selection path. Marquee resolution is group-aware in every mode: a fully enclosed group resolves to the group, while a partially crossed group is transparent and exposes its overlapping children.
 
@@ -215,7 +208,7 @@ transaction. Releasing outside removes prior membership. Command-drag
 suppresses group/page drop binding and clears its target feedback live;
 Option-drag also suppresses group targeting while copying.
 
-A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the router installs a window-level `dblclick` capture listener and dispatches `enter-shape-edit` / `enter-group` / `request-text-edit` (and yields `enter-group-rename` to the GroupRenameLabel's own DOM `onDoubleClick`). The text/shape branches use the `canvas-request-text-edit` / `canvas-request-shape-edit` IPC channels, which select the entity in main and signal bgView to focus its inline editor.
+A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the router installs a window-level `dblclick` capture listener and dispatches `enter-shape-edit` / `enter-group` / `request-text-edit` (and yields `enter-group-rename` to the GroupRenameLabel's own DOM `onDoubleClick`). The text/shape branches use the `canvas-request-entity-edit` IPC channels, which select the entity in main and signal bgView to focus its inline editor.
 
 **Click-on-solo-selected → edit (issue #49).** A click on a solo-selected text/sticky/shape body — or an editable file body — with no modifier and no active inline edit emits `begin-entity-press` rather than `begin-entity-drag`. The router defers resolution: a stationary release fires `canvas-request-entity-edit` (the same IPC the dblclick fast-path uses), and a pointermove that crosses the existing entity-press drag threshold falls through to a normal entity drag with `preserveSelection: true`. File entities qualify when the resolved renderer plugin declares `editable: true` in its registry claim — the value is broadcast as `rendererEditable` on the file scene entity and surfaced in the `entity-body` hit payload. Markdown / video opt in; image / component placeholders fall through to drag, and dblclick on those kinds is also a clean noop rather than entering `editing-entity` state with no editor on screen. Group, drawing, and page keep their kind-specific routes; group rename remains driven by `GroupRenameLabel`'s own `onDoubleClick`. Press-pending state lives as a hook-local ref inside `useCanvasPointerRouter`'s `runEntityPress`; no new `InteractionMode` is introduced (per §5.6 — payload changes suffice).
 
@@ -269,7 +262,7 @@ interface FocusReconciler {
 type FocusTarget =
   | { kind: 'aboveView' }        // canvas-mode default (post-Phase-F)
   | { kind: 'bgView' }           // legacy / explicit; not used as default anymore
-  | { kind: 'page', id: string } // when shouldFocusSelectedFrame elects a page
+  | { kind: 'page', id: string } // when shouldFocusSelectedPage elects a page
   | { kind: 'toolbar' | 'sidebar' }
 ```
 
@@ -388,7 +381,7 @@ These are the invariants that, if broken, produce the classes of bugs this refac
 | I4 | Focus is expressed as intent, applied by `FocusReconciler` | Focus storms, keyboard shortcuts silently broken |
 | I5 | Drop ownership is declared per `dragId`, never dedup by payload hash | Duplicate drops, missed drops |
 | I6 | `setBackgroundColor('#00000000')` set on every WCV before `addChildView` | White-flash during creation |
-| I7 | (ADR 0001 + aboveView migration) `aboveView` is the always-on canvas-mode input authority and the canvas-mode keyboard owner. The gate no longer toggles on a `frameFocus` runtime field — that field was retired; keyboard target is derived from selection via `shouldFocusSelectedFrame` and pointer/wheel events that should reach a focused page are forwarded from main via `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`). Per-layer pointerdown handlers in `bgView` are gone. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
+| I7 | (ADR 0001 + aboveView migration) `aboveView` is the always-on canvas-mode input authority and the canvas-mode keyboard owner. The gate no longer toggles on a `frameFocus` runtime field — that field was retired; keyboard target is derived from selection via `shouldFocusSelectedPage` and pointer/wheel events that should reach a focused page are forwarded from main via `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`). Per-layer pointerdown handlers in `bgView` are gone. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
 | I8' | (ADR 0002, amended by ADR 0028) Canvas-anchored overlay UI (popups) lives in aboveView's React tree, not in `bgView` layers and not in per-page WCVs. Components tag themselves `data-overlay-ui`; the router yields to them on capture-phase pointerdown via `isOverlayUiTarget`. Geometry comes from `useAnchoredPosition` against the body rect (the chrome-header slot model was retired — entity rect == body rect) | Overlay UI stops receiving clicks when the gate flips fully open |
 | I8 | Pointer events only in renderer gesture code | Divergent behavior between capture/cleanup code |
 | I9 | Canvas coord math imported from `src/shared/coords.ts` | Hit-test drift between main and renderer |
@@ -476,7 +469,7 @@ The Electron smoke layer this section originally specified is retired ([ADR 0024
 ### Agent / scenario
 
 - Multi-frame workspace: marquee across frames, entity drag across frames, edge drag.
-- Canvas↔Browser mode switch preserves focus and gesture idle.
+- Focus session: enter, work in a working tool, exit via Escape — focus toolbar tracks selection and gesture idle.
 
 ---
 

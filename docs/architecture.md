@@ -75,10 +75,10 @@ See `src/main/runtime/CLAUDE.md` for the full technical reference.
 
 | Layer | What it holds | Where |
 |-------|--------------|-------|
-| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `workspace-doc.ts` |
+| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `space-doc.ts` |
 | Runtime variables | Electron views, interaction mode, hover, drag, timers | `runtime-context.ts` |
 
-**Forward sync:** mutations update runtime arrays -> `scheduleWorkspaceAutosave()`
+**Forward sync:** mutations update runtime arrays -> `scheduleSpaceAutosave()`
 -> diff-sync copies changes to Y.Doc.
 
 **Reverse sync:** undo/redo reverts Y.Doc -> observer patches runtime arrays.
@@ -96,9 +96,10 @@ All canvas content is a **node** (following the JSON Canvas spec):
 | `text` | `text` | Text/markdown note |
 | `file` | `file` | Reference to a local file (image, etc.) |
 | `group` | `group` | Visual container for other nodes |
+| `drawing` | `drawing` | Freehand drawing (pen/highlight strokes) |
+| `shape` | `shape` | Geometric shape (rectangle, ellipse, diamond) |
 
-Plus **edges** (connections between nodes) and **annotations** (freehand
-drawings overlaid on the canvas).
+Plus **edges** (connections between nodes).
 
 Each entity type has:
 - `Persisted*Entity` — serializable fields (saved to .canvas)
@@ -112,13 +113,13 @@ Each entity type has:
 |--------|------|
 | `runtime-core.ts` | High-level state mutations (create, delete, select) |
 | `runtime-context.ts` | All ephemeral state (views, zoom, pan, interaction) |
-| `workspace-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
-| `workspace-model.ts` | Workspace data arrays (groups, edges, annotations, tabs) |
-| `workspace-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
-| `workspace-persistence.ts` | Disk I/O (.canvas read/write) |
-| `workspace-autosave.ts` | Autosave scheduling |
-| `workspace-undo.ts` | UndoManager setup, undo/redo API |
-| `workspace-tab-operations.ts` | Tab CRUD and switching |
+| `space-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
+| `space-model.ts` | Space data arrays (groups, edges, annotations, tabs) |
+| `space-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
+| `space-persistence.ts` | Disk I/O (.canvas read/write) |
+| `space-autosave.ts` | Autosave scheduling |
+| `space-undo.ts` | UndoManager setup, undo/redo API |
+| `space-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |
@@ -222,10 +223,12 @@ Specular has one primary view: the canvas. Pages, notes, files, groups, and
 drawings all remain spatial nodes in that view.
 
 `Focus selection` is an ephemeral camera command, not a mode. It zooms and pans
-to fit the current selection with padding, capped at 100% zoom, and stores the
-previous camera in runtime memory so Escape can restore it. The stored return
-camera is cleared by manual pan, zoom, or reset. Focus state is never persisted,
-and node geometry is never changed to fill the app viewport.
+to fit the current selection with padding, capped at 100% zoom. Exiting focus
+(Escape, X button, or dimmed-canvas click) animates the camera to zoom out
+slightly (0.85×) from the current position rather than restoring an exact prior
+position. Focus state is never persisted, and node geometry is never changed to
+fill the app viewport. See [ADR 0021](./adr/0021-focus-session-as-first-class-concept.md)
+for the `FocusSession` ownership model.
 
 Legacy workspace metadata may still mention Browser mode. Restore treats that
 metadata as a compatibility hint only: old Browser-mode workspaces open on the

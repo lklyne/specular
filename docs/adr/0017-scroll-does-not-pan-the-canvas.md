@@ -1,8 +1,10 @@
 # ADR 0017 — Scroll does not pan the canvas in browser mode
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 0020](./0020-delete-browser-mode-for-focus-selection.md)
 **Date:** 2026-06-01
 **Related:** [docs/interaction-layer.md](../interaction-layer.md) §4 (input authority), [docs/input-authority-audit.md](../input-authority-audit.md).
+
+> **Note:** Browser mode was deleted in [ADR 0020](./0020-delete-browser-mode-for-focus-selection.md). The `viewMode === 'canvas'` guard described in this ADR's Decision no longer exists in `useCanvasViewportGestures`. The canvas is now the only mode; wheel-pan is always active on the canvas. This ADR is kept for historical record.
 
 ## Context
 

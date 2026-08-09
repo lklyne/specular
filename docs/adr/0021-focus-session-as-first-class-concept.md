@@ -41,13 +41,17 @@ and `FocusReconciler`, **not** a new `InteractionMode` — focus spans gestures,
 it is not itself a gesture (per §5.6, modes are expensive; this is session
 state, not a transition edge).
 
-1. **Unify the state.** One `FocusSession` object owns `{ pageId, mode,
-   returnCamera }`, captured when the session begins. The two old variables are
-   deleted. A session always carries a return camera, so the presence of a
-   session *is* the "is this restorable" test — `hasFocusReturnCamera()` is just
-   `isFocusSessionActive()`. (A return-point-less session — e.g. one entered via
-   reset-viewport — was considered and dropped: nothing creates one today, so
-   the nullability was speculative. Add it back the day a producer needs it.)
+1. **Unify the state.** One `FocusSession` object owns `{ target, mode,
+   annotationsVisible }`, captured when the session begins. The two old
+   variables (`focusPresentationOverride`, `focusReturnCamera`) are deleted.
+   `target` is a `FocusTarget` (either `{ kind: 'page', id }` or
+   `{ kind: 'file', id }`) so file entities can also be focused, not just pages.
+   `annotationsVisible` latches on when a working tool activates or the user
+   toggles the eye in the focus bar, and stays on — a just-placed sticky remains
+   visible after the tool reverts. The session carries no stored return camera;
+   `restoreFocusCamera()` instead animates a slight zoom-out (0.85×) anchored on
+   the viewport center, keeping the focused content in view without needing to
+   record an exact prior position.
 
 2. **One writer, enumerated exits.** Every exit funnels through
    `endFocusSession(reason)`. The reasons are a closed set:
