@@ -237,62 +237,19 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
             colorScheme: entity.colorScheme,
           })
         } else if (entity?.kind === 'text' || (entity as any)?.kind === 'sticky-note') {
-          createTextEntityInState({
-            id: entity.id,
-            canvasX: entity.canvasX,
-            canvasY: entity.canvasY,
-            text: (entity as any).text,
-            color: (entity as any).color,
-            textStyle: (entity as any).textStyle,
-            widthMode: (entity as any).widthMode,
-            textSize: (entity as any).textSize,
-            width: (entity as any).width,
-            height: (entity as any).height,
-            parentGroupId: (entity as any).parentGroupId,
-            pageAnchor: (entity as any).pageAnchor,
-          })
+          // Spread the persisted record rather than listing fields by hand: a
+          // hand-written subset silently drops any field added later, and this
+          // is the one load path that doesn't go through `def.restore`.
+          createTextEntityInState({ ...(entity as any) })
         } else if (entity?.kind === 'file') {
-          createFileEntityInState({
-            id: entity.id,
-            canvasX: entity.canvasX,
-            canvasY: entity.canvasY,
-            file: (entity as any).file,
-            subpath: (entity as any).subpath,
-            width: (entity as any).width,
-            height: (entity as any).height,
-            parentGroupId: (entity as any).parentGroupId,
-            presetIndex: (entity as any).presetIndex,
-            metadata: (entity as any).metadata,
-            objectFit: (entity as any).objectFit,
-          })
+          createFileEntityInState({ ...(entity as any) })
         } else if (entity?.kind === 'drawing') {
           createDrawingEntityInState({
-            id: entity.id,
-            canvasX: entity.canvasX,
-            canvasY: entity.canvasY,
-            width: (entity as any).width,
-            height: (entity as any).height,
+            ...(entity as any),
             strokes: (entity as any).strokes ?? [],
-            parentGroupId: (entity as any).parentGroupId,
-            pageAnchor: (entity as any).pageAnchor,
           })
         } else if (entity?.kind === 'shape') {
-          createShapeEntityInState({
-            id: entity.id,
-            canvasX: entity.canvasX,
-            canvasY: entity.canvasY,
-            width: (entity as any).width,
-            height: (entity as any).height,
-            shapeKind: (entity as any).shapeKind,
-            text: (entity as any).text,
-            color: (entity as any).color,
-            strokeWidth: (entity as any).strokeWidth,
-            textSize: (entity as any).textSize,
-            theme: (entity as any).theme,
-            parentGroupId: (entity as any).parentGroupId,
-            pageAnchor: (entity as any).pageAnchor,
-            label: (entity as any).label,
-          })
+          createShapeEntityInState({ ...(entity as any) })
         }
       }
     }
