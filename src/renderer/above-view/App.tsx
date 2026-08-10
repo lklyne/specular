@@ -1297,9 +1297,9 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           entity={focusedNoteEntity}
           isDark={isDark}
           editingEntityId={editingEntityId}
-          onExitFocus={api.restoreFocusCamera}
-          onTextEditingChange={api.setTextEditing}
-          onOpenLink={api.openEntityLink}
+          onExitFocus={() => api.restoreFocusCamera()}
+          onTextEditingChange={(active) => api.setTextEditing(active)}
+          onOpenLink={(id, url) => api.openEntityLink(id, url)}
         />
       ) : null}
       </div>
