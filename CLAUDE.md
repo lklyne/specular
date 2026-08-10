@@ -116,6 +116,10 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 - `src/renderer/` must NOT import from `src/main/`
 - `src/shared/` must have no side effects and no process-specific imports
 - `src/preload/` bridges IPC only — no business logic
+- Bridge functions never receive DOM/React events — wrap in an arrow with
+  explicit arguments (`onClick={() => api.fn()}`, never `onClick={api.fn}`).
+  contextBridge deep-serializes arguments; an event graph reaches `window`
+  and stalls the browser process (enforced by `local/no-bridge-event-handlers`)
 - `src/main/runtime/` is the single owner of workspace state
 - Renderer state is derived from IPC broadcasts, never authoritative
 

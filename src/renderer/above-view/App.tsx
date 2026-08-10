@@ -239,7 +239,7 @@ function StackedCanvasItems({
         selectedEntityIds={layoutData.selectedEntityIds}
         zoom={layoutData.zoom}
         originY={layoutData.canvasOrigin.y}
-        onSelectEdge={api.selectEdge}
+        onSelectEdge={(edgeId) => api.selectEdge(edgeId)}
         renderAnchors={false}
         zIndex={undefined}
       />
@@ -273,7 +273,7 @@ function StackedCanvasItems({
           editingEntityId={editingEntityId}
           layoutData={layoutData}
           onUpdateText={(shapeId, text) => api.updateEntity('shape', shapeId, { text })}
-          onCommitEdit={api.commitEntityEdit}
+          onCommitEdit={() => api.commitEntityEdit()}
         />
       )
     }
@@ -290,7 +290,7 @@ function StackedCanvasItems({
             api.updateEntity('text', textId, { width, height })
           }
           onContentHeight={onContentHeight}
-          onCommitEdit={api.commitEntityEdit}
+          onCommitEdit={() => api.commitEntityEdit()}
         />
       )
     }
@@ -306,8 +306,8 @@ function StackedCanvasItems({
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
           zoom={layoutData.zoom}
-          onTextEditingChange={api.setTextEditing}
-          onOpenLink={api.openEntityLink}
+          onTextEditingChange={(active) => api.setTextEditing(active)}
+          onOpenLink={(id, url) => api.openEntityLink(id, url)}
         />
       )
     }
@@ -1139,7 +1139,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIds={focusPresentationActive ? [] : layoutData.selectedEntityIds}
             zoom={layoutData.zoom}
             originY={layoutData.canvasOrigin.y}
-            onSelectEdge={api.selectEdge}
+            onSelectEdge={(edgeId) => api.selectEdge(edgeId)}
             renderAnchors={!focusPresentationActive}
           />
 
