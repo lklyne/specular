@@ -360,7 +360,7 @@ export function boundEffectivePageContentSize(
   page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'> & { id?: string },
 ): { width: number; height: number } {
   const focus = focusSession()
-  if (page.id && focus?.pageId === page.id) {
+  if (page.id && focus?.target.kind === 'page' && focus.target.id === page.id) {
     const mode = focus.mode
     if (mode === 'fill') {
       const region = focusFillRegion()

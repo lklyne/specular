@@ -1,5 +1,6 @@
 import { app, crashReporter, dialog, net, nativeTheme, protocol } from 'electron'
 import { basename } from 'path'
+import { pathToFileURL } from 'url'
 import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
 import {
@@ -25,6 +26,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
 import { getSpacePath, loadOnboardingState, saveOnboardingState, setSpacePath } from './runtime/preferences'
 import { isSpaceAvailable } from './runtime/space-dir'
+import { spacePickerDefaultPath } from './runtime/picker-defaults'
 import { showOnboardingWindow, focusOnboardingWindow, isOnboardingWindowOpen } from './onboarding-window'
 import { focusSettingsWindow, isSettingsWindowOpen } from './settings-window'
 import { configureBundledAgentBrowser, hasUserOwnedAgentBrowserBinary } from './agent-browser-install'
@@ -72,6 +74,14 @@ app.setName('Specular')
 initSentry()
 
 crashReporter.start({ submitURL: '', uploadToServer: false, ignoreSystemCrashHandler: false })
+
+// An app that outlives the terminal that owned its stdout — an orphaned dev
+// run, a detached launch — has a closed pipe under every console call. Each
+// write then throws EPIPE straight into the uncaughtException handler below,
+// which logs it, at one entry per console call for the life of the process.
+// Swallowing here costs nothing: output nobody can read is already lost.
+process.stdout.on('error', () => {})
+process.stderr.on('error', () => {})
 
 process.on('uncaughtException', (err) => logCrash('uncaughtException', err))
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason))
@@ -136,7 +146,10 @@ async function resolveSpaceAtBoot(): Promise<boolean> {
       setSpacePath(undefined)
       return true
     }
-    const located = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    const located = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      defaultPath: spacePickerDefaultPath(),
+    })
     const candidate = !located.canceled ? located.filePaths[0] : undefined
     if (candidate && isSpaceAvailable(candidate)) {
       setSpacePath(candidate)
@@ -177,7 +190,10 @@ app.whenReady().then(async () => {
     // renderers append ?v=<fileReloadVersion> to force a fresh fetch on disk change.
     const raw = request.url.slice('local-file://'.length).split(/[?#]/)[0]
     const filePath = decodeURIComponent(raw)
-    return net.fetch(`file://${filePath}`)
+    // pathToFileURL, not string concatenation: a path containing `#` or `?`
+    // would otherwise be re-parsed as a fragment or query and resolve to a
+    // file that isn't there.
+    return net.fetch(pathToFileURL(filePath).toString())
   })
 
   identifyInstall()

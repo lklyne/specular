@@ -44,7 +44,7 @@ import {
   pan,
   zoom,
 } from './runtime-context'
-import { focusSession } from './focus-session'
+import { focusSession, focusedPageId } from './focus-session'
 import { shouldGateBeOpen } from './gate-predicate'
 import {
   getUiState,
@@ -335,19 +335,24 @@ function layoutAllViews(): void {
 
   // --- Per-page bounds, emulation, annotations ---
   const focusSessionValue = focusSession()
-  const focusedPresentationPageId = focusSessionValue?.pageId ?? null
-  // Eye on (non-fill focus): other pages' live content returns as surrounding
-  // context, subject to normal culling. Eye off (or fill): only the focused
-  // page shows. Binary show/hide, never dimmed (ADR 0021).
+  const focusedPresentationPageId = focusedPageId()
+  // Eye on: other pages' live content returns as surrounding context, subject
+  // to normal culling. Eye off: only the focused page shows. Binary show/hide,
+  // never dimmed (ADR 0021). A page session in 'fill' mode is the exception —
+  // the focused page covers the viewport, so context never returns. A file
+  // session (always 'fill') frames a note drawn in the aboveView overlay and has
+  // no focused page id, so every page is context and the eye governs all of
+  // them; without that, native page layers float over the note backdrop
+  // (ADR 0021 Amendment 2).
   const showOtherPagesInFocus =
-    focusSessionValue?.mode !== 'fill' &&
+    (focusedPresentationPageId === null || focusSessionValue?.mode !== 'fill') &&
     (focusSessionValue?.annotationsVisible ?? false)
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
 
     if (
-      focusedPresentationPageId &&
+      focusSessionValue !== null &&
       page.id !== focusedPresentationPageId &&
       !showOtherPagesInFocus
     ) {

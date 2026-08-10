@@ -31,7 +31,7 @@ import {
 } from './runtime/viewport-control'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { setCustomPageSizeMetadata, setDeviceIdMetadata } from './runtime/runtime-entities'
-import { focusSession, repointFocusSession } from './runtime/focus-session'
+import { focusedPageId, repointFocusSession } from './runtime/focus-session'
 import { makeId, cloneMetadata, pageCurrentUrl, createGroup } from './workspace-utils'
 import {
   entityBoundsById,
@@ -350,7 +350,7 @@ function createBlankFrameInternal(
   })
 
   selectPageById(newPage.id)
-  if (focusSession()?.pageId === sourcePage.id) {
+  if (focusedPageId() === sourcePage.id) {
     repointFocusSession(newPage.id)
     recenterFocusPresentation(newPage.id)
   } else {

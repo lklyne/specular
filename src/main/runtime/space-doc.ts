@@ -179,6 +179,39 @@ export function hydrateDocFromSnapshot(doc: Y.Doc, snapshot: WorkspaceSnapshot):
   }
 }
 
+/**
+ * Replace the doc's content with one tab's snapshot in a single transaction:
+ * clear `mapNames` and the entity order, then hydrate and stamp the workspace
+ * metadata. `tab: null` leaves the doc cleared — the shape a reopen onto a
+ * space with no active tab wants.
+ *
+ * Callers differ in which maps they clear (a tab switch keeps the workspace
+ * and note maps; a space reopen drops everything) and in the transaction
+ * origin, which decides whether the UndoManager tracks the rewrite.
+ */
+export function rewriteDocToSnapshot(
+  doc: Y.Doc,
+  params: {
+    mapNames: readonly string[]
+    origin: string
+    tab: { id: string; snapshot: WorkspaceSnapshot } | null
+    tabs: DocTabEntry[]
+  },
+): void {
+  doc.transact(() => {
+    for (const name of params.mapNames) {
+      const map = doc.getMap(name)
+      for (const key of [...map.keys()]) map.delete(key)
+    }
+    const order = doc.getArray(DOC_ARRAY_ENTITY_ORDER)
+    if (order.length) order.delete(0, order.length)
+    if (!params.tab) return
+    hydrateDocFromSnapshot(doc, params.tab.snapshot)
+    setDocActiveTabId(doc, params.tab.id)
+    setDocTabList(doc, params.tabs)
+  }, params.origin)
+}
+
 // ---------------------------------------------------------------------------
 // Suppress flag — prevents doc sync during restore or undo observer
 // ---------------------------------------------------------------------------

@@ -12,18 +12,27 @@ import { mkdirSync } from 'fs'
 import { basename } from 'path'
 import { DEFAULT_PAGES } from '../../shared/constants'
 import { createPage } from './page-factory'
+import { spacePickerDefaultPath } from './picker-defaults'
 import { setSpacePath } from './preferences'
 import { spaceDir } from './space-dir'
 import { hasCanvasFiles, migrateSpace } from './space-migration'
 import { requestLayout } from './viewport-control'
 import { flushSpaceAutosaveSync, loadSpace, withSpacePersistenceSuspended } from './space-autosave'
 import {
+  activeSpaceTabId,
   setActiveSpaceTabId,
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
   spaceTabs,
 } from './space-model'
+import {
+  DOC_ALL_MAP_NAMES,
+  getActiveDoc,
+  rewriteDocToSnapshot,
+  withSuppressedDocSync,
+} from './space-doc'
+import { resetDocSync } from './space-observers'
 import { makeEmptyWorkspaceSnapshot } from './space-persistence'
 import { destroyActivePages, restorePersistedSpace, rebuildWindowFromSnapshot } from './space-restore'
 import { clearUndoHistory } from './space-undo'
@@ -39,6 +48,7 @@ export async function changeSpaceViaPicker(win: BrowserWindow): Promise<string |
   const picked = await dialog.showOpenDialog(win, {
     title: 'Choose a space folder',
     properties: ['openDirectory', 'createDirectory'],
+    defaultPath: spacePickerDefaultPath(),
   })
   if (picked.canceled || !picked.filePaths.length) return null
   const destination = picked.filePaths[0]
@@ -196,6 +206,36 @@ export function reloadWorkspaceDataFromCurrentSpace(): void {
   // Doc observers and the undo manager are already wired from app boot and
   // operate on the same module-level arrays rebuildWindowFromSnapshot just
   // reset — no need to recreate them.
+  //
+  // The Y.Doc, though, still holds the *previous* space: unlike a tab switch
+  // (`transitionToTab`), `restorePersistedSpace` rebuilds the runtime arrays
+  // without touching the doc. Leaving it stale points the two layers at
+  // different spaces, and every doc -> runtime path — an undo, a reverse
+  // sync — then reinstates the old space's entities and tab list under the
+  // new root, where autosave writes them out as if they belonged to it.
+  resetDocToCurrentSpace()
   clearUndoHistory()
   requestLayout()
+}
+
+/**
+ * Rewrite the Y.Doc to match the freshly-loaded space: the active tab's
+ * content, the new tab list, and no trace of the space we came from. Runs
+ * untracked — this is a reopen, not a user edit, and `clearUndoHistory()`
+ * follows it anyway.
+ */
+function resetDocToCurrentSpace(): void {
+  const doc = getActiveDoc()
+  const activeTab = spaceTabs.find((tab) => tab.id === activeSpaceTabId)
+  withSuppressedDocSync(() => {
+    rewriteDocToSnapshot(doc, {
+      mapNames: DOC_ALL_MAP_NAMES,
+      origin: 'space-reopen',
+      tab: activeTab ? { id: activeTab.id, snapshot: activeTab.snapshot } : null,
+      tabs: spaceTabs.map((tab) => ({ id: tab.id, name: tab.name })),
+    })
+  })
+  // Drops the previous space's note mirror, which is keyed by entity id and
+  // would otherwise be projected back to disk under the new root.
+  resetDocSync()
 }

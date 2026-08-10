@@ -19,9 +19,7 @@ import {
 import {
   getActiveDoc,
   withSuppressedDocSync,
-  hydrateDocFromSnapshot,
-  setDocActiveTabId,
-  setDocTabList,
+  rewriteDocToSnapshot,
   DOC_MAP_VIEWPORT,
   DOC_ENTITY_MAP_NAMES,
   DOC_ARRAY_ENTITY_ORDER,
@@ -342,17 +340,12 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
  */
 export function transitionToTab(snapshot: WorkspaceSnapshot, tabId: string): void {
   const doc = getActiveDoc()
-  doc.transact(() => {
-    setDocActiveTabId(doc, tabId)
-    setDocTabList(doc, spaceTabs.map((t) => ({ id: t.id, name: t.name })))
-    for (const name of [DOC_MAP_VIEWPORT, ...DOC_ENTITY_MAP_NAMES]) {
-      const map = doc.getMap(name)
-      for (const k of [...map.keys()]) map.delete(k)
-    }
-    const order = doc.getArray(DOC_ARRAY_ENTITY_ORDER)
-    if (order.length) order.delete(0, order.length)
-    hydrateDocFromSnapshot(doc, snapshot)
-  }, 'user')
+  rewriteDocToSnapshot(doc, {
+    mapNames: [DOC_MAP_VIEWPORT, ...DOC_ENTITY_MAP_NAMES],
+    origin: 'user',
+    tab: { id: tabId, snapshot },
+    tabs: spaceTabs.map((t) => ({ id: t.id, name: t.name })),
+  })
   markAllDirty()
   markUndoBoundary()
   resetDocSync()

@@ -43,7 +43,9 @@ export const DEFAULT_STROKE_WIDTH = 2
 export const MIN_SHAPE_WIDTH = 24
 export const MIN_SHAPE_HEIGHT = 24
 
-export function defaultShapeSize(_shapeKind: ShapeKind): { width: number; height: number } {
+export function defaultShapeSize(shapeKind: ShapeKind): { width: number; height: number } {
+  // A pill in a square box is a circle — place it wide so it reads as a pill.
+  if (shapeKind === 'pill') return { width: 200, height: 88 }
   return { width: DEFAULT_SHAPE_WIDTH, height: DEFAULT_SHAPE_HEIGHT }
 }
 

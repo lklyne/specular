@@ -17,11 +17,19 @@ import {
   beginFocusSession,
   endFocusSession,
   focusSession,
+  focusedPageId,
   isFocusSessionActive,
   repointFocusSession,
   setFocusSessionMode,
   setFocusAnnotationsVisible as setSessionAnnotationsVisible,
+  type FocusExitReason,
+  type FocusSession,
 } from './focus-session'
+import {
+  beginEditingEntity,
+  commitEditingEntity,
+  currentEditingEntityId,
+} from './editing-entity-runtime'
 import { win } from './view-refs'
 import { requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
@@ -57,7 +65,7 @@ import {
   selectedCanvasTargets as uiSelectedCanvasTargets,
 } from '../ui-state'
 import { textEntities } from './text-entity-state'
-import { fileEntities } from './file-entity-state'
+import { fileEntities, fileEntitySupportsFillFocus } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './space-model'
@@ -117,8 +125,23 @@ function endFocusOnCameraChange(): void {
   if (suppressFocusReturnClear) return
   if (!isFocusSessionActive()) return
   if (isWorkingTool(uiActiveTool())) return
-  endFocusSession('camera-change')
+  exitFocusSession('camera-change')
+}
+
+// The single teardown path for leaving a focus session: end it, close the note
+// editor the session opened, and drop page interactivity back to selected-only.
+// Every exit needs all three, so they live together here.
+function exitFocusSession(reason: FocusExitReason): void {
+  commitEditIfSessionFile(endFocusSession(reason))
   syncInteractiveToFocus()
+}
+
+// A file-target session hands the note to the inline markdown editor on entry;
+// leaving the session has to close that editor so the edit lands in the doc.
+function commitEditIfSessionFile(session: FocusSession | null): void {
+  if (session?.target.kind !== 'file') return
+  if (currentEditingEntityId() !== session.target.id) return
+  commitEditingEntity()
 }
 
 // Focus is the second click (#124): entering a focus session immediately makes
@@ -126,9 +149,10 @@ function endFocusOnCameraChange(): void {
 // drops it back to selected-only. Call right after any beginFocusSession /
 // endFocusSession so `interactivePageId` tracks the session's page.
 function syncInteractiveToFocus(): void {
-  const focusedPageId = focusSession()?.pageId ?? null
-  if (interactivePageId() === focusedPageId) return
-  setInteractivePageId(focusedPageId)
+  // A file-target session has no page, so this clears interactivity.
+  const nextPageId = focusedPageId()
+  if (interactivePageId() === nextPageId) return
+  setInteractivePageId(nextPageId)
   sendInteractiveState()
 }
 
@@ -150,8 +174,7 @@ const FOCUS_EXIT_ZOOM_OUT = 0.85
 export function restoreFocusCamera(): boolean {
   // The graceful, camera-restoring exit (X button / Escape / dimmed-click).
   if (!focusSession()) return false
-  endFocusSession('dismiss')
-  syncInteractiveToFocus()
+  exitFocusSession('dismiss')
   // Keep the current camera position; zoom out slightly, anchored on the
   // viewport center so the focused content stays put as we pull back.
   const viewport = availableCanvasViewportRect()
@@ -352,7 +375,7 @@ function resolveEntityBounds(entityId: string): WorkspaceBounds | null {
   const page = pages.find((p) => p.id === entityId)
   if (page) {
     const focus = focusSession()
-    return focus?.pageId === page.id
+    return focus?.target.kind === 'page' && focus.target.id === page.id
       ? focusPageBounds(page.id, focus.mode)
       : pageVisualBoundsForContentSize(page, effectivePageContentSize(page))
   }
@@ -405,7 +428,10 @@ function focusPageBounds(pageId: string, mode: FocusPresentationMode): Workspace
 export function setFocusPresentationMode(mode: FocusPresentationMode): boolean {
   const current = focusSession()
   if (!current) return false
-  const bounds = focusPageBounds(current.pageId, mode)
+  // Mode switching is a page affordance; a note session is created directly
+  // in 'fill' and has nothing to switch between.
+  if (current.target.kind !== 'page') return false
+  const bounds = focusPageBounds(current.target.id, mode)
   if (!bounds) return false
   setFocusSessionMode(mode)
   recenterFocusPresentation()
@@ -435,6 +461,7 @@ export function refocusActiveSession(pageId: string, options?: { animate?: boole
   const current = focusSession()
   if (!current) return false
   if (!pages.some((page) => page.id === pageId)) return false
+  commitEditIfSessionFile(current)
   repointFocusSession(pageId)
   return recenterFocusPresentation(pageId, options)
 }
@@ -444,11 +471,17 @@ export function recenterFocusPresentation(
   options?: { animate?: boolean },
 ): boolean {
   const current = focusSession()
-  if (!current || (pageId && current.pageId !== pageId)) return false
-  const bounds = focusPageBounds(current.pageId, current.mode)
+  if (!current) return false
+  if (pageId && (current.target.kind !== 'page' || current.target.id !== pageId)) return false
+  const isFile = current.target.kind === 'file'
+  const bounds = isFile
+    ? resolveEntityBounds(current.target.id)
+    : focusPageBounds(current.target.id, current.mode)
   if (!bounds) return false
   const viewport = availableCanvasViewportRect()
-  const nextZoom = computeFocusZoomForPresentation(bounds, viewport, current.mode)
+  // A note has no authored viewport to fill or emulate — frame it like a plain
+  // fit-and-center reveal.
+  const nextZoom = computeFocusZoomForPresentation(bounds, viewport, isFile ? null : current.mode)
   moveCameraTo(
     { zoom: nextZoom, pan: panToCenterBoundsAtZoom(bounds, nextZoom) },
     {
@@ -471,58 +504,95 @@ function unionBounds(boundsArr: WorkspaceBounds[]): WorkspaceBounds | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
-export function focusSelection(options?: { storeReturnCamera?: boolean; animate?: boolean }): boolean {
-  if (!win) return false
-  const targets = uiSelectedCanvasTargets()
-  if (!targets.length) return false
+/** The session a selection elects, or null when the selection only warrants a
+ *  plain reveal (multi-select, an unsupported entity, or a caller that opted
+ *  out of session creation). */
+type ElectedFocusTarget =
+  | { kind: 'page'; id: string; mode: FocusPresentationMode }
+  | { kind: 'file'; id: string }
 
-  const singlePageTarget =
-    targets.length === 1 && targets[0]?.kind === 'page'
-      ? pages.find((page) => page.id === targets[0]!.id) ?? null
-      : null
-  const shouldCreateFocusSession = options?.storeReturnCamera !== false
-  const focusMode = singlePageTarget && shouldCreateFocusSession
-    ? defaultFocusPresentationMode(singlePageTarget)
-    : null
-  if (singlePageTarget && focusMode) {
+function electFocusTarget(
+  targets: ReturnType<typeof uiSelectedCanvasTargets>,
+  allowSession: boolean,
+): ElectedFocusTarget | null {
+  if (!allowSession || targets.length !== 1) return null
+  const only = targets[0]!
+  if (only.kind === 'page') {
+    const page = pages.find((candidate) => candidate.id === only.id)
+    return page ? { kind: 'page', id: page.id, mode: defaultFocusPresentationMode(page) } : null
+  }
+  // A single note (or any renderer claiming fillFocus) gets the same session
+  // machinery as a page, always in 'fill'.
+  if (only.kind === 'file' && fileEntitySupportsFillFocus(only.id)) {
+    return { kind: 'file', id: only.id }
+  }
+  return null
+}
+
+function enterElectedFocus(elected: ElectedFocusTarget | null): void {
+  if (!elected) {
+    exitFocusSession('re-focus')
+  } else {
     beginFocusSession({
-      pageId: singlePageTarget.id,
-      mode: focusMode,
+      target: { kind: elected.kind, id: elected.id },
+      mode: elected.kind === 'page' ? elected.mode : 'fill',
       annotationsVisible: false,
     })
-  } else {
-    endFocusSession('re-focus')
   }
   syncInteractiveToFocus()
+}
 
+function collectEdgeEndpointBounds(edgeId: string, out: WorkspaceBounds[]): void {
+  const edge = workspaceEdges.find((e) => e.id === edgeId)
+  if (!edge) return
+  const fromBounds = resolveEntityBounds(edge.fromEntityId)
+  const toBounds = resolveEntityBounds(edge.toEntityId)
+  if (fromBounds) out.push(fromBounds)
+  if (toBounds) out.push(toBounds)
+}
+
+/** Bounds the camera has to frame: every selected entity, plus both endpoints
+ *  of every selected edge (an edge has no bounds of its own). */
+function selectionFrameBounds(
+  targets: ReturnType<typeof uiSelectedCanvasTargets>,
+): WorkspaceBounds | null {
   const allBounds: WorkspaceBounds[] = []
   for (const { id, kind } of targets) {
     if (kind === 'edge') {
-      const edge = workspaceEdges.find((e) => e.id === id)
-      if (edge) {
-        const fromBounds = resolveEntityBounds(edge.fromEntityId)
-        const toBounds = resolveEntityBounds(edge.toEntityId)
-        if (fromBounds) allBounds.push(fromBounds)
-        if (toBounds) allBounds.push(toBounds)
-      }
+      collectEdgeEndpointBounds(id, allBounds)
       continue
     }
     const bounds = resolveEntityBounds(id)
     if (bounds) allBounds.push(bounds)
   }
+  return unionBounds(allBounds)
+}
 
-  const combined = unionBounds(allBounds)
+export function focusSelection(options?: { storeReturnCamera?: boolean; animate?: boolean }): boolean {
+  if (!win) return false
+  const targets = uiSelectedCanvasTargets()
+  if (!targets.length) return false
+
+  const shouldCreateFocusSession = options?.storeReturnCamera !== false
+  const elected = electFocusTarget(targets, shouldCreateFocusSession)
+  enterElectedFocus(elected)
+
+  const combined = selectionFrameBounds(targets)
   if (!combined) return false
 
   const viewport = availableCanvasViewportRect()
+  const focusMode = elected?.kind === 'page' ? elected.mode : null
   const nextZoom = computeFocusZoomForPresentation(combined, viewport, focusMode)
   moveCameraTo(
     { zoom: nextZoom, pan: panToCenterBoundsAtZoom(combined, nextZoom) },
     {
       animate: options?.animate ?? true,
-      preserveFocusSession: options?.storeReturnCamera !== false,
+      preserveFocusSession: shouldCreateFocusSession,
     },
   )
+  // Focusing a note goes straight into its markdown editor — the fullscreen
+  // read and the edit are the same state for a note.
+  if (elected?.kind === 'file') beginEditingEntity(elected.id)
   return true
 }
 

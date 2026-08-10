@@ -436,8 +436,8 @@ export function notifyDevtoolsPanelData(): void {
     deviceOrientation: deviceOrientationFromMetadata(page.metadata),
     showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
     useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-    canGoBack: page.pageView.webContents.canGoBack(),
-    canGoForward: page.pageView.webContents.canGoForward(),
+    canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
+    canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
     isLoading: page.pageView.webContents.isLoading(),
   }))
   devtoolsHeaderView.webContents.send(ipcChannels.rightDetailsPanelData, {

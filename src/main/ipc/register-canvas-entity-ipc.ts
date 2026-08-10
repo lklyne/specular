@@ -58,7 +58,7 @@ import {
   updateResizeGuides,
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
-import { writeNoteFile } from '../runtime/note-assets'
+import { readNoteFile, writeNoteFile } from '../runtime/note-assets'
 import { commitNoteContent } from '../runtime/note-commands'
 import {
   activeTool,
@@ -426,8 +426,8 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(ipcChannels.canvasShowPageContextMenu, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    const canGoBack = page.pageView.webContents.canGoBack()
-    const canGoForward = page.pageView.webContents.canGoForward()
+    const canGoBack = page.pageView.webContents.navigationHistory.canGoBack()
+    const canGoForward = page.pageView.webContents.navigationHistory.canGoForward()
     const menu = Menu.buildFromTemplate([
       {
         label: 'Back',
@@ -732,6 +732,11 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(ipcChannels.canvasCopyFileAsPng, (_event, { filePath }: { filePath: string }) => {
     clipboard.writeImage(nativeImage.createFromPath(filePath))
+  })
+
+  // Initial disk read for a note that hasn't entered the Y.Doc mirror yet.
+  ipcMain.handle(ipcChannels.readNoteFile, (_event, { filePath }: { filePath: string }) => {
+    return readNoteFile(filePath)
   })
 
   // Raw disk write for non-Y.Doc-backed note content (issue #262 non-goals).

@@ -130,11 +130,11 @@ function applyNavigationAction(page: Page, action: NavigationSyncAction): void {
       webContents.loadURL(action.url)
       return
     case 'go-back':
-      if (webContents.canGoBack()) webContents.goBack()
+      if (webContents.navigationHistory.canGoBack()) webContents.navigationHistory.goBack()
       else webContents.loadURL(action.fallbackUrl)
       return
     case 'go-forward':
-      if (webContents.canGoForward()) webContents.goForward()
+      if (webContents.navigationHistory.canGoForward()) webContents.navigationHistory.goForward()
       else webContents.loadURL(action.fallbackUrl)
       return
     case 'reload':

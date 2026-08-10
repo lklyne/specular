@@ -1,6 +1,15 @@
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
+import { basename, join } from 'path'
 import type {
   Annotation,
   DevtoolsPanelTab,
@@ -410,6 +419,33 @@ import type { JsonCanvasDocument } from '../../shared/json-canvas-types'
 
 const SPACE_META_DIR = '.specular'
 const WORKSPACE_META_FILE = 'workspace-meta.json'
+const CANVAS_FILE_EXT = '.canvas'
+
+/** One tab's entry in the space index (`.specular/workspace-meta.json`). */
+export type SpaceTabMetaEntry = {
+  id: string
+  name: string
+  updatedAt: string
+  expanded?: boolean
+}
+
+export type SpaceMeta = {
+  activeTabId: string
+  viewMode?: string
+  tabs: SpaceTabMetaEntry[]
+}
+
+/** Names of the `.canvas` files sitting directly inside `spacePath`. Empty when
+ *  the folder doesn't exist or can't be read. */
+export function listCanvasFileNames(spacePath: string): string[] {
+  try {
+    return readdirSync(spacePath, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(CANVAS_FILE_EXT))
+      .map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
 
 function ensureSpaceDir(spacePath: string): string {
   if (!existsSync(spacePath)) mkdirSync(spacePath, { recursive: true })
@@ -483,14 +519,66 @@ export function writeAllTabsAsCanvasFiles(
   }
 }
 
-export function writeSpaceMetaSync(
+/**
+ * Tab entries for `.canvas` files sitting in `spacePath` that `tabs` doesn't
+ * account for.
+ *
+ * The meta file is the space's index: `loadSpaceFromCanvasFiles` only ever
+ * surfaces tabs listed there, so a `.canvas` file no entry points at is
+ * unreachable data. Every legitimate way to retire a tab (delete, rename)
+ * removes or moves its file first, so an unreferenced file means either the
+ * index has drifted from this root — a space change that left the runtime
+ * holding another space's tabs is one way in — or a canvas arrived from
+ * outside the app. Either way, opening the space without them would strand
+ * the user's canvases and the next save would write the index over them.
+ *
+ * Adopting them keeps the index a superset of what's on disk. The recovered
+ * id only has to agree with the filename's 4-char suffix for
+ * `canvasFilePath` to resolve back to the same file; the rest of the
+ * original id is not recoverable from the filename and nothing depends on
+ * it. Legacy unsuffixed files are adopted under a fresh id and reached
+ * through the by-name fallback in `loadSpaceFromCanvasFiles`.
+ *
+ * Runs at the load/reopen boundary only. Adopting on the save path would
+ * re-scan the folder on every autosave and, because the adopted entries
+ * never reach the in-memory tab list, mint a fresh id for the same file each
+ * time.
+ */
+function adoptUnreferencedCanvasFiles(
   spacePath: string,
-  meta: {
-    activeTabId: string
-    viewMode?: string
-    tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }>
-  },
-): void {
+  tabs: SpaceTabMetaEntry[],
+): SpaceTabMetaEntry[] {
+  const names = listCanvasFileNames(spacePath)
+  if (!names.length) return []
+  // A tab reaches its file by id suffix, or — for a space written before
+  // filenames carried one — by bare name through the fallback in
+  // `loadSpaceFromCanvasFiles`. Both count as referenced; treating a legacy
+  // file as unreferenced would adopt it as a duplicate of the tab already
+  // reading it.
+  const referenced = new Set<string>()
+  for (const tab of tabs) {
+    referenced.add(basename(canvasFilePath(spacePath, tab)))
+    referenced.add(`${sanitizeTabName(tab.name)}${CANVAS_FILE_EXT}`)
+  }
+  const adopted: SpaceTabMetaEntry[] = []
+  for (const fileName of names) {
+    if (referenced.has(fileName)) continue
+    const stem = fileName.slice(0, -CANVAS_FILE_EXT.length)
+    const suffixed = /^(.+)-([0-9a-f]{4})$/.exec(stem)
+    const id = suffixed ? `tab_${suffixed[2]}${randomUUID().slice(4)}` : `tab_${randomUUID()}`
+    const name = suffixed ? suffixed[1] : stem
+    let updatedAt: string
+    try {
+      updatedAt = statSync(join(spacePath, fileName)).mtime.toISOString()
+    } catch {
+      updatedAt = new Date().toISOString()
+    }
+    adopted.push({ id, name, updatedAt, expanded: true })
+  }
+  return adopted
+}
+
+export function writeSpaceMetaSync(spacePath: string, meta: SpaceMeta): void {
   // Writes always land in .specular/, even when the meta was last read from
   // the legacy root location — the next load picks up the new copy and the
   // old file is harmless litter, not a second source of truth.
@@ -500,9 +588,7 @@ export function writeSpaceMetaSync(
   renameSync(tmpFile, filePath)
 }
 
-export function readSpaceMeta(
-  spacePath: string,
-): { activeTabId: string; viewMode?: string; tabs: Array<{ id: string; name: string; updatedAt: string; expanded?: boolean }> } | null {
+export function readSpaceMeta(spacePath: string): SpaceMeta | null {
   const filePath = join(spacePath, SPACE_META_DIR, WORKSPACE_META_FILE)
   const legacyFilePath = join(spacePath, WORKSPACE_META_FILE)
   const target = existsSync(filePath) ? filePath : legacyFilePath
@@ -545,16 +631,22 @@ export function migrateWorkspaceStoreToCanvasFiles(
 /**
  * Load a space from individual .canvas files + workspace-meta.json.
  * This is the primary load path — .canvas files are the source of truth.
+ *
+ * Reconciling the index against the folder happens here: the returned record
+ * carries a tab for every `.canvas` file on disk, so the ids the runtime holds
+ * (and writes back on the next save) are stable for the life of the space.
  */
 export function loadSpaceFromCanvasFiles(
   spacePath: string,
 ): PersistedWorkspaceRecord | null {
   const meta = readSpaceMeta(spacePath)
-  if (!meta || !meta.tabs.length) return null
+  const indexedTabs = meta?.tabs ?? []
+  const tabMetas = [...indexedTabs, ...adoptUnreferencedCanvasFiles(spacePath, indexedTabs)]
+  if (!tabMetas.length) return null
 
   const tabs: PersistedWorkspaceTab[] = []
   const legacyPaths = new Set<string>()
-  for (const tabMeta of meta.tabs) {
+  for (const tabMeta of tabMetas) {
     const filePath = canvasFilePath(spacePath, tabMeta)
     let doc = readCanvasFile(filePath)
     if (!doc) {
@@ -594,8 +686,8 @@ export function loadSpaceFromCanvasFiles(
     id: DEFAULT_WORKSPACE_ID,
     name: DEFAULT_WORKSPACE_NAME,
     updatedAt: new Date().toISOString(),
-    activeTabId: meta.activeTabId,
-    viewMode: meta.viewMode as WorkspaceViewMode | undefined,
+    activeTabId: meta?.activeTabId ?? tabs[0].id,
+    viewMode: meta?.viewMode as WorkspaceViewMode | undefined,
     tabs,
   }
 }

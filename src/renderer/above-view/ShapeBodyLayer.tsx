@@ -19,7 +19,7 @@ import {
   lightenHex,
   resolveCanvasColor,
 } from '../../shared/canvas-colors'
-import { shapeDef } from '../../shared/shapes'
+import { shapeDef, shapeRender } from '../../shared/shapes'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 import { AnchoredEntityOverlayBand } from './PageOverlayBand'
 
@@ -270,16 +270,19 @@ function ShapeBody({
     />
   )
 
-  // Every shape is one SVG path in a normalized 0–100 box, stretched to the
-  // entity's bounds. `non-scaling-stroke` keeps the border uniform even when
-  // the box is non-square; `strokeDasharray` reproduces the dashed style SVG
-  // has no `border-style` for.
+  // Every shape is one SVG path — stretched from a normalized 0–100 box, or
+  // built at the entity's real size when the kind has a `geometry` builder.
+  // `non-scaling-stroke` keeps the border uniform even when the box is
+  // non-square; `strokeDasharray` reproduces the dashed style SVG has no
+  // `border-style` for.
+  const render = shapeRender(def, shape.width, shape.height)
+
   return (
     <>
       <svg
         width="100%"
         height="100%"
-        viewBox="0 0 100 100"
+        viewBox={render.viewBox}
         preserveAspectRatio="none"
         style={{
           position: 'absolute',
@@ -289,7 +292,7 @@ function ShapeBody({
         }}
       >
         <path
-          d={def.path}
+          d={render.d}
           fill={fill}
           stroke={hasBorder ? strokeColor : 'none'}
           strokeWidth={hasBorder ? stroke : 0}
@@ -297,9 +300,9 @@ function ShapeBody({
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
         />
-        {def.line ? (
+        {render.line ? (
           <path
-            d={def.line}
+            d={render.line}
             fill="none"
             stroke={hasBorder ? strokeColor : fill}
             strokeWidth={hasBorder ? stroke : 1}
