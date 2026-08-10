@@ -31,6 +31,10 @@ export default tseslint.config(
       // layout-engine / layer-stack is a real invariant break.
       'local/no-direct-view-mutation': 'error',
       'local/no-mouse-events': 'error',
+      // Bridge functions passed directly as JSX event handlers serialize the
+      // React event across the contextBridge (walks window; first touch of
+      // window.speechSynthesis blocks the browser process ~800ms on macOS).
+      'local/no-bridge-event-handlers': 'error',
     },
   },
 )

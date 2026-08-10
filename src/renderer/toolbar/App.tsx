@@ -122,10 +122,14 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           isMac ? 'pl-[86px] pr-4' : 'px-4'
         } select-none [-webkit-app-region:drag] border-b border-[var(--surface-toolbar-border)] bg-[var(--surface-toolbar)] text-[var(--surface-toolbar-foreground)]`}
       >
+        {/* Bridge calls are wrapped in arrows so the React click event never
+            crosses the contextBridge: serializing it walks the whole window
+            object, and the first touch of window.speechSynthesis blocks the
+            browser process ~800ms enumerating macOS voices. */}
         <LeftActions
           isDark={isDark}
           leftSidebarOpen={leftSidebarOpen}
-          onToggleLeftSidebar={toolbarApi.toggleLeftSidebar}
+          onToggleLeftSidebar={() => toolbarApi.toggleLeftSidebar()}
         />
 
         <div className="flex items-center justify-center">
@@ -141,7 +145,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
               zoomPercent={zoomPercent}
               currentPresetValue={currentPresetValue}
               themeMode={themeMode}
-              onSetTool={toolbarApi.setTool}
+              onSetTool={(tool) => toolbarApi.setTool(tool)}
               onDropdownOpenChange={(open) => {
                 if (open) {
                   toolbarApi.dropdownOpen()
@@ -165,7 +169,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
           <RightPanelToggle
             isDark={isDark}
             devtoolsOpen={devtoolsOpen}
-            onToggleDevTools={toolbarApi.toggleDevTools}
+            onToggleDevTools={() => toolbarApi.toggleDevTools()}
           />
         </div>
       </div>
