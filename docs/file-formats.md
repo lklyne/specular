@@ -174,7 +174,10 @@ Specular stores viewport and UI state in an `appState` field:
     "zoom": 0.5,
     "pan": { "x": -200, "y": -100 },
     "selectedEntityIds": ["abc123"],
-    "leftSidebarOpen": true
+    "leftSidebarOpen": true,
+    "devtoolsOpen": false,
+    "devtoolsPanelTab": "elements",
+    "devtoolsWidth": 400
   }
 }
 ```

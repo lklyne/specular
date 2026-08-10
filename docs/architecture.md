@@ -45,14 +45,14 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │                    the main window, not a WCV — see         │
 │                    docs/interaction-layer.md §3.1.          │
 │  toolbar/          Zoom, tool modes, navigation             │
-│  left-sidebar/     Workspace tree (canvases, pages)         │
+│  left-sidebar/     Space tree (canvases, pages)              │
 │  right-details-panel/  Inspector (properties, settings)     │
 │  devtools-resize-handle/  Devtools panel splitter           │
 └─────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────┴──────────────────────────────────────────┐
 │ External clients                                             │
-│  CLI (planned)     Agent interaction via command line        │
+│  CLI               Agent interaction via command line        │
 │  HTTP API          Runtime queries and mutations             │
 │  CDP proxy         Chrome DevTools Protocol (WebSocket)      │
 └─────────────────────────────────────────────────────────────┘
@@ -75,10 +75,10 @@ See `src/main/runtime/CLAUDE.md` for the full technical reference.
 
 | Layer | What it holds | Where |
 |-------|--------------|-------|
-| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `workspace-doc.ts` |
+| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `space-doc.ts` |
 | Runtime variables | Electron views, interaction mode, hover, drag, timers | `runtime-context.ts` |
 
-**Forward sync:** mutations update runtime arrays -> `scheduleWorkspaceAutosave()`
+**Forward sync:** mutations update runtime arrays -> `scheduleSpaceAutosave()`
 -> diff-sync copies changes to Y.Doc.
 
 **Reverse sync:** undo/redo reverts Y.Doc -> observer patches runtime arrays.
@@ -93,12 +93,13 @@ All canvas content is a **node** (following the JSON Canvas spec):
 | Node type | Internal kind | Description |
 |-----------|--------------|-------------|
 | `link` | `page` | Live web page in an Electron webview |
-| `text` | `text` | Text/markdown note |
-| `file` | `file` | Reference to a local file (image, etc.) |
-| `group` | `group` | Visual container for other nodes |
+| `text` | `text` | Text/markdown note or sticky |
+| `file` | `file` | Reference to a local file (image, video, markdown, component) |
+| `group` | `group` | Visual container; may be auto-layout managed |
+| `shape` (extension) | `shape` | Geometric shape with optional label |
 
-Plus **edges** (connections between nodes) and **annotations** (freehand
-drawings overlaid on the canvas).
+Plus **edges** (connections between nodes), **drawings** (freehand annotations
+on the canvas), and **annotations** (structured comment threads).
 
 Each entity type has:
 - `Persisted*Entity` — serializable fields (saved to .canvas)
@@ -112,13 +113,13 @@ Each entity type has:
 |--------|------|
 | `runtime-core.ts` | High-level state mutations (create, delete, select) |
 | `runtime-context.ts` | All ephemeral state (views, zoom, pan, interaction) |
-| `workspace-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
-| `workspace-model.ts` | Workspace data arrays (groups, edges, annotations, tabs) |
-| `workspace-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
-| `workspace-persistence.ts` | Disk I/O (.canvas read/write) |
-| `workspace-autosave.ts` | Autosave scheduling |
-| `workspace-undo.ts` | UndoManager setup, undo/redo API |
-| `workspace-tab-operations.ts` | Tab CRUD and switching |
+| `space-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
+| `space-model.ts` | Space data arrays (groups, edges, annotations, tabs) |
+| `space-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
+| `space-persistence.ts` | Disk I/O (.canvas read/write) |
+| `space-autosave.ts` | Autosave scheduling (`scheduleSpaceAutosave`) |
+| `space-undo.ts` | UndoManager setup, undo/redo API |
+| `space-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |
@@ -126,23 +127,38 @@ Each entity type has:
 
 ### src/main/ipc/
 
-Routes inbound IPC messages to domain handlers. One registration file per
-renderer surface (canvas, toolbar, sidebar, inspector, chrome, etc.).
+Routes inbound IPC messages to domain handlers. Multiple registration files
+grouped by feature area: canvas drag/entity/gap/reorder, toolbar, sidebar,
+inspector, onboarding, settings, debug, annotations, comments, repos, and more.
 
 ### src/main/routes/
 
-HTTP API endpoints grouped by domain: workspace, pages, entities, selection,
-layout, camera, inspector, presence. Used by CLI, tests, and automation.
+HTTP API endpoints. Route files: `annotations`, `canvas`, `design-system`,
+`edges-groups`, `entities`, `pages`, `perf`, `recording`, `session`,
+`stack-order`, `tabs`, `workspace`. Used by the CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 
-The main spatial surface. Key components:
-- `CanvasGridSurface` — SVG canvas with pan/zoom
-- `SelectableEntityShell` — draggable/resizable node wrapper
-- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
+The below-pages canvas plane. Key components:
+- `CanvasGridSurface` — SVG canvas with pan/zoom transform
+- `PageBorderLayer`, `DeviceShellLayer` — page chrome rendered in bgView
+
+Entity bodies, edges, group bounds, selection handles, and overlays all render
+in `above-view/`, not here — see the Interaction layer section above.
+
+### src/renderer/above-view/
+
+The above-pages plane. Owns gestures and the bulk of entity rendering:
+- `StickyBodyLayer`, `FileBodyLayer`, `ShapeBodyLayer`, `DrawingsLayer` — entity bodies sorted by `entityOrder`
 - `EdgeLayer` — connector lines
 - `GroupBoundsLayer` — group outlines
-- `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
+- Selection handles, hover indicators, resize/reorder handles
+
+### src/renderer/onboarding/, src/renderer/settings/, src/renderer/debug/
+
+Dedicated BrowserWindow renderers for onboarding flow, Settings panel, and the
+debug/devtools pane. Each has a corresponding preload bridge and IPC handler
+registration file.
 
 ### src/shared/
 
@@ -205,16 +221,19 @@ call `webContents.focus()` directly. If you feel the urge to
 `setTimeout(0)`, you're mutating view state during dispatch — mark dirty
 instead.
 
-**Renderer gesture code uses `src/renderer/shared/useDragGesture.ts`.**
-Pointer events only; no `mouse*` handlers in new code. The hook owns
-pointer capture, blur/escape cancel, and threshold-before-begin.
+**Renderer gesture code lives in `src/renderer/above-view/`.**
+`useCanvasPointerRouter.ts` owns top-level pointer dispatch; gesture sessions
+use `pointer-session.ts`. Pointer events only; no `mouse*` handlers in new code.
 
-**Canvas coord math lives in `src/shared/coords.ts`** — single source for
-both main and renderer so hit-tests don't drift.
+**Canvas coord math.** Renderer hit-tests use `src/shared/coords.ts` and
+`src/shared/canvas-hit-geometry.ts`. Main-process coordinate math uses
+`src/main/runtime/window-coords.ts` — these are separate modules that must
+be kept consistent.
 
 Load-bearing invariants (I1–I10) are listed in `interaction-layer.md` §6.
-ESLint rules `no-direct-view-mutation` and `no-mouse-events` enforce I1
-and I8 (currently as warnings — legacy sites pending cleanup).
+ESLint rules `no-direct-view-mutation`, `no-mouse-events`, and
+`no-bridge-event-handlers` enforce I1, I8, and the contextBridge event-graph
+rule (all three enforced as **errors**).
 
 ## Focus Selection
 

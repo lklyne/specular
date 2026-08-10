@@ -1,6 +1,6 @@
 # ADR 0014 — Canvas stack order and the Notes/Pages sidebar
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-11
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md), [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md).
 **Supersedes premise of:** the sidebar's position-based sort (`compareSidebarPositions` in `sidebar-builder.ts`) and the implicit "edges always paint above all entities" rule.
@@ -169,11 +169,11 @@ Implementation slices, each independently shippable:
 2. **Sidebar sort by `entityOrder`.** ✅ Landed. Position-based sort is gone. `LeftSidebarData.sections: { notes, pages }` replaces the flat `items` array. The pure partition lives in `src/shared/sidebar-partition.ts` (unit-tested); `sidebar-builder.ts` decorates the partition with UI payloads. Mixed groups emit two rows sharing the group id, each exposing only the children on their surface. Initial render only — no drag yet.
 3. **Page WCV re-stack.** ✅ Landed. `applyStack()` in `layer-stack.ts` now walks `entityOrder` between re-adding `bgView` (index 0) and the above-pages cluster, reattaching each page's `frameView` followed by `pageView`. `removePageAtIndex` marks `'stack'` dirty so the restack runs after deletes too.
 4. **aboveView paint-iteration verification.** ✅ Landed. `buildCanvasLayoutData` sorts `entities` by `entityOrder` rank (stable on ties) before broadcasting. Body layers (`StickyBodyLayer`, `FileBodyLayer`, `ShapeBodyLayer`, `DrawingsLayer`) consume the same array, so React's iteration order is now `entityOrder`-derived rather than incidental. `EdgeLayer` still iterates its own array — interleaving edges into `entityOrder` is slice 7.
-5. **Sidebar drag-to-reorder.** Drag handle on each row; drop zones between rows; section divider is a forbidden drop. Multi-select block move. No reparenting.
-6. **Context-menu and keyboard shortcuts.** *Bring forward / Send backward / Bring to front / Send to back* on canvas right-click and `Cmd+[ ]` / `Cmd+Shift+[ ]` shortcuts (canvas mode only).
-7. **Edges in `entityOrder`.** Extend `entityOrder` to accept edge ids; new edges go to the top; stack mutations on a selected edge work. Persist via Specular extension in the JSON Canvas serializer.
-8. **Migration.** On `workspace-restore.ts`, run `enforceGroupContiguity` after deserialisation; mark dirty; autosave flushes.
-9. **HTTP API.** Routes for the four mutations under `src/main/routes/`.
+5. **Sidebar drag-to-reorder.** ✅ Landed. `useDragReorder` hook in `src/renderer/left-sidebar/useDragReorder.ts`; `SidebarCanvasTree` wires drop zones; section divider is a forbidden drop target.
+6. **Context-menu and keyboard shortcuts.** ✅ Landed. `Cmd+]` / `Cmd+[` / `Cmd+Shift+]` / `Cmd+Shift+[` bindings in `src/shared/bindings.ts` (canvas mode + leftSidebar scope); arrow-up/down in leftSidebar scope; `reorderStackOrder()` wired in `binding-handlers.ts`.
+7. **Edges in `entityOrder`.** ✅ Landed. `entityOrder` accepts edge ids; `defaultEntityOrder()` in `entity-order-state.ts` includes workspace edges; JSON Canvas serializer handles edge interleaving; `entityKindById` recognizes `'edge'`.
+8. **Migration.** ✅ Landed. `space-restore-migration.ts` calls `migrateSnapshotEntityOrderForRestore()` → `enforceGroupContiguity()`; marks dirty; autosave flushes.
+9. **HTTP API.** ✅ Landed. `src/main/routes/stack-order.ts` registers `POST /stack-order/bring-forward`, `/send-backward`, `/bring-to-front`, `/send-to-back`.
 
 ## Tests
 

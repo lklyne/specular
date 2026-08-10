@@ -5,7 +5,7 @@
 > variant) was deleted wholesale — see the "delete wireframe mode" PR. The
 > renderer-plugin popup contribution surface it depended on was removed too.
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-15
 **Refines:** [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md), [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md), [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md), [ADR 0009 — Tool variants in popup state](./0009-tool-variants-in-popup-state.md).
 
@@ -112,6 +112,8 @@ type Tool =
 Changes from ADR 0009's union:
 - **`add-sticky` added.** Sticky is its own tool. The old `{ kind: 'add-text', style: 'sticky' }` is gone.
 - **`add-document` removed.** Markdown files are reached via the text popup's `short → long` toggle, not a top-level tool.
+
+> **Note (2026-07).** This item was not implemented. `add-document` was retained as a top-level toolbar tool (alternative C from the Alternatives section below). The short/long morph (cross-kind §3) was deleted, making a separate document tool the cleaner split.
 - **`add-text` loses `style`.** Plain text is now the only direct creation path of the text tool; the popup decides short vs long.
 
 Tool-defaults table updates accordingly:

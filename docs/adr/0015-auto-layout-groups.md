@@ -1,6 +1,6 @@
 # ADR 0015 — Auto-layout groups
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-05-29
 **Related:** [ADR 0014 — Canvas stack order and the Notes/Pages sidebar](./0014-canvas-stack-order.md), [ADR 0001 — Click to enter page focus](./0001-click-to-enter-page-focus.md).
 **Origin:** Built from [`docs/plans/auto-layout-reorder.md`](../plans/auto-layout-reorder.md) (Milestone 1).
@@ -41,7 +41,7 @@ The polished "wrap selection → auto-layout" toolbar button is Milestone 2. To 
 
 - `managedLayout` is now load-bearing: it gates reflow, the reorder hit layer, and dot painting.
 - Mixed-surface groups (ADR 0014 split rows) can be managed; reflow operates in canvas space on all children regardless of paint surface. The sidebar split-row representation reads `entityOrder`, which reorder mutates — rows stay paired.
-- Milestone 2 (in progress): draggable gap handles (`layoutGap`) and the column direction (`layoutMode: 'column'`) have landed — one axis-parameterized reflow kernel, a `resizing-gap` gesture, and a headless `--gap` surface (`specular update <group> --gap`, `auto-layout --gap`). Still deferred: `'grid'` managed reflow, align (`layoutAlign`), and the floating multi-select toolbar.
+- Milestone 2 (landed): draggable gap handles (`layoutGap`) and the column direction (`layoutMode: 'column'`) are complete — one axis-parameterized reflow kernel (`gap-gesture.ts`, `GapHandlesLayer.tsx`), a `resizing-gap` gesture, and a headless `--gap` surface (`specular update <group> --gap`, `auto-layout --gap`). Still deferred: `'grid'` managed reflow, align (`layoutAlign`), and the floating multi-select toolbar.
 
 ## Glossary additions
 

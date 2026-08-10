@@ -9,11 +9,18 @@
 
 ```bash
 pnpm install
-pnpm dev                     # start the Electron app
+pnpm dev                     # start the Electron app (runs build:mcp-helper and build:cli preflight)
 pnpm typecheck               # type-check both node and web tsconfigs
+pnpm lint                    # ESLint across src/
 pnpm test:unit               # fast unit tests (no Electron)
 pnpm test:integration        # real runtime in-process (no Electron)
+pnpm test:contract           # contract tests
+pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
+pnpm test:agent              # agent scenario runner
 pnpm build                   # package for distribution
+pnpm dist:mac                # local unsigned macOS DMG (no signing)
+pnpm cli                     # run the Specular CLI directly
+pnpm mcp                     # run the MCP helper server
 ```
 
 ## Managing the dev app
