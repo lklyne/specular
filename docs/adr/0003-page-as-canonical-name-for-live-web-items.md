@@ -44,7 +44,7 @@ Candidates considered: `Frame` (status quo), `Page`, `Site`, `Link`, `URL`, `Vie
 
 - **User-facing** — toolbar says "Add page", sidebar lists pages, docs talk about pages.
 - **Component layer** — `<PageChrome>`, `PageBodyLayer`, etc.
-- **Runtime / persistence** — `entity.kind === 'page'`, `PersistedPageEntity`, `pageFocus`, `serializePageToLinkNode`. The runtime WCV wrapper (already called `Page`) is the same concept — no longer a separate noun.
+- **Runtime / persistence** — `entity.kind === 'page'`, `PersistedPageEntity`, `serializePageToLinkNode`. The runtime WCV wrapper (already called `Page`) is the same concept — no longer a separate noun. (The `frameFocus` variable from ADR 0001 was superseded by `interactivePageId` in ADR 0022 — it was not renamed to `pageFocus`.)
 - **JSON Canvas disk format** — still serialized as `type: 'link'` per spec. The serializer is the *only* place the two names meet.
 
 A page is defined as: **a URL rendered at a particular viewport size at a particular position on the canvas.** Multiple pages can share the same URL (multi-breakpoint workflow); they remain independent entities.

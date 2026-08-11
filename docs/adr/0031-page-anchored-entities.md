@@ -26,9 +26,9 @@ entity can use.
 
 A canvas entity is either **free-form** (default) or carries a
 **`PageAnchor { pageId, pageUrl? }`** (`src/shared/page-anchor.ts`). Anchored
-kinds today: `text`, `drawing`. Opting a kind in = adding the `pageAnchor`
+kinds: `text`, `drawing`, `shape`. Opting a kind in = adding the `pageAnchor`
 persisted field and listing it in `anchorableEntities()`
-(`src/main/runtime/page-anchor-state.ts`).
+(`src/main/runtime/page-anchor-state.ts`). `file` remains out of scope.
 
 **Positions stay in canvas coordinates.** The anchor stores no offset — the
 placement relative to the page is implicit in the existing coordinates and

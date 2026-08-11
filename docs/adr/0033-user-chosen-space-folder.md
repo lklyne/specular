@@ -155,17 +155,15 @@ and not decided.
 
 ## Consequences
 
-`src/main/runtime/workspace-persistence.ts` is already fully parameterized on
-`userDataPath` — it never calls `app.getPath` itself — so the change is
-concentrated at the ~6 callers that pass it in (`workspace-autosave.ts:38,67`,
-`workspace-tab-context.ts:295`, `workspace-tab-operations.ts:186,312,331`), each
+`src/main/runtime/space-persistence.ts` (renamed from `workspace-persistence.ts`)
+is fully parameterized on `userDataPath` — it never calls `app.getPath` itself —
+so the change was concentrated at the ~6 callers that pass it in
+(`space-autosave.ts`, `space-tab-context.ts`, `space-tab-operations.ts`), each
 of which switches to `spaceDir()`.
 
-**`image-assets.ts:8` and `note-assets.ts:7` are the trap.** Both re-join
-`workspaces/default` themselves rather than calling `workspaceDir()`. Change only
-the persistence module and images and notes keep silently writing to the old
-location while canvases move — a split-brain space that looks fine until an image
-fails to resolve. Both must route through `spaceDir()` in the same change.
+**`image-assets.ts` and `note-assets.ts` were the trap.** Both previously
+re-joined `workspaces/default` themselves rather than calling `workspaceDir()`.
+Both now route through `spaceDir()`, resolving the split-brain risk.
 
 Writing outside `userData` means writing where the OS asks questions: on macOS,
 `~/Documents` and `~/Desktop` are TCC-protected, and a sandboxed build would need
@@ -174,10 +172,9 @@ sandboxed today, so a path string suffices — but `spacePath` should be treated
 a value that may need to become a bookmark, not one that is definitionally a
 string.
 
-Per `src/main/runtime/CLAUDE.md`, anything touching `workspace-*.ts` needs
+Per `src/main/runtime/CLAUDE.md`, anything touching `space-*.ts` needs
 integration coverage: `tests/integration/persistence.test.ts` is the relevant
-file, and `tab-file-identity.test.ts:106` constructs paths the same way and will
-need updating.
+file.
 
 `docs/file-formats.md:26-27` is corrected as part of this work. It currently
 states a Linux path (`~/.config/Specular/…`) for what is primarily a macOS app,

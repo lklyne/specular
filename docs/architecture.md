@@ -32,13 +32,15 @@ Specular is an Electron app with a main process and multiple renderer processes.
 ┌──────────────────┴──────────────────────────────────────────┐
 │ Renderer processes (src/renderer/)                          │
 │                                                              │
-│  canvas-bg/        Below-pages plane: grid, camera, node    │
-│                    rendering, edges, group outlines          │
-│  above-view/       Above-pages plane: gesture capture,      │
-│                    marquee, comments, annotations,          │
-│                    floating UI (merged from former          │
-│                    interaction-overlay/floating-ui/         │
-│                    annotation-overlay bundles)               │
+│  canvas-bg/        Below-pages plane: canvas grid, camera   │
+│                    transform, page borders, device shells    │
+│  above-view/       Above-pages plane: all entity bodies     │
+│                    (sticky, shape, file/markdown/image/     │
+│                    video/component), EdgeLayer, group       │
+│                    bounds, selection/resize handles, focus  │
+│                    ring, agent halo, canvas-anchored        │
+│                    popups, gesture capture, marquee,        │
+│                    comments, annotations, floating UI       │
 │  agent-layer/      Click-through overlay for agent           │
 │                    presence cursors (paint-only). Loaded    │
 │                    into a child BrowserWindow sibling of    │
@@ -48,6 +50,9 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │  left-sidebar/     Workspace tree (canvases, pages)         │
 │  right-details-panel/  Inspector (properties, settings)     │
 │  devtools-resize-handle/  Devtools panel splitter           │
+│  onboarding/       First-run space selection flow           │
+│  settings/         App settings panel                      │
+│  debug/            Debug window (perf, state inspection)    │
 └─────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────┴──────────────────────────────────────────┐
@@ -75,10 +80,10 @@ See `src/main/runtime/CLAUDE.md` for the full technical reference.
 
 | Layer | What it holds | Where |
 |-------|--------------|-------|
-| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `workspace-doc.ts` |
+| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `space-doc.ts` |
 | Runtime variables | Electron views, interaction mode, hover, drag, timers | `runtime-context.ts` |
 
-**Forward sync:** mutations update runtime arrays -> `scheduleWorkspaceAutosave()`
+**Forward sync:** mutations update runtime arrays -> `scheduleSpaceAutosave()`
 -> diff-sync copies changes to Y.Doc.
 
 **Reverse sync:** undo/redo reverts Y.Doc -> observer patches runtime arrays.
@@ -93,12 +98,14 @@ All canvas content is a **node** (following the JSON Canvas spec):
 | Node type | Internal kind | Description |
 |-----------|--------------|-------------|
 | `link` | `page` | Live web page in an Electron webview |
-| `text` | `text` | Text/markdown note |
-| `file` | `file` | Reference to a local file (image, etc.) |
+| `text` | `text` | Text/sticky note |
+| `file` | `file` | Reference to a local file (image, markdown, video, component) |
 | `group` | `group` | Visual container for other nodes |
+| `drawing` | `drawing` | Freehand drawing (strokes stored as JSON in the node) |
+| `shape` | `shape` | Shape primitive (rectangle, ellipse, diamond, etc.) |
 
-Plus **edges** (connections between nodes) and **annotations** (freehand
-drawings overlaid on the canvas).
+Plus **edges** (connections between nodes) and **annotations** (comment records
+with typed anchors: canvas-point, element, region, page-anchored region).
 
 Each entity type has:
 - `Persisted*Entity` — serializable fields (saved to .canvas)
@@ -112,13 +119,13 @@ Each entity type has:
 |--------|------|
 | `runtime-core.ts` | High-level state mutations (create, delete, select) |
 | `runtime-context.ts` | All ephemeral state (views, zoom, pan, interaction) |
-| `workspace-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
-| `workspace-model.ts` | Workspace data arrays (groups, edges, annotations, tabs) |
-| `workspace-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
-| `workspace-persistence.ts` | Disk I/O (.canvas read/write) |
-| `workspace-autosave.ts` | Autosave scheduling |
-| `workspace-undo.ts` | UndoManager setup, undo/redo API |
-| `workspace-tab-operations.ts` | Tab CRUD and switching |
+| `space-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
+| `space-model.ts` | Space data arrays (groups, edges, annotations, tabs) |
+| `space-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
+| `space-persistence.ts` | Disk I/O (.canvas read/write) |
+| `space-autosave.ts` | Autosave scheduling |
+| `space-undo.ts` | UndoManager setup, undo/redo API |
+| `space-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |
@@ -136,13 +143,12 @@ layout, camera, inspector, presence. Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 
-The main spatial surface. Key components:
-- `CanvasGridSurface` — SVG canvas with pan/zoom
-- `SelectableEntityShell` — draggable/resizable node wrapper
-- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
-- `EdgeLayer` — connector lines
-- `GroupBoundsLayer` — group outlines
-- `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
+The below-pages spatial surface. Key components:
+- `CanvasGridSurface` — SVG grid with camera transform
+- `PageBorderLayer` — page border and device shell chrome
+- `GroupBackgroundLayer` — group background fills (above-view handles group bounds/outlines)
+
+Entity bodies, edges, selection chrome, and group bounds all live in `src/renderer/above-view/`.
 
 ### src/shared/
 

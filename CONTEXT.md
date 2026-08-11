@@ -62,7 +62,7 @@ Conventions:
 ## Entity geometry
 
 - **Entity rect** — the full bounding rect of an entity. Equals the body rect: there is no separate chrome band (the chrome-header slot model was retired, [ADR 0028](./docs/adr/0028-retire-chrome-header-slot-model.md)). Pan / zoom / drag / resize operate on this rect.
-- **Camera** — the renderer-owned `{ x, y, zoom }` viewport transform. Canvas-space DOM (borders, entity bodies, edges, selection chrome) rides one `translate/scale` container per renderer; pan/zoom are GPU-composited, not per-entity screen coords rebuilt in main. Native pages (`WebContentsView`s) can't ride the transform, so main follows the camera to reposition them (`setBounds`) and re-emulate on zoom-*settle*. Proposed migration in [ADR 0023](./docs/adr/0023-renderer-owned-camera-gpu-panzoom.md).
+- **Camera** — the renderer-owned `{ x, y, zoom }` viewport transform. Canvas-space DOM (borders, entity bodies, edges, selection chrome) rides one `translate/scale` container per renderer; pan/zoom are GPU-composited, not per-entity screen coords rebuilt in main. Native pages (`WebContentsView`s) can't ride the transform, so main follows the camera to reposition them (`setBounds`) and re-emulate on zoom-*settle*. A migration to move camera ownership fully to the renderer was attempted and rejected — see [ADR 0023 (Rejected)](./docs/adr/0023-renderer-owned-camera-gpu-panzoom.md).
 - **Content-sized bounds** — an axis whose size is owned by the rendered content, not by the stored entity. Main still owns the bounds of record (hit-testing, groups, edges, `.canvas`), but the size of a text body is only knowable after layout, so the renderer measures it and reports it back through the normal update path; the stored value is an *output* of rendering on that axis, never an input. Today: a sticky note's height (grows with the text, so it always contains it and never scrolls) and both axes of plain text in `widthMode: 'auto'`.
 
   Three rules, each learned from a bug where the card and the selection outline disagreed about the bottom edge:
@@ -135,8 +135,8 @@ Modifiers and visual feedback that ride on top of entity drag (and resize) gestu
 ## Input authority
 
 - **Page interactive (entered)** — runtime state `interactivePageId: string | null` in main (`runtime-context.ts`). Names the page the user has *entered*; only it forwards pointer input, owns keyboard, and has its content blocker lifted. A merely-**selected** page is not interactive — keyboard stays on aboveView so canvas shortcuts act on the frame. Enter via a second click on the selected page, a double-click on its body, or **entering a focus session** on the page (focus is the second click); exit (back to selected) via Escape / click-away / selecting elsewhere / leaving focus. This **select-first / interact-second** model supersedes the earlier "single-selected = interactive" behavior. Delete is guarded against the interactive page — `deleteSelection` drops it from the page targets (Delete fires even from page focus), so the frame is only removed once the page is back to selected-only. Broadcast as `LayoutUpdateData.interactivePageId`. See [ADR 0022](./docs/adr/0022-pages-select-first-interact-second.md).
-- **Page focus** — runtime state `{ id, since } | null` in main. When set, the focused page receives native pointer input; aboveView's gate is closed. When null, aboveView is the sole input authority. See [ADR 0001](./docs/adr/0001-click-to-enter-frame-focus.md). (ADR 0001 was authored under the old "frame" name; the runtime variable is currently `frameFocus` and renames to `pageFocus` in the migration.)
-- **Gate** (a.k.a. **input gate**) — `aboveView.setVisible(...)` predicate. Open in canvas mode iff `pageFocus === null`. The single arbiter of who receives canvas-region pointer events.
+- **Page focus** — whether a page has keyboard focus. The keyboard target is determined by the `shouldFocusSelectedPage` predicate; pointer forwarding to a focused page goes through `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`). The earlier `frameFocus` runtime variable (ADR 0001) was retired and replaced by `interactivePageId` (ADR 0022). See [ADR 0001](./docs/adr/0001-click-to-enter-frame-focus.md) and [ADR 0022](./docs/adr/0022-pages-select-first-interact-second.md).
+- **Gate** (a.k.a. **input gate**) — the `shouldGateBeOpen` predicate in `gate-predicate.ts`. In canvas mode the gate is always open; it closes only for the inspect tool and when the comment overlay is active. The single arbiter of who receives canvas-region pointer events.
 - **Pointer router** — `src/renderer/above-view/useCanvasPointerRouter.ts`. Single window-level capture-phase pointerdown listener that runs the shared `hitTest` and dispatches a typed `CanvasPointerAction`. Yields to any element inside `[data-overlay-ui]`. A marquee selects every intersecting canvas item by default; Cmd/Ctrl switches to full containment and may start through an item body, excluding that origin item from the marquee.
 - **Hit-test priority table** — 4 layers, top wins: `resize-handles > anchors > body > background` (plus reorder dots above body per ADR 0015). Lives in `src/shared/hit-test.ts`. Geometric only — DOM overlay UI in aboveView resolves above all of them structurally. Refinement for `entity-body` on text/sticky/shape and editable file renderers (markdown, video): when the hit entity is the sole current selection, no modifier is held, and nothing else is editing, the router emits `begin-entity-press` instead of `begin-entity-drag` — a stationary release routes to `canvas-request-entity-edit` while threshold-crossing movement falls through to drag. File renderers opt in via an `editable: boolean` flag on their plugin claim (broadcast as `rendererEditable` on the file scene entity); non-editable renderers (image, component placeholder) gracefully fall through to drag, and dblclick on those kinds is a noop rather than entering `editing-entity` mode with no editor on screen (issue #49 / `docs/interaction-layer.md` §4.2.1).
 - **Edit mode** — runtime variable `editingEntityId: string | null` in main, derived from `interactionState` (controller mode `editing-entity`). Mutually exclusive with every other interaction mode (`dragging-entities`, `marquee`, `resizing-entity`, `dragging-edge`, `panning`). One IPC vocabulary covers every editable canvas item — `canvas-request-entity-edit`, `canvas-commit-entity-edit`, `canvas-cancel-entity-edit` — and main is the sole token holder. Renderers mount their editable surface (textarea / contentEditable / rename input) **iff** `editingEntityId === myId`; the read-only render is shown otherwise. Lifecycle: blur → commit, Escape → cancel (revert), pointer outside the editing entity's body → commit and swallow the click (the user clicks again to act on the new target), drag attempt on the editing entity → refused silently, drag attempt elsewhere → commits and swallows, selection change / entity deletion / undo / tab switch / window blur → cancel (the renderer's blur handler saves any in-flight text). Owned by `src/main/runtime/editing-entity-runtime.ts`.
@@ -177,21 +177,25 @@ A **Tool** is the single representation of "what does my next click/gesture do?"
 
 ```ts
 type Tool =
-  | { kind: 'select' }                              // default
-  | { kind: 'add-page' }                            // one-shot
-  | { kind: 'add-text', style: 'plain' | 'sticky' } // one-shot
-  | { kind: 'add-document' }                        // one-shot
-  | { kind: 'add-shape' }                           // one-shot — shapeKind in tool defaults
-  | { kind: 'comment' }                             // persistent — click for point/element comment, drag for region comment
-  | { kind: 'draw' }                                // persistent — brushType in tool defaults
-  | { kind: 'inspect' }                             // persistent
+  | { kind: 'select' }       // default
+  | { kind: 'hand' }         // persistent — pan/scroll
+  | { kind: 'add-page' }     // one-shot
+  | { kind: 'add-text' }     // one-shot — plain text
+  | { kind: 'add-sticky' }   // one-shot — sticky note
+  | { kind: 'add-document' } // one-shot
+  | { kind: 'add-shape' }    // one-shot — shapeKind in tool defaults
+  | { kind: 'comment' }      // persistent — click for point/element comment, drag for region comment
+  | { kind: 'draw' }         // persistent — brushType in tool defaults
+  | { kind: 'inspect' }      // persistent
 ```
+
+The canonical source is `src/shared/tool.ts`.
 
 - **One-shot tools** auto-revert to `select` after one placement.
 - **Persistent tools** stay active until toggled off, replaced, or Escape.
 - The toolbar does **not** visually distinguish one-shot from persistent — users learn the duration by use.
-- Tool name → cursor-label gerund: `select` → "selecting", `add-page` → "adding page", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
-- **Variants live in tool defaults, not in the union.** `add-shape` no longer carries `shapeKind`; `draw` no longer encodes `brushType` via implicit Tool state. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0009). `add-text` is the deliberate exception — `style` stays in the union because plain vs sticky has been a long-established two-button affordance ([ADR 0004](./docs/adr/0004-text-affordances-and-spec-extensions.md)).
+- Tool name → cursor-label gerund: `select` → "selecting", `hand` → "panning", `add-page` → "adding page", `add-sticky` → "adding sticky note", `comment` → "commenting", `draw` → "drawing", `inspect` → "inspecting".
+- **Variants live in tool defaults, not in the union.** `add-shape` does not carry `shapeKind`; `draw` does not encode `brushType`. Both are picked from the tool-mode popup and persisted to app settings (per ADR 0009). Plain text and sticky note are two independent tool kinds (`add-text` and `add-sticky`) rather than one kind with a `style` field ([ADR 0004](./docs/adr/0004-text-affordances-and-spec-extensions.md)).
 
 Replaces three previously-parallel state machines: `pendingPlacement`, `AnnotationMode`, and the `inspect` boolean. The legacy term "annotation mode" no longer names a state — annotations themselves remain, but the *mode of being in the comment tool* is just a tool.
 

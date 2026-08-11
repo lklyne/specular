@@ -41,13 +41,15 @@ and `FocusReconciler`, **not** a new `InteractionMode` — focus spans gestures,
 it is not itself a gesture (per §5.6, modes are expensive; this is session
 state, not a transition edge).
 
-1. **Unify the state.** One `FocusSession` object owns `{ pageId, mode,
-   returnCamera }`, captured when the session begins. The two old variables are
-   deleted. A session always carries a return camera, so the presence of a
-   session *is* the "is this restorable" test — `hasFocusReturnCamera()` is just
-   `isFocusSessionActive()`. (A return-point-less session — e.g. one entered via
-   reset-viewport — was considered and dropped: nothing creates one today, so
-   the nullability was speculative. Add it back the day a producer needs it.)
+1. **Unify the state.** One `FocusSession` object owns
+   `{ target: FocusTarget, mode: FocusPresentationMode, annotationsVisible: boolean }`,
+   captured when the session begins. `target` is a discriminated union —
+   `{ kind: 'page'; id: string }` or `{ kind: 'file'; id: string }` — so focus
+   sessions can target both page and file entities. The two old variables
+   (`focusPageId` / `presentationMode`) are deleted. (The `returnCamera` field from
+   the original design and the `pageId` flat field were both dropped — see
+   ADR 0020 for the camera exit decision. `annotationsVisible` and the `re-focus`
+   exit reason were added in later amendments; see below.)
 
 2. **One writer, enumerated exits.** Every exit funnels through
    `endFocusSession(reason)`. The reasons are a closed set:

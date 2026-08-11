@@ -22,9 +22,9 @@ in the Y.Doc already — notes were the lone exception.
 
 ## Decision
 
-Add a `notes` Y.Map (`DOC_MAP_NOTES`, `src/main/runtime/workspace-doc.ts`),
+Add a `notes` Y.Map (`DOC_MAP_NOTES`, `src/main/runtime/space-doc.ts`),
 keyed by file-entity id, value = the note's full markdown text, and track it
-in the `UndoManager` (`workspace-undo.ts`).
+in the `UndoManager` (`space-undo.ts`).
 
 **The `.md` file on disk remains the source of truth.** The `notes` Y.Map is
 a transient, undo-tracked *mirror* — it is not the canonical store and its
@@ -42,7 +42,7 @@ Lifecycle (`src/main/runtime/note-content-state.ts`, `note-commands.ts`):
   would blank it instead of reverting nothing.
 - **Edit** — `commitNoteContent(entityId, content)` is the single mutation
   seam: ensure baseline → update the runtime mirror → write the `.md` file
-  → `scheduleWorkspaceAutosave()`. The renderer calls it via
+  → `scheduleSpaceAutosave()`. The renderer calls it via
   `applyNoteContent` (IPC), replacing the old direct `writeNoteFile` write
   for markdown notes specifically.
 - **Forward sync** — the existing diff-sync engine (`syncRuntimeToDoc`)
@@ -50,7 +50,7 @@ Lifecycle (`src/main/runtime/note-content-state.ts`, `note-commands.ts`):
   `notes` Y.Map under the normal `'user'` origin on the existing
   autosave/`requestDocSync` microtask, so each edit becomes exactly one
   `UndoManager` step, same as every other tracked mutation.
-- **Undo/redo** — the undo observer (`workspace-observers.ts`) reads the
+- **Undo/redo** — the undo observer (`space-observers.ts`) reads the
   reverted `notes` Y.Map back into the runtime mirror
   (`applyNoteContentsFromDoc`) and projects only the changed ids back to the
   `.md` file. No file watcher exists in `main`, so there's no self-write

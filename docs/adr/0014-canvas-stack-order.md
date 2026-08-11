@@ -1,6 +1,6 @@
 # ADR 0014 — Canvas stack order and the Notes/Pages sidebar
 
-**Status:** Proposed
+**Status:** Accepted — fully landed. `entity-order-math.ts`, `entity-order-state.ts`, and all four HTTP stack-order routes in `src/main/routes/stack-order.ts` are live.
 **Date:** 2026-05-11
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md), [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md).
 **Supersedes premise of:** the sidebar's position-based sort (`compareSidebarPositions` in `sidebar-builder.ts`) and the implicit "edges always paint above all entities" rule.
@@ -165,8 +165,8 @@ Deterministic, no data lost — only a reordering. Re-running the migration is a
 
 Implementation slices, each independently shippable:
 
-1. **Pure math module + invariant helper.** ✅ Landed. Pure helpers live in `src/shared/entity-order-math.ts` (`bringToFront`, `sendToBack`, `moveForward`, `moveBackward`, `moveBefore(id, anchorId, 'before' | 'after')`, `enforceGroupContiguity(order, groups)`, `appendAtTop`). The runtime wrapper `src/main/runtime/entity-order-state.ts` (and call sites for user-driven reorders) remains a follow-up; today `entityOrder` is regenerated deterministically by `syncEntityOrder` in `workspace-doc.ts` on every diff-sync.
-2. **Sidebar sort by `entityOrder`.** ✅ Landed. Position-based sort is gone. `LeftSidebarData.sections: { notes, pages }` replaces the flat `items` array. The pure partition lives in `src/shared/sidebar-partition.ts` (unit-tested); `sidebar-builder.ts` decorates the partition with UI payloads. Mixed groups emit two rows sharing the group id, each exposing only the children on their surface. Initial render only — no drag yet.
+1. **Pure math module + invariant helper.** ✅ Landed. Pure helpers live in `src/shared/entity-order-math.ts` (`bringToFront`, `sendToBack`, `moveForward`, `moveBackward`, `moveBefore(id, anchorId, 'before' | 'after')`, `enforceGroupContiguity(order, groups)`, `appendAtTop`). The runtime wrapper `src/main/runtime/entity-order-state.ts` (and call sites for user-driven reorders) remains a follow-up; today `entityOrder` is regenerated deterministically by `syncEntityOrder` in `space-doc.ts` on every diff-sync.
+2. **Sidebar sort by `entityOrder`.** ✅ Landed. Position-based sort is gone. `LeftSidebarData.sections: { notes, pages }` replaces the flat `items` array. The partition logic lives in `src/main/runtime/sidebar-builder.ts`; the pure section-building function is `buildSidebarSections`. Mixed groups emit two rows sharing the group id, each exposing only the children on their surface. Initial render only — no drag yet.
 3. **Page WCV re-stack.** ✅ Landed. `applyStack()` in `layer-stack.ts` now walks `entityOrder` between re-adding `bgView` (index 0) and the above-pages cluster, reattaching each page's `frameView` followed by `pageView`. `removePageAtIndex` marks `'stack'` dirty so the restack runs after deletes too.
 4. **aboveView paint-iteration verification.** ✅ Landed. `buildCanvasLayoutData` sorts `entities` by `entityOrder` rank (stable on ties) before broadcasting. Body layers (`StickyBodyLayer`, `FileBodyLayer`, `ShapeBodyLayer`, `DrawingsLayer`) consume the same array, so React's iteration order is now `entityOrder`-derived rather than incidental. `EdgeLayer` still iterates its own array — interleaving edges into `entityOrder` is slice 7.
 5. **Sidebar drag-to-reorder.** Drag handle on each row; drop zones between rows; section divider is a forbidden drop. Multi-select block move. No reparenting.

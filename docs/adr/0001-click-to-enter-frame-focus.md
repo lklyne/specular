@@ -1,8 +1,9 @@
 # ADR 0001 — Click-to-enter frame focus replaces rasterization-dependent gate
 
-**Status:** Accepted
+**Status:** Accepted — superseded in part by ADR 0022 (select-first/interact-second) and ADR 0028 (chrome-header retirement). The `frameFocus` variable described here was replaced by `interactivePageId` (ADR 0022); the gate predicate no longer tracks page focus; the 5-layer hit-region table was reduced to 4 layers when the chrome layer was retired.
 **Date:** 2026-05-04
 **Supersedes premise of:** `docs/interaction-layer.md` §4.2 (input gate) and §4.7 (bitmap compositor)
+**Superseded in part by:** [ADR 0022 — Pages select-first / interact-second](./0022-pages-select-first-interact-second.md), [ADR 0028 — Retire the chrome-header slot model](./0028-retire-chrome-header-slot-model.md)
 
 ## Context
 

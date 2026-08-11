@@ -84,10 +84,12 @@ by other tools. Specular adds:
 
 **On link nodes:**
 - `presetIndex` — viewport preset (device catalog index)
-- `linked` — whether this page is linked to others for sync
+- `syncId?: string | null` — sync-set membership identifier; pages sharing the same non-null `syncId` form a sync set (ADR 0027); null or absent means unsynced
+- `colorScheme?: 'light' | 'dark'` — per-page color scheme override; absent means inherit app theme
 - `label` — display name
 - `parentGroupId` — group membership
 - `metadata` — open-ended key-value store
+- `pageAnchor?: { pageId, pageUrl? }` — hooks the page to another page's document space (rare; see §Page anchoring in CONTEXT.md)
 
 **On file nodes:**
 - `objectFit` — how the file content fits its bounds (`contain` / `cover` / `fill`)
@@ -99,10 +101,17 @@ by other tools. Specular adds:
   specific repo is connected later.
 
 **On group nodes:**
-- `groupKind` — type of group (e.g., breakpoint set)
-- `layoutMode` — auto-layout algorithm
-- `entityIds` / `pageIds` — member references
+- `layoutMode` — auto-layout algorithm (`'freeform' | 'row' | 'column'`)
 - `managedLayout` — whether the group controls child positions
+- `layoutGap?: number` — managed-layout packing gap in px; absent uses the default gutter
+- `entityIds` / `pageIds` — member references
+
+**On text nodes (in the `specular` object):**
+- `textStyle?: 'plain' | 'sticky'` — render style; absent defaults to `'sticky'`
+- `pageAnchor?: { pageId, pageUrl? }` — hooks the item to a page (ADR 0031); the item travels with page drags and hides when the page navigates away
+
+**On drawing nodes (`type: "drawing"`):**
+- `pageAnchor?: { pageId, pageUrl? }` — same page-anchor semantics as text
 
 **On all nodes:**
 - `color` — preset color "1"-"6" or hex "#RRGGBB"
@@ -139,6 +148,9 @@ Missing `fillStyle` means `solid`; missing text alignment means
 `center`/`middle`. This preserves existing files without migration. JSON Canvas
 readers that do not support shapes or these optional fields can ignore them,
 while the file stays valid, transparent JSON.
+
+Shape nodes also support `pageAnchor?: { pageId, pageUrl? }` at the top level
+(outside `specular`) — same page-anchor semantics as text and drawing nodes (ADR 0031).
 
 ### Edges
 
@@ -185,7 +197,8 @@ and no longer writes it.
 
 ### Annotations (extension)
 
-Freehand drawings/annotations stored in an `annotations` array:
+Comment records stored in an `annotations` array. **Freehand drawings are stored
+as `type: "drawing"` nodes in the `nodes` array, not in `annotations`.**
 
 ```json
 {
@@ -194,16 +207,19 @@ Freehand drawings/annotations stored in an `annotations` array:
   "annotations": [
     {
       "id": "ann1",
-      "canvasX": 100,
-      "canvasY": 200,
-      "width": 300,
-      "height": 150,
-      "strokes": [...],
-      "color": "#ff0000"
+      "anchor": { "type": "canvas", "canvasX": 100, "canvasY": 200 },
+      "body": "Review the contrast here",
+      "status": "open",
+      "metadata": { "pageName": "Home" },
+      "pageAnchor": { "pageId": "p1", "pageUrl": "https://example.com/" }
     }
   ]
 }
 ```
+
+The `annotations` array holds comment records; the `anchor` field (discriminated
+by `anchor.type`) identifies where the comment is pinned. `pageAnchor`, when
+present, makes the annotation page-bound (see ADR 0031).
 
 #### Comment anchors
 

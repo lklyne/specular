@@ -52,3 +52,11 @@ This does not address a separate, pre-existing browser-mode bug: the page's
 bgView backing card is positioned at canvas coordinates while the live page is
 re-centered/fit to the browser viewport, so the two diverge (visibly at
 non-100% zoom). That is tracked separately.
+
+## Amendment (ADR 0020)
+
+ADR 0020 deleted browser mode. `WorkspaceViewMode` is now `@deprecated` in
+`types.ts`, retained only for snapshot compatibility. `useCanvasViewportGestures`
+no longer has a `viewMode` check — `handleWheel` calls `api.canvasPan()`
+unconditionally. The core invariant (scroll does not pan the canvas) remains in
+effect; the `viewMode === 'canvas'` guard is simply moot.
