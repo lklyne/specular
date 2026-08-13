@@ -1,171 +1,154 @@
-# Close the entity field-drift bug class
+# PR 1 — Close the entity field-drift bug class
 
-**One PR.** Extends ADR 0024 §5 from the two Y.Doc legs to every leg a canvas
-item's fields travel, and pays off the drift that accumulated while only one
-leg was covered.
+**Branch:** `worktree/field-drift-net` (two commits landed, three steps to go)
+**Related:** ADR 0024 §5, ADR 0019, `src/main/runtime/CLAUDE.md`
+**Sibling:** [json-canvas-spec-compliance.md](./json-canvas-spec-compliance.md) — do that one separately
 
-## The bug class
+## What this is really about
 
-A canvas item lives in four representations:
+A canvas item's fields travel through several code paths: forward sync to the
+Y.Doc, save and load from `.canvas`, snapshot hydrate, tab switching,
+copy/paste, duplicate. ADR 0024 §5 promised that one declared field list would
+drive all of persistence, so that "I forgot to add the field to the other list"
+stops being possible. That promise was kept for the two Y.Doc directions and
+nowhere else.
 
-```
-runtime arrays  ⇄  Y.Doc  ⇄  .canvas on disk
-      ↕
-  clipboard / duplicate payloads
-```
+Every other path still keeps its own hand-written list of which fields to
+carry. Those lists fall behind, and when they do the failure is **silent and
+destructive**: the value loads as undefined, the next autosave writes the file
+back without it, and the data is gone from disk. Three separate user-visible
+bugs came from this one shape:
 
-ADR 0024 §5 promised one field list drives persistence, making "forgot to
-extend the restore allow-list" structurally impossible. That was delivered for
-`runtime ⇄ Y.Doc` (`def.persist` / `def.restore` / `fields`). The disk leg and
-the duplication leg still hand-list fields, twice each per kind, held in sync
-by nothing.
+- shape text alignment reverting to centered on relaunch (fixed, #385)
+- stickies and file cards losing their group on relaunch (fixed, this branch)
+- copy/paste and duplicate stripping shape styling (still open, step 3 below)
 
-Adding one persisted field to `shape` today needs ~16 hand edits across 13
-files. Exactly one is covered by a test — `entity-kind-persisted-fields.test.ts`
-compares `persist()`'s output keys against the declared list. It checks the
-**declaration**, never the **copy paths**. That is why every bug below shipped
-silently.
+**The goal is not to fix a list of fields.** It is to remove the *category* —
+to get to a place where adding a persisted field to an entity kind means
+editing one declaration, and every path that copies entities picks it up
+without being told. Judge a change by whether it makes the next field-drop
+impossible, not by whether it fixes today's symptom.
 
-### Confirmed data loss in main today
+## The idea to hold onto
 
-| Symptom | Site |
-|---|---|
-| Shape text alignment reset to centered on relaunch | `space-restore.ts` shape arm — **fixed in #385**; step 3 subsumes that fix |
-| Grouped sticky loses its group on relaunch | `JsonCanvasTextNode` has no `parentGroupId`; `serializeTextToTextNode` never writes it or `label` |
-| File entity loses its group on relaunch | `serializeFileToFileNode` omits `parentGroupId` |
-| Copy/paste strips shape border + alignment | `shapePayload` / paste arm omit `fillStyle`, `borderStyle`, `borderColor`, `textAlign`, `textVerticalAlign` — verified by running: the pasted shape carries none of the four styling fields the original had |
-| Duplicating a group strips the same fields | `workspace-groups.ts` — a third independent copy |
-| Page loses `colorScheme` on snapshot hydrate | `hydrateDocFromSnapshot` omits it, though `PAGE_DOC_FIELD_SET` declares it |
-| `textStyle`, `label`, `parentGroupId` silently no-op on update | `builtin/text.ts` cast list; same for `shape`, `drawing` |
+There is already a registry (`src/main/entities/`) where each kind declares its
+persisted fields once and both Y.Doc directions derive from it. That pattern
+works. The work is extending its reach — bringing the paths that hand-list
+fields under the same declaration — rather than inventing a new mechanism.
 
-## Explicitly out of scope
+Prefer deleting a hand-written list over updating it. If a path can be
+expressed as "persist the entity, then restore it," that is almost always the
+better shape than a bespoke field copy, because it inherits correctness instead
+of restating it.
 
-**Declarative JSON Canvas node mapping.** Serialize/deserialize stay
-hand-written pairs; step 2 only makes them *complete*. Collapsing them into one
-declaration brushes against ADR 0024 §6 (no descriptor framework) and deserves
-its own ADR conversation. Accepted debt: the duplication remains, but the net
-from step 1 makes it loud instead of silent.
+## What has landed
 
-Existing `.canvas` files that already lost a sticky's group membership cannot
-be migrated — the data is not in them. This stops the bleeding; it does not
-recover.
+**Commit 1 — the net** (`tests/integration/entity-field-fixtures.ts`,
+`entity-field-roundtrip.test.ts`)
 
-## Order of work
+A fully-populated sample of each kind, plus a reusable assertion that a sample
+survives a given path with every declared field intact. Samples are pinned at
+runtime against each kind's declared field list, so a newly declared field
+fails the suite until its sample sets it.
 
-Each step is one commit. The net is built once, then extended one leg at a
-time, each leg landing green alongside the change that fixes it. No step lands
-a red test, and no consolidation lands without coverage.
+Note for anyone extending it: the samples carry `satisfies
+Required<Persisted…Entity>` for editor feedback, but `tests/` sits outside both
+typecheck projects, so that is *not* gate-enforced. The runtime assertion is
+what actually holds. (Bringing `tests/` under typecheck is worthwhile and would
+make this compile-enforced — it surfaces ~85 pre-existing type errors in the
+existing suite, so it is its own piece of work.)
 
-### Step 1 — The drift harness
+**Commit 2 — grouping survives a relaunch**
 
-`tests/unit/entity-field-roundtrip.ts` (helper, not a spec file):
+`text` and `file` nodes gained `specular.parentGroupId` (and `specular.label`
+for text). The net grew a save-and-reload path, which is what caught it.
 
-- `sampleEntityFor(kind)` — a fully-populated fixture per kind, every declared
-  field set to a distinctive value. Type each `satisfies Required<PersistedShapeEntity>`
-  (etc.) so a newly declared field is a **compile error in the fixture**. A
-  `fields`-derived runtime builder cannot do this — it has no way to invent a
-  valid `strokes` array or `file` path.
-- `expectFieldsSurvive(kind, roundTrip)` — asserts the field *set* survives,
-  deriving the expectation from `fields` rather than enumerating. Never needs
-  editing again.
+## What remains
 
-Wire it to the one already-green leg: `runtime → Y.Doc → runtime` via
-`def.persist` / `def.restore`. Zero red.
+Each step below adds its path to the net first — watch it fail, then make it
+pass. That ordering matters more than any particular implementation: it is what
+proves the net is really covering the path rather than passing vacuously.
 
-**Acceptance:** all six kinds pass the Y.Doc leg. Removing a field from any
-`*_PERSISTED_FIELD_SET` fails the fixture at compile time.
+### Step A — one intake door
 
-### Step 2 — Disk leg + targeted format fixes
-
-Add the `runtime → .canvas → runtime` assertion. Red for `text`
-(`parentGroupId`, `label`) and `file` (`parentGroupId`).
-
-Fix:
-- Add the missing keys to `JsonCanvasTextNode` / `JsonCanvasFileNode` and their
-  serializer pairs in `json-canvas-serializer.ts`.
-- Add `colorScheme` to `hydrateDocFromSnapshot` (`space-doc.ts:121`).
-- Confirm `deserializeLinkNodeToPage` sets `parentGroupId`, not only `groupId`.
-
-Do this before the consolidations: it is the only user-visible data loss still
-shipping, and steps 3–4 both need a green disk leg to test against.
-
-**Acceptance:** disk leg green for all six kinds. Update the golden
-`rich-workspace.canvas` snapshot — the fixture must include a grouped text and
-a grouped file so the new keys actually appear.
-
-### Step 3 — One intake door (candidate 1)
-
-Four modules rehydrate entities into runtime arrays; only two go through
-`def.restore`. `space-restore.ts` hand-lists the page arm twice and the group
-arm once; `space-tabs.ts` hardcodes five copy-pasted per-kind loops; the page
-snapshot shape is restated four times across `space-persistence.ts` and
+Four places rebuild runtime entities from persisted data; only two derive their
+fields from the registry. `space-restore.ts` hand-lists the page arm twice and
+the group arm once, `space-tabs.ts` has five copy-pasted per-kind loops, and the
+page snapshot shape is restated four times across `space-persistence.ts` and
 `space-tabs.ts`.
 
-Consolidate into one deep module owning "snapshot → runtime", dispatching
-`def.restore` for **every** registered kind including page and group. Page's
-`WebContentsView` creation is the genuine divergence and stays behind its own
-handler — ADR 0024 §2 shaped the interface to allow exactly this. The spread
-currently in `space-restore.ts` collapses into that door.
+Collapse them into one. Page is genuinely different — it is
+`WebContentsView`-backed and its live view must survive rather than be rebuilt —
+so it keeps its own handler behind the same door; ADR 0024 §2 shaped the
+interface to allow exactly that. Group is derived-bbox and similar.
 
-**Acceptance:** snapshot-hydrate and tab-switch legs added to the net, green.
-The `restores every persisted field of a styled shape from disk` test in
-`persistence.test.ts` still passes unchanged.
+This is the step that turns "we fixed the shape fields and the grouping fields"
+into "this cannot happen again," so it is the heart of the PR.
 
-**Risk:** highest of the set — `space-*.ts` is the layer `src/main/runtime/CLAUDE.md`
-flags as able to lose user work silently. Per the test contract this needs
-integration coverage with a named mutation verification, and a forward-sync
-"one mutation → one Y.Doc transaction" assertion if the sync path shifts.
+**Treat this as the risky one.** It is the layer `src/main/runtime/CLAUDE.md`
+flags as able to lose user work silently. It wants integration coverage with a
+named mutation verification, and a manual smoke — create a few items, group
+them, quit, reopen — before moving on. If it starts sprawling, stop and hand
+back rather than pushing through.
 
-### Step 4 — Duplication as persist-and-restore (candidate 3)
+### Step B — duplication reuses persistence
 
-Copy, paste, and group-duplicate each restate every kind's create arguments,
-and all three have drifted. `ClipboardEntityPayload` is a flat union
-hand-listing every kind's copied fields — a fourth parallel type family.
+Copy, paste, and group-duplicate each restate every kind's create arguments, and
+all three have drifted: copying a styled shape today loses its border style,
+fill, and text alignment (verified by running, not just reading). The clipboard
+payload type is a fourth parallel family of per-kind field lists.
 
-Rewrite duplication as `def.persist` → re-id → offset → `def.restore`, reusing
-the intake door from step 3. The clipboard payload becomes the persisted record
-plus a placement delta, so it cannot carry a different field set than
-persistence does.
+Reframe duplication as persist → re-id → offset → restore, on top of the door
+from Step A. The payload should be the persisted record plus a placement delta,
+so it *cannot* carry a different field set than persistence does. Expect to
+delete a lot more than you add.
 
-Deletes: `ClipboardEntityPayload`'s per-kind arms, both paste tables, and the
-per-kind arms of `workspace-groups.ts#duplicateGroup`.
+Page-anchor re-targeting on paste is placement logic, not field copying — leave
+that behavior as it is.
 
-**Acceptance:** copy→paste and duplicate legs added to the net, green.
-Page-anchor re-targeting on paste (`payloadAnchor`) keeps its current behavior —
-it is placement, not field copying.
+Do this after Step A; its whole premise is reusing that door.
 
-**Ordering:** must follow step 3. Its premise is reusing the intake door; built
-first, it wires duplication into four doors and gets rewritten again.
+### Step C — fields that silently ignore updates
 
-### Step 5 — Update patch map (candidate 5)
+Some fields persist and load correctly but do nothing when an agent or the
+details panel sets them, because each registry handler casts patch fields one by
+one: `textStyle`, `label`, `parentGroupId` on text; `label`, `parentGroupId`,
+`pageAnchor` on shape; `label` on drawing.
 
-Each `builtin/*.ts` handler casts patch fields one by one, so a field can be
-persisted and serialized correctly yet silently no-op when an agent or the
-details panel sets it.
+A different flavor of the same disease — a hand-written list, this time on the
+mutation side. Independent of A and B, lowest risk, good last step.
 
-Add a mutation-leg assertion: every declared field is settable through
-`def.update`. Red for `text` (`textStyle`, `label`, `parentGroupId`), `shape`
-(`label`, `parentGroupId`, `pageAnchor`), `drawing` (`label`). Fix the casts and
-the corresponding `EntityUpdatePatchMap` entries in `shared/types.ts`.
+## How to know you are done
 
-Last because it is independent of steps 2–4 and lowest blast radius.
+- Adding a persisted field to a kind requires touching the declaration and the
+  sample, and nothing else, to have it flow through every path.
+- The net covers: Y.Doc round trip, save/reload, snapshot hydrate, tab switch,
+  copy/paste, duplicate, and update.
+- Copying a styled shape produces an identical shape.
+- Grouping, styling, and labels survive quit-and-reopen for every kind.
 
-## Gates
+## Traps worth knowing
 
-Per `CLAUDE.md`: `pnpm typecheck` + `pnpm test:unit` after every step;
-`pnpm test:integration` after steps 2, 3, and 4 (runtime, IPC, persistence all
-move). Each new test names its mutation verification in the file docstring, per
-`tests/README.md`.
+- **`.canvas` writes back what it loaded.** A lossy load is not cosmetic; the
+  next autosave destroys the file's data. Any test that only checks in-memory
+  state after a load will miss the whole bug class — check the file too.
+- **Tab switching and undo already work.** They derive from the registry. If a
+  bug reproduces on relaunch but not on tab switch, that asymmetry is the
+  fingerprint of a hand-listed path.
+- **Data already lost stays lost.** These fixes stop the bleeding; they cannot
+  recover fields that previous saves erased.
+- **Gates:** `pnpm typecheck` and `pnpm test:unit` per step, `pnpm
+  test:integration` for anything touching runtime, IPC, or persistence. Name the
+  mutation verification in each new test's docstring per `tests/README.md`.
 
-## Follow-ups this PR deliberately leaves open
+## Deliberately not here
 
-- Declarative JSON Canvas node mapping (the skipped candidate) — wants an ADR
-  first, and a decision on whether ADR 0024 §6's "no descriptor framework" line
-  covers a format mapping whose two directions are provably inverses.
-- `persistGroupEntity` omits `pageIds` / `entityIds` that
-  `WORKSPACE_GROUP_PERSISTED_FIELD_SET` declares, and no test compares them.
-  Step 1's harness will surface this; decide then whether those fields are
-  genuinely derived (and should leave the field set) or genuinely persisted.
-- The scene / panel / graph projections (`canvas-layout-data.ts`,
-  `inspect-session.ts`, `workspace-entities.ts`) hand-list fields too. They
-  cause stale UI, not data loss, so they are a lower tier.
+- Making the JSON Canvas serializer derive from the field list rather than
+  hand-written serialize/deserialize pairs. It brushes against ADR 0024 §6 (no
+  descriptor framework) and deserves its own ADR conversation.
+- `persistGroupEntity` omits `pageIds` / `entityIds` that its own field set
+  declares. Extending the net to group will surface it; decide then whether
+  those fields are genuinely derived (and should leave the declaration) or
+  genuinely persisted (and the projection is wrong).
+- Scene, panel, and graph projections hand-list fields too, but they cause
+  stale UI rather than data loss — a lower tier of the same problem.
