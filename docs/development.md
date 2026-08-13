@@ -13,8 +13,12 @@ pnpm dev                     # start the Electron app
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
 pnpm test:integration        # real runtime in-process (no Electron)
+pnpm test:boot               # smoke-boot with real Electron (pre-release; needs built app)
+pnpm test:agent              # scripted agent scenarios (out-of-band, not CI)
 pnpm build                   # package for distribution
 ```
+
+See `tests/README.md` for the full test tier guide and what each bucket covers.
 
 ## Managing the dev app
 

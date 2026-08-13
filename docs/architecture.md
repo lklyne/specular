@@ -18,7 +18,9 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │  ├─ canvas, toolbar, sidebar, inspector, chrome, etc.       │
 │                                                              │
 │  HTTP API (src/main/routes/)                                │
-│  ├─ /workspace, /pages, /entities, /selection, etc.         │
+│  ├─ /sidebar, /selection, /layout, /pages, /entities,       │
+│  │   /annotations, /edges, /groups, /camera, /tabs,         │
+│  │   /session, /mcp, /stack-order, /design-system, etc.     │
 │                                                              │
 │  Persistence                                                 │
 │  └─ .canvas files on disk (autosave, 350ms debounce)        │
@@ -45,14 +47,17 @@ Specular is an Electron app with a main process and multiple renderer processes.
 │                    the main window, not a WCV — see         │
 │                    docs/interaction-layer.md §3.1.          │
 │  toolbar/          Zoom, tool modes, navigation             │
-│  left-sidebar/     Workspace tree (canvases, pages)         │
+│  left-sidebar/     Space tree (canvases, pages)             │
 │  right-details-panel/  Inspector (properties, settings)     │
 │  devtools-resize-handle/  Devtools panel splitter           │
+│  onboarding/       First-run space-folder picker            │
+│  settings/         Settings window (skills, bindings, fix)  │
 └─────────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────┴──────────────────────────────────────────┐
 │ External clients                                             │
-│  CLI (planned)     Agent interaction via command line        │
+│  CLI               Agent interaction via command line        │
+│                    (src/main/cli.ts, built to out/main/cli.js) │
 │  HTTP API          Runtime queries and mutations             │
 │  CDP proxy         Chrome DevTools Protocol (WebSocket)      │
 └─────────────────────────────────────────────────────────────┘
@@ -75,10 +80,10 @@ See `src/main/runtime/CLAUDE.md` for the full technical reference.
 
 | Layer | What it holds | Where |
 |-------|--------------|-------|
-| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `workspace-doc.ts` |
+| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `space-doc.ts` |
 | Runtime variables | Electron views, interaction mode, hover, drag, timers | `runtime-context.ts` |
 
-**Forward sync:** mutations update runtime arrays -> `scheduleWorkspaceAutosave()`
+**Forward sync:** mutations update runtime arrays -> `scheduleSpaceAutosave()`
 -> diff-sync copies changes to Y.Doc.
 
 **Reverse sync:** undo/redo reverts Y.Doc -> observer patches runtime arrays.
@@ -112,13 +117,18 @@ Each entity type has:
 |--------|------|
 | `runtime-core.ts` | High-level state mutations (create, delete, select) |
 | `runtime-context.ts` | All ephemeral state (views, zoom, pan, interaction) |
-| `workspace-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
-| `workspace-model.ts` | Workspace data arrays (groups, edges, annotations, tabs) |
-| `workspace-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
-| `workspace-persistence.ts` | Disk I/O (.canvas read/write) |
-| `workspace-autosave.ts` | Autosave scheduling |
-| `workspace-undo.ts` | UndoManager setup, undo/redo API |
-| `workspace-tab-operations.ts` | Tab CRUD and switching |
+| `space-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
+| `space-model.ts` | Space data arrays (groups, edges, annotations, tabs) |
+| `space-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
+| `space-persistence.ts` | Disk I/O (.canvas read/write) |
+| `space-autosave.ts` | Autosave scheduling |
+| `space-undo.ts` | UndoManager setup, undo/redo API |
+| `space-tab-operations.ts` | Tab CRUD and switching |
+| `space-dir.ts` | Space folder path resolution (ADR 0033) |
+| `mutate-workspace.ts` | One mutation seam: dirty→autosave→layout→undo (ADR 0025) |
+| `space-gesture-session.ts` | Multi-tick gesture session (ADR 0025) |
+| `note-content-state.ts` | Note content mirroring into Y.Doc for undo (ADR 0023) |
+| `element-attachment-*.ts` | DOM-element position capture and re-resolution (ADR 0032) |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |
@@ -131,8 +141,7 @@ renderer surface (canvas, toolbar, sidebar, inspector, chrome, etc.).
 
 ### src/main/routes/
 
-HTTP API endpoints grouped by domain: workspace, pages, entities, selection,
-layout, camera, inspector, presence. Used by CLI, tests, and automation.
+HTTP API endpoints grouped by domain: sidebar/selection/layout (workspace.ts), pages, entities, annotations, edges/groups, canvas, design-system, tabs, session, stack-order, recording, perf. Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 

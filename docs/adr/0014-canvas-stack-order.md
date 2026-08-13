@@ -1,6 +1,6 @@
 # ADR 0014 — Canvas stack order and the Notes/Pages sidebar
 
-**Status:** Proposed
+**Status:** Accepted — integration landed as PR #166. `entityOrder` mutation API (`bringToFront`, `sendToBack`, `bringForward`, `sendBackward`), keyboard shortcuts (`Cmd+[]/]`), context menus, sidebar sort-by-stack-order, and page WCV z-order restack all implemented.
 **Date:** 2026-05-11
 **Related:** [ADR 0003 — Page as canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md), [ADR 0004 — Text affordances and spec extensions](./0004-text-affordances-and-spec-extensions.md).
 **Supersedes premise of:** the sidebar's position-based sort (`compareSidebarPositions` in `sidebar-builder.ts`) and the implicit "edges always paint above all entities" rule.

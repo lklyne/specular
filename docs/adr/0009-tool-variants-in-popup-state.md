@@ -3,6 +3,7 @@
 **Status:** Accepted (landed alongside ADR 0008 step 6)
 **Date:** 2026-05-10
 **Refines:** [ADR 0005 — Unified `Tool` concept](./0005-unified-tool-concept.md). Tool variants for `add-shape` and `draw` move out of the discriminated union into tool-mode popup state (per [ADR 0008](./0008-unified-canvas-item-popup.md)). `add-text` is a deliberate exception.
+**Later divergence (ADR 0013):** The `add-text; style` deliberate exception was reversed when ADR 0013 landed. `add-text; style: 'plain' | 'sticky'` is now two separate top-level tool kinds — `{ kind: 'add-text' }` (plain) and `{ kind: 'add-sticky' }` (sticky) — with no `style` field on either.
 **Companion to:** [ADR 0008 — Unified canvas-item popup](./0008-unified-canvas-item-popup.md).
 
 ## Context

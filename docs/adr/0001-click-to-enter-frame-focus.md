@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-05-04
 **Supersedes premise of:** `docs/interaction-layer.md` §4.2 (input gate) and §4.7 (bitmap compositor)
+**Later divergence:** The "hide aboveView when focused" mechanism described in the Decision section was superseded. `aboveView` is now **never hidden** during page focus. Instead, `src/main/runtime/page-input-forwarding.ts` translates window-space pointer and wheel events captured by aboveView into Electron `sendInputEvent` calls on the focused page's webContents. The core invariant (aboveView is the sole pointer capture surface; pages only receive forwarded input) and the click-to-enter / blur-to-exit lifecycle remain as decided.
 
 ## Context
 

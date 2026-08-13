@@ -1,6 +1,6 @@
 # ADR 0033 — The space folder is user-chosen, and one space is open per window
 
-**Status:** Accepted
+**Status:** Accepted — core implemented. Known partial migration: (1) `space-model.ts` exported identifiers (`workspaceAnnotations`, `workspaceGroups`, `workspaceEdges`) retain the old prefix; (2) `src/main/workspace-*.ts` files outside `runtime/` (annotations, clipboard, edges, entities, groups, layout-tasks, pages, placement) are not yet renamed; (3) `GeneralPane.tsx` renders a "Workspace" section heading in Settings UI.
 **Date:** 2026-07-31
 **Related:** [ADR 0018 — Cloud sync and canvas sharing](./0018-cloud-sync-and-canvas-sharing.md) (store-an-id/resolve-a-location for assets; a chosen space root is the desktop half of that resolution); [ADR 0025 — Single workspace mutation seam](./0025-single-workspace-mutation-seam.md) (the seam this threads a resolved root through)
 

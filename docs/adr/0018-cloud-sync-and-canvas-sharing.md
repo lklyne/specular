@@ -3,7 +3,7 @@
 **Status:** Proposed
 **Date:** 2026-06-08
 **Updated:** 2026-07-21 — content-addressed assets, sandbox serving origin, snapshot-tile web client, and the HTML prototyping loop as the first slice.
-**Builds on:** the existing Yjs state layer (`src/main/runtime/workspace-doc.ts`, `workspace-observers.ts`) and the asset model (`src/main/runtime/image-assets.ts`). No code has landed for this ADR; it records the intended architecture before any of it is built.
+**Builds on:** the existing Yjs state layer (`src/main/runtime/space-doc.ts`, `space-observers.ts`) and the asset model (`src/main/runtime/image-assets.ts`). No code has landed for this ADR; it records the intended architecture before any of it is built.
 **Related:** [ADR 0003 — `Page` as the canonical name for live web items](./0003-page-as-canonical-name-for-live-web-items.md) (live pages are the entity kind with no cloud-renderable pixels), [`docs/architecture.md`](../architecture.md) (two-layer state model), [`docs/file-formats.md`](../file-formats.md) (`.canvas` and the `assets/` folder).
 
 ## Context
@@ -15,7 +15,7 @@ Specular is local-first: state lives in a `Y.Doc` (Yjs CRDT), is serialized to h
 
 The owner's stated direction: **self-hosted now, a service they build and charge for later** — explicitly *not* a third-party SaaS data plane (Liveblocks et al. are out as the core dependency). Cloudflare (Workers / Durable Objects / R2) is the preferred infrastructure.
 
-The favorable starting position is that the hard part is already done. State is already a `Y.Doc`, and a **reverse-sync path** (Y.Doc → runtime arrays → `requestLayout`) already exists in `workspace-observers.ts`, today driven by undo/redo. A network sync provider needs exactly that machinery: remote transactions look, to the runtime, like an undo applying. The forward path (`syncRuntimeToDoc`) already tags transactions with an origin (`'user'`), which we will lean on to distinguish remote/agent edits from local ones.
+The favorable starting position is that the hard part is already done. State is already a `Y.Doc`, and a **reverse-sync path** (Y.Doc → runtime arrays → `requestLayout`) already exists in `space-observers.ts`, today driven by undo/redo. A network sync provider needs exactly that machinery: remote transactions look, to the runtime, like an undo applying. The forward path (`syncRuntimeToDoc`) already tags transactions with an origin (`'user'`), which we will lean on to distinguish remote/agent edits from local ones.
 
 Two things are *not* free and shape every decision below:
 
@@ -31,8 +31,8 @@ Adopt a **Yjs-over-Cloudflare** sync substrate, a **split data plane** (CRDT doc
 Each **canvas maps to one Durable Object**, keyed by a stable **doc id**. The DO runs a Yjs sync server (`y-partykit` on Cloudflare, with WebSocket Hibernation). Clients — desktop app, web client, agents — connect to the DO and share one `Y.Doc`; CRDT merge handles concurrent edits with no conflict resolution code.
 
 Integration points already exist:
-- The provider attaches to the doc from `getActiveDoc()` (`workspace-doc.ts`) — one site.
-- Inbound remote updates flow through the existing Y.Doc → runtime observer (`workspace-observers.ts`), generalized beyond undo so remote transactions patch runtime arrays and `requestLayout()`.
+- The provider attaches to the doc from `getActiveDoc()` (`space-doc.ts`) — one site.
+- Inbound remote updates flow through the existing Y.Doc → runtime observer (`space-observers.ts`), generalized beyond undo so remote transactions patch runtime arrays and `requestLayout()`.
 - **Origin tagging is load-bearing.** `syncRuntimeToDoc` already stamps `'user'`; remote and agent edits are stamped with distinct origins so we can (a) keep them out of the local undo stack and (b) attribute presence ("edited by agent").
 
 We treat the desktop app as authoritative-capable but not required: the DO persists the doc itself, so a canvas lives in the cloud whether or not any app instance is connected.
