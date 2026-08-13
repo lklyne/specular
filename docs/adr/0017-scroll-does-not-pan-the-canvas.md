@@ -1,6 +1,6 @@
 # ADR 0017 — Scroll does not pan the canvas in browser mode
 
-**Status:** Accepted
+**Status:** Accepted — **Moot.** ADR 0020 (Accepted 2026-06-24) eliminated browser mode entirely. There is no longer a `viewMode` check in `useCanvasViewportGestures` because there is no browser mode to guard against. The outcome this ADR sought — no spurious canvas panning in a non-canvas mode — is achieved trivially by the absence of that mode.
 **Date:** 2026-06-01
 **Related:** [docs/interaction-layer.md](../interaction-layer.md) §4 (input authority), [docs/input-authority-audit.md](../input-authority-audit.md).
 
