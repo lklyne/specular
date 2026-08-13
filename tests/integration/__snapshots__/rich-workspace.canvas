@@ -11,7 +11,8 @@
       "color": "3",
       "specular": {
         "textStyle": "sticky",
-        "widthMode": "fixed"
+        "widthMode": "fixed",
+        "parentGroupId": "generated-id-5"
       }
     },
     {
@@ -21,7 +22,10 @@
       "y": 300,
       "width": 220,
       "height": 180,
-      "file": "notes/fixture.md"
+      "file": "notes/fixture.md",
+      "specular": {
+        "parentGroupId": "generated-id-5"
+      }
     },
     {
       "id": "generated-id-3",

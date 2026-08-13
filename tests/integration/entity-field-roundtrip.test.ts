@@ -19,6 +19,7 @@
  * Coverage grows one path at a time; each path lands green alongside the fix
  * that makes it pass. Covered so far:
  *   - runtime → Y.Doc → runtime (forward sync + restore)
+ *   - runtime → .canvas → runtime (save + reload)
  *
  * Mutation-verified two ways: dropping `textAlign` from `shapeCoreFields`
  * (src/main/runtime/shape-entity-state.ts) fails the shape round trip with the
@@ -32,6 +33,7 @@ import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harne
 import { getEntityKind } from '../../src/main/entities/contract'
 import { DOC_MAP_ENTITIES } from '../../src/main/runtime/space-doc'
 import { scheduleSpaceAutosave } from '../../src/main/runtime/space-autosave'
+import { reloadWorkspaceDataFromCurrentSpace } from '../../src/main/runtime/space-change'
 import { MAP_BACKED_SAMPLES, type MapBackedKind } from './entity-field-fixtures'
 
 let harness: WorkspaceHarness
@@ -108,6 +110,33 @@ describe('entity field round-trip', () => {
         for (const field of declaredFields(kind)) {
           if (field === 'kind') continue
           expect(restored?.[field], `${kind}.${field} was lost restoring from the Y.Doc`)
+            .toEqual(sample[field])
+        }
+      })
+    }
+  })
+
+  describe('runtime → .canvas → runtime', () => {
+    for (const kind of KINDS) {
+      it(`${kind} carries every declared field through a save and reload`, async () => {
+        const sample = seedRuntime(kind)
+        scheduleSpaceAutosave()
+        await settleSync()
+        harness.flush()
+
+        reloadWorkspaceDataFromCurrentSpace()
+        await settleSync()
+
+        const reloaded = getEntityKind(kind)
+          .entities()
+          .find((entity) => (entity as { id: string }).id === sample.id) as
+          | Record<string, unknown>
+          | undefined
+        expect(reloaded, `${kind} did not survive the save/reload at all`).toBeDefined()
+
+        for (const field of declaredFields(kind)) {
+          if (field === 'kind') continue
+          expect(reloaded?.[field], `${kind}.${field} was lost saving to or loading from .canvas`)
             .toEqual(sample[field])
         }
       })

@@ -184,6 +184,8 @@ export function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvas
     isNeutral,
     entity.textSize,
     entity.pageAnchor,
+    entity.parentGroupId,
+    entity.label,
   )
   if (specular) node.specular = specular
   return node
@@ -195,23 +197,18 @@ function buildSpecularExtensions(
   isNeutral: boolean,
   textSize: number | undefined,
   pageAnchor: PersistedTextEntity['pageAnchor'],
+  parentGroupId: string | undefined,
+  label: string | undefined,
 ): JsonCanvasTextNode['specular'] {
-  if (
-    textStyle === undefined &&
-    widthMode === undefined &&
-    !isNeutral &&
-    textSize === undefined &&
-    pageAnchor === undefined
-  ) {
-    return undefined
-  }
   const ext: NonNullable<JsonCanvasTextNode['specular']> = {}
   if (textStyle !== undefined) ext.textStyle = textStyle
   if (widthMode !== undefined) ext.widthMode = widthMode
   if (isNeutral) ext.colorRole = 'neutral'
   if (textSize !== undefined) ext.textSize = textSize
   if (pageAnchor !== undefined) ext.pageAnchor = pageAnchor
-  return ext
+  if (parentGroupId !== undefined) ext.parentGroupId = parentGroupId
+  if (label !== undefined) ext.label = label
+  return Object.keys(ext).length ? ext : undefined
 }
 
 export function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
@@ -227,6 +224,10 @@ export function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvas
     objectFit: entity.objectFit,
     presetIndex: entity.presetIndex,
     metadata: entity.metadata,
+    specular:
+      entity.parentGroupId !== undefined
+        ? { parentGroupId: entity.parentGroupId }
+        : undefined,
   }
 }
 
@@ -448,6 +449,8 @@ export function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTe
     width: node.width,
     height: node.height,
     pageAnchor: node.specular?.pageAnchor,
+    parentGroupId: node.specular?.parentGroupId,
+    label: node.specular?.label,
   }
 }
 
@@ -464,6 +467,7 @@ export function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFi
     objectFit: node.objectFit,
     presetIndex: node.presetIndex,
     metadata: node.metadata,
+    parentGroupId: node.specular?.parentGroupId,
   }
 }
 

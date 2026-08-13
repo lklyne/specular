@@ -53,6 +53,18 @@ export interface SpecularNodeExtensions {
    * node was placed. See shared/page-anchor.ts.
    */
   pageAnchor?: { pageId: string; pageUrl?: string }
+  /**
+   * Group membership by reference. JSON Canvas has no such field — the spec
+   * derives membership spatially, from a node's rectangle sitting inside a
+   * group's — so this is a Specular extension, namespaced per ADR 0004 §2
+   * because `text` and `file` are spec node types. (`shape` and `drawing`
+   * are Specular node types outright, so they carry it at the top level.)
+   * A tool that ignores `specular` still lands close to right: grouped items
+   * sit inside their group's bounds, so spatial reading agrees.
+   */
+  parentGroupId?: string
+  /** Sidebar/outline name, distinct from the node's rendered content. */
+  label?: string
 }
 
 export interface JsonCanvasTextNode extends JsonCanvasNodeBase {
@@ -84,6 +96,7 @@ export interface JsonCanvasFileNode extends JsonCanvasNodeBase {
   objectFit?: 'contain' | 'cover' | 'fill'
   presetIndex?: number
   metadata?: Record<string, unknown>
+  specular?: SpecularNodeExtensions
 }
 
 export interface JsonCanvasGroupNode extends JsonCanvasNodeBase {
