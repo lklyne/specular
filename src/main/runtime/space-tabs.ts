@@ -40,23 +40,7 @@ import {
   cloneAnnotationsForPersistence,
   cloneWorkspaceSnapshot,
 } from './runtime-serialization'
-import {
-  textEntities,
-  persistTextEntity,
-} from './text-entity-state'
-import {
-  fileEntities,
-  persistFileEntity,
-} from './file-entity-state'
-import {
-  drawingEntities,
-  persistDrawingEntity,
-} from './drawing-entity-state'
-import {
-  shapeEntities,
-  persistShapeEntity,
-} from './shape-entity-state'
-import { persistGroupEntity } from './group-entity-state'
+import { allEntities, getEntityKind } from '../entities/contract'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // fallow-ignore-next-line complexity
@@ -98,42 +82,18 @@ export function spaceSnapshot(): WorkspaceSnapshot {
     groups: workspaceGroups,
     edges: workspaceEdges,
   })
-  // Add text entities to the entity store
-  for (const te of textEntities) {
-    const entity = persistTextEntity(te)
+  // Every registered kind but `page` (which mirrors to `snapshot.pages`
+  // above) walked once through its own `persist` projection, replacing what
+  // used to be five copy-pasted per-kind loops — one per map-backed kind
+  // plus group. `allEntities()` walks registration order (text, file,
+  // drawing, shape, group after page), matching the original loop order.
+  for (const { kind, entity } of allEntities()) {
+    if (kind === 'page') continue
+    const persisted = getEntityKind(kind).persist!(entity)
     if (!snapshot.entities) snapshot.entities = {}
     if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
-  }
-  // Add file entities to the entity store
-  for (const fe of fileEntities) {
-    const entity = persistFileEntity(fe)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
-  }
-  for (const de of drawingEntities) {
-    const entity = persistDrawingEntity(de)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
-  }
-  for (const se of shapeEntities) {
-    const entity = persistShapeEntity(se)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
-  }
-  for (const group of workspaceGroups) {
-    const entity = persistGroupEntity(group)
-    if (!snapshot.entities) snapshot.entities = {}
-    if (!snapshot.entityOrder) snapshot.entityOrder = []
-    snapshot.entities[entity.id] = entity
-    snapshot.entityOrder.push(entity.id)
+    snapshot.entities[persisted.id] = persisted
+    snapshot.entityOrder.push(persisted.id)
   }
   if (snapshot.entities) {
     const currentIds = new Set([
