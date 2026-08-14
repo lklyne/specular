@@ -116,28 +116,93 @@ export function forwardWheelToPage(pageId: string, payload: ForwardWheelPayload)
   return true
 }
 
+// CDP modifier bitmask: Alt=1, Ctrl=2, Meta=4, Shift=8.
+function cdpModifiersFor(payload: {
+  shiftKey: boolean
+  ctrlKey: boolean
+  altKey: boolean
+  metaKey: boolean
+}): number {
+  return (
+    (payload.altKey ? 1 : 0) |
+    (payload.ctrlKey ? 2 : 0) |
+    (payload.metaKey ? 4 : 0) |
+    (payload.shiftKey ? 8 : 0)
+  )
+}
+
+// Which button a mouseMoved reports: the held one (for drags), else none.
+function moveButtonFor(buttons: number): 'left' | 'right' | 'middle' | 'none' {
+  if (buttons & 1) return 'left'
+  if (buttons & 2) return 'right'
+  if (buttons & 4) return 'middle'
+  return 'none'
+}
+
+/** Attaching throws when a DevTools window already owns the page's debugger.
+ * Callers fall back to sendInputEvent there: that loses cross-frame routing,
+ * but the main frame stays clickable, which beats swallowing the event. */
+function ensureCdpAttached(wc: Electron.WebContents): boolean {
+  if (wc.debugger.isAttached()) return true
+  try {
+    wc.debugger.attach('1.3')
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function forwardPointerToPage(pageId: string, payload: ForwardPointerPayload): boolean {
   const target = pageLocal(pageId)
   if (!target) return false
   const x = Math.round(payload.windowX - target.x)
   const y = Math.round(payload.windowY - target.y)
-  const eventType =
-    payload.kind === 'down' ? 'mouseDown' : payload.kind === 'up' ? 'mouseUp' : 'mouseMove'
   try {
-    const pointerEvent: Electron.MouseInputEvent = {
-      type: eventType,
-      x,
-      y,
-      button: payload.button,
-      clickCount: payload.clickCount ?? (payload.kind === 'move' ? 0 : 1),
-      modifiers: modifiersFor(payload),
+    // Dispatch via CDP rather than sendInputEvent: sendInputEvent forwards to
+    // the main frame's render widget and skips Chromium's cross-frame input
+    // router, so out-of-process iframes (any cross-origin iframe — Google
+    // sign-in popovers, payment widgets) never receive the events. CDP
+    // Input.dispatchMouseEvent hit-tests across the frame tree in the browser
+    // process. Coordinates are the same pre-emulation-scale view-local space
+    // both APIs speak (see app-control-server's click path).
+    const wc = target.webContents
+    const clickCount = payload.clickCount ?? (payload.kind === 'move' ? 0 : 1)
+    if (ensureCdpAttached(wc)) {
+      const buttons = payload.buttons ?? (payload.kind === 'move' ? 0 : undefined)
+      void wc.debugger
+        .sendCommand('Input.dispatchMouseEvent', {
+          type:
+            payload.kind === 'down'
+              ? 'mousePressed'
+              : payload.kind === 'up'
+                ? 'mouseReleased'
+                : 'mouseMoved',
+          x,
+          y,
+          button: payload.kind === 'move' ? moveButtonFor(buttons ?? 0) : payload.button,
+          ...(buttons !== undefined ? { buttons } : {}),
+          clickCount,
+          modifiers: cdpModifiersFor(payload),
+        })
+        .catch((error) => {
+          console.error('[page-input-forwarding] pointer forward failed', error)
+        })
+    } else {
+      wc.sendInputEvent({
+        type:
+          payload.kind === 'down' ? 'mouseDown' : payload.kind === 'up' ? 'mouseUp' : 'mouseMove',
+        x,
+        y,
+        button: payload.button,
+        clickCount,
+        modifiers: modifiersFor(payload),
+      })
     }
-    target.webContents.sendInputEvent(pointerEvent)
-    // sendInputEvent synthesizes the click but does NOT focus the webContents,
+    // Dispatching synthesizes the click but does NOT focus the webContents,
     // so the resulting text selection renders with Chromium's inactive (gray)
     // highlight. Focus on mouseDown the way a real click would, so selection is
     // active immediately — matches what runForwardPointer already assumes.
-    if (payload.kind === 'down') target.webContents.focus()
+    if (payload.kind === 'down') wc.focus()
   } catch (error) {
     console.error('[page-input-forwarding] pointer forward threw', error)
     return false
