@@ -5,7 +5,6 @@ import {
   getUiState,
   isCommentOverlayVisible,
   selectedEntityIds as uiSelectedEntityIds,
-  selectedGroupId as uiSelectedGroupId,
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
   setSelection as setUiSelection,
 } from '../ui-state'
@@ -29,7 +28,6 @@ import { fileEntities } from './file-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { textEntities } from './text-entity-state'
 import { breadcrumb } from '../sentry-context'
-import { descendantEntityIdsForGroup } from './group-descendants'
 import {
   shouldFocusSelectedPage,
   type FocusSelectionInput,
@@ -327,21 +325,4 @@ export function applyEntitySelectionMutation(
   }
 
   return selectEntities(nextIds, options)
-}
-
-export function selectedDragEntityIds(entityId: string): string[] {
-  const selectedIds = uiSelectedEntityIds()
-  if (selectedIds.length > 1 && selectedIds.includes(entityId)) {
-    return selectedIds
-  }
-
-  const activeGroupId = uiSelectedGroupId()
-  if (activeGroupId) {
-    const descendantIds = descendantEntityIdsForGroup(activeGroupId)
-    if (entityId === activeGroupId || descendantIds.includes(entityId)) {
-      return [activeGroupId, ...descendantIds]
-    }
-  }
-
-  return [entityId]
 }

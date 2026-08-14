@@ -29,6 +29,7 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   entityOrder: [],
   entities: [],
   selectedEntityIds: [],
+  selectionOperandIds: [],
   selection: [],
   activeSelection: null,
   activeTool: { kind: 'select' },

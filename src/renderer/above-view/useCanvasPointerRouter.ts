@@ -818,7 +818,10 @@ function runMultiResize(
   // leaves the capture held until the implicit release on pointerup.
   capturePointer(event)
   const layout = layoutRef.current
-  const seed = computeMultiSelectionBbox(layout.entities, layout.selectedEntityIds)
+  // Operand ids (not raw selectedEntityIds) so a group in the selection
+  // resizes as its full descendant set, not just its (unrendered) own row —
+  // see ADR 0034.
+  const seed = computeMultiSelectionBbox(layout.entities, layout.selectionOperandIds)
   if (!seed) return false
   const acc = startMultiResize(seed)
   const zoom = layout.zoom ?? 1
