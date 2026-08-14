@@ -14,18 +14,20 @@ import { extractTraceEvents, summarizeTraceEvents, type TraceSummary } from '../
 import type { PerfTraceFileEntry, PerfTraceState } from '../shared/electron-api/debug'
 import { getDebugWebContents } from './debug-window'
 
+/** Kept deliberately narrow: every category here is read by either
+ * `summarizeTraceEvents` or the Perfetto timeline. `sequence_manager`,
+ * `toplevel.flow`, and `latencyInfo` emit an event per posted task / flow arrow
+ * across all ~20 processes and dominate file size (5s ran to 1.1 GB with them
+ * on) while contributing nothing the summary reads. Re-add one temporarily if
+ * you're chasing task-scheduling or input-latency questions specifically. */
 const TRACE_CATEGORIES = [
   'viz',
   'cc',
   'gpu',
   'blink',
-  'benchmark',
   'toplevel',
-  'toplevel.flow',
   'input',
   'latency',
-  'latencyInfo',
-  'sequence_manager',
   'graphics.pipeline',
   'electron',
   'disabled-by-default-devtools.timeline.frame',
@@ -35,7 +37,8 @@ const TRACE_CATEGORIES = [
  * produce on the order of tens of MB per second across 20+ processes. */
 const MAX_TRACE_MS = 30_000
 
-const TRACE_BUFFER_KB = 300_000
+/** Per process, not per trace — the real ceiling is this times ~20 processes. */
+const TRACE_BUFFER_KB = 50_000
 
 /** Matches saved trace files, excluding the cached `.summary.json` sidecars. */
 const TRACE_FILE_RE = /^specular-trace-.*\.json$/
