@@ -177,6 +177,35 @@ export interface JsonCanvasEdge {
   edgeMetadata?: Record<string, unknown>
 }
 
+/**
+ * A free-ended edge — one or both ends is a canvas-space point rather than a
+ * node. JSON Canvas requires `fromNode`/`toNode` on `edges[]`, so there is no
+ * spec-legal way to represent a dangling edge there. These live in
+ * `specular.freeEdges` instead — see ADR 0034. Mirrors `JsonCanvasEdge` field
+ * for field except `fromNode`/`toNode` are optional and joined by
+ * `fromPoint`/`toPoint`.
+ */
+export interface JsonCanvasFreeEdge {
+  id: string
+  fromNode?: string
+  toNode?: string
+  fromPoint?: { x: number; y: number }
+  toPoint?: { x: number; y: number }
+  fromSide?: EdgeSide
+  toSide?: EdgeSide
+  fromEnd?: EdgeEnd
+  toEnd?: EdgeEnd
+  color?: CanvasColor
+  label?: string
+  strokeWidth?: number
+  lineStyle?: EdgeLineStyle
+  routing?: EdgeRouting
+  elbowSplit?: number
+  elbowSplitAxis?: EdgeSplitAxis
+  edgeKind?: string
+  edgeMetadata?: Record<string, unknown>
+}
+
 // --- Document ---
 
 export interface JsonCanvasDocument {
@@ -195,6 +224,12 @@ export interface JsonCanvasSpecularExtensions {
    * interleaving without changing the spec arrays.
    */
   entityOrder?: string[]
+  /**
+   * Free-ended edges — one or both ends unbound from an entity. Kept outside
+   * the spec's `edges[]` so a strict JSON Canvas reader sees a fully valid
+   * file and simply doesn't see them. See ADR 0034.
+   */
+  freeEdges?: JsonCanvasFreeEdge[]
 }
 
 export interface JsonCanvasAppState {

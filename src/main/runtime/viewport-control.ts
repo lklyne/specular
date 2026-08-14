@@ -371,7 +371,8 @@ export function focusSelectedPage(): boolean {
   return true
 }
 
-function resolveEntityBounds(entityId: string): WorkspaceBounds | null {
+function resolveEntityBounds(entityId: string | null): WorkspaceBounds | null {
+  if (!entityId) return null
   const page = pages.find((p) => p.id === entityId)
   if (page) {
     const focus = focusSession()

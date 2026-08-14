@@ -12,7 +12,7 @@ import type {
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { slotForStorage } from '../../shared/canvas-colors'
-import { getAnchorPoint, resolveEdgeSides } from '../../shared/edge-geometry'
+import { resolveEdgeAnchors } from '../../shared/edge-geometry'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { EdgeStrokeDropdown } from './EdgeStrokeDropdown'
@@ -77,13 +77,12 @@ export function EdgePopup({
   )
 
   const entities = layout.entities
-  const fromEntity = edge && findEntity(entities, edge.fromEntityId)
-  const toEntity = edge && findEntity(entities, edge.toEntityId)
-  if (!edge || !fromEntity || !toEntity) return null
+  const entityMap = new Map<string, CanvasSceneEntity>()
+  for (const e of entities) entityMap.set(e.id, e)
+  const anchors = edge ? resolveEdgeAnchors(edge, entityMap, layout.zoom, layout.canvasOrigin.y) : null
+  if (!edge || !anchors) return null
 
-  const { fromSide, toSide } = resolveEdgeSides(fromEntity, toEntity, edge)
-  const from = getAnchorPoint(fromEntity, fromSide, layout.zoom, layout.canvasOrigin.y)
-  const to = getAnchorPoint(toEntity, toSide, layout.zoom, layout.canvasOrigin.y)
+  const { from, to } = anchors
   const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
 
   const fromEnd = edge.fromEnd ?? 'none'
@@ -172,11 +171,4 @@ export function EdgePopup({
       </CanvasItemPopup.Frame>
     </div>
   )
-}
-
-function findEntity(
-  entities: CanvasSceneEntity[],
-  id: string,
-): CanvasSceneEntity | undefined {
-  return entities.find((entity) => entity.id === id)
 }

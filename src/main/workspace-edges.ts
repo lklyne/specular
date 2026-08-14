@@ -27,6 +27,8 @@ function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
     if (existing) {
       existing.fromEntityId = edge.fromEntityId
       existing.toEntityId = edge.toEntityId
+      existing.fromPoint = edge.fromPoint
+      existing.toPoint = edge.toPoint
       existing.fromSide = edge.fromSide
       existing.toSide = edge.toSide
       existing.fromEnd = edge.fromEnd
@@ -47,6 +49,8 @@ function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
       id: edge.id ?? makeId('edge'),
       fromEntityId: edge.fromEntityId,
       toEntityId: edge.toEntityId,
+      fromPoint: edge.fromPoint,
+      toPoint: edge.toPoint,
       fromSide: edge.fromSide,
       toSide: edge.toSide,
       fromEnd: edge.fromEnd,
@@ -84,15 +88,46 @@ export function deleteEdges(input: { edgeIds: string[] }): { deletedEdgeIds: str
   }, { changed: (result) => result.deletedEdgeIds.length > 0 })
 }
 
-export function removeEdgesTouchingEntities(entityIds: Set<string>): string[] {
+/**
+ * An edge whose only bound end is deleted has nowhere left to attach — that
+ * edge is removed. An edge with the other end still bound (or already free)
+ * instead detaches the deleted end to a free point, rather than disappearing.
+ * `lastKnownPoint` supplies the point to detach to — callers look it up
+ * (e.g. via `entityBoundsById`) before deleting the entity, since by the time
+ * this cascade runs the entity is already gone from state.
+ */
+export function removeEdgesTouchingEntities(
+  entityIds: Set<string>,
+  lastKnownPoint?: (entityId: string) => { x: number; y: number } | null,
+): string[] {
   const deletedEdgeIds: string[] = []
+  let detached = false
   for (let idx = workspaceEdges.length - 1; idx >= 0; idx--) {
     const edge = workspaceEdges[idx]
-    if (entityIds.has(edge.fromEntityId) || entityIds.has(edge.toEntityId)) {
+    const fromGone = edge.fromEntityId !== null && entityIds.has(edge.fromEntityId)
+    const toGone = edge.toEntityId !== null && entityIds.has(edge.toEntityId)
+    if (!fromGone && !toGone) continue
+
+    const fromUsable = !fromGone && (edge.fromEntityId !== null || !!edge.fromPoint)
+    const toUsable = !toGone && (edge.toEntityId !== null || !!edge.toPoint)
+    if (!fromUsable && !toUsable) {
       deletedEdgeIds.push(edge.id)
       workspaceEdges.splice(idx, 1)
+      continue
     }
+
+    if (fromGone) {
+      edge.fromPoint = lastKnownPoint?.(edge.fromEntityId as string) ?? edge.fromPoint
+      edge.fromEntityId = null
+      edge.fromSide = undefined
+    }
+    if (toGone) {
+      edge.toPoint = lastKnownPoint?.(edge.toEntityId as string) ?? edge.toPoint
+      edge.toEntityId = null
+      edge.toSide = undefined
+    }
+    detached = true
   }
-  if (deletedEdgeIds.length) markDirty('canvas')
+  if (deletedEdgeIds.length || detached) markDirty('canvas')
   return deletedEdgeIds
 }

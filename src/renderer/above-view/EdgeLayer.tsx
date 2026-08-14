@@ -28,7 +28,7 @@ import { anchorEligibleEntityIds, entityHasAnchors } from '../../shared/hit-test
 import {
   buildBezierPath,
   buildEdgePath,
-  resolveEdgeSides,
+  resolveEdgeAnchors,
   getAnchorPoint,
   type AnchorPoint,
 } from '../../shared/edge-geometry'
@@ -290,14 +290,9 @@ export function EdgeLayer({
     }> = []
 
     for (const edge of edges) {
-      const fromEntity = entityMap.get(edge.fromEntityId)
-      const toEntity = entityMap.get(edge.toEntityId)
-      if (!fromEntity || !toEntity) continue
-
-      const { fromSide, toSide } = resolveEdgeSides(fromEntity, toEntity, edge, originY)
-
-      const from = getAnchorPoint(fromEntity, fromSide, zoom, originY)
-      const to = getAnchorPoint(toEntity, toSide, zoom, originY)
+      const anchors = resolveEdgeAnchors(edge, entityMap, zoom, originY)
+      if (!anchors) continue
+      const { from, to } = anchors
       const d = buildEdgePath(edge, from, to, zoom)
       paths.push({
         id: edge.id,

@@ -871,7 +871,10 @@ function runEdgeDrag(
   // Tell main about the gesture begin so its interaction-controller is in
   // the right mode — this is what `EdgeLayer.tsx` used to call.
   const origin = edgeDragOrigin(state)
-  if (origin) api.beginEdgeDrag(origin.entityId, origin.side)
+  // A free-ended origin (re-routing an edge whose far end is already free)
+  // has no entity to tell main about yet — the pointer path to that gesture
+  // (grabbing a free endpoint's own handle) lands with the connect tool.
+  if (origin && 'entityId' in origin) api.beginEdgeDrag(origin.entityId, origin.side)
 
   let lastSnap: string | null = null
 

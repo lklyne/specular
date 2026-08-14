@@ -25,6 +25,7 @@ import type {
   JsonCanvasDocument,
   JsonCanvasDrawingNode,
   JsonCanvasEdge,
+  JsonCanvasFreeEdge,
   JsonCanvasFileNode,
   JsonCanvasGroupNode,
   JsonCanvasLinkNode,
@@ -101,16 +102,27 @@ export function serializeToJsonCanvas(
     nodes.push(getEntityKind(entity.kind).serialize(entity))
   }
 
-  // Convert edges
+  // Convert edges. A free end (null fromEntityId/toEntityId) has no
+  // spec-legal representation in edges[] — JSON Canvas requires fromNode/
+  // toNode — so those go to specular.freeEdges instead, outside the arrays a
+  // strict reader validates. See ADR 0034.
+  const freeEdges: JsonCanvasFreeEdge[] = []
   if (snapshot.edges) {
     for (const edge of snapshot.edges) {
-      edges.push(serializeEdge(edge))
+      if (edge.fromEntityId && edge.toEntityId) {
+        edges.push(serializeEdge(edge as WorkspaceEdge & { fromEntityId: string; toEntityId: string }))
+      } else {
+        freeEdges.push(serializeFreeEdge(edge))
+      }
     }
   }
 
   const doc: JsonCanvasDocument = { nodes, edges }
-  if (orderedIds.length) {
-    doc.specular = { entityOrder: orderedIds }
+  if (orderedIds.length || freeEdges.length) {
+    doc.specular = {
+      ...(orderedIds.length ? { entityOrder: orderedIds } : {}),
+      ...(freeEdges.length ? { freeEdges } : {}),
+    }
   }
 
   // Add annotations as extension
@@ -305,7 +317,7 @@ export function serializeGroupEntityToGroupNode(entity: PersistedGroupEntity): J
   }
 }
 
-function serializeEdge(edge: WorkspaceEdge): JsonCanvasEdge {
+function serializeEdge(edge: WorkspaceEdge & { fromEntityId: string; toEntityId: string }): JsonCanvasEdge {
   return {
     id: edge.id,
     fromNode: edge.fromEntityId,
@@ -324,6 +336,52 @@ function serializeEdge(edge: WorkspaceEdge): JsonCanvasEdge {
     elbowSplitAxis: edge.elbowSplitAxis,
     edgeKind: edge.kind,
     edgeMetadata: edge.metadata,
+  }
+}
+
+function serializeFreeEdge(edge: WorkspaceEdge): JsonCanvasFreeEdge {
+  return {
+    id: edge.id,
+    fromNode: edge.fromEntityId ?? undefined,
+    toNode: edge.toEntityId ?? undefined,
+    fromPoint: edge.fromEntityId ? undefined : edge.fromPoint,
+    toPoint: edge.toEntityId ? undefined : edge.toPoint,
+    fromSide: edge.fromSide,
+    toSide: edge.toSide,
+    fromEnd: edge.fromEnd,
+    toEnd: edge.toEnd,
+    color: edge.color,
+    label: edge.label,
+    strokeWidth: edge.strokeWidth,
+    lineStyle: edge.lineStyle,
+    routing: edge.routing,
+    elbowSplit: edge.elbowSplit,
+    elbowSplitAxis: edge.elbowSplitAxis,
+    edgeKind: edge.kind,
+    edgeMetadata: edge.metadata,
+  }
+}
+
+function deserializeFreeEdgeToWorkspaceEdge(edge: JsonCanvasFreeEdge): WorkspaceEdge {
+  return {
+    id: edge.id,
+    fromEntityId: edge.fromNode ?? null,
+    toEntityId: edge.toNode ?? null,
+    fromPoint: edge.fromNode ? undefined : edge.fromPoint,
+    toPoint: edge.toNode ? undefined : edge.toPoint,
+    fromSide: edge.fromSide,
+    toSide: edge.toSide,
+    fromEnd: edge.fromEnd,
+    toEnd: edge.toEnd,
+    color: edge.color,
+    label: edge.label,
+    strokeWidth: edge.strokeWidth,
+    lineStyle: edge.lineStyle,
+    routing: edge.routing,
+    elbowSplit: edge.elbowSplit,
+    elbowSplitAxis: edge.elbowSplitAxis,
+    kind: (edge.edgeKind as WorkspaceEdge['kind']) ?? 'breakpoint_variant',
+    metadata: edge.edgeMetadata,
   }
 }
 
@@ -355,7 +413,10 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
     nodeOrder.push(entity.id)
   }
 
-  const edges: WorkspaceEdge[] = doc.edges.map(deserializeEdgeToWorkspaceEdge)
+  const edges: WorkspaceEdge[] = [
+    ...doc.edges.map(deserializeEdgeToWorkspaceEdge),
+    ...(doc.specular?.freeEdges ?? []).map(deserializeFreeEdgeToWorkspaceEdge),
+  ]
   const edgeOrder = edges.map((edge) => edge.id)
   const entityOrder = deserializeEntityOrder(doc.specular?.entityOrder, nodeOrder, edgeOrder)
 

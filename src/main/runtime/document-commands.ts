@@ -657,8 +657,10 @@ export {
 export function updateEdge(
   id: string,
   patch: {
-    fromEntityId?: string
-    toEntityId?: string
+    fromEntityId?: string | null
+    toEntityId?: string | null
+    fromPoint?: { x: number; y: number }
+    toPoint?: { x: number; y: number }
     fromEnd?: EdgeEnd
     toEnd?: EdgeEnd
     fromSide?: EdgeSide
@@ -675,8 +677,18 @@ export function updateEdge(
   return mutateWorkspace(() => {
     const edge = workspaceEdges.find((e) => e.id === id)
     if (!edge) return false
-    if (patch.fromEntityId !== undefined) edge.fromEntityId = patch.fromEntityId
-    if (patch.toEntityId !== undefined) edge.toEntityId = patch.toEntityId
+    // Re-binding a free end to an entity clears its stored point — the point
+    // and the entity id are never both meaningful at once.
+    if (patch.fromEntityId !== undefined) {
+      edge.fromEntityId = patch.fromEntityId
+      if (patch.fromEntityId !== null) edge.fromPoint = undefined
+    }
+    if (patch.toEntityId !== undefined) {
+      edge.toEntityId = patch.toEntityId
+      if (patch.toEntityId !== null) edge.toPoint = undefined
+    }
+    if (patch.fromPoint !== undefined) edge.fromPoint = patch.fromPoint
+    if (patch.toPoint !== undefined) edge.toPoint = patch.toPoint
     if (patch.fromEnd !== undefined) edge.fromEnd = patch.fromEnd
     if (patch.toEnd !== undefined) edge.toEnd = patch.toEnd
     if (patch.fromSide !== undefined) edge.fromSide = patch.fromSide
@@ -741,9 +753,14 @@ function deleteEntityCommand(id: string, deleteInState: (id: string) => boolean)
     // stale session that freezes the canvas (mirrors the page-delete exit in
     // page-factory). No exit camera animation — the target is gone.
     if (focusedFileId() === id) endFocusSession('dismiss')
+    // Captured before deletion — the edge cascade needs it to detach any
+    // edge bound here to a free point, and by the time it runs the entity
+    // is already gone from state.
+    const bounds = entityBoundsById(id)
+    const lastKnownPoint = bounds ? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 } : null
     const deleted = deleteInState(id)
     if (deleted) {
-      removeEdgesTouchingEntities(new Set([id]))
+      removeEdgesTouchingEntities(new Set([id]), (entityId) => (entityId === id ? lastKnownPoint : null))
       updateSelectionForRemovedEntity(id)
     }
     return deleted

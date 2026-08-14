@@ -29,9 +29,9 @@
 
 import { EDGE_ANCHOR_HIT_MIN_SCALE, EDGE_SIDES } from './canvas-hit-geometry'
 import {
-  resolveEdgeSides,
   buildBezierPath,
   getAnchorPoint,
+  resolveEdgeAnchors,
   type AnchorPoint,
 } from './edge-geometry'
 import type { CanvasSceneEntity, EdgeSide, WorkspaceEdge } from './types'
@@ -62,8 +62,11 @@ export type EdgeDragState =
       kind: 'edit'
       edgeId: string
       movingEnd: 'from' | 'to'
-      fixedEntityId: string
+      // Null when the far end of the edge being re-routed is itself free —
+      // a legal starting state for this gesture, not just a legal target.
+      fixedEntityId: string | null
       fixedSide: EdgeSide
+      fixedPoint?: { x: number; y: number }
       cursorX: number
       cursorY: number
       snap: SnapTarget | null
@@ -107,6 +110,7 @@ export function beginEdgeDrag(
       movingEnd: existing.movingEnd,
       fixedEntityId: existing.fixedEntityId,
       fixedSide: existing.fixedSide,
+      fixedPoint: existing.fixedPoint,
       cursorX,
       cursorY,
       snap: null,
@@ -134,7 +138,7 @@ export function updateEdgeDragCursor(
     state.kind === 'create' ? state.fromEntityId : state.fixedEntityId
   const snap = findClosestAnchorTarget(
     entityMap,
-    fromEntityId,
+    fromEntityId ?? undefined,
     cursorX,
     cursorY,
     scaleSnapDistance(SNAP_DISTANCE, zoom),
@@ -182,14 +186,16 @@ export function cancelEdgeDrag(state: EdgeDragState): CommitOutcome {
  */
 export function edgeDragOrigin(
   state: EdgeDragState,
-): { entityId: string; side: EdgeSide } | null {
+): { entityId: string; side: EdgeSide } | { point: { x: number; y: number }; side: EdgeSide } | null {
   switch (state.kind) {
     case 'idle':
       return null
     case 'create':
       return { entityId: state.fromEntityId, side: state.fromSide }
     case 'edit':
-      return { entityId: state.fixedEntityId, side: state.fixedSide }
+      if (state.fixedEntityId) return { entityId: state.fixedEntityId, side: state.fixedSide }
+      if (state.fixedPoint) return { point: state.fixedPoint, side: state.fixedSide }
+      return null
   }
 }
 
@@ -201,12 +207,25 @@ export function buildEdgeDragPath(
   zoom: number,
 ): { d: string; from: AnchorPoint; to: AnchorPoint } | null {
   if (state.kind === 'idle') return null
-  const fromEntity = entityMap.get(
-    state.kind === 'create' ? state.fromEntityId : state.fixedEntityId,
-  )
-  if (!fromEntity) return null
-  const fromSide = state.kind === 'create' ? state.fromSide : state.fixedSide
-  const from = getAnchorPoint(fromEntity, fromSide, zoom)
+  let from: AnchorPoint
+  let fromSide: EdgeSide
+  if (state.kind === 'create') {
+    const fromEntity = entityMap.get(state.fromEntityId)
+    if (!fromEntity) return null
+    fromSide = state.fromSide
+    from = getAnchorPoint(fromEntity, fromSide, zoom)
+  } else {
+    fromSide = state.fixedSide
+    if (state.fixedEntityId) {
+      const fromEntity = entityMap.get(state.fixedEntityId)
+      if (!fromEntity) return null
+      from = getAnchorPoint(fromEntity, fromSide, zoom)
+    } else if (state.fixedPoint) {
+      from = { x: state.fixedPoint.x, y: state.fixedPoint.y, side: fromSide }
+    } else {
+      return null
+    }
+  }
 
   const to: AnchorPoint = state.snap
     ? getAnchorPoint(entityMap.get(state.snap.entityId)!, state.snap.side, zoom)
@@ -219,7 +238,7 @@ export function buildEdgeDragPath(
 
 function findClosestAnchorTarget(
   entityMap: ReadonlyMap<string, CanvasSceneEntity>,
-  fromEntityId: string,
+  fromEntityId: string | undefined,
   clientX: number,
   clientY: number,
   snapDistance: number,
@@ -247,20 +266,23 @@ function findEdgeAtAnchor(
 ): {
   edgeId: string
   movingEnd: 'from' | 'to'
-  fixedEntityId: string
+  fixedEntityId: string | null
   fixedSide: EdgeSide
+  fixedPoint?: { x: number; y: number }
 } | null {
   for (const edge of edges) {
-    const fromEntity = entityMap.get(edge.fromEntityId)
-    const toEntity = entityMap.get(edge.toEntityId)
-    if (!fromEntity || !toEntity) continue
-    const { fromSide, toSide } = resolveEdgeSides(fromEntity, toEntity, edge)
+    const anchors = resolveEdgeAnchors(edge, entityMap)
+    if (!anchors) continue
+    const { from: fromAnchor, to: toAnchor } = anchors
+    const fromSide = fromAnchor.side
+    const toSide = toAnchor.side
     if (edge.toEntityId === entityId && toSide === side) {
       return {
         edgeId: edge.id,
         movingEnd: 'to',
         fixedEntityId: edge.fromEntityId,
         fixedSide: fromSide,
+        fixedPoint: edge.fromEntityId ? undefined : { x: fromAnchor.x, y: fromAnchor.y },
       }
     }
     if (edge.fromEntityId === entityId && fromSide === side) {
@@ -268,6 +290,7 @@ function findEdgeAtAnchor(
         edgeId: edge.id,
         movingEnd: 'from',
         fixedEntityId: edge.toEntityId,
+        fixedPoint: edge.toEntityId ? undefined : { x: toAnchor.x, y: toAnchor.y },
         fixedSide: toSide,
       }
     }
