@@ -1438,7 +1438,8 @@ export interface ClipboardEntityPayload {
   kind: CanvasEntityKind
   dx: number
   dy: number
-  // Page-specific
+  // Page-specific — page stays its own path (WebContentsView-backed; ADR
+  // 0024 §2), so it keeps its own explicit field list rather than a record.
   url?: string
   presetIndex?: number
   /** Page-specific — the copied page's id, so anchored items copied alongside
@@ -1452,25 +1453,17 @@ export interface ClipboardEntityPayload {
   metadata?: Record<string, unknown>
   /** Page-specific — optional, absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
-  // Text entity-specific
-  text?: string
-  color?: string
-  textStyle?: TextEntityStyle
-  /** Per-entity text size in px (text + shape entities). ADR 0013 §2. */
-  textSize?: number
-  width?: number
-  height?: number
-  // File entity-specific
-  file?: string
-  subpath?: string
-  objectFit?: FileObjectFit
-  // Shape entity-specific
-  shapeKind?: ShapeKind
-  strokeWidth?: number
-  theme?: string
-  label?: string
-  // Drawing entity-specific; points are relative to the drawing origin.
-  strokes?: AnnotationDrawingStroke[]
+  /**
+   * Non-page kinds (text/file/shape/drawing): the source entity's own
+   * persisted record — `getEntityKind(kind).persist()`'s output. Every field
+   * the kind declares as persisted travels here structurally, so a copy
+   * cannot carry a different field set than persistence does (ADR 0024 §5).
+   * `canvasX`/`canvasY` inside stay the entity's ORIGINAL position — kept so
+   * `cloneMapBackedEntity` can compute the placement delta for drawing's
+   * embedded stroke points; the clone's actual position comes from
+   * `dx`/`dy` above, not from this record.
+   */
+  record?: Record<string, unknown>
 }
 
 export interface ClipboardEntitySelectionPayload {

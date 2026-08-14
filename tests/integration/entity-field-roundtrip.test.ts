@@ -26,6 +26,10 @@
  *   - tab switch (Step A: space-tabs.ts's spaceSnapshot() hand-listed five
  *     per-kind persist loops; space-restore.ts's restoreWorkspaceSnapshot
  *     hand-listed the page arm twice and the group arm once)
+ *   - copy/paste, duplicate, and group-duplicate (Step B: workspace-clipboard.ts
+ *     and workspace-groups.ts each hand-listed a clone's fields per kind and had
+ *     drifted — copying a styled shape lost its border style, fill, and text
+ *     alignment)
  *
  * Mutation-verified two ways: dropping `textAlign` from `shapeCoreFields`
  * (src/main/runtime/shape-entity-state.ts) fails the shape round trip with the
@@ -54,11 +58,35 @@ import { reloadWorkspaceDataFromCurrentSpace } from '../../src/main/runtime/spac
 import { createSpaceTab, setActiveSpaceTab } from '../../src/main/runtime/space-tab-operations'
 import { activeSpaceTabId } from '../../src/main/runtime/space-model'
 import {
+  copyableEntityPayload,
+  pasteEntitiesFromClipboard,
+} from '../../src/main/workspace-clipboard'
+import { duplicateEntity } from '../../src/main/workspace-pages'
+import { duplicateGroup } from '../../src/main/workspace-groups'
+import type { WorkspaceGroup } from '../../src/shared/types'
+import {
   MAP_BACKED_SAMPLES,
   SAMPLE_GROUP,
   SAMPLE_PAGE,
   type MapBackedKind,
 } from './entity-field-fixtures'
+
+/**
+ * Fields a clone path (copy/paste, duplicate, group-duplicate) is expected to
+ * recompute rather than carry verbatim: `id` is always new, `canvasX`/
+ * `canvasY` move by the paste/duplicate offset, `pageAnchor` is re-resolved
+ * against live pages rather than copied (ADR 0031 — page-anchor re-targeting
+ * on paste is placement logic, not field copying; docs/plans/
+ * entity-field-drift.md, Step B), and plain copy/paste (not group-duplicate)
+ * intentionally drops `parentGroupId` — pasting does not imply rejoining a
+ * group. `strokes` is checked separately for `drawing` because its points
+ * are placement data embedded in the field, not a scalar.
+ */
+const PLACEMENT_FIELDS = new Set(['kind', 'id', 'canvasX', 'canvasY', 'pageAnchor', 'strokes'])
+
+function nonPlacementFields(kind: MapBackedKind): string[] {
+  return declaredFields(kind).filter((field) => !PLACEMENT_FIELDS.has(field))
+}
 
 /**
  * `group`'s declared field list (`getEntityKind('group').fields`) includes
@@ -297,4 +325,195 @@ describe('entity field round-trip', () => {
       }
     })
   })
+
+  /**
+   * Copy/paste clones a source entity from its own persisted record
+   * (`getEntityKind(kind).persist()`) via `cloneMapBackedEntity`
+   * (src/main/runtime/entity-clone.ts), reused by `pasteEntitiesFromClipboard`
+   * (src/main/workspace-clipboard.ts). Before that refactor each kind's
+   * clipboard payload hand-listed its own fields and had drifted: copying a
+   * styled shape lost `borderStyle`, `fillStyle`, `borderColor`, `textAlign`,
+   * and `textVerticalAlign` (docs/plans/entity-field-drift.md, Step B).
+   *
+   * `parentGroupId` and `pageAnchor` are deliberately excluded from the
+   * declared-field check — paste does not rejoin the source's group (that's
+   * group-duplicate, covered below) and re-resolves the anchor against live
+   * pages rather than copying it (ADR 0031 placement logic, left as-is).
+   *
+   * Mutation-verified: reverting `mapBackedPayload` in workspace-clipboard.ts
+   * to hand-list shape's old field set (`shapeKind`, `text`, `color`,
+   * `strokeWidth`, `textSize`, `theme`, `label` — omitting `fillStyle`,
+   * `borderStyle`, `borderColor`, `textAlign`, `textVerticalAlign`) fails the
+   * shape case below with those five fields `undefined` on the pasted clone.
+   */
+  describe('copy/paste', () => {
+    for (const kind of KINDS) {
+      it(`${kind} copy/paste carries every declared field except placement`, () => {
+        const sample = seedRuntime(kind)
+        const payload = copyableEntityPayload([sample.id as string])
+        expect(payload, `${kind} did not produce a clipboard payload`).toBeTruthy()
+
+        const { entityIds } = pasteEntitiesFromClipboard({
+          payload: payload!,
+          canvasX: 5000,
+          canvasY: 5000,
+        })
+        expect(entityIds).toHaveLength(1)
+        const pastedId = entityIds[0]
+        expect(pastedId).not.toBe(sample.id)
+
+        const pasted = getEntityKind(kind)
+          .entities()
+          .find((entity) => entity.id === pastedId) as Record<string, unknown> | undefined
+        expect(pasted, `${kind} was not created by paste`).toBeDefined()
+
+        expect(pasted?.parentGroupId, `${kind} paste unexpectedly kept its source group`)
+          .toBeUndefined()
+
+        for (const field of nonPlacementFields(kind)) {
+          if (field === 'parentGroupId') continue
+          expect(pasted?.[field], `${kind}.${field} was lost pasting from the clipboard`)
+            .toEqual(sample[field])
+        }
+
+        if (kind === 'drawing') {
+          assertDrawingStrokesShifted(
+            sample,
+            pasted!,
+            5000 - (sample.canvasX as number),
+            5000 - (sample.canvasY as number),
+          )
+        }
+      })
+    }
+  })
+
+  /**
+   * Duplicate (cmd-D on a single entity) reuses the exact same clone path as
+   * copy/paste — `duplicateEntity` (src/main/workspace-pages.ts) builds a
+   * clipboard payload via `copyableEntityPayload` and pastes it via
+   * `pasteEntitiesFromClipboard` — so it earns coverage for the same reason.
+   */
+  describe('duplicate', () => {
+    for (const kind of KINDS) {
+      it(`${kind} duplicate carries every declared field except placement`, () => {
+        const sample = seedRuntime(kind)
+        const { entityId } = duplicateEntity({ entityId: sample.id as string })
+        expect(entityId).not.toBe(sample.id)
+
+        const duplicated = getEntityKind(kind)
+          .entities()
+          .find((entity) => entity.id === entityId) as Record<string, unknown> | undefined
+        expect(duplicated, `${kind} was not created by duplicate`).toBeDefined()
+
+        for (const field of nonPlacementFields(kind)) {
+          if (field === 'parentGroupId') continue
+          expect(duplicated?.[field], `${kind}.${field} was lost duplicating`)
+            .toEqual(sample[field])
+        }
+      })
+    }
+  })
+
+  /**
+   * Group-duplicate clones a group's children through the same
+   * persist→re-id→offset→restore path as copy/paste (`cloneMapBackedEntity`,
+   * reused by `duplicateGroupInternal` in src/main/workspace-groups.ts)
+   * rather than its own hand-listed `create*EntityInState` call per child
+   * kind. Unlike plain copy/paste, a group-duplicated child DOES rejoin its
+   * (cloned) group — that's the point of duplicating a group.
+   *
+   * Mutation-verified: reverting the group-child clone loop in
+   * workspace-groups.ts to hand-list shape's old field set (dropping
+   * `fillStyle`/`borderStyle`/`borderColor`/`textAlign`/`textVerticalAlign`,
+   * as the pre-Step-B `createShapeEntityInState` call did) fails the shape
+   * case below the same way copy/paste's mutation does.
+   */
+  describe('group duplicate', () => {
+    it('carries every declared field of every map-backed child kind except placement', () => {
+      const testGroup: WorkspaceGroup = {
+        id: 'group_sample',
+        kind: 'group',
+        label: 'Test group',
+        canvasX: 0,
+        canvasY: 0,
+        width: 800,
+        height: 600,
+        layoutMode: 'freeform',
+        managedLayout: false,
+      }
+      getEntityKind('group').restore([testGroup])
+      // Every MAP_BACKED_SAMPLES fixture already declares
+      // `parentGroupId: 'group_sample'` (entity-field-fixtures.ts), so
+      // seeding them here makes them children of `testGroup`.
+      for (const kind of KINDS) seedRuntime(kind)
+
+      const { groupId, entityIds } = duplicateGroup({ groupId: 'group_sample' })
+      expect(groupId).not.toBe('group_sample')
+      expect(entityIds).toHaveLength(KINDS.length)
+
+      const clonedGroup = getEntityKind('group')
+        .entities()
+        .find((entity) => entity.id === groupId) as Record<string, unknown> | undefined
+      expect(clonedGroup, 'the duplicated group itself is missing').toBeDefined()
+      const offsetX = (clonedGroup?.canvasX as number) - testGroup.canvasX
+      const offsetY = (clonedGroup?.canvasY as number) - testGroup.canvasY
+
+      for (const kind of KINDS) {
+        const sample = MAP_BACKED_SAMPLES[kind] as unknown as Record<string, unknown>
+        const clones = getEntityKind(kind)
+          .entities()
+          .filter((entity) => entity.id !== sample.id) as unknown as Record<string, unknown>[]
+        expect(clones, `${kind} was not duplicated with its group`).toHaveLength(1)
+        const clone = clones[0]
+
+        expect(clone.parentGroupId, `${kind} clone did not join the duplicated group`).toBe(groupId)
+
+        for (const field of nonPlacementFields(kind)) {
+          if (field === 'parentGroupId') continue
+          expect(clone[field], `${kind}.${field} was lost duplicating its group`)
+            .toEqual(sample[field])
+        }
+
+        if (kind === 'drawing') {
+          assertDrawingStrokesShifted(sample, clone, offsetX, offsetY)
+        }
+      }
+    })
+  })
 })
+
+/** A drawing sample's strokes, typed loosely for the shift assertion below. */
+type SampleStroke = {
+  color: string
+  width: number
+  brushType: string
+  points: { x: number; y: number }[]
+}
+
+/**
+ * Asserts a cloned drawing's strokes kept every non-positional field and
+ * shifted every point by exactly `(deltaX, deltaY)` — the one field whose
+ * position data lives inside an array rather than being a scalar `canvasX`/
+ * `canvasY`, so it needs its own check instead of a plain `toEqual`.
+ */
+function assertDrawingStrokesShifted(
+  source: Record<string, unknown>,
+  clone: Record<string, unknown>,
+  deltaX: number,
+  deltaY: number,
+): void {
+  const sourceStrokes = source.strokes as SampleStroke[]
+  const cloneStrokes = clone.strokes as SampleStroke[]
+  expect(cloneStrokes, 'drawing clone lost its strokes').toHaveLength(sourceStrokes.length)
+  sourceStrokes.forEach((sourceStroke, i) => {
+    const cloneStroke = cloneStrokes[i]
+    expect(cloneStroke.color).toBe(sourceStroke.color)
+    expect(cloneStroke.width).toBe(sourceStroke.width)
+    expect(cloneStroke.brushType).toBe(sourceStroke.brushType)
+    sourceStroke.points.forEach((point, j) => {
+      expect(cloneStroke.points[j].x).toBeCloseTo(point.x + deltaX)
+      expect(cloneStroke.points[j].y).toBeCloseTo(point.y + deltaY)
+    })
+  })
+}
