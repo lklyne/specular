@@ -159,7 +159,7 @@ describe('groups + selection', () => {
     expect(selection.selectedGroupId).toBeUndefined()
   })
 
-  it('batches a full group with intersected children from a partial group', async () => {
+  it('promotes a partially crossed group to a unit alongside a full group', async () => {
     const a = createTextEntity({ canvasX: 0, canvasY: 0, text: 'a' })
     const b = createTextEntity({ canvasX: 200, canvasY: 0, text: 'b' })
     const c = createTextEntity({ canvasX: 600, canvasY: 0, text: 'c' })
@@ -175,13 +175,15 @@ describe('groups + selection', () => {
     const bottom = Math.max(full.canvasY + full.height, c.canvasY + c.height)
     selectEntitiesInRect({ x: left, y: top, width: right - left, height: bottom - top })
 
+    // The hit set spans beyond 'partial' (it also covers 'full'), so the
+    // partially crossed group comes along whole — never a slice of it.
     const selection = getSelectionState()
     expect((selection.selectedEntityIds ?? []).slice().sort()).toEqual(
-      [full.id, c.id].sort(),
+      [full.id, partial.id].sort(),
     )
     expect(selection.selectedEntityIds).not.toContain(a.id)
     expect(selection.selectedEntityIds).not.toContain(b.id)
-    expect(selection.selectedEntityIds).not.toContain(partial.id)
+    expect(selection.selectedEntityIds).not.toContain(c.id)
     expect(selection.selectedEntityIds).not.toContain(d.id)
   })
 
