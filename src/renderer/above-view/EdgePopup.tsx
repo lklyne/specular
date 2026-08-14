@@ -12,7 +12,7 @@ import type {
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { slotForStorage } from '../../shared/canvas-colors'
-import { autoSides, getAnchorPoint } from '../../shared/edge-geometry'
+import { getAnchorPoint, resolveEdgeSides } from '../../shared/edge-geometry'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { EdgeStrokeDropdown } from './EdgeStrokeDropdown'
@@ -81,10 +81,7 @@ export function EdgePopup({
   const toEntity = edge && findEntity(entities, edge.toEntityId)
   if (!edge || !fromEntity || !toEntity) return null
 
-  const { fromSide, toSide } =
-    edge.fromSide && edge.toSide
-      ? { fromSide: edge.fromSide, toSide: edge.toSide }
-      : autoSides(fromEntity, toEntity)
+  const { fromSide, toSide } = resolveEdgeSides(fromEntity, toEntity, edge)
   const from = getAnchorPoint(fromEntity, fromSide, layout.zoom, layout.canvasOrigin.y)
   const to = getAnchorPoint(toEntity, toSide, layout.zoom, layout.canvasOrigin.y)
   const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }

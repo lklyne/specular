@@ -35,6 +35,9 @@ function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
       existing.label = edge.label
       existing.strokeWidth = edge.strokeWidth
       existing.lineStyle = edge.lineStyle
+      existing.routing = edge.routing
+      existing.elbowSplit = edge.elbowSplit
+      existing.elbowSplitAxis = edge.elbowSplitAxis
       existing.kind = edge.kind
       existing.metadata = cloneMetadata(edge.metadata)
       edgeIds.push(existing.id)
@@ -52,6 +55,9 @@ function createEdgesInternal(input: CreateEdgesRequest): CreateEdgesResponse {
       label: edge.label,
       strokeWidth: edge.strokeWidth,
       lineStyle: edge.lineStyle,
+      routing: edge.routing,
+      elbowSplit: edge.elbowSplit,
+      elbowSplitAxis: edge.elbowSplitAxis,
       kind: edge.kind,
       metadata: cloneMetadata(edge.metadata),
     }

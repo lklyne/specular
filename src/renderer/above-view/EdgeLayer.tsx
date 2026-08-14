@@ -26,8 +26,9 @@ import {
 } from '../../shared/canvas-hit-geometry'
 import { anchorEligibleEntityIds, entityHasAnchors } from '../../shared/hit-test'
 import {
-  autoSides,
   buildBezierPath,
+  buildEdgePath,
+  resolveEdgeSides,
   getAnchorPoint,
   type AnchorPoint,
 } from '../../shared/edge-geometry'
@@ -293,13 +294,11 @@ export function EdgeLayer({
       const toEntity = entityMap.get(edge.toEntityId)
       if (!fromEntity || !toEntity) continue
 
-      const { fromSide, toSide } = edge.fromSide && edge.toSide
-        ? { fromSide: edge.fromSide, toSide: edge.toSide }
-        : autoSides(fromEntity, toEntity)
+      const { fromSide, toSide } = resolveEdgeSides(fromEntity, toEntity, edge, originY)
 
       const from = getAnchorPoint(fromEntity, fromSide, zoom, originY)
       const to = getAnchorPoint(toEntity, toSide, zoom, originY)
-      const d = buildBezierPath(from, to, zoom)
+      const d = buildEdgePath(edge, from, to, zoom)
       paths.push({
         id: edge.id,
         d,
