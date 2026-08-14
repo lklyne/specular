@@ -10,7 +10,7 @@
  * it is a separate creation tool.
  */
 
-import type { DrawingBrushType, ShapeKind } from './types'
+import type { DrawingBrushType, EdgeEnd, EdgeRouting, ShapeKind } from './types'
 import { isShapeKind } from './shapes'
 
 export interface ToolDefaults {
@@ -32,6 +32,14 @@ export interface ToolDefaults {
     brushType: DrawingBrushType
     color: string
     strokeWidth: number
+  }
+  /** Read by BOTH edge-creation doors — the connect tool and the anchor drag —
+   *  so an edge is identical regardless of how it was born. */
+  connect: {
+    routing: EdgeRouting
+    color: string
+    strokeWidth: number
+    toEnd: EdgeEnd
   }
 }
 
@@ -62,6 +70,12 @@ export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
     brushType: 'pen',
     color: '1', // red preset — resolves to vivid red for the pen brush
     strokeWidth: 2,
+  },
+  connect: {
+    routing: 'elbow',
+    color: 'neutral',
+    strokeWidth: 1.5,
+    toEnd: 'arrow',
   },
 }
 
@@ -111,6 +125,15 @@ export function normalizeToolDefaults(
     if (typeof d.strokeWidth === 'number' && Number.isFinite(d.strokeWidth))
       merged.draw.strokeWidth = d.strokeWidth
   }
+  if (obj.connect && typeof obj.connect === 'object') {
+    const c = obj.connect
+    if (c.routing === 'bezier' || c.routing === 'elbow' || c.routing === 'straight')
+      merged.connect.routing = c.routing
+    if (typeof c.color === 'string') merged.connect.color = c.color
+    if (typeof c.strokeWidth === 'number' && Number.isFinite(c.strokeWidth))
+      merged.connect.strokeWidth = c.strokeWidth
+    if (c.toEnd === 'none' || c.toEnd === 'arrow') merged.connect.toEnd = c.toEnd
+  }
   return merged
 }
 
@@ -120,6 +143,7 @@ function cloneToolDefaults(src: ToolDefaults): ToolDefaults {
     'add-sticky': { ...src['add-sticky'] },
     'add-shape': { ...src['add-shape'] },
     draw: { ...src.draw },
+    connect: { ...src.connect },
   }
 }
 
@@ -140,3 +164,7 @@ export type ToolDefaultPatch =
   | { scope: 'draw'; key: 'brushType'; value: DrawingBrushType }
   | { scope: 'draw'; key: 'color'; value: string }
   | { scope: 'draw'; key: 'strokeWidth'; value: number }
+  | { scope: 'connect'; key: 'routing'; value: EdgeRouting }
+  | { scope: 'connect'; key: 'color'; value: string }
+  | { scope: 'connect'; key: 'strokeWidth'; value: number }
+  | { scope: 'connect'; key: 'toEnd'; value: EdgeEnd }

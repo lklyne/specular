@@ -13,6 +13,8 @@ import type {
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { slotForStorage } from '../../shared/canvas-colors'
 import { resolveEdgeAnchors } from '../../shared/edge-geometry'
+import { canvasToScreenPoint } from '../../shared/coords'
+import { RoutingDropdown } from './RoutingDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { EdgeStrokeDropdown } from './EdgeStrokeDropdown'
@@ -79,7 +81,11 @@ export function EdgePopup({
   const entities = layout.entities
   const entityMap = new Map<string, CanvasSceneEntity>()
   for (const e of entities) entityMap.set(e.id, e)
-  const anchors = edge ? resolveEdgeAnchors(edge, entityMap, layout.zoom, layout.canvasOrigin.y) : null
+  const anchors = edge
+    ? resolveEdgeAnchors(edge, entityMap, layout.zoom, layout.canvasOrigin.y, (point) =>
+        canvasToScreenPoint(layout, point),
+      )
+    : null
   if (!edge || !anchors) return null
 
   const { from, to } = anchors
@@ -113,6 +119,13 @@ export function EdgePopup({
           noun="edge"
           activeSlot={slotForStorage(edge.color ?? null)}
           onPick={(storage) => api.updateEdge(edge.id, { color: storage })}
+        />
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <RoutingDropdown
+          isDark={isDark}
+          routing={edge.routing ?? 'bezier'}
+          noun="edge"
+          onPick={(routing) => api.updateEdge(edge.id, { routing })}
         />
         <CanvasItemPopup.Divider isDark={isDark} />
         <EdgeStrokeDropdown

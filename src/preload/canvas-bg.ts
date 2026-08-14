@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, EdgeSplitAxis, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -266,8 +266,14 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasEdgeDragBegin, { fromEntityId, fromSide }),
   updateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) =>
     ipcRenderer.send(ipcChannels.canvasEdgeDragTargetChange, { targetEntityId, targetSide }),
-  commitEdgeDrag: (fromEntityId: string, toEntityId: string, fromSide: EdgeSide, toSide: EdgeSide) =>
-    ipcRenderer.send(ipcChannels.canvasEdgeDragCommit, { fromEntityId, toEntityId, fromSide, toSide }),
+  commitEdgeDrag: (input) => ipcRenderer.send(ipcChannels.canvasEdgeDragCommit, input),
+  beginEdgeRouting: (edgeId: string, split: number, axis: EdgeSplitAxis) =>
+    ipcRenderer.send(ipcChannels.canvasEdgeRoutingStart, { edgeId, split, axis }),
+  edgeRoutingMove: (split: number) =>
+    ipcRenderer.send(ipcChannels.canvasEdgeRoutingMove, { split }),
+  edgeRoutingCommit: () => ipcRenderer.send(ipcChannels.canvasEdgeRoutingCommit),
+  edgeRoutingCancel: (reason?: CancelReason) =>
+    ipcRenderer.send(ipcChannels.canvasEdgeRoutingCancel, { reason }),
   cancelEdgeDrag: () =>
     ipcRenderer.send(ipcChannels.canvasEdgeDragCancel),
   commitEdgeEdit: (

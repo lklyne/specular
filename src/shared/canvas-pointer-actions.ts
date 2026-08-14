@@ -45,6 +45,9 @@ export type CanvasPointerContext = {
    *  set when the tool gesture owns pointer input — a router-owned
    *  pointerdown routes by hit target even if a stale broadcast disagrees. */
   commentToolActive: boolean
+  /** Connect tool owns canvas pointers. Like `placement` / `commentToolActive`,
+   *  only set when the tool gesture owns pointer input. */
+  connectToolActive: boolean
 }
 
 /**
@@ -88,7 +91,12 @@ export type CanvasPointerAction =
   /** Begin a proportional resize on the multi-selection bounding box. */
   | { kind: 'begin-multi-resize'; handle: ResizeHandle }
   /** Begin an edge-create drag from an anchor. */
-  | { kind: 'begin-edge-drag'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide }
+  /** Begin an edge-create drag. `side` is null for a connect-tool body grab:
+   *  there is no anchor, so the origin side rederives per move toward the
+   *  cursor and commits as `undefined` (object-bound). */
+  | { kind: 'begin-edge-drag'; entityId: string; entityKind: CanvasEntityKind; side: EdgeSide | null }
+  /** Connect tool on empty canvas: the edge starts at a free point. */
+  | { kind: 'begin-free-edge-drag' }
   /** Begin dragging an entity's center dot to reorder it within its row
    *  (ADR 0015 D7). Carries only `movingId`; main resolves which door
    *  (selection / managed) armed the gesture. */
@@ -141,11 +149,13 @@ export function routePointerDown(
   // the router yields to `[data-overlay-ui]` before classification (I8').
   // Non-primary buttons stay with the viewport (middle-drag pan), never the
   // tool or the routing matrix below.
-  if (context.placement || context.commentToolActive) {
+  if (context.placement || context.commentToolActive || context.connectToolActive) {
     if (!context.isPrimaryButton) return { kind: 'noop' }
-    return context.placement
-      ? { kind: 'begin-placement', entityKind: context.placement.entityKind }
-      : { kind: 'begin-comment-gesture' }
+    if (context.placement) {
+      return { kind: 'begin-placement', entityKind: context.placement.entityKind }
+    }
+    if (context.commentToolActive) return { kind: 'begin-comment-gesture' }
+    return routeConnectTool(target.payload)
   }
 
   // Non-primary buttons on background → pan; otherwise no-op (the viewport
@@ -173,6 +183,34 @@ export function routePointerDown(
   }
 
   return routeByPayload(target.payload, context)
+}
+
+/**
+ * Connect tool: an anchor keeps its pinned side, a body starts a sideless drag
+ * that resolves toward the cursor, and empty canvas starts a free-ended edge.
+ * A click that never drags resolves to a no-op in the router's drag session.
+ */
+function routeConnectTool(payload: HitPayload): CanvasPointerAction {
+  switch (payload.kind) {
+    case 'anchor':
+      return {
+        kind: 'begin-edge-drag',
+        entityId: payload.entityId,
+        entityKind: payload.entityKind,
+        side: payload.side,
+      }
+    case 'page-body':
+      return { kind: 'begin-edge-drag', entityId: payload.entityId, entityKind: 'page', side: null }
+    case 'entity-body':
+      return {
+        kind: 'begin-edge-drag',
+        entityId: payload.entityId,
+        entityKind: payload.entityKind,
+        side: null,
+      }
+    default:
+      return { kind: 'begin-free-edge-drag' }
+  }
 }
 
 function routeByPayload(

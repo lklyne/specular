@@ -109,6 +109,10 @@ export interface IpcContract {
   'canvas-edge-drag-cancel': { dir: 'renderer→main'; payload: unknown }
   'canvas-edge-drag-commit': { dir: 'renderer→main'; payload: unknown }
   'canvas-edge-drag-target-change': { dir: 'renderer→main'; payload: unknown }
+  'canvas-edge-routing-cancel': { dir: 'renderer→main'; payload: unknown }
+  'canvas-edge-routing-commit': { dir: 'renderer→main'; payload: unknown }
+  'canvas-edge-routing-move': { dir: 'renderer→main'; payload: unknown }
+  'canvas-edge-routing-start': { dir: 'renderer→main'; payload: unknown }
   'canvas-edge-edit-commit': { dir: 'renderer→main'; payload: unknown }
   'canvas-edge-edit-discard': { dir: 'renderer→main'; payload: unknown }
   'canvas-edit-component-prop': { dir: 'renderer→main'; payload: unknown }
@@ -428,6 +432,10 @@ export const ipcChannels = {
   canvasEdgeDragCancel: 'canvas-edge-drag-cancel',
   canvasEdgeDragCommit: 'canvas-edge-drag-commit',
   canvasEdgeDragTargetChange: 'canvas-edge-drag-target-change',
+  canvasEdgeRoutingCancel: 'canvas-edge-routing-cancel',
+  canvasEdgeRoutingCommit: 'canvas-edge-routing-commit',
+  canvasEdgeRoutingMove: 'canvas-edge-routing-move',
+  canvasEdgeRoutingStart: 'canvas-edge-routing-start',
   canvasEdgeEditCommit: 'canvas-edge-edit-commit',
   canvasEdgeEditDiscard: 'canvas-edge-edit-discard',
   canvasEditComponentProp: 'canvas-edit-component-prop',

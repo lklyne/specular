@@ -111,6 +111,11 @@ export type CanvasInteractionState =
   // group's `layoutGap` when `groupId` is set, just the entities' positions
   // for a loose selection (`groupId` null).
   | { kind: 'resizing-gap'; groupId: string | null; entityIds: string[]; gap: number; axis: 'x' | 'y' }
+  // Dragging an elbow edge's crossbar. `split` is the live normalized 0–1
+  // position along `axis`; move ticks update only this field (no doc writes —
+  // §6 I5) and the renderer previews the route from it. Commit writes the
+  // edge's `elbowSplit` / `elbowSplitAxis` once.
+  | { kind: 'routing-edge'; edgeId: string; split: number; axis: EdgeSplitAxis }
 
 export interface CanvasScenePageEntity {
   kind: 'page'
@@ -1566,6 +1571,19 @@ export interface WorkspaceEdge {
   metadata?: Record<string, unknown>
 }
 
+
+/**
+ * A create-drag commit. Either end is an entity id or a free canvas-space
+ * point; an absent side means object-bound, resolved per paint.
+ */
+export interface EdgeCreateInput {
+  fromEntityId: string | null
+  toEntityId: string | null
+  fromPoint?: { x: number; y: number }
+  toPoint?: { x: number; y: number }
+  fromSide?: EdgeSide
+  toSide?: EdgeSide
+}
 
 export interface WorkspaceSelection {
   selectedEntityId?: string

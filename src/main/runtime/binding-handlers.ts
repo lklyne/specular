@@ -55,6 +55,9 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
   'tool-comment': () => {
     setActiveTool({ kind: 'comment' })
   },
+  'tool-connect': () => {
+    setActiveTool({ kind: 'connect' })
+  },
   'tool-draw-pen': () => {
     setActiveTool({ kind: 'draw' })
     applyToolDefaultPatch({ scope: 'draw', key: 'brushType', value: 'pen' })

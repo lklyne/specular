@@ -51,6 +51,7 @@ export type BindingId =
   | 'tool-add-shape-ellipse'
   | 'tool-add-shape-diamond'
   | 'tool-comment'
+  | 'tool-connect'
   | 'tool-draw-pen'
   | 'tool-draw-highlight'
   | 'tool-inspect'
@@ -125,6 +126,7 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'tool-add-shape-ellipse', defaultKey: k('o'), scope: CANVAS_REGION, target: 'main', label: 'Ellipse' },
   { id: 'tool-add-shape-diamond', defaultKey: k('r', false, true), scope: CANVAS_REGION, target: 'main', label: 'Diamond' },
   { id: 'tool-comment', defaultKey: k('c'), scope: CANVAS_REGION, target: 'main', label: 'Comment' },
+  { id: 'tool-connect', defaultKey: k('x'), scope: CANVAS_REGION, target: 'main', label: 'Connect' },
   { id: 'tool-draw-pen', defaultKey: k('m'), scope: CANVAS_REGION, target: 'main', label: 'Pen' },
   { id: 'tool-draw-highlight', defaultKey: k('m', false, true), scope: CANVAS_REGION, target: 'main', label: 'Highlight' },
   { id: 'tool-inspect', defaultKey: k('i'), scope: CANVAS_REGION, target: 'main', label: 'Inspect' },
