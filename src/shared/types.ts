@@ -541,6 +541,15 @@ export interface LayoutUpdateData {
   entityOrder: string[]
   entities: CanvasSceneEntity[]
   selectedEntityIds: string[]
+  /**
+   * `resolveSelectionScope()`'s operand set for the current selection: groups
+   * expanded to every descendant, page-anchored entities attached. What a
+   * gesture (drag, resize, delete) moves/clones/deletes — consumers deriving
+   * a selection-wide rect (the multi-select bounding box, multi-resize) read
+   * this instead of `selectedEntityIds` so a group-involving selection is
+   * treated as one unit. See ADR 0034.
+   */
+  selectionOperandIds: string[]
   selection: CanvasSelectableTarget[]
   activeSelection: ActiveCanvasEntitySelection | null
   activeTool: Tool

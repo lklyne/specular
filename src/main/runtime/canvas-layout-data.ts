@@ -65,6 +65,7 @@ import {
   TOOLBAR_PAD_RIGHT_OTHER,
 } from './runtime-constants'
 import { currentKeyboardTargetPageId } from './selection-controller'
+import { resolveSelectionScope } from './selection-scope'
 import {
   pageContentSize,
   projectFramePointToCanvas,
@@ -356,6 +357,7 @@ export function buildCanvasLayoutData(
     entityOrder,
     entities,
     selectedEntityIds: uiSelectedEntityIds(),
+    selectionOperandIds: resolveSelectionScope().operandIds,
     selection: uiSelectedCanvasTargets(),
     activeSelection,
     activeTool: tool,
