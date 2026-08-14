@@ -17,9 +17,10 @@ import type { ResizeHandle } from './resize-accumulator'
 import { scaleStrokesToBounds } from './scale-strokes'
 import { selectionBbox } from './selection-bbox'
 
-/** Kinds that the `resizeMultiSelection` IPC accepts. Groups own a separate
- *  selection overlay and are excluded from the multi-bbox gesture. */
-export type MultiResizableKind = 'page' | 'text' | 'file' | 'drawing' | 'shape'
+/** Kinds that the `resizeMultiSelection` IPC accepts. A group rides along as
+ *  one more proportionally-scaled rect — its stored bounds must track its
+ *  descendants through the same transform, or the border goes stale. */
+export type MultiResizableKind = 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'
 
 /** Bbox cannot collapse below this canvas-space size while resizing. */
 export const MIN_MULTI_BBOX = 20
@@ -92,7 +93,9 @@ export function computeMultiSelectionBbox(
   const out: MultiResizeEntity[] = []
   for (const e of entities) {
     if (!idSet.has(e.id)) continue
-    if (e.kind === 'group') continue // groups have their own selection overlay
+    // A group contributes its own rect to the bbox (via selectionBbox) and
+    // gets an entry: the same affine transform that scales the descendants
+    // keeps the group rect consistent with them.
     out.push({
       id: e.id,
       kind: e.kind satisfies MultiResizableKind,

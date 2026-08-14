@@ -18,7 +18,14 @@
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
-import { createTextEntity, getTextEntities, applyDragDelta } from '../../src/main/runtime/document-commands'
+import {
+  createTextEntity,
+  getTextEntities,
+  applyDragDelta,
+  resizeMultiSelection,
+} from '../../src/main/runtime/document-commands'
+import { workspaceGroups } from '../../src/main/runtime/space-model'
+import { undo, markUndoBoundary } from '../../src/main/runtime/space-undo'
 import { createUserGroup } from '../../src/main/workspace-groups'
 import { selectEntities, selectNone } from '../../src/main/runtime/selection-controller'
 import { resolveSelectionScope } from '../../src/main/runtime/selection-scope'
@@ -134,5 +141,60 @@ describe('resolveSelectionScope', () => {
     expect(afterOutsider.canvasX).not.toBe(beforeOutsider.x)
     expect(afterOutsider.canvasY).not.toBe(beforeOutsider.y)
     expect(group.id).toBeTruthy()
+  })
+
+  it('multi-resize writes the group rect exactly, without re-shifting its descendants', async () => {
+    const { group, memberA, memberB } = await buildMixedSelection()
+    const before = {
+      group: { x: group.canvasX, y: group.canvasY, w: group.width, h: group.height },
+      a: { x: memberA.canvasX, y: memberA.canvasY, w: memberA.width, h: memberA.height },
+    }
+    markUndoBoundary()
+
+    // Halve everything around the bbox origin — the entry set a real gesture
+    // produces: the group rides along as one more proportionally-scaled rect,
+    // and its descendants are their own entries. If the group write went
+    // through the carry-children-on-move path, memberA/memberB would shift
+    // twice and land off these exact coordinates.
+    const scale = (v: number, origin: number) => origin + (v - origin) / 2
+    const entries = [
+      {
+        id: group.id,
+        kind: 'group' as const,
+        canvasX: scale(group.canvasX, 0),
+        canvasY: scale(group.canvasY, 0),
+        width: group.width / 2,
+        height: group.height / 2,
+      },
+      ...[memberA, memberB].map((m) => ({
+        id: m.id,
+        kind: 'text' as const,
+        canvasX: scale(m.canvasX, 0),
+        canvasY: scale(m.canvasY, 0),
+        width: m.width / 2,
+        height: m.height / 2,
+      })),
+    ]
+    resizeMultiSelection(entries)
+    await settleSync()
+
+    const groupAfter = workspaceGroups.find((g) => g.id === group.id)!
+    expect(groupAfter.width).toBe(before.group.w / 2)
+    expect(groupAfter.height).toBe(before.group.h / 2)
+    expect(groupAfter.canvasX).toBe(scale(before.group.x, 0))
+    const aAfter = getTextEntities().find((t) => t.id === memberA.id)!
+    expect(aAfter.canvasX).toBe(scale(before.a.x, 0))
+    expect(aAfter.width).toBe(before.a.w / 2)
+
+    // Reverse sync: undo restores both the group rect and the descendants.
+    markUndoBoundary()
+    undo()
+    await settleSync()
+    const groupUndone = workspaceGroups.find((g) => g.id === group.id)!
+    expect(groupUndone.width).toBe(before.group.w)
+    expect(groupUndone.canvasX).toBe(before.group.x)
+    const aUndone = getTextEntities().find((t) => t.id === memberA.id)!
+    expect(aUndone.canvasX).toBe(before.a.x)
+    expect(aUndone.width).toBe(before.a.w)
   })
 })

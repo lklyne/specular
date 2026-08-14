@@ -20,8 +20,8 @@ import type {
   CanvasSceneTextEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import { SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
-import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
@@ -49,10 +49,10 @@ function SelectionOutlineBox({
     <div
       className="absolute border"
       style={{
-        left: span.screenX - 2,
-        top: span.screenY - 2 - originY,
-        width: span.screenWidth + 4,
-        height: span.screenHeight + 4,
+        left: span.screenX - SELECTION_OUTLINE_PADDING_PX,
+        top: span.screenY - SELECTION_OUTLINE_PADDING_PX - originY,
+        width: span.screenWidth + SELECTION_OUTLINE_PADDING_PX * 2,
+        height: span.screenHeight + SELECTION_OUTLINE_PADDING_PX * 2,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
         cursor,
@@ -128,7 +128,7 @@ function EntitySelectionOverlay({
 
 export interface SelectedEntitySpan {
   id: string
-  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
+  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'
   canvasX: number
   canvasY: number
   width: number
@@ -162,7 +162,7 @@ function MultiSelectionBoundingBox({
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
   }, [selectedEntities])
 
-  const pad = MULTI_SELECTION_OUTLINE_PADDING_PX
+  const pad = SELECTION_OUTLINE_PADDING_PX
 
   return (
     <div
@@ -322,11 +322,12 @@ export function SelectionOutlineLayer({
     [textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressFocusedId],
   )
 
-  // Multi-select bounding box: aggregate all selected *operands'* rects (a
-  // selected group contributes its descendants, not itself — groups have no
-  // scene entity in these arrays). During a reorder drag the dragged item is
-  // included twice — once at its destination slot (the grayscale placeholder,
-  // via `layoutData`) and once at the cursor (`reorderGhostSpan`) — so the box
+  // Multi-select bounding box: aggregate all selected *operands'* rects. A
+  // selected group contributes its own rect (the visual unit, padding
+  // included) so the box wraps the group border, plus its descendants via the
+  // operand set. During a reorder drag the dragged item is included twice —
+  // once at its destination slot (the grayscale placeholder, via
+  // `layoutData`) and once at the cursor (`reorderGhostSpan`) — so the box
   // wraps the drop location *and* resizes toward the lifted item as it moves
   // (FigJam parity). Its per-item outline is still dropped below, so only the
   // group box tracks them, not a crisp outline.
@@ -339,11 +340,12 @@ export function SelectionOutlineLayer({
       fileEntities,
       drawingEntities,
       shapeEntities,
+      layoutData.groups ?? [],
     ]
     const out = byKind.flatMap((spans) => spans.filter((span) => contributes(span.id)))
     if (reorderGhostSpan) out.push(reorderGhostSpan)
     return out
-  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, operandIdSet, reorderGhostSpan, suppressFocusedId])
+  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, layoutData.groups, operandIdSet, reorderGhostSpan, suppressFocusedId])
 
   // Group selection overlay — render whenever a group is selected. The
   // canvas-bg `GroupSelectionOverlayLayer` used to suppress this when the

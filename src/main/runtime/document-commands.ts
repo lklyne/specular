@@ -988,7 +988,7 @@ export function deleteGroupEntity(id: string): boolean {
 
 export interface MultiResizeEntry {
   id: string
-  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
+  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'
   width: number
   height: number
   canvasX: number
@@ -1045,6 +1045,17 @@ export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
       if (entity) changed = true
     } else if (entry.kind === 'shape') {
       const entity = updateShapeEntityInState(entry.id, {
+        width: entry.width,
+        height: entry.height,
+        canvasX: entry.canvasX,
+        canvasY: entry.canvasY,
+      })
+      if (entity) changed = true
+    } else if (entry.kind === 'group') {
+      // In-state mutator, not `updateGroupEntity` — the wrapper's
+      // carry-children-on-move cascade must not fire here: descendants are
+      // their own entries in this batch and would be shifted twice.
+      const entity = updateGroupEntityInState(entry.id, {
         width: entry.width,
         height: entry.height,
         canvasX: entry.canvasX,

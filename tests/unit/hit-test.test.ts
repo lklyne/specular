@@ -160,11 +160,11 @@ describe('hit-test — resize handles vs body', () => {
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'ne' })
   })
 
-  it('clicking on the visible NE handle (offset by page outline padding) resizes', () => {
-    // Page outline pads the NE corner outward by 2px; the visible handle
-    // is centered there, so a real user click typically lands a few pixels
-    // past the entity edge. Pre-fix this fell through to background → marquee.
-    // NE handle rect: x ∈ [596, 608], y ∈ [192, 204]. Click (606,194) is inside.
+  it('clicking a few px past the NE corner still resizes (12px hit rect)', () => {
+    // The handle centers on the 1px-padded outline corner, so a real user
+    // click can land a few pixels past the entity edge. Pre-fix this fell
+    // through to background → marquee.
+    // NE handle rect: x ∈ [595, 607], y ∈ [193, 205]. Click (606,194) is inside.
     const result = hitTest(inputs([f], ['f1']), { x: 606, y: 194 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'ne' })
@@ -322,7 +322,7 @@ describe('hit-test — body z-order (front-to-back)', () => {
 
 describe('hit-test — group resize handles', () => {
   // Group at (100,100), 600×500. SE corner at (700, 600).
-  // With 2px outline padding, SE handle rect: x ∈ [696, 708], y ∈ [596, 608].
+  // 1px outline padding: SE handle rect is x ∈ [695, 707], y ∈ [595, 607].
   const g = group('g1', 100, 100, 600, 500)
 
   it('resize handle wins at the SE corner when group is selected', () => {
@@ -331,46 +331,62 @@ describe('hit-test — group resize handles', () => {
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'se', entityId: 'g1' })
   })
 
-  it('clicking 2px past the SE corner hits the handle (2px outline padding)', () => {
-    // Handle rect SE: x ∈ [696, 708], y ∈ [596, 608]. Click (702, 602) is inside.
+  it('clicking 2px past the SE corner still hits the handle (12px hit rect)', () => {
+    // Handle rect SE: x ∈ [695, 707], y ∈ [595, 607]. Click (702, 602) is inside.
     const result = hitTest(inputs([g], ['g1']), { x: 702, y: 602 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toMatchObject({ kind: 'resize-handle', handle: 'se' })
   })
 
-  it('does not expose invisible resize handles when a group is batch-selected', () => {
+  it('does not expose invisible per-entity handles when a group is batch-selected', () => {
     const sibling = text('t1', 800, 100, 100, 100)
     const result = hitTest(inputs([g, sibling], ['g1', 't1']), { x: 700, y: 600 })
     expect(result.payload.kind).not.toBe('resize-handle')
-    expect(result.payload.kind).not.toBe('multi-resize-handle')
+  })
+
+  it('emits multi-resize handles over the operand bbox when a group is batch-selected', () => {
+    // Group rect (100,100,600,500) + sibling text at (800,100,100,100) →
+    // operand bbox spans (100,100)–(900,600), the group's own rect included.
+    // With 1px padding the SE corner handle centers at (901, 601); the 12px
+    // hit rect covers (900, 600).
+    const child = text('c1', 150, 150, 100, 100)
+    const sibling = text('t1', 800, 100, 100, 100)
+    const result = hitTest(
+      inputs([g, child, sibling], ['g1', 't1'], {
+        selectionOperandIds: ['g1', 'c1', 't1'],
+      }),
+      { x: 900, y: 600 },
+    )
+    expect(result.layer).toBe('resize-handles')
+    expect(result.payload).toEqual({ kind: 'multi-resize-handle', handle: 'se' })
   })
 })
 
 describe('hit-test — multi-selection resize handles', () => {
   // Two text entities at (100,100,50,50) and (200,200,80,40) → bbox spans
-  // (100,100) to (280,240). Multi-bbox padding is 8 → outer corners at
-  // (92,92) and (288,248).
+  // (100,100) to (280,240). The box sits 1px outside — handles center on
+  // the padded corners, and the 12px hit rects cover the corners themselves.
   const t1 = text('t1', 100, 100, 50, 50)
   const t2 = text('t2', 200, 200, 80, 40)
 
   it('emits a multi-resize handle on the bbox SE corner when 2+ entities are selected', () => {
-    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 288, y: 248 })
+    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 280, y: 240 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toEqual({ kind: 'multi-resize-handle', handle: 'se' })
   })
 
   it('emits a multi-resize handle on the bbox NW corner', () => {
-    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 92, y: 92 })
+    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 100, y: 100 })
     expect(result.layer).toBe('resize-handles')
     expect(result.payload).toEqual({ kind: 'multi-resize-handle', handle: 'nw' })
   })
 
   it('per-entity handles are suppressed in multi-select (no entityId on the payload)', () => {
-    // Click directly on t1's NW corner — without multi-select this is a
-    // per-entity resize handle. With multi-select it must miss (the
-    // multi-bbox NW corner is at 92,92, well off from (100,100)) and fall
+    // Click directly on t1's SE corner (150,150) — without multi-select this
+    // is a per-entity resize handle. With multi-select it must miss (the
+    // point is interior to the bbox, away from every multi handle) and fall
     // through to the body layer.
-    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 100, y: 100 })
+    const result = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 150, y: 150 })
     expect(result.layer).not.toBe('resize-handles')
   })
 
@@ -380,9 +396,10 @@ describe('hit-test — multi-selection resize handles', () => {
     expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 't1' })
   })
 
-  it('suppresses resizing when a multi-selection contains a group', () => {
-    // Group-inclusive proportional resize is unsupported. Do not fall back to
-    // a per-entity handle that the renderer hides for the batch selection.
+  it('never falls back to per-entity handles when the multi-bbox cannot form', () => {
+    // A group with no sized operands contributes nothing, so no bbox forms —
+    // and the renderer hides per-entity handles for a batch selection, so
+    // none may be hit-testable either.
     const g = group('g1', 0, 0, 50, 50)
     const result = hitTest(inputs([t1, g], ['t1', 'g1']), { x: 100, y: 100 })
     expect(result.layer).not.toBe('resize-handles')

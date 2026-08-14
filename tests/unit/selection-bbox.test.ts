@@ -64,7 +64,7 @@ describe('selectionBbox', () => {
     expect(selectionBbox(entities, ['a'], 'canvas')).toBeNull()
   })
 
-  it('skips groups — they own a separate selection overlay', () => {
+  it('includes a group rect — the box wraps the group border, padding and all', () => {
     const entities = [
       entity('a', 0, 0, 10, 10),
       entity('b', 50, 50, 10, 10),
@@ -73,8 +73,8 @@ describe('selectionBbox', () => {
     expect(selectionBbox(entities, ['a', 'b', 'g'], 'canvas')).toEqual({
       x: 0,
       y: 0,
-      width: 60,
-      height: 60,
+      width: 100,
+      height: 100,
     })
   })
 

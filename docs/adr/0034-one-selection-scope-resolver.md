@@ -29,8 +29,15 @@ resolution:
 - **Resize** — the multi-resize path computes its own member set and bounds.
 - **Bounding box** — the selection overlay does its own arithmetic over its
   own idea of the members, and shows nothing for group-involving selections.
+- **Hit-test** — `collectResizeHandles` (shared/hit-test.ts) computed the
+  multi-bbox over the raw member ids and suppressed all handles for
+  group-containing selections, so the overlay drew handles the hit-test
+  refused to route — batch resize dead on exactly the selections the overlay
+  had learned to render. Fixed by feeding the resolver's operand ids into
+  `HitInputs`; the invariant is that a handle is hit-testable exactly where
+  the overlay renders one, both derived from the same operand set.
 
-Four consumers, four disagreeing interpretations of one concept. This is
+Five consumers, five disagreeing interpretations of one concept. This is
 structurally the field-drift bug class (ADR 0024 §5) in the selection layer:
 parallel hand-written resolutions that fall out of sync, where the fix is one
 declaration every path derives from — not patching whichever consumer a bug
