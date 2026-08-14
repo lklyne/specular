@@ -1463,16 +1463,27 @@ export interface ClipboardEntityPayload {
   /** Page-specific — optional, absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
   /**
-   * Non-page kinds (text/file/shape/drawing): the source entity's own
+   * Non-page kinds (text/file/shape/drawing/group): the source entity's own
    * persisted record — `getEntityKind(kind).persist()`'s output. Every field
    * the kind declares as persisted travels here structurally, so a copy
    * cannot carry a different field set than persistence does (ADR 0024 §5).
    * `canvasX`/`canvasY` inside stay the entity's ORIGINAL position — kept so
    * `cloneMapBackedEntity` can compute the placement delta for drawing's
    * embedded stroke points; the clone's actual position comes from
-   * `dx`/`dy` above, not from this record.
+   * `dx`/`dy` above, not from this record. For `group`, `record.id` and
+   * `record.parentGroupId` double as the source ids paste's id-remap pass
+   * uses to rebuild the tree (ADR 0034, "Groups become copyable") — a group
+   * or map-backed entity needs no separate `sourceId` field the way `page`
+   * does, because its persisted record already carries its own id.
    */
   record?: Record<string, unknown>
+  /**
+   * Page-specific — the copied page's group membership, so paste can remap
+   * it the same way group and map-backed entities remap `record.parentGroupId`
+   * (a page's own record lives outside this payload's `record` field; see
+   * above).
+   */
+  parentGroupId?: string
 }
 
 export interface ClipboardEntitySelectionPayload {
