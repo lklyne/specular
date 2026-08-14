@@ -9,23 +9,24 @@ import {
   findPageById,
 } from './runtime/page-runtime'
 import {
-  getSelectedEntityIds,
   selectPageById,
   setSelectedEntities,
   setSelectedPages,
 } from './runtime/ui-actions'
 import { getEntityKind } from './entities/contract'
 import {
+  cloneGroupEntity,
   cloneMapBackedEntity,
   type MapBackedEntityKind,
 } from './runtime/entity-clone'
+import { resolveSelectionScope, expandMembersToOperands } from './runtime/selection-scope'
+import { setEntityParentGroupId } from './workspace-groups'
 import { snapToGrid } from '../shared/gesture-utils'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { makeId, cloneMetadata } from './workspace-utils'
 import {
   anchorEntityToPage,
   reanchorEntityById,
-  withPageAnchoredEntityIds,
 } from './runtime/page-anchor-state'
 import {
   pageAnchorElementShift,
@@ -85,10 +86,18 @@ export function copyablePagePayload(
   }
 }
 
+/**
+ * Copies the current selection. Resolves through `resolveSelectionScope()`'s
+ * `memberIds` (top-level selection, groups unexpanded) rather than the raw
+ * selected-id array — `copyableEntityPayload` does the group/descendant
+ * expansion below, so a selected group and its whole subtree travel with it
+ * (ADR 0034, "Groups become copyable"). Before this, a group in the
+ * selection was silently dropped.
+ */
 export function copyableSelectionPayload():
   | ClipboardEntitySelectionPayload
   | null {
-  return copyableEntityPayload(getSelectedEntityIds())
+  return copyableEntityPayload(resolveSelectionScope().memberIds)
 }
 
 /**
@@ -98,9 +107,11 @@ export function copyableSelectionPayload():
  * duplicate (an explicit id, independent of selection) — see
  * `duplicateEntity` in workspace-pages.ts.
  *
- * Copying a page carries its page-anchored items the same way dragging a
- * page carries them (ADR 0031); the paste side re-attaches the cloned items
- * to the cloned page.
+ * `ids` are member ids, not yet expanded: `expandMembersToOperands` (the
+ * same expansion `resolveSelectionScope` uses for every other gesture)
+ * turns any group id in the set into itself plus every descendant, and
+ * folds in page-anchored items riding a copied page (ADR 0031) — one
+ * expansion, reused rather than restated here.
  */
 export function copyableEntityPayload(
   ids: string[],
@@ -109,7 +120,7 @@ export function copyableEntityPayload(
 
   // Each builder fills dx/dy with the entity's absolute apparent position;
   // rebase them onto the selection's bounding-box origin afterwards.
-  const entities = withPageAnchoredEntityIds(ids)
+  const entities = expandMembersToOperands(ids)
     .map(entityPayloadAt)
     .filter((entity): entity is ClipboardEntityPayload => entity !== null)
   if (!entities.length) return null
@@ -128,6 +139,8 @@ export function copyableEntityPayload(
 function entityPayloadAt(id: string): ClipboardEntityPayload | null {
   const page = findPageById(id)
   if (page) return pagePayload(page)
+  const group = getEntityKind('group').entities().find((candidate) => candidate.id === id)
+  if (group) return groupPayload(group)
   for (const kind of MAP_BACKED_ENTITY_KINDS) {
     const entity = getEntityKind(kind).entities().find((candidate) => candidate.id === id)
     if (entity) return mapBackedPayload(kind, entity)
@@ -145,6 +158,26 @@ function pagePayload(page: NonNullable<ReturnType<typeof findPageById>>): Clipbo
     dx: page.canvasX,
     dy: page.canvasY,
     colorScheme: page.colorScheme,
+    parentGroupId: page.parentGroupId,
+  }
+}
+
+/**
+ * Serialize a group as its own persisted record (`getEntityKind('group')
+ * .persist()`) plus a placement delta — the same shape `mapBackedPayload`
+ * uses for text/file/shape/drawing. Its descendants are separate payload
+ * entries (added by the operand expansion in `copyableEntityPayload`), and
+ * `record.id`/`record.parentGroupId` are what paste's id-remap pass uses to
+ * rebuild the tree. A group has no page anchor, so its dx/dy is its stored
+ * position verbatim (no `apparentPosition` projection needed).
+ */
+function groupPayload(group: { id: string }): ClipboardEntityPayload {
+  const record = getEntityKind('group').persist!(group) as unknown as Record<string, unknown>
+  return {
+    kind: 'group',
+    dx: record.canvasX as number,
+    dy: record.canvasY as number,
+    record,
   }
 }
 
@@ -250,9 +283,12 @@ export function pasteEntitiesFromClipboard(input: {
   )
 }
 
-/** One created clone: its id, whether it can re-anchor, and its source refs. */
+/** One created clone: its id, its source id (for the tree-rebuild id map),
+ *  its source group membership (if any), and page-anchor re-attachment refs. */
 type PastedEntity = {
   id: string
+  sourceId?: string
+  sourceParentGroupId?: string
   sourcePageId?: string
   anchorable?: boolean
   sourceAnchorPageId?: string
@@ -273,6 +309,7 @@ function createPastedEntity(
   const x = canvasX + entity.dx
   const y = canvasY + entity.dy
   if (entity.kind === 'page') return createPastedPage(entity, x, y)
+  if (entity.kind === 'group') return createPastedGroup(entity, x, y)
   if (!isMapBackedKind(entity.kind) || !entity.record) return null
   if (entity.kind === 'file') {
     const file = entity.record.file
@@ -285,8 +322,35 @@ function createPastedEntity(
   })
   return {
     id: clone.id as string,
+    sourceId: entity.record.id as string | undefined,
+    sourceParentGroupId: entity.record.parentGroupId as string | undefined,
     anchorable: entity.kind !== 'file',
     sourceAnchorPageId: entity.pageAnchor?.pageId,
+  }
+}
+
+/**
+ * Clone a copied group through `cloneGroupEntity` — persist → re-id → offset
+ * → restore, the same shape map-backed clones use. `parentGroupId` is left
+ * unset here; `pasteEntitiesInternal`'s remap pass sets it once every clone
+ * in the batch has a new id, so a nested group can resolve its own cloned
+ * parent regardless of creation order.
+ */
+function createPastedGroup(
+  entity: ClipboardEntityPayload,
+  canvasX: number,
+  canvasY: number,
+): PastedEntity | null {
+  if (!entity.record) return null
+  const clone = cloneGroupEntity(entity.record, {
+    id: makeId('group'),
+    canvasX,
+    canvasY,
+  })
+  return {
+    id: clone.id as string,
+    sourceId: entity.record.id as string | undefined,
+    sourceParentGroupId: entity.record.parentGroupId as string | undefined,
   }
 }
 
@@ -310,7 +374,12 @@ function createPastedPage(
     metadata: { ...entity.metadata, createdFrom: 'paste' },
     colorScheme: entity.colorScheme,
   })
-  return { id: page.id, sourcePageId: entity.sourceId }
+  return {
+    id: page.id,
+    sourceId: entity.sourceId,
+    sourceParentGroupId: entity.parentGroupId,
+    sourcePageId: entity.sourceId,
+  }
 }
 
 function pasteEntitiesInternal(input: {
@@ -342,6 +411,25 @@ function pasteEntitiesInternal(input: {
       : undefined
     if (clonePageId) anchorEntityToPage(item.id, clonePageId)
     else reanchorEntityById(item.id)
+  }
+
+  // Group-membership remap (ADR 0034, "Groups become copyable"): a
+  // pasted-entity id map spans every kind in this paste — page, group, and
+  // map-backed alike — because a group's children can be any of them. An
+  // entity whose source parent was copied alongside it rejoins its cloned
+  // parent; one whose source parent was NOT part of the copy stays
+  // unparented (`cloneMapBackedEntity`/`cloneGroupEntity` already default
+  // `parentGroupId` to `undefined`), preserving the existing "paste doesn't
+  // rejoin a group" behavior, now scoped to parents outside the copy.
+  const sourceIdToClonedId = new Map(
+    pasted
+      .filter((entry) => entry.sourceId)
+      .map((entry) => [entry.sourceId!, entry.id]),
+  )
+  for (const entry of pasted) {
+    if (!entry.sourceParentGroupId) continue
+    const clonedParentId = sourceIdToClonedId.get(entry.sourceParentGroupId)
+    if (clonedParentId) setEntityParentGroupId(entry.id, clonedParentId)
   }
 
   setSelectedEntities(entityIds)

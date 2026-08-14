@@ -49,8 +49,13 @@ function isGroupId(id: string): boolean {
  * page-anchored entities riding any operand page are folded in last so they
  * see the fully-expanded id set (a page can be reached only directly, groups
  * don't nest pages inside a "descendant" that isn't already an operand).
+ *
+ * Exported so clipboard copy (`copyableEntityPayload`) can expand an explicit
+ * id set — the current selection or a single duplicated id — through the
+ * same expansion `resolveSelectionScope` uses, rather than a second
+ * hand-rolled group walk (ADR 0034, "Groups become copyable").
  */
-function expandMembersToOperands(memberIds: string[]): string[] {
+export function expandMembersToOperands(memberIds: string[]): string[] {
   const expanded = new Set<string>()
   for (const id of memberIds) {
     expanded.add(id)

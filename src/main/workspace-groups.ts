@@ -67,7 +67,10 @@ function getEntityParentGroupId(entityId: string): string | undefined {
   )
 }
 
-function setEntityParentGroupId(entityId: string, parentGroupId: string | undefined): void {
+/** Exported for paste's post-clone parentGroupId remap (workspace-clipboard.ts,
+ *  ADR 0034 "Groups become copyable") — the one setter every kind's group
+ *  membership goes through, reused rather than restated. */
+export function setEntityParentGroupId(entityId: string, parentGroupId: string | undefined): void {
   const page = findPageById(entityId)
   if (page) { page.parentGroupId = parentGroupId; return }
   const textEntity = textEntities.find((entity) => entity.id === entityId)

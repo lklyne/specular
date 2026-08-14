@@ -25,6 +25,21 @@ export interface EntityCloneOverrides {
   parentGroupId?: string
 }
 
+/** Push one clone onto its kind's live array through the registry's own
+ *  `restore` — the one seam both `cloneMapBackedEntity` and `cloneGroupEntity`
+ *  push through, so there is exactly one "append a clone" shape to drift. */
+function appendClone(
+  kind: MapBackedEntityKind | 'group',
+  clone: Record<string, unknown>,
+): void {
+  const kindDef = getEntityKind(kind)
+  kindDef.restore([
+    ...(kindDef.entities() as unknown as Record<string, unknown>[]),
+    clone,
+  ])
+  markDirty('canvas', 'sidebar')
+}
+
 /**
  * Clone `record` — a persisted record of `kind`, as produced by
  * `getEntityKind(kind).persist()` — into a new live entity of the same kind.
@@ -68,15 +83,36 @@ export function cloneMapBackedEntity(
     }))
   }
 
-  kindDef.restore([
-    ...(kindDef.entities() as unknown as Record<string, unknown>[]),
-    clone,
-  ])
-  markDirty('canvas', 'sidebar')
+  appendClone(kind, clone)
 
   if (kind === 'file' && typeof clone.file === 'string') {
     watchEntityFile(overrides.id, clone.file)
   }
 
+  return clone
+}
+
+/**
+ * Clone a persisted group record (`getEntityKind('group').persist()`) into a
+ * new live group, mirroring `cloneMapBackedEntity`'s persist → re-id → offset
+ * → restore shape (ADR 0034, "Groups become copyable"). `parentGroupId` is
+ * always replaced by `overrides` — group membership is remapped by the
+ * caller in a second pass once every clone in a batch has a new id (a
+ * group's own parent may itself be mid-clone). Unlike a map-backed entity, a
+ * group carries no embedded position data (no stroke points to shift), so no
+ * delta computation is needed here.
+ */
+export function cloneGroupEntity(
+  record: Record<string, unknown>,
+  overrides: EntityCloneOverrides,
+): Record<string, unknown> {
+  const clone: Record<string, unknown> = {
+    ...record,
+    id: overrides.id,
+    canvasX: overrides.canvasX,
+    canvasY: overrides.canvasY,
+    parentGroupId: overrides.parentGroupId,
+  }
+  appendClone('group', clone)
   return clone
 }
