@@ -17,6 +17,17 @@ ADR 0004 §2 already decided how: **Specular-only fields live under a namespaced
 worth re-reading before starting — it is about other tools reading our files and
 our reader falling back to documented defaults on theirs.
 
+The convention was verified against the wider ecosystem (2026-08-13): it is
+the same shape glTF (`extensions`), OCIF v0.5 (typed `data` extensions with
+`@vendor/...` names), Excalidraw (`customData`), and tldraw (`meta`) all
+converged on — one owner-namespaced bag per object. The flat-field
+alternative is GeoJSON's "foreign members," whose spec had to disclaim
+interoperability. Namespacing also keeps our data mappable 1:1 onto a future
+OCIF `@specular/*` extension. One caveat: no tool anywhere guarantees
+*preserving* unknown fields on round-trip — Obsidian empirically re-serializes
+them; import/export tools drop them. "Safely ignorable" is the promise;
+"survives a foreign edit" is not.
+
 Practice has drifted from that decision. Several spec node types carry Specular
 fields at their top level, mixed in with spec fields, where another tool cannot
 tell ours from the standard's. This PR closes that gap.
@@ -62,6 +73,18 @@ shadowed rather than merely joined:
 
 Also worth confirming as you go: `deserializeLinkNodeToPage` reads `groupId`
 but not `parentGroupId`, which is a latent inconsistency in the same area.
+The writer currently emits both spellings with the same value; the namespaced
+form should carry **only `parentGroupId`**, with the legacy reader accepting
+either old spelling.
+
+**The document level is in scope too.** The top level of the file has the
+same inconsistency the nodes do: `entityOrder` already lives under
+`doc.specular`, while `appState` and `annotations` sit bare at the top level
+of the document. Fold all three under the one top-level `specular` object,
+with the same read-both/write-new tolerance. (Whether `appState` — per-user
+UI state whose zoom/pan churn is exactly the diff noise the serializer's
+number-rounding fights — should eventually leave the `.canvas` file for
+`.specular/workspace-meta.json` is a separate decision; not this PR.)
 
 ## Approach
 
@@ -84,8 +107,10 @@ saying why the fallback exists, since a dead-looking branch invites deletion.
   `docs/file-formats.md`.
 - The golden `.canvas` snapshot will churn heavily. That diff is the review
   surface for this PR; read it as the primary artifact rather than noise.
-- Ask the user whether anything outside this repo reads `.canvas` files
-  directly. Only they know, and it changes how loud the release note needs to be.
+- Nothing outside this repo reads `.canvas` files directly (confirmed with the
+  user, 2026-08-13), so no external release-note coordination is needed. The
+  skill files and `docs/file-formats.md` still must be updated — in-repo
+  agents read `specular canvas` output and will look for the old field paths.
 
 ## How to know you are done
 
@@ -100,7 +125,16 @@ saying why the fallback exists, since a dead-looking branch invites deletion.
 - Whether `pageIds` / `entityIds` on group nodes should be persisted at all, or
   derived from children's `parentGroupId`. They are already suspected redundant
   (see the sibling plan). If they turn out to be derived, deleting beats moving.
-- Whether to record this as an ADR amendment. ADR 0004 already decided the
-  convention, so this is enforcement rather than a new decision — but if the
-  reader-tolerance window is meant to close eventually, that is a decision worth
-  writing down.
+
+## ADR amendment (resolved: yes, write it)
+
+Add a short amendment section to ADR 0004 in this PR covering the three
+things the original didn't decide:
+
+- Document-level extensions are namespaced under one top-level `specular`
+  object, same as node-level.
+- The reader-tolerance window (accept legacy spellings) is indefinite —
+  cheap, narrow, and files in user spaces are never all re-saved.
+- The preservation caveat and the ecosystem precedent (glTF / OCIF /
+  Excalidraw / tldraw) from the survey above, so the convention is legible
+  to future contributors without re-doing the research.
