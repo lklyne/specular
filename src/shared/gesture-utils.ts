@@ -281,16 +281,23 @@ export interface MarqueeSelectionOptions {
 }
 
 /**
- * Resolve marquee targets with group-aware containment:
+ * Resolve marquee targets with scope-aware group promotion:
  *
- * - a group is selectable only when the marquee fully encloses its bounds;
- * - a partially crossed group is transparent, exposing overlapping children;
- * - fully enclosed nested groups collapse to their outer fully enclosed group;
- * - independent full groups and loose hits from partial groups batch together.
+ * - full enclosure always selects a group as a unit: leaf hits inside a
+ *   fully enclosed group collapse to its outermost fully enclosed ancestor,
+ *   and an enclosed group needs no hit children at all (that's how an empty
+ *   group is selected);
+ * - the *scope* is then the deepest group containing every resulting unit —
+ *   a marquee confined to one group's contents selects those hits
+ *   individually;
+ * - any unit outside a group promotes that group: each unit resolves to its
+ *   outermost ancestor group strictly inside the scope, or itself when it
+ *   sits directly in the scope.
  *
- * Group enclosure always uses full containment (a group is a unit only when
- * fully covered); `mode` only governs the leaf hit test, and `excludedIds`
- * drops the origin item so a Cmd-marquee can begin through a body.
+ * So a marquee spanning group children *and* anything else grabs the whole
+ * group, never a partial slice of it. `mode` only governs the leaf hit test,
+ * and `excludedIds` drops the origin item so a Cmd-marquee can begin through
+ * a body.
  */
 export function resolveMarqueeSelectionIds(
   candidates: readonly MarqueeSelectionCandidate[],
@@ -298,39 +305,62 @@ export function resolveMarqueeSelectionIds(
   { mode = 'intersect', excludedIds }: MarqueeSelectionOptions = {},
 ): string[] {
   const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]))
-  const fullyEnclosedGroupIds = new Set(
-    candidates
-      .filter((candidate) => candidate.kind === 'group' && rectContains(rect, candidate))
-      .map((candidate) => candidate.id),
-  )
-  const outerFullyEnclosedGroups = candidates.filter((candidate) => {
-    if (!fullyEnclosedGroupIds.has(candidate.id)) return false
+  /** Ancestor group ids, outermost first. */
+  const ancestorChain = (candidate: MarqueeSelectionCandidate): string[] => {
+    const chain: string[] = []
     let parentGroupId = candidate.parentGroupId
     while (parentGroupId) {
-      if (fullyEnclosedGroupIds.has(parentGroupId)) return false
+      chain.unshift(parentGroupId)
       parentGroupId = candidateById.get(parentGroupId)?.parentGroupId
     }
-    return true
-  })
-  const selectedGroupIds = new Set(outerFullyEnclosedGroups.map((group) => group.id))
-  const isInsideSelectedGroup = (candidate: MarqueeSelectionCandidate): boolean => {
-    let parentGroupId = candidate.parentGroupId
-    while (parentGroupId) {
-      if (selectedGroupIds.has(parentGroupId)) return true
-      parentGroupId = candidateById.get(parentGroupId)?.parentGroupId
-    }
-    return false
+    return chain
   }
 
+  const leafHits = candidates.filter((candidate) => {
+    if (candidate.kind === 'group' || excludedIds?.has(candidate.id)) return false
+    return mode === 'contain' ? rectContains(rect, candidate) : rectsOverlap(candidate, rect)
+  })
+  const enclosedGroupIds = new Set(
+    candidates
+      .filter(
+        (candidate) =>
+          candidate.kind === 'group' &&
+          !excludedIds?.has(candidate.id) &&
+          rectContains(rect, candidate),
+      )
+      .map((candidate) => candidate.id),
+  )
+  const outermostEnclosedAncestor = (candidate: MarqueeSelectionCandidate): string | undefined =>
+    ancestorChain(candidate).find((groupId) => enclosedGroupIds.has(groupId))
+
+  // Units after enclosure-promotion: leaf hits collapse into their outermost
+  // fully enclosed ancestor group; enclosed groups join on their own.
+  const unitIds = new Set<string>()
+  for (const hit of leafHits) unitIds.add(outermostEnclosedAncestor(hit) ?? hit.id)
+  for (const groupId of enclosedGroupIds) {
+    const group = candidateById.get(groupId)
+    if (group) unitIds.add(outermostEnclosedAncestor(group) ?? groupId)
+  }
+  if (!unitIds.size) return []
+
+  // Scope depth = length of the shared leading run of the units' ancestor
+  // chains (chains share a prefix exactly when the lineage is shared).
+  const units = [...unitIds].map((id) => candidateById.get(id)!)
+  const chains = units.map(ancestorChain)
+  let scopeDepth = chains[0].length
+  for (const chain of chains) {
+    let shared = 0
+    while (shared < scopeDepth && shared < chain.length && chain[shared] === chains[0][shared]) {
+      shared++
+    }
+    scopeDepth = shared
+  }
+
+  const resolvedIds = new Set(
+    units.map((unit, index) => chains[index][scopeDepth] ?? unit.id),
+  )
   return candidates
-    .filter((candidate) => {
-      if (excludedIds?.has(candidate.id)) return false
-      if (selectedGroupIds.has(candidate.id)) return true
-      if (candidate.kind === 'group' || isInsideSelectedGroup(candidate)) return false
-      return mode === 'contain'
-        ? rectContains(rect, candidate)
-        : rectsOverlap(candidate, rect)
-    })
+    .filter((candidate) => resolvedIds.has(candidate.id))
     .map((candidate) => candidate.id)
 }
 

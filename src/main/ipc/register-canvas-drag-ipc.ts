@@ -34,7 +34,6 @@ import {
   selectEntity as selectCanvasEntity,
   selectNone,
   selectPageById as selectCanvasPageById,
-  selectedDragEntityIds,
 } from '../runtime/selection-controller'
 import { createEdges } from '../workspace-edges'
 import { deleteEdge, updateEdge } from '../runtime/document-commands'
@@ -42,8 +41,7 @@ import {
   copyableSelectionPayload,
   pasteEntitiesFromClipboard,
 } from '../workspace-clipboard'
-import { descendantEntityIdsForGroup } from '../runtime/group-descendants'
-import { withPageAnchoredEntityIds } from '../runtime/page-anchor-state'
+import { resolveSelectionScope } from '../runtime/selection-scope'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
 import { reparentEntitiesInGesture } from '../runtime/group-membership'
@@ -55,29 +53,6 @@ let resizingEntityId: string | null = null
 // One variable serves both resize and multi-resize: the interaction token
 // (I2) guarantees the two gestures never overlap.
 let resizeSession: GestureSession | null = null
-
-function expandDraggedGroupIds(entityIds: string[]): string[] {
-  const expanded = new Set<string>()
-  for (const entityId of entityIds) {
-    expanded.add(entityId)
-    if (resolveEntityKind(entityId) !== 'group') continue
-    for (const descendantId of descendantEntityIdsForGroup(entityId)) {
-      expanded.add(descendantId)
-    }
-  }
-  return [...expanded]
-}
-
-function resolveDraggedSelection(entityId: string): {
-  entityIds: string[]
-  membershipIds: string[]
-} {
-  const membershipIds = selectedDragEntityIds(entityId)
-  return {
-    entityIds: expandDraggedGroupIds(membershipIds),
-    membershipIds,
-  }
-}
 
 let activeDragSession: {
   kind: 'page' | 'entity'
@@ -103,8 +78,9 @@ function beginDragSession(
   membershipIds: string[] = ids,
 ): boolean {
   if (!ids.length) return false
-  // Entities anchored to a dragged page travel with it (shared/page-anchor.ts).
-  const entityIds = withPageAnchoredEntityIds(ids)
+  // Page-anchored attachment is already folded into `ids` by
+  // resolveSelectionScope's operandIds (shared/page-anchor.ts).
+  const entityIds = ids
   if (activeDragSession && currentInteractionState().kind === 'idle') {
     activeDragSession = null
   }
@@ -181,12 +157,8 @@ export function registerCanvasDragIpc(): void {
       // and unless interactionState.kind has left 'idle' by then the focus
       // reconciler routes focus to bgView and aboveView blurs, which the
       // drag's window blur listener treats as a cancel.
-      const dragSelection = resolveDraggedSelection(pageId)
-      const started = beginDragSession(
-        'page',
-        dragSelection.entityIds,
-        dragSelection.membershipIds,
-      )
+      const scope = resolveSelectionScope(pageId)
+      const started = beginDragSession('page', scope.operandIds, scope.memberIds)
       if (started) applyDragStartSelection(pageId, selection)
     },
   )
@@ -249,12 +221,8 @@ export function registerCanvasDragIpc(): void {
     ) => {
       // See canvas-drag-page-start: enter drag mode before applying selection
       // so the focus reconciler keeps aboveView focused through the layout pass.
-      const dragSelection = resolveDraggedSelection(entityId)
-      const started = beginDragSession(
-        'entity',
-        dragSelection.entityIds,
-        dragSelection.membershipIds,
-      )
+      const scope = resolveSelectionScope(entityId)
+      const started = beginDragSession('entity', scope.operandIds, scope.memberIds)
       if (started) applyDragStartSelection(entityId, selection)
     },
   )

@@ -179,7 +179,7 @@ export interface CanvasBgElectronAPI {
   createAnnotation: (request: AnnotationCreateRequest) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
-  resizeMultiSelection: (entries: Array<{ id: string; kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number; strokes?: AnnotationDrawingStroke[] }>) => void
+  resizeMultiSelection: (entries: Array<{ id: string; kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'; width: number; height: number; canvasX: number; canvasY: number; strokes?: AnnotationDrawingStroke[] }>) => void
   addAnnotationReply: (annotationId: string, text: string) => void
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void

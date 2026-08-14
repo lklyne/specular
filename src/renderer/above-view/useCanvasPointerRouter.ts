@@ -194,6 +194,7 @@ function layoutToHitInputs(layout: {
   entities: HitInputs['entities']
   edges?: HitInputs['edges'] | null
   selectedEntityIds: HitInputs['selectedEntityIds']
+  selectionOperandIds?: HitInputs['selectionOperandIds']
   selectedGroupId?: string | null
   hover?: { id: string } | null
   zoom?: number | null
@@ -202,6 +203,7 @@ function layoutToHitInputs(layout: {
     entities: layout.entities,
     edges: layout.edges ?? [],
     selectedEntityIds: layout.selectedEntityIds,
+    selectionOperandIds: layout.selectionOperandIds,
     selectedGroupId: layout.selectedGroupId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
@@ -818,7 +820,10 @@ function runMultiResize(
   // leaves the capture held until the implicit release on pointerup.
   capturePointer(event)
   const layout = layoutRef.current
-  const seed = computeMultiSelectionBbox(layout.entities, layout.selectedEntityIds)
+  // Operand ids (not raw selectedEntityIds) so a group in the selection
+  // resizes as its full descendant set, not just its (unrendered) own row —
+  // see ADR 0034.
+  const seed = computeMultiSelectionBbox(layout.entities, layout.selectionOperandIds)
   if (!seed) return false
   const acc = startMultiResize(seed)
   const zoom = layout.zoom ?? 1

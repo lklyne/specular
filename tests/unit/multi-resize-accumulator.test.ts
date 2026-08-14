@@ -71,12 +71,16 @@ describe('multi-resize-accumulator', () => {
       expect(computeMultiSelectionBbox(entities, ['a'])).toBeNull()
     })
 
-    it('skips groups (they own a separate selection overlay)', () => {
-      const group = entity('g', 0, 0, 100, 100)
+    it('includes a group as an entry and its rect in the bbox', () => {
+      // The group's stored rect rides the same transform as its descendants
+      // and contributes to the bbox — the box wraps the group border
+      // (padding included), not just the leaves inside it.
+      const group = entity('g', -5, -5, 100, 100)
       ;(group as { kind: string }).kind = 'group'
       const entities = [entity('a', 0, 0, 10, 10), entity('b', 50, 50, 10, 10), group]
       const result = computeMultiSelectionBbox(entities, ['a', 'b', 'g'])
-      expect(result!.entities.map((e) => e.id)).toEqual(['a', 'b'])
+      expect(result!.entities.map((e) => e.id)).toEqual(['a', 'b', 'g'])
+      expect(result!.bbox).toEqual({ x: -5, y: -5, width: 100, height: 100 })
     })
 
     it('ignores ids that are not in the entity list', () => {

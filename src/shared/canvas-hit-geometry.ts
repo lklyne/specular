@@ -33,7 +33,10 @@ export function reorderHandleHitPx(screenWidth: number, screenHeight: number): n
 // this minimum thickness, centered on the seam, so it stays grabbable.
 export const GAP_HANDLE_MIN_HIT_PX = 10
 
-export const MULTI_SELECTION_OUTLINE_PADDING_PX = 8
+// Selection outlines (per-item and multi-select box alike) sit this far
+// outside the item's bounds. Resize-handle hit rects center on the padded
+// outline, so hit-test geometry tracks the pixels users actually see.
+export const SELECTION_OUTLINE_PADDING_PX = 1
 
 export const EDGE_SIDES: readonly EdgeSide[] = ['top', 'right', 'bottom', 'left']
 
