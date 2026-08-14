@@ -29,7 +29,7 @@ import type {
 
 const pageAnchor = { pageId: 'page_sample', pageUrl: 'https://example.test/doc' }
 
-export const SAMPLE_TEXT = {
+const SAMPLE_TEXT = {
   kind: 'text',
   id: 'sample_text',
   text: 'sample text body',
@@ -46,7 +46,7 @@ export const SAMPLE_TEXT = {
   pageAnchor,
 } satisfies Required<PersistedTextEntity>
 
-export const SAMPLE_FILE = {
+const SAMPLE_FILE = {
   kind: 'file',
   id: 'sample_file',
   file: 'notes/sample.md',
@@ -61,7 +61,7 @@ export const SAMPLE_FILE = {
   parentGroupId: 'group_sample',
 } satisfies Required<PersistedFileEntity>
 
-export const SAMPLE_DRAWING = {
+const SAMPLE_DRAWING = {
   kind: 'drawing',
   id: 'sample_drawing',
   canvasX: 60,
@@ -82,7 +82,7 @@ export const SAMPLE_DRAWING = {
   pageAnchor,
 } satisfies Required<PersistedDrawingEntity>
 
-export const SAMPLE_SHAPE = {
+const SAMPLE_SHAPE = {
   kind: 'shape',
   id: 'sample_shape',
   shapeKind: 'rounded',
@@ -170,7 +170,7 @@ const updatedPageAnchor = { pageId: 'page_updated', pageUrl: 'https://example.te
 // geometry value here is a multiple of 20. Otherwise the snap would round the
 // patched value away from what the test asserts, which is a snapping quirk,
 // not the field-drift bug this net is for.
-export const SAMPLE_TEXT_UPDATE = {
+const SAMPLE_TEXT_UPDATE = {
   text: 'updated text body',
   color: '2',
   canvasX: 1000,
@@ -185,7 +185,7 @@ export const SAMPLE_TEXT_UPDATE = {
   pageAnchor: updatedPageAnchor,
 } satisfies Omit<Required<PersistedTextEntity>, 'kind' | 'id'>
 
-export const SAMPLE_FILE_UPDATE = {
+const SAMPLE_FILE_UPDATE = {
   file: 'notes/updated.md',
   subpath: '#updated-heading',
   canvasX: 780,
@@ -207,7 +207,7 @@ export const SAMPLE_FILE_UPDATE = {
   parentGroupId: 'group_updated',
 } satisfies Omit<Required<PersistedFileEntity>, 'kind' | 'id'>
 
-export const SAMPLE_DRAWING_UPDATE = {
+const SAMPLE_DRAWING_UPDATE = {
   canvasX: 120,
   canvasY: 220,
   width: 340,
@@ -226,7 +226,7 @@ export const SAMPLE_DRAWING_UPDATE = {
   pageAnchor: updatedPageAnchor,
 } satisfies Omit<Required<PersistedDrawingEntity>, 'kind' | 'id'>
 
-export const SAMPLE_SHAPE_UPDATE = {
+const SAMPLE_SHAPE_UPDATE = {
   shapeKind: 'ellipse',
   text: 'updated shape label',
   color: '3',
