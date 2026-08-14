@@ -29,7 +29,7 @@
 
 import { EDGE_ANCHOR_HIT_MIN_SCALE, EDGE_SIDES } from './canvas-hit-geometry'
 import {
-  autoSides,
+  resolveEdgeSides,
   buildBezierPath,
   getAnchorPoint,
   type AnchorPoint,
@@ -254,10 +254,7 @@ function findEdgeAtAnchor(
     const fromEntity = entityMap.get(edge.fromEntityId)
     const toEntity = entityMap.get(edge.toEntityId)
     if (!fromEntity || !toEntity) continue
-    const { fromSide, toSide } =
-      edge.fromSide && edge.toSide
-        ? { fromSide: edge.fromSide, toSide: edge.toSide }
-        : autoSides(fromEntity, toEntity)
+    const { fromSide, toSide } = resolveEdgeSides(fromEntity, toEntity, edge)
     if (edge.toEntityId === entityId && toSide === side) {
       return {
         edgeId: edge.id,

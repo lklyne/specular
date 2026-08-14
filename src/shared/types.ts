@@ -1537,6 +1537,8 @@ export type WorkspaceCanvasEntity =
 export type EdgeSide = 'top' | 'right' | 'bottom' | 'left'
 export type EdgeEnd = 'none' | 'arrow'
 export type EdgeLineStyle = 'solid' | 'dashed'
+export type EdgeRouting = 'bezier' | 'elbow' | 'straight'
+export type EdgeSplitAxis = 'x' | 'y'
 
 export interface WorkspaceEdge {
   id: string
@@ -1550,6 +1552,12 @@ export interface WorkspaceEdge {
   label?: string
   strokeWidth?: number
   lineStyle?: EdgeLineStyle
+  /** Absent renders bezier, so existing canvases keep their appearance. */
+  routing?: EdgeRouting
+  /** Normalized 0–1 crossbar position; only meaningful with elbow routing. */
+  elbowSplit?: number
+  /** The axis the split was dragged on — it is never reinterpreted onto another. */
+  elbowSplitAxis?: EdgeSplitAxis
   kind: 'breakpoint_variant' | 'connection'
   metadata?: Record<string, unknown>
 }

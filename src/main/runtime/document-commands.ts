@@ -667,6 +667,9 @@ export function updateEdge(
     label?: string
     strokeWidth?: number
     lineStyle?: import('../../shared/types').EdgeLineStyle
+    routing?: import('../../shared/types').EdgeRouting
+    elbowSplit?: number
+    elbowSplitAxis?: import('../../shared/types').EdgeSplitAxis
   },
 ): boolean {
   return mutateWorkspace(() => {
@@ -682,6 +685,9 @@ export function updateEdge(
     if (patch.label !== undefined) edge.label = patch.label || undefined
     if (patch.strokeWidth !== undefined) edge.strokeWidth = patch.strokeWidth
     if (patch.lineStyle !== undefined) edge.lineStyle = patch.lineStyle
+    if (patch.routing !== undefined) edge.routing = patch.routing
+    if (patch.elbowSplit !== undefined) edge.elbowSplit = patch.elbowSplit
+    if (patch.elbowSplitAxis !== undefined) edge.elbowSplitAxis = patch.elbowSplitAxis
     return true
   }, { changed: (updated) => updated })
 }
