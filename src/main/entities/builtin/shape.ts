@@ -58,23 +58,11 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
   },
 
   update(id, patch) {
-    updateShapeEntity(id, {
-      canvasX: patch.canvasX as number | undefined,
-      canvasY: patch.canvasY as number | undefined,
-      width: patch.width as number | undefined,
-      height: patch.height as number | undefined,
-      shapeKind: patch.shapeKind as ShapeKind | undefined,
-      text: patch.text as string | undefined,
-      color: patch.color as string | undefined,
-      fillStyle: patch.fillStyle as ShapeFillStyle | undefined,
-      strokeWidth: patch.strokeWidth as number | undefined,
-      borderStyle: patch.borderStyle as ShapeBorderStyle | undefined,
-      borderColor: patch.borderColor as string | undefined,
-      textSize: patch.textSize as number | undefined,
-      textAlign: patch.textAlign as ShapeTextAlign | undefined,
-      textVerticalAlign: patch.textVerticalAlign as ShapeTextVerticalAlign | undefined,
-      theme: patch.theme as string | undefined,
-    })
+    // Forward the whole patch — `updateShapeEntity` already copies every
+    // field in `SHAPE_ENTITY_PERSISTED_FIELDS` (minus id/kind), so hand-picking
+    // a subset here would just be a second field list that can drift from the
+    // first (docs/plans/entity-field-drift.md, Step C).
+    updateShapeEntity(id, patch as Partial<Omit<ShapeEntity, 'id'>>)
   },
 
   delete(id) {

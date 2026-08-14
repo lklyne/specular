@@ -17,7 +17,7 @@ import type {
   TextWidthMode,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
-import { applyPatch } from './apply-patch'
+import { applyPatch, patchableFields } from './apply-patch'
 import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface TextEntity {
@@ -90,10 +90,7 @@ export function createTextEntity(input: {
 export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id'>>): TextEntity | null {
   const entity = textEntities.find((n) => n.id === id)
   if (!entity) return null
-  applyPatch(entity, patch, [
-    'text', 'color', 'textStyle', 'widthMode', 'textSize',
-    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId', 'pageAnchor',
-  ])
+  applyPatch(entity, patch, TEXT_ENTITY_PATCHABLE_FIELDS)
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity
@@ -172,6 +169,16 @@ const TEXT_ENTITY_PERSISTED_FIELD_SET = {
 
 export const TEXT_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
   TEXT_ENTITY_PERSISTED_FIELD_SET,
+)
+
+/**
+ * `updateTextEntity`'s field-copy list, derived from the same declaration
+ * `persist()` uses. `label` is excluded — it needs the empty-string-to-undefined
+ * normalization applied explicitly above, not `applyPatch`'s blind copy.
+ */
+const TEXT_ENTITY_PATCHABLE_FIELDS = patchableFields<Omit<TextEntity, 'id'>>(
+  TEXT_ENTITY_PERSISTED_FIELDS,
+  ['label'],
 )
 
 export function persistTextEntity(entity: TextEntity): PersistedTextEntity {

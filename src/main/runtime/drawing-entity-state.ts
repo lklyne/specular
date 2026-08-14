@@ -14,7 +14,7 @@ import type {
   PersistedDrawingEntity,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
-import { applyPatch } from './apply-patch'
+import { applyPatch, patchableFields } from './apply-patch'
 import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface DrawingEntity {
@@ -77,9 +77,7 @@ export function updateDrawingEntity(
 ): DrawingEntity | null {
   const entity = drawingEntities.find((candidate) => candidate.id === id)
   if (!entity) return null
-  applyPatch(entity, patch, [
-    'canvasX', 'canvasY', 'width', 'height', 'strokes', 'parentGroupId', 'pageAnchor',
-  ])
+  applyPatch(entity, patch, DRAWING_ENTITY_PATCHABLE_FIELDS)
   if (patch.label !== undefined) entity.label = patch.label || undefined
   markDirty('canvas', 'sidebar')
   return entity
@@ -152,6 +150,16 @@ const DRAWING_ENTITY_PERSISTED_FIELD_SET = {
 
 export const DRAWING_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
   DRAWING_ENTITY_PERSISTED_FIELD_SET,
+)
+
+/**
+ * `updateDrawingEntity`'s field-copy list, derived from the same declaration
+ * `persist()` uses. `label` is excluded — it needs the empty-string-to-undefined
+ * normalization applied explicitly above, not `applyPatch`'s blind copy.
+ */
+const DRAWING_ENTITY_PATCHABLE_FIELDS = patchableFields<Omit<DrawingEntity, 'id'>>(
+  DRAWING_ENTITY_PERSISTED_FIELDS,
+  ['label'],
 )
 
 export function persistDrawingEntity(entity: DrawingEntity): PersistedDrawingEntity {

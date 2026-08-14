@@ -10,7 +10,7 @@ import type {
 } from '../../shared/types'
 import type { PageAnchor } from '../../shared/page-anchor'
 import { markDirty } from './layout-dirty'
-import { applyPatch } from './apply-patch'
+import { applyPatch, patchableFields } from './apply-patch'
 import { pageAnchorScrollShift, pageAnchorElementShift } from './page-anchor-scroll'
 
 export interface ShapeEntity {
@@ -106,11 +106,7 @@ export function updateShapeEntity(
 ): ShapeEntity | null {
   const entity = shapeEntities.find((s) => s.id === id)
   if (!entity) return null
-  applyPatch(entity, patch, [
-    'shapeKind', 'text', 'fillStyle', 'strokeWidth', 'borderStyle', 'textSize',
-    'textAlign', 'textVerticalAlign',
-    'canvasX', 'canvasY', 'width', 'height', 'parentGroupId', 'pageAnchor',
-  ])
+  applyPatch(entity, patch, SHAPE_ENTITY_PATCHABLE_FIELDS)
   if (patch.color !== undefined) entity.color = patch.color || undefined
   if (patch.borderColor !== undefined) entity.borderColor = patch.borderColor || undefined
   if (patch.theme !== undefined) entity.theme = patch.theme || undefined
@@ -214,6 +210,17 @@ const SHAPE_ENTITY_PERSISTED_FIELD_SET = {
 
 export const SHAPE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
   SHAPE_ENTITY_PERSISTED_FIELD_SET,
+)
+
+/**
+ * `updateShapeEntity`'s field-copy list, derived from the same declaration
+ * `persist()` uses. `color`/`borderColor`/`theme`/`label` are excluded — each
+ * needs the empty-string-to-undefined normalization applied explicitly above,
+ * not `applyPatch`'s blind copy.
+ */
+const SHAPE_ENTITY_PATCHABLE_FIELDS = patchableFields<Omit<ShapeEntity, 'id'>>(
+  SHAPE_ENTITY_PERSISTED_FIELDS,
+  ['color', 'borderColor', 'theme', 'label'],
 )
 
 export function persistShapeEntity(entity: ShapeEntity): PersistedShapeEntity {

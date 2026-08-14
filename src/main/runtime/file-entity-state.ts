@@ -17,7 +17,7 @@ import type {
 } from '../../shared/types'
 import { CUSTOM_SHELL_INSETS, shellInsetsForDevice } from '../../shared/device-catalog'
 import { markDirty } from './layout-dirty'
-import { applyPatch } from './apply-patch'
+import { applyPatch, patchableFields } from './apply-patch'
 import {
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
@@ -87,10 +87,7 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
   const entity = fileEntities.find((e) => e.id === id)
   if (!entity) return null
   const prevFile = entity.file
-  applyPatch(entity, patch, [
-    'file', 'subpath', 'canvasX', 'canvasY', 'width', 'height',
-    'parentGroupId', 'objectFit', 'presetIndex', 'metadata',
-  ])
+  applyPatch(entity, patch, FILE_ENTITY_PATCHABLE_FIELDS)
   if (patch.file !== undefined && patch.file !== prevFile) {
     unwatchEntityFile(entity.id, prevFile)
     watchEntityFile(entity.id, entity.file)
@@ -254,6 +251,13 @@ const FILE_ENTITY_PERSISTED_FIELD_SET = {
 export const FILE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
   FILE_ENTITY_PERSISTED_FIELD_SET,
 )
+
+/**
+ * `updateFileEntity`'s field-copy list, derived from the same declaration
+ * `persist()` uses. No field needs a transform `applyPatch`'s blind copy can't
+ * do, so nothing beyond `kind`/`id` is excluded.
+ */
+const FILE_ENTITY_PATCHABLE_FIELDS = patchableFields<Omit<FileEntity, 'id'>>(FILE_ENTITY_PERSISTED_FIELDS)
 
 export function persistFileEntity(entity: FileEntity): PersistedFileEntity {
   return {

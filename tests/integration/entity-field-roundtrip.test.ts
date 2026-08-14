@@ -30,6 +30,12 @@
  *     and workspace-groups.ts each hand-listed a clone's fields per kind and had
  *     drifted — copying a styled shape lost its border style, fill, and text
  *     alignment)
+ *   - update (Step C: each registry `update` handler cast patch fields onto its
+ *     state mutator one by one and had drifted — `textStyle`/`parentGroupId`/
+ *     `label`/`pageAnchor` on text, `label`/`parentGroupId`/`pageAnchor` on
+ *     shape, `parentGroupId`/`label`/`pageAnchor` on drawing, and
+ *     `parentGroupId` on file all persisted and loaded correctly but did
+ *     nothing when patched through `getEntityKind(kind).update()`)
  *
  * Mutation-verified two ways: dropping `textAlign` from `shapeCoreFields`
  * (src/main/runtime/shape-entity-state.ts) fails the shape round trip with the
@@ -66,6 +72,7 @@ import { duplicateGroup } from '../../src/main/workspace-groups'
 import type { WorkspaceGroup } from '../../src/shared/types'
 import {
   MAP_BACKED_SAMPLES,
+  MAP_BACKED_UPDATE_PATCHES,
   SAMPLE_GROUP,
   SAMPLE_PAGE,
   type MapBackedKind,
@@ -118,11 +125,15 @@ const KINDS = Object.keys(MAP_BACKED_SAMPLES) as MapBackedKind[]
 
 /** Seed the runtime store directly from the sample.
  *
- *  Deliberately not `create` + `update`: those honor only the fields each
- *  handler casts, and closing that gap is its own step. Seeding the store is
- *  the state a live entity is in by the time any copy path reads it. */
+ *  Deliberately not `create`: create's defaulting logic isn't what this net
+ *  covers, and seeding the store is the state a live entity is in by the time
+ *  any copy or update path reads it. Restores a deep clone, not the shared
+ *  `SAMPLE_*` object itself — `restore` pushes its argument by reference, and
+ *  the `update` cases below mutate the seeded entity in place; without the
+ *  clone, updating a seeded `text` would permanently overwrite the module-level
+ *  `SAMPLE_TEXT` fixture for every test that runs afterward in this file. */
 function seedRuntime(kind: MapBackedKind): Record<string, unknown> {
-  const sample = MAP_BACKED_SAMPLES[kind] as unknown as Record<string, unknown>
+  const sample = structuredClone(MAP_BACKED_SAMPLES[kind]) as unknown as Record<string, unknown>
   getEntityKind(kind).restore([sample])
   return sample
 }
@@ -214,6 +225,49 @@ describe('entity field round-trip', () => {
           if (field === 'kind') continue
           expect(reloaded?.[field], `${kind}.${field} was lost saving to or loading from .canvas`)
             .toEqual(sample[field])
+        }
+      })
+    }
+  })
+
+  /**
+   * The mutation-side flavor of field drift (docs/plans/entity-field-drift.md,
+   * Step C): each registry `update` handler cast patch fields onto its state
+   * mutator one by one instead of forwarding the whole patch, so a field could
+   * persist and load correctly yet do nothing when an agent or the details
+   * panel set it through `getEntityKind(kind).update()`. Unlike the copy paths
+   * above, `update` legitimately changes `parentGroupId` and `pageAnchor` (an
+   * agent moving an entity into a group, or a details-panel edit re-anchoring
+   * it), so — unlike `nonPlacementFields` — every declared field except
+   * `kind`/`id` is checked here.
+   *
+   * Mutation-verified: reverting `textKind.update` (src/main/entities/builtin/
+   * text.ts) to its pre-fix hand-picked field list (dropping `textStyle`,
+   * `parentGroupId`, `label`, `pageAnchor`) fails the text case below with
+   * those four fields unchanged from the seed value; reverting
+   * `shapeKind.update` similarly (dropping `label`, `parentGroupId`,
+   * `pageAnchor`) fails the shape case; reverting `drawingKind.update`
+   * (dropping `parentGroupId`, `label`, `pageAnchor`) fails the drawing case;
+   * reverting `fileKind.update` (dropping `parentGroupId`) fails the file
+   * case.
+   */
+  describe('update', () => {
+    for (const kind of KINDS) {
+      it(`${kind} update patches every declared field except id/kind`, () => {
+        const sample = seedRuntime(kind)
+        const patch = MAP_BACKED_UPDATE_PATCHES[kind] as unknown as Record<string, unknown>
+
+        getEntityKind(kind).update(sample.id as string, patch, {})
+
+        const updated = getEntityKind(kind)
+          .entities()
+          .find((entity) => entity.id === sample.id) as Record<string, unknown> | undefined
+        expect(updated, `${kind} disappeared after update`).toBeDefined()
+
+        for (const field of declaredFields(kind)) {
+          if (field === 'kind' || field === 'id') continue
+          expect(updated?.[field], `${kind}.${field} did not take effect via update`)
+            .toEqual(patch[field])
         }
       })
     }

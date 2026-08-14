@@ -151,3 +151,106 @@ export const MAP_BACKED_SAMPLES = {
 } as const
 
 export type MapBackedKind = keyof typeof MAP_BACKED_SAMPLES
+
+/**
+ * Second, fully-distinct value for every declared field of each map-backed
+ * kind — a patch to apply over `MAP_BACKED_SAMPLES` via
+ * `getEntityKind(kind).update()`. Exists to catch the mutation-side flavor of
+ * field drift (docs/plans/entity-field-drift.md, Step C): a registry `update`
+ * handler that casts patch fields one by one silently ignores any field it
+ * forgot to name, even though the field persists and loads correctly. Every
+ * value differs from the matching `SAMPLE_*` value (including `id`, so a path
+ * that accidentally re-keys is also visible) so the round-trip check can tell
+ * "field took the patch value" apart from "field kept its old value".
+ */
+const updatedPageAnchor = { pageId: 'page_updated', pageUrl: 'https://example.test/updated' }
+
+// `update` grid-snaps canvasX/canvasY/width/height (src/main/runtime/
+// document-commands.ts, snapGeometryPatch — GRID_SIZE is 20), so every
+// geometry value here is a multiple of 20. Otherwise the snap would round the
+// patched value away from what the test asserts, which is a snapping quirk,
+// not the field-drift bug this net is for.
+export const SAMPLE_TEXT_UPDATE = {
+  text: 'updated text body',
+  color: '2',
+  canvasX: 1000,
+  canvasY: 900,
+  width: 320,
+  height: 200,
+  textStyle: 'sticky',
+  widthMode: 'fixed',
+  textSize: 32,
+  label: 'Updated text label',
+  parentGroupId: 'group_updated',
+  pageAnchor: updatedPageAnchor,
+} satisfies Omit<Required<PersistedTextEntity>, 'kind' | 'id'>
+
+export const SAMPLE_FILE_UPDATE = {
+  file: 'notes/updated.md',
+  subpath: '#updated-heading',
+  canvasX: 780,
+  canvasY: 660,
+  // File entities snap position only, not size (updateFileEntity passes an
+  // explicit snapKeys of just canvasX/canvasY) — width/height need no
+  // grid-alignment.
+  width: 555,
+  height: 444,
+  objectFit: 'contain',
+  // Deliberately out of `VIEWPORT_PRESETS` range: a valid index would make
+  // `setFilePreset` (the richer device-preset verb `fileKind.update` calls
+  // after the raw field copy) overwrite width/height with the device's
+  // viewport size, which would fail the width/height checks above for a
+  // reason unrelated to what this case tests — whether the raw `presetIndex`
+  // field itself reaches the entity.
+  presetIndex: 999,
+  metadata: { updatedKey: 'updatedValue' },
+  parentGroupId: 'group_updated',
+} satisfies Omit<Required<PersistedFileEntity>, 'kind' | 'id'>
+
+export const SAMPLE_DRAWING_UPDATE = {
+  canvasX: 120,
+  canvasY: 220,
+  width: 340,
+  height: 440,
+  strokes: [
+    {
+      id: 'stroke_updated',
+      color: '7',
+      width: 8,
+      points: [{ x: 9, y: 10 }, { x: 11, y: 12 }],
+      brushType: 'marker',
+    },
+  ] as PersistedDrawingEntity['strokes'],
+  label: 'Updated drawing label',
+  parentGroupId: 'group_updated',
+  pageAnchor: updatedPageAnchor,
+} satisfies Omit<Required<PersistedDrawingEntity>, 'kind' | 'id'>
+
+export const SAMPLE_SHAPE_UPDATE = {
+  shapeKind: 'ellipse',
+  text: 'updated shape label',
+  color: '3',
+  fillStyle: 'solid',
+  strokeWidth: 6,
+  borderStyle: 'solid',
+  borderColor: '2',
+  textSize: 22,
+  textAlign: 'right',
+  textVerticalAlign: 'bottom',
+  theme: 'light',
+  canvasX: 1200,
+  canvasY: 1300,
+  width: 400,
+  height: 300,
+  label: 'Updated shape label',
+  parentGroupId: 'group_updated',
+  pageAnchor: updatedPageAnchor,
+} satisfies Omit<Required<PersistedShapeEntity>, 'kind' | 'id'>
+
+/** Keyed by kind, mirroring `MAP_BACKED_SAMPLES`. */
+export const MAP_BACKED_UPDATE_PATCHES = {
+  text: SAMPLE_TEXT_UPDATE,
+  file: SAMPLE_FILE_UPDATE,
+  drawing: SAMPLE_DRAWING_UPDATE,
+  shape: SAMPLE_SHAPE_UPDATE,
+} as const
