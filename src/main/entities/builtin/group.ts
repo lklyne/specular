@@ -11,7 +11,7 @@ import type { JsonCanvasGroupNode } from '../../../shared/json-canvas-types'
 import { createUserGroup } from '../../workspace-groups'
 import { setGroupLayoutGap } from '../../managed-layout'
 import { deleteGroupEntity, updateGroupEntity } from '../../runtime/document-commands'
-import { WORKSPACE_GROUP_PERSISTED_FIELDS } from '../../runtime/group-entity-state'
+import { WORKSPACE_GROUP_PERSISTED_FIELDS, persistGroupEntity } from '../../runtime/group-entity-state'
 import { workspaceGroups } from '../../runtime/space-model'
 import {
   deserializeGroupNodeToGroup,
@@ -72,4 +72,11 @@ export const groupKind: EntityKindDefinition<'group'> = {
       workspaceGroups.push(snapshot as unknown as WorkspaceGroup)
     }
   },
+
+  // Used by `spaceSnapshot()` (space-tabs.ts) to fold group into the same
+  // per-kind loop as the map-backed kinds. Forward sync to the Y.Doc (ADR
+  // 0024 §5's other direction) mirrors `workspaceGroups` by identity instead
+  // — see the `kind !== 'group'` filter in space-observers.ts — so this
+  // projection has exactly one caller today.
+  persist: (entity) => persistGroupEntity(entity as WorkspaceGroup),
 }

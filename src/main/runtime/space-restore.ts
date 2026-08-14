@@ -39,6 +39,7 @@ import {
   workspaceGroups,
   spaceTabs,
 } from './space-model'
+import { getEntityKind } from '../entities/contract'
 import {
   pages,
   setInspectHoveredTarget,
@@ -61,29 +62,14 @@ import {
   ensureSpaceTabsInitialized,
 } from './space-tabs'
 import {
-  normalizePresetIndex,
-} from './runtime-serialization'
-import {
   clampDevtoolsWidth,
   normalizeDevtoolsPanelTab,
 } from './preferences'
-import { createPage, removePageAtIndex } from './page-factory'
-import {
-  clearTextEntities,
-  createTextEntity as createTextEntityInState,
-} from './text-entity-state'
-import {
-  clearFileEntities,
-  createFileEntity as createFileEntityInState,
-} from './file-entity-state'
-import {
-  clearDrawingEntities,
-  createDrawingEntity as createDrawingEntityInState,
-} from './drawing-entity-state'
-import {
-  clearShapeEntities,
-  createShapeEntity as createShapeEntityInState,
-} from './shape-entity-state'
+import { removePageAtIndex } from './page-factory'
+import { clearTextEntities } from './text-entity-state'
+import { clearFileEntities } from './file-entity-state'
+import { clearDrawingEntities } from './drawing-entity-state'
+import { clearShapeEntities } from './shape-entity-state'
 import {
   deselectAll,
   selectPage,
@@ -155,40 +141,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
     if (normalizedPanelTab) {
       setUiDevtoolsPanelTab(normalizedPanelTab)
     }
-    workspaceGroups.length = 0
     workspaceEdges.length = 0
-    if (snapshot.groups) {
-      workspaceGroups.push(
-        ...snapshot.groups.map((group) => ({
-          ...group,
-          pageIds: group.pageIds ? [...group.pageIds] : undefined,
-          metadata: group.metadata ? { ...group.metadata } : undefined,
-        })),
-      )
-    }
-    if (snapshot.entities) {
-      for (const id of snapshot.entityOrder ?? Object.keys(snapshot.entities)) {
-        const entity = snapshot.entities[id]
-        if (entity?.kind === 'group' && !workspaceGroups.some((group) => group.id === entity.id)) {
-          workspaceGroups.push({
-            id: entity.id,
-            kind: 'group',
-            label: entity.label,
-            canvasX: entity.canvasX,
-            canvasY: entity.canvasY,
-            width: entity.width,
-            height: entity.height,
-            parentGroupId: entity.parentGroupId,
-            color: entity.color,
-            layoutMode: entity.layoutMode,
-            layoutGap: entity.layoutGap,
-            managedLayout: entity.managedLayout,
-            sourceTaskId: entity.sourceTaskId,
-            metadata: entity.metadata ? { ...entity.metadata } : undefined,
-          })
-        }
-      }
-    }
     if (snapshot.edges) {
       workspaceEdges.push(
         ...snapshot.edges.map((edge) => ({
@@ -198,61 +151,71 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
       )
     }
 
+    // One bucket per registered kind, filled from whichever shape the
+    // snapshot carries an entity in — the legacy `pages`/`groups` arrays, or
+    // the generic `entities` map a `.canvas` load always uses — then handed
+    // to that kind's own `restore`, the same door undo and tab-switch
+    // already go through (ADR 0024 §5). Spreading the persisted record
+    // rather than listing fields by hand means a field added to a kind's
+    // declaration is carried automatically; no arm here has to be told
+    // about it.
+    const pageSnapshots: Record<string, unknown>[] = []
+    const groupSnapshots: Record<string, unknown>[] = []
+    const textSnapshots: Record<string, unknown>[] = []
+    const fileSnapshots: Record<string, unknown>[] = []
+    const drawingSnapshots: Record<string, unknown>[] = []
+    const shapeSnapshots: Record<string, unknown>[] = []
+
     const restoredPageIds = new Set<string>()
     for (const page of snapshot.pages) {
-      createPage({
-        id: page.id,
-        name: page.name,
-        url: page.url,
-        presetIndex: normalizePresetIndex(page.presetIndex),
-        canvasX: page.canvasX,
-        canvasY: page.canvasY,
-        syncId: page.syncId ?? null,
-        source: page.source ?? 'manual',
-        parentGroupId: page.parentGroupId ?? page.groupId,
-        groupId: page.parentGroupId ?? page.groupId,
-        metadata: page.metadata,
-        colorScheme: page.colorScheme,
-      })
+      pageSnapshots.push({ ...page, parentGroupId: page.parentGroupId ?? page.groupId })
       if (page.id) restoredPageIds.add(page.id)
     }
 
-    // Restore text and file entities from snapshot
+    const seenGroupIds = new Set<string>()
+    if (snapshot.groups) {
+      for (const group of snapshot.groups) {
+        groupSnapshots.push({
+          ...group,
+          pageIds: group.pageIds ? [...group.pageIds] : undefined,
+          metadata: group.metadata ? { ...group.metadata } : undefined,
+        })
+        seenGroupIds.add(group.id)
+      }
+    }
+
     if (snapshot.entities) {
       for (const id of snapshot.entityOrder ?? Object.keys(snapshot.entities)) {
         const entity = snapshot.entities[id]
-        if (entity?.kind === 'page' && !restoredPageIds.has(entity.id)) {
-          createPage({
-            id: entity.id,
-            name: entity.name,
-            url: entity.url,
-            presetIndex: entity.presetIndex,
-            canvasX: entity.canvasX,
-            canvasY: entity.canvasY,
-            syncId: entity.syncId ?? null,
-            source: entity.source ?? 'manual',
-            parentGroupId: entity.parentGroupId ?? entity.groupId,
-            groupId: entity.parentGroupId ?? entity.groupId,
-            metadata: entity.metadata,
-            colorScheme: entity.colorScheme,
-          })
-        } else if (entity?.kind === 'text' || (entity as any)?.kind === 'sticky-note') {
-          // Spread the persisted record rather than listing fields by hand: a
-          // hand-written subset silently drops any field added later, and this
-          // is the one load path that doesn't go through `def.restore`.
-          createTextEntityInState({ ...(entity as any) })
-        } else if (entity?.kind === 'file') {
-          createFileEntityInState({ ...(entity as any) })
-        } else if (entity?.kind === 'drawing') {
-          createDrawingEntityInState({
-            ...(entity as any),
-            strokes: (entity as any).strokes ?? [],
-          })
-        } else if (entity?.kind === 'shape') {
-          createShapeEntityInState({ ...(entity as any) })
+        if (!entity) continue
+        if (entity.kind === 'page') {
+          if (!restoredPageIds.has(entity.id)) {
+            pageSnapshots.push({ ...entity, parentGroupId: entity.parentGroupId ?? entity.groupId })
+            restoredPageIds.add(entity.id)
+          }
+        } else if (entity.kind === 'group') {
+          if (!seenGroupIds.has(entity.id)) {
+            groupSnapshots.push({ ...entity })
+            seenGroupIds.add(entity.id)
+          }
+        } else if (entity.kind === 'text' || (entity as any).kind === 'sticky-note') {
+          textSnapshots.push({ ...(entity as any) })
+        } else if (entity.kind === 'file') {
+          fileSnapshots.push({ ...(entity as any) })
+        } else if (entity.kind === 'drawing') {
+          drawingSnapshots.push({ ...(entity as any), strokes: (entity as any).strokes ?? [] })
+        } else if (entity.kind === 'shape') {
+          shapeSnapshots.push({ ...(entity as any) })
         }
       }
     }
+
+    getEntityKind('page').restore(pageSnapshots)
+    getEntityKind('group').restore(groupSnapshots)
+    getEntityKind('text').restore(textSnapshots)
+    getEntityKind('file').restore(fileSnapshots)
+    getEntityKind('drawing').restore(drawingSnapshots)
+    getEntityKind('shape').restore(shapeSnapshots)
 
     if (snapshot.selectedPageId) {
       selectPageById(snapshot.selectedPageId)
