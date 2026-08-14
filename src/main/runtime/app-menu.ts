@@ -190,7 +190,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
         { type: 'separator' },
         // All-process Chromium trace for pan/zoom jank attribution — works in
         // packaged builds (the optimized app is what's worth profiling).
-        // Auto-stops after 30s; the saved file opens at ui.perfetto.dev.
+        // Auto-stops after 10s; the saved file opens at ui.perfetto.dev.
         {
           label: getPerfTraceOwner() === 'pan-zoom-test'
             ? 'Stop Pan/Zoom Performance Test'

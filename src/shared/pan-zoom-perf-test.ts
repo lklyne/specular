@@ -77,6 +77,12 @@ export const PAN_ZOOM_PERF_PHASES: readonly PanZoomPerfPhase[] = [
   },
 ] as const
 
+/** Wall-clock the scripted gesture run takes. The trace auto-stop guard is
+ * sized from this, so adding a phase can't silently cut a recording short. */
+export const PAN_ZOOM_PERF_GESTURE_MS =
+  PAN_ZOOM_PERF_PHASES.reduce((ms, phase) => ms + phase.durationMs, 0) +
+  PAN_ZOOM_PERF_PHASES.length * PAN_ZOOM_PERF_PHASE_GAP_MS
+
 export function buildPanZoomPerfSteps(
   phase: PanZoomPerfPhase,
   frameMs = PAN_ZOOM_PERF_FRAME_MS,
