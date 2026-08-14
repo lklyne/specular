@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### New
+
+- **Draw connections with the Connect tool.** Press `X` and drag between two entities to add an edge, or drag from empty space to leave one end free — drag the loose end onto an entity later to bind it. A selected edge shows handles for re-routing either end and dragging its crossbar.
+- New edges route as elbow connectors by default, including ones made with the existing anchor-drag gesture. Edges already on your canvas are unaffected.
+
 ## [0.6.0] - 2026-08-03 — Markdown Live Preview, Your Own Space Folder
 
 ### New
