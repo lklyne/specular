@@ -27,6 +27,7 @@ import addDocumentUrl from './icons/toolbar/add-document.svg'
 import addPageUrl from './icons/toolbar/add-page.svg'
 import addTextUrl from './icons/toolbar/add-text.svg'
 import commentUrl from './icons/toolbar/comment.svg'
+import connectUrl from './icons/toolbar/connect.svg'
 import handUrl from './icons/toolbar/hand.svg'
 import inspectUrl from './icons/toolbar/inspect.svg'
 import moonUrl from './icons/toolbar/moon.svg'
@@ -38,6 +39,7 @@ import addDocumentDarkUrl from './icons/toolbar/dark/add-document.svg'
 import addPageDarkUrl from './icons/toolbar/dark/add-page.svg'
 import addTextDarkUrl from './icons/toolbar/dark/add-text.svg'
 import commentDarkUrl from './icons/toolbar/dark/comment.svg'
+import connectDarkUrl from './icons/toolbar/dark/connect.svg'
 import handDarkUrl from './icons/toolbar/dark/hand.svg'
 import inspectDarkUrl from './icons/toolbar/dark/inspect.svg'
 import moonDarkUrl from './icons/toolbar/dark/moon.svg'
@@ -636,6 +638,7 @@ export const AddDocumentToolIcon = makeToolbarIcon(
   'AddDocumentToolIcon',
 )
 export const CommentToolIcon = makeToolbarIcon(commentUrl, commentDarkUrl, 'CommentToolIcon')
+export const ConnectToolIcon = makeToolbarIcon(connectUrl, connectDarkUrl, 'ConnectToolIcon')
 export const InspectToolIcon = makeToolbarIcon(inspectUrl, inspectDarkUrl, 'InspectToolIcon')
 export const SunToolIcon = makeToolbarIcon(sunUrl, sunDarkUrl, 'SunToolIcon')
 export const MoonToolIcon = makeToolbarIcon(moonUrl, moonDarkUrl, 'MoonToolIcon')

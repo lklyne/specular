@@ -325,6 +325,9 @@ export function resolveEdgeAnchors(
   entityMap: ReadonlyMap<string, CanvasSceneEntity>,
   zoom = 1,
   originY = 0,
+  /** Canvas-space free endpoints → the same window space entity anchors live
+   *  in. Identity by default, for callers already holding screen points. */
+  project: (point: GeometryPoint) => GeometryPoint = (point) => point,
 ): { from: AnchorPoint; to: AnchorPoint } | null {
   const fromEntity = edge.fromEntityId ? entityMap.get(edge.fromEntityId) : undefined
   const toEntity = edge.toEntityId ? entityMap.get(edge.toEntityId) : undefined
@@ -340,28 +343,30 @@ export function resolveEdgeAnchors(
       to: getAnchorPoint(toEntity, toSide, zoom, originY),
     }
   }
-  if (fromEntity && edge.toPoint) {
-    const toSide = edge.toSide ?? sideTowardPoint(edge.toPoint, sceneEntityCenter(fromEntity, originY))
-    const fromSide = edge.fromSide ?? autoSide(fromEntity, edge.toPoint, originY)
+  const freeFrom = edge.fromPoint ? project(edge.fromPoint) : undefined
+  const freeTo = edge.toPoint ? project(edge.toPoint) : undefined
+  if (fromEntity && freeTo) {
+    const toSide = edge.toSide ?? sideTowardPoint(freeTo, sceneEntityCenter(fromEntity, originY))
+    const fromSide = edge.fromSide ?? autoSide(fromEntity, freeTo, originY)
     return {
       from: getAnchorPoint(fromEntity, fromSide, zoom, originY),
-      to: freeAnchorPoint(edge.toPoint, toSide, originY),
+      to: freeAnchorPoint(freeTo, toSide, originY),
     }
   }
-  if (toEntity && edge.fromPoint) {
-    const fromSide = edge.fromSide ?? sideTowardPoint(edge.fromPoint, sceneEntityCenter(toEntity, originY))
-    const toSide = edge.toSide ?? autoSide(toEntity, edge.fromPoint, originY)
+  if (toEntity && freeFrom) {
+    const fromSide = edge.fromSide ?? sideTowardPoint(freeFrom, sceneEntityCenter(toEntity, originY))
+    const toSide = edge.toSide ?? autoSide(toEntity, freeFrom, originY)
     return {
-      from: freeAnchorPoint(edge.fromPoint, fromSide, originY),
+      from: freeAnchorPoint(freeFrom, fromSide, originY),
       to: getAnchorPoint(toEntity, toSide, zoom, originY),
     }
   }
-  if (edge.fromPoint && edge.toPoint) {
-    const fromSide = edge.fromSide ?? sideTowardPoint(edge.fromPoint, edge.toPoint)
-    const toSide = edge.toSide ?? sideTowardPoint(edge.toPoint, edge.fromPoint)
+  if (freeFrom && freeTo) {
+    const fromSide = edge.fromSide ?? sideTowardPoint(freeFrom, freeTo)
+    const toSide = edge.toSide ?? sideTowardPoint(freeTo, freeFrom)
     return {
-      from: freeAnchorPoint(edge.fromPoint, fromSide, originY),
-      to: freeAnchorPoint(edge.toPoint, toSide, originY),
+      from: freeAnchorPoint(freeFrom, fromSide, originY),
+      to: freeAnchorPoint(freeTo, toSide, originY),
     }
   }
   return null

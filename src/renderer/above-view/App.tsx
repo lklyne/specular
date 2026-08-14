@@ -8,6 +8,7 @@ import {
   normalizeRect,
   screenRectToCanvasRect,
 } from '../../shared/gesture-utils'
+import { canvasToScreenPoint } from '../../shared/coords'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { toolHasPopup } from '../../shared/tool'
 import {
@@ -249,6 +250,8 @@ function StackedCanvasItems({
         onSelectEdge={api.selectEdge}
         renderAnchors={false}
         zIndex={undefined}
+        projectCanvasPoint={(point) => canvasToScreenPoint(layoutData, point)}
+        routingApi={api}
       />
     )
     return layer

@@ -29,14 +29,19 @@
 
 import { EDGE_ANCHOR_HIT_MIN_SCALE, EDGE_SIDES } from './canvas-hit-geometry'
 import {
+  autoSide,
   buildBezierPath,
   getAnchorPoint,
   resolveEdgeAnchors,
+  sideTowardPoint,
   type AnchorPoint,
+  type GeometryPoint,
 } from './edge-geometry'
 import type { CanvasSceneEntity, EdgeSide, WorkspaceEdge } from './types'
 
 const SNAP_DISTANCE = 48
+/** Below this the press is a click, and a click connects nothing. */
+const FREE_END_MIN_TRAVEL = 4
 
 // --- Public types ---
 
@@ -52,11 +57,24 @@ export type EdgeDragState =
   | { kind: 'idle' }
   | {
       kind: 'create'
-      fromEntityId: string
-      fromSide: EdgeSide
+      /** Null when the drag started on empty canvas — `fromPoint` holds it. */
+      fromEntityId: string | null
+      fromPoint?: GeometryPoint
+      /** Null means "no side yet": a body grab, resolved toward the cursor per
+       *  move and committed as `undefined` so the end stays object-bound. */
+      fromSide: EdgeSide | null
+      /** Grab point, so a press that never travels can commit nothing. */
+      originX: number
+      originY: number
       cursorX: number
       cursorY: number
       snap: SnapTarget | null
+      /** Entity whose body the cursor is over, source excluded. Drives the
+       *  body-release commit that the anchor snap can't express. */
+      hoverEntityId: string | null
+      /** Connect-tool drags may end in empty space, leaving a free end; the
+       *  anchor door still treats that release as a no-op. */
+      freeEndsAllowed: boolean
     }
   | {
       kind: 'edit'
@@ -76,10 +94,14 @@ export type CommitOutcome =
   | { kind: 'noop' }
   | {
       kind: 'create-edge'
-      fromEntityId: string
-      fromSide: EdgeSide
-      toEntityId: string
-      toSide: EdgeSide
+      fromEntityId: string | null
+      /** In the drag's own (window) space — the caller converts to canvas. */
+      fromPoint?: GeometryPoint
+      /** Undefined means object-bound: the side rederives per paint. */
+      fromSide?: EdgeSide
+      toEntityId: string | null
+      toPoint?: GeometryPoint
+      toSide?: EdgeSide
     }
   | {
       kind: 'edit-edge'
@@ -96,13 +118,14 @@ export const EDGE_DRAG_IDLE: EdgeDragState = { kind: 'idle' }
 
 export function beginEdgeDrag(
   fromEntityId: string,
-  side: EdgeSide,
+  side: EdgeSide | null,
   cursorX: number,
   cursorY: number,
   edges: readonly WorkspaceEdge[],
   entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  options: { freeEndsAllowed?: boolean } = {},
 ): EdgeDragState {
-  const existing = findEdgeAtAnchor(edges, entityMap, fromEntityId, side)
+  const existing = side ? findEdgeAtAnchor(edges, entityMap, fromEntityId, side) : null
   if (existing) {
     return {
       kind: 'edit',
@@ -120,9 +143,34 @@ export function beginEdgeDrag(
     kind: 'create',
     fromEntityId,
     fromSide: side,
+    originX: cursorX,
+    originY: cursorY,
     cursorX,
     cursorY,
     snap: null,
+    hoverEntityId: null,
+    freeEndsAllowed: options.freeEndsAllowed ?? false,
+  }
+}
+
+/** Connect tool on empty canvas: the edge's start is a bare point. */
+export function beginFreeEdgeDrag(
+  fromPoint: GeometryPoint,
+  cursorX: number,
+  cursorY: number,
+): EdgeDragState {
+  return {
+    kind: 'create',
+    fromEntityId: null,
+    fromPoint,
+    fromSide: null,
+    originX: cursorX,
+    originY: cursorY,
+    cursorX,
+    cursorY,
+    snap: null,
+    hoverEntityId: null,
+    freeEndsAllowed: true,
   }
 }
 
@@ -144,7 +192,36 @@ export function updateEdgeDragCursor(
     scaleSnapDistance(SNAP_DISTANCE, zoom),
     zoom,
   )
-  return { ...state, cursorX, cursorY, snap }
+  if (state.kind === 'edit') return { ...state, cursorX, cursorY, snap }
+  return {
+    ...state,
+    cursorX,
+    cursorY,
+    snap,
+    // The source is deliberately NOT excluded: a release on it has to be
+    // recognised so it can commit `noop` rather than a self-edge.
+    hoverEntityId: entityAtPoint(entityMap, cursorX, cursorY),
+  }
+}
+
+/** Topmost entity whose body contains the point. */
+function entityAtPoint(
+  entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  x: number,
+  y: number,
+): string | null {
+  let found: string | null = null
+  for (const [entityId, entity] of entityMap) {
+    if (
+      x >= entity.screenX &&
+      x <= entity.screenX + entity.screenWidth &&
+      y >= entity.screenY &&
+      y <= entity.screenY + entity.screenHeight
+    ) {
+      found = entityId
+    }
+  }
+  return found
 }
 
 export function commitEdgeDrag(state: EdgeDragState): CommitOutcome {
@@ -161,14 +238,37 @@ export function commitEdgeDrag(state: EdgeDragState): CommitOutcome {
     }
     return { kind: 'discard-edge', edgeId: state.edgeId }
   }
-  // create
+  // create. A release on the source entity is a self-edge — rejected, because
+  // a self-loop needs its own route and shares nothing with this builder.
+  if (state.hoverEntityId !== null && state.hoverEntityId === state.fromEntityId) {
+    return { kind: 'noop' }
+  }
+  const from = {
+    fromEntityId: state.fromEntityId,
+    fromPoint: state.fromEntityId ? undefined : state.fromPoint,
+    // A null side is object-bound, not "top": it rederives per paint.
+    fromSide: state.fromSide ?? undefined,
+  }
   if (state.snap) {
     return {
       kind: 'create-edge',
-      fromEntityId: state.fromEntityId,
-      fromSide: state.fromSide,
+      ...from,
       toEntityId: state.snap.entityId,
       toSide: state.snap.side,
+    }
+  }
+  // Released over a body with no anchor snap: bind to the object, side auto.
+  if (state.hoverEntityId) {
+    return { kind: 'create-edge', ...from, toEntityId: state.hoverEntityId }
+  }
+  // A click that never travels creates nothing — the tool just stays active.
+  const travelled = Math.hypot(state.cursorX - state.originX, state.cursorY - state.originY)
+  if (state.freeEndsAllowed && travelled >= FREE_END_MIN_TRAVEL && (state.fromEntityId || state.fromPoint)) {
+    return {
+      kind: 'create-edge',
+      ...from,
+      toEntityId: null,
+      toPoint: { x: state.cursorX, y: state.cursorY },
     }
   }
   return { kind: 'noop' }
@@ -186,12 +286,17 @@ export function cancelEdgeDrag(state: EdgeDragState): CommitOutcome {
  */
 export function edgeDragOrigin(
   state: EdgeDragState,
+  entityMap?: ReadonlyMap<string, CanvasSceneEntity>,
 ): { entityId: string; side: EdgeSide } | { point: { x: number; y: number }; side: EdgeSide } | null {
   switch (state.kind) {
     case 'idle':
       return null
-    case 'create':
-      return { entityId: state.fromEntityId, side: state.fromSide }
+    case 'create': {
+      const side = createOriginSide(state, entityMap)
+      if (state.fromEntityId) return { entityId: state.fromEntityId, side }
+      if (state.fromPoint) return { point: state.fromPoint, side }
+      return null
+    }
     case 'edit':
       if (state.fixedEntityId) return { entityId: state.fixedEntityId, side: state.fixedSide }
       if (state.fixedPoint) return { point: state.fixedPoint, side: state.fixedSide }
@@ -210,10 +315,16 @@ export function buildEdgeDragPath(
   let from: AnchorPoint
   let fromSide: EdgeSide
   if (state.kind === 'create') {
-    const fromEntity = entityMap.get(state.fromEntityId)
-    if (!fromEntity) return null
-    fromSide = state.fromSide
-    from = getAnchorPoint(fromEntity, fromSide, zoom)
+    fromSide = createOriginSide(state, entityMap)
+    if (state.fromEntityId) {
+      const fromEntity = entityMap.get(state.fromEntityId)
+      if (!fromEntity) return null
+      from = getAnchorPoint(fromEntity, fromSide, zoom)
+    } else if (state.fromPoint) {
+      from = { x: state.fromPoint.x, y: state.fromPoint.y, side: fromSide }
+    } else {
+      return null
+    }
   } else {
     fromSide = state.fixedSide
     if (state.fixedEntityId) {
@@ -232,6 +343,23 @@ export function buildEdgeDragPath(
     : { x: state.cursorX, y: state.cursorY, side: oppositeSide(fromSide) }
 
   return { d: buildBezierPath(from, to, zoom), from, to }
+}
+
+/**
+ * The side a create drag's rubber-band leaves from. A pinned side is kept; a
+ * null side faces the cursor, so the band swings around the source as the
+ * pointer crosses its corners.
+ */
+function createOriginSide(
+  state: Extract<EdgeDragState, { kind: 'create' }>,
+  entityMap?: ReadonlyMap<string, CanvasSceneEntity>,
+): EdgeSide {
+  if (state.fromSide) return state.fromSide
+  const cursor = { x: state.cursorX, y: state.cursorY }
+  const fromEntity = state.fromEntityId ? entityMap?.get(state.fromEntityId) : undefined
+  if (fromEntity) return autoSide(fromEntity, cursor)
+  if (state.fromPoint) return sideTowardPoint(state.fromPoint, cursor)
+  return 'right'
 }
 
 // --- Internal pure helpers ---

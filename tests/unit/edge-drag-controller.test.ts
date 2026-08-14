@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   beginEdgeDrag,
+  beginFreeEdgeDrag,
   buildEdgeDragPath,
   cancelEdgeDrag,
   commitEdgeDrag,
@@ -108,6 +109,27 @@ describe('edge-drag-controller', () => {
     })
   })
 
+  describe('null-side origin', () => {
+    // The rubber-band leaves the side of the source that faces the cursor, so
+    // the band swings around the entity as the pointer crosses its corners.
+    it('resolves the origin side from the cursor and follows it', () => {
+      const a = page('a', 0, 0) // 0,0 → 200,100; center 100,50
+      let state = beginEdgeDrag('a', null, 100, 50, [], entityMap(a))
+      state = updateEdgeDragCursor(state, 600, 60, entityMap(a), 1)
+      expect(edgeDragOrigin(state, entityMap(a))).toEqual({ entityId: 'a', side: 'right' })
+
+      state = updateEdgeDragCursor(state, 100, 600, entityMap(a), 1)
+      expect(edgeDragOrigin(state, entityMap(a))).toEqual({ entityId: 'a', side: 'bottom' })
+    })
+
+    it('a pinned side is kept verbatim however the cursor moves', () => {
+      const a = page('a', 0, 0)
+      let state = beginEdgeDrag('a', 'left', 100, 50, [], entityMap(a))
+      state = updateEdgeDragCursor(state, 600, 60, entityMap(a), 1)
+      expect(edgeDragOrigin(state, entityMap(a))).toEqual({ entityId: 'a', side: 'left' })
+    })
+  })
+
   describe('commitEdgeDrag', () => {
     it('create + snap → create-edge outcome', () => {
       const a = page('a', 0, 0)
@@ -122,6 +144,58 @@ describe('edge-drag-controller', () => {
         toEntityId: 'b',
         toSide: 'left',
       })
+    })
+
+    // Connect-tool releases. A body release binds to the object with no side,
+    // which is the change that makes connecting feel like FigJam; a release on
+    // the source is a self-edge and stays rejected.
+    it('create released over a body commits with side undefined, not noop', () => {
+      const a = page('a', 0, 0)
+      const b = page('b', 400, 0)
+      let state = beginEdgeDrag('a', null, 100, 50, [], entityMap(a, b), {
+        freeEndsAllowed: true,
+      })
+      // Well inside b's body, far from any of its anchors.
+      state = updateEdgeDragCursor(state, 500, 50, entityMap(a, b), 1)
+      const outcome = commitEdgeDrag(state)
+      expect(outcome).toEqual({
+        kind: 'create-edge',
+        fromEntityId: 'a',
+        fromSide: undefined,
+        toEntityId: 'b',
+        toSide: undefined,
+      })
+    })
+
+    it('create released on the source entity → noop (no self-edge)', () => {
+      const a = page('a', 0, 0)
+      let state = beginEdgeDrag('a', null, 100, 50, [], entityMap(a), {
+        freeEndsAllowed: true,
+      })
+      state = updateEdgeDragCursor(state, 150, 60, entityMap(a), 1)
+      expect(commitEdgeDrag(state)).toEqual({ kind: 'noop' })
+    })
+
+    it('a free-start drag released over a body binds that end and keeps its point', () => {
+      const b = page('b', 400, 0)
+      let state = beginFreeEdgeDrag({ x: 100, y: 300 }, 100, 300)
+      state = updateEdgeDragCursor(state, 500, 50, entityMap(b), 1)
+      expect(commitEdgeDrag(state)).toEqual({
+        kind: 'create-edge',
+        fromEntityId: null,
+        fromPoint: { x: 100, y: 300 },
+        fromSide: undefined,
+        toEntityId: 'b',
+        toSide: undefined,
+      })
+    })
+
+    it('a connect-tool press that never travels commits nothing', () => {
+      const a = page('a', 0, 0)
+      const state = beginEdgeDrag('a', null, 100, 50, [], entityMap(a), {
+        freeEndsAllowed: true,
+      })
+      expect(commitEdgeDrag(state)).toEqual({ kind: 'noop' })
     })
 
     it('create without snap → noop', () => {

@@ -27,6 +27,12 @@ describe('tool-defaults: normalizeToolDefaults', () => {
         textSize: 56,
       },
       draw: { brushType: 'highlight' as const, color: '#111111', strokeWidth: 6 },
+      connect: {
+        routing: 'straight' as const,
+        color: '#abcdef',
+        strokeWidth: 3,
+        toEnd: 'none' as const,
+      },
     }
     expect(normalizeToolDefaults(persisted)).toEqual(persisted)
   })

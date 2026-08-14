@@ -14,6 +14,7 @@ export type Tool =
   | { kind: 'add-sticky' }
   | { kind: 'add-shape' }
   | { kind: 'comment' }
+  | { kind: 'connect' }
   | { kind: 'draw' }
   | { kind: 'inspect' }
 
@@ -30,6 +31,7 @@ export const toolDuration: Record<ToolKind, ToolDuration> = {
   'add-sticky': 'one-shot',
   'add-shape': 'one-shot',
   comment: 'persistent',
+  connect: 'persistent',
   draw: 'persistent',
   inspect: 'persistent',
 }
@@ -55,6 +57,7 @@ export function toolHasPopup(tool: Tool): boolean {
     tool.kind === 'add-text' ||
     tool.kind === 'add-sticky' ||
     tool.kind === 'add-shape' ||
+    tool.kind === 'connect' ||
     tool.kind === 'draw'
   )
 }
@@ -130,6 +133,8 @@ export function toolGerund(tool: Tool): string {
       return 'adding shape'
     case 'comment':
       return 'commenting'
+    case 'connect':
+      return 'connecting'
     case 'draw':
       return 'drawing'
     case 'inspect':

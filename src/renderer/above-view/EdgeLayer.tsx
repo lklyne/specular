@@ -31,7 +31,10 @@ import {
   resolveEdgeAnchors,
   getAnchorPoint,
   type AnchorPoint,
+  type GeometryPoint,
 } from '../../shared/edge-geometry'
+import type { EdgeSplitAxis } from '../../shared/types'
+import { EdgeHandlesLayer, type EdgeRoutingApi } from './EdgeHandles'
 import { selectionColor, EDGE_COLOR_DEFAULT } from '../canvas-bg/canvasBgConstants'
 import { scaleEdgeHitTargetSize } from '../canvas-bg/edgeHitSizing'
 
@@ -252,6 +255,8 @@ export function EdgeLayer({
   onSelectEdge,
   renderAnchors = true,
   zIndex = 5,
+  projectCanvasPoint,
+  routingApi,
 }: {
   edges: WorkspaceEdge[]
   entities: CanvasSceneEntity[]
@@ -265,6 +270,11 @@ export function EdgeLayer({
   onSelectEdge: (edgeId: string) => void
   renderAnchors?: boolean
   zIndex?: number | undefined
+  /** Free endpoints are stored in canvas space; entity anchors are laid out in
+   *  window space. Callers holding the viewport pass the conversion. */
+  projectCanvasPoint?: (point: GeometryPoint) => GeometryPoint
+  /** Enables the crossbar grip on a selected elbow edge. */
+  routingApi?: EdgeRoutingApi
 }) {
   const entityMap = useMemo(() => {
     const map = new Map<string, CanvasSceneEntity>()
@@ -280,6 +290,10 @@ export function EdgeLayer({
     const paths: Array<{
       id: string
       d: string
+      from: AnchorPoint
+      to: AnchorPoint
+      routing: WorkspaceEdge['routing']
+      split: { value: number; axis: EdgeSplitAxis } | undefined
       selected: boolean
       fromEnd: EdgeEnd
       toEnd: EdgeEnd
@@ -290,13 +304,28 @@ export function EdgeLayer({
     }> = []
 
     for (const edge of edges) {
-      const anchors = resolveEdgeAnchors(edge, entityMap, zoom, originY)
+      const anchors = resolveEdgeAnchors(edge, entityMap, zoom, originY, projectCanvasPoint)
       if (!anchors) continue
       const { from, to } = anchors
-      const d = buildEdgePath(edge, from, to, zoom)
+      // Live crossbar preview: while `routing-edge` is in flight the broadcast
+      // split wins over the stored one, so the route follows the pointer
+      // without a doc write per tick.
+      const live =
+        interaction.kind === 'routing-edge' && interaction.edgeId === edge.id
+          ? { elbowSplit: interaction.split, elbowSplitAxis: interaction.axis }
+          : null
+      const routed = live ? { ...edge, ...live } : edge
+      const d = buildEdgePath(routed, from, to, zoom)
       paths.push({
         id: edge.id,
         d,
+        from,
+        to,
+        routing: edge.routing,
+        split:
+          routed.elbowSplit !== undefined && routed.elbowSplitAxis !== undefined
+            ? { value: routed.elbowSplit, axis: routed.elbowSplitAxis }
+            : undefined,
         selected: selectedEdgeIds.has(edge.id),
         fromEnd: edge.fromEnd ?? 'none',
         toEnd: edge.toEnd ?? 'arrow',
@@ -307,7 +336,7 @@ export function EdgeLayer({
       })
     }
     return paths
-  }, [edges, entityMap, selectedEdgeIds, zoom, originY])
+  }, [edges, entityMap, selectedEdgeIds, zoom, originY, projectCanvasPoint, interaction])
 
   // Which entities show anchor dots: the shared eligibility selector (kept in
   // lockstep with the hit-tester's `collectAnchorTargets`), plus every entity
@@ -369,7 +398,7 @@ export function EdgeLayer({
       </defs>
 
       {/* Existing edges */}
-      {edgePaths.map(({ id, d, selected, fromEnd, toEnd, color, label, strokeWidth, lineStyle }) => {
+      {edgePaths.map(({ id, d, from, to, routing, split, selected, fromEnd, toEnd, color, label, strokeWidth, lineStyle }) => {
         const resolvedColor = color
           ? resolveCanvasColor(color, { palette: 'vivid', role: 'ink', isDark })
           : null
@@ -410,6 +439,18 @@ export function EdgeLayer({
               onSelectEdge(id)
             }}
           />
+          {selected ? (
+            <EdgeHandlesLayer
+              edgeId={id}
+              from={from}
+              to={to}
+              zoom={zoom}
+              isDark={isDark}
+              routing={routing}
+              split={split}
+              api={routingApi}
+            />
+          ) : null}
         </g>
         )
       })}

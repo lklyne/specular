@@ -49,6 +49,10 @@ export function getDrawDefaults(): ToolDefaults['draw'] {
   return readToolDefaults().draw
 }
 
+export function getConnectDefaults(): ToolDefaults['connect'] {
+  return readToolDefaults().connect
+}
+
 /**
  * Apply a single typed patch. Persists to disk and marks the canvas surface
  * dirty so the renderer (which carries tool-defaults in its layout broadcast)
@@ -67,6 +71,7 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
     'add-sticky': { ...current['add-sticky'] },
     'add-shape': { ...current['add-shape'] },
     draw: { ...current.draw },
+    connect: { ...current.connect },
   }
   switch (patch.scope) {
     case 'add-text':
@@ -87,6 +92,12 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
       if (patch.key === 'brushType') next.draw.brushType = patch.value
       else if (patch.key === 'color') next.draw.color = patch.value
       else next.draw.strokeWidth = patch.value
+      break
+    case 'connect':
+      if (patch.key === 'routing') next.connect.routing = patch.value
+      else if (patch.key === 'color') next.connect.color = patch.value
+      else if (patch.key === 'strokeWidth') next.connect.strokeWidth = patch.value
+      else next.connect.toEnd = patch.value
       break
   }
   saveToolDefaults(next)
@@ -116,5 +127,10 @@ function currentValueFor(
       if (patch.key === 'brushType') return current.draw.brushType
       if (patch.key === 'color') return current.draw.color
       return current.draw.strokeWidth
+    case 'connect':
+      if (patch.key === 'routing') return current.connect.routing
+      if (patch.key === 'color') return current.connect.color
+      if (patch.key === 'strokeWidth') return current.connect.strokeWidth
+      return current.connect.toEnd
   }
 }

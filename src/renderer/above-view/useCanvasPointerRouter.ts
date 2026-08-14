@@ -34,6 +34,7 @@ import {
 } from '../../shared/canvas-pointer-actions'
 import {
   beginEdgeDrag as beginEdgeDragState,
+  beginFreeEdgeDrag as beginFreeEdgeDragState,
   cancelEdgeDrag as cancelEdgeDragState,
   commitEdgeDrag as commitEdgeDragState,
   EDGE_DRAG_IDLE,
@@ -173,6 +174,7 @@ const ALL_KINDS: ReadonlySet<CanvasPointerAction['kind']> = new Set<CanvasPointe
   'begin-resize',
   'begin-multi-resize',
   'begin-edge-drag',
+  'begin-free-edge-drag',
   'toggle-select',
   'group-background-press',
   'background-click',
@@ -251,7 +253,12 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     const handleToolGesturePointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return
       const layout = layoutRef.current
-      if (!layout.pendingPlacement && layout.activeTool.kind !== 'comment') return
+      if (
+        !layout.pendingPlacement &&
+        layout.activeTool.kind !== 'comment' &&
+        layout.activeTool.kind !== 'connect'
+      )
+        return
 
       const windowY = clientYToWindowY(event.clientY, layout)
       const target = hitTest(layoutToHitInputs(layout), { x: event.clientX, y: windowY })
@@ -271,6 +278,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           ? { entityKind: layout.pendingPlacement.entityKind }
           : null,
         commentToolActive: layout.activeTool.kind === 'comment',
+        connectToolActive: layout.activeTool.kind === 'connect',
       }
       const action = routePointerDown(target, context)
       const dispatched = dispatchAction({
@@ -467,6 +475,7 @@ function canvasPointerContext(
     interactiveEntityId: deps.enteredEntityId,
     placement: null,
     commentToolActive: false,
+    connectToolActive: false,
   }
 }
 
@@ -522,6 +531,8 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runMultiResize(action, api, event, layoutRef)
     case 'begin-edge-drag':
       return runEdgeDrag(action, api, event, layoutRef, setEdgeDragState)
+    case 'begin-free-edge-drag':
+      return runFreeEdgeDrag(api, event, layoutRef, setEdgeDragState)
     case 'begin-marquee':
       return runBackgroundSelectionGesture(api, event, layoutRef, action.originEntity)
     case 'begin-pan':
@@ -856,24 +867,61 @@ function runEdgeDrag(
 ): boolean {
   const layout = layoutRef.current
   const windowY = clientYToWindowY(event.clientY, layout)
-  const entityMap = new Map<string, CanvasSceneEntity>()
-  for (const e of layout.entities) entityMap.set(e.id, e)
-  let state = beginEdgeDragState(
+  const connectTool = layout.activeTool.kind === 'connect'
+  const state = beginEdgeDragState(
     action.entityId,
-    action.side as EdgeSide,
+    action.side,
     event.clientX,
     windowY,
     layout.edges ?? [],
-    entityMap,
+    entityMapOf(layout),
+    // Only the connect tool leaves an edge dangling in empty space; the
+    // anchor door still treats a drop in the void as a no-op.
+    { freeEndsAllowed: connectTool },
   )
+  return runEdgeDragSession(state, api, event, layoutRef, setEdgeDragState)
+}
+
+/** Connect tool on empty canvas: the edge's start is a free point. */
+function runFreeEdgeDrag(
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  setEdgeDragState: (state: EdgeDragState) => void,
+): boolean {
+  const layout = layoutRef.current
+  const windowY = clientYToWindowY(event.clientY, layout)
+  const origin = { x: event.clientX, y: windowY }
+  return runEdgeDragSession(
+    beginFreeEdgeDragState(origin, origin.x, origin.y),
+    api,
+    event,
+    layoutRef,
+    setEdgeDragState,
+  )
+}
+
+function entityMapOf(layout: LayoutUpdateData): Map<string, CanvasSceneEntity> {
+  const map = new Map<string, CanvasSceneEntity>()
+  for (const e of layout.entities) map.set(e.id, e)
+  return map
+}
+
+function runEdgeDragSession(
+  initial: EdgeDragState,
+  api: CanvasBgElectronAPI,
+  event: PointerEvent,
+  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  setEdgeDragState: (state: EdgeDragState) => void,
+): boolean {
+  let state = initial
   setEdgeDragState(state)
 
   // Tell main about the gesture begin so its interaction-controller is in
   // the right mode — this is what `EdgeLayer.tsx` used to call.
-  const origin = edgeDragOrigin(state)
-  // A free-ended origin (re-routing an edge whose far end is already free)
-  // has no entity to tell main about yet — the pointer path to that gesture
-  // (grabbing a free endpoint's own handle) lands with the connect tool.
+  const origin = edgeDragOrigin(state, entityMapOf(layoutRef.current))
+  // A free origin (empty-canvas start, or re-routing an edge whose far end is
+  // already free) has no entity for main's `dragging-edge` mode to hang off.
   if (origin && 'entityId' in origin) api.beginEdgeDrag(origin.entityId, origin.side)
 
   let lastSnap: string | null = null
@@ -882,14 +930,22 @@ function runEdgeDrag(
     const outcome =
       mode === 'commit' ? commitEdgeDragState(state) : cancelEdgeDragState(state)
     switch (outcome.kind) {
-      case 'create-edge':
-        api.commitEdgeDrag(
-          outcome.fromEntityId,
-          outcome.toEntityId,
-          outcome.fromSide,
-          outcome.toSide,
-        )
+      case 'create-edge': {
+        // The controller works in window space; the document stores canvas
+        // space, so free endpoints convert here at the boundary.
+        const layout = layoutRef.current
+        const toCanvas = (point: { x: number; y: number }) =>
+          screenPointToCanvasPoint(point.x, point.y, layout)
+        api.commitEdgeDrag({
+          fromEntityId: outcome.fromEntityId,
+          toEntityId: outcome.toEntityId,
+          fromPoint: outcome.fromPoint ? toCanvas(outcome.fromPoint) : undefined,
+          toPoint: outcome.toPoint ? toCanvas(outcome.toPoint) : undefined,
+          fromSide: outcome.fromSide,
+          toSide: outcome.toSide,
+        })
         break
+      }
       case 'edit-edge':
         api.commitEdgeEdit(
           outcome.edgeId,
@@ -912,10 +968,8 @@ function runEdgeDrag(
   startPointerSession(event, {
     onMove: (ev) => {
       const cur = layoutRef.current
-      const snapMap = new Map<string, CanvasSceneEntity>()
-      for (const e of cur.entities) snapMap.set(e.id, e)
       const winY = clientYToWindowY(ev.clientY, cur)
-      state = updateEdgeDragCursor(state, ev.clientX, winY, snapMap, cur.zoom ?? 1)
+      state = updateEdgeDragCursor(state, ev.clientX, winY, entityMapOf(cur), cur.zoom ?? 1)
       setEdgeDragState(state)
       const snapKey = state.kind !== 'idle' && state.snap
         ? `${state.snap.entityId}:${state.snap.side}`

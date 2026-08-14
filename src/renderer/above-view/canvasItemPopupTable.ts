@@ -10,6 +10,7 @@ import type { ToolKind } from '../../shared/tool'
 import { PagePopup } from './PagePopup'
 import { FilePopup } from './FilePopup'
 import { DrawingPopup } from './DrawingPopup'
+import { ConnectToolPopup } from './ConnectToolPopup'
 import { DrawToolPopup } from './DrawToolPopup'
 import { GroupPopup } from './GroupPopup'
 import { MultiSelectPopup } from './MultiSelectPopup'
@@ -86,6 +87,7 @@ export const TOOL_POPUPS: ToolPopupRow[] = [
   { toolKind: 'add-text', Component: TextToolPopup, extraProps: { style: 'plain' } },
   { toolKind: 'add-sticky', Component: TextToolPopup, extraProps: { style: 'sticky' } },
   { toolKind: 'add-shape', Component: ShapeToolPopup },
+  { toolKind: 'connect', Component: ConnectToolPopup },
   { toolKind: 'draw', Component: DrawToolPopup },
 ]
 
