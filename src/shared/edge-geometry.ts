@@ -98,11 +98,28 @@ export function sceneEntityCenter(entity: CanvasSceneEntity, originY = 0): Geome
  * cursor — all three want the same answer.
  */
 export function autoSide(self: CanvasSceneEntity, toward: GeometryPoint, originY = 0): EdgeSide {
-  const center = sceneEntityCenter(self, originY)
-  const dx = toward.x - center.x
-  const dy = toward.y - center.y
+  return sideTowardPoint(sceneEntityCenter(self, originY), toward)
+}
+
+/**
+ * Which side a bare point (a free endpoint, or a live cursor) faces toward
+ * another point. Same `|dx| > |dy|` test `autoSide` uses against an entity
+ * center — a free end has no rect to test against, just this.
+ */
+export function sideTowardPoint(from: GeometryPoint, toward: GeometryPoint): EdgeSide {
+  const dx = toward.x - from.x
+  const dy = toward.y - from.y
   if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left'
   return dy > 0 ? 'bottom' : 'top'
+}
+
+/** Anchor point for a free endpoint — the point itself, no entity dot offset. */
+export function freeAnchorPoint(
+  point: GeometryPoint,
+  side: EdgeSide,
+  originY = 0,
+): AnchorPoint {
+  return { x: point.x, y: point.y - originY, side }
 }
 
 /**
@@ -294,6 +311,60 @@ export function buildElbowPath(
   split?: ElbowSplit,
 ): string {
   return elbowPathFromPoints(buildElbowPoints(from, to, zoom, split), zoom)
+}
+
+/**
+ * Resolve both endpoints of an edge to anchor points, whichever mix of bound
+ * and free ends it has. Shared by `EdgeLayer` (rendering) and the edge-drag
+ * controller (re-route gesture) so a free end resolves identically in both —
+ * null when a bound end's entity isn't in `entityMap` or a free end has no
+ * stored point.
+ */
+export function resolveEdgeAnchors(
+  edge: Pick<WorkspaceEdge, 'fromEntityId' | 'toEntityId' | 'fromPoint' | 'toPoint' | 'fromSide' | 'toSide'>,
+  entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  zoom = 1,
+  originY = 0,
+): { from: AnchorPoint; to: AnchorPoint } | null {
+  const fromEntity = edge.fromEntityId ? entityMap.get(edge.fromEntityId) : undefined
+  const toEntity = edge.toEntityId ? entityMap.get(edge.toEntityId) : undefined
+  if (edge.fromEntityId && !fromEntity) return null
+  if (edge.toEntityId && !toEntity) return null
+  if (!fromEntity && !edge.fromPoint) return null
+  if (!toEntity && !edge.toPoint) return null
+
+  if (fromEntity && toEntity) {
+    const { fromSide, toSide } = resolveEdgeSides(fromEntity, toEntity, edge, originY)
+    return {
+      from: getAnchorPoint(fromEntity, fromSide, zoom, originY),
+      to: getAnchorPoint(toEntity, toSide, zoom, originY),
+    }
+  }
+  if (fromEntity && edge.toPoint) {
+    const toSide = edge.toSide ?? sideTowardPoint(edge.toPoint, sceneEntityCenter(fromEntity, originY))
+    const fromSide = edge.fromSide ?? autoSide(fromEntity, edge.toPoint, originY)
+    return {
+      from: getAnchorPoint(fromEntity, fromSide, zoom, originY),
+      to: freeAnchorPoint(edge.toPoint, toSide, originY),
+    }
+  }
+  if (toEntity && edge.fromPoint) {
+    const fromSide = edge.fromSide ?? sideTowardPoint(edge.fromPoint, sceneEntityCenter(toEntity, originY))
+    const toSide = edge.toSide ?? autoSide(toEntity, edge.fromPoint, originY)
+    return {
+      from: freeAnchorPoint(edge.fromPoint, fromSide, originY),
+      to: getAnchorPoint(toEntity, toSide, zoom, originY),
+    }
+  }
+  if (edge.fromPoint && edge.toPoint) {
+    const fromSide = edge.fromSide ?? sideTowardPoint(edge.fromPoint, edge.toPoint)
+    const toSide = edge.toSide ?? sideTowardPoint(edge.toPoint, edge.fromPoint)
+    return {
+      from: freeAnchorPoint(edge.fromPoint, fromSide, originY),
+      to: freeAnchorPoint(edge.toPoint, toSide, originY),
+    }
+  }
+  return null
 }
 
 /** Dispatch an edge onto its routing style. Absent routing stays bezier. */

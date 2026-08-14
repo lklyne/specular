@@ -1016,8 +1016,8 @@ export interface PanelDrawingEntityDetail {
 
 export interface PanelEdgeEntityDetail {
   id: string
-  fromEntityId: string
-  toEntityId: string
+  fromEntityId: string | null
+  toEntityId: string | null
   fromLabel: string
   toLabel: string
   fromSide?: EdgeSide
@@ -1542,8 +1542,12 @@ export type EdgeSplitAxis = 'x' | 'y'
 
 export interface WorkspaceEdge {
   id: string
-  fromEntityId: string
-  toEntityId: string
+  /** Null means this end is free — a point in canvas space, not an entity. */
+  fromEntityId: string | null
+  toEntityId: string | null
+  /** Canvas-space point for a free end. Ignored when the matching entity id is set. */
+  fromPoint?: { x: number; y: number }
+  toPoint?: { x: number; y: number }
   fromSide?: EdgeSide
   toSide?: EdgeSide
   fromEnd?: EdgeEnd

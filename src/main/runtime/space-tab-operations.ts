@@ -274,8 +274,8 @@ export function duplicateSpaceTab(tabId: string): string | null {
   }))
   snapshot.edges = snapshot.edges?.map((edge) => ({
     ...edge,
-    fromEntityId: pageIdMap.get(edge.fromEntityId) ?? edge.fromEntityId,
-    toEntityId: pageIdMap.get(edge.toEntityId) ?? edge.toEntityId,
+    fromEntityId: (edge.fromEntityId && pageIdMap.get(edge.fromEntityId)) ?? edge.fromEntityId,
+    toEntityId: (edge.toEntityId && pageIdMap.get(edge.toEntityId)) ?? edge.toEntityId,
   }))
   const annotations = cloneAnnotationsForPersistence(source.annotations).map((annotation) => {
     const anchor =

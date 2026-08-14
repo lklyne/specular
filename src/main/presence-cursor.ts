@@ -774,7 +774,8 @@ export function allEntityPositions(): Array<{ x: number; y: number }> {
 
 /** Look up the canvas position of any entity by id — page, text, file, or
  * group. Returns null if the id doesn't match anything. */
-export function findEntityPosition(id: string): { x: number; y: number } | null {
+export function findEntityPosition(id: string | null | undefined): { x: number; y: number } | null {
+  if (!id) return null
   const page = pages.find((p) => p.id === id)
   if (page) return { x: page.canvasX, y: page.canvasY }
   const te = getTextEntities().find((e) => e.id === id)

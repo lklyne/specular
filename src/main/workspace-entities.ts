@@ -82,7 +82,8 @@ export function unionBounds(boundsList: WorkspaceBounds[]): WorkspaceBounds | nu
   return { x: left, y: top, width: right - left, height: bottom - top }
 }
 
-export function entityBoundsById(entityId: string): WorkspaceBounds | null {
+export function entityBoundsById(entityId: string | null): WorkspaceBounds | null {
+  if (!entityId) return null
   return entityBoundsByIdWithVisited(entityId, new Set<string>())
 }
 
@@ -265,8 +266,15 @@ export function deletePages(input: DeletePagesRequest): DeletePagesResponse {
 function deletePagesInternal(input: DeletePagesRequest): DeletePagesResponse {
   const deletedPageIds: string[] = []
   const missingPageIds: string[] = []
+  // Free-endpoint detach needs the entity's last position, and by the time
+  // the edge cascade runs the entity is already gone from state.
+  const lastKnownPoints = new Map<string, { x: number; y: number }>()
 
   for (const pageId of input.pageIds) {
+    const bounds = entityBoundsById(pageId)
+    if (bounds) {
+      lastKnownPoints.set(pageId, { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 })
+    }
     cancelEditingEntityIfMatches(pageId)
     const removed = removePageById(pageId)
     if (!removed) {
@@ -279,7 +287,10 @@ function deletePagesInternal(input: DeletePagesRequest): DeletePagesResponse {
   // A deleted page can leave its sync-set peer alone with a now-dead id.
   if (deletedPageIds.length > 0) dissolveOrphanSyncSets()
 
-  const deletedEdgeIds = removeEdgesTouchingEntities(new Set(deletedPageIds))
+  const deletedEdgeIds = removeEdgesTouchingEntities(
+    new Set(deletedPageIds),
+    (id) => lastKnownPoints.get(id) ?? null,
+  )
   const deletedGroupIds = removeEmptyGroups()
 
   if (!selectedPageId() && !getSelectedGroupId()) {
