@@ -107,6 +107,19 @@ This pulls free endpoints in from the deferred list. JSON Canvas requires
 - `EdgeLayer.tsx:292` drops any edge whose entities are missing, and the delete
   cascade (`workspace-edges.ts:85`) keys off both ids. Both stop treating
   "entity absent" as "edge invalid".
+
+**One collection at runtime.** Free and bound edges share the single
+`workspaceEdges` array in `space-model` and the same Y.Doc map — a free edge is
+just one whose `fromEntityId` is null. Nothing downstream branches on
+free-vs-bound except rendering and the delete cascade, and re-binding a free end
+is then a field write rather than a move between collections. The split into
+`edges[]` and `specular.freeEdges` happens **only** in the serializer, on write,
+and merges back on read.
+
+`createEdges` copies edge fields by hand in two branches — the
+caller-supplied-id update path (`workspace-edges.ts:28`) and the create path
+(`:45`). Every new field has to be added to both or edges silently lose it when
+written through the apply route.
 - Drop-in-empty during a **re-route** becomes "detach to a free end" rather
   than "delete". Escape-to-cancel still deletes.
 
@@ -234,7 +247,12 @@ keeps edges consistent with themselves.
   FigJam doesn't do it either, and a pinned end deliberately draws through the
   entity it points at.
 - **Per-endpoint side resolution** replacing `autoSides()`'s matched pair, so a
-  pinned end and an auto end coexist on one edge.
+  pinned end and an auto end coexist on one edge. It resolves against a **point**,
+  not an entity — the far end may be a rect, a free `fromPoint` / `toPoint`, or
+  a live cursor during a drag, and all three want the same "which side faces
+  that?" answer. `autoSides` becomes one call per end taking the opposing
+  point; the entity cases pass their center. `elbowSplitAxis` derives from the
+  same point pair, so free-ended edges get adjustable crossbars for free.
 - **Rounded corners** on elbow joins, radius clamped to half the shorter
   adjacent segment.
 - **Endpoint handles** on a selected edge. A genuine discoverability win:
@@ -252,9 +270,26 @@ keeps edges consistent with themselves.
 - `src/renderer/shared/icons/toolbar/{,dark/}connect.svg` — new glyph pair.
   There is no arrow/connector icon in the app today; the shape catalog
   (`src/shared/shapes.ts:61`) is 10 geometric shapes and the toolbar's 12 icons
-  contain nothing connector-shaped.
+  contain nothing connector-shaped. Draw an elbow connector — one stroke, out
+  right, down, into an arrowhead — matching the stroke weight and the box the
+  existing toolbar glyphs use, so it reads as a sibling and not an import. This
+  is the one piece of the plan that needs design rather than implementation;
+  it blocks only the toolbar button, so it should not gate the rest.
 - `CustomIcons.tsx` — `ConnectToolIcon`
 - `toolbarSections.tsx` — button in the create group, beside add-shape.
+
+## Sequencing
+
+Two steps. Same total work, but the first is testable with no UI and the second
+is nearly free once it lands.
+
+1. **Geometry and data** — routing fields, per-endpoint point-based side
+   resolution, elbow/straight builders, nullable endpoints, serializer, delete
+   cascade, ADR, unit + integration tests. No new tool, no new pointer paths.
+2. **The tool** — pointer ownership and actions, `routing-edge` interaction
+   mode, endpoint and segment handles, popups, toolbar.
+
+The icon is design work and gates only the toolbar button at the end of step 2.
 
 ## Touch list
 
@@ -308,6 +343,10 @@ Per the test contract in `CLAUDE.md` / `tests/README.md`:
 - CONTEXT.md **Edge** entry — the connect tool, the auto-attach rule, the
   per-endpoint auto/pinned distinction, and `routing` / `elbowSplit`.
 - `docs/file-formats.md` §Edges — the three new `specular.*` extension fields.
+- **Changelog** — the anchor drag starts producing elbow edges. Both creation
+  doors read the `connect` defaults so an edge looks the same however it was
+  born, which means the existing gesture changes shape on first use. Existing
+  canvases are untouched: an edge with no `routing` still renders bezier.
 - **ADR** for `specular.freeEdges` — edges living outside the spec's `edges[]`
   is a deviation a future reader will otherwise have to reverse-engineer. The
   routing fields need no ADR; they are additive extensions of a kind the format
