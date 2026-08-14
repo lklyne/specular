@@ -31,10 +31,10 @@ export interface SelectionScope {
    *  descendant (recursively), plus page-anchored entities attached to any
    *  dragged page. Expansion lives here and nowhere else. */
   operandIds: string[]
-  /** Union rect over the operands' bounds, in canvas space. Null when the
-   *  scope is empty or contains no entity with a rect (groups themselves are
-   *  excluded — the group's own stored bounds is a cache of this same union,
-   *  not an independent contribution). */
+  /** Union rect over the operands' bounds, in canvas space — including a
+   *  selected group's own stored rect, so the union wraps the group border
+   *  (padding included), not just the descendants inside it. Null when the
+   *  scope is empty or contains no entity with a rect. */
   bounds: WorkspaceBounds | null
 }
 
@@ -67,8 +67,9 @@ export function expandMembersToOperands(memberIds: string[]): string[] {
   return withPageAnchoredEntityIds([...expanded])
 }
 
-/** Union rect over the given operand ids' entity bounds. Groups and edges
- *  contribute nothing directly — mirrors `selectionBbox` (shared/selection-bbox.ts). */
+/** Union rect over the given operand ids' entity bounds. Groups contribute
+ *  their own stored rect (the visual unit, padding included); edges
+ *  contribute nothing — mirrors `selectionBbox` (shared/selection-bbox.ts). */
 function boundsForOperands(operandIds: readonly string[]): WorkspaceBounds | null {
   if (!operandIds.length) return null
   const idSet = new Set(operandIds)
@@ -86,6 +87,10 @@ function boundsForOperands(operandIds: readonly string[]): WorkspaceBounds | nul
   }
   for (const page of pages) {
     if (idSet.has(page.id)) accumulate(pageVisualBounds(page))
+  }
+  for (const group of workspaceGroups) {
+    if (!idSet.has(group.id)) continue
+    accumulate({ x: group.canvasX, y: group.canvasY, width: group.width, height: group.height })
   }
   const leafSources: { id: string; canvasX: number; canvasY: number; width: number; height: number }[][] = [
     textEntities,
