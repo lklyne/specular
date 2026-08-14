@@ -9,10 +9,15 @@ Why the categories were chosen and what the numbers mean:
 
 One recording spans **every process** (browser main, GPU/Viz, all page
 renderers) with categories tuned for pan/zoom jank attribution: `viz`, `cc`,
-`gpu`, `blink`, `benchmark`, `toplevel`, `input`, `latency`,
-`graphics.pipeline`, `electron`, and the frame-lifecycle category behind
-Perfetto's `PipelineReporter` tracks. Recording auto-stops after **30 seconds**
-(the buffer fills fast); typical use is toggle → gesture → toggle.
+`gpu`, `blink`, `toplevel`, `input`, `latency`, `graphics.pipeline`,
+`electron`, and the frame-lifecycle category behind Perfetto's
+`PipelineReporter` tracks. Recording auto-stops after **10 seconds** (the
+buffer fills fast); typical use is toggle → gesture → toggle.
+
+On stop the trace is summarized to a `.summary.json` sidecar (~10 KB) beside
+it, and raw traces past the newest two are deleted once summarized. The
+sidecars are never pruned — they are what the debug UI and agents read, so
+history survives without the tens of MB each raw capture costs.
 
 ## Recording from the UI
 
@@ -121,6 +126,7 @@ latency flows), drag the raw trace into <https://ui.perfetto.dev>.
 - Analysis parses the whole trace on the main process — expect a brief UI
   hitch on first analyze of a large file. Traces over 500 MB are not analyzed
   (summary returns null); use Perfetto for those.
-- Recording auto-stops at 30 s; start/stop responses are immediate but trace
+- Recording auto-stops at 10 s (the scripted pan/zoom test asks for a longer
+  window sized to its own gesture script); start/stop responses are immediate but trace
   flushing on stop can take a moment on big captures. The debug UI shows
   **Saving…** during that flush and ignores repeated start/stop toggles.

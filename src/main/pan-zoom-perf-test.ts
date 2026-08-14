@@ -3,6 +3,7 @@ import { ipcChannels } from '../shared/ipc-contract'
 import {
   buildPanZoomPerfSteps,
   PAN_ZOOM_PERF_FRAME_MS,
+  PAN_ZOOM_PERF_GESTURE_MS,
   PAN_ZOOM_PERF_PHASE_GAP_MS,
   PAN_ZOOM_PERF_PHASES,
   type PanZoomPerfTestResult,
@@ -23,6 +24,10 @@ import { activeSpaceTabId } from './runtime/space-model'
 
 const WARMUP_MS = 300
 const RESTORE_SETTLE_MS = 300
+
+/** The scripted run outlasts the recorder's default auto-stop, so it asks for a
+ * window sized to its own gesture script plus headroom for a slow machine. */
+const TRACE_BUDGET_MS = WARMUP_MS + PAN_ZOOM_PERF_GESTURE_MS + RESTORE_SETTLE_MS + 3_000
 
 let state: PanZoomPerfTestState = {
   running: false,
@@ -129,7 +134,11 @@ async function executePanZoomPerfTest(signal: AbortSignal): Promise<PanZoomPerfT
 
   try {
     setPhase('Starting trace')
-    await startPerfTrace({ revealOnAutoStop: false, owner: 'pan-zoom-test' })
+    await startPerfTrace({
+      revealOnAutoStop: false,
+      owner: 'pan-zoom-test',
+      maxDurationMs: TRACE_BUDGET_MS,
+    })
     traceStarted = true
     await wait(WARMUP_MS, signal)
     await runGesturePhases(signal, context)

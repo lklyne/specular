@@ -14,28 +14,38 @@ import { extractTraceEvents, summarizeTraceEvents, type TraceSummary } from '../
 import type { PerfTraceFileEntry, PerfTraceState } from '../shared/electron-api/debug'
 import { getDebugWebContents } from './debug-window'
 
+/** Kept deliberately narrow: every category here is read by either
+ * `summarizeTraceEvents` or the Perfetto timeline. `sequence_manager`,
+ * `toplevel.flow`, and `latencyInfo` emit an event per posted task / flow arrow
+ * across all ~20 processes and dominate file size (5s ran to 1.1 GB with them
+ * on) while contributing nothing the summary reads. Re-add one temporarily if
+ * you're chasing task-scheduling or input-latency questions specifically. */
 const TRACE_CATEGORIES = [
   'viz',
   'cc',
   'gpu',
   'blink',
-  'benchmark',
   'toplevel',
-  'toplevel.flow',
   'input',
   'latency',
-  'latencyInfo',
-  'sequence_manager',
   'graphics.pipeline',
   'electron',
   'disabled-by-default-devtools.timeline.frame',
 ]
 
 /** Hard stop so a forgotten recording can't run away — these categories
- * produce on the order of tens of MB per second across 20+ processes. */
-const MAX_TRACE_MS = 30_000
+ * produce on the order of MB per second across 20+ processes. Long enough to
+ * cover "start it, do the janky thing, stop it"; callers that drive a scripted
+ * gesture longer than this pass their own `maxDurationMs`. */
+const MAX_TRACE_MS = 10_000
 
-const TRACE_BUFFER_KB = 300_000
+/** Per process, not per trace — the real ceiling is this times ~20 processes. */
+const TRACE_BUFFER_KB = 50_000
+
+/** Raw traces run to tens of MB; the `.summary.json` sidecars are ~10 KB and
+ * are what both the debug UI and agents actually read. Keep a couple of raws
+ * for Perfetto dives and let the summaries accumulate indefinitely. */
+const KEEP_RAW_TRACES = 2
 
 /** Matches saved trace files, excluding the cached `.summary.json` sidecars. */
 const TRACE_FILE_RE = /^specular-trace-.*\.json$/
@@ -96,7 +106,7 @@ export async function togglePerfTrace(): Promise<void> {
 }
 
 export async function startPerfTrace(
-  options: { revealOnAutoStop?: boolean; owner?: PerfTraceOwner } = {},
+  options: { revealOnAutoStop?: boolean; owner?: PerfTraceOwner; maxDurationMs?: number } = {},
 ): Promise<void> {
   if (status !== 'idle') return
   status = 'starting'
@@ -115,7 +125,7 @@ export async function startPerfTrace(
       void stopPerfTrace({ reveal: revealOnAutoStop, owner: traceOwner ?? undefined }).catch(
         (error) => console.error('Failed to auto-stop performance trace', error),
       )
-    }, MAX_TRACE_MS)
+    }, options.maxDurationMs ?? MAX_TRACE_MS)
     notifyStateChange()
   } catch (error) {
     status = 'idle'
@@ -148,6 +158,12 @@ export async function stopPerfTrace(
     try {
       const savedPath = await contentTracing.stopRecording(outPath)
       if (options.reveal !== false) shell.showItemInFolder(savedPath)
+      // Summarize now rather than on first view, so the small sidecar exists
+      // before the raw trace becomes eligible for pruning. Neither step may
+      // fail the stop — the recording is already safely on disk.
+      void getTraceSummary(path.basename(savedPath))
+        .then(() => pruneRawTraces())
+        .catch((error) => console.error('Failed to summarize performance trace', error))
       return savedPath
     } finally {
       status = 'idle'
@@ -184,6 +200,22 @@ export async function listPerfTraces(): Promise<PerfTraceFileEntry[]> {
 
   entries.sort((a, b) => b.modifiedAt - a.modifiedAt)
   return entries
+}
+
+/** Deletes raw traces past the newest `KEEP_RAW_TRACES`, and only ones whose
+ * summary already exists — a trace too large to summarize (or one whose
+ * analysis threw) is kept, so pruning can never lose an unreadable recording.
+ * The `.summary.json` sidecars are never pruned. */
+async function pruneRawTraces(): Promise<void> {
+  const dir = app.getPath('logs')
+  const stale = (await listPerfTraces()).slice(KEEP_RAW_TRACES).filter((entry) => entry.hasSummary)
+  await Promise.all(
+    stale.map((entry) =>
+      fs
+        .unlink(path.join(dir, entry.fileName))
+        .catch((error) => console.error('Failed to prune performance trace', entry.fileName, error)),
+    ),
+  )
 }
 
 /** Analyzes a saved trace on demand, caching the result to `<base>.summary.json`
