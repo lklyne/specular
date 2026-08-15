@@ -27,6 +27,11 @@ export type InteractionMode =
   // renderer previews positions from it and the single doc write happens at
   // commit (`setGroupLayoutGap` for a group, positions only for a selection).
   | { kind: 'resizing-gap'; groupId: string | null; gap: number; axis: 'x' | 'y' }
+  // Dragging an elbow edge's crossbar. `split` is the live normalized 0–1
+  // position on `axis`; move ticks update only this broadcast field and the
+  // renderer previews the route from it, so the single doc write happens at
+  // commit — one undo step. Mirrors `resizing-gap`.
+  | { kind: 'routing-edge'; edgeId: string; split: number; axis: 'x' | 'y' }
 
 export type CancelReason = 'blur' | 'escape' | 'undo' | 'tab-switch' | 'external'
 

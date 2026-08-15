@@ -65,7 +65,8 @@ export function registerToolbarIpc(): void {
       patch.scope !== 'add-text' &&
       patch.scope !== 'add-sticky' &&
       patch.scope !== 'add-shape' &&
-      patch.scope !== 'draw'
+      patch.scope !== 'draw' &&
+      patch.scope !== 'connect'
     ) return
     applyToolDefaultPatch(patch)
   })

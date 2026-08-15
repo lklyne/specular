@@ -15,7 +15,9 @@ import type {
   CanvasEntityKind,
   CanvasLayoutBootstrapData,
   EdgeEnd,
+  EdgeCreateInput,
   EdgeSide,
+  EdgeSplitAxis,
   EntityUpdatePatchMap,
   FocusPresentationMode,
   ForwardPointerPayload,
@@ -237,8 +239,16 @@ export interface CanvasBgElectronAPI {
     callback: (data: { annotationId: string }) => void,
   ) => () => void
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) => void
+  /** Begin a crossbar drag on an elbow edge. `split` is normalized 0–1 on
+   *  `axis`; main broadcasts it live and writes the edge once at commit. */
+  beginEdgeRouting: (edgeId: string, split: number, axis: EdgeSplitAxis) => void
+  edgeRoutingMove: (split: number) => void
+  edgeRoutingCommit: () => void
+  edgeRoutingCancel: (reason?: CancelReason) => void
   updateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) => void
-  commitEdgeDrag: (fromEntityId: string, toEntityId: string, fromSide: EdgeSide, toSide: EdgeSide) => void
+  /** Commit a create drag. Either end may be free (`null` id + a canvas-space
+   *  point) and either side may be absent, meaning object-bound / auto. */
+  commitEdgeDrag: (input: EdgeCreateInput) => void
   cancelEdgeDrag: () => void
   commitEdgeEdit: (
     edgeId: string,
@@ -250,7 +260,7 @@ export interface CanvasBgElectronAPI {
   deleteEdge: (edgeId: string) => void
   updateEdge: (
     edgeId: string,
-    patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string; strokeWidth?: number; lineStyle?: import('../types').EdgeLineStyle },
+    patch: { fromEnd?: EdgeEnd; toEnd?: EdgeEnd; fromSide?: EdgeSide; toSide?: EdgeSide; color?: string; label?: string; strokeWidth?: number; lineStyle?: import('../types').EdgeLineStyle; routing?: import('../types').EdgeRouting; elbowSplit?: number; elbowSplitAxis?: EdgeSplitAxis },
   ) => void
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void

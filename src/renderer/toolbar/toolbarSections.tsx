@@ -22,6 +22,7 @@ import {
   AddStickyToolIcon,
   AddTextToolIcon,
   CommentToolIcon,
+  ConnectToolIcon,
   DrawHighlightToolIcon,
   DrawPenToolIcon,
   HandToolIcon,
@@ -154,6 +155,8 @@ export function CenterActions({
   const onAddShape = () => onSetTool({ kind: 'add-shape' })
   const onAddText = () => onSetTool({ kind: 'add-text' })
   const onAddDocument = () => onSetTool({ kind: 'add-document' })
+  const onToggleConnect = () =>
+    onSetTool(activeTool.kind === 'connect' ? { kind: 'select' } : { kind: 'connect' })
   const onToggleCommentMode = () =>
     onSetTool(activeTool.kind === 'comment' ? { kind: 'select' } : { kind: 'comment' })
   const onToggleInspectMode = () =>
@@ -247,6 +250,17 @@ export function CenterActions({
               color={shapeColor}
               style={TOOLBAR_GLYPH_STYLE}
             />
+          </button>
+        </ToolbarTooltip>
+
+        <ToolbarTooltip label="Connect" shortcut={sc('tool-connect')}>
+          <button
+            onClick={onToggleConnect}
+            className={buttonClass(activeTool.kind === 'connect')}
+            aria-label="Connect"
+            type="button"
+          >
+            <ConnectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
           </button>
         </ToolbarTooltip>
 

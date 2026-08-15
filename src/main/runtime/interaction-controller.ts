@@ -27,13 +27,14 @@ import {
   beginEdgeDrag,
   beginEntityEditing,
   beginEntityResize,
+  beginEdgeRouting,
   beginGapResize,
   beginMarqueeSelect,
   beginMultiSelectionResize,
   beginReorderingRow,
   clearInteractionState,
 } from './interaction-state'
-import type { CanvasSelectableTarget, EdgeSide } from '../../shared/types'
+import type { CanvasSelectableTarget, EdgeSide, EdgeSplitAxis } from '../../shared/types'
 
 export type InteractionRefused = { refused: true; reason: string }
 
@@ -77,6 +78,8 @@ function snapshotMode(): InteractionMode {
       return { kind: 'reordering-row', ids: [...s.ids], movingId: s.movingId, dropIndex: s.dropIndex, axis: s.axis }
     case 'resizing-gap':
       return { kind: 'resizing-gap', groupId: s.groupId, gap: s.gap, axis: s.axis }
+    case 'routing-edge':
+      return { kind: 'routing-edge', edgeId: s.edgeId, split: s.split, axis: s.axis }
     case 'dragging-edge':
       return {
         kind: 'dragging-edge',
@@ -116,6 +119,7 @@ export type TryEnterInput =
   | { kind: 'dragging-edge'; from: CanvasSelectableTarget; fromSide: EdgeSide }
   | { kind: 'reordering-row'; ids: string[]; movingId: string; dropIndex: number; axis: 'x' | 'y' }
   | { kind: 'resizing-gap'; groupId: string | null; entityIds: string[]; gap: number; axis: 'x' | 'y' }
+  | { kind: 'routing-edge'; edgeId: string; split: number; axis: EdgeSplitAxis }
 
 export function peek(): InteractionMode {
   return snapshotMode()
@@ -135,6 +139,7 @@ export function tryEnter(input: TryEnterInput): Token | InteractionRefused {
     case 'dragging-edge': beginEdgeDrag(input.from, input.fromSide); break
     case 'reordering-row': beginReorderingRow(input.ids, input.movingId, input.dropIndex, input.axis); break
     case 'resizing-gap': beginGapResize(input.groupId, input.entityIds, input.gap, input.axis); break
+    case 'routing-edge': beginEdgeRouting(input.edgeId, input.split, input.axis); break
   }
   const token: InternalToken = {
     id: newTokenId(),

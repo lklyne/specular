@@ -111,6 +111,11 @@ export type CanvasInteractionState =
   // group's `layoutGap` when `groupId` is set, just the entities' positions
   // for a loose selection (`groupId` null).
   | { kind: 'resizing-gap'; groupId: string | null; entityIds: string[]; gap: number; axis: 'x' | 'y' }
+  // Dragging an elbow edge's crossbar. `split` is the live normalized 0–1
+  // position along `axis`; move ticks update only this field (no doc writes —
+  // §6 I5) and the renderer previews the route from it. Commit writes the
+  // edge's `elbowSplit` / `elbowSplitAxis` once.
+  | { kind: 'routing-edge'; edgeId: string; split: number; axis: EdgeSplitAxis }
 
 export interface CanvasScenePageEntity {
   kind: 'page'
@@ -1025,8 +1030,8 @@ export interface PanelDrawingEntityDetail {
 
 export interface PanelEdgeEntityDetail {
   id: string
-  fromEntityId: string
-  toEntityId: string
+  fromEntityId: string | null
+  toEntityId: string | null
   fromLabel: string
   toLabel: string
   fromSide?: EdgeSide
@@ -1550,11 +1555,17 @@ export type WorkspaceCanvasEntity =
 export type EdgeSide = 'top' | 'right' | 'bottom' | 'left'
 export type EdgeEnd = 'none' | 'arrow'
 export type EdgeLineStyle = 'solid' | 'dashed'
+export type EdgeRouting = 'bezier' | 'elbow' | 'straight'
+export type EdgeSplitAxis = 'x' | 'y'
 
 export interface WorkspaceEdge {
   id: string
-  fromEntityId: string
-  toEntityId: string
+  /** Null means this end is free — a point in canvas space, not an entity. */
+  fromEntityId: string | null
+  toEntityId: string | null
+  /** Canvas-space point for a free end. Ignored when the matching entity id is set. */
+  fromPoint?: { x: number; y: number }
+  toPoint?: { x: number; y: number }
   fromSide?: EdgeSide
   toSide?: EdgeSide
   fromEnd?: EdgeEnd
@@ -1563,10 +1574,29 @@ export interface WorkspaceEdge {
   label?: string
   strokeWidth?: number
   lineStyle?: EdgeLineStyle
+  /** Absent renders bezier, so existing canvases keep their appearance. */
+  routing?: EdgeRouting
+  /** Normalized 0–1 crossbar position; only meaningful with elbow routing. */
+  elbowSplit?: number
+  /** The axis the split was dragged on — it is never reinterpreted onto another. */
+  elbowSplitAxis?: EdgeSplitAxis
   kind: 'breakpoint_variant' | 'connection'
   metadata?: Record<string, unknown>
 }
 
+
+/**
+ * A create-drag commit. Either end is an entity id or a free canvas-space
+ * point; an absent side means object-bound, resolved per paint.
+ */
+export interface EdgeCreateInput {
+  fromEntityId: string | null
+  toEntityId: string | null
+  fromPoint?: { x: number; y: number }
+  toPoint?: { x: number; y: number }
+  fromSide?: EdgeSide
+  toSide?: EdgeSide
+}
 
 export interface WorkspaceSelection {
   selectedEntityId?: string

@@ -367,7 +367,8 @@ function buildGroupEntityDetail(entityId: string): PanelGroupEntityDetail | unde
   }
 }
 
-function resolveEntityLabel(entityId: string): string {
+function resolveEntityLabel(entityId: string | null): string {
+  if (!entityId) return 'Free end'
   const page = findPageById(entityId)
   if (page) return pageDisplayLabel(page)
   const text = textEntities.find((e) => e.id === entityId)

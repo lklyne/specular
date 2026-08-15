@@ -267,6 +267,9 @@ function duplicateGroupInternal(
   const sourceEdges = [...workspaceEdges]
 
   for (const edge of sourceEdges) {
+    // Free-ended edges have no "both ends inside the group" to test — they
+    // aren't duplicated with the group.
+    if (!edge.fromEntityId || !edge.toEntityId) continue
     if (!descendantIds.has(edge.fromEntityId) || !descendantIds.has(edge.toEntityId)) continue
     const fromEntityId = entityIdMap.get(edge.fromEntityId) ?? groupIdMap.get(edge.fromEntityId)
     const toEntityId = entityIdMap.get(edge.toEntityId) ?? groupIdMap.get(edge.toEntityId)

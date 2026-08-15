@@ -23,7 +23,7 @@ import {
   type GestureSession,
 } from '../runtime/space-gesture-session'
 import { setHoverEntity } from '../runtime/runtime-core'
-import type { EdgeSide } from '../../shared/types'
+import type { EdgeCreateInput, EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
 import { requestLayout } from '../runtime/viewport-control'
 import { enqueueViewportInputDelta } from '../runtime/viewport-input'
@@ -36,6 +36,7 @@ import {
   selectPageById as selectCanvasPageById,
 } from '../runtime/selection-controller'
 import { createEdges } from '../workspace-edges'
+import { getConnectDefaults } from '../runtime/tool-defaults'
 import { deleteEdge, updateEdge } from '../runtime/document-commands'
 import {
   copyableSelectionPayload,
@@ -365,36 +366,32 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(
     ipcChannels.canvasEdgeDragCommit,
-    (
-      _event,
-      {
-        fromEntityId,
-        toEntityId,
-        fromSide,
-        toSide,
-      }: {
-        fromEntityId: string
-        toEntityId: string
-        fromSide: EdgeSide
-        toSide: EdgeSide
-      },
-    ) => {
+    (_event, input: EdgeCreateInput) => {
+      const { fromEntityId, toEntityId } = input
       const previousSelectedEntityIds = getSelectedEntityIds()
+      // Both creation doors — the connect tool and the anchor drag — stamp the
+      // same `connect` defaults, so an edge looks identical however it was born.
+      const defaults = getConnectDefaults()
       createEdges({
         edges: [
           {
             fromEntityId,
             toEntityId,
-            fromSide,
-            toSide,
-            toEnd: 'arrow',
+            fromPoint: fromEntityId ? undefined : input.fromPoint,
+            toPoint: toEntityId ? undefined : input.toPoint,
+            fromSide: input.fromSide,
+            toSide: input.toSide,
+            toEnd: defaults.toEnd,
+            color: defaults.color,
+            strokeWidth: defaults.strokeWidth,
+            routing: defaults.routing,
             kind: 'connection',
           },
         ],
       })
       commitActive()
       setHoverEntity(null)
-      if (previousSelectedEntityIds.includes(fromEntityId)) {
+      if (fromEntityId && previousSelectedEntityIds.includes(fromEntityId)) {
         setSelectedEntities(previousSelectedEntityIds)
         return
       }

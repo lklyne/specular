@@ -7,11 +7,18 @@ import {
   moveGapGesture,
   startGapGesture,
 } from '../gap-gesture'
+import {
+  cancelEdgeRoutingGesture,
+  commitEdgeRoutingGesture,
+  moveEdgeRoutingGesture,
+  startEdgeRoutingGesture,
+} from '../edge-routing-gesture'
+import type { EdgeSplitAxis } from '../../shared/types'
 
 /**
- * IPC for the gap-resize gesture (ADR 0015 Milestone 2). Thin
- * wrappers over the gap-gesture coordinator; the renderer's `runGapDrag`
- * dispatches start → move* → commit | cancel.
+ * IPC for the two crossbar-shaped drags: the gap-resize gesture (ADR 0015
+ * Milestone 2) and the elbow edge's routing split. Thin wrappers over their
+ * coordinators; the renderer dispatches start → move* → commit | cancel.
  *
  * `start` enters the interaction mode before any mutation (gesture-begin
  * ordering — see runtime/CLAUDE.md), so the first `requestLayout` reconciles
@@ -39,4 +46,28 @@ export function registerCanvasGapIpc(): void {
   ipcMain.on(ipcChannels.canvasGapResizeCancel, (_event, { reason }: { reason?: CancelReason } = {}) => {
     cancelGapGesture(reason ?? 'external')
   })
+
+  // Elbow crossbar drag — same start/move/commit/cancel shape as the gap
+  // gesture above, and the same gesture-begin ordering.
+  ipcMain.on(
+    ipcChannels.canvasEdgeRoutingStart,
+    (_event, { edgeId, split, axis }: { edgeId: string; split: number; axis: EdgeSplitAxis }) => {
+      startEdgeRoutingGesture(edgeId, split, axis)
+    },
+  )
+
+  ipcMain.on(ipcChannels.canvasEdgeRoutingMove, (_event, { split }: { split: number }) => {
+    moveEdgeRoutingGesture(split)
+  })
+
+  ipcMain.on(ipcChannels.canvasEdgeRoutingCommit, () => {
+    commitEdgeRoutingGesture()
+  })
+
+  ipcMain.on(
+    ipcChannels.canvasEdgeRoutingCancel,
+    (_event, { reason }: { reason?: CancelReason } = {}) => {
+      cancelEdgeRoutingGesture(reason ?? 'external')
+    },
+  )
 }

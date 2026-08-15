@@ -162,6 +162,53 @@ Specular extensions: `strokeWidth`, `lineStyle` (`solid` or `dashed`),
 `edgeKind`, and `edgeMetadata`. Missing stroke fields render as a 1.5px solid
 connection for compatibility with existing canvases.
 
+Routing extensions, written by the connect tool (`X`) and the anchor-drag
+gesture: `routing` (`bezier` | `elbow` | `straight`; absent renders as
+`bezier`, so no existing canvas changes appearance) and, only when
+`routing === 'elbow'`, `elbowSplit` (a normalized 0–1 position for a dragged
+crossbar) paired with `elbowSplitAxis` (`x` or `y`, the axis the crossbar was
+dragged on — the split is meaningless without it, since the same number means
+a different placement on each axis).
+
+#### Free-ended edges (`specular.freeEdges`)
+
+An edge endpoint can be a bare canvas-space point instead of a node: dragging
+the connect tool from empty space starts an edge with nothing bound yet, and
+deleting the entity at one end of an existing edge detaches that end to a
+point rather than deleting the edge. JSON Canvas requires `fromNode`/`toNode`
+on every entry in `edges[]`, so there is no spec-legal way to write a
+dangling edge there.
+
+Any edge with a free end is written instead into a top-level
+`specular.freeEdges` array, with `fromNode`/`toNode` omitted for the free side
+and a matching `fromPoint`/`toPoint` (`{ x, y }` in canvas coordinates)
+carrying its position:
+
+```json
+{
+  "nodes": [...],
+  "edges": [...],
+  "specular": {
+    "freeEdges": [
+      {
+        "id": "edge2",
+        "toNode": "def456",
+        "toSide": "left",
+        "fromPoint": { "x": 120, "y": 340 }
+      }
+    ]
+  }
+}
+```
+
+A strict JSON Canvas reader sees a fully valid `edges[]` and simply doesn't
+see free-ended edges. Specular merges `specular.freeEdges` back into the same
+runtime edge collection on load — there is exactly one edge collection at
+runtime; the `edges[]` / `specular.freeEdges` split exists only in the
+serialized form. Re-binding a free end to an entity moves the edge back into
+`edges[]` on the next save. See [ADR
+0034](./adr/0034-free-edges-outside-json-canvas-edges-array.md).
+
 ### App state (extension)
 
 Specular stores viewport and UI state in an `appState` field:

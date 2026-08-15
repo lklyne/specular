@@ -1,4 +1,9 @@
-import type { CanvasInteractionState, CanvasSelectableTarget, EdgeSide } from '../../shared/types'
+import type {
+  CanvasInteractionState,
+  CanvasSelectableTarget,
+  EdgeSide,
+  EdgeSplitAxis,
+} from '../../shared/types'
 import { interactionState, setInteractionState } from './runtime-context'
 import { markDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
@@ -131,6 +136,29 @@ export function updateGapResizeGap(gap: number): CanvasInteractionState {
   return next
 }
 
+export function beginEdgeRouting(
+  edgeId: string,
+  split: number,
+  axis: EdgeSplitAxis,
+): CanvasInteractionState {
+  const next: CanvasInteractionState = { kind: 'routing-edge', edgeId, split, axis }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
+/** Live crossbar preview tick — broadcast only, no doc writes (§6 I5). */
+export function updateEdgeRoutingSplit(split: number): CanvasInteractionState {
+  if (interactionState.kind !== 'routing-edge') return interactionState
+  if (interactionState.split === split) return interactionState
+  const next: CanvasInteractionState = { ...interactionState, split }
+  setInteractionState(next)
+  markDirty('canvas')
+  requestLayout()
+  return next
+}
+
 export function updateReorderingDropIndex(dropIndex: number): CanvasInteractionState {
   if (interactionState.kind !== 'reordering-row') return interactionState
   if (interactionState.dropIndex === dropIndex) return interactionState
@@ -147,6 +175,7 @@ export function interactionBlocksPageHover(state: CanvasInteractionState = inter
     state.kind === 'resizing-entity' ||
     state.kind === 'resizing-multi-selection' ||
     state.kind === 'resizing-gap' ||
+    state.kind === 'routing-edge' ||
     state.kind === 'dragging-entities'
   )
 }

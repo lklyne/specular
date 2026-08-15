@@ -73,6 +73,12 @@ export function annotationOverlayActive(state: CanvasPointerOwnerState): boolean
 
 export function canvasPointerOwner(state: CanvasPointerOwnerState): CanvasPointerOwner {
   if (state.overlayUiTarget) return 'none'
+  if (state.toolKind === 'connect') {
+    // Connect draws across live web content, so its drag has to own the
+    // pointer the way placement does. An open thread / in-flight stroke from
+    // a previous tool still wins.
+    return state.openThread || state.drawingSession ? 'annotation-overlay' : 'tool-gesture'
+  }
   if (state.toolKind === 'comment') {
     return state.openThread || state.drawingSession ? 'annotation-overlay' : 'tool-gesture'
   }

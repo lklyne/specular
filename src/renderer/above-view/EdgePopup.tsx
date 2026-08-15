@@ -12,7 +12,9 @@ import type {
 } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { slotForStorage } from '../../shared/canvas-colors'
-import { autoSides, getAnchorPoint } from '../../shared/edge-geometry'
+import { resolveEdgeAnchors } from '../../shared/edge-geometry'
+import { canvasToScreenPoint } from '../../shared/coords'
+import { RoutingDropdown } from './RoutingDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { EdgeStrokeDropdown } from './EdgeStrokeDropdown'
@@ -77,16 +79,16 @@ export function EdgePopup({
   )
 
   const entities = layout.entities
-  const fromEntity = edge && findEntity(entities, edge.fromEntityId)
-  const toEntity = edge && findEntity(entities, edge.toEntityId)
-  if (!edge || !fromEntity || !toEntity) return null
+  const entityMap = new Map<string, CanvasSceneEntity>()
+  for (const e of entities) entityMap.set(e.id, e)
+  const anchors = edge
+    ? resolveEdgeAnchors(edge, entityMap, layout.zoom, layout.canvasOrigin.y, (point) =>
+        canvasToScreenPoint(layout, point),
+      )
+    : null
+  if (!edge || !anchors) return null
 
-  const { fromSide, toSide } =
-    edge.fromSide && edge.toSide
-      ? { fromSide: edge.fromSide, toSide: edge.toSide }
-      : autoSides(fromEntity, toEntity)
-  const from = getAnchorPoint(fromEntity, fromSide, layout.zoom, layout.canvasOrigin.y)
-  const to = getAnchorPoint(toEntity, toSide, layout.zoom, layout.canvasOrigin.y)
+  const { from, to } = anchors
   const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 }
 
   const fromEnd = edge.fromEnd ?? 'none'
@@ -117,6 +119,13 @@ export function EdgePopup({
           noun="edge"
           activeSlot={slotForStorage(edge.color ?? null)}
           onPick={(storage) => api.updateEdge(edge.id, { color: storage })}
+        />
+        <CanvasItemPopup.Divider isDark={isDark} />
+        <RoutingDropdown
+          isDark={isDark}
+          routing={edge.routing ?? 'bezier'}
+          noun="edge"
+          onPick={(routing) => api.updateEdge(edge.id, { routing })}
         />
         <CanvasItemPopup.Divider isDark={isDark} />
         <EdgeStrokeDropdown
@@ -175,11 +184,4 @@ export function EdgePopup({
       </CanvasItemPopup.Frame>
     </div>
   )
-}
-
-function findEntity(
-  entities: CanvasSceneEntity[],
-  id: string,
-): CanvasSceneEntity | undefined {
-  return entities.find((entity) => entity.id === id)
 }
