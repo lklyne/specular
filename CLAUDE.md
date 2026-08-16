@@ -133,13 +133,16 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 
 ## View modes
 
-Browser and Canvas are different views of the same data:
+Specular has one view: the canvas. All entities (pages, notes, shapes, drawings,
+groups) are spatial nodes on that canvas.
 
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between pages
+**Focus selection** is a camera command, not a mode — it zooms to fit the
+current selection and stores a return camera so Escape can restore it. It is not
+a separate browser-style view.
 
-Both operate on the same underlying .canvas data and share primitives.
-Maximize overlap between modes.
+Legacy `.canvas` files may carry a `viewMode: 'browser'` field. The app treats
+this as a compatibility hint only: the canvas opens with the formerly active page
+selected. Browser mode no longer exists (removed in ADR 0020).
 
 ## Code principles
 
@@ -197,7 +200,7 @@ The suite stays small on purpose. To prevent drift back to a pile of low-value t
 
 ## Specular CLI
 
-- Always pass full URLs (including scheme and host) to `specular create page`. The canvas can contain pages from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
+- Always pass full URLs (including scheme and host) to `specular add page`. The canvas can contain pages from different origins, so bare paths like `/garden` are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
 
 ## Skill files
 

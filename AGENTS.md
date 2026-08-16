@@ -32,7 +32,7 @@ Electron app with four source layers:
 
 ```
 src/main/          Main process: state, persistence, HTTP API, CLI, IPC routing
-src/preload/       Context bridges: one per renderer overlay (10 total)
+src/preload/       Context bridges: one per renderer overlay (9 total)
 src/renderer/      React apps: canvas-bg, toolbar, sidebar, inspector, overlays
 src/shared/        Types and pure utilities shared across processes
 ```
@@ -50,7 +50,7 @@ Runtime variables    Ephemeral state (views, interaction mode, hover, timers)
 ### Key domains in src/main/runtime/
 
 ```
-workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
+space-*              Persistence, tabs, model, Y.Doc, undo, autosave
 runtime-core.ts      High-level state mutations
 runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
 selection-*          Selection state and mutations
@@ -86,11 +86,9 @@ We follow the JSON Canvas spec (jsoncanvas.org) for our data model nouns:
 
 ## View modes
 
-Browser and Canvas are different views of the same data:
-- **Canvas mode** — spatial freeform surface; nodes arranged freely
-- **Browser mode** — traditional tab navigation between frames
-
-Both operate on the same underlying .canvas data and share primitives.
+Specular has one view: the canvas. All entities are spatial nodes on it.
+Browser mode was removed (ADR 0020); legacy `.canvas` files with `viewMode:
+'browser'` open on the canvas with the formerly active page selected.
 
 ## Code principles
 

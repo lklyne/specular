@@ -49,7 +49,7 @@ The `specular` CLI is the main interface for agents — composable commands that
 
 ```bash
 specular canvas                          # inspect the current canvas
-specular create frame <url>              # pull a live page onto the canvas
+specular add page <url>                  # pull a live page onto the canvas
 specular snapshot -i                     # get element refs for the selected frame
 specular annotate "<feedback>"           # leave a comment for a human or agent
 ```

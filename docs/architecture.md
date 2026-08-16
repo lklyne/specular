@@ -32,8 +32,8 @@ Specular is an Electron app with a main process and multiple renderer processes.
 ┌──────────────────┴──────────────────────────────────────────┐
 │ Renderer processes (src/renderer/)                          │
 │                                                              │
-│  canvas-bg/        Below-pages plane: grid, camera, node    │
-│                    rendering, edges, group outlines          │
+│  canvas-bg/        Below-pages plane: grid, camera, page    │
+│                    borders, device shells                    │
 │  above-view/       Above-pages plane: gesture capture,      │
 │                    marquee, comments, annotations,          │
 │                    floating UI (merged from former          │
@@ -75,7 +75,7 @@ See `src/main/runtime/CLAUDE.md` for the full technical reference.
 
 | Layer | What it holds | Where |
 |-------|--------------|-------|
-| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `workspace-doc.ts` |
+| Y.Doc (Yjs) | Entities, groups, edges, annotations, viewport, active tab | `space-doc.ts` |
 | Runtime variables | Electron views, interaction mode, hover, drag, timers | `runtime-context.ts` |
 
 **Forward sync:** mutations update runtime arrays -> `scheduleWorkspaceAutosave()`
@@ -94,7 +94,9 @@ All canvas content is a **node** (following the JSON Canvas spec):
 |-----------|--------------|-------------|
 | `link` | `page` | Live web page in an Electron webview |
 | `text` | `text` | Text/markdown note |
+| `text` (ext.) | `shape` | Shape annotation (rect, ellipse, arrow) — Specular extension |
 | `file` | `file` | Reference to a local file (image, etc.) |
+| `file` (ext.) | `drawing` | Freehand drawing stored as a `.webm` — Specular extension |
 | `group` | `group` | Visual container for other nodes |
 
 Plus **edges** (connections between nodes) and **annotations** (freehand
@@ -112,13 +114,13 @@ Each entity type has:
 |--------|------|
 | `runtime-core.ts` | High-level state mutations (create, delete, select) |
 | `runtime-context.ts` | All ephemeral state (views, zoom, pan, interaction) |
-| `workspace-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
-| `workspace-model.ts` | Workspace data arrays (groups, edges, annotations, tabs) |
-| `workspace-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
-| `workspace-persistence.ts` | Disk I/O (.canvas read/write) |
-| `workspace-autosave.ts` | Autosave scheduling |
-| `workspace-undo.ts` | UndoManager setup, undo/redo API |
-| `workspace-tab-operations.ts` | Tab CRUD and switching |
+| `space-doc.ts` | Y.Doc lifecycle, snapshot creation, diff-sync engine |
+| `space-model.ts` | Space data arrays (groups, edges, annotations, tabs) |
+| `space-observers.ts` | Forward and reverse sync between runtime and Y.Doc |
+| `space-persistence.ts` | Disk I/O (.canvas read/write) |
+| `space-autosave.ts` | Autosave scheduling |
+| `space-undo.ts` | UndoManager setup, undo/redo API |
+| `space-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
 | `layout-engine.ts` | View z-order and layout dispatch |
@@ -136,13 +138,14 @@ layout, camera, inspector, presence. Used by CLI, tests, and automation.
 
 ### src/renderer/canvas-bg/
 
-The main spatial surface. Key components:
-- `CanvasGridSurface` — SVG canvas with pan/zoom
-- `SelectableEntityShell` — draggable/resizable node wrapper
-- `PageBorderLayer`, `TextBlockLayer`, `FileBlockLayer` — node rendering
-- `EdgeLayer` — connector lines
-- `GroupBoundsLayer` — group outlines
-- `AgentCursorLayer` — agent presence cursors (rendered in the `agent-layer` child window, not in canvas-bg itself)
+The below-pages plane. Key components:
+- `CanvasGridSurface` — SVG grid with pan/zoom camera transform
+- `GroupBackgroundLayer` — filled color backgrounds for groups
+- `PageBorderLayer`, `DeviceShellLayer`, `SvgDeviceShellLayer` — page chrome
+
+Entity bodies (sticky, shape, file/markdown, image, video), edges, selection
+outlines, group bounds, and the agent halo all render in `above-view`, not here.
+See the Interaction Layer section below for the full layer split.
 
 ### src/shared/
 

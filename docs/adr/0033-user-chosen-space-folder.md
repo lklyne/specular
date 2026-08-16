@@ -155,11 +155,10 @@ and not decided.
 
 ## Consequences
 
-`src/main/runtime/workspace-persistence.ts` is already fully parameterized on
+`src/main/runtime/space-persistence.ts` is fully parameterized on
 `userDataPath` — it never calls `app.getPath` itself — so the change is
-concentrated at the ~6 callers that pass it in (`workspace-autosave.ts:38,67`,
-`workspace-tab-context.ts:295`, `workspace-tab-operations.ts:186,312,331`), each
-of which switches to `spaceDir()`.
+concentrated at the ~6 callers that pass it in (`space-autosave.ts`,
+`space-tab-operations.ts`), each of which switches to `spaceDir()`.
 
 **`image-assets.ts:8` and `note-assets.ts:7` are the trap.** Both re-join
 `workspaces/default` themselves rather than calling `workspaceDir()`. Change only
@@ -174,9 +173,9 @@ sandboxed today, so a path string suffices — but `spacePath` should be treated
 a value that may need to become a bookmark, not one that is definitionally a
 string.
 
-Per `src/main/runtime/CLAUDE.md`, anything touching `workspace-*.ts` needs
+Per `src/main/runtime/CLAUDE.md`, anything touching `space-*.ts` needs
 integration coverage: `tests/integration/persistence.test.ts` is the relevant
-file, and `tab-file-identity.test.ts:106` constructs paths the same way and will
+file, and `tab-file-identity.test.ts` constructs paths the same way and will
 need updating.
 
 `docs/file-formats.md:26-27` is corrected as part of this work. It currently

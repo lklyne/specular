@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-06-01
 **Related:** [docs/interaction-layer.md](../interaction-layer.md) §4 (input authority), [docs/input-authority-audit.md](../input-authority-audit.md).
+**Historically superseded:** [ADR 0020](./0020-delete-browser-mode-for-focus-selection.md) removed browser mode entirely. The `viewMode` guard this ADR added is gone; the bgView handler now always pans on wheel since only canvas mode remains. The Note about the browser-mode backing-card bug is also moot.
 
 ## Context
 

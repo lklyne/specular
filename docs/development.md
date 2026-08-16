@@ -13,6 +13,8 @@ pnpm dev                     # start the Electron app
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
 pnpm test:integration        # real runtime in-process (no Electron)
+pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
+pnpm test:contract           # pin agent-browser CLI surface
 pnpm build                   # package for distribution
 ```
 

@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-05-04
 **Supersedes premise of:** `docs/interaction-layer.md` §4.2 (input gate) and §4.7 (bitmap compositor)
+**Partially superseded by:** [ADR 0022 — Pages adopt select-first / interact-second](./0022-pages-select-first-interact-second.md) (replaced the total-focus model and the blur-event exit trigger). [ADR 0003](./0003-page-as-canonical-name-for-live-web-items.md) renamed `frameFocus` → `interactivePageId`.
 
 ## Context
 
