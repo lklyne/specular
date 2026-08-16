@@ -1413,3 +1413,18 @@ Noticed (no action):
 - **PR #169 now at day 78** (this append is the 80th commit on the branch). `mergeable_state` read back as `unknown` tonight rather than `clean` — almost certainly GitHub's merge-check cache going stale on a long-idle PR rather than a real conflict (no competing edits to `docs/orchestrator/journal.md` exist anywhere else); worth a direct recheck next run before citing it either way, since #397's proposal leans on "clean" as a load-bearing fact.
 - **#383 at day 6**, zero comments, unchanged since filing — one day short of the Aug 16-17 watch mark flagged Aug 14.
 Hint for next run: recheck PR #169's `mergeable_state` directly (not from a cached read) before the next mention — if it's genuinely not `clean`, that's a fact #397 needs corrected, not just a footnote. Check whether #397 gets any engagement (comment, reaction, or a merge on #169 itself) — this is the first post-reflection proposal, worth reading plainly rather than through the same day-count lens as the last nine. Watch #383 crossing day 7 (~Aug 16).
+
+---
+
+## 2026-08-16
+Surveyed: a direct (non-cached) recheck of PR #169's `mergeable_state` per last night's hint; whether `main`, any PR, or any issue moved since the Aug 15 09:07 UTC survey (~34h window); #397's engagement (day 1); #383 crossing its day-7 watch mark; needs-triage and `agent-in-progress` recounts; a CI run skim.
+Acted: Nothing filed or closed. Proposal queue: #397 is the sole open item, zero comments/reactions, 1 day old — far below any stale threshold. No orchestrator-owned PRs beyond #169 to clean up.
+Noticed (no action):
+- **PR #169's `mergeable_state` rechecked directly: `clean`.** Confirms last night's suspicion — the `unknown` reading on Aug 15 was a stale merge-check cache on a long-idle PR, not a real conflict. #397's evidentiary claim ("clean" as of filing) holds.
+- **Full silence since the Aug 15 survey**: no new commits to `main` (still `236d007`/#393), no new or updated PRs, no new issues besides #397 itself. `git log` since `2026-08-15T00:00:00Z` and an issue search for `created:>=2026-08-15` both confirm this. One quiet day after a very active Aug 14 (3 merges, 3 new PRs, 2 new issues) — a single quiet night isn't the multi-night blackout pattern from early August; not naming it as one yet.
+- **#383 crosses day 7 today** (opened 2026-08-09, zero comments throughout), hitting the watch mark flagged Aug 14-15. Still Lyle's own PR, not orchestrator output — out of scope to act on. Noting it crossed the mark as promised, nothing more.
+- **#397 at day 1**: too early to read anything into the silence; the real test starts after a few nights, same as every prior proposal.
+- **needs-triage unchanged at 25, `agent-in-progress` unchanged at 3** (#1, #111 at 92 days orphaned, #135 at 91 days orphaned) — no drift since Aug 15.
+- **CI healthy**: last 10 workflow runs all `success`/`skipped` (skipped = the `Claude Code` workflow on `main` pushes with no @claude mention, expected), most recent being last night's own journal-branch CI run. No rot.
+- **Journal PR #169 now at day 79** (this append is the 81st commit on the branch), still a pure single-file diff, `mergeable_state: clean` confirmed directly tonight.
+Hint for next run: check whether #397 has picked up any comment/reaction (day 2-3 is still early, but start watching); if `main` stays silent a second consecutive night, that's worth naming as a short quiet stretch distinct from the Aug 5-9 blackout — track consecutive nights rather than re-deriving from scratch each time. #383 is now past its watch mark with no change; no further action implied, just stop citing the countdown.
