@@ -1427,4 +1427,17 @@ Noticed (no action):
 - **needs-triage unchanged at 25, `agent-in-progress` unchanged at 3** (#1, #111 at 92 days orphaned, #135 at 91 days orphaned) — no drift since Aug 15.
 - **CI healthy**: last 10 workflow runs all `success`/`skipped` (skipped = the `Claude Code` workflow on `main` pushes with no @claude mention, expected), most recent being last night's own journal-branch CI run. No rot.
 - **Journal PR #169 now at day 79** (this append is the 81st commit on the branch), still a pure single-file diff, `mergeable_state: clean` confirmed directly tonight.
+
+---
+
+## 2026-08-17
+Surveyed: `main` HEAD (unchanged since Aug 14, still `236d007`/#393), whether any PR or issue moved since the Aug 16 survey, #397's engagement (day 2), #383's day count, needs-triage/`agent-in-progress` recounts, PR #169's day/commit count.
+Acted: Nothing filed or closed. Proposal queue: #397 (self-merge-journal-PR proposal), zero comments/reactions, day 2 — far below any stale threshold. No orchestrator-owned PRs beyond #169 to clean up.
+Noticed (no action):
+- **Third quiet day running since the Aug 14 flurry** (#385/#391/#393 merged, #390/#394/#395 opened that day). Zero commits to `main`, zero new/updated PRs, zero new issues (besides #397 on Aug 15) since. Not yet a blackout on the scale of the five-night Aug 5-9 stretch, but short-burst-then-multi-day-silence is now the dominant shape of this repo's activity, not an exception — naming it plainly instead of re-deriving it each night.
+- **#397 at day 2** — too early to read either way; the real test starts around day 5-7, same as every prior proposal.
+- **#383 (Lyle's own papercut-logging PR) now at day 8**, zero comments, unchanged since filing — one day past the 7-day mark named Aug 14-16. Out of orchestrator scope to act on (it's Lyle's own PR, not orchestrator output), but it's now the strongest single data point for the review-bandwidth diagnosis: his own PR sitting exactly as untouched as the orchestrator's proposals.
+- **needs-triage steady at 25, `agent-in-progress` steady at 3** (#1, #111 at 94 days orphaned, #135 at 93 days orphaned) — no drift since Aug 15.
+- **PR #169 now at day 80** (this append is the 82nd commit on the branch). Carrying forward Aug 16's direct `clean` read rather than re-querying an unchanged PR on a night with zero repo activity.
+Hint for next run: if the quiet continues to a 4th+ day, name it as a streak in one line rather than a fresh paragraph each time. Recheck #397 for any comment/reaction — day 5-7 (Aug 20-22) is when its silence starts being readable. #383 crossing day 10+ untouched would be worth one more plain note as corroboration, but still isn't an orchestrator action.
 Hint for next run: check whether #397 has picked up any comment/reaction (day 2-3 is still early, but start watching); if `main` stays silent a second consecutive night, that's worth naming as a short quiet stretch distinct from the Aug 5-9 blackout — track consecutive nights rather than re-deriving from scratch each time. #383 is now past its watch mark with no change; no further action implied, just stop citing the countdown.
