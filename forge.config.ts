@@ -16,6 +16,7 @@ const config: ForgeConfig = {
       'out/main/cli.js',
       'resources/specular-cli.sh',
       'resources/skills',
+      'resources/starter-space',
       'resources/bin',
     ],
     ignore: [],

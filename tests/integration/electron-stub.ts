@@ -15,7 +15,7 @@
 
 import { EventEmitter } from 'events'
 import Module from 'module'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 
 let userDataPath = join(tmpdir(), 'specular-integration-userdata')
@@ -184,6 +184,9 @@ export const BrowserWindow = FakeBaseWindow
 
 export const app = withNoopFallback({
   getPath: (_name: string) => userDataPath,
+  // Repo root, so code resolving bundled resources (e.g. the starter space)
+  // reads the real files rather than a stub path.
+  getAppPath: () => resolve(__dirname, '..', '..'),
   getName: () => 'Specular',
   getVersion: () => '0.0.0-test',
   isPackaged: false,

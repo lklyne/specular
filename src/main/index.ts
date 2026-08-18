@@ -1,18 +1,18 @@
 import { app, crashReporter, dialog, net, nativeTheme, protocol } from 'electron'
 import { basename } from 'path'
 import { pathToFileURL } from 'url'
-import { DEFAULT_PAGES } from '../shared/constants'
 import { logCrash } from './crash-log'
+import { seedStarterSpace } from './starter-space'
+import { spaceDir } from './runtime/space-dir'
 import {
   flushSpaceAutosaveSync,
   loadSpace,
 } from './runtime/space-autosave'
 import { restorePersistedSpace } from './runtime/space-restore'
-import { createPage, pages, setMcpConnectionStatus } from './runtime/page-runtime'
+import { pages, setMcpConnectionStatus } from './runtime/page-runtime'
 import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
 import { duplicatePageFromSource } from './workspace-pages'
 import { requestLayout } from './runtime/viewport-control'
-import { toggleDevTools } from './runtime/ui-actions'
 import { broadcastTheme, initWindow, isDark, win } from './runtime/window-shell'
 import {
   getMcpConnectionStatus,
@@ -241,21 +241,15 @@ app.whenReady().then(async () => {
     setMcpConnectionStatus(getMcpConnectionStatus())
   }, 5_000)
 
+  // A first-time space gets the starter canvas written into it before the
+  // load, so it arrives through the same path as any other canvas.
+  seedStarterSpace(spaceDir())
+
   // Load workspace from .canvas files (primary), falling back to legacy workspace-store.json
   const persistedWorkspace = loadSpace()
   const restoredPersistedWorkspace = persistedWorkspace
     ? restorePersistedSpace(persistedWorkspace)
     : false
-
-  if (!restoredPersistedWorkspace) {
-    for (const cfg of DEFAULT_PAGES) {
-      createPage(cfg)
-    }
-  }
-
-  if (!restoredPersistedWorkspace) {
-    toggleDevTools()
-  }
 
   const doc = getActiveDoc()
   createCanvasUndoManager(doc)

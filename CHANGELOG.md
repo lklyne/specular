@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - **Specular no longer sends crash reports or any telemetry.** Sentry has been removed entirely, along with the anonymous per-install identifier it kept. Nothing leaves your machine. Crashes still land in `~/Library/Logs/Specular/errors.log` for you to read or attach to an issue yourself.
 
+### New
+
+- **A first launch opens onto a welcome canvas** instead of two arbitrary pages and a devtools panel. It's a real `.canvas` file in your space — edit it, or delete it and it stays gone.
+
 ### Fixes
 
 - The remote debugging port no longer sits on a fixed, well-known number. Chromium picks a free one per launch, so another program can't count on finding Specular's browser-control endpoint at a known address.

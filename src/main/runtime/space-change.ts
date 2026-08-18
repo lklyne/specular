@@ -10,14 +10,13 @@
 import { type BrowserWindow, dialog } from 'electron'
 import { mkdirSync } from 'fs'
 import { basename } from 'path'
-import { DEFAULT_PAGES } from '../../shared/constants'
-import { createPage } from './page-factory'
 import { spacePickerDefaultPath } from './picker-defaults'
 import { setSpacePath } from './preferences'
 import { spaceDir } from './space-dir'
 import { hasCanvasFiles, migrateSpace } from './space-migration'
 import { requestLayout } from './viewport-control'
 import { flushSpaceAutosaveSync, loadSpace, withSpacePersistenceSuspended } from './space-autosave'
+import { seedStarterSpace } from '../starter-space'
 import {
   activeSpaceTabId,
   setActiveSpaceTabId,
@@ -176,32 +175,32 @@ export function reopenAtCurrentSpace(): void {
 
 /**
  * The window-independent half of a reopen: load whatever `spaceDir()`
- * currently resolves to into the runtime arrays, falling back to the
- * default starter pages when the new root is empty (mirrors the boot
- * fallback in src/main/index.ts), and reset the undo stack so it doesn't
- * carry entries from the old space into the new one. Split out from
+ * currently resolves to into the runtime arrays, seeding the starter canvas
+ * first when the new root is empty (mirrors the boot path in
+ * src/main/index.ts), and reset the undo stack so it doesn't carry entries
+ * from the old space into the new one. Split out from
  * `reopenAtCurrentSpace()` so it's testable without the window-teardown
  * half, which depends on Electron machinery (loadRenderer, screen, …) that
  * has no in-process test double.
  */
 export function reloadWorkspaceDataFromCurrentSpace(): void {
+  // Seed before the load so a fresh root comes back through restore like any
+  // other space, rather than needing a parallel construction path here.
+  seedStarterSpace(spaceDir())
   const record = loadSpace()
   const restored = record ? restorePersistedSpace(record) : false
   if (!restored) {
-    // restorePersistedSpace clears the old space's pages/entities/tabs
-    // as part of hydrating the new ones; the empty-space fallback has no
-    // such hydration step, so it must clear them itself before seeding the
-    // starter pages — otherwise they'd sit alongside the old space's content
-    // instead of replacing it.
+    // restorePersistedSpace clears the old space's pages/entities/tabs as
+    // part of hydrating the new ones. Reaching here means the new root has
+    // nothing to hydrate from, so it must clear them itself — otherwise the
+    // old space's content sits on under the new root and autosave writes it
+    // back out as if it belonged there.
     destroyActivePages()
     workspaceGroups.length = 0
     workspaceEdges.length = 0
     workspaceAnnotations.length = 0
     spaceTabs.length = 0
     setActiveSpaceTabId(null)
-    for (const cfg of DEFAULT_PAGES) {
-      createPage(cfg)
-    }
   }
   // Doc observers and the undo manager are already wired from app boot and
   // operate on the same module-level arrays rebuildWindowFromSnapshot just
