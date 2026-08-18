@@ -28,7 +28,6 @@ export const CLUSTER_OUTER_MARGIN = 80
 export const PLACEMENT_SCAN_STEP = GRID_SIZE
 export const ANCHOR_OFFSET_X = 80
 export const ANCHOR_OFFSET_Y = 0
-export const DEFAULT_REMOTE_DEBUGGING_PORT = 9333
 export const APP_CONTROL_PORT = 29979
 export const APP_CONTROL_VERSION = '1'
 export const APP_CONTROL_DISCOVERY_FILE = 'specular-mcp.json'
