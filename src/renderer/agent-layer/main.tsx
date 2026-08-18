@@ -2,11 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import '../above-view/styles.css'
-import { initRendererSentry } from '../shared/sentry-init'
 import { installFocusModality } from '../shared/focusModality'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 
-initRendererSentry()
 installFocusModality()
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI

@@ -52,7 +52,6 @@ import { invalidateInteractionSyncResolution } from '../interaction-sync'
 import { attachBindingDispatcher } from './binding-dispatcher'
 import { openLinkInNewFrame } from './link-open-policy'
 import { looksLikeUrl } from '../../shared/url'
-import { breadcrumb } from '../sentry-context'
 import { installScrollbarCss } from './page-scrollbar-css'
 
 function hostOf(url: string | undefined): string | undefined {
@@ -87,7 +86,6 @@ function frameColor(): string {
 
 export function createPage(config: PageConfig): Page {
   if (!win || !toolbarView) throw new Error('Window not initialized')
-  breadcrumb('page', 'create', { host: hostOf(config.url), preset: config.presetIndex })
   const presetIndex = normalizePresetIndex(config.presetIndex)
 
   // Construction only — the layout pass child-list reconcile (layer-stack)
@@ -162,15 +160,9 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('render-process-gone', (_event, details) => {
     page.crashedAt = Date.now()
     page.crashReason = details.reason
-    breadcrumb('page', 'render-process-gone', {
-      host: hostOf(page.url),
-      reason: details.reason,
-      exitCode: details.exitCode,
-    })
     selectionDebug('page:render-process-gone', { pageId: page.id, ...details })
   })
   page.pageView.webContents.on('unresponsive', () => {
-    breadcrumb('page', 'unresponsive', { host: hostOf(page.url) })
     selectionDebug('page:unresponsive', { pageId: page.id })
   })
   page.pageView.webContents.on('did-stop-loading', () => {
@@ -239,7 +231,6 @@ export function createPage(config: PageConfig): Page {
   })
   page.pageView.webContents.on('did-navigate', (_event, url) => {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
-    breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
     // The new document starts unscrolled; keeping the old document's offset
     // would shift every page-anchored region until the first scroll event.
@@ -299,9 +290,7 @@ export function createPage(config: PageConfig): Page {
           focus: disposition === 'foreground-tab',
         })
       } catch {
-        breadcrumb('navigation', 'open-link-as-frame-failed', {
-          host: hostOf(url),
-        })
+        // Link couldn't become a frame; deny the popup either way.
       }
       return { action: 'deny' }
     }
@@ -348,7 +337,6 @@ export function removePageAtIndex(idx: number): Page | null {
   // Full select-first / interact-second delete behavior is tracked in #124.
   if (focusedPageId() === page.id) endFocusSession('dismiss')
   if (interactivePageId() === page.id) setInteractivePageId(null)
-  breadcrumb('page', 'remove', { host: hostOf(page.url) })
   clearPendingRequestsForPage(page.id)
   // Detachment is owned by the layout pass child-list reconcile — splice
   // pages[], close the webContents, and request layout below.

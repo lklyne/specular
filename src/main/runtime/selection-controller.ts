@@ -27,7 +27,6 @@ import { drawingEntities } from './drawing-entity-state'
 import { fileEntities } from './file-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { textEntities } from './text-entity-state'
-import { breadcrumb } from '../sentry-context'
 import {
   shouldFocusSelectedPage,
   type FocusSelectionInput,
@@ -112,16 +111,6 @@ function browserDevtoolsSelectionAllowed(nextSelection: SelectionCommand): boole
   return nextSelection.kind === 'single-entity' && nextSelection.entityKind === 'page'
 }
 
-function describeSelection(selection: SelectionCommand): Record<string, unknown> | undefined {
-  if (selection.kind === 'single-entity') {
-    return { kind: selection.entityKind }
-  }
-  if (selection.kind === 'multi-entity') {
-    return { count: selection.entityIds.length }
-  }
-  return undefined
-}
-
 function normalizeEntitySelection(entityIds: string[]): SelectionCommand {
   const nextEntityIds = [...new Set(entityIds)].filter((entityId) => {
     if (findPageById(entityId)) return true
@@ -172,7 +161,6 @@ function commitSelection(
   }
 
   setUiSelection(nextSelection)
-  breadcrumb('selection', nextSelection.kind, describeSelection(nextSelection))
 
   // Select-first / interact-second (#124): moving the selection off the entered
   // page drops it back to selected-only — blocker back on, keyboard back to the

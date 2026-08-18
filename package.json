@@ -48,7 +48,6 @@
     "@lezer/common": "^1.5.2",
     "@lezer/highlight": "^1.2.3",
     "@modelcontextprotocol/sdk": "^1.18.0",
-    "@sentry/electron": "^5.11.0",
     "lucide-react": "^0.576.0",
     "perfect-freehand": "^1.2.3",
     "react": "^19.0.0",
