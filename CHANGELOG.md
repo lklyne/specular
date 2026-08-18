@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Privacy
+
+- **Specular no longer sends crash reports or any telemetry.** Sentry has been removed entirely, along with the anonymous per-install identifier it kept. Nothing leaves your machine. Crashes still land in `~/Library/Logs/Specular/errors.log` for you to read or attach to an issue yourself.
+
+### Fixes
+
+- The remote debugging port no longer sits on a fixed, well-known number. Chromium picks a free one per launch, so another program can't count on finding Specular's browser-control endpoint at a known address.
+- The fix-permissions dropdown on a document was missing "Edit and verify" — the mode fixes actually run in — so it displayed "Bypass permissions" instead, and changing it forced a mode you hadn't chosen.
+
 ## [0.6.0] - 2026-08-03 — Markdown Live Preview, Your Own Space Folder
 
 ### New

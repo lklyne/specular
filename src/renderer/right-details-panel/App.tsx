@@ -15,7 +15,10 @@ import { TextEntityPane } from './components/TextEntityPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
 
-const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'dangerously', configured: false } as const
+// Placeholder shown only until the first fix-config broadcast arrives. Must
+// track the authoritative default in main (`preferences.ts`), or the panel
+// reports a permission mode the spawn would not actually use.
+const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'acceptEdits', configured: false } as const
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()

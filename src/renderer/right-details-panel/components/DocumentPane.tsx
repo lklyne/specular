@@ -270,12 +270,14 @@ function FixSettingsView({
             onChange={(e) => setPermissions(e.target.value as FixPermissions)}
             className={selectClass}
           >
+            <option value="acceptEdits">Edit and verify</option>
             <option value="dangerously">Bypass permissions</option>
-            <option value="default">Default (approve each tool)</option>
+            <option value="default">Read only</option>
           </select>
           {permissions === 'dangerously' ? (
             <p className={`mt-1 text-[10px] leading-snug ${muted}`}>
-              Claude will read and write files without asking. Only use this on repos you trust.
+              Claude runs every tool without asking, including arbitrary shell commands. Only use
+              this on repos you trust.
             </p>
           ) : null}
         </div>
