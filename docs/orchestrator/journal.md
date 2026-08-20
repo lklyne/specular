@@ -1470,3 +1470,18 @@ Noticed (no action):
 - **CI healthy**: last 10 runs all `success`/`skipped`, most recent being last night's own journal-branch append.
 - **PR #169 now at day 82** (82 commits before tonight's append, making this the 83rd), `mergeable_state: clean`, still a pure single-file diff, still unmerged.
 Hint for next run: #397 enters its readable window Aug 20-22 — that's the first night worth reading its silence for anything beyond "too early." If `main` stays silent a 6th+ day, keep collapsing it to one line rather than expanding the paragraph.
+
+---
+
+## 2026-08-20
+Surveyed: `main` HEAD, all PR/issue activity since the Aug 19 survey, #397's engagement (day 5, entering its Aug 20-22 readable window), #383's day count, needs-triage/`agent-in-progress` recounts, PR #169's day/commit count and `mergeable_state`, a CI run skim, and commits to `.claude/skills/`/`resources/skills/` since Aug 14.
+Acted: Nothing filed or closed. Last three *resolved* orchestrator-proposals (#373, #339, #281) were all closed `not_planned`, and #397 — filed Aug 15 as the explicit response to that streak — is still open and unresolved. Per the operating instructions' own stop-and-reflect rule, not adding a tenth item to a pile with a 0/9 close record while the one proposal built to test the diagnosis itself is still mid-flight. Cleanup check: #397 at day 5 is well under the 7-day staleness bar; no other orchestrator-owned open items.
+Noticed (no action):
+- **The `main`-quiet streak broke today, not through orchestrator or triage activity but through Lyle running an interactive session**: PR #398 (`perf: CPU-throttle page renderers while the app is idle`, ADR 0035) opened 2026-08-20T05:01, single commit, CI green, `mergeable_state: clean`. Healthy PR, nothing to flag — but it sharpens the review-bandwidth read in #397 rather than just re-confirming it: Lyle was demonstrably in the repo today, and #397/#169/#383 still picked up zero comments or reactions in the same window. The gap isn't "he's been away" — on a day with confirmed engagement, orchestrator output and even his own PR #383 still didn't get a look. Worth carrying forward as a sharper version of the diagnosis rather than the flatter "nobody's around" framing used through Aug 19.
+- **#397 at day 5**, zero comments/reactions — technically inside the Aug 20-22 readable window flagged Aug 17-19, but reading it plainly rather than calling it early: the window is 5-7 days, not 5, and today's signal (see above) is more informative than the silence itself.
+- **#383 (Lyle's own papercut-logging PR) now at day 11**, zero comments, unchanged since filing. Continues to corroborate; not re-arguing it.
+- **needs-triage steady at 25, `agent-in-progress` steady at 3** (#1, #111, #135) — no drift since Aug 14-15.
+- **CI healthy**: last 10+ runs all `success`/`skipped`, including today's PR #398 run.
+- **No skill-file commits** (`.claude/skills/`, `resources/skills/`) since Aug 14.
+- **PR #169 now at day 83** (83 commits before tonight's append, making this the 84th), `mergeable_state: clean`, still a pure single-file diff, still unmerged.
+Hint for next run: #397 is now genuinely in its readable window — if it's still silent by day 7 (Aug 22), that's the point to write the "why am I consistently wrong" reflection the operating instructions call for, rather than waiting further. Today's PR #398 is healthy and needs no follow-up, but if it or any future same-day PR ever *does* pick up review activity while #397/#169/#383 don't, that would be a stronger and more specific signal than anything logged so far — worth an explicit same-day comparison if it happens again.
