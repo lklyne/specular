@@ -4,6 +4,7 @@
 
 import { ipcChannels } from '../../shared/ipc-contract'
 import { WebContentsView } from 'electron'
+import { registerPageIdleThrottle } from './page-idle-throttle'
 import { randomUUID } from 'crypto'
 import { preloadPath } from './load-renderer'
 import type { PageConfig } from '../../shared/types'
@@ -141,6 +142,7 @@ export function createPage(config: PageConfig): Page {
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')
 
+  registerPageIdleThrottle(page)
   installScrollbarCss(page.pageView.webContents)
 
   page.pageView.webContents.on('page-title-updated', () => {
