@@ -31,7 +31,7 @@ import {
   currentEditingEntityId,
 } from './editing-entity-runtime'
 import { win } from './view-refs'
-import { requestLayout } from './layout-engine'
+import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
 import { isZoomInMotion, markPanMotion, markZoomMotion } from './zoom-motion'
 import {
@@ -73,9 +73,11 @@ import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
 import {
   beginZoomGesture,
+  beginZoomSnapshotHandoff,
   endZoomGesture,
   scheduleZoomSnapshotPreparation,
   slog,
+  waitForParkedPagesRerastered,
 } from './zoom-snapshot-freeze'
 
 let zoomGestureGen = 0
@@ -109,11 +111,7 @@ export function setViewportCamera(
   if (zoomChanged) {
     const gen = zoomGestureGen
     markZoomMotion(() => {
-      slog('gesture-settle', { gen, zoom })
-      endZoomGesture(gen)
-      markDirty('canvas')
-      requestLayout()
-      scheduleZoomSnapshotPreparation()
+      void settleZoomGesture(gen)
     })
   }
   if (panChanged) {
@@ -122,6 +120,31 @@ export function setViewportCamera(
       requestLayout()
     })
   }
+}
+
+/**
+ * Settle for a frozen gesture runs as a handoff: lay out once with the parked
+ * views warm (sized and emulated at the settled scale, off-screen), wait for
+ * them to commit a frame, then end the freeze and lay out again to reveal
+ * them. Revealing before that commit shows the pre-gesture surface stretched
+ * into the new bounds for a frame or two.
+ */
+async function settleZoomGesture(gen: number): Promise<void> {
+  slog('gesture-settle', { gen, zoom })
+  markDirty('canvas')
+  if (!beginZoomSnapshotHandoff(gen)) {
+    endZoomGesture(gen)
+    requestLayout()
+    scheduleZoomSnapshotPreparation()
+    return
+  }
+  layoutAllViews()
+  await waitForParkedPagesRerastered()
+  // A new gesture adopted the frames while we waited; it owns the settle now.
+  if (gen !== zoomGestureGen) return
+  endZoomGesture(gen)
+  layoutAllViews()
+  scheduleZoomSnapshotPreparation()
 }
 
 export function setZoom(value: number): void {

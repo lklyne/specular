@@ -33,6 +33,7 @@ import { markDirty } from './layout-dirty'
 import { clearPageAnchorsForPage } from './page-anchor-state'
 import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
+import { applyNavigationEmulation } from './layout-engine'
 import { endFocusSession, focusedPageId } from './focus-session'
 import {
   clearInspectTargets,
@@ -217,7 +218,6 @@ export function createPage(config: PageConfig): Page {
     // A finished load starts the page preload with no subscriptions; re-declare
     // the selectors this page's anchored items track (ADR 0032).
     resetAttachmentSubscriptionsForPage(page.id)
-    page.lastPageEmulationKey = undefined
     page.lastSafeAreaCssKey = undefined
     page.lastSafeAreaCssId = undefined
     if (isSelectedPage(page)) clearInspectTargets()
@@ -241,6 +241,12 @@ export function createPage(config: PageConfig): Page {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
+    // Commit is the earliest point the frame is guaranteed live (Electron
+    // derefs the frame's widget view unguarded) and precedes the new
+    // document's first layout, so it lays out at the emulated viewport and
+    // scale instead of reflowing once the next layout pass catches up. A
+    // cross-process navigation also swaps in a fresh widget that needs it.
+    applyNavigationEmulation(page)
     // The new document starts unscrolled; keeping the old document's offset
     // would shift every page-anchored region until the first scroll event.
     page.scrollX = 0

@@ -45,6 +45,18 @@ export function isPageParkedByZoomSnapshot(pageId: string): boolean {
   return active && preparedFrames.some((frame) => frame.pageId === pageId)
 }
 
+export type ZoomSnapshotParking = 'hidden' | 'warm' | null
+
+/**
+ * How the layout pass should place a parked page: `hidden` (zero bounds) for
+ * the gesture body, `warm` (full size, off-screen, compositing) during the
+ * settle handoff so it re-rasters at the settled scale before it is revealed.
+ */
+export function zoomSnapshotParkingFor(pageId: string): ZoomSnapshotParking {
+  if (!isPageParkedByZoomSnapshot(pageId)) return null
+  return handoff ? 'warm' : 'hidden'
+}
+
 export function markZoomSnapshotRendererReady(readyRevision: number): void {
   slog('renderer-ready', { readyRevision, revision, active })
   rendererReadyRevision = Math.max(rendererReadyRevision, readyRevision)
@@ -291,6 +303,7 @@ export function setZoomSnapshotFreezeActive(next: boolean): void {
  */
 let gestureGen = 0
 let gestureRunning = false
+let handoff = false
 
 function liveFallbackReason(): string | null {
   if (preparedFrames.length === 0) return 'no-frames'
@@ -316,6 +329,9 @@ function freezeForGesture(stage: 'gesture-start' | 'mid-gesture'): boolean {
 export function beginZoomGesture(gen: number): boolean {
   gestureGen = gen
   gestureRunning = true
+  // A gesture that starts mid-handoff keeps the frames; the pending reveal
+  // sees the generation change and stands down.
+  handoff = false
   if (forced) return active
   if (freezeForGesture('gesture-start')) return true
   void prepareZoomSnapshotFreeze({ force: true })
@@ -330,9 +346,50 @@ export function beginZoomGesture(gen: number): boolean {
   return false
 }
 
+/**
+ * Starts the settle handoff for a frozen gesture: parked pages move to the
+ * warm off-screen park so the next layout pass sizes and re-emulates them.
+ * Returns false when there is nothing to hand off (live gesture, forced
+ * freeze) and the caller should end the gesture directly.
+ */
+export function beginZoomSnapshotHandoff(gen: number): boolean {
+  if (gen !== gestureGen || forced || !active) return false
+  handoff = true
+  slog('handoff-begin', { gen, revision })
+  return true
+}
+
+const DOUBLE_RAF = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))'
+const RERASTER_TIMEOUT_MS = 250
+
+/**
+ * Resolves once every parked page has committed a frame at its current
+ * emulation: two animation frames after the change means the renderer has
+ * laid out and submitted at the new scale. A page that cannot answer (hung,
+ * throttled, mid-navigation) is released by the timeout rather than holding
+ * the reveal.
+ */
+export function waitForParkedPagesRerastered(): Promise<void> {
+  const parked = pages.filter(
+    (page) => isPageParkedByZoomSnapshot(page.id) && !page.pageView.webContents.isDestroyed(),
+  )
+  const startedAt = performance.now()
+  return Promise.all(
+    parked.map((page) =>
+      Promise.race([
+        page.pageView.webContents.executeJavaScript(DOUBLE_RAF).catch(() => undefined),
+        new Promise<void>((resolve) => setTimeout(resolve, RERASTER_TIMEOUT_MS)),
+      ]),
+    ),
+  ).then(() => {
+    slog('handoff-rerastered', { pages: parked.length, waitMs: Math.round(performance.now() - startedAt) })
+  })
+}
+
 export function endZoomGesture(gen: number): void {
   if (gen !== gestureGen) return
   gestureRunning = false
+  handoff = false
   if (forced || !active) return
   slog('gesture-end', { gen, revision })
   active = false
@@ -340,10 +397,10 @@ export function endZoomGesture(gen: number): void {
 }
 
 /**
- * The delay only needs to cover one compositor frame: settle re-emulates the
- * views at the exact scale, and capturePage copies the last submitted surface,
- * so capturing in the same tick would freeze the pre-re-raster pixels. Any
- * longer just widens the window in which a new gesture finds no snapshot.
+ * Scheduled after the settle handoff, so parked pages have already committed
+ * a frame at the exact scale; the delay covers one compositor frame for
+ * capturePage to pick up the revealed surface. Any longer just widens the
+ * window in which a new gesture finds no snapshot.
  */
 const PREPARE_DELAY_MS = 50
 
@@ -369,6 +426,7 @@ export function clearZoomSnapshotFreeze(): void {
   slog('clear', { revision, wasActive: active })
   captureLease += 1
   gestureRunning = false
+  handoff = false
   forced = false
   active = false
   preparedFrames = []
