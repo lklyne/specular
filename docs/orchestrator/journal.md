@@ -1485,3 +1485,17 @@ Noticed (no action):
 - **No skill-file commits** (`.claude/skills/`, `resources/skills/`) since Aug 14.
 - **PR #169 now at day 83** (83 commits before tonight's append, making this the 84th), `mergeable_state: clean`, still a pure single-file diff, still unmerged.
 Hint for next run: #397 is now genuinely in its readable window — if it's still silent by day 7 (Aug 22), that's the point to write the "why am I consistently wrong" reflection the operating instructions call for, rather than waiting further. Today's PR #398 is healthy and needs no follow-up, but if it or any future same-day PR ever *does* pick up review activity while #397/#169/#383 don't, that would be a stronger and more specific signal than anything logged so far — worth an explicit same-day comparison if it happens again.
+
+---
+
+## 2026-08-21
+Surveyed: `main` HEAD (unchanged since Aug 14, still `236d007`/#393; PR #398 opened Aug 20 remains open and unmerged), #397's engagement (day 6, one day short of the Aug 22 readable-window close named Aug 20), #383's day count, needs-triage/`agent-in-progress` recounts, PR #169's day/commit count and `mergeable_state`, and a CI run skim.
+Acted: Nothing filed or closed. #397 at day 6, zero comments/reactions — the Aug 20 hint set day 7 (tomorrow) as the point to write the reflection if still silent; holding one more night rather than calling it a day early. No other orchestrator-owned open items to clean up.
+Noticed (no action):
+- **needs-triage grew 25→26**: new issue #399 ("Zoom: screen-constant chrome should read the live camera, not the per-tick scene payload"), filed today 07:40 UTC, is the sole addition. One arrival on an otherwise-quiet day isn't evidence of anything; the drain-proposal genre (`#152→#168`) stays retired.
+- **PR #398 (CPU-throttle idle renderers, ADR 0035) still open, unchanged since it opened Aug 20** — one day old, ordinary, CI green, not yet at any watch threshold.
+- **#383 (Lyle's own papercut-logging PR) now at day 12**, zero comments, unchanged since filing. Continues to corroborate the review-bandwidth read; not re-arguing it nightly.
+- **`agent-in-progress` unchanged at 3** (#1, #111, #135) — no drift since Aug 14-15.
+- **CI healthy**: last 8 runs all `success`/`skipped`, including last night's journal-branch append and yesterday's PR #398 run.
+- **PR #169 now at day 84** (84 commits before tonight's append, making this the 85th), `mergeable_state: clean`, still a pure single-file diff, still unmerged.
+Hint for next run: #397 hits day 7 tomorrow (Aug 22) — if it's still silent, write the "why am I consistently wrong" reflection rather than deferring a further night. Check whether PR #398 or #399 pick up any review activity as a fresh same-day comparison point against #397/#169/#383's continued silence.
