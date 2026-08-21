@@ -14,7 +14,7 @@ import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
-import { ZoomSnapshotLayer } from './ZoomSnapshotLayer'
+import { useZoomSnapshotBitmaps } from './useZoomSnapshotBitmaps'
 import { useZoomSnapshotBench } from './useZoomSnapshotBench'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
@@ -40,27 +40,7 @@ export default function App({
     frames: [],
   })
   useEffect(() => api.onZoomSnapshotState(setZoomSnapshot), [])
-  useEffect(() => {
-    if (zoomSnapshot.frames.length === 0) return
-    let cancelled = false
-    const images = zoomSnapshot.frames.map((frame) => {
-      const image = new Image()
-      image.src = frame.dataUrl
-      return image
-    })
-    void Promise.allSettled(
-      images.map((image) =>
-        typeof image.decode === 'function'
-          ? image.decode()
-          : Promise.resolve(),
-      ),
-    ).then(() => {
-      if (!cancelled) api.zoomSnapshotReady(zoomSnapshot.revision)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [zoomSnapshot.revision])
+  const zoomSnapshotBitmaps = useZoomSnapshotBitmaps(zoomSnapshot, api.zoomSnapshotReady)
   const t = useSceneCameraTransform(
     api.onViewportNudge,
     layoutData,
@@ -146,15 +126,15 @@ export default function App({
             pages={svgDeviceShellPages}
             isDark={isDark}
           />
-          <ZoomSnapshotLayer pages={pageEntities} snapshot={zoomSnapshot} />
         </div>
       </div>
-      {/* Borders and device shells draw in screen space from the live camera,
-          outside the scene transform, so their strokes stay crisp mid-zoom
-          instead of being bitmap-scaled with the settled layout baseline. */}
+      {/* Borders, device shells, and frozen-page rasters draw in screen space
+          from the live camera, outside the scene transform, so strokes stay
+          crisp mid-zoom and the raster shares the chrome's exact geometry. */}
       <ChromeCanvasSurface
         pages={chromePages}
         fileEntities={chromeFiles}
+        snapshots={zoomSnapshotBitmaps}
         transform={t}
         isDark={isDark}
       />

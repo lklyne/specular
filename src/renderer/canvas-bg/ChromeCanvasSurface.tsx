@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
 import { drawChromeCanvas, type ChromeCanvasItem } from './chromeCanvasDraw'
+import type { ZoomSnapshotBitmaps } from './useZoomSnapshotBitmaps'
 
 /**
  * Full-window canvas that renders page borders and device shells in screen
@@ -10,11 +11,13 @@ import { drawChromeCanvas, type ChromeCanvasItem } from './chromeCanvasDraw'
 export function ChromeCanvasSurface({
   pages,
   fileEntities,
+  snapshots,
   transform,
   isDark,
 }: {
   pages: ChromeCanvasItem[]
   fileEntities: ChromeCanvasItem[]
+  snapshots: ZoomSnapshotBitmaps
   transform: SceneCameraTransform
   isDark: boolean
 }) {
@@ -22,8 +25,8 @@ export function ChromeCanvasSurface({
 
   // Latest draw inputs, read by the resize-triggered redraw without re-binding
   // the listener every tick (same pattern as CanvasGridSurface, #265).
-  const drawInputs = useRef({ pages, fileEntities, transform, isDark })
-  drawInputs.current = { pages, fileEntities, transform, isDark }
+  const drawInputs = useRef({ pages, fileEntities, snapshots, transform, isDark })
+  drawInputs.current = { pages, fileEntities, snapshots, transform, isDark }
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -37,7 +40,7 @@ export function ChromeCanvasSurface({
 
   useEffect(() => {
     draw()
-  }, [pages, fileEntities, transform, isDark, draw])
+  }, [pages, fileEntities, snapshots, transform, isDark, draw])
 
   useEffect(() => {
     window.addEventListener('resize', draw)

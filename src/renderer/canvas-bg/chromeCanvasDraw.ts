@@ -1,5 +1,6 @@
 /**
- * Canvas 2D rendering of page chrome: the 1px page/content borders and the
+ * Canvas 2D rendering of page chrome: the 1px page/content borders, the
+ * frozen-page raster that stands in for a parked WebContentsView, and the
  * device shell (bezel donut, strokes, island, home indicator).
  *
  * Drawn in screen space from the live camera transform on every pan/zoom
@@ -161,6 +162,25 @@ function drawItemBorders(
   )
 }
 
+/**
+ * The frozen-page raster, clipped to the content viewport's corner radius.
+ * Painted last, where the live WebContentsView sits in the native stack: it
+ * occludes the inner border ring and the bezel's drop shadow, which a shadowed
+ * donut casts into its own cutout as well as outward.
+ */
+function drawItemSnapshot(
+  ctx: CanvasRenderingContext2D,
+  g: ItemGeometry,
+  bitmap: ImageBitmap,
+): void {
+  ctx.save()
+  ctx.clip(squircle2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+  ctx.restore()
+}
+
 /** The device shell: squircle bezel donut with drop shadow, edge strokes,
  * top highlight, and phone/tablet decorations. Mirrors DeviceShellLayer. */
 function drawItemShell(
@@ -261,6 +281,7 @@ export function drawChromeCanvas({
   canvas,
   pages,
   fileEntities,
+  snapshots,
   transform,
   isDark,
   devicePixelRatio,
@@ -268,6 +289,8 @@ export function drawChromeCanvas({
   canvas: HTMLCanvasElement
   pages: ChromeCanvasItem[]
   fileEntities: ChromeCanvasItem[]
+  /** Frozen-page rasters by page id; a page with no entry draws no raster. */
+  snapshots: ReadonlyMap<string, ImageBitmap>
   transform: SceneCameraTransform
   isDark: boolean
   devicePixelRatio: number
@@ -302,12 +325,20 @@ export function drawChromeCanvas({
     ...framedFiles,
   ]
 
-  // Two passes matching the DOM stacking order: all borders, then all shells
-  // (the bezel fill covers the inner border ring on shell pages, as before).
+  // Three passes matching the native stacking order: all borders, then all
+  // shells (the bezel fill covers the inner border ring on shell pages), then
+  // the page rasters standing in for the live views on top.
   for (const item of borderItems) {
     drawItemBorders(ctx, liveGeometry(item, transform), borderColor, dpr)
   }
   for (const item of shellItems) {
     drawItemShell(ctx, item, liveGeometry(item, transform), isDark, bezelColor, dpr)
+  }
+  if (snapshots.size > 0) {
+    for (const page of pages) {
+      const bitmap = snapshots.get(page.id)
+      // A closed bitmap reports zero size; drawing it throws.
+      if (bitmap && bitmap.width > 0) drawItemSnapshot(ctx, liveGeometry(page, transform), bitmap)
+    }
   }
 }
