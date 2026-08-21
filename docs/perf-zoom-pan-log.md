@@ -292,3 +292,61 @@ Findings:
    is set by the live zoom at capture time.
 3. Total pixel budget per prepare is bounded by ~window × DPR (views tile the
    window), so the worst case is a few large pages at zoom ≥ 1, not many pages.
+
+## Exp E — hi-res settle captures over CDP (2026-08-21)
+
+Problem: the raster you zoom with is the last settle's `capturePage()`, which
+copies the compositor surface at on-screen size (`css × zoom × dpr`). Settle
+at zoom 0.1 and a 1194px page is a 239px bitmap; zoom back in and it is a 10×
+blow-up. The cache also replaced a zoom-1.0 frame with that 239px one, so
+even a page you had just seen at 1:1 went blurry.
+
+Probe (`POST /perf/zoom-snapshot/cdp-probe {scale, save}`): `Page.captureScreenshot`
+with `clip.scale` rasters in the renderer at `css × scale × dpr`, independent of
+the emulation zoom (zoom 0.618, scale 1 → 2388px for a 1194px page). 25–100ms
+per page at a 2048px long edge, JPEG encoded in the renderer, not on main.
+
+Two things it does that `capturePage` does not:
+
+1. It installs its own metrics override and then restores the DevTools
+   handler's *previous* params, which are empty when Electron's
+   `enableDeviceEmulation` set the widget state. Without a fix the page snaps
+   to native scale and stays there (the emulation key is unchanged, so layout
+   never re-applies it). Fix: seed `Emulation.setDeviceMetricsOverride` with the
+   same params before the screenshot; the restore then lands on the right
+   state. Scroll position survives (checked at scrollY 900). A debugger detach
+   now clears emulation too, so the detach listener resets the emulation key.
+2. It re-lays the page out at the target scale for the capture. On a visible
+   page that is a visible flip, so the capture only runs in the settle warm
+   park, where it is hidden behind the raster. It works at zero bounds too.
+
+Second finding, unrelated to CDP but exposed by it: the warm park at
+`x = -20000` never presents. viz stops issuing BeginFrames to a surface that
+is entirely outside the window, so `requestAnimationFrame` fires once or
+twice after parking and then stops. The presentation gate was timing out
+(750ms, then revealing blind) on most settles; a 1px row under the toolbar is
+culled the same way. A 1px column inside the window's left edge keeps frames
+flowing: all 7 pages present in 35–70ms.
+
+Shipped:
+- `captureParkedPagesAtSettle`: park → 2 rAF → CDP hi-res (if needed) → 2 rAF →
+  `capturePage` presentation frame → reveal. Target scale puts the page's long
+  edge at `SNAPSHOT_MAX_EDGE_PX` (2048), capped at max zoom, never below the
+  live zoom; at or above the target the presentation frame is the snapshot.
+- Frames carry a `contentKey` (page, viewport, nav generation, scroll). A
+  page keeps its frame when the incoming one pictures the same content at a
+  lower resolution, so a zoom-out never downgrades what a zoom-in captured,
+  and a background `capturePage` prepare after a drag keeps the hi-res frame.
+- The CDP capture is skipped when the retained frame already meets the
+  target, so repeat zooms cost only the presentation wait.
+- `POST /perf/flags {zoomSnapshotHiRes: false}` disables the CDP path for A/B.
+
+Measured (7 pages, cold start at zoom 0.1): first settle 216ms wait with all
+7 hi-res captures (118–182ms each, parallel); every later settle 35–70ms
+with zero CDP captures; frame widths held at 2388/2880 through a 1.0 → 0.1
+→ 1.0 cycle. Mid-gesture window frames at zoom 1.0 from a 0.2 raster are
+crisp.
+
+Still owed: a decoded-bitmap budget (20 pages at a 2048px edge is ~200MB of
+GPU textures; most canvases have fewer visible pages, but nothing enforces
+it), and a human check that the 1px park column is invisible in practice.

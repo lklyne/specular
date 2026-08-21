@@ -1810,6 +1810,8 @@ export interface ViewportNudge {
 
 export interface ZoomSnapshotFrame {
   pageId: string
+  /** The page content state this frame pictures; see `pageContentKey`. */
+  contentKey: string
   dataUrl: string
   capturedWidth: number
   capturedHeight: number

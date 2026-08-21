@@ -8,14 +8,27 @@ import { pages } from './runtime-context'
 import type { Page } from './runtime-entities'
 import { safeSend } from './safe-send'
 import { bgView } from './view-refs'
-import { snapshotCaptureStillValid } from '../../shared/zoom-snapshot-lifecycle'
+import {
+  frameMeetsTarget,
+  pickBetterFrame,
+  snapshotCaptureStillValid,
+  snapshotTargetScale,
+} from '../../shared/zoom-snapshot-lifecycle'
 import { boundEffectivePageContentSize } from './runtime-geometry'
+import { app, screen } from 'electron'
+import { appendFile } from 'fs/promises'
+import path from 'path'
+import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
+import { zoom } from './runtime-context'
+import { captureViaCdp, type CdpCapture } from './zoom-snapshot-cdp-capture'
 
 // ponytail: console diagnostics for the snapshot lifecycle; delete once the
 // dropout/fallback races are understood.
 export function slog(event: string, data?: Record<string, unknown>): void {
   const t = performance.now().toFixed(0)
-  console.log(`[zoom-snap +${t}ms] ${event}${data ? ` ${JSON.stringify(data)}` : ''}`)
+  const line = `[zoom-snap +${t}ms] ${event}${data ? ` ${JSON.stringify(data)}` : ''}`
+  console.log(line)
+  appendFile(path.join(app.getPath('logs'), 'zoom-snap.log'), `${line}\n`).catch(() => undefined)
 }
 
 let preparedFrames: ZoomSnapshotFrame[] = []
@@ -86,18 +99,36 @@ function waitForRendererReady(
   })
 }
 
+/** Identifies one page's content state: what a frame of it is a picture of. */
+function pageContentKey(page: Page): string {
+  const viewport = boundEffectivePageContentSize(page)
+  return [
+    page.id,
+    viewport.width,
+    viewport.height,
+    page.navGeneration,
+    page.scrollX ?? 0,
+    page.scrollY ?? 0,
+  ].join(':')
+}
+
 function currentContentSignature(): string {
-  return pages.map((page) => {
-    const viewport = boundEffectivePageContentSize(page)
-    return [
-      page.id,
-      viewport.width,
-      viewport.height,
-      page.navGeneration,
-      page.scrollX ?? 0,
-      page.scrollY ?? 0,
-    ].join(':')
-  }).join('|')
+  return pages.map(pageContentKey).join('|')
+}
+
+/**
+ * Merges freshly captured frames over the prepared set. A page keeps its
+ * existing frame when that frame pictures the same content at a higher
+ * resolution; frames for pages that no longer exist are dropped.
+ */
+function mergeFrames(incoming: ZoomSnapshotFrame[]): ZoomSnapshotFrame[] {
+  const existingById = new Map(preparedFrames.map((frame) => [frame.pageId, frame]))
+  const merged = new Map(existingById)
+  for (const frame of incoming) {
+    merged.set(frame.pageId, pickBetterFrame(existingById.get(frame.pageId), frame))
+  }
+  const liveIds = new Set(pages.map((page) => page.id))
+  return [...merged.values()].filter((frame) => liveIds.has(frame.pageId))
 }
 
 function currentCaptureSignature(): string {
@@ -190,11 +221,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
     const bounds = page.pageView.getBounds()
     return bounds.width > 0 && bounds.height > 0
   }).length
-  const capturedIds = new Set(capturedFrames.map((frame) => frame.pageId))
-  const candidateFrames = [
-    ...capturedFrames,
-    ...preparedFrames.filter((frame) => !capturedIds.has(frame.pageId)),
-  ]
+  const candidateFrames = mergeFrames(capturedFrames)
   // A page that was visible but still failed to capture (mid-teardown, empty
   // paint) is a transient state — keep the prior set and retry later.
   if (capturedFrames.length < capturableCount) {
@@ -354,22 +381,39 @@ export function beginZoomSnapshotHandoff(gen: number): boolean {
 
 const DOUBLE_RAF = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))'
 /**
- * Upper bound on one page's settle re-raster. The raster stays up while we
- * wait, so a long wait costs interactivity, not a wrong frame; the cap only
- * exists so a hung or throttled page cannot hold the reveal forever.
+ * Upper bound on one page's settle re-raster plus hi-res capture. The raster
+ * stays up while we wait, so a long wait costs interactivity, not a wrong
+ * frame; the cap only exists so a hung or throttled page (an occluded window
+ * stops its frames) cannot hold the reveal forever.
  */
-const HANDOFF_TIMEOUT_MS = 750
+const HANDOFF_TIMEOUT_MS = 1_000
+
+// Runtime-settable (POST /perf/flags) so the settle cost with and without the
+// renderer-side hi-res capture can be compared in one session.
+let hiResEnabled = true
+
+export function isZoomSnapshotHiResEnabled(): boolean {
+  return hiResEnabled
+}
+
+export function setZoomSnapshotHiResEnabled(enabled: boolean): void {
+  hiResEnabled = enabled
+}
 
 export interface HandoffCapture {
   page: Page
+  contentKey: string
   /** Null when the page timed out or returned an empty capture. */
   image: NativeImage | null
+  /** Renderer-side raster above on-screen resolution; null when not needed or failed. */
+  hiRes: CdpCapture | null
 }
 
 function encodeFrame(page: Page, image: NativeImage): ZoomSnapshotFrame {
   const size = image.getSize()
   return {
     pageId: page.id,
+    contentKey: pageContentKey(page),
     // JPEG: PNG encode runs synchronously on this thread and costs
     // 120–220ms per prepare at normal zooms; JPEG-85 is ~6× cheaper and
     // decodes faster in the renderer (perf-zoom-pan-log Exp D).
@@ -379,6 +423,45 @@ function encodeFrame(page: Page, image: NativeImage): ZoomSnapshotFrame {
   }
 }
 
+function encodeCdpFrame(page: Page, contentKey: string, capture: CdpCapture): ZoomSnapshotFrame {
+  return {
+    pageId: page.id,
+    contentKey,
+    dataUrl: `data:image/jpeg;base64,${capture.jpeg.toString('base64')}`,
+    capturedWidth: capture.width,
+    capturedHeight: capture.height,
+  }
+}
+
+/**
+ * The capture a settled page needs beyond its presentation frame. The
+ * on-screen surface only has `css × zoom × dpr` pixels, which is nothing to
+ * zoom back into from far out, so while the page is still parked behind the raster
+ * we ask its renderer for a raster at the target scale. Skipped when the
+ * retained frame already pictures this content at that resolution.
+ */
+function hiResPlan(page: Page): { scale: number; cssWidth: number; cssHeight: number; dpr: number } | null {
+  const css = boundEffectivePageContentSize(page)
+  const dpr = screen.getPrimaryDisplay().scaleFactor
+  const scale = snapshotTargetScale({
+    zoom,
+    cssWidth: css.width,
+    cssHeight: css.height,
+    devicePixelRatio: dpr,
+    maxZoom: CANVAS_MAX_ZOOM,
+  })
+  // At or above the target the presentation capture already is the best frame.
+  if (scale <= zoom) return null
+  const existing = preparedFrames.find((frame) => frame.pageId === page.id)
+  if (frameMeetsTarget(existing, {
+    contentKey: pageContentKey(page),
+    cssWidth: css.width,
+    devicePixelRatio: dpr,
+    targetScale: scale,
+  })) return null
+  return { scale, cssWidth: css.width, cssHeight: css.height, dpr }
+}
+
 /**
  * Waits for each warm-parked page to present a frame at the settled scale,
  * and returns that frame. Two animation frames mean the page has laid out
@@ -386,8 +469,10 @@ function encodeFrame(page: Page, image: NativeImage): ZoomSnapshotFrame {
  * drawn it. `capturePage` is a copy request on the view's surface, fulfilled
  * only once a frame containing that commit is drawn, so its resolution is
  * the presentation signal the reveal needs. The copy doubles as the next
- * gesture's snapshot: it is the view at exactly the size and scale it will
- * be revealed at.
+ * gesture's snapshot when the page is already at or above the target
+ * resolution; otherwise the renderer-side hi-res capture taken in between
+ * is the snapshot, and a second pair of animation frames confirms the page
+ * has re-presented at the settled scale after it.
  */
 export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
   const parked = pages.filter(
@@ -397,22 +482,55 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
   return Promise.all(
     parked.map(async (page): Promise<HandoffCapture> => {
       const contents = page.pageView.webContents
+      const contentKey = pageContentKey(page)
+      let hiRes: CdpCapture | null = null
+      let stage = 'raf-1'
       const presented = (async () => {
         await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
         if (contents.isDestroyed()) return null
+        const plan = hiResEnabled ? hiResPlan(page) : null
+        if (plan) {
+          stage = 'cdp'
+          // The screenshot re-lays the page out at the target scale and back;
+          // off-screen that is invisible, and the restore commit is what the
+          // presentation capture below then waits on.
+          hiRes = await captureViaCdp(page, {
+            scale: plan.scale,
+            cssWidth: plan.cssWidth,
+            cssHeight: plan.cssHeight,
+            emulation: { deviceScaleFactor: plan.dpr, scale: zoom },
+          }).catch((error) => {
+            slog('handoff-hires-failed', { pageId: page.id, error: String(error) })
+            return null
+          })
+          stage = 'raf-2'
+          await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
+          if (contents.isDestroyed()) return null
+        }
+        stage = 'capture'
         const image = await contents.capturePage()
+        stage = 'done'
         return image.isEmpty() ? null : image
       })()
       const image = await Promise.race([
         presented.catch(() => null),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), HANDOFF_TIMEOUT_MS)),
       ])
-      return { page, image }
+      if (image === null) {
+        const visibility = await Promise.race([
+          contents.executeJavaScript('document.visibilityState').catch(() => 'error'),
+          new Promise<string>((resolve) => setTimeout(() => resolve('no-reply'), 200)),
+        ])
+        slog('handoff-page-timeout', { pageId: page.id, stage, visibility })
+      }
+      return { page, contentKey, image, hiRes }
     }),
   ).then((captures) => {
     slog('handoff-presented', {
       pages: parked.length,
       captured: captures.filter((capture) => capture.image !== null).length,
+      hiRes: captures.filter((capture) => capture.hiRes !== null).length,
+      hiResMs: captures.map((capture) => Math.round(capture.hiRes?.ms ?? 0)),
       waitMs: Math.round(performance.now() - startedAt),
     })
     return captures
@@ -447,10 +565,13 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
   )
   if (captured.length === 0) return false
   const capturedIds = new Set(captured.map((capture) => capture.page.id))
-  preparedFrames = [
-    ...captured.map((capture) => encodeFrame(capture.page, capture.image)),
-    ...preparedFrames.filter((frame) => !capturedIds.has(frame.pageId)),
-  ]
+  preparedFrames = mergeFrames(
+    captured.map((capture) =>
+      capture.hiRes
+        ? encodeCdpFrame(capture.page, capture.contentKey, capture.hiRes)
+        : encodeFrame(capture.page, capture.image),
+    ),
+  )
   preparedContentSignature = contentSignatureAtCapture
   const visibleIds = pages.filter((page) => {
     if (page.pageView.webContents.isDestroyed()) return false
@@ -468,6 +589,7 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
     frameCount: preparedFrames.length,
     captured: captured.length,
     complete,
+    widths: preparedFrames.map((frame) => frame.capturedWidth),
   })
   publish({ revision, active: false, frames: preparedFrames })
   const rendererReady = await waitForRendererReady(adoptedRevision)
