@@ -136,8 +136,24 @@ const FILL_NATIVE_KEY = 'fill-native'
  * uses HIDDEN_BOUNDS — culled pages should not stay warm.
  */
 const DEVTOOLS_HIDDEN_BOUNDS = { x: -10_000, y: 0, width: 1, height: 1 }
-/** Off-screen x for a page view that must keep compositing while unseen. */
-const WARM_PARK_X = -20_000
+/**
+ * Warm park: the view keeps a one-pixel column inside the window's left
+ * edge. viz stops issuing BeginFrames to a surface that falls entirely
+ * outside the window (or is fully covered by another view), so a view
+ * parked fully off-screen stops laying out and presenting:
+ * requestAnimationFrame never fires and the settle handoff cannot tell when
+ * the page has rendered at its new scale.
+ */
+function warmParkBounds(
+  bounds: { x: number; y: number; width: number; height: number },
+  windowHeight: number,
+): { x: number; y: number; width: number; height: number } {
+  return {
+    ...bounds,
+    x: 1 - bounds.width,
+    y: Math.min(Math.max(bounds.y, 1 - bounds.height), windowHeight - 1),
+  }
+}
 
 /** Off-screen origin for automation-interactive pages parked outside the viewport. */
 const AUTOMATION_OFFSCREEN_ORIGIN = -10_000
@@ -510,13 +526,13 @@ export function layoutAllViews(): void {
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, region, page.lastPageBoundsKey)
     } else if (parking === 'warm') {
       // Settle handoff: the view rasters at its settled size and scale while
-      // still off-screen behind the frozen bitmap, so the reveal shows a
-      // frame that already matches instead of the pre-gesture surface
-      // stretched into the new bounds.
+      // hidden behind the frozen bitmap, so the reveal shows a frame that
+      // already matches instead of the pre-gesture surface stretched into
+      // the new bounds.
       page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(
         page.pageView,
-        { ...bounds.page, x: WARM_PARK_X },
+        warmParkBounds(bounds.page, winBounds.height),
         page.lastPageBoundsKey,
       )
     } else {
