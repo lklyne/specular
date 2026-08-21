@@ -15,6 +15,7 @@ import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
 import { ZoomSnapshotLayer } from './ZoomSnapshotLayer'
+import { useZoomSnapshotBench } from './useZoomSnapshotBench'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -31,6 +32,7 @@ export default function App({
   const bgRef = useRef<HTMLDivElement>(null)
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
+  useZoomSnapshotBench(api)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
   const [zoomSnapshot, setZoomSnapshot] = useState<ZoomSnapshotState>({
     revision: 0,

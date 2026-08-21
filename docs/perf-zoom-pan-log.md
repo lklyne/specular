@@ -259,3 +259,36 @@ later GPU-composite phases).
 4. Fast flick pan + fast pinch zoom — no stuck/blurry frames after motion stops.
 5. Undo/redo across a zoom (viewport isn't undoable, but confirm no desync).
 6. Multi-monitor / non-retina (nativeScale differs) — emulation quantization still crisp.
+
+## Exp D — snapshot refresh pipeline, link by link (2026-08-20)
+
+Harness: `scripts/zoom-snapshot-bench.sh [repeats] [zoom]` → `POST /perf/zoom-snapshot/bench`
+(`src/main/runtime/zoom-snapshot-bench.ts`). Frames all pages in the window (or
+sets `zoom`), then times capturePage → encode (sync, main thread) → IPC → renderer
+decode for four encodings against the same captures. 20 Wikipedia pages, Retina
+(DPR 2), medians of 3 runs, ms.
+
+| zoom | captured | px/page   | PNG enc (max) | JPEG85 enc (max) | raw enc | PNG MB | JPEG85 MB | raw MB | JPEG85 decode |
+|------|----------|-----------|---------------|------------------|---------|--------|-----------|--------|---------------|
+| fit  | 20       | 144×312   | 73 (4.8)      | 11 (0.6)         | 23      | 1.4    | 0.7       | 10     | 7             |
+| 0.25 | 20       | 196×426   | 123 (7.9)     | 18 (1.1)         | 42      | 2.1    | 1.3       | 19     | 10            |
+| 0.5  | 5        | 1280×800  | 128 (28)      | 17 (3.6)         | 43      | 1.8    | 1.0       | 20     | 8             |
+| 1.0  | 3        | 2560×1600 | 218 (91)      | 34 (12)          | 103     | 2.6    | 1.5       | 47     | 14            |
+
+Capture itself: 4–13ms per page, parallel, wall ≈ 6–20ms regardless of count.
+IPC for data URLs: 0–2ms. Raw bitmap IPC: 7–37ms (structured-clone copy of 10–47MB).
+
+Findings:
+
+1. **PNG encode is the cost, and it is synchronous on the main process thread.**
+   120–220ms per prepare at normal zooms; a single 2560×1600 page is 91ms. JPEG-85
+   is 6–7× cheaper (17–34ms total) and decodes in under 15ms. Raw bitmap is out:
+   20–47MB per prepare through IPC, and `toBitmap()` itself is slower than JPEG.
+2. **`capturePage()` captures at the view's on-screen size × DPR, not the page's
+   content size.** Cost scales with window area, not page count (20 tiny pages
+   cost less than 3 big ones). It also means a snapshot taken zoomed-out has no
+   pixels to zoom *into*: at zoom 0.25 each page is 196×426, and scaling that to
+   zoom 1 is a 4× blow-up. Capture resolution is the crispness ceiling, and it
+   is set by the live zoom at capture time.
+3. Total pixel budget per prepare is bounded by ~window × DPR (views tile the
+   window), so the worst case is a few large pages at zoom ≥ 1, not many pages.

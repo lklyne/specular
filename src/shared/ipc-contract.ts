@@ -21,6 +21,8 @@ import type {
   ViewportNudge,
   WorkspaceBounds,
   ZoomSnapshotState,
+  ZoomSnapshotBenchPayload,
+  ZoomSnapshotBenchResult,
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
@@ -342,6 +344,8 @@ export interface IpcContract {
   'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
   'zoom-snapshot-ready': { dir: 'renderer→main'; payload: { revision: number } }
   'zoom-snapshot-state': { dir: 'main→renderer'; payload: ZoomSnapshotState }
+  'zoom-snapshot-bench': { dir: 'main→renderer'; payload: ZoomSnapshotBenchPayload }
+  'zoom-snapshot-bench-result': { dir: 'renderer→main'; payload: ZoomSnapshotBenchResult }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'read-note-file': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
@@ -661,6 +665,8 @@ export const ipcChannels = {
   viewportNudge: 'viewport-nudge',
   zoomSnapshotReady: 'zoom-snapshot-ready',
   zoomSnapshotState: 'zoom-snapshot-state',
+  zoomSnapshotBench: 'zoom-snapshot-bench',
+  zoomSnapshotBenchResult: 'zoom-snapshot-bench-result',
   writeNoteFile: 'write-note-file',
   zoomChanged: 'zoom-changed',
   zoomIn: 'zoom-in',

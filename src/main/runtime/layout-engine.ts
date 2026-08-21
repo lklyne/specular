@@ -81,6 +81,7 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
 import {
+  isPageParkedByZoomSnapshot,
   isZoomSnapshotFreezeActive,
   scheduleZoomSnapshotPreparation,
   slog,
@@ -373,7 +374,7 @@ function layoutAllViews(): void {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
 
-    if (isZoomSnapshotFreezeActive()) {
+    if (isPageParkedByZoomSnapshot(page.id)) {
       page.lastFrameBoundsKey = setBoundsIfChanged(
         page.frameView,
         HIDDEN_BOUNDS,

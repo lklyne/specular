@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds, ZoomSnapshotState } from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds, ZoomSnapshotState, ZoomSnapshotBenchPayload } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -314,6 +314,9 @@ const api: CanvasBgElectronAPI = {
   onZoomSnapshotState: on<ZoomSnapshotState>(ipcChannels.zoomSnapshotState),
   zoomSnapshotReady: (revision) =>
     ipcRenderer.send(ipcChannels.zoomSnapshotReady, { revision }),
+  onZoomSnapshotBench: on<ZoomSnapshotBenchPayload>(ipcChannels.zoomSnapshotBench),
+  zoomSnapshotBenchResult: (result) =>
+    ipcRenderer.send(ipcChannels.zoomSnapshotBenchResult, result),
   onFixProgressUpdate: on<LayoutUpdateData['fixProgress']>(ipcChannels.fixProgressUpdate),
   onThemeChanged: on(ipcChannels.themeChanged),
 }

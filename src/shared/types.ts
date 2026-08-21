@@ -1825,6 +1825,32 @@ export interface ZoomSnapshotState {
   frames: ZoomSnapshotFrame[]
 }
 
+/** Diagnostic: one encoding under test in the snapshot pipeline bench. */
+export type ZoomSnapshotBenchVariant =
+  | 'png-dataurl'
+  | 'jpeg85-dataurl'
+  | 'jpeg70-dataurl'
+  | 'raw-bitmap'
+
+export type ZoomSnapshotBenchFrame =
+  | { pageId: string; kind: 'dataUrl'; dataUrl: string; width: number; height: number }
+  | { pageId: string; kind: 'raw'; pixels: Uint8Array; width: number; height: number }
+
+export interface ZoomSnapshotBenchPayload {
+  benchId: number
+  variant: ZoomSnapshotBenchVariant
+  /** Date.now() in main at send time; renderer compares with its own Date.now(). */
+  sentAt: number
+  frames: ZoomSnapshotBenchFrame[]
+}
+
+export interface ZoomSnapshotBenchResult {
+  benchId: number
+  receivedAt: number
+  decodeMs: number
+  decodedCount: number
+}
+
 /**
  * Per-kind interactive update patch shapes. `updateEntity` is typed by this map
  * so a text patch sent with `kind: 'shape'` is a compile error at the call

@@ -72,8 +72,8 @@ import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
 import {
-  beginAutomaticZoomSnapshotFreeze,
-  endAutomaticZoomSnapshotFreeze,
+  beginZoomGesture,
+  endZoomGesture,
   scheduleZoomSnapshotPreparation,
   slog,
 } from './zoom-snapshot-freeze'
@@ -94,8 +94,8 @@ export function setViewportCamera(
   if (zoomChanged && !isZoomInMotion()) {
     zoomGestureGen += 1
     slog('gesture-start', { gen: zoomGestureGen, zoom: nextZoom })
+    beginZoomGesture(zoomGestureGen)
   }
-  if (zoomChanged) beginAutomaticZoomSnapshotFreeze()
   if (zoomChanged) setZoomState(nextZoom)
   if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
 
@@ -107,9 +107,10 @@ export function setViewportCamera(
   if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
   if (zoomChanged) {
+    const gen = zoomGestureGen
     markZoomMotion(() => {
-      slog('gesture-settle', { gen: zoomGestureGen, zoom })
-      endAutomaticZoomSnapshotFreeze()
+      slog('gesture-settle', { gen, zoom })
+      endZoomGesture(gen)
       markDirty('canvas')
       requestLayout()
       scheduleZoomSnapshotPreparation()
@@ -632,7 +633,7 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
   return true
 }
 
-function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
+export function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
   return computePanToCenterBoundsAtZoomValue({
     bounds,
     viewport: availableCanvasViewportRect(),

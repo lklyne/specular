@@ -36,6 +36,15 @@ export function isZoomSnapshotFreezeActive(): boolean {
   return active
 }
 
+/**
+ * Whether `pageId` should be parked while the freeze is active. Only pages on
+ * screen at capture time have a bitmap; a page that scrolls into view during a
+ * zoom-out has none, so it stays live rather than parking into a blank hole.
+ */
+export function isPageParkedByZoomSnapshot(pageId: string): boolean {
+  return active && preparedFrames.some((frame) => frame.pageId === pageId)
+}
+
 export function markZoomSnapshotRendererReady(readyRevision: number): void {
   slog('renderer-ready', { readyRevision, revision, active })
   rendererReadyRevision = Math.max(rendererReadyRevision, readyRevision)
@@ -150,7 +159,10 @@ export async function prepareZoomSnapshotFreeze(options?: {
       const size = image.getSize()
       return {
         pageId: page.id,
-        dataUrl: image.toDataURL(),
+        // JPEG: PNG encode runs synchronously on this thread and costs
+        // 120–220ms per prepare at normal zooms; JPEG-85 is ~6× cheaper and
+        // decodes faster in the renderer (perf-zoom-pan-log Exp D).
+        dataUrl: `data:image/jpeg;base64,${image.toJPEG(85).toString('base64')}`,
         capturedWidth: size.width,
         capturedHeight: size.height,
       }
@@ -266,55 +278,77 @@ export function setZoomSnapshotFreezeActive(next: boolean): void {
   active = next && preparedFrames.length > 0
 }
 
-let lastBeginOutcome = ''
+/**
+ * Gesture rule. The substrate is chosen once per zoom gesture and leased to
+ * its generation, never re-decided per tick:
+ *
+ *   - frames ready at gesture start → frozen for the whole gesture;
+ *   - otherwise live, with a capture kicked off immediately; if it lands while
+ *     the same gesture is still running, the gesture adopts the frames
+ *     (live→frozen is seamless: the bitmap matches the live surface);
+ *   - frozen→live never happens before settle. That switch is the dropout
+ *     frame the freeze exists to prevent.
+ */
+let gestureGen = 0
+let gestureRunning = false
 
-export function beginAutomaticZoomSnapshotFreeze(): boolean {
-  captureLease += 1
-  if (forced) return active
-  let liveReason: string | null = null
-  if (preparedFrames.length === 0) liveReason = 'no-frames'
-  else if (rendererReadyRevision < revision) liveReason = 'renderer-not-ready'
-  else if (preparedContentSignature !== currentContentSignature()) {
-    liveReason = 'signature-mismatch'
-  }
-  if (liveReason) {
-    const outcome = `live:${liveReason}`
-    if (lastBeginOutcome !== outcome) {
-      lastBeginOutcome = outcome
-      slog('begin-live-fallback', {
-        reason: liveReason,
-        wasActive: active,
-        revision,
-        rendererReadyRevision,
-        ...(liveReason === 'signature-mismatch'
-          ? {
-              prepared: preparedContentSignature,
-              current: currentContentSignature(),
-            }
-          : {}),
-      })
-    }
+function liveFallbackReason(): string | null {
+  if (preparedFrames.length === 0) return 'no-frames'
+  if (rendererReadyRevision < revision) return 'renderer-not-ready'
+  if (preparedContentSignature !== currentContentSignature()) return 'signature-mismatch'
+  return null
+}
+
+function freezeForGesture(stage: 'gesture-start' | 'mid-gesture'): boolean {
+  const reason = liveFallbackReason()
+  if (reason) {
+    slog('gesture-live', { gen: gestureGen, stage, reason, revision, rendererReadyRevision })
     return false
   }
-  if (lastBeginOutcome !== 'frozen') {
-    lastBeginOutcome = 'frozen'
-    slog('begin-frozen', { revision, frameCount: preparedFrames.length })
-  }
+  // Parking the live views invalidates any capture still in flight.
+  captureLease += 1
   active = true
+  slog('gesture-frozen', { gen: gestureGen, stage, revision, frameCount: preparedFrames.length })
   publish({ revision, active: true, frames: preparedFrames })
   return true
 }
 
-export function endAutomaticZoomSnapshotFreeze(): void {
-  lastBeginOutcome = ''
+export function beginZoomGesture(gen: number): boolean {
+  gestureGen = gen
+  gestureRunning = true
+  if (forced) return active
+  if (freezeForGesture('gesture-start')) return true
+  void prepareZoomSnapshotFreeze({ force: true })
+    .then((result) => {
+      if (!gestureRunning || gestureGen !== gen || active || forced) return
+      if (result.discarded || !result.rendererReady || result.frameCount === 0) return
+      freezeForGesture('mid-gesture')
+    })
+    .catch((error) => {
+      console.warn('[zoom-snapshot] gesture-start preparation failed:', error)
+    })
+  return false
+}
+
+export function endZoomGesture(gen: number): void {
+  if (gen !== gestureGen) return
+  gestureRunning = false
   if (forced || !active) return
-  slog('freeze-end', { revision })
+  slog('gesture-end', { gen, revision })
   active = false
   publish({ revision, active: false, frames: preparedFrames })
 }
 
-export function scheduleZoomSnapshotPreparation(delayMs = 400): void {
-  if (forced || active) return
+/**
+ * The delay only needs to cover one compositor frame: settle re-emulates the
+ * views at the exact scale, and capturePage copies the last submitted surface,
+ * so capturing in the same tick would freeze the pre-re-raster pixels. Any
+ * longer just widens the window in which a new gesture finds no snapshot.
+ */
+const PREPARE_DELAY_MS = 50
+
+export function scheduleZoomSnapshotPreparation(delayMs = PREPARE_DELAY_MS): void {
+  if (forced || active || gestureRunning) return
   if (preparationTimer) clearTimeout(preparationTimer)
   preparationTimer = setTimeout(() => {
     preparationTimer = null
@@ -334,7 +368,7 @@ export function scheduleZoomSnapshotPreparation(delayMs = 400): void {
 export function clearZoomSnapshotFreeze(): void {
   slog('clear', { revision, wasActive: active })
   captureLease += 1
-  lastBeginOutcome = ''
+  gestureRunning = false
   forced = false
   active = false
   preparedFrames = []

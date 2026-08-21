@@ -24,12 +24,40 @@ import {
   setZoomSnapshotFreezeActive,
   showPreparedZoomSnapshots,
 } from '../runtime/zoom-snapshot-freeze'
+import { fitAllPagesForBench, runZoomSnapshotBench } from '../runtime/zoom-snapshot-bench'
+import type { ZoomSnapshotBenchVariant } from '../../shared/types'
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export const perfRoutes: Route[] = [
+  {
+    method: 'POST',
+    pattern: '/perf/zoom-snapshot/bench',
+    async handler({ response, body }) {
+      const payload = body as {
+        variants?: ZoomSnapshotBenchVariant[]
+        repeats?: number
+        fit?: boolean
+        zoom?: number
+        /** Drop the prepared frames first, to exercise the cold-start path. */
+        clear?: boolean
+      }
+      if (payload.clear) clearZoomSnapshotFreeze()
+      const repeats = Math.max(1, Math.min(10, payload.repeats ?? 1))
+      if (payload.fit) {
+        fitAllPagesForBench({ zoom: payload.zoom })
+        // Let the zoom settle, views re-emulate, and pages re-raster.
+        await wait(1_500)
+      }
+      const runs = []
+      for (let i = 0; i < repeats; i += 1) {
+        runs.push(await runZoomSnapshotBench({ variants: payload.variants }))
+      }
+      writeJson(response, 200, { runs })
+    },
+  },
   {
     method: 'GET',
     pattern: '/perf/pan-zoom/status',

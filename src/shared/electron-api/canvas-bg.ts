@@ -29,6 +29,8 @@ import type {
   ViewportNudge,
   WorkspaceBounds,
   ZoomSnapshotState,
+  ZoomSnapshotBenchPayload,
+  ZoomSnapshotBenchResult,
 } from '../types'
 
 export interface CanvasBgElectronAPI {
@@ -299,6 +301,10 @@ export interface CanvasBgElectronAPI {
     callback: (data: ZoomSnapshotState) => void,
   ) => () => void
   zoomSnapshotReady: (revision: number) => void
+  onZoomSnapshotBench: (
+    callback: (payload: ZoomSnapshotBenchPayload) => void,
+  ) => () => void
+  zoomSnapshotBenchResult: (result: ZoomSnapshotBenchResult) => void
   onFixProgressUpdate: (
     callback: (data: LayoutUpdateData['fixProgress']) => void,
   ) => () => void
