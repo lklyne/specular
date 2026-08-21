@@ -26,12 +26,27 @@ import {
 } from '../runtime/zoom-snapshot-freeze'
 import { fitAllPagesForBench, runZoomSnapshotBench } from '../runtime/zoom-snapshot-bench'
 import type { ZoomSnapshotBenchVariant } from '../../shared/types'
+import {
+  isZoomSceneRebroadcastEnabled,
+  setZoomSceneRebroadcast,
+} from '../runtime/zoom-motion'
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export const perfRoutes: Route[] = [
+  {
+    method: 'POST',
+    pattern: '/perf/flags',
+    async handler({ response, body }) {
+      const payload = (body ?? {}) as { zoomSceneRebroadcast?: boolean }
+      if (typeof payload.zoomSceneRebroadcast === 'boolean') {
+        setZoomSceneRebroadcast(payload.zoomSceneRebroadcast)
+      }
+      writeJson(response, 200, { zoomSceneRebroadcast: isZoomSceneRebroadcastEnabled() })
+    },
+  },
   {
     method: 'POST',
     pattern: '/perf/zoom-snapshot/bench',

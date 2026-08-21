@@ -16,6 +16,20 @@ export function isZoomInMotion(): boolean {
   return inMotion
 }
 
+// Whether each zoom tick re-broadcasts the full canvas scene payload. When
+// off, the renderers ride the CSS scene transform until settle, which scales
+// screen-constant chrome (handles, popups) with the scene. Runtime-settable
+// (POST /perf/flags) so both behaviors can be A/B measured in one session.
+let zoomSceneRebroadcast = true
+
+export function isZoomSceneRebroadcastEnabled(): boolean {
+  return zoomSceneRebroadcast
+}
+
+export function setZoomSceneRebroadcast(enabled: boolean): void {
+  zoomSceneRebroadcast = enabled
+}
+
 /** Call on every zoom change. Enters motion mode and (re)schedules a settle that
  * exits motion mode and runs `onSettle` — which should re-run layout so pages
  * re-emulate at the exact scale. */

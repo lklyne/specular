@@ -33,7 +33,12 @@ import {
 import { win } from './view-refs'
 import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
-import { isZoomInMotion, markPanMotion, markZoomMotion } from './zoom-motion'
+import {
+  isZoomInMotion,
+  isZoomSceneRebroadcastEnabled,
+  markPanMotion,
+  markZoomMotion,
+} from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -104,7 +109,15 @@ export function setViewportCamera(
   // Zoom and its anchor-correcting pan are one camera update. Publish only
   // after both values land so renderer transforms never observe a half-camera
   // and the full-window grid redraws once per physical input tick.
-  if (zoomChanged) markDirty('toolbar')
+  //
+  // Zoom re-broadcasts the scene every tick: screen-constant chrome (handles,
+  // popups, outlines) is sized against `layoutData.zoom`, and the CSS scene
+  // transform alone would scale it with the scene. Pan rides the transform
+  // and re-baselines on settle.
+  if (zoomChanged) {
+    markDirty('toolbar')
+    if (isZoomSceneRebroadcastEnabled()) markDirty('canvas')
+  }
   broadcastViewportNudge()
   if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
