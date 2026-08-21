@@ -224,11 +224,11 @@ describe('groups + selection', () => {
     const disk = harness.diskDoc()
     expect(disk?.nodes.find((n) => n.id === text.id)).toMatchObject({
       type: 'text',
-      parentGroupId: group.id,
+      specular: { parentGroupId: group.id },
     })
     expect(disk?.nodes.find((n) => n.id === file)).toMatchObject({
       type: 'file',
-      parentGroupId: group.id,
+      specular: { parentGroupId: group.id },
     })
 
     // Deserialize direction: reloading the on-disk doc restores membership.

@@ -9,7 +9,6 @@
       "height": 100,
       "text": "hello canvas",
       "color": "3",
-      "parentGroupId": "generated-id-5",
       "specular": {
         "textStyle": "sticky",
         "widthMode": "fixed",
