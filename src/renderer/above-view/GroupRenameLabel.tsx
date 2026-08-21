@@ -1,5 +1,5 @@
 /**
- * GroupRenameLabel — the group title's DOM presence in aboveView.
+ * GroupRenameLabel: the group title's DOM presence in aboveView.
  *
  * The visible glyphs are painted by GroupLabelCanvasSurface in screen space
  * (crisp at any zoom), and pointer input routes through the shared hit-test's
@@ -11,7 +11,7 @@
  *     and the full-title tooltip on hover;
  *   - the rename input (ADR 0002 §2, `data-overlay-ui` so the router yields
  *     while editing), driven by the unified
- *     `canvas-{request,commit,cancel}-entity-edit` IPC pair — `isRenaming`
+ *     `canvas-{request,commit,cancel}-entity-edit` IPC pair. `isRenaming`
  *     derives from `editingEntityId === group.id`, never local state.
  */
 

@@ -1,12 +1,12 @@
 /**
- * GroupLabelCanvasSurface — group titles drawn on a full-window canvas in
+ * GroupLabelCanvasSurface: group titles drawn on a full-window canvas in
  * screen space from the live camera, every pan/zoom tick. Same pattern as
  * canvas-bg's ChromeCanvasSurface: text renders at display scale each frame,
  * so labels keep their fixed 11px size and stay crisp during a zoom gesture
  * instead of riding the CSS scene transform as bitmap-scaled DOM.
  *
  * Mounted in aboveView (not the canvas-bg chrome canvas) because labels must
- * stay visible above native page views (ADR 0002). Purely visual — pointer
+ * stay visible above native page views (ADR 0002). Purely visual. Pointer
  * input routes through the shared hit-test's `group-label` target, and a
  * group being renamed skips canvas drawing so the DOM input shows instead.
  */

@@ -63,7 +63,7 @@ describe('routePointerDoubleClick', () => {
 
 })
 
-describe('routePointerDoubleClick — group label', () => {
+describe('routePointerDoubleClick, group label', () => {
   it('group label → request-entity-edit (rename)', () => {
     expect(
       routePointerDoubleClick(target({ kind: 'group-label', groupId: 'g1' })),

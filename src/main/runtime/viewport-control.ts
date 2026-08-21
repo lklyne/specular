@@ -33,12 +33,7 @@ import {
 import { win } from './view-refs'
 import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
-import {
-  isZoomInMotion,
-  isZoomSceneRebroadcastEnabled,
-  markPanMotion,
-  markZoomMotion,
-} from './zoom-motion'
+import { isZoomInMotion, markPanMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -83,7 +78,6 @@ import {
   captureParkedPagesAtSettle,
   endZoomGesture,
   scheduleZoomSnapshotPreparation,
-  slog,
 } from './zoom-snapshot-freeze'
 
 let zoomGestureGen = 0
@@ -101,7 +95,6 @@ export function setViewportCamera(
 
   if (zoomChanged && !isZoomInMotion()) {
     zoomGestureGen += 1
-    slog('gesture-start', { gen: zoomGestureGen, zoom: nextZoom })
     beginZoomGesture(zoomGestureGen)
   }
   if (zoomChanged) setZoomState(nextZoom)
@@ -115,10 +108,7 @@ export function setViewportCamera(
   // popups, outlines) is sized against `layoutData.zoom`, and the CSS scene
   // transform alone would scale it with the scene. Pan rides the transform
   // and re-baselines on settle.
-  if (zoomChanged) {
-    markDirty('toolbar')
-    if (isZoomSceneRebroadcastEnabled()) markDirty('canvas')
-  }
+  if (zoomChanged) markDirty('toolbar', 'canvas')
   broadcastViewportNudge()
   if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
@@ -146,7 +136,6 @@ export function setViewportCamera(
  * second capture pass over every page.
  */
 async function settleZoomGesture(gen: number): Promise<void> {
-  slog('gesture-settle', { gen, zoom })
   markDirty('canvas')
   if (!beginZoomSnapshotHandoff(gen)) {
     endZoomGesture(gen)

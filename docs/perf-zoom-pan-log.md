@@ -350,3 +350,8 @@ crisp.
 Still owed: a decoded-bitmap budget (20 pages at a 2048px edge is ~200MB of
 GPU textures; most canvases have fewer visible pages, but nothing enforces
 it), and a human check that the 1px park column is invisible in practice.
+
+The encode bench, the CDP probe route, the `/perf/flags` A/B switches, and the
+`[zoom-snap]` lifecycle logging were removed before merge. The log above keeps
+the numbers they produced; re-create them from git history if a follow-up needs
+to measure again.

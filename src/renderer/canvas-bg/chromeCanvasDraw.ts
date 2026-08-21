@@ -4,8 +4,8 @@
  * device shell (bezel donut, strokes, island, home indicator).
  *
  * Drawn in screen space from the live camera transform on every pan/zoom
- * tick, so strokes are always rendered at display scale — crisp at any zoom —
- * instead of riding the CSS scene transform as a bitmap-scaled DOM layer.
+ * tick, so strokes are always rendered at display scale and stay crisp at any
+ * zoom, instead of riding the CSS scene transform as a bitmap-scaled DOM layer.
  */
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
@@ -88,7 +88,7 @@ function liveGeometry(
 }
 
 /** Snap a 1px stroke rect so the stroke centerline sits on a half-device-pixel
- * boundary — edges land on device pixels and the line renders crisp. */
+ * boundary. Edges land on device pixels and the line renders crisp. */
 function snapStrokeRect(
   x: number,
   y: number,

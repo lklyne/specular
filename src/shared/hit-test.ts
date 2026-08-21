@@ -85,7 +85,7 @@ export interface HitInputs {
   hoveredEntityId?: string | null
   zoom: number
   /** Measured group-label text widths (renderer canvas measureText), keyed by
-   *  group id. Optional — absent widths fall back to a per-char estimate so
+   *  group id. Optional; absent widths fall back to a per-char estimate so
    *  main-side test routes stay usable without a DOM. */
   groupLabelWidths?: ReadonlyMap<string, number>
 }
@@ -133,7 +133,7 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
 
 // --- Selectors ---
 
-// Group titles — the grabbable text above each group's top-left corner.
+// Group titles: the grabbable text above each group's top-left corner.
 // Geometry comes from the shared `groupLabelRect` the canvas painter also
 // uses, so the visible text and the routable target line up by construction.
 function collectGroupLabelTargets(inputs: HitInputs): HitTarget[] {

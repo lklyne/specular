@@ -25,8 +25,8 @@ import { activeSpaceTabId } from './runtime/space-model'
 
 export interface RunPanZoomPerfTestOptions {
   phaseIds?: PanZoomPerfPhase['id'][]
-  /** Override each selected phase's duration — used to keep the trace under the
-   * summarizable size cap for tight measurement loops. */
+  /** Overrides each selected phase's duration, which keeps the trace under
+   * the summarizable size cap in tight measurement loops. */
   durationMs?: number
 }
 

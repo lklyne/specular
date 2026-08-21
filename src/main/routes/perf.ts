@@ -17,128 +17,19 @@ import {
 } from '../pan-zoom-perf-test'
 import type { PanZoomPerfPhase } from '../../shared/pan-zoom-perf-test'
 import { captureWindowFramesWhile } from '../window-frame-capture'
-import { win } from '../runtime/view-refs'
 import { requestLayout } from '../runtime/layout-engine'
 import {
   clearZoomSnapshotFreeze,
-  isZoomSnapshotHiResEnabled,
   prepareZoomSnapshotFreeze,
-  setZoomSnapshotHiResEnabled,
   setZoomSnapshotFreezeActive,
   showPreparedZoomSnapshots,
 } from '../runtime/zoom-snapshot-freeze'
-import { fitAllPagesForBench, runZoomSnapshotBench } from '../runtime/zoom-snapshot-bench'
-import { captureViaCdp } from '../runtime/zoom-snapshot-cdp-capture'
-import { pages, zoom } from '../runtime/runtime-context'
-import { boundEffectivePageContentSize } from '../runtime/runtime-geometry'
-import { app, screen } from 'electron'
-import { writeFile } from 'fs/promises'
-import type { ZoomSnapshotBenchVariant } from '../../shared/types'
-import {
-  isZoomSceneRebroadcastEnabled,
-  setZoomSceneRebroadcast,
-} from '../runtime/zoom-motion'
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export const perfRoutes: Route[] = [
-  {
-    method: 'GET',
-    pattern: '/perf/window-id',
-    async handler({ response }) {
-      writeJson(response, 200, { windowId: win?.getMediaSourceId().split(':')[1] ?? null })
-    },
-  },
-  {
-    // Diagnostic: one renderer-side hi-res capture per visible page, with the
-    // output size and timing; `save` writes the JPEGs to the logs folder.
-    method: 'POST',
-    pattern: '/perf/zoom-snapshot/cdp-probe',
-    async handler({ response, body }) {
-      const payload = (body ?? {}) as { scale?: number; quality?: number; save?: boolean }
-      const scale = payload.scale ?? 1
-      const results: unknown[] = []
-      for (const page of pages) {
-        if (page.pageView.webContents.isDestroyed()) continue
-        const bounds = page.pageView.getBounds()
-        if (bounds.width <= 0 || bounds.height <= 0) continue
-        const css = boundEffectivePageContentSize(page)
-        try {
-          const capture = await captureViaCdp(page, {
-            scale,
-            quality: payload.quality,
-            cssWidth: css.width,
-            cssHeight: css.height,
-            emulation: { deviceScaleFactor: screen.getPrimaryDisplay().scaleFactor, scale: zoom },
-          })
-          let file: string | null = null
-          if (payload.save) {
-            file = path.join(app.getPath('logs'), `cdp-probe-${page.id}-s${scale}.jpg`)
-            await writeFile(file, capture.jpeg)
-          }
-          results.push({
-            pageId: page.id,
-            zoom,
-            css,
-            viewBounds: { width: bounds.width, height: bounds.height },
-            outWidth: capture.width,
-            outHeight: capture.height,
-            bytes: capture.jpeg.byteLength,
-            ms: Math.round(capture.ms),
-            file,
-          })
-        } catch (error) {
-          results.push({ pageId: page.id, error: String(error) })
-        }
-      }
-      writeJson(response, 200, { scale, results })
-    },
-  },
-  {
-    method: 'POST',
-    pattern: '/perf/flags',
-    async handler({ response, body }) {
-      const payload = (body ?? {}) as { zoomSceneRebroadcast?: boolean; zoomSnapshotHiRes?: boolean }
-      if (typeof payload.zoomSceneRebroadcast === 'boolean') {
-        setZoomSceneRebroadcast(payload.zoomSceneRebroadcast)
-      }
-      if (typeof payload.zoomSnapshotHiRes === 'boolean') {
-        setZoomSnapshotHiResEnabled(payload.zoomSnapshotHiRes)
-      }
-      writeJson(response, 200, {
-        zoomSceneRebroadcast: isZoomSceneRebroadcastEnabled(),
-        zoomSnapshotHiRes: isZoomSnapshotHiResEnabled(),
-      })
-    },
-  },
-  {
-    method: 'POST',
-    pattern: '/perf/zoom-snapshot/bench',
-    async handler({ response, body }) {
-      const payload = body as {
-        variants?: ZoomSnapshotBenchVariant[]
-        repeats?: number
-        fit?: boolean
-        zoom?: number
-        /** Drop the prepared frames first, to exercise the cold-start path. */
-        clear?: boolean
-      }
-      if (payload.clear) clearZoomSnapshotFreeze()
-      const repeats = Math.max(1, Math.min(10, payload.repeats ?? 1))
-      if (payload.fit) {
-        fitAllPagesForBench({ zoom: payload.zoom })
-        // Let the zoom settle, views re-emulate, and pages re-raster.
-        await wait(1_500)
-      }
-      const runs = []
-      for (let i = 0; i < repeats; i += 1) {
-        runs.push(await runZoomSnapshotBench({ variants: payload.variants }))
-      }
-      writeJson(response, 200, { runs })
-    },
-  },
   {
     method: 'GET',
     pattern: '/perf/pan-zoom/status',

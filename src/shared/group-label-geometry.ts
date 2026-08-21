@@ -1,5 +1,5 @@
 /**
- * Group-label geometry — the one definition of the label's screen-space box,
+ * Group-label geometry: the one definition of the label's screen-space box,
  * shared by the canvas painter (GroupLabelCanvasSurface) and the hit-tester
  * so the visible text and the grabbable target can't drift apart.
  *
@@ -16,7 +16,7 @@ export const GROUP_LABEL_LINE_HEIGHT = 16.5
 /** The label's pb-1 gap between its line box and the group's top edge. */
 export const GROUP_LABEL_BOTTOM_GAP = 4
 
-/** Average system-ui glyph advance at 11px/500 — hit-test fallback only. */
+/** Average system-ui glyph advance at 11px/500, the hit-test fallback. */
 const ESTIMATED_CHAR_WIDTH = 6.1
 
 export function estimateGroupLabelWidth(label: string): number {

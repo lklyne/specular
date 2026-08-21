@@ -1,4 +1,3 @@
-import { registerZoomSnapshotBenchIpc } from '../runtime/zoom-snapshot-bench'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type {
@@ -96,7 +95,6 @@ import { reparentEntities } from '../runtime/group-membership'
 
 export function registerCanvasIpc(): void {
   registerCanvasDragIpc()
-  registerZoomSnapshotBenchIpc()
   registerCanvasEntityIpc()
   registerCanvasReorderIpc()
   registerCanvasGapIpc()

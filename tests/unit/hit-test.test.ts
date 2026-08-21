@@ -550,7 +550,7 @@ describe('hit-test — selection reorder door (ADR 0015 D7)', () => {
   })
 })
 
-describe('hit-test — group labels', () => {
+describe('hit-test, group labels', () => {
   // Group at (100,100). Label box: 20.5px tall above the top edge, width from
   // groupLabelWidths (or the estimate fallback). Fixture label is 'g'.
   const g = group('g1', 100, 100, 600, 500)

@@ -665,7 +665,7 @@ describe('routePointerDown — auto-layout reorder dot (ADR 0015)', () => {
   })
 })
 
-describe('routePointerDown — group label', () => {
+describe('routePointerDown, group label', () => {
   const labelTarget = {
     layer: 'group-label' as const,
     region: { kind: 'rect' as const, rect: { x: 100, y: 80, width: 40, height: 20.5 } },

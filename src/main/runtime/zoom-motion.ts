@@ -7,7 +7,7 @@ let settleTimer: ReturnType<typeof setTimeout> | null = null
 const BUCKETS_PER_OCTAVE = 4
 /**
  * How long after the last zoom change we treat the gesture as settled.
- * macOS trackpad momentum commonly pauses for 150–250ms inside one perceived
+ * macOS trackpad momentum commonly pauses for 150 to 250ms inside one perceived
  * fast pinch; a shorter lease exposes live page views in the middle.
  */
 const SETTLE_MS = 300
@@ -16,23 +16,9 @@ export function isZoomInMotion(): boolean {
   return inMotion
 }
 
-// Whether each zoom tick re-broadcasts the full canvas scene payload. When
-// off, the renderers ride the CSS scene transform until settle, which scales
-// screen-constant chrome (handles, popups) with the scene. Runtime-settable
-// (POST /perf/flags) so both behaviors can be A/B measured in one session.
-let zoomSceneRebroadcast = true
-
-export function isZoomSceneRebroadcastEnabled(): boolean {
-  return zoomSceneRebroadcast
-}
-
-export function setZoomSceneRebroadcast(enabled: boolean): void {
-  zoomSceneRebroadcast = enabled
-}
-
 /** Call on every zoom change. Enters motion mode and (re)schedules a settle that
- * exits motion mode and runs `onSettle` — which should re-run layout so pages
- * re-emulate at the exact scale. */
+ * exits motion mode and runs `onSettle`. The callback should re-run layout so
+ * pages re-emulate at the exact scale. */
 export function markZoomMotion(onSettle: () => void): void {
   inMotion = true
   if (settleTimer) clearTimeout(settleTimer)

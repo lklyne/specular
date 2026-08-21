@@ -15,21 +15,10 @@ import {
   snapshotTargetScale,
 } from '../../shared/zoom-snapshot-lifecycle'
 import { boundEffectivePageContentSize } from './runtime-geometry'
-import { app, screen } from 'electron'
-import { appendFile } from 'fs/promises'
-import path from 'path'
+import { screen } from 'electron'
 import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
 import { zoom } from './runtime-context'
 import { captureViaCdp, type CdpCapture } from './zoom-snapshot-cdp-capture'
-
-// ponytail: console diagnostics for the snapshot lifecycle; delete once the
-// dropout/fallback races are understood.
-export function slog(event: string, data?: Record<string, unknown>): void {
-  const t = performance.now().toFixed(0)
-  const line = `[zoom-snap +${t}ms] ${event}${data ? ` ${JSON.stringify(data)}` : ''}`
-  console.log(line)
-  appendFile(path.join(app.getPath('logs'), 'zoom-snap.log'), `${line}\n`).catch(() => undefined)
-}
 
 let preparedFrames: ZoomSnapshotFrame[] = []
 let active = false
@@ -73,7 +62,6 @@ export function zoomSnapshotParkingFor(pageId: string): ZoomSnapshotParking {
 }
 
 export function markZoomSnapshotRendererReady(readyRevision: number): void {
-  slog('renderer-ready', { readyRevision, revision, active })
   rendererReadyRevision = Math.max(rendererReadyRevision, readyRevision)
   for (const [waitingRevision, resolve] of readyWaiters) {
     if (waitingRevision > rendererReadyRevision) continue
@@ -167,16 +155,12 @@ export async function prepareZoomSnapshotFreeze(options?: {
     preparedCaptureSignature === captureSignature
   ) {
     // If the renderer never acked this revision (e.g. it published before the
-    // renderer booted), the frames are unusable until re-delivered — republish
+    // renderer booted), the frames are unusable until re-delivered. Republish
     // and wait again instead of returning a stale "ready" set.
     let rendererReady = rendererReadyRevision >= revision
     if (!rendererReady) {
-      slog('prepare-reused-republish', { revision, rendererReadyRevision })
       publish({ revision, active, frames: preparedFrames })
       rendererReady = await waitForRendererReady(revision)
-      if (!rendererReady) slog('renderer-ready-timeout', { revision })
-    } else {
-      slog('prepare-reused', { revision, frameCount: preparedFrames.length })
     }
     return {
       frameCount: preparedFrames.length,
@@ -211,7 +195,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
   const captureMs = performance.now() - startedAt
   // Culled (off-screen) pages sit at zero bounds and can never capture, so a
   // whole-set discard would leave the prepared frames permanently stale on any
-  // canvas with an off-screen page — they'd then be shown scaled far past
+  // canvas with an off-screen page, and they'd then be shown scaled far past
   // their captured resolution. Instead, capture what's visible and carry the
   // prior frame forward for pages that can't capture right now. A page with
   // no prior frame stays absent (blank only if it scrolls into view
@@ -223,14 +207,8 @@ export async function prepareZoomSnapshotFreeze(options?: {
   }).length
   const candidateFrames = mergeFrames(capturedFrames)
   // A page that was visible but still failed to capture (mid-teardown, empty
-  // paint) is a transient state — keep the prior set and retry later.
+  // paint) is a transient state. Keep the prior set and retry later.
   if (capturedFrames.length < capturableCount) {
-    slog('prepare-partial-discarded', {
-      revision,
-      captured: capturedFrames.length,
-      expected: capturableCount,
-      captureMs: Math.round(captureMs),
-    })
     return {
       frameCount: preparedFrames.length,
       encodedBytes: preparedFrames.reduce(
@@ -249,14 +227,6 @@ export async function prepareZoomSnapshotFreeze(options?: {
     signatureAtStart: contentSignature,
     currentSignature: currentContentSignature(),
   })) {
-    slog('prepare-discarded', {
-      revision,
-      captureMs: Math.round(captureMs),
-      leaseAtStart: captureLeaseAtStart,
-      leaseNow: captureLease,
-      signatureAtStart: contentSignature,
-      signatureNow: currentContentSignature(),
-    })
     return {
       frameCount: preparedFrames.length,
       encodedBytes: preparedFrames.reduce(
@@ -275,16 +245,8 @@ export async function prepareZoomSnapshotFreeze(options?: {
   preparedCaptureSignature = captureSignature
   revision += 1
   const preparedRevision = revision
-  slog('prepare-published', {
-    revision,
-    frameCount: preparedFrames.length,
-    droppedPages: pages.length - preparedFrames.length,
-    captureMs: Math.round(captureMs),
-    activeDuringPublish: active,
-  })
   publish({ revision, active: false, frames: preparedFrames })
   const rendererReady = await waitForRendererReady(preparedRevision)
-  if (!rendererReady) slog('renderer-ready-timeout', { revision: preparedRevision })
   return {
     frameCount: preparedFrames.length,
     encodedBytes: preparedFrames.reduce(
@@ -332,16 +294,14 @@ function liveFallbackReason(): string | null {
   return null
 }
 
-function freezeForGesture(stage: 'gesture-start' | 'mid-gesture'): boolean {
+function freezeForGesture(): boolean {
   const reason = liveFallbackReason()
   if (reason) {
-    slog('gesture-live', { gen: gestureGen, stage, reason, revision, rendererReadyRevision })
     return false
   }
   // Parking the live views invalidates any capture still in flight.
   captureLease += 1
   active = true
-  slog('gesture-frozen', { gen: gestureGen, stage, revision, frameCount: preparedFrames.length })
   publish({ revision, active: true, frames: preparedFrames })
   return true
 }
@@ -353,12 +313,12 @@ export function beginZoomGesture(gen: number): boolean {
   // sees the generation change and stands down.
   handoff = false
   if (forced) return active
-  if (freezeForGesture('gesture-start')) return true
+  if (freezeForGesture()) return true
   void prepareZoomSnapshotFreeze({ force: true })
     .then((result) => {
       if (!gestureRunning || gestureGen !== gen || active || forced) return
       if (result.discarded || !result.rendererReady || result.frameCount === 0) return
-      freezeForGesture('mid-gesture')
+      freezeForGesture()
     })
     .catch((error) => {
       console.warn('[zoom-snapshot] gesture-start preparation failed:', error)
@@ -375,7 +335,6 @@ export function beginZoomGesture(gen: number): boolean {
 export function beginZoomSnapshotHandoff(gen: number): boolean {
   if (gen !== gestureGen || forced || !active) return false
   handoff = true
-  slog('handoff-begin', { gen, revision })
   return true
 }
 
@@ -387,18 +346,6 @@ const DOUBLE_RAF = 'new Promise((r) => requestAnimationFrame(() => requestAnimat
  * stops its frames) cannot hold the reveal forever.
  */
 const HANDOFF_TIMEOUT_MS = 1_000
-
-// Runtime-settable (POST /perf/flags) so the settle cost with and without the
-// renderer-side hi-res capture can be compared in one session.
-let hiResEnabled = true
-
-export function isZoomSnapshotHiResEnabled(): boolean {
-  return hiResEnabled
-}
-
-export function setZoomSnapshotHiResEnabled(enabled: boolean): void {
-  hiResEnabled = enabled
-}
 
 export interface HandoffCapture {
   page: Page
@@ -415,7 +362,7 @@ function encodeFrame(page: Page, image: NativeImage): ZoomSnapshotFrame {
     pageId: page.id,
     contentKey: pageContentKey(page),
     // JPEG: PNG encode runs synchronously on this thread and costs
-    // 120–220ms per prepare at normal zooms; JPEG-85 is ~6× cheaper and
+    // 120 to 220ms per prepare at normal zooms; JPEG-85 is ~6× cheaper and
     // decodes faster in the renderer (perf-zoom-pan-log Exp D).
     dataUrl: `data:image/jpeg;base64,${image.toJPEG(85).toString('base64')}`,
     capturedWidth: size.width,
@@ -478,19 +425,16 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
   const parked = pages.filter(
     (page) => isPageParkedByZoomSnapshot(page.id) && !page.pageView.webContents.isDestroyed(),
   )
-  const startedAt = performance.now()
   return Promise.all(
     parked.map(async (page): Promise<HandoffCapture> => {
       const contents = page.pageView.webContents
       const contentKey = pageContentKey(page)
       let hiRes: CdpCapture | null = null
-      let stage = 'raf-1'
       const presented = (async () => {
         await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
         if (contents.isDestroyed()) return null
-        const plan = hiResEnabled ? hiResPlan(page) : null
+        const plan = hiResPlan(page)
         if (plan) {
-          stage = 'cdp'
           // The screenshot re-lays the page out at the target scale and back;
           // off-screen that is invisible, and the restore commit is what the
           // presentation capture below then waits on.
@@ -500,41 +444,21 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
             cssHeight: plan.cssHeight,
             emulation: { deviceScaleFactor: plan.dpr, scale: zoom },
           }).catch((error) => {
-            slog('handoff-hires-failed', { pageId: page.id, error: String(error) })
             return null
           })
-          stage = 'raf-2'
           await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
           if (contents.isDestroyed()) return null
         }
-        stage = 'capture'
         const image = await contents.capturePage()
-        stage = 'done'
         return image.isEmpty() ? null : image
       })()
       const image = await Promise.race([
         presented.catch(() => null),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), HANDOFF_TIMEOUT_MS)),
       ])
-      if (image === null) {
-        const visibility = await Promise.race([
-          contents.executeJavaScript('document.visibilityState').catch(() => 'error'),
-          new Promise<string>((resolve) => setTimeout(() => resolve('no-reply'), 200)),
-        ])
-        slog('handoff-page-timeout', { pageId: page.id, stage, visibility })
-      }
       return { page, contentKey, image, hiRes }
     }),
-  ).then((captures) => {
-    slog('handoff-presented', {
-      pages: parked.length,
-      captured: captures.filter((capture) => capture.image !== null).length,
-      hiRes: captures.filter((capture) => capture.hiRes !== null).length,
-      hiResMs: captures.map((capture) => Math.round(capture.hiRes?.ms ?? 0)),
-      waitMs: Math.round(performance.now() - startedAt),
-    })
-    return captures
-  })
+  )
 }
 
 /**
@@ -556,7 +480,6 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
     signatureAtStart: contentSignatureAtCapture,
     currentSignature: currentContentSignature(),
   })) {
-    slog('handoff-adopt-discarded', { revision })
     return false
   }
   const captured = captures.filter(
@@ -584,16 +507,8 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
   preparedCaptureSignature = complete ? currentCaptureSignature() : ''
   revision += 1
   const adoptedRevision = revision
-  slog('handoff-adopted', {
-    revision,
-    frameCount: preparedFrames.length,
-    captured: captured.length,
-    complete,
-    widths: preparedFrames.map((frame) => frame.capturedWidth),
-  })
   publish({ revision, active: false, frames: preparedFrames })
   const rendererReady = await waitForRendererReady(adoptedRevision)
-  if (!rendererReady) slog('renderer-ready-timeout', { revision: adoptedRevision })
   return complete
 }
 
@@ -602,7 +517,6 @@ export function endZoomGesture(gen: number): void {
   gestureRunning = false
   handoff = false
   if (forced || !active) return
-  slog('gesture-end', { gen, revision })
   active = false
   publish({ revision, active: false, frames: preparedFrames })
 }
@@ -624,7 +538,6 @@ export function scheduleZoomSnapshotPreparation(delayMs = PREPARE_DELAY_MS): voi
     // A gesture may have started during the delay; capturing parked (hidden)
     // views would yield empty frames and clobber the prepared set.
     if (forced || active) {
-      slog('prepare-skipped-active', { revision })
       return
     }
     void prepareZoomSnapshotFreeze({ force: false }).catch((error) => {
@@ -635,7 +548,6 @@ export function scheduleZoomSnapshotPreparation(delayMs = PREPARE_DELAY_MS): voi
 
 /** Releases renderer and main-process references after live views return. */
 export function clearZoomSnapshotFreeze(): void {
-  slog('clear', { revision, wasActive: active })
   captureLease += 1
   gestureRunning = false
   handoff = false
