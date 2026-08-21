@@ -183,8 +183,9 @@ React layer instead.
 child `BrowserWindow` of `win`, hosting the `agent-layer` renderer. It
 exists because WCVs can't be made click-through in Electron 40
 (`setIgnoreMouseEvents` is BrowserWindow-only — see interaction-layer
-§3.1, §7.3). It is mouse-inert, paint-only, and the single sanctioned
-exception to "canvas-region rendering lives in one of the three planes."
+§3.1, §7.3). It is mouse-inert, paint-only, hidden while the main window
+is unfocused, and the single sanctioned exception to "canvas-region
+rendering lives in one of the three planes."
 Don't add another — if you need to paint above pages, compose into
 `aboveView`.
 

@@ -9,13 +9,11 @@ import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 export function InspectDetailSection({
   activeDetail,
   hoveredDetail,
-  isDark,
   mutedClass,
   selectedDetail,
 }: {
   activeDetail?: InspectNodeDetail
   hoveredDetail?: InspectNodeDetail
-  isDark: boolean
   mutedClass: string
   selectedDetail?: InspectNodeDetail
 }) {
@@ -62,9 +60,9 @@ export function InspectDetailSection({
           {activeDetail.props
             ? Object.entries(activeDetail.props).slice(0, 10).map(([key, value]) => (
                 <div key={`p:${activeDetail.nodeId}:${key}`} className="text-[10px]">
-                  <div className="mb-0.5 text-zinc-500">{key}</div>
+                  <div className="mb-0.5 text-[var(--surface-foreground-muted)]">{key}</div>
                   <input
-                    className="w-full rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] text-zinc-900 outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="w-full rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] text-[var(--surface-foreground)] outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-800"
                     defaultValue={valuePreview(value)}
                     onBlur={(event) =>
                       rightDetailsPanelApi.editComponentProp(activeDetail.pageId, {
@@ -81,9 +79,9 @@ export function InspectDetailSection({
           {activeDetail.tokens
             ? Object.entries(activeDetail.tokens).slice(0, 10).map(([key, value]) => (
                 <div key={`t:${activeDetail.nodeId}:${key}`} className="text-[10px]">
-                  <div className="mb-0.5 text-zinc-500">{key}</div>
+                  <div className="mb-0.5 text-[var(--surface-foreground-muted)]">{key}</div>
                   <input
-                    className="w-full rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] text-zinc-900 outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="w-full rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] text-[var(--surface-foreground)] outline-none focus:border-blue-400 dark:border-zinc-700 dark:bg-zinc-800"
                     defaultValue={value || ''}
                     onBlur={(event) =>
                       rightDetailsPanelApi.editComponentToken(activeDetail.pageId, {

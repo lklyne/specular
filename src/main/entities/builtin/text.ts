@@ -49,16 +49,11 @@ export const textKind: EntityKindDefinition<'text'> = {
   },
 
   update(id, patch) {
-    updateTextEntity(id, {
-      text: patch.text as string | undefined,
-      color: patch.color as string | undefined,
-      textSize: patch.textSize as number | undefined,
-      widthMode: patch.widthMode as TextWidthMode | undefined,
-      width: patch.width as number | undefined,
-      height: patch.height as number | undefined,
-      canvasX: patch.canvasX as number | undefined,
-      canvasY: patch.canvasY as number | undefined,
-    })
+    // Forward the whole patch — `updateTextEntity` already copies every field
+    // in `TEXT_ENTITY_PERSISTED_FIELDS` (minus id/kind), so hand-picking a
+    // subset here would just be a second field list that can drift from the
+    // first (docs/plans/entity-field-drift.md, Step C).
+    updateTextEntity(id, patch as Partial<Omit<TextEntity, 'id'>>)
   },
 
   delete(id) {

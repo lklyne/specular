@@ -12,7 +12,8 @@
       "parentGroupId": "generated-id-5",
       "specular": {
         "textStyle": "sticky",
-        "widthMode": "fixed"
+        "widthMode": "fixed",
+        "parentGroupId": "generated-id-5"
       }
     },
     {
@@ -23,7 +24,9 @@
       "width": 220,
       "height": 180,
       "file": "notes/fixture.md",
-      "parentGroupId": "generated-id-5"
+      "specular": {
+        "parentGroupId": "generated-id-5"
+      }
     },
     {
       "id": "generated-id-3",

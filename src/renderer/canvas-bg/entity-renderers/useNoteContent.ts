@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
 import { useDebouncedWrite } from '../../shared/useDebouncedWrite'
-import { filePathToSrc, getFileApi } from './filePathToSrc'
+import { getFileApi } from './filePathToSrc'
+
+/** Surfaced in place of the note body when the file can't be read from disk. */
+const LOAD_ERROR = 'This note’s file could not be read.'
 
 /**
  * Owns a markdown note's content lifecycle: initial disk load, Y.Doc-driven
@@ -15,6 +18,7 @@ export function useNoteContent(
 ) {
   const fileApi = getFileApi()
   const [mdContent, setMdContent] = useState<string | null>(entity.noteContent ?? null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [localText, setLocalText] = useState(entity.noteContent ?? '')
   const isFocusedRef = useRef(false)
   const dirtyRef = useRef(false)
@@ -38,22 +42,38 @@ export function useNoteContent(
   // Initial disk load — only while the note hasn't entered the Y.Doc mirror
   // yet (entity.noteContent undefined, i.e. never edited by anyone since
   // the workspace loaded). Once tracked, scene broadcasts are authoritative.
+  //
+  // The load guards on `dirtyRef`, not focus: a note that mounts already
+  // focused is the normal case for fill focus (the session auto-enters inline
+  // editing, and CodeMirror's autofocus — a child effect — fires before this
+  // parent effect). Only actual typing can be clobbered, and that's what
+  // `dirtyRef` tracks; an empty, focused, untouched editor still needs its
+  // content.
   useEffect(() => {
     if (entity.noteContent !== undefined) return
     let cancelled = false
     const fetchContent = () => {
-      fetch(filePathToSrc(entity.file) + `?t=${Date.now()}`)
-        .then((res) => res.text())
+      fileApi
+        .readNoteFile(entity.file)
         .then((text) => {
           if (cancelled) return
+          if (text === null) {
+            setLoadError(LOAD_ERROR)
+            return
+          }
+          setLoadError(null)
           setMdContent(text)
-          if (!isFocusedRef.current) setLocalText(text)
+          if (!dirtyRef.current) setLocalText(text)
         })
         .catch(() => {
-          if (!cancelled) setMdContent(null)
+          if (cancelled) return
+          setLoadError(LOAD_ERROR)
         })
     }
-    if (!isFocusedRef.current) fetchContent()
+    if (!dirtyRef.current) fetchContent()
+    // The refetch-on-return path keeps the focus guard: an active editing
+    // session shouldn't have its caret reset by a disk read, even before the
+    // first keystroke.
     const handleVisibility = () => {
       if (document.visibilityState !== 'visible') return
       if (debouncedWrite.isPending()) return
@@ -104,5 +124,5 @@ export function useNoteContent(
     setMdContent(localText)
   }
 
-  return { mdContent, localText, handleChange, handleFocus, handleBlur }
+  return { mdContent, loadError, localText, handleChange, handleFocus, handleBlur }
 }

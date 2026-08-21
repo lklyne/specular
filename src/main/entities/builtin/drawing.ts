@@ -41,13 +41,11 @@ export const drawingKind: EntityKindDefinition<'drawing'> = {
   },
 
   update(id, patch) {
-    updateDrawingEntity(id, {
-      canvasX: patch.canvasX as number | undefined,
-      canvasY: patch.canvasY as number | undefined,
-      width: patch.width as number | undefined,
-      height: patch.height as number | undefined,
-      strokes: patch.strokes as AnnotationDrawingStroke[] | undefined,
-    })
+    // Forward the whole patch — `updateDrawingEntity` already copies every
+    // field in `DRAWING_ENTITY_PERSISTED_FIELDS` (minus id/kind), so
+    // hand-picking a subset here would just be a second field list that can
+    // drift from the first (docs/plans/entity-field-drift.md, Step C).
+    updateDrawingEntity(id, patch as Partial<Omit<DrawingEntity, 'id'>>)
   },
 
   delete(id) {

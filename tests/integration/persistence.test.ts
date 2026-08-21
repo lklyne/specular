@@ -7,7 +7,11 @@
  * next launch. Also guards the load-time migrations (group stack-order
  * normalization, legacy Browser-mode appState restore).
  *
- * Mutation-verified by: commenting out `scheduleWorkspaceAutosave()` in
+ * Mutation-verified by: dropping `textAlign` from the shape branch of
+ * `restoreWorkspaceSnapshot` (src/main/runtime/space-restore.ts) — "restores
+ * every persisted field of a styled shape from disk" fails.
+ *
+ * Mutation-verified by: commenting out `scheduleSpaceAutosave()` in
  * `createTextEntity` (src/main/runtime/document-commands.ts) — "autosave
  * writes a mutation to the .canvas file on disk" fails because the disk
  * snapshot stays empty after the debounce window.
@@ -22,11 +26,8 @@ import {
 } from '../../src/main/runtime/document-commands'
 import { currentEntityOrder } from '../../src/main/runtime/entity-order-state'
 import { getSelectionState } from '../../src/main/workspace-entities'
-import {
-  DEFAULT_WORKSPACE_ID,
-  canvasFilePath,
-  readCanvasFile,
-} from '../../src/main/runtime/workspace-persistence'
+import { readCanvasFile } from '../../src/main/runtime/space-persistence'
+import { shapeEntities } from '../../src/main/runtime/shape-entity-state'
 import type { JsonCanvasDocument } from '../../src/shared/json-canvas-types'
 
 let harness: WorkspaceHarness
@@ -46,7 +47,7 @@ describe('persistence', () => {
   it('autosave writes a mutation to the .canvas file on disk', async () => {
     // The one intentionally-sleeping test: it verifies the real 350ms
     // debounce fires on its own, so it must NOT flush.
-    const path = canvasFilePath(harness.userDataPath, DEFAULT_WORKSPACE_ID, 'Blank')
+    const path = harness.diskPath('Blank')
     const beforeIds = diskTextIds(readCanvasFile(path))
 
     const entity = createTextEntity({ canvasX: 120, canvasY: 240, text: 'persisted text' })
@@ -110,6 +111,53 @@ describe('persistence', () => {
     const persisted = harness.diskDoc('Stack Migration')
     const order = (persisted?.specular as { entityOrder?: string[] } | undefined)?.entityOrder
     expect(order).toEqual(['x', 'a', 'b', 'group', 'y'])
+  })
+
+  it('restores every persisted field of a styled shape from disk', () => {
+    harness.loadFixture({
+      name: 'Styled Shape',
+      doc: {
+        nodes: [
+          {
+            id: 'styled-shape',
+            type: 'shape',
+            x: 20,
+            y: 40,
+            width: 180,
+            height: 160,
+            shapeKind: 'rounded',
+            text: 'aligned left',
+            color: '6',
+            strokeWidth: 2,
+            borderStyle: 'dashed',
+            borderColor: '4',
+            label: 'Legend',
+            specular: {
+              textSize: 14,
+              fillStyle: 'none',
+              textAlign: 'left',
+              textVerticalAlign: 'top',
+            },
+          },
+        ],
+        edges: [],
+      },
+    })
+
+    const shape = shapeEntities.find((s) => s.id === 'styled-shape')
+    expect(shape).toMatchObject({
+      shapeKind: 'rounded',
+      text: 'aligned left',
+      color: '6',
+      strokeWidth: 2,
+      borderStyle: 'dashed',
+      borderColor: '4',
+      label: 'Legend',
+      textSize: 14,
+      fillStyle: 'none',
+      textAlign: 'left',
+      textVerticalAlign: 'top',
+    })
   })
 
   it('opens legacy Browser-mode appState as canvas with the saved page selected', () => {

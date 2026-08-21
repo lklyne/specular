@@ -1,6 +1,6 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
-import { callApp } from './shared/app-client'
+import { callApp, setTargetTabRef } from './shared/app-client'
 import { handleBrowse, shellQuote, spawnAsync, resolveAgentBrowserPath, BLOCKED_BROWSE_VERBS } from './shared/browse-handler'
 import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
@@ -20,9 +20,40 @@ function pageId(args: ParsedArgs): string | undefined {
 // --- Canvas verbs ---
 
 // Reads the canvas as a JSON Canvas document (GET /canvas — the doc read shape).
-const workspace: VerbHandler = async () => {
+const canvas: VerbHandler = async () => {
   printJson(await callApp('/canvas'))
   return 0
+}
+
+// Tab identity (issue #360): agents name the canvas they are writing to rather
+// than inheriting the user's focus. `new` deliberately does not activate —
+// only `switch` moves what the user is looking at.
+const tab: VerbHandler = async (args) => {
+  const sub = args.positional[0]
+  if (!sub) {
+    printJson(await callApp('/tabs'))
+    return 0
+  }
+  if (sub === 'new') {
+    const name = args.positional.slice(1).join(' ')
+    if (!name) { printError('usage: specular tab new <name>'); return 1 }
+    printJson(await callApp('/tabs', { method: 'POST', body: JSON.stringify({ name }) }))
+    return 0
+  }
+  if (sub === 'switch') {
+    const ref = args.positional.slice(1).join(' ')
+    if (!ref) { printError('usage: specular tab switch <tab-id|tab-name>'); return 1 }
+    printJson(await callApp('/tabs/switch', { method: 'POST', body: JSON.stringify({ ref }) }))
+    return 0
+  }
+  if (sub === 'delete') {
+    const ref = args.positional.slice(1).join(' ')
+    if (!ref) { printError('usage: specular tab delete <tab-id|tab-name>'); return 1 }
+    printJson(await callApp('/tabs/delete', { method: 'POST', body: JSON.stringify({ ref }) }))
+    return 0
+  }
+  printError('usage: specular tab [new <name> | switch <tab-id|tab-name> | delete <tab-id|tab-name>]')
+  return 1
 }
 
 const selection: VerbHandler = async () => {
@@ -99,11 +130,32 @@ const upsert: VerbHandler = async (args) => {
   return 0
 }
 
+const APPLY_USAGE =
+  'usage: specular apply [--tab <tab-id|tab-name>] < patch.json  (the patch is read from stdin; `--json` is upsert\'s flag, not apply\'s)'
+
 // The one declarative door (ADR 0019). A patch is { entities, edges, delete,
 // layout } — no id creates, id present updates, id in delete removes — applied
 // in one transaction. Documented as the batch fallback; verbs are primary.
 const apply: VerbHandler = async () => {
-  const patch = JSON.parse(await readStdin()) as CanvasPatch
+  // The patch arrives on stdin, not in a flag. Without these guards a bare
+  // `apply` hangs on an interactive terminal, and a typo'd `--json '{...}'`
+  // (that's `upsert`'s door) surfaces as a bare JSON parse error.
+  if (process.stdin.isTTY) {
+    printError(APPLY_USAGE)
+    return 1
+  }
+  const input = (await readStdin()).trim()
+  if (!input) {
+    printError(APPLY_USAGE)
+    return 1
+  }
+  let patch: CanvasPatch
+  try {
+    patch = JSON.parse(input) as CanvasPatch
+  } catch (error) {
+    printError(`apply: patch is not valid JSON (${(error as Error).message})\n${APPLY_USAGE}`)
+    return 1
+  }
   if (patch.layout) {
     const err = validateLayoutDirective(patch.layout)
     if (err) { printError(`apply: ${err}`); return 1 }
@@ -388,6 +440,26 @@ const annotate: VerbHandler = async (args) => {
   return 0
 }
 
+// One region comment over a multi-selection's union bounds, carrying the
+// selected ids (and the page/file the request is about) so the fix loop reads
+// the whole request at once. No ids uses the current selection.
+const annotateSelection: VerbHandler = async (args) => {
+  const text = args.positional.join(' ')
+  if (!text) {
+    printError('usage: specular annotate-selection "<text>" [--ids id1,id2]  (no ids uses current selection)')
+    return 1
+  }
+  const entityIds = args.flags.ids?.split(',').map((id) => id.trim()).filter(Boolean) ?? []
+  printJson(await callApp('/selection/annotate', {
+    method: 'POST',
+    body: JSON.stringify({
+      text,
+      ...(entityIds.length > 0 ? { entityIds } : {}),
+    }),
+  }))
+  return 0
+}
+
 const ack: VerbHandler = async (args) => {
   const id = args.positional[0]
   if (!id) { printError('usage: specular ack <annotation-id>'); return 1 }
@@ -650,7 +722,10 @@ const skills: VerbHandler = async (args) => {
 // ---------------------------------------------------------------------------
 
 const VERBS: Record<string, VerbHandler> = {
-  workspace,
+  canvas,
+  // Hidden alias, kept so existing agent skills don't break mid-transition.
+  workspace: canvas,
+  tab,
   selection,
   'find-placement': findPlacement,
   breakpoints,
@@ -669,6 +744,7 @@ const VERBS: Record<string, VerbHandler> = {
   annotations,
   annotation,
   annotate,
+  'annotate-selection': annotateSelection,
   ack,
   resolve,
   dismiss,
@@ -700,9 +776,11 @@ export async function dispatch(argv: string[]): Promise<number> {
   if (!args.verb || args.verb === '--help' || args.verb === '-h') {
     printText('usage: specular <verb> [args...] [--flag value]')
     printText('')
-    printText('Canvas: workspace, add, update, delete, arrange, focus, group, ungroup')
+    printText('Canvas: canvas, add, update, delete, arrange, focus, group, ungroup')
+    printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>')
+    printText('  --tab <tab-id|tab-name> targets another canvas without switching focus')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
-    printText('Annotations: annotations, annotation, annotate, ack, resolve, dismiss, reply')
+    printText('Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')
@@ -712,6 +790,9 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('section for the full command surface, or run `specular skills get core`.')
     return 0
   }
+  // `--tab` is set once for the whole invocation and rides every request as a
+  // header; the main side resolves the ref in one place (issue #360 §3).
+  setTargetTabRef(args.flags.tab ?? null)
   emitPresenceForVerb(args.verb)
   const handler = VERBS[args.verb] ?? browsePassthrough
   return handler(args)

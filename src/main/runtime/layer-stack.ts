@@ -27,7 +27,7 @@ import {
   win,
 } from './view-refs'
 import { pages } from './runtime-context'
-import { focusSession } from './focus-session'
+import { focusedPageId } from './focus-session'
 import { listComponentViews } from './component-page-factory'
 import type { Page } from './runtime-entities'
 
@@ -115,7 +115,7 @@ function desiredChildOrder(): View[] {
     if (id === 'bgView') {
       const orderedPages: Page[] = orderedPagesForStack(
         pages,
-        focusSession()?.pageId,
+        focusedPageId(),
       )
       for (const page of orderedPages) {
         order.push(page.frameView, page.pageView)

@@ -17,9 +17,9 @@ import {
   EDGE_ANCHOR_HIT_ALONG_PX,
   EDGE_ANCHOR_HIT_GAP_PX,
   EDGE_SIDES,
-  MULTI_SELECTION_OUTLINE_PADDING_PX,
-  REORDER_HANDLE_HIT_PX,
+  reorderHandleHitPx,
   RESIZE_HANDLE_HIT_PX,
+  SELECTION_OUTLINE_PADDING_PX,
   scaleEdgeAnchorHitSize,
 } from './canvas-hit-geometry'
 import type {
@@ -30,7 +30,7 @@ import type {
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 import { estimateGroupLabelWidth, groupLabelRect } from './group-label-geometry'
-import { reorderableDots } from './reorderable-dots'
+import { reorderableDots, type ReorderDot } from './reorderable-dots'
 import { collectGapHandleZones } from './gap-handles'
 import { ENTITY_KIND_CAPS } from './entity-kind-caps'
 import { selectionBbox, type SelectionBbox } from './selection-bbox'
@@ -71,6 +71,12 @@ export interface HitInputs {
   entities: readonly CanvasSceneEntity[]
   edges: readonly WorkspaceEdge[]
   selectedEntityIds: readonly string[]
+  /** Selection operands (ADR 0034, `resolveSelectionScope`): groups in the
+   *  selection expanded to every descendant. The multi-bbox handles must be
+   *  hit-tested over the same rect the overlay renders, which unions these —
+   *  not the raw member ids (a group contributes its full extent instead of
+   *  nothing). Falls back to `selectedEntityIds` when absent. */
+  selectionOperandIds?: readonly string[]
   selectedGroupId?: string | null
   /** Optional. When set, anchor dots on the hovered entity are routable too —
    *  matches the EdgeLayer renderer policy (selected + hovered show anchors)
@@ -147,30 +153,30 @@ function collectGroupLabelTargets(inputs: HitInputs): HitTarget[] {
 
 function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   const out: HitTarget[] = []
-  const selectedIds = new Set(inputs.selectedEntityIds)
-  const multiSelectionContainsGroup =
-    inputs.selectedEntityIds.length > 1 &&
-    inputs.entities.some((entity) => entity.kind === 'group' && selectedIds.has(entity.id))
-  if (multiSelectionContainsGroup) return out
 
   // Multi-selection: per-entity handles are visually hidden in favor of one
-  // bbox spanning the selection. Mirror that here — emit the eight multi-bbox
-  // handles plus per-entity handles for any selected group (groups have
-  // their own selection overlay independent of the multi-box). Fall through
-  // to the single-entity path if a bbox can't be formed (e.g. fewer than two
-  // non-group entities once groups are excluded).
-  const bbox =
-    inputs.selectedEntityIds.length > 1
-      ? selectionBbox(inputs.entities, inputs.selectedEntityIds, 'screen')
-      : null
-  if (bbox) {
-    for (const handle of HANDLES) {
-      out.push({
-        layer: 'resize-handles',
-        region: { kind: 'rect', rect: multiHandleRect(bbox, handle) },
-        payload: { kind: 'multi-resize-handle', handle },
-      })
+  // bbox spanning the selection, so this branch never falls through to the
+  // per-entity path — a handle must be hit-testable exactly where the overlay
+  // renders one. The bbox unions the selection *operands* (groups expanded to
+  // descendants), matching the rect SelectionOutlineLayer draws; when no bbox
+  // forms (fewer than two sized operands) there are no handles at all.
+  if (inputs.selectedEntityIds.length > 1) {
+    const bbox = selectionBbox(
+      inputs.entities,
+      inputs.selectionOperandIds ?? inputs.selectedEntityIds,
+      'screen',
+    )
+    if (bbox) {
+      for (const handle of HANDLES) {
+        out.push({
+          layer: 'resize-handles',
+          region: { kind: 'rect', rect: multiHandleRect(bbox, handle) },
+          payload: { kind: 'multi-resize-handle', handle },
+        })
+      }
     }
+    // A selected group keeps its own overlay handles independent of the
+    // multi-box.
     if (inputs.selectedGroupId) {
       const group = inputs.entities.find((e) => e.id === inputs.selectedGroupId)
       if (group) pushPerEntityHandles(out, group)
@@ -204,7 +210,7 @@ function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void
 
 function multiHandleRect(bbox: SelectionBbox, handle: ResizeHandle): Rect {
   const half = RESIZE_HANDLE_HIT_PX / 2
-  const pad = MULTI_SELECTION_OUTLINE_PADDING_PX
+  const pad = SELECTION_OUTLINE_PADDING_PX
   const left = bbox.x - pad
   const top = bbox.y - pad
   const right = bbox.x + bbox.width + pad
@@ -283,7 +289,7 @@ function collectAnchorTargets(inputs: HitInputs): HitTarget[] {
 function collectReorderHandleTargets(inputs: HitInputs): HitTarget[] {
   return reorderableDots(inputs).map((dot) => ({
     layer: 'reorder-handle' as const,
-    region: { kind: 'rect' as const, rect: reorderHandleRectAt(dot.center) },
+    region: { kind: 'rect' as const, rect: reorderHandleRectAt(dot) },
     payload: { kind: 'reorder-handle' as const, entityId: dot.id, entityKind: dot.entityKind },
   }))
 }
@@ -360,19 +366,9 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
 // through it.
 const HANDLES: readonly ResizeHandle[] = ['nw', 'ne', 'se', 'sw', 'n', 'e', 's', 'w']
 
-// Selection outlines sit slightly outside the entity body; resize handles
-// are centered on the outline corners/edges, not the entity itself. Match
-// the padding used by SelectionOutlineLayer so hit-test geometry tracks the
-// pixels users actually see.
-const SINGLE_SELECTION_OUTLINE_PADDING_PX = 2
-
-function outlinePaddingFor(_kind: CanvasEntityKind): number {
-  return SINGLE_SELECTION_OUTLINE_PADDING_PX
-}
-
 function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
   const half = RESIZE_HANDLE_HIT_PX / 2
-  const pad = outlinePaddingFor(entity.kind)
+  const pad = SELECTION_OUTLINE_PADDING_PX
   const { screenX: x, screenY: y, screenWidth: w, screenHeight: h } = entity
   switch (handle) {
     case 'nw':
@@ -397,9 +393,10 @@ function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
   }
 }
 
-function reorderHandleRectAt(center: { x: number; y: number }): Rect {
-  const half = REORDER_HANDLE_HIT_PX / 2
-  return { x: center.x - half, y: center.y - half, width: REORDER_HANDLE_HIT_PX, height: REORDER_HANDLE_HIT_PX }
+function reorderHandleRectAt(dot: ReorderDot): Rect {
+  const size = reorderHandleHitPx(dot.size.width, dot.size.height)
+  const half = size / 2
+  return { x: dot.center.x - half, y: dot.center.y - half, width: size, height: size }
 }
 
 function bodyRect(entity: CanvasSceneEntity): Rect {

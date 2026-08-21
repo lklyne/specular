@@ -66,8 +66,8 @@ function GroupRenameItem({
   const labelColorClass = !isRenaming
     ? 'text-transparent'
     : group.color
-      ? isDark ? 'text-zinc-100' : 'text-zinc-900'
-      : isDark ? 'text-zinc-300' : 'text-zinc-700'
+      ? 'text-[var(--surface-foreground)]'
+      : 'text-[var(--surface-foreground-muted)]'
   // The label sits above group.screenY and inside aboveView's overlay-local
   // coordinate space; subtract canvasOrigin.y to drop into overlay coords.
   const left = group.screenX

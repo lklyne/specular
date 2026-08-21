@@ -15,6 +15,7 @@ import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
 import { setPendingFocus } from '../runtime/runtime-context'
 import { executeRegionSelect } from '../runtime/region-select'
+import { annotateSelectionRegion } from '../runtime/annotate-selection'
 import { queryElementAtPoint } from '../runtime/page-queries'
 import {
   pageAtWindowPoint,
@@ -43,6 +44,7 @@ import {
   deleteTextEntity,
   deleteFileEntity,
   refreshFileEntity,
+  reportContentHeight,
   setPageCustom,
   setPageColorScheme,
   setDeviceOrientation,
@@ -56,7 +58,7 @@ import {
   updateResizeGuides,
 } from '../runtime/document-commands'
 import type { MultiResizeEntry } from '../runtime/document-commands'
-import { writeNoteFile } from '../runtime/note-assets'
+import { readNoteFile, writeNoteFile } from '../runtime/note-assets'
 import { commitNoteContent } from '../runtime/note-commands'
 import {
   activeTool,
@@ -74,8 +76,8 @@ import { requestLayout } from '../runtime/viewport-control'
 import { markDirty } from '../runtime/layout-dirty'
 import { pageBodyCanvasBounds, pageContentSize } from '../runtime/runtime-geometry'
 import {
-  scheduleWorkspaceAutosave,
-} from '../runtime/workspace-autosave'
+  scheduleSpaceAutosave,
+} from '../runtime/space-autosave'
 import { navigatePage, setSyncForSelection, unsyncPage } from '../navigation-sync'
 import {
   deviceIdFromMetadata,
@@ -91,10 +93,11 @@ import {
   createPageAtPosition,
   duplicateEntity,
   duplicatePageFromSource,
+  openLinkFromEntity,
 } from '../workspace-pages'
 import { deleteGroups, duplicateGroup, ungroupUserGroup } from '../workspace-groups'
 import { copyableSelectionPayload } from '../workspace-clipboard'
-import { workspaceGroups } from '../runtime/workspace-model'
+import { workspaceGroups } from '../runtime/space-model'
 import { applyEntitySelectionMutation, selectGroup } from '../runtime/selection-controller'
 import { deleteSelection } from '../runtime/delete-selection'
 import { arrangeEntities } from '../runtime/document-commands'
@@ -406,7 +409,7 @@ export function registerCanvasEntityIpc(): void {
       if (patch.canvasX !== undefined) page.canvasX = patch.canvasX
       if (patch.canvasY !== undefined) page.canvasY = patch.canvasY
       updateResizeGuides(pageId)
-      scheduleWorkspaceAutosave()
+      scheduleSpaceAutosave()
       markDirty('canvas')
       requestLayout()
     },
@@ -423,8 +426,8 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(ipcChannels.canvasShowPageContextMenu, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    const canGoBack = page.pageView.webContents.canGoBack()
-    const canGoForward = page.pageView.webContents.canGoForward()
+    const canGoBack = page.pageView.webContents.navigationHistory.canGoBack()
+    const canGoForward = page.pageView.webContents.navigationHistory.canGoForward()
     const menu = Menu.buildFromTemplate([
       {
         label: 'Back',
@@ -519,6 +522,13 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
+  ipcMain.on(
+    ipcChannels.canvasOpenEntityLink,
+    (_event, { entityId, url }: { entityId: string; url: string }) => {
+      openLinkFromEntity({ entityId, url })
+    },
+  )
+
   ipcMain.on(ipcChannels.canvasToggleSyncSelection, () => {
     setSyncForSelection(getSelectedEntityIds())
   })
@@ -569,6 +579,19 @@ export function registerCanvasEntityIpc(): void {
     (_event, payload: { canvasRect: { x: number; y: number; width: number; height: number }; text: string }) => {
       executeRegionSelect(payload.canvasRect, payload.text).catch((err) => {
         console.error('[region-select] failed:', err)
+      })
+    },
+  )
+
+  // Selection popup's Annotate button + composer handoff (ADR 0019 one door).
+  // The renderer passes the ids it displayed rather than trusting the current
+  // selection, so a selection change between button-click and submit can't
+  // silently annotate a different set of entities.
+  ipcMain.on(
+    ipcChannels.canvasAnnotateSelection,
+    (_event, payload: { entityIds: string[]; text: string }) => {
+      annotateSelectionRegion(payload).catch((err) => {
+        console.error('[annotate-selection] failed:', err)
       })
     },
   )
@@ -636,6 +659,16 @@ export function registerCanvasEntityIpc(): void {
     },
   )
 
+  // Measured content height (stickies) — its own door because it is derived
+  // state, not a user edit: see `reportContentHeight` for the undo contract.
+  ipcMain.on(
+    ipcChannels.canvasReportContentHeight,
+    (_event, { id, height }: { id: string; height: number }) => {
+      if (!Number.isFinite(height)) return
+      reportContentHeight(id, height)
+    },
+  )
+
   // --- Text Entity IPC ---
 
   ipcMain.on(ipcChannels.canvasDeleteTextEntity, (_event, { id }: { id: string }) => {
@@ -699,6 +732,11 @@ export function registerCanvasEntityIpc(): void {
 
   ipcMain.on(ipcChannels.canvasCopyFileAsPng, (_event, { filePath }: { filePath: string }) => {
     clipboard.writeImage(nativeImage.createFromPath(filePath))
+  })
+
+  // Initial disk read for a note that hasn't entered the Y.Doc mirror yet.
+  ipcMain.handle(ipcChannels.readNoteFile, (_event, { filePath }: { filePath: string }) => {
+    return readNoteFile(filePath)
   })
 
   // Raw disk write for non-Y.Doc-backed note content (issue #262 non-goals).

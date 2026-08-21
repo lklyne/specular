@@ -91,12 +91,16 @@ export interface CanvasBgElectronAPI {
   dropdownClose: () => void
   copySelection: () => void
   pasteSelection: (canvasX: number, canvasY: number) => void
+  /** Open a link found in an entity's text as a page on the canvas. */
+  openEntityLink: (entityId: string, url: string) => void
   deleteSelectedEntities: () => void
   reorderStack: (
     action: 'bring-forward' | 'send-backward' | 'bring-to-front' | 'send-to-back',
     targetId?: string,
   ) => void
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
+  /** Publish a sticky's measured content height (never its own undo step). */
+  reportContentHeight: (id: string, height: number) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
   deleteFileEntity: (id: string) => void
@@ -176,7 +180,7 @@ export interface CanvasBgElectronAPI {
   createAnnotation: (request: AnnotationCreateRequest) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
-  resizeMultiSelection: (entries: Array<{ id: string; kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'; width: number; height: number; canvasX: number; canvasY: number; strokes?: AnnotationDrawingStroke[] }>) => void
+  resizeMultiSelection: (entries: Array<{ id: string; kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'; width: number; height: number; canvasX: number; canvasY: number; strokes?: AnnotationDrawingStroke[] }>) => void
   addAnnotationReply: (annotationId: string, text: string) => void
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void
@@ -224,6 +228,12 @@ export interface CanvasBgElectronAPI {
     callback: (update: AnnotationLiveBboxUpdate) => void,
   ) => () => void
   createRegionAnnotation: (canvasRect: WorkspaceBounds, text: string) => void
+  /** Selection-born region annotation (ADR 0019 §"one door"): the selection
+   *  popup's Annotate button and its composer handoff both land here. Main
+   *  recomputes the union bbox from the ids passed — the renderer sends the
+   *  ids it displayed rather than relying on the current selection, so a
+   *  selection change mid-composer can't race the submit. */
+  annotateSelection: (input: { entityIds: string[]; text: string }) => void
   onAnnotationThreadOpen: (
     callback: (data: { annotationId: string }) => void,
   ) => () => void
@@ -261,6 +271,11 @@ export interface CanvasBgElectronAPI {
   onPageCursorChange: (
     callback: (data: { type: string | null }) => void,
   ) => () => void
+  /** Current on-disk content of a markdown note, or null if unreadable.
+   *  Main owns disk access, so this goes over IPC rather than a
+   *  `local-file://` fetch — that scheme isn't CORS-enabled, and a renderer
+   *  served from the dev server is cross-origin to it. */
+  readNoteFile: (filePath: string) => Promise<string | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   /**
    * ADR 0023 — commit a markdown note edit through the Y.Doc so it

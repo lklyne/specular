@@ -60,6 +60,7 @@ export interface IpcContract {
   'apply-linked-scroll': { dir: 'main→renderer'; payload: unknown }
   'apply-page-overrides': { dir: 'main→renderer'; payload: unknown }
   'binding-fire': { dir: 'main→renderer'; payload: BindingId }
+  'canvas-annotate-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-back-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-bg-dropdown-close': { dir: 'renderer→main'; payload: unknown }
   'canvas-bg-dropdown-open': { dir: 'renderer→main'; payload: unknown }
@@ -130,6 +131,7 @@ export interface IpcContract {
   'canvas-multi-resize-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-navigate-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-open-devtools-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-open-entity-link': { dir: 'renderer→main'; payload: unknown }
   'canvas-pan': { dir: 'renderer→main'; payload: unknown }
   'canvas-paste-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-place-pending-entity': { dir: 'renderer→main'; payload: unknown }
@@ -148,6 +150,7 @@ export interface IpcContract {
   'canvas-reorder-stack': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-start': { dir: 'renderer→main'; payload: unknown }
   'canvas-reorder-tab': { dir: 'renderer→main'; payload: unknown }
+  'canvas-report-content-height': { dir: 'renderer→main'; payload: { id: string; height: number } }
   'canvas-request-entity-edit': { dir: 'renderer→main'; payload: unknown }
   'canvas-resize-begin': { dir: 'renderer→main'; payload: unknown }
   'canvas-resize-end': { dir: 'renderer→main'; payload: unknown }
@@ -310,6 +313,7 @@ export interface IpcContract {
   'set-multi-selected': { dir: 'main→renderer'; payload: unknown }
   'set-show-all-nodes': { dir: 'main→renderer'; payload: unknown }
   'set-theme-mode': { dir: 'renderer→main'; payload: { mode: AppThemeMode } }
+  'settings:check-for-updates': { dir: 'renderer→main'; payload: unknown }
   'settings:close': { dir: 'renderer→main'; payload: unknown }
   'settings:fix-config-changed': { dir: 'main→renderer'; payload: FixConfig }
   'settings:get-initial-data': { dir: 'invoke'; payload: unknown }
@@ -319,6 +323,11 @@ export interface IpcContract {
   'settings:set-component-installed': { dir: 'invoke'; payload: unknown }
   'settings:set-fix-config': { dir: 'renderer→main'; payload: unknown }
   'settings:skill-progress': { dir: 'main→renderer'; payload: OnboardingProgressEvent }
+  'space-change-via-picker': { dir: 'invoke'; payload: unknown }
+  'space-changed': { dir: 'main→renderer'; payload: { path: string; isDefault: boolean } }
+  'space-choose-via-picker': { dir: 'invoke'; payload: unknown }
+  'space-commit': { dir: 'invoke'; payload: unknown }
+  'space-reveal-in-finder': { dir: 'renderer→main'; payload: unknown }
   'take-dom-snapshot': { dir: 'main→renderer'; payload: unknown }
   'take-dom-snapshot-response': { dir: 'renderer→main'; payload: unknown }
   'toggle-devtools': { dir: 'renderer→main'; payload: unknown }
@@ -334,6 +343,7 @@ export interface IpcContract {
   'zoom-snapshot-ready': { dir: 'renderer→main'; payload: { revision: number } }
   'zoom-snapshot-state': { dir: 'main→renderer'; payload: ZoomSnapshotState }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
+  'read-note-file': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
   'zoom-changed': { dir: 'main→renderer'; payload: number }
   'zoom-in': { dir: 'renderer→main'; payload: unknown }
@@ -384,6 +394,7 @@ export const ipcChannels = {
   canvasCreateAnnotation: 'canvas-create-annotation',
   canvasCreateDrawing: 'canvas-create-drawing',
   canvasCreateRegionAnnotation: 'canvas-create-region-annotation',
+  canvasAnnotateSelection: 'canvas-annotate-selection',
   canvasCreateTab: 'canvas-create-tab',
   canvasDeleteDrawingEntity: 'canvas-delete-drawing-entity',
   canvasDeleteEdge: 'canvas-delete-edge',
@@ -441,6 +452,7 @@ export const ipcChannels = {
   canvasMultiResizeEnd: 'canvas-multi-resize-end',
   canvasNavigatePage: 'canvas-navigate-page',
   canvasOpenDevtoolsSelection: 'canvas-open-devtools-selection',
+  canvasOpenEntityLink: 'canvas-open-entity-link',
   canvasPan: 'canvas-pan',
   canvasPasteSelection: 'canvas-paste-selection',
   canvasPlacePendingEntity: 'canvas-place-pending-entity',
@@ -459,6 +471,7 @@ export const ipcChannels = {
   canvasReorderStack: 'canvas-reorder-stack',
   canvasReorderStart: 'canvas-reorder-start',
   canvasReorderTab: 'canvas-reorder-tab',
+  canvasReportContentHeight: 'canvas-report-content-height',
   canvasRequestEntityEdit: 'canvas-request-entity-edit',
   canvasResizeBegin: 'canvas-resize-begin',
   canvasResizeEnd: 'canvas-resize-end',
@@ -569,6 +582,7 @@ export const ipcChannels = {
   queryElementsInRectResponse: 'query-elements-in-rect-response',
   queryFavicon: 'query-favicon',
   queryFaviconResult: 'query-favicon-result',
+  readNoteFile: 'read-note-file',
   regionSelectCommitted: 'region-select-committed',
   reloadApp: 'reload-app',
   repoBindOrigin: 'repo-bind-origin',
@@ -618,6 +632,7 @@ export const ipcChannels = {
   setInteractive: 'set-interactive',
   setMultiSelected: 'set-multi-selected',
   setThemeMode: 'set-theme-mode',
+  settingsCheckForUpdates: 'settings:check-for-updates',
   settingsClose: 'settings:close',
   settingsFixConfigChanged: 'settings:fix-config-changed',
   settingsGetInitialData: 'settings:get-initial-data',
@@ -627,6 +642,11 @@ export const ipcChannels = {
   settingsSetComponentInstalled: 'settings:set-component-installed',
   settingsSetFixConfig: 'settings:set-fix-config',
   settingsSkillProgress: 'settings:skill-progress',
+  spaceChangeViaPicker: 'space-change-via-picker',
+  spaceChanged: 'space-changed',
+  spaceChooseViaPicker: 'space-choose-via-picker',
+  spaceCommit: 'space-commit',
+  spaceRevealInFinder: 'space-reveal-in-finder',
   takeDomSnapshot: 'take-dom-snapshot',
   takeDomSnapshotResponse: 'take-dom-snapshot-response',
   toggleDevtools: 'toggle-devtools',

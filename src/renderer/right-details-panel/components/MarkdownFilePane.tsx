@@ -8,12 +8,12 @@ import { FileEntityShell } from './FileEntityShell'
 
 export function MarkdownFilePane({ fileEntity }: { fileEntity: PanelFileEntityDetail }) {
   const isDark = usePaneTheme()
-  const muted = mutedClass(isDark)
+  const muted = mutedClass
   const label = fileEntityLabel(fileEntity.file).replace(/\.md$/i, '') || 'Note'
 
   return (
     <FileEntityShell
-      icon={<FileText size={14} className="shrink-0 text-zinc-500" />}
+      icon={<FileText size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
       label={label}
       entityId={fileEntity.id}
     >

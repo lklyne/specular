@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "../shared/surfaceTheme.css";
-@import "../shared/markdownStyles.css";
 @variant dark (&:where(.dark, .dark *));
 
 /* Brief "updated" pulse on a file entity when its content reloads from disk

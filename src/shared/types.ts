@@ -167,8 +167,15 @@ export interface CanvasScenePageEntity {
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
 
+/**
+ * What a focus session frames. A page target is the classic browser-style
+ * focus; a file target is a note (or other fillFocus-claiming renderer) blown
+ * up to the viewport.
+ */
+export type FocusTarget = { kind: 'page'; id: string } | { kind: 'file'; id: string }
+
 export interface FocusPresentationData {
-  pageId: string
+  target: FocusTarget
   mode: FocusPresentationMode
   authoredLabel: string
   authoredWidth: number
@@ -534,6 +541,15 @@ export interface LayoutUpdateData {
   entityOrder: string[]
   entities: CanvasSceneEntity[]
   selectedEntityIds: string[]
+  /**
+   * `resolveSelectionScope()`'s operand set for the current selection: groups
+   * expanded to every descendant, page-anchored entities attached. What a
+   * gesture (drag, resize, delete) moves/clones/deletes — consumers deriving
+   * a selection-wide rect (the multi-select bounding box, multi-resize) read
+   * this instead of `selectedEntityIds` so a group-involving selection is
+   * treated as one unit. See ADR 0034.
+   */
+  selectionOperandIds: string[]
   selection: CanvasSelectableTarget[]
   activeSelection: ActiveCanvasEntitySelection | null
   activeTool: Tool
@@ -817,7 +833,7 @@ export interface LeftSidebarData {
   width: number
   selectedEntityIds: string[]
   selectedGroupId?: string | null
-  tabs: WorkspaceTabSummary[]
+  tabs: SpaceTabSummary[]
   activeTabId: string | null
   hasPages: boolean
   sections: LeftSidebarSections
@@ -885,6 +901,11 @@ export type OnboardingMode = 'welcome' | 'settings'
 export interface OnboardingBootstrapData extends ThemeBootstrapData {
   status: OnboardingStatusSnapshot
   mode: OnboardingMode
+  /** Offered default (`~/Specular`) for the space step's "accept default"
+   *  one-click path (ADR 0033 §5). */
+  defaultSpacePath: string
+  /** The currently configured space, or null when unset. */
+  spacePath: string | null
 }
 
 export type OnboardingProgressEvent =
@@ -910,9 +931,13 @@ export interface OnboardingState {
 // --- Settings window ---
 
 export interface SettingsBootstrapData extends ThemeBootstrapData {
+  version: string
   status: OnboardingStatusSnapshot
   fixConfig: FixConfig
   connectedRepos: ConnectedRepo[]
+  /** The current space (ADR 0033 §6): its resolved path, and whether it's
+   *  the legacy default (`spacePath` unset) or a folder the user chose. */
+  space: { path: string; isDefault: boolean }
 }
 
 export type {
@@ -1422,7 +1447,8 @@ export interface ClipboardEntityPayload {
   kind: CanvasEntityKind
   dx: number
   dy: number
-  // Page-specific
+  // Page-specific — page stays its own path (WebContentsView-backed; ADR
+  // 0024 §2), so it keeps its own explicit field list rather than a record.
   url?: string
   presetIndex?: number
   /** Page-specific — the copied page's id, so anchored items copied alongside
@@ -1436,25 +1462,28 @@ export interface ClipboardEntityPayload {
   metadata?: Record<string, unknown>
   /** Page-specific — optional, absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
-  // Text entity-specific
-  text?: string
-  color?: string
-  textStyle?: TextEntityStyle
-  /** Per-entity text size in px (text + shape entities). ADR 0013 §2. */
-  textSize?: number
-  width?: number
-  height?: number
-  // File entity-specific
-  file?: string
-  subpath?: string
-  objectFit?: FileObjectFit
-  // Shape entity-specific
-  shapeKind?: ShapeKind
-  strokeWidth?: number
-  theme?: string
-  label?: string
-  // Drawing entity-specific; points are relative to the drawing origin.
-  strokes?: AnnotationDrawingStroke[]
+  /**
+   * Non-page kinds (text/file/shape/drawing/group): the source entity's own
+   * persisted record — `getEntityKind(kind).persist()`'s output. Every field
+   * the kind declares as persisted travels here structurally, so a copy
+   * cannot carry a different field set than persistence does (ADR 0024 §5).
+   * `canvasX`/`canvasY` inside stay the entity's ORIGINAL position — kept so
+   * `cloneMapBackedEntity` can compute the placement delta for drawing's
+   * embedded stroke points; the clone's actual position comes from
+   * `dx`/`dy` above, not from this record. For `group`, `record.id` and
+   * `record.parentGroupId` double as the source ids paste's id-remap pass
+   * uses to rebuild the tree (ADR 0034, "Groups become copyable") — a group
+   * or map-backed entity needs no separate `sourceId` field the way `page`
+   * does, because its persisted record already carries its own id.
+   */
+  record?: Record<string, unknown>
+  /**
+   * Page-specific — the copied page's group membership, so paste can remap
+   * it the same way group and map-backed entities remap `record.parentGroupId`
+   * (a page's own record lives outside this payload's `record` field; see
+   * above).
+   */
+  parentGroupId?: string
 }
 
 export interface ClipboardEntitySelectionPayload {
@@ -1567,12 +1596,13 @@ export interface WorkspaceTabPageSummary {
   height?: number
 }
 
-export interface WorkspaceTabSummary {
+export interface SpaceTabSummary {
   id: string
   name: string
   expanded: boolean
   isActive: boolean
   pageCount: number
+  entityCount: number
   pages: WorkspaceTabPageSummary[]
 }
 
@@ -1943,8 +1973,24 @@ export interface RegionElementGroup {
   elements: unknown[]
 }
 
+/**
+ * The primary artifact a selection annotation is about: the one page (by url)
+ * or the one file entity (by absolute path on disk) in the selection. Absent
+ * when the selection names neither exactly once.
+ */
+export interface AnnotationSelectionTarget {
+  entityId: string
+  kind: 'page' | 'file'
+  url?: string
+  filePath?: string
+}
+
 export interface AnnotationMetadata extends Record<string, unknown> {
   inspectContext?: AnnotationInspectContext
+  /** Entity ids the user had selected when the annotation was created. */
+  selectionEntityIds?: string[]
+  /** The artifact the request is about, derived from the selection. */
+  selectionTarget?: AnnotationSelectionTarget
   /** Human-readable page label, e.g. "iPad Mini 768×1024". Display context
    *  only — the page binding lives in `Annotation.pageAnchor`. */
   pageName?: string
@@ -1976,7 +2022,7 @@ export type OriginBindings = Record<string, OriginBinding>
 // --- Fix config (model + permissions for the Claude subprocess) ---
 
 export type FixModel = 'opus' | 'sonnet' | 'haiku'
-export type FixPermissions = 'dangerously' | 'default'
+export type FixPermissions = 'dangerously' | 'acceptEdits' | 'default'
 
 export interface FixConfig {
   model: FixModel

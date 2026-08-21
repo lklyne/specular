@@ -20,8 +20,8 @@ import type {
   CanvasSceneTextEntity,
   LayoutUpdateData,
 } from '../../shared/types'
+import { SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
-import { MULTI_SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
 
@@ -49,10 +49,10 @@ function SelectionOutlineBox({
     <div
       className="absolute border"
       style={{
-        left: span.screenX - 2,
-        top: span.screenY - 2 - originY,
-        width: span.screenWidth + 4,
-        height: span.screenHeight + 4,
+        left: span.screenX - SELECTION_OUTLINE_PADDING_PX,
+        top: span.screenY - SELECTION_OUTLINE_PADDING_PX - originY,
+        width: span.screenWidth + SELECTION_OUTLINE_PADDING_PX * 2,
+        height: span.screenHeight + SELECTION_OUTLINE_PADDING_PX * 2,
         borderColor: selectionColor(isDark),
         pointerEvents: 'none',
         cursor,
@@ -128,7 +128,7 @@ function EntitySelectionOverlay({
 
 export interface SelectedEntitySpan {
   id: string
-  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
+  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'
   canvasX: number
   canvasY: number
   width: number
@@ -162,7 +162,7 @@ function MultiSelectionBoundingBox({
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
   }, [selectedEntities])
 
-  const pad = MULTI_SELECTION_OUTLINE_PADDING_PX
+  const pad = SELECTION_OUTLINE_PADDING_PX
 
   return (
     <div
@@ -217,16 +217,17 @@ export function SelectionOutlineLayer({
   marqueePreviewIds,
   reorderGhostId,
   reorderGhostSpan,
-  suppressPageId,
+  suppressFocusedId,
   suppressPageHover = false,
 }: {
   layoutData: LayoutUpdateData
   isDark: boolean
   marqueePreviewIds: Set<string> | null
-  /** The focused page during a focus session (ADR 0021): its own selection box
-   *  and resize handles are suppressed for a clean read, but every other item's
-   *  selection/hover outline still renders so annotations stay interactive. */
-  suppressPageId?: string | null
+  /** The focus session's target — a page, or a note drawn fullscreen by
+   *  FocusedNoteLayer (ADR 0021). Its own selection box and resize handles are
+   *  suppressed for a clean read, but every other item's selection/hover
+   *  outline still renders so annotations stay interactive. */
+  suppressFocusedId?: string | null
   /** Command-drag places an item above a page without binding to it, so the
    *  page's hover outline must disappear with the disabled drop target. */
   suppressPageHover?: boolean
@@ -247,8 +248,13 @@ export function SelectionOutlineLayer({
     [layoutData.selectedEntityIds],
   )
   const isMultiSelect = selectedIdSet.size > 1
-  const hasSelectedGroup = (layoutData.groups ?? []).some((group) =>
-    selectedIdSet.has(group.id),
+  // Operand ids (ADR 0034, `resolveSelectionScope`): groups in the selection
+  // expanded to every descendant. The multi-select bbox unions these, not
+  // `selectedIdSet` (top-level members only) — a group contributes its full
+  // extent instead of nothing.
+  const operandIdSet = useMemo(
+    () => new Set(layoutData.selectionOperandIds),
+    [layoutData.selectionOperandIds],
   )
   const hoveredEntityId = layoutData.hover?.id ?? null
 
@@ -294,12 +300,12 @@ export function SelectionOutlineLayer({
       pages.filter(
         (f) =>
           f.id !== reorderGhostId &&
-          f.id !== suppressPageId &&
+          f.id !== suppressFocusedId &&
           (selectedIdSet.has(f.id) ||
             (!suppressPageHover && f.id === hoveredEntityId) ||
             marqueePreviewIds?.has(f.id)),
       ),
-    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressPageHover, suppressPageId],
+    [pages, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressPageHover, suppressFocusedId],
   )
 
   // Non-page entities render outline if selected, hovered, or in marquee preview.
@@ -308,30 +314,38 @@ export function SelectionOutlineLayer({
       [...textEntities, ...fileEntities, ...drawingEntities, ...shapeEntities].filter(
         (e) =>
           e.id !== reorderGhostId &&
+          e.id !== suppressFocusedId &&
           (selectedIdSet.has(e.id) ||
             e.id === hoveredEntityId ||
             marqueePreviewIds?.has(e.id)),
       ),
-    [textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId],
+    [textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, hoveredEntityId, marqueePreviewIds, reorderGhostId, suppressFocusedId],
   )
 
-  // Multi-select bounding box: aggregate all selected entities' rects. During a
-  // reorder drag the dragged item is included twice — once at its destination
-  // slot (the grayscale placeholder, via `layoutData`) and once at the cursor
-  // (`reorderGhostSpan`) — so the box wraps the drop location *and* resizes
-  // toward the lifted item as it moves (FigJam parity). Its per-item outline is
-  // still dropped below, so only the group box tracks them, not a crisp outline.
+  // Multi-select bounding box: aggregate all selected *operands'* rects. A
+  // selected group contributes its own rect (the visual unit, padding
+  // included) so the box wraps the group border, plus its descendants via the
+  // operand set. During a reorder drag the dragged item is included twice —
+  // once at its destination slot (the grayscale placeholder, via
+  // `layoutData`) and once at the cursor (`reorderGhostSpan`) — so the box
+  // wraps the drop location *and* resizes toward the lifted item as it moves
+  // (FigJam parity). Its per-item outline is still dropped below, so only the
+  // group box tracks them, not a crisp outline.
   const allSelectedEntities: SelectedEntitySpan[] = useMemo(() => {
     if (!isMultiSelect) return []
-    const out: SelectedEntitySpan[] = []
-    for (const f of pages) if (selectedIdSet.has(f.id) && f.id !== suppressPageId) out.push(f)
-    for (const e of textEntities) if (selectedIdSet.has(e.id)) out.push(e)
-    for (const e of fileEntities) if (selectedIdSet.has(e.id)) out.push(e)
-    for (const e of drawingEntities) if (selectedIdSet.has(e.id)) out.push(e)
-    for (const e of shapeEntities) if (selectedIdSet.has(e.id)) out.push(e)
+    const contributes = (id: string) => operandIdSet.has(id) && id !== suppressFocusedId
+    const byKind: SelectedEntitySpan[][] = [
+      pages,
+      textEntities,
+      fileEntities,
+      drawingEntities,
+      shapeEntities,
+      layoutData.groups ?? [],
+    ]
+    const out = byKind.flatMap((spans) => spans.filter((span) => contributes(span.id)))
     if (reorderGhostSpan) out.push(reorderGhostSpan)
     return out
-  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, selectedIdSet, reorderGhostSpan, suppressPageId])
+  }, [isMultiSelect, pages, textEntities, fileEntities, drawingEntities, shapeEntities, layoutData.groups, operandIdSet, reorderGhostSpan, suppressFocusedId])
 
   // Group selection overlay — render whenever a group is selected. The
   // canvas-bg `GroupSelectionOverlayLayer` used to suppress this when the
@@ -353,7 +367,7 @@ export function SelectionOutlineLayer({
 
   return (
     <>
-      {isMultiSelect && !hasSelectedGroup && allSelectedEntities.length > 1 ? (
+      {isMultiSelect && allSelectedEntities.length > 1 ? (
         <MultiSelectionBoundingBox
           selectedEntities={allSelectedEntities}
           originY={originY}

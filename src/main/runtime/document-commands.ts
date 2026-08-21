@@ -52,7 +52,8 @@ import {
   updateGroupEntity as updateGroupEntityInState,
 } from './group-entity-state'
 import { markDirty } from './layout-dirty'
-import { mutateWorkspace } from './mutate-workspace'
+import { isGestureSessionActive, mutateWorkspace } from './mutate-workspace'
+import { commitUntracked } from './space-observers'
 import {
   reanchorEntityById,
   withPageAnchoredEntityIds,
@@ -73,6 +74,7 @@ import {
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
+import { endFocusSession, focusedFileId } from './focus-session'
 import { interactionState, pan, zoom } from './runtime-context'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
 import {
@@ -111,9 +113,9 @@ import { descendantEntityIdsForGroup } from './group-descendants'
 import { applyLayoutDirective } from '../workspace-placement'
 import { entityBoundsById, entityKindById } from '../workspace-entities'
 import { resizeGuideReferencesForHandle } from './resize-guide-adapter'
-import { workspaceEdges, workspaceGroups } from './workspace-model'
-import { beginGestureSession, type GestureSession } from './workspace-gesture-session'
-import { scheduleWorkspaceAutosave } from './workspace-autosave'
+import { workspaceEdges, workspaceGroups } from './space-model'
+import { beginGestureSession, type GestureSession } from './space-gesture-session'
+import { scheduleSpaceAutosave } from './space-autosave'
 import {
   boundAvailableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -394,7 +396,7 @@ export function applyDragDelta(
       ]),
     })
     markDirty('canvas', 'sidebar')
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
   }
 }
 
@@ -729,6 +731,10 @@ function updateEntityCommand<P extends Partial<Record<GeometryPatchKey, number>>
 function deleteEntityCommand(id: string, deleteInState: (id: string) => boolean): boolean {
   return mutateWorkspace(() => {
     cancelEditingEntityIfMatches(id)
+    // A focus session aimed at the entity being deleted would survive as a
+    // stale session that freezes the canvas (mirrors the page-delete exit in
+    // page-factory). No exit camera animation — the target is gone.
+    if (focusedFileId() === id) endFocusSession('dismiss')
     const deleted = deleteInState(id)
     if (deleted) {
       removeEdgesTouchingEntities(new Set([id]))
@@ -759,6 +765,32 @@ export function createTextEntity(input: {
 
 export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id'>>): TextEntity | null {
   return updateEntityCommand(id, patch, updateTextEntityInState)
+}
+
+/**
+ * A sticky's measured content height (CONTEXT.md, content-sized bounds). The
+ * renderer measures the laid-out text and reports the settled value here.
+ *
+ * Not a user action, so it must not cost an undo press. During a resize the
+ * gesture session's batch absorbs it into the gesture's one step; the report
+ * that lands after the gesture (the measurement trails the last width tick by
+ * a frame, then debounces) is written untracked instead of becoming a step of
+ * its own — undo restores the width, and the height re-derives from the next
+ * measurement.
+ */
+export function reportContentHeight(id: string, height: number): void {
+  // The measurement stream re-reports a settled height whenever the observer
+  // refires without a size delta; each one would otherwise cost a transaction,
+  // a full-registry sync, and a relayout for no observable change.
+  if (textEntities.find((entity) => entity.id === id)?.height === height) return
+  if (isGestureSessionActive()) {
+    updateTextEntity(id, { height })
+    return
+  }
+  mutateWorkspace(
+    () => commitUntracked(() => updateTextEntityInState(id, { height })),
+    { changed: (entity) => entity !== null },
+  )
 }
 
 export function deleteTextEntity(id: string): boolean {
@@ -956,7 +988,7 @@ export function deleteGroupEntity(id: string): boolean {
 
 export interface MultiResizeEntry {
   id: string
-  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape'
+  kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'
   width: number
   height: number
   canvasX: number
@@ -1019,10 +1051,21 @@ export function resizeMultiSelection(entries: MultiResizeEntry[]): void {
         canvasY: entry.canvasY,
       })
       if (entity) changed = true
+    } else if (entry.kind === 'group') {
+      // In-state mutator, not `updateGroupEntity` — the wrapper's
+      // carry-children-on-move cascade must not fire here: descendants are
+      // their own entries in this batch and would be shifted twice.
+      const entity = updateGroupEntityInState(entry.id, {
+        width: entry.width,
+        height: entry.height,
+        canvasX: entry.canvasX,
+        canvasY: entry.canvasY,
+      })
+      if (entity) changed = true
     }
   }
   if (changed) {
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
     requestLayout()
   }
 }
@@ -1089,7 +1132,7 @@ function commitRepackedPositions(positions: Map<string, { x: number; y: number }
     const kind = kindById.get(id)
     if (kind && writeReorderedPosition(id, kind, pos)) changed = true
   }
-  if (changed) scheduleWorkspaceAutosave()
+  if (changed) scheduleSpaceAutosave()
   session.finalize()
 
   if (changed) requestLayout()
@@ -1192,7 +1235,7 @@ export function arrangeEntities(
   for (const [id, pos] of targets) {
     if (moveEntityTo(id, pos.x, pos.y)) changed = true
   }
-  if (changed) scheduleWorkspaceAutosave()
+  if (changed) scheduleSpaceAutosave()
   session.finalize()
   if (changed) requestLayout()
   return changed
@@ -1240,7 +1283,7 @@ function packEntities(
   for (let i = 0; i < ids.length; i++) {
     if (moveEntityTo(ids[i], positions[i].canvasX, positions[i].canvasY)) changed = true
   }
-  if (changed) scheduleWorkspaceAutosave()
+  if (changed) scheduleSpaceAutosave()
   session.finalize()
   if (changed) requestLayout()
   return changed

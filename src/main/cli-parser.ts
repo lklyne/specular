@@ -19,9 +19,16 @@ export interface ParsedArgs {
 
 export const CLI_VALUE_FLAGS = new Set([
   '--page', '-f',
+  // Names the canvas a verb targets (issue #360). Resolved once on the main
+  // side; omitted means the tab the user is looking at. Only the tab-scoped
+  // routes accept it — `workspace` reads, `apply`, `add` and its placement
+  // calls; every other verb answers 400 rather than silently writing to the
+  // active tab. Selection-driven verbs (`arrange`, …) are active-tab-only by
+  // nature: selection is UI state and only the visible canvas has one.
+  '--tab',
   '--preset', '--presets', '--at', '--width', '--height', '--size', '--cols',
   '--anchor', '--label', '--color', '--layout', '--gap',
-  '--status', '--url', '--page-id',
+  '--status', '--url', '--page-id', '--ids',
   '--reason', '--text',
   '--output', '--fps', '--quality',
   '--min-idle', '--speed-factor',

@@ -33,7 +33,7 @@ import { markDirty } from './layout-dirty'
 import { clearPageAnchorsForPage } from './page-anchor-state'
 import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
-import { endFocusSession, focusSession } from './focus-session'
+import { endFocusSession, focusedPageId } from './focus-session'
 import {
   clearInspectTargets,
   notifyDevtoolsPanelData,
@@ -92,7 +92,11 @@ export function createPage(config: PageConfig): Page {
 
   // Construction only — the layout pass child-list reconcile (layer-stack)
   // owns attachment. createPage just pushes to pages[] and requests layout.
-  const frameView = new WebContentsView()
+  const frameView = new WebContentsView({
+    webPreferences: {
+      focusOnNavigation: false,
+    },
+  })
   frameView.setBackgroundColor(frameColor())
   frameView.setBorderRadius(CARD_BORDER_RADIUS)
   frameView.webContents.loadURL('about:blank')
@@ -100,6 +104,7 @@ export function createPage(config: PageConfig): Page {
   const pageView = new WebContentsView({
     webPreferences: {
       preload: preloadPath('page-content'),
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -341,7 +346,7 @@ export function removePageAtIndex(idx: number): Page | null {
   // survives as a stale session that freezes the canvas (zoom/pan IPC
   // early-returns while focus is active) with no visible affordance to recover.
   // Full select-first / interact-second delete behavior is tracked in #124.
-  if (focusSession()?.pageId === page.id) endFocusSession('dismiss')
+  if (focusedPageId() === page.id) endFocusSession('dismiss')
   if (interactivePageId() === page.id) setInteractivePageId(null)
   breadcrumb('page', 'remove', { host: hostOf(page.url) })
   clearPendingRequestsForPage(page.id)

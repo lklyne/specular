@@ -6,6 +6,7 @@ import type {
   DevtoolsPanelPageSummary,
   FixProgressEntry,
 } from '../../../shared/types'
+import { PRIMARY_BUTTON_BORDERED_CLASS } from '../../shared/primaryButton'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import {
   authorLabel,
@@ -53,8 +54,8 @@ export function CommentRow({
             type="button"
             className={`inline-flex size-6 shrink-0 items-center justify-center rounded-md ${
               isDark
-                ? 'text-zinc-300 hover:bg-zinc-700'
-                : 'text-zinc-600 hover:bg-zinc-200'
+                ? 'text-[var(--surface-foreground-muted)] hover:bg-zinc-700'
+                : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
             }`}
             aria-label="More actions"
             title="More actions"
@@ -68,14 +69,14 @@ export function CommentRow({
           <Popover.Popup
             className={`z-30 min-w-[140px] overflow-hidden rounded-md border py-1 shadow-xl ${
               isDark
-                ? 'border-zinc-600 bg-zinc-800 text-zinc-200'
-                : 'border-zinc-200 bg-white text-zinc-900'
+                ? 'border-zinc-600 bg-zinc-800 text-[var(--surface-foreground)]'
+                : 'border-zinc-200 bg-white text-[var(--surface-foreground)]'
             }`}
           >
             <button
               type="button"
               className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                isDark ? 'text-zinc-300 hover:bg-white/10 hover:text-zinc-100' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
+                isDark ? 'text-[var(--surface-foreground-muted)] hover:bg-white/10 hover:text-[var(--surface-foreground)]' : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-100 hover:text-[var(--surface-foreground)]'
               }`}
               onClick={() => {
                 rightDetailsPanelApi.resolveAnnotation(annotation.id)
@@ -87,7 +88,7 @@ export function CommentRow({
             <button
               type="button"
               className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                isDark ? 'text-zinc-300 hover:bg-white/10 hover:text-zinc-100' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
+                isDark ? 'text-[var(--surface-foreground-muted)] hover:bg-white/10 hover:text-[var(--surface-foreground)]' : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-100 hover:text-[var(--surface-foreground)]'
               }`}
               onClick={() => {
                 rightDetailsPanelApi.deleteAnnotation(annotation.id)
@@ -135,7 +136,7 @@ export function CommentRow({
           <span className={mutedClass}>{formatCommentTime(annotation.createdAt)}</span>
         </div>
         {annotation.anchor.type === 'element' && annotation.elementName ? (
-          <div className="mt-0.5 truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
+          <div className="mt-0.5 truncate text-xs font-medium text-[var(--surface-foreground)]">
             {annotation.elementName}
           </div>
         ) : null}
@@ -175,7 +176,7 @@ function FixProgressButton({
     ? (isDark ? 'text-red-300 hover:bg-zinc-700/70' : 'text-red-700 hover:bg-red-50')
     : progress.status === 'running'
       ? (isDark ? 'text-blue-300 hover:bg-zinc-700/70' : 'text-blue-700 hover:bg-blue-50')
-      : (isDark ? 'text-zinc-300 hover:bg-zinc-700/70' : 'text-zinc-600 hover:bg-zinc-100')
+      : (isDark ? 'text-[var(--surface-foreground-muted)] hover:bg-zinc-700/70' : 'text-[var(--surface-foreground-muted)] hover:bg-zinc-100')
 
   return (
     <Popover.Root>
@@ -199,7 +200,7 @@ function FixProgressButton({
         <Popover.Positioner sideOffset={4} align="start">
           <Popover.Popup
             className={`z-30 flex max-h-[320px] w-[340px] flex-col overflow-hidden rounded-md border shadow-xl ${
-              isDark ? 'border-zinc-600 bg-zinc-900 text-zinc-200' : 'border-zinc-200 bg-white text-zinc-900'
+              isDark ? 'border-zinc-600 bg-zinc-900 text-[var(--surface-foreground)]' : 'border-zinc-200 bg-white text-[var(--surface-foreground)]'
             }`}
           >
             <div className={`flex items-center justify-between border-b px-2 py-1.5 text-[11px] ${
@@ -231,12 +232,10 @@ function FixProgressButton({
                   onClick={() => rightDetailsPanelApi.fixSingleAnnotation(progress.annotationId)}
                   className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
                     progress.status === 'failed'
-                      ? isDark
-                        ? 'border-blue-500/70 bg-blue-600/80 text-white hover:bg-blue-600'
-                        : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      ? PRIMARY_BUTTON_BORDERED_CLASS
                       : isDark
-                        ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
-                        : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100'
+                        ? 'border-zinc-600 bg-zinc-800 text-[var(--surface-foreground)] hover:bg-zinc-700'
+                        : 'border-zinc-300 bg-white text-[var(--surface-foreground-muted)] hover:bg-zinc-100'
                   }`}
                 >
                   <RotateCw size={11} />
@@ -268,7 +267,7 @@ export function CommentsPane({
   annotateAvailable: boolean
   fixProgress: Record<string, FixProgressEntry>
 }) {
-  const mutedClass = isDark ? 'text-zinc-400' : 'text-zinc-500'
+  const mutedClass = 'text-[var(--surface-foreground-muted)]'
   const dividerClass = isDark ? 'border-zinc-700/50' : 'border-zinc-200/80'
   const rowHoverClass = isDark ? 'hover:bg-zinc-700/55' : 'hover:border-zinc-300'
   const focusRowClass = isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'
@@ -291,12 +290,10 @@ export function CommentsPane({
             type="button"
             className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
               annotateEnabled
-                ? isDark
-                  ? 'border-blue-500 bg-blue-600 text-white'
-                  : 'border-blue-200 bg-blue-50 text-blue-700'
+                ? PRIMARY_BUTTON_BORDERED_CLASS
                 : isDark
-                  ? 'border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
-                  : 'border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-200'
+                  ? 'border-zinc-600 bg-zinc-800 text-[var(--surface-foreground)] hover:bg-zinc-700'
+                  : 'border-zinc-300 bg-zinc-50 text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
             } disabled:pointer-events-none disabled:opacity-45`}
             onClick={() => rightDetailsPanelApi.setTool({ kind: annotateEnabled ? 'select' : 'comment' })}
             disabled={!annotateAvailable}

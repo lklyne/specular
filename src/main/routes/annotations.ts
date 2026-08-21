@@ -13,6 +13,7 @@ import {
   fixAnnotation,
   fixPendingAnnotationsForOrigin,
 } from '../agent-fix/fix-orchestrator'
+import { resolveSelectionContext } from '../agent-fix/selection-context'
 import { findEntityPosition, movePresenceCursorTo } from '../presence-cursor'
 import { writeJson } from './http-helpers'
 import type { IncomingMessage } from 'http'
@@ -62,7 +63,10 @@ export const annotationRoutes: Route[] = [
           writeJson(response, 404, { error: `Annotation not found: ${id}` })
           return
         }
-        writeJson(response, 200, annotation)
+        writeJson(response, 200, {
+          ...annotation,
+          selection: resolveSelectionContext(annotation),
+        })
         return
       }
       writeJson(

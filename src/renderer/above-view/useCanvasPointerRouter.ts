@@ -54,6 +54,8 @@ import {
   type ResizeConfig,
 } from '../../shared/resize-accumulator'
 import { scaleStrokesToBounds } from '../../shared/scale-strokes'
+import { TEXT_SIZE_DEFAULT } from './TextSizeDropdown'
+import { stickyResizePatch } from './stickyResize'
 import {
   applyMultiHandleDelta,
   computeMultiSelectionBbox,
@@ -94,9 +96,9 @@ export function commitInlineEditBeforePointerAction(
   blurActiveEditor: () => void,
   commitEntityEdit: () => void,
 ): void {
-  // Pointer-down arrives before the browser's native blur. Main closing edit
-  // mode first would unmount the editor and discard its draft, so force blur
-  // synchronously while the input and its onBlur commit handler still exist.
+  // Pointer-down arrives before the browser's native blur. Force the blur
+  // synchronously so the editor's onBlur commits its draft before main is
+  // told to leave edit mode, rather than a tick later on the way out.
   blurActiveEditor()
   commitEntityEdit()
 }
@@ -220,6 +222,7 @@ function layoutToHitInputs(layout: {
   entities: HitInputs['entities']
   edges?: HitInputs['edges'] | null
   selectedEntityIds: HitInputs['selectedEntityIds']
+  selectionOperandIds?: HitInputs['selectionOperandIds']
   selectedGroupId?: string | null
   hover?: { id: string } | null
   zoom?: number | null
@@ -228,6 +231,7 @@ function layoutToHitInputs(layout: {
     entities: layout.entities,
     edges: layout.edges ?? [],
     selectedEntityIds: layout.selectedEntityIds,
+    selectionOperandIds: layout.selectionOperandIds,
     selectedGroupId: layout.selectedGroupId ?? null,
     hoveredEntityId: layout.hover?.id ?? null,
     zoom: layout.zoom ?? 1,
@@ -758,10 +762,23 @@ function runResize(
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
 
+  // Side handles reflow, corners scale — see `stickyResize.ts`.
+  const stickyDispatch = isSticky(entity)
+    ? (() => {
+        const start = {
+          width: entity.width,
+          textSize: ('textSize' in entity ? entity.textSize : undefined) ?? TEXT_SIZE_DEFAULT,
+        }
+        return (patch: { width: number; height: number; canvasX?: number; canvasY?: number }) => {
+          api.updateEntity('text', action.entityId, stickyResizePatch(action.handle, start, patch))
+        }
+      })()
+    : null
+
   // For drawing entities, augment each patch with strokes transformed from the
   // initial bounds so absolute canvas-space stroke geometry tracks the resized
   // selection box in real time.
-  const effectiveDispatch = entity.kind === 'drawing'
+  const effectiveDispatch = stickyDispatch ?? (entity.kind === 'drawing'
     ? (() => {
         const initialStrokes = entity.strokes
         const initialBounds = {
@@ -783,7 +800,7 @@ function runResize(
           })
         }
       })()
-    : dispatchPatch
+    : dispatchPatch)
 
   // Plain text in 'auto' widthMode is content-driven; the renderer's
   // ResizeObserver overwrites any width/height we'd dispatch. Flip to
@@ -832,7 +849,10 @@ function runMultiResize(
   // leaves the capture held until the implicit release on pointerup.
   capturePointer(event)
   const layout = layoutRef.current
-  const seed = computeMultiSelectionBbox(layout.entities, layout.selectedEntityIds)
+  // Operand ids (not raw selectedEntityIds) so a group in the selection
+  // resizes as its full descendant set, not just its (unrendered) own row —
+  // see ADR 0034.
+  const seed = computeMultiSelectionBbox(layout.entities, layout.selectionOperandIds)
   if (!seed) return false
   const acc = startMultiResize(seed)
   const zoom = layout.zoom ?? 1
@@ -1418,12 +1438,21 @@ function resizeConfigForEntity(entity: CanvasSceneEntity): ResizeConfig {
   const aspectRatioResizeMode: AspectRatioResizeMode =
     entity.kind === 'file' && 'file' in entity && typeof entity.file === 'string'
       ? aspectRatioResizeModeForCanvasFile(entity.file)
-      : caps.aspectMode
+      // A sticky's height is content-driven, so a free vertical drag would do
+      // nothing. Locking aspect makes the vertical handles drive width, which
+      // is what the text scale follows (`stickyResize.ts`).
+      : isSticky(entity)
+        ? 'shift-unlocks'
+        : caps.aspectMode
   return {
     minWidth: caps.minSize.width,
     minHeight: caps.minSize.height,
     aspectRatioResizeMode,
   }
+}
+
+function isSticky(entity: CanvasSceneEntity): boolean {
+  return entity.kind === 'text' && entity.textStyle !== 'plain'
 }
 
 function patchDispatcherForKind(

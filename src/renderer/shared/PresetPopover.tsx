@@ -50,7 +50,7 @@ export function PresetPopover({
         <Popover.Positioner anchor={anchor} side={side} align={align} sideOffset={sideOffset} collisionAvoidance={{ side: 'none', align: 'none' }} style={{ zIndex: 100 }}>
           <Popover.Popup
             data-overlay-ui
-            className={`${POPUP_SURFACE_CLASS} ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}
+            className={`${POPUP_SURFACE_CLASS} text-[var(--surface-foreground)]`}
             style={popupSurfaceStyle(isDark)}
           >
             {children}

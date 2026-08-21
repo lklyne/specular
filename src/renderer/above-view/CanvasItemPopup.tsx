@@ -8,7 +8,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from 'react'
-import { Columns2, Grid2x2, Maximize2, Rows2 } from 'lucide-react'
+import { Columns2, Grid2x2, Maximize2, MessageCircle, Rows2 } from 'lucide-react'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { POPUP_SURFACE_CLASS, popupSurfaceStyle } from '../shared/popupSurface'
 import { Tooltip } from '../shared/Tooltip'
@@ -26,8 +26,10 @@ import {
   type CanvasPalette,
 } from '../../shared/canvas-colors'
 import type { Rect } from '../../shared/hit-regions'
-import type { BatchLayoutMode, LayoutUpdateData } from '../../shared/types'
+import type { BatchLayoutMode, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { selectionAnnotationBounds } from './annotationMath'
+import type { AnnotateHandler } from './annotationMath'
 import {
   useAnchoredPosition,
   useMultiAnchoredPosition,
@@ -395,9 +397,7 @@ function Frame({
   }`
   const frameProps = {
     'data-popup-frame': flush ? 'flush' : 'floating',
-    className: `${shapeClass} ${
-      isDark ? 'text-zinc-100' : 'text-zinc-900'
-    } ${className}`.trim(),
+    className: `${shapeClass} text-[var(--surface-foreground)] ${className}`.trim(),
     style: flush
       ? {
           // Flush focus bar matches the toolbar height so 'fill' page content,
@@ -447,12 +447,12 @@ function popupIconButtonClass(isDark: boolean, active = false): string {
     'flex h-6 w-6 items-center justify-center rounded-[6px] border-0 transition-colors'
   if (active) {
     return isDark
-      ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
-      : `${base} bg-[var(--color-stone-200)] text-zinc-900`
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-foreground)]`
+      : `${base} bg-[var(--color-stone-200)] text-[var(--surface-foreground)]`
   }
   return isDark
-    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
-    : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900`
+    ? `${base} text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]`
+    : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]`
 }
 
 function IconButton({
@@ -559,18 +559,46 @@ function EntityActions({
   noun,
   count,
   api,
+  layout,
+  entityIds,
+  onAnnotate,
 }: {
   isDark: boolean
   noun: string
   count: number
   api?: Pick<CanvasBgElectronAPI, 'focusSelection'> &
     Partial<Pick<CanvasBgElectronAPI, 'arrangeSelection'>>
+  /** Layout + the ids this popup's actions apply to — both needed to derive
+   *  the Annotate button's union bounds. Omit to suppress the button (e.g.
+   *  a popup that has no natural id set to hand it). */
+  layout?: LayoutUpdateData
+  entityIds?: readonly string[]
+  /** Opens the region composer pre-anchored to the selection's union bounds
+   *  (renderer-local handoff — see useAnnotationDraftState.beginSelectionAnnotation).
+   *  Omitted → no Annotate button, regardless of `layout`/`entityIds`. */
+  onAnnotate?: AnnotateHandler
 }) {
   const arrange = api?.arrangeSelection
-  // Focus stays pinned to the right; arrange (row/column/grid) sits before it.
+  // Null only when none of the ids resolve against the current layout.
+  const annotateRect =
+    onAnnotate && layout && entityIds
+      ? selectionAnnotationBounds(layout.entities, entityIds)
+      : null
+  // Focus stays pinned to the right; arrange (row/column/grid) and annotate
+  // sit before it.
   return (
     <Section>
       <ArrangeButtons isDark={isDark} count={count} arrange={arrange} />
+      {annotateRect && onAnnotate && entityIds && (
+        <IconButton
+          isDark={isDark}
+          title={`Annotate ${noun}`}
+          ariaLabel={`Annotate ${noun}`}
+          onClick={() => onAnnotate([...entityIds], annotateRect)}
+        >
+          <MessageCircle size={14} />
+        </IconButton>
+      )}
       {api && (
         <IconButton
           isDark={isDark}

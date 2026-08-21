@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, renameSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { join } from 'path'
-import { app } from 'electron'
-import { DEFAULT_WORKSPACE_ID } from './workspace-persistence'
+import { spaceDir } from './space-dir'
 
 function workspaceNoteDir(): string {
-  const dir = join(app.getPath('userData'), 'workspaces', DEFAULT_WORKSPACE_ID)
+  const dir = spaceDir()
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return dir
 }
@@ -36,10 +36,19 @@ export function createNoteFile(name?: string, initialContent?: string): string {
 }
 
 /**
- * Read a note file's content.
+ * Read a note file's content. Null when the file is missing or unreadable.
  */
-export function readNoteFile(filePath: string): string | null {
-  if (!existsSync(filePath)) return null
+export async function readNoteFile(filePath: string): Promise<string | null> {
+  try {
+    return await readFile(filePath, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+/** `readNoteFile` for the synchronous mutators (note baselines seed inside a
+ *  Y.Doc transaction, which can't await). */
+export function readNoteFileSync(filePath: string): string | null {
   try {
     return readFileSync(filePath, 'utf8')
   } catch {

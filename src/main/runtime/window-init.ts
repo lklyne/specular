@@ -39,8 +39,8 @@ import {
 } from './preferences'
 import { bindOriginToRepoPath } from './dev-server-manager'
 import {
-  ensureWorkspaceTabsInitialized,
-} from './workspace-tabs'
+  ensureSpaceTabsInitialized,
+} from './space-tabs'
 import {
   wireMcpEmptyState,
   notifyDevtoolsPanelData,
@@ -140,7 +140,7 @@ export function initWindow(): void {
     if (aboveView) safeSend(aboveView.webContents, ipcChannels.fixProgressUpdate, getFixProgress())
     notifyDevtoolsPanelData()
   })
-  ensureWorkspaceTabsInitialized()
+  ensureSpaceTabsInitialized()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 
   setWin(new BaseWindow({
@@ -168,6 +168,7 @@ export function initWindow(): void {
   setBgView(new WebContentsView({
     webPreferences: {
       preload: preloadPath('canvas-bg'),
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -216,6 +217,7 @@ export function initWindow(): void {
   setLeftSidebarView(new WebContentsView({
     webPreferences: {
       preload: preloadPath('left-sidebar'),
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -237,6 +239,7 @@ export function initWindow(): void {
   const aboveWcv = new WebContentsView({
     webPreferences: {
       preload: preloadPath('canvas-bg'),
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -276,6 +279,7 @@ export function initWindow(): void {
     show: false,
     webPreferences: {
       preload: preloadPath('canvas-bg'),
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -295,6 +299,8 @@ export function initWindow(): void {
   screen.on('display-removed', syncOverlayOnDisplayChange)
   currentWin.on('enter-full-screen', syncOverlayOnDisplayChange)
   currentWin.on('leave-full-screen', syncOverlayOnDisplayChange)
+  currentWin.on('focus', syncOverlayOnDisplayChange)
+  currentWin.on('blur', syncOverlayOnDisplayChange)
   currentWin.on('closed', () => {
     if (!overlayWin.isDestroyed()) overlayWin.destroy()
     setCursorOverlayWindow(null)
@@ -310,6 +316,7 @@ export function initWindow(): void {
   setToolbarView(new WebContentsView({
     webPreferences: {
       preload: preloadPath('toolbar'),
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -333,7 +340,11 @@ export function initWindow(): void {
   // which parks closed devtools views at DEVTOOLS_HIDDEN_BOUNDS — no
   // bootstrap prewarm bounds needed here.
 
-  setDevtoolsBackgroundView(new WebContentsView())
+  setDevtoolsBackgroundView(new WebContentsView({
+    webPreferences: {
+      focusOnNavigation: false,
+    },
+  }))
   const currentDevtoolsBackgroundView = devtoolsBackgroundView
   if (!currentDevtoolsBackgroundView) return
   currentDevtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
@@ -343,6 +354,7 @@ export function initWindow(): void {
     webPreferences: {
       preload: preloadPath('right-details-panel'),
       backgroundThrottling: false,
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -365,6 +377,7 @@ export function initWindow(): void {
     webPreferences: {
       preload: preloadPath('devtools-resize-handle'),
       backgroundThrottling: false,
+      focusOnNavigation: false,
       contextIsolation: true,
       nodeIntegration: false,
     },

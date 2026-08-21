@@ -96,6 +96,11 @@ function notify(): void {
 }
 
 function startTimer(token: InternalToken): void {
+  // ponytail: editing is a modal state, not a gesture — a user can sit in a
+  // sticky note far longer than the watchdog, and the timer never sees
+  // keystrokes. No expiry for it; blur/escape/selection-change already close
+  // the token. Every other mode is pointer-bounded and keeps the watchdog.
+  if (token.mode === 'editing-entity') return
   token.timer = setTimeout(() => {
     if (current === token) cancel({ id: token.id, mode: token.mode }, 'external')
   }, TOKEN_EXPIRY_MS)

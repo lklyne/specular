@@ -96,7 +96,7 @@ The cursor overlay is deliberately outside the three-plane model. It sits in its
 | `liveViews` | Active web content | Native page input + keyboard, only while the `shouldFocusSelectedFrame` predicate elects a single page as keyboard target | 0-N |
 | `aboveView` | Entity bodies, edges, group bounds, selection outlines + resize handles, focus ring, agent halo, canvas-anchored popups, marquee + drag visuals, comments / annotations / floating UI | All canvas-level pointer input + canvas-mode keyboard (default `FocusTarget`) | 1 |
 | `toolbar` / `sidebar` / `devtools` | Their own UI | Their own UI | 1 each |
-| `cursorOverlayWindow` | Agent-presence cursors (paint-only) | Nothing — `setIgnoreMouseEvents(true)` | Not a WCV; sibling child `BrowserWindow` of `win` |
+| `cursorOverlayWindow` | Agent-presence cursors (paint-only, shown only while `win` is focused) | Nothing — `setIgnoreMouseEvents(true)` | Not a WCV; sibling child `BrowserWindow` of `win` |
 
 ### 3.3 State authority
 
@@ -402,9 +402,9 @@ Cross-reference for future contributors. Each is why a choice above exists.
 
 1. **WebContentsView has no z-order API.** Only `addChildView(view, index)` and `removeChildView` + re-add. → We formalize this via `LAYER_STACK` applied in `layoutAllViews`. [#42061]
 2. **Overlapping WCVs do not pass pointer events through.** CSS `pointer-events: none` inside a WCV does not leak to a WCV beneath. → We minimize overlap (three planes) and gate input via visibility. [#45027]
-3. **`setIgnoreMouseEvents` is BrowserWindow-only.** No per-view version. `forward: true` is macOS/Windows only, has reload quirks on Windows, and mousemove quirks on macOS. → We depend on it in exactly one place: `cursorOverlayWindow`, a child `BrowserWindow` sibling of `win`, used with `forward: false` (paint-only, no hover needed) to host agent-presence cursors. Its bounds are synced inside `layoutAllViews()` from `win.getContentBounds()` + `contentTopInset` plus listeners on `move` / `resize` / `enter-full-screen` / `leave-full-screen` / `display-metrics-changed`. A WCV cannot substitute because it would block native frame input. [#23863, #16777, #26718, #15376, #35030, #30808, #33281]
+3. **`setIgnoreMouseEvents` is BrowserWindow-only.** No per-view version. `forward: true` is macOS/Windows only, has reload quirks on Windows, and mousemove quirks on macOS. → We depend on it in exactly one place: `cursorOverlayWindow`, a child `BrowserWindow` sibling of `win`, used with `forward: false` (paint-only, no hover needed) to host agent-presence cursors. Its bounds are synced inside `layoutAllViews()` from `win.getContentBounds()` + `contentTopInset` plus listeners on `move` / `resize` / `focus` / `blur` / `enter-full-screen` / `leave-full-screen` / `display-metrics-changed`. The overlay stays hidden while `win` is unfocused because showing an OS-level child window can raise the app on macOS. A WCV cannot substitute because it would block native frame input. [#23863, #16777, #26718, #15376, #35030, #30808, #33281]
 4. **WCVs default to opaque white background until load completes.** → Mandatory `setBackgroundColor('#00000000')` on creation. [#47351, #44914]
-5. **WCVs steal focus at `did-finish-load`.** No `focusable: false`. → `FocusReconciler` reasserts expected focus post-layout. [#42578, #42922]
+5. **WCVs auto-focus on navigation by default.** → Every WCV sets `webPreferences.focusOnNavigation: false`; `FocusReconciler` explicitly applies the expected focus post-layout when the main window is active. [#42578, #42922]
 6. **Focus/blur on webContents don't fire for window-level focus changes on macOS.** → Expected-focus model instead of reactive focus chains. [#22201]
 7. **Mutating the view stack during event dispatch loses events and can crash.** → Invariant I1. [#42131, #47247 + empirical observation in our undo path]
 8. **`setAutoResize` doesn't exist on WebContentsView.** → Our layout pass explicitly resizes; not a regression. [#43802]

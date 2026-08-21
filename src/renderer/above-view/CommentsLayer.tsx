@@ -34,6 +34,7 @@ export function PendingAnnotationComposer({
   pendingAnnotation,
   pendingPosition,
   pendingRegionRect,
+  pendingRegionSelectionIds,
   setCommentText,
   setElementNameDraft,
   submitPendingAnnotation,
@@ -47,61 +48,150 @@ export function PendingAnnotationComposer({
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
+  /** Non-null exactly for a selection-born region draft (the popup's Annotate
+   *  button). Unlike the comment-tool's region drag, this draft isn't backed
+   *  by an active tool gesture, so the router (`useCanvasPointerRouter`)
+   *  stands down entirely while it's open (I8' — `annotation-overlay` pointer
+   *  owner) and nothing else dismisses it on an outside click. This backdrop
+   *  supplies that: same commit-if-typed / discard-if-empty rule the
+   *  comment-tool's own click-away path uses (`runCommentGesture`'s
+   *  `hasEmptyDraft` check). */
+  pendingRegionSelectionIds: string[] | null
   setCommentText: React.Dispatch<React.SetStateAction<string>>
   setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
   submitPendingAnnotation: () => void
   submitRegionAnnotation: () => void
 }) {
   if (pendingAnnotation) {
-    const left = pendingPosition?.left ?? pendingAnnotation.composerX
-    const top = pendingPosition?.top ?? pendingAnnotation.composerY
-    const width = pendingPosition?.width ?? pendingAnnotation.composerWidth
-    const isElementAnchor = pendingAnnotation.request.anchor.type === 'element'
     return (
-      <ComposerBox
+      <PointDraft
         clearDraft={clearDraft}
         commentInputRef={commentInputRef}
         commentText={commentText}
-        left={left}
-        top={top}
-        width={width}
+        elementNameDraft={elementNameDraft}
+        pendingAnnotation={pendingAnnotation}
+        pendingPosition={pendingPosition}
         setCommentText={setCommentText}
+        setElementNameDraft={setElementNameDraft}
         submit={submitPendingAnnotation}
-        submitLabel="Submit comment"
-        elementNameDraft={isElementAnchor ? elementNameDraft : undefined}
-        setElementNameDraft={isElementAnchor ? setElementNameDraft : undefined}
       />
     )
   }
   if (pendingRegionRect) {
-    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
-    const overlayTop = screen.top - layoutData.canvasOrigin.y
-    const composerX = Math.min(
-      Math.max(screen.left, 8),
-      window.innerWidth - REGION_COMPOSER_WIDTH - 8,
-    )
-    const composerY = overlayTop + screen.height + REGION_COMPOSER_MARGIN
     return (
-      <>
-        <div
-          className="pointer-events-none absolute rounded border-2 border-dashed border-blue-500/90 bg-blue-500/10"
-          style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}
-        />
-        <ComposerBox
-          clearDraft={clearDraft}
-          commentInputRef={commentInputRef}
-          commentText={commentText}
-          left={composerX}
-          top={composerY}
-          width={REGION_COMPOSER_WIDTH}
-          setCommentText={setCommentText}
-          submit={submitRegionAnnotation}
-          submitLabel="Submit region annotation"
-        />
-      </>
+      <RegionDraft
+        clearDraft={clearDraft}
+        commentInputRef={commentInputRef}
+        commentText={commentText}
+        layoutData={layoutData}
+        rect={pendingRegionRect}
+        selectionIds={pendingRegionSelectionIds}
+        setCommentText={setCommentText}
+        submit={submitRegionAnnotation}
+      />
     )
   }
   return null
+}
+
+/** Element- and canvas-point drafts: the composer alone, at the anchor. */
+function PointDraft({
+  clearDraft,
+  commentInputRef,
+  commentText,
+  elementNameDraft,
+  pendingAnnotation,
+  pendingPosition,
+  setCommentText,
+  setElementNameDraft,
+  submit,
+}: {
+  clearDraft: () => void
+  commentInputRef: React.RefObject<HTMLTextAreaElement | null>
+  commentText: string
+  elementNameDraft: string
+  pendingAnnotation: PendingAnnotation
+  pendingPosition: { left: number; top: number; width: number } | null
+  setCommentText: React.Dispatch<React.SetStateAction<string>>
+  setElementNameDraft: React.Dispatch<React.SetStateAction<string>>
+  submit: () => void
+}) {
+  // Only element anchors carry a nameable target, so the name field is theirs.
+  const isElementAnchor = pendingAnnotation.request.anchor.type === 'element'
+  return (
+    <ComposerBox
+      clearDraft={clearDraft}
+      commentInputRef={commentInputRef}
+      commentText={commentText}
+      left={pendingPosition?.left ?? pendingAnnotation.composerX}
+      top={pendingPosition?.top ?? pendingAnnotation.composerY}
+      width={pendingPosition?.width ?? pendingAnnotation.composerWidth}
+      setCommentText={setCommentText}
+      submit={submit}
+      submitLabel="Submit comment"
+      elementNameDraft={isElementAnchor ? elementNameDraft : undefined}
+      setElementNameDraft={isElementAnchor ? setElementNameDraft : undefined}
+    />
+  )
+}
+
+/** Region drafts: the dashed rect, the composer below it, and — for a
+ *  selection-born draft — the backdrop that stands in for the tool gesture. */
+function RegionDraft({
+  clearDraft,
+  commentInputRef,
+  commentText,
+  layoutData,
+  rect,
+  selectionIds,
+  setCommentText,
+  submit,
+}: {
+  clearDraft: () => void
+  commentInputRef: React.RefObject<HTMLTextAreaElement | null>
+  commentText: string
+  layoutData: LayoutUpdateData
+  rect: WorkspaceBounds
+  selectionIds: string[] | null
+  setCommentText: React.Dispatch<React.SetStateAction<string>>
+  submit: () => void
+}) {
+  const screen = canvasRectToScreenRect(layoutData, rect)
+  const overlayTop = screen.top - layoutData.canvasOrigin.y
+  const composerX = Math.min(
+    Math.max(screen.left, 8),
+    window.innerWidth - REGION_COMPOSER_WIDTH - 8,
+  )
+  return (
+    <>
+      {selectionIds ? (
+        <div
+          className="pointer-events-auto absolute inset-0 z-30"
+          data-overlay-ui
+          onPointerDown={(event) => {
+            if (event.pointerType === 'mouse' && event.button !== 0) return
+            if (commentText.trim()) submit()
+            else clearDraft()
+          }}
+        />
+      ) : null}
+      <div
+        className="pointer-events-none absolute rounded border-2 border-dashed border-blue-500/90 bg-blue-500/10"
+        style={{ left: screen.left, top: overlayTop, width: screen.width, height: screen.height }}
+      />
+      <ComposerBox
+        clearDraft={clearDraft}
+        commentInputRef={commentInputRef}
+        commentText={commentText}
+        left={composerX}
+        top={overlayTop + screen.height + REGION_COMPOSER_MARGIN}
+        width={REGION_COMPOSER_WIDTH}
+        setCommentText={setCommentText}
+        submit={submit}
+        submitLabel="Submit region annotation"
+      />
+    </>
+  )
 }
 
 function ComposerBox({
@@ -149,7 +239,7 @@ function ComposerBox({
             }}
             placeholder="Element name"
             aria-label="Element name"
-            className="w-full rounded-[6px] bg-transparent px-2 py-1 text-[12px] font-medium text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            className="w-full rounded-[6px] bg-transparent px-2 py-1 text-[12px] font-medium text-[var(--surface-foreground)] outline-none placeholder:text-[var(--surface-foreground-muted)]"
           />
         ) : null}
         <div className="relative pl-1.5 pb-1.5">
@@ -262,7 +352,7 @@ export function AnnotationThreadPopover({
           width: threadPosition.width,
         }}
       >
-        <div className="rounded-2xl border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-zinc-900 shadow-xl dark:text-zinc-100">
+        <div className="rounded-2xl border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-[var(--surface-foreground)] shadow-xl">
           <div
             className="flex items-center justify-between border-b border-zinc-200 px-2.5 py-1.5 dark:border-zinc-700"
             style={{ cursor: drawInteractionEnabled ? drawCursor : undefined }}
@@ -272,7 +362,7 @@ export function AnnotationThreadPopover({
               <button
                 type="button"
                 data-overlay-ui
-                className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-[var(--surface-popover)] disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-[var(--surface-popover)]"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-popover)] disabled:opacity-40 dark:hover:bg-[var(--surface-popover)]"
                 aria-label="Fix with agent"
                 title="Fix with agent"
                 disabled={progress?.status === 'running'}
@@ -284,7 +374,7 @@ export function AnnotationThreadPopover({
                 <button
                   type="button"
                   data-overlay-ui
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-[var(--surface-popover)] dark:text-zinc-300 dark:hover:bg-[var(--surface-popover)]"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
                   aria-label="More actions"
                   title="More actions"
                   onClick={() => setOpenThreadMenu((current) => !current)}
@@ -294,12 +384,12 @@ export function AnnotationThreadPopover({
                 {openThreadMenu ? (
                   <div
                     data-overlay-ui
-                    className="absolute right-0 top-8 z-[60] min-w-40 rounded-[10px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] p-1 text-zinc-900 shadow-xl dark:text-zinc-100"
+                    className="absolute right-0 top-8 z-[60] min-w-40 rounded-[10px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] p-1 text-[var(--surface-foreground)] shadow-xl"
                   >
                     <button
                       type="button"
                       data-overlay-ui
-                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-zinc-900 hover:bg-[var(--surface-popover)] dark:text-zinc-100 dark:hover:bg-[var(--surface-popover)]"
+                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-[var(--surface-foreground)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
                       onClick={() => {
                         setOpenThreadMenu(false)
                         api.resolveAnnotation(openThread.id)
@@ -312,7 +402,7 @@ export function AnnotationThreadPopover({
                     <button
                       type="button"
                       data-overlay-ui
-                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-zinc-900 hover:bg-[var(--surface-popover)] dark:text-zinc-100 dark:hover:bg-[var(--surface-popover)]"
+                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-[var(--surface-foreground)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
                       onClick={() => {
                         setOpenThreadMenu(false)
                         api.deleteAnnotation(openThread.id)
@@ -327,7 +417,7 @@ export function AnnotationThreadPopover({
               </div>
               <button
                 type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-500 hover:bg-[var(--surface-popover)] dark:text-zinc-300 dark:hover:bg-[var(--surface-popover)]"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
                 onClick={closeThread}
                 aria-label="Close"
               >
@@ -336,7 +426,7 @@ export function AnnotationThreadPopover({
             </div>
           </div>
           {openThread.anchor.type === 'element' && openThread.elementName ? (
-            <div className="border-b border-zinc-200 px-2.5 py-1.5 text-[12px] font-medium text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
+            <div className="border-b border-zinc-200 px-2.5 py-1.5 text-[12px] font-medium text-[var(--surface-foreground)] dark:border-zinc-700">
               {openThread.elementName}
             </div>
           ) : null}
@@ -358,7 +448,7 @@ export function AnnotationThreadPopover({
                 onSubmit={submitThreadReply}
                 placeholder="Reply"
                 submitLabel="Send reply"
-                buttonClassName="bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
+                buttonClassName="bg-zinc-200 text-[var(--surface-foreground-muted)] hover:bg-zinc-300 dark:bg-zinc-700 dark:text-[var(--surface-foreground)] dark:hover:bg-zinc-600"
               />
             </div>
           </div>
@@ -384,14 +474,14 @@ function ThreadFixProgress({ progress }: { progress: FixProgressEntry }) {
     <div className="border-t border-zinc-200 dark:border-zinc-700">
       <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px]">
         <span className={`font-medium ${statusColor}`}>{statusLabel}</span>
-        <span className="text-zinc-400 dark:text-zinc-500">
+        <span className="text-[var(--surface-foreground-muted)]">
           {eventCount} event{eventCount === 1 ? '' : 's'}
         </span>
       </div>
       {eventCount > 0 ? (
         <FixEventList events={progress.events} className="max-h-[160px] px-2.5 pb-2" />
       ) : (
-        <div className="px-2.5 pb-2 text-[11px] text-zinc-400 dark:text-zinc-500">
+        <div className="px-2.5 pb-2 text-[11px] text-[var(--surface-foreground-muted)]">
           Waiting for output…
         </div>
       )}

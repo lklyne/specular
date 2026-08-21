@@ -21,7 +21,7 @@ import { applyViewportInputDelta } from './runtime/viewport-input'
 import { requestLayout, setPan, setZoom } from './runtime/viewport-control'
 import { setBuildMsSink } from './runtime/layout-engine'
 import { win } from './runtime/view-refs'
-import { activeWorkspaceTabId } from './runtime/workspace-model'
+import { activeSpaceTabId } from './runtime/space-model'
 
 export interface RunPanZoomPerfTestOptions {
   phaseIds?: PanZoomPerfPhase['id'][]
@@ -86,7 +86,7 @@ function createPerfTestContext(): PerfTestContext {
   return {
     initialPan: { ...pan },
     initialZoom: zoom,
-    initialTabId: activeWorkspaceTabId,
+    initialTabId: activeSpaceTabId,
     anchor: {
       mouseX: contentBounds.x + contentBounds.width / 2,
       mouseY: contentBounds.y + contentBounds.height / 2,
@@ -114,7 +114,7 @@ async function runGesturePhases(
     if (signal.aborted) return
     setPhase(phase.label)
     for (const step of buildPanZoomPerfSteps(phase)) {
-      if (activeWorkspaceTabId !== context.initialTabId) abortController?.abort()
+      if (activeSpaceTabId !== context.initialTabId) abortController?.abort()
       if (signal.aborted) return
       applyViewportInputDelta({
         panDeltaX: step.panX,
@@ -129,7 +129,7 @@ async function runGesturePhases(
 }
 
 async function restoreCamera(context: PerfTestContext): Promise<void> {
-  if (activeWorkspaceTabId !== context.initialTabId) return
+  if (activeSpaceTabId !== context.initialTabId) return
   setPhase('Restoring camera')
   setZoom(context.initialZoom)
   setPan(context.initialPan.x, context.initialPan.y)

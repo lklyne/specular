@@ -20,6 +20,7 @@ import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer } from './FileBodyLayer'
+import { FocusedNoteLayer } from './FocusedNoteLayer'
 import { focusContext } from '../../shared/focus-context'
 import { PageFocusRingLayer } from './PageFocusRingLayer'
 import { GroupBoundsLayer } from './GroupBoundsLayer'
@@ -57,6 +58,8 @@ import { EdgePopup } from './EdgePopup'
 import { edgeForPopup } from './edgePopupSelection'
 import { ReorderDotsLayer } from './ReorderDotsLayer'
 import { reorderPreviewLayout } from './reorderPreview'
+import { contentHeightLayout } from './contentHeightPreview'
+import { useContentHeights } from './useContentHeights'
 import { gapPreviewLayout } from './gapPreview'
 import { GapHandlesLayer } from './GapHandlesLayer'
 import { GroupLabelCanvasSurface } from './GroupLabelCanvasSurface'
@@ -199,6 +202,8 @@ function StackedCanvasItems({
   interactiveEntityId,
   ghostEntity,
   hideContext,
+  suppressEntityId,
+  onContentHeight,
 }: {
   layoutData: LayoutUpdateData
   hoveredEntityId: string | null
@@ -212,11 +217,18 @@ function StackedCanvasItems({
   /** Focus is at rest with the eye off — skip all non-page context (annotation
    *  entities, edges, file entities) entirely (binary, never dimmed). ADR 0021. */
   hideContext: boolean
+  /** The focused note during a file-target focus session: its ordinary canvas
+   *  card is dropped here because `FocusedNoteLayer` draws it fullscreen
+   *  instead. Independent of `hideContext` — the eye can reveal the
+   *  surrounding context without bringing back a second copy of the note. */
+  suppressEntityId: string | null
   /** Reorder ghost (ADR 0015 D7, Phase D): the dragged entity, already
    *  positioned at grab-origin + cursor-delta. Its in-row slot paints as a
    *  grayscale placeholder (the drop location); the ghost itself renders last at
    *  50% opacity, floating over the settling siblings under the cursor. */
   ghostEntity?: CanvasSceneEntity | null
+  /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */
+  onContentHeight: (id: string, height: number) => void
 }) {
   const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
@@ -235,7 +247,7 @@ function StackedCanvasItems({
         selectedEntityIds={layoutData.selectedEntityIds}
         zoom={layoutData.zoom}
         originY={layoutData.canvasOrigin.y}
-        onSelectEdge={api.selectEdge}
+        onSelectEdge={(edgeId) => api.selectEdge(edgeId)}
         renderAnchors={false}
         zIndex={undefined}
       />
@@ -244,10 +256,12 @@ function StackedCanvasItems({
   }
 
   function renderEntityBody(entity: CanvasSceneEntity) {
-    // Eye off: hide every non-page item — annotations *and* files/images. The
-    // focused page is a webview, not rendered here, so it's never affected
-    // (focus is always page-targeted). ADR 0021.
+    // Eye off: hide every non-page item — annotations *and* files/images. A
+    // focused page is a webview, not rendered here, so it's never affected; a
+    // focused note is drawn by FocusedNoteLayer instead (`suppressEntityId`).
+    // ADR 0021.
     if (hideContext) return null
+    if (entity.id === suppressEntityId) return null
     if (entity.kind === 'drawing') {
       return (
         <SavedDrawingEntities
@@ -269,7 +283,7 @@ function StackedCanvasItems({
           editingEntityId={editingEntityId}
           layoutData={layoutData}
           onUpdateText={(shapeId, text) => api.updateEntity('shape', shapeId, { text })}
-          onCommitEdit={api.commitEntityEdit}
+          onCommitEdit={() => api.commitEntityEdit()}
         />
       )
     }
@@ -279,14 +293,14 @@ function StackedCanvasItems({
           key={`text-${entity.id}`}
           entities={[entity]}
           isDark={isDark}
-          selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
           layoutData={layoutData}
           onUpdateText={(textId, text) => api.updateEntity('text', textId, { text })}
           onUpdateSize={(textId, width, height) =>
             api.updateEntity('text', textId, { width, height })
           }
-          onCommitEdit={api.commitEntityEdit}
+          onContentHeight={onContentHeight}
+          onCommitEdit={() => api.commitEntityEdit()}
         />
       )
     }
@@ -302,7 +316,8 @@ function StackedCanvasItems({
           canvasOrigin={layoutData.canvasOrigin}
           pan={layoutData.pan}
           zoom={layoutData.zoom}
-          onTextEditingChange={api.setTextEditing}
+          onTextEditingChange={(active) => api.setTextEditing(active)}
+          onOpenLink={(id, url) => api.openEntityLink(id, url)}
         />
       )
     }
@@ -401,14 +416,19 @@ export default function App({
     layoutData.interaction.kind === 'editing-entity'
       ? layoutData.interaction.entityId
       : null
-  const textPopupReady =
+  // A selected entity stays editable behind its popover (the formatting
+  // sections in StickyNotePopover/FilePopup) instead of the popover hiding
+  // the moment interaction leaves 'idle'.
+  const popupReadyFor = (kind: 'text' | 'file') =>
     interactionIdle ||
     Boolean(
       editingEntityId &&
-        sameKindEntities(sameKindSelection, 'text').some(
+        sameKindEntities(sameKindSelection, kind).some(
           (entity) => entity.id === editingEntityId,
         ),
     )
+  const textPopupReady = popupReadyFor('text')
+  const filePopupReady = popupReadyFor('file')
 
   const marqueePreviewIds = useMemo(() => {
     if (
@@ -429,16 +449,22 @@ export default function App({
   // not reordering.
   const [reorderGhost, setReorderGhost] = useState<ReorderGhostOffset>(null)
 
+  // Measured heights of content-sized entities (stickies), read by
+  // `renderLayout` below and reported (debounced) to main.
+  const { contentHeights, reportContentHeight } = useContentHeights(api, layoutData)
+
   // During a reorder drag the *siblings* render at their previewed slots so the
   // row visibly opens a gap to receive the dragged item (ADR 0015 D7, Phase D).
   // The dragged item's slot stays reserved here but its body is skipped (drawn
   // as the ghost instead), so the reserved slot reads as the open gap. Pure
   // renderer ephemera — the broadcast layout is untouched. Falls back to the
   // broadcast layout when not reordering.
-  const renderLayout = useMemo(
-    () => reorderPreviewLayout(layoutData) ?? gapPreviewLayout(layoutData) ?? layoutData,
-    [layoutData],
-  )
+  const renderLayout = useMemo(() => {
+    const base = reorderPreviewLayout(layoutData) ?? gapPreviewLayout(layoutData) ?? layoutData
+    // Applied last: a measured content height wins over the broadcast value on
+    // that axis, and every layer downstream reads the same rect.
+    return contentHeightLayout(base, contentHeights) ?? base
+  }, [layoutData, contentHeights])
 
   // The dragged entity floated at grab-origin + cursor-delta. Read from the
   // *broadcast* layout (its untouched resting position) — never `renderLayout`,
@@ -487,6 +513,7 @@ export default function App({
   useEffect(() => api.onFixProgressUpdate(setFixProgress), [])
 
   const {
+    beginSelectionAnnotation,
     clearDraft,
     commentText,
     drawingSession,
@@ -494,6 +521,7 @@ export default function App({
     elementNameDraft,
     pendingAnnotation,
     pendingRegionRect,
+    pendingRegionSelectionIds,
     setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
@@ -601,6 +629,22 @@ export default function App({
   // focus session rests with the eye off; a working tool or the focus-bar eye
   // latches it on (ADR 0021). Binary show/hide, never a dim.
   const hideContext = focus.active && !focus.showsContext
+  // A file-target session frames a note: FocusedNoteLayer draws it fullscreen,
+  // so its canvas card and its selection chrome are suppressed by id. Resolved
+  // once here — the fullscreen layer and the focus bar both need the entity, and
+  // a session whose note has gone missing resolves to null so both fall back to
+  // ordinary selection behavior.
+  const focusedNoteId = focus.fileId
+  const focusedNoteEntity = useMemo(
+    () =>
+      focusedNoteId === null
+        ? null
+        : (layoutData.entities.find(
+            (candidate): candidate is CanvasSceneFileEntity =>
+              candidate.kind === 'file' && candidate.id === focusedNoteId,
+          ) ?? null),
+    [focusedNoteId, layoutData.entities],
+  )
   const pointerOwnerState = {
     toolKind: layoutData.activeTool.kind,
     pendingPlacement: Boolean(layoutData.pendingPlacement),
@@ -767,6 +811,13 @@ export default function App({
   const routeWheel = useCallback(
     (event: WheelEvent): boolean => {
       const layout = layoutRef.current
+      // A note session: the card is overlay UI, so a wheel over it never
+      // reaches here (blocksViewportGesture bails first) and scrolls the editor
+      // natively. Anything that does reach here is off the card — swallow it,
+      // because panning is a camera-change and would end the session. Checked
+      // before the idle guard: the session auto-enters inline editing, so the
+      // interaction is 'editing-entity' throughout.
+      if (layout.focusPresentation?.target.kind === 'file') return true
       if (layout.interaction.kind !== 'idle') return false
       // In focus presentation the page isn't single-selected, but the wheel
       // should still scroll it instead of panning (which would exit focus).
@@ -970,6 +1021,9 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     sameKindSelection,
     selectedGroup: selectedGroupEntity,
     textPopupReady,
+    filePopupReady,
+    focusedNoteEntity,
+    beginSelectionAnnotation,
   }
 
   return (
@@ -1023,6 +1077,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             pendingAnnotation={pendingAnnotation}
             pendingPosition={pendingComposerPosition}
             pendingRegionRect={pendingRegionRect}
+            pendingRegionSelectionIds={pendingRegionSelectionIds}
             setCommentText={setCommentText}
             setElementNameDraft={setElementNameDraft}
             submitPendingAnnotation={submitPendingAnnotation}
@@ -1038,6 +1093,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           Debug CSS injected into pages is suppressed separately (capture-suppression). */}
       <StackedCanvasItems
         layoutData={renderLayout}
+        onContentHeight={reportContentHeight}
         hoveredEntityId={hoveredEntityId}
         isDark={isDark}
         selectedEdgeIds={selectedEdgeIds}
@@ -1046,6 +1102,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         interactiveEntityId={enteredEntityId}
         ghostEntity={reorderGhostEntity}
         hideContext={hideContext}
+        suppressEntityId={focusedNoteId}
       />
 
       {!captureMode ? (
@@ -1121,7 +1178,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             selectedEntityIds={focusPresentationActive ? [] : layoutData.selectedEntityIds}
             zoom={layoutData.zoom}
             originY={layoutData.canvasOrigin.y}
-            onSelectEdge={api.selectEdge}
+            onSelectEdge={(edgeId) => api.selectEdge(edgeId)}
             renderAnchors={!focusPresentationActive}
           />
 
@@ -1158,7 +1215,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             marqueePreviewIds={marqueePreviewIds}
             reorderGhostId={reorderGhostEntity?.id ?? null}
             reorderGhostSpan={reorderGhostSpan}
-            suppressPageId={focus.pageId}
+            suppressFocusedId={focus.target?.id ?? null}
             suppressPageHover={dropBindingSuppressed}
           />
 
@@ -1177,9 +1234,10 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           />
 
           {/* Tool-vs-selection mutex (ADR 0008 §2): the active tool's popup wins
-              and suppresses the selection popups. PagePopup is exempt while a
-              focus session is active — it doubles as the focus bar, and
-              ViewportAnchor stacks the tool popup below it. */}
+              and suppresses the selection popups. The popup that owns the
+              running focus session (PagePopup or FilePopup) is exempt — it
+              doubles as the focus bar, and ViewportAnchor stacks the tool popup
+              below it. */}
           {TOOL_POPUPS.filter((row) => row.toolKind === layoutData.activeTool.kind).map(
             ({ toolKind, Component, extraProps }) => (
               <Component
@@ -1191,13 +1249,19 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               />
             ),
           )}
-          {SELECTION_POPUPS.filter((row) =>
-            row.focusExempt
-              ? !toolHasPopup(layoutData.activeTool) || focusPresentationActive
-              : !toolHasPopup(layoutData.activeTool),
-          ).map(({ key, Component, mapProps }) => (
-            <Component key={key} {...mapProps(popupContext)} />
-          ))}
+          {/* Selection-vs-composer mutex: a selection-born region draft (the
+              popup's Annotate button) hides every selection popup while its
+              composer is open, mirroring the tool-vs-selection mutex above —
+              the source that opened the composer shouldn't stay clickable
+              underneath it. */}
+          {!pendingRegionSelectionIds &&
+            SELECTION_POPUPS.filter(
+              (row) =>
+                !toolHasPopup(layoutData.activeTool) ||
+                (row.focusExempt?.(popupContext) ?? false),
+            ).map(({ key, Component, mapProps }) => (
+              <Component key={key} {...mapProps(popupContext)} />
+            ))}
 
           {/* Edges aren't scene entities, so they sit outside SELECTION_POPUPS.
               Mount off the single selected edge, under the same tool mutex. */}
@@ -1218,6 +1282,25 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             onOpenThread={openThreadById}
           />
         </>
+      ) : null}
+
+      {/* Inside the pan wrapper, and last: the wrapper's transform makes it a
+          stacking context, so the focused note has to share it with the
+          canvas-item popups for their z-indexes to compare at all — the focus
+          bar is one of those popups and must paint over the note's top strip.
+          The pan translate is identity here (pan is blocked during a session),
+          so the layer is still effectively screen-fixed. Renders in capture
+          mode too: the note is content, not chrome. */}
+      {focusedNoteEntity ? (
+        <FocusedNoteLayer
+          layout={layoutData}
+          entity={focusedNoteEntity}
+          isDark={isDark}
+          editingEntityId={editingEntityId}
+          onExitFocus={() => api.restoreFocusCamera()}
+          onTextEditingChange={(active) => api.setTextEditing(active)}
+          onOpenLink={(id, url) => api.openEntityLink(id, url)}
+        />
       ) : null}
       </div>
       {/* Outside the CSS scene transform: group titles redraw in screen space

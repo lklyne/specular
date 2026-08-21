@@ -126,10 +126,14 @@ const api: CanvasBgElectronAPI = {
   copySelection: () => ipcRenderer.send(ipcChannels.canvasCopySelection),
   pasteSelection: (canvasX, canvasY) =>
     ipcRenderer.send(ipcChannels.canvasPasteSelection, { canvasX, canvasY }),
+  openEntityLink: (entityId, url) =>
+    ipcRenderer.send(ipcChannels.canvasOpenEntityLink, { entityId, url }),
   deleteSelectedEntities: () => ipcRenderer.send(ipcChannels.canvasDeleteSelection),
   reorderStack: (action, targetId) =>
     ipcRenderer.send(ipcChannels.canvasReorderStack, { action, targetId }),
   ...entityMutationBridge,
+  reportContentHeight: (id, height) =>
+    ipcRenderer.send(ipcChannels.canvasReportContentHeight, { id, height }),
   refreshFileEntity: (id: string) =>
     ipcRenderer.send(ipcChannels.canvasRefreshFileEntity, { id }),
   deleteDrawingEntity: (id: string) =>
@@ -255,6 +259,8 @@ const api: CanvasBgElectronAPI = {
   onAnnotationLiveBbox: on<AnnotationLiveBboxUpdate>(ipcChannels.annotationLiveBbox),
   createRegionAnnotation: (canvasRect, text) =>
     ipcRenderer.send(ipcChannels.canvasCreateRegionAnnotation, { canvasRect, text }),
+  annotateSelection: (input) =>
+    ipcRenderer.send(ipcChannels.canvasAnnotateSelection, input),
   onAnnotationThreadOpen: on<{ annotationId: string }>(ipcChannels.annotationThreadOpen),
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) =>
     ipcRenderer.send(ipcChannels.canvasEdgeDragBegin, { fromEntityId, fromSide }),
@@ -292,6 +298,7 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasSetAnnotationState, { hasOpenThread, hasPending: hasPendingAnnotation }),
   onBindingFire: on<BindingId>(ipcChannels.bindingFire),
   onCanvasGuides: on<CanvasGuidesPayload>(ipcChannels.canvasGuides),
+  readNoteFile: (filePath: string) => ipcRenderer.invoke(ipcChannels.readNoteFile, { filePath }),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke(ipcChannels.writeNoteFile, { filePath, content }),
   applyNoteContent: (entityId: string, content: string) =>

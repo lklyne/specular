@@ -121,7 +121,26 @@ export function serializeToJsonCanvas(
   // Add app state as extension
   doc.appState = serializeAppState(snapshot)
 
-  return doc
+  return roundCanvasNumbers(doc)
+}
+
+/**
+ * Canvas geometry is measured in pixels, so anything past a hundredth of one
+ * is noise — a float op away from `210.95454545454547` vs `…548`, which reads
+ * as a real change in a `.canvas` diff. Rounding once on the way out keeps
+ * files diffable and is idempotent, so values don't drift on re-save.
+ *
+ * Zoom is the exception: it is a multiplier, not a pixel measure, and two
+ * decimals is a visible step at the low end.
+ */
+function roundCanvasNumbers(doc: JsonCanvasDocument): JsonCanvasDocument {
+  return JSON.parse(
+    JSON.stringify(doc, (key, value) =>
+      typeof value === 'number' && Number.isFinite(value) && key !== 'zoom'
+        ? Math.round(value * 100) / 100
+        : value,
+    ),
+  ) as JsonCanvasDocument
 }
 
 export function serializePageToLinkNode(entity: PersistedPageEntity): JsonCanvasLinkNode {
@@ -166,6 +185,8 @@ export function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvas
     isNeutral,
     entity.textSize,
     entity.pageAnchor,
+    entity.parentGroupId,
+    entity.label,
   )
   if (specular) node.specular = specular
   return node
@@ -177,23 +198,18 @@ function buildSpecularExtensions(
   isNeutral: boolean,
   textSize: number | undefined,
   pageAnchor: PersistedTextEntity['pageAnchor'],
+  parentGroupId: string | undefined,
+  label: string | undefined,
 ): JsonCanvasTextNode['specular'] {
-  if (
-    textStyle === undefined &&
-    widthMode === undefined &&
-    !isNeutral &&
-    textSize === undefined &&
-    pageAnchor === undefined
-  ) {
-    return undefined
-  }
   const ext: NonNullable<JsonCanvasTextNode['specular']> = {}
   if (textStyle !== undefined) ext.textStyle = textStyle
   if (widthMode !== undefined) ext.widthMode = widthMode
   if (isNeutral) ext.colorRole = 'neutral'
   if (textSize !== undefined) ext.textSize = textSize
   if (pageAnchor !== undefined) ext.pageAnchor = pageAnchor
-  return ext
+  if (parentGroupId !== undefined) ext.parentGroupId = parentGroupId
+  if (label !== undefined) ext.label = label
+  return Object.keys(ext).length ? ext : undefined
 }
 
 export function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvasFileNode {
@@ -210,6 +226,10 @@ export function serializeFileToFileNode(entity: PersistedFileEntity): JsonCanvas
     presetIndex: entity.presetIndex,
     parentGroupId: entity.parentGroupId,
     metadata: entity.metadata,
+    specular:
+      entity.parentGroupId !== undefined
+        ? { parentGroupId: entity.parentGroupId }
+        : undefined,
   }
 }
 
@@ -432,6 +452,8 @@ export function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTe
     height: node.height,
     parentGroupId: node.parentGroupId,
     pageAnchor: node.specular?.pageAnchor,
+    parentGroupId: node.specular?.parentGroupId,
+    label: node.specular?.label,
   }
 }
 
@@ -449,6 +471,7 @@ export function deserializeFileNodeToFile(node: JsonCanvasFileNode): PersistedFi
     presetIndex: node.presetIndex,
     parentGroupId: node.parentGroupId,
     metadata: node.metadata,
+    parentGroupId: node.specular?.parentGroupId,
   }
 }
 

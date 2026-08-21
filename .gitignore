@@ -4,7 +4,6 @@ out/
 build/*
 !build/icon.icns
 .vite/
-.dev/
 .context/
 .DS_Store
 .env
@@ -23,6 +22,7 @@ opencode.json
 config/mcporter.json
 
 # scratch artifacts (dogfood runs, manual captures, regression snapshots, ad-hoc logs)
+.dev/
 tmp/
 tmp-page*.png
 dogfood-output/
@@ -45,6 +45,3 @@ harness/
 # upstream 'core' skill vendored at the same tag)
 resources/bin/agent-browser
 resources/skills/core/
-
-# Generated local dev/runtime artifacts
-.dev/

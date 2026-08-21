@@ -31,8 +31,8 @@ import {
 import { currentInteractionState } from '../../src/main/runtime/interaction-state'
 import { selectEntities } from '../../src/main/runtime/selection-controller'
 import { __resetForTests as resetInteraction } from '../../src/main/runtime/interaction-controller'
-import { workspaceGroups } from '../../src/main/runtime/workspace-model'
-import { undo } from '../../src/main/runtime/workspace-undo'
+import { workspaceGroups } from '../../src/main/runtime/space-model'
+import { undo } from '../../src/main/runtime/space-undo'
 
 let harness: WorkspaceHarness
 

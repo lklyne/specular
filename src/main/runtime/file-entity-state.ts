@@ -17,13 +17,13 @@ import type {
 } from '../../shared/types'
 import { CUSTOM_SHELL_INSETS, shellInsetsForDevice } from '../../shared/device-catalog'
 import { markDirty } from './layout-dirty'
-import { applyPatch } from './apply-patch'
+import { applyPatch, patchableFields } from './apply-patch'
 import {
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
-import { pickRenderer } from '../plugins/registry'
+import { pickRenderer, rendererClaimsFillFocus } from '../plugins/registry'
 import { findRepoForPath } from './dev-server-manager'
 import {
   watchEntityFile,
@@ -87,10 +87,7 @@ export function updateFileEntity(id: string, patch: Partial<Omit<FileEntity, 'id
   const entity = fileEntities.find((e) => e.id === id)
   if (!entity) return null
   const prevFile = entity.file
-  applyPatch(entity, patch, [
-    'file', 'subpath', 'canvasX', 'canvasY', 'width', 'height',
-    'parentGroupId', 'objectFit', 'presetIndex', 'metadata',
-  ])
+  applyPatch(entity, patch, FILE_ENTITY_PATCHABLE_FIELDS)
   if (patch.file !== undefined && patch.file !== prevFile) {
     unwatchEntityFile(entity.id, prevFile)
     watchEntityFile(entity.id, entity.file)
@@ -171,6 +168,10 @@ export function buildFileEntitySceneEntity(
   }
 }
 
+function claimForFileEntity(entity: FileEntity) {
+  return pickRenderer(persistFileEntity(entity))
+}
+
 function rendererSceneFields(entity: FileEntity): {
   rendererTag: CanvasSceneFileEntity['rendererTag']
   rendererEditable: CanvasSceneFileEntity['rendererEditable']
@@ -178,7 +179,7 @@ function rendererSceneFields(entity: FileEntity): {
   componentHasRepo: CanvasSceneFileEntity['componentHasRepo']
   componentInferredRepoPath: CanvasSceneFileEntity['componentInferredRepoPath']
 } {
-  const claim = pickRenderer(persistFileEntity(entity))
+  const claim = claimForFileEntity(entity)
   const tag = claim?.rendererTag ?? undefined
   const rendererEditable = claim?.editable ?? false
   const rendererInteractive = claim?.interactive ?? false
@@ -199,6 +200,13 @@ function rendererSceneFields(entity: FileEntity): {
     componentHasRepo: hasRepo,
     componentInferredRepoPath: hasRepo ? undefined : inferRepoRoot(entity.file),
   }
+}
+
+/** Does the renderer claiming this file entity support fullscreen focus. */
+export function fileEntitySupportsFillFocus(id: string): boolean {
+  const entity = fileEntities.find((candidate) => candidate.id === id)
+  if (!entity) return false
+  return rendererClaimsFillFocus(claimForFileEntity(entity))
 }
 
 /**
@@ -243,6 +251,13 @@ const FILE_ENTITY_PERSISTED_FIELD_SET = {
 export const FILE_ENTITY_PERSISTED_FIELDS: readonly string[] = Object.keys(
   FILE_ENTITY_PERSISTED_FIELD_SET,
 )
+
+/**
+ * `updateFileEntity`'s field-copy list, derived from the same declaration
+ * `persist()` uses. No field needs a transform `applyPatch`'s blind copy can't
+ * do, so nothing beyond `kind`/`id` is excluded.
+ */
+const FILE_ENTITY_PATCHABLE_FIELDS = patchableFields<Omit<FileEntity, 'id'>>(FILE_ENTITY_PERSISTED_FIELDS)
 
 export function persistFileEntity(entity: FileEntity): PersistedFileEntity {
   return {

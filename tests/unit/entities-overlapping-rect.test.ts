@@ -115,7 +115,7 @@ describe('entitiesOverlappingRect', () => {
     ).toEqual(['group-1'])
   })
 
-  it('treats a partially enclosed group as transparent and returns intersected children', () => {
+  it('selects individual children when the marquee hits nothing outside their group', () => {
     const grouped: CanvasSceneEntity[] = [
       page({ id: 'child-a', screenX: 20, screenY: 20, parentGroupId: 'group-1' }),
       page({ id: 'child-b', screenX: 180, screenY: 180, parentGroupId: 'group-1' }),
@@ -188,6 +188,67 @@ describe('entitiesOverlappingRect', () => {
     ).toEqual(['group-a', 'group-b'])
   })
 
+  it('promotes a partially crossed group to a unit when the marquee also hits outside it', () => {
+    const grouped: CanvasSceneEntity[] = [
+      page({ id: 'loose', screenX: 380, screenY: 20 }),
+      page({ id: 'inside', screenX: 20, screenY: 20, parentGroupId: 'group-1' }),
+      page({ id: 'outside-marquee', screenX: 20, screenY: 380, parentGroupId: 'group-1' }),
+      group({
+        id: 'group-1',
+        screenX: 0,
+        screenY: 0,
+        screenWidth: 300,
+        screenHeight: 500,
+        entityIds: ['inside', 'outside-marquee'],
+      }),
+    ]
+
+    // Marquee covers 'inside' (one group child) plus the loose page — the
+    // group must come along whole, never a partial slice of its contents.
+    expect(
+      entitiesOverlappingRect(grouped, { left: -10, top: -10, width: 500, height: 160 }),
+    ).toEqual(['loose', 'group-1'])
+  })
+
+  it('scopes to the deepest common group: sibling subgroups promote as units', () => {
+    const nested: CanvasSceneEntity[] = [
+      page({ id: 'a', screenX: 20, screenY: 20, parentGroupId: 'sub-a' }),
+      group({
+        id: 'sub-a',
+        screenX: 10,
+        screenY: 10,
+        screenWidth: 120,
+        screenHeight: 200,
+        parentGroupId: 'outer',
+        entityIds: ['a'],
+      }),
+      page({ id: 'b', screenX: 160, screenY: 20, parentGroupId: 'sub-b' }),
+      group({
+        id: 'sub-b',
+        screenX: 150,
+        screenY: 10,
+        screenWidth: 120,
+        screenHeight: 200,
+        parentGroupId: 'outer',
+        entityIds: ['b'],
+      }),
+      group({
+        id: 'outer',
+        screenX: 0,
+        screenY: 0,
+        screenWidth: 300,
+        screenHeight: 300,
+        entityIds: ['sub-a', 'sub-b'],
+      }),
+    ]
+
+    // Marquee stays inside 'outer' but crosses both subgroups partially:
+    // scope is 'outer', so each subgroup promotes to a unit within it.
+    expect(
+      entitiesOverlappingRect(nested, { left: 15, top: 15, width: 200, height: 110 }),
+    ).toEqual(['sub-a', 'sub-b'])
+  })
+
   it('batches a full group with intersected children from a partial group', () => {
     const grouped: CanvasSceneEntity[] = [
       page({ id: 'inside-full', screenX: 20, screenY: 20, parentGroupId: 'full' }),
@@ -211,8 +272,10 @@ describe('entitiesOverlappingRect', () => {
       }),
     ]
 
+    // 'inside-partial' cannot come out alone — the hit set spans beyond its
+    // group ('full' is also hit), so 'partial' promotes to a unit.
     expect(
       entitiesOverlappingRect(grouped, { left: -10, top: -10, width: 350, height: 160 }),
-    ).toEqual(['full', 'inside-partial'])
+    ).toEqual(['full', 'partial'])
   })
 })

@@ -9,6 +9,8 @@ const api: OnboardingElectronAPI = {
   install: (selections) => ipcRenderer.invoke(ipcChannels.onboardingInstall, selections),
   complete: () => ipcRenderer.send(ipcChannels.onboardingComplete),
   dismiss: () => ipcRenderer.send(ipcChannels.onboardingDismiss),
+  spaceChooseViaPicker: () => ipcRenderer.invoke(ipcChannels.spaceChooseViaPicker),
+  spaceCommit: (path) => ipcRenderer.invoke(ipcChannels.spaceCommit, path),
   onProgress: on<OnboardingProgressEvent>(ipcChannels.onboardingProgress),
   onThemeChanged: on(ipcChannels.themeChanged),
 }

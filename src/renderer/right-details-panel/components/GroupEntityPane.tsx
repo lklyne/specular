@@ -16,7 +16,7 @@ export function GroupEntityPane({ groupEntity }: { groupEntity: PanelGroupEntity
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<Group size={14} className="shrink-0 text-zinc-500" />}
+        icon={<Group size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label={groupEntity.label || 'Group'}
       />
 
@@ -33,7 +33,7 @@ export function GroupEntityPane({ groupEntity }: { groupEntity: PanelGroupEntity
       ) : null}
 
       <PaneField label="Members">
-        <div className={`text-[11px] ${mutedClass(isDark)}`}>
+        <div className={`text-[11px] ${mutedClass}`}>
           {groupEntity.entityIds.length} {groupEntity.entityIds.length === 1 ? 'entity' : 'entities'}
         </div>
       </PaneField>

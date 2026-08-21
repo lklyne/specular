@@ -45,8 +45,8 @@ import {
   zoom,
   cameraTransitionStartedAt,
 } from './runtime-context'
-import { focusSession } from './focus-session'
-import { activeWorkspaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './workspace-model'
+import { focusSession, focusedPageId } from './focus-session'
+import { activeSpaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './space-model'
 import { getToolDefaults } from './tool-defaults'
 import {
   activeTool as uiActiveTool,
@@ -65,6 +65,7 @@ import {
   TOOLBAR_PAD_RIGHT_OTHER,
 } from './runtime-constants'
 import { currentKeyboardTargetPageId } from './selection-controller'
+import { resolveSelectionScope } from './selection-scope'
 import {
   pageContentSize,
   projectFramePointToCanvas,
@@ -100,15 +101,15 @@ import { buildGroupSceneEntity } from './group-entity-state'
 import { getEntityKind, type RuntimeEntity } from '../entities/contract'
 import type { CanvasEntityKind } from '../../shared/types'
 import type { Page } from './runtime-entities'
-import { workspaceTabSummaries } from './workspace-tabs'
+import { spaceTabSummaries } from './space-tabs'
 import { getPresenceCursors } from '../presence-cursor'
 import { getFixProgress } from '../agent-fix/fix-progress'
-import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './workspace-doc'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // --- Exported data builders ---
 
 export function backgroundPageOverlays(): CanvasScenePageEntity[] {
-  const focusedPresentationPageId = focusSession()?.pageId ?? null
+  const focusedPresentationPageId = focusedPageId()
   const visiblePages = focusedPresentationPageId
     ? pages.filter((page) => page.id === focusedPresentationPageId)
     : pages
@@ -123,8 +124,8 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       label: pageDisplayLabel(page),
       faviconUrl: page.faviconUrl ?? null,
       url: page.url,
-      canGoBack: page.pageView.webContents.canGoBack(),
-      canGoForward: page.pageView.webContents.canGoForward(),
+      canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
+      canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
       isLoading: page.pageView.webContents.isLoading(),
       isCustomSize: pageUsesCustomSize(page.metadata),
       canvasX: page.canvasX,
@@ -356,6 +357,7 @@ export function buildCanvasLayoutData(
     entityOrder,
     entities,
     selectedEntityIds: uiSelectedEntityIds(),
+    selectionOperandIds: resolveSelectionScope().operandIds,
     selection: uiSelectedCanvasTargets(),
     activeSelection,
     activeTool: tool,
@@ -438,14 +440,28 @@ function buildFocusPresentationData(
 ): FocusPresentationData | null {
   const focus = focusSession()
   if (!focus) return null
-  const page = findPageById(focus.pageId)
-  const scenePage = scenePages.find((candidate) => candidate.id === focus.pageId)
+  if (focus.target.kind === 'file') {
+    const file = fileEntities.find((entity) => entity.id === focus.target.id)
+    if (!file) return null
+    return {
+      target: focus.target,
+      mode: focus.mode,
+      authoredLabel: 'Note',
+      authoredWidth: file.width,
+      authoredHeight: file.height,
+      effectiveWidth: file.width,
+      effectiveHeight: file.height,
+      annotationsVisible: focus.annotationsVisible,
+    }
+  }
+  const page = findPageById(focus.target.id)
+  const scenePage = scenePages.find((candidate) => candidate.id === focus.target.id)
   if (!page || !scenePage) return null
   const authored = pageContentSize(page)
   const preset = viewportPresetForIndex(page.presetIndex)
   const authoredLabel = pageUsesCustomSize(page.metadata) ? 'Custom' : preset.label
   return {
-    pageId: page.id,
+    target: focus.target,
     mode: focus.mode,
     authoredLabel,
     authoredWidth: authored.width,
@@ -471,7 +487,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
   const activePage = selectedPage() ?? targets[0] ?? null
   const availablePageCount = pages.length
   const activeTabName =
-    workspaceTabSummaries().find((t) => t.isActive)?.name ?? null
+    spaceTabSummaries().find((t) => t.isActive)?.name ?? null
 
   if (!targets.length || !activePage) {
     return {
@@ -479,7 +495,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
       selectedEntityIds: [],
       selectionCount: 0,
       availablePageCount,
-      activeTabId: activeWorkspaceTabId,
+      activeTabId: activeSpaceTabId,
       activeTabName,
       activeTool: uiActiveTool(),
       drawBrushType: getToolDefaults().draw.brushType,
@@ -494,7 +510,7 @@ export function toolbarSelectionData(): ToolbarSelectionData {
     selectedEntityIds: targets.map((page) => page.id),
     selectionCount: targets.length,
     availablePageCount,
-    activeTabId: activeWorkspaceTabId,
+    activeTabId: activeSpaceTabId,
     activeTabName,
     activeTool: uiActiveTool(),
     drawBrushType: getToolDefaults().draw.brushType,

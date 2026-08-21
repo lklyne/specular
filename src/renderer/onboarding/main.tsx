@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
+import { installFocusModality } from '../shared/focusModality'
 import type { OnboardingElectronAPI } from '../../shared/electron-api/onboarding'
 
 initRendererSentry()
+installFocusModality()
 
 const api =
   (window as unknown as { electronAPI: OnboardingElectronAPI }).electronAPI

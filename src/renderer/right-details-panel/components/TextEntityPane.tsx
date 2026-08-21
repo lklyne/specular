@@ -9,12 +9,12 @@ import { PaneHeader } from './PaneHeader'
 
 export function TextEntityPane({ textEntity }: { textEntity: PanelTextEntityDetail }) {
   const isDark = usePaneTheme()
-  const muted = mutedClass(isDark)
+  const muted = mutedClass
 
   return (
     <div className="flex flex-col">
       <PaneHeader
-        icon={<StickyNote size={14} className="shrink-0 text-zinc-500" />}
+        icon={<StickyNote size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />}
         label={textEntity.text.slice(0, 40) || 'Text'}
         actions={
           <>

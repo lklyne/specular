@@ -2,7 +2,7 @@
  * Undo/redo round-trips against the real runtime, in-process.
  *
  * Drives the same mutators the IPC handlers call (document-commands) and the
- * same undo stack the Cmd+Z binding calls (workspace-undo), then asserts on
+ * same undo stack the Cmd+Z binding calls (space-undo), then asserts on
  * runtime arrays and the Y.Doc.
  *
  * Mutation-verified by:
@@ -12,15 +12,19 @@
  *     creation removes it" fails because the create never reached the Y.Doc.
  */
 
+import type * as Y from 'yjs'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
 import {
   createTextEntity,
   deleteTextEntity,
   getTextEntities,
+  reportContentHeight,
+  updateTextEntity,
 } from '../../src/main/runtime/document-commands'
-import { undo, redo, canUndo, canRedo } from '../../src/main/runtime/workspace-undo'
-import { DOC_MAP_ENTITIES } from '../../src/main/runtime/workspace-doc'
+import { beginGestureSession } from '../../src/main/runtime/space-gesture-session'
+import { undo, redo, canUndo, canRedo } from '../../src/main/runtime/space-undo'
+import { DOC_MAP_ENTITIES } from '../../src/main/runtime/space-doc'
 
 let harness: WorkspaceHarness
 
@@ -78,5 +82,37 @@ describe('undo', () => {
 
     undo()
     expect(getTextEntities().some((t) => t.id === entity.id)).toBe(true)
+  })
+
+  it('a measured content height persists without costing an undo step', async () => {
+    const entity = createTextEntity({ canvasX: 0, canvasY: 0, text: 'sticky' })
+    await settleSync()
+
+    // The measurement trails the mutation that caused it, so it arrives after
+    // the gesture closed. It must not become the step the next undo spends.
+    reportContentHeight(entity.id, 340)
+    await settleSync()
+    expect(getTextEntities()[0].height).toBe(340)
+    const docEntity = harness.doc.getMap(DOC_MAP_ENTITIES).get(entity.id) as Y.Map<unknown>
+    expect(docEntity.get('height')).toBe(340)
+
+    undo()
+    expect(getTextEntities()).toHaveLength(0)
+  })
+
+  it('a measured height inside a gesture rides that gesture and reverts with it', async () => {
+    const entity = createTextEntity({ canvasX: 0, canvasY: 0, text: 'sticky' })
+    await settleSync()
+
+    const session = beginGestureSession()
+    updateTextEntity(entity.id, { width: 400 })
+    reportContentHeight(entity.id, 120)
+    session.finalize()
+    await settleSync()
+
+    undo() // the resize reverts as one step — width and the height it produced
+    const reverted = getTextEntities()[0]
+    expect(reverted.width).toBe(200)
+    expect(reverted.height).toBe(200)
   })
 })

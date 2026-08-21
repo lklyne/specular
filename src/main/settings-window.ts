@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron'
 import type { WebContents } from 'electron'
 import { loadRenderer, preloadPath } from './runtime/load-renderer'
 import { isDark } from './runtime/preferences'
+import { wireRendererLogging } from './crash-log'
 
 let settingsWindow: BrowserWindow | null = null
 
@@ -47,6 +48,7 @@ function createSettingsWindow(): BrowserWindow {
     },
   })
 
+  wireRendererLogging(win.webContents, 'settings')
   loadRenderer(win, 'settings')
   win.once('ready-to-show', () => win.show())
   win.on('closed', () => {

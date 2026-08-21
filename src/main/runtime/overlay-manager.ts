@@ -20,7 +20,7 @@ import {
   setInteractivePageId,
   setSelectionOverlayActive,
 } from './runtime-context'
-import { workspaceGroups } from './workspace-model'
+import { workspaceGroups } from './space-model'
 import {
   getUiState,
   isSelectionMarqueeVisible as uiSelectionMarqueeVisible,

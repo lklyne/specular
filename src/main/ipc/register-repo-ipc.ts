@@ -15,6 +15,7 @@ import {
   type ConnectedRepo,
 } from '../runtime/dev-server-manager'
 import { markDirty } from '../runtime/layout-dirty'
+import { repoPickerDefaultPath } from '../runtime/picker-defaults'
 import { requestLayout } from '../runtime/viewport-control'
 import { getSettingsWebContents } from '../settings-window'
 
@@ -48,12 +49,14 @@ export function registerRepoIpc(): void {
 
   ipcMain.handle(ipcChannels.repoConnectViaPicker, async (event): Promise<ConnectedRepo | null> => {
     const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    const dialogOpts: Electron.OpenDialogOptions = {
+      title: 'Connect a Vite repo',
+      properties: ['openDirectory'],
+      defaultPath: repoPickerDefaultPath(),
+    }
     const result = win
-      ? await dialog.showOpenDialog(win, {
-          title: 'Connect a Vite repo',
-          properties: ['openDirectory'],
-        })
-      : await dialog.showOpenDialog({ properties: ['openDirectory'] })
+      ? await dialog.showOpenDialog(win, dialogOpts)
+      : await dialog.showOpenDialog(dialogOpts)
     if (result.canceled || result.filePaths.length === 0) return null
     return connectRepo(result.filePaths[0])
   })

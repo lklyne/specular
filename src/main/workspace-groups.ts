@@ -20,12 +20,14 @@ import {
   selectPageById,
   setSelectedGroupId,
 } from './runtime/ui-actions'
-import { textEntities, createTextEntity as createTextEntityInState } from './runtime/text-entity-state'
-import { fileEntities, createFileEntity as createFileEntityInState } from './runtime/file-entity-state'
-import { shapeEntities, createShapeEntity as createShapeEntityInState } from './runtime/shape-entity-state'
-import { drawingEntities, createDrawingEntity as createDrawingEntityInState } from './runtime/drawing-entity-state'
-import { workspaceEdges, workspaceGroups } from './runtime/workspace-model'
-import { scheduleWorkspaceAutosave } from './runtime/workspace-autosave'
+import { textEntities } from './runtime/text-entity-state'
+import { fileEntities } from './runtime/file-entity-state'
+import { shapeEntities } from './runtime/shape-entity-state'
+import { drawingEntities } from './runtime/drawing-entity-state'
+import { getEntityKind } from './entities/contract'
+import { cloneMapBackedEntity, type MapBackedEntityKind } from './runtime/entity-clone'
+import { workspaceEdges, workspaceGroups } from './runtime/space-model'
+import { scheduleSpaceAutosave } from './runtime/space-autosave'
 import { markDirty } from './runtime/layout-dirty'
 import { mutateWorkspace } from './runtime/mutate-workspace'
 import { makeId, cloneMetadata, pageCurrentUrl } from './workspace-utils'
@@ -44,6 +46,14 @@ import {
 import { findDuplicatePlacement } from './workspace-placement'
 import { cancelEditingEntityIfMatches } from './runtime/editing-entity-runtime'
 
+/** Non-page kinds `duplicateGroup` clones through persistence (see below). */
+const MAP_BACKED_GROUP_KINDS: readonly MapBackedEntityKind[] = [
+  'text',
+  'file',
+  'shape',
+  'drawing',
+]
+
 // --- Entity parent-group helpers ---
 
 function getEntityParentGroupId(entityId: string): string | undefined {
@@ -57,7 +67,10 @@ function getEntityParentGroupId(entityId: string): string | undefined {
   )
 }
 
-function setEntityParentGroupId(entityId: string, parentGroupId: string | undefined): void {
+/** Exported for paste's post-clone parentGroupId remap (workspace-clipboard.ts,
+ *  ADR 0034 "Groups become copyable") — the one setter every kind's group
+ *  membership goes through, reused rather than restated. */
+export function setEntityParentGroupId(entityId: string, parentGroupId: string | undefined): void {
   const page = findPageById(entityId)
   if (page) { page.parentGroupId = parentGroupId; return }
   const textEntity = textEntities.find((entity) => entity.id === entityId)
@@ -216,76 +229,30 @@ function duplicateGroupInternal(
       duplicatedEntityIds.push(duplicatedPage.id)
     }
 
-    const childTextEntities = textEntities.filter((entity) => entity.parentGroupId === group.id)
-    for (const entity of childTextEntities) {
-      const duplicatedEntity = createTextEntityInState({
-        canvasX: entity.canvasX + offsetX,
-        canvasY: entity.canvasY + offsetY,
-        text: entity.text,
-        color: entity.color,
-        textStyle: entity.textStyle,
-        width: entity.width,
-        height: entity.height,
-        parentGroupId: clonedGroup.id,
-      })
-      entityIdMap.set(entity.id, duplicatedEntity.id)
-      duplicatedEntityIds.push(duplicatedEntity.id)
-    }
-
-    const childFileEntities = fileEntities.filter((entity) => entity.parentGroupId === group.id)
-    for (const entity of childFileEntities) {
-      const duplicatedEntity = createFileEntityInState({
-        canvasX: entity.canvasX + offsetX,
-        canvasY: entity.canvasY + offsetY,
-        file: entity.file,
-        subpath: entity.subpath,
-        width: entity.width,
-        height: entity.height,
-        parentGroupId: clonedGroup.id,
-        presetIndex: entity.presetIndex,
-        metadata: entity.metadata ? { ...entity.metadata } : undefined,
-        objectFit: entity.objectFit,
-      })
-      entityIdMap.set(entity.id, duplicatedEntity.id)
-      duplicatedEntityIds.push(duplicatedEntity.id)
-    }
-
-    const childShapeEntities = shapeEntities.filter((entity) => entity.parentGroupId === group.id)
-    for (const entity of childShapeEntities) {
-      const duplicatedEntity = createShapeEntityInState({
-        canvasX: entity.canvasX + offsetX,
-        canvasY: entity.canvasY + offsetY,
-        shapeKind: entity.shapeKind,
-        text: entity.text,
-        color: entity.color,
-        strokeWidth: entity.strokeWidth,
-        theme: entity.theme,
-        width: entity.width,
-        height: entity.height,
-        parentGroupId: clonedGroup.id,
-        label: entity.label,
-      })
-      entityIdMap.set(entity.id, duplicatedEntity.id)
-      duplicatedEntityIds.push(duplicatedEntity.id)
-    }
-
-    const childDrawingEntities = drawingEntities.filter((entity) => entity.parentGroupId === group.id)
-    for (const entity of childDrawingEntities) {
-      const duplicatedEntity = createDrawingEntityInState({
-        canvasX: entity.canvasX + offsetX,
-        canvasY: entity.canvasY + offsetY,
-        width: entity.width,
-        height: entity.height,
-        strokes: entity.strokes.map((stroke) => ({
-          ...stroke,
-          id: `${stroke.id}_dup_${Math.random().toString(36).slice(2, 8)}`,
-          points: stroke.points.map((point) => ({ x: point.x + offsetX, y: point.y + offsetY })),
-        })),
-        parentGroupId: clonedGroup.id,
-        label: entity.label,
-      })
-      entityIdMap.set(entity.id, duplicatedEntity.id)
-      duplicatedEntityIds.push(duplicatedEntity.id)
+    // Map-backed children (text/file/shape/drawing) clone through
+    // `getEntityKind(kind).persist()` → `cloneMapBackedEntity`, so a field
+    // this loop carries can never differ from what persistence carries — the
+    // same fix as copy/paste (docs/plans/entity-field-drift.md, Step B).
+    // `cloneMapBackedEntity` derives the uniform group-shift for drawing's
+    // embedded stroke points from old vs. new `canvasX`/`canvasY`, matching
+    // the `+ offsetX`/`+ offsetY` this loop used to apply by hand.
+    for (const kind of MAP_BACKED_GROUP_KINDS) {
+      const children = getEntityKind(kind)
+        .entities()
+        .filter((entity) => entity.parentGroupId === group.id)
+      for (const entity of children) {
+        const record = getEntityKind(kind).persist!(entity) as unknown as Record<string, unknown>
+        const oldX = record.canvasX as number
+        const oldY = record.canvasY as number
+        const clone = cloneMapBackedEntity(kind, record, {
+          id: makeId(kind),
+          canvasX: oldX + offsetX,
+          canvasY: oldY + offsetY,
+          parentGroupId: clonedGroup.id,
+        })
+        entityIdMap.set(entity.id, clone.id as string)
+        duplicatedEntityIds.push(clone.id as string)
+      }
     }
 
     for (const childGroup of childGroups) {
@@ -395,7 +362,7 @@ export function focusTargets(input: {
 }): { focused: boolean } {
   if (input.bounds) {
     focusCanvasBounds(input.bounds)
-    scheduleWorkspaceAutosave()
+    scheduleSpaceAutosave()
     return { focused: true }
   }
 
@@ -411,7 +378,7 @@ export function focusTargets(input: {
     if (bounds) {
       setSelectedGroupId(groups[0].id)
       focusCanvasBounds(bounds)
-      scheduleWorkspaceAutosave()
+      scheduleSpaceAutosave()
       return { focused: true }
     }
   }
@@ -425,7 +392,7 @@ export function focusTargets(input: {
     if (bounds) {
       selectPageById(input.pageIds[0])
       focusCanvasBounds(bounds)
-      scheduleWorkspaceAutosave()
+      scheduleSpaceAutosave()
       return { focused: true }
     }
   }

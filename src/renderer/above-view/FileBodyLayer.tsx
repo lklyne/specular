@@ -20,6 +20,23 @@ import {
 import { getFileApi } from '../canvas-bg/entity-renderers/filePathToSrc'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 
+/**
+ * The card surface a file body sits on. Shared with the fullscreen focused-note
+ * card (`FocusedNoteLayer`) so the two read as the same object across the focus
+ * morph instead of two similar-looking cards.
+ */
+export function fileCardSurface(isDark: boolean): {
+  background: string
+  boxShadow: string
+} {
+  return {
+    background: isDark ? '#1c1917' : '#fafaf9',
+    boxShadow: isDark
+      ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+      : '0 2px 8px rgba(0, 0, 0, 0.08)',
+  }
+}
+
 function FileBodyCard({
   entity,
   isDark,
@@ -27,6 +44,7 @@ function FileBodyCard({
   isInteractive,
   canEdit,
   onTextEditingChange,
+  onOpenLink,
 }: {
   entity: CanvasSceneFileEntity
   isDark: boolean
@@ -36,22 +54,25 @@ function FileBodyCard({
   isInteractive: boolean
   canEdit: boolean
   onTextEditingChange: (active: boolean) => void
+  /** Open a link inside a markdown note as a page on the canvas. */
+  onOpenLink: (id: string, url: string) => void
 }) {
   const fileApi = getFileApi()
 
   // Bare entities (images, device-framed pages) show no card: transparent
   // background, no shadow, square corners.
   const isChromeless = entity.rendererTag === 'image' || entity.showDeviceFrame
+  const surface = fileCardSurface(isDark)
 
   const menuPopupClass = `z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
     isDark
-      ? 'border-zinc-700 bg-zinc-900 text-zinc-100'
-      : 'border-zinc-200 bg-white text-zinc-900'
+      ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-foreground)]'
+      : 'border-zinc-200 bg-white text-[var(--surface-foreground)]'
   }`
   const menuItemClass = `flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
     isDark
-      ? 'text-zinc-100 data-[highlighted]:bg-zinc-800'
-      : 'text-zinc-900 data-[highlighted]:bg-zinc-100'
+      ? 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-800'
+      : 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-100'
   }`
 
   return (
@@ -62,12 +83,8 @@ function FileBodyCard({
       style={{
         width: entity.width,
         height: entity.height,
-        background: isChromeless ? 'transparent' : isDark ? '#1c1917' : '#fafaf9',
-        boxShadow: isChromeless
-          ? undefined
-          : isDark
-            ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-            : '0 2px 8px rgba(0, 0, 0, 0.08)',
+        background: isChromeless ? 'transparent' : surface.background,
+        boxShadow: isChromeless ? undefined : surface.boxShadow,
         overflow: isSelected ? 'visible' : 'hidden',
         borderRadius: isChromeless ? 0 : 4,
       }}
@@ -80,6 +97,7 @@ function FileBodyCard({
             isDark={isDark}
             isInteractive={isInteractive}
             onTextEditingChange={onTextEditingChange}
+            onOpenLink={onOpenLink}
           />
         </ContextMenu.Trigger>
         <Menu.Portal>
@@ -182,6 +200,7 @@ export function FileBodyLayer({
   pan,
   zoom,
   onTextEditingChange,
+  onOpenLink,
 }: {
   entities: CanvasSceneFileEntity[]
   isDark: boolean
@@ -195,6 +214,8 @@ export function FileBodyLayer({
   pan: { x: number; y: number }
   zoom: number
   onTextEditingChange: (active: boolean) => void
+  /** Open a link inside a markdown note as a page on the canvas. */
+  onOpenLink: (id: string, url: string) => void
 }) {
   if (!entities.length) return null
   return (
@@ -208,6 +229,7 @@ export function FileBodyLayer({
           isInteractive={interactiveEntityId === entity.id}
           canEdit={editingEntityId === entity.id}
           onTextEditingChange={onTextEditingChange}
+          onOpenLink={onOpenLink}
         />
       ))}
     </CanvasViewportLayer>

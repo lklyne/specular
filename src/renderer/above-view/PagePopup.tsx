@@ -10,16 +10,20 @@ import {
   EyeClosed,
   Link2,
   Maximize2,
+  MessageCircle,
   RotateCw,
   Smartphone,
   X,
 } from 'lucide-react'
 import { resolveAddressInput } from '../../shared/url'
+import { focusContext } from '../../shared/focus-context'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
 import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
+import { selectionAnnotationBounds } from './annotationMath'
+import type { AnnotateHandler } from './annotationMath'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
@@ -31,12 +35,12 @@ function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6
     `flex h-6 ${widthClass} items-center justify-center gap-1 rounded-[6px] border-0 text-xs transition-colors`
   if (active) {
     return isDark
-      ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
-      : `${base} bg-[var(--surface-popup)] text-zinc-900`
+      ? `${base} bg-[rgba(253,248,245,0.1)] text-[var(--surface-foreground)]`
+      : `${base} bg-[var(--surface-popup)] text-[var(--surface-foreground)]`
   }
   return isDark
-    ? `${base} text-zinc-300 hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100`
-    : `${base} text-zinc-600 hover:bg-[var(--color-stone-100)] hover:text-zinc-900`
+    ? `${base} text-[var(--surface-foreground-muted)] hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]`
+    : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]`
 }
 
 export function PagePopup({
@@ -45,6 +49,7 @@ export function PagePopup({
   layout,
   selectedPages,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -69,15 +74,17 @@ export function PagePopup({
   layout: LayoutUpdateData
   selectedPages: CanvasScenePageEntity[]
   interactionIdle: boolean
+  onAnnotate: AnnotateHandler
 }) {
   // During a focus session the bar belongs to the focused page regardless of
   // selection — draw/placement tools clear or reassign selection mid-session,
   // but the focus bar must stay pinned. Outside focus it's a normal
   // single-page selection popup.
-  const focusedPageEntity = layout.focusPresentation
+  const focusedPageId = focusContext(layout).pageId
+  const focusedPageEntity = focusedPageId
     ? (layout.entities.find(
         (entity): entity is CanvasScenePageEntity =>
-          entity.kind === 'page' && entity.id === layout.focusPresentation!.pageId,
+          entity.kind === 'page' && entity.id === focusedPageId,
       ) ?? null)
     : null
 
@@ -124,9 +131,7 @@ export function PagePopup({
   }, [sharedUrl, draftUrl])
 
   const focusPresentation =
-    single && layout.focusPresentation?.pageId === single.id
-      ? layout.focusPresentation
-      : null
+    single && focusedPageId === single.id ? layout.focusPresentation : null
   const focusMode = focusPresentation?.mode ?? null
   useEffect(() => {
     if (focusMode !== 'device') {
@@ -207,8 +212,8 @@ export function PagePopup({
     : null
 
   const sizeTriggerClass = isDark
-    ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-300 transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-zinc-100'
-    : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-zinc-600 transition-colors hover:bg-[var(--color-stone-100)] hover:text-zinc-900'
+    ? 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-[var(--surface-foreground-muted)] transition-colors hover:bg-[rgba(253,248,245,0.1)] hover:text-[var(--surface-foreground)]'
+    : 'flex h-6 items-center gap-1 rounded-[6px] border-0 px-2 text-xs text-[var(--surface-foreground-muted)] transition-colors hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]'
   const focusSizeTriggerClass = popupTabButtonClass(isDark, focusMode === 'device', 'px-2')
   const tabGroupClass = isDark
     ? 'flex h-7 items-center gap-0.5 rounded-[7px] bg-black/15 p-0.5'
@@ -277,8 +282,8 @@ export function PagePopup({
             onPointerDown={(e) => e.stopPropagation()}
             className={`min-w-0 flex-1 rounded-[6px] border px-2 py-1 text-xs outline-none focus:ring-1 ${
               isDark
-                ? 'border-zinc-700 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 focus:ring-blue-500/40'
-                : 'border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-400 focus:ring-blue-500/40'
+                ? 'border-zinc-700 bg-zinc-950 text-[var(--surface-foreground)] placeholder:text-[var(--surface-foreground-muted)] focus:ring-blue-500/40'
+                : 'border-zinc-300 bg-white text-[var(--surface-foreground)] placeholder:text-[var(--surface-foreground-muted)] focus:ring-blue-500/40'
             }`}
             style={{ minWidth: URL_INPUT_MIN_WIDTH }}
           />
@@ -484,6 +489,22 @@ export function PagePopup({
               <Link2 size={14} />
             </CanvasItemPopup.IconButton>
           ) : null}
+          {!isSingle
+            ? (() => {
+                const annotateRect = selectionAnnotationBounds(layout.entities, entityIds)
+                if (!annotateRect) return null
+                return (
+                  <CanvasItemPopup.IconButton
+                    isDark={isDark}
+                    title={`Annotate ${count} pages`}
+                    ariaLabel={`Annotate ${count} pages`}
+                    onClick={() => onAnnotate(entityIds, annotateRect)}
+                  >
+                    <MessageCircle size={14} />
+                  </CanvasItemPopup.IconButton>
+                )
+              })()
+            : null}
           {single && single.synced ? (
             <CanvasItemPopup.IconButton
               isDark={isDark}

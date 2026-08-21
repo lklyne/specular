@@ -32,14 +32,22 @@ export function RendererSwitch({
   canEdit,
   isDark,
   isInteractive,
+  contentPadding,
   onTextEditingChange,
+  onOpenLink,
 }: {
   entity: CanvasSceneFileEntity
   canEdit: boolean
   isDark: boolean
   /** The entered interactive file (HTML iframe): its content owns the pointer. */
   isInteractive: boolean
+  /** Reading padding for the markdown renderer's scroller. Ignored by every
+   *  other renderer; the fullscreen focus card widens it. */
+  contentPadding?: string
   onTextEditingChange: (active: boolean) => void
+  /** Open a link inside a markdown note as a page on the canvas. Ignored by
+   *  every renderer except markdown. */
+  onOpenLink: (id: string, url: string) => void
 }) {
   const tag = resolveTag(entity)
   switch (tag) {
@@ -53,7 +61,9 @@ export function RendererSwitch({
           entity={entity}
           canEdit={canEdit}
           isDark={isDark}
+          contentPadding={contentPadding}
           onTextEditingChange={onTextEditingChange}
+          onOpenLink={onOpenLink}
         />
       )
     case 'component':

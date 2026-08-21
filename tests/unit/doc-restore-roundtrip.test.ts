@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../src/main/runtime/viewport-control', () => ({
   requestLayout: vi.fn(),
 }))
-vi.mock('../../src/main/runtime/workspace-tabs', () => ({
+vi.mock('../../src/main/runtime/space-tabs', () => ({
   makeEmptyTabSnapshot: vi.fn(() => ({})),
 }))
 
@@ -28,20 +28,20 @@ import {
   beginBatch,
   endBatch,
   initializeDocObservers,
-} from '../../src/main/runtime/workspace-observers'
+} from '../../src/main/runtime/space-observers'
 import {
   createWorkspaceDoc,
   setActiveDoc,
   DOC_MAP_ENTITIES,
   DOC_MAP_PAGES,
-} from '../../src/main/runtime/workspace-doc'
+} from '../../src/main/runtime/space-doc'
 import {
   clearUndoHistory,
   createCanvasUndoManager,
   markUndoBoundary,
   setActiveUndoManager,
   undo,
-} from '../../src/main/runtime/workspace-undo'
+} from '../../src/main/runtime/space-undo'
 import {
   registerEntityKind,
   __resetEntityRegistryForTests,
@@ -184,7 +184,7 @@ beforeEach(() => {
     destroyActivePages: vi.fn(),
     getActiveTabId: () => null,
     setActiveTabId: vi.fn(),
-    workspaceTabs: [],
+    spaceTabs: [],
   })
   clearUndoHistory()
 })

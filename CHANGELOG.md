@@ -6,9 +6,99 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-03 — Markdown Live Preview, Your Own Space Folder
+
+### New
+
+- **Markdown notes read like prose.** `.md` notes render formatted inline — the syntax collapses until your cursor lands on that line, so you're always editing the real source. Cmd+B/I/K work, Enter continues a list, and links open as pages on the canvas with an edge back to the note.
+- **Sticky notes grow with their text** and pick up light formatting: bold, strikethrough, and bullets from the selection popup. Side handles rewrap the text, corner handles scale it.
+- **You choose where your work lives.** Onboarding asks for a space folder, and Settings → General can change it later — with the option to move your canvases along or start fresh. If the folder goes missing, the app asks instead of quietly saving somewhere else.
+
 ### Improvements
 
-- Region comments that captured page content now belong to that page: they move with page drags and arrow-key nudges, hide while the page shows a different URL, and nest under the page in the left sidebar. Region comments drawn over empty canvas stay put and always show.
+- Upgraded to Electron 43 — Chromium 150, faster cold start.
+- Folder pickers open next to what you're picking for instead of Downloads.
+- Rounded rectangles and pills keep their corner radius at any size.
+- Panels read cleaner in light mode.
+- The settings window opens instantly, shows your version, and can check for updates.
+- `.canvas` files round their geometry, so re-saving doesn't churn the diff.
+- "Workspace" is now three clearer words: space (your folder), canvas (a document), tab (a canvas you have open). The sidebar is Canvases, and `specular workspace` is now `specular canvas` — the old verb still works.
+
+### Fixes
+
+- Markdown notes load their content again instead of coming up empty.
+- Sticky notes show a caret on the first click, can shrink below the size they were created at, and no longer spend an undo step on a height measurement.
+- Region captures that reach past the view edge line up correctly.
+- An app that outlives its terminal no longer floods `errors.log`.
+
+### Misc
+
+- Bundled agent-browser updated to v0.33.2.
+- `specular annotation` returns the resolved selection — text, urls, files, group members, prior feedback — so agents don't need a second canvas read.
+
+## [0.5.2] - 2026-07-28 — Bug Fixes
+
+### Fixes
+
+- Fixed a bug where tabs with the same name would fight.
+- Improved bug with reordering when zoomed out.
+- Fixed bug with sticky notes defocusing.
+
+### Misc
+
+- Bundled agent-browser updated to v0.33.1.
+
+## [0.5.1] - 2026-07-27 — Tab Targeting, Selection Annotations
+
+### New
+
+- **Annotate a selection.** Select anything, hit Annotate, and the comment covers the whole selection — the fix loop knows which items you meant.
+- **Agents work across tabs.** `--tab <ref>` targets a background canvas; `specular tab` lists, creates, switches, and deletes them.
+
+### Improvements
+
+- Agents don't steal focus when editing a background canvas.
+- The fix loop knows where a change belongs: repo-bound pages get edited in place, space-folder files get worked on beside the original, and the comment always wins.
+- Fix runs default to edit-and-verify permissions instead of all-or-nothing.
+- Focus rings show on Tab, not on click.
+- Primary buttons read right in light and dark.
+- Bundled agent-browser updated to v0.33.0.
+
+### Fixes
+
+- `specular apply` explains itself instead of hanging on empty stdin.
+- Deleting a background tab leaves the one you're on alone.
+- The settings window shows an error instead of a blank pane when it fails to boot.
+
+## [0.5.0] - 2026-07-20 — Page Anchoring, Scroll Tracking, Shape Styling
+
+### New
+
+- **Annotations stick to pages.** Comments, stickies, drawings, text, and shapes drawn over a page now belong to that page: they move with it, scroll with its content, fade at the page edges, and hide when the page navigates elsewhere. Anything drawn over empty canvas stays put, as before.
+- **Comments can attach to an element.** Point a comment at a button or heading and it tracks that element by a unique selector — through scrolls, reflows, and re-renders. Clicking the comment scrolls the page back to it.
+- **Multi-selection in the left sidebar**, with page-anchored items nested under their page.
+- **Shape styling**: fill, border color and style, text alignment, and edge stroke controls, all in the selection popup.
+
+### Improvements
+
+- Marquee selection reads Cmd/Ctrl live during the drag, so you can toggle intersect vs. contain mid-marquee.
+- Stack-order menus (bring forward, send back) on canvas item right-click.
+- Single-page drags are noticeably faster; group drag and membership handling is more predictable, and Cmd-drag pulls an item out without re-binding it.
+- Entering edit mode selects all the text; clicking away saves instead of discarding.
+- Resizing only snaps the edges you're actually dragging — the opposite edges stay put.
+- Live files: a manual refresh action, an update flash when content changes, and a watcher that survives atomic saves and in-place writes.
+- Images pasted from the native macOS clipboard now land on the canvas.
+
+### Fixes
+
+- File context menus close on an outside click.
+- Escape mid-drag clears the comment tool's marquee overlay.
+- Duplicating a page re-attaches its anchored comments and copies anchored items at their apparent position.
+- Device-frame and border settings apply to file entities again.
+
+### Misc
+
+- Removed the wireframe renderer mode.
 
 ### Breaking
 

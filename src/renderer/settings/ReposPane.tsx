@@ -27,7 +27,6 @@ export function ReposPane({
   return (
     <section>
       <header className="mb-4 mt-2">
-        <h2 className="text-[15px] font-semibold">Repos</h2>
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
           Connect a local folder so Specular can run its dev server and apply in-place fixes from comments. Bind sites to a repo from the details panel while viewing a page.
         </p>

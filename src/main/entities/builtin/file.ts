@@ -10,7 +10,7 @@
  */
 
 import type { EntityCreateInput, EntityKindDefinition } from '../contract'
-import type { FileObjectFit, PersistedFileEntity } from '../../../shared/types'
+import type { PersistedFileEntity } from '../../../shared/types'
 import type { JsonCanvasFileNode } from '../../../shared/json-canvas-types'
 import {
   createFileEntity,
@@ -122,15 +122,14 @@ export const fileKind: EntityKindDefinition<'file'> = {
   },
 
   update(id, patch) {
-    updateFileEntity(id, {
-      file: patch.file as string | undefined,
-      subpath: patch.subpath as string | undefined,
-      objectFit: patch.objectFit as FileObjectFit | undefined,
-      width: patch.width as number | undefined,
-      height: patch.height as number | undefined,
-      canvasX: patch.canvasX as number | undefined,
-      canvasY: patch.canvasY as number | undefined,
-    })
+    // Forward the whole patch — `updateFileEntity` already copies every field
+    // in `FILE_ENTITY_PERSISTED_FIELDS` (minus id/kind), so hand-picking a
+    // subset here would just be a second field list that can drift from the
+    // first (docs/plans/entity-field-drift.md, Step C). `presetIndex` is also
+    // in that raw copy, but `setFilePreset` below is the richer verb — it
+    // derives width/height/deviceId from the preset — so it still runs after
+    // and wins.
+    updateFileEntity(id, patch as Partial<Omit<FileEntity, 'id'>>)
     // Device frame / border — same fields and mutators as the page kind
     // (builtin/page.ts), just addressed at a file entity instead of a page.
     if (patch.presetIndex !== undefined) setFilePreset(id, patch.presetIndex as number)

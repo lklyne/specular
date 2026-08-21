@@ -12,7 +12,7 @@ Read docs/file-formats.md for .canvas spec and persistence details.
 
 ```
 pnpm install                 # install dependencies
-pnpm dev                     # human foreground use only; agents use devctl
+pnpm dev                     # start the Electron app (foreground)
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
 pnpm test:integration        # real runtime in-process (no Electron, seconds)
@@ -20,10 +20,8 @@ pnpm test:boot               # ~3 real-Electron boot checks (pre-release only)
 pnpm build                   # package for distribution
 ```
 
-Agents must not run `pnpm dev` directly. Use `pnpm devctl start|status|logs|restart|stop`.
-`devctl` refuses to restart or stop a foreground `pnpm dev` that it did not
-start. `pnpm devctl context` prints process state, recent dev/error logs, and
-performance-trace metadata as one agent-readable JSON document.
+Run `pnpm dev` in its own terminal or pane so the app can be watched and stopped
+independently. Don't kill or restart a dev app you didn't start.
 
 After any structural change, run `typecheck` + `test:unit` at minimum.
 After changes to runtime, IPC, or persistence, run `test:integration`.

@@ -6,11 +6,16 @@ import {
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type { AnnotationDrawingStroke, CanvasSceneDrawingEntity, LayoutUpdateData } from '../../shared/types'
+import type {
+  AnnotationDrawingStroke,
+  CanvasSceneDrawingEntity,
+  LayoutUpdateData,
+} from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { drawingBounds } from './annotationMath'
+import type { AnnotateHandler } from './annotationMath'
 import {
   BRUSH_VARIANT_OPTIONS,
   nearestStrokeWidthPreset,
@@ -25,6 +30,7 @@ export function DrawingPopup({
   layout,
   selectedDrawings,
   interactionIdle,
+  onAnnotate,
 }: {
   api: Pick<
     CanvasBgElectronAPI,
@@ -36,6 +42,7 @@ export function DrawingPopup({
   layout: LayoutUpdateData
   selectedDrawings: CanvasSceneDrawingEntity[]
   interactionIdle: boolean
+  onAnnotate: AnnotateHandler
 }) {
   const count = selectedDrawings.length
   const ids = selectedDrawings.map((e) => e.id).join('|')
@@ -139,6 +146,9 @@ export function DrawingPopup({
           noun={noun}
           count={count}
           api={api}
+          layout={layout}
+          entityIds={entityIds}
+          onAnnotate={onAnnotate}
         />
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.Root>

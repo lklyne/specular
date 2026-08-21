@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Pinned agent-browser binary. Bump VERSION + SHA256 together to update.
 # Checksum from: shasum -a 256 resources/bin/agent-browser
-VERSION="v0.31.1"
-SHA256="fd7acd17b3071ff7f75a03c1ecd30501959d9c2d063bdaa05adb6f77abf2a7bf"
+VERSION="v0.33.2"
+SHA256="cbb517902bcaa3b7a6384fd9f25dd274da3df2bb6a3ba9c3e85806d78213c26b"
 
 # ponytail: darwin-arm64 only — the one arch we ship. Add an arch switch when
 # we make a darwin-x64 / universal build.

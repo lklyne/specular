@@ -510,3 +510,64 @@ describe('json-canvas-serializer drawings', () => {
     expect(restored.entityOrder).toEqual(['t1', 'e1'])
   })
 })
+
+/**
+ * Canvas geometry is pixels, so precision past a hundredth is float noise that
+ * shows up as a spurious `.canvas` diff on every re-save. The serializer is the
+ * one boundary where numbers leave the runtime, so it rounds there.
+ *
+ * Mutation-verified by: dropping the `roundCanvasNumbers` call in
+ * serializeToJsonCanvas (the rounding case fails); removing the `zoom` key
+ * exception (the zoom case fails). The idempotence case guards the rounding
+ * scheme itself — a non-stable one would reintroduce the diff churn.
+ */
+describe('json-canvas-serializer number rounding', () => {
+  const freehand: PersistedDrawingEntity = {
+    kind: 'drawing',
+    id: 'd_float',
+    canvasX: 3266.330116995654,
+    canvasY: 1891.0227999566384,
+    width: 1039.1056014096312,
+    height: 4,
+    strokes: [
+      {
+        id: 's1',
+        color: '#000000',
+        width: 2,
+        points: [{ x: 210.95454545454547, y: 0.123456 }],
+      },
+    ],
+  }
+
+  function docWith(drawing: PersistedDrawingEntity, zoom = 1): JsonCanvasDocument {
+    const snapshot = emptySnapshot()
+    snapshot.zoom = zoom
+    snapshot.entities!['d_float'] = drawing
+    snapshot.entityOrder = ['d_float']
+    return serializeToJsonCanvas(snapshot)
+  }
+
+  it('rounds coordinates, sizes, and nested stroke points to two decimals', () => {
+    const node = docWith(freehand).nodes[0] as unknown as {
+      x: number
+      y: number
+      width: number
+      strokes: { points: { x: number; y: number }[] }[]
+    }
+    expect(node.x).toBe(3266.33)
+    expect(node.y).toBe(1891.02)
+    expect(node.width).toBe(1039.11)
+    expect(node.strokes[0].points[0]).toEqual({ x: 210.95, y: 0.12 })
+  })
+
+  it('leaves zoom alone — it is a multiplier, not a pixel measure', () => {
+    expect(docWith(freehand, 0.3512).appState?.zoom).toBe(0.3512)
+  })
+
+  it('is idempotent, so a re-save produces no diff', () => {
+    const once = docWith(freehand)
+    const { snapshot: restored } = deserializeFromJsonCanvas(once)
+    const twice = serializeToJsonCanvas(restored)
+    expect(JSON.stringify(twice.nodes)).toBe(JSON.stringify(once.nodes))
+  })
+})

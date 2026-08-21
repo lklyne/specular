@@ -59,7 +59,7 @@ import {
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
-} from './workspace-model'
+} from './space-model'
 import { textEntities } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { drawingEntities } from './drawing-entity-state'
@@ -436,8 +436,8 @@ export function notifyDevtoolsPanelData(): void {
     deviceOrientation: deviceOrientationFromMetadata(page.metadata),
     showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
     useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-    canGoBack: page.pageView.webContents.canGoBack(),
-    canGoForward: page.pageView.webContents.canGoForward(),
+    canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
+    canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
     isLoading: page.pageView.webContents.isLoading(),
   }))
   devtoolsHeaderView.webContents.send(ipcChannels.rightDetailsPanelData, {

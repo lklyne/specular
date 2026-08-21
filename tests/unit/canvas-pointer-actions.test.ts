@@ -328,8 +328,8 @@ describe('routePointerDown', () => {
   it('multi-bbox SE handle → begin-multi-resize (no entityId on the action)', () => {
     const t1 = text({ id: 't1', screenX: 100, screenY: 100, screenWidth: 50, screenHeight: 50 })
     const t2 = text({ id: 't2', screenX: 200, screenY: 200, screenWidth: 80, screenHeight: 40 })
-    // Multi-bbox SE corner sits at (280+8, 240+8) = (288, 248).
-    const target = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 288, y: 248 })
+    // Multi-bbox SE corner sits at (280, 240); the handle's 12px hit rect covers it.
+    const target = hitTest(inputs([t1, t2], ['t1', 't2']), { x: 280, y: 240 })
     const action = routePointerDown(target, {
       ...baseCtx,
       selectedEntityIds: ['t1', 't2'],

@@ -22,7 +22,7 @@ import {
 } from './runtime/document-commands'
 import { pages, findPageById } from './runtime/runtime-context'
 import { pageContentSize } from './runtime/runtime-geometry'
-import { workspaceGroups } from './runtime/workspace-model'
+import { workspaceGroups } from './runtime/space-model'
 import {
   resolveSession,
   mcpSessions,

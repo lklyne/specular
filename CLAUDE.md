@@ -21,7 +21,7 @@ When a domain term resolves during a session (rename, new concept, deprecation),
 
 ```
 pnpm install                 # install dependencies
-pnpm dev                     # human foreground use only; agents use devctl
+pnpm dev                     # start the Electron app (foreground)
 pnpm typecheck               # type-check both node and web tsconfigs
 pnpm test:unit               # fast unit tests (no Electron)
 pnpm test:integration        # real runtime in-process (no Electron, seconds)
@@ -30,11 +30,10 @@ pnpm build                   # package for distribution
 ```
 
 Dev app workflow:
-- Humans run `pnpm dev` for a foreground, human-owned app.
-- Agents must not run `pnpm dev` directly; run `pnpm devctl start` instead.
-- Use `pnpm devctl status|logs|restart|stop` to manage an agent-owned app.
-- `devctl` never restarts or stops a foreground `pnpm dev` it did not start.
-- `pnpm devctl context` prints recent logs, errors, and performance metadata.
+- Run `pnpm dev` in its own terminal or pane, so the app can be watched and
+  stopped independently of other work.
+- Don't kill or restart a dev app you didn't start.
+- App errors go to `errors.log` (see Crash logs below); perf traces to the logs folder.
 
 After any structural change, run `typecheck` + `test:unit` at minimum.
 After changes to runtime, IPC, or persistence, run `test:integration`.
@@ -84,7 +83,7 @@ Persistence: Y.Doc -> .canvas files on disk (350ms debounce).
 ### Key domains in src/main/runtime/
 
 ```
-workspace-*          Persistence, tabs, model, Y.Doc, undo, autosave
+space-*              Persistence, tabs, model, Y.Doc, undo, autosave
 runtime-core.ts      High-level state mutations
 runtime-context.ts   Ephemeral state (zoom, pan, interaction, views)
 selection-*          Selection state and mutations
@@ -117,6 +116,10 @@ tag on every file scene entity; the renderer reads `entity.rendererTag` and
 - `src/renderer/` must NOT import from `src/main/`
 - `src/shared/` must have no side effects and no process-specific imports
 - `src/preload/` bridges IPC only — no business logic
+- Bridge functions never receive DOM/React events — wrap in an arrow with
+  explicit arguments (`onClick={() => api.fn()}`, never `onClick={api.fn}`).
+  contextBridge deep-serializes arguments; an event graph reaches `window`
+  and stalls the browser process (enforced by `local/no-bridge-event-handlers`)
 - `src/main/runtime/` is the single owner of workspace state
 - Renderer state is derived from IPC broadcasts, never authoritative
 
@@ -188,7 +191,7 @@ The suite stays small on purpose. To prevent drift back to a pile of low-value t
 
 - Any new entity kind ships with integration coverage of its persistence + undo round-trip.
 - Any new runtime mutator ships with forward/reverse sync coverage (one Y.Doc transaction per mutation; undo round-trips cleanly).
-- PRs touching `src/main/runtime/workspace-*.ts` require integration coverage updates unless the change is pure refactor with no behavior delta.
+- PRs touching `src/main/runtime/space-*.ts` require integration coverage updates unless the change is pure refactor with no behavior delta.
 - No new `.todo()` test merged without a linked issue describing what would unblock it.
 - Before writing a test, re-read `tests/README.md` and confirm it clears the four-criterion bar.
 

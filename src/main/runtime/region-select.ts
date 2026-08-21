@@ -3,7 +3,12 @@
  * region and extracts React component context, then creates an annotation.
  */
 
-import type { RegionElementGroup, WorkspaceBounds } from '../../shared/types'
+import type {
+  Annotation,
+  AnnotationMetadata,
+  RegionElementGroup,
+  WorkspaceBounds,
+} from '../../shared/types'
 import type { Page } from './runtime-entities'
 import { captureRegion } from './region-capture'
 import { extractRegionComponents } from './region-components'
@@ -45,11 +50,37 @@ export function regionAnchorPageId(
   return bestOverlap / area > 0.5 ? bestId : undefined
 }
 
+export interface RegionSelectOptions {
+  /** Extra metadata merged onto the created annotation (selection provenance). */
+  metadata?: AnnotationMetadata
+}
+
+/**
+ * Pixels are best-effort: without a live window (headless callers, a capture
+ * that raced a teardown) the comment is still worth keeping, so a failed
+ * capture degrades to no screenshot and no page context rather than losing the
+ * user's text. With no capture there is no evidence the region grabbed page
+ * content, so such an annotation stays canvas-anchored.
+ */
+async function captureRegionOrNone(
+  canvasRect: WorkspaceBounds,
+): Promise<{ base64?: string; intersectingPages: Page[] }> {
+  try {
+    return await captureRegion(canvasRect, { includeBgView: true })
+  } catch {
+    return { intersectingPages: [] }
+  }
+}
+
 /**
  * Execute a region select: capture screenshot, extract components, create annotation.
  */
-export async function executeRegionSelect(canvasRect: WorkspaceBounds, text?: string): Promise<void> {
-  const { base64, intersectingPages } = await captureRegion(canvasRect, { includeBgView: true })
+export async function executeRegionSelect(
+  canvasRect: WorkspaceBounds,
+  text?: string,
+  options?: RegionSelectOptions,
+): Promise<Annotation> {
+  const { base64, intersectingPages } = await captureRegionOrNone(canvasRect)
   const regionComponents = extractRegionComponents(intersectingPages)
 
   // Query DOM elements within the region for each intersecting page.
@@ -81,15 +112,16 @@ export async function executeRegionSelect(canvasRect: WorkspaceBounds, text?: st
 
   const anchorPageId = regionAnchorPageId(canvasRect, intersectingPages)
 
-  createAnnotation({
+  return createAnnotation({
     anchor: { type: 'region', canvasRect },
     author: 'user',
     text: text ?? '',
     ...(anchorPageId ? { anchorPageId } : {}),
     metadata: {
-      regionScreenshot: base64,
+      ...(base64 ? { regionScreenshot: base64 } : {}),
       regionComponents,
       regionElements,
+      ...options?.metadata,
     },
   })
 }

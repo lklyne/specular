@@ -8,6 +8,10 @@
  * DOM events, and works because the cards mount inside aboveView's WCV
  * which already holds keyboard focus during edit.
  *
+ * Both view and edit mode render through the same `MarkdownEditor`
+ * (read-only when not editing), so the two modes share one set of padding
+ * and line boxes and the mode swap can't reflow the text.
+ *
  * Plain text in `widthMode: 'auto'` hugs its content. The shell has no fixed
  * width/height; instead a ResizeObserver measures the rendered card and
  * pushes the size back to main via `onUpdateSize`, which keeps the stored
@@ -21,16 +25,16 @@
  */
 
 import { memo, useEffect, useRef, useState } from 'react'
-import Markdown from 'react-markdown'
-import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
+import { PLAIN_TEXT_PLACEHOLDER, STICKY_BASE_HEIGHT } from '../../shared/constants'
+import { useMeasuredSize } from '../shared/useMeasuredSize'
 import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
-import { remarkLineBreaks } from '../shared/remark-line-breaks'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
 import { lineHeightForTextSize } from './TextSizeDropdown'
 import { CanvasViewportLayer, EntityShell } from './CanvasViewportLayer'
 import { AnchoredEntityOverlayBand } from './PageOverlayBand'
+import { useEditorBridge } from '../shared/markdown/text-editor-bridge'
 
 const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
@@ -40,13 +44,11 @@ const DEFAULT_TEXT_SIZE = 14
 function stickyShellStyle({
   note,
   isDark,
-  isSelected,
   isPlain,
   isAuto,
 }: {
   note: CanvasSceneTextEntity
   isDark: boolean
-  isSelected: boolean
   isPlain: boolean
   isAuto: boolean
 }): React.CSSProperties {
@@ -55,10 +57,8 @@ function stickyShellStyle({
       // The containing viewport layer holds only absolutely-positioned
       // children, so its intrinsic width is 0. Without an explicit
       // `width`, our absolute shell's shrink-to-fit collapses to
-      // `min-content` (longest word) once view mode swaps CodeMirror's
-      // `white-space: pre` content for a wrapping `<p>`. `max-content`
-      // pins the shell to the unwrapped line width, matching what the
-      // editor showed.
+      // `min-content` (longest word). `max-content` pins the shell to the
+      // unwrapped line width of CodeMirror's `white-space: pre` content.
       width: 'max-content',
       minWidth: PLAIN_MIN_WIDTH,
       minHeight: PLAIN_MIN_HEIGHT,
@@ -67,6 +67,11 @@ function stickyShellStyle({
   if (isPlain) {
     return { width: note.width, height: note.height }
   }
+  // A sticky is width-driven: height grows with the text so it always contains
+  // it and never scrolls. `note.height` is the measured content height —
+  // `contentHeightLayout` has already patched it into this layout, so the card
+  // and the selection outline are drawing the same rect, not two roundings of
+  // the same idea.
   return {
     width: note.width,
     height: note.height,
@@ -74,28 +79,28 @@ function stickyShellStyle({
     boxShadow: isDark
       ? '0 2px 8px rgba(0, 0, 0, 0.3)'
       : '0 2px 8px rgba(0, 0, 0, 0.08)',
-    overflow: isSelected ? 'visible' : 'hidden',
   }
 }
 
 function StickyCard({
   note,
   isDark,
-  isSelected,
   canEdit,
   onUpdateText,
   onUpdateSize,
+  onContentHeight,
   onCommitEdit,
 }: {
   note: CanvasSceneTextEntity
   isDark: boolean
-  isSelected: boolean
   canEdit: boolean
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
+  onContentHeight: (id: string, height: number) => void
   onCommitEdit: () => void
 }) {
   const shellRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
   const { localText, handleTextChange, commitNow } = useStickyText({
     note,
     canEdit,
@@ -104,18 +109,20 @@ function StickyCard({
   })
   const isPlain = note.textStyle === 'plain'
   const isAuto = note.widthMode === 'auto'
-  useStickyAutoSize(shellRef, isAuto, note.id, onUpdateSize)
+  useStickyAutoSize(shellRef, isAuto, note, onUpdateSize)
+  useStickyHeight(contentRef, !isPlain, note, onContentHeight)
 
   return (
     <EntityShell
       id={note.id}
       canvasX={note.canvasX}
       canvasY={note.canvasY}
-      style={stickyShellStyle({ note, isDark, isSelected, isPlain, isAuto })}
+      style={stickyShellStyle({ note, isDark, isPlain, isAuto })}
       shellRef={shellRef}
     >
       <StickyContent
         note={note}
+        contentRef={contentRef}
         isDark={isDark}
         canEdit={canEdit}
         isPlain={isPlain}
@@ -154,48 +161,76 @@ function useStickyText({ note, canEdit, onUpdateText, onCommitEdit }: {
     },
     commitNow: () => {
       debouncedWrite.cancel()
-      lastSentRef.current = localText
-      onUpdateText(note.id, localText)
+      // Escape commits and then main flips the editor read-only, which blurs
+      // it and commits again. Re-sending identical text would be a second
+      // Y.Doc transaction, i.e. an extra undo step for one edit.
+      if (localText !== lastSentRef.current) {
+        lastSentRef.current = localText
+        onUpdateText(note.id, localText)
+      }
       onCommitEdit()
     },
   }
 }
 
+/**
+ * Plain text in `widthMode: 'auto'` hugs its content on both axes: measure the
+ * shell (itself content-sized) and report that as the stored bounds. Unsnapped
+ * — auto text ends wherever the glyphs end.
+ */
 function useStickyAutoSize(
   shellRef: React.MutableRefObject<HTMLDivElement | null>,
-  isAuto: boolean,
-  noteId: string,
+  enabled: boolean,
+  note: CanvasSceneTextEntity,
   onUpdateSize: (id: string, width: number, height: number) => void,
 ): void {
-  const lastReportedSizeRef = useRef<{ w: number; h: number } | null>(null)
+  const measured = useMeasuredSize(shellRef, enabled)
+  const width = measured ? Math.max(PLAIN_MIN_WIDTH, Math.round(measured.width)) : null
+  const height = measured ? Math.max(PLAIN_MIN_HEIGHT, Math.round(measured.height)) : null
   useEffect(() => {
-    const el = shellRef.current
-    if (!isAuto || !el) return
-    let pendingFrame = 0
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return
-      if (pendingFrame) cancelAnimationFrame(pendingFrame)
-      pendingFrame = requestAnimationFrame(() => {
-        const size = {
-          w: Math.max(PLAIN_MIN_WIDTH, Math.round(entry.contentRect.width)),
-          h: Math.max(PLAIN_MIN_HEIGHT, Math.round(entry.contentRect.height)),
-        }
-        const last = lastReportedSizeRef.current
-        if (last?.w === size.w && last.h === size.h) return
-        lastReportedSizeRef.current = size
-        onUpdateSize(noteId, size.w, size.h)
-      })
-    })
-    observer.observe(el)
-    return () => {
-      observer.disconnect()
-      if (pendingFrame) cancelAnimationFrame(pendingFrame)
-    }
-  }, [isAuto, noteId, onUpdateSize, shellRef])
+    if (!enabled || width === null || height === null) return
+    if (width === note.width && height === note.height) return
+    onUpdateSize(note.id, width, height)
+  }, [enabled, width, height, note.id, note.width, note.height, onUpdateSize])
 }
 
-function StickyContent({ note, isDark, canEdit, isPlain, isAuto, localText, onChange, onCommit }: {
+/**
+ * A sticky's height is exactly its text's height — publish it and let
+ * `contentHeightLayout` feed it back through the layout every layer reads.
+ *
+ * Deliberately *not* grid-snapped. Grid snapping is a policy for edges the
+ * user drags, so they land on the grid; a measured size snapped up carries
+ * up to a full grid step of dead space under the last line. Ceil to whole
+ * pixels only — a fractional height rounded down clips the descenders.
+ *
+ * Measures the inner content column (auto-height); the shell it feeds is
+ * explicitly sized, so observing the shell would be a fixed point that never
+ * notices the text growing.
+ */
+function useStickyHeight(
+  contentRef: React.MutableRefObject<HTMLDivElement | null>,
+  enabled: boolean,
+  note: CanvasSceneTextEntity,
+  onContentHeight: (id: string, height: number) => void,
+): void {
+  const measured = useMeasuredSize(contentRef, enabled)
+  // Floored so an empty note stays note-shaped rather than collapsing to one
+  // line of padding. The floor scales with the text because that is what a
+  // corner or n/s drag does to a sticky — hold it fixed and the box stops
+  // shrinking while the font keeps going, so the note can never get smaller
+  // than the size it was created at. A floor tracking the *width* instead
+  // would make every wide note tall, which is what a reflow is trying to undo.
+  const floor = (STICKY_BASE_HEIGHT * (note.textSize ?? DEFAULT_TEXT_SIZE)) / DEFAULT_TEXT_SIZE
+  const height = measured ? Math.ceil(Math.max(floor, measured.height)) : null
+  useEffect(() => {
+    if (height === null) return
+    onContentHeight(note.id, height)
+  }, [height, note.id, onContentHeight])
+}
+
+function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, localText, onChange, onCommit }: {
   note: CanvasSceneTextEntity
+  contentRef: React.MutableRefObject<HTMLDivElement | null>
   isDark: boolean
   canEdit: boolean
   isPlain: boolean
@@ -204,37 +239,41 @@ function StickyContent({ note, isDark, canEdit, isPlain, isAuto, localText, onCh
   onChange: (value: string) => void
   onCommit: () => void
 }) {
-  const placeholder = isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'
-  const color = isPlain && isDark ? '#e7e5e4' : '#1c1917'
   const fontSize = note.textSize ?? DEFAULT_TEXT_SIZE
-  const textStyle: React.CSSProperties = {
-    fontSize,
-    lineHeight: lineHeightForTextSize(fontSize),
-    color,
-    fontFamily: 'system-ui, sans-serif',
-  }
+  const editorBridge = useEditorBridge(note.id, canEdit)
   const columnStyle: React.CSSProperties = isPlain && isAuto
     ? { display: 'flex', flexDirection: 'column' }
-    : { width: note.width, height: note.height, display: 'flex', flexDirection: 'column' }
-  return <div style={columnStyle}>
+    : isPlain
+      ? { width: note.width, height: note.height, display: 'flex', flexDirection: 'column' }
+      // Sticky: width fixed, height follows the text (see stickyShellStyle).
+      : { width: note.width, display: 'flex', flexDirection: 'column' }
+  return <div ref={contentRef} style={columnStyle}>
     {!isPlain && <StickyDragStrip />}
-    {canEdit
-      ? <StickyEditor
-          value={localText}
-          onChange={onChange}
-          onCommit={onCommit}
-          isDark={isPlain && isDark}
-          isPlain={isPlain}
-          isAuto={isAuto}
-          placeholder={placeholder}
-          textStyle={textStyle}
-        />
-      : <StickyMarkdown
-          value={localText}
-          isPlain={isPlain}
-          placeholder={placeholder}
-          textStyle={textStyle}
-        />}
+    {/* One renderer for both modes: same padding, same line boxes, so
+        entering and leaving edit mode can't reflow the text. */}
+    <MarkdownEditor
+      variant="sticky"
+      readOnly={!canEdit}
+      value={localText}
+      onChange={onChange}
+      onBlur={onCommit}
+      onEscape={onCommit}
+      onViewReady={editorBridge.onViewReady}
+      onSelectionChange={editorBridge.onSelectionChange}
+      isDark={isPlain && isDark}
+      autoFocus={canEdit}
+      selectAllOnAutoFocus
+      placeholder={isPlain ? PLAIN_TEXT_PLACEHOLDER : 'Type a note...'}
+      className={isPlain ? 'w-full pl-0 pr-2 py-0' : 'flex-1 w-full px-2 pb-2'}
+      style={{
+        fontSize,
+        lineHeight: lineHeightForTextSize(fontSize),
+        color: isPlain && isDark ? '#e7e5e4' : '#1c1917',
+        fontFamily: 'system-ui, sans-serif',
+        boxSizing: 'border-box',
+      }}
+      lineWrap={!isAuto}
+    />
   </div>
 }
 
@@ -242,43 +281,6 @@ function StickyDragStrip() {
   return <div style={{ minHeight: 8, cursor: 'grab' }} onPointerDown={(event) => {
     if (event.button === 0) event.stopPropagation()
   }} />
-}
-
-function StickyEditor({ value, onChange, onCommit, isDark, isPlain, isAuto, placeholder, textStyle }: {
-  value: string
-  onChange: (value: string) => void
-  onCommit: () => void
-  isDark: boolean
-  isPlain: boolean
-  isAuto: boolean
-  placeholder: string
-  textStyle: React.CSSProperties
-}) {
-  return <MarkdownEditor
-    value={value}
-    onChange={onChange}
-    onBlur={onCommit}
-    onEscape={onCommit}
-    isDark={isDark}
-    autoFocus
-    selectAllOnAutoFocus
-    placeholder={placeholder}
-    className={isPlain ? 'w-full pl-0 pr-2 py-0' : 'flex-1 w-full px-2.5 pb-2'}
-    style={{ ...textStyle, boxSizing: 'border-box', paddingTop: isPlain ? 0 : '0.3em' }}
-    lineWrap={!isAuto}
-  />
-}
-
-function StickyMarkdown({ value, isPlain, placeholder, textStyle }: {
-  value: string
-  isPlain: boolean
-  placeholder: string
-  textStyle: React.CSSProperties
-}) {
-  return <div
-    className={isPlain ? 'select-none text-block-markdown pr-2' : 'flex-1 select-none overflow-hidden text-block-markdown px-2 pb-2'}
-    style={{ ...textStyle, wordBreak: 'break-word' }}
-  >{value ? <Markdown remarkPlugins={[remarkLineBreaks]}>{value}</Markdown> : <span>{placeholder}</span>}</div>
 }
 
 const MemoStickyCard = memo(StickyCard, (prev, next) => {
@@ -294,7 +296,6 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
     prev.note.width === next.note.width &&
     prev.note.height === next.note.height &&
     prev.isDark === next.isDark &&
-    prev.isSelected === next.isSelected &&
     prev.canEdit === next.canEdit
   )
 })
@@ -302,22 +303,23 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
 export function StickyBodyLayer({
   entities,
   isDark,
-  selectedEntityIdSet,
   editingEntityId,
   layoutData,
   onUpdateText,
   onUpdateSize,
+  onContentHeight,
   onCommitEdit,
 }: {
   entities: CanvasSceneTextEntity[]
   isDark: boolean
-  selectedEntityIdSet: Set<string>
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  editor iff `editingEntityId === note.id`. */
   editingEntityId: string | null
   layoutData: LayoutUpdateData
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
+  /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */
+  onContentHeight: (id: string, height: number) => void
   onCommitEdit: () => void
 }) {
   if (!entities.length) return null
@@ -332,10 +334,10 @@ export function StickyBodyLayer({
           key={note.id}
           note={note}
           isDark={isDark}
-          isSelected={selectedEntityIdSet.has(note.id)}
           canEdit={editingEntityId === note.id}
           onUpdateText={onUpdateText}
           onUpdateSize={onUpdateSize}
+          onContentHeight={onContentHeight}
           onCommitEdit={onCommitEdit}
         />
       ))}
