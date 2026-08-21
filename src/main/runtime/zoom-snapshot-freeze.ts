@@ -1,9 +1,11 @@
+import type { NativeImage } from 'electron'
 import { ipcChannels } from '../../shared/ipc-contract'
 import type {
   ZoomSnapshotFrame,
   ZoomSnapshotState,
 } from '../../shared/types'
 import { pages } from './runtime-context'
+import type { Page } from './runtime-entities'
 import { safeSend } from './safe-send'
 import { bgView } from './view-refs'
 import { snapshotCaptureStillValid } from '../../shared/zoom-snapshot-lifecycle'
@@ -168,16 +170,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
 
       const image = await page.pageView.webContents.capturePage()
       if (image.isEmpty()) return null
-      const size = image.getSize()
-      return {
-        pageId: page.id,
-        // JPEG: PNG encode runs synchronously on this thread and costs
-        // 120–220ms per prepare at normal zooms; JPEG-85 is ~6× cheaper and
-        // decodes faster in the renderer (perf-zoom-pan-log Exp D).
-        dataUrl: `data:image/jpeg;base64,${image.toJPEG(85).toString('base64')}`,
-        capturedWidth: size.width,
-        capturedHeight: size.height,
-      }
+      return encodeFrame(page, image)
     }),
   )
 
@@ -360,30 +353,126 @@ export function beginZoomSnapshotHandoff(gen: number): boolean {
 }
 
 const DOUBLE_RAF = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))'
-const RERASTER_TIMEOUT_MS = 250
+/**
+ * Upper bound on one page's settle re-raster. The raster stays up while we
+ * wait, so a long wait costs interactivity, not a wrong frame; the cap only
+ * exists so a hung or throttled page cannot hold the reveal forever.
+ */
+const HANDOFF_TIMEOUT_MS = 750
+
+export interface HandoffCapture {
+  page: Page
+  /** Null when the page timed out or returned an empty capture. */
+  image: NativeImage | null
+}
+
+function encodeFrame(page: Page, image: NativeImage): ZoomSnapshotFrame {
+  const size = image.getSize()
+  return {
+    pageId: page.id,
+    // JPEG: PNG encode runs synchronously on this thread and costs
+    // 120–220ms per prepare at normal zooms; JPEG-85 is ~6× cheaper and
+    // decodes faster in the renderer (perf-zoom-pan-log Exp D).
+    dataUrl: `data:image/jpeg;base64,${image.toJPEG(85).toString('base64')}`,
+    capturedWidth: size.width,
+    capturedHeight: size.height,
+  }
+}
 
 /**
- * Resolves once every parked page has committed a frame at its current
- * emulation: two animation frames after the change means the renderer has
- * laid out and submitted at the new scale. A page that cannot answer (hung,
- * throttled, mid-navigation) is released by the timeout rather than holding
- * the reveal.
+ * Waits for each warm-parked page to present a frame at the settled scale,
+ * and returns that frame. Two animation frames mean the page has laid out
+ * and committed at the new emulation; they do not mean the compositor has
+ * drawn it. `capturePage` is a copy request on the view's surface, fulfilled
+ * only once a frame containing that commit is drawn, so its resolution is
+ * the presentation signal the reveal needs. The copy doubles as the next
+ * gesture's snapshot: it is the view at exactly the size and scale it will
+ * be revealed at.
  */
-export function waitForParkedPagesRerastered(): Promise<void> {
+export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
   const parked = pages.filter(
     (page) => isPageParkedByZoomSnapshot(page.id) && !page.pageView.webContents.isDestroyed(),
   )
   const startedAt = performance.now()
   return Promise.all(
-    parked.map((page) =>
-      Promise.race([
-        page.pageView.webContents.executeJavaScript(DOUBLE_RAF).catch(() => undefined),
-        new Promise<void>((resolve) => setTimeout(resolve, RERASTER_TIMEOUT_MS)),
-      ]),
-    ),
-  ).then(() => {
-    slog('handoff-rerastered', { pages: parked.length, waitMs: Math.round(performance.now() - startedAt) })
+    parked.map(async (page): Promise<HandoffCapture> => {
+      const contents = page.pageView.webContents
+      const presented = (async () => {
+        await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
+        if (contents.isDestroyed()) return null
+        const image = await contents.capturePage()
+        return image.isEmpty() ? null : image
+      })()
+      const image = await Promise.race([
+        presented.catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), HANDOFF_TIMEOUT_MS)),
+      ])
+      return { page, image }
+    }),
+  ).then((captures) => {
+    slog('handoff-presented', {
+      pages: parked.length,
+      captured: captures.filter((capture) => capture.image !== null).length,
+      waitMs: Math.round(performance.now() - startedAt),
+    })
+    return captures
   })
+}
+
+/**
+ * Publishes the settle captures as the prepared set. Deferred one macrotask
+ * so the reveal's setBounds calls reach the window server before the
+ * synchronous JPEG encode blocks this thread. Returns false when the set is
+ * not a complete picture of the visible pages (a timed-out page, a page that
+ * stayed live through the gesture, a gesture or scroll that landed while we
+ * waited) and the caller should fall back to a full background prepare.
+ */
+export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<boolean> {
+  const leaseAtCapture = captureLease
+  const contentSignatureAtCapture = currentContentSignature()
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  if (forced || active || gestureRunning) return false
+  if (!snapshotCaptureStillValid({
+    captureLeaseAtStart: leaseAtCapture,
+    currentCaptureLease: captureLease,
+    signatureAtStart: contentSignatureAtCapture,
+    currentSignature: currentContentSignature(),
+  })) {
+    slog('handoff-adopt-discarded', { revision })
+    return false
+  }
+  const captured = captures.filter(
+    (capture): capture is HandoffCapture & { image: NativeImage } =>
+      capture.image !== null && !capture.page.pageView.webContents.isDestroyed(),
+  )
+  if (captured.length === 0) return false
+  const capturedIds = new Set(captured.map((capture) => capture.page.id))
+  preparedFrames = [
+    ...captured.map((capture) => encodeFrame(capture.page, capture.image)),
+    ...preparedFrames.filter((frame) => !capturedIds.has(frame.pageId)),
+  ]
+  preparedContentSignature = contentSignatureAtCapture
+  const visibleIds = pages.filter((page) => {
+    if (page.pageView.webContents.isDestroyed()) return false
+    const bounds = page.pageView.getBounds()
+    return bounds.width > 0 && bounds.height > 0
+  }).map((page) => page.id)
+  const complete = visibleIds.every((id) => capturedIds.has(id))
+  // Only a complete set may claim the current bounds; anything less leaves
+  // the signature stale so the scheduled prepare recaptures.
+  preparedCaptureSignature = complete ? currentCaptureSignature() : ''
+  revision += 1
+  const adoptedRevision = revision
+  slog('handoff-adopted', {
+    revision,
+    frameCount: preparedFrames.length,
+    captured: captured.length,
+    complete,
+  })
+  publish({ revision, active: false, frames: preparedFrames })
+  const rendererReady = await waitForRendererReady(adoptedRevision)
+  if (!rendererReady) slog('renderer-ready-timeout', { revision: adoptedRevision })
+  return complete
 }
 
 export function endZoomGesture(gen: number): void {
@@ -397,10 +486,11 @@ export function endZoomGesture(gen: number): void {
 }
 
 /**
- * Scheduled after the settle handoff, so parked pages have already committed
- * a frame at the exact scale; the delay covers one compositor frame for
- * capturePage to pick up the revealed surface. Any longer just widens the
- * window in which a new gesture finds no snapshot.
+ * Background prepare for everything the settle handoff did not cover: a live
+ * (unfrozen) gesture, a page that stayed live or timed out, any layout that
+ * moved a page. The delay covers one compositor frame so capturePage picks
+ * up the surface at its new bounds. Any longer just widens the window in
+ * which a new gesture finds no snapshot.
  */
 const PREPARE_DELAY_MS = 50
 

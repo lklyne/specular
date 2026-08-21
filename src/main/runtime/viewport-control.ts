@@ -77,12 +77,13 @@ import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
 import {
+  adoptHandoffCaptures,
   beginZoomGesture,
   beginZoomSnapshotHandoff,
+  captureParkedPagesAtSettle,
   endZoomGesture,
   scheduleZoomSnapshotPreparation,
   slog,
-  waitForParkedPagesRerastered,
 } from './zoom-snapshot-freeze'
 
 let zoomGestureGen = 0
@@ -138,9 +139,11 @@ export function setViewportCamera(
 /**
  * Settle for a frozen gesture runs as a handoff: lay out once with the parked
  * views warm (sized and emulated at the settled scale, off-screen), wait for
- * them to commit a frame, then end the freeze and lay out again to reveal
- * them. Revealing before that commit shows the pre-gesture surface stretched
- * into the new bounds for a frame or two.
+ * each to present a frame at that scale, then end the freeze and lay out
+ * again to reveal them. Revealing before that frame is on screen shows the
+ * pre-gesture surface stretched into the new bounds. The presented frames
+ * become the next gesture's snapshot, so the reveal is not followed by a
+ * second capture pass over every page.
  */
 async function settleZoomGesture(gen: number): Promise<void> {
   slog('gesture-settle', { gen, zoom })
@@ -152,12 +155,12 @@ async function settleZoomGesture(gen: number): Promise<void> {
     return
   }
   layoutAllViews()
-  await waitForParkedPagesRerastered()
+  const captures = await captureParkedPagesAtSettle()
   // A new gesture adopted the frames while we waited; it owns the settle now.
   if (gen !== zoomGestureGen) return
   endZoomGesture(gen)
   layoutAllViews()
-  scheduleZoomSnapshotPreparation()
+  if (!(await adoptHandoffCaptures(captures))) scheduleZoomSnapshotPreparation()
 }
 
 export function setZoom(value: number): void {
