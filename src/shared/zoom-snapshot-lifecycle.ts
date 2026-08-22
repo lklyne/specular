@@ -20,7 +20,7 @@ export function snapshotCaptureStillValid({
  * decoded bitmap (~16MB at this edge for a 16:10 page) while leaving enough
  * pixels to zoom a desktop page back to 1:1 on a Retina display.
  */
-export const SNAPSHOT_MAX_EDGE_PX = 2048
+const SNAPSHOT_MAX_EDGE_PX = 2048
 
 /**
  * The emulation scale a settle capture should render at: the scale that puts

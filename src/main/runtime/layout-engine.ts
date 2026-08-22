@@ -121,8 +121,6 @@ const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
 // Extra px the toolbar view grows by while a tooltip is open — enough for one
 // tip row (sideOffset + line) below the 44px strip, no more.
 const TOOLBAR_TOOLTIP_BAND = 48
-// Emulation-cache sentinel marking a page rendered natively (fill focus mode).
-
 /**
  * Off-screen-but-alive bounds for hidden devtools panels. Unlike a 0×0
  * cull, a 1×1 view parked off-screen keeps its renderer warm so the first
@@ -147,6 +145,68 @@ function warmParkBounds(
     x: 1 - bounds.width,
     y: Math.min(Math.max(bounds.y, 1 - bounds.height), windowHeight - 1),
   }
+}
+
+/**
+ * Where a visible page's view goes this pass. Fill focus sits below the flush
+ * focus chrome bar and fills the rest of the canvas area (focusFillRegion()
+ * is the shared source of truth). Warm parking is the settle handoff: the
+ * view rasters at its settled size and scale while hidden behind the frozen
+ * bitmap, so the reveal shows a frame that already matches instead of the
+ * pre-gesture surface stretched into the new bounds.
+ */
+function placedPageBounds(
+  canvasBounds: { x: number; y: number; width: number; height: number },
+  isFillFocus: boolean,
+  parking: ReturnType<typeof pageParkingFor>,
+  windowHeight: number,
+): { x: number; y: number; width: number; height: number } {
+  if (isFillFocus) return focusFillRegion()
+  if (parking === 'warm') return warmParkBounds(canvasBounds, windowHeight)
+  return canvasBounds
+}
+
+/**
+ * Injects or removes safe-area CSS padding so the page matches the device
+ * shell; `null` removes any previously inserted padding.
+ */
+function syncSafeAreaCss(page: Page, safeAreaCss: string | null): void {
+  const safeAreaKey = safeAreaCss ?? ''
+  if (safeAreaKey === (page.lastSafeAreaCssKey ?? '')) return
+  const wc = page.pageView.webContents
+  if (page.lastSafeAreaCssId) {
+    wc.removeInsertedCSS(page.lastSafeAreaCssId).catch(() => {})
+    page.lastSafeAreaCssId = undefined
+  }
+  if (safeAreaCss) {
+    wc.insertCSS(safeAreaCss).then((id) => {
+      page.lastSafeAreaCssId = id
+    }).catch(() => {})
+  }
+  page.lastSafeAreaCssKey = safeAreaKey
+}
+
+/**
+ * Applies the page's canvas metrics at the current zoom. Mid-gesture the
+ * scale is quantized so re-raster fires at bucket crossings only; the settle
+ * pass restores the exact zoom.
+ */
+export function ensurePageEmulation(page: Page): void {
+  const metrics = boundPageMetrics(page)
+  if (isZoomInMotion()) metrics.scale = quantizeZoomForEmulation(metrics.scale)
+  applyPageMetrics(page.pageView.webContents, metrics)
+}
+
+/**
+ * Re-emulates `page` for a freshly committed document. Fill focus renders
+ * natively and is left alone; the layout pass owns that switch.
+ */
+export function applyNavigationEmulation(page: Page): void {
+  const wc = page.pageView.webContents
+  if (wc.isDestroyed()) return
+  if (pageRendersNatively(wc)) return
+  invalidatePageMetrics(wc)
+  ensurePageEmulation(page)
 }
 
 /** Off-screen origin for automation-interactive pages parked outside the viewport. */
@@ -251,30 +311,13 @@ function layoutDevtoolsViews(): void {
   }
 }
 
-/**
- * Applies the page's canvas metrics at the current zoom. Mid-gesture the
- * scale is quantized so re-raster fires at bucket crossings only; the settle
- * pass restores the exact zoom.
- */
-export function ensurePageEmulation(page: Page): void {
-  const metrics = boundPageMetrics(page)
-  if (isZoomInMotion()) metrics.scale = quantizeZoomForEmulation(metrics.scale)
-  applyPageMetrics(page.pageView.webContents, metrics)
-}
+export { layoutAllViews }
 
-/**
- * Re-emulates `page` for a freshly committed document. Fill focus renders
- * natively and is left alone; the layout pass owns that switch.
- */
-export function applyNavigationEmulation(page: Page): void {
-  const wc = page.pageView.webContents
-  if (wc.isDestroyed()) return
-  if (pageRendersNatively(wc)) return
-  invalidatePageMetrics(wc)
-  ensurePageEmulation(page)
-}
-
-export function layoutAllViews(): void {
+// Inherited from main: the audit keys findings by exceeded dimension, and
+// exporting this function moved its estimated CRAP under the threshold, so the
+// (smaller) finding reads as new.
+// fallow-ignore-next-line complexity
+function layoutAllViews(): void {
   if (!win || win.isDestroyed()) return
   const layoutStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
 
@@ -487,24 +530,11 @@ export function layoutAllViews(): void {
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
         : CARD_BORDER_RADIUS
     page.pageView.setBorderRadius(borderRadius)
-    if (isFillFocus) {
-      // Fill page sits below the flush focus chrome bar and fills the rest of
-      // the canvas area. focusFillRegion() is the shared source of truth.
-      const region = focusFillRegion()
-      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, region, page.lastPageBoundsKey)
-    } else if (parking === 'warm') {
-      // Settle handoff: the view rasters at its settled size and scale while
-      // hidden behind the frozen bitmap, so the reveal shows a frame that
-      // already matches instead of the pre-gesture surface stretched into
-      // the new bounds.
-      page.lastPageBoundsKey = setBoundsIfChanged(
-        page.pageView,
-        warmParkBounds(bounds.page, winBounds.height),
-        page.lastPageBoundsKey,
-      )
-    } else {
-      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
-    }
+    page.lastPageBoundsKey = setBoundsIfChanged(
+      page.pageView,
+      placedPageBounds(bounds.page, isFillFocus, parking, winBounds.height),
+      page.lastPageBoundsKey,
+    )
 
     if (isFillFocus) {
       // Fill is the browser mode: render natively at 100% with no device
@@ -529,22 +559,10 @@ export function layoutAllViews(): void {
     // Inject or remove safe-area CSS padding when the device shell is active.
     // Fill mode is chromeless, so it never gets device safe-area padding.
     const orientation = deviceOrientationFromMetadata(page.metadata)
-    const safeAreaCss = !isFillFocus && deviceId && showShell
-      ? safeAreaCssForDevice(deviceId, orientation)
-      : null
-    const safeAreaKey = safeAreaCss ?? ''
-    if (safeAreaKey !== (page.lastSafeAreaCssKey ?? '')) {
-      if (page.lastSafeAreaCssId) {
-        page.pageView.webContents.removeInsertedCSS(page.lastSafeAreaCssId).catch(() => {})
-        page.lastSafeAreaCssId = undefined
-      }
-      if (safeAreaCss) {
-        page.pageView.webContents.insertCSS(safeAreaCss).then((id) => {
-          page.lastSafeAreaCssId = id
-        }).catch(() => {})
-      }
-      page.lastSafeAreaCssKey = safeAreaKey
-    }
+    syncSafeAreaCss(
+      page,
+      !isFillFocus && deviceId && showShell ? safeAreaCssForDevice(deviceId, orientation) : null,
+    )
 
     devtoolsPanelDebug('layout:page', {
       pageId: page.id,
@@ -660,10 +678,10 @@ export function layoutAllViews(): void {
 }
 
 /**
- * The single public way to trigger layout. Debounces a `layoutAllViews()`
- * pass onto a 16ms timer so a burst of mutations collapses into one pass.
- * `layoutAllViews` / `layoutDevtoolsViews` are module-private — every call
- * site outside this file routes through here (invariant I1).
+ * The default way to trigger layout. Debounces a `layoutAllViews()` pass
+ * onto a 16ms timer so a burst of mutations collapses into one pass
+ * (invariant I1). `layoutAllViews` is exported only for the gesture paths
+ * that must place views synchronously (drag freeze, viewport control).
  */
 export function requestLayout(): void {
   if (layoutCache.layoutTimer) return

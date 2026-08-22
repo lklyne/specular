@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CanvasSceneFileEntity, CanvasScenePageEntity, FrozenPagesState, LayoutUpdateData, ThemeData } from '../../shared/types'
+import { useMemo, useRef } from 'react'
+import type { LayoutUpdateData, ThemeData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
@@ -15,6 +14,8 @@ import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
 import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
+import { useFrozenPagesState } from './useFrozenPagesState'
+import { useChromeSlices } from './useChromeSlices'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -32,28 +33,7 @@ export default function App({
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const [frozenPages, setFrozenPages] = useState<FrozenPagesState>({
-    revision: 0,
-    target: 'bg',
-    active: false,
-    frames: [],
-  })
-  const [dragFrozenPageIds, setDragFrozenPageIds] = useState<ReadonlySet<string>>(new Set())
-  useEffect(
-    () =>
-      api.onFrozenPagesState((data) => {
-        if (data.target === 'bg') {
-          setFrozenPages(data)
-        } else if (data.target === 'above') {
-          // above-view draws chrome and raster for drag-frozen pages; this
-          // pass only needs their ids, to skip them.
-          setDragFrozenPageIds(
-            data.active ? new Set(data.frames.map((frame) => frame.pageId)) : new Set(),
-          )
-        }
-      }),
-    [],
-  )
+  const { frozenPages, dragFrozenPageIds } = useFrozenPagesState(api)
   const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
     api.frozenPagesReady('bg', revision),
   )
@@ -73,41 +53,9 @@ export default function App({
     layoutRef,
   })
 
-  const pageEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasScenePageEntity => e.kind === 'page'),
-    [layoutData.entities],
-  )
-  const fileEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
-    [layoutData.entities],
-  )
-  const focus = focusContext(layoutData)
-  // 'fill' focus is the browser-like mode: edge-to-edge, no border, no bezel.
-  const fillPageId = focus.mode === 'fill' ? focus.pageId : null
-  // Eye off during focus: only the focused page's chrome survives; all other
-  // context (other pages, file frames, groups) is hidden, never dimmed (ADR 0021).
-  const hideContext = focus.active && !focus.showsContext
-  const chromePages = useMemo(() => {
-    if (fillPageId) return pageEntities.filter((p) => p.id !== fillPageId)
-    if (hideContext) return pageEntities.filter((p) => p.id === focus.pageId)
-    return pageEntities
-  }, [pageEntities, fillPageId, hideContext, focus.pageId])
-  const chromeFiles = useMemo(
-    () => (hideContext ? [] : fileEntities),
-    [fileEntities, hideContext],
-  )
-  // Hoist per-layer slices so the memoized layers receive stable array refs and
-  // skip re-rendering on every pan/zoom nudge (props only change on a real
-  // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
-  const svgDeviceShellPages = useMemo(
-    // above-view's DragFreezeLayer draws a drag-frozen page's shell; this
-    // DOM layer would otherwise draw it again at its stale position.
-    () => chromePages.filter((f) => f.useSvgDeviceShell && !dragFrozenPageIds.has(f.id)),
-    [chromePages, dragFrozenPageIds],
-  )
-  const chromeGroups = useMemo(
-    () => (hideContext ? [] : (layoutData.groups ?? [])),
-    [hideContext, layoutData.groups],
+  const { chromePages, chromeFiles, svgDeviceShellPages, chromeGroups } = useChromeSlices(
+    layoutData,
+    dragFrozenPageIds,
   )
   return (
     <div
