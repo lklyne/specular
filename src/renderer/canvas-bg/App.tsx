@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, ThemeData, ZoomSnapshotState } from '../../shared/types'
+import type { CanvasSceneFileEntity, CanvasScenePageEntity, FrozenPagesState, LayoutUpdateData, ThemeData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -14,7 +14,7 @@ import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
-import { useZoomSnapshotBitmaps } from './useZoomSnapshotBitmaps'
+import { useFrozenPageBitmaps } from './useFrozenPageBitmaps'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -32,13 +32,20 @@ export default function App({
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const [zoomSnapshot, setZoomSnapshot] = useState<ZoomSnapshotState>({
+  const [frozenPages, setFrozenPages] = useState<FrozenPagesState>({
     revision: 0,
+    target: 'bg',
     active: false,
     frames: [],
   })
-  useEffect(() => api.onZoomSnapshotState(setZoomSnapshot), [])
-  const zoomSnapshotBitmaps = useZoomSnapshotBitmaps(zoomSnapshot, api.zoomSnapshotReady)
+  useEffect(
+    () =>
+      api.onFrozenPagesState((data) => {
+        if (data.target === 'bg') setFrozenPages(data)
+      }),
+    [],
+  )
+  const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, api.frozenPagesReady)
   const t = useSceneCameraTransform(
     api.onViewportNudge,
     layoutData,
@@ -132,7 +139,7 @@ export default function App({
       <ChromeCanvasSurface
         pages={chromePages}
         fileEntities={chromeFiles}
-        snapshots={zoomSnapshotBitmaps}
+        snapshots={frozenPageBitmaps}
         transform={t}
         isDark={isDark}
       />

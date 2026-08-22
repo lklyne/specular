@@ -81,11 +81,8 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
 import type { Page } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
-import {
-  isZoomSnapshotFreezeActive,
-  scheduleZoomSnapshotPreparation,
-  zoomSnapshotParkingFor,
-} from './zoom-snapshot-freeze'
+import { pageParkingFor } from './page-freeze'
+import { scheduleZoomSnapshotPreparation } from './zoom-snapshot-freeze'
 
 let buildMsSink: ((ms: number) => void) | null = null
 
@@ -429,7 +426,7 @@ export function layoutAllViews(): void {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
 
-    const parking = zoomSnapshotParkingFor(page.id)
+    const parking = pageParkingFor(page.id)
     if (parking === 'hidden') {
       setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(

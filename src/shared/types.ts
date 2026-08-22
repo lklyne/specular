@@ -1808,7 +1808,13 @@ export interface ViewportNudge {
   zoom: number
 }
 
-export interface ZoomSnapshotFrame {
+/** Which overlay a frozen-page publish targets: the page-body layer (`bg`) or
+ *  the above-pages input/annotation layer (`above`). Each target gets its own
+ *  revision sequence and ready-ack, so one freeze consumer never waits on
+ *  another's renderer. */
+export type FreezeTarget = 'bg' | 'above'
+
+export interface FrozenPageFrame {
   pageId: string
   /** The page content state this frame pictures; see `pageContentKey`. */
   contentKey: string
@@ -1818,13 +1824,14 @@ export interface ZoomSnapshotFrame {
 }
 
 /**
- * Experimental frozen-page substrate used by the pan/zoom performance spike.
- * Frames are preloaded into canvas-bg before live WebContentsViews are hidden.
+ * Frozen-page substrate used by the pan/zoom performance spike. Frames are
+ * preloaded into the target renderer before live WebContentsViews are hidden.
  */
-export interface ZoomSnapshotState {
+export interface FrozenPagesState {
   revision: number
+  target: FreezeTarget
   active: boolean
-  frames: ZoomSnapshotFrame[]
+  frames: FrozenPageFrame[]
 }
 
 /**

@@ -1,13 +1,19 @@
 import type { NativeImage } from 'electron'
-import { ipcChannels } from '../../shared/ipc-contract'
-import type {
-  ZoomSnapshotFrame,
-  ZoomSnapshotState,
-} from '../../shared/types'
+import type { FrozenPageFrame } from '../../shared/types'
 import { pages } from './runtime-context'
 import type { Page } from './runtime-entities'
-import { safeSend } from './safe-send'
-import { bgView } from './view-refs'
+import {
+  capturePageFrame,
+  currentRevision,
+  encodePageFrame,
+  nextRevision,
+  pageContentKey,
+  publish,
+  readyRevision,
+  registerFreeze,
+  releaseFreeze,
+  waitForRendererReady,
+} from './page-freeze'
 import {
   frameMeetsTarget,
   pickBetterFrame,
@@ -20,86 +26,45 @@ import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
 import { zoom } from './runtime-context'
 import { captureViaCdp, type CdpCapture } from './zoom-snapshot-cdp-capture'
 
-let preparedFrames: ZoomSnapshotFrame[] = []
+const FREEZE_TARGET = 'bg'
+const FREEZE_ID = 'zoom'
+
+let preparedFrames: FrozenPageFrame[] = []
 let active = false
 let forced = false
-let revision = 0
-let rendererReadyRevision = 0
 let preparationTimer: ReturnType<typeof setTimeout> | null = null
 let preparedContentSignature = ''
 let preparedCaptureSignature = ''
 let captureLease = 0
-const readyWaiters = new Map<number, (ready: boolean) => void>()
-
-function publish(state: ZoomSnapshotState): void {
-  if (!bgView || bgView.webContents.isDestroyed()) return
-  safeSend(bgView.webContents, ipcChannels.zoomSnapshotState, state)
-}
-
-export function isZoomSnapshotFreezeActive(): boolean {
-  return active
-}
 
 /**
- * Whether `pageId` should be parked while the freeze is active. Only pages on
- * screen at capture time have a bitmap; a page that scrolls into view during a
- * zoom-out has none, so it stays live rather than parking into a blank hole.
+ * Mirrors `active`/`handoff`/`preparedFrames` into the shared parking
+ * registry so the layout engine can place a parked page without knowing
+ * which freeze owns it. Called at every point those three change.
  */
-export function isPageParkedByZoomSnapshot(pageId: string): boolean {
-  return active && preparedFrames.some((frame) => frame.pageId === pageId)
-}
-
-export type ZoomSnapshotParking = 'hidden' | 'warm' | null
-
-/**
- * How the layout pass should place a parked page: `hidden` (zero bounds) for
- * the gesture body, `warm` (full size, off-screen, compositing) during the
- * settle handoff so it re-rasters at the settled scale before it is revealed.
- */
-export function zoomSnapshotParkingFor(pageId: string): ZoomSnapshotParking {
-  if (!isPageParkedByZoomSnapshot(pageId)) return null
-  return handoff ? 'warm' : 'hidden'
-}
-
-export function markZoomSnapshotRendererReady(readyRevision: number): void {
-  rendererReadyRevision = Math.max(rendererReadyRevision, readyRevision)
-  for (const [waitingRevision, resolve] of readyWaiters) {
-    if (waitingRevision > rendererReadyRevision) continue
-    readyWaiters.delete(waitingRevision)
-    resolve(true)
+function syncFreezeRegistry(): void {
+  if (!active) {
+    releaseFreeze(FREEZE_ID)
+    return
   }
-}
-
-function waitForRendererReady(
-  waitingRevision: number,
-  timeoutMs = 1_000,
-): Promise<boolean> {
-  if (rendererReadyRevision >= waitingRevision) return Promise.resolve(true)
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      readyWaiters.delete(waitingRevision)
-      resolve(false)
-    }, timeoutMs)
-    readyWaiters.set(waitingRevision, (ready) => {
-      clearTimeout(timeout)
-      resolve(ready)
-    })
+  registerFreeze(FREEZE_ID, {
+    target: FREEZE_TARGET,
+    pageIds: preparedFrames.map((frame) => frame.pageId),
+    parking: handoff ? 'warm' : 'hidden',
   })
 }
 
-/** Identifies one page's content state: what a frame of it is a picture of. */
-function pageContentKey(page: Page): string {
-  const viewport = boundEffectivePageContentSize(page)
-  return [
-    page.id,
-    viewport.width,
-    viewport.height,
-    page.navGeneration,
-    page.scrollX ?? 0,
-    page.scrollY ?? 0,
-  ].join(':')
+/**
+ * Whether `pageId` is parked as part of the zoom freeze right now. Only
+ * pages on screen at capture time have a bitmap; a page that scrolls into
+ * view during a zoom-out has none, so it stays live rather than parking
+ * into a blank hole.
+ */
+function isParkedByZoom(pageId: string): boolean {
+  return active && preparedFrames.some((frame) => frame.pageId === pageId)
 }
 
+/** Identifies one page's content state: what a frame of it is a picture of. */
 function currentContentSignature(): string {
   return pages.map(pageContentKey).join('|')
 }
@@ -109,7 +74,7 @@ function currentContentSignature(): string {
  * existing frame when that frame pictures the same content at a higher
  * resolution; frames for pages that no longer exist are dropped.
  */
-function mergeFrames(incoming: ZoomSnapshotFrame[]): ZoomSnapshotFrame[] {
+function mergeFrames(incoming: FrozenPageFrame[]): FrozenPageFrame[] {
   const existingById = new Map(preparedFrames.map((frame) => [frame.pageId, frame]))
   const merged = new Map(existingById)
   for (const frame of incoming) {
@@ -157,10 +122,11 @@ export async function prepareZoomSnapshotFreeze(options?: {
     // If the renderer never acked this revision (e.g. it published before the
     // renderer booted), the frames are unusable until re-delivered. Republish
     // and wait again instead of returning a stale "ready" set.
-    let rendererReady = rendererReadyRevision >= revision
+    const revision = currentRevision(FREEZE_TARGET)
+    let rendererReady = readyRevision(FREEZE_TARGET) >= revision
     if (!rendererReady) {
-      publish({ revision, active, frames: preparedFrames })
-      rendererReady = await waitForRendererReady(revision)
+      publish(FREEZE_TARGET, { revision, target: FREEZE_TARGET, active, frames: preparedFrames })
+      rendererReady = await waitForRendererReady(FREEZE_TARGET, revision)
     }
     return {
       frameCount: preparedFrames.length,
@@ -177,20 +143,10 @@ export async function prepareZoomSnapshotFreeze(options?: {
 
   const startedAt = performance.now()
   const captureLeaseAtStart = captureLease
-  const frames = await Promise.all(
-    pages.map(async (page): Promise<ZoomSnapshotFrame | null> => {
-      if (page.pageView.webContents.isDestroyed()) return null
-      const bounds = page.pageView.getBounds()
-      if (bounds.width <= 0 || bounds.height <= 0) return null
-
-      const image = await page.pageView.webContents.capturePage()
-      if (image.isEmpty()) return null
-      return encodeFrame(page, image)
-    }),
-  )
+  const frames = await Promise.all(pages.map((page) => capturePageFrame(page)))
 
   const capturedFrames = frames.filter(
-    (frame): frame is ZoomSnapshotFrame => frame !== null,
+    (frame): frame is FrozenPageFrame => frame !== null,
   )
   const captureMs = performance.now() - startedAt
   // Culled (off-screen) pages sit at zero bounds and can never capture, so a
@@ -216,7 +172,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
         0,
       ),
       captureMs,
-      rendererReady: rendererReadyRevision >= revision,
+      rendererReady: readyRevision(FREEZE_TARGET) >= currentRevision(FREEZE_TARGET),
       reused: false,
       discarded: true,
     }
@@ -234,7 +190,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
         0,
       ),
       captureMs,
-      rendererReady: rendererReadyRevision >= revision,
+      rendererReady: readyRevision(FREEZE_TARGET) >= currentRevision(FREEZE_TARGET),
       reused: false,
       discarded: true,
     }
@@ -243,10 +199,9 @@ export async function prepareZoomSnapshotFreeze(options?: {
   preparedFrames = candidateFrames
   preparedContentSignature = contentSignature
   preparedCaptureSignature = captureSignature
-  revision += 1
-  const preparedRevision = revision
-  publish({ revision, active: false, frames: preparedFrames })
-  const rendererReady = await waitForRendererReady(preparedRevision)
+  const preparedRevision = nextRevision(FREEZE_TARGET)
+  publish(FREEZE_TARGET, { revision: preparedRevision, target: FREEZE_TARGET, active: false, frames: preparedFrames })
+  const rendererReady = await waitForRendererReady(FREEZE_TARGET, preparedRevision)
   return {
     frameCount: preparedFrames.length,
     encodedBytes: preparedFrames.reduce(
@@ -262,7 +217,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
 
 /** Mount or reveal the prepared bitmaps while live views are still visible. */
 export function showPreparedZoomSnapshots(): void {
-  publish({ revision, active: true, frames: preparedFrames })
+  publish(FREEZE_TARGET, { revision: currentRevision(FREEZE_TARGET), target: FREEZE_TARGET, active: true, frames: preparedFrames })
 }
 
 /** Controls the layout-engine gate that parks live page views at zero bounds. */
@@ -270,6 +225,7 @@ export function setZoomSnapshotFreezeActive(next: boolean): void {
   if (next) captureLease += 1
   forced = next
   active = next && preparedFrames.length > 0
+  syncFreezeRegistry()
 }
 
 /**
@@ -289,7 +245,7 @@ let handoff = false
 
 function liveFallbackReason(): string | null {
   if (preparedFrames.length === 0) return 'no-frames'
-  if (rendererReadyRevision < revision) return 'renderer-not-ready'
+  if (readyRevision(FREEZE_TARGET) < currentRevision(FREEZE_TARGET)) return 'renderer-not-ready'
   if (preparedContentSignature !== currentContentSignature()) return 'signature-mismatch'
   return null
 }
@@ -302,7 +258,8 @@ function freezeForGesture(): boolean {
   // Parking the live views invalidates any capture still in flight.
   captureLease += 1
   active = true
-  publish({ revision, active: true, frames: preparedFrames })
+  syncFreezeRegistry()
+  publish(FREEZE_TARGET, { revision: currentRevision(FREEZE_TARGET), target: FREEZE_TARGET, active: true, frames: preparedFrames })
   return true
 }
 
@@ -312,6 +269,7 @@ export function beginZoomGesture(gen: number): boolean {
   // A gesture that starts mid-handoff keeps the frames; the pending reveal
   // sees the generation change and stands down.
   handoff = false
+  syncFreezeRegistry()
   if (forced) return active
   if (freezeForGesture()) return true
   void prepareZoomSnapshotFreeze({ force: true })
@@ -335,6 +293,7 @@ export function beginZoomGesture(gen: number): boolean {
 export function beginZoomSnapshotHandoff(gen: number): boolean {
   if (gen !== gestureGen || forced || !active) return false
   handoff = true
+  syncFreezeRegistry()
   return true
 }
 
@@ -356,21 +315,7 @@ export interface HandoffCapture {
   hiRes: CdpCapture | null
 }
 
-function encodeFrame(page: Page, image: NativeImage): ZoomSnapshotFrame {
-  const size = image.getSize()
-  return {
-    pageId: page.id,
-    contentKey: pageContentKey(page),
-    // JPEG: PNG encode runs synchronously on this thread and costs
-    // 120 to 220ms per prepare at normal zooms; JPEG-85 is ~6× cheaper and
-    // decodes faster in the renderer (perf-zoom-pan-log Exp D).
-    dataUrl: `data:image/jpeg;base64,${image.toJPEG(85).toString('base64')}`,
-    capturedWidth: size.width,
-    capturedHeight: size.height,
-  }
-}
-
-function encodeCdpFrame(page: Page, contentKey: string, capture: CdpCapture): ZoomSnapshotFrame {
+function encodeCdpFrame(page: Page, contentKey: string, capture: CdpCapture): FrozenPageFrame {
   return {
     pageId: page.id,
     contentKey,
@@ -423,7 +368,7 @@ function hiResPlan(page: Page): { scale: number; cssWidth: number; cssHeight: nu
  */
 export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
   const parked = pages.filter(
-    (page) => isPageParkedByZoomSnapshot(page.id) && !page.pageView.webContents.isDestroyed(),
+    (page) => isParkedByZoom(page.id) && !page.pageView.webContents.isDestroyed(),
   )
   return Promise.all(
     parked.map(async (page): Promise<HandoffCapture> => {
@@ -492,7 +437,7 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
     captured.map((capture) =>
       capture.hiRes
         ? encodeCdpFrame(capture.page, capture.contentKey, capture.hiRes)
-        : encodeFrame(capture.page, capture.image),
+        : encodePageFrame(capture.page, capture.image),
     ),
   )
   preparedContentSignature = contentSignatureAtCapture
@@ -505,10 +450,9 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
   // Only a complete set may claim the current bounds; anything less leaves
   // the signature stale so the scheduled prepare recaptures.
   preparedCaptureSignature = complete ? currentCaptureSignature() : ''
-  revision += 1
-  const adoptedRevision = revision
-  publish({ revision, active: false, frames: preparedFrames })
-  const rendererReady = await waitForRendererReady(adoptedRevision)
+  const adoptedRevision = nextRevision(FREEZE_TARGET)
+  publish(FREEZE_TARGET, { revision: adoptedRevision, target: FREEZE_TARGET, active: false, frames: preparedFrames })
+  await waitForRendererReady(FREEZE_TARGET, adoptedRevision)
   return complete
 }
 
@@ -516,9 +460,11 @@ export function endZoomGesture(gen: number): void {
   if (gen !== gestureGen) return
   gestureRunning = false
   handoff = false
+  syncFreezeRegistry()
   if (forced || !active) return
   active = false
-  publish({ revision, active: false, frames: preparedFrames })
+  syncFreezeRegistry()
+  publish(FREEZE_TARGET, { revision: currentRevision(FREEZE_TARGET), target: FREEZE_TARGET, active: false, frames: preparedFrames })
 }
 
 /**
@@ -556,6 +502,7 @@ export function clearZoomSnapshotFreeze(): void {
   preparedFrames = []
   preparedContentSignature = ''
   preparedCaptureSignature = ''
-  revision += 1
-  publish({ revision, active: false, frames: [] })
+  syncFreezeRegistry()
+  const clearedRevision = nextRevision(FREEZE_TARGET)
+  publish(FREEZE_TARGET, { revision: clearedRevision, target: FREEZE_TARGET, active: false, frames: [] })
 }

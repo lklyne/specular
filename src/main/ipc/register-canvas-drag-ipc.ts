@@ -1,6 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
-import type { CanvasDragStartSelection, CanvasHoverTarget } from '../../shared/types'
+import type { CanvasDragStartSelection, CanvasHoverTarget, FreezeTarget } from '../../shared/types'
 import {
   applyDragDelta,
   finalizeDrag,
@@ -45,7 +45,7 @@ import { resolveSelectionScope } from '../runtime/selection-scope'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
 import { reparentEntitiesInGesture } from '../runtime/group-membership'
-import { markZoomSnapshotRendererReady } from '../runtime/zoom-snapshot-freeze'
+import { markRendererReady } from '../runtime/page-freeze'
 
 // The entity currently being resized, captured at resize-begin so resize-end can
 // reflow its managed group (if any) before committing the gesture's undo step.
@@ -118,9 +118,9 @@ function endDragSession(
 
 export function registerCanvasDragIpc(): void {
   ipcMain.on(
-    ipcChannels.zoomSnapshotReady,
-    (_event, { revision }: { revision: number }) => {
-      if (Number.isFinite(revision)) markZoomSnapshotRendererReady(revision)
+    ipcChannels.frozenPagesReady,
+    (_event, { target, revision }: { target: FreezeTarget; revision: number }) => {
+      if (Number.isFinite(revision)) markRendererReady(target, revision)
     },
   )
   ipcMain.on(

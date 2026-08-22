@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
 import { drawChromeCanvas, type ChromeCanvasItem } from './chromeCanvasDraw'
-import type { ZoomSnapshotBitmaps } from './useZoomSnapshotBitmaps'
+import type { FrozenPageBitmaps } from './useFrozenPageBitmaps'
 
 /**
  * Full-window canvas that renders page borders and device shells in screen
@@ -17,7 +17,7 @@ export function ChromeCanvasSurface({
 }: {
   pages: ChromeCanvasItem[]
   fileEntities: ChromeCanvasItem[]
-  snapshots: ZoomSnapshotBitmaps
+  snapshots: FrozenPageBitmaps
   transform: SceneCameraTransform
   isDark: boolean
 }) {
