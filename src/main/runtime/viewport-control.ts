@@ -31,8 +31,9 @@ import {
   currentEditingEntityId,
 } from './editing-entity-runtime'
 import { win } from './view-refs'
-import { requestLayout } from './layout-engine'
+import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
+import { isZoomInMotion, markPanMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -70,17 +71,92 @@ import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
+import {
+  adoptHandoffCaptures,
+  beginZoomGesture,
+  beginZoomSnapshotHandoff,
+  captureParkedPagesAtSettle,
+  endZoomGesture,
+  scheduleZoomSnapshotPreparation,
+} from './zoom-snapshot-freeze'
 
-export function setZoom(value: number): void {
+let zoomGestureGen = 0
+
+export function setViewportCamera(
+  value: number,
+  nextPan: { x: number; y: number },
+): void {
   if (!suppressCameraAnimationCancel) cancelCameraAnimation()
   endFocusOnCameraChange()
   const nextZoom = clampCanvasZoom(value)
-  if (nextZoom === zoom) return
-  setZoomState(nextZoom)
-  markDirty('canvas', 'toolbar')
+  const zoomChanged = nextZoom !== zoom
+  const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
+  if (!zoomChanged && !panChanged) return
+
+  if (zoomChanged && !isZoomInMotion()) {
+    zoomGestureGen += 1
+    beginZoomGesture(zoomGestureGen)
+  }
+  if (zoomChanged) setZoomState(nextZoom)
+  if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
+
+  // Zoom and its anchor-correcting pan are one camera update. Publish only
+  // after both values land so renderer transforms never observe a half-camera
+  // and the full-window grid redraws once per physical input tick.
+  //
+  // Zoom re-broadcasts the scene every tick: screen-constant chrome (handles,
+  // popups, outlines) is sized against `layoutData.zoom`, and the CSS scene
+  // transform alone would scale it with the scene. Pan rides the transform
+  // and re-baselines on settle.
+  if (zoomChanged) markDirty('toolbar', 'canvas')
+  // Move the native views first, then tell the renderer where the camera
+  // is, so the chrome ring never leads the page.
+  if (!zoomChanged) layoutAllViews()
   broadcastViewportNudge()
-  broadcastCanvasZoomToPages()
+  if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
+  if (zoomChanged) {
+    const gen = zoomGestureGen
+    markZoomMotion(() => {
+      void settleZoomGesture(gen)
+    })
+  }
+  if (panChanged) {
+    markPanMotion(() => {
+      markDirty('canvas')
+      requestLayout()
+    })
+  }
+}
+
+/**
+ * Settle for a frozen gesture runs as a handoff: lay out once with the parked
+ * views warm (sized and emulated at the settled scale, off-screen), wait for
+ * each to present a frame at that scale, then end the freeze and lay out
+ * again to reveal them. Revealing before that frame is on screen shows the
+ * pre-gesture surface stretched into the new bounds. The presented frames
+ * become the next gesture's snapshot, so the reveal is not followed by a
+ * second capture pass over every page.
+ */
+async function settleZoomGesture(gen: number): Promise<void> {
+  markDirty('canvas')
+  if (!beginZoomSnapshotHandoff(gen)) {
+    endZoomGesture(gen)
+    requestLayout()
+    scheduleZoomSnapshotPreparation()
+    return
+  }
+  layoutAllViews()
+  const captures = await captureParkedPagesAtSettle()
+  // A new gesture adopted the frames while we waited; it owns the settle now.
+  if (gen !== zoomGestureGen) return
+  endZoomGesture(gen)
+  layoutAllViews()
+  if (!(await adoptHandoffCaptures(captures))) scheduleZoomSnapshotPreparation()
+}
+
+export function setZoom(value: number): void {
+  setViewportCamera(value, pan)
 }
 
 export function broadcastCanvasZoomToPages(): void {
@@ -90,13 +166,7 @@ export function broadcastCanvasZoomToPages(): void {
 }
 
 export function setPan(x: number, y: number): void {
-  if (!suppressCameraAnimationCancel) cancelCameraAnimation()
-  endFocusOnCameraChange()
-  if (pan.x === x && pan.y === y) return
-  setPanState({ x, y })
-  markDirty('canvas')
-  broadcastViewportNudge()
-  if (!suppressCameraAutosave) scheduleSpaceAutosave()
+  setViewportCamera(zoom, { x, y })
 }
 
 // `requestLayout` lives in layout-engine (co-located with the private
@@ -159,8 +229,7 @@ function syncInteractiveToFocus(): void {
 function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }): void {
   suppressFocusReturnClear = true
   try {
-    setZoom(nextZoom)
-    setPan(nextPan.x, nextPan.y)
+    setViewportCamera(nextZoom, nextPan)
   } finally {
     suppressFocusReturnClear = false
   }
@@ -288,8 +357,7 @@ function applyCamera(camera: CanvasCamera, preserveFocusSession: boolean): void 
       setCameraForFocus(camera.zoom, camera.pan)
       return
     }
-    setZoom(camera.zoom)
-    setPan(camera.pan.x, camera.pan.y)
+    setViewportCamera(camera.zoom, camera.pan)
   } finally {
     suppressCameraAnimationCancel = false
     suppressCameraAutosave = false
@@ -596,7 +664,7 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
   return true
 }
 
-function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
+export function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
   return computePanToCenterBoundsAtZoomValue({
     bounds,
     viewport: availableCanvasViewportRect(),

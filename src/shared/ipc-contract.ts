@@ -8,6 +8,8 @@ import type {
   ElementAttachmentPositionsUpdate,
   ElementAttachmentSubscriptions,
   FixConfig,
+  FreezeTarget,
+  FrozenPagesState,
   InteractionSyncCapturePayload,
   InteractionSyncEvent,
   LayoutUpdateData,
@@ -339,6 +341,8 @@ export interface IpcContract {
   'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
   'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
+  'frozen-pages-ready': { dir: 'renderer→main'; payload: { target: FreezeTarget; revision: number } }
+  'frozen-pages-state': { dir: 'main→renderer'; payload: FrozenPagesState }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'read-note-file': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
@@ -542,6 +546,8 @@ export const ipcChannels = {
   elementAttachmentPositions: 'element-attachment-positions',
   elementAttachmentSubscriptions: 'element-attachment-subscriptions',
   fixProgressUpdate: 'fix-progress-update',
+  frozenPagesReady: 'frozen-pages-ready',
+  frozenPagesState: 'frozen-pages-state',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',
   getLeftSidebarBootstrap: 'get-left-sidebar-bootstrap',

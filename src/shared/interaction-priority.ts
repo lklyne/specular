@@ -8,6 +8,7 @@
  */
 
 export type HitLayer =
+  | 'group-label'
   | 'resize-handles'
   | 'anchors'
   | 'reorder-handle'
@@ -16,6 +17,10 @@ export type HitLayer =
   | 'background'
 
 export const HIT_LAYER_ORDER: readonly HitLayer[] = [
+  // The group title above the group's top edge. Above resize handles: the
+  // label's lower pixels overlap a selected group's n-handle strip, and the
+  // small text target must stay grabbable for drag/rename.
+  'group-label',
   'resize-handles',
   'anchors',
   // Auto-layout reorder dots sit above the child body so dragging the dot

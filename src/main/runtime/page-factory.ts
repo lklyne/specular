@@ -33,6 +33,7 @@ import { markDirty } from './layout-dirty'
 import { clearPageAnchorsForPage } from './page-anchor-state'
 import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
+import { applyNavigationEmulation } from './layout-engine'
 import { endFocusSession, focusedPageId } from './focus-session'
 import {
   clearInspectTargets,
@@ -78,13 +79,6 @@ function makePageId(): string {
   return `page_${randomUUID()}`
 }
 
-function frameColor(): string {
-  const { nativeTheme } = require('electron')
-  const isDark = nativeTheme.shouldUseDarkColors
-  // Match --surface-device-border token (stone-400 light, stone-600 dark)
-  return isDark ? '#57534e' : '#a8a29e'
-}
-
 export function createPage(config: PageConfig): Page {
   if (!win || !toolbarView) throw new Error('Window not initialized')
   breadcrumb('page', 'create', { host: hostOf(config.url), preset: config.presetIndex })
@@ -92,15 +86,6 @@ export function createPage(config: PageConfig): Page {
 
   // Construction only — the layout pass child-list reconcile (layer-stack)
   // owns attachment. createPage just pushes to pages[] and requests layout.
-  const frameView = new WebContentsView({
-    webPreferences: {
-      focusOnNavigation: false,
-    },
-  })
-  frameView.setBackgroundColor(frameColor())
-  frameView.setBorderRadius(CARD_BORDER_RADIUS)
-  frameView.webContents.loadURL('about:blank')
-
   const pageView = new WebContentsView({
     webPreferences: {
       preload: preloadPath('page-content'),
@@ -117,7 +102,6 @@ export function createPage(config: PageConfig): Page {
     title: config.name?.trim() || undefined,
     url: config.url,
     faviconUrl: null,
-    frameView,
     pageView,
     devtoolsHostAttached: false,
     presetIndex,
@@ -217,7 +201,6 @@ export function createPage(config: PageConfig): Page {
     // A finished load starts the page preload with no subscriptions; re-declare
     // the selectors this page's anchored items track (ADR 0032).
     resetAttachmentSubscriptionsForPage(page.id)
-    page.lastPageEmulationKey = undefined
     page.lastSafeAreaCssKey = undefined
     page.lastSafeAreaCssId = undefined
     if (isSelectedPage(page)) clearInspectTargets()
@@ -241,6 +224,12 @@ export function createPage(config: PageConfig): Page {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
+    // Commit is the earliest point the frame is guaranteed live (Electron
+    // derefs the frame's widget view unguarded) and precedes the new
+    // document's first layout, so it lays out at the emulated viewport and
+    // scale instead of reflowing once the next layout pass catches up. A
+    // cross-process navigation also swaps in a fresh widget that needs it.
+    applyNavigationEmulation(page)
     // The new document starts unscrolled; keeping the old document's offset
     // would shift every page-anchored region until the first scroll event.
     page.scrollX = 0
@@ -352,7 +341,6 @@ export function removePageAtIndex(idx: number): Page | null {
   clearPendingRequestsForPage(page.id)
   // Detachment is owned by the layout pass child-list reconcile — splice
   // pages[], close the webContents, and request layout below.
-  page.frameView.webContents.close()
   page.pageView.webContents.close()
   page.devtoolsHostView?.webContents.close()
   // Transfer focus to aboveView so keyboard shortcuts (including undo) keep

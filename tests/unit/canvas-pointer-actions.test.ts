@@ -664,3 +664,25 @@ describe('routePointerDown — auto-layout reorder dot (ADR 0015)', () => {
     })
   })
 })
+
+describe('routePointerDown, group label', () => {
+  const labelTarget = {
+    layer: 'group-label' as const,
+    region: { kind: 'rect' as const, rect: { x: 100, y: 80, width: 40, height: 20.5 } },
+    payload: { kind: 'group-label' as const, groupId: 'g1' },
+  }
+
+  it('press begins a promotable group drag (release selects, drag moves)', () => {
+    expect(routePointerDown(labelTarget, baseCtx)).toEqual({
+      kind: 'begin-group-drag',
+      groupId: 'g1',
+      preserveSelection: false,
+    })
+  })
+
+  it('preserves selection when the group is already the selected group', () => {
+    expect(
+      routePointerDown(labelTarget, { ...baseCtx, selectedGroupId: 'g1' }),
+    ).toEqual({ kind: 'begin-group-drag', groupId: 'g1', preserveSelection: true })
+  })
+})
