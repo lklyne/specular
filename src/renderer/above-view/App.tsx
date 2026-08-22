@@ -81,8 +81,9 @@ import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHa
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
+import { withIpcTally } from './ipc-tally'
 
-const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
+const api = withIpcTally((window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI)
 
 function DragCopyPreviewLayer({
   previews,
