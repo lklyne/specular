@@ -29,6 +29,7 @@ export interface PanZoomPerfTestResult {
   cancelled: boolean
   tracePath: string
   fileName: string
+  buildStats?: { n: number; mean: number; p95: number; max: number }
 }
 
 export const PAN_ZOOM_PERF_FRAME_MS = 16

@@ -1808,6 +1808,32 @@ export interface ViewportNudge {
   zoom: number
 }
 
+/** Which overlay a frozen-page publish targets: the page-body layer (`bg`) or
+ *  the above-pages input/annotation layer (`above`). Each target gets its own
+ *  revision sequence and ready-ack, so one freeze consumer never waits on
+ *  another's renderer. */
+export type FreezeTarget = 'bg' | 'above'
+
+export interface FrozenPageFrame {
+  pageId: string
+  /** The page content state this frame pictures; see `pageContentKey`. */
+  contentKey: string
+  dataUrl: string
+  capturedWidth: number
+  capturedHeight: number
+}
+
+/**
+ * Frozen-page frames for one target renderer. They are decoded there
+ * before the live WebContentsViews are hidden.
+ */
+export interface FrozenPagesState {
+  revision: number
+  target: FreezeTarget
+  active: boolean
+  frames: FrozenPageFrame[]
+}
+
 /**
  * Per-kind interactive update patch shapes. `updateEntity` is typed by this map
  * so a text patch sent with `kind: 'shape'` is a compile error at the call

@@ -29,6 +29,7 @@ import type {
   WorkspaceEdge,
 } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
+import { estimateGroupLabelWidth, groupLabelRect } from './group-label-geometry'
 import { reorderableDots, type ReorderDot } from './reorderable-dots'
 import { collectGapHandleZones } from './gap-handles'
 import { ENTITY_KIND_CAPS } from './entity-kind-caps'
@@ -47,6 +48,7 @@ export type HitPayload =
   | { kind: 'gap-handle'; groupId: string | null }
   | { kind: 'page-body'; entityId: string }
   | { kind: 'group-border'; groupId: string }
+  | { kind: 'group-label'; groupId: string }
   | {
       kind: 'entity-body'
       entityId: string
@@ -82,6 +84,10 @@ export interface HitInputs {
    *  the connected node. */
   hoveredEntityId?: string | null
   zoom: number
+  /** Measured group-label text widths (renderer canvas measureText), keyed by
+   *  group id. Optional; absent widths fall back to a per-char estimate so
+   *  main-side test routes stay usable without a DOM. */
+  groupLabelWidths?: ReadonlyMap<string, number>
 }
 
 // --- Top-level hit-test ---
@@ -108,6 +114,8 @@ export function hitTest(inputs: HitInputs, point: Point): HitTarget {
 
 function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
   switch (layer) {
+    case 'group-label':
+      return collectGroupLabelTargets(inputs)
     case 'resize-handles':
       return collectResizeHandles(inputs)
     case 'anchors':
@@ -124,6 +132,24 @@ function collectLayerTargets(layer: HitLayer, inputs: HitInputs): HitTarget[] {
 }
 
 // --- Selectors ---
+
+// Group titles: the grabbable text above each group's top-left corner.
+// Geometry comes from the shared `groupLabelRect` the canvas painter also
+// uses, so the visible text and the routable target line up by construction.
+function collectGroupLabelTargets(inputs: HitInputs): HitTarget[] {
+  const out: HitTarget[] = []
+  for (const entity of inputs.entities) {
+    if (entity.kind !== 'group' || !entity.label) continue
+    const width =
+      inputs.groupLabelWidths?.get(entity.id) ?? estimateGroupLabelWidth(entity.label)
+    out.push({
+      layer: 'group-label',
+      region: { kind: 'rect', rect: groupLabelRect(entity, width) },
+      payload: { kind: 'group-label', groupId: entity.id },
+    })
+  }
+  return out
+}
 
 function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   const out: HitTarget[] = []

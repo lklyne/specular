@@ -18,6 +18,7 @@ import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
+import { DragFreezeLayer } from './DragFreezeLayer'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer } from './FileBodyLayer'
 import { FocusedNoteLayer } from './FocusedNoteLayer'
@@ -62,6 +63,7 @@ import { contentHeightLayout } from './contentHeightPreview'
 import { useContentHeights } from './useContentHeights'
 import { gapPreviewLayout } from './gapPreview'
 import { GapHandlesLayer } from './GapHandlesLayer'
+import { GroupLabelCanvasSurface } from './GroupLabelCanvasSurface'
 import { GroupRenameOverlay } from './GroupRenameLabel'
 import {
   computeSameKindSelection,
@@ -76,7 +78,7 @@ import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
 import { buildAboveViewHandlers } from './binding-handlers'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHandlers'
-import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
+import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 
@@ -370,7 +372,10 @@ export default function App({
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
-  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
+  const t = useSceneCameraTransform(api.onViewportNudge, layoutData, {
+    x: layoutData.canvasOrigin.x,
+    y: 0,
+  })
   const [fixProgress, setFixProgress] = useState<LayoutUpdateData['fixProgress']>(
     initialLayoutData.fixProgress,
   )
@@ -1036,14 +1041,19 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       onPointerUp={handleOverlayPointerUp}
       onPointerCancel={handleOverlayPointerCancel}
     >
-      {/* Translate the whole canvas scene live with the pan gesture so selection
-          chrome and entity bodies track the natively-positioned page views
-          instead of trailing until the next layout-update rebuild (#257). Pan is
-          disabled during focus, where the only viewport-pinned chrome exists, so
-          every layer here is canvas-space and moves together. */}
+      {/* Translate+scale the whole canvas scene live with the pan/zoom gesture
+          so selection chrome and entity bodies track the natively-positioned
+          page views instead of trailing until the next layout-update rebuild
+          (#257). Pan/zoom is disabled during focus, where the only
+          viewport-pinned chrome exists, so every layer here is canvas-space
+          and moves together. */}
+      {/* Under every chrome layer: a drag-frozen page's raster stands in for
+          its live view, so selection and handles must paint over it. Empty
+          canvas when the flag is off or nothing is frozen. */}
+      <DragFreezeLayer api={api} layoutRef={layoutRef} transform={t} isDark={isDark} />
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
+        style={{ transform: `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`, transformOrigin: '0 0' }}
       >
       {!captureMode ? (
         <>
@@ -1226,11 +1236,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             layoutData={layoutData}
             isDark={isDark}
             editingEntityId={editingEntityId}
-            optionHeldRef={optionHeldRef}
-            commandHeldRef={commandHeldRef}
-            setDragCopyPreview={setDragCopyPreview}
-            setGroupDropTarget={setGroupDropTargetId}
-            setDropBindingSuppressed={setDropBindingSuppressed}
           />
 
           {/* Tool-vs-selection mutex (ADR 0008 §2): the active tool's popup wins
@@ -1303,6 +1308,19 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         />
       ) : null}
       </div>
+      {/* Outside the CSS scene transform: group titles redraw in screen space
+          from the live camera each tick so they hold their 11px size and stay
+          crisp mid-zoom. The DOM labels above stay mounted as invisible hit
+          targets (drag/select/rename). */}
+      {!captureMode && (layoutData.groups?.length ?? 0) > 0 ? (
+        <GroupLabelCanvasSurface
+          groups={layoutData.groups ?? []}
+          transform={t}
+          originY={layoutData.canvasOrigin.y}
+          isDark={isDark}
+          editingEntityId={editingEntityId}
+        />
+      ) : null}
     </div>
   )
 }

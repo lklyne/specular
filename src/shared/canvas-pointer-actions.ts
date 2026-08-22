@@ -223,6 +223,15 @@ function routeByPayload(
         groupId: payload.groupId,
         preserveSelection: context.selectedGroupId === payload.groupId,
       }
+    case 'group-label':
+      // The title is a pure group handle: press-and-release selects, a
+      // threshold-crossing drag moves the group (option-copy aware). Rename
+      // arrives via double-click, never plain click.
+      return {
+        kind: 'begin-group-drag',
+        groupId: payload.groupId,
+        preserveSelection: context.selectedGroupId === payload.groupId,
+      }
     case 'entity-body':
       return routeEntityBody(payload, context)
     case 'background':
@@ -370,9 +379,9 @@ function isSingleSelected(context: CanvasPointerContext, entityId: string): bool
  */
 export type CanvasPointerDoubleClickAction =
   | { kind: 'noop' }
-  /** Enter inline edit on any editable canvas item (text, sticky, shape).
-   *  Group rename is dispatched by the rename label's own dblclick; group-body
-   *  dblclick still descends via `enter-group`. */
+  /** Enter inline edit on any editable canvas item (text, sticky, shape) or
+   *  a group's title (rename); group-body dblclick descends via
+   *  `enter-group` instead. */
   | { kind: 'request-entity-edit'; entityId: string }
   | { kind: 'enter-group'; groupId: string }
   /** Double-click an interactive file (HTML iframe) → enter interactivity.
@@ -387,6 +396,8 @@ export function routePointerDoubleClick(
   target: HitTarget,
 ): CanvasPointerDoubleClickAction {
   switch (target.payload.kind) {
+    case 'group-label':
+      return { kind: 'request-entity-edit', entityId: target.payload.groupId }
     case 'page-body':
       return { kind: 'enter-page-interactive', entityId: target.payload.entityId }
     case 'entity-body':

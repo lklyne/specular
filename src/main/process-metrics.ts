@@ -86,14 +86,6 @@ function knownOwners(): Map<number, ViewOwner> {
         presentation: presentationOf(page.pageView),
       })
     }
-    if (!page.frameView.webContents.isDestroyed()) {
-      owners.set(page.frameView.webContents.id, {
-        label: `${label} — frame`,
-        kind: 'page-frame',
-        pageId: page.id,
-        presentation: presentationOf(page.frameView),
-      })
-    }
     if (page.devtoolsHostView && !page.devtoolsHostView.webContents.isDestroyed()) {
       owners.set(page.devtoolsHostView.webContents.id, {
         label: `${label} — devtools host`,

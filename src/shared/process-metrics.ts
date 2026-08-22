@@ -19,7 +19,7 @@ export type ViewPresentation =
    *  Chromium needs before background throttling can engage. */
   | 'hidden'
 
-export type ViewOwnerKind = 'page' | 'page-frame' | 'component' | 'overlay' | 'devtools' | 'other'
+export type ViewOwnerKind = 'page' | 'component' | 'overlay' | 'devtools' | 'other'
 
 export interface ViewOwner {
   /** Human label for the table, e.g. a page title or 'Canvas'. */

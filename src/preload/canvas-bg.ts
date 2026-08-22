@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, FrozenPagesState, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -311,6 +311,9 @@ const api: CanvasBgElectronAPI = {
     ipcChannels.pageScrollLive,
   ),
   onViewportNudge: on<ViewportNudge>(ipcChannels.viewportNudge),
+  onFrozenPagesState: on<FrozenPagesState>(ipcChannels.frozenPagesState),
+  frozenPagesReady: (target, revision) =>
+    ipcRenderer.send(ipcChannels.frozenPagesReady, { target, revision }),
   onFixProgressUpdate: on<LayoutUpdateData['fixProgress']>(ipcChannels.fixProgressUpdate),
   onThemeChanged: on(ipcChannels.themeChanged),
 }

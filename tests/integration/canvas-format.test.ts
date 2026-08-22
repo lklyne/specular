@@ -65,10 +65,9 @@ describe('.canvas format', () => {
     expect(creates.created).toHaveLength(4)
     const [textId, shapeId, drawingId, fileId] = creates.created
 
-    // Group the text + file entities (the kinds setEntityParentGroupId
-    // handles). Note the current format does NOT write parentGroupId on
-    // text/file nodes — membership shows up only in the group node's
-    // geometry and the normalized entityOrder; the snapshot pins that.
+    // Group the text + file entities. Membership persists as parentGroupId
+    // on each member node (all kinds), plus the group node's geometry and
+    // the normalized entityOrder; the snapshot pins that.
     const linked = applyCanvasPatch({
       entities: [{ kind: 'group', entityIds: [textId, fileId], label: 'Pair' }],
       edges: [

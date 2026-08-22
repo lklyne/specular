@@ -549,3 +549,39 @@ describe('hit-test — selection reorder door (ADR 0015 D7)', () => {
     expect(result.payload.kind).not.toBe('reorder-handle')
   })
 })
+
+describe('hit-test, group labels', () => {
+  // Group at (100,100). Label box: 20.5px tall above the top edge, width from
+  // groupLabelWidths (or the estimate fallback). Fixture label is 'g'.
+  const g = group('g1', 100, 100, 600, 500)
+  const widths = new Map([['g1', 40]])
+
+  it('a point in the label box routes to group-label', () => {
+    const result = hitTest(inputs([g], [], { groupLabelWidths: widths }), { x: 120, y: 90 })
+    expect(result.layer).toBe('group-label')
+    expect(result.payload).toEqual({ kind: 'group-label', groupId: 'g1' })
+  })
+
+  it('a point past the measured label width misses the label', () => {
+    const result = hitTest(inputs([g], [], { groupLabelWidths: widths }), { x: 150, y: 90 })
+    expect(result.payload.kind).not.toBe('group-label')
+  })
+
+  it('the label wins over the selected group\'s n resize handle where they overlap', () => {
+    // n-handle strip is centered on the padded top edge; the label's lower
+    // pixels overlap it. The small text target must stay grabbable.
+    const result = hitTest(inputs([g], ['g1'], { groupLabelWidths: widths }), { x: 120, y: 97 })
+    expect(result.layer).toBe('group-label')
+  })
+
+  it('falls back to an estimated width when no measurement is provided', () => {
+    const result = hitTest(inputs([g]), { x: 103, y: 90 })
+    expect(result.payload).toEqual({ kind: 'group-label', groupId: 'g1' })
+  })
+
+  it('an unlabeled group exposes no label target', () => {
+    const bare = { ...group('g2', 100, 100, 600, 500), label: '' }
+    const result = hitTest(inputs([bare], [], { groupLabelWidths: widths }), { x: 120, y: 90 })
+    expect(result.payload.kind).not.toBe('group-label')
+  })
+})

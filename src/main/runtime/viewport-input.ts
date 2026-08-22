@@ -2,11 +2,11 @@ import { pan, zoom } from './runtime-context'
 import {
   cancelCameraAnimation,
   requestLayout,
-  setPan,
-  setZoom,
+  setViewportCamera,
 } from './viewport-control'
 import { boundCanvasOrigin as canvasOrigin } from './runtime-geometry'
 import { win } from './view-refs'
+import { clampCanvasZoom } from '../../shared/zoom'
 
 const VIEWPORT_EVENT_FRAME_MS = 16
 
@@ -34,10 +34,12 @@ export function applyViewportInputDelta({
   mouseX = null,
   mouseY = null,
 }: ViewportInputDelta): void {
+  let nextZoom = zoom
+  let nextPan = { x: pan.x, y: pan.y }
+
   if (zoomDeltaY !== 0) {
     const oldZoom = zoom
-    setZoom(zoom - zoomDeltaY * 0.002)
-    const newZoom = zoom
+    nextZoom = clampCanvasZoom(zoom - zoomDeltaY * 0.002)
 
     if (win && mouseX !== null && mouseY !== null) {
       const contentBounds = win.getContentBounds()
@@ -49,18 +51,22 @@ export function applyViewportInputDelta({
       const canvasX = (viewportMouseX - pan.x) / oldZoom
       const canvasY = (viewportMouseY - pan.y) / oldZoom
 
-      setPan(
-        viewportMouseX - canvasX * newZoom,
-        viewportMouseY - canvasY * newZoom,
-      )
+      nextPan = {
+        x: viewportMouseX - canvasX * nextZoom,
+        y: viewportMouseY - canvasY * nextZoom,
+      }
     }
   }
 
   if (panDeltaX !== 0 || panDeltaY !== 0) {
-    setPan(pan.x + panDeltaX, pan.y + panDeltaY)
+    nextPan = {
+      x: nextPan.x + panDeltaX,
+      y: nextPan.y + panDeltaY,
+    }
   }
 
   if (zoomDeltaY !== 0 || panDeltaX !== 0 || panDeltaY !== 0) {
+    setViewportCamera(nextZoom, nextPan)
     cancelCameraAnimation()
     requestLayout()
   }

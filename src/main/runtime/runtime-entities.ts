@@ -13,7 +13,6 @@ export interface Page {
   title?: string
   url: string
   faviconUrl?: string | null
-  frameView: WebContentsView
   pageView: WebContentsView
   devtoolsHostView?: WebContentsView
   devtoolsHostAttached?: boolean
@@ -65,15 +64,12 @@ export interface Page {
   >
   /** Last value passed to `pageView.setVisible` by the layout pass. */
   lastVisibleApplied?: boolean
-  lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string
-  lastPageEmulationKey?: string
   /** Last colorScheme applied via CDP (see page-color-scheme.ts). Undefined
    *  means either "no override applied yet" or "no override needed" —
    *  both collapse to the same no-op when colorScheme is also absent. */
   lastColorSchemeKey?: PageColorScheme
-  lastSelected?: boolean
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string
   crashedAt?: number

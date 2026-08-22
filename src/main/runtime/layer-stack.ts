@@ -99,7 +99,7 @@ export function orderedPagesForStack<T extends { id: string }>(
 
 /**
  * Compute the desired ordered child list, bottom → top:
- * `bgView` → pages (`frameView` + `pageView` + inactive `devtoolsHostView`)
+ * `bgView` → pages (`pageView` + inactive `devtoolsHostView`)
  * → component views → above-pages overlays → devtools cluster → `toolbar`.
  *
  * The active devtools host (`devtoolsView`) is placed with the devtools
@@ -118,7 +118,7 @@ function desiredChildOrder(): View[] {
         focusedPageId(),
       )
       for (const page of orderedPages) {
-        order.push(page.frameView, page.pageView)
+        order.push(page.pageView)
         if (page.devtoolsHostView && page.devtoolsHostView !== devtoolsView) {
           order.push(page.devtoolsHostView)
         }
