@@ -15,6 +15,7 @@ import {
   runPanZoomPerfTest,
   stopPanZoomPerfTest,
 } from '../pan-zoom-perf-test'
+import { runAllocProfile } from '../alloc-profile'
 import { sampleProcessMetrics } from '../process-metrics'
 import { runVisibilityProbe } from '../visibility-probe'
 import type { PanZoomPerfPhase } from '../../shared/pan-zoom-perf-test'
@@ -32,6 +33,20 @@ function wait(ms: number): Promise<void> {
 }
 
 export const perfRoutes: Route[] = [
+  // TEMPORARY — see alloc-profile.ts. Delete with it.
+  {
+    method: 'POST',
+    pattern: '/perf/alloc-profile',
+    async handler({ response, body }) {
+      const payload = body as { durationMs?: number }
+      try {
+        const result = await runAllocProfile(Math.min(payload.durationMs ?? 15_000, 60_000))
+        writeJson(response, 200, result)
+      } catch (error) {
+        writeJson(response, 500, { error: (error as Error).message })
+      }
+    },
+  },
   {
     method: 'GET',
     pattern: '/perf/pan-zoom/status',
