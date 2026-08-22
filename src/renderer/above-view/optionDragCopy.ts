@@ -7,6 +7,22 @@ import { canvasToScreenX, canvasToScreenY, clientYToWindowY, snapToGrid } from '
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
 import { groupDropTargetAt } from '../../shared/group-drop-target'
 
+/**
+ * Live local-only snapshot of the in-flight page drag: the total screen-px
+ * pointer delta since drag-start, for the drag-freeze canvas layer to read
+ * on its own rAF loop. The dragged entity's real position also updates
+ * through `applyDelta` (`dragPage` IPC → main → broadcast layoutData), but
+ * that path is a round trip and lags the pointer by a tick; this ref lets
+ * the frozen bitmap track the pointer every frame with zero IPC. Only one
+ * pointer-drag session runs at a time, so a bare singleton is enough — no
+ * generation guard needed.
+ */
+export const pageDragDelta: { pageIds: readonly string[] | null; totalDx: number; totalDy: number } = {
+  pageIds: null,
+  totalDx: 0,
+  totalDy: 0,
+}
+
 export type DragCopyPreviewBox = {
   id: string
   left: number
@@ -79,6 +95,11 @@ type DragCopyCallbacks = {
   endDrag: (outcome: 'finish' | 'cancel', copied: boolean) => void
   copyAt: (canvasX: number, canvasY: number) => void
   setPreview: (preview: DragCopyPreviewBox[]) => void
+  /** Total screen-px delta since pointer-down, reported on every move
+   *  regardless of copy mode. Renderer-local only (no IPC) — for a consumer
+   *  that wants to track the pointer every rAF without waiting on main's
+   *  debounced layout broadcast (the drag-freeze canvas layer). */
+  onLocalDelta?: (totalDx: number, totalDy: number) => void
 }
 
 type DragCopySessionOptions = DragCopyCallbacks & {
@@ -252,6 +273,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
         totalScreenDx += dx
         totalScreenDy += dy
       }
+      options.onLocalDelta?.(totalScreenDx, totalScreenDy)
       setCopyMode(Boolean(pointer.altKey) || options.isOptionHeld())
     },
     setShiftKey(held: boolean) {
@@ -320,6 +342,9 @@ export function startOptionAwareEntityDrag(input: {
       entityKind: 'page',
       preserveSelection: input.preserveSelection,
     })
+    pageDragDelta.pageIds = entityIds
+    pageDragDelta.totalDx = 0
+    pageDragDelta.totalDy = 0
   } else {
     input.api.startDragEntity(input.entityId, {
       entityKind: input.entityKind,
@@ -353,6 +378,13 @@ export function startOptionAwareEntityDrag(input: {
       else input.api.dragEntity(input.entityId, dx, dy, shiftKey)
     },
     previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
+    onLocalDelta:
+      input.entityKind === 'page'
+        ? (totalDx, totalDy) => {
+            pageDragDelta.totalDx = totalDx
+            pageDragDelta.totalDy = totalDy
+          }
+        : undefined,
     endDrag: (outcome, copied) => {
       release()
       const suppressDropBinding =
@@ -363,6 +395,7 @@ export function startOptionAwareEntityDrag(input: {
           : undefined
       groupTarget.clear()
       if (input.entityKind === 'page') {
+        pageDragDelta.pageIds = null
         input.api.endDragPage(membership, suppressDropBinding)
       } else {
         input.api.endDragEntity(membership, suppressDropBinding)

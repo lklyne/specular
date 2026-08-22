@@ -18,6 +18,7 @@ import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
+import { DragFreezeLayer } from './DragFreezeLayer'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer } from './FileBodyLayer'
 import { FocusedNoteLayer } from './FocusedNoteLayer'
@@ -1316,6 +1317,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           editingEntityId={editingEntityId}
         />
       ) : null}
+      {/* Drag-freeze bitmap + chrome for the page(s) currently being
+          dragged, behind SPECULAR_DRAG_FREEZE. Draws in screen space from
+          the live camera like GroupLabelCanvasSurface above; canvas-bg
+          skips these pages' chrome while this owns them (chromeCanvasDraw's
+          `dragFrozenPageIds`). A no-op layer (empty canvas) when the flag
+          is off or nothing is frozen. */}
+      <DragFreezeLayer api={api} layoutRef={layoutRef} transform={t} isDark={isDark} />
     </div>
   )
 }

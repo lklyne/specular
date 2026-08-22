@@ -123,6 +123,20 @@ export function pageParkingFor(pageId: string): PageParking {
   return null
 }
 
+/**
+ * Whether `pageId` is already claimed by a freeze other than `excludingId`.
+ * A page lives in at most one freeze; a second freeze that wants to capture
+ * or park a page another freeze already owns (e.g. zoom starting mid-drag)
+ * must skip it instead of racing the owner for its bounds.
+ */
+export function pageClaimedByOtherFreeze(pageId: string, excludingId: string): boolean {
+  for (const [id, freeze] of freezesById) {
+    if (id === excludingId) continue
+    if (freeze.pageIds.has(pageId)) return true
+  }
+  return false
+}
+
 /** Identifies one page's content state: what a frame of it is a picture of. */
 export function pageContentKey(page: Page): string {
   const viewport = boundEffectivePageContentSize(page)

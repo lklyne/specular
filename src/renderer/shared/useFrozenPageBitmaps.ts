@@ -9,7 +9,8 @@ const EMPTY: FrozenPageBitmaps = new Map()
  * Decodes the frozen-page frames into GPU-ready bitmaps, keyed by page id,
  * and acks the revision to main once every frame is drawable. Main waits on
  * that ack before parking the live views, so the canvas never shows a gap
- * between "view hidden" and "raster drawn".
+ * between "view hidden" and "raster drawn". Shared by canvas-bg (zoom
+ * freeze, target 'bg') and above-view (drag freeze, target 'above').
  */
 export function useFrozenPageBitmaps(
   snapshot: FrozenPagesState,

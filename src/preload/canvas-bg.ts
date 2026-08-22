@@ -312,8 +312,8 @@ const api: CanvasBgElectronAPI = {
   ),
   onViewportNudge: on<ViewportNudge>(ipcChannels.viewportNudge),
   onFrozenPagesState: on<FrozenPagesState>(ipcChannels.frozenPagesState),
-  frozenPagesReady: (revision) =>
-    ipcRenderer.send(ipcChannels.frozenPagesReady, { target: 'bg', revision }),
+  frozenPagesReady: (target, revision) =>
+    ipcRenderer.send(ipcChannels.frozenPagesReady, { target, revision }),
   onFixProgressUpdate: on<LayoutUpdateData['fixProgress']>(ipcChannels.fixProgressUpdate),
   onThemeChanged: on(ipcChannels.themeChanged),
 }

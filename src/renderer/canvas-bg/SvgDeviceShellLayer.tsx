@@ -24,7 +24,7 @@ import {
   DEVICE_CATALOG,
   contentCornerRadiusForDevice,
 } from '../../shared/device-catalog'
-import { squirclePath } from './squirclePath'
+import { squirclePath } from '../shared/squirclePath'
 
 export const SvgDeviceShellLayer = memo(function SvgDeviceShellLayer({
   pages,

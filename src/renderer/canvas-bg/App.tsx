@@ -14,7 +14,7 @@ import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
-import { useFrozenPageBitmaps } from './useFrozenPageBitmaps'
+import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -38,14 +38,25 @@ export default function App({
     active: false,
     frames: [],
   })
+  const [dragFrozenPageIds, setDragFrozenPageIds] = useState<ReadonlySet<string>>(new Set())
   useEffect(
     () =>
       api.onFrozenPagesState((data) => {
-        if (data.target === 'bg') setFrozenPages(data)
+        if (data.target === 'bg') {
+          setFrozenPages(data)
+        } else if (data.target === 'above') {
+          // above-view owns chrome + raster for its own drag-frozen pages;
+          // this pass only needs their ids, to skip drawing them twice.
+          setDragFrozenPageIds(
+            data.active ? new Set(data.frames.map((frame) => frame.pageId)) : new Set(),
+          )
+        }
       }),
     [],
   )
-  const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, api.frozenPagesReady)
+  const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
+    api.frozenPagesReady('bg', revision),
+  )
   const t = useSceneCameraTransform(
     api.onViewportNudge,
     layoutData,
@@ -89,8 +100,12 @@ export default function App({
   // skip re-rendering on every pan/zoom nudge (props only change on a real
   // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
   const svgDeviceShellPages = useMemo(
-    () => chromePages.filter((f) => f.useSvgDeviceShell),
-    [chromePages],
+    // A drag-frozen page draws its border/shell/raster uniformly through
+    // the chrome canvas in above-view (DragFreezeLayer), regardless of its
+    // normal SVG-shell toggle — this DOM layer would otherwise double-draw
+    // it at its stale (pre-drag) position.
+    () => chromePages.filter((f) => f.useSvgDeviceShell && !dragFrozenPageIds.has(f.id)),
+    [chromePages, dragFrozenPageIds],
   )
   const chromeGroups = useMemo(
     () => (hideContext ? [] : (layoutData.groups ?? [])),
@@ -142,6 +157,7 @@ export default function App({
         snapshots={frozenPageBitmaps}
         transform={t}
         isDark={isDark}
+        dragFrozenPageIds={dragFrozenPageIds}
       />
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).

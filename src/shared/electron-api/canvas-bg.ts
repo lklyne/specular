@@ -20,6 +20,7 @@ import type {
   FocusPresentationMode,
   ForwardPointerPayload,
   ForwardWheelPayload,
+  FreezeTarget,
   FrozenPagesState,
   LayoutUpdateData,
   PageColorScheme,
@@ -298,7 +299,7 @@ export interface CanvasBgElectronAPI {
   onFrozenPagesState: (
     callback: (data: FrozenPagesState) => void,
   ) => () => void
-  frozenPagesReady: (revision: number) => void
+  frozenPagesReady: (target: FreezeTarget, revision: number) => void
   onFixProgressUpdate: (
     callback: (data: LayoutUpdateData['fixProgress']) => void,
   ) => () => void

@@ -11,6 +11,13 @@ export const CARD_BORDER_WIDTH = 1
  * native setBounds loop so the two land in the same frame window.
  */
 export const NO_FRAME_VIEW = process.env.SPECULAR_NO_FRAME_VIEW === '1'
+/**
+ * Spike: SPECULAR_DRAG_FREEZE=1 captures the dragged page(s) into a bitmap
+ * at drag-start, parks their native views hidden, and lets aboveView draw
+ * the frozen raster following the pointer locally each rAF instead of
+ * riding the per-move IPC round trip. See `drag-freeze.ts`.
+ */
+export const DRAG_FREEZE = process.env.SPECULAR_DRAG_FREEZE === '1'
 export const CARD_BORDER_RADIUS = 0
 export { TOOLBAR_HEIGHT } from '../../shared/constants'
 export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'

@@ -7,6 +7,7 @@ import {
   currentRevision,
   encodePageFrame,
   nextRevision,
+  pageClaimedByOtherFreeze,
   pageContentKey,
   publish,
   readyRevision,
@@ -143,7 +144,13 @@ export async function prepareZoomSnapshotFreeze(options?: {
 
   const startedAt = performance.now()
   const captureLeaseAtStart = captureLease
-  const frames = await Promise.all(pages.map((page) => capturePageFrame(page)))
+  // A page already parked by another freeze (a drag freeze mid-gesture) is
+  // hidden at zero bounds — capturing it would yield an empty frame and
+  // wrongly count toward a discard below. A page lives in at most one
+  // freeze, so zoom simply leaves it out of its own set; it reappears here
+  // once the owning freeze releases it.
+  const capturablePages = pages.filter((page) => !pageClaimedByOtherFreeze(page.id, FREEZE_ID))
+  const frames = await Promise.all(capturablePages.map((page) => capturePageFrame(page)))
 
   const capturedFrames = frames.filter(
     (frame): frame is FrozenPageFrame => frame !== null,
@@ -156,7 +163,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
   // prior frame forward for pages that can't capture right now. A page with
   // no prior frame stays absent (blank only if it scrolls into view
   // mid-gesture, which live-view restore covers at gesture end).
-  const capturableCount = pages.filter((page) => {
+  const capturableCount = capturablePages.filter((page) => {
     if (page.pageView.webContents.isDestroyed()) return false
     const bounds = page.pageView.getBounds()
     return bounds.width > 0 && bounds.height > 0
