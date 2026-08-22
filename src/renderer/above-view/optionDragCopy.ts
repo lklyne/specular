@@ -1,7 +1,7 @@
 import type {
   PointerEvent as ReactPointerEvent,
 } from 'react'
-import type { CanvasEntityKind, CanvasSceneEntity, CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasEntityKind, CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, clientYToWindowY, snapToGrid } from '../../shared/gesture-utils'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
@@ -17,19 +17,6 @@ import { groupDropTargetAt } from '../../shared/group-drop-target'
  * pointer-drag session runs at a time, so a bare singleton is enough — no
  * generation guard needed.
  */
-export const pageDragDelta: {
-  pageIds: readonly string[] | null
-  /** The dragged pages as laid out at pointer-down, before any delta. */
-  startPages: readonly CanvasScenePageEntity[]
-  totalDx: number
-  totalDy: number
-} = {
-  pageIds: null,
-  startPages: [],
-  totalDx: 0,
-  totalDy: 0,
-}
-
 export type DragCopyPreviewBox = {
   id: string
   left: number
@@ -106,7 +93,6 @@ type DragCopyCallbacks = {
    *  regardless of copy mode. Renderer-local only (no IPC) — for a consumer
    *  that wants to track the pointer every rAF without waiting on main's
    *  debounced layout broadcast (the drag-freeze canvas layer). */
-  onLocalDelta?: (totalDx: number, totalDy: number) => void
 }
 
 type DragCopySessionOptions = DragCopyCallbacks & {
@@ -280,7 +266,6 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
         totalScreenDx += dx
         totalScreenDy += dy
       }
-      options.onLocalDelta?.(totalScreenDx, totalScreenDy)
       setCopyMode(Boolean(pointer.altKey) || options.isOptionHeld())
     },
     setShiftKey(held: boolean) {
@@ -349,12 +334,6 @@ export function startOptionAwareEntityDrag(input: {
       entityKind: 'page',
       preserveSelection: input.preserveSelection,
     })
-    pageDragDelta.pageIds = entityIds
-    pageDragDelta.startPages = input.layout.entities.filter(
-      (e): e is CanvasScenePageEntity => e.kind === 'page' && entityIds.includes(e.id),
-    )
-    pageDragDelta.totalDx = 0
-    pageDragDelta.totalDy = 0
   } else {
     input.api.startDragEntity(input.entityId, {
       entityKind: input.entityKind,
@@ -388,13 +367,6 @@ export function startOptionAwareEntityDrag(input: {
       else input.api.dragEntity(input.entityId, dx, dy, shiftKey)
     },
     previewDelta: (totalDx, totalDy, shiftKey) => input.api.dragPreview(totalDx, totalDy, shiftKey),
-    onLocalDelta:
-      input.entityKind === 'page'
-        ? (totalDx, totalDy) => {
-            pageDragDelta.totalDx = totalDx
-            pageDragDelta.totalDy = totalDy
-          }
-        : undefined,
     endDrag: (outcome, copied) => {
       release()
       const suppressDropBinding =
@@ -405,8 +377,6 @@ export function startOptionAwareEntityDrag(input: {
           : undefined
       groupTarget.clear()
       if (input.entityKind === 'page') {
-        pageDragDelta.pageIds = null
-        pageDragDelta.startPages = []
         input.api.endDragPage(membership, suppressDropBinding)
       } else {
         input.api.endDragEntity(membership, suppressDropBinding)
