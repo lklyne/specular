@@ -1,4 +1,5 @@
 import { GRID_SIZE } from '../../shared/constants'
+import { prepareScreenCanvas } from '../shared/screenCanvas'
 
 const MIN_GRID_SPACING_PX = 8
 const FULL_OPACITY_SPACING_PX = 18
@@ -85,20 +86,9 @@ export function drawCanvasGrid({
   isDark: boolean
   devicePixelRatio: number
 }) {
-  const dpr = devicePixelRatioOrOne(devicePixelRatio)
-  const width = canvas.clientWidth
-  const height = canvas.clientHeight
-  const targetWidth = Math.max(1, Math.ceil(width * dpr))
-  const targetHeight = Math.max(1, Math.ceil(height * dpr))
-
-  if (canvas.width !== targetWidth) canvas.width = targetWidth
-  if (canvas.height !== targetHeight) canvas.height = targetHeight
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.clearRect(0, 0, width, height)
+  const prepared = prepareScreenCanvas(canvas, devicePixelRatioOrOne(devicePixelRatio))
+  if (!prepared) return
+  const { ctx, width, height, dpr } = prepared
 
   const metrics = buildCanvasGridMetrics({
     canvasOrigin,

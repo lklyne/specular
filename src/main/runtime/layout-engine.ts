@@ -4,7 +4,7 @@
 import { screen, type WebContentsView } from 'electron'
 import {
   boundsKey,
-  boundApplyEmulation,
+  boundPageMetrics,
   boundEffectivePageContentSize,
   boundScreenBoundsForPage,
   boundSelectedPage,
@@ -75,17 +75,15 @@ import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../presence-cursor'
 import { notifyDevtoolsPanelData } from './inspect-session'
-import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
+import { clampDevtoolsWidth } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
 import type { Page } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
-import {
-  isZoomSnapshotFreezeActive,
-  scheduleZoomSnapshotPreparation,
-  zoomSnapshotParkingFor,
-} from './zoom-snapshot-freeze'
+import { pageParkingFor } from './page-freeze'
+import { scheduleZoomSnapshotPreparation } from './zoom-snapshot-freeze'
+import { applyPageMetrics, clearPageMetrics, invalidatePageMetrics, pageRendersNatively } from './page-emulation'
 
 let buildMsSink: ((ms: number) => void) | null = null
 
@@ -124,7 +122,6 @@ const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
 // tip row (sideOffset + line) below the 44px strip, no more.
 const TOOLBAR_TOOLTIP_BAND = 48
 // Emulation-cache sentinel marking a page rendered natively (fill focus mode).
-const FILL_NATIVE_KEY = 'fill-native'
 
 /**
  * Off-screen-but-alive bounds for hidden devtools panels. Unlike a 0×0
@@ -255,26 +252,14 @@ function layoutDevtoolsViews(): void {
 }
 
 /**
- * Applies device emulation for `page` at the current zoom when its inputs
- * changed. Only safe once the page has a live frame: Electron derefs the
- * frame's widget view unguarded, and a never-navigated page has none.
+ * Applies the page's canvas metrics at the current zoom. Mid-gesture the
+ * scale is quantized so re-raster fires at bucket crossings only; the settle
+ * pass restores the exact zoom.
  */
-export function ensurePageEmulation(page: Page, devtoolsInset: number): void {
-  const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
-  const nativeScale = screen.getPrimaryDisplay().scaleFactor
-  const pageScale = isZoomInMotion() ? quantizeZoomForEmulation(zoom) : zoom
-  const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsInset}`
-  if (pageEmulationKey === page.lastPageEmulationKey) return
-  const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-  boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
-  page.lastPageEmulationKey = pageEmulationKey
-  devtoolsPanelDebug('layout:apply-emulation', {
-    pageId: page.id,
-    durationMs: Date.now() - emulationStart,
-    emulatedWidth,
-    emulatedHeight,
-    devtoolsInset,
-  })
+export function ensurePageEmulation(page: Page): void {
+  const metrics = boundPageMetrics(page)
+  if (isZoomInMotion()) metrics.scale = quantizeZoomForEmulation(metrics.scale)
+  applyPageMetrics(page.pageView.webContents, metrics)
 }
 
 /**
@@ -282,10 +267,11 @@ export function ensurePageEmulation(page: Page, devtoolsInset: number): void {
  * natively and is left alone; the layout pass owns that switch.
  */
 export function applyNavigationEmulation(page: Page): void {
-  if (page.pageView.webContents.isDestroyed()) return
-  if (page.lastPageEmulationKey === FILL_NATIVE_KEY) return
-  page.lastPageEmulationKey = undefined
-  ensurePageEmulation(page, uiDevtoolsOpen() ? uiDevtoolsWidth() : 0)
+  const wc = page.pageView.webContents
+  if (wc.isDestroyed()) return
+  if (pageRendersNatively(wc)) return
+  invalidatePageMetrics(wc)
+  ensurePageEmulation(page)
 }
 
 export function layoutAllViews(): void {
@@ -300,6 +286,9 @@ export function layoutAllViews(): void {
 
   const pageOverlays = backgroundPageOverlays()
   const nextActiveSelection = activeCanvasSelection()
+  // Renderer positions ship after every native setBounds call below, so
+  // the DOM chrome never leads the page views.
+  let pendingLayoutData: ReturnType<typeof buildCanvasLayoutData> | null = null
 
   // --- Canvas background + annotation overlay ---
   if (bgView && win) {
@@ -311,8 +300,7 @@ export function layoutAllViews(): void {
       const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
       layoutData.buildMs = performance.now() - buildStart
       buildMsSink?.(layoutData.buildMs)
-      bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
-      sendAnnotationLayoutUpdate(layoutData)
+      pendingLayoutData = layoutData
     }
   }
 
@@ -417,13 +405,8 @@ export function layoutAllViews(): void {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     const bounds = boundScreenBoundsForPage(page)
 
-    const parking = zoomSnapshotParkingFor(page.id)
+    const parking = pageParkingFor(page.id)
     if (parking === 'hidden') {
-      page.lastFrameBoundsKey = setBoundsIfChanged(
-        page.frameView,
-        HIDDEN_BOUNDS,
-        page.lastFrameBoundsKey,
-      )
       page.lastPageBoundsKey = setBoundsIfChanged(
         page.pageView,
         HIDDEN_BOUNDS,
@@ -437,7 +420,6 @@ export function layoutAllViews(): void {
       page.id !== focusedPresentationPageId &&
       !showOtherPagesInFocus
     ) {
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {
         pageId: page.id,
@@ -461,7 +443,6 @@ export function layoutAllViews(): void {
         // are parked off-screen at their logical viewport size, so an
         // agent always has a real (un-zoomed) viewport to drive.
         const parkedSize = boundEffectivePageContentSize(page)
-        page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
         page.lastPageBoundsKey = setBoundsIfChanged(
           page.pageView,
           {
@@ -482,7 +463,6 @@ export function layoutAllViews(): void {
         })
         continue
       }
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {
         pageId: page.id,
@@ -506,27 +486,23 @@ export function layoutAllViews(): void {
       : deviceId && showShell
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
         : CARD_BORDER_RADIUS
-    page.frameView.setBorderRadius(borderRadius)
     page.pageView.setBorderRadius(borderRadius)
     if (isFillFocus) {
       // Fill page sits below the flush focus chrome bar and fills the rest of
       // the canvas area. focusFillRegion() is the shared source of truth.
       const region = focusFillRegion()
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, region, page.lastPageBoundsKey)
     } else if (parking === 'warm') {
       // Settle handoff: the view rasters at its settled size and scale while
       // hidden behind the frozen bitmap, so the reveal shows a frame that
       // already matches instead of the pre-gesture surface stretched into
       // the new bounds.
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(
         page.pageView,
         warmParkBounds(bounds.page, winBounds.height),
         page.lastPageBoundsKey,
       )
     } else {
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
     }
 
@@ -535,13 +511,11 @@ export function layoutAllViews(): void {
       // emulation, so the page reflows to the real view size and viewport-aware
       // layout (sticky headers, 100vh, visualViewport) behaves like a real tab.
       // Emulation at scale 1 leaves pages in a stale layout until a scroll.
-      if (page.lastPageEmulationKey !== FILL_NATIVE_KEY) {
-        page.pageView.webContents.disableDeviceEmulation()
+      if (clearPageMetrics(page.pageView.webContents)) {
         page.pageView.webContents.setZoomFactor(1)
-        page.lastPageEmulationKey = FILL_NATIVE_KEY
       }
     } else {
-      ensurePageEmulation(page, devtoolsOpen ? devtoolsWidth : 0)
+      ensurePageEmulation(page)
     }
 
     if (page.colorScheme !== page.lastColorSchemeKey) {
@@ -572,12 +546,6 @@ export function layoutAllViews(): void {
       page.lastSafeAreaCssKey = safeAreaKey
     }
 
-    const themeKey = isDark()
-    if (page.lastSelected !== themeKey) {
-      page.frameView.setBackgroundColor(frameColor())
-      page.lastSelected = themeKey
-    }
-
     devtoolsPanelDebug('layout:page', {
       pageId: page.id,
       durationMs: Date.now() - pageStart,
@@ -588,6 +556,11 @@ export function layoutAllViews(): void {
   }
 
   // (above-view bounds are now handled in the consolidated block above)
+
+  if (pendingLayoutData && bgView) {
+    bgView.webContents.send(ipcChannels.layoutUpdate, pendingLayoutData)
+    sendAnnotationLayoutUpdate(pendingLayoutData)
+  }
 
   // --- Per-component bounds + emulation ---
   // Reconcile the component-view set against the current file entities,

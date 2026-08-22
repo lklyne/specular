@@ -1,25 +1,26 @@
 import { useEffect, useState } from 'react'
-import type { ZoomSnapshotState } from '../../shared/types'
+import type { FrozenPagesState } from '../../shared/types'
 
-export type ZoomSnapshotBitmaps = ReadonlyMap<string, ImageBitmap>
+export type FrozenPageBitmaps = ReadonlyMap<string, ImageBitmap>
 
-const EMPTY: ZoomSnapshotBitmaps = new Map()
+const EMPTY: FrozenPageBitmaps = new Map()
 
 /**
  * Decodes the frozen-page frames into GPU-ready bitmaps, keyed by page id,
  * and acks the revision to main once every frame is drawable. Main waits on
  * that ack before parking the live views, so the canvas never shows a gap
- * between "view hidden" and "raster drawn".
+ * between "view hidden" and "raster drawn". Shared by canvas-bg (zoom
+ * freeze, target 'bg') and above-view (drag freeze, target 'above').
  */
-export function useZoomSnapshotBitmaps(
-  snapshot: ZoomSnapshotState,
+export function useFrozenPageBitmaps(
+  snapshot: FrozenPagesState,
   onReady: (revision: number) => void,
-): ZoomSnapshotBitmaps {
-  const [bitmaps, setBitmaps] = useState<ZoomSnapshotBitmaps>(EMPTY)
+): FrozenPageBitmaps {
+  const [bitmaps, setBitmaps] = useState<FrozenPageBitmaps>(EMPTY)
 
   // A published map stays drawable until its replacement is ready; closing
   // it any earlier detaches bitmaps the chrome canvas may still redraw.
-  const publish = (next: ZoomSnapshotBitmaps) =>
+  const publish = (next: FrozenPageBitmaps) =>
     setBitmaps((prev) => {
       for (const bitmap of prev.values()) bitmap.close()
       return next

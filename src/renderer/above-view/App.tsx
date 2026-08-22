@@ -18,6 +18,7 @@ import { isUnresolved } from '../../shared/annotation-utils'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
+import { DragFreezeLayer } from './DragFreezeLayer'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer } from './FileBodyLayer'
 import { FocusedNoteLayer } from './FocusedNoteLayer'
@@ -1046,6 +1047,10 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           (#257). Pan/zoom is disabled during focus, where the only
           viewport-pinned chrome exists, so every layer here is canvas-space
           and moves together. */}
+      {/* Under every chrome layer: a drag-frozen page's raster stands in for
+          its live view, so selection and handles must paint over it. Empty
+          canvas when the flag is off or nothing is frozen. */}
+      <DragFreezeLayer api={api} layoutRef={layoutRef} transform={t} isDark={isDark} />
       <div
         className="pointer-events-none absolute inset-0"
         style={{ transform: `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`, transformOrigin: '0 0' }}

@@ -1,5 +1,5 @@
 import { screen } from 'electron'
-import type { WebContents } from 'electron'
+import type { PageMetrics } from './page-emulation'
 import type { WorkspaceBounds } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import {
@@ -213,7 +213,6 @@ export function computeScreenBoundsForPage(input: {
   toolbarHeight: number
   cardBorderWidth: number
 }): {
-  frame: { x: number; y: number; width: number; height: number }
   page: { x: number; y: number; width: number; height: number }
   shell: { x: number; y: number; width: number; height: number }
 } {
@@ -255,12 +254,6 @@ export function computeScreenBoundsForPage(input: {
       }
 
   return {
-    frame: {
-      x: pageX - bw,
-      y: pageY - bw,
-      width: contentW + 2 * bw,
-      height: pageH + 2 * bw,
-    },
     page: {
       x: pageX,
       y: pageY,
@@ -271,36 +264,22 @@ export function computeScreenBoundsForPage(input: {
   }
 }
 
-export function computeApplyEmulation(input: {
-  webContents: WebContents
-  presetIndex: number
-  page?: Page
+/**
+ * The metrics a page renders under on the canvas: its effective CSS viewport
+ * at the display's pixel density, scaled into the view by the canvas zoom.
+ */
+export function computePageMetrics(input: {
+  page: Page
   zoom: number
   effectivePageContentSize: (page: Pick<Page, 'id' | 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>) => { width: number; height: number }
-  viewportPresetForIndex: (presetIndex: number) => { width: number; height: number }
-}): void {
-  const start = Date.now()
-  const vp = input.viewportPresetForIndex(input.presetIndex)
-  const nativeScale = screen.getPrimaryDisplay().scaleFactor
-  const pageScale = input.zoom
-  const size = input.page
-    ? input.effectivePageContentSize(input.page)
-    : { width: vp.width, height: vp.height }
-  input.webContents.enableDeviceEmulation({
-    screenPosition: 'desktop',
-    screenSize: { width: size.width, height: size.height },
-    viewSize: { width: size.width, height: size.height },
-    viewPosition: { x: 0, y: 0 },
-    deviceScaleFactor: nativeScale,
-    scale: pageScale,
-  })
-  devtoolsPanelDebug('geometry:enable-device-emulation', {
-    pageId: input.page?.id ?? null,
-    durationMs: Date.now() - start,
+}): PageMetrics {
+  const size = input.effectivePageContentSize(input.page)
+  return {
     width: size.width,
     height: size.height,
-    pageScale,
-  })
+    deviceScaleFactor: screen.getPrimaryDisplay().scaleFactor,
+    scale: input.zoom,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -400,13 +379,10 @@ export function boundScreenBoundsForPage(page: Page) {
   })
 }
 
-export function boundApplyEmulation(webContents: WebContents, presetIndex: number, page?: Page): void {
-  computeApplyEmulation({
-    webContents,
-    presetIndex,
+export function boundPageMetrics(page: Page): PageMetrics {
+  return computePageMetrics({
     page,
     zoom,
     effectivePageContentSize: boundEffectivePageContentSize,
-    viewportPresetForIndex,
   })
 }

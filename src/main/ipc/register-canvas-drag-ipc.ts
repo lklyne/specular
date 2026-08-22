@@ -1,6 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
-import type { CanvasDragStartSelection, CanvasHoverTarget } from '../../shared/types'
+import type { CanvasDragStartSelection, CanvasHoverTarget, FreezeTarget } from '../../shared/types'
 import {
   applyDragDelta,
   finalizeDrag,
@@ -45,7 +45,8 @@ import { resolveSelectionScope } from '../runtime/selection-scope'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
 import { reparentEntitiesInGesture } from '../runtime/group-membership'
-import { markZoomSnapshotRendererReady } from '../runtime/zoom-snapshot-freeze'
+import { markRendererReady } from '../runtime/page-freeze'
+import { beginDragFreeze, endDragFreeze } from '../runtime/drag-freeze'
 
 // The entity currently being resized, captured at resize-begin so resize-end can
 // reflow its managed group (if any) before committing the gesture's undo step.
@@ -118,9 +119,9 @@ function endDragSession(
 
 export function registerCanvasDragIpc(): void {
   ipcMain.on(
-    ipcChannels.zoomSnapshotReady,
-    (_event, { revision }: { revision: number }) => {
-      if (Number.isFinite(revision)) markZoomSnapshotRendererReady(revision)
+    ipcChannels.frozenPagesReady,
+    (_event, { target, revision }: { target: FreezeTarget; revision: number }) => {
+      if (Number.isFinite(revision)) markRendererReady(target, revision)
     },
   )
   ipcMain.on(
@@ -166,7 +167,12 @@ export function registerCanvasDragIpc(): void {
       // drag's window blur listener treats as a cancel.
       const scope = resolveSelectionScope(pageId)
       const started = beginDragSession('page', scope.operandIds, scope.memberIds)
-      if (started) applyDragStartSelection(pageId, selection)
+      if (started) {
+        applyDragStartSelection(pageId, selection)
+        void beginDragFreeze(scope.operandIds).catch((error) => {
+          console.warn('[drag-freeze] begin failed:', error)
+        })
+      }
     },
   )
 
@@ -197,6 +203,10 @@ export function registerCanvasDragIpc(): void {
         payload?.parentGroupId,
         payload?.suppressDropBinding,
       )
+      // Reparenting/finalizeDrag above can move the page (drop-into-group);
+      // ending the freeze after that commit is what makes its synchronous
+      // layout pass compute the page's true final bounds.
+      endDragFreeze()
       requestLayout()
     },
   )

@@ -8,6 +8,8 @@ import type {
   ElementAttachmentPositionsUpdate,
   ElementAttachmentSubscriptions,
   FixConfig,
+  FreezeTarget,
+  FrozenPagesState,
   InteractionSyncCapturePayload,
   InteractionSyncEvent,
   LayoutUpdateData,
@@ -20,7 +22,6 @@ import type {
   ToolbarSelectionData,
   ViewportNudge,
   WorkspaceBounds,
-  ZoomSnapshotState,
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
@@ -340,8 +341,8 @@ export interface IpcContract {
   'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
   'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
-  'zoom-snapshot-ready': { dir: 'renderer→main'; payload: { revision: number } }
-  'zoom-snapshot-state': { dir: 'main→renderer'; payload: ZoomSnapshotState }
+  'frozen-pages-ready': { dir: 'renderer→main'; payload: { target: FreezeTarget; revision: number } }
+  'frozen-pages-state': { dir: 'main→renderer'; payload: FrozenPagesState }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'read-note-file': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
@@ -545,6 +546,8 @@ export const ipcChannels = {
   elementAttachmentPositions: 'element-attachment-positions',
   elementAttachmentSubscriptions: 'element-attachment-subscriptions',
   fixProgressUpdate: 'fix-progress-update',
+  frozenPagesReady: 'frozen-pages-ready',
+  frozenPagesState: 'frozen-pages-state',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',
   getLeftSidebarBootstrap: 'get-left-sidebar-bootstrap',
@@ -659,8 +662,6 @@ export const ipcChannels = {
   toolbarTooltipClose: 'toolbar-tooltip-close',
   toolbarTooltipOpen: 'toolbar-tooltip-open',
   viewportNudge: 'viewport-nudge',
-  zoomSnapshotReady: 'zoom-snapshot-ready',
-  zoomSnapshotState: 'zoom-snapshot-state',
   writeNoteFile: 'write-note-file',
   zoomChanged: 'zoom-changed',
   zoomIn: 'zoom-in',

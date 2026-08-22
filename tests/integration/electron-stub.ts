@@ -261,9 +261,8 @@ const stubModule = withNoopFallback({
 })
 
 // The vite alias only rewrites ESM imports; bare CJS `require('electron')`
-// calls (frameColor() in src/main/runtime/page-factory.ts) resolve through
-// Node's loader to the real package, which throws in headless Node. Route
-// them to the stub too.
+// calls (e.g. sentry-context.ts) resolve through Node's loader to the real
+// package, which throws in headless Node. Route them to the stub too.
 const nodeModuleLoad = (Module as unknown as { _load: (...args: unknown[]) => unknown })._load
 ;(Module as unknown as { _load: (...args: unknown[]) => unknown })._load = function (
   request: unknown,

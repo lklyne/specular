@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, ThemeData, ZoomSnapshotState } from '../../shared/types'
+import type { CanvasSceneFileEntity, CanvasScenePageEntity, FrozenPagesState, LayoutUpdateData, ThemeData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -14,7 +14,7 @@ import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
-import { useZoomSnapshotBitmaps } from './useZoomSnapshotBitmaps'
+import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -32,13 +32,31 @@ export default function App({
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const [zoomSnapshot, setZoomSnapshot] = useState<ZoomSnapshotState>({
+  const [frozenPages, setFrozenPages] = useState<FrozenPagesState>({
     revision: 0,
+    target: 'bg',
     active: false,
     frames: [],
   })
-  useEffect(() => api.onZoomSnapshotState(setZoomSnapshot), [])
-  const zoomSnapshotBitmaps = useZoomSnapshotBitmaps(zoomSnapshot, api.zoomSnapshotReady)
+  const [dragFrozenPageIds, setDragFrozenPageIds] = useState<ReadonlySet<string>>(new Set())
+  useEffect(
+    () =>
+      api.onFrozenPagesState((data) => {
+        if (data.target === 'bg') {
+          setFrozenPages(data)
+        } else if (data.target === 'above') {
+          // above-view draws chrome and raster for drag-frozen pages; this
+          // pass only needs their ids, to skip them.
+          setDragFrozenPageIds(
+            data.active ? new Set(data.frames.map((frame) => frame.pageId)) : new Set(),
+          )
+        }
+      }),
+    [],
+  )
+  const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
+    api.frozenPagesReady('bg', revision),
+  )
   const t = useSceneCameraTransform(
     api.onViewportNudge,
     layoutData,
@@ -82,8 +100,10 @@ export default function App({
   // skip re-rendering on every pan/zoom nudge (props only change on a real
   // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
   const svgDeviceShellPages = useMemo(
-    () => chromePages.filter((f) => f.useSvgDeviceShell),
-    [chromePages],
+    // above-view's DragFreezeLayer draws a drag-frozen page's shell; this
+    // DOM layer would otherwise draw it again at its stale position.
+    () => chromePages.filter((f) => f.useSvgDeviceShell && !dragFrozenPageIds.has(f.id)),
+    [chromePages, dragFrozenPageIds],
   )
   const chromeGroups = useMemo(
     () => (hideContext ? [] : (layoutData.groups ?? [])),
@@ -132,9 +152,10 @@ export default function App({
       <ChromeCanvasSurface
         pages={chromePages}
         fileEntities={chromeFiles}
-        snapshots={zoomSnapshotBitmaps}
+        snapshots={frozenPageBitmaps}
         transform={t}
         isDark={isDark}
+        dragFrozenPageIds={dragFrozenPageIds}
       />
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
