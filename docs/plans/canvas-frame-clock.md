@@ -1,216 +1,188 @@
 # PRD: One frame clock for the canvas
 
-Replace the stacked 16ms timers on the canvas motion path with a single
-vsync-driven cadence. The renderer's `requestAnimationFrame` becomes the only
-pacing clock; main applies camera and drag input synchronously, and the layout
-pass coalesces on a zero-delay single-flight guard instead of a 16ms wait.
+Delete the two 16ms timers on the canvas motion path. The renderer's
+`requestAnimationFrame` is the only pacing clock: Chromium already delivers one
+wheel event per frame, main applies it synchronously, and the layout pass
+collapses bursts on a zero-delay single-flight guard instead of a 16ms wait.
 
-Background research: `~/Documents/specular/sixteen-ms.html` (the explainer on
-the canvas), `docs/canvas-motion-research.md` §2.5 and §7c, ADR 0023
-postmortem, `docs/perf-zoom-pan-log.md` Exp A.
+Background: `~/Documents/specular/sixteen-ms.html`,
+`docs/canvas-motion-research.md` §2.5 and §7c, ADR 0023 postmortem,
+`docs/perf-zoom-pan-log.md` Exp A.
 
 ## Problem Statement
 
-Zooming and dragging on the canvas feel a beat behind the hand. Pan feels
-better than zoom. On a 120Hz ProMotion display the canvas never gets past
-60fps, and even at 60 there is a periodic stutter that shows up while every
-computed position is correct.
+Zooming and dragging feel a beat behind the hand. On a 120Hz ProMotion display
+the canvas never gets past 60fps, and at 60 there is a periodic stutter while
+every computed position is correct.
 
-The cause is cadence, not cost. An input event passes through up to three
-unsynchronised ~16ms clocks in series before the renderer draws: a 16ms input
-bucket in main, a 16ms `requestLayout` debounce in main, then the renderer's
-own rAF. Main has no frame clock, so its timers drift against the display and
-produce repeated and wasted frames. The bucket and debounce were built to tame
-a per-tick device-emulation reflow storm that bucketed emulation and the zoom
-snapshot freeze have since fixed. What remains is lag.
+The cause is cadence, not cost. Input passes through three unsynchronised
+clocks in series:
 
-Two pieces of code quietly depend on the debounce being late: the phantom-blur
-guard in the press gesture, and the undo observer's deferral "to avoid stepping
-on Electron's event routing." Those are ordering bugs that got a timer instead
-of a fix, and they have to be handled before the timer can go.
+1. `src/main/runtime/viewport-input.ts` — a 16ms input bucket
+   (`enqueueViewportInputDelta`).
+2. `src/main/runtime/layout-engine.ts` — the 16ms `requestLayout` debounce.
+3. The renderer's rAF.
+
+Main has no frame clock, so its two timers drift against the display and
+produce doubled and dropped frames. They were built to tame a per-tick
+device-emulation reflow storm that bucketed emulation and the zoom snapshot
+freeze have since fixed. What remains is lag.
+
+Two extra facts from measurement:
+
+- The renderer side is already display-rate. A wheel counter injected into
+  above-view over CDP during a pinch on a 120Hz display recorded 896 wheel
+  events, exactly one per rAF frame, median gap 8.3ms. Chromium rAF-aligns
+  `wheel` the same way it aligns `pointermove`. No renderer-side coalescer is
+  needed; the 60fps cap is entirely main's timers.
+- Pan already lays out synchronously inside `setViewportCamera`
+  (`viewport-control.ts`), then `applyViewportInputDelta` schedules a second,
+  redundant debounced pass 16ms later. Zoom skips the synchronous layout and
+  relies only on the debounced one, so its chrome (handles, outlines sized
+  against `layoutData.zoom`) lands a frame after the scene transform. That is
+  why zoom feels worse than pan.
 
 ## Solution
 
-One clock drives canvas motion. The renderer coalesces wheel and pointer input
-per animation frame and sends one summed delta. Main applies it synchronously,
-positions the native views, and nudges the renderer, the way pan already does.
-The layout pass keeps its single-flight guard but fires on the next event-loop
-turn, so bursts still collapse and nothing waits a frame for no reason. Focus
-reconciliation and the undo deferral become explicit steps the gesture
-controller owns, so nothing relies on "16ms later."
+Delete the bucket. Delete the 16ms in `requestLayout`. Zoom gets the pan
+treatment: apply on arrival, lay out synchronously, nudge. `requestLayout`
+keeps its single-flight guard but fires on `setImmediate`, so a burst of
+mutations still collapses to one pass and nothing waits a frame for no
+reason.
 
-Zoom and drag get the pan treatment. Pan loses its remaining bucket. ProMotion
-displays run at their native rate. The judder goes away because there is no
-second clock to beat against.
-
-Main stays authoritative for geometry. The native page and its chrome keep
-stepping from the same numbers, which ADR 0023's postmortem and the §7c spike
-both show is the lock that matters. Only the cadence moves.
+Main stays the geometry authority. Native pages and their chrome keep stepping
+from the same numbers, which ADR 0023's postmortem and the §7c spike both show
+is the lock that matters. Only the cadence moves.
 
 ## User Stories
 
 1. As a designer zooming with a trackpad, I want the canvas to scale under my fingers without a visible lag, so that the gesture feels direct.
-2. As a designer dragging a page, I want the page to stay under the cursor, so that I can place it precisely without overshooting.
-3. As a designer panning with two fingers, I want the same responsiveness pan has today with no regression, so that the fix does not trade one gesture for another.
-4. As a designer on a ProMotion MacBook, I want pan, zoom, and drag to render at 120fps, so that the canvas feels as smooth as Figma on the same hardware.
-5. As a designer on a 60Hz external display, I want motion without periodic stutter, so that a slow zoom reads as one continuous movement.
-6. As a designer, I want the selection outline, handles, and page border to move in lockstep with the page body, so that chrome never visibly detaches mid-gesture.
-7. As a designer, I want the zoom snapshot freeze to keep working exactly as it does, so that live pages still become bitmaps during a gesture and re-raster crisp on settle.
-8. As a designer, I want drag freeze to keep working exactly as it does, so that dragging a page still shows its bitmap instead of a reflowing live view.
-9. As a designer, I want a double-click that lands right after a drag to still register, so that the phantom-blur fix does not reintroduce dropped second clicks.
-10. As a designer, I want an inline text edit started right after a gesture to keep its focus, so that the edit is not torn down by a late focus reconcile.
-11. As a designer, I want undo during a drag to cancel the drag and restore cleanly, so that the undo observer's deferral change does not leave the canvas in a half state.
-12. As a designer, I want undo and redo of a tab switch, page create, and page delete to still land the native views in the right order, so that no page appears above the toolbar.
-13. As a designer, I want focus and zoom-to-fit animations to stay smooth or get smoother, so that the camera tween does not regress when the debounce under it changes.
-14. As a designer using the comment tool, I want hover outlines in pages to keep updating at the same rate, so that the comment pointer rate limit is untouched.
-15. As a designer with twenty pages open, I want zoom to stay responsive, so that applying input per frame does not scale badly with page count.
-16. As a designer, I want a trackpad momentum pause inside a pinch to still count as one gesture, so that the 300ms settle behaviour is preserved.
-17. As a designer, I want the grid, group backgrounds, and device shells to move with the camera every frame, so that the background sheet does not lag the page.
-18. As a designer, I want agent presence cursors to re-baseline correctly after a pan, so that the settle re-layout still runs once.
-19. As a developer, I want the automated pan/zoom perf test to drive input at display rate, so that a 120Hz improvement is measurable instead of invisible.
-20. As a developer, I want the perf HUD to report input-to-present latency for a gesture, so that the improvement is a number and not a feeling.
-21. As a developer, I want a before/after trace of the same scripted gesture in the logs folder, so that the PR carries evidence.
-22. As a developer, I want `requestLayout` to keep collapsing a burst of mutations into one pass, so that a tab switch still runs the layout pass once, not thirteen times.
-23. As a developer, I want the `local/no-direct-view-mutation` lint invariant to hold, so that nothing outside the layout pass touches native view geometry.
-24. As a developer, I want each step of this work to ship on its own and be revertible on its own, so that a regression in one step does not take the others with it.
-25. As a developer, I want the interaction-layer doc and CONTEXT.md to describe the new cadence, so that the next person does not re-add a timer to fix an ordering bug.
-26. As a developer, I want the two hidden dependencies documented where they are fixed, so that the phantom-blur and undo-deferral reasons are written as "why," not as "used to."
-27. As a developer, I want integration coverage of the undo observer's new deferral, so that the reentrancy hazard it protects against is pinned by a test instead of a comment.
-28. As a developer, I want the renderer-side input coalescer to be a pure, testable function, so that the summing and mouse-anchor rules have unit coverage.
+2. As a designer dragging a page, I want the page to stay under the cursor, so that I can place it precisely.
+3. As a designer panning, I want no regression from today, so that the fix does not trade one gesture for another.
+4. As a designer on a ProMotion MacBook, I want pan, zoom, and drag at 120fps.
+5. As a designer on a 60Hz display, I want a slow zoom to read as one continuous movement with no periodic stutter.
+6. As a designer, I want selection chrome and the page border to move in lockstep with the page body every frame.
+7. As a designer, I want the zoom snapshot freeze and drag freeze to keep working exactly as they do.
+8. As a designer, I want a double-click right after a drag to still register, and an inline edit started right after a gesture to keep its focus.
+9. As a designer, I want undo during a drag to cancel the drag and restore cleanly.
+10. As a designer with twenty pages open, I want zoom to stay responsive.
+11. As a developer, I want `requestLayout` to keep collapsing a burst of mutations into one pass, so that a tab switch runs layout once, not thirteen times.
+12. As a developer, I want the `local/no-direct-view-mutation` lint invariant to hold.
+13. As a developer, I want each PR revertible on its own.
+14. As a developer, I want a before/after trace of the same scripted gesture, so the improvement is a number.
 
 ## Implementation Decisions
 
-Sequenced so each step is independently shippable. Steps 1 and 2 are
-prerequisites; 3 through 5 are the payoff; 6 is the measurement that makes
-the payoff visible.
+Two PRs. The first is the smallest possible diff and the one most likely to
+surface ordering assumptions, so it ships alone.
 
-### Step 1. Explicit focus settle
-
-Focus reconciliation currently runs at the end of every layout pass, and the
-press gesture's phantom-blur guard exists because that pass lands 16ms after a
-gesture ends. Make focus settle an explicit step: the interaction controller
-requests it on gesture end and on interaction-state change, and it runs from
-the layout pass only when requested. The press gesture's blur guard is
-re-derived from that contract. If the guard is still needed it gets a comment
-explaining the remaining window; if not, it is deleted.
-
-### Step 2. Undo observer owns its deferral
-
-The undo observer's comment says the 16ms debounce provides "enough deferral"
-to avoid stepping on Electron's event routing. Decide whether the hazard is
-real with a test: cancel an active drag via undo from inside an IPC handler
-and assert the runtime settles. If it is real, the observer schedules its own
-zero-delay deferral and says why. If not, it calls the layout request directly
-and the comment goes. Either way the observer stops borrowing the debounce.
-
-### Step 3. Layout request becomes single-flight on the next turn
+### PR A. `requestLayout` fires on the next turn
 
 `requestLayout` keeps its guard (a pending request swallows later calls) and
-fires on `setImmediate` instead of a 16ms timer. Bursts still collapse to one
-pass. No behaviour in the pass itself changes. This is the smallest diff in
-the PRD and the one most likely to surface remaining ordering assumptions, so
-it ships alone with the full manual checklist from the layout-pass plan.
+schedules `layoutAllViews` on `setImmediate` instead of a 16ms timer. Nothing
+in the pass changes.
 
-### Step 4. Renderer coalesces viewport input per frame
+Two comments claim to depend on the 16ms and are updated in the same PR:
 
-The canvas-bg and above-view gesture hooks stop sending one IPC per wheel or
-pointer event. A pure coalescer accumulates pan and zoom deltas and the latest
-mouse anchor inside a frame; on `requestAnimationFrame` it sends one delta.
-Main's input bucket is deleted; `applyViewportInputDelta` runs on arrival and
-lays out synchronously for both pan and zoom, the way pan does today. The
-viewport nudge still goes out immediately after. The settle timers, bucketed
-emulation, and zoom snapshot freeze are untouched and continue to gate the
-expensive work.
+- `space-observers.ts` (undo observer): the comment says the debounce
+  "provides enough deferral to avoid stepping on Electron's event routing"
+  and, in the same breath, that the controller is reentrancy-safe so no
+  deferral is needed. `setImmediate` still runs the pass outside
+  `afterTransaction`, so whatever the hazard was is preserved. Rewrite the
+  comment to say the pass runs on the next turn; update
+  `src/main/runtime/CLAUDE.md` lines 34 and 84 to match.
+- `pointer-session.ts` (phantom-blur guard): the guard swallows a blur
+  while a press is armed, regardless of how late the reconcile lands. With
+  the pass on the next turn, focus reconciliation fires right after the
+  pointerup IPC, before a second pointerdown can arrive, so the window the
+  guard covers gets smaller. The guard stays; its comment drops the
+  "16ms later" framing.
 
-The coalescer lives in shared code with no DOM dependency so its rules are
-unit-testable: deltas sum, the most recent mouse anchor wins, a zoom and a pan
-in the same frame ship together, an empty frame sends nothing.
+Ship with the manual checklist below. Anything that was silently relying on
+a frame of delay shows up here, and the right response is an explicit
+deferral with a reason, not restoring the 16.
 
-### Step 5. Drag applies synchronously
+### PR B. Delete the input bucket; zoom lays out synchronously
 
-Drag move IPC already arrives per pointer event with no bucket. After Step 3
-the only wait left is the layout request; drag moves call the synchronous
-layout path directly (delta apply, native `setBounds`, nudge) so the dragged
-page lands in the same frame as the cursor. The renderer coalesces pointer
-moves per rAF using the same coalescer as Step 4 so main is not asked to lay
-out more than once per display frame. Drag freeze bitmaps ride the same
-payload they do today.
+- Delete `enqueueViewportInputDelta`, `pendingViewportDelta`, and
+  `VIEWPORT_EVENT_FRAME_MS` from `viewport-input.ts`. The `canvasZoom` and
+  `canvasPan` IPC handlers call `applyViewportInputDelta` directly.
+- In `setViewportCamera`, remove the `if (!zoomChanged)` guard so zoom and
+  pan both run `layoutAllViews()` before the nudge. During a zoom gesture the
+  pages are frozen bitmaps, so the per-frame pass is mostly the scene payload
+  rebuild.
+- Delete the trailing `requestLayout()` in `applyViewportInputDelta`. The
+  synchronous pass already ran; the settle callbacks in `markPanMotion` /
+  `markZoomMotion` own the re-layout on settle.
+- `pan-zoom-perf-test.ts` drives input at the display's refresh interval
+  instead of a fixed 16ms and reports the interval it used.
 
-### Step 6. Measure at display rate
-
-The automated pan/zoom perf test drives input at the display's refresh
-interval instead of a fixed 16ms, and reports the interval it used. The perf
-HUD gains an input-to-present latency readout: the renderer stamps each
-coalesced send, main echoes the stamp on the nudge, and the renderer measures
-against the next presented frame. A scripted gesture is traced before Step 3
-and after Step 5 and both traces are attached to the integration PR.
+Drag needs no change. Drag moves are entity mutations that request layout,
+and after PR A that lands on the next turn. Chromium already delivers
+`pointermove` once per frame.
 
 ### Not changed
 
 - Main remains the geometry authority. No camera state moves to the renderer.
 - `LAYER_STACK`, `applyStack`, and the ADR 0014 banding are untouched.
 - The programmatic camera tween (focus, zoom-to-fit) keeps its main-side
-  interval for now. It benefits from Step 3 automatically; moving it to the
-  renderer is a separate PRD because of the border-to-page lock risk in §7c.
-- The comment-tool pointer rate limit stays.
-- Settle timing (300ms), bucketed emulation, zoom snapshot freeze, and drag
-  freeze are unchanged.
+  interval. It benefits from PR A automatically; moving it is a separate PRD
+  because of the border-to-page lock risk in §7c.
+- Settle timing (300ms), bucketed emulation, zoom snapshot freeze, drag
+  freeze, and the comment-tool pointer rate limit are unchanged.
+- The focus reconciler still runs unconditionally at the end of every layout
+  pass (Phase 5d-v2 D4).
 
 ## Testing Decisions
 
-A good test here asserts what a user or a downstream subsystem can observe:
-how many layout passes ran for a burst, where a native view ended up, whether
-focus landed on the expected surface, whether the runtime settled after an
-undo mid-gesture. It does not assert on timer handles or internal flags.
+A good test here asserts what a user or a downstream subsystem can observe.
+It does not assert on timer handles or internal flags.
 
-Modules to test:
+- Layout request single-flight (integration). Call `requestLayout` N times
+  in one turn, await a turn, assert one pass ran and the views hold the final
+  geometry. Prior art: the layout-pass coverage from the complete-layout-pass
+  plan.
+- Undo mid-drag (integration). Begin a drag, undo, await a turn, assert
+  interaction state is idle, geometry matches the pre-drag doc, and nothing
+  threw from a reentrant layout. Prior art: `tests/integration` undo
+  round-trip tests.
+- Viewport input (integration). Send a zoom delta, assert the page view's
+  bounds and the camera updated before the handler returned. Prior art:
+  harness-level assertions in `tests/integration/harness.ts`.
 
-- Viewport input coalescer (unit). Pure function, table-driven: summing,
-  anchor precedence, mixed pan+zoom frames, empty frames. Prior art:
-  `tests/unit/zoom-motion.test.ts`, `tests/unit` gesture-utils coverage.
-- Layout request single-flight (integration). Call the request N times in one
-  turn, assert one pass ran and the views hold the final geometry. Prior art:
-  the layout-pass coverage added with the complete-layout-pass plan.
-- Focus settle (integration). Gesture end followed immediately by a second
-  press; assert focus stays on above-view and the press commits. Prior art:
-  press-gesture unit tests and the focus reconciler coverage.
-- Undo mid-drag (integration). Begin a drag, undo, assert interaction state is
-  idle, geometry matches the pre-drag doc, and no error was thrown from a
-  reentrant layout. Prior art: `tests/integration` undo round-trip tests.
-- Drag sync path (integration). Send a drag move and assert the page view's
-  bounds updated before the handler returned. Prior art: harness-level
-  assertions on runtime arrays in `tests/integration/harness.ts`.
+Measurement: record a Chromium trace (`Cmd+Alt+Shift+P` or
+`POST localhost:29979/perf/trace/start`) of the scripted pan/zoom gesture on
+main, after PR A, and after PR B, on a 120Hz display. Attach all three to the
+integration PR. The perf HUD's existing fps readout should show 120 during
+zoom after PR B.
 
-Manual smoke once per branch before merge, per the project convention: pan,
-zoom, drag, double-click after drag, inline edit after drag, undo during drag,
-tab switch, page create and delete, comment tool hover, focus animation, on
-both a 60Hz and a 120Hz display.
+Manual smoke once per branch before merge: pan, zoom, drag, double-click
+after drag, inline edit after drag, undo during drag, tab switch, page create
+and delete, comment tool hover, focus animation, on both a 60Hz and a 120Hz
+display.
 
 ## Out of Scope
 
 - Renderer-owned camera (ADR 0023 Phases 1 through 4). Rejected once; not
-  being retried here.
+  being retried.
 - Moving the programmatic camera tween to the renderer. Separate PRD.
-- Any change to zoom snapshot freeze, drag freeze, bucketed emulation, or the
-  300ms settle.
-- Smoothing the DOM overlay independently of the native page (§7c showed this
-  regresses).
-- The comment-tool pointer rate limit and the perf-test clock beyond making
-  the latter display-rate.
+- Making focus reconciliation an explicit, requested step instead of running
+  on every pass. Reopens D4; not needed for cadence.
+- A renderer-side input coalescer. Measured unnecessary (see Problem
+  Statement).
+- A HUD input-to-present latency readout. The trace answers the question.
+- The wheel listener in canvas-bg's `useCanvasViewportGestures.ts` received
+  zero events during measurement; all wheel input lands on above-view. Worth
+  checking whether it is dead, in a separate change.
 
 ## Further Notes
 
-- The order matters. Steps 1 and 2 look like cleanup but they are the reason
-  the debounce has not already been shortened. Shipping Step 3 first would
-  reintroduce the dropped-second-click bug the phantom-blur guard was written
-  for.
-- Expect Step 3 to be where surprises surface. Anything that was silently
-  relying on a frame of delay will show up there, and the right response is an
-  explicit deferral with a reason, not restoring the 16.
-- Step 4 runs the synchronous layout path on every frame during zoom. Pages
-  are frozen bitmaps during a zoom gesture, so the per-frame pass is mostly
-  the scene payload rebuild. If that rebuild shows up in traces at high page
-  counts, the follow-up is the existing "cheap payload for camera-only change"
-  idea from #265, not a timer.
-- Each step is one PR into `perf/canvas-frame-clock`, then one integration PR
-  into `main`, per the AFK convention.
+- Expect PR A to be where surprises surface. The 140 `requestLayout()` call
+  sites were written against a 16ms delay and any of them may have quietly
+  relied on it.
+- PR B runs the synchronous layout path on every frame during zoom, which is
+  twice today's pan rate on a 120Hz display. If the scene payload rebuild
+  shows up in traces at high page counts, the follow-up is the "cheap
+  payload for camera-only change" idea from #265, not a timer.
+- Each PR into `perf/canvas-frame-clock`, then one integration PR into
+  `main`, per the AFK convention.
