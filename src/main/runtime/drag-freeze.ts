@@ -1,5 +1,4 @@
 import type { FrozenPageFrame } from '../../shared/types'
-import { DRAG_FREEZE } from './runtime-constants'
 import { findPageById } from './runtime-context'
 import type { Page } from './runtime-entities'
 import {
@@ -32,11 +31,10 @@ let active = false
  * covers the live view before the park lands and there is no gap between
  * "view hidden" and "raster drawn".
  *
- * No-op behind the flag, and a no-op if nothing captures. A drag that can't
- * be pictured stays live rather than parking pages behind a blank raster.
+ * A no-op if nothing captures. A drag that can't be pictured stays live
+ * rather than parking pages behind a blank raster.
  */
 export async function beginDragFreeze(pageIds: string[]): Promise<void> {
-  if (!DRAG_FREEZE) return
   const gen = ++generation
 
   const pages = pageIds
@@ -54,14 +52,12 @@ export async function beginDragFreeze(pageIds: string[]): Promise<void> {
   if (gen !== generation) return
 
   if (!ready) {
-    console.warn('[drag-freeze] aboveView never acked; staying live')
     // aboveView never acked. Stay live rather than park pages behind a
     // bitmap it can't draw.
     publish(FREEZE_TARGET, { revision, target: FREEZE_TARGET, active: false, frames: [] })
     return
   }
 
-  console.info(`[drag-freeze] parking ${frames.length} page(s) (revision ${revision})`)
   registerFreeze(FREEZE_ID, {
     target: FREEZE_TARGET,
     pageIds: frames.map((frame) => frame.pageId),

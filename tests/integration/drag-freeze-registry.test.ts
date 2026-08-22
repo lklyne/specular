@@ -5,8 +5,8 @@
  * `capturePageFrame` returns null against this suite's Electron stub
  * (`FakeWebContentsView.getBounds()` is zero-size; view geometry is out of
  * scope for this tier per tests/README.md), so `beginDragFreeze`'s capture
- * path is covered only for its flag-off no-op. The park and release half
- * is exercised through the registry it writes to.
+ * path is covered only for the no-matching-page case. The park and release
+ * half is exercised through the registry it writes to.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import {
@@ -57,7 +57,7 @@ describe('freeze parking registry', () => {
 })
 
 describe('beginDragFreeze / endDragFreeze', () => {
-  it('beginDragFreeze is a no-op behind the SPECULAR_DRAG_FREEZE flag', async () => {
+  it('beginDragFreeze with ids that match no page registers nothing', async () => {
     await beginDragFreeze(['page-1'])
     expect(pageParkingFor('page-1')).toBeNull()
   })

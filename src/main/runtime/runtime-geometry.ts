@@ -213,7 +213,6 @@ export function computeScreenBoundsForPage(input: {
   toolbarHeight: number
   cardBorderWidth: number
 }): {
-  frame: { x: number; y: number; width: number; height: number }
   page: { x: number; y: number; width: number; height: number }
   shell: { x: number; y: number; width: number; height: number }
 } {
@@ -255,12 +254,6 @@ export function computeScreenBoundsForPage(input: {
       }
 
   return {
-    frame: {
-      x: pageX - bw,
-      y: pageY - bw,
-      width: contentW + 2 * bw,
-      height: pageH + 2 * bw,
-    },
     page: {
       x: pageX,
       y: pageY,

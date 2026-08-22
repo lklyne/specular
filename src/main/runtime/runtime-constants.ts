@@ -4,20 +4,6 @@
 
 // --- Layout geometry ---
 export const CARD_BORDER_WIDTH = 1
-/**
- * SPECULAR_NO_FRAME_VIEW=1 skips the per-page about:blank frameView (one
- * renderer process each). The chrome canvas ring is then the only card
- * border, and the layout pass sends renderer positions after the native
- * setBounds loop so both land in the same frame.
- */
-export const NO_FRAME_VIEW = process.env.SPECULAR_NO_FRAME_VIEW === '1'
-/**
- * SPECULAR_DRAG_FREEZE=1 captures dragged pages into a bitmap at drag start,
- * parks their native views hidden, and has aboveView draw the bitmap at the
- * layout position instead of moving the native view per tick. See
- * `drag-freeze.ts`.
- */
-export const DRAG_FREEZE = process.env.SPECULAR_DRAG_FREEZE === '1'
 export const CARD_BORDER_RADIUS = 0
 export { TOOLBAR_HEIGHT } from '../../shared/constants'
 export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'

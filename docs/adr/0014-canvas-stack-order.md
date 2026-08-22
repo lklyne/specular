@@ -6,6 +6,8 @@
 **Supersedes premise of:** the sidebar's position-based sort (`compareSidebarPositions` in `sidebar-builder.ts`) and the implicit "edges always paint above all entities" rule.
 **Origin:** Grilled out from [`docs/canvas-stacking-research.md`](../canvas-stacking-research.md) (branch `claude/research-canvas-stacking-NQ7Lh`) and the grilling session on branch `claude/plan-canvas-stacking-s1th2`.
 
+**Superseded (partial):** frameView is gone (PR #401). Section 5's `addChildView(frameView)` step and migration slice 3's frameView reattachment do not apply. Each page is a single `pageView` in the stack; the chrome canvas draws the border.
+
 ## Context
 
 Specular has had `entityOrder` — a flat Y.Array of entity ids in back-to-front paint order — since the JSON Canvas serializer landed. The hit-tester already iterates it (`collectBodyTargets` in `src/shared/hit-test.ts:262-291`) to resolve overlapping clicks front-to-back. The persistence layer round-trips it through JSON Canvas v1.0's node array order.

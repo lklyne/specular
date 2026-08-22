@@ -75,7 +75,7 @@ import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../presence-cursor'
 import { notifyDevtoolsPanelData } from './inspect-session'
-import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
+import { clampDevtoolsWidth } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
@@ -104,7 +104,6 @@ export function setBoundsIfChanged(
 
 import {
   CARD_BORDER_RADIUS,
-  NO_FRAME_VIEW,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
   DEVTOOLS_PANEL_PADDING,
@@ -117,11 +116,6 @@ import { boundsOverlap } from './runtime-geometry'
 import { isZoomInMotion, quantizeZoomForEmulation } from './zoom-motion'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
-
-function setFrameBounds(page: Page, bounds: { x: number; y: number; width: number; height: number }): void {
-  if (!page.frameView) return
-  page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds, page.lastFrameBoundsKey)
-}
 
 // Extra px the toolbar view grows by while a tooltip is open — enough for one
 // tip row (sideOffset + line) below the 44px strip, no more.
@@ -317,11 +311,7 @@ export function layoutAllViews(): void {
       const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
       layoutData.buildMs = performance.now() - buildStart
       buildMsSink?.(layoutData.buildMs)
-      if (NO_FRAME_VIEW) pendingLayoutData = layoutData
-      else {
-        bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
-        sendAnnotationLayoutUpdate(layoutData)
-      }
+      pendingLayoutData = layoutData
     }
   }
 
@@ -428,7 +418,6 @@ export function layoutAllViews(): void {
 
     const parking = pageParkingFor(page.id)
     if (parking === 'hidden') {
-      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(
         page.pageView,
         HIDDEN_BOUNDS,
@@ -442,7 +431,6 @@ export function layoutAllViews(): void {
       page.id !== focusedPresentationPageId &&
       !showOtherPagesInFocus
     ) {
-      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {
         pageId: page.id,
@@ -466,7 +454,6 @@ export function layoutAllViews(): void {
         // are parked off-screen at their logical viewport size, so an
         // agent always has a real (un-zoomed) viewport to drive.
         const parkedSize = boundEffectivePageContentSize(page)
-        setFrameBounds(page, HIDDEN_BOUNDS)
         page.lastPageBoundsKey = setBoundsIfChanged(
           page.pageView,
           {
@@ -487,7 +474,6 @@ export function layoutAllViews(): void {
         })
         continue
       }
-      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {
         pageId: page.id,
@@ -511,27 +497,23 @@ export function layoutAllViews(): void {
       : deviceId && showShell
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
         : CARD_BORDER_RADIUS
-    page.frameView?.setBorderRadius(borderRadius)
     page.pageView.setBorderRadius(borderRadius)
     if (isFillFocus) {
       // Fill page sits below the flush focus chrome bar and fills the rest of
       // the canvas area. focusFillRegion() is the shared source of truth.
       const region = focusFillRegion()
-      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, region, page.lastPageBoundsKey)
     } else if (parking === 'warm') {
       // Settle handoff: the view rasters at its settled size and scale while
       // hidden behind the frozen bitmap, so the reveal shows a frame that
       // already matches instead of the pre-gesture surface stretched into
       // the new bounds.
-      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(
         page.pageView,
         warmParkBounds(bounds.page, winBounds.height),
         page.lastPageBoundsKey,
       )
     } else {
-      setFrameBounds(page, bounds.frame)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
     }
 
@@ -575,12 +557,6 @@ export function layoutAllViews(): void {
         }).catch(() => {})
       }
       page.lastSafeAreaCssKey = safeAreaKey
-    }
-
-    const themeKey = isDark()
-    if (page.lastSelected !== themeKey) {
-      page.frameView?.setBackgroundColor(frameColor())
-      page.lastSelected = themeKey
     }
 
     devtoolsPanelDebug('layout:page', {

@@ -32,7 +32,6 @@ import {
 import { broadcast } from './view-broadcast'
 import {
   hoverTarget,
-  pages,
 } from './runtime-context'
 import {
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -270,21 +269,12 @@ export function isDark(): boolean {
   return nativeTheme.shouldUseDarkColors
 }
 
-export function frameColor(): string {
-  // Match --surface-device-border token (stone-400 light, stone-600 dark)
-  return isDark() ? '#57534e' : '#a8a29e'
-}
-
 export function broadcastTheme(): void {
   if (win) win.contentView.setBackgroundColor(isDark() ? '#44403c' : '#f5f5f4')
   if (devtoolsBackgroundView) {
     devtoolsBackgroundView.setBackgroundColor(isDark() ? '#18181b' : '#fafafa')
   }
   broadcast(ipcChannels.themeChanged, { isDark: isDark(), themeMode: currentThemeMode })
-  for (let i = 0; i < pages.length; i++) {
-    const page = pages[i]
-    page.frameView?.setBackgroundColor(frameColor())
-  }
 }
 
 export function broadcastCursorSplineViz(): void {
