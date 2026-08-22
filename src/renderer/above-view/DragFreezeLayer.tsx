@@ -84,13 +84,21 @@ export function DragFreezeLayer({
       baseGeometryRef.current = new Map()
       return
     }
+    // layoutData screen coords are window-relative; aboveView's own origin is
+    // canvasOrigin.y down the window, and its camera transform is built with
+    // y: 0, so page y must be rebased here (as PageFocusRingLayer does).
+    const originY = layoutRef.current.canvasOrigin.y
     const next = new Map<string, ChromeCanvasItem>()
     for (const frame of frozenState.frames) {
       const page = pageDragDelta.startPages.find((p) => p.id === frame.pageId)
-      if (page) next.set(page.id, toChromeItem(page))
+      if (!page) continue
+      const item = toChromeItem(page)
+      item.screenY -= originY
+      if (item.contentScreenY !== undefined) item.contentScreenY -= originY
+      next.set(page.id, item)
     }
     baseGeometryRef.current = next
-  }, [frozenState])
+  }, [frozenState, layoutRef])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current

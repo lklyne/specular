@@ -42,8 +42,18 @@ export function readyRevision(target: FreezeTarget): number {
 /** Sends frozen-page state to the WebContentsView backing `target`. */
 export function publish(target: FreezeTarget, state: FrozenPagesState): void {
   const view = target === 'above' ? aboveView : bgView
-  if (!view || view.webContents.isDestroyed()) return
-  safeSend(view.webContents, ipcChannels.frozenPagesState, state)
+  if (view && !view.webContents.isDestroyed()) {
+    safeSend(view.webContents, ipcChannels.frozenPagesState, state)
+  }
+  // canvas-bg stops drawing chrome for pages another renderer owns, so it
+  // needs the page ids of every freeze; the bitmaps themselves stay with
+  // the target.
+  if (target !== 'bg' && bgView && !bgView.webContents.isDestroyed()) {
+    safeSend(bgView.webContents, ipcChannels.frozenPagesState, {
+      ...state,
+      frames: state.frames.map((frame) => ({ ...frame, dataUrl: '' })),
+    })
+  }
 }
 
 export function markRendererReady(target: FreezeTarget, revision: number): void {

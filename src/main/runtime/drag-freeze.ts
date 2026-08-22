@@ -54,12 +54,14 @@ export async function beginDragFreeze(pageIds: string[]): Promise<void> {
   if (gen !== generation) return
 
   if (!ready) {
+    console.warn('[drag-freeze] aboveView never acked; staying live')
     // aboveView never acked — stay live rather than park pages behind a
     // bitmap it can't draw.
     publish(FREEZE_TARGET, { revision, target: FREEZE_TARGET, active: false, frames: [] })
     return
   }
 
+  console.info(`[drag-freeze] parking ${frames.length} page(s) (revision ${revision})`)
   registerFreeze(FREEZE_ID, {
     target: FREEZE_TARGET,
     pageIds: frames.map((frame) => frame.pageId),
