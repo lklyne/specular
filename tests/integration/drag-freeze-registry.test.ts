@@ -42,7 +42,7 @@ describe('freeze parking registry', () => {
     expect(pageParkingFor('page-1')).toBe('warm')
   })
 
-  it('a page lives in at most one freeze — the first claim wins', () => {
+  it('a page lives in at most one freeze, the first claim wins', () => {
     registerFreeze('drag', { target: 'above', pageIds: ['page-1'], parking: 'hidden' })
     registerFreeze('zoom', { target: 'bg', pageIds: ['page-1'], parking: 'warm' })
     expect(pageParkingFor('page-1')).toBe('hidden')
