@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { CanvasScenePageEntity, FrozenPagesState, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
@@ -40,7 +40,7 @@ function toChromeItem(page: CanvasScenePageEntity): ChromeCanvasItem {
  * otherwise draw. canvas-bg skips these pages (`dragFrozenPageIds` in
  * `chromeCanvasDraw.ts`) so no page is drawn twice.
  */
-export function DragFreezeLayer({
+export const DragFreezeLayer = memo(function DragFreezeLayer({
   api,
   layoutRef,
   transform,
@@ -126,4 +126,4 @@ export function DragFreezeLayer({
       className="pointer-events-none absolute inset-0 h-full w-full"
     />
   )
-}
+})

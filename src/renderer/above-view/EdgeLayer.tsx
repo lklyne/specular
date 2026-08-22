@@ -7,7 +7,7 @@
  * origin sits at `canvasOrigin.y`, so subtract it from every y when laying
  * out SVG geometry — matching the rest of aboveView.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasInteractionState,
   CanvasSceneEntity,
@@ -238,7 +238,7 @@ function EdgeBody({
 
 // --- Main EdgeLayer ---
 
-export function EdgeLayer({
+export const EdgeLayer = memo(function EdgeLayer({
   edges,
   entities,
   hoveredEntityId,
@@ -433,4 +433,4 @@ export function EdgeLayer({
       )) : null}
     </svg>
   )
-}
+})

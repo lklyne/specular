@@ -190,7 +190,7 @@ const MemoFileBodyCard = memo(FileBodyCard, (prev, next) => {
   )
 })
 
-export function FileBodyLayer({
+export const FileBodyLayer = memo(function FileBodyLayer({
   entities,
   isDark,
   selectedEntityIdSet,
@@ -234,4 +234,4 @@ export function FileBodyLayer({
       ))}
     </CanvasViewportLayer>
   )
-}
+})

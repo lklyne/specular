@@ -10,7 +10,7 @@
  * (matching `useAnchoredPosition` and the rest of aboveView).
  */
 
-import { useMemo, type CSSProperties } from 'react'
+import { memo, type CSSProperties, useMemo } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
@@ -211,7 +211,7 @@ function GroupSelectionOverlay({
   )
 }
 
-export function SelectionOutlineLayer({
+export const SelectionOutlineLayer = memo(function SelectionOutlineLayer({
   layoutData,
   isDark,
   marqueePreviewIds,
@@ -429,4 +429,4 @@ export function SelectionOutlineLayer({
       ))}
     </>
   )
-}
+})

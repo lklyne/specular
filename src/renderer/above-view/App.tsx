@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CanvasSceneEntity, CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, SelectionOverlayPayload, ThemeData, WorkspaceEdge } from '../../shared/types'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CanvasSceneEntity, CanvasSceneFileEntity, CanvasSceneGroupEntity, CanvasScenePageEntity, LayoutUpdateData, SelectionOverlayPayload, ThemeData, WorkspaceEdge } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
@@ -15,6 +15,7 @@ import {
   canvasPointerOwner,
 } from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
+import { shareLayoutData } from '../../shared/layout-structural-share'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
@@ -85,7 +86,14 @@ import { withIpcTally } from './ipc-tally'
 
 const api = withIpcTally((window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI)
 
-function DragCopyPreviewLayer({
+// Frozen empties and a hoisted handler: the layers below are memoized, and a
+// literal in JSX would hand them a new prop on every render.
+const NO_EDGES: WorkspaceEdge[] = []
+const NO_ENTITY_IDS: string[] = []
+const NO_GROUPS: CanvasSceneGroupEntity[] = []
+const selectEdge = (edgeId: string) => api.selectEdge(edgeId)
+
+const DragCopyPreviewLayer = memo(function DragCopyPreviewLayer({
   previews,
   isDark,
 }: {
@@ -113,9 +121,9 @@ function DragCopyPreviewLayer({
       ))}
     </>
   )
-}
+})
 
-function GuideOverlayLayer({
+const GuideOverlayLayer = memo(function GuideOverlayLayer({
   guides,
   layoutData,
   isDark,
@@ -192,9 +200,9 @@ function GuideOverlayLayer({
       ))}
     </svg>
   )
-}
+})
 
-function StackedCanvasItems({
+const StackedCanvasItems = memo(function StackedCanvasItems({
   layoutData,
   hoveredEntityId,
   isDark,
@@ -249,7 +257,7 @@ function StackedCanvasItems({
         selectedEntityIds={layoutData.selectedEntityIds}
         zoom={layoutData.zoom}
         originY={layoutData.canvasOrigin.y}
-        onSelectEdge={(edgeId) => api.selectEdge(edgeId)}
+        onSelectEdge={selectEdge}
         renderAnchors={false}
         zIndex={undefined}
       />
@@ -359,7 +367,7 @@ function StackedCanvasItems({
       ) : null}
     </>
   )
-}
+})
 
 export default function App({
   initialLayoutData,
@@ -500,14 +508,32 @@ export default function App({
     return reorderGhostEntity
   }, [reorderGhostEntity])
 
+  // Per-kind slices of the scene, held stable so the memoized layers that read
+  // them aren't handed a fresh array on every render of this component.
+  const scenePages = useMemo(
+    () => layoutData.entities.filter((e): e is CanvasScenePageEntity => e.kind === 'page'),
+    [layoutData.entities],
+  )
+  const sceneFileEntities = useMemo(
+    () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
+    [layoutData.entities],
+  )
+  const sceneGroups = layoutData.groups ?? NO_GROUPS
+  const renderGroups = renderLayout.groups ?? NO_GROUPS
+
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
 
   useEffect(() => {
     const cleanup = api.onLayoutUpdate((data) => {
-      layoutRef.current = data
-      setLayoutData(data)
-      setFixProgress(data.fixProgress)
+      // The payload crosses a process boundary, so it arrives fully
+      // re-materialized: every slice is a new object even when the scene did
+      // not move. Reconciling against the payload in hand restores identity
+      // for the untouched slices, which is what the memoized layers compare.
+      const next = shareLayoutData(layoutRef.current, data)
+      layoutRef.current = next
+      setLayoutData(next)
+      setFixProgress(next.fixProgress)
     })
     return cleanup
   }, [])
@@ -538,6 +564,10 @@ export default function App({
     commentInputRef,
     activeStrokeRef,
   })
+  const liveDrawing = useMemo(
+    () => (drawingSession ? { version: 1 as const, ...drawingSession } : null),
+    [drawingSession],
+  )
   const draftStateRef = useRef({ pendingAnnotation, pendingRegionRect, commentText, clearDraft })
   useEffect(() => {
     draftStateRef.current = { pendingAnnotation, pendingRegionRect, commentText, clearDraft }
@@ -627,6 +657,9 @@ export default function App({
   const hoveredEntityId = layoutData.hover?.id ?? null
   const focus = focusContext(layoutData)
   const focusPresentationActive = focus.active
+  const anchorSelectedEntityIds = focusPresentationActive
+    ? NO_ENTITY_IDS
+    : layoutData.selectedEntityIds
   // Surrounding context (annotations, other pages, groups) is hidden while a
   // focus session rests with the eye off; a working tool or the focus-bar eye
   // latches it on (ADR 0021). Binary show/hide, never a dim.
@@ -1134,9 +1167,9 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           {/* Live drawing preview renders after StackedCanvasItems so the
               in-progress stroke sits above file entities — matching where a
               freshly committed drawing lands at the top of the entity order. */}
-          {drawingSession ? (
+          {liveDrawing ? (
             <DrawingLayer
-              drawing={{ version: 1, ...drawingSession }}
+              drawing={liveDrawing}
               layout={layoutData}
               active
               isDark={isDark}
@@ -1175,22 +1208,22 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           ) : null}
 
           <EdgeLayer
-            edges={[]}
+            edges={NO_EDGES}
             entities={layoutData.entities}
             hoveredEntityId={hoveredEntityId}
             isDark={isDark}
             interaction={layoutData.interaction}
             selectedEdgeIds={selectedEdgeIds}
-            selectedEntityIds={focusPresentationActive ? [] : layoutData.selectedEntityIds}
+            selectedEntityIds={anchorSelectedEntityIds}
             zoom={layoutData.zoom}
             originY={layoutData.canvasOrigin.y}
-            onSelectEdge={(edgeId) => api.selectEdge(edgeId)}
+            onSelectEdge={selectEdge}
             renderAnchors={!focusPresentationActive}
           />
 
           {(layoutData.groups?.length ?? 0) > 0 && !hideContext ? (
             <GroupBoundsLayer
-              groups={renderLayout.groups ?? []}
+              groups={renderGroups}
               isDark={isDark}
               zoom={layoutData.zoom}
               canvasOrigin={layoutData.canvasOrigin}
@@ -1201,12 +1234,8 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
           {!focusPresentationActive ? (
             <PageFocusRingLayer
-              pages={layoutData.entities.filter(
-                (e): e is CanvasScenePageEntity => e.kind === 'page',
-              )}
-              fileEntities={layoutData.entities.filter(
-                (e): e is CanvasSceneFileEntity => e.kind === 'file',
-              )}
+              pages={scenePages}
+              fileEntities={sceneFileEntities}
               focusedPageId={layoutData.keyboardTargetPageId}
               originY={layoutData.canvasOrigin.y}
             />
@@ -1315,7 +1344,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           targets (drag/select/rename). */}
       {!captureMode && (layoutData.groups?.length ?? 0) > 0 ? (
         <GroupLabelCanvasSurface
-          groups={layoutData.groups ?? []}
+          groups={sceneGroups}
           transform={t}
           originY={layoutData.canvasOrigin.y}
           isDark={isDark}

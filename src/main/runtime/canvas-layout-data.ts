@@ -19,6 +19,7 @@ import type {
   ToolbarSelectionData,
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
+import { shareLayoutData } from '../../shared/layout-structural-share'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { hiddenByPageAnchor } from './document-binding'
 import { selectAmbientMode } from '../../shared/presence-ambient'
@@ -286,6 +287,13 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   }
 }
 
+/**
+ * The payload the previous pass produced. The scene is rebuilt whole on every
+ * pass, so without a reference to reconcile against, every branch down to the
+ * untouched entities carries new identity into each broadcast.
+ */
+let lastLayoutData: LayoutUpdateData | null = null
+
 export function buildCanvasLayoutData(
   pages: CanvasScenePageEntity[],
   activeSelection: ActiveCanvasEntitySelection | null,
@@ -347,7 +355,7 @@ export function buildCanvasLayoutData(
     return aRank - bRank
   })
   edges.sort((a, b) => (orderRank.get(a.id) ?? Infinity) - (orderRank.get(b.id) ?? Infinity))
-  return {
+  const built = {
     windowWidth,
     zoom,
     pan,
@@ -433,6 +441,8 @@ export function buildCanvasLayoutData(
     focusPresentation: buildFocusPresentationData(pages),
     cameraTransitionStartedAt,
   } as LayoutUpdateData
+  lastLayoutData = shareLayoutData(lastLayoutData, built)
+  return lastLayoutData
 }
 
 function buildFocusPresentationData(
