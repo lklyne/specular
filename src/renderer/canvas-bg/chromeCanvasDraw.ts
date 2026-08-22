@@ -157,18 +157,26 @@ function drawItemBorders(
   g: ItemGeometry,
   borderColor: string,
   dpr: number,
+  /** Device shells are squircles; the outer stroke must trace the same curve
+   * as the bezel fill or the two drift apart along the corner. */
+  squircleOuter: boolean,
 ): void {
   ctx.strokeStyle = borderColor
   ctx.lineWidth = 1
-  strokeRoundedRect(
-    ctx,
-    g.shellX - 0.5,
-    g.shellY - 0.5,
-    g.shellW + 1,
-    g.shellH + 1,
-    g.outerRadius,
-    dpr,
-  )
+  if (squircleOuter) {
+    const r = snapStrokeRect(g.shellX - 0.5, g.shellY - 0.5, g.shellW + 1, g.shellH + 1, dpr)
+    ctx.stroke(squircle2D(r.x, r.y, r.w, r.h, g.outerRadius))
+  } else {
+    strokeRoundedRect(
+      ctx,
+      g.shellX - 0.5,
+      g.shellY - 0.5,
+      g.shellW + 1,
+      g.shellH + 1,
+      g.outerRadius,
+      dpr,
+    )
+  }
   strokeRoundedRect(
     ctx,
     g.contentX - 0.5,
@@ -352,7 +360,7 @@ export function drawChromeCanvas({
   // shells (the bezel fill covers the inner border ring on shell pages), then
   // the page rasters standing in for the live views on top.
   for (const item of borderItems) {
-    drawItemBorders(ctx, liveGeometry(item, transform), borderColor, dpr)
+    drawItemBorders(ctx, liveGeometry(item, transform), borderColor, dpr, !!item.showDeviceFrame)
   }
   for (const item of shellItems) {
     drawItemShell(ctx, item, liveGeometry(item, transform), isDark, bezelColor, dpr)
