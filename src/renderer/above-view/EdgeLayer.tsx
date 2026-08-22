@@ -30,7 +30,6 @@ import {
   autoSides,
   buildBezierPath,
   getAnchorPoint,
-  type AnchorPoint,
 } from '../../shared/edge-geometry'
 import { selectionColor, EDGE_COLOR_DEFAULT } from '../canvas-bg/canvasBgConstants'
 import { scaleEdgeHitTargetSize } from '../canvas-bg/edgeHitSizing'

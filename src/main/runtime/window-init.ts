@@ -65,7 +65,6 @@ import {
   APP_CONTROL_DISCOVERY_FILE,
 } from '../../shared/constants'
 import type {
-  DevtoolsPanelData,
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
 import {

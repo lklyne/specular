@@ -1,10 +1,4 @@
-import type {
-  CurveDirection,
-  EasingPreset,
-  EasingSpec,
-  MotionCandidate,
-  Vec2,
-} from './cursor-motion'
+import type { EasingPreset, EasingSpec } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
 import type { PageAnchor } from './page-anchor'

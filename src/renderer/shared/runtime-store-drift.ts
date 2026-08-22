@@ -15,7 +15,7 @@ import type { RuntimeStore } from '../../shared/runtime-store'
 
 const REPORT_INTERVAL_MS = 2000
 
-export const driftWatchdogEnabled =
+const driftWatchdogEnabled =
   ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV ?? false) === true
 
 let mismatches = 0

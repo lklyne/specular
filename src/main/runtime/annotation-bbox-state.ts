@@ -80,9 +80,3 @@ export function retainAnnotationBboxes(pageId: string, subscribedIds: readonly s
   }
   return changed
 }
-
-export function clearAnnotationBboxes(): void {
-  if (liveBboxes.size === 0) return
-  liveBboxes.clear()
-  projectionStale = true
-}

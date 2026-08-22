@@ -34,14 +34,10 @@ import { reconcileBrowserDevtools } from './runtime-core'
 import { reconcilePageCursorBridge } from './page-cursor-bridge'
 import {
   automationInteractivePageCounts,
-  hoverTarget,
-  hoveringCanvasChrome,
   inspectHoveredTarget,
   inspectSelectedTarget,
   pages,
   interactionState,
-  selectionOverlayActive,
-  spaceModifierHeld,
   pan,
   zoom,
 } from './runtime-context'
@@ -49,7 +45,6 @@ import { focusSession, focusedPageId } from './focus-session'
 import { shouldGateBeOpen } from './gate-predicate'
 import {
   getUiState,
-  activeTool as uiActiveTool,
 } from '../ui-state'
 import {
   devtoolsOpen as uiDevtoolsOpen,
@@ -66,11 +61,9 @@ import {
   backgroundPageOverlays,
   activeCanvasSelection,
   buildCanvasLayoutData,
-  buildFloatingUiUpdatePayload,
   toolbarSelectionData,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
-import { textEntities, buildTextEntitySceneEntity } from './text-entity-state'
 import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../presence-cursor'
@@ -109,7 +102,6 @@ import {
   CARD_BORDER_RADIUS,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
-  DEVTOOLS_PANEL_PADDING,
   DEVTOOLS_RESIZE_HANDLE_WIDTH,
   LEFT_SIDEBAR_WIDTH,
   DEVTOOLS_PANEL_DEBUG,

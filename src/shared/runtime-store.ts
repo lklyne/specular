@@ -18,13 +18,13 @@ import type { CanvasSceneEntity, CanvasSceneGroupEntity, LayoutUpdateData } from
 
 /** Camera transform. Pan and zoom also ride `viewportNudge`, which stays its
  *  own channel — a camera move over an unchanged scene is not a scene edit. */
-export type CameraSlice = Pick<
+type CameraSlice = Pick<
   LayoutUpdateData,
   'zoom' | 'pan' | 'cameraTransitionStartedAt'
 >
 
 /** Window furniture the canvas coordinate system is measured against. */
-export type ChromeSlice = Pick<
+type ChromeSlice = Pick<
   LayoutUpdateData,
   | 'windowWidth'
   | 'canvasOrigin'
@@ -40,13 +40,13 @@ export type ChromeSlice = Pick<
  * scene array is emitted in, and `groupIds` is the separate order the `groups`
  * projection uses.
  */
-export interface SceneSlice {
+interface SceneSlice {
   entityOrder: string[]
   entityIds: string[]
   groupIds: string[]
 }
 
-export type SelectionSlice = Pick<
+type SelectionSlice = Pick<
   LayoutUpdateData,
   | 'selectedEntityIds'
   | 'selectionOperandIds'
@@ -55,13 +55,13 @@ export type SelectionSlice = Pick<
   | 'selectedGroupId'
 >
 
-export type ToolSlice = Pick<
+type ToolSlice = Pick<
   LayoutUpdateData,
   'activeTool' | 'toolDefaults' | 'pendingPlacement'
 >
 
 /** Where keyboard and forwarded input go, and the focus-presentation override. */
-export type FocusSlice = Pick<
+type FocusSlice = Pick<
   LayoutUpdateData,
   'keyboardTargetPageId' | 'interactivePageId' | 'focusPresentation'
 >

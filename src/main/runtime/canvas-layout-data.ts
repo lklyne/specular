@@ -22,11 +22,9 @@ import { shareLayoutData } from '../../shared/layout-structural-share'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { hiddenByPageAnchor } from './document-binding'
 import { selectAmbientMode } from '../../shared/presence-ambient'
-import { isUnresolved } from '../../shared/annotation-utils'
-import { leftSidebarView, win } from './view-refs'
+import { win } from './view-refs'
 import { buildInspectPanelState } from './inspect-session'
 import { isPageSynced } from '../navigation-sync'
-import { layoutCache } from './layout-cache'
 import {
   findPageById,
   hoverTarget,
@@ -35,7 +33,6 @@ import {
   pages,
   pan,
   selectedPage,
-  selectedPageId,
   zoom,
   cameraTransitionStartedAt,
 } from './runtime-context'
@@ -169,18 +166,6 @@ export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
     width: page.peekWidth ?? vp.width,
     height: page.peekHeight ?? vp.height,
     presetIndex: page.presetIndex,
-  }
-}
-
-
-export function buildFloatingUiUpdatePayload(input: {
-  pages: CanvasScenePageEntity[]
-  activeSelection: ActiveCanvasEntitySelection | null
-  surfaceOrigin: { x: number; y: number }
-}) {
-  return {
-    layoutData: buildCanvasLayoutData(input.pages, input.activeSelection),
-    surfaceOrigin: input.surfaceOrigin,
   }
 }
 

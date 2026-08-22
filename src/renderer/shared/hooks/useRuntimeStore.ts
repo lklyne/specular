@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import type { RuntimeStore } from '../../../shared/runtime-store'
-import type { CanvasSceneEntity, LayoutUpdateData } from '../../../shared/types'
+import type { LayoutUpdateData } from '../../../shared/types'
 import { runtimeStore, type RuntimeStoreHandle } from '../runtime-store'
 
 /**
@@ -24,19 +24,6 @@ export function useSlice<T>(
     [selector, isEqual, store],
   )
   return useSyncExternalStore(store.subscribe, getSnapshot)
-}
-
-/** Subscribe to one scene entity. Absent ids read as null so a component can
- *  outlive the entity it draws. */
-export function useEntity(
-  id: string | null,
-  store: RuntimeStoreHandle = runtimeStore,
-): CanvasSceneEntity | null {
-  const selector = useCallback(
-    (current: RuntimeStore) => (id ? (current.entities[id] ?? null) : null),
-    [id],
-  )
-  return useSlice(selector, Object.is, store)
 }
 
 /** The whole store projected back into the flat snapshot shape. The bridge for

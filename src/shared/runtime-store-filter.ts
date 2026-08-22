@@ -98,7 +98,7 @@ export function omittedSlicesFor(target: SceneTarget): RuntimeSliceKey[] {
 }
 
 /** The snapshot keys `target` is not routed — what filtering removes. */
-export function omittedLayoutKeysFor(target: SceneTarget): (keyof LayoutUpdateData)[] {
+function omittedLayoutKeysFor(target: SceneTarget): (keyof LayoutUpdateData)[] {
   return omittedSlicesFor(target).flatMap((slice) => [...SLICE_LAYOUT_KEYS[slice]])
 }
 

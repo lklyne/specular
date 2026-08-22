@@ -52,7 +52,6 @@ import {
   selectPageById as commitSelectPageById,
 } from './selection-controller'
 import {
-  removePageAtIndex,
 } from './page-factory'
 import {
   clampDevtoolsWidth,

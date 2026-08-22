@@ -15,11 +15,11 @@ import type { RuntimeSliceKey, RuntimeStore, RuntimeStoreSlices } from './runtim
  * patch converges on the next full pass rather than holding stale chrome. That
  * is what lets patches be lossy.
  */
-export type RuntimeSlicePatch = {
+type RuntimeSlicePatch = {
   [K in RuntimeSliceKey]: { kind: 'slice'; slice: K; value: RuntimeStoreSlices[K] }
 }[RuntimeSliceKey]
 
-export type RuntimeEntityPatch = {
+type RuntimeEntityPatch = {
   kind: 'entity'
   id: string
   entity: CanvasSceneEntity | null
