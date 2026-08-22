@@ -75,24 +75,22 @@ export function DragFreezeLayer({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const baseGeometryRef = useRef<Map<string, ChromeCanvasItem>>(new Map())
 
-  // Snapshot each frozen page's chrome geometry once, the instant it enters
-  // the frozen set — not on every layoutData tick, or the raster would ride
-  // the same debounced position it exists to avoid.
+  // Base geometry is the pointer-down layout recorded by the drag session.
+  // Frames arrive after the capture round trip, by which point layoutData
+  // already carries part of the drag; basing on it and then adding the
+  // full pointer delta would apply that part twice.
   useEffect(() => {
     if (!frozenState.active || frozenState.frames.length === 0) {
       baseGeometryRef.current = new Map()
       return
     }
-    const pages = layoutRef.current.entities.filter(
-      (e): e is CanvasScenePageEntity => e.kind === 'page',
-    )
     const next = new Map<string, ChromeCanvasItem>()
     for (const frame of frozenState.frames) {
-      const page = pages.find((p) => p.id === frame.pageId)
+      const page = pageDragDelta.startPages.find((p) => p.id === frame.pageId)
       if (page) next.set(page.id, toChromeItem(page))
     }
     baseGeometryRef.current = next
-  }, [frozenState, layoutRef])
+  }, [frozenState])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current

@@ -1,7 +1,7 @@
 import type {
   PointerEvent as ReactPointerEvent,
 } from 'react'
-import type { CanvasEntityKind, CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasEntityKind, CanvasSceneEntity, CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, clientYToWindowY, snapToGrid } from '../../shared/gesture-utils'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
@@ -17,8 +17,15 @@ import { groupDropTargetAt } from '../../shared/group-drop-target'
  * pointer-drag session runs at a time, so a bare singleton is enough — no
  * generation guard needed.
  */
-export const pageDragDelta: { pageIds: readonly string[] | null; totalDx: number; totalDy: number } = {
+export const pageDragDelta: {
+  pageIds: readonly string[] | null
+  /** The dragged pages as laid out at pointer-down, before any delta. */
+  startPages: readonly CanvasScenePageEntity[]
+  totalDx: number
+  totalDy: number
+} = {
   pageIds: null,
+  startPages: [],
   totalDx: 0,
   totalDy: 0,
 }
@@ -343,6 +350,9 @@ export function startOptionAwareEntityDrag(input: {
       preserveSelection: input.preserveSelection,
     })
     pageDragDelta.pageIds = entityIds
+    pageDragDelta.startPages = input.layout.entities.filter(
+      (e): e is CanvasScenePageEntity => e.kind === 'page' && entityIds.includes(e.id),
+    )
     pageDragDelta.totalDx = 0
     pageDragDelta.totalDy = 0
   } else {
@@ -396,6 +406,7 @@ export function startOptionAwareEntityDrag(input: {
       groupTarget.clear()
       if (input.entityKind === 'page') {
         pageDragDelta.pageIds = null
+        pageDragDelta.startPages = []
         input.api.endDragPage(membership, suppressDropBinding)
       } else {
         input.api.endDragEntity(membership, suppressDropBinding)
