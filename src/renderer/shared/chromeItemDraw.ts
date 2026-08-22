@@ -270,7 +270,7 @@ export function drawItemShell(
   // Content-edge ring, painted in the bezel just outside the cutout. The
   // live WebContentsView fills the cutout exactly, so anything drawn inside
   // it is covered.
-  const ringW = 2
+  const ringW = 1
   ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.12)'
   ctx.lineWidth = ringW
   ctx.stroke(
