@@ -108,8 +108,25 @@ function Totals({ sample }: { sample: ProcessMetricsSample }) {
         label="Pages"
         value={`${totals.pagesVisible} visible · ${totals.pagesCulled} culled · ${totals.pagesHidden} hidden`}
       />
+      <Stat label="Idle throttle" value={describeIdleThrottle(sample)} />
     </div>
   )
+}
+
+/**
+ * The A/B arm this sample belongs to. Stated plainly because a sample taken
+ * while the debug window holds focus is never throttled, and a reader
+ * comparing two numbers needs to know which is which.
+ */
+function describeIdleThrottle(sample: ProcessMetricsSample): string {
+  const { idleThrottle, totals } = sample
+  if (idleThrottle.disabled) return 'disabled'
+  if (!idleThrottle.idle) {
+    if (idleThrottle.windowFocused) return 'awake — focused'
+    if (idleThrottle.awakeHoldCount > 0) return `awake — ${idleThrottle.awakeHoldCount} hold(s)`
+    return 'awake — grace'
+  }
+  return `idle · ${totals.pagesThrottled} throttled`
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

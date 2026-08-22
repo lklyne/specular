@@ -280,6 +280,10 @@ const IDLE_POLL_ROUTES = new Set([
   '/session/presence',
   '/perf/pan-zoom/status',
   '/perf/trace/status',
+  // Sampling the throttle must not disturb it: this is the route an agent
+  // polls to watch pages idle, so pulsing activity here would hold every
+  // page awake and the sample would only ever observe its own interference.
+  '/perf/metrics',
 ])
 
 async function route(request: IncomingMessage, response: ServerResponse): Promise<void> {

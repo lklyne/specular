@@ -16,6 +16,7 @@ import type {
   ViewPresentation,
 } from '../shared/process-metrics'
 import { pages } from './runtime/runtime-context'
+import { idleThrottleState } from './runtime/page-idle-throttle'
 import { listComponentViews } from './runtime/component-page-factory'
 import {
   aboveView,
@@ -84,6 +85,7 @@ function knownOwners(): Map<number, ViewOwner> {
         pageId: page.id,
         url: page.url,
         presentation: presentationOf(page.pageView),
+        cpuThrottleRate: page.lastCpuThrottleRate,
       })
     }
     if (page.devtoolsHostView && !page.devtoolsHostView.webContents.isDestroyed()) {
@@ -165,12 +167,14 @@ export function sampleProcessMetrics(): ProcessMetricsSample {
   let pagesVisible = 0
   let pagesCulled = 0
   let pagesHidden = 0
+  let pagesThrottled = 0
   for (const page of pages) {
     switch (presentationOf(page.pageView)) {
       case 'visible': pagesVisible += 1; break
       case 'culled': pagesCulled += 1; break
       case 'hidden': pagesHidden += 1; break
     }
+    if ((page.lastCpuThrottleRate ?? 1) > 1) pagesThrottled += 1
   }
 
   return {
@@ -184,6 +188,8 @@ export function sampleProcessMetrics(): ProcessMetricsSample {
       pagesVisible,
       pagesCulled,
       pagesHidden,
+      pagesThrottled,
     },
+    idleThrottle: idleThrottleState(),
   }
 }

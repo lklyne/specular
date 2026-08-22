@@ -140,6 +140,20 @@ function reevaluate(): void {
   recheckTimer.unref?.()
 }
 
+/**
+ * Snapshot of the throttle's own state, for the metrics sampler. Read-only —
+ * observing the throttle must never nudge it, so this arms no timer and
+ * dispatches nothing.
+ */
+export function idleThrottleState(): {
+  disabled: boolean
+  idle: boolean
+  windowFocused: boolean
+  awakeHoldCount: number
+} {
+  return { disabled, idle: pagesAreIdle(), windowFocused, awakeHoldCount }
+}
+
 export function setWindowFocused(focused: boolean): void {
   if (windowFocused === focused) return
   windowFocused = focused

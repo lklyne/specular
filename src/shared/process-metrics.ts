@@ -29,6 +29,9 @@ export interface ViewOwner {
   pageId?: string
   url?: string
   presentation?: ViewPresentation
+  /** CPU throttling rate last dispatched to this page's renderer (ADR 0035).
+   *  1 is full speed; undefined means no override has ever been applied. */
+  cpuThrottleRate?: number
 }
 
 export interface ProcessMetricRow {
@@ -64,6 +67,16 @@ export interface ProcessMetricsSample {
     pagesVisible: number
     pagesCulled: number
     pagesHidden: number
+    /** Pages currently running at a throttled CPU rate. */
+    pagesThrottled: number
+  }
+  /** State of the idle CPU throttle (ADR 0035), so a sample says on its own
+   *  which arm of an A/B it belongs to. */
+  idleThrottle: {
+    disabled: boolean
+    idle: boolean
+    windowFocused: boolean
+    awakeHoldCount: number
   }
 }
 

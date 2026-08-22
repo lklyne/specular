@@ -17,10 +17,17 @@ const MAX_LISTED_OWNERS = 4
 function ownerSummary(row: ProcessMetricRow): string {
   if (row.owners.length === 0) return row.name ?? row.type
   const listed = row.owners.slice(0, MAX_LISTED_OWNERS).map((owner) => {
-    return owner.presentation ? `${owner.label} (${owner.presentation})` : owner.label
+    const notes = [owner.presentation, throttleNote(owner)].filter(Boolean)
+    return notes.length > 0 ? `${owner.label} (${notes.join(', ')})` : owner.label
   })
   const remaining = row.owners.length - listed.length
   return remaining > 0 ? `${listed.join('; ')} +${remaining} more` : listed.join('; ')
+}
+
+/** Only worth printing when a page is actually slowed. */
+function throttleNote(owner: { cpuThrottleRate?: number }): string | null {
+  const rate = owner.cpuThrottleRate
+  return rate !== undefined && rate > 1 ? `throttled ${rate}x` : null
 }
 
 function markdownTable(header: string[], rows: string[][]): string {
@@ -41,6 +48,12 @@ function processSection(sample: ProcessMetricsSample): string {
     `Wakeups/s ${totals.idleWakeupsPerSecond.toFixed(0)}`,
   ].join(' · ')
   const pageLine = `Pages: ${totals.pagesVisible} visible · ${totals.pagesCulled} culled · ${totals.pagesHidden} hidden`
+  const { idleThrottle } = sample
+  const throttleLine = `Idle throttle: ${
+    idleThrottle.disabled
+      ? 'disabled (SPECULAR_DISABLE_IDLE_THROTTLE=1)'
+      : `${idleThrottle.idle ? 'idle' : 'awake'} · focused ${idleThrottle.windowFocused} · holds ${idleThrottle.awakeHoldCount} · ${totals.pagesThrottled} pages throttled`
+  }`
 
   const rows = [...sample.rows]
     .sort((a, b) => b.workingSetKb - a.workingSetKb)
@@ -57,6 +70,7 @@ function processSection(sample: ProcessMetricsSample): string {
   return [
     headline,
     pageLine,
+    throttleLine,
     '',
     markdownTable(
       ['Process', 'Type', 'PID', 'Memory', 'CPU', 'Wakeups/s', 'CPU total'],
