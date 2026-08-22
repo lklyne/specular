@@ -262,6 +262,15 @@ Scheme resolution is a three-layer chain: **OS appearance → app theme mode →
 - **Page color scheme override** — per-page `colorScheme` (`'light'` | `'dark'`, absent = inherit). Persisted top-level on the page's link node (alongside `presetIndex` — link-node fields predate the `specular: {}` convention), synced/undoable like any page field, carried through duplicate and copy-paste. Enforced via CDP `Emulation.setEmulatedMedia` in the layout pass (`page-color-scheme.ts`) since webContents has no native per-guest scheme API; absent means *no override*, so the page follows theme changes live. Set from the page popup (single) or the multi-entity pane (2+ pages, indeterminate when mixed).
 - **Guest scrollbar CSS** — a user-origin stylesheet injected into every page webContents (`page-scrollbar-css.ts`) making root scrollbars thin and `prefers-color-scheme`-aware. Exists because device emulation makes Blink paint root scrollbars from the page's *declared* color-scheme only, so undeclared pages got thick light scrollbars in dark mode. User origin keeps page-author scrollbar styling winning.
 
+## Idle throttling
+
+What the app does to page renderers when nobody is looking at it. Chromium only background-throttles renderers it considers *hidden*, and an unfocused-but-visible window is not hidden — so without this, every page on the canvas runs at full rate while the user is in another app. See [ADR 0035](./docs/adr/0035-idle-cpu-throttling-for-pages.md); the mechanism survey is in [docs/pan-zoom-perf-unknowns.md](./docs/pan-zoom-perf-unknowns.md) §1.
+
+- **Idle** — the app is unfocused, the blur grace has elapsed, no awake hold is outstanding, and no agent activity is in its trailing window. Idle pages are CPU-throttled, never hidden: a throttled page still yields live pixels to `capturePage`, which is how agents see (`page-idle-throttle.ts`).
+- **Awake hold** — a ref-counted claim on live frames, taken by work that produces no traffic of its own to prove a page is in use. Video recording and perf tracing hold one for their duration. Outstanding holds outrank idleness.
+- **Agent activity** — the trailing window pulsed by control-server traffic. Every authorized request counts except the endpoints an idle client polls on a timer, so a connected MCP client doesn't hold the canvas awake by merely existing. An unrecognized route counts as activity — costing battery is the better failure.
+- **Automation-interactive** — a page with a live CDP bridge (`automationInteractivePageCounts`). Exempt from throttling outright, and already exempt from viewport culling, so a long agent session never decays into a slowed page.
+
 ## Presence
 
 Live cursors rendered on the canvas: agent sessions, so a watching user can follow what an agent is doing, and the user's own cursor echoed onto sync peers. The causality rules are load-bearing — see [ADR 0029](./docs/adr/0029-presence-acts-anchored-to-truth.md).

@@ -60,6 +60,7 @@ import {
   notifyDevtoolsChanged,
 } from './devtools-panel'
 import { attachBindingDispatcher } from './binding-dispatcher'
+import { setWindowFocused } from './page-idle-throttle'
 import {
   APP_CONTROL_DISCOVERY_FILE,
 } from '../../shared/constants'
@@ -301,6 +302,13 @@ export function initWindow(): void {
   currentWin.on('leave-full-screen', syncOverlayOnDisplayChange)
   currentWin.on('focus', syncOverlayOnDisplayChange)
   currentWin.on('blur', syncOverlayOnDisplayChange)
+  // An unfocused window is not a hidden one to Chromium, so pages keep
+  // rendering at full rate until something tells them not to.
+  currentWin.on('focus', () => setWindowFocused(true))
+  currentWin.on('blur', () => setWindowFocused(false))
+  // A background launch (SPECULAR_BACKGROUND) never fires a focus event, so
+  // seed from the window rather than assuming the app started in front.
+  setWindowFocused(currentWin.isFocused())
   currentWin.on('closed', () => {
     if (!overlayWin.isDestroyed()) overlayWin.destroy()
     setCursorOverlayWindow(null)
