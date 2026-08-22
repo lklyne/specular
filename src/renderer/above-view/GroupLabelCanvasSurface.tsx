@@ -18,8 +18,9 @@ import {
 } from '../../shared/group-label-geometry'
 import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
 import type { CanvasSceneGroupEntity } from '../../shared/types'
+import { prepareScreenCanvas } from '../shared/screenCanvas'
 
-export function groupLabelColor(
+function groupLabelColor(
   group: CanvasSceneGroupEntity,
   isDark: boolean,
 ): string {
@@ -27,7 +28,7 @@ export function groupLabelColor(
   return isDark ? '#d4d4d8' : '#3f3f46' // zinc-300 / zinc-700
 }
 
-export function drawGroupLabels({
+function drawGroupLabels({
   canvas,
   groups,
   transform,
@@ -44,18 +45,9 @@ export function drawGroupLabels({
   skipGroupId: string | null
   devicePixelRatio: number
 }): void {
-  const dpr = Math.max(devicePixelRatio, 1)
-  const width = canvas.clientWidth
-  const height = canvas.clientHeight
-  const targetWidth = Math.max(1, Math.ceil(width * dpr))
-  const targetHeight = Math.max(1, Math.ceil(height * dpr))
-  if (canvas.width !== targetWidth) canvas.width = targetWidth
-  if (canvas.height !== targetHeight) canvas.height = targetHeight
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.clearRect(0, 0, width, height)
+  const prepared = prepareScreenCanvas(canvas, devicePixelRatio)
+  if (!prepared) return
+  const { ctx } = prepared
 
   ctx.font = GROUP_LABEL_FONT
   ctx.textBaseline = 'alphabetic'

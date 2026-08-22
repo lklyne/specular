@@ -118,7 +118,7 @@ function snapStrokeRect(
   return { x: sx, y: sy, w: snap(x + w) - sx, h: snap(y + h) - sy }
 }
 
-export function strokeRoundedRect(
+function strokeRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
@@ -133,7 +133,7 @@ export function strokeRoundedRect(
   ctx.stroke()
 }
 
-export function squircle2D(
+function squircle2D(
   x: number,
   y: number,
   w: number,
@@ -149,7 +149,7 @@ export function squircle2D(
  * circularly, and the cutout must match it exactly or the mismatch shows as
  * a bezel-coloured sliver along the corner.
  */
-export function contentCutout2D(
+function contentCutout2D(
   x: number,
   y: number,
   w: number,
@@ -238,7 +238,6 @@ export function drawItemShell(
   const isPhone = dev?.category === 'iphone'
   const isTablet = dev?.category === 'ipad'
   const dz = g.displayZoom
-  const insetBottom = g.shellY + g.shellH - (g.contentY + g.contentH)
 
   const outerPath = squircle2D(g.shellX, g.shellY, g.shellW, g.shellH, g.outerRadius)
   const donut = new Path2D()
@@ -284,42 +283,46 @@ export function drawItemShell(
   )
   ctx.lineWidth = 1
 
-  const centerX = g.shellX + g.shellW / 2
+  drawDeviceDecorations(ctx, g, isDark, {
+    isPhone,
+    isTablet,
+    notch: isPhone && !!dev && dev.screenCornerRadius > 0 && orientation === 'portrait',
+    orientation,
+  })
+}
 
-  if (isPhone && dev && dev.screenCornerRadius > 0 && orientation === 'portrait') {
+/** Phone notch (portrait only) and the phone/tablet home indicator. */
+function drawDeviceDecorations(
+  ctx: CanvasRenderingContext2D,
+  g: ItemGeometry,
+  isDark: boolean,
+  device: { isPhone: boolean; isTablet: boolean; notch: boolean; orientation: string },
+): void {
+  const { isPhone, isTablet, notch, orientation } = device
+  if (!isPhone && !isTablet) return
+  const dz = g.displayZoom
+  const centerX = g.shellX + g.shellW / 2
+  const insetBottom = g.shellY + g.shellH - (g.contentY + g.contentH)
+
+  if (notch) {
     ctx.fillStyle = isDark ? '#000' : '#1a1a1a'
     ctx.beginPath()
-    ctx.roundRect(
-      centerX - (126 * dz) / 2,
-      g.contentY + 8 * dz,
-      126 * dz,
-      37 * dz,
-      18.5 * dz,
-    )
+    ctx.roundRect(centerX - (126 * dz) / 2, g.contentY + 8 * dz, 126 * dz, 37 * dz, 18.5 * dz)
     ctx.fill()
   }
 
-  if (isPhone || isTablet) {
-    const indicatorW = isTablet ? 100 : orientation === 'portrait' ? 120 : 100
-    const bottomInset = Math.max(
-      4 * dz,
-      insetBottom / 2 - (isTablet ? 3 : 4) * dz,
-    )
-    ctx.fillStyle = isPhone
-      ? isDark
-        ? 'rgba(255,255,255,0.25)'
-        : 'rgba(0,0,0,0.15)'
-      : isDark
-        ? 'rgba(255,255,255,0.2)'
-        : 'rgba(0,0,0,0.12)'
-    ctx.beginPath()
-    ctx.roundRect(
-      centerX - (indicatorW * dz) / 2,
-      g.shellY + g.shellH - bottomInset - 4 * dz,
-      indicatorW * dz,
-      4 * dz,
-      2 * dz,
-    )
-    ctx.fill()
-  }
+  const indicatorW = isTablet ? 100 : orientation === 'portrait' ? 120 : 100
+  const bottomInset = Math.max(4 * dz, insetBottom / 2 - (isTablet ? 3 : 4) * dz)
+  const light = isPhone ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.2)'
+  const dark = isPhone ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.12)'
+  ctx.fillStyle = isDark ? light : dark
+  ctx.beginPath()
+  ctx.roundRect(
+    centerX - (indicatorW * dz) / 2,
+    g.shellY + g.shellH - bottomInset - 4 * dz,
+    indicatorW * dz,
+    4 * dz,
+    2 * dz,
+  )
+  ctx.fill()
 }

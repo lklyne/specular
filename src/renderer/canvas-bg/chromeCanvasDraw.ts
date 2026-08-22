@@ -13,6 +13,7 @@ import {
   type ChromeCanvasItem,
 } from '../shared/chromeItemDraw'
 import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
+import { prepareScreenCanvas } from '../shared/screenCanvas'
 
 export type { ChromeCanvasItem } from '../shared/chromeItemDraw'
 
@@ -38,18 +39,9 @@ export function drawChromeCanvas({
    *  for the duration of the drag; this pass must not draw them underneath. */
   dragFrozenPageIds?: ReadonlySet<string>
 }): void {
-  const dpr = Math.max(devicePixelRatio, 1)
-  const width = canvas.clientWidth
-  const height = canvas.clientHeight
-  const targetWidth = Math.max(1, Math.ceil(width * dpr))
-  const targetHeight = Math.max(1, Math.ceil(height * dpr))
-  if (canvas.width !== targetWidth) canvas.width = targetWidth
-  if (canvas.height !== targetHeight) canvas.height = targetHeight
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.clearRect(0, 0, width, height)
+  const prepared = prepareScreenCanvas(canvas, devicePixelRatio)
+  if (!prepared) return
+  const { ctx, dpr } = prepared
 
   const { borderColor, bezelColor } = readChromeColors(canvas)
 

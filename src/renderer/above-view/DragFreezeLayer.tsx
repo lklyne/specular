@@ -11,6 +11,7 @@ import {
   type ChromeCanvasItem,
 } from '../shared/chromeItemDraw'
 import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
+import { prepareScreenCanvas } from '../shared/screenCanvas'
 
 const EMPTY_FROZEN_STATE: FrozenPagesState = { revision: 0, target: 'above', active: false, frames: [] }
 
@@ -65,18 +66,9 @@ export function DragFreezeLayer({
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const dpr = Math.max(window.devicePixelRatio || 1, 1)
-    const width = canvas.clientWidth
-    const height = canvas.clientHeight
-    const targetWidth = Math.max(1, Math.ceil(width * dpr))
-    const targetHeight = Math.max(1, Math.ceil(height * dpr))
-    if (canvas.width !== targetWidth) canvas.width = targetWidth
-    if (canvas.height !== targetHeight) canvas.height = targetHeight
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    ctx.clearRect(0, 0, width, height)
+    const prepared = prepareScreenCanvas(canvas, window.devicePixelRatio)
+    if (!prepared) return
+    const { ctx, dpr } = prepared
     if (!frozenState.active || bitmaps.size === 0) return
 
     const { borderColor, bezelColor } = readChromeColors(canvas)
