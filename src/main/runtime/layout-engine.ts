@@ -67,7 +67,6 @@ import {
   activeCanvasSelection,
   buildCanvasLayoutData,
   buildFloatingUiUpdatePayload,
-  sendAnnotationLayoutUpdate,
   toolbarSelectionData,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
@@ -79,6 +78,7 @@ import { notifyDevtoolsPanelData } from './inspect-session'
 import { clampDevtoolsWidth } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
+import { broadcastSceneUpdate } from './runtime-patch-broadcast'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
 import type { Page } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
@@ -592,10 +592,7 @@ function layoutAllViews(): void {
 
   // (above-view bounds are now handled in the consolidated block above)
 
-  if (pendingLayoutData && bgView) {
-    bgView.webContents.send(ipcChannels.layoutUpdate, pendingLayoutData)
-    sendAnnotationLayoutUpdate(pendingLayoutData)
-  }
+  if (pendingLayoutData) broadcastSceneUpdate(pendingLayoutData)
 
   // --- Per-component bounds + emulation ---
   // Reconcile the component-view set against the current file entities,

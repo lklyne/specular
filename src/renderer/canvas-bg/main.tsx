@@ -4,6 +4,7 @@ import App from './App'
 import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
 import { installFocusModality } from '../shared/focusModality'
+import { runtimeStore } from '../shared/runtime-store'
 import { installRendererErrorReporter } from '../shared/install-error-reporter'
 import { RendererErrorBoundary } from '../shared/RendererErrorBoundary'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -16,6 +17,7 @@ const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electron
 
 async function bootstrap() {
   const initialData = await api.getInitialData()
+  runtimeStore.applySnapshot(initialData.layoutData)
   document.documentElement.classList.toggle('dark', initialData.theme.isDark)
 
   createRoot(document.getElementById('root')!).render(

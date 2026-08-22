@@ -18,21 +18,14 @@ import type {
   PendingPlacement,
   ToolbarSelectionData,
 } from '../../shared/types'
-import { ipcChannels } from '../../shared/ipc-contract'
 import { shareLayoutData } from '../../shared/layout-structural-share'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { hiddenByPageAnchor } from './document-binding'
 import { selectAmbientMode } from '../../shared/presence-ambient'
 import { isUnresolved } from '../../shared/annotation-utils'
-import {
-  aboveView,
-  cursorOverlayWindow,
-  leftSidebarView,
-  win,
-} from './view-refs'
+import { leftSidebarView, win } from './view-refs'
 import { buildInspectPanelState } from './inspect-session'
 import { isPageSynced } from '../navigation-sync'
-import { safeSend } from './safe-send'
 import { layoutCache } from './layout-cache'
 import {
   findPageById,
@@ -177,13 +170,6 @@ export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
   }
 }
 
-
-export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
-  if (aboveView) safeSend(aboveView.webContents, ipcChannels.layoutUpdate, payload)
-  if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed()) {
-    safeSend(cursorOverlayWindow.webContents, ipcChannels.layoutUpdate, payload)
-  }
-}
 
 export function buildFloatingUiUpdatePayload(input: {
   pages: CanvasScenePageEntity[]

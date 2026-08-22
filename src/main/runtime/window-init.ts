@@ -49,11 +49,11 @@ import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
 import { onTrackerChange } from '../agent-fix/fix-tracker'
 import { getFixProgress, onProgressChange } from '../agent-fix/fix-progress'
 import { safeSend } from './safe-send'
+import { broadcastSceneSnapshot } from './runtime-patch-broadcast'
 import {
   backgroundPageOverlays,
   activeCanvasSelection,
   buildCanvasLayoutData,
-  sendAnnotationLayoutUpdate,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
 import {
@@ -208,8 +208,7 @@ export function initWindow(): void {
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
     const initialLayoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
-    currentBgView.webContents.send(ipcChannels.layoutUpdate, initialLayoutData)
-    sendAnnotationLayoutUpdate(initialLayoutData)
+    broadcastSceneSnapshot(initialLayoutData)
     // The renderer subscribes to layout updates during mount, so send one more
     // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')
@@ -255,7 +254,7 @@ export function initWindow(): void {
     currentAboveView.webContents.send(ipcChannels.themeChanged, { isDark: isDark(), themeMode: getThemeMode() })
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
-    sendAnnotationLayoutUpdate(buildCanvasLayoutData(pageOverlays, nextActiveSelection))
+    broadcastSceneSnapshot(buildCanvasLayoutData(pageOverlays, nextActiveSelection))
     layoutCache.lastCommentOverlayBoundsKey = null
     requestLayout()
   })

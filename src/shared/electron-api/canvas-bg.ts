@@ -3,7 +3,7 @@ import type { CanvasGuidesPayload } from '../canvas-guides'
 import type { CancelReason } from '../interaction-types'
 import type { MarqueeSelectionMode } from '../marquee-selection'
 import type { ResizeHandle } from '../resize-accumulator'
-import type { RuntimePatch } from '../runtime-patch'
+import type { RuntimePatchBatch } from '../runtime-patch'
 import type { Tool } from '../tool'
 import type {
   AnnotationBboxSubscription,
@@ -296,10 +296,11 @@ export interface CanvasBgElectronAPI {
   onPageScrollLive: (
     callback: (data: { pageId: string; scrollX: number; scrollY: number }) => void,
   ) => () => void
-  /** Fine-grained runtime-store updates (hover today). Layers subscribe to the
-   *  slice they draw instead of re-reading the whole layout snapshot; the next
-   *  `layoutUpdate` still carries the same values as the reconcile baseline. */
-  onRuntimePatch: (callback: (patch: RuntimePatch) => void) => () => void
+  /** Fine-grained runtime-store updates: the cells one change touched, batched
+   *  per layout pass. Layers subscribe to the slice they draw instead of
+   *  re-reading the whole layout snapshot; the next `layoutUpdate` still
+   *  carries the same values as the reconcile baseline. */
+  onRuntimePatch: (callback: (batch: RuntimePatchBatch) => void) => () => void
   onViewportNudge: (callback: (data: ViewportNudge) => void) => () => void
   onFrozenPagesState: (
     callback: (data: FrozenPagesState) => void,

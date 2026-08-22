@@ -251,7 +251,7 @@ export function setHoverEntity(nextHoverTarget: CanvasHoverTarget): void {
 function commitHoverTarget(next: CanvasHoverTarget): void {
   if (sameHoverTarget(hoverTarget, next)) return
   setHoverTarget(next)
-  broadcastRuntimePatch({ kind: 'hover', target: next })
+  broadcastRuntimePatch({ kind: 'slice', slice: 'hover', value: next })
 }
 
 export function setDevtoolsWidthFromScreenX(screenX: number): void {

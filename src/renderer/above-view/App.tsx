@@ -15,8 +15,8 @@ import {
   canvasPointerOwner,
 } from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
-import { shareLayoutData } from '../../shared/layout-structural-share'
-import { hoverStore } from '../shared/hover-store'
+import { runtimeStore } from '../shared/runtime-store'
+import { useLayoutData } from '../shared/hooks/useRuntimeStore'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
@@ -378,7 +378,7 @@ export default function App({
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
-  const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
+  const layoutData = useLayoutData()
   const t = useSceneCameraTransform(api.onViewportNudge, layoutData, {
     x: layoutData.canvasOrigin.x,
     y: 0,
@@ -522,24 +522,22 @@ export default function App({
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
 
+  // Gesture code reads the layout imperatively at event time, so the ref has to
+  // move with the store rather than with the render it schedules.
   useEffect(() => {
-    hoverStore.reconcile(layoutRef.current.hover)
-    const cleanup = api.onLayoutUpdate((data) => {
-      // The payload crosses a process boundary, so it arrives fully
-      // re-materialized: every slice is a new object even when the scene did
-      // not move. Reconciling against the payload in hand restores identity
-      // for the untouched slices, which is what the memoized layers compare.
-      const next = shareLayoutData(layoutRef.current, data)
-      layoutRef.current = next
-      setLayoutData(next)
-      setFixProgress(next.fixProgress)
-      // The snapshot is the reconcile baseline for every patched slice.
-      hoverStore.reconcile(next.hover)
+    const offSnapshot = api.onLayoutUpdate((data) => runtimeStore.applySnapshot(data))
+    const offPatches = api.onRuntimePatch((batch) => runtimeStore.applyPatches(batch))
+    const unsubscribe = runtimeStore.subscribe(() => {
+      layoutRef.current = runtimeStore.readLayoutData()
     })
-    return cleanup
+    return () => {
+      offSnapshot()
+      offPatches()
+      unsubscribe()
+    }
   }, [])
 
-  useEffect(() => api.onRuntimePatch((patch) => hoverStore.applyPatch(patch)), [])
+  useEffect(() => setFixProgress(layoutData.fixProgress), [layoutData.fixProgress])
 
   useEffect(() => api.onFixProgressUpdate(setFixProgress), [])
 
