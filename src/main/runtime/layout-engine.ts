@@ -4,7 +4,7 @@
 import { screen, type WebContentsView } from 'electron'
 import {
   boundsKey,
-  boundApplyEmulation,
+  boundPageMetrics,
   boundEffectivePageContentSize,
   boundScreenBoundsForPage,
   boundSelectedPage,
@@ -83,6 +83,7 @@ import type { Page } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
 import { pageParkingFor } from './page-freeze'
 import { scheduleZoomSnapshotPreparation } from './zoom-snapshot-freeze'
+import { applyPageMetrics, clearPageMetrics, invalidatePageMetrics, pageRendersNatively } from './page-emulation'
 
 let buildMsSink: ((ms: number) => void) | null = null
 
@@ -121,7 +122,6 @@ const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
 // tip row (sideOffset + line) below the 44px strip, no more.
 const TOOLBAR_TOOLTIP_BAND = 48
 // Emulation-cache sentinel marking a page rendered natively (fill focus mode).
-const FILL_NATIVE_KEY = 'fill-native'
 
 /**
  * Off-screen-but-alive bounds for hidden devtools panels. Unlike a 0×0
@@ -252,26 +252,14 @@ function layoutDevtoolsViews(): void {
 }
 
 /**
- * Applies device emulation for `page` at the current zoom when its inputs
- * changed. Only safe once the page has a live frame: Electron derefs the
- * frame's widget view unguarded, and a never-navigated page has none.
+ * Applies the page's canvas metrics at the current zoom. Mid-gesture the
+ * scale is quantized so re-raster fires at bucket crossings only; the settle
+ * pass restores the exact zoom.
  */
-export function ensurePageEmulation(page: Page, devtoolsInset: number): void {
-  const { width: emulatedWidth, height: emulatedHeight } = boundEffectivePageContentSize(page)
-  const nativeScale = screen.getPrimaryDisplay().scaleFactor
-  const pageScale = isZoomInMotion() ? quantizeZoomForEmulation(zoom) : zoom
-  const pageEmulationKey = `${emulatedWidth}:${emulatedHeight}:${pageScale}:${nativeScale}:${devtoolsInset}`
-  if (pageEmulationKey === page.lastPageEmulationKey) return
-  const emulationStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-  boundApplyEmulation(page.pageView.webContents, page.presetIndex, page)
-  page.lastPageEmulationKey = pageEmulationKey
-  devtoolsPanelDebug('layout:apply-emulation', {
-    pageId: page.id,
-    durationMs: Date.now() - emulationStart,
-    emulatedWidth,
-    emulatedHeight,
-    devtoolsInset,
-  })
+export function ensurePageEmulation(page: Page): void {
+  const metrics = boundPageMetrics(page)
+  if (isZoomInMotion()) metrics.scale = quantizeZoomForEmulation(metrics.scale)
+  applyPageMetrics(page.pageView.webContents, metrics)
 }
 
 /**
@@ -279,10 +267,11 @@ export function ensurePageEmulation(page: Page, devtoolsInset: number): void {
  * natively and is left alone; the layout pass owns that switch.
  */
 export function applyNavigationEmulation(page: Page): void {
-  if (page.pageView.webContents.isDestroyed()) return
-  if (page.lastPageEmulationKey === FILL_NATIVE_KEY) return
-  page.lastPageEmulationKey = undefined
-  ensurePageEmulation(page, uiDevtoolsOpen() ? uiDevtoolsWidth() : 0)
+  const wc = page.pageView.webContents
+  if (wc.isDestroyed()) return
+  if (pageRendersNatively(wc)) return
+  invalidatePageMetrics(wc)
+  ensurePageEmulation(page)
 }
 
 export function layoutAllViews(): void {
@@ -522,13 +511,11 @@ export function layoutAllViews(): void {
       // emulation, so the page reflows to the real view size and viewport-aware
       // layout (sticky headers, 100vh, visualViewport) behaves like a real tab.
       // Emulation at scale 1 leaves pages in a stale layout until a scroll.
-      if (page.lastPageEmulationKey !== FILL_NATIVE_KEY) {
-        page.pageView.webContents.disableDeviceEmulation()
+      if (clearPageMetrics(page.pageView.webContents)) {
         page.pageView.webContents.setZoomFactor(1)
-        page.lastPageEmulationKey = FILL_NATIVE_KEY
       }
     } else {
-      ensurePageEmulation(page, devtoolsOpen ? devtoolsWidth : 0)
+      ensurePageEmulation(page)
     }
 
     if (page.colorScheme !== page.lastColorSchemeKey) {

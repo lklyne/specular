@@ -64,7 +64,6 @@ export interface Page {
   >
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string
-  lastPageEmulationKey?: string
   /** Last colorScheme applied via CDP (see page-color-scheme.ts). Undefined
    *  means either "no override applied yet" or "no override needed" —
    *  both collapse to the same no-op when colorScheme is also absent. */

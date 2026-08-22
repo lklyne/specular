@@ -25,7 +25,7 @@ import { boundEffectivePageContentSize } from './runtime-geometry'
 import { screen } from 'electron'
 import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
 import { zoom } from './runtime-context'
-import { captureViaCdp, type CdpCapture } from './zoom-snapshot-cdp-capture'
+import { withCaptureMetrics } from './page-emulation'
 
 const FREEZE_TARGET = 'bg'
 const FREEZE_ID = 'zoom'
@@ -317,28 +317,18 @@ export interface HandoffCapture {
   contentKey: string
   /** Null when the page timed out or returned an empty capture. */
   image: NativeImage | null
-  /** Renderer-side raster above on-screen resolution; null when not needed or failed. */
-  hiRes: CdpCapture | null
-}
-
-function encodeCdpFrame(page: Page, contentKey: string, capture: CdpCapture): FrozenPageFrame {
-  return {
-    pageId: page.id,
-    contentKey,
-    dataUrl: `data:image/jpeg;base64,${capture.jpeg.toString('base64')}`,
-    capturedWidth: capture.width,
-    capturedHeight: capture.height,
-  }
+  /** Surface copy at raised pixel density; null when not needed or failed. */
+  hiRes: NativeImage | null
 }
 
 /**
  * The capture a settled page needs beyond its presentation frame. The
  * on-screen surface only has `css × zoom × dpr` pixels, which is nothing to
  * zoom back into from far out, so while the page is still parked behind the raster
- * we ask its renderer for a raster at the target scale. Skipped when the
+ * it re-rasters at a raised pixel density and we copy that surface. Skipped when the
  * retained frame already pictures this content at that resolution.
  */
-function hiResPlan(page: Page): { scale: number; cssWidth: number; cssHeight: number; dpr: number } | null {
+function hiResPlan(page: Page): { densityFactor: number; expectedWidth: number } | null {
   const css = boundEffectivePageContentSize(page)
   const dpr = screen.getPrimaryDisplay().scaleFactor
   const scale = snapshotTargetScale({
@@ -357,7 +347,12 @@ function hiResPlan(page: Page): { scale: number; cssWidth: number; cssHeight: nu
     devicePixelRatio: dpr,
     targetScale: scale,
   })) return null
-  return { scale, cssWidth: css.width, cssHeight: css.height, dpr }
+  // The page renders at css × zoom × dpr pixels; raising density by
+  // scale / zoom gives css × scale × dpr, the target.
+  return {
+    densityFactor: scale / zoom,
+    expectedWidth: Math.floor(css.width * scale * dpr),
+  }
 }
 
 /**
@@ -368,7 +363,7 @@ function hiResPlan(page: Page): { scale: number; cssWidth: number; cssHeight: nu
  * only once a frame containing that commit is drawn, so its resolution is
  * the presentation signal the reveal needs. The copy doubles as the next
  * gesture's snapshot when the page is already at or above the target
- * resolution; otherwise the renderer-side hi-res capture taken in between
+ * resolution; otherwise the raised-density capture taken in between
  * is the snapshot, and a second pair of animation frames confirms the page
  * has re-presented at the settled scale after it.
  */
@@ -380,23 +375,29 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
     parked.map(async (page): Promise<HandoffCapture> => {
       const contents = page.pageView.webContents
       const contentKey = pageContentKey(page)
-      let hiRes: CdpCapture | null = null
+      let hiRes: NativeImage | null = null
       const presented = (async () => {
         await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
         if (contents.isDestroyed()) return null
         const plan = hiResPlan(page)
         if (plan) {
-          // The screenshot re-lays the page out at the target scale and back;
-          // off-screen that is invisible, and the restore commit is what the
+          // The page re-rasters at the raised density and back; off-screen
+          // that is invisible, and the restore commit is what the
           // presentation capture below then waits on.
-          hiRes = await captureViaCdp(page, {
-            scale: plan.scale,
-            cssWidth: plan.cssWidth,
-            cssHeight: plan.cssHeight,
-            emulation: { deviceScaleFactor: plan.dpr, scale: zoom },
-          }).catch((error) => {
-            return null
-          })
+          hiRes = await withCaptureMetrics(contents, plan.densityFactor, async () => {
+            await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
+            if (contents.isDestroyed()) return null
+            const image = await contents.capturePage()
+            return image.isEmpty() ? null : image
+          }).catch(() => null)
+          if (hiRes && hiRes.getSize().width < plan.expectedWidth) {
+            // Fewer pixels than the density bump should yield: the frame
+            // still merges (it may beat what we have) but the target is
+            // never met, so every settle would re-capture. Worth knowing.
+            console.warn(
+              `[zoom-snapshot] hi-res capture of ${page.id} is ${hiRes.getSize().width}px, expected ${plan.expectedWidth}px`,
+            )
+          }
           await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
           if (contents.isDestroyed()) return null
         }
@@ -441,9 +442,7 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
   const capturedIds = new Set(captured.map((capture) => capture.page.id))
   preparedFrames = mergeFrames(
     captured.map((capture) =>
-      capture.hiRes
-        ? encodeCdpFrame(capture.page, capture.contentKey, capture.hiRes)
-        : encodePageFrame(capture.page, capture.image),
+      encodePageFrame(capture.page, capture.hiRes ?? capture.image),
     ),
   )
   preparedContentSignature = contentSignatureAtCapture

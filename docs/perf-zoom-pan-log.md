@@ -351,6 +351,26 @@ Still owed: a decoded-bitmap budget (20 pages at a 2048px edge is ~200MB of
 GPU textures; most canvases have fewer visible pages, but nothing enforces
 it), and a human check that the 1px park column is invisible in practice.
 
+### Addendum — one emulation owner (2026-08-21)
+
+Finding 1 above (seeding the DevTools handler so its restore lands right) was
+a two-owner workaround, and it leaked: after a resize the restore could land
+on a scale the layout engine's emulation key still believed was current, and
+`clip.scale` re-laid the page out larger than its view, which the native layer
+does not clip (an oversized page hanging off the warm park, and a page
+rendering ~1.3× past its selection outline after resize → zoom → select).
+
+Now `page-emulation.ts` is the only party that sets page metrics, through
+Electron's `enableDeviceEmulation`; nothing touches CDP's
+`Emulation.setDeviceMetricsOverride` any more (tried as the owner's backend:
+the DevTools handler also resizes the widget view to the override size, and
+pages rendered tiny during every zoom). The hi-res capture borrows metrics
+through `withCaptureMetrics`, which raises only `deviceScaleFactor` (CSS
+viewport and view-space size unchanged, so the frame never outgrows its
+bounds), copies the surface with `capturePage`, and restores from the
+owner's record. JPEG encode of that copy is on main like every other frame.
+The warm park is back to a plain one-pixel column.
+
 The encode bench, the CDP probe route, the `/perf/flags` A/B switches, and the
 `[zoom-snap]` lifecycle logging were removed before merge. The log above keeps
 the numbers they produced; re-create them from git history if a follow-up needs
