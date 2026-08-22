@@ -10,7 +10,6 @@ import type {
   AnnotationCreateRequest,
   AnnotationDrawingStroke,
   AnnotationElementSelectionPayload,
-  AnnotationLiveBboxUpdate,
   BatchLayoutMode,
   CanvasDragStartSelection,
   CanvasEntityKind,
@@ -218,17 +217,12 @@ export interface CanvasBgElectronAPI {
   ) => void
   /** Live-bbox subscriptions for element-anchored popovers. The renderer
    *  groups visible popovers by pageId and pushes the full set whenever it
-   *  changes; main forwards to the target page. The page returns updates via
-   *  `onAnnotationLiveBbox`. ADR 0006. */
+   *  changes; main forwards to the target page and folds the answers into the
+   *  `annotationBboxes` slice. ADR 0006. */
   setAnnotationBboxSubscriptions: (
     pageId: string,
     subscriptions: AnnotationBboxSubscription[],
   ) => void
-  /** Stream of live bboxes from any page, broadcast on layout tick / page
-   *  scroll while the corresponding popover is subscribed. */
-  onAnnotationLiveBbox: (
-    callback: (update: AnnotationLiveBboxUpdate) => void,
-  ) => () => void
   createRegionAnnotation: (canvasRect: WorkspaceBounds, text: string) => void
   /** Selection-born region annotation (ADR 0019 §"one door"): the selection
    *  popup's Annotate button and its composer handoff both land here. Main
@@ -290,12 +284,6 @@ export interface CanvasBgElectronAPI {
    *  connected repo, or null if connection fails. */
   repoConnect: (absolutePath: string) => Promise<unknown>
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
-  /** Fast-path page scroll offset, sent per scroll frame ahead of the
-   *  debounced layout broadcast so scroll-following overlays track the
-   *  page's native scroll without jitter. */
-  onPageScrollLive: (
-    callback: (data: { pageId: string; scrollX: number; scrollY: number }) => void,
-  ) => () => void
   /** Fine-grained runtime-store updates: the cells one change touched, batched
    *  per layout pass. Layers subscribe to the slice they draw instead of
    *  re-reading the whole layout snapshot; the next `layoutUpdate` still

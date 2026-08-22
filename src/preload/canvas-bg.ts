@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, AnnotationLiveBboxUpdate, BatchLayoutMode, EdgeSide, FrozenPagesState, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, BatchLayoutMode, EdgeSide, FrozenPagesState, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, ViewportNudge, WorkspaceBounds } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -257,7 +257,6 @@ const api: CanvasBgElectronAPI = {
     subscriptions: AnnotationBboxSubscription[],
   ) =>
     ipcRenderer.send(ipcChannels.commentToolBboxSubscriptions, { pageId, subscriptions }),
-  onAnnotationLiveBbox: on<AnnotationLiveBboxUpdate>(ipcChannels.annotationLiveBbox),
   createRegionAnnotation: (canvasRect, text) =>
     ipcRenderer.send(ipcChannels.canvasCreateRegionAnnotation, { canvasRect, text }),
   annotateSelection: (input) =>
@@ -308,9 +307,6 @@ const api: CanvasBgElectronAPI = {
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),
   onLayoutUpdate: on(ipcChannels.layoutUpdate),
-  onPageScrollLive: on<{ pageId: string; scrollX: number; scrollY: number }>(
-    ipcChannels.pageScrollLive,
-  ),
   onRuntimePatch: on<RuntimePatchBatch>(ipcChannels.runtimePatch),
   onViewportNudge: on<ViewportNudge>(ipcChannels.viewportNudge),
   onFrozenPagesState: on<FrozenPagesState>(ipcChannels.frozenPagesState),

@@ -5,23 +5,22 @@ import type {
   PageAnchor,
 } from '../../shared/types'
 import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
-import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { runtimeStore } from '../shared/runtime-store'
 import {
   scrollFollowTransform,
   type PageScrollOffset,
 } from './page-overlay-scroll-follow'
-
-// Resolved lazily — this module is imported by files that node-env unit
-// tests load, where `window` doesn't exist.
-function electronApi(): CanvasBgElectronAPI {
-  return (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
-}
 
 // How far (screen px) a page-anchored overlay may travel past the page's
 // content band before it is fully clipped. The band's gradient mask fades
 // exactly this strip, so an overlay straddling the band edge fades only the
 // part that has left the page instead of the whole element at once.
 const BAND_FADE_MARGIN = 48
+
+function sameOffset(a: PageScrollOffset | null, b: PageScrollOffset | null): boolean {
+  if (!a || !b) return a === b
+  return a.pageId === b.pageId && a.scrollX === b.scrollX && a.scrollY === b.scrollY
+}
 
 /**
  * Per-page clipping container for page-anchored overlays (region rects,
@@ -35,12 +34,12 @@ const BAND_FADE_MARGIN = 48
  * by the canvas origin) — an inner wrapper cancels the band's own origin.
  *
  * `followScroll` is for children positioned in *document* space from the
- * broadcast scroll offset (region rects, anchored shapes): the band listens
- * to the fast-path scroll channel and shifts the inner wrapper by the delta
- * between the live offset and the broadcast one, so the content tracks the
- * page's native compositor scroll instead of lagging the debounced layout
- * rebuild. Each broadcast resets the baseline. Frame-pinned children
- * (page-offset badges) must not opt in — they don't move with scroll.
+ * broadcast scroll offset (region rects, anchored shapes): the band shifts the
+ * inner wrapper by the delta between the store's live offset and the one the
+ * scene was projected from, so the content tracks the page's native compositor
+ * scroll instead of lagging the debounced layout rebuild. Each broadcast resets
+ * the baseline. Frame-pinned children (page-offset badges) must not opt in —
+ * they don't move with scroll.
  */
 export function PageOverlayBand({
   page,
@@ -101,19 +100,28 @@ export function PageOverlayBand({
     page.screenHeight,
   ])
 
-  // The live-scroll subscription belongs to the page identity, not the
-  // freshly rebuilt scene object. This avoids dropping events while every
-  // authoritative layout unsubscribes and resubscribes the listener.
+  // Subscribed imperatively rather than through `useSlice`: the residual is a
+  // transform on one node, and re-rendering the band would re-render every
+  // overlay it wraps on every scroll frame — the cost the patch bus exists to
+  // remove. The subscription belongs to the page identity, not the freshly
+  // rebuilt scene object, so an authoritative layout doesn't drop events by
+  // unsubscribing and resubscribing.
   useLayoutEffect(() => {
     liveOffsetRef.current = null
     applyResidual(null)
     if (!followScroll) return
-    const apply = (live: PageScrollOffset) => {
-      if (live.pageId !== incorporatedOffsetRef.current.pageId) return
+    const readLive = (): PageScrollOffset | null => {
+      const offset = runtimeStore.read().slices.pageScroll?.[page.id]
+      return offset ? { pageId: page.id, ...offset } : null
+    }
+    const apply = () => {
+      const live = readLive()
+      if (sameOffset(live, liveOffsetRef.current)) return
       liveOffsetRef.current = live
       applyResidual(live)
     }
-    return electronApi().onPageScrollLive(apply)
+    apply()
+    return runtimeStore.subscribe(apply)
   }, [followScroll, page.id])
 
   // Horizontal extent is the outer page bounds, not the content band: badges

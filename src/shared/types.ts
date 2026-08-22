@@ -567,6 +567,20 @@ export interface LayoutUpdateData {
   edges: WorkspaceEdge[]
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
+  /**
+   * Every live page's *current* scroll offset, keyed by page id.
+   *
+   * Distinct from the `scrollX`/`scrollY` on a page scene entity, and the
+   * difference is the point: the entity carries the offset the scene was
+   * projected from, this carries the offset the page is at now. Overlays
+   * positioned in document space render from the former and shift by the
+   * delta to the latter, so they track the page's native compositor scroll
+   * instead of the layout pass that will eventually catch up.
+   */
+  pageScroll: PageScrollOffsets
+  /** Live document positions of element-anchored annotation popovers, keyed by
+   *  annotation id (ADR 0006). */
+  annotationBboxes: AnnotationLiveBboxes
   /** Predicate-derived: the page id that should hold keyboard + receive
    *  forwarded input, or null. See `shouldFocusSelectedPage`. */
   keyboardTargetPageId: string | null
@@ -2131,14 +2145,30 @@ export interface AnnotationBboxSubscription {
   selector: string
 }
 
-/** Live-bbox response from a page. `boundingBox` is null when the selector no
- *  longer resolves (stale anchor). The renderer keeps the last-known live
- *  bbox in that case and renders a "stale" hint. */
-export interface AnnotationLiveBboxUpdate {
-  pageId: string
+/** One page's live bbox report. `boundingBox` is null when the selector no
+ *  longer resolves. Page → main only; main folds it into `annotationBboxes`. */
+export interface AnnotationBboxReport {
   annotationId: string
   boundingBox: DevtoolsPanelDomRect | null
 }
+
+/**
+ * Where an element-anchored annotation's popover sits right now.
+ *
+ * `boundingBox` holds the last position the page reported and survives the
+ * selector going stale, so a popover whose element disappeared stays put
+ * instead of jumping to (0,0); `stale` is what turns that into a visible hint.
+ */
+export interface AnnotationLiveBbox {
+  pageId: string
+  boundingBox: DevtoolsPanelDomRect | null
+  stale: boolean
+}
+
+export type AnnotationLiveBboxes = Record<string, AnnotationLiveBbox>
+
+/** Scroll offset per page id, in raw page CSS pixels. */
+export type PageScrollOffsets = Record<string, { scrollX: number; scrollY: number }>
 
 /** Element-attachment reflow tracking (ADR 0032). Main declares, per page, the
  *  distinct DOM selectors that anchored items reference; the page resolves them

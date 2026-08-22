@@ -80,6 +80,8 @@ export interface RuntimeStoreSlices {
   edges: LayoutUpdateData['edges']
   fixProgress: LayoutUpdateData['fixProgress']
   presence: LayoutUpdateData['presenceCursors']
+  pageScroll: LayoutUpdateData['pageScroll']
+  annotationBboxes: LayoutUpdateData['annotationBboxes']
 }
 
 export type RuntimeSliceKey = keyof RuntimeStoreSlices
@@ -98,6 +100,8 @@ export const RUNTIME_SLICE_KEYS = [
   'edges',
   'fixProgress',
   'presence',
+  'pageScroll',
+  'annotationBboxes',
 ] as const satisfies readonly RuntimeSliceKey[]
 
 export interface RuntimeStore {
@@ -164,6 +168,8 @@ export function snapshotToStore(data: LayoutUpdateData): RuntimeStore {
       edges: data.edges,
       fixProgress: data.fixProgress,
       presence: data.presenceCursors,
+      pageScroll: data.pageScroll,
+      annotationBboxes: data.annotationBboxes,
     },
   }
 }
@@ -212,5 +218,7 @@ export function storeToLayoutData(store: RuntimeStore): LayoutUpdateData {
     interactivePageId: focus.interactivePageId,
     focusPresentation: focus.focusPresentation,
     cameraTransitionStartedAt: camera.cameraTransitionStartedAt,
+    pageScroll: store.slices.pageScroll,
+    annotationBboxes: store.slices.annotationBboxes,
   }
 }

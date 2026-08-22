@@ -1,7 +1,6 @@
 import type {
   AgentPresenceCursor,
   AnnotationElementSelectionPayload,
-  AnnotationLiveBboxUpdate,
   AppThemeMode,
   ConnectedRepo,
   DevtoolsPanelData,
@@ -25,7 +24,7 @@ import type {
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
-import type { RuntimePatch } from './runtime-patch'
+import type { RuntimePatchBatch } from './runtime-patch'
 import type { PerfTraceState } from './electron-api/debug'
 import type { PanZoomPerfTestState } from './pan-zoom-perf-test'
 
@@ -56,7 +55,6 @@ export interface IpcContract {
   'annotate-element-selected': { dir: 'main→renderer'; payload: AnnotationElementSelectionPayload }
   'annotation-bbox-subscriptions': { dir: 'main→renderer'; payload: unknown }
   'annotation-bbox-update': { dir: 'renderer→main'; payload: unknown }
-  'annotation-live-bbox': { dir: 'main→renderer'; payload: AnnotationLiveBboxUpdate }
   'annotation-open-thread': { dir: 'renderer→main'; payload: unknown }
   'annotation-thread-open': { dir: 'main→renderer'; payload: { annotationId: string } }
   'apply-linked-scroll': { dir: 'main→renderer'; payload: unknown }
@@ -253,7 +251,6 @@ export interface IpcContract {
   'page-deselect': { dir: 'renderer→main'; payload: unknown }
   'page-hover': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-changed': { dir: 'renderer→main'; payload: unknown }
-  'page-scroll-live': { dir: 'main→renderer'; payload: { pageId: string; scrollX: number; scrollY: number } }
   'page-scroll-offset': { dir: 'renderer→main'; payload: { scrollX: number; scrollY: number; scrollHeight: number } }
   'peek-resize-end': { dir: 'renderer→main'; payload: unknown }
   'peek-resize-move': { dir: 'renderer→main'; payload: unknown }
@@ -309,7 +306,7 @@ export interface IpcContract {
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
-  'runtime-patch': { dir: 'main→renderer'; payload: RuntimePatch }
+  'runtime-patch': { dir: 'main→renderer'; payload: RuntimePatchBatch }
   'set-annotate-mode': { dir: 'main→renderer'; payload: unknown }
   'set-canvas-zoom': { dir: 'main→renderer'; payload: unknown }
   'set-design-system-manifest': { dir: 'main→renderer'; payload: unknown }
@@ -380,7 +377,6 @@ export const ipcChannels = {
   annotateElementSelected: 'annotate-element-selected',
   annotationBboxSubscriptions: 'annotation-bbox-subscriptions',
   annotationBboxUpdate: 'annotation-bbox-update',
-  annotationLiveBbox: 'annotation-live-bbox',
   annotationOpenThread: 'annotation-open-thread',
   annotationThreadOpen: 'annotation-thread-open',
   applyLinkedScroll: 'apply-linked-scroll',
@@ -578,7 +574,6 @@ export const ipcChannels = {
   overrideToken: 'override-token',
   pageDeselect: 'page-deselect',
   pageScrollChanged: 'page-scroll-changed',
-  pageScrollLive: 'page-scroll-live',
   pageScrollOffset: 'page-scroll-offset',
   peekResizeEnd: 'peek-resize-end',
   peekResizeMove: 'peek-resize-move',

@@ -98,6 +98,8 @@ import type { Page } from './runtime-entities'
 import { spaceTabSummaries } from './space-tabs'
 import { getPresenceCursors } from '../presence-cursor'
 import { getFixProgress } from '../agent-fix/fix-progress'
+import { livePageScrollOffsets } from './page-scroll-state'
+import { annotationLiveBboxes } from './annotation-bbox-state'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // --- Exported data builders ---
@@ -426,6 +428,8 @@ export function buildCanvasLayoutData(
     interactivePageId: interactivePageId(),
     focusPresentation: buildFocusPresentationData(pages),
     cameraTransitionStartedAt,
+    pageScroll: livePageScrollOffsets(),
+    annotationBboxes: annotationLiveBboxes(),
   } as LayoutUpdateData
   lastLayoutData = shareLayoutData(lastLayoutData, built)
   return lastLayoutData
