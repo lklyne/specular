@@ -225,17 +225,22 @@ function drawItemShell(
   ctx.fillRect(g.shellX, g.shellY, g.shellW, 1)
   ctx.restore()
 
-  // 1px ring just inside the content cutout (inset 0 0 0 1px).
-  ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+  // Content-edge ring, painted in the bezel just outside the cutout. The
+  // live WebContentsView fills the cutout exactly, so anything drawn inside
+  // it is covered.
+  const ringW = 2
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'
+  ctx.lineWidth = ringW
   ctx.stroke(
     squircle2D(
-      g.contentX + 0.5,
-      g.contentY + 0.5,
-      g.contentW - 1,
-      g.contentH - 1,
-      Math.max(0, g.innerRadius - 0.5),
+      g.contentX - ringW / 2,
+      g.contentY - ringW / 2,
+      g.contentW + ringW,
+      g.contentH + ringW,
+      g.innerRadius + ringW / 2,
     ),
   )
+  ctx.lineWidth = 1
 
   const centerX = g.shellX + g.shellW / 2
 
