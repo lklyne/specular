@@ -1,5 +1,5 @@
 /**
- * Phase 1 of the diffed-runtime-store plan: hover leaves the layout pass.
+ * Hover leaves the layout pass (diffed-runtime-store, phase 1).
  *
  * `setHoveredPage` / `setHoverEntity` used to `markDirty('canvas')` and
  * `requestLayout()`, so every pointer move over the canvas paid for a full
@@ -21,6 +21,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, type WorkspaceHarness } from './harness'
 import type { JsonCanvasLinkNode } from '../../src/shared/json-canvas-types'
 import { ipcChannels } from '../../src/shared/ipc-contract'
+import type { RuntimePatchBatch } from '../../src/shared/runtime-patch'
 import { getCanvasLayoutData } from '../../src/main/runtime/canvas-layout-data'
 import { setHoverEntity, setHoveredPage } from '../../src/main/runtime/runtime-core'
 import { createTextEntity } from '../../src/main/runtime/text-entity-state'
@@ -73,8 +74,22 @@ function layoutPassRequested(): boolean {
   return layoutCache.layoutTimer !== null || isDirty('canvas')
 }
 
+/** The patch stream as one renderer sees it. Every canvas renderer gets the
+ *  same batch, so read a single target rather than counting sends. */
 function patches() {
-  return harness.broadcasts.filter((b) => b.channel === ipcChannels.runtimePatch)
+  const sends = harness.broadcasts.filter((b) => b.channel === ipcChannels.runtimePatch)
+  const target = sends[0]?.webContentsId
+  return sends
+    .filter((send) => send.webContentsId === target)
+    .flatMap((send) => (send.args[0] as RuntimePatchBatch).patches)
+}
+
+function patchTargets() {
+  return new Set(
+    harness.broadcasts
+      .filter((b) => b.channel === ipcChannels.runtimePatch)
+      .map((b) => b.webContentsId),
+  )
 }
 
 describe('hover rides a runtime patch, not a layout pass', () => {
@@ -91,12 +106,11 @@ describe('hover rides a runtime patch, not a layout pass', () => {
 
     setHoveredPage(PAGE_ID)
 
-    expect(patches()).toHaveLength(1)
-    expect(patches()[0].args[0]).toEqual({
-      kind: 'hover',
-      target: { id: PAGE_ID, kind: 'page' },
-    })
-    expect(harness.broadcasts).toHaveLength(1)
+    expect(patches()).toEqual([
+      { kind: 'slice', slice: 'hover', value: { id: PAGE_ID, kind: 'page' } },
+    ])
+    expect(patchTargets().size).toBe(2)
+    expect(harness.broadcasts.every((b) => b.channel === ipcChannels.runtimePatch)).toBe(true)
     expect(layoutPassRequested()).toBe(false)
   })
 
@@ -119,9 +133,9 @@ describe('hover rides a runtime patch, not a layout pass', () => {
     setHoverEntity({ id: text.id, kind: 'text' })
     setHoveredPage(null)
 
-    expect(patches().map((p) => p.args[0])).toEqual([
-      { kind: 'hover', target: { id: text.id, kind: 'text' } },
-      { kind: 'hover', target: null },
+    expect(patches()).toEqual([
+      { kind: 'slice', slice: 'hover', value: { id: text.id, kind: 'text' } },
+      { kind: 'slice', slice: 'hover', value: null },
     ])
     expect(layoutPassRequested()).toBe(false)
   })
