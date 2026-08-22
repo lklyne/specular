@@ -63,6 +63,8 @@ export interface Page {
     string,
     { docX: number; docY: number; viewportPositioned?: boolean }
   >
+  /** Last value passed to `pageView.setVisible` by the layout pass. */
+  lastVisibleApplied?: boolean
   lastFrameBoundsKey?: string
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string

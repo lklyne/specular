@@ -15,6 +15,8 @@ import {
   runPanZoomPerfTest,
   stopPanZoomPerfTest,
 } from '../pan-zoom-perf-test'
+import { sampleProcessMetrics } from '../process-metrics'
+import { runVisibilityProbe } from '../visibility-probe'
 
 export const perfRoutes: Route[] = [
   {
@@ -119,6 +121,21 @@ export const perfRoutes: Route[] = [
         return
       }
       writeJson(response, 200, summary)
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/perf/metrics',
+    async handler({ response }) {
+      writeJson(response, 200, sampleProcessMetrics())
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/perf/visibility-probe',
+    async handler({ response, body }) {
+      const payload = body as { windowMs?: number }
+      writeJson(response, 200, await runVisibilityProbe({ windowMs: payload?.windowMs }))
     },
   },
 ]

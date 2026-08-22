@@ -201,6 +201,7 @@ export interface IpcContract {
   'component-tree-data': { dir: 'main→renderer'; payload: unknown }
   'cursor-spline-viz-changed': { dir: 'main→renderer'; payload: boolean }
   'debug-log': { dir: 'renderer→main'; payload: unknown }
+  'debug:copy-text': { dir: 'renderer→main'; payload: unknown }
   'debug:get-initial-data': { dir: 'invoke'; payload: unknown }
   'debug:perf-pan-zoom-get-state': { dir: 'invoke'; payload: unknown }
   'debug:perf-pan-zoom-run': { dir: 'invoke'; payload: unknown }
@@ -212,9 +213,11 @@ export interface IpcContract {
   'debug:perf-trace-reveal': { dir: 'renderer→main'; payload: unknown }
   'debug:perf-trace-state-changed': { dir: 'main→renderer'; payload: PerfTraceState }
   'debug:perf-trace-toggle': { dir: 'invoke'; payload: unknown }
+  'debug:process-metrics-sample': { dir: 'invoke'; payload: unknown }
   'debug:reset-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-spline-viz': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
+  'debug:visibility-probe-run': { dir: 'invoke'; payload: unknown }
   'devtools-changed': { dir: 'main→renderer'; payload: boolean }
   'devtools-resize-end': { dir: 'renderer→main'; payload: unknown }
   'devtools-resize-move': { dir: 'renderer→main'; payload: unknown }
@@ -519,6 +522,7 @@ export const ipcChannels = {
   commentToolPointerState: 'comment-tool-pointer-state',
   cursorSplineVizChanged: 'cursor-spline-viz-changed',
   debugLog: 'debug-log',
+  debugCopyText: 'debug:copy-text',
   debugGetInitialData: 'debug:get-initial-data',
   debugPerfPanZoomGetState: 'debug:perf-pan-zoom-get-state',
   debugPerfPanZoomRun: 'debug:perf-pan-zoom-run',
@@ -530,9 +534,11 @@ export const ipcChannels = {
   debugPerfTraceReveal: 'debug:perf-trace-reveal',
   debugPerfTraceStateChanged: 'debug:perf-trace-state-changed',
   debugPerfTraceToggle: 'debug:perf-trace-toggle',
+  debugProcessMetricsSample: 'debug:process-metrics-sample',
   debugResetCursorTuning: 'debug:reset-cursor-tuning',
   debugUpdateCursorSplineViz: 'debug:update-cursor-spline-viz',
   debugUpdateCursorTuning: 'debug:update-cursor-tuning',
+  debugVisibilityProbeRun: 'debug:visibility-probe-run',
   devtoolsChanged: 'devtools-changed',
   devtoolsResizeEnd: 'devtools-resize-end',
   devtoolsResizeMove: 'devtools-resize-move',

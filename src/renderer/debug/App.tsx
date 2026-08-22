@@ -5,10 +5,12 @@ import { DEFAULT_CURSOR_TUNING } from '../../shared/cursor-tuning'
 import { useTheme } from '../shared/hooks/useTheme'
 import { PresenceSection } from './PresenceSection'
 import { PerformanceSection } from './PerformanceSection'
+import { ProcessesSection } from './ProcessesSection'
 
 const SECTIONS = [
   { id: 'presence', label: 'Presence' },
   { id: 'performance', label: 'Performance' },
+  { id: 'processes', label: 'Processes' },
 ] as const
 
 type SectionId = (typeof SECTIONS)[number]['id']
@@ -76,8 +78,10 @@ export default function App({
               onTuningChange={commitCursorTuning}
               onTuningReset={resetCursorTuning}
             />
-          ) : (
+          ) : activeSection === 'performance' ? (
             <PerformanceSection api={api} />
+          ) : (
+            <ProcessesSection api={api} />
           )}
         </main>
       </div>

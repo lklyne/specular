@@ -28,6 +28,7 @@ import {
 import { layoutCache } from './layout-cache'
 import { consumeDirty } from './layout-dirty'
 import { applyStack } from './layer-stack'
+import { pageVisibilityOverride } from './page-visibility'
 import { reconcileFocus } from './focus-reconciler-runtime'
 import { reconcileBrowserDevtools } from './runtime-core'
 import { reconcilePageCursorBridge } from './page-cursor-bridge'
@@ -79,6 +80,7 @@ import { clampDevtoolsWidth, frameColor, isDark } from './preferences'
 import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
+import type { Page } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
 
 export function setBoundsIfChanged(
@@ -223,6 +225,21 @@ function layoutDevtoolsViews(): void {
   }
 }
 
+/**
+ * Reconciles a page's content-view visibility against its override.
+ *
+ * Runs before the bounds branches because visibility is independent of where
+ * a page sits: a page can be on-screen and hidden, or culled and awake. Only
+ * `pageView` is touched — `frameView` only ever paints a colour.
+ */
+function applyPageVisibility(page: Page): void {
+  if (typeof page.pageView.setVisible !== 'function') return
+  const desired = pageVisibilityOverride(page.id) ?? true
+  if (page.lastVisibleApplied === desired) return
+  page.pageView.setVisible(desired)
+  page.lastVisibleApplied = desired
+}
+
 function layoutAllViews(): void {
   if (!win || win.isDestroyed()) return
   const layoutStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
@@ -349,6 +366,7 @@ function layoutAllViews(): void {
     (focusSessionValue?.annotationsVisible ?? false)
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
+    applyPageVisibility(page)
     const bounds = boundScreenBoundsForPage(page)
 
     if (
