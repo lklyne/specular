@@ -72,6 +72,7 @@ function isSelectedPage(page: Page): boolean {
 
 import {
   CARD_BORDER_RADIUS,
+  NO_FRAME_VIEW,
   selectionDebug,
 } from './runtime-constants'
 
@@ -93,14 +94,16 @@ export function createPage(config: PageConfig): Page {
 
   // Construction only — the layout pass child-list reconcile (layer-stack)
   // owns attachment. createPage just pushes to pages[] and requests layout.
-  const frameView = new WebContentsView({
+  const frameView = NO_FRAME_VIEW ? null : new WebContentsView({
     webPreferences: {
       focusOnNavigation: false,
     },
   })
-  frameView.setBackgroundColor(frameColor())
-  frameView.setBorderRadius(CARD_BORDER_RADIUS)
-  frameView.webContents.loadURL('about:blank')
+  if (frameView) {
+    frameView.setBackgroundColor(frameColor())
+    frameView.setBorderRadius(CARD_BORDER_RADIUS)
+    frameView.webContents.loadURL('about:blank')
+  }
 
   const pageView = new WebContentsView({
     webPreferences: {
@@ -358,7 +361,7 @@ export function removePageAtIndex(idx: number): Page | null {
   clearPendingRequestsForPage(page.id)
   // Detachment is owned by the layout pass child-list reconcile — splice
   // pages[], close the webContents, and request layout below.
-  page.frameView.webContents.close()
+  page.frameView?.webContents.close()
   page.pageView.webContents.close()
   page.devtoolsHostView?.webContents.close()
   // Transfer focus to aboveView so keyboard shortcuts (including undo) keep

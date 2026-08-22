@@ -107,6 +107,7 @@ export function setBoundsIfChanged(
 
 import {
   CARD_BORDER_RADIUS,
+  NO_FRAME_VIEW,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
   DEVTOOLS_PANEL_PADDING,
@@ -119,6 +120,11 @@ import { boundsOverlap } from './runtime-geometry'
 import { isZoomInMotion, quantizeZoomForEmulation } from './zoom-motion'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
+
+function setFrameBounds(page: Page, bounds: { x: number; y: number; width: number; height: number }): void {
+  if (!page.frameView) return
+  page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds, page.lastFrameBoundsKey)
+}
 
 // Extra px the toolbar view grows by while a tooltip is open — enough for one
 // tip row (sideOffset + line) below the 44px strip, no more.
@@ -300,6 +306,9 @@ export function layoutAllViews(): void {
 
   const pageOverlays = backgroundPageOverlays()
   const nextActiveSelection = activeCanvasSelection()
+  // Spike ordering: renderer positions ship after every native setBounds
+  // call below, so the DOM chrome never leads the page views.
+  let pendingLayoutData: ReturnType<typeof buildCanvasLayoutData> | null = null
 
   // --- Canvas background + annotation overlay ---
   if (bgView && win) {
@@ -311,8 +320,11 @@ export function layoutAllViews(): void {
       const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
       layoutData.buildMs = performance.now() - buildStart
       buildMsSink?.(layoutData.buildMs)
-      bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
-      sendAnnotationLayoutUpdate(layoutData)
+      if (NO_FRAME_VIEW) pendingLayoutData = layoutData
+      else {
+        bgView.webContents.send(ipcChannels.layoutUpdate, layoutData)
+        sendAnnotationLayoutUpdate(layoutData)
+      }
     }
   }
 
@@ -419,11 +431,7 @@ export function layoutAllViews(): void {
 
     const parking = zoomSnapshotParkingFor(page.id)
     if (parking === 'hidden') {
-      page.lastFrameBoundsKey = setBoundsIfChanged(
-        page.frameView,
-        HIDDEN_BOUNDS,
-        page.lastFrameBoundsKey,
-      )
+      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(
         page.pageView,
         HIDDEN_BOUNDS,
@@ -437,7 +445,7 @@ export function layoutAllViews(): void {
       page.id !== focusedPresentationPageId &&
       !showOtherPagesInFocus
     ) {
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {
         pageId: page.id,
@@ -461,7 +469,7 @@ export function layoutAllViews(): void {
         // are parked off-screen at their logical viewport size, so an
         // agent always has a real (un-zoomed) viewport to drive.
         const parkedSize = boundEffectivePageContentSize(page)
-        page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+        setFrameBounds(page, HIDDEN_BOUNDS)
         page.lastPageBoundsKey = setBoundsIfChanged(
           page.pageView,
           {
@@ -482,7 +490,7 @@ export function layoutAllViews(): void {
         })
         continue
       }
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
       devtoolsPanelDebug('layout:page', {
         pageId: page.id,
@@ -506,27 +514,27 @@ export function layoutAllViews(): void {
       : deviceId && showShell
         ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
         : CARD_BORDER_RADIUS
-    page.frameView.setBorderRadius(borderRadius)
+    page.frameView?.setBorderRadius(borderRadius)
     page.pageView.setBorderRadius(borderRadius)
     if (isFillFocus) {
       // Fill page sits below the flush focus chrome bar and fills the rest of
       // the canvas area. focusFillRegion() is the shared source of truth.
       const region = focusFillRegion()
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, region, page.lastPageBoundsKey)
     } else if (parking === 'warm') {
       // Settle handoff: the view rasters at its settled size and scale while
       // hidden behind the frozen bitmap, so the reveal shows a frame that
       // already matches instead of the pre-gesture surface stretched into
       // the new bounds.
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, HIDDEN_BOUNDS, page.lastFrameBoundsKey)
+      setFrameBounds(page, HIDDEN_BOUNDS)
       page.lastPageBoundsKey = setBoundsIfChanged(
         page.pageView,
         warmParkBounds(bounds.page, winBounds.height),
         page.lastPageBoundsKey,
       )
     } else {
-      page.lastFrameBoundsKey = setBoundsIfChanged(page.frameView, bounds.frame, page.lastFrameBoundsKey)
+      setFrameBounds(page, bounds.frame)
       page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, bounds.page, page.lastPageBoundsKey)
     }
 
@@ -574,7 +582,7 @@ export function layoutAllViews(): void {
 
     const themeKey = isDark()
     if (page.lastSelected !== themeKey) {
-      page.frameView.setBackgroundColor(frameColor())
+      page.frameView?.setBackgroundColor(frameColor())
       page.lastSelected = themeKey
     }
 
@@ -588,6 +596,11 @@ export function layoutAllViews(): void {
   }
 
   // (above-view bounds are now handled in the consolidated block above)
+
+  if (pendingLayoutData && bgView) {
+    bgView.webContents.send(ipcChannels.layoutUpdate, pendingLayoutData)
+    sendAnnotationLayoutUpdate(pendingLayoutData)
+  }
 
   // --- Per-component bounds + emulation ---
   // Reconcile the component-view set against the current file entities,

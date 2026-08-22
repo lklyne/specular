@@ -13,7 +13,7 @@ export interface Page {
   title?: string
   url: string
   faviconUrl?: string | null
-  frameView: WebContentsView
+  frameView: WebContentsView | null
   pageView: WebContentsView
   devtoolsHostView?: WebContentsView
   devtoolsHostAttached?: boolean

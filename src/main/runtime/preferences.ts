@@ -283,7 +283,7 @@ export function broadcastTheme(): void {
   broadcast(ipcChannels.themeChanged, { isDark: isDark(), themeMode: currentThemeMode })
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]
-    page.frameView.setBackgroundColor(frameColor())
+    page.frameView?.setBackgroundColor(frameColor())
   }
 }
 

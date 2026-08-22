@@ -4,6 +4,13 @@
 
 // --- Layout geometry ---
 export const CARD_BORDER_WIDTH = 1
+/**
+ * Spike: SPECULAR_NO_FRAME_VIEW=1 drops the per-page about:blank frameView
+ * (one renderer process each). The chrome canvas ring is then the only
+ * card border, and the layout pass sends renderer positions only after the
+ * native setBounds loop so the two land in the same frame window.
+ */
+export const NO_FRAME_VIEW = process.env.SPECULAR_NO_FRAME_VIEW === '1'
 export const CARD_BORDER_RADIUS = 0
 export { TOOLBAR_HEIGHT } from '../../shared/constants'
 export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'

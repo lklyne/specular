@@ -118,7 +118,8 @@ function desiredChildOrder(): View[] {
         focusedPageId(),
       )
       for (const page of orderedPages) {
-        order.push(page.frameView, page.pageView)
+        if (page.frameView) order.push(page.frameView)
+        order.push(page.pageView)
         if (page.devtoolsHostView && page.devtoolsHostView !== devtoolsView) {
           order.push(page.devtoolsHostView)
         }
