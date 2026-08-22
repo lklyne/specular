@@ -39,6 +39,7 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [0032 — Element attachment](adr/0032-element-attachment.md) — page-anchored items render corrected by a derived live DOM-element reference so ink survives reflow.
 - [0033 — The space folder is user-chosen, and one space is open per window](adr/0033-user-chosen-space-folder.md) — **Accepted** — replaces the hard-coded `userData/workspaces/default/` with a folder the user picks in onboarding/Settings; migration and missing-folder cases prompt rather than guess; retires "workspace" from the vocabulary (space = folder, canvas = document, tab = open canvas).
 - [0035 — Pages are CPU-throttled while the app is idle, never hidden](adr/0035-idle-cpu-throttling-for-pages.md) — **Accepted** — an unfocused window is not a hidden one to Chromium, so idle pages get `Emulation.setCPUThrottlingRate` rather than `setVisible(false)`, which would blank the agent screenshot path; agent traffic and awake holds (recording, tracing) keep pages at full speed.
+- [0036 — A diffed runtime store replaces the whole-scene broadcast](adr/0036-diffed-runtime-store.md) — **Accepted** — a normalized store plus a keyed patch bus makes fine-grained updates the default: mutators emit patches, the layout pass diffs, `layoutUpdate` stays the reconcile baseline, each renderer is routed only the slices it reads, and `viewportNudge` stays its own channel as the one honest exception.
 
 ## Docs
 

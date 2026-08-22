@@ -9,6 +9,50 @@
 
 Pages are hybrid: serializable fields (position, URL, preset) mirror to Y.Doc, but WebContentsView refs stay in `runtime-context.ts`.
 
+## Broadcast path: the runtime store and its patch bus
+
+How ephemeral state reaches renderers. One store, one patch channel, one
+snapshot channel — see [ADR 0036](../../../docs/adr/0036-diffed-runtime-store.md).
+
+`src/shared/runtime-store.ts` is the normalized form of `LayoutUpdateData`: a
+map of scene entities keyed by id, plus small named **slices** (`camera`,
+`selection`, `hover`, `inspect`, `pageScroll`, …). Everything below addresses
+one of those two axes, which is what keeps an update's cost proportional to
+what moved.
+
+| Path | Producer | Carries |
+|---|---|---|
+| Mutator → patch | `broadcastRuntimePatch` from the mutator itself (`commitHoverTarget`, the page-scroll handler, the annotation-bbox fold) | one slice, no layout pass at all |
+| Layout pass → diff → patch batch | `broadcastSceneUpdate` diffs the rebuilt scene against the baseline | the cells that moved, batched so a pass applies atomically |
+| Snapshot baseline | `broadcastSceneSnapshot` on connect, and on the first pass ≥1s after the last snapshot | the whole scene |
+
+Rules that hold this together:
+
+- **The snapshot baseline is not optional.** It is what makes patches safe to be
+  lossy: a dropped or mis-applied patch heals within about a second instead of
+  leaving stale chrome. Never remove the cadence.
+- **Filtering is a wire concern.** `runtime-store-filter.ts` names the slices
+  each target reads and trims on the way out; the baseline stays the full store.
+  `inspect` goes only to agent-layer. The bootstrap handler applies the same
+  filter, so a renderer never starts holding a slice it will get no updates for.
+- **Identity is the product.** `shareStructure` runs on the scene main builds
+  and on both the snapshot and the projection a renderer reads, because
+  `useSlice` and the memoized layers bail out on reference equality.
+- **`viewportNudge` is the one exception.** A pan or zoom is a camera transform
+  over an unchanged scene, not a scene edit, so it keeps its own delta channel
+  and its renderer-side self-reconcile (`useSceneCameraTransform`). Do not model
+  it as a store patch.
+- **`markDirty('canvas') + requestLayout()` still means "the scene changed."**
+  It is the right call for a structural edit; it is the wrong call for a slice
+  that has a patch producer, which would pay for a whole rebuild to deliver one
+  cell.
+
+The renderer half is `src/renderer/shared/runtime-store.ts` (applies snapshots
+and patch batches), `hooks/useRuntimeStore.ts` (`useSlice`, `useLayoutData`),
+and `runtime-store-drift.ts` — the dev-gated watchdog that diffs each arriving
+snapshot against what the patch stream accumulated. Zero drift over a session is
+the release gate for changes to any of this.
+
 ## Global undo stack
 
 One undo stack spans all tabs. Tab switches are tracked transactions in Y.Doc, so pressing undo after switching tabs navigates back to the previous tab and restores its state.
@@ -64,6 +108,7 @@ Not tracked: viewport zoom/pan (in a separate Y.Map excluded from UndoManager sc
 - `space-observers.ts` — forward sync (runtime→Y.Doc), undo sync (Y.Doc→runtime), cross-tab undo detection, batch control
 - `space-model.ts` — owns workspace data arrays (edges, groups, annotations, tabs)
 - `runtime-context.ts` — ephemeral state only (views, interaction, layout cache, timers, pages)
+- `runtime-patch-broadcast.ts` — the scene bus: baseline, diff, patch batches, snapshot cadence, per-target routing
 
 ## Test coverage for this layer
 

@@ -1,6 +1,6 @@
 # Plan — diffed runtime store (end state C)
 
-Status: ready for a fresh agent to build.
+Status: built. Phases 0–3 landed on `perf/battery-optimization`; the decision is recorded in [ADR 0036](../adr/0036-diffed-runtime-store.md). Phase 4's cleanup and docs are done except for the temporary instruments, which stay until the acceptance measurement below is taken and then come out in a follow-up.
 Author handoff: this is a from-scratch spec. Read it end to end before touching code. Read `src/main/runtime/CLAUDE.md` (two-layer state model) and `docs/interaction-layer.md` §6 (load-bearing invariants) first. They constrain everything below.
 
 ## Why this exists
@@ -116,7 +116,7 @@ Generalize phase 1's one-off into the real mechanism.
 
 ### Phase 4 — cleanup and docs
 
-- Delete `ipc-tally.ts` and its wiring, the `alloc-profile.ts` / `perf.ts` debug additions on this branch (confirm with the user first), and any dead `markDirty('canvas')` calls that patches replaced.
+- Delete any dead `markDirty('canvas')` calls that patches replaced, and the exports and imports the migration orphaned. The instruments outlive this phase: the acceptance measurement reads off them, so they come out afterwards (see Acceptance checklist).
 - Write ADR 0036 (see below).
 - Update `CONTEXT.md` and `src/main/runtime/CLAUDE.md` to describe the store and the patch bus as the new default, with `viewportNudge` named as the one exception.
 
@@ -166,8 +166,52 @@ Per-phase acceptance, read off the above:
 - Phase 1: cause counter shows zero `hover` entries; alloc-profile flat under synthesized moves; the outline-tracks test is green.
 - Phase 2: drift watchdog reads zero over a dogfooding session; the convergence integration test is green.
 - Phase 3: wire accounting shows `inspect` only on agent-layer and total bytes-at-rest down sharply; `pageScrollLive` and `annotationLiveBbox` are gone.
-- Phase 4: remove all added instruments and the branch's temporary ones, except any single readout you decide to keep as a permanent perf HUD line.
+- Phase 4: the acceptance checklist at the end of this doc passes, and the instruments it reads come out in the follow-up. The drift watchdog stays.
 
 ## Context this plan came from
 
 Diagnosis and the three end-state explainers (A structural sharing, B split payload, C this) live in the vault at `~/Documents/specular/refactor-{a,b,c}-*.html`, on the `focus markdown` canvas. C won on end simplicity and speed because update cost stops scaling with scene size and three special channels collapse into one. A is the smallest change and the worst architecture (its correctness hides in unenforced referential-equality invariants). B is a real battery win but half an answer alone. This plan builds C while landing A first as a safety floor.
+
+## Acceptance checklist
+
+The measurement that closes this work. Run it once, on a real canvas with a page
+selected and a handful of entities in view, in a dev build (the drift watchdog is
+dev-gated). Every readout below lands in `~/Library/Logs/Specular/errors.log`
+except the watchdog, which goes to the renderer console.
+
+1. **Resident memory is flat under synthesized moves.** With a page selected:
+   `POST localhost:29979/perf/alloc-profile {"durationMs":60000,"synthesizeMoves":true}`.
+   Read `rssKb` before/after. Flat is the pass condition; the pre-refactor
+   baseline was hundreds of MB per run.
+2. **No hover or bare-scroll layout passes.** Read the `requestLayout` cause
+   histogram (logged every 2s while calls arrive). Hover must not appear at all.
+   Scroll may appear only for a page that actually has anchored entities or
+   annotations bound to it — scrolling a page with none must produce no entries.
+3. **Drift watchdog reads zero.** Pan, zoom, drag, resize, undo/redo, switch
+   tabs, open and close the inspect popover, scroll an anchored page. Any
+   `[drift-watchdog]` line in the renderer console is a failure, and the slice or
+   entity it names is the producer to fix.
+4. **`inspect` reaches agent-layer only.** Two readouts, because
+   `runtime-wire-bytes` counts per target per channel rather than per slice:
+   - `runtime-wire-bytes` (every 2s, main). With a page selected, snapshot bytes
+     to `agent-layer:layout-update` should dwarf `above-view` and `canvas-bg`,
+     because `inspect` is roughly 310KB of a ~330KB payload. Total bytes at rest
+     should be a small fraction of the pre-refactor figure.
+   - `ipc-tally`'s per-key breakdown of the first `layoutUpdate` above-view
+     receives: no `inspect` key at all.
+5. **Hover chrome still tracks.** Confirm visually while (1) runs: the outline
+   follows the pointer with no lag and no stuck highlight.
+
+### Instruments to delete once this passes
+
+All are marked TEMP in-tree. The drift watchdog is **not** on this list — it is
+dev-gated and stays as the live guard (ADR 0036 §7).
+
+- `src/renderer/above-view/ipc-tally.ts` and its `withIpcTally` wrapping in
+  `above-view/App.tsx`
+- the `requestLayout` cause histogram at the bottom of
+  `src/main/runtime/layout-engine.ts`
+- `recordWireBytes` and its `send` wrapper in
+  `src/main/runtime/runtime-patch-broadcast.ts`
+- `src/main/alloc-profile.ts` and the `/perf/alloc-profile` route in
+  `src/main/routes/perf.ts`
