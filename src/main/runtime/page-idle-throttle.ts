@@ -40,9 +40,6 @@ const BLUR_GRACE_MS = 5_000
 /** How long one piece of agent traffic keeps every page awake. */
 const AGENT_ACTIVITY_TRAILING_MS = 10_000
 
-/** Escape hatch for diagnosing a page that misbehaves under throttling. */
-const disabled = process.env.SPECULAR_DISABLE_IDLE_THROTTLE === '1'
-
 let windowFocused = true
 let blurredAt = 0
 let agentActiveUntil = 0
@@ -56,7 +53,6 @@ let recheckTimer: NodeJS.Timeout | null = null
 const loadingPageIds = new Set<string>()
 
 function pagesAreIdle(): boolean {
-  if (disabled) return false
   return evaluateIdleThrottle({
     now: Date.now(),
     windowFocused,
@@ -123,7 +119,6 @@ function reevaluate(): void {
     clearTimeout(recheckTimer)
     recheckTimer = null
   }
-  if (disabled) return
 
   syncAllPages()
 
@@ -146,12 +141,11 @@ function reevaluate(): void {
  * dispatches nothing.
  */
 export function idleThrottleState(): {
-  disabled: boolean
   idle: boolean
   windowFocused: boolean
   awakeHoldCount: number
 } {
-  return { disabled, idle: pagesAreIdle(), windowFocused, awakeHoldCount }
+  return { idle: pagesAreIdle(), windowFocused, awakeHoldCount }
 }
 
 export function setWindowFocused(focused: boolean): void {

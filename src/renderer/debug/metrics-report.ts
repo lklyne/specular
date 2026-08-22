@@ -49,11 +49,10 @@ function processSection(sample: ProcessMetricsSample): string {
   ].join(' · ')
   const pageLine = `Pages: ${totals.pagesVisible} visible · ${totals.pagesCulled} culled · ${totals.pagesHidden} hidden`
   const { idleThrottle } = sample
-  const throttleLine = `Idle throttle: ${
-    idleThrottle.disabled
-      ? 'disabled (SPECULAR_DISABLE_IDLE_THROTTLE=1)'
-      : `${idleThrottle.idle ? 'idle' : 'awake'} · focused ${idleThrottle.windowFocused} · holds ${idleThrottle.awakeHoldCount} · ${totals.pagesThrottled} pages throttled`
-  }`
+  const throttleLine =
+    `Idle throttle: ${idleThrottle.idle ? 'idle' : 'awake'}` +
+    ` · focused ${idleThrottle.windowFocused} · holds ${idleThrottle.awakeHoldCount}` +
+    ` · ${totals.pagesThrottled} pages throttled`
 
   const rows = [...sample.rows]
     .sort((a, b) => b.workingSetKb - a.workingSetKb)

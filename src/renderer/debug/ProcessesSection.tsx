@@ -120,7 +120,6 @@ function Totals({ sample }: { sample: ProcessMetricsSample }) {
  */
 function describeIdleThrottle(sample: ProcessMetricsSample): string {
   const { idleThrottle, totals } = sample
-  if (idleThrottle.disabled) return 'disabled'
   if (!idleThrottle.idle) {
     if (idleThrottle.windowFocused) return 'awake — focused'
     if (idleThrottle.awakeHoldCount > 0) return `awake — ${idleThrottle.awakeHoldCount} hold(s)`

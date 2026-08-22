@@ -73,7 +73,6 @@ export interface ProcessMetricsSample {
   /** State of the idle CPU throttle (ADR 0035), so a sample says on its own
    *  which arm of an A/B it belongs to. */
   idleThrottle: {
-    disabled: boolean
     idle: boolean
     windowFocused: boolean
     awakeHoldCount: number

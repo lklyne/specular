@@ -80,8 +80,12 @@ Electron, and the caller has exactly one timer to arm.
   throttled. Attach fails, the page keeps running at full speed, and the next
   evaluation retries. Correct, and the same trade-off `page-color-scheme.ts`
   already makes.
-- `SPECULAR_DISABLE_IDLE_THROTTLE=1` turns the whole thing off, for diagnosing a
-  page that misbehaves under throttling.
+- There is no global off switch. Every exemption — focus, awake holds, agent
+  traffic, a live CDP bridge, a load in flight — is derived from observed
+  state, so a page that must stay fast has a reason the policy can read. A
+  kill switch would be the one input nothing observes, and a second code path
+  to measure. If throttling is ever wrong for some page, the fix is a rule
+  here, not a flag around the whole thing.
 
 ## Alternatives rejected
 
