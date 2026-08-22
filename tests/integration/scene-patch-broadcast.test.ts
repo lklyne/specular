@@ -17,7 +17,9 @@
  * - making the renderer store's `applySnapshot` keep what it holds instead of
  *   replacing — the reconcile test fails;
  * - dropping `baseline = applyRuntimePatch(...)` from `broadcastRuntimePatch` —
- *   the "hover already delivered is not re-sent" assertion fails.
+ *   the "hover already delivered is not re-sent" assertion fails;
+ * - returning `data` unfiltered from `filterSceneSnapshot` — the routing
+ *   assertions fail (canvas-bg and above-view see the inspect tree again).
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -26,7 +28,9 @@ import { ipcChannels } from '../../src/shared/ipc-contract'
 import type { RuntimePatchBatch } from '../../src/shared/runtime-patch'
 import type { LayoutUpdateData } from '../../src/shared/types'
 import { snapshotToStore } from '../../src/shared/runtime-store'
+import { filterSceneSnapshot } from '../../src/shared/runtime-store-filter'
 import { createRuntimeStore } from '../../src/renderer/shared/runtime-store'
+import { aboveView, bgView } from '../../src/main/runtime/view-refs'
 import { getCanvasLayoutData } from '../../src/main/runtime/canvas-layout-data'
 import {
   broadcastSceneSnapshot,
@@ -37,20 +41,27 @@ import { createTextEntity } from '../../src/main/runtime/text-entity-state'
 
 let harness: WorkspaceHarness
 
-/** What one renderer received, in order. Every canvas renderer gets the same
- *  sends, so read a single target instead of counting the fan-out. */
-function sends(channel: string) {
-  const all = harness.broadcasts.filter((b) => b.channel === channel)
-  const target = all[0]?.webContentsId
-  return all.filter((send) => send.webContentsId === target)
+/** What one renderer received, in order. Each is routed its own slices, so a
+ *  target has to be named rather than sampled. */
+function sends(channel: string, webContentsId: number) {
+  return harness.broadcasts.filter(
+    (b) => b.channel === channel && b.webContentsId === webContentsId,
+  )
 }
 
-function batches(): RuntimePatchBatch[] {
-  return sends(ipcChannels.runtimePatch).map((send) => send.args[0] as RuntimePatchBatch)
+const aboveViewId = () => aboveView!.webContents.id
+const canvasBgId = () => bgView!.webContents.id
+
+function batches(webContentsId = aboveViewId()): RuntimePatchBatch[] {
+  return sends(ipcChannels.runtimePatch, webContentsId).map(
+    (send) => send.args[0] as RuntimePatchBatch,
+  )
 }
 
-function snapshots(): LayoutUpdateData[] {
-  return sends(ipcChannels.layoutUpdate).map((send) => send.args[0] as LayoutUpdateData)
+function snapshots(webContentsId = aboveViewId()): LayoutUpdateData[] {
+  return sends(ipcChannels.layoutUpdate, webContentsId).map(
+    (send) => send.args[0] as LayoutUpdateData,
+  )
 }
 
 /** Seat a baseline the way a connecting renderer does, then watch what the
@@ -117,8 +128,18 @@ describe('scene patch broadcast', () => {
     expect(batches()).toHaveLength(0)
   })
 
+  it('routes the inspect tree away from the renderers that never draw it', () => {
+    broadcastSceneSnapshot(getCanvasLayoutData())
+
+    expect(snapshots(aboveViewId())[0]).not.toHaveProperty('inspect')
+    expect(snapshots(canvasBgId())[0]).not.toHaveProperty('inspect')
+    // The slices each one does draw still arrive.
+    expect(snapshots(aboveViewId())[0]).toHaveProperty('edges')
+    expect(snapshots(canvasBgId())[0]).toHaveProperty('annotations')
+  })
+
   it('reconciles a drifted renderer store from the next snapshot', () => {
-    const initial = seatBaseline()
+    const initial = filterSceneSnapshot(seatBaseline(), 'above-view')
     const store = createRuntimeStore(initial)
 
     createTextEntity({ canvasX: 20, canvasY: 40, text: 'patched in' })
@@ -130,10 +151,10 @@ describe('scene patch broadcast', () => {
     expect(missed.patches.length).toBeGreaterThan(0)
     harness.clearBroadcasts()
 
-    const truth = getCanvasLayoutData()
+    const truth = filterSceneSnapshot(getCanvasLayoutData(), 'above-view')
     expect(store.read()).not.toEqual(snapshotToStore(truth))
 
-    broadcastSceneSnapshot(truth)
+    broadcastSceneSnapshot(getCanvasLayoutData())
     store.applySnapshot(snapshots()[0])
 
     expect(store.read()).toEqual(snapshotToStore(truth))

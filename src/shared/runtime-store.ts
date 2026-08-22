@@ -107,7 +107,11 @@ export const RUNTIME_SLICE_KEYS = [
 export interface RuntimeStore {
   /** Every scene entity by id, including the group entities `groups` projects. */
   entities: Record<string, CanvasSceneEntity>
-  slices: RuntimeStoreSlices
+  /**
+   * Partial because a renderer holds only the slices it is routed
+   * (`runtime-store-filter.ts`). Main's baseline always holds all of them.
+   */
+  slices: Partial<RuntimeStoreSlices>
   /**
    * Cost of the layout pass that produced this store. Diagnostic only (the
    * canvas perf HUD reads it), and different on every build by construction,
@@ -174,51 +178,59 @@ export function snapshotToStore(data: LayoutUpdateData): RuntimeStore {
   }
 }
 
+/**
+ * The flat projection, for the consumers that still read the whole payload.
+ *
+ * Fields belonging to a slice this store was never routed project as absent —
+ * which is sound because they are exactly the fields that store's renderer
+ * never reads. The result is asserted whole rather than each field being
+ * widened, so a consumer reading the projection sees the shape main sends.
+ */
 export function storeToLayoutData(store: RuntimeStore): LayoutUpdateData {
   const { camera, chrome, scene, selection, tool, focus } = store.slices
   const entities: CanvasSceneEntity[] = []
-  for (const id of scene.entityIds) {
+  for (const id of scene?.entityIds ?? []) {
     const entity = store.entities[id]
     if (entity) entities.push(entity)
   }
   const groups: CanvasSceneGroupEntity[] = []
-  for (const id of scene.groupIds) {
+  for (const id of scene?.groupIds ?? []) {
     const entity = store.entities[id]
     if (entity?.kind === 'group') groups.push(entity)
   }
   return {
     ...(store.buildMs != null ? { buildMs: store.buildMs } : {}),
-    windowWidth: chrome.windowWidth,
-    zoom: camera.zoom,
-    pan: camera.pan,
-    canvasOrigin: chrome.canvasOrigin,
-    leftChromeWidth: chrome.leftChromeWidth,
-    toolbarCenterX: chrome.toolbarCenterX,
-    entityOrder: scene.entityOrder,
+    windowWidth: chrome?.windowWidth,
+    zoom: camera?.zoom,
+    pan: camera?.pan,
+    canvasOrigin: chrome?.canvasOrigin,
+    leftChromeWidth: chrome?.leftChromeWidth,
+    toolbarCenterX: chrome?.toolbarCenterX,
+    entityOrder: scene?.entityOrder,
     entities,
-    selectedEntityIds: selection.selectedEntityIds,
-    selectionOperandIds: selection.selectionOperandIds,
-    selection: selection.selection,
-    activeSelection: selection.activeSelection,
-    activeTool: tool.activeTool,
-    toolDefaults: tool.toolDefaults,
+    selectedEntityIds: selection?.selectedEntityIds,
+    selectionOperandIds: selection?.selectionOperandIds,
+    selection: selection?.selection,
+    activeSelection: selection?.activeSelection,
+    activeTool: tool?.activeTool,
+    toolDefaults: tool?.toolDefaults,
     annotations: store.slices.annotations,
     inspect: store.slices.inspect,
     fixProgress: store.slices.fixProgress,
-    selectedGroupId: selection.selectedGroupId,
+    selectedGroupId: selection?.selectedGroupId,
     hover: store.slices.hover,
     interaction: store.slices.interaction,
-    pendingPlacement: tool.pendingPlacement,
-    devtoolsOpen: chrome.devtoolsOpen,
-    devtoolsWidth: chrome.devtoolsWidth,
+    pendingPlacement: tool?.pendingPlacement,
+    devtoolsOpen: chrome?.devtoolsOpen,
+    devtoolsWidth: chrome?.devtoolsWidth,
     edges: store.slices.edges,
     groups,
     presenceCursors: store.slices.presence,
-    keyboardTargetPageId: focus.keyboardTargetPageId,
-    interactivePageId: focus.interactivePageId,
-    focusPresentation: focus.focusPresentation,
-    cameraTransitionStartedAt: camera.cameraTransitionStartedAt,
+    keyboardTargetPageId: focus?.keyboardTargetPageId,
+    interactivePageId: focus?.interactivePageId,
+    focusPresentation: focus?.focusPresentation,
+    cameraTransitionStartedAt: camera?.cameraTransitionStartedAt,
     pageScroll: store.slices.pageScroll,
     annotationBboxes: store.slices.annotationBboxes,
-  }
+  } as LayoutUpdateData
 }

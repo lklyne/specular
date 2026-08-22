@@ -87,6 +87,8 @@ function snapshot(overrides: Partial<LayoutUpdateData> = {}): LayoutUpdateData {
     interactivePageId: null,
     focusPresentation: null,
     cameraTransitionStartedAt: null,
+    pageScroll: {},
+    annotationBboxes: {},
     ...overrides,
   }
 }

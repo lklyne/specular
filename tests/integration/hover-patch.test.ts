@@ -14,7 +14,9 @@
  * - dropping the `broadcastRuntimePatch` call there — the patch assertions fail;
  * - dropping its `sameHoverTarget` early return — the repeated-hover test fails;
  * - dropping `hover: hoverTarget` from the `buildCanvasLayoutData` literal
- *   (canvas-layout-data.ts) — the snapshot assertion fails.
+ *   (canvas-layout-data.ts) — the snapshot assertion fails;
+ * - adding `hover` to canvas-bg's list in `SCENE_TARGET_SLICES`
+ *   (runtime-store-filter.ts) — the routing assertion fails.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -27,6 +29,7 @@ import { setHoverEntity, setHoveredPage } from '../../src/main/runtime/runtime-c
 import { createTextEntity } from '../../src/main/runtime/text-entity-state'
 import { clearAllDirty, isDirty } from '../../src/main/runtime/layout-dirty'
 import { layoutCache } from '../../src/main/runtime/layout-cache'
+import { aboveView } from '../../src/main/runtime/view-refs'
 
 let harness: WorkspaceHarness
 
@@ -74,13 +77,15 @@ function layoutPassRequested(): boolean {
   return layoutCache.layoutTimer !== null || isDirty('canvas')
 }
 
-/** The patch stream as one renderer sees it. Every canvas renderer gets the
- *  same batch, so read a single target rather than counting sends. */
+/** The patch stream as above-view sees it — the only canvas renderer routed
+ *  the hover slice. */
 function patches() {
-  const sends = harness.broadcasts.filter((b) => b.channel === ipcChannels.runtimePatch)
-  const target = sends[0]?.webContentsId
-  return sends
-    .filter((send) => send.webContentsId === target)
+  return harness.broadcasts
+    .filter(
+      (b) =>
+        b.channel === ipcChannels.runtimePatch &&
+        b.webContentsId === aboveView!.webContents.id,
+    )
     .flatMap((send) => (send.args[0] as RuntimePatchBatch).patches)
 }
 
@@ -109,7 +114,8 @@ describe('hover rides a runtime patch, not a layout pass', () => {
     expect(patches()).toEqual([
       { kind: 'slice', slice: 'hover', value: { id: PAGE_ID, kind: 'page' } },
     ])
-    expect(patchTargets().size).toBe(2)
+    // Only the renderer that draws a hover outline hears about one.
+    expect(patchTargets()).toEqual(new Set([aboveView!.webContents.id]))
     expect(harness.broadcasts.every((b) => b.channel === ipcChannels.runtimePatch)).toBe(true)
     expect(layoutPassRequested()).toBe(false)
   })
