@@ -21,8 +21,8 @@ export function ChromeCanvasSurface({
   snapshots: FrozenPageBitmaps
   transform: SceneCameraTransform
   isDark: boolean
-  /** Pages above-view currently owns for a drag freeze — skip their chrome
-   *  and raster here so the two renderers never draw the same page twice. */
+  /** Pages above-view is drawing for a drag freeze; skipped here so no page
+   *  is drawn twice. */
   dragFrozenPageIds?: ReadonlySet<string>
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)

@@ -34,9 +34,8 @@ export function drawChromeCanvas({
   transform: SceneCameraTransform
   isDark: boolean
   devicePixelRatio: number
-  /** Pages currently drag-frozen (target 'above'): above-view owns their
-   *  chrome and raster for the duration of the drag, following the pointer
-   *  locally, so this pass must not also draw them underneath. */
+  /** Pages drag-frozen on above-view, which draws their chrome and raster
+   *  for the duration of the drag; this pass must not draw them underneath. */
   dragFrozenPageIds?: ReadonlySet<string>
 }): void {
   const dpr = Math.max(devicePixelRatio, 1)

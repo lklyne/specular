@@ -3,9 +3,7 @@
  * borders, the frozen-page raster that stands in for a parked
  * WebContentsView, and the device shell (bezel donut, strokes, island,
  * home indicator). Pure per-item geometry and draw calls, shared by
- * canvas-bg (the persistent chrome pass, `chromeCanvasDraw.ts`) and
- * above-view (the drag-freeze layer, which draws one item's chrome plus a
- * live pointer delta on top of the same bitmap substrate).
+ * canvas-bg (`chromeCanvasDraw.ts`) and above-view (`DragFreezeLayer`).
  *
  * Drawn in screen space from the live camera transform on every tick, so
  * strokes are always rendered at display scale and stay crisp at any zoom,

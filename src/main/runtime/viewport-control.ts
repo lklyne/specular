@@ -110,8 +110,8 @@ export function setViewportCamera(
   // transform alone would scale it with the scene. Pan rides the transform
   // and re-baselines on settle.
   if (zoomChanged) markDirty('toolbar', 'canvas')
-  // Spike ordering: move the native views first, then tell the renderer
-  // where the camera is, so the chrome ring never leads the page.
+  // Move the native views first, then tell the renderer where the camera
+  // is, so the chrome ring never leads the page.
   if (NO_FRAME_VIEW && !zoomChanged) layoutAllViews()
   broadcastViewportNudge()
   if (zoomChanged) broadcastCanvasZoomToPages()

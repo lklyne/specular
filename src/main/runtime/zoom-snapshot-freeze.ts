@@ -144,11 +144,10 @@ export async function prepareZoomSnapshotFreeze(options?: {
 
   const startedAt = performance.now()
   const captureLeaseAtStart = captureLease
-  // A page already parked by another freeze (a drag freeze mid-gesture) is
-  // hidden at zero bounds — capturing it would yield an empty frame and
-  // wrongly count toward a discard below. A page lives in at most one
-  // freeze, so zoom simply leaves it out of its own set; it reappears here
-  // once the owning freeze releases it.
+  // A page parked by another freeze (a drag mid-gesture) sits at zero
+  // bounds, so capturing it yields an empty frame that would count toward a
+  // discard below. A page lives in at most one freeze; zoom leaves it out
+  // and picks it up again once the owner releases it.
   const capturablePages = pages.filter((page) => !pageClaimedByOtherFreeze(page.id, FREEZE_ID))
   const frames = await Promise.all(capturablePages.map((page) => capturePageFrame(page)))
 

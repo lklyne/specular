@@ -45,8 +45,8 @@ export default function App({
         if (data.target === 'bg') {
           setFrozenPages(data)
         } else if (data.target === 'above') {
-          // above-view owns chrome + raster for its own drag-frozen pages;
-          // this pass only needs their ids, to skip drawing them twice.
+          // above-view draws chrome and raster for drag-frozen pages; this
+          // pass only needs their ids, to skip them.
           setDragFrozenPageIds(
             data.active ? new Set(data.frames.map((frame) => frame.pageId)) : new Set(),
           )
@@ -100,10 +100,8 @@ export default function App({
   // skip re-rendering on every pan/zoom nudge (props only change on a real
   // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
   const svgDeviceShellPages = useMemo(
-    // A drag-frozen page draws its border/shell/raster uniformly through
-    // the chrome canvas in above-view (DragFreezeLayer), regardless of its
-    // normal SVG-shell toggle — this DOM layer would otherwise double-draw
-    // it at its stale (pre-drag) position.
+    // above-view's DragFreezeLayer draws a drag-frozen page's shell; this
+    // DOM layer would otherwise draw it again at its stale position.
     () => chromePages.filter((f) => f.useSvgDeviceShell && !dragFrozenPageIds.has(f.id)),
     [chromePages, dragFrozenPageIds],
   )

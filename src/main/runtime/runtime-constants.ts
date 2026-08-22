@@ -5,17 +5,17 @@
 // --- Layout geometry ---
 export const CARD_BORDER_WIDTH = 1
 /**
- * Spike: SPECULAR_NO_FRAME_VIEW=1 drops the per-page about:blank frameView
- * (one renderer process each). The chrome canvas ring is then the only
- * card border, and the layout pass sends renderer positions only after the
- * native setBounds loop so the two land in the same frame window.
+ * SPECULAR_NO_FRAME_VIEW=1 skips the per-page about:blank frameView (one
+ * renderer process each). The chrome canvas ring is then the only card
+ * border, and the layout pass sends renderer positions after the native
+ * setBounds loop so both land in the same frame.
  */
 export const NO_FRAME_VIEW = process.env.SPECULAR_NO_FRAME_VIEW === '1'
 /**
- * Spike: SPECULAR_DRAG_FREEZE=1 captures the dragged page(s) into a bitmap
- * at drag-start, parks their native views hidden, and lets aboveView draw
- * the frozen raster following the pointer locally each rAF instead of
- * riding the per-move IPC round trip. See `drag-freeze.ts`.
+ * SPECULAR_DRAG_FREEZE=1 captures dragged pages into a bitmap at drag start,
+ * parks their native views hidden, and has aboveView draw the bitmap at the
+ * layout position instead of moving the native view per tick. See
+ * `drag-freeze.ts`.
  */
 export const DRAG_FREEZE = process.env.SPECULAR_DRAG_FREEZE === '1'
 export const CARD_BORDER_RADIUS = 0

@@ -303,8 +303,8 @@ export function layoutAllViews(): void {
 
   const pageOverlays = backgroundPageOverlays()
   const nextActiveSelection = activeCanvasSelection()
-  // Spike ordering: renderer positions ship after every native setBounds
-  // call below, so the DOM chrome never leads the page views.
+  // Renderer positions ship after every native setBounds call below, so
+  // the DOM chrome never leads the page views.
   let pendingLayoutData: ReturnType<typeof buildCanvasLayoutData> | null = null
 
   // --- Canvas background + annotation overlay ---

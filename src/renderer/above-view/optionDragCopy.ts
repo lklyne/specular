@@ -7,16 +7,6 @@ import { canvasToScreenX, canvasToScreenY, clientYToWindowY, snapToGrid } from '
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
 import { groupDropTargetAt } from '../../shared/group-drop-target'
 
-/**
- * Live local-only snapshot of the in-flight page drag: the total screen-px
- * pointer delta since drag-start, for the drag-freeze canvas layer to read
- * on its own rAF loop. The dragged entity's real position also updates
- * through `applyDelta` (`dragPage` IPC → main → broadcast layoutData), but
- * that path is a round trip and lags the pointer by a tick; this ref lets
- * the frozen bitmap track the pointer every frame with zero IPC. Only one
- * pointer-drag session runs at a time, so a bare singleton is enough — no
- * generation guard needed.
- */
 export type DragCopyPreviewBox = {
   id: string
   left: number
@@ -89,10 +79,6 @@ type DragCopyCallbacks = {
   endDrag: (outcome: 'finish' | 'cancel', copied: boolean) => void
   copyAt: (canvasX: number, canvasY: number) => void
   setPreview: (preview: DragCopyPreviewBox[]) => void
-  /** Total screen-px delta since pointer-down, reported on every move
-   *  regardless of copy mode. Renderer-local only (no IPC) — for a consumer
-   *  that wants to track the pointer every rAF without waiting on main's
-   *  debounced layout broadcast (the drag-freeze canvas layer). */
 }
 
 type DragCopySessionOptions = DragCopyCallbacks & {

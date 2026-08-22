@@ -1,23 +1,12 @@
 /**
- * The drag-freeze parking registry (`page-freeze.ts`'s registerFreeze /
- * pageParkingFor / releaseFreeze / updateFreezeParking /
- * pageClaimedByOtherFreeze) and `drag-freeze.ts`'s flag-gated no-op — the
- * contracts `beginDragFreeze`/`endDragFreeze` and the zoom freeze both
- * depend on for "a page lives in at most one freeze."
+ * The parking registry in `page-freeze.ts`, which the zoom and drag freezes
+ * both rely on for "a page lives in at most one freeze".
  *
- * `capturePageFrame` always returns null against this suite's Electron
- * stub (`FakeWebContentsView.getBounds()` is hardcoded to zero size — real
- * view geometry is called out as intentionally out of scope for this tier
- * in tests/README.md), so `beginDragFreeze`'s async capture path can never
- * succeed here. The registered→parked→released half of the lifecycle is
- * exercised directly through the registry it writes to; `beginDragFreeze`
- * itself is only exercised for its flag-off no-op.
- *
- * Mutation-verified by: (1) changing `registerFreeze` to overwrite an
- * existing entry's `parking` unconditionally on a second register instead
- * of via the map's normal replace-by-id semantics — the "first claim wins"
- * assertion fails; (2) dropping the `id === excludingId` guard in
- * `pageClaimedByOtherFreeze` — the self-exclusion assertion fails.
+ * `capturePageFrame` returns null against this suite's Electron stub
+ * (`FakeWebContentsView.getBounds()` is zero-size; view geometry is out of
+ * scope for this tier per tests/README.md), so `beginDragFreeze`'s capture
+ * path is covered only for its flag-off no-op. The park and release half
+ * is exercised through the registry it writes to.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import {

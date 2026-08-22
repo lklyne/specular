@@ -34,11 +34,10 @@ function toChromeItem(page: CanvasScenePageEntity): ChromeCanvasItem {
 }
 
 /**
- * Draws the drag-frozen page(s): the bitmap `capturePageFrame` took at
- * drag-start plus the chrome shared with canvas-bg's persistent pass, at
- * the page's current layout position. Owns these pages entirely while
- * frozen — canvas-bg skips them (see `chromeCanvasDraw.ts`'s
- * `dragFrozenPageIds`) so the two renderers never draw the same page twice.
+ * Draws each drag-frozen page at its current layout position: the bitmap
+ * `capturePageFrame` took at drag start plus the chrome canvas-bg would
+ * otherwise draw. canvas-bg skips these pages (`dragFrozenPageIds` in
+ * `chromeCanvasDraw.ts`) so no page is drawn twice.
  */
 export function DragFreezeLayer({
   api,
@@ -81,12 +80,11 @@ export function DragFreezeLayer({
     if (!frozenState.active || bitmaps.size === 0) return
 
     const { borderColor, bezelColor } = readChromeColors(canvas)
-    // layoutData is the authority on where a dragged page is: grid and
-    // alignment snapping resolve in main, and the selection handles follow
-    // the same data, so the raster lands exactly where they do. Its screen
-    // coords are window-relative; aboveView sits canvasOrigin.y down the
-    // window with a camera built at y: 0, so y is rebased here (as
-    // PageFocusRingLayer does).
+    // Grid and alignment snapping resolve in main, so layoutData is the
+    // only position that carries them; the selection handles read the same
+    // data. Its screen coords are window-relative, and aboveView sits
+    // canvasOrigin.y down the window with a camera built at y: 0, so y is
+    // rebased here as PageFocusRingLayer does.
     const layout = layoutRef.current
     const originY = layout.canvasOrigin.y
     for (const entity of layout.entities) {
@@ -97,9 +95,8 @@ export function DragFreezeLayer({
       item.screenY -= originY
       if (item.contentScreenY !== undefined) item.contentScreenY -= originY
       const geometry = liveGeometry(item, transform)
-      // above-view owns the whole page while it is frozen (canvas-bg skips
-      // its chrome canvas and SVG shell for it), so the shell is drawn here
-      // regardless of the page's usual SVG-vs-canvas toggle.
+      // canvas-bg skips both its chrome canvas and SVG shell for a frozen
+      // page, so the shell is drawn here whatever the page's usual toggle.
       drawItemBorders(ctx, geometry, borderColor, dpr, !!item.showDeviceFrame)
       if (item.showDeviceFrame) {
         drawItemShell(ctx, item, geometry, isDark, bezelColor, dpr)
@@ -108,9 +105,8 @@ export function DragFreezeLayer({
     }
   }, [frozenState.active, transform, isDark, bitmaps, layoutRef])
 
-  // rAF loop only while a freeze is active: layoutRef mutates outside React,
-  // so this is how the raster tracks each layout update without a
-  // re-render per tick.
+  // layoutRef mutates outside React, so a rAF loop (only while frozen) is
+  // how the raster tracks each layout update without a re-render per tick.
   useEffect(() => {
     if (!frozenState.active) {
       draw()

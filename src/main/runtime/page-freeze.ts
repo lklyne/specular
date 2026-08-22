@@ -7,9 +7,9 @@ import { boundEffectivePageContentSize } from './runtime-geometry'
 import type { Page } from './runtime-entities'
 
 /**
- * Per-target publish/ack channel. Each freeze consumer (zoom today, a future
- * drag freeze) owns its own revision sequence and ready-ack, so one target's
- * renderer never blocks another's.
+ * Per-target publish/ack channel. Each freeze (zoom, drag) has its own
+ * revision sequence and ready-ack, so one target's renderer never blocks
+ * another's.
  */
 const revisionByTarget = new Map<FreezeTarget, number>()
 const rendererReadyRevisionByTarget = new Map<FreezeTarget, number>()
@@ -87,8 +87,8 @@ export function waitForRendererReady(
 
 /**
  * Parking registry. A freeze registers the pages it has parked so the layout
- * engine can look up how to place any given page without knowing which
- * freeze (zoom, or a future drag freeze) owns it.
+ * engine can look up how to place any page without knowing which freeze
+ * owns it.
  */
 export type PageParking = 'hidden' | 'warm' | null
 

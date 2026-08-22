@@ -1824,8 +1824,8 @@ export interface FrozenPageFrame {
 }
 
 /**
- * Frozen-page substrate used by the pan/zoom performance spike. Frames are
- * preloaded into the target renderer before live WebContentsViews are hidden.
+ * Frozen-page frames for one target renderer. They are decoded there
+ * before the live WebContentsViews are hidden.
  */
 export interface FrozenPagesState {
   revision: number

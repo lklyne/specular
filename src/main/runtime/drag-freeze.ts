@@ -26,13 +26,13 @@ let generation = 0
 let active = false
 
 /**
- * Captures the dragged page(s) into a bitmap, hands it to aboveView, and —
- * once aboveView has decoded and acked it — parks the native views hidden.
- * The bitmap is on screen (occluding the still-visible live view, since
- * aboveView sits above every page in the native stack) before the park
- * lands, so there is no gap between "view hidden" and "raster drawn".
+ * Captures the dragged pages into a bitmap, hands it to aboveView, and
+ * parks the native views hidden once aboveView has decoded and acked it.
+ * aboveView sits above every page in the native stack, so the bitmap
+ * covers the live view before the park lands and there is no gap between
+ * "view hidden" and "raster drawn".
  *
- * No-op behind the flag, and a no-op if nothing captures: a drag that can't
+ * No-op behind the flag, and a no-op if nothing captures. A drag that can't
  * be pictured stays live rather than parking pages behind a blank raster.
  */
 export async function beginDragFreeze(pageIds: string[]): Promise<void> {
@@ -55,7 +55,7 @@ export async function beginDragFreeze(pageIds: string[]): Promise<void> {
 
   if (!ready) {
     console.warn('[drag-freeze] aboveView never acked; staying live')
-    // aboveView never acked — stay live rather than park pages behind a
+    // aboveView never acked. Stay live rather than park pages behind a
     // bitmap it can't draw.
     publish(FREEZE_TARGET, { revision, target: FREEZE_TARGET, active: false, frames: [] })
     return
@@ -68,27 +68,18 @@ export async function beginDragFreeze(pageIds: string[]): Promise<void> {
     parking: 'hidden',
   })
   active = true
-  // Debounced is fine here: the bitmap already occludes the live view, so
-  // the native park landing a tick later than this call causes no visible
-  // change.
+  // The bitmap already covers the live view, so the park landing a
+  // debounce tick later causes no visible change.
   requestLayout()
 }
 
 /**
- * Ends the drag freeze: unparks the native views, lays out synchronously so
- * they land at their final bounds, then tells aboveView to drop the bitmap.
- *
- * Order matters. Publishing the empty state first would remove the raster
- * that's occluding the page while its native view is still mid-flight to
- * its final bounds (parked, or wherever the last drag tick left it) —
- * one 16ms debounce window of blank/incorrect content. Running the layout
- * pass synchronously first, then publishing, keeps the raster up until the
- * native view is already where it needs to be.
- *
- * `layoutAllViews` normally stays behind the debounced `requestLayout`
- * (I1); this follows the existing exception in `settleZoomGesture`
- * (viewport-control.ts), which needs the identical synchronous-bounds-
- * before-reveal ordering for the zoom settle reveal.
+ * Unparks the native views, lays out synchronously so they land at their
+ * final bounds, then tells aboveView to drop the bitmap. Publishing first
+ * would remove the raster while the native view is still parked or at the
+ * last drag tick's position, one debounce window of blank or stale
+ * content. `layoutAllViews` normally stays behind `requestLayout` (I1);
+ * `settleZoomGesture` makes the same exception for the same reason.
  */
 export function endDragFreeze(): void {
   generation += 1 // invalidate any beginDragFreeze capture still in flight
