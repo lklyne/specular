@@ -128,6 +128,24 @@ function squircle2D(
 }
 
 /**
+ * The content cutout. A circular arc, not a squircle: the live
+ * WebContentsView's corner comes from setBorderRadius, which only rounds
+ * circularly, and the cutout must match it exactly or the mismatch shows as
+ * a bezel-coloured sliver along the corner.
+ */
+function contentCutout2D(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+): Path2D {
+  const p = new Path2D()
+  p.roundRect(x, y, w, h, Math.max(0, radius))
+  return p
+}
+
+/**
  * The two 1px `--surface-device-border` borders every page carries: the outer
  * border traces the page/shell bounds, the inner traces the content viewport.
  * For non-device pages the rects coincide and overlap into a single border.
@@ -174,7 +192,7 @@ function drawItemSnapshot(
   bitmap: ImageBitmap,
 ): void {
   ctx.save()
-  ctx.clip(squircle2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
+  ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
@@ -201,7 +219,7 @@ function drawItemShell(
   const outerPath = squircle2D(g.shellX, g.shellY, g.shellW, g.shellH, g.outerRadius)
   const donut = new Path2D()
   donut.addPath(outerPath)
-  donut.addPath(squircle2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
+  donut.addPath(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
 
   // Bezel fill + drop shadow. Canvas shadow params ignore the transform, so
   // scale them by dpr explicitly.
@@ -232,7 +250,7 @@ function drawItemShell(
   ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'
   ctx.lineWidth = ringW
   ctx.stroke(
-    squircle2D(
+    contentCutout2D(
       g.contentX - ringW / 2,
       g.contentY - ringW / 2,
       g.contentW + ringW,
