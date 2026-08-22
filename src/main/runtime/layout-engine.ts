@@ -85,6 +85,7 @@ import { applyPageColorScheme } from './page-color-scheme'
 import { pageParkingFor } from './page-freeze'
 import { scheduleZoomSnapshotPreparation } from './zoom-snapshot-freeze'
 import { applyPageMetrics, clearPageMetrics, invalidatePageMetrics, pageRendersNatively } from './page-emulation'
+import { logCrash } from '../crash-log'
 
 let buildMsSink: ((ms: number) => void) | null = null
 
@@ -693,6 +694,40 @@ function layoutAllViews(): void {
   scheduleZoomSnapshotPreparation()
 }
 
+// TEMP instrument (plan: diffed-runtime-store) — who is asking for a layout
+// pass, counted by caller and reported to errors.log every 2s. Broadcast
+// counts alone can't answer this: structural sharing makes a pass cheap while
+// it still fires, so the histogram is how a migrated slice is proven gone.
+const layoutCauses = new Map<string, number>()
+let layoutCauseTimer: NodeJS.Timeout | null = null
+
+function recordLayoutCause(): void {
+  const frames = new Error().stack?.split('\n')
+  if (!frames) return
+  // Frame 0 is the Error line, 1 is this function, 2 is requestLayout; the
+  // first frame past those that isn't this module is the caller worth naming.
+  let cause = 'unknown'
+  for (const frame of frames.slice(3)) {
+    if (frame.includes('layout-engine')) continue
+    const token = frame.trim().replace(/^at /, '').split(' ')[0] || 'anonymous'
+    // An anonymous frame reports a path instead of a name; its basename is
+    // the useful half.
+    cause = token.includes('/') ? (token.split('/').pop() ?? token) : token
+    break
+  }
+  layoutCauses.set(cause, (layoutCauses.get(cause) ?? 0) + 1)
+  if (layoutCauseTimer) return
+  layoutCauseTimer = setInterval(() => {
+    if (layoutCauses.size === 0) return
+    const rows = [...layoutCauses.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => `${name}=${count}`)
+    layoutCauses.clear()
+    logCrash('requestLayout-causes', rows.join(' '))
+  }, 2000)
+  layoutCauseTimer.unref?.()
+}
+
 /**
  * The default way to trigger layout. Debounces a `layoutAllViews()` pass
  * onto a 16ms timer so a burst of mutations collapses into one pass
@@ -700,6 +735,7 @@ function layoutAllViews(): void {
  * that must place views synchronously (drag freeze, viewport control).
  */
 export function requestLayout(): void {
+  recordLayoutCause()
   if (layoutCache.layoutTimer) return
   layoutCache.layoutTimer = setTimeout(() => {
     layoutCache.layoutTimer = null
