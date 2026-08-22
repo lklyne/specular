@@ -16,6 +16,7 @@ import {
 } from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
 import { shareLayoutData } from '../../shared/layout-structural-share'
+import { hoverStore } from '../shared/hover-store'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
@@ -204,7 +205,6 @@ const GuideOverlayLayer = memo(function GuideOverlayLayer({
 
 const StackedCanvasItems = memo(function StackedCanvasItems({
   layoutData,
-  hoveredEntityId,
   isDark,
   selectedEdgeIds,
   selectedEntityIdSet,
@@ -216,7 +216,6 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
   onContentHeight,
 }: {
   layoutData: LayoutUpdateData
-  hoveredEntityId: string | null
   isDark: boolean
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
@@ -250,7 +249,6 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
         key={`edge-${edge.id}`}
         edges={[edge]}
         entities={layoutData.entities}
-        hoveredEntityId={hoveredEntityId}
         isDark={isDark}
         interaction={layoutData.interaction}
         selectedEdgeIds={selectedEdgeIds}
@@ -525,6 +523,7 @@ export default function App({
   useCanvasClipboard({ api, layoutRef })
 
   useEffect(() => {
+    hoverStore.reconcile(layoutRef.current.hover)
     const cleanup = api.onLayoutUpdate((data) => {
       // The payload crosses a process boundary, so it arrives fully
       // re-materialized: every slice is a new object even when the scene did
@@ -534,9 +533,13 @@ export default function App({
       layoutRef.current = next
       setLayoutData(next)
       setFixProgress(next.fixProgress)
+      // The snapshot is the reconcile baseline for every patched slice.
+      hoverStore.reconcile(next.hover)
     })
     return cleanup
   }, [])
+
+  useEffect(() => api.onRuntimePatch((patch) => hoverStore.applyPatch(patch)), [])
 
   useEffect(() => api.onFixProgressUpdate(setFixProgress), [])
 
@@ -654,7 +657,6 @@ export default function App({
   const selectedEdge = useMemo(() => {
     return edgeForPopup(layoutData.selection, layoutData.edges)
   }, [layoutData.selection, layoutData.edges])
-  const hoveredEntityId = layoutData.hover?.id ?? null
   const focus = focusContext(layoutData)
   const focusPresentationActive = focus.active
   const anchorSelectedEntityIds = focusPresentationActive
@@ -1133,7 +1135,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       <StackedCanvasItems
         layoutData={renderLayout}
         onContentHeight={reportContentHeight}
-        hoveredEntityId={hoveredEntityId}
         isDark={isDark}
         selectedEdgeIds={selectedEdgeIds}
         selectedEntityIdSet={selectedEntityIdSet}
@@ -1210,7 +1211,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           <EdgeLayer
             edges={NO_EDGES}
             entities={layoutData.entities}
-            hoveredEntityId={hoveredEntityId}
             isDark={isDark}
             interaction={layoutData.interaction}
             selectedEdgeIds={selectedEdgeIds}

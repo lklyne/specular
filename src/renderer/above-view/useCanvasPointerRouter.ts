@@ -82,6 +82,7 @@ import { aspectRatioResizeModeForCanvasFile } from '../canvas-bg/entityConstants
 import { ENTITY_KIND_CAPS } from '../../shared/entity-kind-caps'
 import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
+import { hoverStore } from '../shared/hover-store'
 import { GROUP_LABEL_FONT } from '../../shared/group-label-geometry'
 import type { CanvasSceneEntity, EdgeSide, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -224,7 +225,6 @@ function layoutToHitInputs(layout: {
   selectedEntityIds: HitInputs['selectedEntityIds']
   selectionOperandIds?: HitInputs['selectionOperandIds']
   selectedGroupId?: string | null
-  hover?: { id: string } | null
   zoom?: number | null
 }): HitInputs {
   return {
@@ -233,7 +233,7 @@ function layoutToHitInputs(layout: {
     selectedEntityIds: layout.selectedEntityIds,
     selectionOperandIds: layout.selectionOperandIds,
     selectedGroupId: layout.selectedGroupId ?? null,
-    hoveredEntityId: layout.hover?.id ?? null,
+    hoveredEntityId: hoverStore.read()?.id ?? null,
     zoom: layout.zoom ?? 1,
     groupLabelWidths: groupLabelWidths(layout.entities),
   }

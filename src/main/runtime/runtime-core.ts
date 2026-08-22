@@ -14,8 +14,11 @@ import {
   setDevtoolsWidth as setUiDevtoolsWidth,
 } from '../ui-state'
 import type {
+  CanvasHoverTarget,
   DevtoolsPanelData,
 } from '../../shared/types'
+import { sameHoverTarget } from '../../shared/runtime-patch'
+import { broadcastRuntimePatch } from './runtime-patch-broadcast'
 import {
   devtoolsView,
   setDevtoolsView,
@@ -37,7 +40,6 @@ import {
   recenterFocusPresentation,
   requestLayout,
 } from './viewport-control'
-import { markDirty } from './layout-dirty'
 import {
   notifyDevtoolsPanelData,
 } from './inspect-session'
@@ -233,21 +235,25 @@ export function selectEntity(entityId: string, entityKind: string): void {
 }
 
 export function setHoveredPage(pageId: string | null): void {
-  const nextHoverTarget = pageId ? { id: pageId, kind: 'page' as const } : null
-  if (hoverTarget?.id === nextHoverTarget?.id && hoverTarget?.kind === nextHoverTarget?.kind) return
-  setHoverTarget(nextHoverTarget)
-  markDirty('canvas')
-  requestLayout()
+  commitHoverTarget(pageId ? { id: pageId, kind: 'page' } : null)
 }
 
-export function setHoverEntity(
-  nextHoverTarget: import('../../shared/types').CanvasHoverTarget,
-): void {
-  if (hoverTarget?.id === nextHoverTarget?.id && hoverTarget?.kind === nextHoverTarget?.kind) return
-  setHoverTarget(nextHoverTarget)
-  markDirty('canvas')
-  requestLayout()
+export function setHoverEntity(nextHoverTarget: CanvasHoverTarget): void {
+  commitHoverTarget(nextHoverTarget)
 }
+
+/**
+ * Hover moves with the pointer, so it is the one runtime slice that cannot
+ * afford a scene rebuild per change. It rides a patch to the chrome that draws
+ * it; `buildCanvasLayoutData` still reads `hoverTarget` for the snapshot, so a
+ * pass triggered by anything else carries the current value.
+ */
+function commitHoverTarget(next: CanvasHoverTarget): void {
+  if (sameHoverTarget(hoverTarget, next)) return
+  setHoverTarget(next)
+  broadcastRuntimePatch({ kind: 'hover', target: next })
+}
+
 export function setDevtoolsWidthFromScreenX(screenX: number): void {
   if (!win || !uiDevtoolsOpen()) return
   const bounds = win.getContentBounds()

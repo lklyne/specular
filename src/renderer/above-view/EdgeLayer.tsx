@@ -25,6 +25,7 @@ import {
   EDGE_SIDES,
 } from '../../shared/canvas-hit-geometry'
 import { anchorEligibleEntityIds, entityHasAnchors } from '../../shared/hit-test'
+import { useHoveredEntityId } from '../shared/hooks/useHoveredEntityId'
 import {
   autoSides,
   buildBezierPath,
@@ -241,7 +242,6 @@ function EdgeBody({
 export const EdgeLayer = memo(function EdgeLayer({
   edges,
   entities,
-  hoveredEntityId,
   isDark,
   interaction,
   selectedEdgeIds,
@@ -254,7 +254,6 @@ export const EdgeLayer = memo(function EdgeLayer({
 }: {
   edges: WorkspaceEdge[]
   entities: CanvasSceneEntity[]
-  hoveredEntityId: string | null
   isDark: boolean
   interaction: CanvasInteractionState
   selectedEdgeIds: ReadonlySet<string>
@@ -314,6 +313,10 @@ export const EdgeLayer = memo(function EdgeLayer({
     }
     return paths
   }, [edges, entityMap, selectedEdgeIds, zoom, originY])
+
+  // Hovering a node makes its anchors grabbable, so this layer subscribes to
+  // hover directly instead of taking it off the layout snapshot.
+  const hoveredEntityId = useHoveredEntityId()
 
   // Which entities show anchor dots: the shared eligibility selector (kept in
   // lockstep with the hit-tester's `collectAnchorTargets`), plus every entity

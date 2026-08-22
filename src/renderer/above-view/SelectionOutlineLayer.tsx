@@ -24,6 +24,7 @@ import { SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
+import { useHoveredEntityId } from '../shared/hooks/useHoveredEntityId'
 
 interface PageOutlineProps {
   page: CanvasScenePageEntity
@@ -256,7 +257,7 @@ export const SelectionOutlineLayer = memo(function SelectionOutlineLayer({
     () => new Set(layoutData.selectionOperandIds),
     [layoutData.selectionOperandIds],
   )
-  const hoveredEntityId = layoutData.hover?.id ?? null
+  const hoveredEntityId = useHoveredEntityId()
 
   const pages = useMemo(
     () =>

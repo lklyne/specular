@@ -25,6 +25,7 @@ import type {
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
+import type { RuntimePatch } from './runtime-patch'
 import type { PerfTraceState } from './electron-api/debug'
 import type { PanZoomPerfTestState } from './pan-zoom-perf-test'
 
@@ -308,6 +309,7 @@ export interface IpcContract {
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
+  'runtime-patch': { dir: 'main→renderer'; payload: RuntimePatch }
   'set-annotate-mode': { dir: 'main→renderer'; payload: unknown }
   'set-canvas-zoom': { dir: 'main→renderer'; payload: unknown }
   'set-design-system-manifest': { dir: 'main→renderer'; payload: unknown }
@@ -633,6 +635,7 @@ export const ipcChannels = {
   rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',
+  runtimePatch: 'runtime-patch',
   setAnnotateMode: 'set-annotate-mode',
   setCanvasZoom: 'set-canvas-zoom',
   setDesignSystemManifest: 'set-design-system-manifest',
