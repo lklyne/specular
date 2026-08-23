@@ -25,9 +25,8 @@ function ownerSummary(row: ProcessMetricRow): string {
 }
 
 /** Only worth printing when a page is actually slowed. */
-function throttleNote(owner: { cpuThrottleRate?: number }): string | null {
-  const rate = owner.cpuThrottleRate
-  return rate !== undefined && rate > 1 ? `throttled ${rate}x` : null
+function throttleNote(owner: { frozen?: boolean }): string | null {
+  return owner.frozen ? 'frozen' : null
 }
 
 function markdownTable(header: string[], rows: string[][]): string {
@@ -52,7 +51,7 @@ function processSection(sample: ProcessMetricsSample): string {
   const throttleLine =
     `Idle throttle: ${idleThrottle.idle ? 'idle' : 'awake'}` +
     ` · focused ${idleThrottle.windowFocused} · holds ${idleThrottle.awakeHoldCount}` +
-    ` · ${totals.pagesThrottled} pages throttled`
+    ` · ${totals.pagesFrozen} pages frozen`
 
   const rows = [...sample.rows]
     .sort((a, b) => b.workingSetKb - a.workingSetKb)

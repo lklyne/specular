@@ -1,8 +1,8 @@
-# ADR 0035 — Pages are CPU-throttled while the app is idle, never hidden
+# ADR 0035 — Pages are frozen while the app is idle, never hidden
 
-**Status:** Accepted
+**Status:** Accepted (mechanism revised 2026-08-22 — see *Postmortem: CPU throttling*)
 **Date:** 2026-08-20
-**Related:** [docs/pan-zoom-perf-unknowns.md](../pan-zoom-perf-unknowns.md) §1 (the survey that identified `Emulation.setCPUThrottlingRate` as the one lever that works on a visible renderer, and `backgroundThrottling` as the wrong knob)
+**Related:** [docs/pan-zoom-perf-unknowns.md](../pan-zoom-perf-unknowns.md) §1 (the survey that identified `backgroundThrottling` as the wrong knob)
 
 ## Context
 
@@ -28,11 +28,14 @@ screenshots it over HTTP never raises it.
 
 ## Decision
 
-### 1. Throttle the guest main thread; never hide the view
+### 1. Freeze the page; never hide the view
 
-Idle pages get `Emulation.setCPUThrottlingRate` over each page's shared
-debugger session. rAF-driven work — the expensive kind — collapses, while the
-compositor keeps its frame.
+Idle pages get `Page.setWebLifecycleState({ state: 'frozen' })` over each
+page's shared debugger session, and `'active'` when the app wakes. A frozen
+page's task queues stop — timers, rAF, script — while the compositor keeps its
+last frame. Holding the state costs nothing: measured on a real page, a frozen
+renderer sits at ~1 idle wakeup/s and 0% CPU, and `capturePage` still returns
+a full, non-empty frame.
 
 Hiding the view (`setVisible(false)`) was the alternative, and it is the more
 thorough throttle. It is rejected because `capturePage` is how agents see:
@@ -74,10 +77,12 @@ Electron, and the caller has exactly one timer to arm.
 
 - An unfocused app with a canvas of animating pages costs a fraction of what it
   did. The blur grace (5s) means alt-tabbing away and back never engages it.
-- Pages are *slowed*, never stopped. A throttled page still makes progress —
-  timers fire, loads complete, sockets stay up — just far more cheaply.
+- Pages are *stopped*, not slowed. A frozen page makes no progress until the
+  app wakes: timers do not fire and script does not run. A page with a load in
+  flight is exempt so loads still complete; a site holding a socket may
+  reconnect on resume, the same as it does after a laptop sleeps.
 - A page whose debugger is owned by an open DevTools frontend cannot be
-  throttled. Attach fails, the page keeps running at full speed, and the next
+  frozen. Attach fails, the page keeps running at full speed, and the next
   evaluation retries. Correct, and the same trade-off `page-color-scheme.ts`
   already makes.
 - There is no global off switch. Every exemption — focus, awake holds, agent
@@ -87,7 +92,39 @@ Electron, and the caller has exactly one timer to arm.
   to measure. If throttling is ever wrong for some page, the fix is a rule
   here, not a flag around the whole thing.
 
+## Postmortem: CPU throttling
+
+The first version of this decision used `Emulation.setCPUThrottlingRate`
+(rate 20) instead of freezing, on the reasoning that a slowed page still makes
+progress. It shipped, and a simple canvas of 15 idle pages went to ~86% CPU
+and ~6,900 idle wakeups/s — worse than no throttle at all.
+
+The cause is how Chromium implements the throttle on POSIX
+([thread_cpu_throttler.cc](https://github.com/chromium/chromium/blob/main/third_party/blink/renderer/platform/scheduler/common/thread_cpu_throttler.cc)):
+a dedicated `CPUThrottlingThread` sends `SIGUSR2` to the renderer main thread
+every 200µs, forever, and the signal handler busy-spins for its share of the
+quantum rather than sleeping. The cadence is fixed, so the rate does not
+change the cost. Measured in a throwaway Electron harness on `example.com`:
+
+| state | idle wakeups/s | CPU | rAF/s |
+|---|---|---|---|
+| visible, no override | 15 | 0.0% | 60 |
+| visible, throttle rate 20 | 3,949 | 6.1% | ~35 |
+| culled (0×0), no override | 1.3 | 0.0% | ~0 |
+| culled, throttle rate 20 | 3,672 | 5.8% | ~0 |
+| culled, throttle rate 2 | 3,924 | 3.9% | ~0 |
+| visible, lifecycle frozen | 10 | 0.0% | 0 |
+
+Two things worth keeping from this: a culled page is already quiet on its own,
+so any idle mechanism is only buying something on *visible* pages; and idle
+wakeups, not CPU%, are the number to watch for battery — the throttle looked
+like a win on CPU% in the first screenshot and was a loss on wakeups by three
+orders of magnitude.
+
 ## Alternatives rejected
+
+- **`Emulation.setCPUThrottlingRate`** — see the postmortem above. A fixed
+  200µs signal loop per throttled renderer; ~4k wakeups/s and ~6% CPU each.
 
 - **`backgroundThrottling: false` / `true`** — governs hidden renderers only.
   Irrelevant to an unfocused-but-visible window, which is the whole problem.

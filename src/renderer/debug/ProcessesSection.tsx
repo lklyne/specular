@@ -125,7 +125,7 @@ function describeIdleThrottle(sample: ProcessMetricsSample): string {
     if (idleThrottle.awakeHoldCount > 0) return `awake — ${idleThrottle.awakeHoldCount} hold(s)`
     return 'awake — grace'
   }
-  return `idle · ${totals.pagesThrottled} throttled`
+  return `idle · ${totals.pagesFrozen} frozen`
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

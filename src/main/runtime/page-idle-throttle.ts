@@ -1,13 +1,17 @@
 /**
- * Idle CPU throttling for page renderers.
+ * Idle freezing for page renderers.
  *
- * Rides CDP's `Emulation.setCPUThrottlingRate` over each page's (single,
- * shared) debugger session — the one lever that works on a renderer Chromium
- * still considers visible. It suspends the guest's main thread in short
- * quanta, so rAF-driven work (the expensive kind) collapses while the
- * compositor keeps its last frame. That matters for more than smoothness:
- * `capturePage` still returns live pixels from a throttled page, which is why
- * this is the mechanism and hiding the view is not.
+ * Rides CDP's `Page.setWebLifecycleState` over each page's (single, shared)
+ * debugger session — the one lever that quiets a renderer Chromium still
+ * considers visible without costing anything to hold. A frozen page's task
+ * queues stop (timers, rAF, script), the compositor keeps its last frame, and
+ * `capturePage` still returns it — which is why this is the mechanism and
+ * hiding the view is not.
+ *
+ * `Emulation.setCPUThrottlingRate` is not an option on macOS: Chromium's
+ * throttler is a thread that signals the main thread every 200µs and busy-spins
+ * in the handler, so a "throttled" page costs ~4k idle wakeups/s and ~6% CPU
+ * each, idle or not (ADR 0035, postmortem).
  *
  * Two things keep pages awake, and both exist because agents drive this app
  * while nobody is looking at it:
@@ -26,13 +30,7 @@ import type { Page } from './runtime-entities'
 import { ensurePageDebugger } from './page-debugger'
 import { evaluateIdleThrottle } from './page-idle-policy'
 
-/**
- * Slow the guest main thread by this factor while idle. High enough that a
- * WebGL or canvas render loop stops costing real power, low enough that a page
- * still makes progress — a throttled page is slowed, never frozen.
- */
-const IDLE_CPU_THROTTLE_RATE = 20
-const UNTHROTTLED_RATE = 1
+type LifecycleState = 'active' | 'frozen'
 
 /** Grace after blur, so clicking to an editor and back doesn't churn CDP. */
 const BLUR_GRACE_MS = 5_000
@@ -63,47 +61,47 @@ function pagesAreIdle(): boolean {
   }).idle
 }
 
-function targetRate(page: Page): number {
-  if (!pagesAreIdle()) return UNTHROTTLED_RATE
-  // An agent holding a CDP bridge on this page is mid-interaction; throttling
-  // it would slow the very work the app is unfocused for.
-  if (automationInteractivePageCounts.has(page.id)) return UNTHROTTLED_RATE
-  // Throttling a load makes it take twenty times as long, and the user or agent
-  // that asked for it is waiting on the finished page, not the idle one.
-  if (loadingPageIds.has(page.id)) return UNTHROTTLED_RATE
-  return IDLE_CPU_THROTTLE_RATE
+function targetState(page: Page): LifecycleState {
+  if (!pagesAreIdle()) return 'active'
+  // An agent holding a CDP bridge on this page is mid-interaction; freezing
+  // it would stop the very work the app is unfocused for.
+  if (automationInteractivePageCounts.has(page.id)) return 'active'
+  // A frozen page never finishes loading, and the user or agent that asked
+  // for it is waiting on the finished page, not the idle one.
+  if (loadingPageIds.has(page.id)) return 'active'
+  return 'frozen'
 }
 
 /**
- * Returns false when the rate did not dispatch. Attach can fail (a DevTools
+ * Returns false when the state did not dispatch. Attach can fail (a DevTools
  * frontend already owns the debugger), in which case the caller leaves
- * `lastCpuThrottleRate` stale so the next evaluation retries rather than
- * believing a page is throttled when it isn't.
+ * `lastIdleLifecycleState` stale so the next evaluation retries rather than
+ * believing a page is frozen when it isn't.
  */
-function applyRate(page: Page, rate: number): boolean {
+function applyState(page: Page, state: LifecycleState): boolean {
   const wc = page.pageView.webContents
   if (wc.isDestroyed()) return false
 
-  // A detach drops the override with it — forget the rate so the next
+  // A detach drops the override with it — forget the state so the next
   // evaluation re-applies instead of skipping as a no-op.
-  if (!ensurePageDebugger(wc, () => { page.lastCpuThrottleRate = undefined })) return false
+  if (!ensurePageDebugger(wc, () => { page.lastIdleLifecycleState = undefined })) return false
 
   wc.debugger
-    .sendCommand('Emulation.setCPUThrottlingRate', { rate })
+    .sendCommand('Page.setWebLifecycleState', { state })
     .catch(() => {
-      page.lastCpuThrottleRate = undefined
+      page.lastIdleLifecycleState = undefined
     })
   return true
 }
 
 function syncPageIdleThrottle(page: Page): void {
-  const rate = targetRate(page)
-  if (page.lastCpuThrottleRate === rate) return
+  const state = targetState(page)
+  if (page.lastIdleLifecycleState === state) return
   // Never attached, nothing to undo — don't open a debugger session on every
-  // page just to tell it to run at full speed.
-  if (page.lastCpuThrottleRate === undefined && rate === UNTHROTTLED_RATE) return
-  if (!applyRate(page, rate)) return
-  page.lastCpuThrottleRate = rate
+  // page just to tell it to run.
+  if (page.lastIdleLifecycleState === undefined && state === 'active') return
+  if (!applyState(page, state)) return
+  page.lastIdleLifecycleState = state
 }
 
 function syncAllPages(): void {
@@ -189,7 +187,7 @@ export function holdPagesAwake(): () => void {
 export function registerPageIdleThrottle(page: Page): void {
   const wc = page.pageView.webContents
   const reapply = (): void => {
-    page.lastCpuThrottleRate = undefined
+    page.lastIdleLifecycleState = undefined
     syncPageIdleThrottle(page)
   }
   wc.on('did-start-loading', () => {
