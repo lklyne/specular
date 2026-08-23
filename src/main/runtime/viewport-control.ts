@@ -45,6 +45,7 @@ import {
 } from './runtime-geometry'
 import { scheduleSpaceAutosave } from './space-autosave'
 import { broadcastRuntimePatch } from './runtime-patch-broadcast'
+import { broadcastFocusChange } from './runtime-slice-broadcast'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
 import {
@@ -247,6 +248,7 @@ function syncInteractiveToFocus(): void {
   if (interactivePageId() === nextPageId) return
   setInteractivePageId(nextPageId)
   sendInteractiveState()
+  broadcastFocusChange()
 }
 
 function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }): void {
@@ -534,10 +536,9 @@ export function setFocusAnnotationsVisible(visible: boolean): boolean {
   if (!current) return false
   if (current.annotationsVisible === visible) return true
   setSessionAnnotationsVisible(visible)
-  // Mark canvas dirty so the next layout pass actually broadcasts layout-update
-  // (the broadcast is gated on the 'canvas' dirty flag) — otherwise the eye
-  // state only reaches the renderer on the next unrelated dirtying event.
-  markDirty('canvas')
+  // The eye rides the `focus` slice; the pass still runs because it decides
+  // whether the other pages' native views show as context.
+  broadcastFocusChange()
   requestLayout()
   return true
 }

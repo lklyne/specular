@@ -44,6 +44,12 @@ export function broadcastInteractionChange(): void {
   ])
 }
 
+/** The focus slice on its own, for the mutators that move the entered page or
+ *  the focus session without touching a selection or a tool. */
+export function broadcastFocusChange(): void {
+  broadcastRuntimePatches([{ kind: 'slice', slice: 'focus', value: currentFocusSlice() }])
+}
+
 /** A gesture tick that refines the interaction state without changing its kind
  *  — an edge drag's target, a gap's width, a reorder's drop index. The focus
  *  predicate reads only the kind, so nothing else moves. */

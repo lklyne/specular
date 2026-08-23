@@ -295,7 +295,6 @@ export function currentFocusSlice(): RuntimeStoreSlices['focus'] {
 let lastLayoutData: LayoutUpdateData | null = null
 
 export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpdateData {
-  const tool = uiActiveTool()
   const origin = localCanvasOrigin()
   const groupEntities = buildUserGroupSceneEntities(origin)
   const windowWidth = win?.getBounds().width ?? 0

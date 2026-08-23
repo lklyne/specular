@@ -26,6 +26,7 @@ import {
   setSelectionMarqueeVisible as setUiSelectionMarqueeVisible,
 } from '../ui-state'
 import { selectionDebug } from './runtime-constants'
+import { broadcastFocusChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
 import { safeSend } from './safe-send'
 import { refreshInteractionSyncCapture } from '../interaction-sync'
@@ -106,6 +107,7 @@ export function enterPageInteractive(pageId: string): void {
   if (interactivePageId() === pageId) return
   setInteractivePageId(pageId)
   sendInteractiveState()
+  broadcastFocusChange()
   requestLayout()
 }
 
@@ -114,6 +116,7 @@ export function exitPageInteractive(): void {
   if (interactivePageId() === null) return
   setInteractivePageId(null)
   sendInteractiveState()
+  broadcastFocusChange()
   requestLayout()
 }
 
