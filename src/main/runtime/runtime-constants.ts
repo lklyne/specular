@@ -3,7 +3,7 @@
  */
 
 // --- Layout geometry ---
-export const CARD_BORDER_WIDTH = 1
+export { CARD_BORDER_WIDTH } from '../../shared/scene-projection'
 export const CARD_BORDER_RADIUS = 0
 export { TOOLBAR_HEIGHT } from '../../shared/constants'
 export const TOOLBAR_BORDER_LIGHT = '#d4d4d8'
