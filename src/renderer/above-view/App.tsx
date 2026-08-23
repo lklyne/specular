@@ -16,7 +16,8 @@ import {
 } from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
 import { runtimeStore } from '../shared/runtime-store'
-import { useLayoutData } from '../shared/hooks/useRuntimeStore'
+import { useProjectedLayoutData } from '../shared/hooks/useProjectedLayoutData'
+import { projectLayoutData } from '../shared/scene-projection'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
@@ -374,11 +375,11 @@ export default function App({
   initialLayoutData: LayoutUpdateData
   initialTheme: ThemeData
 }) {
-  const layoutRef = useRef<LayoutUpdateData>(initialLayoutData)
+  const layoutRef = useRef<LayoutUpdateData>(projectLayoutData(initialLayoutData))
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
-  const layoutData = useLayoutData()
+  const layoutData = useProjectedLayoutData()
   const t = useSceneCameraTransform(api.onViewportNudge, layoutData, {
     x: layoutData.canvasOrigin.x,
     y: 0,
@@ -526,7 +527,7 @@ export default function App({
   // move with the store rather than with the render it schedules.
   useEffect(() => {
     const unsubscribe = runtimeStore.subscribe(() => {
-      layoutRef.current = runtimeStore.readLayoutData()
+      layoutRef.current = projectLayoutData(runtimeStore.readLayoutData())
     })
     return () => {
       unsubscribe()
