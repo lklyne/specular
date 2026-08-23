@@ -1,7 +1,7 @@
-import type { CanvasSceneEntity } from './types'
+import type { ProjectedSceneEntity } from './scene-projection'
 
 export function groupDropTargetAt(
-  entities: readonly CanvasSceneEntity[],
+  entities: readonly ProjectedSceneEntity[],
   point: { x: number; y: number },
   excludedIds: ReadonlySet<string>,
 ): string | null {

@@ -17,8 +17,8 @@
  * main-side commit already consume, never a re-derived packer.
  */
 
+import type { ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { detectReorderableRow, reorderRowPositions, type Box } from '../../shared/reorder-row'
-import type { CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
 import { reprojectEntity } from '../shared/scene-projection'
 
 /**
@@ -26,7 +26,7 @@ import { reprojectEntity } from '../shared/scene-projection'
  * not reordering (or the cursor sits at the row's resting order, so nothing
  * shifts yet). Callers fall back to the broadcast layout on null.
  */
-export function reorderPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData | null {
+export function reorderPreviewLayout(layoutData: ProjectedLayoutData): ProjectedLayoutData | null {
   const { interaction } = layoutData
   if (interaction.kind !== 'reordering-row') return null
 
@@ -44,7 +44,7 @@ export function reorderPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdate
   const changed = reorderRowPositions(row, interaction.movingId, Math.max(0, interaction.dropIndex))
   if (changed.size === 0) return null
 
-  const entities = layoutData.entities.map((e): CanvasSceneEntity => {
+  const entities = layoutData.entities.map((e): ProjectedSceneEntity => {
     const next = changed.get(e.id)
     if (!next || e.kind === 'group') return e
     // Reorder only permutes along the dominant axis, but apply both deltas so

@@ -1,5 +1,6 @@
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { memo } from 'react'
-import type { Annotation, FixProgressEntry, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { Annotation, FixProgressEntry, WorkspaceBounds } from '../../shared/types'
 import {
   canvasRectToScreenRect,
   pendingElementScreenRect,
@@ -45,7 +46,7 @@ export function PendingAnnotationComposer({
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   commentText: string
   elementNameDraft: string
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
@@ -151,7 +152,7 @@ function RegionDraft({
   clearDraft: () => void
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   commentText: string
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   rect: WorkspaceBounds
   selectionIds: string[] | null
   setCommentText: React.Dispatch<React.SetStateAction<string>>
@@ -276,7 +277,7 @@ export const PendingElementOutline = memo(function PendingElementOutline({
   liveBboxes,
 }: {
   pending: PendingAnnotation | null
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   liveBboxes: AnnotationLiveBboxLookup
 }) {
   if (!pending) return null

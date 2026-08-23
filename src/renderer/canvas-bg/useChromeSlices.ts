@@ -1,32 +1,28 @@
+import type { ProjectedFileEntity, ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { useMemo } from 'react'
-import type {
-  CanvasSceneFileEntity,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
 import { focusContext } from '../../shared/focus-context'
 
 /**
  * The entity slices the chrome layers draw, already filtered for focus.
  * Each slice is memoized so the memoized layers receive stable array refs and
- * skip re-rendering on every pan/zoom nudge (props only change on a real
- * layout-update). Inline .filter() in JSX would defeat React.memo (#265).
+ * skip re-rendering when nothing they draw moved. Inline .filter() in JSX
+ * would defeat React.memo (#265).
  */
 export function useChromeSlices(
-  layoutData: LayoutUpdateData,
+  layoutData: ProjectedLayoutData,
   dragFrozenPageIds: ReadonlySet<string>,
 ): {
-  chromePages: CanvasScenePageEntity[]
-  chromeFiles: CanvasSceneFileEntity[]
-  svgDeviceShellPages: CanvasScenePageEntity[]
-  chromeGroups: NonNullable<LayoutUpdateData['groups']>
+  chromePages: ProjectedPageEntity[]
+  chromeFiles: ProjectedFileEntity[]
+  svgDeviceShellPages: ProjectedPageEntity[]
+  chromeGroups: NonNullable<ProjectedLayoutData['groups']>
 } {
   const pageEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasScenePageEntity => e.kind === 'page'),
+    () => layoutData.entities.filter((e): e is ProjectedPageEntity => e.kind === 'page'),
     [layoutData.entities],
   )
   const fileEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
+    () => layoutData.entities.filter((e): e is ProjectedFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
   const focus = focusContext(layoutData)

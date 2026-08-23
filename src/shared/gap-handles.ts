@@ -19,12 +19,12 @@
  * Pure: no Electron, no DOM.
  */
 
+import type { ProjectedSceneEntity } from './scene-projection'
 import { GAP_HANDLE_MIN_HIT_PX } from './canvas-hit-geometry'
 import type { Rect } from './hit-regions'
 import { computeRowReflow, managedLineAxis } from './layout-math'
 import { detectReorderableRow, SELECTION_ROW_GAP_TOLERANCE } from './reorder-row'
 import { rowBox } from './reorderable-dots'
-import type { CanvasSceneEntity } from './types'
 
 export interface GapHandleZone {
   /** The managed group whose gap this edits, or null for a loose selection. */
@@ -38,7 +38,7 @@ export interface GapHandleZone {
 }
 
 export interface GapHandleInput {
-  entities: readonly CanvasSceneEntity[]
+  entities: readonly ProjectedSceneEntity[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
   zoom?: number
@@ -52,7 +52,7 @@ interface ScreenBox {
   crossTrailing: number
 }
 
-function screenBoxAlong(entity: CanvasSceneEntity, axis: 'x' | 'y'): ScreenBox {
+function screenBoxAlong(entity: ProjectedSceneEntity, axis: 'x' | 'y'): ScreenBox {
   const along = axis === 'x'
   return {
     id: entity.id,
@@ -109,7 +109,7 @@ export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
   if (selectedEntityIds.length === 0 && !selectedGroupId) return []
   const selected = new Set(selectedEntityIds)
   // Lazy: only eligible managed groups need id lookups.
-  let byId: Map<string, CanvasSceneEntity> | null = null
+  let byId: Map<string, ProjectedSceneEntity> | null = null
   const out: GapHandleZone[] = []
 
   // Managed door. Also collects managed children so the selection door below
@@ -128,7 +128,7 @@ export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
     const lookup = (byId ??= new Map(entities.map((e) => [e.id, e])))
     const children = group.entityIds
       .map((id) => lookup.get(id))
-      .filter((e): e is CanvasSceneEntity => e !== undefined)
+      .filter((e): e is ProjectedSceneEntity => e !== undefined)
       .map((e) => screenBoxAlong(e, axis))
       .sort((a, b) => a.leading - b.leading)
     if (children.length < 2) continue
@@ -149,7 +149,7 @@ export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
     const looseById = new Map(loose.map((e) => [e.id, e]))
     const boxes = row.order
       .map((id) => looseById.get(id))
-      .filter((e): e is CanvasSceneEntity => e !== undefined)
+      .filter((e): e is ProjectedSceneEntity => e !== undefined)
       .map((e) => screenBoxAlong(e, row.axis))
     out.push(...stripsBetween(null, row.axis, boxes))
   }
@@ -168,7 +168,7 @@ export function collectGapHandleZones(input: GapHandleInput): GapHandleZone[] {
  * mutates anything).
  */
 export function packedGapPositions(
-  children: readonly Pick<CanvasSceneEntity, 'id' | 'canvasX' | 'canvasY' | 'width' | 'height'>[],
+  children: readonly Pick<ProjectedSceneEntity, 'id' | 'canvasX' | 'canvasY' | 'width' | 'height'>[],
   axis: 'x' | 'y',
   gap: number,
   opts?: { keepCross?: boolean },

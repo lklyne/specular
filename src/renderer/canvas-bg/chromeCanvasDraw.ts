@@ -8,11 +8,10 @@ import {
   drawItemBorders,
   drawItemShell,
   drawItemSnapshot,
-  liveGeometry,
+  itemGeometry,
   readChromeColors,
   type ChromeCanvasItem,
 } from '../shared/chromeItemDraw'
-import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
 import { prepareScreenCanvas } from '../shared/screenCanvas'
 
 export type { ChromeCanvasItem } from '../shared/chromeItemDraw'
@@ -22,7 +21,6 @@ export function drawChromeCanvas({
   pages,
   fileEntities,
   snapshots,
-  transform,
   isDark,
   devicePixelRatio,
   dragFrozenPageIds,
@@ -32,7 +30,6 @@ export function drawChromeCanvas({
   fileEntities: ChromeCanvasItem[]
   /** Frozen-page rasters by page id; a page with no entry draws no raster. */
   snapshots: ReadonlyMap<string, ImageBitmap>
-  transform: SceneCameraTransform
   isDark: boolean
   devicePixelRatio: number
   /** Pages drag-frozen on above-view, which draws their chrome and raster
@@ -65,16 +62,16 @@ export function drawChromeCanvas({
   // shells (the bezel fill covers the inner border ring on shell pages), then
   // the page rasters standing in for the live views on top.
   for (const item of borderItems) {
-    drawItemBorders(ctx, liveGeometry(item, transform), borderColor, dpr, !!item.showDeviceFrame)
+    drawItemBorders(ctx, itemGeometry(item), borderColor, dpr, !!item.showDeviceFrame)
   }
   for (const item of shellItems) {
-    drawItemShell(ctx, item, liveGeometry(item, transform), isDark, bezelColor, dpr)
+    drawItemShell(ctx, item, itemGeometry(item), isDark, bezelColor, dpr)
   }
   if (snapshots.size > 0) {
     for (const page of visiblePages) {
       const bitmap = snapshots.get(page.id)
       // A closed bitmap reports zero size; drawing it throws.
-      if (bitmap && bitmap.width > 0) drawItemSnapshot(ctx, liveGeometry(page, transform), bitmap)
+      if (bitmap && bitmap.width > 0) drawItemSnapshot(ctx, itemGeometry(page), bitmap)
     }
   }
 }

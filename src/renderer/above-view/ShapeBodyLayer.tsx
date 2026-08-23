@@ -9,11 +9,9 @@
  * which already holds keyboard focus during edit.
  */
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type {
-  CanvasSceneShapeEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneShapeEntity } from '../../shared/types'
 import {
   darkenHex,
   lightenHex,
@@ -393,7 +391,7 @@ export const ShapeBodyLayer = memo(function ShapeBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  contentEditable iff `editingEntityId === shape.id`. */
   editingEntityId: string | null
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   onUpdateText: (id: string, text: string) => void
   onCommitEdit: () => void
 }) {

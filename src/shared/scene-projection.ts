@@ -22,6 +22,16 @@ import {
   type DeviceOrientation,
   type ShellInsets,
 } from './device-catalog'
+import type {
+  CanvasSceneDrawingEntity,
+  CanvasSceneEntity,
+  CanvasSceneFileEntity,
+  CanvasSceneGroupEntity,
+  CanvasScenePageEntity,
+  CanvasSceneShapeEntity,
+  CanvasSceneTextEntity,
+  LayoutUpdateData,
+} from './types'
 
 export interface CanvasRect {
   x: number
@@ -61,6 +71,34 @@ export interface SceneEntityScreenGeometry {
   contentScreenY?: number
   contentScreenWidth?: number
   contentScreenHeight?: number
+}
+
+/**
+ * A scene entity with this renderer's projection stapled on.
+ *
+ * Screen geometry is not scene content — it is what one renderer's camera makes
+ * of the scene — so it lives on a distinct type rather than on the wire. A
+ * layer that places DOM takes a projected entity; a layer that only reads
+ * canvas geometry or entity content takes the scene entity and stays camera-
+ * independent.
+ */
+export type Projected<T> = T extends unknown ? T & SceneEntityScreenGeometry : never
+
+export type ProjectedSceneEntity = Projected<CanvasSceneEntity>
+export type ProjectedPageEntity = Projected<CanvasScenePageEntity>
+export type ProjectedFileEntity = Projected<CanvasSceneFileEntity>
+export type ProjectedGroupEntity = Projected<CanvasSceneGroupEntity>
+export type ProjectedTextEntity = Projected<CanvasSceneTextEntity>
+export type ProjectedShapeEntity = Projected<CanvasSceneShapeEntity>
+export type ProjectedDrawingEntity = Projected<CanvasSceneDrawingEntity>
+
+/** The layout payload after its scene has been projected. Assignable to
+ *  `LayoutUpdateData`, so only the layers that read screen geometry need to
+ *  name it. */
+export interface ProjectedLayoutData
+  extends Omit<LayoutUpdateData, 'entities' | 'groups'> {
+  entities: ProjectedSceneEntity[]
+  groups?: ProjectedGroupEntity[]
 }
 
 export function projectToScreen(

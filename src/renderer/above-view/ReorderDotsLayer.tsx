@@ -1,5 +1,5 @@
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { memo, useEffect, useMemo, useState } from 'react'
-import type { LayoutUpdateData } from '../../shared/types'
 import {
   REORDER_DOT_VISUAL_RADIUS_PX,
   reorderHandleHitPx,
@@ -28,7 +28,7 @@ import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
 export const ReorderDotsLayer = memo(function ReorderDotsLayer({
   layoutData,
 }: {
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
 }) {
   const { canvasOrigin, interaction } = layoutData
   // Dot-local hover: which dot the pointer is directly over. Whole-entity hover

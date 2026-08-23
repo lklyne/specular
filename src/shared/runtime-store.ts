@@ -16,8 +16,8 @@
 
 import type { CanvasSceneEntity, CanvasSceneGroupEntity, LayoutUpdateData } from './types'
 
-/** Camera transform. Pan and zoom also ride `viewportNudge`, which stays its
- *  own channel — a camera move over an unchanged scene is not a scene edit. */
+/** Where the scene is viewed from. Renderers project canvas-space geometry
+ *  through this, so a pan or zoom is a patch to this slice and nothing else. */
 type CameraSlice = Pick<
   LayoutUpdateData,
   'zoom' | 'pan' | 'cameraTransitionStartedAt'

@@ -21,8 +21,8 @@
  * start regardless of how those bounds are derived.
  */
 
+import type { ProjectedGroupEntity, ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { packedGapPositions } from '../../shared/gap-handles'
-import type { CanvasSceneEntity, CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
 import { reprojectEntity } from '../shared/scene-projection'
 
 /**
@@ -30,7 +30,7 @@ import { reprojectEntity } from '../shared/scene-projection'
  * null when not gap-resizing (or nothing shifts). Callers fall back to the
  * broadcast layout on null.
  */
-export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData | null {
+export function gapPreviewLayout(layoutData: ProjectedLayoutData): ProjectedLayoutData | null {
   const { interaction } = layoutData
   if (interaction.kind !== 'resizing-gap') return null
 
@@ -38,14 +38,14 @@ export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData
     interaction.groupId === null
       ? null
       : (layoutData.entities.find(
-          (e): e is CanvasSceneGroupEntity => e.kind === 'group' && e.id === interaction.groupId,
+          (e): e is ProjectedGroupEntity => e.kind === 'group' && e.id === interaction.groupId,
         ) ?? null)
   if (interaction.groupId !== null && !group) return null
 
   const byId = new Map(layoutData.entities.map((e) => [e.id, e]))
   const children = interaction.entityIds
     .map((id) => byId.get(id))
-    .filter((e): e is CanvasSceneEntity => e !== undefined)
+    .filter((e): e is ProjectedSceneEntity => e !== undefined)
   if (children.length < 2) return null
 
   const changed = packedGapPositions(children, interaction.axis, interaction.gap, {
@@ -70,7 +70,7 @@ export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData
 
   // A managed group's box stretches by the change in the children's extent.
   const along = interaction.axis === 'x'
-  const end = (e: CanvasSceneEntity, dx: number, dy: number) =>
+  const end = (e: ProjectedSceneEntity, dx: number, dy: number) =>
     along ? e.canvasX + dx + e.width : e.canvasY + dy + e.height
   const oldEnd = Math.max(...children.map((e) => end(e, 0, 0)))
   const newEnd = Math.max(
@@ -81,7 +81,7 @@ export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData
   )
   const extentDelta = newEnd - oldEnd
 
-  const preview = <T extends CanvasSceneEntity>(e: T): T => {
+  const preview = <T extends ProjectedSceneEntity>(e: T): T => {
     if (group !== null && e.id === group.id && e.kind === 'group' && extentDelta !== 0) {
       return reprojectEntity(
         along

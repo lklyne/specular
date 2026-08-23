@@ -1,15 +1,5 @@
-import type {
-  Annotation,
-  AnnotationCreateRequest,
-  AnnotationDrawing,
-  AnnotationDrawingPoint,
-  AnnotationDrawingStroke,
-  CanvasScenePageEntity,
-  CanvasSceneEntity,
-  DevtoolsPanelDomRect,
-  LayoutUpdateData,
-  WorkspaceBounds,
-} from '../../shared/types'
+import type { ProjectedLayoutData, ProjectedPageEntity, ProjectedSceneEntity } from '../../shared/scene-projection'
+import type { Annotation, AnnotationCreateRequest, AnnotationDrawing, AnnotationDrawingPoint, AnnotationDrawingStroke, DevtoolsPanelDomRect, WorkspaceBounds } from '../../shared/types'
 import {
   canvasToScreenX,
   canvasToScreenY,
@@ -92,7 +82,7 @@ export function drawingBounds(
 }
 
 export function canvasRectToScreenRect(
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   canvasRect: { x: number; y: number; width: number; height: number },
   minSize = 4,
 ): { left: number; top: number; right: number; bottom: number; width: number; height: number } {
@@ -128,7 +118,7 @@ export type AnnotateHandler = (entityIds: string[], rect: WorkspaceBounds) => vo
  * since a group's own rect is its bounds.
  */
 export function selectionAnnotationBounds(
-  entities: readonly CanvasSceneEntity[],
+  entities: readonly ProjectedSceneEntity[],
   entityIds: readonly string[],
 ): WorkspaceBounds | null {
   const ids = new Set(entityIds)
@@ -149,11 +139,11 @@ export function selectionAnnotationBounds(
 
 export function annotationScreenPos(
   annotation: Annotation,
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   liveBboxes?: AnnotationLiveBboxLookup,
 ): { x: number; y: number; transform: string } | null {
   const railAnchor = (
-    page: LayoutUpdateData['entities'][number],
+    page: ProjectedLayoutData['entities'][number],
     preferredY: number,
   ): { x: number; y: number; transform: string } => {
     const y = Math.min(
@@ -197,7 +187,7 @@ export function annotationScreenPos(
     const pageId = annotation.pageAnchor?.pageId
     const page = pageId
       ? layout.entities.find(
-          (entity): entity is CanvasScenePageEntity =>
+          (entity): entity is ProjectedPageEntity =>
             entity.kind === 'page' && entity.id === pageId,
         )
       : undefined
@@ -301,7 +291,7 @@ export function elementAnchoredComposerPosition({
  */
 export function pendingElementScreenRect(
   pending: PendingAnnotation,
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   liveBboxes?: AnnotationLiveBboxLookup,
 ): { left: number; top: number; width: number; height: number } | null {
   const anchor = pending.request.anchor
@@ -321,7 +311,7 @@ export function pendingElementScreenRect(
  */
 export function pendingElementComposerPosition(
   pending: PendingAnnotation,
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   liveBboxes?: AnnotationLiveBboxLookup,
 ): { left: number; top: number; width: number } {
   const fallback = {

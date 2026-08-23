@@ -2,6 +2,7 @@
 // Suppressed: see #141. space-autosave → space-observers import viewport-control back
 import { ipcChannels } from '../../shared/ipc-contract'
 import {
+  cameraTransitionStartedAt,
   interactivePageId,
   pages,
   pan,
@@ -33,7 +34,7 @@ import {
 import { win } from './view-refs'
 import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
-import { isZoomInMotion, markPanMotion, markZoomMotion } from './zoom-motion'
+import { isZoomInMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -43,7 +44,7 @@ import {
   pageVisualBoundsForContentSize,
 } from './runtime-geometry'
 import { scheduleSpaceAutosave } from './space-autosave'
-import { broadcastViewportNudge } from './viewport-nudge'
+import { broadcastRuntimePatch } from './runtime-patch-broadcast'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
 import {
@@ -101,18 +102,21 @@ export function setViewportCamera(
   if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
 
   // Zoom and its anchor-correcting pan are one camera update. Publish only
-  // after both values land so renderer transforms never observe a half-camera
-  // and the full-window grid redraws once per physical input tick.
+  // after both values land so no renderer observes a half-camera and the
+  // full-window grid redraws once per physical input tick.
   //
-  // Zoom re-broadcasts the scene every tick: screen-constant chrome (handles,
-  // popups, outlines) is sized against `layoutData.zoom`, and the CSS scene
-  // transform alone would scale it with the scene. Pan rides the transform
-  // and re-baselines on settle.
-  if (zoomChanged) markDirty('toolbar', 'canvas')
-  // Move the native views first, then tell the renderer where the camera is,
+  // A camera move changes no entity: renderers project canvas-space geometry
+  // through the `camera` slice, so the whole update is that slice. The scene
+  // is not dirtied, so the pass below positions the native views and rebuilds
+  // nothing.
+  //
+  // The toolbar is not on the scene bus — its zoom readout rides the layout
+  // pass, so zoom keeps that flag.
+  if (zoomChanged) markDirty('toolbar')
+  // Move the native views first, then tell the renderers where the camera is,
   // so the chrome ring never leads the page.
   layoutAllViews()
-  broadcastViewportNudge()
+  broadcastCamera()
   if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
   if (zoomChanged) {
@@ -121,12 +125,31 @@ export function setViewportCamera(
       void settleZoomGesture(gen)
     })
   }
-  if (panChanged) {
-    markPanMotion(() => {
-      markDirty('canvas')
-      requestLayout()
-    })
-  }
+}
+
+/**
+ * The transition marker rides the camera slice, so a change to it is a camera
+ * patch like any other. Without this the marker that a tween sets would never
+ * be un-set on the wire — a camera move dirties no scene, so no later pass
+ * carries the clear — and chrome mounted afterwards would fast-forward its
+ * entrance animation into a transition that already ended.
+ */
+function setCameraTransition(startedAt: number | null): void {
+  if (cameraTransitionStartedAt === startedAt) return
+  setCameraTransitionStartedAt(startedAt)
+  broadcastCamera()
+}
+
+function broadcastCamera(): void {
+  broadcastRuntimePatch({
+    kind: 'slice',
+    slice: 'camera',
+    value: {
+      zoom,
+      pan: { x: pan.x, y: pan.y },
+      cameraTransitionStartedAt,
+    },
+  })
 }
 
 /**
@@ -370,7 +393,7 @@ export function cancelCameraAnimation(): void {
     clearInterval(cameraAnimationTimer)
     cameraAnimationTimer = null
   }
-  setCameraTransitionStartedAt(null)
+  setCameraTransition(null)
 }
 
 /**
@@ -392,7 +415,7 @@ export function moveCameraTo(targetCamera: CanvasCamera, options: CameraMoveOpti
   }
 
   const start = Date.now()
-  setCameraTransitionStartedAt(start)
+  setCameraTransition(start)
   cameraAnimationTimer = setInterval(() => {
     const t = Math.min(1, (Date.now() - start) / duration)
     applyCamera(interpolateCamera(startCamera, target, t), preserveFocusSession)

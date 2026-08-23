@@ -16,11 +16,12 @@
 
 import {
   projectSceneEntity,
+  type Projected,
+  type ProjectedLayoutData,
   type SceneCamera,
   type ScenePoint,
 } from '../../shared/scene-projection'
 import type { CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
-import { driftWatchdogEnabled } from './runtime-store-drift'
 
 interface ProjectionKey {
   zoom: number
@@ -50,19 +51,22 @@ function sameKey(a: ProjectionKey, b: ProjectionKey): boolean {
   )
 }
 
-const entityCache = new WeakMap<object, { key: ProjectionKey; value: CanvasSceneEntity }>()
-const listCache = new WeakMap<object, { key: ProjectionKey; value: CanvasSceneEntity[] }>()
+const entityCache = new WeakMap<object, { key: ProjectionKey; value: unknown }>()
+const listCache = new WeakMap<object, { key: ProjectionKey; value: unknown }>()
 
 /** One entity's screen geometry, recomputed from the camera. */
 export function projectEntity<T extends CanvasSceneEntity>(
   entity: T,
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
-): T {
+): Projected<T> {
   const key = projectionKey(camera, sceneOrigin)
   const cached = entityCache.get(entity)
-  if (cached && sameKey(cached.key, key)) return cached.value as T
-  const value = { ...entity, ...projectSceneEntity(entity, camera, sceneOrigin) } as T
+  if (cached && sameKey(cached.key, key)) return cached.value as Projected<T>
+  const value = {
+    ...entity,
+    ...projectSceneEntity(entity, camera, sceneOrigin),
+  } as Projected<T>
   entityCache.set(entity, { key, value })
   return value
 }
@@ -75,7 +79,7 @@ export function projectEntity<T extends CanvasSceneEntity>(
 export function reprojectEntity<T extends CanvasSceneEntity>(
   entity: T,
   layout: Pick<LayoutUpdateData, 'zoom' | 'pan' | 'canvasOrigin'>,
-): T {
+): Projected<T> {
   return projectEntity(entity, { zoom: layout.zoom, pan: layout.pan }, layout.canvasOrigin)
 }
 
@@ -84,24 +88,20 @@ export function projectSceneEntities<T extends CanvasSceneEntity>(
   entities: readonly T[],
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
-): T[] {
+): Projected<T>[] {
   const key = projectionKey(camera, sceneOrigin)
   const cached = listCache.get(entities)
-  if (cached && sameKey(cached.key, key)) return cached.value as T[]
-  const value = entities.map((entity) => {
-    const projected = projectEntity(entity, camera, sceneOrigin)
-    reportProjectionDrift(entity, projected)
-    return projected
-  })
+  if (cached && sameKey(cached.key, key)) return cached.value as Projected<T>[]
+  const value = entities.map((entity) => projectEntity(entity, camera, sceneOrigin))
   listCache.set(entities, { key, value })
   return value
 }
 
-const layoutCache = new WeakMap<object, LayoutUpdateData>()
+const layoutCache = new WeakMap<object, ProjectedLayoutData>()
 
 /** The whole payload with its scene projected, for the layers that still read
  *  `layoutData.entities` and `layoutData.groups` rather than a slice. */
-export function projectLayoutData(layout: LayoutUpdateData): LayoutUpdateData {
+export function projectLayoutData(layout: LayoutUpdateData): ProjectedLayoutData {
   const cached = layoutCache.get(layout)
   if (cached) return cached
   const camera = { zoom: layout.zoom, pan: layout.pan }
@@ -112,53 +112,4 @@ export function projectLayoutData(layout: LayoutUpdateData): LayoutUpdateData {
   const value = { ...layout, entities, groups }
   layoutCache.set(layout, value)
   return value
-}
-
-// --- drift assertion -------------------------------------------------------
-
-/**
- * While main still stamps `screen*` onto every entity, the two projections are
- * checkable against each other. A disagreement is a projection bug, and it is
- * silent otherwise: the DOM simply sits a few pixels off the native page view.
- *
- * `console.warn` lands in `errors.log` via `wireRendererLogging`, so a stress
- * session's drift is readable after the fact. One line per (kind, field) — a
- * wrong formula is one bug, not one per entity per frame.
- */
-const DRIFT_TOLERANCE_PX = 0.5
-const SCREEN_FIELDS = [
-  'screenX',
-  'screenY',
-  'screenWidth',
-  'screenHeight',
-  'contentScreenX',
-  'contentScreenY',
-  'contentScreenWidth',
-  'contentScreenHeight',
-] as const
-
-const reportedDrift = new Set<string>()
-
-function reportProjectionDrift(sent: CanvasSceneEntity, local: CanvasSceneEntity): void {
-  if (!driftWatchdogEnabled) return
-  const from = sent as unknown as Record<string, number | undefined>
-  const to = local as unknown as Record<string, number | undefined>
-  for (const field of SCREEN_FIELDS) {
-    const main = from[field]
-    const projected = to[field]
-    if (main === undefined && projected === undefined) continue
-    if (
-      main !== undefined &&
-      projected !== undefined &&
-      Math.abs(main - projected) <= DRIFT_TOLERANCE_PX
-    ) {
-      continue
-    }
-    const cell = `${sent.kind}.${field}`
-    if (reportedDrift.has(cell)) continue
-    reportedDrift.add(cell)
-    console.warn(
-      `[projection-drift] ${cell} main=${main} local=${projected} (entity ${sent.id})`,
-    )
-  }
 }

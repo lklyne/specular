@@ -24,10 +24,11 @@
  * width/height, wrap on. Stickies are always 'fixed'.
  */
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { memo, useEffect, useRef, useState } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER, STICKY_BASE_HEIGHT } from '../../shared/constants'
 import { useMeasuredSize } from '../shared/useMeasuredSize'
-import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasSceneTextEntity } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
@@ -315,7 +316,7 @@ export const StickyBodyLayer = memo(function StickyBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  editor iff `editingEntityId === note.id`. */
   editingEntityId: string | null
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
   /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */

@@ -1,5 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CanvasSceneEntity, CanvasSceneFileEntity, CanvasSceneGroupEntity, CanvasScenePageEntity, LayoutUpdateData, SelectionOverlayPayload, ThemeData, WorkspaceEdge } from '../../shared/types'
+import type { LayoutUpdateData, SelectionOverlayPayload, ThemeData, WorkspaceEdge } from '../../shared/types'
+import type {
+  ProjectedFileEntity,
+  ProjectedGroupEntity,
+  ProjectedLayoutData,
+  ProjectedPageEntity,
+  ProjectedSceneEntity,
+} from '../../shared/scene-projection'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
 import {
@@ -81,7 +88,6 @@ import { useCanvasClipboard } from '../canvas-bg/useCanvasClipboard'
 import { buildAboveViewHandlers } from './binding-handlers'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHandlers'
-import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
 import { withIpcTally } from './ipc-tally'
@@ -92,7 +98,7 @@ const api = withIpcTally((window as unknown as { electronAPI: CanvasBgElectronAP
 // literal in JSX would hand them a new prop on every render.
 const NO_EDGES: WorkspaceEdge[] = []
 const NO_ENTITY_IDS: string[] = []
-const NO_GROUPS: CanvasSceneGroupEntity[] = []
+const NO_GROUPS: ProjectedGroupEntity[] = []
 const selectEdge = (edgeId: string) => api.selectEdge(edgeId)
 
 const DragCopyPreviewLayer = memo(function DragCopyPreviewLayer({
@@ -131,7 +137,7 @@ const GuideOverlayLayer = memo(function GuideOverlayLayer({
   isDark,
 }: {
   guides: CanvasGuidesPayload
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   isDark: boolean
 }) {
   if (guides.alignmentGuides.length === 0 && guides.distributionGuides.length === 0) return null
@@ -216,7 +222,7 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
   suppressEntityId,
   onContentHeight,
 }: {
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   isDark: boolean
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
@@ -236,7 +242,7 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
    *  positioned at grab-origin + cursor-delta. Its in-row slot paints as a
    *  grayscale placeholder (the drop location); the ghost itself renders last at
    *  50% opacity, floating over the settling siblings under the cursor. */
-  ghostEntity?: CanvasSceneEntity | null
+  ghostEntity?: ProjectedSceneEntity | null
   /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */
   onContentHeight: (id: string, height: number) => void
 }) {
@@ -264,7 +270,7 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
     return layer
   }
 
-  function renderEntityBody(entity: CanvasSceneEntity) {
+  function renderEntityBody(entity: ProjectedSceneEntity) {
     // Eye off: hide every non-page item — annotations *and* files/images. A
     // focused page is a webview, not rendered here, so it's never affected; a
     // focused note is drawn by FocusedNoteLayer instead (`suppressEntityId`).
@@ -375,16 +381,12 @@ export default function App({
   initialLayoutData: LayoutUpdateData
   initialTheme: ThemeData
 }) {
-  const layoutRef = useRef<LayoutUpdateData>(projectLayoutData(initialLayoutData))
+  const layoutRef = useRef<ProjectedLayoutData>(projectLayoutData(initialLayoutData))
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const layoutData = useProjectedLayoutData()
-  const t = useSceneCameraTransform(api.onViewportNudge, layoutData, {
-    x: layoutData.canvasOrigin.x,
-    y: 0,
-  })
-  const [fixProgress, setFixProgress] = useState<LayoutUpdateData['fixProgress']>(
+  const [fixProgress, setFixProgress] = useState<ProjectedLayoutData['fixProgress']>(
     initialLayoutData.fixProgress,
   )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
@@ -479,7 +481,7 @@ export default function App({
   // *broadcast* layout (its untouched resting position) — never `renderLayout`,
   // where it sits in its packed slot. Both canvas and screen coords shift so
   // whichever a body layer reads lands the ghost under the cursor.
-  const reorderGhostEntity = useMemo<CanvasSceneEntity | null>(() => {
+  const reorderGhostEntity = useMemo<ProjectedSceneEntity | null>(() => {
     const interaction = layoutData.interaction
     if (interaction.kind !== 'reordering-row') return null
     const moving = layoutData.entities.find((e) => e.id === interaction.movingId)
@@ -506,11 +508,11 @@ export default function App({
   // Per-kind slices of the scene, held stable so the memoized layers that read
   // them aren't handed a fresh array on every render of this component.
   const scenePages = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasScenePageEntity => e.kind === 'page'),
+    () => layoutData.entities.filter((e): e is ProjectedPageEntity => e.kind === 'page'),
     [layoutData.entities],
   )
   const sceneFileEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
+    () => layoutData.entities.filter((e): e is ProjectedFileEntity => e.kind === 'file'),
     [layoutData.entities],
   )
   const sceneGroups = layoutData.groups ?? NO_GROUPS
@@ -668,7 +670,7 @@ export default function App({
       focusedNoteId === null
         ? null
         : (layoutData.entities.find(
-            (candidate): candidate is CanvasSceneFileEntity =>
+            (candidate): candidate is ProjectedFileEntity =>
               candidate.kind === 'file' && candidate.id === focusedNoteId,
           ) ?? null),
     [focusedNoteId, layoutData.entities],
@@ -854,7 +856,7 @@ export default function App({
       const pageId = focusedPageId ?? (selected.length === 1 ? selected[0] : null)
       if (!pageId) return false
       const page = layout.entities.find(
-        (entity): entity is CanvasSceneEntity & { kind: 'page' } =>
+        (entity): entity is ProjectedSceneEntity & { kind: 'page' } =>
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return false
@@ -1068,20 +1070,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       onPointerUp={handleOverlayPointerUp}
       onPointerCancel={handleOverlayPointerCancel}
     >
-      {/* Translate+scale the whole canvas scene live with the pan/zoom gesture
-          so selection chrome and entity bodies track the natively-positioned
-          page views instead of trailing until the next layout-update rebuild
-          (#257). Pan/zoom is disabled during focus, where the only
-          viewport-pinned chrome exists, so every layer here is canvas-space
-          and moves together. */}
       {/* Under every chrome layer: a drag-frozen page's raster stands in for
           its live view, so selection and handles must paint over it. Empty
           canvas when the flag is off or nothing is frozen. */}
-      <DragFreezeLayer api={api} layoutRef={layoutRef} transform={t} isDark={isDark} />
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`, transformOrigin: '0 0' }}
-      >
+      <DragFreezeLayer api={api} layoutRef={layoutRef} isDark={isDark} />
+      {/* Every layer inside is placed by projection from the camera slice, so
+          the scene container sits at the window origin untransformed. */}
+      <div className="pointer-events-none absolute inset-0">
       {!captureMode ? (
         <>
           {/* ADR 0006: region anchors always render their resting visual,
@@ -1329,14 +1324,12 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
         />
       ) : null}
       </div>
-      {/* Outside the CSS scene transform: group titles redraw in screen space
-          from the live camera each tick so they hold their 11px size and stay
-          crisp mid-zoom. The DOM labels above stay mounted as invisible hit
-          targets (drag/select/rename). */}
+      {/* Group titles redraw on a canvas each tick so they hold their 11px
+          size and stay crisp mid-zoom. The DOM labels above stay mounted as
+          invisible hit targets (drag/select/rename). */}
       {!captureMode && (layoutData.groups?.length ?? 0) > 0 ? (
         <GroupLabelCanvasSurface
           groups={sceneGroups}
-          transform={t}
           originY={layoutData.canvasOrigin.y}
           isDark={isDark}
           editingEntityId={editingEntityId}

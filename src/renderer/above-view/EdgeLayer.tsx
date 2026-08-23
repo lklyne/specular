@@ -7,15 +7,9 @@
  * origin sits at `canvasOrigin.y`, so subtract it from every y when laying
  * out SVG geometry — matching the rest of aboveView.
  */
+import type { ProjectedSceneEntity } from '../../shared/scene-projection'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type {
-  CanvasInteractionState,
-  CanvasSceneEntity,
-  EdgeEnd,
-  EdgeLineStyle,
-  EdgeSide,
-  WorkspaceEdge,
-} from '../../shared/types'
+import type { CanvasInteractionState, EdgeEnd, EdgeLineStyle, EdgeSide, WorkspaceEdge } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import {
   EDGE_ANCHOR_HIT_ACROSS_PX,
@@ -49,7 +43,7 @@ const START_ARROW_REF_X = 0.75
 // --- Geometry helpers ---
 
 function getAnchorHitRect(
-  entity: CanvasSceneEntity,
+  entity: ProjectedSceneEntity,
   side: EdgeSide,
   zoom: number,
   originY: number,
@@ -84,7 +78,7 @@ function AnchorDots({
   zoom,
   originY,
 }: {
-  entity: CanvasSceneEntity
+  entity: ProjectedSceneEntity
   isDark: boolean
   isDragging: boolean
   zoom: number
@@ -252,7 +246,7 @@ export const EdgeLayer = memo(function EdgeLayer({
   zIndex = 5,
 }: {
   edges: WorkspaceEdge[]
-  entities: CanvasSceneEntity[]
+  entities: ProjectedSceneEntity[]
   isDark: boolean
   interaction: CanvasInteractionState
   selectedEdgeIds: ReadonlySet<string>
@@ -264,7 +258,7 @@ export const EdgeLayer = memo(function EdgeLayer({
   zIndex?: number | undefined
 }) {
   const entityMap = useMemo(() => {
-    const map = new Map<string, CanvasSceneEntity>()
+    const map = new Map<string, ProjectedSceneEntity>()
     for (const e of entities) map.set(e.id, e)
     return map
   }, [entities])

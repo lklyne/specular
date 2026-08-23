@@ -1,9 +1,6 @@
+import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type {
-  CanvasScenePageEntity,
-  InspectNodeDetail,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { InspectNodeDetail } from '../../shared/types'
 import {
   inspectTargetScreenRect,
   placeInspectPopover,
@@ -38,7 +35,7 @@ function firstFontFamily(fontFamily: string | null): string | null {
 export function InspectPopoverLayer({
   layoutData,
 }: {
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
 }) {
   const detail = useMemo((): InspectNodeDetail | null => {
     const inspect = layoutData.inspect
@@ -47,10 +44,10 @@ export function InspectPopoverLayer({
     return nodeId ? inspect.detailById[nodeId] ?? null : null
   }, [layoutData.inspect])
 
-  const page = useMemo((): CanvasScenePageEntity | null => {
+  const page = useMemo((): ProjectedPageEntity | null => {
     if (!detail) return null
     return layoutData.entities.find(
-      (entity): entity is CanvasScenePageEntity =>
+      (entity): entity is ProjectedPageEntity =>
         entity.kind === 'page' && entity.id === detail.pageId,
     ) ?? null
   }, [detail, layoutData.entities])

@@ -1,11 +1,8 @@
 // ADR 0008/0009 — shape selection popup. Variant morph per ADR 0009.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { slotForStorage } from '../../shared/canvas-colors'
-import type {
-  CanvasSceneShapeEntity,
-  LayoutUpdateData,
-  ShapeKind,
-} from '../../shared/types'
+import type { CanvasSceneShapeEntity, ShapeKind } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { BorderDropdown } from './BorderDropdown'
 import { CanvasItemPopup } from './CanvasItemPopup'
@@ -33,7 +30,7 @@ export function ShapePopup({
     'updateEntity' | 'focusSelection' | 'arrangeSelection'
   >
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   selectedShapes: CanvasSceneShapeEntity[]
   interactionIdle: boolean
   onAnnotate: AnnotateHandler

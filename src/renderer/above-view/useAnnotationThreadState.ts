@@ -1,5 +1,5 @@
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { annotationScreenPos, type AnnotationLiveBboxLookup } from './annotationMath'
 
@@ -13,7 +13,7 @@ export function useAnnotationThreadState({
   threadInputRef,
 }: {
   api: CanvasBgElectronAPI
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   threadInputRef: React.RefObject<HTMLTextAreaElement | null>
 }) {
   const [openThreadId, setOpenThreadId] = useState<string | null>(null)
@@ -100,7 +100,7 @@ export function useAnnotationThreadState({
  */
 export function annotationThreadPosition(
   openThread: import('../../shared/types').Annotation | null,
-  layoutData: LayoutUpdateData,
+  layoutData: ProjectedLayoutData,
   liveBboxes?: AnnotationLiveBboxLookup,
 ): { left: number; top: number; width: number } | null {
   if (!openThread) return null

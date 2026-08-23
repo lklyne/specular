@@ -15,7 +15,7 @@
  *     derives from `editingEntityId === group.id`, never local state.
  */
 
-import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
+import type { ProjectedGroupEntity, ProjectedLayoutData } from '../../shared/scene-projection'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { InlineEditLabel } from '../shared/InlineEditLabel'
 
@@ -26,7 +26,7 @@ export function GroupRenameOverlay({
   editingEntityId,
 }: {
   api: CanvasBgElectronAPI
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   isDark: boolean
   editingEntityId: string | null
 }) {
@@ -56,8 +56,8 @@ function GroupRenameItem({
   isRenaming,
 }: {
   api: CanvasBgElectronAPI
-  layoutData: LayoutUpdateData
-  group: CanvasSceneGroupEntity
+  layoutData: ProjectedLayoutData
+  group: ProjectedGroupEntity
   isDark: boolean
   isRenaming: boolean
 }) {

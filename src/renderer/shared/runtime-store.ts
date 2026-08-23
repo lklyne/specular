@@ -14,8 +14,7 @@ import { reportReconcileDrift } from './runtime-store-drift'
  * Two inputs, one value. `applyPatches` takes the per-change pushes;
  * `applySnapshot` takes the full `layoutUpdate`, which is main's truth at the
  * moment it was built. Both arrive in send order, so the later one wins and a
- * dropped patch heals on the next snapshot — the same bargain
- * `useSceneCameraTransform` strikes for pan.
+ * dropped patch heals on the next snapshot.
  *
  * Identity is the product, not a nicety: layers subscribe through `useSlice`
  * and re-render only when the value they selected changes, so a snapshot that

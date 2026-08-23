@@ -2,7 +2,7 @@
 // tool defaults: the chosen preset rides on the active `add-page` Tool object
 // (tool.presetIndex / tool.customSize), so picking here just re-arms the tool.
 
-import type { LayoutUpdateData } from '../../shared/types'
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PresetList } from '../shared/PresetList'
 import { CanvasItemPopup } from './CanvasItemPopup'
@@ -14,7 +14,7 @@ export function PageToolPopup({
 }: {
   api: Pick<CanvasBgElectronAPI, 'setTool'>
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
 }) {
   const tool = layout.activeTool
   const customActive = tool.kind === 'add-page' && tool.customSize === true

@@ -1,12 +1,7 @@
+import type { ProjectedDrawingEntity, ProjectedLayoutData, ProjectedPageEntity, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { memo } from 'react'
 import { getStroke } from 'perfect-freehand'
-import type {
-  AnnotationDrawing,
-  AnnotationDrawingStroke,
-  CanvasSceneEntity,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { AnnotationDrawing, AnnotationDrawingStroke } from '../../shared/types'
 import { PageOverlayBand } from './PageOverlayBand'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
 import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
@@ -155,7 +150,7 @@ export const DrawingLayer = memo(function DrawingLayer({
   isDark,
 }: {
   drawing: AnnotationDrawing
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   active?: boolean
   isDark: boolean
 }) {
@@ -230,13 +225,13 @@ export const SavedDrawingEntities = memo(function SavedDrawingEntities({
   selectedEntityIds,
   isDark,
 }: {
-  entities: CanvasSceneEntity[]
-  layoutData: LayoutUpdateData
+  entities: ProjectedSceneEntity[]
+  layoutData: ProjectedLayoutData
   selectedEntityIds: string[]
   isDark: boolean
 }) {
   const drawings = entities.filter(
-    (e): e is import('../../shared/types').CanvasSceneDrawingEntity => e.kind === 'drawing',
+    (e): e is ProjectedDrawingEntity => e.kind === 'drawing',
   )
   if (drawings.length === 0) return null
 
@@ -259,7 +254,7 @@ export const SavedDrawingEntities = memo(function SavedDrawingEntities({
         const anchorPageId = drawing.pageAnchor?.pageId
         const page = anchorPageId
           ? layoutData.entities.find(
-              (entity): entity is CanvasScenePageEntity =>
+              (entity): entity is ProjectedPageEntity =>
                 entity.kind === 'page' && entity.id === anchorPageId,
             )
           : undefined

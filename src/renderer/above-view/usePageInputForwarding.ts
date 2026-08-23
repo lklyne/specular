@@ -1,8 +1,5 @@
+import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { useCallback, useEffect, useRef } from 'react'
-import type {
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { clientYToWindowY, isOverlayUiTarget } from '../../shared/gesture-utils'
 import { pointerOverPageContent } from '../../shared/page-hit-test'
@@ -22,8 +19,8 @@ function electronCursorToCss(type: string | null): string {
 
 export interface UsePageInputForwardingOptions {
   api: CanvasBgElectronAPI
-  layoutRef: React.MutableRefObject<LayoutUpdateData>
-  pendingPlacement: LayoutUpdateData['pendingPlacement']
+  layoutRef: React.MutableRefObject<ProjectedLayoutData>
+  pendingPlacement: ProjectedLayoutData['pendingPlacement']
   hoverForwardingEnabled: boolean
   setPlacementCursor: (cursor: { clientX: number; clientY: number } | null) => void
 }
@@ -154,7 +151,7 @@ export function usePageInputForwarding({
       if (selected.length !== 1) return resetCursor()
       const pageId = selected[0]
       const page = layout.entities.find(
-        (entity): entity is CanvasScenePageEntity =>
+        (entity): entity is ProjectedPageEntity =>
           entity.kind === 'page' && entity.id === pageId,
       )
       if (!page) return resetCursor()

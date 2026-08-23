@@ -11,6 +11,7 @@
  * test routes can share one implementation without an IPC roundtrip.
  */
 
+import type { ProjectedSceneEntity } from './scene-projection'
 import { regionContains, type HitRegion, type Point, type Rect } from './hit-regions'
 import {
   EDGE_ANCHOR_HIT_ACROSS_PX,
@@ -22,12 +23,7 @@ import {
   SELECTION_OUTLINE_PADDING_PX,
   scaleEdgeAnchorHitSize,
 } from './canvas-hit-geometry'
-import type {
-  CanvasEntityKind,
-  CanvasSceneEntity,
-  EdgeSide,
-  WorkspaceEdge,
-} from './types'
+import type { CanvasEntityKind, EdgeSide, WorkspaceEdge } from './types'
 import { HIT_LAYER_ORDER, type HitLayer } from './interaction-priority'
 import { estimateGroupLabelWidth, groupLabelRect } from './group-label-geometry'
 import { reorderableDots, type ReorderDot } from './reorderable-dots'
@@ -68,7 +64,7 @@ export interface HitTarget {
 }
 
 export interface HitInputs {
-  entities: readonly CanvasSceneEntity[]
+  entities: readonly ProjectedSceneEntity[]
   edges: readonly WorkspaceEdge[]
   selectedEntityIds: readonly string[]
   /** Selection operands (ADR 0034, `resolveSelectionScope`): groups in the
@@ -193,7 +189,7 @@ function collectResizeHandles(inputs: HitInputs): HitTarget[] {
   return out
 }
 
-function pushPerEntityHandles(out: HitTarget[], entity: CanvasSceneEntity): void {
+function pushPerEntityHandles(out: HitTarget[], entity: ProjectedSceneEntity): void {
   for (const handle of HANDLES) {
     out.push({
       layer: 'resize-handles',
@@ -366,7 +362,7 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
 // through it.
 const HANDLES: readonly ResizeHandle[] = ['nw', 'ne', 'se', 'sw', 'n', 'e', 's', 'w']
 
-function handleRect(entity: CanvasSceneEntity, handle: ResizeHandle): Rect {
+function handleRect(entity: ProjectedSceneEntity, handle: ResizeHandle): Rect {
   const half = RESIZE_HANDLE_HIT_PX / 2
   const pad = SELECTION_OUTLINE_PADDING_PX
   const { screenX: x, screenY: y, screenWidth: w, screenHeight: h } = entity
@@ -399,7 +395,7 @@ function reorderHandleRectAt(dot: ReorderDot): Rect {
   return { x: dot.center.x - half, y: dot.center.y - half, width: size, height: size }
 }
 
-function bodyRect(entity: CanvasSceneEntity): Rect {
+function bodyRect(entity: ProjectedSceneEntity): Rect {
   return {
     x: entity.screenX,
     y: entity.screenY,
@@ -408,7 +404,7 @@ function bodyRect(entity: CanvasSceneEntity): Rect {
   }
 }
 
-function anchorRect(entity: CanvasSceneEntity, side: EdgeSide, zoom: number): Rect {
+function anchorRect(entity: ProjectedSceneEntity, side: EdgeSide, zoom: number): Rect {
   const along = scaleEdgeAnchorHitSize(EDGE_ANCHOR_HIT_ALONG_PX, zoom)
   const across = scaleEdgeAnchorHitSize(EDGE_ANCHOR_HIT_ACROSS_PX, zoom)
   const horizontal = side === 'top' || side === 'bottom'

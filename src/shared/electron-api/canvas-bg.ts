@@ -28,7 +28,6 @@ import type {
   SelectionOverlayPayload,
   ThemeData,
   UpdatableEntityKind,
-  ViewportNudge,
   WorkspaceBounds,
 } from '../types'
 
@@ -289,7 +288,6 @@ export interface CanvasBgElectronAPI {
    *  re-reading the whole layout snapshot; the next `layoutUpdate` still
    *  carries the same values as the reconcile baseline. */
   onRuntimePatch: (callback: (batch: RuntimePatchBatch) => void) => () => void
-  onViewportNudge: (callback: (data: ViewportNudge) => void) => () => void
   onFrozenPagesState: (
     callback: (data: FrozenPagesState) => void,
   ) => () => void

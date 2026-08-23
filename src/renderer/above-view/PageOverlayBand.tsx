@@ -1,9 +1,6 @@
+import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
-import type {
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-  PageAnchor,
-} from '../../shared/types'
+import type { PageAnchor } from '../../shared/types'
 import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import { runtimeStore } from '../shared/runtime-store'
 import {
@@ -48,8 +45,8 @@ export function PageOverlayBand({
   followScroll,
   children,
 }: {
-  page: CanvasScenePageEntity
-  layoutData: LayoutUpdateData
+  page: ProjectedPageEntity
+  layoutData: ProjectedLayoutData
   zIndex?: number
   followScroll?: boolean
   children: ReactNode
@@ -152,12 +149,12 @@ export function AnchoredEntityOverlayBand({
   children,
 }: {
   anchor: PageAnchor | undefined
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   children: ReactNode
 }) {
   if (!anchor) return children
   const page = layoutData.entities.find(
-    (entity): entity is CanvasScenePageEntity =>
+    (entity): entity is ProjectedPageEntity =>
       entity.kind === 'page' && entity.id === anchor.pageId,
   )
   if (!page) return children

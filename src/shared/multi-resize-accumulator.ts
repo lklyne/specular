@@ -12,7 +12,8 @@
  * `MultiResizeEntry[]` payload for `api.resizeMultiSelection`.
  */
 
-import type { AnnotationDrawingStroke, CanvasSceneEntity } from './types'
+import type { ProjectedSceneEntity } from './scene-projection'
+import type { AnnotationDrawingStroke } from './types'
 import type { ResizeHandle } from './resize-accumulator'
 import { scaleStrokesToBounds } from './scale-strokes'
 import { selectionBbox } from './selection-bbox'
@@ -84,7 +85,7 @@ export interface MultiResizeDelta {
  * single-entity path.
  */
 export function computeMultiSelectionBbox(
-  entities: readonly CanvasSceneEntity[],
+  entities: readonly ProjectedSceneEntity[],
   selectedEntityIds: readonly string[],
 ): { bbox: MultiResizeBbox; entities: MultiResizeEntity[] } | null {
   const bbox = selectionBbox(entities, selectedEntityIds, 'canvas')

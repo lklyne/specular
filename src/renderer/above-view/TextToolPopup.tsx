@@ -1,7 +1,8 @@
 // ADR 0008 §1/§5 — add-text tool popup; writes to per-style tool defaults.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { paletteForTextStyle, slotForStorage } from '../../shared/canvas-colors'
-import type { LayoutUpdateData, TextEntityStyle, ToolDefaultPatch } from '../../shared/types'
+import type { TextEntityStyle, ToolDefaultPatch } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { TextSizeDropdown } from './TextSizeDropdown'
@@ -14,7 +15,7 @@ export function TextToolPopup({
 }: {
   api: Pick<CanvasBgElectronAPI, 'setToolDefault'>
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   style: TextEntityStyle
 }) {
   const currentRaw =
