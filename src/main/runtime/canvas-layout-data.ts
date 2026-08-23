@@ -9,7 +9,6 @@
 
 import { idleThrottleState } from './page-idle-throttle'
 import type {
-  AgentPresenceCursor,
   CanvasSceneEntity,
   CanvasScenePageEntity,
   FocusPresentationData,
@@ -20,12 +19,9 @@ import type {
 } from '../../shared/types'
 import type { RuntimeStoreSlices } from '../../shared/runtime-store'
 import { shareLayoutData } from '../../shared/layout-structural-share'
-import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { hiddenByPageAnchor } from './document-binding'
-import { selectAmbientMode } from '../../shared/presence-ambient'
 import { win } from './view-refs'
 import { buildInspectPanelState } from './inspect-session'
-import { isPageSynced } from '../navigation-sync'
 import {
   findPageById,
   hoverTarget,
@@ -60,7 +56,6 @@ import { currentKeyboardTargetPageId } from './selection-controller'
 import { resolveSelectionScope } from './selection-scope'
 import {
   pageContentSize,
-  projectFramePointToCanvas,
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
@@ -71,13 +66,7 @@ import {
   DEFAULT_TEXT_WIDTH,
   DEFAULT_TEXT_HEIGHT,
 } from './text-entity-state'
-import {
-  pageUsesCustomSize,
-  deviceIdFromMetadata,
-  deviceOrientationFromMetadata,
-  showDeviceFrameFromMetadata,
-  useSvgDeviceShellFromMetadata,
-} from './runtime-entities'
+import { pageUsesCustomSize } from './runtime-entities'
 import {
   fileEntities,
   DEFAULT_FILE_WIDTH,
@@ -93,52 +82,14 @@ import { getEntityKind, type RuntimeEntity } from '../entities/contract'
 import type { CanvasEntityKind } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import { spaceTabSummaries } from './space-tabs'
-import { getPresenceCursors } from '../presence-cursor'
+import { currentPresenceSlice } from './presence-slice'
+import { backgroundPageOverlays } from './page-scene-entity'
 import { getFixProgress } from '../agent-fix/fix-progress'
 import { livePageScrollOffsets } from './page-scroll-state'
 import { annotationLiveBboxes } from './annotation-bbox-state'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // --- Exported data builders ---
-
-export function backgroundPageOverlays(): CanvasScenePageEntity[] {
-  const focusedPresentationPageId = focusedPageId()
-  const visiblePages = focusedPresentationPageId
-    ? pages.filter((page) => page.id === focusedPresentationPageId)
-    : pages
-  return visiblePages.map((page) => {
-    const { width, height } = effectivePageContentSize(page)
-    const deviceId = deviceIdFromMetadata(page.metadata)
-    return {
-      kind: 'page' as const,
-      id: page.id,
-      label: pageDisplayLabel(page),
-      faviconUrl: page.faviconUrl ?? null,
-      url: page.url,
-      canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
-      canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
-      isLoading: page.pageView.webContents.isLoading(),
-      canvasX: page.canvasX,
-      canvasY: page.canvasY,
-      width,
-      height,
-      presetIndex: page.presetIndex,
-      synced: isPageSynced(page),
-      syncId: page.syncId ?? null,
-      // Device state
-      deviceId,
-      deviceOrientation: deviceOrientationFromMetadata(page.metadata),
-      showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
-      useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-      colorScheme: page.colorScheme,
-      scrollX: page.scrollX ?? 0,
-      scrollY: page.scrollY ?? 0,
-      ...(page.elementPositions?.size
-        ? { elementPositions: Object.fromEntries(page.elementPositions) }
-        : {}),
-    }
-  })
-}
 
 function buildUserGroupSceneEntities(
   origin: { x: number; y: number },
@@ -358,55 +309,7 @@ export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpd
     devtoolsWidth: uiDevtoolsWidth(),
     edges,
     groups: groupEntities,
-    presenceCursors: getPresenceCursors().map((c): AgentPresenceCursor => ({
-      ...(function resolvePresencePosition() {
-        if (c.surface === 'page' && c.pageId) {
-          const page = pages.find((candidate) => candidate.id === c.pageId)
-          if (page) {
-            const point = resolvePresencePagePoint({
-              pageX: c.pageX,
-              pageY: c.pageY,
-              targetRect: c.targetRect ?? null,
-              fallbackX: page.width / 2,
-              fallbackY: page.height / 2,
-            })
-            // Clamp to the page's visible area so the cursor doesn't
-            // render outside the page when targeting off-screen elements.
-            const clampedX = Math.max(0, Math.min(point.x, page.width))
-            const clampedY = Math.max(0, Math.min(point.y, page.height))
-            const pageWcv = findPageById(page.id)
-            const proj = pageWcv
-              ? projectFramePointToCanvas(pageWcv, { x: clampedX, y: clampedY })
-              : { x: page.canvasX + clampedX, y: page.canvasY + clampedY }
-            return { canvasX: proj.x, canvasY: proj.y }
-          }
-        }
-        return { canvasX: c.canvasX, canvasY: c.canvasY }
-      })(),
-      sessionId: c.sessionId,
-      clientName: c.clientName,
-      color: c.color,
-      source: c.source,
-      surface: c.surface,
-      activity: c.activity,
-      pageId: c.pageId,
-      pageX: c.pageX,
-      pageY: c.pageY,
-      labelKey: c.labelKey,
-      taskLabel: c.taskLabel,
-      labelHint: c.labelHint,
-      labelParams: c.labelParams,
-      targetRef: c.targetRef,
-      targetRefSource: c.targetRefSource,
-      targetName: c.targetName,
-      targetRect: c.targetRect,
-      updatedAt: c.updatedAt,
-      dwellBudgetMs: c.dwellBudgetMs,
-      // Synced cursors mirror a real user cursor and must never wander —
-      // idle-drift/reading-scan are agent-thinking-gap semantics (ADR 0029)
-      // that don't apply here, so force 'none' regardless of activity.
-      ambientMode: c.source === 'interaction-sync' ? 'none' : selectAmbientMode(c.activity, c.lastIntentLabelKey),
-    })),
+    presenceCursors: currentPresenceSlice(),
     cameraTransitionStartedAt,
     pageScroll: livePageScrollOffsets(),
     annotationBboxes: annotationLiveBboxes(),

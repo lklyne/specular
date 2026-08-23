@@ -51,10 +51,10 @@ import { getFixProgress, onProgressChange } from '../agent-fix/fix-progress'
 import { safeSend } from './safe-send'
 import { broadcastSceneSnapshot } from './runtime-patch-broadcast'
 import {
-  backgroundPageOverlays,
   buildCanvasLayoutData,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
+import { backgroundPageOverlays } from './page-scene-entity'
 import {
   notifyDevtoolsChanged,
 } from './devtools-panel'

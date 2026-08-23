@@ -59,11 +59,11 @@ import {
   toolbarTooltipOpen as uiToolbarTooltipOpen,
 } from '../ui-state'
 import {
-  backgroundPageOverlays,
   buildCanvasLayoutData,
   toolbarSelectionData,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
+import { backgroundPageOverlays } from './page-scene-entity'
 import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../presence-cursor'
