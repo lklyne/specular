@@ -22,7 +22,7 @@ what moved.
 
 | Path | Producer | Carries |
 |---|---|---|
-| Mutator → patch | `broadcastRuntimePatch` from the mutator itself (`commitHoverTarget`, the page-scroll handler, the annotation-bbox fold) | one slice, no layout pass at all |
+| Mutator → patch | `broadcastRuntimePatch` / `broadcastRuntimePatches` from the mutator itself (`commitHoverTarget`, `commitSelection`, `setActiveTool`, the interaction mutators, the page-scroll handler, the annotation-bbox fold) | one or more slices, without rebuilding the scene |
 | Layout pass → diff → patch batch | `broadcastSceneUpdate` diffs the rebuilt scene against the baseline | the cells that moved, batched so a pass applies atomically |
 | Snapshot baseline | `broadcastSceneSnapshot` on connect, and on the first pass ≥1s after the last snapshot | the whole scene, on top of that pass's patches |
 
@@ -51,10 +51,19 @@ Rules that hold this together:
   out the native views and calls `broadcastRuntimePatch`, never
   `markDirty('canvas')`. Main still projects for the `WebContentsView` bounds
   Chromium wants in window pixels, through the same helper.
-- **`markDirty('canvas') + requestLayout()` still means "the scene changed."**
-  It is the right call for a structural edit; it is the wrong call for a slice
-  that has a patch producer, which would pay for a whole rebuild to deliver one
-  cell.
+- **`markDirty('canvas')` means "the scene changed"; `requestLayout()` means
+  "the pass has work."** They are two decisions, and most ephemeral mutators
+  answer them differently. Dirty the canvas only for a change to entity
+  geometry, entity membership, or z-order — everything else has a slice and a
+  patch producer (`runtime-slice-broadcast.ts` for `selection`, `tool`,
+  `interaction`, `focus`; `hover-state.ts`; `inspect-session.ts`;
+  `viewport-control.ts` for `camera`). Still call `requestLayout()` when
+  something *outside* the store reads what you changed and is computed only
+  inside `layoutAllViews`: `reconcileFocus` and viewport culling read the
+  interaction kind, `shouldGateBeOpen` and the cursor-overlay window read the
+  active tool and the inspect target, and the `sidebar` and `toolbar` payloads
+  are not on the scene bus at all. If a mutator turns out to need the scene
+  after all, give it back its `markDirty('canvas')` — never widen the patch.
 
 The renderer half is `src/renderer/shared/runtime-store.ts` (applies snapshots
 and patch batches), `runtime-store-feed.ts` (subscribes at module scope, before
