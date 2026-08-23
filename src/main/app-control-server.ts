@@ -51,6 +51,7 @@ import {
 } from './cdp-proxy'
 import { activeSessions, mcpSessions, resolveSession } from './presence-session'
 import { sendPageIpc } from './runtime/page-ipc'
+import { noteAgentActivity } from './runtime/page-idle-throttle'
 import { pageContentSize } from './runtime/runtime-geometry'
 
 // Re-export for external consumers
@@ -267,6 +268,24 @@ const routes: Route[] = [
   ...perfRoutes,
 ]
 
+/**
+ * Endpoints an idle client polls on a timer. They are excluded from the
+ * agent-activity pulse because a connected MCP client would otherwise keep
+ * every page unthrottled forever just by holding its session open. Anything
+ * not listed counts as activity — an unrecognized route keeping pages awake
+ * costs battery, the reverse would break an agent mid-task.
+ */
+const IDLE_POLL_ROUTES = new Set([
+  '/mcp/session/ping',
+  '/session/presence',
+  '/perf/pan-zoom/status',
+  '/perf/trace/status',
+  // Sampling the throttle must not disturb it: this is the route an agent
+  // polls to watch pages idle, so pulsing activity here would hold every
+  // page awake and the sample would only ever observe its own interference.
+  '/perf/metrics',
+])
+
 async function route(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const url = request.url ?? '/'
   const method = request.method ?? 'GET'
@@ -280,6 +299,8 @@ async function route(request: IncomingMessage, response: ServerResponse): Promis
     writeJson(response, 401, { error: 'Unauthorized' })
     return
   }
+
+  if (!IDLE_POLL_ROUTES.has(url.split('?')[0])) noteAgentActivity()
 
   // Track presence for GET requests (no body needed)
   if (method === 'GET') {

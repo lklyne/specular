@@ -13,7 +13,7 @@
 import { memo } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
-import type { CanvasSceneFileEntity, SelectionModifiers } from '../../shared/types'
+import type { CanvasSceneFileEntity } from '../../shared/types'
 import {
   RendererSwitch,
 } from '../canvas-bg/entity-renderers/RendererSwitch'
@@ -190,7 +190,7 @@ const MemoFileBodyCard = memo(FileBodyCard, (prev, next) => {
   )
 })
 
-export function FileBodyLayer({
+export const FileBodyLayer = memo(function FileBodyLayer({
   entities,
   isDark,
   selectedEntityIdSet,
@@ -234,4 +234,4 @@ export function FileBodyLayer({
       ))}
     </CanvasViewportLayer>
   )
-}
+})

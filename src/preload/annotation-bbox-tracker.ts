@@ -4,8 +4,8 @@
  * The renderer subscribes a set of `{ annotationId, selector }` pairs to
  * each page that owns currently-visible element popovers. The page resolves
  * the selectors against its live DOM and broadcasts the resulting viewport
- * bboxes back to main → above-view, which uses them to position popovers
- * that track page scroll.
+ * bboxes back to main, which folds them into the runtime store so popovers
+ * track page scroll.
  *
  * Popover bboxes re-run on:
  *  - subscription churn (popover open/close, selection change)
@@ -20,13 +20,13 @@
 import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import type {
+  AnnotationBboxReport,
   AnnotationBboxSubscription,
-  AnnotationLiveBboxUpdate,
   ResolvedElementAttachmentPosition,
 } from '../shared/types'
 
 let activeSubscriptions: AnnotationBboxSubscription[] = []
-let lastBoxes: Map<string, AnnotationLiveBboxUpdate['boundingBox']> = new Map()
+let lastBoxes: Map<string, AnnotationBboxReport['boundingBox']> = new Map()
 let pendingFlush = 0
 
 const MUTATION_DEBOUNCE_MS = 150
@@ -48,7 +48,7 @@ function resolveElement(selector: string): Element | null {
   }
 }
 
-function resolveBbox(selector: string): AnnotationLiveBboxUpdate['boundingBox'] {
+function resolveBbox(selector: string): AnnotationBboxReport['boundingBox'] {
   const element = resolveElement(selector)
   if (!element) return null
   const rect = element.getBoundingClientRect()
@@ -60,15 +60,15 @@ function resolveBbox(selector: string): AnnotationLiveBboxUpdate['boundingBox'] 
   }
 }
 
-function bboxKey(box: AnnotationLiveBboxUpdate['boundingBox']): string {
+function bboxKey(box: AnnotationBboxReport['boundingBox']): string {
   if (!box) return 'null'
   return `${box.x}:${box.y}:${box.width}:${box.height}`
 }
 
 function flush(): void {
   pendingFlush = 0
-  const nextBoxes = new Map<string, AnnotationLiveBboxUpdate['boundingBox']>()
-  const updates: Array<{ annotationId: string; boundingBox: AnnotationLiveBboxUpdate['boundingBox'] }> = []
+  const nextBoxes = new Map<string, AnnotationBboxReport['boundingBox']>()
+  const updates: AnnotationBboxReport[] = []
   for (const sub of activeSubscriptions) {
     const next = resolveBbox(sub.selector)
     nextBoxes.set(sub.annotationId, next)

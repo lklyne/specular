@@ -7,6 +7,7 @@
  * left sidebar, and annotation overlay renderers.
  */
 
+import { idleThrottleState } from './page-idle-throttle'
 import type {
   ActiveCanvasEntitySelection,
   AgentPresenceCursor,
@@ -18,21 +19,13 @@ import type {
   PendingPlacement,
   ToolbarSelectionData,
 } from '../../shared/types'
-import { ipcChannels } from '../../shared/ipc-contract'
+import { shareLayoutData } from '../../shared/layout-structural-share'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { hiddenByPageAnchor } from './document-binding'
 import { selectAmbientMode } from '../../shared/presence-ambient'
-import { isUnresolved } from '../../shared/annotation-utils'
-import {
-  aboveView,
-  cursorOverlayWindow,
-  leftSidebarView,
-  win,
-} from './view-refs'
+import { win } from './view-refs'
 import { buildInspectPanelState } from './inspect-session'
 import { isPageSynced } from '../navigation-sync'
-import { safeSend } from './safe-send'
-import { layoutCache } from './layout-cache'
 import {
   findPageById,
   hoverTarget,
@@ -41,7 +34,6 @@ import {
   pages,
   pan,
   selectedPage,
-  selectedPageId,
   zoom,
   cameraTransitionStartedAt,
 } from './runtime-context'
@@ -104,6 +96,8 @@ import type { Page } from './runtime-entities'
 import { spaceTabSummaries } from './space-tabs'
 import { getPresenceCursors } from '../presence-cursor'
 import { getFixProgress } from '../agent-fix/fix-progress'
+import { livePageScrollOffsets } from './page-scroll-state'
+import { annotationLiveBboxes } from './annotation-bbox-state'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // --- Exported data builders ---
@@ -173,25 +167,6 @@ export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
     width: page.peekWidth ?? vp.width,
     height: page.peekHeight ?? vp.height,
     presetIndex: page.presetIndex,
-  }
-}
-
-
-export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
-  if (aboveView) safeSend(aboveView.webContents, ipcChannels.layoutUpdate, payload)
-  if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed()) {
-    safeSend(cursorOverlayWindow.webContents, ipcChannels.layoutUpdate, payload)
-  }
-}
-
-export function buildFloatingUiUpdatePayload(input: {
-  pages: CanvasScenePageEntity[]
-  activeSelection: ActiveCanvasEntitySelection | null
-  surfaceOrigin: { x: number; y: number }
-}) {
-  return {
-    layoutData: buildCanvasLayoutData(input.pages, input.activeSelection),
-    surfaceOrigin: input.surfaceOrigin,
   }
 }
 
@@ -286,6 +261,13 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   }
 }
 
+/**
+ * The payload the previous pass produced. The scene is rebuilt whole on every
+ * pass, so without a reference to reconcile against, every branch down to the
+ * untouched entities carries new identity into each broadcast.
+ */
+let lastLayoutData: LayoutUpdateData | null = null
+
 export function buildCanvasLayoutData(
   pages: CanvasScenePageEntity[],
   activeSelection: ActiveCanvasEntitySelection | null,
@@ -347,7 +329,7 @@ export function buildCanvasLayoutData(
     return aRank - bRank
   })
   edges.sort((a, b) => (orderRank.get(a.id) ?? Infinity) - (orderRank.get(b.id) ?? Infinity))
-  return {
+  const built = {
     windowWidth,
     zoom,
     pan,
@@ -374,6 +356,7 @@ export function buildCanvasLayoutData(
     selectedGroupId: uiSelectedGroupId(),
     hover: hoverTarget,
     interaction: interactionState,
+    idle: idleThrottleState().idle,
     pendingPlacement: pendingPlacementData,
     devtoolsOpen: uiDevtoolsOpen(),
     devtoolsWidth: uiDevtoolsWidth(),
@@ -432,7 +415,11 @@ export function buildCanvasLayoutData(
     interactivePageId: interactivePageId(),
     focusPresentation: buildFocusPresentationData(pages),
     cameraTransitionStartedAt,
+    pageScroll: livePageScrollOffsets(),
+    annotationBboxes: annotationLiveBboxes(),
   } as LayoutUpdateData
+  lastLayoutData = shareLayoutData(lastLayoutData, built)
+  return lastLayoutData
 }
 
 function buildFocusPresentationData(

@@ -5,6 +5,7 @@ import type {
   PanZoomPerfTestResult,
   PanZoomPerfTestState,
 } from '../pan-zoom-perf-test'
+import type { ProcessMetricsSample, VisibilityProbeResult } from '../process-metrics'
 
 export interface PerfTraceState {
   recording: boolean
@@ -40,4 +41,12 @@ export interface DebugElectronAPI {
   perfTraceReveal: (fileName: string) => void
   onPerfTraceStateChanged: (callback: (state: PerfTraceState) => void) => () => void
   onPerfPanZoomStateChanged: (callback: (state: PanZoomPerfTestState) => void) => () => void
+  /** One read-only snapshot of `app.getAppMetrics()` with view attribution. */
+  processMetricsSample: () => Promise<ProcessMetricsSample>
+  /** Measures whether `setVisible(false)` throttles culled pages. Wakes each
+   *  probed renderer twice, so it is on-demand only. */
+  visibilityProbeRun: (windowMs?: number) => Promise<VisibilityProbeResult>
+  /** Writes text to the system clipboard from main — the debug window is not a
+   *  secure context, so `navigator.clipboard` is unavailable there. */
+  copyText: (text: string) => void
 }

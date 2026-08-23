@@ -12,7 +12,7 @@
  * translated up by that amount to meet window-space.
  */
 
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import {
   buildEdgeDragPath,
   type EdgeDragState,
@@ -23,7 +23,7 @@ import { selectionColor } from '../canvas-bg/canvasBgConstants'
 const PATH_STROKE_WIDTH = 2
 const PATH_DASH = '6 4'
 
-export function EdgeDragLayer({
+export const EdgeDragLayer = memo(function EdgeDragLayer({
   state,
   layoutData,
   isDark,
@@ -74,4 +74,4 @@ export function EdgeDragLayer({
       ) : null}
     </svg>
   )
-}
+})

@@ -15,18 +15,23 @@
  *   renderer ─setAnnotationBboxSubscriptions(pageId, subs)─▶ main (this module)
  *      ─forward─▶ specific page
  *   page (on scroll/resize) ─annotation-bbox-update─▶ main
- *      ─forward─▶ above-view
+ *      ─fold into `annotationBboxes`─▶ runtime patch bus
  */
 
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationLiveBboxUpdate } from '../../shared/types'
-import { aboveView } from '../runtime/view-refs'
+import type { AnnotationBboxReport, AnnotationBboxSubscription } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
 import { findPageByPageView } from '../runtime/runtime-context'
 import { boundEffectivePageContentSize, boundScreenBoundsForPage } from '../runtime/runtime-geometry'
 import { intersectRegionWithPage, pointerInPage } from '../runtime/comment-hover-math'
 import { safeSend } from '../runtime/safe-send'
+import {
+  annotationLiveBboxes,
+  applyAnnotationBboxReports,
+  retainAnnotationBboxes,
+} from '../runtime/annotation-bbox-state'
+import { broadcastRuntimePatch } from '../runtime/runtime-patch-broadcast'
 
 const POINTER_BROADCAST_INTERVAL_MS = 16
 
@@ -198,38 +203,37 @@ export function registerCommentHoverIpc(): void {
     ) => {
       const pageId = typeof payload?.pageId === 'string' ? payload.pageId : null
       if (!pageId) return
+      const subscriptions = Array.isArray(payload?.subscriptions) ? payload.subscriptions : []
+      // The subscription set is also the retention set: a popover that closed
+      // stops subscribing, and its last known bbox is state nothing can render.
+      if (retainAnnotationBboxes(pageId, subscriptions.map((sub) => sub.annotationId))) {
+        broadcastAnnotationBboxes()
+      }
       const page = pages.find((candidate) => candidate.id === pageId)
       if (!page || page.pageView.webContents.isDestroyed()) return
       safeSend(page.pageView.webContents, ipcChannels.annotationBboxSubscriptions, {
-        subscriptions: Array.isArray(payload?.subscriptions) ? payload.subscriptions : [],
+        subscriptions,
       })
     },
   )
 
   ipcMain.on(
     ipcChannels.annotationBboxUpdate,
-    (
-      event,
-      payload: {
-        updates?: Array<{
-          annotationId?: string
-          boundingBox?: AnnotationLiveBboxUpdate['boundingBox']
-        }>
-      } | undefined,
-    ) => {
+    (event, payload: { updates?: AnnotationBboxReport[] } | undefined) => {
       const page = findPageByPageView(event.sender)
       if (!page) return
       const updates = Array.isArray(payload?.updates) ? payload.updates : []
       if (!updates.length) return
-      if (!aboveView || aboveView.webContents.isDestroyed()) return
-      for (const update of updates) {
-        if (typeof update?.annotationId !== 'string') continue
-        safeSend(aboveView.webContents, ipcChannels.annotationLiveBbox, {
-          pageId: page.id,
-          annotationId: update.annotationId,
-          boundingBox: update.boundingBox ?? null,
-        })
-      }
+      if (!applyAnnotationBboxReports(page.id, updates)) return
+      broadcastAnnotationBboxes()
     },
   )
+}
+
+function broadcastAnnotationBboxes(): void {
+  broadcastRuntimePatch({
+    kind: 'slice',
+    slice: 'annotationBboxes',
+    value: annotationLiveBboxes(),
+  })
 }

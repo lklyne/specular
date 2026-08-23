@@ -60,8 +60,14 @@ Specular is an Electron app with a main process and multiple renderer processes.
 
 ## Data flow
 
-**State flows down.** Main process owns all workspace state. Renderers receive
-layout data via IPC broadcasts and re-render.
+**State flows down.** Main process owns all workspace state. Renderers hold a
+copy of main's normalized runtime store and re-render the layers whose slice
+changed. A mutation emits a patch on the `runtimePatch` channel; a layout pass
+diffs the rebuilt scene and emits the cells that moved; a full `layoutUpdate`
+snapshot lands on connect and about once a second as the reconcile baseline that
+heals any lost patch. Each renderer is routed only the slices it draws from.
+Pan and zoom keep a dedicated delta channel — a camera move over an unchanged
+scene is not a scene edit. See [ADR 0036](adr/0036-diffed-runtime-store.md).
 
 **Actions flow up.** User interactions in renderers call preload API methods,
 which send IPC messages to main, which mutates state and broadcasts updates.

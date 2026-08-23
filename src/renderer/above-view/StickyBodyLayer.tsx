@@ -300,7 +300,7 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
   )
 })
 
-export function StickyBodyLayer({
+export const StickyBodyLayer = memo(function StickyBodyLayer({
   entities,
   isDark,
   editingEntityId,
@@ -353,4 +353,4 @@ export function StickyBodyLayer({
       {viewport}
     </AnchoredEntityOverlayBand>
   )
-}
+})

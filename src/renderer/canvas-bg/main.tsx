@@ -2,21 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
-import { initRendererSentry } from '../shared/sentry-init'
-import { installFocusModality } from '../shared/focusModality'
-import { installRendererErrorReporter } from '../shared/install-error-reporter'
+import { bootCanvasRenderer } from '../shared/boot-canvas-renderer'
 import { RendererErrorBoundary } from '../shared/RendererErrorBoundary'
-import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-
-initRendererSentry()
-installFocusModality()
-installRendererErrorReporter('canvas-bg')
-
-const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
 async function bootstrap() {
-  const initialData = await api.getInitialData()
-  document.documentElement.classList.toggle('dark', initialData.theme.isDark)
+  const { initialData } = await bootCanvasRenderer({ errorReporterLabel: 'canvas-bg' })
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

@@ -15,6 +15,9 @@ import {
   runPanZoomPerfTest,
   stopPanZoomPerfTest,
 } from '../pan-zoom-perf-test'
+import { runAllocProfile } from '../alloc-profile'
+import { sampleProcessMetrics } from '../process-metrics'
+import { runVisibilityProbe } from '../visibility-probe'
 import type { PanZoomPerfPhase } from '../../shared/pan-zoom-perf-test'
 import { captureWindowFramesWhile } from '../window-frame-capture'
 import { requestLayout } from '../runtime/layout-engine'
@@ -30,6 +33,23 @@ function wait(ms: number): Promise<void> {
 }
 
 export const perfRoutes: Route[] = [
+  // TEMPORARY — see alloc-profile.ts. Delete with it.
+  {
+    method: 'POST',
+    pattern: '/perf/alloc-profile',
+    async handler({ response, body }) {
+      const payload = body as { durationMs?: number; synthesizeMoves?: boolean }
+      try {
+        const result = await runAllocProfile(
+          Math.min(payload.durationMs ?? 15_000, 60_000),
+          payload.synthesizeMoves ?? false,
+        )
+        writeJson(response, 200, result)
+      } catch (error) {
+        writeJson(response, 500, { error: (error as Error).message })
+      }
+    },
+  },
   {
     method: 'GET',
     pattern: '/perf/pan-zoom/status',
@@ -191,6 +211,21 @@ export const perfRoutes: Route[] = [
         return
       }
       writeJson(response, 200, summary)
+    },
+  },
+  {
+    method: 'GET',
+    pattern: '/perf/metrics',
+    async handler({ response }) {
+      writeJson(response, 200, sampleProcessMetrics())
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/perf/visibility-probe',
+    async handler({ response, body }) {
+      const payload = body as { windowMs?: number }
+      writeJson(response, 200, await runVisibilityProbe({ windowMs: payload?.windowMs }))
     },
   },
 ]

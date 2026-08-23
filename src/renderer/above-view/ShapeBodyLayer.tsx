@@ -378,7 +378,7 @@ function ShapeCard({
   )
 }
 
-export function ShapeBodyLayer({
+export const ShapeBodyLayer = memo(function ShapeBodyLayer({
   entities,
   isDark,
   selectedEntityIdSet,
@@ -427,4 +427,4 @@ export function ShapeBodyLayer({
       {viewport}
     </AnchoredEntityOverlayBand>
   )
-}
+})

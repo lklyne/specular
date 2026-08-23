@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type {
   Annotation,
   CanvasScenePageEntity,
@@ -62,7 +63,7 @@ function regionScreenGeometry(
   return { left: rect.left, top: rect.top, width: rect.width, height: rect.height, pageId }
 }
 
-export function RegionSelectAnnotations({
+export const RegionSelectAnnotations = memo(function RegionSelectAnnotations({
   annotations,
   interactive,
   layoutData,
@@ -152,4 +153,4 @@ export function RegionSelectAnnotations({
       })}
     </>
   )
-}
+})
