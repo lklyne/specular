@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
 import { runtimeStore } from '../shared/runtime-store'
+import { projectLayoutData } from '../shared/scene-projection'
 
 export function useCanvasLayoutState({
   initialLayoutData,
 }: {
   initialLayoutData: LayoutUpdateData
 }) {
-  const layoutRef = useRef<LayoutUpdateData>(initialLayoutData)
-  const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
+  const initial = projectLayoutData(initialLayoutData)
+  const layoutRef = useRef<LayoutUpdateData>(initial)
+  const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initial)
   const [layoutTick, setLayoutTick] = useState(0)
 
   useEffect(() => {
@@ -20,14 +22,14 @@ export function useCanvasLayoutState({
     let rendered: LayoutUpdateData | null = null
     const flush = () => {
       raf = 0
-      const next = runtimeStore.readLayoutData()
+      const next = projectLayoutData(runtimeStore.readLayoutData())
       if (next === rendered) return
       rendered = next
       setLayoutData(next)
       setLayoutTick((current) => current + 1)
     }
     const unsubscribe = runtimeStore.subscribe(() => {
-      layoutRef.current = runtimeStore.readLayoutData()
+      layoutRef.current = projectLayoutData(runtimeStore.readLayoutData())
       if (!raf) raf = requestAnimationFrame(flush)
     })
     return () => {
