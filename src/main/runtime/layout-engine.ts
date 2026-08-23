@@ -11,6 +11,7 @@ import {
   boundCanvasOrigin,
   focusFillRegion,
 } from './runtime-geometry'
+import { projectToScreen } from '../../shared/scene-projection'
 import {
   aboveView,
   bgView,
@@ -604,11 +605,18 @@ function layoutAllViews(): void {
       cv.lastBoundsKey = setBoundsIfChanged(cv.view, HIDDEN_BOUNDS, cv.lastBoundsKey)
       continue
     }
+    // A `WebContentsView` is positioned in whole window pixels, so the
+    // projection is rounded here rather than by the projector.
+    const rect = projectToScreen(
+      { x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height },
+      { zoom, pan },
+      canvasOrigin,
+    )
     const bounds = {
-      x: Math.round(canvasOrigin.x + entity.canvasX * zoom + pan.x),
-      y: Math.round(canvasOrigin.y + entity.canvasY * zoom + pan.y),
-      width: Math.max(0, Math.round(entity.width * zoom)),
-      height: Math.max(0, Math.round(entity.height * zoom)),
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.max(0, Math.round(rect.width)),
+      height: Math.max(0, Math.round(rect.height)),
     }
 
     // Cull when fully off-screen, but stay visible during drags so a

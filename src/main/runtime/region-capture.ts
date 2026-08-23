@@ -24,6 +24,7 @@ import {
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
 import { contentCornerRadiusForDevice } from '../../shared/device-catalog'
+import { projectToScreen, type ScreenRect } from '../../shared/scene-projection'
 
 function sendCaptureMode(webContents: WebContents | undefined, active: boolean): void {
   if (!webContents || webContents.isDestroyed()) return
@@ -44,19 +45,8 @@ function setRendererCaptureMode(active: boolean): void {
   }
 }
 
-function canvasRectToScreenRect(canvasRect: WorkspaceBounds): {
-  x: number
-  y: number
-  width: number
-  height: number
-} {
-  const origin = boundCanvasOrigin()
-  return {
-    x: origin.x + canvasRect.x * zoom + pan.x,
-    y: origin.y + canvasRect.y * zoom + pan.y,
-    width: canvasRect.width * zoom,
-    height: canvasRect.height * zoom,
-  }
+function canvasRectToScreenRect(canvasRect: WorkspaceBounds): ScreenRect {
+  return projectToScreen(canvasRect, { zoom, pan }, boundCanvasOrigin())
 }
 
 function pageCornerRadiusPx(page: Page, dpr: number): number {
