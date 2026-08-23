@@ -210,3 +210,30 @@ names a producer or a delivery rather than only a slice.
   one that guarantees a fifth. Each such channel carries its own reconcile
   logic, which is the part that is easy to get subtly wrong.
 - **Deleting `layoutUpdate` once patches work.** See §3.
+
+## Results
+
+Measured on `docs/plans/camera-local-projection.md`, which carried out §6 (camera
+as slice patch) and the deletion pass this ADR anticipated. Pan/zoom perf suite
+(slow-pan, slow-zoom, fast-pan-zoom; 87-entity tab), before → after:
+
+| Metric | Before | After |
+|---|---|---|
+| Scene rebuilds during the gesture | 297 | 0 |
+| Trace size | 630MB | 312MB |
+| Main-process busy | 821ms | 613ms |
+| GPU main | 4422ms | 3051ms |
+| Above-view renderer | 5182ms | 3441ms |
+| canvas-bg renderer | 2492ms | 2057ms |
+
+The above-view figure is from a dev build; roughly 95% of its remainder is
+React 19 dev-mode props-diff instrumentation, absent in production. Separately,
+`markDirty('canvas')` call sites fell from 81 to 54, and on a 20-entity fixture
+snapshot bytes went from 7162 to 7034 with `backgroundPageOverlays` per-pass
+cost from 0.0022ms to 0.0009ms.
+
+The same work also surfaced three latent bugs, found because the store's
+patch/snapshot agreement made them visible rather than because they were being
+hunted: above-view was re-rendering once per camera patch instead of once per
+frame; `setSelectionOverlayRect` was arming a layout pass for a reader that no
+longer existed; and a presence block was shadowing the runtime `pages` array.

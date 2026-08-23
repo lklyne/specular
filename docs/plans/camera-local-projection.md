@@ -1,6 +1,30 @@
 # Plan — camera-local projection and the runtime-store deletion pass
 
-Status: proposed. Stacks on `perf/frame-clock-b` (PR for `989d8656`), which itself stacks on [PR #404](https://github.com/lklyne/specular/pull/404) (ADR 0036). Read that PR's "Next steps" section and `docs/plans/diffed-runtime-store.md` first; this plan is the follow-up it describes, plus the fix for the zoom regression that `989d8656` exposed.
+Status: done. All five phases landed on `perf/camera-local-projection`. Results
+(before/after numbers, latent bugs found) are in [ADR 0036's Results
+section](../adr/0036-diffed-runtime-store.md#results).
+
+## Outcome
+
+The plan's projection formulas were wrong in two places, both caught by the
+phase 1 drift assertion rather than by inspection:
+
+- **Shell insets are canvas-space**, so projecting them to screen space
+  multiplies by zoom (`inset * zoom`), not divides. The plan's phase-2 sketch
+  had it backwards.
+- **Pages anchor their device-shell inset at the bezel; file entities anchor
+  at the body.** The two entity kinds' screen rects are not the same
+  projection with different inputs — they inset from different reference
+  edges, which `src/shared/scene-projection.ts` has to special-case rather
+  than share one formula for both.
+
+Everything else in the build sequence went as planned: the camera became a
+`camera`-slice patch with `viewportNudge` and the `screen*` fields deleted,
+the `markDirty('canvas')` site count fell from 82 to 54 across phases 3–5, and
+phase 5's deletion pass is described in its own commits rather than rewritten
+here.
+
+Stacks on `perf/frame-clock-b` (PR for `989d8656`), which itself stacks on [PR #404](https://github.com/lklyne/specular/pull/404) (ADR 0036). Read that PR's "Next steps" section and `docs/plans/diffed-runtime-store.md` first; this plan is the follow-up it describes, plus the fix for the zoom regression that `989d8656` exposed.
 
 Author handoff: this is a from-scratch spec. Read `src/main/runtime/CLAUDE.md` (two-layer state model), `docs/adr/0036-diffed-runtime-store.md` (the store, the bus, the snapshot invariant in §3), and `docs/interaction-layer.md` §6 before touching code.
 
