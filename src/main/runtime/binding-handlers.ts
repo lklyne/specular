@@ -6,7 +6,6 @@ import { undo, redo } from './space-undo'
 import { setZoom, setPan, focusSelection, restoreFocusCamera } from './viewport-control'
 import { groupSelectedEntities, makeAutoLayoutFromSelection, nudgeSelection, ungroupSelectedGroup } from './document-commands'
 import { selectEntities, selectNone } from './selection-controller'
-import { markDirty } from './layout-dirty'
 import { requestLayout } from './viewport-control'
 import { interactivePageId, pages, selectedPageId } from './runtime-context'
 import { exitPageInteractive } from './overlay-manager'
@@ -166,8 +165,6 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
       return
     }
     selectNone()
-    markDirty('canvas')
-    requestLayout()
   },
   'close-tab': (ctx) => {
     const pageId = selectedPageId()
