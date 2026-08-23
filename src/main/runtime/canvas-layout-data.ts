@@ -9,7 +9,6 @@
 
 import { idleThrottleState } from './page-idle-throttle'
 import type {
-  ActiveCanvasEntitySelection,
   AgentPresenceCursor,
   CanvasSceneEntity,
   CanvasScenePageEntity,
@@ -119,7 +118,6 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
       canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
       isLoading: page.pageView.webContents.isLoading(),
-      isCustomSize: pageUsesCustomSize(page.metadata),
       canvasX: page.canvasX,
       canvasY: page.canvasY,
       width,
@@ -140,23 +138,6 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
         : {}),
     }
   })
-}
-
-function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
-  const selectedPageIds = uiSelectedEntityIds()
-  const targets = selectedPageIds
-    .map((id) => findPageById(id))
-    .filter((p): p is Page => p !== undefined)
-  const page = selectedPage() ?? targets[0] ?? null
-  if (!page) return null
-  const vp = viewportPresetForIndex(page.presetIndex)
-  return {
-    entityRef: { kind: 'page', id: page.id },
-    label: pageDisplayLabel(page),
-    width: page.peekWidth ?? vp.width,
-    height: page.peekHeight ?? vp.height,
-    presetIndex: page.presetIndex,
-  }
 }
 
 function buildUserGroupSceneEntities(
@@ -265,7 +246,6 @@ export function currentSelectionSlice(): RuntimeStoreSlices['selection'] {
     selectedEntityIds: uiSelectedEntityIds(),
     selectionOperandIds: resolveSelectionScope().operandIds,
     selection: uiSelectedCanvasTargets(),
-    activeSelection: activeCanvasSelection(),
     selectedGroupId: uiSelectedGroupId(),
   }
 }

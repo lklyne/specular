@@ -115,7 +115,6 @@ export interface CanvasScenePageEntity {
   canGoBack: boolean
   canGoForward: boolean
   isLoading: boolean
-  isCustomSize: boolean
   canvasX: number
   canvasY: number
   width: number
@@ -333,14 +332,6 @@ export type CanvasSceneEntity =
   | CanvasSceneDrawingEntity
   | CanvasSceneShapeEntity
 
-export interface ActiveCanvasEntitySelection {
-  entityRef: CanvasEntityRef
-  label: string
-  width: number
-  height: number
-  presetIndex: number
-}
-
 export interface PendingPlacement {
   entityKind: CanvasEntityKind
   presetIndex?: number
@@ -512,7 +503,6 @@ export interface LayoutUpdateData {
    */
   selectionOperandIds: string[]
   selection: CanvasSelectableTarget[]
-  activeSelection: ActiveCanvasEntitySelection | null
   activeTool: Tool
   /** Per-tool persistent defaults (ADR 0008 §9). Tool-mode popup reads/writes. */
   toolDefaults: import('./tool-defaults').ToolDefaults

@@ -67,7 +67,6 @@ function framedPage(id: string, x: number, contentW: number, bezel: number): Can
     canGoBack: false,
     canGoForward: false,
     isLoading: false,
-    isCustomSize: false,
     canvasX: x,
     canvasY: 200,
     width: contentW,
