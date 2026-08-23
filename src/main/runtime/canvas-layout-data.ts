@@ -19,6 +19,7 @@ import type {
   PendingPlacement,
   ToolbarSelectionData,
 } from '../../shared/types'
+import type { RuntimeStoreSlices } from '../../shared/runtime-store'
 import { shareLayoutData } from '../../shared/layout-structural-share'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import { hiddenByPageAnchor } from './document-binding'
@@ -141,7 +142,7 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
   })
 }
 
-export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
+function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
   const selectedPageIds = uiSelectedEntityIds()
   const targets = selectedPageIds
     .map((id) => findPageById(id))
@@ -250,19 +251,52 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
 }
 
 /**
+ * The non-geometry slices of the runtime store, each read straight from the
+ * state that owns it.
+ *
+ * A mutator that changes a selection, a tool, or the focus target changes one
+ * of these and no entity, so it patches the slice instead of rebuilding the
+ * scene (`runtime-slice-broadcast.ts`). The snapshot below is assembled from
+ * the same three functions, which is what stops the patch and the snapshot
+ * from drifting into two descriptions of the same cell.
+ */
+export function currentSelectionSlice(): RuntimeStoreSlices['selection'] {
+  return {
+    selectedEntityIds: uiSelectedEntityIds(),
+    selectionOperandIds: resolveSelectionScope().operandIds,
+    selection: uiSelectedCanvasTargets(),
+    activeSelection: activeCanvasSelection(),
+    selectedGroupId: uiSelectedGroupId(),
+  }
+}
+
+export function currentToolSlice(): RuntimeStoreSlices['tool'] {
+  const tool = uiActiveTool()
+  return {
+    activeTool: tool,
+    toolDefaults: getToolDefaults(),
+    pendingPlacement: buildPlacementPreview(tool),
+  }
+}
+
+export function currentFocusSlice(): RuntimeStoreSlices['focus'] {
+  return {
+    keyboardTargetPageId: currentKeyboardTargetPageId(),
+    interactivePageId: interactivePageId(),
+    focusPresentation: buildFocusPresentationData(),
+  }
+}
+
+/**
  * The payload the previous pass produced. The scene is rebuilt whole on every
  * pass, so without a reference to reconcile against, every branch down to the
  * untouched entities carries new identity into each broadcast.
  */
 let lastLayoutData: LayoutUpdateData | null = null
 
-export function buildCanvasLayoutData(
-  pages: CanvasScenePageEntity[],
-  activeSelection: ActiveCanvasEntitySelection | null,
-): LayoutUpdateData {
+export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpdateData {
   const tool = uiActiveTool()
   const origin = localCanvasOrigin()
-  const pendingPlacementData = buildPlacementPreview(tool)
   const groupEntities = buildUserGroupSceneEntities(origin)
   const windowWidth = win?.getBounds().width ?? 0
   const isMac = process.platform === 'darwin'
@@ -326,12 +360,9 @@ export function buildCanvasLayoutData(
     toolbarCenterX,
     entityOrder,
     entities,
-    selectedEntityIds: uiSelectedEntityIds(),
-    selectionOperandIds: resolveSelectionScope().operandIds,
-    selection: uiSelectedCanvasTargets(),
-    activeSelection,
-    activeTool: tool,
-    toolDefaults: getToolDefaults(),
+    ...currentSelectionSlice(),
+    ...currentToolSlice(),
+    ...currentFocusSlice(),
     // Annotations bound to a page's document leave the broadcast while that
     // page shows a different URL — the same gate the anchored entities above
     // pass through. The right-details panel is unaffected: it reads full
@@ -341,11 +372,9 @@ export function buildCanvasLayoutData(
     ),
     inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),
-    selectedGroupId: uiSelectedGroupId(),
     hover: hoverTarget,
     interaction: interactionState,
     idle: idleThrottleState().idle,
-    pendingPlacement: pendingPlacementData,
     devtoolsOpen: uiDevtoolsOpen(),
     devtoolsWidth: uiDevtoolsWidth(),
     edges,
@@ -399,9 +428,6 @@ export function buildCanvasLayoutData(
       // that don't apply here, so force 'none' regardless of activity.
       ambientMode: c.source === 'interaction-sync' ? 'none' : selectAmbientMode(c.activity, c.lastIntentLabelKey),
     })),
-    keyboardTargetPageId: currentKeyboardTargetPageId(),
-    interactivePageId: interactivePageId(),
-    focusPresentation: buildFocusPresentationData(pages),
     cameraTransitionStartedAt,
     pageScroll: livePageScrollOffsets(),
     annotationBboxes: annotationLiveBboxes(),
@@ -410,9 +436,7 @@ export function buildCanvasLayoutData(
   return lastLayoutData
 }
 
-function buildFocusPresentationData(
-  scenePages: CanvasScenePageEntity[],
-): FocusPresentationData | null {
+function buildFocusPresentationData(): FocusPresentationData | null {
   const focus = focusSession()
   if (!focus) return null
   if (focus.target.kind === 'file') {
@@ -430,8 +454,8 @@ function buildFocusPresentationData(
     }
   }
   const page = findPageById(focus.target.id)
-  const scenePage = scenePages.find((candidate) => candidate.id === focus.target.id)
-  if (!page || !scenePage) return null
+  if (!page) return null
+  const effective = effectivePageContentSize(page)
   const authored = pageContentSize(page)
   const preset = viewportPresetForIndex(page.presetIndex)
   const authoredLabel = pageUsesCustomSize(page.metadata) ? 'Custom' : preset.label
@@ -441,14 +465,14 @@ function buildFocusPresentationData(
     authoredLabel,
     authoredWidth: authored.width,
     authoredHeight: authored.height,
-    effectiveWidth: scenePage.width,
-    effectiveHeight: scenePage.height,
+    effectiveWidth: effective.width,
+    effectiveHeight: effective.height,
     annotationsVisible: focus.annotationsVisible,
   }
 }
 
 export function getCanvasLayoutData(): LayoutUpdateData {
-  return buildCanvasLayoutData(backgroundPageOverlays(), activeCanvasSelection())
+  return buildCanvasLayoutData(backgroundPageOverlays())
 }
 
 // Re-export sidebar builders from their dedicated module

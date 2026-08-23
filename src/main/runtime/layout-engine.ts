@@ -60,7 +60,6 @@ import {
 } from '../ui-state'
 import {
   backgroundPageOverlays,
-  activeCanvasSelection,
   buildCanvasLayoutData,
   toolbarSelectionData,
   notifyLeftSidebarData,
@@ -337,7 +336,6 @@ function layoutAllViews(): void {
   const contentTopInset = layoutCache.toolbarHeight
 
   const pageOverlays = backgroundPageOverlays()
-  const nextActiveSelection = activeCanvasSelection()
   // Renderer positions ship after every native setBounds call below, so
   // the DOM chrome never leads the page views.
   let pendingLayoutData: ReturnType<typeof buildCanvasLayoutData> | null = null
@@ -349,7 +347,7 @@ function layoutAllViews(): void {
     layoutCache.lastBackgroundBoundsKey = setBoundsIfChanged(bgView, { x: 0, y: 0, width: bgWidth, height }, layoutCache.lastBackgroundBoundsKey)
     if (consumeDirty('canvas')) {
       const buildStart = performance.now()
-      const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
+      const layoutData = buildCanvasLayoutData(pageOverlays)
       layoutData.buildMs = performance.now() - buildStart
       buildMsSink?.(layoutData.buildMs)
       pendingLayoutData = layoutData

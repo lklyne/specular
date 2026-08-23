@@ -52,7 +52,6 @@ import { safeSend } from './safe-send'
 import { broadcastSceneSnapshot } from './runtime-patch-broadcast'
 import {
   backgroundPageOverlays,
-  activeCanvasSelection,
   buildCanvasLayoutData,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
@@ -204,10 +203,7 @@ export function initWindow(): void {
 
   currentBgView.webContents.once('did-finish-load', () => {
     currentBgView.webContents.send(ipcChannels.themeChanged, { isDark: isDark(), themeMode: getThemeMode() })
-    const pageOverlays = backgroundPageOverlays()
-    const nextActiveSelection = activeCanvasSelection()
-    const initialLayoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
-    broadcastSceneSnapshot(initialLayoutData)
+    broadcastSceneSnapshot(buildCanvasLayoutData(backgroundPageOverlays()))
     // The renderer subscribes to layout updates during mount, so send one more
     // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')
@@ -251,9 +247,7 @@ export function initWindow(): void {
   currentAboveView.webContents.once('did-finish-load', () => {
     if (currentAboveView.webContents.isDestroyed()) return
     currentAboveView.webContents.send(ipcChannels.themeChanged, { isDark: isDark(), themeMode: getThemeMode() })
-    const pageOverlays = backgroundPageOverlays()
-    const nextActiveSelection = activeCanvasSelection()
-    broadcastSceneSnapshot(buildCanvasLayoutData(pageOverlays, nextActiveSelection))
+    broadcastSceneSnapshot(buildCanvasLayoutData(backgroundPageOverlays()))
     layoutCache.lastCommentOverlayBoundsKey = null
     requestLayout()
   })

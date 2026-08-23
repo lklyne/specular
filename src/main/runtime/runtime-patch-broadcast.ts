@@ -130,8 +130,18 @@ export function seatSceneBootstrap(wc: WebContents, payload: LayoutUpdateData): 
  *  entirely (hover, page scroll, annotation bboxes). Keeps the baseline in step
  *  so the next pass doesn't re-send what this already delivered. */
 export function broadcastRuntimePatch(patch: RuntimePatch): void {
-  if (baseline) baseline = applyRuntimePatch(baseline, patch)
-  broadcastPatchBatch({ patches: [patch] })
+  broadcastRuntimePatches([patch])
+}
+
+/** The same, for a mutator whose one change lands in more than one slice — the
+ *  batch keeps them atomic, so no renderer paints a selection against the focus
+ *  target it had before. */
+export function broadcastRuntimePatches(patches: RuntimePatch[]): void {
+  if (patches.length === 0) return
+  if (baseline) {
+    for (const patch of patches) baseline = applyRuntimePatch(baseline, patch)
+  }
+  broadcastPatchBatch({ patches })
 }
 
 function broadcastPatchBatch(batch: RuntimePatchBatch): void {
