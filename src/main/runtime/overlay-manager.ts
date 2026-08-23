@@ -23,7 +23,6 @@ import {
 import { workspaceGroups } from './space-model'
 import {
   getUiState,
-  isSelectionMarqueeVisible as uiSelectionMarqueeVisible,
   setSelectionMarqueeVisible as setUiSelectionMarqueeVisible,
 } from '../ui-state'
 import { selectionDebug } from './runtime-constants'
@@ -158,8 +157,4 @@ export function setSelectionOverlayRect(
   if (bgView) {
     safeSend(bgView.webContents, ipcChannels.canvasSelectionOverlay, overlay)
   }
-  // The gate predicate reads selectionMarqueeVisible, so a rect change
-  // can flip aboveView bounds on/off. Bounds + visibility are centralized
-  // in layoutAllViews — schedule it.
-  requestLayout()
 }
