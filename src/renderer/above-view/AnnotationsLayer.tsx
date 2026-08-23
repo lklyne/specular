@@ -141,7 +141,7 @@ export const RegionSelectAnnotations = memo(function RegionSelectAnnotations({
           <PageOverlayBand
             key={key}
             page={page}
-            layoutData={layoutData}
+            originY={layoutData.canvasOrigin.y}
             followScroll={group.followScroll}
           >
             {group.entries.map((entry) => renderRegion(entry.annotation, entry.geom))}

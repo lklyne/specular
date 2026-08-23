@@ -31,9 +31,7 @@ describe('group layer rendering', () => {
       createElement(GroupBoundsLayer, {
         groups: [group()],
         isDark: false,
-        zoom: 1,
-        canvasOrigin: { x: 0, y: 0 },
-        pan: { x: 0, y: 0 },
+        view: { zoom: 1, pan: { x: 0, y: 0 }, canvasOrigin: { x: 0, y: 0 } },
       }),
     )
 

@@ -57,6 +57,16 @@ export interface SceneCamera {
   pan: ScenePoint
 }
 
+/**
+ * The camera plus the fixed canvas inset — the whole of what a layer needs to
+ * place canvas-space content on screen. Layers take this instead of the scene
+ * payload so a camera tick hands them three small values rather than a fresh
+ * copy of every entity.
+ */
+export interface SceneView extends SceneCamera {
+  canvasOrigin: ScenePoint
+}
+
 /** The 1px card border a shell-less page draws outside its body. */
 export const CARD_BORDER_WIDTH = 1
 

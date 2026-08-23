@@ -59,7 +59,7 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
         const page = pagesById.get(pageId)
         if (!page) return null
         return (
-          <PageOverlayBand key={pageId} page={page} layoutData={layoutData} zIndex={15}>
+          <PageOverlayBand key={pageId} page={page} originY={layoutData.canvasOrigin.y} zIndex={15}>
             {hoveredBadge?.pageId === pageId && hoveredBadge.highlightRect ? (
               <div
                 className="pointer-events-none absolute z-[14]"

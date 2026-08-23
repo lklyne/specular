@@ -1,4 +1,4 @@
-import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
+import type { ProjectedPageEntity } from '../../shared/scene-projection'
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import type { PageAnchor } from '../../shared/types'
 import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
@@ -40,13 +40,15 @@ function sameOffset(a: PageScrollOffset | null, b: PageScrollOffset | null): boo
  */
 export function PageOverlayBand({
   page,
-  layoutData,
+  originY,
   zIndex,
   followScroll,
   children,
 }: {
   page: ProjectedPageEntity
-  layoutData: ProjectedLayoutData
+  /** aboveView's WCV origin (`canvasOrigin.y`), which window-space `screenY`
+   *  is measured against. */
+  originY: number
   zIndex?: number
   followScroll?: boolean
   children: ReactNode
@@ -127,7 +129,7 @@ export function PageOverlayBand({
   // moves anchors across.
   const left = page.screenX
   const width = page.screenWidth
-  const contentTop = (page.contentScreenY ?? page.screenY) - layoutData.canvasOrigin.y
+  const contentTop = (page.contentScreenY ?? page.screenY) - originY
   const top = contentTop - BAND_FADE_MARGIN
   const height = (page.contentScreenHeight ?? page.screenHeight) + BAND_FADE_MARGIN * 2
   const mask = `linear-gradient(to bottom, transparent, black ${BAND_FADE_MARGIN}px, black calc(100% - ${BAND_FADE_MARGIN}px), transparent)`
@@ -145,26 +147,24 @@ export function PageOverlayBand({
 
 export function AnchoredEntityOverlayBand({
   anchor,
-  layoutData,
+  page,
+  originY,
   children,
 }: {
   anchor: PageAnchor | undefined
-  layoutData: ProjectedLayoutData
+  /** The page `anchor` names, resolved by the caller. */
+  page: ProjectedPageEntity | undefined
+  originY: number
   children: ReactNode
 }) {
-  if (!anchor) return children
-  const page = layoutData.entities.find(
-    (entity): entity is ProjectedPageEntity =>
-      entity.kind === 'page' && entity.id === anchor.pageId,
-  )
-  if (!page) return children
+  if (!anchor || !page) return children
   const liveElement = anchor.element
     ? page.elementPositions?.[anchor.element.selector]
     : undefined
   return (
     <PageOverlayBand
       page={page}
-      layoutData={layoutData}
+      originY={originY}
       followScroll={shouldFastFollowPageScroll(anchor, liveElement)}
     >
       {children}

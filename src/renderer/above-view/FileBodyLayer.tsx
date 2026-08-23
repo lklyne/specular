@@ -13,6 +13,7 @@
 import { memo } from 'react'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
+import type { SceneView } from '../../shared/scene-projection'
 import type { CanvasSceneFileEntity } from '../../shared/types'
 import {
   RendererSwitch,
@@ -196,9 +197,7 @@ export const FileBodyLayer = memo(function FileBodyLayer({
   selectedEntityIdSet,
   editingEntityId,
   interactiveEntityId,
-  canvasOrigin,
-  pan,
-  zoom,
+  view,
   onTextEditingChange,
   onOpenLink,
 }: {
@@ -210,16 +209,14 @@ export const FileBodyLayer = memo(function FileBodyLayer({
   editingEntityId: string | null
   /** Entered interactive file (HTML iframe) whose content owns the pointer. */
   interactiveEntityId: string | null
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
+  view: SceneView
   onTextEditingChange: (active: boolean) => void
   /** Open a link inside a markdown note as a page on the canvas. */
   onOpenLink: (id: string, url: string) => void
 }) {
   if (!entities.length) return null
   return (
-    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer view={view}>
       {entities.map((entity) => (
         <MemoFileBodyCard
           key={entity.id}

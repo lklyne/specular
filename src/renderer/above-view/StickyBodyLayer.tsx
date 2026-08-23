@@ -24,7 +24,7 @@
  * width/height, wrap on. Stickies are always 'fixed'.
  */
 
-import type { ProjectedLayoutData } from '../../shared/scene-projection'
+import type { ProjectedPageEntity, SceneView } from '../../shared/scene-projection'
 import { memo, useEffect, useRef, useState } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER, STICKY_BASE_HEIGHT } from '../../shared/constants'
 import { useMeasuredSize } from '../shared/useMeasuredSize'
@@ -305,7 +305,8 @@ export const StickyBodyLayer = memo(function StickyBodyLayer({
   entities,
   isDark,
   editingEntityId,
-  layoutData,
+  view,
+  anchorPage,
   onUpdateText,
   onUpdateSize,
   onContentHeight,
@@ -316,7 +317,9 @@ export const StickyBodyLayer = memo(function StickyBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  editor iff `editingEntityId === note.id`. */
   editingEntityId: string | null
-  layoutData: ProjectedLayoutData
+  view: SceneView
+  /** The page these entities are anchored to, resolved by the caller. */
+  anchorPage: ProjectedPageEntity | undefined
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
   /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */
@@ -325,11 +328,7 @@ export const StickyBodyLayer = memo(function StickyBodyLayer({
 }) {
   if (!entities.length) return null
   const viewport = (
-    <CanvasViewportLayer
-      canvasOrigin={layoutData.canvasOrigin}
-      pan={layoutData.pan}
-      zoom={layoutData.zoom}
-    >
+    <CanvasViewportLayer view={view}>
       {entities.map((note) => (
         <MemoStickyCard
           key={note.id}
@@ -350,7 +349,7 @@ export const StickyBodyLayer = memo(function StickyBodyLayer({
   // anchor decides the wrapping.
   const anchor = entities[0].pageAnchor
   return (
-    <AnchoredEntityOverlayBand anchor={anchor} layoutData={layoutData}>
+    <AnchoredEntityOverlayBand anchor={anchor} page={anchorPage} originY={view.canvasOrigin.y}>
       {viewport}
     </AnchoredEntityOverlayBand>
   )

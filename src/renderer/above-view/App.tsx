@@ -6,6 +6,7 @@ import type {
   ProjectedLayoutData,
   ProjectedPageEntity,
   ProjectedSceneEntity,
+  SceneView,
 } from '../../shared/scene-projection'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { CanvasGuidesPayload } from '../../shared/canvas-guides'
@@ -100,6 +101,13 @@ const NO_EDGES: WorkspaceEdge[] = []
 const NO_ENTITY_IDS: string[] = []
 const NO_GROUPS: ProjectedGroupEntity[] = []
 const selectEdge = (edgeId: string) => api.selectEdge(edgeId)
+const updateShapeText = (id: string, text: string) => api.updateEntity('shape', id, { text })
+const updateTextText = (id: string, text: string) => api.updateEntity('text', id, { text })
+const updateTextSize = (id: string, width: number, height: number) =>
+  api.updateEntity('text', id, { width, height })
+const commitEntityEdit = () => api.commitEntityEdit()
+const setTextEditing = (active: boolean) => api.setTextEditing(active)
+const openEntityLink = (id: string, url: string) => api.openEntityLink(id, url)
 
 const DragCopyPreviewLayer = memo(function DragCopyPreviewLayer({
   previews,
@@ -212,6 +220,7 @@ const GuideOverlayLayer = memo(function GuideOverlayLayer({
 
 const StackedCanvasItems = memo(function StackedCanvasItems({
   layoutData,
+  view,
   isDark,
   selectedEdgeIds,
   selectedEntityIdSet,
@@ -223,6 +232,9 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
   onContentHeight,
 }: {
   layoutData: ProjectedLayoutData
+  /** Camera + canvas inset, handed to the body layers instead of the whole
+   *  payload: their content is canvas-space, so this is all they read of it. */
+  view: SceneView
   isDark: boolean
   selectedEdgeIds: ReadonlySet<string>
   selectedEntityIdSet: Set<string>
@@ -248,6 +260,14 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
 }) {
   const entitiesById = new Map(layoutData.entities.map((entity) => [entity.id, entity]))
   const edgesById = new Map(layoutData.edges.map((edge) => [edge.id, edge]))
+
+  /** The page a page-anchored entity clips inside, for the overlay band. */
+  function anchorPageFor(entity: ProjectedSceneEntity): ProjectedPageEntity | undefined {
+    const pageId = 'pageAnchor' in entity ? entity.pageAnchor?.pageId : undefined
+    if (!pageId) return undefined
+    const page = entitiesById.get(pageId)
+    return page?.kind === 'page' ? page : undefined
+  }
 
   function renderEdge(edge: WorkspaceEdge) {
     if (hideContext) return null
@@ -282,7 +302,8 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
         <SavedDrawingEntities
           key={`drawing-${entity.id}`}
           entities={[entity]}
-          layoutData={layoutData}
+          view={view}
+          anchorPage={anchorPageFor(entity)}
           selectedEntityIds={layoutData.selectedEntityIds}
           isDark={isDark}
         />
@@ -296,9 +317,10 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
           isDark={isDark}
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
-          layoutData={layoutData}
-          onUpdateText={(shapeId, text) => api.updateEntity('shape', shapeId, { text })}
-          onCommitEdit={() => api.commitEntityEdit()}
+          view={view}
+          anchorPage={anchorPageFor(entity)}
+          onUpdateText={updateShapeText}
+          onCommitEdit={commitEntityEdit}
         />
       )
     }
@@ -309,13 +331,12 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
           entities={[entity]}
           isDark={isDark}
           editingEntityId={editingEntityId}
-          layoutData={layoutData}
-          onUpdateText={(textId, text) => api.updateEntity('text', textId, { text })}
-          onUpdateSize={(textId, width, height) =>
-            api.updateEntity('text', textId, { width, height })
-          }
+          view={view}
+          anchorPage={anchorPageFor(entity)}
+          onUpdateText={updateTextText}
+          onUpdateSize={updateTextSize}
           onContentHeight={onContentHeight}
-          onCommitEdit={() => api.commitEntityEdit()}
+          onCommitEdit={commitEntityEdit}
         />
       )
     }
@@ -328,11 +349,9 @@ const StackedCanvasItems = memo(function StackedCanvasItems({
           selectedEntityIdSet={selectedEntityIdSet}
           editingEntityId={editingEntityId}
           interactiveEntityId={interactiveEntityId}
-          canvasOrigin={layoutData.canvasOrigin}
-          pan={layoutData.pan}
-          zoom={layoutData.zoom}
-          onTextEditingChange={(active) => api.setTextEditing(active)}
-          onOpenLink={(id, url) => api.openEntityLink(id, url)}
+          view={view}
+          onTextEditingChange={setTextEditing}
+          onOpenLink={openEntityLink}
         />
       )
     }
@@ -517,6 +536,16 @@ export default function App({
   )
   const sceneGroups = layoutData.groups ?? NO_GROUPS
   const renderGroups = renderLayout.groups ?? NO_GROUPS
+  // Canvas-space layers take this instead of the payload, so a camera tick
+  // hands them three numbers rather than a fresh copy of the scene.
+  const view = useMemo<SceneView>(
+    () => ({
+      zoom: layoutData.zoom,
+      pan: layoutData.pan,
+      canvasOrigin: layoutData.canvasOrigin,
+    }),
+    [layoutData.zoom, layoutData.pan, layoutData.canvasOrigin],
+  )
 
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
@@ -1120,6 +1149,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           Debug CSS injected into pages is suppressed separately (capture-suppression). */}
       <StackedCanvasItems
         layoutData={renderLayout}
+        view={view}
         onContentHeight={reportContentHeight}
         isDark={isDark}
         selectedEdgeIds={selectedEdgeIds}
@@ -1157,7 +1187,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
           {liveDrawing ? (
             <DrawingLayer
               drawing={liveDrawing}
-              layout={layoutData}
+              layout={view}
               active
               isDark={isDark}
             />
@@ -1211,9 +1241,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             <GroupBoundsLayer
               groups={renderGroups}
               isDark={isDark}
-              zoom={layoutData.zoom}
-              canvasOrigin={layoutData.canvasOrigin}
-              pan={layoutData.pan}
+              view={view}
               dropTargetGroupId={groupDropTargetId}
             />
           ) : null}
