@@ -75,6 +75,7 @@ import {
 } from '../ui-state'
 import { devtoolsPanelDebug } from './runtime-constants'
 import { broadcastRuntimePatch } from './runtime-patch-broadcast'
+import { broadcastToolChange } from './runtime-slice-broadcast'
 
 // --- Core functions (already migrated to direct imports) ---
 
@@ -486,6 +487,7 @@ export function setInspectMode(enabled: boolean): void {
     return
   }
   setUiActiveTool(nextEnabled ? { kind: 'inspect' } : { kind: 'select' })
+  broadcastToolChange()
   if (!nextEnabled) {
     setInspectHoveredTargetState(null)
   }

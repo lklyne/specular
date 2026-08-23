@@ -108,9 +108,11 @@ export function setSelection(input: SelectionInput): UiState {
   return getUiState()
 }
 
+/** As `setSelection`: the canvas half is a `tool` slice patch
+ *  (`broadcastToolChange`), the toolbar half rides the pass. */
 export function setActiveTool(tool: Tool): UiState {
   uiState.activeTool = tool
-  markDirty('canvas', 'toolbar')
+  markDirty('toolbar')
   return getUiState()
 }
 

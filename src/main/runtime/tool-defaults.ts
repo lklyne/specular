@@ -18,6 +18,7 @@ import {
   saveToolDefaults,
 } from './preferences'
 import { markDirty } from './layout-dirty'
+import { broadcastToolChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
 import type { ToolDefaults, ToolDefaultPatch } from '../../shared/tool-defaults'
 
@@ -90,7 +91,10 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
       break
   }
   saveToolDefaults(next)
-  markDirty('canvas', 'toolbar')
+  // The defaults live in the `tool` slice, and the placement preview is built
+  // from them; the toolbar reads them off the pass.
+  broadcastToolChange()
+  markDirty('toolbar')
   requestLayout()
 }
 
