@@ -248,11 +248,9 @@ function routePageBody(
       originEntity: { entityId: payload.entityId, entityKind: 'page' },
     }
   }
-  // Additive modifier wins over the forward-into-page shortcut: shift/
-  // cmd-click on the page body must reach the selection system so users
-  // can extend a multi-selection from a single-selected page (the page
-  // content blocker is removed in that state, so the click would
-  // otherwise land in the webpage). Mirrors `entity-body`.
+  // A page that is selected but not entered leaves its modifiers to the
+  // selection system, so shift/cmd-click extends a multi-selection instead
+  // of taking the enter-page shortcut below. Mirrors `entity-body`.
   if (isAdditive(context.modifiers)) {
     return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'page' }
   }
