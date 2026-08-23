@@ -718,16 +718,17 @@ function recordLayoutCause(): void {
 }
 
 /**
- * The default way to trigger layout. Debounces a `layoutAllViews()` pass
- * onto a 16ms timer so a burst of mutations collapses into one pass
- * (invariant I1). `layoutAllViews` is exported only for the gesture paths
- * that must place views synchronously (drag freeze, viewport control).
+ * The default way to trigger layout. A single-flight guard defers
+ * `layoutAllViews()` to the next event-loop turn, so a burst of mutations
+ * within the same turn collapses into one pass (invariant I1).
+ * `layoutAllViews` is exported only for the gesture paths that must place
+ * views synchronously (drag freeze, viewport control).
  */
 export function requestLayout(): void {
   recordLayoutCause()
   if (layoutCache.layoutTimer) return
-  layoutCache.layoutTimer = setTimeout(() => {
+  layoutCache.layoutTimer = setImmediate(() => {
     layoutCache.layoutTimer = null
     layoutAllViews()
-  }, 16)
+  })
 }

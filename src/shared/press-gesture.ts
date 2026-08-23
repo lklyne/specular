@@ -71,9 +71,9 @@ export function pressGestureStep(
 
 /**
  * Phantom-blur guard (§4.6). Pre-promotion blur is a phantom: focus
- * reconciliation routes focus aboveView → bgView on the next layout pass
- * (debounced 16ms) after a prior gesture ends. A second click landing
- * inside that window arms this gesture, then the pending reconcile blurs
+ * reconciliation routes focus aboveView → bgView on the layout pass that
+ * runs the turn after a prior gesture ends. A second click landing inside
+ * that window arms this gesture, then the pending reconcile blurs
  * aboveView before any cursor movement — tearing the armed press down
  * there would drop the edit, or kill the second drag with no recovery.
  * Wait for actual movement; pointerup / pointercancel still abort cleanly.

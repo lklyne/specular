@@ -305,7 +305,7 @@ export function restorePersistedSpace(
 
 function resetWindowState(): void {
   if (layoutCache.layoutTimer) {
-    clearTimeout(layoutCache.layoutTimer)
+    clearImmediate(layoutCache.layoutTimer)
     layoutCache.layoutTimer = null
   }
   if (spaceAutosaveTimer) {
