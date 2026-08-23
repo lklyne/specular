@@ -228,7 +228,8 @@ export const SavedDrawingEntities = memo(function SavedDrawingEntities({
 }: {
   entities: ProjectedSceneEntity[]
   view: SceneView
-  /** The page these entities are anchored to, resolved by the caller. */
+  /** The page `pageAnchor` names, resolved by the caller. App mounts one layer
+   *  per entity, so one page covers the batch. */
   anchorPage: ProjectedPageEntity | undefined
   selectedEntityIds: string[]
   isDark: boolean

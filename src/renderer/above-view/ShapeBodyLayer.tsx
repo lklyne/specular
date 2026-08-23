@@ -393,7 +393,7 @@ export const ShapeBodyLayer = memo(function ShapeBodyLayer({
    *  contentEditable iff `editingEntityId === shape.id`. */
   editingEntityId: string | null
   view: SceneView
-  /** The page these entities are anchored to, resolved by the caller. */
+  /** The page `pageAnchor` names, resolved by the caller. */
   anchorPage: ProjectedPageEntity | undefined
   onUpdateText: (id: string, text: string) => void
   onCommitEdit: () => void

@@ -318,7 +318,7 @@ export const StickyBodyLayer = memo(function StickyBodyLayer({
    *  editor iff `editingEntityId === note.id`. */
   editingEntityId: string | null
   view: SceneView
-  /** The page these entities are anchored to, resolved by the caller. */
+  /** The page `pageAnchor` names, resolved by the caller. */
   anchorPage: ProjectedPageEntity | undefined
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
