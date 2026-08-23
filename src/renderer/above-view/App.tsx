@@ -91,9 +91,8 @@ import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useRendererBindingHandlers } from '../shared/hooks/useRendererBindingHandlers'
 import { useTheme } from '../shared/hooks/useTheme'
 import { useViewportWheelAndMiddlePan } from '../shared/hooks/useViewportWheelAndMiddlePan'
-import { withIpcTally } from './ipc-tally'
 
-const api = withIpcTally((window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI)
+const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
 // Frozen empties and a hoisted handler: the layers below are memoized, and a
 // literal in JSX would hand them a new prop on every render.
