@@ -188,7 +188,12 @@ export function snapshotToStore(data: LayoutUpdateData): RuntimeStore {
  * which is sound because they are exactly the fields that store's renderer
  * never reads. The result is asserted whole rather than each field being
  * widened, so a consumer reading the projection sees the shape main sends.
+ *
+ * Every `?.` below is a cyclomatic branch to the linter, but there is no
+ * logic here to split — it is one field map, and splitting it would only hide
+ * which slice each field comes from.
  */
+// fallow-ignore-next-line complexity
 export function storeToLayoutData(store: RuntimeStore): LayoutUpdateData {
   const { camera, chrome, scene, selection, tool, focus } = store.slices
   const entities: CanvasSceneEntity[] = []
