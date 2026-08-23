@@ -234,6 +234,14 @@ function routePageBody(
   payload: Extract<HitPayload, { kind: 'page-body' }>,
   context: CanvasPointerContext,
 ): CanvasPointerAction {
+  // An entered page owns every pointerdown on its body, modifiers included:
+  // web content binds shift/cmd/alt to its own gestures (shift-drag range
+  // select, cmd-click open-in-new-tab, alt-drag in design tools), and a
+  // canvas-level marquee or selection toggle would swallow them. Leaving the
+  // page (Escape, click outside) restores canvas modifier semantics.
+  if (context.interactivePageId === payload.entityId) {
+    return { kind: 'forward-pointer-down', entityId: payload.entityId, button: context.button }
+  }
   if (commandModifierHeld(context.modifiers)) {
     return {
       kind: 'begin-marquee',
@@ -256,12 +264,8 @@ function routePageBody(
     }
   }
   // Select-first / interact-second (#124):
-  //  - entered page → forward the pointer into its web content;
   //  - already single-selected (not entered) → the second click enters;
   //  - otherwise (unselected / multi) → click-to-select / drag-to-move.
-  if (context.interactivePageId === payload.entityId) {
-    return { kind: 'forward-pointer-down', entityId: payload.entityId, button: context.button }
-  }
   if (isSingleSelected(context, payload.entityId)) {
     return { kind: 'enter-page-interactive', entityId: payload.entityId }
   }
