@@ -8,7 +8,7 @@
  * lifecycle hooks that already know when they change now mirror them onto the
  * `Page` record and push one entity patch for the page they moved.
  *
- * Chrome and membership are separate questions, and the two cases below are the
+ * Chrome and membership are separate questions, and the cases below are the
  * split. A title, a favicon, or a load beginning moves chrome only, so it
  * patches and arms no pass. A settled load re-opens the document-binding gate
  * (`offPageDocument` reads `page.isLoading`), which adds or removes
@@ -22,9 +22,12 @@
  *   (page-factory.ts) — the title case's patch assertions fail;
  * - restoring `requestLayout()` in place of it — the "arms no pass" assertion
  *   fails;
+ * - dropping `broadcastPageChrome(page)` from the `page-favicon-updated` hook,
+ *   and `refreshPageChrome(page)` from `did-start-loading` — the favicon and
+ *   load-starting cases fail;
  * - restoring `page.pageView.webContents.navigationHistory.canGoBack()` in
- *   `buildPageSceneEntity` — the snapshot-agrees-with-patch assertion fails,
- *   because the stub's history reports false while the mirror says true;
+ *   `buildPageSceneEntity` — the mirror case fails, because the stub's history
+ *   reports false where the mirror says true;
  * - dropping `markDirty('canvas')` from the `did-stop-loading` hook — the
  *   settled-load case's dirty assertion fails.
  */
@@ -96,26 +99,44 @@ describe('page chrome ships as an entity patch, not a scene rebuild', () => {
     expect(layoutCache.layoutTimer).toBeNull()
   })
 
-  it('ships a load starting as one patch, and the snapshot agrees with it', () => {
+  it('ships a load starting as one patch, arming no pass', () => {
     const page = createPage('https://example.com/loading')
-    const wc = page.pageView.webContents as unknown as {
-      navigationHistory: { canGoBack(): boolean; canGoForward(): boolean }
-      emit(event: string): void
-    }
-    // The pass used to read these off `webContents` directly; the mirror is now
-    // the only reader, so a stub that disagrees proves which one the scene came
-    // from.
-    wc.navigationHistory = { canGoBack: () => true, canGoForward: () => false }
+    const wc = page.pageView.webContents as unknown as { emit(event: string): void }
     armWatch()
 
     wc.emit('did-start-loading')
 
     const patches = patchesToCanvas()
     expect(patches).toHaveLength(1)
-    const patched = patches[0].kind === 'entity' ? patches[0].entity : null
-    expect(patched).toMatchObject({ isLoading: true, canGoBack: true, canGoForward: false })
+    expect(patches[0].kind === 'entity' && patches[0].id).toBe(page.id)
+    expect(patches[0].kind === 'entity' && patches[0].entity).toMatchObject({
+      isLoading: true,
+    })
     expect(isDirty('canvas')).toBe(false)
     expect(layoutCache.layoutTimer).toBeNull()
+  })
+
+  it('reads chrome from the runtime mirror, and the snapshot agrees', () => {
+    const page = createPage('https://example.com/history')
+    const wc = page.pageView.webContents as unknown as {
+      emit(event: string, ...args: unknown[]): void
+    }
+    // The mirror says there is somewhere to go back to; the stub's own
+    // navigation history says there isn't. Only one of the two can be what the
+    // scene reports, and it has to be the mirror — otherwise a pass is still
+    // walking into the renderer process per page.
+    page.canGoBack = true
+    armWatch()
+
+    wc.emit('page-favicon-updated', {}, ['https://example.com/icon.png'])
+
+    const patches = patchesToCanvas()
+    expect(patches).toHaveLength(1)
+    const patched = patches[0].kind === 'entity' ? patches[0].entity : null
+    expect(patched).toMatchObject({
+      faviconUrl: 'https://example.com/icon.png',
+      canGoBack: true,
+    })
 
     // The snapshot is the reconcile baseline, so it has to describe the page
     // the same way the patch just did.
