@@ -5,6 +5,7 @@ import './styles.css'
 import { initRendererSentry } from '../shared/sentry-init'
 import { installFocusModality } from '../shared/focusModality'
 import { runtimeStore } from '../shared/runtime-store'
+import { connectRuntimeStore } from '../shared/runtime-store-feed'
 import { installRendererErrorReporter } from '../shared/install-error-reporter'
 import { RendererErrorBoundary } from '../shared/RendererErrorBoundary'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -14,6 +15,8 @@ installFocusModality()
 installRendererErrorReporter('canvas-bg')
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
+
+connectRuntimeStore(api)
 
 async function bootstrap() {
   const initialData = await api.getInitialData()

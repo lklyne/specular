@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
-import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { runtimeStore } from '../shared/runtime-store'
 
 export function useCanvasLayoutState({
-  api,
   initialLayoutData,
 }: {
-  api: CanvasBgElectronAPI
   initialLayoutData: LayoutUpdateData
 }) {
   const layoutRef = useRef<LayoutUpdateData>(initialLayoutData)
@@ -29,19 +26,15 @@ export function useCanvasLayoutState({
       setLayoutData(next)
       setLayoutTick((current) => current + 1)
     }
-    const offSnapshot = api.onLayoutUpdate((data) => runtimeStore.applySnapshot(data))
-    const offPatches = api.onRuntimePatch((batch) => runtimeStore.applyPatches(batch))
     const unsubscribe = runtimeStore.subscribe(() => {
       layoutRef.current = runtimeStore.readLayoutData()
       if (!raf) raf = requestAnimationFrame(flush)
     })
     return () => {
-      offSnapshot()
-      offPatches()
       unsubscribe()
       if (raf) cancelAnimationFrame(raf)
     }
-  }, [api])
+  }, [])
 
   return {
     layoutData,

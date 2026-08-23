@@ -525,14 +525,10 @@ export default function App({
   // Gesture code reads the layout imperatively at event time, so the ref has to
   // move with the store rather than with the render it schedules.
   useEffect(() => {
-    const offSnapshot = api.onLayoutUpdate((data) => runtimeStore.applySnapshot(data))
-    const offPatches = api.onRuntimePatch((batch) => runtimeStore.applyPatches(batch))
     const unsubscribe = runtimeStore.subscribe(() => {
       layoutRef.current = runtimeStore.readLayoutData()
     })
     return () => {
-      offSnapshot()
-      offPatches()
       unsubscribe()
     }
   }, [])

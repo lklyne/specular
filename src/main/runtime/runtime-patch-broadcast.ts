@@ -28,9 +28,12 @@ import { safeSend } from './safe-send'
  *
  * `layoutUpdate` never goes away. It is what a renderer gets on connect, and
  * what it gets periodically after that, so a dropped or mis-applied patch
- * heals instead of leaving stale chrome on screen. `baseline` is the store
- * every renderer is believed to hold; every send updates it, which is why a
- * snapshot always goes to all three targets rather than the one that asked.
+ * heals instead of leaving stale chrome on screen. It is redundancy and
+ * nothing else: a pass always sends the cells it moved, so a snapshot that
+ * changes what a renderer holds is drift being corrected, never a delivery.
+ * `baseline` is the store every renderer is believed to hold; every send
+ * updates it, which is why a snapshot always goes to all three targets rather
+ * than the one that asked.
  *
  * The baseline is always the full store. What each target receives is trimmed
  * to the slices it reads on the way out (`runtime-store-filter.ts`), so the
@@ -63,9 +66,44 @@ export function sceneTargetFor(wc: WebContents): SceneTarget | null {
 }
 
 /** Send the whole scene and re-seat the baseline. Used on connect, and as the
- *  periodic reconcile baseline `broadcastSceneUpdate` falls back to. */
+ *  periodic reconcile baseline the patch stream rides on top of. */
 export function broadcastSceneSnapshot(payload: LayoutUpdateData): void {
-  baseline = snapshotToStore(payload)
+  fanOut(payload, true)
+}
+
+/**
+ * The layout pass's fan-out: the cells this pass moved, plus a whole-scene
+ * re-seat every `SNAPSHOT_INTERVAL_MS` of pass activity — the simplest cadence
+ * that bounds how long any drift can live. A pass that changed nothing sends
+ * nothing (unless the re-seat is due).
+ */
+export function broadcastSceneUpdate(payload: LayoutUpdateData): void {
+  fanOut(payload, false)
+}
+
+/**
+ * The patches first, then the snapshot if one is due — never one instead of
+ * the other.
+ *
+ * A snapshot that is the only carrier for a change makes a renderer that
+ * converged indistinguishable from one that has been stale for a second, which
+ * is the difference the drift watchdog exists to see. So every send starts
+ * from the same diff, and a snapshot is redundancy by construction: whoever
+ * asked for it (a connecting renderer, the interval) gets the whole scene, and
+ * everyone already connected has been told what moved either way.
+ */
+function fanOut(payload: LayoutUpdateData, force: boolean): void {
+  const next = snapshotToStore(payload)
+  const patches = baseline ? diffRuntimeStores(baseline, next) : []
+  const snapshot = force || !baseline || Date.now() - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS
+  baseline = next
+  if (patches.length > 0) {
+    broadcastPatchBatch({
+      patches,
+      ...(payload.buildMs != null ? { buildMs: payload.buildMs } : {}),
+    })
+  }
+  if (!snapshot) return
   lastSnapshotAt = Date.now()
   for (const { target, wc } of sceneTargets()) {
     send(target, wc, ipcChannels.layoutUpdate, filterSceneSnapshot(payload, target))
@@ -73,24 +111,19 @@ export function broadcastSceneSnapshot(payload: LayoutUpdateData): void {
 }
 
 /**
- * The layout pass's fan-out. Sends patches, except every `SNAPSHOT_INTERVAL_MS`
- * of pass activity, when it sends a snapshot instead — the simplest cadence
- * that bounds how long any drift can live. A pass that changed nothing sends
- * nothing.
+ * A canvas renderer's own seed, and the baseline catching up to it.
+ *
+ * The bootstrap is built from current truth, which is ahead of the baseline
+ * whenever anything moved since the last pass — so handing it over without
+ * telling the bus leaves main diffing against a store nobody holds. Running it
+ * through the pass fan-out re-seats the baseline and brings the other
+ * renderers to the same scene.
  */
-export function broadcastSceneUpdate(payload: LayoutUpdateData): void {
-  if (!baseline || Date.now() - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS) {
-    broadcastSceneSnapshot(payload)
-    return
-  }
-  const next = snapshotToStore(payload)
-  const patches = diffRuntimeStores(baseline, next)
-  baseline = next
-  if (patches.length === 0) return
-  broadcastPatchBatch({
-    patches,
-    ...(payload.buildMs != null ? { buildMs: payload.buildMs } : {}),
-  })
+export function seatSceneBootstrap(wc: WebContents, payload: LayoutUpdateData): LayoutUpdateData {
+  const target = sceneTargetFor(wc)
+  if (!target) return payload
+  broadcastSceneUpdate(payload)
+  return filterSceneSnapshot(payload, target)
 }
 
 /** Push one slice straight out, for the mutators that skip the layout pass

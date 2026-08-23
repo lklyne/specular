@@ -24,17 +24,24 @@ what moved.
 |---|---|---|
 | Mutator → patch | `broadcastRuntimePatch` from the mutator itself (`commitHoverTarget`, the page-scroll handler, the annotation-bbox fold) | one slice, no layout pass at all |
 | Layout pass → diff → patch batch | `broadcastSceneUpdate` diffs the rebuilt scene against the baseline | the cells that moved, batched so a pass applies atomically |
-| Snapshot baseline | `broadcastSceneSnapshot` on connect, and on the first pass ≥1s after the last snapshot | the whole scene |
+| Snapshot baseline | `broadcastSceneSnapshot` on connect, and on the first pass ≥1s after the last snapshot | the whole scene, on top of that pass's patches |
 
 Rules that hold this together:
 
 - **The snapshot baseline is not optional.** It is what makes patches safe to be
   lossy: a dropped or mis-applied patch heals within about a second instead of
   leaving stale chrome. Never remove the cadence.
+- **A snapshot never carries news.** Every fan-out sends the cells that moved
+  first, so a snapshot only ever repeats what a renderer was already told. That
+  is what lets the drift watchdog read any disagreement as a real loss rather
+  than as a delivery it happened to make. A path that sends a snapshot without
+  the diff behind it puts that back.
 - **Filtering is a wire concern.** `runtime-store-filter.ts` names the slices
   each target reads and trims on the way out; the baseline stays the full store.
   `inspect` goes only to agent-layer. The bootstrap handler applies the same
-  filter, so a renderer never starts holding a slice it will get no updates for.
+  filter (`seatSceneBootstrap`) and re-seats the baseline through the same
+  fan-out, so a renderer never starts holding a slice it will get no updates
+  for, and main never diffs against a store nobody holds.
 - **Identity is the product.** `shareStructure` runs on the scene main builds
   and on both the snapshot and the projection a renderer reads, because
   `useSlice` and the memoized layers bail out on reference equality.
@@ -48,8 +55,10 @@ Rules that hold this together:
   cell.
 
 The renderer half is `src/renderer/shared/runtime-store.ts` (applies snapshots
-and patch batches), `hooks/useRuntimeStore.ts` (`useSlice`, `useLayoutData`),
-and `runtime-store-drift.ts` — the dev-gated watchdog that diffs each arriving
+and patch batches), `runtime-store-feed.ts` (subscribes at module scope, before
+the bootstrap request, so nothing sent while React mounts is dropped),
+`hooks/useRuntimeStore.ts` (`useSlice`, `useLayoutData`), and
+`runtime-store-drift.ts` — the dev-gated watchdog that diffs each arriving
 snapshot against what the patch stream accumulated. Zero drift over a session is
 the release gate for changes to any of this.
 

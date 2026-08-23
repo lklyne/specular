@@ -92,6 +92,16 @@ stale chrome on screen forever. Every value a patch can carry is also carried by
 the snapshot, and `broadcastSceneSnapshot` re-seats the baseline for all targets
 at once so main's model of what each renderer holds cannot skew.
 
+The snapshot is redundancy and nothing else. Every fan-out — a pass, a connect,
+a bootstrap — sends the cells that moved first and only then, if one is due, the
+whole scene; a snapshot is never sent *instead of* the delta it would have
+carried. Sending one instead is the cheaper-looking arrangement and it is wrong
+twice over: it makes a renderer that converged indistinguishable from one that
+has been stale for a second (§7 can then only report noise), and it hides a
+missed patch behind a legitimate-looking update for as long as the cadence
+lasts. The cost of the rule is one pass's delta per second, which is the amount
+the bus was built to send anyway.
+
 Removing the snapshot cadence would turn every producer bug into permanent,
 silent visual corruption. It is not an optimization opportunity. If the cadence
 ever needs to change, raise the interval; do not delete the mechanism.
@@ -154,8 +164,16 @@ O(scene) work the bus exists to avoid. Zero drift over a dogfooding session is
 the release gate for changes in this area, and the watchdog is expected to
 outlive the temporary instruments that measured the refactor.
 
+The gate only means something because of the rule in §3: with the delta always
+sent ahead of the snapshot, a disagreement can only be a loss. Each cell's first
+sighting also logs the keys that disagree and what each side holds, so a report
+names a producer or a delivery rather than only a slice.
+
 ## Consequences
 
+- A snapshot pass costs its delta twice: once as patches, once inside the
+  snapshot. That is the price of the snapshot being pure redundancy, and it is
+  bounded at one pass's delta per second.
 - Update cost scales with what changed rather than with scene size. A hover is
   one slice patch to one renderer; a page scroll frame is one slice patch; a
   structural edit is the entities that moved.
