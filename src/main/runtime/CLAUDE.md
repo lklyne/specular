@@ -45,10 +45,12 @@ Rules that hold this together:
 - **Identity is the product.** `shareStructure` runs on the scene main builds
   and on both the snapshot and the projection a renderer reads, because
   `useSlice` and the memoized layers bail out on reference equality.
-- **`viewportNudge` is the one exception.** A pan or zoom is a camera transform
-  over an unchanged scene, not a scene edit, so it keeps its own delta channel
-  and its renderer-side self-reconcile (`useSceneCameraTransform`). Do not model
-  it as a store patch.
+- **A camera move is a `camera` slice patch.** Scene entities carry canvas-space
+  geometry only; each renderer projects it (`src/shared/scene-projection.ts`).
+  So a pan or zoom edits one slice and nothing else — `setViewportCamera` lays
+  out the native views and calls `broadcastRuntimePatch`, never
+  `markDirty('canvas')`. Main still projects for the `WebContentsView` bounds
+  Chromium wants in window pixels, through the same helper.
 - **`markDirty('canvas') + requestLayout()` still means "the scene changed."**
   It is the right call for a structural edit; it is the wrong call for a slice
   that has a patch producer, which would pay for a whole rebuild to deliver one

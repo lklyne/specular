@@ -134,22 +134,24 @@ patch bus's whole benefit once a second. Sharing the same helper for the diff's
 equality test keeps one deep-comparison rule in the codebase rather than two
 that can drift apart.
 
-### 6. `viewportNudge` remains its own channel
+### 6. The camera is a slice patch, not its own channel
 
-A pan or a zoom is a camera transform over a scene that did not change at all.
-Nothing in the store's entity map or its slices is edited by the gesture; what
-changes is where the same scene is viewed from, at pointer rate, with the
-renderer applying the delta locally and self-reconciling to identity when the
-next snapshot lands with a matching pan/zoom
-(`useSceneCameraTransform`). Modeling that as a store patch would dress a
-different kind of update in scene-edit clothing and buy nothing — the camera
-slice still exists and still rides snapshots, so the reconcile baseline covers
-it either way.
+This decision was originally the opposite: `viewportNudge` kept its own channel,
+on the reasoning that a pan or zoom is a camera transform over a scene that did
+not change at all, and a scene-edit patch would be the wrong clothing for it.
 
-It is a deliberate exception, not an unfinished migration. One bus with one
-honest exception beats a dogmatic unification. The three-channel proliferation
-that motivated this ADR was a symptom of *scene edits* having no cheap path; the
-camera is not a scene edit.
+The premise was right and the conclusion was wrong, because the scene *did*
+change: every entity carried `screenX/screenY/screenWidth/screenHeight`
+projected in main, so a camera move rewrote all of them. That is what forced a
+zoom to `markDirty('canvas')` and rebuild the whole scene per wheel event, and
+what the nudge channel plus its renderer-side reconcile existed to paper over
+for pan.
+
+Moving projection into the renderers (`src/shared/scene-projection.ts`) removed
+the screen fields from the wire and made the original reasoning literally true:
+a camera move edits the `camera` slice and nothing else. So it is one
+`broadcastRuntimePatch` on the same bus, the nudge channel and its transform are
+deleted, and there is no exception left to justify.
 
 ### 7. The drift watchdog is the live guard
 
