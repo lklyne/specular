@@ -424,6 +424,10 @@ The experiments feed three coherent end-states (not mutually exclusive):
   (exp 6); parked/idle pages become sharedTexture/MediaStream textures or
   frozen DOM riding the camera (exps 3/4/5); gesture-time freeze uses
   high-DPI captures. Incremental, ships piecewise, keeps today's input model.
+  *Correction (2026-08-23): "gesture-time freeze" is not per-gesture free. It
+  pays for itself where a gesture forces re-raster — zoom — and loses where one
+  does not, because a parked page drops its tiles and rebuilds them on unpark.
+  Measured and reverted for pan; see [ADR 0037](adr/0037-pan-does-not-freeze-its-pages.md).*
 - **Endgame C — full OSR compositor:** every page a GPU texture in one
   WebGL/WebGPU scene (the Ultralight/OBS shape). Ceiling measured at
   ~16 pages@720p/54fps today, CPU-bound; input/popup/IME reimplementation is
@@ -435,3 +439,9 @@ problem we already know how to fix (ADR 0023 Phase 1 was never landed); zoom is
 a raster + surface-churn problem that settle-only emulation mostly fixes; and
 drift is a substrate-count problem that only unification (A) or freezing (B)
 truly ends.**
+
+*Follow-up (2026-08-23): the pan half of that sentence proved incomplete. Pan's
+IPC/rebuild cost was removed (ADR 0036, camera-local projection) and pan still
+felt worst — because the dominant per-frame cost was neither substrate but
+canvas-bg's own grid, drawn one path fill per dot. See
+[perf-zoom-pan-log.md](perf-zoom-pan-log.md) Exp F–H.*

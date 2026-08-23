@@ -375,3 +375,162 @@ The encode bench, the CDP probe route, the `/perf/flags` A/B switches, and the
 `[zoom-snap]` lifecycle logging were removed before merge. The log above keeps
 the numbers they produced; re-create them from git history if a follow-up needs
 to measure again.
+
+## Exp F — the pan snapshot storm (SHIPPED, 2026-08-23)
+
+*Scene: the working canvas, 15 live pages, zoom 0.21, 1600×1000 CSS at dpr 2,
+120Hz. Driven over CDP against canvas-bg (`window.electronAPI.canvasPan`) rather
+than the 5 fixed profiles, because the effect only appears when panning stops.*
+
+`layoutAllViews()` ends with `scheduleZoomSnapshotPreparation()` on every pass,
+and pan calls `layoutAllViews()` on every input tick. The 50ms debounce means a
+continuous pan never fires it — but every pause does, and the prepared set was
+keyed on each page's view bounds:
+
+```
+[page.id, bounds.x, bounds.y, bounds.width, bounds.height]
+```
+
+A pan moves every page, so the key never matched and the whole set was
+discarded: full `capturePage` + synchronous `toJPEG(85)` for every page on main,
+then a republish the renderer decoded in full. Zoom never paid it — its settle
+handoff stamps a matching key.
+
+Position was never load-bearing. Frames are drawn into the rect the renderer
+projects from the camera (`chromeItemDraw.ts`, `drawItemSnapshot`), and validity
+is `contentKey` + captured resolution. Replaced the key with a coverage question:
+*does every on-screen page have a frame of its current content, at no less detail
+than it occupies on screen now?*
+
+| 160ms pan burst, then idle | browser main | JPEG decodes |
+|---|---|---|
+| idle control (no pan at all) | 5ms | 0 |
+| **before** | 77ms | **33 / 293ms** |
+| **after** ×3 | 64 / 62 / 61ms | **0 / 0 / 0** |
+
+Discriminator that isolated it: a *continuous* 1.1s pan with no pause >50ms
+produced **zero** decodes both before and after. Only stopping triggers it.
+
+Falls out of the same change: a zoom-out reuses instead of re-capturing, and a
+page leaving the screen keeps its frame instead of discarding the set.
+
+**Hypothesis tested and disproved along the way:** that canvas-bg was also
+*drawing* those unused bitmaps every frame (`useFrozenPagesState` never consults
+`active` for the `bg` target). Gating the draw on `active`, confirmed live via
+CDP, changed nothing measurable. The waste is capture/encode/decode, not draw.
+
+## Exp G — the dot grid is one tiled fill (SHIPPED, 2026-08-23)
+
+The largest single cost on the pan path, and it was in neither substrate the
+freeze work was arguing about.
+
+`drawCanvasGrid` drew every dot as its own `beginPath`/`arc`/`fill`. At this
+viewport and zoom the spacing is 8.57px, so:
+
+```
+187 cols × 117 rows = 21,879 path fills per frame → 2.6M/sec at 120Hz
+```
+
+Replaced with one cached `spacing × spacing` tile and a repeating pattern: one
+`fillRect`. The tile spans a whole number of device pixels so the repeat lands
+every dot on the device grid, which is what the old per-dot `snapToDevicePixel`
+rounding was buying; rounding the tile moves spacing by well under a pixel.
+
+Microbenchmark, same renderer, same viewport, both implementations back to back
+(the clean A/B — no session confound):
+
+| grid draw | ms/frame |
+|---|---|
+| per-dot loop | **6.433** |
+| tiled pattern | **0.147** |
+| | **44×** |
+
+6.4ms of an 8.3ms frame budget at 120Hz, spent on the grid alone, on every
+camera tick. Corroborating trace over a continuous 1.1s pan (cross-session, so
+treat as directional):
+
+| continuous pan | before | after |
+|---|---|---|
+| canvas-bg renderer main | 1148ms (72%) | 506ms (37%) |
+| GPU main | 1470ms (92%) | 323ms (24%) |
+| `RasterDecoderImpl::DoRasterCHROMIUM` | 1049ms / 2048× | absent from top events |
+
+This is why the original live-vs-frozen A/B showed identical raster cost in both
+arms: the dominant raster was canvas-bg's own, and the freeze never touched it.
+
+## Exp H — freeze the pages during a pan (BUILT, MEASURED, REVERTED)
+
+Full postmortem and the decision: [ADR 0037](adr/0037-pan-does-not-freeze-its-pages.md).
+
+Built it: a `pan-motion.ts` settle latch mirroring `zoom-motion.ts` (kept
+separate — zoom's latch also gates emulation quantization, which a pan must
+never trip), `beginPanGesture` reusing the same prepared frames and substrate
+lease, and a settle with no handoff (a pan changes no scale, so there is nothing
+to re-emulate and no presentation to wait for).
+
+It renders correctly and it is a real win *during* the gesture. It is a net loss
+across the gesture, because a parked page drops its tiles and rebuilds them on
+unpark:
+
+| 160ms pan burst + settle | browser main | JPEG decodes |
+|---|---|---|
+| freeze off | 61–64ms | 0 |
+| freeze on | 61–81ms | **40–41 / 302–341ms** |
+| after revert | 67–68ms | 0 |
+
+Browser main is flat across all three — no snapshot was re-captured, so those
+decodes are the pages rebuilding their own content. A net-zero pan (out and
+back) reproduced it at 41 decodes, ruling out newly-revealed pages.
+
+| continuous pan, 3 runs each | freeze off | freeze on |
+|---|---|---|
+| browser main | 18% | 9% |
+| GPU main | 36% | 25% |
+| canvas-bg renderer main | 40% | 41% |
+| renderer raster pool | 13% | 18% |
+
+Worth ~18ms over a burst, against ~300ms of decode after it. **The
+continuous-pan numbers above are what argued for shipping it, and they are
+incomplete: those traces stop when the pan stops, before the re-raster the
+freeze caused.** Measure the burst case.
+
+## Summary of wins (F+G on branch perf/camera-local-projection)
+
+- **Pan, per gesture-stop:** snapshot capture + encode + 33 JPEG decodes
+  (293ms) → **0**.
+- **Pan, per frame:** grid draw **6.433ms → 0.147ms** (44×); GPU main over a
+  continuous pan **92% → 24%** busy.
+- **Zoom:** unchanged, verified — 15 frames prepared and reused, mid-gesture
+  frames crisp and correctly aligned at two zoom levels.
+- **Rejected:** pan-side snapshot freeze (Exp H, ADR 0037).
+
+### Reproducing these numbers
+
+```bash
+SEC=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.specular/specular-mcp.json')))['secret'])")
+
+# Land the camera on the pages first — a culled canvas measures nothing.
+curl -s -X POST -H "x-specular-secret: $SEC" -H 'content-type: application/json' \
+  -d '{"bounds":{"x":2040,"y":-3320,"width":5535,"height":5760}}' localhost:29979/camera/focus
+
+# Trace a burst: pan ~160ms over CDP (localhost:9333, canvas-bg target), then idle 700ms.
+curl -s -X POST -H "x-specular-secret: $SEC" -d '{}' localhost:29979/perf/trace/start
+#   ... window.electronAPI.canvasPan(12, 9) × 20, 8ms apart ...
+curl -s -X POST -H "x-specular-secret: $SEC" -H 'content-type: application/json' \
+  -d '{"summarize":true,"reveal":false}' localhost:29979/perf/trace/stop
+```
+
+Read `summary.topEvents` for `ImageFrameGenerator::decodeToYUV` (the storm) and
+`RasterDecoderImpl::DoRasterCHROMIUM` (the grid), and `summary.threads` for
+per-thread `busyMs` against `summary.durationMs`.
+
+Two traps, both of which produced a wrong answer during this work:
+
+1. **Check the pages are actually on screen.** `POST /perf/visibility-probe`
+   reporting every page `culled` means the camera has drifted off the content —
+   a very quiet, very meaningless trace. The scripted profiles restore the
+   camera; ad-hoc CDP panning does not.
+2. **Compare within one app session.** Restarting between arms moves the numbers
+   enough to invert a conclusion. Where a same-session A/B needs a code switch,
+   a temporary `process.env` guard plus two restarts is cheaper than trusting a
+   cross-session pair.
