@@ -33,7 +33,7 @@ import {
   zoom,
   cameraTransitionStartedAt,
 } from './runtime-context'
-import { focusSession, focusedPageId } from './focus-session'
+import { focusSession } from './focus-session'
 import { activeSpaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './space-model'
 import { getToolDefaults } from './tool-defaults'
 import {
@@ -60,7 +60,7 @@ import {
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
 } from './runtime-geometry'
-import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
+import { viewportPresetForIndex } from './runtime-serialization'
 import {
   textEntities,
   DEFAULT_TEXT_WIDTH,
@@ -91,9 +91,7 @@ import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // --- Exported data builders ---
 
-function buildUserGroupSceneEntities(
-  origin: { x: number; y: number },
-): CanvasSceneGroupEntity[] {
+function buildUserGroupSceneEntities(): CanvasSceneGroupEntity[] {
   return workspaceGroups
     .map((g) => {
       const entityIds = [
@@ -227,7 +225,7 @@ let lastLayoutData: LayoutUpdateData | null = null
 
 export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpdateData {
   const origin = localCanvasOrigin()
-  const groupEntities = buildUserGroupSceneEntities(origin)
+  const groupEntities = buildUserGroupSceneEntities()
   const windowWidth = win?.getBounds().width ?? 0
   const isMac = process.platform === 'darwin'
   const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
