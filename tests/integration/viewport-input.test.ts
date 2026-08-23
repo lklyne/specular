@@ -20,7 +20,13 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { bootWorkspaceHarness, type WorkspaceHarness } from './harness'
 import { applyViewportInputDelta } from '../../src/main/runtime/viewport-input'
-import { zoom } from '../../src/main/runtime/runtime-context'
+import { setViewportCamera } from '../../src/main/runtime/viewport-control'
+import { pan, zoom } from '../../src/main/runtime/runtime-context'
+import { clearAllDirty, isDirty } from '../../src/main/runtime/layout-dirty'
+import { layoutCache } from '../../src/main/runtime/layout-cache'
+import { ipcChannels } from '../../src/shared/ipc-contract'
+import type { RuntimePatchBatch } from '../../src/shared/runtime-patch'
+import { aboveView, bgView } from '../../src/main/runtime/view-refs'
 
 let harness: WorkspaceHarness
 
@@ -46,5 +52,81 @@ describe('viewport input applies on arrival', () => {
     // bucketed behind a timer, zoom would be unchanged here.
     expect(zoom).not.toBe(zoomBefore)
     expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 16)
+  })
+})
+
+/**
+ * A camera move is a camera patch, and nothing else (camera-local projection,
+ * phase 2).
+ *
+ * Zoom used to `markDirty('canvas')`, so the same pass that positioned the
+ * native views also rebuilt, diffed and fanned out the whole scene — once per
+ * wheel event. Renderers project canvas-space geometry through the `camera`
+ * slice, so the move is that slice: no entity changed, and the pass has no
+ * scene to rebuild.
+ *
+ * Mutation-verified by:
+ * - restoring `markDirty('toolbar', 'canvas')` in `setViewportCamera` — the
+ *   zoom case's "canvas stays clean" assertion fails;
+ * - dropping the `broadcastCamera()` call — the patch assertions fail;
+ * - dropping `markDirty('toolbar')` — the zoom-readout assertion fails.
+ */
+describe('a camera move broadcasts one camera patch', () => {
+  beforeEach(() => {
+    harness ??= bootWorkspaceHarness()
+    harness.reset()
+  })
+
+  afterAll(() => harness?.dispose())
+
+  /** Fixture loading and reset legitimately dirty the canvas and arm the
+   *  debounce; reset them by hand so the camera move is the only thing
+   *  observable. */
+  function armLayoutWatch(): void {
+    harness.clearBroadcasts()
+    clearAllDirty()
+    if (layoutCache.layoutTimer) {
+      clearTimeout(layoutCache.layoutTimer)
+      layoutCache.layoutTimer = null
+    }
+  }
+
+  function cameraPatchesFor(webContentsId: number) {
+    return harness.broadcasts
+      .filter((b) => b.channel === ipcChannels.runtimePatch && b.webContentsId === webContentsId)
+      .flatMap((send) => (send.args[0] as RuntimePatchBatch).patches)
+  }
+
+  it('patches the camera slice on a pan and leaves the scene alone', () => {
+    armLayoutWatch()
+
+    setViewportCamera(zoom, { x: pan.x + 40, y: pan.y - 25 })
+
+    const expected = {
+      kind: 'slice',
+      slice: 'camera',
+      value: { zoom, pan: { x: pan.x, y: pan.y }, cameraTransitionStartedAt: null },
+    }
+    expect(cameraPatchesFor(bgView!.webContents.id)).toEqual([expected])
+    expect(cameraPatchesFor(aboveView!.webContents.id)).toEqual([expected])
+    expect(isDirty('canvas')).toBe(false)
+    expect(layoutCache.layoutTimer).toBeNull()
+  })
+
+  it('patches the camera slice on a zoom, dirtying only the toolbar readout', () => {
+    armLayoutWatch()
+
+    setViewportCamera(zoom * 1.5, pan)
+
+    expect(cameraPatchesFor(bgView!.webContents.id)).toEqual([
+      {
+        kind: 'slice',
+        slice: 'camera',
+        value: { zoom, pan: { x: pan.x, y: pan.y }, cameraTransitionStartedAt: null },
+      },
+    ])
+    // The zoom percentage is not on the scene bus, so it still rides the pass.
+    expect(isDirty('toolbar')).toBe(true)
+    expect(isDirty('canvas')).toBe(false)
   })
 })
