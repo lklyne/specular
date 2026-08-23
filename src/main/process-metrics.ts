@@ -142,12 +142,59 @@ function ownersByPid(): Map<number, ViewOwner[]> {
     // A crashed or not-yet-spawned renderer reports 0 and matches no metric.
     if (!pid) continue
     const owner = known.get(contents.id) ?? fallbackOwner(contents)
-    const list = byPid.get(pid)
-    if (list) list.push(owner)
-    else byPid.set(pid, [owner])
+    add(byPid, pid, owner)
+    for (const frame of outOfProcessFrames(contents, pid, owner)) add(byPid, frame.pid, frame.owner)
   }
 
   return byPid
+}
+
+function add(byPid: Map<number, ViewOwner[]>, pid: number, owner: ViewOwner): void {
+  const list = byPid.get(pid)
+  if (list) list.push(owner)
+  else byPid.set(pid, [owner])
+}
+
+/**
+ * Frames a webContents hosts in renderers other than its own — a cross-origin
+ * iframe gets a process of its own, and without this its row would show up
+ * unnamed. An inline HTML file on the canvas is exactly that.
+ */
+function outOfProcessFrames(
+  contents: Electron.WebContents,
+  hostPid: number,
+  host: ViewOwner,
+): { pid: number; owner: ViewOwner }[] {
+  const seen = new Set<string>()
+  const result: { pid: number; owner: ViewOwner }[] = []
+  let frames: Electron.WebFrameMain[]
+  try {
+    frames = contents.mainFrame.framesInSubtree
+  } catch {
+    return result
+  }
+  for (const frame of frames) {
+    const pid = frame.osProcessId
+    if (!pid || pid === hostPid) continue
+    const key = `${pid}:${frame.url}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push({
+      pid,
+      owner: { label: `${host.label} — ${frameLabel(frame.url)}`, kind: 'other', url: frame.url },
+    })
+  }
+  return result
+}
+
+function frameLabel(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const base = parsed.pathname.split('/').pop()
+    return base || parsed.host || url
+  } catch {
+    return url
+  }
 }
 
 export function sampleProcessMetrics(): ProcessMetricsSample {

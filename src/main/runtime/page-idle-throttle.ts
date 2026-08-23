@@ -28,6 +28,7 @@
 import { automationInteractivePageCounts, pages } from './runtime-context'
 import type { Page } from './runtime-entities'
 import { ensurePageDebugger } from './page-debugger'
+import { broadcastRuntimePatch } from './runtime-patch-broadcast'
 import { evaluateIdleThrottle } from './page-idle-policy'
 
 type LifecycleState = 'active' | 'frozen'
@@ -43,6 +44,9 @@ let blurredAt = 0
 let agentActiveUntil = 0
 let awakeHoldCount = 0
 let recheckTimer: NodeJS.Timeout | null = null
+/** Last verdict the canvas renderers were told, so a re-evaluation that
+ *  changes nothing sends nothing. */
+let broadcastIdle: boolean | null = null
 
 /**
  * Pages with a load in flight, tracked here rather than read off `page.isLoading`
@@ -109,6 +113,18 @@ function syncAllPages(): void {
 }
 
 /**
+ * Content the renderers host themselves — inline HTML files run as iframes
+ * inside canvas-bg — is out of CDP's reach from here, so the verdict travels
+ * as a runtime slice and the renderer quiets it.
+ */
+function broadcastIdleVerdict(): void {
+  const idle = pagesAreIdle()
+  if (broadcastIdle === idle) return
+  broadcastIdle = idle
+  broadcastRuntimePatch({ kind: 'slice', slice: 'idle', value: idle })
+}
+
+/**
  * Apply the current verdict to every page and arm a single timer for the
  * moment it can next flip on its own.
  */
@@ -119,6 +135,7 @@ function reevaluate(): void {
   }
 
   syncAllPages()
+  broadcastIdleVerdict()
 
   const { nextCheckAt } = evaluateIdleThrottle({
     now: Date.now(),

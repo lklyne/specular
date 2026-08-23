@@ -49,6 +49,13 @@ correctness bug in the agent path.
 The same reasoning rules out relying on Chromium's own occluded state: it is
 window-granular and not app-triggerable per view.
 
+Inline HTML files are not pages: they render as cross-origin iframes inside
+canvas-bg, in renderers of their own that no page-level lever reaches. The
+verdict travels to canvas-bg as the `idle` runtime slice and the renderer
+hides the iframe (`visibility: hidden`) — Chromium gives a frame it is not
+rendering no rAF at all, the same thing that already quiets one scrolled
+off-screen. Measured: a 120fps iframe drops to 0 either way.
+
 ### 2. Two ways to stay awake, because one signal is not enough
 
 - **Agent activity** — a trailing window pulsed by control-server traffic.

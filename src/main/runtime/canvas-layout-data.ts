@@ -7,6 +7,7 @@
  * left sidebar, and annotation overlay renderers.
  */
 
+import { idleThrottleState } from './page-idle-throttle'
 import type {
   ActiveCanvasEntitySelection,
   AgentPresenceCursor,
@@ -355,6 +356,7 @@ export function buildCanvasLayoutData(
     selectedGroupId: uiSelectedGroupId(),
     hover: hoverTarget,
     interaction: interactionState,
+    idle: idleThrottleState().idle,
     pendingPlacement: pendingPlacementData,
     devtoolsOpen: uiDevtoolsOpen(),
     devtoolsWidth: uiDevtoolsWidth(),

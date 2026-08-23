@@ -56,6 +56,7 @@ const SLICE_LAYOUT_KEYS: Record<RuntimeSliceKey, readonly (keyof LayoutUpdateDat
   presence: ['presenceCursors'],
   pageScroll: ['pageScroll'],
   annotationBboxes: ['annotationBboxes'],
+  idle: ['idle'],
 }
 
 /**
@@ -68,7 +69,8 @@ const SLICE_LAYOUT_KEYS: Record<RuntimeSliceKey, readonly (keyof LayoutUpdateDat
 export const SCENE_TARGET_SLICES: Record<SceneTarget, readonly RuntimeSliceKey[]> = {
   // Page chrome, device shells, group backgrounds, the grid, the placement
   // preview. No hover outline, no gestures, no annotation geometry.
-  'canvas-bg': ['camera', 'chrome', 'scene', 'selection', 'tool', 'focus', 'annotations'],
+  // `idle` so inline HTML files can stop animating when nobody is looking.
+  'canvas-bg': ['camera', 'chrome', 'scene', 'selection', 'tool', 'focus', 'annotations', 'idle'],
   // The interaction surface: everything except the inspect tree and presence
   // cursors, which render in the agent overlay window.
   'above-view': [

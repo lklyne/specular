@@ -82,6 +82,7 @@ export interface RuntimeStoreSlices {
   presence: LayoutUpdateData['presenceCursors']
   pageScroll: LayoutUpdateData['pageScroll']
   annotationBboxes: LayoutUpdateData['annotationBboxes']
+  idle: LayoutUpdateData['idle']
 }
 
 export type RuntimeSliceKey = keyof RuntimeStoreSlices
@@ -102,6 +103,7 @@ export const RUNTIME_SLICE_KEYS = [
   'presence',
   'pageScroll',
   'annotationBboxes',
+  'idle',
 ] as const satisfies readonly RuntimeSliceKey[]
 
 export interface RuntimeStore {
@@ -174,6 +176,7 @@ export function snapshotToStore(data: LayoutUpdateData): RuntimeStore {
       presence: data.presenceCursors,
       pageScroll: data.pageScroll,
       annotationBboxes: data.annotationBboxes,
+      idle: data.idle,
     },
   }
 }
@@ -226,6 +229,7 @@ export function storeToLayoutData(store: RuntimeStore): LayoutUpdateData {
     edges: store.slices.edges,
     groups,
     presenceCursors: store.slices.presence,
+    idle: store.slices.idle,
     keyboardTargetPageId: focus?.keyboardTargetPageId,
     interactivePageId: focus?.interactivePageId,
     focusPresentation: focus?.focusPresentation,

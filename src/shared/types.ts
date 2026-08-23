@@ -510,6 +510,9 @@ export interface LayoutUpdateData {
    * #257 / #265.
    */
   buildMs?: number
+  /** The idle verdict (ADR 0035): nobody is looking and no agent is working,
+   *  so renderers may stop animating content they host. */
+  idle?: boolean
   windowWidth: number
   zoom: number
   pan: { x: number; y: number }

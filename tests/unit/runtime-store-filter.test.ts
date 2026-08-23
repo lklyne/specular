@@ -154,4 +154,13 @@ describe('filterPatchBatch', () => {
     const hoverOnly: RuntimePatchBatch = { patches: [batch.patches[0]] }
     expect(filterPatchBatch(hoverOnly, 'canvas-bg')).toBeNull()
   })
+
+  // canvas-bg hosts the inline HTML iframes the idle verdict quiets; the
+  // agent layer hosts nothing that animates. Dropping 'idle' from canvas-bg's
+  // slice list (runtime-store-filter.ts) fails the first assertion.
+  it('routes the idle verdict to the renderer hosting inline HTML files', () => {
+    const idle: RuntimePatchBatch = { patches: [{ kind: 'slice', slice: 'idle', value: true }] }
+    expect(filterPatchBatch(idle, 'canvas-bg')?.patches).toEqual(idle.patches)
+    expect(filterPatchBatch(idle, 'agent-layer')).toBeNull()
+  })
 })
