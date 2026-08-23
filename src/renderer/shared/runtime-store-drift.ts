@@ -62,7 +62,12 @@ function summarize(value: unknown): string {
   return String(value)
 }
 
-/** The keys where two values disagree, chased far enough to name a field. */
+/**
+ * The keys where two values disagree, chased far enough to name a field.
+ *
+ * Walking arbitrary held values is best-effort — a throwing accessor, a
+ * pathological shape — so it is fenced off from the report in `describeCell`.
+ */
 function describeDelta(before: unknown, after: unknown, path = '', depth = 0): string[] {
   if (depth < MAX_DEPTH && isPlainObject(before) && isPlainObject(after)) {
     const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])]
@@ -75,6 +80,22 @@ function describeDelta(before: unknown, after: unknown, path = '', depth = 0): s
     if (rows.length > 0) return rows
   }
   return [`${path || 'value'}=${summarize(before)}→${summarize(after)}`]
+}
+
+/**
+ * The keys line, or why there isn't one.
+ *
+ * The cell name and the counters are the guard; the keys are the convenience.
+ * So a walk that throws costs its own detail and nothing else — not the rest of
+ * the cells, not the periodic counter, and not the snapshot the caller is in
+ * the middle of applying.
+ */
+function describeCell(before: unknown, after: unknown): string[] {
+  try {
+    return describeDelta(before, after)
+  } catch (error) {
+    return [`describe-failed=${error instanceof Error ? error.message : String(error)}`]
+  }
 }
 
 function cellName(patch: RuntimePatch): string {
@@ -101,6 +122,17 @@ export function reportReconcileDrift(accumulated: RuntimeStore, snapshot: Runtim
     const detail = drifted.slice(0, 8).map(cellName).join(' ')
     console.warn(`[drift-watchdog] first drift after ${snapshots} snapshots: ${detail}`)
   }
+  // Armed before the per-cell detail, so the running count — the part that
+  // survives a session — never depends on the detail walk finishing.
+  if (!timer) {
+    timer = setInterval(() => {
+      if (mismatches === 0) return
+      console.warn(`[drift-watchdog] ${mismatches} drifted cells over ${snapshots} snapshots`)
+      mismatches = 0
+      snapshots = 0
+    }, REPORT_INTERVAL_MS)
+    ;(timer as { unref?: () => void }).unref?.()
+  }
   let described = 0
   for (const patch of drifted) {
     if (described >= MAX_CELLS) break
@@ -108,17 +140,9 @@ export function reportReconcileDrift(accumulated: RuntimeStore, snapshot: Runtim
     if (detailed.has(name)) continue
     detailed.add(name)
     described += 1
-    const rows = describeDelta(heldValue(accumulated, patch), incomingValue(patch))
+    const rows = describeCell(heldValue(accumulated, patch), incomingValue(patch))
     const shown = rows.slice(0, MAX_KEYS).join(' ')
     const more = rows.length > MAX_KEYS ? ` +${rows.length - MAX_KEYS} more` : ''
     console.warn(`[drift-watchdog] ${name} held→snapshot: ${shown}${more}`)
   }
-  if (timer) return
-  timer = setInterval(() => {
-    if (mismatches === 0) return
-    console.warn(`[drift-watchdog] ${mismatches} drifted cells over ${snapshots} snapshots`)
-    mismatches = 0
-    snapshots = 0
-  }, REPORT_INTERVAL_MS)
-  ;(timer as { unref?: () => void }).unref?.()
 }
