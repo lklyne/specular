@@ -57,7 +57,7 @@ describe('shape-entity-state', () => {
     expect(shapeEntities).toHaveLength(0)
   })
 
-  it('builds a scene entity with screen-space coords', () => {
+  it('builds a scene entity in canvas space', () => {
     const entity = createShapeEntity({
       canvasX: 100,
       canvasY: 200,
@@ -65,13 +65,14 @@ describe('shape-entity-state', () => {
       height: 30,
       shapeKind: 'rectangle',
     })
-    const scene = buildShapeEntitySceneEntity(entity, 2, { x: 5, y: 7 }, { x: 10, y: 20 })
-    expect(scene.kind).toBe('shape')
-    // canvasOrigin + canvasX*zoom + pan
-    expect(scene.screenX).toBe(10 + 100 * 2 + 5)
-    expect(scene.screenY).toBe(20 + 200 * 2 + 7)
-    expect(scene.screenWidth).toBe(100)
-    expect(scene.screenHeight).toBe(60)
+    const scene = buildShapeEntitySceneEntity(entity)
+    expect(scene).toMatchObject({
+      kind: 'shape',
+      canvasX: 100,
+      canvasY: 200,
+      width: 50,
+      height: 30,
+    })
   })
 
   it('persists and restores all fields', () => {
@@ -119,7 +120,7 @@ describe('shape-entity-state', () => {
     })
     expect(entity.fillStyle).toBe('solid')
     expect(entity.textSize).toBe(32)
-    const scene = buildShapeEntitySceneEntity(entity, 1, { x: 0, y: 0 }, { x: 0, y: 0 })
+    const scene = buildShapeEntitySceneEntity(entity)
     expect(scene).toMatchObject({
       fillStyle: 'solid',
       textSize: 32,

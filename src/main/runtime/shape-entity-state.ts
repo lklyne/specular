@@ -153,12 +153,7 @@ function shapeCoreFields(entity: ShapeEntity) {
   }
 }
 
-export function buildShapeEntitySceneEntity(
-  entity: ShapeEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneShapeEntity {
+export function buildShapeEntitySceneEntity(entity: ShapeEntity): CanvasSceneShapeEntity {
   // Scroll- and element-follow: the scene projects the *apparent* position —
   // stored canvas coords shifted by how far the anchor page has scrolled and
   // how far its reference element has moved since the anchor was written. The
@@ -172,10 +167,6 @@ export function buildShapeEntitySceneEntity(
     ...shapeCoreFields(entity),
     canvasX,
     canvasY,
-    screenX: canvasOrigin.x + canvasX * zoom + pan.x,
-    screenY: canvasOrigin.y + canvasY * zoom + pan.y,
-    screenWidth: entity.width * zoom,
-    screenHeight: entity.height * zoom,
   }
 }
 

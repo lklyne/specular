@@ -89,9 +89,6 @@ export function clearDrawingEntities(): void {
 
 export function buildDrawingEntitySceneEntity(
   entity: DrawingEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
 ): CanvasSceneDrawingEntity {
   // Scroll- and element-follow: project the apparent position — stored coords
   // shifted by the page's scroll and its reference element's movement since the
@@ -110,8 +107,6 @@ export function buildDrawingEntitySceneEntity(
           points: stroke.points.map((point) => ({ x: point.x - shiftX, y: point.y - shiftY })),
         }))
       : entity.strokes
-  const screenX = canvasOrigin.x + canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + canvasY * zoom + pan.y
   return {
     kind: 'drawing',
     id: entity.id,
@@ -119,10 +114,6 @@ export function buildDrawingEntitySceneEntity(
     canvasY,
     width: entity.width,
     height: entity.height,
-    screenX,
-    screenY,
-    screenWidth: entity.width * zoom,
-    screenHeight: entity.height * zoom,
     strokes,
     parentGroupId: entity.parentGroupId,
     pageAnchor: entity.pageAnchor,

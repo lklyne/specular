@@ -108,12 +108,7 @@ export function clearTextEntities(): void {
   textEntities.length = 0
 }
 
-export function buildTextEntitySceneEntity(
-  entity: TextEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneTextEntity {
+export function buildTextEntitySceneEntity(entity: TextEntity): CanvasSceneTextEntity {
   // Scroll- and element-follow: project the apparent position — stored coords
   // shifted by the page's scroll and its reference element's movement since the
   // anchor was written (see shape builder).
@@ -121,8 +116,6 @@ export function buildTextEntitySceneEntity(
   const element = pageAnchorElementShift(entity.pageAnchor)
   const canvasX = entity.canvasX - scroll.x - element.x
   const canvasY = entity.canvasY - scroll.y - element.y
-  const screenX = canvasOrigin.x + canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + canvasY * zoom + pan.y
   return {
     kind: 'text',
     id: entity.id,
@@ -137,10 +130,6 @@ export function buildTextEntitySceneEntity(
     height: entity.height,
     parentGroupId: entity.parentGroupId,
     pageAnchor: entity.pageAnchor,
-    screenX,
-    screenY,
-    screenWidth: entity.width * zoom,
-    screenHeight: entity.height * zoom,
   }
 }
 

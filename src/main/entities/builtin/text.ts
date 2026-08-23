@@ -81,8 +81,7 @@ export const textKind: EntityKindDefinition<'text'> = {
     }
   },
 
-  buildSceneEntity: (entity, zoom, pan, origin) =>
-    buildTextEntitySceneEntity(entity as TextEntity, zoom, pan, origin),
+  buildSceneEntity: (entity) => buildTextEntitySceneEntity(entity as TextEntity),
 
   persist: (entity) => persistTextEntity(entity as TextEntity),
 }

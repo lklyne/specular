@@ -64,7 +64,6 @@ import {
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
-  boundScreenBoundsForPage as screenBoundsForPage,
 } from './runtime-geometry'
 import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
 import {
@@ -109,9 +108,7 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
     : pages
   return visiblePages.map((page) => {
     const { width, height } = effectivePageContentSize(page)
-    const bounds = screenBoundsForPage(page)
     const deviceId = deviceIdFromMetadata(page.metadata)
-    const showShell = showDeviceFrameFromMetadata(page.metadata)
     return {
       kind: 'page' as const,
       id: page.id,
@@ -129,19 +126,10 @@ export function backgroundPageOverlays(): CanvasScenePageEntity[] {
       presetIndex: page.presetIndex,
       synced: isPageSynced(page),
       syncId: page.syncId ?? null,
-      screenX: showShell ? bounds.shell.x : bounds.page.x,
-      screenY: showShell ? bounds.shell.y : bounds.page.y,
-      screenWidth: showShell ? bounds.shell.width : bounds.page.width,
-      screenHeight: showShell ? bounds.shell.height : bounds.page.height,
       // Device state
       deviceId,
       deviceOrientation: deviceOrientationFromMetadata(page.metadata),
-      showDeviceFrame: showShell,
-      // Inner content bounds (always the web viewport)
-      contentScreenX: bounds.page.x,
-      contentScreenY: bounds.page.y,
-      contentScreenWidth: bounds.page.width,
-      contentScreenHeight: bounds.page.height,
+      showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
       useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
       colorScheme: page.colorScheme,
       scrollX: page.scrollX ?? 0,
@@ -183,7 +171,7 @@ function buildUserGroupSceneEntities(
         ...shapeEntities.filter((entity) => entity.parentGroupId === g.id).map((entity) => entity.id),
         ...workspaceGroups.filter((candidate) => candidate.parentGroupId === g.id).map((group) => group.id),
       ]
-      return buildGroupSceneEntity(g, zoom, pan, origin, entityIds)
+      return buildGroupSceneEntity(g, entityIds)
     })
 }
 
@@ -298,7 +286,7 @@ export function buildCanvasLayoutData(
         // page shows a different URL they leave the scene entirely (not
         // rendered, not hit-testable). The sidebar still lists them, dimmed.
         .filter((entity) => !hiddenByPageAnchor(entity))
-        .map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
+        .map((entity) => getEntityKind(kind).buildSceneEntity!(entity)),
     ),
     ...groupEntities,
   ] as CanvasSceneEntity[]

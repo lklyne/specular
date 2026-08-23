@@ -97,7 +97,7 @@ export interface EntityKindDefinition<K extends CanvasEntityKind = CanvasEntityK
    * WebContents-backed overlay) and group (needs its child ids) build their
    * scene entities through bespoke call-site paths.
    */
-  buildSceneEntity?(entity: RuntimeEntity, zoom: number, pan: ScenePoint, origin: ScenePoint): CanvasSceneEntity
+  buildSceneEntity?(entity: RuntimeEntity): CanvasSceneEntity
   /**
    * Project one runtime entity to its persisted shape. Present only on the
    * map-projectable kinds; page mirrors to the pages map via `serializePage`
