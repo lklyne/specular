@@ -2,6 +2,7 @@ import type {
   LayoutUpdateData,
 } from '../../shared/types'
 import { snapToGrid, screenPointToCanvasPoint } from '../../shared/gesture-utils'
+import { projectToScreen } from '../../shared/scene-projection'
 
 export function buildPendingPlacementPreview(
   layoutData: LayoutUpdateData,
@@ -13,8 +14,16 @@ export function buildPendingPlacementPreview(
     placementCursor.clientY,
     layoutData,
   )
-  const snappedX = snapToGrid(point.x)
-  const snappedY = snapToGrid(point.y)
+  const rect = projectToScreen(
+    {
+      x: snapToGrid(point.x),
+      y: snapToGrid(point.y),
+      width: layoutData.pendingPlacement.width,
+      height: layoutData.pendingPlacement.height,
+    },
+    { zoom: layoutData.zoom, pan: layoutData.pan },
+    layoutData.canvasOrigin,
+  )
   return {
     entityKind: layoutData.pendingPlacement.entityKind,
     shapeKind: layoutData.pendingPlacement.shapeKind,
@@ -22,10 +31,10 @@ export function buildPendingPlacementPreview(
     color: layoutData.pendingPlacement.color,
     textSize: layoutData.pendingPlacement.textSize,
     zoom: layoutData.zoom,
-    left: layoutData.canvasOrigin.x + layoutData.pan.x + snappedX * layoutData.zoom,
-    top: layoutData.canvasOrigin.y + layoutData.pan.y + snappedY * layoutData.zoom,
-    width: layoutData.pendingPlacement.width * layoutData.zoom,
-    height: layoutData.pendingPlacement.height * layoutData.zoom,
+    left: rect.x,
+    top: rect.y,
+    width: rect.width,
+    height: rect.height,
   }
 }
 
