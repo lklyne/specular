@@ -179,7 +179,7 @@ export function insetByShell(
 
 /** The device-shell insets an entity's metadata resolves to, or null when it
  *  draws no shell. `null` deviceId with a shell on is the custom-size case. */
-export function shellInsetsFor(entity: {
+function shellInsetsFor(entity: {
   showDeviceFrame?: boolean
   deviceId?: string | null
   deviceOrientation?: DeviceOrientation
