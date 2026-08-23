@@ -17,7 +17,7 @@ import {
 import { isUnresolved } from '../../shared/annotation-utils'
 import { runtimeStore } from '../shared/runtime-store'
 import { useProjectedLayoutData } from '../shared/hooks/useProjectedLayoutData'
-import { projectLayoutData } from '../shared/scene-projection'
+import { projectLayoutData, reprojectEntity } from '../shared/scene-projection'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
@@ -486,14 +486,10 @@ export default function App({
     if (!moving) return null
     const dx = reorderGhost?.dx ?? 0
     const dy = reorderGhost?.dy ?? 0
-    const { zoom } = layoutData
-    return {
-      ...moving,
-      canvasX: moving.canvasX + dx,
-      canvasY: moving.canvasY + dy,
-      screenX: moving.screenX + dx * zoom,
-      screenY: moving.screenY + dy * zoom,
-    }
+    return reprojectEntity(
+      { ...moving, canvasX: moving.canvasX + dx, canvasY: moving.canvasY + dy },
+      layoutData,
+    )
   }, [layoutData, reorderGhost])
 
   // The drop-location placeholder sits at the dragged item's packed destination

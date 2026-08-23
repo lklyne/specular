@@ -16,6 +16,7 @@
  */
 
 import type { LayoutUpdateData } from '../../shared/types'
+import { reprojectEntity } from '../shared/scene-projection'
 
 export function contentHeightLayout(
   layout: LayoutUpdateData,
@@ -27,7 +28,7 @@ export function contentHeightLayout(
     const height = heights.get(entity.id)
     if (height === undefined || height === entity.height) return entity
     changed = true
-    return { ...entity, height, screenHeight: height * layout.zoom }
+    return reprojectEntity({ ...entity, height }, layout)
   })
   return changed ? { ...layout, entities } : null
 }

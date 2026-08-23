@@ -19,6 +19,7 @@
 
 import { detectReorderableRow, reorderRowPositions, type Box } from '../../shared/reorder-row'
 import type { CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
+import { reprojectEntity } from '../shared/scene-projection'
 
 /**
  * A layout clone with each row entity moved to its previewed slot, or null when
@@ -26,7 +27,7 @@ import type { CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
  * shifts yet). Callers fall back to the broadcast layout on null.
  */
 export function reorderPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData | null {
-  const { interaction, zoom } = layoutData
+  const { interaction } = layoutData
   if (interaction.kind !== 'reordering-row') return null
 
   const rowIds = new Set(interaction.ids)
@@ -48,13 +49,7 @@ export function reorderPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdate
     if (!next || e.kind === 'group') return e
     // Reorder only permutes along the dominant axis, but apply both deltas so
     // the helper stays axis-agnostic (Q2 column support is near-free).
-    return {
-      ...e,
-      canvasX: next.x,
-      canvasY: next.y,
-      screenX: e.screenX + (next.x - e.canvasX) * zoom,
-      screenY: e.screenY + (next.y - e.canvasY) * zoom,
-    }
+    return reprojectEntity({ ...e, canvasX: next.x, canvasY: next.y }, layoutData)
   })
 
   return { ...layoutData, entities }

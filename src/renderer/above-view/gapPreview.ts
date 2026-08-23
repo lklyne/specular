@@ -23,6 +23,7 @@
 
 import { packedGapPositions } from '../../shared/gap-handles'
 import type { CanvasSceneEntity, CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
+import { reprojectEntity } from '../shared/scene-projection'
 
 /**
  * A layout clone with the line's items moved to their previewed slots, or
@@ -30,7 +31,7 @@ import type { CanvasSceneEntity, CanvasSceneGroupEntity, LayoutUpdateData } from
  * broadcast layout on null.
  */
 export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData | null {
-  const { interaction, zoom } = layoutData
+  const { interaction } = layoutData
   if (interaction.kind !== 'resizing-gap') return null
 
   const group =
@@ -82,19 +83,16 @@ export function gapPreviewLayout(layoutData: LayoutUpdateData): LayoutUpdateData
 
   const preview = <T extends CanvasSceneEntity>(e: T): T => {
     if (group !== null && e.id === group.id && e.kind === 'group' && extentDelta !== 0) {
-      return along
-        ? { ...e, width: e.width + extentDelta, screenWidth: e.screenWidth + extentDelta * zoom }
-        : { ...e, height: e.height + extentDelta, screenHeight: e.screenHeight + extentDelta * zoom }
+      return reprojectEntity(
+        along
+          ? { ...e, width: e.width + extentDelta }
+          : { ...e, height: e.height + extentDelta },
+        layoutData,
+      )
     }
     const d = deltas.get(e.id)
     if (!d || (d.dx === 0 && d.dy === 0)) return e
-    return {
-      ...e,
-      canvasX: e.canvasX + d.dx,
-      canvasY: e.canvasY + d.dy,
-      screenX: e.screenX + d.dx * zoom,
-      screenY: e.screenY + d.dy * zoom,
-    }
+    return reprojectEntity({ ...e, canvasX: e.canvasX + d.dx, canvasY: e.canvasY + d.dy }, layoutData)
   }
 
   return {
