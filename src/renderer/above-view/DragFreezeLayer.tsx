@@ -1,3 +1,4 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { FrozenPagesState } from '../../shared/types'
@@ -46,7 +47,7 @@ export const DragFreezeLayer = memo(function DragFreezeLayer({
   isDark,
 }: {
   api: CanvasBgElectronAPI
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>
+  layoutRef: LayoutSnapshotRef
   isDark: boolean
 }) {
   const [frozenState, setFrozenState] = useState<FrozenPagesState>(EMPTY_FROZEN_STATE)

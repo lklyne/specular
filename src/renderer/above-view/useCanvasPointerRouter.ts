@@ -24,6 +24,7 @@
  * come from `./pointer-session.ts`.
  */
 
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import type { ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { useEffect, useRef } from 'react'
 import { hitTest, type HitInputs } from '../../shared/hit-test'
@@ -116,7 +117,7 @@ interface CommentDraftSnapshot {
 
 interface PointerDispatchDependencies {
   api: CanvasBgElectronAPI
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>
+  layoutRef: LayoutSnapshotRef
   optionHeldRef: React.MutableRefObject<boolean>
   commandHeldRef: React.MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
@@ -744,7 +745,7 @@ function runResize(
   action: Extract<CanvasPointerAction, { kind: 'begin-resize' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   // Capture up front, before the target-entity validation below — a bail
   // leaves the capture held until the implicit release on pointerup.
@@ -844,7 +845,7 @@ function runMultiResize(
   action: Extract<CanvasPointerAction, { kind: 'begin-multi-resize' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   // Capture up front, before the selection-bbox validation below — a bail
   // leaves the capture held until the implicit release on pointerup.
@@ -886,7 +887,7 @@ function runEdgeDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-edge-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
   setEdgeDragState: (state: EdgeDragState) => void,
 ): boolean {
   const layout = layoutRef.current
@@ -974,7 +975,7 @@ function runEdgeDrag(
 function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
   originEntity?: NonNullable<
     Extract<CanvasPointerAction, { kind: 'begin-marquee' }>['originEntity']
   >,
@@ -1083,7 +1084,7 @@ function runForwardPointer(
   action: Extract<CanvasPointerAction, { kind: 'forward-pointer-down' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   const { entityId, button } = action
   let lastWindowX = event.clientX
@@ -1166,7 +1167,7 @@ function runReorderDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-reorder-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
   setReorderGhost: (ghost: ReorderGhostOffset) => void,
 ): boolean {
   // Freeze the grab point so the ghost can float at original-pos + (live -
@@ -1216,7 +1217,7 @@ function runGapDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-gap-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   const startLayout = layoutRef.current
   const grab = screenPointToCanvasPoint(
@@ -1275,7 +1276,7 @@ function runPlacementGesture(
   action: Extract<CanvasPointerAction, { kind: 'begin-placement' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   const layout = layoutRef.current
   const startCanvas = screenPointToCanvasPoint(
@@ -1368,7 +1369,7 @@ function runPlacementGesture(
 function runCommentGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>,
+  layoutRef: LayoutSnapshotRef,
   onDragMove: (startX: number, startY: number, endX: number, endY: number) => void,
   onDragEnd: (startX: number, startY: number, endX: number, endY: number) => void,
   draftRef: React.MutableRefObject<CommentDraftSnapshot>,

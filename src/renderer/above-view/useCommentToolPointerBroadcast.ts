@@ -12,8 +12,8 @@
  *     emit a single `null` clear so pages drop their overlays
  */
 
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import { useCallback, useEffect, useRef } from 'react'
-import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { clientYToWindowY } from '../../shared/coords'
 
@@ -33,7 +33,7 @@ export function useCommentToolPointerBroadcast({
   heldRegionRect,
 }: {
   api: PointerStateApi
-  layoutRef: React.MutableRefObject<LayoutUpdateData>
+  layoutRef: LayoutSnapshotRef
   active: boolean
   /**
    * Region rect to keep broadcasting while no in-flight drag rect is set —

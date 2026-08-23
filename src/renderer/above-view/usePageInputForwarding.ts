@@ -1,3 +1,4 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { useCallback, useEffect, useRef } from 'react'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -19,7 +20,7 @@ function electronCursorToCss(type: string | null): string {
 
 export interface UsePageInputForwardingOptions {
   api: CanvasBgElectronAPI
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>
+  layoutRef: LayoutSnapshotRef
   pendingPlacement: ProjectedLayoutData['pendingPlacement']
   hoverForwardingEnabled: boolean
   setPlacementCursor: (cursor: { clientX: number; clientY: number } | null) => void

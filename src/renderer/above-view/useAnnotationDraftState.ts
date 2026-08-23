@@ -1,3 +1,4 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { useCallback, useEffect, useState } from 'react'
 import type { AnnotationAnchor, AnnotationElementSelectionPayload, WorkspaceBounds } from '../../shared/types'
@@ -40,7 +41,7 @@ export function useAnnotationDraftState({
 }: {
   api: CanvasBgElectronAPI
   layoutData: ProjectedLayoutData
-  layoutRef: React.MutableRefObject<ProjectedLayoutData>
+  layoutRef: LayoutSnapshotRef
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   activeStrokeRef: React.MutableRefObject<{ pointerId: number; strokeId: string } | null>
 }) {

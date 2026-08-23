@@ -23,9 +23,9 @@ import {
   canvasPointerOwner,
 } from '../../shared/canvas-pointer-owner'
 import { isUnresolved } from '../../shared/annotation-utils'
-import { runtimeStore } from '../shared/runtime-store'
 import { useProjectedLayoutData } from '../shared/hooks/useProjectedLayoutData'
-import { projectLayoutData, reprojectEntity } from '../shared/scene-projection'
+import { useProjectedLayoutRef } from '../shared/hooks/useProjectedLayoutRef'
+import { reprojectEntity } from '../shared/scene-projection'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
@@ -400,7 +400,7 @@ export default function App({
   initialLayoutData: LayoutUpdateData
   initialTheme: ThemeData
 }) {
-  const layoutRef = useRef<ProjectedLayoutData>(projectLayoutData(initialLayoutData))
+  const layoutRef = useProjectedLayoutRef()
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
@@ -549,17 +549,6 @@ export default function App({
 
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
-
-  // Gesture code reads the layout imperatively at event time, so the ref has to
-  // move with the store rather than with the render it schedules.
-  useEffect(() => {
-    const unsubscribe = runtimeStore.subscribe(() => {
-      layoutRef.current = projectLayoutData(runtimeStore.readLayoutData())
-    })
-    return () => {
-      unsubscribe()
-    }
-  }, [])
 
   useEffect(() => setFixProgress(layoutData.fixProgress), [layoutData.fixProgress])
 
