@@ -35,7 +35,6 @@ let active = false
 let forced = false
 let preparationTimer: ReturnType<typeof setTimeout> | null = null
 let preparedContentSignature = ''
-let preparedCaptureSignature = ''
 let captureLease = 0
 
 /**
@@ -85,17 +84,41 @@ function mergeFrames(incoming: FrozenPageFrame[]): FrozenPageFrame[] {
   return [...merged.values()].filter((frame) => liveIds.has(frame.pageId))
 }
 
-function currentCaptureSignature(): string {
-  return pages.map((page) => {
+/** Pages a capture can succeed on: alive, and occupying screen space. */
+function onScreenPages(): Page[] {
+  return pages.filter((page) => {
+    if (page.pageView.webContents.isDestroyed()) return false
     const bounds = page.pageView.getBounds()
-    return [
-      page.id,
-      bounds.x,
-      bounds.y,
-      bounds.width,
-      bounds.height,
-    ].join(':')
-  }).join('|')
+    return bounds.width > 0 && bounds.height > 0
+  })
+}
+
+/**
+ * Whether the prepared set still pictures every page that needs a frame, at no
+ * less detail than the page occupies on screen right now.
+ *
+ * Deliberately says nothing about where a page sits. Frames are drawn into the
+ * rect the renderer projects from the camera, so a pan moves the picture
+ * without changing what it is a picture of. Keying on position instead would
+ * discard the whole set every time panning stopped, and re-capture and
+ * re-encode every page to arrive back at the same frames.
+ *
+ * A page that leaves the screen needs no frame, and keeps the one it has
+ * through `mergeFrames`; a page that arrives has none, which is what makes the
+ * set incomplete and schedules the capture that covers it.
+ */
+function preparedFramesCoverScreen(): boolean {
+  if (preparedFrames.length === 0) return false
+  const frameByPageId = new Map(preparedFrames.map((frame) => [frame.pageId, frame]))
+  const devicePixelRatio = screen.getPrimaryDisplay().scaleFactor
+  return onScreenPages().every((page) =>
+    frameMeetsTarget(frameByPageId.get(page.id), {
+      contentKey: pageContentKey(page),
+      cssWidth: boundEffectivePageContentSize(page).width,
+      devicePixelRatio,
+      targetScale: zoom,
+    }),
+  )
 }
 
 /**
@@ -114,12 +137,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
   discarded: boolean
 }> {
   const contentSignature = currentContentSignature()
-  const captureSignature = currentCaptureSignature()
-  if (
-    options?.force !== true &&
-    preparedFrames.length > 0 &&
-    preparedCaptureSignature === captureSignature
-  ) {
+  if (options?.force !== true && preparedFramesCoverScreen()) {
     // If the renderer never acked this revision (e.g. it published before the
     // renderer booted), the frames are unusable until re-delivered. Republish
     // and wait again instead of returning a stale "ready" set.
@@ -148,8 +166,8 @@ export async function prepareZoomSnapshotFreeze(options?: {
   // bounds, so capturing it yields an empty frame that would count toward a
   // discard below. A page lives in at most one freeze; zoom leaves it out
   // and picks it up again once the owner releases it.
-  const capturablePages = pages.filter((page) => !pageClaimedByOtherFreeze(page.id, FREEZE_ID))
-  const frames = await Promise.all(capturablePages.map((page) => capturePageFrame(page)))
+  const unclaimedPages = pages.filter((page) => !pageClaimedByOtherFreeze(page.id, FREEZE_ID))
+  const frames = await Promise.all(unclaimedPages.map((page) => capturePageFrame(page)))
 
   const capturedFrames = frames.filter(
     (frame): frame is FrozenPageFrame => frame !== null,
@@ -162,11 +180,8 @@ export async function prepareZoomSnapshotFreeze(options?: {
   // prior frame forward for pages that can't capture right now. A page with
   // no prior frame stays absent (blank only if it scrolls into view
   // mid-gesture, which live-view restore covers at gesture end).
-  const capturableCount = capturablePages.filter((page) => {
-    if (page.pageView.webContents.isDestroyed()) return false
-    const bounds = page.pageView.getBounds()
-    return bounds.width > 0 && bounds.height > 0
-  }).length
+  const unclaimedIds = new Set(unclaimedPages.map((page) => page.id))
+  const capturableCount = onScreenPages().filter((page) => unclaimedIds.has(page.id)).length
   const candidateFrames = mergeFrames(capturedFrames)
   // A page that was visible but still failed to capture (mid-teardown, empty
   // paint) is a transient state. Keep the prior set and retry later.
@@ -204,7 +219,6 @@ export async function prepareZoomSnapshotFreeze(options?: {
 
   preparedFrames = candidateFrames
   preparedContentSignature = contentSignature
-  preparedCaptureSignature = captureSignature
   const preparedRevision = nextRevision(FREEZE_TARGET)
   publish(FREEZE_TARGET, { revision: preparedRevision, target: FREEZE_TARGET, active: false, frames: preparedFrames })
   const rendererReady = await waitForRendererReady(FREEZE_TARGET, preparedRevision)
@@ -439,22 +453,15 @@ export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<
       capture.image !== null && !capture.page.pageView.webContents.isDestroyed(),
   )
   if (captured.length === 0) return false
-  const capturedIds = new Set(captured.map((capture) => capture.page.id))
   preparedFrames = mergeFrames(
     captured.map((capture) =>
       encodePageFrame(capture.page, capture.hiRes ?? capture.image),
     ),
   )
   preparedContentSignature = contentSignatureAtCapture
-  const visibleIds = pages.filter((page) => {
-    if (page.pageView.webContents.isDestroyed()) return false
-    const bounds = page.pageView.getBounds()
-    return bounds.width > 0 && bounds.height > 0
-  }).map((page) => page.id)
-  const complete = visibleIds.every((id) => capturedIds.has(id))
-  // Only a complete set may claim the current bounds; anything less leaves
-  // the signature stale so the scheduled prepare recaptures.
-  preparedCaptureSignature = complete ? currentCaptureSignature() : ''
+  // A settle that left any on-screen page without a usable frame is not a
+  // whole picture; the caller schedules the prepare that fills the gap.
+  const complete = preparedFramesCoverScreen()
   const adoptedRevision = nextRevision(FREEZE_TARGET)
   publish(FREEZE_TARGET, { revision: adoptedRevision, target: FREEZE_TARGET, active: false, frames: preparedFrames })
   await waitForRendererReady(FREEZE_TARGET, adoptedRevision)
@@ -506,7 +513,6 @@ export function clearZoomSnapshotFreeze(): void {
   active = false
   preparedFrames = []
   preparedContentSignature = ''
-  preparedCaptureSignature = ''
   syncFreezeRegistry()
   const clearedRevision = nextRevision(FREEZE_TARGET)
   publish(FREEZE_TARGET, { revision: clearedRevision, target: FREEZE_TARGET, active: false, frames: [] })
