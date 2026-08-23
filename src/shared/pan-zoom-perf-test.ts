@@ -30,6 +30,9 @@ export interface PanZoomPerfTestResult {
   tracePath: string
   fileName: string
   buildStats?: { n: number; mean: number; p95: number; max: number }
+  /** The per-step interval the run drove input at, in ms — the primary
+   *  display's refresh interval, or PAN_ZOOM_PERF_FRAME_MS as a fallback. */
+  frameMs: number
 }
 
 export const PAN_ZOOM_PERF_FRAME_MS = 16
