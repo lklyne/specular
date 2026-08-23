@@ -1,23 +1,22 @@
 /**
  * Live-bbox round-trip for element-anchored annotation popovers (ADR 0006).
  *
- * Maintains a `liveBboxes` map keyed by annotation id. The hook tracks which
- * element-anchored popovers are currently visible (open thread + pending
- * composer), groups their `(annotationId, selector)` pairs by `pageId`, and
- * pushes the per-page set to main whenever it changes. Pages resolve the
- * selectors against their live DOM and stream bbox updates back; we merge
- * them into the map. Stale anchors (selector returned `null`) hold their
- * last-known bbox so the popover doesn't jump to (0,0).
+ * The hook tracks which element-anchored popovers are currently visible (open
+ * thread + pending composer), groups their `(annotationId, selector)` pairs by
+ * `pageId`, and pushes the per-page set to main whenever it changes. Pages
+ * resolve the selectors against their live DOM and report back; main folds the
+ * answers into the `annotationBboxes` slice, which is what this reads. Main
+ * also holds a stale anchor's last-known bbox, so a popover whose element
+ * disappeared stays put instead of jumping to (0,0).
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { AnnotationBboxSubscription, DevtoolsPanelDomRect } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { useSlice } from '../shared/hooks/useRuntimeStore'
+import type { RuntimeStore } from '../../shared/runtime-store'
 
-type SubscriptionApi = Pick<
-  CanvasBgElectronAPI,
-  'setAnnotationBboxSubscriptions' | 'onAnnotationLiveBbox'
->
+type SubscriptionApi = Pick<CanvasBgElectronAPI, 'setAnnotationBboxSubscriptions'>
 
 export interface AnnotationBboxLookup {
   /** Live (or last-known live) bbox for an annotation, or undefined when no
@@ -29,6 +28,8 @@ export interface AnnotationBboxLookup {
   isStale: (annotationId: string) => boolean
 }
 
+const selectBboxes = (store: RuntimeStore) => store.slices.annotationBboxes
+
 export function useLiveAnnotationBboxes({
   api,
   subscriptions,
@@ -36,38 +37,8 @@ export function useLiveAnnotationBboxes({
   api: SubscriptionApi
   subscriptions: Array<{ pageId: string; annotationId: string; selector: string }>
 }): AnnotationBboxLookup {
-  const [bboxes, setBboxes] = useState<Map<string, DevtoolsPanelDomRect>>(() => new Map())
-  const [staleIds, setStaleIds] = useState<Set<string>>(() => new Set())
+  const bboxes = useSlice(selectBboxes)
   const lastSubKeyByPageRef = useRef<Map<string, string>>(new Map())
-
-  // Subscribe to bbox updates streamed back from pages.
-  useEffect(() => {
-    const cleanup = api.onAnnotationLiveBbox((update) => {
-      if (!update?.annotationId) return
-      if (update.boundingBox) {
-        setBboxes((prev) => {
-          const next = new Map(prev)
-          next.set(update.annotationId, update.boundingBox as DevtoolsPanelDomRect)
-          return next
-        })
-        setStaleIds((prev) => {
-          if (!prev.has(update.annotationId)) return prev
-          const next = new Set(prev)
-          next.delete(update.annotationId)
-          return next
-        })
-      } else {
-        // Selector no longer resolves: hold last-known bbox, mark stale.
-        setStaleIds((prev) => {
-          if (prev.has(update.annotationId)) return prev
-          const next = new Set(prev)
-          next.add(update.annotationId)
-          return next
-        })
-      }
-    })
-    return cleanup
-  }, [api])
 
   // Group subscriptions by page and push the per-page set whenever it changes.
   // We unsubscribe (empty array) for any page that previously had subs but
@@ -102,38 +73,11 @@ export function useLiveAnnotationBboxes({
     }
   }, [api, subsByPage])
 
-  // Forget bbox / stale entries that are no longer subscribed.
-  useEffect(() => {
-    const subscribedIds = new Set(subscriptions.map((s) => s.annotationId))
-    setBboxes((prev) => {
-      let changed = false
-      const next = new Map(prev)
-      for (const id of next.keys()) {
-        if (!subscribedIds.has(id)) {
-          next.delete(id)
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-    setStaleIds((prev) => {
-      let changed = false
-      const next = new Set(prev)
-      for (const id of next) {
-        if (!subscribedIds.has(id)) {
-          next.delete(id)
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
-  }, [subscriptions])
-
   return useMemo(
     () => ({
-      get: (annotationId: string) => bboxes.get(annotationId),
-      isStale: (annotationId: string) => staleIds.has(annotationId),
+      get: (annotationId: string) => bboxes?.[annotationId]?.boundingBox ?? undefined,
+      isStale: (annotationId: string) => bboxes?.[annotationId]?.stale === true,
     }),
-    [bboxes, staleIds],
+    [bboxes],
   )
 }

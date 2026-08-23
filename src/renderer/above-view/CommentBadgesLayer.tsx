@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import type {
   Annotation,
@@ -22,7 +22,7 @@ interface CommentBadge {
   highlightRect?: { left: number; top: number; width: number; height: number }
 }
 
-export function CommentBadgesLayer({
+export const CommentBadgesLayer = memo(function CommentBadgesLayer({
   annotations,
   layoutData,
   liveBboxes,
@@ -124,7 +124,7 @@ export function CommentBadgesLayer({
       ) : null}
     </>
   )
-}
+})
 
 export function commentBadgesForLayout(
   annotations: Annotation[],

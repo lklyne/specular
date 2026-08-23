@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
 import { collectGapHandleZones } from '../../shared/gap-handles'
 import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
@@ -17,7 +17,7 @@ import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
  * handlers here. The center bar is always visible while eligible and
  * brightens on hover.
  */
-export function GapHandlesLayer({
+export const GapHandlesLayer = memo(function GapHandlesLayer({
   layoutData,
 }: {
   layoutData: LayoutUpdateData
@@ -67,4 +67,4 @@ export function GapHandlesLayer({
       })}
     </div>
   )
-}
+})

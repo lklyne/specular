@@ -10,7 +10,7 @@
  * (matching `useAnchoredPosition` and the rest of aboveView).
  */
 
-import { useMemo, type CSSProperties } from 'react'
+import { memo, type CSSProperties, useMemo } from 'react'
 import type {
   CanvasSceneDrawingEntity,
   CanvasSceneFileEntity,
@@ -24,6 +24,7 @@ import { SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
+import { useHoveredEntityId } from '../shared/hooks/useHoveredEntityId'
 
 interface PageOutlineProps {
   page: CanvasScenePageEntity
@@ -211,7 +212,7 @@ function GroupSelectionOverlay({
   )
 }
 
-export function SelectionOutlineLayer({
+export const SelectionOutlineLayer = memo(function SelectionOutlineLayer({
   layoutData,
   isDark,
   marqueePreviewIds,
@@ -256,7 +257,7 @@ export function SelectionOutlineLayer({
     () => new Set(layoutData.selectionOperandIds),
     [layoutData.selectionOperandIds],
   )
-  const hoveredEntityId = layoutData.hover?.id ?? null
+  const hoveredEntityId = useHoveredEntityId()
 
   const pages = useMemo(
     () =>
@@ -429,4 +430,4 @@ export function SelectionOutlineLayer({
       ))}
     </>
   )
-}
+})

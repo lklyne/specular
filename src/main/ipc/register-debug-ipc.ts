@@ -1,5 +1,5 @@
 import { ipcChannels } from '../../shared/ipc-contract'
-import { ipcMain } from 'electron'
+import { clipboard, ipcMain } from 'electron'
 import {
   DEFAULT_CURSOR_TUNING,
   normalizeCursorTuning,
@@ -7,6 +7,10 @@ import {
 import type { DebugBootstrapData } from '../../shared/types'
 import type { PerfTraceFileEntry, PerfTraceState } from '../../shared/electron-api/debug'
 import type { TraceSummary } from '../../shared/trace-summary'
+import type {
+  ProcessMetricsSample,
+  VisibilityProbeResult,
+} from '../../shared/process-metrics'
 import type {
   PanZoomPerfTestResult,
   PanZoomPerfTestState,
@@ -32,6 +36,8 @@ import {
   runPanZoomPerfTest,
   stopPanZoomPerfTest,
 } from '../pan-zoom-perf-test'
+import { sampleProcessMetrics } from '../process-metrics'
+import { runVisibilityProbe } from '../visibility-probe'
 
 export function registerDebugIpc(): void {
   ipcMain.handle(ipcChannels.debugGetInitialData, async (): Promise<DebugBootstrapData> => ({
@@ -86,4 +92,19 @@ export function registerDebugIpc(): void {
   ipcMain.on(ipcChannels.debugPerfTraceReveal, (_event, fileName: unknown) => {
     if (typeof fileName === 'string') revealTrace(fileName)
   })
+
+  ipcMain.handle(
+    ipcChannels.debugProcessMetricsSample,
+    async (): Promise<ProcessMetricsSample> => sampleProcessMetrics(),
+  )
+
+  ipcMain.on(ipcChannels.debugCopyText, (_event, text: unknown) => {
+    if (typeof text === 'string') clipboard.writeText(text)
+  })
+
+  ipcMain.handle(
+    ipcChannels.debugVisibilityProbeRun,
+    async (_event, windowMs: unknown): Promise<VisibilityProbeResult> =>
+      runVisibilityProbe({ windowMs: typeof windowMs === 'number' ? windowMs : undefined }),
+  )
 }

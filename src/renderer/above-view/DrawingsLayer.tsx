@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { getStroke } from 'perfect-freehand'
 import type {
   AnnotationDrawing,
@@ -147,7 +148,7 @@ function renderStrokeBody({
   return <path d={freehandPathD(points, visibleWidth)} fill={inkColor} />
 }
 
-export function DrawingLayer({
+export const DrawingLayer = memo(function DrawingLayer({
   drawing,
   layout,
   active,
@@ -221,9 +222,9 @@ export function DrawingLayer({
       })}
     </svg>
   )
-}
+})
 
-export function SavedDrawingEntities({
+export const SavedDrawingEntities = memo(function SavedDrawingEntities({
   entities,
   layoutData,
   selectedEntityIds,
@@ -279,4 +280,4 @@ export function SavedDrawingEntities({
       })}
     </>
   )
-}
+})

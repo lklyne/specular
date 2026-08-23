@@ -49,22 +49,22 @@ import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
 import { onTrackerChange } from '../agent-fix/fix-tracker'
 import { getFixProgress, onProgressChange } from '../agent-fix/fix-progress'
 import { safeSend } from './safe-send'
+import { broadcastSceneSnapshot } from './runtime-patch-broadcast'
 import {
   backgroundPageOverlays,
   activeCanvasSelection,
   buildCanvasLayoutData,
-  sendAnnotationLayoutUpdate,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
 import {
   notifyDevtoolsChanged,
 } from './devtools-panel'
 import { attachBindingDispatcher } from './binding-dispatcher'
+import { setWindowFocused } from './page-idle-throttle'
 import {
   APP_CONTROL_DISCOVERY_FILE,
 } from '../../shared/constants'
 import type {
-  DevtoolsPanelData,
 } from '../../shared/types'
 import { ipcChannels } from '../../shared/ipc-contract'
 import {
@@ -207,8 +207,7 @@ export function initWindow(): void {
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
     const initialLayoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
-    currentBgView.webContents.send(ipcChannels.layoutUpdate, initialLayoutData)
-    sendAnnotationLayoutUpdate(initialLayoutData)
+    broadcastSceneSnapshot(initialLayoutData)
     // The renderer subscribes to layout updates during mount, so send one more
     // pass on the next tick to avoid dropping the initial canvas paint.
     markDirty('canvas')
@@ -254,7 +253,7 @@ export function initWindow(): void {
     currentAboveView.webContents.send(ipcChannels.themeChanged, { isDark: isDark(), themeMode: getThemeMode() })
     const pageOverlays = backgroundPageOverlays()
     const nextActiveSelection = activeCanvasSelection()
-    sendAnnotationLayoutUpdate(buildCanvasLayoutData(pageOverlays, nextActiveSelection))
+    broadcastSceneSnapshot(buildCanvasLayoutData(pageOverlays, nextActiveSelection))
     layoutCache.lastCommentOverlayBoundsKey = null
     requestLayout()
   })
@@ -301,6 +300,13 @@ export function initWindow(): void {
   currentWin.on('leave-full-screen', syncOverlayOnDisplayChange)
   currentWin.on('focus', syncOverlayOnDisplayChange)
   currentWin.on('blur', syncOverlayOnDisplayChange)
+  // An unfocused window is not a hidden one to Chromium, so pages keep
+  // rendering at full rate until something tells them not to.
+  currentWin.on('focus', () => setWindowFocused(true))
+  currentWin.on('blur', () => setWindowFocused(false))
+  // A background launch (SPECULAR_BACKGROUND) never fires a focus event, so
+  // seed from the window rather than assuming the app started in front.
+  setWindowFocused(currentWin.isFocused())
   currentWin.on('closed', () => {
     if (!overlayWin.isDestroyed()) overlayWin.destroy()
     setCursorOverlayWindow(null)

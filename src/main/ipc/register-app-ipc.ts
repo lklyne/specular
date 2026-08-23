@@ -14,6 +14,7 @@ import {
 } from '../runtime/space-tabs'
 import { restorePersistedSpace } from '../runtime/space-restore'
 import { selectionDebug } from '../runtime/runtime-constants'
+import { seatSceneBootstrap } from '../runtime/runtime-patch-broadcast'
 
 export function registerAppIpc(): void {
   ipcMain.on(
@@ -48,9 +49,12 @@ export function registerAppIpc(): void {
     sidebarData: getLeftSidebarData(),
   }))
 
-  ipcMain.handle(ipcChannels.getCanvasLayoutBootstrap, async () => ({
+  ipcMain.handle(ipcChannels.getCanvasLayoutBootstrap, async (event) => ({
+    // Seeded through the same routing as every later send, so a renderer never
+    // starts out holding a slice it will never be sent an update for — which
+    // would read as drift the moment the first snapshot lands.
     theme: { isDark: isDark(), themeMode: getThemeMode() },
-    layoutData: getCanvasLayoutData(),
+    layoutData: seatSceneBootstrap(event.sender, getCanvasLayoutData()),
   }))
 
   ipcMain.handle(ipcChannels.getFloatingUiBootstrap, async () => ({

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Annotation, FixProgressEntry, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
 import {
   canvasRectToScreenRect,
@@ -269,7 +270,7 @@ function ComposerBox({
  * just selected. The region case keeps its outlines because each page
  * paints them from the held marquee rect.
  */
-export function PendingElementOutline({
+export const PendingElementOutline = memo(function PendingElementOutline({
   pending,
   layoutData,
   liveBboxes,
@@ -297,7 +298,7 @@ export function PendingElementOutline({
       }}
     />
   )
-}
+})
 
 export function AnnotationThreadPopover({
   api,

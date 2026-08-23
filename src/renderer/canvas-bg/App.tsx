@@ -32,7 +32,7 @@ export default function App({
   const bgRef = useRef<HTMLDivElement>(null)
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
-  const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
+  const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ initialLayoutData })
   const { frozenPages, dragFrozenPageIds } = useFrozenPagesState(api)
   const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
     api.frozenPagesReady('bg', revision),

@@ -7,7 +7,7 @@
  * origin sits at `canvasOrigin.y`, so subtract it from every y when laying
  * out SVG geometry — matching the rest of aboveView.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type {
   CanvasInteractionState,
   CanvasSceneEntity,
@@ -25,11 +25,11 @@ import {
   EDGE_SIDES,
 } from '../../shared/canvas-hit-geometry'
 import { anchorEligibleEntityIds, entityHasAnchors } from '../../shared/hit-test'
+import { useHoveredEntityId } from '../shared/hooks/useHoveredEntityId'
 import {
   autoSides,
   buildBezierPath,
   getAnchorPoint,
-  type AnchorPoint,
 } from '../../shared/edge-geometry'
 import { selectionColor, EDGE_COLOR_DEFAULT } from '../canvas-bg/canvasBgConstants'
 import { scaleEdgeHitTargetSize } from '../canvas-bg/edgeHitSizing'
@@ -238,10 +238,9 @@ function EdgeBody({
 
 // --- Main EdgeLayer ---
 
-export function EdgeLayer({
+export const EdgeLayer = memo(function EdgeLayer({
   edges,
   entities,
-  hoveredEntityId,
   isDark,
   interaction,
   selectedEdgeIds,
@@ -254,7 +253,6 @@ export function EdgeLayer({
 }: {
   edges: WorkspaceEdge[]
   entities: CanvasSceneEntity[]
-  hoveredEntityId: string | null
   isDark: boolean
   interaction: CanvasInteractionState
   selectedEdgeIds: ReadonlySet<string>
@@ -314,6 +312,10 @@ export function EdgeLayer({
     }
     return paths
   }, [edges, entityMap, selectedEdgeIds, zoom, originY])
+
+  // Hovering a node makes its anchors grabbable, so this layer subscribes to
+  // hover directly instead of taking it off the layout snapshot.
+  const hoveredEntityId = useHoveredEntityId()
 
   // Which entities show anchor dots: the shared eligibility selector (kept in
   // lockstep with the hit-tester's `collectAnchorTargets`), plus every entity
@@ -433,4 +435,4 @@ export function EdgeLayer({
       )) : null}
     </svg>
   )
-}
+})

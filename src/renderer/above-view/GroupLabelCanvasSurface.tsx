@@ -10,7 +10,7 @@
  * input routes through the shared hit-test's `group-label` target, and a
  * group being renamed skips canvas drawing so the DOM input shows instead.
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import {
   GROUP_LABEL_BOTTOM_GAP,
   GROUP_LABEL_FONT,
@@ -70,7 +70,7 @@ function drawGroupLabels({
   }
 }
 
-export function GroupLabelCanvasSurface({
+export const GroupLabelCanvasSurface = memo(function GroupLabelCanvasSurface({
   groups,
   transform,
   originY,
@@ -123,4 +123,4 @@ export function GroupLabelCanvasSurface({
       className="pointer-events-none absolute inset-0 h-full w-full"
     />
   )
-}
+})
