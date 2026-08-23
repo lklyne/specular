@@ -1,7 +1,5 @@
-import {
-  pages,
-  setHoverTarget,
-} from './runtime-context'
+import { pages } from './runtime-context'
+import { clearHoverTarget } from './hover-state'
 import {
   activeTool as uiActiveTool,
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -14,6 +12,7 @@ import {
   selectPageById,
 } from './selection-controller'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
+import { broadcastToolChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
 
 export function selectPage(index: number): void {
@@ -35,9 +34,10 @@ export function deselectAll(): void {
 
 function clearTransientSelectionState(): void {
   cancelActiveInteraction('external')
-  setHoverTarget(null)
+  clearHoverTarget()
   if (uiActiveTool().kind !== 'select') {
     setUiActiveTool({ kind: 'select' })
+    broadcastToolChange()
   }
 }
 

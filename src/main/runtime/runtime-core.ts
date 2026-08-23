@@ -17,8 +17,7 @@ import type {
   CanvasHoverTarget,
   DevtoolsPanelData,
 } from '../../shared/types'
-import { sameHoverTarget } from '../../shared/runtime-patch'
-import { broadcastRuntimePatch } from './runtime-patch-broadcast'
+import { commitHoverTarget } from './hover-state'
 import {
   devtoolsView,
   setDevtoolsView,
@@ -26,9 +25,7 @@ import {
 } from './view-refs'
 import {
   browserDevtoolsAttachGeneration,
-  hoverTarget,
   pages,
-  setHoverTarget,
   setMcpConnectionStatusState,
   findPageById,
   incrementBrowserDevtoolsAttachGeneration,
@@ -239,18 +236,6 @@ export function setHoveredPage(pageId: string | null): void {
 
 export function setHoverEntity(nextHoverTarget: CanvasHoverTarget): void {
   commitHoverTarget(nextHoverTarget)
-}
-
-/**
- * Hover moves with the pointer, so it is the one runtime slice that cannot
- * afford a scene rebuild per change. It rides a patch to the chrome that draws
- * it; `buildCanvasLayoutData` still reads `hoverTarget` for the snapshot, so a
- * pass triggered by anything else carries the current value.
- */
-function commitHoverTarget(next: CanvasHoverTarget): void {
-  if (sameHoverTarget(hoverTarget, next)) return
-  setHoverTarget(next)
-  broadcastRuntimePatch({ kind: 'slice', slice: 'hover', value: next })
 }
 
 export function setDevtoolsWidthFromScreenX(screenX: number): void {

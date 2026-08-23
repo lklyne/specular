@@ -7,6 +7,7 @@ import {
 } from '../../shared/runtime-patch'
 import { snapshotToStore, type RuntimeStore } from '../../shared/runtime-store'
 import { diffRuntimeStores } from '../../shared/runtime-store-diff'
+import { shareStructure } from '../../shared/layout-structural-share'
 import {
   filterPatchBatch,
   filterSceneSnapshot,
@@ -133,15 +134,30 @@ export function broadcastRuntimePatch(patch: RuntimePatch): void {
   broadcastRuntimePatches([patch])
 }
 
-/** The same, for a mutator whose one change lands in more than one slice — the
- *  batch keeps them atomic, so no renderer paints a selection against the focus
- *  target it had before. */
+/**
+ * The same, for a mutator whose one change lands in more than one slice — the
+ * batch keeps them atomic, so no renderer paints a selection against the focus
+ * target it had before.
+ *
+ * A patch whose value the baseline already holds is dropped, so a producer can
+ * name every slice its mutation *could* touch without paying to re-send the
+ * ones it didn't. This is the same rule the pass's diff applies; the patch path
+ * having its own would let the two disagree about what counts as a change.
+ */
 export function broadcastRuntimePatches(patches: RuntimePatch[]): void {
-  if (patches.length === 0) return
+  const moved = baseline ? patches.filter((patch) => movesBaseline(patch)) : patches
+  if (moved.length === 0) return
   if (baseline) {
-    for (const patch of patches) baseline = applyRuntimePatch(baseline, patch)
+    for (const patch of moved) baseline = applyRuntimePatch(baseline, patch)
   }
-  broadcastPatchBatch({ patches })
+  broadcastPatchBatch({ patches: moved })
+}
+
+function movesBaseline(patch: RuntimePatch): boolean {
+  if (!baseline) return true
+  const held = patch.kind === 'slice' ? baseline.slices[patch.slice] : baseline.entities[patch.id]
+  const next = patch.kind === 'slice' ? patch.value : patch.entity
+  return !Object.is(shareStructure(held, next), held)
 }
 
 function broadcastPatchBatch(batch: RuntimePatchBatch): void {

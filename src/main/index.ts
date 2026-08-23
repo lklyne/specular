@@ -54,6 +54,7 @@ import { getActiveDoc } from './runtime/space-doc'
 import { zoom, pan } from './runtime/runtime-context'
 import { workspaceGroups, workspaceEdges, workspaceAnnotations, spaceTabs, activeSpaceTabId, setActiveSpaceTabId } from './runtime/space-model'
 import { getUiState, setSelection } from './ui-state'
+import { broadcastSelectionChange } from './runtime/runtime-slice-broadcast'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
 import { initSentry } from './sentry'
@@ -293,7 +294,10 @@ app.whenReady().then(async () => {
   createCanvasUndoManager(doc)
   setUndoSelectionHooks(
     () => getUiState().selection,
-    (selection) => setSelection(selection as any),
+    (selection) => {
+      setSelection(selection as any)
+      broadcastSelectionChange()
+    },
   )
   initializeDocObservers({
     pages,
