@@ -17,6 +17,7 @@ import type { LayoutUpdateData } from '../../shared/types'
 import { logCrash } from '../crash-log'
 import { aboveView, bgView, cursorOverlayWindow } from './view-refs'
 import { safeSend } from './safe-send'
+import { driftWatchdogEnabled } from './runtime-constants'
 
 /**
  * The scene bus: one full-snapshot channel and one patch channel, over the
@@ -172,14 +173,14 @@ function send(target: SceneTarget, wc: WebContents, channel: string, payload: un
   safeSend(wc, channel, payload)
 }
 
-// TEMP instrument (plan: diffed-runtime-store) — bytes on the wire per channel
-// per target, reported to errors.log every 2s. Slice routing is a claim about
-// who receives what; this is what makes it checkable, and makes total
-// bytes-at-rest one number to watch fall.
+// Bytes on the wire per channel per target, reported to errors.log every 2s.
+// Slice routing is a claim about who receives what; this is what makes it
+// checkable, and makes total bytes-at-rest one number to watch.
 const wireBytes = new Map<string, number>()
 let wireTimer: NodeJS.Timeout | null = null
 
 function recordWireBytes(target: SceneTarget, channel: string, payload: unknown): void {
+  if (!driftWatchdogEnabled()) return
   const key = `${target}:${channel}`
   let bytes = 0
   try {

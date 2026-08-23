@@ -105,6 +105,7 @@ import {
   DEVTOOLS_RESIZE_HANDLE_WIDTH,
   LEFT_SIDEBAR_WIDTH,
   DEVTOOLS_PANEL_DEBUG,
+  driftWatchdogEnabled,
   devtoolsPanelDebug,
 } from './runtime-constants'
 import { boundsOverlap } from './runtime-geometry'
@@ -689,14 +690,15 @@ function layoutAllViews(): void {
   scheduleZoomSnapshotPreparation()
 }
 
-// TEMP instrument (plan: diffed-runtime-store) — who is asking for a layout
-// pass, counted by caller and reported to errors.log every 2s. Broadcast
-// counts alone can't answer this: structural sharing makes a pass cheap while
-// it still fires, so the histogram is how a migrated slice is proven gone.
+// Who is asking for a layout pass, counted by caller and reported to
+// errors.log every 2s. Broadcast counts alone can't answer this: structural
+// sharing makes a pass cheap while it still fires, so the histogram is how a
+// mutator that should own a slice patch instead of a geometry pass gets found.
 const layoutCauses = new Map<string, number>()
 let layoutCauseTimer: NodeJS.Timeout | null = null
 
 function recordLayoutCause(): void {
+  if (!driftWatchdogEnabled()) return
   const frames = new Error().stack?.split('\n')
   if (!frames) return
   // Frame 0 is the Error line, 1 is this function, 2 is requestLayout; the

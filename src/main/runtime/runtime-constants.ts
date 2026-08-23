@@ -2,6 +2,8 @@
  * Shared layout and debug constants used across runtime modules.
  */
 
+import { app } from 'electron'
+
 // --- Layout geometry ---
 export { CARD_BORDER_WIDTH } from '../../shared/scene-projection'
 export const CARD_BORDER_RADIUS = 0
@@ -42,4 +44,19 @@ export function selectionDebug(event: string, details?: Record<string, unknown>)
 export function devtoolsPanelDebug(event: string, details?: Record<string, unknown>): void {
   if (!DEVTOOLS_PANEL_DEBUG) return
   console.log('[devtools-panel-debug:main]', { ts: Date.now(), event, ...details })
+}
+
+/**
+ * The gate for main-process diagnostics that cost O(session) bookkeeping
+ * with no place in a shipped build — the request-layout cause histogram and
+ * the runtime-store wire-bytes tally. Mirrors the renderer's
+ * `driftWatchdogEnabled` (`src/renderer/shared/runtime-store-drift.ts`), so
+ * the two halves of the store are observable together during development and
+ * silent in a packaged app. A function rather than a module-load constant,
+ * and defensive about `app` itself: unit tests import this module outside a
+ * real Electron process, where the `electron` package has no `app` export to
+ * ask, and the answer there is the same one a packaged build would give.
+ */
+export function driftWatchdogEnabled(): boolean {
+  return Boolean(app) && !app.isPackaged
 }
