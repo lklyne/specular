@@ -18,7 +18,6 @@ import {
   removeAutomationInteractivePageId,
   addAutomationInteractivePageId,
   setInteractivePageId,
-  setSelectionOverlayActive,
 } from './runtime-context'
 import { workspaceGroups } from './space-model'
 import {
@@ -147,7 +146,6 @@ export function endAutomationInteractivePage(pageId: string): void {
 export function setSelectionOverlayRect(
   overlay: SelectionOverlayPayload | null,
 ): void {
-  setSelectionOverlayActive(overlay !== null)
   setUiSelectionMarqueeVisible(overlay !== null)
 
   if (!win || win.isDestroyed()) return

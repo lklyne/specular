@@ -27,11 +27,8 @@ export function setPanState(value: { x: number; y: number }): void {
 
 // --- Canvas interaction flags ---
 
-export let selectionOverlayActive = false
 export let hoverTarget: CanvasHoverTarget = null
 export let interactionState: CanvasInteractionState = { kind: 'idle' }
-export let spaceModifierHeld = false
-export let hoveringCanvasChrome = false
 
 /**
  * Single runtime variable for "which entity is currently being edited
@@ -69,10 +66,6 @@ export function setInteractivePageId(pageId: string | null): void {
   interactivePageIdState = pageId
 }
 
-export function setSelectionOverlayActive(value: boolean): void {
-  selectionOverlayActive = value
-}
-
 export function setHoverTarget(value: CanvasHoverTarget): void {
   hoverTarget = value
 }
@@ -90,14 +83,6 @@ export function setInteractionState(value: CanvasInteractionState): void {
     return
   }
   interactionState = value
-}
-
-export function setSpaceModifierHeld(value: boolean): void {
-  spaceModifierHeld = value
-}
-
-export function setHoveringCanvasChrome(value: boolean): void {
-  hoveringCanvasChrome = value
 }
 
 // Wall-clock (Date.now) start of the in-flight animated camera move, or null
