@@ -99,7 +99,7 @@ export function ProcessesSection({ api }: { api: DebugElectronAPI }) {
 function Totals({ sample }: { sample: ProcessMetricsSample }) {
   const { totals } = sample
   return (
-    <div className="mt-2 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+    <div className="mt-2 grid grid-cols-6 gap-x-4">
       <Stat label="Processes" value={String(totals.processCount)} />
       <Stat label="Memory" value={humanBytes(totals.workingSetKb * 1024)} />
       <Stat label="CPU" value={`${totals.cpuPercent.toFixed(1)}%`} />
@@ -130,9 +130,11 @@ function describeIdleThrottle(sample: ProcessMetricsSample): string {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-[10px] uppercase tracking-wider opacity-60">{label}</div>
-      <div className="text-[12px] tabular-nums">{value}</div>
+      <div className="truncate text-[12px] tabular-nums" title={value}>
+        {value}
+      </div>
     </div>
   )
 }

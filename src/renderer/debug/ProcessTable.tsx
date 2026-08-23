@@ -1,7 +1,8 @@
 /**
- * Sortable per-process table. One row per OS process, with the views it hosts
- * listed underneath — Chromium coalesces same-site pages into one renderer, so
- * a row's memory is only attributable to a single page when it owns one.
+ * Sortable per-process table. One row per OS process, with the presentation of
+ * each view it hosts tagged inline — Chromium coalesces same-site pages into
+ * one renderer, so a row's memory is only attributable to a single page when
+ * it owns one.
  */
 
 import { useMemo, useState } from 'react'
@@ -80,17 +81,17 @@ export function ProcessTable({ rows }: { rows: ProcessMetricRow[] }) {
           {COLUMNS.map((column) => (
             <th
               key={column.key}
-              className={`px-3 py-1.5 font-medium uppercase tracking-wider opacity-60 ${
+              className={`whitespace-nowrap px-3 py-1.5 font-medium uppercase tracking-wider ${
                 column.numeric ? 'text-right' : 'text-left'
               }`}
             >
               <button
                 type="button"
                 onClick={() => toggleSort(column.key)}
-                className="text-[10px] uppercase tracking-wider hover:opacity-100"
+                className="whitespace-nowrap text-[10px] uppercase tracking-wider"
               >
                 {column.label}
-                {sortKey === column.key ? (ascending ? ' ↑' : ' ↓') : ''}
+                {sortKey === column.key ? (ascending ? '\u00a0↑' : '\u00a0↓') : ''}
               </button>
             </th>
           ))}
@@ -100,13 +101,15 @@ export function ProcessTable({ rows }: { rows: ProcessMetricRow[] }) {
         {sorted.map((row) => (
           <tr
             key={row.pid}
-            className="border-b border-[var(--surface-popover-border)] align-top"
+            className="border-b border-[var(--surface-popover-border)] whitespace-nowrap"
           >
-            <td className="px-3 py-1.5">
-              <div className="truncate" title={primaryLabel(row)}>
-                {primaryLabel(row)}
+            <td className="w-full max-w-0 px-3 py-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate" title={primaryLabel(row)}>
+                  {primaryLabel(row)}
+                </span>
+                {row.owners.length > 0 ? <OwnerTags owners={row.owners} /> : null}
               </div>
-              {row.owners.length > 0 ? <OwnerTags owners={row.owners} /> : null}
             </td>
             <td className="px-3 py-1.5 opacity-70">
               {row.type}
@@ -136,21 +139,18 @@ export function ProcessTable({ rows }: { rows: ProcessMetricRow[] }) {
 
 function OwnerTags({ owners }: { owners: ViewOwner[] }) {
   return (
-    <div className="mt-1 flex flex-wrap gap-1">
-      {owners.map((owner, index) => (
-        <span
-          key={`${owner.label}-${index}`}
-          className={`rounded-full border px-1.5 py-px text-[10px] ${
-            owner.presentation
-              ? PRESENTATION_CLASS[owner.presentation]
-              : 'border-zinc-300 opacity-60 dark:border-zinc-700'
-          }`}
-          title={owner.url ?? owner.label}
-        >
-          {owner.label}
-          {owner.presentation ? ` · ${owner.presentation}` : ''}
-        </span>
-      ))}
-    </div>
+    <>
+      {owners.map((owner, index) =>
+        owner.presentation ? (
+          <span
+            key={`${owner.label}-${index}`}
+            className={`shrink-0 rounded-full border px-1.5 py-px text-[10px] ${PRESENTATION_CLASS[owner.presentation]}`}
+            title={owner.url ?? owner.label}
+          >
+            {owner.presentation}
+          </span>
+        ) : null,
+      )}
+    </>
   )
 }
