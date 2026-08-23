@@ -35,7 +35,6 @@ import { win } from './view-refs'
 import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
 import { isZoomInMotion, markZoomMotion } from './zoom-motion'
-import { cancelPanMotion, isPanInMotion, markPanMotion } from './pan-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -76,7 +75,6 @@ import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
 import {
   adoptHandoffCaptures,
-  beginPanGesture,
   beginZoomGesture,
   beginZoomSnapshotHandoff,
   captureParkedPagesAtSettle,
@@ -85,7 +83,6 @@ import {
 } from './zoom-snapshot-freeze'
 
 let zoomGestureGen = 0
-let panGestureGen = 0
 
 export function setViewportCamera(
   value: number,
@@ -98,18 +95,9 @@ export function setViewportCamera(
   const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
   if (!zoomChanged && !panChanged) return
 
-  // Zoom owns any gesture it touches: only its settle re-emulates the pages at
-  // the new scale, which is work a pan settle must not skip if a zoom happened.
-  // So a pan already in motion drops its settle and hands the freeze over.
-  if (zoomChanged) {
-    cancelPanMotion()
-    if (!isZoomInMotion()) {
-      zoomGestureGen += 1
-      beginZoomGesture(zoomGestureGen)
-    }
-  } else if (panChanged && !isZoomInMotion() && !isPanInMotion()) {
-    panGestureGen += 1
-    beginPanGesture(panGestureGen)
+  if (zoomChanged && !isZoomInMotion()) {
+    zoomGestureGen += 1
+    beginZoomGesture(zoomGestureGen)
   }
   if (zoomChanged) setZoomState(nextZoom)
   if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
@@ -137,11 +125,6 @@ export function setViewportCamera(
     markZoomMotion(() => {
       void settleZoomGesture(gen)
     })
-  } else if (panChanged) {
-    const gen = panGestureGen
-    markPanMotion(() => {
-      settlePanGesture(gen)
-    })
   }
 }
 
@@ -168,19 +151,6 @@ function broadcastCamera(): void {
       cameraTransitionStartedAt,
     },
   })
-}
-
-/**
- * Settle for a panned gesture. A pan changes nothing about a page: same zoom,
- * same emulation, and the frame on screen was captured at exactly the
- * resolution the page still occupies. So there is no handoff to run — no warm
- * park, no re-emulation, no waiting for a page to present at a new scale.
- * Unpark and place the live views; the layout pass schedules the prepare that
- * covers whatever the pan brought on screen.
- */
-function settlePanGesture(gen: number): void {
-  endZoomGesture(gen)
-  layoutAllViews()
 }
 
 /**

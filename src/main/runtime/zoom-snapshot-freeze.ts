@@ -283,27 +283,6 @@ function freezeForGesture(): boolean {
   return true
 }
 
-/**
- * Pan's half of the gesture rule. Same substrate lease, and the same
- * frozen→live-never-before-settle guarantee, with one difference: a pan that
- * finds no usable frames stays live for the whole gesture instead of capturing
- * into it.
- *
- * Capture is precisely the cost the pan path exists without — it is what made
- * stopping a pan expensive — and a pan uncovers new pages faster than a
- * capture can cover them, so the frames would land already incomplete. Zoom
- * can afford the mid-gesture capture because a zoom reveals pages gradually
- * and its settle re-captures everything anyway.
- */
-export function beginPanGesture(gen: number): boolean {
-  gestureGen = gen
-  gestureRunning = true
-  handoff = false
-  syncFreezeRegistry()
-  if (forced) return active
-  return freezeForGesture()
-}
-
 export function beginZoomGesture(gen: number): boolean {
   gestureGen = gen
   gestureRunning = true
