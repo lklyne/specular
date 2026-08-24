@@ -26,6 +26,7 @@ import { screen } from 'electron'
 import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
 import { zoom } from './runtime-context'
 import { withCaptureMetrics } from './page-emulation'
+import { msSinceCameraInput } from './camera-input-clock'
 
 const FREEZE_TARGET = 'bg'
 const FREEZE_ID = 'zoom'
@@ -428,36 +429,64 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
 }
 
 /**
- * Publishes the settle captures as the prepared set. Deferred one macrotask
- * so the reveal's setBounds calls reach the window server before the
- * synchronous JPEG encode blocks this thread. Returns false when the set is
- * not a complete picture of the visible pages (a timed-out page, a page that
- * stayed live through the gesture, a gesture or scroll that landed while we
- * waited) and the caller should fall back to a full background prepare.
+ * How quiet the camera must be before a synchronous JPEG encode may run, and
+ * how often to re-check while it is not. The threshold sits above one
+ * trackpad input interval so a continuous pan reads as "moving" between its
+ * ticks, and below the settle lease so a pause that ends a gesture also
+ * releases the encodes promptly.
+ */
+const ENCODE_CAMERA_QUIET_MS = 120
+const ENCODE_QUIET_RECHECK_MS = 60
+
+async function waitForCameraQuiet(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  while (msSinceCameraInput() < ENCODE_CAMERA_QUIET_MS) {
+    await new Promise<void>((resolve) => setTimeout(resolve, ENCODE_QUIET_RECHECK_MS))
+  }
+}
+
+/**
+ * Publishes the settle captures as the prepared set. Encoding waits for a
+ * pause in camera input and takes one frame per macrotask, so the reveal's
+ * setBounds and any in-flight pan ticks are never queued behind the
+ * synchronous JPEG encodes. Returns false when the set is not a complete
+ * picture of the visible pages (a timed-out page, a page that stayed live
+ * through the gesture, a gesture or scroll that landed while we waited) and
+ * the caller should fall back to a full background prepare.
  */
 export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<boolean> {
   const leaseAtCapture = captureLease
   const contentSignatureAtCapture = currentContentSignature()
-  await new Promise<void>((resolve) => setImmediate(resolve))
-  if (forced || active || gestureRunning) return false
-  if (!snapshotCaptureStillValid({
-    captureLeaseAtStart: leaseAtCapture,
-    currentCaptureLease: captureLease,
-    signatureAtStart: contentSignatureAtCapture,
-    currentSignature: currentContentSignature(),
-  })) {
-    return false
-  }
+  const stillValid = (): boolean =>
+    !forced &&
+    !active &&
+    !gestureRunning &&
+    snapshotCaptureStillValid({
+      captureLeaseAtStart: leaseAtCapture,
+      currentCaptureLease: captureLease,
+      signatureAtStart: contentSignatureAtCapture,
+      currentSignature: currentContentSignature(),
+    })
   const captured = captures.filter(
-    (capture): capture is HandoffCapture & { image: NativeImage } =>
-      capture.image !== null && !capture.page.pageView.webContents.isDestroyed(),
+    (capture): capture is HandoffCapture & { image: NativeImage } => capture.image !== null,
   )
   if (captured.length === 0) return false
-  preparedFrames = mergeFrames(
-    captured.map((capture) =>
-      encodePageFrame(capture.page, capture.hiRes ?? capture.image),
-    ),
-  )
+  // The JPEG encode is synchronous and can cost tens of milliseconds per
+  // frame, so it never runs while the camera is moving: a pan tick queued
+  // behind a block of encodes lands as one visible jump. Each frame waits for
+  // a pause in camera input and takes its own macrotask; the reveal's
+  // setBounds calls reach the window server before the first encode can
+  // block this thread. A gesture or content change while we wait hands the
+  // work back to the caller's background prepare.
+  const encoded: FrozenPageFrame[] = []
+  for (const capture of captured) {
+    await waitForCameraQuiet()
+    if (!stillValid()) return false
+    if (capture.page.pageView.webContents.isDestroyed()) continue
+    encoded.push(encodePageFrame(capture.page, capture.hiRes ?? capture.image))
+  }
+  if (encoded.length === 0) return false
+  preparedFrames = mergeFrames(encoded)
   preparedContentSignature = contentSignatureAtCapture
   // A settle that left any on-screen page without a usable frame is not a
   // whole picture; the caller schedules the prepare that fills the gap.

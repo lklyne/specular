@@ -81,6 +81,7 @@ import {
   endZoomGesture,
   scheduleZoomSnapshotPreparation,
 } from './zoom-snapshot-freeze'
+import { markCameraInput } from './camera-input-clock'
 
 let zoomGestureGen = 0
 
@@ -95,6 +96,7 @@ export function setViewportCamera(
   const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
   if (!zoomChanged && !panChanged) return
 
+  markCameraInput()
   if (zoomChanged && !isZoomInMotion()) {
     zoomGestureGen += 1
     beginZoomGesture(zoomGestureGen)
