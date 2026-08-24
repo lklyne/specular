@@ -1,5 +1,5 @@
+import type { ProjectedFileEntity, ProjectedPageEntity } from '../../shared/scene-projection'
 import { memo } from 'react'
-import type { CanvasSceneFileEntity, CanvasScenePageEntity } from '../../shared/types'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
   DEVICE_CATALOG,
@@ -29,8 +29,8 @@ export const PageFocusRingLayer = memo(function PageFocusRingLayer({
   focusedPageId,
   originY,
 }: {
-  pages: CanvasScenePageEntity[]
-  fileEntities?: CanvasSceneFileEntity[]
+  pages: ProjectedPageEntity[]
+  fileEntities?: ProjectedFileEntity[]
   focusedPageId: string | null
   originY: number
 }) {

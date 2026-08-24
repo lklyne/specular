@@ -9,7 +9,7 @@ async function bootstrap() {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App initialLayoutData={initialData.layoutData} />
+      <App />
     </StrictMode>,
   )
 }

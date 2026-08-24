@@ -27,6 +27,7 @@
  * `commitEdgeEdit` / `discardEdgeEdit` / `cancelEdgeDrag` IPC calls.
  */
 
+import type { ProjectedSceneEntity } from './scene-projection'
 import { EDGE_ANCHOR_HIT_MIN_SCALE, EDGE_SIDES } from './canvas-hit-geometry'
 import {
   autoSides,
@@ -34,7 +35,7 @@ import {
   getAnchorPoint,
   type AnchorPoint,
 } from './edge-geometry'
-import type { CanvasSceneEntity, EdgeSide, WorkspaceEdge } from './types'
+import type { EdgeSide, WorkspaceEdge } from './types'
 
 const SNAP_DISTANCE = 48
 
@@ -97,7 +98,7 @@ export function beginEdgeDrag(
   cursorX: number,
   cursorY: number,
   edges: readonly WorkspaceEdge[],
-  entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  entityMap: ReadonlyMap<string, ProjectedSceneEntity>,
 ): EdgeDragState {
   const existing = findEdgeAtAnchor(edges, entityMap, fromEntityId, side)
   if (existing) {
@@ -126,7 +127,7 @@ export function updateEdgeDragCursor(
   state: EdgeDragState,
   cursorX: number,
   cursorY: number,
-  entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  entityMap: ReadonlyMap<string, ProjectedSceneEntity>,
   zoom: number,
 ): EdgeDragState {
   if (state.kind === 'idle') return state
@@ -197,7 +198,7 @@ export function edgeDragOrigin(
 
 export function buildEdgeDragPath(
   state: EdgeDragState,
-  entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  entityMap: ReadonlyMap<string, ProjectedSceneEntity>,
   zoom: number,
 ): { d: string; from: AnchorPoint; to: AnchorPoint } | null {
   if (state.kind === 'idle') return null
@@ -218,7 +219,7 @@ export function buildEdgeDragPath(
 // --- Internal pure helpers ---
 
 function findClosestAnchorTarget(
-  entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  entityMap: ReadonlyMap<string, ProjectedSceneEntity>,
   fromEntityId: string,
   clientX: number,
   clientY: number,
@@ -241,7 +242,7 @@ function findClosestAnchorTarget(
 
 function findEdgeAtAnchor(
   edges: readonly WorkspaceEdge[],
-  entityMap: ReadonlyMap<string, CanvasSceneEntity>,
+  entityMap: ReadonlyMap<string, ProjectedSceneEntity>,
   entityId: string,
   side: EdgeSide,
 ): {

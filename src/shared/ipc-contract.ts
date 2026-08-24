@@ -19,7 +19,6 @@ import type {
   SelectionOverlayPayload,
   ThemeData,
   ToolbarSelectionData,
-  ViewportNudge,
   WorkspaceBounds,
 } from './types'
 import type { BindingId } from './bindings'
@@ -342,7 +341,6 @@ export interface IpcContract {
   'toolbar-set-tool': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
-  'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
   'frozen-pages-ready': { dir: 'renderer→main'; payload: { target: FreezeTarget; revision: number } }
   'frozen-pages-state': { dir: 'main→renderer'; payload: FrozenPagesState }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
@@ -665,7 +663,6 @@ export const ipcChannels = {
   toolbarSetTool: 'toolbar-set-tool',
   toolbarTooltipClose: 'toolbar-tooltip-close',
   toolbarTooltipOpen: 'toolbar-tooltip-open',
-  viewportNudge: 'viewport-nudge',
   writeNoteFile: 'write-note-file',
   zoomChanged: 'zoom-changed',
   zoomIn: 'zoom-in',

@@ -1,10 +1,7 @@
+import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { memo, useMemo, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
-import type {
-  Annotation,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { Annotation } from '../../shared/types'
 import { isUnresolved } from '../../shared/annotation-utils'
 import { pageViewportToScreen } from '../../shared/page-space'
 import type { AnnotationLiveBboxLookup } from './annotationMath'
@@ -29,7 +26,7 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
   onOpenThread,
 }: {
   annotations: Annotation[]
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   liveBboxes: AnnotationLiveBboxLookup
   onOpenThread: (annotationId: string) => void
 }) {
@@ -46,7 +43,7 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
 
   const pagesById = new Map(
     layoutData.entities
-      .filter((entity): entity is CanvasScenePageEntity => entity.kind === 'page')
+      .filter((entity): entity is ProjectedPageEntity => entity.kind === 'page')
       .map((page) => [page.id, page]),
   )
   const byPage = new Map<string, CommentBadge[]>()
@@ -62,7 +59,7 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
         const page = pagesById.get(pageId)
         if (!page) return null
         return (
-          <PageOverlayBand key={pageId} page={page} layoutData={layoutData} zIndex={15}>
+          <PageOverlayBand key={pageId} page={page} originY={layoutData.canvasOrigin.y} zIndex={15}>
             {hoveredBadge?.pageId === pageId && hoveredBadge.highlightRect ? (
               <div
                 className="pointer-events-none absolute z-[14]"
@@ -128,12 +125,12 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
 
 export function commentBadgesForLayout(
   annotations: Annotation[],
-  layoutData: LayoutUpdateData,
+  layoutData: ProjectedLayoutData,
   liveBboxes: AnnotationLiveBboxLookup,
 ): CommentBadge[] {
   const pagesById = new Map(
     layoutData.entities
-      .filter((entity): entity is CanvasScenePageEntity => entity.kind === 'page')
+      .filter((entity): entity is ProjectedPageEntity => entity.kind === 'page')
       .map((page) => [page.id, page]),
   )
   const grouped = new Map<string, { representative: Annotation; count: number }>()
@@ -204,8 +201,8 @@ export function commentBadgesForLayout(
 
 function elementAnnotationRect(
   annotation: Annotation,
-  page: CanvasScenePageEntity,
-  layoutData: LayoutUpdateData,
+  page: ProjectedPageEntity,
+  layoutData: ProjectedLayoutData,
   liveBboxes: AnnotationLiveBboxLookup,
 ): { left: number; top: number; width: number; height: number } | null {
   if (annotation.anchor.type !== 'element') return null

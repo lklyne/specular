@@ -59,8 +59,12 @@ function makePageId(): string {
 /**
  * Side-effect half of a tab switch: reset the per-tab UI state — selection,
  * active tool, devtools, overlays.
+ *
+ * A tab switch replaces the whole scene, so it dirties the canvas outright
+ * rather than patching the cells it reset.
  */
 function resetUiStateForTabSwitch(): void {
+  markDirty('canvas')
   replaceUiState({
     ...getUiState(),
     selection: { kind: 'none' },

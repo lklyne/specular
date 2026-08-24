@@ -1,12 +1,7 @@
+import type { ProjectedDrawingEntity, ProjectedPageEntity, ProjectedSceneEntity, SceneView } from '../../shared/scene-projection'
 import { memo } from 'react'
 import { getStroke } from 'perfect-freehand'
-import type {
-  AnnotationDrawing,
-  AnnotationDrawingStroke,
-  CanvasSceneEntity,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { AnnotationDrawing, AnnotationDrawingStroke } from '../../shared/types'
 import { PageOverlayBand } from './PageOverlayBand'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
 import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
@@ -155,7 +150,7 @@ export const DrawingLayer = memo(function DrawingLayer({
   isDark,
 }: {
   drawing: AnnotationDrawing
-  layout: LayoutUpdateData
+  layout: SceneView
   active?: boolean
   isDark: boolean
 }) {
@@ -226,17 +221,21 @@ export const DrawingLayer = memo(function DrawingLayer({
 
 export const SavedDrawingEntities = memo(function SavedDrawingEntities({
   entities,
-  layoutData,
+  view,
+  anchorPage,
   selectedEntityIds,
   isDark,
 }: {
-  entities: CanvasSceneEntity[]
-  layoutData: LayoutUpdateData
+  entities: ProjectedSceneEntity[]
+  view: SceneView
+  /** The page `pageAnchor` names, resolved by the caller. App mounts one layer
+   *  per entity, so one page covers the batch. */
+  anchorPage: ProjectedPageEntity | undefined
   selectedEntityIds: string[]
   isDark: boolean
 }) {
   const drawings = entities.filter(
-    (e): e is import('../../shared/types').CanvasSceneDrawingEntity => e.kind === 'drawing',
+    (e): e is ProjectedDrawingEntity => e.kind === 'drawing',
   )
   if (drawings.length === 0) return null
 
@@ -248,7 +247,7 @@ export const SavedDrawingEntities = memo(function SavedDrawingEntities({
           <DrawingLayer
             key={drawing.id}
             drawing={{ version: 1, bounds: { x: drawing.canvasX, y: drawing.canvasY, width: drawing.width, height: drawing.height }, strokes: drawing.strokes }}
-            layout={layoutData}
+            layout={view}
             active={isSelected}
             isDark={isDark}
           />
@@ -256,13 +255,7 @@ export const SavedDrawingEntities = memo(function SavedDrawingEntities({
         // A page-anchored drawing scroll-follows its page (main shifts the
         // scene strokes), so it clips and edge-fades inside the page's
         // overlay band like shapes do.
-        const anchorPageId = drawing.pageAnchor?.pageId
-        const page = anchorPageId
-          ? layoutData.entities.find(
-              (entity): entity is CanvasScenePageEntity =>
-                entity.kind === 'page' && entity.id === anchorPageId,
-            )
-          : undefined
+        const page = drawing.pageAnchor ? anchorPage : undefined
         if (!page) return layer
         const liveElement = drawing.pageAnchor?.element
           ? page.elementPositions?.[drawing.pageAnchor.element.selector]
@@ -271,7 +264,7 @@ export const SavedDrawingEntities = memo(function SavedDrawingEntities({
           <PageOverlayBand
             key={drawing.id}
             page={page}
-            layoutData={layoutData}
+            originY={view.canvasOrigin.y}
             followScroll={shouldFastFollowPageScroll(drawing.pageAnchor, liveElement)}
           >
             {layer}

@@ -22,6 +22,8 @@ import {
   stopAppControlServer,
 } from './app-control-server'
 import { markDirty } from './runtime/layout-dirty'
+import { broadcastRuntimePatch } from './runtime/runtime-patch-broadcast'
+import { currentPresenceSlice } from './runtime/presence-slice'
 import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
 import { getSpacePath, loadOnboardingState, saveOnboardingState, setSpacePath } from './runtime/preferences'
@@ -54,6 +56,7 @@ import { getActiveDoc } from './runtime/space-doc'
 import { zoom, pan } from './runtime/runtime-context'
 import { workspaceGroups, workspaceEdges, workspaceAnnotations, spaceTabs, activeSpaceTabId, setActiveSpaceTabId } from './runtime/space-model'
 import { getUiState, setSelection } from './ui-state'
+import { broadcastSelectionChange } from './runtime/runtime-slice-broadcast'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
 import { initSentry } from './sentry'
@@ -261,7 +264,10 @@ app.whenReady().then(async () => {
     breadcrumb('interaction', mode.kind)
   })
   onPresenceCursorsChanged(() => {
-    markDirty('canvas', 'toolbar')
+    broadcastRuntimePatch({ kind: 'slice', slice: 'presence', value: currentPresenceSlice() })
+    // The toolbar's presence readout is not on the scene bus, and the
+    // cursor-overlay window's show/hide is decided inside the pass.
+    markDirty('toolbar')
     requestLayout()
   })
   setInterval(() => {
@@ -293,7 +299,10 @@ app.whenReady().then(async () => {
   createCanvasUndoManager(doc)
   setUndoSelectionHooks(
     () => getUiState().selection,
-    (selection) => setSelection(selection as any),
+    (selection) => {
+      setSelection(selection as any)
+      broadcastSelectionChange()
+    },
   )
   initializeDocObservers({
     pages,

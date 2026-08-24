@@ -1,12 +1,21 @@
 /**
  * Dirty-flag system for layout IPC sends.
  *
- * The layout pass recomputes view geometry unconditionally every pass —
- * geometry is no longer flag-gated. These three surfaces are the only
- * live flags left: each gates an IPC payload send (`canvas`/`sidebar`/
- * `toolbar`). Mutation sites call `markDirty()` with the surfaces they
- * affect; `layoutAllViews()` checks `consumeDirty()` per surface and
- * only sends IPC for surfaces that were actually dirtied.
+ * Native view bounds are recomputed unconditionally every pass. These three
+ * flags gate the payloads that ride along with it, and each means something
+ * narrower than "something changed":
+ *
+ * - `canvas` — a geometry pass is needed: `buildCanvasLayoutData` rebuilds the
+ *   scene and the bus diffs it. Set it only for a change to entity canvas
+ *   geometry, entity membership, or z-order. Everything else the scene carries
+ *   has a slice and a patch producer (see `src/main/runtime/CLAUDE.md`).
+ * - `sidebar` — the left sidebar's payload, which is not on the scene bus.
+ * - `toolbar` — the toolbar's zoom readout, selection summary, and presence
+ *   count, likewise off the scene bus.
+ *
+ * Mutation sites call `markDirty()` with the surfaces they affect;
+ * `layoutAllViews()` checks `consumeDirty()` per surface and only sends IPC for
+ * surfaces that were actually dirtied.
  */
 
 export type DirtySurface = 'canvas' | 'sidebar' | 'toolbar'

@@ -1,6 +1,7 @@
 // ADR 0008 — page selection popup. URL/nav redundancy with PageChrome is
 // accepted per §6.
 
+import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { useEffect, useRef, useState } from 'react'
 import {
   ChevronDown,
@@ -18,7 +19,6 @@ import {
 import { resolveAddressInput } from '../../shared/url'
 import { focusContext } from '../../shared/focus-context'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { PagePresetDropdown } from '../shared/PagePresetDropdown'
 import { THEME_MODE_ICON, THEME_MODE_LABEL, nextThemeMode } from '../shared/themeModeCycle'
@@ -71,8 +71,8 @@ export function PagePopup({
     | 'unsyncPage'
   >
   isDark: boolean
-  layout: LayoutUpdateData
-  selectedPages: CanvasScenePageEntity[]
+  layout: ProjectedLayoutData
+  selectedPages: ProjectedPageEntity[]
   interactionIdle: boolean
   onAnnotate: AnnotateHandler
 }) {
@@ -83,7 +83,7 @@ export function PagePopup({
   const focusedPageId = focusContext(layout).pageId
   const focusedPageEntity = focusedPageId
     ? (layout.entities.find(
-        (entity): entity is CanvasScenePageEntity =>
+        (entity): entity is ProjectedPageEntity =>
           entity.kind === 'page' && entity.id === focusedPageId,
       ) ?? null)
     : null

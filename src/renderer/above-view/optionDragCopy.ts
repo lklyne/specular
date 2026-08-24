@@ -1,7 +1,8 @@
+import type { ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import type {
   PointerEvent as ReactPointerEvent,
 } from 'react'
-import type { CanvasEntityKind, CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasEntityKind } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, clientYToWindowY, snapToGrid } from '../../shared/gesture-utils'
 import { axisLockDominantAxis, axisLockProjector } from '../../shared/axis-lock-projector'
@@ -13,7 +14,7 @@ export type DragCopyPreviewBox = {
   top: number
   width: number
   height: number
-  entityKind: CanvasSceneEntity['kind']
+  entityKind: ProjectedSceneEntity['kind']
 }
 
 type DragPointer = {
@@ -28,7 +29,7 @@ type DragPointer = {
 }
 
 export function createGroupDropTargetTracker(input: {
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   entityIds: readonly string[]
   isOptionHeld?: () => boolean
   isCommandHeld: () => boolean
@@ -82,7 +83,7 @@ type DragCopyCallbacks = {
 }
 
 type DragCopySessionOptions = DragCopyCallbacks & {
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   entityIds: string[]
   anchorEntityId: string
   startScreenX: number
@@ -92,12 +93,12 @@ type DragCopySessionOptions = DragCopyCallbacks & {
 }
 
 type DragSnapshot = Pick<
-  CanvasSceneEntity,
+  ProjectedSceneEntity,
   'id' | 'kind' | 'canvasX' | 'canvasY' | 'screenX' | 'screenY' | 'screenWidth' | 'screenHeight'
 >
 
 function draggedEntityIdsForSelection(
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   anchorEntityId: string,
 ): string[] {
   const selectedIds = layout.selectedEntityIds.includes(anchorEntityId)
@@ -116,7 +117,7 @@ function draggedEntityIdsForSelection(
 }
 
 function draggedEntityIdsForGroup(
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   groupId: string,
 ): string[] {
   const ids = new Set<string>([groupId])
@@ -149,7 +150,7 @@ function draggedEntityIdsForGroup(
 export function createOptionDragCopySession(options: DragCopySessionOptions) {
   const snapshots = options.entityIds
     .map((id) => options.layout.entities.find((entity) => entity.id === id))
-    .filter((entity): entity is CanvasSceneEntity => entity !== undefined)
+    .filter((entity): entity is ProjectedSceneEntity => entity !== undefined)
     .map((entity): DragSnapshot => ({
       id: entity.id,
       kind: entity.kind,
@@ -298,7 +299,7 @@ export function createOptionDragCopySession(options: DragCopySessionOptions) {
 
 export function startOptionAwareEntityDrag(input: {
   api: CanvasBgElectronAPI
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   entityId: string
   entityKind: CanvasEntityKind
   preserveSelection: boolean
@@ -386,7 +387,7 @@ export function startOptionAwareEntityDrag(input: {
 
 export function startOptionAwareGroupDrag(input: {
   api: CanvasBgElectronAPI
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   groupId: string
   event: PointerEvent | ReactPointerEvent
   releasePointer?: (() => void) | null

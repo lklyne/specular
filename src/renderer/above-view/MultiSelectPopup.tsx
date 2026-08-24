@@ -3,7 +3,7 @@
 // sticky) has no surface. This is that surface: the cross-kind actions —
 // focus and arrange — off the combined bounding box.
 
-import type { LayoutUpdateData } from '../../shared/types'
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { POPUP_OFFSET_Y } from './usePopupDelayedKey'
@@ -21,7 +21,7 @@ export function MultiSelectPopup({
     'focusSelection' | 'arrangeSelection'
   >
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   /** True only when the selection spans more than one kind — same-kind
    *  selections already get their per-kind popup, which carries these actions. */
   mixed: boolean

@@ -42,7 +42,6 @@ const SLICE_LAYOUT_KEYS: Record<RuntimeSliceKey, readonly (keyof LayoutUpdateDat
     'selectedEntityIds',
     'selectionOperandIds',
     'selection',
-    'activeSelection',
     'selectedGroupId',
   ],
   tool: ['activeTool', 'toolDefaults', 'pendingPlacement'],

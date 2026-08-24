@@ -1,9 +1,6 @@
+import type { ProjectedPageEntity } from './scene-projection'
 import { pageViewportToScreen } from './page-space'
-import type {
-  CanvasScenePageEntity,
-  DevtoolsPanelDomRect,
-  InspectNodeDetail,
-} from './types'
+import type { DevtoolsPanelDomRect, InspectNodeDetail } from './types'
 
 export interface InspectOverlayRect {
   left: number
@@ -29,7 +26,7 @@ const TARGET_GAP = 6
 
 export function inspectTargetScreenRect(
   detail: Pick<InspectNodeDetail, 'boundingBox'>,
-  page: CanvasScenePageEntity,
+  page: ProjectedPageEntity,
 ): InspectOverlayRect | null {
   const box = detail.boundingBox
   if (!box) return null
@@ -42,7 +39,7 @@ const WINDOW_ORIGIN = { canvasOrigin: { x: 0, y: 0 } }
 
 export function domRectToPageScreenRect(
   rect: DevtoolsPanelDomRect,
-  page: CanvasScenePageEntity,
+  page: ProjectedPageEntity,
 ): InspectOverlayRect {
   const { left, top, width, height } = pageViewportToScreen(rect, page, WINDOW_ORIGIN)
   return {

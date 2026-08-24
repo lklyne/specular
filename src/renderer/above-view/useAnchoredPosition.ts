@@ -13,18 +13,14 @@
  * screenHeight` from the layout broadcast. There is no separate chrome band.
  */
 
+import type { ProjectedGroupEntity, ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { useMemo } from 'react'
 import type { Rect } from '../../shared/hit-regions'
-import type {
-  CanvasSceneEntity,
-  CanvasSceneGroupEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
 
 export interface AnchoredRect extends Rect {}
 
 export function anchoredRect(
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   entityId: string,
 ): AnchoredRect | null {
   const entity = findAnchorTarget(layout, entityId)
@@ -33,7 +29,7 @@ export function anchoredRect(
 }
 
 export function useAnchoredPosition(
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   entityId: string,
 ): AnchoredRect | null {
   return useMemo(() => anchoredRect(layout, entityId), [layout, entityId])
@@ -49,7 +45,7 @@ export function useAnchoredPosition(
  * edge by design.
  */
 export function useMultiAnchoredPosition(
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   entityIds: readonly string[],
 ): AnchoredRect | null {
   const key = entityIds.join('|')
@@ -74,9 +70,9 @@ export function useMultiAnchoredPosition(
   }, [layout, key])
 }
 
-type AnchorTarget = CanvasSceneEntity | CanvasSceneGroupEntity
+type AnchorTarget = ProjectedSceneEntity | ProjectedGroupEntity
 
-function findAnchorTarget(layout: LayoutUpdateData, id: string): AnchorTarget | undefined {
+function findAnchorTarget(layout: ProjectedLayoutData, id: string): AnchorTarget | undefined {
   const entity = layout.entities.find((e) => e.id === id)
   if (entity) return entity
   return (layout.groups ?? []).find((g) => g.id === id)
@@ -91,7 +87,7 @@ function entityRectFor(entity: AnchorTarget): Rect {
   }
 }
 
-function toOverlayLocal(rect: Rect, layout: LayoutUpdateData): Rect {
+function toOverlayLocal(rect: Rect, layout: ProjectedLayoutData): Rect {
   return {
     x: rect.x,
     y: rect.y - layout.canvasOrigin.y,

@@ -1,23 +1,11 @@
-import { useEffect, useState } from 'react'
-import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
+import type { ProjectedPageEntity } from '../../shared/scene-projection'
 import { agentOverlayClipPath } from '../../shared/agent-overlay-clip'
-import { runtimeStore } from '../shared/runtime-store'
+import { useProjectedLayoutData } from '../shared/hooks/useProjectedLayoutData'
 import { AgentCursorLayer } from '../canvas-bg/AgentCursorLayer'
 import { InspectPopoverLayer } from './InspectPopoverLayer'
 
-export default function App({
-  initialLayoutData,
-}: {
-  initialLayoutData: LayoutUpdateData
-}) {
-  const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
-
-  useEffect(() => {
-    const unsubscribe = runtimeStore.subscribe(() => setLayoutData(runtimeStore.readLayoutData()))
-    return () => {
-      unsubscribe()
-    }
-  }, [])
+export default function App() {
+  const layoutData = useProjectedLayoutData()
 
   return (
     <div
@@ -27,7 +15,7 @@ export default function App({
       <AgentCursorLayer
         cursors={layoutData.presenceCursors}
         pages={layoutData.entities.filter(
-          (entity): entity is CanvasScenePageEntity => entity.kind === 'page',
+          (entity): entity is ProjectedPageEntity => entity.kind === 'page',
         )}
         canvasOrigin={layoutData.canvasOrigin}
         pan={layoutData.pan}

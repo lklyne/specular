@@ -1,9 +1,6 @@
+import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { memo } from 'react'
-import type {
-  Annotation,
-  CanvasScenePageEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { Annotation } from '../../shared/types'
 import { pageDocumentToScreen } from '../../shared/page-space'
 import { correctDocRectForElement } from '../../shared/element-attachment'
 import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
@@ -30,7 +27,7 @@ interface RegionGeometry {
  */
 function regionScreenGeometry(
   annotation: Annotation,
-  layoutData: LayoutUpdateData,
+  layoutData: ProjectedLayoutData,
 ): RegionGeometry | null {
   const anchor = annotation.anchor
   if (anchor.type !== 'region') return null
@@ -46,7 +43,7 @@ function regionScreenGeometry(
   const pageId = annotation.pageAnchor?.pageId
   const page = pageId
     ? layoutData.entities.find(
-        (entity): entity is CanvasScenePageEntity =>
+        (entity): entity is ProjectedPageEntity =>
           entity.kind === 'page' && entity.id === pageId,
       )
     : undefined
@@ -71,7 +68,7 @@ export const RegionSelectAnnotations = memo(function RegionSelectAnnotations({
 }: {
   annotations: Annotation[]
   interactive: boolean
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   onOpenThread: (annotationId: string) => void
 }) {
   const regionAnnotations = annotations.filter(
@@ -110,7 +107,7 @@ export const RegionSelectAnnotations = memo(function RegionSelectAnnotations({
     if (!entry.geom.pageId) continue
     const anchor = entry.annotation.pageAnchor
     const page = layoutData.entities.find(
-      (entity): entity is CanvasScenePageEntity =>
+      (entity): entity is ProjectedPageEntity =>
         entity.kind === 'page' && entity.id === entry.geom.pageId,
     )
     const liveElement = anchor?.element
@@ -136,7 +133,7 @@ export const RegionSelectAnnotations = memo(function RegionSelectAnnotations({
         .map((entry) => renderRegion(entry.annotation, entry.geom))}
       {[...byPage.entries()].map(([key, group]) => {
         const page = layoutData.entities.find(
-          (entity): entity is CanvasScenePageEntity =>
+          (entity): entity is ProjectedPageEntity =>
             entity.kind === 'page' && entity.id === group.pageId,
         )
         if (!page) return null
@@ -144,7 +141,7 @@ export const RegionSelectAnnotations = memo(function RegionSelectAnnotations({
           <PageOverlayBand
             key={key}
             page={page}
-            layoutData={layoutData}
+            originY={layoutData.canvasOrigin.y}
             followScroll={group.followScroll}
           >
             {group.entries.map((entry) => renderRegion(entry.annotation, entry.geom))}

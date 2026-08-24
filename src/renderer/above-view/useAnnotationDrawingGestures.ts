@@ -1,3 +1,4 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import { useCallback, useRef } from 'react'
 import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
@@ -26,7 +27,7 @@ export function useAnnotationDrawingGestures({
   closeThread: () => void
   drawInteractionEnabled: boolean
   layoutData: LayoutUpdateData
-  layoutRef: React.MutableRefObject<LayoutUpdateData>
+  layoutRef: LayoutSnapshotRef
   pendingAnnotation: unknown
   activeStrokeRef: React.MutableRefObject<{ pointerId: number; strokeId: string } | null>
   setDrawingSession: React.Dispatch<

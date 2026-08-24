@@ -22,7 +22,8 @@ what moved.
 
 | Path | Producer | Carries |
 |---|---|---|
-| Mutator → patch | `broadcastRuntimePatch` from the mutator itself (`commitHoverTarget`, the page-scroll handler, the annotation-bbox fold) | one slice, no layout pass at all |
+| Mutator → patch | `broadcastRuntimePatch` / `broadcastRuntimePatches` from the mutator itself (`commitHoverTarget`, `commitSelection`, `setActiveTool`, the interaction mutators, the page-scroll handler, the annotation-bbox fold, the presence-cursor store) | one or more slices, without rebuilding the scene |
+| Lifecycle hook → entity patch | `broadcastPageChrome` from the navigation hooks in `page-factory.ts` | one page entity, when its browser chrome moved |
 | Layout pass → diff → patch batch | `broadcastSceneUpdate` diffs the rebuilt scene against the baseline | the cells that moved, batched so a pass applies atomically |
 | Snapshot baseline | `broadcastSceneSnapshot` on connect, and on the first pass ≥1s after the last snapshot | the whole scene, on top of that pass's patches |
 
@@ -45,14 +46,37 @@ Rules that hold this together:
 - **Identity is the product.** `shareStructure` runs on the scene main builds
   and on both the snapshot and the projection a renderer reads, because
   `useSlice` and the memoized layers bail out on reference equality.
-- **`viewportNudge` is the one exception.** A pan or zoom is a camera transform
-  over an unchanged scene, not a scene edit, so it keeps its own delta channel
-  and its renderer-side self-reconcile (`useSceneCameraTransform`). Do not model
-  it as a store patch.
-- **`markDirty('canvas') + requestLayout()` still means "the scene changed."**
-  It is the right call for a structural edit; it is the wrong call for a slice
-  that has a patch producer, which would pay for a whole rebuild to deliver one
-  cell.
+- **A camera move is a `camera` slice patch.** Scene entities carry canvas-space
+  geometry only; each renderer projects it (`src/shared/scene-projection.ts`).
+  So a pan or zoom edits one slice and nothing else — `setViewportCamera` lays
+  out the native views and calls `broadcastRuntimePatch`, never
+  `markDirty('canvas')`. Main still projects for the `WebContentsView` bounds
+  Chromium wants in window pixels, through the same helper.
+- **A geometry pass builds geometry.** `buildCanvasLayoutData` produces
+  canvas-space geometry and membership; anything else in the payload has a
+  named producer that both the pass and a patch call, so the two can never
+  describe the same cell differently — `currentSelectionSlice` /
+  `currentToolSlice` / `currentFocusSlice` (`canvas-layout-data.ts`),
+  `currentPresenceSlice` (`presence-slice.ts`), `buildPageSceneEntity`
+  (`page-scene-entity.ts`). The pass reads no page's `webContents`: title,
+  favicon, URL, load state, and back/forward availability are mirrored onto the
+  `Page` record by the lifecycle hooks and patched from `page-chrome-state.ts`.
+  A new payload field belongs to a producer, not to the builder's literal.
+- **`markDirty('canvas')` means "the scene changed"; `requestLayout()` means
+  "the pass has work."** They are two decisions, and most ephemeral mutators
+  answer them differently. Dirty the canvas only for a change to entity
+  geometry, entity membership, or z-order — everything else has a slice and a
+  patch producer (`runtime-slice-broadcast.ts` for `selection`, `tool`,
+  `interaction`, `focus`; `hover-state.ts`; `inspect-session.ts`;
+  `viewport-control.ts` for `camera`; `presence-slice.ts`;
+  `page-chrome-state.ts` for a page's browser chrome). Still call
+  `requestLayout()` when
+  something *outside* the store reads what you changed and is computed only
+  inside `layoutAllViews`: `reconcileFocus` and viewport culling read the
+  interaction kind, `shouldGateBeOpen` and the cursor-overlay window read the
+  active tool and the inspect target, and the `sidebar` and `toolbar` payloads
+  are not on the scene bus at all. If a mutator turns out to need the scene
+  after all, give it back its `markDirty('canvas')` — never widen the patch.
 
 The renderer half is `src/renderer/shared/runtime-store.ts` (applies snapshots
 and patch batches), `runtime-store-feed.ts` (subscribes at module scope, before
@@ -118,6 +142,8 @@ Not tracked: viewport zoom/pan (in a separate Y.Map excluded from UndoManager sc
 - `space-model.ts` — owns workspace data arrays (edges, groups, annotations, tabs)
 - `runtime-context.ts` — ephemeral state only (views, interaction, layout cache, timers, pages)
 - `runtime-patch-broadcast.ts` — the scene bus: baseline, diff, patch batches, snapshot cadence, per-target routing
+- `page-scene-entity.ts` — the one page scene-entity builder, shared by the geometry pass and the chrome patch
+- `page-chrome-state.ts` — mirrors a page's browser chrome out of `webContents` and patches it
 
 ## Test coverage for this layer
 

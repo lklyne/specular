@@ -24,6 +24,8 @@
  * come from `./pointer-session.ts`.
  */
 
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
+import type { ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { useEffect, useRef } from 'react'
 import { hitTest, type HitInputs } from '../../shared/hit-test'
 import {
@@ -84,7 +86,7 @@ import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
 import { runtimeStore } from '../shared/runtime-store'
 import { GROUP_LABEL_FONT } from '../../shared/group-label-geometry'
-import type { CanvasSceneEntity, EdgeSide, LayoutUpdateData, SelectionModifiers } from '../../shared/types'
+import type { EdgeSide, SelectionModifiers } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   startOptionAwareEntityDrag,
@@ -115,7 +117,7 @@ interface CommentDraftSnapshot {
 
 interface PointerDispatchDependencies {
   api: CanvasBgElectronAPI
-  layoutRef: React.MutableRefObject<LayoutUpdateData>
+  layoutRef: LayoutSnapshotRef
   optionHeldRef: React.MutableRefObject<boolean>
   commandHeldRef: React.MutableRefObject<boolean>
   setDragCopyPreview: (preview: DragCopyPreviewBox[]) => void
@@ -476,7 +478,7 @@ function commitOutsideInlineEdit(
 
 function canvasPointerContext(
   event: PointerEvent,
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   editingEntityId: string | null,
   deps: RouterPointerDependencies,
 ): CanvasPointerContext {
@@ -743,7 +745,7 @@ function runResize(
   action: Extract<CanvasPointerAction, { kind: 'begin-resize' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   // Capture up front, before the target-entity validation below — a bail
   // leaves the capture held until the implicit release on pointerup.
@@ -843,7 +845,7 @@ function runMultiResize(
   action: Extract<CanvasPointerAction, { kind: 'begin-multi-resize' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   // Capture up front, before the selection-bbox validation below — a bail
   // leaves the capture held until the implicit release on pointerup.
@@ -885,12 +887,12 @@ function runEdgeDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-edge-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
   setEdgeDragState: (state: EdgeDragState) => void,
 ): boolean {
   const layout = layoutRef.current
   const windowY = clientYToWindowY(event.clientY, layout)
-  const entityMap = new Map<string, CanvasSceneEntity>()
+  const entityMap = new Map<string, ProjectedSceneEntity>()
   for (const e of layout.entities) entityMap.set(e.id, e)
   let state = beginEdgeDragState(
     action.entityId,
@@ -943,7 +945,7 @@ function runEdgeDrag(
   startPointerSession(event, {
     onMove: (ev) => {
       const cur = layoutRef.current
-      const snapMap = new Map<string, CanvasSceneEntity>()
+      const snapMap = new Map<string, ProjectedSceneEntity>()
       for (const e of cur.entities) snapMap.set(e.id, e)
       const winY = clientYToWindowY(ev.clientY, cur)
       state = updateEdgeDragCursor(state, ev.clientX, winY, snapMap, cur.zoom ?? 1)
@@ -973,7 +975,7 @@ function runEdgeDrag(
 function runBackgroundSelectionGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
   originEntity?: NonNullable<
     Extract<CanvasPointerAction, { kind: 'begin-marquee' }>['originEntity']
   >,
@@ -1082,7 +1084,7 @@ function runForwardPointer(
   action: Extract<CanvasPointerAction, { kind: 'forward-pointer-down' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   const { entityId, button } = action
   let lastWindowX = event.clientX
@@ -1165,7 +1167,7 @@ function runReorderDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-reorder-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
   setReorderGhost: (ghost: ReorderGhostOffset) => void,
 ): boolean {
   // Freeze the grab point so the ghost can float at original-pos + (live -
@@ -1215,7 +1217,7 @@ function runGapDrag(
   action: Extract<CanvasPointerAction, { kind: 'begin-gap-drag' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   const startLayout = layoutRef.current
   const grab = screenPointToCanvasPoint(
@@ -1256,7 +1258,7 @@ const MIN_SHAPE_DRAG_SIZE = 24
 
 function overlayRectFromScreenRect(
   rect: { left: number; top: number; width: number; height: number },
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
 ) {
   return {
     ...rect,
@@ -1274,7 +1276,7 @@ function runPlacementGesture(
   action: Extract<CanvasPointerAction, { kind: 'begin-placement' }>,
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
 ): boolean {
   const layout = layoutRef.current
   const startCanvas = screenPointToCanvasPoint(
@@ -1367,7 +1369,7 @@ function runPlacementGesture(
 function runCommentGesture(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
-  layoutRef: React.MutableRefObject<LayoutUpdateData>,
+  layoutRef: LayoutSnapshotRef,
   onDragMove: (startX: number, startY: number, endX: number, endY: number) => void,
   onDragEnd: (startX: number, startY: number, endX: number, endY: number) => void,
   draftRef: React.MutableRefObject<CommentDraftSnapshot>,
@@ -1433,7 +1435,7 @@ function runCommentGesture(
 
 // --- Per-kind helpers ---
 
-function resizeConfigForEntity(entity: CanvasSceneEntity): ResizeConfig {
+function resizeConfigForEntity(entity: ProjectedSceneEntity): ResizeConfig {
   const caps = ENTITY_KIND_CAPS[entity.kind]
   const aspectRatioResizeMode: AspectRatioResizeMode =
     entity.kind === 'file' && 'file' in entity && typeof entity.file === 'string'
@@ -1451,12 +1453,12 @@ function resizeConfigForEntity(entity: CanvasSceneEntity): ResizeConfig {
   }
 }
 
-function isSticky(entity: CanvasSceneEntity): boolean {
+function isSticky(entity: ProjectedSceneEntity): boolean {
   return entity.kind === 'text' && entity.textStyle !== 'plain'
 }
 
 function patchDispatcherForKind(
-  kind: CanvasSceneEntity['kind'],
+  kind: ProjectedSceneEntity['kind'],
   id: string,
   api: CanvasBgElectronAPI,
 ): ((patch: { width: number; height: number; canvasX?: number; canvasY?: number }) => void) | null {

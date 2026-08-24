@@ -1,7 +1,8 @@
 // ADR 0008 §1/§5, ADR 0009 — add-shape tool popup; persists via tool defaults.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { slotForStorage } from '../../shared/canvas-colors'
-import type { LayoutUpdateData, ShapeKind, ToolDefaultPatch } from '../../shared/types'
+import type { ShapeKind, ToolDefaultPatch } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ShapeDropdown } from './ShapeDropdown'
@@ -14,7 +15,7 @@ export function ShapeToolPopup({
 }: {
   api: Pick<CanvasBgElectronAPI, 'setToolDefault'>
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
 }) {
   const defaults = layout.toolDefaults['add-shape']
   const activeSlot = slotForStorage(defaults.color)

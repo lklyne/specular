@@ -1,9 +1,9 @@
 /**
- * GroupLabelCanvasSurface: group titles drawn on a full-window canvas in
- * screen space from the live camera, every pan/zoom tick. Same pattern as
- * canvas-bg's ChromeCanvasSurface: text renders at display scale each frame,
- * so labels keep their fixed 11px size and stay crisp during a zoom gesture
- * instead of riding the CSS scene transform as bitmap-scaled DOM.
+ * GroupLabelCanvasSurface: group titles drawn on a full-window canvas at the
+ * screen geometry this renderer projected. Same pattern as canvas-bg's
+ * ChromeCanvasSurface: text renders at display scale each frame, so labels
+ * keep their fixed 11px size and stay crisp during a zoom gesture instead of
+ * being drawn once as DOM and scaled.
  *
  * Mounted in aboveView (not the canvas-bg chrome canvas) because labels must
  * stay visible above native page views (ADR 0002). Purely visual. Pointer
@@ -16,12 +16,11 @@ import {
   GROUP_LABEL_FONT,
   GROUP_LABEL_LINE_HEIGHT,
 } from '../../shared/group-label-geometry'
-import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
-import type { CanvasSceneGroupEntity } from '../../shared/types'
+import type { ProjectedGroupEntity } from '../../shared/scene-projection'
 import { prepareScreenCanvas } from '../shared/screenCanvas'
 
 function groupLabelColor(
-  group: CanvasSceneGroupEntity,
+  group: ProjectedGroupEntity,
   isDark: boolean,
 ): string {
   if (group.color) return isDark ? '#f4f4f5' : '#18181b' // zinc-100 / zinc-900
@@ -31,15 +30,13 @@ function groupLabelColor(
 function drawGroupLabels({
   canvas,
   groups,
-  transform,
   originY,
   isDark,
   skipGroupId,
   devicePixelRatio,
 }: {
   canvas: HTMLCanvasElement
-  groups: CanvasSceneGroupEntity[]
-  transform: SceneCameraTransform
+  groups: ProjectedGroupEntity[]
   originY: number
   isDark: boolean
   skipGroupId: string | null
@@ -63,8 +60,8 @@ function drawGroupLabels({
 
   for (const group of groups) {
     if (!group.label || group.id === skipGroupId) continue
-    const x = transform.x + transform.scale * group.screenX
-    const groupTop = transform.y + transform.scale * (group.screenY - originY)
+    const x = group.screenX
+    const groupTop = group.screenY - originY
     ctx.fillStyle = groupLabelColor(group, isDark)
     ctx.fillText(group.label, x, groupTop - GROUP_LABEL_BOTTOM_GAP - baselineFromBottom)
   }
@@ -72,31 +69,27 @@ function drawGroupLabels({
 
 export const GroupLabelCanvasSurface = memo(function GroupLabelCanvasSurface({
   groups,
-  transform,
   originY,
   isDark,
   editingEntityId,
 }: {
-  groups: CanvasSceneGroupEntity[]
-  transform: SceneCameraTransform
+  groups: ProjectedGroupEntity[]
   originY: number
   isDark: boolean
   editingEntityId: string | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const drawInputs = useRef({ groups, transform, originY, isDark, editingEntityId })
-  drawInputs.current = { groups, transform, originY, isDark, editingEntityId }
+  const drawInputs = useRef({ groups, originY, isDark, editingEntityId })
+  drawInputs.current = { groups, originY, isDark, editingEntityId }
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const { groups, transform, originY, isDark, editingEntityId } =
-      drawInputs.current
+    const { groups, originY, isDark, editingEntityId } = drawInputs.current
     drawGroupLabels({
       canvas,
       groups,
-      transform,
       originY,
       isDark,
       skipGroupId: editingEntityId,
@@ -106,7 +99,7 @@ export const GroupLabelCanvasSurface = memo(function GroupLabelCanvasSurface({
 
   useEffect(() => {
     draw()
-  }, [groups, transform, originY, isDark, editingEntityId, draw])
+  }, [groups, originY, isDark, editingEntityId, draw])
 
   useEffect(() => {
     window.addEventListener('resize', draw)

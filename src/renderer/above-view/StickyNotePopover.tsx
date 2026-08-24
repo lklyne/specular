@@ -1,6 +1,7 @@
 // ADR 0008 §4 — text selection popup. Plain and sticky count as same kind
 // for color so color edits apply uniformly across both in multi-select.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { slotForStorage } from '../../shared/canvas-colors'
 import {
   toggleBold,
@@ -12,7 +13,7 @@ import {
   toggleWholeNoteWrap,
   wholeNoteFormatState,
 } from '../shared/markdown/whole-note-format'
-import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasSceneTextEntity } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
@@ -98,7 +99,7 @@ export function StickyNotePopover({
     | 'arrangeSelection'
   >
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   selectedTextEntities: CanvasSceneTextEntity[]
   popupReady: boolean
   onAnnotate: AnnotateHandler

@@ -74,13 +74,22 @@ import {
   setActiveTool as setUiActiveTool,
 } from '../ui-state'
 import { devtoolsPanelDebug } from './runtime-constants'
+import { broadcastRuntimePatch } from './runtime-patch-broadcast'
+import { broadcastToolChange } from './runtime-slice-broadcast'
 
 // --- Core functions (already migrated to direct imports) ---
+
+/** The inspect popover's own slice, for the mutators that change what is
+ *  inspected without changing the scene. Only agent-layer is routed it. */
+export function broadcastInspectSlice(): void {
+  broadcastRuntimePatch({ kind: 'slice', slice: 'inspect', value: buildInspectPanelState() })
+}
 
 export function clearInspectTargets(): void {
   setInspectHoveredTargetState(null)
   setInspectSelectedTargetState(null)
   setInspectActivePageId(null)
+  broadcastInspectSlice()
 }
 
 export function restorePersistedInspectSelection(pageId: string): void {
@@ -478,6 +487,7 @@ export function setInspectMode(enabled: boolean): void {
     return
   }
   setUiActiveTool(nextEnabled ? { kind: 'inspect' } : { kind: 'select' })
+  broadcastToolChange()
   if (!nextEnabled) {
     setInspectHoveredTargetState(null)
   }

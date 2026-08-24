@@ -5,9 +5,8 @@
  * home indicator). Pure per-item geometry and draw calls, shared by
  * canvas-bg (`chromeCanvasDraw.ts`) and above-view (`DragFreezeLayer`).
  *
- * Drawn in screen space from the live camera transform on every tick, so
- * strokes are always rendered at display scale and stay crisp at any zoom,
- * instead of riding the CSS scene transform as a bitmap-scaled DOM layer.
+ * Drawn in screen space at display scale on every tick, so strokes stay crisp
+ * at any zoom instead of riding a scaled DOM layer.
  */
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
@@ -15,7 +14,6 @@ import {
   DEVICE_CATALOG,
   contentCornerRadiusForDevice,
 } from '../../shared/device-catalog'
-import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
 import { squirclePath } from './squirclePath'
 
 export interface ChromeCanvasItem {
@@ -63,19 +61,16 @@ export function readChromeColors(canvas: HTMLCanvasElement): {
   }
 }
 
-/** Map payload-space screen geometry through the live scene transform. */
-export function liveGeometry(
-  item: ChromeCanvasItem,
-  t: SceneCameraTransform,
-): ItemGeometry {
-  const shellX = t.x + t.scale * item.screenX
-  const shellY = t.y + t.scale * item.screenY
-  const shellW = t.scale * item.screenWidth
-  const shellH = t.scale * item.screenHeight
-  const contentX = t.x + t.scale * (item.contentScreenX ?? item.screenX)
-  const contentY = t.y + t.scale * (item.contentScreenY ?? item.screenY)
-  const contentW = t.scale * (item.contentScreenWidth ?? item.screenWidth)
-  const contentH = t.scale * (item.contentScreenHeight ?? item.screenHeight)
+/** The shell/content rects and shell corner radii one item draws at. */
+export function itemGeometry(item: ChromeCanvasItem): ItemGeometry {
+  const shellX = item.screenX
+  const shellY = item.screenY
+  const shellW = item.screenWidth
+  const shellH = item.screenHeight
+  const contentX = item.contentScreenX ?? item.screenX
+  const contentY = item.contentScreenY ?? item.screenY
+  const contentW = item.contentScreenWidth ?? item.screenWidth
+  const contentH = item.contentScreenHeight ?? item.screenHeight
   const displayZoom = item.width > 0 ? contentW / item.width : 1
   const dev = item.deviceId ? DEVICE_CATALOG.get(item.deviceId) : null
   const hasShell = item.showDeviceFrame === true

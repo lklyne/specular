@@ -18,9 +18,10 @@
  * Electron, no DOM.
  */
 
+import type { ProjectedSceneEntity } from './scene-projection'
 import { managedLineAxis } from './layout-math'
 import { detectReorderableRow, SELECTION_ROW_GAP_TOLERANCE, type Box } from './reorder-row'
-import type { CanvasEntityKind, CanvasSceneEntity } from './types'
+import type { CanvasEntityKind } from './types'
 
 export interface ReorderDot {
   /** Entity id — becomes `movingId` when this dot's drag begins. */
@@ -33,7 +34,7 @@ export interface ReorderDot {
 }
 
 export interface ReorderableDotsInput {
-  entities: readonly CanvasSceneEntity[]
+  entities: readonly ProjectedSceneEntity[]
   selectedEntityIds: readonly string[]
   selectedGroupId?: string | null
   /** Live zoom — recovers a page's canvas-space *shell* size from its screen
@@ -41,14 +42,14 @@ export interface ReorderableDotsInput {
   zoom?: number
 }
 
-function screenCenter(entity: CanvasSceneEntity): { x: number; y: number } {
+function screenCenter(entity: ProjectedSceneEntity): { x: number; y: number } {
   return {
     x: entity.screenX + entity.screenWidth / 2,
     y: entity.screenY + entity.screenHeight / 2,
   }
 }
 
-function screenSize(entity: CanvasSceneEntity): { width: number; height: number } {
+function screenSize(entity: ProjectedSceneEntity): { width: number; height: number } {
   return { width: entity.screenWidth, height: entity.screenHeight }
 }
 
@@ -60,7 +61,7 @@ function screenSize(entity: CanvasSceneEntity): { width: number; height: number 
  * keeps detection exact: an arranged row's gaps are equal here, before the
  * native views round their bounds to integers.
  */
-export function rowBox(entity: CanvasSceneEntity, zoom: number): Box {
+export function rowBox(entity: ProjectedSceneEntity, zoom: number): Box {
   if (entity.kind === 'page') {
     const z = zoom || 1
     return {
@@ -104,7 +105,7 @@ export function reorderableDots(input: ReorderableDotsInput): ReorderDot[] {
   // excluded — they belong to the managed door, so the two never fight over the
   // same dot.
   const boxes: Box[] = []
-  const byId = new Map<string, CanvasSceneEntity>()
+  const byId = new Map<string, ProjectedSceneEntity>()
   for (const e of entities) {
     if (e.kind === 'group') continue
     if (!selected.has(e.id)) continue

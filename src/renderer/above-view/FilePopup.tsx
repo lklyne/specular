@@ -1,5 +1,6 @@
 // ADR 0008 §7 — file selection popup.
 
+import type { ProjectedFileEntity, ProjectedLayoutData } from '../../shared/scene-projection'
 import { useEffect, useState } from 'react'
 import { Eye, EyeClosed, X } from 'lucide-react'
 import {
@@ -7,7 +8,6 @@ import {
   toggleBulletList,
   toggleStrikethrough,
 } from '../shared/markdown/markdown-commands'
-import type { CanvasSceneFileEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { EditorFormattingButtons } from './EditorFormattingButtons'
@@ -49,7 +49,7 @@ function FileIdentitySections({
   setIsRenaming,
   onRename,
 }: {
-  file: CanvasSceneFileEntity
+  file: ProjectedFileEntity
   isDark: boolean
   isRenaming: boolean
   setIsRenaming: (renaming: boolean) => void
@@ -123,9 +123,9 @@ function FocusBarActions({
  * stay pinned.
  */
 function resolveFocusBar(
-  focusedNoteEntity: CanvasSceneFileEntity | null,
-  layout: LayoutUpdateData,
-): { entity: CanvasSceneFileEntity; annotationsVisible: boolean } | null {
+  focusedNoteEntity: ProjectedFileEntity | null,
+  layout: ProjectedLayoutData,
+): { entity: ProjectedFileEntity; annotationsVisible: boolean } | null {
   const session = layout.focusPresentation
   if (!focusedNoteEntity || session?.target.kind !== 'file') return null
   return { entity: focusedNoteEntity, annotationsVisible: session.annotationsVisible }
@@ -138,14 +138,14 @@ type FilePopupSubject = {
   /** Identity key for the show-delay and the rename reset. */
   ids: string
   isSingle: boolean
-  single: CanvasSceneFileEntity | null
+  single: ProjectedFileEntity | null
   entityIds: string[]
   noun: string
 }
 
 function describeSubject(
-  focusedFile: CanvasSceneFileEntity | null,
-  selectedFiles: CanvasSceneFileEntity[],
+  focusedFile: ProjectedFileEntity | null,
+  selectedFiles: ProjectedFileEntity[],
 ): FilePopupSubject {
   if (focusedFile) {
     return {
@@ -188,12 +188,12 @@ export function FilePopup({
     | 'setFocusAnnotationsVisible'
   >
   isDark: boolean
-  layout: LayoutUpdateData
-  selectedFiles: CanvasSceneFileEntity[]
+  layout: ProjectedLayoutData
+  selectedFiles: ProjectedFileEntity[]
   popupReady: boolean
   /** The note framed by a file-target focus session, or null. Non-null turns
    *  this popup into the focus bar. */
-  focusedNoteEntity: CanvasSceneFileEntity | null
+  focusedNoteEntity: ProjectedFileEntity | null
   onAnnotate: AnnotateHandler
 }) {
   const focusBar = resolveFocusBar(focusedNoteEntity, layout)

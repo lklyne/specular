@@ -1,11 +1,12 @@
 // ADR 0008 §1/§5, ADR 0009 — draw tool popup; persists via tool defaults.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import {
   paletteForBrushType,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type { LayoutUpdateData, ToolDefaultPatch } from '../../shared/types'
+import type { ToolDefaultPatch } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import {
@@ -22,7 +23,7 @@ export function DrawToolPopup({
 }: {
   api: Pick<CanvasBgElectronAPI, 'setToolDefault'>
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
 }) {
   const defaults = layout.toolDefaults.draw
   const swatchPalette = paletteForBrushType(defaults.brushType)

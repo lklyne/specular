@@ -117,10 +117,10 @@ class FakeWebContents extends EventEmitter {
     return Promise.resolve({ toPNG: () => Buffer.alloc(0), toDataURL: () => '' })
   }
 
-  // The layout payload reads back/forward availability on every broadcast.
-  // The noop fallback can't cover this one: it hands back a bare function for
-  // the unknown `navigationHistory` property, and the call sites reach through
-  // it for a method.
+  // `page-chrome-state.ts` samples back/forward availability whenever a
+  // navigation settles. The noop fallback can't cover this one: it hands back a
+  // bare function for the unknown `navigationHistory` property, and the call
+  // sites reach through it for a method.
   navigationHistory = withNoopFallback({
     canGoBack: () => false,
     canGoForward: () => false,

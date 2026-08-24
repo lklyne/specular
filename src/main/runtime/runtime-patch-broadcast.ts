@@ -7,6 +7,7 @@ import {
 } from '../../shared/runtime-patch'
 import { snapshotToStore, type RuntimeStore } from '../../shared/runtime-store'
 import { diffRuntimeStores } from '../../shared/runtime-store-diff'
+import { shareStructure } from '../../shared/layout-structural-share'
 import {
   filterPatchBatch,
   filterSceneSnapshot,
@@ -16,6 +17,7 @@ import type { LayoutUpdateData } from '../../shared/types'
 import { logCrash } from '../crash-log'
 import { aboveView, bgView, cursorOverlayWindow } from './view-refs'
 import { safeSend } from './safe-send'
+import { driftWatchdogEnabled } from './runtime-constants'
 
 /**
  * The scene bus: one full-snapshot channel and one patch channel, over the
@@ -130,8 +132,33 @@ export function seatSceneBootstrap(wc: WebContents, payload: LayoutUpdateData): 
  *  entirely (hover, page scroll, annotation bboxes). Keeps the baseline in step
  *  so the next pass doesn't re-send what this already delivered. */
 export function broadcastRuntimePatch(patch: RuntimePatch): void {
-  if (baseline) baseline = applyRuntimePatch(baseline, patch)
-  broadcastPatchBatch({ patches: [patch] })
+  broadcastRuntimePatches([patch])
+}
+
+/**
+ * The same, for a mutator whose one change lands in more than one slice — the
+ * batch keeps them atomic, so no renderer paints a selection against the focus
+ * target it had before.
+ *
+ * A patch whose value the baseline already holds is dropped, so a producer can
+ * name every slice its mutation *could* touch without paying to re-send the
+ * ones it didn't. This is the same rule the pass's diff applies; the patch path
+ * having its own would let the two disagree about what counts as a change.
+ */
+export function broadcastRuntimePatches(patches: RuntimePatch[]): void {
+  const moved = baseline ? patches.filter((patch) => movesBaseline(patch)) : patches
+  if (moved.length === 0) return
+  if (baseline) {
+    for (const patch of moved) baseline = applyRuntimePatch(baseline, patch)
+  }
+  broadcastPatchBatch({ patches: moved })
+}
+
+function movesBaseline(patch: RuntimePatch): boolean {
+  if (!baseline) return true
+  const held = patch.kind === 'slice' ? baseline.slices[patch.slice] : baseline.entities[patch.id]
+  const next = patch.kind === 'slice' ? patch.value : patch.entity
+  return !Object.is(shareStructure(held, next), held)
 }
 
 function broadcastPatchBatch(batch: RuntimePatchBatch): void {
@@ -146,14 +173,14 @@ function send(target: SceneTarget, wc: WebContents, channel: string, payload: un
   safeSend(wc, channel, payload)
 }
 
-// TEMP instrument (plan: diffed-runtime-store) — bytes on the wire per channel
-// per target, reported to errors.log every 2s. Slice routing is a claim about
-// who receives what; this is what makes it checkable, and makes total
-// bytes-at-rest one number to watch fall.
+// Bytes on the wire per channel per target, reported to errors.log every 2s.
+// Slice routing is a claim about who receives what; this is what makes it
+// checkable, and makes total bytes-at-rest one number to watch.
 const wireBytes = new Map<string, number>()
 let wireTimer: NodeJS.Timeout | null = null
 
 function recordWireBytes(target: SceneTarget, channel: string, payload: unknown): void {
+  if (!driftWatchdogEnabled()) return
   const key = `${target}:${channel}`
   let bytes = 0
   try {

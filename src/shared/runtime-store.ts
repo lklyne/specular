@@ -16,8 +16,8 @@
 
 import type { CanvasSceneEntity, CanvasSceneGroupEntity, LayoutUpdateData } from './types'
 
-/** Camera transform. Pan and zoom also ride `viewportNudge`, which stays its
- *  own channel — a camera move over an unchanged scene is not a scene edit. */
+/** Where the scene is viewed from. Renderers project canvas-space geometry
+ *  through this, so a pan or zoom is a patch to this slice and nothing else. */
 type CameraSlice = Pick<
   LayoutUpdateData,
   'zoom' | 'pan' | 'cameraTransitionStartedAt'
@@ -51,7 +51,6 @@ type SelectionSlice = Pick<
   | 'selectedEntityIds'
   | 'selectionOperandIds'
   | 'selection'
-  | 'activeSelection'
   | 'selectedGroupId'
 >
 
@@ -154,7 +153,6 @@ export function snapshotToStore(data: LayoutUpdateData): RuntimeStore {
         selectedEntityIds: data.selectedEntityIds,
         selectionOperandIds: data.selectionOperandIds,
         selection: data.selection,
-        activeSelection: data.activeSelection,
         selectedGroupId: data.selectedGroupId ?? null,
       },
       tool: {
@@ -219,7 +217,6 @@ export function storeToLayoutData(store: RuntimeStore): LayoutUpdateData {
     selectedEntityIds: selection?.selectedEntityIds,
     selectionOperandIds: selection?.selectionOperandIds,
     selection: selection?.selection,
-    activeSelection: selection?.activeSelection,
     activeTool: tool?.activeTool,
     toolDefaults: tool?.toolDefaults,
     annotations: store.slices.annotations,

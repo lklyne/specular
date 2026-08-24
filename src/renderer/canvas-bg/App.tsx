@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import type { LayoutUpdateData, ThemeData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -11,8 +11,6 @@ import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
-import { useSceneCameraTransform } from '../shared/hooks/useScenePanOffset'
-import { cameraAfterSceneTransform } from '../../shared/scene-camera-transform'
 import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
 import { useFrozenPagesState } from './useFrozenPagesState'
 import { useChromeSlices } from './useChromeSlices'
@@ -36,15 +34,6 @@ export default function App({
   const { frozenPages, dragFrozenPageIds } = useFrozenPagesState(api)
   const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
     api.frozenPagesReady('bg', revision),
-  )
-  const t = useSceneCameraTransform(
-    api.onViewportNudge,
-    layoutData,
-    layoutData.canvasOrigin,
-  )
-  const liveCamera = useMemo(
-    () => cameraAfterSceneTransform(layoutData, t, layoutData.canvasOrigin),
-    [layoutData, t],
   )
 
   useCanvasViewportGestures({
@@ -75,17 +64,12 @@ export default function App({
         bgRef={bgRef}
         isDark={isDark}
         canvasOrigin={layoutData.canvasOrigin}
-        pan={liveCamera.pan}
-        zoom={liveCamera.zoom}
+        pan={layoutData.pan}
+        zoom={layoutData.zoom}
       />
-      {/* Translate+scale the page chrome live with the pan/zoom gesture so
-          borders and device shells track the natively-positioned page views
-          instead of trailing until the next layout-update rebuild lands
-          (#257). */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`, transformOrigin: '0 0' }}
-      >
+      {/* Every layer sits at the window origin and is placed by projection
+          from the camera slice, so the scene container needs no transform. */}
+      <div className="pointer-events-none absolute inset-0">
         <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
         <div className="pointer-events-none absolute inset-0">
           <SvgDeviceShellLayer
@@ -94,14 +78,13 @@ export default function App({
           />
         </div>
       </div>
-      {/* Borders, device shells, and frozen-page rasters draw in screen space
-          from the live camera, outside the scene transform, so strokes stay
-          crisp mid-zoom and the raster shares the chrome's exact geometry. */}
+      {/* Borders, device shells, and frozen-page rasters draw on a canvas
+          rather than as DOM, so strokes stay crisp mid-zoom and the raster
+          shares the chrome's exact geometry. */}
       <ChromeCanvasSurface
         pages={chromePages}
         fileEntities={chromeFiles}
         snapshots={frozenPageBitmaps}
-        transform={t}
         isDark={isDark}
         dragFrozenPageIds={dragFrozenPageIds}
       />

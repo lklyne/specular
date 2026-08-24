@@ -52,6 +52,11 @@ export interface Page {
    * Document-bound items keep their previous visibility during this interval
    * so a provisional route does not strip the canvas before it settles. */
   isLoading?: boolean
+  /** Navigation-history availability, sampled from `webContents` whenever a
+   *  navigation settles (`page-chrome-state.ts`). Mirrored here so building the
+   *  scene costs a field read instead of a walk into the renderer process. */
+  canGoBack?: boolean
+  canGoForward?: boolean
   /** Live document positions of the DOM selectors anchored items reference,
    *  keyed by selector (ADR 0030 element attachment). The page's reflow tracker
    *  broadcasts these on real reflow events; scene builders read them as a

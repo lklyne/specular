@@ -1,12 +1,13 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
+import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import type { CanvasScenePageEntity, FrozenPagesState, LayoutUpdateData } from '../../shared/types'
+import type { FrozenPagesState } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import type { SceneCameraTransform } from '../../shared/scene-camera-transform'
 import {
   drawItemBorders,
   drawItemShell,
   drawItemSnapshot,
-  liveGeometry,
+  itemGeometry,
   readChromeColors,
   type ChromeCanvasItem,
 } from '../shared/chromeItemDraw'
@@ -15,7 +16,7 @@ import { prepareScreenCanvas } from '../shared/screenCanvas'
 
 const EMPTY_FROZEN_STATE: FrozenPagesState = { revision: 0, target: 'above', active: false, frames: [] }
 
-function toChromeItem(page: CanvasScenePageEntity): ChromeCanvasItem {
+function toChromeItem(page: ProjectedPageEntity): ChromeCanvasItem {
   return {
     id: page.id,
     screenX: page.screenX,
@@ -43,12 +44,10 @@ function toChromeItem(page: CanvasScenePageEntity): ChromeCanvasItem {
 export const DragFreezeLayer = memo(function DragFreezeLayer({
   api,
   layoutRef,
-  transform,
   isDark,
 }: {
   api: CanvasBgElectronAPI
-  layoutRef: React.MutableRefObject<LayoutUpdateData>
-  transform: SceneCameraTransform
+  layoutRef: LayoutSnapshotRef
   isDark: boolean
 }) {
   const [frozenState, setFrozenState] = useState<FrozenPagesState>(EMPTY_FROZEN_STATE)
@@ -86,7 +85,7 @@ export const DragFreezeLayer = memo(function DragFreezeLayer({
       const item = toChromeItem(entity)
       item.screenY -= originY
       if (item.contentScreenY !== undefined) item.contentScreenY -= originY
-      const geometry = liveGeometry(item, transform)
+      const geometry = itemGeometry(item)
       // canvas-bg skips both its chrome canvas and SVG shell for a frozen
       // page, so the shell is drawn here whatever the page's usual toggle.
       drawItemBorders(ctx, geometry, borderColor, dpr, !!item.showDeviceFrame)
@@ -95,7 +94,7 @@ export const DragFreezeLayer = memo(function DragFreezeLayer({
       }
       drawItemSnapshot(ctx, geometry, bitmap)
     }
-  }, [frozenState.active, transform, isDark, bitmaps, layoutRef])
+  }, [frozenState.active, isDark, bitmaps, layoutRef])
 
   // layoutRef mutates outside React, so a rAF loop (only while frozen) is
   // how the raster tracks each layout update without a re-render per tick.

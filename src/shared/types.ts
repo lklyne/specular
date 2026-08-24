@@ -115,7 +115,6 @@ export interface CanvasScenePageEntity {
   canGoBack: boolean
   canGoForward: boolean
   isLoading: boolean
-  isCustomSize: boolean
   canvasX: number
   canvasY: number
   width: number
@@ -125,20 +124,10 @@ export interface CanvasScenePageEntity {
   synced: boolean
   /** The page's sync-set id, so a selection can tell "all one set" from "each in some set". */
   syncId: string | null
-  /** Outer screen bounds (includes shell when device page is on). */
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Inner content screen bounds (always the web viewport). */
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
   /** Use SVG rendering for the device shell (A/B toggle). */
   useSvgDeviceShell?: boolean
   /** Optional — absent means the page follows the system color scheme. */
@@ -207,10 +196,6 @@ export interface CanvasSceneTextEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
   /** Present when the text is hooked to a page (see shared/page-anchor.ts).
    *  The renderer clips/fades it inside that page's overlay band. */
@@ -226,10 +211,6 @@ export interface CanvasSceneFileEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
@@ -270,11 +251,6 @@ export interface CanvasSceneFileEntity {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Inner content screen bounds (when device page is on). */
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
   /**
    * Incremented by the main-process file watcher each time the underlying file
    * changes on disk. Renderers use this as a remount key or refetch trigger so
@@ -292,10 +268,6 @@ export interface CanvasSceneGroupEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
@@ -314,10 +286,6 @@ export interface CanvasSceneDrawingEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
   /** Present when the drawing is hooked to a page (see shared/page-anchor.ts).
@@ -354,10 +322,6 @@ export interface CanvasSceneShapeEntity {
   /** Present when the shape is hooked to a page (see shared/page-anchor.ts).
    *  The renderer clips/fades the shape inside that page's overlay band. */
   pageAnchor?: PageAnchor
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
 }
 
 export type CanvasSceneEntity =
@@ -367,14 +331,6 @@ export type CanvasSceneEntity =
   | CanvasSceneGroupEntity
   | CanvasSceneDrawingEntity
   | CanvasSceneShapeEntity
-
-export interface ActiveCanvasEntitySelection {
-  entityRef: CanvasEntityRef
-  label: string
-  width: number
-  height: number
-  presetIndex: number
-}
 
 export interface PendingPlacement {
   entityKind: CanvasEntityKind
@@ -506,8 +462,7 @@ export interface LayoutUpdateData {
   /**
    * Wall-clock milliseconds `buildCanvasLayoutData` took to produce this
    * payload, stamped by the layout pass. Diagnostic only — feeds the canvas
-   * perf HUD so the O(entities) rebuild cost is visible during pan/zoom. See
-   * #257 / #265.
+   * perf HUD so the O(entities) rebuild cost is visible. See #257 / #265.
    */
   buildMs?: number
   /** The idle verdict (ADR 0035): nobody is looking and no agent is working,
@@ -548,7 +503,6 @@ export interface LayoutUpdateData {
    */
   selectionOperandIds: string[]
   selection: CanvasSelectableTarget[]
-  activeSelection: ActiveCanvasEntitySelection | null
   activeTool: Tool
   /** Per-tool persistent defaults (ADR 0008 §9). Tool-mode popup reads/writes. */
   toolDefaults: import('./tool-defaults').ToolDefaults
@@ -1806,18 +1760,6 @@ export interface CreateEdgesResponse {
 }
 
 // --- Electron API Interfaces (exposed via contextBridge) ---
-
-/**
- * The authoritative viewport, pushed to the overlay renderers immediately on a
- * pan/zoom — ahead of the debounced `layout-update` rebuild. The canvas scene
- * layers translate by (livePan − payloadPan) so selection chrome and entity
- * bodies track the natively-positioned page views during a pan instead of
- * waiting for the next full rebuild. See #257.
- */
-export interface ViewportNudge {
-  pan: { x: number; y: number }
-  zoom: number
-}
 
 /** Which overlay a frozen-page publish targets: the page-body layer (`bg`) or
  *  the above-pages input/annotation layer (`above`). Each target gets its own

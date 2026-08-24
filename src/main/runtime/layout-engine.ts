@@ -11,6 +11,7 @@ import {
   boundCanvasOrigin,
   focusFillRegion,
 } from './runtime-geometry'
+import { projectToScreen } from '../../shared/scene-projection'
 import {
   aboveView,
   bgView,
@@ -58,12 +59,11 @@ import {
   toolbarTooltipOpen as uiToolbarTooltipOpen,
 } from '../ui-state'
 import {
-  backgroundPageOverlays,
-  activeCanvasSelection,
   buildCanvasLayoutData,
   toolbarSelectionData,
   notifyLeftSidebarData,
 } from './canvas-layout-data'
+import { backgroundPageOverlays } from './page-scene-entity'
 import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../presence-cursor'
@@ -105,6 +105,7 @@ import {
   DEVTOOLS_RESIZE_HANDLE_WIDTH,
   LEFT_SIDEBAR_WIDTH,
   DEVTOOLS_PANEL_DEBUG,
+  driftWatchdogEnabled,
   devtoolsPanelDebug,
 } from './runtime-constants'
 import { boundsOverlap } from './runtime-geometry'
@@ -336,7 +337,6 @@ function layoutAllViews(): void {
   const contentTopInset = layoutCache.toolbarHeight
 
   const pageOverlays = backgroundPageOverlays()
-  const nextActiveSelection = activeCanvasSelection()
   // Renderer positions ship after every native setBounds call below, so
   // the DOM chrome never leads the page views.
   let pendingLayoutData: ReturnType<typeof buildCanvasLayoutData> | null = null
@@ -348,7 +348,7 @@ function layoutAllViews(): void {
     layoutCache.lastBackgroundBoundsKey = setBoundsIfChanged(bgView, { x: 0, y: 0, width: bgWidth, height }, layoutCache.lastBackgroundBoundsKey)
     if (consumeDirty('canvas')) {
       const buildStart = performance.now()
-      const layoutData = buildCanvasLayoutData(pageOverlays, nextActiveSelection)
+      const layoutData = buildCanvasLayoutData(pageOverlays)
       layoutData.buildMs = performance.now() - buildStart
       buildMsSink?.(layoutData.buildMs)
       pendingLayoutData = layoutData
@@ -604,11 +604,18 @@ function layoutAllViews(): void {
       cv.lastBoundsKey = setBoundsIfChanged(cv.view, HIDDEN_BOUNDS, cv.lastBoundsKey)
       continue
     }
+    // A `WebContentsView` is positioned in whole window pixels, so the
+    // projection is rounded here rather than by the projector.
+    const rect = projectToScreen(
+      { x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height },
+      { zoom, pan },
+      canvasOrigin,
+    )
     const bounds = {
-      x: Math.round(canvasOrigin.x + entity.canvasX * zoom + pan.x),
-      y: Math.round(canvasOrigin.y + entity.canvasY * zoom + pan.y),
-      width: Math.max(0, Math.round(entity.width * zoom)),
-      height: Math.max(0, Math.round(entity.height * zoom)),
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.max(0, Math.round(rect.width)),
+      height: Math.max(0, Math.round(rect.height)),
     }
 
     // Cull when fully off-screen, but stay visible during drags so a
@@ -683,14 +690,15 @@ function layoutAllViews(): void {
   scheduleZoomSnapshotPreparation()
 }
 
-// TEMP instrument (plan: diffed-runtime-store) — who is asking for a layout
-// pass, counted by caller and reported to errors.log every 2s. Broadcast
-// counts alone can't answer this: structural sharing makes a pass cheap while
-// it still fires, so the histogram is how a migrated slice is proven gone.
+// Who is asking for a layout pass, counted by caller and reported to
+// errors.log every 2s. Broadcast counts alone can't answer this: structural
+// sharing makes a pass cheap while it still fires, so the histogram is how a
+// mutator that should own a slice patch instead of a geometry pass gets found.
 const layoutCauses = new Map<string, number>()
 let layoutCauseTimer: NodeJS.Timeout | null = null
 
 function recordLayoutCause(): void {
+  if (!driftWatchdogEnabled()) return
   const frames = new Error().stack?.split('\n')
   if (!frames) return
   // Frame 0 is the Error line, 1 is this function, 2 is requestLayout; the

@@ -171,8 +171,8 @@ export const fileKind: EntityKindDefinition<'file'> = {
     }
   },
 
-  buildSceneEntity: (entity, zoom, pan, origin) => ({
-    ...buildFileEntitySceneEntity(entity as FileEntity, zoom, pan, origin),
+  buildSceneEntity: (entity) => ({
+    ...buildFileEntitySceneEntity(entity as FileEntity),
     noteContent: getNoteContent(entity.id),
   }),
 

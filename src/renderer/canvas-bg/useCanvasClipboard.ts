@@ -1,6 +1,5 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import { useEffect } from 'react'
-import type { RefObject } from 'react'
-import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   isTypingTarget,
@@ -10,7 +9,7 @@ import {
 
 export function useCanvasClipboard(input: {
   api: CanvasBgElectronAPI
-  layoutRef: RefObject<LayoutUpdateData>
+  layoutRef: LayoutSnapshotRef
 }) {
   const { api, layoutRef } = input
 

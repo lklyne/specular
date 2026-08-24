@@ -1,51 +1,59 @@
-import type { LayoutUpdateData, WorkspaceBounds } from './types'
+import type { WorkspaceBounds } from './types'
+import {
+  projectPointToScreen,
+  unprojectFromScreen,
+  unprojectPointFromScreen,
+  type SceneView,
+} from './scene-projection'
+
+/** The camera a payload was built at, in the shape the projection takes. */
+function cameraOf(layout: SceneView) {
+  return { zoom: layout.zoom, pan: layout.pan }
+}
 
 export type CanvasPoint = { x: number; y: number }
 export type ScreenPoint = { x: number; y: number }
 export type ScreenRect = { left: number; top: number; width: number; height: number }
 
-export function canvasToScreenX(layout: LayoutUpdateData, x: number): number {
-  return x * layout.zoom + layout.pan.x + layout.canvasOrigin.x
+export function canvasToScreenX(layout: SceneView, x: number): number {
+  return canvasToScreenPoint(layout, { x, y: 0 }).x
 }
 
-export function canvasToScreenY(layout: LayoutUpdateData, y: number): number {
-  return y * layout.zoom + layout.pan.y + layout.canvasOrigin.y
+export function canvasToScreenY(layout: SceneView, y: number): number {
+  return canvasToScreenPoint(layout, { x: 0, y }).y
 }
 
-export function canvasToScreenPoint(layout: LayoutUpdateData, point: CanvasPoint): ScreenPoint {
-  return {
-    x: canvasToScreenX(layout, point.x),
-    y: canvasToScreenY(layout, point.y),
-  }
+export function canvasToScreenPoint(layout: SceneView, point: CanvasPoint): ScreenPoint {
+  return projectPointToScreen(point, cameraOf(layout), layout.canvasOrigin)
 }
 
 export function screenPointToCanvasPoint(
   clientX: number,
   clientY: number,
-  layout: LayoutUpdateData,
+  layout: SceneView,
 ): CanvasPoint {
-  return {
-    x: (clientX - layout.canvasOrigin.x - layout.pan.x) / layout.zoom,
-    y: (clientY - layout.canvasOrigin.y - layout.pan.y) / layout.zoom,
-  }
+  return unprojectPointFromScreen(
+    { x: clientX, y: clientY },
+    cameraOf(layout),
+    layout.canvasOrigin,
+  )
 }
 
 export function screenRectToCanvasRect(
   rect: ScreenRect,
-  layout: LayoutUpdateData,
+  layout: SceneView,
 ): WorkspaceBounds {
-  return {
-    x: (rect.left - layout.canvasOrigin.x - layout.pan.x) / layout.zoom,
-    y: (rect.top - layout.canvasOrigin.y - layout.pan.y) / layout.zoom,
-    width: rect.width / layout.zoom,
-    height: rect.height / layout.zoom,
-  }
+  return unprojectFromScreen(
+    { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+    cameraOf(layout),
+    layout.canvasOrigin,
+  )
 }
 
-export function toOverlayY(layout: LayoutUpdateData, value: number): number {
+export function toOverlayY(layout: SceneView, value: number): number {
   return value - layout.canvasOrigin.y
 }
 
-export function clientYToWindowY(clientY: number, layout: LayoutUpdateData): number {
+export function clientYToWindowY(clientY: number, layout: SceneView): number {
   return clientY + layout.canvasOrigin.y
 }

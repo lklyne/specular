@@ -1,4 +1,5 @@
-import type { CanvasInteractionState, CanvasSceneEntity, LayoutUpdateData } from './types'
+import type { ProjectedSceneEntity } from './scene-projection'
+import type { CanvasInteractionState, LayoutUpdateData } from './types'
 import type { InteractionMode } from './interaction-types'
 import { GRID_SIZE } from './constants'
 import type { MarqueeSelectionMode } from './marquee-selection'
@@ -232,7 +233,7 @@ export function middleDragDelta(
 
 export interface MarqueeSelectionCandidate {
   id: string
-  kind: CanvasSceneEntity['kind']
+  kind: ProjectedSceneEntity['kind']
   parentGroupId?: string
   left: number
   top: number
@@ -368,7 +369,7 @@ export function resolveMarqueeSelectionIds(
  * Scene-entity adapter used by the renderer's live marquee preview.
  */
 export function entitiesOverlappingRect(
-  entities: readonly CanvasSceneEntity[],
+  entities: readonly ProjectedSceneEntity[],
   rect: MarqueeSelectionRect,
   options?: MarqueeSelectionOptions,
 ): string[] {

@@ -15,19 +15,20 @@
  * it has nothing to say, so callers can chain with `??`.
  */
 
-import type { LayoutUpdateData } from '../../shared/types'
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
+import { reprojectEntity } from '../shared/scene-projection'
 
 export function contentHeightLayout(
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   heights: Map<string, number>,
-): LayoutUpdateData | null {
+): ProjectedLayoutData | null {
   if (heights.size === 0) return null
   let changed = false
   const entities = layout.entities.map((entity) => {
     const height = heights.get(entity.id)
     if (height === undefined || height === entity.height) return entity
     changed = true
-    return { ...entity, height, screenHeight: height * layout.zoom }
+    return reprojectEntity({ ...entity, height }, layout)
   })
   return changed ? { ...layout, entities } : null
 }

@@ -47,7 +47,6 @@ import {
   setInspectActivePageId,
   spaceAutosaveTimer,
   setSpaceAutosaveTimer,
-  setSelectionOverlayActive,
 } from './runtime-context'
 import {
   clearInspectTargets,
@@ -318,7 +317,6 @@ function resetWindowState(): void {
   setToolbarView(null)
   setAboveView(null)
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
-  setSelectionOverlayActive(false)
   setDevtoolsBackgroundView(null)
   setDevtoolsHeaderView(null)
   setDevtoolsView(null)

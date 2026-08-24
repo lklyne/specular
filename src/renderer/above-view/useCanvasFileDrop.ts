@@ -1,6 +1,5 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import { useEffect } from 'react'
-import type { RefObject } from 'react'
-import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { screenPointToCanvasPoint, snapToGrid } from '../../shared/gesture-utils'
 
@@ -9,7 +8,7 @@ export function useCanvasFileDrop({
   layoutRef,
 }: {
   api: Pick<CanvasBgElectronAPI, 'dropComponentFile' | 'dropFileBuffer'>
-  layoutRef: RefObject<LayoutUpdateData>
+  layoutRef: LayoutSnapshotRef
 }) {
   useEffect(() => {
     const handleDragOver = (event: DragEvent) => {

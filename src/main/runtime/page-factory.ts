@@ -31,6 +31,11 @@ import { normalizePresetIndex } from './runtime-serialization'
 import type { Page } from './runtime-entities'
 import { pageOverridesFromMetadata } from './runtime-entities'
 import { markDirty } from './layout-dirty'
+import {
+  broadcastPageChrome,
+  refreshPageChrome,
+  refreshPageNavigationState,
+} from './page-chrome-state'
 import { clearPageAnchorsForPage } from './page-anchor-state'
 import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
@@ -131,19 +136,22 @@ export function createPage(config: PageConfig): Page {
 
   page.pageView.webContents.on('page-title-updated', () => {
     page.title = page.pageView.webContents.getTitle() || undefined
-    requestLayout()
+    broadcastPageChrome(page)
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
   })
   page.pageView.webContents.on('page-favicon-updated', (_event, favicons) => {
     page.faviconUrl = favicons[0] ?? null
-    requestLayout()
+    broadcastPageChrome(page)
   })
   page.pageView.webContents.on('did-start-loading', () => {
     selectionDebug('page:did-start-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
     page.isLoading = true
     page.crashedAt = undefined
     page.crashReason = undefined
-    requestLayout()
+    // Document-bound items keep the visibility they had while a route is in
+    // flight (`offPageDocument`), so a load starting moves chrome and no
+    // membership — the scene stays as it is.
+    refreshPageChrome(page)
   })
   page.pageView.webContents.on('render-process-gone', (_event, details) => {
     page.crashedAt = Date.now()
@@ -162,6 +170,9 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('did-stop-loading', () => {
     selectionDebug('page:did-stop-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
     page.isLoading = false
+    refreshPageNavigationState(page)
+    // A settled load re-opens the document-binding gate, which adds or removes
+    // page-anchored entities — a membership change, so the pass runs.
     markDirty('canvas', 'sidebar')
     requestLayout()
   })
@@ -194,7 +205,7 @@ export function createPage(config: PageConfig): Page {
             }
           }
           page.faviconUrl = resolvedHref
-          requestLayout()
+          broadcastPageChrome(page)
         },
       )
       page.pageView.webContents.send(ipcChannels.queryFavicon)
@@ -243,6 +254,7 @@ export function createPage(config: PageConfig): Page {
     resetAttachmentSubscriptionsForPage(page.id)
     // Annotation visibility and the sidebar's page children key off the
     // page's current URL, so a navigation must re-send both payloads.
+    refreshPageNavigationState(page)
     markDirty('canvas', 'sidebar')
     page.navGeneration += 1
     requestLayout()
@@ -259,6 +271,7 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
     selectionDebug('page:did-navigate-in-page', { pageId: page.id, url, isMainFrame })
     if (isMainFrame) page.url = url
+    if (isMainFrame) refreshPageNavigationState(page)
     if (isMainFrame) markDirty('canvas', 'sidebar')
     if (isMainFrame) requestLayout()
     if (isMainFrame) invalidateAgentSnapshot(page.id)

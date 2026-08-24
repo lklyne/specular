@@ -1,10 +1,9 @@
+import type { ProjectedSceneEntity } from './scene-projection'
 /**
  * Shared bounding-box-over-selected-entities math. Multiple call sites (hit
  * testing, multi-resize, drag chrome) each union the same selected-entity
  * rects in either screen or canvas space; this is the one implementation.
  */
-
-import type { CanvasSceneEntity } from './types'
 
 export interface SelectionBbox {
   x: number
@@ -22,7 +21,7 @@ export interface SelectionBbox {
  * callers fall through to a single-entity path on null).
  */
 export function selectionBbox(
-  entities: readonly CanvasSceneEntity[],
+  entities: readonly ProjectedSceneEntity[],
   selectedIds: readonly string[],
   space: 'screen' | 'canvas',
 ): SelectionBbox | null {

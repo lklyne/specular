@@ -9,11 +9,9 @@
  * which already holds keyboard focus during edit.
  */
 
+import type { ProjectedPageEntity, SceneView } from '../../shared/scene-projection'
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type {
-  CanvasSceneShapeEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { CanvasSceneShapeEntity } from '../../shared/types'
 import {
   darkenHex,
   lightenHex,
@@ -383,7 +381,8 @@ export const ShapeBodyLayer = memo(function ShapeBodyLayer({
   isDark,
   selectedEntityIdSet,
   editingEntityId,
-  layoutData,
+  view,
+  anchorPage,
   onUpdateText,
   onCommitEdit,
 }: {
@@ -393,17 +392,15 @@ export const ShapeBodyLayer = memo(function ShapeBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  contentEditable iff `editingEntityId === shape.id`. */
   editingEntityId: string | null
-  layoutData: LayoutUpdateData
+  view: SceneView
+  /** The page `pageAnchor` names, resolved by the caller. */
+  anchorPage: ProjectedPageEntity | undefined
   onUpdateText: (id: string, text: string) => void
   onCommitEdit: () => void
 }) {
   if (!entities.length) return null
   const viewport = (
-    <CanvasViewportLayer
-      canvasOrigin={layoutData.canvasOrigin}
-      pan={layoutData.pan}
-      zoom={layoutData.zoom}
-    >
+    <CanvasViewportLayer view={view}>
       {entities.map((shape) => (
         <ShapeCard
           key={shape.id}
@@ -423,7 +420,7 @@ export const ShapeBodyLayer = memo(function ShapeBodyLayer({
   // anchor decides the wrapping.
   const anchor = entities[0].pageAnchor
   return (
-    <AnchoredEntityOverlayBand anchor={anchor} layoutData={layoutData}>
+    <AnchoredEntityOverlayBand anchor={anchor} page={anchorPage} originY={view.canvasOrigin.y}>
       {viewport}
     </AnchoredEntityOverlayBand>
   )

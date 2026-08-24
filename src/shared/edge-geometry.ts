@@ -5,8 +5,9 @@
  * callers, `canvasOrigin.y` for aboveView.
  */
 
+import type { ProjectedSceneEntity } from './scene-projection'
 import { EDGE_ANCHOR_DOT_OFFSET_PX } from './canvas-hit-geometry'
-import type { CanvasSceneEntity, EdgeSide } from './types'
+import type { EdgeSide } from './types'
 
 const CONTROL_POINT_MIN = 40
 const CONTROL_POINT_MAX = 200
@@ -18,7 +19,7 @@ export interface AnchorPoint {
 }
 
 export function getAnchorPoint(
-  entity: CanvasSceneEntity,
+  entity: ProjectedSceneEntity,
   side: EdgeSide,
   zoom: number,
   originY = 0,
@@ -70,8 +71,8 @@ export function buildBezierPath(from: AnchorPoint, to: AnchorPoint, zoom: number
 
 /** Pick the best sides to connect two entities when sides aren't specified. */
 export function autoSides(
-  from: CanvasSceneEntity,
-  to: CanvasSceneEntity,
+  from: ProjectedSceneEntity,
+  to: ProjectedSceneEntity,
 ): { fromSide: EdgeSide; toSide: EdgeSide } {
   const fromCx = from.screenX + from.screenWidth / 2
   const fromCy = from.screenY + from.screenHeight / 2

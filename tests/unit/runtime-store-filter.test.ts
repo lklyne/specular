@@ -66,7 +66,6 @@ function snapshot(): LayoutUpdateData {
     selectedEntityIds: [],
     selectionOperandIds: [],
     selection: [],
-    activeSelection: null,
     activeTool: { kind: 'select' },
     toolDefaults: DEFAULT_TOOL_DEFAULTS,
     annotations: [],

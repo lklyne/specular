@@ -12,12 +12,12 @@
  * translated up by that amount to meet window-space.
  */
 
+import type { ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { memo, useMemo } from 'react'
 import {
   buildEdgeDragPath,
   type EdgeDragState,
 } from '../../shared/edge-drag-controller'
-import type { CanvasSceneEntity, LayoutUpdateData } from '../../shared/types'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 
 const PATH_STROKE_WIDTH = 2
@@ -29,11 +29,11 @@ export const EdgeDragLayer = memo(function EdgeDragLayer({
   isDark,
 }: {
   state: EdgeDragState
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   isDark: boolean
 }) {
   const entityMap = useMemo(() => {
-    const map = new Map<string, CanvasSceneEntity>()
+    const map = new Map<string, ProjectedSceneEntity>()
     for (const e of layoutData.entities) map.set(e.id, e)
     return map
   }, [layoutData.entities])

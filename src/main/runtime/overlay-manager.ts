@@ -18,15 +18,14 @@ import {
   removeAutomationInteractivePageId,
   addAutomationInteractivePageId,
   setInteractivePageId,
-  setSelectionOverlayActive,
 } from './runtime-context'
 import { workspaceGroups } from './space-model'
 import {
   getUiState,
-  isSelectionMarqueeVisible as uiSelectionMarqueeVisible,
   setSelectionMarqueeVisible as setUiSelectionMarqueeVisible,
 } from '../ui-state'
 import { selectionDebug } from './runtime-constants'
+import { broadcastFocusChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
 import { safeSend } from './safe-send'
 import { refreshInteractionSyncCapture } from '../interaction-sync'
@@ -107,6 +106,7 @@ export function enterPageInteractive(pageId: string): void {
   if (interactivePageId() === pageId) return
   setInteractivePageId(pageId)
   sendInteractiveState()
+  broadcastFocusChange()
   requestLayout()
 }
 
@@ -115,6 +115,7 @@ export function exitPageInteractive(): void {
   if (interactivePageId() === null) return
   setInteractivePageId(null)
   sendInteractiveState()
+  broadcastFocusChange()
   requestLayout()
 }
 
@@ -145,7 +146,6 @@ export function endAutomationInteractivePage(pageId: string): void {
 export function setSelectionOverlayRect(
   overlay: SelectionOverlayPayload | null,
 ): void {
-  setSelectionOverlayActive(overlay !== null)
   setUiSelectionMarqueeVisible(overlay !== null)
 
   if (!win || win.isDestroyed()) return
@@ -158,8 +158,4 @@ export function setSelectionOverlayRect(
   if (bgView) {
     safeSend(bgView.webContents, ipcChannels.canvasSelectionOverlay, overlay)
   }
-  // The gate predicate reads selectionMarqueeVisible, so a rect change
-  // can flip aboveView bounds on/off. Bounds + visibility are centralized
-  // in layoutAllViews — schedule it.
-  requestLayout()
 }
