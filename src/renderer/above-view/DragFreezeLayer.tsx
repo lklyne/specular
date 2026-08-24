@@ -86,7 +86,8 @@ export const DragFreezeLayer = memo(function DragFreezeLayer({
       if (item.contentScreenY !== undefined) item.contentScreenY -= originY
       const geometry = itemGeometry(item)
       // canvas-bg skips both its chrome canvas and SVG shell for a frozen
-      // page, so the shell is drawn here whatever the page's usual toggle.
+      // page, so a page that normally renders through SvgDeviceShellLayer
+      // gets the canvas shell here for the duration of the drag.
       drawItemChrome(ctx, item, geometry, isDark, bezelColor, borderColor, dpr)
       drawItemSnapshot(ctx, geometry, bitmap)
     }
