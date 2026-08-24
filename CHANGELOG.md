@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-24 — Zoom and border fixes
+
+### Fixes
+
+- **Panning right after a zoom no longer stutters.** The snapshot encode that runs
+  when a zoom settles did all its work in one block, so pan input piled up behind it
+  and released as a jump. It now waits for you to stop moving the camera, then
+  encodes one frame at a time. Zooming out from a zoomed-in page hit this hardest.
+- **Page borders are full thickness on all four edges.** On a Retina display the top
+  border read about half thickness. The stroke was landing on a half-pixel boundary,
+  and the bezel's shadow was darkening the other three edges so the top looked thin
+  by comparison.
+- Pages without a device shell no longer double-stroke their border, and the ring
+  around a bezel follows the corner curve instead of leaving a hairline sliver at
+  the corners.
+
 ## [0.7.0] - 2026-08-23 — Faster and less battery hungry canvas
 
 ### New
