@@ -26,7 +26,7 @@ import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
 import { requestLayout } from '../runtime/viewport-control'
-import { enqueueViewportInputDelta } from '../runtime/viewport-input'
+import { applyViewportInputDelta } from '../runtime/viewport-input'
 import { isFocusSessionActive } from '../runtime/focus-session'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
 import {
@@ -129,7 +129,7 @@ export function registerCanvasDragIpc(): void {
     (_event, data: { deltaY: number; mouseX: number; mouseY: number }) => {
       // Focus presentation locks the camera on the page; exit is escape/button/dim-click only.
       if (isFocusSessionActive()) return
-      enqueueViewportInputDelta({
+      applyViewportInputDelta({
         zoomDeltaY: data.deltaY,
         mouseX: data.mouseX,
         mouseY: data.mouseY,
@@ -139,7 +139,7 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(ipcChannels.canvasPan, (_event, { deltaX, deltaY }: { deltaX: number; deltaY: number }) => {
     if (isFocusSessionActive()) return
-    enqueueViewportInputDelta({ panDeltaX: -deltaX, panDeltaY: -deltaY })
+    applyViewportInputDelta({ panDeltaX: -deltaX, panDeltaY: -deltaY })
   })
 
   ipcMain.on(

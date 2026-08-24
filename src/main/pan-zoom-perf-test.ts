@@ -1,4 +1,5 @@
 import path from 'path'
+import { screen } from 'electron'
 import { ipcChannels } from '../shared/ipc-contract'
 import {
   buildPanZoomPerfSteps,
@@ -94,6 +95,14 @@ function createPerfTestContext(): PerfTestContext {
   }
 }
 
+/** Drives input at the display's own refresh interval, so the test paces the
+ *  same way the renderer's rAF does. Falls back to `PAN_ZOOM_PERF_FRAME_MS`
+ *  when the display reports no frequency. */
+function resolvePrimaryDisplayFrameMs(): number {
+  const hz = screen.getPrimaryDisplay().displayFrequency
+  return hz ? 1000 / hz : PAN_ZOOM_PERF_FRAME_MS
+}
+
 function computeBuildStats(samples: number[]): { n: number; mean: number; p95: number; max: number } {
   const n = samples.length
   if (n === 0) return { n: 0, mean: 0, p95: 0, max: 0 }
@@ -109,11 +118,12 @@ async function runGesturePhases(
   signal: AbortSignal,
   context: PerfTestContext,
   phases: readonly PanZoomPerfPhase[],
+  frameMs: number,
 ): Promise<void> {
   for (const phase of phases) {
     if (signal.aborted) return
     setPhase(phase.label)
-    for (const step of buildPanZoomPerfSteps(phase)) {
+    for (const step of buildPanZoomPerfSteps(phase, frameMs)) {
       if (activeSpaceTabId !== context.initialTabId) abortController?.abort()
       if (signal.aborted) return
       applyViewportInputDelta({
@@ -122,7 +132,7 @@ async function runGesturePhases(
         zoomDeltaY: step.zoomDeltaY,
         ...context.anchor,
       })
-      await wait(PAN_ZOOM_PERF_FRAME_MS, signal)
+      await wait(frameMs, signal)
     }
     await wait(PAN_ZOOM_PERF_PHASE_GAP_MS, signal)
   }
@@ -148,6 +158,7 @@ async function executePanZoomPerfTest(
   phases: readonly PanZoomPerfPhase[],
 ): Promise<PanZoomPerfTestResult> {
   const context = createPerfTestContext()
+  const frameMs = resolvePrimaryDisplayFrameMs()
   let traceStarted = false
   let tracePath: string | null = null
   const buildSamples: number[] = []
@@ -158,7 +169,7 @@ async function executePanZoomPerfTest(
     await startPerfTrace({ revealOnAutoStop: false, owner: 'pan-zoom-test' })
     traceStarted = true
     await wait(WARMUP_MS, signal)
-    await runGesturePhases(signal, context, phases)
+    await runGesturePhases(signal, context, phases, frameMs)
   } finally {
     setBuildMsSink(null)
     await restoreCamera(context)
@@ -171,6 +182,7 @@ async function executePanZoomPerfTest(
     tracePath,
     fileName: path.basename(tracePath),
     buildStats: computeBuildStats(buildSamples),
+    frameMs,
   }
 }
 
