@@ -65,7 +65,7 @@ const SLICE_LAYOUT_KEYS: Record<RuntimeSliceKey, readonly (keyof LayoutUpdateDat
  * projection is built from them — a target without them has no coordinate
  * system and no entities, which is not a renderer.
  */
-export const SCENE_TARGET_SLICES: Record<SceneTarget, readonly RuntimeSliceKey[]> = {
+const SCENE_TARGET_SLICES: Record<SceneTarget, readonly RuntimeSliceKey[]> = {
   // Page chrome, device shells, group backgrounds, the grid, the placement
   // preview. No hover outline, no gestures, no annotation geometry.
   // `idle` so inline HTML files can stop animating when nobody is looking.

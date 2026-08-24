@@ -3,9 +3,9 @@
  * scene.
  *
  * A selection, a tool switch, or a gesture beginning changes one cell and no
- * entity, yet each used to `markDirty('canvas')` — so the pass rebuilt every
- * entity, diffed the whole scene, and fanned it out to deliver an id. Naming
- * the slices makes the delivery cost the size of the cell.
+ * entity. Naming the slices it touches keeps the delivery cost the size of
+ * that cell; dirtying the canvas instead would rebuild every entity and diff
+ * the whole scene to deliver an id.
  *
  * Each of these carries `focus` alongside its own slice because
  * `keyboardTargetPageId` is derived, not stored: `shouldFocusSelectedPage`
