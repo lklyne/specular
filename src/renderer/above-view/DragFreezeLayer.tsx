@@ -4,8 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { FrozenPagesState } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
-  drawItemBorders,
-  drawItemShell,
+  drawItemChrome,
   drawItemSnapshot,
   itemGeometry,
   readChromeColors,
@@ -88,11 +87,7 @@ export const DragFreezeLayer = memo(function DragFreezeLayer({
       const geometry = itemGeometry(item)
       // canvas-bg skips both its chrome canvas and SVG shell for a frozen
       // page, so the shell is drawn here whatever the page's usual toggle.
-      if (item.showDeviceFrame) {
-        drawItemShell(ctx, item, geometry, isDark, bezelColor, borderColor, dpr)
-      } else {
-        drawItemBorders(ctx, geometry, borderColor, dpr)
-      }
+      drawItemChrome(ctx, item, geometry, isDark, bezelColor, borderColor, dpr)
       drawItemSnapshot(ctx, geometry, bitmap)
     }
   }, [frozenState.active, isDark, bitmaps, layoutRef])
