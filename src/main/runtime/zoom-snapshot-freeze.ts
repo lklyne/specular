@@ -26,6 +26,8 @@ import { screen } from 'electron'
 import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
 import { zoom } from './runtime-context'
 import { withCaptureMetrics } from './page-emulation'
+import { msSinceCameraInput } from './camera-input-clock'
+import { settleLog } from './zoom-settle-log'
 
 const FREEZE_TARGET = 'bg'
 const FREEZE_ID = 'zoom'
@@ -147,6 +149,7 @@ export async function prepareZoomSnapshotFreeze(options?: {
       publish(FREEZE_TARGET, { revision, target: FREEZE_TARGET, active, frames: preparedFrames })
       rendererReady = await waitForRendererReady(FREEZE_TARGET, revision)
     }
+    settleLog(`prepare: reused ${preparedFrames.length} frames`)
     return {
       frameCount: preparedFrames.length,
       encodedBytes: preparedFrames.reduce(
@@ -219,6 +222,10 @@ export async function prepareZoomSnapshotFreeze(options?: {
 
   preparedFrames = candidateFrames
   preparedContentSignature = contentSignature
+  settleLog(
+    `prepare: captured ${capturedFrames.length} frames in ${captureMs.toFixed(0)}ms ` +
+      `(${Math.round(capturedFrames.reduce((total, frame) => total + frame.dataUrl.length, 0) / 1024)}KB)`,
+  )
   const preparedRevision = nextRevision(FREEZE_TARGET)
   publish(FREEZE_TARGET, { revision: preparedRevision, target: FREEZE_TARGET, active: false, frames: preparedFrames })
   const rendererReady = await waitForRendererReady(FREEZE_TARGET, preparedRevision)
@@ -283,6 +290,14 @@ function freezeForGesture(): boolean {
   return true
 }
 
+/** Instrumentation: which lifecycle window the freeze is in right now. */
+export function zoomFreezeDebugPhase(): string {
+  if (handoff) return 'handoff'
+  if (gestureRunning) return 'gesture'
+  if (active) return 'active'
+  return 'idle'
+}
+
 export function beginZoomGesture(gen: number): boolean {
   gestureGen = gen
   gestureRunning = true
@@ -291,7 +306,11 @@ export function beginZoomGesture(gen: number): boolean {
   handoff = false
   syncFreezeRegistry()
   if (forced) return active
-  if (freezeForGesture()) return true
+  if (freezeForGesture()) {
+    settleLog(`gesture ${gen}: begin frozen (${preparedFrames.length} frames)`)
+    return true
+  }
+  settleLog(`gesture ${gen}: begin live (${liveFallbackReason()})`)
   void prepareZoomSnapshotFreeze({ force: true })
     .then((result) => {
       if (!gestureRunning || gestureGen !== gen || active || forced) return
@@ -314,6 +333,7 @@ export function beginZoomSnapshotHandoff(gen: number): boolean {
   if (gen !== gestureGen || forced || !active) return false
   handoff = true
   syncFreezeRegistry()
+  settleLog(`gesture ${gen}: handoff begins (${preparedFrames.length} parked)`)
   return true
 }
 
@@ -389,6 +409,7 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
     parked.map(async (page): Promise<HandoffCapture> => {
       const contents = page.pageView.webContents
       const contentKey = pageContentKey(page)
+      const captureStart = performance.now()
       let hiRes: NativeImage | null = null
       const presented = (async () => {
         await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
@@ -422,42 +443,93 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
         presented.catch(() => null),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), HANDOFF_TIMEOUT_MS)),
       ])
+      const plan = hiResPlan(page)
+      const hiResCaptured = hiRes as NativeImage | null
+      settleLog(
+        `handoff capture ${page.id}: ${(performance.now() - captureStart).toFixed(0)}ms, ` +
+          `${image ? `${image.getSize().width}px` : 'TIMED OUT'}` +
+          `${hiResCaptured ? `, hi-res ${hiResCaptured.getSize().width}px` : ''}` +
+          `${plan ? ` (plan ×${plan.densityFactor.toFixed(2)} → ${plan.expectedWidth}px)` : ''}`,
+      )
       return { page, contentKey, image, hiRes }
     }),
   )
 }
 
 /**
- * Publishes the settle captures as the prepared set. Deferred one macrotask
- * so the reveal's setBounds calls reach the window server before the
- * synchronous JPEG encode blocks this thread. Returns false when the set is
- * not a complete picture of the visible pages (a timed-out page, a page that
- * stayed live through the gesture, a gesture or scroll that landed while we
- * waited) and the caller should fall back to a full background prepare.
+ * How quiet the camera must be before a synchronous JPEG encode may run, and
+ * how often to re-check while it is not. The threshold sits above one
+ * trackpad input interval so a continuous pan reads as "moving" between its
+ * ticks, and below the settle lease so a pause that ends a gesture also
+ * releases the encodes promptly.
+ */
+const ENCODE_CAMERA_QUIET_MS = 120
+const ENCODE_QUIET_RECHECK_MS = 60
+
+async function waitForCameraQuiet(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  while (msSinceCameraInput() < ENCODE_CAMERA_QUIET_MS) {
+    await new Promise<void>((resolve) => setTimeout(resolve, ENCODE_QUIET_RECHECK_MS))
+  }
+}
+
+/**
+ * Publishes the settle captures as the prepared set. Encoding waits for a
+ * pause in camera input and takes one frame per macrotask, so the reveal's
+ * setBounds and any in-flight pan ticks are never queued behind the
+ * synchronous JPEG encodes. Returns false when the set is not a complete
+ * picture of the visible pages (a timed-out page, a page that stayed live
+ * through the gesture, a gesture or scroll that landed while we waited) and
+ * the caller should fall back to a full background prepare.
  */
 export async function adoptHandoffCaptures(captures: HandoffCapture[]): Promise<boolean> {
   const leaseAtCapture = captureLease
   const contentSignatureAtCapture = currentContentSignature()
-  await new Promise<void>((resolve) => setImmediate(resolve))
-  if (forced || active || gestureRunning) return false
-  if (!snapshotCaptureStillValid({
-    captureLeaseAtStart: leaseAtCapture,
-    currentCaptureLease: captureLease,
-    signatureAtStart: contentSignatureAtCapture,
-    currentSignature: currentContentSignature(),
-  })) {
+  const stillValid = (): boolean =>
+    !forced &&
+    !active &&
+    !gestureRunning &&
+    snapshotCaptureStillValid({
+      captureLeaseAtStart: leaseAtCapture,
+      currentCaptureLease: captureLease,
+      signatureAtStart: contentSignatureAtCapture,
+      currentSignature: currentContentSignature(),
+    })
+  const captured = captures.filter(
+    (capture): capture is HandoffCapture & { image: NativeImage } => capture.image !== null,
+  )
+  if (captured.length === 0) {
+    settleLog('adopt: no usable captures')
     return false
   }
-  const captured = captures.filter(
-    (capture): capture is HandoffCapture & { image: NativeImage } =>
-      capture.image !== null && !capture.page.pageView.webContents.isDestroyed(),
-  )
-  if (captured.length === 0) return false
-  preparedFrames = mergeFrames(
-    captured.map((capture) =>
-      encodePageFrame(capture.page, capture.hiRes ?? capture.image),
-    ),
-  )
+  // The JPEG encode is synchronous and can cost tens of milliseconds per
+  // frame, so it never runs while the camera is moving: a pan tick queued
+  // behind a block of encodes lands as one visible jump. Each frame waits for
+  // a pause in camera input and takes its own macrotask; the reveal's
+  // setBounds calls reach the window server before the first encode can
+  // block this thread. A gesture or content change while we wait hands the
+  // work back to the caller's background prepare.
+  const encoded: FrozenPageFrame[] = []
+  for (const capture of captured) {
+    const quietWaitStart = performance.now()
+    await waitForCameraQuiet()
+    const quietWaitMs = performance.now() - quietWaitStart
+    if (!stillValid()) {
+      settleLog(`adopt: invalidated while waiting (waited ${quietWaitMs.toFixed(0)}ms)`)
+      return false
+    }
+    if (capture.page.pageView.webContents.isDestroyed()) continue
+    const encodeStart = performance.now()
+    const frame = encodePageFrame(capture.page, capture.hiRes ?? capture.image)
+    settleLog(
+      `adopt: encoded ${capture.page.id} in ${(performance.now() - encodeStart).toFixed(0)}ms ` +
+        `(${Math.round(frame.dataUrl.length / 1024)}KB, ${frame.capturedWidth}px` +
+        `${capture.hiRes ? ', hi-res' : ''}; quiet-wait ${quietWaitMs.toFixed(0)}ms)`,
+    )
+    encoded.push(frame)
+  }
+  if (encoded.length === 0) return false
+  preparedFrames = mergeFrames(encoded)
   preparedContentSignature = contentSignatureAtCapture
   // A settle that left any on-screen page without a usable frame is not a
   // whole picture; the caller schedules the prepare that fills the gap.
@@ -476,6 +548,7 @@ export function endZoomGesture(gen: number): void {
   if (forced || !active) return
   active = false
   syncFreezeRegistry()
+  settleLog(`gesture ${gen}: reveal (freeze ends)`)
   publish(FREEZE_TARGET, { revision: currentRevision(FREEZE_TARGET), target: FREEZE_TARGET, active: false, frames: preparedFrames })
 }
 
