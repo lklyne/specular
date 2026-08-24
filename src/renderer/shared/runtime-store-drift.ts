@@ -31,7 +31,7 @@ const MAX_CELLS = 6
 /** The one gate for every dev-only consistency check in the renderer — this
  *  file's snapshot diff and the projection drift assertion both cost O(scene)
  *  work that has no place in a shipped build. */
-export const driftWatchdogEnabled =
+const driftWatchdogEnabled =
   ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV ?? false) === true
 
 let mismatches = 0

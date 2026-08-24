@@ -40,7 +40,7 @@ export interface CanvasRect {
   height: number
 }
 
-export interface ScreenRect {
+export interface ScreenBounds {
   x: number
   y: number
   width: number
@@ -115,7 +115,7 @@ export function projectToScreen(
   rect: CanvasRect,
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
-): ScreenRect {
+): ScreenBounds {
   return {
     x: sceneOrigin.x + rect.x * camera.zoom + camera.pan.x,
     y: sceneOrigin.y + rect.y * camera.zoom + camera.pan.y,
@@ -125,7 +125,7 @@ export function projectToScreen(
 }
 
 export function unprojectFromScreen(
-  rect: ScreenRect,
+  rect: ScreenBounds,
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
 ): CanvasRect {
@@ -161,10 +161,10 @@ export function unprojectPointFromScreen(
 
 /** Grow a body rect outward into its shell rect. */
 export function outsetByShell(
-  rect: ScreenRect,
+  rect: ScreenBounds,
   insets: ShellInsets,
   zoom: number,
-): ScreenRect {
+): ScreenBounds {
   return {
     x: rect.x - insets.left * zoom,
     y: rect.y - insets.top * zoom,
@@ -175,10 +175,10 @@ export function outsetByShell(
 
 /** Shrink a shell rect inward into its body rect. */
 export function insetByShell(
-  rect: ScreenRect,
+  rect: ScreenBounds,
   insets: ShellInsets,
   zoom: number,
-): ScreenRect {
+): ScreenBounds {
   return {
     x: rect.x + insets.left * zoom,
     y: rect.y + insets.top * zoom,
@@ -219,7 +219,7 @@ export function projectPageToScreen(
   },
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
-): { shell: ScreenRect; content: ScreenRect } {
+): { shell: ScreenBounds; content: ScreenBounds } {
   const { zoom, pan } = camera
   const insets = shellInsetsFor(page)
   const contentWidth = Math.round(page.width * zoom)
@@ -266,7 +266,7 @@ export function projectFileToScreen(
   },
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
-): { shell: ScreenRect; content: ScreenRect } {
+): { shell: ScreenBounds; content: ScreenBounds } {
   const content = projectToScreen(
     { x: entity.canvasX, y: entity.canvasY, width: entity.width, height: entity.height },
     camera,

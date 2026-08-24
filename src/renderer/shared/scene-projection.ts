@@ -55,7 +55,7 @@ const entityCache = new WeakMap<object, { key: ProjectionKey; value: unknown }>(
 const listCache = new WeakMap<object, { key: ProjectionKey; value: unknown }>()
 
 /** One entity's screen geometry, recomputed from the camera. */
-export function projectEntity<T extends CanvasSceneEntity>(
+function projectEntity<T extends CanvasSceneEntity>(
   entity: T,
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
@@ -84,7 +84,7 @@ export function reprojectEntity<T extends CanvasSceneEntity>(
 }
 
 /** A scene from main, projected. The array keeps its identity when nothing moved. */
-export function projectSceneEntities<T extends CanvasSceneEntity>(
+function projectSceneEntities<T extends CanvasSceneEntity>(
   entities: readonly T[],
   camera: SceneCamera,
   sceneOrigin: ScenePoint,
