@@ -101,9 +101,7 @@ export function itemGeometry(item: ChromeCanvasItem): ItemGeometry {
 /** Centerline rect and stroke width for a ~1px ring hugging the outside of
  * the given bounds. The stroke covers a whole number of device pixels flush
  * against the bounds, so none of it lands under the WebContentsView (or bezel
- * fill) that covers the bounds. Snapping the centerline to a half device
- * pixel only achieves that at dpr 1 — at dpr 2 the 2-device-px-wide line
- * straddles the edge and loses half its top/left rows under the view. */
+ * fill) that covers the bounds, at any dpr. */
 function outsetStrokeRect(
   x: number,
   y: number,
@@ -125,20 +123,35 @@ function outsetStrokeRect(
   }
 }
 
-function strokeRoundedRect(
+/** Stroke the ring `outsetStrokeRect` describes, as a circular round-rect or
+ * a squircle. Owns strokeStyle and lineWidth so no caller touches ctx stroke
+ * state by hand. */
+function strokeOutsetRing(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
   h: number,
   radius: number,
+  color: string,
   dpr: number,
+  squircle: boolean,
 ): void {
   const r = outsetStrokeRect(x, y, w, h, dpr)
+  // The centerline sits lineWidth/2 outside the bounds, so the corner radius
+  // grows by the same amount to keep the ring concentric with the bounds'
+  // corner curve; passing the radius through unchanged shifts the arc center
+  // and opens a sub-pixel sliver between ring and fill at the diagonals.
+  const outsetRadius = radius > 0 ? radius + r.lineWidth / 2 : 0
+  ctx.strokeStyle = color
   ctx.lineWidth = r.lineWidth
-  ctx.beginPath()
-  ctx.roundRect(r.x, r.y, r.w, r.h, Math.max(0, radius))
-  ctx.stroke()
+  if (squircle) {
+    ctx.stroke(squircle2D(r.x, r.y, r.w, r.h, outsetRadius))
+  } else {
+    ctx.beginPath()
+    ctx.roundRect(r.x, r.y, r.w, r.h, outsetRadius)
+    ctx.stroke()
+  }
 }
 
 function squircle2D(
@@ -170,22 +183,35 @@ function contentCutout2D(
 }
 
 /**
- * The two 1px `--surface-device-border` borders a shell-less page carries: the
- * outer border traces the page bounds, the inner traces the content viewport.
- * For non-device pages the rects coincide and overlap into a single border.
- * Border-box divs sat 1px outside the bounds; the outset stroke ring
- * reproduces that. Device-shell items get their border from `drawItemShell`
- * instead, painted over the bezel so its shadow can't tint the ring.
+ * One item's chrome, minus its raster. The shell/plain split lives here so
+ * canvas-bg and the drag-freeze layer can never disagree about which pass
+ * owns an item's border.
+ *
+ * Either way the item ends in one 1px `--surface-device-border` ring hugging
+ * the outside of its bounds, painted after the shell: the bezel's drop
+ * shadow falls on the side/bottom edges but never the top, so a border
+ * painted under it comes out shadow-darkened on three edges and reads
+ * thicker there than on the top.
  */
-export function drawItemBorders(
+export function drawItemChrome(
   ctx: CanvasRenderingContext2D,
+  item: ChromeCanvasItem,
   g: ItemGeometry,
+  isDark: boolean,
+  bezelColor: string,
   borderColor: string,
   dpr: number,
 ): void {
-  ctx.strokeStyle = borderColor
-  strokeRoundedRect(ctx, g.shellX, g.shellY, g.shellW, g.shellH, g.outerRadius, dpr)
-  strokeRoundedRect(ctx, g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius, dpr)
+  if (item.showDeviceFrame) {
+    drawItemShell(ctx, item, g, isDark, bezelColor, dpr)
+    // The border must trace the same squircle curve as the bezel fill or the
+    // two drift apart along the corner.
+    strokeOutsetRing(ctx, g.shellX, g.shellY, g.shellW, g.shellH, g.outerRadius, borderColor, dpr, true)
+  } else {
+    // A shell-less page projects identical shell and content rects, so this
+    // single ring is both its page and content border.
+    strokeOutsetRing(ctx, g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius, borderColor, dpr, false)
+  }
 }
 
 /**
@@ -208,14 +234,14 @@ export function drawItemSnapshot(
 }
 
 /** The device shell: squircle bezel donut with drop shadow, edge strokes,
- * top highlight, and phone/tablet decorations. Mirrors DeviceShellLayer. */
-export function drawItemShell(
+ * top highlight, and phone/tablet decorations. Mirrors SvgDeviceShellLayer.
+ * The shell's border is `drawItemChrome`'s job, painted on top of this. */
+function drawItemShell(
   ctx: CanvasRenderingContext2D,
   item: ChromeCanvasItem,
   g: ItemGeometry,
   isDark: boolean,
   bezelColor: string,
-  borderColor: string,
   dpr: number,
 ): void {
   const dev = item.deviceId ? DEVICE_CATALOG.get(item.deviceId) : null
@@ -266,7 +292,6 @@ export function drawItemShell(
       g.innerRadius + ringW / 2,
     ),
   )
-  ctx.lineWidth = 1
 
   drawDeviceDecorations(ctx, g, isDark, {
     isPhone,
@@ -274,15 +299,6 @@ export function drawItemShell(
     notch: isPhone && !!dev && dev.screenCornerRadius > 0 && orientation === 'portrait',
     orientation,
   })
-
-  // The 1px shell border, painted last: the bezel's drop shadow falls on the
-  // side/bottom edges but never the top, so a border painted first comes out
-  // shadow-darkened on three edges and reads thicker there than on the top.
-  const border = outsetStrokeRect(g.shellX, g.shellY, g.shellW, g.shellH, dpr)
-  ctx.strokeStyle = borderColor
-  ctx.lineWidth = border.lineWidth
-  ctx.stroke(squircle2D(border.x, border.y, border.w, border.h, g.outerRadius))
-  ctx.lineWidth = 1
 }
 
 /** Phone notch (portrait only) and the phone/tablet home indicator. */

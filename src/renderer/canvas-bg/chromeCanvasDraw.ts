@@ -5,8 +5,7 @@
  * shared with above-view's drag-freeze layer.
  */
 import {
-  drawItemBorders,
-  drawItemShell,
+  drawItemChrome,
   drawItemSnapshot,
   itemGeometry,
   readChromeColors,
@@ -47,23 +46,17 @@ export function drawChromeCanvas({
       ? pages.filter((p) => !dragFrozenPageIds.has(p.id))
       : pages
 
-  const framedFiles = fileEntities.filter((f) => f.showDeviceFrame)
-  // The SVG shell layer owns its pages entirely (borders included), and
-  // shell items get their border from the shell pass.
   const borderItems = visiblePages.filter((p) => !p.showDeviceFrame)
   const shellItems = [
+    // The SVG shell layer owns its pages entirely (borders included).
     ...visiblePages.filter((p) => p.showDeviceFrame && !p.useSvgDeviceShell),
-    ...framedFiles,
+    ...fileEntities.filter((f) => f.showDeviceFrame),
   ]
 
-  // Three passes matching the native stacking order: plain-page borders, then
-  // shells (bezel, decorations, and the shell's own border), then the page
-  // rasters standing in for the live views on top.
-  for (const item of borderItems) {
-    drawItemBorders(ctx, itemGeometry(item), borderColor, dpr)
-  }
-  for (const item of shellItems) {
-    drawItemShell(ctx, item, itemGeometry(item), isDark, bezelColor, borderColor, dpr)
+  // Chrome in native stacking order — plain-page borders, then shells — with
+  // the page rasters standing in for the live views on top.
+  for (const item of [...borderItems, ...shellItems]) {
+    drawItemChrome(ctx, item, itemGeometry(item), isDark, bezelColor, borderColor, dpr)
   }
   if (snapshots.size > 0) {
     for (const page of visiblePages) {
