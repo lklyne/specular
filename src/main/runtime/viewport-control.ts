@@ -80,32 +80,10 @@ import {
   captureParkedPagesAtSettle,
   endZoomGesture,
   scheduleZoomSnapshotPreparation,
-  zoomFreezeDebugPhase,
 } from './zoom-snapshot-freeze'
 import { markCameraInput } from './camera-input-clock'
-import { settleLog } from './zoom-settle-log'
 
 let zoomGestureGen = 0
-
-// INSTRUMENTATION: a main-thread stall shows up as a long gap between camera
-// applies followed by a burst of queued events applying back-to-back. Log that
-// signature so stalls are distinguishable from the user simply pausing.
-const recentCameraApplies: number[] = []
-function noteCameraApplyForStallDetection(): void {
-  const now = performance.now()
-  recentCameraApplies.push(now)
-  if (recentCameraApplies.length > 8) recentCameraApplies.shift()
-  const n = recentCameraApplies.length
-  if (n < 4) return
-  const gap = recentCameraApplies[n - 3] - recentCameraApplies[n - 4]
-  const burst = recentCameraApplies[n - 1] - recentCameraApplies[n - 3]
-  if (gap > 48 && burst < 8) {
-    settleLog(
-      `input stall: ${gap.toFixed(0)}ms gap then 3 applies in ${burst.toFixed(1)}ms ` +
-        `[freeze=${zoomFreezeDebugPhase()}]`,
-    )
-  }
-}
 
 export function setViewportCamera(
   value: number,
@@ -119,7 +97,6 @@ export function setViewportCamera(
   if (!zoomChanged && !panChanged) return
 
   markCameraInput()
-  noteCameraApplyForStallDetection()
   if (zoomChanged && !isZoomInMotion()) {
     zoomGestureGen += 1
     beginZoomGesture(zoomGestureGen)
@@ -190,31 +167,18 @@ function broadcastCamera(): void {
 async function settleZoomGesture(gen: number): Promise<void> {
   markDirty('canvas')
   if (!beginZoomSnapshotHandoff(gen)) {
-    settleLog(`settle ${gen}: no handoff (gesture was live)`)
     endZoomGesture(gen)
     requestLayout()
     scheduleZoomSnapshotPreparation()
     return
   }
-  const settleStart = performance.now()
   layoutAllViews()
-  settleLog(`settle ${gen}: warm-park layout ${(performance.now() - settleStart).toFixed(0)}ms`)
   const captures = await captureParkedPagesAtSettle()
-  settleLog(`settle ${gen}: captures done at +${(performance.now() - settleStart).toFixed(0)}ms`)
   // A new gesture adopted the frames while we waited; it owns the settle now.
-  if (gen !== zoomGestureGen) {
-    settleLog(`settle ${gen}: superseded by gesture ${zoomGestureGen}`)
-    return
-  }
+  if (gen !== zoomGestureGen) return
   endZoomGesture(gen)
-  const revealStart = performance.now()
   layoutAllViews()
-  settleLog(`settle ${gen}: reveal layout ${(performance.now() - revealStart).toFixed(0)}ms`)
-  const adopted = await adoptHandoffCaptures(captures)
-  settleLog(
-    `settle ${gen}: adopt ${adopted ? 'complete' : 'incomplete'} at +${(performance.now() - settleStart).toFixed(0)}ms`,
-  )
-  if (!adopted) scheduleZoomSnapshotPreparation()
+  if (!(await adoptHandoffCaptures(captures))) scheduleZoomSnapshotPreparation()
 }
 
 export function setZoom(value: number): void {
