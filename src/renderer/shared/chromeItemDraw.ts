@@ -101,9 +101,7 @@ export function itemGeometry(item: ChromeCanvasItem): ItemGeometry {
 /** Centerline rect and stroke width for a ~1px ring hugging the outside of
  * the given bounds. The stroke covers a whole number of device pixels flush
  * against the bounds, so none of it lands under the WebContentsView (or bezel
- * fill) that covers the bounds. Snapping the centerline to a half device
- * pixel only achieves that at dpr 1 — at dpr 2 the 2-device-px-wide line
- * straddles the edge and loses half its top/left rows under the view. */
+ * fill) that covers the bounds, at any dpr. */
 function outsetStrokeRect(
   x: number,
   y: number,
@@ -140,13 +138,18 @@ function strokeOutsetRing(
   squircle: boolean,
 ): void {
   const r = outsetStrokeRect(x, y, w, h, dpr)
+  // The centerline sits lineWidth/2 outside the bounds, so the corner radius
+  // grows by the same amount to keep the ring concentric with the bounds'
+  // corner curve; passing the radius through unchanged shifts the arc center
+  // and opens a sub-pixel sliver between ring and fill at the diagonals.
+  const outsetRadius = radius > 0 ? radius + r.lineWidth / 2 : 0
   ctx.strokeStyle = color
   ctx.lineWidth = r.lineWidth
   if (squircle) {
-    ctx.stroke(squircle2D(r.x, r.y, r.w, r.h, radius))
+    ctx.stroke(squircle2D(r.x, r.y, r.w, r.h, outsetRadius))
   } else {
     ctx.beginPath()
-    ctx.roundRect(r.x, r.y, r.w, r.h, Math.max(0, radius))
+    ctx.roundRect(r.x, r.y, r.w, r.h, outsetRadius)
     ctx.stroke()
   }
 }
@@ -185,11 +188,10 @@ function contentCutout2D(
  * owns an item's border.
  *
  * Either way the item ends in one 1px `--surface-device-border` ring hugging
- * the outside of its bounds (border-box divs sat 1px outside the bounds; the
- * outset ring reproduces that), painted after the shell: the bezel's drop
+ * the outside of its bounds, painted after the shell: the bezel's drop
  * shadow falls on the side/bottom edges but never the top, so a border
- * painted first comes out shadow-darkened on three edges and reads thicker
- * there than on the top.
+ * painted under it comes out shadow-darkened on three edges and reads
+ * thicker there than on the top.
  */
 export function drawItemChrome(
   ctx: CanvasRenderingContext2D,
@@ -232,7 +234,7 @@ export function drawItemSnapshot(
 }
 
 /** The device shell: squircle bezel donut with drop shadow, edge strokes,
- * top highlight, and phone/tablet decorations. Mirrors DeviceShellLayer.
+ * top highlight, and phone/tablet decorations. Mirrors SvgDeviceShellLayer.
  * The shell's border is `drawItemChrome`'s job, painted on top of this. */
 function drawItemShell(
   ctx: CanvasRenderingContext2D,
