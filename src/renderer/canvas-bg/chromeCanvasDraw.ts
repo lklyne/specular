@@ -48,24 +48,22 @@ export function drawChromeCanvas({
       : pages
 
   const framedFiles = fileEntities.filter((f) => f.showDeviceFrame)
-  // The SVG shell layer owns its pages entirely (borders included).
-  const borderItems = [
-    ...visiblePages.filter((p) => !(p.showDeviceFrame && p.useSvgDeviceShell)),
-    ...framedFiles,
-  ]
+  // The SVG shell layer owns its pages entirely (borders included), and
+  // shell items get their border from the shell pass.
+  const borderItems = visiblePages.filter((p) => !p.showDeviceFrame)
   const shellItems = [
     ...visiblePages.filter((p) => p.showDeviceFrame && !p.useSvgDeviceShell),
     ...framedFiles,
   ]
 
-  // Three passes matching the native stacking order: all borders, then all
-  // shells (the bezel fill covers the inner border ring on shell pages), then
-  // the page rasters standing in for the live views on top.
+  // Three passes matching the native stacking order: plain-page borders, then
+  // shells (bezel, decorations, and the shell's own border), then the page
+  // rasters standing in for the live views on top.
   for (const item of borderItems) {
-    drawItemBorders(ctx, itemGeometry(item), borderColor, dpr, !!item.showDeviceFrame)
+    drawItemBorders(ctx, itemGeometry(item), borderColor, dpr)
   }
   for (const item of shellItems) {
-    drawItemShell(ctx, item, itemGeometry(item), isDark, bezelColor, dpr)
+    drawItemShell(ctx, item, itemGeometry(item), isDark, bezelColor, borderColor, dpr)
   }
   if (snapshots.size > 0) {
     for (const page of visiblePages) {
