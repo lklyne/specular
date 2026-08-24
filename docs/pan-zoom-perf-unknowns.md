@@ -175,10 +175,21 @@ reasons — the direction was still "out of native views, into one compositor."
 - Whatever zoom you settle at is the raster resolution (crisp *for that zoom* —
   same as pinch-zoomed Chrome).
 
-This is the highest-leverage prototype in the whole space: a day of work
-(20 webviews in a transformed div, pan/zoom, measure fps + input accuracy +
-occlusion behavior) answers whether Specular's rendering architecture problem
-simply dissolves.
+**Outcome (2026-08-23): tried, does not work. Closed.**
+
+This section was written as the highest-leverage prototype in the space — a day
+of work to find out whether Specular's rendering architecture problem simply
+dissolves. It was built, and it does not. The specific failure mode was not
+written down at the time and is no longer remembered, so the analysis above
+stands as the reasoning, not as a live recommendation.
+
+Everything in this doc that routes through 2.A — experiment 1 and Endgame A —
+is closed with it. The remaining structural option for collapsing the two
+substrates is §2.B (`sharedTexture`).
+
+Do not re-open this on the strength of the argument above. The argument was
+good and the result was still negative; if it is ever revisited, the first job
+is recovering *why*, not rebuilding the spike.
 
 ### 2.B Electron 40's `sharedTexture` module — GPU compositing without a native addon
 
@@ -383,11 +394,9 @@ information-per-effort, and 0/1/2 can run in parallel.
    with constant viewSize + varying scale, no setBounds — confirm zero Layout
    events, observe the raster storm; then setBounds-only to isolate surface
    churn.
-1. **Webview canvas spike** (§2.A, ~1–2 days). 20 `<webview>`s on real sites in
-   a `translate3d/scale` div. Measure gesture fps, input accuracy matrix
-   (clicks/popups/scroll at scales 0.33–2), crisp-on-settle behavior,
-   occlusion of offscreen guests, ghosting artifacts. This is the go/no-go for
-   the structural bet.
+1. ~~**Webview canvas spike** (§2.A, ~1–2 days).~~ **Run, and negative** — see
+   the Outcome note in §2.A. The structural bet does not pay out; treat
+   §2.B (`sharedTexture`) as the surviving path to one compositor.
 2. **Settle-only / quantized emulation** (§1.1 + §2.C, ~1 day, ships
    independently). During zoom gesture: freeze emulation, step it coarsely or
    only on settle; compare feel vs today. Then try
@@ -415,10 +424,12 @@ information-per-effort, and 0/1/2 can run in parallel.
 
 The experiments feed three coherent end-states (not mutually exclusive):
 
-- **Endgame A — one compositor (webview canvas):** pages become OOPIFs in the
+- **Endgame A — one compositor (webview canvas):** ~~pages become OOPIFs in the
   canvas renderer; pan/zoom is one CSS transform; drift impossible; ADR 0014
-  layering dissolves. Biggest payoff, biggest platform-risk bet. Gated by
-  experiment 1.
+  layering dissolves.~~ **Closed** — the spike ran and the approach does not
+  work (§2.A Outcome). A single compositor is still the only thing that makes
+  page and chrome move as one by construction, but `sharedTexture` (§2.B) is
+  the remaining route to it.
 - **Endgame B — tiered pixels under the current architecture:** interactive
   pages stay WCVs with settle-only emulation (exp 2) + frameView removed
   (exp 6); parked/idle pages become sharedTexture/MediaStream textures or
