@@ -98,19 +98,31 @@ export function itemGeometry(item: ChromeCanvasItem): ItemGeometry {
   }
 }
 
-/** Snap a 1px stroke rect so the stroke centerline sits on a half-device-pixel
- * boundary. Edges land on device pixels and the line renders crisp. */
-function snapStrokeRect(
+/** Centerline rect and stroke width for a ~1px ring hugging the outside of
+ * the given bounds. The stroke covers a whole number of device pixels flush
+ * against the bounds, so none of it lands under the WebContentsView (or bezel
+ * fill) that covers the bounds. Snapping the centerline to a half device
+ * pixel only achieves that at dpr 1 — at dpr 2 the 2-device-px-wide line
+ * straddles the edge and loses half its top/left rows under the view. */
+function outsetStrokeRect(
   x: number,
   y: number,
   w: number,
   h: number,
   dpr: number,
-): { x: number; y: number; w: number; h: number } {
-  const snap = (v: number) => (Math.round(v * dpr - 0.5) + 0.5) / dpr
-  const sx = snap(x)
-  const sy = snap(y)
-  return { x: sx, y: sy, w: snap(x + w) - sx, h: snap(y + h) - sy }
+): { x: number; y: number; w: number; h: number; lineWidth: number } {
+  const lw = Math.max(1, Math.round(dpr))
+  const left = Math.round(x * dpr)
+  const top = Math.round(y * dpr)
+  const right = Math.round((x + w) * dpr)
+  const bottom = Math.round((y + h) * dpr)
+  return {
+    x: (left - lw / 2) / dpr,
+    y: (top - lw / 2) / dpr,
+    w: (right - left + lw) / dpr,
+    h: (bottom - top + lw) / dpr,
+    lineWidth: lw / dpr,
+  }
 }
 
 function strokeRoundedRect(
@@ -122,7 +134,8 @@ function strokeRoundedRect(
   radius: number,
   dpr: number,
 ): void {
-  const r = snapStrokeRect(x, y, w, h, dpr)
+  const r = outsetStrokeRect(x, y, w, h, dpr)
+  ctx.lineWidth = r.lineWidth
   ctx.beginPath()
   ctx.roundRect(r.x, r.y, r.w, r.h, Math.max(0, radius))
   ctx.stroke()
@@ -157,46 +170,22 @@ function contentCutout2D(
 }
 
 /**
- * The two 1px `--surface-device-border` borders every page carries: the outer
- * border traces the page/shell bounds, the inner traces the content viewport.
+ * The two 1px `--surface-device-border` borders a shell-less page carries: the
+ * outer border traces the page bounds, the inner traces the content viewport.
  * For non-device pages the rects coincide and overlap into a single border.
- * Border-box divs sat 1px outside the bounds; the stroke centerline at -0.5
- * reproduces that ring.
+ * Border-box divs sat 1px outside the bounds; the outset stroke ring
+ * reproduces that. Device-shell items get their border from `drawItemShell`
+ * instead, painted over the bezel so its shadow can't tint the ring.
  */
 export function drawItemBorders(
   ctx: CanvasRenderingContext2D,
   g: ItemGeometry,
   borderColor: string,
   dpr: number,
-  /** Device shells are squircles; the outer stroke must trace the same curve
-   * as the bezel fill or the two drift apart along the corner. */
-  squircleOuter: boolean,
 ): void {
   ctx.strokeStyle = borderColor
-  ctx.lineWidth = 1
-  if (squircleOuter) {
-    const r = snapStrokeRect(g.shellX - 0.5, g.shellY - 0.5, g.shellW + 1, g.shellH + 1, dpr)
-    ctx.stroke(squircle2D(r.x, r.y, r.w, r.h, g.outerRadius))
-  } else {
-    strokeRoundedRect(
-      ctx,
-      g.shellX - 0.5,
-      g.shellY - 0.5,
-      g.shellW + 1,
-      g.shellH + 1,
-      g.outerRadius,
-      dpr,
-    )
-  }
-  strokeRoundedRect(
-    ctx,
-    g.contentX - 0.5,
-    g.contentY - 0.5,
-    g.contentW + 1,
-    g.contentH + 1,
-    g.innerRadius,
-    dpr,
-  )
+  strokeRoundedRect(ctx, g.shellX, g.shellY, g.shellW, g.shellH, g.outerRadius, dpr)
+  strokeRoundedRect(ctx, g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius, dpr)
 }
 
 /**
@@ -226,6 +215,7 @@ export function drawItemShell(
   g: ItemGeometry,
   isDark: boolean,
   bezelColor: string,
+  borderColor: string,
   dpr: number,
 ): void {
   const dev = item.deviceId ? DEVICE_CATALOG.get(item.deviceId) : null
@@ -284,6 +274,15 @@ export function drawItemShell(
     notch: isPhone && !!dev && dev.screenCornerRadius > 0 && orientation === 'portrait',
     orientation,
   })
+
+  // The 1px shell border, painted last: the bezel's drop shadow falls on the
+  // side/bottom edges but never the top, so a border painted first comes out
+  // shadow-darkened on three edges and reads thicker there than on the top.
+  const border = outsetStrokeRect(g.shellX, g.shellY, g.shellW, g.shellH, dpr)
+  ctx.strokeStyle = borderColor
+  ctx.lineWidth = border.lineWidth
+  ctx.stroke(squircle2D(border.x, border.y, border.w, border.h, g.outerRadius))
+  ctx.lineWidth = 1
 }
 
 /** Phone notch (portrait only) and the phone/tablet home indicator. */
