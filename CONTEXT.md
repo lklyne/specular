@@ -286,6 +286,16 @@ What the app does to page renderers when nobody is looking at it. Chromium only 
 - **Agent activity** — the trailing window pulsed by control-server traffic. Every authorized request counts except the endpoints an idle client polls on a timer, so a connected MCP client doesn't hold the canvas awake by merely existing. An unrecognized route counts as activity — costing battery is the better failure.
 - **Automation-interactive** — a page with a live CDP bridge (`automationInteractivePageCounts`). Exempt from freezing outright, and already exempt from viewport culling, so a long agent session never decays into a frozen page.
 
+## Gesture snapshot freeze
+
+What the app substitutes for its live pages while a gesture is moving them. A freeze captures each page to a bitmap, hands it to a renderer, and parks the live `WebContentsView` once that renderer acks — so the pages ride the gesture as one composited layer instead of many. Freezing exists to stop **re-raster**, not to stop movement, which is why it is not applied to every gesture. See [ADR 0037](./docs/adr/0037-pan-does-not-freeze-its-pages.md).
+
+- **Zoom freeze** — parks every visible page for the duration of a zoom gesture (`zoom-snapshot-freeze.ts`, target `bgView`). A zoom changes the device-emulation scale on every tick, which forces a whole-tree re-raster per page per tick; parking stops that outright. Its settle is a **handoff**: the parked pages move to the warm park, re-emulate at the settled scale, and are revealed only once each has presented a frame there.
+- **Drag freeze** — the same trick for the pages inside a drag (`drag-freeze.ts`, target `aboveView`). A page lives in at most one freeze; the parking registry in `page-freeze.ts` is what lets the layout pass place a parked page without knowing which freeze owns it.
+- **Pan is not frozen** — a pan changes no scale, so its pages are already composited and moving them is cheap. Parking would cost a re-raster on unpark for nothing to offset it. Measured and reverted; ADR 0037 records the numbers.
+- **Prepared frames** — the standing set the freezes draw from, refreshed 50ms after any layout pass settles. Kept when it still pictures every on-screen page at no less detail than that page currently occupies, so moving the camera never invalidates it — only content, resolution, or a page arriving on screen does.
+- **Warm park** — full size, off-screen, still compositing, used while a settled page re-rasters before it is revealed. As opposed to the **hidden park** (zero bounds) a gesture body uses, which is cheaper but makes the page drop its tiles.
+
 ## Presence
 
 Live cursors rendered on the canvas: agent sessions, so a watching user can follow what an agent is doing, and the user's own cursor echoed onto sync peers. The causality rules are load-bearing — see [ADR 0029](./docs/adr/0029-presence-acts-anchored-to-truth.md).
