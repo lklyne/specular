@@ -95,8 +95,9 @@ function createPerfTestContext(): PerfTestContext {
   }
 }
 
-/** Drive input at the display's own cadence instead of a fixed guess, so the
- *  test measures the same cadence the renderer's rAF runs at. */
+/** Drives input at the display's own refresh interval, so the test paces the
+ *  same way the renderer's rAF does. Falls back to `PAN_ZOOM_PERF_FRAME_MS`
+ *  when the display reports no frequency. */
 function resolvePrimaryDisplayFrameMs(): number {
   const hz = screen.getPrimaryDisplay().displayFrequency
   return hz ? 1000 / hz : PAN_ZOOM_PERF_FRAME_MS
