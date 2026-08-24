@@ -84,7 +84,7 @@ Undo (same tab): UndoManager reverts Y.Doc → `afterTransaction` observer fires
 
 Undo (cross-tab): UndoManager reverts Y.Doc including `activeTabId` → observer detects tab change → `destroyActivePages()` → full rebuild from Y.Doc → deferred `layoutAllViews()`.
 
-Side effects after undo run synchronously inside `afterTransaction` — the 16ms `requestLayout()` debounce is the only deferral needed. See Gotchas → "Undo observer side effects".
+Side effects after undo run synchronously inside `afterTransaction`; `requestLayout()` defers the layout pass itself to the next event-loop turn, outside `afterTransaction`. See Gotchas → "Undo observer side effects".
 
 ## Tab switch as tracked transaction
 
@@ -135,7 +135,7 @@ See `tests/README.md` for the test bar and the harness API available to integrat
 - **Suppress flag**: `withSuppressedDocSync()` prevents sync loops during restore and undo. If you call `scheduleSpaceAutosave()` from inside an undo observer without suppressing, you create a feedback loop where each undo generates a new undo entry.
 - **Tab switch suppress**: `applyTabState()` is called within `withSuppressedDocSync` during tab switches to prevent the normal forward-sync from running. The Y.Doc write happens separately in `transitionToTab()`.
 - **Focus on page delete**: `removePageAtIndex()` transfers focus to `aboveView` after destroying page webContents, so keyboard shortcuts (including undo) keep working. (Pre-Phase-F this targeted bgView; aboveView now owns canvas-mode keyboard input.)
-- **Undo observer side effects**: The undo observer runs `cancelActiveInteraction`, `sendInteractiveState`, `markAllDirty`, and `requestLayout` synchronously inside Y.Doc's `afterTransaction`. The 16ms debounce inside `requestLayout()` provides enough deferral to avoid stepping on Electron's event routing — no explicit `setTimeout(0)` needed since the controller is reentrancy-safe (Phase 5d-v2 E1).
+- **Undo observer side effects**: The undo observer runs `cancelActiveInteraction`, `sendInteractiveState`, `markAllDirty`, and `requestLayout` synchronously inside Y.Doc's `afterTransaction` — safe because the controller is reentrancy-safe (Phase 5d-v2 E1). `requestLayout()` schedules the actual layout pass on the next event-loop turn, so it runs outside `afterTransaction`.
 - **Startup undo**: `clearUndoHistory()` is called after `initializeDocObservers()` to wipe any phantom entries from the initial doc sync.
 - **Gesture-begin ordering**: Any code path that triggers a layout pass while a renderer-side gesture is armed must enter the gesture's `interactionState` *first*. `requestLayout()` runs `reconcileFocus()`, and if `interactionState.kind` is still `'idle'` the reconciler picks the canvas-mode default (aboveView post-Phase-F) or — if the selection elects a single page — the page itself. The renderer gesture's `window.blur` listener treats the resulting aboveView blur as a cancel and kills the gesture before any movement.
 

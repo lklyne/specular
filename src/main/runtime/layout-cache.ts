@@ -4,7 +4,7 @@
 
 export const layoutCache = {
   toolbarHeight: 44,
-  layoutTimer: null as NodeJS.Timeout | null,
+  layoutTimer: null as NodeJS.Immediate | null,
   // Bounds keys — cheap string comparisons for Electron view positioning
   lastBackgroundBoundsKey: null as string | null,
   lastLeftSidebarBoundsKey: null as string | null,
