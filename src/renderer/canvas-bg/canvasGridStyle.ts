@@ -126,11 +126,9 @@ export function drawCanvasGrid({
   const { spacing, originX, originY, dotRadius, alpha } = metrics
   if (!Number.isFinite(spacing) || spacing <= 0) return
 
-  // A tile spanning a whole number of device pixels makes the repeat land every
-  // dot on the device grid, so one cached tile stays as crisp as rounding each
-  // dot's centre individually did — and costs one fill instead of one per dot,
-  // which at a viewport's worth of dots is the difference between ~22k path
-  // fills a frame and one. Rounding moves the spacing by well under a pixel.
+  // A tile spanning a whole number of device pixels lands every dot on the
+  // device grid, so the whole field stays crisp without rounding each dot's
+  // centre by hand. Rounding the tile moves the spacing by well under a pixel.
   const tileDevicePx = Math.max(1, Math.round(spacing * dpr))
   const tile = gridDotTile(tileDevicePx, dotRadius * dpr, color)
   if (!tile) return
@@ -138,7 +136,7 @@ export function drawCanvasGrid({
   if (!pattern) return
 
   // The tile carries its dot at the centre, so the field is phased by the grid
-  // origin less that half-tile. Only the offset within one tile matters; the
+  // origin less half a tile. Only the offset within one tile matters; the
   // repeat covers the rest.
   const tileCssPx = tileDevicePx / dpr
   const centreCssPx = Math.round(tileDevicePx / 2) / dpr
