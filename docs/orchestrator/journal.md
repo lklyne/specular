@@ -1582,3 +1582,17 @@ Noticed (no action, kept to one line each per the Aug 26 hint — no state chang
 - **needs-triage / `agent-in-progress`**: steady at 28 / 3 (same #1, #111, #135). Confirmed #410 (the pan-lockstep writeup) was filed Aug 24, not new tonight — the count's composition hasn't turned over, it's genuinely static.
 - **Open-PR sweep**: no new PRs since #405 (Aug 23); the same frozen set (#405, #395, #394, #390, #358, #204, #32) is unchanged.
 Hint for next run: the system is at a genuine steady state with nothing to react to — three consecutive nights of zero `main` commits and zero engagement on any open item. If this continues past a week, it may be worth checking whether Lyle is simply away rather than mid-session-elsewhere (a vacation/absence would change what "no response" means — the review-bandwidth diagnosis assumed contention with other active work, not total absence). Otherwise keep this entry short: only expand on #169/#383 if either actually changes state.
+
+---
+
+## 2026-08-28
+Surveyed: `main` HEAD since Aug 26 (unchanged, zero commits — now four consecutive quiet nights), #169/#383 for any state change, needs-triage/`agent-in-progress` recounts, full open-PR list, and skill-file/`docs/orchestrator/` commit history since Aug 1.
+Acted: Nothing filed, nothing closed. Proposal queue empty. No orchestrator-owned open items to clean up beyond #169 itself.
+Noticed (no action, one line each — no state change on any of them):
+- **`main`**: zero commits since Aug 26 (23ff112 still tip) — four consecutive quiet nights now, one short of the week-long mark the Aug 27 hint set as the point to consider whether Lyle is away rather than mid-session-elsewhere.
+- **#169**: day 91, 91 commits, `mergeable_state: clean`, zero comments/reactions — no state change.
+- **#383**: day 19, still frozen at its Aug 9 creation timestamp — no state change.
+- **needs-triage / `agent-in-progress`**: steady at 28 / 3 (same #1, #111, #135) — no drift.
+- **Open-PR sweep**: no new PRs since #405 (Aug 23); same frozen set unchanged.
+- **No skill-file or `docs/orchestrator/` commits** since before Aug 1 besides this branch's own nightly appends.
+Hint for next run: if `main` is still at zero commits tomorrow, that crosses the week-long mark from the Aug 26 baseline (last real activity was the Aug 24 0.7.1 release) — worth naming plainly as "possible absence" rather than continuing to read it through the review-bandwidth lens, since that diagnosis assumed contention with other active work, not total absence. Otherwise keep expanding only on actual state changes to #169/#383.
