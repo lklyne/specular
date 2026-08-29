@@ -1596,3 +1596,14 @@ Noticed (no action, one line each — no state change on any of them):
 - **Open-PR sweep**: no new PRs since #405 (Aug 23); same frozen set unchanged.
 - **No skill-file or `docs/orchestrator/` commits** since before Aug 1 besides this branch's own nightly appends.
 Hint for next run: if `main` is still at zero commits tomorrow, that crosses the week-long mark from the Aug 26 baseline (last real activity was the Aug 24 0.7.1 release) — worth naming plainly as "possible absence" rather than continuing to read it through the review-bandwidth lens, since that diagnosis assumed contention with other active work, not total absence. Otherwise keep expanding only on actual state changes to #169/#383.
+
+## 2026-08-29
+Surveyed: `main` HEAD since Aug 26 (unchanged, zero commits — now five consecutive quiet nights since the Aug 24 0.7.1 release), #169/#383 comments and reactions (re-checked directly via the PR comments endpoint, both zero), PR #169's day/commit count and `mergeable_state`, needs-triage/`agent-in-progress` recounts, and the full open-PR list for new arrivals.
+Acted: Nothing filed, nothing closed. Proposal queue empty (#397 was the last, closed Aug 23). No orchestrator-owned open items beyond #169 itself.
+Noticed (no action):
+- **Five consecutive quiet nights on `main`** (tip still 23ff112, committed 2026-08-24 14:49 UTC) — crosses the point the Aug 28 hint flagged as worth naming plainly rather than reading through the review-bandwidth lens. That diagnosis assumed contention with other active work; there's been none to contend with since the 0.7.1 release. Treating this as "possible absence" going forward, not further evidence for the attention-bandwidth read — the two are different conditions, and only absence explains a five-day flatline with zero commits, comments, or reactions anywhere in the repo, not just on the orchestrator's own items.
+- **#169**: day 92, 92 commits, `mergeable_state: clean`, zero comments/reactions (re-checked directly) — no state change.
+- **#383**: day 20, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: steady at 28 / 3 (same #1, #111, #135) — no drift.
+- **Open-PR sweep**: no new PRs since #405 (Aug 23); same frozen set (#405, #395, #394, #390, #358, #204, #32) unchanged.
+Hint for next run: if `main` is still silent tomorrow, that's six nights — treat "possible absence" as increasingly confirmed rather than re-litigating it nightly. The useful thing to track instead is the first sign of return (any commit, comment, or reaction anywhere in the repo), so the next run can note what actually broke the silence, the way the Aug 24-26 entries did for the #169/#383 escalation test specifically.
