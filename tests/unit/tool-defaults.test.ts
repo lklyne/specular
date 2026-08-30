@@ -18,8 +18,8 @@ describe('tool-defaults: normalizeToolDefaults', () => {
 
   it('round-trips a complete persisted blob', () => {
     const persisted = {
-      'add-text': { color: '5', textSize: 32 },
-      'add-sticky': { color: '1', textSize: 18 },
+      'add-text': { color: '5', textSize: 32, textFont: 'mono' as const },
+      'add-sticky': { color: '1', textSize: 18, textFont: 'hand' as const },
       'add-shape': {
         shapeKind: 'ellipse' as const,
         color: '#abcdef',
@@ -54,7 +54,7 @@ describe('tool-defaults: normalizeToolDefaults', () => {
     const out = normalizeToolDefaults({
       'add-text': { color: '5', textSize: 32, textKind: 'long' },
     })
-    expect(out['add-text']).toEqual({ color: '5', textSize: 32 })
+    expect(out['add-text']).toEqual({ color: '5', textSize: 32, textFont: 'sans' })
   })
 
   it('fills gaps with defaults when only one scope is persisted', () => {

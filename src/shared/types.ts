@@ -5,10 +5,12 @@ import type { PageAnchor } from './page-anchor'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
 import type { AmbientDriftMode } from './presence-ambient'
 import type { LocatorBundle, LocatorResolution } from './locator-kernel'
+import type { TextFont } from './text-fonts'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { PageAnchor } from './page-anchor'
 export type { ToolDefaultPatch } from './tool-defaults'
+export type { TextFont } from './text-fonts'
 
 // --- IPC Channel Types ---
 
@@ -190,6 +192,8 @@ export interface CanvasSceneTextEntity {
   widthMode: TextWidthMode
   /** Per-entity text size in px. Missing → renderer default (18). ADR 0013 §2. */
   textSize?: number
+  /** Per-entity typeface token. Missing → 'sans'. See shared/text-fonts.ts. */
+  textFont?: TextFont
   /** Apparent position: for page-anchored text the scroll-follow shift is
    *  already applied (see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
@@ -341,6 +345,8 @@ export interface PendingPlacement {
   color?: string
   /** Text size in canvas units for plain-text placement preview. */
   textSize?: number
+  /** Typeface token for the text placement preview, so the ghost matches the picker. */
+  textFont?: TextFont
   width: number
   height: number
 }
@@ -383,6 +389,8 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   widthMode?: TextWidthMode
   /** Optional — renderer defaults to 14 ("Small") when absent. ADR 0013 §2. */
   textSize?: number
+  /** Optional — renderer defaults to 'sans' when absent. See shared/text-fonts.ts. */
+  textFont?: TextFont
   label?: string
   /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
   pageAnchor?: PageAnchor
@@ -1795,7 +1803,7 @@ export interface FrozenPagesState {
  * `src/main/entities/builtin/*.ts`).
  */
 export interface EntityUpdatePatchMap {
-  text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
+  text: { text?: string; color?: string; textSize?: number; textFont?: TextFont; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
   file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
   drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
   shape: { shapeKind?: ShapeKind; text?: string; color?: string; fillStyle?: ShapeFillStyle; strokeWidth?: number; borderStyle?: ShapeBorderStyle; borderColor?: string; textSize?: number; textAlign?: ShapeTextAlign; textVerticalAlign?: ShapeTextVerticalAlign; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }

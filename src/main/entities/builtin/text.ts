@@ -6,7 +6,7 @@
  * legacy `entity-ops.ts` auto-route.
  */
 
-import type { PersistedTextEntity, TextEntityStyle, TextWidthMode } from '../../../shared/types'
+import type { PersistedTextEntity, TextEntityStyle, TextFont, TextWidthMode } from '../../../shared/types'
 import type { JsonCanvasTextNode } from '../../../shared/json-canvas-types'
 import {
   createTextEntity,
@@ -42,6 +42,7 @@ export const textKind: EntityKindDefinition<'text'> = {
       textStyle: input.textStyle as TextEntityStyle | undefined,
       widthMode: input.widthMode as TextWidthMode | undefined,
       textSize: input.textSize as number | undefined,
+      textFont: input.textFont as TextFont | undefined,
       width: input.width as number | undefined,
       height: input.height as number | undefined,
     })

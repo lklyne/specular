@@ -15,11 +15,11 @@ import { stickyDeleteKeymap, stickyListKeymap } from './sticky-editing'
 
 export const externalUpdate = Annotation.define<boolean>()
 
-// fontSize and lineHeight are inherited from the editor's wrapper so
-// per-entity `textSize` and its size-scaled leading (ADR 0013 §2) flow
-// through to CodeMirror; heading sizes stay relative via `em`.
+// fontSize, lineHeight, and fontFamily are inherited from the editor's wrapper
+// so per-entity `textSize`, its size-scaled leading (ADR 0013 §2), and
+// `textFont` all flow through to CodeMirror; heading sizes stay relative via
+// `em`, so they scale with whatever the wrapper sets.
 const MARKDOWN_TOKENS = {
-  fontFamily: 'system-ui, sans-serif',
   headingWeight: '600',
   h1Size: '1.4em',
   h2Size: '1.2em',
@@ -77,19 +77,33 @@ function buildEditorTheme(isDark: boolean, contentPadding: string): Extension {
     {
       '&': {
         backgroundColor: 'transparent',
-        color: isDark ? '#e7e5e4' : '#1c1917',
+        // Inherited for the same reason as the typeface below: the surface
+        // wrapping the editor owns the ink (plain text paints its own color
+        // slot), and a color set here would win over it.
+        color: 'inherit',
         fontSize: 'inherit',
-        fontFamily: MARKDOWN_TOKENS.fontFamily,
+        // Inherited, not fixed: the surface wrapping the editor owns the
+        // typeface (a sticky's is per-entity), and a face set here would win
+        // over it — so text would reflow the moment editing began.
+        fontFamily: 'inherit',
         height: '100%',
       },
       '.cm-content': {
         padding: contentPadding,
-        caretColor: isDark ? '#e7e5e4' : '#1c1917',
+        // Follows the ink, so the caret stays visible whatever color the
+        // surface is painting in.
+        caretColor: 'currentColor',
       },
       '.cm-line': { padding: '0' },
       '&.cm-focused': { outline: 'none' },
       '.cm-scroller': {
-        overflow: 'auto',
+        // Canvas text never scrolls sideways: an auto-width entity is sized by
+        // its longest line and a fixed-width one wraps, so a horizontal bar
+        // only ever means something has mismeasured. `hidden` rather than
+        // `clip` so CodeMirror can still scroll the caret back into view while
+        // a word too long to break is being typed — no bar, nothing stranded.
+        overflowX: 'hidden',
+        overflowY: 'auto',
         fontFamily: 'inherit',
         lineHeight: 'inherit',
       },

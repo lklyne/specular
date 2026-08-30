@@ -21,6 +21,7 @@ import { markDirty } from './layout-dirty'
 import { broadcastToolChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
 import type { ToolDefaults, ToolDefaultPatch } from '../../shared/tool-defaults'
+import type { TextFont } from '../../shared/text-fonts'
 
 export function getToolDefaults(): ToolDefaults {
   return readToolDefaults()
@@ -40,6 +41,14 @@ export function getTextDefaultSize(): number {
 
 export function getStickyDefaultSize(): number {
   return readToolDefaults()['add-sticky'].textSize
+}
+
+export function getTextDefaultFont(): TextFont {
+  return readToolDefaults()['add-text'].textFont
+}
+
+export function getStickyDefaultFont(): TextFont {
+  return readToolDefaults()['add-sticky'].textFont
 }
 
 export function getShapeDefaults(): ToolDefaults['add-shape'] {
@@ -72,10 +81,12 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   switch (patch.scope) {
     case 'add-text':
       if (patch.key === 'color') next['add-text'].color = patch.value
+      else if (patch.key === 'textFont') next['add-text'].textFont = patch.value
       else next['add-text'].textSize = patch.value
       break
     case 'add-sticky':
       if (patch.key === 'color') next['add-sticky'].color = patch.value
+      else if (patch.key === 'textFont') next['add-sticky'].textFont = patch.value
       else next['add-sticky'].textSize = patch.value
       break
     case 'add-shape':
@@ -104,13 +115,13 @@ function currentValueFor(
 ): ToolDefaultPatch['value'] {
   switch (patch.scope) {
     case 'add-text':
-      return patch.key === 'color'
-        ? current['add-text'].color
-        : current['add-text'].textSize
+      if (patch.key === 'color') return current['add-text'].color
+      if (patch.key === 'textFont') return current['add-text'].textFont
+      return current['add-text'].textSize
     case 'add-sticky':
-      return patch.key === 'color'
-        ? current['add-sticky'].color
-        : current['add-sticky'].textSize
+      if (patch.key === 'color') return current['add-sticky'].color
+      if (patch.key === 'textFont') return current['add-sticky'].textFont
+      return current['add-sticky'].textSize
     case 'add-shape':
       if (patch.key === 'shapeKind') return current['add-shape'].shapeKind
       if (patch.key === 'color') return current['add-shape'].color

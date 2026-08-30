@@ -70,6 +70,9 @@ export function MarkdownInlineRenderer({
           fontSize: 14,
           lineHeight: 1.5,
           color: textColor,
+          // The wrapper owns the editor's typeface; a document is not one of
+          // the font-swappable canvas text entities, so it pins the default.
+          fontFamily: 'system-ui, sans-serif',
         }}
       />
     </div>

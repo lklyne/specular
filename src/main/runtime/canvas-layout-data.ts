@@ -140,6 +140,12 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
     tool.kind === 'add-sticky' ? getToolDefaults()['add-sticky'].color : undefined
   const textSize =
     tool.kind === 'add-text' ? getToolDefaults()['add-text'].textSize : undefined
+  const textFont =
+    tool.kind === 'add-sticky'
+      ? getToolDefaults()['add-sticky'].textFont
+      : tool.kind === 'add-text'
+        ? getToolDefaults()['add-text'].textFont
+        : undefined
   const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
   const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
   // shapeKind moved to tool defaults per ADR 0009 — preview reads the persisted
@@ -159,6 +165,7 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
     textStyle,
     color,
     textSize,
+    textFont,
     width: isText
       ? DEFAULT_TEXT_WIDTH
       : isFile

@@ -183,6 +183,7 @@ export function serializeTextToTextNode(entity: PersistedTextEntity): JsonCanvas
     entity.widthMode,
     isNeutral,
     entity.textSize,
+    entity.textFont,
     entity.pageAnchor,
     entity.parentGroupId,
     entity.label,
@@ -196,6 +197,7 @@ function buildSpecularExtensions(
   widthMode: PersistedTextEntity['widthMode'] | undefined,
   isNeutral: boolean,
   textSize: number | undefined,
+  textFont: PersistedTextEntity['textFont'] | undefined,
   pageAnchor: PersistedTextEntity['pageAnchor'],
   parentGroupId: string | undefined,
   label: string | undefined,
@@ -205,6 +207,7 @@ function buildSpecularExtensions(
   if (widthMode !== undefined) ext.widthMode = widthMode
   if (isNeutral) ext.colorRole = 'neutral'
   if (textSize !== undefined) ext.textSize = textSize
+  if (textFont !== undefined) ext.textFont = textFont
   if (pageAnchor !== undefined) ext.pageAnchor = pageAnchor
   if (parentGroupId !== undefined) ext.parentGroupId = parentGroupId
   if (label !== undefined) ext.label = label
@@ -444,6 +447,7 @@ export function deserializeTextNodeToText(node: JsonCanvasTextNode): PersistedTe
     textStyle,
     widthMode,
     textSize: node.specular?.textSize,
+    textFont: node.specular?.textFont,
     canvasX: node.x,
     canvasY: node.y,
     width: node.width,

@@ -752,6 +752,7 @@ export function createTextEntity(input: {
   textStyle?: import('../../shared/types').TextEntityStyle
   widthMode?: import('../../shared/types').TextWidthMode
   textSize?: number
+  textFont?: import('../../shared/types').TextFont
   width?: number
   height?: number
   id?: string
@@ -768,8 +769,8 @@ export function updateTextEntity(id: string, patch: Partial<Omit<TextEntity, 'id
 }
 
 /**
- * A sticky's measured content height (CONTEXT.md, content-sized bounds). The
- * renderer measures the laid-out text and reports the settled value here.
+ * A text body's measured content height (CONTEXT.md, content-sized bounds).
+ * The renderer measures the laid-out text and reports the settled value here.
  *
  * Not a user action, so it must not cost an undo press. During a resize the
  * gesture session's batch absorbs it into the gesture's one step; the report

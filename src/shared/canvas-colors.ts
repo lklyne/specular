@@ -8,6 +8,17 @@
  *  - **Palette**: `'soft'` (muted pastels — stickies, shapes, highlighter brush)
  *    or `'vivid'` (saturated — plain text, edges, pen brush, groups). The same
  *    slot resolves to a different hue depending on the surface it paints.
+ *
+ *    The two resolve to different *kinds* of value, and the reason is what
+ *    each one's consumers do with it. Vivid resolves to a CSS custom property
+ *    (`var(--canvas-ink-*)`, defined per theme in `surfaceTheme.css`) — every
+ *    vivid consumer hands the value straight to CSS or to an SVG paint
+ *    attribute, both of which resolve `var()`, so the light/dark swap belongs
+ *    in the stylesheet. Soft resolves to a literal hex, because its consumers
+ *    (`lightenHex`, `darkenHex`, `withAlpha` for shape fills, sticky cards and
+ *    the highlighter) derive new colors from the channels and need real
+ *    numbers. Adding channel math to a vivid consumer means giving that call
+ *    site a hex some other way — the `var()` will not survive it.
  *  - **Role**: how the color is used at render time — `'fill'` (sticky/shape
  *    backgrounds) or `'ink'` (pen strokes, plain text glyphs). Role only
  *    affects the theme-aware `neutral` slot.
@@ -68,10 +79,8 @@ export const NEUTRAL_STORAGE = 'neutral'
 
 const NEUTRAL_FILL_LIGHT = '#fdf8f5'
 // Slightly muted cream for dark mode — still light enough for dark ink to read,
-// but a touch less glaring on a dark canvas. Pairs with NEUTRAL_INK_LIGHT.
+// but a touch less glaring on a dark canvas.
 const NEUTRAL_FILL_DARK = '#dcd2c4'
-const NEUTRAL_INK_LIGHT = '#1c1917'
-const NEUTRAL_INK_DARK = '#e7e5e4'
 
 /**
  * Eight-slot palette in canonical popup order (ADR 0013 §1).
@@ -105,8 +114,18 @@ const SLOT_BY_HEX: Record<string, CanvasColorSlotInfo> = Object.fromEntries(
   ),
 )
 
-function paletteHexFor(slot: CanvasColorSlotInfo, palette: CanvasPalette): string {
-  return (palette === 'vivid' ? slot.vivid : slot.soft) ?? NEUTRAL_FILL_LIGHT
+/**
+ * The CSS custom property carrying a slot's vivid hue. Themed in
+ * `surfaceTheme.css`; the `vivid` hex on the slot stays the dark-mode value so
+ * `slotForStorage` can still match canvases that stored a literal hex.
+ */
+export function inkVarFor(slot: CanvasColorSlot): string {
+  return `var(--canvas-ink-${slot})`
+}
+
+function paletteValueFor(slot: CanvasColorSlotInfo, palette: CanvasPalette): string {
+  if (palette === 'vivid') return inkVarFor(slot.id)
+  return slot.soft ?? NEUTRAL_FILL_LIGHT
 }
 
 /**
@@ -120,7 +139,14 @@ export function paletteSlots(
   return CANVAS_COLOR_SLOTS.map((slot) => ({
     id: slot.id,
     label: slot.label,
-    hex: palette === 'vivid' ? slot.vivid : slot.soft,
+    // A vivid swatch shows the themed variable, not the raw hue, so the
+    // picker previews the color the canvas will actually paint.
+    hex:
+      slot.preset === null
+        ? null
+        : palette === 'vivid'
+          ? inkVarFor(slot.id)
+          : slot.soft,
     storage: slot.preset ?? NEUTRAL_STORAGE,
   }))
 }
@@ -133,6 +159,10 @@ export function paletteSlots(
  * — the caller passes the palette of the *surface* being painted, so the same
  * preset reads muted on a sticky and punchy on a pen. For neutral, pass
  * `opts.role` and `opts.isDark`. Hex values pass through unchanged.
+ *
+ * The result is a CSS color *value*, not necessarily a hex: the vivid palette
+ * and neutral ink return `var(--canvas-ink-*)` (see the module doc). Assign it
+ * to a CSS property or an SVG paint attribute; don't parse it.
  */
 export function resolveCanvasColor(
   color: string,
@@ -142,12 +172,14 @@ export function resolveCanvasColor(
     return resolveNeutral(opts?.role ?? 'fill', opts?.isDark ?? false)
   }
   const slot = SLOT_BY_PRESET[color]
-  if (slot) return paletteHexFor(slot, opts?.palette ?? 'soft')
+  if (slot) return paletteValueFor(slot, opts?.palette ?? 'soft')
   return color
 }
 
 function resolveNeutral(role: CanvasColorRole, isDark: boolean): string {
-  if (role === 'ink') return isDark ? NEUTRAL_INK_DARK : NEUTRAL_INK_LIGHT
+  // Ink is themed in CSS like the hues. Fill stays a hex: it is the sticky
+  // card and shape body, whose renderers derive from its channels.
+  if (role === 'ink') return inkVarFor('neutral')
   return isDark ? NEUTRAL_FILL_DARK : NEUTRAL_FILL_LIGHT
 }
 
