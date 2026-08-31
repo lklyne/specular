@@ -10,6 +10,10 @@
  * A line decoration leaves the line genuinely empty, so the caret sits in the
  * line box like it does on any other empty line, and the prompt is painted
  * over it out of flow.
+ *
+ * Out of flow means the prompt contributes no width, so a surface that sizes
+ * itself from the editor's content has to measure the string itself — see
+ * `measuredTextWidth` and the auto-width floor in StickyBodyLayer.
  */
 
 import type { Extension } from '@codemirror/state'

@@ -1,0 +1,55 @@
+/**
+ * Advance width of a string in a given face and size, measured off-screen.
+ *
+ * For text a surface must leave room for but cannot size itself from — the
+ * empty-editor prompt is the case that needs it, painted out of flow so it
+ * contributes no width to the line it sits on (markdown-placeholder.ts). An
+ * auto-width entity shrink-wraps its content, so without a measured floor a
+ * brand-new one clips its own prompt in any face whose tracking runs wider
+ * than the fixed minimum.
+ *
+ * `ctx.font` resolves the same stack the DOM does, fallbacks included, so a
+ * measurement taken before a bundled face has loaded matches what is on screen
+ * at that moment — and is thrown away when the real face lands, since the two
+ * disagree. `useFontGeneration` is how a component asks to re-render then.
+ */
+
+import { useSyncExternalStore } from 'react'
+
+const context = document.createElement('canvas').getContext('2d')
+const cache = new Map<string, number>()
+
+let generation = 0
+const listeners = new Set<() => void>()
+
+document.fonts?.addEventListener('loadingdone', () => {
+  cache.clear()
+  generation += 1
+  for (const listener of listeners) listener()
+})
+
+export function measuredTextWidth(text: string, fontSize: number, fontFamily: string): number {
+  if (!context) return 0
+  const key = `${fontSize}\u0000${fontFamily}\u0000${text}`
+  const cached = cache.get(key)
+  if (cached !== undefined) return cached
+  context.font = `${fontSize}px ${fontFamily}`
+  const width = context.measureText(text).width
+  cache.set(key, width)
+  return width
+}
+
+/**
+ * Bumps whenever a face finishes loading and the cached widths above go stale.
+ * Read it in any component whose layout depends on `measuredTextWidth`, so the
+ * swap from fallback to real face re-runs the measurement.
+ */
+export function useFontGeneration(): number {
+  return useSyncExternalStore(
+    (onChange) => {
+      listeners.add(onChange)
+      return () => listeners.delete(onChange)
+    },
+    () => generation,
+  )
+}

@@ -30,6 +30,7 @@ export function buildPendingPlacementPreview(
     textStyle: layoutData.pendingPlacement.textStyle,
     color: layoutData.pendingPlacement.color,
     textSize: layoutData.pendingPlacement.textSize,
+    textFont: layoutData.pendingPlacement.textFont,
     zoom: layoutData.zoom,
     left: rect.x,
     top: rect.y,

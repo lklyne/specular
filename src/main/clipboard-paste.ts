@@ -10,6 +10,7 @@ import { createTextEntity } from './runtime/text-entity-state'
 import {
   getStickyDefaultColor,
   getStickyDefaultSize,
+  getStickyDefaultFont,
 } from './runtime/tool-defaults'
 import { createFileEntity } from './runtime/document-commands'
 import { saveImageBuffer } from './runtime/image-assets'
@@ -332,6 +333,7 @@ export function pasteFromClipboard(input: { canvasX: number; canvasY: number }):
       textStyle: 'sticky',
       color: getStickyDefaultColor(),
       textSize: getStickyDefaultSize(),
+      textFont: getStickyDefaultFont(),
     })
   }
 }

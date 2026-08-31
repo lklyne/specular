@@ -1,0 +1,75 @@
+/* Canvas typefaces — the faces behind the `textFont` tokens in
+   shared/text-fonts.ts. Bundled locally (no network fetch) and imported only
+   by the surfaces that render canvas text: above-view draws the bodies and the
+   editor, canvas-bg draws the placement ghost.
+
+   Latin subsets at 400 and 700 only — bold is a real toggle in the sticky
+   editor, italics are not exposed.
+
+   Declared here rather than pulled in through @fontsource's own stylesheets
+   because each face needs metric overrides, and a descriptor can only be set
+   where the @font-face is written.
+
+   Every face is pinned to one set of vertical metrics — system-ui's, since
+   `sans` is the default and the one face that can't be overridden (it isn't a
+   @font-face at all). A font's ascent and descent decide where the baseline
+   falls inside a line box: at `line-height: L` the baseline sits at
+   `L/2 + fontSize * (ascent - descent) / 2`, so faces that disagree about
+   ascent-minus-descent put the same string at a different height. Kalam's is
+   0.532 against system-ui's 0.756, which floated its glyphs ~0.11em high and
+   left the gap below — a visible jump on swapping the font under fixed text.
+   Overriding makes the three agree by construction, at every size and in every
+   surface, without any box shrinking that ancestors would have to know about.
+
+   Ratios measured off the shipped files via TextMetrics.fontBoundingBox*
+   (system-ui 0.967/0.211, Geist Mono 1.005/0.295, Kalam 1.063/0.531). macOS is
+   the only packaged target, so system-ui is always SF Pro and the numbers hold;
+   a second platform would need `sans` pinned to a bundled face too.
+
+   Only the vertical metrics are normalized. Cap heights still differ by ~2%
+   (0.705 / 0.710 / 0.720), which is the faces having their own proportions —
+   `size-adjust` would flatten that but would rewrite advance widths with it. */
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 96.7%;
+  descent-override: 21.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('@fontsource/geist-mono/files/geist-mono-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 96.7%;
+  descent-override: 21.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Kalam';
+  src: url('@fontsource/kalam/files/kalam-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 96.7%;
+  descent-override: 21.1%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Kalam';
+  src: url('@fontsource/kalam/files/kalam-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 96.7%;
+  descent-override: 21.1%;
+  line-gap-override: 0%;
+}

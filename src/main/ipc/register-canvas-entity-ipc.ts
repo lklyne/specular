@@ -32,6 +32,8 @@ import {
   getShapeDefaults,
   getTextDefaultSize,
   getStickyDefaultSize,
+  getTextDefaultFont,
+  getStickyDefaultFont,
 } from '../runtime/tool-defaults'
 import { createNoteFile } from '../runtime/note-assets'
 import {
@@ -168,6 +170,7 @@ export function registerCanvasEntityIpc(): void {
           textStyle: 'plain',
           color: getPlainTextDefaultColor() ?? undefined,
           textSize: getTextDefaultSize(),
+          textFont: getTextDefaultFont(),
         })
         selectEntity(created.id, 'text')
         beginEditingEntity(created.id)
@@ -184,6 +187,7 @@ export function registerCanvasEntityIpc(): void {
           textStyle: 'sticky',
           color: getStickyDefaultColor(),
           textSize: getStickyDefaultSize(),
+          textFont: getStickyDefaultFont(),
         })
         selectEntity(created.id, 'text')
         beginEditingEntity(created.id)

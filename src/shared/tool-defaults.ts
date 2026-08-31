@@ -12,15 +12,18 @@
 
 import type { DrawingBrushType, ShapeKind } from './types'
 import { isShapeKind } from './shapes'
+import { isTextFont, type TextFont } from './text-fonts'
 
 export interface ToolDefaults {
   'add-text': {
     color: string | null
     textSize: number
+    textFont: TextFont
   }
   'add-sticky': {
     color: string
     textSize: number
+    textFont: TextFont
   }
   'add-shape': {
     shapeKind: ShapeKind
@@ -47,10 +50,12 @@ export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   'add-text': {
     color: null,
     textSize: 14,
+    textFont: 'sans',
   },
   'add-sticky': {
     color: '3', // yellow preset
     textSize: 14,
+    textFont: 'sans',
   },
   'add-shape': {
     shapeKind: 'rectangle',
@@ -80,6 +85,7 @@ export function normalizeToolDefaults(
     if (typeof t.color === 'string' || t.color === null) merged['add-text'].color = t.color
     if (typeof t.textSize === 'number' && Number.isFinite(t.textSize))
       merged['add-text'].textSize = t.textSize
+    if (isTextFont(t.textFont)) merged['add-text'].textFont = t.textFont
     const legacy = t as { 'plain.color'?: unknown }
     if (typeof legacy['plain.color'] === 'string' || legacy['plain.color'] === null)
       merged['add-text'].color = legacy['plain.color']
@@ -89,6 +95,7 @@ export function normalizeToolDefaults(
     if (typeof s.color === 'string') merged['add-sticky'].color = s.color
     if (typeof s.textSize === 'number' && Number.isFinite(s.textSize))
       merged['add-sticky'].textSize = s.textSize
+    if (isTextFont(s.textFont)) merged['add-sticky'].textFont = s.textFont
   } else if (obj['add-text'] && typeof obj['add-text'] === 'object') {
     const legacy = obj['add-text'] as { 'sticky.color'?: unknown }
     if (typeof legacy['sticky.color'] === 'string') {
@@ -131,8 +138,10 @@ function cloneToolDefaults(src: ToolDefaults): ToolDefaults {
 export type ToolDefaultPatch =
   | { scope: 'add-text'; key: 'color'; value: string | null }
   | { scope: 'add-text'; key: 'textSize'; value: number }
+  | { scope: 'add-text'; key: 'textFont'; value: TextFont }
   | { scope: 'add-sticky'; key: 'color'; value: string }
   | { scope: 'add-sticky'; key: 'textSize'; value: number }
+  | { scope: 'add-sticky'; key: 'textFont'; value: TextFont }
   | { scope: 'add-shape'; key: 'shapeKind'; value: ShapeKind }
   | { scope: 'add-shape'; key: 'color'; value: string }
   | { scope: 'add-shape'; key: 'strokeWidth'; value: number }

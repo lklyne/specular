@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../shared/surfaceTheme.css";
+@import "../shared/canvasFonts.css";
 @variant dark (&:where(.dark, .dark *));
 
 .chrome-squircle-8 {

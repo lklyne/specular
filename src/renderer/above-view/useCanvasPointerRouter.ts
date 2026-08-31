@@ -57,7 +57,7 @@ import {
 } from '../../shared/resize-accumulator'
 import { scaleStrokesToBounds } from '../../shared/scale-strokes'
 import { TEXT_SIZE_DEFAULT } from './TextSizeDropdown'
-import { stickyResizePatch } from './stickyResize'
+import { textResizePatch } from './textResize'
 import {
   applyMultiHandleDelta,
   computeMultiSelectionBbox,
@@ -764,15 +764,16 @@ function runResize(
   const dispatchPatch = patchDispatcherForKind(entity.kind, action.entityId, api)
   if (!dispatchPatch) return false
 
-  // Side handles reflow, corners scale — see `stickyResize.ts`.
-  const stickyDispatch = isSticky(entity)
+  // Text is width-driven: side handles reflow, corners and n/s scale the font,
+  // and the height is never dispatched — see `textResize.ts`.
+  const textDispatch = entity.kind === 'text'
     ? (() => {
         const start = {
           width: entity.width,
           textSize: ('textSize' in entity ? entity.textSize : undefined) ?? TEXT_SIZE_DEFAULT,
         }
         return (patch: { width: number; height: number; canvasX?: number; canvasY?: number }) => {
-          api.updateEntity('text', action.entityId, stickyResizePatch(action.handle, start, patch))
+          api.updateEntity('text', action.entityId, textResizePatch(action.handle, start, patch))
         }
       })()
     : null
@@ -780,7 +781,7 @@ function runResize(
   // For drawing entities, augment each patch with strokes transformed from the
   // initial bounds so absolute canvas-space stroke geometry tracks the resized
   // selection box in real time.
-  const effectiveDispatch = stickyDispatch ?? (entity.kind === 'drawing'
+  const effectiveDispatch = textDispatch ?? (entity.kind === 'drawing'
     ? (() => {
         const initialStrokes = entity.strokes
         const initialBounds = {
@@ -1440,10 +1441,10 @@ function resizeConfigForEntity(entity: ProjectedSceneEntity): ResizeConfig {
   const aspectRatioResizeMode: AspectRatioResizeMode =
     entity.kind === 'file' && 'file' in entity && typeof entity.file === 'string'
       ? aspectRatioResizeModeForCanvasFile(entity.file)
-      // A sticky's height is content-driven, so a free vertical drag would do
-      // nothing. Locking aspect makes the vertical handles drive width, which
-      // is what the text scale follows (`stickyResize.ts`).
-      : isSticky(entity)
+      // A text body's height is content-driven, so a free vertical drag would
+      // do nothing. Locking aspect makes the vertical handles drive width
+      // instead (`textResize.ts`).
+      : entity.kind === 'text'
         ? 'shift-unlocks'
         : caps.aspectMode
   return {
@@ -1451,10 +1452,6 @@ function resizeConfigForEntity(entity: ProjectedSceneEntity): ResizeConfig {
     minHeight: caps.minSize.height,
     aspectRatioResizeMode,
   }
-}
-
-function isSticky(entity: ProjectedSceneEntity): boolean {
-  return entity.kind === 'text' && entity.textStyle !== 'plain'
 }
 
 function patchDispatcherForKind(

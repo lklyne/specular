@@ -5,6 +5,7 @@
  */
 
 import type { ShapeKind } from './shapes'
+import type { TextFont } from './text-fonts'
 
 // --- Colors ---
 
@@ -43,6 +44,11 @@ export interface SpecularNodeExtensions {
    * (inner label). Missing → renderer defaults to 14 ("Small"). ADR 0013 §2.
    */
   textSize?: number
+  /**
+   * Per-entity typeface token for text (plain + sticky). Missing → 'sans'.
+   * A semantic token, not a family string — see shared/text-fonts.ts.
+   */
+  textFont?: TextFont
   /** Shape fill visibility. Missing → 'solid'. */
   fillStyle?: 'solid' | 'none'
   /** Shape inner-label alignment. Missing → center/middle. */

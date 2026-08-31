@@ -48,11 +48,14 @@ describe('canvas-colors palette', () => {
 })
 
 describe('paletteSlots', () => {
-  it('resolves hue slots to the requested palette hex; storage is the preset', () => {
+  it('resolves hue slots to the requested palette value; storage is the preset', () => {
     const softRed = paletteSlots('soft').find((s) => s.id === 'red')!
     const vividRed = paletteSlots('vivid').find((s) => s.id === 'red')!
+    // Soft is a literal hex because its consumers do channel math on it
+    // (lightenHex/darkenHex/withAlpha); vivid is the themed custom property,
+    // so a swatch previews exactly what the canvas will paint.
     expect(softRed.hex).toBe('#e8b4b8')
-    expect(vividRed.hex).toBe('#FF1016')
+    expect(vividRed.hex).toBe('var(--canvas-ink-red)')
     expect(softRed.storage).toBe('1')
     expect(vividRed.storage).toBe('1')
   })
@@ -79,20 +82,26 @@ describe('resolveCanvasColor', () => {
     expect(lightFill).not.toBe(darkFill)
   })
 
-  it('resolves neutral ink to the opposite tone of neutral fill in the same theme', () => {
-    const lightInk = resolveCanvasColor(NEUTRAL_STORAGE, { role: 'ink', isDark: false })
+  it('resolves neutral ink to the themed custom property, never the fill tone', () => {
+    // Ink's light/dark swap lives in surfaceTheme.css, so it resolves to the
+    // same variable in both themes — what this can still pin down is that ink
+    // never comes back as the fill's cream, which is what put light glyphs on
+    // a light canvas before.
     const lightFill = resolveCanvasColor(NEUTRAL_STORAGE, { role: 'fill', isDark: false })
-    const darkInk = resolveCanvasColor(NEUTRAL_STORAGE, { role: 'ink', isDark: true })
     const darkFill = resolveCanvasColor(NEUTRAL_STORAGE, { role: 'fill', isDark: true })
-    expect(lightInk).not.toBe(lightFill)
-    expect(darkInk).not.toBe(darkFill)
+    for (const isDark of [false, true]) {
+      const ink = resolveCanvasColor(NEUTRAL_STORAGE, { role: 'ink', isDark })
+      expect(ink).toBe('var(--canvas-ink-neutral)')
+      expect(ink).not.toBe(lightFill)
+      expect(ink).not.toBe(darkFill)
+    }
   })
 
-  it('resolves a preset to the soft or vivid hue of its slot', () => {
+  it('resolves a preset to the soft hex or the vivid custom property', () => {
     expect(resolveCanvasColor('1', { palette: 'soft' })).toBe('#e8b4b8')
-    expect(resolveCanvasColor('1', { palette: 'vivid' })).toBe('#FF1016')
+    expect(resolveCanvasColor('1', { palette: 'vivid' })).toBe('var(--canvas-ink-red)')
     expect(resolveCanvasColor('7', { palette: 'soft' })).toBe('#b0c4d8')
-    expect(resolveCanvasColor('7', { palette: 'vivid' })).toBe('#1084FF')
+    expect(resolveCanvasColor('7', { palette: 'vivid' })).toBe('var(--canvas-ink-blue)')
   })
 
   it('the same preset reads muted on one surface and punchy on another', () => {
