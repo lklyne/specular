@@ -329,6 +329,10 @@ export async function resolvePageCdpConnection(pageId: string): Promise<PageCdpC
   const targets = await fetchCdpTargets()
   const target = targets.find((candidate) => {
     if (!candidate.id || !candidate.webSocketDebuggerUrl) return false
+    // OOPIF iframe targets (type 'iframe') map back to the same webContents as
+    // their owning page, and /json can list them first — match only the real
+    // page target or the registration binds to the iframe and breaks attach.
+    if (candidate.type !== 'page') return false
     return webContents.fromDevToolsTargetId(candidate.id)?.id === pageWebContentsId
   })
 
