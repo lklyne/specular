@@ -55,5 +55,11 @@
     { "file": "eslint-rules/no-direct-view-mutation.js", "exports": ["*"] },
     { "file": "eslint-rules/no-mouse-events.js", "exports": ["*"] }
   ],
-  "ignoreDependencies": ["react", "react-dom", "tailwindcss"]
+  "ignoreDependencies": [
+    "react",
+    "react-dom",
+    "tailwindcss",
+    "@fontsource/geist-mono",
+    "@fontsource/kalam"
+  ]
 }

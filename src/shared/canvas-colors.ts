@@ -119,7 +119,7 @@ const SLOT_BY_HEX: Record<string, CanvasColorSlotInfo> = Object.fromEntries(
  * `surfaceTheme.css`; the `vivid` hex on the slot stays the dark-mode value so
  * `slotForStorage` can still match canvases that stored a literal hex.
  */
-export function inkVarFor(slot: CanvasColorSlot): string {
+function inkVarFor(slot: CanvasColorSlot): string {
   return `var(--canvas-ink-${slot})`
 }
 

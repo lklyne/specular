@@ -38,7 +38,7 @@ export function isTextFont(value: unknown): value is TextFont {
 }
 
 /** Normalize any stored/serialized value to a renderable token. */
-export function textFontOrDefault(value: unknown): TextFont {
+function textFontOrDefault(value: unknown): TextFont {
   return isTextFont(value) ? value : TEXT_FONT_DEFAULT
 }
 

@@ -71,36 +71,14 @@ export function getDrawDefaults(): ToolDefaults['draw'] {
  */
 export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   const current = readToolDefaults()
-  if (currentValueFor(current, patch) === patch.value) return
+  if (scopeSlice(current, patch.scope)[patch.key] === patch.value) return
   const next: ToolDefaults = {
     'add-text': { ...current['add-text'] },
     'add-sticky': { ...current['add-sticky'] },
     'add-shape': { ...current['add-shape'] },
     draw: { ...current.draw },
   }
-  switch (patch.scope) {
-    case 'add-text':
-      if (patch.key === 'color') next['add-text'].color = patch.value
-      else if (patch.key === 'textFont') next['add-text'].textFont = patch.value
-      else next['add-text'].textSize = patch.value
-      break
-    case 'add-sticky':
-      if (patch.key === 'color') next['add-sticky'].color = patch.value
-      else if (patch.key === 'textFont') next['add-sticky'].textFont = patch.value
-      else next['add-sticky'].textSize = patch.value
-      break
-    case 'add-shape':
-      if (patch.key === 'shapeKind') next['add-shape'].shapeKind = patch.value
-      else if (patch.key === 'color') next['add-shape'].color = patch.value
-      else if (patch.key === 'strokeWidth') next['add-shape'].strokeWidth = patch.value
-      else next['add-shape'].textSize = patch.value
-      break
-    case 'draw':
-      if (patch.key === 'brushType') next.draw.brushType = patch.value
-      else if (patch.key === 'color') next.draw.color = patch.value
-      else next.draw.strokeWidth = patch.value
-      break
-  }
+  scopeSlice(next, patch.scope)[patch.key] = patch.value
   saveToolDefaults(next)
   // The defaults live in the `tool` slice, and the placement preview is built
   // from them; the toolbar reads them off the pass.
@@ -109,27 +87,16 @@ export function applyToolDefaultPatch(patch: ToolDefaultPatch): void {
   requestLayout()
 }
 
-function currentValueFor(
-  current: ToolDefaults,
-  patch: ToolDefaultPatch,
-): ToolDefaultPatch['value'] {
-  switch (patch.scope) {
-    case 'add-text':
-      if (patch.key === 'color') return current['add-text'].color
-      if (patch.key === 'textFont') return current['add-text'].textFont
-      return current['add-text'].textSize
-    case 'add-sticky':
-      if (patch.key === 'color') return current['add-sticky'].color
-      if (patch.key === 'textFont') return current['add-sticky'].textFont
-      return current['add-sticky'].textSize
-    case 'add-shape':
-      if (patch.key === 'shapeKind') return current['add-shape'].shapeKind
-      if (patch.key === 'color') return current['add-shape'].color
-      if (patch.key === 'strokeWidth') return current['add-shape'].strokeWidth
-      return current['add-shape'].textSize
-    case 'draw':
-      if (patch.key === 'brushType') return current.draw.brushType
-      if (patch.key === 'color') return current.draw.color
-      return current.draw.strokeWidth
-  }
+/**
+ * A scope's slice, addressable by patch key. `ToolDefaultPatch` pairs each
+ * scope with only the keys that scope actually holds, so `[scope][key]` names
+ * a real slot by construction — TypeScript checks the two indices
+ * independently and can't see that correlation, which is what the cast stands
+ * in for. A new key on an existing scope needs no change here.
+ */
+function scopeSlice(
+  defaults: ToolDefaults,
+  scope: ToolDefaultPatch['scope'],
+): Record<string, ToolDefaultPatch['value']> {
+  return defaults[scope] as Record<string, ToolDefaultPatch['value']>
 }
