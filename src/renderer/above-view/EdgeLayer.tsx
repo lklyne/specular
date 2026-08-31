@@ -40,6 +40,15 @@ const LABEL_GAP_PAD_Y = 0 // canvas units of vertical clearance above/below the 
 const END_ARROW_REF_X = 4.25
 const START_ARROW_REF_X = 0.75
 
+/**
+ * Marker ids key off the *stored* color token, never the resolved paint: the
+ * vivid palette resolves to `var(--canvas-ink-*)`, whose parentheses would
+ * make the `url(#…)` reference unparseable and drop the arrowhead.
+ */
+function edgeMarkerColorId(color: string): string {
+  return color.replace(/[^a-zA-Z0-9_-]/g, '')
+}
+
 // --- Geometry helpers ---
 
 function getAnchorHitRect(
@@ -351,19 +360,19 @@ export const EdgeLayer = memo(function EdgeLayer({
         </marker>
         {/* Per-color markers for colored edges (deduplicated) */}
         {[...new Set(edgePaths.map((p) => p.color).filter(Boolean))].map((color) => {
-          const hex = resolveCanvasColor(color!, {
+          const paint = resolveCanvasColor(color!, {
             palette: 'vivid',
             role: 'ink',
             isDark,
           })
-          const safeId = hex.replace('#', '')
+          const safeId = edgeMarkerColorId(color!)
           return (
             <g key={safeId}>
               <marker id={`arrow-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={END_ARROW_REF_X} refY={3} overflow="visible">
-                <path d="M 0 0 L 5 3 L 0 6 Z" fill={hex} />
+                <path d="M 0 0 L 5 3 L 0 6 Z" fill={paint} />
               </marker>
               <marker id={`arrow-start-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={START_ARROW_REF_X} refY={3} overflow="visible">
-                <path d="M 5 0 L 0 3 L 5 6 Z" fill={hex} />
+                <path d="M 5 0 L 0 3 L 5 6 Z" fill={paint} />
               </marker>
             </g>
           )
@@ -380,8 +389,8 @@ export const EdgeLayer = memo(function EdgeLayer({
           : resolvedColor ?? EDGE_COLOR_DEFAULT
         const markerSuffix = selected
           ? 'selected'
-          : resolvedColor
-            ? `color-${resolvedColor.replace('#', '')}`
+          : color
+            ? `color-${edgeMarkerColorId(color)}`
             : 'default'
         return (
         <g key={id}>
