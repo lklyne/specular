@@ -1,0 +1,240 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ── Canvas surface (host DOM is the canvas) ───────────────────────────────── */
+
+.canvas {
+  position: fixed;
+  inset: 0;
+  background: #f4f5f7;
+  background-image:
+    radial-gradient(circle, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+  cursor: default;
+}
+
+.canvas.panning {
+  cursor: grab;
+}
+
+.world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+/* ── Shared item shell (every canvas item, any substrate) ──────────────────── */
+
+.item {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  background: #fff;
+  /* Inert items read as "tap to select"; live items defer to body cursors. */
+  cursor: pointer;
+}
+
+.item.live {
+  cursor: default;
+}
+
+/* The selection ring is a real element (not an `outline`) so it owns a rect
+   that overlapping pages can mask through. Sized 4px beyond the item with a 2px
+   border, it reads like `outline-offset: 2px`. */
+.selection-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid #3b82f6;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* Bottom-right resize handle. Straddles the corner so it reads as a grip; the
+   owning page masks it (see pageMaskSelectors) so it isn't swallowed by the page
+   webview. Resizing a page changes its frame — its breakpoint viewport. */
+.resize-handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #3b82f6;
+  border-radius: 50%;
+  background: #fff;
+  cursor: nwse-resize;
+}
+
+.item-chrome {
+  flex: 0 0 26px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: 10px 10px 0 0;
+  background: rgba(28, 30, 38, 0.86);
+  color: #fff;
+  font-size: 12px;
+  cursor: grab;
+  user-select: none;
+}
+
+.item.selected .item-chrome {
+  background: #2563eb;
+}
+
+.item-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-hint {
+  flex: 1;
+  text-align: right;
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.item-body {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+}
+
+/* ── Page body (native webview substrate) ──────────────────────────────────── */
+
+.page-webview {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+/* ── Sticky body (host-DOM substrate) ──────────────────────────────────────── */
+
+.sticky-surface {
+  position: absolute;
+  inset: 0;
+  padding: 8px;
+}
+
+.sticky-text {
+  width: 100%;
+  height: 100%;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #1f2430;
+  outline: none;
+  overflow: auto;
+}
+
+.item.live .sticky-text {
+  cursor: text;
+}
+
+/* ── Shared z-order controls ───────────────────────────────────────────────── */
+
+.z-controls {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.item-hint + .z-controls {
+  margin-left: 8px;
+}
+
+.z-controls button {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #1f2430;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.z-controls button:hover {
+  background: #fff;
+}
+
+/* ── Overlays ──────────────────────────────────────────────────────────────── */
+
+.cursor-overlay {
+  position: fixed;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.toolbar {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  width: 320px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.toolbar-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.toolbar-actions button {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toolbar-actions button:hover {
+  border-color: #9ca3af;
+}
+
+.toolbar-help {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+.toolbar-help em {
+  color: #2563eb;
+  font-style: normal;
+  font-weight: 600;
+}
