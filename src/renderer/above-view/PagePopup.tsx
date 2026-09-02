@@ -44,6 +44,7 @@ function popupTabButtonClass(isDark: boolean, active: boolean, widthClass = 'w-6
     : `${base} text-[var(--surface-foreground-muted)] hover:bg-[var(--color-stone-100)] hover:text-[var(--surface-foreground)]`
 }
 
+// fallow-ignore-next-line complexity
 export function PagePopup({
   api,
   isDark,

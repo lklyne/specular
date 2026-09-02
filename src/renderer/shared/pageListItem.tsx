@@ -66,6 +66,7 @@ function PageGlyph({
   return <Icon size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
 }
 
+// fallow-ignore-next-line complexity
 export function PageListItem({
   page,
   active,

@@ -270,39 +270,50 @@ export function sendActiveThread(composerText?: string): boolean {
   return true
 }
 
-async function runThreadAgent(
+type ThreadAgentPlan = {
+  prompt: string
+  fullPrompt: string
+  resumeSessionId?: string
+  cwd: string
+  progressKey: string
+}
+
+type ThreadAgentOutcome =
+  | { result: { summary: string; sessionId?: string }; error: null }
+  | { result: null; error: Error }
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err))
+}
+
+/** Run the agent; a failed resume falls back to a fresh session with the full prompt. */
+async function invokeThreadAgent(
   threadId: string,
-  plan: {
-    prompt: string
-    fullPrompt: string
-    resumeSessionId?: string
-    cwd: string
-    progressKey: string
-  },
-): Promise<void> {
+  plan: ThreadAgentPlan,
+): Promise<ThreadAgentOutcome> {
   const onEvent = (event: FixProgressEvent) =>
     appendFixEvent(threadId, event.kind, event.text)
-  let result: { summary: string; sessionId?: string } | null = null
-  let error: Error | null = null
   try {
-    result = await runFixAgent(plan.prompt, plan.cwd, {
+    const result = await runFixAgent(plan.prompt, plan.cwd, {
       resumeSessionId: plan.resumeSessionId,
       onEvent,
     })
+    return { result, error: null }
   } catch (err) {
-    error = err instanceof Error ? err : new Error(String(err))
-    if (plan.resumeSessionId) {
-      appendFixEvent(threadId, 'system', 'Could not resume prior session — starting fresh.')
-      error = null
-      try {
-        result = await runFixAgent(plan.fullPrompt, plan.cwd, { onEvent })
-      } catch (retryErr) {
-        error = retryErr instanceof Error ? retryErr : new Error(String(retryErr))
-      }
+    if (!plan.resumeSessionId) return { result: null, error: toError(err) }
+    appendFixEvent(threadId, 'system', 'Could not resume prior session — starting fresh.')
+    try {
+      const result = await runFixAgent(plan.fullPrompt, plan.cwd, { onEvent })
+      return { result, error: null }
+    } catch (retryErr) {
+      return { result: null, error: toError(retryErr) }
     }
-  } finally {
-    markFixFinished(threadId, plan.progressKey)
   }
+}
+
+async function runThreadAgent(threadId: string, plan: ThreadAgentPlan): Promise<void> {
+  const { result, error } = await invokeThreadAgent(threadId, plan)
+  markFixFinished(threadId, plan.progressKey)
 
   const thread = threads.find((candidate) => candidate.id === threadId)
   if (!thread) {
@@ -311,9 +322,8 @@ async function runThreadAgent(
     return
   }
 
-  if (error || !result) {
-    const message = error ? error.message : 'Unknown error from agent.'
-    finalizeFixProgress(threadId, 'failed', { error: message })
+  if (!result) {
+    finalizeFixProgress(threadId, 'failed', { error: error.message })
     notify()
     return
   }

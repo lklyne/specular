@@ -50,7 +50,7 @@ export interface ThreadPillInput {
   canvasSelection?: { count: number; label: string; entityIds: string[] } | null
 }
 
-export function isDraftThread(thread: AgentThread | null | undefined): boolean {
+function isDraftThread(thread: AgentThread | null | undefined): boolean {
   return thread?.status === 'draft'
 }
 
