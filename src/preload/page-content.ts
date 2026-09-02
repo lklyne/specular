@@ -73,7 +73,10 @@ import {
 } from './scroll-sync-handler'
 import {
   handleInteractionSyncClick,
+  handleInteractionSyncGestureLost,
+  handleInteractionSyncPointerDown,
   handleInteractionSyncPointerMove,
+  handleInteractionSyncPointerUp,
   setInteractionSyncCaptureEnabled,
 } from './interaction-sync-capture'
 import { handleInteractionLocatorResolveRequest } from './interaction-sync-resolver'
@@ -853,6 +856,11 @@ window.addEventListener('resize', () => {
 // capture is disabled (see interaction-sync-capture.ts).
 window.addEventListener('mousemove', handleInteractionSyncPointerMove, { capture: true, passive: true })
 window.addEventListener('click', handleInteractionSyncClick, { capture: true, passive: true })
+window.addEventListener('mousedown', handleInteractionSyncPointerDown, { capture: true, passive: true })
+window.addEventListener('mouseup', handleInteractionSyncPointerUp, { capture: true, passive: true })
+// Losing the window mid-drag never delivers a mouseup, and a peer left holding
+// a pressed button would read every later move as a continuing drag.
+window.addEventListener('blur', handleInteractionSyncGestureLost)
 
 // --- Resize handle ---
 

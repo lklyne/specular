@@ -40,6 +40,13 @@
  *    dispatches a mouseMoved after the source left the element.
  *  - dropping the per-peer retire loop in refreshInteractionSyncCapture — the
  *    unsynced peer's cursor survives in the 3-page set.
+ *  - forcing `buttons: 0` in cdp-peer-dispatch's dispatchMouse — the surface
+ *    drag's mid-gesture move then reports no held button (a hover, not a drag).
+ *  - dropping `endPeerDrag` from retirePeer — the peer unsynced mid-drag is
+ *    left holding a pressed button.
+ *  - dropping the `!dragActive` guard in the drag branch of
+ *    handleResolveInteractionLocatorResponse — a resolution arriving after
+ *    drag-end then presses a button nothing will release.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -107,6 +114,53 @@ function clickEvent(bundle: LocatorBundle | null = BUNDLE): InteractionSyncEvent
 
 function hoverEvent(bundle: LocatorBundle | null = BUNDLE): InteractionSyncEvent {
   return { kind: 'hover', bundle, viewportX: 0.25, viewportY: 0.75 }
+}
+
+const SURFACE_BUNDLE: LocatorBundle = {
+  tag: 'canvas',
+  elementPath: 'div.map>canvas',
+  fullPath: 'body>main>div.map>canvas',
+  offsetX: 0.5,
+  offsetY: 0.5,
+}
+
+/** The peer's own surface rect — deliberately a different size and position
+ *  from any source rect, so a proportional mapping is distinguishable from a
+ *  coordinate copy. */
+const SURFACE_RECT = { x: 0, y: 100, width: 400, height: 200 }
+
+function dragStartEvent(): InteractionSyncEvent {
+  return { kind: 'drag-start', bundle: SURFACE_BUNDLE, viewportX: 0.5, viewportY: 0.5 }
+}
+
+function dragMoveEvent(offsetX: number, offsetY: number): InteractionSyncEvent {
+  return { kind: 'drag-move', offsetX, offsetY, viewportX: offsetX, viewportY: offsetY }
+}
+
+function dragEndEvent(): InteractionSyncEvent {
+  return { kind: 'drag-end' }
+}
+
+function surfaceResponse(requestId: number): LocatorResolveResponse {
+  return {
+    requestId,
+    resolution: {
+      kind: 'confident',
+      candidate: {
+        id: null,
+        testId: null,
+        role: null,
+        name: null,
+        text: null,
+        tag: 'canvas',
+        elementPath: 'div.map>canvas',
+        fullPath: 'body>main>div.map>canvas',
+        interactive: false,
+        rect: SURFACE_RECT,
+      },
+      point: { x: 200, y: 200 },
+    },
+  }
 }
 
 function syncedCursors() {
@@ -428,6 +482,139 @@ describe('interaction sync relay', () => {
       )
       await settleSync()
       expect(dispatchesOn(b)).toHaveLength(2)
+    })
+  })
+
+  /**
+   * Opaque-surface drags. Inside a `<canvas>` there is no sub-element to
+   * resolve, so the surface is resolved once at drag-start and the gesture
+   * replays against that latched rect — the one place mirrored input is
+   * allowed to be positional, and only *within* a confidently-matched element.
+   */
+  describe('surface drag', () => {
+    async function startDrag(): Promise<[string, string]> {
+      const [a, b] = await makeSyncedSet([`${SAME_ORIGIN}/a`, `${SAME_ORIGIN}/b`])
+      enterPageInteractive(a)
+      harness.clearBroadcasts()
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, dragStartEvent())
+      return [a, b]
+    }
+
+    it('presses, tracks moves against the peer’s own rect, and releases', async () => {
+      const [a, b] = await startDrag()
+      handleResolveInteractionLocatorResponse(
+        findPageById(b)!.pageView.webContents as never,
+        surfaceResponse(requestIdFor(b)),
+      )
+      await settleSync()
+
+      // The gesture opens with a press at the peer's resolved point.
+      expect(dispatchesOn(b)).toHaveLength(1)
+      expect(dispatchesOn(b)[0].params).toMatchObject({
+        type: 'mousePressed',
+        x: 200,
+        y: 200,
+        buttons: 1,
+      })
+
+      // A move to 25%/75% of the surface lands at 25%/75% of the PEER's rect,
+      // not at the source's coordinates.
+      handleInteractionSyncEvent(
+        findPageById(a)!.pageView.webContents as never,
+        dragMoveEvent(0.25, 0.75),
+      )
+      await settleSync()
+      expect(dispatchesOn(b)).toHaveLength(2)
+      expect(dispatchesOn(b)[1].params).toMatchObject({
+        type: 'mouseMoved',
+        x: 100,
+        y: 250,
+        // Held button: a move reporting no buttons ends the drag as far as the
+        // page is concerned, which is exactly the bug this carve-out fixes.
+        button: 'left',
+        buttons: 1,
+      })
+
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, dragEndEvent())
+      await settleSync()
+      expect(dispatchesOn(b)).toHaveLength(3)
+      expect(dispatchesOn(b)[2].params).toMatchObject({
+        type: 'mouseReleased',
+        x: 100,
+        y: 250,
+        buttons: 0,
+      })
+    })
+
+    it('refuses the whole gesture when the surface does not resolve', async () => {
+      const [a, b] = await startDrag()
+      handleResolveInteractionLocatorResponse(
+        findPageById(b)!.pageView.webContents as never,
+        ambiguousResponse(requestIdFor(b)),
+      )
+      await settleSync()
+      expect(dispatchesOn(b)).toHaveLength(0)
+      expect(syncedCursorFor(b)?.activity).toBe('refused')
+
+      // No press ever landed, so moves and the release dispatch nothing —
+      // the gesture is mirrored whole or not at all.
+      handleInteractionSyncEvent(
+        findPageById(a)!.pageView.webContents as never,
+        dragMoveEvent(0.25, 0.75),
+      )
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, dragEndEvent())
+      await settleSync()
+      expect(dispatchesOn(b)).toHaveLength(0)
+    })
+
+    it('releases only the peer torn out of a 3-page set mid-drag', async () => {
+      const [a, b, c] = await makeSyncedSet([
+        `${SAME_ORIGIN}/a`,
+        `${SAME_ORIGIN}/b`,
+        `${SAME_ORIGIN}/c`,
+      ])
+      enterPageInteractive(a)
+      harness.clearBroadcasts()
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, dragStartEvent())
+      for (const peer of [b, c]) {
+        handleResolveInteractionLocatorResponse(
+          findPageById(peer)!.pageView.webContents as never,
+          surfaceResponse(requestIdFor(peer)),
+        )
+      }
+      await settleSync()
+      expect(dispatchesOn(b)).toHaveLength(1)
+      expect(dispatchesOn(c)).toHaveLength(1)
+
+      // c leaves while the button is down. Without a release it holds a
+      // pressed button no later mouseup can lift; a and b are still a valid
+      // set, so b's gesture must continue untouched.
+      unsyncPage(c)
+      await settleSync()
+      expect(dispatchesOn(c).at(-1)!.params).toMatchObject({ type: 'mouseReleased', buttons: 0 })
+      expect(dispatchesOn(b)).toHaveLength(1)
+
+      handleInteractionSyncEvent(
+        findPageById(a)!.pageView.webContents as never,
+        dragMoveEvent(0.25, 0.75),
+      )
+      await settleSync()
+      expect(dispatchesOn(b).at(-1)!.params).toMatchObject({ type: 'mouseMoved', buttons: 1 })
+      expect(dispatchesOn(c)).toHaveLength(2)
+    })
+
+    it('ignores a confident surface resolution that arrives after the drag ended', async () => {
+      const [a, b] = await startDrag()
+      const requestId = requestIdFor(b)
+      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, dragEndEvent())
+
+      handleResolveInteractionLocatorResponse(
+        findPageById(b)!.pageView.webContents as never,
+        surfaceResponse(requestId),
+      )
+      await settleSync()
+      // A press here would never be released — the gesture is over.
+      expect(dispatchesOn(b)).toHaveLength(0)
     })
   })
 

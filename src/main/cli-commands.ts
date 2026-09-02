@@ -25,6 +25,14 @@ const canvas: VerbHandler = async () => {
   return 0
 }
 
+// The space folder is where files that belong to the user's workspace live —
+// agents ask here before writing a file they intend to `add`, so generated
+// artifacts land beside the user's .canvas files instead of a temp dir.
+const space: VerbHandler = async () => {
+  printJson(await callApp('/space'))
+  return 0
+}
+
 // Tab identity (issue #360): agents name the canvas they are writing to rather
 // than inheriting the user's focus. `new` deliberately does not activate —
 // only `switch` moves what the user is looking at.
@@ -725,6 +733,7 @@ const VERBS: Record<string, VerbHandler> = {
   canvas,
   // Hidden alias, kept so existing agent skills don't break mid-transition.
   workspace: canvas,
+  space,
   tab,
   selection,
   'find-placement': findPlacement,
@@ -776,7 +785,7 @@ export async function dispatch(argv: string[]): Promise<number> {
   if (!args.verb || args.verb === '--help' || args.verb === '-h') {
     printText('usage: specular <verb> [args...] [--flag value]')
     printText('')
-    printText('Canvas: canvas, add, update, delete, arrange, focus, group, ungroup')
+    printText('Canvas: canvas, space, add, update, delete, arrange, focus, group, ungroup')
     printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>')
     printText('  --tab <tab-id|tab-name> targets another canvas without switching focus')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')

@@ -9,8 +9,11 @@
  *
  * Mutation-verified by: making `setSyncForSelection` a no-op (early return in
  * src/main/navigation-sync.ts) — "syncs a two-page selection" fails because
- * neither page gains a syncId; and by dropping `syncId` from `persistPage`
- * (src/main/runtime/page-doc-projection.ts) — "persists syncId to disk" fails.
+ * neither page gains a syncId; by dropping `syncId` from `persistPage`
+ * (src/main/runtime/page-doc-projection.ts) — "persists syncId to disk" fails;
+ * and by dropping the `in-page` propagate from the did-navigate-in-page handler
+ * (src/main/runtime/page-factory.ts) — the query-param change no longer reaches
+ * the peer.
  */
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
@@ -36,6 +39,15 @@ function createPage(x: number): string {
 
 function syncIdOf(id: string): string | null {
   return findPageById(id)?.syncId ?? null
+}
+
+function wc(id: string) {
+  return findPageById(id)!.pageView.webContents as unknown as {
+    loadURL(url: string): Promise<void>
+    getURL(): string
+    emit(event: string, ...args: unknown[]): boolean
+    loadedUrls: string[]
+  }
 }
 
 describe('page sync sets', () => {
@@ -114,6 +126,54 @@ describe('page sync sets', () => {
 
     expect(syncIdOf(a)).toBeNull()
     expect(syncIdOf(b)).toBeNull()
+  })
+
+  /**
+   * A URL is a URL: nav sync carries the whole string, so a query-param change
+   * propagates exactly like a route change. Both arrival paths matter — a
+   * param change may come as a full document load (`did-navigate`) or, for an
+   * SPA pushing state, as a history-API navigation (`did-navigate-in-page`),
+   * which is the path with no other coverage.
+   */
+  describe('URL changes propagate to peers', () => {
+    async function syncedPair(): Promise<[string, string]> {
+      const a = createPage(0)
+      const b = createPage(500)
+      await settleSync()
+      setSyncForSelection([a, b])
+      await settleSync()
+      wc(b).loadedUrls.length = 0
+      return [a, b]
+    }
+
+    it('propagates a route change from a full navigation', async () => {
+      const [a, b] = await syncedPair()
+      const target = 'https://example.com/pricing'
+
+      wc(a).loadURL(target)
+      wc(a).emit('did-navigate', {}, target)
+
+      expect(wc(b).getURL()).toBe(target)
+    })
+
+    it('propagates a query-param-only change from a history-API navigation', async () => {
+      const [a, b] = await syncedPair()
+      const target = 'https://example.com/?variant=b'
+
+      wc(a).loadURL(target)
+      wc(a).emit('did-navigate-in-page', {}, target, true)
+
+      expect(wc(b).getURL()).toBe(target)
+    })
+
+    it('ignores a subframe in-page navigation', async () => {
+      const [a, b] = await syncedPair()
+
+      // isMainFrame false: an iframe's own history push is not the page's URL.
+      wc(a).emit('did-navigate-in-page', {}, 'https://example.com/?frame=1', false)
+
+      expect(wc(b).loadedUrls).toHaveLength(0)
+    })
   })
 
   it('persists syncId to disk and round-trips through undo', async () => {

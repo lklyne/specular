@@ -74,6 +74,23 @@ breakpoint. `add note` auto-routes long / structured text to a `.md` note file;
 short text stays a sticky note. `add file` infers the renderer from the
 extension and sizes images / video from the file.
 
+## Where to write files — the space folder
+
+`specular add file` links the file where it sits — nothing is copied. A file
+written to a temp or scratch directory leaves the canvas pointing at a path
+the user can't see and the OS may clean up. Before writing any file you
+intend to `add` (an explainer `.md`, a generated `.html` visualization, an
+image), ask the app where the user's space lives and write it there:
+
+```bash
+specular space
+# → { "path": "/Users/…/Documents/Specular", "assetsPath": "/Users/…/Documents/Specular/assets" }
+```
+
+`.md` and `.html` files go directly in `path`, next to the user's `.canvas`
+files; images and video belong in `assetsPath`. Temp directories are for
+throwaway intermediates only — never for anything that lands on the canvas.
+
 ## Edit
 
 ```bash
@@ -275,7 +292,8 @@ off against the rest of the workspace.
 
 Drop a `.html` file onto the canvas to render it inline (charts, mockups,
 generated visualizations): `specular add file /abs/path/viz.html`. Rendered
-display-only; edit the file to update.
+display-only; edit the file to update. Write the file into the space folder
+(`specular space`) first — see "Where to write files".
 
 ## Passing URLs
 

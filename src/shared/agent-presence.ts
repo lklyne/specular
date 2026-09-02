@@ -13,6 +13,7 @@ const PRESENCE_LABELS: Record<
   find_target: (targetName) => (targetName ? `Finding ${targetName}` : 'Finding target'),
   click_target: (targetName) => (targetName ? `Clicking "${targetName}"` : 'Clicking target'),
   point_target: (targetName) => (targetName ? `Pointing at "${targetName}"` : 'Pointing'),
+  drag_target: (targetName) => (targetName ? `Dragging on "${targetName}"` : 'Dragging'),
   type_text: (targetName) => (targetName ? `Typing in "${targetName}"` : 'Typing text'),
   select_option: (targetName) => (targetName ? `Selecting "${targetName}"` : 'Selecting option'),
   wait_page: (targetName) => (targetName ? `Waiting for ${targetName}` : 'Waiting for page'),

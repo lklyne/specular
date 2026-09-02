@@ -736,14 +736,53 @@ export type SidebarPageChildItem = SidebarAnchoredEntityItem | SidebarAnnotation
  * to same-origin peers. `bundle` is null only for a hover over no element (the
  * cursor still glides proportionally); `viewportX`/`viewportY` are the source
  * cursor as a viewport fraction 0..1, driving the peer's proportional base
- * position when nothing resolves.
+ * position when nothing resolves. Surface drags travel the same channel as the
+ * `drag-*` members of `InteractionSyncEvent`.
  */
-export interface InteractionSyncEvent {
+export interface InteractionSyncPointEvent {
   kind: 'hover' | 'click'
   bundle: LocatorBundle | null
   viewportX: number
   viewportY: number
 }
+
+/**
+ * The opening of an opaque-surface drag: the pointer went down on a `<canvas>`,
+ * `<video>`, or an opted-in surface, where there is no sub-element to resolve
+ * and the within-surface fraction is the whole story. The bundle describes the
+ * surface itself and is resolved exactly once — every subsequent move replays
+ * against that latched rect, so "confident-or-skip" is decided before the
+ * gesture starts rather than mid-stream.
+ */
+export interface InteractionSyncDragStartEvent {
+  kind: 'drag-start'
+  bundle: LocatorBundle
+  viewportX: number
+  viewportY: number
+}
+
+/** A move within an in-flight surface drag. Carries only the within-surface
+ *  offset fraction — the surface was identified at drag-start. */
+export interface InteractionSyncDragMoveEvent {
+  kind: 'drag-move'
+  offsetX: number
+  offsetY: number
+  viewportX: number
+  viewportY: number
+}
+
+/** The drag released (pointer up, cancel, or the source losing the gesture).
+ *  Peers holding a pressed button must release on this, or they are left
+ *  dragging forever. */
+export interface InteractionSyncDragEndEvent {
+  kind: 'drag-end'
+}
+
+export type InteractionSyncEvent =
+  | InteractionSyncPointEvent
+  | InteractionSyncDragStartEvent
+  | InteractionSyncDragMoveEvent
+  | InteractionSyncDragEndEvent
 
 /** Main → guest: toggle interaction-sync capture on the source page (D1). */
 export interface InteractionSyncCapturePayload {

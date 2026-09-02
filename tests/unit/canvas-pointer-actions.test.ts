@@ -220,6 +220,27 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'right' })
   })
 
+  it.each([
+    ['shift', { shift: true, meta: false, ctrl: false }, false],
+    ['cmd', { shift: false, meta: true, ctrl: false }, false],
+    ['alt', { shift: false, meta: false, ctrl: false }, true],
+  ])('%s-press on the entered page body → forward-pointer-down (page owns modifiers)', (
+    _name,
+    modifiers,
+    altHeld,
+  ) => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+      modifiers,
+      altHeld,
+    })
+    expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'left' })
+  })
+
   it('page body pointerdown when page is in multi-selection → page-body-press (drag)', () => {
     const f = page()
     const t = text()

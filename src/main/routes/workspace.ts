@@ -30,9 +30,19 @@ import {
 } from '../runtime/selection-controller'
 import { pageSelectionOverlayStates } from '../runtime/overlay-manager'
 import { withTabContext } from '../runtime/space-tab-context'
+import { spaceDir } from '../runtime/space-dir'
+import { join } from 'path'
 import { writeJson } from './http-helpers'
 
 export const workspaceRoutes: Route[] = [
+  {
+    method: 'GET',
+    pattern: '/space',
+    async handler({ response }) {
+      const path = spaceDir()
+      writeJson(response, 200, { path, assetsPath: join(path, 'assets') })
+    },
+  },
   {
     method: 'GET',
     pattern: '/sidebar',

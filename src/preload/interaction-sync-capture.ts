@@ -13,6 +13,26 @@ import type { InteractionSyncEvent } from '../shared/types'
 // frame.
 const HOVER_OFFSET_EPSILON = 0.015
 
+// Drag moves are rAF-coalesced but not offset-gated the way hover is: a pan
+// wants every frame the pointer actually moved, and the hover epsilon (1.5% of
+// the surface) would quantize a smooth drag into visible steps on the peer.
+const DRAG_OFFSET_EPSILON = 0.0005
+
+// Elements whose interior has no DOM to resolve against — a WebGL/2D canvas,
+// a video surface, or anything a page opts in explicitly. Inside one of these
+// the within-surface fraction IS the semantics, so a drag can be mirrored
+// proportionally without guessing at coordinates (ADR 0030, opaque-surface
+// carve-out).
+const OPAQUE_SURFACE_SELECTOR = 'canvas, video, [data-specular-sync-surface]'
+
+interface ActiveDrag {
+  surface: Element
+  /** The bundle describing `surface`, captured once at drag-start. */
+  bundle: LocatorBundle
+  lastOffsetX: number
+  lastOffsetY: number
+}
+
 let captureEnabled = false
 let hoverFrameQueued = false
 let pendingHoverEvent: MouseEvent | null = null
@@ -26,6 +46,15 @@ let lastHoverViewportY = 0
 // hovered element itself changed. Offset-only moves within one element patch
 // this instead of re-walking the DOM (innerText forces layout).
 let lastHoverBundle: LocatorBundle | null = null
+// The in-flight surface drag, if any. While set, hover capture is suspended:
+// the peer is holding a pressed button and every move belongs to the gesture.
+let activeDrag: ActiveDrag | null = null
+let dragFrameQueued = false
+let pendingDragEvent: MouseEvent | null = null
+// A drag's terminating mouseup is followed by a `click` on the same surface.
+// The peer already received the press+release pair, so that click must not
+// fan out a second time.
+let suppressNextClick = false
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
@@ -94,10 +123,96 @@ function resetHoverState(): void {
 
 /** Toggle capture (ADR 0030 D1). Disabled is the default; everything is
  *  dropped while disabled, and disabling mid-hover clears the change-gate
- *  baseline so re-enabling never compares against stale state. */
+ *  baseline so re-enabling never compares against stale state. A drag in
+ *  flight is ended rather than abandoned — main releases the peers' held
+ *  buttons when the source retires, but ending it here keeps the local state
+ *  machine honest if capture is re-enabled before the pointer comes up. */
 export function setInteractionSyncCaptureEnabled(enabled: boolean): void {
   captureEnabled = enabled
-  if (!captureEnabled) resetHoverState()
+  if (!captureEnabled) {
+    endDrag(false)
+    resetHoverState()
+  }
+}
+
+/** The opaque surface at or above `element`, or null if this is ordinary DOM
+ *  that the semantic path should own. */
+function opaqueSurfaceFor(element: Element): Element | null {
+  return element.closest(OPAQUE_SURFACE_SELECTOR)
+}
+
+function flushDrag(): void {
+  dragFrameQueued = false
+  if (!captureEnabled || !activeDrag || !pendingDragEvent) return
+  const event = pendingDragEvent
+  pendingDragEvent = null
+  const { offsetX, offsetY } = offsetWithin(activeDrag.surface, event.clientX, event.clientY)
+  if (
+    Math.abs(offsetX - activeDrag.lastOffsetX) <= DRAG_OFFSET_EPSILON &&
+    Math.abs(offsetY - activeDrag.lastOffsetY) <= DRAG_OFFSET_EPSILON
+  ) {
+    return
+  }
+  activeDrag.lastOffsetX = offsetX
+  activeDrag.lastOffsetY = offsetY
+  const { viewportX, viewportY } = viewportFraction(event.clientX, event.clientY)
+  sendInteractionSyncEvent({ kind: 'drag-move', offsetX, offsetY, viewportX, viewportY })
+}
+
+/** Close out an in-flight drag. `notify` is false only when the relay is
+ *  already tearing the source down and a drag-end would be dropped anyway. */
+function endDrag(notify: boolean): void {
+  if (!activeDrag) return
+  activeDrag = null
+  pendingDragEvent = null
+  if (notify) sendInteractionSyncEvent({ kind: 'drag-end' })
+}
+
+/**
+ * Begin mirroring a drag when the pointer goes down on an opaque surface.
+ * Ordinary DOM is left entirely to the hover/click path — a drag there has no
+ * stable mid-gesture target, which is the case ADR 0030 refuses to guess at.
+ */
+export function handleInteractionSyncPointerDown(event: MouseEvent): void {
+  if (!captureEnabled) return
+  // A prior drag's trailing click always lands before the next press, so an
+  // unconsumed suppression here belonged to a gesture that never produced one
+  // (released outside the view) and must not swallow this press's click.
+  suppressNextClick = false
+  if (!event.isTrusted || event.button !== 0) return
+  const target = composedTargetElement(event)
+  if (!target) return
+  const surface = opaqueSurfaceFor(target)
+  if (!surface) return
+
+  const { offsetX, offsetY } = offsetWithin(surface, event.clientX, event.clientY)
+  const { viewportX, viewportY } = viewportFraction(event.clientX, event.clientY)
+  const bundle = buildLocatorBundle(surface, offsetX, offsetY)
+  activeDrag = { surface, bundle, lastOffsetX: offsetX, lastOffsetY: offsetY }
+  // The gesture owns the pointer from here: a queued hover flush would ship
+  // mid-drag and re-anchor the peer away from the surface.
+  pendingHoverEvent = null
+  sendInteractionSyncEvent({ kind: 'drag-start', bundle, viewportX, viewportY })
+}
+
+/** End the drag on mouseup, and swallow the click that follows it — the peer
+ *  already got a press+release pair from the gesture itself. */
+export function handleInteractionSyncPointerUp(event: MouseEvent): void {
+  if (!activeDrag) return
+  if (event.button !== 0) return
+  flushDrag()
+  endDrag(true)
+  suppressNextClick = true
+  // Re-prime the hover gate at the release point so the next real move is
+  // compared against where the gesture actually left the cursor.
+  resetHoverState()
+}
+
+/** Window blur (or any other loss of the gesture) releases the peers rather
+ *  than leaving them holding a button no mouseup will ever lift. */
+export function handleInteractionSyncGestureLost(): void {
+  endDrag(true)
+  resetHoverState()
 }
 
 function flushHover(): void {
@@ -151,6 +266,20 @@ function flushHover(): void {
  *  actually broadcasts (D7 — never send per raw mousemove). */
 export function handleInteractionSyncPointerMove(event: MouseEvent): void {
   if (!captureEnabled) return
+  if (activeDrag) {
+    // A drag that outlives its button (the pointer came up outside the view,
+    // so no mouseup reached us) would otherwise keep the peers pressed.
+    if ((event.buttons & 1) === 0) {
+      endDrag(true)
+      resetHoverState()
+      return
+    }
+    pendingDragEvent = event
+    if (dragFrameQueued) return
+    dragFrameQueued = true
+    window.requestAnimationFrame(flushDrag)
+    return
+  }
   pendingHoverEvent = event
   if (hoverFrameQueued) return
   hoverFrameQueued = true
@@ -163,6 +292,10 @@ export function handleInteractionSyncPointerMove(event: MouseEvent): void {
  *  is filtered upstream by the capture-enable gate (D1) instead. */
 export function handleInteractionSyncClick(event: MouseEvent): void {
   if (!captureEnabled) return
+  if (suppressNextClick) {
+    suppressNextClick = false
+    return
+  }
   if (!event.isTrusted || event.button !== 0) return
   const target = composedTargetElement(event)
   if (!target) return
