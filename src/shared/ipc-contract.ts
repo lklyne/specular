@@ -547,7 +547,6 @@ export const ipcChannels = {
   dispatchScrollResult: 'dispatch-scroll-result',
   elementAttachmentPositions: 'element-attachment-positions',
   elementAttachmentSubscriptions: 'element-attachment-subscriptions',
-  fixProgressUpdate: 'fix-progress-update',
   frozenPagesReady: 'frozen-pages-ready',
   frozenPagesState: 'frozen-pages-state',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',

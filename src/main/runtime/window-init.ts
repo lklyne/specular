@@ -47,8 +47,7 @@ import {
 } from './inspect-session'
 import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
 import { onTrackerChange } from '../agent-fix/fix-tracker'
-import { getFixProgress, onProgressChange } from '../agent-fix/fix-progress'
-import { safeSend } from './safe-send'
+import { onProgressChange } from '../agent-fix/fix-progress'
 import { broadcastSceneSnapshot } from './runtime-patch-broadcast'
 import {
   buildCanvasLayoutData,
@@ -135,10 +134,7 @@ export function initWindow(): void {
   }
   initFixOrchestrator()
   onTrackerChange(() => notifyDevtoolsPanelData())
-  onProgressChange(() => {
-    if (aboveView) safeSend(aboveView.webContents, ipcChannels.fixProgressUpdate, getFixProgress())
-    notifyDevtoolsPanelData()
-  })
+  onProgressChange(() => notifyDevtoolsPanelData())
   ensureSpaceTabsInitialized()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 

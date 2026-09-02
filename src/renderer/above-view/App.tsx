@@ -42,17 +42,14 @@ import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import { CommentBadgesLayer } from './CommentBadgesLayer'
 import {
-  AnnotationThreadPopover,
+  FocusedThreadOutline,
   PendingAnnotationComposer,
   PendingElementOutline,
 } from './CommentsLayer'
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
 import { useAnnotationDraftState } from './useAnnotationDraftState'
-import {
-  useAnnotationThreadState,
-  annotationThreadPosition,
-} from './useAnnotationThreadState'
+import { useAnnotationThreadState } from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
 import { useCanvasFileDrop } from './useCanvasFileDrop'
@@ -401,12 +398,8 @@ export default function App({
 }) {
   const layoutRef = useProjectedLayoutRef()
   const commentInputRef = useRef<HTMLTextAreaElement>(null)
-  const threadInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const layoutData = useProjectedLayoutData()
-  const [fixProgress, setFixProgress] = useState<ProjectedLayoutData['fixProgress']>(
-    initialLayoutData.fixProgress,
-  )
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
   const [canvasGuides, setCanvasGuides] = useState<CanvasGuidesPayload>({
     alignmentGuides: [],
@@ -549,10 +542,6 @@ export default function App({
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
 
-  useEffect(() => setFixProgress(layoutData.fixProgress), [layoutData.fixProgress])
-
-  useEffect(() => api.onFixProgressUpdate(setFixProgress), [])
-
   const {
     beginSelectionAnnotation,
     clearDraft,
@@ -587,18 +576,12 @@ export default function App({
   }, [pendingAnnotation, pendingRegionRect, commentText, clearDraft])
   const {
     closeThread,
-    openThread,
-    openThreadById,
-    openThreadId,
-    openThreadMenu,
-    replyText,
-    setOpenThreadMenu,
-    setReplyText,
-    submitThreadReply,
+    focusThread,
+    focusedThread,
+    focusedThreadId,
   } = useAnnotationThreadState({
     api,
     layoutData,
-    threadInputRef,
   })
 
   // ADR 0006 — element-anchored popovers re-query their bbox via the page on
@@ -626,11 +609,11 @@ export default function App({
         selector: anchor.selector,
       })
     }
-    if (openThread && openThread.anchor.type === 'element') {
+    if (focusedThread && focusedThread.anchor.type === 'element') {
       pushSub({
-        pageId: openThread.anchor.pageId,
-        annotationId: openThread.id,
-        selector: openThread.anchor.selector,
+        pageId: focusedThread.anchor.pageId,
+        annotationId: focusedThread.id,
+        selector: focusedThread.anchor.selector,
       })
     }
     for (const annotation of layoutData.annotations) {
@@ -642,19 +625,15 @@ export default function App({
       })
     }
     return subs
-  }, [layoutData.annotations, openThread, pendingAnnotation])
+  }, [layoutData.annotations, focusedThread, pendingAnnotation])
 
   const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
 
-  const threadPosition = useMemo(
-    () => annotationThreadPosition(openThread, layoutData, liveBboxes),
-    [layoutData, liveBboxes, openThread],
-  )
   const pendingComposerPosition = useMemo(
     () => (pendingAnnotation ? pendingElementComposerPosition(pendingAnnotation, layoutData, liveBboxes) : null),
     [layoutData, liveBboxes, pendingAnnotation],
   )
-  const drawInteractionEnabled = layoutData.activeTool.kind === 'draw' && !openThreadId
+  const drawInteractionEnabled = layoutData.activeTool.kind === 'draw'
   const selectedEdgeIds = useMemo(() => {
     const ids = new Set<string>()
     for (const target of layoutData.selection) {
@@ -697,7 +676,6 @@ export default function App({
     pendingPlacement: Boolean(layoutData.pendingPlacement),
     pendingAnnotation: Boolean(pendingAnnotation),
     pendingRegionRect: Boolean(pendingRegionRect),
-    openThread: Boolean(openThreadId),
     drawingSession: Boolean(drawingSession),
   }
   const overlayInteractive = annotationOverlayActive(pointerOwnerState)
@@ -751,8 +729,8 @@ export default function App({
   })
 
   useEffect(() => {
-    api.setAnnotationState(Boolean(openThreadId), Boolean(pendingAnnotation || pendingRegionRect || drawingSession))
-  }, [openThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
+    api.setAnnotationState(Boolean(focusedThreadId), Boolean(pendingAnnotation || pendingRegionRect || drawingSession))
+  }, [focusedThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
 
   useRendererBindingHandlers(buildAboveViewHandlers(closeThread, clearDraft))
   useCanvasFileDrop({ api, layoutRef })
@@ -1027,10 +1005,10 @@ export default function App({
   }, [closeThread, pendingAnnotation])
 
   useEffect(() => {
-    if (!openThreadId) return
+    if (!focusedThreadId) return
     activeStrokeRef.current = null
     clearDraft()
-  }, [clearDraft, openThreadId])
+  }, [clearDraft, focusedThreadId])
 
   useEffect(() => {
     if (!drawInteractionEnabled) return
@@ -1103,7 +1081,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             annotations={layoutData.annotations}
             interactive={!selectionOverlay && !pendingRegionRect && !pendingAnnotation}
             layoutData={layoutData}
-            onOpenThread={openThreadById}
+            onOpenThread={focusThread}
+          />
+
+          <FocusedThreadOutline
+            annotation={focusedThread}
+            layoutData={layoutData}
+            liveBboxes={liveBboxes}
           />
 
           <PendingElementOutline
@@ -1151,22 +1135,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
 
       {!captureMode ? (
         <>
-          <AnnotationThreadPopover
-            api={api}
-            closeThread={closeThread}
-            drawCursor={DRAW_CURSOR}
-            drawInteractionEnabled={drawInteractionEnabled}
-            openThread={openThread}
-            openThreadMenu={openThreadMenu}
-            progress={openThread ? fixProgress[openThread.id] : undefined}
-            replyText={replyText}
-            setOpenThreadMenu={setOpenThreadMenu}
-            setReplyText={setReplyText}
-            submitThreadReply={submitThreadReply}
-            threadInputRef={threadInputRef}
-            threadPosition={threadPosition}
-          />
-
           <MarqueeLayer overlay={selectionOverlay} />
 
           {/* Live drawing preview renders after StackedCanvasItems so the
@@ -1316,7 +1284,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             annotations={layoutData.annotations}
             layoutData={layoutData}
             liveBboxes={liveBboxes}
-            onOpenThread={openThreadById}
+            onOpenThread={focusThread}
           />
         </>
       ) : null}

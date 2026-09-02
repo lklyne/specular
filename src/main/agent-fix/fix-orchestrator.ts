@@ -13,7 +13,7 @@ import { getOriginBindingView as getOriginBinding } from '../runtime/dev-server-
 import { buildFixPrompt, buildFollowUpPrompt } from './prompt-builder'
 import { fixTargetKey, resolveFixTarget, type FixTarget } from './fix-target'
 import { resolveSelectionContext } from './selection-context'
-import { invokeClaude, type FixResult } from './claude-spawner'
+import { runFixAgent, type FixResult } from './agent-backend'
 import {
   isAnnotationInFlight,
   markFixFinished,
@@ -26,6 +26,25 @@ import {
 } from './fix-progress'
 
 const MAX_AGENT_REPLIES = 20
+
+/**
+ * Whether a user reply should kick off a run on its own. A thread the agent
+ * has already worked on carries a fix session — the previous message in it is
+ * the agent's, so a reply there is a conversation turn and always continues
+ * the run. On a thread the agent has never touched, auto-fix is the opt-in:
+ * it lives on the origin→repo binding, so only page-bound comments can fire.
+ */
+export function shouldRunOnReply(
+  annotation: Annotation,
+  getBinding: (origin: string) => { autoFix: boolean } | null,
+): boolean {
+  if (annotation.status === 'dismissed') return false
+  if (annotation.metadata?.fixSessionId) return true
+  const origin = annotationOrigin(annotation)
+  if (!origin) return false
+  const binding = getBinding(origin)
+  return Boolean(binding?.autoFix)
+}
 
 /**
  * Auto-fix is an opt-in that lives on an origin→repo binding, so only
@@ -44,11 +63,7 @@ export function initFixOrchestrator(): void {
   })
   setOnAnnotationReply((annotation, reply) => {
     if (reply.author !== 'user') return
-    if (annotation.status === 'dismissed') return
-    const origin = annotationOrigin(annotation)
-    if (!origin) return
-    const binding = getOriginBinding(origin)
-    if (!binding || !binding.autoFix) return
+    if (!shouldRunOnReply(annotation, getOriginBinding)) return
     fixAnnotationCore(annotation, { followUpText: reply.text })
   })
 }
@@ -135,7 +150,7 @@ async function runFix(
   const onEvent = (event: FixProgressEvent) =>
     appendFixEvent(annotationId, event.kind, event.text)
   try {
-    result = await invokeClaude(plan.prompt, target.cwd, { resumeSessionId: plan.resumeSessionId, onEvent })
+    result = await runFixAgent(plan.prompt, target.cwd, { resumeSessionId: plan.resumeSessionId, onEvent })
   } catch (err) {
     error = err instanceof Error ? err : new Error(String(err))
     // A stale/missing session can't be resumed (cleaned up, or the .canvas
@@ -144,7 +159,7 @@ async function runFix(
       appendFixEvent(annotationId, 'system', 'Could not resume prior session — starting fresh.')
       error = null
       try {
-        result = await invokeClaude(plan.fullPrompt, target.cwd, { onEvent })
+        result = await runFixAgent(plan.fullPrompt, target.cwd, { onEvent })
       } catch (retryErr) {
         error = retryErr instanceof Error ? retryErr : new Error(String(retryErr))
       }

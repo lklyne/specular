@@ -16,7 +16,6 @@ import {
 import { regionCanvasRect } from '../runtime/page-anchor-state'
 import { dispatchScrollToAnnotation } from '../runtime/annotation-scroll-target'
 import { revealPageAnchoredContent } from '../runtime/page-anchor-reveal'
-import { setPendingFocus } from '../runtime/runtime-context'
 import { broadcastInspectSlice } from '../runtime/inspect-session'
 import { requestLayout } from '../runtime/viewport-control'
 import {
@@ -77,21 +76,38 @@ function annotationCanvasBounds(annotation: Annotation): WorkspaceBounds | null 
 export function registerAnnotationInspectionIpc(): void {
   ipcMain.on(
     ipcChannels.annotationOpenThread,
-    (_event, payload: { annotationId?: string } | undefined) => {
+    (_event, payload: { annotationId?: string | null; reveal?: boolean } | undefined) => {
       const annotationId =
         typeof payload?.annotationId === 'string' && payload.annotationId.trim().length > 0
           ? payload.annotationId
           : null
-      if (!annotationId) return
+      if (!annotationId) {
+        // Back out of the focused thread: the panel returns to the comments
+        // list and the canvas ring clears.
+        focusAnnotation(undefined)
+        if (aboveView && !aboveView.webContents.isDestroyed()) {
+          aboveView.webContents.send(ipcChannels.annotationThreadOpen, {
+            annotationId: null,
+          })
+        }
+        return
+      }
       const annotation = getAnnotationById(annotationId)
       if (!annotation) return
       const pageAnchor = annotation.pageAnchor
       if (pageAnchor) selectPageById(pageAnchor.pageId)
-      const bounds = annotationCanvasBounds(annotation)
-      if (bounds) focusCanvasBounds(bounds)
-      focusAnnotation(annotationId)
-      setCommentOverlayActive(true)
-      setPendingFocus({ kind: 'aboveView' })
+      // A click on the annotation itself (canvas badge, region overlay) passes
+      // reveal: false — the anchor is already in view, so a camera move would
+      // only jolt the user. Panel and sidebar rows keep the reveal.
+      const reveal = payload?.reveal !== false
+      if (reveal) {
+        const bounds = annotationCanvasBounds(annotation)
+        if (bounds) focusCanvasBounds(bounds)
+      }
+      // The conversation lives in the right panel: open it (if closed), switch
+      // to comments, and focus this thread. The canvas keeps only the ring,
+      // painted by aboveView off the echo below.
+      openCommentsPanel(annotationId)
       requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
         aboveView.webContents.send(ipcChannels.annotationThreadOpen, {
@@ -101,13 +117,12 @@ export function registerAnnotationInspectionIpc(): void {
       // Reveal the commented content on the page itself: canvas focus alone
       // leaves a long page pointing at content the user can't see. Fire-and-
       // forget; no-op for canvas points and canvas-anchored regions, which mark
-      // canvas space, not page content (ADR 0029). Ungated by
-      // surface — revealing content is the intended meaning of "open this
-      // comment" whether the click came from the panel, sidebar, or a region
-      // overlay.
-      revealPageAnchoredContent(pageAnchor, () =>
-        dispatchScrollToAnnotation(annotation),
-      )
+      // canvas space, not page content (ADR 0029).
+      if (reveal) {
+        revealPageAnchoredContent(pageAnchor, () =>
+          dispatchScrollToAnnotation(annotation),
+        )
+      }
     },
   )
 

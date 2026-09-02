@@ -154,7 +154,7 @@ function FixMenu({
         <button
           type="button"
           onClick={anyAutoFix ? undefined : handleFixAll}
-          className={`inline-flex items-center gap-1.5 rounded-l-md border px-2 py-1 text-[11px] font-medium ${borderClass} ${btnClass}`}
+          className={`inline-flex items-center gap-1.5 rounded-l-md border px-2 py-0.5 text-[11px] font-medium ${borderClass} ${btnClass}`}
         >
           {working ? (
             <Loader2 size={11} className="animate-spin shrink-0" />
@@ -270,8 +270,9 @@ function FixSettingsView({
             onChange={(e) => setPermissions(e.target.value as FixPermissions)}
             className={selectClass}
           >
+            <option value="auto">Auto</option>
+            <option value="acceptEdits">Edit and verify</option>
             <option value="dangerously">Bypass permissions</option>
-            <option value="default">Default (approve each tool)</option>
           </select>
           {permissions === 'dangerously' ? (
             <p className={`mt-1 text-[10px] leading-snug ${muted}`}>
@@ -342,7 +343,7 @@ function FixOperationsView({
               }
             }
           }}
-          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
             anyAutoFix
               ? isDark ? 'bg-emerald-600/80 text-white' : 'bg-emerald-50 text-emerald-700'
               : isDark ? 'bg-zinc-800 text-[var(--surface-foreground-muted)] hover:bg-zinc-700' : 'bg-zinc-100 text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
@@ -355,7 +356,7 @@ function FixOperationsView({
           type="button"
           onClick={handleFixAll}
           disabled={!hasBinding || totalUnresolved === 0 || working}
-          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-40 ${
+          className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-40 ${
             isPrimary
               ? PRIMARY_BUTTON_CLASS
               : isDark ? 'bg-zinc-800 text-[var(--surface-foreground-muted)] hover:bg-zinc-700' : 'bg-zinc-100 text-[var(--surface-foreground-muted)] hover:bg-zinc-200'
@@ -477,7 +478,7 @@ function ResolvedPane({
       <Collapsible.Trigger
         className={`group flex w-full items-center gap-1.5 border-t px-3 py-2 text-[12px] font-medium ${divider}`}
       >
-        Resolved ({resolved.length})
+        Closed ({resolved.length})
         <ChevronRight size={10} className="transition-all ease-out group-data-[panel-open]:rotate-90" />
       </Collapsible.Trigger>
       <Collapsible.Panel className="h-[var(--collapsible-panel-height)] overflow-hidden transition-all ease-out data-[ending-style]:h-0 data-[starting-style]:h-0 duration-150 [&[hidden]:not([hidden='until-found'])]:hidden">

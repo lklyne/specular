@@ -12,10 +12,11 @@ import { MultiEntityPane } from './components/MultiEntityPane'
 import { PaneHeader } from './components/PaneHeader'
 import { ShapeEntityPane } from './components/ShapeEntityPane'
 import { TextEntityPane } from './components/TextEntityPane'
+import { ThreadPane } from './components/ThreadPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
 
-const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'dangerously', configured: false } as const
+const DEFAULT_FIX_CONFIG = { model: 'sonnet', permissions: 'auto', configured: false } as const
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
@@ -56,7 +57,25 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     )
   }
 
+  // Drill-in thread view: a focused comment takes over the panel while the
+  // context is still comments (document or page mode). An entity selection
+  // wins — its pane is what the user just asked for.
+  const focusedAnnotation = panelData.focusedAnnotationId
+    ? annotations.find((a) => a.id === panelData.focusedAnnotationId) ?? null
+    : null
+
   function renderPane() {
+    if (
+      focusedAnnotation &&
+      (panelMode.kind === 'document' || panelMode.kind === 'page')
+    ) {
+      return (
+        <ThreadPane
+          annotation={focusedAnnotation}
+          progress={(panelData.fixProgress ?? {})[focusedAnnotation.id]}
+        />
+      )
+    }
     switch (panelMode.kind) {
       case 'page':
         return panelData.inspect ? (
