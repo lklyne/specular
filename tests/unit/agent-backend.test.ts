@@ -18,10 +18,10 @@ describe('fixQueryOptions', () => {
     expect(options.allowDangerouslySkipPermissions).toBeUndefined()
   })
 
-  it('sends no allowlist under the read-only default', () => {
-    const options = fixQueryOptions(config({ permissions: 'default' }), '/repo')
-    expect(options.permissionMode).toBe('default')
-    expect(options.allowedTools).toBeUndefined()
+  it('routes auto through the classifier with the fix toolkit pre-approved', () => {
+    const options = fixQueryOptions(config({ permissions: 'auto' }), '/repo')
+    expect(options.permissionMode).toBe('auto')
+    expect(options.allowedTools).toContain('Edit')
     expect(options.allowDangerouslySkipPermissions).toBeUndefined()
   })
 

@@ -68,7 +68,10 @@ export function fixQueryOptions(
     options.permissionMode = 'acceptEdits'
     options.allowedTools = [...ALLOWED_TOOLS]
   } else {
-    options.permissionMode = 'default'
+    // A model classifier approves or denies each tool call. Pre-approve the
+    // standard fix toolkit so routine operations skip the classifier round-trip.
+    options.permissionMode = 'auto'
+    options.allowedTools = [...ALLOWED_TOOLS]
   }
   return options
 }

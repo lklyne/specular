@@ -16,7 +16,7 @@ import { ThreadPane } from './components/ThreadPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
 
-const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'dangerously', configured: false } as const
+const DEFAULT_FIX_CONFIG = { model: 'sonnet', permissions: 'auto', configured: false } as const
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()

@@ -1,6 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, PageColorScheme } from '../../shared/types'
+import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, FixModel, FixPermissions, PageColorScheme } from '../../shared/types'
 import { setFixConfig } from '../runtime/preferences'
 import {
   bindOriginToRepoPath,
@@ -271,7 +271,7 @@ export function registerRightDetailsPanelIpc(): void {
     ipcChannels.rightDetailsPanelSetFixConfig,
     (_event, payload: { model?: string; permissions?: string } | undefined) => {
       if (!payload) return
-      setFixConfig(payload as { model?: 'opus' | 'sonnet' | 'haiku'; permissions?: 'dangerously' | 'default' })
+      setFixConfig(payload as { model?: FixModel; permissions?: FixPermissions })
       notifyDevtoolsPanelData()
     },
   )

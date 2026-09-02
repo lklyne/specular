@@ -1992,7 +1992,7 @@ export type OriginBindings = Record<string, OriginBinding>
 // --- Fix config (model + permissions for the Claude Agent SDK fix run) ---
 
 export type FixModel = 'opus' | 'sonnet' | 'haiku'
-export type FixPermissions = 'dangerously' | 'acceptEdits' | 'default'
+export type FixPermissions = 'auto' | 'acceptEdits' | 'dangerously'
 
 export interface FixConfig {
   model: FixModel

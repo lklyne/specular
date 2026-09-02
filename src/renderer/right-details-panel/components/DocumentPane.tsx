@@ -270,8 +270,9 @@ function FixSettingsView({
             onChange={(e) => setPermissions(e.target.value as FixPermissions)}
             className={selectClass}
           >
+            <option value="auto">Auto</option>
+            <option value="acceptEdits">Edit and verify</option>
             <option value="dangerously">Bypass permissions</option>
-            <option value="default">Default (approve each tool)</option>
           </select>
           {permissions === 'dangerously' ? (
             <p className={`mt-1 text-[10px] leading-snug ${muted}`}>

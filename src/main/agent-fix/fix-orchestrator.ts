@@ -28,6 +28,25 @@ import {
 const MAX_AGENT_REPLIES = 20
 
 /**
+ * Whether a user reply should kick off a run on its own. A thread the agent
+ * has already worked on carries a fix session — the previous message in it is
+ * the agent's, so a reply there is a conversation turn and always continues
+ * the run. On a thread the agent has never touched, auto-fix is the opt-in:
+ * it lives on the origin→repo binding, so only page-bound comments can fire.
+ */
+export function shouldRunOnReply(
+  annotation: Annotation,
+  getBinding: (origin: string) => { autoFix: boolean } | null,
+): boolean {
+  if (annotation.status === 'dismissed') return false
+  if (annotation.metadata?.fixSessionId) return true
+  const origin = annotationOrigin(annotation)
+  if (!origin) return false
+  const binding = getBinding(origin)
+  return Boolean(binding?.autoFix)
+}
+
+/**
  * Auto-fix is an opt-in that lives on an origin→repo binding, so only
  * page-bound comments can fire on their own. A comment targeting a file in the
  * user's space folder has nothing to opt in with and runs only when the user
@@ -44,11 +63,7 @@ export function initFixOrchestrator(): void {
   })
   setOnAnnotationReply((annotation, reply) => {
     if (reply.author !== 'user') return
-    if (annotation.status === 'dismissed') return
-    const origin = annotationOrigin(annotation)
-    if (!origin) return
-    const binding = getOriginBinding(origin)
-    if (!binding || !binding.autoFix) return
+    if (!shouldRunOnReply(annotation, getOriginBinding)) return
     fixAnnotationCore(annotation, { followUpText: reply.text })
   })
 }
