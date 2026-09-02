@@ -1,4 +1,6 @@
-import type { Annotation, FixProgressEntry, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
+import { memo } from 'react'
+import type { Annotation, FixProgressEntry, WorkspaceBounds } from '../../shared/types'
 import {
   canvasRectToScreenRect,
   pendingElementScreenRect,
@@ -44,7 +46,7 @@ export function PendingAnnotationComposer({
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   commentText: string
   elementNameDraft: string
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   pendingAnnotation: PendingAnnotation | null
   pendingPosition: { left: number; top: number; width: number } | null
   pendingRegionRect: WorkspaceBounds | null
@@ -150,7 +152,7 @@ function RegionDraft({
   clearDraft: () => void
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   commentText: string
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   rect: WorkspaceBounds
   selectionIds: string[] | null
   setCommentText: React.Dispatch<React.SetStateAction<string>>
@@ -269,13 +271,13 @@ function ComposerBox({
  * just selected. The region case keeps its outlines because each page
  * paints them from the held marquee rect.
  */
-export function PendingElementOutline({
+export const PendingElementOutline = memo(function PendingElementOutline({
   pending,
   layoutData,
   liveBboxes,
 }: {
   pending: PendingAnnotation | null
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   liveBboxes: AnnotationLiveBboxLookup
 }) {
   if (!pending) return null
@@ -297,7 +299,7 @@ export function PendingElementOutline({
       }}
     />
   )
-}
+})
 
 export function AnnotationThreadPopover({
   api,

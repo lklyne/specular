@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { RuntimeStore } from '../../../shared/runtime-store'
 import type { CanvasSceneFileEntity } from '../../../shared/types'
+import { useSlice } from '../../shared/hooks/useRuntimeStore'
 import { filePathToSrcVersioned } from './filePathToSrc'
+
+const selectIdle = (store: RuntimeStore): boolean => store.slices.idle === true
 
 export function HtmlInlineRenderer({
   entity,
@@ -15,6 +19,10 @@ export function HtmlInlineRenderer({
   const fileName = entity.file.split('/').pop() ?? entity.file
   const reloadVersion = entity.fileReloadVersion ?? 0
   const flash = useReloadFlash(reloadVersion)
+  // A cross-origin iframe Chromium isn't rendering gets no rAF at all — the
+  // same thing that already quiets one scrolled off-screen. Hiding rather than
+  // unmounting keeps the document's state for the moment the app wakes.
+  const idle = useSlice(selectIdle)
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <iframe
@@ -27,6 +35,7 @@ export function HtmlInlineRenderer({
           border: 'none',
           pointerEvents: isInteractive ? 'auto' : 'none',
           background: 'white',
+          visibility: idle ? 'hidden' : 'visible',
         }}
       />
       {flash !== null ? (

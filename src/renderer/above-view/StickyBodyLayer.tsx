@@ -21,13 +21,17 @@
  *
  * Once the user drags a resize handle, widthMode flips to 'fixed' (handled
  * by the pointer router) and the entity behaves like a sticky: explicit
- * width/height, wrap on. Stickies are always 'fixed'.
+ * width, wrap on, and a height measured from the wrapped text. Stickies are
+ * always 'fixed'.
  */
 
+import type { ProjectedPageEntity, SceneView } from '../../shared/scene-projection'
+import { fontStackFor } from '../../shared/text-fonts'
 import { memo, useEffect, useRef, useState } from 'react'
 import { PLAIN_TEXT_PLACEHOLDER, STICKY_BASE_HEIGHT } from '../../shared/constants'
 import { useMeasuredSize } from '../shared/useMeasuredSize'
-import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
+import { measuredTextWidth, useFontGeneration } from '../shared/measuredTextWidth'
+import type { CanvasSceneTextEntity } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import { MarkdownEditor } from '../shared/MarkdownEditor'
 import { useDebouncedWrite } from '../shared/useDebouncedWrite'
@@ -40,6 +44,28 @@ const PLAIN_MIN_WIDTH = 64
 const PLAIN_MIN_HEIGHT = 18
 /** ADR 0013 §2 — entities without textSize render at this size ("Small"). */
 const DEFAULT_TEXT_SIZE = 14
+/** `pr-2` on the plain-text editor below, in the units the floor is measured in. */
+const PLAIN_TEXT_RIGHT_PAD = 8
+
+/**
+ * Width an empty auto-width entity has to hold: its prompt, plus the padding
+ * the editor keeps to the right of it.
+ *
+ * `max-content` sizes the shell from the editor's content, and an empty
+ * editor's content is an empty line — the prompt is painted out of flow
+ * (markdown-placeholder.ts) and measures zero. A fixed floor is only ever
+ * right for one face at one size; every face wider than it clipped its own
+ * prompt and scrolled sideways to reach the rest.
+ */
+function plainAutoMinWidth(note: CanvasSceneTextEntity): number {
+  if (note.text.length > 0) return PLAIN_MIN_WIDTH
+  const prompt = measuredTextWidth(
+    PLAIN_TEXT_PLACEHOLDER,
+    note.textSize ?? DEFAULT_TEXT_SIZE,
+    fontStackFor(note.textFont),
+  )
+  return Math.max(PLAIN_MIN_WIDTH, Math.ceil(prompt) + PLAIN_TEXT_RIGHT_PAD)
+}
 
 function stickyShellStyle({
   note,
@@ -60,7 +86,7 @@ function stickyShellStyle({
       // `min-content` (longest word). `max-content` pins the shell to the
       // unwrapped line width of CodeMirror's `white-space: pre` content.
       width: 'max-content',
-      minWidth: PLAIN_MIN_WIDTH,
+      minWidth: plainAutoMinWidth(note),
       minHeight: PLAIN_MIN_HEIGHT,
     }
   }
@@ -109,8 +135,12 @@ function StickyCard({
   })
   const isPlain = note.textStyle === 'plain'
   const isAuto = note.widthMode === 'auto'
+  // Subscribes this card to face loads, so the measured prompt floor is
+  // recomputed against the real metrics once a bundled face replaces its
+  // fallback. Memoized on props alone, the card would keep the stale width.
+  useFontGeneration()
   useStickyAutoSize(shellRef, isAuto, note, onUpdateSize)
-  useStickyHeight(contentRef, !isPlain, note, onContentHeight)
+  useStickyHeight(contentRef, !isAuto, contentHeightFloor(note, isPlain), note, onContentHeight)
 
   return (
     <EntityShell
@@ -195,8 +225,22 @@ function useStickyAutoSize(
 }
 
 /**
- * A sticky's height is exactly its text's height — publish it and let
- * `contentHeightLayout` feed it back through the layout every layer reads.
+ * Shortest a content-sized text body is allowed to be.
+ *
+ * A sticky floors at the size it was created at, scaled by its text — that is
+ * what a corner or n/s drag does to it, so a fixed floor would stop the box
+ * shrinking while the font kept going. Plain text has no card behind it, so
+ * an empty one is a caret rather than a box and floors at a single line.
+ */
+function contentHeightFloor(note: CanvasSceneTextEntity, isPlain: boolean): number {
+  if (isPlain) return PLAIN_MIN_HEIGHT
+  return (STICKY_BASE_HEIGHT * (note.textSize ?? DEFAULT_TEXT_SIZE)) / DEFAULT_TEXT_SIZE
+}
+
+/**
+ * A fixed-width text body's height is exactly its text's height — publish it
+ * and let `contentHeightLayout` feed it back through the layout every layer
+ * reads.
  *
  * Deliberately *not* grid-snapped. Grid snapping is a policy for edges the
  * user drags, so they land on the grid; a measured size snapped up carries
@@ -210,17 +254,11 @@ function useStickyAutoSize(
 function useStickyHeight(
   contentRef: React.MutableRefObject<HTMLDivElement | null>,
   enabled: boolean,
+  floor: number,
   note: CanvasSceneTextEntity,
   onContentHeight: (id: string, height: number) => void,
 ): void {
   const measured = useMeasuredSize(contentRef, enabled)
-  // Floored so an empty note stays note-shaped rather than collapsing to one
-  // line of padding. The floor scales with the text because that is what a
-  // corner or n/s drag does to a sticky — hold it fixed and the box stops
-  // shrinking while the font keeps going, so the note can never get smaller
-  // than the size it was created at. A floor tracking the *width* instead
-  // would make every wide note tall, which is what a reflow is trying to undo.
-  const floor = (STICKY_BASE_HEIGHT * (note.textSize ?? DEFAULT_TEXT_SIZE)) / DEFAULT_TEXT_SIZE
   const height = measured ? Math.ceil(Math.max(floor, measured.height)) : null
   useEffect(() => {
     if (height === null) return
@@ -243,10 +281,10 @@ function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, loc
   const editorBridge = useEditorBridge(note.id, canEdit)
   const columnStyle: React.CSSProperties = isPlain && isAuto
     ? { display: 'flex', flexDirection: 'column' }
-    : isPlain
-      ? { width: note.width, height: note.height, display: 'flex', flexDirection: 'column' }
-      // Sticky: width fixed, height follows the text (see stickyShellStyle).
-      : { width: note.width, display: 'flex', flexDirection: 'column' }
+    // Width fixed, height follows the text (see stickyShellStyle). This column
+    // is what the height measurement observes, so giving it a height would
+    // make it a fixed point that never notices the text growing.
+    : { width: note.width, display: 'flex', flexDirection: 'column' }
   return <div ref={contentRef} style={columnStyle}>
     {!isPlain && <StickyDragStrip />}
     {/* One renderer for both modes: same padding, same line boxes, so
@@ -268,8 +306,13 @@ function StickyContent({ note, contentRef, isDark, canEdit, isPlain, isAuto, loc
       style={{
         fontSize,
         lineHeight: lineHeightForTextSize(fontSize),
-        color: isPlain && isDark ? '#e7e5e4' : '#1c1917',
-        fontFamily: 'system-ui, sans-serif',
+        // Plain text is ink: its stored slot paints the glyphs, in the vivid
+        // palette (ADR 0013 §1). A sticky's slot paints the card behind the
+        // text instead, so its glyphs stay dark against that fill.
+        color: isPlain
+          ? resolveCanvasColor(note.color, { role: 'ink', isDark, palette: 'vivid' })
+          : '#1c1917',
+        fontFamily: fontStackFor(note.textFont),
         boxSizing: 'border-box',
       }}
       lineWrap={!isAuto}
@@ -291,6 +334,7 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
     prev.note.textStyle === next.note.textStyle &&
     prev.note.widthMode === next.note.widthMode &&
     prev.note.textSize === next.note.textSize &&
+    prev.note.textFont === next.note.textFont &&
     prev.note.canvasX === next.note.canvasX &&
     prev.note.canvasY === next.note.canvasY &&
     prev.note.width === next.note.width &&
@@ -300,11 +344,12 @@ const MemoStickyCard = memo(StickyCard, (prev, next) => {
   )
 })
 
-export function StickyBodyLayer({
+export const StickyBodyLayer = memo(function StickyBodyLayer({
   entities,
   isDark,
   editingEntityId,
-  layoutData,
+  view,
+  anchorPage,
   onUpdateText,
   onUpdateSize,
   onContentHeight,
@@ -315,7 +360,9 @@ export function StickyBodyLayer({
   /** id of the entity currently in inline-edit mode (or null). Mounts the
    *  editor iff `editingEntityId === note.id`. */
   editingEntityId: string | null
-  layoutData: LayoutUpdateData
+  view: SceneView
+  /** The page `pageAnchor` names, resolved by the caller. */
+  anchorPage: ProjectedPageEntity | undefined
   onUpdateText: (id: string, text: string) => void
   onUpdateSize: (id: string, width: number, height: number) => void
   /** Publishes a sticky's measured height (see `contentHeightPreview.ts`). */
@@ -324,11 +371,7 @@ export function StickyBodyLayer({
 }) {
   if (!entities.length) return null
   const viewport = (
-    <CanvasViewportLayer
-      canvasOrigin={layoutData.canvasOrigin}
-      pan={layoutData.pan}
-      zoom={layoutData.zoom}
-    >
+    <CanvasViewportLayer view={view}>
       {entities.map((note) => (
         <MemoStickyCard
           key={note.id}
@@ -349,8 +392,8 @@ export function StickyBodyLayer({
   // anchor decides the wrapping.
   const anchor = entities[0].pageAnchor
   return (
-    <AnchoredEntityOverlayBand anchor={anchor} layoutData={layoutData}>
+    <AnchoredEntityOverlayBand anchor={anchor} page={anchorPage} originY={view.canvasOrigin.y}>
       {viewport}
     </AnchoredEntityOverlayBand>
   )
-}
+})

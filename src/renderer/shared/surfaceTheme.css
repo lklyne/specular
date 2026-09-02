@@ -32,9 +32,60 @@
   --surface-primary: var(--color-stone-900);
   --surface-primary-hover: var(--color-stone-700);
   --surface-primary-foreground: var(--color-stone-50);
+
+  /* Vivid ink palette — the hues that paint glyphs and strokes: plain text,
+     pen strokes, edges, group chrome (ADR 0013 §1). Themed here rather than in
+     JS because every consumer hands the value to a CSS property or an SVG
+     paint attribute, both of which resolve var().
+
+     Each hue is declared once, saturated, as `--canvas-hue-*`. Dark mode uses
+     it as-is; light mode derives from it, holding chroma and hue and pinning
+     lightness to --canvas-ink-l. The punchy set is built for a dark canvas and
+     falls apart on a light one — yellow at #FFD500 is 1.2:1 against this
+     surface — so the light canvas needs its own lightness, not its own hues.
+
+     One knob, not seven hand-picked hexes. The cost is that contrast is not
+     identical per hue (~4.4:1 green to ~5.9:1 purple at 0.5): WCAG luminance
+     weights green far above blue, while OKLCH lightness is perceptual, so the
+     two disagree about which hues are "equally dark". Turning the knob moves
+     the whole set; it cannot flatten that spread. Per-hue overrides belong
+     here as explicit exceptions if one ever reads wrong.
+
+     The soft (fill) palette deliberately stays in JS: it feeds `lightenHex` /
+     `darkenHex` / `withAlpha`, which need real channel values to do math on. */
+  --canvas-hue-red: #FF1016;
+  --canvas-hue-orange: #FF8E00;
+  --canvas-hue-yellow: #FFD500;
+  --canvas-hue-green: #00CA48;
+  --canvas-hue-cyan: #00CBFF;
+  --canvas-hue-blue: #1084FF;
+  --canvas-hue-purple: #BD4BE5;
+
+  /* Lightness every hue is pinned to on the light canvas. Lower = darker and
+     higher contrast across the board. */
+  --canvas-ink-l: 0.5;
+
+  --canvas-ink-neutral: #1c1917;
+  --canvas-ink-red: oklch(from var(--canvas-hue-red) var(--canvas-ink-l) c h);
+  --canvas-ink-orange: oklch(from var(--canvas-hue-orange) var(--canvas-ink-l) c h);
+  --canvas-ink-yellow: oklch(from var(--canvas-hue-yellow) var(--canvas-ink-l) c h);
+  --canvas-ink-green: oklch(from var(--canvas-hue-green) var(--canvas-ink-l) c h);
+  --canvas-ink-cyan: oklch(from var(--canvas-hue-cyan) var(--canvas-ink-l) c h);
+  --canvas-ink-blue: oklch(from var(--canvas-hue-blue) var(--canvas-ink-l) c h);
+  --canvas-ink-purple: oklch(from var(--canvas-hue-purple) var(--canvas-ink-l) c h);
 }
 
 .dark {
+  /* A dark canvas takes the hues undimmed — no lightness pin. */
+  --canvas-ink-neutral: #e7e5e4;
+  --canvas-ink-red: var(--canvas-hue-red);
+  --canvas-ink-orange: var(--canvas-hue-orange);
+  --canvas-ink-yellow: var(--canvas-hue-yellow);
+  --canvas-ink-green: var(--canvas-hue-green);
+  --canvas-ink-cyan: var(--canvas-hue-cyan);
+  --canvas-ink-blue: var(--canvas-hue-blue);
+  --canvas-ink-purple: var(--canvas-hue-purple);
+
   --surface-focus-ring: var(--color-blue-400);
   --surface-foreground: #f4f4f5;
   --surface-foreground-muted: color-mix(in srgb, var(--surface-foreground) 62%, transparent);

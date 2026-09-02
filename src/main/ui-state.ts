@@ -69,11 +69,16 @@ export function replaceUiState(nextState: UiState): UiState {
   return getUiState()
 }
 
+/**
+ * The selection cell. Its canvas half is a `selection` slice patch
+ * (`broadcastSelectionChange`, called by the mutators that funnel here); the
+ * sidebar and toolbar are not on the scene bus and still ride the pass.
+ */
 export function setSelection(input: SelectionInput): UiState {
   const nextInput = sanitizeSelectionInput(input)
   if (nextInput.kind === 'single-entity') {
     uiState.selection = { kind: 'single-entity', entityId: nextInput.entityId, entityKind: nextInput.entityKind }
-    markDirty('canvas', 'sidebar', 'toolbar')
+    markDirty('sidebar', 'toolbar')
     return getUiState()
   }
   if (nextInput.kind === 'multi-entity') {
@@ -95,17 +100,19 @@ export function setSelection(input: SelectionInput): UiState {
         entityKindsById: { ...nextInput.entityKindsById },
       }
     }
-    markDirty('canvas', 'sidebar', 'toolbar')
+    markDirty('sidebar', 'toolbar')
     return getUiState()
   }
   uiState.selection = { kind: 'none' }
-  markDirty('canvas', 'sidebar', 'toolbar')
+  markDirty('sidebar', 'toolbar')
   return getUiState()
 }
 
+/** As `setSelection`: the canvas half is a `tool` slice patch
+ *  (`broadcastToolChange`), the toolbar half rides the pass. */
 export function setActiveTool(tool: Tool): UiState {
   uiState.activeTool = tool
-  markDirty('canvas', 'toolbar')
+  markDirty('toolbar')
   return getUiState()
 }
 

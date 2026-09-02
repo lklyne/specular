@@ -5,7 +5,6 @@ import type { DevtoolsPanelTab, Tool } from '../../shared/types'
 import { isAnnotationTool, isOneShot, isWorkingTool, toolAnnotateOverlay } from '../../shared/tool'
 import { isFocusSessionActive, setFocusAnnotationsVisible } from './focus-session'
 import { pages } from './runtime-context'
-import { markDirty } from './layout-dirty'
 import {
   activeTool as uiActiveTool,
   devtoolsPanelTab as uiDevtoolsPanelTab,
@@ -18,6 +17,7 @@ import {
   syncInspectionState,
   notifyDevtoolsPanelData,
 } from './inspect-session'
+import { broadcastToolChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
 
 function syncAnnotationState(): void {
@@ -38,7 +38,6 @@ function applyToolSideEffects(prev: Tool, next: Tool): void {
   }
 
   if (wasAnnotation || isAnnotation) {
-    markDirty('canvas')
     syncAnnotationState()
   }
 
@@ -48,6 +47,10 @@ function applyToolSideEffects(prev: Tool, next: Tool): void {
     notifyDevtoolsPanelData()
   }
 
+  // The tool is a runtime-store cell and moves no entity, so it ships as a
+  // patch. The pass still runs: `shouldGateBeOpen` and the cursor-overlay
+  // window read the active tool, and both are decided inside `layoutAllViews`.
+  broadcastToolChange()
   requestLayout()
 }
 
@@ -64,11 +67,6 @@ export function setActiveTool(tool: Tool): Tool {
   // select. The user turns it back off via the focus bar's eye (ADR 0021).
   if (isWorkingTool(tool) && isFocusSessionActive()) {
     setFocusAnnotationsVisible(true)
-    // The layout-update broadcast is gated on the 'canvas' dirty flag, and
-    // applyToolSideEffects only dirties canvas for annotation tools — so a
-    // non-annotation working tool (text/sticky/shape/page) would latch the eye
-    // on without ever telling the renderer to lift the scrim.
-    markDirty('canvas')
   }
   applyToolSideEffects(prev, tool)
   return uiActiveTool()

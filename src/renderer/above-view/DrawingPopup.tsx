@@ -1,16 +1,13 @@
 // ADR 0008 §8 — drawing selection popup. Edits fan out across selected
 // drawings; legacy multi-stroke drawings accept uniform writes per stroke.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import {
   paletteForBrushType,
   resolveCanvasColor,
   slotForStorage,
 } from '../../shared/canvas-colors'
-import type {
-  AnnotationDrawingStroke,
-  CanvasSceneDrawingEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+import type { AnnotationDrawingStroke, CanvasSceneDrawingEntity } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
@@ -39,7 +36,7 @@ export function DrawingPopup({
     | 'arrangeSelection'
   >
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   selectedDrawings: CanvasSceneDrawingEntity[]
   interactionIdle: boolean
   onAnnotate: AnnotateHandler

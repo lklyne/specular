@@ -31,7 +31,6 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   selectedEntityIds: [],
   selectionOperandIds: [],
   selection: [],
-  activeSelection: null,
   activeTool: { kind: 'select' },
   toolDefaults: DEFAULT_TOOL_DEFAULTS,
   annotations: [],
@@ -46,4 +45,6 @@ export const EMPTY_LAYOUT: LayoutUpdateData = {
   edges: [],
   groups: [],
   presenceCursors: [],
+  pageScroll: {},
+  annotationBboxes: {},
 }

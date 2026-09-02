@@ -19,7 +19,6 @@ function page(id: string, x: number): CanvasScenePageEntity {
     canGoBack: false,
     canGoForward: false,
     isLoading: false,
-    isCustomSize: false,
     canvasX: x,
     canvasY: 0,
     width: 300,

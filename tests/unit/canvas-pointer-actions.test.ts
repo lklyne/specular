@@ -220,6 +220,27 @@ describe('routePointerDown', () => {
     expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'right' })
   })
 
+  it.each([
+    ['shift', { shift: true, meta: false, ctrl: false }, false],
+    ['cmd', { shift: false, meta: true, ctrl: false }, false],
+    ['alt', { shift: false, meta: false, ctrl: false }, true],
+  ])('%s-press on the entered page body → forward-pointer-down (page owns modifiers)', (
+    _name,
+    modifiers,
+    altHeld,
+  ) => {
+    const f = page()
+    const target = hitTest(inputs([f], ['f1']), { x: 500, y: 400 })
+    const action = routePointerDown(target, {
+      ...baseCtx,
+      selectedEntityIds: ['f1'],
+      interactivePageId: 'f1',
+      modifiers,
+      altHeld,
+    })
+    expect(action).toEqual({ kind: 'forward-pointer-down', entityId: 'f1', button: 'left' })
+  })
+
   it('page body pointerdown when page is in multi-selection → page-body-press (drag)', () => {
     const f = page()
     const t = text()
@@ -662,5 +683,27 @@ describe('routePointerDown — auto-layout reorder dot (ADR 0015)', () => {
       movingId: 'c1',
       entityKind: 'text',
     })
+  })
+})
+
+describe('routePointerDown, group label', () => {
+  const labelTarget = {
+    layer: 'group-label' as const,
+    region: { kind: 'rect' as const, rect: { x: 100, y: 80, width: 40, height: 20.5 } },
+    payload: { kind: 'group-label' as const, groupId: 'g1' },
+  }
+
+  it('press begins a promotable group drag (release selects, drag moves)', () => {
+    expect(routePointerDown(labelTarget, baseCtx)).toEqual({
+      kind: 'begin-group-drag',
+      groupId: 'g1',
+      preserveSelection: false,
+    })
+  })
+
+  it('preserves selection when the group is already the selected group', () => {
+    expect(
+      routePointerDown(labelTarget, { ...baseCtx, selectedGroupId: 'g1' }),
+    ).toEqual({ kind: 'begin-group-drag', groupId: 'g1', preserveSelection: true })
   })
 })

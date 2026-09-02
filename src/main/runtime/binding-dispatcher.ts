@@ -11,7 +11,6 @@ import {
   type BindingContext,
   type KeyboardSourceView,
 } from '../../shared/bindings'
-import { setSpaceModifierHeld } from './runtime-context'
 import { activeTool, setActiveTool } from './tool-mode'
 import { aboveView } from './view-refs'
 import { mainHandlers } from './binding-handlers'
@@ -107,7 +106,6 @@ export function attachBindingDispatcher(
     // Track Space modifier regardless of editing state — space-to-pan must
     // stay in sync even when focus is in an input that consumes Space natively.
     if (input.key === ' ' || input.code === 'Space') {
-      setSpaceModifierHeld(input.type === 'keyDown')
       handleSpacePanToggle(input.type === 'keyDown', sourceView, webContents)
     }
 

@@ -1,5 +1,6 @@
 // ADR 0008 — unified canvas-item popup compound component.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import {
   useLayoutEffect,
   useRef,
@@ -26,7 +27,7 @@ import {
   type CanvasPalette,
 } from '../../shared/canvas-colors'
 import type { Rect } from '../../shared/hit-regions'
-import type { BatchLayoutMode, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { BatchLayoutMode, WorkspaceBounds } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { selectionAnnotationBounds } from './annotationMath'
 import type { AnnotateHandler } from './annotationMath'
@@ -39,7 +40,7 @@ type Placement = 'above' | 'below' | 'overlay' | 'viewport-top'
 type Align = 'stretch' | 'center'
 
 type RootProps = {
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   open: boolean
   placement?: Placement
   align?: Align
@@ -95,7 +96,7 @@ const POPUP_EDGE_MARGIN = 8
 
 // Canvas span not covered by the left sidebar or the devtools panel, in
 // window/overlay x coords.
-function canvasHorizontalBounds(layout: LayoutUpdateData): { left: number; right: number } {
+function canvasHorizontalBounds(layout: ProjectedLayoutData): { left: number; right: number } {
   const rightInset = layout.devtoolsOpen ? layout.devtoolsWidth : 0
   return {
     left: layout.leftChromeWidth,
@@ -105,7 +106,7 @@ function canvasHorizontalBounds(layout: LayoutUpdateData): { left: number; right
 
 // Page-anchored popups stick to the canvas edges while any part of the anchor
 // is visible, and unmount once it scrolls fully past a panel or window edge.
-function anchorIntersectsCanvas(rect: Rect, layout: LayoutUpdateData): boolean {
+function anchorIntersectsCanvas(rect: Rect, layout: ProjectedLayoutData): boolean {
   const bounds = canvasHorizontalBounds(layout)
   // Overlay-local y: 0 is the toolbar's bottom edge.
   const overlayHeight = window.innerHeight - layout.canvasOrigin.y
@@ -271,7 +272,7 @@ function popupStyle(
   placement: Placement,
   align: Align,
   offset: number,
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
   frameSize: { width: number; height: number } | null,
 ): CSSProperties {
   if (placement === 'viewport-top') {
@@ -335,7 +336,7 @@ function ViewportAnchor({
   offset = 8,
   children,
 }: {
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   open: boolean
   offset?: number
   children: ReactNode
@@ -571,7 +572,7 @@ function EntityActions({
   /** Layout + the ids this popup's actions apply to — both needed to derive
    *  the Annotate button's union bounds. Omit to suppress the button (e.g.
    *  a popup that has no natural id set to hand it). */
-  layout?: LayoutUpdateData
+  layout?: ProjectedLayoutData
   entityIds?: readonly string[]
   /** Opens the region composer pre-anchored to the selection's union bounds
    *  (renderer-local handoff — see useAnnotationDraftState.beginSelectionAnnotation).

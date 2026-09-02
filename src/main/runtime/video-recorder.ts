@@ -11,6 +11,7 @@ import { captureFrameComposited } from './frame-compositor'
 import { getZoom, pan } from './runtime-context'
 import { focusCanvasBounds, requestLayout, setPan, setZoom } from './viewport-control'
 import { pageBodyCanvasBounds } from './runtime-geometry'
+import { holdPagesAwake } from './page-idle-throttle'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,6 +55,9 @@ class VideoRecorderInstance {
   private ffmpeg: ChildProcess | null = null
   private captureTimer: NodeJS.Timeout | null = null
   private capturing = false
+  /** Recording composites live frames on a timer, with no traffic of its own
+   *  to prove the page is in use — hold it awake for the duration. */
+  private releaseAwakeHold: (() => void) | null = null
 
   readonly recordingId: string
   readonly outputPath: string
@@ -86,6 +90,7 @@ class VideoRecorderInstance {
     if (this.page.pageView.webContents.isDestroyed()) {
       throw new Error('Target page webContents is destroyed')
     }
+    this.releaseAwakeHold = holdPagesAwake()
     const w = win
     if (!w || w.isDestroyed()) {
       throw new Error('Window not available')
@@ -154,6 +159,7 @@ class VideoRecorderInstance {
       const intervalMs = Math.round(1000 / this.fps)
       this.captureTimer = setInterval(() => this.captureFrame(), intervalMs)
     } catch (error) {
+      this.releaseAwakeHold?.()
       this.restoreCamera()
       throw error
     }
@@ -203,6 +209,7 @@ class VideoRecorderInstance {
     segments: ActivitySegment[]
   }> {
     this.stopped = true
+    this.releaseAwakeHold?.()
 
     if (this.captureTimer) {
       clearInterval(this.captureTimer)

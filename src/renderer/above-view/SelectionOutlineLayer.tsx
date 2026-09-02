@@ -10,23 +10,24 @@
  * (matching `useAnchoredPosition` and the rest of aboveView).
  */
 
-import { useMemo, type CSSProperties } from 'react'
 import type {
-  CanvasSceneDrawingEntity,
-  CanvasSceneFileEntity,
-  CanvasScenePageEntity,
-  CanvasSceneGroupEntity,
-  CanvasSceneShapeEntity,
-  CanvasSceneTextEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
+  ProjectedDrawingEntity,
+  ProjectedFileEntity,
+  ProjectedGroupEntity,
+  ProjectedLayoutData,
+  ProjectedPageEntity,
+  ProjectedShapeEntity,
+  ProjectedTextEntity,
+} from '../../shared/scene-projection'
+import { memo, type CSSProperties, useMemo } from 'react'
 import { SELECTION_OUTLINE_PADDING_PX } from '../../shared/canvas-hit-geometry'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 import { CornerResizeHandle, EdgeResizeHandle } from '../canvas-bg/ResizeHandles'
 import { SelectionResizeGrid } from '../canvas-bg/SelectionResizeGrid'
+import { useHoveredEntityId } from '../shared/hooks/useHoveredEntityId'
 
 interface PageOutlineProps {
-  page: CanvasScenePageEntity
+  page: ProjectedPageEntity
   originY: number
   isDark: boolean
   showResizeHandles: boolean
@@ -82,7 +83,7 @@ function PageHoverOutline({
   originY,
   isDark,
 }: {
-  page: CanvasScenePageEntity
+  page: ProjectedPageEntity
   originY: number
   isDark: boolean
 }) {
@@ -98,10 +99,10 @@ function PageHoverOutline({
 
 interface EntityOutlineProps {
   entity:
-    | CanvasSceneTextEntity
-    | CanvasSceneFileEntity
-    | CanvasSceneDrawingEntity
-    | CanvasSceneShapeEntity
+    | ProjectedTextEntity
+    | ProjectedFileEntity
+    | ProjectedDrawingEntity
+    | ProjectedShapeEntity
   originY: number
   isDark: boolean
   isSelected: boolean
@@ -196,7 +197,7 @@ function GroupSelectionOverlay({
   isDark,
   showResizeHandles,
 }: {
-  group: CanvasSceneGroupEntity
+  group: ProjectedGroupEntity
   originY: number
   isDark: boolean
   showResizeHandles: boolean
@@ -211,7 +212,7 @@ function GroupSelectionOverlay({
   )
 }
 
-export function SelectionOutlineLayer({
+export const SelectionOutlineLayer = memo(function SelectionOutlineLayer({
   layoutData,
   isDark,
   marqueePreviewIds,
@@ -220,7 +221,7 @@ export function SelectionOutlineLayer({
   suppressFocusedId,
   suppressPageHover = false,
 }: {
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
   isDark: boolean
   marqueePreviewIds: Set<string> | null
   /** The focus session's target — a page, or a note drawn fullscreen by
@@ -256,40 +257,40 @@ export function SelectionOutlineLayer({
     () => new Set(layoutData.selectionOperandIds),
     [layoutData.selectionOperandIds],
   )
-  const hoveredEntityId = layoutData.hover?.id ?? null
+  const hoveredEntityId = useHoveredEntityId()
 
   const pages = useMemo(
     () =>
       layoutData.entities.filter(
-        (e): e is CanvasScenePageEntity => e.kind === 'page',
+        (e): e is ProjectedPageEntity => e.kind === 'page',
       ),
     [layoutData.entities],
   )
   const textEntities = useMemo(
     () =>
       layoutData.entities.filter(
-        (e): e is CanvasSceneTextEntity => e.kind === 'text',
+        (e): e is ProjectedTextEntity => e.kind === 'text',
       ),
     [layoutData.entities],
   )
   const fileEntities = useMemo(
     () =>
       layoutData.entities.filter(
-        (e): e is CanvasSceneFileEntity => e.kind === 'file',
+        (e): e is ProjectedFileEntity => e.kind === 'file',
       ),
     [layoutData.entities],
   )
   const drawingEntities = useMemo(
     () =>
       layoutData.entities.filter(
-        (e): e is CanvasSceneDrawingEntity => e.kind === 'drawing',
+        (e): e is ProjectedDrawingEntity => e.kind === 'drawing',
       ),
     [layoutData.entities],
   )
   const shapeEntities = useMemo(
     () =>
       layoutData.entities.filter(
-        (e): e is CanvasSceneShapeEntity => e.kind === 'shape',
+        (e): e is ProjectedShapeEntity => e.kind === 'shape',
       ),
     [layoutData.entities],
   )
@@ -429,4 +430,4 @@ export function SelectionOutlineLayer({
       ))}
     </>
   )
-}
+})

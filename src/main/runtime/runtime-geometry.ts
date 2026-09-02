@@ -1,9 +1,8 @@
 import { screen } from 'electron'
-import type { WebContents } from 'electron'
+import type { PageMetrics } from './page-emulation'
 import type { WorkspaceBounds } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import {
-  CARD_BORDER_WIDTH,
   LEFT_SIDEBAR_WIDTH,
   TOOLBAR_HEIGHT,
   devtoolsPanelDebug,
@@ -15,6 +14,7 @@ import {
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
 import { CUSTOM_SHELL_INSETS, shellInsetsForDevice, sizeForOrientation } from '../../shared/device-catalog'
+import { projectPageToScreen } from '../../shared/scene-projection'
 import { win } from './view-refs'
 import { layoutCache } from './layout-cache'
 import { pages, pan, zoom } from './runtime-context'
@@ -205,102 +205,56 @@ export function computeEffectivePageContentSize(input: {
   return pageContentSize(input.page)
 }
 
+/**
+ * A page's native `WebContentsView` bounds and the bezel rect around them.
+ *
+ * The projection itself is the shared one — main and the renderers place a page
+ * against the same rounded rect, or the chrome leaves a seam along the native
+ * view's edge.
+ */
 export function computeScreenBoundsForPage(input: {
   page: Page
   effectivePageContentSize: (page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>) => { width: number; height: number }
   zoom: number
   pan: { x: number; y: number }
   toolbarHeight: number
-  cardBorderWidth: number
 }): {
-  frame: { x: number; y: number; width: number; height: number }
   page: { x: number; y: number; width: number; height: number }
   shell: { x: number; y: number; width: number; height: number }
 } {
-  const { width: w, height: h } = input.effectivePageContentSize(input.page)
-  const bw = input.cardBorderWidth
-  const displayZoom = input.zoom
-  const contentW = Math.round(w * displayZoom)
-  const fullPageH = Math.round(h * displayZoom)
-  const pageH = fullPageH
-  const insets = pageShellInsets(input.page)
-  const insetLeft = Math.round((insets?.left ?? 0) * displayZoom)
-  const insetTop = Math.round((insets?.top ?? 0) * displayZoom)
-  const insetRight = Math.round((insets?.right ?? 0) * displayZoom)
-  const insetBottom = Math.round((insets?.bottom ?? 0) * displayZoom)
-
-  // `snapTopScreenY` is the snap-rect top in screen space: the bezel top
-  // when framed, body top when not. Body lives at snapTopScreenY + insetTop.
-  const snapTopScreenY =
-    Math.round(input.page.canvasY * input.zoom + input.pan.y) + input.toolbarHeight
-  const snapLeftScreenX = Math.round(input.page.canvasX * input.zoom + input.pan.x)
-
-  const pageX = snapLeftScreenX + insetLeft
-  const pageY = snapTopScreenY + insetTop
-  // Shell rect (device page bezel) wraps the content rect, offset outward by
-  // the bezel insets. Anchoring off the content rect keeps the bezel locked
-  // to the page body.
-  const shellRect = insets
-    ? {
-        x: pageX - insetLeft,
-        y: pageY - insetTop,
-        width: contentW + insetLeft + insetRight,
-        height: pageH + insetTop + insetBottom,
-      }
-    : {
-        x: pageX - bw,
-        y: pageY - bw,
-        width: contentW + 2 * bw,
-        height: pageH + 2 * bw,
-      }
-
-  return {
-    frame: {
-      x: pageX - bw,
-      y: pageY - bw,
-      width: contentW + 2 * bw,
-      height: pageH + 2 * bw,
+  const size = input.effectivePageContentSize(input.page)
+  const { shell, content } = projectPageToScreen(
+    {
+      canvasX: input.page.canvasX,
+      canvasY: input.page.canvasY,
+      width: size.width,
+      height: size.height,
+      showDeviceFrame: showDeviceFrameFromMetadata(input.page.metadata),
+      deviceId: deviceIdFromMetadata(input.page.metadata),
+      deviceOrientation: deviceOrientationFromMetadata(input.page.metadata),
     },
-    page: {
-      x: pageX,
-      y: pageY,
-      width: contentW,
-      height: pageH,
-    },
-    shell: shellRect,
-  }
+    { zoom: input.zoom, pan: input.pan },
+    computeCanvasOrigin({ toolbarHeight: input.toolbarHeight }),
+  )
+  return { page: content, shell }
 }
 
-export function computeApplyEmulation(input: {
-  webContents: WebContents
-  presetIndex: number
-  page?: Page
+/**
+ * The metrics a page renders under on the canvas: its effective CSS viewport
+ * at the display's pixel density, scaled into the view by the canvas zoom.
+ */
+export function computePageMetrics(input: {
+  page: Page
   zoom: number
   effectivePageContentSize: (page: Pick<Page, 'id' | 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'>) => { width: number; height: number }
-  viewportPresetForIndex: (presetIndex: number) => { width: number; height: number }
-}): void {
-  const start = Date.now()
-  const vp = input.viewportPresetForIndex(input.presetIndex)
-  const nativeScale = screen.getPrimaryDisplay().scaleFactor
-  const pageScale = input.zoom
-  const size = input.page
-    ? input.effectivePageContentSize(input.page)
-    : { width: vp.width, height: vp.height }
-  input.webContents.enableDeviceEmulation({
-    screenPosition: 'desktop',
-    screenSize: { width: size.width, height: size.height },
-    viewSize: { width: size.width, height: size.height },
-    viewPosition: { x: 0, y: 0 },
-    deviceScaleFactor: nativeScale,
-    scale: pageScale,
-  })
-  devtoolsPanelDebug('geometry:enable-device-emulation', {
-    pageId: input.page?.id ?? null,
-    durationMs: Date.now() - start,
+}): PageMetrics {
+  const size = input.effectivePageContentSize(input.page)
+  return {
     width: size.width,
     height: size.height,
-    pageScale,
-  })
+    deviceScaleFactor: screen.getPrimaryDisplay().scaleFactor,
+    scale: input.zoom,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -396,17 +350,13 @@ export function boundScreenBoundsForPage(page: Page) {
     zoom,
     pan,
     toolbarHeight: layoutCache.toolbarHeight,
-    cardBorderWidth: CARD_BORDER_WIDTH,
   })
 }
 
-export function boundApplyEmulation(webContents: WebContents, presetIndex: number, page?: Page): void {
-  computeApplyEmulation({
-    webContents,
-    presetIndex,
+export function boundPageMetrics(page: Page): PageMetrics {
+  return computePageMetrics({
     page,
     zoom,
     effectivePageContentSize: boundEffectivePageContentSize,
-    viewportPresetForIndex,
   })
 }

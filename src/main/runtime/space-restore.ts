@@ -47,7 +47,6 @@ import {
   setInspectActivePageId,
   spaceAutosaveTimer,
   setSpaceAutosaveTimer,
-  setSelectionOverlayActive,
 } from './runtime-context'
 import {
   clearInspectTargets,
@@ -305,7 +304,7 @@ export function restorePersistedSpace(
 
 function resetWindowState(): void {
   if (layoutCache.layoutTimer) {
-    clearTimeout(layoutCache.layoutTimer)
+    clearImmediate(layoutCache.layoutTimer)
     layoutCache.layoutTimer = null
   }
   if (spaceAutosaveTimer) {
@@ -318,7 +317,6 @@ function resetWindowState(): void {
   setToolbarView(null)
   setAboveView(null)
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
-  setSelectionOverlayActive(false)
   setDevtoolsBackgroundView(null)
   setDevtoolsHeaderView(null)
   setDevtoolsView(null)

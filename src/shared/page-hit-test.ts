@@ -10,11 +10,11 @@
  * pointer-forwarding hook that both decide whether a pointer is over a page.
  */
 
+import type { ProjectedPageEntity } from './scene-projection'
 import { rectContains, type Point, type Rect } from './hit-regions'
-import type { CanvasScenePageEntity } from './types'
 
 /** Screen-space content rect of a page, falling back to the body bounds. */
-export function pageContentRect(page: CanvasScenePageEntity): Rect {
+export function pageContentRect(page: ProjectedPageEntity): Rect {
   return {
     x: page.contentScreenX ?? page.screenX,
     y: page.contentScreenY ?? page.screenY,
@@ -28,6 +28,6 @@ export function pageContentRect(page: CanvasScenePageEntity): Rect {
  * is window-relative (y already offset by `canvasOrigin.y`), matching
  * `entity.screenX/screenY`. Edges are inclusive.
  */
-export function pointerOverPageContent(page: CanvasScenePageEntity, point: Point): boolean {
+export function pointerOverPageContent(page: ProjectedPageEntity, point: Point): boolean {
   return rectContains(pageContentRect(page), point)
 }

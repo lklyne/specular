@@ -1,6 +1,7 @@
 // ADR 0008 §4 — text selection popup. Plain and sticky count as same kind
 // for color so color edits apply uniformly across both in multi-select.
 
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { slotForStorage } from '../../shared/canvas-colors'
 import {
   toggleBold,
@@ -12,13 +13,15 @@ import {
   toggleWholeNoteWrap,
   wholeNoteFormatState,
 } from '../shared/markdown/whole-note-format'
-import type { CanvasSceneTextEntity, LayoutUpdateData } from '../../shared/types'
+import type { CanvasSceneTextEntity } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
 import { EditorFormattingButtons } from './EditorFormattingButtons'
 import { useActiveTextEditor } from '../shared/markdown/text-editor-bridge'
 import { TEXT_SIZE_DEFAULT, TextSizeDropdown } from './TextSizeDropdown'
+import { TextFontDropdown } from './TextFontDropdown'
+import { TEXT_FONT_DEFAULT } from '../../shared/text-fonts'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 import type { AnnotateHandler } from './annotationMath'
 
@@ -98,7 +101,7 @@ export function StickyNotePopover({
     | 'arrangeSelection'
   >
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   selectedTextEntities: CanvasSceneTextEntity[]
   popupReady: boolean
   onAnnotate: AnnotateHandler
@@ -113,6 +116,15 @@ export function StickyNotePopover({
   const sharedTextSize = sharedValue(
     selectedTextEntities.map((e) => e.textSize ?? TEXT_SIZE_DEFAULT),
   )
+  const sharedTextFont = sharedValue(
+    selectedTextEntities.map((e) => e.textFont ?? TEXT_FONT_DEFAULT),
+  )
+
+  // Storage carries the slot, and each entity resolves it against its own
+  // surface — so a mixed selection still takes one pick. Only the swatch
+  // preview has to choose, and it follows the all-plain case: ink in the vivid
+  // palette. Anything with a sticky in it previews as a fill.
+  const allPlain = selectedTextEntities.every((e) => e.textStyle === 'plain')
 
   const entityIds = selectedTextEntities.map((e) => e.id)
   const noun = count === 1 ? 'sticky note' : `${count} text entities`
@@ -137,13 +149,23 @@ export function StickyNotePopover({
               }
             }}
           />
+          <TextFontDropdown
+            isDark={isDark}
+            value={sharedTextFont ?? TEXT_FONT_DEFAULT}
+            ariaLabel={`Set ${noun} text font`}
+            onPick={(font) => {
+              for (const e of selectedTextEntities) {
+                api.updateEntity('text', e.id, { textFont: font })
+              }
+            }}
+          />
         </CanvasItemPopup.Section>
         <CanvasItemPopup.Divider isDark={isDark} />
         <ColorDropdown
           isDark={isDark}
-          palette="soft"
+          palette={allPlain ? 'vivid' : 'soft'}
           activeSlot={activeSlot}
-          role="fill"
+          role={allPlain ? 'ink' : 'fill'}
           noun={noun}
           onPick={(storage) => {
             for (const e of selectedTextEntities) {

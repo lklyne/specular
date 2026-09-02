@@ -1,13 +1,14 @@
 import type {
   AgentPresenceCursor,
   AnnotationElementSelectionPayload,
-  AnnotationLiveBboxUpdate,
   AppThemeMode,
   ConnectedRepo,
   DevtoolsPanelData,
   ElementAttachmentPositionsUpdate,
   ElementAttachmentSubscriptions,
   FixConfig,
+  FreezeTarget,
+  FrozenPagesState,
   InteractionSyncCapturePayload,
   InteractionSyncEvent,
   LayoutUpdateData,
@@ -18,11 +19,11 @@ import type {
   SelectionOverlayPayload,
   ThemeData,
   ToolbarSelectionData,
-  ViewportNudge,
   WorkspaceBounds,
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
+import type { RuntimePatchBatch } from './runtime-patch'
 import type { PerfTraceState } from './electron-api/debug'
 import type { PanZoomPerfTestState } from './pan-zoom-perf-test'
 
@@ -53,7 +54,6 @@ export interface IpcContract {
   'annotate-element-selected': { dir: 'main→renderer'; payload: AnnotationElementSelectionPayload }
   'annotation-bbox-subscriptions': { dir: 'main→renderer'; payload: unknown }
   'annotation-bbox-update': { dir: 'renderer→main'; payload: unknown }
-  'annotation-live-bbox': { dir: 'main→renderer'; payload: AnnotationLiveBboxUpdate }
   'annotation-open-thread': { dir: 'renderer→main'; payload: unknown }
   'annotation-thread-open': { dir: 'main→renderer'; payload: { annotationId: string } }
   'apply-linked-scroll': { dir: 'main→renderer'; payload: unknown }
@@ -201,6 +201,7 @@ export interface IpcContract {
   'component-tree-data': { dir: 'main→renderer'; payload: unknown }
   'cursor-spline-viz-changed': { dir: 'main→renderer'; payload: boolean }
   'debug-log': { dir: 'renderer→main'; payload: unknown }
+  'debug:copy-text': { dir: 'renderer→main'; payload: unknown }
   'debug:get-initial-data': { dir: 'invoke'; payload: unknown }
   'debug:perf-pan-zoom-get-state': { dir: 'invoke'; payload: unknown }
   'debug:perf-pan-zoom-run': { dir: 'invoke'; payload: unknown }
@@ -212,9 +213,11 @@ export interface IpcContract {
   'debug:perf-trace-reveal': { dir: 'renderer→main'; payload: unknown }
   'debug:perf-trace-state-changed': { dir: 'main→renderer'; payload: PerfTraceState }
   'debug:perf-trace-toggle': { dir: 'invoke'; payload: unknown }
+  'debug:process-metrics-sample': { dir: 'invoke'; payload: unknown }
   'debug:reset-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-spline-viz': { dir: 'renderer→main'; payload: unknown }
   'debug:update-cursor-tuning': { dir: 'renderer→main'; payload: unknown }
+  'debug:visibility-probe-run': { dir: 'invoke'; payload: unknown }
   'devtools-changed': { dir: 'main→renderer'; payload: boolean }
   'devtools-resize-end': { dir: 'renderer→main'; payload: unknown }
   'devtools-resize-move': { dir: 'renderer→main'; payload: unknown }
@@ -247,7 +250,6 @@ export interface IpcContract {
   'page-deselect': { dir: 'renderer→main'; payload: unknown }
   'page-hover': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-changed': { dir: 'renderer→main'; payload: unknown }
-  'page-scroll-live': { dir: 'main→renderer'; payload: { pageId: string; scrollX: number; scrollY: number } }
   'page-scroll-offset': { dir: 'renderer→main'; payload: { scrollX: number; scrollY: number; scrollHeight: number } }
   'peek-resize-end': { dir: 'renderer→main'; payload: unknown }
   'peek-resize-move': { dir: 'renderer→main'; payload: unknown }
@@ -303,6 +305,7 @@ export interface IpcContract {
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
+  'runtime-patch': { dir: 'main→renderer'; payload: RuntimePatchBatch }
   'set-annotate-mode': { dir: 'main→renderer'; payload: unknown }
   'set-canvas-zoom': { dir: 'main→renderer'; payload: unknown }
   'set-design-system-manifest': { dir: 'main→renderer'; payload: unknown }
@@ -338,7 +341,8 @@ export interface IpcContract {
   'toolbar-set-tool': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
-  'viewport-nudge': { dir: 'main→renderer'; payload: ViewportNudge }
+  'frozen-pages-ready': { dir: 'renderer→main'; payload: { target: FreezeTarget; revision: number } }
+  'frozen-pages-state': { dir: 'main→renderer'; payload: FrozenPagesState }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'read-note-file': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
@@ -371,7 +375,6 @@ export const ipcChannels = {
   annotateElementSelected: 'annotate-element-selected',
   annotationBboxSubscriptions: 'annotation-bbox-subscriptions',
   annotationBboxUpdate: 'annotation-bbox-update',
-  annotationLiveBbox: 'annotation-live-bbox',
   annotationOpenThread: 'annotation-open-thread',
   annotationThreadOpen: 'annotation-thread-open',
   applyLinkedScroll: 'apply-linked-scroll',
@@ -519,6 +522,7 @@ export const ipcChannels = {
   commentToolPointerState: 'comment-tool-pointer-state',
   cursorSplineVizChanged: 'cursor-spline-viz-changed',
   debugLog: 'debug-log',
+  debugCopyText: 'debug:copy-text',
   debugGetInitialData: 'debug:get-initial-data',
   debugPerfPanZoomGetState: 'debug:perf-pan-zoom-get-state',
   debugPerfPanZoomRun: 'debug:perf-pan-zoom-run',
@@ -530,9 +534,11 @@ export const ipcChannels = {
   debugPerfTraceReveal: 'debug:perf-trace-reveal',
   debugPerfTraceStateChanged: 'debug:perf-trace-state-changed',
   debugPerfTraceToggle: 'debug:perf-trace-toggle',
+  debugProcessMetricsSample: 'debug:process-metrics-sample',
   debugResetCursorTuning: 'debug:reset-cursor-tuning',
   debugUpdateCursorSplineViz: 'debug:update-cursor-spline-viz',
   debugUpdateCursorTuning: 'debug:update-cursor-tuning',
+  debugVisibilityProbeRun: 'debug:visibility-probe-run',
   devtoolsChanged: 'devtools-changed',
   devtoolsResizeEnd: 'devtools-resize-end',
   devtoolsResizeMove: 'devtools-resize-move',
@@ -542,6 +548,8 @@ export const ipcChannels = {
   elementAttachmentPositions: 'element-attachment-positions',
   elementAttachmentSubscriptions: 'element-attachment-subscriptions',
   fixProgressUpdate: 'fix-progress-update',
+  frozenPagesReady: 'frozen-pages-ready',
+  frozenPagesState: 'frozen-pages-state',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',
   getLeftSidebarBootstrap: 'get-left-sidebar-bootstrap',
@@ -564,7 +572,6 @@ export const ipcChannels = {
   overrideToken: 'override-token',
   pageDeselect: 'page-deselect',
   pageScrollChanged: 'page-scroll-changed',
-  pageScrollLive: 'page-scroll-live',
   pageScrollOffset: 'page-scroll-offset',
   peekResizeEnd: 'peek-resize-end',
   peekResizeMove: 'peek-resize-move',
@@ -621,6 +628,7 @@ export const ipcChannels = {
   rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',
+  runtimePatch: 'runtime-patch',
   setAnnotateMode: 'set-annotate-mode',
   setCanvasZoom: 'set-canvas-zoom',
   setDesignSystemManifest: 'set-design-system-manifest',
@@ -655,7 +663,6 @@ export const ipcChannels = {
   toolbarSetTool: 'toolbar-set-tool',
   toolbarTooltipClose: 'toolbar-tooltip-close',
   toolbarTooltipOpen: 'toolbar-tooltip-open',
-  viewportNudge: 'viewport-nudge',
   writeNoteFile: 'write-note-file',
   zoomChanged: 'zoom-changed',
   zoomIn: 'zoom-in',

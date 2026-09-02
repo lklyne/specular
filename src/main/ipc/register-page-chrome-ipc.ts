@@ -9,8 +9,7 @@ import type {
   SelectionModifiers,
 } from '../../shared/types'
 import { isAdditiveSelection } from '../../shared/selection-modifiers'
-import { aboveView, bgView } from '../runtime/view-refs'
-import { safeSend } from '../runtime/safe-send'
+import { bgView } from '../runtime/view-refs'
 import { zoom } from '../runtime/runtime-context'
 import { requestLayout } from '../runtime/viewport-control'
 import { markDirty } from '../runtime/layout-dirty'
@@ -31,6 +30,8 @@ import {
 } from '../interaction-sync'
 import { selectionDebug } from '../runtime/runtime-constants'
 import { applyElementAttachmentPositions } from '../runtime/element-attachment-positions'
+import { broadcastRuntimePatch } from '../runtime/runtime-patch-broadcast'
+import { livePageScrollOffsets, pageScrollMovesScene } from '../runtime/page-scroll-state'
 
 export function registerPageChromeIpc(): void {
   ipcMain.on(
@@ -73,18 +74,20 @@ export function registerPageChromeIpc(): void {
       page.scrollX = data.scrollX
       page.scrollY = data.scrollY
       page.scrollHeight = data.scrollHeight
-      // Fast path: scroll-following overlays (shapes, region annotations) get
-      // the raw offset immediately and shift themselves with a CSS transform,
-      // instead of waiting out the debounced layout rebuild below — that
-      // multi-hop path lags the page's native compositor scroll and reads as
-      // jitter. The full broadcast still follows and reconciles.
-      if (aboveView) {
-        safeSend(aboveView.webContents, ipcChannels.pageScrollLive, {
-          pageId: page.id,
-          scrollX: data.scrollX,
-          scrollY: data.scrollY,
-        })
-      }
+      // Scroll-following overlays (shapes, region annotations) get the raw
+      // offset immediately and shift themselves with a CSS transform, instead
+      // of waiting out the debounced layout rebuild — that multi-hop path lags
+      // the page's native compositor scroll and reads as jitter.
+      broadcastRuntimePatch({
+        kind: 'slice',
+        slice: 'pageScroll',
+        value: livePageScrollOffsets(),
+      })
+      // A pass still has real work when the scene is bound to this document:
+      // anchored entities shift by the scroll delta, and the page entity's
+      // offset is what annotations are projected against. Nothing bound means
+      // nothing left for it to compute.
+      if (!pageScrollMovesScene(page.id)) return
       markDirty('canvas')
       requestLayout()
     },
@@ -94,9 +97,9 @@ export function registerPageChromeIpc(): void {
   // broadcasts the live document positions of its subscribed selectors on real
   // reflow events (resize, load, debounced mutations). Stored on the ephemeral
   // runtime page keyed by selector; scene builders read them as a render-time
-  // correction. No fast-path nudge — reflow is debounced by nature, so the
-  // debounced layout rebuild is timely enough (the scroll fast path is
-  // untouched).
+  // correction. No patch of its own: every subscribed selector belongs to an
+  // anchored item, so the pass has to run to fold the shift into that item's
+  // geometry, and a patch would only duplicate what the pass already sends.
   ipcMain.on(
     ipcChannels.elementAttachmentPositions,
     (event, data: ElementAttachmentPositionsUpdate | undefined) => {

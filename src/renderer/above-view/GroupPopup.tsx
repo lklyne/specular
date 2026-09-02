@@ -1,7 +1,7 @@
 // ADR 0008 — group selection popup. Replaces canvas-bg GroupInlineMenu.
 
+import type { ProjectedGroupEntity, ProjectedLayoutData } from '../../shared/scene-projection'
 import { slotForStorage } from '../../shared/canvas-colors'
-import type { CanvasSceneGroupEntity, LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { ColorDropdown } from './ColorDropdown'
@@ -18,8 +18,8 @@ export function GroupPopup({
 }: {
   api: Pick<CanvasBgElectronAPI, 'updateEntity' | 'focusSelection'>
   isDark: boolean
-  layout: LayoutUpdateData
-  selectedGroup: CanvasSceneGroupEntity | null
+  layout: ProjectedLayoutData
+  selectedGroup: ProjectedGroupEntity | null
   interactionIdle: boolean
   onAnnotate: AnnotateHandler
 }) {

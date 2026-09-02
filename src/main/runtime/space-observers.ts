@@ -349,9 +349,9 @@ function syncDocToRuntime(doc: Y.Doc): void {
 
     // Phase 5d-v2 E1: gesture cancellation flows through the controller,
     // which is reentrancy-safe, so the undo observer can cancel + mark
-    // dirty + request a layout synchronously. The 16ms layout debounce
-    // in requestLayout() provides enough deferral to avoid stepping on
-    // Electron's event routing.
+    // dirty + request a layout synchronously, right here inside
+    // afterTransaction. requestLayout() itself defers the layout pass to
+    // the next event-loop turn, outside afterTransaction.
     _refs!.cancelActiveInteraction()
     _refs!.sendInteractiveState()
     markAllDirty()

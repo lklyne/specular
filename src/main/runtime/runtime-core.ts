@@ -14,8 +14,10 @@ import {
   setDevtoolsWidth as setUiDevtoolsWidth,
 } from '../ui-state'
 import type {
+  CanvasHoverTarget,
   DevtoolsPanelData,
 } from '../../shared/types'
+import { commitHoverTarget } from './hover-state'
 import {
   devtoolsView,
   setDevtoolsView,
@@ -23,9 +25,7 @@ import {
 } from './view-refs'
 import {
   browserDevtoolsAttachGeneration,
-  hoverTarget,
   pages,
-  setHoverTarget,
   setMcpConnectionStatusState,
   findPageById,
   incrementBrowserDevtoolsAttachGeneration,
@@ -37,7 +37,6 @@ import {
   recenterFocusPresentation,
   requestLayout,
 } from './viewport-control'
-import { markDirty } from './layout-dirty'
 import {
   notifyDevtoolsPanelData,
 } from './inspect-session'
@@ -50,7 +49,6 @@ import {
   selectPageById as commitSelectPageById,
 } from './selection-controller'
 import {
-  removePageAtIndex,
 } from './page-factory'
 import {
   clampDevtoolsWidth,
@@ -233,21 +231,13 @@ export function selectEntity(entityId: string, entityKind: string): void {
 }
 
 export function setHoveredPage(pageId: string | null): void {
-  const nextHoverTarget = pageId ? { id: pageId, kind: 'page' as const } : null
-  if (hoverTarget?.id === nextHoverTarget?.id && hoverTarget?.kind === nextHoverTarget?.kind) return
-  setHoverTarget(nextHoverTarget)
-  markDirty('canvas')
-  requestLayout()
+  commitHoverTarget(pageId ? { id: pageId, kind: 'page' } : null)
 }
 
-export function setHoverEntity(
-  nextHoverTarget: import('../../shared/types').CanvasHoverTarget,
-): void {
-  if (hoverTarget?.id === nextHoverTarget?.id && hoverTarget?.kind === nextHoverTarget?.kind) return
-  setHoverTarget(nextHoverTarget)
-  markDirty('canvas')
-  requestLayout()
+export function setHoverEntity(nextHoverTarget: CanvasHoverTarget): void {
+  commitHoverTarget(nextHoverTarget)
 }
+
 export function setDevtoolsWidthFromScreenX(screenX: number): void {
   if (!win || !uiDevtoolsOpen()) return
   const bounds = win.getContentBounds()

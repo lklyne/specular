@@ -19,6 +19,67 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - The remote debugging port no longer sits on a fixed, well-known number. Chromium picks a free one per launch, so another program can't count on finding Specular's browser-control endpoint at a known address.
 - The fix-permissions dropdown on a document was missing "Edit and verify" — the mode fixes actually run in — so it displayed "Bypass permissions" instead, and changing it forced a mode you hadn't chosen.
 
+## [0.7.1] - 2026-08-24 — Zoom and border fixes
+
+### Fixes
+
+- **Panning right after a zoom no longer stutters.** The snapshot encode that runs
+  when a zoom settles did all its work in one block, so pan input piled up behind it
+  and released as a jump. It now waits for you to stop moving the camera, then
+  encodes one frame at a time. Zooming out from a zoomed-in page hit this hardest.
+- **Page borders are full thickness on all four edges.** On a Retina display the top
+  border read about half thickness. The stroke was landing on a half-pixel boundary,
+  and the bezel's shadow was darkening the other three edges so the top looked thin
+  by comparison.
+- Pages without a device shell no longer double-stroke their border, and the ring
+  around a bezel follows the corner curve instead of leaving a hairline sliver at
+  the corners.
+
+## [0.7.0] - 2026-08-23 — Faster and less battery hungry canvas
+
+### New
+
+- **Focusing a note fills the window.** Focus a markdown note the way you focus
+  a page and it grows from its spot on the canvas into a full-window editor,
+  then shrinks back when you leave.
+
+### Improvements
+
+Most of this release went into making things way faster. Panning, zooming, and dragging are a smooth 120fps with some magic tricks.
+
+- **Zoom stays sharp.** Pages freeze to rasters while you zoom and go live once
+  you land. The frame captured at the end of a zoom is high resolution now, so
+  zooming into a page no longer shows a blurry blow-up of the zoomed-out view.
+- **Panning got much cheaper.** The dot grid was sloppily drawing points with multiple draw calls, now it's one. 6.4ms down to 0.15ms per frame at low zoom. A pan also keeps the page frames it already captured instead of throwing them out and re-capturing every page a moment later.
+- **Dragged pages keep up.** A dragged page moves as a raster, so its border and
+  chrome stay locked to it instead of trailing behind.
+- Page borders, device shells, and group titles draw on one canvas layer instead
+  of a DOM layer each.
+- Camera moves apply the moment they arrive instead of waiting on a 16ms timer,
+  and each renderer receives only the state it reads.
+
+### Battery
+
+- **Idle pages go quiet.** A page you aren't using freezes instead of running
+  CPU-throttled. Fifteen idle pages used to sit at about 86% CPU. Now it's near
+  zero, and screenshots still work on a frozen page.
+- An HTML file running an animation loop stops ticking the display at 120Hz
+  while the app sits idle.
+
+### Fixes
+
+- Shape styling and note labels survive a relaunch. Loading a `.canvas` file
+  dropped fill, borders, text alignment, and labels, and the next save wrote
+  that loss to disk.
+- A mixed selection of a group plus loose items drags as one unit and shows its
+  bounding box, no matter which item you grab.
+- The first panel you open after launch no longer hangs for most of a second.
+- Group membership sticks to stickies and file cards.
+
+### Misc
+
+- Bundled agent-browser updated to v0.34.0.
+
 ## [0.6.0] - 2026-08-03 — Markdown Live Preview, Your Own Space Folder
 
 ### New

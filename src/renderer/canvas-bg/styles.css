@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../shared/surfaceTheme.css";
+@import "../shared/canvasFonts.css";
 @variant dark (&:where(.dark, .dark *));
 
 .chrome-squircle-8 {
@@ -14,10 +15,5 @@
 
 .chrome-squircle-3 {
   border-radius: 3px;
-  -electron-corner-smoothing: system-ui;
-}
-
-/* Device shell corners: squircle smoothing on inline border-radius. */
-.device-squircle {
   -electron-corner-smoothing: system-ui;
 }

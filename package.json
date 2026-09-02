@@ -1,7 +1,7 @@
 {
   "name": "specular",
   "productName": "Specular",
-  "version": "0.6.0",
+  "version": "0.7.1",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/specular",
   "repository": {
@@ -45,6 +45,8 @@
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.42.1",
+    "@fontsource/geist-mono": "^5.3.0",
+    "@fontsource/kalam": "^5.3.0",
     "@lezer/common": "^1.5.2",
     "@lezer/highlight": "^1.2.3",
     "@modelcontextprotocol/sdk": "^1.18.0",

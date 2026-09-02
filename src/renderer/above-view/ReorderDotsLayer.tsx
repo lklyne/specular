@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { LayoutUpdateData } from '../../shared/types'
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
+import { memo, useEffect, useMemo, useState } from 'react'
 import {
   REORDER_DOT_VISUAL_RADIUS_PX,
   reorderHandleHitPx,
@@ -25,10 +25,10 @@ import { REARRANGE_COLOR } from '../canvas-bg/canvasBgConstants'
  * (App feeds this layer the reorder-preview layout), so the dots ride along with
  * the siblings as they make room — no separate insertion line needed.
  */
-export function ReorderDotsLayer({
+export const ReorderDotsLayer = memo(function ReorderDotsLayer({
   layoutData,
 }: {
-  layoutData: LayoutUpdateData
+  layoutData: ProjectedLayoutData
 }) {
   const { canvasOrigin, interaction } = layoutData
   // Dot-local hover: which dot the pointer is directly over. Whole-entity hover
@@ -112,4 +112,4 @@ export function ReorderDotsLayer({
       })}
     </svg>
   )
-}
+})

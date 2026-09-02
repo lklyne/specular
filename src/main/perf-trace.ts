@@ -13,6 +13,7 @@ import { ipcChannels } from '../shared/ipc-contract'
 import { extractTraceEvents, summarizeTraceEvents, type TraceSummary } from '../shared/trace-summary'
 import type { PerfTraceFileEntry, PerfTraceState } from '../shared/electron-api/debug'
 import { getDebugWebContents } from './debug-window'
+import { holdPagesAwake } from './runtime/page-idle-throttle'
 
 const TRACE_CATEGORIES = [
   'viz',
@@ -51,6 +52,7 @@ let autoStopTimer: NodeJS.Timeout | null = null
 let revealOnAutoStop = true
 let stateListener: (() => void) | null = null
 let stopPromise: Promise<string | null> | null = null
+let releaseAwakeHold: (() => void) | null = null
 export type PerfTraceOwner = 'manual' | 'pan-zoom-test'
 let traceOwner: PerfTraceOwner | null = null
 
@@ -110,6 +112,8 @@ export async function startPerfTrace(
     })
     status = 'recording'
     startedAt = Date.now()
+    // A trace of a throttled page measures the throttle, not the app.
+    releaseAwakeHold = holdPagesAwake()
     revealOnAutoStop = options.revealOnAutoStop !== false
     autoStopTimer = setTimeout(() => {
       void stopPerfTrace({ reveal: revealOnAutoStop, owner: traceOwner ?? undefined }).catch(
@@ -141,6 +145,8 @@ export async function stopPerfTrace(
     autoStopTimer = null
   }
   status = 'stopping'
+  releaseAwakeHold?.()
+  releaseAwakeHold = null
   notifyStateChange()
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const outPath = path.join(app.getPath('logs'), `specular-trace-${stamp}.json`)

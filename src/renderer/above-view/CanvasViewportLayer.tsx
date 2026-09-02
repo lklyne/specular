@@ -3,6 +3,8 @@
  * bounds): a viewport transform wrapper plus the per-entity shell div.
  */
 
+import type { SceneView } from '../../shared/scene-projection'
+
 /**
  * Wraps a body layer's cards in a viewport transform so they live in
  * canvas-coordinate space. AboveView's WCV origin already sits at
@@ -10,22 +12,18 @@
  * — only `canvasOrigin.x` and `pan` apply.
  */
 export function CanvasViewportLayer({
-  canvasOrigin,
-  pan,
-  zoom,
+  view,
   children,
 }: {
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
-  zoom: number
+  view: SceneView
   children: React.ReactNode
 }) {
   return (
     <div
       className="pointer-events-none absolute left-0 top-0 origin-top-left"
       style={{
-        ['--canvas-zoom' as string]: zoom,
-        transform: `translate(${canvasOrigin.x + pan.x}px, ${pan.y}px) scale(${zoom})`,
+        ['--canvas-zoom' as string]: view.zoom,
+        transform: `translate(${view.canvasOrigin.x + view.pan.x}px, ${view.pan.y}px) scale(${view.zoom})`,
       }}
     >
       {children}

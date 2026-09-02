@@ -1,5 +1,7 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
+import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { useCallback, useEffect, useState } from 'react'
-import type { AnnotationAnchor, AnnotationElementSelectionPayload, LayoutUpdateData, WorkspaceBounds } from '../../shared/types'
+import type { AnnotationAnchor, AnnotationElementSelectionPayload, WorkspaceBounds } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { canvasToScreenX, canvasToScreenY, toOverlayY } from '../../shared/gesture-utils'
 import { pageViewportToScreen } from '../../shared/page-space'
@@ -38,8 +40,8 @@ export function useAnnotationDraftState({
   activeStrokeRef,
 }: {
   api: CanvasBgElectronAPI
-  layoutData: LayoutUpdateData
-  layoutRef: React.MutableRefObject<LayoutUpdateData>
+  layoutData: ProjectedLayoutData
+  layoutRef: LayoutSnapshotRef
   commentInputRef: React.RefObject<HTMLTextAreaElement | null>
   activeStrokeRef: React.MutableRefObject<{ pointerId: number; strokeId: string } | null>
 }) {
@@ -294,7 +296,7 @@ function sendRegionAnnotation(
 
 function buildPendingAnnotation(
   payload: AnnotationElementSelectionPayload,
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
 ): PendingAnnotation | null {
   const page = layout.entities.find((candidate) => candidate.id === payload.pageId)
   if (!page) return null
@@ -341,7 +343,7 @@ function makeDraftId(): string {
 function buildCanvasPointPendingAnnotation(
   canvasX: number,
   canvasY: number,
-  layout: LayoutUpdateData,
+  layout: ProjectedLayoutData,
 ): PendingAnnotation {
   // Anchor the composer just below + right of the click point in screen
   // coords. Coords are converted from canvas via the live layout (zoom +

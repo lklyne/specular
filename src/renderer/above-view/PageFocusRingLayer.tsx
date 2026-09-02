@@ -1,4 +1,5 @@
-import type { CanvasSceneFileEntity, CanvasScenePageEntity } from '../../shared/types'
+import type { ProjectedFileEntity, ProjectedPageEntity } from '../../shared/scene-projection'
+import { memo } from 'react'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
   DEVICE_CATALOG,
@@ -22,14 +23,14 @@ type RingTarget = {
  *  4px outside the outer page border, 2px accent + 2px translucent halo.
  *  originY is canvasOrigin.y so window-coord pages land at the right
  *  WCV-local y. */
-export function PageFocusRingLayer({
+export const PageFocusRingLayer = memo(function PageFocusRingLayer({
   pages,
   fileEntities,
   focusedPageId,
   originY,
 }: {
-  pages: CanvasScenePageEntity[]
-  fileEntities?: CanvasSceneFileEntity[]
+  pages: ProjectedPageEntity[]
+  fileEntities?: ProjectedFileEntity[]
   focusedPageId: string | null
   originY: number
 }) {
@@ -68,4 +69,4 @@ export function PageFocusRingLayer({
       }}
     />
   )
-}
+})

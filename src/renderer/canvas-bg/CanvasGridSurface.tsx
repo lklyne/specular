@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { fontStackFor, type TextFont } from '../../shared/text-fonts'
 import { PLAIN_TEXT_PLACEHOLDER } from '../../shared/constants'
 import type { TextEntityStyle } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
@@ -128,6 +129,7 @@ export function PlacementPreviewLayer({
     textStyle?: TextEntityStyle
     color?: string
     textSize?: number
+    textFont?: TextFont
     zoom?: number
     left: number
     top: number
@@ -152,7 +154,7 @@ export function PlacementPreviewLayer({
           fontSize: scaledFontSize,
           lineHeight: `${scaledLineHeight}px`,
           color: isDark ? 'rgba(231, 229, 228, 0.58)' : 'rgba(28, 25, 23, 0.48)',
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily: fontStackFor(preview.textFont),
         }}
       >
         {PLAIN_TEXT_PLACEHOLDER}

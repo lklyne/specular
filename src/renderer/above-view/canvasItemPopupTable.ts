@@ -1,10 +1,5 @@
+import type { ProjectedFileEntity, ProjectedGroupEntity, ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import type { ComponentType } from 'react'
-import type {
-  CanvasSceneEntity,
-  CanvasSceneFileEntity,
-  CanvasSceneGroupEntity,
-  LayoutUpdateData,
-} from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { ToolKind } from '../../shared/tool'
 import { PagePopup } from './PagePopup'
@@ -26,15 +21,15 @@ import type { AnnotateHandler } from './annotationMath'
  * Computed once so each selection popup slices its own kind out of it.
  */
 export type SameKindSelection = {
-  kind: CanvasSceneEntity['kind']
-  entities: CanvasSceneEntity[]
+  kind: ProjectedSceneEntity['kind']
+  entities: ProjectedSceneEntity[]
 } | null
 
-export function computeSameKindSelection(layout: LayoutUpdateData): SameKindSelection {
+export function computeSameKindSelection(layout: ProjectedLayoutData): SameKindSelection {
   const ids = layout.selectedEntityIds
   if (ids.length === 0) return null
-  let kind: CanvasSceneEntity['kind'] | null = null
-  const entities: CanvasSceneEntity[] = []
+  let kind: ProjectedSceneEntity['kind'] | null = null
+  const entities: ProjectedSceneEntity[] = []
   for (const id of ids) {
     const entity = layout.entities.find((e) => e.id === id)
     if (!entity) return null
@@ -45,12 +40,12 @@ export function computeSameKindSelection(layout: LayoutUpdateData): SameKindSele
   return kind === null ? null : { kind, entities }
 }
 
-export function sameKindEntities<K extends CanvasSceneEntity['kind']>(
+export function sameKindEntities<K extends ProjectedSceneEntity['kind']>(
   selection: SameKindSelection,
   kind: K,
-): Extract<CanvasSceneEntity, { kind: K }>[] {
+): Extract<ProjectedSceneEntity, { kind: K }>[] {
   return selection && selection.kind === kind
-    ? (selection.entities as Extract<CanvasSceneEntity, { kind: K }>[])
+    ? (selection.entities as Extract<ProjectedSceneEntity, { kind: K }>[])
     : []
 }
 
@@ -58,15 +53,15 @@ export function sameKindEntities<K extends CanvasSceneEntity['kind']>(
 export type PopupContext = {
   api: CanvasBgElectronAPI
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   interactionIdle: boolean
   sameKindSelection: SameKindSelection
-  selectedGroup: CanvasSceneGroupEntity | null
+  selectedGroup: ProjectedGroupEntity | null
   textPopupReady: boolean
   filePopupReady: boolean
   /** The note framed by a file-target focus session, resolved once by App;
    *  null outside such a session or when its entity has gone missing. */
-  focusedNoteEntity: CanvasSceneFileEntity | null
+  focusedNoteEntity: ProjectedFileEntity | null
   /** Opens the region composer pre-anchored to a selection's union bounds
    *  (see useAnnotationDraftState.beginSelectionAnnotation). Every popup's
    *  Annotate button forwards to the same renderer-local handoff. */

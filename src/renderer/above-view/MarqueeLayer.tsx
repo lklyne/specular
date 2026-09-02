@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { SelectionOverlayPayload } from '../../shared/types'
 
 /**
@@ -5,7 +6,7 @@ import type { SelectionOverlayPayload } from '../../shared/types'
  * Driven by the `canvas-selection-overlay` IPC which canvas-bg's gesture
  * code sends via setSelectionOverlayRect.
  */
-export function MarqueeLayer({ overlay }: { overlay: SelectionOverlayPayload | null }) {
+export const MarqueeLayer = memo(function MarqueeLayer({ overlay }: { overlay: SelectionOverlayPayload | null }) {
   if (!overlay) return null
   // Place-shape drag renders a live shape preview elsewhere; suppress the
   // marquee box so they don't double up.
@@ -33,4 +34,4 @@ export function MarqueeLayer({ overlay }: { overlay: SelectionOverlayPayload | n
       }}
     />
   )
-}
+})

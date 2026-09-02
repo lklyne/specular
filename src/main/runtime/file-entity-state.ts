@@ -111,36 +111,7 @@ export function clearFileEntities(): void {
   teardownAllFileWatchers()
 }
 
-export function buildFileEntitySceneEntity(
-  entity: FileEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneFileEntity {
-  const contentScreenX = canvasOrigin.x + entity.canvasX * zoom + pan.x
-  const contentScreenY = canvasOrigin.y + entity.canvasY * zoom + pan.y
-  const contentScreenW = entity.width * zoom
-  const contentScreenH = entity.height * zoom
-
-  const deviceId = deviceIdFromMetadata(entity.metadata)
-  const orientation = deviceOrientationFromMetadata(entity.metadata)
-  const showShell = showDeviceFrameFromMetadata(entity.metadata)
-
-  // Compute shell-inflated outer bounds
-  let shellInsets: { top: number; right: number; bottom: number; left: number } | null = null
-  if (showShell) {
-    if (deviceId) {
-      shellInsets = shellInsetsForDevice(deviceId, orientation)
-    } else {
-      shellInsets = CUSTOM_SHELL_INSETS
-    }
-  }
-
-  const screenX = shellInsets ? contentScreenX - shellInsets.left * zoom : contentScreenX
-  const screenY = shellInsets ? contentScreenY - shellInsets.top * zoom : contentScreenY
-  const screenWidth = shellInsets ? contentScreenW + (shellInsets.left + shellInsets.right) * zoom : contentScreenW
-  const screenHeight = shellInsets ? contentScreenH + (shellInsets.top + shellInsets.bottom) * zoom : contentScreenH
-
+export function buildFileEntitySceneEntity(entity: FileEntity): CanvasSceneFileEntity {
   return {
     kind: 'file',
     id: entity.id,
@@ -152,17 +123,9 @@ export function buildFileEntitySceneEntity(
     height: entity.height,
     parentGroupId: entity.parentGroupId,
     objectFit: entity.objectFit,
-    deviceId,
-    deviceOrientation: orientation,
-    showDeviceFrame: showShell,
-    screenX,
-    screenY,
-    screenWidth,
-    screenHeight,
-    contentScreenX: showShell ? contentScreenX : undefined,
-    contentScreenY: showShell ? contentScreenY : undefined,
-    contentScreenWidth: showShell ? contentScreenW : undefined,
-    contentScreenHeight: showShell ? contentScreenH : undefined,
+    deviceId: deviceIdFromMetadata(entity.metadata),
+    deviceOrientation: deviceOrientationFromMetadata(entity.metadata),
+    showDeviceFrame: showDeviceFrameFromMetadata(entity.metadata),
     fileReloadVersion: getFileReloadVersion(entity.id),
     ...rendererSceneFields(entity),
   }

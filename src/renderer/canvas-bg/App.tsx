@@ -1,19 +1,19 @@
-import { useMemo, useRef } from 'react'
-import type { CanvasSceneFileEntity, CanvasScenePageEntity, LayoutUpdateData, ThemeData } from '../../shared/types'
+import { useRef } from 'react'
+import type { LayoutUpdateData, ThemeData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { focusContext } from '../../shared/focus-context'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
-import { DeviceShellLayer } from './DeviceShellLayer'
+import { ChromeCanvasSurface } from './ChromeCanvasSurface'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
-import { PageBorderLayer } from './PageBorderLayer'
 import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
-import { useScenePanOffset } from '../shared/hooks/useScenePanOffset'
+import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
+import { useFrozenPagesState } from './useFrozenPagesState'
+import { useChromeSlices } from './useChromeSlices'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
 
@@ -30,11 +30,10 @@ export default function App({
   const bgRef = useRef<HTMLDivElement>(null)
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
-  const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ api, initialLayoutData })
-  const panOffset = useScenePanOffset(api.onViewportNudge, layoutData)
-  const livePan = useMemo(
-    () => ({ x: layoutData.pan.x + panOffset.x, y: layoutData.pan.y + panOffset.y }),
-    [layoutData.pan.x, layoutData.pan.y, panOffset.x, panOffset.y],
+  const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ initialLayoutData })
+  const { frozenPages, dragFrozenPageIds } = useFrozenPagesState(api)
+  const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
+    api.frozenPagesReady('bg', revision),
   )
 
   useCanvasViewportGestures({
@@ -43,43 +42,9 @@ export default function App({
     layoutRef,
   })
 
-  const pageEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasScenePageEntity => e.kind === 'page'),
-    [layoutData.entities],
-  )
-  const fileEntities = useMemo(
-    () => layoutData.entities.filter((e): e is CanvasSceneFileEntity => e.kind === 'file'),
-    [layoutData.entities],
-  )
-  const focus = focusContext(layoutData)
-  // 'fill' focus is the browser-like mode: edge-to-edge, no border, no bezel.
-  const fillPageId = focus.mode === 'fill' ? focus.pageId : null
-  // Eye off during focus: only the focused page's chrome survives; all other
-  // context (other pages, file frames, groups) is hidden, never dimmed (ADR 0021).
-  const hideContext = focus.active && !focus.showsContext
-  const chromePages = useMemo(() => {
-    if (fillPageId) return pageEntities.filter((p) => p.id !== fillPageId)
-    if (hideContext) return pageEntities.filter((p) => p.id === focus.pageId)
-    return pageEntities
-  }, [pageEntities, fillPageId, hideContext, focus.pageId])
-  const chromeFiles = useMemo(
-    () => (hideContext ? [] : fileEntities),
-    [fileEntities, hideContext],
-  )
-  // Hoist per-layer slices so the memoized layers receive stable array refs and
-  // skip re-rendering on every pan/zoom nudge (props only change on a real
-  // layout-update). Inline .filter() in JSX would defeat React.memo (#265).
-  const deviceShellPages = useMemo(
-    () => chromePages.filter((f) => !f.useSvgDeviceShell),
-    [chromePages],
-  )
-  const svgDeviceShellPages = useMemo(
-    () => chromePages.filter((f) => f.useSvgDeviceShell),
-    [chromePages],
-  )
-  const chromeGroups = useMemo(
-    () => (hideContext ? [] : (layoutData.groups ?? [])),
-    [hideContext, layoutData.groups],
+  const { chromePages, chromeFiles, svgDeviceShellPages, chromeGroups } = useChromeSlices(
+    layoutData,
+    dragFrozenPageIds,
   )
   return (
     <div
@@ -99,33 +64,30 @@ export default function App({
         bgRef={bgRef}
         isDark={isDark}
         canvasOrigin={layoutData.canvasOrigin}
-        pan={livePan}
+        pan={layoutData.pan}
         zoom={layoutData.zoom}
       />
-      {/* Translate the page chrome live with the pan gesture so borders and
-          device shells track the natively-positioned page views instead of
-          trailing until the next layout-update rebuild lands (#257). */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0)` }}
-      >
+      {/* Every layer sits at the window origin and is placed by projection
+          from the camera slice, so the scene container needs no transform. */}
+      <div className="pointer-events-none absolute inset-0">
         <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
         <div className="pointer-events-none absolute inset-0">
-          <PageBorderLayer
-            pages={chromePages}
-            fileEntities={chromeFiles}
-          />
-          <DeviceShellLayer
-            pages={deviceShellPages}
-            fileEntities={chromeFiles}
-            isDark={isDark}
-          />
           <SvgDeviceShellLayer
             pages={svgDeviceShellPages}
             isDark={isDark}
           />
         </div>
       </div>
+      {/* Borders, device shells, and frozen-page rasters draw on a canvas
+          rather than as DOM, so strokes stay crisp mid-zoom and the raster
+          shares the chrome's exact geometry. */}
+      <ChromeCanvasSurface
+        pages={chromePages}
+        fileEntities={chromeFiles}
+        snapshots={frozenPageBitmaps}
+        isDark={isDark}
+        dragFrozenPageIds={dragFrozenPageIds}
+      />
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
           Selected page menu lives in the floating-ui view. */}

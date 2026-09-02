@@ -9,11 +9,13 @@
 
 import { randomUUID } from 'crypto'
 import { STICKY_BASE_HEIGHT } from '../../shared/constants'
+import { NEUTRAL_STORAGE } from '../../shared/canvas-colors'
 import type {
   CanvasSceneTextEntity,
   PageAnchor,
   PersistedTextEntity,
   TextEntityStyle,
+  TextFont,
   TextWidthMode,
 } from '../../shared/types'
 import { markDirty } from './layout-dirty'
@@ -28,6 +30,8 @@ export interface TextEntity {
   widthMode: TextWidthMode
   /** Per-entity text size in px. Optional — renderer defaults to 18. ADR 0013 §2. */
   textSize?: number
+  /** Per-entity typeface token. Optional — renderer defaults to 'sans'. */
+  textFont?: TextFont
   canvasX: number
   canvasY: number
   width: number
@@ -57,6 +61,7 @@ export function createTextEntity(input: {
   textStyle?: TextEntityStyle
   widthMode?: TextWidthMode
   textSize?: number
+  textFont?: TextFont
   width?: number
   height?: number
   id?: string
@@ -70,10 +75,14 @@ export function createTextEntity(input: {
     text: input.text ?? '',
     // Color is stored raw — a preset number ('1'–'7'), the 'neutral'
     // sentinel, or a literal hex. The palette is resolved at render time.
-    color: input.color ?? '3',
+    // The fallback follows the surface the color paints: a sticky's slot is
+    // the card's fill, so it defaults to yellow; plain text's slot is the ink,
+    // which defaults to the theme-aware neutral (dark on light, light on dark).
+    color: input.color ?? (textStyle === 'plain' ? NEUTRAL_STORAGE : '3'),
     textStyle,
     widthMode: input.widthMode ?? defaultWidthMode(textStyle),
     textSize: input.textSize,
+    textFont: input.textFont,
     canvasX: input.canvasX,
     canvasY: input.canvasY,
     width: input.width ?? DEFAULT_TEXT_WIDTH,
@@ -108,12 +117,7 @@ export function clearTextEntities(): void {
   textEntities.length = 0
 }
 
-export function buildTextEntitySceneEntity(
-  entity: TextEntity,
-  zoom: number,
-  pan: { x: number; y: number },
-  canvasOrigin: { x: number; y: number },
-): CanvasSceneTextEntity {
+export function buildTextEntitySceneEntity(entity: TextEntity): CanvasSceneTextEntity {
   // Scroll- and element-follow: project the apparent position — stored coords
   // shifted by the page's scroll and its reference element's movement since the
   // anchor was written (see shape builder).
@@ -121,8 +125,6 @@ export function buildTextEntitySceneEntity(
   const element = pageAnchorElementShift(entity.pageAnchor)
   const canvasX = entity.canvasX - scroll.x - element.x
   const canvasY = entity.canvasY - scroll.y - element.y
-  const screenX = canvasOrigin.x + canvasX * zoom + pan.x
-  const screenY = canvasOrigin.y + canvasY * zoom + pan.y
   return {
     kind: 'text',
     id: entity.id,
@@ -131,16 +133,13 @@ export function buildTextEntitySceneEntity(
     textStyle: entity.textStyle,
     widthMode: entity.widthMode,
     textSize: entity.textSize,
+    textFont: entity.textFont,
     canvasX,
     canvasY,
     width: entity.width,
     height: entity.height,
     parentGroupId: entity.parentGroupId,
     pageAnchor: entity.pageAnchor,
-    screenX,
-    screenY,
-    screenWidth: entity.width * zoom,
-    screenHeight: entity.height * zoom,
   }
 }
 
@@ -158,6 +157,7 @@ const TEXT_ENTITY_PERSISTED_FIELD_SET = {
   textStyle: true,
   widthMode: true,
   textSize: true,
+  textFont: true,
   canvasX: true,
   canvasY: true,
   width: true,
@@ -190,6 +190,7 @@ export function persistTextEntity(entity: TextEntity): PersistedTextEntity {
     textStyle: entity.textStyle,
     widthMode: entity.widthMode,
     textSize: entity.textSize,
+    textFont: entity.textFont,
     canvasX: entity.canvasX,
     canvasY: entity.canvasY,
     width: entity.width,

@@ -18,18 +18,18 @@ import {
   removeAutomationInteractivePageId,
   addAutomationInteractivePageId,
   setInteractivePageId,
-  setSelectionOverlayActive,
 } from './runtime-context'
 import { workspaceGroups } from './space-model'
 import {
   getUiState,
-  isSelectionMarqueeVisible as uiSelectionMarqueeVisible,
   setSelectionMarqueeVisible as setUiSelectionMarqueeVisible,
 } from '../ui-state'
 import { selectionDebug } from './runtime-constants'
+import { broadcastFocusChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
 import { safeSend } from './safe-send'
 import { refreshInteractionSyncCapture } from '../interaction-sync'
+import { noteAgentActivity } from './page-idle-throttle'
 
 export function pageSelectionOverlayStates(): Array<{
   pageId: string
@@ -106,6 +106,7 @@ export function enterPageInteractive(pageId: string): void {
   if (interactivePageId() === pageId) return
   setInteractivePageId(pageId)
   sendInteractiveState()
+  broadcastFocusChange()
   requestLayout()
 }
 
@@ -114,12 +115,14 @@ export function exitPageInteractive(): void {
   if (interactivePageId() === null) return
   setInteractivePageId(null)
   sendInteractiveState()
+  broadcastFocusChange()
   requestLayout()
 }
 
 export function beginAutomationInteractivePage(pageId: string): void {
   addAutomationInteractivePageId(pageId)
   sendInteractiveState()
+  noteAgentActivity()
   // The layout pass parks automation-interactive pages off-screen at their
   // logical viewport size, so an agent always has a real viewport even when
   // the page isn't visible on the canvas.
@@ -130,6 +133,9 @@ export function endAutomationInteractivePage(pageId: string): void {
   if (!automationInteractivePageCounts.has(pageId)) return
   removeAutomationInteractivePageId(pageId)
   sendInteractiveState()
+  // The page loses its throttle exemption here; the trailing activity window
+  // keeps it at full speed long enough for a follow-up call to land.
+  noteAgentActivity()
   // Invalidate bounds key so layoutAllViews restores viewport culling.
   const page = pages.find((p) => p.id === pageId)
   if (page) {
@@ -140,7 +146,6 @@ export function endAutomationInteractivePage(pageId: string): void {
 export function setSelectionOverlayRect(
   overlay: SelectionOverlayPayload | null,
 ): void {
-  setSelectionOverlayActive(overlay !== null)
   setUiSelectionMarqueeVisible(overlay !== null)
 
   if (!win || win.isDestroyed()) return
@@ -153,8 +158,4 @@ export function setSelectionOverlayRect(
   if (bgView) {
     safeSend(bgView.webContents, ipcChannels.canvasSelectionOverlay, overlay)
   }
-  // The gate predicate reads selectionMarqueeVisible, so a rect change
-  // can flip aboveView bounds on/off. Bounds + visibility are centralized
-  // in layoutAllViews — schedule it.
-  requestLayout()
 }

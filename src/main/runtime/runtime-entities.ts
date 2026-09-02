@@ -13,7 +13,6 @@ export interface Page {
   title?: string
   url: string
   faviconUrl?: string | null
-  frameView: WebContentsView
   pageView: WebContentsView
   devtoolsHostView?: WebContentsView
   devtoolsHostAttached?: boolean
@@ -53,6 +52,11 @@ export interface Page {
    * Document-bound items keep their previous visibility during this interval
    * so a provisional route does not strip the canvas before it settles. */
   isLoading?: boolean
+  /** Navigation-history availability, sampled from `webContents` whenever a
+   *  navigation settles (`page-chrome-state.ts`). Mirrored here so building the
+   *  scene costs a field read instead of a walk into the renderer process. */
+  canGoBack?: boolean
+  canGoForward?: boolean
   /** Live document positions of the DOM selectors anchored items reference,
    *  keyed by selector (ADR 0030 element attachment). The page's reflow tracker
    *  broadcasts these on real reflow events; scene builders read them as a
@@ -63,15 +67,18 @@ export interface Page {
     string,
     { docX: number; docY: number; viewportPositioned?: boolean }
   >
-  lastFrameBoundsKey?: string
+  /** Last value passed to `pageView.setVisible` by the layout pass. */
+  lastVisibleApplied?: boolean
   lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string
-  lastPageEmulationKey?: string
   /** Last colorScheme applied via CDP (see page-color-scheme.ts). Undefined
    *  means either "no override applied yet" or "no override needed" —
    *  both collapse to the same no-op when colorScheme is also absent. */
   lastColorSchemeKey?: PageColorScheme
-  lastSelected?: boolean
+  /** Last web lifecycle state applied via CDP (see page-idle-throttle.ts).
+   *  Undefined means no override has been dispatched on this renderer — either
+   *  never frozen, or the debugger detached and dropped it. */
+  lastIdleLifecycleState?: 'active' | 'frozen'
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string
   crashedAt?: number

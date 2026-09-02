@@ -1,6 +1,6 @@
+import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
-import type { LayoutUpdateData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import {
   classifyViewportWheel,
@@ -26,7 +26,7 @@ export function useCanvasViewportGestures({
 }: {
   api: CanvasBgElectronAPI
   bgRef: RefObject<HTMLDivElement | null>
-  layoutRef: RefObject<LayoutUpdateData>
+  layoutRef: LayoutSnapshotRef
 }) {
   useEffect(() => {
     const el = bgRef.current

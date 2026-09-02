@@ -1,20 +1,11 @@
-import { useEffect, useState } from 'react'
-import type { CanvasScenePageEntity, LayoutUpdateData } from '../../shared/types'
-import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import type { ProjectedPageEntity } from '../../shared/scene-projection'
 import { agentOverlayClipPath } from '../../shared/agent-overlay-clip'
+import { useProjectedLayoutData } from '../shared/hooks/useProjectedLayoutData'
 import { AgentCursorLayer } from '../canvas-bg/AgentCursorLayer'
 import { InspectPopoverLayer } from './InspectPopoverLayer'
 
-const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
-
-export default function App({
-  initialLayoutData,
-}: {
-  initialLayoutData: LayoutUpdateData
-}) {
-  const [layoutData, setLayoutData] = useState<LayoutUpdateData>(initialLayoutData)
-
-  useEffect(() => api.onLayoutUpdate(setLayoutData), [])
+export default function App() {
+  const layoutData = useProjectedLayoutData()
 
   return (
     <div
@@ -24,7 +15,7 @@ export default function App({
       <AgentCursorLayer
         cursors={layoutData.presenceCursors}
         pages={layoutData.entities.filter(
-          (entity): entity is CanvasScenePageEntity => entity.kind === 'page',
+          (entity): entity is ProjectedPageEntity => entity.kind === 'page',
         )}
         canvasOrigin={layoutData.canvasOrigin}
         pan={layoutData.pan}

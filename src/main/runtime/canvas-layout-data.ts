@@ -7,9 +7,8 @@
  * left sidebar, and annotation overlay renderers.
  */
 
+import { idleThrottleState } from './page-idle-throttle'
 import type {
-  ActiveCanvasEntitySelection,
-  AgentPresenceCursor,
   CanvasSceneEntity,
   CanvasScenePageEntity,
   FocusPresentationData,
@@ -18,21 +17,11 @@ import type {
   PendingPlacement,
   ToolbarSelectionData,
 } from '../../shared/types'
-import { ipcChannels } from '../../shared/ipc-contract'
-import { resolvePresencePagePoint } from '../../shared/presence-targeting'
+import type { RuntimeStoreSlices } from '../../shared/runtime-store'
+import { shareLayoutData } from '../../shared/layout-structural-share'
 import { hiddenByPageAnchor } from './document-binding'
-import { selectAmbientMode } from '../../shared/presence-ambient'
-import { isUnresolved } from '../../shared/annotation-utils'
-import {
-  aboveView,
-  cursorOverlayWindow,
-  leftSidebarView,
-  win,
-} from './view-refs'
+import { win } from './view-refs'
 import { buildInspectPanelState } from './inspect-session'
-import { isPageSynced } from '../navigation-sync'
-import { safeSend } from './safe-send'
-import { layoutCache } from './layout-cache'
 import {
   findPageById,
   hoverTarget,
@@ -41,11 +30,10 @@ import {
   pages,
   pan,
   selectedPage,
-  selectedPageId,
   zoom,
   cameraTransitionStartedAt,
 } from './runtime-context'
-import { focusSession, focusedPageId } from './focus-session'
+import { focusSession } from './focus-session'
 import { activeSpaceTabId, workspaceAnnotations, workspaceEdges, workspaceGroups } from './space-model'
 import { getToolDefaults } from './tool-defaults'
 import {
@@ -68,25 +56,17 @@ import { currentKeyboardTargetPageId } from './selection-controller'
 import { resolveSelectionScope } from './selection-scope'
 import {
   pageContentSize,
-  projectFramePointToCanvas,
   boundEffectivePageContentSize as effectivePageContentSize,
   boundAvailableCanvasViewport as localAvailableCanvasViewport,
   boundCanvasOrigin as localCanvasOrigin,
-  boundScreenBoundsForPage as screenBoundsForPage,
 } from './runtime-geometry'
-import { pageDisplayLabel, viewportPresetForIndex } from './runtime-serialization'
+import { viewportPresetForIndex } from './runtime-serialization'
 import {
   textEntities,
   DEFAULT_TEXT_WIDTH,
   DEFAULT_TEXT_HEIGHT,
 } from './text-entity-state'
-import {
-  pageUsesCustomSize,
-  deviceIdFromMetadata,
-  deviceOrientationFromMetadata,
-  showDeviceFrameFromMetadata,
-  useSvgDeviceShellFromMetadata,
-} from './runtime-entities'
+import { pageUsesCustomSize } from './runtime-entities'
 import {
   fileEntities,
   DEFAULT_FILE_WIDTH,
@@ -102,102 +82,16 @@ import { getEntityKind, type RuntimeEntity } from '../entities/contract'
 import type { CanvasEntityKind } from '../../shared/types'
 import type { Page } from './runtime-entities'
 import { spaceTabSummaries } from './space-tabs'
-import { getPresenceCursors } from '../presence-cursor'
+import { currentPresenceSlice } from './presence-slice'
+import { backgroundPageOverlays } from './page-scene-entity'
 import { getFixProgress } from '../agent-fix/fix-progress'
+import { livePageScrollOffsets } from './page-scroll-state'
+import { annotationLiveBboxes } from './annotation-bbox-state'
 import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
 
 // --- Exported data builders ---
 
-export function backgroundPageOverlays(): CanvasScenePageEntity[] {
-  const focusedPresentationPageId = focusedPageId()
-  const visiblePages = focusedPresentationPageId
-    ? pages.filter((page) => page.id === focusedPresentationPageId)
-    : pages
-  return visiblePages.map((page) => {
-    const { width, height } = effectivePageContentSize(page)
-    const bounds = screenBoundsForPage(page)
-    const deviceId = deviceIdFromMetadata(page.metadata)
-    const showShell = showDeviceFrameFromMetadata(page.metadata)
-    return {
-      kind: 'page' as const,
-      id: page.id,
-      label: pageDisplayLabel(page),
-      faviconUrl: page.faviconUrl ?? null,
-      url: page.url,
-      canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
-      canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
-      isLoading: page.pageView.webContents.isLoading(),
-      isCustomSize: pageUsesCustomSize(page.metadata),
-      canvasX: page.canvasX,
-      canvasY: page.canvasY,
-      width,
-      height,
-      presetIndex: page.presetIndex,
-      synced: isPageSynced(page),
-      syncId: page.syncId ?? null,
-      screenX: showShell ? bounds.shell.x : bounds.page.x,
-      screenY: showShell ? bounds.shell.y : bounds.page.y,
-      screenWidth: showShell ? bounds.shell.width : bounds.page.width,
-      screenHeight: showShell ? bounds.shell.height : bounds.page.height,
-      // Device state
-      deviceId,
-      deviceOrientation: deviceOrientationFromMetadata(page.metadata),
-      showDeviceFrame: showShell,
-      // Inner content bounds (always the web viewport)
-      contentScreenX: bounds.page.x,
-      contentScreenY: bounds.page.y,
-      contentScreenWidth: bounds.page.width,
-      contentScreenHeight: bounds.page.height,
-      useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-      colorScheme: page.colorScheme,
-      scrollX: page.scrollX ?? 0,
-      scrollY: page.scrollY ?? 0,
-      ...(page.elementPositions?.size
-        ? { elementPositions: Object.fromEntries(page.elementPositions) }
-        : {}),
-    }
-  })
-}
-
-export function activeCanvasSelection(): ActiveCanvasEntitySelection | null {
-  const selectedPageIds = uiSelectedEntityIds()
-  const targets = selectedPageIds
-    .map((id) => findPageById(id))
-    .filter((p): p is Page => p !== undefined)
-  const page = selectedPage() ?? targets[0] ?? null
-  if (!page) return null
-  const vp = viewportPresetForIndex(page.presetIndex)
-  return {
-    entityRef: { kind: 'page', id: page.id },
-    label: pageDisplayLabel(page),
-    width: page.peekWidth ?? vp.width,
-    height: page.peekHeight ?? vp.height,
-    presetIndex: page.presetIndex,
-  }
-}
-
-
-export function sendAnnotationLayoutUpdate(payload: LayoutUpdateData): void {
-  if (aboveView) safeSend(aboveView.webContents, ipcChannels.layoutUpdate, payload)
-  if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed()) {
-    safeSend(cursorOverlayWindow.webContents, ipcChannels.layoutUpdate, payload)
-  }
-}
-
-export function buildFloatingUiUpdatePayload(input: {
-  pages: CanvasScenePageEntity[]
-  activeSelection: ActiveCanvasEntitySelection | null
-  surfaceOrigin: { x: number; y: number }
-}) {
-  return {
-    layoutData: buildCanvasLayoutData(input.pages, input.activeSelection),
-    surfaceOrigin: input.surfaceOrigin,
-  }
-}
-
-function buildUserGroupSceneEntities(
-  origin: { x: number; y: number },
-): CanvasSceneGroupEntity[] {
+function buildUserGroupSceneEntities(): CanvasSceneGroupEntity[] {
   return workspaceGroups
     .map((g) => {
       const entityIds = [
@@ -208,7 +102,7 @@ function buildUserGroupSceneEntities(
         ...shapeEntities.filter((entity) => entity.parentGroupId === g.id).map((entity) => entity.id),
         ...workspaceGroups.filter((candidate) => candidate.parentGroupId === g.id).map((group) => group.id),
       ]
-      return buildGroupSceneEntity(g, zoom, pan, origin, entityIds)
+      return buildGroupSceneEntity(g, entityIds)
     })
 }
 
@@ -246,6 +140,12 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
     tool.kind === 'add-sticky' ? getToolDefaults()['add-sticky'].color : undefined
   const textSize =
     tool.kind === 'add-text' ? getToolDefaults()['add-text'].textSize : undefined
+  const textFont =
+    tool.kind === 'add-sticky'
+      ? getToolDefaults()['add-sticky'].textFont
+      : tool.kind === 'add-text'
+        ? getToolDefaults()['add-text'].textFont
+        : undefined
   const customSize = tool.kind === 'add-page' ? tool.customSize === true : false
   const sourcePageId = tool.kind === 'add-page' ? tool.sourcePageId : undefined
   // shapeKind moved to tool defaults per ADR 0009 — preview reads the persisted
@@ -265,6 +165,7 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
     textStyle,
     color,
     textSize,
+    textFont,
     width: isText
       ? DEFAULT_TEXT_WIDTH
       : isFile
@@ -286,14 +187,52 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
   }
 }
 
-export function buildCanvasLayoutData(
-  pages: CanvasScenePageEntity[],
-  activeSelection: ActiveCanvasEntitySelection | null,
-): LayoutUpdateData {
+/**
+ * The non-geometry slices of the runtime store, each read straight from the
+ * state that owns it.
+ *
+ * A mutator that changes a selection, a tool, or the focus target changes one
+ * of these and no entity, so it patches the slice instead of rebuilding the
+ * scene (`runtime-slice-broadcast.ts`). The snapshot below is assembled from
+ * the same three functions, which is what stops the patch and the snapshot
+ * from drifting into two descriptions of the same cell.
+ */
+export function currentSelectionSlice(): RuntimeStoreSlices['selection'] {
+  return {
+    selectedEntityIds: uiSelectedEntityIds(),
+    selectionOperandIds: resolveSelectionScope().operandIds,
+    selection: uiSelectedCanvasTargets(),
+    selectedGroupId: uiSelectedGroupId(),
+  }
+}
+
+export function currentToolSlice(): RuntimeStoreSlices['tool'] {
   const tool = uiActiveTool()
+  return {
+    activeTool: tool,
+    toolDefaults: getToolDefaults(),
+    pendingPlacement: buildPlacementPreview(tool),
+  }
+}
+
+export function currentFocusSlice(): RuntimeStoreSlices['focus'] {
+  return {
+    keyboardTargetPageId: currentKeyboardTargetPageId(),
+    interactivePageId: interactivePageId(),
+    focusPresentation: buildFocusPresentationData(),
+  }
+}
+
+/**
+ * The payload the previous pass produced. The scene is rebuilt whole on every
+ * pass, so without a reference to reconcile against, every branch down to the
+ * untouched entities carries new identity into each broadcast.
+ */
+let lastLayoutData: LayoutUpdateData | null = null
+
+export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpdateData {
   const origin = localCanvasOrigin()
-  const pendingPlacementData = buildPlacementPreview(tool)
-  const groupEntities = buildUserGroupSceneEntities(origin)
+  const groupEntities = buildUserGroupSceneEntities()
   const windowWidth = win?.getBounds().width ?? 0
   const isMac = process.platform === 'darwin'
   const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
@@ -316,7 +255,7 @@ export function buildCanvasLayoutData(
         // page shows a different URL they leave the scene entirely (not
         // rendered, not hit-testable). The sidebar still lists them, dimmed.
         .filter((entity) => !hiddenByPageAnchor(entity))
-        .map((entity) => getEntityKind(kind).buildSceneEntity!(entity, zoom, pan, origin)),
+        .map((entity) => getEntityKind(kind).buildSceneEntity!(entity)),
     ),
     ...groupEntities,
   ] as CanvasSceneEntity[]
@@ -347,7 +286,7 @@ export function buildCanvasLayoutData(
     return aRank - bRank
   })
   edges.sort((a, b) => (orderRank.get(a.id) ?? Infinity) - (orderRank.get(b.id) ?? Infinity))
-  return {
+  const built = {
     windowWidth,
     zoom,
     pan,
@@ -356,12 +295,9 @@ export function buildCanvasLayoutData(
     toolbarCenterX,
     entityOrder,
     entities,
-    selectedEntityIds: uiSelectedEntityIds(),
-    selectionOperandIds: resolveSelectionScope().operandIds,
-    selection: uiSelectedCanvasTargets(),
-    activeSelection,
-    activeTool: tool,
-    toolDefaults: getToolDefaults(),
+    ...currentSelectionSlice(),
+    ...currentToolSlice(),
+    ...currentFocusSlice(),
     // Annotations bound to a page's document leave the broadcast while that
     // page shows a different URL — the same gate the anchored entities above
     // pass through. The right-details panel is unaffected: it reads full
@@ -371,73 +307,23 @@ export function buildCanvasLayoutData(
     ),
     inspect: buildInspectPanelState(),
     fixProgress: getFixProgress(),
-    selectedGroupId: uiSelectedGroupId(),
     hover: hoverTarget,
     interaction: interactionState,
-    pendingPlacement: pendingPlacementData,
+    idle: idleThrottleState().idle,
     devtoolsOpen: uiDevtoolsOpen(),
     devtoolsWidth: uiDevtoolsWidth(),
     edges,
     groups: groupEntities,
-    presenceCursors: getPresenceCursors().map((c): AgentPresenceCursor => ({
-      ...(function resolvePresencePosition() {
-        if (c.surface === 'page' && c.pageId) {
-          const page = pages.find((candidate) => candidate.id === c.pageId)
-          if (page) {
-            const point = resolvePresencePagePoint({
-              pageX: c.pageX,
-              pageY: c.pageY,
-              targetRect: c.targetRect ?? null,
-              fallbackX: page.width / 2,
-              fallbackY: page.height / 2,
-            })
-            // Clamp to the page's visible area so the cursor doesn't
-            // render outside the page when targeting off-screen elements.
-            const clampedX = Math.max(0, Math.min(point.x, page.width))
-            const clampedY = Math.max(0, Math.min(point.y, page.height))
-            const pageWcv = findPageById(page.id)
-            const proj = pageWcv
-              ? projectFramePointToCanvas(pageWcv, { x: clampedX, y: clampedY })
-              : { x: page.canvasX + clampedX, y: page.canvasY + clampedY }
-            return { canvasX: proj.x, canvasY: proj.y }
-          }
-        }
-        return { canvasX: c.canvasX, canvasY: c.canvasY }
-      })(),
-      sessionId: c.sessionId,
-      clientName: c.clientName,
-      color: c.color,
-      source: c.source,
-      surface: c.surface,
-      activity: c.activity,
-      pageId: c.pageId,
-      pageX: c.pageX,
-      pageY: c.pageY,
-      labelKey: c.labelKey,
-      taskLabel: c.taskLabel,
-      labelHint: c.labelHint,
-      labelParams: c.labelParams,
-      targetRef: c.targetRef,
-      targetRefSource: c.targetRefSource,
-      targetName: c.targetName,
-      targetRect: c.targetRect,
-      updatedAt: c.updatedAt,
-      dwellBudgetMs: c.dwellBudgetMs,
-      // Synced cursors mirror a real user cursor and must never wander —
-      // idle-drift/reading-scan are agent-thinking-gap semantics (ADR 0029)
-      // that don't apply here, so force 'none' regardless of activity.
-      ambientMode: c.source === 'interaction-sync' ? 'none' : selectAmbientMode(c.activity, c.lastIntentLabelKey),
-    })),
-    keyboardTargetPageId: currentKeyboardTargetPageId(),
-    interactivePageId: interactivePageId(),
-    focusPresentation: buildFocusPresentationData(pages),
+    presenceCursors: currentPresenceSlice(),
     cameraTransitionStartedAt,
+    pageScroll: livePageScrollOffsets(),
+    annotationBboxes: annotationLiveBboxes(),
   } as LayoutUpdateData
+  lastLayoutData = shareLayoutData(lastLayoutData, built)
+  return lastLayoutData
 }
 
-function buildFocusPresentationData(
-  scenePages: CanvasScenePageEntity[],
-): FocusPresentationData | null {
+function buildFocusPresentationData(): FocusPresentationData | null {
   const focus = focusSession()
   if (!focus) return null
   if (focus.target.kind === 'file') {
@@ -455,8 +341,8 @@ function buildFocusPresentationData(
     }
   }
   const page = findPageById(focus.target.id)
-  const scenePage = scenePages.find((candidate) => candidate.id === focus.target.id)
-  if (!page || !scenePage) return null
+  if (!page) return null
+  const effective = effectivePageContentSize(page)
   const authored = pageContentSize(page)
   const preset = viewportPresetForIndex(page.presetIndex)
   const authoredLabel = pageUsesCustomSize(page.metadata) ? 'Custom' : preset.label
@@ -466,14 +352,14 @@ function buildFocusPresentationData(
     authoredLabel,
     authoredWidth: authored.width,
     authoredHeight: authored.height,
-    effectiveWidth: scenePage.width,
-    effectiveHeight: scenePage.height,
+    effectiveWidth: effective.width,
+    effectiveHeight: effective.height,
     annotationsVisible: focus.annotationsVisible,
   }
 }
 
 export function getCanvasLayoutData(): LayoutUpdateData {
-  return buildCanvasLayoutData(backgroundPageOverlays(), activeCanvasSelection())
+  return buildCanvasLayoutData(backgroundPageOverlays())
 }
 
 // Re-export sidebar builders from their dedicated module

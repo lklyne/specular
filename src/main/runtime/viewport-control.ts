@@ -2,6 +2,7 @@
 // Suppressed: see #141. space-autosave → space-observers import viewport-control back
 import { ipcChannels } from '../../shared/ipc-contract'
 import {
+  cameraTransitionStartedAt,
   interactivePageId,
   pages,
   pan,
@@ -31,8 +32,9 @@ import {
   currentEditingEntityId,
 } from './editing-entity-runtime'
 import { win } from './view-refs'
-import { requestLayout } from './layout-engine'
+import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
+import { isZoomInMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -42,7 +44,8 @@ import {
   pageVisualBoundsForContentSize,
 } from './runtime-geometry'
 import { scheduleSpaceAutosave } from './space-autosave'
-import { broadcastViewportNudge } from './viewport-nudge'
+import { broadcastRuntimePatch } from './runtime-patch-broadcast'
+import { broadcastFocusChange } from './runtime-slice-broadcast'
 import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
 import {
@@ -70,17 +73,116 @@ import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
+import {
+  adoptHandoffCaptures,
+  beginZoomGesture,
+  beginZoomSnapshotHandoff,
+  captureParkedPagesAtSettle,
+  endZoomGesture,
+  scheduleZoomSnapshotPreparation,
+} from './zoom-snapshot-freeze'
+import { markCameraInput } from './camera-input-clock'
 
-export function setZoom(value: number): void {
+let zoomGestureGen = 0
+
+export function setViewportCamera(
+  value: number,
+  nextPan: { x: number; y: number },
+): void {
   if (!suppressCameraAnimationCancel) cancelCameraAnimation()
   endFocusOnCameraChange()
   const nextZoom = clampCanvasZoom(value)
-  if (nextZoom === zoom) return
-  setZoomState(nextZoom)
-  markDirty('canvas', 'toolbar')
-  broadcastViewportNudge()
-  broadcastCanvasZoomToPages()
+  const zoomChanged = nextZoom !== zoom
+  const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
+  if (!zoomChanged && !panChanged) return
+
+  markCameraInput()
+  if (zoomChanged && !isZoomInMotion()) {
+    zoomGestureGen += 1
+    beginZoomGesture(zoomGestureGen)
+  }
+  if (zoomChanged) setZoomState(nextZoom)
+  if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
+
+  // Zoom and its anchor-correcting pan are one camera update. Publish only
+  // after both values land so no renderer observes a half-camera and the
+  // full-window grid redraws once per physical input tick.
+  //
+  // A camera move changes no entity: renderers project canvas-space geometry
+  // through the `camera` slice, so the whole update is that slice. The scene
+  // is not dirtied, so the pass below positions the native views and rebuilds
+  // nothing.
+  //
+  // The toolbar is not on the scene bus — its zoom readout rides the layout
+  // pass, so zoom keeps that flag.
+  if (zoomChanged) markDirty('toolbar')
+  // Move the native views first, then tell the renderers where the camera is,
+  // so the chrome ring never leads the page.
+  layoutAllViews()
+  broadcastCamera()
+  if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
+  if (zoomChanged) {
+    const gen = zoomGestureGen
+    markZoomMotion(() => {
+      void settleZoomGesture(gen)
+    })
+  }
+}
+
+/**
+ * The transition marker rides the camera slice, so a change to it is a camera
+ * patch like any other. Without this the marker that a tween sets would never
+ * be un-set on the wire — a camera move dirties no scene, so no later pass
+ * carries the clear — and chrome mounted afterwards would fast-forward its
+ * entrance animation into a transition that already ended.
+ */
+function setCameraTransition(startedAt: number | null): void {
+  if (cameraTransitionStartedAt === startedAt) return
+  setCameraTransitionStartedAt(startedAt)
+  broadcastCamera()
+}
+
+function broadcastCamera(): void {
+  broadcastRuntimePatch({
+    kind: 'slice',
+    slice: 'camera',
+    value: {
+      zoom,
+      pan: { x: pan.x, y: pan.y },
+      cameraTransitionStartedAt,
+    },
+  })
+}
+
+/**
+ * Settle for a frozen gesture runs as a handoff: lay out once with the parked
+ * views warm (sized and emulated at the settled scale, off-screen), wait for
+ * each to present a frame at that scale, then end the freeze and lay out
+ * again to reveal them. Revealing before that frame is on screen shows the
+ * pre-gesture surface stretched into the new bounds. The presented frames
+ * become the next gesture's snapshot, so the reveal is not followed by a
+ * second capture pass over every page.
+ */
+async function settleZoomGesture(gen: number): Promise<void> {
+  markDirty('canvas')
+  if (!beginZoomSnapshotHandoff(gen)) {
+    endZoomGesture(gen)
+    requestLayout()
+    scheduleZoomSnapshotPreparation()
+    return
+  }
+  layoutAllViews()
+  const captures = await captureParkedPagesAtSettle()
+  // A new gesture adopted the frames while we waited; it owns the settle now.
+  if (gen !== zoomGestureGen) return
+  endZoomGesture(gen)
+  layoutAllViews()
+  if (!(await adoptHandoffCaptures(captures))) scheduleZoomSnapshotPreparation()
+}
+
+export function setZoom(value: number): void {
+  setViewportCamera(value, pan)
 }
 
 export function broadcastCanvasZoomToPages(): void {
@@ -90,13 +192,7 @@ export function broadcastCanvasZoomToPages(): void {
 }
 
 export function setPan(x: number, y: number): void {
-  if (!suppressCameraAnimationCancel) cancelCameraAnimation()
-  endFocusOnCameraChange()
-  if (pan.x === x && pan.y === y) return
-  setPanState({ x, y })
-  markDirty('canvas')
-  broadcastViewportNudge()
-  if (!suppressCameraAutosave) scheduleSpaceAutosave()
+  setViewportCamera(zoom, { x, y })
 }
 
 // `requestLayout` lives in layout-engine (co-located with the private
@@ -154,13 +250,13 @@ function syncInteractiveToFocus(): void {
   if (interactivePageId() === nextPageId) return
   setInteractivePageId(nextPageId)
   sendInteractiveState()
+  broadcastFocusChange()
 }
 
 function setCameraForFocus(nextZoom: number, nextPan: { x: number; y: number }): void {
   suppressFocusReturnClear = true
   try {
-    setZoom(nextZoom)
-    setPan(nextPan.x, nextPan.y)
+    setViewportCamera(nextZoom, nextPan)
   } finally {
     suppressFocusReturnClear = false
   }
@@ -288,8 +384,7 @@ function applyCamera(camera: CanvasCamera, preserveFocusSession: boolean): void 
       setCameraForFocus(camera.zoom, camera.pan)
       return
     }
-    setZoom(camera.zoom)
-    setPan(camera.pan.x, camera.pan.y)
+    setViewportCamera(camera.zoom, camera.pan)
   } finally {
     suppressCameraAnimationCancel = false
     suppressCameraAutosave = false
@@ -302,7 +397,7 @@ export function cancelCameraAnimation(): void {
     clearInterval(cameraAnimationTimer)
     cameraAnimationTimer = null
   }
-  setCameraTransitionStartedAt(null)
+  setCameraTransition(null)
 }
 
 /**
@@ -324,7 +419,7 @@ export function moveCameraTo(targetCamera: CanvasCamera, options: CameraMoveOpti
   }
 
   const start = Date.now()
-  setCameraTransitionStartedAt(start)
+  setCameraTransition(start)
   cameraAnimationTimer = setInterval(() => {
     const t = Math.min(1, (Date.now() - start) / duration)
     applyCamera(interpolateCamera(startCamera, target, t), preserveFocusSession)
@@ -443,10 +538,9 @@ export function setFocusAnnotationsVisible(visible: boolean): boolean {
   if (!current) return false
   if (current.annotationsVisible === visible) return true
   setSessionAnnotationsVisible(visible)
-  // Mark canvas dirty so the next layout pass actually broadcasts layout-update
-  // (the broadcast is gated on the 'canvas' dirty flag) — otherwise the eye
-  // state only reaches the renderer on the next unrelated dirtying event.
-  markDirty('canvas')
+  // The eye rides the `focus` slice; the pass still runs because it decides
+  // whether the other pages' native views show as context.
+  broadcastFocusChange()
   requestLayout()
   return true
 }
@@ -596,7 +690,7 @@ export function focusSelection(options?: { storeReturnCamera?: boolean; animate?
   return true
 }
 
-function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
+export function panToCenterBoundsAtZoom(bounds: WorkspaceBounds, targetZoom: number): { x: number; y: number } {
   return computePanToCenterBoundsAtZoomValue({
     bounds,
     viewport: availableCanvasViewportRect(),

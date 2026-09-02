@@ -5,6 +5,7 @@
  */
 
 import type { ShapeKind } from './shapes'
+import type { TextFont } from './text-fonts'
 
 // --- Colors ---
 
@@ -43,6 +44,11 @@ export interface SpecularNodeExtensions {
    * (inner label). Missing → renderer defaults to 14 ("Small"). ADR 0013 §2.
    */
   textSize?: number
+  /**
+   * Per-entity typeface token for text (plain + sticky). Missing → 'sans'.
+   * A semantic token, not a family string — see shared/text-fonts.ts.
+   */
+  textFont?: TextFont
   /** Shape fill visibility. Missing → 'solid'. */
   fillStyle?: 'solid' | 'none'
   /** Shape inner-label alignment. Missing → center/middle. */
@@ -70,6 +76,7 @@ export interface SpecularNodeExtensions {
 export interface JsonCanvasTextNode extends JsonCanvasNodeBase {
   type: 'text'
   text: string
+  parentGroupId?: string
   specular?: SpecularNodeExtensions
 }
 
@@ -95,6 +102,7 @@ export interface JsonCanvasFileNode extends JsonCanvasNodeBase {
   // App-specific extensions (other tools ignore per spec extensibility model)
   objectFit?: 'contain' | 'cover' | 'fill'
   presetIndex?: number
+  parentGroupId?: string
   metadata?: Record<string, unknown>
   specular?: SpecularNodeExtensions
 }

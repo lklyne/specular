@@ -14,9 +14,10 @@ import {
   interactionState,
   interactivePageId,
   pages,
-  setHoverTarget,
   setInteractivePageId,
 } from './runtime-context'
+import { clearHoverTarget } from './hover-state'
+import { broadcastSelectionChange } from './runtime-slice-broadcast'
 import { workspaceEdges, workspaceGroups } from './space-model'
 import { cancelActive as cancelActiveInteraction } from './interaction-controller'
 import { clearInspectTargets, notifyDevtoolsPanelData, syncInspectionState } from './inspect-session'
@@ -149,13 +150,14 @@ function commitSelection(
 
   if (selectionEquals(getUiState().selection, nextSelection)) {
     if (shouldClearHover && hoverTarget) {
-      setHoverTarget(null)
+      clearHoverTarget()
     }
     if (shouldClearInteraction) cancelActiveInteraction('external')
     if (shouldClearInspect) clearInspectTargets()
     sendInteractiveState()
     if (shouldSyncInspection) syncInspectionState()
     if (shouldNotifyDevtools) notifyDevtoolsPanelData()
+    broadcastSelectionChange()
     requestLayout()
     return false
   }
@@ -183,7 +185,7 @@ function commitSelection(
   }
 
   if (shouldClearHover) {
-    setHoverTarget(null)
+    clearHoverTarget()
   }
   if (shouldClearInteraction) cancelActiveInteraction('external')
   if (shouldClearInspect) clearInspectTargets()
@@ -191,6 +193,11 @@ function commitSelection(
   sendInteractiveState()
   if (shouldSyncInspection) syncInspectionState()
   if (shouldNotifyDevtools) notifyDevtoolsPanelData()
+  // Selection moves no entity, so the scene has nothing to rebuild — the new
+  // selection and the keyboard target it implies ship as slice patches. The
+  // pass still runs: `reconcileFocus` and the page-cursor bridge act on that
+  // keyboard target, and the sidebar and toolbar read selection off the pass.
+  broadcastSelectionChange()
   requestLayout()
   return true
 }

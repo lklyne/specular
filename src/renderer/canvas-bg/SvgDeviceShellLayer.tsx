@@ -18,19 +18,19 @@
  * the right details panel, currently commented out).
  */
 
+import type { ProjectedPageEntity } from '../../shared/scene-projection'
 import { memo } from 'react'
-import type { CanvasScenePageEntity } from '../../shared/types'
 import {
   DEVICE_CATALOG,
   contentCornerRadiusForDevice,
 } from '../../shared/device-catalog'
-import { squirclePath } from './squirclePath'
+import { squirclePath } from '../shared/squirclePath'
 
 export const SvgDeviceShellLayer = memo(function SvgDeviceShellLayer({
   pages,
   isDark,
 }: {
-  pages: CanvasScenePageEntity[]
+  pages: ProjectedPageEntity[]
   isDark: boolean
 }) {
   const framedPages = pages.filter((f) => f.showDeviceFrame)

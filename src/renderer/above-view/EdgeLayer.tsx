@@ -7,15 +7,9 @@
  * origin sits at `canvasOrigin.y`, so subtract it from every y when laying
  * out SVG geometry — matching the rest of aboveView.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type {
-  CanvasInteractionState,
-  CanvasSceneEntity,
-  EdgeEnd,
-  EdgeLineStyle,
-  EdgeSide,
-  WorkspaceEdge,
-} from '../../shared/types'
+import type { ProjectedSceneEntity } from '../../shared/scene-projection'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { CanvasInteractionState, EdgeEnd, EdgeLineStyle, EdgeSide, WorkspaceEdge } from '../../shared/types'
 import { resolveCanvasColor } from '../../shared/canvas-colors'
 import {
   EDGE_ANCHOR_HIT_ACROSS_PX,
@@ -25,11 +19,11 @@ import {
   EDGE_SIDES,
 } from '../../shared/canvas-hit-geometry'
 import { anchorEligibleEntityIds, entityHasAnchors } from '../../shared/hit-test'
+import { useHoveredEntityId } from '../shared/hooks/useHoveredEntityId'
 import {
   autoSides,
   buildBezierPath,
   getAnchorPoint,
-  type AnchorPoint,
 } from '../../shared/edge-geometry'
 import { selectionColor, EDGE_COLOR_DEFAULT } from '../canvas-bg/canvasBgConstants'
 import { scaleEdgeHitTargetSize } from '../canvas-bg/edgeHitSizing'
@@ -46,10 +40,19 @@ const LABEL_GAP_PAD_Y = 0 // canvas units of vertical clearance above/below the 
 const END_ARROW_REF_X = 4.25
 const START_ARROW_REF_X = 0.75
 
+/**
+ * Marker ids key off the *stored* color token, never the resolved paint: the
+ * vivid palette resolves to `var(--canvas-ink-*)`, whose parentheses would
+ * make the `url(#…)` reference unparseable and drop the arrowhead.
+ */
+function edgeMarkerColorId(color: string): string {
+  return color.replace(/[^a-zA-Z0-9_-]/g, '')
+}
+
 // --- Geometry helpers ---
 
 function getAnchorHitRect(
-  entity: CanvasSceneEntity,
+  entity: ProjectedSceneEntity,
   side: EdgeSide,
   zoom: number,
   originY: number,
@@ -84,7 +87,7 @@ function AnchorDots({
   zoom,
   originY,
 }: {
-  entity: CanvasSceneEntity
+  entity: ProjectedSceneEntity
   isDark: boolean
   isDragging: boolean
   zoom: number
@@ -238,10 +241,9 @@ function EdgeBody({
 
 // --- Main EdgeLayer ---
 
-export function EdgeLayer({
+export const EdgeLayer = memo(function EdgeLayer({
   edges,
   entities,
-  hoveredEntityId,
   isDark,
   interaction,
   selectedEdgeIds,
@@ -253,8 +255,7 @@ export function EdgeLayer({
   zIndex = 5,
 }: {
   edges: WorkspaceEdge[]
-  entities: CanvasSceneEntity[]
-  hoveredEntityId: string | null
+  entities: ProjectedSceneEntity[]
   isDark: boolean
   interaction: CanvasInteractionState
   selectedEdgeIds: ReadonlySet<string>
@@ -266,7 +267,7 @@ export function EdgeLayer({
   zIndex?: number | undefined
 }) {
   const entityMap = useMemo(() => {
-    const map = new Map<string, CanvasSceneEntity>()
+    const map = new Map<string, ProjectedSceneEntity>()
     for (const e of entities) map.set(e.id, e)
     return map
   }, [entities])
@@ -315,6 +316,10 @@ export function EdgeLayer({
     return paths
   }, [edges, entityMap, selectedEdgeIds, zoom, originY])
 
+  // Hovering a node makes its anchors grabbable, so this layer subscribes to
+  // hover directly instead of taking it off the layout snapshot.
+  const hoveredEntityId = useHoveredEntityId()
+
   // Which entities show anchor dots: the shared eligibility selector (kept in
   // lockstep with the hit-tester's `collectAnchorTargets`), plus every entity
   // while an edge drag is live — all anchors are potential drop targets then.
@@ -355,19 +360,19 @@ export function EdgeLayer({
         </marker>
         {/* Per-color markers for colored edges (deduplicated) */}
         {[...new Set(edgePaths.map((p) => p.color).filter(Boolean))].map((color) => {
-          const hex = resolveCanvasColor(color!, {
+          const paint = resolveCanvasColor(color!, {
             palette: 'vivid',
             role: 'ink',
             isDark,
           })
-          const safeId = hex.replace('#', '')
+          const safeId = edgeMarkerColorId(color!)
           return (
             <g key={safeId}>
               <marker id={`arrow-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={END_ARROW_REF_X} refY={3} overflow="visible">
-                <path d="M 0 0 L 5 3 L 0 6 Z" fill={hex} />
+                <path d="M 0 0 L 5 3 L 0 6 Z" fill={paint} />
               </marker>
               <marker id={`arrow-start-color-${safeId}`} markerHeight={6} markerWidth={5} orient="auto" refX={START_ARROW_REF_X} refY={3} overflow="visible">
-                <path d="M 5 0 L 0 3 L 5 6 Z" fill={hex} />
+                <path d="M 5 0 L 0 3 L 5 6 Z" fill={paint} />
               </marker>
             </g>
           )
@@ -384,8 +389,8 @@ export function EdgeLayer({
           : resolvedColor ?? EDGE_COLOR_DEFAULT
         const markerSuffix = selected
           ? 'selected'
-          : resolvedColor
-            ? `color-${resolvedColor.replace('#', '')}`
+          : color
+            ? `color-${edgeMarkerColorId(color)}`
             : 'default'
         return (
         <g key={id}>
@@ -433,4 +438,4 @@ export function EdgeLayer({
       )) : null}
     </svg>
   )
-}
+})

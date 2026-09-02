@@ -3,13 +3,10 @@
 // directly off the single selected edge. Anchor math mirrors EdgeLayer: anchor
 // points arrive in overlay coords (y already offset by canvasOrigin.y).
 
+import type { ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Trash2, type LucideIcon } from 'lucide-react'
-import type {
-  CanvasSceneEntity,
-  LayoutUpdateData,
-  WorkspaceEdge,
-} from '../../shared/types'
+import type { WorkspaceEdge } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { slotForStorage } from '../../shared/canvas-colors'
 import { autoSides, getAnchorPoint } from '../../shared/edge-geometry'
@@ -60,7 +57,7 @@ export function EdgePopup({
 }: {
   api: Pick<CanvasBgElectronAPI, 'updateEdge' | 'deleteEdge'>
   isDark: boolean
-  layout: LayoutUpdateData
+  layout: ProjectedLayoutData
   edge: WorkspaceEdge | null
 }) {
   const [labelDraft, setLabelDraft] = useState<string | null>(null)
@@ -178,8 +175,8 @@ export function EdgePopup({
 }
 
 function findEntity(
-  entities: CanvasSceneEntity[],
+  entities: ProjectedSceneEntity[],
   id: string,
-): CanvasSceneEntity | undefined {
+): ProjectedSceneEntity | undefined {
   return entities.find((entity) => entity.id === id)
 }

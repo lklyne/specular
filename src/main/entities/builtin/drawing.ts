@@ -75,8 +75,7 @@ export const drawingKind: EntityKindDefinition<'drawing'> = {
     }
   },
 
-  buildSceneEntity: (entity, zoom, pan, origin) =>
-    buildDrawingEntitySceneEntity(entity as DrawingEntity, zoom, pan, origin),
+  buildSceneEntity: (entity) => buildDrawingEntitySceneEntity(entity as DrawingEntity),
 
   persist: (entity) => persistDrawingEntity(entity as DrawingEntity),
 }

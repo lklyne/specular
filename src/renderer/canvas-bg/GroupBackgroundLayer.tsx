@@ -1,12 +1,12 @@
+import type { ProjectedGroupEntity } from '../../shared/scene-projection'
 import { memo } from 'react'
-import type { CanvasSceneGroupEntity } from '../../shared/types'
 import { groupSurfaceStyle } from '../shared/groupSurfaceStyle'
 
 export const GroupBackgroundLayer = memo(function GroupBackgroundLayer({
   groups,
   isDark,
 }: {
-  groups: CanvasSceneGroupEntity[]
+  groups: ProjectedGroupEntity[]
   isDark: boolean
 }) {
   if (!groups.length) return null

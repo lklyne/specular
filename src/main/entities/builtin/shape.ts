@@ -90,8 +90,7 @@ export const shapeKind: EntityKindDefinition<'shape'> = {
     }
   },
 
-  buildSceneEntity: (entity, zoom, pan, origin) =>
-    buildShapeEntitySceneEntity(entity as ShapeEntity, zoom, pan, origin),
+  buildSceneEntity: (entity) => buildShapeEntitySceneEntity(entity as ShapeEntity),
 
   persist: (entity) => persistShapeEntity(entity as ShapeEntity),
 }

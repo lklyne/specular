@@ -17,6 +17,7 @@ import { regionCanvasRect } from '../runtime/page-anchor-state'
 import { dispatchScrollToAnnotation } from '../runtime/annotation-scroll-target'
 import { revealPageAnchoredContent } from '../runtime/page-anchor-reveal'
 import { setPendingFocus } from '../runtime/runtime-context'
+import { broadcastInspectSlice } from '../runtime/inspect-session'
 import { requestLayout } from '../runtime/viewport-control'
 import {
   focusCanvasBounds,
@@ -29,7 +30,6 @@ import {
 } from '../runtime/ui-actions'
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
-import { markDirty } from '../runtime/layout-dirty'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -116,7 +116,7 @@ export function registerAnnotationInspectionIpc(): void {
     if (!page) return
     if (!payload || typeof payload !== 'object') {
       setHoveredInspectTarget(null)
-      markDirty('canvas')
+      broadcastInspectSlice()
       requestLayout()
       return
     }
@@ -124,7 +124,7 @@ export function registerAnnotationInspectionIpc(): void {
       ...payload,
       pageId: page.id,
     })
-    markDirty('canvas')
+    broadcastInspectSlice()
     requestLayout()
   })
 
@@ -141,7 +141,7 @@ export function registerAnnotationInspectionIpc(): void {
       ...payload,
       pageId: page.id,
     })
-    markDirty('canvas')
+    broadcastInspectSlice()
     requestLayout()
   })
 

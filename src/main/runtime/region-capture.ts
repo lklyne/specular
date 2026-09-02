@@ -24,6 +24,7 @@ import {
   showDeviceFrameFromMetadata,
 } from './runtime-entities'
 import { contentCornerRadiusForDevice } from '../../shared/device-catalog'
+import { projectToScreen, type ScreenBounds } from '../../shared/scene-projection'
 
 function sendCaptureMode(webContents: WebContents | undefined, active: boolean): void {
   if (!webContents || webContents.isDestroyed()) return
@@ -44,19 +45,8 @@ function setRendererCaptureMode(active: boolean): void {
   }
 }
 
-function canvasRectToScreenRect(canvasRect: WorkspaceBounds): {
-  x: number
-  y: number
-  width: number
-  height: number
-} {
-  const origin = boundCanvasOrigin()
-  return {
-    x: origin.x + canvasRect.x * zoom + pan.x,
-    y: origin.y + canvasRect.y * zoom + pan.y,
-    width: canvasRect.width * zoom,
-    height: canvasRect.height * zoom,
-  }
+function canvasRectToScreenBounds(canvasRect: WorkspaceBounds): ScreenBounds {
+  return projectToScreen(canvasRect, { zoom, pan }, boundCanvasOrigin())
 }
 
 function pageCornerRadiusPx(page: Page, dpr: number): number {
@@ -171,7 +161,7 @@ async function captureRegionInternal(
 
   if (opts?.includeBgView && bgView && !bgView.webContents.isDestroyed()) {
     // Convert canvas rect to screen coordinates for the bgView crop.
-    const screenRect = canvasRectToScreenRect(canvasRect)
+    const screenRect = canvasRectToScreenBounds(canvasRect)
     const bgCapture = await captureViewRegion(bgView, screenRect, { dpr })
     if (bgCapture) blitCapture(bgCapture, outBuf, outW, outH, { blend: false })
   }
@@ -230,7 +220,7 @@ async function captureRegionInternal(
 
   // Composite above-view (entity bodies: drawings, stickies, notes, shapes) on top.
   if (aboveView && !aboveView.webContents.isDestroyed()) {
-    const screenRect = canvasRectToScreenRect(canvasRect)
+    const screenRect = canvasRectToScreenBounds(canvasRect)
     const aboveCapture = await captureViewRegion(aboveView, screenRect, { dpr })
     if (aboveCapture) blitCapture(aboveCapture, outBuf, outW, outH, { blend: true })
   }

@@ -1,4 +1,5 @@
 import { GRID_SIZE } from '../../shared/constants'
+import { prepareScreenCanvas } from '../shared/screenCanvas'
 
 const MIN_GRID_SPACING_PX = 8
 const FULL_OPACITY_SPACING_PX = 18
@@ -6,11 +7,6 @@ const MAX_GRID_STEP_MULTIPLIER = 64
 
 function devicePixelRatioOrOne(devicePixelRatio: number) {
   return Math.max(devicePixelRatio, 1)
-}
-
-function snapToDevicePixel(value: number, devicePixelRatio: number) {
-  const dpr = devicePixelRatioOrOne(devicePixelRatio)
-  return Math.round(value * dpr) / dpr
 }
 
 function gridStepMultiplierForZoom(zoom: number) {
@@ -62,6 +58,36 @@ function buildCanvasGridMetrics({
   }
 }
 
+/**
+ * One tile of the dot field, in device pixels, cached across frames. The dot
+ * sits at the tile's centre so the repeat never clips it — a dot on the tile
+ * origin would paint one quarter of itself and neighbouring tiles would supply
+ * nothing for the other three.
+ */
+let cachedDotTile: { canvas: HTMLCanvasElement; key: string } | null = null
+
+function gridDotTile(
+  tileDevicePx: number,
+  radiusDevicePx: number,
+  color: string,
+): HTMLCanvasElement | null {
+  const key = `${tileDevicePx}:${radiusDevicePx}:${color}`
+  if (cachedDotTile?.key === key) return cachedDotTile.canvas
+
+  const canvas = document.createElement('canvas')
+  canvas.width = tileDevicePx
+  canvas.height = tileDevicePx
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  const centre = Math.round(tileDevicePx / 2)
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.arc(centre, centre, radiusDevicePx, 0, Math.PI * 2)
+  ctx.fill()
+  cachedDotTile = { canvas, key }
+  return canvas
+}
+
 export function buildCanvasGridStyle() {
   return {
     backgroundColor: 'var(--surface-canvas)',
@@ -85,20 +111,9 @@ export function drawCanvasGrid({
   isDark: boolean
   devicePixelRatio: number
 }) {
-  const dpr = devicePixelRatioOrOne(devicePixelRatio)
-  const width = canvas.clientWidth
-  const height = canvas.clientHeight
-  const targetWidth = Math.max(1, Math.ceil(width * dpr))
-  const targetHeight = Math.max(1, Math.ceil(height * dpr))
-
-  if (canvas.width !== targetWidth) canvas.width = targetWidth
-  if (canvas.height !== targetHeight) canvas.height = targetHeight
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  ctx.clearRect(0, 0, width, height)
+  const prepared = prepareScreenCanvas(canvas, devicePixelRatioOrOne(devicePixelRatio))
+  if (!prepared) return
+  const { ctx, width, height, dpr } = prepared
 
   const metrics = buildCanvasGridMetrics({
     canvasOrigin,
@@ -111,21 +126,30 @@ export function drawCanvasGrid({
   const { spacing, originX, originY, dotRadius, alpha } = metrics
   if (!Number.isFinite(spacing) || spacing <= 0) return
 
-  const startX = originX + Math.ceil((0 - originX) / spacing) * spacing
-  const startY = originY + Math.ceil((0 - originY) / spacing) * spacing
+  // A tile spanning a whole number of device pixels lands every dot on the
+  // device grid, so the whole field stays crisp without rounding each dot's
+  // centre by hand. Rounding the tile moves the spacing by well under a pixel.
+  const tileDevicePx = Math.max(1, Math.round(spacing * dpr))
+  const tile = gridDotTile(tileDevicePx, dotRadius * dpr, color)
+  if (!tile) return
+  const pattern = ctx.createPattern(tile, 'repeat')
+  if (!pattern) return
 
-  ctx.fillStyle = color
+  // The tile carries its dot at the centre, so the field is phased by the grid
+  // origin less half a tile. Only the offset within one tile matters; the
+  // repeat covers the rest.
+  const tileCssPx = tileDevicePx / dpr
+  const centreCssPx = Math.round(tileDevicePx / 2) / dpr
+  const phase = (value: number) =>
+    (((value - centreCssPx) % tileCssPx) + tileCssPx) % tileCssPx
+  // The pattern draws one image pixel per user unit, and user units are CSS
+  // pixels here, so it scales back down to device pixels before phasing.
+  pattern.setTransform(
+    new DOMMatrix().translate(phase(originX), phase(originY)).scale(1 / dpr),
+  )
+
+  ctx.fillStyle = pattern
   ctx.globalAlpha = alpha
-
-  for (let y = startY; y <= height; y += spacing) {
-    const snappedY = snapToDevicePixel(y, dpr)
-    for (let x = startX; x <= width; x += spacing) {
-      const snappedX = snapToDevicePixel(x, dpr)
-      ctx.beginPath()
-      ctx.arc(snappedX, snappedY, dotRadius, 0, Math.PI * 2)
-      ctx.fill()
-    }
-  }
-
+  ctx.fillRect(0, 0, width, height)
   ctx.globalAlpha = 1
 }

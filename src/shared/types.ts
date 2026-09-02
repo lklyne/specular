@@ -1,20 +1,16 @@
-import type {
-  CurveDirection,
-  EasingPreset,
-  EasingSpec,
-  MotionCandidate,
-  Vec2,
-} from './cursor-motion'
+import type { EasingPreset, EasingSpec } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
 import type { PageAnchor } from './page-anchor'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
 import type { AmbientDriftMode } from './presence-ambient'
 import type { LocatorBundle, LocatorResolution } from './locator-kernel'
+import type { TextFont } from './text-fonts'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { PageAnchor } from './page-anchor'
 export type { ToolDefaultPatch } from './tool-defaults'
+export type { TextFont } from './text-fonts'
 
 // --- IPC Channel Types ---
 
@@ -121,7 +117,6 @@ export interface CanvasScenePageEntity {
   canGoBack: boolean
   canGoForward: boolean
   isLoading: boolean
-  isCustomSize: boolean
   canvasX: number
   canvasY: number
   width: number
@@ -131,20 +126,10 @@ export interface CanvasScenePageEntity {
   synced: boolean
   /** The page's sync-set id, so a selection can tell "all one set" from "each in some set". */
   syncId: string | null
-  /** Outer screen bounds (includes shell when device page is on). */
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   /** Device page state. */
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Inner content screen bounds (always the web viewport). */
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
   /** Use SVG rendering for the device shell (A/B toggle). */
   useSvgDeviceShell?: boolean
   /** Optional — absent means the page follows the system color scheme. */
@@ -207,16 +192,14 @@ export interface CanvasSceneTextEntity {
   widthMode: TextWidthMode
   /** Per-entity text size in px. Missing → renderer default (18). ADR 0013 §2. */
   textSize?: number
+  /** Per-entity typeface token. Missing → 'sans'. See shared/text-fonts.ts. */
+  textFont?: TextFont
   /** Apparent position: for page-anchored text the scroll-follow shift is
    *  already applied (see shared/page-anchor.ts `scrollX/scrollY`). */
   canvasX: number
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
   /** Present when the text is hooked to a page (see shared/page-anchor.ts).
    *  The renderer clips/fades it inside that page's overlay band. */
@@ -232,10 +215,6 @@ export interface CanvasSceneFileEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
@@ -276,11 +255,6 @@ export interface CanvasSceneFileEntity {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Inner content screen bounds (when device page is on). */
-  contentScreenX?: number
-  contentScreenY?: number
-  contentScreenWidth?: number
-  contentScreenHeight?: number
   /**
    * Incremented by the main-process file watcher each time the underlying file
    * changes on disk. Renderers use this as a remount key or refetch trigger so
@@ -298,10 +272,6 @@ export interface CanvasSceneGroupEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   parentGroupId?: string
   layoutMode: WorkspaceGroupLayoutMode
   managedLayout: boolean
@@ -320,10 +290,6 @@ export interface CanvasSceneDrawingEntity {
   canvasY: number
   width: number
   height: number
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
   strokes: AnnotationDrawingStroke[]
   parentGroupId?: string
   /** Present when the drawing is hooked to a page (see shared/page-anchor.ts).
@@ -360,10 +326,6 @@ export interface CanvasSceneShapeEntity {
   /** Present when the shape is hooked to a page (see shared/page-anchor.ts).
    *  The renderer clips/fades the shape inside that page's overlay band. */
   pageAnchor?: PageAnchor
-  screenX: number
-  screenY: number
-  screenWidth: number
-  screenHeight: number
 }
 
 export type CanvasSceneEntity =
@@ -374,14 +336,6 @@ export type CanvasSceneEntity =
   | CanvasSceneDrawingEntity
   | CanvasSceneShapeEntity
 
-export interface ActiveCanvasEntitySelection {
-  entityRef: CanvasEntityRef
-  label: string
-  width: number
-  height: number
-  presetIndex: number
-}
-
 export interface PendingPlacement {
   entityKind: CanvasEntityKind
   presetIndex?: number
@@ -391,6 +345,8 @@ export interface PendingPlacement {
   color?: string
   /** Text size in canvas units for plain-text placement preview. */
   textSize?: number
+  /** Typeface token for the text placement preview, so the ghost matches the picker. */
+  textFont?: TextFont
   width: number
   height: number
 }
@@ -433,6 +389,8 @@ export interface PersistedTextEntity extends CanvasEntityBase {
   widthMode?: TextWidthMode
   /** Optional — renderer defaults to 14 ("Small") when absent. ADR 0013 §2. */
   textSize?: number
+  /** Optional — renderer defaults to 'sans' when absent. See shared/text-fonts.ts. */
+  textFont?: TextFont
   label?: string
   /** Present when the entity is hooked to a page (see shared/page-anchor.ts). */
   pageAnchor?: PageAnchor
@@ -512,10 +470,12 @@ export interface LayoutUpdateData {
   /**
    * Wall-clock milliseconds `buildCanvasLayoutData` took to produce this
    * payload, stamped by the layout pass. Diagnostic only — feeds the canvas
-   * perf HUD so the O(entities) rebuild cost is visible during pan/zoom. See
-   * #257 / #265.
+   * perf HUD so the O(entities) rebuild cost is visible. See #257 / #265.
    */
   buildMs?: number
+  /** The idle verdict (ADR 0035): nobody is looking and no agent is working,
+   *  so renderers may stop animating content they host. */
+  idle?: boolean
   windowWidth: number
   zoom: number
   pan: { x: number; y: number }
@@ -551,7 +511,6 @@ export interface LayoutUpdateData {
    */
   selectionOperandIds: string[]
   selection: CanvasSelectableTarget[]
-  activeSelection: ActiveCanvasEntitySelection | null
   activeTool: Tool
   /** Per-tool persistent defaults (ADR 0008 §9). Tool-mode popup reads/writes. */
   toolDefaults: import('./tool-defaults').ToolDefaults
@@ -567,6 +526,20 @@ export interface LayoutUpdateData {
   edges: WorkspaceEdge[]
   groups?: CanvasSceneGroupEntity[]
   presenceCursors: AgentPresenceCursor[]
+  /**
+   * Every live page's *current* scroll offset, keyed by page id.
+   *
+   * Distinct from the `scrollX`/`scrollY` on a page scene entity, and the
+   * difference is the point: the entity carries the offset the scene was
+   * projected from, this carries the offset the page is at now. Overlays
+   * positioned in document space render from the former and shift by the
+   * delta to the latter, so they track the page's native compositor scroll
+   * instead of the layout pass that will eventually catch up.
+   */
+  pageScroll: PageScrollOffsets
+  /** Live document positions of element-anchored annotation popovers, keyed by
+   *  annotation id (ADR 0006). */
+  annotationBboxes: AnnotationLiveBboxes
   /** Predicate-derived: the page id that should hold keyboard + receive
    *  forwarded input, or null. See `shouldFocusSelectedPage`. */
   keyboardTargetPageId: string | null
@@ -1796,16 +1769,30 @@ export interface CreateEdgesResponse {
 
 // --- Electron API Interfaces (exposed via contextBridge) ---
 
+/** Which overlay a frozen-page publish targets: the page-body layer (`bg`) or
+ *  the above-pages input/annotation layer (`above`). Each target gets its own
+ *  revision sequence and ready-ack, so one freeze consumer never waits on
+ *  another's renderer. */
+export type FreezeTarget = 'bg' | 'above'
+
+export interface FrozenPageFrame {
+  pageId: string
+  /** The page content state this frame pictures; see `pageContentKey`. */
+  contentKey: string
+  dataUrl: string
+  capturedWidth: number
+  capturedHeight: number
+}
+
 /**
- * The authoritative viewport, pushed to the overlay renderers immediately on a
- * pan/zoom — ahead of the debounced `layout-update` rebuild. The canvas scene
- * layers translate by (livePan − payloadPan) so selection chrome and entity
- * bodies track the natively-positioned page views during a pan instead of
- * waiting for the next full rebuild. See #257.
+ * Frozen-page frames for one target renderer. They are decoded there
+ * before the live WebContentsViews are hidden.
  */
-export interface ViewportNudge {
-  pan: { x: number; y: number }
-  zoom: number
+export interface FrozenPagesState {
+  revision: number
+  target: FreezeTarget
+  active: boolean
+  frames: FrozenPageFrame[]
 }
 
 /**
@@ -1816,7 +1803,7 @@ export interface ViewportNudge {
  * `src/main/entities/builtin/*.ts`).
  */
 export interface EntityUpdatePatchMap {
-  text: { text?: string; color?: string; textSize?: number; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
+  text: { text?: string; color?: string; textSize?: number; textFont?: TextFont; width?: number; height?: number; canvasX?: number; canvasY?: number; widthMode?: TextWidthMode }
   file: { width?: number; height?: number; canvasX?: number; canvasY?: number; objectFit?: FileObjectFit }
   drawing: { width?: number; height?: number; canvasX?: number; canvasY?: number; strokes?: AnnotationDrawingStroke[] }
   shape: { shapeKind?: ShapeKind; text?: string; color?: string; fillStyle?: ShapeFillStyle; strokeWidth?: number; borderStyle?: ShapeBorderStyle; borderColor?: string; textSize?: number; textAlign?: ShapeTextAlign; textVerticalAlign?: ShapeTextVerticalAlign; theme?: string; width?: number; height?: number; canvasX?: number; canvasY?: number }
@@ -2105,14 +2092,30 @@ export interface AnnotationBboxSubscription {
   selector: string
 }
 
-/** Live-bbox response from a page. `boundingBox` is null when the selector no
- *  longer resolves (stale anchor). The renderer keeps the last-known live
- *  bbox in that case and renders a "stale" hint. */
-export interface AnnotationLiveBboxUpdate {
-  pageId: string
+/** One page's live bbox report. `boundingBox` is null when the selector no
+ *  longer resolves. Page → main only; main folds it into `annotationBboxes`. */
+export interface AnnotationBboxReport {
   annotationId: string
   boundingBox: DevtoolsPanelDomRect | null
 }
+
+/**
+ * Where an element-anchored annotation's popover sits right now.
+ *
+ * `boundingBox` holds the last position the page reported and survives the
+ * selector going stale, so a popover whose element disappeared stays put
+ * instead of jumping to (0,0); `stale` is what turns that into a visible hint.
+ */
+export interface AnnotationLiveBbox {
+  pageId: string
+  boundingBox: DevtoolsPanelDomRect | null
+  stale: boolean
+}
+
+export type AnnotationLiveBboxes = Record<string, AnnotationLiveBbox>
+
+/** Scroll offset per page id, in raw page CSS pixels. */
+export type PageScrollOffsets = Record<string, { scrollX: number; scrollY: number }>
 
 /** Element-attachment reflow tracking (ADR 0032). Main declares, per page, the
  *  distinct DOM selectors that anchored items reference; the page resolves them

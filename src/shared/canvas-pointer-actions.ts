@@ -223,6 +223,15 @@ function routeByPayload(
         groupId: payload.groupId,
         preserveSelection: context.selectedGroupId === payload.groupId,
       }
+    case 'group-label':
+      // The title is a pure group handle: press-and-release selects, a
+      // threshold-crossing drag moves the group (option-copy aware). Rename
+      // arrives via double-click, never plain click.
+      return {
+        kind: 'begin-group-drag',
+        groupId: payload.groupId,
+        preserveSelection: context.selectedGroupId === payload.groupId,
+      }
     case 'entity-body':
       return routeEntityBody(payload, context)
     case 'background':
@@ -234,17 +243,23 @@ function routePageBody(
   payload: Extract<HitPayload, { kind: 'page-body' }>,
   context: CanvasPointerContext,
 ): CanvasPointerAction {
+  // An entered page owns every pointerdown on its body, modifiers included:
+  // web content binds shift/cmd/alt to its own gestures (shift-drag range
+  // select, cmd-click open-in-new-tab, alt-drag in design tools), and a
+  // canvas-level marquee or selection toggle would swallow them. Leaving the
+  // page (Escape, click outside) restores canvas modifier semantics.
+  if (context.interactivePageId === payload.entityId) {
+    return { kind: 'forward-pointer-down', entityId: payload.entityId, button: context.button }
+  }
   if (commandModifierHeld(context.modifiers)) {
     return {
       kind: 'begin-marquee',
       originEntity: { entityId: payload.entityId, entityKind: 'page' },
     }
   }
-  // Additive modifier wins over the forward-into-page shortcut: shift/
-  // cmd-click on the page body must reach the selection system so users
-  // can extend a multi-selection from a single-selected page (the page
-  // content blocker is removed in that state, so the click would
-  // otherwise land in the webpage). Mirrors `entity-body`.
+  // A page that is selected but not entered leaves its modifiers to the
+  // selection system, so shift/cmd-click extends a multi-selection instead
+  // of taking the enter-page shortcut below. Mirrors `entity-body`.
   if (isAdditive(context.modifiers)) {
     return { kind: 'toggle-select', entityId: payload.entityId, entityKind: 'page' }
   }
@@ -256,12 +271,8 @@ function routePageBody(
     }
   }
   // Select-first / interact-second (#124):
-  //  - entered page → forward the pointer into its web content;
   //  - already single-selected (not entered) → the second click enters;
   //  - otherwise (unselected / multi) → click-to-select / drag-to-move.
-  if (context.interactivePageId === payload.entityId) {
-    return { kind: 'forward-pointer-down', entityId: payload.entityId, button: context.button }
-  }
   if (isSingleSelected(context, payload.entityId)) {
     return { kind: 'enter-page-interactive', entityId: payload.entityId }
   }
@@ -370,9 +381,9 @@ function isSingleSelected(context: CanvasPointerContext, entityId: string): bool
  */
 export type CanvasPointerDoubleClickAction =
   | { kind: 'noop' }
-  /** Enter inline edit on any editable canvas item (text, sticky, shape).
-   *  Group rename is dispatched by the rename label's own dblclick; group-body
-   *  dblclick still descends via `enter-group`. */
+  /** Enter inline edit on any editable canvas item (text, sticky, shape) or
+   *  a group's title (rename); group-body dblclick descends via
+   *  `enter-group` instead. */
   | { kind: 'request-entity-edit'; entityId: string }
   | { kind: 'enter-group'; groupId: string }
   /** Double-click an interactive file (HTML iframe) → enter interactivity.
@@ -387,6 +398,8 @@ export function routePointerDoubleClick(
   target: HitTarget,
 ): CanvasPointerDoubleClickAction {
   switch (target.payload.kind) {
+    case 'group-label':
+      return { kind: 'request-entity-edit', entityId: target.payload.groupId }
     case 'page-body':
       return { kind: 'enter-page-interactive', entityId: target.payload.entityId }
     case 'entity-body':

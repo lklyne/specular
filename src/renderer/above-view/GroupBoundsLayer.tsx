@@ -8,6 +8,7 @@
  * against the layout snapshot, not by direct DOM events on this surface.
  */
 import { memo } from 'react'
+import type { SceneView } from '../../shared/scene-projection'
 import type { CanvasSceneGroupEntity } from '../../shared/types'
 import { selectionColor } from '../canvas-bg/canvasBgConstants'
 import { groupSurfaceStyle } from '../shared/groupSurfaceStyle'
@@ -16,23 +17,19 @@ import { CanvasViewportLayer } from './CanvasViewportLayer'
 export const GroupBoundsLayer = memo(function GroupBoundsLayer({
   groups,
   isDark,
-  zoom,
-  canvasOrigin,
-  pan,
+  view,
   dropTargetGroupId,
 }: {
   groups: CanvasSceneGroupEntity[]
   isDark: boolean
-  zoom: number
-  canvasOrigin: { x: number; y: number }
-  pan: { x: number; y: number }
+  view: SceneView
   dropTargetGroupId: string | null
 }) {
   if (!groups.length) return null
-  const inverseScale = 1 / zoom
+  const inverseScale = 1 / view.zoom
 
   return (
-    <CanvasViewportLayer canvasOrigin={canvasOrigin} pan={pan} zoom={zoom}>
+    <CanvasViewportLayer view={view}>
       {groups.map((group) => (
         <GroupBoundsItem
           key={group.id}

@@ -11,7 +11,7 @@ import {
   fixAnnotation,
   fixPendingAnnotationsForOrigin,
 } from '../agent-fix/fix-orchestrator'
-import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
+import { broadcastInspectSlice, notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
   deleteEdge,
   updateEdge,
@@ -33,7 +33,6 @@ import {
   setSelectedInspectTarget,
 } from '../runtime/ui-actions'
 import { requestLayout } from '../runtime/viewport-control'
-import { markDirty } from '../runtime/layout-dirty'
 import { repoPickerDefaultPath } from '../runtime/picker-defaults'
 import {
   addAnnotationReply,
@@ -139,7 +138,7 @@ export function registerRightDetailsPanelIpc(): void {
 
   ipcMain.on(ipcChannels.rightDetailsPanelClearInspectSelection, () => {
     setSelectedInspectTarget(null)
-    markDirty('canvas')
+    broadcastInspectSlice()
     requestLayout()
   })
 
@@ -157,7 +156,7 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, { pageId, nodeId }: { pageId: string; nodeId: string | null }) => {
       if (!pageId) return
       setInspectNodeFromPanel(pageId, nodeId, false)
-      markDirty('canvas')
+      broadcastInspectSlice()
       requestLayout()
     },
   )
@@ -171,7 +170,7 @@ export function registerRightDetailsPanelIpc(): void {
       }
       setSelectedInspectNodeById(pageId, nodeId)
       setInspectNodeFromPanel(pageId, nodeId, true)
-      markDirty('canvas')
+      broadcastInspectSlice()
       requestLayout()
     },
   )

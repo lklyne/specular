@@ -1,6 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
-import type { CanvasDragStartSelection, CanvasHoverTarget } from '../../shared/types'
+import type { CanvasDragStartSelection, CanvasHoverTarget, FreezeTarget } from '../../shared/types'
 import {
   applyDragDelta,
   finalizeDrag,
@@ -26,7 +26,7 @@ import { setHoverEntity } from '../runtime/runtime-core'
 import type { EdgeSide } from '../../shared/types'
 import type { ResizeHandle } from '../../shared/resize-accumulator'
 import { requestLayout } from '../runtime/viewport-control'
-import { enqueueViewportInputDelta } from '../runtime/viewport-input'
+import { applyViewportInputDelta } from '../runtime/viewport-input'
 import { isFocusSessionActive } from '../runtime/focus-session'
 import { setSelectionOverlayRect } from '../runtime/window-shell'
 import {
@@ -45,6 +45,8 @@ import { resolveSelectionScope } from '../runtime/selection-scope'
 import { duplicateGroup } from '../workspace-groups'
 import { reflowManagedGroupForChild } from '../managed-layout'
 import { reparentEntitiesInGesture } from '../runtime/group-membership'
+import { markRendererReady } from '../runtime/page-freeze'
+import { beginDragFreeze, endDragFreeze } from '../runtime/drag-freeze'
 
 // The entity currently being resized, captured at resize-begin so resize-end can
 // reflow its managed group (if any) before committing the gesture's undo step.
@@ -117,11 +119,17 @@ function endDragSession(
 
 export function registerCanvasDragIpc(): void {
   ipcMain.on(
+    ipcChannels.frozenPagesReady,
+    (_event, { target, revision }: { target: FreezeTarget; revision: number }) => {
+      if (Number.isFinite(revision)) markRendererReady(target, revision)
+    },
+  )
+  ipcMain.on(
     ipcChannels.canvasZoom,
     (_event, data: { deltaY: number; mouseX: number; mouseY: number }) => {
       // Focus presentation locks the camera on the page; exit is escape/button/dim-click only.
       if (isFocusSessionActive()) return
-      enqueueViewportInputDelta({
+      applyViewportInputDelta({
         zoomDeltaY: data.deltaY,
         mouseX: data.mouseX,
         mouseY: data.mouseY,
@@ -131,7 +139,7 @@ export function registerCanvasDragIpc(): void {
 
   ipcMain.on(ipcChannels.canvasPan, (_event, { deltaX, deltaY }: { deltaX: number; deltaY: number }) => {
     if (isFocusSessionActive()) return
-    enqueueViewportInputDelta({ panDeltaX: -deltaX, panDeltaY: -deltaY })
+    applyViewportInputDelta({ panDeltaX: -deltaX, panDeltaY: -deltaY })
   })
 
   ipcMain.on(
@@ -159,7 +167,12 @@ export function registerCanvasDragIpc(): void {
       // drag's window blur listener treats as a cancel.
       const scope = resolveSelectionScope(pageId)
       const started = beginDragSession('page', scope.operandIds, scope.memberIds)
-      if (started) applyDragStartSelection(pageId, selection)
+      if (started) {
+        applyDragStartSelection(pageId, selection)
+        void beginDragFreeze(scope.operandIds).catch((error) => {
+          console.warn('[drag-freeze] begin failed:', error)
+        })
+      }
     },
   )
 
@@ -190,6 +203,10 @@ export function registerCanvasDragIpc(): void {
         payload?.parentGroupId,
         payload?.suppressDropBinding,
       )
+      // Reparenting/finalizeDrag above can move the page (drop-into-group);
+      // ending the freeze after that commit is what makes its synchronous
+      // layout pass compute the page's true final bounds.
+      endDragFreeze()
       requestLayout()
     },
   )

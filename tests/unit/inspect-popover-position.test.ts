@@ -14,7 +14,6 @@ function page(overrides: Partial<CanvasScenePageEntity> = {}): CanvasScenePageEn
     canGoBack: false,
     canGoForward: false,
     isLoading: false,
-    isCustomSize: false,
     canvasX: 0,
     canvasY: 0,
     width: 1000,

@@ -4,6 +4,7 @@
 
 import { ipcChannels } from '../../shared/ipc-contract'
 import { WebContentsView } from 'electron'
+import { registerPageIdleThrottle } from './page-idle-throttle'
 import { randomUUID } from 'crypto'
 import { preloadPath } from './load-renderer'
 import type { PageConfig } from '../../shared/types'
@@ -30,9 +31,15 @@ import { normalizePresetIndex } from './runtime-serialization'
 import type { Page } from './runtime-entities'
 import { pageOverridesFromMetadata } from './runtime-entities'
 import { markDirty } from './layout-dirty'
+import {
+  broadcastPageChrome,
+  refreshPageChrome,
+  refreshPageNavigationState,
+} from './page-chrome-state'
 import { clearPageAnchorsForPage } from './page-anchor-state'
 import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
+import { applyNavigationEmulation } from './layout-engine'
 import { endFocusSession, focusedPageId } from './focus-session'
 import {
   clearInspectTargets,
@@ -77,28 +84,12 @@ function makePageId(): string {
   return `page_${randomUUID()}`
 }
 
-function frameColor(): string {
-  const { nativeTheme } = require('electron')
-  const isDark = nativeTheme.shouldUseDarkColors
-  // Match --surface-device-border token (stone-400 light, stone-600 dark)
-  return isDark ? '#57534e' : '#a8a29e'
-}
-
 export function createPage(config: PageConfig): Page {
   if (!win || !toolbarView) throw new Error('Window not initialized')
   const presetIndex = normalizePresetIndex(config.presetIndex)
 
   // Construction only — the layout pass child-list reconcile (layer-stack)
   // owns attachment. createPage just pushes to pages[] and requests layout.
-  const frameView = new WebContentsView({
-    webPreferences: {
-      focusOnNavigation: false,
-    },
-  })
-  frameView.setBackgroundColor(frameColor())
-  frameView.setBorderRadius(CARD_BORDER_RADIUS)
-  frameView.webContents.loadURL('about:blank')
-
   const pageView = new WebContentsView({
     webPreferences: {
       preload: preloadPath('page-content'),
@@ -115,7 +106,6 @@ export function createPage(config: PageConfig): Page {
     title: config.name?.trim() || undefined,
     url: config.url,
     faviconUrl: null,
-    frameView,
     pageView,
     devtoolsHostAttached: false,
     presetIndex,
@@ -139,23 +129,27 @@ export function createPage(config: PageConfig): Page {
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')
 
+  registerPageIdleThrottle(page)
   installScrollbarCss(page.pageView.webContents)
 
   page.pageView.webContents.on('page-title-updated', () => {
     page.title = page.pageView.webContents.getTitle() || undefined
-    requestLayout()
+    broadcastPageChrome(page)
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
   })
   page.pageView.webContents.on('page-favicon-updated', (_event, favicons) => {
     page.faviconUrl = favicons[0] ?? null
-    requestLayout()
+    broadcastPageChrome(page)
   })
   page.pageView.webContents.on('did-start-loading', () => {
     selectionDebug('page:did-start-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
     page.isLoading = true
     page.crashedAt = undefined
     page.crashReason = undefined
-    requestLayout()
+    // Document-bound items keep the visibility they had while a route is in
+    // flight (`offPageDocument`), so a load starting moves chrome and no
+    // membership — the scene stays as it is.
+    refreshPageChrome(page)
   })
   page.pageView.webContents.on('render-process-gone', (_event, details) => {
     page.crashedAt = Date.now()
@@ -168,6 +162,9 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('did-stop-loading', () => {
     selectionDebug('page:did-stop-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
     page.isLoading = false
+    refreshPageNavigationState(page)
+    // A settled load re-opens the document-binding gate, which adds or removes
+    // page-anchored entities — a membership change, so the pass runs.
     markDirty('canvas', 'sidebar')
     requestLayout()
   })
@@ -200,7 +197,7 @@ export function createPage(config: PageConfig): Page {
             }
           }
           page.faviconUrl = resolvedHref
-          requestLayout()
+          broadcastPageChrome(page)
         },
       )
       page.pageView.webContents.send(ipcChannels.queryFavicon)
@@ -209,7 +206,6 @@ export function createPage(config: PageConfig): Page {
     // A finished load starts the page preload with no subscriptions; re-declare
     // the selectors this page's anchored items track (ADR 0032).
     resetAttachmentSubscriptionsForPage(page.id)
-    page.lastPageEmulationKey = undefined
     page.lastSafeAreaCssKey = undefined
     page.lastSafeAreaCssId = undefined
     if (isSelectedPage(page)) clearInspectTargets()
@@ -232,6 +228,12 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('did-navigate', (_event, url) => {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     page.url = url
+    // Commit is the earliest point the frame is guaranteed live (Electron
+    // derefs the frame's widget view unguarded) and precedes the new
+    // document's first layout, so it lays out at the emulated viewport and
+    // scale instead of reflowing once the next layout pass catches up. A
+    // cross-process navigation also swaps in a fresh widget that needs it.
+    applyNavigationEmulation(page)
     // The new document starts unscrolled; keeping the old document's offset
     // would shift every page-anchored region until the first scroll event.
     page.scrollX = 0
@@ -243,6 +245,7 @@ export function createPage(config: PageConfig): Page {
     resetAttachmentSubscriptionsForPage(page.id)
     // Annotation visibility and the sidebar's page children key off the
     // page's current URL, so a navigation must re-send both payloads.
+    refreshPageNavigationState(page)
     markDirty('canvas', 'sidebar')
     page.navGeneration += 1
     requestLayout()
@@ -259,6 +262,7 @@ export function createPage(config: PageConfig): Page {
   page.pageView.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
     selectionDebug('page:did-navigate-in-page', { pageId: page.id, url, isMainFrame })
     if (isMainFrame) page.url = url
+    if (isMainFrame) refreshPageNavigationState(page)
     if (isMainFrame) markDirty('canvas', 'sidebar')
     if (isMainFrame) requestLayout()
     if (isMainFrame) invalidateAgentSnapshot(page.id)
@@ -340,7 +344,6 @@ export function removePageAtIndex(idx: number): Page | null {
   clearPendingRequestsForPage(page.id)
   // Detachment is owned by the layout pass child-list reconcile — splice
   // pages[], close the webContents, and request layout below.
-  page.frameView.webContents.close()
   page.pageView.webContents.close()
   page.devtoolsHostView?.webContents.close()
   // Transfer focus to aboveView so keyboard shortcuts (including undo) keep

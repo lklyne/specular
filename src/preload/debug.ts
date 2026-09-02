@@ -23,6 +23,10 @@ const api: DebugElectronAPI = {
   perfTraceReveal: (fileName) => ipcRenderer.send(ipcChannels.debugPerfTraceReveal, fileName),
   onPerfTraceStateChanged: on(ipcChannels.debugPerfTraceStateChanged),
   onPerfPanZoomStateChanged: on(ipcChannels.debugPerfPanZoomStateChanged),
+  processMetricsSample: () => ipcRenderer.invoke(ipcChannels.debugProcessMetricsSample),
+  visibilityProbeRun: (windowMs) =>
+    ipcRenderer.invoke(ipcChannels.debugVisibilityProbeRun, windowMs),
+  copyText: (text) => ipcRenderer.send(ipcChannels.debugCopyText, text),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
