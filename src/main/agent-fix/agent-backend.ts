@@ -102,6 +102,49 @@ export function _setBackendOverride(fn: BackendFn | null): void {
   override = fn
 }
 
+interface StreamAcc {
+  rawOutput: string
+  finalText: string
+  sessionId?: string
+  resultError: string | null
+}
+
+function recordStderr(acc: StreamAcc, data: string, onEvent?: InvokeOptions['onEvent']): void {
+  acc.rawOutput += data
+  const line = data.trim().split(/\r?\n/).pop() ?? ''
+  if (!line || !onEvent) return
+  onEvent({
+    kind: 'stderr',
+    text: truncate(line, 320),
+    timestamp: new Date().toISOString(),
+  })
+}
+
+function recordResultMessage(acc: StreamAcc, message: { type: string; subtype?: string; result?: string; errors?: string[] }): void {
+  if (message.type !== 'result') return
+  if (message.subtype === 'success') {
+    acc.finalText = message.result ?? ''
+    acc.rawOutput += acc.finalText
+    return
+  }
+  acc.resultError = message.errors?.length ? message.errors.join('; ') : (message.subtype ?? 'error')
+  acc.rawOutput += acc.resultError
+}
+
+async function consumeFixStream(
+  stream: AsyncIterable<unknown>,
+  acc: StreamAcc,
+  onEvent?: InvokeOptions['onEvent'],
+): Promise<void> {
+  for await (const message of stream) {
+    recordResultMessage(acc, message as { type: string; subtype?: string; result?: string; errors?: string[] })
+    const described = describeAgentMessage(message)
+    if (!described) continue
+    if (described.sessionId) acc.sessionId = described.sessionId
+    if (onEvent) onEvent(described.event)
+  }
+}
+
 export async function runFixAgent(
   prompt: string,
   repoPath: string,
@@ -115,11 +158,7 @@ export async function runFixAgent(
   const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS
   const abortController = new AbortController()
   const timer = setTimeout(() => abortController.abort(), timeout)
-
-  let rawOutput = ''
-  let finalText = ''
-  let sessionId: string | undefined
-  let resultError: string | null = null
+  const acc: StreamAcc = { rawOutput: '', finalText: '', resultError: null }
 
   try {
     const stream = query({
@@ -127,37 +166,10 @@ export async function runFixAgent(
       options: {
         ...fixQueryOptions(getFixConfig(), repoPath, options.resumeSessionId),
         abortController,
-        stderr: (data: string) => {
-          rawOutput += data
-          const line = data.trim().split(/\r?\n/).pop() ?? ''
-          if (line && options.onEvent) {
-            options.onEvent({
-              kind: 'stderr',
-              text: truncate(line, 320),
-              timestamp: new Date().toISOString(),
-            })
-          }
-        },
+        stderr: (data: string) => recordStderr(acc, data, options.onEvent),
       },
     })
-
-    for await (const message of stream) {
-      if (message.type === 'result') {
-        if (message.subtype === 'success') {
-          finalText = message.result
-          rawOutput += message.result
-        } else {
-          resultError = message.errors.length
-            ? message.errors.join('; ')
-            : message.subtype
-          rawOutput += resultError
-        }
-      }
-      const described = describeAgentMessage(message)
-      if (!described) continue
-      if (described.sessionId) sessionId = described.sessionId
-      if (options.onEvent) options.onEvent(described.event)
-    }
+    await consumeFixStream(stream, acc, options.onEvent)
   } catch (err) {
     if (abortController.signal.aborted) {
       throw new Error(`Fix agent timed out after ${timeout}ms`)
@@ -167,11 +179,11 @@ export async function runFixAgent(
     clearTimeout(timer)
   }
 
-  if (!finalText && resultError) {
-    throw new Error(`Fix agent failed: ${resultError}`)
+  if (!acc.finalText && acc.resultError) {
+    throw new Error(`Fix agent failed: ${acc.resultError}`)
   }
-  const parsed = parseOutput(finalText || rawOutput)
-  return { ...parsed, rawOutput, sessionId }
+  const parsed = parseOutput(acc.finalText || acc.rawOutput)
+  return { ...parsed, rawOutput: acc.rawOutput, sessionId: acc.sessionId }
 }
 
 const RESOLVE_MARKER = '<<RESOLVE>>'

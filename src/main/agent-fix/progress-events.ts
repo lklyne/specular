@@ -20,55 +20,56 @@ export function describeAgentMessage(payload: unknown): DescribedAgentMessage | 
   if (!payload || typeof payload !== 'object') return null
   const message = payload as any
   const type = message.type as string | undefined
-
-  if (type === 'system') {
-    // The stream emits many `system` messages per run (init, status, hooks …),
-    // all carrying the same session_id. Only the real init is worth surfacing;
-    // the rest would render as a flood of identical "init <session_id>" lines.
-    if (message.subtype !== 'init') return null
-    const model = typeof message.model === 'string' ? message.model : 'session'
-    const sessionId = typeof message.session_id === 'string' ? message.session_id : undefined
-    return { ...makeEvent('system', `init ${model}`), sessionId }
-  }
-
-  if (type === 'assistant') {
-    const content = message.message?.content
-    if (!Array.isArray(content)) return null
-    const blocks = content.map(describeContentBlock).filter(Boolean) as Array<{
-      kind: FixProgressEventKind
-      text: string
-    }>
-    if (blocks.length === 0) return null
-    const merged = blocks.map((b) => b.text).join(' | ')
-    const kind = blocks[0].kind
-    return makeEvent(kind, merged)
-  }
-
-  if (type === 'user') {
-    const content = message.message?.content
-    if (!Array.isArray(content)) return null
-    const results = content
-      .filter((block: any) => block?.type === 'tool_result')
-      .map((block: any) => summarizeToolResult(block))
-      .filter((line: string | null): line is string => !!line)
-    if (results.length === 0) return null
-    return makeEvent('tool_result', results.join(' | '))
-  }
-
-  if (type === 'result') {
-    const finalText: string = typeof message.result === 'string' ? message.result : ''
-    const subtype = (message.subtype as string | undefined) ?? 'done'
-    const summary = finalText
-      ? truncate(finalText.split(/\r?\n/).filter((line: string) => line.trim()).pop() ?? '', 200)
-      : subtype
-    return { ...makeEvent('result', summary), finalText }
-  }
-
+  if (type === 'system') return describeSystem(message)
+  if (type === 'assistant') return describeAssistant(message)
+  if (type === 'user') return describeUser(message)
+  if (type === 'result') return describeResult(message)
   // Allowlist: only the types handled above are surfaced. Anything else
   // (status pings, rate limit events, hook lifecycle …) is dropped so new SDK
   // message types can't flood the panel. Movement is already visible through
   // assistant/tool_use/tool_result events.
   return null
+}
+
+function describeSystem(message: any): DescribedAgentMessage | null {
+  // The stream emits many `system` messages per run (init, status, hooks …),
+  // all carrying the same session_id. Only the real init is worth surfacing;
+  // the rest would render as a flood of identical "init <session_id>" lines.
+  if (message.subtype !== 'init') return null
+  const model = typeof message.model === 'string' ? message.model : 'session'
+  const sessionId = typeof message.session_id === 'string' ? message.session_id : undefined
+  return { ...makeEvent('system', `init ${model}`), sessionId }
+}
+
+function describeAssistant(message: any): DescribedAgentMessage | null {
+  const content = message.message?.content
+  if (!Array.isArray(content)) return null
+  const blocks = content.map(describeContentBlock).filter(Boolean) as Array<{
+    kind: FixProgressEventKind
+    text: string
+  }>
+  if (blocks.length === 0) return null
+  const merged = blocks.map((b) => b.text).join(' | ')
+  return makeEvent(blocks[0].kind, merged)
+}
+
+function describeUser(message: any): DescribedAgentMessage | null {
+  const content = message.message?.content
+  if (!Array.isArray(content)) return null
+  const results = content
+    .filter((block: any) => block?.type === 'tool_result')
+    .map((block: any) => summarizeToolResult(block))
+    .filter((line: string | null): line is string => !!line)
+  if (results.length === 0) return null
+  return makeEvent('tool_result', results.join(' | '))
+}
+
+function describeResult(message: any): DescribedAgentMessage {
+  const finalText: string = typeof message.result === 'string' ? message.result : ''
+  const subtype = (message.subtype as string | undefined) ?? 'done'
+  const lastLine = finalText.split(/\r?\n/).filter((line: string) => line.trim()).pop() ?? ''
+  const summary = finalText ? truncate(lastLine, 200) : subtype
+  return { ...makeEvent('result', summary), finalText }
 }
 
 function describeContentBlock(block: any): { kind: FixProgressEventKind; text: string } | null {
@@ -80,8 +81,7 @@ function describeContentBlock(block: any): { kind: FixProgressEventKind; text: s
   }
   if (block.type === 'tool_use') {
     const name = typeof block.name === 'string' ? block.name : 'tool'
-    const summary = summarizeToolInput(name, block.input)
-    return { kind: 'tool_use', text: summary }
+    return { kind: 'tool_use', text: summarizeToolInput(name, block.input) }
   }
   if (block.type === 'thinking') {
     const text = typeof block.thinking === 'string' ? block.thinking : ''
@@ -104,26 +104,39 @@ function summarizeToolInput(name: string, input: unknown): string {
 
 function summarizeToolResult(block: any): string | null {
   const content = block?.content
-  if (typeof content === 'string') {
-    const trimmed = content.trim()
-    if (!trimmed) return block?.is_error ? 'tool error' : '(empty output)'
-    return truncate((block.is_error ? 'tool error: ' : '') + trimmed.split(/\r?\n/)[0], 200)
+  const isError = Boolean(block?.is_error)
+  if (typeof content === 'string') return summarizeStringResult(content, isError)
+  if (Array.isArray(content)) return summarizeArrayResult(content, isError)
+  return isError ? 'tool error' : 'tool result'
+}
+
+function summarizeStringResult(content: string, isError: boolean): string {
+  const trimmed = content.trim()
+  if (!trimmed) return isError ? 'tool error' : '(empty output)'
+  const prefix = isError ? 'tool error: ' : ''
+  return truncate(prefix + trimmed.split(/\r?\n/)[0], 200)
+}
+
+function summarizeArrayResult(content: unknown[], isError: boolean): string {
+  const parts: string[] = []
+  for (const entry of content) {
+    const piece = summarizeResultEntry(entry)
+    if (piece) parts.push(piece)
   }
-  if (Array.isArray(content)) {
-    const parts: string[] = []
-    for (const entry of content) {
-      if (entry?.type === 'text' && typeof entry.text === 'string' && entry.text.trim()) {
-        parts.push(truncate(entry.text.split(/\r?\n/)[0], 200))
-      } else if (entry?.type === 'image') {
-        const mime = typeof entry.source?.media_type === 'string'
-          ? entry.source.media_type
-          : (typeof entry.mimeType === 'string' ? entry.mimeType : 'image')
-        parts.push(`image (${mime})`)
-      }
-    }
-    if (parts.length) return parts.join(' · ')
+  if (parts.length) return parts.join(' · ')
+  return isError ? 'tool error' : 'tool result'
+}
+
+function summarizeResultEntry(entry: any): string | null {
+  if (entry?.type === 'text' && typeof entry.text === 'string' && entry.text.trim()) {
+    return truncate(entry.text.split(/\r?\n/)[0], 200)
   }
-  return block?.is_error ? 'tool error' : 'tool result'
+  if (entry?.type !== 'image') return null
+  const mime =
+    typeof entry.source?.media_type === 'string'
+      ? entry.source.media_type
+      : (typeof entry.mimeType === 'string' ? entry.mimeType : 'image')
+  return `image (${mime})`
 }
 
 function pickString(record: Record<string, unknown>, keys: string[]): string | null {
