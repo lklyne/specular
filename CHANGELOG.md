@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-09-02 — Canvas agent threads
+
+### New
+
+- **Chat with an agent about your canvas.** The right panel is now a
+  conversation. Comments you drop on pages queue into a draft, and Send hands
+  the whole batch to Claude in one run. Follow-ups continue the same session,
+  and past threads stick around in a switcher. Transcripts live in your space
+  folder as plain JSON.
+- **The composer shows what you're talking about.** A context chip tracks your
+  selection with a matching icon: the canvas tab, a page favicon, a sticky, a
+  shape, a comment, or a multi-select count. A second chip switches the model
+  between Opus, Sonnet, and Haiku.
+- **Per-note fonts.** Each text entity can carry its own font, and text bodies
+  wrap to their width.
+
+### Improvements
+
+- Comment fixes run through the Claude Agent SDK instead of spawning the CLI,
+  so runs start faster and stream events more reliably.
+- Fix runs default to auto permissions, and a follow-up comment continues the
+  run instead of starting over.
+
+### Fixes
+
+- Auto-bind takes over an origin that was bound to a different repo.
+- Modifier presses inside an entered page go to the page, not the canvas.
+
 ## [0.7.1] - 2026-08-24 — Zoom and border fixes
 
 ### Fixes
