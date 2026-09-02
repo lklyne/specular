@@ -385,10 +385,15 @@ function attachChildHandlers(entry: InternalRepo, child: ChildProcess): void {
       entry.status = 'running'
       entry.lastError = undefined
       // Auto-bind the dev server's own origin so pages pointing at it can
-      // receive fixes without the user having to link a repo manually.
+      // receive fixes without the user having to link a repo manually. An
+      // origin routes fixes to exactly one repo, so take it over from any
+      // repo that held it before — another project may have served this
+      // port last.
       const origin = normalizeOrigin(url)
-      if (origin && !entry.boundOrigins.some((b) => b.origin === origin)) {
-        entry.boundOrigins.push({ origin, autoFix: false })
+      if (origin) {
+        const existing = entry.boundOrigins.find((b) => b.origin === origin)
+        removeBindingByOriginInternal(origin, { skipNotify: true })
+        entry.boundOrigins.push(existing ?? { origin, autoFix: false })
         persist()
       }
       flushStartupResolvers(entry, url)

@@ -9,10 +9,12 @@ import {
   __resetDevServerManagerForTests,
   connectRepo,
   disconnectRepo,
+  findRepoForOrigin,
   findRepoForPath,
   initDevServerManager,
   listRepos,
   onChange,
+  setBindingAutoFix,
   shutdownDevServerManager,
   urlForComponent,
 } from '../../src/main/runtime/dev-server-manager'
@@ -162,6 +164,51 @@ describe('dev-server-manager', () => {
     const after = listRepos().find((r) => r.id === repo.id)
     expect(after?.status).toBe('stopped')
     expect(after?.baseUrl).toBeNull()
+  })
+
+  it('auto-bind steals an origin already bound to another repo', async () => {
+    const repoA = connectRepo('/abs/steal/repo-a')
+    const childA = makeFakeChild()
+    nextChild = childA
+    const startA = urlForComponent(repoA.id, 'a.tsx')
+    queueMicrotask(() => emitLine(childA.stdout, 'Local:   http://localhost:5182/'))
+    await startA
+    expect(findRepoForOrigin('http://localhost:5182')?.id).toBe(repoA.id)
+
+    childA.emit('exit', 0, null)
+
+    const repoB = connectRepo('/abs/steal/repo-b')
+    const childB = makeFakeChild()
+    nextChild = childB
+    const startB = urlForComponent(repoB.id, 'b.tsx')
+    queueMicrotask(() => emitLine(childB.stdout, 'Local:   http://localhost:5182/'))
+    await startB
+
+    expect(findRepoForOrigin('http://localhost:5182')?.id).toBe(repoB.id)
+    const staleA = listRepos().find((r) => r.id === repoA.id)
+    expect(staleA?.boundOrigins).toHaveLength(0)
+  })
+
+  it('auto-bind keeps the autoFix flag across restarts of the same repo', async () => {
+    const repo = connectRepo('/abs/keep-flag')
+    const first = makeFakeChild()
+    nextChild = first
+    const start = urlForComponent(repo.id, 'a.tsx')
+    queueMicrotask(() => emitLine(first.stdout, 'Local:   http://localhost:5183/'))
+    await start
+    setBindingAutoFix('http://localhost:5183', true)
+
+    first.emit('exit', 0, null)
+    const second = makeFakeChild()
+    nextChild = second
+    const restart = urlForComponent(repo.id, 'b.tsx')
+    queueMicrotask(() => emitLine(second.stdout, 'Local:   http://localhost:5183/'))
+    await restart
+
+    const binding = listRepos()
+      .find((r) => r.id === repo.id)
+      ?.boundOrigins.find((b) => b.origin === 'http://localhost:5183')
+    expect(binding?.autoFix).toBe(true)
   })
 
   it('findRepoForPath matches repo by exact path or by parent', () => {
