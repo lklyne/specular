@@ -29,6 +29,7 @@ import {
 } from '../runtime/ui-actions'
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
+import { selectThreadForAnnotation } from '../agent-thread/thread-runtime'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -108,6 +109,7 @@ export function registerAnnotationInspectionIpc(): void {
       // to comments, and focus this thread. The canvas keeps only the ring,
       // painted by aboveView off the echo below.
       openCommentsPanel(annotationId)
+      selectThreadForAnnotation(annotationId)
       requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
         aboveView.webContents.send(ipcChannels.annotationThreadOpen, {

@@ -42,6 +42,14 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelRemoveOriginBinding, { origin }),
   setFixConfig: (config: { model: string; permissions: string }) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFixConfig, config),
+  newAgentThread: () => ipcRenderer.send(ipcChannels.rightDetailsPanelThreadNew),
+  deselectAgentThread: () => ipcRenderer.send(ipcChannels.rightDetailsPanelThreadDeselect),
+  deleteAgentThread: (threadId: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadDelete, { threadId }),
+  selectAgentThread: (threadId: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSelect, { threadId }),
+  sendAgentThread: (text?: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSend, { text }),
   ...entityMutationBridge,
   setFilePreset: (fileId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFilePreset, { fileId, presetIndex }),

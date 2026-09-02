@@ -5,6 +5,7 @@ import {
   getAnnotationById,
   getAnnotations,
   setAnnotationFixSession,
+  setAnnotationThreadId,
   setOnAnnotationCreated,
   setOnAnnotationReply,
   updateAnnotationStatus,
@@ -14,6 +15,10 @@ import { buildFixPrompt, buildFollowUpPrompt } from './prompt-builder'
 import { fixTargetKey, resolveFixTarget, type FixTarget } from './fix-target'
 import { resolveSelectionContext } from './selection-context'
 import { runFixAgent, type FixResult } from './agent-backend'
+import {
+  queueCommentOnAnnotation,
+  queueReplyOnAnnotation,
+} from '../agent-thread/thread-runtime'
 import {
   isAnnotationInFlight,
   markFixFinished,
@@ -47,24 +52,19 @@ export function shouldRunOnReply(
 }
 
 /**
- * Auto-fix is an opt-in that lives on an origin→repo binding, so only
- * page-bound comments can fire on their own. A comment targeting a file in the
- * user's space folder has nothing to opt in with and runs only when the user
- * asks (`POST /annotations/fix`).
+ * New comments queue into a canvas agent thread. Send in the panel is what
+ * runs the agent. Auto-fix on create is not the on-ramp.
  */
 export function initFixOrchestrator(): void {
   setOnAnnotationCreated((annotation) => {
     if (annotation.author !== 'user') return
-    const origin = annotationOrigin(annotation)
-    if (!origin) return
-    const binding = getOriginBinding(origin)
-    if (!binding || !binding.autoFix) return
-    fixAnnotation(annotation.id)
+    const threadId = queueCommentOnAnnotation(annotation)
+    if (threadId) setAnnotationThreadId(annotation.id, threadId)
   })
   setOnAnnotationReply((annotation, reply) => {
     if (reply.author !== 'user') return
-    if (!shouldRunOnReply(annotation, getOriginBinding)) return
-    fixAnnotationCore(annotation, { followUpText: reply.text })
+    const threadId = queueReplyOnAnnotation(annotation, reply.text)
+    if (threadId) setAnnotationThreadId(annotation.id, threadId)
   })
 }
 

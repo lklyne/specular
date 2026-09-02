@@ -302,6 +302,11 @@ export interface IpcContract {
   'right-details-panel-set-fix-config': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-color-scheme': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-preset': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-thread-delete': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-thread-deselect': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-thread-new': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-thread-select': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-thread-send': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
@@ -624,6 +629,11 @@ export const ipcChannels = {
   rightDetailsPanelSetFixConfig: 'right-details-panel-set-fix-config',
   rightDetailsPanelSetPageColorScheme: 'right-details-panel-set-page-color-scheme',
   rightDetailsPanelSetPagePreset: 'right-details-panel-set-page-preset',
+  rightDetailsPanelThreadDelete: 'right-details-panel-thread-delete',
+  rightDetailsPanelThreadDeselect: 'right-details-panel-thread-deselect',
+  rightDetailsPanelThreadNew: 'right-details-panel-thread-new',
+  rightDetailsPanelThreadSelect: 'right-details-panel-thread-select',
+  rightDetailsPanelThreadSend: 'right-details-panel-thread-send',
   rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',

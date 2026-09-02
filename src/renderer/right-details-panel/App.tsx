@@ -1,90 +1,11 @@
-import type { ReactNode } from 'react'
-import type { DevtoolsPanelData, ThemeData } from '../../shared/types'
+import type { ThemeData } from '../../shared/types'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { PaneProvider } from './PaneContext'
-import { DocumentPane } from './components/DocumentPane'
-import { DrawingEntityPane } from './components/DrawingEntityPane'
-import { EdgeEntityPane } from './components/EdgeEntityPane'
-import { FileEntityPane } from './components/FileEntityPane'
-import { PagePane } from './components/PagePane'
-import { GroupEntityPane } from './components/GroupEntityPane'
-import { MultiEntityPane } from './components/MultiEntityPane'
+import { ChatPane } from './components/ChatPane'
 import { PaneHeader } from './components/PaneHeader'
-import { ShapeEntityPane } from './components/ShapeEntityPane'
-import { TextEntityPane } from './components/TextEntityPane'
-import { ThreadPane } from './components/ThreadPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
-
-const DEFAULT_FIX_CONFIG = { model: 'sonnet', permissions: 'auto', configured: false } as const
-
-function renderPagePane(data: DevtoolsPanelData) {
-  if (!data.inspect) return null
-  return (
-    <PagePane
-      inspect={data.inspect}
-      annotations={data.annotations ?? []}
-      selection={data.selection}
-      pages={data.pages ?? []}
-      fixProgress={data.fixProgress ?? {}}
-      originBindings={data.originBindings ?? {}}
-    />
-  )
-}
-
-function renderDocumentPane(data: DevtoolsPanelData) {
-  return (
-    <DocumentPane
-      annotations={data.annotations ?? []}
-      pages={data.pages ?? []}
-      focusedAnnotationId={data.focusedAnnotationId}
-      annotateEnabled={Boolean(data.annotateEnabled)}
-      annotateAvailable={Boolean(data.annotateAvailable)}
-      originBindings={data.originBindings ?? {}}
-      fixInProgress={data.fixInProgress ?? {}}
-      fixProgress={data.fixProgress ?? {}}
-      fixConfig={data.fixConfig ?? DEFAULT_FIX_CONFIG}
-    />
-  )
-}
-
-function whenPresent<T>(value: T | null | undefined, render: (value: T) => ReactNode) {
-  return value ? render(value) : null
-}
-
-function renderEntityPane(data: DevtoolsPanelData) {
-  switch (data.panelMode.kind) {
-    case 'page':
-      return renderPagePane(data)
-    case 'text':
-      return whenPresent(data.textEntity, (entity) => <TextEntityPane textEntity={entity} />)
-    case 'file':
-      return whenPresent(data.fileEntity, (entity) => <FileEntityPane fileEntity={entity} />)
-    case 'drawing':
-      return whenPresent(data.drawingEntity, (entity) => <DrawingEntityPane drawingEntity={entity} />)
-    case 'shape':
-      return whenPresent(data.shapeEntity, (entity) => <ShapeEntityPane shapeEntity={entity} />)
-    case 'edge':
-      return whenPresent(data.edgeEntity, (entity) => <EdgeEntityPane edgeEntity={entity} />)
-    case 'group':
-      return whenPresent(data.groupEntity, (entity) => <GroupEntityPane groupEntity={entity} />)
-    case 'multi':
-      return whenPresent(data.multiEntities, (entities) => <MultiEntityPane multiEntities={entities} />)
-    case 'document':
-      return renderDocumentPane(data)
-  }
-}
-
-function focusedThreadPane(data: DevtoolsPanelData) {
-  const kind = data.panelMode.kind
-  if (kind !== 'document' && kind !== 'page') return null
-  const annotation = data.focusedAnnotationId
-    ? (data.annotations ?? []).find((a) => a.id === data.focusedAnnotationId) ?? null
-    : null
-  if (!annotation) return null
-  return <ThreadPane annotation={annotation} progress={(data.fixProgress ?? {})[annotation.id]} />
-}
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
@@ -126,7 +47,7 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     <PaneProvider isDark={isDark}>
       <div className={pageClass}>
         <div className="flex h-full min-h-0 flex-col">
-          {focusedThreadPane(panelData) ?? renderEntityPane(panelData)}
+          <ChatPane data={panelData} />
         </div>
       </div>
     </PaneProvider>

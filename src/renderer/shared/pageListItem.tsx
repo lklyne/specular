@@ -29,7 +29,7 @@ interface PageListItemProps {
   onRequestEditFocus?: () => void
 }
 
-function viewportIcon(label: string, width?: number) {
+export function viewportIcon(label: string, width?: number) {
   if (label.startsWith('iPhone')) return Smartphone
   if (label.startsWith('iPad')) return Tablet
   if (typeof width !== 'number') return Laptop
@@ -66,6 +66,7 @@ function PageGlyph({
   return <Icon size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
 }
 
+// fallow-ignore-next-line complexity
 export function PageListItem({
   page,
   active,

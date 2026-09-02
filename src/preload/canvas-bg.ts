@@ -306,6 +306,8 @@ const api: CanvasBgElectronAPI = {
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getCanvasLayoutBootstrap),
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),
+  pickRepoForOrigin: (origin: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelPickRepoForOrigin, { origin }),
   onLayoutUpdate: on(ipcChannels.layoutUpdate),
   onRuntimePatch: on<RuntimePatchBatch>(ipcChannels.runtimePatch),
   onFrozenPagesState: on<FrozenPagesState>(ipcChannels.frozenPagesState),
