@@ -164,7 +164,7 @@ export function reopenAtCurrentSpace(): void {
   // from this rebuild step.
   rebuildWindowFromSnapshot(
     makeEmptyWorkspaceSnapshot({
-      leftSidebarOpen: true,
+      leftSidebarOpen: false,
       devtoolsPanelTab: 'inspect',
       devtoolsWidth: 400,
     }),

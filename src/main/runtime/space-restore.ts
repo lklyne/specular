@@ -134,7 +134,7 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
   withSpacePersistenceSuspended(() => {
     setZoom(snapshot.zoom)
     setPan(snapshot.pan.x, snapshot.pan.y)
-    setUiLeftSidebarOpen(snapshot.leftSidebarOpen ?? true)
+    setUiLeftSidebarOpen(snapshot.leftSidebarOpen ?? false)
     setUiDevtoolsWidth(clampDevtoolsWidth(snapshot.devtoolsWidth))
     const normalizedPanelTab = normalizeDevtoolsPanelTab(snapshot.devtoolsPanelTab)
     if (normalizedPanelTab) {

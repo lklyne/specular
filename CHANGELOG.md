@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### New
 
 - **A first launch opens onto a welcome canvas** instead of two arbitrary pages and a devtools panel. It's a real `.canvas` file in your space — edit it, or delete it and it stays gone.
+- **The sidebar starts closed.** A canvas opens full-bleed unless its file says otherwise; toggle the sidebar and that choice is saved to the canvas.
 
 ### Fixes
 
