@@ -41,6 +41,12 @@ export interface DevtoolsPanelElectronAPI {
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
+  newAgentThread: () => void
+  /** Back out to the thread list; the thread itself is untouched. */
+  deselectAgentThread: () => void
+  deleteAgentThread: (threadId: string) => void
+  selectAgentThread: (threadId: string) => void
+  sendAgentThread: (text?: string) => void
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void

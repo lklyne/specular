@@ -11,6 +11,14 @@ import {
   fixAnnotation,
   fixPendingAnnotationsForOrigin,
 } from '../agent-fix/fix-orchestrator'
+import {
+  deleteAgentThread,
+  deselectAgentThread,
+  newAgentThread,
+  selectAgentThread,
+  sendActiveThread,
+} from '../agent-thread/thread-runtime'
+import { markDirty } from '../runtime/layout-dirty'
 import { broadcastInspectSlice, notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
   deleteEdge,
@@ -223,6 +231,33 @@ export function registerRightDetailsPanelIpc(): void {
 
   registerSingleFieldHandlers()
 
+  ipcMain.on(ipcChannels.rightDetailsPanelThreadNew, () => {
+    newAgentThread()
+  })
+  ipcMain.on(ipcChannels.rightDetailsPanelThreadDeselect, () => {
+    deselectAgentThread()
+  })
+  ipcMain.on(
+    ipcChannels.rightDetailsPanelThreadDelete,
+    (_event, payload: { threadId?: string } | undefined) => {
+      const threadId = payload?.threadId?.trim()
+      if (threadId) deleteAgentThread(threadId)
+    },
+  )
+  ipcMain.on(
+    ipcChannels.rightDetailsPanelThreadSelect,
+    (_event, payload: { threadId?: string } | undefined) => {
+      const threadId = payload?.threadId?.trim()
+      if (threadId) selectAgentThread(threadId)
+    },
+  )
+  ipcMain.on(
+    ipcChannels.rightDetailsPanelThreadSend,
+    (_event, payload: { text?: string } | undefined) => {
+      sendActiveThread(typeof payload?.text === 'string' ? payload.text : '')
+    },
+  )
+
   ipcMain.on(
     ipcChannels.rightDetailsPanelSetAutoFix,
     (_event, payload: { origin?: string; enabled?: boolean } | undefined) => {
@@ -255,6 +290,8 @@ export function registerRightDetailsPanelIpc(): void {
       if (result.canceled || result.filePaths.length === 0) return
       bindOriginToRepoPath(origin, result.filePaths[0])
       notifyDevtoolsPanelData()
+      markDirty('canvas')
+      requestLayout()
     },
   )
 

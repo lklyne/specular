@@ -6,6 +6,7 @@ import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
 import type { AmbientDriftMode } from './presence-ambient'
 import type { LocatorBundle, LocatorResolution } from './locator-kernel'
 import type { TextFont } from './text-fonts'
+import type { AgentThread } from './agent-thread'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { PageAnchor } from './page-anchor'
@@ -148,6 +149,8 @@ export interface CanvasScenePageEntity {
     string,
     { docX: number; docY: number; viewportPositioned?: boolean }
   >
+  /** Local folder bound (or inferred) for this page's origin. */
+  boundRepoPath?: string | null
 }
 
 export type FocusPresentationMode = 'device' | 'fit' | 'fill'
@@ -1044,6 +1047,10 @@ export interface DevtoolsPanelData {
   fixInProgress?: Record<string, number>
   fixProgress?: Record<string, FixProgressEntry>
   fixConfig?: FixConfig
+  agentThreads?: AgentThread[]
+  activeThreadId?: string | null
+  /** Active canvas tab name, for the composer context chip. */
+  canvasName?: string | null
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail
@@ -1085,6 +1092,7 @@ export interface DevtoolsPanelPageSummary {
   canGoBack?: boolean
   canGoForward?: boolean
   isLoading?: boolean
+  boundRepoPath?: string | null
 }
 
 export type DevtoolsPanelTab = 'comments' | 'inspect' | 'browser-devtools' | 'settings'
@@ -1978,6 +1986,8 @@ export interface AnnotationMetadata extends Record<string, unknown> {
    * so the agent keeps its prior context instead of starting cold.
    */
   fixSessionId?: string
+  /** Canvas agent thread this comment queued into. */
+  threadId?: string
 }
 
 // --- Origin bindings (derived view from ConnectedRepo.boundOrigins) ---

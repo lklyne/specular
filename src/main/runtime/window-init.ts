@@ -48,6 +48,7 @@ import {
 import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
 import { onTrackerChange } from '../agent-fix/fix-tracker'
 import { onProgressChange } from '../agent-fix/fix-progress'
+import { loadThreadsFromDisk, onThreadChange } from '../agent-thread/thread-runtime'
 import { broadcastSceneSnapshot } from './runtime-patch-broadcast'
 import {
   buildCanvasLayoutData,
@@ -135,7 +136,9 @@ export function initWindow(): void {
   initFixOrchestrator()
   onTrackerChange(() => notifyDevtoolsPanelData())
   onProgressChange(() => notifyDevtoolsPanelData())
+  onThreadChange(() => notifyDevtoolsPanelData())
   ensureSpaceTabsInitialized()
+  loadThreadsFromDisk()
   layoutCache.toolbarHeight = TOOLBAR_HEIGHT
 
   setWin(new BaseWindow({

@@ -27,9 +27,16 @@ import {
 } from './runtime-entities'
 import { boundEffectivePageContentSize as effectivePageContentSize } from './runtime-geometry'
 import { pageDisplayLabel } from './runtime-serialization'
+import { inferRepoPathForOrigin } from './dev-server-manager'
 
 export function buildPageSceneEntity(page: Page): CanvasScenePageEntity {
   const { width, height } = effectivePageContentSize(page)
+  let boundRepoPath: string | null = null
+  try {
+    boundRepoPath = inferRepoPathForOrigin(new URL(page.url).origin)
+  } catch {
+    boundRepoPath = null
+  }
   return {
     kind: 'page',
     id: page.id,
@@ -57,6 +64,7 @@ export function buildPageSceneEntity(page: Page): CanvasScenePageEntity {
     ...(page.elementPositions?.size
       ? { elementPositions: Object.fromEntries(page.elementPositions) }
       : {}),
+    ...(boundRepoPath ? { boundRepoPath } : {}),
   }
 }
 

@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Eye,
   EyeClosed,
+  FolderOpen,
   Link2,
   Maximize2,
   MessageCircle,
@@ -69,6 +70,7 @@ export function PagePopup({
     | 'arrangeSelection'
     | 'toggleSyncSelection'
     | 'unsyncPage'
+    | 'pickRepoForOrigin'
   >
   isDark: boolean
   layout: ProjectedLayoutData
@@ -419,6 +421,37 @@ export function PagePopup({
                 )
               })()}
             </CanvasItemPopup.Section>
+            {(() => {
+              let origin: string | null = null
+              try {
+                origin = new URL(single.url).origin
+              } catch {
+                origin = null
+              }
+              if (!origin) return null
+              const pageOrigin = origin
+              const bound = single.boundRepoPath
+              return (
+                <>
+                  <CanvasItemPopup.Divider isDark={isDark} />
+                  <CanvasItemPopup.Section>
+                    <CanvasItemPopup.IconButton
+                      isDark={isDark}
+                      active={Boolean(bound)}
+                      title={bound ? `Repo: ${bound}` : 'Bind local folder'}
+                      ariaLabel={
+                        bound
+                          ? `Bound repo ${bound}. Click to change.`
+                          : 'Bind a local folder for this site'
+                      }
+                      onClick={() => api.pickRepoForOrigin(pageOrigin)}
+                    >
+                      <FolderOpen size={14} />
+                    </CanvasItemPopup.IconButton>
+                  </CanvasItemPopup.Section>
+                </>
+              )
+            })()}
           </>
         ) : null}
         {!isSingle ? (

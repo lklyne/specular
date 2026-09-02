@@ -286,6 +286,8 @@ export interface CanvasBgElectronAPI {
   /** Connect a Vite repo at the given absolute folder path. Returns the
    *  connected repo, or null if connection fails. */
   repoConnect: (absolutePath: string) => Promise<unknown>
+  /** Bind this page origin to a local folder (folder picker). */
+  pickRepoForOrigin: (origin: string) => void
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
   /** Fine-grained runtime-store updates: the cells one change touched, batched
    *  per layout pass. Layers subscribe to the slice they draw instead of

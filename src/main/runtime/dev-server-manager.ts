@@ -229,6 +229,23 @@ export function getOriginBindingView(origin: string): OriginBinding | null {
   return { repoPath: repo.absolutePath, autoFix: binding.autoFix }
 }
 
+/** Bound origin, or a connected repo whose running baseUrl matches. */
+export function inferRepoPathForOrigin(origin: string): string | null {
+  const bound = getOriginBindingView(origin)
+  if (bound) return bound.repoPath
+  const normalized = normalizeOrigin(origin)
+  if (!normalized) return null
+  for (const repo of repos.values()) {
+    if (!repo.baseUrl) continue
+    try {
+      if (new URL(repo.baseUrl).origin === normalized) return repo.absolutePath
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
 /** Bind `origin` to an already-connected repo by id. Replaces any existing
  *  binding for this origin. Returns null if the repo doesn't exist or the
  *  origin can't be parsed. */

@@ -40,6 +40,7 @@ const ALLOWED_TOOLS = [
   'Bash(git status:*)', 'Bash(git diff:*)', 'Bash(git log:*)',
   'Bash(pnpm typecheck:*)', 'Bash(pnpm test:unit:*)', 'Bash(pnpm lint:*)',
   'Bash(npm run typecheck:*)', 'Bash(tsc:*)',
+  'Bash(specular:*)',
 ]
 
 /** The SDK query options a fix run starts with. Pure so the permission modes are testable. */

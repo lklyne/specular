@@ -266,6 +266,15 @@ export function setAnnotationFixSession(id: string, sessionId: string): void {
   scheduleSpaceAutosave()
 }
 
+export function setAnnotationThreadId(id: string, threadId: string): void {
+  const annotation = workspaceAnnotations.find((a) => a.id === id)
+  if (!annotation) return
+  if (annotation.metadata?.threadId === threadId) return
+  annotation.metadata = { ...annotation.metadata, threadId }
+  markDirty('sidebar')
+  scheduleSpaceAutosave()
+}
+
 export function addAnnotationReply(
   id: string,
   author: 'user' | 'agent',

@@ -16,6 +16,7 @@ export function CommentInput({
   disabled,
   submitLabel = 'Submit comment',
   buttonClassName,
+  canSubmit,
 }: {
   inputRef?: RefObject<HTMLTextAreaElement | null>
   autoFocus?: boolean
@@ -28,8 +29,11 @@ export function CommentInput({
   submitLabel?: string
   /** Override inactive button style. Active style is always blue. */
   buttonClassName?: string
+  /** When set, controls the send button instead of non-empty text. */
+  canSubmit?: boolean
 }) {
   const hasContent = value.trim().length > 0
+  const submitReady = canSubmit ?? hasContent
   const inactiveBtn = buttonClassName ?? 'bg-zinc-100 text-[var(--surface-foreground-muted)] hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:hover:text-[var(--surface-foreground)]'
 
   return (
@@ -55,11 +59,11 @@ export function CommentInput({
         type="button"
         aria-label={submitLabel}
         className={`absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full text-[12px] transition disabled:opacity-40 ${
-          hasContent
+          submitReady
             ? PRIMARY_BUTTON_CLASS
             : inactiveBtn
         }`}
-        disabled={disabled || !hasContent}
+        disabled={disabled || !submitReady}
         onClick={onSubmit}
       >
         ↑

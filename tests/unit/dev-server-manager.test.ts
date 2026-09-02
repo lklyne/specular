@@ -7,10 +7,12 @@ import { Readable } from 'node:stream'
 import type { ChildProcess } from 'node:child_process'
 import {
   __resetDevServerManagerForTests,
+  bindOriginToRepo,
   connectRepo,
   disconnectRepo,
   findRepoForOrigin,
   findRepoForPath,
+  inferRepoPathForOrigin,
   initDevServerManager,
   listRepos,
   onChange,
@@ -224,5 +226,12 @@ describe('dev-server-manager', () => {
     connectRepo('/abs/notify')
     expect(events.at(-1)).toBe(1)
     off()
+  })
+
+  it('inferRepoPathForOrigin uses an explicit origin binding', () => {
+    const repo = connectRepo('/abs/bound/repo')
+    bindOriginToRepo(repo.id, 'http://localhost:4321')
+    expect(inferRepoPathForOrigin('http://localhost:4321')).toBe('/abs/bound/repo')
+    expect(inferRepoPathForOrigin('http://localhost:9999')).toBeNull()
   })
 })

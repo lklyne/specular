@@ -29,7 +29,7 @@ interface PageListItemProps {
   onRequestEditFocus?: () => void
 }
 
-function viewportIcon(label: string, width?: number) {
+export function viewportIcon(label: string, width?: number) {
   if (label.startsWith('iPhone')) return Smartphone
   if (label.startsWith('iPad')) return Tablet
   if (typeof width !== 'number') return Laptop
