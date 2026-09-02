@@ -24,9 +24,28 @@ export function composerChipClass(isDark: boolean): string {
   }`
 }
 
-/** The composer's context pill: what the thread is anchored to. */
-export function ContextChip({ pill, data }: { pill: ThreadPill; data: DevtoolsPanelData }) {
+/**
+ * The composer's context pill: what the thread is anchored to. Queued
+ * comments take over the chip as an icon + count until they're sent.
+ */
+export function ContextChip({
+  pill,
+  data,
+  queuedCount = 0,
+}: {
+  pill: ThreadPill
+  data: DevtoolsPanelData
+  queuedCount?: number
+}) {
   const isDark = usePaneTheme()
+  if (queuedCount > 0) {
+    return (
+      <span className={composerChipClass(isDark)}>
+        <MessageSquare size={11} className="shrink-0" />
+        {queuedCount}
+      </span>
+    )
+  }
   return (
     <span className={composerChipClass(isDark)}>
       <ChipIcon pill={pill} data={data} />

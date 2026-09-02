@@ -22,6 +22,7 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const running = progress?.status === 'running'
   const divider = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const muted = 'text-[var(--surface-foreground-muted)]'
+  const queued = active?.messages.filter((message) => message.queued && message.text.trim()) ?? []
   const hasQueued = Boolean(
     active?.messages.some((message) => message.role === 'user' && message.text.trim()),
   )
@@ -47,7 +48,7 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
           isNew={isNew}
           chip={
             <>
-              <ContextChip pill={pill} data={data} />
+              <ContextChip pill={pill} data={data} queuedCount={queued.length} />
               {data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
             </>
           }
@@ -199,14 +200,11 @@ function ThreadTranscript({
           Comment on the canvas to queue a draft, or type below and send.
         </div>
       ) : (
-        thread.messages.map((message) => (
-          <div key={message.id} className={message.queued ? 'opacity-70' : undefined}>
-            <CommentBubble author={message.role} text={message.text} />
-            {message.queued ? (
-              <div className={`mt-0.5 text-[10px] uppercase tracking-wide ${muted}`}>Queued</div>
-            ) : null}
-          </div>
-        ))
+        thread.messages
+          .filter((message) => !message.queued)
+          .map((message) => (
+            <CommentBubble key={message.id} author={message.role} text={message.text} />
+          ))
       )}
       {progress?.status === 'running' ? (
         <div className={`rounded-md border px-2 py-1.5 ${isDark ? 'border-zinc-700' : 'border-zinc-200'}`}>
