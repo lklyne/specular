@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-02 — Text Fonts, Comment Threads in the Panel
+
+### New
+
+- **Notes pick a font.** Sans, mono, or hand — stored as a token on the entity,
+  so `.canvas` files stay portable and swapping the face doesn't knock glyphs
+  off the baseline. The control sits in the text popup and the sticky popover.
+- **Comment threads live in the right panel.** Click a badge and the conversation
+  opens beside the page instead of covering it. The canvas keeps a highlight
+  ring so the work under discussion stays visible. Resolve is now Close.
+
+### Improvements
+
+- **Fix actually runs from the GUI app.** Comment fixes go through the Claude
+  Agent SDK instead of spawning a `claude` binary. A GUI-launched Specular used
+  to fail with `spawn claude ENOENT` because macOS apps inherit a PATH that
+  can't see Claude Code. Auth is checked first, so a signed-out machine gets
+  "install and sign in" instead of a process error.
+- Fix defaults to auto permissions. A reply on a thread the agent already
+  touched continues the conversation even when auto-fix is off.
+- Plain notes grow with their text the way stickies already did. Side handles
+  reflow; corners and north/south scale the font so a vertical drag fills the
+  box. Wrapped text stays inside instead of painting out of it.
+- Plain text color follows the themed ink palette instead of a hardcoded
+  light/dark pair.
+
+### Fixes
+
+- Inside an entered page, cmd, shift, and alt reach the page. Shift-drag range
+  select, cmd-click open-in-new-tab, and alt-drag in design tools no longer get
+  stolen by the canvas.
+- A dev server reporting its Local: URL takes over that origin from any other
+  repo that held it, so two repos can't both claim localhost:4321.
+- Colored edges show their arrowheads again. Themed ink variables had broken
+  the marker ids.
+
 ## [0.7.1] - 2026-08-24 — Zoom and border fixes
 
 ### Fixes
