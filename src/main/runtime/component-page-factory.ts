@@ -24,7 +24,6 @@ import { win } from './view-refs'
 import { findRepoForPath, onChange as onRepoChange } from './dev-server-manager'
 import { pickRenderer } from '../plugins/registry'
 import { wireRendererLogging } from '../crash-log'
-import { breadcrumb } from '../sentry-context'
 import { CARD_BORDER_RADIUS } from './runtime-constants'
 import { requestLayout } from './viewport-control'
 import { persistFileEntity, type FileEntity } from './file-entity-state'
@@ -76,9 +75,6 @@ function createView(entityId: string): ComponentView {
   view.webContents.on('did-finish-load', () => {
     requestLayout()
   })
-  view.webContents.on('render-process-gone', (_event, details) => {
-    breadcrumb('component', 'render-process-gone', { entityId, reason: details.reason })
-  })
   return {
     entityId,
     view,
@@ -100,13 +96,7 @@ async function resolveAndLoad(cv: ComponentView): Promise<void> {
     if (cv.view.webContents.isDestroyed()) return
     if (cv.loadedUrl === url) return
     cv.loadedUrl = url
-    breadcrumb('component', 'load-url', { entityId: cv.entityId, url })
-    cv.view.webContents.loadURL(url).catch((err) => {
-      breadcrumb('component', 'load-url-failed', {
-        entityId: cv.entityId,
-        url,
-        message: err instanceof Error ? err.message : String(err),
-      })
+    cv.view.webContents.loadURL(url).catch(() => {
       // Reset so the next repo-change tick can retry.
       cv.loadedUrl = null
     })

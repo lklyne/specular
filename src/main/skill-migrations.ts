@@ -16,7 +16,6 @@
  * already depends on Electron for everything else at launch.
  */
 
-import { breadcrumb } from './sentry-context'
 import type { OnboardingState } from '../shared/types'
 
 export type AgentBrowserSkillMigrationOutcome =
@@ -78,6 +77,5 @@ export async function runAgentBrowserSkillRemovalMigration(
   }
 
   deps.saveState({ ...state, agentBrowserSkillMigrationDone: true })
-  breadcrumb('onboarding', 'agent-browser-skill-migration', { outcome })
   return outcome
 }

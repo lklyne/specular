@@ -40,7 +40,7 @@ export interface ToolbarState {
 
 export function useToolbarState(): ToolbarState {
   const [zoomPercent, setZoomPercent] = useState(100)
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true)
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false)
   const [devtoolsOpen, setDevtoolsOpen] = useState(false)
   const [selection, setSelection] = useState<ToolbarSelectionData>(EMPTY_SELECTION)
   const [agentCursors, setAgentCursors] = useState<AgentPresenceCursor[]>([])

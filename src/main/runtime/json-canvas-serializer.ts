@@ -371,7 +371,7 @@ export function deserializeFromJsonCanvas(doc: JsonCanvasDocument): {
     selectedPageIndex: null,
     selectedPageId: null,
     selectedPageIds: appState.selectedEntityIds ?? [],
-    leftSidebarOpen: appState.leftSidebarOpen ?? true,
+    leftSidebarOpen: appState.leftSidebarOpen ?? false,
     devtoolsOpen: appState.devtoolsOpen ?? false,
     devtoolsPanelTab: (appState.devtoolsPanelTab as DevtoolsPanelTab) ?? 'elements',
     devtoolsWidth: appState.devtoolsWidth ?? 400,
