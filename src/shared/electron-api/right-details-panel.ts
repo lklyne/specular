@@ -31,7 +31,10 @@ export interface DevtoolsPanelElectronAPI {
   createAnnotation: (request: AnnotationCreateRequest) => void
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void
+  replyToAnnotation: (annotationId: string, text: string) => void
   openAnnotationThread: (annotationId: string) => void
+  /** Back out of the focused thread: clears panel focus and the canvas ring. */
+  closeAnnotationThread: () => void
   triggerFixComments: (origin: string) => void
   fixSingleAnnotation: (annotationId: string) => void
   setAutoFix: (origin: string, enabled: boolean) => void

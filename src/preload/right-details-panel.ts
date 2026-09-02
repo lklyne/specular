@@ -24,8 +24,12 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelResolveAnnotation, { annotationId }),
   deleteAnnotation: (annotationId) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelDeleteAnnotation, { annotationId }),
+  replyToAnnotation: (annotationId, text) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelReplyAnnotation, { annotationId, text }),
   openAnnotationThread: (annotationId) =>
     ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId }),
+  closeAnnotationThread: () =>
+    ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId: null }),
   triggerFixComments: (origin: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelTriggerFixComments, { origin }),
   fixSingleAnnotation: (annotationId: string) =>
