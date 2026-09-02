@@ -1,5 +1,26 @@
+import { cpSync, existsSync, mkdirSync, readdirSync } from 'fs'
+import path from 'path'
 import type { ForgeConfig } from '@electron-forge/shared-types'
 import { VitePlugin } from '@electron-forge/plugin-vite'
+
+/**
+ * The Claude Agent SDK cannot be bundled: it locates its bundled Claude Code
+ * runtime and per-platform binary packages relative to its own real path on
+ * disk. It is external in vite.main.config.ts, so the packaged app needs the
+ * actual package (plus whichever platform binary packages pnpm installed)
+ * present in node_modules. Dereference on copy — pnpm's layout is symlinks.
+ */
+function copyAgentSdkPackages(buildPath: string): void {
+  const scopeSrc = path.resolve(__dirname, 'node_modules', '@anthropic-ai')
+  const scopeDest = path.join(buildPath, 'node_modules', '@anthropic-ai')
+  mkdirSync(scopeDest, { recursive: true })
+  for (const name of readdirSync(scopeSrc)) {
+    if (!name.startsWith('claude-agent-sdk')) continue
+    const src = path.join(scopeSrc, name)
+    if (!existsSync(src)) continue
+    cpSync(src, path.join(scopeDest, name), { recursive: true, dereference: true })
+  }
+}
 import { MakerDMG } from '@electron-forge/maker-dmg'
 import { MakerZIP } from '@electron-forge/maker-zip'
 import { PublisherGithub } from '@electron-forge/publisher-github'
@@ -39,6 +60,11 @@ const config: ForgeConfig = {
       draft: false,
     }),
   ],
+  hooks: {
+    packageAfterCopy: async (_forgeConfig, buildPath) => {
+      copyAgentSdkPackages(buildPath)
+    },
+  },
   plugins: [
     new VitePlugin({
       build: [

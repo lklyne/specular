@@ -28,6 +28,11 @@ export default defineConfig(({ mode }) => {
           ...builtinModules.map((m) => `node:${m}`),
           'bufferutil',
           'utf-8-validate',
+          // Ships its own Claude Code runtime as sibling files + per-platform
+          // binary packages, all resolved relative to the module's real path —
+          // inlining it breaks that. forge.config.ts copies the package into
+          // the app's node_modules instead.
+          '@anthropic-ai/claude-agent-sdk',
         ],
       },
     },

@@ -1989,7 +1989,7 @@ export interface OriginBinding {
 
 export type OriginBindings = Record<string, OriginBinding>
 
-// --- Fix config (model + permissions for the Claude subprocess) ---
+// --- Fix config (model + permissions for the Claude Agent SDK fix run) ---
 
 export type FixModel = 'opus' | 'sonnet' | 'haiku'
 export type FixPermissions = 'dangerously' | 'acceptEdits' | 'default'
@@ -2000,7 +2000,7 @@ export interface FixConfig {
   configured: boolean
 }
 
-// --- Fix progress (live stream of `claude -p` events per annotation) ---
+// --- Fix progress (live stream of fix-agent events per annotation) ---
 
 export type FixProgressEventKind =
   | 'system'

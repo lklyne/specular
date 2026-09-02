@@ -1,47 +1,38 @@
 /**
- * Pure parser for `claude -p --output-format stream-json --verbose` events.
+ * Pure mapping from Claude Agent SDK stream messages to the short,
+ * human-readable FixProgressEvents the Comments panel log renders.
  *
- * Each line from stdout is a JSON message following Claude Code's SDK schema.
- * We map it to a short, human-readable FixProgressEvent for the panel log.
- * The final `result` event carries the full assistant text, which we feed
- * back into claude-spawner's `parseOutput` to derive summary + resolve flag.
+ * The final `result` message carries the full assistant text, which
+ * agent-backend's `parseOutput` turns into summary + resolve flag.
  */
 
 import type { FixProgressEvent, FixProgressEventKind } from '../../shared/types'
 import { truncate } from '../../shared/annotation-utils'
 
-export interface ParsedStreamEvent {
+export interface DescribedAgentMessage {
   event: FixProgressEvent
   finalText?: string
-  /** Claude Code session id, carried on the init event so a thread can resume. */
+  /** Claude session id, carried on the init message so a thread can resume. */
   sessionId?: string
 }
 
-export function parseStreamLine(line: string): ParsedStreamEvent | null {
-  const trimmed = line.trim()
-  if (!trimmed) return null
-  let payload: any
-  try {
-    payload = JSON.parse(trimmed)
-  } catch {
-    return makeEvent('system', trimmed.slice(0, 200))
-  }
+export function describeAgentMessage(payload: unknown): DescribedAgentMessage | null {
   if (!payload || typeof payload !== 'object') return null
-
-  const type = payload.type as string | undefined
+  const message = payload as any
+  const type = message.type as string | undefined
 
   if (type === 'system') {
     // The stream emits many `system` messages per run (init, status, hooks …),
     // all carrying the same session_id. Only the real init is worth surfacing;
     // the rest would render as a flood of identical "init <session_id>" lines.
-    if (payload.subtype !== 'init') return null
-    const model = typeof payload.model === 'string' ? payload.model : 'session'
-    const sessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined
+    if (message.subtype !== 'init') return null
+    const model = typeof message.model === 'string' ? message.model : 'session'
+    const sessionId = typeof message.session_id === 'string' ? message.session_id : undefined
     return { ...makeEvent('system', `init ${model}`), sessionId }
   }
 
   if (type === 'assistant') {
-    const content = payload.message?.content
+    const content = message.message?.content
     if (!Array.isArray(content)) return null
     const blocks = content.map(describeContentBlock).filter(Boolean) as Array<{
       kind: FixProgressEventKind
@@ -54,7 +45,7 @@ export function parseStreamLine(line: string): ParsedStreamEvent | null {
   }
 
   if (type === 'user') {
-    const content = payload.message?.content
+    const content = message.message?.content
     if (!Array.isArray(content)) return null
     const results = content
       .filter((block: any) => block?.type === 'tool_result')
@@ -65,8 +56,8 @@ export function parseStreamLine(line: string): ParsedStreamEvent | null {
   }
 
   if (type === 'result') {
-    const finalText: string = typeof payload.result === 'string' ? payload.result : ''
-    const subtype = (payload.subtype as string | undefined) ?? 'done'
+    const finalText: string = typeof message.result === 'string' ? message.result : ''
+    const subtype = (message.subtype as string | undefined) ?? 'done'
     const summary = finalText
       ? truncate(finalText.split(/\r?\n/).filter((line: string) => line.trim()).pop() ?? '', 200)
       : subtype
@@ -74,9 +65,9 @@ export function parseStreamLine(line: string): ParsedStreamEvent | null {
   }
 
   // Allowlist: only the types handled above are surfaced. Anything else
-  // (rate_limit_event, status pings, future control messages) is dropped so
-  // new CLI message types can't flood the panel. Movement is already visible
-  // through assistant/tool_use/tool_result events.
+  // (status pings, rate limit events, hook lifecycle …) is dropped so new SDK
+  // message types can't flood the panel. Movement is already visible through
+  // assistant/tool_use/tool_result events.
   return null
 }
 
@@ -143,7 +134,7 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null
 }
 
-function makeEvent(kind: FixProgressEventKind, text: string): ParsedStreamEvent {
+function makeEvent(kind: FixProgressEventKind, text: string): DescribedAgentMessage {
   return {
     event: {
       kind,
