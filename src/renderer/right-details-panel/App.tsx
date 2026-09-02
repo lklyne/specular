@@ -1,4 +1,5 @@
-import type { ThemeData } from '../../shared/types'
+import type { ReactNode } from 'react'
+import type { DevtoolsPanelData, ThemeData } from '../../shared/types'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { PaneProvider } from './PaneContext'
@@ -18,6 +19,73 @@ import { useRightDetailsPanelData } from './useRightDetailsPanelData'
 
 const DEFAULT_FIX_CONFIG = { model: 'sonnet', permissions: 'auto', configured: false } as const
 
+function renderPagePane(data: DevtoolsPanelData) {
+  if (!data.inspect) return null
+  return (
+    <PagePane
+      inspect={data.inspect}
+      annotations={data.annotations ?? []}
+      selection={data.selection}
+      pages={data.pages ?? []}
+      fixProgress={data.fixProgress ?? {}}
+      originBindings={data.originBindings ?? {}}
+    />
+  )
+}
+
+function renderDocumentPane(data: DevtoolsPanelData) {
+  return (
+    <DocumentPane
+      annotations={data.annotations ?? []}
+      pages={data.pages ?? []}
+      focusedAnnotationId={data.focusedAnnotationId}
+      annotateEnabled={Boolean(data.annotateEnabled)}
+      annotateAvailable={Boolean(data.annotateAvailable)}
+      originBindings={data.originBindings ?? {}}
+      fixInProgress={data.fixInProgress ?? {}}
+      fixProgress={data.fixProgress ?? {}}
+      fixConfig={data.fixConfig ?? DEFAULT_FIX_CONFIG}
+    />
+  )
+}
+
+function whenPresent<T>(value: T | null | undefined, render: (value: T) => ReactNode) {
+  return value ? render(value) : null
+}
+
+function renderEntityPane(data: DevtoolsPanelData) {
+  switch (data.panelMode.kind) {
+    case 'page':
+      return renderPagePane(data)
+    case 'text':
+      return whenPresent(data.textEntity, (entity) => <TextEntityPane textEntity={entity} />)
+    case 'file':
+      return whenPresent(data.fileEntity, (entity) => <FileEntityPane fileEntity={entity} />)
+    case 'drawing':
+      return whenPresent(data.drawingEntity, (entity) => <DrawingEntityPane drawingEntity={entity} />)
+    case 'shape':
+      return whenPresent(data.shapeEntity, (entity) => <ShapeEntityPane shapeEntity={entity} />)
+    case 'edge':
+      return whenPresent(data.edgeEntity, (entity) => <EdgeEntityPane edgeEntity={entity} />)
+    case 'group':
+      return whenPresent(data.groupEntity, (entity) => <GroupEntityPane groupEntity={entity} />)
+    case 'multi':
+      return whenPresent(data.multiEntities, (entities) => <MultiEntityPane multiEntities={entities} />)
+    case 'document':
+      return renderDocumentPane(data)
+  }
+}
+
+function focusedThreadPane(data: DevtoolsPanelData) {
+  const kind = data.panelMode.kind
+  if (kind !== 'document' && kind !== 'page') return null
+  const annotation = data.focusedAnnotationId
+    ? (data.annotations ?? []).find((a) => a.id === data.focusedAnnotationId) ?? null
+    : null
+  if (!annotation) return null
+  return <ThreadPane annotation={annotation} progress={(data.fixProgress ?? {})[annotation.id]} />
+}
+
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
   const { isDark } = useTheme(initialTheme, rightDetailsPanelApi.onThemeChanged)
@@ -25,9 +93,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 
   const pageClass = 'h-screen w-screen overflow-hidden border-l border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-[var(--surface-foreground)]'
-  const pages = panelData.pages ?? []
-  const annotations = panelData.annotations ?? []
-  const { panelMode } = panelData
 
   if (panelData.activeTab === 'browser-devtools') {
     return (
@@ -57,96 +122,11 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     )
   }
 
-  // Drill-in thread view: a focused comment takes over the panel while the
-  // context is still comments (document or page mode). An entity selection
-  // wins — its pane is what the user just asked for.
-  const focusedAnnotation = panelData.focusedAnnotationId
-    ? annotations.find((a) => a.id === panelData.focusedAnnotationId) ?? null
-    : null
-
-  function renderPane() {
-    if (
-      focusedAnnotation &&
-      (panelMode.kind === 'document' || panelMode.kind === 'page')
-    ) {
-      return (
-        <ThreadPane
-          annotation={focusedAnnotation}
-          progress={(panelData.fixProgress ?? {})[focusedAnnotation.id]}
-        />
-      )
-    }
-    switch (panelMode.kind) {
-      case 'page':
-        return panelData.inspect ? (
-          <PagePane
-            inspect={panelData.inspect}
-            annotations={annotations}
-            selection={panelData.selection}
-            pages={pages}
-            fixProgress={panelData.fixProgress ?? {}}
-            originBindings={panelData.originBindings ?? {}}
-          />
-        ) : null
-
-      case 'text':
-        return panelData.textEntity ? (
-          <TextEntityPane textEntity={panelData.textEntity} />
-        ) : null
-
-      case 'file':
-        return panelData.fileEntity ? (
-          <FileEntityPane fileEntity={panelData.fileEntity} />
-        ) : null
-
-      case 'drawing':
-        return panelData.drawingEntity ? (
-          <DrawingEntityPane drawingEntity={panelData.drawingEntity} />
-        ) : null
-
-      case 'shape':
-        return panelData.shapeEntity ? (
-          <ShapeEntityPane shapeEntity={panelData.shapeEntity} />
-        ) : null
-
-      case 'edge':
-        return panelData.edgeEntity ? (
-          <EdgeEntityPane edgeEntity={panelData.edgeEntity} />
-        ) : null
-
-      case 'group':
-        return panelData.groupEntity ? (
-          <GroupEntityPane groupEntity={panelData.groupEntity} />
-        ) : null
-
-      case 'multi':
-        return panelData.multiEntities ? (
-          <MultiEntityPane multiEntities={panelData.multiEntities} />
-        ) : null
-
-      case 'document':
-      default:
-        return (
-          <DocumentPane
-            annotations={annotations}
-            pages={pages}
-            focusedAnnotationId={panelData.focusedAnnotationId}
-            annotateEnabled={Boolean(panelData.annotateEnabled)}
-            annotateAvailable={Boolean(panelData.annotateAvailable)}
-            originBindings={panelData.originBindings ?? {}}
-            fixInProgress={panelData.fixInProgress ?? {}}
-            fixProgress={panelData.fixProgress ?? {}}
-            fixConfig={panelData.fixConfig ?? DEFAULT_FIX_CONFIG}
-          />
-        )
-    }
-  }
-
   return (
     <PaneProvider isDark={isDark}>
       <div className={pageClass}>
         <div className="flex h-full min-h-0 flex-col">
-          {renderPane()}
+          {focusedThreadPane(panelData) ?? renderEntityPane(panelData)}
         </div>
       </div>
     </PaneProvider>
