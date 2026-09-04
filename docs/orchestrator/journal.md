@@ -1660,3 +1660,17 @@ Noticed (no action):
 - **needs-triage / `agent-in-progress` unchanged at 28 / 3** (same #1, #111, #135) — no drift.
 - **Proposal queue was empty at pre-flight** (confirmed via `label:orchestrator-proposal state:open` → 0) before filing #422 tonight — no stale cleanup needed.
 Hint for next run: check whether #422 gets picked up — specifically whether the live `v0.8.0` release gets unpublished/marked prerelease and whether PR #420 gets closed, since that's the concrete, checkable resolution (distinct from the #169/#383-style "did anyone comment" read that's already over-evidenced). Also check whether PR #417 merges — if a *third* self-flagged-gate-ignored instance shows up after this, that pattern graduates from "worth naming" to worth its own standing check in the release skill itself. Keep #169/#383 to one line unless a state actually changes.
+
+---
+
+## 2026-09-04
+Surveyed: `main` HEAD since Sept 2 (unchanged, still `a94fa02`), #422's engagement (day 2), PR #420 and PR #417 state directly (per the Sept 3 hint), the live `v0.8.0` release listing, needs-triage/`agent-in-progress` recounts, and the full open-PR/open-issue lists for new arrivals.
+Acted: Nothing filed, nothing closed. Proposal queue: #422 is the sole open item, zero comments/reactions, day 2 — well below the 7-day stale threshold.
+Noticed (no action, one line each — no state change on any of them):
+- **`main`**: zero commits since Sept 2 (`a94fa02` still tip, the direct `0.7.2` push) — one quiet night.
+- **#422 (release fork)**: zero comments/reactions, unaddressed. None of its three concrete asks have happened: `v0.8.0` is still published (non-draft, non-prerelease, confirmed via `list_releases`), PR #420 is still open (`mergeable_state: dirty`), PR #417 is still open and unmerged (`mergeable_state: dirty`, Sentry still unremoved from `main`). Too early to read as stalled — day 2.
+- **#169**: day 98, 97 commits before tonight's append, `mergeable_state: clean`, zero comments/reactions — no state change.
+- **#383**: day 26, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same #1, #111, #135) — no drift.
+- **Open-PR sweep**: no new PRs or issues since #420/#417/#422 (all Sept 2-3) — same frozen set otherwise (#395, #394, #390, #383, #359, #358, #246, #236, #204, #169, #32).
+Hint for next run: keep checking #422's three concrete asks directly (`v0.8.0` draft/prerelease status, #420 open/closed, #417 merged/open) rather than just its comment count — that's the checkable resolution the Sept 3 entry set up. If #422 reaches day 7 with none of the three resolved and zero engagement, that's the stale call. Keep #169/#383 to one line unless a state actually changes.
