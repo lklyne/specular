@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-05 — Canvas agent threads for everyone
+
+0.8.0 was published out of order, ahead of 0.7.2, so auto-updates skipped the
+canvas agent threads release. 0.8.1 ships no new changes — it brings every
+install up to the same code as 0.7.2.
+
+If you're coming from 0.8.0, here's what you missed:
+
+- **Chat with an agent about your canvas.** The right panel is a conversation:
+  comments you drop on pages queue into a draft, and Send hands the whole batch
+  to Claude in one run. Follow-ups continue the same session, and past threads
+  stick around in a switcher.
+- **The composer shows what you're talking about.** A context chip tracks your
+  selection, and a second chip switches the model between Opus, Sonnet, and
+  Haiku.
+
 ## [0.7.2] - 2026-09-02 — Canvas agent threads
 
 ### New
