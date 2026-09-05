@@ -1674,3 +1674,17 @@ Noticed (no action, one line each — no state change on any of them):
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same #1, #111, #135) — no drift.
 - **Open-PR sweep**: no new PRs or issues since #420/#417/#422 (all Sept 2-3) — same frozen set otherwise (#395, #394, #390, #383, #359, #358, #246, #236, #204, #169, #32).
 Hint for next run: keep checking #422's three concrete asks directly (`v0.8.0` draft/prerelease status, #420 open/closed, #417 merged/open) rather than just its comment count — that's the checkable resolution the Sept 3 entry set up. If #422 reaches day 7 with none of the three resolved and zero engagement, that's the stale call. Keep #169/#383 to one line unless a state actually changes.
+
+---
+
+## 2026-09-05
+Surveyed: `main` HEAD since Sept 2 (unchanged, still `a94fa02` — second consecutive quiet night), #422's three concrete asks re-checked directly (`v0.8.0` release listing, PR #420, PR #417), #169/#383 comments (re-checked directly, both still empty), needs-triage/`agent-in-progress` recounts, and the full open-PR/open-issue lists for new arrivals.
+Acted: Nothing filed, nothing closed. Proposal queue: #422 is the sole open item, zero comments/reactions, day 3 — well below the 7-day stale threshold. No orchestrator-owned open items beyond #169 to clean up.
+Noticed (no action, one line each — no state change on any of them):
+- **`main`**: zero commits since Sept 2 (`a94fa02` still tip) — second consecutive quiet night.
+- **#422 (release fork)**: still none of its three concrete asks resolved — `v0.8.0` remains published (non-draft, non-prerelease, confirmed via `list_releases`), PR #420 still open (`mergeable_state: dirty`), PR #417 still open (`mergeable_state: dirty`). Day 3, zero comments/reactions — still below the day-7 stale mark (Sept 10).
+- **#169**: day 99, 98 commits before tonight's append, `mergeable_state: clean`, zero comments/reactions — no state change.
+- **#383**: day 27, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same #1, #111, #135) — no drift.
+- **Open-PR/issue sweep**: no new arrivals since #420/#417/#422 (all Sept 2-3) — same frozen set otherwise (#395, #394, #390, #383, #359, #358, #246, #236, #204, #169, #32).
+Hint for next run: keep checking #422's three concrete asks directly through its Sept 10 stale mark. If it hits day 7 with none resolved, note before closing that #422 is a live-inconsistency finding (not a process-step ask like #373/#397/#339/#281), so the standard reflexive close-as-`not_planned` may not be the right read — worth a fresh look at whether the underlying `v0.8.0`/Sentry facts changed even if the issue thread itself stayed silent, rather than applying the process-step precedent by default. Keep #169/#383 to one line unless a state actually changes.
