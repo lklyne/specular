@@ -1704,3 +1704,18 @@ Noticed (no action):
 - **#383**: day 28, zero comments — no state change.
 - **Open-PR sweep**: no new PRs or issues beyond #420/#417/#422 (all Sept 2-3) — same frozen set otherwise (#395, #394, #390, #383, #359, #358, #246, #236, #204, #169, #32).
 Hint for next run: check whether #417 (Sentry removal) merges before a fourth release ships — three unmerged releases through a self-flagged pre-release-blocking PR is enough evidence that if a fourth happens, the concrete fix (a release-skill preflight check for open PRs titled/framed as release-blocking) is worth writing up directly, addressed to `/release`'s own maintainers rather than filed as a backlog issue. Also check whether PR #420 gets closed now that it's twice-superseded — if it lingers past a month in that state, that's a fact worth one line, not a proposal. Keep #169/#383 to one line unless a state actually changes.
+
+---
+
+## 2026-09-07
+Surveyed: `main` HEAD since Sept 6 (`caf4555`→`1e70e3f`, PR #423 "grid-zoom-drift" merged — a dot-tile spacing fix plus a simplify pass), two new PRs opened today (#424 "hold pages exempt until they paint, thread composer shows queued comments", #425 "render mermaid diagrams natively"), #422's three concrete asks re-checked directly (`v0.8.0` release listing, PR #420, PR #417, `sentry` grep on `src/`), #169/#383 state, needs-triage/`agent-in-progress` recounts, and the full open-PR/open-issue lists for new arrivals.
+Acted: Nothing filed, nothing closed. #422 is day 4 (created Sept 3), zero comments/reactions — well below the 7-day stale threshold (Sept 10). No orchestrator-owned open items beyond #169 to clean up.
+Noticed (no action):
+- **PR #423 merged**: dot-grid tile now repeats at exact spacing instead of a rounded width, plus a same-PR simplify pass. Ordinary bug-fix cycle, single theme, nothing to flag.
+- **Two new PRs today (#424, #425)**: agent-thread composer polish and native mermaid rendering — both ordinary product feature work, neither automation-system-shaped. needs-triage unchanged (28, same set including oldest #124 and newest #410 from Aug 24) — these PRs didn't originate from or drain the triage queue.
+- **#422: still none of its three concrete asks resolved.** `v0.8.0` remains published (non-draft, non-prerelease), PR #420 still open (`mergeable_state: dirty`), PR #417 still open and unmerged, `sentry` still referenced in 27 files under `src/`. Per the Sept 6 entry, the facts are the signal here, not thread engagement — no change on either front tonight.
+- **Self-flagged-gate-not-honored pattern (3rd instance, #417) unchanged**: still open, no fourth release has shipped since `0.8.1` to test the Sept 6 hint's trigger condition. Holding the same call as last night — not filing this as a generic backlog issue; the concrete fix belongs in the release skill's own preflight, `/release`-owned territory, not the orchestrator's queue.
+- **#169**: day 101, 100 commits before tonight's append, `mergeable_state` back to `unknown` (the same stale-cache read seen on Aug 25 and Sept 4, not a real state change), zero comments/reactions.
+- **#383**: day 29, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same #1, #111, #135) — no new arrivals since Aug 24, fourteen days now.
+Hint for next run: keep checking #422's three concrete facts through the Sept 10 stale mark — resolve by facts, not thread silence. Watch for a fourth release shipping with #417 still open (the Sept 6 trigger for writing up the release-skill preflight fix directly); none has yet. Keep #169/#383 to one line unless a state actually changes.
