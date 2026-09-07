@@ -43,6 +43,30 @@ const ALLOWED_TOOLS = [
   'Bash(specular:*)',
 ]
 
+/**
+ * Appended to the Claude Code preset. Every run started by the app happens
+ * inside the app: the user is looking at a canvas, and the `specular` skill is
+ * the only way to reach it. Without this the model treats a canvas-only turn as
+ * a question to answer in prose and never loads the skill.
+ */
+const SPECULAR_CONTEXT = [
+  'You are running inside Specular — the app the user is looking at right now.',
+  'Specular is a spatial canvas of live web pages, notes, files, and drawings,',
+  'stored as .canvas documents in the space folder.',
+  '',
+  'The `specular` skill drives that running app. Load it with the Skill tool at',
+  'the start of any turn that touches the canvas: reading what is on it, adding',
+  'or editing entities, arranging them, or snapshotting and screenshotting a',
+  'live page. A turn with no source repo to change is still a canvas turn — the',
+  'user is looking at the canvas, so the result belongs there, not only in your',
+  'reply.',
+  '',
+  'Do not hand-edit .canvas files while the app is running: it owns that',
+  'document and its next save writes over yours. Go through the skill instead.',
+  'Do not reach for chrome-devtools or other browser automation — the skill',
+  'already has the page the user means.',
+].join('\n')
+
 /** The SDK query options a fix run starts with. Pure so the permission modes are testable. */
 export function fixQueryOptions(
   config: FixConfig,
@@ -54,7 +78,7 @@ export function fixQueryOptions(
     model: config.model,
     // Match `claude -p` behavior: the full Claude Code system prompt, with the
     // user's settings and skills loaded from disk (the SDK default).
-    systemPrompt: { type: 'preset', preset: 'claude_code' },
+    systemPrompt: { type: 'preset', preset: 'claude_code', append: SPECULAR_CONTEXT },
     // Enable the Skill tool for every discovered skill. Without this the
     // permission allowlists below — which cannot name `Skill` — leave skills
     // visible in the listing but unusable.
