@@ -194,8 +194,8 @@ function buildPlacementPreview(tool: ReturnType<typeof uiActiveTool>): PendingPl
  * A mutator that changes a selection, a tool, or the focus target changes one
  * of these and no entity, so it patches the slice instead of rebuilding the
  * scene (`runtime-slice-broadcast.ts`). The snapshot below is assembled from
- * the same three functions, which is what stops the patch and the snapshot
- * from drifting into two descriptions of the same cell.
+ * these same functions, which is what stops the patch and the snapshot from
+ * drifting into two descriptions of the same cell.
  */
 export function currentSelectionSlice(): RuntimeStoreSlices['selection'] {
   return {
@@ -215,6 +215,27 @@ export function currentToolSlice(): RuntimeStoreSlices['tool'] {
   }
 }
 
+/**
+ * Window furniture: the window's own width, the toolbar band, and the two side
+ * panels. A renderer that lays anything out against the canvas area edges reads
+ * this, so it has to move the moment a panel opens, closes, or is dragged —
+ * none of which touch an entity.
+ */
+export function currentChromeSlice(): RuntimeStoreSlices['chrome'] {
+  const windowWidth = win?.getBounds().width ?? 0
+  const isMac = process.platform === 'darwin'
+  const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
+  const padRight = isMac ? TOOLBAR_PAD_RIGHT_MAC : TOOLBAR_PAD_RIGHT_OTHER
+  return {
+    windowWidth,
+    canvasOrigin: localCanvasOrigin(),
+    leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
+    toolbarCenterX: (padLeft + Math.max(0, windowWidth - padRight)) / 2,
+    devtoolsOpen: uiDevtoolsOpen(),
+    devtoolsWidth: uiDevtoolsWidth(),
+  }
+}
+
 export function currentFocusSlice(): RuntimeStoreSlices['focus'] {
   return {
     keyboardTargetPageId: currentKeyboardTargetPageId(),
@@ -231,13 +252,7 @@ export function currentFocusSlice(): RuntimeStoreSlices['focus'] {
 let lastLayoutData: LayoutUpdateData | null = null
 
 export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpdateData {
-  const origin = localCanvasOrigin()
   const groupEntities = buildUserGroupSceneEntities()
-  const windowWidth = win?.getBounds().width ?? 0
-  const isMac = process.platform === 'darwin'
-  const padLeft = isMac ? TOOLBAR_PAD_LEFT_MAC : TOOLBAR_PAD_LEFT_OTHER
-  const padRight = isMac ? TOOLBAR_PAD_RIGHT_MAC : TOOLBAR_PAD_RIGHT_OTHER
-  const toolbarCenterX = (padLeft + Math.max(0, windowWidth - padRight)) / 2
   // Project each map-projectable kind through its registry `buildSceneEntity`.
   // `drawing` reads its UI-filtered view (`drawingEntitiesForUi()`), which is
   // distinct from the raw persisted store the registry's `entities()` exposes.
@@ -287,12 +302,9 @@ export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpd
   })
   edges.sort((a, b) => (orderRank.get(a.id) ?? Infinity) - (orderRank.get(b.id) ?? Infinity))
   const built = {
-    windowWidth,
+    ...currentChromeSlice(),
     zoom,
     pan,
-    canvasOrigin: origin,
-    leftChromeWidth: uiLeftSidebarOpen() ? LEFT_SIDEBAR_WIDTH : 0,
-    toolbarCenterX,
     entityOrder,
     entities,
     ...currentSelectionSlice(),
@@ -310,8 +322,6 @@ export function buildCanvasLayoutData(pages: CanvasScenePageEntity[]): LayoutUpd
     hover: hoverTarget,
     interaction: interactionState,
     idle: idleThrottleState().idle,
-    devtoolsOpen: uiDevtoolsOpen(),
-    devtoolsWidth: uiDevtoolsWidth(),
     edges,
     groups: groupEntities,
     presenceCursors: currentPresenceSlice(),

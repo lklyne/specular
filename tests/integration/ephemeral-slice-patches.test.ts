@@ -23,7 +23,10 @@
  *   `broadcastToolChange()` from `applyToolSideEffects` — the patch assertions
  *   fail for those cases;
  * - restoring `requestLayout()` in `updateEdgeDragTarget` — the live-gesture
- *   case's "no pass armed" assertion fails.
+ *   case's "no pass armed" assertion fails;
+ * - dropping `broadcastChromeChange()` from `closeDevTools` — the right-panel
+ *   case's close direction fails, which is the fullscreen note card not
+ *   reflowing into the width the panel gave back.
  *
  * `setSelectionOverlayRect` also stopped requesting a pass, but its body sits
  * behind a `win.isDestroyed()` guard the harness's fake window trips, so there
@@ -40,6 +43,7 @@ import {
   clearInteractionState,
   updateEdgeDragTarget,
 } from '../../src/main/runtime/interaction-state'
+import { toggleDevTools } from '../../src/main/runtime/devtools-panel'
 import { getCanvasLayoutData } from '../../src/main/runtime/canvas-layout-data'
 import { broadcastSceneSnapshot } from '../../src/main/runtime/runtime-patch-broadcast'
 import { clearAllDirty, isDirty } from '../../src/main/runtime/layout-dirty'
@@ -89,8 +93,28 @@ describe('ephemeral mutators patch a slice instead of rebuilding the scene', () 
     )
   }
 
+  /** The last `chrome` value a target was sent. */
+  function chromeValue(webContentsId: number): unknown {
+    return patchesTo(webContentsId).findLast(
+      (patch) => patch.kind === 'slice' && patch.slice === 'chrome',
+    )?.value
+  }
+
   const canvasBg = (): number => bgView!.webContents.id
   const overlay = (): number => aboveView!.webContents.id
+
+  it('ships a right-panel toggle as a chrome patch, in both directions', () => {
+    armWatch()
+
+    toggleDevTools()
+    expect(slicesPatched(overlay())).toContain('chrome')
+    expect(chromeValue(overlay())).toMatchObject({ devtoolsOpen: true })
+
+    harness.clearBroadcasts()
+    toggleDevTools()
+    expect(chromeValue(overlay())).toMatchObject({ devtoolsOpen: false })
+    expect(isDirty('canvas')).toBe(false)
+  })
 
   it('ships a selection as a selection patch, leaving the scene alone', () => {
     const page = createPage('https://example.com/a')
