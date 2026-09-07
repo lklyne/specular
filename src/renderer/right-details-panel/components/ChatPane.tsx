@@ -6,7 +6,7 @@ import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/
 import { FixEventList } from '../../shared/FixEventList'
 import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
-import { ContextChip } from './ContextChip'
+import { ContextChip, composerChipClass } from './ContextChip'
 import { QueuedComments } from './QueuedComments'
 import { ModelChip } from './ModelChip'
 import { PaneHeader } from './PaneHeader'
@@ -276,11 +276,7 @@ function Composer({
           {context}
           {folderPath ? (
             <Tooltip side="top" label={`Changes are written to ${folderPath}`}>
-              <span
-                className={`inline-flex min-w-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${muted} ${
-                  isDark ? 'hover:bg-zinc-800' : 'hover:bg-zinc-200/70'
-                }`}
-              >
+              <span className={composerChipClass(isDark)}>
                 <FolderOpen size={11} className="shrink-0" />
                 <span className="truncate">{folderName(folderPath)}</span>
               </span>

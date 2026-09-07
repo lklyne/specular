@@ -27,7 +27,7 @@ import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
 import { zoom } from './runtime-context'
 import { withCaptureMetrics } from './page-emulation'
 import { msSinceCameraInput } from './camera-input-clock'
-import { awaitTwoFrames } from './page-presentation'
+import { awaitTwoFrames, pageAwaitingPaint } from './page-presentation'
 
 const FREEZE_TARGET = 'bg'
 const FREEZE_ID = 'zoom'
@@ -391,6 +391,9 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
       const contents = page.pageView.webContents
       const contentKey = pageContentKey(page)
       let hiRes: NativeImage | null = null
+      // A document that has not painted yet has nothing on its surface; a
+      // copy of it would be keyed to that document for as long as it lasts.
+      if (pageAwaitingPaint(page.id)) return { page, contentKey, image: null, hiRes }
       const presented = (async () => {
         await awaitTwoFrames(contents)
         if (contents.isDestroyed()) return null

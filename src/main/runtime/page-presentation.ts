@@ -35,7 +35,10 @@ export function awaitTwoFrames(wc: WebContents): Promise<void> {
 /** Upper bound on the wait for a page's post-load frame. */
 const PRESENT_TIMEOUT_MS = 2_000
 
-const awaitingPaint = new Set<string>()
+/** Keyed by page id, valued by the Page whose load is outstanding. A page
+ *  recreated under the same id (reload, undo of a delete) replaces the entry,
+ *  so the old page's teardown cannot clear the new page's load. */
+const awaitingPaint = new Map<string, Page>()
 
 /** Whether `pageId` has a load in flight or a loaded document it has not
  *  painted yet. False for a page that has never loaded — it has no surface to
@@ -45,10 +48,17 @@ export function pageAwaitingPaint(pageId: string): boolean {
 }
 
 async function waitForPaint(wc: WebContents): Promise<void> {
-  await Promise.race([
-    awaitTwoFrames(wc),
-    new Promise((resolve) => setTimeout(resolve, PRESENT_TIMEOUT_MS)),
-  ])
+  let timer: NodeJS.Timeout | undefined
+  try {
+    await Promise.race([
+      awaitTwoFrames(wc),
+      new Promise((resolve) => {
+        timer = setTimeout(resolve, PRESENT_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
@@ -62,14 +72,18 @@ export function registerPagePresentation(page: Page, onPresented: () => void): v
   // document it is not a picture of.
   let generation = 0
 
+  const clear = (): boolean => {
+    if (awaitingPaint.get(page.id) !== page) return false
+    awaitingPaint.delete(page.id)
+    return true
+  }
   const settle = (): void => {
-    if (!awaitingPaint.delete(page.id)) return
-    onPresented()
+    if (clear()) onPresented()
   }
 
   wc.on('did-start-loading', () => {
     generation += 1
-    awaitingPaint.add(page.id)
+    awaitingPaint.set(page.id, page)
   })
   wc.on('did-stop-loading', () => {
     const gen = ++generation
@@ -80,12 +94,6 @@ export function registerPagePresentation(page: Page, onPresented: () => void): v
   })
   // A dead renderer paints nothing and will not answer the wait; the page is
   // as presented as it is going to get until it loads again.
-  wc.on('render-process-gone', () => {
-    generation += 1
-    settle()
-  })
-  wc.once('destroyed', () => {
-    generation += 1
-    awaitingPaint.delete(page.id)
-  })
+  wc.on('render-process-gone', settle)
+  wc.once('destroyed', clear)
 }

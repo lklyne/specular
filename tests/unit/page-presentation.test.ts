@@ -86,4 +86,22 @@ describe('page presentation', () => {
     wc.emit('render-process-gone')
     expect(pageAwaitingPaint(page.id)).toBe(false)
   })
+
+  it('keeps a recreated page loading when the old one under its id is torn down', async () => {
+    const old = fakePage('page_reloaded_app')
+    registerPagePresentation(old.page, () => {})
+    const next = fakePage('page_reloaded_app')
+    const onPresented = vi.fn()
+    registerPagePresentation(next.page, onPresented)
+
+    next.wc.emit('did-start-loading')
+    old.wc.emit('destroyed')
+    expect(pageAwaitingPaint(next.page.id)).toBe(true)
+
+    next.wc.emit('did-stop-loading')
+    next.wc.paint()
+    await flush()
+    expect(pageAwaitingPaint(next.page.id)).toBe(false)
+    expect(onPresented).toHaveBeenCalledTimes(1)
+  })
 })
