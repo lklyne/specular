@@ -95,7 +95,7 @@ export function PageListItem({
     if (onRename && next !== page.label && await onRename(next)) setIsEditing(false)
   }
 
-  const rootClassName = `flex items-center gap-1 text-left text-xs font-normal ${
+  const rootClassName = `flex items-center gap-2 text-left text-xs font-normal ${
     compact
       ? `w-full min-w-0 max-w-[240px] ${fullBleedCompact ? 'h-full py-0' : 'py-1.5'} ${
           active
@@ -112,7 +112,6 @@ export function PageListItem({
     paddingLeft: contentPaddingLeft ?? 8,
     paddingRight: contentPaddingRight ?? 8,
   }
-  const dividerClassName = isDark ? 'bg-zinc-700' : 'bg-zinc-300'
 
   const content = isEditing ? (
     <div className={rootClassName} style={horizontalPaddingStyle}>
@@ -164,7 +163,7 @@ export function PageListItem({
       {compact && fullBleedCompact ? (
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute right-0 top-0 h-full w-px ${dividerClassName}`}
+          className="pointer-events-none absolute right-0 top-0 h-full w-px bg-[var(--surface-panel-border)]"
         />
       ) : null}
     </div>
@@ -180,19 +179,11 @@ export function PageListItem({
       <Menu.Portal>
         <Menu.Positioner sideOffset={6}>
           <Menu.Popup
-            className={`z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none ${
-              isDark
-                ? 'border-zinc-700 bg-zinc-900 text-[var(--surface-foreground)]'
-                : 'border-zinc-200 bg-white text-[var(--surface-foreground)]'
-            }`}
+            className="z-50 min-w-40 rounded-[10px] border p-1 shadow-xl outline-none border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-[var(--surface-foreground)]"
           >
             {onRename ? (
               <Menu.Item
-                className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                  isDark
-                    ? 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-800'
-                    : 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-100'
-                }`}
+                className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
                 onClick={startRename}
               >
                 <span>Rename</span>
@@ -200,11 +191,7 @@ export function PageListItem({
             ) : null}
             {onDelete ? (
               <Menu.Item
-                className={`flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none ${
-                  isDark
-                    ? 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-800'
-                    : 'text-[var(--surface-foreground)] data-[highlighted]:bg-zinc-100'
-                }`}
+                className="flex cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-xs outline-none text-[var(--surface-foreground)] data-[highlighted]:bg-[var(--surface-popover)]"
                 onClick={onDelete}
               >
                 <span>Delete</span>
