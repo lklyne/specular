@@ -1,11 +1,12 @@
 import type { RefObject, KeyboardEvent } from 'react'
 import { PRIMARY_BUTTON_CLASS } from './primaryButton'
 
-/**
- * Shared textarea + submit button for comment composers.
- * Callers wrap this in their own styled container div.
- */
-export function CommentInput({
+/** Type ramp and reset shared by every comment/message textarea. */
+const TEXTAREA_CLASS =
+  'block w-full resize-none overflow-y-auto bg-transparent text-[14px] leading-6 text-[var(--surface-foreground)] outline-none [field-sizing:content] placeholder:text-[var(--surface-foreground-muted)]'
+
+/** The message field. Enter sends, Shift+Enter opens a line. */
+export function CommentTextarea({
   inputRef,
   autoFocus,
   value,
@@ -14,7 +15,89 @@ export function CommentInput({
   onKeyDown,
   placeholder = 'Add a comment...',
   disabled,
-  submitLabel = 'Submit comment',
+  rows = 1,
+  className = 'min-h-[24px] max-h-[120px] py-0.5 pr-9',
+}: {
+  inputRef?: RefObject<HTMLTextAreaElement | null>
+  autoFocus?: boolean
+  value: string
+  onChange: (value: string) => void
+  onSubmit: () => void
+  onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void
+  placeholder?: string
+  disabled?: boolean
+  rows?: number
+  /** Sizing and padding — the field grows with its content between them. */
+  className?: string
+}) {
+  return (
+    <textarea
+      ref={inputRef}
+      autoFocus={autoFocus}
+      className={`${TEXTAREA_CLASS} ${className}`}
+      rows={rows}
+      placeholder={placeholder}
+      value={value}
+      disabled={disabled}
+      onChange={(event) => onChange(event.currentTarget.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault()
+          onSubmit()
+        }
+        onKeyDown?.(event)
+      }}
+    />
+  )
+}
+
+/** Round send button. Goes blue the moment there is something to send. */
+export function CommentSendButton({
+  onSubmit,
+  disabled,
+  submitReady,
+  label = 'Submit comment',
+  className = 'absolute bottom-1.5 right-1.5',
+  inactiveClassName = 'bg-zinc-100 text-[var(--surface-foreground-muted)] hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:hover:text-[var(--surface-foreground)]',
+}: {
+  onSubmit: () => void
+  disabled?: boolean
+  submitReady: boolean
+  label?: string
+  /** Placement — the button owns its own size and shape. */
+  className?: string
+  /** Look before there is anything to send. */
+  inactiveClassName?: string
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] transition disabled:opacity-40 ${className} ${
+        submitReady ? PRIMARY_BUTTON_CLASS : inactiveClassName
+      }`}
+      disabled={disabled || !submitReady}
+      onClick={onSubmit}
+    >
+      ↑
+    </button>
+  )
+}
+
+/**
+ * Textarea with the send button floated in its bottom-right corner.
+ * Callers wrap this in their own styled, relatively-positioned container.
+ */
+export function CommentInput({
+  inputRef,
+  autoFocus,
+  value,
+  onChange,
+  onSubmit,
+  onKeyDown,
+  placeholder,
+  disabled,
+  submitLabel,
   buttonClassName,
   canSubmit,
 }: {
@@ -32,42 +115,25 @@ export function CommentInput({
   /** When set, controls the send button instead of non-empty text. */
   canSubmit?: boolean
 }) {
-  const hasContent = value.trim().length > 0
-  const submitReady = canSubmit ?? hasContent
-  const inactiveBtn = buttonClassName ?? 'bg-zinc-100 text-[var(--surface-foreground-muted)] hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:hover:text-[var(--surface-foreground)]'
-
   return (
     <>
-      <textarea
-        ref={inputRef}
+      <CommentTextarea
+        inputRef={inputRef}
         autoFocus={autoFocus}
-        className="block min-h-[24px] max-h-[120px] w-full resize-none overflow-y-auto bg-transparent py-0.5 pr-9 text-[14px] leading-6 text-[var(--surface-foreground)] outline-none [field-sizing:content] placeholder:text-[var(--surface-foreground-muted)]"
-        rows={1}
-        placeholder={placeholder}
         value={value}
+        onChange={onChange}
+        onSubmit={onSubmit}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
         disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault()
-            onSubmit()
-          }
-          onKeyDown?.(event)
-        }}
       />
-      <button
-        type="button"
-        aria-label={submitLabel}
-        className={`absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full text-[12px] transition disabled:opacity-40 ${
-          submitReady
-            ? PRIMARY_BUTTON_CLASS
-            : inactiveBtn
-        }`}
-        disabled={disabled || !submitReady}
-        onClick={onSubmit}
-      >
-        ↑
-      </button>
+      <CommentSendButton
+        onSubmit={onSubmit}
+        disabled={disabled}
+        submitReady={canSubmit ?? value.trim().length > 0}
+        label={submitLabel}
+        {...(buttonClassName ? { inactiveClassName: buttonClassName } : {})}
+      />
     </>
   )
 }

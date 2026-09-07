@@ -3,7 +3,6 @@ import {
   Code,
   File,
   Folder,
-  MessageSquare,
   PenLine,
   Spline,
   SquareDashedMousePointer,
@@ -11,41 +10,30 @@ import {
 } from 'lucide-react'
 import type { ThreadPill } from '../../../shared/agent-thread'
 import { pillLabel } from '../../../shared/agent-thread'
-import type { DevtoolsPanelData } from '../../../shared/types'
+import type { DevtoolsPanelData, DevtoolsPanelPageSummary } from '../../../shared/types'
 import { iconForFilePath } from '../../shared/fileIcon'
 import { usePaneTheme } from '../PaneContext'
 import { viewportIcon } from '../../shared/pageListItem'
 import { ShapeGlyph } from '../../shared/ShapeGlyph'
 
-/** Shared pill styling for the composer's context and model chips. */
+/**
+ * Shared pill styling for the composer's context and model chips. They read as
+ * plain labels at rest and only take on a pill on hover, so the composer row
+ * stays quiet next to the message field.
+ */
 export function composerChipClass(isDark: boolean): string {
-  return `inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-[var(--surface-foreground-muted)] ${
-    isDark ? 'border-zinc-600 bg-zinc-800' : 'border-zinc-300 bg-zinc-100'
+  return `inline-flex min-w-0 max-w-full items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium text-[var(--surface-foreground-muted)] transition-colors ${
+    isDark ? 'hover:bg-zinc-800' : 'hover:bg-zinc-200/70'
   }`
 }
 
 /**
- * The composer's context pill: what the thread is anchored to. Queued
- * comments take over the chip as an icon + count until they're sent.
+ * The composer's context pill: where this turn is aimed. It names the page or
+ * entity the thread is anchored to — a queued comment's own text shows in the
+ * queue above the message field, so the chip names the comment's page instead.
  */
-export function ContextChip({
-  pill,
-  data,
-  queuedCount = 0,
-}: {
-  pill: ThreadPill
-  data: DevtoolsPanelData
-  queuedCount?: number
-}) {
+export function ContextChip({ pill, data }: { pill: ThreadPill; data: DevtoolsPanelData }) {
   const isDark = usePaneTheme()
-  if (queuedCount > 0) {
-    return (
-      <span className={composerChipClass(isDark)}>
-        <MessageSquare size={11} className="shrink-0" />
-        {queuedCount}
-      </span>
-    )
-  }
   return (
     <span className={composerChipClass(isDark)}>
       <ChipIcon pill={pill} data={data} />
@@ -54,12 +42,23 @@ export function ContextChip({
   )
 }
 
+/** The page a comment sits on, or null when it is canvas-bound. */
+function annotationPage(pill: ThreadPill, data: DevtoolsPanelData): DevtoolsPanelPageSummary | null {
+  if (pill.kind !== 'annotation') return null
+  const pageId = (data.annotations ?? []).find((item) => item.id === pill.annotationId)?.pageAnchor
+    ?.pageId
+  if (!pageId) return null
+  return data.pages?.find((page) => page.id === pageId) ?? null
+}
+
+function canvasLabel(data: DevtoolsPanelData): string {
+  return data.canvasName?.trim() || 'specular'
+}
+
 function chipLabel(pill: ThreadPill, data: DevtoolsPanelData): string {
-  if (pill.kind === 'empty') {
-    const canvasName = data.canvasName?.trim()
-    if (canvasName) return canvasName
-    return 'specular'
-  }
+  const page = annotationPage(pill, data)
+  if (page) return page.label
+  if (pill.kind === 'annotation' || pill.kind === 'empty') return canvasLabel(data)
   if (pill.kind === 'selection' && pill.label === 'page') {
     return data.selection?.pageTitle || pill.label
   }
@@ -68,14 +67,17 @@ function chipLabel(pill: ThreadPill, data: DevtoolsPanelData): string {
 
 function ChipIcon({ pill, data }: { pill: ThreadPill; data: DevtoolsPanelData }) {
   const mode = data.panelMode
+  const commentPage = annotationPage(pill, data)
+  if (commentPage) {
+    return <PageGlyph faviconUrl={commentPage.faviconUrl} width={commentPage.width} />
+  }
   if (pill.kind === 'dom') return <Code size={11} className="shrink-0" />
-  if (pill.kind === 'annotation') return <MessageSquare size={11} className="shrink-0" />
   if (pill.kind === 'selection') {
     switch (mode.kind) {
       case 'multi':
         return <SquareDashedMousePointer size={11} className="shrink-0" />
       case 'page':
-        return <PageChipIcon data={data} />
+        return <SelectedPageGlyph data={data} />
       case 'text':
         return <StickyNote size={11} className="shrink-0" />
       case 'drawing':
@@ -99,8 +101,27 @@ function ChipIcon({ pill, data }: { pill: ThreadPill; data: DevtoolsPanelData })
   return <File size={11} className="shrink-0" />
 }
 
-function PageChipIcon({ data }: { data: DevtoolsPanelData }) {
+function SelectedPageGlyph({ data }: { data: DevtoolsPanelData }) {
   const faviconUrl = data.pages?.find((page) => page.id === data.selection?.pageId)?.faviconUrl
+  return (
+    <PageGlyph
+      faviconUrl={faviconUrl}
+      width={data.selection?.width}
+      viewportLabel={data.selection?.viewportLabel}
+    />
+  )
+}
+
+/** A page's favicon, falling back to the icon for its viewport size. */
+function PageGlyph({
+  faviconUrl,
+  width,
+  viewportLabel,
+}: {
+  faviconUrl?: string | null
+  width?: number
+  viewportLabel?: string
+}) {
   const [imageFailed, setImageFailed] = useState(false)
   useEffect(() => {
     setImageFailed(false)
@@ -116,6 +137,6 @@ function PageChipIcon({ data }: { data: DevtoolsPanelData }) {
       />
     )
   }
-  const Icon = viewportIcon(data.selection?.viewportLabel ?? '', data.selection?.width)
+  const Icon = viewportIcon(viewportLabel ?? '', width)
   return <Icon size={11} className="shrink-0" />
 }

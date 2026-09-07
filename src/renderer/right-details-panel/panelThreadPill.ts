@@ -6,6 +6,7 @@ import {
   type ThreadWriteTarget,
 } from '../../shared/agent-thread'
 import { annotationOrigin } from '../../shared/annotation-utils'
+import { fileEntityLabel } from './rightDetailsPanelHelpers'
 import { getInspectDetailState } from './rightDetailsPanelSelectors'
 
 export function threadPillFromPanelData(data: DevtoolsPanelData): ThreadPill {
@@ -46,6 +47,31 @@ function originFromPill(data: DevtoolsPanelData, pill: ThreadPill): string | nul
   }
 }
 
+/**
+ * What the composer chip calls a single selected entity. Names it the way its
+ * pane header does — a file by its filename, a group by its label, a note by
+ * its opening words — and falls back to the kind for entities with no name.
+ */
+function selectedEntityLabel(data: DevtoolsPanelData, kind: string): string {
+  switch (kind) {
+    case 'file':
+      return data.fileEntity ? fileEntityLabel(data.fileEntity.file) : kind
+    case 'group':
+      return data.groupEntity?.label.trim() || kind
+    case 'text':
+      return firstWords(data.textEntity?.text) || kind
+    case 'shape':
+      return firstWords(data.shapeEntity?.text) || kind
+    default:
+      return kind
+  }
+}
+
+function firstWords(text: string | undefined): string {
+  const flat = (text ?? '').replace(/\s+/g, ' ').trim()
+  return flat.length > 40 ? `${flat.slice(0, 39)}…` : flat
+}
+
 function threadPillInputFromPanelData(data: DevtoolsPanelData): ThreadPillInput {
   const inspect = data.inspect
   const { selectedDetail } = inspect ? getInspectDetailState(inspect) : {}
@@ -72,7 +98,11 @@ function threadPillInputFromPanelData(data: DevtoolsPanelData): ThreadPillInput 
       entityIds: [...mode.entityIds],
     }
   } else if (mode.kind !== 'document' && mode.kind !== 'page') {
-    canvasSelection = { count: 1, label: mode.kind, entityIds: [mode.entityId] }
+    canvasSelection = {
+      count: 1,
+      label: selectedEntityLabel(data, mode.kind),
+      entityIds: [mode.entityId],
+    }
   } else if (mode.kind === 'page') {
     canvasSelection = {
       count: 1,

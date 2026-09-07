@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FolderOpen, Loader2, Plus, X } from 'lucide-react'
-import type { AgentThread } from '../../../shared/agent-thread'
+import type { AgentThread, AgentThreadMessage } from '../../../shared/agent-thread'
 import type { DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
-import { CommentBubble, CommentInput } from '../../shared/CommentPrimitives'
+import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
 import { FixEventList } from '../../shared/FixEventList'
+import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
 import { ContextChip } from './ContextChip'
+import { QueuedComments } from './QueuedComments'
 import { ModelChip } from './ModelChip'
 import { PaneHeader } from './PaneHeader'
 import { threadPillFromPanelData, threadWriteTargetFromPanel } from '../panelThreadPill'
@@ -46,13 +48,10 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
           isDraft={active?.status === 'draft'}
           hasQueued={hasQueued}
           isNew={isNew}
-          chip={
-            <>
-              <ContextChip pill={pill} data={data} queuedCount={queued.length} />
-              {data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
-            </>
-          }
-          repoPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : null}
+          queued={queued}
+          context={<ContextChip pill={pill} data={data} />}
+          model={data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
+          folderPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : (data.spacePath ?? null)}
           isDark={isDark}
           muted={muted}
         />
@@ -227,8 +226,10 @@ function Composer({
   isDraft,
   hasQueued,
   isNew,
-  chip,
-  repoPath,
+  queued,
+  context,
+  model,
+  folderPath,
   isDark,
   muted,
 }: {
@@ -236,8 +237,14 @@ function Composer({
   isDraft: boolean
   hasQueued: boolean
   isNew: boolean
-  chip: React.ReactNode
-  repoPath: string | null
+  /** Comments this turn will carry, shown above the field until they're sent. */
+  queued: AgentThreadMessage[]
+  /** The thread's anchor chip — where this turn is aimed. */
+  context: React.ReactNode
+  /** Model picker, or null until the config arrives. */
+  model: React.ReactNode
+  /** Where this thread writes: the bound repo, or the space folder. */
+  folderPath: string | null
   isDark: boolean
   muted: string
 }) {
@@ -249,29 +256,44 @@ function Composer({
     setText('')
   }
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex min-w-0 items-center gap-1.5 px-0.5">
-        {chip}
-        {repoPath ? (
-          <span className={`inline-flex min-w-0 items-center gap-1 ${muted}`} title={repoPath}>
-            <FolderOpen size={11} className="shrink-0" />
-            <span className="truncate">{folderName(repoPath)}</span>
-          </span>
-        ) : null}
-      </div>
-      <div
-        className={`relative rounded-[16px] border py-1.5 pl-2.5 pr-1.5 ${
-          isDark ? 'border-zinc-600 bg-zinc-900/40' : 'border-zinc-300 bg-zinc-50'
-        }`}
-      >
-        <CommentInput
-          value={text}
-          onChange={setText}
+    <div
+      className={`rounded-[16px] border px-2 pb-1.5 pt-1.5 ${
+        isDark ? 'border-zinc-600 bg-zinc-900/40' : 'border-zinc-300 bg-zinc-50'
+      }`}
+    >
+      <QueuedComments messages={queued} />
+      <CommentTextarea
+        value={text}
+        onChange={setText}
+        onSubmit={submit}
+        placeholder={isNew ? 'Add or edit…' : 'Follow up…'}
+        disabled={running}
+        rows={2}
+        className="min-h-[48px] max-h-[160px] px-0.5 py-0.5"
+      />
+      <div className="flex min-w-0 items-center gap-1 pt-0.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          {context}
+          {folderPath ? (
+            <Tooltip side="top" label={`Changes are written to ${folderPath}`}>
+              <span
+                className={`inline-flex min-w-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${muted} ${
+                  isDark ? 'hover:bg-zinc-800' : 'hover:bg-zinc-200/70'
+                }`}
+              >
+                <FolderOpen size={11} className="shrink-0" />
+                <span className="truncate">{folderName(folderPath)}</span>
+              </span>
+            </Tooltip>
+          ) : null}
+        </div>
+        {model}
+        <CommentSendButton
           onSubmit={submit}
-          placeholder={isNew ? 'Message…' : 'Follow up…'}
-          submitLabel="Send"
           disabled={running}
-          canSubmit={canSend}
+          submitReady={canSend}
+          label="Send"
+          className="shrink-0"
         />
       </div>
     </div>
