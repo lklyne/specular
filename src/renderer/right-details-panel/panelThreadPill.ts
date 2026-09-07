@@ -5,7 +5,7 @@ import {
   type ThreadPillInput,
   type ThreadWriteTarget,
 } from '../../shared/agent-thread'
-import { annotationOrigin } from '../../shared/annotation-utils'
+import { annotationOrigin, truncate } from '../../shared/annotation-utils'
 import { fileEntityLabel } from './rightDetailsPanelHelpers'
 import { getInspectDetailState } from './rightDetailsPanelSelectors'
 
@@ -68,8 +68,7 @@ function selectedEntityLabel(data: DevtoolsPanelData, kind: string): string {
 }
 
 function firstWords(text: string | undefined): string {
-  const flat = (text ?? '').replace(/\s+/g, ' ').trim()
-  return flat.length > 40 ? `${flat.slice(0, 39)}…` : flat
+  return truncate((text ?? '').replace(/\s+/g, ' ').trim(), 40)
 }
 
 function threadPillInputFromPanelData(data: DevtoolsPanelData): ThreadPillInput {

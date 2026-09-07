@@ -38,12 +38,17 @@ export function viewportIcon(label: string, width?: number) {
   return Laptop
 }
 
-function PageGlyph({
+/** A page's favicon, falling back to `Icon` when there is none or it fails to load. */
+export function PageGlyph({
   faviconUrl,
   Icon,
+  size = 14,
+  iconClassName = 'shrink-0 text-[var(--surface-foreground-muted)]',
 }: {
   faviconUrl?: string | null
   Icon: ComponentType<{ size?: number; className?: string }>
+  size?: number
+  iconClassName?: string
 }) {
   const [imageFailed, setImageFailed] = useState(false)
 
@@ -57,13 +62,14 @@ function PageGlyph({
         alt=""
         aria-hidden="true"
         src={faviconUrl}
-        className="h-[14px] w-[14px] shrink-0 rounded-[3px]"
+        className="shrink-0 rounded-[2px]"
+        style={{ width: size, height: size }}
         onError={() => setImageFailed(true)}
       />
     )
   }
 
-  return <Icon size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
+  return <Icon size={size} className={iconClassName} />
 }
 
 // fallow-ignore-next-line complexity

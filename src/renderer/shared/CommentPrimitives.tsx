@@ -132,7 +132,7 @@ export function CommentInput({
         disabled={disabled}
         submitReady={canSubmit ?? value.trim().length > 0}
         label={submitLabel}
-        {...(buttonClassName ? { inactiveClassName: buttonClassName } : {})}
+        inactiveClassName={buttonClassName}
       />
     </>
   )

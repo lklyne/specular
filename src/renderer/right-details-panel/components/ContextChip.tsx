@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import {
   Code,
   File,
@@ -13,7 +12,7 @@ import { pillLabel } from '../../../shared/agent-thread'
 import type { DevtoolsPanelData, DevtoolsPanelPageSummary } from '../../../shared/types'
 import { iconForFilePath } from '../../shared/fileIcon'
 import { usePaneTheme } from '../PaneContext'
-import { viewportIcon } from '../../shared/pageListItem'
+import { PageGlyph, viewportIcon } from '../../shared/pageListItem'
 import { ShapeGlyph } from '../../shared/ShapeGlyph'
 
 /**
@@ -34,10 +33,11 @@ export function composerChipClass(isDark: boolean): string {
  */
 export function ContextChip({ pill, data }: { pill: ThreadPill; data: DevtoolsPanelData }) {
   const isDark = usePaneTheme()
+  const commentPage = annotationPage(pill, data)
   return (
     <span className={composerChipClass(isDark)}>
-      <ChipIcon pill={pill} data={data} />
-      <span className="truncate">{chipLabel(pill, data)}</span>
+      <ChipIcon pill={pill} data={data} commentPage={commentPage} />
+      <span className="truncate">{chipLabel(pill, data, commentPage)}</span>
     </span>
   )
 }
@@ -55,9 +55,12 @@ function canvasLabel(data: DevtoolsPanelData): string {
   return data.canvasName?.trim() || 'specular'
 }
 
-function chipLabel(pill: ThreadPill, data: DevtoolsPanelData): string {
-  const page = annotationPage(pill, data)
-  if (page) return page.label
+function chipLabel(
+  pill: ThreadPill,
+  data: DevtoolsPanelData,
+  commentPage: DevtoolsPanelPageSummary | null,
+): string {
+  if (commentPage) return commentPage.label
   if (pill.kind === 'annotation' || pill.kind === 'empty') return canvasLabel(data)
   if (pill.kind === 'selection' && pill.label === 'page') {
     return data.selection?.pageTitle || pill.label
@@ -65,11 +68,18 @@ function chipLabel(pill: ThreadPill, data: DevtoolsPanelData): string {
   return pillLabel(pill)
 }
 
-function ChipIcon({ pill, data }: { pill: ThreadPill; data: DevtoolsPanelData }) {
+function ChipIcon({
+  pill,
+  data,
+  commentPage,
+}: {
+  pill: ThreadPill
+  data: DevtoolsPanelData
+  commentPage: DevtoolsPanelPageSummary | null
+}) {
   const mode = data.panelMode
-  const commentPage = annotationPage(pill, data)
   if (commentPage) {
-    return <PageGlyph faviconUrl={commentPage.faviconUrl} width={commentPage.width} />
+    return <ChipPageGlyph faviconUrl={commentPage.faviconUrl} width={commentPage.width} />
   }
   if (pill.kind === 'dom') return <Code size={11} className="shrink-0" />
   if (pill.kind === 'selection') {
@@ -104,7 +114,7 @@ function ChipIcon({ pill, data }: { pill: ThreadPill; data: DevtoolsPanelData })
 function SelectedPageGlyph({ data }: { data: DevtoolsPanelData }) {
   const faviconUrl = data.pages?.find((page) => page.id === data.selection?.pageId)?.faviconUrl
   return (
-    <PageGlyph
+    <ChipPageGlyph
       faviconUrl={faviconUrl}
       width={data.selection?.width}
       viewportLabel={data.selection?.viewportLabel}
@@ -112,8 +122,8 @@ function SelectedPageGlyph({ data }: { data: DevtoolsPanelData }) {
   )
 }
 
-/** A page's favicon, falling back to the icon for its viewport size. */
-function PageGlyph({
+/** A page's favicon at chip size, falling back to the icon for its viewport. */
+function ChipPageGlyph({
   faviconUrl,
   width,
   viewportLabel,
@@ -122,21 +132,12 @@ function PageGlyph({
   width?: number
   viewportLabel?: string
 }) {
-  const [imageFailed, setImageFailed] = useState(false)
-  useEffect(() => {
-    setImageFailed(false)
-  }, [faviconUrl])
-  if (faviconUrl && !imageFailed) {
-    return (
-      <img
-        alt=""
-        aria-hidden="true"
-        src={faviconUrl}
-        className="h-[11px] w-[11px] shrink-0 rounded-[2px]"
-        onError={() => setImageFailed(true)}
-      />
-    )
-  }
-  const Icon = viewportIcon(viewportLabel ?? '', width)
-  return <Icon size={11} className="shrink-0" />
+  return (
+    <PageGlyph
+      faviconUrl={faviconUrl}
+      Icon={viewportIcon(viewportLabel ?? '', width)}
+      size={11}
+      iconClassName="shrink-0"
+    />
+  )
 }

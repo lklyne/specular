@@ -25,6 +25,13 @@ import type { Page } from './runtime-entities'
 const DOUBLE_RAF =
   'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))'
 
+/** Resolves once `wc` has produced two more frames: the first commits any
+ *  pending layout, the second presents it. Resolves on a script failure too,
+ *  so a page mid-teardown never holds a caller. */
+export function awaitTwoFrames(wc: WebContents): Promise<void> {
+  return wc.executeJavaScript(DOUBLE_RAF).then(() => undefined, () => undefined)
+}
+
 /** Upper bound on the wait for a page's post-load frame. */
 const PRESENT_TIMEOUT_MS = 2_000
 
@@ -39,7 +46,7 @@ export function pageAwaitingPaint(pageId: string): boolean {
 
 async function waitForPaint(wc: WebContents): Promise<void> {
   await Promise.race([
-    wc.executeJavaScript(DOUBLE_RAF).catch(() => undefined),
+    awaitTwoFrames(wc),
     new Promise((resolve) => setTimeout(resolve, PRESENT_TIMEOUT_MS)),
   ])
 }
