@@ -4,7 +4,7 @@
 
 import { ipcChannels } from '../../shared/ipc-contract'
 import { WebContentsView } from 'electron'
-import { registerPageIdleThrottle } from './page-idle-throttle'
+import { registerPageIdleThrottle, syncPageIdleThrottle } from './page-idle-throttle'
 import { randomUUID } from 'crypto'
 import { preloadPath } from './load-renderer'
 import type { PageConfig } from '../../shared/types'
@@ -61,6 +61,8 @@ import { openLinkInNewFrame } from './link-open-policy'
 import { looksLikeUrl } from '../../shared/url'
 import { breadcrumb } from '../sentry-context'
 import { installScrollbarCss } from './page-scrollbar-css'
+import { registerPagePresentation } from './page-presentation'
+import { scheduleZoomSnapshotPreparation } from './zoom-snapshot-freeze'
 
 function hostOf(url: string | undefined): string | undefined {
   if (!url) return undefined
@@ -131,6 +133,13 @@ export function createPage(config: PageConfig): Page {
   pages.push(page)
   markDirty('canvas', 'sidebar', 'toolbar')
 
+  // Registered before the throttle so its load listeners see the page marked
+  // unpainted, and re-runs both consumers at the edge where the page has a
+  // surface again.
+  registerPagePresentation(page, () => {
+    syncPageIdleThrottle(page)
+    scheduleZoomSnapshotPreparation()
+  })
   registerPageIdleThrottle(page)
   installScrollbarCss(page.pageView.webContents)
 

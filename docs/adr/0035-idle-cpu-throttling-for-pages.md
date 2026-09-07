@@ -73,7 +73,24 @@ A page with a live CDP bridge stays exempt on its own, via
 `automationInteractivePageCounts`, so a long agent session with no other traffic
 does not decay into a throttled page.
 
-### 3. The policy is pure; only the application is not
+### 3. The load exemption ends at the first paint, not the load event
+
+Between a navigation commit and the new document's first paint a page has no
+surface — the old frame is gone and nothing has replaced it. `did-stop-loading`
+does not close that window: it fires at the load event, which a client-rendered
+app reaches with an empty body, whole frames before it puts pixels on screen.
+Freezing there holds the empty surface for as long as the app stays idle, and
+page views are transparent, so what the user sees is a hole in the canvas where
+the site was. A hot reload landing just as the blur grace expires is the way in.
+
+So the exemption runs until the page has presented: two animation frames after
+the load settles, bounded by a timeout so a page that never answers is not
+treated as loading forever. `page-presentation.ts` owns that signal, because the
+zoom snapshot has the same stake in it — a capture taken in the gap pictures the
+hole and is then keyed to the new document, which makes it that page's frame for
+as long as the document lasts.
+
+### 4. The policy is pure; only the application is not
 
 `page-idle-policy.ts` is a pure function from observed state to a verdict plus
 the moment that verdict can next flip. `page-idle-throttle.ts` owns the state,
@@ -85,15 +102,17 @@ Electron, and the caller has exactly one timer to arm.
 - An unfocused app with a canvas of animating pages costs a fraction of what it
   did. The blur grace (5s) means alt-tabbing away and back never engages it.
 - Pages are *stopped*, not slowed. A frozen page makes no progress until the
-  app wakes: timers do not fire and script does not run. A page with a load in
-  flight is exempt so loads still complete; a site holding a socket may
+  app wakes: timers do not fire and script does not run. A page is exempt from
+  the load starting until the loaded document has painted, so loads finish and
+  land on something visible; a site holding a socket may
   reconnect on resume, the same as it does after a laptop sleeps.
 - A page whose debugger is owned by an open DevTools frontend cannot be
   frozen. Attach fails, the page keeps running at full speed, and the next
   evaluation retries. Correct, and the same trade-off `page-color-scheme.ts`
   already makes.
 - There is no global off switch. Every exemption — focus, awake holds, agent
-  traffic, a live CDP bridge, a load in flight — is derived from observed
+  traffic, a live CDP bridge, a page that has not painted its current document
+  — is derived from observed
   state, so a page that must stay fast has a reason the policy can read. A
   kill switch would be the one input nothing observes, and a second code path
   to measure. If throttling is ever wrong for some page, the fix is a rule

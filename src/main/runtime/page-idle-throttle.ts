@@ -28,6 +28,7 @@
 import { automationInteractivePageCounts, pages } from './runtime-context'
 import type { Page } from './runtime-entities'
 import { ensurePageDebugger } from './page-debugger'
+import { pageAwaitingPaint } from './page-presentation'
 import { broadcastRuntimePatch } from './runtime-patch-broadcast'
 import { evaluateIdleThrottle } from './page-idle-policy'
 
@@ -48,12 +49,6 @@ let recheckTimer: NodeJS.Timeout | null = null
  *  changes nothing sends nothing. */
 let broadcastIdle: boolean | null = null
 
-/**
- * Pages with a load in flight, tracked here rather than read off `page.isLoading`
- * so the throttle does not depend on which listener page-factory registered first.
- */
-const loadingPageIds = new Set<string>()
-
 function pagesAreIdle(): boolean {
   return evaluateIdleThrottle({
     now: Date.now(),
@@ -71,8 +66,10 @@ function targetState(page: Page): LifecycleState {
   // it would stop the very work the app is unfocused for.
   if (automationInteractivePageCounts.has(page.id)) return 'active'
   // A frozen page never finishes loading, and the user or agent that asked
-  // for it is waiting on the finished page, not the idle one.
-  if (loadingPageIds.has(page.id)) return 'active'
+  // for it is waiting on the finished page, not the idle one. The exemption
+  // runs past the load event until the page has painted: freezing in that gap
+  // holds a surface with nothing on it, and only a thaw ever fills it in.
+  if (pageAwaitingPaint(page.id)) return 'active'
   return 'frozen'
 }
 
@@ -98,7 +95,7 @@ function applyState(page: Page, state: LifecycleState): boolean {
   return true
 }
 
-function syncPageIdleThrottle(page: Page): void {
+export function syncPageIdleThrottle(page: Page): void {
   const state = targetState(page)
   if (page.lastIdleLifecycleState === state) return
   // Never attached, nothing to undo — don't open a debugger session on every
@@ -207,19 +204,8 @@ export function registerPageIdleThrottle(page: Page): void {
     page.lastIdleLifecycleState = undefined
     syncPageIdleThrottle(page)
   }
-  wc.on('did-start-loading', () => {
-    loadingPageIds.add(page.id)
-    syncPageIdleThrottle(page)
-  })
-  wc.on('did-stop-loading', () => {
-    loadingPageIds.delete(page.id)
-    syncPageIdleThrottle(page)
-  })
+  wc.on('did-start-loading', () => syncPageIdleThrottle(page))
   wc.on('did-navigate', reapply)
-  wc.on('render-process-gone', () => {
-    loadingPageIds.delete(page.id)
-    reapply()
-  })
-  wc.once('destroyed', () => loadingPageIds.delete(page.id))
+  wc.on('render-process-gone', reapply)
   syncPageIdleThrottle(page)
 }

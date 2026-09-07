@@ -4,6 +4,7 @@ import type { FreezeTarget, FrozenPageFrame, FrozenPagesState } from '../../shar
 import { safeSend } from './safe-send'
 import { aboveView, bgView } from './view-refs'
 import { boundEffectivePageContentSize } from './runtime-geometry'
+import { pageAwaitingPaint } from './page-presentation'
 import type { Page } from './runtime-entities'
 
 /**
@@ -176,9 +177,14 @@ export function encodePageFrame(page: Page, image: NativeImage): FrozenPageFrame
 }
 
 /** Captures one page's on-screen surface as a frozen-page frame. Null for a
- *  destroyed view, zero bounds, or an empty compositor copy. */
+ *  destroyed view, zero bounds, an unpainted document, or an empty compositor
+ *  copy. */
 export async function capturePageFrame(page: Page): Promise<FrozenPageFrame | null> {
   if (page.pageView.webContents.isDestroyed()) return null
+  // A document that has committed but not painted has a surface with nothing
+  // on it, and the copy of it would be keyed to this document — the frame
+  // would then be the page's picture for as long as the document lasts.
+  if (pageAwaitingPaint(page.id)) return null
   const bounds = page.pageView.getBounds()
   if (bounds.width <= 0 || bounds.height <= 0) return null
   const image = await page.pageView.webContents.capturePage()
