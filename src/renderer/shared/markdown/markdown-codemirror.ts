@@ -4,6 +4,7 @@ import { defaultKeymap } from '@codemirror/commands'
 import { markdown, markdownKeymap, markdownLanguage } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags as t } from '@lezer/highlight'
+import { diagramThemeVars } from '../mermaid/diagram-theme'
 import { smartPasteExtension } from './markdown-smart-paste'
 import {
   FULL_LIVE_PREVIEW,
@@ -87,6 +88,8 @@ function buildEditorTheme(isDark: boolean, contentPadding: string): Extension {
         // over it — so text would reflow the moment editing began.
         fontFamily: 'inherit',
         height: '100%',
+        // Diagrams inside a ```mermaid fence read their palette from here.
+        ...diagramThemeVars(isDark),
       },
       '.cm-content': {
         padding: contentPadding,

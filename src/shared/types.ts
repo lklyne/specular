@@ -221,7 +221,7 @@ export interface CanvasSceneFileEntity {
   parentGroupId?: string
   objectFit?: FileObjectFit
   /** Renderer-side dispatch tag chosen by the entity-renderer registry. */
-  rendererTag?: 'image' | 'video' | 'markdown' | 'component' | 'html'
+  rendererTag?: 'image' | 'video' | 'markdown' | 'component' | 'html' | 'mermaid'
   /**
    * Markdown note content, present only once the note has entered the
    * Y.Doc `notes` mirror (i.e. edited at least once — ADR 0023). Undefined
@@ -976,6 +976,7 @@ export type PanelFileType =
   | 'markdown'
   | 'component'
   | 'html'
+  | 'mermaid'
   | 'other'
 
 export interface PanelFileEntityDetail {

@@ -15,7 +15,7 @@ import type { PersistedFileEntity } from '../../shared/types'
 
 export type EntityRendererKind = 'inline' | 'wcv-page'
 
-export type EntityRendererTag = 'markdown' | 'image' | 'video' | 'component' | 'html'
+export type EntityRendererTag = 'markdown' | 'image' | 'video' | 'component' | 'html' | 'mermaid'
 
 interface BaseRendererClaim {
   /** Stable id used for telemetry, debugging, and unregister. */

@@ -10,6 +10,7 @@ import { componentRenderPlugin } from './builtin/component-render'
 import { htmlRenderPlugin } from './builtin/html-render'
 import { imageRenderPlugin } from './builtin/image-render'
 import { markdownRenderPlugin } from './builtin/markdown-render'
+import { mermaidRenderPlugin } from './builtin/mermaid-render'
 import { videoRenderPlugin } from './builtin/video-render'
 
 const builtIns = [
@@ -17,6 +18,7 @@ const builtIns = [
   htmlRenderPlugin,
   imageRenderPlugin,
   markdownRenderPlugin,
+  mermaidRenderPlugin,
   videoRenderPlugin,
 ]
 

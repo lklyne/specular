@@ -1,8 +1,9 @@
-import { Code, File, FileText, Image, Video, type LucideIcon } from 'lucide-react'
+import { Code, File, FileText, Image, Video, Workflow, type LucideIcon } from 'lucide-react'
 import {
   HTML_EXTENSIONS,
   IMAGE_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
+  MERMAID_EXTENSIONS,
   VIDEO_EXTENSIONS,
 } from '../../shared/file-extensions'
 
@@ -14,5 +15,6 @@ export function iconForFilePath(filePath: string): LucideIcon {
   if (IMAGE_EXTENSIONS.test(filePath)) return Image
   if (VIDEO_EXTENSIONS.test(filePath)) return Video
   if (HTML_EXTENSIONS.test(filePath)) return Code
+  if (MERMAID_EXTENSIONS.test(filePath)) return Workflow
   return File
 }

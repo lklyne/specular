@@ -9,6 +9,7 @@ import {
   buildLinkMarks,
   buildMarkdownDecorations,
 } from '../../src/renderer/shared/markdown/markdown-live-preview'
+import { buildMermaidDecorations } from '../../src/renderer/shared/markdown/markdown-mermaid'
 
 /** What the reader sees: source minus every collapsed range. */
 function visibleText(
@@ -148,5 +149,63 @@ describe('markdown link target marks', () => {
     expect(linkMarks('see [the docs](https://example.com)')).toEqual([
       { text: '[the docs](https://example.com)', url: 'https://example.com' },
     ])
+  })
+})
+
+/**
+ * Mutation-verified by making `mermaidFenceAt` return null (the read-only
+ * fence stays visible as text) and by dropping the per-line loop in
+ * `fenceRevealed` (the cursor on the fence's last line no longer reveals it).
+ */
+describe('mermaid fences', () => {
+  const FENCE = 'Before\n```mermaid\ngraph TD\n  A --> B\n```\nAfter'
+
+  function diagramText(doc: string, editable: boolean, cursor?: number): string {
+    const state = EditorState.create({
+      doc,
+      selection: cursor === undefined ? undefined : { anchor: cursor },
+      extensions: [markdown({ base: markdownLanguage }), EditorView.editable.of(editable)],
+    })
+    const decorations = buildMermaidDecorations(state, FULL_LIVE_PREVIEW)
+    let out = doc
+    decorations.between(0, doc.length, (from, to, value) => {
+      const widget = value.spec.widget as { source?: string } | undefined
+      out = doc.slice(0, from) + `<diagram ${JSON.stringify(widget?.source ?? '')}>` + doc.slice(to)
+    })
+    return out
+  }
+
+  it('replaces a read-only mermaid fence with the diagram widget for its source', () => {
+    expect(diagramText(FENCE, false)).toBe('Before\n<diagram "graph TD\\n  A --> B">\nAfter')
+  })
+
+  it('reveals the source while the cursor is on any line of the fence', () => {
+    const lastFenceLine = FENCE.indexOf('```\nAfter') + 1
+    expect(diagramText(FENCE, true, lastFenceLine)).toBe(FENCE)
+    expect(diagramText(FENCE, true, 0)).not.toBe(FENCE)
+  })
+
+  it('leaves other fences and empty mermaid fences to the code renderer', () => {
+    expect(diagramText('```js\nlet a\n```', false)).toBe('```js\nlet a\n```')
+    expect(diagramText('```mermaid\n```', false)).toBe('```mermaid\n```')
+  })
+
+  it('keeps the live preview off a replaced fence, so nothing decorates inside it', () => {
+    const state = EditorState.create({
+      doc: FENCE,
+      extensions: [markdown({ base: markdownLanguage }), EditorView.editable.of(false)],
+    })
+    const preview = buildMarkdownDecorations(state, [{ from: 0, to: FENCE.length }])
+    const inside: number[] = []
+    preview.between(7, FENCE.length - 6, (from) => {
+      inside.push(from)
+    })
+    expect(inside).toEqual([])
+  })
+
+  it('renders no diagrams for the sticky variant', () => {
+    expect(diagramText(FENCE, false).length).toBeGreaterThan(0)
+    const state = EditorState.create({ doc: FENCE, extensions: [markdown({ base: markdownLanguage })] })
+    expect(buildMermaidDecorations(state, STICKY_LIVE_PREVIEW).size).toBe(0)
   })
 })

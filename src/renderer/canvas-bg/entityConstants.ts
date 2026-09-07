@@ -18,6 +18,7 @@ export {
   VIDEO_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
   HTML_EXTENSIONS,
+  MERMAID_EXTENSIONS,
 } from '../../shared/file-extensions'
 import { IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, MARKDOWN_EXTENSIONS } from '../../shared/file-extensions'
 import { RESIZE_HANDLE_VISUAL_PX } from '../../shared/canvas-hit-geometry'

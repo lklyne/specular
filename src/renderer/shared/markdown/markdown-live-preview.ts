@@ -25,6 +25,7 @@ import {
 import type { SyntaxNodeRef } from '@lezer/common'
 import { looksLikeUrl } from '../../../shared/url'
 import { selectedLineNumbers } from './markdown-commands'
+import { markdownMermaidDiagrams, mermaidFenceAt } from './markdown-mermaid'
 
 /** Punctuation that carries no meaning once the syntax highlighter has styled the text. */
 const INLINE_MARKS = new Set([
@@ -70,6 +71,8 @@ export interface LivePreviewOptions {
   /** Mark URLs as click/Cmd+click-openable targets (`data-md-url`). Off
    *  means links are just text — no color, no pointer, no opening. */
   linkTargets: boolean
+  /** Render a ```mermaid fence as its diagram (see `markdown-mermaid.ts`). */
+  diagrams: boolean
 }
 
 export const FULL_LIVE_PREVIEW: LivePreviewOptions = {
@@ -82,6 +85,7 @@ export const FULL_LIVE_PREVIEW: LivePreviewOptions = {
   bullets: true,
   revealOnCursor: true,
   linkTargets: true,
+  diagrams: true,
 }
 
 export const STICKY_LIVE_PREVIEW: LivePreviewOptions = {
@@ -94,6 +98,7 @@ export const STICKY_LIVE_PREVIEW: LivePreviewOptions = {
   bullets: true,
   revealOnCursor: false,
   linkTargets: false,
+  diagrams: false,
 }
 
 const HIDDEN = Decoration.replace({})
@@ -134,7 +139,7 @@ class RuleWidget extends WidgetType {
 }
 
 /** Line numbers whose markup should stay visible because the user is editing there. */
-function revealedLines(state: EditorState, options: LivePreviewOptions): Set<number> {
+export function revealedLines(state: EditorState, options: LivePreviewOptions): Set<number> {
   if (!options.revealOnCursor) return new Set()
   if (!state.facet(EditorView.editable)) return new Set()
   return selectedLineNumbers(state)
@@ -284,6 +289,9 @@ export function buildMarkdownDecorations(
           return undefined
         }
         if (revealed.has(doc.lineAt(node.from).number)) return undefined
+        // A mermaid fence belongs to the diagram field; line decorations
+        // here would land inside the range it replaces.
+        if (options.diagrams && mermaidFenceAt(node, state)) return false
 
         const decorate = NODE_DECORATORS[node.name]
         if (decorate) return decorate(decorations, node, state, options)
@@ -441,5 +449,6 @@ const livePreviewTheme = EditorView.theme({
 export function markdownLivePreview(options: LivePreviewOptions = FULL_LIVE_PREVIEW): Extension {
   const parts: Extension[] = [createLivePreviewPlugin(options), livePreviewTheme]
   if (options.linkTargets) parts.push(linkTargetsPlugin)
+  if (options.diagrams) parts.push(markdownMermaidDiagrams(options))
   return parts
 }

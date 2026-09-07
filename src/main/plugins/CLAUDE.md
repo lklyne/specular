@@ -20,7 +20,7 @@ Dispatch is **first match wins** by registration order, with `priority` as the o
 
 `EntityRendererClaim` is a discriminated union:
 
-- **`InlineRendererClaim`** — content renders inside the canvas DOM as a React component. Markdown, image, video are all inline. No process boundary, synchronous render.
+- **`InlineRendererClaim`** — content renders inside the canvas DOM as a React component. Markdown, mermaid, html, image, video are all inline. No process boundary, synchronous render.
 - **`WcvPageRendererClaim`** — content loads inside its own Electron `WebContentsView` (a separate renderer process). The plugin provides `resolveUrl(entity)`; the host eventually creates the WCV pointed at it. Component-render is the only `wcv-page` plugin today.
 
 Both kinds share one registry because the dispatch key — file extension — is shared. The discriminated union enforces that `wcv-page` carries `resolveUrl` and `inline` does not.

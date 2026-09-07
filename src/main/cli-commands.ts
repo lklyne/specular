@@ -211,7 +211,7 @@ const ADD_ITEM_BUILDERS: Record<string, (args: ParsedArgs) => Record<string, unk
     const path = args.positional[1]
     if (!path) return 'usage: specular add file <path> [--at x,y]'
     // The file handler infers the renderer from the extension (md / html /
-    // image / video) and sizes images/video from the file.
+    // mmd / image / video) and sizes images/video from the file.
     return {
       kind: 'file',
       file: path,
