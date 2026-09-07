@@ -47,6 +47,12 @@ describe('fixQueryOptions', () => {
     expect(options.cwd).toBe('/repo')
     expect(options.systemPrompt).toEqual({ type: 'preset', preset: 'claude_code' })
   })
+
+  it('enables every skill in all permission modes — the allowlists cannot name `Skill`', () => {
+    for (const permissions of ['acceptEdits', 'auto', 'dangerously'] as const) {
+      expect(fixQueryOptions(config({ permissions }), '/repo').skills).toBe('all')
+    }
+  })
 })
 
 describe('parseOutput', () => {

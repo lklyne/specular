@@ -55,6 +55,10 @@ export function fixQueryOptions(
     // Match `claude -p` behavior: the full Claude Code system prompt, with the
     // user's settings and skills loaded from disk (the SDK default).
     systemPrompt: { type: 'preset', preset: 'claude_code' },
+    // Enable the Skill tool for every discovered skill. Without this the
+    // permission allowlists below — which cannot name `Skill` — leave skills
+    // visible in the listing but unusable.
+    skills: 'all',
   }
   if (resumeSessionId) {
     options.resume = resumeSessionId
