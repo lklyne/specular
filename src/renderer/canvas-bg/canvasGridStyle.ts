@@ -126,9 +126,12 @@ export function drawCanvasGrid({
   const { spacing, originX, originY, dotRadius, alpha } = metrics
   if (!Number.isFinite(spacing) || spacing <= 0) return
 
-  // A tile spanning a whole number of device pixels lands every dot on the
-  // device grid, so the whole field stays crisp without rounding each dot's
-  // centre by hand. Rounding the tile moves the spacing by well under a pixel.
+  // The tile raster spans a whole number of device pixels so the cached image
+  // stays crisp, but the repeat period must be the exact spacing: repeating at
+  // the rounded width instead would accumulate the sub-pixel error tile after
+  // tile into visible drift against the content by the far side of the window.
+  // The pattern transform stretches the raster back to the true spacing (a
+  // sub-percent resample of the dot, invisible; the drift was not).
   const tileDevicePx = Math.max(1, Math.round(spacing * dpr))
   const tile = gridDotTile(tileDevicePx, dotRadius * dpr, color)
   if (!tile) return
@@ -136,16 +139,14 @@ export function drawCanvasGrid({
   if (!pattern) return
 
   // The tile carries its dot at the centre, so the field is phased by the grid
-  // origin less half a tile. Only the offset within one tile matters; the
+  // origin less half a tile. Only the offset within one repeat matters; the
   // repeat covers the rest.
-  const tileCssPx = tileDevicePx / dpr
-  const centreCssPx = Math.round(tileDevicePx / 2) / dpr
+  const scale = spacing / tileDevicePx
+  const centreCssPx = Math.round(tileDevicePx / 2) * scale
   const phase = (value: number) =>
-    (((value - centreCssPx) % tileCssPx) + tileCssPx) % tileCssPx
-  // The pattern draws one image pixel per user unit, and user units are CSS
-  // pixels here, so it scales back down to device pixels before phasing.
+    (((value - centreCssPx) % spacing) + spacing) % spacing
   pattern.setTransform(
-    new DOMMatrix().translate(phase(originX), phase(originY)).scale(1 / dpr),
+    new DOMMatrix().translate(phase(originX), phase(originY)).scale(scale),
   )
 
   ctx.fillStyle = pattern
