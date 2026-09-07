@@ -3,6 +3,7 @@ import {
   HTML_EXTENSIONS,
   IMAGE_EXTENSIONS,
   MARKDOWN_EXTENSIONS,
+  MERMAID_EXTENSIONS,
   VIDEO_EXTENSIONS,
 } from '../entityConstants'
 import { ComponentPlaceholderRenderer } from './ComponentPlaceholderRenderer'
@@ -10,6 +11,7 @@ import { FileFallbackRenderer } from './FileFallbackRenderer'
 import { HtmlInlineRenderer } from './HtmlInlineRenderer'
 import { ImageInlineRenderer } from './ImageInlineRenderer'
 import { MarkdownInlineRenderer } from './MarkdownInlineRenderer'
+import { MermaidInlineRenderer } from './MermaidInlineRenderer'
 import { VideoInlineRenderer } from './VideoInlineRenderer'
 
 /**
@@ -24,6 +26,7 @@ function resolveTag(entity: CanvasSceneFileEntity): CanvasSceneFileEntity['rende
   if (VIDEO_EXTENSIONS.test(entity.file)) return 'video'
   if (MARKDOWN_EXTENSIONS.test(entity.file)) return 'markdown'
   if (HTML_EXTENSIONS.test(entity.file)) return 'html'
+  if (MERMAID_EXTENSIONS.test(entity.file)) return 'mermaid'
   return undefined
 }
 
@@ -70,6 +73,8 @@ export function RendererSwitch({
       return <ComponentPlaceholderRenderer entity={entity} isDark={isDark} />
     case 'html':
       return <HtmlInlineRenderer entity={entity} isInteractive={isInteractive} />
+    case 'mermaid':
+      return <MermaidInlineRenderer entity={entity} isDark={isDark} />
     default:
       return <FileFallbackRenderer entity={entity} isDark={isDark} />
   }

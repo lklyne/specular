@@ -66,7 +66,7 @@ undo stack, so Cmd+Z will not reverse them.
 ```bash
 specular add page <url> [--at x,y] [--preset N] [--landscape]
 specular add note <text> [--at x,y] [--color 3]
-specular add file <path>      # md / html / image / video — kind inferred from extension
+specular add file <path>      # md / html / mmd / image / video — kind inferred from extension
 ```
 
 `add page` defaults to the Laptop preset; pass `--preset N` for another
@@ -276,6 +276,14 @@ off against the rest of the workspace.
 Drop a `.html` file onto the canvas to render it inline (charts, mockups,
 generated visualizations): `specular add file /abs/path/viz.html`. Rendered
 display-only; edit the file to update.
+
+## Diagrams
+
+Mermaid renders natively. A `.mmd` file (`specular add file /abs/path/flow.mmd`)
+renders as a diagram card that fits the file to its box; a ```mermaid fence
+inside a `.md` note renders inline, and clicking the diagram while editing
+reveals the source. Flowchart, sequence, state, class, ER, and xychart are
+supported; pie, gantt, mindmap, and gitgraph are not.
 
 ## Passing URLs
 

@@ -103,7 +103,7 @@ smaller overlay panels with their own preload bridge.
 File entities pick a renderer through a small registry, not an extension switch.
 
 - `src/main/plugins/registry.ts` — internal API (`registerEntityRenderer`, `pickRenderer`, `getRendererTagFor`).
-- `src/main/plugins/builtin/` — one claim per renderer (image, video, markdown, component).
+- `src/main/plugins/builtin/` — one claim per renderer (image, video, markdown, mermaid, html, component).
 - `src/renderer/canvas-bg/entity-renderers/` — the React mounts plus `RendererSwitch.tsx`.
 
 Main calls `getRendererTagFor` in `buildFileEntitySceneEntity` and broadcasts the
