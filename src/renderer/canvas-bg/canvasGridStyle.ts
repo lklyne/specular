@@ -48,7 +48,6 @@ function buildCanvasGridMetrics({
     originX,
     originY,
     spacing,
-    stepMultiplier,
     dotRadius: Math.max(
       0.6,
       Math.round(0.7 * devicePixelRatioOrOne(devicePixelRatio)) /
@@ -64,15 +63,19 @@ function buildCanvasGridMetrics({
  * origin would paint one quarter of itself and neighbouring tiles would supply
  * nothing for the other three.
  */
-let cachedDotTile: { canvas: HTMLCanvasElement; key: string } | null = null
+let cachedDotTile: {
+  canvas: HTMLCanvasElement
+  centreDevicePx: number
+  key: string
+} | null = null
 
 function gridDotTile(
   tileDevicePx: number,
   radiusDevicePx: number,
   color: string,
-): HTMLCanvasElement | null {
+): { canvas: HTMLCanvasElement; centreDevicePx: number } | null {
   const key = `${tileDevicePx}:${radiusDevicePx}:${color}`
-  if (cachedDotTile?.key === key) return cachedDotTile.canvas
+  if (cachedDotTile?.key === key) return cachedDotTile
 
   const canvas = document.createElement('canvas')
   canvas.width = tileDevicePx
@@ -84,8 +87,8 @@ function gridDotTile(
   ctx.beginPath()
   ctx.arc(centre, centre, radiusDevicePx, 0, Math.PI * 2)
   ctx.fill()
-  cachedDotTile = { canvas, key }
-  return canvas
+  cachedDotTile = { canvas, centreDevicePx: centre, key }
+  return cachedDotTile
 }
 
 export function buildCanvasGridStyle() {
@@ -126,27 +129,26 @@ export function drawCanvasGrid({
   const { spacing, originX, originY, dotRadius, alpha } = metrics
   if (!Number.isFinite(spacing) || spacing <= 0) return
 
-  // The tile raster spans a whole number of device pixels so the cached image
-  // stays crisp, but the repeat period must be the exact spacing: repeating at
-  // the rounded width instead would accumulate the sub-pixel error tile after
-  // tile into visible drift against the content by the far side of the window.
-  // The pattern transform stretches the raster back to the true spacing (a
-  // sub-percent resample of the dot, invisible; the drift was not).
+  // The tile raster spans a whole number of device pixels so the cached dot
+  // stays crisp; the pattern transform scales it to the exact spacing, so the
+  // repeat period carries no rounding error to accumulate across the window.
   const tileDevicePx = Math.max(1, Math.round(spacing * dpr))
   const tile = gridDotTile(tileDevicePx, dotRadius * dpr, color)
   if (!tile) return
-  const pattern = ctx.createPattern(tile, 'repeat')
+  const pattern = ctx.createPattern(tile.canvas, 'repeat')
   if (!pattern) return
 
   // The tile carries its dot at the centre, so the field is phased by the grid
-  // origin less half a tile. Only the offset within one repeat matters; the
+  // origin less that offset. Only the offset within one repeat matters; the
   // repeat covers the rest.
-  const scale = spacing / tileDevicePx
-  const centreCssPx = Math.round(tileDevicePx / 2) * scale
+  const rasterToCssPx = spacing / tileDevicePx
+  const centreCssPx = tile.centreDevicePx * rasterToCssPx
   const phase = (value: number) =>
     (((value - centreCssPx) % spacing) + spacing) % spacing
   pattern.setTransform(
-    new DOMMatrix().translate(phase(originX), phase(originY)).scale(scale),
+    new DOMMatrix()
+      .translate(phase(originX), phase(originY))
+      .scale(rasterToCssPx),
   )
 
   ctx.fillStyle = pattern
