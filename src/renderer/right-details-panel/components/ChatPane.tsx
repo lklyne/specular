@@ -25,9 +25,6 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const divider = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const muted = 'text-[var(--surface-foreground-muted)]'
   const queued = active?.messages.filter((message) => message.queued && message.text.trim()) ?? []
-  const hasQueued = Boolean(
-    active?.messages.some((message) => message.role === 'user' && message.text.trim()),
-  )
   const isNew =
     !active || active.status === 'draft' || !active.messages.some((message) => message.role === 'agent')
 
@@ -45,8 +42,6 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
       <div className={`border-t px-2 py-2 ${divider}`}>
         <Composer
           running={running}
-          isDraft={active?.status === 'draft'}
-          hasQueued={hasQueued}
           isNew={isNew}
           queued={queued}
           context={<ContextChip pill={pill} data={data} />}
@@ -223,8 +218,6 @@ function ThreadTranscript({
 
 function Composer({
   running,
-  isDraft,
-  hasQueued,
   isNew,
   queued,
   context,
@@ -234,8 +227,6 @@ function Composer({
   muted,
 }: {
   running: boolean
-  isDraft: boolean
-  hasQueued: boolean
   isNew: boolean
   /** Comments this turn will carry, shown above the field until they're sent. */
   queued: AgentThreadMessage[]
@@ -249,7 +240,9 @@ function Composer({
   muted: string
 }) {
   const [text, setText] = useState('')
-  const canSend = !running && (Boolean(text.trim()) || (isDraft && hasQueued))
+  // A run in flight doesn't close the composer: sending queues the follow-up,
+  // which the thread picks up as soon as the run ends.
+  const canSend = Boolean(text.trim()) || (!running && queued.length > 0)
   const submit = () => {
     if (!canSend) return
     rightDetailsPanelApi.sendAgentThread(text.trim())
@@ -266,8 +259,7 @@ function Composer({
         value={text}
         onChange={setText}
         onSubmit={submit}
-        placeholder={isNew ? 'Add or edit…' : 'Follow up…'}
-        disabled={running}
+        placeholder={running ? 'Queue a follow-up…' : isNew ? 'Add or edit…' : 'Follow up…'}
         rows={2}
         className="min-h-[48px] max-h-[160px] px-0.5 py-0.5"
       />
@@ -286,7 +278,6 @@ function Composer({
         {model}
         <CommentSendButton
           onSubmit={submit}
-          disabled={running}
           submitReady={canSend}
           label="Send"
           className="shrink-0"

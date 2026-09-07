@@ -3,9 +3,9 @@ import type { AgentThreadMessage } from '../../../shared/agent-thread'
 import { usePaneTheme } from '../PaneContext'
 
 /**
- * Comments waiting on Send, stacked above the message field. The turn carries
- * them, so it shows them — the composer's context chip only names where they
- * live, and the transcript stays empty until the agent answers.
+ * Messages waiting to be handed to the agent — comments taken from the canvas,
+ * and follow-ups typed while a run is still in flight — stacked above the
+ * message field. They move into the transcript the moment their turn starts.
  */
 export function QueuedComments({ messages }: { messages: AgentThreadMessage[] }) {
   const isDark = usePaneTheme()
