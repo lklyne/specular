@@ -1,4 +1,5 @@
 import type { RefObject, KeyboardEvent } from 'react'
+import { Markdown } from './Markdown'
 import { PRIMARY_BUTTON_CLASS } from './primaryButton'
 
 /** Type ramp and reset shared by every comment/message textarea. */
@@ -139,7 +140,16 @@ export function CommentInput({
 }
 
 /**
- * Author label + message bubble for annotation threads.
+ * One message in a thread.
+ *
+ * Only the user gets a bubble. Their turns are short and interruptive, so the
+ * pill reads as an aside; the agent's are long-form markdown that a bubble
+ * would box in for no gain. The asymmetry is what tells the two apart, which
+ * is why neither carries an author label.
+ *
+ * Agent text is markdown and renders as such; the user's is shown exactly as
+ * typed. The composer offers no markdown affordance, so silently italicising
+ * someone's `2 * 3 * 4` would be a surprise, not a feature.
  */
 export function CommentBubble({
   author,
@@ -150,20 +160,28 @@ export function CommentBubble({
   text?: string | null
   fallback?: string
 }) {
-  return (
-    <div>
-      <div className="text-xs font-medium text-[var(--surface-foreground)]">
-        {author === 'agent' ? 'Agent' : 'You'}
+  if (!text) {
+    return fallback ? (
+      <div className="text-[12px] italic text-[var(--surface-foreground-muted)]">{fallback}</div>
+    ) : null
+  }
+
+  if (author === 'agent') {
+    return (
+      <div className="min-w-0 text-[12px] leading-relaxed text-[var(--surface-foreground)]">
+        <Markdown text={text} />
       </div>
-      {text ? (
-        <div className="mt-1 inline-block max-w-full whitespace-pre-wrap rounded-2xl bg-zinc-100 px-3 py-1.5 text-[12px] text-[var(--surface-foreground)] dark:bg-zinc-700/60">
-          {text}
-        </div>
-      ) : fallback ? (
-        <div className="mt-1 text-[12px] italic text-[var(--surface-foreground-muted)]">
-          {fallback}
-        </div>
-      ) : null}
+    )
+  }
+
+  // The input tokens, not a bubble-specific fill: a sent message should look
+  // like the composer it came from. They also read against --surface-panel in
+  // both themes (lighter in light, darker in dark), which a mid-zinc does not.
+  return (
+    <div className="min-w-0">
+      <div className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]">
+        {text}
+      </div>
     </div>
   )
 }
