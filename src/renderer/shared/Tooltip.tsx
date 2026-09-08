@@ -5,9 +5,10 @@ import type { ReactElement, ReactNode } from 'react'
  * Shared styled tooltip. Wraps a single trigger element (usually a button) via
  * base-ui's `render` merge, so the trigger keeps its own props and handlers.
  *
- * Always opens below the trigger (no flipping) — the toolbar has nothing above
- * it, and consistent placement reads calmer. An optional `shortcut` renders
- * muted to the right of the label.
+ * Opens below the trigger by default and never flips — the toolbar has nothing
+ * above it, and consistent placement reads calmer. Surfaces pinned to the
+ * bottom of a panel pass `side="top"` so the tip doesn't land on the content
+ * below. An optional `shortcut` renders muted to the right of the label.
  *
  * The tip only adds a visual hint — it does not provide an accessible name, so
  * icon-only triggers must still set their own `aria-label`.
@@ -20,6 +21,7 @@ export function Tooltip({
   label,
   shortcut,
   children,
+  side = 'bottom',
   sideOffset = 6,
   onOpenChange,
 }: {
@@ -28,6 +30,7 @@ export function Tooltip({
   shortcut?: string
   /** The trigger — a single focusable element. */
   children: ReactElement
+  side?: 'top' | 'bottom'
   sideOffset?: number
   onOpenChange?: (open: boolean) => void
 }) {
@@ -37,7 +40,7 @@ export function Tooltip({
       <Base.Trigger render={children} />
       <Base.Portal>
         <Base.Positioner
-          side="bottom"
+          side={side}
           sideOffset={sideOffset}
           collisionAvoidance={{ side: 'none' }}
         >

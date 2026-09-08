@@ -1051,6 +1051,8 @@ export interface DevtoolsPanelData {
   activeThreadId?: string | null
   /** Active canvas tab name, for the composer context chip. */
   canvasName?: string | null
+  /** Space folder on disk — where a thread writes when no repo is bound. */
+  spacePath?: string
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail

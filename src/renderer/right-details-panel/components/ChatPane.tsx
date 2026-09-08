@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FolderOpen, Loader2, Plus, X } from 'lucide-react'
-import type { AgentThread } from '../../../shared/agent-thread'
+import type { AgentThread, AgentThreadMessage } from '../../../shared/agent-thread'
 import type { DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
-import { CommentBubble, CommentInput } from '../../shared/CommentPrimitives'
+import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
 import { FixEventList } from '../../shared/FixEventList'
+import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
-import { ContextChip } from './ContextChip'
+import { ContextChip, composerChipClass } from './ContextChip'
+import { QueuedComments } from './QueuedComments'
 import { ModelChip } from './ModelChip'
 import { PaneHeader } from './PaneHeader'
 import { threadPillFromPanelData, threadWriteTargetFromPanel } from '../panelThreadPill'
@@ -23,9 +25,6 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const divider = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const muted = 'text-[var(--surface-foreground-muted)]'
   const queued = active?.messages.filter((message) => message.queued && message.text.trim()) ?? []
-  const hasQueued = Boolean(
-    active?.messages.some((message) => message.role === 'user' && message.text.trim()),
-  )
   const isNew =
     !active || active.status === 'draft' || !active.messages.some((message) => message.role === 'agent')
 
@@ -43,16 +42,11 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
       <div className={`border-t px-2 py-2 ${divider}`}>
         <Composer
           running={running}
-          isDraft={active?.status === 'draft'}
-          hasQueued={hasQueued}
           isNew={isNew}
-          chip={
-            <>
-              <ContextChip pill={pill} data={data} queuedCount={queued.length} />
-              {data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
-            </>
-          }
-          repoPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : null}
+          queued={queued}
+          context={<ContextChip pill={pill} data={data} />}
+          model={data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
+          folderPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : (data.spacePath ?? null)}
           isDark={isDark}
           muted={muted}
         />
@@ -194,7 +188,7 @@ function ThreadTranscript({
   }, [messageCount, progress?.events.length, progress?.status])
 
   return (
-    <div ref={transcriptRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-2.5">
+    <div ref={transcriptRef} className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-2.5">
       {!thread || thread.messages.length === 0 ? (
         <div className={`text-[12px] ${muted}`}>
           Comment on the canvas to queue a draft, or type below and send.
@@ -224,54 +218,69 @@ function ThreadTranscript({
 
 function Composer({
   running,
-  isDraft,
-  hasQueued,
   isNew,
-  chip,
-  repoPath,
+  queued,
+  context,
+  model,
+  folderPath,
   isDark,
   muted,
 }: {
   running: boolean
-  isDraft: boolean
-  hasQueued: boolean
   isNew: boolean
-  chip: React.ReactNode
-  repoPath: string | null
+  /** Comments this turn will carry, shown above the field until they're sent. */
+  queued: AgentThreadMessage[]
+  /** The thread's anchor chip — where this turn is aimed. */
+  context: React.ReactNode
+  /** Model picker, or null until the config arrives. */
+  model: React.ReactNode
+  /** Where this thread writes: the bound repo, or the space folder. */
+  folderPath: string | null
   isDark: boolean
   muted: string
 }) {
   const [text, setText] = useState('')
-  const canSend = !running && (Boolean(text.trim()) || (isDraft && hasQueued))
+  // A run in flight doesn't close the composer: sending queues the follow-up,
+  // which the thread picks up as soon as the run ends.
+  const canSend = Boolean(text.trim()) || (!running && queued.length > 0)
   const submit = () => {
     if (!canSend) return
     rightDetailsPanelApi.sendAgentThread(text.trim())
     setText('')
   }
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex min-w-0 items-center gap-1.5 px-0.5">
-        {chip}
-        {repoPath ? (
-          <span className={`inline-flex min-w-0 items-center gap-1 ${muted}`} title={repoPath}>
-            <FolderOpen size={11} className="shrink-0" />
-            <span className="truncate">{folderName(repoPath)}</span>
-          </span>
-        ) : null}
-      </div>
-      <div
-        className={`relative rounded-[16px] border py-1.5 pl-2.5 pr-1.5 ${
-          isDark ? 'border-zinc-600 bg-zinc-900/40' : 'border-zinc-300 bg-zinc-50'
-        }`}
-      >
-        <CommentInput
-          value={text}
-          onChange={setText}
+    <div
+      className={`rounded-[16px] border px-2 pb-1.5 pt-1.5 ${
+        isDark ? 'border-zinc-600 bg-zinc-900/40' : 'border-zinc-300 bg-zinc-50'
+      }`}
+    >
+      <QueuedComments messages={queued} />
+      <CommentTextarea
+        value={text}
+        onChange={setText}
+        onSubmit={submit}
+        placeholder={running ? 'Queue a follow-up…' : isNew ? 'Add or edit…' : 'Follow up…'}
+        rows={2}
+        className="min-h-[48px] max-h-[160px] px-0.5 py-0.5"
+      />
+      <div className="flex min-w-0 items-center gap-1 pt-0.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          {context}
+          {folderPath ? (
+            <Tooltip side="top" label={`Changes are written to ${folderPath}`}>
+              <span className={composerChipClass(isDark)}>
+                <FolderOpen size={11} className="shrink-0" />
+                <span className="truncate">{folderName(folderPath)}</span>
+              </span>
+            </Tooltip>
+          ) : null}
+        </div>
+        {model}
+        <CommentSendButton
           onSubmit={submit}
-          placeholder={isNew ? 'Message…' : 'Follow up…'}
-          submitLabel="Send"
-          disabled={running}
-          canSubmit={canSend}
+          submitReady={canSend}
+          label="Send"
+          className="shrink-0"
         />
       </div>
     </div>

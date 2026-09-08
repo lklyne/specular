@@ -1,0 +1,99 @@
+/**
+ * Has a page drawn a frame of the document it is currently showing?
+ *
+ * Between a navigation commit and the new document's first paint a page has no
+ * surface: the old frame is gone and nothing has replaced it. `did-stop-loading`
+ * does not close that window — it fires at the load event, which a
+ * client-rendered app reaches with an empty body, whole frames before React (or
+ * anything else) puts pixels on screen. Page views are transparent, so a page
+ * caught there is a hole in the canvas, not a white rectangle.
+ *
+ * Everything that treats a page's surface as that page's content has to wait
+ * past it. Freezing the page holds the hole until something thaws it; a zoom
+ * snapshot taken there pictures the hole and then caches it as this document's
+ * frame, so every later gesture shows it too.
+ *
+ * The signal is two animation frames after the load settles: Blink has laid out
+ * and committed the new document, so the frame on its way is a picture of it.
+ * Bounded by a timeout, because a page that never answers — hung, culled to
+ * zero bounds, mid-teardown — must not read as loading forever.
+ */
+
+import type { WebContents } from 'electron'
+import type { Page } from './runtime-entities'
+
+const DOUBLE_RAF =
+  'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))'
+
+/** Resolves once `wc` has produced two more frames: the first commits any
+ *  pending layout, the second presents it. Resolves on a script failure too,
+ *  so a page mid-teardown never holds a caller. */
+export function awaitTwoFrames(wc: WebContents): Promise<void> {
+  return wc.executeJavaScript(DOUBLE_RAF).then(() => undefined, () => undefined)
+}
+
+/** Upper bound on the wait for a page's post-load frame. */
+const PRESENT_TIMEOUT_MS = 2_000
+
+/** Keyed by page id, valued by the Page whose load is outstanding. A page
+ *  recreated under the same id (reload, undo of a delete) replaces the entry,
+ *  so the old page's teardown cannot clear the new page's load. */
+const awaitingPaint = new Map<string, Page>()
+
+/** Whether `pageId` has a load in flight or a loaded document it has not
+ *  painted yet. False for a page that has never loaded — it has no surface to
+ *  protect. */
+export function pageAwaitingPaint(pageId: string): boolean {
+  return awaitingPaint.has(pageId)
+}
+
+async function waitForPaint(wc: WebContents): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  try {
+    await Promise.race([
+      awaitTwoFrames(wc),
+      new Promise((resolve) => {
+        timer = setTimeout(resolve, PRESENT_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Tracks `page`'s paint state and calls `onPresented` at the edge where it
+ * gains a surface again, so callers that stood down during the gap can act.
+ */
+export function registerPagePresentation(page: Page, onPresented: () => void): void {
+  const wc = page.pageView.webContents
+  // Each load owns the wait it started; a load that begins while an earlier
+  // wait is still pending retires that one rather than letting it settle a
+  // document it is not a picture of.
+  let generation = 0
+
+  const clear = (): boolean => {
+    if (awaitingPaint.get(page.id) !== page) return false
+    awaitingPaint.delete(page.id)
+    return true
+  }
+  const settle = (): void => {
+    if (clear()) onPresented()
+  }
+
+  wc.on('did-start-loading', () => {
+    generation += 1
+    awaitingPaint.set(page.id, page)
+  })
+  wc.on('did-stop-loading', () => {
+    const gen = ++generation
+    void waitForPaint(wc).then(() => {
+      if (gen !== generation || wc.isDestroyed()) return
+      settle()
+    })
+  })
+  // A dead renderer paints nothing and will not answer the wait; the page is
+  // as presented as it is going to get until it loads again.
+  wc.on('render-process-gone', settle)
+  wc.once('destroyed', clear)
+}
