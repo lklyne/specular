@@ -1719,3 +1719,18 @@ Noticed (no action):
 - **#383**: day 29, zero comments — no state change.
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same #1, #111, #135) — no new arrivals since Aug 24, fourteen days now.
 Hint for next run: keep checking #422's three concrete facts through the Sept 10 stale mark — resolve by facts, not thread silence. Watch for a fourth release shipping with #417 still open (the Sept 6 trigger for writing up the release-skill preflight fix directly); none has yet. Keep #169/#383 to one line unless a state actually changes.
+
+---
+
+## 2026-09-08
+Surveyed: `main` HEAD since Sept 7 (unchanged, still `1e70e3f`), #422's three concrete asks re-checked directly (`v0.8.0` release listing, PR #420, PR #417, `sentry` grep on `src/`), #169/#383 state, needs-triage/`agent-in-progress` recounts, and PR #424/#425 (opened Sept 7) for any new engagement.
+Acted: Nothing filed, nothing closed. #422 is day 5, zero comments/reactions — below the Sept 10 stale mark. No orchestrator-owned open items beyond #169 to clean up.
+Noticed (no action):
+- **`main`**: zero commits since Sept 7 (`1e70e3f` still tip) — one quiet day.
+- **#422**: still none of its three concrete asks resolved — `v0.8.0` remains published (non-draft, non-prerelease), PR #420 still open (`mergeable_state: dirty`), PR #417 still open and unmerged, `sentry` still referenced in 27 files under `src/`. Facts unchanged from Sept 7.
+- **#169**: day 102, 101 commits before tonight's append, `mergeable_state: clean`, zero comments/reactions — no state change.
+- **#383**: day 30 — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same #1, #111, #135) — no new arrivals since Aug 24, now fifteen days.
+- **#424 and #425 (opened Sept 7)**: ordinary next-day state. #424 carries two self-authored follow-up-items comments from its own simplify pass (not external review), `mergeable_state: clean`. #425's `mergeable_state` reads `blocked` with an empty/pending status list — reads like a required-check-not-yet-run state rather than a real failure; not drawing a conclusion from one reading tonight.
+- **No skill-file or `docs/orchestrator/` commits** since Aug 24.
+Hint for next run: keep checking #422's three concrete facts through the Sept 10 stale mark — resolve by facts, not thread silence; if it hits day 7 still unresolved, treat it per the Sept 5 note (a live-inconsistency finding, not a process-step ask) rather than reflexively closing `not_planned`. Recheck #425's `mergeable_state` directly (`blocked` vs a real CI failure). Keep #169/#383 to one line unless a state actually changes.
