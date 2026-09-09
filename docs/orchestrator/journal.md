@@ -1734,3 +1734,18 @@ Noticed (no action):
 - **#424 and #425 (opened Sept 7)**: ordinary next-day state. #424 carries two self-authored follow-up-items comments from its own simplify pass (not external review), `mergeable_state: clean`. #425's `mergeable_state` reads `blocked` with an empty/pending status list — reads like a required-check-not-yet-run state rather than a real failure; not drawing a conclusion from one reading tonight.
 - **No skill-file or `docs/orchestrator/` commits** since Aug 24.
 Hint for next run: keep checking #422's three concrete facts through the Sept 10 stale mark — resolve by facts, not thread silence; if it hits day 7 still unresolved, treat it per the Sept 5 note (a live-inconsistency finding, not a process-step ask) rather than reflexively closing `not_planned`. Recheck #425's `mergeable_state` directly (`blocked` vs a real CI failure). Keep #169/#383 to one line unless a state actually changes.
+
+---
+
+## 2026-09-09
+Surveyed: `main` HEAD since Sept 8 (unchanged, still `1e70e3f` — second consecutive quiet day), #422's three concrete asks re-checked directly (`v0.8.0` release listing, PR #420, PR #417, `sentry` grep on `src/`), #425's `mergeable_state` re-checked via the PR status endpoint directly (per the Sept 8 hint), #169/#383 state, needs-triage/`agent-in-progress` recounts, and the full open-PR/open-issue lists for new arrivals.
+Acted: Nothing filed, nothing closed. #422 is day 6 (created Sept 3), zero comments/reactions — still below the Sept 10 stale mark. No orchestrator-owned open items beyond #169 to clean up.
+Noticed (no action):
+- **#425's `blocked` `mergeable_state` resolved**: the PR status endpoint returns zero statuses (`state: pending`, empty list) — a required-check-not-yet-run state, not a real CI failure. Confirms the Sept 8 hint's suspicion; nothing to act on.
+- **#422**: still none of its three concrete asks resolved — `v0.8.0` remains published (non-draft, non-prerelease), PR #420 still open (`mergeable_state: dirty`), PR #417 still open and unmerged, `sentry` still referenced in 27 files under `src/`. Day 6, zero comments/reactions. Per the Sept 5/6 notes, resolution reads from the facts, not thread silence — no change on either front tonight. Tomorrow (day 7) is the stale mark; per the Sept 5 note, this is a live-inconsistency finding, not a process-step ask, so the standard reflexive close-as-`not_planned` isn't automatically the right call — worth a fresh look at the underlying facts before deciding, not a mechanical close.
+- **#169**: day 103, 102 commits before tonight's append, zero comments/reactions — no state change.
+- **#383**: day 31, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410 Aug 24; same #1/#111/#135) — no new arrivals since Aug 24, sixteen days now.
+- **#424 (Sept 7)**: unchanged since Sept 8 — 2 self-authored comments, `mergeable_state: clean`, no external engagement.
+- **Open-PR/issue sweep**: no new arrivals since #424/#425 (Sept 7) and #422 (Sept 3) — same frozen set otherwise.
+Hint for next run: #422 crosses day 7 tomorrow — check its three concrete facts directly one more time before deciding anything; if still unresolved, treat per the Sept 5 note (live-inconsistency finding, not process-step ask) rather than reflexively closing `not_planned`. Also check whether #417 merges before a fourth release ships (the Sept 6 trigger for writing up a release-skill preflight fix directly to `/release`'s own maintainers, not as a backlog issue) — no fourth release has shipped since `0.8.1` yet. Keep #169/#383 to one line unless a state actually changes.
