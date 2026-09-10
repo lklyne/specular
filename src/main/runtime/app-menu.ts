@@ -9,6 +9,7 @@ import { checkForUpdatesManually } from '../auto-updater'
 import { showOnboardingWindow } from '../onboarding-window'
 import { showSettingsWindow } from '../settings-window'
 import { showDebugWindow } from '../debug-window'
+import { showOsrLabWindow } from '../osr-lab/osr-lab-window'
 import {
   aboveView,
   bgView,
@@ -187,6 +188,14 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
                 click: () => showDebugWindow(),
               } as const,
             ]),
+        // Spike: offscreen pages as GPU textures under one camera, with the
+        // interactive page fed by forwarded input. Usable in packaged builds
+        // because the optimized app is what is worth measuring.
+        {
+          label: 'Open Offscreen Rendering Lab',
+          accelerator: 'CmdOrCtrl+Alt+Shift+O',
+          click: () => showOsrLabWindow(),
+        },
         { type: 'separator' },
         // All-process Chromium trace for pan/zoom jank attribution — works in
         // packaged builds (the optimized app is what's worth profiling).

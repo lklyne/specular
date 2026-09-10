@@ -24,6 +24,7 @@ export default defineConfig({
         onboarding: resolve(__dirname, 'src/renderer/onboarding/index.html'),
         settings: resolve(__dirname, 'src/renderer/settings/index.html'),
         debug: resolve(__dirname, 'src/renderer/debug/index.html'),
+        'osr-lab': resolve(__dirname, 'src/renderer/osr-lab/index.html'),
       },
     },
   },

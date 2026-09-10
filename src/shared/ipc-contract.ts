@@ -26,6 +26,14 @@ import type { CanvasGuidesPayload } from './canvas-guides'
 import type { RuntimePatchBatch } from './runtime-patch'
 import type { PerfTraceState } from './electron-api/debug'
 import type { PanZoomPerfTestState } from './pan-zoom-perf-test'
+import type {
+  OsrLabCursorPayload,
+  OsrLabFrameMeta,
+  OsrLabKeyPayload,
+  OsrLabPageInfo,
+  OsrLabPointerPayload,
+  OsrLabWheelPayload,
+} from './osr-lab'
 
 /**
  * The single source of truth for every IPC channel: its payload type and which
@@ -201,6 +209,22 @@ export interface IpcContract {
   'component-tree-data': { dir: 'main→renderer'; payload: unknown }
   'cursor-spline-viz-changed': { dir: 'main→renderer'; payload: boolean }
   'debug-log': { dir: 'renderer→main'; payload: unknown }
+  'osr-lab:configure': { dir: 'invoke'; payload: unknown }
+  'osr-lab:teardown': { dir: 'invoke'; payload: unknown }
+  'osr-lab:stats': { dir: 'invoke'; payload: unknown }
+  'osr-lab:capture': { dir: 'invoke'; payload: unknown }
+  'osr-lab:open-devtools': { dir: 'invoke'; payload: unknown }
+  'osr-lab:trace-start': { dir: 'invoke'; payload: unknown }
+  'osr-lab:trace-stop': { dir: 'invoke'; payload: unknown }
+  'osr-lab:pointer': { dir: 'renderer→main'; payload: OsrLabPointerPayload }
+  'osr-lab:wheel': { dir: 'renderer→main'; payload: OsrLabWheelPayload }
+  'osr-lab:key': { dir: 'renderer→main'; payload: OsrLabKeyPayload }
+  'osr-lab:insert-text': { dir: 'renderer→main'; payload: { pageId: string; text: string } }
+  'osr-lab:set-entered': { dir: 'renderer→main'; payload: { pageId: string | null } }
+  'osr-lab:set-visible': { dir: 'renderer→main'; payload: { pageIds: string[] } }
+  'osr-lab:pages-changed': { dir: 'main→renderer'; payload: OsrLabPageInfo[] }
+  'osr-lab:cursor-changed': { dir: 'main→renderer'; payload: OsrLabCursorPayload }
+  'osr-lab:frame-jpeg': { dir: 'main→renderer'; payload: { meta: OsrLabFrameMeta; jpeg: Uint8Array } }
   'debug:copy-text': { dir: 'renderer→main'; payload: unknown }
   'debug:get-initial-data': { dir: 'invoke'; payload: unknown }
   'debug:perf-pan-zoom-get-state': { dir: 'invoke'; payload: unknown }
@@ -543,6 +567,22 @@ export const ipcChannels = {
   debugResetCursorTuning: 'debug:reset-cursor-tuning',
   debugUpdateCursorSplineViz: 'debug:update-cursor-spline-viz',
   debugUpdateCursorTuning: 'debug:update-cursor-tuning',
+  osrLabConfigure: 'osr-lab:configure',
+  osrLabTeardown: 'osr-lab:teardown',
+  osrLabStats: 'osr-lab:stats',
+  osrLabCapture: 'osr-lab:capture',
+  osrLabOpenDevtools: 'osr-lab:open-devtools',
+  osrLabTraceStart: 'osr-lab:trace-start',
+  osrLabTraceStop: 'osr-lab:trace-stop',
+  osrLabPointer: 'osr-lab:pointer',
+  osrLabWheel: 'osr-lab:wheel',
+  osrLabKey: 'osr-lab:key',
+  osrLabInsertText: 'osr-lab:insert-text',
+  osrLabSetEntered: 'osr-lab:set-entered',
+  osrLabSetVisible: 'osr-lab:set-visible',
+  osrLabPagesChanged: 'osr-lab:pages-changed',
+  osrLabCursorChanged: 'osr-lab:cursor-changed',
+  osrLabFrameJpeg: 'osr-lab:frame-jpeg',
   debugVisibilityProbeRun: 'debug:visibility-probe-run',
   devtoolsChanged: 'devtools-changed',
   devtoolsResizeEnd: 'devtools-resize-end',

@@ -221,3 +221,92 @@ device emulation, no freeze machinery, and no layering bands — a large
 deletion. If it fails on IME or popups, the honest fallback is C plus
 Spike 1's texture tier, which keeps today's input model and still removes
 the JPEG encode/decode cost. Either way, do not build A.
+
+## 6. The lab: running Spike 1 and Spike 2
+
+Both spikes are built as one window, **View → Open Offscreen Rendering Lab**
+(`⌘⌥⇧O`), in `src/main/osr-lab/`, `src/preload/osr-lab.ts` and
+`src/renderer/osr-lab/`. It is deliberately independent of the canvas runtime:
+its numbers are about Electron's offscreen path, not about Specular's layout
+engine, so they compare cleanly against a trace of the real canvas.
+
+What it does:
+
+- Creates one hidden offscreen `BrowserWindow` per URL with
+  `offscreen: { useSharedTexture, deviceScaleFactor }`. In shared-texture mode
+  each `paint` event's texture is imported in main, transferred to the lab
+  renderer with `sendSharedTexture`, copied to an `ImageBitmap` in the preload
+  and released; the copy is handed to the page world as a `postMessage`
+  transfer. In bitmap mode the same frames go through `toJPEG(80)` on main and
+  decode in the renderer — the pipeline the current zoom freeze uses, as the
+  baseline arm.
+- Draws every page's latest frame at its camera-projected rect on one Canvas2D
+  surface. Wheel pans, ⌘/Ctrl+wheel zooms about the pointer, Alt-drag or
+  middle-drag pans.
+- Click a page to enter it (Esc or a click on empty canvas leaves). The
+  entered page gets pointer and wheel events in page-local CSS coordinates,
+  keyboard events from a hidden sink input, and IME commits via
+  `Input.insertText`. Pointer and keyboard transport are each switchable
+  between `sendInputEvent` and CDP so both can be tried. Entering also turns
+  on `Emulation.setFocusEmulationEnabled`, because the OSR widget host's
+  `Focus()` is a no-op.
+- Off-screen pages get `stopPainting()` (toggle), popup-widget textures are
+  drawn at the page origin with a red outline (Electron reports no position
+  for them), `cursor-changed` events are counted and mirrored onto the canvas
+  cursor, `capturePage()` on the entered page shows what an agent would see,
+  and DevTools can be opened on it.
+- The HUD shows draw rate and draw ms, frames received per second, texture
+  copy ms, GPU and page-renderer working sets, per-page frame counts, texture
+  size, outstanding-texture high-water mark against the 10-deep pool, release
+  latency, JPEG encode ms, cursor events and painting state.
+- **Run benchmark** drives the camera through the same four gesture shapes as
+  the app's pan/zoom perf profiles (slow pan, slow zoom, fast pan, pan+zoom)
+  one rAF at a time and reports draw fps, mean and worst frame interval, long
+  frames and frames received per phase as JSON. **Benchmark + Chromium trace**
+  wraps it in the same all-process trace the View menu records, so the trace
+  can be read with the existing `trace-summary` tooling and compared to the
+  perf log's numbers.
+
+### Spike 1 protocol — the texture tier
+
+1. macOS arm64, `pnpm dev`, open the lab. Defaults: 9 pages, 1280×800 at 2×,
+   shared-texture mode. Press **Start pages**, then **Fit all**.
+2. Confirm the pages paint at all. If the HUD shows "paints without texture",
+   the GPU path is unavailable on this machine and everything below is moot.
+3. Pan and zoom by hand. Watch draw ms and frames-in per second; a static
+   canvas should receive zero frames between gestures.
+4. **Run benchmark** at 1, 9 and 20 pages (change Count, Restart pages, Fit
+   all). Record the JSON for each. Then switch to bitmap-JPEG mode and repeat
+   9 pages: the difference is the JPEG encode/decode cost the current freeze
+   pipeline pays.
+5. Watch `out/max` per page. A max near 6 means the renderer copy is falling
+   behind the pool; pool drops show in the HUD.
+6. With 20 pages, compare the GPU working set against the same 20 URLs open in
+   the real canvas (Motion Debug window → Processes).
+7. **Benchmark + Chromium trace** at 9 pages, then run the app's own pan/zoom
+   perf test on 9 live pages and compare `summary.threads` busy % and the top
+   events.
+
+### Spike 2 protocol — can the interactive page be offscreen?
+
+Enter a page and try, in order, with `sendInputEvent` and then CDP for each
+transport:
+
+1. Hover links and text: does the cursor column count rise and the canvas
+   cursor change? (If it never does, `cursor-changed` is dead under OSR.)
+2. Click links, scroll with the wheel, drag to select text. Is the selection
+   drawn active (blue) rather than inactive (grey)?
+3. Type into a text field: ASCII, then a dead key (⌥e then e), then a CJK
+   input method. Composition is expected to fail; the commit should still
+   land through `Input.insertText`.
+4. Open a `<select>`: does a popup frame count appear, and does the popup
+   texture arrive as a separate widget?
+5. Drag an image out of the page onto the canvas. Expected to fail.
+6. **DevTools for entered** while interacting; then **capturePage() entered**
+   and check the thumbnail is current.
+7. Alt-tab away and back; keep interacting. `sendInputEvent` normally needs
+   the owning window focused — check whether the hidden window cares.
+
+Everything that fails in Spike 2 is a cost of shape B. If nothing fails that
+matters, B is the design; otherwise the fallback is shape C with Spike 1's
+texture tier replacing the JPEG freeze.

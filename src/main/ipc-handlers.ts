@@ -9,10 +9,12 @@ import { registerRightDetailsPanelIpc } from './ipc/register-right-details-panel
 import { registerSettingsIpc } from './ipc/register-settings-ipc'
 import { registerToolbarIpc } from './ipc/register-toolbar-ipc'
 import { registerDebugIpc } from './ipc/register-debug-ipc'
+import { registerOsrLabIpc } from './ipc/register-osr-lab-ipc'
 
 export function registerIpcHandlers(): void {
   registerAppIpc()
   registerDebugIpc()
+  registerOsrLabIpc()
   registerToolbarIpc()
   registerCanvasIpc()
   registerRightDetailsPanelIpc()
