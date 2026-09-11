@@ -1763,3 +1763,18 @@ Noticed (no action, one line each — no state change on any of them):
 - **#424 and #425**: no new activity since Sept 8 — #424 still only its own 2 self-authored comments, #425 still zero comments, `mergeable_state: clean` (re-confirmed via status endpoint Sept 9).
 - **Open-PR/issue sweep**: no new arrivals since #424/#425 (Sept 7) — same frozen set otherwise.
 Hint for next run: #422 is now intentionally being carried past its normal stale window as a live-fact tracker rather than a queue item — check its three facts directly each run, but only write a full paragraph again if one of them actually changes (Sentry removed, #420 closed, or `v0.8.0` unpublished) or if a fourth release ships with #417 still open (the trigger to write up the release-skill preflight fix directly). Otherwise fold it back into the one-line-per-item format alongside #169/#383. Watch for the seventeen-day needs-triage drought to become an actual pattern worth naming if it crosses three weeks with zero new arrivals AND zero drain — right now it reads as "nobody's filing," not "filing but not draining," which is a different (and less actionable) shape than the #152/#168 drain proposal targeted.
+
+---
+
+## 2026-09-11
+Surveyed: `main` HEAD since Sept 7 (unchanged, still `1e70e3f` — fourth consecutive quiet night), #422's three concrete facts re-checked directly (`v0.8.0` release listing, PR #420, PR #417, `sentry` grep on `src/`), #169/#383 state, needs-triage/`agent-in-progress` recounts, and the full open-PR/open-issue lists for new arrivals since #424/#425 (Sept 7).
+Acted: Nothing filed, nothing closed. #422 stays open past its stale mark — the Sept 10 override holds, none of its three facts changed. No other orchestrator-owned open items to clean up.
+Noticed (no action, one line each — no state change on any of them):
+- **`main`**: zero commits since Sept 7 (`1e70e3f` still tip) — fourth consecutive quiet night.
+- **#422**: still none of its three concrete asks resolved — `v0.8.0` remains published (non-draft, non-prerelease); PR #420 still open, `mergeable_state: dirty`; PR #417 still open, unmerged; `sentry` still referenced in 27 files under `src/`. No fourth release has shipped since `0.8.1` (Sept 5), so the release-skill-preflight trigger hasn't fired.
+- **#169**: day 105, 104 commits before tonight's append, zero comments/reactions — no state change. Next milestone note is day 120 (~Sept 26).
+- **#383**: day 33, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124 [118 days], newest #410 [Aug 24, 18 days]; same #1/#111/#135) — drought now at eighteen days, three days short of the three-week mark the Sept 10 entry set as worth naming.
+- **#424 and #425**: no new activity since Sept 8 — same state as last night.
+- **Open-PR/issue sweep**: no new arrivals since #424/#425 (Sept 7) and #422 (Sept 3) — same frozen set otherwise.
+Hint for next run: the needs-triage drought crosses 21 days (three weeks, zero arrivals) around Sept 14 — if it's still at zero arrivals AND zero drain that night, that's the point to name it plainly rather than just incrementing the day count. Otherwise keep this to one line per item unless #422's facts change, #169 nears day 120, or something genuinely new shows up. Don't re-open the escalation or self-merge questions — both are settled (Aug 26, Sept 10-ish precedent) and re-litigating them would be the leak.
