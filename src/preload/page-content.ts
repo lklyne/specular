@@ -61,10 +61,7 @@ import {
   queueRefreshDomInspectionOverlay,
   setDomInspectionEnabled,
 } from './dom-inspection'
-import {
-  forwardMiddleDragPan,
-  forwardViewportWheel,
-} from './gesture-forwarding'
+import { installSelectFallback } from './select-fallback'
 import {
   applyIncomingLinkedScroll,
   clearScrollSuppression,
@@ -81,10 +78,8 @@ import { handleInteractionLocatorResolveRequest } from './interaction-sync-resol
 
 let interactive = false
 let multiSelected = false
-let canvasZoom = 1
 let annotateEnabled = false
 let captureSuppressionStyleEl: HTMLStyleElement | null = null
-let cleanupBlockingOverlayListeners: (() => void) | null = null
 const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
 let lastReportedTextEditing = false
 
@@ -241,23 +236,12 @@ function applyAnnotateState(): void {
   }
 }
 
-// Intercept canvas-level wheel events on page content views.
-// Cmd/Ctrl + wheel (or trackpad pinch-to-zoom) should zoom the canvas, not the page.
-window.addEventListener(
-  'wheel',
-  (e: WheelEvent) => {
-    if (!e.metaKey && !e.ctrlKey) return
-    e.preventDefault()
-    forwardViewportWheel(e, canvasZoom)
-  },
-  { passive: false, capture: true }
-)
-
 // --- Selection overlay ---
 // When the page is not interactive, inject an overlay that blocks native page
-// input and forwards only native/page-neutral viewport affordances. Canvas
-// selection, drag, resize, marquee, placement, and edge gestures are owned by
-// aboveView's canvas pointer router.
+// input. Every canvas-level gesture — wheel, pan, zoom, selection, drag,
+// resize, marquee, placement, edges — is owned by aboveView's pointer router,
+// which routes wheel itself and forwards only page-scroll wheels to the
+// entered page, so the page never sees a canvas gesture to forward back.
 
 function injectBlockingOverlay(): void {
   const overlayMode: 'default' = 'default'
@@ -298,56 +282,10 @@ function injectBlockingOverlay(): void {
     }
   })
 
-  // Middle-click pan forwarding
-  let middleDrag: { screenX: number; screenY: number } | null = null
-
-  overlay.addEventListener('mousedown', (e: MouseEvent) => {
-    if (e.button !== 1) return
-    e.preventDefault()
-    e.stopPropagation()
-    middleDrag = { screenX: e.screenX, screenY: e.screenY }
-  })
-
-  overlay.addEventListener('mousemove', (e: MouseEvent) => {
-    if (!middleDrag) return
-    e.preventDefault()
-    e.stopPropagation()
-    middleDrag = forwardMiddleDragPan(middleDrag, e)
-  })
-
-  const handleWindowMouseUp = (e: MouseEvent) => {
-    if (e.button !== 1) return
-    middleDrag = null
-  }
-  window.addEventListener('mouseup', handleWindowMouseUp)
-
-  overlay.addEventListener('mouseleave', () => {
-    middleDrag = null
-  })
-
-  // Forward wheel events to canvas operations
-  overlay.addEventListener(
-    'wheel',
-    (e: WheelEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      forwardViewportWheel(e, canvasZoom)
-    },
-    { passive: false }
-  )
-
   document.body.appendChild(overlay)
-  cleanupBlockingOverlayListeners = () => {
-    middleDrag = null
-    window.removeEventListener('mouseup', handleWindowMouseUp)
-  }
 }
 
 function removeBlockingOverlay(): void {
-  if (cleanupBlockingOverlayListeners) {
-    cleanupBlockingOverlayListeners()
-    cleanupBlockingOverlayListeners = null
-  }
   const overlay = document.getElementById('__canvas-blocking-overlay')
   if (overlay) {
     selectionDebug('remove-blocking-overlay')
@@ -382,9 +320,10 @@ ipcRenderer.on(ipcChannels.setInteractive, (_event, value: boolean) => {
   applyInteractiveState()
 })
 
-ipcRenderer.on(ipcChannels.setCanvasZoom, (_event, value: number) => {
-  canvasZoom = value
-})
+// Canvas zoom only ever scaled the page's own wheel forwarding, which no
+// longer exists. The listener stays registered until main's broadcast is
+// retired so the channel keeps a consumer while both sides land separately.
+ipcRenderer.on(ipcChannels.setCanvasZoom, () => {})
 
 ipcRenderer.on(ipcChannels.setMultiSelected, (_event, value: boolean) => {
   selectionDebug('ipc:set-multi-selected', { value })
@@ -988,6 +927,9 @@ function injectResizeHandle(): void {
 // Inject elements on every navigation
 function onDomReady(): void {
   injectResizeHandle()
+  // Offscreen pages get no external native popup menu, so menulist
+  // `<select>`s need the page to paint their dropdown (see select-fallback.ts).
+  installSelectFallback()
   applyInteractiveState()
   applyDomInspectionState()
   applyAnnotateState()
