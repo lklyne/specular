@@ -7,7 +7,7 @@
 | **Y.Doc** | Workspace data (entities, groups, edges, annotations, viewport, active tab) | `space-doc.ts` |
 | **Module variables** | Electron views, interaction mode, hover, drag, layout cache, timers, pages | `runtime-context.ts` |
 
-Pages are hybrid: serializable fields (position, URL, preset) mirror to Y.Doc, but WebContentsView refs stay in `runtime-context.ts`.
+Pages are hybrid: serializable fields (position, URL, preset) mirror to Y.Doc, but offscreen host refs (`PageHost`, `page-host.ts`) stay in `runtime-context.ts`.
 
 ## Broadcast path: the runtime store and its patch bus
 

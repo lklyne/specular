@@ -25,7 +25,7 @@ If a future change violates any of these, the change is wrong for this system, n
 ### Goals
 
 - **Predictable gesture routing.** A user's pointer action maps to exactly one gesture, chosen by one arbiter.
-- **Minimal stacking surface.** Three WCVs in the stacking region (bgView, aboveView, liveViews). Everything else is DOM composition.
+- **Minimal stacking surface.** Two WCVs in the stacking region (bgView, aboveView). Pages are textures bgView draws, not native views — everything else is DOM composition.
 - **Cheap idle state.** N frames on canvas ≠ N live renderer processes.
 - **Structural testability.** Every gesture has a begin/update/commit/cancel path that can be exercised without Electron.
 - **Agent-legible.** Canvas state is readable and mutable by CLI/HTTP without replaying mouse events.
@@ -35,13 +35,12 @@ If a future change violates any of these, the change is wrong for this system, n
 - Supporting every combination of nested overlays we've ever experimented with. The architecture deliberately narrows what's expressible.
 - Per-overlay process isolation as a general value. We keep isolation only where it actually buys crash containment (pages, DevTools) or independent lifecycle (toolbar, sidebar).
 - Pixel-perfect parity with legacy interaction quirks that stemmed from accidental overlay ordering.
-- A full offscreen-texture compositor for live pages. That's a separate track (`docs/offscreen-rendering-research.md`).
 
 ---
 
 ## 3. System Overview
 
-### 3.1 The three planes
+### 3.1 The two planes
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -54,7 +53,7 @@ If a future change violates any of these, the change is wrong for this system, n
 │  ┌────────────────────────────────────────────────────┐  │
 │  │ ABOVE-PAGES PLANE                                  │  │
 │  │   aboveView (single WCV) — canvas-mode keyboard    │  │
-│  │   ├─ input gate (canvas gesture capture)           │  │
+│  │   ├─ always covers the canvas region (§4.2)        │  │
 │  │   ├─ selection / marquee / drag visuals            │  │
 │  │   ├─ entity bodies (sticky, shape, file, image,    │  │
 │  │   │     video, markdown, component)                │  │
@@ -65,15 +64,15 @@ If a future change violates any of these, the change is wrong for this system, n
 │  │   ├─ canvas-anchored popups (CanvasItemPopup)     │  │
 │  │   └─ comments, annotations, floating UI            │  │
 │  ├────────────────────────────────────────────────────┤  │
-│  │ LIVE PAGES (0-N WCVs)                              │  │
-│  │   One per active frame: selected + scroll peers    │  │
-│  │   Inactive frames rendered as bitmaps into bgView  │  │
+│  │ PAGE TEXTURES                                      │  │
+│  │   Drawn by bgView's PageTextureSurface, not a WCV. │  │
+│  │   Input forwarded from aboveView (§4.2, §4.4).     │  │
 │  ├────────────────────────────────────────────────────┤  │
 │  │ BELOW-PAGES PLANE                                  │  │
 │  │   bgView (single WCV)                              │  │
 │  │   ├─ canvas grid, camera, pan/zoom transform       │  │
 │  │   ├─ frame borders + device shells                 │  │
-│  │   └─ bitmap compositor for inactive pages (future) │  │
+│  │   └─ page textures (ADR 0038, §4.7)                │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 
@@ -92,8 +91,8 @@ The cursor overlay is deliberately outside the three-plane model. It sits in its
 
 | Plane | Owns visuals | Owns input | Number of WCVs |
 |---|---|---|---|
-| `bgView` | Canvas grid + camera transform + frame borders/device shells + (future) inactive-page bitmaps | Nothing (always `setVisible(true)`; never holds keyboard focus post-migration) | 1 |
-| `liveViews` | Active web content | Native page input + keyboard, only while the `shouldFocusSelectedFrame` predicate elects a single page as keyboard target | 0-N |
+| `bgView` | Canvas grid + camera transform + frame borders/device shells + page textures (`PageTextureSurface`, ADR 0038) | Nothing (always `setVisible(true)`; never holds keyboard focus post-migration) | 1 |
+| Page textures | Every page's latest offscreen-painted frame, drawn by `bgView` at its camera-projected rect | Pointer/wheel/keys forwarded from aboveView (§4.2, §4.4); no native input path | 0 — each page is a hidden offscreen `BrowserWindow` outside the WCV stack |
 | `aboveView` | Entity bodies, edges, group bounds, selection outlines + resize handles, focus ring, agent halo, canvas-anchored popups, marquee + drag visuals, comments / annotations / floating UI | All canvas-level pointer input + canvas-mode keyboard (default `FocusTarget`) | 1 |
 | `toolbar` / `sidebar` / `devtools` | Their own UI | Their own UI | 1 each |
 | `cursorOverlayWindow` | Agent-presence cursors (paint-only, shown only while `win` is focused) | Nothing — `setIgnoreMouseEvents(true)` | Not a WCV; sibling child `BrowserWindow` of `win` |
@@ -168,34 +167,15 @@ canvas-cancel-entity-edit                  // Escape inside the editor
 
 Main is the sole token holder (`src/main/runtime/editing-entity-runtime.ts`). The runtime variable `editingEntityId` is derived from `interactionState` so it follows automatically when an external `cancelActive` (undo / tab-switch / blur) interrupts. Renderers mount the editable surface iff `editingEntityId === myId` — there is no "render textarea on selection" fallback; the read-only view shows otherwise. The pointer router commits on outside-click and **swallows the click** (per [ADR 0001](./adr/0001-click-to-enter-frame-focus.md) precedent: the exit click does not double as the next interaction); a drag attempt on the editing entity is refused silently because `editing-entity` is mutually exclusive with `dragging-entities`.
 
-### 4.2 Input gate (`aboveView`)
+### 4.2 `aboveView` always covers the canvas region
 
-The input gate is not a separate WCV — it's a *behavior* of `aboveView`. When any canvas gesture is active or available, `aboveView` is `setVisible(true)` and captures all pointer events in the canvas region. When the user should interact with page content directly, `aboveView` is `setVisible(false)` and native page input works.
+There is no gate. A page renders offscreen (ADR 0038) — it has no native surface for input to reach even when it would otherwise be "underneath" — so `aboveView` covers the whole canvas region unconditionally and `setVisible` never toggles it for input-routing reasons. Every pointer, wheel, and key destined for a page is forwarded from `aboveView` rather than handed to a native view beneath it: pointer/wheel via `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`), keys via CDP from a hidden keyboard sink (`src/renderer/above-view/usePageKeyboardForwarding.ts`), both keyed off whichever page `shouldFocusSelectedFrame` currently elects.
 
-**Visibility predicate (single source of truth, post-aboveView migration):**
+The inspect tool's eyedropper rides the same forwarding path rather than a dedicated visibility toggle: no-button pointer moves and the pinning press are forwarded to whichever page is under the pointer, not only the keyboard-target page, so hover feedback works without aboveView ever stepping aside.
 
-```ts
-function shouldGateBeOpen(s: AppState): boolean {
-  // Inspect & annotate-comment drive feedback off the page's webContents
-  // mousemove (eyedropper, comment hover); keep the gate closed unless the
-  // composer is open.
-  if (s.toolMode === 'inspect' || s.toolMode === 'annotate-comment') {
-    return s.commentOverlayActive
-  }
-  // Canvas mode: aboveView is always-on. Inline edit (sticky / shape /
-  // group rename) also runs in aboveView (the contenteditable lives
-  // there post-Phase C), so the gate stays open during `editing-entity`
-  // rather than ducking to bgView.
-  if (s.viewMode === 'canvas') return true
-  return browserModeNeedsGate(s)
-}
-```
+The canvas-pointer-router (§4.2.1) classifies all pointerdowns from the always-on `aboveView` via `src/shared/hit-test.ts`, and every interactive surface that used to live in `bgView` or in a per-page `chromeView` WCV lives in aboveView's React tree as `CanvasItemPopup` (`data-overlay-ui` so the router yields to them structurally). The per-page `chromeView` WCV and its `chrome-header` preload + renderer were retired wholesale; the chrome-action IPCs (`canvas-navigate-frame` / `canvas-back-frame` / etc., addressed by `frameId`) replace the sender-based `chrome-*` channels.
 
-Evaluated inside `layoutAllViews()`. `aboveView.setVisible(shouldGateBeOpen(state))` is the only call that toggles it.
-
-The OR-chain in canvas mode has collapsed: the canvas-pointer-router (§4.2.1) classifies all pointerdowns from the always-on aboveView via `src/shared/hit-test.ts`, and every interactive surface that used to live in `bgView` or in a per-page `chromeView` WCV has moved into aboveView's React tree as `CanvasItemPopup` (`data-overlay-ui` so the router yields to them structurally). The per-page `chromeView` WCV and its `chrome-header` preload + renderer were retired wholesale; the chrome-action IPCs (`canvas-navigate-frame` / `canvas-back-frame` / etc., addressed by `frameId`) replace the sender-based `chrome-*` channels.
-
-The `frameFocus` runtime field that ADR 0001 introduced no longer exists: keyboard target is derived from selection via `shouldFocusSelectedFrame` (a pure predicate), and the gate stays open in canvas mode regardless. Pointer events that should reach a focused page are forwarded by main via `sendInputEvent` — see `src/main/runtime/page-input-forwarding.ts`.
+The `frameFocus` runtime field that ADR 0001 introduced no longer exists: keyboard target is derived from selection via `shouldFocusSelectedFrame` (a pure predicate). aboveView keeps OS keyboard focus regardless of that predicate's answer — see §4.4.
 
 ### 4.2.1 Canvas pointer router (Phase 2 substrate)
 
@@ -237,7 +217,6 @@ A sibling pure mapper, `routePointerDoubleClick`, classifies double-clicks; the 
 ```ts
 const LAYER_STACK: readonly LayerDescriptor[] = [
   { id: 'bgView',       kind: 'singleton' },
-  { id: 'pages',        kind: 'group', order: 'creation-order' },
   { id: 'aboveView',    kind: 'singleton' },
   { id: 'leftSidebar',  kind: 'singleton' },
   { id: 'devtools',     kind: 'cluster' },   // background, contents, header, resize
@@ -267,13 +246,14 @@ interface FocusReconciler {
 }
 
 type FocusTarget =
-  | { kind: 'aboveView' }        // canvas-mode default (post-Phase-F)
+  | { kind: 'aboveView' }        // canvas-mode default (post-Phase-F); also the only OS keyboard owner for pages (ADR 0038)
   | { kind: 'bgView' }           // legacy / explicit; not used as default anymore
-  | { kind: 'page', id: string } // when shouldFocusSelectedFrame elects a page
   | { kind: 'toolbar' | 'sidebar' }
 ```
 
 `reconcile()` compares the expected focus to the actual focused webContents and calls `focus()` once if they disagree. It runs **after** all bounds/visibility changes so focus lands on a view that's actually visible. Every subsystem that might need focus (page-create, page-delete, tab-switch, undo cross-tab) sets a focus intent in state and lets the reconciler carry it out.
+
+A page never appears as a `FocusTarget`: it renders offscreen, where `focus()` is a no-op. `reconcilePageFocusEmulation()` runs alongside `reconcile()` and does the equivalent job for the `shouldFocusSelectedFrame`-elected page — `Emulation.setFocusEmulationEnabled` makes it believe it has focus (caret, active-selection color), while `aboveView` keeps real OS keyboard focus and forwards keys to it over CDP (§4.2, `page-focus-emulation.ts`).
 
 **Why a reconciler:** WebContentsView steals focus on load (#42578), macOS window-level focus doesn't fire webContents `blur` (#22201), and refocus callbacks cause storms if done reactively. A single post-layout reconciliation avoids all three.
 
@@ -314,17 +294,15 @@ Canvas-mode gestures live as per-action handlers inside `useCanvasPointerRouter`
 
 **Boilerplate consolidation is an open opportunity, not a blocker.** The threshold-check + listener-install + cleanup scaffold is ~30 lines duplicated across most handlers. A non-hook helper — e.g. `withDragLifecycle(startEvent, { threshold, onMove, onCommit, onCancel })` callable from inside `runX` — could absorb that boilerplate without changing who owns gesture identity. Whether to take that refactor is a sizing question, not an architectural one.
 
-### 4.7 Bitmap compositor (pages below the active set)
+### 4.7 Page texture compositor
 
-> **Status (ADR 0001 + ADR 0002):** Optional. The original motivation — keeping the gate always-on without breaking native page input — is supplanted by click-to-enter focus and (per [ADR 0002](./adr/0002-canvas-anchored-overlay-ui.md)) by moving canvas-anchored overlay UI into aboveView's React tree so the gate flip can't orphan it. The compositor is now a future memory/CPU optimisation if N-live-frame regresses, not a load-bearing input-authority requirement.
+Every page is a hidden offscreen `BrowserWindow` (`page-host.ts`, ADR 0038), painting with `offscreen: { useSharedTexture: true, deviceScaleFactor }`. Each painted frame is imported as a GPU shared texture in main and sent to `bgView`'s main frame (a pool of 9 outstanding textures per page bounds how far the renderer can fall behind). `bgView`'s `PageTextureSurface` draws every presented page's latest frame at the camera-projected content rect, clipped to the page's corner radius, on a canvas layered above `ChromeCanvasSurface` and below `aboveView`; the focused page draws last so it wins any overlap. `usePageFrames.ts` holds the latest frame (and latest popup frame) per page as an `ImageBitmap`, replacing and closing the previous one as new frames arrive.
 
-Inactive pages (not selected, not scroll-peer of selected, not loading, no DevTools) render via offscreen `BrowserWindow` with `offscreen: true` at low frame rate. Their bitmaps are drawn as React-rendered `<canvas>` elements inside `bgView`.
+The layout pass decides whether a page's host paints at all: `isPagePresented` plus the presentation policy stop painting for a page that is off-screen and not being dragged or agent-driven (§6, I10), so an offscreen host nobody can see stops costing frames without being destroyed. There is no promote-to-live transition and no separate "inactive" rendering tier — every page is a texture, all the time; only whether its host currently paints varies.
 
-Full staging plan lives in `docs/offscreen-rendering-research.md`. The interaction-layer contract this spec establishes:
+Popup widgets (`<select>` on non-macOS, `<input type=date/color>`, autofill) arrive as their own texture with no reported position; they're anchored to the page's focused element (queried through the page preload) and closed by paint order — see ADR 0038's Implementation section for the full mechanism.
 
-- Inactive pages appear to the input system as regions within `bgView`'s DOM.
-- Clicking an inactive page triggers a **promote-to-live** transition: the offscreen BrowserWindow is destroyed, a new `pageView` WCV is created, scroll state is restored, the bitmap fades out.
-- Promotions happen inside the layout pass, not in the click handler.
+Full detail: [ADR 0038](./adr/0038-offscreen-texture-canvas-for-live-pages.md).
 
 ---
 
@@ -388,11 +366,11 @@ These are the invariants that, if broken, produce the classes of bugs this refac
 | I4 | Focus is expressed as intent, applied by `FocusReconciler` | Focus storms, keyboard shortcuts silently broken |
 | I5 | Drop ownership is declared per `dragId`, never dedup by payload hash | Duplicate drops, missed drops |
 | I6 | `setBackgroundColor('#00000000')` set on every WCV before `addChildView` | White-flash during creation |
-| I7 | (ADR 0001 + aboveView migration) `aboveView` is the always-on canvas-mode input authority and the canvas-mode keyboard owner. The gate no longer toggles on a `frameFocus` runtime field — that field was retired; keyboard target is derived from selection via `shouldFocusSelectedFrame` and pointer/wheel events that should reach a focused page are forwarded from main via `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`). Per-layer pointerdown handlers in `bgView` are gone. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
+| I7 | (ADR 0001 + aboveView migration, extended by ADR 0038) `aboveView` is the always-on canvas-mode input authority and the sole OS keyboard owner — no page ever holds real keyboard focus, since a page renders offscreen and its widget host's `Focus()` is a no-op. The `frameFocus` runtime field ADR 0001 introduced was retired; keyboard target is derived from selection via `shouldFocusSelectedFrame`. Pointer/wheel events that should reach a page are forwarded from main via `sendInputEvent` (`src/main/runtime/page-input-forwarding.ts`); keys are forwarded from aboveView's hidden keyboard sink over CDP `Input.dispatchKeyEvent`, with `Emulation.setFocusEmulationEnabled` making the target page believe it has focus (`page-focus-emulation.ts`). Per-layer pointerdown handlers in `bgView` are gone. `cursorOverlayWindow` remains mouse-inert (`setIgnoreMouseEvents(true)`) | Regression to the multi-overlay-coordination model and the #41 layer-arbitration bug class |
 | I8' | (ADR 0002, amended by ADR 0028) Canvas-anchored overlay UI (popups) lives in aboveView's React tree, not in `bgView` layers and not in per-page WCVs. Components tag themselves `data-overlay-ui`; the router yields to them on capture-phase pointerdown via `isOverlayUiTarget`. Geometry comes from `useAnchoredPosition` against the body rect (the chrome-header slot model was retired — entity rect == body rect) | Overlay UI stops receiving clicks when the gate flips fully open |
 | I8 | Pointer events only in renderer gesture code | Divergent behavior between capture/cleanup code |
 | I9 | Canvas coord math imported from `src/shared/coords.ts` | Hit-test drift between main and renderer |
-| I10 | Live pages only for active frames + scroll peers + loading + DevTools-attached | Memory/CPU regression, idle renderers |
+| I10 | (ADR 0038) Every page is an offscreen host; painting stops for pages that are off-screen and not dragged or agent-driven (`isPagePresented` + painting policy in the layout pass) | Memory/CPU regression, idle renderers |
 
 ---
 
@@ -409,9 +387,9 @@ Cross-reference for future contributors. Each is why a choice above exists.
 7. **Mutating the view stack during event dispatch loses events and can crash.** → Invariant I1. [#42131, #47247 + empirical observation in our undo path]
 8. **`setAutoResize` doesn't exist on WebContentsView.** → Our layout pass explicitly resizes; not a regression. [#43802]
 9. **Drag/drop events across overlapping views are ambiguous.** → `DropOwner` per `dragId`, never payload-hash dedup. [#2897, #18226, #7118]
-10. **`sendInputEvent` requires the containing BrowserWindow focused.** → Not part of the default input path; reserved for offscreen-bitmap-click-through if/when needed.
+10. **`sendInputEvent` requires the containing BrowserWindow focused.** → Not a problem for an offscreen page's hidden `BrowserWindow` (ADR 0038): it is the default input path for pointer/wheel forwarded from aboveView (`page-input-forwarding.ts`). Keys don't use it — an offscreen widget host's key handling is a no-op, so keys go over CDP `Input.dispatchKeyEvent` instead.
 11. **Native `setBorderRadius` exists on `View`.** → Use it for frame corners instead of compositing an extra overlay.
-12. **`useSharedTexture` (Electron 33+) exists but needs a native addon.** → Not required for this spec; documented as the upgrade path for the compositor when IPC bandwidth becomes a bottleneck.
+12. **`sharedTexture` (Electron 43) needs no native addon.** → `importSharedTexture` / `sendSharedTexture` / `getVideoFrame()` ship in Electron itself; this is what `page-host.ts` uses to deliver every page's frame to `bgView` as a GPU texture (ADR 0038).
 
 ---
 
@@ -426,11 +404,12 @@ src/main/
     layout-engine.ts                # the single layout pass
     layer-stack.ts                  # LAYER_STACK descriptor + applyStack
     overlay-policy.ts               # OVERLAY_INPUT_POLICY table
-    page-compositor.ts              # live vs bitmap tier management
+    page-host.ts                    # per-page offscreen BrowserWindow + shared-texture delivery (ADR 0038)
+    page-focus-emulation.ts         # Emulation.setFocusEmulationEnabled for the keyboard-target page
+    page-drag-out.ts                # arm/drop a page's dragstart as a canvas entity
     view-factory.ts                 # WCV creation with invariants (bg color, etc.)
   ipc/
     interaction-ipc.ts              # tryEnter/update/commit/cancel IPC
-    input-gate-ipc.ts               # gate events from aboveView
 
 src/shared/
   coords.ts                         # screen ↔ canvas math (SINGLE source)
@@ -441,13 +420,15 @@ src/renderer/
   above-view/                       # merged: interaction + comment + floating + annotation
     App.tsx
     useCanvasPointerRouter.ts       # window-level pointerdown router + per-action handlers
+    usePageKeyboardForwarding.ts    # hidden keyboard sink → CDP Input.dispatchKeyEvent
     MarqueeLayer.tsx
     DragPreviewLayer.tsx
     CommentsLayer.tsx
     AnnotationsLayer.tsx
     FloatingUiLayer.tsx
-  bg-view/                          # canvas-bg, extended with:
-    PageBitmapLayer.tsx             # bitmap compositor for inactive pages
+  canvas-bg/                        # bgView, extended with:
+    PageTextureSurface.tsx          # draws every page's latest texture at its projected rect
+    usePageFrames.ts                # latest frame/popup bitmap per page
     (...existing canvas chrome)
 ```
 
@@ -471,7 +452,7 @@ The Electron smoke layer this section originally specified is retired ([ADR 0024
 
 - Gesture state-machine behavior (begin/commit/cancel, concurrent refusal, stale tokens) — unit, against `InteractionController`'s public API.
 - Cross-module batch/undo integrity (a refused gesture-begin must not corrupt the undo batch, I3) — `tests/integration/interaction-batch.test.ts`, driving the same call sequence as the IPC handlers.
-- Focus landing, gate visibility, and real drop routing depend on live views and are **intentionally uncovered** below the boot suite — the reconciler and drop-owner logic are unit-tested as pure functions of state; the wiring is validated by dogfooding.
+- Focus landing and real drop routing depend on live views and are **intentionally uncovered** below the boot suite — the reconciler and drop-owner logic are unit-tested as pure functions of state; the wiring is validated by dogfooding.
 
 ### Agent / scenario
 
@@ -485,12 +466,11 @@ The Electron smoke layer this section originally specified is retired ([ADR 0024
 | Term | Meaning |
 |---|---|
 | **Plane** | One of the three stacking regions: below-pages (`bgView`), pages, above-pages (`aboveView`). |
-| **Input gate** | The behavior of `aboveView` toggling input capture via `setVisible`. Not a separate WCV. |
+| **Input gate** | Retired term. `aboveView` covers the canvas region unconditionally (§4.2); there is nothing left to gate. |
 | **Gesture** | A pointer-initiated interaction with begin/update/commit/cancel phases. |
 | **Mode** | The current `InteractionController` state. At most one non-idle mode at a time. |
 | **Token** | Opaque handle returned by `tryEnter`, consumed by `commit`/`cancel`. Prevents orphan state. |
-| **Live frame** | A frame rendered as a `pageView` WCV. |
-| **Bitmap frame** | An inactive frame rendered offscreen and composited into `bgView` as pixels. |
+| **Page texture** | A page's latest painted frame, delivered from its offscreen host as a GPU shared texture and drawn by `bgView`'s `PageTextureSurface` at the camera-projected rect. Every page is one, all the time (ADR 0038) — there is no separate live/inactive tier. |
 | **Expected focus** | The `FocusTarget` a state implies; the reconciler enforces it. |
 | **Drop owner** | The single WCV authorized to consume a given drag (keyed by `dragId`). |
 | **Layout pass** | `layoutAllViews()`. The only place view-stack, visibility, and bounds change. |

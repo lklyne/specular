@@ -98,7 +98,7 @@ All canvas content is a **node** (following the JSON Canvas spec):
 
 | Node type | Internal kind | Description |
 |-----------|--------------|-------------|
-| `link` | `page` | Live web page in an Electron webview |
+| `link` | `page` | Live web page rendered offscreen and composited as a texture |
 | `text` | `text` | Text/markdown note |
 | `file` | `file` | Reference to a local file (image, etc.) |
 | `group` | `group` | Visual container for other nodes |
@@ -127,6 +127,7 @@ Each entity type has:
 | `workspace-tab-operations.ts` | Tab CRUD and switching |
 | `selection-controller.ts` | Selection mutations |
 | `page-factory.ts` | Page (webview) creation and deletion |
+| `page-host.ts` | Per-page offscreen `BrowserWindow` + shared-texture delivery to canvas-bg |
 | `layout-engine.ts` | View z-order and layout dispatch |
 | `json-canvas-serializer.ts` | JSON Canvas <-> internal format conversion |
 
@@ -170,20 +171,22 @@ See `docs/interaction-layer.md` for the full spec. When adding a gesture,
 overlay, focus handoff, or drag-and-drop target, read it first — the
 following commitments are load-bearing and costly to unwind later.
 
-**Three WCVs in the canvas region.** `bgView` below pages, 0–N live page
-views in the middle, one merged `aboveView` on top. Post-aboveView
-migration (2026-05-06), `bgView` carries only the canvas grid + camera
-transform plus a small amount of page chrome (page borders, device
-shells); every entity body (sticky, shape, file/markdown/
-component/image/video), every edge, every selection outline / resize
-handle / hover indicator, every group bound, the keyboard-target focus
-ring, and the agent-active halo render in `aboveView`. `aboveView` is
-also the canvas-mode keyboard owner — `FocusReconciler`'s default is
-`{ kind: 'aboveView' }` and the only other keyboard target is a page
-WCV during forwarded page interaction (driven by the
-`shouldFocusSelectedPage` predicate). Adding a new transparent
-overlay WCV is almost always wrong — compose into `aboveView` as a
-React layer instead.
+**Two WCVs in the canvas region.** `bgView` below, one merged `aboveView`
+on top; pages hold no WCV of their own. Each page is a hidden offscreen
+`BrowserWindow` (`page-host.ts`, [ADR 0038](adr/0038-offscreen-texture-canvas-for-live-pages.md))
+painting GPU shared textures that `bgView` draws at the camera-projected
+rect (`PageTextureSurface`). `bgView` carries the canvas grid + camera
+transform, page borders/device shells, and those page textures; every
+entity body (sticky, shape, file/markdown/component/image/video), every
+edge, every selection outline / resize handle / hover indicator, every
+group bound, the keyboard-target focus ring, and the agent-active halo
+render in `aboveView`. `aboveView` is also the sole OS keyboard owner —
+`FocusReconciler`'s default is `{ kind: 'aboveView' }` and a page never
+appears as a `FocusTarget`; the keyboard-target page instead gets focus
+*emulation* (`Emulation.setFocusEmulationEnabled`) and keys forwarded
+over CDP, driven by the `shouldFocusSelectedPage` predicate. Adding a new
+transparent overlay WCV is almost always wrong — compose into `aboveView`
+as a React layer instead.
 
 **One sibling window outside the WCV stack.** `cursorOverlayWindow` is a
 child `BrowserWindow` of `win`, hosting the `agent-layer` renderer. It
