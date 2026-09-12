@@ -30,7 +30,7 @@ import {
 import { ipcChannels } from '../../shared/ipc-contract'
 
 /** Chromium's OSR frame pool holds 10 textures per page; keep headroom. */
-const MAX_OUTSTANDING_TEXTURES = 6
+const MAX_OUTSTANDING_TEXTURES = 9
 
 interface LabPage {
   id: string
@@ -326,6 +326,18 @@ export async function captureOsrLabPage(pageId: string): Promise<string | null> 
   const image = await wc(page).capturePage()
   if (image.isEmpty()) return null
   return image.resize({ width: 320 }).toDataURL()
+}
+
+export async function navigateOsrLabPage(pageId: string, url: string): Promise<void> {
+  const page = findPage(pageId)
+  if (!page) return
+  page.url = url
+  broadcastPages()
+  try {
+    await wc(page).loadURL(url)
+  } catch (error) {
+    console.error('[osr-lab] navigate failed', url, error)
+  }
 }
 
 export function openOsrLabDevTools(pageId: string): void {

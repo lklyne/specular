@@ -55,6 +55,7 @@ const api: OsrLabElectronAPI = {
   teardown: () => ipcRenderer.invoke(ipcChannels.osrLabTeardown),
   getStats: () => ipcRenderer.invoke(ipcChannels.osrLabStats),
   capturePage: (pageId) => ipcRenderer.invoke(ipcChannels.osrLabCapture, pageId),
+  navigate: (pageId, url) => ipcRenderer.invoke(ipcChannels.osrLabNavigate, pageId, url),
   openDevTools: (pageId) => ipcRenderer.invoke(ipcChannels.osrLabOpenDevtools, pageId),
   traceStart: () => ipcRenderer.invoke(ipcChannels.osrLabTraceStart),
   traceStop: () => ipcRenderer.invoke(ipcChannels.osrLabTraceStop),

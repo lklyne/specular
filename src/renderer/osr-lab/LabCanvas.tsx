@@ -208,8 +208,17 @@ export function LabCanvas({
       return id ? (pagesRef.current.find((page) => page.id === id) ?? null) : null
     }
 
+    // Pointer events carry window-relative coordinates, but the camera and
+    // page rects are canvas-relative — the canvas sits beside the controls
+    // sidebar, so clientX/clientY must be corrected by its offset.
+    const canvasXY = (clientX: number, clientY: number) => {
+      const bounds = canvas.getBoundingClientRect()
+      return { x: clientX - bounds.left, y: clientY - bounds.top }
+    }
+
     const forwardPointer = (event: PointerEvent, kind: 'down' | 'up' | 'move', page: LabPageLayout) => {
-      const local = pageLocal(cameraRef.current, page.rect, event.clientX, event.clientY)
+      const { x: cx, y: cy } = canvasXY(event.clientX, event.clientY)
+      const local = pageLocal(cameraRef.current, page.rect, cx, cy)
       api.forwardPointer({
         pageId: page.id,
         kind,
@@ -227,7 +236,8 @@ export function LabCanvas({
 
     const onPointerDown = (event: PointerEvent) => {
       const camera = cameraRef.current
-      const hit = hitTestPages(camera, pagesRef.current.map((page) => page.rect), event.clientX, event.clientY)
+      const { x: dx, y: dy } = canvasXY(event.clientX, event.clientY)
+      const hit = hitTestPages(camera, pagesRef.current.map((page) => page.rect), dx, dy)
       const page = hit >= 0 ? pagesRef.current[hit] : null
       if (event.button === 1 || (event.button === 0 && event.altKey) || !page) {
         if (page === null && event.button === 0 && enteredRef.current) onEnterPage(null)
@@ -258,7 +268,8 @@ export function LabCanvas({
       const page = entered()
       if (!page) return
       if (forwarding && event.pointerId !== forwarding.pointerId) return
-      const hit = hitTestPages(cameraRef.current, [page.rect], event.clientX, event.clientY)
+      const { x: mx, y: my } = canvasXY(event.clientX, event.clientY)
+      const hit = hitTestPages(cameraRef.current, [page.rect], mx, my)
       if (hit < 0 && !forwarding) return
       forwardPointer(event, 'move', page)
     }
@@ -280,13 +291,14 @@ export function LabCanvas({
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
       const camera = cameraRef.current
+      const { x: wx, y: wy } = canvasXY(event.clientX, event.clientY)
       if (event.metaKey || event.ctrlKey) {
-        setCamera(zoomCameraAt(camera, event.deltaY, event.clientX, event.clientY))
+        setCamera(zoomCameraAt(camera, event.deltaY, wx, wy))
         return
       }
       const page = entered()
-      if (page && hitTestPages(camera, [page.rect], event.clientX, event.clientY) >= 0) {
-        const local = pageLocal(camera, page.rect, event.clientX, event.clientY)
+      if (page && hitTestPages(camera, [page.rect], wx, wy) >= 0) {
+        const local = pageLocal(camera, page.rect, wx, wy)
         api.forwardWheel({
           pageId: page.id,
           x: local.x,

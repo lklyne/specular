@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { OsrLabConfig } from '../../shared/osr-lab'
 import { DEFAULT_OSR_LAB_URLS } from '../../shared/osr-lab'
 
@@ -12,7 +13,9 @@ interface LabControlsProps {
   onBenchmark: (withTrace: boolean) => void
   onCapture: () => void
   onDevTools: () => void
+  onNavigate: (url: string) => void
   enteredPageId: string | null
+  enteredPageUrl: string | null
   result: string
   capture: string | null
   status: string
@@ -29,11 +32,17 @@ export function LabControls({
   onBenchmark,
   onCapture,
   onDevTools,
+  onNavigate,
   enteredPageId,
+  enteredPageUrl,
   result,
   capture,
   status,
 }: LabControlsProps) {
+  const [navigateUrl, setNavigateUrl] = useState('')
+  useEffect(() => {
+    setNavigateUrl(enteredPageUrl ?? '')
+  }, [enteredPageId, enteredPageUrl])
   const update = (patch: Partial<OsrLabConfig>) => onConfigChange({ ...config, ...patch })
   const setCount = (count: number) => {
     const urls: string[] = []
@@ -138,6 +147,27 @@ export function LabControls({
           Fit all
         </button>
       </div>
+
+      <h2>Entered page</h2>
+      <form
+        className="lab-navigate"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (enteredPageId && navigateUrl.trim()) onNavigate(navigateUrl.trim())
+        }}
+      >
+        <input
+          type="text"
+          value={navigateUrl}
+          onChange={(event) => setNavigateUrl(event.target.value)}
+          placeholder="https://…"
+          disabled={!enteredPageId}
+          spellCheck={false}
+        />
+        <button type="submit" disabled={!enteredPageId || !navigateUrl.trim()}>
+          Go
+        </button>
+      </form>
 
       <h2>Measure</h2>
       <div className="lab-buttons">

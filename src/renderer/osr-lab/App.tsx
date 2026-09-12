@@ -133,6 +133,11 @@ export default function App({ api }: { api: OsrLabElectronAPI }) {
     }
   }
 
+  const navigateEntered = async (url: string) => {
+    if (!enteredPageId) return
+    await api.navigate(enteredPageId, url)
+  }
+
   const captureEntered = async () => {
     if (!enteredPageId) return
     setBusy(true)
@@ -165,7 +170,9 @@ export default function App({ api }: { api: OsrLabElectronAPI }) {
         onDevTools={() => {
           if (enteredPageId) void api.openDevTools(enteredPageId)
         }}
+        onNavigate={(url) => void navigateEntered(url)}
         enteredPageId={enteredPageId}
+        enteredPageUrl={pages.find((page) => page.id === enteredPageId)?.url ?? null}
         result={result}
         capture={capture}
         status={status}

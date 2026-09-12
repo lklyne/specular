@@ -15,6 +15,7 @@ import {
   forwardOsrLabPointer,
   forwardOsrLabWheel,
   insertOsrLabText,
+  navigateOsrLabPage,
   openOsrLabDevTools,
   sampleOsrLabStats,
   setOsrLabEnteredPage,
@@ -37,6 +38,10 @@ export function registerOsrLabIpc(): void {
   ipcMain.handle(ipcChannels.osrLabOpenDevtools, async (_event, pageId: string): Promise<void> => {
     openOsrLabDevTools(pageId)
   })
+  ipcMain.handle(
+    ipcChannels.osrLabNavigate,
+    async (_event, pageId: string, url: string): Promise<void> => navigateOsrLabPage(pageId, url),
+  )
   ipcMain.handle(ipcChannels.osrLabTraceStart, async (): Promise<void> => {
     await startPerfTrace({ revealOnAutoStop: false })
   })

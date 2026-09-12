@@ -16,6 +16,7 @@ export interface OsrLabElectronAPI {
   getStats: () => Promise<OsrLabMainStats>
   /** `capturePage()` on the offscreen webContents — the agent screenshot path. */
   capturePage: (pageId: string) => Promise<string | null>
+  navigate: (pageId: string, url: string) => Promise<void>
   openDevTools: (pageId: string) => Promise<void>
   traceStart: () => Promise<void>
   traceStop: () => Promise<string | null>

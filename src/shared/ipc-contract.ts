@@ -213,6 +213,7 @@ export interface IpcContract {
   'osr-lab:teardown': { dir: 'invoke'; payload: unknown }
   'osr-lab:stats': { dir: 'invoke'; payload: unknown }
   'osr-lab:capture': { dir: 'invoke'; payload: unknown }
+  'osr-lab:navigate': { dir: 'invoke'; payload: unknown }
   'osr-lab:open-devtools': { dir: 'invoke'; payload: unknown }
   'osr-lab:trace-start': { dir: 'invoke'; payload: unknown }
   'osr-lab:trace-stop': { dir: 'invoke'; payload: unknown }
@@ -571,6 +572,7 @@ export const ipcChannels = {
   osrLabTeardown: 'osr-lab:teardown',
   osrLabStats: 'osr-lab:stats',
   osrLabCapture: 'osr-lab:capture',
+  osrLabNavigate: 'osr-lab:navigate',
   osrLabOpenDevtools: 'osr-lab:open-devtools',
   osrLabTraceStart: 'osr-lab:trace-start',
   osrLabTraceStop: 'osr-lab:trace-stop',

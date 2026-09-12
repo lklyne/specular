@@ -50,6 +50,7 @@ body,
 }
 
 .lab-side input[type='number'],
+.lab-side input[type='text'],
 .lab-side select,
 .lab-side textarea {
   background: #27272a;
@@ -95,6 +96,16 @@ body,
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.lab-navigate {
+  display: flex;
+  gap: 6px;
+}
+
+.lab-navigate input[type='text'] {
+  flex: 1;
+  min-width: 0;
 }
 
 .lab-stage {
