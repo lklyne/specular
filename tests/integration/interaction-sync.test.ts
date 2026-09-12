@@ -91,7 +91,7 @@ function makePage(url: string, x: number): string {
 }
 
 function wc(id: string) {
-  return findPageById(id)!.pageView.webContents as unknown as {
+  return findPageById(id)!.host.webContents as unknown as {
     id: number
     loadURL(url: string): Promise<void>
     getURL(): string
@@ -197,7 +197,7 @@ describe('interaction sync relay', () => {
       harness.clearBroadcasts()
 
       // b is a peer, not the entered page — its captured input must not mirror.
-      handleInteractionSyncEvent(findPageById(b)!.pageView.webContents as never, clickEvent())
+      handleInteractionSyncEvent(findPageById(b)!.host.webContents as never, clickEvent())
 
       expect(syncedCursors()).toHaveLength(0)
       expect(resolveRequestsTo(a)).toHaveLength(0)
@@ -211,7 +211,7 @@ describe('interaction sync relay', () => {
       addAutomationInteractivePageId(a)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, clickEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, clickEvent())
 
       expect(syncedCursors()).toHaveLength(0)
       expect(resolveRequestsTo(b)).toHaveLength(0)
@@ -229,7 +229,7 @@ describe('interaction sync relay', () => {
       enterPageInteractive(a)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
 
       expect(syncedCursorFor(sameOrigin)).toBeDefined()
       expect(resolveRequestsTo(sameOrigin)).toHaveLength(1)
@@ -247,7 +247,7 @@ describe('interaction sync relay', () => {
       enterPageInteractive(a)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
 
       expect(syncedCursors()).toHaveLength(0)
       expect(resolveRequestsTo(b)).toHaveLength(0)
@@ -268,7 +268,7 @@ describe('interaction sync relay', () => {
       addAutomationInteractivePageId(driven)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
 
       expect(syncedCursorFor(driven)).toBeUndefined()
       expect(resolveRequestsTo(driven)).toHaveLength(0)
@@ -287,15 +287,15 @@ describe('interaction sync relay', () => {
 
       // Click, then a hover one frame later — the hover must not clobber the
       // click's pending resolve.
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, clickEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, clickEvent())
       const clickRequestId = requestIdAt(b, 0)
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
       const hoverRequestId = requestIdAt(b, 1)
       expect(hoverRequestId).not.toBe(clickRequestId)
 
       // The click's confident answer still dispatches the trusted press+release.
       handleResolveInteractionLocatorResponse(
-        findPageById(b)!.pageView.webContents as never,
+        findPageById(b)!.host.webContents as never,
         confidentResponse(clickRequestId),
       )
       await settleSync()
@@ -307,17 +307,17 @@ describe('interaction sync relay', () => {
       enterPageInteractive(a)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
       const staleHoverId = requestIdFor(b)
 
       // The cursor leaves every element before the peer answers.
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent(null))
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent(null))
       // Proportional again — no anchor.
       expect(syncedCursorFor(b)?.targetRect).toBeNull()
 
       // The now-stale confident answer must not re-anchor or dispatch.
       handleResolveInteractionLocatorResponse(
-        findPageById(b)!.pageView.webContents as never,
+        findPageById(b)!.host.webContents as never,
         confidentResponse(staleHoverId),
       )
       await settleSync()
@@ -333,7 +333,7 @@ describe('interaction sync relay', () => {
         `${SAME_ORIGIN}/c`,
       ])
       enterPageInteractive(a)
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
       expect(syncedCursorFor(b)).toBeDefined()
       expect(syncedCursorFor(c)).toBeDefined()
 
@@ -346,7 +346,7 @@ describe('interaction sync relay', () => {
 
       harness.clearBroadcasts()
       // Further input mirrors to b only.
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
       expect(syncedCursorFor(b)).toBeDefined()
       expect(syncedCursorFor(c)).toBeUndefined()
       expect(resolveRequestsTo(c)).toHaveLength(0)
@@ -359,11 +359,11 @@ describe('interaction sync relay', () => {
       enterPageInteractive(a)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, clickEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, clickEvent())
       const requestId = requestIdFor(b)
 
       handleResolveInteractionLocatorResponse(
-        findPageById(b)!.pageView.webContents as never,
+        findPageById(b)!.host.webContents as never,
         confidentResponse(requestId, { x: 100, y: 60 }),
       )
       // The press+release pair is dispatched on the async CDP path; let it flush.
@@ -385,11 +385,11 @@ describe('interaction sync relay', () => {
       enterPageInteractive(a)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, clickEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, clickEvent())
       const requestId = requestIdFor(b)
 
       handleResolveInteractionLocatorResponse(
-        findPageById(b)!.pageView.webContents as never,
+        findPageById(b)!.host.webContents as never,
         ambiguousResponse(requestId),
       )
 
@@ -405,17 +405,17 @@ describe('interaction sync relay', () => {
       enterPageInteractive(a)
       harness.clearBroadcasts()
 
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, clickEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, clickEvent())
       const staleRequestId = requestIdFor(b)
 
       // A newer capture supersedes the first outstanding request for this peer.
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, clickEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, clickEvent())
       const freshRequestId = requestIdFor(b)
       expect(freshRequestId).not.toBe(staleRequestId)
 
       // The stale confident answer must be ignored — no dispatch.
       handleResolveInteractionLocatorResponse(
-        findPageById(b)!.pageView.webContents as never,
+        findPageById(b)!.host.webContents as never,
         confidentResponse(staleRequestId),
       )
       await settleSync()
@@ -423,7 +423,7 @@ describe('interaction sync relay', () => {
 
       // The current answer still replays, proving only staleness was rejected.
       handleResolveInteractionLocatorResponse(
-        findPageById(b)!.pageView.webContents as never,
+        findPageById(b)!.host.webContents as never,
         confidentResponse(freshRequestId),
       )
       await settleSync()
@@ -435,7 +435,7 @@ describe('interaction sync relay', () => {
     it('retires synced cursors and mirrors nothing after the set dissolves', async () => {
       const [a, b] = await makeSyncedSet([`${SAME_ORIGIN}/a`, `${SAME_ORIGIN}/b`])
       enterPageInteractive(a)
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
       expect(syncedCursorFor(b)).toBeDefined()
 
       // Unsync a; b is now a lone member so the whole set dissolves, which
@@ -446,7 +446,7 @@ describe('interaction sync relay', () => {
 
       harness.clearBroadcasts()
       // Further captured input from the (now unsynced) source mirrors nothing.
-      handleInteractionSyncEvent(findPageById(a)!.pageView.webContents as never, hoverEvent())
+      handleInteractionSyncEvent(findPageById(a)!.host.webContents as never, hoverEvent())
       expect(syncedCursors()).toHaveLength(0)
       expect(resolveRequestsTo(b)).toHaveLength(0)
       expect(dispatchesOn(b)).toHaveLength(0)

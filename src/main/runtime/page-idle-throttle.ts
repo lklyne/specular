@@ -83,7 +83,7 @@ function targetState(page: Page): LifecycleState {
  * believing a page is frozen when it isn't.
  */
 function applyState(page: Page, state: LifecycleState): boolean {
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   if (wc.isDestroyed()) return false
 
   // A detach drops the override with it — forget the state so the next
@@ -202,7 +202,7 @@ export function holdPagesAwake(): () => void {
  * re-applied rather than trusted.
  */
 export function registerPageIdleThrottle(page: Page): void {
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   const reapply = (): void => {
     page.lastIdleLifecycleState = undefined
     syncPageIdleThrottle(page)

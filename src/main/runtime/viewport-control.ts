@@ -34,7 +34,6 @@ import {
 import { win } from './view-refs'
 import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
-import { isZoomInMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
@@ -73,17 +72,6 @@ import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
-import {
-  adoptHandoffCaptures,
-  beginZoomGesture,
-  beginZoomSnapshotHandoff,
-  captureParkedPagesAtSettle,
-  endZoomGesture,
-  scheduleZoomSnapshotPreparation,
-} from './zoom-snapshot-freeze'
-import { markCameraInput } from './camera-input-clock'
-
-let zoomGestureGen = 0
 
 export function setViewportCamera(
   value: number,
@@ -96,11 +84,6 @@ export function setViewportCamera(
   const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
   if (!zoomChanged && !panChanged) return
 
-  markCameraInput()
-  if (zoomChanged && !isZoomInMotion()) {
-    zoomGestureGen += 1
-    beginZoomGesture(zoomGestureGen)
-  }
   if (zoomChanged) setZoomState(nextZoom)
   if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
 
@@ -110,24 +93,18 @@ export function setViewportCamera(
   //
   // A camera move changes no entity: renderers project canvas-space geometry
   // through the `camera` slice, so the whole update is that slice. The scene
-  // is not dirtied, so the pass below positions the native views and rebuilds
-  // nothing.
+  // is not dirtied, so the pass below places the remaining native views and
+  // rebuilds nothing.
   //
   // The toolbar is not on the scene bus — its zoom readout rides the layout
   // pass, so zoom keeps that flag.
   if (zoomChanged) markDirty('toolbar')
-  // Move the native views first, then tell the renderers where the camera is,
-  // so the chrome ring never leads the page.
+  // Place the native views first, then tell the renderers where the camera is,
+  // so a component view never lags its chrome.
   layoutAllViews()
   broadcastCamera()
   if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
-  if (zoomChanged) {
-    const gen = zoomGestureGen
-    markZoomMotion(() => {
-      void settleZoomGesture(gen)
-    })
-  }
 }
 
 /**
@@ -155,39 +132,13 @@ function broadcastCamera(): void {
   })
 }
 
-/**
- * Settle for a frozen gesture runs as a handoff: lay out once with the parked
- * views warm (sized and emulated at the settled scale, off-screen), wait for
- * each to present a frame at that scale, then end the freeze and lay out
- * again to reveal them. Revealing before that frame is on screen shows the
- * pre-gesture surface stretched into the new bounds. The presented frames
- * become the next gesture's snapshot, so the reveal is not followed by a
- * second capture pass over every page.
- */
-async function settleZoomGesture(gen: number): Promise<void> {
-  markDirty('canvas')
-  if (!beginZoomSnapshotHandoff(gen)) {
-    endZoomGesture(gen)
-    requestLayout()
-    scheduleZoomSnapshotPreparation()
-    return
-  }
-  layoutAllViews()
-  const captures = await captureParkedPagesAtSettle()
-  // A new gesture adopted the frames while we waited; it owns the settle now.
-  if (gen !== zoomGestureGen) return
-  endZoomGesture(gen)
-  layoutAllViews()
-  if (!(await adoptHandoffCaptures(captures))) scheduleZoomSnapshotPreparation()
-}
-
 export function setZoom(value: number): void {
   setViewportCamera(value, pan)
 }
 
 export function broadcastCanvasZoomToPages(): void {
   for (const page of pages) {
-    safeSend(page.pageView.webContents, ipcChannels.setCanvasZoom, zoom)
+    safeSend(page.host.webContents, ipcChannels.setCanvasZoom, zoom)
   }
 }
 

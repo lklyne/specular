@@ -184,7 +184,7 @@ export function findPageById(id: string): Page | undefined {
 }
 
 export function findPageByPageView(senderWebContents: WebContents): Page | undefined {
-  return pages.find((p) => p.pageView.webContents === senderWebContents)
+  return pages.find((p) => p.host.webContents === senderWebContents)
 }
 
 export function selectedPage(): Page | null {

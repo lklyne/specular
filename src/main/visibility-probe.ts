@@ -1,39 +1,34 @@
 /**
- * Answers one question: does `View.setVisible(false)` actually make Chromium
- * treat a page as hidden, so the default background throttling engages?
+ * Answers one question: does a page that has stopped painting actually stand
+ * down, or do rAF and timers keep running at full rate behind the stopped
+ * frame stream?
  *
- * Viewport culling collapses off-screen pages to 0×0 bounds, which stops them
- * compositing but leaves them attached and *visible* as far as Chromium is
- * concerned — rAF, timers, and media keep running at full rate. The probe
- * measures a culled page as-is, flips `setVisible(false)`, measures again, and
- * restores it. A drop to zero frames and ~1 timer tick per second is throttling
- * engaging; unchanged counts mean the lever is somewhere else.
+ * Viewport culling stops an off-screen page's offscreen window from painting,
+ * which stops frame production — but the renderer is still attached and, with
+ * `backgroundThrottling: false`, Chromium has no reason to consider it hidden.
+ * The probe measures a culled page in that steady state, resumes painting,
+ * measures again, and stops it. A `before` sample already at zero frames and
+ * ~1 timer tick per second is the page standing down on its own; counts that
+ * only climb once painting resumes mean the lever is somewhere else.
  *
- * Only culled pages are probed — they are already off-screen, so toggling their
- * visibility is imperceptible. Running this costs two renderer wake-ups per
- * page, which is why it is on-demand and never part of the metrics sampler.
- *
- * Visibility is requested through `page-visibility` and applied by the layout
- * pass (invariant I1), which is also the seam a real off-screen lifecycle
- * policy would use — so what this measures is what shipping it would do.
+ * Only culled pages are probed — they are already off-screen, so resuming
+ * their painting for a moment is imperceptible. Running this costs two
+ * renderer wake-ups per page, which is why it is on-demand and never part of
+ * the metrics sampler.
  */
 
-import type { WebContentsView } from 'electron'
 import type {
   VisibilityProbePageResult,
   VisibilityProbeResult,
   VisibilityProbeSample,
 } from '../shared/process-metrics'
 import { pages } from './runtime/runtime-context'
-import { requestLayout } from './runtime/layout-engine'
-import { setPageVisibilityOverride } from './runtime/page-visibility'
-import { pageLabel, presentationOf } from './process-metrics'
+import type { Page } from './runtime/runtime-entities'
+import { pageLabel, pagePresentationOf } from './process-metrics'
 
 const DEFAULT_WINDOW_MS = 1500
 /** Bounds the renderer wake-ups a single probe run costs. */
 const MAX_PAGES = 16
-/** requestLayout debounces onto a 16ms timer; wait past it before measuring. */
-const LAYOUT_SETTLE_MS = 50
 
 /** Starts a rAF loop and a 100ms interval, counting both into a page global. */
 const INSTALL_SCRIPT = `(() => {
@@ -74,8 +69,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function readSample(view: WebContentsView): Promise<VisibilityProbeSample | null> {
-  const raw = (await view.webContents.executeJavaScript(READ_SCRIPT)) as unknown
+async function readSample(page: Page): Promise<VisibilityProbeSample | null> {
+  const raw = (await page.host.webContents.executeJavaScript(READ_SCRIPT)) as unknown
   if (!raw || typeof raw !== 'object') return null
   const sample = raw as Partial<VisibilityProbeSample>
   if (typeof sample.frames !== 'number') return null
@@ -87,55 +82,41 @@ async function readSample(view: WebContentsView): Promise<VisibilityProbeSample 
   }
 }
 
-async function probePage(
-  pageId: string,
-  view: WebContentsView,
-  url: string,
-  windowMs: number,
-): Promise<VisibilityProbePageResult> {
+async function probePage(page: Page, windowMs: number): Promise<VisibilityProbePageResult> {
   const result: VisibilityProbePageResult = {
-    pageId,
-    label: pageLabel(pageId),
-    url,
+    pageId: page.id,
+    label: pageLabel(page.id),
+    url: page.url,
     presentation: 'culled',
     before: null,
     after: null,
   }
 
-  if (typeof view.setVisible !== 'function') {
-    result.error = 'View.setVisible is unavailable in this Electron build.'
-    return result
-  }
-
-  let overridden = false
+  let resumed = false
   try {
-    await view.webContents.executeJavaScript(INSTALL_SCRIPT)
+    await page.host.webContents.executeJavaScript(INSTALL_SCRIPT)
     await sleep(windowMs)
-    result.before = await readSample(view)
+    result.before = await readSample(page)
 
-    // The user may have panned this page back into view while we waited.
-    // Hiding it now would be visible, so stop rather than flicker the canvas.
-    if (presentationOf(view) !== 'culled') {
+    // The user may have panned this page back into view while we waited. Its
+    // painting state belongs to the layout pass then, so stop rather than
+    // fight it.
+    if (pagePresentationOf(page) !== 'culled') {
       result.error = 'Page returned to the viewport mid-probe; skipped.'
       return result
     }
 
-    setPageVisibilityOverride(pageId, false)
-    overridden = true
-    requestLayout()
-    await sleep(LAYOUT_SETTLE_MS)
+    page.host.setPainting(true)
+    resumed = true
     await sleep(windowMs)
-    result.after = await readSample(view)
+    result.after = await readSample(page)
   } catch (error) {
     result.error = error instanceof Error ? error.message : String(error)
   } finally {
-    if (overridden) {
-      setPageVisibilityOverride(pageId, null)
-      requestLayout()
-    }
+    if (resumed) page.host.setPainting(false)
     try {
-      if (!view.webContents.isDestroyed()) {
-        await view.webContents.executeJavaScript(CLEANUP_SCRIPT)
+      if (!page.host.webContents.isDestroyed()) {
+        await page.host.webContents.executeJavaScript(CLEANUP_SCRIPT)
       }
     } catch {
       // The page navigated or closed; its probe globals went with it.
@@ -150,9 +131,7 @@ export async function runVisibilityProbe(
 ): Promise<VisibilityProbeResult> {
   const windowMs = Math.max(250, Math.min(10_000, options.windowMs ?? DEFAULT_WINDOW_MS))
   const culled = pages.filter(
-    (page) =>
-      !page.pageView.webContents.isDestroyed() &&
-      presentationOf(page.pageView) === 'culled',
+    (page) => !page.host.webContents.isDestroyed() && pagePresentationOf(page) === 'culled',
   )
 
   if (culled.length === 0) {
@@ -165,9 +144,7 @@ export async function runVisibilityProbe(
   }
 
   const targets = culled.slice(0, MAX_PAGES)
-  const results = await Promise.all(
-    targets.map((page) => probePage(page.id, page.pageView, page.url, windowMs)),
-  )
+  const results = await Promise.all(targets.map((page) => probePage(page, windowMs)))
 
   return {
     probedAt: Date.now(),

@@ -2,13 +2,15 @@
  * LAYER_STACK — the declarative z-order for singleton overlay WCVs.
  *
  * `applyStack()` is an idempotent full child-list reconcile: it computes
- * the desired ordered child list — `bgView` → live pages → component
- * views → above-pages overlays → devtools cluster → `toolbar` — diffs it
- * against `win.contentView.children`, and applies the delta. It is the
- * only site that calls `addChildView` / `removeChildView` for pages,
- * component views, and singleton overlays (invariant I1). Page and
- * component factories just mutate `pages[]` / the component-view set and
- * request a layout; the reconcile owns attachment.
+ * the desired ordered child list — `bgView` → per-page devtools hosts →
+ * component views → above-pages overlays → devtools cluster → `toolbar` —
+ * diffs it against `win.contentView.children`, and applies the delta. It is
+ * the only site that calls `addChildView` / `removeChildView` for component
+ * views and singleton overlays (invariant I1). Component factories just
+ * mutate the component-view set and request a layout; the reconcile owns
+ * attachment. Pages have no native view — they paint as textures the canvas
+ * draws (ADR 0038) — so nothing of a page reaches the stack but its devtools
+ * host.
  *
  * It is invoked exclusively from `layoutAllViews()` when the 'stack'
  * dirty flag is set.
@@ -27,9 +29,7 @@ import {
   win,
 } from './view-refs'
 import { pages } from './runtime-context'
-import { focusedPageId } from './focus-session'
 import { listComponentViews } from './component-page-factory'
-import type { Page } from './runtime-entities'
 
 export type LayerId =
   | 'bgView'
@@ -42,7 +42,7 @@ export type LayerId =
   | 'toolbar'
 
 /**
- * Bottom → top. `bgView` pinned to index 0; everything else stacks above pages.
+ * Bottom → top. `bgView` pinned to index 0.
  *
  * `aboveView` is the sole above-pages overlay WCV. It owns marquee,
  * annotations, comments, presence, drawing, the floating-ui menus, and
@@ -50,7 +50,6 @@ export type LayerId =
  */
 export const LAYER_STACK: readonly LayerId[] = [
   'bgView',
-  // pages live here (added at creation time by page-factory)
   'aboveView',
   'leftSidebar',
   'devtoolsBackground',
@@ -84,23 +83,10 @@ export function resolveStackOrder(
   return LAYER_STACK.filter((id) => get(id) != null)
 }
 
-export function orderedPagesForStack<T extends { id: string }>(
-  inputPages: readonly T[],
-  focusedPageId: string | null | undefined,
-): T[] {
-  if (!focusedPageId) return [...inputPages]
-  const focused = inputPages.find((page) => page.id === focusedPageId)
-  if (!focused) return [...inputPages]
-  return [
-    ...inputPages.filter((page) => page.id !== focusedPageId),
-    focused,
-  ]
-}
-
 /**
  * Compute the desired ordered child list, bottom → top:
- * `bgView` → pages (`pageView` + inactive `devtoolsHostView`)
- * → component views → above-pages overlays → devtools cluster → `toolbar`.
+ * `bgView` → each page's inactive `devtoolsHostView` → component views →
+ * above-pages overlays → devtools cluster → `toolbar`.
  *
  * The active devtools host (`devtoolsView`) is placed with the devtools
  * cluster; every other page's `devtoolsHostView` parks in the per-page
@@ -113,12 +99,7 @@ function desiredChildOrder(): View[] {
     if (!view) continue
     order.push(view)
     if (id === 'bgView') {
-      const orderedPages: Page[] = orderedPagesForStack(
-        pages,
-        focusedPageId(),
-      )
-      for (const page of orderedPages) {
-        order.push(page.pageView)
+      for (const page of pages) {
         if (page.devtoolsHostView && page.devtoolsHostView !== devtoolsView) {
           order.push(page.devtoolsHostView)
         }

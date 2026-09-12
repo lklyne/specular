@@ -27,6 +27,7 @@ import {
   setToolbarView,
   setWin,
 } from './view-refs'
+import { setPageFrameTarget } from './page-host'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
@@ -173,6 +174,8 @@ export function initWindow(): void {
   }))
   const currentBgView = bgView
   if (!currentBgView) return
+  // Every page's painted texture is sent to this renderer's main frame.
+  setPageFrameTarget(currentBgView.webContents)
   currentBgView.setBackgroundColor('#00000000')
   // Strip cross-origin-resource-policy from image responses in UI renderers
   // (canvas-bg, sidebar) so they can load favicon images from any origin.

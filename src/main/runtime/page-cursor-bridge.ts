@@ -33,8 +33,8 @@ function detach(): void {
     return
   }
   const page = findPageById(attachedPageId)
-  if (page && !page.pageView.webContents.isDestroyed()) {
-    page.pageView.webContents.off('cursor-changed', attachedListener)
+  if (page && !page.host.webContents.isDestroyed()) {
+    page.host.webContents.off('cursor-changed', attachedListener)
   }
   attachedPageId = null
   attachedListener = null
@@ -42,12 +42,12 @@ function detach(): void {
 
 function attach(pageId: string): void {
   const page = findPageById(pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
+  if (!page || page.host.webContents.isDestroyed()) return
   const listener: CursorChangeEvent = (_event, type) => {
     if (!aboveView || aboveView.webContents.isDestroyed()) return
     safeSend(aboveView.webContents, ipcChannels.aboveviewCursorUpdate, { type })
   }
-  page.pageView.webContents.on('cursor-changed', listener)
+  page.host.webContents.on('cursor-changed', listener)
   attachedPageId = pageId
   attachedListener = listener
 }

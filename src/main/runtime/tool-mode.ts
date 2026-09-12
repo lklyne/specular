@@ -23,7 +23,7 @@ import { requestLayout } from './viewport-control'
 function syncAnnotationState(): void {
   const payload = toolAnnotateOverlay(uiActiveTool())
   for (const page of pages) {
-    page.pageView.webContents.send(ipcChannels.setAnnotateMode, payload)
+    page.host.webContents.send(ipcChannels.setAnnotateMode, payload)
   }
 }
 

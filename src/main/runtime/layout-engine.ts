@@ -4,12 +4,10 @@
 import { screen, type WebContentsView } from 'electron'
 import {
   boundsKey,
-  boundPageMetrics,
   boundEffectivePageContentSize,
   boundScreenBoundsForPage,
   boundSelectedPage,
   boundCanvasOrigin,
-  focusFillRegion,
 } from './runtime-geometry'
 import { projectToScreen } from '../../shared/scene-projection'
 import {
@@ -29,7 +27,6 @@ import {
 import { layoutCache } from './layout-cache'
 import { consumeDirty } from './layout-dirty'
 import { applyStack } from './layer-stack'
-import { pageVisibilityOverride } from './page-visibility'
 import { reconcileFocus } from './focus-reconciler-runtime'
 import { reconcileBrowserDevtools } from './runtime-core'
 import { reconcilePageCursorBridge } from './page-cursor-bridge'
@@ -69,15 +66,13 @@ import { listComponentViews, syncComponentViews } from './component-page-factory
 import { getPresenceCursors } from '../presence-cursor'
 import { notifyDevtoolsPanelData } from './inspect-session'
 import { clampDevtoolsWidth } from './preferences'
-import { contentCornerRadiusForDevice, safeAreaCssForDevice } from '../../shared/device-catalog'
+import { safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { broadcastSceneUpdate } from './runtime-patch-broadcast'
 import { deviceIdFromMetadata, deviceOrientationFromMetadata, showDeviceFrameFromMetadata } from './runtime-entities'
+import { isPagePresented } from '../../shared/page-presentation'
 import type { Page } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
-import { pageParkingFor } from './page-freeze'
-import { scheduleZoomSnapshotPreparation } from './zoom-snapshot-freeze'
-import { applyPageMetrics, clearPageMetrics, invalidatePageMetrics, pageRendersNatively } from './page-emulation'
 import { logCrash } from '../crash-log'
 
 let buildMsSink: ((ms: number) => void) | null = null
@@ -99,7 +94,6 @@ export function setBoundsIfChanged(
 }
 
 import {
-  CARD_BORDER_RADIUS,
   DEVTOOLS_HEADER_GAP,
   DEVTOOLS_HEADER_HEIGHT,
   DEVTOOLS_RESIZE_HANDLE_WIDTH,
@@ -109,7 +103,6 @@ import {
   devtoolsPanelDebug,
 } from './runtime-constants'
 import { boundsOverlap } from './runtime-geometry'
-import { isZoomInMotion, quantizeZoomForEmulation } from './zoom-motion'
 
 const HIDDEN_BOUNDS = { x: 0, y: 0, width: 0, height: 0 }
 
@@ -119,47 +112,9 @@ const TOOLBAR_TOOLTIP_BAND = 48
 /**
  * Off-screen-but-alive bounds for hidden devtools panels. Unlike a 0×0
  * cull, a 1×1 view parked off-screen keeps its renderer warm so the first
- * visible open does not pay startup + first-paint cost. Page culling still
- * uses HIDDEN_BOUNDS — culled pages should not stay warm.
+ * visible open does not pay startup + first-paint cost.
  */
 const DEVTOOLS_HIDDEN_BOUNDS = { x: -10_000, y: 0, width: 1, height: 1 }
-/**
- * Warm park: the view keeps a one-pixel column inside the window's left
- * edge. viz stops issuing BeginFrames to a surface that falls entirely
- * outside the window (or is fully covered by another view), so a view
- * parked fully off-screen stops laying out and presenting:
- * requestAnimationFrame never fires and the settle handoff cannot tell when
- * the page has rendered at its new scale.
- */
-function warmParkBounds(
-  bounds: { x: number; y: number; width: number; height: number },
-  windowHeight: number,
-): { x: number; y: number; width: number; height: number } {
-  return {
-    ...bounds,
-    x: 1 - bounds.width,
-    y: Math.min(Math.max(bounds.y, 1 - bounds.height), windowHeight - 1),
-  }
-}
-
-/**
- * Where a visible page's view goes this pass. Fill focus sits below the flush
- * focus chrome bar and fills the rest of the canvas area (focusFillRegion()
- * is the shared source of truth). Warm parking is the settle handoff: the
- * view rasters at its settled size and scale while hidden behind the frozen
- * bitmap, so the reveal shows a frame that already matches instead of the
- * pre-gesture surface stretched into the new bounds.
- */
-function placedPageBounds(
-  canvasBounds: { x: number; y: number; width: number; height: number },
-  isFillFocus: boolean,
-  parking: ReturnType<typeof pageParkingFor>,
-  windowHeight: number,
-): { x: number; y: number; width: number; height: number } {
-  if (isFillFocus) return focusFillRegion()
-  if (parking === 'warm') return warmParkBounds(canvasBounds, windowHeight)
-  return canvasBounds
-}
 
 /**
  * Injects or removes safe-area CSS padding so the page matches the device
@@ -168,7 +123,7 @@ function placedPageBounds(
 function syncSafeAreaCss(page: Page, safeAreaCss: string | null): void {
   const safeAreaKey = safeAreaCss ?? ''
   if (safeAreaKey === (page.lastSafeAreaCssKey ?? '')) return
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   if (page.lastSafeAreaCssId) {
     wc.removeInsertedCSS(page.lastSafeAreaCssId).catch(() => {})
     page.lastSafeAreaCssId = undefined
@@ -180,32 +135,6 @@ function syncSafeAreaCss(page: Page, safeAreaCss: string | null): void {
   }
   page.lastSafeAreaCssKey = safeAreaKey
 }
-
-/**
- * Applies the page's canvas metrics at the current zoom. Mid-gesture the
- * scale is quantized so re-raster fires at bucket crossings only; the settle
- * pass restores the exact zoom.
- */
-export function ensurePageEmulation(page: Page): void {
-  const metrics = boundPageMetrics(page)
-  if (isZoomInMotion()) metrics.scale = quantizeZoomForEmulation(metrics.scale)
-  applyPageMetrics(page.pageView.webContents, metrics)
-}
-
-/**
- * Re-emulates `page` for a freshly committed document. Fill focus renders
- * natively and is left alone; the layout pass owns that switch.
- */
-export function applyNavigationEmulation(page: Page): void {
-  const wc = page.pageView.webContents
-  if (wc.isDestroyed()) return
-  if (pageRendersNatively(wc)) return
-  invalidatePageMetrics(wc)
-  ensurePageEmulation(page)
-}
-
-/** Off-screen origin for automation-interactive pages parked outside the viewport. */
-const AUTOMATION_OFFSCREEN_ORIGIN = -10_000
 
 function layoutDevtoolsViews(): void {
   const devtoolsOpen = uiDevtoolsOpen()
@@ -304,20 +233,6 @@ function layoutDevtoolsViews(): void {
       layoutCache.lastDevtoolsResizeBoundsKey = setBoundsIfChanged(devtoolsResizeHandleView, hiddenBounds, layoutCache.lastDevtoolsResizeBoundsKey)
     }
   }
-}
-
-/**
- * Reconciles a page's content-view visibility against its override.
- *
- * Runs before the bounds branches because visibility is independent of where
- * a page sits: a page can be on-screen and hidden, or culled and awake.
- */
-function applyPageVisibility(page: Page): void {
-  if (typeof page.pageView.setVisible !== 'function') return
-  const desired = pageVisibilityOverride(page.id) ?? true
-  if (page.lastVisibleApplied === desired) return
-  page.pageView.setVisible(desired)
-  page.lastVisibleApplied = desired
 }
 
 export { layoutAllViews }
@@ -438,124 +353,34 @@ function layoutAllViews(): void {
   const winBounds = win.getBounds()
   const windowRect = { x: 0, y: 0, width: winBounds.width, height: winBounds.height }
 
-  // --- Per-page bounds, emulation, annotations ---
+  // --- Per-page host size, painting policy, safe-area CSS ---
   const focusSessionValue = focusSession()
   const focusedPresentationPageId = focusedPageId()
-  // Eye on: other pages' live content returns as surrounding context, subject
-  // to normal culling. Eye off: only the focused page shows. Binary show/hide,
-  // never dimmed (ADR 0021). A page session in 'fill' mode is the exception —
-  // the focused page covers the viewport, so context never returns. A file
-  // session (always 'fill') frames a note drawn in the aboveView overlay and has
-  // no focused page id, so every page is context and the eye governs all of
-  // them; without that, native page layers float over the note backdrop
-  // (ADR 0021 Amendment 2).
-  const showOtherPagesInFocus =
-    (focusedPresentationPageId === null || focusSessionValue?.mode !== 'fill') &&
-    (focusSessionValue?.annotationsVisible ?? false)
+  const presentationInputs = {
+    focus: {
+      pageId: focusedPresentationPageId,
+      mode: focusSessionValue?.mode ?? null,
+      annotationsVisible: focusSessionValue?.annotationsVisible ?? false,
+      active: focusSessionValue !== null,
+    },
+  }
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
-    applyPageVisibility(page)
-    const bounds = boundScreenBoundsForPage(page)
+    // The host's CSS viewport is the page's authored size, or the focus
+    // session's region — fill focus resizes the window to the fill region, so
+    // the page reflows like a real tab instead of being scaled into one.
+    page.host.resize(boundEffectivePageContentSize(page))
 
-    const parking = pageParkingFor(page.id)
-    if (parking === 'hidden') {
-      page.lastPageBoundsKey = setBoundsIfChanged(
-        page.pageView,
-        HIDDEN_BOUNDS,
-        page.lastPageBoundsKey,
-      )
-      continue
-    }
-
-    if (
-      focusSessionValue !== null &&
-      page.id !== focusedPresentationPageId &&
-      !showOtherPagesInFocus
-    ) {
-      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
-      devtoolsPanelDebug('layout:page', {
-        pageId: page.id,
-        durationMs: Date.now() - pageStart,
-        visible: false,
-        hiddenByFocusPresentation: true,
-        isSelected: selectedPageIds.includes(page.id),
-        devtoolsOpen,
-      })
-      continue
-    }
-
-    // Viewport culling — off-screen pages get hidden bounds.
-    // Skip culling during drag and for pages in automation-interactive mode
-    // (agents need non-zero bounds to interact with off-screen pages).
-    const isOnScreen = boundsOverlap(bounds.page, windowRect)
-    const isAutomationActive = automationInteractivePageCounts.has(page.id)
-    if (!isOnScreen && interactionState.kind !== 'dragging-entities') {
-      if (isAutomationActive) {
-        // Automation-interactive pages that aren't visible on the canvas
-        // are parked off-screen at their logical viewport size, so an
-        // agent always has a real (un-zoomed) viewport to drive.
-        const parkedSize = boundEffectivePageContentSize(page)
-        page.lastPageBoundsKey = setBoundsIfChanged(
-          page.pageView,
-          {
-            x: AUTOMATION_OFFSCREEN_ORIGIN,
-            y: AUTOMATION_OFFSCREEN_ORIGIN,
-            width: parkedSize.width,
-            height: parkedSize.height,
-          },
-          page.lastPageBoundsKey,
-        )
-        devtoolsPanelDebug('layout:page', {
-          pageId: page.id,
-          durationMs: Date.now() - pageStart,
-          visible: false,
-          parked: true,
-          isSelected: selectedPageIds.includes(page.id),
-          devtoolsOpen,
-        })
-        continue
-      }
-      page.lastPageBoundsKey = setBoundsIfChanged(page.pageView, HIDDEN_BOUNDS, page.lastPageBoundsKey)
-      devtoolsPanelDebug('layout:page', {
-        pageId: page.id,
-        durationMs: Date.now() - pageStart,
-        visible: false,
-        culled: true,
-        isSelected: selectedPageIds.includes(page.id),
-        devtoolsOpen,
-      })
-      continue
-    }
-
-    const deviceId = deviceIdFromMetadata(page.metadata)
-    const showShell = showDeviceFrameFromMetadata(page.metadata)
-    // 'fill' focus is the browser mode: page fills the canvas viewport edge to
-    // edge with no chrome header, no bezel, and square corners.
-    const isFillFocus =
-      focusedPresentationPageId === page.id && focusSessionValue?.mode === 'fill'
-    const borderRadius = isFillFocus
-      ? 0
-      : deviceId && showShell
-        ? Math.round(contentCornerRadiusForDevice(deviceId, deviceOrientationFromMetadata(page.metadata)) * zoom)
-        : CARD_BORDER_RADIUS
-    page.pageView.setBorderRadius(borderRadius)
-    page.lastPageBoundsKey = setBoundsIfChanged(
-      page.pageView,
-      placedPageBounds(bounds.page, isFillFocus, parking, winBounds.height),
-      page.lastPageBoundsKey,
-    )
-
-    if (isFillFocus) {
-      // Fill is the browser mode: render natively at 100% with no device
-      // emulation, so the page reflows to the real view size and viewport-aware
-      // layout (sticky headers, 100vh, visualViewport) behaves like a real tab.
-      // Emulation at scale 1 leaves pages in a stale layout until a scroll.
-      if (clearPageMetrics(page.pageView.webContents)) {
-        page.pageView.webContents.setZoomFactor(1)
-      }
-    } else {
-      ensurePageEmulation(page)
-    }
+    const presented = isPagePresented(page.id, presentationInputs)
+    // An off-screen page stops painting, except while it is being dragged (its
+    // texture must keep up with the move) or driven by an agent.
+    const onScreen = boundsOverlap(boundScreenBoundsForPage(page).page, windowRect)
+    const painting =
+      presented &&
+      (onScreen ||
+        interactionState.kind === 'dragging-entities' ||
+        automationInteractivePageCounts.has(page.id))
+    page.host.setPainting(painting)
 
     if (page.colorScheme !== page.lastColorSchemeKey) {
       // Commit the key only when the override actually dispatched, so a
@@ -567,6 +392,10 @@ function layoutAllViews(): void {
 
     // Inject or remove safe-area CSS padding when the device shell is active.
     // Fill mode is chromeless, so it never gets device safe-area padding.
+    const isFillFocus =
+      focusedPresentationPageId === page.id && focusSessionValue?.mode === 'fill'
+    const deviceId = deviceIdFromMetadata(page.metadata)
+    const showShell = showDeviceFrameFromMetadata(page.metadata)
     const orientation = deviceOrientationFromMetadata(page.metadata)
     syncSafeAreaCss(
       page,
@@ -576,13 +405,12 @@ function layoutAllViews(): void {
     devtoolsPanelDebug('layout:page', {
       pageId: page.id,
       durationMs: Date.now() - pageStart,
-      visible: true,
+      presented,
+      painting,
       isSelected: selectedPageIds.includes(page.id),
       devtoolsOpen,
     })
   }
-
-  // (above-view bounds are now handled in the consolidated block above)
 
   if (pendingLayoutData) broadcastSceneUpdate(pendingLayoutData)
 
@@ -687,7 +515,6 @@ function layoutAllViews(): void {
     selectedPageIds,
     activeTab: devtoolsPanelTab,
   })
-  scheduleZoomSnapshotPreparation()
 }
 
 // Who is asking for a layout pass, counted by caller and reported to

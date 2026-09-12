@@ -1,12 +1,12 @@
 /**
- * Page factory — creation and removal of browser page views.
+ * Page factory — creation and removal of browser pages.
  */
 
 import { ipcChannels } from '../../shared/ipc-contract'
-import { WebContentsView } from 'electron'
+import { createPageHost } from './page-host'
+import { pageContentSize } from './runtime-geometry'
 import { registerPageIdleThrottle } from './page-idle-throttle'
 import { randomUUID } from 'crypto'
-import { preloadPath } from './load-renderer'
 import type { PageConfig } from '../../shared/types'
 import { toolAnnotateOverlay } from '../../shared/tool'
 import {
@@ -39,7 +39,6 @@ import {
 import { clearPageAnchorsForPage } from './page-anchor-state'
 import { resetAttachmentSubscriptionsForPage } from './element-attachment-subscriptions'
 import { requestLayout } from './viewport-control'
-import { applyNavigationEmulation } from './layout-engine'
 import { endFocusSession, focusedPageId } from './focus-session'
 import {
   clearInspectTargets,
@@ -76,10 +75,7 @@ function isSelectedPage(page: Page): boolean {
   return idx !== null && idx >= 0 && idx < pages.length && pages[idx] === page
 }
 
-import {
-  CARD_BORDER_RADIUS,
-  selectionDebug,
-} from './runtime-constants'
+import { selectionDebug } from './runtime-constants'
 
 function makePageId(): string {
   return `page_${randomUUID()}`
@@ -89,26 +85,28 @@ export function createPage(config: PageConfig): Page {
   if (!win || !toolbarView) throw new Error('Window not initialized')
   breadcrumb('page', 'create', { host: hostOf(config.url), preset: config.presetIndex })
   const presetIndex = normalizePresetIndex(config.presetIndex)
-
-  // Construction only — the layout pass child-list reconcile (layer-stack)
-  // owns attachment. createPage just pushes to pages[] and requests layout.
-  const pageView = new WebContentsView({
-    webPreferences: {
-      preload: preloadPath('page-content'),
-      focusOnNavigation: false,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+  const id = config.id ?? makePageId()
+  // Sized from the authored viewport; a focus session that wants a different
+  // CSS viewport resizes the host on the next layout pass.
+  const contentSize = pageContentSize({
+    presetIndex,
+    peekWidth: undefined,
+    peekHeight: undefined,
+    metadata: config.metadata,
   })
-  pageView.setBorderRadius(CARD_BORDER_RADIUS)
+  const host = createPageHost({
+    id,
+    width: contentSize.width,
+    height: contentSize.height,
+  })
 
   const page: Page = {
-    id: config.id ?? makePageId(),
+    id,
     name: config.name?.trim() || undefined,
     title: config.name?.trim() || undefined,
     url: config.url,
     faviconUrl: null,
-    pageView,
+    host,
     devtoolsHostAttached: false,
     presetIndex,
     canvasX: config.canvasX,
@@ -132,19 +130,19 @@ export function createPage(config: PageConfig): Page {
   markDirty('canvas', 'sidebar', 'toolbar')
 
   registerPageIdleThrottle(page)
-  installScrollbarCss(page.pageView.webContents)
+  installScrollbarCss(page.host.webContents)
 
-  page.pageView.webContents.on('page-title-updated', () => {
-    page.title = page.pageView.webContents.getTitle() || undefined
+  page.host.webContents.on('page-title-updated', () => {
+    page.title = page.host.webContents.getTitle() || undefined
     broadcastPageChrome(page)
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
   })
-  page.pageView.webContents.on('page-favicon-updated', (_event, favicons) => {
+  page.host.webContents.on('page-favicon-updated', (_event, favicons) => {
     page.faviconUrl = favicons[0] ?? null
     broadcastPageChrome(page)
   })
-  page.pageView.webContents.on('did-start-loading', () => {
-    selectionDebug('page:did-start-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
+  page.host.webContents.on('did-start-loading', () => {
+    selectionDebug('page:did-start-loading', { pageId: page.id, url: page.host.webContents.getURL() })
     page.isLoading = true
     page.crashedAt = undefined
     page.crashReason = undefined
@@ -153,7 +151,7 @@ export function createPage(config: PageConfig): Page {
     // membership — the scene stays as it is.
     refreshPageChrome(page)
   })
-  page.pageView.webContents.on('render-process-gone', (_event, details) => {
+  page.host.webContents.on('render-process-gone', (_event, details) => {
     page.crashedAt = Date.now()
     page.crashReason = details.reason
     breadcrumb('page', 'render-process-gone', {
@@ -163,12 +161,12 @@ export function createPage(config: PageConfig): Page {
     })
     selectionDebug('page:render-process-gone', { pageId: page.id, ...details })
   })
-  page.pageView.webContents.on('unresponsive', () => {
+  page.host.webContents.on('unresponsive', () => {
     breadcrumb('page', 'unresponsive', { host: hostOf(page.url) })
     selectionDebug('page:unresponsive', { pageId: page.id })
   })
-  page.pageView.webContents.on('did-stop-loading', () => {
-    selectionDebug('page:did-stop-loading', { pageId: page.id, url: page.pageView.webContents.getURL() })
+  page.host.webContents.on('did-stop-loading', () => {
+    selectionDebug('page:did-stop-loading', { pageId: page.id, url: page.host.webContents.getURL() })
     page.isLoading = false
     refreshPageNavigationState(page)
     // A settled load re-opens the document-binding gate, which adds or removes
@@ -176,20 +174,20 @@ export function createPage(config: PageConfig): Page {
     markDirty('canvas', 'sidebar')
     requestLayout()
   })
-  page.pageView.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+  page.host.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     selectionDebug('page:did-fail-load', { pageId: page.id, errorCode, errorDescription, validatedURL })
   })
-  page.pageView.webContents.on('did-finish-load', () => {
-    selectionDebug('page:did-finish-load', { pageId: page.id, url: page.pageView.webContents.getURL() })
-    page.title = page.pageView.webContents.getTitle() || undefined
-    page.url = page.pageView.webContents.getURL() || page.url
+  page.host.webContents.on('did-finish-load', () => {
+    selectionDebug('page:did-finish-load', { pageId: page.id, url: page.host.webContents.getURL() })
+    page.title = page.host.webContents.getTitle() || undefined
+    page.url = page.host.webContents.getURL() || page.url
     // Fallback favicon extraction: if page-favicon-updated didn't fire,
     // query the DOM for <link rel="icon"> and fall back to /favicon.ico
     if (!page.faviconUrl) {
       const faviconTimeout = setTimeout(() => {
-        page.pageView.webContents.ipc.removeAllListeners(ipcChannels.queryFaviconResult)
+        page.host.webContents.ipc.removeAllListeners(ipcChannels.queryFaviconResult)
       }, 5000)
-      page.pageView.webContents.ipc.once(
+      page.host.webContents.ipc.once(
         ipcChannels.queryFaviconResult,
         (_event: Electron.IpcMainEvent, href: string | null) => {
           clearTimeout(faviconTimeout)
@@ -198,7 +196,7 @@ export function createPage(config: PageConfig): Page {
           if (!resolvedHref) {
             try {
               resolvedHref =
-                new URL(page.pageView.webContents.getURL()).origin +
+                new URL(page.host.webContents.getURL()).origin +
                 '/favicon.ico'
             } catch {
               return
@@ -208,7 +206,7 @@ export function createPage(config: PageConfig): Page {
           broadcastPageChrome(page)
         },
       )
-      page.pageView.webContents.send(ipcChannels.queryFavicon)
+      page.host.webContents.send(ipcChannels.queryFavicon)
     }
     invalidateAgentSnapshot(page.id)
     // A finished load starts the page preload with no subscriptions; re-declare
@@ -219,30 +217,24 @@ export function createPage(config: PageConfig): Page {
     if (isSelectedPage(page)) clearInspectTargets()
     if (isSelectedPage(page)) notifyDevtoolsPanelData()
     syncInspectionState()
-    page.pageView.webContents.send(ipcChannels.setAnnotateMode, toolAnnotateOverlay(uiActiveTool()))
+    page.host.webContents.send(ipcChannels.setAnnotateMode, toolAnnotateOverlay(uiActiveTool()))
     sendInteractiveState()
     broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)
     if (overrides) {
-      page.pageView.webContents.send(ipcChannels.applyPageOverrides, overrides)
+      page.host.webContents.send(ipcChannels.applyPageOverrides, overrides)
     }
   })
   // Per-page generation counter for D8 (issue #318): a full navigation
   // typically fires both dom-ready and did-navigate, but the staleness
   // comparison is `>` rather than `+1`, so double-counting is harmless.
-  page.pageView.webContents.on('dom-ready', () => {
+  page.host.webContents.on('dom-ready', () => {
     page.navGeneration += 1
   })
-  page.pageView.webContents.on('did-navigate', (_event, url) => {
+  page.host.webContents.on('did-navigate', (_event, url) => {
     selectionDebug('page:did-navigate', { pageId: page.id, url })
     breadcrumb('navigation', 'did-navigate', { host: hostOf(url) })
     page.url = url
-    // Commit is the earliest point the frame is guaranteed live (Electron
-    // derefs the frame's widget view unguarded) and precedes the new
-    // document's first layout, so it lays out at the emulated viewport and
-    // scale instead of reflowing once the next layout pass catches up. A
-    // cross-process navigation also swaps in a fresh widget that needs it.
-    applyNavigationEmulation(page)
     // The new document starts unscrolled; keeping the old document's offset
     // would shift every page-anchored region until the first scroll event.
     page.scrollX = 0
@@ -268,7 +260,7 @@ export function createPage(config: PageConfig): Page {
     if (!page.syncId) return
     propagateNavigationFromPage(page, { type: 'load-url', url })
   })
-  page.pageView.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
+  page.host.webContents.on('did-navigate-in-page', (_event, url, isMainFrame) => {
     selectionDebug('page:did-navigate-in-page', { pageId: page.id, url, isMainFrame })
     if (isMainFrame) page.url = url
     if (isMainFrame) refreshPageNavigationState(page)
@@ -289,7 +281,7 @@ export function createPage(config: PageConfig): Page {
   // inherits this page's preset and size but points at the requested URL.
   // Genuine popups (window.open with features — OAuth, pickers) keep their
   // native window so those flows still work.
-  page.pageView.webContents.setWindowOpenHandler(({ url, disposition }) => {
+  page.host.webContents.setWindowOpenHandler(({ url, disposition }) => {
     const opensNewTab =
       disposition === 'foreground-tab' || disposition === 'background-tab'
     if (opensNewTab && looksLikeUrl(url)) {
@@ -315,7 +307,7 @@ export function createPage(config: PageConfig): Page {
   if (config.suppressInitialNavigationBroadcast) {
     markNavigationSuppressed(page)
   }
-  page.pageView.webContents.loadURL(config.url).catch(() => {})
+  page.host.webContents.loadURL(config.url).catch(() => {})
 
   // Selection — not page-side webContents focus — drives the keyboard
   // target. The focus reconciler runs the predicate every layout pass and
@@ -329,14 +321,14 @@ export function createPage(config: PageConfig): Page {
     const log = (event: string, extra?: Record<string, unknown>) => {
       console.log(tag, event, { pageId: page.id, host: hostOf(page.url), ...extra })
     }
-    page.pageView.webContents.on('focus', () => log('page:focus'))
-    page.pageView.webContents.on('blur', () => log('page:blur'))
-    page.pageView.webContents.on('devtools-opened', () => log('page:devtools-opened'))
-    page.pageView.webContents.on('devtools-closed', () => log('page:devtools-closed'))
-    page.pageView.webContents.on('devtools-focused', () => log('page:devtools-focused'))
+    page.host.webContents.on('focus', () => log('page:focus'))
+    page.host.webContents.on('blur', () => log('page:blur'))
+    page.host.webContents.on('devtools-opened', () => log('page:devtools-opened'))
+    page.host.webContents.on('devtools-closed', () => log('page:devtools-closed'))
+    page.host.webContents.on('devtools-focused', () => log('page:devtools-focused'))
   }
 
-  attachBindingDispatcher(pageView.webContents, 'page')
+  attachBindingDispatcher(host.webContents, 'page')
 
   requestLayout()
 
@@ -356,7 +348,7 @@ export function removePageAtIndex(idx: number): Page | null {
   clearPendingRequestsForPage(page.id)
   // Detachment is owned by the layout pass child-list reconcile — splice
   // pages[], close the webContents, and request layout below.
-  page.pageView.webContents.close()
+  page.host.destroy()
   page.devtoolsHostView?.webContents.close()
   // Transfer focus to aboveView so keyboard shortcuts (including undo) keep
   // working after the deleted page's webContents is destroyed. The actual

@@ -101,8 +101,8 @@ function broadcastPointerState(state: PointerStateInput): void {
     if (!lastActiveFrame) return
     lastActiveFrame = false
     for (const page of pages) {
-      if (page.pageView.webContents.isDestroyed()) continue
-      sendIfChanged(page.id, page.pageView.webContents, {
+      if (page.host.webContents.isDestroyed()) continue
+      sendIfChanged(page.id, page.host.webContents, {
         active: false,
         pointer: null,
         regionRect: null,
@@ -113,10 +113,10 @@ function broadcastPointerState(state: PointerStateInput): void {
 
   lastActiveFrame = true
   for (const page of pages) {
-    if (page.pageView.webContents.isDestroyed()) continue
+    if (page.host.webContents.isDestroyed()) continue
     const screen = boundScreenBoundsForPage(page).page
     if (screen.width <= 0 || screen.height <= 0) {
-      sendIfChanged(page.id, page.pageView.webContents, {
+      sendIfChanged(page.id, page.host.webContents, {
         active: true,
         pointer: null,
         regionRect: null,
@@ -134,7 +134,7 @@ function broadcastPointerState(state: PointerStateInput): void {
     const regionRect = state.regionRect
       ? intersectRegionWithPage(state.regionRect, screen, cssScale)
       : null
-    sendIfChanged(page.id, page.pageView.webContents, {
+    sendIfChanged(page.id, page.host.webContents, {
       active: true,
       pointer,
       regionRect,
@@ -210,8 +210,8 @@ export function registerCommentHoverIpc(): void {
         broadcastAnnotationBboxes()
       }
       const page = pages.find((candidate) => candidate.id === pageId)
-      if (!page || page.pageView.webContents.isDestroyed()) return
-      safeSend(page.pageView.webContents, ipcChannels.annotationBboxSubscriptions, {
+      if (!page || page.host.webContents.isDestroyed()) return
+      safeSend(page.host.webContents, ipcChannels.annotationBboxSubscriptions, {
         subscriptions,
       })
     },

@@ -135,8 +135,8 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on(ipcChannels.canvasClearAnnotateHover, () => {
     for (const page of pages) {
-      if (page.pageView.webContents.isDestroyed()) continue
-      page.pageView.webContents.send(ipcChannels.annotateClearHover)
+      if (page.host.webContents.isDestroyed()) continue
+      page.host.webContents.send(ipcChannels.annotateClearHover)
     }
   })
 

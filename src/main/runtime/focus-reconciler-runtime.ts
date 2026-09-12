@@ -42,18 +42,26 @@ function resolve(target: FocusTarget): WebContents | null {
     case 'sidebar': return leftSidebarView?.webContents ?? null
     case 'page': {
       const page = pages.find((p) => p.id === target.id)
-      return page?.pageView.webContents ?? null
+      return page?.host.webContents ?? null
     }
   }
 }
+
+/**
+ * The page this reconciler last routed focus to. A page renders offscreen, and
+ * an offscreen widget host's `isFocused()` never reports true, so main's own
+ * record is the only statement of page focus there is — without it the
+ * reconciler would call focus() on the same page every pass.
+ */
+let focusedPageHostId: string | null = null
 
 export function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
   if (aboveView?.webContents.isFocused()) return 'aboveView'
   if (toolbarView?.webContents.isFocused()) return 'toolbar'
   if (leftSidebarView?.webContents.isFocused()) return 'sidebar'
-  for (const p of pages) {
-    if (p.pageView.webContents.isFocused()) return `page:${p.id}`
+  if (focusedPageHostId && pages.some((p) => p.id === focusedPageHostId)) {
+    return `page:${focusedPageHostId}`
   }
   return null
 }
@@ -76,7 +84,10 @@ export function reconcileFocus(): void {
   const expected = expectedFocus(state)
   if (focusKey(expected) !== currentlyFocusedKey()) {
     const target = resolve(expected)
-    if (target && !target.isDestroyed()) target.focus()
+    if (target && !target.isDestroyed()) {
+      target.focus()
+      focusedPageHostId = expected.kind === 'page' ? expected.id : null
+    }
   }
   if (pendingFocus) setPendingFocus(null)
 }

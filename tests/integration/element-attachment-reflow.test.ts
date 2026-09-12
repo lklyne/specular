@@ -94,7 +94,7 @@ function emitPositions(
   const page = livePage()
   ipcMain.emit(
     'element-attachment-positions',
-    { sender: page.pageView.webContents },
+    { sender: page.host.webContents },
     { positions },
   )
 }

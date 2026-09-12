@@ -13,13 +13,15 @@
  *   - Renderer event.clientX is window-X.
  *   - aboveView's WCV starts at canvasOrigin.y, so the renderer adds that
  *     before calling us → windowY is window-Y.
- *   - We subtract the page WCV's *actual placed bounds* (`pageView.getBounds()`),
- *     which is the single source of truth the layout pass set. Deriving the
- *     origin independently (e.g. via the camera transform) drifts from where
- *     the WCV is really painted in focus/fill mode, offsetting every click.
+ *   - The page's own viewport is CSS px at its authored (or focus-session)
+ *     size, so the window-space point is translated by the projected rect's
+ *     origin and then divided by the on-screen scale that rect implies. A
+ *     page paints offscreen at its CSS size, so its rect on screen is the only
+ *     statement of that scale.
  */
 
 import { findPageById } from './runtime-context'
+import { boundEffectivePageContentSize, boundScreenBoundsForPage } from './runtime-geometry'
 
 export type ForwardWheelPayload = {
   windowX: number
@@ -69,28 +71,40 @@ function modifiersFor(payload: {
   return out
 }
 
-function pageLocal(pageId: string): {
-  x: number
-  y: number
+interface PageLocalFrame {
+  rect: { x: number; y: number; width: number; height: number }
+  size: { width: number; height: number }
   webContents: Electron.WebContents
-} | null {
+}
+
+function pageLocal(pageId: string): PageLocalFrame | null {
   const page = findPageById(pageId)
   if (!page) return null
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   if (wc.isDestroyed()) return null
-  // The WCV's own bounds are the source of truth for where its content paints,
-  // in the same window coordinate space as windowX/windowY. This tracks the
-  // layout pass across every mode (normal, fit/device focus, and fill focus —
-  // which pins the WCV to focusFillRegion() rather than the camera transform).
-  const bounds = page.pageView.getBounds()
-  return { x: bounds.x, y: bounds.y, webContents: wc }
+  const rect = boundScreenBoundsForPage(page).page
+  if (rect.width <= 0 || rect.height <= 0) return null
+  const size = boundEffectivePageContentSize(page)
+  if (size.width <= 0 || size.height <= 0) return null
+  return { rect, size, webContents: wc }
+}
+
+/** Window-space point → the page's own CSS viewport point. */
+function toPagePoint(
+  target: PageLocalFrame,
+  windowX: number,
+  windowY: number,
+): { x: number; y: number } {
+  return {
+    x: Math.round((windowX - target.rect.x) * (target.size.width / target.rect.width)),
+    y: Math.round((windowY - target.rect.y) * (target.size.height / target.rect.height)),
+  }
 }
 
 export function forwardWheelToPage(pageId: string, payload: ForwardWheelPayload): boolean {
   const target = pageLocal(pageId)
   if (!target) return false
-  const x = Math.round(payload.windowX - target.x)
-  const y = Math.round(payload.windowY - target.y)
+  const { x, y } = toPagePoint(target, payload.windowX, payload.windowY)
   // Out-of-bounds coords still scroll the document root in practice, but the
   // router gates this on a page-body hit so we'll be inside the rect anyway.
   try {
@@ -119,8 +133,7 @@ export function forwardWheelToPage(pageId: string, payload: ForwardWheelPayload)
 export function forwardPointerToPage(pageId: string, payload: ForwardPointerPayload): boolean {
   const target = pageLocal(pageId)
   if (!target) return false
-  const x = Math.round(payload.windowX - target.x)
-  const y = Math.round(payload.windowY - target.y)
+  const { x, y } = toPagePoint(target, payload.windowX, payload.windowY)
   const eventType =
     payload.kind === 'down' ? 'mouseDown' : payload.kind === 'up' ? 'mouseUp' : 'mouseMove'
   try {
