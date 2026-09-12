@@ -24,6 +24,7 @@ import type {
   ForwardWheelPayload,
   LayoutUpdateData,
   PageColorScheme,
+  PageDragPayload,
   SelectionModifiers,
   SelectionOverlayPayload,
   ThemeData,
@@ -270,6 +271,14 @@ export interface CanvasBgElectronAPI {
   forwardKeyToPage: (pageId: string, payload: ForwardKeyPayload) => void
   /** Commit an IME composition into the page — the sink's `compositionend`. */
   insertTextIntoPage: (pageId: string, text: string) => void
+  /** Subscribe to a page's drag-out payload once its `dragstart` arms it on
+   *  main (ADR 0038). */
+  onPageDragArmed: (
+    callback: (payload: { pageId: string; payload: PageDragPayload }) => void,
+  ) => () => void
+  /** Consume the armed drag-out payload for `pageId` and create a canvas
+   *  entity at the release point (ADR 0038 drag-out). */
+  dropPageDrag: (payload: { pageId: string; canvasX: number; canvasY: number }) => void
   /** PoC: subscribe to the focused page's `cursor-changed` mirror so the
    *  OS cursor (chosen from aboveView, the topmost WCV) tracks what the
    *  underlying page would show. */

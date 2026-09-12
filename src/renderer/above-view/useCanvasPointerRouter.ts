@@ -25,7 +25,11 @@
  */
 
 import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
-import type { ProjectedLayoutData, ProjectedSceneEntity } from '../../shared/scene-projection'
+import type {
+  ProjectedLayoutData,
+  ProjectedPageEntity,
+  ProjectedSceneEntity,
+} from '../../shared/scene-projection'
 import { useEffect, useRef } from 'react'
 import { hitTest, type HitInputs } from '../../shared/hit-test'
 import {
@@ -86,8 +90,9 @@ import { TOOLBAR_HEIGHT } from '../../shared/constants'
 import { focusContext } from '../../shared/focus-context'
 import { runtimeStore } from '../shared/runtime-store'
 import { GROUP_LABEL_FONT } from '../../shared/group-label-geometry'
-import type { EdgeSide, SelectionModifiers } from '../../shared/types'
+import type { EdgeSide, PageDragPayload, SelectionModifiers } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
+import { decidePageDragOutcome } from '../../shared/page-hit-test'
 import {
   startOptionAwareEntityDrag,
   startOptionAwareGroupDrag,
@@ -1133,6 +1138,31 @@ function runForwardPointer(
       metaKey: ev?.metaKey ?? false,
     })
   }
+
+  // Drag-out (ADR 0038 open question 2): the page can't hand a native drag
+  // to the OS while it's an offscreen texture, so its `dragstart` arms a
+  // payload here instead; a release outside the page's content turns it into
+  // a canvas entity. `armedDrag` only ever holds a payload for this page —
+  // the router forwards one page's pointer session at a time.
+  let armedDrag: PageDragPayload | null = null
+  const unsubscribeDragArmed = api.onPageDragArmed(({ pageId, payload }) => {
+    if (pageId === entityId) armedDrag = payload
+  })
+  const findPage = (): ProjectedPageEntity | null =>
+    layoutRef.current.entities.find(
+      (entity): entity is ProjectedPageEntity => entity.kind === 'page' && entity.id === entityId,
+    ) ?? null
+  const updateDragCursor = (ev: PointerEvent) => {
+    if (!armedDrag) return
+    const point = { x: ev.clientX, y: clientYToWindowY(ev.clientY, layoutRef.current) }
+    const outcome = decidePageDragOutcome(armedDrag, point, findPage())
+    document.body.style.cursor = outcome === 'drop-on-canvas' ? 'copy' : ''
+  }
+  const endDrag = () => {
+    unsubscribeDragArmed()
+    if (armedDrag) document.body.style.cursor = ''
+  }
+
   // Important: no `listenBlur` here. A blur treated as a cancel would tear
   // the gesture down before `pointerup` arrives, leaving the page stuck with
   // a phantom mouseDown and the next click looking like a release+drag
@@ -1151,11 +1181,30 @@ function runForwardPointer(
         altKey: ev.altKey,
         metaKey: ev.metaKey,
       })
+      updateDragCursor(ev)
     },
-    onUp: (ev) => sendUp(ev),
+    onUp: (ev) => {
+      const point = { x: ev.clientX, y: clientYToWindowY(ev.clientY, layoutRef.current) }
+      const outcome = decidePageDragOutcome(armedDrag, point, findPage())
+      // The page still gets its mouseUp regardless of outcome — otherwise a
+      // drop-on-canvas leaves it with a phantom held button.
+      sendUp(ev)
+      if (outcome === 'drop-on-canvas' && armedDrag) {
+        const canvasPoint = screenPointToCanvasPoint(ev.clientX, ev.clientY, layoutRef.current)
+        api.dropPageDrag({
+          pageId: entityId,
+          canvasX: snapToGrid(canvasPoint.x),
+          canvasY: snapToGrid(canvasPoint.y),
+        })
+      }
+      endDrag()
+    },
     // Always release the page's mouseDown state so a canceled gesture
     // doesn't leak a stuck button.
-    onCancel: () => sendUp(null),
+    onCancel: () => {
+      sendUp(null)
+      endDrag()
+    },
   })
   return true
 }

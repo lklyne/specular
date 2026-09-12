@@ -14,6 +14,7 @@ import type {
   LocatorResolveResponse,
   LeftSidebarData,
   OnboardingProgressEvent,
+  PageDragPayload,
   SelectionOverlayPayload,
   ThemeData,
   ToolbarSelectionData,
@@ -104,6 +105,10 @@ export interface IpcContract {
   'canvas-drag-preview': { dir: 'renderer→main'; payload: unknown }
   'canvas-drop-component-path': { dir: 'renderer→main'; payload: unknown }
   'canvas-drop-file-buffer': { dir: 'renderer→main'; payload: unknown }
+  'canvas-drop-page-drag': {
+    dir: 'renderer→main'
+    payload: { pageId: string; canvasX: number; canvasY: number }
+  }
   'canvas-duplicate-drawing-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-duplicate-file-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-duplicate-group': { dir: 'renderer→main'; payload: unknown }
@@ -273,6 +278,11 @@ export interface IpcContract {
   'override-props': { dir: 'main→renderer'; payload: unknown }
   'override-token': { dir: 'main→renderer'; payload: unknown }
   'page-deselect': { dir: 'renderer→main'; payload: unknown }
+  'page-drag-armed': {
+    dir: 'main→renderer'
+    payload: { pageId: string; payload: PageDragPayload }
+  }
+  'page-drag-start': { dir: 'renderer→main'; payload: PageDragPayload }
   'page-hover': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-changed': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-offset': { dir: 'renderer→main'; payload: { scrollX: number; scrollY: number; scrollHeight: number } }
@@ -449,6 +459,7 @@ export const ipcChannels = {
   canvasDragPreview: 'canvas-drag-preview',
   canvasDropComponentPath: 'canvas-drop-component-path',
   canvasDropFileBuffer: 'canvas-drop-file-buffer',
+  canvasDropPageDrag: 'canvas-drop-page-drag',
   canvasDuplicateDrawingEntity: 'canvas-duplicate-drawing-entity',
   canvasDuplicateFileEntity: 'canvas-duplicate-file-entity',
   canvasDuplicateGroup: 'canvas-duplicate-group',
@@ -616,6 +627,8 @@ export const ipcChannels = {
   overrideProps: 'override-props',
   overrideToken: 'override-token',
   pageDeselect: 'page-deselect',
+  pageDragArmed: 'page-drag-armed',
+  pageDragStart: 'page-drag-start',
   pageScrollChanged: 'page-scroll-changed',
   pageScrollOffset: 'page-scroll-offset',
   peekResizeEnd: 'peek-resize-end',

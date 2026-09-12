@@ -19,6 +19,7 @@ import { requestLayout } from '../runtime/viewport-control'
 import { boundCanvasOrigin as canvasOrigin } from '../runtime/runtime-geometry'
 import { saveImageBuffer } from '../runtime/image-assets'
 import { htmlDefaultSize, imageSizeFromBuffer } from '../runtime/image-sizing'
+import { dropPageDragOnCanvas } from '../runtime/page-drag-out'
 import {
   focusSelection,
   getSelectedEntityIds,
@@ -520,4 +521,13 @@ export function registerCanvasIpc(): void {
     },
   )
 
+  // ADR 0038 drag-out: aboveView calls this once a forwarded pointer-up
+  // lands outside the source page's content, converting the armed payload
+  // from that page's dragstart into a canvas entity at the release point.
+  ipcMain.on(
+    ipcChannels.canvasDropPageDrag,
+    (_event, { pageId, canvasX, canvasY }: { pageId: string; canvasX: number; canvasY: number }) => {
+      void dropPageDragOnCanvas({ pageId, canvasX, canvasY })
+    },
+  )
 }

@@ -5,6 +5,7 @@ import type {
   ElementAttachmentPositionsUpdate,
   InteractionSyncEvent,
   LocatorResolveResponse,
+  PageDragPayload,
   ScrollSyncData,
   SelectionModifiers,
 } from '../../shared/types'
@@ -32,6 +33,7 @@ import { selectionDebug } from '../runtime/runtime-constants'
 import { applyElementAttachmentPositions } from '../runtime/element-attachment-positions'
 import { broadcastRuntimePatch } from '../runtime/runtime-patch-broadcast'
 import { livePageScrollOffsets, pageScrollMovesScene } from '../runtime/page-scroll-state'
+import { armPageDrag } from '../runtime/page-drag-out'
 
 export function registerPageChromeIpc(): void {
   ipcMain.on(
@@ -47,6 +49,15 @@ export function registerPageChromeIpc(): void {
       deselectAll()
     },
   )
+
+  // ADR 0038 drag-out: arms the payload a page's own dragstart captured, so
+  // aboveView's forwarded pointer-up can turn a release outside the page
+  // into a canvas entity.
+  ipcMain.on(ipcChannels.pageDragStart, (event, payload: PageDragPayload) => {
+    const page = findPageByPageView(event.sender)
+    if (!page) return
+    armPageDrag(page.id, payload)
+  })
 
   ipcMain.on(ipcChannels.pageScrollChanged, (event, data: ScrollSyncData) => {
     const page = findPageByPageView(event.sender)

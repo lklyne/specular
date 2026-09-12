@@ -9,6 +9,7 @@ import type {
   CommentToolPagePreviewState,
   InteractionSyncCapturePayload,
   LocatorResolveRequest,
+  PageDragPayload,
   ScrollSyncData,
 } from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
@@ -847,6 +848,59 @@ window.addEventListener('resize', () => {
   queueRecomputeAnnotationBboxes()
   queueRecomputeElementPositions()
 })
+
+// Drag-out (ADR 0038 open question 2): a native drag started on this page
+// can't hand off to the canvas the way it did as a WebContentsView — an
+// offscreen view ends `StartDragging` immediately, so the OS-level drag never
+// starts. Capturing the gesture's payload here lets main arm it and, if the
+// release point (reported by aboveView's pointer forwarding) lands outside
+// this page, materialize it as a canvas entity instead.
+function resolveDragLinkUrl(dataTransfer: DataTransfer, target: Element | null): string | null {
+  const isHttpOrFileUrl = (value: string): boolean => {
+    try {
+      const url = new URL(value, window.location.href)
+      return url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'file:'
+    } catch {
+      return false
+    }
+  }
+  const uriList = dataTransfer.getData('text/uri-list')
+  if (uriList) {
+    const line = uriList.split(/\r?\n/).find((entry) => entry && !entry.startsWith('#'))
+    if (line && isHttpOrFileUrl(line)) return line
+  }
+  const anchor = target?.closest('a[href]') as HTMLAnchorElement | null
+  if (anchor?.href && isHttpOrFileUrl(anchor.href)) return anchor.href
+  return null
+}
+
+window.addEventListener(
+  'dragstart',
+  (event: DragEvent) => {
+    const dataTransfer = event.dataTransfer
+    if (!dataTransfer) return
+    const target = event.target instanceof Element ? event.target : null
+    const imageEl = target?.closest('img') as HTMLImageElement | null
+
+    let payload: PageDragPayload | null = null
+    if (imageEl?.src) {
+      payload = { kind: 'image', src: imageEl.src }
+    } else {
+      const url = resolveDragLinkUrl(dataTransfer, target)
+      if (url) {
+        const text = dataTransfer.getData('text/plain')
+        payload = text ? { kind: 'link', url, text } : { kind: 'link', url }
+      } else {
+        const text = dataTransfer.getData('text/plain')
+        if (text) payload = { kind: 'text', text }
+      }
+    }
+    // Not preventDefault: the page's own drag semantics (a same-page reorder,
+    // an app-level onDragStart handler) run exactly as before.
+    if (payload) ipcRenderer.send(ipcChannels.pageDragStart, payload)
+  },
+  true,
+)
 
 // ADR 0030 — interaction sync capture. Capture-phase on window so mirrored
 // input is seen ahead of any in-page stopPropagation(); a no-op while

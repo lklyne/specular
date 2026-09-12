@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, sharedTexture, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, BatchLayoutMode, EdgeSide, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, WorkspaceBounds } from '../shared/types'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, BatchLayoutMode, EdgeSide, LayoutUpdateData, PageDragPayload, SelectionOverlayPayload, ToolDefaultPatch, WorkspaceBounds } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -330,6 +330,9 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasForwardKey, { pageId, payload }),
   insertTextIntoPage: (pageId, text) =>
     ipcRenderer.send(ipcChannels.canvasInsertText, { pageId, text }),
+  onPageDragArmed: on<{ pageId: string; payload: PageDragPayload }>(ipcChannels.pageDragArmed),
+  dropPageDrag: (payload) =>
+    ipcRenderer.send(ipcChannels.canvasDropPageDrag, payload),
   onPageCursorChange: on<{ type: string | null }>(ipcChannels.aboveviewCursorUpdate),
   setTextEditing: (active: boolean) =>
     ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),

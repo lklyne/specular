@@ -1208,6 +1208,17 @@ export interface ScrollSyncData {
   anchorProgress?: number
 }
 
+/**
+ * A page-content drag gesture, captured on `dragstart` and armed on main
+ * (`page-drag-out.ts`) so a release outside the source page's content can be
+ * turned into a canvas entity — the one part of native drag-and-drop that
+ * survives a page becoming an offscreen texture (ADR 0038).
+ */
+export type PageDragPayload =
+  | { kind: 'image'; src: string }
+  | { kind: 'link'; url: string; text?: string }
+  | { kind: 'text'; text: string }
+
 export interface SourceLocation {
   file: string
   line?: number
