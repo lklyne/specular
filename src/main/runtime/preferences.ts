@@ -64,6 +64,9 @@ type PreferencesFile = {
   fixConfig?: Omit<FixConfig, 'configured'>
   toolDefaults?: ToolDefaults
   themeMode?: AppThemeMode
+  /** Suppresses the presence-cursor overlay window (agent cursors and the
+   *  synced cursor). Rendering only — interaction sync itself is unaffected. */
+  hideAgentCursors?: boolean
   debug?: {
     cursorSplineViz?: boolean
     cursorTuning?: CursorTuningParams
@@ -75,6 +78,7 @@ let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
 let currentThemeMode: AppThemeMode = 'system'
 let currentSpacePath: string | undefined
+let currentHideAgentCursors = false
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -171,6 +175,7 @@ export function loadPreferences(): void {
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
   currentThemeMode = normalizeThemeMode(parsed.themeMode)
   currentSpacePath = typeof parsed.spacePath === 'string' ? parsed.spacePath : undefined
+  currentHideAgentCursors = parsed.hideAgentCursors === true
   nativeTheme.themeSource = currentThemeMode
 }
 
@@ -220,6 +225,16 @@ export function saveCursorSplineViz(next: boolean): void {
     ...parsed,
     debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
   })
+}
+
+export function getHideAgentCursors(): boolean {
+  return currentHideAgentCursors
+}
+
+export function setHideAgentCursors(next: boolean): void {
+  currentHideAgentCursors = next === true
+  const parsed = readPreferencesFile()
+  writePreferencesFile({ ...parsed, hideAgentCursors: currentHideAgentCursors })
 }
 
 export function getCursorTuning(): CursorTuningParams {

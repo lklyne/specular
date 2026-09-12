@@ -39,6 +39,7 @@ import {
   savePreferences,
 } from './preferences'
 import { bindOriginToRepoPath } from './dev-server-manager'
+import { refreshAppMenu } from './app-menu'
 import {
   ensureSpaceTabsInitialized,
 } from './space-tabs'
@@ -126,6 +127,9 @@ function mcpEmptyState() {
 export function initWindow(): void {
   wireMcpEmptyState(mcpEmptyState)
   loadPreferences()
+  // setupAppMenu() ran before preferences loaded, so its checkbox items
+  // (e.g. "Hide agent cursors") built against stale defaults — refresh now.
+  refreshAppMenu()
   const legacyBindings = consumeLegacyOriginBindings()
   if (legacyBindings) {
     for (const [origin, value] of Object.entries(legacyBindings)) {

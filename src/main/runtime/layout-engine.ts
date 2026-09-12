@@ -64,7 +64,7 @@ import { fileEntities } from './file-entity-state'
 import { listComponentViews, syncComponentViews } from './component-page-factory'
 import { getPresenceCursors } from '../presence-cursor'
 import { notifyDevtoolsPanelData } from './inspect-session'
-import { clampDevtoolsWidth } from './preferences'
+import { clampDevtoolsWidth, getHideAgentCursors } from './preferences'
 import { safeAreaCssForDevice } from '../../shared/device-catalog'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { broadcastSceneUpdate } from './runtime-patch-broadcast'
@@ -317,7 +317,7 @@ function layoutAllViews(): void {
   // OS-level child window while the app is in the background can raise the
   // application on macOS even when showInactive() leaves keyboard focus alone.
   if (cursorOverlayWindow && !cursorOverlayWindow.isDestroyed() && win) {
-    const hasCursors = getPresenceCursors().length > 0
+    const hasCursors = !getHideAgentCursors() && getPresenceCursors().length > 0
     const hasInspectPopover =
       getUiState().activeTool.kind === 'inspect' &&
       Boolean(inspectHoveredTarget ?? inspectSelectedTarget)
