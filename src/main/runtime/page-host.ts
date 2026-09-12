@@ -78,6 +78,9 @@ class OffscreenPageHost implements PageHost {
       show: false,
       width: options.width,
       height: options.height,
+      // The page's CSS viewport is the content size; a hidden window still
+      // has a title bar, and the default would take it out of the height.
+      useContentSize: true,
       webPreferences: {
         preload: preloadPath('page-content'),
         focusOnNavigation: false,

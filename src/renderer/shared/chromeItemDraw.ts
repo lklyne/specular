@@ -1,13 +1,14 @@
 /**
  * Canvas 2D drawing of one page/file item's chrome: the 1px page/content
- * borders, the frozen-page raster that stands in for a parked
- * WebContentsView, and the device shell (bezel donut, strokes, island,
- * home indicator). Pure per-item geometry and draw calls, shared by
- * canvas-bg (`chromeCanvasDraw.ts`) and above-view (`DragFreezeLayer`).
+ * borders, the page's live texture (ADR 0038), and the device shell (bezel
+ * donut, strokes, island, home indicator). Pure per-item geometry and draw
+ * calls, shared by canvas-bg's chrome pass (`chromeCanvasDraw.ts`) and its
+ * texture pass (`PageTextureSurface`).
  *
  * Drawn in screen space at display scale on every tick, so strokes stay crisp
  * at any zoom instead of riding a scaled DOM layer.
  */
+import type { ProjectedPageEntity } from '../../shared/scene-projection'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
   CUSTOM_SHELL_SCREEN_CORNER_RADIUS,
@@ -31,6 +32,33 @@ export interface ChromeCanvasItem {
   showDeviceFrame?: boolean
   useSvgDeviceShell?: boolean
   width: number
+}
+
+/** A page entity's chrome-drawable geometry, for the chrome pass and the
+ *  texture pass to agree on. `overrides` lets a caller force a field the
+ *  entity's own authored state doesn't reflect — the fill-focused page draws
+ *  with no bezel regardless of its authored device-shell setting. */
+export function pageChromeItem(
+  page: ProjectedPageEntity,
+  overrides?: Partial<ChromeCanvasItem>,
+): ChromeCanvasItem {
+  return {
+    id: page.id,
+    screenX: page.screenX,
+    screenY: page.screenY,
+    screenWidth: page.screenWidth,
+    screenHeight: page.screenHeight,
+    contentScreenX: page.contentScreenX,
+    contentScreenY: page.contentScreenY,
+    contentScreenWidth: page.contentScreenWidth,
+    contentScreenHeight: page.contentScreenHeight,
+    deviceId: page.deviceId,
+    deviceOrientation: page.deviceOrientation,
+    showDeviceFrame: page.showDeviceFrame,
+    useSvgDeviceShell: page.useSvgDeviceShell,
+    width: page.width,
+    ...overrides,
+  }
 }
 
 export interface ItemGeometry {
@@ -215,8 +243,8 @@ export function drawItemChrome(
 }
 
 /**
- * The frozen-page raster, clipped to the content viewport's corner radius.
- * Painted last, where the live WebContentsView sits in the native stack: it
+ * A page's texture, clipped to the content viewport's corner radius. Painted
+ * where the live WebContentsView used to sit in the native stack: it
  * occludes the inner border ring and the bezel's drop shadow, which a shadowed
  * donut casts into its own cutout as well as outward.
  */

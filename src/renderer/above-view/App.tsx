@@ -29,7 +29,6 @@ import { reprojectEntity } from '../shared/scene-projection'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
-import { DragFreezeLayer } from './DragFreezeLayer'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer } from './FileBodyLayer'
 import { FocusedNoteLayer } from './FocusedNoteLayer'
@@ -1065,10 +1064,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       onPointerUp={handleOverlayPointerUp}
       onPointerCancel={handleOverlayPointerCancel}
     >
-      {/* Under every chrome layer: a drag-frozen page's raster stands in for
-          its live view, so selection and handles must paint over it. Empty
-          canvas when the flag is off or nothing is frozen. */}
-      <DragFreezeLayer api={api} layoutRef={layoutRef} isDark={isDark} />
       {/* Every layer inside is placed by projection from the camera slice, so
           the scene container sits at the window origin untransformed. */}
       <div className="pointer-events-none absolute inset-0">

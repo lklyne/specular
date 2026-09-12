@@ -1,6 +1,9 @@
 import type { ProjectedFileEntity, ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
 import { useMemo } from 'react'
 import { focusContext } from '../../shared/focus-context'
+import type { PagePresentationInputs } from '../../shared/page-presentation'
+import type { FocusPresentationMode } from '../../shared/types'
+import { orderTexturePages } from './texturePageOrder'
 
 /**
  * The entity slices the chrome layers draw, already filtered for focus.
@@ -10,12 +13,16 @@ import { focusContext } from '../../shared/focus-context'
  */
 export function useChromeSlices(
   layoutData: ProjectedLayoutData,
-  dragFrozenPageIds: ReadonlySet<string>,
 ): {
   chromePages: ProjectedPageEntity[]
   chromeFiles: ProjectedFileEntity[]
   svgDeviceShellPages: ProjectedPageEntity[]
   chromeGroups: NonNullable<ProjectedLayoutData['groups']>
+  /** Presented pages in draw order for `PageTextureSurface` — see
+   *  `orderTexturePages`. */
+  texturePages: ProjectedPageEntity[]
+  focusPageId: string | null
+  focusMode: FocusPresentationMode | null
 } {
   const pageEntities = useMemo(
     () => layoutData.entities.filter((e): e is ProjectedPageEntity => e.kind === 'page'),
@@ -41,14 +48,35 @@ export function useChromeSlices(
     [fileEntities, hideContext],
   )
   const svgDeviceShellPages = useMemo(
-    // above-view's DragFreezeLayer draws a drag-frozen page's shell; this
-    // DOM layer would otherwise draw it again at its stale position.
-    () => chromePages.filter((f) => f.useSvgDeviceShell && !dragFrozenPageIds.has(f.id)),
-    [chromePages, dragFrozenPageIds],
+    () => chromePages.filter((f) => f.useSvgDeviceShell),
+    [chromePages],
   )
   const chromeGroups = useMemo(
     () => (hideContext ? [] : (layoutData.groups ?? [])),
     [hideContext, layoutData.groups],
   )
-  return { chromePages, chromeFiles, svgDeviceShellPages, chromeGroups }
+  const presentationInputs: PagePresentationInputs = useMemo(
+    () => ({
+      focus: {
+        pageId: focus.pageId,
+        mode: focus.mode,
+        annotationsVisible: focus.data?.annotationsVisible ?? false,
+        active: focus.active,
+      },
+    }),
+    [focus.pageId, focus.mode, focus.active, focus.data?.annotationsVisible],
+  )
+  const texturePages = useMemo(
+    () => orderTexturePages(pageEntities, presentationInputs),
+    [pageEntities, presentationInputs],
+  )
+  return {
+    chromePages,
+    chromeFiles,
+    svgDeviceShellPages,
+    chromeGroups,
+    texturePages,
+    focusPageId: focus.pageId,
+    focusMode: focus.mode,
+  }
 }

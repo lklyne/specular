@@ -20,8 +20,6 @@ import type {
   FocusPresentationMode,
   ForwardPointerPayload,
   ForwardWheelPayload,
-  FreezeTarget,
-  FrozenPagesState,
   LayoutUpdateData,
   PageColorScheme,
   SelectionModifiers,
@@ -294,9 +292,5 @@ export interface CanvasBgElectronAPI {
    *  re-reading the whole layout snapshot; the next `layoutUpdate` still
    *  carries the same values as the reconcile baseline. */
   onRuntimePatch: (callback: (batch: RuntimePatchBatch) => void) => () => void
-  onFrozenPagesState: (
-    callback: (data: FrozenPagesState) => void,
-  ) => () => void
-  frozenPagesReady: (target: FreezeTarget, revision: number) => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }

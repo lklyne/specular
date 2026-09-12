@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { drawChromeCanvas, type ChromeCanvasItem } from './chromeCanvasDraw'
-import type { FrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
 
 /**
  * Full-window canvas that renders page borders and device shells at the
@@ -10,24 +9,18 @@ import type { FrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
 export function ChromeCanvasSurface({
   pages,
   fileEntities,
-  snapshots,
   isDark,
-  dragFrozenPageIds,
 }: {
   pages: ChromeCanvasItem[]
   fileEntities: ChromeCanvasItem[]
-  snapshots: FrozenPageBitmaps
   isDark: boolean
-  /** Pages above-view is drawing for a drag freeze; skipped here so no page
-   *  is drawn twice. */
-  dragFrozenPageIds?: ReadonlySet<string>
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   // Latest draw inputs, read by the resize-triggered redraw without re-binding
   // the listener every tick (same pattern as CanvasGridSurface, #265).
-  const drawInputs = useRef({ pages, fileEntities, snapshots, isDark, dragFrozenPageIds })
-  drawInputs.current = { pages, fileEntities, snapshots, isDark, dragFrozenPageIds }
+  const drawInputs = useRef({ pages, fileEntities, isDark })
+  drawInputs.current = { pages, fileEntities, isDark }
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -41,7 +34,7 @@ export function ChromeCanvasSurface({
 
   useEffect(() => {
     draw()
-  }, [pages, fileEntities, snapshots, isDark, dragFrozenPageIds, draw])
+  }, [pages, fileEntities, isDark, draw])
 
   useEffect(() => {
     window.addEventListener('resize', draw)

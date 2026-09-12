@@ -7,12 +7,11 @@ import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
 import { ChromeCanvasSurface } from './ChromeCanvasSurface'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
+import { PageTextureSurface } from './PageTextureSurface'
 import { PerfHudOverlay } from './PerfHudOverlay'
 import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
-import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
-import { useFrozenPagesState } from './useFrozenPagesState'
 import { useChromeSlices } from './useChromeSlices'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
@@ -31,10 +30,6 @@ export default function App({
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ initialLayoutData })
-  const { frozenPages, dragFrozenPageIds } = useFrozenPagesState(api)
-  const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
-    api.frozenPagesReady('bg', revision),
-  )
 
   useCanvasViewportGestures({
     api,
@@ -42,10 +37,8 @@ export default function App({
     layoutRef,
   })
 
-  const { chromePages, chromeFiles, svgDeviceShellPages, chromeGroups } = useChromeSlices(
-    layoutData,
-    dragFrozenPageIds,
-  )
+  const { chromePages, chromeFiles, svgDeviceShellPages, chromeGroups, texturePages, focusPageId, focusMode } =
+    useChromeSlices(layoutData)
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -78,15 +71,23 @@ export default function App({
           />
         </div>
       </div>
-      {/* Borders, device shells, and frozen-page rasters draw on a canvas
-          rather than as DOM, so strokes stay crisp mid-zoom and the raster
-          shares the chrome's exact geometry. */}
+      {/* Borders and device shells draw on a canvas rather than as DOM, so
+          strokes stay crisp mid-zoom and share the texture pass's exact
+          geometry. */}
       <ChromeCanvasSurface
         pages={chromePages}
         fileEntities={chromeFiles}
-        snapshots={frozenPageBitmaps}
         isDark={isDark}
-        dragFrozenPageIds={dragFrozenPageIds}
+      />
+
+      {/* Every page's live texture (ADR 0038), topmost within canvas-bg —
+          where native page views used to sit in the window's stacking
+          order, above borders/shells and below aboveView. */}
+      <PageTextureSurface
+        texturePages={texturePages}
+        focusPageId={focusPageId}
+        focusMode={focusMode}
+        isDark={isDark}
       />
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
