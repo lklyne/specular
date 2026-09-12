@@ -43,11 +43,14 @@ import {
 import { setTextEditingActive, setAnnotationState } from '../runtime/binding-dispatcher'
 import { leftSidebarView } from '../runtime/view-refs'
 import {
+  forwardKeyToPage,
   forwardPointerToPage,
   forwardWheelToPage,
+  insertTextIntoPage,
   type ForwardPointerPayload,
   type ForwardWheelPayload,
 } from '../runtime/page-input-forwarding'
+import type { ForwardKeyPayload } from '../../shared/page-key-input'
 import {
   createSpaceTab,
   deleteSpaceTab,
@@ -270,6 +273,21 @@ export function registerCanvasIpc(): void {
     ipcChannels.canvasForwardPointer,
     (_event, { pageId, payload }: { pageId: string; payload: ForwardPointerPayload }) => {
       forwardPointerToPage(pageId, payload)
+    },
+  )
+
+  // aboveView owns OS keyboard focus, so keys the binding table did not claim
+  // arrive here from its hidden sink and are dispatched into the page over CDP.
+  ipcMain.on(
+    ipcChannels.canvasForwardKey,
+    (_event, { pageId, payload }: { pageId: string; payload: ForwardKeyPayload }) => {
+      forwardKeyToPage(pageId, payload)
+    },
+  )
+  ipcMain.on(
+    ipcChannels.canvasInsertText,
+    (_event, { pageId, text }: { pageId: string; text: string }) => {
+      insertTextIntoPage(pageId, text)
     },
   )
 

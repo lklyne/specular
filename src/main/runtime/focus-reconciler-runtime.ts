@@ -3,6 +3,12 @@
  * actual WebContents and calls focus() at most once per layout pass.
  * Kept separate from focus-reconciler.ts so the pure expectedFocus()
  * function stays unit-testable without Electron.
+ *
+ * A `{ kind: 'page' }` target resolves to aboveView, not to the page. Pages
+ * render offscreen, where `focus()` is a no-op and OS key events go to the
+ * focused native view — so aboveView holds OS keyboard focus always, and "the
+ * page has focus" is expressed by `page-focus-emulation.ts` plus the key
+ * forwarding aboveView's sink drives.
  */
 
 import type { WebContents } from 'electron'
@@ -12,7 +18,6 @@ import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
 import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
 import {
   getEditingEntityId,
-  pages,
   interactionState,
   pendingFocus,
   setPendingFocus,
@@ -40,29 +45,21 @@ function resolve(target: FocusTarget): WebContents | null {
     case 'aboveView': return aboveView?.webContents ?? null
     case 'toolbar': return toolbarView?.webContents ?? null
     case 'sidebar': return leftSidebarView?.webContents ?? null
-    case 'page': {
-      const page = pages.find((p) => p.id === target.id)
-      return page?.host.webContents ?? null
-    }
+    case 'page': return aboveView?.webContents ?? null
   }
 }
 
-/**
- * The page this reconciler last routed focus to. A page renders offscreen, and
- * an offscreen widget host's `isFocused()` never reports true, so main's own
- * record is the only statement of page focus there is — without it the
- * reconciler would call focus() on the same page every pass.
- */
-let focusedPageHostId: string | null = null
-
 export function currentlyFocusedKey(): string | null {
   if (bgView?.webContents.isFocused()) return 'bgView'
-  if (aboveView?.webContents.isFocused()) return 'aboveView'
+  if (aboveView?.webContents.isFocused()) {
+    // aboveView owns OS focus on the keyboard-target page's behalf, so when
+    // there is one it is the page that is focused as far as this ladder is
+    // concerned — otherwise the reconciler would call focus() every pass.
+    const pageId = currentKeyboardTargetPageId()
+    return pageId ? `page:${pageId}` : 'aboveView'
+  }
   if (toolbarView?.webContents.isFocused()) return 'toolbar'
   if (leftSidebarView?.webContents.isFocused()) return 'sidebar'
-  if (focusedPageHostId && pages.some((p) => p.id === focusedPageHostId)) {
-    return `page:${focusedPageHostId}`
-  }
   return null
 }
 
@@ -84,10 +81,7 @@ export function reconcileFocus(): void {
   const expected = expectedFocus(state)
   if (focusKey(expected) !== currentlyFocusedKey()) {
     const target = resolve(expected)
-    if (target && !target.isDestroyed()) {
-      target.focus()
-      focusedPageHostId = expected.kind === 'page' ? expected.id : null
-    }
+    if (target && !target.isDestroyed()) target.focus()
   }
   if (pendingFocus) setPendingFocus(null)
 }

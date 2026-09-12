@@ -40,7 +40,7 @@ import {
   zoom,
 } from './runtime-context'
 import { focusSession, focusedPageId } from './focus-session'
-import { shouldGateBeOpen } from './gate-predicate'
+import { reconcilePageFocusEmulation } from './page-focus-emulation'
 import {
   getUiState,
 } from '../ui-state'
@@ -48,7 +48,6 @@ import {
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsPanelTab as uiDevtoolsPanelTab,
   devtoolsWidth as uiDevtoolsWidth,
-  isCommentOverlayVisible as uiCommentOverlayVisible,
   leftSidebarOpen as uiLeftSidebarOpen,
   selectedEntityIds as uiSelectedEntityIds,
   setDevtoolsWidth as setUiDevtoolsWidth,
@@ -293,27 +292,19 @@ function layoutAllViews(): void {
   }
 
   // --- Above-view bounds ---
-  // Main-authoritative cover: shouldGateBeOpen() derives the predicate
-  // from interaction + tool mode + modifiers + chrome-hover + presence +
-  // marquee + floating menu + saved drawings. The renderer no longer
-  // drives this; it only renders what it's told to render.
+  // aboveView covers the canvas area unconditionally: pages render offscreen,
+  // so no native input ever reaches one and every pointer, wheel and key that
+  // belongs to a page is forwarded from here.
   if (aboveView && win) {
     const { width, height } = win.getBounds()
-    const shouldCover = shouldGateBeOpen({
-      activeTool: getUiState().activeTool,
-      commentOverlayActive: uiCommentOverlayVisible(),
-    })
-    const bounds = shouldCover
-          ? {
-              x: 0,
-              y: contentTopInset,
-              width: Math.max(0, width - (devtoolsOpen ? devtoolsWidth : 0)),
-              height: Math.max(0, height - contentTopInset),
-            }
-          : { x: 0, y: 0, width: 0, height: 0 }
     layoutCache.lastCommentOverlayBoundsKey = setBoundsIfChanged(
       aboveView,
-      bounds,
+      {
+        x: 0,
+        y: contentTopInset,
+        width: Math.max(0, width - (devtoolsOpen ? devtoolsWidth : 0)),
+        height: Math.max(0, height - contentTopInset),
+      },
       layoutCache.lastCommentOverlayBoundsKey,
     )
   }
@@ -501,10 +492,11 @@ function layoutAllViews(): void {
     }
   }
 
-  // Post-layout: reconcile focus + page-cursor bridge against the
-  // post-mutation world. Both observe the same predicate
-  // (`currentKeyboardTargetPageId`).
+  // Post-layout: reconcile focus, page focus emulation, and the page-cursor
+  // bridge against the post-mutation world. All three observe the same
+  // predicate (`currentKeyboardTargetPageId`).
   reconcileFocus()
+  reconcilePageFocusEmulation()
   reconcileBrowserDevtools()
   reconcilePageCursorBridge()
 

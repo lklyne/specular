@@ -129,6 +129,9 @@ interface PointerDispatchDependencies {
   onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
   commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
   onEnterEntityInteractive: (entityId: string) => void
+  /** Put keyboard focus in aboveView's page-keyboard sink, so typing reaches
+   *  the page immediately after the click that entered it. */
+  focusKeyboardSink: () => void
 }
 
 interface UseCanvasPointerRouterOptions extends PointerDispatchDependencies {
@@ -261,7 +264,10 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     commentDraftRef,
     enteredEntityIdRef,
     onEnterEntityInteractive,
+    focusKeyboardSink,
   } = options
+  const focusKeyboardSinkRef = useRef(focusKeyboardSink)
+  focusKeyboardSinkRef.current = focusKeyboardSink
   const apiRef = useRef(api)
   apiRef.current = api
   const consumeRef = useRef(consume)
@@ -304,6 +310,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           ? { entityKind: layout.pendingPlacement.entityKind }
           : null,
         commentToolActive: layout.activeTool.kind === 'comment',
+        inspectToolActive: layout.activeTool.kind === 'inspect',
       }
       const action = routePointerDown(target, context)
       const dispatched = dispatchAction({
@@ -322,6 +329,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
         commentDraftRef,
         onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
+        focusKeyboardSink: focusKeyboardSinkRef.current,
       })
       if (dispatched) {
         event.preventDefault()
@@ -346,6 +354,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
         commentDraftRef,
         onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
+        focusKeyboardSink: focusKeyboardSinkRef.current,
         consume: consumeRef.current,
         spaceHeld: spaceHeldRef.current,
         handToolActive: handToolActiveRef.current,
@@ -369,6 +378,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
           break
         case 'enter-page-interactive':
           apiRef.current.enterPageInteractive(action.entityId)
+          focusKeyboardSinkRef.current()
           break
         case 'enter-entity-interactive':
           onEnterEntityInteractiveRef.current(action.entityId)
@@ -500,6 +510,7 @@ function canvasPointerContext(
     interactiveEntityId: deps.enteredEntityId,
     placement: null,
     commentToolActive: false,
+    inspectToolActive: layout.activeTool.kind === 'inspect',
   }
 }
 
@@ -519,12 +530,13 @@ function dispatchAction(ctx: DispatchContext): boolean {
       return runPageBodyPress(action, event, ctx)
     case 'enter-page-interactive':
       api.enterPageInteractive(action.entityId)
+      ctx.focusKeyboardSink()
       return true
     case 'enter-entity-interactive':
       ctx.onEnterEntityInteractive(action.entityId)
       return true
     case 'forward-pointer-down':
-      return runForwardPointer(action, api, event, layoutRef)
+      return runForwardPointer(action, api, event, layoutRef, ctx.focusKeyboardSink)
     case 'toggle-select':
       if (action.entityKind === 'page') {
         api.selectPage(action.entityId, { shift: true, meta: false, ctrl: false })
@@ -1086,8 +1098,12 @@ function runForwardPointer(
   api: CanvasBgElectronAPI,
   event: PointerEvent,
   layoutRef: LayoutSnapshotRef,
+  focusKeyboardSink: () => void,
 ): boolean {
   const { entityId, button } = action
+  // A click into a page is also a click into whatever field it landed on, so
+  // the sink takes the keyboard now rather than on the next layout pass.
+  focusKeyboardSink()
   let lastWindowX = event.clientX
   let lastWindowY = clientYToWindowY(event.clientY, layoutRef.current)
   api.forwardPointerToPage(entityId, {
@@ -1117,12 +1133,10 @@ function runForwardPointer(
       metaKey: ev?.metaKey ?? false,
     })
   }
-  // Important: no `listenBlur` here. Forwarding `mouseDown` causes the
-  // focus-reconciler to move webContents focus to the target page, which
-  // fires `blur` on aboveView. If we treated that as a cancel, we'd tear
-  // down the gesture before `pointerup` arrives — leaving the page stuck
-  // with a phantom mouseDown and the next click looking like a
-  // release+drag rather than a fresh click.
+  // Important: no `listenBlur` here. A blur treated as a cancel would tear
+  // the gesture down before `pointerup` arrives, leaving the page stuck with
+  // a phantom mouseDown and the next click looking like a release+drag
+  // rather than a fresh click.
   startPointerSession(event, {
     onMove: (ev) => {
       lastWindowX = ev.clientX

@@ -375,83 +375,9 @@ export function meanOf(samples: readonly number[]): number | null {
   return total / samples.length
 }
 
-/** Electron `KeyboardInputEvent.keyCode` for a DOM `key`, or null when unmapped. */
-export function electronKeyCodeFor(key: string): string | null {
-  if (key.length === 1) return key
-  const named: Record<string, string> = {
-    Enter: 'Return',
-    Backspace: 'Backspace',
-    Tab: 'Tab',
-    Escape: 'Escape',
-    Delete: 'Delete',
-    ArrowLeft: 'Left',
-    ArrowRight: 'Right',
-    ArrowUp: 'Up',
-    ArrowDown: 'Down',
-    Home: 'Home',
-    End: 'End',
-    PageUp: 'PageUp',
-    PageDown: 'PageDown',
-    Shift: 'Shift',
-    Control: 'Control',
-    Alt: 'Alt',
-    Meta: 'Meta',
-    ' ': 'Space',
-  }
-  return named[key] ?? null
-}
-
-/** Windows virtual key code for the keys CDP needs one for. */
-export function windowsVirtualKeyCodeFor(key: string): number | null {
-  const named: Record<string, number> = {
-    Backspace: 8,
-    Tab: 9,
-    Enter: 13,
-    Shift: 16,
-    Control: 17,
-    Alt: 18,
-    Escape: 27,
-    ' ': 32,
-    PageUp: 33,
-    PageDown: 34,
-    End: 35,
-    Home: 36,
-    ArrowLeft: 37,
-    ArrowUp: 38,
-    ArrowRight: 39,
-    ArrowDown: 40,
-    Delete: 46,
-    Meta: 91,
-  }
-  if (key in named) return named[key]
-  if (key.length === 1) {
-    const upper = key.toUpperCase()
-    const code = upper.charCodeAt(0)
-    if ((code >= 48 && code <= 57) || (code >= 65 && code <= 90)) return code
-  }
-  return null
-}
-
-/** CDP `Input.*` modifier bitmask: Alt=1, Ctrl=2, Meta=4, Shift=8. */
-export function cdpModifiersFor(mods: {
-  shiftKey: boolean
-  ctrlKey: boolean
-  altKey: boolean
-  metaKey: boolean
-}): number {
-  return (mods.altKey ? 1 : 0) | (mods.ctrlKey ? 2 : 0) | (mods.metaKey ? 4 : 0) | (mods.shiftKey ? 8 : 0)
-}
-
-export function electronModifiersFor(mods: {
-  shiftKey: boolean
-  ctrlKey: boolean
-  altKey: boolean
-  metaKey: boolean
-}): Array<'shift' | 'control' | 'alt' | 'meta'> {
-  const out: Array<'shift' | 'control' | 'alt' | 'meta'> = []
-  if (mods.shiftKey) out.push('shift')
-  if (mods.ctrlKey) out.push('control')
-  if (mods.altKey) out.push('alt')
-  if (mods.metaKey) out.push('meta')
-  return out
-}
+export {
+  cdpModifiersFor,
+  electronKeyCodeFor,
+  electronModifiersFor,
+  windowsVirtualKeyCodeFor,
+} from './page-key-input'

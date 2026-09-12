@@ -6,6 +6,7 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { createPageHost } from './page-host'
 import { pageContentSize } from './runtime-geometry'
 import { registerPageIdleThrottle } from './page-idle-throttle'
+import { registerPageFocusEmulation } from './page-focus-emulation'
 import { randomUUID } from 'crypto'
 import type { PageConfig } from '../../shared/types'
 import { toolAnnotateOverlay } from '../../shared/tool'
@@ -130,6 +131,7 @@ export function createPage(config: PageConfig): Page {
   markDirty('canvas', 'sidebar', 'toolbar')
 
   registerPageIdleThrottle(page)
+  registerPageFocusEmulation(page)
   installScrollbarCss(page.host.webContents)
 
   page.host.webContents.on('page-title-updated', () => {

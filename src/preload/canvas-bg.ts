@@ -326,6 +326,10 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasForwardWheel, { pageId, payload }),
   forwardPointerToPage: (pageId, payload) =>
     ipcRenderer.send(ipcChannels.canvasForwardPointer, { pageId, payload }),
+  forwardKeyToPage: (pageId, payload) =>
+    ipcRenderer.send(ipcChannels.canvasForwardKey, { pageId, payload }),
+  insertTextIntoPage: (pageId, text) =>
+    ipcRenderer.send(ipcChannels.canvasInsertText, { pageId, text }),
   onPageCursorChange: on<{ type: string | null }>(ipcChannels.aboveviewCursorUpdate),
   setTextEditing: (active: boolean) =>
     ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),

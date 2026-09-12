@@ -122,6 +122,7 @@ export interface IpcContract {
   'canvas-enter-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-enter-page-interactive': { dir: 'renderer→main'; payload: unknown }
   'canvas-focus-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-forward-key': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-pointer': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-wheel': { dir: 'renderer→main'; payload: unknown }
@@ -132,6 +133,7 @@ export interface IpcContract {
   'canvas-group-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-guides': { dir: 'main→renderer'; payload: CanvasGuidesPayload }
   'canvas-hover-page': { dir: 'renderer→main'; payload: unknown }
+  'canvas-insert-text': { dir: 'renderer→main'; payload: unknown }
   'canvas-multi-resize-begin': { dir: 'renderer→main'; payload: unknown }
   'canvas-multi-resize-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-navigate-page': { dir: 'renderer→main'; payload: unknown }
@@ -464,6 +466,7 @@ export const ipcChannels = {
   canvasEnterGroup: 'canvas-enter-group',
   canvasEnterPageInteractive: 'canvas-enter-page-interactive',
   canvasFocusSelection: 'canvas-focus-selection',
+  canvasForwardKey: 'canvas-forward-key',
   canvasForwardPage: 'canvas-forward-page',
   canvasForwardPointer: 'canvas-forward-pointer',
   canvasForwardWheel: 'canvas-forward-wheel',
@@ -474,6 +477,7 @@ export const ipcChannels = {
   canvasGroupSelection: 'canvas-group-selection',
   canvasGuides: 'canvas-guides',
   canvasHoverPage: 'canvas-hover-page',
+  canvasInsertText: 'canvas-insert-text',
   canvasMultiResizeBegin: 'canvas-multi-resize-begin',
   canvasMultiResizeEnd: 'canvas-multi-resize-end',
   canvasNavigatePage: 'canvas-navigate-page',

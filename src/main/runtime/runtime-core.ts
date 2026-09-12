@@ -3,6 +3,7 @@ import {
   type WebContents,
 } from 'electron'
 import {
+  activeTool as uiActiveTool,
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsPanelTab as uiDevtoolsPanelTab,
   devtoolsWidth as uiDevtoolsWidth,
@@ -232,6 +233,10 @@ export function selectEntity(entityId: string, entityKind: string): void {
 
 export function setHoveredPage(pageId: string | null): void {
   commitHoverTarget(pageId ? { id: pageId, kind: 'page' } : null)
+  // While inspecting, the page-cursor bridge follows the hovered page, and it
+  // reconciles only inside the layout pass. Hover changes once per page
+  // crossed, not per pointer move, so this is not a per-move pass.
+  if (uiActiveTool().kind === 'inspect') requestLayout()
 }
 
 export function setHoverEntity(nextHoverTarget: CanvasHoverTarget): void {

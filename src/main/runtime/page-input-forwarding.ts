@@ -1,8 +1,9 @@
 /**
  * Page input forwarding — translate window-space pointer/wheel events from
  * aboveView into Electron `sendInputEvent` calls on the target page's page
- * webContents. PoC for the "aboveView is the always-visible interactive
- * layer" endpoint (docs/plans/aboveview-interactive-layer-poc.md).
+ * webContents, and DOM key events into CDP `Input` calls. PoC for the
+ * "aboveView is the always-visible interactive layer" endpoint
+ * (docs/plans/aboveview-interactive-layer-poc.md).
  *
  * Pure plumbing: caller gives us window-space coords (the same coordinate
  * page the canvas-pointer-router already speaks); we resolve the target
@@ -22,6 +23,9 @@
 
 import { findPageById } from './runtime-context'
 import { boundEffectivePageContentSize, boundScreenBoundsForPage } from './runtime-geometry'
+import { ensurePageDebugger } from './page-debugger'
+import { ensurePageFocusEmulated } from './page-focus-emulation'
+import { cdpKeyEventParams, type ForwardKeyPayload } from '../../shared/page-key-input'
 
 export type ForwardWheelPayload = {
   windowX: number
@@ -146,14 +150,56 @@ export function forwardPointerToPage(pageId: string, payload: ForwardPointerPayl
       modifiers: modifiersFor(payload),
     }
     target.webContents.sendInputEvent(pointerEvent)
-    // sendInputEvent synthesizes the click but does NOT focus the webContents,
-    // so the resulting text selection renders with Chromium's inactive (gray)
-    // highlight. Focus on mouseDown the way a real click would, so selection is
-    // active immediately — matches what runForwardPointer already assumes.
-    if (payload.kind === 'down') target.webContents.focus()
+    // sendInputEvent synthesizes the click but leaves the page believing it is
+    // unfocused, so the resulting text selection renders with Chromium's
+    // inactive (gray) highlight. Emulate focus on mouseDown the way a real
+    // click would, ahead of the layout pass that would otherwise do it.
+    if (payload.kind === 'down') ensurePageFocusEmulated(pageId)
   } catch (error) {
     console.error('[page-input-forwarding] pointer forward threw', error)
     return false
   }
   return true
+}
+
+/**
+ * Pages whose CDP key dispatch has already failed once. A stuck session would
+ * otherwise log a line per keystroke.
+ */
+const loggedKeyFailures = new Set<string>()
+
+/**
+ * Input dispatch installs no override, so a detached session leaves nothing to
+ * re-apply. One shared handler rather than a closure per call, which would
+ * grow the session's detach-handler set by one per keystroke.
+ */
+const NOTHING_TO_REAPPLY = (): void => {}
+
+function pageCdp(pageId: string, method: string, params: Record<string, unknown>): boolean {
+  const page = findPageById(pageId)
+  if (!page) return false
+  const wc = page.host.webContents
+  if (wc.isDestroyed()) return false
+  if (!ensurePageDebugger(wc, NOTHING_TO_REAPPLY)) return false
+  wc.debugger.sendCommand(method, params).catch((error: unknown) => {
+    if (loggedKeyFailures.has(pageId)) return
+    loggedKeyFailures.add(pageId)
+    console.error(`[page-input-forwarding] ${method} failed`, error)
+  })
+  return true
+}
+
+/**
+ * One key event into a page. CDP rather than `sendInputEvent` because an
+ * offscreen page's input path never routes a native key event, and
+ * `Input.dispatchKeyEvent` is the transport that reaches its renderer.
+ */
+export function forwardKeyToPage(pageId: string, payload: ForwardKeyPayload): boolean {
+  return pageCdp(pageId, 'Input.dispatchKeyEvent', cdpKeyEventParams(payload))
+}
+
+/** IME commits arrive as whole strings; `Input.insertText` is the only lever. */
+export function insertTextIntoPage(pageId: string, text: string): boolean {
+  if (!text) return false
+  return pageCdp(pageId, 'Input.insertText', { text })
 }

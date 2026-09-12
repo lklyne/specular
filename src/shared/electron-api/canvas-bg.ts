@@ -2,6 +2,7 @@ import type { BindingId } from '../bindings'
 import type { CanvasGuidesPayload } from '../canvas-guides'
 import type { CancelReason } from '../interaction-types'
 import type { MarqueeSelectionMode } from '../marquee-selection'
+import type { ForwardKeyPayload } from '../page-key-input'
 import type { ResizeHandle } from '../resize-accumulator'
 import type { RuntimePatchBatch } from '../runtime-patch'
 import type { Tool } from '../tool'
@@ -262,6 +263,12 @@ export interface CanvasBgElectronAPI {
   /** PoC: forward a pointer event hitting the single-selected page's body
    *  to the page's webContents. */
   forwardPointerToPage: (pageId: string, payload: ForwardPointerPayload) => void
+  /** Forward a key event from aboveView's keyboard sink into the page that
+   *  owns the keyboard. A page renders offscreen and never receives an OS key
+   *  event of its own. */
+  forwardKeyToPage: (pageId: string, payload: ForwardKeyPayload) => void
+  /** Commit an IME composition into the page — the sink's `compositionend`. */
+  insertTextIntoPage: (pageId: string, text: string) => void
   /** PoC: subscribe to the focused page's `cursor-changed` mirror so the
    *  OS cursor (chosen from aboveView, the topmost WCV) tracks what the
    *  underlying page would show. */

@@ -72,9 +72,10 @@ Rules that hold this together:
   `page-chrome-state.ts` for a page's browser chrome). Still call
   `requestLayout()` when
   something *outside* the store reads what you changed and is computed only
-  inside `layoutAllViews`: `reconcileFocus` and viewport culling read the
-  interaction kind, `shouldGateBeOpen` and the cursor-overlay window read the
-  active tool and the inspect target, and the `sidebar` and `toolbar` payloads
+  inside `layoutAllViews`: `reconcileFocus`, `reconcilePageFocusEmulation` and
+  viewport culling read the interaction kind, the cursor-overlay window and the
+  page-cursor bridge read the active tool and the inspect target, and the
+  `sidebar` and `toolbar` payloads
   are not on the scene bus at all. If a mutator turns out to need the scene
   after all, give it back its `markDirty('canvas')` — never widen the patch.
 
