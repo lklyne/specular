@@ -73,10 +73,6 @@ export interface Page {
    *  means either "no override applied yet" or "no override needed" —
    *  both collapse to the same no-op when colorScheme is also absent. */
   lastColorSchemeKey?: PageColorScheme
-  /** Last web lifecycle state applied via CDP (see page-idle-throttle.ts).
-   *  Undefined means no override has been dispatched on this renderer — either
-   *  never frozen, or the debugger detached and dropped it. */
-  lastIdleLifecycleState?: 'active' | 'frozen'
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string
   crashedAt?: number

@@ -128,8 +128,15 @@ class FakeWebContents extends EventEmitter {
     // Nothing paints in-process; the real call asks for one frame.
   }
 
-  setFrameRate(_fps: number): void {
-    // Nothing paints in-process.
+  /** Readable so a test can assert the idle policy's throttle. */
+  frameRate = 60
+
+  setFrameRate(fps: number): void {
+    this.frameRate = fps
+  }
+
+  getFrameRate(): number {
+    return this.frameRate
   }
 
   // Chained with .catch() by installScrollbarCss's dom-ready listener

@@ -29,8 +29,8 @@ export interface ViewOwner {
   pageId?: string
   url?: string
   presentation?: ViewPresentation
-  /** True while the idle policy holds this page's renderer frozen (ADR 0035). */
-  frozen?: boolean
+  /** True while the idle policy holds this page quiet (ADR 0035). */
+  idle?: boolean
 }
 
 export interface ProcessMetricRow {
@@ -66,8 +66,8 @@ export interface ProcessMetricsSample {
     pagesVisible: number
     pagesCulled: number
     pagesHidden: number
-    /** Pages currently frozen by the idle policy. */
-    pagesFrozen: number
+    /** Pages currently quieted by the idle policy. */
+    pagesIdle: number
   }
   /** State of the idle policy (ADR 0035), so a sample says on its own
    *  which arm of an A/B it belongs to. */

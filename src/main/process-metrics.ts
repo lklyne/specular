@@ -102,7 +102,7 @@ function knownOwners(): Map<number, ViewOwner> {
         pageId: page.id,
         url: page.url,
         presentation: pagePresentationOf(page),
-        frozen: page.lastIdleLifecycleState === 'frozen',
+        idle: page.host.idle,
       })
     }
     if (page.devtoolsHostView && !page.devtoolsHostView.webContents.isDestroyed()) {
@@ -231,14 +231,14 @@ export function sampleProcessMetrics(): ProcessMetricsSample {
   let pagesVisible = 0
   let pagesCulled = 0
   let pagesHidden = 0
-  let pagesFrozen = 0
+  let pagesIdle = 0
   for (const page of pages) {
     switch (pagePresentationOf(page)) {
       case 'visible': pagesVisible += 1; break
       case 'culled': pagesCulled += 1; break
       case 'hidden': pagesHidden += 1; break
     }
-    if (page.lastIdleLifecycleState === 'frozen') pagesFrozen += 1
+    if (page.host.idle) pagesIdle += 1
   }
 
   return {
@@ -252,7 +252,7 @@ export function sampleProcessMetrics(): ProcessMetricsSample {
       pagesVisible,
       pagesCulled,
       pagesHidden,
-      pagesFrozen,
+      pagesIdle,
     },
     idleThrottle: idleThrottleState(),
   }

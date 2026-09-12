@@ -18,6 +18,17 @@ const MAX_OUTSTANDING_TEXTURES = 9
 /** Rolling window for the release-latency mean. */
 const LATENCY_SAMPLES = 30
 
+/**
+ * Frame rate of an idle page. `setFrameRate` throttles the offscreen
+ * compositor's BeginFrame cadence, which is what paces `requestAnimationFrame`
+ * — so this quiets a page's own animation loop, not just texture delivery, and
+ * it is fully reversible. It is the idle lever for offscreen pages because
+ * `Page.setWebLifecycleState` is not: thawing a never-shown window leaves its
+ * compositor without frames, and every document it loads afterwards starts
+ * hidden (ADR 0035, offscreen postmortem).
+ */
+const IDLE_FRAME_RATE = 1
+
 export interface PageHostStats {
   pageId: string
   framesReceived: number
@@ -35,9 +46,14 @@ export interface PageHost {
   readonly webContents: WebContents
   /** CSS viewport size the offscreen window currently has. */
   readonly size: { width: number; height: number }
+  /** The layout pass's verdict: is anyone looking at this page? */
   readonly painting: boolean
+  /** The idle policy's verdict: is anyone looking at the app? */
+  readonly idle: boolean
   resize(size: { width: number; height: number }): void
   setPainting(painting: boolean): void
+  /** Quiet the page while the app is idle; restore it in full on wake. */
+  setIdle(idle: boolean): void
   destroy(): void
   isDestroyed(): boolean
 }
@@ -57,6 +73,9 @@ class OffscreenPageHost implements PageHost {
   private readonly win: BrowserWindow
   private currentSize: { width: number; height: number }
   private isPainting = true
+  private isIdle = false
+  /** The rate the window was created with, restored on wake. */
+  private readonly activeFrameRate: number
   private readonly latencies: number[] = []
   readonly stats: PageHostStats
 
@@ -95,6 +114,7 @@ class OffscreenPageHost implements PageHost {
         },
       },
     })
+    this.activeFrameRate = this.win.webContents.getFrameRate()
     this.win.webContents.on('paint', (event, dirtyRect) => {
       if (this.win.isDestroyed()) return
       const texture = (event as Electron.Event<Electron.WebContentsPaintEventParams>).texture
@@ -118,6 +138,10 @@ class OffscreenPageHost implements PageHost {
     return this.isPainting
   }
 
+  get idle(): boolean {
+    return this.isIdle
+  }
+
   resize(size: { width: number; height: number }): void {
     const width = Math.max(1, Math.round(size.width))
     const height = Math.max(1, Math.round(size.height))
@@ -130,8 +154,22 @@ class OffscreenPageHost implements PageHost {
   setPainting(painting: boolean): void {
     if (painting === this.isPainting || this.win.isDestroyed()) return
     this.isPainting = painting
+    this.applyPainting()
+  }
+
+  setIdle(idle: boolean): void {
+    if (idle === this.isIdle || this.win.isDestroyed()) return
+    this.isIdle = idle
+    this.win.webContents.setFrameRate(idle ? IDLE_FRAME_RATE : this.activeFrameRate)
+    this.applyPainting()
+  }
+
+  /** A page paints only when both someone is looking at it and at the app. */
+  private applyPainting(): void {
     const contents = this.win.webContents
-    if (painting) {
+    const shouldPaint = this.isPainting && !this.isIdle
+    if (shouldPaint === contents.isPainting()) return
+    if (shouldPaint) {
       contents.startPainting()
       // A resumed page has nothing dirty; ask for one frame so it reappears.
       contents.invalidate()
