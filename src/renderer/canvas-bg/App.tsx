@@ -84,6 +84,7 @@ export default function App({
           where native page views used to sit in the window's stacking
           order, above borders/shells and below aboveView. */}
       <PageTextureSurface
+        api={api}
         texturePages={texturePages}
         focusPageId={focusPageId}
         focusMode={focusMode}

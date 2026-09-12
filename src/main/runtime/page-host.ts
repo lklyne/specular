@@ -178,16 +178,13 @@ class OffscreenPageHost implements PageHost {
       height: info.codedSize.height,
       cssWidth: this.currentSize.width,
       cssHeight: this.currentSize.height,
-      popupRect:
-        info.widgetType === 'popup'
-          ? {
-              x: dirtyRect.x,
-              y: dirtyRect.y,
-              width: dirtyRect.width,
-              height: dirtyRect.height,
-            }
-          : null,
       frameCount: info.metadata.frameCount ?? null,
+      dirtyRect: {
+        x: dirtyRect.x,
+        y: dirtyRect.y,
+        width: dirtyRect.width,
+        height: dirtyRect.height,
+      },
     }
 
     let released = false

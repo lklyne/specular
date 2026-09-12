@@ -13,11 +13,9 @@ export interface PageFrameMeta {
   /** CSS viewport size of the page when this frame was painted. */
   cssWidth: number
   cssHeight: number
-  /**
-   * Popup widgets only: the dirty rect Electron passed to the paint event, in
-   * CSS px, as a best-effort popup position. null for frames.
-   */
-  popupRect: { x: number; y: number; width: number; height: number } | null
+  /** The rect Electron reported dirty for this paint, in device pixels. It
+   *  never carries a popup's position: a popup's own paints are popup-local. */
+  dirtyRect: { x: number; y: number; width: number; height: number }
   frameCount: number | null
 }
 
@@ -29,4 +27,12 @@ export interface PageFrameMessage {
   source: 'page-frame'
   kind: 'frame'
   meta: PageFrameMeta
+}
+
+/** A focused element's rect in page CSS px — the point a popup widget hangs from. */
+export interface PagePopupAnchor {
+  x: number
+  y: number
+  width: number
+  height: number
 }

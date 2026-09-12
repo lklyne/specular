@@ -1,4 +1,5 @@
 import { ipcChannels } from '../../shared/ipc-contract'
+import { sendPageIpc } from '../runtime/page-ipc'
 import { ipcMain } from 'electron'
 import type {
   CanvasEntityKind,
@@ -323,6 +324,19 @@ export function registerCanvasIpc(): void {
   ipcMain.on(ipcChannels.canvasCreateTab, () => {
     createSpaceTab()
   })
+
+  // A popup widget's texture carries no position; the element that opened it
+  // (the page's focused element) is the only statement of where it hangs.
+  ipcMain.handle(
+    ipcChannels.canvasPagePopupAnchor,
+    async (_event, { pageId }: { pageId: string }) => {
+      const rect = (await sendPageIpc(pageId, ipcChannels.queryActiveElementRect, {})) as
+        | { x: number; y: number; width: number; height: number }
+        | null
+      if (!rect || typeof rect.x !== 'number') return null
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+    },
+  )
 
   ipcMain.handle(
     ipcChannels.canvasRenameTab,

@@ -338,6 +338,7 @@ const api: CanvasBgElectronAPI = {
   onBindingFire: on<BindingId>(ipcChannels.bindingFire),
   onCanvasGuides: on<CanvasGuidesPayload>(ipcChannels.canvasGuides),
   readNoteFile: (filePath: string) => ipcRenderer.invoke(ipcChannels.readNoteFile, { filePath }),
+  pagePopupAnchor: (pageId: string) => ipcRenderer.invoke(ipcChannels.canvasPagePopupAnchor, { pageId }),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke(ipcChannels.writeNoteFile, { filePath, content }),
   applyNoteContent: (entityId: string, content: string) =>

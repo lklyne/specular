@@ -2,6 +2,7 @@ import type { BindingId } from '../bindings'
 import type { CanvasGuidesPayload } from '../canvas-guides'
 import type { CancelReason } from '../interaction-types'
 import type { MarqueeSelectionMode } from '../marquee-selection'
+import type { PagePopupAnchor } from '../page-frames'
 import type { ForwardKeyPayload } from '../page-key-input'
 import type { ResizeHandle } from '../resize-accumulator'
 import type { RuntimePatchBatch } from '../runtime-patch'
@@ -280,6 +281,9 @@ export interface CanvasBgElectronAPI {
    *  `local-file://` fetch — that scheme isn't CORS-enabled, and a renderer
    *  served from the dev server is cross-origin to it. */
   readNoteFile: (filePath: string) => Promise<string | null>
+  /** Bounding rect of the page's focused element, in page CSS px — where a
+   *  popup widget (picker, autofill) anchors, since its texture carries no position. */
+  pagePopupAnchor: (pageId: string) => Promise<PagePopupAnchor | null>
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   /**
    * ADR 0023 — commit a markdown note edit through the Y.Doc so it

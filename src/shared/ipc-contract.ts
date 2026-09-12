@@ -373,6 +373,7 @@ export interface IpcContract {
   'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'read-note-file': { dir: 'invoke'; payload: unknown }
+  'canvas-page-popup-anchor': { dir: 'invoke'; payload: unknown }
   'write-note-file': { dir: 'invoke'; payload: unknown }
   'zoom-changed': { dir: 'main→renderer'; payload: number }
   'zoom-in': { dir: 'renderer→main'; payload: unknown }
@@ -631,6 +632,7 @@ export const ipcChannels = {
   queryFavicon: 'query-favicon',
   queryFaviconResult: 'query-favicon-result',
   readNoteFile: 'read-note-file',
+  canvasPagePopupAnchor: 'canvas-page-popup-anchor',
   regionSelectCommitted: 'region-select-committed',
   reloadApp: 'reload-app',
   repoBindOrigin: 'repo-bind-origin',
