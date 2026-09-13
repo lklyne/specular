@@ -1,5 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { sendPageIpc } from '../runtime/page-ipc'
+import { requestPageFrames } from '../runtime/page-host'
 import { ipcMain } from 'electron'
 import type {
   CanvasEntityKind,
@@ -324,6 +325,11 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on(ipcChannels.canvasCreateTab, () => {
     createSpaceTab()
+  })
+
+  ipcMain.on(ipcChannels.canvasRequestPageFrames, (event, pageIds: unknown) => {
+    if (!Array.isArray(pageIds) || !pageIds.every((id) => typeof id === 'string')) return
+    requestPageFrames(event.sender, pageIds)
   })
 
   // A popup widget's texture carries no position; the element that opened it

@@ -293,6 +293,7 @@ export interface CanvasBgElectronAPI {
   /** Bounding rect of the page's focused element, in page CSS px — where a
    *  popup widget (picker, autofill) anchors, since its texture carries no position. */
   pagePopupAnchor: (pageId: string) => Promise<PagePopupAnchor | null>
+  requestPageFrames: (pageIds: string[]) => void
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   /**
    * ADR 0023 — commit a markdown note edit through the Y.Doc so it

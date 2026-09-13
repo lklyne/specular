@@ -270,6 +270,20 @@ class OffscreenPageHost implements PageHost {
 
 const hosts = new Set<OffscreenPageHost>()
 
+/** Static pages may finish painting before the surface has mounted or seated its scene. */
+export function requestPageFrames(sender: WebContents, pageIds: readonly string[]): void {
+  if (sender !== frameTarget || sender.isDestroyed()) return
+  const requested = new Set(pageIds)
+  for (const host of hosts) {
+    if (!requested.has(host.id) || host.isDestroyed() || !host.painting || host.idle) continue
+    // invalidate() alone can emit a paint with no shared texture for an
+    // unchanged document. Restarting capture forces a fresh GPU frame.
+    host.webContents.stopPainting()
+    host.webContents.startPainting()
+    host.webContents.invalidate()
+  }
+}
+
 export function createPageHost(options: {
   id: string
   width: number

@@ -27,6 +27,14 @@ If a test fails any one of these, prefer to delete or rewrite it. A smaller suit
 
 Default to **unit** when the behavior is pure. Reach for **integration** when the regression involves the Y.Doc, persistence, undo, sync, or cross-module runtime behavior. **Boot** exists only to prove the Electron wiring assembles — do not add data-shaped tests there.
 
+For the offscreen GPU startup regression, run `node tests/agent/offscreen-startup/run.mjs`
+in a local Electron/GPU session. It uses a temporary profile and the production
+page host, preload, and canvas surface. A static page finishes painting before
+React mounts; pixel assertions check late mount at 20% zoom and scene re-entry,
+and verify camera updates do not restart capture. This catches both a missing
+frame request and using `invalidate()` alone, which can emit a paint without a
+shared texture. It does not launch the full app or touch the user's space.
+
 ## Integration: the in-process harness
 
 `tests/integration/harness.ts` boots the real runtime — workspace model, Y.Doc, undo manager, doc observers, autosave — in plain Node against a temp dir, mirroring the boot sequence in `src/main/index.ts`. `vitest.integration.config.ts` aliases `electron` to `tests/integration/electron-stub.ts`; the fake window reports `isDestroyed()` so the layout engine stays dormant, and every renderer-bound `webContents.send` is captured in `harness.broadcasts`.

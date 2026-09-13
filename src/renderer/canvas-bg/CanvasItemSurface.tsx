@@ -89,12 +89,13 @@ export function CanvasItemSurface({
   draws,
   isDark,
 }: {
-  api: Pick<CanvasBgElectronAPI, 'pagePopupAnchor'>
+  api: Pick<CanvasBgElectronAPI, 'pagePopupAnchor' | 'requestPageFrames'>
   draws: CanvasItemDraw[]
   isDark: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const dirtyRef = useRef(true)
+  const presentedPageIds = useRef(new Set<string>())
   const inputsRef = useRef({ draws, isDark })
   inputsRef.current = { draws, isDark }
 
@@ -125,8 +126,19 @@ export function CanvasItemSurface({
   // A page that leaves the scene stops arriving, so nothing else would ever
   // close its bitmap.
   useEffect(() => {
-    prunePageFrames(frames, new Set(draws.flatMap((draw) => (draw.pageId ? [draw.pageId] : []))))
-  }, [frames, draws])
+    const pageIds = new Set(draws.flatMap((draw) => (draw.pageId ? [draw.pageId] : [])))
+    prunePageFrames(frames, pageIds)
+    // The listener is installed by usePageFrames above. A static page may
+    // have sent its only frame before mount or before it entered the scene.
+    const added = [...pageIds].filter((id) => !presentedPageIds.current.has(id))
+    presentedPageIds.current = pageIds
+    if (added.length) api.requestPageFrames(added)
+  }, [api, frames, draws])
+
+  useEffect(() => () => {
+    presentedPageIds.current.clear()
+    prunePageFrames(frames, new Set())
+  }, [frames])
 
   useLayoutEffect(() => {
     paint()
