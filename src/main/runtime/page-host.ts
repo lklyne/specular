@@ -12,8 +12,12 @@ import { BrowserWindow, screen, sharedTexture, type WebContents } from 'electron
 import type { PageFrameMeta } from '../../shared/page-frames'
 import { preloadPath } from './load-renderer'
 
-/** Chromium's OSR frame pool holds 10 textures per page; keep headroom. */
-const MAX_OUTSTANDING_TEXTURES = 9
+/**
+ * Frames a page may have in flight to canvas-bg before new ones are dropped.
+ * A cap, not an allocation: past it the renderer is behind, and a queued frame
+ * is a stale one. Well under Chromium's OSR frame pool of 10 per page.
+ */
+const MAX_OUTSTANDING_TEXTURES = 6
 
 /** Rolling window for the release-latency mean. */
 const LATENCY_SAMPLES = 30
