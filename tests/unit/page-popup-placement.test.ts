@@ -3,7 +3,7 @@
  * (always `y = anchor.y + anchor.height`): "flips above" fails.
  */
 import { describe, expect, it } from 'vitest'
-import { placePopup } from '../../src/renderer/canvas-bg/PageTextureSurface'
+import { placePopup } from '../../src/renderer/canvas-bg/CanvasItemSurface'
 import { POPUP_CLOSE_GRACE_MS, popupHasClosed } from '../../src/renderer/canvas-bg/usePageFrames'
 
 const viewport = { width: 1280, height: 800 }

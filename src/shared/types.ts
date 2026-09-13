@@ -131,8 +131,6 @@ export interface CanvasScenePageEntity {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Use SVG rendering for the device shell (A/B toggle). */
-  useSvgDeviceShell?: boolean
   /** Optional — absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
   /** Page's absolute scroll offset in raw CSS pixels, default 0. Document
@@ -1088,7 +1086,6 @@ export interface DevtoolsPanelPageSummary {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  useSvgDeviceShell?: boolean
   canGoBack?: boolean
   canGoForward?: boolean
   isLoading?: boolean

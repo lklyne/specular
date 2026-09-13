@@ -5,11 +5,9 @@ import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
-import { ChromeCanvasSurface } from './ChromeCanvasSurface'
+import { CanvasItemSurface } from './CanvasItemSurface'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
-import { PageTextureSurface } from './PageTextureSurface'
 import { PerfHudOverlay } from './PerfHudOverlay'
-import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useChromeSlices } from './useChromeSlices'
@@ -37,8 +35,7 @@ export default function App({
     layoutRef,
   })
 
-  const { chromePages, chromeFiles, svgDeviceShellPages, chromeGroups, texturePages, focusPageId, focusMode } =
-    useChromeSlices(layoutData)
+  const { canvasItemDraws, chromeGroups } = useChromeSlices(layoutData)
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -64,32 +61,12 @@ export default function App({
           from the camera slice, so the scene container needs no transform. */}
       <div className="pointer-events-none absolute inset-0">
         <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
-        <div className="pointer-events-none absolute inset-0">
-          <SvgDeviceShellLayer
-            pages={svgDeviceShellPages}
-            isDark={isDark}
-          />
-        </div>
       </div>
-      {/* Borders and device shells draw on a canvas rather than as DOM, so
-          strokes stay crisp mid-zoom and share the texture pass's exact
-          geometry. */}
-      <ChromeCanvasSurface
-        pages={chromePages}
-        fileEntities={chromeFiles}
-        isDark={isDark}
-      />
 
-      {/* Every page's live texture (ADR 0038), topmost within canvas-bg —
-          where native page views used to sit in the window's stacking
-          order, above borders/shells and below aboveView. */}
-      <PageTextureSurface
-        api={api}
-        texturePages={texturePages}
-        focusPageId={focusPageId}
-        focusMode={focusMode}
-        isDark={isDark}
-      />
+      {/* Pages and device-framed files, each painted whole (shell, border,
+          live texture) in z-order on one canvas, topmost within canvas-bg.
+          Drawn rather than DOM so strokes stay crisp mid-zoom (ADR 0038). */}
+      <CanvasItemSurface api={api} draws={canvasItemDraws} isDark={isDark} />
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
           Selected page menu lives in the floating-ui view. */}

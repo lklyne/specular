@@ -246,24 +246,3 @@ export function setShowDeviceFrameMetadata(
     showDeviceFrame: show,
   }
 }
-
-// ---------------------------------------------------------------------------
-// SVG device shell rendering mode (A/B toggle)
-// ---------------------------------------------------------------------------
-
-export function useSvgDeviceShellFromMetadata(
-  metadata: Record<string, unknown> | undefined,
-): boolean {
-  if (!metadata) return false
-  return metadata.useSvgDeviceShell === true
-}
-
-export function setUseSvgDeviceShellMetadata(
-  metadata: Record<string, unknown> | undefined,
-  use: boolean,
-): Record<string, unknown> {
-  return {
-    ...(metadata ?? {}),
-    useSvgDeviceShell: use,
-  }
-}

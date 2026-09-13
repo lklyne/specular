@@ -32,7 +32,6 @@ import {
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
-  useSvgDeviceShellFromMetadata,
 } from './runtime-entities'
 import {
   devtoolsHeaderView,
@@ -461,7 +460,6 @@ export function notifyDevtoolsPanelData(): void {
       deviceId: deviceIdFromMetadata(page.metadata),
       deviceOrientation: deviceOrientationFromMetadata(page.metadata),
       showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
-      useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
       canGoBack: page.host.webContents.navigationHistory.canGoBack(),
       canGoForward: page.host.webContents.navigationHistory.canGoForward(),
       isLoading: page.host.webContents.isLoading(),

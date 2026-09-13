@@ -247,3 +247,8 @@ this split keeps it possible:
   rects for input mapping and keeps state and page hosts only.
 - Measure with `/perf/pan-zoom/visual-run` at 30 pages before deleting the
   current draw loop, whichever surface replaces it.
+- Paint each item whole. Landed 2026-09-12: one `CanvasItemSurface` draws a
+  page's shell, border, and texture before the next page, in z-order. Two
+  passes put every shell under every texture, so a page stacked above another
+  let that page's content show over its own bezel. The experimental SVG shell
+  layer was deleted in the same change.

@@ -65,14 +65,14 @@ If a future change violates any of these, the change is wrong for this system, n
 │  │   └─ comments, annotations, floating UI            │  │
 │  ├────────────────────────────────────────────────────┤  │
 │  │ PAGE TEXTURES                                      │  │
-│  │   Drawn by bgView's PageTextureSurface, not a WCV. │  │
+│  │   Drawn by bgView's CanvasItemSurface, not a WCV.  │  │
 │  │   Input forwarded from aboveView (§4.2, §4.4).     │  │
 │  ├────────────────────────────────────────────────────┤  │
 │  │ BELOW-PAGES PLANE                                  │  │
 │  │   bgView (single WCV)                              │  │
 │  │   ├─ canvas grid, camera, pan/zoom transform       │  │
-│  │   ├─ frame borders + device shells                 │  │
-│  │   └─ page textures (ADR 0038, §4.7)                │  │
+│  │   └─ page shells + borders + textures, each page   │  │
+│  │      whole, in z-order (ADR 0038, §4.7)            │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 
@@ -91,7 +91,7 @@ The cursor overlay is deliberately outside the three-plane model. It sits in its
 
 | Plane | Owns visuals | Owns input | Number of WCVs |
 |---|---|---|---|
-| `bgView` | Canvas grid + camera transform + frame borders/device shells + page textures (`PageTextureSurface`, ADR 0038) | Nothing (always `setVisible(true)`; never holds keyboard focus post-migration) | 1 |
+| `bgView` | Canvas grid + camera transform + page shells, borders, and textures, each page painted whole in z-order (`CanvasItemSurface`, ADR 0038) | Nothing (always `setVisible(true)`; never holds keyboard focus post-migration) | 1 |
 | Page textures | Every page's latest offscreen-painted frame, drawn by `bgView` at its camera-projected rect | Pointer/wheel/keys forwarded from aboveView (§4.2, §4.4); no native input path | 0 — each page is a hidden offscreen `BrowserWindow` outside the WCV stack |
 | `aboveView` | Entity bodies, edges, group bounds, selection outlines + resize handles, focus ring, agent halo, canvas-anchored popups, marquee + drag visuals, comments / annotations / floating UI | All canvas-level pointer input + canvas-mode keyboard (default `FocusTarget`) | 1 |
 | `toolbar` / `sidebar` / `devtools` | Their own UI | Their own UI | 1 each |
@@ -296,7 +296,7 @@ Canvas-mode gestures live as per-action handlers inside `useCanvasPointerRouter`
 
 ### 4.7 Page texture compositor
 
-Every page is a hidden offscreen `BrowserWindow` (`page-host.ts`, ADR 0038), painting with `offscreen: { useSharedTexture: true, deviceScaleFactor }`. Each painted frame is imported as a GPU shared texture in main and sent to `bgView`'s main frame (a pool of 9 outstanding textures per page bounds how far the renderer can fall behind). `bgView`'s `PageTextureSurface` draws every presented page's latest frame at the camera-projected content rect, clipped to the page's corner radius, on a canvas layered above `ChromeCanvasSurface` and below `aboveView`; the focused page draws last so it wins any overlap. `usePageFrames.ts` holds the latest frame (and latest popup frame) per page as an `ImageBitmap`, replacing and closing the previous one as new frames arrive.
+Every page is a hidden offscreen `BrowserWindow` (`page-host.ts`, ADR 0038), painting with `offscreen: { useSharedTexture: true, deviceScaleFactor }`. Each painted frame is imported as a GPU shared texture in main and sent to `bgView`'s main frame (a pool of 9 outstanding textures per page bounds how far the renderer can fall behind). `bgView`'s `CanvasItemSurface` paints every presented page whole, one at a time in z-order: its device shell, its border, then its latest frame at the camera-projected content rect, clipped to the page's corner radius. A page stacked above another covers that page's bezel as well as its content, and the focused page draws last so it wins any overlap. `usePageFrames.ts` holds the latest frame (and latest popup frame) per page as an `ImageBitmap`, replacing and closing the previous one as new frames arrive.
 
 The layout pass decides whether a page's host paints at all: `isPagePresented` plus the presentation policy stop painting for a page that is off-screen and not being dragged or agent-driven (§6, I10), so an offscreen host nobody can see stops costing frames without being destroyed. There is no promote-to-live transition and no separate "inactive" rendering tier — every page is a texture, all the time; only whether its host currently paints varies.
 
@@ -427,7 +427,7 @@ src/renderer/
     AnnotationsLayer.tsx
     FloatingUiLayer.tsx
   canvas-bg/                        # bgView, extended with:
-    PageTextureSurface.tsx          # draws every page's latest texture at its projected rect
+    CanvasItemSurface.tsx           # paints each page's shell, border, and texture in z-order
     usePageFrames.ts                # latest frame/popup bitmap per page
     (...existing canvas chrome)
 ```
@@ -470,7 +470,7 @@ The Electron smoke layer this section originally specified is retired ([ADR 0024
 | **Gesture** | A pointer-initiated interaction with begin/update/commit/cancel phases. |
 | **Mode** | The current `InteractionController` state. At most one non-idle mode at a time. |
 | **Token** | Opaque handle returned by `tryEnter`, consumed by `commit`/`cancel`. Prevents orphan state. |
-| **Page texture** | A page's latest painted frame, delivered from its offscreen host as a GPU shared texture and drawn by `bgView`'s `PageTextureSurface` at the camera-projected rect. Every page is one, all the time (ADR 0038) — there is no separate live/inactive tier. |
+| **Page texture** | A page's latest painted frame, delivered from its offscreen host as a GPU shared texture and drawn by `bgView`'s `CanvasItemSurface` at the camera-projected rect. Every page is one, all the time (ADR 0038) — there is no separate live/inactive tier. |
 | **Expected focus** | The `FocusTarget` a state implies; the reconciler enforces it. |
 | **Drop owner** | The single WCV authorized to consume a given drag (keyed by `dragId`). |
 | **Layout pass** | `layoutAllViews()`. The only place view-stack, visibility, and bounds change. |

@@ -175,8 +175,9 @@ following commitments are load-bearing and costly to unwind later.
 on top; pages hold no WCV of their own. Each page is a hidden offscreen
 `BrowserWindow` (`page-host.ts`, [ADR 0038](adr/0038-offscreen-texture-canvas-for-live-pages.md))
 painting GPU shared textures that `bgView` draws at the camera-projected
-rect (`PageTextureSurface`). `bgView` carries the canvas grid + camera
-transform, page borders/device shells, and those page textures; every
+rect (`CanvasItemSurface`). `bgView` carries the canvas grid + camera
+transform, and paints each page's device shell, border, and texture whole,
+one item at a time in z-order; every
 entity body (sticky, shape, file/markdown/component/image/video), every
 edge, every selection outline / resize handle / hover indicator, every
 group bound, the keyboard-target focus ring, and the agent-active halo

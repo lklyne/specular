@@ -23,7 +23,6 @@ import {
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
-  useSvgDeviceShellFromMetadata,
 } from './runtime-entities'
 import { boundEffectivePageContentSize as effectivePageContentSize } from './runtime-geometry'
 import { pageDisplayLabel } from './runtime-serialization'
@@ -57,7 +56,6 @@ export function buildPageSceneEntity(page: Page): CanvasScenePageEntity {
     deviceId: deviceIdFromMetadata(page.metadata),
     deviceOrientation: deviceOrientationFromMetadata(page.metadata),
     showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
-    useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
     colorScheme: page.colorScheme,
     scrollX: page.scrollX ?? 0,
     scrollY: page.scrollY ?? 0,

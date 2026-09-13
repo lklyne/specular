@@ -2,8 +2,7 @@
  * Canvas 2D drawing of one page/file item's chrome: the 1px page/content
  * borders, the page's live texture (ADR 0038), and the device shell (bezel
  * donut, strokes, island, home indicator). Pure per-item geometry and draw
- * calls, shared by canvas-bg's chrome pass (`chromeCanvasDraw.ts`) and its
- * texture pass (`PageTextureSurface`).
+ * calls for canvas-bg's item pass (`CanvasItemSurface`).
  *
  * Drawn in screen space at display scale on every tick, so strokes stay crisp
  * at any zoom instead of riding a scaled DOM layer.
@@ -30,12 +29,11 @@ export interface ChromeCanvasItem {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  useSvgDeviceShell?: boolean
   width: number
 }
 
-/** A page entity's chrome-drawable geometry, for the chrome pass and the
- *  texture pass to agree on. `overrides` lets a caller force a field the
+/** A page entity's chrome-drawable geometry, for its chrome and its texture
+ *  to agree on. `overrides` lets a caller force a field the
  *  entity's own authored state doesn't reflect — the fill-focused page draws
  *  with no bezel regardless of its authored device-shell setting. */
 export function pageChromeItem(
@@ -55,7 +53,6 @@ export function pageChromeItem(
     deviceId: page.deviceId,
     deviceOrientation: page.deviceOrientation,
     showDeviceFrame: page.showDeviceFrame,
-    useSvgDeviceShell: page.useSvgDeviceShell,
     width: page.width,
     ...overrides,
   }
@@ -262,7 +259,7 @@ export function drawItemSnapshot(
 }
 
 /** The device shell: squircle bezel donut with drop shadow, edge strokes,
- * top highlight, and phone/tablet decorations. Mirrors SvgDeviceShellLayer.
+ * top highlight, and phone/tablet decorations.
  * The shell's border is `drawItemChrome`'s job, painted on top of this. */
 function drawItemShell(
   ctx: CanvasRenderingContext2D,

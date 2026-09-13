@@ -317,7 +317,6 @@ export interface IpcContract {
   'right-details-panel-thread-new': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-select': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-send': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
   'runtime-patch': { dir: 'main→renderer'; payload: RuntimePatchBatch }
@@ -647,7 +646,6 @@ export const ipcChannels = {
   rightDetailsPanelThreadNew: 'right-details-panel-thread-new',
   rightDetailsPanelThreadSelect: 'right-details-panel-thread-select',
   rightDetailsPanelThreadSend: 'right-details-panel-thread-send',
-  rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',
   runtimePatch: 'runtime-patch',
