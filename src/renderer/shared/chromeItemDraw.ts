@@ -1,13 +1,13 @@
 /**
  * Canvas 2D drawing of one page/file item's chrome: the 1px page/content
- * borders, the frozen-page raster that stands in for a parked
- * WebContentsView, and the device shell (bezel donut, strokes, island,
- * home indicator). Pure per-item geometry and draw calls, shared by
- * canvas-bg (`chromeCanvasDraw.ts`) and above-view (`DragFreezeLayer`).
+ * borders, the page's live texture (ADR 0038), and the device shell (bezel
+ * donut, strokes, island, home indicator). Pure per-item geometry and draw
+ * calls for canvas-bg's item pass (`CanvasItemSurface`).
  *
  * Drawn in screen space at display scale on every tick, so strokes stay crisp
  * at any zoom instead of riding a scaled DOM layer.
  */
+import type { ProjectedPageEntity } from '../../shared/scene-projection'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
   CUSTOM_SHELL_SCREEN_CORNER_RADIUS,
@@ -29,8 +29,33 @@ export interface ChromeCanvasItem {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  useSvgDeviceShell?: boolean
   width: number
+}
+
+/** A page entity's chrome-drawable geometry, for its chrome and its texture
+ *  to agree on. `overrides` lets a caller force a field the
+ *  entity's own authored state doesn't reflect — the fill-focused page draws
+ *  with no bezel regardless of its authored device-shell setting. */
+export function pageChromeItem(
+  page: ProjectedPageEntity,
+  overrides?: Partial<ChromeCanvasItem>,
+): ChromeCanvasItem {
+  return {
+    id: page.id,
+    screenX: page.screenX,
+    screenY: page.screenY,
+    screenWidth: page.screenWidth,
+    screenHeight: page.screenHeight,
+    contentScreenX: page.contentScreenX,
+    contentScreenY: page.contentScreenY,
+    contentScreenWidth: page.contentScreenWidth,
+    contentScreenHeight: page.contentScreenHeight,
+    deviceId: page.deviceId,
+    deviceOrientation: page.deviceOrientation,
+    showDeviceFrame: page.showDeviceFrame,
+    width: page.width,
+    ...overrides,
+  }
 }
 
 export interface ItemGeometry {
@@ -215,26 +240,30 @@ export function drawItemChrome(
 }
 
 /**
- * The frozen-page raster, clipped to the content viewport's corner radius.
- * Painted last, where the live WebContentsView sits in the native stack: it
- * occludes the inner border ring and the bezel's drop shadow, which a shadowed
- * donut casts into its own cutout as well as outward.
+ * A page's texture in its content rect, clipped to the content viewport's
+ * corner radius. It occludes the inner border ring and the bezel's drop
+ * shadow, which a shadowed donut casts into its own cutout as well as outward.
  */
 export function drawItemSnapshot(
   ctx: CanvasRenderingContext2D,
   g: ItemGeometry,
   bitmap: ImageBitmap,
 ): void {
-  ctx.save()
-  ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
+  // A shell-less page has square corners, so its rect needs no clip path.
+  if (g.innerRadius <= 0) {
+    ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+    return
+  }
+  ctx.save()
+  ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
   ctx.restore()
 }
 
 /** The device shell: squircle bezel donut with drop shadow, edge strokes,
- * top highlight, and phone/tablet decorations. Mirrors SvgDeviceShellLayer.
+ * top highlight, and phone/tablet decorations.
  * The shell's border is `drawItemChrome`'s job, painted on top of this. */
 function drawItemShell(
   ctx: CanvasRenderingContext2D,

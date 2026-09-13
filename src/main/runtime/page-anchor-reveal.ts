@@ -40,14 +40,14 @@ export function revealPageAnchoredContent(
 ): boolean {
   if (!anchor) return false
   const page = pages.find((candidate) => candidate.id === anchor.pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return false
+  if (!page || page.host.webContents.isDestroyed()) return false
 
   const reveal = () => {
     void Promise.resolve(revealContent()).catch(() => {})
   }
 
   if (anchor.pageUrl && offPageDocument(anchor.pageId, anchor.pageUrl)) {
-    page.pageView.webContents.once('did-finish-load', reveal)
+    page.host.webContents.once('did-finish-load', reveal)
     navigatePage(page, { type: 'load-url', url: anchor.pageUrl })
     return true
   }

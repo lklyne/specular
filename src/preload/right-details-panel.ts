@@ -80,8 +80,6 @@ const api: DevtoolsPanelElectronAPI = {
   // Reuses the global focus channel — the panel only surfaces the selected
   // page, so "focus selection" and "focus this page" are the same action.
   focusSelection: () => ipcRenderer.send(ipcChannels.canvasFocusSelection),
-  toggleSvgDeviceShell: (pageId: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelToggleSvgDeviceShell, { pageId }),
   duplicatePage: (pageId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelDuplicatePage, { pageId }),
   deletePage: (pageId: string) =>

@@ -65,7 +65,6 @@ export interface DevtoolsPanelElectronAPI {
   setPageCustom: (pageId: string) => void
   setDeviceOrientation: (pageId: string, orientation: string) => void
   toggleDeviceShell: (pageId: string) => void
-  toggleSvgDeviceShell: (pageId: string) => void
   focusSelection: () => void
   duplicatePage: (pageId: string) => void
   deletePage: (pageId: string) => void

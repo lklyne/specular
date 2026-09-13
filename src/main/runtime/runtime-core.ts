@@ -3,6 +3,7 @@ import {
   type WebContents,
 } from 'electron'
 import {
+  activeTool as uiActiveTool,
   devtoolsOpen as uiDevtoolsOpen,
   devtoolsPanelTab as uiDevtoolsPanelTab,
   devtoolsWidth as uiDevtoolsWidth,
@@ -98,7 +99,7 @@ export function attachBrowserDevtoolsToPage(index: number): void {
   for (let i = 0; i < pages.length; i += 1) {
     if (pages[i].id === targetPageId) continue
     try {
-      pages[i].pageView.webContents.closeDevTools()
+      pages[i].host.webContents.closeDevTools()
     } catch {
       // Ignore close races while retargeting the shared DevTools view.
     }
@@ -109,13 +110,13 @@ export function attachBrowserDevtoolsToPage(index: number): void {
     if (!uiDevtoolsOpen() || uiDevtoolsPanelTab() !== 'browser-devtools') return
     const nextPage = pages.find((page) => page.id === targetPageId)
     if (!nextPage) return
-    if (nextPage.pageView.webContents.isDestroyed()) return
+    if (nextPage.host.webContents.isDestroyed()) return
     const nextInspectorView = ensureDevtoolsView(nextPage)
     if (!nextInspectorView) return
 
     if (!nextPage.devtoolsHostAttached) {
       // First time: bind the devtools WebContents (one-time per page)
-      nextPage.pageView.webContents.setDevToolsWebContents(nextInspectorView.webContents)
+      nextPage.host.webContents.setDevToolsWebContents(nextInspectorView.webContents)
       nextPage.devtoolsHostAttached = true
     }
 
@@ -124,7 +125,7 @@ export function attachBrowserDevtoolsToPage(index: number): void {
     setDevtoolsView(nextInspectorView)
 
     // openDevTools is safe to call whether the session is new or was just hidden
-    nextPage.pageView.webContents.openDevTools({ mode: 'detach' })
+    nextPage.host.webContents.openDevTools({ mode: 'detach' })
     requestLayout()
   }, 0)
 }
@@ -232,6 +233,10 @@ export function selectEntity(entityId: string, entityKind: string): void {
 
 export function setHoveredPage(pageId: string | null): void {
   commitHoverTarget(pageId ? { id: pageId, kind: 'page' } : null)
+  // While inspecting, the page-cursor bridge follows the hovered page, and it
+  // reconciles only inside the layout pass. Hover changes once per page
+  // crossed, not per pointer move, so this is not a per-move pass.
+  if (uiActiveTool().kind === 'inspect') requestLayout()
 }
 
 export function setHoverEntity(nextHoverTarget: CanvasHoverTarget): void {

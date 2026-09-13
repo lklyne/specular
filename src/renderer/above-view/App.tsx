@@ -29,7 +29,6 @@ import { reprojectEntity } from '../shared/scene-projection'
 import { DRAW_CURSOR, selectionColor } from '../canvas-bg/canvasBgConstants'
 import { PlacementPreviewLayer } from '../canvas-bg/CanvasGridSurface'
 import { buildPendingPlacementPreview } from '../canvas-bg/canvasBgSelectors'
-import { DragFreezeLayer } from './DragFreezeLayer'
 import { DrawingLayer, SavedDrawingEntities } from './DrawingsLayer'
 import { FileBodyLayer } from './FileBodyLayer'
 import { FocusedNoteLayer } from './FocusedNoteLayer'
@@ -60,6 +59,7 @@ import {
   type ReorderGhostOffset,
 } from './useCanvasPointerRouter'
 import { usePageInputForwarding } from './usePageInputForwarding'
+import { usePageKeyboardForwarding } from './usePageKeyboardForwarding'
 import { pointerOverPageContent } from '../../shared/page-hit-test'
 import { EdgeDragLayer } from './EdgeDragLayer'
 import { EdgeLayer } from './EdgeLayer'
@@ -680,11 +680,10 @@ export default function App({
   }
   const overlayInteractive = annotationOverlayActive(pointerOwnerState)
   const pointerOwner = canvasPointerOwner(pointerOwnerState)
-  // Gate authority is main (Phase 5d-v2 D6): shouldGateBeOpen() derives
-  // bounds from interaction, toolMode, modifiers, presence, marquee,
-  // floating menu, and saved drawings. Main can't see renderer-local
-  // state — pending composers, open thread popovers, in-flight
-  // drawings — so we sync exactly those through setCommentOverlayActive.
+  // Main can't see renderer-local state — pending composers, open thread
+  // popovers, in-flight drawings — and the focus reconciler and keyboard-target
+  // predicate both read it, so we sync exactly those through
+  // setCommentOverlayActive.
   useEffect(() => {
     api.setCommentOverlayActive(overlayInteractive)
     return () => {
@@ -819,6 +818,12 @@ export default function App({
     pendingPlacement,
     hoverForwardingEnabled,
     setPlacementCursor,
+  })
+
+  const { sinkRef: keyboardSinkRef, focusSink: focusKeyboardSink } = usePageKeyboardForwarding({
+    api,
+    keyboardTargetPageId: layoutData.keyboardTargetPageId ?? null,
+    editingEntityId,
   })
 
   const viewportWheelAndPanApi = useMemo(
@@ -997,6 +1002,7 @@ export default function App({
     commentDraftRef: draftStateRef,
     enteredEntityIdRef,
     onEnterEntityInteractive,
+    focusKeyboardSink,
   })
 
   useEffect(() => {
@@ -1065,10 +1071,16 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
       onPointerUp={handleOverlayPointerUp}
       onPointerCancel={handleOverlayPointerCancel}
     >
-      {/* Under every chrome layer: a drag-frozen page's raster stands in for
-          its live view, so selection and handles must paint over it. Empty
-          canvas when the flag is off or nothing is frozen. */}
-      <DragFreezeLayer api={api} layoutRef={layoutRef} isDark={isDark} />
+      {/* Keyboard sink for the page that owns the keyboard. Visually hidden
+          but focusable — `display: none` would make it unfocusable, and a page
+          renders offscreen so this is the only element that can hold the
+          keystrokes meant for it. */}
+      <input
+        ref={keyboardSinkRef}
+        aria-label="Keyboard input for the active page"
+        autoComplete="off"
+        style={{ position: 'absolute', left: -1000, top: 0, width: 1, height: 1, opacity: 0 }}
+      />
       {/* Every layer inside is placed by projection from the camera slice, so
           the scene container sits at the window origin untransformed. */}
       <div className="pointer-events-none absolute inset-0">

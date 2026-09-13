@@ -70,6 +70,7 @@ const baseCtx: CanvasPointerContext = {
   interactiveEntityId: null,
   placement: null,
   commentToolActive: false,
+  inspectToolActive: false,
 }
 
 function group(over: Partial<CanvasSceneGroupEntity> = {}): CanvasSceneGroupEntity {

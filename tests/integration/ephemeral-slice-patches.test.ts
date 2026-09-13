@@ -11,8 +11,8 @@
  * The layout pass is a separate question from the scene rebuild. A mutator
  * keeps `requestLayout()` when something outside the runtime store reads what
  * it changed and is only computed inside `layoutAllViews` — `reconcileFocus`
- * and viewport culling for the interaction kind, `shouldGateBeOpen` and the
- * cursor-overlay window for the active tool. A mutator that reaches none of
+ * and viewport culling for the interaction kind, the cursor-overlay window and
+ * the page-cursor bridge for the active tool. A mutator that reaches none of
  * those arms no pass at all, which is what the last case pins.
  *
  * Mutation-verified by:

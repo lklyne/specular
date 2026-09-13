@@ -27,6 +27,7 @@ import {
   setToolbarView,
   setWin,
 } from './view-refs'
+import { setPageFrameTarget } from './page-host'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
@@ -38,6 +39,7 @@ import {
   savePreferences,
 } from './preferences'
 import { bindOriginToRepoPath } from './dev-server-manager'
+import { refreshAppMenu } from './app-menu'
 import {
   ensureSpaceTabsInitialized,
 } from './space-tabs'
@@ -125,6 +127,9 @@ function mcpEmptyState() {
 export function initWindow(): void {
   wireMcpEmptyState(mcpEmptyState)
   loadPreferences()
+  // setupAppMenu() ran before preferences loaded, so its checkbox items
+  // (e.g. "Hide agent cursors") built against stale defaults — refresh now.
+  refreshAppMenu()
   const legacyBindings = consumeLegacyOriginBindings()
   if (legacyBindings) {
     for (const [origin, value] of Object.entries(legacyBindings)) {
@@ -173,6 +178,8 @@ export function initWindow(): void {
   }))
   const currentBgView = bgView
   if (!currentBgView) return
+  // Every page's painted texture is sent to this renderer's main frame.
+  setPageFrameTarget(currentBgView.webContents)
   currentBgView.setBackgroundColor('#00000000')
   // Strip cross-origin-resource-policy from image responses in UI renderers
   // (canvas-bg, sidebar) so they can load favicon images from any origin.
@@ -247,7 +254,7 @@ export function initWindow(): void {
     if (currentAboveView.webContents.isDestroyed()) return
     currentAboveView.webContents.send(ipcChannels.themeChanged, { isDark: isDark(), themeMode: getThemeMode() })
     broadcastSceneSnapshot(buildCanvasLayoutData(backgroundPageOverlays()))
-    layoutCache.lastCommentOverlayBoundsKey = null
+    layoutCache.lastAboveViewBoundsKey = null
     requestLayout()
   })
   // Agent-presence cursor overlay. A child BrowserWindow — not a WCV —

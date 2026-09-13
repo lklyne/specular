@@ -7,8 +7,6 @@ import type {
   ElementAttachmentPositionsUpdate,
   ElementAttachmentSubscriptions,
   FixConfig,
-  FreezeTarget,
-  FrozenPagesState,
   InteractionSyncCapturePayload,
   InteractionSyncEvent,
   LayoutUpdateData,
@@ -16,6 +14,7 @@ import type {
   LocatorResolveResponse,
   LeftSidebarData,
   OnboardingProgressEvent,
+  PageDragPayload,
   SelectionOverlayPayload,
   ThemeData,
   ToolbarSelectionData,
@@ -98,6 +97,10 @@ export interface IpcContract {
   'canvas-drag-preview': { dir: 'renderer→main'; payload: unknown }
   'canvas-drop-component-path': { dir: 'renderer→main'; payload: unknown }
   'canvas-drop-file-buffer': { dir: 'renderer→main'; payload: unknown }
+  'canvas-drop-page-drag': {
+    dir: 'renderer→main'
+    payload: { pageId: string; canvasX: number; canvasY: number }
+  }
   'canvas-duplicate-drawing-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-duplicate-file-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-duplicate-group': { dir: 'renderer→main'; payload: unknown }
@@ -116,6 +119,7 @@ export interface IpcContract {
   'canvas-enter-group': { dir: 'renderer→main'; payload: unknown }
   'canvas-enter-page-interactive': { dir: 'renderer→main'; payload: unknown }
   'canvas-focus-selection': { dir: 'renderer→main'; payload: unknown }
+  'canvas-forward-key': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-page': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-pointer': { dir: 'renderer→main'; payload: unknown }
   'canvas-forward-wheel': { dir: 'renderer→main'; payload: unknown }
@@ -126,6 +130,7 @@ export interface IpcContract {
   'canvas-group-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-guides': { dir: 'main→renderer'; payload: CanvasGuidesPayload }
   'canvas-hover-page': { dir: 'renderer→main'; payload: unknown }
+  'canvas-insert-text': { dir: 'renderer→main'; payload: unknown }
   'canvas-multi-resize-begin': { dir: 'renderer→main'; payload: unknown }
   'canvas-multi-resize-end': { dir: 'renderer→main'; payload: unknown }
   'canvas-navigate-page': { dir: 'renderer→main'; payload: unknown }
@@ -248,6 +253,11 @@ export interface IpcContract {
   'override-props': { dir: 'main→renderer'; payload: unknown }
   'override-token': { dir: 'main→renderer'; payload: unknown }
   'page-deselect': { dir: 'renderer→main'; payload: unknown }
+  'page-drag-armed': {
+    dir: 'main→renderer'
+    payload: { pageId: string; payload: PageDragPayload }
+  }
+  'page-drag-start': { dir: 'renderer→main'; payload: PageDragPayload }
   'page-hover': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-changed': { dir: 'renderer→main'; payload: unknown }
   'page-scroll-offset': { dir: 'renderer→main'; payload: { scrollX: number; scrollY: number; scrollHeight: number } }
@@ -307,12 +317,10 @@ export interface IpcContract {
   'right-details-panel-thread-new': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-select': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-send': { dir: 'renderer→main'; payload: unknown }
-  'right-details-panel-toggle-svg-device-shell': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-trigger-fix-comments': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
   'runtime-patch': { dir: 'main→renderer'; payload: RuntimePatchBatch }
   'set-annotate-mode': { dir: 'main→renderer'; payload: unknown }
-  'set-canvas-zoom': { dir: 'main→renderer'; payload: unknown }
   'set-design-system-manifest': { dir: 'main→renderer'; payload: unknown }
   'set-inspection-mode': { dir: 'main→renderer'; payload: unknown }
   'set-interaction-sync-capture': { dir: 'main→renderer'; payload: InteractionSyncCapturePayload }
@@ -346,10 +354,10 @@ export interface IpcContract {
   'toolbar-set-tool': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-close': { dir: 'renderer→main'; payload: unknown }
   'toolbar-tooltip-open': { dir: 'renderer→main'; payload: unknown }
-  'frozen-pages-ready': { dir: 'renderer→main'; payload: { target: FreezeTarget; revision: number } }
-  'frozen-pages-state': { dir: 'main→renderer'; payload: FrozenPagesState }
   'apply-note-content': { dir: 'invoke'; payload: unknown }
   'read-note-file': { dir: 'invoke'; payload: unknown }
+  'canvas-page-popup-anchor': { dir: 'invoke'; payload: unknown }
+  'canvas-request-page-frames': { dir: 'renderer→main'; payload: string[] }
   'write-note-file': { dir: 'invoke'; payload: unknown }
   'zoom-changed': { dir: 'main→renderer'; payload: number }
   'zoom-in': { dir: 'renderer→main'; payload: unknown }
@@ -425,6 +433,7 @@ export const ipcChannels = {
   canvasDragPreview: 'canvas-drag-preview',
   canvasDropComponentPath: 'canvas-drop-component-path',
   canvasDropFileBuffer: 'canvas-drop-file-buffer',
+  canvasDropPageDrag: 'canvas-drop-page-drag',
   canvasDuplicateDrawingEntity: 'canvas-duplicate-drawing-entity',
   canvasDuplicateFileEntity: 'canvas-duplicate-file-entity',
   canvasDuplicateGroup: 'canvas-duplicate-group',
@@ -443,6 +452,7 @@ export const ipcChannels = {
   canvasEnterGroup: 'canvas-enter-group',
   canvasEnterPageInteractive: 'canvas-enter-page-interactive',
   canvasFocusSelection: 'canvas-focus-selection',
+  canvasForwardKey: 'canvas-forward-key',
   canvasForwardPage: 'canvas-forward-page',
   canvasForwardPointer: 'canvas-forward-pointer',
   canvasForwardWheel: 'canvas-forward-wheel',
@@ -453,6 +463,7 @@ export const ipcChannels = {
   canvasGroupSelection: 'canvas-group-selection',
   canvasGuides: 'canvas-guides',
   canvasHoverPage: 'canvas-hover-page',
+  canvasInsertText: 'canvas-insert-text',
   canvasMultiResizeBegin: 'canvas-multi-resize-begin',
   canvasMultiResizeEnd: 'canvas-multi-resize-end',
   canvasNavigatePage: 'canvas-navigate-page',
@@ -552,8 +563,6 @@ export const ipcChannels = {
   dispatchScrollResult: 'dispatch-scroll-result',
   elementAttachmentPositions: 'element-attachment-positions',
   elementAttachmentSubscriptions: 'element-attachment-subscriptions',
-  frozenPagesReady: 'frozen-pages-ready',
-  frozenPagesState: 'frozen-pages-state',
   getCanvasLayoutBootstrap: 'get-canvas-layout-bootstrap',
   getFloatingUiBootstrap: 'get-floating-ui-bootstrap',
   getLeftSidebarBootstrap: 'get-left-sidebar-bootstrap',
@@ -575,6 +584,8 @@ export const ipcChannels = {
   overrideProps: 'override-props',
   overrideToken: 'override-token',
   pageDeselect: 'page-deselect',
+  pageDragArmed: 'page-drag-armed',
+  pageDragStart: 'page-drag-start',
   pageScrollChanged: 'page-scroll-changed',
   pageScrollOffset: 'page-scroll-offset',
   peekResizeEnd: 'peek-resize-end',
@@ -591,6 +602,8 @@ export const ipcChannels = {
   queryFavicon: 'query-favicon',
   queryFaviconResult: 'query-favicon-result',
   readNoteFile: 'read-note-file',
+  canvasPagePopupAnchor: 'canvas-page-popup-anchor',
+  canvasRequestPageFrames: 'canvas-request-page-frames',
   regionSelectCommitted: 'region-select-committed',
   reloadApp: 'reload-app',
   repoBindOrigin: 'repo-bind-origin',
@@ -634,12 +647,10 @@ export const ipcChannels = {
   rightDetailsPanelThreadNew: 'right-details-panel-thread-new',
   rightDetailsPanelThreadSelect: 'right-details-panel-thread-select',
   rightDetailsPanelThreadSend: 'right-details-panel-thread-send',
-  rightDetailsPanelToggleSvgDeviceShell: 'right-details-panel-toggle-svg-device-shell',
   rightDetailsPanelTriggerFixComments: 'right-details-panel-trigger-fix-comments',
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',
   runtimePatch: 'runtime-patch',
   setAnnotateMode: 'set-annotate-mode',
-  setCanvasZoom: 'set-canvas-zoom',
   setDesignSystemManifest: 'set-design-system-manifest',
   setInspectionMode: 'set-inspection-mode',
   setInteractionSyncCapture: 'set-interaction-sync-capture',

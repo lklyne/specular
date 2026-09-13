@@ -10,7 +10,7 @@ import { VideoActivityTracker, type ActivitySegment } from './video-activity-tra
 import { captureFrameComposited } from './frame-compositor'
 import { getZoom, pan } from './runtime-context'
 import { focusCanvasBounds, requestLayout, setPan, setZoom } from './viewport-control'
-import { pageBodyCanvasBounds } from './runtime-geometry'
+import { boundScreenBoundsForPage, pageBodyCanvasBounds } from './runtime-geometry'
 import { holdPagesAwake } from './page-idle-throttle'
 
 // ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ class VideoRecorderInstance {
   }
 
   async start(): Promise<void> {
-    if (this.page.pageView.webContents.isDestroyed()) {
+    if (this.page.host.webContents.isDestroyed()) {
       throw new Error('Target page webContents is destroyed')
     }
     this.releaseAwakeHold = holdPagesAwake()
@@ -96,25 +96,26 @@ class VideoRecorderInstance {
       throw new Error('Window not available')
     }
 
-    // Canvas zoom is wired into Chromium's device emulation `scale` in
-    // computeApplyEmulation — the page is actually rendered into only the
-    // scaled sub-region of its emulated viewport. To capture at native size,
-    // the page must be rendered at native size, which means forcing canvas
-    // zoom to 1 for the duration of the recording.
+    // Each frame composites the annotation and cursor overlays, which are
+    // drawn at canvas zoom, onto the page. They only register with the page at
+    // 100%, so the camera is pinned to zoom 1 (and onto the page) for the
+    // duration of the recording and restored on stop.
     this.savedCamera = { zoom: getZoom(), panX: pan.x, panY: pan.y }
     try {
       if (getZoom() !== 1) setZoom(1)
       focusCanvasBounds(pageBodyCanvasBounds(this.page))
       requestLayout()
-      // Chromium re-rasters on the next frame after enableDeviceEmulation.
-      // Give it room so the first captured frames aren't mid-transition.
+      // Give the page a beat to repaint at the settled camera so the first
+      // captured frames aren't mid-transition.
       await new Promise((r) => setTimeout(r, 250))
 
       const display = electronScreen.getDisplayMatching(w.getBounds())
       this.dpr = display.scaleFactor
-      const pageBounds = this.page.pageView.getBounds()
-      this.captureWidth = Math.round(pageBounds.width * this.dpr)
-      this.captureHeight = Math.round(pageBounds.height * this.dpr)
+      // The composited frame arrives at the page's projected on-screen size;
+      // the camera is pinned at zoom 1 above, so this is also its CSS size.
+      const pageRect = boundScreenBoundsForPage(this.page).page
+      this.captureWidth = Math.round(pageRect.width * this.dpr)
+      this.captureHeight = Math.round(pageRect.height * this.dpr)
 
       if (this.captureWidth === 0 || this.captureHeight === 0) {
         throw new Error('Canvas view has zero dimensions')
