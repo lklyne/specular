@@ -248,13 +248,13 @@ export function drawItemChrome(
 export function drawItemSnapshot(
   ctx: CanvasRenderingContext2D,
   g: ItemGeometry,
-  bitmap: ImageBitmap,
+  frame: VideoFrame,
 ): void {
   ctx.save()
   ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+  ctx.drawImage(frame, g.contentX, g.contentY, g.contentW, g.contentH)
   ctx.restore()
 }
 
