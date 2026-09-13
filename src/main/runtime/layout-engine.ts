@@ -297,7 +297,7 @@ function layoutAllViews(): void {
   // belongs to a page is forwarded from here.
   if (aboveView && win) {
     const { width, height } = win.getBounds()
-    layoutCache.lastCommentOverlayBoundsKey = setBoundsIfChanged(
+    layoutCache.lastAboveViewBoundsKey = setBoundsIfChanged(
       aboveView,
       {
         x: 0,
@@ -305,7 +305,7 @@ function layoutAllViews(): void {
         width: Math.max(0, width - (devtoolsOpen ? devtoolsWidth : 0)),
         height: Math.max(0, height - contentTopInset),
       },
-      layoutCache.lastCommentOverlayBoundsKey,
+      layoutCache.lastAboveViewBoundsKey,
     )
   }
 
@@ -347,13 +347,11 @@ function layoutAllViews(): void {
   // --- Per-page host size, painting policy, safe-area CSS ---
   const focusSessionValue = focusSession()
   const focusedPresentationPageId = focusedPageId()
-  const presentationInputs = {
-    focus: {
-      pageId: focusedPresentationPageId,
-      mode: focusSessionValue?.mode ?? null,
-      annotationsVisible: focusSessionValue?.annotationsVisible ?? false,
-      active: focusSessionValue !== null,
-    },
+  const presentationFocus = {
+    active: focusSessionValue !== null,
+    pageId: focusedPresentationPageId,
+    mode: focusSessionValue?.mode ?? null,
+    showsContext: focusSessionValue === null || focusSessionValue.annotationsVisible,
   }
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
@@ -362,7 +360,7 @@ function layoutAllViews(): void {
     // the page reflows like a real tab instead of being scaled into one.
     page.host.resize(boundEffectivePageContentSize(page))
 
-    const presented = isPagePresented(page.id, presentationInputs)
+    const presented = isPagePresented(page.id, presentationFocus)
     // An off-screen page stops painting, except while it is being dragged (its
     // texture must keep up with the move) or driven by an agent.
     const onScreen = boundsOverlap(boundScreenBoundsForPage(page).page, windowRect)

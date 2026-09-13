@@ -254,7 +254,7 @@ export function initWindow(): void {
     if (currentAboveView.webContents.isDestroyed()) return
     currentAboveView.webContents.send(ipcChannels.themeChanged, { isDark: isDark(), themeMode: getThemeMode() })
     broadcastSceneSnapshot(buildCanvasLayoutData(backgroundPageOverlays()))
-    layoutCache.lastCommentOverlayBoundsKey = null
+    layoutCache.lastAboveViewBoundsKey = null
     requestLayout()
   })
   // Agent-presence cursor overlay. A child BrowserWindow — not a WCV —

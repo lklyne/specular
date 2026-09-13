@@ -1,7 +1,7 @@
 import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { useMemo } from 'react'
 import { focusContext } from '../../shared/focus-context'
-import type { PagePresentationInputs } from '../../shared/page-presentation'
+import type { PagePresentationFocus } from '../../shared/page-presentation'
 import { orderCanvasItemDraws, type CanvasItemDraw } from './canvasItemDrawOrder'
 
 /**
@@ -17,27 +17,19 @@ export function useChromeSlices(
   canvasItemDraws: CanvasItemDraw[]
   chromeGroups: NonNullable<ProjectedLayoutData['groups']>
 } {
-  const focus = focusContext(layoutData)
+  const { active, pageId, mode, showsContext } = focusContext(layoutData)
   // Eye off during focus: group backgrounds are context, hidden, never dimmed (ADR 0021).
-  const hideContext = focus.active && !focus.showsContext
   const chromeGroups = useMemo(
-    () => (hideContext ? [] : (layoutData.groups ?? [])),
-    [hideContext, layoutData.groups],
+    () => (showsContext ? (layoutData.groups ?? []) : []),
+    [showsContext, layoutData.groups],
   )
-  const presentationInputs: PagePresentationInputs = useMemo(
-    () => ({
-      focus: {
-        pageId: focus.pageId,
-        mode: focus.mode,
-        annotationsVisible: focus.data?.annotationsVisible ?? false,
-        active: focus.active,
-      },
-    }),
-    [focus.pageId, focus.mode, focus.active, focus.data?.annotationsVisible],
+  const focus: PagePresentationFocus = useMemo(
+    () => ({ active, pageId, mode, showsContext }),
+    [active, pageId, mode, showsContext],
   )
   const canvasItemDraws = useMemo(
-    () => orderCanvasItemDraws(layoutData.entities, presentationInputs),
-    [layoutData.entities, presentationInputs],
+    () => orderCanvasItemDraws(layoutData.entities, focus),
+    [layoutData.entities, focus],
   )
   return { canvasItemDraws, chromeGroups }
 }

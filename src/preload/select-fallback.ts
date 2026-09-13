@@ -102,7 +102,7 @@ function isMenulist(node: Element | null): node is HTMLSelectElement {
   return !node.multiple && node.size <= 1 && !node.disabled
 }
 
-function readOptions(select: HTMLSelectElement): { options: SelectOptionLike[] } {
+function readOptions(select: HTMLSelectElement): SelectOptionLike[] {
   const options: SelectOptionLike[] = []
   for (const option of select.options) {
     const group =
@@ -110,14 +110,13 @@ function readOptions(select: HTMLSelectElement): { options: SelectOptionLike[] }
     options.push({
       label: option.label,
       text: option.text,
-      value: option.value,
       disabled: option.disabled,
       selected: option.selected,
       groupLabel: group?.label ?? null,
       groupDisabled: group?.disabled ?? false,
     })
   }
-  return { options }
+  return options
 }
 
 // `!important` throughout so a page-wide reset (`* { position: static }`,

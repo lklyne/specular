@@ -48,7 +48,6 @@ import {
 } from './inspect-session'
 import { clearPendingRequestsForPage } from './page-ipc'
 import { sendInteractiveState } from './overlay-manager'
-import { broadcastCanvasZoomToPages } from './viewport-control'
 import { invalidateAgentSnapshot } from './agent-snapshot-cache'
 import {
   isNavigationSuppressed,
@@ -221,7 +220,6 @@ export function createPage(config: PageConfig): Page {
     syncInspectionState()
     page.host.webContents.send(ipcChannels.setAnnotateMode, toolAnnotateOverlay(uiActiveTool()))
     sendInteractiveState()
-    broadcastCanvasZoomToPages()
     const overrides = pageOverridesFromMetadata(page.metadata)
     if (overrides) {
       page.host.webContents.send(ipcChannels.applyPageOverrides, overrides)

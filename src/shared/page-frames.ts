@@ -13,20 +13,13 @@ export interface PageFrameMeta {
   /** CSS viewport size of the page when this frame was painted. */
   cssWidth: number
   cssHeight: number
-  /** The rect Electron reported dirty for this paint, in device pixels. It
-   *  never carries a popup's position: a popup's own paints are popup-local. */
-  dirtyRect: { x: number; y: number; width: number; height: number }
-  frameCount: number | null
 }
 
-/**
- * Posted by the canvas-bg preload to the page world with a transferred
- * `bitmap: ImageBitmap` attached.
- */
+/** Posted by the canvas-bg preload to the page world, the bitmap transferred with it. */
 export interface PageFrameMessage {
   source: 'page-frame'
-  kind: 'frame'
   meta: PageFrameMeta
+  bitmap: ImageBitmap
 }
 
 /** A focused element's rect in page CSS px — the point a popup widget hangs from. */

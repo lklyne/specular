@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { orderCanvasItemDraws, type CanvasItemDraw } from '../../src/renderer/canvas-bg/canvasItemDrawOrder'
-import type { PagePresentationInputs } from '../../src/shared/page-presentation'
+import type { PagePresentationFocus } from '../../src/shared/page-presentation'
 import type { ProjectedSceneEntity } from '../../src/shared/scene-projection'
 
 function page(id: string, showDeviceFrame = false): ProjectedSceneEntity {
@@ -20,16 +20,9 @@ function file(id: string, showDeviceFrame: boolean): ProjectedSceneEntity {
   return { kind: 'file', id, showDeviceFrame } as unknown as ProjectedSceneEntity
 }
 
-function presentation(focus: Partial<PagePresentationInputs['focus']>): PagePresentationInputs {
-  return {
-    focus: {
-      pageId: null,
-      mode: null,
-      annotationsVisible: false,
-      active: false,
-      ...focus,
-    },
-  }
+function presentation(focus: Partial<PagePresentationFocus>): PagePresentationFocus {
+  const active = focus.active ?? false
+  return { active, pageId: null, mode: null, showsContext: !active, ...focus }
 }
 
 function summary(draws: CanvasItemDraw[]) {
@@ -50,7 +43,7 @@ describe('orderCanvasItemDraws', () => {
     const entities = [page('a'), page('b'), page('c')]
     const draws = orderCanvasItemDraws(
       entities,
-      presentation({ active: true, pageId: 'b', mode: 'fit', annotationsVisible: true }),
+      presentation({ active: true, pageId: 'b', mode: 'fit', showsContext: true }),
     )
     expect(draws.map((draw) => draw.item.id)).toEqual(['a', 'c', 'b'])
   })

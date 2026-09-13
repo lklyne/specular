@@ -8,7 +8,7 @@ import {
 } from '../runtime/runtime-geometry'
 import {
   findPageById,
-  findPageByPageView,
+  findPageByWebContents,
   getComponentSourceLocationByNodeId,
   handlePageIpcResponse,
   handleNodeDetailResponse,
@@ -129,7 +129,7 @@ export function registerAnnotationInspectionIpc(): void {
   )
 
   ipcMain.on(ipcChannels.inspectNodeHover, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page) return
     if (!payload || typeof payload !== 'object') {
       setHoveredInspectTarget(null)
@@ -146,7 +146,7 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(ipcChannels.inspectNodeSelect, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page) return
     if (!payload || typeof payload !== 'object') {
       setSelectedInspectTarget(null)
@@ -163,7 +163,7 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(ipcChannels.inspectNodeDetailUpdate, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page || !payload || typeof payload !== 'object') return
     const raw = payload as { nodeId?: string; id?: string }
     const nodeId = raw.nodeId ?? raw.id
@@ -219,7 +219,7 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(ipcChannels.inspectTreeUpdate, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page || !Array.isArray(payload)) return
     page.componentTree = payload as ComponentTreeNode[]
   })

@@ -1,9 +1,8 @@
 /**
  * Page input forwarding — translate window-space pointer/wheel events from
- * aboveView into Electron `sendInputEvent` calls on the target page's page
- * webContents, and DOM key events into CDP `Input` calls. PoC for the
- * "aboveView is the always-visible interactive layer" endpoint
- * (docs/plans/aboveview-interactive-layer-poc.md).
+ * aboveView into Electron `sendInputEvent` calls on the target page's
+ * webContents, and DOM key events into CDP `Input` calls. Pages render
+ * offscreen, so aboveView is the only surface that receives OS input.
  *
  * Pure plumbing: caller gives us window-space coords (the same coordinate
  * page the canvas-pointer-router already speaks); we resolve the target

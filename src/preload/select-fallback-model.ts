@@ -10,7 +10,6 @@ export type SelectOptionLike = {
   /** `label` attribute when present; the native menulist prefers it over text. */
   label?: string
   text: string
-  value: string
   disabled?: boolean
   selected?: boolean
   /** Label of the enclosing `<optgroup>`, if any. */
@@ -19,14 +18,9 @@ export type SelectOptionLike = {
   groupDisabled?: boolean
 }
 
-export type SelectLike = {
-  options: ArrayLike<SelectOptionLike>
-}
-
 export type SelectFallbackItem = {
   kind: 'option' | 'group'
   label: string
-  value?: string
   /** True for group headers, disabled options, and options in a disabled group. */
   disabled: boolean
   /** Index into `select.options` for an option; -1 for a group header. */
@@ -58,13 +52,13 @@ function optionLabel(option: SelectOptionLike): string {
  * Flatten a menulist into the rows the dropdown paints: one row per option,
  * preceded by a non-selectable header row wherever an `<optgroup>` starts.
  */
-export function selectFallbackModel(select: SelectLike): SelectFallbackModel {
+export function selectFallbackModel(options: ArrayLike<SelectOptionLike>): SelectFallbackModel {
   const items: SelectFallbackItem[] = []
   let selectedIndex = -1
   let openGroup: string | null = null
 
-  for (let i = 0; i < select.options.length; i += 1) {
-    const option = select.options[i]
+  for (let i = 0; i < options.length; i += 1) {
+    const option = options[i]
     const groupLabel = option.groupLabel ?? null
     if (groupLabel !== openGroup) {
       openGroup = groupLabel
@@ -76,7 +70,6 @@ export function selectFallbackModel(select: SelectLike): SelectFallbackModel {
     items.push({
       kind: 'option',
       label: optionLabel(option),
-      value: option.value,
       disabled: Boolean(option.disabled) || Boolean(option.groupDisabled),
       index: i,
     })

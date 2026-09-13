@@ -62,6 +62,7 @@ import {
   setDomInspectionEnabled,
 } from './dom-inspection'
 import { installSelectFallback } from './select-fallback'
+import { isHttpOrFileUrl } from '../shared/url'
 import {
   applyIncomingLinkedScroll,
   clearScrollSuppression,
@@ -319,11 +320,6 @@ ipcRenderer.on(ipcChannels.setInteractive, (_event, value: boolean) => {
   }
   applyInteractiveState()
 })
-
-// Canvas zoom only ever scaled the page's own wheel forwarding, which no
-// longer exists. The listener stays registered until main's broadcast is
-// retired so the channel keeps a consumer while both sides land separately.
-ipcRenderer.on(ipcChannels.setCanvasZoom, () => {})
 
 ipcRenderer.on(ipcChannels.setMultiSelected, (_event, value: boolean) => {
   selectionDebug('ipc:set-multi-selected', { value })
@@ -795,21 +791,13 @@ window.addEventListener('resize', () => {
 // release point (reported by aboveView's pointer forwarding) lands outside
 // this page, materialize it as a canvas entity instead.
 function resolveDragLinkUrl(dataTransfer: DataTransfer, target: Element | null): string | null {
-  const isHttpOrFileUrl = (value: string): boolean => {
-    try {
-      const url = new URL(value, window.location.href)
-      return url.protocol === 'http:' || url.protocol === 'https:' || url.protocol === 'file:'
-    } catch {
-      return false
-    }
-  }
   const uriList = dataTransfer.getData('text/uri-list')
   if (uriList) {
     const line = uriList.split(/\r?\n/).find((entry) => entry && !entry.startsWith('#'))
-    if (line && isHttpOrFileUrl(line)) return line
+    if (line && isHttpOrFileUrl(line, window.location.href)) return line
   }
   const anchor = target?.closest('a[href]') as HTMLAnchorElement | null
-  if (anchor?.href && isHttpOrFileUrl(anchor.href)) return anchor.href
+  if (anchor?.href && isHttpOrFileUrl(anchor.href, window.location.href)) return anchor.href
   return null
 }
 

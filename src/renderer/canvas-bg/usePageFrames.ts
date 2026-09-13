@@ -4,7 +4,6 @@ import type { PageFrameMessage, PageFrameMeta, PagePopupAnchor } from '../../sha
 export interface PageFrame {
   bitmap: ImageBitmap
   meta: PageFrameMeta
-  receivedAt: number
 }
 
 export interface PagePopup extends PageFrame {
@@ -62,12 +61,9 @@ export function usePageFrames(
       })
     }
     const handleMessage = (event: MessageEvent) => {
-      const data = event.data as (PageFrameMessage & { bitmap: ImageBitmap }) | null
-      if (!data || typeof data !== 'object' || data.source !== 'page-frame' || data.kind !== 'frame') {
-        return
-      }
+      const data = event.data as PageFrameMessage | null
+      if (data?.source !== 'page-frame') return
       const { meta, bitmap } = data
-      const now = performance.now()
       if (meta.widgetType === 'popup') {
         const previous = store.popups.get(meta.pageId)
         previous?.bitmap.close()
@@ -77,18 +73,17 @@ export function usePageFrames(
         } else if (previous) {
           previous.bitmap = bitmap
           previous.meta = meta
-          previous.receivedAt = now
           previous.closingSince = null
         } else {
-          const popup: PagePopup = { bitmap, meta, receivedAt: now, anchor: null, closingSince: null }
+          const popup: PagePopup = { bitmap, meta, anchor: null, closingSince: null }
           store.popups.set(meta.pageId, popup)
           resolveAnchor(meta.pageId, popup)
         }
       } else {
         store.frames.get(meta.pageId)?.bitmap.close()
-        store.frames.set(meta.pageId, { bitmap, meta, receivedAt: now })
+        store.frames.set(meta.pageId, { bitmap, meta })
         const popup = store.popups.get(meta.pageId)
-        if (popup && popup.closingSince === null) popup.closingSince = now
+        if (popup && popup.closingSince === null) popup.closingSince = performance.now()
       }
       onFrameRef.current()
     }

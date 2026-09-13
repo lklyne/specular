@@ -261,9 +261,8 @@ export function registerCanvasIpc(): void {
     setHoveredPage(pageId)
   })
 
-  // PoC: aboveView forwards wheel/pointer events that hit the body of the
+  // aboveView forwards wheel/pointer events that hit the body of the
   // single-selected page so the page reacts as if clicked/scrolled directly.
-  // See docs/plans/aboveview-interactive-layer-poc.md.
   ipcMain.on(
     ipcChannels.canvasForwardWheel,
     (_event, { pageId, payload }: { pageId: string; payload: ForwardWheelPayload }) => {

@@ -12,6 +12,7 @@
 
 import { net } from 'electron'
 import type { PageDragPayload } from '../../shared/types'
+import { isHttpOrFileUrl } from '../../shared/url'
 import { ipcChannels } from '../../shared/ipc-contract'
 import { findPageById } from './runtime-context'
 import { aboveView } from './view-refs'
@@ -97,15 +98,6 @@ export async function dropPageDragOnCanvas(input: {
   const { width, height } = imageSizeFromBuffer(buffer)
   const entity = createFileEntity({ canvasX: input.canvasX, canvasY: input.canvasY, file, width, height })
   return { createdId: entity.id }
-}
-
-function isHttpOrFileUrl(value: string): boolean {
-  try {
-    const protocol = new URL(value).protocol
-    return protocol === 'http:' || protocol === 'https:' || protocol === 'file:'
-  } catch {
-    return false
-  }
 }
 
 /** `net.fetch` doesn't support `data:` (Electron limitation), so that scheme

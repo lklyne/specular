@@ -48,8 +48,6 @@ export interface PageHostStats {
 export interface PageHost {
   readonly id: string
   readonly webContents: WebContents
-  /** CSS viewport size the offscreen window currently has. */
-  readonly size: { width: number; height: number }
   /** The layout pass's verdict: is anyone looking at this page? */
   readonly painting: boolean
   /** The idle policy's verdict: is anyone looking at the app? */
@@ -119,23 +117,19 @@ class OffscreenPageHost implements PageHost {
       },
     })
     this.activeFrameRate = this.win.webContents.getFrameRate()
-    this.win.webContents.on('paint', (event, dirtyRect) => {
+    this.win.webContents.on('paint', (event) => {
       if (this.win.isDestroyed()) return
       const texture = (event as Electron.Event<Electron.WebContentsPaintEventParams>).texture
       if (!texture) {
         this.stats.framesWithoutTexture++
         return
       }
-      this.deliver(texture, dirtyRect)
+      this.deliver(texture)
     })
   }
 
   get webContents(): WebContents {
     return this.win.webContents
-  }
-
-  get size(): { width: number; height: number } {
-    return this.currentSize
   }
 
   get painting(): boolean {
@@ -168,6 +162,19 @@ class OffscreenPageHost implements PageHost {
     this.applyPainting()
   }
 
+  /**
+   * Send a fresh frame of an unchanged page, if it paints at all.
+   * `invalidate()` alone can emit a paint with no shared texture for an
+   * unchanged document; restarting capture forces a GPU frame.
+   */
+  requestFrame(): void {
+    if (this.win.isDestroyed() || !this.isPainting || this.isIdle) return
+    const contents = this.win.webContents
+    contents.stopPainting()
+    contents.startPainting()
+    contents.invalidate()
+  }
+
   /** A page paints only when both someone is looking at it and at the app. */
   private applyPainting(): void {
     const contents = this.win.webContents
@@ -191,10 +198,7 @@ class OffscreenPageHost implements PageHost {
     return this.win.isDestroyed()
   }
 
-  private deliver(
-    texture: Electron.OffscreenSharedTexture,
-    dirtyRect: Electron.Rectangle,
-  ): void {
+  private deliver(texture: Electron.OffscreenSharedTexture): void {
     const paintedAt = performance.now()
     const stats = this.stats
     const target = frameTarget
@@ -220,13 +224,6 @@ class OffscreenPageHost implements PageHost {
       height: info.codedSize.height,
       cssWidth: this.currentSize.width,
       cssHeight: this.currentSize.height,
-      frameCount: info.metadata.frameCount ?? null,
-      dirtyRect: {
-        x: dirtyRect.x,
-        y: dirtyRect.y,
-        width: dirtyRect.width,
-        height: dirtyRect.height,
-      },
     }
 
     let released = false
@@ -275,12 +272,7 @@ export function requestPageFrames(sender: WebContents, pageIds: readonly string[
   if (sender !== frameTarget || sender.isDestroyed()) return
   const requested = new Set(pageIds)
   for (const host of hosts) {
-    if (!requested.has(host.id) || host.isDestroyed() || !host.painting || host.idle) continue
-    // invalidate() alone can emit a paint with no shared texture for an
-    // unchanged document. Restarting capture forces a fresh GPU frame.
-    host.webContents.stopPainting()
-    host.webContents.startPainting()
-    host.webContents.invalidate()
+    if (requested.has(host.id)) host.requestFrame()
   }
 }
 

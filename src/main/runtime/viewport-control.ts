@@ -1,6 +1,5 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. space-autosave → space-observers import viewport-control back
-import { ipcChannels } from '../../shared/ipc-contract'
 import {
   cameraTransitionStartedAt,
   interactivePageId,
@@ -45,7 +44,6 @@ import {
 import { scheduleSpaceAutosave } from './space-autosave'
 import { broadcastRuntimePatch } from './runtime-patch-broadcast'
 import { broadcastFocusChange } from './runtime-slice-broadcast'
-import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
 import {
   FOCUS_VIEWPORT_PADDING_PX,
@@ -103,7 +101,6 @@ export function setViewportCamera(
   // so a component view never lags its chrome.
   layoutAllViews()
   broadcastCamera()
-  if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
 }
 
@@ -134,12 +131,6 @@ function broadcastCamera(): void {
 
 export function setZoom(value: number): void {
   setViewportCamera(value, pan)
-}
-
-export function broadcastCanvasZoomToPages(): void {
-  for (const page of pages) {
-    safeSend(page.host.webContents, ipcChannels.setCanvasZoom, zoom)
-  }
 }
 
 export function setPan(x: number, y: number): void {

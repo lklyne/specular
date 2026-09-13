@@ -321,7 +321,6 @@ export interface IpcContract {
   'right-details-panel-update-edge': { dir: 'renderer→main'; payload: unknown }
   'runtime-patch': { dir: 'main→renderer'; payload: RuntimePatchBatch }
   'set-annotate-mode': { dir: 'main→renderer'; payload: unknown }
-  'set-canvas-zoom': { dir: 'main→renderer'; payload: unknown }
   'set-design-system-manifest': { dir: 'main→renderer'; payload: unknown }
   'set-inspection-mode': { dir: 'main→renderer'; payload: unknown }
   'set-interaction-sync-capture': { dir: 'main→renderer'; payload: InteractionSyncCapturePayload }
@@ -652,7 +651,6 @@ export const ipcChannels = {
   rightDetailsPanelUpdateEdge: 'right-details-panel-update-edge',
   runtimePatch: 'runtime-patch',
   setAnnotateMode: 'set-annotate-mode',
-  setCanvasZoom: 'set-canvas-zoom',
   setDesignSystemManifest: 'set-design-system-manifest',
   setInspectionMode: 'set-inspection-mode',
   setInteractionSyncCapture: 'set-interaction-sync-capture',

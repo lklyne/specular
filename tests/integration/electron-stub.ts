@@ -192,18 +192,12 @@ class FakeWebContentsView {
  * layout pass stays dormant).
  */
 class FakeBrowserWindow extends EventEmitter {
-  static lastOptions: unknown = null
-
   webContents = new FakeWebContents()
 
   private destroyed = false
-  private size = { width: 0, height: 0 }
 
-  constructor(options?: unknown) {
+  constructor() {
     super()
-    FakeBrowserWindow.lastOptions = options
-    const opts = (options ?? {}) as { width?: number; height?: number }
-    this.size = { width: opts.width ?? 0, height: opts.height ?? 0 }
     return withNoopFallback(this)
   }
 
@@ -214,22 +208,6 @@ class FakeBrowserWindow extends EventEmitter {
   destroy(): void {
     this.destroyed = true
     this.webContents.emit('destroyed')
-  }
-
-  setSize(width: number, height: number): void {
-    this.size = { width, height }
-  }
-
-  setContentSize(width: number, height: number): void {
-    this.size = { width, height }
-  }
-
-  getSize(): [number, number] {
-    return [this.size.width, this.size.height]
-  }
-
-  getContentSize(): [number, number] {
-    return [this.size.width, this.size.height]
   }
 }
 

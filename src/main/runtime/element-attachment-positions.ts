@@ -1,6 +1,6 @@
 import type { WebContents } from 'electron'
 import type { ElementAttachmentPositionsUpdate } from '../../shared/types'
-import { findPageByPageView } from './page-runtime'
+import { findPageByWebContents } from './page-runtime'
 
 type LivePosition = { docX: number; docY: number; viewportPositioned?: boolean }
 type PositionUpdate = ElementAttachmentPositionsUpdate['positions'][number]
@@ -32,7 +32,7 @@ export function applyElementAttachmentPositions(
   sender: WebContents,
   data: ElementAttachmentPositionsUpdate | undefined,
 ): boolean {
-  const page = findPageByPageView(sender)
+  const page = findPageByWebContents(sender)
   if (!page) return false
   const positions = Array.isArray(data?.positions) ? data.positions : []
   if (!positions.length) return false

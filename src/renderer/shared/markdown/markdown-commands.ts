@@ -9,7 +9,7 @@
  */
 
 import { syntaxTree } from '@codemirror/language'
-import { EditorSelection, type EditorState, type StateCommand } from '@codemirror/state'
+import { EditorSelection, type ChangeSpec, type EditorState, type StateCommand } from '@codemirror/state'
 import type { KeyBinding } from '@codemirror/view'
 import { BULLET_LINE } from './bullet-line'
 
@@ -166,6 +166,23 @@ export function selectedLineNumbers(state: EditorState): Set<number> {
   return lines
 }
 
+/** Apply line edits as typed input, carrying the selection through them and into view. */
+function dispatchLineEdits(
+  state: EditorState,
+  dispatch: Parameters<StateCommand>[0]['dispatch'],
+  changes: ChangeSpec,
+): void {
+  const changeSet = state.changes(changes)
+  dispatch(
+    state.update({
+      changes: changeSet,
+      selection: state.selection.map(changeSet),
+      scrollIntoView: true,
+      userEvent: 'input',
+    }),
+  )
+}
+
 /**
  * Toggle every non-blank line spanned by the selection between bulleted and
  * plain: strips the marker when every such line already has one, otherwise
@@ -194,15 +211,7 @@ export const toggleBulletList: StateCommand = ({ state, dispatch }) => {
   }
   if (changes.length === 0) return true
 
-  const changeSet = state.changes(changes)
-  dispatch(
-    state.update({
-      changes: changeSet,
-      selection: state.selection.map(changeSet),
-      scrollIntoView: true,
-      userEvent: 'input',
-    }),
-  )
+  dispatchLineEdits(state, dispatch, changes)
   return true
 }
 
@@ -221,15 +230,7 @@ export const indentBulletList: StateCommand = ({ state, dispatch }) => {
   const bulleted = lines.filter((line) => BULLET_LINE.test(line.text))
   if (bulleted.length === 0) return false
 
-  const changeSet = state.changes(bulleted.map((line) => ({ from: line.from, insert: BULLET_INDENT_UNIT })))
-  dispatch(
-    state.update({
-      changes: changeSet,
-      selection: state.selection.map(changeSet),
-      scrollIntoView: true,
-      userEvent: 'input',
-    }),
-  )
+  dispatchLineEdits(state, dispatch, bulleted.map((line) => ({ from: line.from, insert: BULLET_INDENT_UNIT })))
   return true
 }
 
@@ -254,15 +255,7 @@ export const outdentBulletList: StateCommand = ({ state, dispatch }) => {
   }
   if (changes.length === 0) return true
 
-  const changeSet = state.changes(changes)
-  dispatch(
-    state.update({
-      changes: changeSet,
-      selection: state.selection.map(changeSet),
-      scrollIntoView: true,
-      userEvent: 'input',
-    }),
-  )
+  dispatchLineEdits(state, dispatch, changes)
   return true
 }
 

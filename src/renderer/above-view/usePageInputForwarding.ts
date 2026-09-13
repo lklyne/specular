@@ -125,17 +125,16 @@ export function usePageInputForwarding({
     }
   }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement, setPlacementCursor])
 
-  // PoC: mirror the focused page's `cursor-changed` onto aboveView's body so
-  // the OS shows the right cursor (hand on links, I-beam on text, etc.). The
-  // OS picks cursor from the topmost WCV at the pointer location, which is
-  // aboveView whenever the canvas-mode gate is open.
+  // Mirror the focused page's `cursor-changed` onto aboveView's body so the OS
+  // shows the right cursor (hand on links, I-beam on text, etc.). The OS picks
+  // the cursor from aboveView, which sits above every page.
   useEffect(() => {
     return api.onPageCursorChange(({ type }) => {
       document.body.style.cursor = electronCursorToCss(type)
     })
   }, [api])
 
-  // PoC: continuous hover forwarding into a page's body so cursor styling
+  // Continuous hover forwarding into a page's body so cursor styling
   // (link → hand, text → I-beam) and hover-driven UI react without requiring a
   // button-down. The router's `runForwardPointer` already forwards moves while
   // a button is held, so this listener only fires when no buttons are pressed

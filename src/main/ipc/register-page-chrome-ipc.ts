@@ -18,7 +18,7 @@ import {
   deselectAll,
 } from '../runtime/ui-actions'
 import {
-  findPageByPageView,
+  findPageByWebContents,
 } from '../runtime/page-runtime'
 import { win } from '../runtime/window-shell'
 import {
@@ -54,13 +54,13 @@ export function registerPageChromeIpc(): void {
   // aboveView's forwarded pointer-up can turn a release outside the page
   // into a canvas entity.
   ipcMain.on(ipcChannels.pageDragStart, (event, payload: PageDragPayload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page) return
     armPageDrag(page.id, payload)
   })
 
   ipcMain.on(ipcChannels.pageScrollChanged, (event, data: ScrollSyncData) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page || !page.syncId) return
     if (isScrollSuppressed(page)) return
     propagateScrollFromPage(page, data)
@@ -73,7 +73,7 @@ export function registerPageChromeIpc(): void {
   ipcMain.on(
     ipcChannels.pageScrollOffset,
     (event, data: { scrollX: number; scrollY: number; scrollHeight: number }) => {
-      const page = findPageByPageView(event.sender)
+      const page = findPageByWebContents(event.sender)
       if (!page) return
       if (
         page.scrollX === data.scrollX &&
@@ -141,7 +141,7 @@ export function registerPageChromeIpc(): void {
   })
 
   ipcMain.on(ipcChannels.peekResizeStart, (event) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page) return
     const vp = VIEWPORT_PRESETS[page.presetIndex]
     page.peekWidth = vp.width
@@ -149,7 +149,7 @@ export function registerPageChromeIpc(): void {
   })
 
   ipcMain.on(ipcChannels.peekResizeMove, (event, { dx, dy }: { dx: number; dy: number }) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page || page.peekWidth === undefined || page.peekHeight === undefined) return
     page.peekWidth = Math.max(320, Math.round(page.peekWidth + dx / zoom))
     page.peekHeight = Math.max(200, Math.round(page.peekHeight + dy / zoom))
@@ -157,7 +157,7 @@ export function registerPageChromeIpc(): void {
   })
 
   ipcMain.on(ipcChannels.peekResizeEnd, (event) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page) return
     page.peekWidth = undefined
     page.peekHeight = undefined

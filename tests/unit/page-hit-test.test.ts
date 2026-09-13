@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  decidePageDragOutcome,
   pageContentRect,
+  pageDragDropsOnCanvas,
   pointerOverPageContent,
 } from '../../src/shared/page-hit-test'
-import type { CanvasScenePageEntity, PageDragPayload } from '../../src/shared/types'
+import type { CanvasScenePageEntity } from '../../src/shared/types'
 
 function page(overrides: Partial<CanvasScenePageEntity> & { id: string }): CanvasScenePageEntity {
   const screenX = overrides.screenX ?? 200
@@ -104,26 +104,20 @@ describe('pointerOverPageContent', () => {
   })
 })
 
-describe('decidePageDragOutcome — ADR 0038 drag-out release decision', () => {
+describe('pageDragDropsOnCanvas — ADR 0038 drag-out release decision', () => {
   const p = page({ id: 'p1', screenX: 200, screenY: 200, screenWidth: 400, screenHeight: 300 })
-  const textPayload: PageDragPayload = { kind: 'text', text: 'hello' }
 
-  it('is "none" when no drag is armed, regardless of release point or page', () => {
-    expect(decidePageDragOutcome(null, { x: 300, y: 300 }, p)).toBe('none')
-    expect(decidePageDragOutcome(null, { x: 900, y: 900 }, null)).toBe('none')
-  })
-
-  it('is "release-in-page" when armed and the release point is inside the page content rect', () => {
+  it('keeps a release inside the page content rect in the page', () => {
     // Verified against the mutation of flipping `pointerOverPageContent`'s
     // rectContains call to strict inequality — this case fails without it.
-    expect(decidePageDragOutcome(textPayload, { x: 300, y: 300 }, p)).toBe('release-in-page')
+    expect(pageDragDropsOnCanvas({ x: 300, y: 300 }, p)).toBe(false)
   })
 
-  it('is "drop-on-canvas" when armed and the release point is outside the page content rect', () => {
-    expect(decidePageDragOutcome(textPayload, { x: 900, y: 900 }, p)).toBe('drop-on-canvas')
+  it('drops on the canvas when the release point is outside the page content rect', () => {
+    expect(pageDragDropsOnCanvas({ x: 900, y: 900 }, p)).toBe(true)
   })
 
-  it('is "drop-on-canvas" when armed and the source page is no longer projected', () => {
-    expect(decidePageDragOutcome(textPayload, { x: 300, y: 300 }, null)).toBe('drop-on-canvas')
+  it('drops on the canvas when the source page is no longer projected', () => {
+    expect(pageDragDropsOnCanvas({ x: 300, y: 300 }, null)).toBe(true)
   })
 })

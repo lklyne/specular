@@ -17,7 +17,7 @@ import { safeSend } from './runtime/safe-send'
 import {
   type Page,
   pages,
-  findPageByPageView,
+  findPageByWebContents,
 } from './runtime/page-runtime'
 import {
   interactivePageId,
@@ -232,7 +232,7 @@ export function handleInteractionSyncEvent(
   sender: WebContents,
   event: InteractionSyncEvent,
 ): void {
-  const source = findPageByPageView(sender)
+  const source = findPageByWebContents(sender)
   if (!source) return
   if (interactivePageId() !== source.id) return
   if (automationInteractivePageCounts.has(source.id)) return
@@ -307,7 +307,7 @@ export function handleResolveInteractionLocatorResponse(
   sender: WebContents,
   response: LocatorResolveResponse,
 ): void {
-  const peer = findPageByPageView(sender)
+  const peer = findPageByWebContents(sender)
   if (!peer) return
   if (automationInteractivePageCounts.has(peer.id)) return
 

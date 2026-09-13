@@ -22,7 +22,7 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { AnnotationBboxReport, AnnotationBboxSubscription } from '../../shared/types'
 import { pages } from '../runtime/page-runtime'
-import { findPageByPageView } from '../runtime/runtime-context'
+import { findPageByWebContents } from '../runtime/runtime-context'
 import { boundEffectivePageContentSize, boundScreenBoundsForPage } from '../runtime/runtime-geometry'
 import { intersectRegionWithPage, pointerInPage } from '../runtime/comment-hover-math'
 import { safeSend } from '../runtime/safe-send'
@@ -220,7 +220,7 @@ export function registerCommentHoverIpc(): void {
   ipcMain.on(
     ipcChannels.annotationBboxUpdate,
     (event, payload: { updates?: AnnotationBboxReport[] } | undefined) => {
-      const page = findPageByPageView(event.sender)
+      const page = findPageByWebContents(event.sender)
       if (!page) return
       const updates = Array.isArray(payload?.updates) ? payload.updates : []
       if (!updates.length) return

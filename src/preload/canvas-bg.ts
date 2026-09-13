@@ -19,8 +19,8 @@ import { on } from './ipc-helpers'
  * the receiver there never fires.
  */
 function postPageFrame(meta: PageFrameMeta, bitmap: ImageBitmap): void {
-  const message: PageFrameMessage = { source: 'page-frame', kind: 'frame', meta }
-  window.postMessage({ ...message, bitmap }, '*', [bitmap])
+  const message: PageFrameMessage = { source: 'page-frame', meta, bitmap }
+  window.postMessage(message, '*', [bitmap])
 }
 
 sharedTexture.setSharedTextureReceiver(async (data, ...args) => {

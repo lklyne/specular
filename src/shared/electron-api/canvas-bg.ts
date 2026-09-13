@@ -260,10 +260,10 @@ export interface CanvasBgElectronAPI {
   onBindingFire: (callback: (id: BindingId) => void) => () => void
   onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the
-   *  page's webContents (aboveview-interactive-layer-poc.md). */
+   *  page's webContents. */
   forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void
-  /** PoC: forward a pointer event hitting the single-selected page's body
-   *  to the page's webContents. */
+  /** Forward a pointer event hitting the single-selected page's body to the
+   *  page's webContents. */
   forwardPointerToPage: (pageId: string, payload: ForwardPointerPayload) => void
   /** Forward a key event from aboveView's keyboard sink into the page that
    *  owns the keyboard. A page renders offscreen and never receives an OS key
@@ -279,9 +279,8 @@ export interface CanvasBgElectronAPI {
   /** Consume the armed drag-out payload for `pageId` and create a canvas
    *  entity at the release point (ADR 0038 drag-out). */
   dropPageDrag: (payload: { pageId: string; canvasX: number; canvasY: number }) => void
-  /** PoC: subscribe to the focused page's `cursor-changed` mirror so the
-   *  OS cursor (chosen from aboveView, the topmost WCV) tracks what the
-   *  underlying page would show. */
+  /** Subscribe to the focused page's `cursor-changed` mirror so the OS
+   *  cursor, chosen from aboveView, tracks what the page would show. */
   onPageCursorChange: (
     callback: (data: { type: string | null }) => void,
   ) => () => void

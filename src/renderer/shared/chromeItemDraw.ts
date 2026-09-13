@@ -240,20 +240,24 @@ export function drawItemChrome(
 }
 
 /**
- * A page's texture, clipped to the content viewport's corner radius. Painted
- * where the live WebContentsView used to sit in the native stack: it
- * occludes the inner border ring and the bezel's drop shadow, which a shadowed
- * donut casts into its own cutout as well as outward.
+ * A page's texture in its content rect, clipped to the content viewport's
+ * corner radius. It occludes the inner border ring and the bezel's drop
+ * shadow, which a shadowed donut casts into its own cutout as well as outward.
  */
 export function drawItemSnapshot(
   ctx: CanvasRenderingContext2D,
   g: ItemGeometry,
   bitmap: ImageBitmap,
 ): void {
-  ctx.save()
-  ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
+  // A shell-less page has square corners, so its rect needs no clip path.
+  if (g.innerRadius <= 0) {
+    ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+    return
+  }
+  ctx.save()
+  ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
   ctx.restore()
 }

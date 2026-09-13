@@ -92,7 +92,7 @@ import { runtimeStore } from '../shared/runtime-store'
 import { GROUP_LABEL_FONT } from '../../shared/group-label-geometry'
 import type { EdgeSide, PageDragPayload, SelectionModifiers } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { decidePageDragOutcome } from '../../shared/page-hit-test'
+import { pageDragDropsOnCanvas } from '../../shared/page-hit-test'
 import {
   startOptionAwareEntityDrag,
   startOptionAwareGroupDrag,
@@ -1155,8 +1155,7 @@ function runForwardPointer(
   const updateDragCursor = (ev: PointerEvent) => {
     if (!armedDrag) return
     const point = { x: ev.clientX, y: clientYToWindowY(ev.clientY, layoutRef.current) }
-    const outcome = decidePageDragOutcome(armedDrag, point, findPage())
-    document.body.style.cursor = outcome === 'drop-on-canvas' ? 'copy' : ''
+    document.body.style.cursor = pageDragDropsOnCanvas(point, findPage()) ? 'copy' : ''
   }
   const endDrag = () => {
     unsubscribeDragArmed()
@@ -1185,11 +1184,10 @@ function runForwardPointer(
     },
     onUp: (ev) => {
       const point = { x: ev.clientX, y: clientYToWindowY(ev.clientY, layoutRef.current) }
-      const outcome = decidePageDragOutcome(armedDrag, point, findPage())
-      // The page still gets its mouseUp regardless of outcome — otherwise a
-      // drop-on-canvas leaves it with a phantom held button.
+      // The page still gets its mouseUp wherever the release lands — otherwise
+      // a drop on the canvas leaves it with a phantom held button.
       sendUp(ev)
-      if (outcome === 'drop-on-canvas' && armedDrag) {
+      if (armedDrag && pageDragDropsOnCanvas(point, findPage())) {
         const canvasPoint = screenPointToCanvasPoint(ev.clientX, ev.clientY, layoutRef.current)
         api.dropPageDrag({
           pageId: entityId,

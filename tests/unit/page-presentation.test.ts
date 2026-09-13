@@ -6,19 +6,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   isPagePresented,
-  type PagePresentationInputs,
+  type PagePresentationFocus,
 } from '../../src/shared/page-presentation'
 
-function inputs(focus: Partial<PagePresentationInputs['focus']>): PagePresentationInputs {
-  return {
-    focus: {
-      pageId: null,
-      mode: null,
-      annotationsVisible: false,
-      active: false,
-      ...focus,
-    },
-  }
+function inputs(focus: Partial<PagePresentationFocus>): PagePresentationFocus {
+  const active = focus.active ?? false
+  return { active, pageId: null, mode: null, showsContext: !active, ...focus }
 }
 
 describe('isPagePresented', () => {
@@ -36,14 +29,14 @@ describe('isPagePresented', () => {
 
   it('shows other pages with the eye on outside fill mode', () => {
     for (const mode of ['fit', 'device'] as const) {
-      const state = inputs({ active: true, pageId: 'a', mode, annotationsVisible: true })
+      const state = inputs({ active: true, pageId: 'a', mode, showsContext: true })
       expect(isPagePresented('a', state)).toBe(true)
       expect(isPagePresented('b', state)).toBe(true)
     }
   })
 
   it('keeps other pages hidden with the eye on in fill mode', () => {
-    const state = inputs({ active: true, pageId: 'a', mode: 'fill', annotationsVisible: true })
+    const state = inputs({ active: true, pageId: 'a', mode: 'fill', showsContext: true })
     expect(isPagePresented('a', state)).toBe(true)
     expect(isPagePresented('b', state)).toBe(false)
   })
@@ -55,12 +48,7 @@ describe('isPagePresented', () => {
   })
 
   it('shows every page in a file session with the eye on', () => {
-    const state = inputs({
-      active: true,
-      pageId: null,
-      mode: 'fill',
-      annotationsVisible: true,
-    })
+    const state = inputs({ active: true, pageId: null, mode: 'fill', showsContext: true })
     expect(isPagePresented('a', state)).toBe(true)
     expect(isPagePresented('b', state)).toBe(true)
   })

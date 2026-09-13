@@ -1,4 +1,4 @@
-import { isPagePresented, type PagePresentationInputs } from '../../shared/page-presentation'
+import { isPagePresented, type PagePresentationFocus } from '../../shared/page-presentation'
 import type { ProjectedSceneEntity } from '../../shared/scene-projection'
 import { pageChromeItem, type ChromeCanvasItem } from '../shared/chromeItemDraw'
 
@@ -22,22 +22,20 @@ export interface CanvasItemDraw {
  */
 export function orderCanvasItemDraws(
   entities: readonly ProjectedSceneEntity[],
-  presentation: PagePresentationInputs,
+  focus: PagePresentationFocus,
 ): CanvasItemDraw[] {
-  const { focus } = presentation
   const fillPageId = focus.mode === 'fill' ? focus.pageId : null
-  const hideContext = focus.active && !focus.annotationsVisible
   const draws: CanvasItemDraw[] = []
   let focused: CanvasItemDraw | null = null
 
   for (const entity of entities) {
     if (entity.kind === 'file') {
-      if (!hideContext && entity.showDeviceFrame) {
+      if (focus.showsContext && entity.showDeviceFrame) {
         draws.push({ item: entity, chrome: true, pageId: null })
       }
       continue
     }
-    if (entity.kind !== 'page' || !isPagePresented(entity.id, presentation)) continue
+    if (entity.kind !== 'page' || !isPagePresented(entity.id, focus)) continue
     const isFill = entity.id === fillPageId
     const draw: CanvasItemDraw = {
       item: pageChromeItem(entity, isFill ? { showDeviceFrame: false } : undefined),
