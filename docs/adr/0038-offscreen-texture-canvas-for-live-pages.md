@@ -237,8 +237,27 @@ this split keeps it possible:
 
 **Independent of the option chosen:**
 
-- Stop copying. `drawImage` and WebGPU both accept a `VideoFrame` directly;
-  `createImageBitmap` is the copy that shows up in every trace.
+- Stop copying: tried and measured slower in the 2D canvas, reverted
+  2026-09-12. `43cf9203` transferred each page's `VideoFrame` and drew it
+  as-is; `51f01686` went back to `createImageBitmap`. Same 30-page canvas
+  (15 animating), two fresh runs of each build (`/perf/pan-zoom/run` plus a
+  canvas-bg rAF recorder):
+
+  | Build | Steady fps | Gesture fps | Gesture p95 | Frames > 25 ms | Pool drops |
+  |---|---|---|---|---|---|
+  | VideoFrame | 79 / 51 | 66 / 55 | 24.5 / 25.7 ms | 141 / 418 | 24 / 21 |
+  | ImageBitmap | 89 | 116 / 111 | 9.3 / 16.6 ms | 2 / 9 | 0 / 0 |
+
+  A gesture redraws every page each frame while page frames arrive far less
+  often. A bitmap is copied once per page frame and drawn many times; a
+  `VideoFrame` appears to pay a texture import on every 2D draw. The GPU
+  process sat at 170–220% CPU in every run, so the copy is not the ceiling.
+  The lifetime findings still hold for any `VideoFrame` path: the frame keeps
+  its own reference to the shared texture after `imported.release()`, a held
+  frame occupies one of its page's 6 slots until closed, and a frame posted to
+  no listener holds that slot until GC. Revisit only with WebGPU
+  `importExternalTexture` (options 3–4), where sampling a frame per draw is the
+  intended path.
 - Present on the renderer's rAF, not on frame arrival. A page frame marks its
   page dirty; the loop draws once.
 - Set the host frame rate from the display (`setFrameRate`); offscreen hosts
