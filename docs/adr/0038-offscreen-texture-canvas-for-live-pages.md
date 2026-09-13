@@ -211,6 +211,28 @@ being edited. Options are ranked by how close they get to that.
    or geometry change, not per frame. Worth keeping as the technique if some
    DOM has to sit mid-stack; not a foundation.
 
+**Notes as DOM, pages and chrome as pixels.** tldraw splits its canvas this
+way. Shapes and text are DOM and SVG inside a container that pans and zooms by
+CSS transform. Chrome that changes every frame draws on a 2D canvas above it:
+selection indicators, the brush, handles, snap lines and cursors. Excalidraw
+and Figma take option 1's route and draw everything. Excalidraw can because its
+text is plain, and Figma wrote its own text engine. Specular's notes carry
+markdown and real layout, so the tldraw split fits better. Pages and chrome go
+on the canvas and notes stay DOM above it, which drops option 1's note
+rasterizer.
+
+The cost is that a page can't sit above a note. Nothing needs that yet, and
+this split keeps it possible:
+
+- Z-order stays data. The scene is one ordered item list. "Notes paint above
+  the canvas" is a renderer decision, and the model never encodes it.
+- A page above a note uses option 6. The covered note gets a `clip-path` that
+  cuts out the rounded rect of each page above it, rewritten when z-order or
+  geometry changes. Pages are opaque rounded rects, so the cut is exact.
+- A case clipping gets wrong, like a page shadow falling across a note, is
+  handled by rasterizing that one note with option 1's trick, or with
+  `drawElement` once it ships. The cost lands on that note, not on every note.
+
 **Independent of the option chosen:**
 
 - Stop copying. `drawImage` and WebGPU both accept a `VideoFrame` directly;
