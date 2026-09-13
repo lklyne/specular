@@ -142,3 +142,86 @@ The items above were spiked before deciding to proceed. The items below surfaced
 - **Popup widgets (date/color pickers, autofill) anchor under the right element and close cleanly** on a range of real sites, not just the fixtures the anchoring logic was built against.
 
 None of these block starting production build-out. They're the acceptance checklist before this ADR moves from Proposed to Accepted.
+
+## Follow-up: one surface for pages and everything else
+
+Written 2026-09-12 after the pan/zoom A/B (GPU process busy 10.6 s → 0.15 s on
+the same 9-page test; report on the "Perf test" tab). Pan and zoom jank is
+solved. What remains is the shape of the renderer: pages are drawn by one
+`<canvas>` (`PageTextureSurface.tsx`) that sits between the chrome canvas and
+aboveView, so the canvas is still three bands in two renderers, and page pixels
+are copied twice on the way to the screen (`createImageBitmap`, then
+`drawImage`) and redrawn on every camera tick. None of this is a decision yet.
+These are the options considered, with the reasoning, so the next pass does not
+re-derive them.
+
+**The constraint every option lives under.** The browser composites a canvas as
+one layer and DOM as other layers; the only choice is band order. Anything that
+must be typed into is DOM. Everything else can be pixels. Full z-order
+interleaving between pages and other entities is therefore only possible if, at
+rest, everything is pixels in one surface and DOM appears only for the thing
+being edited. Options are ranked by how close they get to that.
+
+1. **One 2D canvas, one item list, draw in z-order.** Recommended. Pages are
+   `drawImage(videoFrame, rect)` clipped to a rounded rect, no
+   `createImageBitmap`, since Chromium's 2D canvas rasterizes on the GPU and a
+   `VideoFrame` draw is a texture sample. Shapes, edges, borders, selection,
+   grid, cursors and particles are paths and sprites in the same pass. A note at
+   rest is a raster drawn as a quad, produced by canvas text for plain stickies
+   or an SVG `foreignObject` for anything with real layout, re-rastered on zoom
+   settle; the one note being edited is a DOM editor mounted above the canvas at
+   the camera transform. Pan and zoom apply a CSS transform to the canvas
+   element and redraw once on settle. Interleaving is draw order, so it costs
+   nothing. Gives up per-pixel effects and instancing, neither of which is
+   planned. Dirty-rect redraw and an `OffscreenCanvas` worker are the known
+   optimizations if a trace ever asks for them. This merges bgView and
+   aboveView, deletes the layer stack, the chrome canvas, the page texture
+   canvas, the overlay child window, and main's window-pixel projection.
+2. **HTML in canvas (`drawElement`).** The eventual rasterizer for option 1:
+   browser layout for markdown and rich notes painted into the 2D canvas in
+   draw order, with the elements staying in the accessibility tree. Chromium 150
+   (Electron 43) ships it behind a Blink feature flag Electron can enable by
+   default. Same scene, swapped rasterizer. Not a foundation on its own: no
+   editing story, and pages are not DOM so it does nothing for them.
+3. **Three.js WebGPU renderer.** Already a dependency: `PresenceParticleTrail.tsx`
+   runs `three/webgpu` with TSL compute kernels. Pages become instanced quads
+   with a `VideoFrameTexture` each (zero-copy external texture), corners and
+   focus rings in TSL, grid and chrome as geometry in one pass, particles fold
+   into the same scene. Text stays DOM in a band above, so interleaving needs
+   the same at-rest raster trick as option 1. Right choice only if per-pixel
+   effects or thousands of instanced marks show up; otherwise it is more code
+   than option 1 for the same picture. The particle trail's own rAF loop would
+   have to become a participant in one shared loop first.
+4. **Raw WebGPU.** Option 3 without the scene graph: one pipeline for textured
+   rounded quads, one for lines, `importExternalTexture` for pages,
+   `setScissorRect` exists but is the wrong tool (clip with geometry and UVs).
+   A few hundred lines, full control, and every text and layout problem of
+   option 3. No reason to pick it over three while three is already installed.
+5. **DOM element per page** (a small canvas per page fed by
+   `transferFromImageBitmap`, registered through `RendererSwitch`). Gives
+   CSS z-order, corner radius, device shells and `EntityChrome` for free, and
+   Chromium composites the layers. Rejected as the end shape: it moves the
+   per-page compositor cost this ADR just removed back into the renderer, and
+   twenty composited canvases is a different cost profile than one.
+6. **drei-style `Html` overlays with occlusion.** Same band constraint,
+   automated. Its raycast mode hides a whole element behind a mesh; its
+   blending mode puts DOM under the canvas and punches transparent holes. In a
+   2D world of rounded rectangles the exact equivalent is a `clip-path` on the
+   DOM element subtracting the rects of entities above it, written on z-order
+   or geometry change, not per frame. Worth keeping as the technique if some
+   DOM has to sit mid-stack; not a foundation.
+
+**Independent of the option chosen:**
+
+- Stop copying. `drawImage` and WebGPU both accept a `VideoFrame` directly;
+  `createImageBitmap` is the copy that shows up in every trace.
+- Present on the renderer's rAF, not on frame arrival. A page frame marks its
+  page dirty; the loop draws once.
+- Set the host frame rate from the display (`setFrameRate`); offscreen hosts
+  default to 60 on a 120 Hz panel.
+- Re-render on zoom settle by resizing the host or its device scale factor, or
+  text goes soft past 1x. Any option needs this policy.
+- Hit testing moves to the renderer with the pixels; main stops projecting
+  rects for input mapping and keeps state and page hosts only.
+- Measure with `/perf/pan-zoom/visual-run` at 30 pages before deleting the
+  current draw loop, whichever surface replaces it.
