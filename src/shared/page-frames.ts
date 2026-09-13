@@ -20,14 +20,14 @@ export interface PageFrameMeta {
 }
 
 /**
- * Posted across canvas-bg's shared window between its preload and page world.
- * `ready` goes up once the page world has a listener that will close every
- * frame it receives; until then the preload drops frames. `frame` comes down
- * with the page's `VideoFrame` transferred, and the receiver owns closing it.
+ * Posted by the canvas-bg preload to the page world with a transferred
+ * `bitmap: ImageBitmap` attached.
  */
-export type PageFrameMessage =
-  | { source: 'page-frame'; kind: 'ready' }
-  | { source: 'page-frame'; kind: 'frame'; meta: PageFrameMeta; frame: VideoFrame }
+export interface PageFrameMessage {
+  source: 'page-frame'
+  kind: 'frame'
+  meta: PageFrameMeta
+}
 
 /** A focused element's rect in page CSS px — the point a popup widget hangs from. */
 export interface PagePopupAnchor {

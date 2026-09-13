@@ -39,12 +39,12 @@ function drawPageFrame(
 ): void {
   const frame = frames.frames.get(pageId)
   if (!frame) return // No first frame yet — the border ring already frames the empty interior.
-  drawItemSnapshot(ctx, g, frame.frame)
+  drawItemSnapshot(ctx, g, frame.bitmap)
 
   const popup = frames.popups.get(pageId)
   if (!popup) return
   if (popupHasClosed(popup, now)) {
-    popup.frame.close()
+    popup.bitmap.close()
     frames.popups.delete(pageId)
     return
   }
@@ -65,7 +65,7 @@ function drawPageFrame(
     height: frame.meta.cssHeight,
   })
   ctx.drawImage(
-    popup.frame,
+    popup.bitmap,
     g.contentX + at.x * displayZoom,
     g.contentY + at.y * displayZoom,
     size.width * displayZoom,
@@ -124,7 +124,7 @@ export function CanvasItemSurface({
   }, [frames])
 
   // A page that leaves the scene stops arriving, so nothing else would ever
-  // close its frame and hand back the texture slot it holds.
+  // close its bitmap.
   useEffect(() => {
     const pageIds = new Set(draws.flatMap((draw) => (draw.pageId ? [draw.pageId] : [])))
     prunePageFrames(frames, pageIds)

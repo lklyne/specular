@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { PageFrameMessage, PageFrameMeta, PagePopupAnchor } from '../../shared/page-frames'
 
 export interface PageFrame {
-  /** Holds one of the page's shared-texture slots until closed (ADR 0038). */
-  frame: VideoFrame
+  bitmap: ImageBitmap
   meta: PageFrameMeta
   receivedAt: number
 }
@@ -32,36 +31,11 @@ export interface PageFrameStore {
  */
 export const POPUP_CLOSE_GRACE_MS = 150
 
-type FrameHandler = (meta: PageFrameMeta, frame: VideoFrame) => void
-
-let frameHandler: FrameHandler | null = null
-let listening = false
-
 /**
- * One listener for the renderer's lifetime, so a frame still queued when its
- * store unmounts is closed here instead of holding a texture slot until GC.
- * The preload drops frames until this has announced itself.
- */
-function listenForPageFrames(): void {
-  if (listening) return
-  listening = true
-  window.addEventListener('message', (event) => {
-    const data = event.data as PageFrameMessage | null
-    if (!data || typeof data !== 'object' || data.source !== 'page-frame' || data.kind !== 'frame') {
-      return
-    }
-    if (frameHandler) frameHandler(data.meta, data.frame)
-    else data.frame.close()
-  })
-  const ready: PageFrameMessage = { source: 'page-frame', kind: 'ready' }
-  window.postMessage(ready, '*')
-}
-
-/**
- * Holds the latest frame per page (and per page popup), closing the previous
- * one as each arrives. `onFrame` fires after each arrival so the draw loop can
- * mark itself dirty; `requestAnchor` is asked once per popup session for the
- * focused element's rect, which is the popup's position.
+ * Holds the latest frame per page (and per page popup), replacing and
+ * closing bitmaps as they arrive. `onFrame` fires after each arrival so the
+ * draw loop can mark itself dirty; `requestAnchor` is asked once per popup
+ * session for the focused element's rect, which is the popup's position.
  *
  * A popup arriving at zero size is Electron's own signal that it closed and
  * is dropped at once; otherwise closing is inferred from paint order (see
@@ -87,37 +61,39 @@ export function usePageFrames(
         onFrameRef.current()
       })
     }
-    const handleFrame: FrameHandler = (meta, frame) => {
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data as (PageFrameMessage & { bitmap: ImageBitmap }) | null
+      if (!data || typeof data !== 'object' || data.source !== 'page-frame' || data.kind !== 'frame') {
+        return
+      }
+      const { meta, bitmap } = data
       const now = performance.now()
       if (meta.widgetType === 'popup') {
         const previous = store.popups.get(meta.pageId)
-        previous?.frame.close()
+        previous?.bitmap.close()
         if (meta.width === 0 || meta.height === 0) {
           store.popups.delete(meta.pageId)
-          frame.close()
+          bitmap.close()
         } else if (previous) {
-          previous.frame = frame
+          previous.bitmap = bitmap
           previous.meta = meta
           previous.receivedAt = now
           previous.closingSince = null
         } else {
-          const popup: PagePopup = { frame, meta, receivedAt: now, anchor: null, closingSince: null }
+          const popup: PagePopup = { bitmap, meta, receivedAt: now, anchor: null, closingSince: null }
           store.popups.set(meta.pageId, popup)
           resolveAnchor(meta.pageId, popup)
         }
       } else {
-        store.frames.get(meta.pageId)?.frame.close()
-        store.frames.set(meta.pageId, { frame, meta, receivedAt: now })
+        store.frames.get(meta.pageId)?.bitmap.close()
+        store.frames.set(meta.pageId, { bitmap, meta, receivedAt: now })
         const popup = store.popups.get(meta.pageId)
         if (popup && popup.closingSince === null) popup.closingSince = now
       }
       onFrameRef.current()
     }
-    frameHandler = handleFrame
-    listenForPageFrames()
-    return () => {
-      if (frameHandler === handleFrame) frameHandler = null
-    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
   }, [])
 
   return storeRef.current
@@ -130,14 +106,14 @@ export function popupHasClosed(popup: PagePopup, now: number): boolean {
 
 /** Closes and drops every frame/popup for a page no longer in the scene. */
 export function prunePageFrames(store: PageFrameStore, liveIds: ReadonlySet<string>): void {
-  for (const [id, entry] of store.frames) {
+  for (const [id, frame] of store.frames) {
     if (liveIds.has(id)) continue
-    entry.frame.close()
+    frame.bitmap.close()
     store.frames.delete(id)
   }
-  for (const [id, entry] of store.popups) {
+  for (const [id, frame] of store.popups) {
     if (liveIds.has(id)) continue
-    entry.frame.close()
+    frame.bitmap.close()
     store.popups.delete(id)
   }
 }

@@ -237,17 +237,8 @@ this split keeps it possible:
 
 **Independent of the option chosen:**
 
-- Stop copying. Landed 2026-09-12: the preload transfers each page's
-  `VideoFrame` to the page world and `CanvasItemSurface` draws it as-is, so
-  `createImageBitmap` is gone. Spiked first: the frame holds its own reference
-  to the shared texture, so the preload releases the imported handle at once
-  and the texture lives until the frame closes. A frame held while 150 newer
-  animated frames arrived still drew its own pixels. The cost is a held slot.
-  Each page's latest frame stays outstanding, so a page on the canvas sits at
-  1 of its 6 at rest, and a frame nobody closes is a slot the page never gets
-  back. Frames close on replace, prune, and unmount, popups included. The
-  preload drops frames until the page world's listener posts `ready`, because
-  a frame posted to no listener holds its slot until GC.
+- Stop copying. `drawImage` and WebGPU both accept a `VideoFrame` directly;
+  `createImageBitmap` is the copy that shows up in every trace.
 - Present on the renderer's rAF, not on frame arrival. A page frame marks its
   page dirty; the loop draws once.
 - Set the host frame rate from the display (`setFrameRate`); offscreen hosts

@@ -12,45 +12,34 @@ import { on } from './ipc-helpers'
 
 /**
  * Frames reach the page world as `window.postMessage` transfers rather than
- * through the contextBridge: a VideoFrame cannot cross the bridge, but the
+ * through the contextBridge: an ImageBitmap cannot cross the bridge, but the
  * DOM window is shared between the isolated and main worlds and transfers
- * work on it. The canvas draws the transferred frame as-is, with no copy.
- *
- * The frame holds its own reference to the page's shared texture, so the
- * imported handle is released at once and the texture lives exactly as long
- * as the frame: until the page world closes it. That makes every frame posted
- * here a texture slot the page world must give back. A frame posted with no
- * listener is lost to GC with its slot held, so frames are dropped until the
- * page world says it is listening (`usePageFrames`).
- *
- * This preload is also loaded by aboveView, but main only ever targets
- * bgView's main frame (`setPageFrameTarget` in `page-host.ts`), so the
- * receiver there never fires.
+ * work on it. This preload is also loaded by aboveView, but main only ever
+ * targets bgView's main frame (`setPageFrameTarget` in `page-host.ts`), so
+ * the receiver there never fires.
  */
-let pageWorldListening = false
-
-window.addEventListener('message', (event) => {
-  const data = event.data as PageFrameMessage | null
-  if (data?.source === 'page-frame' && data.kind === 'ready') pageWorldListening = true
-})
+function postPageFrame(meta: PageFrameMeta, bitmap: ImageBitmap): void {
+  const message: PageFrameMessage = { source: 'page-frame', kind: 'frame', meta }
+  window.postMessage({ ...message, bitmap }, '*', [bitmap])
+}
 
 sharedTexture.setSharedTextureReceiver(async (data, ...args) => {
   const meta = args[0] as PageFrameMeta
   const imported = data.importedSharedTexture
   let frame: VideoFrame | null = null
   try {
-    if (!pageWorldListening) return
     frame = imported.getVideoFrame()
-    const message: PageFrameMessage = { source: 'page-frame', kind: 'frame', meta, frame }
-    window.postMessage(message, '*', [frame])
+    const bitmap = await createImageBitmap(frame)
+    postPageFrame(meta, bitmap)
   } catch (error) {
-    // A frame that failed to transfer is still ours to close. A receiver that
-    // throws would also skip `imported.release()` below, and a leaked
-    // reference drains Electron's OSR frame pool
-    // ("OSRSharedTextureNotReleased" in the app log).
-    frame?.close()
-    console.error('[canvas-bg] page frame transfer failed', error)
+    // A receiver that throws past this point would skip `imported.release()`
+    // below — Electron's OSR frame pool is reused the moment a texture is
+    // released, and a leaked reference drains the pool
+    // ("OSRSharedTextureNotReleased" in the app log), so every failure here
+    // is caught rather than left to propagate.
+    console.error('[canvas-bg] page frame copy failed', error)
   } finally {
+    frame?.close()
     imported.release()
   }
 })

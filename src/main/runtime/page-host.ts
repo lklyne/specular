@@ -261,10 +261,8 @@ class OffscreenPageHost implements PageHost {
         console.error('[page-host] sendSharedTexture failed', error)
       })
       .finally(() => {
-        // Main's own reference goes now. The renderer's VideoFrame keeps the
-        // texture alive until canvas-bg closes it, and canvas-bg holds each
-        // page's latest frame to draw, so a page on the canvas keeps one slot
-        // outstanding at rest; `finish` runs when that frame is replaced.
+        // Main's own reference goes now; the renderer's reference keeps the
+        // texture alive until it has copied the frame, then `finish` runs.
         imported.release()
       })
   }
