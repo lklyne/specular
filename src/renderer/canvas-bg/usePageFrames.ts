@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { PageFrameMessage, PageFrameMeta, PagePopupAnchor } from '../../shared/page-frames'
+import { recordPageFrame } from './paintInstrumentation'
 
 export interface PageFrame {
   bitmap: ImageBitmap
@@ -80,6 +81,7 @@ export function usePageFrames(
           resolveAnchor(meta.pageId, popup)
         }
       } else {
+        recordPageFrame()
         store.frames.get(meta.pageId)?.bitmap.close()
         store.frames.set(meta.pageId, { bitmap, meta })
         const popup = store.popups.get(meta.pageId)

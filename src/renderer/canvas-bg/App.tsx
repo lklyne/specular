@@ -8,6 +8,7 @@ import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
 import { CanvasItemSurface } from './CanvasItemSurface'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
 import { PerfHudOverlay } from './PerfHudOverlay'
+import { useCanvasBench } from './useCanvasBench'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useChromeSlices } from './useChromeSlices'
@@ -34,6 +35,7 @@ export default function App({
     bgRef,
     layoutRef,
   })
+  useCanvasBench(api)
 
   const { canvasItemDraws, chromeGroups } = useChromeSlices(layoutData)
   return (

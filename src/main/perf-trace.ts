@@ -53,7 +53,7 @@ let revealOnAutoStop = true
 let stateListener: (() => void) | null = null
 let stopPromise: Promise<string | null> | null = null
 let releaseAwakeHold: (() => void) | null = null
-export type PerfTraceOwner = 'manual' | 'pan-zoom-test'
+export type PerfTraceOwner = 'manual' | 'pan-zoom-test' | 'canvas-bench'
 let traceOwner: PerfTraceOwner | null = null
 
 /** Register a callback fired whenever recording starts or stops (including

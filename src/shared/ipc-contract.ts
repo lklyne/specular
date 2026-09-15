@@ -24,6 +24,7 @@ import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
 import type { RuntimePatchBatch } from './runtime-patch'
 import type { PerfTraceState } from './electron-api/debug'
+import type { CanvasBenchDriveRequest, CanvasBenchDriveResult } from './canvas-bench'
 import type { PanZoomPerfTestState } from './pan-zoom-perf-test'
 
 /**
@@ -60,6 +61,8 @@ export interface IpcContract {
   'binding-fire': { dir: 'main→renderer'; payload: BindingId }
   'canvas-annotate-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-back-page': { dir: 'renderer→main'; payload: unknown }
+  'canvas-bench-result': { dir: 'renderer→main'; payload: CanvasBenchDriveResult }
+  'canvas-bench-run': { dir: 'main→renderer'; payload: CanvasBenchDriveRequest }
   'canvas-bg-dropdown-close': { dir: 'renderer→main'; payload: unknown }
   'canvas-bg-dropdown-open': { dir: 'renderer→main'; payload: unknown }
   'canvas-cancel-entity-edit': { dir: 'renderer→main'; payload: unknown }
@@ -602,6 +605,8 @@ export const ipcChannels = {
   queryFavicon: 'query-favicon',
   queryFaviconResult: 'query-favicon-result',
   readNoteFile: 'read-note-file',
+  canvasBenchRun: 'canvas-bench-run',
+  canvasBenchResult: 'canvas-bench-result',
   canvasPagePopupAnchor: 'canvas-page-popup-anchor',
   canvasRequestPageFrames: 'canvas-request-page-frames',
   regionSelectCommitted: 'region-select-committed',

@@ -3,6 +3,7 @@ import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationEle
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
+import type { CanvasBenchDriveRequest } from '../shared/canvas-bench'
 import type { CanvasGuidesPayload } from '../shared/canvas-guides'
 import type { PageFrameMessage, PageFrameMeta } from '../shared/page-frames'
 import type { RuntimePatchBatch } from '../shared/runtime-patch'
@@ -341,6 +342,8 @@ const api: CanvasBgElectronAPI = {
   onBindingFire: on<BindingId>(ipcChannels.bindingFire),
   onCanvasGuides: on<CanvasGuidesPayload>(ipcChannels.canvasGuides),
   readNoteFile: (filePath: string) => ipcRenderer.invoke(ipcChannels.readNoteFile, { filePath }),
+  onCanvasBenchRun: on<CanvasBenchDriveRequest>(ipcChannels.canvasBenchRun),
+  sendCanvasBenchResult: (result) => ipcRenderer.send(ipcChannels.canvasBenchResult, result),
   pagePopupAnchor: (pageId: string) => ipcRenderer.invoke(ipcChannels.canvasPagePopupAnchor, { pageId }),
   requestPageFrames: (pageIds) => ipcRenderer.send(ipcChannels.canvasRequestPageFrames, pageIds),
   writeNoteFile: (filePath: string, content: string) =>

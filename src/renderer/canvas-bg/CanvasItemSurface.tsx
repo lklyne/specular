@@ -9,6 +9,7 @@ import {
   type ItemGeometry,
 } from '../shared/chromeItemDraw'
 import { prepareScreenCanvas } from '../shared/screenCanvas'
+import { recordPaintCost } from './paintInstrumentation'
 import type { CanvasItemDraw } from './canvasItemDrawOrder'
 import { popupHasClosed, prunePageFrames, usePageFrames, type PageFrameStore } from './usePageFrames'
 
@@ -142,6 +143,7 @@ export function CanvasItemSurface({
       if (draw.chrome) drawItemChrome(ctx, draw.item, g, dark, bezelColor, borderColor, dpr)
       if (draw.pageId) drawPageFrame(ctx, frames, draw.pageId, g, now)
     }
+    recordPaintCost(performance.now() - now)
   }, [frames])
   paintRef.current = paint
 

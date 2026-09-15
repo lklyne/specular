@@ -1,4 +1,5 @@
 import type { BindingId } from '../bindings'
+import type { CanvasBenchDriveRequest, CanvasBenchDriveResult } from '../canvas-bench'
 import type { CanvasGuidesPayload } from '../canvas-guides'
 import type { CancelReason } from '../interaction-types'
 import type { MarqueeSelectionMode } from '../marquee-selection'
@@ -35,6 +36,9 @@ import type {
 export interface CanvasBgElectronAPI {
   canvasZoom: (deltaY: number, mouseX: number, mouseY: number) => void
   canvasPan: (deltaX: number, deltaY: number) => void
+  /** Main asks canvas-bg to drive a scripted pan/zoom benchmark. */
+  onCanvasBenchRun: (callback: (request: CanvasBenchDriveRequest) => void) => () => void
+  sendCanvasBenchResult: (result: CanvasBenchDriveResult) => void
   /** Subscribe to main's canvas-selection-overlay broadcast (marquee rect). */
   onSelectionOverlayChanged: (
     callback: (overlay: SelectionOverlayPayload | null) => void,

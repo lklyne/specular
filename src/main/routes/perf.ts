@@ -15,6 +15,8 @@ import {
   runPanZoomPerfTest,
   stopPanZoomPerfTest,
 } from '../pan-zoom-perf-test'
+import { isCanvasBenchRunning, runCanvasBench } from '../canvas-bench'
+import type { CanvasBenchRequest } from '../../shared/canvas-bench'
 import { sampleProcessMetrics } from '../process-metrics'
 import { runVisibilityProbe } from '../visibility-probe'
 import type { PanZoomPerfPhase } from '../../shared/pan-zoom-perf-test'
@@ -83,6 +85,21 @@ export const perfRoutes: Route[] = [
         manifestPath: capture.manifestPath,
         summary,
       })
+    },
+  },
+  {
+    method: 'POST',
+    pattern: '/perf/canvas-bench/run',
+    async handler({ response, body }) {
+      if (isCanvasBenchRunning()) {
+        writeJson(response, 409, { error: 'A canvas benchmark is already running' })
+        return
+      }
+      try {
+        writeJson(response, 200, await runCanvasBench((body ?? {}) as CanvasBenchRequest))
+      } catch (error) {
+        writeJson(response, 409, { error: (error as Error).message })
+      }
     },
   },
   {
