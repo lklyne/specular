@@ -1,0 +1,40 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Static text</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./fixture.css">
+<style>
+  article { max-width: 62ch; }
+  h2 { font-size: 14px; margin: 20px 0 6px; }
+  p { margin: 0 0 10px; }
+</style>
+<header>
+  <h1>Static text</h1>
+  <span class="idx" data-idx></span>
+  <span data-mode></span>
+</header>
+<main><article id="body"></article></main>
+<script type="module">
+  import { fixtureIndex, reportMode, seededRandom } from './fixture.js'
+
+  // The no-repaint baseline. Every page in ADR 0038's original spike was
+  // effectively this, which is why the JPEG-baseline result did not
+  // generalize — a fixture set needs the animated archetypes beside it.
+  const index = fixtureIndex()
+  const random = seededRandom(index * 7919 + 13)
+  const words = 'canvas texture compositor surface raster viewport offscreen shader frame budget pipeline latency present swap aggregate layer paint gesture pan zoom entity page'.split(' ')
+  const pick = () => words[Math.floor(random() * words.length)]
+
+  let html = ''
+  for (let section = 0; section < 12; section++) {
+    html += `<h2>${pick()} ${pick()}</h2>`
+    for (let para = 0; para < 4; para++) {
+      const sentence = Array.from({ length: 28 }, pick).join(' ')
+      html += `<p>${sentence}.</p>`
+    }
+  }
+  document.getElementById('body').innerHTML = html
+  document.querySelector('[data-idx]').textContent = `#${index}`
+  reportMode('Static text', 'no repaint')
+</script>

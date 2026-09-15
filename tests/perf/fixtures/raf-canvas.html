@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rAF canvas</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./fixture.css">
+<header>
+  <h1>rAF canvas</h1>
+  <span class="idx" data-idx></span>
+  <span data-mode></span>
+</header>
+<canvas id="c"></canvas>
+<script type="module">
+  import { driveByFrame, fixtureIndex, reportMode, seededRandom } from './fixture.js'
+
+  // CPU raster every frame: the archetype that stresses a per-frame encode
+  // path, which the static pages in ADR 0038's spike never did.
+  const index = fixtureIndex()
+  const random = seededRandom(index * 15485863 + 3)
+  const canvas = document.getElementById('c')
+  const ctx = canvas.getContext('2d')
+
+  const PARTICLES = 220
+  const particles = Array.from({ length: PARTICLES }, () => ({
+    x: random(), y: random(),
+    // Velocities are in fractions of the canvas per frame, so the motion is
+    // resolution-independent and identical at any page size.
+    vx: (random() - 0.5) * 0.004,
+    vy: (random() - 0.5) * 0.004,
+    r: 3 + random() * 9,
+    hue: Math.floor(random() * 360),
+  }))
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.round(canvas.clientWidth * dpr)
+    canvas.height = Math.round(canvas.clientHeight * dpr)
+  }
+  resize()
+  window.addEventListener('resize', resize)
+
+  driveByFrame((frame) => {
+    const { width, height } = canvas
+    ctx.fillStyle = '#12121a'
+    ctx.fillRect(0, 0, width, height)
+    for (const p of particles) {
+      // Position is derived from the frame counter rather than accumulated,
+      // so a dropped frame does not change where the run ends up.
+      const x = ((p.x + p.vx * frame) % 1 + 1) % 1
+      const y = ((p.y + p.vy * frame) % 1 + 1) % 1
+      ctx.beginPath()
+      ctx.arc(x * width, y * height, p.r * (window.devicePixelRatio || 1), 0, Math.PI * 2)
+      ctx.fillStyle = `hsl(${(p.hue + frame * 0.4) % 360} 75% 60%)`
+      ctx.fill()
+    }
+  })
+
+  document.querySelector('[data-idx]').textContent = `#${index}`
+  reportMode('rAF canvas', '2d raster', `${PARTICLES} particles`)
+</script>

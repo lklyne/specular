@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSS animation</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./fixture.css">
+<style>
+  .field { position: relative; height: calc(100vh - 58px); overflow: hidden; }
+  .dot {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    will-change: transform, opacity;
+    animation: drift var(--dur) linear infinite, fade var(--dur) ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    from { transform: translate3d(var(--x0), var(--y0), 0) scale(1); }
+    to   { transform: translate3d(var(--x1), var(--y1), 0) scale(1.6); }
+  }
+  @keyframes fade { from { opacity: 0.35; } to { opacity: 0.95; } }
+</style>
+<header>
+  <h1>CSS animation</h1>
+  <span class="idx" data-idx></span>
+  <span data-mode></span>
+</header>
+<div class="field" id="field"></div>
+<script type="module">
+  import { fixtureIndex, reportMode, seededRandom } from './fixture.js'
+
+  // Compositor-driven animation: no JS runs per frame, but the page's own
+  // layer tree animates continuously, so it never stops producing textures.
+  const index = fixtureIndex()
+  const random = seededRandom(index * 104729 + 7)
+  const field = document.getElementById('field')
+  const hues = [8, 32, 140, 190, 260, 320]
+
+  for (let i = 0; i < 60; i++) {
+    const dot = document.createElement('div')
+    dot.className = 'dot'
+    dot.style.setProperty('--x0', `${(random() * 100).toFixed(2)}vw`)
+    dot.style.setProperty('--y0', `${(random() * 100).toFixed(2)}vh`)
+    dot.style.setProperty('--x1', `${(random() * 100).toFixed(2)}vw`)
+    dot.style.setProperty('--y1', `${(random() * 100).toFixed(2)}vh`)
+    // Durations are fixed per dot, so the set of animations is identical run
+    // to run even though each dot is out of phase with the others.
+    dot.style.setProperty('--dur', `${(3 + random() * 5).toFixed(2)}s`)
+    dot.style.background = `hsl(${hues[i % hues.length]} 70% 55%)`
+    field.appendChild(dot)
+  }
+  document.querySelector('[data-idx]').textContent = `#${index}`
+  reportMode('CSS animation', 'compositor', '60 layers')
+</script>

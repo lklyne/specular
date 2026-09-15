@@ -1,0 +1,213 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebGPU shader</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./fixture.css">
+<header>
+  <h1>WebGPU shader</h1>
+  <span class="idx" data-idx></span>
+  <span data-mode></span>
+</header>
+<canvas id="c"></canvas>
+<script type="module">
+  import { driveByFrame, fixtureIndex, reportMode } from './fixture.js'
+
+  // WebGPU is its own compositing path, distinct from WebGL. An offscreen
+  // page holding a GPUDevice while the canvas composites its texture is the
+  // nested-GPU case ADR 0038's checklist calls out and the spikes never ran.
+  const index = fixtureIndex()
+  const canvas = document.getElementById('c')
+  document.querySelector('[data-idx]').textContent = `#${index}`
+
+  const SHADER = `
+    struct Uniforms { resolution: vec2f, frame: f32, seed: f32 };
+    @group(0) @binding(0) var<uniform> u: Uniforms;
+
+    @vertex
+    fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
+      var pos = array(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
+      return vec4f(pos[i], 0.0, 1.0);
+    }
+
+    @fragment
+    fn fs(@builtin(position) coord: vec4f) -> @location(0) vec4f {
+      let uv = (coord.xy * 2.0 - u.resolution) / min(u.resolution.x, u.resolution.y);
+      let t = u.frame * 0.01 + u.seed;
+      var z = uv * 1.4;
+      var acc = 0.0;
+      var shade = 0.0;
+      // Matched to the WebGL fixture's iteration count and fold so the two
+      // archetypes measure the same amount of work on two different APIs.
+      for (var i = 0; i < 48; i = i + 1) {
+        z = abs(z) / clamp(dot(z, z), 0.08, 4.0) - vec2f(0.92, 0.61 + 0.18 * sin(t * 0.4));
+        let d = exp(-3.4 * length(z));
+        acc = acc + d;
+        shade = shade + d * f32(i);
+      }
+      let band = shade / max(acc, 0.001) / 48.0;
+      let color = 0.5 + 0.5 * cos(6.2831 * (band + vec3f(0.0, 0.33, 0.67) + t * 0.05));
+      return vec4f(color * clamp(acc * 0.55, 0.0, 1.0), 1.0);
+    }
+  `
+
+  async function start() {
+    if (!navigator.gpu) {
+      reportMode('WebGPU shader', 'unavailable', 'navigator.gpu missing')
+      return
+    }
+    const adapter = await navigator.gpu.requestAdapter()
+    if (!adapter) {
+      reportMode('WebGPU shader', 'unavailable', 'no adapter')
+      return
+    }
+    const device = await adapter.requestDevice()
+    const module = device.createShaderModule({ code: SHADER })
+
+    // Verified before the swapchain exists and before the render loop starts:
+    // a pending mapAsync alongside a live presentation loop is exactly the
+    // case Dawn refuses, and this has to answer for the device, not the
+    // canvas.
+    const spread = await measureOutputSpread(device, module)
+
+    const context = canvas.getContext('webgpu')
+    if (!context) {
+      reportMode('WebGPU shader', 'unavailable', 'no webgpu context')
+      return
+    }
+    const format = navigator.gpu.getPreferredCanvasFormat()
+    context.configure({ device, format, alphaMode: 'opaque' })
+
+    const pipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module, entryPoint: 'vs' },
+      fragment: { module, entryPoint: 'fs', targets: [{ format }] },
+      primitive: { topology: 'triangle-list' },
+    })
+
+    // vec2f + 2 floats, padded to the 16-byte uniform alignment.
+    const uniforms = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    })
+    const bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: uniforms } }],
+    })
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = Math.round(canvas.clientWidth * dpr)
+      canvas.height = Math.round(canvas.clientHeight * dpr)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    const scratch = new Float32Array(4)
+    driveByFrame((frame) => {
+      scratch[0] = canvas.width
+      scratch[1] = canvas.height
+      scratch[2] = frame
+      scratch[3] = index * 0.37
+      device.queue.writeBuffer(uniforms, 0, scratch)
+
+      const encoder = device.createCommandEncoder()
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [{
+          view: context.getCurrentTexture().createView(),
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          loadOp: 'clear',
+          storeOp: 'store',
+        }],
+      })
+      pass.setPipeline(pipeline)
+      pass.setBindGroup(0, bindGroup)
+      pass.draw(3)
+      pass.end()
+      device.queue.submit([encoder.finish()])
+    })
+
+    const info = adapter.info ?? {}
+    const label = info.vendor || info.architecture || 'adapter ok'
+    // A WebGPU page that acquired a device but renders nothing would be
+    // measured as GPU load while contributing none. The badge says which.
+    reportMode(
+      'WebGPU shader',
+      spread === null ? 'webgpu (unverified)' : spread > 16 ? 'webgpu' : 'webgpu (blank output)',
+      spread === null ? label : `${label} · spread ${spread}`,
+    )
+  }
+
+  /**
+   * Renders one frame into an offscreen texture and reads it back, returning
+   * the widest per-channel range. Verifies the device and shader independently
+   * of whether the swapchain composites — headless and some remote-display
+   * setups acquire a working device but never present it.
+   */
+  async function measureOutputSpread(device, module) {
+    const SIZE = 64
+    const format = 'rgba8unorm'
+    try {
+      const pipeline = device.createRenderPipeline({
+        layout: 'auto',
+        vertex: { module, entryPoint: 'vs' },
+        fragment: { module, entryPoint: 'fs', targets: [{ format }] },
+        primitive: { topology: 'triangle-list' },
+      })
+      const target = device.createTexture({
+        size: [SIZE, SIZE],
+        format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+      })
+      const uniforms = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      })
+      device.queue.writeBuffer(uniforms, 0, new Float32Array([SIZE, SIZE, 30, index * 0.37]))
+      const bindGroup = device.createBindGroup({
+        layout: pipeline.getBindGroupLayout(0),
+        entries: [{ binding: 0, resource: { buffer: uniforms } }],
+      })
+      const readback = device.createBuffer({
+        size: SIZE * SIZE * 4,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+      })
+      const encoder = device.createCommandEncoder()
+      const pass = encoder.beginRenderPass({
+        colorAttachments: [{
+          view: target.createView(),
+          clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          loadOp: 'clear',
+          storeOp: 'store',
+        }],
+      })
+      pass.setPipeline(pipeline)
+      pass.setBindGroup(0, bindGroup)
+      pass.draw(3)
+      pass.end()
+      encoder.copyTextureToBuffer({ texture: target }, { buffer: readback, bytesPerRow: SIZE * 4 }, [SIZE, SIZE])
+      device.queue.submit([encoder.finish()])
+
+      await readback.mapAsync(GPUMapMode.READ)
+      const pixels = new Uint8Array(readback.getMappedRange())
+      let widest = 0
+      for (let channel = 0; channel < 3; channel++) {
+        let min = 255
+        let max = 0
+        for (let i = channel; i < pixels.length; i += 4) {
+          if (pixels[i] < min) min = pixels[i]
+          if (pixels[i] > max) max = pixels[i]
+        }
+        widest = Math.max(widest, max - min)
+      }
+      readback.unmap()
+      return widest
+    } catch {
+      return null
+    }
+  }
+
+  start().catch((error) => {
+    reportMode('WebGPU shader', 'unavailable', String(error && error.message ? error.message : error))
+  })
+</script>

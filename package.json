@@ -35,6 +35,8 @@
     "test:boot": "vitest run --config vitest.boot.config.ts",
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "test:agent": "bash tests/agent/run-scenarios.sh",
+    "perf:fixtures": "python3 -m http.server 8931 --directory tests/perf/fixtures",
+    "perf:canvas": "node scripts/gen-perf-canvas.mjs",
     "release:patch": "npm version patch && git push --follow-tags",
     "release:minor": "npm version minor && git push --follow-tags"
   },

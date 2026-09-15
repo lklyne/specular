@@ -1,0 +1,104 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebGL shader</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./fixture.css">
+<header>
+  <h1>WebGL shader</h1>
+  <span class="idx" data-idx></span>
+  <span data-mode></span>
+</header>
+<canvas id="c"></canvas>
+<script type="module">
+  import { driveByFrame, fixtureIndex, reportMode } from './fixture.js'
+
+  // A page that renders on the GPU itself. Worth its own archetype because
+  // an offscreen page's own GPU work and the canvas's texture composite
+  // contend for the same GPU process.
+  const index = fixtureIndex()
+  const canvas = document.getElementById('c')
+  const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
+
+  if (!gl) {
+    reportMode('WebGL shader', 'unavailable', 'no WebGL context')
+  } else {
+    const vertexSource = `
+      attribute vec2 position;
+      void main() { gl_Position = vec4(position, 0.0, 1.0); }
+    `
+    const fragmentSource = `
+      precision highp float;
+      uniform vec2 resolution;
+      uniform float frame;
+      uniform float seed;
+      void main() {
+        vec2 uv = (gl_FragCoord.xy * 2.0 - resolution) / min(resolution.x, resolution.y);
+        float t = frame * 0.01 + seed;
+        vec2 z = uv * 1.4;
+        float acc = 0.0;
+        float shade = 0.0;
+        // Enough iterations that the fragment stage, not the draw call, is
+        // the cost — a trivial shader would measure nothing.
+        for (int i = 0; i < 48; i++) {
+          // clamp keeps the fold from diverging to where every pixel lands on
+          // the same value; without it the frame is one flat colour and the
+          // fixture stops being a legible picture of whether it is rendering.
+          z = abs(z) / clamp(dot(z, z), 0.08, 4.0) - vec2(0.92, 0.61 + 0.18 * sin(t * 0.4));
+          float d = exp(-3.4 * length(z));
+          acc += d;
+          shade += d * float(i);
+        }
+        float band = shade / max(acc, 0.001) / 48.0;
+        vec3 color = 0.5 + 0.5 * cos(6.2831 * (band + vec3(0.0, 0.33, 0.67) + t * 0.05));
+        gl_FragColor = vec4(color * clamp(acc * 0.55, 0.0, 1.0), 1.0);
+      }
+    `
+
+    function compile(type, source) {
+      const shader = gl.createShader(type)
+      gl.shaderSource(shader, source)
+      gl.compileShader(shader)
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader) || 'shader compile failed')
+      }
+      return shader
+    }
+
+    const program = gl.createProgram()
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource))
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource))
+    gl.linkProgram(program)
+    gl.useProgram(program)
+
+    const buffer = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
+    const position = gl.getAttribLocation(program, 'position')
+    gl.enableVertexAttribArray(position)
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
+
+    const uResolution = gl.getUniformLocation(program, 'resolution')
+    const uFrame = gl.getUniformLocation(program, 'frame')
+    gl.uniform1f(gl.getUniformLocation(program, 'seed'), index * 0.37)
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = Math.round(canvas.clientWidth * dpr)
+      canvas.height = Math.round(canvas.clientHeight * dpr)
+      gl.viewport(0, 0, canvas.width, canvas.height)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    driveByFrame((frame) => {
+      gl.uniform2f(uResolution, canvas.width, canvas.height)
+      gl.uniform1f(uFrame, frame)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+    })
+
+    const version = gl.getParameter(gl.VERSION) || ''
+    reportMode('WebGL shader', version.includes('2.0') ? 'webgl2' : 'webgl1', '48 iterations')
+  }
+  document.querySelector('[data-idx]').textContent = `#${index}`
+</script>

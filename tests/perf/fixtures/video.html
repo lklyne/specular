@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./fixture.css">
+<style>
+  video { display: block; width: 100%; height: calc(100vh - 58px); background: #000; object-fit: cover; }
+  #src { display: none; }
+</style>
+<header>
+  <h1>Video</h1>
+  <span class="idx" data-idx></span>
+  <span data-mode></span>
+</header>
+<video id="v" muted playsinline loop autoplay></video>
+<canvas id="src" width="640" height="360"></canvas>
+<script type="module">
+  import { fixtureIndex, reportMode, seededRandom } from './fixture.js'
+
+  // A <video> element normally composites on its own hardware-decode path,
+  // which is why ADR 0038's checklist wants it covered separately.
+  //
+  // The clip is recorded from a canvas at load rather than checked in: the
+  // repo carries no binary fixtures, and a generated WebM still plays through
+  // Chromium's ordinary decode and video-composite path. It is not a
+  // substitute for a real hardware-decoded H.264 file — if you are chasing a
+  // decode-specific regression, point this page at one instead.
+  const index = fixtureIndex()
+  const random = seededRandom(index * 32452843 + 11)
+  const video = document.getElementById('v')
+  const canvas = document.getElementById('src')
+  const ctx = canvas.getContext('2d')
+  document.querySelector('[data-idx]').textContent = `#${index}`
+
+  const RECORD_FRAMES = 120
+  const blobs = Array.from({ length: 40 }, () => ({
+    x: random(), y: random(),
+    vx: (random() - 0.5) * 0.01, vy: (random() - 0.5) * 0.01,
+    r: 10 + random() * 40,
+    hue: Math.floor(random() * 360),
+  }))
+
+  function paint(frame) {
+    ctx.fillStyle = `hsl(${(index * 40) % 360} 30% 12%)`
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    for (const b of blobs) {
+      const x = ((b.x + b.vx * frame) % 1 + 1) % 1
+      const y = ((b.y + b.vy * frame) % 1 + 1) % 1
+      ctx.beginPath()
+      ctx.arc(x * canvas.width, y * canvas.height, b.r, 0, Math.PI * 2)
+      ctx.fillStyle = `hsl(${(b.hue + frame) % 360} 70% 55%)`
+      ctx.fill()
+    }
+  }
+
+  async function start() {
+    if (typeof MediaRecorder === 'undefined' || !canvas.captureStream) {
+      paint(0)
+      reportMode('Video', 'unavailable', 'no MediaRecorder')
+      return
+    }
+    const stream = canvas.captureStream(30)
+    const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+      .find((type) => MediaRecorder.isTypeSupported(type))
+    if (!mime) {
+      paint(0)
+      reportMode('Video', 'unavailable', 'no webm codec')
+      return
+    }
+    const recorder = new MediaRecorder(stream, { mimeType: mime })
+    const chunks = []
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data)
+    }
+    const recorded = new Promise((resolve) => { recorder.onstop = resolve })
+    recorder.start()
+
+    for (let frame = 0; frame < RECORD_FRAMES; frame++) {
+      paint(frame)
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+    recorder.stop()
+    await recorded
+
+    video.src = URL.createObjectURL(new Blob(chunks, { type: mime }))
+    await video.play().catch(() => {})
+    reportMode('Video', 'playing', `${mime.replace('video/webm;codecs=', 'webm/')} loop`)
+  }
+
+  start().catch((error) => {
+    reportMode('Video', 'unavailable', String(error && error.message ? error.message : error))
+  })
+</script>
