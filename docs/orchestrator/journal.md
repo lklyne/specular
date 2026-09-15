@@ -1822,3 +1822,18 @@ Noticed (no action):
 - **#383**: day 36, zero comments — no state change.
 - **No skill-file or `docs/orchestrator/` commits since Aug 24** (three weeks now) — consistent with the note above: attention is on product work (#424-#426), not automation upkeep.
 Hint for next run: the needs-triage freeze is now named — don't re-derive it nightly, only write a new paragraph if the count, oldest, or newest issue actually changes. Watch #425's fallow failure for a second same-shaped instance elsewhere (still the only concrete open question with a real proposal behind it). Watch whether #426 gets reviewed or merged — it's the first PR with real size/consequence since Sept 7, and its merge would be the first `main` movement in a week. Keep #169/#383/#422 to one line unless a state actually changes.
+
+---
+
+## 2026-09-15
+Surveyed: `main` HEAD since Sept 7 (unchanged, `1e70e3f` — ninth consecutive quiet night), PR #426 (opened Sept 13, re-checked directly — comment count, `mergeable_state`, and `get_check_runs`), #422's three concrete facts re-checked directly (`v0.8.0` release listing, PR #420, PR #417, `sentry` grep on `src/`), #425's fallow failure and comment thread re-checked via `get_check_runs`, #169/#383 state, needs-triage/`agent-in-progress` recounts, and a direct search for any issue or PR opened since the Sept 14 entry.
+Acted: Nothing filed, nothing closed. #422 stays open past its stale mark — the Sept 10 override holds (day 12), none of its three facts changed. No orchestrator-owned open items beyond #169 to clean up.
+Noticed (no action, one line each — no state change on any of them):
+- **Zero new issues or PRs since the Sept 14 entry** — confirmed via direct `created:>=2026-09-14` search on both, not inferred from silence elsewhere.
+- **#426**: unchanged since Sept 13 — still only its own self-authored follow-ups comment, `mergeable_state: clean`, both `check` and `fallow` completed `success` (re-confirmed via `get_check_runs`). Still the first PR with real size/consequence since Sept 7, still sitting with no external review touch.
+- **#422**: day 12, still none of its three facts resolved — `v0.8.0` published non-draft/non-prerelease; PR #420 open, `mergeable_state: dirty`; PR #417 open, unmerged; `sentry` still in 27 files under `src/`. No fourth release since `0.8.1`.
+- **#425**: fallow failure still unaddressed, eight days now (Sept 7→15), zero comments, no fix-up commit — still a single instance, two-instance bar not crossed.
+- **#169**: day 109, 108 commits before tonight's append, zero comments/reactions — no state change. Day-120 milestone lands ~Sept 26.
+- **#383**: day 37, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410; same #1/#111/#135) — freeze at 22 days, already named Sept 14, not re-deriving.
+Hint for next run: watch #426 for its first review touch or merge — that's the one live thread that would actually test the "relevance to active work" read #169/#383/#422 have been waiting on. Otherwise keep everything to one line unless #422's facts change, #425 gets a second instance elsewhere, or #169 nears day 120.
