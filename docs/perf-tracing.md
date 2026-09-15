@@ -89,6 +89,86 @@ curl -X POST http://localhost:29979/perf/pan-zoom/stop \
 The run request remains open until the test and trace flush finish. Send the stop
 request from a second process when cancellation is needed.
 
+## Canvas benchmark (deterministic frame timing)
+
+`/perf/pan-zoom/run` above answers *where* the time went. It is not the tool for
+*did this change make things worse*, for three reasons: its headline number
+(GPU-process busy as a share of wall-clock) saturates near 100% and stops
+separating once the compositor is pinned; input is paced by `setTimeout`, so a
+slow build delivers fewer steps over more wall-clock — shrinking the workload
+exactly when a regression should enlarge it — and moves the denominator; and
+step count tracked the display's refresh rate, so two machines drove different
+workloads.
+
+The canvas benchmark fixes the workload and reports percentiles instead:
+
+```bash
+curl -X POST http://localhost:29979/perf/canvas-bench/run \
+  -H "x-specular-secret: $SECRET" \
+  -H 'Content-Type: application/json' \
+  -d '{"runs": 5, "warmupRuns": 1}'
+```
+
+Request fields, all optional: `phaseIds` (defaults to every phase in
+`shared/pan-zoom-perf-test.ts`), `runs` (5), `warmupRuns` (1, discarded before
+measuring), `trace` (also record a Chromium trace, for drilling into a number
+that moved).
+
+What makes a run comparable to the last one:
+
+- **canvas-bg drives the gesture**, one step per `requestAnimationFrame`,
+  through the same bridge calls a trackpad gesture makes. Steps per phase come
+  from `BENCH_NOMINAL_FRAME_MS`, never the display, so 60Hz and 120Hz machines
+  drive the same number of camera updates over the same distance. A slow build
+  takes longer to cover that ground instead of covering less of it.
+- **Nothing waits on main inside the loop**, so the recorded intervals are the
+  renderer's own cadence rather than IPC latency.
+- **Five runs, median per phase.** Median, not mean: the failure mode being
+  guarded against is one run catching a background process.
+
+What comes back, per phase (`frames`, ms): `drawFps`, `meanFrameMs`, `p50/p95/
+p99FrameMs`, `maxFrameMs`, `missedFrames` (past one refresh interval, with a 5%
+tolerance for vsync jitter) and `longFrames` (past 1.5x — long enough to read as
+a hitch). `paintCost` is time inside the item-surface paint callback itself: a
+run can hold 120fps while each paint grows, right up until the frame it doesn't.
+`pageHosts` carries the offscreen page-host counters over the run —
+`framesWithoutTexture` and `maxOutstandingTextures` are the pair that identified
+`MAX_OUTSTANDING_TEXTURES` as the ceiling at 40 pages, so they are reported next
+to frame time rather than left to a trace. Every measured run is returned under
+`runs`, so spread stays inspectable behind the median.
+
+### The fixture canvas
+
+Numbers are only comparable if the pages are. ADR 0038's spike measured against
+live websites, which makes a result irreproducible once the content changes, and
+every page it tested was effectively static — which is why its JPEG-baseline
+finding never generalized to animated content.
+
+`tests/perf/fixtures/` holds six archetypes: `static-text` (no repaint),
+`css-animation` (compositor-driven layers), `raf-canvas` (per-frame CPU raster),
+`webgl-shader`, `webgpu-shader` (a second, distinct GPU path), and `video`. Each
+is seeded by page index and advances by frame count rather than wall-clock, so
+two runs do identical work. Each also names what it is actually doing in a badge
+— a page that fell back to no GPU is never measured as if it were still under
+load, and the WebGPU page reads a frame back from an offscreen texture before
+starting its loop, so a device that acquires but renders nothing says so.
+
+```bash
+pnpm perf:fixtures                                  # serve on :8931
+pnpm perf:canvas -- --pages 20 --out perf-20.canvas # generate the canvas
+pnpm perf:canvas -- --pages 40 --mix static         # the old spike's conditions
+```
+
+Open the generated `.canvas`, then run the benchmark against it.
+
+### What this cannot be
+
+GPU compositing numbers are hardware-dependent, and shared-texture behavior
+needs a real GPU — so this is not a CI gate, and an absolute number from one
+machine means nothing on another. What it is: a reproducible A/B on one pinned
+machine. Run it on the current build, run it on the change, compare medians.
+Commit a baseline result if you want drift visible over time.
+
 ## Reading the summary
 
 `TraceSummary` (built by `src/shared/trace-summary.ts`, all values ms):

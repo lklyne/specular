@@ -11,6 +11,7 @@
 import { BrowserWindow, screen, sharedTexture, type WebContents } from 'electron'
 import type { PageFrameMeta } from '../../shared/page-frames'
 import { preloadPath } from './load-renderer'
+import type { PageHostStats } from '../../shared/canvas-bench'
 
 /**
  * Frames a page may have in flight to canvas-bg before new ones are dropped.
@@ -32,18 +33,6 @@ const LATENCY_SAMPLES = 30
  * hidden (ADR 0035, offscreen postmortem).
  */
 const IDLE_FRAME_RATE = 1
-
-export interface PageHostStats {
-  pageId: string
-  framesReceived: number
-  popupFrames: number
-  framesWithoutTexture: number
-  framesDroppedForPoolPressure: number
-  sendFailures: number
-  outstandingTextures: number
-  maxOutstandingTextures: number
-  releaseLatencyMs: number | null
-}
 
 export interface PageHost {
   readonly id: string

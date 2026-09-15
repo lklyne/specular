@@ -126,6 +126,30 @@ Shape B, built. Every page is a hidden offscreen `BrowserWindow` (`page-host.ts`
 
 **Not resolved by this ADR:** whether shape B fully replaces shape C, or lands as a hybrid — in practice, shape B shipped and the hybrid fallback was not needed.
 
+## Measuring the checklist below
+
+The spike numbers in this ADR came from two instruments that no longer exist in
+the shape they were taken with: the lab's `labBenchmark.ts` was deleted when the
+lab folded into production, and `/perf/pan-zoom/run` reports GPU-process busy
+time as a share of wall-clock — a ratio that saturates near 100%, so once the
+compositor is pinned it cannot size a regression, and whose `setTimeout` pacing
+shrinks the workload on a slow build.
+
+`/perf/canvas-bench/run` replaces it for before/after work: canvas-bg drives the
+same gesture profiles one step per animation frame, with step count fixed rather
+than taken from the display, and reports per-phase frame-time percentiles,
+long-frame counts, paint cost, and the page-host pool counters
+(`framesWithoutTexture`, `maxOutstandingTextures`) that located the ceiling at
+40 pages. `tests/perf/fixtures/` supplies the archetypes this ADR's spike never
+covered — `<video>`, WebGL, WebGPU, per-frame CPU raster and compositor-driven
+CSS — as local, seeded, frame-counted pages rather than live websites. Full
+usage: `docs/perf-tracing.md`.
+
+This is the instrument, not the answers. The checklist below is still unrun, and
+the CI-testability item still resolves the way it reads: shared-texture behavior
+needs a real GPU, so these numbers are a reproducible A/B on one pinned machine,
+not a CI gate.
+
 ## Post-build validation (manual, run after the implementation lands — not pre-build spikes)
 
 The items above were spiked before deciding to proceed. The items below surfaced in review *after* that decision and are deliberately not gating build-out — they're the checklist for confirming the shipped implementation behaves as expected, not further pre-build research. Run each manually against the real production build:

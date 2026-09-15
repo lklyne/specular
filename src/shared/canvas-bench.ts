@@ -15,7 +15,14 @@
  *   the measured cadence is the renderer's own, not IPC latency.
  */
 
-import type { FrameIntervalSummary, PaintCostSummary } from './frame-stats'
+import {
+  medianPaintCost,
+  medianSummary,
+  roundPaintCost,
+  roundSummary,
+  type FrameIntervalSummary,
+  type PaintCostSummary,
+} from './frame-stats'
 import type { PanZoomPerfPhase } from './pan-zoom-perf-test'
 
 /**
@@ -55,6 +62,19 @@ export interface CanvasBenchPhaseResult {
 export interface CanvasBenchRunResult {
   refreshMs: number
   phases: CanvasBenchPhaseResult[]
+}
+
+/** One offscreen page host's own counters, as the host keeps them. */
+export interface PageHostStats {
+  pageId: string
+  framesReceived: number
+  popupFrames: number
+  framesWithoutTexture: number
+  framesDroppedForPoolPressure: number
+  sendFailures: number
+  outstandingTextures: number
+  maxOutstandingTextures: number
+  releaseLatencyMs: number | null
 }
 
 /**
@@ -112,4 +132,74 @@ export interface CanvasBenchDriveRequest {
 export interface CanvasBenchDriveResult {
   refreshMs: number
   runs: CanvasBenchRunResult[]
+}
+
+/**
+ * Page-host counters over one run. Cumulative fields are differenced against
+ * their pre-run values so a long-lived session's totals don't leak into a
+ * single run's numbers; `maxOutstandingTextures` is a high-water mark, so it
+ * is taken as a max rather than a difference. A host created mid-run has no
+ * baseline and contributes its whole count.
+ */
+export function diffPageHostStats(
+  before: readonly PageHostStats[],
+  after: readonly PageHostStats[],
+): CanvasBenchPageHostTotals {
+  const baseline = new Map(before.map((stats) => [stats.pageId, stats]))
+  const totals: CanvasBenchPageHostTotals = {
+    hosts: after.length,
+    framesReceived: 0,
+    framesWithoutTexture: 0,
+    framesDroppedForPoolPressure: 0,
+    sendFailures: 0,
+    maxOutstandingTextures: 0,
+    releaseLatencyMs: null,
+  }
+  const latencies: number[] = []
+  for (const stats of after) {
+    const was = baseline.get(stats.pageId)
+    totals.framesReceived += stats.framesReceived - (was?.framesReceived ?? 0)
+    totals.framesWithoutTexture += stats.framesWithoutTexture - (was?.framesWithoutTexture ?? 0)
+    totals.framesDroppedForPoolPressure +=
+      stats.framesDroppedForPoolPressure - (was?.framesDroppedForPoolPressure ?? 0)
+    totals.sendFailures += stats.sendFailures - (was?.sendFailures ?? 0)
+    totals.maxOutstandingTextures = Math.max(
+      totals.maxOutstandingTextures,
+      stats.maxOutstandingTextures,
+    )
+    if (stats.releaseLatencyMs !== null) latencies.push(stats.releaseLatencyMs)
+  }
+  if (latencies.length > 0) {
+    totals.releaseLatencyMs =
+      Math.round((latencies.reduce((sum, value) => sum + value, 0) / latencies.length) * 100) / 100
+  }
+  return totals
+}
+
+/**
+ * Collapses each phase across the measured runs to its median. Phases keep
+ * the order they were first seen in, so a report reads in gesture order
+ * rather than alphabetically.
+ */
+export function medianPhases(
+  runs: readonly CanvasBenchRunResult[],
+): CanvasBenchPhaseResult[] {
+  const byPhase = new Map<PanZoomPerfPhase['id'], CanvasBenchPhaseResult[]>()
+  for (const run of runs) {
+    for (const phase of run.phases) {
+      const bucket = byPhase.get(phase.phase)
+      if (bucket) bucket.push(phase)
+      else byPhase.set(phase.phase, [phase])
+    }
+  }
+  const mean = (values: number[]): number =>
+    values.reduce((sum, value) => sum + value, 0) / values.length
+  return [...byPhase.entries()].map(([id, results]) => ({
+    phase: id,
+    durationMs: Math.round(mean(results.map((r) => r.durationMs))),
+    steps: results[0].steps,
+    framesReceived: Math.round(mean(results.map((r) => r.framesReceived))),
+    frames: roundSummary(medianSummary(results.map((r) => r.frames))),
+    paintCost: roundPaintCost(medianPaintCost(results.map((r) => r.paintCost))),
+  }))
 }
