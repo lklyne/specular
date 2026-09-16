@@ -12,8 +12,8 @@
 
 import { net } from 'electron'
 import type { PageDragPayload } from '../../shared/types'
-import { isHttpOrFileUrl } from '../../shared/url'
 import { ipcChannels } from '../../shared/ipc-contract'
+import { decodePercentEncoded, dragMayLoad } from './page-drag-policy'
 import { findPageById } from './runtime-context'
 import { aboveView } from './view-refs'
 import { safeSend } from './safe-send'
@@ -64,6 +64,7 @@ export async function dropPageDragOnCanvas(input: {
 }): Promise<{ createdId: string } | null> {
   const payload = takePendingDrag(input.pageId)
   if (!payload) return null
+  const sourcePageUrl = findPageById(input.pageId)?.url
 
   if (payload.kind === 'text') {
     const entity = createTextEntity({
@@ -79,7 +80,7 @@ export async function dropPageDragOnCanvas(input: {
   }
 
   if (payload.kind === 'link') {
-    if (!isHttpOrFileUrl(payload.url)) return null
+    if (!dragMayLoad(payload.url, sourcePageUrl)) return null
     const sourcePage = findPageById(input.pageId)
     const { pageId } = createPageAtPosition({
       presetIndex: sourcePage?.presetIndex ?? 0,
@@ -92,7 +93,7 @@ export async function dropPageDragOnCanvas(input: {
     return { createdId: pageId }
   }
 
-  const buffer = await fetchDragImageBuffer(payload.src)
+  const buffer = await fetchDragImageBuffer(payload.src, sourcePageUrl)
   if (!buffer) return null
   const file = saveImageBuffer(buffer, extensionForImage(payload.src))
   const { width, height } = imageSizeFromBuffer(buffer)
@@ -102,9 +103,12 @@ export async function dropPageDragOnCanvas(input: {
 
 /** `net.fetch` doesn't support `data:` (Electron limitation), so that scheme
  *  is decoded directly rather than round-tripped through the network stack. */
-async function fetchDragImageBuffer(src: string): Promise<Buffer | null> {
+async function fetchDragImageBuffer(
+  src: string,
+  sourcePageUrl: string | undefined,
+): Promise<Buffer | null> {
   if (src.startsWith('data:')) return decodeDataUrlImage(src)
-  if (!isHttpOrFileUrl(src)) return null
+  if (!dragMayLoad(src, sourcePageUrl)) return null
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
@@ -127,7 +131,7 @@ function decodeDataUrlImage(dataUrl: string): Buffer | null {
   const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataUrl)
   if (!match) return null
   const [, , isBase64, data] = match
-  const buffer = isBase64 ? Buffer.from(data, 'base64') : Buffer.from(decodeURIComponent(data), 'utf-8')
+  const buffer = isBase64 ? Buffer.from(data, 'base64') : decodePercentEncoded(data)
   return buffer.byteLength > MAX_DRAG_IMAGE_BYTES ? null : buffer
 }
 
