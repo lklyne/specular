@@ -1837,3 +1837,18 @@ Noticed (no action, one line each — no state change on any of them):
 - **#383**: day 37, zero comments — no state change.
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410; same #1/#111/#135) — freeze at 22 days, already named Sept 14, not re-deriving.
 Hint for next run: watch #426 for its first review touch or merge — that's the one live thread that would actually test the "relevance to active work" read #169/#383/#422 have been waiting on. Otherwise keep everything to one line unless #422's facts change, #425 gets a second instance elsewhere, or #169 nears day 120.
+
+---
+
+## 2026-09-16
+Surveyed: `main` HEAD since Sept 7 (unchanged, `1e70e3f` — tenth consecutive quiet night on `main` directly), PR #426 re-checked directly (`get_check_runs`, `get_commits`, `get_reviews`, comment count — not just `mergeable_state`), #422's three concrete facts re-checked directly (release listing, PR #420, PR #417, `rg -il sentry src/`), #425's check-runs and comments re-checked, #169/#383 state, needs-triage/`agent-in-progress` recounts, and a direct search for any issue or PR opened since Sept 15.
+Acted: Nothing filed, nothing closed. #422 stays open past its stale mark — the Sept 10 override holds (day 13), none of its three facts changed. No orchestrator-owned open items beyond #169 to clean up.
+Noticed (no action, one line each unless flagged):
+- **#426 got pushed today (05:15 UTC)** — new commits landed (30 total now), both `check` and `fallow` completed `success` at 05:17/05:16 UTC, `mergeable_state: clean`. Still zero external reviews (`get_reviews` empty) and still only the one self-authored follow-ups comment from Sept 13. This is continued solo work, not the "first review touch" the Sept 15 hint was watching for — the hint's condition hasn't fired yet, just a same-author push.
+- **Zero new issues or PRs since Sept 15** — confirmed via direct `created:>=2026-09-15` search on both, and the full open-PR list matches Sept 15's set exactly (#426, #169, #424, #425, #420, #417, #394, #395, #390, #383, #358, #359, #246, #236, #204, #32) with only #426's `updated_at` moved.
+- **#422**: day 13, still none of its three facts resolved — `v0.8.0` published non-draft/non-prerelease; PR #420 open, `mergeable_state: dirty`; PR #417 open, unmerged; `sentry` still in 27 files under `src/`. No fourth release since `0.8.1` (Sept 5).
+- **#425**: fallow failure still unaddressed, nine days now (Sept 7→16), zero comments, no fix-up commit — still a single instance, two-instance bar not crossed.
+- **#169**: day 110, 109 commits before tonight's append, zero comments/reactions — no state change. Day-120 milestone lands ~Sept 26.
+- **#383**: day 38, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410; same #1/#111/#135) — freeze now at 23 days, already named Sept 14, not re-deriving.
+Hint for next run: keep watching #426 for an actual external review touch or merge (today's push doesn't count — same author, no new eyes). Otherwise keep everything to one line unless #422's facts change, #425 gets a second instance elsewhere, or #169 nears day 120 (~Sept 26, getting close).
