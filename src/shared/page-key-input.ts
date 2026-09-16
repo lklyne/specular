@@ -67,6 +67,34 @@ function cdpModifiersFor(mods: {
 }
 
 /**
+ * macOS editing commands a press stands for, as `Input.dispatchKeyEvent`'s
+ * `commands` field.
+ *
+ * On macOS Chromium does not derive an editing action from the key event
+ * itself: the embedder resolves the keystroke through NSResponder and names
+ * the command alongside it. A synthesized Cmd+C carrying only a modifier flag
+ * therefore selects nothing and copies nothing. The names are Chromium's
+ * editing commands, which are close to but not the same as `execCommand`'s.
+ */
+function editingCommandsFor(payload: ForwardKeyPayload): string[] {
+  if (!payload.metaKey || payload.ctrlKey || payload.altKey) return []
+  switch (payload.key.toLowerCase()) {
+    case 'c':
+      return ['copy']
+    case 'x':
+      return ['cut']
+    case 'v':
+      return payload.shiftKey ? ['pasteAndMatchStyle'] : ['paste']
+    case 'a':
+      return ['selectAll']
+    case 'z':
+      return payload.shiftKey ? ['redo'] : ['undo']
+    default:
+      return []
+  }
+}
+
+/**
  * Params for one `Input.dispatchKeyEvent`.
  *
  * A press that inserts text is a `keyDown` carrying that text; one that does
@@ -85,10 +113,12 @@ export function cdpKeyEventParams(payload: ForwardKeyPayload): Record<string, un
       : {}),
   }
   if (payload.kind === 'up') return { ...base, type: 'keyUp' }
+  const commands = editingCommandsFor(payload)
   return {
     ...base,
     type: payload.text ? 'keyDown' : 'rawKeyDown',
     ...(payload.text ? { text: payload.text, unmodifiedText: payload.text } : {}),
+    ...(commands.length ? { commands } : {}),
   }
 }
 

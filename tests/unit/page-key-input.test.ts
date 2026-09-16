@@ -88,3 +88,46 @@ describe('cdpKeyEventParams', () => {
     expect(cdpKeyEventParams(payload({ repeat: true })).autoRepeat).toBe(true)
   })
 })
+
+describe('cdpKeyEventParams editing commands', () => {
+  const press = (key: string, mods: Partial<ForwardKeyPayload> = {}): ForwardKeyPayload => ({
+    kind: 'down',
+    key,
+    code: `Key${key.toUpperCase()}`,
+    text: null,
+    repeat: false,
+    shiftKey: false,
+    ctrlKey: false,
+    altKey: false,
+    metaKey: true,
+    ...mods,
+  })
+
+  it('names the editing command for the clipboard shortcuts', () => {
+    // Without this, macOS Chromium runs no editing action for a synthesized
+    // press and Cmd+C in an entered page copies nothing.
+    expect(cdpKeyEventParams(press('c')).commands).toEqual(['copy'])
+    expect(cdpKeyEventParams(press('x')).commands).toEqual(['cut'])
+    expect(cdpKeyEventParams(press('v')).commands).toEqual(['paste'])
+    expect(cdpKeyEventParams(press('a')).commands).toEqual(['selectAll'])
+  })
+
+  it('distinguishes the shifted variants', () => {
+    expect(cdpKeyEventParams(press('z')).commands).toEqual(['undo'])
+    expect(cdpKeyEventParams(press('z', { shiftKey: true })).commands).toEqual(['redo'])
+    expect(cdpKeyEventParams(press('v', { shiftKey: true })).commands).toEqual([
+      'pasteAndMatchStyle',
+    ])
+  })
+
+  it('leaves ordinary and non-Meta presses alone', () => {
+    expect(cdpKeyEventParams(press('c', { metaKey: false })).commands).toBeUndefined()
+    expect(cdpKeyEventParams(press('b')).commands).toBeUndefined()
+    // Ctrl+Cmd+C is a different keystroke and means nothing to the editor.
+    expect(cdpKeyEventParams(press('c', { ctrlKey: true })).commands).toBeUndefined()
+  })
+
+  it('carries no command on the key release', () => {
+    expect(cdpKeyEventParams(press('c', { kind: 'up' })).commands).toBeUndefined()
+  })
+})
