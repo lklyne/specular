@@ -25,6 +25,7 @@ import type {
 import { pages } from './runtime/runtime-context'
 import type { Page } from './runtime/runtime-entities'
 import { pageLabel, pagePresentationOf } from './process-metrics'
+import { requestLayout } from './runtime/viewport-control'
 
 const DEFAULT_WINDOW_MS = 1500
 /** Bounds the renderer wake-ups a single probe run costs. */
@@ -113,7 +114,13 @@ async function probePage(page: Page, windowMs: number): Promise<VisibilityProbeP
   } catch (error) {
     result.error = error instanceof Error ? error.message : String(error)
   } finally {
-    if (resumed) page.host.setPainting(false)
+    if (resumed) {
+      page.host.setPainting(false)
+      // The probe's verdict is a measurement, not a policy: if the page came
+      // back into view while it ran, this would otherwise leave it blank until
+      // some unrelated pass happened to paint it again.
+      requestLayout()
+    }
     try {
       if (!page.host.webContents.isDestroyed()) {
         await page.host.webContents.executeJavaScript(CLEANUP_SCRIPT)

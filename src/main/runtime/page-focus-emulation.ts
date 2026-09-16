@@ -22,19 +22,34 @@ import { currentKeyboardTargetPageId } from './selection-controller'
 let emulatedPageId: string | null = null
 
 /**
+ * One detach handler per page, kept so repeated calls hand `ensurePageDebugger`
+ * the same function rather than growing the session's handler set on every
+ * target change.
+ *
  * A detached session drops the override with it, so the record is forgotten and
- * the next pass re-applies rather than skipping as a no-op. One shared handler
- * rather than a closure per call, which would grow the session's detach-handler
- * set on every target change.
+ * the next pass re-applies rather than skipping as a no-op — but only when the
+ * page that detached is the emulated one. A handler shared across pages would
+ * let any page's detach (a deletion, an agent dropping its CDP session) clear
+ * the record while another page is still emulated, stranding that page's caret
+ * on alongside the next target's.
  */
-const forgetEmulation = (): void => {
-  emulatedPageId = null
+const detachHandlers = new Map<string, () => void>()
+
+function forgetEmulationOf(pageId: string): () => void {
+  let handler = detachHandlers.get(pageId)
+  if (!handler) {
+    handler = () => {
+      if (emulatedPageId === pageId) emulatedPageId = null
+    }
+    detachHandlers.set(pageId, handler)
+  }
+  return handler
 }
 
 function setEmulation(page: Page, enabled: boolean): boolean {
   const wc = page.host.webContents
   if (wc.isDestroyed()) return false
-  if (!ensurePageDebugger(wc, forgetEmulation)) return false
+  if (!ensurePageDebugger(wc, forgetEmulationOf(page.id))) return false
   wc.debugger
     .sendCommand('Emulation.setFocusEmulationEnabled', { enabled })
     .catch(() => {
@@ -92,5 +107,6 @@ export function registerPageFocusEmulation(page: Page): void {
   wc.on('render-process-gone', reapply)
   wc.once('destroyed', () => {
     if (emulatedPageId === page.id) emulatedPageId = null
+    detachHandlers.delete(page.id)
   })
 }
