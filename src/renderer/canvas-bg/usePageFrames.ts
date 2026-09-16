@@ -10,9 +10,12 @@ export interface PagePopup extends PageFrame {
   /** Where the popup hangs in page CSS px; null until the page answers. */
   anchor: PagePopupAnchor | null
   /**
-   * Set when the page painted after this popup's last paint. Electron sends
-   * no close event for a popup widget; what it does send, on close, is one
-   * page paint with no popup paint after it. A popup paint clears this.
+   * Set when the page painted after this popup's last paint *and* had been
+   * sent input since. Electron sends no close event for a popup widget; what
+   * it does send, on close, is one page paint with no popup paint after it.
+   * A page that animates paints for its own reasons, so the input the frame
+   * carries is what separates a dismissal from a spinner. A popup paint
+   * clears this.
    */
   closingSince: number | null
 }
@@ -83,7 +86,7 @@ export function usePageFrames(
         store.frames.get(meta.pageId)?.bitmap.close()
         store.frames.set(meta.pageId, { bitmap, meta })
         const popup = store.popups.get(meta.pageId)
-        if (popup && popup.closingSince === null) popup.closingSince = performance.now()
+        if (popup && pageFrameDismissesPopup(popup, meta)) popup.closingSince = performance.now()
       }
       onFrameRef.current()
     }
@@ -92,6 +95,16 @@ export function usePageFrames(
   }, [])
 
   return storeRef.current
+}
+
+/**
+ * Whether a page frame that just arrived is evidence its popup was dismissed:
+ * the page painted after the popup's last paint, and the user did something in
+ * between that could have closed it. Without the second half, a page that
+ * animates would close its own picker a frame after it opened.
+ */
+export function pageFrameDismissesPopup(popup: PagePopup, frame: PageFrameMeta): boolean {
+  return popup.closingSince === null && frame.inputSeq > popup.meta.inputSeq
 }
 
 /** Drops a popup whose page painted after it and heard nothing from it since. */

@@ -10,6 +10,7 @@
 
 import { BrowserWindow, screen, sharedTexture, type WebContents } from 'electron'
 import type { PageFrameMeta } from '../../shared/page-frames'
+import { forgetInputCountForPage, inputCountForPage } from './page-input-counter'
 import { preloadPath } from './load-renderer'
 
 /**
@@ -231,6 +232,7 @@ class OffscreenPageHost implements PageHost {
       height: info.codedSize.height,
       cssWidth: this.currentSize.width,
       cssHeight: this.currentSize.height,
+      inputSeq: inputCountForPage(this.id),
     }
 
     let released = false
@@ -290,7 +292,10 @@ export function createPageHost(options: {
 }): PageHost {
   const host = new OffscreenPageHost(options)
   hosts.add(host)
-  host.webContents.once('destroyed', () => hosts.delete(host))
+  host.webContents.once('destroyed', () => {
+    hosts.delete(host)
+    forgetInputCountForPage(host.id)
+  })
   return host
 }
 

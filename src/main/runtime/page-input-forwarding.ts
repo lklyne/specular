@@ -24,6 +24,7 @@ import { findPageById } from './runtime-context'
 import { boundEffectivePageContentSize, boundScreenBoundsForPage } from './runtime-geometry'
 import { ensurePageDebugger } from './page-debugger'
 import { ensurePageFocusEmulated } from './page-focus-emulation'
+import { noteInputToPage } from './page-input-counter'
 import { cdpKeyEventParams, type ForwardKeyPayload } from '../../shared/page-key-input'
 
 export type ForwardWheelPayload = {
@@ -126,6 +127,7 @@ export function forwardWheelToPage(pageId: string, payload: ForwardWheelPayload)
       modifiers: modifiersFor(payload),
     }
     target.webContents.sendInputEvent(wheelEvent)
+    noteInputToPage(pageId)
   } catch (error) {
     console.error('[page-input-forwarding] wheel forward threw', error)
     return false
@@ -153,6 +155,9 @@ export function forwardPointerToPage(pageId: string, payload: ForwardPointerPayl
     // unfocused, so the resulting text selection renders with Chromium's
     // inactive (gray) highlight. Emulate focus on mouseDown the way a real
     // click would, ahead of the layout pass that would otherwise do it.
+    // A move is not something that dismisses a popup, so it is not input as
+    // far as the popup-close inference is concerned.
+    if (payload.kind !== 'move') noteInputToPage(pageId)
     if (payload.kind === 'down') ensurePageFocusEmulated(pageId)
   } catch (error) {
     console.error('[page-input-forwarding] pointer forward threw', error)
@@ -194,11 +199,18 @@ function pageCdp(pageId: string, method: string, params: Record<string, unknown>
  * `Input.dispatchKeyEvent` is the transport that reaches its renderer.
  */
 export function forwardKeyToPage(pageId: string, payload: ForwardKeyPayload): boolean {
-  return pageCdp(pageId, 'Input.dispatchKeyEvent', cdpKeyEventParams(payload))
+  const sent = pageCdp(pageId, 'Input.dispatchKeyEvent', cdpKeyEventParams(payload))
+  // Both halves of the press count. A dismissal has to leave the count higher
+  // than the popup's own last paint, and a popup that repaints on the way out
+  // (Escape's press redrawing it before it goes) would otherwise match it.
+  if (sent) noteInputToPage(pageId)
+  return sent
 }
 
 /** IME commits arrive as whole strings; `Input.insertText` is the only lever. */
 export function insertTextIntoPage(pageId: string, text: string): boolean {
   if (!text) return false
-  return pageCdp(pageId, 'Input.insertText', { text })
+  const sent = pageCdp(pageId, 'Input.insertText', { text })
+  if (sent) noteInputToPage(pageId)
+  return sent
 }
