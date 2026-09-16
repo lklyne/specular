@@ -27,7 +27,7 @@ import {
   setToolbarView,
   setWin,
 } from './view-refs'
-import { setPageFrameTarget } from './page-host'
+import { destroyAllPageHosts, setPageFrameTarget } from './page-host'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
@@ -308,6 +308,10 @@ export function initWindow(): void {
   // seed from the window rather than assuming the app started in front.
   setWindowFocused(currentWin.isFocused())
   currentWin.on('closed', () => {
+    // Page hosts are windows of their own, so they hold `window-all-closed`
+    // off until they go too — without this the app lives on with no canvas to
+    // show for it (ADR 0038).
+    destroyAllPageHosts()
     if (!overlayWin.isDestroyed()) overlayWin.destroy()
     setCursorOverlayWindow(null)
     screen.off('display-metrics-changed', syncOverlayOnDisplayChange)

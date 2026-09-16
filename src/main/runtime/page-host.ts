@@ -116,6 +116,13 @@ class OffscreenPageHost implements PageHost {
         },
       },
     })
+    // A page is a window only as an implementation detail of rendering it
+    // offscreen, so nothing a document does may close it: `window.close()`
+    // succeeds on a window with a single history entry (an OAuth "you can
+    // close this now" page is the common one), which would destroy the host
+    // out from under the `Page` record that owns it. Our own teardown goes
+    // through `destroy()`, which closes without raising this event.
+    this.win.on('close', (event) => event.preventDefault())
     this.activeFrameRate = this.win.webContents.getFrameRate()
     this.win.webContents.on('paint', (event) => {
       if (this.win.isDestroyed()) return
@@ -285,6 +292,17 @@ export function createPageHost(options: {
   hosts.add(host)
   host.webContents.once('destroyed', () => hosts.delete(host))
   return host
+}
+
+/**
+ * Destroy every page host. Page hosts are top-level windows, so while any of
+ * them lives Electron counts a window as open: `window-all-closed` never
+ * fires, and a quit stalls on hosts that refuse to close. Called when the main
+ * window goes away and again on `before-quit`, after the autosave flush that
+ * still wants live pages.
+ */
+export function destroyAllPageHosts(): void {
+  for (const host of [...hosts]) host.destroy()
 }
 
 export function pageHostStats(): PageHostStats[] {
