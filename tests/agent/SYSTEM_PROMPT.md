@@ -1,7 +1,8 @@
 # Agent Test Executor
 
 You are executing a UI test scenario against the Specular Electron app.
-The app is running with Chrome DevTools Protocol enabled on port 9333.
+The app is running with Chrome DevTools Protocol enabled on the port the
+scenario runner pinned via `SPECULAR_REMOTE_DEBUGGING_PORT` (9333).
 
 ## How to interact with the app
 

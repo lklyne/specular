@@ -1,18 +1,18 @@
 import { app, crashReporter, dialog, net, nativeTheme, protocol } from 'electron'
 import { basename } from 'path'
 import { pathToFileURL } from 'url'
-import { DEFAULT_PAGES, DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import { logCrash } from './crash-log'
+import { seedStarterSpace } from './starter-space'
+import { spaceDir } from './runtime/space-dir'
 import {
   flushSpaceAutosaveSync,
   loadSpace,
 } from './runtime/space-autosave'
 import { restorePersistedSpace } from './runtime/space-restore'
-import { createPage, pages, setMcpConnectionStatus } from './runtime/page-runtime'
+import { pages, setMcpConnectionStatus } from './runtime/page-runtime'
 import { setOpenLinkInNewFrameHandler } from './runtime/link-open-policy'
 import { duplicatePageFromSource } from './workspace-pages'
 import { requestLayout } from './runtime/viewport-control'
-import { toggleDevTools } from './runtime/ui-actions'
 import { broadcastTheme, initWindow, isDark, win } from './runtime/window-shell'
 import {
   getMcpConnectionStatus,
@@ -59,22 +59,9 @@ import { getUiState, setSelection } from './ui-state'
 import { broadcastSelectionChange } from './runtime/runtime-slice-broadcast'
 import { destroyActivePages } from './runtime/runtime-core'
 import { initAutoUpdater } from './auto-updater'
-import { initSentry } from './sentry'
 import { initFileWatcher, teardownAllFileWatchers } from './runtime/local-file-watcher'
-import {
-  breadcrumb,
-  identifyInstall,
-  setTag,
-  setWorkspaceSource,
-} from './sentry-context'
-import { subscribe as subscribeInteraction } from './runtime/interaction-controller'
-import * as Sentry from '@sentry/electron/main'
 
 app.setName('Specular')
-
-// Sentry sets up its own crashReporter when a DSN is configured, so it must
-// run before the local crashReporter.start() call below.
-initSentry()
 
 crashReporter.start({ submitURL: '', uploadToServer: false, ignoreSystemCrashHandler: false })
 
@@ -89,19 +76,15 @@ process.stderr.on('error', () => {})
 process.on('uncaughtException', (err) => logCrash('uncaughtException', err))
 process.on('unhandledRejection', (reason) => logCrash('unhandledRejection', reason))
 app.on('render-process-gone', (_e, wc, details) => {
-  let host: string | undefined
-  try { host = new URL(wc.getURL()).host } catch {}
   logCrash('render-process-gone', { url: wc.getURL(), ...details })
-  Sentry.withScope((scope) => {
-    scope.setTag('webview_host', host ?? 'unknown')
-    scope.setTag('reason', details.reason)
-    scope.setExtra('exitCode', details.exitCode)
-    Sentry.captureMessage(`render-process-gone: ${details.reason}`, 'error')
-  })
 })
 app.on('child-process-gone', (_e, details) => logCrash('child-process-gone', details))
 
-const remoteDebuggingPort = process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? String(DEFAULT_REMOTE_DEBUGGING_PORT)
+// The CDP endpoint has no authentication of its own, so it must not sit on a
+// port anything else can predict: `0` makes Chromium pick a free one per
+// launch, and cdp-proxy discovers it from DevToolsActivePort. Tests that need
+// to connect from outside the app pin it via the env var.
+const remoteDebuggingPort = process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? '0'
 app.commandLine.appendSwitch('remote-debugging-port', remoteDebuggingPort)
 app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
 app.commandLine.appendSwitch('enable-unsafe-webgpu')
@@ -199,7 +182,6 @@ app.whenReady().then(async () => {
     return net.fetch(pathToFileURL(filePath).toString())
   })
 
-  identifyInstall()
   configureBundledAgentBrowser()
   // Probes the binary in the background; windows read the snapshot and get a
   // push once it lands, so nobody blocks on the spawn.
@@ -243,9 +225,7 @@ app.whenReady().then(async () => {
 
   const skipOnboarding = process.env.SPECULAR_SKIP_ONBOARDING === '1'
   if (!skipOnboarding && !loadOnboardingState().completed) {
-    breadcrumb('onboarding', 'shown')
-    const reason = await showOnboardingWindow('welcome')
-    breadcrumb('onboarding', reason)
+    await showOnboardingWindow('welcome')
     if (quitRequested) return
   }
 
@@ -254,14 +234,7 @@ app.whenReady().then(async () => {
   initWindow()
   setMcpConnectionStatus(getMcpConnectionStatus())
   onMcpConnectionStatusChanged((status) => {
-    setTag('has_mcp_connection', status.healthy)
-    breadcrumb('mcp', status.healthy ? 'connected' : 'disconnected', {
-      clients: status.activeClientCount,
-    })
     setMcpConnectionStatus(status)
-  })
-  subscribeInteraction((mode) => {
-    breadcrumb('interaction', mode.kind)
   })
   onPresenceCursorsChanged(() => {
     broadcastRuntimePatch({ kind: 'slice', slice: 'presence', value: currentPresenceSlice() })
@@ -274,26 +247,15 @@ app.whenReady().then(async () => {
     setMcpConnectionStatus(getMcpConnectionStatus())
   }, 5_000)
 
+  // A first-time space gets the starter canvas written into it before the
+  // load, so it arrives through the same path as any other canvas.
+  seedStarterSpace(spaceDir())
+
   // Load workspace from .canvas files (primary), falling back to legacy workspace-store.json
   const persistedWorkspace = loadSpace()
   const restoredPersistedWorkspace = persistedWorkspace
     ? restorePersistedSpace(persistedWorkspace)
     : false
-
-  if (!restoredPersistedWorkspace) {
-    for (const cfg of DEFAULT_PAGES) {
-      createPage(cfg)
-    }
-  }
-
-  setWorkspaceSource(restoredPersistedWorkspace ? 'restored' : 'new')
-  breadcrumb('workspace', 'loaded', {
-    source: restoredPersistedWorkspace ? 'restored' : 'new',
-  })
-
-  if (!restoredPersistedWorkspace) {
-    toggleDevTools()
-  }
 
   const doc = getActiveDoc()
   createCanvasUndoManager(doc)

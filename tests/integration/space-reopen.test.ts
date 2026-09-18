@@ -24,7 +24,7 @@
  *    `reloadWorkspaceDataFromCurrentSpace` — "switching to an empty space
  *    replaces old-space pages instead of piling default pages on top of
  *    them" fails because the old space's text entity survives alongside
- *    the two DEFAULT_PAGES entries.
+ *    the starter canvas's own entities.
  *  - swapping `reopenSpaceAt`'s order to `setSpacePath()` then
  *    `flushSpaceAutosaveSync()` — "flushes the old root before re-pointing"
  *    fails because the pending mutation gets written into the new root
@@ -44,8 +44,8 @@
  *    still sitting on disk).
  */
 
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs'
-import { basename, join } from 'path'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'fs'
+import { basename, join, resolve } from 'path'
 import { tmpdir } from 'os'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { bootWorkspaceHarness, settleSync, type WorkspaceHarness } from './harness'
@@ -65,6 +65,17 @@ import {
 } from '../../src/main/runtime/space-persistence'
 import { spaceTabs } from '../../src/main/runtime/space-model'
 import { getDocTabList } from '../../src/main/runtime/space-doc'
+
+/** An empty root is seeded with the starter canvas, so the content a fresh
+ *  space comes up with is whatever that file holds. Counted from the file
+ *  itself rather than hard-coded, so editing the starter can't silently
+ *  invalidate the assertions below. */
+function starterNodeCount(type: 'link' | 'text'): number {
+  const doc = JSON.parse(
+    readFileSync(resolve(__dirname, '../../resources/starter-space/Welcome.canvas'), 'utf8'),
+  ) as { nodes: { type: string }[] }
+  return doc.nodes.filter((node) => node.type === type).length
+}
 
 let harness: WorkspaceHarness
 const chosenDirs: string[] = []
@@ -144,7 +155,7 @@ describe('reopening a space', () => {
     harness.flush()
     const newDoc = readCanvasFile(harness.diskPath())
     expect(newDoc?.nodes.some((n) => n.id === oldEntity.id)).toBe(false)
-    expect(pages.length).toBe(2)
+    expect(pages.length).toBe(starterNodeCount('link'))
   })
 
   it('leaves the Y.Doc holding the new space, so nothing can sync the old space back under the new root', async () => {
@@ -216,9 +227,10 @@ describe('reopening a space', () => {
     setSpacePath(freshSpaceDir())
     reloadWorkspaceDataFromCurrentSpace()
 
-    // Empty new space -> falls back to the DEFAULT_PAGES starter set, with
-    // no trace of the old space's text entity.
-    expect(getTextEntities().length).toBe(0)
-    expect(pages.length).toBe(2)
+    // Empty new space -> comes up with the starter canvas, and the old
+    // space's text entity is replaced rather than piled on top of.
+    expect(getTextEntities().some((entity) => entity.text === 'old space text')).toBe(false)
+    expect(getTextEntities().length).toBe(starterNodeCount('text'))
+    expect(pages.length).toBe(starterNodeCount('link'))
   })
 })

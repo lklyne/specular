@@ -35,7 +35,7 @@ export function createDefaultUiState(): UiState {
   return {
     selection: { kind: 'none' },
     activeTool: { kind: 'select' },
-    leftSidebarOpen: true,
+    leftSidebarOpen: false,
     toolbarDropdownOpen: false,
     toolbarTooltipOpen: false,
     devtools: {

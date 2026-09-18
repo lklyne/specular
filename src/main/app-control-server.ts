@@ -1,7 +1,7 @@
 import { ipcChannels } from '../shared/ipc-contract'
 import { randomUUID } from 'crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
 import { dirname, isAbsolute, join } from 'path'
 import { homedir, tmpdir } from 'os'
 import type { Duplex } from 'stream'
@@ -106,8 +106,13 @@ function discoveryFilePath(): string {
 }
 
 function writeDiscoveryFile(payload: DiscoveryPayload): void {
-  mkdirSync(dirname(discoveryFilePath()), { recursive: true })
-  writeFileSync(discoveryFilePath(), JSON.stringify(payload, null, 2), 'utf8')
+  mkdirSync(dirname(discoveryFilePath()), { recursive: true, mode: 0o700 })
+  // Carries the control-server secret, which is full authority over the app.
+  // Owner-only, and re-applied on every write since writeFileSync leaves the
+  // mode alone on a file that already exists.
+  const path = discoveryFilePath()
+  writeFileSync(path, JSON.stringify(payload, null, 2), { encoding: 'utf8', mode: 0o600 })
+  chmodSync(path, 0o600)
 }
 
 // Re-write the discovery file if it has gone missing or drifted while our
