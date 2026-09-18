@@ -329,7 +329,7 @@ function PageCommentsSection({
               onClick={fixPageComments}
               disabled={working}
               title="Fix this page's comments"
-              className={`mr-2 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium disabled:opacity-40 ${fixBtnClass}`}
+              className={`mr-2 inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-medium disabled:opacity-40 ${fixBtnClass}`}
             >
               {working ? (
                 <Loader2 size={11} className="shrink-0 animate-spin" />

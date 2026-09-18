@@ -231,8 +231,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelDeleteAnnotation, { annotationId }),
   fixSingleAnnotation: (annotationId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelFixSingleAnnotation, { annotationId }),
-  openAnnotationThread: (annotationId: string) =>
-    ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId }),
+  openAnnotationThread: (annotationId: string | null, opts?: { reveal?: boolean }) =>
+    ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId, reveal: opts?.reveal }),
   setCommentOverlayActive: (active: boolean) =>
     ipcRenderer.send(ipcChannels.commentOverlaySetActive, active),
   onCaptureMode: on<boolean>(ipcChannels.captureMode),
@@ -261,7 +261,7 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasCreateRegionAnnotation, { canvasRect, text }),
   annotateSelection: (input) =>
     ipcRenderer.send(ipcChannels.canvasAnnotateSelection, input),
-  onAnnotationThreadOpen: on<{ annotationId: string }>(ipcChannels.annotationThreadOpen),
+  onAnnotationThreadOpen: on<{ annotationId: string | null }>(ipcChannels.annotationThreadOpen),
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) =>
     ipcRenderer.send(ipcChannels.canvasEdgeDragBegin, { fromEntityId, fromSide }),
   updateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) =>
@@ -306,12 +306,13 @@ const api: CanvasBgElectronAPI = {
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getCanvasLayoutBootstrap),
   repoConnect: (absolutePath: string) =>
     ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),
+  pickRepoForOrigin: (origin: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelPickRepoForOrigin, { origin }),
   onLayoutUpdate: on(ipcChannels.layoutUpdate),
   onRuntimePatch: on<RuntimePatchBatch>(ipcChannels.runtimePatch),
   onFrozenPagesState: on<FrozenPagesState>(ipcChannels.frozenPagesState),
   frozenPagesReady: (target, revision) =>
     ipcRenderer.send(ipcChannels.frozenPagesReady, { target, revision }),
-  onFixProgressUpdate: on<LayoutUpdateData['fixProgress']>(ipcChannels.fixProgressUpdate),
   onThemeChanged: on(ipcChannels.themeChanged),
 }
 

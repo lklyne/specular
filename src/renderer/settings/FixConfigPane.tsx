@@ -12,6 +12,11 @@ const MODEL_OPTIONS: { value: FixModel; label: string }[] = [
 
 const PERMISSION_OPTIONS: { value: FixPermissions; label: string; hint: string }[] = [
   {
+    value: 'auto',
+    label: 'Auto',
+    hint: 'Claude approves routine actions itself and declines anything risky.',
+  },
+  {
     value: 'acceptEdits',
     label: 'Edit and verify',
     hint: 'Claude can read and edit files and run typecheck, tests, and read-only git. Anything else is skipped.',
@@ -20,11 +25,6 @@ const PERMISSION_OPTIONS: { value: FixPermissions; label: string; hint: string }
     value: 'dangerously',
     label: 'Bypass permissions',
     hint: 'Claude runs every tool without asking, including arbitrary shell commands. Only use this on repos you trust.',
-  },
-  {
-    value: 'default',
-    label: 'Read only',
-    hint: 'Claude can read and search but not edit or run commands — it will describe the fix instead of making it.',
   },
 ]
 

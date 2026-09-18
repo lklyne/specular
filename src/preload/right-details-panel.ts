@@ -24,8 +24,12 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelResolveAnnotation, { annotationId }),
   deleteAnnotation: (annotationId) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelDeleteAnnotation, { annotationId }),
+  replyToAnnotation: (annotationId, text) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelReplyAnnotation, { annotationId, text }),
   openAnnotationThread: (annotationId) =>
     ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId }),
+  closeAnnotationThread: () =>
+    ipcRenderer.send(ipcChannels.annotationOpenThread, { annotationId: null }),
   triggerFixComments: (origin: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelTriggerFixComments, { origin }),
   fixSingleAnnotation: (annotationId: string) =>
@@ -38,6 +42,14 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelRemoveOriginBinding, { origin }),
   setFixConfig: (config: { model: string; permissions: string }) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFixConfig, config),
+  newAgentThread: () => ipcRenderer.send(ipcChannels.rightDetailsPanelThreadNew),
+  deselectAgentThread: () => ipcRenderer.send(ipcChannels.rightDetailsPanelThreadDeselect),
+  deleteAgentThread: (threadId: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadDelete, { threadId }),
+  selectAgentThread: (threadId: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSelect, { threadId }),
+  sendAgentThread: (text?: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSend, { text }),
   ...entityMutationBridge,
   setFilePreset: (fileId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFilePreset, { fileId, presetIndex }),

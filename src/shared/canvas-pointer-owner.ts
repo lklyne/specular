@@ -11,9 +11,9 @@
  *                            `begin-placement` / `begin-comment-gesture`.
  *   - 'annotation-overlay' — annotation surfaces own input: the draw tool or
  *                            an in-flight drawing stroke (React handlers from
- *                            `useAnnotationDrawingGestures`), an open thread
- *                            popover, or a pending composer outside comment
- *                            mode. Window-level capture stands down.
+ *                            `useAnnotationDrawingGestures`), or a pending
+ *                            composer outside comment mode. Window-level
+ *                            capture stands down.
  *   - 'none'               — the pointerdown landed on `[data-overlay-ui]`
  *                            (I8'): overlay UI handles its own input and
  *                            every gesture layer yields. `overlayUiTarget`
@@ -23,8 +23,9 @@
  *
  * The comment tool keeps capturing while its own composer / pending region
  * rect is open so a click can retarget the draft (the composer itself is
- * overlay UI and still wins). An open thread or an in-flight drawing stroke
- * blocks it.
+ * overlay UI and still wins). An in-flight drawing stroke blocks it. A
+ * focused thread does not participate: its conversation lives in the right
+ * panel and its canvas trace is a passive ring.
  *
  * Page focus is deliberately absent from the inputs: entering a page changes
  * what the router *dispatches* (forward-pointer-down), never who owns the
@@ -47,8 +48,6 @@ export type CanvasPointerOwnerState = {
   pendingAnnotation: boolean
   /** Region annotation held open for its composer. */
   pendingRegionRect: boolean
-  /** Annotation thread popover open. */
-  openThread: boolean
   /** Drawing stroke session in flight. */
   drawingSession: boolean
   /** Per-event: the pointerdown landed on `[data-overlay-ui]` (I8'). */
@@ -57,15 +56,14 @@ export type CanvasPointerOwnerState = {
 
 /**
  * Renderer-local annotation surfaces that main cannot see — pending
- * composers, open thread popovers, in-flight drawings, the draw tool. While
- * any is active the annotation overlay owns interaction (and aboveView syncs
- * the flag to main via `setCommentOverlayActive`).
+ * composers, in-flight drawings, the draw tool. While any is active the
+ * annotation overlay owns interaction (and aboveView syncs the flag to main
+ * via `setCommentOverlayActive`).
  */
 export function annotationOverlayActive(state: CanvasPointerOwnerState): boolean {
   return (
     state.pendingAnnotation ||
     state.pendingRegionRect ||
-    state.openThread ||
     state.drawingSession ||
     state.toolKind === 'draw'
   )
@@ -74,7 +72,7 @@ export function annotationOverlayActive(state: CanvasPointerOwnerState): boolean
 export function canvasPointerOwner(state: CanvasPointerOwnerState): CanvasPointerOwner {
   if (state.overlayUiTarget) return 'none'
   if (state.toolKind === 'comment') {
-    return state.openThread || state.drawingSession ? 'annotation-overlay' : 'tool-gesture'
+    return state.drawingSession ? 'annotation-overlay' : 'tool-gesture'
   }
   if (annotationOverlayActive(state)) return 'annotation-overlay'
   return state.pendingPlacement ? 'tool-gesture' : 'router'

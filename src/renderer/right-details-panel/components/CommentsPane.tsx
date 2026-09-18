@@ -83,7 +83,7 @@ export function CommentRow({
               }}
             >
               <CircleCheckIcon className="size-4" />
-              <span>Resolve</span>
+              <span>Close</span>
             </button>
             <button
               type="button"
@@ -230,7 +230,7 @@ function FixProgressButton({
                 <button
                   type="button"
                   onClick={() => rightDetailsPanelApi.fixSingleAnnotation(progress.annotationId)}
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${
                     progress.status === 'failed'
                       ? PRIMARY_BUTTON_BORDERED_CLASS
                       : isDark
@@ -285,7 +285,7 @@ export function CommentsPane({
             isDark ? 'border-zinc-600' : 'border-zinc-300'
           }`}
         >
-          <span className={`text-xs ${mutedClass}`}>No unresolved comments</span>
+          <span className={`text-xs ${mutedClass}`}>No open comments</span>
           <button
             type="button"
             className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${

@@ -1,7 +1,7 @@
 /**
  * In-memory, ephemeral progress log per annotation fix.
  *
- * Streaming events from `claude -p --output-format stream-json` land here so the
+ * Streaming events from the Claude Agent SDK fix run land here so the
  * Comments panel can show what the agent is doing in real time. Entries persist
  * past completion so the user can still open the log after the fix finishes;
  * they are discarded when a new fix starts on the same annotation.

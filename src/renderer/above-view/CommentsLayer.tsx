@@ -1,16 +1,14 @@
 import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { memo } from 'react'
-import type { Annotation, FixProgressEntry, WorkspaceBounds } from '../../shared/types'
+import type { Annotation, WorkspaceBounds } from '../../shared/types'
 import {
+  annotationElementScreenRect,
   canvasRectToScreenRect,
   pendingElementScreenRect,
   type AnnotationLiveBboxLookup,
   type PendingAnnotation,
 } from './annotationMath'
-import { Play } from 'lucide-react'
-import { CircleCheckIcon, MoreVerticalIcon, TrashIcon } from '../shared/PanelIcons'
-import { CommentBubble, CommentInput } from '../shared/CommentPrimitives'
-import { FixEventList, fixStatusLabel } from '../shared/FixEventList'
+import { CommentInput } from '../shared/CommentPrimitives'
 
 const REGION_COMPOSER_WIDTH = 320
 const REGION_COMPOSER_MARGIN = 12
@@ -301,197 +299,39 @@ export const PendingElementOutline = memo(function PendingElementOutline({
   )
 })
 
-export function AnnotationThreadPopover({
-  api,
-  closeThread,
-  drawCursor,
-  drawInteractionEnabled,
-  openThread,
-  openThreadMenu,
-  progress,
-  replyText,
-  setOpenThreadMenu,
-  setReplyText,
-  submitThreadReply,
-  threadInputRef,
-  threadPosition,
+/**
+ * Highlight ring on the focused thread's anchor. The conversation itself
+ * lives in the right panel; this is the canvas's only trace of an open
+ * thread — the annotated element stays fully visible while the agent works
+ * on it. Element anchors only: regions keep their resting overlay, and
+ * canvas points are marked by their badge.
+ */
+export const FocusedThreadOutline = memo(function FocusedThreadOutline({
+  annotation,
+  layoutData,
+  liveBboxes,
 }: {
-  api: {
-    deleteAnnotation: (annotationId: string) => void
-    resolveAnnotation: (annotationId: string) => void
-    fixSingleAnnotation: (annotationId: string) => void
-  }
-  closeThread: () => void
-  drawCursor: string
-  drawInteractionEnabled: boolean
-  openThread: Annotation | null
-  openThreadMenu: boolean
-  progress?: FixProgressEntry
-  replyText: string
-  setOpenThreadMenu: React.Dispatch<React.SetStateAction<boolean>>
-  setReplyText: React.Dispatch<React.SetStateAction<string>>
-  submitThreadReply: () => void
-  threadInputRef: React.RefObject<HTMLTextAreaElement | null>
-  threadPosition: { left: number; top: number; width: number } | null
+  annotation: Annotation | null
+  layoutData: ProjectedLayoutData
+  liveBboxes: AnnotationLiveBboxLookup
 }) {
-  if (!openThread || !threadPosition) return null
-
+  if (!annotation) return null
+  const rect = annotationElementScreenRect(annotation, layoutData, liveBboxes)
+  if (!rect) return null
   return (
-    <>
-      <div
-        className="pointer-events-auto absolute inset-0 z-40"
-        onPointerDown={(event) => {
-          if (event.pointerType === 'mouse' && event.button !== 0) return
-          closeThread()
-        }}
-      />
-      <div
-        className="pointer-events-auto absolute z-50"
-        data-overlay-ui
-        style={{
-          left: threadPosition.left,
-          top: threadPosition.top,
-          width: threadPosition.width,
-        }}
-      >
-        <div className="rounded-2xl border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] text-[var(--surface-foreground)] shadow-xl">
-          <div
-            className="flex items-center justify-between border-b border-zinc-200 px-2.5 py-1.5 dark:border-zinc-700"
-            style={{ cursor: drawInteractionEnabled ? drawCursor : undefined }}
-          >
-            <div className="text-[12px] font-semibold">Comment</div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                data-overlay-ui
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-popover)] disabled:opacity-40 dark:hover:bg-[var(--surface-popover)]"
-                aria-label="Fix with agent"
-                title="Fix with agent"
-                disabled={progress?.status === 'running'}
-                onClick={() => api.fixSingleAnnotation(openThread.id)}
-              >
-                <Play className="size-3.5" />
-              </button>
-              <div className="relative">
-                <button
-                  type="button"
-                  data-overlay-ui
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
-                  aria-label="More actions"
-                  title="More actions"
-                  onClick={() => setOpenThreadMenu((current) => !current)}
-                >
-                  <MoreVerticalIcon />
-                </button>
-                {openThreadMenu ? (
-                  <div
-                    data-overlay-ui
-                    className="absolute right-0 top-8 z-[60] min-w-40 rounded-[10px] border border-[var(--surface-popover-border)] bg-[var(--surface-popover-subtle)] p-1 text-[var(--surface-foreground)] shadow-xl"
-                  >
-                    <button
-                      type="button"
-                      data-overlay-ui
-                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-[var(--surface-foreground)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
-                      onClick={() => {
-                        setOpenThreadMenu(false)
-                        api.resolveAnnotation(openThread.id)
-                        closeThread()
-                      }}
-                    >
-                      <CircleCheckIcon className="size-3" />
-                      <span>Resolve</span>
-                    </button>
-                    <button
-                      type="button"
-                      data-overlay-ui
-                      className="flex w-full cursor-default items-center gap-2 rounded-[7px] px-2.5 py-1.5 text-left text-xs text-[var(--surface-foreground)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
-                      onClick={() => {
-                        setOpenThreadMenu(false)
-                        api.deleteAnnotation(openThread.id)
-                        closeThread()
-                      }}
-                    >
-                      <TrashIcon className="size-3" />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-popover)] dark:hover:bg-[var(--surface-popover)]"
-                onClick={closeThread}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-          {openThread.anchor.type === 'element' && openThread.elementName ? (
-            <div className="border-b border-zinc-200 px-2.5 py-1.5 text-[12px] font-medium text-[var(--surface-foreground)] dark:border-zinc-700">
-              {openThread.elementName}
-            </div>
-          ) : null}
-          <div className="max-h-[320px] space-y-2.5 overflow-auto px-2.5 py-2.5">
-            <CommentBubble author={openThread.author} text={openThread.text} fallback="Drawing feedback" />
-            {openThread.replies.map((reply, idx) => (
-              <CommentBubble key={`${openThread.id}:reply:${idx}`} author={reply.author} text={reply.text} />
-            ))}
-          </div>
-          {progress ? (
-            <ThreadFixProgress progress={progress} />
-          ) : null}
-          <div className="border-t border-zinc-200 px-2.5 py-2.5 dark:border-zinc-700">
-            <div className="relative rounded-[16px] border border-zinc-300 bg-zinc-50 py-1.5 pl-2.5 pr-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
-              <CommentInput
-                inputRef={threadInputRef}
-                value={replyText}
-                onChange={setReplyText}
-                onSubmit={submitThreadReply}
-                placeholder="Reply"
-                submitLabel="Send reply"
-                buttonClassName="bg-zinc-200 text-[var(--surface-foreground-muted)] hover:bg-zinc-300 dark:bg-zinc-700 dark:text-[var(--surface-foreground)] dark:hover:bg-zinc-600"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        left: rect.left,
+        top: rect.top,
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height),
+        border: '1.5px solid rgba(59, 130, 246, 0.95)',
+        borderRadius: 3,
+        boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.22) inset',
+        boxSizing: 'border-box',
+        zIndex: 40,
+      }}
+    />
   )
-}
-
-function ThreadFixProgress({ progress }: { progress: FixProgressEntry }) {
-  const eventCount = progress.events.length
-
-  const statusLabel = fixStatusLabel(progress.status)
-
-  const statusColor =
-    progress.status === 'running'
-      ? 'text-blue-600 dark:text-blue-400'
-      : progress.status === 'failed'
-        ? 'text-red-600 dark:text-red-400'
-        : 'text-emerald-600 dark:text-emerald-400'
-
-  return (
-    <div className="border-t border-zinc-200 dark:border-zinc-700">
-      <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px]">
-        <span className={`font-medium ${statusColor}`}>{statusLabel}</span>
-        <span className="text-[var(--surface-foreground-muted)]">
-          {eventCount} event{eventCount === 1 ? '' : 's'}
-        </span>
-      </div>
-      {eventCount > 0 ? (
-        <FixEventList events={progress.events} className="max-h-[160px] px-2.5 pb-2" />
-      ) : (
-        <div className="px-2.5 pb-2 text-[11px] text-[var(--surface-foreground-muted)]">
-          Waiting for output…
-        </div>
-      )}
-      {progress.error ? (
-        <div className="border-t border-zinc-200 px-2.5 py-1.5 text-[11px] text-red-700 dark:border-zinc-700 dark:text-red-300">
-          {progress.error}
-        </div>
-      ) : null}
-    </div>
-  )
-}
+})

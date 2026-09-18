@@ -1,7 +1,7 @@
 {
   "name": "specular",
   "productName": "Specular",
-  "version": "0.7.1",
+  "version": "0.8.1",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/specular",
   "repository": {
@@ -39,6 +39,7 @@
     "release:minor": "npm version minor && git push --follow-tags"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.252",
     "@base-ui/react": "^1.2.0",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-markdown": "^6.5.0",

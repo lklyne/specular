@@ -39,9 +39,16 @@ import {
   toolbarView,
 } from './view-refs'
 import { getFixConfig } from './preferences'
-import { getOriginBindingsView as getOriginBindings } from './dev-server-manager'
+import {
+  getOriginBindingsView as getOriginBindings,
+  inferRepoPathForOrigin,
+} from './dev-server-manager'
 import { getInFlightCountByOrigin } from '../agent-fix/fix-tracker'
 import { getFixProgress } from '../agent-fix/fix-progress'
+import {
+  getActiveThreadId,
+  getAgentThreads,
+} from '../agent-thread/thread-runtime'
 import {
   findPageById,
   inspectActivePageId,
@@ -56,6 +63,8 @@ import {
   setInspectSelectedTarget as setInspectSelectedTargetState,
 } from './runtime-context'
 import {
+  activeSpaceTabId,
+  spaceTabs,
   workspaceAnnotations,
   workspaceEdges,
   workspaceGroups,
@@ -433,22 +442,32 @@ export function notifyDevtoolsPanelData(): void {
   const start = Date.now()
   const inspect = buildInspectPanelState()
   const panelMode = derivePanelMode()
-  const pageSummaries = pages.map((page) => ({
-    id: page.id,
-    label: pageDisplayLabel(page),
-    url: page.pageView.webContents.getURL(),
-    faviconUrl: page.faviconUrl ?? null,
-    width: viewportPresetForIndex(page.presetIndex)?.width,
-    height: viewportPresetForIndex(page.presetIndex)?.height,
-    presetIndex: page.presetIndex,
-    deviceId: deviceIdFromMetadata(page.metadata),
-    deviceOrientation: deviceOrientationFromMetadata(page.metadata),
-    showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
-    useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-    canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
-    canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
-    isLoading: page.pageView.webContents.isLoading(),
-  }))
+  const pageSummaries = pages.map((page) => {
+    const url = page.pageView.webContents.getURL()
+    let boundRepoPath: string | null = null
+    try {
+      boundRepoPath = inferRepoPathForOrigin(new URL(url).origin)
+    } catch {
+      boundRepoPath = null
+    }
+    return {
+      id: page.id,
+      label: pageDisplayLabel(page),
+      url,
+      faviconUrl: page.faviconUrl ?? null,
+      width: viewportPresetForIndex(page.presetIndex)?.width,
+      height: viewportPresetForIndex(page.presetIndex)?.height,
+      presetIndex: page.presetIndex,
+      deviceId: deviceIdFromMetadata(page.metadata),
+      deviceOrientation: deviceOrientationFromMetadata(page.metadata),
+      showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
+      useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
+      canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
+      canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
+      isLoading: page.pageView.webContents.isLoading(),
+      ...(boundRepoPath ? { boundRepoPath } : {}),
+    }
+  })
   devtoolsHeaderView.webContents.send(ipcChannels.rightDetailsPanelData, {
     activeTab: uiDevtoolsPanelTab(),
     panelMode,
@@ -466,6 +485,9 @@ export function notifyDevtoolsPanelData(): void {
     fixInProgress: getInFlightCountByOrigin(),
     fixProgress: getFixProgress(),
     fixConfig: getFixConfig(),
+    agentThreads: getAgentThreads(),
+    activeThreadId: getActiveThreadId(),
+    canvasName: spaceTabs.find((tab) => tab.id === activeSpaceTabId)?.name ?? null,
     ...buildEntityDetails(panelMode),
     emptyState: _mcpEmptyState(),
   })

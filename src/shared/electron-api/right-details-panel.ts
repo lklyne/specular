@@ -31,13 +31,22 @@ export interface DevtoolsPanelElectronAPI {
   createAnnotation: (request: AnnotationCreateRequest) => void
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void
+  replyToAnnotation: (annotationId: string, text: string) => void
   openAnnotationThread: (annotationId: string) => void
+  /** Back out of the focused thread: clears panel focus and the canvas ring. */
+  closeAnnotationThread: () => void
   triggerFixComments: (origin: string) => void
   fixSingleAnnotation: (annotationId: string) => void
   setAutoFix: (origin: string, enabled: boolean) => void
   pickRepoForOrigin: (origin: string) => void
   removeOriginBinding: (origin: string) => void
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
+  newAgentThread: () => void
+  /** Back out to the thread list; the thread itself is untouched. */
+  deselectAgentThread: () => void
+  deleteAgentThread: (threadId: string) => void
+  selectAgentThread: (threadId: string) => void
+  sendAgentThread: (text?: string) => void
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void

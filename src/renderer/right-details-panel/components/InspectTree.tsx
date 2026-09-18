@@ -83,7 +83,7 @@ function InspectTreeNode({
       {unresolvedCount > 0 ? (
         <span
           className="ml-auto inline-flex items-center gap-0.5 rounded-full border border-amber-500/50 px-1 py-0.5 text-[9px] text-amber-600 dark:text-amber-400"
-          title={`${unresolvedCount} unresolved message${unresolvedCount === 1 ? '' : 's'}`}
+          title={`${unresolvedCount} open message${unresolvedCount === 1 ? '' : 's'}`}
         >
           <CommentBadgeIcon className="size-2.5" />
           {unresolvedCount > 9 ? '9+' : unresolvedCount}

@@ -132,8 +132,24 @@ export function clampDevtoolsWidth(value: number): number {
 
 let pendingLegacyOriginBindings: LegacyOriginBindings | null = null
 
-const DEFAULT_FIX_CONFIG: FixConfig = { model: 'opus', permissions: 'acceptEdits', configured: false }
+const DEFAULT_FIX_CONFIG: FixConfig = { model: 'sonnet', permissions: 'auto', configured: false }
 let fixConfig: FixConfig = { ...DEFAULT_FIX_CONFIG }
+
+function normalizeFixConfig(parsed: Partial<FixConfig>): FixConfig {
+  const model: FixConfig['model'] =
+    parsed.model === 'opus' || parsed.model === 'sonnet' || parsed.model === 'haiku'
+      ? parsed.model
+      : DEFAULT_FIX_CONFIG.model
+  // Unknown values (including the retired read-only 'default' mode) fall back
+  // to classifier-approved auto.
+  const permissions: FixConfig['permissions'] =
+    parsed.permissions === 'auto' ||
+    parsed.permissions === 'acceptEdits' ||
+    parsed.permissions === 'dangerously'
+      ? parsed.permissions
+      : DEFAULT_FIX_CONFIG.permissions
+  return { model, permissions, configured: true }
+}
 
 export function loadPreferences(): void {
   const parsed = readPreferencesFile()
@@ -148,7 +164,7 @@ export function loadPreferences(): void {
     pendingLegacyOriginBindings = parsed.originBindings
   }
   if (parsed.fixConfig && typeof parsed.fixConfig === 'object') {
-    fixConfig = { ...DEFAULT_FIX_CONFIG, ...parsed.fixConfig, configured: true }
+    fixConfig = normalizeFixConfig(parsed.fixConfig)
   }
   currentCursorSplineViz = parsed.debug?.cursorSplineViz === true
   currentCursorTuning = normalizeCursorTuning(parsed.debug?.cursorTuning)

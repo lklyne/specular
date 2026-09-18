@@ -304,6 +304,26 @@ export function pendingElementScreenRect(
 }
 
 /**
+ * Overlay-coord rect for a committed element-anchored annotation. Prefers the
+ * live bbox the page reports on scroll (ADR 0006); falls back to the
+ * creation-time `anchor.boundingBox`. Null for non-element anchors or when
+ * the page has left the canvas.
+ */
+export function annotationElementScreenRect(
+  annotation: Annotation,
+  layout: ProjectedLayoutData,
+  liveBboxes?: AnnotationLiveBboxLookup,
+): { left: number; top: number; width: number; height: number } | null {
+  const anchor = annotation.anchor
+  if (anchor.type !== 'element') return null
+  const bbox = liveBboxes?.get(annotation.id) ?? anchor.boundingBox
+  if (!bbox) return null
+  const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
+  if (!page) return null
+  return pageViewportToScreen(bbox, page, layout)
+}
+
+/**
  * Render-time positioner for an element-anchored pending composer. The
  * stored `composerX/Y/Width` on `PendingAnnotation` is the click-time
  * fallback; we prefer the live bbox the page reports on scroll so the

@@ -28,7 +28,7 @@ export function ReposPane({
     <section>
       <header className="mb-4 mt-2">
         <p className="mt-1 text-[12px] leading-snug text-[var(--surface-toolbar-foreground)] opacity-70">
-          Connect a local folder so Specular can run its dev server and apply in-place fixes from comments. Bind sites to a repo from the details panel while viewing a page.
+          Connect a local folder so Specular can run its dev server. Bind a site to a repo from the page popup (folder icon) or by adding a URL below. The chat panel writes to that repo when the current turn is about that origin.
         </p>
       </header>
 

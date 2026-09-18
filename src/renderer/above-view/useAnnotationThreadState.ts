@@ -1,124 +1,66 @@
 import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { annotationScreenPos, type AnnotationLiveBboxLookup } from './annotationMath'
 
-const VIEWPORT_PADDING = 8
-const THREAD_CARD_WIDTH = 360
-const THREAD_CARD_MIN_HEIGHT = 220
-
+/**
+ * Focused-thread state for the canvas. The conversation itself lives in the
+ * right panel; the canvas keeps only a highlight ring on the focused thread's
+ * anchor. Main owns which thread is focused (`focusedAnnotationId` in
+ * ui-state) and echoes changes here via `annotationThreadOpen`; clicking a
+ * badge or region overlay reports the focus intent back to main.
+ */
 export function useAnnotationThreadState({
   api,
   layoutData,
-  threadInputRef,
 }: {
   api: CanvasBgElectronAPI
   layoutData: ProjectedLayoutData
-  threadInputRef: React.RefObject<HTMLTextAreaElement | null>
 }) {
-  const [openThreadId, setOpenThreadId] = useState<string | null>(null)
-  const [openThreadMenu, setOpenThreadMenu] = useState(false)
-  const [replyText, setReplyText] = useState('')
+  const [focusedThreadId, setFocusedThreadId] = useState<string | null>(null)
 
-  const closeThread = useCallback(() => {
-    setOpenThreadId(null)
-    setOpenThreadMenu(false)
-    setReplyText('')
-  }, [])
-
-  const openThread = useMemo(
+  const focusedThread = useMemo(
     () =>
-      openThreadId
-        ? (layoutData.annotations ?? []).find((annotation) => annotation.id === openThreadId) ??
+      focusedThreadId
+        ? (layoutData.annotations ?? []).find((annotation) => annotation.id === focusedThreadId) ??
           null
         : null,
-    [layoutData.annotations, openThreadId],
+    [layoutData.annotations, focusedThreadId],
   )
 
   useEffect(() => {
     const cleanup = api.onAnnotationThreadOpen(({ annotationId }) => {
-      if (!annotationId) return
-      setOpenThreadId(annotationId)
-      setReplyText('')
+      setFocusedThreadId(annotationId ?? null)
     })
     return cleanup
   }, [api])
 
+  // The focused thread vanished from the payload — deleted, resolved, or its
+  // page navigated off the annotation's document — so drop the ring.
   useEffect(() => {
-    if (!openThreadId) return
-    const id = window.requestAnimationFrame(() => {
-      threadInputRef.current?.focus({ preventScroll: true })
-    })
-    return () => window.cancelAnimationFrame(id)
-  }, [openThreadId, threadInputRef])
+    if (!focusedThreadId) return
+    if (focusedThread) return
+    setFocusedThreadId(null)
+  }, [focusedThread, focusedThreadId])
 
-  // The open thread vanished from the payload — deleted, resolved, or its
-  // page navigated off the annotation's document — so close the popover.
-  useEffect(() => {
-    if (!openThreadId) return
-    if (openThread) return
-    closeThread()
-  }, [closeThread, openThread, openThreadId])
+  // Badge / region-overlay click: the anchor is already in view, so skip the
+  // camera reveal; main opens the panel thread and echoes the focus back.
+  const focusThread = useCallback(
+    (annotationId: string) => {
+      setFocusedThreadId(annotationId)
+      api.openAnnotationThread(annotationId, { reveal: false })
+    },
+    [api],
+  )
 
-  useEffect(() => {
-    if (!openThreadId) {
-      setOpenThreadMenu(false)
-    }
-  }, [openThreadId])
-
-  const submitThreadReply = useCallback(() => {
-    if (!openThreadId) return
-    const next = replyText.trim()
-    if (!next) return
-    api.addAnnotationReply(openThreadId, next)
-    setReplyText('')
-  }, [api, openThreadId, replyText])
-
-  const openThreadById = useCallback((annotationId: string) => {
-    setOpenThreadId(annotationId)
-    setOpenThreadMenu(false)
-    setReplyText('')
-  }, [])
+  const closeThread = useCallback(() => {
+    setFocusedThreadId(null)
+    api.openAnnotationThread(null)
+  }, [api])
 
   return {
     closeThread,
-    openThread,
-    openThreadById,
-    openThreadId,
-    openThreadMenu,
-    replyText,
-    setOpenThreadMenu,
-    setReplyText,
-    submitThreadReply,
+    focusThread,
+    focusedThread,
+    focusedThreadId,
   }
-}
-
-/**
- * Pure positioner for the open-thread popover. Lifted out of
- * `useAnnotationThreadState` so the renderer can inject the live-bbox
- * lookup (ADR 0006) — element-anchored popovers track page scroll.
- */
-export function annotationThreadPosition(
-  openThread: import('../../shared/types').Annotation | null,
-  layoutData: ProjectedLayoutData,
-  liveBboxes?: AnnotationLiveBboxLookup,
-): { left: number; top: number; width: number } | null {
-  if (!openThread) return null
-  const anchorPos = annotationScreenPos(openThread, layoutData, liveBboxes)
-  if (!anchorPos) return null
-  const belowY = anchorPos.y + 18
-  const aboveY = anchorPos.y - THREAD_CARD_MIN_HEIGHT - 12
-  const top =
-    belowY + THREAD_CARD_MIN_HEIGHT <= window.innerHeight - VIEWPORT_PADDING
-      ? belowY
-      : Math.max(VIEWPORT_PADDING, aboveY)
-  const isRegion = openThread.anchor.type === 'region'
-  const rawLeft = isRegion
-    ? anchorPos.x - THREAD_CARD_WIDTH / 2
-    : anchorPos.x - THREAD_CARD_WIDTH + 12
-  const left = Math.max(
-    VIEWPORT_PADDING,
-    Math.min(rawLeft, window.innerWidth - THREAD_CARD_WIDTH - VIEWPORT_PADDING),
-  )
-  return { left, top, width: THREAD_CARD_WIDTH }
 }

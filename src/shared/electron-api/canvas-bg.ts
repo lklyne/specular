@@ -185,7 +185,11 @@ export interface CanvasBgElectronAPI {
   resolveAnnotation: (annotationId: string) => void
   deleteAnnotation: (annotationId: string) => void
   fixSingleAnnotation: (annotationId: string) => void
-  openAnnotationThread: (annotationId: string) => void
+  /** Focus a comment thread: opens it in the right panel and rings its anchor
+   *  on the canvas. `null` backs out of the focused thread. `reveal: false`
+   *  skips the camera/scroll reveal — used when the click originated on the
+   *  annotation itself, which is already in view. */
+  openAnnotationThread: (annotationId: string | null, opts?: { reveal?: boolean }) => void
   setCommentOverlayActive: (active: boolean) => void
   onCaptureMode: (callback: (active: boolean) => void) => () => void
   onAnnotateElementSelected: (
@@ -230,7 +234,7 @@ export interface CanvasBgElectronAPI {
    *  selection change mid-composer can't race the submit. */
   annotateSelection: (input: { entityIds: string[]; text: string }) => void
   onAnnotationThreadOpen: (
-    callback: (data: { annotationId: string }) => void,
+    callback: (data: { annotationId: string | null }) => void,
   ) => () => void
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) => void
   updateEdgeDragTarget: (targetEntityId: string | null, targetSide: EdgeSide | null) => void
@@ -282,6 +286,8 @@ export interface CanvasBgElectronAPI {
   /** Connect a Vite repo at the given absolute folder path. Returns the
    *  connected repo, or null if connection fails. */
   repoConnect: (absolutePath: string) => Promise<unknown>
+  /** Bind this page origin to a local folder (folder picker). */
+  pickRepoForOrigin: (origin: string) => void
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
   /** Fine-grained runtime-store updates: the cells one change touched, batched
    *  per layout pass. Layers subscribe to the slice they draw instead of
@@ -292,8 +298,5 @@ export interface CanvasBgElectronAPI {
     callback: (data: FrozenPagesState) => void,
   ) => () => void
   frozenPagesReady: (target: FreezeTarget, revision: number) => void
-  onFixProgressUpdate: (
-    callback: (data: LayoutUpdateData['fixProgress']) => void,
-  ) => () => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }

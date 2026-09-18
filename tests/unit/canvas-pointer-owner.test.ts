@@ -25,29 +25,28 @@ function state(over: Partial<CanvasPointerOwnerState> = {}): CanvasPointerOwnerS
     pendingPlacement: false,
     pendingAnnotation: false,
     pendingRegionRect: false,
-    openThread: false,
     drawingSession: false,
     ...over,
   }
 }
 
 /**
- * Oracle: the five arbitration booleans this selector replaced, verbatim
- * from App.tsx at the time of the collapse. `canvasPointerOwner` must agree
- * with them on every cell — the selector encodes today's policy, it does
- * not design a new one.
+ * Oracle: the arbitration booleans this selector replaced, verbatim from
+ * App.tsx at the time of the collapse. `canvasPointerOwner` must agree with
+ * them on every cell — the selector encodes today's policy, it does not
+ * design a new one. (A focused thread is not a dimension: its conversation
+ * lives in the right panel and its canvas trace is a passive ring.)
  */
 function legacyOwner(s: CanvasPointerOwnerState): CanvasPointerOwner {
   const isAnnotationTool = s.toolKind === 'comment' || s.toolKind === 'draw'
   const overlayInteractive =
     s.pendingAnnotation ||
     s.pendingRegionRect ||
-    s.openThread ||
     s.drawingSession ||
     s.toolKind === 'draw'
   const routerOwnsCanvasPointers =
     !overlayInteractive && !s.pendingPlacement && !isAnnotationTool
-  const commentToolBlocked = s.openThread || s.drawingSession || s.toolKind === 'draw'
+  const commentToolBlocked = s.drawingSession || s.toolKind === 'draw'
   const skipPointerCapture =
     s.toolKind === 'comment' ? commentToolBlocked : overlayInteractive
   const toolGestureActive =
@@ -80,11 +79,6 @@ describe('canvasPointerOwner', () => {
       state: state({ toolKind: 'add-shape' }),
       owner: 'router',
     },
-    {
-      name: 'pending placement while an annotation thread is open',
-      state: state({ toolKind: 'add-shape', pendingPlacement: true, openThread: true }),
-      owner: 'annotation-overlay',
-    },
     { name: 'comment tool, idle', state: state({ toolKind: 'comment' }), owner: 'tool-gesture' },
     {
       name: 'comment tool with its composer open (retargeting stays live)',
@@ -95,11 +89,6 @@ describe('canvasPointerOwner', () => {
       name: 'comment tool with a pending region rect (retargeting stays live)',
       state: state({ toolKind: 'comment', pendingRegionRect: true }),
       owner: 'tool-gesture',
-    },
-    {
-      name: 'comment tool with an open thread',
-      state: state({ toolKind: 'comment', openThread: true }),
-      owner: 'annotation-overlay',
     },
     {
       name: 'comment tool while a drawing stroke is in flight',
@@ -115,11 +104,6 @@ describe('canvasPointerOwner', () => {
     {
       name: 'select tool with a composer open',
       state: state({ pendingAnnotation: true }),
-      owner: 'annotation-overlay',
-    },
-    {
-      name: 'select tool with an open thread',
-      state: state({ openThread: true }),
       owner: 'annotation-overlay',
     },
   ]
@@ -138,14 +122,13 @@ describe('canvasPointerOwner', () => {
 
   it('agrees with the legacy arbitration booleans on every cell', () => {
     for (const toolKind of TOOL_KINDS) {
-      for (let bits = 0; bits < 32; bits++) {
+      for (let bits = 0; bits < 16; bits++) {
         const s = state({
           toolKind,
           pendingPlacement: Boolean(bits & 1),
           pendingAnnotation: Boolean(bits & 2),
           pendingRegionRect: Boolean(bits & 4),
-          openThread: Boolean(bits & 8),
-          drawingSession: Boolean(bits & 16),
+          drawingSession: Boolean(bits & 8),
         })
         expect(canvasPointerOwner(s), JSON.stringify(s)).toBe(legacyOwner(s))
       }
@@ -158,14 +141,13 @@ describe('canvasPointerOwner', () => {
     // pointer-events-auto unconditionally. The sweep documents that no
     // state leaves canvas pointerdowns without an owner.
     for (const toolKind of TOOL_KINDS) {
-      for (let bits = 0; bits < 32; bits++) {
+      for (let bits = 0; bits < 16; bits++) {
         const s = state({
           toolKind,
           pendingPlacement: Boolean(bits & 1),
           pendingAnnotation: Boolean(bits & 2),
           pendingRegionRect: Boolean(bits & 4),
-          openThread: Boolean(bits & 8),
-          drawingSession: Boolean(bits & 16),
+          drawingSession: Boolean(bits & 8),
         })
         expect(canvasPointerOwner(s)).not.toBe('none')
       }
@@ -176,18 +158,16 @@ describe('canvasPointerOwner', () => {
 describe('annotationOverlayActive', () => {
   it('mirrors the legacy overlayInteractive boolean', () => {
     for (const toolKind of TOOL_KINDS) {
-      for (let bits = 0; bits < 16; bits++) {
+      for (let bits = 0; bits < 8; bits++) {
         const s = state({
           toolKind,
           pendingAnnotation: Boolean(bits & 1),
           pendingRegionRect: Boolean(bits & 2),
-          openThread: Boolean(bits & 4),
-          drawingSession: Boolean(bits & 8),
+          drawingSession: Boolean(bits & 4),
         })
         const legacy =
           s.pendingAnnotation ||
           s.pendingRegionRect ||
-          s.openThread ||
           s.drawingSession ||
           s.toolKind === 'draw'
         expect(annotationOverlayActive(s)).toBe(legacy)

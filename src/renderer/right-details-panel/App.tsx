@@ -2,23 +2,10 @@ import type { ThemeData } from '../../shared/types'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { PaneProvider } from './PaneContext'
-import { DocumentPane } from './components/DocumentPane'
-import { DrawingEntityPane } from './components/DrawingEntityPane'
-import { EdgeEntityPane } from './components/EdgeEntityPane'
-import { FileEntityPane } from './components/FileEntityPane'
-import { PagePane } from './components/PagePane'
-import { GroupEntityPane } from './components/GroupEntityPane'
-import { MultiEntityPane } from './components/MultiEntityPane'
+import { ChatPane } from './components/ChatPane'
 import { PaneHeader } from './components/PaneHeader'
-import { ShapeEntityPane } from './components/ShapeEntityPane'
-import { TextEntityPane } from './components/TextEntityPane'
 import { rightDetailsPanelApi } from './rightDetailsPanelApi'
 import { useRightDetailsPanelData } from './useRightDetailsPanelData'
-
-// Placeholder shown only until the first fix-config broadcast arrives. Must
-// track the authoritative default in main (`preferences.ts`), or the panel
-// reports a permission mode the spawn would not actually use.
-const DEFAULT_FIX_CONFIG = { model: 'opus', permissions: 'acceptEdits', configured: false } as const
 
 export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   const panelData = useRightDetailsPanelData()
@@ -27,9 +14,6 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
   useReportTextEditing(rightDetailsPanelApi.setTextEditing)
 
   const pageClass = 'h-screen w-screen overflow-hidden border-l border-[var(--surface-chrome-border)] bg-[var(--surface-panel)] text-[var(--surface-foreground)]'
-  const pages = panelData.pages ?? []
-  const annotations = panelData.annotations ?? []
-  const { panelMode } = panelData
 
   if (panelData.activeTab === 'browser-devtools') {
     return (
@@ -59,78 +43,11 @@ export default function App({ initialTheme }: { initialTheme: ThemeData }) {
     )
   }
 
-  function renderPane() {
-    switch (panelMode.kind) {
-      case 'page':
-        return panelData.inspect ? (
-          <PagePane
-            inspect={panelData.inspect}
-            annotations={annotations}
-            selection={panelData.selection}
-            pages={pages}
-            fixProgress={panelData.fixProgress ?? {}}
-            originBindings={panelData.originBindings ?? {}}
-          />
-        ) : null
-
-      case 'text':
-        return panelData.textEntity ? (
-          <TextEntityPane textEntity={panelData.textEntity} />
-        ) : null
-
-      case 'file':
-        return panelData.fileEntity ? (
-          <FileEntityPane fileEntity={panelData.fileEntity} />
-        ) : null
-
-      case 'drawing':
-        return panelData.drawingEntity ? (
-          <DrawingEntityPane drawingEntity={panelData.drawingEntity} />
-        ) : null
-
-      case 'shape':
-        return panelData.shapeEntity ? (
-          <ShapeEntityPane shapeEntity={panelData.shapeEntity} />
-        ) : null
-
-      case 'edge':
-        return panelData.edgeEntity ? (
-          <EdgeEntityPane edgeEntity={panelData.edgeEntity} />
-        ) : null
-
-      case 'group':
-        return panelData.groupEntity ? (
-          <GroupEntityPane groupEntity={panelData.groupEntity} />
-        ) : null
-
-      case 'multi':
-        return panelData.multiEntities ? (
-          <MultiEntityPane multiEntities={panelData.multiEntities} />
-        ) : null
-
-      case 'document':
-      default:
-        return (
-          <DocumentPane
-            annotations={annotations}
-            pages={pages}
-            focusedAnnotationId={panelData.focusedAnnotationId}
-            annotateEnabled={Boolean(panelData.annotateEnabled)}
-            annotateAvailable={Boolean(panelData.annotateAvailable)}
-            originBindings={panelData.originBindings ?? {}}
-            fixInProgress={panelData.fixInProgress ?? {}}
-            fixProgress={panelData.fixProgress ?? {}}
-            fixConfig={panelData.fixConfig ?? DEFAULT_FIX_CONFIG}
-          />
-        )
-    }
-  }
-
   return (
     <PaneProvider isDark={isDark}>
       <div className={pageClass}>
         <div className="flex h-full min-h-0 flex-col">
-          {renderPane()}
+          <ChatPane data={panelData} />
         </div>
       </div>
     </PaneProvider>
