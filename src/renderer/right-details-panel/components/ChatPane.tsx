@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FolderOpen, Loader2, Plus, X } from 'lucide-react'
+import { FolderOpen, Loader2, Plus, X, Zap } from 'lucide-react'
 import type { AgentThread, AgentThreadMessage } from '../../../shared/agent-thread'
 import type { DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
 import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
@@ -47,6 +47,11 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
           context={<ContextChip pill={pill} data={data} />}
           model={data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
           folderPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : (data.spacePath ?? null)}
+          autoFix={
+            writeTarget.kind === 'repo'
+              ? { origin: writeTarget.origin, on: Boolean(data.originBindings?.[writeTarget.origin]?.autoFix) }
+              : null
+          }
           isDark={isDark}
           muted={muted}
         />
@@ -223,6 +228,7 @@ function Composer({
   context,
   model,
   folderPath,
+  autoFix,
   isDark,
   muted,
 }: {
@@ -236,6 +242,8 @@ function Composer({
   model: React.ReactNode
   /** Where this thread writes: the bound repo, or the space folder. */
   folderPath: string | null
+  /** Auto-fix for the write target's origin; null when writing to the space. */
+  autoFix: { origin: string; on: boolean } | null
   isDark: boolean
   muted: string
 }) {
@@ -274,6 +282,7 @@ function Composer({
               </span>
             </Tooltip>
           ) : null}
+          {autoFix ? <AutoFixChip {...autoFix} isDark={isDark} /> : null}
         </div>
         {model}
         <CommentSendButton
@@ -284,6 +293,27 @@ function Composer({
         />
       </div>
     </div>
+  )
+}
+
+/** Auto-fix toggle for the write target's origin: comments send themselves. */
+function AutoFixChip({ origin, on, isDark }: { origin: string; on: boolean; isDark: boolean }) {
+  const label = on
+    ? `Auto-fix on for ${origin}: each comment is sent as soon as it is placed.`
+    : `Auto-fix off for ${origin}: comments queue here until you send.`
+  return (
+    <Tooltip side="top" label={label}>
+      <button
+        type="button"
+        aria-pressed={on}
+        aria-label="Auto-fix"
+        className={`${composerChipClass(isDark)} ${on ? 'text-emerald-600 dark:text-emerald-400' : ''}`}
+        onClick={() => rightDetailsPanelApi.setAutoFix(origin, !on)}
+      >
+        <Zap size={11} className="shrink-0" />
+        <span>Auto</span>
+      </button>
+    </Tooltip>
   )
 }
 

@@ -220,7 +220,9 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 
 **Canvas agent thread** — the right panel is a general chat (`ChatPane`), not a per-comment drill-in and not Document/inspector. Transcripts persist in the space under `.specular/threads/<tab-id>/` (`<id>.json` plus `index.json` with `activeThreadId`), not in the `.canvas` / Y.Doc. Visible messages plus `claudeSessionId` only; closed threads stay on disk and drop out of context.
 
-Comments and chat are one conversation. Agent replies live only in the thread, never on the pin (`annotation.replies`). A new comment queues into a **draft** unless the active thread is still unsent; more comments join that draft. **Send** is the only thing that runs the agent. Follow-up stays in that thread's composer. The next new comment after Send starts another draft. Submit on the pin queues, it does not send.
+Comments and chat are one conversation. Agent replies live only in the thread, never on the pin (`annotation.replies`). A new comment queues into a **draft** unless the active thread is still unsent; more comments join that draft. **Send** runs the agent. Follow-up stays in that thread's composer. The next new comment after Send starts another draft. Submit on the pin queues, it does not send.
+
+**Auto-fix** is the per-origin opt-out of Send (`boundOrigins[].autoFix` on the origin→repo binding; the Auto chip beside the composer's folder chip). A comment on an auto origin joins the active thread — draft or open, so the conversation keeps its history — and is sent the moment it is placed, aimed at that pin. A run already in flight keeps it queued and drains it when the run ends. The panel can be closed or backed out to the list; the pins keep firing. Canvas-bound comments have no origin to opt in with and always wait for Send.
 
 **New** and **Close** are separate. The switcher keeps threads. Close archives (`status: closed`). New is a clean transcript.
 
@@ -228,7 +230,7 @@ One pin maps to at most one thread via `annotation.metadata.threadId`. Clicking 
 
 The live **pill** sits above the composer and is this turn's intent, not the conversation's identity: DOM node > focused comment pin > canvas selection > empty (the canvas name, or "specular"). Composer focus does not clear canvas selection. Placing a comment selects that pin. The agent prompt names the selected entity ids and asks it to focus there; that is guidance, not a write fence.
 
-Home **cwd is the space folder**. One UI transcript. A DOM node on a linked origin writes that repo; otherwise canvas/CLI and space files. Bind a repo from the page popup (folder icon; inferred when the page URL matches a connected repo) or Settings → Repos. Chat shows the write target when known; it is not locked to a repo. Auto-fix / Fix-all are not the on-ramp.
+Home **cwd is the space folder**. One UI transcript. A DOM node on a linked origin writes that repo; otherwise canvas/CLI and space files. Bind a repo from the page popup (folder icon; inferred when the page URL matches a connected repo) or Settings → Repos. Chat shows the write target when known; it is not locked to a repo.
 
 **Pending composer** — single component that mounts after the gesture and before the comment is committed. Placement is a thin function over the anchor: above-right of the element bbox, adjacent to the click point, or above-right of the region rect. Esc cancels; click outside commits (if non-empty) or discards (if empty); only one pending composer exists at a time.
 
