@@ -375,14 +375,16 @@ function layoutAllViews(): void {
       (onScreen ||
         draggedIds?.has(page.id) === true ||
         automationInteractivePageCounts.has(page.id))
-    page.host.setPainting(painting)
     // A page earns frame rate by its size on screen. Agent-driven pages and
     // the focus session's page paint at full rate whatever the camera — an
     // agent's captures and a presented page don't follow the zoom.
     const fullRate =
       automationInteractivePageCounts.has(page.id) ||
       focusedPresentationPageId === page.id
+    // Scale before painting: a page coming into view wakes at the scale this
+    // pass grades it, not the one the last pass did.
     page.host.setDisplayScale(fullRate ? 1 : pageScreenRect.width / contentSize.width)
+    page.host.setPainting(painting)
 
     if (page.colorScheme !== page.lastColorSchemeKey) {
       // Commit the key only when the override actually dispatched, so a

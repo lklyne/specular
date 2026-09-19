@@ -9,6 +9,10 @@
  *   the settle timer) — the waits-for-the-camera case fails;
  * - dropping `|| this.lastDisplayScale >= 1` there — the pinned-page case
  *   fails (an agent's click within the settle wait would land at view px);
+ * - dropping `this.reconcileTextureScale(true)` from `setPainting` — the
+ *   waking-page case fails (a zoom-out woke sixty pages at full size for the
+ *   length of the settle wait; the canvas could not copy their textures in
+ *   time, transfers timed out, and the late copies showed as blank pages);
  * - calling `resizeView()` before `sendCommand` in `applyTextureScale` — the
  *   override-before-resize case fails (a document that saw the small view
  *   first would lay out at a fraction of its width; measured on reload);
@@ -119,6 +123,17 @@ describe('page texture LOD', () => {
     // Agent-driven and focus-session pages report scale 1: no settle wait.
     host.setDisplayScale(1)
     expect(host.textureScale).toBe(1)
+    await flushAck()
+  })
+
+  it('wakes a culled page at the scale it is owed, without the settle wait', async () => {
+    const { host } = createPageHost()
+    host.setPainting(false)
+    host.setDisplayScale(0.1)
+    expect(host.textureScale).toBe(1)
+
+    host.setPainting(true)
+    expect(host.textureScale).toBe(0.25)
     await flushAck()
   })
 

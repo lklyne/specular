@@ -65,6 +65,12 @@ const TEXTURE_WIDTH_TOLERANCE_PX = 2
 /** Grace for a view resize to reach the page before its override is cleared. */
 const CLEAR_OVERRIDE_AFTER_RESIZE_MS = 300
 
+/**
+ * How long after a failed texture transfer the page is asked for another
+ * frame — long enough for a swamped canvas to have drained.
+ */
+const SEND_FAILURE_RETRY_MS = 500
+
 /** How long a full-resolution capture waits for the re-rastered surface. */
 const FULL_RESOLUTION_CAPTURE_TIMEOUT_MS = 1_000
 const FULL_RESOLUTION_CAPTURE_POLL_MS = 30
@@ -76,6 +82,10 @@ export interface PageHostStats {
   framesWithoutTexture: number
   framesDroppedForPoolPressure: number
   sendFailures: number
+  /** Present on a snapshot from `pageHostStats`, not on the live counters. */
+  painting?: boolean
+  textureScale?: number
+  textureTransitionInFlight?: boolean
   outstandingTextures: number
   maxOutstandingTextures: number
   releaseLatencyMs: number | null
@@ -157,6 +167,7 @@ class OffscreenPageHost implements PageHost {
    */
   private textureScaleInFlight = false
   private textureNudgeTimer: NodeJS.Timeout | null = null
+  private sendRetryTimer: NodeJS.Timeout | null = null
   private readonly deviceScaleFactor: number
   private readonly latencies: number[] = []
   readonly stats: PageHostStats
@@ -232,6 +243,14 @@ class OffscreenPageHost implements PageHost {
     return this.appliedTextureScale
   }
 
+  textureState(): Pick<PageHostStats, 'painting' | 'textureScale' | 'textureTransitionInFlight'> {
+    return {
+      painting: this.isPainting && !this.isIdle,
+      textureScale: this.appliedTextureScale,
+      textureTransitionInFlight: this.textureScaleInFlight,
+    }
+  }
+
   resize(size: { width: number; height: number }): void {
     const width = Math.max(1, Math.round(size.width))
     const height = Math.max(1, Math.round(size.height))
@@ -244,6 +263,12 @@ class OffscreenPageHost implements PageHost {
   setPainting(painting: boolean): void {
     if (painting === this.isPainting || this.win.isDestroyed()) return
     this.isPainting = painting
+    // Nobody saw the page at its old scale, so there is no resize to hide
+    // from them: it wakes at the scale it is owed. A zoom-out that wakes every
+    // page at full size floods the canvas with full-size textures for the
+    // length of the settle wait — enough, at sixty pages, to time out their
+    // transfer (see the `sendSharedTexture` failure path in `deliver`).
+    if (painting) this.reconcileTextureScale(true)
     this.applyPainting()
   }
 
@@ -299,17 +324,17 @@ class OffscreenPageHost implements PageHost {
   /**
    * Move the view toward the scale it is owed. Full size is never delayed
    * when something needs the page's real pixels — a capture's hold, a page
-   * the layout pass pinned at scale 1; everything else waits for the camera
-   * to rest.
+   * the layout pass pinned at scale 1 — and a page waking from a cull moves
+   * `atOnce`; everything else waits for the camera to rest.
    */
-  private reconcileTextureScale(): void {
+  private reconcileTextureScale(atOnce = false): void {
     if (this.textureScaleTimer) clearTimeout(this.textureScaleTimer)
     this.textureScaleTimer = null
     if (this.win.isDestroyed()) return
     const mustBeFull = this.fullResolutionHolds > 0
     const target = mustBeFull ? FULL_TEXTURE_SCALE : this.wantedTextureScale
     if (target === this.appliedTextureScale) return
-    if (mustBeFull || this.lastDisplayScale >= 1) {
+    if (mustBeFull || atOnce || this.lastDisplayScale >= 1) {
       this.appliedTextureScale = target
       this.applyTextureScale()
       return
@@ -412,7 +437,6 @@ class OffscreenPageHost implements PageHost {
     )
   }
 
-
   /**
    * Asks for the clean frame twice. Under load — every page on screen
    * resizing together — the forced frame can itself be a blank capture of a
@@ -443,6 +467,15 @@ class OffscreenPageHost implements PageHost {
     contents.invalidate()
   }
 
+  /** A static page whose frame was lost in transfer has no next paint of its own. */
+  private retryFrameSoon(): void {
+    if (this.sendRetryTimer) return
+    this.sendRetryTimer = setTimeout(() => {
+      this.sendRetryTimer = null
+      this.requestFrame()
+    }, SEND_FAILURE_RETRY_MS)
+  }
+
   /**
    * A page paints only when both someone is looking at it and at the app —
    * and only then does it earn its full frame rate. The two move together:
@@ -467,7 +500,9 @@ class OffscreenPageHost implements PageHost {
     if (this.textureScaleTimer) clearTimeout(this.textureScaleTimer)
     if (this.clearOverrideTimer) clearTimeout(this.clearOverrideTimer)
     if (this.textureNudgeTimer) clearInterval(this.textureNudgeTimer)
+    if (this.sendRetryTimer) clearTimeout(this.sendRetryTimer)
     this.textureNudgeTimer = null
+    this.sendRetryTimer = null
     this.textureScaleTimer = null
     this.clearOverrideTimer = null
     if (this.win.isDestroyed()) return
@@ -486,15 +521,17 @@ class OffscreenPageHost implements PageHost {
       texture.release()
       return
     }
-    if (stats.outstandingTextures >= MAX_OUTSTANDING_TEXTURES) {
-      stats.framesDroppedForPoolPressure++
-      texture.release()
-      return
-    }
     const info = texture.textureInfo
+    // Ahead of the pool check: a transition's frames are never sent, so a
+    // full pool must not keep the one that ends it from being seen.
     if (this.textureScaleInFlight && info.widgetType !== 'popup') {
       texture.release()
       if (this.isAtAppliedTextureSize(info.codedSize.width)) this.endTextureTransition()
+      return
+    }
+    if (stats.outstandingTextures >= MAX_OUTSTANDING_TEXTURES) {
+      stats.framesDroppedForPoolPressure++
+      texture.release()
       return
     }
     stats.outstandingTextures++
@@ -543,6 +580,12 @@ class OffscreenPageHost implements PageHost {
       .catch((error: unknown) => {
         stats.sendFailures++
         console.error('[page-host] sendSharedTexture failed', error)
+        // A transfer the canvas never acknowledged (it times out after a
+        // second when the canvas is swamped) never reports its references
+        // released either. Left counted, a few of them fill this host's pool
+        // allowance and every later frame is dropped for good.
+        finish()
+        this.retryFrameSoon()
       })
       .finally(() => {
         // Main's own reference goes now; the renderer's reference keeps the
@@ -591,5 +634,5 @@ export function destroyAllPageHosts(): void {
 export function pageHostStats(): PageHostStats[] {
   return [...hosts]
     .filter((host) => !host.isDestroyed())
-    .map((host) => ({ ...host.stats }))
+    .map((host) => ({ ...host.stats, ...host.textureState() }))
 }
