@@ -353,6 +353,10 @@ function layoutAllViews(): void {
     mode: focusSessionValue?.mode ?? null,
     showsContext: focusSessionValue === null || focusSessionValue.annotationsVisible,
   }
+  // A drag's entity ids are the flat operand set — groups already expanded to
+  // their descendants (selection-scope.ts) — so membership is the whole test.
+  const draggedIds =
+    interactionState.kind === 'dragging-entities' ? new Set(interactionState.entityIds) : null
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     // The host's CSS viewport is the page's authored size, or the focus
@@ -369,7 +373,7 @@ function layoutAllViews(): void {
     const painting =
       presented &&
       (onScreen ||
-        interactionState.kind === 'dragging-entities' ||
+        draggedIds?.has(page.id) === true ||
         automationInteractivePageCounts.has(page.id))
     page.host.setPainting(painting)
     // A page earns frame rate by its size on screen. Agent-driven pages and
