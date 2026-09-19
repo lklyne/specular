@@ -128,23 +128,26 @@ Shape B, built. Every page is a hidden offscreen `BrowserWindow` (`page-host.ts`
 
 **Not resolved by this ADR:** whether shape B fully replaces shape C, or lands as a hybrid — in practice, shape B shipped and the hybrid fallback was not needed.
 
-**Cost model, measured 2026-09-19 (animated perf canvas, 30 anim + 28 static pages):**
-the pipeline's CPU cost is per-*frame*, not per-*pixel*. Halving raster
-resolution (CDP `Emulation.setDeviceMetricsOverride`, dsf and scale variants)
-moved GPU-process CPU by ~1%; frame count moves it linearly. The OSR surface
-resolution is pinned by `offscreen.deviceScaleFactor` at host creation and
-runtime emulation does not shrink the painted texture, so spatial LOD would
-need a host resize + scale-emulation combo — and per the pixel finding it
-would not pay on CPU anyway. Two levers landed from this:
-- `stopPainting()` only stops texture delivery; a culled animating page kept
-  compositing 60fps of discarded frames (~110% GPU with every page
-  off-screen). Culling now drops the host frame rate with painting
-  (`applyPainting` in `page-host.ts`).
-- Frame-rate LOD: a page earns frame rate by its on-screen size
-  (`page-frame-rate.ts`, wired in the layout pass), 60/30/15fps with sticky
-  boundaries. Full grid at thumbnail zoom: GPU ~228% → ~90–100% per 15
-  animated pages, with no sharpness cost. Agent-driven and focus-session
-  pages stay at full rate.
+**Cost model, measured 2026-09-19.** Electron 43.2, on the animated perf canvas (30 animating and 28 static pages) at zoom 0.1, with 24 animating pages on screen at 15fps, which is 360 frames/s. Every frame pays a fixed cost (capture handshake, one IPC hop through main, one shared-texture import) and two costs that grow with its pixels (the capture blit and the bitmap copy in canvas-bg). Static pages are damage-driven and cost nothing at rest.
+
+| Share of total CPU | Main | GPU process | canvas-bg | Pages | Total |
+|---|---|---|---|---|---|
+| Whole pipeline | 21% | 75% | 17% | 33% | 146% |
+| Capture only (main drops every frame) | 10% | 43% | 0% | 32% | 87% |
+| Transfer + copy (the difference) | 11% | 32% | 17% | 1% | 59% |
+
+So about 60% of the cost is Chromium's offscreen capture, which only frame rate and texture size move, and about 40% is this design's hand-off and copy. Drawing the textures onto the item surface is not where the time goes. With every page draw disabled, total CPU moved 2–5% at zoom 0.1, 0.35 and 0.6. That rules out three ideas, which should not be retried without new evidence:
+- Latest-wins copies, where canvas-bg holds the newest frame and copies it at paint time. Once repaints are paced, 0% of copied frames go undrawn, so there is nothing to skip.
+- Dirty-rect repaints and a canvas per page. Both only save surface draws, which are the 2–5%.
+
+What landed from the measurements:
+- `stopPainting()` only stops texture delivery; a culled animating page kept compositing 60fps of discarded frames (~110% GPU with every page off-screen). Culling drops the host frame rate with painting (`applyPainting` in `page-host.ts`).
+- **Frame-rate LOD.** A page earns frame rate by its on-screen scale (`page-frame-rate.ts`). It gets 60fps from 0.44, 30fps from 0.25 and 15fps below, with sticky boundaries. Agent-driven and focus-session pages stay at full rate.
+- **Texture-size LOD.** Once the camera settles, the host view shrinks to 1, 0.5 or 0.25 of CSS size (`page-texture-scale.ts`), never below the on-screen scale. CDP's `Emulation.setDeviceMetricsOverride` holds layout at full width. `enableDeviceEmulation` cannot do this job, because it leaks the small viewport to a reloading document. Input is scaled into view px; agent screenshots hold full resolution. At zoom 0.1 with 60 pages on screen, GPU-process CPU went from 155% to 77%. An earlier reading on this date that cost is per-frame only was wrong. Emulation alone does not shrink the offscreen texture. The view resize does.
+- **Paced repaints.** Frames carry their tier rate, and the item surface repaints at the fastest rate arriving instead of on every arrival (`useFramePaintPacing.ts`).
+- **An entity drag wakes only the pages it moves.** Every presented page used to paint for the length of any drag. Holding one page with the rest off-screen cost 473% total CPU before and 60% after.
+
+**Postmortem, blank pages after a zoom-out (2026-09-19).** A culled page woke at whatever texture size it last had, and a zoom-out from 0.7 to 0.1 woke ~55 pages at full size for the length of the shrink settle wait. canvas-bg could not copy that many 2560×1600 textures in time, so `sendSharedTexture` timed out after its fixed 1s (about 160 failures per run). Main released each timed-out texture. canvas-bg copied the recycled buffer late and drew a transparent or black page, and one static page stayed that way for 4.7s. A timed-out transfer also never reports its references released, so the host's outstanding count leaked up to its pool allowance and the host dropped every later frame. That page was stuck for good and its transition never ended. The fix is at the cause. A page wakes at the scale it is owed (`setPainting` → `reconcileTextureScale(true)`, and the layout pass grades scale before painting), a failed transfer releases and uncounts its texture and asks for another frame, and the in-flight check runs ahead of the pool check. There were two wrong turns on the way. Waiting for outstanding textures before the view resize changed nothing. Refusing blank frames in canvas-bg caught only some of them, and it was removed. `GET /perf/page-hosts` reports per-host transfer failures, outstanding textures and transition state. Look there first for any blank or stuck page.
 
 ## Post-build validation (manual, run after the implementation lands — not pre-build spikes)
 
