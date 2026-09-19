@@ -253,19 +253,19 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(ipcChannels.canvasBackPage, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'go-back', fallbackUrl: page.host.webContents.getURL() })
   })
 
   ipcMain.on(ipcChannels.canvasForwardPage, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'go-forward', fallbackUrl: page.host.webContents.getURL() })
   })
 
   ipcMain.on(ipcChannels.canvasReloadPage, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() })
+    navigatePage(page, { type: 'reload', fallbackUrl: page.host.webContents.getURL() })
   })
 
   ipcMain.on(
@@ -430,22 +430,22 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(ipcChannels.canvasShowPageContextMenu, (_event, { pageId }: { pageId: string }) => {
     const page = pages.find((candidate) => candidate.id === pageId)
     if (!page) return
-    const canGoBack = page.pageView.webContents.navigationHistory.canGoBack()
-    const canGoForward = page.pageView.webContents.navigationHistory.canGoForward()
+    const canGoBack = page.host.webContents.navigationHistory.canGoBack()
+    const canGoForward = page.host.webContents.navigationHistory.canGoForward()
     const menu = Menu.buildFromTemplate([
       {
         label: 'Back',
         enabled: canGoBack,
-        click: () => navigatePage(page, { type: 'go-back', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'go-back', fallbackUrl: page.host.webContents.getURL() }),
       },
       {
         label: 'Forward',
         enabled: canGoForward,
-        click: () => navigatePage(page, { type: 'go-forward', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'go-forward', fallbackUrl: page.host.webContents.getURL() }),
       },
       {
         label: 'Reload',
-        click: () => navigatePage(page, { type: 'reload', fallbackUrl: page.pageView.webContents.getURL() }),
+        click: () => navigatePage(page, { type: 'reload', fallbackUrl: page.host.webContents.getURL() }),
       },
       { type: 'separator' },
       {

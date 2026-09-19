@@ -28,6 +28,21 @@ export function on(channel: string) {
   }
 }
 
+/** State broadcasts can precede React mount; retain the latest at the bridge. */
+export function onLatest<T>(channel: string): (callback: (payload: T) => void) => () => void {
+  const listeners = new Set<(payload: T) => void>()
+  let latest: { value: T } | undefined
+  ipcRenderer.on(channel, (_event, value: T) => {
+    latest = { value }
+    for (const listener of listeners) listener(value)
+  })
+  return (callback) => {
+    listeners.add(callback)
+    if (latest) callback(latest.value)
+    return () => { listeners.delete(callback) }
+  }
+}
+
 /**
  * Send a payload up to main on a contract renderer→main channel. Keyed by the
  * contract, so the channel name and its payload type are checked together.

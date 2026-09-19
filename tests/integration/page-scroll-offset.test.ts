@@ -91,7 +91,7 @@ function emitScroll(scrollX: number, scrollY: number, scrollHeight = 5000): void
   const page = pages.find((candidate) => candidate.id === PAGE_ID)!
   ipcMain.emit(
     ipcChannels.pageScrollOffset,
-    { sender: page.pageView.webContents },
+    { sender: page.host.webContents },
     { scrollX, scrollY, scrollHeight },
   )
 }
@@ -134,7 +134,7 @@ describe('page scroll offset in the layout broadcast', () => {
     page.scrollY = 1337
     page.scrollHeight = 5000
 
-    page.pageView.webContents.emit('did-navigate', {}, 'https://example.com/other')
+    page.host.webContents.emit('did-navigate', {}, 'https://example.com/other')
 
     expect(pageSceneEntity(PAGE_ID)).toEqual({ scrollX: 0, scrollY: 0 })
     expect(page.scrollHeight).toBe(0)

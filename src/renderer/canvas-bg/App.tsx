@@ -5,14 +5,11 @@ import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
 import { useTheme } from '../shared/hooks/useTheme'
 import { DRAW_CURSOR } from './canvasBgConstants'
 import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
-import { ChromeCanvasSurface } from './ChromeCanvasSurface'
+import { CanvasItemSurface } from './CanvasItemSurface'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
 import { PerfHudOverlay } from './PerfHudOverlay'
-import { SvgDeviceShellLayer } from './SvgDeviceShellLayer'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
-import { useFrozenPageBitmaps } from '../shared/useFrozenPageBitmaps'
-import { useFrozenPagesState } from './useFrozenPagesState'
 import { useChromeSlices } from './useChromeSlices'
 
 const api = (window as unknown as { electronAPI: CanvasBgElectronAPI }).electronAPI
@@ -31,10 +28,6 @@ export default function App({
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ initialLayoutData })
-  const { frozenPages, dragFrozenPageIds } = useFrozenPagesState(api)
-  const frozenPageBitmaps = useFrozenPageBitmaps(frozenPages, (revision) =>
-    api.frozenPagesReady('bg', revision),
-  )
 
   useCanvasViewportGestures({
     api,
@@ -42,10 +35,7 @@ export default function App({
     layoutRef,
   })
 
-  const { chromePages, chromeFiles, svgDeviceShellPages, chromeGroups } = useChromeSlices(
-    layoutData,
-    dragFrozenPageIds,
-  )
+  const { canvasItemDraws, chromeGroups } = useChromeSlices(layoutData)
   return (
     <div
       className="relative h-screen w-screen overflow-hidden"
@@ -71,23 +61,12 @@ export default function App({
           from the camera slice, so the scene container needs no transform. */}
       <div className="pointer-events-none absolute inset-0">
         <GroupBackgroundLayer groups={chromeGroups} isDark={isDark} />
-        <div className="pointer-events-none absolute inset-0">
-          <SvgDeviceShellLayer
-            pages={svgDeviceShellPages}
-            isDark={isDark}
-          />
-        </div>
       </div>
-      {/* Borders, device shells, and frozen-page rasters draw on a canvas
-          rather than as DOM, so strokes stay crisp mid-zoom and the raster
-          shares the chrome's exact geometry. */}
-      <ChromeCanvasSurface
-        pages={chromePages}
-        fileEntities={chromeFiles}
-        snapshots={frozenPageBitmaps}
-        isDark={isDark}
-        dragFrozenPageIds={dragFrozenPageIds}
-      />
+
+      {/* Pages and device-framed files, each painted whole (shell, border,
+          live texture) in z-order on one canvas, topmost within canvas-bg.
+          Drawn rather than DOM so strokes stay crisp mid-zoom (ADR 0038). */}
+      <CanvasItemSurface api={api} draws={canvasItemDraws} isDark={isDark} />
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
           Selected page menu lives in the floating-ui view. */}

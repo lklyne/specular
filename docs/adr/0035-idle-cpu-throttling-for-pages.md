@@ -1,6 +1,6 @@
 # ADR 0035 — Pages are frozen while the app is idle, never hidden
 
-**Status:** Accepted (mechanism revised 2026-08-22 — see *Postmortem: CPU throttling*)
+**Status:** Accepted (mechanism revised 2026-08-22 — see *Postmortem: CPU throttling*; revised again 2026-09-12 for offscreen pages — see *Postmortem: lifecycle freeze on offscreen pages*)
 **Date:** 2026-08-20
 **Related:** [docs/pan-zoom-perf-unknowns.md](../pan-zoom-perf-unknowns.md) §1 (the survey that identified `backgroundThrottling` as the wrong knob)
 
@@ -29,6 +29,12 @@ screenshots it over HTTP never raises it.
 ## Decision
 
 ### 1. Freeze the page; never hide the view
+
+> **Superseded for offscreen pages (ADR 0038).** The lifecycle freeze below
+> was written for native `WebContentsView` pages. Once every page became a
+> hidden offscreen `BrowserWindow`, thawing stopped working — see *Postmortem:
+> lifecycle freeze on offscreen pages*. The current lever is the host's frame
+> rate (`PageHost.setIdle`); the policy (§2, §3) is unchanged.
 
 Idle pages get `Page.setWebLifecycleState({ state: 'frozen' })` over each
 page's shared debugger session, and `'active'` when the app wakes. A frozen
@@ -73,28 +79,11 @@ A page with a live CDP bridge stays exempt on its own, via
 `automationInteractivePageCounts`, so a long agent session with no other traffic
 does not decay into a throttled page.
 
-### 3. The load exemption ends at the first paint, not the load event
-
-Between a navigation commit and the new document's first paint a page has no
-surface — the old frame is gone and nothing has replaced it. `did-stop-loading`
-does not close that window: it fires at the load event, which a client-rendered
-app reaches with an empty body, whole frames before it puts pixels on screen.
-Freezing there holds the empty surface for as long as the app stays idle, and
-page views are transparent, so what the user sees is a hole in the canvas where
-the site was. A hot reload landing just as the blur grace expires is the way in.
-
-So the exemption runs until the page has presented: two animation frames after
-the load settles, bounded by a timeout so a page that never answers is not
-treated as loading forever. `page-presentation.ts` owns that signal, because the
-zoom snapshot has the same stake in it — a capture taken in the gap pictures the
-hole and is then keyed to the new document, which makes it that page's frame for
-as long as the document lasts.
-
-### 4. The policy is pure; only the application is not
+### 3. The policy is pure; only the application is not
 
 `page-idle-policy.ts` is a pure function from observed state to a verdict plus
 the moment that verdict can next flip. `page-idle-throttle.ts` owns the state,
-the single timer, and the CDP dispatch. The rules are unit-testable without
+the single timer, and the dispatch to each host. The rules are unit-testable without
 Electron, and the caller has exactly one timer to arm.
 
 ## Consequences
@@ -102,17 +91,15 @@ Electron, and the caller has exactly one timer to arm.
 - An unfocused app with a canvas of animating pages costs a fraction of what it
   did. The blur grace (5s) means alt-tabbing away and back never engages it.
 - Pages are *stopped*, not slowed. A frozen page makes no progress until the
-  app wakes: timers do not fire and script does not run. A page is exempt from
-  the load starting until the loaded document has painted, so loads finish and
-  land on something visible; a site holding a socket may
+  app wakes: timers do not fire and script does not run. A page with a load in
+  flight is exempt so loads still complete; a site holding a socket may
   reconnect on resume, the same as it does after a laptop sleeps.
 - A page whose debugger is owned by an open DevTools frontend cannot be
   frozen. Attach fails, the page keeps running at full speed, and the next
   evaluation retries. Correct, and the same trade-off `page-color-scheme.ts`
   already makes.
 - There is no global off switch. Every exemption — focus, awake holds, agent
-  traffic, a live CDP bridge, a page that has not painted its current document
-  — is derived from observed
+  traffic, a live CDP bridge, a load in flight — is derived from observed
   state, so a page that must stay fast has a reason the policy can read. A
   kill switch would be the one input nothing observes, and a second code path
   to measure. If throttling is ever wrong for some page, the fix is a rule
@@ -160,3 +147,78 @@ orders of magnitude.
 - **Throttle only culled (off-canvas) pages** — cheaper to reason about, but
   leaves the common case untouched: a visible canvas of animating pages behind
   another app is exactly what drains the battery.
+
+## Postmortem: lifecycle freeze on offscreen pages (2026-09-12)
+
+After ADR 0038 moved every page into a hidden offscreen `BrowserWindow`, shader
+and rAF animations ran only on the page the user had clicked into. They stopped
+the moment selection moved off it and stayed stopped when the user came back.
+Reloading that one page brought it back; nothing else did.
+
+**Mechanism.** `Page.setWebLifecycleState('frozen')` is implemented browser-side
+as `WasHidden()` + `SetPageFrozen(true)`; `'active'` as `SetPageFrozen(false)` +
+`WasShown()`. On a window that has never been shown, the show half does not
+restore compositor visibility. Measured in a bare Electron 43 offscreen
+shared-texture window with a rAF counter page (1.2 s windows):
+
+| Step | paints | rAF ticks | `document.visibilityState` |
+|---|---|---|---|
+| healthy | 72 | 72 | visible |
+| `frozen`, then `active` | 0 | 0 | visible |
+| then `Emulation.setFocusEmulationEnabled(true)` | 72 | 72 | visible |
+| then `setFocusEmulationEnabled(false)` | 0 | 0 | visible |
+| any reload or navigation after a thaw | 0 | 0 | **hidden** |
+
+A plain hidden `show: false` window with no offscreen rendering fails the same
+way, so this is Chromium's hidden-window visibility bookkeeping, not an OSR
+bug. It never surfaced under the native-view architecture because the
+device-emulation re-raster, which ADR 0038 deleted, happened to nudge thawed
+pages back to life on every zoom settle.
+
+Focus emulation (`page-focus-emulation.ts`) is enabled only on the
+keyboard-target page. That is what gave the symptom its shape. The entered
+page ran because emulation was on. Leaving it turned emulation off, which
+stopped the page. A reload re-applied emulation to the target page, so it
+looked like a fix.
+
+Nothing recovers a page for good once it has been frozen. I tried `invalidate`,
+`stopPainting`/`startPainting`, debugger detach, resize,
+`Emulation.setDeviceMetricsOverride`, `Page.bringToFront`, a
+`setBackgroundThrottling` toggle, and a host window shown at opacity zero.
+Showing and re-hiding the window revives the current document, but every later
+document loads hidden. So a nudge loop over visible pages is not an option
+either.
+
+**Replacement lever: the host's frame rate.** `webContents.setFrameRate(1)`
+throttles the offscreen compositor's BeginFrame cadence, which is what paces
+`requestAnimationFrame`, so it quiets a page's own animation loop and not just
+texture delivery. Timers keep running. It restores immediately and survives
+cross-process navigation:
+
+| State | paints/s | rAF/s | timer ticks/s |
+|---|---|---|---|
+| normal | 60 | 60 | 20 |
+| `setFrameRate(1)` | 2 | ~2 | 20 |
+| back to `setFrameRate(60)` | 60 | 60 | 20 |
+| after cross-site navigation | 60 | 60 | 20 |
+
+Paired with `stopPainting()`, the idle page produces no textures at all.
+`PageHost.setIdle` owns both, and composes with viewport culling as
+`painting && !idle` so a culled page stays culled across an idle cycle.
+
+Also rejected: CDP `Emulation.setVirtualTimePolicy({ policy: 'pause' })` stops
+timers but not rAF, and replays every missed timer in a burst on resume.
+
+**Cost accepted.** A throttled page is slowed, not stopped. Script and timers
+run at full rate and rAF at about 2/s, so the 0% CPU the lifecycle freeze
+delivered is gone. That is the trade for pages that come back. Do not send
+`Page.setWebLifecycleState` to a page host.
+
+**The load exemption ends at the load event again.** The freeze needed it to
+run further: `did-stop-loading` fires at the load event, which a
+client-rendered app reaches with an empty body, and a page frozen in that gap
+held an empty surface until something thawed it. A throttled page has no such
+gap to fall into — it keeps painting, just at 1fps, so the worst case is the
+new document arriving a second late rather than never. The exemption is back to
+`did-start-loading`/`did-stop-loading`, and the signal module that bounded it
+went with the snapshot pipeline ADR 0038 deleted.

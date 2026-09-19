@@ -7,7 +7,7 @@
 | **Y.Doc** | Workspace data (entities, groups, edges, annotations, viewport, active tab) | `space-doc.ts` |
 | **Module variables** | Electron views, interaction mode, hover, drag, layout cache, timers, pages | `runtime-context.ts` |
 
-Pages are hybrid: serializable fields (position, URL, preset) mirror to Y.Doc, but WebContentsView refs stay in `runtime-context.ts`.
+Pages are hybrid: serializable fields (position, URL, preset) mirror to Y.Doc, but offscreen host refs (`PageHost`, `page-host.ts`) stay in `runtime-context.ts`.
 
 ## Broadcast path: the runtime store and its patch bus
 
@@ -80,9 +80,10 @@ Rules that hold this together:
   `page-chrome-state.ts` for a page's browser chrome). Still call
   `requestLayout()` when
   something *outside* the store reads what you changed and is computed only
-  inside `layoutAllViews`: `reconcileFocus` and viewport culling read the
-  interaction kind, `shouldGateBeOpen` and the cursor-overlay window read the
-  active tool and the inspect target, and the `sidebar` and `toolbar` payloads
+  inside `layoutAllViews`: `reconcileFocus`, `reconcilePageFocusEmulation` and
+  viewport culling read the interaction kind, the cursor-overlay window and the
+  page-cursor bridge read the active tool and the inspect target, and the
+  `sidebar` and `toolbar` payloads
   are not on the scene bus at all. If a mutator turns out to need the scene
   after all, give it back its `markDirty('canvas')` — never widen the patch.
 

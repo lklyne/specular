@@ -15,6 +15,8 @@ import { activeTool, setActiveTool } from './tool-mode'
 import { aboveView } from './view-refs'
 import { mainHandlers } from './binding-handlers'
 import { hasFocusReturnCamera } from './viewport-control'
+import { findPageById } from './runtime-context'
+import { currentKeyboardTargetPageId } from './selection-controller'
 
 // Track text-editing state per webContents. A keystroke can only land in the
 // webContents that has focus, so dispatch consults that source's flag — not
@@ -91,6 +93,23 @@ function handleSpacePanToggle(
   setActiveTool(restore)
 }
 
+/**
+ * Whose keyboard this keystroke really belongs to, and whose text-editing
+ * state answers for it. Everything but aboveView-with-a-keyboard-target is
+ * itself.
+ */
+function effectiveKeySource(
+  sourceView: KeyboardSourceView,
+  webContents: WebContents,
+): { sourceView: KeyboardSourceView; webContents: WebContents } {
+  if (sourceView !== 'aboveView') return { sourceView, webContents }
+  const pageId = currentKeyboardTargetPageId()
+  if (!pageId) return { sourceView, webContents }
+  const page = findPageById(pageId)
+  if (!page || page.host.webContents.isDestroyed()) return { sourceView, webContents }
+  return { sourceView: 'page', webContents: page.host.webContents }
+}
+
 export function attachBindingDispatcher(
   webContents: WebContents,
   sourceView: KeyboardSourceView,
@@ -103,20 +122,26 @@ export function attachBindingDispatcher(
   })
 
   webContents.on('before-input-event', (event, input) => {
+    // A key typed while a page owns the keyboard arrives on aboveView (which
+    // holds OS focus on the page's behalf) and is forwarded into the page from
+    // its sink. Dispatch as if the page were the source, so the `page`-scoped
+    // bindings still fire and everything else falls through to be forwarded.
+    const effective = effectiveKeySource(sourceView, webContents)
+
     // Track Space modifier regardless of editing state — space-to-pan must
     // stay in sync even when focus is in an input that consumes Space natively.
     if (input.key === ' ' || input.code === 'Space') {
-      handleSpacePanToggle(input.type === 'keyDown', sourceView, webContents)
+      handleSpacePanToggle(input.type === 'keyDown', effective.sourceView, effective.webContents)
     }
 
     const normalizedKey = normalizeElectronInput(input)
     if (!normalizedKey) return
 
-    const pageFocusActive = sourceView === 'page'
+    const pageFocusActive = effective.sourceView === 'page'
     const ctx = buildBindingContext(
-      sourceView,
+      effective.sourceView,
       pageFocusActive,
-      isTextEditingFor(webContents),
+      isTextEditingFor(effective.webContents),
     )
 
     const bindingId = dispatchKey(BINDINGS, normalizedKey, ctx)

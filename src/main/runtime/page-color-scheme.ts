@@ -12,7 +12,7 @@ import { ensurePageDebugger } from './page-debugger'
  * the page on the wrong scheme.
  */
 export function applyPageColorScheme(page: Page, scheme: PageColorScheme | null): boolean {
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   if (wc.isDestroyed()) return false
 
   if (!ensurePageDebugger(wc, () => { page.lastColorSchemeKey = undefined })) return false

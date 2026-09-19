@@ -1,0 +1,38 @@
+/**
+ * The wire contract for one painted page frame: main imports the GPU texture
+ * a page's offscreen window produced and sends it to canvas-bg's main frame
+ * with this metadata attached.
+ */
+
+export interface PageFrameMeta {
+  pageId: string
+  widgetType: 'frame' | 'popup'
+  /** Texture size in device pixels. */
+  width: number
+  height: number
+  /** CSS viewport size of the page when this frame was painted. */
+  cssWidth: number
+  cssHeight: number
+  /**
+   * How much input the page had been sent when this frame was painted. A
+   * popup closes because of something the user did, so this is what tells a
+   * page paint that follows a dismissal apart from one an animation produced
+   * (`page-input-counter.ts`).
+   */
+  inputSeq: number
+}
+
+/** Posted by the canvas-bg preload to the page world, the bitmap transferred with it. */
+export interface PageFrameMessage {
+  source: 'page-frame'
+  meta: PageFrameMeta
+  bitmap: ImageBitmap
+}
+
+/** A focused element's rect in page CSS px — the point a popup widget hangs from. */
+export interface PagePopupAnchor {
+  x: number
+  y: number
+  width: number
+  height: number
+}

@@ -1,17 +1,19 @@
 /**
- * Idle freezing for page renderers.
+ * Idle throttling for page hosts.
  *
- * Rides CDP's `Page.setWebLifecycleState` over each page's (single, shared)
- * debugger session — the one lever that quiets a renderer Chromium still
- * considers visible without costing anything to hold. A frozen page's task
- * queues stop (timers, rAF, script), the compositor keeps its last frame, and
- * `capturePage` still returns it — which is why this is the mechanism and
- * hiding the view is not.
+ * An offscreen page is always "visible" to Chromium, so nothing quiets it
+ * when the user leaves the app. The lever is the host's own frame rate:
+ * `PageHost.setIdle` drops the offscreen compositor to one frame per second,
+ * which paces `requestAnimationFrame` down with it, and stops texture
+ * delivery. Timers and script keep running, so an idle page still answers
+ * agents and finishes loads; `capturePage` still returns its last frame.
  *
- * `Emulation.setCPUThrottlingRate` is not an option on macOS: Chromium's
- * throttler is a thread that signals the main thread every 200µs and busy-spins
- * in the handler, so a "throttled" page costs ~4k idle wakeups/s and ~6% CPU
- * each, idle or not (ADR 0035, postmortem).
+ * `Page.setWebLifecycleState('frozen')` is not the lever, even though it
+ * stops more: thawing a window that was never shown leaves its compositor
+ * without frames, and every document it loads afterwards starts hidden
+ * (ADR 0035, offscreen postmortem). `Emulation.setCPUThrottlingRate` is not
+ * either: on macOS its signal loop costs ~4k wakeups/s per page (ADR 0035,
+ * CPU-throttling postmortem).
  *
  * Two things keep pages awake, and both exist because agents drive this app
  * while nobody is looking at it:
@@ -27,14 +29,10 @@
 
 import { automationInteractivePageCounts, pages } from './runtime-context'
 import type { Page } from './runtime-entities'
-import { ensurePageDebugger } from './page-debugger'
-import { pageAwaitingPaint } from './page-presentation'
 import { broadcastRuntimePatch } from './runtime-patch-broadcast'
 import { evaluateIdleThrottle } from './page-idle-policy'
 
-type LifecycleState = 'active' | 'frozen'
-
-/** Grace after blur, so clicking to an editor and back doesn't churn CDP. */
+/** Grace after blur, so clicking to an editor and back doesn't churn hosts. */
 const BLUR_GRACE_MS = 5_000
 
 /** How long one piece of agent traffic keeps every page awake. */
@@ -49,6 +47,12 @@ let recheckTimer: NodeJS.Timeout | null = null
  *  changes nothing sends nothing. */
 let broadcastIdle: boolean | null = null
 
+/**
+ * Pages with a load in flight, tracked here rather than read off `page.isLoading`
+ * so the throttle does not depend on which listener page-factory registered first.
+ */
+const loadingPageIds = new Set<string>()
+
 function pagesAreIdle(): boolean {
   return evaluateIdleThrottle({
     now: Date.now(),
@@ -60,49 +64,19 @@ function pagesAreIdle(): boolean {
   }).idle
 }
 
-function targetState(page: Page): LifecycleState {
-  if (!pagesAreIdle()) return 'active'
-  // An agent holding a CDP bridge on this page is mid-interaction; freezing
-  // it would stop the very work the app is unfocused for.
-  if (automationInteractivePageCounts.has(page.id)) return 'active'
-  // A frozen page never finishes loading, and the user or agent that asked
-  // for it is waiting on the finished page, not the idle one. The exemption
-  // runs past the load event until the page has painted: freezing in that gap
-  // holds a surface with nothing on it, and only a thaw ever fills it in.
-  if (pageAwaitingPaint(page.id)) return 'active'
-  return 'frozen'
-}
-
-/**
- * Returns false when the state did not dispatch. Attach can fail (a DevTools
- * frontend already owns the debugger), in which case the caller leaves
- * `lastIdleLifecycleState` stale so the next evaluation retries rather than
- * believing a page is frozen when it isn't.
- */
-function applyState(page: Page, state: LifecycleState): boolean {
-  const wc = page.pageView.webContents
-  if (wc.isDestroyed()) return false
-
-  // A detach drops the override with it — forget the state so the next
-  // evaluation re-applies instead of skipping as a no-op.
-  if (!ensurePageDebugger(wc, () => { page.lastIdleLifecycleState = undefined })) return false
-
-  wc.debugger
-    .sendCommand('Page.setWebLifecycleState', { state })
-    .catch(() => {
-      page.lastIdleLifecycleState = undefined
-    })
+function shouldIdle(page: Page): boolean {
+  if (!pagesAreIdle()) return false
+  // An agent holding a CDP bridge on this page is mid-interaction; quieting
+  // it would slow the very work the app is unfocused for.
+  if (automationInteractivePageCounts.has(page.id)) return false
+  // The user or agent that asked for a load is waiting on the finished page;
+  // a one-frame-per-second render of it would look broken.
+  if (loadingPageIds.has(page.id)) return false
   return true
 }
 
-export function syncPageIdleThrottle(page: Page): void {
-  const state = targetState(page)
-  if (page.lastIdleLifecycleState === state) return
-  // Never attached, nothing to undo — don't open a debugger session on every
-  // page just to tell it to run.
-  if (page.lastIdleLifecycleState === undefined && state === 'active') return
-  if (!applyState(page, state)) return
-  page.lastIdleLifecycleState = state
+function syncPageIdleThrottle(page: Page): void {
+  page.host.setIdle(shouldIdle(page))
 }
 
 function syncAllPages(): void {
@@ -111,8 +85,8 @@ function syncAllPages(): void {
 
 /**
  * Content the renderers host themselves — inline HTML files run as iframes
- * inside canvas-bg — is out of CDP's reach from here, so the verdict travels
- * as a runtime slice and the renderer quiets it.
+ * inside canvas-bg — has no host to throttle, so the verdict travels as a
+ * runtime slice and the renderer quiets it.
  */
 function broadcastIdleVerdict(): void {
   const idle = pagesAreIdle()
@@ -150,7 +124,7 @@ function reevaluate(): void {
 /**
  * Snapshot of the throttle's own state, for the metrics sampler. Read-only —
  * observing the throttle must never nudge it, so this arms no timer and
- * dispatches nothing.
+ * touches no host.
  */
 export function idleThrottleState(): {
   idle: boolean
@@ -194,18 +168,24 @@ export function holdPagesAwake(): () => void {
 }
 
 /**
- * Wire a freshly created page. A navigation or renderer crash starts a new
- * renderer that never saw the override, so the recorded rate is forgotten and
- * re-applied rather than trusted.
+ * Wire a freshly created page. The host's frame rate and painting state are
+ * properties of its offscreen view, not of a renderer, so they survive
+ * navigations and renderer crashes and need no re-apply.
  */
 export function registerPageIdleThrottle(page: Page): void {
-  const wc = page.pageView.webContents
-  const reapply = (): void => {
-    page.lastIdleLifecycleState = undefined
+  const wc = page.host.webContents
+  wc.on('did-start-loading', () => {
+    loadingPageIds.add(page.id)
     syncPageIdleThrottle(page)
-  }
-  wc.on('did-start-loading', () => syncPageIdleThrottle(page))
-  wc.on('did-navigate', reapply)
-  wc.on('render-process-gone', reapply)
+  })
+  wc.on('did-stop-loading', () => {
+    loadingPageIds.delete(page.id)
+    syncPageIdleThrottle(page)
+  })
+  wc.on('render-process-gone', () => {
+    loadingPageIds.delete(page.id)
+    syncPageIdleThrottle(page)
+  })
+  wc.once('destroyed', () => loadingPageIds.delete(page.id))
   syncPageIdleThrottle(page)
 }

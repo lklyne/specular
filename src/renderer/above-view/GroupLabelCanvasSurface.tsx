@@ -1,7 +1,7 @@
 /**
  * GroupLabelCanvasSurface: group titles drawn on a full-window canvas at the
  * screen geometry this renderer projected. Same pattern as canvas-bg's
- * ChromeCanvasSurface: text renders at display scale each frame, so labels
+ * CanvasItemSurface: text renders at display scale each frame, so labels
  * keep their fixed 11px size and stay crisp during a zoom gesture instead of
  * being drawn once as DOM and scaled.
  *

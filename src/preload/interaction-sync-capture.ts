@@ -1,7 +1,7 @@
 import { ipcChannels } from '../shared/ipc-contract'
 import { ipcRenderer } from 'electron'
 import { describeElementForLocator } from './dom-element-utils'
-import { isPageOverlayTarget } from './gesture-forwarding'
+import { isPageOverlayTarget } from './page-overlay-targets'
 import type { LocatorBundle } from '../shared/locator-kernel'
 import type { InteractionSyncEvent } from '../shared/types'
 

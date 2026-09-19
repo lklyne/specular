@@ -26,7 +26,6 @@ import {
   updateEdge,
   setPagePreset,
   setPageColorScheme,
-  toggleSvgDeviceShell,
   setFilePreset,
   setFileCustom,
 } from '../runtime/document-commands'
@@ -105,10 +104,6 @@ const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
     key: 'pageId',
     accept: hasValidColorScheme,
     run: (id, payload) => setPageColorScheme(id, payload.colorScheme as PageColorScheme | null),
-  },
-  [ipcChannels.rightDetailsPanelToggleSvgDeviceShell]: {
-    key: 'pageId',
-    run: (id) => toggleSvgDeviceShell(id),
   },
   // --- File Device Settings ---
   [ipcChannels.rightDetailsPanelSetFilePreset]: {

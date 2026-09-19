@@ -15,10 +15,10 @@ export async function takePageAgentSnapshot(pageId?: string, maxDepth?: number):
 
 export async function takePageScreenshot(pageId?: string): Promise<string> {
   const page = pageId ? findPageById(pageId) : selectedPage()
-  if (!page || page.pageView.webContents.isDestroyed()) {
+  if (!page || page.host.webContents.isDestroyed()) {
     throw new Error(pageId ? `Page not found: ${pageId}` : 'No page selected')
   }
-  const image = await page.pageView.webContents.capturePage()
+  const image = await page.host.webContents.capturePage()
   return image.toPNG().toString('base64')
 }
 

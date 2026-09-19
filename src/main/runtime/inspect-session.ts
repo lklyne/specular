@@ -32,7 +32,6 @@ import {
   deviceIdFromMetadata,
   deviceOrientationFromMetadata,
   showDeviceFrameFromMetadata,
-  useSvgDeviceShellFromMetadata,
 } from './runtime-entities'
 import {
   devtoolsHeaderView,
@@ -129,7 +128,7 @@ function effectiveInspectionPageIds(): Set<string> {
 export function syncInspectionState(): void {
   const enabledPageIds = effectiveInspectionPageIds()
   for (const page of pages) {
-    safeSend(page.pageView.webContents, ipcChannels.setInspectionMode, {
+    safeSend(page.host.webContents, ipcChannels.setInspectionMode, {
       enabled: enabledPageIds.has(page.id),
     })
   }
@@ -266,8 +265,8 @@ function selectedPageSummary(): DevtoolsPanelSelectionSummary | undefined {
   const vp = viewportPresetForIndex(page.presetIndex)
   return {
     pageId: page.id,
-    url: page.pageView.webContents.getURL() || 'about:blank',
-    pageTitle: page.pageView.webContents.getTitle() || '',
+    url: page.host.webContents.getURL() || 'about:blank',
+    pageTitle: page.host.webContents.getTitle() || '',
     viewportLabel: vp.label,
     width: page.peekWidth ?? vp.width,
     height: page.peekHeight ?? vp.height,
@@ -444,7 +443,7 @@ export function notifyDevtoolsPanelData(): void {
   const inspect = buildInspectPanelState()
   const panelMode = derivePanelMode()
   const pageSummaries = pages.map((page) => {
-    const url = page.pageView.webContents.getURL()
+    const url = page.host.webContents.getURL()
     let boundRepoPath: string | null = null
     try {
       boundRepoPath = inferRepoPathForOrigin(new URL(url).origin)
@@ -462,10 +461,9 @@ export function notifyDevtoolsPanelData(): void {
       deviceId: deviceIdFromMetadata(page.metadata),
       deviceOrientation: deviceOrientationFromMetadata(page.metadata),
       showDeviceFrame: showDeviceFrameFromMetadata(page.metadata),
-      useSvgDeviceShell: useSvgDeviceShellFromMetadata(page.metadata),
-      canGoBack: page.pageView.webContents.navigationHistory.canGoBack(),
-      canGoForward: page.pageView.webContents.navigationHistory.canGoForward(),
-      isLoading: page.pageView.webContents.isLoading(),
+      canGoBack: page.host.webContents.navigationHistory.canGoBack(),
+      canGoForward: page.host.webContents.navigationHistory.canGoForward(),
+      isLoading: page.host.webContents.isLoading(),
       ...(boundRepoPath ? { boundRepoPath } : {}),
     }
   })
@@ -531,7 +529,7 @@ export function setHoveredInspectTarget(target: DevtoolsPanelDomTarget | null): 
   // Bail if the page is gone or its backing webContents has been closed —
   // a late hover event on a destroyed page can wedge stale state that the
   // next GC sweep then crashes on.
-  if (!page || page.pageView.webContents.isDestroyed()) return
+  if (!page || page.host.webContents.isDestroyed()) return
   page.inspectDetailsByNodeId ??= {}
   page.inspectDetailsByNodeId[normalized.nodeId] = normalized
   setInspectActivePageId(target.pageId)
@@ -568,8 +566,8 @@ export function setInspectNodeFromPanel(
   pin: boolean,
 ): void {
   const page = findPageById(pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
-  page.pageView.webContents.send(ipcChannels.inspectFocusNode, {
+  if (!page || page.host.webContents.isDestroyed()) return
+  page.host.webContents.send(ipcChannels.inspectFocusNode, {
     nodeId,
     pin,
     fromPanel: true,

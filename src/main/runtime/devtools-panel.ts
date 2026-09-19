@@ -48,7 +48,7 @@ export function closeDevTools(): void {
 
   for (const page of pages) {
     try {
-      page.pageView.webContents.closeDevTools()
+      page.host.webContents.closeDevTools()
     } catch {
       // Ignore close races during shutdown or retargeting.
     }

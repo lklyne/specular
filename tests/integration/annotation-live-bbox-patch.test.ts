@@ -76,7 +76,7 @@ function report(boundingBox: typeof BOX | null): void {
   const page = pages.find((candidate) => candidate.id === PAGE_ID)!
   ipcMain.emit(
     ipcChannels.annotationBboxUpdate,
-    { sender: page.pageView.webContents },
+    { sender: page.host.webContents },
     { updates: [{ annotationId: ANNOTATION_ID, boundingBox }] },
   )
 }
