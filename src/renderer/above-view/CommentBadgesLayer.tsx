@@ -81,7 +81,7 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
                 type="button"
                 data-overlay-ui="comment-badge"
                 aria-label={`${badge.count} open messages`}
-                className="pointer-events-auto absolute z-[15] inline-flex items-center gap-1.5 rounded-full border border-blue-300/90 bg-blue-500 px-2 py-1.5 text-[10px] font-semibold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
+                className="pointer-events-auto absolute z-[15] inline-flex outline-none items-center gap-1.5 rounded-full border border-blue-300/90 bg-blue-500 px-2 py-1.5 text-[10px] font-semibold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
                 style={{
                   left: badge.x,
                   top: badge.y,

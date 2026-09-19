@@ -215,7 +215,7 @@ Discriminated by `anchor.type: 'element' | 'canvas' | 'region'`. The legacy `Ann
 
 **Resting visual on the canvas** is asymmetric and matches today's behavior:
 - Region anchor → dashed rose-400 rectangle, always visible while on-document (filtered by `status` and the document-binding gate). Click focuses the comment and switches the canvas agent thread. The two region arms differ in coordinate space: a **canvas-anchored** region stores `anchor.canvasRect` (canvas coords) and stays put; a **page-anchored** region stores `anchor.docRect` (the page's document CSS px, relative to `pageAnchor.pageId`) and renders through `pageDocumentToScreen`, so it travels with page drags/nudges **and scroll-follows**, fading at the page's content-frame edges (like comment badges) when scrolled out. Narrow the arms with `'docRect' in anchor`.
-- Element anchor → no resting visual beyond its badge; the conversation lives in the right-panel agent thread. Focusing the comment rings the element on the canvas (`FocusedThreadOutline`); the ring re-queries the live bbox via `selector` on every layout tick / page scroll, so it tracks scroll.
+- Element anchor → no resting visual beyond its badge; the conversation lives in the right-panel agent thread. Focusing the comment flashes its message in the right panel; the canvas adds no ring.
 - Canvas-point anchor → same as element — no resting visual beyond its badge; focusing from the badge or panel switches the agent thread and rings the pin.
 
 **Canvas agent thread** — the right panel is a general chat (`ChatPane`), not a per-comment drill-in and not Document/inspector. Transcripts persist in the space under `.specular/threads/<tab-id>/` (`<id>.json` plus `index.json` with `activeThreadId`), not in the `.canvas` / Y.Doc. Visible messages plus `claudeSessionId` only; closed threads stay on disk and drop out of context.
@@ -226,7 +226,7 @@ Comments and chat are one conversation. Agent replies live only in the thread, n
 
 **New** and **Close** are separate. The switcher keeps threads. Close archives (`status: closed`). New is a clean transcript.
 
-One pin maps to at most one thread via `annotation.metadata.threadId`. Clicking a badge focuses the pin (`focusedAnnotationId`, `annotationOpenThread`) and selects that thread. The canvas's only trace is the highlight ring. Back, Esc on the canvas, resolve, or delete clears the focus. There is no on-canvas thread popover.
+One pin maps to at most one thread via `annotation.metadata.threadId`. Clicking a badge focuses the pin (`focusedAnnotationId`, `annotationOpenThread`) and selects that thread. The panel flashes the pin's message on every click, including a re-click of the focused pin. Back, Esc on the canvas, resolve, or delete clears the focus. There is no on-canvas thread popover.
 
 The live **pill** sits above the composer and is this turn's intent, not the conversation's identity: DOM node > focused comment pin > canvas selection > empty (the canvas name, or "specular"). Composer focus does not clear canvas selection. Placing a comment selects that pin. The agent prompt names the selected entity ids and asks it to focus there; that is guidance, not a write fence.
 

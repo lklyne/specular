@@ -15,6 +15,7 @@ export function QueuedComments({ messages }: { messages: AgentThreadMessage[] })
       {messages.map((message) => (
         <div
           key={message.id}
+          data-annotation-id={message.annotationId}
           className={`flex items-start gap-1.5 rounded-lg px-1.5 py-1 text-[12px] leading-5 ${
             isDark ? 'bg-zinc-800' : 'bg-zinc-200/60'
           }`}

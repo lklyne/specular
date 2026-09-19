@@ -155,10 +155,13 @@ export function CommentBubble({
   author,
   text,
   fallback,
+  annotationId,
 }: {
   author: string
   text?: string | null
   fallback?: string
+  /** The canvas pin this message came from, for panel focus lookups. */
+  annotationId?: string
 }) {
   if (!text) {
     return fallback ? (
@@ -179,7 +182,10 @@ export function CommentBubble({
   // both themes (lighter in light, darker in dark), which a mid-zinc does not.
   return (
     <div className="min-w-0">
-      <div className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]">
+      <div
+        data-annotation-id={annotationId}
+        className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]"
+      >
         {text}
       </div>
     </div>

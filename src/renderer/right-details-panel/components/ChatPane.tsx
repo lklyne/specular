@@ -12,6 +12,7 @@ import { ModelChip } from './ModelChip'
 import { PaneHeader } from './PaneHeader'
 import { threadPillFromPanelData, threadWriteTargetFromPanel } from '../panelThreadPill'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
+import { useCommentFlash } from '../useCommentFlash'
 
 export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const isDark = usePaneTheme()
@@ -27,9 +28,11 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const queued = active?.messages.filter((message) => message.queued && message.text.trim()) ?? []
   const isNew =
     !active || active.status === 'draft' || !active.messages.some((message) => message.role === 'agent')
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  useCommentFlash(rootRef, data)
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={rootRef} className="flex h-full min-h-0 flex-col">
       <PaneHeader
         label={active?.title ?? 'Threads'}
         actions={<ThreadActions hasActive={Boolean(active)} isDark={isDark} />}
@@ -202,7 +205,12 @@ function ThreadTranscript({
         thread.messages
           .filter((message) => !message.queued)
           .map((message) => (
-            <CommentBubble key={message.id} author={message.role} text={message.text} />
+            <CommentBubble
+              key={message.id}
+              author={message.role}
+              text={message.text}
+              annotationId={message.annotationId}
+            />
           ))
       )}
       {progress?.status === 'running' ? (
