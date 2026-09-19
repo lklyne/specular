@@ -7,10 +7,13 @@
  * Mutation-verified by:
  * - replacing `this.isPainting && !this.isIdle` with `this.isPainting` in
  *   `applyPainting` (page-host.ts) — the idle case and the culled case fail;
- * - restoring `IDLE_FRAME_RATE` instead of `activeFrameRate` in `setIdle` —
- *   the wake case fails;
+ * - dropping the `setFrameRate` call from `applyPainting` — the culled
+ *   frame-rate cases fail (a culled page kept compositing at 60fps for
+ *   nobody; ~110% GPU-process CPU with every page off-screen);
  * - dropping the `loadingPageIds` check from `shouldIdle`
- *   (page-idle-throttle.ts) — the loading case fails.
+ *   (page-idle-throttle.ts) — the loading case fails;
+ * - restoring a fixed 60 instead of `tierFrameRate` in `applyPainting`
+ *   (page-host.ts) — the LOD wake and culled-tier cases fail.
  */
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -78,7 +81,22 @@ describe('page idle throttle', () => {
     expect(contents.painting).toBe(true)
   })
 
-  it('leaves a culled page unpainted after wake — idle and culling compose', () => {
+  it('quiets a culled page fully — frame rate drops with painting, not just on idle', () => {
+    const { host, contents } = createPageHost()
+    expect(contents.frameRate).toBe(60)
+
+    host.setPainting(false)
+    expect(contents.painting).toBe(false)
+    // Delivery off but compositor still at 60fps would leave an animating
+    // page rendering full frames for nobody — the rate is part of culling.
+    expect(contents.frameRate).toBe(1)
+
+    host.setPainting(true)
+    expect(contents.painting).toBe(true)
+    expect(contents.frameRate).toBe(60)
+  })
+
+  it('leaves a culled page quiet after wake — idle and culling compose', () => {
     const { host, contents } = createPageHost()
     host.setPainting(false)
     expect(contents.painting).toBe(false)
@@ -86,11 +104,41 @@ describe('page idle throttle', () => {
     blurPastGrace()
     setWindowFocused(true)
     expect(host.idle).toBe(false)
-    expect(contents.frameRate).toBe(60)
+    expect(contents.frameRate).toBe(1)
     expect(contents.painting).toBe(false)
 
     host.setPainting(true)
     expect(contents.painting).toBe(true)
+    expect(contents.frameRate).toBe(60)
+  })
+
+  it('restores the LOD tier on wake, not full rate', () => {
+    const { host, contents } = createPageHost()
+    host.setDisplayScale(0.1)
+    expect(contents.frameRate).toBe(15)
+    expect(contents.painting).toBe(true)
+
+    blurPastGrace()
+    expect(contents.frameRate).toBe(1)
+
+    setWindowFocused(true)
+    // A thumbnail-sized page waking at 60fps would undo the LOD every blur.
+    expect(contents.frameRate).toBe(15)
+
+    host.setDisplayScale(1)
+    expect(contents.frameRate).toBe(60)
+  })
+
+  it('applies a tier change made while culled only once painting resumes', () => {
+    const { host, contents } = createPageHost()
+    host.setPainting(false)
+    expect(contents.frameRate).toBe(1)
+
+    host.setDisplayScale(0.1)
+    expect(contents.frameRate).toBe(1)
+
+    host.setPainting(true)
+    expect(contents.frameRate).toBe(15)
   })
 
   it('keeps a loading page at full rate until the load settles', () => {

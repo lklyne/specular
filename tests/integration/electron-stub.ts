@@ -68,6 +68,17 @@ class FakeWebContents extends EventEmitter {
   // actually dispatched trusted input at the resolved point.
   debuggerCommands: Array<{ method: string; params: unknown }> = []
 
+  // Every setContentSize() on the offscreen window hosting these contents,
+  // with how many debugger commands had been sent by then.
+  contentSizes: Array<{ width: number; height: number; afterCommands: number }> = []
+
+  // Every sendInputEvent() call, in order.
+  inputEvents: Array<Record<string, unknown>> = []
+
+  sendInputEvent(event: Record<string, unknown>): void {
+    this.inputEvents.push(event)
+  }
+
   send(channel: string, ...args: unknown[]): void {
     __broadcasts.push({ channel, args, webContentsId: this.id })
   }
@@ -146,8 +157,15 @@ class FakeWebContents extends EventEmitter {
     return Promise.resolve(undefined)
   }
 
-  capturePage(): Promise<{ toPNG(): Buffer; toDataURL(): string }> {
-    return Promise.resolve({ toPNG: () => Buffer.alloc(0), toDataURL: () => '' })
+  // A capture is as large as the view is: `captureFullResolution` polls for
+  // a full-width one after resizing a shrunken page.
+  capturePage(): Promise<{ toPNG(): Buffer; toDataURL(): string; getSize(): { width: number; height: number } }> {
+    const size = this.contentSizes.at(-1) ?? { width: 0, height: 0 }
+    return Promise.resolve({
+      toPNG: () => Buffer.alloc(0),
+      toDataURL: () => '',
+      getSize: () => ({ width: size.width, height: size.height }),
+    })
   }
 
   // `page-chrome-state.ts` samples back/forward availability whenever a
@@ -195,6 +213,15 @@ class FakeBrowserWindow extends EventEmitter {
   webContents = new FakeWebContents()
 
   private destroyed = false
+
+  /**
+   * Every setContentSize() call, in order, mirrored onto the webContents so a
+   * test holding only `host.webContents` can assert the texture-scale policy
+   * (and its ordering against `debuggerCommands`).
+   */
+  setContentSize(width: number, height: number): void {
+    this.webContents.contentSizes.push({ width, height, afterCommands: this.webContents.debuggerCommands.length })
+  }
 
   constructor() {
     super()

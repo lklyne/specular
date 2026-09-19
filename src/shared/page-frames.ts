@@ -14,6 +14,12 @@ export interface PageFrameMeta {
   cssWidth: number
   cssHeight: number
   /**
+   * The rate the page is painting at (its LOD tier, `page-frame-rate.ts`).
+   * The canvas repaints whole for any one page's frame, so it paces those
+   * repaints to the fastest rate arriving rather than to every arrival.
+   */
+  frameRate: number
+  /**
    * How much input the page had been sent when this frame was painted. A
    * popup closes because of something the user did, so this is what tells a
    * page paint that follows a dismissal apart from one an animation produced

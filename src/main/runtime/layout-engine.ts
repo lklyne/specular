@@ -358,18 +358,27 @@ function layoutAllViews(): void {
     // The host's CSS viewport is the page's authored size, or the focus
     // session's region — fill focus resizes the window to the fill region, so
     // the page reflows like a real tab instead of being scaled into one.
-    page.host.resize(boundEffectivePageContentSize(page))
+    const contentSize = boundEffectivePageContentSize(page)
+    page.host.resize(contentSize)
 
     const presented = isPagePresented(page.id, presentationFocus)
     // An off-screen page stops painting, except while it is being dragged (its
     // texture must keep up with the move) or driven by an agent.
-    const onScreen = boundsOverlap(boundScreenBoundsForPage(page).page, windowRect)
+    const pageScreenRect = boundScreenBoundsForPage(page).page
+    const onScreen = boundsOverlap(pageScreenRect, windowRect)
     const painting =
       presented &&
       (onScreen ||
         interactionState.kind === 'dragging-entities' ||
         automationInteractivePageCounts.has(page.id))
     page.host.setPainting(painting)
+    // A page earns frame rate by its size on screen. Agent-driven pages and
+    // the focus session's page paint at full rate whatever the camera — an
+    // agent's captures and a presented page don't follow the zoom.
+    const fullRate =
+      automationInteractivePageCounts.has(page.id) ||
+      focusedPresentationPageId === page.id
+    page.host.setDisplayScale(fullRate ? 1 : pageScreenRect.width / contentSize.width)
 
     if (page.colorScheme !== page.lastColorSchemeKey) {
       // Commit the key only when the override actually dispatched, so a

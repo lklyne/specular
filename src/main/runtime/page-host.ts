@@ -8,9 +8,12 @@
  * WebContentsView paints at its parent window's size (electron#45864).
  */
 
-import { BrowserWindow, screen, sharedTexture, type WebContents } from 'electron'
+import { BrowserWindow, screen, sharedTexture, type NativeImage, type WebContents } from 'electron'
 import type { PageFrameMeta } from '../../shared/page-frames'
 import { forgetInputCountForPage, inputCountForPage } from './page-input-counter'
+import { frameRateForDisplayScale } from './page-frame-rate'
+import { FULL_TEXTURE_SCALE, textureScaleForDisplayScale } from './page-texture-scale'
+import { ensurePageDebugger } from './page-debugger'
 import { preloadPath } from './load-renderer'
 
 /**
@@ -24,15 +27,47 @@ const MAX_OUTSTANDING_TEXTURES = 6
 const LATENCY_SAMPLES = 30
 
 /**
- * Frame rate of an idle page. `setFrameRate` throttles the offscreen
- * compositor's BeginFrame cadence, which is what paces `requestAnimationFrame`
- * — so this quiets a page's own animation loop, not just texture delivery, and
- * it is fully reversible. It is the idle lever for offscreen pages because
- * `Page.setWebLifecycleState` is not: thawing a never-shown window leaves its
- * compositor without frames, and every document it loads afterwards starts
- * hidden (ADR 0035, offscreen postmortem).
+ * Frame rate of a page nobody is watching — idle app or culled offscreen.
+ * `setFrameRate` throttles the offscreen compositor's BeginFrame cadence,
+ * which is what paces `requestAnimationFrame` — so this quiets a page's own
+ * animation loop, not just texture delivery, and it is fully reversible.
+ * `stopPainting` alone is not enough: it only stops texture delivery, and an
+ * animating page keeps compositing full frames at 60fps for nobody. It is
+ * the quieting lever for offscreen pages because `Page.setWebLifecycleState`
+ * is not: thawing a never-shown window leaves its compositor without frames,
+ * and every document it loads afterwards starts hidden (ADR 0035, offscreen
+ * postmortem).
  */
 const IDLE_FRAME_RATE = 1
+
+/**
+ * How long the camera must rest before a page's view is resized to a new
+ * texture scale. A resize re-rasters the page, and a zoom gesture crossing a
+ * tier boundary would otherwise resize every page on screen mid-pinch.
+ * Growing waits only for the gesture to pause — the page is blurry until it
+ * happens; shrinking is only a saving and can wait for the camera to settle.
+ */
+const TEXTURE_GROW_SETTLE_MS = 120
+const TEXTURE_SHRINK_SETTLE_MS = 600
+
+/**
+ * How often a page mid-transition is asked for a frame, in case the resize
+ * itself produced none to prove it landed.
+ */
+const TEXTURE_RESIZE_NUDGE_MS = 500
+
+/** How long after a transition's clean frame a second one is asked for. */
+const TEXTURE_CLEAN_FRAME_RETRY_MS = 250
+
+/** Slack on a frame's coded width, for the rounding between CSS and device px. */
+const TEXTURE_WIDTH_TOLERANCE_PX = 2
+
+/** Grace for a view resize to reach the page before its override is cleared. */
+const CLEAR_OVERRIDE_AFTER_RESIZE_MS = 300
+
+/** How long a full-resolution capture waits for the re-rastered surface. */
+const FULL_RESOLUTION_CAPTURE_TIMEOUT_MS = 1_000
+const FULL_RESOLUTION_CAPTURE_POLL_MS = 30
 
 export interface PageHostStats {
   pageId: string
@@ -57,6 +92,27 @@ export interface PageHost {
   setPainting(painting: boolean): void
   /** Quiet the page while the app is idle; restore it in full on wake. */
   setIdle(idle: boolean): void
+  /**
+   * View px per CSS px: below 1 while the page paints a reduced texture
+   * (page-texture-scale.ts). Input sent to the page is in view px.
+   */
+  readonly textureScale: number
+  /**
+   * The layout pass's report of how large the page shows on screen, as
+   * screen px per CSS px. Grades the page's frame rate (page-frame-rate.ts)
+   * and texture resolution (page-texture-scale.ts); pass 1 for a page that
+   * must paint in full regardless of the camera (agent-driven, focus
+   * session) — full scale applies at once rather than on camera settle.
+   */
+  setDisplayScale(scale: number): void
+  /**
+   * `capturePage` of the page at its full CSS viewport × device scale,
+   * whatever texture scale the camera has it at. For callers that want the
+   * page's own pixels (an agent's screenshot) rather than its on-screen
+   * rendition — a capture that is only ever shown at canvas size can call
+   * `webContents.capturePage()` and take the texture as it is.
+   */
+  captureFullResolution(): Promise<NativeImage>
   destroy(): void
   isDestroyed(): boolean
 }
@@ -77,8 +133,31 @@ class OffscreenPageHost implements PageHost {
   private currentSize: { width: number; height: number }
   private isPainting = true
   private isIdle = false
-  /** The rate the window was created with, restored on wake. */
-  private readonly activeFrameRate: number
+  /** The LOD verdict for this page's rate; painting resumes at it on wake. */
+  private tierFrameRate: number
+  /** The scale the view is sized to now. */
+  private appliedTextureScale = FULL_TEXTURE_SCALE
+  /** The LOD verdict for the view's scale, applied once the camera rests. */
+  private wantedTextureScale = FULL_TEXTURE_SCALE
+  private lastDisplayScale = 1
+  private textureScaleTimer: NodeJS.Timeout | null = null
+  private fullResolutionHolds = 0
+  /** Whether a metrics override is installed on the page's debugger session. */
+  private viewportOverridden = false
+  /** Bumped per transition, so a superseded one abandons its later steps. */
+  private textureScaleGeneration = 0
+  private clearOverrideTimer: NodeJS.Timeout | null = null
+  /**
+   * While the view is changing scale its frames cannot be trusted: one can
+   * show the document scaled into a corner of the old view, cropped by it, or
+   * — the capturer's first copy of a resized surface — blank. They are
+   * dropped and the canvas holds the last good frame. The first frame at the
+   * new size proves the resize has landed (sixty views resizing at once take
+   * their time); it is dropped too, and a clean one asked for in its place.
+   */
+  private textureScaleInFlight = false
+  private textureNudgeTimer: NodeJS.Timeout | null = null
+  private readonly deviceScaleFactor: number
   private readonly latencies: number[] = []
   readonly stats: PageHostStats
 
@@ -96,6 +175,7 @@ class OffscreenPageHost implements PageHost {
       maxOutstandingTextures: 0,
       releaseLatencyMs: null,
     }
+    this.deviceScaleFactor = screen.getPrimaryDisplay().scaleFactor
     this.win = new BrowserWindow({
       show: false,
       width: options.width,
@@ -113,7 +193,7 @@ class OffscreenPageHost implements PageHost {
         backgroundThrottling: false,
         offscreen: {
           useSharedTexture: true,
-          deviceScaleFactor: screen.getPrimaryDisplay().scaleFactor,
+          deviceScaleFactor: this.deviceScaleFactor,
         },
       },
     })
@@ -124,7 +204,7 @@ class OffscreenPageHost implements PageHost {
     // out from under the `Page` record that owns it. Our own teardown goes
     // through `destroy()`, which closes without raising this event.
     this.win.on('close', (event) => event.preventDefault())
-    this.activeFrameRate = this.win.webContents.getFrameRate()
+    this.tierFrameRate = this.win.webContents.getFrameRate()
     this.win.webContents.on('paint', (event) => {
       if (this.win.isDestroyed()) return
       const texture = (event as Electron.Event<Electron.WebContentsPaintEventParams>).texture
@@ -148,13 +228,17 @@ class OffscreenPageHost implements PageHost {
     return this.isIdle
   }
 
+  get textureScale(): number {
+    return this.appliedTextureScale
+  }
+
   resize(size: { width: number; height: number }): void {
     const width = Math.max(1, Math.round(size.width))
     const height = Math.max(1, Math.round(size.height))
     if (width === this.currentSize.width && height === this.currentSize.height) return
     if (this.win.isDestroyed()) return
     this.currentSize = { width, height }
-    this.win.setContentSize(width, height)
+    this.applyTextureScale()
   }
 
   setPainting(painting: boolean): void {
@@ -166,8 +250,184 @@ class OffscreenPageHost implements PageHost {
   setIdle(idle: boolean): void {
     if (idle === this.isIdle || this.win.isDestroyed()) return
     this.isIdle = idle
-    this.win.webContents.setFrameRate(idle ? IDLE_FRAME_RATE : this.activeFrameRate)
     this.applyPainting()
+  }
+
+  setDisplayScale(scale: number): void {
+    if (this.win.isDestroyed()) return
+    // Only a camera that moved restarts the settle wait; the layout pass
+    // runs for many reasons that leave the page where it was.
+    if (scale !== this.lastDisplayScale) {
+      this.lastDisplayScale = scale
+      this.wantedTextureScale = textureScaleForDisplayScale(scale, this.appliedTextureScale)
+      this.reconcileTextureScale()
+    }
+    const next = frameRateForDisplayScale(scale, this.tierFrameRate)
+    if (next === this.tierFrameRate) return
+    this.tierFrameRate = next
+    this.applyPainting()
+  }
+
+  async captureFullResolution(): Promise<NativeImage> {
+    const contents = this.win.webContents
+    if (this.appliedTextureScale === FULL_TEXTURE_SCALE && this.fullResolutionHolds === 0) {
+      return contents.capturePage()
+    }
+    this.fullResolutionHolds++
+    this.reconcileTextureScale()
+    try {
+      // The view is full size at once, but the surface a capture copies
+      // follows a re-raster later: until then a capture comes back at the old
+      // width, or rejects outright (`UnknownVizError`) for racing the resize.
+      const fullWidth = this.currentSize.width
+      const deadline = performance.now() + FULL_RESOLUTION_CAPTURE_TIMEOUT_MS
+      for (;;) {
+        const lastTry = performance.now() >= deadline
+        const image = await contents.capturePage().catch((error: unknown) => {
+          if (lastTry) throw error
+          return null
+        })
+        if (image && (image.getSize().width >= fullWidth || lastTry)) return image
+        await new Promise((resolve) => setTimeout(resolve, FULL_RESOLUTION_CAPTURE_POLL_MS))
+      }
+    } finally {
+      this.fullResolutionHolds--
+      this.reconcileTextureScale()
+    }
+  }
+
+  /**
+   * Move the view toward the scale it is owed. Full size is never delayed
+   * when something needs the page's real pixels — a capture's hold, a page
+   * the layout pass pinned at scale 1; everything else waits for the camera
+   * to rest.
+   */
+  private reconcileTextureScale(): void {
+    if (this.textureScaleTimer) clearTimeout(this.textureScaleTimer)
+    this.textureScaleTimer = null
+    if (this.win.isDestroyed()) return
+    const mustBeFull = this.fullResolutionHolds > 0
+    const target = mustBeFull ? FULL_TEXTURE_SCALE : this.wantedTextureScale
+    if (target === this.appliedTextureScale) return
+    if (mustBeFull || this.lastDisplayScale >= 1) {
+      this.appliedTextureScale = target
+      this.applyTextureScale()
+      return
+    }
+    const settleMs =
+      target > this.appliedTextureScale ? TEXTURE_GROW_SETTLE_MS : TEXTURE_SHRINK_SETTLE_MS
+    this.textureScaleTimer = setTimeout(() => {
+      this.textureScaleTimer = null
+      if (this.win.isDestroyed()) return
+      this.appliedTextureScale = target
+      this.applyTextureScale()
+    }, settleMs)
+  }
+
+  /**
+   * Size the view to the CSS viewport × the texture scale. Below full scale
+   * a CDP metrics override lays the document out at the full CSS viewport and
+   * scales it into the smaller view, so the page cannot tell — `innerWidth`,
+   * media queries, and `devicePixelRatio` are unchanged. CDP rather than
+   * `enableDeviceEmulation` because that is one shot at the current render
+   * widget: a navigation replaces the widget, and the next document would lay
+   * out against the shrunken view. The debugger session re-applies its
+   * override before a new document's first layout.
+   *
+   * Order is what keeps the page from ever seeing the small view: the
+   * override lands first (at the new scale, against the old view), then the
+   * view resizes under it. Frames painted in between are dropped.
+   */
+  private applyTextureScale(): void {
+    const generation = ++this.textureScaleGeneration
+    if (this.clearOverrideTimer) clearTimeout(this.clearOverrideTimer)
+    this.clearOverrideTimer = null
+    const { width, height } = this.currentSize
+    const scale = this.appliedTextureScale
+    const contents = this.win.webContents
+    const resizeView = () =>
+      this.win.setContentSize(
+        Math.max(1, Math.round(width * scale)),
+        Math.max(1, Math.round(height * scale)),
+      )
+    if (scale === FULL_TEXTURE_SCALE && !this.viewportOverridden) {
+      resizeView()
+      return
+    }
+    const awaitResizedFrame = () => {
+      this.textureScaleInFlight = true
+      if (this.textureNudgeTimer) clearInterval(this.textureNudgeTimer)
+      this.textureNudgeTimer = setInterval(() => this.requestFrame(), TEXTURE_RESIZE_NUDGE_MS)
+    }
+    const abandonToFullSize = () => {
+      if (this.win.isDestroyed()) return
+      this.viewportOverridden = false
+      this.appliedTextureScale = FULL_TEXTURE_SCALE
+      this.win.setContentSize(this.currentSize.width, this.currentSize.height)
+      awaitResizedFrame()
+    }
+    // A detached session takes its override with it, leaving the document
+    // facing the small view; full size is the only safe place without one.
+    if (!ensurePageDebugger(contents, abandonToFullSize)) {
+      abandonToFullSize()
+      return
+    }
+    this.viewportOverridden = true
+    awaitResizedFrame()
+    contents.debugger
+      .sendCommand('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        // An offscreen window reports its own size as the screen's.
+        screenWidth: width,
+        screenHeight: height,
+        deviceScaleFactor: 0,
+        mobile: false,
+        scale,
+        dontSetVisibleSize: true,
+      })
+      .then(() => {
+        if (generation !== this.textureScaleGeneration || this.win.isDestroyed()) return
+        resizeView()
+        if (scale !== FULL_TEXTURE_SCALE) return
+        // The override is now an identity; drop it once the resize has
+        // landed, so a full-size page is back on the plain path.
+        this.clearOverrideTimer = setTimeout(() => {
+          this.clearOverrideTimer = null
+          if (generation !== this.textureScaleGeneration || this.win.isDestroyed()) return
+          this.viewportOverridden = false
+          contents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride').catch(() => {})
+        }, CLEAR_OVERRIDE_AFTER_RESIZE_MS)
+      })
+      .catch(() => {
+        if (generation === this.textureScaleGeneration) abandonToFullSize()
+      })
+  }
+
+  private isAtAppliedTextureSize(codedWidth: number): boolean {
+    const viewWidth = Math.max(1, Math.round(this.currentSize.width * this.appliedTextureScale))
+    return (
+      Math.abs(codedWidth - Math.round(viewWidth * this.deviceScaleFactor)) <=
+      TEXTURE_WIDTH_TOLERANCE_PX
+    )
+  }
+
+
+  /**
+   * Asks for the clean frame twice. Under load — every page on screen
+   * resizing together — the forced frame can itself be a blank capture of a
+   * surface still re-rastering, and a static page would paint nothing after
+   * it; main cannot see into a texture to tell, so the second ask is the
+   * guard.
+   */
+  private endTextureTransition(): void {
+    this.textureScaleInFlight = false
+    if (this.textureNudgeTimer) clearInterval(this.textureNudgeTimer)
+    this.textureNudgeTimer = setTimeout(() => {
+      this.textureNudgeTimer = null
+      this.requestFrame()
+    }, TEXTURE_CLEAN_FRAME_RETRY_MS)
+    this.requestFrame()
   }
 
   /**
@@ -183,10 +443,16 @@ class OffscreenPageHost implements PageHost {
     contents.invalidate()
   }
 
-  /** A page paints only when both someone is looking at it and at the app. */
+  /**
+   * A page paints only when both someone is looking at it and at the app —
+   * and only then does it earn its full frame rate. The two move together:
+   * stopping delivery without dropping the rate leaves an animating page
+   * compositing 60fps of discarded frames.
+   */
   private applyPainting(): void {
     const contents = this.win.webContents
     const shouldPaint = this.isPainting && !this.isIdle
+    contents.setFrameRate(shouldPaint ? this.tierFrameRate : IDLE_FRAME_RATE)
     if (shouldPaint === contents.isPainting()) return
     if (shouldPaint) {
       contents.startPainting()
@@ -198,6 +464,12 @@ class OffscreenPageHost implements PageHost {
   }
 
   destroy(): void {
+    if (this.textureScaleTimer) clearTimeout(this.textureScaleTimer)
+    if (this.clearOverrideTimer) clearTimeout(this.clearOverrideTimer)
+    if (this.textureNudgeTimer) clearInterval(this.textureNudgeTimer)
+    this.textureNudgeTimer = null
+    this.textureScaleTimer = null
+    this.clearOverrideTimer = null
     if (this.win.isDestroyed()) return
     this.win.destroy()
   }
@@ -220,6 +492,11 @@ class OffscreenPageHost implements PageHost {
       return
     }
     const info = texture.textureInfo
+    if (this.textureScaleInFlight && info.widgetType !== 'popup') {
+      texture.release()
+      if (this.isAtAppliedTextureSize(info.codedSize.width)) this.endTextureTransition()
+      return
+    }
     stats.outstandingTextures++
     stats.maxOutstandingTextures = Math.max(stats.maxOutstandingTextures, stats.outstandingTextures)
     if (info.widgetType === 'popup') stats.popupFrames++
@@ -232,6 +509,7 @@ class OffscreenPageHost implements PageHost {
       height: info.codedSize.height,
       cssWidth: this.currentSize.width,
       cssHeight: this.currentSize.height,
+      frameRate: this.tierFrameRate,
       inputSeq: inputCountForPage(this.id),
     }
 

@@ -128,6 +128,24 @@ Shape B, built. Every page is a hidden offscreen `BrowserWindow` (`page-host.ts`
 
 **Not resolved by this ADR:** whether shape B fully replaces shape C, or lands as a hybrid — in practice, shape B shipped and the hybrid fallback was not needed.
 
+**Cost model, measured 2026-09-19 (animated perf canvas, 30 anim + 28 static pages):**
+the pipeline's CPU cost is per-*frame*, not per-*pixel*. Halving raster
+resolution (CDP `Emulation.setDeviceMetricsOverride`, dsf and scale variants)
+moved GPU-process CPU by ~1%; frame count moves it linearly. The OSR surface
+resolution is pinned by `offscreen.deviceScaleFactor` at host creation and
+runtime emulation does not shrink the painted texture, so spatial LOD would
+need a host resize + scale-emulation combo — and per the pixel finding it
+would not pay on CPU anyway. Two levers landed from this:
+- `stopPainting()` only stops texture delivery; a culled animating page kept
+  compositing 60fps of discarded frames (~110% GPU with every page
+  off-screen). Culling now drops the host frame rate with painting
+  (`applyPainting` in `page-host.ts`).
+- Frame-rate LOD: a page earns frame rate by its on-screen size
+  (`page-frame-rate.ts`, wired in the layout pass), 60/30/15fps with sticky
+  boundaries. Full grid at thumbnail zoom: GPU ~228% → ~90–100% per 15
+  animated pages, with no sharpness cost. Agent-driven and focus-session
+  pages stay at full rate.
+
 ## Post-build validation (manual, run after the implementation lands — not pre-build spikes)
 
 The items above were spiked before deciding to proceed. The items below surfaced in review *after* that decision and are deliberately not gating build-out — they're the checklist for confirming the shipped implementation behaves as expected, not further pre-build research. Run each manually against the real production build:

@@ -10,6 +10,7 @@ import {
 } from '../shared/chromeItemDraw'
 import { prepareScreenCanvas } from '../shared/screenCanvas'
 import type { CanvasItemDraw } from './canvasItemDrawOrder'
+import { useFramePaintPacing } from './useFramePaintPacing'
 import { popupHasClosed, prunePageFrames, usePageFrames, type PageFrameStore } from './usePageFrames'
 
 /**
@@ -97,9 +98,10 @@ function drawPageFrame(
  * share its place in the stack.
  *
  * A change to the items or theme repaints before the browser paints, keeping
- * the pass in step with the DOM layers around it. Page frames and resizes
- * request one paint on the next animation frame. One page's frame repaints
- * the whole surface, measured fine at lab page counts (ADR 0038).
+ * the pass in step with the DOM layers around it. Resizes request one paint
+ * on the next animation frame; page frames request one paced to their page's
+ * frame rate (`useFramePaintPacing`), because one page's frame repaints the
+ * whole surface.
  */
 export function CanvasItemSurface({
   api,
@@ -125,7 +127,8 @@ export function CanvasItemSurface({
     })
   }, [])
 
-  const frames = usePageFrames(requestPaint, (pageId) => api.pagePopupAnchor(pageId).catch(() => null))
+  const { requestFramePaint, notePaint } = useFramePaintPacing(requestPaint)
+  const frames = usePageFrames(requestFramePaint, (pageId) => api.pagePopupAnchor(pageId).catch(() => null))
 
   const paint = useCallback(() => {
     const canvas = canvasRef.current
@@ -133,6 +136,7 @@ export function CanvasItemSurface({
     const prepared = prepareScreenCanvas(canvas, window.devicePixelRatio || 1)
     if (!prepared) return
     const { ctx, width, height, dpr } = prepared
+    notePaint()
     const { draws: items, isDark: dark } = inputsRef.current
     const { borderColor, bezelColor } = readChromeColors(canvas)
     const now = performance.now()
@@ -142,7 +146,7 @@ export function CanvasItemSurface({
       if (draw.chrome) drawItemChrome(ctx, draw.item, g, dark, bezelColor, borderColor, dpr)
       if (draw.pageId) drawPageFrame(ctx, frames, draw.pageId, g, now)
     }
-  }, [frames])
+  }, [frames, notePaint])
   paintRef.current = paint
 
   // A pan moves every item but changes no page's membership, so the prune

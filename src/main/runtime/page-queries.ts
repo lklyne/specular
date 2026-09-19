@@ -18,7 +18,7 @@ export async function takePageScreenshot(pageId?: string): Promise<string> {
   if (!page || page.host.webContents.isDestroyed()) {
     throw new Error(pageId ? `Page not found: ${pageId}` : 'No page selected')
   }
-  const image = await page.host.webContents.capturePage()
+  const image = await page.host.captureFullResolution()
   return image.toPNG().toString('base64')
 }
 

@@ -78,6 +78,8 @@ function modifiersFor(payload: {
 interface PageLocalFrame {
   rect: { x: number; y: number; width: number; height: number }
   size: { width: number; height: number }
+  /** View px per CSS px — `sendInputEvent` speaks view px (`PageHost.textureScale`). */
+  viewScale: number
   webContents: Electron.WebContents
 }
 
@@ -90,18 +92,22 @@ function pageLocal(pageId: string): PageLocalFrame | null {
   if (rect.width <= 0 || rect.height <= 0) return null
   const size = boundEffectivePageContentSize(page)
   if (size.width <= 0 || size.height <= 0) return null
-  return { rect, size, webContents: wc }
+  return { rect, size, viewScale: page.host.textureScale, webContents: wc }
 }
 
-/** Window-space point → the page's own CSS viewport point. */
+/** Window-space point → the page's own viewport point, in the view px input is sent in. */
 function toPagePoint(
   target: PageLocalFrame,
   windowX: number,
   windowY: number,
 ): { x: number; y: number } {
   return {
-    x: Math.round((windowX - target.rect.x) * (target.size.width / target.rect.width)),
-    y: Math.round((windowY - target.rect.y) * (target.size.height / target.rect.height)),
+    x: Math.round(
+      (windowX - target.rect.x) * (target.size.width / target.rect.width) * target.viewScale,
+    ),
+    y: Math.round(
+      (windowY - target.rect.y) * (target.size.height / target.rect.height) * target.viewScale,
+    ),
   }
 }
 
@@ -116,8 +122,9 @@ export function forwardWheelToPage(pageId: string, payload: ForwardWheelPayload)
       type: 'mouseWheel',
       x,
       y,
-      deltaX: -payload.deltaX,
-      deltaY: -payload.deltaY,
+      // Scroll distance is in view px like the point is; ticks are counts.
+      deltaX: -payload.deltaX * target.viewScale,
+      deltaY: -payload.deltaY * target.viewScale,
       // wheelTicks: empirically required for line-mode mouse wheels to
       // scroll. For trackpads (precise deltas) Chromium ignores it.
       wheelTicksX: payload.hasPreciseScrollingDeltas ? 0 : -payload.deltaX,

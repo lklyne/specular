@@ -35,8 +35,10 @@ export const POPUP_CLOSE_GRACE_MS = 150
 
 /**
  * Holds the latest frame per page (and per page popup), replacing and
- * closing bitmaps as they arrive. `onFrame` fires after each arrival so the
- * draw loop can mark itself dirty; `requestAnchor` is asked once per popup
+ * closing bitmaps as they arrive. `onFrame` fires after each arrival with the
+ * rate it should be shown at, so the draw loop can pace its repaint — a
+ * page's own frame rate, or `Infinity` for a popup, which follows the user's
+ * hand rather than the camera; `requestAnchor` is asked once per popup
  * session for the focused element's rect, which is the popup's position.
  *
  * A popup arriving at zero size is Electron's own signal that it closed and
@@ -44,7 +46,7 @@ export const POPUP_CLOSE_GRACE_MS = 150
  * `PagePopup.closingSince`), judged in the draw loop.
  */
 export function usePageFrames(
-  onFrame: () => void,
+  onFrame: (frameRate: number) => void,
   requestAnchor: (pageId: string) => Promise<PagePopupAnchor | null>,
 ): PageFrameStore {
   const storeRef = useRef<PageFrameStore>({ frames: new Map(), popups: new Map() })
@@ -60,7 +62,7 @@ export function usePageFrames(
         // Only the popup session that asked gets the answer.
         if (store.popups.get(pageId) !== popup) return
         popup.anchor = anchor
-        onFrameRef.current()
+        onFrameRef.current(Infinity)
       })
     }
     const handleMessage = (event: MessageEvent) => {
@@ -88,7 +90,7 @@ export function usePageFrames(
         const popup = store.popups.get(meta.pageId)
         if (popup && pageFrameDismissesPopup(popup, meta)) popup.closingSince = performance.now()
       }
-      onFrameRef.current()
+      onFrameRef.current(meta.widgetType === 'popup' ? Infinity : meta.frameRate)
     }
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
