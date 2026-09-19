@@ -29,6 +29,7 @@ import {
   setWin,
 } from './view-refs'
 import { destroyAllPageHosts, setPageFrameTarget } from './page-host'
+import { attachNativePageLayer, nativePagesEnabled } from '../spike/native-page-layer'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
@@ -418,4 +419,13 @@ export function initWindow(): void {
   attachBindingDispatcher(currentDevtoolsResizeHandleView.webContents, 'devtoolsResizeHandle')
 
   requestLayout()
+  // Deferred one tick behind requestLayout's setImmediate so the child views
+  // (applyStack, inside layoutAllViews) are already in the content view when
+  // the addon logs what it finds there.
+  if (nativePagesEnabled) {
+    setImmediate(() => {
+      attachNativePageLayer(currentWin)
+      requestLayout()
+    })
+  }
 }

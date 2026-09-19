@@ -73,6 +73,12 @@ import { isPagePresented } from '../../shared/page-presentation'
 import type { Page } from './runtime-entities'
 import { applyPageColorScheme } from './page-color-scheme'
 import { logCrash } from '../crash-log'
+import { DOC_ARRAY_ENTITY_ORDER, getActiveDoc } from './space-doc'
+import {
+  nativePagesEnabled,
+  setNativePageRects,
+  type NativePageRectEntry,
+} from '../spike/native-page-layer'
 
 let buildMsSink: ((ms: number) => void) | null = null
 
@@ -357,6 +363,9 @@ function layoutAllViews(): void {
   // their descendants (selection-scope.ts) — so membership is the whole test.
   const draggedIds =
     interactionState.kind === 'dragging-entities' ? new Set(interactionState.entityIds) : null
+  // Spike arm only: the native layer needs every page's content rect, in
+  // window pixels, on every pass a camera move runs through here.
+  const nativeRectEntries: NativePageRectEntry[] = []
   for (const page of pages) {
     const pageStart = DEVTOOLS_PANEL_DEBUG ? Date.now() : 0
     // The host's CSS viewport is the page's authored size, or the focus
@@ -375,6 +384,16 @@ function layoutAllViews(): void {
       (onScreen ||
         draggedIds?.has(page.id) === true ||
         automationInteractivePageCounts.has(page.id))
+    if (nativePagesEnabled) {
+      nativeRectEntries.push({
+        pageId: page.id,
+        x: pageScreenRect.x,
+        y: pageScreenRect.y,
+        width: pageScreenRect.width,
+        height: pageScreenRect.height,
+        visible: presented && onScreen,
+      })
+    }
     // A page earns frame rate by its size on screen. Agent-driven pages and
     // the focus session's page paint at full rate whatever the camera — an
     // agent's captures and a presented page don't follow the zoom.
@@ -414,6 +433,20 @@ function layoutAllViews(): void {
       isSelected: selectedPageIds.includes(page.id),
       devtoolsOpen,
     })
+  }
+
+  if (nativePagesEnabled) {
+    // Scene z-order, focused page last — mirrors orderCanvasItemDraws so a
+    // page stacked above another still covers it natively.
+    const orderIds = getActiveDoc().getArray<string>(DOC_ARRAY_ENTITY_ORDER).toArray()
+    const rank = new Map(orderIds.map((id, index) => [id, index]))
+    nativeRectEntries.sort((a, b) => (rank.get(a.pageId) ?? Infinity) - (rank.get(b.pageId) ?? Infinity))
+    const focusedIndex = nativeRectEntries.findIndex((entry) => entry.pageId === focusedPresentationPageId)
+    if (focusedIndex >= 0) {
+      const [focused] = nativeRectEntries.splice(focusedIndex, 1)
+      nativeRectEntries.push(focused)
+    }
+    setNativePageRects(nativeRectEntries)
   }
 
   if (pendingLayoutData) broadcastSceneUpdate(pendingLayoutData)

@@ -18,6 +18,7 @@ import {
 import { sampleProcessMetrics } from '../process-metrics'
 import { pageHostStats } from '../runtime/page-host'
 import { runVisibilityProbe } from '../visibility-probe'
+import { nativePageLayerStats, nativePagesEnabled } from '../spike/native-page-layer'
 import type { PanZoomPerfPhase } from '../../shared/pan-zoom-perf-test'
 import { captureWindowFramesWhile } from '../window-frame-capture'
 export const perfRoutes: Route[] = [
@@ -170,7 +171,10 @@ export const perfRoutes: Route[] = [
     method: 'GET',
     pattern: '/perf/page-hosts',
     async handler({ response }) {
-      writeJson(response, 200, { hosts: pageHostStats() })
+      writeJson(response, 200, {
+        hosts: pageHostStats(),
+        ...(nativePagesEnabled ? { nativePages: nativePageLayerStats() } : {}),
+      })
     },
   },
   {

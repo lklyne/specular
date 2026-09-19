@@ -15,6 +15,7 @@ import { frameRateForDisplayScale } from './page-frame-rate'
 import { FULL_TEXTURE_SCALE, textureScaleForDisplayScale } from './page-texture-scale'
 import { ensurePageDebugger } from './page-debugger'
 import { preloadPath } from './load-renderer'
+import { nativePagesActive, presentNativePageFrame, removeNativePage } from '../spike/native-page-layer'
 
 /**
  * Frames a page may have in flight to canvas-bg before new ones are dropped.
@@ -505,6 +506,7 @@ class OffscreenPageHost implements PageHost {
     this.sendRetryTimer = null
     this.textureScaleTimer = null
     this.clearOverrideTimer = null
+    if (nativePagesActive()) removeNativePage(this.id)
     if (this.win.isDestroyed()) return
     this.win.destroy()
   }
@@ -560,6 +562,18 @@ class OffscreenPageHost implements PageHost {
       stats.releaseLatencyMs =
         this.latencies.reduce((sum, value) => sum + value, 0) / this.latencies.length
       texture.release()
+    }
+
+    if (nativePagesActive()) {
+      // Spike arm: popups aren't given a native layer of their own, so their
+      // frames are just released; everything else goes to the native surface
+      // instead of the renderer's copy-and-draw path.
+      if (info.widgetType === 'popup') {
+        finish()
+        return
+      }
+      presentNativePageFrame(this.id, texture, finish)
+      return
     }
 
     let imported: Electron.SharedTextureImported

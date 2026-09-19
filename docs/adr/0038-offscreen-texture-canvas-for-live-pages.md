@@ -399,3 +399,78 @@ full-window canvas layer that a one-surface port would not have, and their
 canvas-bg numbers read a little high for it. CDP drove the gestures at 60
 inputs a second, not a trackpad. The rAF rate shows that canvas-bg's main
 thread kept up. It does not count frames the compositor presented.
+
+**Native page layer spike, measured 2026-09-19.** Same branch, arm E. The
+question was how much a native host could save by skipping the hand-off to
+canvas-bg. A Rust N-API addon (`spike/native-page-layer/`, launched with
+`SPECULAR_SPIKE_NATIVE_PAGES=1`) gives each page one `CALayer` inside an
+`NSView` in the window. Main sets every painted frame's `IOSurfaceRef` as that
+layer's contents straight from `deliver`, and moves the layers on every layout
+pass. There is no `sendSharedTexture`, no import in canvas-bg, no copy and no
+shader. canvas-bg receives no frames and draws shells and borders only.
+
+Core Animation composites in WindowServer, outside the app, so these runs count
+WindowServer's CPU as well. Arms A and C were re-measured the same way. Same
+canvas, zooms and pan as the WebGPU spike. Each cell is two 16 s samples from
+one launch, in percent of one core.
+
+| Zoom | Measure | A: 2D | C: WebGPU blit | E: native layer |
+|---|---|---|---|---|
+| 0.1 | App processes | 142 | 133–135 | 88–90 |
+| 0.1 | GPU process | 71 | 60–61 | 36 |
+| 0.1 | WindowServer | 40–41 | 37–42 | 60–61 |
+| 0.1 | App plus WindowServer | 182–183 | 170–178 | 148–151 |
+| 0.352 | App plus WindowServer | 131–134 | 127–128 | 112–119 |
+| 0.6 | App plus WindowServer | 145–147 | 135 | 110–113 |
+| 0.1↔0.25 oscillation | App plus WindowServer | 283 | 286 | 285–286 |
+
+An earlier launch of E, measured before WindowServer was counted, put the app
+processes at 81 to 84 at zoom 0.1. WindowServer's number is system-wide, so it
+carries whatever else the desktop was drawing. That load was the same terminal
+session for every arm.
+
+What the numbers say:
+
+- Counting the app alone, E looks like a 40% cut, 142 down to 88. That figure
+  is wrong to quote. WindowServer takes on 20 of the points Chromium's GPU
+  process gave up. The saving that holds is 32 points at zoom 0.1, 17 at 0.352
+  and 35 at 0.6, which is 13 to 24% of the machine-wide cost. WebGPU saved 2 to
+  8% on the same footing.
+- E reaches the floor the cost model predicted. Its app processes sit at 81 to
+  90 against the 87 of the capture-only run. Everything left in the app is
+  Chromium's capture and the pages themselves, so no host, native or not, goes
+  lower without cutting frame rate or texture size.
+- Main did not get cheaper. It stayed at 19 to 20 points with no import and no
+  send, so main's share is paint-event and capture bookkeeping, not the hop to
+  canvas-bg.
+- Gestures gain nothing. Moving 60 layers per camera tick costs WindowServer 75
+  points, and the three arms finish within 4 points of each other. Every arm
+  held 120 fps with no frame over 25 ms.
+- Page hosts stayed clean, with 0 send failures and 0 pool drops. E holds each
+  replaced frame for 34 ms so Core Animation is done reading it, which shows
+  as 1 to 2 outstanding textures per page. GPU-process footprint was 1446 and
+  1458 MB, below every other arm.
+
+What it costs. Electron draws bgView, aboveView, the toolbar and the side
+panels through one `ViewsCompositorSuperview`. The `WebContentsViewCocoa`
+subviews beside it are zero-size. A native layer can therefore sit above all
+web content or below all of it, and nowhere in between. The spike put it above,
+so pages covered the toolbar, selection outlines and menus. Shipping it means
+putting it below and making the window and every web layer transparent over
+each page, which is option 6's hole-punching, with no interleaving between
+pages and other items at all. Pages also move in main's layout pass while their
+borders move after an IPC hop, so the two can separate during a pan. The spike
+did not measure that. The addon is macOS-only and would need signing,
+notarizing and a Windows counterpart.
+
+Recommendation. Do not build this. It is the best result of the day, and it
+confirms that a native host's ceiling is about a fifth off the machine-wide
+cost at rest and nothing during gestures. The price is z-order, the opposite of
+what the one-surface work is for. The remaining 85 to 90 points are capture,
+and frame-rate and texture-size policy are the only things that move them
+(`page-frame-rate.ts`, `page-texture-scale.ts`). Thumbnail pages at 8 fps
+instead of 15 is the next measurement worth an hour.
+
+What the spike skipped. Popups, corner radius, and any clipping to the canvas
+area. Pages drew over the toolbar and panels. Z-order among pages followed
+entity order with the focused page last, not the full draw-order rules.
