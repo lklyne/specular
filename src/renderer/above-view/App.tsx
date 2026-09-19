@@ -42,7 +42,6 @@ import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import { CommentBadgesLayer } from './CommentBadgesLayer'
 import {
-  FocusedThreadOutline,
   PendingAnnotationComposer,
   PendingElementOutline,
 } from './CommentsLayer'
@@ -577,7 +576,6 @@ export default function App({
   const {
     closeThread,
     focusThread,
-    focusedThread,
     focusedThreadId,
   } = useAnnotationThreadState({
     api,
@@ -609,13 +607,6 @@ export default function App({
         selector: anchor.selector,
       })
     }
-    if (focusedThread && focusedThread.anchor.type === 'element') {
-      pushSub({
-        pageId: focusedThread.anchor.pageId,
-        annotationId: focusedThread.id,
-        selector: focusedThread.anchor.selector,
-      })
-    }
     for (const annotation of layoutData.annotations) {
       if (!isUnresolved(annotation.status) || annotation.anchor.type !== 'element') continue
       pushSub({
@@ -625,7 +616,7 @@ export default function App({
       })
     }
     return subs
-  }, [layoutData.annotations, focusedThread, pendingAnnotation])
+  }, [layoutData.annotations, pendingAnnotation])
 
   const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
 
@@ -1082,12 +1073,6 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             interactive={!selectionOverlay && !pendingRegionRect && !pendingAnnotation}
             layoutData={layoutData}
             onOpenThread={focusThread}
-          />
-
-          <FocusedThreadOutline
-            annotation={focusedThread}
-            layoutData={layoutData}
-            liveBboxes={liveBboxes}
           />
 
           <PendingElementOutline

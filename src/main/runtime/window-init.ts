@@ -3,6 +3,7 @@ import {
   BaseWindow,
   BrowserWindow,
   screen,
+  shell,
   WebContentsView,
 } from 'electron'
 import { join } from 'path'
@@ -181,6 +182,14 @@ export function initWindow(): void {
   const registerUiWebContents = (wc: Electron.WebContents, label: string) => {
     uiWebContentsIds.add(wc.id)
     wireRendererLogging(wc, label)
+    // Chrome renderers host authored content — agent markdown, page titles —
+    // so they can carry links. Links in chrome are always target="_blank", and
+    // a chromeless Electron window is a dead end with no way back; the OS
+    // browser is the only sane destination.
+    wc.setWindowOpenHandler(({ url }) => {
+      if (url.startsWith('https://') || url.startsWith('http://')) void shell.openExternal(url)
+      return { action: 'deny' }
+    })
   }
   registerUiWebContents(currentBgView.webContents, 'canvas-bg')
   currentBgView.webContents.session.webRequest.onHeadersReceived(

@@ -1,7 +1,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { Annotation, ComponentTreeNode, WorkspaceBounds } from '../../shared/types'
-import { aboveView } from '../runtime/view-refs'
+import { aboveView, devtoolsHeaderView } from '../runtime/view-refs'
 import {
   pageBodyCanvasBounds,
   projectFramePointToCanvas,
@@ -106,13 +106,19 @@ export function registerAnnotationInspectionIpc(): void {
         if (bounds) focusCanvasBounds(bounds)
       }
       // The conversation lives in the right panel: open it (if closed), switch
-      // to comments, and focus this thread. The canvas keeps only the ring,
-      // painted by aboveView off the echo below.
+      // to comments, and focus this thread.
       openCommentsPanel(annotationId)
       selectThreadForAnnotation(annotationId)
       requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
         aboveView.webContents.send(ipcChannels.annotationThreadOpen, {
+          annotationId,
+        })
+      }
+      // The panel flashes the comment on every click, not just when focus
+      // changes: re-clicking the focused pin should still point at it.
+      if (devtoolsHeaderView && !devtoolsHeaderView.webContents.isDestroyed()) {
+        devtoolsHeaderView.webContents.send(ipcChannels.annotationThreadOpen, {
           annotationId,
         })
       }

@@ -211,6 +211,11 @@ function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId
   notify()
 }
 
+/**
+ * Send: everything queued on the thread becomes this turn. A run already in
+ * flight keeps the new message queued instead of refusing it — the user can
+ * keep typing, and the queue is drained the moment that run finishes.
+ */
 export function sendActiveThread(composerText?: string): boolean {
   const tabId = activeSpaceTabId
   if (!tabId) return false
@@ -222,7 +227,6 @@ export function sendActiveThread(composerText?: string): boolean {
     thread = newAgentThread()
   }
   if (!thread) return false
-  if (isAnnotationInFlight(thread.id)) return false
 
   if (extra) {
     const now = new Date().toISOString()
@@ -231,7 +235,7 @@ export function sendActiveThread(composerText?: string): boolean {
       role: 'user',
       text: extra,
       createdAt: now,
-      queued: thread.status === 'draft',
+      queued: true,
     })
     thread.title = threadTitleFromMessages(thread.messages)
     thread.updatedAt = now
@@ -239,23 +243,96 @@ export function sendActiveThread(composerText?: string): boolean {
     notify()
   }
 
+  return dispatchThread(thread, captureThreadPill())
+}
+
+/**
+ * Auto-fix: the comment joins the active thread (draft or open — the
+ * conversation keeps its history) and is sent at once, aimed at the pin.
+ */
+export function sendCommentOnAnnotation(annotation: Annotation): string | null {
+  const tabId = activeSpaceTabId
+  if (!tabId) return null
+  ensureThreadsLoaded()
+  const thread = getActiveThread() ?? newAgentThread()
+  if (!thread) return null
+  appendQueuedUserMessage(thread, annotation.text.trim() || '(comment)', annotation.id)
+  dispatchThread(thread, annotationPill(annotation))
+  return thread.id
+}
+
+/** Send whatever is queued on a thread, aimed at the last queued pin if any. */
+export function sendAgentThread(threadId: string): boolean {
+  ensureThreadsLoaded()
+  const thread = threads.find((candidate) => candidate.id === threadId)
+  if (!thread) return false
+  return dispatchThread(thread, queuedAnnotationPill(thread) ?? captureThreadPill())
+}
+
+/** A run in flight keeps the turn queued; it drains when that run ends. */
+function dispatchThread(thread: AgentThread, pill: ThreadPill): boolean {
+  if (isAnnotationInFlight(thread.id)) return queuedTurnText(thread).length > 0
+  return startThreadRun(thread, pill)
+}
+
+/** What the queued messages say, as one turn. */
+function queuedTurnText(thread: AgentThread): string {
+  return thread.messages
+    .filter((message) => message.queued && message.role === 'user' && message.text.trim())
+    .map((message) => message.text.trim())
+    .join('\n\n')
+}
+
+/** The pin behind the most recent queued comment — where a drained turn is aimed. */
+function queuedAnnotationPill(thread: AgentThread): ThreadPill | undefined {
+  for (let i = thread.messages.length - 1; i >= 0; i--) {
+    const message = thread.messages[i]
+    if (!message.queued || message.role !== 'user' || !message.annotationId) continue
+    const annotation = workspaceAnnotations.find((item) => item.id === message.annotationId)
+    return annotation ? annotationPill(annotation) : undefined
+  }
+  return undefined
+}
+
+function annotationPill(annotation: Annotation): ThreadPill {
+  return resolveThreadPill({
+    focusedAnnotation: {
+      id: annotation.id,
+      text: annotation.text,
+      elementName: annotation.elementName,
+      anchorType: annotation.anchor.type,
+    },
+  })
+}
+
+/**
+ * Hand the queue to the agent. Clearing `queued` here is what puts the user's
+ * own words in the transcript while the agent works on them — they are no
+ * longer waiting to be sent.
+ */
+function startThreadRun(thread: AgentThread, pill: ThreadPill): boolean {
+  const turn = queuedTurnText(thread)
   if (!thread.messages.some((message) => message.role === 'user' && message.text.trim())) {
     return false
   }
 
-  const pill = captureThreadPill()
   const writeTarget = resolveWriteTarget(pill)
   const progressKey = writeTarget.kind === 'repo' ? writeTarget.origin : 'space'
   const resumeSessionId = thread.status === 'open' ? thread.claudeSessionId : undefined
+
+  for (const message of thread.messages) delete message.queued
+  thread.updatedAt = new Date().toISOString()
+  persist(thread)
+  notify()
+
   const fullPrompt = buildThreadPrompt({
     thread,
     pill,
     writeTarget,
     spacePath: spaceDir(),
   })
-  const lastUser = [...thread.messages].reverse().find((message) => message.role === 'user')
-  const prompt = resumeSessionId && lastUser
-    ? buildThreadFollowUpPrompt(lastUser.text, pill)
+  const prompt = resumeSessionId && turn
+    ? buildThreadFollowUpPrompt(turn, pill)
     : fullPrompt
 
   startFixProgress(thread.id, progressKey)
@@ -329,9 +406,6 @@ async function runThreadAgent(threadId: string, plan: ThreadAgentPlan): Promise<
   }
 
   const now = new Date().toISOString()
-  for (const message of thread.messages) {
-    delete message.queued
-  }
   thread.messages.push({
     id: makeId('tmsg'),
     role: 'agent',
@@ -344,6 +418,12 @@ async function runThreadAgent(threadId: string, plan: ThreadAgentPlan): Promise<
   persist(thread)
   finalizeFixProgress(threadId, 'completed', { summary: result.summary })
   notify()
+
+  // Follow-ups typed while this run was in flight. A failed run leaves them
+  // queued instead: the user re-sends when they have decided what to do.
+  if (queuedTurnText(thread)) {
+    startThreadRun(thread, queuedAnnotationPill(thread) ?? captureThreadPill())
+  }
 }
 
 export function captureThreadPill(): ThreadPill {

@@ -27,6 +27,7 @@ import { CANVAS_MAX_ZOOM } from '../../shared/zoom'
 import { zoom } from './runtime-context'
 import { withCaptureMetrics } from './page-emulation'
 import { msSinceCameraInput } from './camera-input-clock'
+import { awaitTwoFrames, pageAwaitingPaint } from './page-presentation'
 
 const FREEZE_TARGET = 'bg'
 const FREEZE_ID = 'zoom'
@@ -318,7 +319,6 @@ export function beginZoomSnapshotHandoff(gen: number): boolean {
   return true
 }
 
-const DOUBLE_RAF = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))'
 /**
  * Upper bound on one page's settle re-raster plus hi-res capture. The raster
  * stays up while we wait, so a long wait costs interactivity, not a wrong
@@ -391,8 +391,11 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
       const contents = page.pageView.webContents
       const contentKey = pageContentKey(page)
       let hiRes: NativeImage | null = null
+      // A document that has not painted yet has nothing on its surface; a
+      // copy of it would be keyed to that document for as long as it lasts.
+      if (pageAwaitingPaint(page.id)) return { page, contentKey, image: null, hiRes }
       const presented = (async () => {
-        await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
+        await awaitTwoFrames(contents)
         if (contents.isDestroyed()) return null
         const plan = hiResPlan(page)
         if (plan) {
@@ -400,7 +403,7 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
           // that is invisible, and the restore commit is what the
           // presentation capture below then waits on.
           hiRes = await withCaptureMetrics(contents, plan.densityFactor, async () => {
-            await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
+            await awaitTwoFrames(contents)
             if (contents.isDestroyed()) return null
             const image = await contents.capturePage()
             return image.isEmpty() ? null : image
@@ -413,7 +416,7 @@ export function captureParkedPagesAtSettle(): Promise<HandoffCapture[]> {
               `[zoom-snapshot] hi-res capture of ${page.id} is ${hiRes.getSize().width}px, expected ${plan.expectedWidth}px`,
             )
           }
-          await contents.executeJavaScript(DOUBLE_RAF).catch(() => undefined)
+          await awaitTwoFrames(contents)
           if (contents.isDestroyed()) return null
         }
         const image = await contents.capturePage()

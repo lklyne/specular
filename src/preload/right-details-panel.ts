@@ -91,6 +91,7 @@ const api: DevtoolsPanelElectronAPI = {
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getThemeBootstrap),
   onThemeChanged: on(ipcChannels.themeChanged),
   onPanelData: on<DevtoolsPanelData>(ipcChannels.rightDetailsPanelData),
+  onAnnotationThreadOpen: on<{ annotationId: string | null }>(ipcChannels.annotationThreadOpen),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

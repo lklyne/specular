@@ -23,6 +23,7 @@ import {
   setDevtoolsPanelTab as setUiDevtoolsPanelTab,
 } from '../ui-state'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
+import { broadcastChromeChange } from './runtime-slice-broadcast'
 import { syncInspectionState } from './inspect-session'
 import { devtoolsPanelDebug } from './runtime-constants'
 
@@ -60,6 +61,7 @@ export function closeDevTools(): void {
   setUiDevtoolsOpen(false)
   syncInspectionState()
   notifyDevtoolsChanged()
+  broadcastChromeChange()
   recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
 }
@@ -79,6 +81,7 @@ export function toggleDevTools(): void {
 
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
+  broadcastChromeChange()
   syncInspectionState()
   recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
@@ -115,6 +118,7 @@ export function openDevToolsForSelectedPage(): void {
 
   setUiDevtoolsOpen(true)
   notifyDevtoolsChanged()
+  broadcastChromeChange()
   syncInspectionState()
   recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
