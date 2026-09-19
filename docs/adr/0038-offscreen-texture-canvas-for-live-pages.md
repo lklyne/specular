@@ -209,8 +209,12 @@ being edited. Options are ranked by how close they get to that.
    default. Same scene, swapped rasterizer. Not a foundation on its own: no
    editing story, and pages are not DOM so it does nothing for them.
 3. **Three.js WebGPU renderer.** Already a dependency: `PresenceParticleTrail.tsx`
-   runs `three/webgpu` with TSL compute kernels. Pages become instanced quads
-   with a `VideoFrameTexture` each (zero-copy external texture), corners and
+   runs `three/webgpu` with TSL compute kernels. Pages become quads with a
+   `VideoFrameTexture` each. That texture is not zero-copy: three 0.184 uploads
+   it with `copyExternalImageToTexture` once per new frame
+   (`WebGPUTextureUtils._copyImageToTexture`), and upstream removed the
+   external-texture path in three.js PR #31416. The WebGPU spike below measured
+   the copy and found it costs nothing we can see. Corners and
    focus rings in TSL, grid and chrome as geometry in one pass, particles fold
    into the same scene. Text stays DOM in a band above, so interleaving needs
    the same at-rest raster trick as option 1. Right choice only if per-pixel
@@ -280,7 +284,8 @@ this split keeps it possible:
   frame occupies one of its page's 6 slots until closed, and a frame posted to
   no listener holds that slot until GC. Revisit only with WebGPU
   `importExternalTexture` (options 3–4), where sampling a frame per draw is the
-  intended path.
+  intended path. Revisited 2026-09-19: see the WebGPU spike at the end of this
+  section.
 - Present on the renderer's rAF, not on frame arrival. A page frame marks its
   page dirty; the loop draws once.
 - Set the host frame rate from the display (`setFrameRate`); offscreen hosts
@@ -296,3 +301,101 @@ this split keeps it possible:
   passes put every shell under every texture, so a page stacked above another
   let that page's content show over its own bezel. The experimental SVG shell
   layer was deleted in the same change.
+
+**WebGPU spike, measured 2026-09-19.** Branch `spike/webgpu-page-surface`,
+never merged. The question was whether drawing page textures with WebGPU
+removes the per-frame copy cost, and which integration we could live with. Four
+arms, switched at launch by the `specular.spike.pageSurfaceArm` localStorage
+key:
+
+- A. Today's path. `createImageBitmap` in the preload, 2D canvas draw.
+- B. Raw WebGPU with no copy. The preload transfers the `VideoFrame`, and the
+  surface calls `importExternalTexture` for every page on every draw.
+- C. Raw WebGPU, import then blit. Each new frame is imported once and blitted
+  into a `GPUTexture` we own, sized to the page's on-screen size. Draws sample
+  that texture.
+- D. Plain `three/webgpu`, one mesh per page with a `VideoFrameTexture`. three
+  copies each new frame with `copyExternalImageToTexture`.
+
+Same canvas as the cost model above, 30 animating and 28 static pages, pan
+(518, 158). Each arm ran in two fresh launches with two 16 s samples per zoom,
+so every cell is the range over four samples. Numbers are percent of one core.
+
+| Zoom | Process | A: 2D | B: import | C: blit | D: three |
+|---|---|---|---|---|---|
+| 0.1 | Total | 143–150 | 131–138 | 130–132 | 128–133 |
+| 0.1 | GPU process | 72–74 | 59–62 | 59–60 | 59–61 |
+| 0.1 | canvas-bg | 16–17 | 15 | 15 | 16–17 |
+| 0.1 | Main | 20–21 | 20–21 | 20 | 19–20 |
+| 0.1 | Pages | 33–38 | 35–40 | 35–37 | 34–36 |
+| 0.352 | Total | 90–91 | 84 | 81–82 | 83–85 |
+| 0.352 | GPU process | 48 | 41 | 40 | 40–42 |
+| 0.6 | Total | 88–95 | 81–83 | 78–85 | 79–84 |
+| 0.6 | GPU process | 51–55 | 42–43 | 40–44 | 40–42 |
+
+| Check | A: 2D | B: import | C: blit | D: three |
+|---|---|---|---|---|
+| Gesture rAF rate, zoom ramp and pan sweep | 120 fps | 120 fps | 120 fps | 120 fps |
+| Gesture frames over 25 ms | 0 | 0 | 0 | 0 |
+| Total CPU, 12 s zoom oscillation with 60 pages drawn per tick | 233–235 | 235–236 | 230–238 | 240 |
+| canvas-bg CPU in that oscillation | 28 | 30–32 | 32 | 32–34 |
+| `sendFailures` / `framesDroppedForPoolPressure` | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| `outstandingTextures` per page at rest | 0 | 1 | 1 | 1, sometimes 2 |
+| GPU-process footprint, two launches | 1769 / 1589 MB | 1773 / 1670 MB | 1801 / 1687 MB | 1912 / 1810 MB |
+
+The oscillation total includes about 83 points of test-driver cost, the same
+in every arm. That is the toolbar renderer evaluating 60 `zoomSet` calls a
+second over CDP.
+
+What the numbers say:
+
+- WebGPU saves 10 to 15 points of 146 at thumbnail zoom and 6 to 10 at the
+  other two. The GPU process gives back all of it. Main, canvas-bg and the
+  pages do not move. It is a real saving and a small one, about a quarter of
+  the 59 points the cost model charges to transfer and copy. The rest of that
+  59 is the capture handshake, the IPC hop and the shared-texture import, and
+  no renderer choice touches those.
+- The copy is not what costs. B never copies, C copies once into a small
+  texture, D copies at full texture size, and the three land within 5 points of
+  each other at every zoom. B's 60 imports per draw at 120 draws a second also
+  cost nothing we could measure in the oscillation run. So the saving over A
+  comes from leaving `createImageBitmap` and the 2D canvas behind. These runs
+  cannot split it between the two.
+- Gestures are a tie. Every arm held 120 fps with no frame over 25 ms. The 2D
+  `VideoFrame` attempt lost this test, 55 to 66 fps against 111 to 116.
+  WebGPU does not repeat that, because sampling an imported frame per draw is
+  what the API is for.
+- No arm made transfers worse. A held `VideoFrame` keeps one of its page's 6
+  texture slots, so B, C and D sit at 1 outstanding per page where A sits at 0.
+  48 of 60 hosts held a frame, culled pages included. Pool drops and send
+  failures stayed at zero, but the headroom is 5 slots, not 6.
+- Memory moves less than it drifts. D carries about 140 to 220 MB more than A,
+  which fits one full-size copy per page. B and C sit within 100 MB of A, and
+  launch-to-launch drift on A alone was 180 MB. C's owned textures totalled
+  45 MB at zoom 0.352.
+
+Recommendation. C is as cheap as B, so the numbers support the first of the
+three long-term shapes. Pages become ordinary three objects, with no patch to
+three, full z-order interleaving, and R3F possible later. D matching both means plain
+`VideoFrameTexture` is enough to start with. Wrapping a `GPUTexture` we own in
+three's `ExternalTexture`, as C does, is the step to take if per-page GPU
+memory matters, since it holds an on-screen-size texture where D holds a
+texture-size copy. C could also close each frame right after its blit and give
+the slot back. It would then need `requestPageFrames` to re-blit a static page
+after a zoom settles. The spike did not try that.
+
+Do not port the renderer for the CPU alone. Ten percent at thumbnail zoom does
+not pay for a rewrite. What the spike changes is the ranking above. Option 3 no
+longer carries a performance risk against option 1, so the choice between them
+can rest on z-order, effects and how much code each one deletes. A raw page
+layer beside a three scene, or a maintained patch to three, has no case: B is
+not ahead of C or D.
+
+What the spike skipped. Popups are dropped in the preload. D draws square
+corners. B and C mask corners in the fragment shader. Shells, borders and
+shadows stayed on the 2D `CanvasItemSurface`, which ran underneath in every
+WebGPU arm with no page bitmaps to draw. So B, C and D each paid for a second
+full-window canvas layer that a one-surface port would not have, and their
+canvas-bg numbers read a little high for it. CDP drove the gestures at 60
+inputs a second, not a trackpad. The rAF rate shows that canvas-bg's main
+thread kept up. It does not count frames the compositor presented.

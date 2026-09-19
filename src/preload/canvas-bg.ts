@@ -7,6 +7,7 @@ import type { CanvasGuidesPayload } from '../shared/canvas-guides'
 import type { PageFrameMessage, PageFrameMeta } from '../shared/page-frames'
 import type { RuntimePatchBatch } from '../shared/runtime-patch'
 import { ipcChannels } from '../shared/ipc-contract'
+import { PAGE_SURFACE_ARM_KEY, parsePageSurfaceArm, type PageVideoFrameMessage } from '../shared/page-surface-spike'
 import { entityMutationBridge } from './entity-mutation-bridge'
 import { on } from './ipc-helpers'
 
@@ -23,23 +24,65 @@ function postPageFrame(meta: PageFrameMeta, bitmap: ImageBitmap): void {
   window.postMessage(message, '*', [bitmap])
 }
 
+// Read once at module load: this preload also loads in about:blank /
+// opaque-origin frames, where localStorage throws, and the arm otherwise
+// stays fixed for the process's lifetime.
+const pageSurfaceArm = (() => {
+  try {
+    return parsePageSurfaceArm(window.localStorage.getItem(PAGE_SURFACE_ARM_KEY))
+  } catch {
+    return parsePageSurfaceArm(null)
+  }
+})()
+
+// Only a spike arm posts VideoFrames, so only a spike arm needs to know
+// whether the page world is listening for them yet.
+let pageWorldReadyForVideoFrames = false
+
+if (pageSurfaceArm !== '2d') {
+  window.addEventListener('message', (event) => {
+    const data = event.data as PageVideoFrameMessage | null
+    if (data?.source === 'page-video-frame' && data.kind === 'ready') pageWorldReadyForVideoFrames = true
+  })
+}
+
+function postPageVideoFrame(meta: PageFrameMeta, frame: VideoFrame): void {
+  const message: PageVideoFrameMessage = { source: 'page-video-frame', kind: 'frame', meta, frame }
+  window.postMessage(message, '*', [frame])
+}
+
 sharedTexture.setSharedTextureReceiver(async (data, ...args) => {
   const meta = args[0] as PageFrameMeta
   const imported = data.importedSharedTexture
   let frame: VideoFrame | null = null
+  let framePosted = false
   try {
-    frame = imported.getVideoFrame()
-    const bitmap = await createImageBitmap(frame)
-    postPageFrame(meta, bitmap)
+    if (pageSurfaceArm === '2d') {
+      frame = imported.getVideoFrame()
+      const bitmap = await createImageBitmap(frame)
+      postPageFrame(meta, bitmap)
+    } else if (meta.widgetType !== 'popup' && pageWorldReadyForVideoFrames) {
+      // A frame posted with no listener holds its texture slot until GC, so
+      // frames are dropped until the page world has said it is listening.
+      frame = imported.getVideoFrame()
+      postPageVideoFrame(meta, frame)
+      framePosted = true
+    }
   } catch (error) {
     // A receiver that throws past this point would skip `imported.release()`
     // below — Electron's OSR frame pool is reused the moment a texture is
     // released, and a leaked reference drains the pool
     // ("OSRSharedTextureNotReleased" in the app log), so every failure here
     // is caught rather than left to propagate.
-    console.error('[canvas-bg] page frame copy failed', error)
+    console.error('[canvas-bg] page frame transport failed', error)
   } finally {
-    frame?.close()
+    // The 2D path always owns closing the frame it copied from. A spike
+    // frame that posted successfully is the receiver's to close; one that
+    // failed to post, or was never fetched (dropped/popup), is still ours.
+    if (!framePosted) frame?.close()
+    // The VideoFrame keeps its own reference to the shared texture once
+    // requested, so the imported handle is released here regardless of arm
+    // or outcome (ADR 0038 spike findings).
     imported.release()
   }
 })

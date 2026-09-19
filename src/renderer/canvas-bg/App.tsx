@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { LayoutUpdateData, ThemeData } from '../../shared/types'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { useReportTextEditing } from '../shared/hooks/useReportTextEditing'
@@ -8,6 +8,8 @@ import { CanvasDebugBadge, CanvasGridSurface } from './CanvasGridSurface'
 import { CanvasItemSurface } from './CanvasItemSurface'
 import { GroupBackgroundLayer } from './GroupBackgroundLayer'
 import { PerfHudOverlay } from './PerfHudOverlay'
+import { readPageSurfaceArm } from './spike/pageSurfaceArm'
+import { SpikePageSurface } from './spike/SpikePageSurface'
 import { useCanvasLayoutState } from './useCanvasLayoutState'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useChromeSlices } from './useChromeSlices'
@@ -25,6 +27,9 @@ export default function App({
     ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV ??
       false) === true
   const bgRef = useRef<HTMLDivElement>(null)
+  // Read once at mount: the spike arm is fixed for a session's lifetime
+  // (`src/shared/page-surface-spike.ts`).
+  const [pageSurfaceArm] = useState(readPageSurfaceArm)
   const { isDark } = useTheme(initialTheme, api.onThemeChanged)
   useReportTextEditing(api.setTextEditing)
   const { layoutData, layoutRef, layoutTick } = useCanvasLayoutState({ initialLayoutData })
@@ -67,6 +72,11 @@ export default function App({
           live texture) in z-order on one canvas, topmost within canvas-bg.
           Drawn rather than DOM so strokes stay crisp mid-zoom (ADR 0038). */}
       <CanvasItemSurface api={api} draws={canvasItemDraws} isDark={isDark} />
+
+      {/* WebGPU/three measurement spike (throwaway; ADR 0038's territory):
+          draws page content over CanvasItemSurface's shells/borders when a
+          non-2d arm is active. */}
+      {pageSurfaceArm !== '2d' && <SpikePageSurface arm={pageSurfaceArm} draws={canvasItemDraws} />}
 
       {/* Group selection popup migrated to above-view (ADR 0008 §1, step 5).
           Selected page menu lives in the floating-ui view. */}
