@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### New
+
+- **Markdown notes open fullscreen.** Focus a `.md` note and it blows up to a screen-fixed card, so you can read and edit it with the canvas out of the way. Scrolling inside the card moves the text rather than the camera, and the gutters around it are a dead zone, so you can't accidentally pan yourself out of the session. Click the backdrop to exit.
+
+### Fixes
+
+- Canvases you drop into your space folder show up. A `.canvas` file the index doesn't know about is picked up when the space opens, instead of being ignored and then written over by the next save. Same for an index that has drifted from the folder it points at.
+
 ## [0.8.1] - 2026-09-05 — Canvas agent threads for everyone
 
 0.8.0 was published out of order, ahead of 0.7.2, so auto-updates skipped the
