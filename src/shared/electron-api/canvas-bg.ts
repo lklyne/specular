@@ -306,6 +306,8 @@ export interface CanvasBgElectronAPI {
   repoConnect: (absolutePath: string) => Promise<unknown>
   /** Bind this page origin to a local folder (folder picker). */
   pickRepoForOrigin: (origin: string) => void
+  /** Drop the origin→repo binding; the page writes to the space folder again. */
+  removeOriginBinding: (origin: string) => void
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
   /** Fine-grained runtime-store updates: the cells one change touched, batched
    *  per layout pass. Layers subscribe to the slice they draw instead of

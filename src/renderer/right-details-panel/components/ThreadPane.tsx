@@ -59,7 +59,7 @@ export function ThreadPane({
         <span className={`shrink-0 ${muted}`}>{formatCommentTime(annotation.createdAt)}</span>
       </div>
 
-      <div ref={transcriptRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-3 py-2.5">
+      <div ref={transcriptRef} className="thin-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-2.5">
         <CommentBubble
           author={annotation.author}
           text={annotation.text}

@@ -38,6 +38,7 @@ import {
   toolbarView,
 } from './view-refs'
 import { getFixConfig } from './preferences'
+import { spaceDir } from './space-dir'
 import {
   getOriginBindingsView as getOriginBindings,
   inferRepoPathForOrigin,
@@ -486,6 +487,7 @@ export function notifyDevtoolsPanelData(): void {
     agentThreads: getAgentThreads(),
     activeThreadId: getActiveThreadId(),
     canvasName: spaceTabs.find((tab) => tab.id === activeSpaceTabId)?.name ?? null,
+    spacePath: spaceDir(),
     ...buildEntityDetails(panelMode),
     emptyState: _mcpEmptyState(),
   })

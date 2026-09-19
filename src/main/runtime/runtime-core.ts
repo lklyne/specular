@@ -19,6 +19,7 @@ import type {
   DevtoolsPanelData,
 } from '../../shared/types'
 import { commitHoverTarget } from './hover-state'
+import { broadcastChromeChange } from './runtime-slice-broadcast'
 import {
   devtoolsView,
   setDevtoolsView,
@@ -247,6 +248,7 @@ export function setDevtoolsWidthFromScreenX(screenX: number): void {
   if (!win || !uiDevtoolsOpen()) return
   const bounds = win.getContentBounds()
   setDevtoolsWidth(bounds.x + bounds.width - screenX)
+  broadcastChromeChange()
   recenterFocusPresentation(undefined, { animate: false })
   requestLayout()
 }

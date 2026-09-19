@@ -352,6 +352,8 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),
   pickRepoForOrigin: (origin: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelPickRepoForOrigin, { origin }),
+  removeOriginBinding: (origin: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelRemoveOriginBinding, { origin }),
   onLayoutUpdate: on(ipcChannels.layoutUpdate),
   onRuntimePatch: on<RuntimePatchBatch>(ipcChannels.runtimePatch),
   onThemeChanged: on(ipcChannels.themeChanged),

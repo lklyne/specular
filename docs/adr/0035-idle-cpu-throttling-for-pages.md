@@ -213,3 +213,12 @@ timers but not rAF, and replays every missed timer in a burst on resume.
 run at full rate and rAF at about 2/s, so the 0% CPU the lifecycle freeze
 delivered is gone. That is the trade for pages that come back. Do not send
 `Page.setWebLifecycleState` to a page host.
+
+**The load exemption ends at the load event again.** The freeze needed it to
+run further: `did-stop-loading` fires at the load event, which a
+client-rendered app reaches with an empty body, and a page frozen in that gap
+held an empty surface until something thawed it. A throttled page has no such
+gap to fall into — it keeps painting, just at 1fps, so the worst case is the
+new document arriving a second late rather than never. The exemption is back to
+`did-start-loading`/`did-stop-loading`, and the signal module that bounded it
+went with the snapshot pipeline ADR 0038 deleted.

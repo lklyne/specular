@@ -45,7 +45,23 @@ describe('fixQueryOptions', () => {
   it('runs in the repo with the full Claude Code system prompt', () => {
     const options = fixQueryOptions(config(), '/repo')
     expect(options.cwd).toBe('/repo')
-    expect(options.systemPrompt).toEqual({ type: 'preset', preset: 'claude_code' })
+    expect(options.systemPrompt).toMatchObject({ type: 'preset', preset: 'claude_code' })
+  })
+
+  it('tells the run it is inside Specular and that the skill is how it reaches the canvas', () => {
+    const systemPrompt = fixQueryOptions(config(), '/repo').systemPrompt
+    const append = typeof systemPrompt === 'object' && !Array.isArray(systemPrompt)
+      ? (systemPrompt.append ?? '')
+      : ''
+    expect(append).toContain('running inside Specular')
+    expect(append).toContain('`specular` skill')
+    expect(append).toContain('Skill tool')
+  })
+
+  it('enables every skill in all permission modes — the allowlists cannot name `Skill`', () => {
+    for (const permissions of ['acceptEdits', 'auto', 'dangerously'] as const) {
+      expect(fixQueryOptions(config({ permissions }), '/repo').skills).toBe('all')
+    }
   })
 })
 

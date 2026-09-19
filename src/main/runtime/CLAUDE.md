@@ -22,7 +22,7 @@ what moved.
 
 | Path | Producer | Carries |
 |---|---|---|
-| Mutator → patch | `broadcastRuntimePatch` / `broadcastRuntimePatches` from the mutator itself (`commitHoverTarget`, `commitSelection`, `setActiveTool`, the interaction mutators, the page-scroll handler, the annotation-bbox fold, the presence-cursor store) | one or more slices, without rebuilding the scene |
+| Mutator → patch | `broadcastRuntimePatch` / `broadcastRuntimePatches` from the mutator itself (`commitHoverTarget`, `commitSelection`, `setActiveTool`, the interaction mutators, the side-panel mutators, the page-scroll handler, the annotation-bbox fold, the presence-cursor store) | one or more slices, without rebuilding the scene |
 | Lifecycle hook → entity patch | `broadcastPageChrome` from the navigation hooks in `page-factory.ts` | one page entity, when its browser chrome moved |
 | Layout pass → diff → patch batch | `broadcastSceneUpdate` diffs the rebuilt scene against the baseline | the cells that moved, batched so a pass applies atomically |
 | Snapshot baseline | `broadcastSceneSnapshot` on connect, and on the first pass ≥1s after the last snapshot | the whole scene, on top of that pass's patches |
@@ -52,13 +52,21 @@ Rules that hold this together:
   out the native views and calls `broadcastRuntimePatch`, never
   `markDirty('canvas')`. Main still projects for the `WebContentsView` bounds
   Chromium wants in window pixels, through the same helper.
+- **Window furniture is a `chrome` patch.** A side panel opening, closing, or
+  being dragged changes no entity, but it does move the canvas area edges that
+  renderers lay out against — the fullscreen note card, the popup flip math. The
+  panels' own native bounds are re-set by every pass, so the views land right on
+  `requestLayout()` alone and the stale-DOM half of that bug is invisible until
+  something is drawn against the edge. `broadcastChromeChange()` is what the
+  mutator owes; a site that dirties the canvas for its own reasons gets the
+  cells from the rebuild.
 - **A geometry pass builds geometry.** `buildCanvasLayoutData` produces
   canvas-space geometry and membership; anything else in the payload has a
   named producer that both the pass and a patch call, so the two can never
   describe the same cell differently — `currentSelectionSlice` /
-  `currentToolSlice` / `currentFocusSlice` (`canvas-layout-data.ts`),
-  `currentPresenceSlice` (`presence-slice.ts`), `buildPageSceneEntity`
-  (`page-scene-entity.ts`). The pass reads no page's `webContents`: title,
+  `currentToolSlice` / `currentChromeSlice` / `currentFocusSlice`
+  (`canvas-layout-data.ts`), `currentPresenceSlice` (`presence-slice.ts`),
+  `buildPageSceneEntity` (`page-scene-entity.ts`). The pass reads no page's `webContents`: title,
   favicon, URL, load state, and back/forward availability are mirrored onto the
   `Page` record by the lifecycle hooks and patched from `page-chrome-state.ts`.
   A new payload field belongs to a producer, not to the builder's literal.
@@ -67,7 +75,7 @@ Rules that hold this together:
   answer them differently. Dirty the canvas only for a change to entity
   geometry, entity membership, or z-order — everything else has a slice and a
   patch producer (`runtime-slice-broadcast.ts` for `selection`, `tool`,
-  `interaction`, `focus`; `hover-state.ts`; `inspect-session.ts`;
+  `interaction`, `focus`, `chrome`; `hover-state.ts`; `inspect-session.ts`;
   `viewport-control.ts` for `camera`; `presence-slice.ts`;
   `page-chrome-state.ts` for a page's browser chrome). Still call
   `requestLayout()` when
