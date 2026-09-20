@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import { randomUUID } from 'crypto'
 import { readFile, unlink } from 'fs/promises'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -15,6 +16,7 @@ export const COMMAND_LABELS: Record<string, string> = {
   fill: 'type_text',
   type: 'type_text',
   select: 'select_option',
+  hover: 'point_target',
   wait: 'wait_page',
   scroll: 'scroll_page',
   get: 'read_content',
@@ -299,6 +301,13 @@ export function buildChainedPresenceSteps(parts: string[]): PresenceIntentQueueI
   return steps
 }
 
+// Verbs whose target should be scrolled into view before dispatch — every
+// mutation plus `hover`. `hover` isn't a mutation (it invalidates nothing —
+// see MUTATION_VERBS), but it's still a real pointer move the presence
+// cursor animates, and an off-screen target would leave the cursor pointing
+// at nothing the user can see.
+const PRE_SCROLL_VERBS = new Set([...MUTATION_VERBS, 'hover'])
+
 /**
  * The pre-mutation auto-scroll target: an `@eN` ref or a CSS selector.
  * `text=` locators return null — agent-browser's `scrollintoview` (verified
@@ -311,7 +320,7 @@ export function parseScrollTarget(parsed: {
   ref: string | null
   positionals: string[]
 }): string | null {
-  if (!parsed.verb || !MUTATION_VERBS.has(parsed.verb)) return null
+  if (!parsed.verb || !PRE_SCROLL_VERBS.has(parsed.verb)) return null
   if (parsed.ref) return parsed.ref
   const target = parsed.positionals[0]
   if (!target || target.startsWith('text=')) return null
@@ -556,6 +565,174 @@ function postAgentBrowserRefs(pageId: string, snapshotOutput: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Pre-mutation scroll settle
+// ---------------------------------------------------------------------------
+//
+// `scrollintoview`'s own promise resolves when the scroll is *requested*,
+// not when it's settled — on a page with `scroll-behavior: smooth` (or a
+// scroll-snap / animated carousel), the container can still be moving when
+// the mutation that follows dispatches its coordinates, landing the click on
+// whatever the target scrolled past instead of the target itself.
+
+/** Bounded poll budget: worst case this adds to a mutation whose scroll
+ *  never settles. Matches ADR 0029's dwell contract — bounded latency on a
+ *  mutating command, never a hang. */
+const SCROLL_STABILITY_CAP_MS = 600
+const SCROLL_STABILITY_POLL_INTERVAL_MS = 75
+
+interface ScrollStabilityRead {
+  x: number
+  y: number
+}
+
+/**
+ * Pure decision for one step of the settle-poll loop. Comparing two rect
+ * reads a beat apart is the least assumption-laden way to tell "still
+ * moving" from "done": within 1px of the previous read counts as settled
+ * (so an already-in-view target — the common case — settles after just the
+ * first two reads), a missing rect means there's nothing left to wait for,
+ * and the hard cap means a scroll that never fully settles still only costs
+ * a bounded delay, never a hang.
+ */
+export function decideScrollStability(
+  previous: ScrollStabilityRead | null,
+  current: ScrollStabilityRead | null,
+  elapsedMs: number,
+  capMs: number,
+): 'settled' | 'keep-waiting' | 'give-up' {
+  if (!current) return 'give-up'
+  if (previous && Math.abs(current.x - previous.x) < 1 && Math.abs(current.y - previous.y) < 1) {
+    return 'settled'
+  }
+  if (elapsedMs >= capMs) return 'give-up'
+  return 'keep-waiting'
+}
+
+/** `get box` resolves an `@eN` ref or a CSS selector identically (unlike
+ *  `eval`, which has no ref syntax) — the one read primitive the settle poll
+ *  needs regardless of how the mutation's own target was spelled. Any
+ *  failure (missing element, bad JSON, a dead daemon) reads the same as "no
+ *  rect" to the caller — never an error that could abort the mutation. */
+async function readTargetBox(
+  abPath: string,
+  sessionFlags: string[],
+  cdpUrl: string,
+  target: string,
+): Promise<ScrollStabilityRead | null> {
+  try {
+    const { stdout } = await spawnAsync(
+      abPath,
+      [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, '--json', 'get', 'box', target],
+      { timeout: 3_000 },
+    )
+    const parsed = JSON.parse(stdout)
+    const box = parsed?.data ?? parsed
+    if (typeof box?.x !== 'number' || typeof box?.y !== 'number') return null
+    return { x: box.x, y: box.y }
+  } catch {
+    return null
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Scrolls a mutation's target into view, then — only for a real mutation,
+ * never a read or `hover` — waits for its position to stop moving before
+ * returning. Best-effort throughout: a failed scroll or a failed read never
+ * blocks or fails the command that follows, it just means the wait can't do
+ * its job this time.
+ */
+async function scrollTargetIntoViewAndSettle(options: {
+  abPath: string
+  sessionFlags: string[]
+  cdpUrl: string
+  target: string
+  waitForSettle: boolean
+}): Promise<void> {
+  const { abPath, sessionFlags, cdpUrl, target, waitForSettle } = options
+  await spawnAsync(
+    abPath,
+    [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', target],
+    { timeout: 5_000 },
+  ).catch(() => {})
+
+  if (!waitForSettle) return
+
+  const start = Date.now()
+  let previous: ScrollStabilityRead | null = null
+  for (;;) {
+    const current = await readTargetBox(abPath, sessionFlags, cdpUrl, target)
+    const decision = decideScrollStability(previous, current, Date.now() - start, SCROLL_STABILITY_CAP_MS)
+    if (decision !== 'keep-waiting') return
+    previous = current
+    await sleep(SCROLL_STABILITY_POLL_INTERVAL_MS)
+  }
+}
+
+// A chained batch runs as one spawn with no gap between steps, so the
+// single-command path's poll above isn't available mid-batch. The batch
+// instead carries its own settle step: a `wait --fn` whose expression turns
+// truthy once the page has gone SCROLL_IDLE_MS without a scroll event. A fixed
+// pause can't do this job — a long smooth scroll outlasts any pause short
+// enough to be tolerable on every other click.
+const CHAINED_SCROLL_IDLE_MS = 150
+const CHAINED_SCROLL_SETTLE_CAP_MS = 1200
+
+/**
+ * The page-side expression for a chained step's settle wait. agent-browser
+ * polls it until truthy, so it keeps its state on `window`: one capturing
+ * scroll listener (scroll events don't bubble, but capture at the document
+ * sees every scroller) and the time of the last event. `token` marks which
+ * wait is polling, so a later wait on the same page starts its own clock
+ * instead of inheriting a stale one. The cap makes the expression turn truthy
+ * by itself — inside a `--bail` batch a wait that timed out would abort the
+ * steps after it, and a late click beats no click.
+ */
+export function buildScrollSettleExpression(token: string): string {
+  return `(() => {
+  const now = performance.now();
+  let s = window.__specularScrollSettle;
+  if (!s) {
+    s = window.__specularScrollSettle = { token: '', started: 0, lastScroll: 0 };
+    document.addEventListener('scroll', () => { s.lastScroll = performance.now(); }, { capture: true, passive: true });
+  }
+  if (s.token !== ${JSON.stringify(token)}) {
+    s.token = ${JSON.stringify(token)};
+    s.started = now;
+    s.lastScroll = now;
+  }
+  return now - s.lastScroll >= ${CHAINED_SCROLL_IDLE_MS} || now - s.started >= ${CHAINED_SCROLL_SETTLE_CAP_MS};
+})()`
+}
+
+/**
+ * Expands a chained browse command into agent-browser's own argv form,
+ * injecting a `scrollintoview` (and, for a mutation, a settle `wait`) ahead
+ * of any step whose target needs to be scrolled into view first. The one
+ * place chain steps turn into batch argv, kept out of handleBrowse's chain
+ * branch so that branch stays legible.
+ */
+function buildExpandedChainCommands(parts: string[]): string[][] {
+  const expanded: string[][] = []
+  const batchToken = randomUUID()
+  parts.forEach((part, index) => {
+    const parsed = parseCommandArgs(part)
+    const scrollTarget = parseScrollTarget(parsed)
+    if (scrollTarget) {
+      expanded.push(['scrollintoview', scrollTarget])
+      if (mutationVerbForCommand(parsed)) {
+        expanded.push(['wait', '--fn', buildScrollSettleExpression(`${batchToken}:${index}`)])
+      }
+    }
+    expanded.push(splitShellArgs(part))
+  })
+  return expanded
+}
+
+// ---------------------------------------------------------------------------
 // Page lock
 // ---------------------------------------------------------------------------
 
@@ -797,14 +974,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       const parts = chainedParts
       // Auto-scroll mutation targets into view first (refs and CSS
       // selectors; see parseScrollTarget for why text= targets are skipped).
-      const expanded: string[][] = []
-      for (const p of parts) {
-        const scrollTarget = parseScrollTarget(parseCommandArgs(p))
-        if (scrollTarget) {
-          expanded.push(['scrollintoview', scrollTarget])
-        }
-        expanded.push(splitShellArgs(p))
-      }
+      const expanded = buildExpandedChainCommands(parts)
       const batchInput = JSON.stringify(expanded)
       const hasWait = parts.some(p => parseCommandArgs(p).verb === 'wait')
       const timeoutMs = hasWait ? 60_000 : 30_000
@@ -923,14 +1093,18 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     }
 
     // Auto-scroll the mutation target into view first (refs and CSS
-    // selectors; see parseScrollTarget for why text= targets are skipped).
+    // selectors; see parseScrollTarget for why text= targets are skipped),
+    // then — for a real mutation only — wait for it to stop moving before
+    // dispatching against it (see "Pre-mutation scroll settle" above).
     const scrollTarget = parseScrollTarget(singleParsed)
     if (scrollTarget) {
-      await spawnAsync(
+      await scrollTargetIntoViewAndSettle({
         abPath,
-        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', scrollTarget],
-        { timeout: 5_000 },
-      ).catch(() => {}) // Best-effort — don't fail the click if scroll fails
+        sessionFlags,
+        cdpUrl,
+        target: scrollTarget,
+        waitForSettle: Boolean(singleMutationVerb),
+      })
     }
 
     // Use --json for screenshots to get structured path output

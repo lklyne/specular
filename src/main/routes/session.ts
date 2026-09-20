@@ -294,6 +294,12 @@ function applyPresenceIntent(
   pendingIntents.set(sessionId, intentRecord)
 
   const targetRect = resolvePresenceTargetRect(pageId, targetRef, targetRefSource, null)
+  // `hover` deliberately isn't in this set: it always names a target, so
+  // "no resolvable rect yet" means the resolution is still in flight
+  // (see resolvePresenceTargetQueryInBackground below), not that there's no
+  // target to speak of. Falling back to page center — this set's whole
+  // purpose, for a targetless `wait`/bare `snapshot` — would be actively
+  // misleading for a command whose entire point is pointing at something.
   const observationCommands = new Set(['snapshot', 'wait', 'get'])
   const isObservation = observationCommands.has(command)
   const currentCursor = getPresenceCursors().find((cursor) => cursor.sessionId === sessionId)

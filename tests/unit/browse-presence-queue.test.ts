@@ -61,4 +61,21 @@ describe('buildChainedPresenceSteps', () => {
   it('returns an empty list for a chain with no mappable commands', () => {
     expect(buildChainedPresenceSteps(['press Enter'])).toEqual([])
   })
+
+  // hover has no COMMAND_LABELS entry until it maps to point_target — before
+  // that fix a chained `hover @e1 && click @e2` silently dropped the hover
+  // step's own presence, same as a live `specular hover <target>` never
+  // moving the cursor at all.
+  it('queues a hover step with point_target, unlike a mutation it carries no ref-source-driven labelHint', () => {
+    expect(buildChainedPresenceSteps(['hover @e1'])).toEqual([
+      {
+        labelKey: 'point_target',
+        command: 'hover',
+        targetRef: '@e1',
+        targetRefSource: 'agent-browser',
+        targetQuery: null,
+        labelHint: null,
+      },
+    ])
+  })
 })

@@ -276,6 +276,22 @@ async function ensureAgentSnapshot(pageId: string): Promise<AgentSnapshotPage> {
 
 // --- Target matching ---
 
+// `bestElementName` (src/preload/dom-element-utils.ts) formats an element's
+// name as `tag "text"` for human-readable display and caps `text` at 80
+// chars via `compactText` (trailing `…` marks a truncation). Every name
+// presence targeting sees — both the agent-snapshot cache's node.name and
+// query-elements' payload.name — is built from it. Unwrap it before scoring
+// so name/text matching compares the accessible text itself, not that
+// debug-formatted label; `TRUNCATION_MARKER` lets `findTruncatedNameMatch`
+// recognize when the unwrapped text was cut short.
+const TRUNCATION_MARKER = '…'
+
+function unwrapElementLabel(label: string | null): string | null {
+  if (!label) return null
+  const match = label.match(/^[a-z][a-z0-9]*\s+"([\s\S]*)"$/i)
+  return match ? match[1] : label
+}
+
 function normalizeQueryElementCandidate(candidate: unknown): PresenceTargetCandidate | null {
   if (!candidate || typeof candidate !== 'object') return null
   const payload = candidate as Record<string, unknown>
@@ -293,7 +309,7 @@ function normalizeQueryElementCandidate(candidate: unknown): PresenceTargetCandi
   }
   return {
     ref: null,
-    name: typeof payload.name === 'string' ? payload.name : null,
+    name: unwrapElementLabel(typeof payload.name === 'string' ? payload.name : null),
     text: typeof payload.textPreview === 'string' ? payload.textPreview : null,
     interactive: true,
     elementPath: typeof payload.elementPath === 'string' ? payload.elementPath : null,
@@ -325,6 +341,44 @@ function scorePresenceTargetCandidate(
   )
 }
 
+/**
+ * Fallback for a name-only query whose accessible name is longer than
+ * `bestElementName`'s 80-char cap (see `TRUNCATION_MARKER` above). The
+ * normal substring tier in `scoreDescriptorMatch` checks candidate-includes-
+ * query, which can never succeed once the candidate is the *shorter* string
+ * — so a long accessible name (e.g. a flight-result row's full description)
+ * never matches through the normal path, and the cursor stays put (issue
+ * #319 follow-up).
+ *
+ * A truncated candidate name is still an exact character prefix of the real
+ * accessible name, so matching it as a prefix is precise, not permissive —
+ * unlike a generic substring match, it can't hit an unrelated element that
+ * merely mentions the same words. It only fires when the ordinary scoring
+ * pass found nothing, only considers candidates that are visibly truncated,
+ * and refuses (returns null) on more than one prefix match — the same
+ * "ambiguous is worse than absent" rule `synthesizeAgentBrowserTargetQuery`
+ * already applies to the ref map itself.
+ */
+function findTruncatedNameMatch(
+  candidates: PresenceTargetCandidate[],
+  queryName: string,
+  interactiveOnly: boolean,
+): PresenceTargetCandidate | null {
+  const wanted = queryName.trim().toLowerCase()
+  if (!wanted) return null
+  let match: PresenceTargetCandidate | null = null
+  for (const candidate of candidates) {
+    if (interactiveOnly && !candidate.interactive) continue
+    const name = candidate.name
+    if (!name || !name.endsWith(TRUNCATION_MARKER)) continue
+    const prefix = name.slice(0, -TRUNCATION_MARKER.length).trim().toLowerCase()
+    if (!prefix || !wanted.startsWith(prefix)) continue
+    if (match) return null
+    match = candidate
+  }
+  return match
+}
+
 export async function findPresenceTarget(pageId: string, query: {
   selector?: string | null
   name?: string | null
@@ -352,7 +406,7 @@ export async function findPresenceTarget(pageId: string, query: {
     const snapshot = await ensureAgentSnapshot(pageId)
     candidates.push(...snapshot.nodes.map((node) => ({
       ref: node.ref,
-      name: node.name ?? null,
+      name: unwrapElementLabel(node.name ?? null),
       text: node.text ?? null,
       interactive: node.interactive,
       elementPath: node.elementPath,
@@ -371,7 +425,11 @@ export async function findPresenceTarget(pageId: string, query: {
     }
   }
 
-  if (!best || !Number.isFinite(bestScore)) return null
+  if (!best && query.name) {
+    best = findTruncatedNameMatch(candidates, query.name, query.interactiveOnly ?? false)
+  }
+
+  if (!best) return null
   return {
     targetRef: best.ref,
     targetRefSource: 'specular',
