@@ -209,8 +209,12 @@ being edited. Options are ranked by how close they get to that.
    default. Same scene, swapped rasterizer. Not a foundation on its own: no
    editing story, and pages are not DOM so it does nothing for them.
 3. **Three.js WebGPU renderer.** Already a dependency: `PresenceParticleTrail.tsx`
-   runs `three/webgpu` with TSL compute kernels. Pages become instanced quads
-   with a `VideoFrameTexture` each (zero-copy external texture), corners and
+   runs `three/webgpu` with TSL compute kernels. Pages become quads with a
+   `VideoFrameTexture` each. That texture is not zero-copy: three 0.184 uploads
+   it with `copyExternalImageToTexture` once per new frame
+   (`WebGPUTextureUtils._copyImageToTexture`), and upstream removed the
+   external-texture path in three.js PR #31416. The WebGPU spike below measured
+   the copy and found it costs nothing we can see. Corners and
    focus rings in TSL, grid and chrome as geometry in one pass, particles fold
    into the same scene. Text stays DOM in a band above, so interleaving needs
    the same at-rest raster trick as option 1. Right choice only if per-pixel
@@ -280,7 +284,8 @@ this split keeps it possible:
   frame occupies one of its page's 6 slots until closed, and a frame posted to
   no listener holds that slot until GC. Revisit only with WebGPU
   `importExternalTexture` (options 3–4), where sampling a frame per draw is the
-  intended path.
+  intended path. Revisited 2026-09-19: see the WebGPU spike at the end of this
+  section.
 - Present on the renderer's rAF, not on frame arrival. A page frame marks its
   page dirty; the loop draws once.
 - Set the host frame rate from the display (`setFrameRate`); offscreen hosts
@@ -296,3 +301,176 @@ this split keeps it possible:
   passes put every shell under every texture, so a page stacked above another
   let that page's content show over its own bezel. The experimental SVG shell
   layer was deleted in the same change.
+
+**WebGPU spike, measured 2026-09-19.** Branch `spike/webgpu-page-surface`,
+never merged. The question was whether drawing page textures with WebGPU
+removes the per-frame copy cost, and which integration we could live with. Four
+arms, switched at launch by the `specular.spike.pageSurfaceArm` localStorage
+key:
+
+- A. Today's path. `createImageBitmap` in the preload, 2D canvas draw.
+- B. Raw WebGPU with no copy. The preload transfers the `VideoFrame`, and the
+  surface calls `importExternalTexture` for every page on every draw.
+- C. Raw WebGPU, import then blit. Each new frame is imported once and blitted
+  into a `GPUTexture` we own, sized to the page's on-screen size. Draws sample
+  that texture.
+- D. Plain `three/webgpu`, one mesh per page with a `VideoFrameTexture`. three
+  copies each new frame with `copyExternalImageToTexture`.
+
+Same canvas as the cost model above, 30 animating and 28 static pages, pan
+(518, 158). Each arm ran in two fresh launches with two 16 s samples per zoom,
+so every cell is the range over four samples. Numbers are percent of one core.
+
+| Zoom | Process | A: 2D | B: import | C: blit | D: three |
+|---|---|---|---|---|---|
+| 0.1 | Total | 143–150 | 131–138 | 130–132 | 128–133 |
+| 0.1 | GPU process | 72–74 | 59–62 | 59–60 | 59–61 |
+| 0.1 | canvas-bg | 16–17 | 15 | 15 | 16–17 |
+| 0.1 | Main | 20–21 | 20–21 | 20 | 19–20 |
+| 0.1 | Pages | 33–38 | 35–40 | 35–37 | 34–36 |
+| 0.352 | Total | 90–91 | 84 | 81–82 | 83–85 |
+| 0.352 | GPU process | 48 | 41 | 40 | 40–42 |
+| 0.6 | Total | 88–95 | 81–83 | 78–85 | 79–84 |
+| 0.6 | GPU process | 51–55 | 42–43 | 40–44 | 40–42 |
+
+| Check | A: 2D | B: import | C: blit | D: three |
+|---|---|---|---|---|
+| Gesture rAF rate, zoom ramp and pan sweep | 120 fps | 120 fps | 120 fps | 120 fps |
+| Gesture frames over 25 ms | 0 | 0 | 0 | 0 |
+| Total CPU, 12 s zoom oscillation with 60 pages drawn per tick | 233–235 | 235–236 | 230–238 | 240 |
+| canvas-bg CPU in that oscillation | 28 | 30–32 | 32 | 32–34 |
+| `sendFailures` / `framesDroppedForPoolPressure` | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| `outstandingTextures` per page at rest | 0 | 1 | 1 | 1, sometimes 2 |
+| GPU-process footprint, two launches | 1769 / 1589 MB | 1773 / 1670 MB | 1801 / 1687 MB | 1912 / 1810 MB |
+
+The oscillation total includes about 83 points of test-driver cost, the same
+in every arm. That is the toolbar renderer evaluating 60 `zoomSet` calls a
+second over CDP.
+
+What the numbers say:
+
+- WebGPU saves 10 to 15 points of 146 at thumbnail zoom and 6 to 10 at the
+  other two. The GPU process gives back all of it. Main, canvas-bg and the
+  pages do not move. It is a real saving and a small one, about a quarter of
+  the 59 points the cost model charges to transfer and copy. The rest of that
+  59 is the capture handshake, the IPC hop and the shared-texture import, and
+  no renderer choice touches those.
+- The copy is not what costs. B never copies, C copies once into a small
+  texture, D copies at full texture size, and the three land within 5 points of
+  each other at every zoom. B's 60 imports per draw at 120 draws a second also
+  cost nothing we could measure in the oscillation run. So the saving over A
+  comes from leaving `createImageBitmap` and the 2D canvas behind. These runs
+  cannot split it between the two.
+- Gestures are a tie. Every arm held 120 fps with no frame over 25 ms. The 2D
+  `VideoFrame` attempt lost this test, 55 to 66 fps against 111 to 116.
+  WebGPU does not repeat that, because sampling an imported frame per draw is
+  what the API is for.
+- No arm made transfers worse. A held `VideoFrame` keeps one of its page's 6
+  texture slots, so B, C and D sit at 1 outstanding per page where A sits at 0.
+  48 of 60 hosts held a frame, culled pages included. Pool drops and send
+  failures stayed at zero, but the headroom is 5 slots, not 6.
+- Memory moves less than it drifts. D carries about 140 to 220 MB more than A,
+  which fits one full-size copy per page. B and C sit within 100 MB of A, and
+  launch-to-launch drift on A alone was 180 MB. C's owned textures totalled
+  45 MB at zoom 0.352.
+
+Recommendation. C is as cheap as B, so the numbers support the first of the
+three long-term shapes. Pages become ordinary three objects, with no patch to
+three, full z-order interleaving, and R3F possible later. D matching both means plain
+`VideoFrameTexture` is enough to start with. Wrapping a `GPUTexture` we own in
+three's `ExternalTexture`, as C does, is the step to take if per-page GPU
+memory matters, since it holds an on-screen-size texture where D holds a
+texture-size copy. C could also close each frame right after its blit and give
+the slot back. It would then need `requestPageFrames` to re-blit a static page
+after a zoom settles. The spike did not try that.
+
+Do not port the renderer for the CPU alone. Ten percent at thumbnail zoom does
+not pay for a rewrite. What the spike changes is the ranking above. Option 3 no
+longer carries a performance risk against option 1, so the choice between them
+can rest on z-order, effects and how much code each one deletes. A raw page
+layer beside a three scene, or a maintained patch to three, has no case: B is
+not ahead of C or D.
+
+What the spike skipped. Popups are dropped in the preload. D draws square
+corners. B and C mask corners in the fragment shader. Shells, borders and
+shadows stayed on the 2D `CanvasItemSurface`, which ran underneath in every
+WebGPU arm with no page bitmaps to draw. So B, C and D each paid for a second
+full-window canvas layer that a one-surface port would not have, and their
+canvas-bg numbers read a little high for it. CDP drove the gestures at 60
+inputs a second, not a trackpad. The rAF rate shows that canvas-bg's main
+thread kept up. It does not count frames the compositor presented.
+
+**Native page layer spike, measured 2026-09-19.** Same branch, arm E. The
+question was how much a native host could save by skipping the hand-off to
+canvas-bg. A Rust N-API addon (`spike/native-page-layer/`, launched with
+`SPECULAR_SPIKE_NATIVE_PAGES=1`) gives each page one `CALayer` inside an
+`NSView` in the window. Main sets every painted frame's `IOSurfaceRef` as that
+layer's contents straight from `deliver`, and moves the layers on every layout
+pass. There is no `sendSharedTexture`, no import in canvas-bg, no copy and no
+shader. canvas-bg receives no frames and draws shells and borders only.
+
+Core Animation composites in WindowServer, outside the app, so these runs count
+WindowServer's CPU as well. Arms A and C were re-measured the same way. Same
+canvas, zooms and pan as the WebGPU spike. Each cell is two 16 s samples from
+one launch, in percent of one core.
+
+| Zoom | Measure | A: 2D | C: WebGPU blit | E: native layer |
+|---|---|---|---|---|
+| 0.1 | App processes | 142 | 133–135 | 88–90 |
+| 0.1 | GPU process | 71 | 60–61 | 36 |
+| 0.1 | WindowServer | 40–41 | 37–42 | 60–61 |
+| 0.1 | App plus WindowServer | 182–183 | 170–178 | 148–151 |
+| 0.352 | App plus WindowServer | 131–134 | 127–128 | 112–119 |
+| 0.6 | App plus WindowServer | 145–147 | 135 | 110–113 |
+| 0.1↔0.25 oscillation | App plus WindowServer | 283 | 286 | 285–286 |
+
+An earlier launch of E, measured before WindowServer was counted, put the app
+processes at 81 to 84 at zoom 0.1. WindowServer's number is system-wide, so it
+carries whatever else the desktop was drawing. That load was the same terminal
+session for every arm.
+
+What the numbers say:
+
+- Counting the app alone, E looks like a 40% cut, 142 down to 88. That figure
+  is wrong to quote. WindowServer takes on 20 of the points Chromium's GPU
+  process gave up. The saving that holds is 32 points at zoom 0.1, 17 at 0.352
+  and 35 at 0.6, which is 13 to 24% of the machine-wide cost. WebGPU saved 2 to
+  8% on the same footing.
+- E reaches the floor the cost model predicted. Its app processes sit at 81 to
+  90 against the 87 of the capture-only run. Everything left in the app is
+  Chromium's capture and the pages themselves, so no host, native or not, goes
+  lower without cutting frame rate or texture size.
+- Main did not get cheaper. It stayed at 19 to 20 points with no import and no
+  send, so main's share is paint-event and capture bookkeeping, not the hop to
+  canvas-bg.
+- Gestures gain nothing. Moving 60 layers per camera tick costs WindowServer 75
+  points, and the three arms finish within 4 points of each other. Every arm
+  held 120 fps with no frame over 25 ms.
+- Page hosts stayed clean, with 0 send failures and 0 pool drops. E holds each
+  replaced frame for 34 ms so Core Animation is done reading it, which shows
+  as 1 to 2 outstanding textures per page. GPU-process footprint was 1446 and
+  1458 MB, below every other arm.
+
+What it costs. Electron draws bgView, aboveView, the toolbar and the side
+panels through one `ViewsCompositorSuperview`. The `WebContentsViewCocoa`
+subviews beside it are zero-size. A native layer can therefore sit above all
+web content or below all of it, and nowhere in between. The spike put it above,
+so pages covered the toolbar, selection outlines and menus. Shipping it means
+putting it below and making the window and every web layer transparent over
+each page, which is option 6's hole-punching, with no interleaving between
+pages and other items at all. Pages also move in main's layout pass while their
+borders move after an IPC hop, so the two can separate during a pan. The spike
+did not measure that. The addon is macOS-only and would need signing,
+notarizing and a Windows counterpart.
+
+Recommendation. Do not build this. It is the best result of the day, and it
+confirms that a native host's ceiling is about a fifth off the machine-wide
+cost at rest and nothing during gestures. The price is z-order, the opposite of
+what the one-surface work is for. The remaining 85 to 90 points are capture,
+and frame-rate and texture-size policy are the only things that move them
+(`page-frame-rate.ts`, `page-texture-scale.ts`). Thumbnail pages at 8 fps
+instead of 15 is the next measurement worth an hour.
+
+What the spike skipped. Popups, corner radius, and any clipping to the canvas
+area. Pages drew over the toolbar and panels. Z-order among pages followed
+entity order with the focused page last, not the full draw-order rules.
