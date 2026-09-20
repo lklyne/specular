@@ -128,6 +128,18 @@ export function attachBindingDispatcher(
     // bindings still fire and everything else falls through to be forwarded.
     const effective = effectiveKeySource(sourceView, webContents)
 
+    // A bare Meta keydown that no binding claims and no page is listening to
+    // (forwarded via the aboveView sink) falls through unhandled all the way
+    // to Chromium's native fallback, where macOS matches it against the first
+    // menu item with no accelerator of its own ("About Specular") — pressing
+    // Cmd alone then opens the About dialog. Swallow it here whenever it
+    // isn't headed into a page, rather than relying on the renderer's
+    // preventDefault, which only runs once a page is the keyboard target.
+    if (input.key === 'Meta' && effective.sourceView !== 'page') {
+      event.preventDefault()
+      return
+    }
+
     // Track Space modifier regardless of editing state — space-to-pan must
     // stay in sync even when focus is in an input that consumes Space natively.
     if (input.key === ' ' || input.code === 'Space') {
