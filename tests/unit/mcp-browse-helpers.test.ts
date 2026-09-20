@@ -220,4 +220,14 @@ describe('parseScrollTarget', () => {
     expect(parse('scroll down')).toBeNull()
     expect(parse('click')).toBeNull()
   })
+
+  // hover isn't a mutation (MUTATION_VERBS excludes it — it invalidates no
+  // snapshot and triggers no stale-ref machinery), but it's still a real
+  // pointer move the presence cursor animates, so its target gets the same
+  // pre-scroll a click's does.
+  it('scrolls a hover target into view even though hover is not a mutation', () => {
+    expect(parse('hover @e5')).toBe('@e5')
+    expect(parse('hover "#dropdown-trigger"')).toBe('#dropdown-trigger')
+    expect(mutationVerbForCommand(parseCommandArgs('hover @e5'))).toBeNull()
+  })
 })

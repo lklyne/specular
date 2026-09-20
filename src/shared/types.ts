@@ -599,6 +599,29 @@ export interface PresenceTargetQuery {
 }
 
 /**
+ * One step of a chained browse command's presence queue, carried on
+ * `/session/presence/intent`'s `queue` field. A chained command runs as a
+ * single `batch` spawn (no HTTP round trip between steps), so the whole
+ * ordered list is registered up front and main advances through it as each
+ * step's own CDP event (or its TTL) consumes the step before it — see
+ * `advancePendingIntent` in `src/main/routes/session.ts`.
+ *
+ * `labelKey` is a plain string rather than `PresenceLabelKey` because a step
+ * can map to a label outside that allowlist (e.g. `screenshot`'s
+ * `take_screenshot`, which main's coercion silently drops) — the queue item
+ * is simply skipped when that happens, the same way an out-of-allowlist
+ * labelKey is dropped anywhere else.
+ */
+export interface PresenceIntentQueueItem {
+  labelKey: string
+  command: string
+  targetRef: string | null
+  targetRefSource: PresenceTargetRefSource | null
+  targetQuery: PresenceTargetQuery | null
+  labelHint: string | null
+}
+
+/**
  * Reserved color for synced cursors — a presence cursor sourced from the
  * user's mirrored input (ADR 0030) rather than an agent session. Fixed and
  * distinct from `deriveColor`'s hsl(hue, 70%, 55%) space so a synced cursor

@@ -74,6 +74,20 @@ export interface ActivePresenceTask {
   targetRect: PresenceTargetRect | null
   labelHint: string | null
   updatedAt: number
+  // True once a `start` event carried `hold: true` (`specular presence
+  // start`). Sticky across later act/surface/think upserts for the same
+  // session — cleared only when the whole record is deleted (`done`,
+  // departure). Exempts the session's cursor from the ordinary
+  // session-liveness and idle-retire checks in `expirePresenceCursors`, as
+  // long as `lastRequestAt` stays within `PRESENCE_HELD_BACKSTOP_MS`.
+  held: boolean
+  // Wall-clock time of the most recent genuine agent HTTP request for this
+  // session. Set by every real `upsertActivePresenceTask` call; deliberately
+  // untouched by `scheduleThinkingState`'s delayed self-transition (which
+  // mutates a cursor/task in place rather than going through this function)
+  // so a crashed agent that stops sending requests can't look perpetually
+  // fresh to the held-cursor backstop.
+  lastRequestAt: number
 }
 
 // --- State ---
@@ -89,6 +103,12 @@ export const PRESENCE_CURSOR_STEP_DELAY_MS = PRESENCE_STEP_DELAY_MS
 const PRESENCE_CURSOR_THINKING_DELAY_MS = PRESENCE_THINKING_DELAY_MS
 const PRESENCE_DEPARTURE_GRACE_MS = 1500
 const PRESENCE_IDLE_RETIRE_MS = 10_000
+// A held task (`specular presence start`) exempts its cursor from the
+// ordinary idle-retire and session-liveness checks so it can idle in place
+// across an LLM's thinking gaps. This is the backstop for the case the hold
+// is meant to survive — a crashed agent that never sends `done` — not a
+// realistic task duration; it stays generous.
+export const PRESENCE_HELD_BACKSTOP_MS = 5 * 60_000
 
 // --- Coercion validation sets ---
 
@@ -434,33 +454,76 @@ function isSessionLive(sessionId: string, now: number): boolean {
   return now - session.lastSeenAt <= MCP_SESSION_TIMEOUT_MS
 }
 
+/** Whether `sessionId` holds a task (`specular presence start`) whose last
+ *  genuine request is still within the backstop window. */
+function isHeldFresh(sessionId: string, now: number): boolean {
+  const task = activePresenceTasks.get(sessionId)
+  if (!task?.held) return false
+  return now - task.lastRequestAt <= PRESENCE_HELD_BACKSTOP_MS
+}
+
+type PresenceCursorFate = 'keep' | 'depart' | 'remove'
+
+interface PresenceCursorFateContext {
+  // Synced cursors (ADR 0030) have no backing MCP session, so session
+  // liveness never applies to them — this is the capture probe's verdict
+  // instead, already resolved to false for a non-synced cursor.
+  syncedAndLive: boolean
+  held: boolean
+  heldFresh: boolean
+  sessionLive: boolean
+}
+
+/**
+ * The expiry decision for one presence cursor, isolated from the map
+ * mutations it drives (`expirePresenceCursors` applies the result). A held
+ * cursor (`specular presence start`) ignores both session liveness and the
+ * ordinary idle-retire below — that's the whole point of holding — until its
+ * own backstop lapses; a synced cursor still capturing is alive even when
+ * perfectly still (a mouse held over a tooltip sends nothing).
+ */
+function presenceCursorFate(
+  cursor: PresenceCursorEntry,
+  now: number,
+  ctx: PresenceCursorFateContext,
+): PresenceCursorFate {
+  if (cursor.activity === 'departing') {
+    return now - cursor.updatedAt > PRESENCE_DEPARTURE_GRACE_MS ? 'remove' : 'keep'
+  }
+  if (cursor.source === 'interaction-sync') {
+    if (ctx.syncedAndLive) return 'keep'
+  } else if (ctx.held) {
+    return ctx.heldFresh ? 'keep' : 'depart'
+  } else if (!ctx.sessionLive) {
+    return 'depart'
+  }
+  // Idle-retire stays a backstop for a synced cursor whose probe reports
+  // not-live (or has none registered) and for a live, unheld session.
+  return now - cursor.updatedAt > PRESENCE_IDLE_RETIRE_MS ? 'depart' : 'keep'
+}
+
 function expirePresenceCursors(now: number): void {
   for (const [id, cursor] of presenceCursors) {
-    if (cursor.activity === 'departing') {
-      if (now - cursor.updatedAt > PRESENCE_DEPARTURE_GRACE_MS) {
-        removePresenceCursor(id)
-        activePresenceTasks.delete(id)
-      }
-      continue
-    }
-    if (cursor.source === 'interaction-sync') {
-      // Synced cursors (ADR 0030) have no backing MCP session, so `isSessionLive`
-      // never applies. While the source is still capturing they are alive even
-      // when perfectly still (a mouse held over a tooltip sends nothing) — the
-      // capture probe is that liveness signal. Idle-retire stays a backstop for
-      // when no probe is registered or the source has already stopped.
-      if (syncedCursorLivenessProbe?.()) continue
-    } else if (!isSessionLive(id, now)) {
-      beginPresenceDeparture(id)
-      continue
-    }
-    if (now - cursor.updatedAt > PRESENCE_IDLE_RETIRE_MS) {
+    const fate = presenceCursorFate(cursor, now, {
+      syncedAndLive: cursor.source === 'interaction-sync' && (syncedCursorLivenessProbe?.() ?? false),
+      held: activePresenceTasks.get(id)?.held ?? false,
+      heldFresh: isHeldFresh(id, now),
+      sessionLive: isSessionLive(id, now),
+    })
+    if (fate === 'remove') {
+      removePresenceCursor(id)
+      activePresenceTasks.delete(id)
+    } else if (fate === 'depart') {
       beginPresenceDeparture(id)
     }
   }
   // Clean up orphaned active tasks whose cursors have already been removed.
+  // A held task within its backstop window survives this even without a
+  // cursor — the backstop above (or `done`) is what retires it.
   for (const id of activePresenceTasks.keys()) {
-    if (!presenceCursors.has(id) && !isSessionLive(id, now)) {
+    if (presenceCursors.has(id)) continue
+    if (isHeldFresh(id, now)) continue
+    if (!isSessionLive(id, now)) {
       activePresenceTasks.delete(id)
     }
   }
@@ -600,6 +663,17 @@ function mergeTaskField(
   return existingValue ?? taskValue ?? null
 }
 
+/** A held task's label is the agent's standing description of the whole task,
+ *  so the unlabelled events inside it (every browse intent sends a null label)
+ *  must not clear it. Only another labelled `start`, or `done`, replaces it.
+ *  Returns the label to keep, or `undefined` when the ordinary merge applies. */
+function heldTaskLabel(
+  task: ActivePresenceTask | undefined,
+  patchValue: string | null | undefined,
+): string | null | undefined {
+  return task?.held === true && patchValue == null ? task.taskLabel : undefined
+}
+
 function buildCursorEntry(
   sessionId: string,
   clientName: string,
@@ -634,7 +708,9 @@ function buildCursorEntry(
     color: existing?.color ?? deriveColor(sessionId),
     canvasX: resolvedCanvasX,
     canvasY: resolvedCanvasY,
-    taskLabel: mergeTaskField(patch.taskLabel, existing?.taskLabel, activeTask?.taskLabel),
+    taskLabel:
+      heldTaskLabel(activeTask, patch.taskLabel) ??
+      mergeTaskField(patch.taskLabel, existing?.taskLabel, activeTask?.taskLabel),
     labelHint: mergeTaskField(patch.labelHint, existing?.labelHint, activeTask?.labelHint),
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
@@ -690,6 +766,7 @@ export function upsertActivePresenceTask(
     targetName?: string | null
     targetRect?: PresenceTargetRect | null
     labelHint?: string | null
+    hold?: boolean
   },
 ): void {
   const resolved = resolveSession(request, patch.body)
@@ -708,10 +785,13 @@ export function upsertActivePresenceTask(
     labelHint: null,
     ...pickDefined(existing, MERGED_TASK_FIELDS),
     ...pickDefined(patch, MERGED_TASK_FIELDS),
+    ...pickDefined({ taskLabel: heldTaskLabel(existing, patch.taskLabel) }, ['taskLabel']),
     sessionId,
     clientName: session.clientName,
     surface: patch.surface ?? existing?.surface ?? 'canvas',
+    held: patch.hold === true ? true : existing?.held ?? false,
     updatedAt: Date.now(),
+    lastRequestAt: Date.now(),
   })
   schedulePresenceExpiry()
 }

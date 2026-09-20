@@ -246,7 +246,7 @@ import type { PersistedWorkspaceTab } from '../shared/types'
 import { resolveSpaceTabRef } from './runtime/space-tab-refs'
 import { designSystemRoutes } from './routes/design-system'
 import { workspaceRoutes } from './routes/workspace'
-import { sessionRoutes } from './routes/session'
+import { sessionRoutes, advancePendingIntent } from './routes/session'
 import { edgesGroupsRoutes } from './routes/edges-groups'
 import { recordingRoutes } from './routes/recording'
 import { annotationRoutes } from './routes/annotations'
@@ -699,11 +699,12 @@ export async function startAppControlServer(): Promise<void> {
           }
           if (cdpType === 'mousePressed') {
             const intentSessionId = registration.sessionId ?? ''
+            // Stop the intent's own TTL now that a real event is consuming
+            // it — advancing to whatever's queued waits until the click has
+            // actually landed (below), so a chained command's next-step
+            // reposition can never race this one's own dwell/dispatch.
             const intent = pendingIntents.get(intentSessionId)
-            if (intent) {
-              clearTimeout(intent.expiryTimer)
-              pendingIntents.delete(intentSessionId)
-            }
+            if (intent) clearTimeout(intent.expiryTimer)
             // Budget the pre-click dwell from the cursor's last reposition,
             // not from intent arrival — otherwise cold-start / scrollIntoView
             // can consume the head-start before the cursor finishes moving.
@@ -721,6 +722,14 @@ export async function startAppControlServer(): Promise<void> {
             if (id !== null) sendToClient(JSON.stringify({ id, result: {} }))
           } catch (error) {
             sendProtocolError(id, error instanceof Error ? error.message : 'Mouse dispatch failed')
+          } finally {
+            // Only now — after this click has actually landed (or failed) —
+            // advance a chained browse command to its next step, if any.
+            // Doing this earlier would reposition the cursor toward the
+            // next target while this click was still in flight.
+            if (cdpType === 'mousePressed') {
+              advancePendingIntent(request, registration.sessionId ?? '', pageSessionBody())
+            }
           }
           return
         }
