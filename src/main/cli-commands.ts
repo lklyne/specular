@@ -739,6 +739,26 @@ const wait: VerbHandler = async (args) => {
   }))
 }
 
+/**
+ * CLI parity with the MCP `browse` tool: a raw agent-browser command string
+ * that may chain steps with `&&`, run as one atomic `batch` with per-step
+ * cursor labels (see handleBrowse). The shell verbs above (`click`, `fill`,
+ * …) each build one command; a shell `&&` between separate `specular`
+ * invocations runs separate processes, so chaining was previously MCP-only.
+ * `-f`/`--page` is required here (unlike the single-shot verbs, which fall
+ * back to the selected page) — a multi-step command is worth naming a page
+ * for explicitly.
+ */
+const browse: VerbHandler = async (args) => {
+  const command = args.positional[0]
+  const targetPageId = pageId(args)
+  if (!command || !targetPageId) {
+    printError('usage: specular browse "<command string>" -f <pageId>')
+    return 1
+  }
+  return browseCommand(args, command)
+}
+
 // --- Passthrough: unknown verbs go to agent-browser ---
 
 /** Flags consumed by specular that must not leak into agent-browser commands. */
@@ -825,6 +845,7 @@ export const VERBS: Record<string, VerbHandler> = {
   screenshot,
   scroll,
   wait,
+  browse,
   // Read-only browser verbs
   get: browsePassthrough,
   console: browsePassthrough,
@@ -843,6 +864,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Tabs: tab, tab new <name>, tab switch <tab-id|tab-name>, tab delete <tab-id|tab-name>')
     printText('  --tab <tab-id|tab-name> targets another canvas without switching focus')
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
+    printText('  browse "<cmd> && <cmd>" -f <pageId>  chains steps as one atomic batch (see the browse tool)')
     printText('Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
     printText('Presence: presence start "<task label>", presence done')

@@ -39,6 +39,9 @@ const VERB_TO_TOOLS: Record<string, string[]> = {
   'design-system': ['get_design_system'],
   'register-design-system': ['register_design_system'],
   'component-states': ['layout_component_states'],
+  // CLI parity with the MCP browse tool: a raw (possibly chained) command
+  // string forwarded to handleBrowse exactly as the tool does.
+  browse: ['browse'],
 }
 
 const EXCLUDED_VERBS: Record<string, string> = {

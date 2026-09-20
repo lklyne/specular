@@ -313,10 +313,22 @@ are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
 
 ## Chaining
 
-Commands can be chained with `&&` for atomic sequences:
+Shell `&&` between separate `specular` calls runs separate processes — fine
+for independent steps like creating a page and then reading it:
 
 ```bash
 specular add page http://localhost:3000 && specular snapshot -i -f <pageId>
+```
+
+For steps that belong together — a click and the fill that depends on it —
+use `specular browse "<cmd> && <cmd>" -f <pageId>` instead. It sends the
+whole chain to the app as one atomic batch: the presence cursor gets a
+label per step, it stops at the first failure (no half-applied chain), and
+`@eN` refs stay valid across steps since agent-browser never re-launches
+between them.
+
+```bash
+specular browse "click @e3 && fill @e5 hello" -f <pageId>
 ```
 
 ## Known CLI limitations
@@ -379,7 +391,7 @@ family). Install: `claude mcp add specular-mcp -- node out/main/mcp-helper.js`
 | `print-pdf` | `print_pdf` |
 | `design-system` / `register-design-system` / `component-states` | `get_design_system` / `register_design_system` / `layout_component_states` |
 | `presence start` / `presence done` | `start_task` / `finish_task` |
-| `snapshot`, `click`, `fill`, `type`, `select`, `screenshot`, `scroll`, `wait`, and other passthrough verbs | `browse` |
+| `snapshot`, `click`, `fill`, `type`, `select`, `screenshot`, `scroll`, `wait`, `browse`, and other passthrough verbs | `browse` |
 
 Every tool takes an optional `tab` (id or name) to target another canvas
 without switching the user's focus, the MCP equivalent of the CLI's `--tab`.
