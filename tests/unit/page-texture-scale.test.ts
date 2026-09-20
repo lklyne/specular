@@ -9,12 +9,16 @@
  * - dropping `SHRINK_MARGIN` (`smallestSharpScale(displayScale)`) — the
  *   sticky-shrink case fails;
  * - applying the margin to growth too (`sharp >= currentScale` →
- *   `sharp === currentScale`) — the grows-at-once case fails.
+ *   `sharp === currentScale`) — the grows-at-once case fails;
+ * - returning `expectedCss` unconditionally from `paintedCssLength` — the
+ *   stale-frame case fails;
+ * - dropping the tolerance branch — the settled-page case fails.
  */
 
 import { describe, expect, it } from 'vitest'
 import {
   FULL_TEXTURE_SCALE,
+  paintedCssLength,
   textureScaleForDisplayScale,
 } from '../../src/main/runtime/page-texture-scale'
 
@@ -59,5 +63,19 @@ describe('textureScaleForDisplayScale', () => {
       const once = textureScaleForDisplayScale(display, FULL_TEXTURE_SCALE)
       expect(textureScaleForDisplayScale(display, once)).toBe(once)
     }
+  })
+})
+
+describe('paintedCssLength', () => {
+  it('reports the viewport a stale frame was painted for, not the one asked for', () => {
+    // An 800px page resized to 1000px at 2x: the old-size frame still arrives.
+    expect(paintedCssLength(1600, 1000, 2)).toBe(800)
+    // Quarter texture scale at 2x is 0.5 device px per CSS px.
+    expect(paintedCssLength(400, 1000, 0.5)).toBe(800)
+  })
+
+  it('reports a settled page at its exact size despite device-px rounding', () => {
+    // round(round(1001 * 0.25) * 2) = 500, which reads back as 1000.
+    expect(paintedCssLength(500, 1001, 0.5)).toBe(1001)
   })
 })

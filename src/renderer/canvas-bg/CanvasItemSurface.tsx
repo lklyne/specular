@@ -62,7 +62,13 @@ function drawPageFrame(
     drawItemBlank(ctx, g, screenColor)
     return
   }
-  drawItemSnapshot(ctx, g, frame.bitmap)
+  drawItemSnapshot(
+    ctx,
+    g,
+    frame.bitmap,
+    { width: frame.meta.cssWidth, height: frame.meta.cssHeight },
+    screenColor,
+  )
 
   const popup = frames.popups.get(pageId)
   if (!popup) return
@@ -78,7 +84,6 @@ function drawPageFrame(
   // recover it via the page frame's own device-pixel-to-CSS ratio, then
   // reproject through the same content-rect scale as the page.
   const pageDeviceScale = frame.meta.width / frame.meta.cssWidth
-  const displayZoom = g.contentW / frame.meta.cssWidth
   const size = {
     width: popup.meta.width / pageDeviceScale,
     height: popup.meta.height / pageDeviceScale,
@@ -89,10 +94,10 @@ function drawPageFrame(
   })
   ctx.drawImage(
     popup.bitmap,
-    g.contentX + at.x * displayZoom,
-    g.contentY + at.y * displayZoom,
-    size.width * displayZoom,
-    size.height * displayZoom,
+    g.contentX + at.x * g.displayZoom,
+    g.contentY + at.y * g.displayZoom,
+    size.width * g.displayZoom,
+    size.height * g.displayZoom,
   )
 }
 

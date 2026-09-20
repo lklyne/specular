@@ -241,26 +241,48 @@ export function drawItemChrome(
   }
 }
 
+/** How far a frame's projected size may sit from its rect and still count as
+ *  filling it — float error in the projection, well under a device pixel. */
+const RECT_FIT_EPSILON_PX = 0.01
+
 /**
- * A page's texture in its content rect, clipped to the content viewport's
+ * A page's texture over its content rect, clipped to the content viewport's
  * corner radius. It occludes the inner border ring and the bezel's drop
  * shadow, which a shadowed donut casts into its own cutout as well as outward.
+ *
+ * The texture is drawn at the size it was painted for (`paintedCss`), pinned
+ * to the rect's top-left, never fitted to the rect. Through a resize the rect
+ * leads the page's frames; like a native window, the stale frame crops or
+ * leaves unlit screen showing rather than stretching.
  */
 export function drawItemSnapshot(
   ctx: CanvasRenderingContext2D,
   g: ItemGeometry,
   bitmap: ImageBitmap,
+  paintedCss: { width: number; height: number },
+  screenColor: string,
 ): void {
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  // A shell-less page has square corners, so its rect needs no clip path.
-  if (g.innerRadius <= 0) {
+  const drawW = paintedCss.width * g.displayZoom
+  const drawH = paintedCss.height * g.displayZoom
+  const fitsRect =
+    Math.abs(drawW - g.contentW) < RECT_FIT_EPSILON_PX &&
+    Math.abs(drawH - g.contentH) < RECT_FIT_EPSILON_PX
+  // A shell-less page has square corners, so a fitting frame needs no clip path.
+  if (fitsRect && g.innerRadius <= 0) {
     ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
     return
   }
   ctx.save()
   ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
-  ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+  if (fitsRect) {
+    ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+  } else {
+    ctx.fillStyle = screenColor
+    ctx.fillRect(g.contentX, g.contentY, g.contentW, g.contentH)
+    ctx.drawImage(bitmap, g.contentX, g.contentY, drawW, drawH)
+  }
   ctx.restore()
 }
 

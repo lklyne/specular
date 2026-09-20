@@ -44,3 +44,23 @@ export function textureScaleForDisplayScale(displayScale: number, currentScale: 
   if (sharp >= currentScale) return sharp
   return Math.min(currentScale, smallestSharpScale(displayScale / SHRINK_MARGIN))
 }
+
+/** Slack on a frame's coded size, for the rounding between CSS and device px. */
+export const TEXTURE_SIZE_TOLERANCE_PX = 2
+
+/**
+ * The CSS length a frame was painted for, read back from its texture. A view
+ * resize lands some frames after it is asked for, and the frames in between
+ * still show the old viewport; only their texture size says so. `expectedCss`
+ * wins inside the rounding slack, so a settled page reports its exact size.
+ */
+export function paintedCssLength(
+  codedLength: number,
+  expectedCss: number,
+  devicePxPerCssPx: number,
+): number {
+  if (Math.abs(codedLength - expectedCss * devicePxPerCssPx) <= TEXTURE_SIZE_TOLERANCE_PX) {
+    return expectedCss
+  }
+  return Math.max(1, Math.round(codedLength / devicePxPerCssPx))
+}

@@ -10,7 +10,11 @@ export interface PageFrameMeta {
   /** Texture size in device pixels. */
   width: number
   height: number
-  /** CSS viewport size of the page when this frame was painted. */
+  /**
+   * CSS viewport size the frame was painted for. It trails the page's size by
+   * a few frames through a resize, so the canvas draws a frame at this size
+   * rather than fitting it to the page's rect.
+   */
   cssWidth: number
   cssHeight: number
   /**

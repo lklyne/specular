@@ -12,7 +12,12 @@ import { BrowserWindow, screen, sharedTexture, type NativeImage, type WebContent
 import type { PageFrameMeta } from '../../shared/page-frames'
 import { forgetInputCountForPage, inputCountForPage } from './page-input-counter'
 import { frameRateForDisplayScale } from './page-frame-rate'
-import { FULL_TEXTURE_SCALE, textureScaleForDisplayScale } from './page-texture-scale'
+import {
+  FULL_TEXTURE_SCALE,
+  TEXTURE_SIZE_TOLERANCE_PX,
+  paintedCssLength,
+  textureScaleForDisplayScale,
+} from './page-texture-scale'
 import { ensurePageDebugger } from './page-debugger'
 import { preloadPath } from './load-renderer'
 
@@ -58,9 +63,6 @@ const TEXTURE_RESIZE_NUDGE_MS = 500
 
 /** How long after a transition's clean frame a second one is asked for. */
 const TEXTURE_CLEAN_FRAME_RETRY_MS = 250
-
-/** Slack on a frame's coded width, for the rounding between CSS and device px. */
-const TEXTURE_WIDTH_TOLERANCE_PX = 2
 
 /** Grace for a view resize to reach the page before its override is cleared. */
 const CLEAR_OVERRIDE_AFTER_RESIZE_MS = 300
@@ -429,11 +431,25 @@ class OffscreenPageHost implements PageHost {
       })
   }
 
+  /** A popup's texture is its own size, not the viewport's, so it reports the host's. */
+  private paintedCssSize(info: Electron.OffscreenSharedTexture['textureInfo']): {
+    cssWidth: number
+    cssHeight: number
+  } {
+    const { width, height } = this.currentSize
+    if (info.widgetType === 'popup') return { cssWidth: width, cssHeight: height }
+    const devicePxPerCssPx = this.appliedTextureScale * this.deviceScaleFactor
+    return {
+      cssWidth: paintedCssLength(info.codedSize.width, width, devicePxPerCssPx),
+      cssHeight: paintedCssLength(info.codedSize.height, height, devicePxPerCssPx),
+    }
+  }
+
   private isAtAppliedTextureSize(codedWidth: number): boolean {
     const viewWidth = Math.max(1, Math.round(this.currentSize.width * this.appliedTextureScale))
     return (
       Math.abs(codedWidth - Math.round(viewWidth * this.deviceScaleFactor)) <=
-      TEXTURE_WIDTH_TOLERANCE_PX
+      TEXTURE_SIZE_TOLERANCE_PX
     )
   }
 
@@ -544,8 +560,7 @@ class OffscreenPageHost implements PageHost {
       widgetType: info.widgetType,
       width: info.codedSize.width,
       height: info.codedSize.height,
-      cssWidth: this.currentSize.width,
-      cssHeight: this.currentSize.height,
+      ...this.paintedCssSize(info),
       frameRate: this.tierFrameRate,
       inputSeq: inputCountForPage(this.id),
     }
