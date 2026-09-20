@@ -3,6 +3,7 @@ import {
   BaseWindow,
   BrowserWindow,
   screen,
+  shell,
   WebContentsView,
 } from 'electron'
 import { join } from 'path'
@@ -27,6 +28,7 @@ import {
   setToolbarView,
   setWin,
 } from './view-refs'
+import { destroyAllPageHosts, setPageFrameTarget } from './page-host'
 import { layoutCache } from './layout-cache'
 import { markDirty } from './layout-dirty'
 import { recenterFocusPresentation, requestLayout } from './viewport-control'
@@ -173,6 +175,8 @@ export function initWindow(): void {
   }))
   const currentBgView = bgView
   if (!currentBgView) return
+  // Every page's painted texture is sent to this renderer's main frame.
+  setPageFrameTarget(currentBgView.webContents)
   currentBgView.setBackgroundColor('#00000000')
   // Strip cross-origin-resource-policy from image responses in UI renderers
   // (canvas-bg, sidebar) so they can load favicon images from any origin.
@@ -181,6 +185,14 @@ export function initWindow(): void {
   const registerUiWebContents = (wc: Electron.WebContents, label: string) => {
     uiWebContentsIds.add(wc.id)
     wireRendererLogging(wc, label)
+    // Chrome renderers host authored content — agent markdown, page titles —
+    // so they can carry links. Links in chrome are always target="_blank", and
+    // a chromeless Electron window is a dead end with no way back; the OS
+    // browser is the only sane destination.
+    wc.setWindowOpenHandler(({ url }) => {
+      if (url.startsWith('https://') || url.startsWith('http://')) void shell.openExternal(url)
+      return { action: 'deny' }
+    })
   }
   registerUiWebContents(currentBgView.webContents, 'canvas-bg')
   currentBgView.webContents.session.webRequest.onHeadersReceived(
@@ -247,7 +259,7 @@ export function initWindow(): void {
     if (currentAboveView.webContents.isDestroyed()) return
     currentAboveView.webContents.send(ipcChannels.themeChanged, { isDark: isDark(), themeMode: getThemeMode() })
     broadcastSceneSnapshot(buildCanvasLayoutData(backgroundPageOverlays()))
-    layoutCache.lastCommentOverlayBoundsKey = null
+    layoutCache.lastAboveViewBoundsKey = null
     requestLayout()
   })
   // Agent-presence cursor overlay. A child BrowserWindow — not a WCV —
@@ -301,6 +313,10 @@ export function initWindow(): void {
   // seed from the window rather than assuming the app started in front.
   setWindowFocused(currentWin.isFocused())
   currentWin.on('closed', () => {
+    // Page hosts are windows of their own, so they hold `window-all-closed`
+    // off until they go too — without this the app lives on with no canvas to
+    // show for it (ADR 0038).
+    destroyAllPageHosts()
     if (!overlayWin.isDestroyed()) overlayWin.destroy()
     setCursorOverlayWindow(null)
     screen.off('display-metrics-changed', syncOverlayOnDisplayChange)

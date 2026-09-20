@@ -2,6 +2,8 @@ import type { BindingId } from '../bindings'
 import type { CanvasGuidesPayload } from '../canvas-guides'
 import type { CancelReason } from '../interaction-types'
 import type { MarqueeSelectionMode } from '../marquee-selection'
+import type { PagePopupAnchor } from '../page-frames'
+import type { ForwardKeyPayload } from '../page-key-input'
 import type { ResizeHandle } from '../resize-accumulator'
 import type { RuntimePatchBatch } from '../runtime-patch'
 import type { Tool } from '../tool'
@@ -20,10 +22,9 @@ import type {
   FocusPresentationMode,
   ForwardPointerPayload,
   ForwardWheelPayload,
-  FreezeTarget,
-  FrozenPagesState,
   LayoutUpdateData,
   PageColorScheme,
+  PageDragPayload,
   SelectionModifiers,
   SelectionOverlayPayload,
   ThemeData,
@@ -259,14 +260,27 @@ export interface CanvasBgElectronAPI {
   onBindingFire: (callback: (id: BindingId) => void) => () => void
   onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the
-   *  page's webContents (aboveview-interactive-layer-poc.md). */
+   *  page's webContents. */
   forwardWheelToPage: (pageId: string, payload: ForwardWheelPayload) => void
-  /** PoC: forward a pointer event hitting the single-selected page's body
-   *  to the page's webContents. */
+  /** Forward a pointer event hitting the single-selected page's body to the
+   *  page's webContents. */
   forwardPointerToPage: (pageId: string, payload: ForwardPointerPayload) => void
-  /** PoC: subscribe to the focused page's `cursor-changed` mirror so the
-   *  OS cursor (chosen from aboveView, the topmost WCV) tracks what the
-   *  underlying page would show. */
+  /** Forward a key event from aboveView's keyboard sink into the page that
+   *  owns the keyboard. A page renders offscreen and never receives an OS key
+   *  event of its own. */
+  forwardKeyToPage: (pageId: string, payload: ForwardKeyPayload) => void
+  /** Commit an IME composition into the page — the sink's `compositionend`. */
+  insertTextIntoPage: (pageId: string, text: string) => void
+  /** Subscribe to a page's drag-out payload once its `dragstart` arms it on
+   *  main (ADR 0038). */
+  onPageDragArmed: (
+    callback: (payload: { pageId: string; payload: PageDragPayload }) => void,
+  ) => () => void
+  /** Consume the armed drag-out payload for `pageId` and create a canvas
+   *  entity at the release point (ADR 0038 drag-out). */
+  dropPageDrag: (payload: { pageId: string; canvasX: number; canvasY: number }) => void
+  /** Subscribe to the focused page's `cursor-changed` mirror so the OS
+   *  cursor, chosen from aboveView, tracks what the page would show. */
   onPageCursorChange: (
     callback: (data: { type: string | null }) => void,
   ) => () => void
@@ -275,6 +289,10 @@ export interface CanvasBgElectronAPI {
    *  `local-file://` fetch — that scheme isn't CORS-enabled, and a renderer
    *  served from the dev server is cross-origin to it. */
   readNoteFile: (filePath: string) => Promise<string | null>
+  /** Bounding rect of the page's focused element, in page CSS px — where a
+   *  popup widget (picker, autofill) anchors, since its texture carries no position. */
+  pagePopupAnchor: (pageId: string) => Promise<PagePopupAnchor | null>
+  requestPageFrames: (pageIds: string[]) => void
   writeNoteFile: (filePath: string, content: string) => Promise<boolean>
   /**
    * ADR 0023 — commit a markdown note edit through the Y.Doc so it
@@ -288,15 +306,13 @@ export interface CanvasBgElectronAPI {
   repoConnect: (absolutePath: string) => Promise<unknown>
   /** Bind this page origin to a local folder (folder picker). */
   pickRepoForOrigin: (origin: string) => void
+  /** Drop the origin→repo binding; the page writes to the space folder again. */
+  removeOriginBinding: (origin: string) => void
   onLayoutUpdate: (callback: (data: LayoutUpdateData) => void) => () => void
   /** Fine-grained runtime-store updates: the cells one change touched, batched
    *  per layout pass. Layers subscribe to the slice they draw instead of
    *  re-reading the whole layout snapshot; the next `layoutUpdate` still
    *  carries the same values as the reconcile baseline. */
   onRuntimePatch: (callback: (batch: RuntimePatchBatch) => void) => () => void
-  onFrozenPagesState: (
-    callback: (data: FrozenPagesState) => void,
-  ) => () => void
-  frozenPagesReady: (target: FreezeTarget, revision: number) => void
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
 }

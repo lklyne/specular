@@ -1,16 +1,22 @@
 import { useState } from 'react'
 import type { SettingsElectronAPI } from '../../shared/electron-api/settings'
+import type { CursorVisibilityPrefs } from '../../shared/types'
+import { CursorVisibilitySection } from './CursorVisibilitySection'
 
 export function GeneralPane({
   api,
   version,
   space,
   onSpaceChange,
+  cursorVisibility,
+  onCursorVisibilityChange,
 }: {
   api: SettingsElectronAPI
   version: string
   space: { path: string; isDefault: boolean }
   onSpaceChange: (next: { path: string; isDefault: boolean }) => void
+  cursorVisibility: CursorVisibilityPrefs
+  onCursorVisibilityChange: (next: Partial<CursorVisibilityPrefs>) => void
 }) {
   const [changing, setChanging] = useState(false)
 
@@ -73,6 +79,11 @@ export function GeneralPane({
           </button>
         </div>
       </div>
+
+      <CursorVisibilitySection
+        cursorVisibility={cursorVisibility}
+        onChange={onCursorVisibilityChange}
+      />
     </section>
   )
 }

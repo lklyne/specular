@@ -1,14 +1,14 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { ipcMain } from 'electron'
 import type { Annotation, ComponentTreeNode, WorkspaceBounds } from '../../shared/types'
-import { aboveView } from '../runtime/view-refs'
+import { aboveView, devtoolsHeaderView } from '../runtime/view-refs'
 import {
   pageBodyCanvasBounds,
   projectFramePointToCanvas,
 } from '../runtime/runtime-geometry'
 import {
   findPageById,
-  findPageByPageView,
+  findPageByWebContents,
   getComponentSourceLocationByNodeId,
   handlePageIpcResponse,
   handleNodeDetailResponse,
@@ -106,13 +106,19 @@ export function registerAnnotationInspectionIpc(): void {
         if (bounds) focusCanvasBounds(bounds)
       }
       // The conversation lives in the right panel: open it (if closed), switch
-      // to comments, and focus this thread. The canvas keeps only the ring,
-      // painted by aboveView off the echo below.
+      // to comments, and focus this thread.
       openCommentsPanel(annotationId)
       selectThreadForAnnotation(annotationId)
       requestLayout()
       if (aboveView && !aboveView.webContents.isDestroyed()) {
         aboveView.webContents.send(ipcChannels.annotationThreadOpen, {
+          annotationId,
+        })
+      }
+      // The panel flashes the comment on every click, not just when focus
+      // changes: re-clicking the focused pin should still point at it.
+      if (devtoolsHeaderView && !devtoolsHeaderView.webContents.isDestroyed()) {
+        devtoolsHeaderView.webContents.send(ipcChannels.annotationThreadOpen, {
           annotationId,
         })
       }
@@ -129,7 +135,7 @@ export function registerAnnotationInspectionIpc(): void {
   )
 
   ipcMain.on(ipcChannels.inspectNodeHover, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page) return
     if (!payload || typeof payload !== 'object') {
       setHoveredInspectTarget(null)
@@ -146,7 +152,7 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(ipcChannels.inspectNodeSelect, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page) return
     if (!payload || typeof payload !== 'object') {
       setSelectedInspectTarget(null)
@@ -163,7 +169,7 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(ipcChannels.inspectNodeDetailUpdate, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page || !payload || typeof payload !== 'object') return
     const raw = payload as { nodeId?: string; id?: string }
     const nodeId = raw.nodeId ?? raw.id
@@ -219,7 +225,7 @@ export function registerAnnotationInspectionIpc(): void {
   })
 
   ipcMain.on(ipcChannels.inspectTreeUpdate, (event, payload) => {
-    const page = findPageByPageView(event.sender)
+    const page = findPageByWebContents(event.sender)
     if (!page || !Array.isArray(payload)) return
     page.componentTree = payload as ComponentTreeNode[]
   })

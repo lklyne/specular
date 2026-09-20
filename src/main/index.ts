@@ -58,6 +58,7 @@ import { workspaceGroups, workspaceEdges, workspaceAnnotations, spaceTabs, activ
 import { getUiState, setSelection } from './ui-state'
 import { broadcastSelectionChange } from './runtime/runtime-slice-broadcast'
 import { destroyActivePages } from './runtime/runtime-core'
+import { destroyAllPageHosts } from './runtime/page-host'
 import { initAutoUpdater } from './auto-updater'
 import { initFileWatcher, teardownAllFileWatchers } from './runtime/local-file-watcher'
 
@@ -306,6 +307,9 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quitRequested = true
   flushSpaceAutosaveSync()
+  // After the flush, which still wants live pages: a page host refuses to
+  // close on its own, so a quit that skipped this would stall on them.
+  destroyAllPageHosts()
   teardownAllFileWatchers()
   void shutdownDevServerManager()
 })

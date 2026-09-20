@@ -11,7 +11,6 @@ export const layoutCache = {
   lastToolbarBoundsKey: null as string | null,
   lastOverlayBoundsKey: null as string | null,
   lastAboveViewBoundsKey: null as string | null,
-  lastCommentOverlayBoundsKey: null as string | null,
   lastCursorOverlayBoundsKey: null as string | null,
   lastFloatingUiBoundsKey: null as string | null,
   lastDevtoolsBackgroundBoundsKey: null as string | null,
@@ -26,7 +25,6 @@ export function resetLayoutCache(): void {
   layoutCache.lastToolbarBoundsKey = null
   layoutCache.lastOverlayBoundsKey = null
   layoutCache.lastAboveViewBoundsKey = null
-  layoutCache.lastCommentOverlayBoundsKey = null
   layoutCache.lastCursorOverlayBoundsKey = null
   layoutCache.lastFloatingUiBoundsKey = null
   layoutCache.lastDevtoolsBackgroundBoundsKey = null

@@ -31,3 +31,14 @@ export function pageContentRect(page: ProjectedPageEntity): Rect {
 export function pointerOverPageContent(page: ProjectedPageEntity, point: Point): boolean {
   return rectContains(pageContentRect(page), point)
 }
+
+/**
+ * Whether an armed page drag-out (ADR 0038) released at `releasePoint` drops
+ * onto the canvas, where its payload becomes a new entity: past the source
+ * page's content, or with that page no longer projected. A release inside the
+ * page stays there, and the page's own drop semantics are lost once it is an
+ * offscreen texture.
+ */
+export function pageDragDropsOnCanvas(releasePoint: Point, page: ProjectedPageEntity | null): boolean {
+  return !page || !pointerOverPageContent(page, releasePoint)
+}

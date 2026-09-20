@@ -366,7 +366,7 @@ export async function resolvePageCdpConnection(pageId: string): Promise<PageCdpC
     throw new Error('Page not found')
   }
 
-  const pageWebContentsId = page.pageView.webContents.id
+  const pageWebContentsId = page.host.webContents.id
   const targets = await fetchCdpTargets()
   const target = targets.find((candidate) => {
     if (!candidate.id || !candidate.webSocketDebuggerUrl) return false
@@ -385,8 +385,8 @@ export async function resolvePageCdpConnection(pageId: string): Promise<PageCdpC
   return {
     pageId,
     targetId: target.id,
-    url: target.url ?? page.pageView.webContents.getURL() ?? 'about:blank',
-    title: target.title ?? page.pageView.webContents.getTitle() ?? '',
+    url: target.url ?? page.host.webContents.getURL() ?? 'about:blank',
+    title: target.title ?? page.host.webContents.getTitle() ?? '',
     browserWebSocketDebuggerUrl: browserVersion.webSocketDebuggerUrl,
   }
 }

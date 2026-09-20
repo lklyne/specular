@@ -1,13 +1,48 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, BatchLayoutMode, EdgeSide, FrozenPagesState, LayoutUpdateData, SelectionOverlayPayload, ToolDefaultPatch, WorkspaceBounds } from '../shared/types'
+import { contextBridge, ipcRenderer, sharedTexture, webUtils } from 'electron'
+import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, BatchLayoutMode, EdgeSide, LayoutUpdateData, PageDragPayload, SelectionOverlayPayload, ToolDefaultPatch, WorkspaceBounds } from '../shared/types'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
 import type { CanvasGuidesPayload } from '../shared/canvas-guides'
+import type { PageFrameMessage, PageFrameMeta } from '../shared/page-frames'
 import type { RuntimePatchBatch } from '../shared/runtime-patch'
 import { ipcChannels } from '../shared/ipc-contract'
 import { entityMutationBridge } from './entity-mutation-bridge'
 import { on } from './ipc-helpers'
+
+/**
+ * Frames reach the page world as `window.postMessage` transfers rather than
+ * through the contextBridge: an ImageBitmap cannot cross the bridge, but the
+ * DOM window is shared between the isolated and main worlds and transfers
+ * work on it. This preload is also loaded by aboveView, but main only ever
+ * targets bgView's main frame (`setPageFrameTarget` in `page-host.ts`), so
+ * the receiver there never fires.
+ */
+function postPageFrame(meta: PageFrameMeta, bitmap: ImageBitmap): void {
+  const message: PageFrameMessage = { source: 'page-frame', meta, bitmap }
+  window.postMessage(message, '*', [bitmap])
+}
+
+sharedTexture.setSharedTextureReceiver(async (data, ...args) => {
+  const meta = args[0] as PageFrameMeta
+  const imported = data.importedSharedTexture
+  let frame: VideoFrame | null = null
+  try {
+    frame = imported.getVideoFrame()
+    const bitmap = await createImageBitmap(frame)
+    postPageFrame(meta, bitmap)
+  } catch (error) {
+    // A receiver that throws past this point would skip `imported.release()`
+    // below — Electron's OSR frame pool is reused the moment a texture is
+    // released, and a leaked reference drains the pool
+    // ("OSRSharedTextureNotReleased" in the app log), so every failure here
+    // is caught rather than left to propagate.
+    console.error('[canvas-bg] page frame copy failed', error)
+  } finally {
+    frame?.close()
+    imported.release()
+  }
+})
 
 function installSelectionOverlayBridge(): void {
   if (location.href !== 'about:blank') return
@@ -291,6 +326,13 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.send(ipcChannels.canvasForwardWheel, { pageId, payload }),
   forwardPointerToPage: (pageId, payload) =>
     ipcRenderer.send(ipcChannels.canvasForwardPointer, { pageId, payload }),
+  forwardKeyToPage: (pageId, payload) =>
+    ipcRenderer.send(ipcChannels.canvasForwardKey, { pageId, payload }),
+  insertTextIntoPage: (pageId, text) =>
+    ipcRenderer.send(ipcChannels.canvasInsertText, { pageId, text }),
+  onPageDragArmed: on<{ pageId: string; payload: PageDragPayload }>(ipcChannels.pageDragArmed),
+  dropPageDrag: (payload) =>
+    ipcRenderer.send(ipcChannels.canvasDropPageDrag, payload),
   onPageCursorChange: on<{ type: string | null }>(ipcChannels.aboveviewCursorUpdate),
   setTextEditing: (active: boolean) =>
     ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),
@@ -299,6 +341,8 @@ const api: CanvasBgElectronAPI = {
   onBindingFire: on<BindingId>(ipcChannels.bindingFire),
   onCanvasGuides: on<CanvasGuidesPayload>(ipcChannels.canvasGuides),
   readNoteFile: (filePath: string) => ipcRenderer.invoke(ipcChannels.readNoteFile, { filePath }),
+  pagePopupAnchor: (pageId: string) => ipcRenderer.invoke(ipcChannels.canvasPagePopupAnchor, { pageId }),
+  requestPageFrames: (pageIds) => ipcRenderer.send(ipcChannels.canvasRequestPageFrames, pageIds),
   writeNoteFile: (filePath: string, content: string) =>
     ipcRenderer.invoke(ipcChannels.writeNoteFile, { filePath, content }),
   applyNoteContent: (entityId: string, content: string) =>
@@ -308,11 +352,10 @@ const api: CanvasBgElectronAPI = {
     ipcRenderer.invoke(ipcChannels.repoConnect, { absolutePath }),
   pickRepoForOrigin: (origin: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelPickRepoForOrigin, { origin }),
+  removeOriginBinding: (origin: string) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelRemoveOriginBinding, { origin }),
   onLayoutUpdate: on(ipcChannels.layoutUpdate),
   onRuntimePatch: on<RuntimePatchBatch>(ipcChannels.runtimePatch),
-  onFrozenPagesState: on<FrozenPagesState>(ipcChannels.frozenPagesState),
-  frozenPagesReady: (target, revision) =>
-    ipcRenderer.send(ipcChannels.frozenPagesReady, { target, revision }),
   onThemeChanged: on(ipcChannels.themeChanged),
 }
 

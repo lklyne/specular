@@ -81,7 +81,7 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
                 type="button"
                 data-overlay-ui="comment-badge"
                 aria-label={`${badge.count} open messages`}
-                className="pointer-events-auto absolute z-[15] inline-flex items-center gap-1.5 rounded-full border border-blue-300/90 bg-blue-500 px-2 py-1.5 text-[10px] font-semibold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
+                className="pointer-events-auto absolute z-[15] inline-flex outline-none items-center gap-1.5 rounded-full border border-blue-300/90 bg-blue-500 px-2 py-1.5 text-[10px] font-semibold leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
                 style={{
                   left: badge.x,
                   top: badge.y,
@@ -107,7 +107,7 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
       })}
       {hoveredBadge ? (
         <div
-          className="pointer-events-none absolute z-[19] w-[260px] whitespace-pre-wrap rounded-[14px] border border-zinc-400/80 bg-white px-2.5 py-2 text-[11px] leading-[1.4] text-[var(--surface-foreground)] shadow-[0_8px_16px_rgba(0,0,0,0.15)] dark:border-zinc-600 dark:bg-zinc-900"
+          className="pointer-events-none absolute z-[45] w-[260px] whitespace-pre-wrap rounded-[14px] border border-zinc-400/80 bg-white px-2.5 py-2 text-[11px] leading-[1.4] text-[var(--surface-foreground)] shadow-[0_8px_16px_rgba(0,0,0,0.15)] dark:border-zinc-600 dark:bg-zinc-900"
           style={{
             left: Math.max(8, Math.min(hoveredBadge.x - 240, window.innerWidth - 268)),
             top: Math.max(8, Math.min(hoveredBadge.y + 22, window.innerHeight - 108)),

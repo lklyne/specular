@@ -6,6 +6,12 @@
 //   Screen corner radii: github.com/kylebshr/ScreenCorners
 //   Viewport sizes:      ios-resolution.com, screensizechecker.com
 //   Shell proportions:   Figma community vector mockups, Apple HIG
+//
+//   iPhone Duo is unreleased-spec at time of writing; Apple has not published
+//   CSS point dimensions. Its viewport values are inferred from reported
+//   physical pixel counts (1398×2034 cover, 1878×2670 open) assuming the
+//   standard 3x scale factor — see macobserver.com's iPhone Duo display
+//   resolution breakdown. Revisit once Apple ships official simulator data.
 // ---------------------------------------------------------------------------
 
 import type { ViewportPreset } from './types'
@@ -97,6 +103,38 @@ const entries: DeviceDef[] = [
     screenCornerRadius: 55,
     safeAreaInsets: { top: 59, right: 0, bottom: 34, left: 0 },
     landscapeSafeAreaInsets: { top: 0, right: 0, bottom: 21, left: 59 },
+  },
+  {
+    id: 'iphone-duo-cover',
+    label: 'iPhone Duo (cover)',
+    category: 'iphone',
+    // 5.4" outer display, 1398×2034 physical @3x. Apple hasn't published point
+    // dimensions; this assumes the standard 3x scale used on its 460ppi panels.
+    viewport: { width: 466, height: 678 },
+    mobile: true,
+    presetIndex: 9,
+    shellInsets: { top: 22, right: 22, bottom: 26, left: 22 },
+    cornerRadius: 77,
+    screenCornerRadius: 55,
+    // No notch/Dynamic Island cutout on the cover screen (it sits in a side bezel,
+    // not the top safe area) — just status bar top, home indicator bottom.
+    safeAreaInsets: { top: 20, right: 0, bottom: 34, left: 0 },
+  },
+  {
+    id: 'iphone-duo-open',
+    label: 'iPhone Duo (open)',
+    category: 'iphone',
+    // 7.6" inner display, 1878×2670 physical @3x, unfolded. Same caveat as the
+    // cover preset above — point size is inferred, not Apple-published.
+    viewport: { width: 626, height: 890 },
+    mobile: true,
+    presetIndex: 10,
+    // Tablet-like edge-to-edge slab; bezel/corner treatment follows iPad Mini.
+    shellInsets: { top: 24, right: 24, bottom: 24, left: 24 },
+    cornerRadius: 42,
+    screenCornerRadius: 18,
+    // Under-display FaceTime camera needs no cutout; gesture nav only.
+    safeAreaInsets: { top: 24, right: 0, bottom: 20, left: 0 },
   },
   // ── iPads ──────────────────────────────────────────────────────────────
   {

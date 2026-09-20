@@ -16,6 +16,7 @@
  */
 
 import {
+  currentChromeSlice,
   currentFocusSlice,
   currentSelectionSlice,
   currentToolSlice,
@@ -48,6 +49,20 @@ export function broadcastInteractionChange(): void {
  *  the focus session without touching a selection or a tool. */
 export function broadcastFocusChange(): void {
   broadcastRuntimePatches([{ kind: 'slice', slice: 'focus', value: currentFocusSlice() }])
+}
+
+/**
+ * The window furniture: a side panel opening, closing, or being dragged wider.
+ *
+ * The panels' own native bounds are re-set by every layout pass, so a mutator
+ * that moves one needs no more than `requestLayout()` for the views to land
+ * right — but anything a renderer draws against the canvas area edges (the
+ * fullscreen note card, the popup flip math) reads `chrome`, and that only
+ * moves when someone says so. A site that dirties the canvas for its own
+ * reasons gets these cells from the rebuild and doesn't need this.
+ */
+export function broadcastChromeChange(): void {
+  broadcastRuntimePatches([{ kind: 'slice', slice: 'chrome', value: currentChromeSlice() }])
 }
 
 /** A gesture tick that refines the interaction state without changing its kind

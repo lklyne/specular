@@ -65,7 +65,6 @@ export interface DevtoolsPanelElectronAPI {
   setPageCustom: (pageId: string) => void
   setDeviceOrientation: (pageId: string, orientation: string) => void
   toggleDeviceShell: (pageId: string) => void
-  toggleSvgDeviceShell: (pageId: string) => void
   focusSelection: () => void
   duplicatePage: (pageId: string) => void
   deletePage: (pageId: string) => void
@@ -74,4 +73,8 @@ export interface DevtoolsPanelElectronAPI {
   getInitialData: () => Promise<ThemeBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onPanelData: (callback: (data: DevtoolsPanelData) => void) => () => void
+  /** A comment was focused from the canvas or a list; the panel flashes it. */
+  onAnnotationThreadOpen: (
+    callback: (payload: { annotationId: string | null }) => void,
+  ) => () => void
 }

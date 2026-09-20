@@ -131,8 +131,6 @@ export interface CanvasScenePageEntity {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  /** Use SVG rendering for the device shell (A/B toggle). */
-  useSvgDeviceShell?: boolean
   /** Optional — absent means the page follows the system color scheme. */
   colorScheme?: PageColorScheme
   /** Page's absolute scroll offset in raw CSS pixels, default 0. Document
@@ -610,6 +608,12 @@ export const SYNCED_CURSOR_COLOR = '#00C2FF'
 
 export type PresenceCursorSource = 'agent' | 'interaction-sync'
 
+/** Which presence cursors the user has chosen not to see, by source. */
+export interface CursorVisibilityPrefs {
+  hideAgentCursors: boolean
+  hideSyncedCursors: boolean
+}
+
 export interface AgentPresenceCursor {
   sessionId: string
   clientName: string
@@ -914,6 +918,7 @@ export interface SettingsBootstrapData extends ThemeBootstrapData {
   /** The current space (ADR 0033 §6): its resolved path, and whether it's
    *  the legacy default (`spacePath` unset) or a folder the user chose. */
   space: { path: string; isDefault: boolean }
+  cursorVisibility: CursorVisibilityPrefs
 }
 
 export type {
@@ -1051,6 +1056,8 @@ export interface DevtoolsPanelData {
   activeThreadId?: string | null
   /** Active canvas tab name, for the composer context chip. */
   canvasName?: string | null
+  /** Space folder on disk — where a thread writes when no repo is bound. */
+  spacePath?: string
   textEntity?: PanelTextEntityDetail
   fileEntity?: PanelFileEntityDetail
   drawingEntity?: PanelDrawingEntityDetail
@@ -1088,7 +1095,6 @@ export interface DevtoolsPanelPageSummary {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  useSvgDeviceShell?: boolean
   canGoBack?: boolean
   canGoForward?: boolean
   isLoading?: boolean
@@ -1207,6 +1213,17 @@ export interface ScrollSyncData {
   anchorSelector?: string
   anchorProgress?: number
 }
+
+/**
+ * A page-content drag gesture, captured on `dragstart` and armed on main
+ * (`page-drag-out.ts`) so a release outside the source page's content can be
+ * turned into a canvas entity — the one part of native drag-and-drop that
+ * survives a page becoming an offscreen texture (ADR 0038).
+ */
+export type PageDragPayload =
+  | { kind: 'image'; src: string }
+  | { kind: 'link'; url: string; text?: string }
+  | { kind: 'text'; text: string }
 
 export interface SourceLocation {
   file: string
@@ -1776,32 +1793,6 @@ export interface CreateEdgesResponse {
 }
 
 // --- Electron API Interfaces (exposed via contextBridge) ---
-
-/** Which overlay a frozen-page publish targets: the page-body layer (`bg`) or
- *  the above-pages input/annotation layer (`above`). Each target gets its own
- *  revision sequence and ready-ack, so one freeze consumer never waits on
- *  another's renderer. */
-export type FreezeTarget = 'bg' | 'above'
-
-export interface FrozenPageFrame {
-  pageId: string
-  /** The page content state this frame pictures; see `pageContentKey`. */
-  contentKey: string
-  dataUrl: string
-  capturedWidth: number
-  capturedHeight: number
-}
-
-/**
- * Frozen-page frames for one target renderer. They are decoded there
- * before the live WebContentsViews are hidden.
- */
-export interface FrozenPagesState {
-  revision: number
-  target: FreezeTarget
-  active: boolean
-  frames: FrozenPageFrame[]
-}
 
 /**
  * Per-kind interactive update patch shapes. `updateEntity` is typed by this map

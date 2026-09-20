@@ -11,6 +11,7 @@ const api: SettingsElectronAPI = {
   setComponentInstalled: (component, installed) =>
     ipcRenderer.invoke(ipcChannels.settingsSetComponentInstalled, { component, installed }),
   setFixConfig: (config) => ipcRenderer.send(ipcChannels.settingsSetFixConfig, config),
+  setCursorVisibility: (next) => ipcRenderer.send(ipcChannels.settingsSetCursorVisibility, next),
   removeOriginBinding: (origin) => ipcRenderer.send(ipcChannels.settingsRemoveOriginBinding, origin),
   repoConnectViaPicker: () => ipcRenderer.invoke(ipcChannels.repoConnectViaPicker),
   repoDisconnect: (id) => ipcRenderer.invoke(ipcChannels.repoDisconnect, { id }),

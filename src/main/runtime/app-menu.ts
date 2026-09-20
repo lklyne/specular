@@ -1,8 +1,9 @@
-import { app, dialog, Menu, type WebContents } from 'electron'
+import { app, dialog, Menu, webContents, type WebContents } from 'electron'
 import { pages, selectedPageId } from './runtime-context'
 import { selectedEntityIds } from '../ui-state'
 import { getComponentView } from './component-page-factory'
 import { acceleratorFor } from './binding-accelerator'
+import { currentKeyboardTargetPageId } from './selection-controller'
 import { mainHandlers } from './binding-handlers'
 import { buildBindingContext } from './binding-dispatcher'
 import { checkForUpdatesManually } from '../auto-updater'
@@ -49,6 +50,33 @@ function setupLabel(): string {
   if (pending === 0) return 'Setup Specular\u2026'
   if (pending === 1) return 'Setup Specular\u2026 (1 update)'
   return `Setup Specular\u2026 (${pending} updates)`
+}
+
+/**
+ * The webContents an Edit-menu clipboard command acts on: the page that owns
+ * the keyboard, or whatever holds OS focus when no page does.
+ */
+function editingTarget(): WebContents | null {
+  const pageId = currentKeyboardTargetPageId()
+  const page = pageId ? pages.find((candidate) => candidate.id === pageId) : null
+  if (page && !page.host.webContents.isDestroyed()) return page.host.webContents
+  const focused = webContents.getFocusedWebContents()
+  return focused && !focused.isDestroyed() ? focused : null
+}
+
+function editingItem(
+  label: string,
+  accelerator: string,
+  run: (wc: WebContents) => void,
+): Electron.MenuItemConstructorOptions {
+  return {
+    label,
+    accelerator,
+    click: () => {
+      const target = editingTarget()
+      if (target) run(target)
+    },
+  }
 }
 
 function buildTemplate(): Electron.MenuItemConstructorOptions[] {
@@ -106,23 +134,24 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
-    // Edit — use built-in roles so macOS wires Cut/Copy/Paste/SelectAll into
-    // the first-responder chain. Without these roles, Chromium's native
-    // clipboard behavior in focused inputs/textareas/contenteditable does not
-    // fire reliably on macOS. Canvas entity copy/cut/paste is handled via
-    // `copy`/`cut`/`paste` DOM events in the renderer — those events fire
-    // regardless of whether the role or a keydown triggered the clipboard.
+    // Edit — the clipboard items dispatch by hand rather than through their
+    // built-in roles, because a role acts on whatever webContents holds OS
+    // focus and a page never does: aboveView holds focus on its behalf
+    // (ADR 0038), so a role would cut, copy or paste against the hidden
+    // keyboard sink. `editingTarget` names the page instead when one owns the
+    // keyboard. Canvas entity copy/cut/paste still rides the `copy`/`cut`/
+    // `paste` DOM events in the renderer, which fire either way.
     {
       label: 'Edit',
       submenu: [
         { role: 'undo' },
         { role: 'redo' },
         { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
+        editingItem('Cut', 'CmdOrCtrl+X', (wc) => wc.cut()),
+        editingItem('Copy', 'CmdOrCtrl+C', (wc) => wc.copy()),
+        editingItem('Paste', 'CmdOrCtrl+V', (wc) => wc.paste()),
         { type: 'separator' },
-        { role: 'selectAll' },
+        editingItem('Select All', 'CmdOrCtrl+A', (wc) => wc.selectAll()),
       ],
     },
 
@@ -276,7 +305,7 @@ function toggleSelectedPageDevTools(): void {
     })
     return
   }
-  toggleViewDevTools(page.pageView.webContents)
+  toggleViewDevTools(page.host.webContents)
 }
 
 function toggleSelectedComponentDevTools(): void {

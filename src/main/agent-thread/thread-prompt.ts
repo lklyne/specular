@@ -18,9 +18,6 @@ export function buildThreadPrompt(input: {
 }): string {
   const { thread, pill, writeTarget, spacePath } = input
   const lines: string[] = []
-  lines.push('You are the in-app agent for a Specular canvas — a spatial document of live pages, notes, and files.')
-  lines.push('The specular skill talks to the running app. Prefer those verbs for canvas reads and writes.')
-  lines.push('')
   lines.push(`Working directory (space folder): ${spacePath}`)
   if (writeTarget.kind === 'repo') {
     lines.push(`This turn should change source for ${writeTarget.origin} in the repo at ${writeTarget.repoPath}.`)
@@ -43,7 +40,6 @@ export function buildThreadPrompt(input: {
   lines.push('  specular snapshot -i -f <pageId>')
   lines.push('  specular get styles @<ref>')
   lines.push('  specular screenshot -f <pageId>')
-  lines.push('Do not use chrome-devtools or other browser automation — specular has the right page.')
   lines.push('')
   lines.push(...REPLY_FORMAT)
   return lines.join('\n')

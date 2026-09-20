@@ -4,6 +4,7 @@ import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, FixModel, FixPermissio
 import { setFixConfig } from '../runtime/preferences'
 import {
   bindOriginToRepoPath,
+  inferRepoPathForOrigin,
   removeBindingByOrigin,
   setBindingAutoFix,
 } from '../runtime/dev-server-manager'
@@ -25,7 +26,6 @@ import {
   updateEdge,
   setPagePreset,
   setPageColorScheme,
-  toggleSvgDeviceShell,
   setFilePreset,
   setFileCustom,
 } from '../runtime/document-commands'
@@ -104,10 +104,6 @@ const SINGLE_FIELD_COMMANDS: Record<string, SingleFieldCommand> = {
     key: 'pageId',
     accept: hasValidColorScheme,
     run: (id, payload) => setPageColorScheme(id, payload.colorScheme as PageColorScheme | null),
-  },
-  [ipcChannels.rightDetailsPanelToggleSvgDeviceShell]: {
-    key: 'pageId',
-    run: (id) => toggleSvgDeviceShell(id),
   },
   // --- File Device Settings ---
   [ipcChannels.rightDetailsPanelSetFilePreset]: {
@@ -264,12 +260,14 @@ export function registerRightDetailsPanelIpc(): void {
       const origin = payload?.origin?.trim()
       if (!origin) return
       const enabled = !!payload?.enabled
-      const mutated = setBindingAutoFix(origin, enabled)
-      if (!mutated) return
-      notifyDevtoolsPanelData()
-      if (enabled) {
-        fixPendingAnnotationsForOrigin(origin)
+      if (!setBindingAutoFix(origin, enabled)) {
+        // The chip can show an inferred repo (a running dev server) that has
+        // no binding row yet; turning auto on is what creates one.
+        const repoPath = enabled ? inferRepoPathForOrigin(origin) : null
+        if (!repoPath) return
+        bindOriginToRepoPath(origin, repoPath, true)
       }
+      notifyDevtoolsPanelData()
     },
   )
 
@@ -282,7 +280,9 @@ export function registerRightDetailsPanelIpc(): void {
       const dialogOpts: Electron.OpenDialogOptions = {
         title: `Choose repo for ${origin}`,
         properties: ['openDirectory'],
-        defaultPath: repoPickerDefaultPath(),
+        // Re-linking opens on the repo itself; a first link opens beside
+        // the other repos.
+        defaultPath: inferRepoPathForOrigin(origin) ?? repoPickerDefaultPath(),
       }
       const result = win
         ? await dialog.showOpenDialog(win, dialogOpts)
@@ -300,7 +300,10 @@ export function registerRightDetailsPanelIpc(): void {
     (_event, payload: { origin?: string } | undefined) => {
       const origin = payload?.origin?.trim()
       if (!origin) return
-      if (removeBindingByOrigin(origin)) notifyDevtoolsPanelData()
+      if (!removeBindingByOrigin(origin)) return
+      notifyDevtoolsPanelData()
+      markDirty('canvas')
+      requestLayout()
     },
   )
 

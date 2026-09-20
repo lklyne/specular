@@ -1,4 +1,6 @@
 import { ipcChannels } from '../../shared/ipc-contract'
+import { sendPageIpc } from '../runtime/page-ipc'
+import { requestPageFrames } from '../runtime/page-host'
 import { ipcMain } from 'electron'
 import type {
   CanvasEntityKind,
@@ -18,6 +20,7 @@ import { requestLayout } from '../runtime/viewport-control'
 import { boundCanvasOrigin as canvasOrigin } from '../runtime/runtime-geometry'
 import { saveImageBuffer } from '../runtime/image-assets'
 import { htmlDefaultSize, imageSizeFromBuffer } from '../runtime/image-sizing'
+import { dropPageDragOnCanvas } from '../runtime/page-drag-out'
 import {
   focusSelection,
   getSelectedEntityIds,
@@ -43,11 +46,14 @@ import {
 import { setTextEditingActive, setAnnotationState } from '../runtime/binding-dispatcher'
 import { leftSidebarView } from '../runtime/view-refs'
 import {
+  forwardKeyToPage,
   forwardPointerToPage,
   forwardWheelToPage,
+  insertTextIntoPage,
   type ForwardPointerPayload,
   type ForwardWheelPayload,
 } from '../runtime/page-input-forwarding'
+import type { ForwardKeyPayload } from '../../shared/page-key-input'
 import {
   createSpaceTab,
   deleteSpaceTab,
@@ -135,8 +141,8 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on(ipcChannels.canvasClearAnnotateHover, () => {
     for (const page of pages) {
-      if (page.pageView.webContents.isDestroyed()) continue
-      page.pageView.webContents.send(ipcChannels.annotateClearHover)
+      if (page.host.webContents.isDestroyed()) continue
+      page.host.webContents.send(ipcChannels.annotateClearHover)
     }
   })
 
@@ -255,9 +261,8 @@ export function registerCanvasIpc(): void {
     setHoveredPage(pageId)
   })
 
-  // PoC: aboveView forwards wheel/pointer events that hit the body of the
+  // aboveView forwards wheel/pointer events that hit the body of the
   // single-selected page so the page reacts as if clicked/scrolled directly.
-  // See docs/plans/aboveview-interactive-layer-poc.md.
   ipcMain.on(
     ipcChannels.canvasForwardWheel,
     (_event, { pageId, payload }: { pageId: string; payload: ForwardWheelPayload }) => {
@@ -270,6 +275,21 @@ export function registerCanvasIpc(): void {
     ipcChannels.canvasForwardPointer,
     (_event, { pageId, payload }: { pageId: string; payload: ForwardPointerPayload }) => {
       forwardPointerToPage(pageId, payload)
+    },
+  )
+
+  // aboveView owns OS keyboard focus, so keys the binding table did not claim
+  // arrive here from its hidden sink and are dispatched into the page over CDP.
+  ipcMain.on(
+    ipcChannels.canvasForwardKey,
+    (_event, { pageId, payload }: { pageId: string; payload: ForwardKeyPayload }) => {
+      forwardKeyToPage(pageId, payload)
+    },
+  )
+  ipcMain.on(
+    ipcChannels.canvasInsertText,
+    (_event, { pageId, text }: { pageId: string; text: string }) => {
+      insertTextIntoPage(pageId, text)
     },
   )
 
@@ -305,6 +325,24 @@ export function registerCanvasIpc(): void {
   ipcMain.on(ipcChannels.canvasCreateTab, () => {
     createSpaceTab()
   })
+
+  ipcMain.on(ipcChannels.canvasRequestPageFrames, (event, pageIds: unknown) => {
+    if (!Array.isArray(pageIds) || !pageIds.every((id) => typeof id === 'string')) return
+    requestPageFrames(event.sender, pageIds)
+  })
+
+  // A popup widget's texture carries no position; the element that opened it
+  // (the page's focused element) is the only statement of where it hangs.
+  ipcMain.handle(
+    ipcChannels.canvasPagePopupAnchor,
+    async (_event, { pageId }: { pageId: string }) => {
+      const rect = (await sendPageIpc(pageId, ipcChannels.queryActiveElementRect, {})) as
+        | { x: number; y: number; width: number; height: number }
+        | null
+      if (!rect || typeof rect.x !== 'number') return null
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+    },
+  )
 
   ipcMain.handle(
     ipcChannels.canvasRenameTab,
@@ -488,4 +526,13 @@ export function registerCanvasIpc(): void {
     },
   )
 
+  // ADR 0038 drag-out: aboveView calls this once a forwarded pointer-up
+  // lands outside the source page's content, converting the armed payload
+  // from that page's dragstart into a canvas entity at the release point.
+  ipcMain.on(
+    ipcChannels.canvasDropPageDrag,
+    (_event, { pageId, canvasX, canvasY }: { pageId: string; canvasX: number; canvasY: number }) => {
+      void dropPageDragOnCanvas({ pageId, canvasX, canvasY })
+    },
+  )
 }

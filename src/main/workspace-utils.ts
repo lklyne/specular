@@ -13,7 +13,7 @@ export function pageCurrentUrl(pageId: string | undefined): string | null {
   if (!pageId) return null
   const page = findPageById(pageId)
   if (!page) return null
-  const currentUrl = page.pageView.webContents.getURL()
+  const currentUrl = page.host.webContents.getURL()
   return currentUrl || 'about:blank'
 }
 
