@@ -38,6 +38,7 @@ import {
   boundCanvasOrigin as canvasOrigin,
   boundCanvasOriginX as canvasOriginX,
   boundEffectivePageContentSize as effectivePageContentSize,
+  focusFillFrameBounds,
   pageContentSize,
   pageVisualBoundsForContentSize,
 } from './runtime-geometry'
@@ -441,25 +442,19 @@ function fitFocusPageSize(): { width: number; height: number } {
   }
 }
 
-function fillFocusPageSize(): { width: number; height: number } {
-  const viewport = availableCanvasViewportRect()
-  return { width: Math.round(viewport.width), height: Math.round(viewport.height) }
-}
-
 function focusPageContentSize(
   page: Parameters<typeof pageContentSize>[0] & { id?: string },
-  mode: FocusPresentationMode,
+  mode: Exclude<FocusPresentationMode, 'fill'>,
 ): { width: number; height: number } {
   if (mode === 'fit') return fitFocusPageSize()
-  if (mode === 'fill') return fillFocusPageSize()
   return pageContentSize(page)
 }
 
 function focusPageBounds(pageId: string, mode: FocusPresentationMode): WorkspaceBounds | null {
   const page = pages.find((candidate) => candidate.id === pageId)
   if (!page) return null
-  const size = focusPageContentSize(page, mode)
-  return pageVisualBoundsForContentSize(page, size)
+  if (mode === 'fill') return focusFillFrameBounds(page)
+  return pageVisualBoundsForContentSize(page, focusPageContentSize(page, mode))
 }
 
 export function setFocusPresentationMode(mode: FocusPresentationMode): boolean {

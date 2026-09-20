@@ -290,6 +290,25 @@ export function focusFillRegion(): { x: number; y: number; width: number; height
   }
 }
 
+/**
+ * The canvas rect a 'fill' session's camera frames: the page's body plus the
+ * focus bar's strip above it. The page is placed by the camera like any other,
+ * and this rect is viewport-sized at zoom 1, so centering it lands the body
+ * exactly on `focusFillRegion()` — clear of the bar, any bezel off-screen.
+ */
+export function focusFillFrameBounds(
+  page: Pick<Page, 'canvasX' | 'canvasY' | 'metadata'>,
+): WorkspaceBounds {
+  const region = focusFillRegion()
+  const insets = pageShellInsets(page)
+  return {
+    x: page.canvasX + (insets?.left ?? 0),
+    y: page.canvasY + (insets?.top ?? 0) - TOOLBAR_HEIGHT,
+    width: region.width,
+    height: region.height + TOOLBAR_HEIGHT,
+  }
+}
+
 export function boundEffectivePageContentSize(
   page: Pick<Page, 'presetIndex' | 'peekWidth' | 'peekHeight' | 'metadata'> & { id?: string },
 ): { width: number; height: number } {
