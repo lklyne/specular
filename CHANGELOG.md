@@ -6,18 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-19 — Faster pages, auto-fix comments, no telemetry
+
 ### Privacy
 
 - **Specular no longer sends crash reports or any telemetry.** Sentry has been removed entirely, along with the anonymous per-install identifier it kept. Nothing leaves your machine. Crashes still land in `~/Library/Logs/Specular/errors.log` for you to read or attach to an issue yourself.
 
 ### New
 
+- **Major performance updates to page rendering using the GPU.** Pages stay live while you pan, zoom, and drag instead of freezing to a snapshot. Sixty pages hold about 114 fps.
+- **Auto-fix.** Turn on Auto beside the composer's folder chip and a comment on that site goes to the agent the moment you place it.
+- **Drag content out of a page.** Drop an image, a link, or selected text on the canvas and you get an image, a new page, or a sticky note.
 - **A first launch opens onto a welcome canvas** instead of two arbitrary pages and a devtools panel. It's a real `.canvas` file in your space — edit it, or delete it and it stays gone.
 - **The sidebar starts closed.** A canvas opens full-bleed unless its file says otherwise; toggle the sidebar and that choice is saved to the canvas.
+- iPhone Duo device presets, cover and open.
+
+### Improvements
+
+- Agent replies render as markdown, and links open in your browser.
+- The composer stays open while the agent works. A message you send mid-run goes when the run ends.
+- Settings > General > Cursors has separate switches for agent cursors and synced cursors.
+- Tab and Shift-Tab indent and outdent bullet lists in notes and stickies.
 
 ### Fixes
 
 - The remote debugging port no longer sits on a fixed, well-known number. Chromium picks a free one per launch, so another program can't count on finding Specular's browser-control endpoint at a known address.
+- The fix-run permission dropdown showed "Bypass permissions" as selected when it wasn't. It lists the mode runs use.
+- The dot grid stays aligned with your content at fractional zooms.
+
+### Misc
+
+- Bundled agent-browser updated to v0.38.1.
 
 ## [0.8.1] - 2026-09-05 — Canvas agent threads for everyone
 
