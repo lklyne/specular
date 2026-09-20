@@ -3,6 +3,7 @@ import type {
   AgentSnapshotPage,
   PresenceLabelKey,
   PresenceSurface,
+  PresenceTargetQuery,
   PresenceTargetRect,
   PresenceTargetRefSource,
 } from '../shared/types'
@@ -50,6 +51,20 @@ interface PresenceTargetCandidate {
   bounds: PresenceTargetRect
 }
 
+/** One step of a chained browse command's presence queue — coerced and
+ *  validated (unlike the wire payload), ready to apply as-is. See
+ *  `advancePendingIntent` in routes/session.ts, which pops these one at a
+ *  time as each step's own CDP event (or its TTL) consumes the step
+ *  before it. */
+export interface QueuedPresenceIntent {
+  labelKey: PresenceLabelKey
+  command: string
+  targetRef: string | null
+  targetRefSource: PresenceTargetRefSource | null
+  targetQuery: PresenceTargetQuery | null
+  labelHint: string | null
+}
+
 export interface PendingIntent {
   labelKey: PresenceLabelKey
   pageId: string | null
@@ -58,6 +73,12 @@ export interface PendingIntent {
   command: string
   receivedAt: number
   expiryTimer: NodeJS.Timeout
+  // The remaining steps of a chained browse command, in execution order —
+  // empty for a single (unqueued) intent. `taskLabel` rides alongside it so
+  // `advancePendingIntent` can re-apply a queued step without needing the
+  // original HTTP payload that started the chain.
+  queue: QueuedPresenceIntent[]
+  taskLabel: string | null
 }
 
 // --- State ---
@@ -371,6 +392,100 @@ export function resolvePresenceTargetRect(
   if (targetRefSource === 'agent-browser') return null
   if (!pageId || !targetRef) return null
   return resolveAgentSnapshotNode(pageId, targetRef)?.bounds ?? null
+}
+
+// --- Agent-browser ref cache ---
+//
+// agent-browser's `@eN` refs are opaque to main — resolvePresenceTargetRect
+// returns null for them above. `handleBrowse` parses each successful
+// `snapshot`'s text output into ref -> {role, name} and POSTs it here
+// (routes/session.ts's `/session/presence/agent-browser-refs`), replacing
+// the session+page's map wholesale, so the intent handler can synthesize a
+// PresenceTargetQuery for a ref it recognizes instead of waiting for the CDP
+// proxy to see agent-browser's own box-model query.
+
+interface AgentBrowserRefEntry {
+  role: string
+  name: string | null
+}
+
+// Per-page cap: bounds one pathological huge snapshot. Per-map-count cap:
+// bounds total memory across every session+page this process has seen —
+// oldest insertion order is a Map's natural iteration order, so evicting the
+// first key is a cheap approximate LRU.
+const AGENT_BROWSER_REF_MAX_ENTRIES_PER_PAGE = 300
+const AGENT_BROWSER_REF_MAX_PAGES = 50
+
+const agentBrowserRefMaps = new Map<string, Map<string, AgentBrowserRefEntry>>()
+
+function agentBrowserRefKey(sessionId: string, pageId: string): string {
+  return `${sessionId}::${pageId}`
+}
+
+/** Replace a session+page's agent-browser ref map wholesale — called after
+ *  every successful `snapshot` (handleBrowse), never merged with what was
+ *  there before, since a stale entry is worse than a missing one. */
+export function setAgentBrowserRefs(
+  sessionId: string,
+  pageId: string,
+  refs: Array<{ ref: string; role: string; name: string | null }>,
+): void {
+  const map = new Map<string, AgentBrowserRefEntry>()
+  for (const entry of refs.slice(0, AGENT_BROWSER_REF_MAX_ENTRIES_PER_PAGE)) {
+    map.set(entry.ref, { role: entry.role, name: entry.name })
+  }
+  agentBrowserRefMaps.set(agentBrowserRefKey(sessionId, pageId), map)
+  while (agentBrowserRefMaps.size > AGENT_BROWSER_REF_MAX_PAGES) {
+    const oldestKey = agentBrowserRefMaps.keys().next().value
+    if (oldestKey === undefined) break
+    agentBrowserRefMaps.delete(oldestKey)
+  }
+}
+
+/** Drop every session's ref map for a page — the same staleness events that
+ *  invalidate main's own agent-snapshot cache (navigation, DOM churn) make
+ *  agent-browser's refs just as untrustworthy. Wired in routes/session.ts
+ *  via `onAgentSnapshotInvalidated`. */
+export function invalidateAgentBrowserRefsForPage(pageId: string): void {
+  const suffix = `::${pageId}`
+  for (const key of agentBrowserRefMaps.keys()) {
+    if (key.endsWith(suffix)) agentBrowserRefMaps.delete(key)
+  }
+}
+
+/**
+ * Synthesize a name-only `PresenceTargetQuery` for an agent-browser `@eN`
+ * ref, or null when it isn't safe to. Two conditions gate this:
+ *
+ * 1. The ref's accessible name is non-empty — an empty name gives
+ *    `findPresenceTarget` nothing to match on.
+ * 2. That name is unique across every entry in the page's ref map,
+ *    regardless of role. `findPresenceTarget`'s snapshot-matching path
+ *    (`scorePresenceTargetCandidate`) scores purely on name/text — it never
+ *    reads a candidate's role at all — so two same-named elements of
+ *    *different* roles are exactly as unresolvable to it as two same-named
+ *    links; role can't rescue an otherwise-ambiguous name here.
+ *
+ * Traveling to the wrong same-named element is worse than not traveling
+ * early at all, so any doubt returns null and the caller falls back to the
+ * existing box-model-driven pre-move (issue #319).
+ */
+export function synthesizeAgentBrowserTargetQuery(
+  sessionId: string,
+  pageId: string,
+  ref: string,
+): PresenceTargetQuery | null {
+  const map = agentBrowserRefMaps.get(agentBrowserRefKey(sessionId, pageId))
+  if (!map) return null
+  const entry = map.get(ref)
+  if (!entry?.name) return null
+  let nameMatches = 0
+  for (const candidate of map.values()) {
+    if (candidate.name === entry.name) nameMatches++
+    if (nameMatches > 1) break
+  }
+  if (nameMatches !== 1) return null
+  return { selector: null, text: null, name: entry.name }
 }
 
 // --- Orchestrator ---

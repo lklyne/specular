@@ -1,6 +1,6 @@
 import { DEFAULT_BREAKPOINT_PRESET_LABELS } from '../shared/constants'
 import { validateLayoutDirective } from '../shared/layout-directive'
-import { callApp, setTargetTabRef } from './shared/app-client'
+import { callApp, setTargetTabRef, sessionId, getClientName } from './shared/app-client'
 import { handleBrowse, shellQuote, spawnAsync, resolveAgentBrowserPath, BLOCKED_BROWSE_VERBS } from './shared/browse-handler'
 import { upsertEntities, applyPatch, type UpsertOptions, type CanvasPatch, getAnnotationsSlim, getAnnotationDetail } from './shared/entity-ops'
 import { printJson, printText, printError, printContentBlocks } from './cli-output'
@@ -539,6 +539,47 @@ const record: VerbHandler = async (args) => {
   return 1
 }
 
+// --- Presence verbs ---
+
+// Brackets a high-level task so the agent's cursor idles in place on the
+// canvas for the task's whole duration instead of departing after the
+// ordinary 10s idle-retire whenever the driving LLM thinks between calls
+// (see PRESENCE_HELD_BACKSTOP_MS in presence-cursor.ts for the crash
+// safety net if `done` never arrives).
+const presence: VerbHandler = async (args) => {
+  const sub = args.positional[0]
+  if (sub === 'start') {
+    const taskLabel = args.positional.slice(1).join(' ')
+    if (!taskLabel) { printError('usage: specular presence start "<task label>"'); return 1 }
+    printJson(await callApp('/session/presence', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId,
+        clientName: getClientName(),
+        eventType: 'start',
+        hold: true,
+        surface: 'canvas',
+        phase: 'thinking',
+        taskLabel,
+      }),
+    }))
+    return 0
+  }
+  if (sub === 'done') {
+    printJson(await callApp('/session/presence', {
+      method: 'POST',
+      body: JSON.stringify({
+        sessionId,
+        clientName: getClientName(),
+        eventType: 'done',
+      }),
+    }))
+    return 0
+  }
+  printError('usage: specular presence <start "<task label>" | done>')
+  return 1
+}
+
 // --- Print verb ---
 
 const printPdf: VerbHandler = async (args) => {
@@ -741,7 +782,7 @@ const skills: VerbHandler = async (args) => {
 // Verb dispatch map
 // ---------------------------------------------------------------------------
 
-const VERBS: Record<string, VerbHandler> = {
+export const VERBS: Record<string, VerbHandler> = {
   canvas,
   // Hidden alias, kept so existing agent skills don't break mid-transition.
   workspace: canvas,
@@ -770,6 +811,7 @@ const VERBS: Record<string, VerbHandler> = {
   dismiss,
   reply,
   record,
+  presence,
   'print-pdf': printPdf,
   'design-system': designSystem,
   'register-design-system': registerDesignSystem,
@@ -803,6 +845,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
+    printText('Presence: presence start "<task label>", presence done')
     printText('Printing: print-pdf --page <id> [--output <file.pdf>] [--landscape] [--page-size Letter]')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')

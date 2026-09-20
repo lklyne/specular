@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 import { readFile, unlink } from 'fs/promises'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import type { PresenceTargetQuery } from '../../shared/types'
+import type { PresenceIntentQueueItem, PresenceTargetQuery, PresenceTargetRefSource } from '../../shared/types'
 import { callApp, sessionId, getClientName } from './app-client'
 
 // ---------------------------------------------------------------------------
@@ -269,6 +269,37 @@ export function parseTargetQuery(cmd: string): PresenceTargetQuery | null {
 }
 
 /**
+ * Per-step presence descriptors for a chained browse command, in execution
+ * order. A chain runs as a single `batch` spawn (see `handleBrowse`), so
+ * there's no HTTP round trip between steps to fire a fresh intent from —
+ * the whole list is registered with main up front via the intent's `queue`
+ * field, and main advances through it as each step's own CDP event
+ * consumes the one before it (`advancePendingIntent`, routes/session.ts).
+ * Steps with no mappable label (`labelKeyForCommand` returns null) are
+ * dropped — nothing for the cursor to key off of, and skipping them keeps
+ * `advancePendingIntent` from ever stalling on one.
+ */
+export function buildChainedPresenceSteps(parts: string[]): PresenceIntentQueueItem[] {
+  const steps: PresenceIntentQueueItem[] = []
+  for (const part of parts) {
+    const parsed = parseCommandArgs(part)
+    const labelKey = labelKeyForCommand(parsed)
+    if (!labelKey) continue
+    const command = effectiveBrowseCommand(parsed) ?? parsed.verb ?? ''
+    const { ref } = parsed
+    steps.push({
+      labelKey,
+      command,
+      targetRef: ref,
+      targetRefSource: ref ? 'agent-browser' : null,
+      targetQuery: ref ? null : parseTargetQuery(part),
+      labelHint: command === 'fill' || command === 'type' ? 'editing control' : null,
+    })
+  }
+  return steps
+}
+
+/**
  * The pre-mutation auto-scroll target: an `@eN` ref or a CSS selector.
  * `text=` locators return null — agent-browser's `scrollintoview` (verified
  * against v0.31.1) accepts refs and CSS selectors but has no text locator
@@ -447,6 +478,84 @@ function staleRefHint(targetPageId: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Agent-browser ref map (early cursor travel for @eN refs)
+// ---------------------------------------------------------------------------
+
+export interface AgentBrowserSnapshotRef {
+  ref: string
+  role: string
+  name: string | null
+}
+
+/**
+ * Parse agent-browser's `snapshot` text output into a flat ref -> {role,
+ * name} list — one list item per line, shaped
+ * `<indent>- <role>["<name>"] [<attrs>, ref=eN][: value]` (both the `-i` and
+ * plain forms; see tests/contract/agent-browser.contract.test.ts for the
+ * `[ref=eN]` token itself, which this mirrors — the `@eN` an agent types is
+ * how refs are addressed, not how they're printed).
+ *
+ * The name is matched as a quoted string BEFORE the bracket group is looked
+ * for, since a name can itself contain `[`/`]` (e.g. a checkbox labelled
+ * `Accept "terms" [v2]`) — naively splitting on the first `[` would cut it
+ * off mid-name. `ref=eN` is always the last comma-separated token inside the
+ * bracket. Structural nodes with no bracket group (headings' containers,
+ * `generic`, `StaticText`, …) have nothing to target and are skipped.
+ *
+ * Pure and side-effect free so it's unit-testable against real captured
+ * output without a live page.
+ */
+export function parseAgentBrowserSnapshotRefs(output: string): AgentBrowserSnapshotRef[] {
+  const refs: AgentBrowserSnapshotRef[] = []
+  for (const line of output.split('\n')) {
+    const dashMatch = line.match(/^\s*-\s+(.*)$/)
+    if (!dashMatch) continue
+    let rest = dashMatch[1]
+
+    const roleMatch = rest.match(/^[A-Za-z][A-Za-z0-9]*/)
+    if (!roleMatch) continue
+    const role = roleMatch[0]
+    rest = rest.slice(role.length)
+
+    let name: string | null = null
+    const nameMatch = rest.match(/^\s*"((?:[^"\\]|\\.)*)"/)
+    if (nameMatch) {
+      const unescaped = nameMatch[1].replace(/\\(.)/g, '$1').trim()
+      name = unescaped.length > 0 ? unescaped : null
+      rest = rest.slice(nameMatch[0].length)
+    }
+
+    const bracketMatch = rest.match(/\[([^\]]*)\]/)
+    if (!bracketMatch) continue
+    const attrs = bracketMatch[1].split(',').map((attr) => attr.trim())
+    const refToken = attrs[attrs.length - 1]
+    const refMatch = refToken.match(/^ref=(e\d+)$/)
+    if (!refMatch) continue
+
+    refs.push({ ref: refMatch[1], role, name })
+  }
+  return refs
+}
+
+/**
+ * Fire-and-forget: tells main which `@eN` refs from this snapshot resolve to
+ * which (role, name) pair, so a later intent for one of them can travel
+ * early instead of waiting for the CDP proxy to see agent-browser's own
+ * box-model query (see synthesizeAgentBrowserTargetQuery in
+ * presence-manager.ts). Never awaited by any caller and always
+ * `.catch`-guarded — must never fail or slow the snapshot command that
+ * triggered it.
+ */
+function postAgentBrowserRefs(pageId: string, snapshotOutput: string): void {
+  const refs = parseAgentBrowserSnapshotRefs(snapshotOutput)
+  if (refs.length === 0) return
+  callApp('/session/presence/agent-browser-refs', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, clientName: getClientName(), pageId, refs }),
+  }).catch(() => {})
+}
+
+// ---------------------------------------------------------------------------
 // Page lock
 // ---------------------------------------------------------------------------
 
@@ -547,6 +656,82 @@ export function spawnAsync(
 // Browse tool handler
 // ---------------------------------------------------------------------------
 
+interface BrowsePresenceIntent {
+  command: string | null
+  labelKey: string | null
+  targetQuery: PresenceTargetQuery | null
+  targetRef: string | null
+  targetRefSource: PresenceTargetRefSource | null
+  labelHint: string | null
+  queue: PresenceIntentQueueItem[]
+}
+
+/**
+ * The presence-intent fields for the first command of a browse call, chained
+ * or single — what the CDP proxy and main need to start the cursor traveling
+ * before agent-browser's own resolution arrives. A chained command's
+ * `firstStep` isn't always `chainedParts[0]`'s own descriptor (a leading
+ * step with no mappable label is skipped by `buildChainedPresenceSteps`), so
+ * this owns that fallback against the plain single-command parse in one
+ * place rather than as inline ternaries at every call site.
+ */
+function buildBrowsePresenceIntent(
+  isChained: boolean,
+  chainedParts: string[],
+  firstCmd: string,
+  firstParsed: ReturnType<typeof parseCommandArgs>,
+): BrowsePresenceIntent {
+  const chainedSteps = isChained ? buildChainedPresenceSteps(chainedParts) : []
+  const firstStep = chainedSteps[0] ?? null
+  const { ref } = firstParsed
+  const command = firstStep ? firstStep.command : effectiveBrowseCommand(firstParsed)
+  return {
+    command,
+    labelKey: firstStep ? firstStep.labelKey : labelKeyForCommand(firstParsed),
+    // Only re-resolving targets (selector/text/find) need a target query —
+    // an @eN ref is already opaque to specular's own resolution.
+    targetQuery: firstStep ? firstStep.targetQuery : ref ? null : parseTargetQuery(firstCmd),
+    targetRef: firstStep ? firstStep.targetRef : ref,
+    targetRefSource: firstStep ? firstStep.targetRefSource : ref ? 'agent-browser' : null,
+    labelHint: firstStep
+      ? firstStep.labelHint
+      : command === 'fill' || command === 'type' ? 'editing control' : null,
+    // The rest of the chain, in order — main advances through it one step
+    // at a time (see buildChainedPresenceSteps).
+    queue: chainedSteps.slice(1),
+  }
+}
+
+/**
+ * Fire-and-forget: registers the intent (+ queue) built above. Include
+ * pageId so the cursor follows the page actually being driven — otherwise
+ * the server-side fallback picks the first CDP proxy registration for this
+ * session and the cursor sticks to whichever page was driven first. A no-op
+ * when the command has no mappable label.
+ */
+function fireBrowsePresenceIntent(
+  pageId: string,
+  clientName: string,
+  intent: BrowsePresenceIntent,
+): void {
+  if (!intent.labelKey) return
+  callApp('/session/presence/intent', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId,
+      clientName,
+      command: intent.command,
+      labelKey: intent.labelKey,
+      pageId,
+      labelHint: intent.labelHint,
+      targetRef: intent.targetRef,
+      targetRefSource: intent.targetRefSource,
+      targetQuery: intent.targetQuery,
+      queue: intent.queue,
+    }),
+  }).catch(() => {})
+}
+
 export async function handleBrowse(args: Record<string, unknown>): Promise<{
   content: Array<
     | { type: 'text'; text: string }
@@ -577,11 +762,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   const firstCmd = isChained ? chainedParts[0] : rawCommand
   const firstParsed = parseCommandArgs(firstCmd)
   const { verb, ref } = firstParsed
-  const intentCommand = effectiveBrowseCommand(firstParsed)
-  const labelKey = labelKeyForCommand(firstParsed)
-  // Only re-resolving targets (selector/text/find) need a target query — an
-  // @eN ref is already opaque to specular's own resolution.
-  const targetQuery = ref ? null : parseTargetQuery(firstCmd)
+  const presenceIntent = buildBrowsePresenceIntent(isChained, chainedParts, firstCmd, firstParsed)
 
   const clientName = getClientName()
 
@@ -599,26 +780,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     // daemon.
     const sessionFlags = ['--session', `${sessionId}:${pageId}`]
 
-    // Fire presence intent (non-blocking). Include pageId so the cursor
-    // follows the page we're actually driving — otherwise the server-side
-    // fallback picks the first CDP proxy registration for this session and
-    // the cursor sticks to whichever page was driven first.
-    if (labelKey) {
-      callApp('/session/presence/intent', {
-        method: 'POST',
-        body: JSON.stringify({
-          sessionId,
-          clientName,
-          command: intentCommand,
-          labelKey,
-          pageId,
-          labelHint: intentCommand === 'fill' || intentCommand === 'type' ? 'editing control' : null,
-          targetRef: ref,
-          targetRefSource: ref ? 'agent-browser' : null,
-          targetQuery,
-        }),
-      }).catch(() => {})
-    }
+    fireBrowsePresenceIntent(pageId, clientName, presenceIntent)
 
     // Previously, each browse command sent eventType:'done' in a finally block,
     // which immediately killed the cursor after every CLI call. This made the
@@ -722,6 +884,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           // inside one chain is already surfaced via staleRefHint on
           // failure.
           await recordSnapshotGeneration(pageId)
+          postAgentBrowserRefs(pageId, snapshotText)
           continue
         }
 
@@ -826,6 +989,9 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       // D8: mark the snapshot baseline for later mutations to compare
       // against (the route stamps the page's current generation).
       await recordSnapshotGeneration(pageId)
+      // Parsed from the raw output, before any mismatch/warning prefix above
+      // — those aren't part of the accessibility tree.
+      postAgentBrowserRefs(pageId, stdout)
     }
 
     // D8: prepend the staleness warning to a successful mutation's output too
@@ -861,6 +1027,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           { timeout: 10_000 },
         )
         content.push({ type: 'text' as const, text: echoOut.trim() || '(no output)' })
+        postAgentBrowserRefs(pageId, echoOut)
       } catch {
         // Best-effort — the mutation already succeeded; don't fail the call for echo
       }

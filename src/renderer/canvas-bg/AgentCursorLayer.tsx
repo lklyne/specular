@@ -17,6 +17,7 @@ import { foldSpline } from '../../shared/cursor-spline'
 import { PRESENCE_STEP_DELAY_MS } from '../../shared/presence-timing'
 import { ambientDriftOffset, sessionAmbientSeed } from '../../shared/presence-ambient'
 import { FilledCursorIcon } from '../shared/FilledCursorIcon'
+import { AgentCursorLabel } from './AgentCursorLabel'
 import {
   CURSOR_TRAIL_OFFSET,
   PresenceParticleTrail,
@@ -119,11 +120,14 @@ function AgentCursor({
     transition: 'transform 800ms ease-out, opacity 800ms ease-out, filter 800ms ease-out',
   }
 
+  const taskLabel = cursor.taskLabel?.trim()
+
   return (
     <div className="absolute" style={positionStyle}>
       <div style={counterScaleStyle}>
         <div style={activityTransformStyle}>
           <FilledCursorIcon color={cursor.color} size={24} />
+          {taskLabel ? <AgentCursorLabel text={taskLabel} color={cursor.color} /> : null}
         </div>
       </div>
     </div>
