@@ -17,7 +17,7 @@
 
 import { EventEmitter } from 'events'
 import Module from 'module'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { tmpdir } from 'os'
 
 let userDataPath = join(tmpdir(), 'specular-integration-userdata')
@@ -280,6 +280,9 @@ export const webContents = withNoopFallback({
 
 export const app = withNoopFallback({
   getPath: (_name: string) => userDataPath,
+  // Repo root, so code resolving bundled resources (e.g. the starter space)
+  // reads the real files rather than a stub path.
+  getAppPath: () => resolve(__dirname, '..', '..'),
   getName: () => 'Specular',
   getVersion: () => '0.0.0-test',
   isPackaged: false,
@@ -360,7 +363,7 @@ const stubModule = withNoopFallback({
 })
 
 // The vite alias only rewrites ESM imports; bare CJS `require('electron')`
-// calls (e.g. sentry-context.ts) resolve through Node's loader to the real
+// calls resolve through Node's loader to the real
 // package, which throws in headless Node. Route them to the stub too.
 const nodeModuleLoad = (Module as unknown as { _load: (...args: unknown[]) => unknown })._load
 ;(Module as unknown as { _load: (...args: unknown[]) => unknown })._load = function (

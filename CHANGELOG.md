@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Privacy
+
+- **Specular no longer sends crash reports or any telemetry.** Sentry has been removed entirely, along with the anonymous per-install identifier it kept. Nothing leaves your machine. Crashes still land in `~/Library/Logs/Specular/errors.log` for you to read or attach to an issue yourself.
+
+### New
+
+- **A first launch opens onto a welcome canvas** instead of two arbitrary pages and a devtools panel. It's a real `.canvas` file in your space — edit it, or delete it and it stays gone.
+- **The sidebar starts closed.** A canvas opens full-bleed unless its file says otherwise; toggle the sidebar and that choice is saved to the canvas.
+
+### Fixes
+
+- The remote debugging port no longer sits on a fixed, well-known number. Chromium picks a free one per launch, so another program can't count on finding Specular's browser-control endpoint at a known address.
+
 ## [0.8.1] - 2026-09-05 — Canvas agent threads for everyone
 
 0.8.0 was published out of order, ahead of 0.7.2, so auto-updates skipped the

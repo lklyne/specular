@@ -7,7 +7,6 @@
  * and let the Setup window surface the drift.
  */
 
-import { breadcrumb } from './sentry-context'
 import { loadOnboardingState, saveOnboardingState } from './runtime/preferences'
 import {
   bundledSkillHash,
@@ -57,13 +56,6 @@ export function autoUpdateSkillsIfSafe(): AutoUpdateOutcome {
     updated.length > 0
   ) {
     saveOnboardingState({ ...state, skillHashes: nextRecorded })
-  }
-
-  if (updated.length || skippedDueToDrift.length) {
-    breadcrumb('onboarding', 'skills-auto-update', {
-      updated,
-      skippedDueToDrift,
-    })
   }
 
   return { updated, skippedDueToDrift }

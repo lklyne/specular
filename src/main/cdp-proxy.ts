@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto'
-import { webContents } from 'electron'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { app, webContents } from 'electron'
 import { WebSocket, type RawData } from 'ws'
-import { DEFAULT_REMOTE_DEBUGGING_PORT } from '../shared/constants'
 import type { UiSelection } from '../shared/types'
 import { activeSessions } from './presence-session'
 import {
@@ -18,10 +19,11 @@ import { findPageById } from './runtime/runtime-context'
 
 export const APP_CONTROL_HOST = '127.0.0.1'
 const CDP_PROXY_TTL_MS = 5 * 60_000
-const REMOTE_DEBUGGING_PORT = Number.parseInt(
-  process.env.SPECULAR_REMOTE_DEBUGGING_PORT ?? String(DEFAULT_REMOTE_DEBUGGING_PORT),
-  10,
-)
+/** Tests pin the debugging port so they can launch and connect independently;
+ *  the app itself takes whatever Chromium picked (see `resolveRemoteDebuggingPort`). */
+const REMOTE_DEBUGGING_PORT_OVERRIDE = process.env.SPECULAR_REMOTE_DEBUGGING_PORT
+  ? Number.parseInt(process.env.SPECULAR_REMOTE_DEBUGGING_PORT, 10)
+  : null
 const CDP_PROXY_LOG_DEBUG = process.env.SPECULAR_DEBUG_CDP_PROXY === '1'
 const CDP_PROXY_TIMING_DEBUG = process.env.SPECULAR_DEBUG_CDP_PROXY_TIMING === '1'
 
@@ -303,20 +305,59 @@ export function restoreAutomationSelectionIfNeeded(registration: CdpProxyRegistr
 
 // --- Target resolution ---
 
-async function fetchCdpTargets(): Promise<CdpTargetInfo[]> {
-  const response = await fetch(`http://${APP_CONTROL_HOST}:${REMOTE_DEBUGGING_PORT}/json`)
-  if (!response.ok) {
-    throw new Error(`CDP target listing failed with ${response.status}`)
+/** The debugging port is chosen by Chromium per launch, so it is discovered
+ *  rather than assumed. Chromium writes `<port>\n<browser-ws-path>` to
+ *  `DevToolsActivePort` in the user-data dir once the server is listening.
+ *  The file survives an unclean exit, so a cached port is dropped and
+ *  re-read whenever a request against it fails to connect. */
+let cachedRemoteDebuggingPort: number | null = null
+
+function resolveRemoteDebuggingPort(): number {
+  if (REMOTE_DEBUGGING_PORT_OVERRIDE !== null) return REMOTE_DEBUGGING_PORT_OVERRIDE
+  if (cachedRemoteDebuggingPort !== null) return cachedRemoteDebuggingPort
+
+  const portFile = join(app.getPath('userData'), 'DevToolsActivePort')
+  let raw: string
+  try {
+    raw = readFileSync(portFile, 'utf8')
+  } catch {
+    throw new Error('CDP debugging port is not available yet')
   }
-  return await response.json() as CdpTargetInfo[]
+  const port = Number.parseInt(raw.split('\n')[0] ?? '', 10)
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error('CDP debugging port file is malformed')
+  }
+  cachedRemoteDebuggingPort = port
+  return port
+}
+
+async function fetchCdpJson<T>(path: string, description: string): Promise<T> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const port = resolveRemoteDebuggingPort()
+    let response: Response
+    try {
+      response = await fetch(`http://${APP_CONTROL_HOST}:${port}${path}`)
+    } catch (error) {
+      // A stale port from a previous launch refuses the connection; drop it
+      // and re-read the file once before giving up.
+      cachedRemoteDebuggingPort = null
+      if (attempt === 0 && REMOTE_DEBUGGING_PORT_OVERRIDE === null) continue
+      throw error
+    }
+    if (!response.ok) {
+      throw new Error(`${description} failed with ${response.status}`)
+    }
+    return await response.json() as T
+  }
+  throw new Error(`${description} failed to reach the CDP endpoint`)
+}
+
+async function fetchCdpTargets(): Promise<CdpTargetInfo[]> {
+  return await fetchCdpJson<CdpTargetInfo[]>('/json', 'CDP target listing')
 }
 
 async function fetchBrowserCdpVersion(): Promise<CdpVersionInfo> {
-  const response = await fetch(`http://${APP_CONTROL_HOST}:${REMOTE_DEBUGGING_PORT}/json/version`)
-  if (!response.ok) {
-    throw new Error(`CDP browser version lookup failed with ${response.status}`)
-  }
-  return await response.json() as CdpVersionInfo
+  return await fetchCdpJson<CdpVersionInfo>('/json/version', 'CDP browser version lookup')
 }
 
 export async function resolvePageCdpConnection(pageId: string): Promise<PageCdpConnectionInfo> {
