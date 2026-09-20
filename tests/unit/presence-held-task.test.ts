@@ -114,3 +114,36 @@ describe('held presence task — expiry exemption', () => {
     expect(getPresenceCursors().some((c) => c.sessionId === 'session-plain')).toBe(false)
   })
 })
+
+describe('held presence task — label', () => {
+  // Every browse intent carries `taskLabel: null`, which outside a held task
+  // means "clear the label". Inside one it must not, or the first click of a
+  // task wipes the label for the rest of it.
+  it('keeps its label through unlabelled events, and takes a new one from a labelled start', () => {
+    const request = fakeRequest('session-label')
+    upsertActivePresenceTask(request, { taskLabel: 'searching flights', hold: true })
+    upsertPresenceCursor(request, { canvasX: 0, canvasY: 0, activity: 'thinking', taskLabel: 'searching flights' })
+
+    upsertActivePresenceTask(request, { taskLabel: null, surface: 'page' })
+    upsertPresenceCursor(request, { canvasX: 10, canvasY: 10, activity: 'traveling', taskLabel: null })
+
+    const label = () => getPresenceCursors().find((c) => c.sessionId === 'session-label')?.taskLabel
+    expect(label()).toBe('searching flights')
+    expect(activePresenceTasks.get('session-label')?.taskLabel).toBe('searching flights')
+
+    upsertActivePresenceTask(request, { taskLabel: 'comparing results', hold: true })
+    upsertPresenceCursor(request, { canvasX: 10, canvasY: 10, activity: 'thinking', taskLabel: 'comparing results' })
+    expect(label()).toBe('comparing results')
+  })
+
+  it('still clears the label on an explicit null when the task is not held', () => {
+    const request = fakeRequest('session-unheld')
+    upsertActivePresenceTask(request, { taskLabel: 'one-off' })
+    upsertPresenceCursor(request, { canvasX: 0, canvasY: 0, activity: 'acting', taskLabel: 'one-off' })
+
+    upsertActivePresenceTask(request, { taskLabel: null })
+    upsertPresenceCursor(request, { canvasX: 0, canvasY: 0, activity: 'acting', taskLabel: null })
+
+    expect(getPresenceCursors().find((c) => c.sessionId === 'session-unheld')?.taskLabel).toBeNull()
+  })
+})

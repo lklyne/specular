@@ -663,6 +663,17 @@ function mergeTaskField(
   return existingValue ?? taskValue ?? null
 }
 
+/** A held task's label is the agent's standing description of the whole task,
+ *  so the unlabelled events inside it (every browse intent sends a null label)
+ *  must not clear it. Only another labelled `start`, or `done`, replaces it.
+ *  Returns the label to keep, or `undefined` when the ordinary merge applies. */
+function heldTaskLabel(
+  task: ActivePresenceTask | undefined,
+  patchValue: string | null | undefined,
+): string | null | undefined {
+  return task?.held === true && patchValue == null ? task.taskLabel : undefined
+}
+
 function buildCursorEntry(
   sessionId: string,
   clientName: string,
@@ -697,7 +708,9 @@ function buildCursorEntry(
     color: existing?.color ?? deriveColor(sessionId),
     canvasX: resolvedCanvasX,
     canvasY: resolvedCanvasY,
-    taskLabel: mergeTaskField(patch.taskLabel, existing?.taskLabel, activeTask?.taskLabel),
+    taskLabel:
+      heldTaskLabel(activeTask, patch.taskLabel) ??
+      mergeTaskField(patch.taskLabel, existing?.taskLabel, activeTask?.taskLabel),
     labelHint: mergeTaskField(patch.labelHint, existing?.labelHint, activeTask?.labelHint),
     updatedAt: now,
     lastMoveAt: positionChanged ? now : existing?.lastMoveAt ?? now,
@@ -772,6 +785,7 @@ export function upsertActivePresenceTask(
     labelHint: null,
     ...pickDefined(existing, MERGED_TASK_FIELDS),
     ...pickDefined(patch, MERGED_TASK_FIELDS),
+    ...pickDefined({ taskLabel: heldTaskLabel(existing, patch.taskLabel) }, ['taskLabel']),
     sessionId,
     clientName: session.clientName,
     surface: patch.surface ?? existing?.surface ?? 'canvas',
