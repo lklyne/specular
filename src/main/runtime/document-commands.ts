@@ -68,9 +68,7 @@ import {
   setDeviceIdMetadata,
   setDeviceOrientationMetadata,
   setShowDeviceFrameMetadata,
-  setUseSvgDeviceShellMetadata,
   showDeviceFrameFromMetadata,
-  useSvgDeviceShellFromMetadata,
 } from './runtime-entities'
 import { selectEntities, selectGroup } from './selection-controller'
 import { cancelEditingEntityIfMatches } from './editing-entity-runtime'
@@ -1451,11 +1449,6 @@ export function setDeviceOrientation(pageId: string, orientation: DeviceOrientat
 export function toggleDeviceShell(pageId: string): void {
   const target = pageDeviceTarget(pageId)
   if (target) toggleDeviceFlag(target, showDeviceFrameFromMetadata, setShowDeviceFrameMetadata)
-}
-
-export function toggleSvgDeviceShell(pageId: string): void {
-  const target = pageDeviceTarget(pageId)
-  if (target) toggleDeviceFlag(target, useSvgDeviceShellFromMetadata, setUseSvgDeviceShellMetadata)
 }
 
 export function setFilePreset(fileId: string, presetIndex: number): void {

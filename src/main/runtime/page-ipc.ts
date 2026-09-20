@@ -18,10 +18,10 @@ const pendingDetailRequests = new Map<string, { pageId: string; nodeId: string }
 
 export function requestNodeDetail(pageId: string, nodeId: string): void {
   const page = findPageById(pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
+  if (!page || page.host.webContents.isDestroyed()) return
   const requestId = randomUUID()
   pendingDetailRequests.set(requestId, { pageId, nodeId })
-  safeSend(page.pageView.webContents, ipcChannels.resolveNodeDetail, { nodeId, requestId })
+  safeSend(page.host.webContents, ipcChannels.resolveNodeDetail, { nodeId, requestId })
 }
 
 export function takePendingDetailRequest(
@@ -39,7 +39,7 @@ export function sendPageIpc(
   payload: Record<string, unknown>,
 ): Promise<unknown> {
   const page = pageId ? findPageById(pageId) : selectedPage()
-  if (!page || page.pageView.webContents.isDestroyed()) {
+  if (!page || page.host.webContents.isDestroyed()) {
     return Promise.reject(
       new Error(pageId ? `Page not found: ${pageId}` : 'No page selected'),
     )
@@ -58,7 +58,7 @@ export function sendPageIpc(
       reject,
       timer,
     })
-    safeSend(page.pageView.webContents, channel, { ...payload, requestId })
+    safeSend(page.host.webContents, channel, { ...payload, requestId })
   })
 }
 

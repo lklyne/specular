@@ -59,7 +59,7 @@ export function spaceSnapshot(): WorkspaceSnapshot {
       buildPageSnapshot({
         id: page.id,
         name: page.name,
-        url: page.pageView.webContents.getURL() || 'about:blank',
+        url: page.host.webContents.getURL() || 'about:blank',
         presetIndex: page.presetIndex,
         canvasX: page.canvasX,
         canvasY: page.canvasY,

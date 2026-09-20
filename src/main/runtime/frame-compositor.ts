@@ -38,7 +38,7 @@ export async function captureFrameComposited(
   page: Page,
   opts?: { dpr?: number },
 ): Promise<CompositedCapture | null> {
-  if (page.pageView.webContents.isDestroyed()) return null
+  if (page.host.webContents.isDestroyed()) return null
 
   const dpr =
     opts?.dpr ??
@@ -79,15 +79,26 @@ export async function captureFrameComposited(
     )
   }
 
-  const [pageImage, aboveOverlay, cursorOverlay] = await Promise.all([
-    page.pageView.webContents.capturePage(),
+  const [captured, aboveOverlay, cursorOverlay] = await Promise.all([
+    page.host.webContents.capturePage(),
     abovePromise,
     cursorPromise,
   ])
 
-  if (pageImage.isEmpty()) return null
-  const pageSize = pageImage.getSize()
+  if (captured.isEmpty()) return null
+  // A page paints offscreen at its own CSS viewport, so the capture is at that
+  // resolution rather than the canvas one. The overlay crops below are in
+  // window space, so the page has to arrive at the size it occupies there.
+  const pageSize = {
+    width: Math.round(pageRect.width * dpr),
+    height: Math.round(pageRect.height * dpr),
+  }
   if (pageSize.width === 0 || pageSize.height === 0) return null
+  const pageImage =
+    captured.getSize().width === pageSize.width && captured.getSize().height === pageSize.height
+      ? captured
+      : captured.resize({ width: pageSize.width, height: pageSize.height })
+  if (pageImage.isEmpty()) return null
 
   const baseBitmap = pageImage.toBitmap()
   blendOnto(baseBitmap, aboveOverlay, pageSize)

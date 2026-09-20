@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { AgentPresenceCursor, ToolbarSelectionData } from '../shared/types'
 import type { ToolbarElectronAPI } from '../shared/electron-api/toolbar'
 import { ipcChannels } from '../shared/ipc-contract'
-import { on } from './ipc-helpers'
+import { on, onLatest } from './ipc-helpers'
 
 const api: ToolbarElectronAPI = {
   zoomIn: () => ipcRenderer.send(ipcChannels.zoomIn),
@@ -20,12 +20,12 @@ const api: ToolbarElectronAPI = {
   tooltipOpen: () => ipcRenderer.send(ipcChannels.toolbarTooltipOpen),
   tooltipClose: () => ipcRenderer.send(ipcChannels.toolbarTooltipClose),
   setTextEditing: (active) => ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),
-  onZoomChanged: on<number>(ipcChannels.zoomChanged),
-  onSelectionChanged: on<ToolbarSelectionData>(ipcChannels.toolbarSelectionChanged),
-  onLeftSidebarChanged: on<boolean>(ipcChannels.leftSidebarChanged),
-  onDevtoolsChanged: on<boolean>(ipcChannels.devtoolsChanged),
+  onZoomChanged: onLatest<number>(ipcChannels.zoomChanged),
+  onSelectionChanged: onLatest<ToolbarSelectionData>(ipcChannels.toolbarSelectionChanged),
+  onLeftSidebarChanged: onLatest<boolean>(ipcChannels.leftSidebarChanged),
+  onDevtoolsChanged: onLatest<boolean>(ipcChannels.devtoolsChanged),
   onThemeChanged: on(ipcChannels.themeChanged),
-  onAgentPresenceChanged: on<AgentPresenceCursor[]>(ipcChannels.agentPresenceChanged),
+  onAgentPresenceChanged: onLatest<AgentPresenceCursor[]>(ipcChannels.agentPresenceChanged),
   repoConnectViaPicker: () => ipcRenderer.invoke(ipcChannels.repoConnectViaPicker),
   repoDisconnect: (id) => ipcRenderer.invoke(ipcChannels.repoDisconnect, { id }),
 }

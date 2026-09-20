@@ -1,5 +1,6 @@
 import type {
   ConnectedRepo,
+  CursorVisibilityPrefs,
   FixConfig,
   FixModel,
   FixPermissions,
@@ -21,6 +22,7 @@ export interface SettingsElectronAPI {
     installed: boolean,
   ) => Promise<OnboardingStatusSnapshot>
   setFixConfig: (config: { model: FixModel; permissions: FixPermissions }) => void
+  setCursorVisibility: (next: Partial<CursorVisibilityPrefs>) => void
   removeOriginBinding: (origin: string) => void
   repoConnectViaPicker: () => Promise<ConnectedRepo | null>
   repoDisconnect: (id: string) => Promise<void>

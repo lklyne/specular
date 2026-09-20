@@ -77,7 +77,7 @@ export function copyablePagePayload(
   return {
     version: 1,
     pages: selectedPages.map((page) => ({
-      url: page.pageView.webContents.getURL() || 'about:blank',
+      url: page.host.webContents.getURL() || 'about:blank',
       presetIndex: page.presetIndex,
       dx: page.canvasX - minX,
       dy: page.canvasY - minY,
@@ -152,7 +152,7 @@ function pagePayload(page: NonNullable<ReturnType<typeof findPageById>>): Clipbo
   return {
     kind: 'page',
     sourceId: page.id,
-    url: page.pageView.webContents.getURL() || 'about:blank',
+    url: page.host.webContents.getURL() || 'about:blank',
     presetIndex: page.presetIndex,
     metadata: cloneMetadata(page.metadata) as Record<string, unknown> | undefined,
     dx: page.canvasX,

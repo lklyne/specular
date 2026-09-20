@@ -45,6 +45,10 @@ export type CanvasPointerContext = {
    *  set when the tool gesture owns pointer input — a router-owned
    *  pointerdown routes by hit target even if a stale broadcast disagrees. */
   commentToolActive: boolean
+  /** Inspect tool active. The eyedropper reads the page's own DOM under the
+   *  pointer, so a press on a page body forwards into that page regardless of
+   *  selection — nothing native reaches an offscreen page on its own. */
+  inspectToolActive: boolean
 }
 
 /**
@@ -243,6 +247,11 @@ function routePageBody(
   payload: Extract<HitPayload, { kind: 'page-body' }>,
   context: CanvasPointerContext,
 ): CanvasPointerAction {
+  // The inspect tool pins the element under the cursor from inside the page,
+  // so its press goes to the page whether or not that page is entered.
+  if (context.inspectToolActive) {
+    return { kind: 'forward-pointer-down', entityId: payload.entityId, button: context.button }
+  }
   // An entered page owns every pointerdown on its body, modifiers included:
   // web content binds shift/cmd/alt to its own gestures (shift-drag range
   // select, cmd-click open-in-new-tab, alt-drag in design tools), and a

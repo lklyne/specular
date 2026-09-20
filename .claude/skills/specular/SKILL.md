@@ -32,6 +32,7 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 | `specular snapshot -i -c -f <id>` | Capture a compact interactive-elements snapshot of a page, with refs |
 | `specular snapshot -i -s "<selector>" -f <id>` | Scope a snapshot to one section/container |
 | `specular screenshot -f <id>` | Screenshot a page |
+| `specular print-pdf --page <id> [--output <file.pdf>]` | Print a page to PDF |
 
 ## Targeting a tab
 

@@ -82,3 +82,13 @@ export function looksLikeUrl(value: string): boolean {
   if (ANY_SCHEME_PREFIX.test(trimmed)) return false
   return BARE_HOST_PATTERN.test(trimmed)
 }
+
+/** An http(s) or file URL, resolved against `base` when relative. */
+export function isHttpOrFileUrl(value: string, base?: string): boolean {
+  try {
+    const { protocol } = new URL(value, base)
+    return protocol === 'http:' || protocol === 'https:' || protocol === 'file:'
+  } catch {
+    return false
+  }
+}
