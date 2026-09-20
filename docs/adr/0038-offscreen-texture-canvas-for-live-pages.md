@@ -474,3 +474,98 @@ instead of 15 is the next measurement worth an hour.
 What the spike skipped. Popups, corner radius, and any clipping to the canvas
 area. Pages drew over the toolbar and panels. Z-order among pages followed
 entity order with the focused page last, not the full draw-order rules.
+
+**HTML-in-canvas probe, 2026-09-19.** Option 2 is real in this Electron. The
+Chromium 150 binary in Electron 43.2 carries the API behind a Blink feature.
+Launching with `--enable-blink-features=CanvasDrawElement,HTMLInCanvas`
+(`SPECULAR_SPIKE_BLINK_FEATURES` on the spike branch) exposes
+`ctx.drawElementImage` for 2D, `gl.texElementImage2D`,
+`GPUQueue.copyElementImageToTexture`, and `layoutSubtree`, `requestPaint` and a
+`paint` event on the canvas. The probe ran in canvas-bg over CDP, with no app
+code, against DOM notes appended as children of a `<canvas layoutsubtree>`:
+
+- The note draws with real layout: wrapping, bold, italic, lists, inline code.
+  A draw under a 2.5× transform is vector-crisp, because Chromium replays the
+  element's paint record at the canvas transform. There is no bitmap to go
+  soft, so notes would need no re-raster when a zoom settles.
+- Draw order is call order, so a note between two pages is two `drawImage`
+  calls around one `drawElementImage`.
+- 60 distinct notes redrawn every frame under a continuous zoom held 120 fps
+  with no frame over 25 ms and 0.14 ms of script per frame. It cost 33 points
+  of app CPU while the motion lasted. Repainting all 60 at a fixed transform
+  30 times a second, which is what animating pages force on a shared surface,
+  cost 3.5 points.
+- The element stays live DOM. A `contenteditable` child took focus and typed
+  text, and the canvas got a `paint` event whose `changedElements` named the
+  note. `drawElementImage` returns a `DOMMatrix`. Set as the element's CSS
+  transform, it put the DOM rect exactly on the drawn pixels, and
+  `elementFromPoint` found the note there.
+- Drawing stops at the border box. A `box-shadow` is cut off, so shadows need
+  to be drawn by the canvas or the element needs a padded wrapper.
+- A `paint` event only fires while the document is visible. With the window
+  covered, `drawElementImage` throws "No cached paint record for element".
+
+These CPU numbers were taken with the app window covered, so they compare with
+each other and not with the tables above. Not tested: the caret and selection
+while editing, IME, the real note editor, images and video inside a note,
+scrolling content, accessibility, and how stable a flagged API stays across
+Electron upgrades. The probe also put note DOM in canvas-bg. Real notes live in
+above-view, which owns keyboard focus, so a build has to choose between drawing
+read-only copies in canvas-bg and keeping today's editor in above-view, or
+merging the two renderers.
+
+**What notes cost today, measured 2026-09-19.** The perf canvas holds 60 pages
+and nothing else, so no run before this one could see note cost. The tab
+"Perf test (animated + notes)" is the same 60 pages at the same rects plus 60
+stickies, 50 in the gaps between rows and 10 on top of pages. Current 2D path,
+window on screen, same launch for both tabs, percent of one core:
+
+| Measure | Pages only | Pages plus 60 stickies |
+|---|---|---|
+| At rest, zoom 0.1, app total | 138 | 140–141 |
+| At rest, above-view | 0 | 0 |
+| Zoom oscillation 0.1↔0.25, app total | 203–204 | 245–246 |
+| Zoom oscillation, above-view | 36 | 63 |
+| Zoom oscillation, GPU process | 63–64 | 75 |
+| Zoom oscillation, rAF | 120 fps | 120 fps |
+
+DOM notes are free at rest. During a zoom, 60 of them add about 42 points, 27
+of those in above-view, which reprojects every note on every camera tick. The
+HTML-in-canvas probe drew 60 richer notes per frame for about 33 points, under
+different conditions, so the two are in the same range and HTML-in-canvas is
+not a performance win on this evidence. It buys interleaving. The number worth
+chasing is the other one: above-view spends 36 points per zoom with no notes
+at all, on per-page overlay work for 60 pages.
+
+**Where this leaves the renderer, 2026-09-19.** The 2D item canvas stays. Four
+alternatives were measured against it and none earns a port now. The code for
+all of them is on `spike/webgpu-page-surface`, which does not merge.
+
+- three/webgpu, with or without R3F, is deferred. It saves 2 to 8% of
+  machine-wide CPU and nothing in gestures. It costs nothing either, so it is
+  the renderer to pick if effects or a shared scene ever justify a port. Only
+  plain three was measured. R3F was not.
+- Raw WebGPU has no case. It ties with three.
+- A native layer is rejected. It saves 13 to 24% at rest and cannot sit between
+  Electron's web views.
+- HTML-in-canvas is deferred. It is the way to draw notes in the item canvas
+  with real layout, interleaved with pages, at a cost in the same range as DOM
+  notes today. It is behind a Blink flag, and the caret, IME, the real editor
+  and media inside notes are untested. ADR 0014 has notes painting above pages,
+  so nothing needs interleaving yet.
+
+What to measure next for CPU, in order of expected return:
+
+1. Capture policy. About 60% of the cost is Chromium's capture, and only frame
+   rate and texture size move it (`page-frame-rate.ts`,
+   `page-texture-scale.ts`). Thumbnail pages at 8 fps where they now get 15 is
+   unmeasured.
+2. above-view during a zoom. It spends 36 points with no notes on the canvas,
+   on per-page overlay work for 60 pages, and 27 more with 60 stickies. No
+   renderer swap touches that.
+
+Two tabs carry the benchmark. "Perf test (animated)" has 60 pages, and
+"Perf test (animated + notes)" adds 60 stickies to the same layout. Count
+WindowServer whenever a change moves work into native or compositor layers,
+and check `document.visibilityState` before a run, because a covered window
+stops rendering.
