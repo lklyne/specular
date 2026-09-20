@@ -1,6 +1,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import type {
+  CursorVisibilityPrefs,
   FixModel,
   FixPermissions,
   OnboardingComponentId,
@@ -9,10 +10,12 @@ import type {
   SettingsBootstrapData,
 } from '../../shared/types'
 import {
+  getCursorVisibility,
   getFixConfig,
   getSpacePath,
   getThemeMode,
   isDark,
+  setCursorVisibility,
   setFixConfig,
 } from '../runtime/preferences'
 import { changeSpaceViaPicker } from '../runtime/space-change'
@@ -29,6 +32,7 @@ import {
 } from '../skill-install-runner'
 import { refreshAppMenu } from '../runtime/app-menu'
 import { checkForUpdatesManually } from '../auto-updater'
+import { notifyPresenceChanged } from '../presence-cursor'
 import { notifyDevtoolsPanelData } from '../runtime/inspect-session'
 import {
   closeSettingsWindow,
@@ -65,6 +69,7 @@ export function registerSettingsIpc(): void {
       fixConfig: getFixConfig(),
       connectedRepos: listRepos(),
       space: { path: spaceDir(), isDefault: getSpacePath() === undefined },
+      cursorVisibility: getCursorVisibility(),
     }),
   )
 
@@ -123,6 +128,15 @@ export function registerSettingsIpc(): void {
       setFixConfig(payload)
       broadcastFixConfig()
       notifyDevtoolsPanelData()
+    },
+  )
+
+  ipcMain.on(
+    ipcChannels.settingsSetCursorVisibility,
+    (_event, payload: Partial<CursorVisibilityPrefs> | undefined) => {
+      if (!payload) return
+      setCursorVisibility(payload)
+      notifyPresenceChanged()
     },
   )
 

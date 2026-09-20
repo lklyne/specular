@@ -608,6 +608,12 @@ export const SYNCED_CURSOR_COLOR = '#00C2FF'
 
 export type PresenceCursorSource = 'agent' | 'interaction-sync'
 
+/** Which presence cursors the user has chosen not to see, by source. */
+export interface CursorVisibilityPrefs {
+  hideAgentCursors: boolean
+  hideSyncedCursors: boolean
+}
+
 export interface AgentPresenceCursor {
   sessionId: string
   clientName: string
@@ -912,6 +918,7 @@ export interface SettingsBootstrapData extends ThemeBootstrapData {
   /** The current space (ADR 0033 §6): its resolved path, and whether it's
    *  the legacy default (`spacePath` unset) or a folder the user chose. */
   space: { path: string; isDefault: boolean }
+  cursorVisibility: CursorVisibilityPrefs
 }
 
 export type {

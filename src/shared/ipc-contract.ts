@@ -336,6 +336,7 @@ export interface IpcContract {
   'settings:refresh-status': { dir: 'invoke'; payload: unknown }
   'settings:remove-origin-binding': { dir: 'renderer→main'; payload: unknown }
   'settings:set-component-installed': { dir: 'invoke'; payload: unknown }
+  'settings:set-cursor-visibility': { dir: 'renderer→main'; payload: unknown }
   'settings:set-fix-config': { dir: 'renderer→main'; payload: unknown }
   'settings:skill-progress': { dir: 'main→renderer'; payload: OnboardingProgressEvent }
   'space-change-via-picker': { dir: 'invoke'; payload: unknown }
@@ -665,6 +666,7 @@ export const ipcChannels = {
   settingsRefreshStatus: 'settings:refresh-status',
   settingsRemoveOriginBinding: 'settings:remove-origin-binding',
   settingsSetComponentInstalled: 'settings:set-component-installed',
+  settingsSetCursorVisibility: 'settings:set-cursor-visibility',
   settingsSetFixConfig: 'settings:set-fix-config',
   settingsSkillProgress: 'settings:skill-progress',
   spaceChangeViaPicker: 'space-change-via-picker',

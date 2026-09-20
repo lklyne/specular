@@ -30,8 +30,6 @@ import {
   togglePerfTrace,
 } from '../perf-trace'
 import { stopPanZoomPerfTest } from '../pan-zoom-perf-test'
-import { getHideAgentCursors, setHideAgentCursors } from './preferences'
-import { requestLayout } from './layout-engine'
 
 const SKILL_IDS: SkillId[] = ['specular']
 
@@ -165,20 +163,6 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
     {
       label: 'View',
       submenu: [
-        {
-          label: 'Hide agent cursors',
-          type: 'checkbox',
-          checked: getHideAgentCursors(),
-          // Rendering only — interaction sync keeps replaying clicks/hover on
-          // peers, this just stops drawing the cursor glyph. Handy when a
-          // screen recorder glitches on the presence-cursor overlay window.
-          click: () => {
-            setHideAgentCursors(!getHideAgentCursors())
-            requestLayout()
-            refreshAppMenu()
-          },
-        },
-        { type: 'separator' },
         {
           label: 'Toggle DevTools (Canvas)',
           accelerator: 'CmdOrCtrl+Alt+I',
