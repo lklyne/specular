@@ -63,6 +63,20 @@ Two limits: pages can't be created or edited on a background tab (they need a
 live view — `tab switch` first), and background writes are not on the user's
 undo stack, so Cmd+Z will not reverse them.
 
+## Bracket a task
+
+Bracket a multi-step task so your cursor holds its position and stays
+visible on the canvas, instead of going idle between calls:
+
+```bash
+specular presence start "adding the pricing table"
+# ... several specular / browse calls ...
+specular presence done
+```
+
+Always call `done` when the task ends, success or not. An unclosed task
+holds the cursor past its normal idle timeout.
+
 ## Add — kind is the subcommand
 
 ```bash
@@ -336,6 +350,41 @@ When running against a local Specular app (`http://localhost:*`), you are workin
 Keep entries terse: one-line description, observed behavior, expected behavior. No need to comment for known issues already tracked.
 
 When a limitation is fixed (confirmed by testing, not just by a closed issue), **remove it from the "Known CLI limitations" list above** and close or note it on the GitHub issue. A stale warning is worse than no warning.
+
+## MCP server
+
+Clients that don't run shell commands can drive Specular through its MCP
+server instead. It covers the same operations, one tool per verb (or verb
+family). Install: `claude mcp add specular-mcp -- node out/main/mcp-helper.js`
+(a packaged app ships the helper at
+`<App>.app/Contents/Resources/mcp-helper.js`).
+
+| CLI verb | MCP tool |
+|---|---|
+| `canvas` | `get_workspace` |
+| `tab` / `tab new` / `tab switch` / `tab delete` | `list_tabs` / `create_tab` / `switch_tab` / `delete_tab` |
+| `selection` | `get_selection` |
+| `add` / `update` / `upsert` | `upsert_entities` |
+| `apply` | `apply_patch` |
+| `delete` | `delete_entities` |
+| `arrange` | `arrange_entities` |
+| `auto-layout` | `auto_layout` |
+| `focus` | `focus_pages` |
+| `link` / `unlink` | `link_pages` / `unlink_pages` |
+| `group` / `ungroup` | `create_group` / `ungroup_group` |
+| `annotate` / `annotations` / `annotation` | `create_annotation` / `get_annotations` / `get_annotation_detail` |
+| `annotate-selection` | `annotate_selection` |
+| `ack` / `resolve` / `dismiss` / `reply` | `acknowledge_annotation` / `resolve_annotation` / `dismiss_annotation` / `reply_to_annotation` |
+| `record start\|stop\|status\|trim` | `start_recording` / `stop_recording` / `get_recording_status` / `trim_recording` |
+| `print-pdf` | `print_pdf` |
+| `design-system` / `register-design-system` / `component-states` | `get_design_system` / `register_design_system` / `layout_component_states` |
+| `presence start` / `presence done` | `start_task` / `finish_task` |
+| `snapshot`, `click`, `fill`, `type`, `select`, `screenshot`, `scroll`, `wait`, and other passthrough verbs | `browse` |
+
+Every tool takes an optional `tab` (id or name) to target another canvas
+without switching the user's focus, the MCP equivalent of the CLI's `--tab`.
+`start_task` / `finish_task` are the tool equivalent of `specular presence
+start|done` above.
 
 ## Passthrough to agent-browser
 

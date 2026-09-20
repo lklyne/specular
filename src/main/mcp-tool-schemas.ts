@@ -2,7 +2,60 @@
 // MCP tool schema definitions
 // ---------------------------------------------------------------------------
 
-export const toolSchemas = [
+/** Every JSON Canvas spacing token (see docs/adr/0019, `layout-directive.ts`) — the
+ *  pixel escape hatch (a plain number) is always accepted alongside these. */
+const SPACING_TOKENS = ['xs', 's', 'm', 'l', 'xl']
+
+const SPACING_VALUE_SCHEMA = {
+  oneOf: [
+    { type: 'number' },
+    { type: 'string', enum: SPACING_TOKENS },
+  ],
+  description: 'Pixel number, or a spacing token (xs=20, s=40, m=60, l=100, xl=160).',
+} as const
+
+/** Shared by `upsert_entities` and `apply_patch` — a declarative reflow
+ *  directive (ADR 0019) rather than per-item canvasX/Y. */
+const LAYOUT_DIRECTIVE_SCHEMA = {
+  type: 'object',
+  description:
+    "Declarative placement directive, applied to the patch's create items and any items with an id (re-laid-out). Without an anchor (originX/Y or near), it anchors at the bounding box of any existing entities in the patch, falling back to find_placement.",
+  properties: {
+    kind: { type: 'string', enum: ['row', 'column', 'grid'] },
+    gap: SPACING_VALUE_SCHEMA,
+    rowGap: SPACING_VALUE_SCHEMA,
+    colGap: SPACING_VALUE_SCHEMA,
+    cols: { type: 'integer', minimum: 1, description: 'Column count (grid only).' },
+    originX: { type: 'number', description: 'Explicit anchor — must be given with originY.' },
+    originY: { type: 'number', description: 'Explicit anchor — must be given with originX.' },
+    near: { type: 'string', description: 'Anchor near an existing entity id.' },
+  },
+  required: ['kind'],
+  additionalProperties: false,
+} as const
+
+/** Every tool takes an optional `tab` so an agent can target another canvas
+ *  without switching what the user is looking at (see `switch_tab`) — added
+ *  here rather than copy-pasted onto every schema below. Resolution and
+ *  per-verb tab support (some routes 400 on a tab that doesn't apply to them,
+ *  matching the CLI's `--tab`) live server-side; this only advertises the arg. */
+const TAB_ARG_SCHEMA = {
+  type: 'string',
+  description:
+    "Tab id or name to target instead of the canvas the user is looking at. Does not switch the user's focus — see switch_tab for that.",
+} as const
+
+function withTabArg<T extends { inputSchema: { properties: Record<string, unknown> } }>(tool: T): T {
+  return {
+    ...tool,
+    inputSchema: {
+      ...tool.inputSchema,
+      properties: { ...tool.inputSchema.properties, tab: TAB_ARG_SCHEMA },
+    },
+  }
+}
+
+const rawToolSchemas = [
   {
     name: 'get_workspace',
     description: 'Return the current Specular workspace graph, selection, and occupied regions. Text entities include a preview of the first 80 characters — use get_text_entities for full content.',
@@ -70,12 +123,15 @@ Kind-specific fields:
   page — url, presetIndex, canvasX, canvasY, orientation, showDeviceFrame (default true), groupId
   text  — text (Markdown), color (hex "#RRGGBB" or preset 1-6: red/orange/yellow/green/cyan/purple), canvasX, canvasY, width, height
   file  — file (absolute path), subpath, canvasX, canvasY, width, height, presetIndex, orientation, showDeviceFrame (default false — set true to add a border/device frame, e.g. on an html entity)
+  group — layoutGap (packing gap in px, managed auto-layout groups only)
 
 Page presets (presetIndex → device):
   0: iPhone SE (375×667, mobile)     3: iPad Mini (744×1133)       6: Laptop (1280×800)
   1: iPhone 14 Pro (393×852, mobile) 4: iPad Pro 11 (834×1194)     7: Desktop (1440×900)
   2: iPhone 14 Pro Max (430×932)     5: iPad Pro 12.9 (1024×1366)  8: Desktop XL (1920×1080)
-Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
+Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.
+
+Pass \`layout\` to place items with a directive (row/column/grid) instead of explicit canvasX/Y — it overrides per-item positions for every item in the call, including updates by id.`,
     inputSchema: {
       type: 'object',
       properties: {
@@ -84,7 +140,7 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
           items: {
             type: 'object',
             properties: {
-              kind: { type: 'string', enum: ['page', 'text', 'file'], description: 'Entity type.' },
+              kind: { type: 'string', enum: ['page', 'text', 'file'], description: 'Entity type. Required for creates; omit when updating by id — kind is resolved from the doc.' },
               id: { type: 'string', description: 'Entity ID. Present = update, absent = create.' },
               canvasX: { type: 'number' },
               canvasY: { type: 'number' },
@@ -102,13 +158,53 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
               // File
               file: { type: 'string', description: 'Absolute file path (file entity).' },
               subpath: { type: 'string', description: 'Subpath within file (file entity).' },
+              // Group
+              layoutGap: { type: 'number', description: 'Packing gap in px (managed auto-layout group update only).' },
             },
-            required: ['kind'],
             additionalProperties: true,
           },
         },
+        layout: LAYOUT_DIRECTIVE_SCHEMA,
       },
       required: ['items'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'apply_patch',
+    description: `The declarative JSON door for batch canvas mutations (ADR 0019) — entities, edges, and deletes land in one Y.Doc transaction. Prefer the ergonomic tools (upsert_entities, link_pages, delete_entities) for the common single-purpose call; reach for apply_patch for the genuinely batch case ("create 6 pages in a 3x2 grid") or when entities, edges, and deletes need to land together atomically.
+
+No id on an entity → create. id present → update (kind is resolved from the doc, no need to pass it). id listed in delete → removed. \`layout\` places/reflows the entities in this same patch — see upsert_entities for its shape.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entities: {
+          type: 'array',
+          description: 'Entities to create or update — same per-item shape as upsert_entities.items.',
+          items: { type: 'object', additionalProperties: true },
+        },
+        edges: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              fromEntityId: { type: 'string' },
+              toEntityId: { type: 'string' },
+              kind: { type: 'string', enum: ['breakpoint_variant', 'connection'] },
+              label: { type: 'string' },
+            },
+            required: ['fromEntityId', 'toEntityId'],
+            additionalProperties: true,
+          },
+        },
+        delete: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Entity or edge ids to remove.',
+        },
+        layout: LAYOUT_DIRECTIVE_SCHEMA,
+      },
       additionalProperties: false,
     },
   },
@@ -223,6 +319,43 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
         focus_after: { type: 'boolean' },
       },
       required: ['group_ids'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'arrange_entities',
+    description: 'Tidy existing entities into a row, column, or grid — the same engine behind the canvas popup toolbar. Default keeps the current footprint and evens the gaps; pass gap to pack tight to a fixed gap in reading order instead. Omit entity_ids to arrange the current selection.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        mode: { type: 'string', enum: ['row', 'column', 'grid'] },
+        entity_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Entities to arrange. Omit to use the current selection.',
+        },
+        gap: { ...SPACING_VALUE_SCHEMA, description: 'Pack to a fixed gap instead of tidying in place. ' + SPACING_VALUE_SCHEMA.description },
+        cols: { type: 'number', description: 'Column count (grid mode).' },
+      },
+      required: ['mode'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'auto_layout',
+    description: "Turn a selection of entities (or a single existing group) into a managed auto-layout row or column — the direction follows the selection's dominant axis, and children can be drag-reordered afterward. A single group id converts that group in place.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Entities to group, or a single existing group id (starting with "group_") to convert in place.',
+        },
+        label: { type: 'string' },
+        gap: { type: 'number', description: 'Packing gap in px.' },
+      },
+      required: ['entity_ids'],
       additionalProperties: false,
     },
   },
@@ -435,6 +568,24 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
     },
   },
   {
+    name: 'annotate_selection',
+    description:
+      "Leave one region comment over a multi-selection's union bounds, carrying the selected entity ids so a fix loop reads the whole request at once. Omit entity_ids to use the current selection.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string' },
+        entity_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Entities the comment is about. Omit to use the current selection.',
+        },
+      },
+      required: ['text'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'get_text_entities',
     description: 'Return all text entities on the canvas.',
     inputSchema: {
@@ -509,6 +660,21 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
     },
   },
   {
+    name: 'print_pdf',
+    description: 'Print a page to a PDF file on disk.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        page_id: { type: 'string' },
+        output_path: { type: 'string', description: 'Defaults to "./<page_id>.pdf".' },
+        landscape: { type: 'boolean' },
+        page_size: { type: 'string', description: 'e.g. "Letter", "A4".' },
+      },
+      required: ['page_id'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'delete_entities',
     description:
       'Delete a batch of mixed canvas entities (pages, text notes, file attachments) in a single call. Items are removed sequentially with animated cursor movement.',
@@ -532,4 +698,73 @@ Portrait dimensions for phones/tablets. Use orientation: "landscape" to swap.`,
       additionalProperties: false,
     },
   },
-] as const
+  {
+    name: 'list_tabs',
+    description: 'List every canvas (tab) in the workspace, marking the one the user is looking at.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'create_tab',
+    description: 'Create a new canvas (tab) without switching the user\'s focus to it. Returns its id — pass that as `tab` on other tools to write to it in the background.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'switch_tab',
+    description: 'Switch the canvas the user is looking at. This moves the user\'s focus — for writing to another canvas without disrupting them, pass `tab` on the other tools instead.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ref: { type: 'string', description: 'Tab id or exact tab name.' },
+      },
+      required: ['ref'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'delete_tab',
+    description: 'Delete a canvas (tab). Deleting a background tab does not move the user; deleting the last tab resets it to an empty default canvas instead of removing it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ref: { type: 'string', description: 'Tab id or exact tab name.' },
+      },
+      required: ['ref'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'start_task',
+    description:
+      "Bracket a multi-step task so the agent's cursor holds its position and stays visible on the canvas between calls instead of going idle. Call once before a sequence of related tool calls (building out a page, working through a checklist); always call finish_task when the task ends, whether it succeeded or not.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        label: { type: 'string', description: 'Short human-readable description of the task, shown next to the cursor.' },
+      },
+      required: ['label'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'finish_task',
+    description: 'End a task started with start_task, releasing the cursor hold so it can go idle again.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+]
+
+export const toolSchemas = rawToolSchemas.map(withTabArg)
