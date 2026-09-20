@@ -612,11 +612,11 @@ No id on an entity → create. id present → update (kind is resolved from the 
       properties: {
         page_id: { type: 'string', description: 'Page to record.' },
         output_path: { type: 'string', description: 'Optional output file path. Defaults to a temp directory.' },
-        fps: { type: 'number', description: 'Capture page rate (default 30, max 60).' },
+        fps: { type: 'number', description: 'Frame rate of the output file (default 30). Rates above 30 usually cannot be sustained and drop time.' },
         quality: {
           type: 'string',
           enum: ['high', 'medium', 'compact'],
-          description: 'Quality preset. high=60fps/crf20, medium=30fps/crf30, compact=30fps/crf40.',
+          description: 'Quality preset. All record at 30fps; they differ in compression: high=crf20, medium=crf30, compact=crf40.',
         },
       },
       required: ['page_id'],
