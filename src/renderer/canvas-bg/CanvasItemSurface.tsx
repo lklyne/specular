@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { PagePopupAnchor } from '../../shared/page-frames'
 import {
+  drawItemBlank,
   drawItemChrome,
   drawItemSnapshot,
   itemGeometry,
@@ -53,10 +54,14 @@ function drawPageFrame(
   frames: PageFrameStore,
   pageId: string,
   g: ItemGeometry,
+  screenColor: string,
   now: number,
 ): void {
   const frame = frames.frames.get(pageId)
-  if (!frame) return // No first frame yet — the border ring already frames the empty interior.
+  if (!frame) {
+    drawItemBlank(ctx, g, screenColor)
+    return
+  }
   drawItemSnapshot(ctx, g, frame.bitmap)
 
   const popup = frames.popups.get(pageId)
@@ -138,13 +143,13 @@ export function CanvasItemSurface({
     const { ctx, width, height, dpr } = prepared
     notePaint()
     const { draws: items, isDark: dark } = inputsRef.current
-    const { borderColor, bezelColor } = readChromeColors(canvas)
+    const { borderColor, bezelColor, screenColor } = readChromeColors(canvas)
     const now = performance.now()
     for (const draw of items) {
       const g = itemGeometry(draw.item)
       if (itemOffCanvas(g, width, height)) continue
       if (draw.chrome) drawItemChrome(ctx, draw.item, g, dark, bezelColor, borderColor, dpr)
-      if (draw.pageId) drawPageFrame(ctx, frames, draw.pageId, g, now)
+      if (draw.pageId) drawPageFrame(ctx, frames, draw.pageId, g, screenColor, now)
     }
   }, [frames, notePaint])
   paintRef.current = paint

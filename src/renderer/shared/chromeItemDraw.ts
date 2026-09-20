@@ -72,17 +72,19 @@ export interface ItemGeometry {
   innerRadius: number
 }
 
-/** The two CSS custom properties every chrome pass reads for its border and
- *  bezel fill colors, resolved once per draw against a canvas already
- *  mounted in the themed surface tree. */
+/** The CSS custom properties every chrome pass reads for its border, bezel
+ *  fill, and unlit screen colors, resolved once per draw against a canvas
+ *  already mounted in the themed surface tree. */
 export function readChromeColors(canvas: HTMLCanvasElement): {
   borderColor: string
   bezelColor: string
+  screenColor: string
 } {
   const styles = getComputedStyle(canvas)
   return {
     borderColor: styles.getPropertyValue('--surface-device-border').trim() || '#d6d3d1',
     bezelColor: styles.getPropertyValue('--surface-device').trim() || '#e7e5e4',
+    screenColor: styles.getPropertyValue('--surface-device-screen').trim() || '#f5f5f4',
   }
 }
 
@@ -260,6 +262,20 @@ export function drawItemSnapshot(
   ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
   ctx.restore()
+}
+
+/** A page's content rect filled flat, standing in for a texture not yet sent. */
+export function drawItemBlank(
+  ctx: CanvasRenderingContext2D,
+  g: ItemGeometry,
+  screenColor: string,
+): void {
+  ctx.fillStyle = screenColor
+  if (g.innerRadius <= 0) {
+    ctx.fillRect(g.contentX, g.contentY, g.contentW, g.contentH)
+    return
+  }
+  ctx.fill(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
 }
 
 /** The device shell: squircle bezel donut with drop shadow, edge strokes,
