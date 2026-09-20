@@ -13,6 +13,7 @@ import { PRESENCE_INTENT_TTL_MS } from '../shared/presence-timing'
 import {
   takePageAgentSnapshot,
   queryPageElements,
+  queryElementsByName,
 } from './runtime/page-runtime'
 import {
   cacheAgentSnapshot,
@@ -379,6 +380,75 @@ function findTruncatedNameMatch(
   return match
 }
 
+export interface PresenceTargetResolution {
+  targetRef: string | null
+  targetRefSource: PresenceTargetRefSource
+  targetName: string | null
+  targetRect: PresenceTargetRect
+  pageX: number
+  pageY: number
+}
+
+function normalizeNameMatchRect(candidate: unknown): PresenceTargetRect | null {
+  if (!candidate || typeof candidate !== 'object') return null
+  const rect = (candidate as Record<string, unknown>).rect
+  if (!rect || typeof rect !== 'object') return null
+  const r = rect as Record<string, unknown>
+  if (
+    typeof r.x !== 'number' ||
+    typeof r.y !== 'number' ||
+    typeof r.width !== 'number' ||
+    typeof r.height !== 'number'
+  ) {
+    return null
+  }
+  return { x: r.x, y: r.y, width: r.width, height: r.height }
+}
+
+/**
+ * Last resort when neither a CSS-selector query nor snapshot scoring found
+ * anything: ask the live page for elements whose accessible name (or, for a
+ * text query, visible text) exactly matches, bypassing main's own
+ * depth-capped agent snapshot entirely (issue #319 — a deeply nested
+ * interactive leaf on a real app shell never makes it into that snapshot at
+ * all, so name scoring never sees it). Accepted only when the page reports
+ * exactly one rendered match: a real element plus a same-named zero-size
+ * ARIA duplicate collapses to one because the page-side lookup drops
+ * unrendered candidates, but a genuine duplicate stays two and is refused —
+ * the same "ambiguous is worse than absent" rule the ref map and the
+ * truncated-name fallback both already apply.
+ */
+async function findPresenceTargetByAccessibleQuery(
+  pageId: string,
+  query: { name?: string | null; text?: string | null },
+): Promise<PresenceTargetResolution | null> {
+  const name = query.name ?? null
+  const text = name ? null : query.text ?? null
+  if (!name && !text) return null
+  // Never lets a gone page (destroyed mid-flight, unregistered in a test)
+  // surface as a rejection — this is a best-effort fallback, and its
+  // failure mode is the same "don't travel" as finding no match.
+  let results: unknown[]
+  try {
+    results = await queryElementsByName(pageId, { name, text })
+  } catch {
+    return null
+  }
+  const rects = results
+    .map(normalizeNameMatchRect)
+    .filter((rect): rect is PresenceTargetRect => Boolean(rect))
+  if (rects.length !== 1) return null
+  const rect = rects[0]
+  return {
+    targetRef: null,
+    targetRefSource: 'specular',
+    targetName: name ?? text,
+    targetRect: rect,
+    pageX: rect.x + rect.width / 2,
+    pageY: rect.y + rect.height / 2,
+  }
+}
+
 export async function findPresenceTarget(pageId: string, query: {
   selector?: string | null
   name?: string | null
@@ -387,14 +457,7 @@ export async function findPresenceTarget(pageId: string, query: {
   fullPath?: string | null
   interactiveOnly?: boolean
   maxResults?: number
-}): Promise<{
-  targetRef: string | null
-  targetRefSource: PresenceTargetRefSource
-  targetName: string | null
-  targetRect: PresenceTargetRect
-  pageX: number
-  pageY: number
-} | null> {
+}): Promise<PresenceTargetResolution | null> {
   const candidates: PresenceTargetCandidate[] = []
 
   if (query.selector) {
@@ -429,15 +492,25 @@ export async function findPresenceTarget(pageId: string, query: {
     best = findTruncatedNameMatch(candidates, query.name, query.interactiveOnly ?? false)
   }
 
-  if (!best) return null
-  return {
-    targetRef: best.ref,
-    targetRefSource: 'specular',
-    targetName: best.name ?? best.text ?? null,
-    targetRect: best.bounds,
-    pageX: best.bounds.x + best.bounds.width / 2,
-    pageY: best.bounds.y + best.bounds.height / 2,
+  if (best) {
+    return {
+      targetRef: best.ref,
+      targetRefSource: 'specular',
+      targetName: best.name ?? best.text ?? null,
+      targetRect: best.bounds,
+      pageX: best.bounds.x + best.bounds.width / 2,
+      pageY: best.bounds.y + best.bounds.height / 2,
+    }
   }
+
+  // A CSS-selector query already searched the live DOM directly — nothing
+  // left to fall back to. Only the snapshot-scored paths (name/text) reach
+  // for the page-side accessible-name lookup.
+  if (!query.selector && (query.name || query.text)) {
+    return findPresenceTargetByAccessibleQuery(pageId, query)
+  }
+
+  return null
 }
 
 export function resolvePresenceTargetRect(

@@ -270,6 +270,8 @@ export interface IpcContract {
   'query-dom-elements-response': { dir: 'renderer→main'; payload: unknown }
   'query-element-at-point': { dir: 'main→renderer'; payload: unknown }
   'query-element-at-point-response': { dir: 'renderer→main'; payload: unknown }
+  'query-elements-by-name': { dir: 'main→renderer'; payload: unknown }
+  'query-elements-by-name-response': { dir: 'renderer→main'; payload: unknown }
   'query-elements-in-rect': { dir: 'main→renderer'; payload: unknown }
   'query-elements-in-rect-response': { dir: 'renderer→main'; payload: unknown }
   'query-favicon': { dir: 'main→renderer'; payload: unknown }
@@ -598,6 +600,8 @@ export const ipcChannels = {
   queryDomElementsResponse: 'query-dom-elements-response',
   queryElementAtPoint: 'query-element-at-point',
   queryElementAtPointResponse: 'query-element-at-point-response',
+  queryElementsByName: 'query-elements-by-name',
+  queryElementsByNameResponse: 'query-elements-by-name-response',
   queryElementsInRect: 'query-elements-in-rect',
   queryElementsInRectResponse: 'query-elements-in-rect-response',
   queryFavicon: 'query-favicon',
