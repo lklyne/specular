@@ -1931,3 +1931,20 @@ Noticed (no action):
 - **#383**: day 43, zero comments — no state change.
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410 [Aug 24]) — freeze now at 28 days, already named Sept 14, not re-deriving.
 Hint for next run: this session's container is shallow-cloned by default (`git rev-parse --is-shallow-repository` → `true`) — confirm that's still true, and unshallow before any ancestry/"did X land"/rewrite-style git claim; don't repeat tonight's near-miss. Watch #431 and #428 for pickup. #169 hits day 120 around Sept 26 (5 days out); decide then whether it deserves more than a one-line mark. Otherwise keep everything to one line unless something actually changes.
+
+---
+
+## 2026-09-22
+Surveyed: `main` HEAD since Sept 20 (unchanged, `c981ef2` — second consecutive quiet night after the `0.9.0` release), confirmed the container was shallow again (`git rev-parse --is-shallow-repository` → `true`) and ran `git fetch --unshallow` before any other check, per last night's own hint, PR #430 re-checked directly (`get_reviews`, `get_comments` — both still empty, checks clean), #428/#431 for any pickup (zero comments each), #425's state, #169/#383 day counts, needs-triage/`agent-in-progress` recounts, and a direct search (`created:>=2026-09-21`) for any issue or PR opened since the Sept 21 entry.
+Acted: Nothing filed, nothing closed. #428 (day 2) and #431 (day 1) are both far under the 7-day stale mark. No orchestrator-owned open items beyond #169 needed cleanup.
+Noticed (no action):
+- **`main`**: zero commits since Sept 20 (`c981ef2` still tip) — second consecutive quiet night.
+- **#430**: still zero external reviews, zero comments, checks green — day 2 of the same zero-review-merge shape already diagnosed Sept 21 as the accepted `c3923d5f` tradeoff, not a gap. Not new evidence, not proposal-worthy on its own.
+- **#428**: day 2, zero comments — no state change.
+- **#431**: day 1, zero comments — too new to expect movement.
+- **#425**: 15 days open (Sept 7→22), zero comments — still a single instance of the "hidden failure behind a stale `mergeable_state` read" shape; two-instance bar not crossed.
+- **#169**: day 116, zero comments/reactions — no state change. Day-120 milestone lands ~Sept 26, 4 days out.
+- **#383**: day 44, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410 [Aug 24]; same #1/#111/#135) — freeze now at 29 days, already named Sept 14, not re-deriving.
+- **Zero new issues or PRs since Sept 21** — confirmed via direct `created:>=2026-09-21` search on both.
+Hint for next run: #169 hits day 120 around Sept 26 (4 days out) — decide then whether it deserves more than a one-line mark. Watch #428/#431 for pickup or their day-7 stale marks (Sept 27/28). If a third zero-review PR merges after #430, that's not new evidence, just another instance of the already-diagnosed `c3923d5f` tradeoff — don't re-propose it.
