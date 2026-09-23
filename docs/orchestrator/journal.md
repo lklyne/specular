@@ -1948,3 +1948,19 @@ Noticed (no action):
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410 [Aug 24]; same #1/#111/#135) — freeze now at 29 days, already named Sept 14, not re-deriving.
 - **Zero new issues or PRs since Sept 21** — confirmed via direct `created:>=2026-09-21` search on both.
 Hint for next run: #169 hits day 120 around Sept 26 (4 days out) — decide then whether it deserves more than a one-line mark. Watch #428/#431 for pickup or their day-7 stale marks (Sept 27/28). If a third zero-review PR merges after #430, that's not new evidence, just another instance of the already-diagnosed `c3923d5f` tradeoff — don't re-propose it.
+
+---
+
+## 2026-09-23
+Surveyed: `main` HEAD since Sept 19 (unchanged, `c981ef2` — third consecutive quiet night), direct `created:>=2026-09-22` search on both issues and PRs (zero results), #430/#428/#431/#425 comments re-checked directly (all still empty), #169/#383 day counts, needs-triage/`agent-in-progress` recount.
+Acted: Nothing filed, nothing closed. #428 (day 3) and #431 (day 2) are both far under the 7-day stale mark; no orchestrator-owned open items beyond #169 needed cleanup.
+Noticed (no action):
+- **`main`**: zero commits since Sept 19 (`c981ef2` still tip) — third consecutive quiet night, longest since the Aug 26–30 flatline.
+- **Zero new issues or PRs since Sept 22** — confirmed via direct `created:>=2026-09-22` search on both.
+- **#430**: day 3, still zero reviews, zero comments, checks green — same already-diagnosed `c3923d5f` tradeoff shape (Sept 21), not new evidence.
+- **#428/#431**: day 3 / day 2, zero comments each — no state change, not stale.
+- **#425**: 16 days open (Sept 7→23), zero comments — still one instance of the stale-`mergeable_state` shape; two-instance bar not crossed.
+- **#169**: day 117, 116 commits, zero comments/reactions since opening — no state change. Day-120 milestone lands Sept 26, 3 days out.
+- **#383**: day 45, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124 [130 days], newest #410 [Aug 24]) — freeze now at 30 days, already named Sept 14, not re-deriving.
+Hint for next run: #169 hits day 120 on Sept 26 (3 days out) — that was flagged two nights running as the point to decide whether it deserves more than a one-line mark; make that call then rather than deferring a third time. Otherwise: if `main` stays flat a fourth night, that alone is worth one line, not a new investigation.
