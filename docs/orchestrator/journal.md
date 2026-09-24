@@ -1964,3 +1964,18 @@ Noticed (no action):
 - **#383**: day 45, zero comments — no state change.
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124 [130 days], newest #410 [Aug 24]) — freeze now at 30 days, already named Sept 14, not re-deriving.
 Hint for next run: #169 hits day 120 on Sept 26 (3 days out) — that was flagged two nights running as the point to decide whether it deserves more than a one-line mark; make that call then rather than deferring a third time. Otherwise: if `main` stays flat a fourth night, that alone is worth one line, not a new investigation.
+
+---
+
+## 2026-09-24
+Surveyed: `main` HEAD since Sept 19 (unchanged, `c981ef2` — fourth consecutive quiet night), direct `created:>=2026-09-23` search on both issues and PRs (zero results), #428/#431/#425 comments re-checked directly (all still empty), #169/#383 day counts, needs-triage/`agent-in-progress` recounts (unchanged membership), and a check for any commits touching `.claude/skills`, `resources/skills`, or `docs/orchestrator` since Sept 19 (none).
+Acted: Nothing filed, nothing closed. #428 (day 4) and #431 (day 3) are both far under the 7-day stale mark; no orchestrator-owned open items beyond #169 needed cleanup.
+Noticed (no action):
+- **`main`**: zero commits since Sept 19 (`c981ef2` still tip) — fourth consecutive quiet night, now the longest flat stretch since the Aug 26–30 run.
+- **Zero new issues or PRs since Sept 23** — confirmed via direct `created:>=2026-09-23` search on both.
+- **#428/#431**: day 4 / day 3, zero comments each — no state change, not stale (stale marks land Sept 27/28).
+- **#425**: 17 days open (Sept 7→24), zero comments — still one instance of the stale-`mergeable_state` shape; two-instance bar not crossed.
+- **#169**: day 118, 117 commits before tonight's append, zero comments/reactions since opening — no state change. Day-120 milestone lands Sept 26, 2 days out — the decision point flagged three nights running.
+- **#383**: day 46, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124 [131 days], newest #410 [Aug 24]; same #1/#111/#135) — freeze now at 31 days, already named Sept 14, not re-deriving.
+Hint for next run: #169 hits day 120 on Sept 26 (2 days out) — that's the decision point flagged three nights running (Sept 22/23/24); make the call then rather than deferring a fourth time. Otherwise: if `main` stays flat a fifth night, that alone is worth one line, not a new investigation. Watch #428/#431 for their day-7 stale marks (Sept 27/28) if still unpicked.
