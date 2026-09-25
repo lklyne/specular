@@ -1979,3 +1979,18 @@ Noticed (no action):
 - **#383**: day 46, zero comments — no state change.
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124 [131 days], newest #410 [Aug 24]; same #1/#111/#135) — freeze now at 31 days, already named Sept 14, not re-deriving.
 Hint for next run: #169 hits day 120 on Sept 26 (2 days out) — that's the decision point flagged three nights running (Sept 22/23/24); make the call then rather than deferring a fourth time. Otherwise: if `main` stays flat a fifth night, that alone is worth one line, not a new investigation. Watch #428/#431 for their day-7 stale marks (Sept 27/28) if still unpicked.
+
+---
+
+## 2026-09-25
+Surveyed: `main` HEAD since Sept 19 (unchanged, `c981ef2` — fifth consecutive quiet night), direct `created:>=2026-09-24` search on both issues and PRs (zero results), #428/#431 read in full and re-checked directly (zero comments each), #425/#383 comments re-checked directly (both still empty), #169's day/commit count, needs-triage/`agent-in-progress` recounts (unchanged membership).
+Acted: Nothing filed, nothing closed. #428 (day 5) and #431 (day 4) are both under the 7-day stale mark. No orchestrator-owned open items beyond #169 needed cleanup.
+Noticed (no action):
+- **`main`**: zero commits since Sept 19 (`c981ef2` still tip) — fifth consecutive quiet night, now the longest flat stretch on record (past the Aug 26–30 run).
+- **Zero new issues or PRs since Sept 24** — confirmed via direct `created:>=2026-09-24` search on both.
+- **#428/#431**: day 5 / day 4, zero comments each — no state change, not stale (stale marks land Sept 27/28).
+- **#425**: 18 days open (Sept 7→25), zero comments — still one instance of the stale-`mergeable_state` shape; two-instance bar not crossed.
+- **#169**: day 119, 118 commits before tonight's append, zero comments/reactions since opening — no state change. Day-120 milestone lands tomorrow, Sept 26 — the decision point flagged four nights running now (Sept 22-25).
+- **#383**: day 47, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124 [132 days], newest #410 [Aug 24]; same #1/#111/#135) — freeze now at 32 days, already named Sept 14, not re-deriving.
+Hint for next run: #169 hits day 120 tomorrow, Sept 26 — the decision point named Sept 22, 23, 24, and 25. Don't defer a fifth time: either make a concrete call (accept it as a standing artifact and stop flagging the day count, or propose a genuinely different delivery shape) or write down explicitly why deferring once more is still correct — a bare re-flag with no new information isn't an option left on the table. Otherwise: if `main` stays flat a sixth night, that alone is worth one line. Watch #428/#431 for their day-7 stale marks (Sept 27/28) if still unpicked.
