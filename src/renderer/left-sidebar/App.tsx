@@ -118,11 +118,7 @@ export default function App({
           </button>
           <button
             type="button"
-            className={`rounded-[8px] border border-transparent p-1.5 ${
-              isDark
-                ? 'bg-transparent text-[var(--surface-foreground-muted)] hover:bg-zinc-700/70 hover:text-[var(--surface-foreground)]'
-                : 'bg-transparent text-[var(--surface-foreground-muted)] hover:bg-zinc-100 hover:text-[var(--surface-foreground)] active:bg-zinc-200'
-            }`}
+            className="rounded-[8px] border border-transparent bg-transparent p-1.5 text-[var(--surface-foreground-muted)] hover:bg-[var(--surface-interactive-hover)] hover:text-[var(--surface-foreground)] active:bg-[var(--surface-interactive)]"
             onClick={() => api.createTab()}
             title="Add canvas"
           >
@@ -144,7 +140,7 @@ export default function App({
                   <ContextMenu.Trigger className="block w-full">
                     {editingTabId === tab.id ? (
                       <div
-                        className="flex w-full items-center gap-1 py-1.5 text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]"
+                        className="flex w-full items-center gap-2 py-1.5 text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]"
                         style={{
                           paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
                           paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
@@ -165,7 +161,7 @@ export default function App({
                     ) : (
                       <button
                         type="button"
-                        className="flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]"
+                        className="flex w-full items-center gap-2 py-1.5 text-left text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]"
                         style={{
                           paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING,
                           paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
@@ -212,7 +208,7 @@ export default function App({
           </div>
         ) : null}
 
-        <div className={isDark ? 'border-t border-zinc-700/50' : 'border-t border-gray-200/80'} />
+        <div className="border-t border-[var(--surface-panel-border)]" />
 
         <div className="py-2">
           <div>

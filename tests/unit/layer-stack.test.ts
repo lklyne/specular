@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   LAYER_STACK,
-  orderedPagesForStack,
   resolveStackOrder,
   type LayerId,
 } from '../../src/main/runtime/layer-stack'
@@ -36,16 +35,5 @@ describe('LAYER_STACK', () => {
     const all: Partial<Record<LayerId, unknown>> = {}
     for (const id of LAYER_STACK) all[id] = {}
     expect(resolveStackOrder(all)).toEqual([...LAYER_STACK])
-  })
-
-  it('orders the focused page last among page views without mutating input order', () => {
-    const pages = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
-    expect(orderedPagesForStack(pages, 'b').map((page) => page.id)).toEqual(['a', 'c', 'b'])
-    expect(pages.map((page) => page.id)).toEqual(['a', 'b', 'c'])
-  })
-
-  it('leaves page order unchanged when focus presentation points at a missing page', () => {
-    const pages = [{ id: 'a' }, { id: 'b' }]
-    expect(orderedPagesForStack(pages, 'missing').map((page) => page.id)).toEqual(['a', 'b'])
   })
 })

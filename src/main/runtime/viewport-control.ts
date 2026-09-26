@@ -1,6 +1,5 @@
 // fallow-ignore-file circular-dependencies
 // Suppressed: see #141. space-autosave → space-observers import viewport-control back
-import { ipcChannels } from '../../shared/ipc-contract'
 import {
   cameraTransitionStartedAt,
   interactivePageId,
@@ -34,19 +33,18 @@ import {
 import { win } from './view-refs'
 import { layoutAllViews, requestLayout } from './layout-engine'
 import { markDirty } from './layout-dirty'
-import { isZoomInMotion, markZoomMotion } from './zoom-motion'
 import {
   boundAvailableCanvasViewportRect as availableCanvasViewportRect,
   boundCanvasOrigin as canvasOrigin,
   boundCanvasOriginX as canvasOriginX,
   boundEffectivePageContentSize as effectivePageContentSize,
+  focusFillFrameBounds,
   pageContentSize,
   pageVisualBoundsForContentSize,
 } from './runtime-geometry'
 import { scheduleSpaceAutosave } from './space-autosave'
 import { broadcastRuntimePatch } from './runtime-patch-broadcast'
 import { broadcastFocusChange } from './runtime-slice-broadcast'
-import { safeSend } from './safe-send'
 import { clampCanvasZoom } from '../../shared/zoom'
 import {
   FOCUS_VIEWPORT_PADDING_PX,
@@ -73,17 +71,6 @@ import { drawingEntities } from './drawing-entity-state'
 import { shapeEntities } from './shape-entity-state'
 import { workspaceGroups, workspaceEdges } from './space-model'
 import { pageUsesCustomSize } from './runtime-entities'
-import {
-  adoptHandoffCaptures,
-  beginZoomGesture,
-  beginZoomSnapshotHandoff,
-  captureParkedPagesAtSettle,
-  endZoomGesture,
-  scheduleZoomSnapshotPreparation,
-} from './zoom-snapshot-freeze'
-import { markCameraInput } from './camera-input-clock'
-
-let zoomGestureGen = 0
 
 export function setViewportCamera(
   value: number,
@@ -96,11 +83,6 @@ export function setViewportCamera(
   const panChanged = pan.x !== nextPan.x || pan.y !== nextPan.y
   if (!zoomChanged && !panChanged) return
 
-  markCameraInput()
-  if (zoomChanged && !isZoomInMotion()) {
-    zoomGestureGen += 1
-    beginZoomGesture(zoomGestureGen)
-  }
   if (zoomChanged) setZoomState(nextZoom)
   if (panChanged) setPanState({ x: nextPan.x, y: nextPan.y })
 
@@ -110,24 +92,17 @@ export function setViewportCamera(
   //
   // A camera move changes no entity: renderers project canvas-space geometry
   // through the `camera` slice, so the whole update is that slice. The scene
-  // is not dirtied, so the pass below positions the native views and rebuilds
-  // nothing.
+  // is not dirtied, so the pass below places the remaining native views and
+  // rebuilds nothing.
   //
   // The toolbar is not on the scene bus — its zoom readout rides the layout
   // pass, so zoom keeps that flag.
   if (zoomChanged) markDirty('toolbar')
-  // Move the native views first, then tell the renderers where the camera is,
-  // so the chrome ring never leads the page.
+  // Place the native views first, then tell the renderers where the camera is,
+  // so a component view never lags its chrome.
   layoutAllViews()
   broadcastCamera()
-  if (zoomChanged) broadcastCanvasZoomToPages()
   if (!suppressCameraAutosave) scheduleSpaceAutosave()
-  if (zoomChanged) {
-    const gen = zoomGestureGen
-    markZoomMotion(() => {
-      void settleZoomGesture(gen)
-    })
-  }
 }
 
 /**
@@ -155,40 +130,8 @@ function broadcastCamera(): void {
   })
 }
 
-/**
- * Settle for a frozen gesture runs as a handoff: lay out once with the parked
- * views warm (sized and emulated at the settled scale, off-screen), wait for
- * each to present a frame at that scale, then end the freeze and lay out
- * again to reveal them. Revealing before that frame is on screen shows the
- * pre-gesture surface stretched into the new bounds. The presented frames
- * become the next gesture's snapshot, so the reveal is not followed by a
- * second capture pass over every page.
- */
-async function settleZoomGesture(gen: number): Promise<void> {
-  markDirty('canvas')
-  if (!beginZoomSnapshotHandoff(gen)) {
-    endZoomGesture(gen)
-    requestLayout()
-    scheduleZoomSnapshotPreparation()
-    return
-  }
-  layoutAllViews()
-  const captures = await captureParkedPagesAtSettle()
-  // A new gesture adopted the frames while we waited; it owns the settle now.
-  if (gen !== zoomGestureGen) return
-  endZoomGesture(gen)
-  layoutAllViews()
-  if (!(await adoptHandoffCaptures(captures))) scheduleZoomSnapshotPreparation()
-}
-
 export function setZoom(value: number): void {
   setViewportCamera(value, pan)
-}
-
-export function broadcastCanvasZoomToPages(): void {
-  for (const page of pages) {
-    safeSend(page.pageView.webContents, ipcChannels.setCanvasZoom, zoom)
-  }
 }
 
 export function setPan(x: number, y: number): void {
@@ -499,25 +442,19 @@ function fitFocusPageSize(): { width: number; height: number } {
   }
 }
 
-function fillFocusPageSize(): { width: number; height: number } {
-  const viewport = availableCanvasViewportRect()
-  return { width: Math.round(viewport.width), height: Math.round(viewport.height) }
-}
-
 function focusPageContentSize(
   page: Parameters<typeof pageContentSize>[0] & { id?: string },
-  mode: FocusPresentationMode,
+  mode: Exclude<FocusPresentationMode, 'fill'>,
 ): { width: number; height: number } {
   if (mode === 'fit') return fitFocusPageSize()
-  if (mode === 'fill') return fillFocusPageSize()
   return pageContentSize(page)
 }
 
 function focusPageBounds(pageId: string, mode: FocusPresentationMode): WorkspaceBounds | null {
   const page = pages.find((candidate) => candidate.id === pageId)
   if (!page) return null
-  const size = focusPageContentSize(page, mode)
-  return pageVisualBoundsForContentSize(page, size)
+  if (mode === 'fill') return focusFillFrameBounds(page)
+  return pageVisualBoundsForContentSize(page, focusPageContentSize(page, mode))
 }
 
 export function setFocusPresentationMode(mode: FocusPresentationMode): boolean {

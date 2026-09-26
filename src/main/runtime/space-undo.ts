@@ -10,7 +10,6 @@ import {
   DOC_MAP_NOTES,
   DOC_ARRAY_ENTITY_ORDER,
 } from './space-doc'
-import { breadcrumb } from '../sentry-context'
 
 const MAX_UNDO_STACK = 100
 
@@ -119,12 +118,10 @@ export function setUndoSelectionHooks(
 // ---------------------------------------------------------------------------
 
 export function undo(): void {
-  breadcrumb('undo', 'undo')
   activeUndoManager?.undo()
 }
 
 export function redo(): void {
-  breadcrumb('undo', 'redo')
   activeUndoManager?.redo()
 }
 

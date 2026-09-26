@@ -1,14 +1,14 @@
 {
   "name": "specular",
   "productName": "Specular",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "A spatial canvas for agent collaboration on the web",
   "homepage": "https://github.com/lklyne/specular",
   "repository": {
     "type": "git",
     "url": "https://github.com/lklyne/specular.git"
   },
-  "license": "PolyForm-Shield-1.0.0",
+  "license": "SEE LICENSE IN LICENSE.md",
   "main": ".vite/build/index.js",
   "config": {
     "forge": "./forge.config.ts"
@@ -51,11 +51,12 @@
     "@lezer/common": "^1.5.3",
     "@lezer/highlight": "^1.2.4",
     "@modelcontextprotocol/sdk": "^1.30.1",
-    "@sentry/electron": "^5.12.0",
     "lucide-react": "^0.576.0",
     "perfect-freehand": "^1.2.3",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "three": "^0.184.0",
     "update-electron-app": "^3.3.0",
     "ws": "^8.21.3",

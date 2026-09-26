@@ -52,8 +52,8 @@ export function refreshAttachmentSubscriptions(): void {
     const key = selectors.join('\n')
     if ((lastSentByPage.get(page.id) ?? '') === key) continue
     lastSentByPage.set(page.id, key)
-    if (page.pageView.webContents.isDestroyed()) continue
-    safeSend(page.pageView.webContents, ipcChannels.elementAttachmentSubscriptions, {
+    if (page.host.webContents.isDestroyed()) continue
+    safeSend(page.host.webContents, ipcChannels.elementAttachmentSubscriptions, {
       selectors,
     })
   }

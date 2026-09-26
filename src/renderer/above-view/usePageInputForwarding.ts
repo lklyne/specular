@@ -1,5 +1,9 @@
 import type { LayoutSnapshotRef } from '../shared/hooks/useProjectedLayoutRef'
-import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
+import type {
+  ProjectedLayoutData,
+  ProjectedPageEntity,
+  ProjectedSceneEntity,
+} from '../../shared/scene-projection'
 import { useCallback, useEffect, useRef } from 'react'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import { clientYToWindowY, isOverlayUiTarget } from '../../shared/gesture-utils'
@@ -121,44 +125,35 @@ export function usePageInputForwarding({
     }
   }, [api, hitTestHoverTarget, hoverForwardingEnabled, layoutRef, pendingPlacement, setPlacementCursor])
 
-  // PoC: mirror the focused page's `cursor-changed` onto aboveView's body so
-  // the OS shows the right cursor (hand on links, I-beam on text, etc.). The
-  // OS picks cursor from the topmost WCV at the pointer location, which is
-  // aboveView whenever the canvas-mode gate is open.
+  // Mirror the focused page's `cursor-changed` onto aboveView's body so the OS
+  // shows the right cursor (hand on links, I-beam on text, etc.). The OS picks
+  // the cursor from aboveView, which sits above every page.
   useEffect(() => {
     return api.onPageCursorChange(({ type }) => {
       document.body.style.cursor = electronCursorToCss(type)
     })
   }, [api])
 
-  // PoC: continuous hover forwarding into the single-selected page's body so
-  // cursor styling (link → hand, text → I-beam) and hover-driven UI react
-  // without requiring a button-down. The router's `runForwardPointer` already
-  // forwards moves while a button is held, so this listener only fires when
-  // no buttons are pressed to avoid double-dispatch. When the pointer leaves
-  // the focused page's body (or selection drops below one page), reset
-  // body cursor so the hand/I-beam doesn't bleed into canvas chrome.
+  // Continuous hover forwarding into a page's body so cursor styling
+  // (link → hand, text → I-beam) and hover-driven UI react without requiring a
+  // button-down. The router's `runForwardPointer` already forwards moves while
+  // a button is held, so this listener only fires when no buttons are pressed
+  // to avoid double-dispatch. When the pointer leaves the page's body (or
+  // selection drops below one page), reset body cursor so the hand/I-beam
+  // doesn't bleed into canvas chrome.
+  //
+  // Which page receives the move depends on the tool: normally the single
+  // selected one, but the inspect eyedropper reads the DOM of whatever page is
+  // under the pointer, so it follows the pointer across pages.
   useEffect(() => {
     let cursorIsForwarded = false
+    let lastForwardedPageId: string | null = null
     const resetCursor = () => {
       if (!cursorIsForwarded) return
       cursorIsForwarded = false
       document.body.style.cursor = ''
     }
-    const onMove = (event: PointerEvent) => {
-      if (event.buttons !== 0) return
-      const layout = layoutRef.current
-      const selected = layout.selectedEntityIds
-      if (selected.length !== 1) return resetCursor()
-      const pageId = selected[0]
-      const page = layout.entities.find(
-        (entity): entity is ProjectedPageEntity =>
-          entity.kind === 'page' && entity.id === pageId,
-      )
-      if (!page) return resetCursor()
-      const windowY = clientYToWindowY(event.clientY, layout)
-      if (!pointerOverPageContent(page, { x: event.clientX, y: windowY })) return resetCursor()
-      cursorIsForwarded = true
+    const forwardMove = (pageId: string, event: PointerEvent, windowY: number) => {
       api.forwardPointerToPage(pageId, {
         kind: 'move',
         windowX: event.clientX,
@@ -170,10 +165,61 @@ export function usePageInputForwarding({
         metaKey: event.metaKey,
       })
     }
+    const onMove = (event: PointerEvent) => {
+      if (event.buttons !== 0) return
+      const layout = layoutRef.current
+      const windowY = clientYToWindowY(event.clientY, layout)
+      const point = { x: event.clientX, y: windowY }
+      const inspecting = layout.activeTool.kind === 'inspect'
+      const page = inspecting
+        ? topPageUnderPoint(layout.entities, point)
+        : singleSelectedPageUnder(layout, point)
+
+      // Leaving a page: one more move at the pointer's new position, which
+      // lands outside that page's own viewport, so its hit-test comes back
+      // empty and the inspect highlight clears. Nothing native reaches an
+      // offscreen page, so it never gets a mouseleave of its own.
+      if (lastForwardedPageId && lastForwardedPageId !== page?.id) {
+        forwardMove(lastForwardedPageId, event, windowY)
+        lastForwardedPageId = null
+      }
+      if (!page) return resetCursor()
+      cursorIsForwarded = true
+      lastForwardedPageId = page.id
+      forwardMove(page.id, event, windowY)
+    }
     window.addEventListener('pointermove', onMove)
     return () => {
       window.removeEventListener('pointermove', onMove)
       resetCursor()
     }
   }, [api, layoutRef])
+}
+
+/** The single-selected page, when the pointer is over its content. */
+function singleSelectedPageUnder(
+  layout: ProjectedLayoutData,
+  point: { x: number; y: number },
+): ProjectedPageEntity | null {
+  const selected = layout.selectedEntityIds
+  if (selected.length !== 1) return null
+  const page = layout.entities.find(
+    (entity): entity is ProjectedPageEntity =>
+      entity.kind === 'page' && entity.id === selected[0],
+  )
+  if (!page) return null
+  return pointerOverPageContent(page, point) ? page : null
+}
+
+/** Topmost page whose content the point lands in — entity order is back-to-front. */
+function topPageUnderPoint(
+  entities: readonly ProjectedSceneEntity[],
+  point: { x: number; y: number },
+): ProjectedPageEntity | null {
+  for (let i = entities.length - 1; i >= 0; i--) {
+    const entity = entities[i]
+    if (entity.kind !== 'page') continue
+    if (pointerOverPageContent(entity, point)) return entity
+  }
+  return null
 }

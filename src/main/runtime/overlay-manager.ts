@@ -83,7 +83,7 @@ export function sendInteractiveState(): void {
       interactive: isSelected,
       multiSelected: isMultiSelected,
     })
-    const wc = pages[i].pageView.webContents
+    const wc = pages[i].host.webContents
     safeSend(wc, ipcChannels.setInteractive, isSelected)
     safeSend(wc, ipcChannels.setMultiSelected, isMultiSelected)
   }
@@ -123,9 +123,8 @@ export function beginAutomationInteractivePage(pageId: string): void {
   addAutomationInteractivePageId(pageId)
   sendInteractiveState()
   noteAgentActivity()
-  // The layout pass parks automation-interactive pages off-screen at their
-  // logical viewport size, so an agent always has a real viewport even when
-  // the page isn't visible on the canvas.
+  // The layout pass keeps automation-interactive pages painting even when
+  // they are off-screen, so an agent always drives a live page.
   requestLayout()
 }
 
@@ -136,11 +135,8 @@ export function endAutomationInteractivePage(pageId: string): void {
   // The page loses its throttle exemption here; the trailing activity window
   // keeps it at full speed long enough for a follow-up call to land.
   noteAgentActivity()
-  // Invalidate bounds key so layoutAllViews restores viewport culling.
-  const page = pages.find((p) => p.id === pageId)
-  if (page) {
-    page.lastPageBoundsKey = undefined
-  }
+  // The page loses its culling exemption; the pass reconciles its painting.
+  requestLayout()
 }
 
 export function setSelectionOverlayRect(

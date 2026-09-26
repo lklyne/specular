@@ -183,8 +183,8 @@ export function findPageById(id: string): Page | undefined {
   return pages.find((page) => page.id === id)
 }
 
-export function findPageByPageView(senderWebContents: WebContents): Page | undefined {
-  return pages.find((p) => p.pageView.webContents === senderWebContents)
+export function findPageByWebContents(senderWebContents: WebContents): Page | undefined {
+  return pages.find((p) => p.host.webContents === senderWebContents)
 }
 
 export function selectedPage(): Page | null {

@@ -539,6 +539,26 @@ const record: VerbHandler = async (args) => {
   return 1
 }
 
+// --- Print verb ---
+
+const printPdf: VerbHandler = async (args) => {
+  const fid = pageId(args)
+  if (!fid) {
+    printError('usage: specular print-pdf --page <id> [--output <file.pdf>] [--landscape] [--page-size Letter]')
+    return 1
+  }
+  const output = args.flags.output ?? `./${fid}.pdf`
+  printJson(await callApp(`/pages/${encodeURIComponent(fid)}/print-pdf`, {
+    method: 'POST',
+    body: JSON.stringify({
+      outputPath: output,
+      landscape: args.boolFlags.has('landscape'),
+      pageSize: args.flags['page-size'],
+    }),
+  }))
+  return 0
+}
+
 // --- Design system verbs ---
 
 const designSystem: VerbHandler = async () => {
@@ -750,6 +770,7 @@ const VERBS: Record<string, VerbHandler> = {
   dismiss,
   reply,
   record,
+  'print-pdf': printPdf,
   'design-system': designSystem,
   'register-design-system': registerDesignSystem,
   'component-states': componentStates,
@@ -782,6 +803,7 @@ export async function dispatch(argv: string[]): Promise<number> {
     printText('Browse: snapshot, click, fill, type, select, screenshot, scroll, wait')
     printText('Annotations: annotations, annotation, annotate, annotate-selection, ack, resolve, dismiss, reply')
     printText('Recording: record <start|stop|status|trim>')
+    printText('Printing: print-pdf --page <id> [--output <file.pdf>] [--landscape] [--page-size Letter]')
     printText('Other: breakpoints, apply, upsert, link, unlink, auto-layout, find-placement')
     printText('')
     printText('Unknown verbs pass through to the bundled agent-browser as raw commands')

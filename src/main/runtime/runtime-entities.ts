@@ -1,4 +1,5 @@
 import type { WebContentsView } from 'electron'
+import type { PageHost } from './page-host'
 import type {
   ComponentTreeNode,
   InspectNodeDetail,
@@ -13,7 +14,7 @@ export interface Page {
   title?: string
   url: string
   faviconUrl?: string | null
-  pageView: WebContentsView
+  host: PageHost
   devtoolsHostView?: WebContentsView
   devtoolsHostAttached?: boolean
   presetIndex: number
@@ -67,18 +68,11 @@ export interface Page {
     string,
     { docX: number; docY: number; viewportPositioned?: boolean }
   >
-  /** Last value passed to `pageView.setVisible` by the layout pass. */
-  lastVisibleApplied?: boolean
-  lastPageBoundsKey?: string
   lastDevtoolsHostBoundsKey?: string
   /** Last colorScheme applied via CDP (see page-color-scheme.ts). Undefined
    *  means either "no override applied yet" or "no override needed" —
    *  both collapse to the same no-op when colorScheme is also absent. */
   lastColorSchemeKey?: PageColorScheme
-  /** Last web lifecycle state applied via CDP (see page-idle-throttle.ts).
-   *  Undefined means no override has been dispatched on this renderer — either
-   *  never frozen, or the debugger detached and dropped it. */
-  lastIdleLifecycleState?: 'active' | 'frozen'
   lastSafeAreaCssKey?: string
   lastSafeAreaCssId?: string
   crashedAt?: number
@@ -250,26 +244,5 @@ export function setShowDeviceFrameMetadata(
   return {
     ...(metadata ?? {}),
     showDeviceFrame: show,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// SVG device shell rendering mode (A/B toggle)
-// ---------------------------------------------------------------------------
-
-export function useSvgDeviceShellFromMetadata(
-  metadata: Record<string, unknown> | undefined,
-): boolean {
-  if (!metadata) return false
-  return metadata.useSvgDeviceShell === true
-}
-
-export function setUseSvgDeviceShellMetadata(
-  metadata: Record<string, unknown> | undefined,
-  use: boolean,
-): Record<string, unknown> {
-  return {
-    ...(metadata ?? {}),
-    useSvgDeviceShell: use,
   }
 }

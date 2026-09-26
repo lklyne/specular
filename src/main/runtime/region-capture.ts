@@ -35,7 +35,7 @@ function captureModeTargets(): WebContents[] {
   const viewTargets = [bgView, aboveView]
     .map((view) => view?.webContents)
     .filter((webContents): webContents is WebContents => Boolean(webContents))
-  const pageTargets = pages.map((page) => page.pageView.webContents)
+  const pageTargets = pages.map((page) => page.host.webContents)
   return [...viewTargets, ...pageTargets]
 }
 

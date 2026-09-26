@@ -1,9 +1,4 @@
 import type { Page } from './runtime/runtime-entities'
-import {
-  type ClickScaleSnapshot,
-  createClickScaleSnapshot,
-  compensateMousePointForDispatch,
-} from './cdp-input-compensation'
 
 // Interaction-sync peer dispatcher (ADR 0030, D8). Sibling of the agent CDP
 // path in app-control-server — NOT routed through the CDP proxy. Replays a
@@ -16,17 +11,15 @@ async function dispatchMouse(
   page: Page,
   cdpType: 'mouseMoved' | 'mousePressed' | 'mouseReleased',
   point: { x: number; y: number },
-  snapshot: ClickScaleSnapshot,
 ): Promise<void> {
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   if (wc.isDestroyed()) return
-  const compensated = compensateMousePointForDispatch(snapshot, cdpType, point)
   const isMove = cdpType === 'mouseMoved'
   if (!wc.debugger.isAttached()) wc.debugger.attach('1.3')
   await wc.debugger.sendCommand('Input.dispatchMouseEvent', {
     type: cdpType,
-    x: compensated.x,
-    y: compensated.y,
+    x: point.x,
+    y: point.y,
     button: isMove ? 'none' : 'left',
     clickCount: isMove ? 0 : 1,
   })
@@ -39,7 +32,7 @@ export async function dispatchPeerHover(
   point: { x: number; y: number },
 ): Promise<void> {
   try {
-    await dispatchMouse(page, 'mouseMoved', point, createClickScaleSnapshot())
+    await dispatchMouse(page, 'mouseMoved', point)
   } catch (error) {
     console.warn('[interaction-sync] peer hover dispatch failed', {
       pageId: page.id,
@@ -49,17 +42,16 @@ export async function dispatchPeerHover(
 }
 
 /** Replay a confident click as a trusted press+release pair at the peer's own
- *  resolved point. The pair shares one snapshotted emulation scale. */
+ *  resolved point. */
 export async function dispatchPeerClick(
   page: Page,
   point: { x: number; y: number },
 ): Promise<void> {
-  const snapshot = createClickScaleSnapshot()
   let pressed = false
   try {
-    await dispatchMouse(page, 'mousePressed', point, snapshot)
+    await dispatchMouse(page, 'mousePressed', point)
     pressed = true
-    await dispatchMouse(page, 'mouseReleased', point, snapshot)
+    await dispatchMouse(page, 'mouseReleased', point)
   } catch (error) {
     console.warn('[interaction-sync] peer click dispatch failed', {
       pageId: page.id,
@@ -68,10 +60,10 @@ export async function dispatchPeerClick(
     if (pressed) {
       // The press landed but the release rejected — the peer now holds a
       // phantom left button, so the next mouseMoved would read as a drag.
-      // Best-effort compensating release (a fresh snapshot; position barely
-      // matters, only the button-up does).
+      // Best-effort compensating release; position barely matters, only the
+      // button-up does.
       try {
-        await dispatchMouse(page, 'mouseReleased', point, createClickScaleSnapshot())
+        await dispatchMouse(page, 'mouseReleased', point)
       } catch {
         // Nothing more we can do; the debugger is likely gone.
       }

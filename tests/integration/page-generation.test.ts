@@ -67,7 +67,7 @@ describe('page navigation generation (D8)', () => {
     await settleSync()
     const page = findPageById(pageId)!
 
-    page.pageView.webContents.emit('did-navigate', {}, 'https://example.com/next')
+    page.host.webContents.emit('did-navigate', {}, 'https://example.com/next')
 
     expect(page.navGeneration).toBe(1)
   })
@@ -77,7 +77,7 @@ describe('page navigation generation (D8)', () => {
     await settleSync()
     const page = findPageById(pageId)!
 
-    page.pageView.webContents.emit('dom-ready')
+    page.host.webContents.emit('dom-ready')
 
     expect(page.navGeneration).toBe(1)
   })
@@ -88,8 +88,8 @@ describe('page navigation generation (D8)', () => {
     const page = findPageById(pageId)!
     const seenGeneration = page.navGeneration
 
-    page.pageView.webContents.emit('dom-ready')
-    page.pageView.webContents.emit('did-navigate', {}, 'https://example.com/next')
+    page.host.webContents.emit('dom-ready')
+    page.host.webContents.emit('did-navigate', {}, 'https://example.com/next')
 
     expect(page.navGeneration).toBeGreaterThan(seenGeneration)
   })
@@ -101,7 +101,7 @@ describe('page navigation generation (D8)', () => {
     const pageA = findPageById(pageIdA)!
     const pageB = findPageById(pageIdB)!
 
-    pageA.pageView.webContents.emit('did-navigate', {}, 'https://example.com/a-next')
+    pageA.host.webContents.emit('did-navigate', {}, 'https://example.com/a-next')
 
     expect(pageA.navGeneration).toBe(1)
     expect(pageB.navGeneration).toBe(0)
@@ -141,8 +141,8 @@ describe('POST /pages/:id/snapshot-seen (D8 baseline)', () => {
     await settleSync()
     const page = findPageById(pageId)!
     expect(page.lastAgentSnapshotGeneration).toBeUndefined()
-    page.pageView.webContents.emit('did-navigate', {}, 'https://example.com/next')
-    page.pageView.webContents.emit('dom-ready')
+    page.host.webContents.emit('did-navigate', {}, 'https://example.com/next')
+    page.host.webContents.emit('dom-ready')
 
     const { status, json } = await invoke(pageId, { generation: 999 })
 

@@ -2,7 +2,6 @@ import type { ProjectedLayoutData } from '../../shared/scene-projection'
 import { memo } from 'react'
 import type { Annotation, WorkspaceBounds } from '../../shared/types'
 import {
-  annotationElementScreenRect,
   canvasRectToScreenRect,
   pendingElementScreenRect,
   type AnnotationLiveBboxLookup,
@@ -291,43 +290,6 @@ export const PendingElementOutline = memo(function PendingElementOutline({
         height: Math.max(1, rect.height),
         border: '1px dashed rgba(59, 130, 246, 0.95)',
         background: 'rgba(59, 130, 246, 0.14)',
-        boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.22) inset',
-        boxSizing: 'border-box',
-        zIndex: 40,
-      }}
-    />
-  )
-})
-
-/**
- * Highlight ring on the focused thread's anchor. The conversation itself
- * lives in the right panel; this is the canvas's only trace of an open
- * thread — the annotated element stays fully visible while the agent works
- * on it. Element anchors only: regions keep their resting overlay, and
- * canvas points are marked by their badge.
- */
-export const FocusedThreadOutline = memo(function FocusedThreadOutline({
-  annotation,
-  layoutData,
-  liveBboxes,
-}: {
-  annotation: Annotation | null
-  layoutData: ProjectedLayoutData
-  liveBboxes: AnnotationLiveBboxLookup
-}) {
-  if (!annotation) return null
-  const rect = annotationElementScreenRect(annotation, layoutData, liveBboxes)
-  if (!rect) return null
-  return (
-    <div
-      className="pointer-events-none absolute"
-      style={{
-        left: rect.left,
-        top: rect.top,
-        width: Math.max(1, rect.width),
-        height: Math.max(1, rect.height),
-        border: '1.5px solid rgba(59, 130, 246, 0.95)',
-        borderRadius: 3,
         boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.22) inset',
         boxSizing: 'border-box',
         zIndex: 40,

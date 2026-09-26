@@ -105,7 +105,7 @@
       "y": 0
     },
     "selectedEntityIds": [],
-    "leftSidebarOpen": true,
+    "leftSidebarOpen": false,
     "devtoolsOpen": false,
     "devtoolsPanelTab": "comments",
     "devtoolsWidth": 400

@@ -87,8 +87,8 @@ SANDBOX_DIR=$(mktemp -d -t specular-agent-test)
 echo "Launching Electron (CDP port $CDP_PORT, sandbox $SANDBOX_DIR)..."
 
 SPECULAR_PORT=$SMOKE_PORT \
+  SPECULAR_REMOTE_DEBUGGING_PORT=$CDP_PORT \
   npx electron ./out/main/index.js \
-  --remote-debugging-port=$CDP_PORT \
   "--user-data-dir=$SANDBOX_DIR" \
   &>/dev/null &
 ELECTRON_PID=$!

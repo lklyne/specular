@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { EditorState, type StateCommand, type Transaction } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import {
+  indentBulletList,
   insertLink,
+  outdentBulletList,
   toggleBulletList,
   toggleWrap,
 } from '../../src/renderer/shared/markdown/markdown-commands'
@@ -146,6 +148,61 @@ describe('toggleBulletList', () => {
     })
     let dispatched = false
     const handled = toggleBulletList({
+      state,
+      dispatch: () => {
+        dispatched = true
+      },
+    })
+    expect(handled).toBe(false)
+    expect(dispatched).toBe(false)
+  })
+})
+
+describe('indentBulletList / outdentBulletList', () => {
+  it('nests a bullet line one level deeper', () => {
+    expect(run(indentBulletList, '- milk|')).toBe('  - milk|')
+  })
+
+  it('falls through (unhandled) on a non-bullet line, so Tab keeps its native behavior', () => {
+    expect(run(indentBulletList, 'milk|')).toBe('milk|')
+  })
+
+  it('indents every bulleted line spanned by the selection', () => {
+    expect(run(indentBulletList, '|- milk\n- eggs|')).toBe('  |- milk\n  - eggs|')
+  })
+
+  it('removes one indent unit from a nested bullet', () => {
+    expect(run(outdentBulletList, '  - milk|')).toBe('- milk|')
+  })
+
+  it('stays handled (no focus leak) even when already at the top level', () => {
+    expect(run(outdentBulletList, '- milk|')).toBe('- milk|')
+  })
+
+  it('falls through (unhandled) on a non-bullet line', () => {
+    expect(run(outdentBulletList, 'milk|')).toBe('milk|')
+  })
+
+  it('round-trips: indent then outdent restores the original text', () => {
+    expect(run(outdentBulletList, run(indentBulletList, '- milk|'))).toBe('- milk|')
+  })
+
+  it('does not indent the next line when the selection ends at its column 0 (whole-row selection)', () => {
+    expect(run(indentBulletList, '- milk\n|- eggs\n|- bread')).toBe('- milk\n  |- eggs\n|- bread')
+  })
+
+  it('does not outdent the next line when the selection ends at its column 0', () => {
+    expect(run(outdentBulletList, '- milk\n  |- eggs\n|  - bread')).toBe('- milk\n|- eggs\n|  - bread')
+  })
+
+  it('is a no-op on a read-only document', () => {
+    const state = EditorState.create({
+      doc: '- milk',
+      selection: { anchor: 0, head: 0 },
+      extensions: [markdown({ base: markdownLanguage }), EditorState.readOnly.of(true)],
+    })
+    let dispatched = false
+    const handled = indentBulletList({
       state,
       dispatch: () => {
         dispatched = true

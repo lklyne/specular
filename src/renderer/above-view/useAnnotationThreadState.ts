@@ -4,8 +4,8 @@ import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 
 /**
  * Focused-thread state for the canvas. The conversation itself lives in the
- * right panel; the canvas keeps only a highlight ring on the focused thread's
- * anchor. Main owns which thread is focused (`focusedAnnotationId` in
+ * right panel, which flashes the focused comment; the canvas draws nothing
+ * extra for it. Main owns which thread is focused (`focusedAnnotationId` in
  * ui-state) and echoes changes here via `annotationThreadOpen`; clicking a
  * badge or region overlay reports the focus intent back to main.
  */

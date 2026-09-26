@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Select fallback fixture</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #fff; color: #111; }
+    main { padding: 24px; display: grid; gap: 20px; max-width: 520px; }
+    label { display: grid; gap: 6px; font-size: 13px; }
+    select { font-size: 14px; }
+    .styled {
+      appearance: none;
+      padding: 8px 12px;
+      border: 2px solid #2f6feb;
+      border-radius: 8px;
+      background: #eef3ff;
+      font-size: 16px;
+    }
+    .spacer { height: 70vh; }
+    #log { font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+    iframe { width: 100%; height: 120px; border: 1px dashed #999; }
+  </style>
+</head>
+<body>
+  <!-- Exercises the in-page fallback for menulist <select> (ADR 0038,
+       src/preload/select-fallback.ts). macOS Chromium opens a menulist as an
+       external NSMenu that an offscreen page never shows. Each control below
+       covers one behavior the fallback reimplements; the log at the bottom
+       records input/change events so a commit can be verified without
+       inspecting the value. -->
+  <main>
+    <label>Plain
+      <select id="plain">
+        <option>Apple</option>
+        <option selected>Banana</option>
+        <option>Cherry</option>
+      </select>
+    </label>
+
+    <label>Optgroups and disabled options
+      <select id="groups">
+        <optgroup label="Fruit">
+          <option>Apple</option>
+          <option disabled>Banana (out of stock)</option>
+          <option>Cherry</option>
+        </optgroup>
+        <optgroup label="Vegetables" disabled>
+          <option>Carrot</option>
+          <option>Daikon</option>
+        </optgroup>
+        <optgroup label="Grains">
+          <option>Rice</option>
+          <option>Wheat</option>
+        </optgroup>
+      </select>
+    </label>
+
+    <label>Long list (scroll + type-ahead: try typing "ne")
+      <select id="long"></select>
+    </label>
+
+    <label>Page-styled (appearance: none)
+      <select id="styled" class="styled">
+        <option>Small</option>
+        <option>Medium</option>
+        <option>Large</option>
+      </select>
+    </label>
+
+    <label>Listbox and multiple (Blink renders these in-page; fallback must not intercept)
+      <select id="listbox" size="3">
+        <option>One</option><option>Two</option><option>Three</option><option>Four</option>
+      </select>
+    </label>
+    <select id="multiple" multiple>
+      <option>Red</option><option>Green</option><option>Blue</option>
+    </select>
+
+    <label>Disabled (must not open)
+      <select id="disabled" disabled>
+        <option>Nothing</option>
+      </select>
+    </label>
+
+    <label>Inside a same-origin iframe (preload runs in the main frame only unless
+      nodeIntegrationInSubFrames is on; expect no menu here until that changes)
+      <iframe srcdoc="<select id='framed'><option>Frame A</option><option>Frame B</option></select>"></iframe>
+    </label>
+
+    <div id="log">events:</div>
+
+    <div class="spacer"></div>
+
+    <label>Near the bottom (menu should flip above)
+      <select id="bottom">
+        <option>North</option>
+        <option>South</option>
+        <option>East</option>
+        <option>West</option>
+      </select>
+    </label>
+  </main>
+
+  <script>
+    var long = document.getElementById('long')
+    var names = ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming']
+    names.forEach(function (name) {
+      var option = document.createElement('option')
+      option.textContent = name
+      long.appendChild(option)
+    })
+
+    var log = document.getElementById('log')
+    document.querySelectorAll('select').forEach(function (select) {
+      ;['input', 'change'].forEach(function (type) {
+        select.addEventListener(type, function () {
+          log.textContent += '\n' + select.id + ' ' + type + ' -> ' + select.value
+        })
+      })
+    })
+  </script>
+</body>
+</html>

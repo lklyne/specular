@@ -16,6 +16,9 @@ import type {
   ViewPresentation,
 } from '../shared/process-metrics'
 import { pages } from './runtime/runtime-context'
+import { boundScreenBoundsForPage, boundsOverlap } from './runtime/runtime-geometry'
+import { win } from './runtime/view-refs'
+import type { Page } from './runtime/runtime-entities'
 import { idleThrottleState } from './runtime/page-idle-throttle'
 import { listComponentViews } from './runtime/component-page-factory'
 import {
@@ -39,6 +42,20 @@ export function presentationOf(view: WebContentsView): ViewPresentation {
   if (typeof view.getVisible === 'function' && !view.getVisible()) return 'hidden'
   const bounds = view.getBounds()
   if (bounds.width === 0 || bounds.height === 0) return 'culled'
+  return 'visible'
+}
+
+/**
+ * How a page is presented. A page has no native view: it stops painting to
+ * stand down entirely, and a page whose projected rect misses the window is
+ * drawn by nobody even while it paints.
+ */
+export function pagePresentationOf(page: Page): ViewPresentation {
+  if (!page.host.painting) return 'hidden'
+  if (!win || win.isDestroyed()) return 'culled'
+  const { width, height } = win.getBounds()
+  const rect = boundScreenBoundsForPage(page).page
+  if (!boundsOverlap(rect, { x: 0, y: 0, width, height })) return 'culled'
   return 'visible'
 }
 
@@ -78,14 +95,14 @@ function knownOwners(): Map<number, ViewOwner> {
 
   for (const page of pages) {
     const label = pageLabel(page.id)
-    if (!page.pageView.webContents.isDestroyed()) {
-      owners.set(page.pageView.webContents.id, {
+    if (!page.host.webContents.isDestroyed()) {
+      owners.set(page.host.webContents.id, {
         label,
         kind: 'page',
         pageId: page.id,
         url: page.url,
-        presentation: presentationOf(page.pageView),
-        frozen: page.lastIdleLifecycleState === 'frozen',
+        presentation: pagePresentationOf(page),
+        idle: page.host.idle,
       })
     }
     if (page.devtoolsHostView && !page.devtoolsHostView.webContents.isDestroyed()) {
@@ -214,14 +231,14 @@ export function sampleProcessMetrics(): ProcessMetricsSample {
   let pagesVisible = 0
   let pagesCulled = 0
   let pagesHidden = 0
-  let pagesFrozen = 0
+  let pagesIdle = 0
   for (const page of pages) {
-    switch (presentationOf(page.pageView)) {
+    switch (pagePresentationOf(page)) {
       case 'visible': pagesVisible += 1; break
       case 'culled': pagesCulled += 1; break
       case 'hidden': pagesHidden += 1; break
     }
-    if (page.lastIdleLifecycleState === 'frozen') pagesFrozen += 1
+    if (page.host.idle) pagesIdle += 1
   }
 
   return {
@@ -235,7 +252,7 @@ export function sampleProcessMetrics(): ProcessMetricsSample {
       pagesVisible,
       pagesCulled,
       pagesHidden,
-      pagesFrozen,
+      pagesIdle,
     },
     idleThrottle: idleThrottleState(),
   }

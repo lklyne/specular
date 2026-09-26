@@ -1,8 +1,8 @@
 # ADR 0037 — A pan does not freeze its pages
 
-**Status:** Accepted
-**Date:** 2026-08-23
-**Related:** [ADR 0023](./0023-renderer-owned-camera-gpu-panzoom.md) §"Endgame B" (freeze-to-bitmap as the general answer to gesture drift), [docs/pan-zoom-perf-unknowns.md](../pan-zoom-perf-unknowns.md) §Endgames, [docs/perf-zoom-pan-log.md](../perf-zoom-pan-log.md) Exp F–H (the measurements)
+**Status:** Accepted — the conclusion stands; the machinery it describes was deleted when [ADR 0038](./0038-offscreen-texture-canvas-for-live-pages.md) made every page a texture. See "Implementation removed" below: this ADR is now the record of a raster approach that a desktop build no longer needs and a web build would have to start from.
+**Date:** 2026-08-23 (revised 2026-09-17 — implementation removed by ADR 0038)
+**Related:** [ADR 0023](./0023-renderer-owned-camera-gpu-panzoom.md) §"Endgame B" (freeze-to-bitmap as the general answer to gesture drift), [ADR 0038](./0038-offscreen-texture-canvas-for-live-pages.md) (deleted the freeze/park system this ADR reasons about), [docs/pan-zoom-perf-unknowns.md](../pan-zoom-perf-unknowns.md) §Endgames, [docs/perf-zoom-pan-log.md](../perf-zoom-pan-log.md) Exp F–H (the measurements)
 
 ## Context
 
@@ -111,6 +111,38 @@ credited for a frame budget the grid was eating.
   views on the window server, chrome on the renderer's compositor). Freezing
   would have collapsed that to one commit. Whether that drift is perceptible was
   never measured, and remains the one open argument for revisiting this.
+
+## Implementation removed (2026-09-17)
+
+ADR 0038 hosts every page in an offscreen `BrowserWindow` and draws its frames
+onto the canvas, so a page is a texture at rest and a gesture changes nothing
+about how it is composited. That leaves nothing to freeze or unpark, and the
+freeze/park system was deleted with it (`2883af4f`): `zoom-snapshot-freeze.ts`,
+`page-freeze.ts`, `drag-freeze.ts`, `useFrozenPagesState.ts`,
+`useFrozenPageBitmaps.ts`, and `drag-freeze-registry.test.ts`. The
+warm-park/hidden-park distinction this ADR argues about went with them.
+`chromeItemDraw.ts`'s `drawItemSnapshot` is the one survivor — it draws each
+page's live texture now instead of its frozen bitmap.
+
+That deletion is scoped to the desktop app, because offscreen rendering is. A
+web build's live content is sandboxed cross-origin iframes (CONTEXT.md,
+"Sandbox origin"), and a browser tab cannot offscreen-render across that
+boundary — there is no shared-texture path to a frame it does not own.
+Rasterizing at gesture time is the only lever available there, which makes this
+ADR the presumptive substrate for a web or cloud target rather than a closed
+question.
+
+What a web version needs from here is the reasoning, not the code:
+
+- The result is gesture-specific. A zoom re-rasters every page every tick, so
+  parking pays; a pan changes no scale, so its pages are already composited and
+  parking only buys a re-raster on unpark. Do not generalize from the zoom win.
+- Measure the burst case — flick, pause, flick — because that is how people pan
+  and it is where the freeze loses.
+- Check what else is eating the frame budget first. The dot grid (Exp G) was
+  44× the cost of the freeze it was making look good.
+- The snapshot set must key on content and resolution, not on view bounds, or
+  every pan discards it.
 
 ## What would change the answer
 

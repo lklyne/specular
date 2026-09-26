@@ -39,7 +39,7 @@ export type PageHit = {
 export function pageAtWindowPoint(windowX: number, windowY: number): PageHit | null {
   for (let i = pages.length - 1; i >= 0; i--) {
     const page = pages[i]
-    if (!page || page.pageView.webContents.isDestroyed()) continue
+    if (!page || page.host.webContents.isDestroyed()) continue
     const bounds = boundScreenBoundsForPage(page).page
     if (bounds.width <= 0 || bounds.height <= 0) continue
     if (

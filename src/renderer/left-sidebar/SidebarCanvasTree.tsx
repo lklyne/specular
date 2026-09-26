@@ -63,7 +63,7 @@ function EntityListItem({
   selectableId: string
 }) {
   const [isEditing, setIsEditing] = useState(false)
-  const rootClassName = `flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
+  const rootClassName = `flex w-full items-center gap-2 py-1.5 text-left text-xs font-normal ${
     active
       ? 'bg-[var(--surface-interactive)] text-[var(--surface-foreground)]'
       : 'text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]'
@@ -162,7 +162,7 @@ function AnnotationListItem({
   return (
     <button
       type="button"
-      className={`flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)] ${annotation.onCurrentPage ? '' : 'opacity-50'}`}
+      className={`flex w-full items-center gap-2 py-1.5 text-left text-xs font-normal text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)] ${annotation.onCurrentPage ? '' : 'opacity-50'}`}
       style={{
         paddingLeft: LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP,
         paddingRight: LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING,
@@ -174,7 +174,7 @@ function AnnotationListItem({
           : `${annotation.label} — page navigated away from this comment's URL`
       }
     >
-      <MessageSquare size={13} className="shrink-0 text-[var(--surface-foreground-muted)]" />
+      <MessageSquare size={14} className="shrink-0 text-[var(--surface-foreground-muted)]" />
       <span className="min-w-0 flex-1 truncate">{annotation.label}</span>
       {annotation.messageCount > 1 ? (
         <span className="ml-auto shrink-0 text-xs text-[var(--surface-foreground-muted)]">{annotation.messageCount}</span>
@@ -311,7 +311,7 @@ function GroupTreeItem({
   const rowPaddingLeft = LIST_OUTER_LEFT_PADDING + LIST_ROW_INNER_X_PADDING + depth * TREE_DEPTH_STEP
   const rowPaddingRight = LIST_OUTER_RIGHT_PADDING + LIST_ROW_INNER_X_PADDING
   const chevronLeft = rowPaddingLeft - 16
-  const rowClassName = `flex w-full items-center gap-1 py-1.5 text-left text-xs font-normal ${
+  const rowClassName = `flex w-full items-center gap-2 py-1.5 text-left text-xs font-normal ${
     isSelected
       ? 'bg-[var(--surface-interactive)] text-[var(--surface-foreground)]'
       : 'text-[var(--surface-foreground)] hover:bg-[var(--surface-interactive-hover)]'

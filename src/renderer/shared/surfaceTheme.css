@@ -29,6 +29,7 @@
   --surface-switch-track-checked-border: var(--surface-toolbar-foreground);
   --surface-device: var(--color-stone-300);
   --surface-device-border: var(--color-stone-400);
+  --surface-device-screen: var(--color-stone-100);
   --surface-primary: var(--color-stone-900);
   --surface-primary-hover: var(--color-stone-700);
   --surface-primary-foreground: var(--color-stone-50);
@@ -114,6 +115,7 @@
   --surface-switch-track-checked-border: var(--surface-input-border);
   --surface-device: var(--color-stone-800);
   --surface-device-border: var(--color-stone-600);
+  --surface-device-screen: var(--color-stone-900);
   --surface-primary: var(--color-stone-100);
   --surface-primary-hover: var(--color-stone-300);
   --surface-primary-foreground: var(--color-stone-900);

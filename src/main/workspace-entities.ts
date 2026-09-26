@@ -510,7 +510,7 @@ export function toWorkspacePage(pageId: string): WorkspacePage | null {
     id: page.id,
     kind: 'page',
     name: page.name?.trim() || undefined,
-    url: page.pageView.webContents.getURL() || 'about:blank',
+    url: page.host.webContents.getURL() || 'about:blank',
     presetIndex: page.presetIndex,
     canvasX: page.canvasX,
     canvasY: page.canvasY,

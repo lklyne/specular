@@ -1,6 +1,5 @@
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
 import type { CanvasLayoutBootstrapData } from '../../shared/types'
-import { initRendererSentry } from './sentry-init'
 import { installFocusModality } from './focusModality'
 import { installRendererErrorReporter } from './install-error-reporter'
 import { runtimeStore } from './runtime-store'
@@ -19,7 +18,6 @@ export async function bootCanvasRenderer(options: { errorReporterLabel?: string 
   api: CanvasBgElectronAPI
   initialData: CanvasLayoutBootstrapData
 }> {
-  initRendererSentry()
   installFocusModality()
   if (options.errorReporterLabel) installRendererErrorReporter(options.errorReporterLabel)
 

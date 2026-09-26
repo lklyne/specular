@@ -1,7 +1,7 @@
 import { ipcChannels } from '../shared/ipc-contract'
 import { randomUUID } from 'crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'http'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'fs'
 import { dirname, isAbsolute, join } from 'path'
 import { homedir, tmpdir } from 'os'
 import type { Duplex } from 'stream'
@@ -10,7 +10,6 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws'
 import { APP_CONTROL_DISCOVERY_FILE, APP_CONTROL_PORT, APP_CONTROL_VERSION } from '../shared/constants'
 import { getUiState } from './ui-state'
 import { findPageById, clearAutomationInteractivePageIds, automationInteractivePageCounts } from './runtime/runtime-context'
-import { createClickScaleSnapshot, compensateMousePointForDispatch } from './cdp-input-compensation'
 import {
   beginAutomationInteractivePage,
   endAutomationInteractivePage,
@@ -106,8 +105,13 @@ function discoveryFilePath(): string {
 }
 
 function writeDiscoveryFile(payload: DiscoveryPayload): void {
-  mkdirSync(dirname(discoveryFilePath()), { recursive: true })
-  writeFileSync(discoveryFilePath(), JSON.stringify(payload, null, 2), 'utf8')
+  mkdirSync(dirname(discoveryFilePath()), { recursive: true, mode: 0o700 })
+  // Carries the control-server secret, which is full authority over the app.
+  // Owner-only, and re-applied on every write since writeFileSync leaves the
+  // mode alone on a file that already exists.
+  const path = discoveryFilePath()
+  writeFileSync(path, JSON.stringify(payload, null, 2), { encoding: 'utf8', mode: 0o600 })
+  chmodSync(path, 0o600)
 }
 
 // Re-write the discovery file if it has gone missing or drifted while our
@@ -382,7 +386,7 @@ export async function startAppControlServer(): Promise<void> {
 
   candidateCdpProxyServer.on('connection', (clientSocket: WebSocket, request: IncomingMessage, registration: CdpProxyRegistration) => {
     const page = findPageById(registration.pageId)
-    if (!page || page.pageView.webContents.isDestroyed()) {
+    if (!page || page.host.webContents.isDestroyed()) {
       closeSocketQuietly(clientSocket)
       return
     }
@@ -405,10 +409,6 @@ export async function startAppControlServer(): Promise<void> {
       registration.selectionSnapshot = getUiState().selection
     }
     beginAutomationInteractivePage(registration.pageId)
-
-    // Snapshot emulation scale on mousePressed so mouseReleased uses the
-    // same transform even if the user zooms between the two events.
-    const clickScaleSnapshot = createClickScaleSnapshot()
 
     const sendToClient = (message: string): void => {
       if (clientSocket.readyState === WebSocket.OPEN) clientSocket.send(message)
@@ -554,13 +554,13 @@ export async function startAppControlServer(): Promise<void> {
       })
       sendInteractiveState()
     }
-    page.pageView.webContents.on('did-finish-load', onNavigate)
-    page.pageView.webContents.on('did-navigate-in-page', onNavigate)
+    page.host.webContents.on('did-finish-load', onNavigate)
+    page.host.webContents.on('did-navigate-in-page', onNavigate)
 
     const cleanupClient = (): void => {
-      if (page.pageView?.webContents && !page.pageView.webContents.isDestroyed()) {
-        page.pageView.webContents.off('did-finish-load', onNavigate)
-        page.pageView.webContents.off('did-navigate-in-page', onNavigate)
+      if (!page.host.isDestroyed() && !page.host.webContents.isDestroyed()) {
+        page.host.webContents.off('did-finish-load', onNavigate)
+        page.host.webContents.off('did-navigate-in-page', onNavigate)
       }
       if (registration.activeBridge?.clientSocket === clientSocket) {
         registration.activeBridge = null
@@ -639,11 +639,9 @@ export async function startAppControlServer(): Promise<void> {
       }
 
       // Mouse events: update presence cursor and intent delay, then dispatch
-      // via Electron's debugger API. Coordinates from CDP clients are in the
-      // emulated CSS viewport space, but Input.dispatchMouseEvent (both via
-      // wc.debugger and upstream Chromium) interprets them in the pre-scale
-      // physical view space. Divide by the emulation scale to compensate.
-      if (method === 'Input.dispatchMouseEvent' && params && (params.type as string) !== 'mouseWheel' && page && !page.pageView.webContents.isDestroyed()) {
+      // via Electron's debugger API. A page's own viewport is its CSS
+      // viewport, so the client's coordinates pass through unchanged.
+      if (method === 'Input.dispatchMouseEvent' && params && (params.type as string) !== 'mouseWheel' && page && !page.host.webContents.isDestroyed()) {
         const cdpType = params.type as string
         if (cdpType === 'mousePressed' || cdpType === 'mouseReleased' || cdpType === 'mouseMoved') {
           const x = params.x as number
@@ -712,19 +710,7 @@ export async function startAppControlServer(): Promise<void> {
             await waitForPresenceDwell(registration.sessionId)
           }
 
-          // DOM.getBoxModel returns CSS viewport coords; Input.dispatchMouseEvent
-          // expects physical view coords. Compensate for the emulation scale,
-          // snapshotting on mousePressed and reusing for mouseReleased so a
-          // mid-click zoom change doesn't split the pair across scales.
-          const compensated = compensateMousePointForDispatch(
-            clickScaleSnapshot,
-            cdpType,
-            { x: params.x as number, y: params.y as number },
-          )
-          params.x = compensated.x
-          params.y = compensated.y
-
-          const wc = page.pageView.webContents
+          const wc = page.host.webContents
           try {
             if (!wc.debugger.isAttached()) wc.debugger.attach('1.3')
 
@@ -740,8 +726,8 @@ export async function startAppControlServer(): Promise<void> {
         }
       }
 
-      if (method === 'Input.dispatchKeyEvent' && params && page && !page.pageView.webContents.isDestroyed()) {
-        const wc = page.pageView.webContents
+      if (method === 'Input.dispatchKeyEvent' && params && page && !page.host.webContents.isDestroyed()) {
+        const wc = page.host.webContents
         try {
           await emitTypingPresence()
           if (!wc.debugger.isAttached()) wc.debugger.attach('1.3')
@@ -753,8 +739,8 @@ export async function startAppControlServer(): Promise<void> {
         return
       }
 
-      if (method === 'Input.insertText' && params && page && !page.pageView.webContents.isDestroyed()) {
-        const wc = page.pageView.webContents
+      if (method === 'Input.insertText' && params && page && !page.host.webContents.isDestroyed()) {
+        const wc = page.host.webContents
         try {
           await emitTypingPresence()
           if (!wc.debugger.isAttached()) wc.debugger.attach('1.3')
@@ -766,7 +752,7 @@ export async function startAppControlServer(): Promise<void> {
         return
       }
 
-      if (method === 'Input.dispatchMouseEvent' && params && (params.type as string) === 'mouseWheel' && page && !page.pageView.webContents.isDestroyed()) {
+      if (method === 'Input.dispatchMouseEvent' && params && (params.type as string) === 'mouseWheel' && page && !page.host.webContents.isDestroyed()) {
         const x = params.x as number
         const y = params.y as number
         const deltaX = typeof params.deltaX === 'number' ? params.deltaX : 0
@@ -807,7 +793,7 @@ export async function startAppControlServer(): Promise<void> {
         return
       }
 
-      if (method === 'Input.synthesizeScrollGesture' && params && page && !page.pageView.webContents.isDestroyed()) {
+      if (method === 'Input.synthesizeScrollGesture' && params && page && !page.host.webContents.isDestroyed()) {
         const x = typeof params.x === 'number' ? params.x : 0
         const y = typeof params.y === 'number' ? params.y : 0
         const xDistance = typeof params.xDistance === 'number' ? params.xDistance : 0
@@ -863,7 +849,7 @@ export async function startAppControlServer(): Promise<void> {
         (method === 'Runtime.callFunctionOn' || method === 'Runtime.evaluate') &&
         params &&
         page &&
-        !page.pageView.webContents.isDestroyed()
+        !page.host.webContents.isDestroyed()
       ) {
         const scrollSessionId = registration.sessionId
         const intent = scrollSessionId ? pendingIntents.get(scrollSessionId) : undefined

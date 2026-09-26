@@ -22,6 +22,6 @@ export function forwardOverrideToPage(
   payload: Record<string, unknown>,
 ): void {
   const page = pages.find((candidate) => candidate.id === pageId)
-  if (!page || page.pageView.webContents.isDestroyed()) return
-  page.pageView.webContents.send(channel, payload)
+  if (!page || page.host.webContents.isDestroyed()) return
+  page.host.webContents.send(channel, payload)
 }

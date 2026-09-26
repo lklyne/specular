@@ -25,7 +25,7 @@
  * - dropping `broadcastPageChrome(page)` from the `page-favicon-updated` hook,
  *   and `refreshPageChrome(page)` from `did-start-loading` — the favicon and
  *   load-starting cases fail;
- * - restoring `page.pageView.webContents.navigationHistory.canGoBack()` in
+ * - restoring `page.host.webContents.navigationHistory.canGoBack()` in
  *   `buildPageSceneEntity` — the mirror case fails, because the stub's history
  *   reports false where the mirror says true;
  * - dropping `markDirty('canvas')` from the `did-stop-loading` hook — the
@@ -78,7 +78,7 @@ describe('page chrome ships as an entity patch, not a scene rebuild', () => {
 
   it('ships a title change as one patch for that page, arming no pass', () => {
     const page = createPage('https://example.com/titled')
-    const wc = page.pageView.webContents as unknown as {
+    const wc = page.host.webContents as unknown as {
       getTitle(): string
       emit(event: string): void
     }
@@ -101,7 +101,7 @@ describe('page chrome ships as an entity patch, not a scene rebuild', () => {
 
   it('ships a load starting as one patch, arming no pass', () => {
     const page = createPage('https://example.com/loading')
-    const wc = page.pageView.webContents as unknown as { emit(event: string): void }
+    const wc = page.host.webContents as unknown as { emit(event: string): void }
     armWatch()
 
     wc.emit('did-start-loading')
@@ -118,7 +118,7 @@ describe('page chrome ships as an entity patch, not a scene rebuild', () => {
 
   it('reads chrome from the runtime mirror, and the snapshot agrees', () => {
     const page = createPage('https://example.com/history')
-    const wc = page.pageView.webContents as unknown as {
+    const wc = page.host.webContents as unknown as {
       emit(event: string, ...args: unknown[]): void
     }
     // The mirror says there is somewhere to go back to; the stub's own
@@ -148,7 +148,7 @@ describe('page chrome ships as an entity patch, not a scene rebuild', () => {
 
   it('keeps the pass for a settled load, which re-opens the document gate', () => {
     const page = createPage('https://example.com/settled')
-    const wc = page.pageView.webContents as unknown as { emit(event: string): void }
+    const wc = page.host.webContents as unknown as { emit(event: string): void }
     wc.emit('did-start-loading')
     armWatch()
 

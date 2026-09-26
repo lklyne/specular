@@ -17,7 +17,7 @@ import { safeSend } from './runtime/safe-send'
 import {
   type Page,
   pages,
-  findPageByPageView,
+  findPageByWebContents,
 } from './runtime/page-runtime'
 import {
   interactivePageId,
@@ -84,7 +84,7 @@ let capturingSourcePageId: string | null = null
  *  `origin` serializes to the literal string 'null'. Opaque documents must not
  *  all alias to one origin and cross-mirror, so they are skipped entirely (D3). */
 function originOf(page: Page): string | null {
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   if (wc.isDestroyed()) return null
   const url = wc.getURL()
   const cached = originCache.get(page.id)
@@ -194,7 +194,7 @@ export function refreshInteractionSyncCapture(): void {
   for (const page of pages) {
     const enabled = enteredId === page.id && isPageSynced(page)
     if (enabled) nextSource = page
-    safeSend(page.pageView.webContents, ipcChannels.setInteractionSyncCapture, { enabled })
+    safeSend(page.host.webContents, ipcChannels.setInteractionSyncCapture, { enabled })
   }
 
   if (!nextSource || nextSource.id !== capturingSourcePageId) {
@@ -232,7 +232,7 @@ export function handleInteractionSyncEvent(
   sender: WebContents,
   event: InteractionSyncEvent,
 ): void {
-  const source = findPageByPageView(sender)
+  const source = findPageByWebContents(sender)
   if (!source) return
   if (interactivePageId() !== source.id) return
   if (automationInteractivePageCounts.has(source.id)) return
@@ -288,7 +288,7 @@ export function handleInteractionSyncEvent(
     } else {
       slots.hover = pending
     }
-    safeSend(peer.pageView.webContents, ipcChannels.resolveInteractionLocator, {
+    safeSend(peer.host.webContents, ipcChannels.resolveInteractionLocator, {
       requestId,
       bundle: event.bundle,
     })
@@ -307,7 +307,7 @@ export function handleResolveInteractionLocatorResponse(
   sender: WebContents,
   response: LocatorResolveResponse,
 ): void {
-  const peer = findPageByPageView(sender)
+  const peer = findPageByWebContents(sender)
   if (!peer) return
   if (automationInteractivePageCounts.has(peer.id)) return
 

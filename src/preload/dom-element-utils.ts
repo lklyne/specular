@@ -2,7 +2,7 @@ import type { AgentSnapshotNode } from '../shared/types'
 import {
   getInspectableNodeIdForElement,
 } from './component-inspector'
-import { isPageOverlayTarget } from './gesture-forwarding'
+import { isPageOverlayTarget } from './page-overlay-targets'
 
 export function elementClasses(element: Element): string[] {
   return [...element.classList]

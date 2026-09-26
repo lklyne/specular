@@ -23,7 +23,7 @@ import { requestLayout } from './viewport-control'
 function syncAnnotationState(): void {
   const payload = toolAnnotateOverlay(uiActiveTool())
   for (const page of pages) {
-    page.pageView.webContents.send(ipcChannels.setAnnotateMode, payload)
+    page.host.webContents.send(ipcChannels.setAnnotateMode, payload)
   }
 }
 
@@ -48,8 +48,8 @@ function applyToolSideEffects(prev: Tool, next: Tool): void {
   }
 
   // The tool is a runtime-store cell and moves no entity, so it ships as a
-  // patch. The pass still runs: `shouldGateBeOpen` and the cursor-overlay
-  // window read the active tool, and both are decided inside `layoutAllViews`.
+  // patch. The pass still runs: the cursor-overlay window and the page-cursor
+  // bridge read the active tool, and both are decided inside `layoutAllViews`.
   broadcastToolChange()
   requestLayout()
 }

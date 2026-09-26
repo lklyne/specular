@@ -81,7 +81,7 @@ describe('left-sidebar reveal of a page-anchored canvas item', () => {
   it('restores the anchor URL and scrolls to the item after load', async () => {
     const page = pages.find((candidate) => candidate.id === PAGE_ID)
     expect(page).toBeDefined()
-    page!.pageView.webContents.loadedUrls.length = 0
+    page!.host.webContents.loadedUrls.length = 0
 
     ipcMain.emit(
       ipcChannels.canvasRevealEntity,
@@ -89,14 +89,14 @@ describe('left-sidebar reveal of a page-anchored canvas item', () => {
       { entityId: SHAPE_ID, entityKind: 'shape' },
     )
 
-    expect(page!.pageView.webContents.loadedUrls).toEqual([ANCHOR_URL])
+    expect(page!.host.webContents.loadedUrls).toEqual([ANCHOR_URL])
 
-    page!.pageView.webContents.emit('did-finish-load')
+    page!.host.webContents.emit('did-finish-load')
     await Promise.resolve()
 
     const scroll = harness.broadcasts.find(
       (record) =>
-        record.webContentsId === page!.pageView.webContents.id &&
+        record.webContentsId === page!.host.webContents.id &&
         record.channel === ipcChannels.dispatchScroll,
     )
     expect(scroll).toBeDefined()

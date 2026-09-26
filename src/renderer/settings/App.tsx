@@ -52,6 +52,11 @@ export default function App({ api }: { api: SettingsElectronAPI }) {
               version={data.version}
               space={data.space}
               onSpaceChange={(space) => setData({ ...data, space })}
+              cursorVisibility={data.cursorVisibility}
+              onCursorVisibilityChange={(next) => {
+                api.setCursorVisibility(next)
+                setData({ ...data, cursorVisibility: { ...data.cursorVisibility, ...next } })
+              }}
             />
           ) : section === 'skills' ? (
             <SkillsPane

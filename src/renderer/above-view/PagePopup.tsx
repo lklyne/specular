@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Eye,
   EyeClosed,
-  FolderOpen,
   Link2,
   Maximize2,
   MessageCircle,
@@ -27,6 +26,7 @@ import { selectionAnnotationBounds } from './annotationMath'
 import type { AnnotateHandler } from './annotationMath'
 import { CanvasItemPopup } from './CanvasItemPopup'
 import { DeviceViewportPopupControls } from './DeviceViewportPopupControls'
+import { RepoBindingPopover } from './RepoBindingPopover'
 import { POPUP_OFFSET_Y, usePopupDelayedKey } from './usePopupDelayedKey'
 
 const URL_INPUT_MIN_WIDTH = 280
@@ -72,6 +72,7 @@ export function PagePopup({
     | 'toggleSyncSelection'
     | 'unsyncPage'
     | 'pickRepoForOrigin'
+    | 'removeOriginBinding'
   >
   isDark: boolean
   layout: ProjectedLayoutData
@@ -431,24 +432,17 @@ export function PagePopup({
               }
               if (!origin) return null
               const pageOrigin = origin
-              const bound = single.boundRepoPath
               return (
                 <>
                   <CanvasItemPopup.Divider isDark={isDark} />
                   <CanvasItemPopup.Section>
-                    <CanvasItemPopup.IconButton
+                    <RepoBindingPopover
                       isDark={isDark}
-                      active={Boolean(bound)}
-                      title={bound ? `Repo: ${bound}` : 'Bind local folder'}
-                      ariaLabel={
-                        bound
-                          ? `Bound repo ${bound}. Click to change.`
-                          : 'Bind a local folder for this site'
-                      }
-                      onClick={() => api.pickRepoForOrigin(pageOrigin)}
-                    >
-                      <FolderOpen size={14} />
-                    </CanvasItemPopup.IconButton>
+                      origin={pageOrigin}
+                      boundRepoPath={single.boundRepoPath ?? null}
+                      onPick={() => api.pickRepoForOrigin(pageOrigin)}
+                      onUnlink={() => api.removeOriginBinding(pageOrigin)}
+                    />
                   </CanvasItemPopup.Section>
                 </>
               )

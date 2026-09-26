@@ -4,7 +4,7 @@ import { resolveLocator } from '../shared/locator-kernel'
 import type { LocatorBundle, LocatorCandidate, LocatorResolution } from '../shared/locator-kernel'
 import type { LocatorResolveRequest, LocatorResolveResponse } from '../shared/types'
 import { describeElementForLocator, isInteractiveForSnapshot, isVisibleForSnapshot } from './dom-element-utils'
-import { isPageOverlayTarget } from './gesture-forwarding'
+import { isPageOverlayTarget } from './page-overlay-targets'
 
 // Mirrors `buildStructuredDomSnapshot`'s depth bound (dom-element-utils.ts):
 // invisible subtrees are pruned rather than counted, so this stays cheap even

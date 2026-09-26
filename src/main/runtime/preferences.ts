@@ -9,6 +9,7 @@ import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import type {
   AppThemeMode,
+  CursorVisibilityPrefs,
   DevtoolsPanelTab,
   FixConfig,
   OnboardingState,
@@ -64,6 +65,10 @@ type PreferencesFile = {
   fixConfig?: Omit<FixConfig, 'configured'>
   toolDefaults?: ToolDefaults
   themeMode?: AppThemeMode
+  /** Rendering only — a hidden cursor's session keeps acting, and interaction
+   *  sync keeps replaying on peers. */
+  hideAgentCursors?: boolean
+  hideSyncedCursors?: boolean
   debug?: {
     cursorSplineViz?: boolean
     cursorTuning?: CursorTuningParams
@@ -75,6 +80,10 @@ let currentCursorTuning: CursorTuningParams = { ...DEFAULT_CURSOR_TUNING }
 let currentToolDefaults: ToolDefaults = normalizeToolDefaults(DEFAULT_TOOL_DEFAULTS)
 let currentThemeMode: AppThemeMode = 'system'
 let currentSpacePath: string | undefined
+let currentCursorVisibility: CursorVisibilityPrefs = {
+  hideAgentCursors: false,
+  hideSyncedCursors: false,
+}
 
 function readPreferencesFile(): PreferencesFile {
   try {
@@ -171,6 +180,10 @@ export function loadPreferences(): void {
   currentToolDefaults = normalizeToolDefaults(parsed.toolDefaults)
   currentThemeMode = normalizeThemeMode(parsed.themeMode)
   currentSpacePath = typeof parsed.spacePath === 'string' ? parsed.spacePath : undefined
+  currentCursorVisibility = {
+    hideAgentCursors: parsed.hideAgentCursors === true,
+    hideSyncedCursors: parsed.hideSyncedCursors === true,
+  }
   nativeTheme.themeSource = currentThemeMode
 }
 
@@ -220,6 +233,19 @@ export function saveCursorSplineViz(next: boolean): void {
     ...parsed,
     debug: { ...parsed.debug, cursorSplineViz: currentCursorSplineViz },
   })
+}
+
+export function getCursorVisibility(): CursorVisibilityPrefs {
+  return currentCursorVisibility
+}
+
+export function setCursorVisibility(next: Partial<CursorVisibilityPrefs>): void {
+  currentCursorVisibility = {
+    hideAgentCursors: (next.hideAgentCursors ?? currentCursorVisibility.hideAgentCursors) === true,
+    hideSyncedCursors:
+      (next.hideSyncedCursors ?? currentCursorVisibility.hideSyncedCursors) === true,
+  }
+  writePreferencesFile({ ...readPreferencesFile(), ...currentCursorVisibility })
 }
 
 export function getCursorTuning(): CursorTuningParams {

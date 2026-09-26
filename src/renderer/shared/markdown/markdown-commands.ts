@@ -9,7 +9,7 @@
  */
 
 import { syntaxTree } from '@codemirror/language'
-import { EditorSelection, type EditorState, type StateCommand } from '@codemirror/state'
+import { EditorSelection, type ChangeSpec, type EditorState, type StateCommand } from '@codemirror/state'
 import type { KeyBinding } from '@codemirror/view'
 import { BULLET_LINE } from './bullet-line'
 
@@ -146,15 +146,41 @@ const toggleItalic = toggleWrap('*')
 const toggleInlineCode = toggleWrap('`')
 export const toggleStrikethrough = toggleWrap('~~')
 
-/** Line numbers spanned by the selection, both endpoints' lines inclusive. */
+/**
+ * Line numbers spanned by the selection, both endpoints' lines inclusive.
+ *
+ * A non-empty range whose `to` lands exactly at the start of a line hasn't
+ * actually selected anything on that line — e.g. selecting a whole row with
+ * Home then Shift-Down puts `to` at column 0 of the *next* row. Without this
+ * guard that next row gets swept into the set too, so toggling/indenting a
+ * single selected bullet would also touch the untouched bullet below it.
+ */
 export function selectedLineNumbers(state: EditorState): Set<number> {
   const lines = new Set<number>()
   for (const range of state.selection.ranges) {
     const first = state.doc.lineAt(range.from).number
-    const last = state.doc.lineAt(range.to).number
+    const endsAtLineStart = range.to > range.from && state.doc.lineAt(range.to).from === range.to
+    const last = state.doc.lineAt(endsAtLineStart ? range.to - 1 : range.to).number
     for (let n = first; n <= last; n += 1) lines.add(n)
   }
   return lines
+}
+
+/** Apply line edits as typed input, carrying the selection through them and into view. */
+function dispatchLineEdits(
+  state: EditorState,
+  dispatch: Parameters<StateCommand>[0]['dispatch'],
+  changes: ChangeSpec,
+): void {
+  const changeSet = state.changes(changes)
+  dispatch(
+    state.update({
+      changes: changeSet,
+      selection: state.selection.map(changeSet),
+      scrollIntoView: true,
+      userEvent: 'input',
+    }),
+  )
 }
 
 /**
@@ -185,15 +211,51 @@ export const toggleBulletList: StateCommand = ({ state, dispatch }) => {
   }
   if (changes.length === 0) return true
 
-  const changeSet = state.changes(changes)
-  dispatch(
-    state.update({
-      changes: changeSet,
-      selection: state.selection.map(changeSet),
-      scrollIntoView: true,
-      userEvent: 'input',
-    }),
-  )
+  dispatchLineEdits(state, dispatch, changes)
+  return true
+}
+
+const BULLET_INDENT_UNIT = '  '
+
+/**
+ * Tab on a bullet line nests it one level deeper instead of leaving the
+ * editor. Not bound with `preventDefault: true`: outside a bullet line this
+ * returns false, and CodeMirror only prevents the browser's native
+ * focus-traversal default when a command in the chain actually returns true.
+ */
+export const indentBulletList: StateCommand = ({ state, dispatch }) => {
+  if (state.readOnly) return false
+
+  const lines = [...selectedLineNumbers(state)].sort((a, b) => a - b).map((n) => state.doc.line(n))
+  const bulleted = lines.filter((line) => BULLET_LINE.test(line.text))
+  if (bulleted.length === 0) return false
+
+  dispatchLineEdits(state, dispatch, bulleted.map((line) => ({ from: line.from, insert: BULLET_INDENT_UNIT })))
+  return true
+}
+
+/**
+ * Shift-Tab peels one indent unit off each bulleted line in the selection
+ * (down to none). Handled (returns true) even when every line is already at
+ * the top level, so Shift-Tab never leaks out to focus-traversal either.
+ */
+export const outdentBulletList: StateCommand = ({ state, dispatch }) => {
+  if (state.readOnly) return false
+
+  const lines = [...selectedLineNumbers(state)].sort((a, b) => a - b).map((n) => state.doc.line(n))
+  const bulleted = lines.filter((line) => BULLET_LINE.test(line.text))
+  if (bulleted.length === 0) return false
+
+  const changes: Array<{ from: number; to: number; insert: string }> = []
+  for (const line of bulleted) {
+    const indentLength = /^ */.exec(line.text)?.[0].length ?? 0
+    if (indentLength === 0) continue
+    const stripLength = Math.min(indentLength, BULLET_INDENT_UNIT.length)
+    changes.push({ from: line.from, to: line.from + stripLength, insert: '' })
+  }
+  if (changes.length === 0) return true
+
+  dispatchLineEdits(state, dispatch, changes)
   return true
 }
 
@@ -205,6 +267,8 @@ export const markdownFormattingKeymap: readonly KeyBinding[] = [
   { key: 'Mod-Shift-x', run: toggleStrikethrough, preventDefault: true },
   { key: 'Mod-k', run: insertLink, preventDefault: true },
   { key: 'Mod-Shift-8', run: toggleBulletList, preventDefault: true },
+  { key: 'Tab', run: indentBulletList },
+  { key: 'Shift-Tab', run: outdentBulletList },
 ]
 
 /** Sticky notes support a smaller formatting surface: no inline code (Mod-e) or links (Mod-k). */
@@ -213,4 +277,6 @@ export const stickyFormattingKeymap: readonly KeyBinding[] = [
   { key: 'Mod-i', run: toggleItalic, preventDefault: true },
   { key: 'Mod-Shift-x', run: toggleStrikethrough, preventDefault: true },
   { key: 'Mod-Shift-8', run: toggleBulletList, preventDefault: true },
+  { key: 'Tab', run: indentBulletList },
+  { key: 'Shift-Tab', run: outdentBulletList },
 ]

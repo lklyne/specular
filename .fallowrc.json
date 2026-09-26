@@ -33,6 +33,9 @@
     "tests/integration/harness.ts",
     "tests/integration/electron-stub.ts",
     "tests/boot/global-setup.ts",
+    "tests/agent/offscreen-startup/run.mjs",
+    "tests/agent/offscreen-startup/main.ts",
+    "tests/agent/offscreen-startup/renderer.tsx",
 
     "vite.main.config.ts",
     "vite.preload.config.ts",

@@ -5,7 +5,7 @@ import {
   elementSelectorParts,
   inspectionPayload,
 } from './dom-element-utils'
-import { isPageOverlayTarget } from './gesture-forwarding'
+import { isPageOverlayTarget } from './page-overlay-targets'
 
 let domInspectionEnabled = false
 let domInspectionHoverKey = ''

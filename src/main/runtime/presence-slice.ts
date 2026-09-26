@@ -14,6 +14,7 @@ import type { RuntimeStoreSlices } from '../../shared/runtime-store'
 import type { AgentPresenceCursor } from '../../shared/types'
 import { getPresenceCursors } from '../presence-cursor'
 import { pageInScene } from './page-scene-entity'
+import { getCursorVisibility } from './preferences'
 import { pages } from './runtime-context'
 import {
   projectFramePointToCanvas,
@@ -50,8 +51,17 @@ function presencePoint(cursor: ReturnType<typeof getPresenceCursors>[number]): {
   return { canvasX: projected.x, canvasY: projected.y }
 }
 
+/** The cursors the user has not hidden. Hiding is rendering only: a hidden
+ *  cursor's session keeps acting and its interaction sync keeps replaying. */
+export function visiblePresenceCursors(): ReturnType<typeof getPresenceCursors> {
+  const { hideAgentCursors, hideSyncedCursors } = getCursorVisibility()
+  return getPresenceCursors().filter((cursor) =>
+    cursor.source === 'interaction-sync' ? !hideSyncedCursors : !hideAgentCursors,
+  )
+}
+
 export function currentPresenceSlice(): RuntimeStoreSlices['presence'] {
-  return getPresenceCursors().map((c): AgentPresenceCursor => ({
+  return visiblePresenceCursors().map((c): AgentPresenceCursor => ({
     ...presencePoint(c),
     sessionId: c.sessionId,
     clientName: c.clientName,

@@ -15,7 +15,6 @@ import type {
   WorkspaceEdge,
   WorkspaceGroup,
 } from '../../shared/types'
-import { breadcrumb } from '../sentry-context'
 
 export const workspaceAnnotations: Annotation[] = []
 export const workspaceGroups: WorkspaceGroup[] = []
@@ -24,8 +23,5 @@ export const spaceTabs: PersistedWorkspaceTab[] = []
 export let activeSpaceTabId: string | null = null
 
 export function setActiveSpaceTabId(value: string | null): void {
-  if (value !== activeSpaceTabId) {
-    breadcrumb('tab', 'switch', { from: activeSpaceTabId, to: value, tab_count: spaceTabs.length })
-  }
   activeSpaceTabId = value
 }

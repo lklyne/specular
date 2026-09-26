@@ -18,6 +18,8 @@ import { runFixAgent, type FixResult } from './agent-backend'
 import {
   queueCommentOnAnnotation,
   queueReplyOnAnnotation,
+  sendAgentThread,
+  sendCommentOnAnnotation,
 } from '../agent-thread/thread-runtime'
 import {
   isAnnotationInFlight,
@@ -33,38 +35,34 @@ import {
 const MAX_AGENT_REPLIES = 20
 
 /**
- * Whether a user reply should kick off a run on its own. A thread the agent
- * has already worked on carries a fix session — the previous message in it is
- * the agent's, so a reply there is a conversation turn and always continues
- * the run. On a thread the agent has never touched, auto-fix is the opt-in:
- * it lives on the origin→repo binding, so only page-bound comments can fire.
+ * Auto-fix is the opt-in on an origin→repo binding, so only page-bound
+ * comments can fire on their own; a canvas-bound comment has nothing to opt
+ * in with and waits for Send.
  */
-export function shouldRunOnReply(
-  annotation: Annotation,
-  getBinding: (origin: string) => { autoFix: boolean } | null,
-): boolean {
-  if (annotation.status === 'dismissed') return false
-  if (annotation.metadata?.fixSessionId) return true
+function autoFixOn(annotation: Annotation): boolean {
   const origin = annotationOrigin(annotation)
-  if (!origin) return false
-  const binding = getBinding(origin)
-  return Boolean(binding?.autoFix)
+  return Boolean(origin && getOriginBinding(origin)?.autoFix)
 }
 
 /**
- * New comments queue into a canvas agent thread. Send in the panel is what
- * runs the agent. Auto-fix on create is not the on-ramp.
+ * New comments land in a canvas agent thread. Without auto-fix they queue
+ * into a draft and Send in the panel runs the agent; with it, each comment is
+ * sent the moment it is placed and queues behind a run already in flight.
  */
 export function initFixOrchestrator(): void {
   setOnAnnotationCreated((annotation) => {
     if (annotation.author !== 'user') return
-    const threadId = queueCommentOnAnnotation(annotation)
+    const threadId = autoFixOn(annotation)
+      ? sendCommentOnAnnotation(annotation)
+      : queueCommentOnAnnotation(annotation)
     if (threadId) setAnnotationThreadId(annotation.id, threadId)
   })
   setOnAnnotationReply((annotation, reply) => {
     if (reply.author !== 'user') return
     const threadId = queueReplyOnAnnotation(annotation, reply.text)
-    if (threadId) setAnnotationThreadId(annotation.id, threadId)
+    if (!threadId) return
+    setAnnotationThreadId(annotation.id, threadId)
+    if (autoFixOn(annotation)) sendAgentThread(threadId)
   })
 }
 

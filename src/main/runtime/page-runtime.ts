@@ -2,7 +2,7 @@
 
 export {
   findPageById,
-  findPageByPageView,
+  findPageByWebContents,
   pages,
 } from './runtime-context'
 export { handlePageIpcResponse, requestNodeDetail } from './page-ipc'

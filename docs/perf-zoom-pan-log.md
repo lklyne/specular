@@ -3,7 +3,11 @@
 Orchestrator log for the zoom-first (pan-second) perf improvement effort. Newest
 entries at the bottom of each section. Numbers come from the automated pan/zoom
 perf test (`POST /perf/pan-zoom/run`, 5 fixed profiles, real main-process
-viewport path) summarized by `src/shared/trace-summary.ts`.
+viewport path) summarized by `src/shared/trace-summary.ts`. Historical record:
+the zoom/drag snapshot-freeze machinery this log iterates on was deleted and
+replaced by [ADR 0038](adr/0038-offscreen-texture-canvas-for-live-pages.md)'s
+page textures, which need no freeze because a page is already a texture at
+rest.
 
 ## Feedback loop mechanics
 

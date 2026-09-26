@@ -7,7 +7,7 @@ let activeManifest: DesignSystemManifest | null = null
 
 function broadcastManifest(manifest: DesignSystemManifest | null): void {
   for (const page of pages) {
-    const webContents = page.pageView.webContents
+    const webContents = page.host.webContents
     if (webContents.isDestroyed()) continue
     webContents.send(ipcChannels.setDesignSystemManifest, manifest)
   }

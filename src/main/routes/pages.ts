@@ -1,4 +1,7 @@
-import { nativeImage } from 'electron'
+import { nativeImage, type PrintToPDFOptions } from 'electron'
+import { mkdirSync, writeFileSync } from 'fs'
+import { dirname, resolve } from 'path'
+import { homedir } from 'os'
 import type { Route } from './types'
 import { focusTargets } from '../workspace-groups'
 import { createPageAtPosition } from '../runtime/document-commands'
@@ -27,6 +30,15 @@ import {
 } from '../presence-manager'
 import { resolveSession } from '../presence-session'
 import { writeJson, getServerAddress } from './http-helpers'
+
+/** Expands a leading `~` and resolves relative to cwd, matching how a CLI
+ *  user would expect `--output` paths to behave. */
+function resolveOutputPath(outputPath: string): string {
+  const expanded = outputPath.startsWith('~')
+    ? outputPath.replace(/^~(?=$|\/)/, homedir())
+    : outputPath
+  return resolve(expanded)
+}
 
 export const pageRoutes: Route[] = [
   {
@@ -87,6 +99,49 @@ export const pageRoutes: Route[] = [
       }
       page.lastAgentSnapshotGeneration = page.navGeneration
       writeJson(response, 200, { ok: true, generation: page.navGeneration })
+    },
+  },
+  {
+    // Main-process API only — CDP's `Page.printToPDF` isn't implemented in
+    // Electron's debugger domain (ADR 0038 open question 2).
+    method: 'POST',
+    pattern: /^\/pages\/([^/]+)\/print-pdf$/,
+    async handler({ response, params, body }) {
+      const pageId = decodeURIComponent(params[0])
+      const page = findPageById(pageId)
+      if (!page) {
+        writeJson(response, 404, { error: `Page not found: ${pageId}` })
+        return
+      }
+      const payload = body as {
+        outputPath?: string
+        landscape?: boolean
+        printBackground?: boolean
+        pageSize?: string
+        scale?: number
+      }
+      try {
+        const pdf = await page.host.webContents.printToPDF({
+          landscape: payload.landscape,
+          printBackground: payload.printBackground ?? true,
+          pageSize: payload.pageSize as PrintToPDFOptions['pageSize'] | undefined,
+          scale: payload.scale,
+        })
+        if (payload.outputPath) {
+          const resolvedPath = resolveOutputPath(payload.outputPath)
+          mkdirSync(dirname(resolvedPath), { recursive: true })
+          writeFileSync(resolvedPath, pdf)
+          writeJson(response, 200, { ok: true, path: resolvedPath, bytes: pdf.length })
+          return
+        }
+        writeJson(response, 200, {
+          base64: pdf.toString('base64'),
+          mimeType: 'application/pdf',
+          bytes: pdf.length,
+        })
+      } catch (error) {
+        writeJson(response, 500, { error: error instanceof Error ? error.message : 'Print to PDF failed' })
+      }
     },
   },
   {

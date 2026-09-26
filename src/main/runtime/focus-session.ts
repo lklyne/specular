@@ -7,6 +7,7 @@
 // `endFocusSession(reason)` so "what ends focus" is one auditable list.
 
 import type { FocusPresentationMode, FocusTarget } from '../../shared/types'
+import { markDirty } from './layout-dirty'
 
 export interface FocusSession {
   /** Page-specific consumers read `focusedPageId()` so they no-op cleanly
@@ -35,6 +36,16 @@ export type FocusExitReason =
 
 let session: FocusSession | null = null
 
+/**
+ * The session's page takes the session's size in place of its authored one
+ * (`effectivePageContentSize`), so a change of target or mode is a change of
+ * entity geometry. A camera move dirties no scene, so the recenter that
+ * follows would not carry it.
+ */
+function sessionGeometryChanged(): void {
+  markDirty('canvas')
+}
+
 export function focusSession(): FocusSession | null {
   return session
 }
@@ -56,17 +67,20 @@ export function focusedFileId(): string | null {
 /** Start or replace the focus session. */
 export function beginFocusSession(next: FocusSession): void {
   session = next
+  sessionGeometryChanged()
 }
 
 export function setFocusSessionMode(mode: FocusPresentationMode): void {
   if (!session) return
   session = { ...session, mode }
+  sessionGeometryChanged()
 }
 
 /** Retarget an active session at another page (page switching mid-session). */
 export function repointFocusSession(pageId: string): void {
   if (!session) return
   session = { ...session, target: { kind: 'page', id: pageId } }
+  sessionGeometryChanged()
 }
 
 export function setFocusAnnotationsVisible(visible: boolean): void {
@@ -81,5 +95,6 @@ export function setFocusAnnotationsVisible(visible: boolean): void {
 export function endFocusSession(_reason: FocusExitReason): FocusSession | null {
   const ended = session
   session = null
+  if (ended) sessionGeometryChanged()
   return ended
 }

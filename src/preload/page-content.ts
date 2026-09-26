@@ -9,6 +9,7 @@ import type {
   CommentToolPagePreviewState,
   InteractionSyncCapturePayload,
   LocatorResolveRequest,
+  PageDragPayload,
   ScrollSyncData,
 } from '../shared/types'
 import { PRESENCE_SCROLL_ANIMATION_MS } from '../shared/presence-timing'
@@ -60,10 +61,8 @@ import {
   queueRefreshDomInspectionOverlay,
   setDomInspectionEnabled,
 } from './dom-inspection'
-import {
-  forwardMiddleDragPan,
-  forwardViewportWheel,
-} from './gesture-forwarding'
+import { installSelectFallback } from './select-fallback'
+import { isHttpOrFileUrl } from '../shared/url'
 import {
   applyIncomingLinkedScroll,
   clearScrollSuppression,
@@ -80,10 +79,8 @@ import { handleInteractionLocatorResolveRequest } from './interaction-sync-resol
 
 let interactive = false
 let multiSelected = false
-let canvasZoom = 1
 let annotateEnabled = false
 let captureSuppressionStyleEl: HTMLStyleElement | null = null
-let cleanupBlockingOverlayListeners: (() => void) | null = null
 const SELECTION_DEBUG = process.env.CANVAS_DEBUG_SELECTION === '1'
 let lastReportedTextEditing = false
 
@@ -240,23 +237,12 @@ function applyAnnotateState(): void {
   }
 }
 
-// Intercept canvas-level wheel events on page content views.
-// Cmd/Ctrl + wheel (or trackpad pinch-to-zoom) should zoom the canvas, not the page.
-window.addEventListener(
-  'wheel',
-  (e: WheelEvent) => {
-    if (!e.metaKey && !e.ctrlKey) return
-    e.preventDefault()
-    forwardViewportWheel(e, canvasZoom)
-  },
-  { passive: false, capture: true }
-)
-
 // --- Selection overlay ---
 // When the page is not interactive, inject an overlay that blocks native page
-// input and forwards only native/page-neutral viewport affordances. Canvas
-// selection, drag, resize, marquee, placement, and edge gestures are owned by
-// aboveView's canvas pointer router.
+// input. Every canvas-level gesture — wheel, pan, zoom, selection, drag,
+// resize, marquee, placement, edges — is owned by aboveView's pointer router,
+// which routes wheel itself and forwards only page-scroll wheels to the
+// entered page, so the page never sees a canvas gesture to forward back.
 
 function injectBlockingOverlay(): void {
   const overlayMode: 'default' = 'default'
@@ -297,56 +283,10 @@ function injectBlockingOverlay(): void {
     }
   })
 
-  // Middle-click pan forwarding
-  let middleDrag: { screenX: number; screenY: number } | null = null
-
-  overlay.addEventListener('mousedown', (e: MouseEvent) => {
-    if (e.button !== 1) return
-    e.preventDefault()
-    e.stopPropagation()
-    middleDrag = { screenX: e.screenX, screenY: e.screenY }
-  })
-
-  overlay.addEventListener('mousemove', (e: MouseEvent) => {
-    if (!middleDrag) return
-    e.preventDefault()
-    e.stopPropagation()
-    middleDrag = forwardMiddleDragPan(middleDrag, e)
-  })
-
-  const handleWindowMouseUp = (e: MouseEvent) => {
-    if (e.button !== 1) return
-    middleDrag = null
-  }
-  window.addEventListener('mouseup', handleWindowMouseUp)
-
-  overlay.addEventListener('mouseleave', () => {
-    middleDrag = null
-  })
-
-  // Forward wheel events to canvas operations
-  overlay.addEventListener(
-    'wheel',
-    (e: WheelEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      forwardViewportWheel(e, canvasZoom)
-    },
-    { passive: false }
-  )
-
   document.body.appendChild(overlay)
-  cleanupBlockingOverlayListeners = () => {
-    middleDrag = null
-    window.removeEventListener('mouseup', handleWindowMouseUp)
-  }
 }
 
 function removeBlockingOverlay(): void {
-  if (cleanupBlockingOverlayListeners) {
-    cleanupBlockingOverlayListeners()
-    cleanupBlockingOverlayListeners = null
-  }
   const overlay = document.getElementById('__canvas-blocking-overlay')
   if (overlay) {
     selectionDebug('remove-blocking-overlay')
@@ -379,10 +319,6 @@ ipcRenderer.on(ipcChannels.setInteractive, (_event, value: boolean) => {
     seedScrollSyncBaseline()
   }
   applyInteractiveState()
-})
-
-ipcRenderer.on(ipcChannels.setCanvasZoom, (_event, value: number) => {
-  canvasZoom = value
 })
 
 ipcRenderer.on(ipcChannels.setMultiSelected, (_event, value: boolean) => {
@@ -848,6 +784,51 @@ window.addEventListener('resize', () => {
   queueRecomputeElementPositions()
 })
 
+// Drag-out (ADR 0038 open question 2): a native drag started on this page
+// can't hand off to the canvas the way it did as a WebContentsView — an
+// offscreen view ends `StartDragging` immediately, so the OS-level drag never
+// starts. Capturing the gesture's payload here lets main arm it and, if the
+// release point (reported by aboveView's pointer forwarding) lands outside
+// this page, materialize it as a canvas entity instead.
+function resolveDragLinkUrl(dataTransfer: DataTransfer, target: Element | null): string | null {
+  const uriList = dataTransfer.getData('text/uri-list')
+  if (uriList) {
+    const line = uriList.split(/\r?\n/).find((entry) => entry && !entry.startsWith('#'))
+    if (line && isHttpOrFileUrl(line, window.location.href)) return line
+  }
+  const anchor = target?.closest('a[href]') as HTMLAnchorElement | null
+  if (anchor?.href && isHttpOrFileUrl(anchor.href, window.location.href)) return anchor.href
+  return null
+}
+
+window.addEventListener(
+  'dragstart',
+  (event: DragEvent) => {
+    const dataTransfer = event.dataTransfer
+    if (!dataTransfer) return
+    const target = event.target instanceof Element ? event.target : null
+    const imageEl = target?.closest('img') as HTMLImageElement | null
+
+    let payload: PageDragPayload | null = null
+    if (imageEl?.src) {
+      payload = { kind: 'image', src: imageEl.src }
+    } else {
+      const url = resolveDragLinkUrl(dataTransfer, target)
+      if (url) {
+        const text = dataTransfer.getData('text/plain')
+        payload = text ? { kind: 'link', url, text } : { kind: 'link', url }
+      } else {
+        const text = dataTransfer.getData('text/plain')
+        if (text) payload = { kind: 'text', text }
+      }
+    }
+    // Not preventDefault: the page's own drag semantics (a same-page reorder,
+    // an app-level onDragStart handler) run exactly as before.
+    if (payload) ipcRenderer.send(ipcChannels.pageDragStart, payload)
+  },
+  true,
+)
+
 // ADR 0030 — interaction sync capture. Capture-phase on window so mirrored
 // input is seen ahead of any in-page stopPropagation(); a no-op while
 // capture is disabled (see interaction-sync-capture.ts).
@@ -934,6 +915,9 @@ function injectResizeHandle(): void {
 // Inject elements on every navigation
 function onDomReady(): void {
   injectResizeHandle()
+  // Offscreen pages get no external native popup menu, so menulist
+  // `<select>`s need the page to paint their dropdown (see select-fallback.ts).
+  installSelectFallback()
   applyInteractiveState()
   applyDomInspectionState()
   applyAnnotateState()

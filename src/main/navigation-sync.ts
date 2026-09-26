@@ -30,7 +30,7 @@ export function syncPeersOf(source: Page): Page[] {
     (page) =>
       page !== source &&
       page.syncId === source.syncId &&
-      !page.pageView.webContents.isDestroyed(),
+      !page.host.webContents.isDestroyed(),
   )
 }
 
@@ -115,7 +115,7 @@ export function isScrollSuppressed(page: Page): boolean {
 }
 
 function applyNavigationAction(page: Page, action: NavigationSyncAction): void {
-  const webContents = page.pageView.webContents
+  const webContents = page.host.webContents
   if (webContents.isDestroyed()) return
   const currentUrl = webContents.getURL()
 
@@ -174,6 +174,6 @@ export function propagateScrollFromPage(
 ): void {
   for (const peer of syncPeersOf(source)) {
     markScrollSuppressed(peer)
-    peer.pageView.webContents.send(ipcChannels.applyLinkedScroll, scrollData)
+    peer.host.webContents.send(ipcChannels.applyLinkedScroll, scrollData)
   }
 }

@@ -31,6 +31,7 @@ export const CLI_VALUE_FLAGS = new Set([
   '--status', '--url', '--page-id', '--ids',
   '--reason', '--text',
   '--output', '--fps', '--quality',
+  '--page-size',
   '--min-idle', '--speed-factor',
   '--kind',
   // agent-browser passthrough flags

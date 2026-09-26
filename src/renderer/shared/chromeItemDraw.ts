@@ -1,13 +1,13 @@
 /**
  * Canvas 2D drawing of one page/file item's chrome: the 1px page/content
- * borders, the frozen-page raster that stands in for a parked
- * WebContentsView, and the device shell (bezel donut, strokes, island,
- * home indicator). Pure per-item geometry and draw calls, shared by
- * canvas-bg (`chromeCanvasDraw.ts`) and above-view (`DragFreezeLayer`).
+ * borders, the page's live texture (ADR 0038), and the device shell (bezel
+ * donut, strokes, island, home indicator). Pure per-item geometry and draw
+ * calls for canvas-bg's item pass (`CanvasItemSurface`).
  *
  * Drawn in screen space at display scale on every tick, so strokes stay crisp
  * at any zoom instead of riding a scaled DOM layer.
  */
+import type { ProjectedPageEntity } from '../../shared/scene-projection'
 import {
   CUSTOM_SHELL_CORNER_RADIUS,
   CUSTOM_SHELL_SCREEN_CORNER_RADIUS,
@@ -29,8 +29,33 @@ export interface ChromeCanvasItem {
   deviceId?: string | null
   deviceOrientation?: 'portrait' | 'landscape'
   showDeviceFrame?: boolean
-  useSvgDeviceShell?: boolean
   width: number
+}
+
+/** A page entity's chrome-drawable geometry, for its chrome and its texture
+ *  to agree on. `overrides` lets a caller force a field the
+ *  entity's own authored state doesn't reflect — the fill-focused page draws
+ *  with no bezel regardless of its authored device-shell setting. */
+export function pageChromeItem(
+  page: ProjectedPageEntity,
+  overrides?: Partial<ChromeCanvasItem>,
+): ChromeCanvasItem {
+  return {
+    id: page.id,
+    screenX: page.screenX,
+    screenY: page.screenY,
+    screenWidth: page.screenWidth,
+    screenHeight: page.screenHeight,
+    contentScreenX: page.contentScreenX,
+    contentScreenY: page.contentScreenY,
+    contentScreenWidth: page.contentScreenWidth,
+    contentScreenHeight: page.contentScreenHeight,
+    deviceId: page.deviceId,
+    deviceOrientation: page.deviceOrientation,
+    showDeviceFrame: page.showDeviceFrame,
+    width: page.width,
+    ...overrides,
+  }
 }
 
 export interface ItemGeometry {
@@ -47,17 +72,19 @@ export interface ItemGeometry {
   innerRadius: number
 }
 
-/** The two CSS custom properties every chrome pass reads for its border and
- *  bezel fill colors, resolved once per draw against a canvas already
- *  mounted in the themed surface tree. */
+/** The CSS custom properties every chrome pass reads for its border, bezel
+ *  fill, and unlit screen colors, resolved once per draw against a canvas
+ *  already mounted in the themed surface tree. */
 export function readChromeColors(canvas: HTMLCanvasElement): {
   borderColor: string
   bezelColor: string
+  screenColor: string
 } {
   const styles = getComputedStyle(canvas)
   return {
     borderColor: styles.getPropertyValue('--surface-device-border').trim() || '#d6d3d1',
     bezelColor: styles.getPropertyValue('--surface-device').trim() || '#e7e5e4',
+    screenColor: styles.getPropertyValue('--surface-device-screen').trim() || '#f5f5f4',
   }
 }
 
@@ -214,27 +241,67 @@ export function drawItemChrome(
   }
 }
 
+/** How far a frame's projected size may sit from its rect and still count as
+ *  filling it — float error in the projection, well under a device pixel. */
+const RECT_FIT_EPSILON_PX = 0.01
+
 /**
- * The frozen-page raster, clipped to the content viewport's corner radius.
- * Painted last, where the live WebContentsView sits in the native stack: it
- * occludes the inner border ring and the bezel's drop shadow, which a shadowed
- * donut casts into its own cutout as well as outward.
+ * A page's texture over its content rect, clipped to the content viewport's
+ * corner radius. It occludes the inner border ring and the bezel's drop
+ * shadow, which a shadowed donut casts into its own cutout as well as outward.
+ *
+ * The texture is drawn at the size it was painted for (`paintedCss`), pinned
+ * to the rect's top-left, never fitted to the rect. Through a resize the rect
+ * leads the page's frames; like a native window, the stale frame crops or
+ * leaves unlit screen showing rather than stretching.
  */
 export function drawItemSnapshot(
   ctx: CanvasRenderingContext2D,
   g: ItemGeometry,
   bitmap: ImageBitmap,
+  paintedCss: { width: number; height: number },
+  screenColor: string,
 ): void {
-  ctx.save()
-  ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+  const drawW = paintedCss.width * g.displayZoom
+  const drawH = paintedCss.height * g.displayZoom
+  const fitsRect =
+    Math.abs(drawW - g.contentW) < RECT_FIT_EPSILON_PX &&
+    Math.abs(drawH - g.contentH) < RECT_FIT_EPSILON_PX
+  // A shell-less page has square corners, so a fitting frame needs no clip path.
+  if (fitsRect && g.innerRadius <= 0) {
+    ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+    return
+  }
+  ctx.save()
+  ctx.clip(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
+  if (fitsRect) {
+    ctx.drawImage(bitmap, g.contentX, g.contentY, g.contentW, g.contentH)
+  } else {
+    ctx.fillStyle = screenColor
+    ctx.fillRect(g.contentX, g.contentY, g.contentW, g.contentH)
+    ctx.drawImage(bitmap, g.contentX, g.contentY, drawW, drawH)
+  }
   ctx.restore()
 }
 
+/** A page's content rect filled flat, standing in for a texture not yet sent. */
+export function drawItemBlank(
+  ctx: CanvasRenderingContext2D,
+  g: ItemGeometry,
+  screenColor: string,
+): void {
+  ctx.fillStyle = screenColor
+  if (g.innerRadius <= 0) {
+    ctx.fillRect(g.contentX, g.contentY, g.contentW, g.contentH)
+    return
+  }
+  ctx.fill(contentCutout2D(g.contentX, g.contentY, g.contentW, g.contentH, g.innerRadius))
+}
+
 /** The device shell: squircle bezel donut with drop shadow, edge strokes,
- * top highlight, and phone/tablet decorations. Mirrors SvgDeviceShellLayer.
+ * top highlight, and phone/tablet decorations.
  * The shell's border is `drawItemChrome`'s job, painted on top of this. */
 function drawItemShell(
   ctx: CanvasRenderingContext2D,

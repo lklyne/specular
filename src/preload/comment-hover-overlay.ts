@@ -28,7 +28,7 @@ import {
   rectFullyContainedInRegion,
   rectIntersectsRegion,
 } from './dom-element-utils'
-import { isPageOverlayTarget } from './gesture-forwarding'
+import { isPageOverlayTarget } from './page-overlay-targets'
 import type { CommentToolPagePreviewState } from '../shared/types'
 import { REGION_SELECT_FULL_CONTAINMENT } from '../shared/featureFlags'
 

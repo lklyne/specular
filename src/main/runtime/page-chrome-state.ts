@@ -22,7 +22,7 @@ import { broadcastRuntimePatch } from './runtime-patch-broadcast'
  *  fields arrive on their own events; back/forward availability has none, so it
  *  is sampled whenever a navigation settles. */
 export function refreshPageNavigationState(page: Page): void {
-  const wc = page.pageView.webContents
+  const wc = page.host.webContents
   if (wc.isDestroyed()) return
   page.canGoBack = wc.navigationHistory.canGoBack()
   page.canGoForward = wc.navigationHistory.canGoForward()
