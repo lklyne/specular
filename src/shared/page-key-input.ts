@@ -56,8 +56,6 @@ function windowsVirtualKeyCodeFor(key: string): number | null {
   return null
 }
 
-const MODIFIER_KEYS = new Set(['Meta', 'Shift', 'Alt', 'Control', 'CapsLock'])
-
 /** CDP `Input.*` modifier bitmask: Alt=1, Ctrl=2, Meta=4, Shift=8. */
 function cdpModifiersFor(mods: {
   shiftKey: boolean
@@ -105,21 +103,14 @@ function editingCommandsFor(payload: ForwardKeyPayload): string[] {
  */
 export function cdpKeyEventParams(payload: ForwardKeyPayload): Record<string, unknown> {
   const virtualKey = windowsVirtualKeyCodeFor(payload.key)
-  // A bare modifier goes without `nativeVirtualKeyCode`. With one, Chromium
-  // hands a key the page leaves unhandled to the browser, which on macOS
-  // builds an NSEvent from the CDP `text` alone and offers it to the app menu.
-  // A modifier has no text, and an empty-character event matches the first
-  // menu item with no accelerator: bare Cmd opened About, bare Shift a
-  // window-tiling item. Without one, CDP marks it skip-if-unhandled. Every
-  // other key keeps the code; typing into the page stops without it.
-  const sendNativeKeyCode = virtualKey !== null && !MODIFIER_KEYS.has(payload.key)
   const base: Record<string, unknown> = {
     key: payload.key,
     code: payload.code,
     modifiers: cdpModifiersFor(payload),
     autoRepeat: payload.repeat,
-    ...(virtualKey !== null ? { windowsVirtualKeyCode: virtualKey } : {}),
-    ...(sendNativeKeyCode ? { nativeVirtualKeyCode: virtualKey } : {}),
+    ...(virtualKey !== null
+      ? { windowsVirtualKeyCode: virtualKey, nativeVirtualKeyCode: virtualKey }
+      : {}),
   }
   if (payload.kind === 'up') return { ...base, type: 'keyUp' }
   const commands = editingCommandsFor(payload)

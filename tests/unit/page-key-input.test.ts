@@ -84,16 +84,6 @@ describe('cdpKeyEventParams', () => {
     expect(params).not.toHaveProperty('nativeVirtualKeyCode')
   })
 
-  // A native key code is what routes an unhandled key into the app menu,
-  // where an empty-text modifier press matches an arbitrary item (About).
-  it('sends no native key code for a bare modifier', () => {
-    for (const key of ['Meta', 'Shift', 'Alt', 'Control']) {
-      const params = cdpKeyEventParams(payload({ key, code: `${key}Left`, text: null }))
-      expect(params).toHaveProperty('windowsVirtualKeyCode')
-      expect(params).not.toHaveProperty('nativeVirtualKeyCode')
-    }
-  })
-
   it('carries autorepeat through', () => {
     expect(cdpKeyEventParams(payload({ repeat: true })).autoRepeat).toBe(true)
   })

@@ -217,6 +217,12 @@ class OffscreenPageHost implements PageHost {
     // out from under the `Page` record that owns it. Our own teardown goes
     // through `destroy()`, which closes without raising this event.
     this.win.on('close', (event) => event.preventDefault())
+    // Keys reach a page as synthesized CDP events, and one the page leaves
+    // unhandled would otherwise go on to the app menu as an NSEvent built from
+    // its text alone: a textless press (bare Cmd, Shift) matches whichever item
+    // has no accelerator, like About. The menu hears the real keystroke from
+    // aboveView instead, whose sink leaves the reserved shortcuts to it.
+    this.win.webContents.setIgnoreMenuShortcuts(true)
     this.tierFrameRate = this.win.webContents.getFrameRate()
     this.win.webContents.on('paint', (event) => {
       if (this.win.isDestroyed()) return
