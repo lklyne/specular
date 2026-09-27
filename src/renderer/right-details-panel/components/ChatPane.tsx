@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { FolderOpen, Plus, X, Zap } from 'lucide-react'
+import { FolderOpen, ListEnd, Plus, X, Zap } from 'lucide-react'
 import { messageHasContent, type AgentThread, type AgentThreadMessage } from '../../../shared/agent-thread'
 import type { CommentDraft } from '../../../shared/comment-draft'
 import type { Annotation, DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
@@ -361,22 +361,22 @@ function Composer({
   )
 }
 
-/** Auto-fix toggle for the write target's origin: comments send themselves. */
+/** Send mode for the write target's origin: comments queue here, or send themselves. */
 function AutoFixChip({ origin, on, isDark }: { origin: string; on: boolean; isDark: boolean }) {
   const label = on
-    ? `Auto-fix on for ${origin}: each comment is sent as soon as it is placed.`
-    : `Auto-fix off for ${origin}: comments queue here until you send.`
+    ? `Auto for ${origin}: each comment is sent as soon as it is placed. Click to queue instead.`
+    : `Queue for ${origin}: comments wait here until you send. Click to send automatically.`
+  const Icon = on ? Zap : ListEnd
   return (
     <Tooltip side="top" label={label}>
       <button
         type="button"
-        aria-pressed={on}
-        aria-label="Auto-fix"
-        className={`${composerChipClass(isDark)} ${on ? 'text-emerald-600 dark:text-emerald-400' : ''}`}
+        aria-label={on ? 'Send mode: auto' : 'Send mode: queue'}
+        className={composerChipClass(isDark)}
         onClick={() => rightDetailsPanelApi.setAutoFix(origin, !on)}
       >
-        <Zap size={11} className="shrink-0" />
-        <span>Auto</span>
+        <Icon size={11} className="shrink-0" />
+        <span>{on ? 'Auto' : 'Queue'}</span>
       </button>
     </Tooltip>
   )
