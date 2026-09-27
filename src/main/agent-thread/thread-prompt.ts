@@ -30,10 +30,14 @@ export function buildThreadPrompt(input: {
   }
   lines.push('')
   lines.push(...selectionFocusLines(pill))
+  if (thread.messages.some((message) => message.images?.length)) {
+    lines.push('Images the user pasted this turn are attached; earlier ones are at the listed paths.')
+  }
   lines.push('Thread:')
   for (const message of thread.messages) {
     const who = message.role === 'agent' ? 'Agent' : 'User'
-    lines.push(`[${who}] ${message.text}`)
+    const images = (message.images ?? []).map((image) => ` [image: ${image.path}]`).join('')
+    lines.push(`[${who}] ${message.text}${images}`)
   }
   lines.push('')
   lines.push('Inspecting a live page (when one is in play):')
@@ -45,11 +49,18 @@ export function buildThreadPrompt(input: {
   return lines.join('\n')
 }
 
-export function buildThreadFollowUpPrompt(text: string, pill?: ThreadPill): string {
-  const message = text.trim() || 'Continue addressing the latest feedback in this thread.'
+export function buildThreadFollowUpPrompt(text: string, pill?: ThreadPill, imageCount = 0): string {
+  const fallback = imageCount
+    ? 'See the attached image.'
+    : 'Continue addressing the latest feedback in this thread.'
+  const message = text.trim() || fallback
+  const attached = imageCount
+    ? [`(${imageCount === 1 ? 'An image is' : `${imageCount} images are`} attached to this message.)`]
+    : []
   return [
     'The user followed up in the same canvas agent thread:',
     `[User] ${message}`,
+    ...attached,
     '',
     ...selectionFocusLines(pill ?? { kind: 'empty' }),
     'Continue the thread — make a change if it calls for one, or just answer if it is a question.',

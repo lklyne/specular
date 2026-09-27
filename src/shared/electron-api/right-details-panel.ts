@@ -1,4 +1,5 @@
 import type { Tool } from '../tool'
+import type { ThreadImageUpload } from '../agent-thread'
 import type {
   AnnotationCreateRequest,
   DevtoolsPanelData,
@@ -46,7 +47,7 @@ export interface DevtoolsPanelElectronAPI {
   deselectAgentThread: () => void
   deleteAgentThread: (threadId: string) => void
   selectAgentThread: (threadId: string) => void
-  sendAgentThread: (text?: string) => void
+  sendAgentThread: (text?: string, images?: ThreadImageUpload[]) => void
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void

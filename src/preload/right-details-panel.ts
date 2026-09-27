@@ -48,8 +48,8 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelThreadDelete, { threadId }),
   selectAgentThread: (threadId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSelect, { threadId }),
-  sendAgentThread: (text?: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSend, { text }),
+  sendAgentThread: (text, images) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSend, { text, images }),
   ...entityMutationBridge,
   setFilePreset: (fileId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFilePreset, { fileId, presetIndex }),

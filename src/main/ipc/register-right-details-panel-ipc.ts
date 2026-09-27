@@ -1,6 +1,7 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, FixModel, FixPermissions, PageColorScheme } from '../../shared/types'
+import { isThreadImageMediaType, type ThreadImageUpload } from '../../shared/agent-thread'
 import { setFixConfig } from '../runtime/preferences'
 import {
   bindOriginToRepoPath,
@@ -249,8 +250,11 @@ export function registerRightDetailsPanelIpc(): void {
   )
   ipcMain.on(
     ipcChannels.rightDetailsPanelThreadSend,
-    (_event, payload: { text?: string } | undefined) => {
-      sendActiveThread(typeof payload?.text === 'string' ? payload.text : '')
+    (_event, payload: { text?: string; images?: unknown } | undefined) => {
+      sendActiveThread(
+        typeof payload?.text === 'string' ? payload.text : '',
+        parseImageUploads(payload?.images),
+      )
     },
   )
 
@@ -350,5 +354,15 @@ export function registerRightDetailsPanelIpc(): void {
       if (!pages.some((p) => p.id === payload.pageId)) return
       deletePages({ pageIds: [payload.pageId] })
     },
+  )
+}
+
+function parseImageUploads(value: unknown): ThreadImageUpload[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (item): item is ThreadImageUpload =>
+      Boolean(item) &&
+      isThreadImageMediaType((item as ThreadImageUpload).mediaType) &&
+      typeof (item as ThreadImageUpload).data === 'string',
   )
 }

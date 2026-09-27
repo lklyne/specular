@@ -7,6 +7,26 @@
 export type AgentThreadStatus = 'draft' | 'open'
 export type AgentThreadMessageRole = 'user' | 'agent'
 
+/** Media types the model accepts as image input. */
+export const THREAD_IMAGE_MEDIA_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
+export type ThreadImageMediaType = (typeof THREAD_IMAGE_MEDIA_TYPES)[number]
+
+export function isThreadImageMediaType(value: unknown): value is ThreadImageMediaType {
+  return (THREAD_IMAGE_MEDIA_TYPES as readonly unknown[]).includes(value)
+}
+
+/** A pasted image on its way from the composer to main, base64 without the data-URL prefix. */
+export interface ThreadImageUpload {
+  mediaType: ThreadImageMediaType
+  data: string
+}
+
+/** A pasted image saved beside the thread, relative to the space folder. */
+export interface AgentThreadImage {
+  path: string
+  mediaType: ThreadImageMediaType
+}
+
 export interface AgentThreadMessage {
   id: string
   role: AgentThreadMessageRole
@@ -15,6 +35,12 @@ export interface AgentThreadMessage {
   /** True until the user hits Send on a draft. */
   queued?: boolean
   annotationId?: string
+  images?: AgentThreadImage[]
+}
+
+/** A user message worth sending: words, pasted images, or both. */
+export function messageHasContent(message: AgentThreadMessage): boolean {
+  return Boolean(message.text.trim()) || Boolean(message.images?.length)
 }
 
 export interface AgentThread {
@@ -82,7 +108,7 @@ export function resolveThreadPill(input: ThreadPillInput): ThreadPill {
 
 export function threadTitleFromMessages(messages: AgentThreadMessage[]): string {
   const first = messages.find((m) => m.role === 'user' && m.text.trim())
-  if (!first) return 'New thread'
+  if (!first) return messages.some((m) => m.images?.length) ? 'Image' : 'New thread'
   return truncate(first.text.replace(/\s+/g, ' ').trim(), 48)
 }
 

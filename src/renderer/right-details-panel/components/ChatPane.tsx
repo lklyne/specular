@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FolderOpen, Loader2, Plus, X, Zap } from 'lucide-react'
-import type { AgentThread, AgentThreadMessage } from '../../../shared/agent-thread'
+import { messageHasContent, type AgentThread, type AgentThreadMessage } from '../../../shared/agent-thread'
 import type { DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
 import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
 import { FixEventList } from '../../shared/FixEventList'
 import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
 import { ContextChip, composerChipClass } from './ContextChip'
+import { PastedImages } from './PastedImages'
 import { QueuedComments } from './QueuedComments'
 import { ModelChip } from './ModelChip'
 import { PaneHeader } from './PaneHeader'
 import { threadPillFromPanelData, threadWriteTargetFromPanel } from '../panelThreadPill'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { useCommentFlash } from '../useCommentFlash'
+import { usePastedImages } from '../usePastedImages'
 
 export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const isDark = usePaneTheme()
@@ -25,7 +27,7 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const running = progress?.status === 'running'
   const divider = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const muted = 'text-[var(--surface-foreground-muted)]'
-  const queued = active?.messages.filter((message) => message.queued && message.text.trim()) ?? []
+  const queued = active?.messages.filter((message) => message.queued && messageHasContent(message)) ?? []
   const isNew =
     !active || active.status === 'draft' || !active.messages.some((message) => message.role === 'agent')
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -208,7 +210,7 @@ function ThreadTranscript({
             <CommentBubble
               key={message.id}
               author={message.role}
-              text={message.text}
+              text={withImageNote(message)}
               annotationId={message.annotationId}
             />
           ))
@@ -256,21 +258,27 @@ function Composer({
   muted: string
 }) {
   const [text, setText] = useState('')
+  const pasted = usePastedImages()
   // A run in flight doesn't close the composer: sending queues the follow-up,
   // which the thread picks up as soon as the run ends.
-  const canSend = Boolean(text.trim()) || (!running && queued.length > 0)
+  const canSend =
+    Boolean(text.trim()) || pasted.images.length > 0 || (!running && queued.length > 0)
   const submit = () => {
     if (!canSend) return
-    rightDetailsPanelApi.sendAgentThread(text.trim())
+    const images = pasted.images.map(({ mediaType, data }) => ({ mediaType, data }))
+    rightDetailsPanelApi.sendAgentThread(text.trim(), images)
     setText('')
+    pasted.clear()
   }
   return (
     <div
       className={`rounded-[16px] border px-2 pb-1.5 pt-1.5 ${
         isDark ? 'border-zinc-600 bg-zinc-900/40' : 'border-zinc-300 bg-zinc-50'
       }`}
+      onPaste={pasted.onPaste}
     >
       <QueuedComments messages={queued} />
+      <PastedImages images={pasted.images} onRemove={pasted.remove} />
       <CommentTextarea
         value={text}
         onChange={setText}
@@ -323,6 +331,14 @@ function AutoFixChip({ origin, on, isDark }: { origin: string; on: boolean; isDa
       </button>
     </Tooltip>
   )
+}
+
+/** Sent images live on disk, so the transcript notes them rather than showing them. */
+function withImageNote(message: AgentThreadMessage): string {
+  const count = message.images?.length ?? 0
+  if (!count) return message.text
+  const note = count === 1 ? '1 image' : `${count} images`
+  return message.text.trim() ? `${message.text}\n\n[${note}]` : `[${note}]`
 }
 
 function folderName(path: string): string {
