@@ -22,6 +22,7 @@ import {
   AddStickyToolIcon,
   AddTextToolIcon,
   CommentToolIcon,
+  DrawBrushToolIcon,
   DrawHighlightToolIcon,
   DrawPenToolIcon,
   HandToolIcon,
@@ -207,6 +208,8 @@ export function CenterActions({
                 ink={drawInk}
                
               />
+            ) : drawBrushType === 'brush' ? (
+              <DrawBrushToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} ink={drawInk} />
             ) : (
               <DrawHighlightToolIcon
                 size={TOOL_GLYPH_SIZE}

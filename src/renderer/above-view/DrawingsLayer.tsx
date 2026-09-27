@@ -3,6 +3,8 @@ import { memo } from 'react'
 import { getStroke } from 'perfect-freehand'
 import type { AnnotationDrawing, AnnotationDrawingStroke } from '../../shared/types'
 import { PageOverlayBand } from './PageOverlayBand'
+import { NaturalBrushStroke } from './NaturalBrushStroke'
+import { useNaturalBrushGpu } from './naturalBrushDevice'
 import { canvasToScreenX, canvasToScreenY } from '../../shared/gesture-utils'
 import { shouldFastFollowPageScroll } from '../../shared/page-anchor'
 import {
@@ -140,6 +142,7 @@ function renderStrokeBody({
     )
   }
   // Pen strokes render fully opaque — only the highlighter is translucent.
+  // `brush` strokes land here too when WebGPU is unavailable.
   return <path d={freehandPathD(points, visibleWidth)} fill={inkColor} />
 }
 
@@ -155,67 +158,89 @@ export const DrawingLayer = memo(function DrawingLayer({
   isDark: boolean
 }) {
   const hasHighlight = drawing.strokes.some((s) => s.brushType === 'highlight')
+  const brushStrokes = drawing.strokes.filter((s) => s.brushType === 'brush')
+  // undefined while the device is pending, null when WebGPU is unavailable.
+  const gpu = useNaturalBrushGpu(brushStrokes.length > 0)
   return (
-    <svg
-      className="pointer-events-none absolute inset-0"
-      width={window.innerWidth}
-      height={window.innerHeight}
-      viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}
-      aria-hidden="true"
-    >
-      {hasHighlight ? (
-        <defs>
-          {/*
-            filterUnits="userSpaceOnUse" is load-bearing: the default
-            ("objectBoundingBox") sizes the filter region as a percentage of the
-            path's geometric bbox, which does NOT include strokeWidth. A purely
-            horizontal stroke has bbox height = 0 → filter region height = 0 →
-            the whole 22px-thick stroke gets clipped to nothing. With user
-            space, the region is the SVG viewport so any stroke geometry works.
-          */}
-          <filter
-            id={GRAIN_FILTER_ID}
-            x="0"
-            y="0"
-            width={window.innerWidth}
-            height={window.innerHeight}
-            filterUnits="userSpaceOnUse"
-            primitiveUnits="userSpaceOnUse"
-          >
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.85"
-              numOctaves={2}
-              seed={4}
-              stitchTiles="stitch"
-              result="noise"
+    <>
+      <svg
+        className="pointer-events-none absolute inset-0"
+        width={window.innerWidth}
+        height={window.innerHeight}
+        viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}
+        aria-hidden="true"
+      >
+        {hasHighlight ? (
+          <defs>
+            {/*
+              filterUnits="userSpaceOnUse" is load-bearing: the default
+              ("objectBoundingBox") sizes the filter region as a percentage of the
+              path's geometric bbox, which does NOT include strokeWidth. A purely
+              horizontal stroke has bbox height = 0 → filter region height = 0 →
+              the whole 22px-thick stroke gets clipped to nothing. With user
+              space, the region is the SVG viewport so any stroke geometry works.
+            */}
+            <filter
+              id={GRAIN_FILTER_ID}
+              x="0"
+              y="0"
+              width={window.innerWidth}
+              height={window.innerHeight}
+              filterUnits="userSpaceOnUse"
+              primitiveUnits="userSpaceOnUse"
+            >
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.85"
+                numOctaves={2}
+                seed={4}
+                stitchTiles="stitch"
+                result="noise"
+              />
+              <feColorMatrix
+                in="noise"
+                type="matrix"
+                values="0 0 0 0 0
+                        0 0 0 0 0
+                        0 0 0 0 0
+                        0.35 0 0 0 0.78"
+                result="noiseAlpha"
+              />
+              <feComposite in="SourceGraphic" in2="noiseAlpha" operator="in" />
+            </filter>
+          </defs>
+        ) : null}
+        {drawing.strokes.map((stroke) => {
+          if (stroke.brushType === 'brush' && gpu !== null) return null
+          const points = stroke.points.map((point) => ({
+            x: canvasToScreenX(layout, point.x),
+            y: canvasToScreenY(layout, point.y) - layout.canvasOrigin.y,
+          }))
+          const visibleWidth = Math.max(1, stroke.width * layout.zoom)
+          return (
+            <g key={stroke.id}>
+              {renderStrokeBody({ stroke, points, visibleWidth, active: active ?? false, isDark })}
+            </g>
+          )
+        })}
+      </svg>
+      {gpu
+        ? brushStrokes.map((stroke) => (
+            <NaturalBrushStroke
+              key={stroke.id}
+              stroke={stroke}
+              layout={layout}
+              inkColor={resolveCanvasColor(stroke.color, {
+                role: 'ink',
+                isDark,
+                palette: paletteForBrushType('brush'),
+              })}
+              isDark={isDark}
+              gpu={gpu}
             />
-            <feColorMatrix
-              in="noise"
-              type="matrix"
-              values="0 0 0 0 0
-                      0 0 0 0 0
-                      0 0 0 0 0
-                      0.35 0 0 0 0.78"
-              result="noiseAlpha"
-            />
-            <feComposite in="SourceGraphic" in2="noiseAlpha" operator="in" />
-          </filter>
-        </defs>
-      ) : null}
-      {drawing.strokes.map((stroke) => {
-        const points = stroke.points.map((point) => ({
-          x: canvasToScreenX(layout, point.x),
-          y: canvasToScreenY(layout, point.y) - layout.canvasOrigin.y,
-        }))
-        const visibleWidth = Math.max(1, stroke.width * layout.zoom)
-        return (
-          <g key={stroke.id}>
-            {renderStrokeBody({ stroke, points, visibleWidth, active: active ?? false, isDark })}
-          </g>
-        )
-      })}
-    </svg>
+          ))
+        : null}
+    </>
   )
 })
 

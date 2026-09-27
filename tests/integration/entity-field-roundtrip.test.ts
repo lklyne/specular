@@ -542,6 +542,7 @@ type SampleStroke = {
   color: string
   width: number
   brushType: string
+  brushPreset?: string
   points: { x: number; y: number }[]
 }
 
@@ -565,6 +566,7 @@ function assertDrawingStrokesShifted(
     expect(cloneStroke.color).toBe(sourceStroke.color)
     expect(cloneStroke.width).toBe(sourceStroke.width)
     expect(cloneStroke.brushType).toBe(sourceStroke.brushType)
+    expect(cloneStroke.brushPreset).toBe(sourceStroke.brushPreset)
     sourceStroke.points.forEach((point, j) => {
       expect(cloneStroke.points[j].x).toBeCloseTo(point.x + deltaX)
       expect(cloneStroke.points[j].y).toBeCloseTo(point.y + deltaY)

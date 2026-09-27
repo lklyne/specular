@@ -2,7 +2,7 @@
 
 import type { ComponentType } from 'react'
 import type { DrawingBrushType } from '../../shared/types'
-import { PenMarkerIcon, PenSlimIcon } from '../shared/CustomIcons'
+import { PenBrushIcon, PenMarkerIcon, PenSlimIcon } from '../shared/CustomIcons'
 
 export const BRUSH_VARIANT_OPTIONS: Array<{
   kind: DrawingBrushType
@@ -11,16 +11,20 @@ export const BRUSH_VARIANT_OPTIONS: Array<{
 }> = [
   { kind: 'pen', label: 'Pen', Icon: PenSlimIcon },
   { kind: 'highlight', label: 'Highlighter', Icon: PenMarkerIcon },
+  { kind: 'brush', label: 'Brush', Icon: PenBrushIcon },
 ]
 
 // Ordered thin → thick.
 const STROKE_WIDTH_PRESETS = [2, 4] as const
 const HIGHLIGHT_STROKE_WIDTH_PRESETS = [8, 16] as const
+const BRUSH_STROKE_WIDTH_PRESETS = [3, 6] as const
 
 export function strokeWidthPresetsFor(
   brushType: DrawingBrushType | undefined,
 ): readonly number[] {
-  return brushType === 'highlight' ? HIGHLIGHT_STROKE_WIDTH_PRESETS : STROKE_WIDTH_PRESETS
+  if (brushType === 'highlight') return HIGHLIGHT_STROKE_WIDTH_PRESETS
+  if (brushType === 'brush') return BRUSH_STROKE_WIDTH_PRESETS
+  return STROKE_WIDTH_PRESETS
 }
 
 /** Closest preset to a given width — used to highlight the current swatch. */

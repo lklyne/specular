@@ -15,6 +15,7 @@ import {
   strokeWidthPresetsFor,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { BrushPresetDropdown } from './BrushPresetDropdown'
 
 export function DrawToolPopup({
   api,
@@ -100,6 +101,19 @@ export function DrawToolPopup({
             api.setToolDefault({ scope: 'draw', key: 'color', value: storage })
           }
         />
+        {defaults.brushType === 'brush' ? (
+          <>
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <BrushPresetDropdown
+              isDark={isDark}
+              value={defaults.brushPreset}
+              ariaLabel="Set default brush preset"
+              onPick={(preset) =>
+                api.setToolDefault({ scope: 'draw', key: 'brushPreset', value: preset })
+              }
+            />
+          </>
+        ) : null}
       </CanvasItemPopup.Frame>
     </CanvasItemPopup.ViewportAnchor>
   )

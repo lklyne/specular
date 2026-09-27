@@ -69,6 +69,9 @@ export function useAnnotationDrawingGestures({
             width: drawDefaults.strokeWidth,
             points: [startPoint],
             brushType: drawDefaults.brushType,
+            ...(drawDefaults.brushType === 'brush'
+              ? { brushPreset: drawDefaults.brushPreset }
+              : {}),
           },
         ]
         const nextSession: DrawingSession = {

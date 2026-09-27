@@ -1,6 +1,7 @@
 import type { EasingPreset, EasingSpec } from './cursor-motion'
 import type { CursorTuningParams } from './cursor-tuning'
 import type { DrawingBrushType, Tool } from './tool'
+import type { NaturalBrushPreset } from './natural-brush'
 import type { PageAnchor } from './page-anchor'
 import type { PRESENCE_LABEL_KEYS } from './presence-label-keys'
 import type { AmbientDriftMode } from './presence-ambient'
@@ -1887,6 +1888,8 @@ export interface AnnotationDrawingStroke {
   width: number
   points: AnnotationDrawingPoint[]
   brushType?: DrawingBrushType
+  /** webgpu-brush preset for `brush` strokes. */
+  brushPreset?: NaturalBrushPreset
 }
 
 export interface AnnotationDrawing {

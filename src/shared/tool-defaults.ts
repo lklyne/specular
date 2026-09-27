@@ -13,6 +13,11 @@
 import type { DrawingBrushType, ShapeKind } from './types'
 import { isShapeKind } from './shapes'
 import { isTextFont, type TextFont } from './text-fonts'
+import {
+  DEFAULT_NATURAL_BRUSH_PRESET,
+  isNaturalBrushPreset,
+  type NaturalBrushPreset,
+} from './natural-brush'
 
 export interface ToolDefaults {
   'add-text': {
@@ -33,6 +38,7 @@ export interface ToolDefaults {
   }
   draw: {
     brushType: DrawingBrushType
+    brushPreset: NaturalBrushPreset
     color: string
     strokeWidth: number
   }
@@ -65,6 +71,7 @@ export const DEFAULT_TOOL_DEFAULTS: ToolDefaults = {
   },
   draw: {
     brushType: 'pen',
+    brushPreset: DEFAULT_NATURAL_BRUSH_PRESET,
     color: '1', // red preset — resolves to vivid red for the pen brush
     strokeWidth: 2,
   },
@@ -113,7 +120,9 @@ export function normalizeToolDefaults(
   }
   if (obj.draw && typeof obj.draw === 'object') {
     const d = obj.draw
-    if (d.brushType === 'pen' || d.brushType === 'highlight') merged.draw.brushType = d.brushType
+    if (d.brushType === 'pen' || d.brushType === 'highlight' || d.brushType === 'brush')
+      merged.draw.brushType = d.brushType
+    if (isNaturalBrushPreset(d.brushPreset)) merged.draw.brushPreset = d.brushPreset
     if (typeof d.color === 'string') merged.draw.color = d.color
     if (typeof d.strokeWidth === 'number' && Number.isFinite(d.strokeWidth))
       merged.draw.strokeWidth = d.strokeWidth
@@ -147,5 +156,6 @@ export type ToolDefaultPatch =
   | { scope: 'add-shape'; key: 'strokeWidth'; value: number }
   | { scope: 'add-shape'; key: 'textSize'; value: number }
   | { scope: 'draw'; key: 'brushType'; value: DrawingBrushType }
+  | { scope: 'draw'; key: 'brushPreset'; value: NaturalBrushPreset }
   | { scope: 'draw'; key: 'color'; value: string }
   | { scope: 'draw'; key: 'strokeWidth'; value: number }

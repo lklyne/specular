@@ -19,6 +19,8 @@ import {
   strokeWidthPresetsFor,
 } from './popupVariantOptions'
 import { StrokeWidthSwatch } from './StrokeWidthSwatch'
+import { BrushPresetDropdown } from './BrushPresetDropdown'
+import { DEFAULT_NATURAL_BRUSH_PRESET } from '../../shared/natural-brush'
 import { POPUP_OFFSET_Y, sharedValue, usePopupDelayedKey } from './usePopupDelayedKey'
 
 export function DrawingPopup({
@@ -49,6 +51,9 @@ export function DrawingPopup({
   const allStrokes = selectedDrawings.flatMap((d) => d.strokes)
   const brush = sharedValue(allStrokes.map((s) => s.brushType ?? 'pen'))
   const swatchPalette = paletteForBrushType(brush ?? 'pen')
+  const brushPreset = sharedValue(
+    allStrokes.map((s) => s.brushPreset ?? DEFAULT_NATURAL_BRUSH_PRESET),
+  )
   const colorRaw = sharedValue(allStrokes.map((s) => s.color))
   const iconInk =
     colorRaw === null
@@ -101,6 +106,9 @@ export function DrawingPopup({
                 writeStrokes((stroke) => ({
                   ...stroke,
                   brushType: kind,
+                  ...(kind === 'brush'
+                    ? { brushPreset: stroke.brushPreset ?? DEFAULT_NATURAL_BRUSH_PRESET }
+                    : {}),
                   width: nearestStrokeWidthPreset(stroke.width, targetPresets),
                 }))
               }}
@@ -137,6 +145,19 @@ export function DrawingPopup({
             writeStrokes((stroke) => ({ ...stroke, color: storage }))
           }
         />
+        {brush === 'brush' ? (
+          <>
+            <CanvasItemPopup.Divider isDark={isDark} />
+            <BrushPresetDropdown
+              isDark={isDark}
+              value={brushPreset}
+              ariaLabel={`Set ${noun} brush preset`}
+              onPick={(preset) =>
+                writeStrokes((stroke) => ({ ...stroke, brushPreset: preset }))
+              }
+            />
+          </>
+        ) : null}
         <CanvasItemPopup.Divider isDark={isDark} />
         <CanvasItemPopup.EntityActions
           isDark={isDark}

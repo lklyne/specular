@@ -3,7 +3,7 @@
 // those move to tool defaults (ADR 0008 §9) and are surfaced through the
 // tool-mode popup.
 
-export type DrawingBrushType = 'pen' | 'highlight'
+export type DrawingBrushType = 'pen' | 'highlight' | 'brush'
 
 export type Tool =
   | { kind: 'select' }

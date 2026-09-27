@@ -34,6 +34,8 @@
  * for custom colors and for canvases saved before the two-palette split.
  */
 
+import type { DrawingBrushType } from './tool'
+
 export type CanvasColorRole = 'fill' | 'ink'
 
 /** Muted pastels vs. saturated hues — see the module doc. */
@@ -203,7 +205,7 @@ export function slotForStorage(color: string | null | undefined): CanvasColorSlo
  * Palette a drawing brush paints in. Highlighter uses muted pastels; pen uses
  * saturated hues. ADR 0013 §1.
  */
-export function paletteForBrushType(brushType: 'pen' | 'highlight'): CanvasPalette {
+export function paletteForBrushType(brushType: DrawingBrushType): CanvasPalette {
   return brushType === 'highlight' ? 'soft' : 'vivid'
 }
 

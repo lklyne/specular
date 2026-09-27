@@ -1,4 +1,5 @@
 import { useId, type ComponentProps } from 'react'
+import { Paintbrush } from 'lucide-react'
 import { darkenHex, lightenHex, NEUTRAL_STORAGE, resolveCanvasColor } from '../../shared/canvas-colors'
 
 // Custom-drawn icons exported from the agent-canvas Figma file
@@ -157,6 +158,14 @@ function PenIconDefs({
       </linearGradient>
     </>
   )
+}
+
+export function DrawBrushToolIcon({
+  size = 20,
+  ink = DEFAULT_DRAW_INK,
+  style,
+}: DrawToolIconProps) {
+  return <Paintbrush size={size} color={ink} strokeWidth={1.75} style={style} aria-hidden />
 }
 
 export function DrawPenToolIcon({
@@ -757,6 +766,11 @@ type PenIconProps = {
 const DEFAULT_PEN_INK = '#BD4BE5'
 const PEN_STROKE_IDLE = '#797875'
 const PEN_STROKE_SELECTED = '#18181B'
+
+/** Popup glyph for the `brush` draw type; the whole brush takes the ink. */
+export function PenBrushIcon({ ink = DEFAULT_PEN_INK, size = 16 }: PenIconProps) {
+  return <Paintbrush size={size} color={ink} strokeWidth={1.75} aria-hidden />
+}
 
 export function PenSlimIcon({
   ink = DEFAULT_PEN_INK,

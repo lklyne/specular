@@ -26,7 +26,12 @@ describe('tool-defaults: normalizeToolDefaults', () => {
         strokeWidth: 4,
         textSize: 56,
       },
-      draw: { brushType: 'highlight' as const, color: '#111111', strokeWidth: 6 },
+      draw: {
+        brushType: 'brush' as const,
+        brushPreset: 'cpencil' as const,
+        color: '#111111',
+        strokeWidth: 6,
+      },
     }
     expect(normalizeToolDefaults(persisted)).toEqual(persisted)
   })
@@ -60,19 +65,23 @@ describe('tool-defaults: normalizeToolDefaults', () => {
   it('fills gaps with defaults when only one scope is persisted', () => {
     const partial = { draw: { brushType: 'highlight' as const, color: '#aaa', strokeWidth: 9 } }
     const out = normalizeToolDefaults(partial)
-    expect(out.draw).toEqual(partial.draw)
+    expect(out.draw).toEqual({
+      ...partial.draw,
+      brushPreset: DEFAULT_TOOL_DEFAULTS.draw.brushPreset,
+    })
     expect(out['add-text']).toEqual(DEFAULT_TOOL_DEFAULTS['add-text'])
     expect(out['add-sticky']).toEqual(DEFAULT_TOOL_DEFAULTS['add-sticky'])
     expect(out['add-shape']).toEqual(DEFAULT_TOOL_DEFAULTS['add-shape'])
   })
 
-  it('rejects unknown shapeKind / brushType, keeps the default', () => {
+  it('rejects unknown shapeKind / brushType / brushPreset, keeps the default', () => {
     const out = normalizeToolDefaults({
       'add-shape': { shapeKind: 'octagon', color: '#fff', strokeWidth: 1 },
-      draw: { brushType: 'spray', color: '#fff', strokeWidth: 1 },
+      draw: { brushType: 'spray', brushPreset: 'airbrush', color: '#fff', strokeWidth: 1 },
     })
     expect(out['add-shape'].shapeKind).toBe(DEFAULT_TOOL_DEFAULTS['add-shape'].shapeKind)
     expect(out.draw.brushType).toBe(DEFAULT_TOOL_DEFAULTS.draw.brushType)
+    expect(out.draw.brushPreset).toBe(DEFAULT_TOOL_DEFAULTS.draw.brushPreset)
     // But valid sibling fields still come through:
     expect(out['add-shape'].color).toBe('#fff')
     expect(out['add-shape'].strokeWidth).toBe(1)

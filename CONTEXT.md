@@ -169,7 +169,7 @@ Per-tool, persistent app settings (not per-canvas, not in `.canvas`). Read by cr
 | `add-text` (plain) | `color` |
 | `add-text` (sticky) | `color` |
 | `add-shape` | `shapeKind`, `color`, `strokeWidth` |
-| `draw` | `brushType`, `color`, `strokeWidth` |
+| `draw` | `brushType`, `brushPreset`, `color`, `strokeWidth` |
 
 Tool defaults never participate in undo/redo and never round-trip through Y.Doc — they're user preferences, not document data. See [ADR 0008](./docs/adr/0008-unified-canvas-item-popup.md) §"Tool defaults".
 

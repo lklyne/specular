@@ -59,6 +59,7 @@
     "remark-gfm": "^4.0.1",
     "three": "^0.184.0",
     "update-electron-app": "^3.3.0",
+    "webgpu-brush": "^3.0.0",
     "ws": "^8.21.3",
     "yjs": "^13.6.33"
   },
