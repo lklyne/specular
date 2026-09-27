@@ -78,6 +78,9 @@ function ThreadActions({ hasActive, isDark }: { hasActive: boolean; isDark: bool
   const iconBtn = `flex h-6 w-6 items-center justify-center rounded transition-colors ${
     isDark ? 'hover:bg-zinc-700' : 'hover:bg-zinc-100'
   }`
+  // Switching threads leaves the composer mounted, so the buttons keep focus
+  // in the field — an open comment draft stays ready to type into.
+  const keepFocus = (event: React.PointerEvent) => event.preventDefault()
   return (
     <div className="flex items-center gap-0.5">
       <button
@@ -85,6 +88,7 @@ function ThreadActions({ hasActive, isDark }: { hasActive: boolean; isDark: bool
         className={iconBtn}
         title="New thread"
         aria-label="New thread"
+        onPointerDown={keepFocus}
         onClick={() => rightDetailsPanelApi.newAgentThread()}
       >
         <Plus size={13} />
@@ -95,6 +99,7 @@ function ThreadActions({ hasActive, isDark }: { hasActive: boolean; isDark: bool
           className={iconBtn}
           title="Back to threads"
           aria-label="Back to threads"
+          onPointerDown={keepFocus}
           onClick={() => rightDetailsPanelApi.deselectAgentThread()}
         >
           <X size={13} />
