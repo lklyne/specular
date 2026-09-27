@@ -86,6 +86,8 @@ export function fixQueryOptions(
     // permission allowlists below — which cannot name `Skill` — leave skills
     // visible in the listing but unusable.
     skills: 'all',
+    // Threads render in a narrow side panel; lead with the result, not narration.
+    settings: { outputStyle: 'Concise' },
   }
   if (resumeSessionId) {
     options.resume = resumeSessionId
