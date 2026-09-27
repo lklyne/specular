@@ -1210,6 +1210,8 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
             layoutData={layoutData}
             liveBboxes={liveBboxes}
             onOpenThread={focusThread}
+            onResolve={(ids) => ids.forEach((id) => api.resolveAnnotation(id))}
+            onDelete={(ids) => ids.forEach((id) => api.deleteAnnotation(id))}
           />
         </>
       ) : null}

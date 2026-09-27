@@ -1,6 +1,6 @@
 import type { ProjectedLayoutData, ProjectedPageEntity } from '../../shared/scene-projection'
-import { memo, useMemo, useState } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { CircleCheck, MessageSquare, Trash2 } from 'lucide-react'
 import type { Annotation } from '../../shared/types'
 import { isUnresolved } from '../../shared/annotation-utils'
 import { pageViewportToScreen } from '../../shared/page-space'
@@ -10,6 +10,9 @@ import { PageOverlayBand } from './PageOverlayBand'
 interface CommentBadge {
   key: string
   annotationId: string
+  /** Every unresolved annotation grouped under this badge — what its
+   *  popover's Resolve and Delete act on. */
+  annotationIds: string[]
   pageId: string
   count: number
   summary: string
@@ -24,13 +27,33 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
   layoutData,
   liveBboxes,
   onOpenThread,
+  onResolve,
+  onDelete,
 }: {
   annotations: Annotation[]
   layoutData: ProjectedLayoutData
   liveBboxes: AnnotationLiveBboxLookup
   onOpenThread: (annotationId: string) => void
+  onResolve: (annotationIds: string[]) => void
+  onDelete: (annotationIds: string[]) => void
 }) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
+  // Leaving the badge closes the popover after a beat, so the pointer can
+  // cross the gap into it; entering the popover cancels the close.
+  const closeTimer = useRef<number | null>(null)
+  const cancelClose = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    closeTimer.current = null
+  }
+  const hover = (key: string) => {
+    cancelClose()
+    setHoveredKey(key)
+  }
+  const scheduleClose = () => {
+    cancelClose()
+    closeTimer.current = window.setTimeout(() => setHoveredKey(null), 200)
+  }
+  useEffect(() => cancelClose, [])
   const badges = useMemo(
     () => commentBadgesForLayout(annotations, layoutData, liveBboxes),
     [annotations, layoutData, liveBboxes],
@@ -93,10 +116,8 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
                   setHoveredKey(null)
                   onOpenThread(badge.annotationId)
                 }}
-                onPointerEnter={() => setHoveredKey(badge.key)}
-                onPointerLeave={() =>
-                  setHoveredKey((current) => (current === badge.key ? null : current))
-                }
+                onPointerEnter={() => hover(badge.key)}
+                onPointerLeave={() => scheduleClose()}
               >
                 <MessageSquare size={12} strokeWidth={1.8} />
                 <span>{badge.count}</span>
@@ -107,21 +128,75 @@ export const CommentBadgesLayer = memo(function CommentBadgesLayer({
       })}
       {hoveredBadge ? (
         <div
-          className="pointer-events-none absolute z-[45] w-[260px] whitespace-pre-wrap rounded-[14px] border border-zinc-400/80 bg-white px-2.5 py-2 text-[11px] leading-[1.4] text-[var(--surface-foreground)] shadow-[0_8px_16px_rgba(0,0,0,0.15)] dark:border-zinc-600 dark:bg-zinc-900"
+          data-overlay-ui="comment-badge-popover"
+          className="pointer-events-auto absolute z-[45] w-[260px] whitespace-pre-wrap rounded-[14px] border border-zinc-400/80 bg-white px-2.5 py-2 text-[11px] leading-[1.4] text-[var(--surface-foreground)] shadow-[0_8px_16px_rgba(0,0,0,0.15)] dark:border-zinc-600 dark:bg-zinc-900"
           style={{
             left: Math.max(8, Math.min(hoveredBadge.x - 240, window.innerWidth - 268)),
             top: Math.max(8, Math.min(hoveredBadge.y + 22, window.innerHeight - 108)),
           }}
+          onPointerEnter={() => hover(hoveredBadge.key)}
+          onPointerLeave={() => scheduleClose()}
         >
-          <div className="font-semibold">
-            {hoveredBadge.count} message{hoveredBadge.count === 1 ? '' : 's'}
+          <div className="flex items-center gap-1">
+            <div className="flex-1 font-semibold">
+              {hoveredBadge.count} message{hoveredBadge.count === 1 ? '' : 's'}
+            </div>
+            <PopoverAction
+              label="Resolve"
+              onClick={() => {
+                setHoveredKey(null)
+                onResolve(hoveredBadge.annotationIds)
+              }}
+            >
+              <CircleCheck size={13} strokeWidth={1.8} />
+            </PopoverAction>
+            <PopoverAction
+              label="Delete"
+              onClick={() => {
+                setHoveredKey(null)
+                onDelete(hoveredBadge.annotationIds)
+              }}
+            >
+              <Trash2 size={13} strokeWidth={1.8} />
+            </PopoverAction>
           </div>
-          <div className="mt-1">{hoveredBadge.summary}</div>
+          <button
+            type="button"
+            className="mt-1 block w-full cursor-pointer text-left"
+            onClick={() => {
+              setHoveredKey(null)
+              onOpenThread(hoveredBadge.annotationId)
+            }}
+          >
+            {hoveredBadge.summary}
+          </button>
         </div>
       ) : null}
     </>
   )
 })
+
+function PopoverAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--surface-foreground-muted)] hover:bg-black/5 hover:text-[var(--surface-foreground)] dark:hover:bg-white/10"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}
 
 export function commentBadgesForLayout(
   annotations: Annotation[],
@@ -133,7 +208,7 @@ export function commentBadgesForLayout(
       .filter((entity): entity is ProjectedPageEntity => entity.kind === 'page')
       .map((page) => [page.id, page]),
   )
-  const grouped = new Map<string, { representative: Annotation; count: number }>()
+  const grouped = new Map<string, { representative: Annotation; count: number; ids: string[] }>()
 
   for (const annotation of annotations
     .filter((candidate) => isUnresolved(candidate.status))
@@ -147,10 +222,12 @@ export function commentBadgesForLayout(
     const existing = grouped.get(key)
     if (existing) {
       existing.count += 1 + annotation.replies.length
+      existing.ids.push(annotation.id)
     } else {
       grouped.set(key, {
         representative: annotation,
         count: 1 + annotation.replies.length,
+        ids: [annotation.id],
       })
     }
   }
@@ -166,6 +243,7 @@ export function commentBadgesForLayout(
       badges.push({
         key,
         annotationId: annotation.id,
+        annotationIds: value.ids,
         pageId: anchor.pageId,
         count: value.count,
         summary: annotation.text,
@@ -187,6 +265,7 @@ export function commentBadgesForLayout(
       badges.push({
         key,
         annotationId: annotation.id,
+        annotationIds: value.ids,
         pageId: anchor.pageId,
         count: value.count,
         summary: annotation.text,
