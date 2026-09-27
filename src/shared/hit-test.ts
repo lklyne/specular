@@ -17,6 +17,7 @@ import {
   EDGE_ANCHOR_HIT_ACROSS_PX,
   EDGE_ANCHOR_HIT_ALONG_PX,
   EDGE_ANCHOR_HIT_GAP_PX,
+  DRAWING_BODY_MIN_HIT_PX,
   EDGE_SIDES,
   reorderHandleHitPx,
   RESIZE_HANDLE_HIT_PX,
@@ -316,7 +317,10 @@ function collectBodyTargets(inputs: HitInputs): HitTarget[] {
     const entity = inputs.entities[i]
     const target: HitTarget = {
       layer: 'body',
-      region: { kind: 'rect', rect: bodyRect(entity) },
+      region: {
+        kind: 'rect',
+        rect: entity.kind === 'drawing' ? drawingBodyRect(entity) : bodyRect(entity),
+      },
       payload:
         entity.kind === 'page'
           ? { kind: 'page-body', entityId: entity.id }
@@ -401,6 +405,21 @@ function bodyRect(entity: ProjectedSceneEntity): Rect {
     y: entity.screenY,
     width: entity.screenWidth,
     height: entity.screenHeight,
+  }
+}
+
+// A straight line's box is only as thick as its ink — zero when stored flat —
+// so each axis is widened to a grabbable screen size around its center.
+function drawingBodyRect(entity: ProjectedSceneEntity): Rect {
+  const rect = bodyRect(entity)
+  const min = DRAWING_BODY_MIN_HIT_PX
+  const width = Math.max(rect.width, min)
+  const height = Math.max(rect.height, min)
+  return {
+    x: rect.x - (width - rect.width) / 2,
+    y: rect.y - (height - rect.height) / 2,
+    width,
+    height,
   }
 }
 

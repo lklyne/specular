@@ -10,6 +10,8 @@ export const EDGE_ANCHOR_HIT_MIN_SCALE = 0.35
 export const RESIZE_HANDLE_VISUAL_PX = 8
 export const RESIZE_HANDLE_HIT_PX = 12
 
+export const DRAWING_BODY_MIN_HIT_PX = 12
+
 // Auto-layout reorder dot (ADR 0015). Visual radius is small at rest and grows
 // on hover (rendered in aboveView); the hit square stays comfortably grabbable.
 export const REORDER_DOT_VISUAL_RADIUS_PX = 4
