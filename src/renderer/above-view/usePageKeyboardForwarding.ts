@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { isOverlayUiTarget, isTypingTarget } from '../../shared/gesture-utils'
+import { isTypingTarget } from '../../shared/gesture-utils'
 import { textForKeyPress, type ForwardKeyPayload } from '../../shared/page-key-input'
 import { isAppMenuShortcut } from '../../shared/app-menu-shortcuts'
 
@@ -52,8 +52,10 @@ export function usePageKeyboardForwarding({
     const active = document.activeElement
     if (active === sink) return
     // An inline editor or an overlay-UI field owns the keyboard while it is
-    // open; taking it would swallow what is being typed there.
-    if (active && (isTypingTarget(active) || isOverlayUiTarget(active))) return
+    // open; taking it would swallow what is being typed there. A clicked
+    // chrome button does not: it keeps DOM focus after the click, and
+    // deferring to it strands every keystroke meant for the page on it.
+    if (active && isTypingTarget(active)) return
     sink.focus({ preventScroll: true })
   }, [])
 
