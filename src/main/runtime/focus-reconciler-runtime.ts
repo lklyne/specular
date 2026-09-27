@@ -15,7 +15,7 @@ import type { WebContents } from 'electron'
 import type { FocusTarget } from '../../shared/interaction-types'
 import { canvasInteractionModeKind } from '../../shared/gesture-utils'
 import { expectedFocus, focusKey, type FocusState } from './focus-reconciler'
-import { aboveView, bgView, toolbarView, leftSidebarView, win } from './view-refs'
+import { aboveView, bgView, devtoolsHeaderView, toolbarView, leftSidebarView, win } from './view-refs'
 import {
   getEditingEntityId,
   interactionState,
@@ -25,6 +25,7 @@ import {
 import { isTextEditingFor } from './binding-dispatcher'
 import { isCommentOverlayVisible, toolbarDropdownOpen } from '../ui-state'
 import { currentKeyboardTargetPageId } from './selection-controller'
+import { commentDraftSnapshot } from './comment-draft-signal'
 
 function currentFocusState(): FocusState {
   return {
@@ -36,6 +37,7 @@ function currentFocusState(): FocusState {
     sidebarTextInputActive: leftSidebarView ? isTextEditingFor(leftSidebarView.webContents) : false,
     toolbarTextInputActive: toolbarView ? isTextEditingFor(toolbarView.webContents) : false,
     toolbarDropdownOpen: toolbarDropdownOpen(),
+    commentDraftOpen: commentDraftSnapshot() !== null,
   }
 }
 
@@ -46,6 +48,7 @@ function resolve(target: FocusTarget): WebContents | null {
     case 'toolbar': return toolbarView?.webContents ?? null
     case 'sidebar': return leftSidebarView?.webContents ?? null
     case 'page': return aboveView?.webContents ?? null
+    case 'rightDetailsPanel': return devtoolsHeaderView?.webContents ?? null
   }
 }
 
@@ -60,6 +63,7 @@ export function currentlyFocusedKey(): string | null {
   }
   if (toolbarView?.webContents.isFocused()) return 'toolbar'
   if (leftSidebarView?.webContents.isFocused()) return 'sidebar'
+  if (devtoolsHeaderView?.webContents.isFocused()) return 'rightDetailsPanel'
   return null
 }
 

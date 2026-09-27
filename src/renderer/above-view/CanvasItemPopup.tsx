@@ -574,9 +574,8 @@ function EntityActions({
    *  a popup that has no natural id set to hand it). */
   layout?: ProjectedLayoutData
   entityIds?: readonly string[]
-  /** Opens the region composer pre-anchored to the selection's union bounds
-   *  (renderer-local handoff — see useAnnotationDraftState.beginSelectionAnnotation).
-   *  Omitted → no Annotate button, regardless of `layout`/`entityIds`. */
+  /** Opens a selection-anchored comment draft over the selection's union
+   *  bounds. Omitted → no Annotate button, regardless of `layout`/`entityIds`. */
   onAnnotate?: AnnotateHandler
 }) {
   const arrange = api?.arrangeSelection

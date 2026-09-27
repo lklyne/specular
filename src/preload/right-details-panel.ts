@@ -51,6 +51,10 @@ const api: DevtoolsPanelElectronAPI = {
   sendAgentThread: (text, images) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSend, { text, images }),
   readClipboardImage: () => ipcRenderer.invoke(ipcChannels.rightDetailsPanelReadClipboardImage),
+  submitCommentDraft: (text, images) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelSubmitCommentDraft, { text, images }),
+  cancelCommentDraft: () =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelCancelCommentDraft),
   ...entityMutationBridge,
   setFilePreset: (fileId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFilePreset, { fileId, presetIndex }),

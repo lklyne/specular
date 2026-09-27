@@ -40,18 +40,16 @@ import { ShapeBodyLayer } from './ShapeBodyLayer'
 import { StickyBodyLayer } from './StickyBodyLayer'
 import { RegionSelectAnnotations } from './AnnotationsLayer'
 import { CommentBadgesLayer } from './CommentBadgesLayer'
-import {
-  PendingAnnotationComposer,
-  PendingElementOutline,
-} from './CommentsLayer'
+import { CommentDraftMarker } from './CommentsLayer'
 import { MarqueeLayer } from './MarqueeLayer'
 import { useAnnotationDrawingGestures } from './useAnnotationDrawingGestures'
-import { useAnnotationDraftState } from './useAnnotationDraftState'
+import { useCommentDraft } from './useCommentDraft'
+import { useDrawingSession } from './useDrawingSession'
 import { useAnnotationThreadState } from './useAnnotationThreadState'
 import { useCommentToolPointerBroadcast } from './useCommentToolPointerBroadcast'
 import { useLiveAnnotationBboxes } from './useLiveAnnotationBboxes'
 import { useCanvasFileDrop } from './useCanvasFileDrop'
-import { canvasRectToScreenRect, pendingElementComposerPosition } from './annotationMath'
+import { canvasRectToScreenRect } from './annotationMath'
 import {
   FULL_ROUTER_CONSUME,
   useCanvasPointerRouter,
@@ -396,7 +394,6 @@ export default function App({
   initialTheme: ThemeData
 }) {
   const layoutRef = useProjectedLayoutRef()
-  const commentInputRef = useRef<HTMLTextAreaElement>(null)
   const activeStrokeRef = useRef<{ pointerId: number; strokeId: string } | null>(null)
   const layoutData = useProjectedLayoutData()
   const [selectionOverlay, setSelectionOverlay] = useState<SelectionOverlayPayload | null>(null)
@@ -541,38 +538,18 @@ export default function App({
   useReportTextEditing(api.setTextEditing)
   useCanvasClipboard({ api, layoutRef })
 
+  const commentDraft = useCommentDraft(api)
   const {
-    beginSelectionAnnotation,
-    clearDraft,
-    commentText,
     drawingSession,
     drawingStrokeActive,
-    elementNameDraft,
-    pendingAnnotation,
-    pendingRegionRect,
-    pendingRegionSelectionIds,
-    setCommentText,
     setDrawingSession,
     setDrawingStrokeActive,
-    setElementNameDraft,
-    setPendingAnnotation,
-    submitPendingAnnotation,
-    submitRegionAnnotation,
-  } = useAnnotationDraftState({
-    api,
-    layoutData,
-    layoutRef,
-    commentInputRef,
-    activeStrokeRef,
-  })
+    undoLastStroke,
+  } = useDrawingSession(api, activeStrokeRef, layoutData.activeTool.kind)
   const liveDrawing = useMemo(
     () => (drawingSession ? { version: 1 as const, ...drawingSession } : null),
     [drawingSession],
   )
-  const draftStateRef = useRef({ pendingAnnotation, pendingRegionRect, commentText, clearDraft })
-  useEffect(() => {
-    draftStateRef.current = { pendingAnnotation, pendingRegionRect, commentText, clearDraft }
-  }, [pendingAnnotation, pendingRegionRect, commentText, clearDraft])
   const {
     closeThread,
     focusThread,
@@ -584,7 +561,7 @@ export default function App({
 
   // ADR 0006 — element-anchored popovers re-query their bbox via the page on
   // every scroll/resize so they don't freeze at their creation rect. Collect
-  // the active subscriptions (open thread + pending element composer), hand
+  // the active subscriptions (open thread + the element draft's marker), hand
   // them to the live-bbox hook, then pass the resulting lookup down to the
   // popover positioners below.
   const liveBboxSubscriptions = useMemo(() => {
@@ -596,14 +573,11 @@ export default function App({
       seen.add(key)
       subs.push(sub)
     }
-    if (
-      pendingAnnotation &&
-      pendingAnnotation.request.anchor.type === 'element'
-    ) {
-      const anchor = pendingAnnotation.request.anchor
+    if (commentDraft?.kind === 'element' && commentDraft.request.anchor.type === 'element') {
+      const anchor = commentDraft.request.anchor
       pushSub({
         pageId: anchor.pageId,
-        annotationId: pendingAnnotation.draftId,
+        annotationId: commentDraft.id,
         selector: anchor.selector,
       })
     }
@@ -616,14 +590,10 @@ export default function App({
       })
     }
     return subs
-  }, [layoutData.annotations, pendingAnnotation])
+  }, [layoutData.annotations, commentDraft])
 
   const liveBboxes = useLiveAnnotationBboxes({ api, subscriptions: liveBboxSubscriptions })
 
-  const pendingComposerPosition = useMemo(
-    () => (pendingAnnotation ? pendingElementComposerPosition(pendingAnnotation, layoutData, liveBboxes) : null),
-    [layoutData, liveBboxes, pendingAnnotation],
-  )
   const drawInteractionEnabled = layoutData.activeTool.kind === 'draw'
   const selectedEdgeIds = useMemo(() => {
     const ids = new Set<string>()
@@ -665,8 +635,6 @@ export default function App({
   const pointerOwnerState = {
     toolKind: layoutData.activeTool.kind,
     pendingPlacement: Boolean(layoutData.pendingPlacement),
-    pendingAnnotation: Boolean(pendingAnnotation),
-    pendingRegionRect: Boolean(pendingRegionRect),
     drawingSession: Boolean(drawingSession),
   }
   const overlayInteractive = annotationOverlayActive(pointerOwnerState)
@@ -706,48 +674,47 @@ export default function App({
     handleOverlayPointerUp,
   } = useAnnotationDrawingGestures({
     api,
-    clearDraft,
     closeThread,
     drawInteractionEnabled,
     layoutData,
     layoutRef,
-    pendingAnnotation,
     activeStrokeRef,
     setDrawingSession,
     setDrawingStrokeActive,
-    setPendingAnnotation,
   })
 
   useEffect(() => {
-    api.setAnnotationState(Boolean(focusedThreadId), Boolean(pendingAnnotation || pendingRegionRect || drawingSession))
-  }, [focusedThreadId, pendingAnnotation, pendingRegionRect, drawingSession])
+    api.setAnnotationState(Boolean(focusedThreadId))
+  }, [focusedThreadId])
 
-  useRendererBindingHandlers(buildAboveViewHandlers(closeThread, clearDraft))
+  useRendererBindingHandlers(buildAboveViewHandlers(closeThread))
   useCanvasFileDrop({ api, layoutRef })
 
   // ADR 0006 page-paints contract: while the comment tool is active,
   // broadcast pointer-state to main so each page can paint a hover preview
   // (single element under the pointer; outlines for elements intersecting
   // the marquee while a region drag is in flight). We keep the broadcast
-  // active during the pending region composer too so the contained-element
-  // outlines stay visible while the user types — only suppress for the
-  // single-target (element/canvas-point) composer where there's nothing to
-  // preview.
+  // active while a region/selection draft's chip is open so the
+  // contained-element outlines stay visible while the user types — only
+  // suppress for the single-target (element/canvas-point) draft where
+  // there's nothing to preview.
   const commentPreviewActive =
-    layoutData.activeTool.kind === 'comment' && !pendingAnnotation
-  // Translate the pending region (in canvas coords) into window coords so
-  // the hook can hold it across the composer. The hook prefers the
+    layoutData.activeTool.kind === 'comment' &&
+    commentDraft?.kind !== 'element' &&
+    commentDraft?.kind !== 'point'
+  // Translate the draft's region rect (in canvas coords) into window coords
+  // so the hook can hold it across the sidebar composer. The hook prefers the
   // in-flight drag rect when both are set.
   const heldRegionRect = useMemo(() => {
-    if (!pendingRegionRect) return null
-    const screen = canvasRectToScreenRect(layoutData, pendingRegionRect)
+    if (commentDraft?.kind !== 'region' && commentDraft?.kind !== 'selection') return null
+    const screen = canvasRectToScreenRect(layoutData, commentDraft.canvasRect)
     return {
       x: screen.left,
       y: screen.top,
       width: screen.width,
       height: screen.height,
     }
-  }, [layoutData, pendingRegionRect])
+  }, [layoutData, commentDraft])
   const commentPreview = useCommentToolPointerBroadcast({
     api,
     layoutRef,
@@ -990,22 +957,10 @@ export default function App({
     setReorderGhost,
     onCommentDragMove: onDragMove,
     onCommentDragEnd: onDragEnd,
-    commentDraftRef: draftStateRef,
     enteredEntityIdRef,
     onEnterEntityInteractive,
     focusKeyboardSink,
   })
-
-  useEffect(() => {
-    if (!pendingAnnotation) return
-    closeThread()
-  }, [closeThread, pendingAnnotation])
-
-  useEffect(() => {
-    if (!focusedThreadId) return
-    activeStrokeRef.current = null
-    clearDraft()
-  }, [clearDraft, focusedThreadId])
 
   useEffect(() => {
     if (!drawInteractionEnabled) return
@@ -1045,7 +1000,7 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
     textPopupReady,
     filePopupReady,
     focusedNoteEntity,
-    beginSelectionAnnotation,
+    beginSelectionAnnotation: (entityIds, canvasRect) => api.beginSelectionComment(entityIds, canvasRect),
   }
 
   return (
@@ -1082,33 +1037,12 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               resting chrome — they live in the right panel. */}
           <RegionSelectAnnotations
             annotations={layoutData.annotations}
-            interactive={!selectionOverlay && !pendingRegionRect && !pendingAnnotation}
+            interactive={!selectionOverlay}
             layoutData={layoutData}
             onOpenThread={focusThread}
           />
 
-          <PendingElementOutline
-            pending={pendingAnnotation}
-            layoutData={layoutData}
-            liveBboxes={liveBboxes}
-          />
-
-          <PendingAnnotationComposer
-            clearDraft={clearDraft}
-            commentInputRef={commentInputRef}
-            commentText={commentText}
-            elementNameDraft={elementNameDraft}
-            layoutData={layoutData}
-            pendingAnnotation={pendingAnnotation}
-            pendingPosition={pendingComposerPosition}
-            pendingRegionRect={pendingRegionRect}
-            pendingRegionSelectionIds={pendingRegionSelectionIds}
-            setCommentText={setCommentText}
-            setElementNameDraft={setElementNameDraft}
-            submitPendingAnnotation={submitPendingAnnotation}
-            submitRegionAnnotation={submitRegionAnnotation}
-          />
-
+          <CommentDraftMarker draft={commentDraft} layoutData={layoutData} liveBboxes={liveBboxes} />
         </>
       ) : null}
 
@@ -1251,19 +1185,13 @@ html:active, body:active, body *:active { cursor: grabbing !important; }`
               />
             ),
           )}
-          {/* Selection-vs-composer mutex: a selection-born region draft (the
-              popup's Annotate button) hides every selection popup while its
-              composer is open, mirroring the tool-vs-selection mutex above —
-              the source that opened the composer shouldn't stay clickable
-              underneath it. */}
-          {!pendingRegionSelectionIds &&
-            SELECTION_POPUPS.filter(
-              (row) =>
-                !toolHasPopup(layoutData.activeTool) ||
-                (row.focusExempt?.(popupContext) ?? false),
-            ).map(({ key, Component, mapProps }) => (
-              <Component key={key} {...mapProps(popupContext)} />
-            ))}
+          {SELECTION_POPUPS.filter(
+            (row) =>
+              !toolHasPopup(layoutData.activeTool) ||
+              (row.focusExempt?.(popupContext) ?? false),
+          ).map(({ key, Component, mapProps }) => (
+            <Component key={key} {...mapProps(popupContext)} />
+          ))}
 
           {/* Edges aren't scene entities, so they sit outside SELECTION_POPUPS.
               Mount off the single selected edge, under the same tool mutex. */}

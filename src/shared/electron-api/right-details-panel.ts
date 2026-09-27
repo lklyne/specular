@@ -51,6 +51,12 @@ export interface DevtoolsPanelElectronAPI {
   /** The clipboard's image as PNG, read natively: macOS screenshots and
    *  copied images often reach the DOM paste event with no file attached. */
   readClipboardImage: () => Promise<ThreadImageUpload | null>
+  /** Save the open comment draft; text may be empty only when images carry
+   *  the comment. Clears the draft either way. */
+  submitCommentDraft: (text?: string, images?: ThreadImageUpload[]) => void
+  /** X on the draft chip, or Escape in the composer: drops the draft with no
+   *  comment saved. */
+  cancelCommentDraft: () => void
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void

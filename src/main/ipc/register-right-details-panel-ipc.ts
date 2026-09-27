@@ -51,6 +51,7 @@ import {
   updateAnnotationStatus,
 } from '../workspace-annotations'
 import { pages } from '../runtime/page-runtime'
+import { clearCommentDraft, submitCommentDraft } from '../runtime/comment-draft'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -259,9 +260,23 @@ export function registerRightDetailsPanelIpc(): void {
     },
   )
 
+  ipcMain.on(
+    ipcChannels.rightDetailsPanelSubmitCommentDraft,
+    (_event, payload: { text?: string; images?: unknown } | undefined) => {
+      submitCommentDraft(
+        typeof payload?.text === 'string' ? payload.text : '',
+        parseImageUploads(payload?.images),
+      )
+    },
+  )
+
   ipcMain.handle(ipcChannels.rightDetailsPanelReadClipboardImage, (): ThreadImageUpload | null => {
     const image = readClipboardImage()
     return image ? { mediaType: 'image/png', data: image.buffer.toString('base64') } : null
+  })
+
+  ipcMain.on(ipcChannels.rightDetailsPanelCancelCommentDraft, () => {
+    clearCommentDraft()
   })
 
   ipcMain.on(

@@ -256,7 +256,7 @@ export const BINDINGS: readonly Binding[] = [
     id: 'annotation-clear-draft',
     defaultKey: k('escape'),
     scope: ['aboveView'],
-    target: 'aboveView',
+    target: 'main',
     firesWhileTyping: true,
     when: (ctx) => ctx.hasPendingAnnotation,
     label: 'Clear annotation draft',

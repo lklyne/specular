@@ -217,6 +217,31 @@ function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId
 }
 
 /**
+ * Images pasted alongside a comment draft: the annotation itself carries no
+ * images, so they ride a second queued message on the same thread rather than
+ * the comment's own (text-only) queued message.
+ */
+export function queueImagesOnThread(threadId: string, uploads: ThreadImageUpload[]): void {
+  if (!uploads.length) return
+  ensureThreadsLoaded()
+  const thread = threads.find((candidate) => candidate.id === threadId)
+  if (!thread) return
+  const now = new Date().toISOString()
+  const images = uploads.map((upload) => writeThreadImage(spaceDir(), thread, makeId('img'), upload))
+  thread.messages.push({
+    id: makeId('tmsg'),
+    role: 'user',
+    text: '',
+    createdAt: now,
+    queued: true,
+    images,
+  })
+  thread.updatedAt = now
+  persist(thread)
+  notify()
+}
+
+/**
  * Send: everything queued on the thread becomes this turn. A run already in
  * flight keeps the new message queued instead of refusing it — the user can
  * keep typing, and the queue is drained the moment that run finishes.

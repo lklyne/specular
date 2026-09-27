@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, sharedTexture, webUtils } from 'electron'
-import type { AnnotationBboxSubscription, AnnotationCreateRequest, AnnotationElementSelectionPayload, BatchLayoutMode, EdgeSide, LayoutUpdateData, PageDragPayload, SelectionOverlayPayload, ToolDefaultPatch, WorkspaceBounds } from '../shared/types'
+import type { AnnotationBboxSubscription, BatchLayoutMode, EdgeSide, LayoutUpdateData, PageDragPayload, SelectionOverlayPayload, ToolDefaultPatch, WorkspaceBounds } from '../shared/types'
+import type { CommentDraft } from '../shared/comment-draft'
 import type { CanvasBgElectronAPI } from '../shared/electron-api/canvas-bg'
 import type { BindingId } from '../shared/bindings'
 import type { CancelReason } from '../shared/interaction-types'
@@ -250,8 +251,8 @@ const api: CanvasBgElectronAPI = {
   commitRegionSelect: (canvasRect) => ipcRenderer.send(ipcChannels.canvasCommitRegionSelect, canvasRect),
   commitCommentClickAt: (windowX, windowY) =>
     ipcRenderer.send(ipcChannels.canvasCommentClickAt, { windowX, windowY }),
-  createAnnotation: (request: AnnotationCreateRequest) =>
-    ipcRenderer.send(ipcChannels.canvasCreateAnnotation, request),
+  beginSelectionComment: (entityIds, canvasRect) =>
+    ipcRenderer.send(ipcChannels.canvasBeginSelectionComment, { entityIds, canvasRect }),
   createDrawing: (input) =>
     ipcRenderer.send(ipcChannels.canvasCreateDrawing, input),
   selectEntities: (entityIds: string[]) =>
@@ -271,11 +272,7 @@ const api: CanvasBgElectronAPI = {
   setCommentOverlayActive: (active: boolean) =>
     ipcRenderer.send(ipcChannels.commentOverlaySetActive, active),
   onCaptureMode: on<boolean>(ipcChannels.captureMode),
-  onAnnotateElementSelected: on<AnnotationElementSelectionPayload>(ipcChannels.annotateElementSelected),
-  onRegionSelectCommitted: on<{ canvasRect: WorkspaceBounds }>(ipcChannels.regionSelectCommitted),
-  onCommentCanvasPointCommitted: on<{ canvasX: number; canvasY: number }>(
-    ipcChannels.commentCanvasPointCommitted,
-  ),
+  onCommentDraftChanged: on<CommentDraft | null>(ipcChannels.commentDraftChanged),
   setCommentToolPointerState: (state) =>
     ipcRenderer.send(
       ipcChannels.commentToolPointerState,
@@ -292,10 +289,6 @@ const api: CanvasBgElectronAPI = {
     subscriptions: AnnotationBboxSubscription[],
   ) =>
     ipcRenderer.send(ipcChannels.commentToolBboxSubscriptions, { pageId, subscriptions }),
-  createRegionAnnotation: (canvasRect, text) =>
-    ipcRenderer.send(ipcChannels.canvasCreateRegionAnnotation, { canvasRect, text }),
-  annotateSelection: (input) =>
-    ipcRenderer.send(ipcChannels.canvasAnnotateSelection, input),
   onAnnotationThreadOpen: on<{ annotationId: string | null }>(ipcChannels.annotationThreadOpen),
   beginEdgeDrag: (fromEntityId: string, fromSide: EdgeSide) =>
     ipcRenderer.send(ipcChannels.canvasEdgeDragBegin, { fromEntityId, fromSide }),
@@ -336,8 +329,8 @@ const api: CanvasBgElectronAPI = {
   onPageCursorChange: on<{ type: string | null }>(ipcChannels.aboveviewCursorUpdate),
   setTextEditing: (active: boolean) =>
     ipcRenderer.send(ipcChannels.canvasSetTextEditing, { active }),
-  setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) =>
-    ipcRenderer.send(ipcChannels.canvasSetAnnotationState, { hasOpenThread, hasPending: hasPendingAnnotation }),
+  setAnnotationState: (hasOpenThread: boolean) =>
+    ipcRenderer.send(ipcChannels.canvasSetAnnotationState, { hasOpenThread }),
   onBindingFire: on<BindingId>(ipcChannels.bindingFire),
   onCanvasGuides: on<CanvasGuidesPayload>(ipcChannels.canvasGuides),
   readNoteFile: (filePath: string) => ipcRenderer.invoke(ipcChannels.readNoteFile, { filePath }),

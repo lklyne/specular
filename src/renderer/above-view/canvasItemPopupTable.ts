@@ -62,9 +62,8 @@ export type PopupContext = {
   /** The note framed by a file-target focus session, resolved once by App;
    *  null outside such a session or when its entity has gone missing. */
   focusedNoteEntity: ProjectedFileEntity | null
-  /** Opens the region composer pre-anchored to a selection's union bounds
-   *  (see useAnnotationDraftState.beginSelectionAnnotation). Every popup's
-   *  Annotate button forwards to the same renderer-local handoff. */
+  /** Opens a selection-anchored comment draft over the selection's union
+   *  bounds. Every popup's Annotate button forwards to the same handler. */
   beginSelectionAnnotation: AnnotateHandler
 }
 

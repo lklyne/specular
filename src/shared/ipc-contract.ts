@@ -1,6 +1,5 @@
 import type {
   AgentPresenceCursor,
-  AnnotationElementSelectionPayload,
   AppThemeMode,
   ConnectedRepo,
   DevtoolsPanelData,
@@ -18,7 +17,6 @@ import type {
   SelectionOverlayPayload,
   ThemeData,
   ToolbarSelectionData,
-  WorkspaceBounds,
 } from './types'
 import type { BindingId } from './bindings'
 import type { CanvasGuidesPayload } from './canvas-guides'
@@ -50,7 +48,6 @@ export interface IpcContract {
   'aboveview-cursor-update': { dir: 'main→renderer'; payload: { type: string | null } }
   'agent-presence-changed': { dir: 'main→renderer'; payload: AgentPresenceCursor[] }
   'annotate-clear-hover': { dir: 'main→renderer'; payload: unknown }
-  'annotate-element-selected': { dir: 'main→renderer'; payload: AnnotationElementSelectionPayload }
   'annotation-bbox-subscriptions': { dir: 'main→renderer'; payload: unknown }
   'annotation-bbox-update': { dir: 'renderer→main'; payload: unknown }
   'annotation-open-thread': { dir: 'renderer→main'; payload: unknown }
@@ -58,8 +55,8 @@ export interface IpcContract {
   'apply-linked-scroll': { dir: 'main→renderer'; payload: unknown }
   'apply-page-overrides': { dir: 'main→renderer'; payload: unknown }
   'binding-fire': { dir: 'main→renderer'; payload: BindingId }
-  'canvas-annotate-selection': { dir: 'renderer→main'; payload: unknown }
   'canvas-back-page': { dir: 'renderer→main'; payload: unknown }
+  'canvas-begin-selection-comment': { dir: 'renderer→main'; payload: unknown }
   'canvas-bg-dropdown-close': { dir: 'renderer→main'; payload: unknown }
   'canvas-bg-dropdown-open': { dir: 'renderer→main'; payload: unknown }
   'canvas-cancel-entity-edit': { dir: 'renderer→main'; payload: unknown }
@@ -69,9 +66,7 @@ export interface IpcContract {
   'canvas-commit-region-select': { dir: 'renderer→main'; payload: unknown }
   'canvas-copy-file-as-png': { dir: 'renderer→main'; payload: unknown }
   'canvas-copy-selection': { dir: 'renderer→main'; payload: unknown }
-  'canvas-create-annotation': { dir: 'renderer→main'; payload: unknown }
   'canvas-create-drawing': { dir: 'renderer→main'; payload: unknown }
-  'canvas-create-region-annotation': { dir: 'renderer→main'; payload: unknown }
   'canvas-create-tab': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-drawing-entity': { dir: 'renderer→main'; payload: unknown }
   'canvas-delete-edge': { dir: 'renderer→main'; payload: unknown }
@@ -198,7 +193,7 @@ export interface IpcContract {
   'capture-element-at-point': { dir: 'main→renderer'; payload: { requestId: string; docX: number; docY: number } }
   'capture-element-at-point-response': { dir: 'renderer→main'; payload: { requestId: string; data: unknown } }
   'capture-mode': { dir: 'main→renderer'; payload: boolean }
-  'comment-canvas-point-committed': { dir: 'main→renderer'; payload: { canvasX: number; canvasY: number } }
+  'comment-draft-changed': { dir: 'main→renderer'; payload: unknown }
   'comment-overlay-set-active': { dir: 'renderer→main'; payload: unknown }
   'comment-tool-bbox-subscriptions': { dir: 'renderer→main'; payload: unknown }
   'comment-tool-page-preview': { dir: 'main→renderer'; payload: unknown }
@@ -274,7 +269,6 @@ export interface IpcContract {
   'query-elements-in-rect-response': { dir: 'renderer→main'; payload: unknown }
   'query-favicon': { dir: 'main→renderer'; payload: unknown }
   'query-favicon-result': { dir: 'renderer→main'; payload: unknown }
-  'region-select-committed': { dir: 'main→renderer'; payload: { canvasRect: WorkspaceBounds } }
   'reload-app': { dir: 'renderer→main'; payload: unknown }
   'repo-bind-origin': { dir: 'invoke'; payload: unknown }
   'repo-changed': { dir: 'main→renderer'; payload: ConnectedRepo[] }
@@ -287,6 +281,7 @@ export interface IpcContract {
   'resolve-interaction-locator-response': { dir: 'renderer→main'; payload: LocatorResolveResponse }
   'resolve-node-detail': { dir: 'main→renderer'; payload: unknown }
   'resolve-node-detail-response': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-cancel-comment-draft': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-clear-inspect-selection': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-create-annotation': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-data': { dir: 'main→renderer'; payload: DevtoolsPanelData }
@@ -313,6 +308,7 @@ export interface IpcContract {
   'right-details-panel-set-page-color-scheme': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-preset': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-read-clipboard-image': { dir: 'invoke'; payload: unknown }
+  'right-details-panel-submit-comment-draft': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-delete': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-deselect': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-new': { dir: 'renderer→main'; payload: unknown }
@@ -387,7 +383,6 @@ export const ipcChannels = {
   aboveviewCursorUpdate: 'aboveview-cursor-update',
   agentPresenceChanged: 'agent-presence-changed',
   annotateClearHover: 'annotate-clear-hover',
-  annotateElementSelected: 'annotate-element-selected',
   annotationBboxSubscriptions: 'annotation-bbox-subscriptions',
   annotationBboxUpdate: 'annotation-bbox-update',
   annotationOpenThread: 'annotation-open-thread',
@@ -397,6 +392,7 @@ export const ipcChannels = {
   applyPageOverrides: 'apply-page-overrides',
   bindingFire: 'binding-fire',
   canvasBackPage: 'canvas-back-page',
+  canvasBeginSelectionComment: 'canvas-begin-selection-comment',
   canvasBgDropdownClose: 'canvas-bg-dropdown-close',
   canvasBgDropdownOpen: 'canvas-bg-dropdown-open',
   canvasCancelEntityEdit: 'canvas-cancel-entity-edit',
@@ -406,10 +402,7 @@ export const ipcChannels = {
   canvasCommitRegionSelect: 'canvas-commit-region-select',
   canvasCopyFileAsPng: 'canvas-copy-file-as-png',
   canvasCopySelection: 'canvas-copy-selection',
-  canvasCreateAnnotation: 'canvas-create-annotation',
   canvasCreateDrawing: 'canvas-create-drawing',
-  canvasCreateRegionAnnotation: 'canvas-create-region-annotation',
-  canvasAnnotateSelection: 'canvas-annotate-selection',
   canvasCreateTab: 'canvas-create-tab',
   canvasDeleteDrawingEntity: 'canvas-delete-drawing-entity',
   canvasDeleteEdge: 'canvas-delete-edge',
@@ -533,7 +526,7 @@ export const ipcChannels = {
   captureElementAtPoint: 'capture-element-at-point',
   captureElementAtPointResponse: 'capture-element-at-point-response',
   captureMode: 'capture-mode',
-  commentCanvasPointCommitted: 'comment-canvas-point-committed',
+  commentDraftChanged: 'comment-draft-changed',
   commentOverlaySetActive: 'comment-overlay-set-active',
   commentToolBboxSubscriptions: 'comment-tool-bbox-subscriptions',
   commentToolPagePreview: 'comment-tool-page-preview',
@@ -606,7 +599,6 @@ export const ipcChannels = {
   readNoteFile: 'read-note-file',
   canvasPagePopupAnchor: 'canvas-page-popup-anchor',
   canvasRequestPageFrames: 'canvas-request-page-frames',
-  regionSelectCommitted: 'region-select-committed',
   reloadApp: 'reload-app',
   repoBindOrigin: 'repo-bind-origin',
   repoChanged: 'repo-changed',
@@ -619,6 +611,7 @@ export const ipcChannels = {
   resolveInteractionLocatorResponse: 'resolve-interaction-locator-response',
   resolveNodeDetail: 'resolve-node-detail',
   resolveNodeDetailResponse: 'resolve-node-detail-response',
+  rightDetailsPanelCancelCommentDraft: 'right-details-panel-cancel-comment-draft',
   rightDetailsPanelClearInspectSelection: 'right-details-panel-clear-inspect-selection',
   rightDetailsPanelCreateAnnotation: 'right-details-panel-create-annotation',
   rightDetailsPanelData: 'right-details-panel-data',
@@ -645,6 +638,7 @@ export const ipcChannels = {
   rightDetailsPanelSetPageColorScheme: 'right-details-panel-set-page-color-scheme',
   rightDetailsPanelSetPagePreset: 'right-details-panel-set-page-preset',
   rightDetailsPanelReadClipboardImage: 'right-details-panel-read-clipboard-image',
+  rightDetailsPanelSubmitCommentDraft: 'right-details-panel-submit-comment-draft',
   rightDetailsPanelThreadDelete: 'right-details-panel-thread-delete',
   rightDetailsPanelThreadDeselect: 'right-details-panel-thread-deselect',
   rightDetailsPanelThreadNew: 'right-details-panel-thread-new',

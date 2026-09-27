@@ -26,6 +26,7 @@ import {
 } from './space-doc'
 import { markUndoBoundary } from './space-undo'
 import { resetDocSync } from './space-observers'
+import { clearCommentDraft } from './comment-draft'
 import {
   scheduleSpaceAutosave,
   withSpacePersistenceSuspended,
@@ -258,6 +259,9 @@ export function restoreWorkspaceSnapshot(snapshot: WorkspaceSnapshot): boolean {
  * UndoManager captures the diff so tab switches are undoable.
  */
 export function transitionToTab(snapshot: WorkspaceSnapshot, tabId: string): void {
+  // A draft's canvas anchor (an entity id, an element on a page) only makes
+  // sense on the tab it was opened from.
+  clearCommentDraft()
   const doc = getActiveDoc()
   rewriteDocToSnapshot(doc, {
     mapNames: [DOC_MAP_VIEWPORT, ...DOC_ENTITY_MAP_NAMES],

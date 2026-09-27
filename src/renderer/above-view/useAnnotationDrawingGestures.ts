@@ -11,32 +11,24 @@ import { drawingBounds, snapPointTo45Degrees, type DrawingSession } from './anno
 
 export function useAnnotationDrawingGestures({
   api,
-  clearDraft,
   closeThread,
   drawInteractionEnabled,
   layoutData,
   layoutRef,
-  pendingAnnotation,
   activeStrokeRef,
   setDrawingSession,
   setDrawingStrokeActive,
-  setPendingAnnotation,
 }: {
   api: CanvasBgElectronAPI
-  clearDraft: () => void
   closeThread: () => void
   drawInteractionEnabled: boolean
   layoutData: LayoutUpdateData
   layoutRef: LayoutSnapshotRef
-  pendingAnnotation: unknown
   activeStrokeRef: React.MutableRefObject<{ pointerId: number; strokeId: string } | null>
   setDrawingSession: React.Dispatch<
     React.SetStateAction<import('./annotationMath').DrawingSession | null>
   >
   setDrawingStrokeActive: React.Dispatch<React.SetStateAction<boolean>>
-  setPendingAnnotation: React.Dispatch<
-    React.SetStateAction<import('./annotationMath').PendingAnnotation | null>
-  >
 }) {
   const sessionRef = useRef<DrawingSession | null>(null)
 
@@ -64,7 +56,6 @@ export function useAnnotationDrawingGestures({
         activeStrokeRef.current = { pointerId: event.pointerId, strokeId }
         setDrawingStrokeActive(true)
         closeThread()
-        setPendingAnnotation(null)
         // Brush, color, and stroke width come from per-tool defaults
         // (ADR 0009). The draw tool's popup writes them; the gesture reads
         // them at stroke-start time. Color is stored raw (a preset number or
@@ -88,28 +79,19 @@ export function useAnnotationDrawingGestures({
         setDrawingSession(nextSession)
         event.currentTarget.setPointerCapture(event.pointerId)
         event.preventDefault()
-        return
       }
-
-      if (!pendingAnnotation) return
-      if (event.pointerType === 'mouse' && event.button !== 0) return
-      if (isOverlayUiTarget(event.target)) return
-      clearDraft()
     },
     [
       activeStrokeRef,
       api,
-      clearDraft,
       closeThread,
       drawInteractionEnabled,
       layoutData.leftChromeWidth,
       layoutData.canvasOrigin.y,
       layoutData.selectedEntityIds,
       layoutRef,
-      pendingAnnotation,
       setDrawingSession,
       setDrawingStrokeActive,
-      setPendingAnnotation,
     ],
   )
 

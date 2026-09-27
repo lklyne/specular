@@ -111,15 +111,6 @@ export function commitInlineEditBeforePointerAction(
   commitEntityEdit()
 }
 
-/** Live draft snapshot the comment gesture consults on pointerup — a click
- *  away from an empty composer dismisses it instead of opening a new one. */
-interface CommentDraftSnapshot {
-  pendingAnnotation: object | null
-  pendingRegionRect: object | null
-  commentText: string
-  clearDraft: () => void
-}
-
 interface PointerDispatchDependencies {
   api: CanvasBgElectronAPI
   layoutRef: LayoutSnapshotRef
@@ -132,7 +123,6 @@ interface PointerDispatchDependencies {
   setReorderGhost: (ghost: ReorderGhostOffset) => void
   onCommentDragMove: (startX: number, startY: number, endX: number, endY: number) => void
   onCommentDragEnd: (startX: number, startY: number, endX: number, endY: number) => void
-  commentDraftRef: React.MutableRefObject<CommentDraftSnapshot>
   onEnterEntityInteractive: (entityId: string) => void
   /** Put keyboard focus in aboveView's page-keyboard sink, so typing reaches
    *  the page immediately after the click that entered it. */
@@ -266,7 +256,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
     setReorderGhost,
     onCommentDragMove,
     onCommentDragEnd,
-    commentDraftRef,
     enteredEntityIdRef,
     onEnterEntityInteractive,
     focusKeyboardSink,
@@ -332,7 +321,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         setReorderGhost,
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
-        commentDraftRef,
         onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
         focusKeyboardSink: focusKeyboardSinkRef.current,
       })
@@ -357,7 +345,6 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
         setReorderGhost,
         onCommentDragMove: commentGestureRef.current.onCommentDragMove,
         onCommentDragEnd: commentGestureRef.current.onCommentDragEnd,
-        commentDraftRef,
         onEnterEntityInteractive: onEnterEntityInteractiveRef.current,
         focusKeyboardSink: focusKeyboardSinkRef.current,
         consume: consumeRef.current,
@@ -448,7 +435,7 @@ export function useCanvasPointerRouter(options: UseCanvasPointerRouterOptions): 
       } as EventListenerOptions)
       window.removeEventListener('contextmenu', handleContextMenu)
     }
-  }, [owner, commandHeldRef, commentDraftRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setDropBindingSuppressed, setGroupDropTarget, setReorderGhost, spaceHeldRef])
+  }, [owner, commandHeldRef, handToolActiveRef, layoutRef, optionHeldRef, setDragCopyPreview, setDropBindingSuppressed, setGroupDropTarget, setReorderGhost, spaceHeldRef])
 }
 
 function handleRouterPointerDown(event: PointerEvent, deps: RouterPointerDependencies): void {
@@ -589,7 +576,6 @@ function dispatchAction(ctx: DispatchContext): boolean {
         layoutRef,
         ctx.onCommentDragMove,
         ctx.onCommentDragEnd,
-        ctx.commentDraftRef,
       )
   }
 }
@@ -1434,7 +1420,6 @@ function runCommentGesture(
   layoutRef: LayoutSnapshotRef,
   onDragMove: (startX: number, startY: number, endX: number, endY: number) => void,
   onDragEnd: (startX: number, startY: number, endX: number, endY: number) => void,
-  draftRef: React.MutableRefObject<CommentDraftSnapshot>,
 ): boolean {
   const startX = event.clientX
   const startY = event.clientY
@@ -1474,17 +1459,9 @@ function runCommentGesture(
       }
       // Click below threshold → element anchor if a page DOM element sits
       // under the cursor (resolved via `inspectAtPoint`), else canvas-point.
+      // A draft already open (its chip lives in the sidebar now) is simply
+      // replaced — there's no on-canvas composer to dismiss first.
       api.setSelectionOverlayRect(null)
-      const draft = draftRef.current
-      const hasEmptyDraft =
-        Boolean(draft.pendingAnnotation || draft.pendingRegionRect) &&
-        !draft.commentText.trim()
-      if (hasEmptyDraft) {
-        // Empty composer open → click-away dismisses it without creating
-        // a new draft; comment mode stays active.
-        draft.clearDraft()
-        return
-      }
       api.commitCommentClickAt(ev.clientX, clientYToWindowY(ev.clientY, current))
     },
     onCancel: () => {

@@ -6,22 +6,25 @@ import {
 } from '../../shared/bindings'
 import { clipboard, ipcMain, Menu, nativeImage, shell, type MenuItemConstructorOptions } from 'electron'
 import { VIEWPORT_PRESETS } from '../../shared/constants'
-import type { AnnotationCreateRequest, BatchLayoutMode, CanvasEntityKind, PageColorScheme } from '../../shared/types'
+import type {
+  AnnotationElementSelectionPayload,
+  BatchLayoutMode,
+  CanvasEntityKind,
+  PageColorScheme,
+  WorkspaceBounds,
+} from '../../shared/types'
 import type { SelectionMutationMode } from '../../shared/selection-modifiers'
 import { getEntityKind, hasEntityKind } from '../entities/contract'
 import { CLIPBOARD_PREFIX, pasteFromClipboard } from '../clipboard-paste'
 import { pages } from '../runtime/page-runtime'
-import { aboveView } from '../runtime/view-refs'
 import { beginEditingEntity } from '../runtime/editing-entity-runtime'
-import { setPendingFocus } from '../runtime/runtime-context'
-import { executeRegionSelect } from '../runtime/region-select'
-import { annotateSelectionRegion } from '../runtime/annotate-selection'
+import { findPageById } from '../runtime/runtime-context'
+import { setCommentDraft, makeCommentDraftId } from '../runtime/comment-draft'
 import { queryElementAtPoint } from '../runtime/page-queries'
 import {
   pageAtWindowPoint,
   windowPointToCanvasPoint,
 } from '../runtime/window-coords'
-import { setCommentOverlayActive } from '../runtime/runtime-core'
 import { textEntities } from '../runtime/text-entity-state'
 import { fileEntities } from '../runtime/file-entity-state'
 import { drawingEntities } from '../runtime/drawing-entity-state'
@@ -87,7 +90,6 @@ import {
   setCustomPageSizeMetadata,
   setDeviceIdMetadata,
 } from '../runtime/runtime-entities'
-import { createAnnotation } from '../workspace-annotations'
 import {
   deletePages,
 } from '../workspace-entities'
@@ -551,10 +553,6 @@ export function registerCanvasEntityIpc(): void {
     setActiveTool(next)
   })
 
-  ipcMain.on(ipcChannels.canvasCreateAnnotation, (_event, request: AnnotationCreateRequest) => {
-    createAnnotation(request)
-  })
-
   ipcMain.on(ipcChannels.canvasCreateDrawing, (_event, input: {
     canvasX: number
     canvasY: number
@@ -568,42 +566,36 @@ export function registerCanvasEntityIpc(): void {
   ipcMain.on(
     ipcChannels.canvasCommitRegionSelect,
     (_event, canvasRect: { x: number; y: number; width: number; height: number }) => {
-      // Forward to annotation overlay to show comment composer.
-      setCommentOverlayActive(true)
-      setPendingFocus({ kind: 'aboveView' })
-      requestLayout()
-      if (aboveView && !aboveView.webContents.isDestroyed()) {
-        aboveView.webContents.send(ipcChannels.regionSelectCommitted, { canvasRect })
-      }
-    },
-  )
-
-  ipcMain.on(
-    ipcChannels.canvasCreateRegionAnnotation,
-    (_event, payload: { canvasRect: { x: number; y: number; width: number; height: number }; text: string }) => {
-      executeRegionSelect(payload.canvasRect, payload.text).catch((err) => {
-        console.error('[region-select] failed:', err)
+      setCommentDraft({
+        id: makeCommentDraftId(),
+        kind: 'region',
+        canvasRect,
+        label: 'Area',
       })
     },
   )
 
-  // Selection popup's Annotate button + composer handoff (ADR 0019 one door).
-  // The renderer passes the ids it displayed rather than trusting the current
-  // selection, so a selection change between button-click and submit can't
-  // silently annotate a different set of entities.
+  // Selection popup's Annotate button (ADR 0019 one door). The renderer
+  // passes the ids it displayed rather than trusting the current selection,
+  // so a selection change between button-click and submit can't silently
+  // annotate a different set of entities.
   ipcMain.on(
-    ipcChannels.canvasAnnotateSelection,
-    (_event, payload: { entityIds: string[]; text: string }) => {
-      annotateSelectionRegion(payload).catch((err) => {
-        console.error('[annotate-selection] failed:', err)
+    ipcChannels.canvasBeginSelectionComment,
+    (_event, payload: { entityIds: string[]; canvasRect: WorkspaceBounds } | undefined) => {
+      if (!payload?.entityIds?.length || !payload.canvasRect) return
+      setCommentDraft({
+        id: makeCommentDraftId(),
+        kind: 'selection',
+        canvasRect: payload.canvasRect,
+        entityIds: payload.entityIds,
+        label: payload.entityIds.length === 1 ? '1 item' : `${payload.entityIds.length} items`,
       })
     },
   )
 
   // Comment tool — click below the drag threshold (ADR 0006). Resolve the
-  // page under the click; if a DOM element is at the page-local point,
-  // route to the existing `annotate-element-selected` flow. Otherwise
-  // fall back to a canvas-point anchor, broadcast on a sibling channel.
+  // page under the click; if a DOM element is at the page-local point, open
+  // an element-anchored draft. Otherwise fall back to a canvas-point draft.
   ipcMain.on(
     ipcChannels.canvasCommentClickAt,
     (_event, payload: { windowX?: number; windowY?: number } | undefined) => {
@@ -611,42 +603,49 @@ export function registerCanvasEntityIpc(): void {
       const windowY = payload?.windowY
       if (typeof windowX !== 'number' || typeof windowY !== 'number') return
 
-      const fireCanvasPoint = () => {
+      const openCanvasPointDraft = () => {
         const canvasPoint = windowPointToCanvasPoint(windowX, windowY)
-        setCommentOverlayActive(true)
-        setPendingFocus({ kind: 'aboveView' })
-        requestLayout()
-        if (aboveView && !aboveView.webContents.isDestroyed()) {
-          aboveView.webContents.send(ipcChannels.commentCanvasPointCommitted, {
-            canvasX: canvasPoint.x,
-            canvasY: canvasPoint.y,
-          })
-        }
+        setCommentDraft({
+          id: makeCommentDraftId(),
+          kind: 'point',
+          canvasX: canvasPoint.x,
+          canvasY: canvasPoint.y,
+          label: 'Canvas point',
+        })
       }
 
       const hit = pageAtWindowPoint(windowX, windowY)
       if (!hit) {
-        fireCanvasPoint()
+        openCanvasPointDraft()
         return
       }
       queryElementAtPoint(hit.pageId, hit.localX, hit.localY)
         .then((data) => {
-          if (data) {
-            setCommentOverlayActive(true)
-            setPendingFocus({ kind: 'aboveView' })
-            requestLayout()
-            if (aboveView && !aboveView.webContents.isDestroyed()) {
-              aboveView.webContents.send(ipcChannels.annotateElementSelected, {
-                pageId: hit.pageId,
-                ...data,
-              })
-            }
+          // The page may have been deleted while the query was in flight.
+          if (data && findPageById(hit.pageId)) {
+            const element = data as unknown as Omit<AnnotationElementSelectionPayload, 'pageId'>
+            setCommentDraft({
+              id: makeCommentDraftId(),
+              kind: 'element',
+              request: {
+                anchor: {
+                  type: 'element',
+                  pageId: hit.pageId,
+                  selector: element.uniqueSelector || element.elementPath,
+                  elementPath: element.fullPath,
+                  boundingBox: element.boundingBox,
+                },
+                text: '',
+                metadata: { inspectContext: { pageId: hit.pageId, ...element } },
+              },
+              label: element.name?.trim() || element.uniqueSelector || element.elementPath || 'Element',
+            })
             return
           }
-          fireCanvasPoint()
+          openCanvasPointDraft()
         })
         .catch(() => {
-          fireCanvasPoint()
+          openCanvasPointDraft()
         })
     },
   )

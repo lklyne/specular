@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { FolderOpen, Loader2, Plus, X, Zap } from 'lucide-react'
 import { messageHasContent, type AgentThread, type AgentThreadMessage } from '../../../shared/agent-thread'
+import type { CommentDraft } from '../../../shared/comment-draft'
 import type { DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
 import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
 import { FixEventList } from '../../shared/FixEventList'
 import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
+import { CommentDraftChip } from './CommentDraftChip'
 import { ContextChip, composerChipClass } from './ContextChip'
 import { PastedImages } from './PastedImages'
 import { QueuedComments } from './QueuedComments'
@@ -55,6 +57,7 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
           running={running}
           isNew={isNew}
           queued={queued}
+          commentDraft={data.commentDraft ?? null}
           context={<ContextChip pill={pill} data={data} />}
           model={data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
           folderPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : (data.spacePath ?? null)}
@@ -244,6 +247,7 @@ function Composer({
   running,
   isNew,
   queued,
+  commentDraft,
   context,
   model,
   folderPath,
@@ -255,6 +259,9 @@ function Composer({
   isNew: boolean
   /** Comments this turn will carry, shown above the field until they're sent. */
   queued: AgentThreadMessage[]
+  /** The in-progress comment, if any — shown as a removable chip; while open,
+   *  the field saves the comment instead of sending the thread. */
+  commentDraft: CommentDraft | null
   /** The thread's anchor chip — where this turn is aimed. */
   context: React.ReactNode
   /** Model picker, or null until the config arrives. */
@@ -268,17 +275,35 @@ function Composer({
 }) {
   const [text, setText] = useState('')
   const pasted = usePastedImages()
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   // A run in flight doesn't close the composer: sending queues the follow-up,
-  // which the thread picks up as soon as the run ends.
-  const canSend =
-    Boolean(text.trim()) || pasted.images.length > 0 || (!running && queued.length > 0)
+  // which the thread picks up as soon as the run ends. A draft has no queue
+  // of its own to fall back on — text or an image is required.
+  const canSend = commentDraft
+    ? Boolean(text.trim()) || pasted.images.length > 0
+    : Boolean(text.trim()) || pasted.images.length > 0 || (!running && queued.length > 0)
   const submit = () => {
     if (!canSend) return
     const images = pasted.images.map(({ mediaType, data }) => ({ mediaType, data }))
-    rightDetailsPanelApi.sendAgentThread(text.trim(), images)
+    if (commentDraft) {
+      rightDetailsPanelApi.submitCommentDraft(text.trim(), images)
+    } else {
+      rightDetailsPanelApi.sendAgentThread(text.trim(), images)
+    }
     setText('')
     pasted.clear()
   }
+  // Escape drops the draft with no comment saved — the typed text is left
+  // alone, matching the field's ordinary blur behavior.
+  const onTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Escape' || !commentDraft) return
+    event.preventDefault()
+    rightDetailsPanelApi.cancelCommentDraft()
+  }
+  const draftId = commentDraft?.id ?? null
+  useEffect(() => {
+    if (draftId) textareaRef.current?.focus()
+  }, [draftId])
   return (
     <div
       className={`rounded-[16px] border px-2 pb-1.5 pt-1.5 ${
@@ -286,13 +311,18 @@ function Composer({
       }`}
       onPaste={pasted.onPaste}
     >
+      {commentDraft ? <CommentDraftChip draft={commentDraft} /> : null}
       <QueuedComments messages={queued} />
       <PastedImages images={pasted.images} onRemove={pasted.remove} />
       <CommentTextarea
+        inputRef={textareaRef}
         value={text}
         onChange={setText}
         onSubmit={submit}
-        placeholder={running ? 'Queue a follow-up…' : isNew ? 'Add or edit…' : 'Follow up…'}
+        onKeyDown={onTextareaKeyDown}
+        placeholder={
+          commentDraft ? 'Add a comment…' : running ? 'Queue a follow-up…' : isNew ? 'Add or edit…' : 'Follow up…'
+        }
         rows={2}
         className="min-h-[48px] max-h-[160px] px-0.5 py-0.5"
       />

@@ -7,6 +7,7 @@ import type { AmbientDriftMode } from './presence-ambient'
 import type { LocatorBundle, LocatorResolution } from './locator-kernel'
 import type { TextFont } from './text-fonts'
 import type { AgentThread } from './agent-thread'
+import type { CommentDraft } from './comment-draft'
 
 export type { DrawingBrushType, Tool } from './tool'
 export type { PageAnchor } from './page-anchor'
@@ -1054,6 +1055,9 @@ export interface DevtoolsPanelData {
   fixConfig?: FixConfig
   agentThreads?: AgentThread[]
   activeThreadId?: string | null
+  /** The in-progress comment, if any — the composer renders it as a
+   *  removable chip above the message field. */
+  commentDraft?: CommentDraft | null
   /** Active canvas tab name, for the composer context chip. */
   canvasName?: string | null
   /** Space folder on disk — where a thread writes when no repo is bound. */
