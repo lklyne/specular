@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { FolderOpen, Loader2, Plus, X, Zap } from 'lucide-react'
 import { messageHasContent, type AgentThread, type AgentThreadMessage } from '../../../shared/agent-thread'
 import type { CommentDraft } from '../../../shared/comment-draft'
-import type { DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
+import type { Annotation, DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
+import { isUnresolved } from '../../../shared/annotation-utils'
 import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
 import { FixEventList } from '../../shared/FixEventList'
 import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
 import { CommentDraftChip } from './CommentDraftChip'
 import { ContextChip, composerChipClass } from './ContextChip'
+import { OpenComments } from './OpenComments'
 import { PastedImages } from './PastedImages'
 import { QueuedComments } from './QueuedComments'
 import { ModelChip } from './ModelChip'
@@ -30,6 +32,13 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const divider = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const muted = 'text-[var(--surface-foreground-muted)]'
   const queued = active?.messages.filter((message) => message.queued && messageHasContent(message)) ?? []
+  const queuedIds = new Set(queued.map((message) => message.annotationId))
+  const openComments = (data.annotations ?? []).filter(
+    (annotation) =>
+      active?.annotationIds.includes(annotation.id) &&
+      isUnresolved(annotation.status) &&
+      !queuedIds.has(annotation.id),
+  )
   const isNew =
     !active || active.status === 'draft' || !active.messages.some((message) => message.role === 'agent')
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -57,6 +66,7 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
           running={running}
           isNew={isNew}
           queued={queued}
+          openComments={openComments}
           commentDraft={data.commentDraft ?? null}
           context={<ContextChip pill={pill} data={data} />}
           model={data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
@@ -252,6 +262,7 @@ function Composer({
   running,
   isNew,
   queued,
+  openComments,
   commentDraft,
   context,
   model,
@@ -264,6 +275,8 @@ function Composer({
   isNew: boolean
   /** Comments this turn will carry, shown above the field until they're sent. */
   queued: AgentThreadMessage[]
+  /** Sent comments still open on the canvas, resolvable in one click. */
+  openComments: Annotation[]
   /** The in-progress comment, if any — shown as a removable chip; while open,
    *  the field saves the comment instead of sending the thread. */
   commentDraft: CommentDraft | null
@@ -317,6 +330,7 @@ function Composer({
       onPaste={pasted.onPaste}
     >
       {commentDraft ? <CommentDraftChip draft={commentDraft} /> : null}
+      <OpenComments annotations={openComments} />
       <QueuedComments messages={queued} />
       <PastedImages images={pasted.images} onRemove={pasted.remove} />
       <CommentTextarea
