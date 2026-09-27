@@ -312,6 +312,7 @@ export interface IpcContract {
   'right-details-panel-set-fix-config': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-color-scheme': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-set-page-preset': { dir: 'renderer→main'; payload: unknown }
+  'right-details-panel-read-clipboard-image': { dir: 'invoke'; payload: unknown }
   'right-details-panel-thread-delete': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-deselect': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-thread-new': { dir: 'renderer→main'; payload: unknown }
@@ -643,6 +644,7 @@ export const ipcChannels = {
   rightDetailsPanelSetFixConfig: 'right-details-panel-set-fix-config',
   rightDetailsPanelSetPageColorScheme: 'right-details-panel-set-page-color-scheme',
   rightDetailsPanelSetPagePreset: 'right-details-panel-set-page-preset',
+  rightDetailsPanelReadClipboardImage: 'right-details-panel-read-clipboard-image',
   rightDetailsPanelThreadDelete: 'right-details-panel-thread-delete',
   rightDetailsPanelThreadDeselect: 'right-details-panel-thread-deselect',
   rightDetailsPanelThreadNew: 'right-details-panel-thread-new',

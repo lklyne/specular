@@ -3,6 +3,7 @@ import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, FixModel, FixPermissions, PageColorScheme } from '../../shared/types'
 import { isThreadImageMediaType, type ThreadImageUpload } from '../../shared/agent-thread'
 import { setFixConfig } from '../runtime/preferences'
+import { readClipboardImage } from '../clipboard-paste'
 import {
   bindOriginToRepoPath,
   inferRepoPathForOrigin,
@@ -257,6 +258,11 @@ export function registerRightDetailsPanelIpc(): void {
       )
     },
   )
+
+  ipcMain.handle(ipcChannels.rightDetailsPanelReadClipboardImage, (): ThreadImageUpload | null => {
+    const image = readClipboardImage()
+    return image ? { mediaType: 'image/png', data: image.buffer.toString('base64') } : null
+  })
 
   ipcMain.on(
     ipcChannels.rightDetailsPanelSetAutoFix,

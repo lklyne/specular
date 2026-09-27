@@ -220,7 +220,7 @@ function isNativeRasterImageFormat(format: string): boolean {
     format === 'NeXT TIFF v4.0 pasteboard type'
 }
 
-function readClipboardImage(): {
+export function readClipboardImage(): {
   buffer: Buffer
   width: number
   height: number

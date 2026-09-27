@@ -48,6 +48,9 @@ export interface DevtoolsPanelElectronAPI {
   deleteAgentThread: (threadId: string) => void
   selectAgentThread: (threadId: string) => void
   sendAgentThread: (text?: string, images?: ThreadImageUpload[]) => void
+  /** The clipboard's image as PNG, read natively: macOS screenshots and
+   *  copied images often reach the DOM paste event with no file attached. */
+  readClipboardImage: () => Promise<ThreadImageUpload | null>
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
