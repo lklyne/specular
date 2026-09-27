@@ -427,7 +427,7 @@ async function invokeThreadAgent(
   plan: ThreadAgentPlan,
 ): Promise<ThreadAgentOutcome> {
   const onEvent = (event: FixProgressEvent) =>
-    appendFixEvent(threadId, event.kind, event.text)
+    appendFixEvent(threadId, event.kind, event.text, event.label)
   const images = plan.images
     .map((image) => readThreadImage(plan.cwd, image))
     .filter((image): image is ThreadImageUpload => image !== null)

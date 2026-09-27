@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { FolderOpen, Loader2, Plus, X, Zap } from 'lucide-react'
+import { FolderOpen, Plus, X, Zap } from 'lucide-react'
 import { messageHasContent, type AgentThread, type AgentThreadMessage } from '../../../shared/agent-thread'
 import type { CommentDraft } from '../../../shared/comment-draft'
 import type { Annotation, DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
 import { isUnresolved } from '../../../shared/annotation-utils'
 import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
-import { FixEventList } from '../../shared/FixEventList'
 import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
+import { AgentRunBar } from './AgentRunBar'
 import { CommentDraftChip } from './CommentDraftChip'
 import { ContextChip, composerChipClass } from './ContextChip'
 import { OpenComments } from './OpenComments'
@@ -55,7 +55,6 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
           thread={active}
           progress={progress}
           spacePath={data.spacePath ?? null}
-          isDark={isDark}
           muted={muted}
         />
       ) : (
@@ -207,13 +206,11 @@ function ThreadTranscript({
   thread,
   progress,
   spacePath,
-  isDark,
   muted,
 }: {
   thread: AgentThread | null
   progress?: FixProgressEntry
   spacePath: string | null
-  isDark: boolean
   muted: string
 }) {
   const transcriptRef = useRef<HTMLDivElement | null>(null)
@@ -243,13 +240,7 @@ function ThreadTranscript({
           ))
       )}
       {progress?.status === 'running' ? (
-        <div className={`rounded-md border px-2 py-1.5 ${isDark ? 'border-zinc-700' : 'border-zinc-200'}`}>
-          <div className="mb-1 flex items-center gap-1.5 text-[11px]">
-            <Loader2 size={11} className="animate-spin" />
-            Running
-          </div>
-          <FixEventList events={progress.events} className="max-h-40" />
-        </div>
+        <AgentRunBar events={progress.events} />
       ) : null}
       {progress?.status === 'failed' && progress.error ? (
         <div className="text-[12px] text-red-600 dark:text-red-400">{progress.error}</div>

@@ -146,7 +146,7 @@ async function runFix(
   let error: Error | null = null
   const trackingKey = fixTargetKey(target)
   const onEvent = (event: FixProgressEvent) =>
-    appendFixEvent(annotationId, event.kind, event.text)
+    appendFixEvent(annotationId, event.kind, event.text, event.label)
   try {
     result = await runFixAgent(plan.prompt, target.cwd, { resumeSessionId: plan.resumeSessionId, onEvent })
   } catch (err) {

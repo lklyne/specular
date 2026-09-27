@@ -103,4 +103,54 @@ describe('describeAgentMessage', () => {
     expect(described?.event.kind).toBe('result')
     expect(described?.finalText).toContain('<<RESOLVE>>')
   })
+
+  describe('run bar labels', () => {
+    const toolLabel = (name: string, input: unknown) =>
+      describeAgentMessage({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name, input }] },
+      })?.event.label
+
+    it('names the file for reads and edits', () => {
+      expect(toolLabel('Read', { file_path: '/repo/src/Header.tsx' })).toBe('Reading Header.tsx')
+      expect(toolLabel('Edit', { file_path: '/repo/src/Header.tsx' })).toBe('Editing Header.tsx')
+    })
+
+    it('prefers the Bash description over the raw command', () => {
+      expect(toolLabel('Bash', { command: 'cd /x && grep -n foo', description: 'Find foo usages' })).toBe(
+        'Find foo usages',
+      )
+      expect(toolLabel('Bash', { command: 'pnpm typecheck' })).toBe('Running pnpm')
+    })
+
+    it('quotes search patterns and humanizes MCP tool names', () => {
+      expect(toolLabel('Grep', { pattern: 'command palette' })).toBe('Searching for “command palette”')
+      expect(toolLabel('mcp__specular__create_page', {})).toBe('Using create page')
+    })
+
+    it('labels narration by its first sentence and the last block wins', () => {
+      const described = describeAgentMessage({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'text', text: 'Found it. Now fixing.' },
+            { type: 'tool_use', name: 'Read', input: { file_path: '/a/b.ts' } },
+          ],
+        },
+      })
+      expect(described?.event.label).toBe('Reading b.ts')
+      expect(
+        describeAgentMessage({ type: 'assistant', message: { content: [{ type: 'text', text: 'Found it. Now fixing.' }] } })
+          ?.event.label,
+      ).toBe('Found it.')
+    })
+
+    it('leaves tool results unlabelled so the bar keeps the running step', () => {
+      const described = describeAgentMessage({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', content: 'ok' }] },
+      })
+      expect(described?.event.label).toBeUndefined()
+    })
+  })
 })

@@ -2019,6 +2019,8 @@ export type FixProgressEventKind =
 export interface FixProgressEvent {
   kind: FixProgressEventKind
   text: string
+  /** One-line, present-tense status for the live run bar ("Reading Header.tsx"). */
+  label?: string
   timestamp: string
 }
 
