@@ -1,0 +1,38 @@
+/* Run bar label: the old line lifts and fades out, the new one rises in.
+   Labels change every tool call, so the rest of the panel stays out of the
+   transition — no root snapshot, and clicks pass through the overlay. */
+:root {
+  view-transition-name: none;
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-group(.run-label-exit),
+::view-transition-group(.run-label-enter) {
+  animation-duration: 220ms;
+}
+
+::view-transition-old(.run-label-exit) {
+  animation: run-label-out 180ms ease-in both;
+}
+
+::view-transition-new(.run-label-enter) {
+  animation: run-label-in 220ms ease-out both;
+}
+
+@keyframes run-label-out {
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes run-label-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(.run-label-exit),
+  ::view-transition-new(.run-label-enter) {
+    animation: none;
+  }
+}
