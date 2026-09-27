@@ -40,7 +40,13 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
         actions={<ThreadActions hasActive={Boolean(active)} isDark={isDark} />}
       />
       {active ? (
-        <ThreadTranscript thread={active} progress={progress} isDark={isDark} muted={muted} />
+        <ThreadTranscript
+          thread={active}
+          progress={progress}
+          spacePath={data.spacePath ?? null}
+          isDark={isDark}
+          muted={muted}
+        />
       ) : (
         <ThreadList threads={threads} isDark={isDark} muted={muted} />
       )}
@@ -182,11 +188,13 @@ function shortDate(iso: string): string {
 function ThreadTranscript({
   thread,
   progress,
+  spacePath,
   isDark,
   muted,
 }: {
   thread: AgentThread | null
   progress?: FixProgressEntry
+  spacePath: string | null
   isDark: boolean
   muted: string
 }) {
@@ -210,8 +218,9 @@ function ThreadTranscript({
             <CommentBubble
               key={message.id}
               author={message.role}
-              text={withImageNote(message)}
+              text={message.text}
               annotationId={message.annotationId}
+              imageSrcs={imageSrcs(message, spacePath)}
             />
           ))
       )}
@@ -333,12 +342,10 @@ function AutoFixChip({ origin, on, isDark }: { origin: string; on: boolean; isDa
   )
 }
 
-/** Sent images live on disk, so the transcript notes them rather than showing them. */
-function withImageNote(message: AgentThreadMessage): string {
-  const count = message.images?.length ?? 0
-  if (!count) return message.text
-  const note = count === 1 ? '1 image' : `${count} images`
-  return message.text.trim() ? `${message.text}\n\n[${note}]` : `[${note}]`
+/** Sent images live in the space folder, served to the panel over local-file://. */
+function imageSrcs(message: AgentThreadMessage, spacePath: string | null): string[] | undefined {
+  if (!spacePath || !message.images?.length) return undefined
+  return message.images.map((image) => `local-file://${encodeURI(`${spacePath}/${image.path}`)}`)
 }
 
 function folderName(path: string): string {

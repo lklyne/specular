@@ -156,14 +156,17 @@ export function CommentBubble({
   text,
   fallback,
   annotationId,
+  imageSrcs,
 }: {
   author: string
   text?: string | null
   fallback?: string
   /** The canvas pin this message came from, for panel focus lookups. */
   annotationId?: string
+  /** Images sent with a user message, shown above its text. */
+  imageSrcs?: string[]
 }) {
-  if (!text) {
+  if (!text && !imageSrcs?.length) {
     return fallback ? (
       <div className="text-[12px] italic text-[var(--surface-foreground-muted)]">{fallback}</div>
     ) : null
@@ -172,7 +175,7 @@ export function CommentBubble({
   if (author === 'agent') {
     return (
       <div className="min-w-0 text-[12px] leading-relaxed text-[var(--surface-foreground)]">
-        <Markdown text={text} />
+        <Markdown text={text ?? ''} />
       </div>
     )
   }
@@ -182,12 +185,26 @@ export function CommentBubble({
   // both themes (lighter in light, darker in dark), which a mid-zinc does not.
   return (
     <div className="min-w-0">
-      <div
-        data-annotation-id={annotationId}
-        className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]"
-      >
-        {text}
-      </div>
+      {imageSrcs?.length ? (
+        <div className="flex flex-wrap gap-1.5 pb-1">
+          {imageSrcs.map((src) => (
+            <img
+              key={src}
+              src={src}
+              alt="Attached image"
+              className="max-h-40 max-w-full rounded-lg border border-[var(--surface-input-border)] object-contain"
+            />
+          ))}
+        </div>
+      ) : null}
+      {text ? (
+        <div
+          data-annotation-id={annotationId}
+          className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]"
+        >
+          {text}
+        </div>
+      ) : null}
     </div>
   )
 }
