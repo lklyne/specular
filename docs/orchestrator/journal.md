@@ -2009,3 +2009,18 @@ Noticed (no action):
 - **#383**: day 48, zero comments — no state change.
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same membership) — freeze now at 33 days, already named Sept 14, not re-deriving.
 Hint for next run: #169 no longer needs a day-count flag (see above) — drop it from the nightly survey list entirely unless one of the four re-raise conditions fires. Watch #428/#431 for pickup or their day-7 stale marks (Sept 27/28). If `main` stays flat an eighth night, that alone is still worth one line, but the flatline itself isn't proposal-shaped without a second, different kind of signal alongside it.
+
+---
+
+## 2026-09-27
+Surveyed: `main` HEAD since Sept 19 (unchanged, `c981ef2` — eighth consecutive quiet night), direct `created:>=2026-09-25` search on both issues and PRs (zero results), #428's day-7 stale mark (hit today) and #431's (day 6, not yet), #425/#383 comments re-checked directly (both still empty), needs-triage/`agent-in-progress` recounts (unchanged membership: 28 open needs-triage, oldest #124 [134 days], newest #410 [Aug 24]; 3 agent-in-progress, #1/#111/#135).
+Acted:
+- **#428 closed as stale** (`not_planned`, 7 days, zero comments/reactions, no pickup). Unlike #422, this refiled issue was a pure process-step ask (add a branch-landed guard to the release skill/`release.yml`) with no live, currently-shipping consequence behind it — the incident it was hardening against hasn't recurred since filing (no release has shipped since `0.9.0` on Sept 20). That's the shape the standard 7-day/zero-engagement rule exists for, distinct from #422's live-fact-tracker exception. Closed with a note to re-file with fresh evidence if the gap causes a second incident.
+Noticed (no action):
+- **`main`**: zero commits since Sept 19 — eighth consecutive quiet night, still no second signal alongside the flatline to make it proposal-shaped.
+- **Zero new issues or PRs since Sept 25** — confirmed via direct search on both.
+- **#431**: day 6, zero comments — not yet stale (mark lands tomorrow, Sept 28). Self-modifying proposal (unshallow-before-ancestry-claims); still Lyle's call.
+- **#425**: 20 days open (Sept 7→27), zero comments — still one instance of the stale-`mergeable_state`/hidden-check-run-failure shape; two-instance bar not crossed.
+- **#383**: day 49, zero comments — no state change.
+- **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 — freeze now at 35 days, already named Sept 14, not re-deriving.
+Hint for next run: #431 hits its day-7 stale mark tomorrow (Sept 28) — same test as #428: is it a live-fact/already-caused-fallout case (its own framing argues yes, since it already produced one wrong filed issue, #429) or a plain process-step ask that should close per the standard rule if untouched. Decide explicitly rather than deferring. Otherwise: with the proposal queue down to just #431, and `main` flat for over a week, this is close to the "empty queue, healthy-but-quiet system" steady state seen in past lulls (e.g. late May) — don't manufacture a proposal to fill it.
