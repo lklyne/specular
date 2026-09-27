@@ -175,7 +175,12 @@ export function queueCommentOnAnnotation(annotation: Annotation): string | null 
     thread = newAgentThread()
   }
   if (!thread) return null
-  appendQueuedUserMessage(thread, annotation.text.trim() || '(comment)', annotation.id)
+  appendQueuedUserMessage(
+    thread,
+    annotation.text.trim() || '(comment)',
+    annotation.id,
+    takeStagedCommentImages(),
+  )
   return thread.id
 }
 
@@ -197,8 +202,14 @@ export function queueReplyOnAnnotation(annotation: Annotation, text: string): st
   return existing.id
 }
 
-function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId: string): void {
+function appendQueuedUserMessage(
+  thread: AgentThread,
+  text: string,
+  annotationId: string,
+  uploads: ThreadImageUpload[] = [],
+): void {
   const now = new Date().toISOString()
+  const images = uploads.map((upload) => writeThreadImage(spaceDir(), thread, makeId('img'), upload))
   thread.messages.push({
     id: makeId('tmsg'),
     role: 'user',
@@ -206,6 +217,7 @@ function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId
     createdAt: now,
     queued: true,
     annotationId,
+    ...(images.length ? { images } : {}),
   })
   if (!thread.annotationIds.includes(annotationId)) {
     thread.annotationIds.push(annotationId)
@@ -217,28 +229,21 @@ function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId
 }
 
 /**
- * Images pasted alongside a comment draft: the annotation itself carries no
- * images, so they ride a second queued message on the same thread rather than
- * the comment's own (text-only) queued message.
+ * Images pasted alongside a comment draft. The annotation itself carries no
+ * images, so the draft stages them here just before creating it and the
+ * comment's own queued message takes them — in time for an auto-fix send,
+ * which dispatches inside annotation creation.
  */
-export function queueImagesOnThread(threadId: string, uploads: ThreadImageUpload[]): void {
-  if (!uploads.length) return
-  ensureThreadsLoaded()
-  const thread = threads.find((candidate) => candidate.id === threadId)
-  if (!thread) return
-  const now = new Date().toISOString()
-  const images = uploads.map((upload) => writeThreadImage(spaceDir(), thread, makeId('img'), upload))
-  thread.messages.push({
-    id: makeId('tmsg'),
-    role: 'user',
-    text: '',
-    createdAt: now,
-    queued: true,
-    images,
-  })
-  thread.updatedAt = now
-  persist(thread)
-  notify()
+let stagedCommentImages: ThreadImageUpload[] = []
+
+export function stageCommentImages(uploads: ThreadImageUpload[]): void {
+  stagedCommentImages = uploads
+}
+
+function takeStagedCommentImages(): ThreadImageUpload[] {
+  const uploads = stagedCommentImages
+  stagedCommentImages = []
+  return uploads
 }
 
 /**
@@ -289,7 +294,12 @@ export function sendCommentOnAnnotation(annotation: Annotation): string | null {
   ensureThreadsLoaded()
   const thread = getActiveThread() ?? newAgentThread()
   if (!thread) return null
-  appendQueuedUserMessage(thread, annotation.text.trim() || '(comment)', annotation.id)
+  appendQueuedUserMessage(
+    thread,
+    annotation.text.trim() || '(comment)',
+    annotation.id,
+    takeStagedCommentImages(),
+  )
   dispatchThread(thread, annotationPill(annotation))
   return thread.id
 }

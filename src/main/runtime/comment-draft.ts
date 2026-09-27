@@ -13,7 +13,7 @@ import { ipcChannels } from '../../shared/ipc-contract'
 import { createAnnotation } from '../workspace-annotations'
 import { executeRegionSelect } from './region-select'
 import { annotateSelectionRegion } from './annotate-selection'
-import { queueImagesOnThread } from '../agent-thread/thread-runtime'
+import { stageCommentImages } from '../agent-thread/thread-runtime'
 import { focusAnnotation, openCommentsPanel } from './devtools-panel'
 import { aboveView } from './view-refs'
 import { requestLayout } from './viewport-control'
@@ -71,10 +71,29 @@ export function clearCommentDraftOnToolChange(): void {
   if (currentDraft && currentDraft.kind !== 'selection') clearCommentDraft()
 }
 
-function attachImages(annotation: Annotation, images: ThreadImageUpload[]): void {
-  if (!images.length) return
-  const threadId = annotation.metadata?.threadId
-  if (typeof threadId === 'string') queueImagesOnThread(threadId, images)
+/**
+ * Stage the draft's images so the new comment's thread message carries them;
+ * whatever creation does not consume is dropped once it settles.
+ */
+function createWithImages(
+  images: ThreadImageUpload[],
+  create: () => Annotation | Promise<Annotation>,
+): void {
+  stageCommentImages(images)
+  let created: Annotation | Promise<Annotation>
+  try {
+    created = create()
+  } catch (err) {
+    stageCommentImages([])
+    throw err
+  }
+  if (!(created instanceof Promise)) {
+    stageCommentImages([])
+    return
+  }
+  created
+    .catch((err) => console.error('[comment-draft] submit failed:', err))
+    .finally(() => stageCommentImages([]))
 }
 
 /**
@@ -92,7 +111,7 @@ export function submitCommentDraft(text: string, images: ThreadImageUpload[] = [
   switch (draft.kind) {
     case 'element': {
       const request: AnnotationCreateRequest = { ...draft.request, text: trimmed }
-      attachImages(createAnnotation(request), images)
+      createWithImages(images, () => createAnnotation(request))
       break
     }
     case 'point': {
@@ -100,18 +119,16 @@ export function submitCommentDraft(text: string, images: ThreadImageUpload[] = [
         anchor: { type: 'canvas', canvasX: draft.canvasX, canvasY: draft.canvasY },
         text: trimmed,
       }
-      attachImages(createAnnotation(request), images)
+      createWithImages(images, () => createAnnotation(request))
       break
     }
     case 'region':
-      executeRegionSelect(draft.canvasRect, trimmed)
-        .then((annotation) => attachImages(annotation, images))
-        .catch((err) => console.error('[comment-draft] region submit failed:', err))
+      createWithImages(images, () => executeRegionSelect(draft.canvasRect, trimmed))
       break
     case 'selection':
-      annotateSelectionRegion({ entityIds: draft.entityIds, text: trimmed })
-        .then((annotation) => attachImages(annotation, images))
-        .catch((err) => console.error('[comment-draft] selection submit failed:', err))
+      createWithImages(images, () =>
+        annotateSelectionRegion({ entityIds: draft.entityIds, text: trimmed }),
+      )
       break
   }
   clearCommentDraft()
