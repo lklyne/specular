@@ -163,7 +163,7 @@ export function CommentBubble({
   fallback?: string
   /** The canvas pin this message came from, for panel focus lookups. */
   annotationId?: string
-  /** Images sent with a user message, shown above its text. */
+  /** Images sent with a user message, shown as thumbnails inside its bubble. */
   imageSrcs?: string[]
 }) {
   if (!text && !imageSrcs?.length) {
@@ -185,26 +185,24 @@ export function CommentBubble({
   // both themes (lighter in light, darker in dark), which a mid-zinc does not.
   return (
     <div className="min-w-0">
-      {imageSrcs?.length ? (
-        <div className="flex flex-wrap gap-1.5 pb-1">
-          {imageSrcs.map((src) => (
-            <img
-              key={src}
-              src={src}
-              alt="Attached image"
-              className="max-h-40 max-w-full rounded-lg border border-[var(--surface-input-border)] object-contain"
-            />
-          ))}
-        </div>
-      ) : null}
-      {text ? (
-        <div
-          data-annotation-id={annotationId}
-          className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]"
-        >
-          {text}
-        </div>
-      ) : null}
+      <div
+        data-annotation-id={annotationId}
+        className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]"
+      >
+        {imageSrcs?.length ? (
+          <div className="flex flex-wrap gap-1.5 py-1.5">
+            {imageSrcs.map((src) => (
+              <img
+                key={src}
+                src={src}
+                alt="Attached image"
+                className="h-12 w-12 shrink-0 rounded-md border border-zinc-300 object-cover dark:border-zinc-600"
+              />
+            ))}
+          </div>
+        ) : null}
+        {text}
+      </div>
     </div>
   )
 }
