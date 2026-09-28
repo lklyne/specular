@@ -19,6 +19,7 @@ import {
 } from './inspect-session'
 import { broadcastToolChange } from './runtime-slice-broadcast'
 import { requestLayout } from './viewport-control'
+import { clearCommentDraftOnToolChangeViaSignal } from './comment-draft-signal'
 
 function syncAnnotationState(): void {
   const payload = toolAnnotateOverlay(uiActiveTool())
@@ -32,6 +33,13 @@ function applyToolSideEffects(prev: Tool, next: Tool): void {
   const isAnnotation = isAnnotationTool(next)
   const wasInspect = prev.kind === 'inspect'
   const isInspect = next.kind === 'inspect'
+
+  // A point/element/region draft is anchored to the comment tool's gesture —
+  // leaving the tool drops it. A selection draft (the popup's Annotate
+  // button) can open under any tool, so it survives the switch.
+  if (prev.kind === 'comment' && next.kind !== 'comment') {
+    clearCommentDraftOnToolChangeViaSignal()
+  }
 
   if (wasInspect && !isInspect) {
     setHoveredInspectTarget(null)

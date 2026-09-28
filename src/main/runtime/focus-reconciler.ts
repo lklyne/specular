@@ -40,6 +40,11 @@ export type FocusState = {
    * view so its base-ui popover receives Escape/keyboard — the toolbar is a
    * separate WebContentsView and otherwise never holds keyboard focus. */
   toolbarDropdownOpen: boolean
+  /** True while a comment draft is open. Keeps focus in the right panel so
+   *  the sidebar composer's textarea receives keystrokes, the way a named
+   *  text-input state does — a draft persists across clicks and hovers that
+   *  would otherwise re-target the canvas or a page. */
+  commentDraftOpen: boolean
 }
 
 export function expectedFocus(state: FocusState): FocusTarget {
@@ -51,6 +56,11 @@ export function expectedFocus(state: FocusState): FocusTarget {
   // Toolbar address input is open — keep focus in the toolbar so browser-like
   // commands such as Cmd+T can leave the user ready to type a destination.
   if (state.toolbarTextInputActive) return { kind: 'toolbar' }
+
+  // A comment draft's chip lives in the sidebar composer — keep focus there
+  // until it's submitted or cancelled, the same way a named text input wins
+  // above selection/gesture-driven focus below.
+  if (state.commentDraftOpen) return { kind: 'rightDetailsPanel' }
 
   if (state.pendingFocus) return state.pendingFocus
 

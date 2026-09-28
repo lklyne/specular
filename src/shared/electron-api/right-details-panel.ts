@@ -1,4 +1,5 @@
 import type { Tool } from '../tool'
+import type { ThreadImageUpload } from '../agent-thread'
 import type {
   AnnotationCreateRequest,
   DevtoolsPanelData,
@@ -46,7 +47,16 @@ export interface DevtoolsPanelElectronAPI {
   deselectAgentThread: () => void
   deleteAgentThread: (threadId: string) => void
   selectAgentThread: (threadId: string) => void
-  sendAgentThread: (text?: string) => void
+  sendAgentThread: (text?: string, images?: ThreadImageUpload[]) => void
+  /** The clipboard's image as PNG, read natively: macOS screenshots and
+   *  copied images often reach the DOM paste event with no file attached. */
+  readClipboardImage: () => Promise<ThreadImageUpload | null>
+  /** Save the open comment draft; text may be empty only when images carry
+   *  the comment. Clears the draft either way. */
+  submitCommentDraft: (text?: string, images?: ThreadImageUpload[]) => void
+  /** X on the draft chip, or Escape in the composer: drops the draft with no
+   *  comment saved. */
+  cancelCommentDraft: () => void
   updateEntity: <K extends UpdatableEntityKind>(kind: K, id: string, patch: EntityUpdatePatchMap[K]) => void
   duplicateTextEntity: (id: string) => void
   deleteTextEntity: (id: string) => void
@@ -73,6 +83,8 @@ export interface DevtoolsPanelElectronAPI {
   getInitialData: () => Promise<ThemeBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onPanelData: (callback: (data: DevtoolsPanelData) => void) => () => void
+  /** Colour of the agent presence cursor on the canvas, or null when none shows. */
+  onAgentCursorColor: (callback: (color: string | null) => void) => () => void
   /** A comment was focused from the canvas or a list; the panel flashes it. */
   onAnnotationThreadOpen: (
     callback: (payload: { annotationId: string | null }) => void,

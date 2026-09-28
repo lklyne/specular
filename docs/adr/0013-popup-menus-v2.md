@@ -245,9 +245,9 @@ Figma file: `hgwwoe0EzUrErdviULmRtb` (the **agent-canvas** Figma file).
 | Draw (pen) | `178:150` | `DrawPenToolIcon` | inline JSX (`ink` + `isDark`) |
 | Add sticky | `362:625` | `AddStickyToolIcon` | `icons/toolbar/add-sticky.svg` |
 | Add shape | `362:631` | `AddShapeToolIcon` | `icons/toolbar/add-shape.svg` |
-| Add page | `362:636` | `AddPageToolIcon` | `icons/toolbar/add-page.svg` |
+| Add page | `362:636` | `AddPageToolIcon` | inline JSX (`isDark`; desktop + phone split for hover) |
 | Add text | `362:649` | `AddTextToolIcon` | `icons/toolbar/add-text.svg` |
-| Comment | `362:653` | `CommentToolIcon` | `icons/toolbar/comment.svg` |
+| Comment | `362:653` | `CommentToolIcon` | inline JSX (`isDark`; bubble split for hover) |
 | Inspect | `362:658` | `InspectToolIcon` | `icons/toolbar/inspect.svg` |
 | Theme | `362:663` | `ThemeToolIcon` | `icons/toolbar/theme.svg` |
 | Zoom chevron | `362:668` | `ZoomChevronIcon` | `icons/toolbar/zoom-chevron.svg` |

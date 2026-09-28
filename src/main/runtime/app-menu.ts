@@ -2,7 +2,7 @@ import { app, dialog, Menu, webContents, type WebContents } from 'electron'
 import { pages, selectedPageId } from './runtime-context'
 import { selectedEntityIds } from '../ui-state'
 import { getComponentView } from './component-page-factory'
-import { acceleratorFor } from './binding-accelerator'
+import { APP_MENU_ACCELERATORS } from '../../shared/app-menu-shortcuts'
 import { currentKeyboardTargetPageId } from './selection-controller'
 import { mainHandlers } from './binding-handlers'
 import { buildBindingContext } from './binding-dispatcher'
@@ -53,15 +53,19 @@ function setupLabel(): string {
 }
 
 /**
- * The webContents an Edit-menu clipboard command acts on: the page that owns
- * the keyboard, or whatever holds OS focus when no page does.
+ * The webContents an Edit-menu clipboard command acts on: whatever holds OS
+ * focus, unless that is aboveView's keyboard sink standing in for a page —
+ * then the page that owns the keyboard. A selected page stays the keyboard
+ * target while the user types in a panel, so focus has to be checked first.
  */
 function editingTarget(): WebContents | null {
+  const focused = webContents.getFocusedWebContents()
+  const live = focused && !focused.isDestroyed() ? focused : null
+  if (live && live !== aboveView?.webContents) return live
   const pageId = currentKeyboardTargetPageId()
   const page = pageId ? pages.find((candidate) => candidate.id === pageId) : null
   if (page && !page.host.webContents.isDestroyed()) return page.host.webContents
-  const focused = webContents.getFocusedWebContents()
-  return focused && !focused.isDestroyed() ? focused : null
+  return live
 }
 
 function editingItem(
@@ -106,17 +110,17 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
               },
               {
                 label: 'Settings…',
-                accelerator: 'CmdOrCtrl+,',
+                accelerator: APP_MENU_ACCELERATORS.settings,
                 click: () => showSettingsWindow(),
               },
               { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
-              { role: 'hide' as const },
-              { role: 'hideOthers' as const },
+              { role: 'hide' as const, accelerator: APP_MENU_ACCELERATORS.hide },
+              { role: 'hideOthers' as const, accelerator: APP_MENU_ACCELERATORS.hideOthers },
               { role: 'unhide' as const },
               { type: 'separator' as const },
-              { role: 'quit' as const },
+              { role: 'quit' as const, accelerator: APP_MENU_ACCELERATORS.quit },
             ],
           },
         ]
@@ -128,7 +132,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
       submenu: [
         {
           label: 'Close Tab',
-          accelerator: acceleratorFor('close-tab'),
+          accelerator: APP_MENU_ACCELERATORS.closeTab,
           click: () => mainHandlers['close-tab'](buildBindingContext('canvasBg', false)),
         },
       ],
@@ -165,7 +169,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
       submenu: [
         {
           label: 'Toggle DevTools (Canvas)',
-          accelerator: 'CmdOrCtrl+Alt+I',
+          accelerator: APP_MENU_ACCELERATORS.toggleCanvasDevTools,
           click: () => toggleViewDevTools(bgView?.webContents),
         },
         {
@@ -198,7 +202,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
             { type: 'separator' as const },
             {
               label: 'Selected page',
-              accelerator: 'CmdOrCtrl+Alt+Shift+I',
+              accelerator: APP_MENU_ACCELERATORS.toggleSelectedPageDevTools,
               click: () => toggleSelectedPageDevTools(),
             },
             {
@@ -212,7 +216,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
           : [
               {
                 label: 'Open Motion Debug Window',
-                accelerator: 'CmdOrCtrl+Shift+D',
+                accelerator: APP_MENU_ACCELERATORS.openMotionDebugWindow,
                 click: () => showDebugWindow(),
               } as const,
             ]),
@@ -226,7 +230,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
             : isPerfTraceRecording()
               ? 'Stop Performance Trace'
               : 'Record Performance Trace',
-          accelerator: 'CmdOrCtrl+Alt+Shift+P',
+          accelerator: APP_MENU_ACCELERATORS.togglePerfTrace,
           click: () => {
             if (getPerfTraceOwner() === 'pan-zoom-test') {
               void stopPanZoomPerfTest()
@@ -236,7 +240,7 @@ function buildTemplate(): Electron.MenuItemConstructorOptions[] {
           },
         },
         { type: 'separator' },
-        { role: 'togglefullscreen' },
+        { role: 'togglefullscreen', accelerator: APP_MENU_ACCELERATORS.toggleFullScreen },
       ],
     },
 

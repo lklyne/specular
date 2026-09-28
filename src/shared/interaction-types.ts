@@ -55,6 +55,7 @@ export type FocusTarget =
   | { kind: 'page'; id: string }
   | { kind: 'toolbar' }
   | { kind: 'sidebar' }
+  | { kind: 'rightDetailsPanel' }
 
 type DropTarget =
   | { kind: 'canvas' }

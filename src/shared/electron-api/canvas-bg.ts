@@ -7,11 +7,10 @@ import type { ForwardKeyPayload } from '../page-key-input'
 import type { ResizeHandle } from '../resize-accumulator'
 import type { RuntimePatchBatch } from '../runtime-patch'
 import type { Tool } from '../tool'
+import type { CommentDraft } from '../comment-draft'
 import type {
   AnnotationBboxSubscription,
-  AnnotationCreateRequest,
   AnnotationDrawingStroke,
-  AnnotationElementSelectionPayload,
   BatchLayoutMode,
   CanvasDragStartSelection,
   CanvasEntityKind,
@@ -174,11 +173,13 @@ export interface CanvasBgElectronAPI {
   gapResizeDragCancel: (reason?: CancelReason) => void
   commitRegionSelect: (canvasRect: WorkspaceBounds) => void
   /** Comment tool click below the drag threshold. Main resolves the page +
-   *  element under the window-coord point and either fires
-   *  `annotate-element-selected` (element anchor) or
-   *  `comment-canvas-point-committed` (no page hit / no element). ADR 0006. */
+   *  element under the window-coord point and opens a comment draft — an
+   *  element anchor when a DOM element is under the point, a canvas-point
+   *  anchor otherwise. ADR 0006. */
   commitCommentClickAt: (windowX: number, windowY: number) => void
-  createAnnotation: (request: AnnotationCreateRequest) => void
+  /** Selection popup's Annotate button: opens a selection-anchored comment
+   *  draft over the union bounds the renderer already computed. */
+  beginSelectionComment: (entityIds: string[], canvasRect: WorkspaceBounds) => void
   createDrawing: (input: { canvasX: number; canvasY: number; width: number; height: number; strokes: AnnotationDrawingStroke[] }) => void
   selectEntities: (entityIds: string[]) => void
   resizeMultiSelection: (entries: Array<{ id: string; kind: 'page' | 'text' | 'file' | 'drawing' | 'shape' | 'group'; width: number; height: number; canvasX: number; canvasY: number; strokes?: AnnotationDrawingStroke[] }>) => void
@@ -193,18 +194,9 @@ export interface CanvasBgElectronAPI {
   openAnnotationThread: (annotationId: string | null, opts?: { reveal?: boolean }) => void
   setCommentOverlayActive: (active: boolean) => void
   onCaptureMode: (callback: (active: boolean) => void) => () => void
-  onAnnotateElementSelected: (
-    callback: (data: AnnotationElementSelectionPayload) => void,
-  ) => () => void
-  onRegionSelectCommitted: (
-    callback: (data: { canvasRect: WorkspaceBounds }) => void,
-  ) => () => void
-  /** Comment-tool click that landed off-page (or in a page slot with no DOM
-   *  element). Renderer mounts a canvas-point pending composer at the given
-   *  canvas coordinates. ADR 0006. */
-  onCommentCanvasPointCommitted: (
-    callback: (data: { canvasX: number; canvasY: number }) => void,
-  ) => () => void
+  /** The in-progress comment draft, or null. The canvas draws a passive
+   *  marker from it — the composer itself lives in the right panel. */
+  onCommentDraftChanged: (callback: (draft: CommentDraft | null) => void) => () => void
   /** Page-paints contract (ADR 0006). The renderer reports the pointer's
    *  window-coord position and the current marquee rect (if any) while the
    *  comment tool is active; main fans these out to every page in page-local
@@ -227,13 +219,6 @@ export interface CanvasBgElectronAPI {
     pageId: string,
     subscriptions: AnnotationBboxSubscription[],
   ) => void
-  createRegionAnnotation: (canvasRect: WorkspaceBounds, text: string) => void
-  /** Selection-born region annotation (ADR 0019 §"one door"): the selection
-   *  popup's Annotate button and its composer handoff both land here. Main
-   *  recomputes the union bbox from the ids passed — the renderer sends the
-   *  ids it displayed rather than relying on the current selection, so a
-   *  selection change mid-composer can't race the submit. */
-  annotateSelection: (input: { entityIds: string[]; text: string }) => void
   onAnnotationThreadOpen: (
     callback: (data: { annotationId: string | null }) => void,
   ) => () => void
@@ -256,7 +241,7 @@ export interface CanvasBgElectronAPI {
   selectEdge: (edgeId: string | null) => void
   hoverPage: (pageId: string | null) => void
   setTextEditing: (active: boolean) => void
-  setAnnotationState: (hasOpenThread: boolean, hasPendingAnnotation: boolean) => void
+  setAnnotationState: (hasOpenThread: boolean) => void
   onBindingFire: (callback: (id: BindingId) => void) => () => void
   onCanvasGuides: (callback: (payload: CanvasGuidesPayload) => void) => () => void
   /** Forward a wheel event hitting the single-selected page's body to the

@@ -1,0 +1,34 @@
+/* Shimmer: a highlight band clipped to the glyphs, over a solid base fill.
+   The band layer is 250% wide so it enters and exits fully off the text.
+   Colours read as fallbacks so a utility class on the element can set them. */
+.shimmer-text {
+  color: transparent;
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent calc(50% - var(--shimmer-spread)),
+      var(--shimmer-highlight, var(--surface-foreground)),
+      transparent calc(50% + var(--shimmer-spread))
+    ),
+    linear-gradient(
+      var(--shimmer-base, var(--surface-foreground-muted)),
+      var(--shimmer-base, var(--surface-foreground-muted))
+    );
+  background-size: 250% 100%, auto;
+  background-repeat: no-repeat, padding-box;
+  background-clip: text;
+  animation: shimmer-sweep var(--shimmer-duration) linear infinite;
+}
+
+@keyframes shimmer-sweep {
+  from { background-position: 100% center, 0 0; }
+  to { background-position: 0% center, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text {
+    animation: none;
+    color: var(--shimmer-base, var(--surface-foreground-muted));
+    background: none;
+  }
+}

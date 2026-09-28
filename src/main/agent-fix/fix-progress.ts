@@ -59,12 +59,14 @@ export function appendFixEvent(
   annotationId: string,
   kind: FixProgressEventKind,
   text: string,
+  label?: string,
 ): void {
   const entry = entries.get(annotationId)
   if (!entry) return
   const event: FixProgressEvent = {
     kind,
     text,
+    ...(label ? { label } : {}),
     timestamp: new Date().toISOString(),
   }
   entry.events.push(event)

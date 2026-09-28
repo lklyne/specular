@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { CanvasBgElectronAPI } from '../../shared/electron-api/canvas-bg'
-import { isOverlayUiTarget, isTypingTarget } from '../../shared/gesture-utils'
+import { isTypingTarget } from '../../shared/gesture-utils'
 import { textForKeyPress, type ForwardKeyPayload } from '../../shared/page-key-input'
+import { isAppMenuShortcut } from '../../shared/app-menu-shortcuts'
+
+const IS_MAC = navigator.userAgent.includes('Mac')
 
 export interface UsePageKeyboardForwardingOptions {
   api: CanvasBgElectronAPI
@@ -25,7 +28,8 @@ export interface PageKeyboardForwarding {
  * never to the page. aboveView owns that focus always; a keystroke lands in
  * this input, main's binding dispatcher gets first refusal over
  * `before-input-event`, and whatever it does not claim reaches the DOM here and
- * is forwarded into the page over CDP.
+ * is forwarded into the page over CDP — except the app menu's reserved
+ * shortcuts, which are left for the menu.
  *
  * Live composition UI is an accepted loss (Chromium's offscreen widget host
  * makes `TextInputStateChanged` a no-op): the commit arrives whole on
@@ -48,8 +52,10 @@ export function usePageKeyboardForwarding({
     const active = document.activeElement
     if (active === sink) return
     // An inline editor or an overlay-UI field owns the keyboard while it is
-    // open; taking it would swallow what is being typed there.
-    if (active && (isTypingTarget(active) || isOverlayUiTarget(active))) return
+    // open; taking it would swallow what is being typed there. A clicked
+    // chrome button does not: it keeps DOM focus after the click, and
+    // deferring to it strands every keystroke meant for the page on it.
+    if (active && isTypingTarget(active)) return
     sink.focus({ preventScroll: true })
   }, [])
 
@@ -73,6 +79,9 @@ export function usePageKeyboardForwarding({
       // keyCode 229 is the placeholder a composing IME reports; the commit
       // arrives on compositionend instead.
       if (event.isComposing || event.keyCode === 229) return
+      // Left unhandled, the real keystroke goes on to the app menu. A page
+      // never offers keys to the menu itself.
+      if (isAppMenuShortcut(event, IS_MAC)) return
       event.preventDefault()
       api.forwardKeyToPage(pageId, {
         kind,

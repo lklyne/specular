@@ -9,7 +9,7 @@ This is the table of contents for `docs/` and `docs/adr/`. Read the one-line sum
 - [0003 — `Page` as the canonical name for live web items](adr/0003-page-as-canonical-name-for-live-web-items.md) — renames `frame` → `page` across types, IPC, components, and docs.
 - [0004 — Text affordances and the Specular spec-extension convention](adr/0004-text-affordances-and-spec-extensions.md) — splits Text/Sticky note/Document into one `text` kind with a `textStyle` field, plus the `specular.*` JSON Canvas extension convention.
 - [0005 — Unified `Tool` concept](adr/0005-unified-tool-concept.md) — merges pendingPlacement/AnnotationMode/inspect into one `activeTool: Tool` discriminated union.
-- [0006 — Unified comment tool (subsumes region-select)](adr/0006-unified-comment-tool.md) — one comment tool handles element/point clicks and region drags; amended by 0029 for page-anchored regions.
+- [0006 — Unified comment tool (subsumes region-select)](adr/0006-unified-comment-tool.md) — one comment tool handles element/point clicks and region drags; amended by 0029 for page-anchored regions, and by a 2026-09-26 amendment moving the draft's composer off the canvas into the sidebar.
 - [0008 — Unified canvas-item popup, selection-driven and tool-driven](adr/0008-unified-canvas-item-popup.md) — one `CanvasItemPopup` component replaces per-kind menu implementations.
 - [0009 — Tool variants live in popup state, not in the `Tool` union](adr/0009-tool-variants-in-popup-state.md) — `shapeKind`/`brushType` move out of the `Tool` union into popup-managed tool defaults.
 - [0010 — Main is the sole shortcut dispatch site](adr/0010-main-as-sole-shortcut-dispatch-site.md) — **Proposed** — consolidates keyboard shortcut handling (currently split across 3 locations) into main.

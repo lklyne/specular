@@ -23,7 +23,7 @@ import {
 } from './app-control-server'
 import { markDirty } from './runtime/layout-dirty'
 import { broadcastRuntimePatch } from './runtime/runtime-patch-broadcast'
-import { currentPresenceSlice } from './runtime/presence-slice'
+import { currentPresenceSlice, sendAgentCursorColorToPanel } from './runtime/presence-slice'
 import { registerIpcHandlers } from './ipc-handlers'
 import { refreshAppMenu, setupAppMenu } from './runtime/app-menu'
 import { getSpacePath, loadOnboardingState, saveOnboardingState, setSpacePath } from './runtime/preferences'
@@ -239,6 +239,7 @@ app.whenReady().then(async () => {
   })
   onPresenceCursorsChanged(() => {
     broadcastRuntimePatch({ kind: 'slice', slice: 'presence', value: currentPresenceSlice() })
+    sendAgentCursorColorToPanel()
     // The toolbar's presence readout is not on the scene bus, and the
     // cursor-overlay window's show/hide is decided inside the pass.
     markDirty('toolbar')

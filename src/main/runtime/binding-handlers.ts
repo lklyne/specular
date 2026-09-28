@@ -20,8 +20,9 @@ import { reorderStackOrder } from './entity-order-state'
 import { createBlankFrameFromSource } from '../workspace-pages'
 import { beginEditingEntity } from './editing-entity-runtime'
 import { getUiState } from '../ui-state'
+import { clearCommentDraftViaSignal } from './comment-draft-signal'
 
-type MainBindingId = Exclude<BindingId, 'annotation-close-thread' | 'annotation-clear-draft'>
+type MainBindingId = Exclude<BindingId, 'annotation-close-thread'>
 
 export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> = {
   'tool-select': () => {
@@ -170,6 +171,9 @@ export const mainHandlers: Record<MainBindingId, (ctx: BindingContext) => void> 
     const pageId = selectedPageId()
     if (!pageId) return
     deletePages({ pageIds: [pageId] })
+  },
+  'annotation-clear-draft': () => {
+    clearCommentDraftViaSignal()
   },
 }
 

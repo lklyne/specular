@@ -12,8 +12,9 @@
 import { homedir } from 'os'
 import { join } from 'path'
 import { existsSync } from 'fs'
-import { query, type Options } from '@anthropic-ai/claude-agent-sdk'
+import { query, type Options, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { FixConfig, FixProgressEvent } from '../../shared/types'
+import type { ThreadImageUpload } from '../../shared/agent-thread'
 import { truncate } from '../../shared/annotation-utils'
 import { getFixConfig } from '../runtime/preferences'
 import { describeAgentMessage } from './progress-events'
@@ -31,6 +32,8 @@ export interface InvokeOptions {
   timeout?: number
   /** Resume an existing Claude session instead of starting a fresh one. */
   resumeSessionId?: string
+  /** Images the user pasted into this turn, handed to the model beside the prompt. */
+  images?: ThreadImageUpload[]
 }
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
@@ -83,6 +86,8 @@ export function fixQueryOptions(
     // permission allowlists below — which cannot name `Skill` — leave skills
     // visible in the listing but unusable.
     skills: 'all',
+    // Threads render in a narrow side panel; lead with the result, not narration.
+    settings: { outputStyle: 'Concise' },
   }
   if (resumeSessionId) {
     options.resume = resumeSessionId
@@ -117,6 +122,35 @@ export function claudeAuthMissingMessage(): string | null {
     return null
   }
   return 'Claude Code is not signed in on this machine. Install it from https://claude.com/code, run `claude` in a terminal once to sign in, then retry.'
+}
+
+/**
+ * A plain string prompt cannot carry images; the SDK takes them as content
+ * blocks on a streamed user message, so a turn with images becomes a
+ * one-message stream.
+ */
+export function fixPrompt(
+  prompt: string,
+  images: ThreadImageUpload[] = [],
+): string | AsyncIterable<SDKUserMessage> {
+  if (images.length === 0) return prompt
+  const message: SDKUserMessage = {
+    type: 'user',
+    parent_tool_use_id: null,
+    message: {
+      role: 'user',
+      content: [
+        ...images.map((image) => ({
+          type: 'image' as const,
+          source: { type: 'base64' as const, media_type: image.mediaType, data: image.data },
+        })),
+        { type: 'text' as const, text: prompt },
+      ],
+    },
+  }
+  return (async function* () {
+    yield message
+  })()
 }
 
 type BackendFn = (
@@ -191,7 +225,7 @@ export async function runFixAgent(
 
   try {
     const stream = query({
-      prompt,
+      prompt: fixPrompt(prompt, options.images),
       options: {
         ...fixQueryOptions(getFixConfig(), repoPath, options.resumeSessionId),
         abortController,
@@ -218,9 +252,10 @@ export async function runFixAgent(
 const RESOLVE_MARKER = '<<RESOLVE>>'
 const WAITING_MARKER = '<<WAITING>>'
 // The agent's whole final message is shown to the user verbatim; the marker
-// only carries the resolve/waiting hint. Cap as a runaway guard — the prompt
-// asks for brevity.
-const MAX_REPLY_CHARS = 2000
+// only carries the resolve/waiting hint. The cap is a runaway guard only, set
+// well above any real reply: a concise plan still runs a few thousand chars,
+// and cutting it mid-sentence loses the part the user has to act on.
+const MAX_REPLY_CHARS = 50_000
 
 export function parseOutput(stdout: string): { summary: string; shouldResolve: boolean } {
   const text = stdout.trim()

@@ -30,6 +30,7 @@ import {
 import { setCommentOverlayActive } from '../runtime/window-shell'
 import { getAnnotationById } from '../workspace-annotations'
 import { selectThreadForAnnotation } from '../agent-thread/thread-runtime'
+import { clearCommentDraft } from '../runtime/comment-draft'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -105,6 +106,10 @@ export function registerAnnotationInspectionIpc(): void {
         const bounds = annotationCanvasBounds(annotation)
         if (bounds) focusCanvasBounds(bounds)
       }
+      // Focusing an existing thread switches which thread is active — a
+      // draft queued for whatever was active before would land somewhere the
+      // user no longer sees.
+      clearCommentDraft()
       // The conversation lives in the right panel: open it (if closed), switch
       // to comments, and focus this thread.
       openCommentsPanel(annotationId)

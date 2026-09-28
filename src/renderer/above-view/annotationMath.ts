@@ -1,5 +1,6 @@
 import type { ProjectedLayoutData, ProjectedPageEntity, ProjectedSceneEntity } from '../../shared/scene-projection'
-import type { Annotation, AnnotationCreateRequest, AnnotationDrawing, AnnotationDrawingPoint, AnnotationDrawingStroke, DevtoolsPanelDomRect, WorkspaceBounds } from '../../shared/types'
+import type { CommentDraft } from '../../shared/comment-draft'
+import type { Annotation, AnnotationDrawing, AnnotationDrawingPoint, AnnotationDrawingStroke, DevtoolsPanelDomRect, WorkspaceBounds } from '../../shared/types'
 import {
   canvasToScreenX,
   canvasToScreenY,
@@ -7,17 +8,6 @@ import {
 } from '../../shared/gesture-utils'
 import { pageDocumentToScreen, pageViewportToScreen } from '../../shared/page-space'
 import { correctDocRectForElement } from '../../shared/element-attachment'
-
-
-export interface PendingAnnotation {
-  /** Stable id for this draft, used to subscribe live element bbox updates
-   *  while the composer is open (ADR 0006). */
-  draftId: string
-  request: AnnotationCreateRequest
-  composerX: number
-  composerY: number
-  composerWidth: number
-}
 
 /**
  * Live-bbox lookup contract used by the popover positioners. The renderer
@@ -101,9 +91,8 @@ export function canvasRectToScreenRect(
 }
 
 /**
- * Opens the region composer pre-anchored to a selection's union bounds — the
- * renderer-local handoff every selection popup's Annotate button calls
- * (see useAnnotationDraftState.beginSelectionAnnotation).
+ * Opens a selection-anchored comment draft over a selection's union bounds —
+ * every selection popup's Annotate button forwards to this.
  */
 export type AnnotateHandler = (entityIds: string[], rect: WorkspaceBounds) => void
 
@@ -247,91 +236,23 @@ export function annotationScreenPos(
   return null
 }
 
-const PENDING_VIEWPORT_PADDING = 8
-const PENDING_COMPOSER_MARGIN = 8
-const PENDING_COMPOSER_MIN_HEIGHT = 52
-
 /**
- * Position the pending element composer adjacent to the element bbox itself
- * (ADR 0006). Prefers below + left-aligned with the element; flips above when
- * there's no room. Anchoring to the element keeps the composer near the click
- * even when the page entity is much larger than the viewport — anchoring to
- * the page bounds in that case bumped the composer to the top of the screen.
- */
-export function elementAnchoredComposerPosition({
-  elementLeft,
-  elementTop,
-  elementHeight,
-  composerWidth,
-}: {
-  elementLeft: number
-  elementTop: number
-  elementHeight: number
-  composerWidth: number
-}): { composerX: number; composerY: number } {
-  const composerX = Math.min(
-    Math.max(elementLeft, PENDING_VIEWPORT_PADDING),
-    window.innerWidth - composerWidth - PENDING_VIEWPORT_PADDING,
-  )
-  const belowY = elementTop + elementHeight + PENDING_COMPOSER_MARGIN
-  const aboveY = elementTop - PENDING_COMPOSER_MARGIN - PENDING_COMPOSER_MIN_HEIGHT
-  const canRenderBelow =
-    belowY + PENDING_COMPOSER_MIN_HEIGHT <= window.innerHeight - PENDING_VIEWPORT_PADDING
-  const composerY = canRenderBelow
-    ? belowY
-    : Math.max(PENDING_VIEWPORT_PADDING, aboveY)
-  return { composerX, composerY }
-}
-
-/**
- * Translate a pending element annotation's bbox into an overlay-coord rect.
- * Prefers the live bbox the page reports on scroll (ADR 0006); falls back to
- * the click-time `anchor.boundingBox`. Returns null when neither is
- * available or the page isn't on the canvas anymore.
+ * Translate an element-anchored draft's bbox into an overlay-coord rect, for
+ * the passive outline marker. Prefers the live bbox the page reports on
+ * scroll (ADR 0006); falls back to the click-time `anchor.boundingBox`.
+ * Returns null when neither is available or the page isn't on the canvas
+ * anymore.
  */
 export function pendingElementScreenRect(
-  pending: PendingAnnotation,
+  draft: Extract<CommentDraft, { kind: 'element' }>,
   layout: ProjectedLayoutData,
   liveBboxes?: AnnotationLiveBboxLookup,
 ): { left: number; top: number; width: number; height: number } | null {
-  const anchor = pending.request.anchor
+  const anchor = draft.request.anchor
   if (anchor.type !== 'element') return null
-  const bbox = liveBboxes?.get(pending.draftId) ?? anchor.boundingBox
+  const bbox = liveBboxes?.get(draft.id) ?? anchor.boundingBox
   if (!bbox) return null
   const page = layout.entities.find((candidate) => candidate.id === anchor.pageId)
   if (!page) return null
   return pageViewportToScreen(bbox, page, layout)
-}
-
-/**
- * Render-time positioner for an element-anchored pending composer. The
- * stored `composerX/Y/Width` on `PendingAnnotation` is the click-time
- * fallback; we prefer the live bbox the page reports on scroll so the
- * composer follows page content (ADR 0006).
- */
-export function pendingElementComposerPosition(
-  pending: PendingAnnotation,
-  layout: ProjectedLayoutData,
-  liveBboxes?: AnnotationLiveBboxLookup,
-): { left: number; top: number; width: number } {
-  const fallback = {
-    left: pending.composerX,
-    top: pending.composerY,
-    width: pending.composerWidth,
-  }
-  const anchor = pending.request.anchor
-  if (anchor.type !== 'element') return fallback
-  const liveBbox = liveBboxes?.get(pending.draftId)
-  if (!liveBbox) return fallback
-
-  const elementRect = pendingElementScreenRect(pending, layout, liveBboxes)
-  if (!elementRect) return fallback
-  const composerWidth = pending.composerWidth
-  const { composerX, composerY } = elementAnchoredComposerPosition({
-    elementLeft: elementRect.left,
-    elementTop: elementRect.top,
-    elementHeight: elementRect.height,
-    composerWidth,
-  })
-  return { left: composerX, top: composerY, width: composerWidth }
 }

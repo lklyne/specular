@@ -111,6 +111,15 @@ function k(key: string, cmd = false, shift = false, alt = false): NormalizedKey 
   return { key, cmd, alt, shift }
 }
 
+// Text fields in the chrome panels (chat composer, sidebar rename, URL bar)
+// hold their own edit history, so Cmd+Z there undoes typing rather than the
+// canvas. Canvas text entities stay on workspace undo.
+const CANVAS_SURFACE: KeyboardSourceView[] = ['canvasBg', 'aboveView', 'page']
+
+function canvasOwnsUndo(ctx: BindingContext): boolean {
+  return !ctx.isTextEditing || CANVAS_SURFACE.includes(ctx.sourceView)
+}
+
 // Table order determines dispatch priority. Escape resolution relies on:
 //   annotation-close-thread / annotation-clear-draft → restore-focus-camera
 //   → escape-page-focus → escape-tool
@@ -130,8 +139,8 @@ export const BINDINGS: readonly Binding[] = [
   { id: 'tool-inspect', defaultKey: k('i'), scope: CANVAS_REGION, target: 'main', label: 'Inspect' },
 
   // Global shortcuts — fire from all views, fire while typing
-  { id: 'undo', defaultKey: k('z', true), scope: ALL_VIEWS, target: 'main', firesWhileTyping: true, label: 'Undo' },
-  { id: 'redo', defaultKey: k('z', true, true), scope: ALL_VIEWS, target: 'main', firesWhileTyping: true, label: 'Redo' },
+  { id: 'undo', defaultKey: k('z', true), scope: ALL_VIEWS, target: 'main', firesWhileTyping: true, when: canvasOwnsUndo, label: 'Undo' },
+  { id: 'redo', defaultKey: k('z', true, true), scope: ALL_VIEWS, target: 'main', firesWhileTyping: true, when: canvasOwnsUndo, label: 'Redo' },
   {
     id: 'reset-viewport',
     defaultKey: k('1', true),
@@ -256,7 +265,7 @@ export const BINDINGS: readonly Binding[] = [
     id: 'annotation-clear-draft',
     defaultKey: k('escape'),
     scope: ['aboveView'],
-    target: 'aboveView',
+    target: 'main',
     firesWhileTyping: true,
     when: (ctx) => ctx.hasPendingAnnotation,
     label: 'Clear annotation draft',

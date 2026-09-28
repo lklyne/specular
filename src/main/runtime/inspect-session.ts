@@ -49,6 +49,7 @@ import {
   getActiveThreadId,
   getAgentThreads,
 } from '../agent-thread/thread-runtime'
+import { commentDraftSnapshot } from './comment-draft-signal'
 import {
   findPageById,
   inspectActivePageId,
@@ -486,6 +487,7 @@ export function notifyDevtoolsPanelData(): void {
     fixConfig: getFixConfig(),
     agentThreads: getAgentThreads(),
     activeThreadId: getActiveThreadId(),
+    commentDraft: commentDraftSnapshot(),
     canvasName: spaceTabs.find((tab) => tab.id === activeSpaceTabId)?.name ?? null,
     spacePath: spaceDir(),
     ...buildEntityDetails(panelMode),

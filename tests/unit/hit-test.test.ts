@@ -439,6 +439,12 @@ describe('hit-test — drawing over a page wins by normal z-order (issue #123)',
     expect(result.payload).toMatchObject({ kind: 'resize-handle', entityId: 'd1' })
   })
 
+  it('a flat line (zero-height box) over a page is still grabbable', () => {
+    const line = drawing('line', 220, 260, 200, 0)
+    const result = hitTest(inputs([p, line]), { x: 300, y: 263 })
+    expect(result.payload).toMatchObject({ kind: 'entity-body', entityId: 'line' })
+  })
+
   it('the drawing does not leak into areas it does not cover', () => {
     // y=350 is inside the page body only, not the drawing. Should return page-body.
     const result = hitTest(inputs([p, d]), { x: 260, y: 350 })

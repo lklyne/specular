@@ -5,8 +5,15 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
-import { join } from 'path'
-import type { AgentThread, AgentThreadMessage, AgentThreadStatus } from '../../shared/agent-thread'
+import { join, relative } from 'path'
+import {
+  isThreadImageMediaType,
+  type AgentThread,
+  type AgentThreadImage,
+  type AgentThreadMessage,
+  type AgentThreadStatus,
+  type ThreadImageUpload,
+} from '../../shared/agent-thread'
 
 const INDEX_FILE = 'index.json'
 
@@ -65,6 +72,44 @@ export function writeThreadIndex(spacePath: string, activeThreadId: string | nul
 export function deleteThreadFile(spacePath: string, tabId: string, threadId: string): void {
   const path = join(threadsDir(spacePath, tabId), `${threadId}.json`)
   if (existsSync(path)) rmSync(path)
+  rmSync(attachmentsDir(spacePath, tabId, threadId), { recursive: true, force: true })
+}
+
+const IMAGE_EXTENSIONS: Record<ThreadImageUpload['mediaType'], string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+}
+
+function attachmentsDir(spacePath: string, tabId: string, threadId: string): string {
+  return join(threadsDir(spacePath, tabId), 'attachments', threadId)
+}
+
+/**
+ * Pasted images live as plain files beside the thread, so the thread JSON
+ * stays small and the agent can open an earlier turn's image with Read.
+ */
+export function writeThreadImage(
+  spacePath: string,
+  thread: Pick<AgentThread, 'id' | 'tabId'>,
+  imageId: string,
+  upload: ThreadImageUpload,
+): AgentThreadImage {
+  const dir = attachmentsDir(spacePath, thread.tabId, thread.id)
+  mkdirSync(dir, { recursive: true })
+  const file = join(dir, `${imageId}.${IMAGE_EXTENSIONS[upload.mediaType]}`)
+  writeFileSync(file, Buffer.from(upload.data, 'base64'))
+  return { path: relative(spacePath, file), mediaType: upload.mediaType }
+}
+
+/** The image as base64 for the model, or null when its file is gone. */
+export function readThreadImage(spacePath: string, image: AgentThreadImage): ThreadImageUpload | null {
+  try {
+    return { mediaType: image.mediaType, data: readFileSync(join(spacePath, image.path)).toString('base64') }
+  } catch {
+    return null
+  }
 }
 
 function readIndex(root: string): ThreadIndex {
@@ -137,7 +182,19 @@ function parseMessages(value: unknown): AgentThreadMessage[] {
       createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
       ...(raw.queued === true ? { queued: true } : {}),
       ...(typeof raw.annotationId === 'string' ? { annotationId: raw.annotationId } : {}),
+      ...parseImages(raw.images),
     })
   }
   return messages
+}
+
+function parseImages(value: unknown): { images?: AgentThreadImage[] } {
+  if (!Array.isArray(value)) return {}
+  const images = value.filter(
+    (item): item is AgentThreadImage =>
+      Boolean(item) &&
+      typeof (item as AgentThreadImage).path === 'string' &&
+      isThreadImageMediaType((item as AgentThreadImage).mediaType),
+  )
+  return images.length ? { images } : {}
 }

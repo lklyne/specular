@@ -1,4 +1,4 @@
-import { MessageSquare } from 'lucide-react'
+import { Image as ImageIcon, MessageSquare } from 'lucide-react'
 import type { AgentThreadMessage } from '../../../shared/agent-thread'
 import { usePaneTheme } from '../PaneContext'
 
@@ -20,13 +20,26 @@ export function QueuedComments({ messages }: { messages: AgentThreadMessage[] })
             isDark ? 'bg-zinc-800' : 'bg-zinc-200/60'
           }`}
         >
-          <MessageSquare
-            size={11}
-            className="mt-[5px] shrink-0 text-[var(--surface-foreground-muted)]"
-          />
-          <span className="line-clamp-3 min-w-0 flex-1 whitespace-pre-wrap">{message.text}</span>
+          {message.text.trim() ? (
+            <MessageSquare
+              size={11}
+              className="mt-[5px] shrink-0 text-[var(--surface-foreground-muted)]"
+            />
+          ) : (
+            <ImageIcon
+              size={11}
+              className="mt-[5px] shrink-0 text-[var(--surface-foreground-muted)]"
+            />
+          )}
+          <span className="line-clamp-3 min-w-0 flex-1 whitespace-pre-wrap">
+            {message.text.trim() || imageLabel(message.images?.length ?? 0)}
+          </span>
         </div>
       ))}
     </div>
   )
+}
+
+function imageLabel(count: number): string {
+  return count === 1 ? 'Image' : `${count} images`
 }

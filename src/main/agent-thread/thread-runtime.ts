@@ -6,10 +6,13 @@
 import { randomUUID } from 'crypto'
 import type { Annotation, FixProgressEvent } from '../../shared/types'
 import {
+  messageHasContent,
   resolveThreadPill,
   shouldStartNewDraft,
   threadTitleFromMessages,
   type AgentThread,
+  type AgentThreadImage,
+  type ThreadImageUpload,
   type ThreadPill,
   type ThreadPillInput,
   type ThreadWriteTarget,
@@ -42,7 +45,9 @@ import { buildThreadFollowUpPrompt, buildThreadPrompt } from './thread-prompt'
 import {
   deleteThreadFile,
   loadThreads,
+  readThreadImage,
   writeThread,
+  writeThreadImage,
   writeThreadIndex,
 } from './thread-store'
 
@@ -170,7 +175,12 @@ export function queueCommentOnAnnotation(annotation: Annotation): string | null 
     thread = newAgentThread()
   }
   if (!thread) return null
-  appendQueuedUserMessage(thread, annotation.text.trim() || '(comment)', annotation.id)
+  appendQueuedUserMessage(
+    thread,
+    annotation.text.trim() || '(comment)',
+    annotation.id,
+    takeStagedCommentImages(),
+  )
   return thread.id
 }
 
@@ -192,8 +202,14 @@ export function queueReplyOnAnnotation(annotation: Annotation, text: string): st
   return existing.id
 }
 
-function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId: string): void {
+function appendQueuedUserMessage(
+  thread: AgentThread,
+  text: string,
+  annotationId: string,
+  uploads: ThreadImageUpload[] = [],
+): void {
   const now = new Date().toISOString()
+  const images = uploads.map((upload) => writeThreadImage(spaceDir(), thread, makeId('img'), upload))
   thread.messages.push({
     id: makeId('tmsg'),
     role: 'user',
@@ -201,6 +217,7 @@ function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId
     createdAt: now,
     queued: true,
     annotationId,
+    ...(images.length ? { images } : {}),
   })
   if (!thread.annotationIds.includes(annotationId)) {
     thread.annotationIds.push(annotationId)
@@ -212,30 +229,51 @@ function appendQueuedUserMessage(thread: AgentThread, text: string, annotationId
 }
 
 /**
+ * Images pasted alongside a comment draft. The annotation itself carries no
+ * images, so the draft stages them here just before creating it and the
+ * comment's own queued message takes them — in time for an auto-fix send,
+ * which dispatches inside annotation creation.
+ */
+let stagedCommentImages: ThreadImageUpload[] = []
+
+export function stageCommentImages(uploads: ThreadImageUpload[]): void {
+  stagedCommentImages = uploads
+}
+
+function takeStagedCommentImages(): ThreadImageUpload[] {
+  const uploads = stagedCommentImages
+  stagedCommentImages = []
+  return uploads
+}
+
+/**
  * Send: everything queued on the thread becomes this turn. A run already in
  * flight keeps the new message queued instead of refusing it — the user can
  * keep typing, and the queue is drained the moment that run finishes.
  */
-export function sendActiveThread(composerText?: string): boolean {
+export function sendActiveThread(composerText?: string, uploads: ThreadImageUpload[] = []): boolean {
   const tabId = activeSpaceTabId
   if (!tabId) return false
   ensureThreadsLoaded()
   let thread = getActiveThread()
   const extra = composerText?.trim() ?? ''
   if (!thread) {
-    if (!extra) return false
+    if (!extra && uploads.length === 0) return false
     thread = newAgentThread()
   }
   if (!thread) return false
 
-  if (extra) {
+  if (extra || uploads.length > 0) {
     const now = new Date().toISOString()
+    const target = thread
+    const images = uploads.map((upload) => writeThreadImage(spaceDir(), target, makeId('img'), upload))
     thread.messages.push({
       id: makeId('tmsg'),
       role: 'user',
       text: extra,
       createdAt: now,
       queued: true,
+      ...(images.length ? { images } : {}),
     })
     thread.title = threadTitleFromMessages(thread.messages)
     thread.updatedAt = now
@@ -256,7 +294,12 @@ export function sendCommentOnAnnotation(annotation: Annotation): string | null {
   ensureThreadsLoaded()
   const thread = getActiveThread() ?? newAgentThread()
   if (!thread) return null
-  appendQueuedUserMessage(thread, annotation.text.trim() || '(comment)', annotation.id)
+  appendQueuedUserMessage(
+    thread,
+    annotation.text.trim() || '(comment)',
+    annotation.id,
+    takeStagedCommentImages(),
+  )
   dispatchThread(thread, annotationPill(annotation))
   return thread.id
 }
@@ -271,16 +314,26 @@ export function sendAgentThread(threadId: string): boolean {
 
 /** A run in flight keeps the turn queued; it drains when that run ends. */
 function dispatchThread(thread: AgentThread, pill: ThreadPill): boolean {
-  if (isAnnotationInFlight(thread.id)) return queuedTurnText(thread).length > 0
+  if (isAnnotationInFlight(thread.id)) return hasQueuedTurn(thread)
   return startThreadRun(thread, pill)
+}
+
+function queuedUserMessages(thread: AgentThread) {
+  return thread.messages.filter(
+    (message) => message.queued && message.role === 'user' && messageHasContent(message),
+  )
 }
 
 /** What the queued messages say, as one turn. */
 function queuedTurnText(thread: AgentThread): string {
-  return thread.messages
-    .filter((message) => message.queued && message.role === 'user' && message.text.trim())
+  return queuedUserMessages(thread)
     .map((message) => message.text.trim())
+    .filter(Boolean)
     .join('\n\n')
+}
+
+function hasQueuedTurn(thread: AgentThread): boolean {
+  return queuedUserMessages(thread).length > 0
 }
 
 /** The pin behind the most recent queued comment — where a drained turn is aimed. */
@@ -312,7 +365,9 @@ function annotationPill(annotation: Annotation): ThreadPill {
  */
 function startThreadRun(thread: AgentThread, pill: ThreadPill): boolean {
   const turn = queuedTurnText(thread)
-  if (!thread.messages.some((message) => message.role === 'user' && message.text.trim())) {
+  const turnImages = queuedUserMessages(thread).flatMap((message) => message.images ?? [])
+  const hasTurn = hasQueuedTurn(thread)
+  if (!thread.messages.some((message) => message.role === 'user' && messageHasContent(message))) {
     return false
   }
 
@@ -331,8 +386,8 @@ function startThreadRun(thread: AgentThread, pill: ThreadPill): boolean {
     writeTarget,
     spacePath: spaceDir(),
   })
-  const prompt = resumeSessionId && turn
-    ? buildThreadFollowUpPrompt(turn, pill)
+  const prompt = resumeSessionId && hasTurn
+    ? buildThreadFollowUpPrompt(turn, pill, turnImages.length)
     : fullPrompt
 
   startFixProgress(thread.id, progressKey)
@@ -343,6 +398,7 @@ function startThreadRun(thread: AgentThread, pill: ThreadPill): boolean {
     resumeSessionId,
     cwd: spaceDir(),
     progressKey,
+    images: turnImages,
   })
   return true
 }
@@ -353,6 +409,8 @@ type ThreadAgentPlan = {
   resumeSessionId?: string
   cwd: string
   progressKey: string
+  /** This turn's pasted images; earlier turns' stay on disk for the agent to Read. */
+  images: AgentThreadImage[]
 }
 
 type ThreadAgentOutcome =
@@ -369,18 +427,22 @@ async function invokeThreadAgent(
   plan: ThreadAgentPlan,
 ): Promise<ThreadAgentOutcome> {
   const onEvent = (event: FixProgressEvent) =>
-    appendFixEvent(threadId, event.kind, event.text)
+    appendFixEvent(threadId, event.kind, event.text, event.label)
+  const images = plan.images
+    .map((image) => readThreadImage(plan.cwd, image))
+    .filter((image): image is ThreadImageUpload => image !== null)
   try {
     const result = await runFixAgent(plan.prompt, plan.cwd, {
       resumeSessionId: plan.resumeSessionId,
       onEvent,
+      images,
     })
     return { result, error: null }
   } catch (err) {
     if (!plan.resumeSessionId) return { result: null, error: toError(err) }
     appendFixEvent(threadId, 'system', 'Could not resume prior session — starting fresh.')
     try {
-      const result = await runFixAgent(plan.fullPrompt, plan.cwd, { onEvent })
+      const result = await runFixAgent(plan.fullPrompt, plan.cwd, { onEvent, images })
       return { result, error: null }
     } catch (retryErr) {
       return { result: null, error: toError(retryErr) }
@@ -421,7 +483,7 @@ async function runThreadAgent(threadId: string, plan: ThreadAgentPlan): Promise<
 
   // Follow-ups typed while this run was in flight. A failed run leaves them
   // queued instead: the user re-sends when they have decided what to do.
-  if (queuedTurnText(thread)) {
+  if (hasQueuedTurn(thread)) {
     startThreadRun(thread, queuedAnnotationPill(thread) ?? captureThreadPill())
   }
 }

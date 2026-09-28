@@ -156,14 +156,17 @@ export function CommentBubble({
   text,
   fallback,
   annotationId,
+  imageSrcs,
 }: {
   author: string
   text?: string | null
   fallback?: string
   /** The canvas pin this message came from, for panel focus lookups. */
   annotationId?: string
+  /** Images sent with a user message, shown as thumbnails inside its bubble. */
+  imageSrcs?: string[]
 }) {
-  if (!text) {
+  if (!text && !imageSrcs?.length) {
     return fallback ? (
       <div className="text-[12px] italic text-[var(--surface-foreground-muted)]">{fallback}</div>
     ) : null
@@ -172,7 +175,7 @@ export function CommentBubble({
   if (author === 'agent') {
     return (
       <div className="min-w-0 text-[12px] leading-relaxed text-[var(--surface-foreground)]">
-        <Markdown text={text} />
+        <Markdown text={text ?? ''} />
       </div>
     )
   }
@@ -186,6 +189,18 @@ export function CommentBubble({
         data-annotation-id={annotationId}
         className="inline-block max-w-full whitespace-pre-wrap rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)] px-3 py-1.5 text-[12px] leading-relaxed text-[var(--surface-foreground)] [overflow-wrap:anywhere]"
       >
+        {imageSrcs?.length ? (
+          <div className="flex flex-wrap gap-1.5 py-1.5">
+            {imageSrcs.map((src) => (
+              <img
+                key={src}
+                src={src}
+                alt="Attached image"
+                className="h-12 w-12 shrink-0 rounded-md border border-zinc-300 object-cover dark:border-zinc-600"
+              />
+            ))}
+          </div>
+        ) : null}
         {text}
       </div>
     </div>

@@ -24,9 +24,7 @@ import { darkenHex, lightenHex, NEUTRAL_STORAGE, resolveCanvasColor } from '../.
 // the per-node id table and an mcp__plugin_figma_figma__use_figma recipe.
 
 import addDocumentUrl from './icons/toolbar/add-document.svg'
-import addPageUrl from './icons/toolbar/add-page.svg'
 import addTextUrl from './icons/toolbar/add-text.svg'
-import commentUrl from './icons/toolbar/comment.svg'
 import handUrl from './icons/toolbar/hand.svg'
 import inspectUrl from './icons/toolbar/inspect.svg'
 import moonUrl from './icons/toolbar/moon.svg'
@@ -35,9 +33,7 @@ import sunUrl from './icons/toolbar/sun.svg'
 import sunMoonUrl from './icons/toolbar/sun-moon.svg'
 import zoomChevronUrl from './icons/toolbar/zoom-chevron.svg'
 import addDocumentDarkUrl from './icons/toolbar/dark/add-document.svg'
-import addPageDarkUrl from './icons/toolbar/dark/add-page.svg'
 import addTextDarkUrl from './icons/toolbar/dark/add-text.svg'
-import commentDarkUrl from './icons/toolbar/dark/comment.svg'
 import handDarkUrl from './icons/toolbar/dark/hand.svg'
 import inspectDarkUrl from './icons/toolbar/dark/inspect.svg'
 import moonDarkUrl from './icons/toolbar/dark/moon.svg'
@@ -423,8 +419,8 @@ export function AddShapeToolIcon({
       className={className}
       style={style}
     >
-      <rect x="0.5" y="1.5" width="10" height="10" rx="1.5" fill={`url(#${paint0})`} stroke={stroke} />
-      <rect x="6.5" y="8.5" width="9" height="9" rx="4.5" fill={`url(#${paint1})`} stroke={stroke} />
+      <rect className="tb-shape-square" x="0.5" y="1.5" width="10" height="10" rx="1.5" fill={`url(#${paint0})`} stroke={stroke} />
+      <rect className="tb-shape-circle" x="6.5" y="8.5" width="9" height="9" rx="4.5" fill={`url(#${paint1})`} stroke={stroke} />
       <path
         d="M13 1.5C12.7239 1.5 12.5 1.72386 12.5 2C12.5 2.27614 12.7239 2.5 13 2.5L13 2L13 1.5ZM17 8L16.6464 8.35355L17 8.70711L17.3536 8.35355L17 8ZM19.3536 6.35355L19.7071 6L19 5.29289L18.6464 5.64645L19 6L19.3536 6.35355ZM15.3536 5.64645L15 5.29289L14.2929 6L14.6464 6.35355L15 6L15.3536 5.64645ZM13 2L13 2.5L15 2.5L15 2L15 1.5L13 1.5L13 2ZM17 4L16.5 4L16.5 8L17 8L17.5 8L17.5 4L17 4ZM17 8L17.3536 8.35355L19.3536 6.35355L19 6L18.6464 5.64645L16.6464 7.64645L17 8ZM17 8L17.3536 7.64645L15.3536 5.64645L15 6L14.6464 6.35355L16.6464 8.35355L17 8ZM15 2L15 2.5C15.8284 2.5 16.5 3.17157 16.5 4L17 4L17.5 4C17.5 2.61929 16.3807 1.5 15 1.5L15 2Z"
         fill={stroke}
@@ -437,6 +433,113 @@ export function AddShapeToolIcon({
         <linearGradient id={paint1} x1="11" y1="8" x2="11" y2="18" gradientUnits="userSpaceOnUse">
           <stop stopColor={fillTop} />
           <stop offset="1" stopColor={fillBottom} />
+        </linearGradient>
+      </defs>
+    </svg>
+  )
+}
+
+// ── AddPageToolIcon (inline JSX so the desktop and phone can move apart on
+// toolbar hover). ─────────────────────────────────────────────────────────
+
+export function AddPageToolIcon({ size = 20, isDark = false, className, style }: ToolbarIconProps) {
+  const uid = useId()
+  const clip = `add-page-clip-${uid}`
+  const desktopClip = `add-page-desktop-clip-${uid}`
+  const phoneClip = `add-page-phone-clip-${uid}`
+  const desktopPaint = `add-page-desktop-paint-${uid}`
+  const phonePaint = `add-page-phone-paint-${uid}`
+  const stroke = isDark ? '#E2DEDB' : '#45403C'
+  const chrome = isDark ? '#65625D' : '#EDEBE3'
+  const fillTop = isDark ? '#65625D' : '#F4F4F4'
+  const fillBottom = isDark ? '#484744' : '#DCDCDC'
+  const phoneRect = { x: 11.123, y: 3, width: 9, height: 14, rx: 2.32621, transform: 'rotate(15 11.123 3)' }
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+    >
+      <g clipPath={`url(#${clip})`}>
+        <g className="tb-page-desktop">
+          <g clipPath={`url(#${desktopClip})`}>
+            <rect x="0.5" y="1" width="16" height="12" rx="2" fill={`url(#${desktopPaint})`} />
+            <rect y="1" width="25" height="5" fill={chrome} stroke={stroke} />
+            <circle cx="3.5" cy="3.5" r="1" fill={stroke} />
+            <circle cx="6.5" cy="3.5" r="1" fill={stroke} />
+            <circle cx="9.5" cy="3.5" r="1" fill={stroke} />
+          </g>
+          <rect x="0.5" y="1" width="16" height="12" rx="2" stroke={stroke} />
+        </g>
+        <g className="tb-page-phone">
+          <g clipPath={`url(#${phoneClip})`}>
+            <rect {...phoneRect} fill={`url(#${phonePaint})`} />
+            <line x1="10.5616" y1="14.7548" x2="14.4253" y2="15.7901" stroke={stroke} strokeLinecap="round" />
+          </g>
+          <rect {...phoneRect} stroke={stroke} />
+        </g>
+      </g>
+      <defs>
+        <linearGradient id={desktopPaint} x1="8.5" y1="1" x2="8.5" y2="13" gradientUnits="userSpaceOnUse">
+          <stop stopColor={fillTop} />
+          <stop offset="1" stopColor={fillBottom} />
+        </linearGradient>
+        <linearGradient id={phonePaint} x1="15.623" y1="3" x2="15.623" y2="17" gradientUnits="userSpaceOnUse">
+          <stop stopColor={fillTop} />
+          <stop offset="1" stopColor={fillBottom} />
+        </linearGradient>
+        {/* Padded past the viewBox so the toolbar hover spread isn't cut off. */}
+        <clipPath id={clip}>
+          <rect x="-4" y="-4" width="28" height="28" fill="white" />
+        </clipPath>
+        <clipPath id={desktopClip}>
+          <rect x="0.5" y="1" width="16" height="12" rx="2" fill="white" />
+        </clipPath>
+        <clipPath id={phoneClip}>
+          <rect {...phoneRect} fill="white" />
+        </clipPath>
+      </defs>
+    </svg>
+  )
+}
+
+// ── CommentToolIcon (inline JSX so the bubble can move on toolbar hover
+// while the dashed selection corner stays put). ───────────────────────────
+
+export function CommentToolIcon({ size = 20, isDark = false, className, style }: ToolbarIconProps) {
+  const paint = `comment-paint-${useId()}`
+  const stroke = isDark ? '#E2DEDB' : '#45403C'
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={style}
+    >
+      <path
+        className="tb-comment-bubble"
+        d="M10.1973 2.52441C9.14264 1.77102 7.85559 1.4147 6.56348 1.51758C5.2714 1.6205 4.05688 2.17607 3.13477 3.08691C2.2127 3.99778 1.64221 5.20543 1.52344 6.49609C1.40477 7.78678 1.74588 9.07781 2.48633 10.1416C3.2268 11.2054 4.31879 11.9736 5.57031 12.3105C6.81559 12.6457 8.13942 12.5326 9.30957 11.9912L9.3457 11.9766L9.50586 11.9287C9.66789 11.8924 9.83647 11.8884 10.001 11.918L10.0527 11.9307L11.9502 12.4854C12.0215 12.5043 12.0971 12.5048 12.1699 12.4863C12.2425 12.4679 12.3094 12.4318 12.3633 12.3809C12.4172 12.3299 12.457 12.2655 12.4795 12.1943C12.5014 12.1249 12.5051 12.051 12.4912 11.9795L12.4893 11.9717L11.9023 10.1572C11.8964 10.1388 11.8915 10.1196 11.8877 10.1006C11.8412 9.86704 11.862 9.62505 11.9482 9.40332L11.9629 9.36914L12.0625 9.14941C12.5331 8.04125 12.6279 6.80667 12.3281 5.63574C12.0066 4.38002 11.2519 3.27786 10.1973 2.52441Z"
+        fill={`url(#${paint})`}
+        stroke={stroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 17.5C5.27614 17.5 5.5 17.2761 5.5 17C5.5 16.7239 5.27614 16.5 5 16.5C4.73478 16.5 4.48051 16.3946 4.29297 16.207C4.10543 16.0195 4 15.7652 4 15.5C4 15.2239 3.77614 15 3.5 15C3.22386 15 3 15.2239 3 15.5C3 16.0304 3.21087 16.539 3.58594 16.9141C3.96101 17.2891 4.46957 17.5 5 17.5ZM8 17.5L8.75 17.5C9.02614 17.5 9.25 17.2761 9.25 17C9.25 16.7239 9.02614 16.5 8.75 16.5L8 16.5C7.72386 16.5 7.5 16.7239 7.5 17C7.5 17.2761 7.72386 17.5 8 17.5ZM11.75 17.5L12.5 17.5C12.7761 17.5 13 17.2761 13 17C13 16.7239 12.7761 16.5 12.5 16.5L11.75 16.5C11.4739 16.5 11.25 16.7239 11.25 17C11.25 17.2761 11.4739 17.5 11.75 17.5ZM15.5 17.5C16.0304 17.5 16.539 17.2891 16.9141 16.9141C17.2891 16.539 17.5 16.0304 17.5 15.5C17.5 15.2239 17.2761 15 17 15C16.7239 15 16.5 15.2239 16.5 15.5C16.5 15.7652 16.3946 16.0195 16.207 16.207C16.0195 16.3946 15.7652 16.5 15.5 16.5C15.2239 16.5 15 16.7239 15 17C15 17.2761 15.2239 17.5 15.5 17.5ZM15.5 4C15.7652 4 16.0195 4.10543 16.207 4.29297C16.3946 4.4805 16.5 4.73478 16.5 5C16.5 5.27614 16.7239 5.5 17 5.5C17.2761 5.5 17.5 5.27614 17.5 5C17.5 4.46957 17.2891 3.96101 16.9141 3.58594C16.539 3.21087 16.0304 3 15.5 3C15.2239 3 15 3.22386 15 3.5C15 3.77614 15.2239 4 15.5 4ZM17.5 11.75C17.5 11.4739 17.2761 11.25 17 11.25C16.7239 11.25 16.5 11.4739 16.5 11.75L16.5 12.5C16.5 12.7761 16.7239 13 17 13C17.2761 13 17.5 12.7761 17.5 12.5L17.5 11.75ZM17.5 8C17.5 7.72386 17.2761 7.5 17 7.5C16.7239 7.5 16.5 7.72386 16.5 8L16.5 8.75C16.5 9.02614 16.7239 9.25 17 9.25C17.2761 9.25 17.5 9.02614 17.5 8.75L17.5 8Z"
+        fill={stroke}
+      />
+      <defs>
+        <linearGradient id={paint} x1="7" y1="1" x2="7" y2="13" gradientUnits="userSpaceOnUse">
+          <stop stopColor={isDark ? '#65625D' : '#F4F4F4'} />
+          <stop offset="1" stopColor={isDark ? '#484744' : '#DCDCDC'} />
         </linearGradient>
       </defs>
     </svg>
@@ -505,7 +608,7 @@ export function AddStickyToolIcon({
       style={style}
     >
       <g clipPath={`url(#${clip})`}>
-        <g filter={`url(#${filter0})`}>
+        <g className="tb-sticky-back" filter={`url(#${filter0})`}>
           <rect
             width="15"
             height="15"
@@ -523,24 +626,26 @@ export function AddStickyToolIcon({
             stroke={stroke}
           />
         </g>
-        <g filter={`url(#${filter1})`}>
+        <g className="tb-sticky-front">
+          <g filter={`url(#${filter1})`}>
+            <path
+              d="M1.00098 3V14C1.00098 15.1046 1.89641 16 3.00098 16H14.001C15.1055 16 16.001 15.1046 16.001 14V10.875C16.001 5 12.001 1 8.40098 1H3.00098C1.89641 1 1.00098 1.89543 1.00098 3Z"
+              fill={`url(#${paint1})`}
+            />
+            <path
+              d="M3.00098 1.5H8.40137C11.645 1.5003 15.501 5.18877 15.501 10.875V14C15.501 14.8284 14.8294 15.5 14.001 15.5H3.00098C2.17255 15.5 1.50098 14.8284 1.50098 14V3C1.50098 2.17157 2.17255 1.5 3.00098 1.5Z"
+              stroke={stroke}
+            />
+          </g>
           <path
-            d="M1.00098 3V14C1.00098 15.1046 1.89641 16 3.00098 16H14.001C15.1055 16 16.001 15.1046 16.001 14V10.875C16.001 5 12.001 1 8.40098 1H3.00098C1.89641 1 1.00098 1.89543 1.00098 3Z"
-            fill={`url(#${paint1})`}
-          />
-          <path
-            d="M3.00098 1.5H8.40137C11.645 1.5003 15.501 5.18877 15.501 10.875V14C15.501 14.8284 14.8294 15.5 14.001 15.5H3.00098C2.17255 15.5 1.50098 14.8284 1.50098 14V3C1.50098 2.17157 2.17255 1.5 3.00098 1.5Z"
+            d="M8.40137 1.5C8.51643 1.5 8.6648 1.53695 8.83652 1.60729C10.9037 2.45409 10.8554 5.23078 9.81889 7.2097C9.72914 7.38106 9.87327 7.58141 10.0643 7.55079L10.6922 7.45012C12.4547 7.16758 14.379 7.70514 15.0699 9.35098C15.3914 10.1167 15.5 10.743 15.5 11"
             stroke={stroke}
           />
+          <path
+            d="M2 8H12C13.6569 8 15 9.34315 15 11V14C15 14.5523 14.5523 15 14 15H3C2.44772 15 2 14.5523 2 14V8Z"
+            fill={`url(#${paint2})`}
+          />
         </g>
-        <path
-          d="M8.40137 1.5C8.51643 1.5 8.6648 1.53695 8.83652 1.60729C10.9037 2.45409 10.8554 5.23078 9.81889 7.2097C9.72914 7.38106 9.87327 7.58141 10.0643 7.55079L10.6922 7.45012C12.4547 7.16758 14.379 7.70514 15.0699 9.35098C15.3914 10.1167 15.5 10.743 15.5 11"
-          stroke={stroke}
-        />
-        <path
-          d="M2 8H12C13.6569 8 15 9.34315 15 11V14C15 14.5523 14.5523 15 14 15H3C2.44772 15 2 14.5523 2 14V8Z"
-          fill={`url(#${paint2})`}
-        />
       </g>
       <defs>
         <filter
@@ -620,22 +725,21 @@ export function AddStickyToolIcon({
           <stop stopColor={paperTop} stopOpacity="0" />
           <stop offset="1" stopColor={paperBottom} />
         </linearGradient>
+        {/* Padded past the viewBox so the toolbar hover spread isn't cut off. */}
         <clipPath id={clip}>
-          <rect width="20" height="20" fill="white" />
+          <rect x="-4" y="-4" width="28" height="28" fill="white" />
         </clipPath>
       </defs>
     </svg>
   )
 }
 
-export const AddPageToolIcon = makeToolbarIcon(addPageUrl, addPageDarkUrl, 'AddPageToolIcon')
 export const AddTextToolIcon = makeToolbarIcon(addTextUrl, addTextDarkUrl, 'AddTextToolIcon')
 export const AddDocumentToolIcon = makeToolbarIcon(
   addDocumentUrl,
   addDocumentDarkUrl,
   'AddDocumentToolIcon',
 )
-export const CommentToolIcon = makeToolbarIcon(commentUrl, commentDarkUrl, 'CommentToolIcon')
 export const InspectToolIcon = makeToolbarIcon(inspectUrl, inspectDarkUrl, 'InspectToolIcon')
 export const SunToolIcon = makeToolbarIcon(sunUrl, sunDarkUrl, 'SunToolIcon')
 export const MoonToolIcon = makeToolbarIcon(moonUrl, moonDarkUrl, 'MoonToolIcon')

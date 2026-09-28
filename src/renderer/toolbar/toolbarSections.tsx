@@ -44,7 +44,7 @@ function toolbarIconBtnClass(isDark: boolean): string {
 // surface and its glyphs need to read at a glance.
 function toolbarToolBtnClass(isDark: boolean, active: boolean): string {
   const base =
-    'tb-hit flex h-7 w-8 items-center justify-center rounded-[6px] border-0 transition-colors disabled:pointer-events-none disabled:opacity-45'
+    'tb-hit tb-tool flex h-7 w-8 items-center justify-center rounded-[6px] border-0 transition-colors disabled:pointer-events-none disabled:opacity-45'
   if (active) {
     return isDark
       ? `${base} bg-[rgba(253,248,245,0.1)] text-zinc-100`
@@ -58,14 +58,6 @@ function toolbarToolBtnClass(isDark: boolean, active: boolean): string {
 // Toolbar icon glyphs render at 20px wide per the Figma spec; the largest
 // natural-aspect asset (29×27 add-page) sits comfortably inside the 32×28 button.
 const TOOL_GLYPH_SIZE = 20
-
-// Light and dark glyphs ship as parallel SVG assets — see `makeToolbarIcon`
-// in CustomIcons.tsx, which picks the right URL from `isDark`. CSS only
-// applies the drop-shadow on top; we no longer invert the light asset for
-// dark mode because that pushed the light-grey gradient to near-black and
-// looked muddy against the dark toolbar.
-const TOOLBAR_GLYPH_SHADOW = 'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18))'
-const TOOLBAR_GLYPH_STYLE: React.CSSProperties = { filter: TOOLBAR_GLYPH_SHADOW }
 
 function ToolbarDivider({ isDark }: { isDark: boolean }) {
   return (
@@ -179,9 +171,10 @@ export function CenterActions({
             onClick={onSelectTool}
             className={buttonClass(activeTool.kind === 'select')}
             aria-label="Select tool"
+            data-glyph="select"
             type="button"
           >
-            <SelectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            <SelectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
           </button>
         </ToolbarTooltip>
 
@@ -190,9 +183,10 @@ export function CenterActions({
             onClick={onToggleHandTool}
             className={buttonClass(activeTool.kind === 'hand')}
             aria-label="Hand tool"
+            data-glyph="hand"
             type="button"
           >
-            <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            <HandToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
           </button>
         </ToolbarTooltip>
 
@@ -203,6 +197,7 @@ export function CenterActions({
             onClick={onToggleDrawMode}
             className={buttonClass(activeTool.kind === 'draw')}
             aria-label="Draw"
+            data-glyph="draw"
             type="button"
           >
             {drawBrushType === 'pen' ? (
@@ -210,14 +205,14 @@ export function CenterActions({
                 size={TOOL_GLYPH_SIZE}
                 isDark={isDark}
                 ink={drawInk}
-                style={TOOLBAR_GLYPH_STYLE}
+               
               />
             ) : (
               <DrawHighlightToolIcon
                 size={TOOL_GLYPH_SIZE}
                 isDark={isDark}
                 ink={drawInk}
-                style={TOOLBAR_GLYPH_STYLE}
+               
               />
             )}
           </button>
@@ -228,6 +223,7 @@ export function CenterActions({
             onClick={onAddSticky}
             className={buttonClass(activeTool.kind === 'add-sticky')}
             aria-label="Add sticky"
+            data-glyph="sticky"
             type="button"
           >
             <AddStickyToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} color={stickyColor} />
@@ -239,13 +235,14 @@ export function CenterActions({
             onClick={onAddShape}
             className={buttonClass(activeTool.kind === 'add-shape')}
             aria-label="Add shape"
+            data-glyph="shape"
             type="button"
           >
             <AddShapeToolIcon
               size={TOOL_GLYPH_SIZE}
               isDark={isDark}
               color={shapeColor}
-              style={TOOLBAR_GLYPH_STYLE}
+             
             />
           </button>
         </ToolbarTooltip>
@@ -255,12 +252,13 @@ export function CenterActions({
             onClick={onAddPage}
             className={buttonClass(activeTool.kind === 'add-page')}
             aria-label="Add page"
+            data-glyph="page"
             type="button"
           >
             <AddPageToolIcon
               size={TOOL_GLYPH_SIZE}
               isDark={isDark}
-              style={TOOLBAR_GLYPH_STYLE}
+             
             />
           </button>
         </ToolbarTooltip>
@@ -270,9 +268,10 @@ export function CenterActions({
             onClick={onAddText}
             className={buttonClass(activeTool.kind === 'add-text')}
             aria-label="Add text"
+            data-glyph="text"
             type="button"
           >
-            <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            <AddTextToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
           </button>
         </ToolbarTooltip>
 
@@ -281,9 +280,10 @@ export function CenterActions({
             onClick={onAddDocument}
             className={buttonClass(activeTool.kind === 'add-document')}
             aria-label="Add document"
+            data-glyph="document"
             type="button"
           >
-            <AddDocumentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            <AddDocumentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
           </button>
         </ToolbarTooltip>
 
@@ -294,9 +294,10 @@ export function CenterActions({
             onClick={onToggleCommentMode}
             className={buttonClass(activeTool.kind === 'comment')}
             aria-label="Comment"
+            data-glyph="comment"
             type="button"
           >
-            <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            <CommentToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
           </button>
         </ToolbarTooltip>
 
@@ -305,9 +306,10 @@ export function CenterActions({
             onClick={onToggleInspectMode}
             className={buttonClass(activeTool.kind === 'inspect')}
             aria-label={hasSelection ? 'Inspect' : 'Inspect any page'}
+            data-glyph="inspect"
             type="button"
           >
-            <InspectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+            <InspectToolIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
           </button>
         </ToolbarTooltip>
 
@@ -321,9 +323,10 @@ export function CenterActions({
                 type="button"
                 className={buttonClass(false)}
                 aria-label={`Theme: ${THEME_MODE_LABEL[themeMode]}. Click to change.`}
+                data-glyph="theme"
                 onClick={() => onThemeModeSelect(nextThemeMode(themeMode))}
               >
-                <ThemeIcon size={TOOL_GLYPH_SIZE} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+                <ThemeIcon size={TOOL_GLYPH_SIZE} isDark={isDark} />
               </button>
             </ToolbarTooltip>
           )
@@ -339,7 +342,7 @@ export function CenterActions({
           trigger={
             <button type="button" data-zoom-anchor className={selectTriggerClassName} title="Zoom">
               <span>{zoomPercent}%</span>
-              <ZoomChevronIcon size={10} isDark={isDark} style={TOOLBAR_GLYPH_STYLE} />
+              <ZoomChevronIcon size={10} isDark={isDark} />
             </button>
           }
         />

@@ -311,8 +311,8 @@ export function registerCanvasIpc(): void {
 
   ipcMain.on(
     ipcChannels.canvasSetAnnotationState,
-    (_event, { hasOpenThread, hasPending }: { hasOpenThread: boolean; hasPending: boolean }) => {
-      setAnnotationState(hasOpenThread, hasPending)
+    (_event, { hasOpenThread }: { hasOpenThread: boolean }) => {
+      setAnnotationState(hasOpenThread)
     },
   )
 

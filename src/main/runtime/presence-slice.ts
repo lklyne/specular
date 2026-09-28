@@ -8,6 +8,7 @@
  * and the pass reads the same function for its snapshot.
  */
 
+import { ipcChannels } from '../../shared/ipc-contract'
 import { selectAmbientMode } from '../../shared/presence-ambient'
 import { resolvePresencePagePoint } from '../../shared/presence-targeting'
 import type { RuntimeStoreSlices } from '../../shared/runtime-store'
@@ -16,6 +17,7 @@ import { getPresenceCursors } from '../presence-cursor'
 import { pageInScene } from './page-scene-entity'
 import { getCursorVisibility } from './preferences'
 import { pages } from './runtime-context'
+import { devtoolsHeaderView } from './view-refs'
 import {
   projectFramePointToCanvas,
   boundEffectivePageContentSize as effectivePageContentSize,
@@ -58,6 +60,27 @@ export function visiblePresenceCursors(): ReturnType<typeof getPresenceCursors> 
   return getPresenceCursors().filter((cursor) =>
     cursor.source === 'interaction-sync' ? !hideSyncedCursors : !hideAgentCursors,
   )
+}
+
+let sentAgentCursorColor: string | null = null
+
+/** Tells the right panel which colour the agent cursor on the canvas is, so the
+ *  chat's run bar can echo it. Presence changes on every cursor move; the panel
+ *  hears only when the colour itself changes. */
+export function sendAgentCursorColorToPanel(): void {
+  const color = activeAgentCursorColor()
+  if (!devtoolsHeaderView || color === sentAgentCursorColor) return
+  sentAgentCursorColor = color
+  devtoolsHeaderView.webContents.send(ipcChannels.rightDetailsPanelAgentCursorColor, color)
+}
+
+function activeAgentCursorColor(): string | null {
+  let latest: ReturnType<typeof getPresenceCursors>[number] | null = null
+  for (const cursor of visiblePresenceCursors()) {
+    if (cursor.source === 'interaction-sync') continue
+    if (!latest || cursor.updatedAt > latest.updatedAt) latest = cursor
+  }
+  return latest?.color ?? null
 }
 
 export function currentPresenceSlice(): RuntimeStoreSlices['presence'] {

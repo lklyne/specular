@@ -17,6 +17,7 @@ import { mainHandlers } from './binding-handlers'
 import { hasFocusReturnCamera } from './viewport-control'
 import { findPageById } from './runtime-context'
 import { currentKeyboardTargetPageId } from './selection-controller'
+import { commentDraftSnapshot } from './comment-draft-signal'
 
 // Track text-editing state per webContents. A keystroke can only land in the
 // webContents that has focus, so dispatch consults that source's flag — not
@@ -24,14 +25,13 @@ import { currentKeyboardTargetPageId } from './selection-controller'
 // with an autofocused input) suppress canvas-region shortcuts.
 const textEditingByWebContents = new WeakMap<WebContents, boolean>()
 
-// Annotation state surfaced from above-view's renderer-local React state so
-// Escape resolution (annotation-close-thread / annotation-clear-draft) works.
+// Open-thread state surfaced from above-view's renderer-local React state so
+// Escape resolution (annotation-close-thread) works. The draft half of that
+// resolution (annotation-clear-draft) reads main's own draft state directly.
 let hasOpenAnnotationThread = false
-let hasPendingAnnotation = false
 
-export function setAnnotationState(openThread: boolean, pendingAnnotation: boolean): void {
+export function setAnnotationState(openThread: boolean): void {
   hasOpenAnnotationThread = openThread
-  hasPendingAnnotation = pendingAnnotation
 }
 
 export function setTextEditingActive(webContents: WebContents, active: boolean): void {
@@ -56,7 +56,7 @@ export function buildBindingContext(
     focusReturnCameraActive: hasFocusReturnCamera(),
     sourceView,
     hasOpenAnnotationThread,
-    hasPendingAnnotation,
+    hasPendingAnnotation: commentDraftSnapshot() !== null,
   }
 }
 

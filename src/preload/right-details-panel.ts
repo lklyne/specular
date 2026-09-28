@@ -3,7 +3,7 @@ import type { AnnotationCreateRequest, DevtoolsPanelData } from '../shared/types
 import type { DevtoolsPanelElectronAPI } from '../shared/electron-api/right-details-panel'
 import { ipcChannels } from '../shared/ipc-contract'
 import { entityMutationBridge } from './entity-mutation-bridge'
-import { on } from './ipc-helpers'
+import { on, onLatest } from './ipc-helpers'
 
 const api: DevtoolsPanelElectronAPI = {
   setTool: (tool) => ipcRenderer.send(ipcChannels.toolbarSetTool, tool),
@@ -48,8 +48,13 @@ const api: DevtoolsPanelElectronAPI = {
     ipcRenderer.send(ipcChannels.rightDetailsPanelThreadDelete, { threadId }),
   selectAgentThread: (threadId: string) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSelect, { threadId }),
-  sendAgentThread: (text?: string) =>
-    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSend, { text }),
+  sendAgentThread: (text, images) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelThreadSend, { text, images }),
+  readClipboardImage: () => ipcRenderer.invoke(ipcChannels.rightDetailsPanelReadClipboardImage),
+  submitCommentDraft: (text, images) =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelSubmitCommentDraft, { text, images }),
+  cancelCommentDraft: () =>
+    ipcRenderer.send(ipcChannels.rightDetailsPanelCancelCommentDraft),
   ...entityMutationBridge,
   setFilePreset: (fileId: string, presetIndex: number) =>
     ipcRenderer.send(ipcChannels.rightDetailsPanelSetFilePreset, { fileId, presetIndex }),
@@ -89,6 +94,7 @@ const api: DevtoolsPanelElectronAPI = {
   getInitialData: () => ipcRenderer.invoke(ipcChannels.getThemeBootstrap),
   onThemeChanged: on(ipcChannels.themeChanged),
   onPanelData: on<DevtoolsPanelData>(ipcChannels.rightDetailsPanelData),
+  onAgentCursorColor: onLatest<string | null>(ipcChannels.rightDetailsPanelAgentCursorColor),
   onAnnotationThreadOpen: on<{ annotationId: string | null }>(ipcChannels.annotationThreadOpen),
 }
 

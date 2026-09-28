@@ -44,13 +44,11 @@ function describeSystem(message: any): DescribedAgentMessage | null {
 function describeAssistant(message: any): DescribedAgentMessage | null {
   const content = message.message?.content
   if (!Array.isArray(content)) return null
-  const blocks = content.map(describeContentBlock).filter(Boolean) as Array<{
-    kind: FixProgressEventKind
-    text: string
-  }>
+  const blocks = content.map(describeContentBlock).filter(Boolean) as ContentBlockDescription[]
   if (blocks.length === 0) return null
   const merged = blocks.map((b) => b.text).join(' | ')
-  return makeEvent(blocks[0].kind, merged)
+  // The last block is what the agent is doing now.
+  return makeEvent(blocks[0].kind, merged, blocks[blocks.length - 1].label)
 }
 
 function describeUser(message: any): DescribedAgentMessage | null {
@@ -69,26 +67,113 @@ function describeResult(message: any): DescribedAgentMessage {
   const subtype = (message.subtype as string | undefined) ?? 'done'
   const lastLine = finalText.split(/\r?\n/).filter((line: string) => line.trim()).pop() ?? ''
   const summary = finalText ? truncate(lastLine, 200) : subtype
-  return { ...makeEvent('result', summary), finalText }
+  return { ...makeEvent('result', summary, 'Wrapping up'), finalText }
 }
 
-function describeContentBlock(block: any): { kind: FixProgressEventKind; text: string } | null {
+interface ContentBlockDescription {
+  kind: FixProgressEventKind
+  text: string
+  label: string
+}
+
+function describeContentBlock(block: any): ContentBlockDescription | null {
   if (!block || typeof block !== 'object') return null
   if (block.type === 'text') {
     const text = typeof block.text === 'string' ? block.text.trim() : ''
     if (!text) return null
-    return { kind: 'text', text: truncate(text, 240) }
+    return { kind: 'text', text: truncate(text, 240), label: firstSentence(text) }
   }
   if (block.type === 'tool_use') {
     const name = typeof block.name === 'string' ? block.name : 'tool'
-    return { kind: 'tool_use', text: summarizeToolInput(name, block.input) }
+    return { kind: 'tool_use', text: summarizeToolInput(name, block.input), label: labelToolUse(name, block.input) }
   }
   if (block.type === 'thinking') {
     const text = typeof block.thinking === 'string' ? block.thinking : ''
     if (!text) return null
-    return { kind: 'text', text: `(thinking) ${truncate(text, 180)}` }
+    return { kind: 'text', text: `(thinking) ${truncate(text, 180)}`, label: 'Thinking' }
   }
   return null
+}
+
+/** Present-tense status for a tool call, built from its structured input so
+ *  the run bar never has to parse the raw command back out of a log line. */
+function labelToolUse(name: string, input: unknown): string {
+  const record = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
+  const label = TOOL_LABELS[name]
+  return label ? label(record) : `Using ${toolDisplayName(name)}`
+}
+
+type ToolLabel = (input: Record<string, unknown>) => string
+
+const quoted = (value: string) => `“${truncate(value, 40)}”`
+
+const fileLabel =
+  (verb: string): ToolLabel =>
+  (input) => {
+    const file = pickString(input, ['file_path', 'notebook_path', 'path', 'filePath'])
+    return file ? `${verb} ${basename(file)}` : verb
+  }
+
+const describedLabel =
+  (fallback: string): ToolLabel =>
+  (input) => {
+    const description = pickString(input, ['description'])
+    return description ? truncate(description, 80) : fallback
+  }
+
+const TOOL_LABELS: Record<string, ToolLabel> = {
+  Read: fileLabel('Reading'),
+  Edit: fileLabel('Editing'),
+  MultiEdit: fileLabel('Editing'),
+  NotebookEdit: fileLabel('Editing'),
+  Write: fileLabel('Writing'),
+  Grep: (input) => {
+    const pattern = pickString(input, ['pattern'])
+    return pattern ? `Searching for ${quoted(pattern)}` : 'Searching'
+  },
+  Glob: () => 'Finding files',
+  // Claude writes a human description alongside most commands.
+  Bash: (input) => {
+    const description = pickString(input, ['description'])
+    if (description) return truncate(description, 80)
+    const command = pickString(input, ['command'])
+    return command ? `Running ${truncate(command.trim().split(/\s+/)[0], 40)}` : 'Running a command'
+  },
+  WebFetch: (input) => {
+    const url = pickString(input, ['url'])
+    return url ? `Reading ${hostOf(url)}` : 'Reading the web'
+  },
+  WebSearch: (input) => {
+    const query = pickString(input, ['query'])
+    return query ? `Searching the web for ${quoted(query)}` : 'Searching the web'
+  },
+  Task: describedLabel('Delegating to a subagent'),
+  Agent: describedLabel('Delegating to a subagent'),
+  TodoWrite: () => 'Planning',
+}
+
+function firstSentence(text: string): string {
+  const line = text.split(/\r?\n/).find((l) => l.trim()) ?? text
+  const sentence = line.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? line
+  return truncate(sentence.trim(), 80)
+}
+
+function basename(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return truncate(url, 40)
+  }
+}
+
+/** `mcp__specular__create_page` → `create page`. */
+function toolDisplayName(name: string): string {
+  const bare = name.startsWith('mcp__') ? (name.split('__').pop() ?? name) : name
+  return bare.replace(/_/g, ' ')
 }
 
 function summarizeToolInput(name: string, input: unknown): string {
@@ -147,11 +232,12 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | n
   return null
 }
 
-function makeEvent(kind: FixProgressEventKind, text: string): DescribedAgentMessage {
+function makeEvent(kind: FixProgressEventKind, text: string, label?: string): DescribedAgentMessage {
   return {
     event: {
       kind,
       text: truncate(text, 320),
+      ...(label ? { label } : {}),
       timestamp: new Date().toISOString(),
     },
   }

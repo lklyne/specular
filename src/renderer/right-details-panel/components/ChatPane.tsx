@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { FolderOpen, Loader2, Plus, X, Zap } from 'lucide-react'
-import type { AgentThread, AgentThreadMessage } from '../../../shared/agent-thread'
-import type { DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { FolderOpen, ListEnd, Plus, X, Zap } from 'lucide-react'
+import { messageHasContent, type AgentThread, type AgentThreadMessage } from '../../../shared/agent-thread'
+import type { CommentDraft } from '../../../shared/comment-draft'
+import type { Annotation, DevtoolsPanelData, FixProgressEntry } from '../../../shared/types'
+import { isUnresolved } from '../../../shared/annotation-utils'
 import { CommentBubble, CommentSendButton, CommentTextarea } from '../../shared/CommentPrimitives'
-import { FixEventList } from '../../shared/FixEventList'
 import { Tooltip } from '../../shared/Tooltip'
 import { usePaneTheme } from '../PaneContext'
+import { AgentRunBar } from './AgentRunBar'
+import { CommentDraftChip } from './CommentDraftChip'
 import { ContextChip, composerChipClass } from './ContextChip'
+import { OpenComments } from './OpenComments'
+import { PastedImages } from './PastedImages'
 import { QueuedComments } from './QueuedComments'
 import { ModelChip } from './ModelChip'
 import { PaneHeader } from './PaneHeader'
 import { threadPillFromPanelData, threadWriteTargetFromPanel } from '../panelThreadPill'
 import { rightDetailsPanelApi } from '../rightDetailsPanelApi'
 import { useCommentFlash } from '../useCommentFlash'
+import { usePastedImages } from '../usePastedImages'
 
 export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const isDark = usePaneTheme()
@@ -25,9 +31,8 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const running = progress?.status === 'running'
   const divider = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const muted = 'text-[var(--surface-foreground-muted)]'
-  const queued = active?.messages.filter((message) => message.queued && message.text.trim()) ?? []
-  const isNew =
-    !active || active.status === 'draft' || !active.messages.some((message) => message.role === 'agent')
+  const queued = queuedMessages(active)
+  const openComments = openThreadComments(active, data.annotations ?? [], queued)
   const rootRef = useRef<HTMLDivElement | null>(null)
   useCommentFlash(rootRef, data)
 
@@ -38,35 +43,71 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
         actions={<ThreadActions hasActive={Boolean(active)} isDark={isDark} />}
       />
       {active ? (
-        <ThreadTranscript thread={active} progress={progress} isDark={isDark} muted={muted} />
+        <ThreadTranscript
+          thread={active}
+          progress={progress}
+          spacePath={data.spacePath ?? null}
+          muted={muted}
+        />
       ) : (
         <ThreadList threads={threads} isDark={isDark} muted={muted} />
       )}
       <div className={`border-t px-2 py-2 ${divider}`}>
         <Composer
           running={running}
-          isNew={isNew}
+          isNew={isNewThread(active)}
           queued={queued}
+          openComments={openComments}
+          commentDraft={data.commentDraft ?? null}
           context={<ContextChip pill={pill} data={data} />}
           model={data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
           folderPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : (data.spacePath ?? null)}
-          autoFix={
-            writeTarget.kind === 'repo'
-              ? { origin: writeTarget.origin, on: Boolean(data.originBindings?.[writeTarget.origin]?.autoFix) }
-              : null
-          }
+          autoFix={autoFixFor(writeTarget, data)}
           isDark={isDark}
-          muted={muted}
         />
       </div>
     </div>
   )
 }
 
+function queuedMessages(thread: AgentThread | null): AgentThreadMessage[] {
+  return thread?.messages.filter((message) => message.queued && messageHasContent(message)) ?? []
+}
+
+function openThreadComments(
+  thread: AgentThread | null,
+  annotations: Annotation[],
+  queued: AgentThreadMessage[],
+): Annotation[] {
+  if (!thread) return []
+  const queuedIds = new Set(queued.map((message) => message.annotationId))
+  return annotations.filter(
+    (annotation) =>
+      thread.annotationIds.includes(annotation.id) &&
+      isUnresolved(annotation.status) &&
+      !queuedIds.has(annotation.id),
+  )
+}
+
+function isNewThread(thread: AgentThread | null): boolean {
+  return !thread || thread.status === 'draft' || !thread.messages.some((message) => message.role === 'agent')
+}
+
+function autoFixFor(
+  writeTarget: ReturnType<typeof threadWriteTargetFromPanel>,
+  data: DevtoolsPanelData,
+): { origin: string; on: boolean } | null {
+  if (writeTarget.kind !== 'repo') return null
+  return { origin: writeTarget.origin, on: Boolean(data.originBindings?.[writeTarget.origin]?.autoFix) }
+}
+
 function ThreadActions({ hasActive, isDark }: { hasActive: boolean; isDark: boolean }) {
   const iconBtn = `flex h-6 w-6 items-center justify-center rounded transition-colors ${
     isDark ? 'hover:bg-zinc-700' : 'hover:bg-zinc-100'
   }`
+  // Switching threads leaves the composer mounted, so the buttons keep focus
+  // in the field — an open comment draft stays ready to type into.
+  const keepFocus = (event: React.PointerEvent) => event.preventDefault()
   return (
     <div className="flex items-center gap-0.5">
       <button
@@ -74,6 +115,7 @@ function ThreadActions({ hasActive, isDark }: { hasActive: boolean; isDark: bool
         className={iconBtn}
         title="New thread"
         aria-label="New thread"
+        onPointerDown={keepFocus}
         onClick={() => rightDetailsPanelApi.newAgentThread()}
       >
         <Plus size={13} />
@@ -84,6 +126,7 @@ function ThreadActions({ hasActive, isDark }: { hasActive: boolean; isDark: bool
           className={iconBtn}
           title="Back to threads"
           aria-label="Back to threads"
+          onPointerDown={keepFocus}
           onClick={() => rightDetailsPanelApi.deselectAgentThread()}
         >
           <X size={13} />
@@ -180,12 +223,12 @@ function shortDate(iso: string): string {
 function ThreadTranscript({
   thread,
   progress,
-  isDark,
+  spacePath,
   muted,
 }: {
   thread: AgentThread | null
   progress?: FixProgressEntry
-  isDark: boolean
+  spacePath: string | null
   muted: string
 }) {
   const transcriptRef = useRef<HTMLDivElement | null>(null)
@@ -210,17 +253,12 @@ function ThreadTranscript({
               author={message.role}
               text={message.text}
               annotationId={message.annotationId}
+              imageSrcs={imageSrcs(message, spacePath)}
             />
           ))
       )}
       {progress?.status === 'running' ? (
-        <div className={`rounded-md border px-2 py-1.5 ${isDark ? 'border-zinc-700' : 'border-zinc-200'}`}>
-          <div className="mb-1 flex items-center gap-1.5 text-[11px]">
-            <Loader2 size={11} className="animate-spin" />
-            Running
-          </div>
-          <FixEventList events={progress.events} className="max-h-40" />
-        </div>
+        <AgentRunBar events={progress.events} />
       ) : null}
       {progress?.status === 'failed' && progress.error ? (
         <div className="text-[12px] text-red-600 dark:text-red-400">{progress.error}</div>
@@ -233,17 +271,23 @@ function Composer({
   running,
   isNew,
   queued,
+  openComments,
+  commentDraft,
   context,
   model,
   folderPath,
   autoFix,
   isDark,
-  muted,
 }: {
   running: boolean
   isNew: boolean
   /** Comments this turn will carry, shown above the field until they're sent. */
   queued: AgentThreadMessage[]
+  /** Sent comments still open on the canvas, resolvable in one click. */
+  openComments: Annotation[]
+  /** The in-progress comment, if any — shown as a removable chip; while open,
+   *  the field saves the comment instead of sending the thread. */
+  commentDraft: CommentDraft | null
   /** The thread's anchor chip — where this turn is aimed. */
   context: React.ReactNode
   /** Model picker, or null until the config arrives. */
@@ -253,43 +297,59 @@ function Composer({
   /** Auto-fix for the write target's origin; null when writing to the space. */
   autoFix: { origin: string; on: boolean } | null
   isDark: boolean
-  muted: string
 }) {
   const [text, setText] = useState('')
+  const pasted = usePastedImages()
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   // A run in flight doesn't close the composer: sending queues the follow-up,
-  // which the thread picks up as soon as the run ends.
-  const canSend = Boolean(text.trim()) || (!running && queued.length > 0)
+  // which the thread picks up as soon as the run ends. A draft has no queue
+  // of its own to fall back on — text or an image is required.
+  const hasInput = Boolean(text.trim()) || pasted.images.length > 0
+  const canSend = hasInput || (!commentDraft && !running && queued.length > 0)
   const submit = () => {
     if (!canSend) return
-    rightDetailsPanelApi.sendAgentThread(text.trim())
+    const images = pasted.images.map(({ mediaType, data }) => ({ mediaType, data }))
+    const send = commentDraft ? rightDetailsPanelApi.submitCommentDraft : rightDetailsPanelApi.sendAgentThread
+    send(text.trim(), images)
     setText('')
+    pasted.clear()
   }
+  // Escape drops the draft with no comment saved — the typed text is left
+  // alone, matching the field's ordinary blur behavior.
+  const onTextareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Escape' || !commentDraft) return
+    event.preventDefault()
+    rightDetailsPanelApi.cancelCommentDraft()
+  }
+  const draftId = commentDraft?.id ?? null
+  useEffect(() => {
+    if (draftId) textareaRef.current?.focus()
+  }, [draftId])
   return (
     <div
       className={`rounded-[16px] border px-2 pb-1.5 pt-1.5 ${
         isDark ? 'border-zinc-600 bg-zinc-900/40' : 'border-zinc-300 bg-zinc-50'
       }`}
+      onPaste={pasted.onPaste}
     >
+      {commentDraft ? <CommentDraftChip draft={commentDraft} /> : null}
+      <OpenComments annotations={openComments} />
       <QueuedComments messages={queued} />
+      <PastedImages images={pasted.images} onRemove={pasted.remove} />
       <CommentTextarea
+        inputRef={textareaRef}
         value={text}
         onChange={setText}
         onSubmit={submit}
-        placeholder={running ? 'Queue a follow-up…' : isNew ? 'Add or edit…' : 'Follow up…'}
+        onKeyDown={onTextareaKeyDown}
+        placeholder={composerPlaceholder({ commentDraft, running, isNew })}
         rows={2}
         className="min-h-[48px] max-h-[160px] px-0.5 py-0.5"
       />
       <div className="flex min-w-0 items-center gap-1 pt-0.5">
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {context}
-          {folderPath ? (
-            <Tooltip side="top" label={`Changes are written to ${folderPath}`}>
-              <span className={composerChipClass(isDark)}>
-                <FolderOpen size={11} className="shrink-0" />
-                <span className="truncate">{folderName(folderPath)}</span>
-              </span>
-            </Tooltip>
-          ) : null}
+          {folderPath ? <FolderChip folderPath={folderPath} isDark={isDark} /> : null}
           {autoFix ? <AutoFixChip {...autoFix} isDark={isDark} /> : null}
         </div>
         {model}
@@ -304,25 +364,56 @@ function Composer({
   )
 }
 
-/** Auto-fix toggle for the write target's origin: comments send themselves. */
+function composerPlaceholder({
+  commentDraft,
+  running,
+  isNew,
+}: {
+  commentDraft: CommentDraft | null
+  running: boolean
+  isNew: boolean
+}): string {
+  if (commentDraft) return 'Add a comment…'
+  if (running) return 'Queue a follow-up…'
+  return isNew ? 'Add or edit…' : 'Follow up…'
+}
+
+function FolderChip({ folderPath, isDark }: { folderPath: string; isDark: boolean }) {
+  return (
+    <Tooltip side="top" label={`Changes are written to ${folderPath}`}>
+      <span className={composerChipClass(isDark)}>
+        <FolderOpen size={11} className="shrink-0" />
+        <span className="truncate">{folderName(folderPath)}</span>
+      </span>
+    </Tooltip>
+  )
+}
+
+/** Send mode for the write target's origin: comments queue here, or send themselves. */
 function AutoFixChip({ origin, on, isDark }: { origin: string; on: boolean; isDark: boolean }) {
   const label = on
-    ? `Auto-fix on for ${origin}: each comment is sent as soon as it is placed.`
-    : `Auto-fix off for ${origin}: comments queue here until you send.`
+    ? `Auto for ${origin}: each comment is sent as soon as it is placed. Click to queue instead.`
+    : `Queue for ${origin}: comments wait here until you send. Click to send automatically.`
+  const Icon = on ? Zap : ListEnd
   return (
     <Tooltip side="top" label={label}>
       <button
         type="button"
-        aria-pressed={on}
-        aria-label="Auto-fix"
-        className={`${composerChipClass(isDark)} ${on ? 'text-emerald-600 dark:text-emerald-400' : ''}`}
+        aria-label={on ? 'Send mode: auto' : 'Send mode: queue'}
+        className={composerChipClass(isDark)}
         onClick={() => rightDetailsPanelApi.setAutoFix(origin, !on)}
       >
-        <Zap size={11} className="shrink-0" />
-        <span>Auto</span>
+        <Icon size={11} className="shrink-0" />
+        <span>{on ? 'Auto' : 'Queue'}</span>
       </button>
     </Tooltip>
   )
+}
+
+/** Sent images live in the space folder, served to the panel over local-file://. */
+function imageSrcs(message: AgentThreadMessage, spacePath: string | null): string[] | undefined {
+  if (!spacePath || !message.images?.length) return undefined
+  return message.images.map((image) => `local-file://${encodeURI(`${spacePath}/${image.path}`)}`)
 }
 
 function folderName(path: string): string {

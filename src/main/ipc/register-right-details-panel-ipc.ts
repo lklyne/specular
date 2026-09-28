@@ -1,7 +1,9 @@
 import { ipcChannels } from '../../shared/ipc-contract'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { AnnotationCreateRequest, EdgeEnd, EdgeSide, FixModel, FixPermissions, PageColorScheme } from '../../shared/types'
+import { isThreadImageMediaType, type ThreadImageUpload } from '../../shared/agent-thread'
 import { setFixConfig } from '../runtime/preferences'
+import { readClipboardImage } from '../clipboard-paste'
 import {
   bindOriginToRepoPath,
   inferRepoPathForOrigin,
@@ -49,6 +51,7 @@ import {
   updateAnnotationStatus,
 } from '../workspace-annotations'
 import { pages } from '../runtime/page-runtime'
+import { clearCommentDraft, submitCommentDraft } from '../runtime/comment-draft'
 import {
   forwardOverrideToPage,
   type ComponentPropOverridePayload,
@@ -249,10 +252,32 @@ export function registerRightDetailsPanelIpc(): void {
   )
   ipcMain.on(
     ipcChannels.rightDetailsPanelThreadSend,
-    (_event, payload: { text?: string } | undefined) => {
-      sendActiveThread(typeof payload?.text === 'string' ? payload.text : '')
+    (_event, payload: { text?: string; images?: unknown } | undefined) => {
+      sendActiveThread(
+        typeof payload?.text === 'string' ? payload.text : '',
+        parseImageUploads(payload?.images),
+      )
     },
   )
+
+  ipcMain.on(
+    ipcChannels.rightDetailsPanelSubmitCommentDraft,
+    (_event, payload: { text?: string; images?: unknown } | undefined) => {
+      submitCommentDraft(
+        typeof payload?.text === 'string' ? payload.text : '',
+        parseImageUploads(payload?.images),
+      )
+    },
+  )
+
+  ipcMain.handle(ipcChannels.rightDetailsPanelReadClipboardImage, (): ThreadImageUpload | null => {
+    const image = readClipboardImage()
+    return image ? { mediaType: 'image/png', data: image.buffer.toString('base64') } : null
+  })
+
+  ipcMain.on(ipcChannels.rightDetailsPanelCancelCommentDraft, () => {
+    clearCommentDraft()
+  })
 
   ipcMain.on(
     ipcChannels.rightDetailsPanelSetAutoFix,
@@ -350,5 +375,15 @@ export function registerRightDetailsPanelIpc(): void {
       if (!pages.some((p) => p.id === payload.pageId)) return
       deletePages({ pageIds: [payload.pageId] })
     },
+  )
+}
+
+function parseImageUploads(value: unknown): ThreadImageUpload[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (item): item is ThreadImageUpload =>
+      Boolean(item) &&
+      isThreadImageMediaType((item as ThreadImageUpload).mediaType) &&
+      typeof (item as ThreadImageUpload).data === 'string',
   )
 }
