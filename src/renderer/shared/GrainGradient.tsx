@@ -7,10 +7,13 @@ import {
   Loop,
   dot,
   float,
+  floor,
   fract,
+  int,
   length,
   max,
   pow,
+  smoothstep,
   screenCoordinate,
   sin,
   uniform,
@@ -22,16 +25,23 @@ import {
 } from 'three/tsl'
 
 /**
- * Mesh gradient with film grain, drifting slowly rightward. Colour points sit
+ * Mesh gradient with film grain, drifting rightward. Colour points sit
  * evenly around a horizontal loop and bob up and down; each pixel blends them
  * by inverse distance in OKLab. The strip shows a window onto that loop, so
- * the scroll never runs out. Adapted from the grain-gradient experiment on
- * lyle-klyne.com. Fills its nearest positioned ancestor.
+ * the scroll never runs out. On the same beat as `Shimmer`, one extra colour
+ * point sweeps left to right through the blend, taking the next palette colour
+ * each pass. Adapted from the grain-gradient experiment on lyle-klyne.com.
+ * Fills its nearest positioned ancestor.
  */
 
 const DEFAULT_COLORS = ['#ff37d0', '#e4c4ff', '#8ea9ff', '#ffae00', '#ff7200']
 // The panel strip is tiny and the motion is slow; 30fps is indistinguishable.
 const FRAME_INTERVAL_MS = 1000 / 30
+// Matches Shimmer's default sweep duration.
+const PULSE_SECONDS = 2
+// Loop units per second of steady drift, and extra loop units each pulse adds.
+const DRIFT_SPEED = 0.05
+const PULSE_PUSH = 0.06
 
 const rgbToOklab = Fn(([rgb]) => {
   const l = dot(rgb, vec3(0.4122214708, 0.5363325363, 0.0514459929))
@@ -67,9 +77,13 @@ function buildScene(colors: string[], span: number) {
 
   const colorNode = Fn(() => {
     const t = time.add(41.5)
+    const beat = t.div(PULSE_SECONDS)
+    const pass = fract(beat)
+    // Steady drift plus an eased push per pulse, in step with the sweep.
+    const scroll = t.mul(DRIFT_SPEED).add(floor(beat).add(smoothstep(0, 1, pass)).mul(PULSE_PUSH))
     // One loop unit spans 1/span strip widths; y keeps the same scale so
     // blobs stay round instead of stretching with the strip.
-    const q = vec2(uv().x.mul(span).sub(t.mul(0.03)), uv().y.sub(0.5).mul(span).div(aspect)).toVar()
+    const q = vec2(uv().x.mul(span).sub(scroll), uv().y.sub(0.5).mul(span).div(aspect)).toVar()
     q.y.addAssign(sin(q.x.mul(Math.PI * 4).add(t.mul(0.7))).mul(0.03))
 
     const lab = vec3(0).toVar()
@@ -87,6 +101,17 @@ function buildScene(colors: string[], span: number) {
       lab.addAssign(rgbToOklab(colorArray.element(i)).mul(weight))
       total.addAssign(weight)
     })
+
+    // The sweeping point, in strip space so it crosses at the same pace
+    // whatever the drift. Its weight fades to zero at both ends of the pass,
+    // so the colour change between passes never shows at the strip's edges.
+    const sweepX = pass.mul(1.6).sub(0.3)
+    const sweepColor = colorArray.element(int(floor(beat).mod(count)))
+    const sweepD = length(vec2(uv().x.sub(sweepX).mul(span), q.y))
+    const sweepWeight = sin(pass.mul(Math.PI)).div(pow(sweepD, 3.5).add(0.0001))
+    lab.addAssign(rgbToOklab(sweepColor).mul(sweepWeight))
+    total.addAssign(sweepWeight)
+
     const base = oklabToRgb(lab.div(max(total, 0.0001)))
 
     // Per-device-pixel grain, stable across frames so it reads as texture.
