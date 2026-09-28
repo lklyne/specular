@@ -412,6 +412,14 @@ describe('dispatchKey — firesWhileTyping', () => {
     ).toBe('redo')
   })
 
+  it('leaves Cmd+Z to a chrome panel text field (chat composer, sidebar)', () => {
+    for (const view of ['rightDetailsPanel', 'leftSidebar', 'toolbar'] as const) {
+      const ctx: BindingContext = { ...BASE_CTX, isTextEditing: true, sourceView: view }
+      expect(dispatchKey(BINDINGS, { key: 'z', cmd: true, alt: false, shift: false }, ctx)).toBeNull()
+      expect(dispatchKey(BINDINGS, { key: 'z', cmd: true, alt: false, shift: true }, ctx)).toBeNull()
+    }
+  })
+
   it('fires reset-viewport while typing', () => {
     const ctx: BindingContext = { ...BASE_CTX, isTextEditing: true }
     expect(
