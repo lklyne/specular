@@ -285,6 +285,7 @@ export interface IpcContract {
   'right-details-panel-clear-inspect-selection': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-create-annotation': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-data': { dir: 'main→renderer'; payload: DevtoolsPanelData }
+  'right-details-panel-agent-cursor-color': { dir: 'main→renderer'; payload: string | null }
   'right-details-panel-delete-annotation': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-delete-edge': { dir: 'renderer→main'; payload: unknown }
   'right-details-panel-delete-page': { dir: 'renderer→main'; payload: unknown }
@@ -615,6 +616,7 @@ export const ipcChannels = {
   rightDetailsPanelClearInspectSelection: 'right-details-panel-clear-inspect-selection',
   rightDetailsPanelCreateAnnotation: 'right-details-panel-create-annotation',
   rightDetailsPanelData: 'right-details-panel-data',
+  rightDetailsPanelAgentCursorColor: 'right-details-panel-agent-cursor-color',
   rightDetailsPanelDeleteAnnotation: 'right-details-panel-delete-annotation',
   rightDetailsPanelDeleteEdge: 'right-details-panel-delete-edge',
   rightDetailsPanelDeletePage: 'right-details-panel-delete-page',

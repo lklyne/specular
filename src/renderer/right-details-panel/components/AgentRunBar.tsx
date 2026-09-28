@@ -2,21 +2,25 @@ import { useDeferredValue, useEffect, useRef, ViewTransition } from 'react'
 import { Collapsible } from '@base-ui/react/collapsible'
 import { ChevronDown } from 'lucide-react'
 import type { FixProgressEvent } from '../../../shared/types'
+import { FilledCursorIcon } from '../../shared/FilledCursorIcon'
 import { GrainGradient } from '../../shared/GrainGradient'
 import { Shimmer } from '../../shared/Shimmer'
+import { useAgentCursorColor } from '../useAgentCursorColor'
 import './AgentRunBar.css'
 
 /**
  * A running agent turn: a gradient strip whose one line says what the agent is
- * doing now. Opens to the full run log.
+ * doing now, and the agent's canvas cursor while one is out. Opens to the full
+ * run log.
  */
 export function AgentRunBar({ events }: { events: FixProgressEvent[] }) {
   // Deferred so the label change renders as a transition, which is what
   // triggers the ViewTransition below.
   const current = useDeferredValue(currentLabel(events))
+  const cursorColor = useAgentCursorColor()
 
   return (
-    <Collapsible.Root className="overflow-hidden rounded-lg border border-[var(--surface-input-border)] bg-[var(--surface-input)]">
+    <Collapsible.Root className="overflow-hidden rounded-2xl border border-[var(--surface-input-border)] bg-[var(--surface-input)]">
       <Collapsible.Trigger className="group relative flex h-9 w-full items-center gap-2 px-3 text-left">
         <GrainGradient />
         <span aria-hidden className="absolute inset-0 bg-white/45 dark:bg-black/45" />
@@ -28,6 +32,11 @@ export function AgentRunBar({ events }: { events: FixProgressEvent[] }) {
             {current}
           </Shimmer>
         </ViewTransition>
+        {cursorColor ? (
+          <span className="relative flex size-6 shrink-0 items-center justify-center rounded-full bg-white/80">
+            <FilledCursorIcon color={cursorColor} size={14} />
+          </span>
+        ) : null}
         <ChevronDown
           size={12}
           className="relative shrink-0 text-black/60 transition-transform group-data-[panel-open]:rotate-180 dark:text-white/70"

@@ -83,6 +83,8 @@ export interface DevtoolsPanelElectronAPI {
   getInitialData: () => Promise<ThemeBootstrapData>
   onThemeChanged: (callback: (data: ThemeData) => void) => () => void
   onPanelData: (callback: (data: DevtoolsPanelData) => void) => () => void
+  /** Colour of the agent presence cursor on the canvas, or null when none shows. */
+  onAgentCursorColor: (callback: (color: string | null) => void) => () => void
   /** A comment was focused from the canvas or a list; the panel flashes it. */
   onAnnotationThreadOpen: (
     callback: (payload: { annotationId: string | null }) => void,
