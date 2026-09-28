@@ -53,15 +53,19 @@ function setupLabel(): string {
 }
 
 /**
- * The webContents an Edit-menu clipboard command acts on: the page that owns
- * the keyboard, or whatever holds OS focus when no page does.
+ * The webContents an Edit-menu clipboard command acts on: whatever holds OS
+ * focus, unless that is aboveView's keyboard sink standing in for a page —
+ * then the page that owns the keyboard. A selected page stays the keyboard
+ * target while the user types in a panel, so focus has to be checked first.
  */
 function editingTarget(): WebContents | null {
+  const focused = webContents.getFocusedWebContents()
+  const live = focused && !focused.isDestroyed() ? focused : null
+  if (live && live !== aboveView?.webContents) return live
   const pageId = currentKeyboardTargetPageId()
   const page = pageId ? pages.find((candidate) => candidate.id === pageId) : null
   if (page && !page.host.webContents.isDestroyed()) return page.host.webContents
-  const focused = webContents.getFocusedWebContents()
-  return focused && !focused.isDestroyed() ? focused : null
+  return live
 }
 
 function editingItem(
