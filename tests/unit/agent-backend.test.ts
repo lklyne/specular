@@ -105,11 +105,16 @@ describe('parseOutput', () => {
     })
   })
 
+  it('keeps a long reply whole', () => {
+    const long = 'x'.repeat(8000)
+    expect(parseOutput(`${long}\n<<RESOLVE>>`).summary).toBe(long)
+  })
+
   it('truncates a runaway message', () => {
-    const long = 'x'.repeat(2400)
+    const long = 'x'.repeat(60_000)
     const result = parseOutput(`${long}\n<<RESOLVE>>`)
     expect(result.shouldResolve).toBe(true)
-    expect(result.summary.length).toBeLessThanOrEqual(2000)
+    expect(result.summary.length).toBeLessThanOrEqual(50_000)
     expect(result.summary.endsWith('…')).toBe(true)
   })
 })

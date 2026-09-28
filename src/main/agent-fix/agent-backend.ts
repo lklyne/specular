@@ -252,9 +252,10 @@ export async function runFixAgent(
 const RESOLVE_MARKER = '<<RESOLVE>>'
 const WAITING_MARKER = '<<WAITING>>'
 // The agent's whole final message is shown to the user verbatim; the marker
-// only carries the resolve/waiting hint. Cap as a runaway guard — the prompt
-// asks for brevity.
-const MAX_REPLY_CHARS = 2000
+// only carries the resolve/waiting hint. The cap is a runaway guard only, set
+// well above any real reply: a concise plan still runs a few thousand chars,
+// and cutting it mid-sentence loses the part the user has to act on.
+const MAX_REPLY_CHARS = 50_000
 
 export function parseOutput(stdout: string): { summary: string; shouldResolve: boolean } {
   const text = stdout.trim()
