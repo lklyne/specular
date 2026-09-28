@@ -8,7 +8,7 @@ export type AgentThreadStatus = 'draft' | 'open'
 export type AgentThreadMessageRole = 'user' | 'agent'
 
 /** Media types the model accepts as image input. */
-export const THREAD_IMAGE_MEDIA_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
+const THREAD_IMAGE_MEDIA_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] as const
 export type ThreadImageMediaType = (typeof THREAD_IMAGE_MEDIA_TYPES)[number]
 
 export function isThreadImageMediaType(value: unknown): value is ThreadImageMediaType {

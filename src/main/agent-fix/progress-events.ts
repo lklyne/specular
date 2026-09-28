@@ -99,48 +99,57 @@ function describeContentBlock(block: any): ContentBlockDescription | null {
  *  the run bar never has to parse the raw command back out of a log line. */
 function labelToolUse(name: string, input: unknown): string {
   const record = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
-  const file = pickString(record, ['file_path', 'notebook_path', 'path', 'filePath'])
-  const quoted = (value: string) => `“${truncate(value, 40)}”`
-  switch (name) {
-    case 'Read':
-      return file ? `Reading ${basename(file)}` : 'Reading'
-    case 'Edit':
-    case 'MultiEdit':
-    case 'NotebookEdit':
-      return file ? `Editing ${basename(file)}` : 'Editing'
-    case 'Write':
-      return file ? `Writing ${basename(file)}` : 'Writing'
-    case 'Grep': {
-      const pattern = pickString(record, ['pattern'])
-      return pattern ? `Searching for ${quoted(pattern)}` : 'Searching'
-    }
-    case 'Glob':
-      return 'Finding files'
-    case 'Bash': {
-      // Claude writes a human description alongside most commands.
-      const description = pickString(record, ['description'])
-      if (description) return truncate(description, 80)
-      const command = pickString(record, ['command'])
-      return command ? `Running ${truncate(command.trim().split(/\s+/)[0], 40)}` : 'Running a command'
-    }
-    case 'WebFetch': {
-      const url = pickString(record, ['url'])
-      return url ? `Reading ${hostOf(url)}` : 'Reading the web'
-    }
-    case 'WebSearch': {
-      const query = pickString(record, ['query'])
-      return query ? `Searching the web for ${quoted(query)}` : 'Searching the web'
-    }
-    case 'Task':
-    case 'Agent': {
-      const description = pickString(record, ['description'])
-      return description ? truncate(description, 80) : 'Delegating to a subagent'
-    }
-    case 'TodoWrite':
-      return 'Planning'
-    default:
-      return `Using ${toolDisplayName(name)}`
+  const label = TOOL_LABELS[name]
+  return label ? label(record) : `Using ${toolDisplayName(name)}`
+}
+
+type ToolLabel = (input: Record<string, unknown>) => string
+
+const quoted = (value: string) => `“${truncate(value, 40)}”`
+
+const fileLabel =
+  (verb: string): ToolLabel =>
+  (input) => {
+    const file = pickString(input, ['file_path', 'notebook_path', 'path', 'filePath'])
+    return file ? `${verb} ${basename(file)}` : verb
   }
+
+const describedLabel =
+  (fallback: string): ToolLabel =>
+  (input) => {
+    const description = pickString(input, ['description'])
+    return description ? truncate(description, 80) : fallback
+  }
+
+const TOOL_LABELS: Record<string, ToolLabel> = {
+  Read: fileLabel('Reading'),
+  Edit: fileLabel('Editing'),
+  MultiEdit: fileLabel('Editing'),
+  NotebookEdit: fileLabel('Editing'),
+  Write: fileLabel('Writing'),
+  Grep: (input) => {
+    const pattern = pickString(input, ['pattern'])
+    return pattern ? `Searching for ${quoted(pattern)}` : 'Searching'
+  },
+  Glob: () => 'Finding files',
+  // Claude writes a human description alongside most commands.
+  Bash: (input) => {
+    const description = pickString(input, ['description'])
+    if (description) return truncate(description, 80)
+    const command = pickString(input, ['command'])
+    return command ? `Running ${truncate(command.trim().split(/\s+/)[0], 40)}` : 'Running a command'
+  },
+  WebFetch: (input) => {
+    const url = pickString(input, ['url'])
+    return url ? `Reading ${hostOf(url)}` : 'Reading the web'
+  },
+  WebSearch: (input) => {
+    const query = pickString(input, ['query'])
+    return query ? `Searching the web for ${quoted(query)}` : 'Searching the web'
+  },
+  Task: describedLabel('Delegating to a subagent'),
+  Agent: describedLabel('Delegating to a subagent'),
+  TodoWrite: () => 'Planning',
 }
 
 function firstSentence(text: string): string {

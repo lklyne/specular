@@ -31,16 +31,8 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
   const running = progress?.status === 'running'
   const divider = isDark ? 'border-zinc-700' : 'border-zinc-200'
   const muted = 'text-[var(--surface-foreground-muted)]'
-  const queued = active?.messages.filter((message) => message.queued && messageHasContent(message)) ?? []
-  const queuedIds = new Set(queued.map((message) => message.annotationId))
-  const openComments = (data.annotations ?? []).filter(
-    (annotation) =>
-      active?.annotationIds.includes(annotation.id) &&
-      isUnresolved(annotation.status) &&
-      !queuedIds.has(annotation.id),
-  )
-  const isNew =
-    !active || active.status === 'draft' || !active.messages.some((message) => message.role === 'agent')
+  const queued = queuedMessages(active)
+  const openComments = openThreadComments(active, data.annotations ?? [], queued)
   const rootRef = useRef<HTMLDivElement | null>(null)
   useCommentFlash(rootRef, data)
 
@@ -63,24 +55,50 @@ export function ChatPane({ data }: { data: DevtoolsPanelData }) {
       <div className={`border-t px-2 py-2 ${divider}`}>
         <Composer
           running={running}
-          isNew={isNew}
+          isNew={isNewThread(active)}
           queued={queued}
           openComments={openComments}
           commentDraft={data.commentDraft ?? null}
           context={<ContextChip pill={pill} data={data} />}
           model={data.fixConfig ? <ModelChip fixConfig={data.fixConfig} /> : null}
           folderPath={writeTarget.kind === 'repo' ? writeTarget.repoPath : (data.spacePath ?? null)}
-          autoFix={
-            writeTarget.kind === 'repo'
-              ? { origin: writeTarget.origin, on: Boolean(data.originBindings?.[writeTarget.origin]?.autoFix) }
-              : null
-          }
+          autoFix={autoFixFor(writeTarget, data)}
           isDark={isDark}
-          muted={muted}
         />
       </div>
     </div>
   )
+}
+
+function queuedMessages(thread: AgentThread | null): AgentThreadMessage[] {
+  return thread?.messages.filter((message) => message.queued && messageHasContent(message)) ?? []
+}
+
+function openThreadComments(
+  thread: AgentThread | null,
+  annotations: Annotation[],
+  queued: AgentThreadMessage[],
+): Annotation[] {
+  if (!thread) return []
+  const queuedIds = new Set(queued.map((message) => message.annotationId))
+  return annotations.filter(
+    (annotation) =>
+      thread.annotationIds.includes(annotation.id) &&
+      isUnresolved(annotation.status) &&
+      !queuedIds.has(annotation.id),
+  )
+}
+
+function isNewThread(thread: AgentThread | null): boolean {
+  return !thread || thread.status === 'draft' || !thread.messages.some((message) => message.role === 'agent')
+}
+
+function autoFixFor(
+  writeTarget: ReturnType<typeof threadWriteTargetFromPanel>,
+  data: DevtoolsPanelData,
+): { origin: string; on: boolean } | null {
+  if (writeTarget.kind !== 'repo') return null
+  return { origin: writeTarget.origin, on: Boolean(data.originBindings?.[writeTarget.origin]?.autoFix) }
 }
 
 function ThreadActions({ hasActive, isDark }: { hasActive: boolean; isDark: boolean }) {
@@ -260,7 +278,6 @@ function Composer({
   folderPath,
   autoFix,
   isDark,
-  muted,
 }: {
   running: boolean
   isNew: boolean
@@ -280,7 +297,6 @@ function Composer({
   /** Auto-fix for the write target's origin; null when writing to the space. */
   autoFix: { origin: string; on: boolean } | null
   isDark: boolean
-  muted: string
 }) {
   const [text, setText] = useState('')
   const pasted = usePastedImages()
@@ -288,17 +304,13 @@ function Composer({
   // A run in flight doesn't close the composer: sending queues the follow-up,
   // which the thread picks up as soon as the run ends. A draft has no queue
   // of its own to fall back on — text or an image is required.
-  const canSend = commentDraft
-    ? Boolean(text.trim()) || pasted.images.length > 0
-    : Boolean(text.trim()) || pasted.images.length > 0 || (!running && queued.length > 0)
+  const hasInput = Boolean(text.trim()) || pasted.images.length > 0
+  const canSend = hasInput || (!commentDraft && !running && queued.length > 0)
   const submit = () => {
     if (!canSend) return
     const images = pasted.images.map(({ mediaType, data }) => ({ mediaType, data }))
-    if (commentDraft) {
-      rightDetailsPanelApi.submitCommentDraft(text.trim(), images)
-    } else {
-      rightDetailsPanelApi.sendAgentThread(text.trim(), images)
-    }
+    const send = commentDraft ? rightDetailsPanelApi.submitCommentDraft : rightDetailsPanelApi.sendAgentThread
+    send(text.trim(), images)
     setText('')
     pasted.clear()
   }
@@ -330,23 +342,14 @@ function Composer({
         onChange={setText}
         onSubmit={submit}
         onKeyDown={onTextareaKeyDown}
-        placeholder={
-          commentDraft ? 'Add a comment…' : running ? 'Queue a follow-up…' : isNew ? 'Add or edit…' : 'Follow up…'
-        }
+        placeholder={composerPlaceholder({ commentDraft, running, isNew })}
         rows={2}
         className="min-h-[48px] max-h-[160px] px-0.5 py-0.5"
       />
       <div className="flex min-w-0 items-center gap-1 pt-0.5">
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {context}
-          {folderPath ? (
-            <Tooltip side="top" label={`Changes are written to ${folderPath}`}>
-              <span className={composerChipClass(isDark)}>
-                <FolderOpen size={11} className="shrink-0" />
-                <span className="truncate">{folderName(folderPath)}</span>
-              </span>
-            </Tooltip>
-          ) : null}
+          {folderPath ? <FolderChip folderPath={folderPath} isDark={isDark} /> : null}
           {autoFix ? <AutoFixChip {...autoFix} isDark={isDark} /> : null}
         </div>
         {model}
@@ -358,6 +361,31 @@ function Composer({
         />
       </div>
     </div>
+  )
+}
+
+function composerPlaceholder({
+  commentDraft,
+  running,
+  isNew,
+}: {
+  commentDraft: CommentDraft | null
+  running: boolean
+  isNew: boolean
+}): string {
+  if (commentDraft) return 'Add a comment…'
+  if (running) return 'Queue a follow-up…'
+  return isNew ? 'Add or edit…' : 'Follow up…'
+}
+
+function FolderChip({ folderPath, isDark }: { folderPath: string; isDark: boolean }) {
+  return (
+    <Tooltip side="top" label={`Changes are written to ${folderPath}`}>
+      <span className={composerChipClass(isDark)}>
+        <FolderOpen size={11} className="shrink-0" />
+        <span className="truncate">{folderName(folderPath)}</span>
+      </span>
+    </Tooltip>
   )
 }
 

@@ -36,5 +36,3 @@ export type CommentDraft =
       entityIds: string[]
       label: string
     }
-
-export type CommentDraftKind = CommentDraft['kind']
