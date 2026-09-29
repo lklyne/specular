@@ -2038,3 +2038,12 @@ Noticed (no action):
 - **#383**: day 50, zero comments — no state change.
 - **needs-triage / `agent-in-progress`**: unchanged at 28 / 3 (same oldest #124, newest #410 [Aug 24]; same #1/#111/#135) — freeze now at 36 days, already named Sept 14, not re-deriving.
 Hint for next run: proposal queue is now empty (#431 closed) for the first time since Sept 20. Don't manufacture a proposal to fill it — this is the same "healthy-but-quiet" steady state named in past lulls. Watch whether PR #432 gets any post-merge follow-up, and whether a second, *different-shaped* signal shows up alongside the resumed `main` activity before treating anything here as pattern-worthy. #425 is the only standing single-instance watch item; still needs a second sighting of the same shape elsewhere to cross the proposal bar.
+
+---
+
+## 2026-09-29
+Surveyed: unshallowed the clone before any ancestry check, `main` HEAD (still `bc5253f`, PR #432 — no commits since), direct `created:>=2026-09-28` issue search and `created:>=2026-09-27` PR search (only #432 itself), `orchestrator-proposal` queue (empty; nothing open to age out).
+Acted:
+- Nothing to file or close. No second, different-shaped signal alongside the resumed `main` activity.
+Notes: healthy-but-quiet steady state. #425 remains the only single-instance watch item (needs a second sighting of the same shape). #169 stays a standing artifact — no re-raise condition fired.
+Hint for next run: proposal queue is empty; don't manufacture one. Unshallow first, then check whether `main` moved or any new issue/PR appeared.
