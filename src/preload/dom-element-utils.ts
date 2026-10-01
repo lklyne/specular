@@ -3,6 +3,14 @@ import {
   getInspectableNodeIdForElement,
 } from './component-inspector'
 import { isPageOverlayTarget } from './page-overlay-targets'
+import {
+  MAX_NAME_MATCH_CANDIDATES,
+  matchElementsByName,
+  matchElementsByText,
+  selectorForRole,
+  type NameMatch,
+  type NameMatchCandidate,
+} from './accessible-name-matcher'
 
 export function elementClasses(element: Element): string[] {
   return [...element.classList]
@@ -291,6 +299,100 @@ export function isInteractiveForSnapshot(element: Element): boolean {
   if ((element as HTMLElement).tabIndex >= 0) return true
   const styles = window.getComputedStyle(element)
   return styles.cursor === 'pointer'
+}
+
+// --- Accessible-name lookup (issue #319 follow-up) ---
+//
+// Main's own agent snapshot (buildStructuredDomSnapshot above) is a
+// structural tree capped at a fixed depth, so it never sees deeply nested
+// interactive leaves on a real app shell. This is the page-side fallback:
+// given a name agent-browser already resolved against the real
+// accessibility tree, find the live element(s) with that same name by
+// querying narrowly (by role) rather than walking the whole tree. The
+// uniqueness decision belongs to main (presence-manager.ts) — this only
+// answers "find elements with this name," never "is this the right one."
+
+function labelForFormControl(element: Element): string | null {
+  const tag = element.tagName.toLowerCase()
+  if (!['input', 'textarea', 'select'].includes(tag)) return null
+  const id = element.getAttribute('id')
+  if (id) {
+    const byFor = element.ownerDocument.querySelector(`label[for="${CSS.escape(id)}"]`)
+    const text = byFor?.textContent?.trim()
+    if (text) return text
+  }
+  const ancestor = element.closest('label')
+  const text = ancestor?.textContent?.trim()
+  return text || null
+}
+
+function labelledByText(element: Element): string | null {
+  const ids = element.getAttribute('aria-labelledby')
+  if (!ids) return null
+  const text = ids
+    .split(/\s+/)
+    .map((id) => element.ownerDocument.getElementById(id)?.textContent ?? '')
+    .join(' ')
+    .trim()
+  return text || null
+}
+
+/** Approximates the accessible name computation closely enough to match
+ *  agent-browser's reported name for our purposes: explicit label sources
+ *  first (aria-label, aria-labelledby, an associated <label>), then rendered
+ *  text, then the remaining value-ish attributes a labelless control might
+ *  carry. */
+function computeAccessibleName(element: Element): string | null {
+  const ariaLabel = element.getAttribute('aria-label')
+  if (ariaLabel) return ariaLabel
+  const labelledBy = labelledByText(element)
+  if (labelledBy) return labelledBy
+  const formLabel = labelForFormControl(element)
+  if (formLabel) return formLabel
+  const innerText = (element as HTMLElement).innerText
+  if (innerText && innerText.trim()) return innerText
+  const html = element as HTMLInputElement
+  return html.value || element.getAttribute('placeholder') || element.getAttribute('alt') || element.getAttribute('title') || null
+}
+
+function boundingRect(element: Element): NameMatchCandidate['rect'] {
+  const rect = element.getBoundingClientRect()
+  return {
+    x: Math.round(rect.left),
+    y: Math.round(rect.top),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+  }
+}
+
+/** Gathers candidates by role (or a bounded generic interactive selector when
+ *  the role is absent/unrecognized), then matches by name or text — never
+ *  both, since a query names at most one of them. Bounded to
+ *  `MAX_NAME_MATCH_CANDIDATES` elements so a huge page can't stall the
+ *  renderer computing names one-by-one. */
+export function findElementsByAccessibleQuery(query: {
+  name?: string | null
+  text?: string | null
+  role?: string | null
+}): NameMatch[] {
+  let elements: Element[]
+  try {
+    elements = [...document.querySelectorAll(selectorForRole(query.role))]
+  } catch {
+    elements = []
+  }
+  const candidates: NameMatchCandidate[] = elements
+    .slice(0, MAX_NAME_MATCH_CANDIDATES)
+    .map((element) => ({
+      name: computeAccessibleName(element),
+      text: compactText(element.textContent, 160) ?? null,
+      rendered: isVisibleForSnapshot(element),
+      rect: boundingRect(element),
+    }))
+
+  if (query.name) return matchElementsByName(candidates, query.name)
+  if (query.text) return matchElementsByText(candidates, query.text)
+  return []
 }
 
 function buildStructuredSnapshotNode(

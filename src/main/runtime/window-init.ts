@@ -47,6 +47,7 @@ import {
   wireMcpEmptyState,
   notifyDevtoolsPanelData,
 } from './inspect-session'
+import { toolSchemas } from '../mcp-tool-schemas'
 import { initFixOrchestrator } from '../agent-fix/fix-orchestrator'
 import { onTrackerChange } from '../agent-fix/fix-tracker'
 import { onProgressChange } from '../agent-fix/fix-progress'
@@ -76,29 +77,7 @@ import {
 } from './runtime-constants'
 
 function mcpEmptyState() {
-  const tools = [
-    'get_workspace',
-    'get_selection',
-    'find_placement',
-    'apply_task_layout',
-    'upsert_entities',
-    'delete_entities',
-    'link_pages',
-    'unlink_pages',
-    'focus_pages',
-    'create_group',
-    'ungroup_group',
-    'delete_groups',
-    'register_design_system',
-    'get_design_system',
-    'layout_component_states',
-    'create_annotation',
-    'get_annotations',
-    'acknowledge_annotation',
-    'resolve_annotation',
-    'dismiss_annotation',
-    'reply_to_annotation',
-  ]
+  const tools = toolSchemas.map((tool) => tool.name)
   const helperPath = app.isPackaged
     ? join(process.resourcesPath, 'mcp-helper.js')
     : join(process.cwd(), 'out', 'main', 'mcp-helper.js')

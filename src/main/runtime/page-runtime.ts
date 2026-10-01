@@ -16,6 +16,7 @@ export {
 export { createPage, removePageById } from './page-factory'
 
 export {
+  queryElementsByName,
   queryPageElements,
   takePageAgentSnapshot,
   takePageScreenshot,

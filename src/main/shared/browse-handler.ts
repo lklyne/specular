@@ -1,8 +1,9 @@
 import { spawn } from 'child_process'
+import { randomUUID } from 'crypto'
 import { readFile, unlink } from 'fs/promises'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import type { PresenceTargetQuery } from '../../shared/types'
+import type { PresenceIntentQueueItem, PresenceTargetQuery, PresenceTargetRefSource } from '../../shared/types'
 import { callApp, sessionId, getClientName } from './app-client'
 
 // ---------------------------------------------------------------------------
@@ -15,6 +16,7 @@ export const COMMAND_LABELS: Record<string, string> = {
   fill: 'type_text',
   type: 'type_text',
   select: 'select_option',
+  hover: 'point_target',
   wait: 'wait_page',
   scroll: 'scroll_page',
   get: 'read_content',
@@ -269,6 +271,44 @@ export function parseTargetQuery(cmd: string): PresenceTargetQuery | null {
 }
 
 /**
+ * Per-step presence descriptors for a chained browse command, in execution
+ * order. A chain runs as a single `batch` spawn (see `handleBrowse`), so
+ * there's no HTTP round trip between steps to fire a fresh intent from —
+ * the whole list is registered with main up front via the intent's `queue`
+ * field, and main advances through it as each step's own CDP event
+ * consumes the one before it (`advancePendingIntent`, routes/session.ts).
+ * Steps with no mappable label (`labelKeyForCommand` returns null) are
+ * dropped — nothing for the cursor to key off of, and skipping them keeps
+ * `advancePendingIntent` from ever stalling on one.
+ */
+export function buildChainedPresenceSteps(parts: string[]): PresenceIntentQueueItem[] {
+  const steps: PresenceIntentQueueItem[] = []
+  for (const part of parts) {
+    const parsed = parseCommandArgs(part)
+    const labelKey = labelKeyForCommand(parsed)
+    if (!labelKey) continue
+    const command = effectiveBrowseCommand(parsed) ?? parsed.verb ?? ''
+    const { ref } = parsed
+    steps.push({
+      labelKey,
+      command,
+      targetRef: ref,
+      targetRefSource: ref ? 'agent-browser' : null,
+      targetQuery: ref ? null : parseTargetQuery(part),
+      labelHint: command === 'fill' || command === 'type' ? 'editing control' : null,
+    })
+  }
+  return steps
+}
+
+// Verbs whose target should be scrolled into view before dispatch — every
+// mutation plus `hover`. `hover` isn't a mutation (it invalidates nothing —
+// see MUTATION_VERBS), but it's still a real pointer move the presence
+// cursor animates, and an off-screen target would leave the cursor pointing
+// at nothing the user can see.
+const PRE_SCROLL_VERBS = new Set([...MUTATION_VERBS, 'hover'])
+
+/**
  * The pre-mutation auto-scroll target: an `@eN` ref or a CSS selector.
  * `text=` locators return null — agent-browser's `scrollintoview` (verified
  * against v0.31.1) accepts refs and CSS selectors but has no text locator
@@ -280,7 +320,7 @@ export function parseScrollTarget(parsed: {
   ref: string | null
   positionals: string[]
 }): string | null {
-  if (!parsed.verb || !MUTATION_VERBS.has(parsed.verb)) return null
+  if (!parsed.verb || !PRE_SCROLL_VERBS.has(parsed.verb)) return null
   if (parsed.ref) return parsed.ref
   const target = parsed.positionals[0]
   if (!target || target.startsWith('text=')) return null
@@ -447,6 +487,252 @@ function staleRefHint(targetPageId: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Agent-browser ref map (early cursor travel for @eN refs)
+// ---------------------------------------------------------------------------
+
+export interface AgentBrowserSnapshotRef {
+  ref: string
+  role: string
+  name: string | null
+}
+
+/**
+ * Parse agent-browser's `snapshot` text output into a flat ref -> {role,
+ * name} list — one list item per line, shaped
+ * `<indent>- <role>["<name>"] [<attrs>, ref=eN][: value]` (both the `-i` and
+ * plain forms; see tests/contract/agent-browser.contract.test.ts for the
+ * `[ref=eN]` token itself, which this mirrors — the `@eN` an agent types is
+ * how refs are addressed, not how they're printed).
+ *
+ * The name is matched as a quoted string BEFORE the bracket group is looked
+ * for, since a name can itself contain `[`/`]` (e.g. a checkbox labelled
+ * `Accept "terms" [v2]`) — naively splitting on the first `[` would cut it
+ * off mid-name. `ref=eN` is always the last comma-separated token inside the
+ * bracket. Structural nodes with no bracket group (headings' containers,
+ * `generic`, `StaticText`, …) have nothing to target and are skipped.
+ *
+ * Pure and side-effect free so it's unit-testable against real captured
+ * output without a live page.
+ */
+export function parseAgentBrowserSnapshotRefs(output: string): AgentBrowserSnapshotRef[] {
+  const refs: AgentBrowserSnapshotRef[] = []
+  for (const line of output.split('\n')) {
+    const dashMatch = line.match(/^\s*-\s+(.*)$/)
+    if (!dashMatch) continue
+    let rest = dashMatch[1]
+
+    const roleMatch = rest.match(/^[A-Za-z][A-Za-z0-9]*/)
+    if (!roleMatch) continue
+    const role = roleMatch[0]
+    rest = rest.slice(role.length)
+
+    let name: string | null = null
+    const nameMatch = rest.match(/^\s*"((?:[^"\\]|\\.)*)"/)
+    if (nameMatch) {
+      const unescaped = nameMatch[1].replace(/\\(.)/g, '$1').trim()
+      name = unescaped.length > 0 ? unescaped : null
+      rest = rest.slice(nameMatch[0].length)
+    }
+
+    const bracketMatch = rest.match(/\[([^\]]*)\]/)
+    if (!bracketMatch) continue
+    const attrs = bracketMatch[1].split(',').map((attr) => attr.trim())
+    const refToken = attrs[attrs.length - 1]
+    const refMatch = refToken.match(/^ref=(e\d+)$/)
+    if (!refMatch) continue
+
+    refs.push({ ref: refMatch[1], role, name })
+  }
+  return refs
+}
+
+/**
+ * Fire-and-forget: tells main which `@eN` refs from this snapshot resolve to
+ * which (role, name) pair, so a later intent for one of them can travel
+ * early instead of waiting for the CDP proxy to see agent-browser's own
+ * box-model query (see synthesizeAgentBrowserTargetQuery in
+ * presence-manager.ts). Never awaited by any caller and always
+ * `.catch`-guarded — must never fail or slow the snapshot command that
+ * triggered it.
+ */
+function postAgentBrowserRefs(pageId: string, snapshotOutput: string): void {
+  const refs = parseAgentBrowserSnapshotRefs(snapshotOutput)
+  if (refs.length === 0) return
+  callApp('/session/presence/agent-browser-refs', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, clientName: getClientName(), pageId, refs }),
+  }).catch(() => {})
+}
+
+// ---------------------------------------------------------------------------
+// Pre-mutation scroll settle
+// ---------------------------------------------------------------------------
+//
+// `scrollintoview`'s own promise resolves when the scroll is *requested*,
+// not when it's settled — on a page with `scroll-behavior: smooth` (or a
+// scroll-snap / animated carousel), the container can still be moving when
+// the mutation that follows dispatches its coordinates, landing the click on
+// whatever the target scrolled past instead of the target itself.
+
+/** Bounded poll budget: worst case this adds to a mutation whose scroll
+ *  never settles. Matches ADR 0029's dwell contract — bounded latency on a
+ *  mutating command, never a hang. */
+const SCROLL_STABILITY_CAP_MS = 600
+const SCROLL_STABILITY_POLL_INTERVAL_MS = 75
+
+interface ScrollStabilityRead {
+  x: number
+  y: number
+}
+
+/**
+ * Pure decision for one step of the settle-poll loop. Comparing two rect
+ * reads a beat apart is the least assumption-laden way to tell "still
+ * moving" from "done": within 1px of the previous read counts as settled
+ * (so an already-in-view target — the common case — settles after just the
+ * first two reads), a missing rect means there's nothing left to wait for,
+ * and the hard cap means a scroll that never fully settles still only costs
+ * a bounded delay, never a hang.
+ */
+export function decideScrollStability(
+  previous: ScrollStabilityRead | null,
+  current: ScrollStabilityRead | null,
+  elapsedMs: number,
+  capMs: number,
+): 'settled' | 'keep-waiting' | 'give-up' {
+  if (!current) return 'give-up'
+  if (previous && Math.abs(current.x - previous.x) < 1 && Math.abs(current.y - previous.y) < 1) {
+    return 'settled'
+  }
+  if (elapsedMs >= capMs) return 'give-up'
+  return 'keep-waiting'
+}
+
+/** `get box` resolves an `@eN` ref or a CSS selector identically (unlike
+ *  `eval`, which has no ref syntax) — the one read primitive the settle poll
+ *  needs regardless of how the mutation's own target was spelled. Any
+ *  failure (missing element, bad JSON, a dead daemon) reads the same as "no
+ *  rect" to the caller — never an error that could abort the mutation. */
+async function readTargetBox(
+  abPath: string,
+  sessionFlags: string[],
+  cdpUrl: string,
+  target: string,
+): Promise<ScrollStabilityRead | null> {
+  try {
+    const { stdout } = await spawnAsync(
+      abPath,
+      [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, '--json', 'get', 'box', target],
+      { timeout: 3_000 },
+    )
+    const parsed = JSON.parse(stdout)
+    const box = parsed?.data ?? parsed
+    if (typeof box?.x !== 'number' || typeof box?.y !== 'number') return null
+    return { x: box.x, y: box.y }
+  } catch {
+    return null
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Scrolls a mutation's target into view, then — only for a real mutation,
+ * never a read or `hover` — waits for its position to stop moving before
+ * returning. Best-effort throughout: a failed scroll or a failed read never
+ * blocks or fails the command that follows, it just means the wait can't do
+ * its job this time.
+ */
+async function scrollTargetIntoViewAndSettle(options: {
+  abPath: string
+  sessionFlags: string[]
+  cdpUrl: string
+  target: string
+  waitForSettle: boolean
+}): Promise<void> {
+  const { abPath, sessionFlags, cdpUrl, target, waitForSettle } = options
+  await spawnAsync(
+    abPath,
+    [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', target],
+    { timeout: 5_000 },
+  ).catch(() => {})
+
+  if (!waitForSettle) return
+
+  const start = Date.now()
+  let previous: ScrollStabilityRead | null = null
+  for (;;) {
+    const current = await readTargetBox(abPath, sessionFlags, cdpUrl, target)
+    const decision = decideScrollStability(previous, current, Date.now() - start, SCROLL_STABILITY_CAP_MS)
+    if (decision !== 'keep-waiting') return
+    previous = current
+    await sleep(SCROLL_STABILITY_POLL_INTERVAL_MS)
+  }
+}
+
+// A chained batch runs as one spawn with no gap between steps, so the
+// single-command path's poll above isn't available mid-batch. The batch
+// instead carries its own settle step: a `wait --fn` whose expression turns
+// truthy once the page has gone SCROLL_IDLE_MS without a scroll event. A fixed
+// pause can't do this job — a long smooth scroll outlasts any pause short
+// enough to be tolerable on every other click.
+const CHAINED_SCROLL_IDLE_MS = 150
+const CHAINED_SCROLL_SETTLE_CAP_MS = 1200
+
+/**
+ * The page-side expression for a chained step's settle wait. agent-browser
+ * polls it until truthy, so it keeps its state on `window`: one capturing
+ * scroll listener (scroll events don't bubble, but capture at the document
+ * sees every scroller) and the time of the last event. `token` marks which
+ * wait is polling, so a later wait on the same page starts its own clock
+ * instead of inheriting a stale one. The cap makes the expression turn truthy
+ * by itself — inside a `--bail` batch a wait that timed out would abort the
+ * steps after it, and a late click beats no click.
+ */
+export function buildScrollSettleExpression(token: string): string {
+  return `(() => {
+  const now = performance.now();
+  let s = window.__specularScrollSettle;
+  if (!s) {
+    s = window.__specularScrollSettle = { token: '', started: 0, lastScroll: 0 };
+    document.addEventListener('scroll', () => { s.lastScroll = performance.now(); }, { capture: true, passive: true });
+  }
+  if (s.token !== ${JSON.stringify(token)}) {
+    s.token = ${JSON.stringify(token)};
+    s.started = now;
+    s.lastScroll = now;
+  }
+  return now - s.lastScroll >= ${CHAINED_SCROLL_IDLE_MS} || now - s.started >= ${CHAINED_SCROLL_SETTLE_CAP_MS};
+})()`
+}
+
+/**
+ * Expands a chained browse command into agent-browser's own argv form,
+ * injecting a `scrollintoview` (and, for a mutation, a settle `wait`) ahead
+ * of any step whose target needs to be scrolled into view first. The one
+ * place chain steps turn into batch argv, kept out of handleBrowse's chain
+ * branch so that branch stays legible.
+ */
+function buildExpandedChainCommands(parts: string[]): string[][] {
+  const expanded: string[][] = []
+  const batchToken = randomUUID()
+  parts.forEach((part, index) => {
+    const parsed = parseCommandArgs(part)
+    const scrollTarget = parseScrollTarget(parsed)
+    if (scrollTarget) {
+      expanded.push(['scrollintoview', scrollTarget])
+      if (mutationVerbForCommand(parsed)) {
+        expanded.push(['wait', '--fn', buildScrollSettleExpression(`${batchToken}:${index}`)])
+      }
+    }
+    expanded.push(splitShellArgs(part))
+  })
+  return expanded
+}
+
+// ---------------------------------------------------------------------------
 // Page lock
 // ---------------------------------------------------------------------------
 
@@ -547,6 +833,82 @@ export function spawnAsync(
 // Browse tool handler
 // ---------------------------------------------------------------------------
 
+interface BrowsePresenceIntent {
+  command: string | null
+  labelKey: string | null
+  targetQuery: PresenceTargetQuery | null
+  targetRef: string | null
+  targetRefSource: PresenceTargetRefSource | null
+  labelHint: string | null
+  queue: PresenceIntentQueueItem[]
+}
+
+/**
+ * The presence-intent fields for the first command of a browse call, chained
+ * or single — what the CDP proxy and main need to start the cursor traveling
+ * before agent-browser's own resolution arrives. A chained command's
+ * `firstStep` isn't always `chainedParts[0]`'s own descriptor (a leading
+ * step with no mappable label is skipped by `buildChainedPresenceSteps`), so
+ * this owns that fallback against the plain single-command parse in one
+ * place rather than as inline ternaries at every call site.
+ */
+function buildBrowsePresenceIntent(
+  isChained: boolean,
+  chainedParts: string[],
+  firstCmd: string,
+  firstParsed: ReturnType<typeof parseCommandArgs>,
+): BrowsePresenceIntent {
+  const chainedSteps = isChained ? buildChainedPresenceSteps(chainedParts) : []
+  const firstStep = chainedSteps[0] ?? null
+  const { ref } = firstParsed
+  const command = firstStep ? firstStep.command : effectiveBrowseCommand(firstParsed)
+  return {
+    command,
+    labelKey: firstStep ? firstStep.labelKey : labelKeyForCommand(firstParsed),
+    // Only re-resolving targets (selector/text/find) need a target query —
+    // an @eN ref is already opaque to specular's own resolution.
+    targetQuery: firstStep ? firstStep.targetQuery : ref ? null : parseTargetQuery(firstCmd),
+    targetRef: firstStep ? firstStep.targetRef : ref,
+    targetRefSource: firstStep ? firstStep.targetRefSource : ref ? 'agent-browser' : null,
+    labelHint: firstStep
+      ? firstStep.labelHint
+      : command === 'fill' || command === 'type' ? 'editing control' : null,
+    // The rest of the chain, in order — main advances through it one step
+    // at a time (see buildChainedPresenceSteps).
+    queue: chainedSteps.slice(1),
+  }
+}
+
+/**
+ * Fire-and-forget: registers the intent (+ queue) built above. Include
+ * pageId so the cursor follows the page actually being driven — otherwise
+ * the server-side fallback picks the first CDP proxy registration for this
+ * session and the cursor sticks to whichever page was driven first. A no-op
+ * when the command has no mappable label.
+ */
+function fireBrowsePresenceIntent(
+  pageId: string,
+  clientName: string,
+  intent: BrowsePresenceIntent,
+): void {
+  if (!intent.labelKey) return
+  callApp('/session/presence/intent', {
+    method: 'POST',
+    body: JSON.stringify({
+      sessionId,
+      clientName,
+      command: intent.command,
+      labelKey: intent.labelKey,
+      pageId,
+      labelHint: intent.labelHint,
+      targetRef: intent.targetRef,
+      targetRefSource: intent.targetRefSource,
+      targetQuery: intent.targetQuery,
+      queue: intent.queue,
+    }),
+  }).catch(() => {})
+}
+
 export async function handleBrowse(args: Record<string, unknown>): Promise<{
   content: Array<
     | { type: 'text'; text: string }
@@ -577,11 +939,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
   const firstCmd = isChained ? chainedParts[0] : rawCommand
   const firstParsed = parseCommandArgs(firstCmd)
   const { verb, ref } = firstParsed
-  const intentCommand = effectiveBrowseCommand(firstParsed)
-  const labelKey = labelKeyForCommand(firstParsed)
-  // Only re-resolving targets (selector/text/find) need a target query — an
-  // @eN ref is already opaque to specular's own resolution.
-  const targetQuery = ref ? null : parseTargetQuery(firstCmd)
+  const presenceIntent = buildBrowsePresenceIntent(isChained, chainedParts, firstCmd, firstParsed)
 
   const clientName = getClientName()
 
@@ -599,26 +957,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     // daemon.
     const sessionFlags = ['--session', `${sessionId}:${pageId}`]
 
-    // Fire presence intent (non-blocking). Include pageId so the cursor
-    // follows the page we're actually driving — otherwise the server-side
-    // fallback picks the first CDP proxy registration for this session and
-    // the cursor sticks to whichever page was driven first.
-    if (labelKey) {
-      callApp('/session/presence/intent', {
-        method: 'POST',
-        body: JSON.stringify({
-          sessionId,
-          clientName,
-          command: intentCommand,
-          labelKey,
-          pageId,
-          labelHint: intentCommand === 'fill' || intentCommand === 'type' ? 'editing control' : null,
-          targetRef: ref,
-          targetRefSource: ref ? 'agent-browser' : null,
-          targetQuery,
-        }),
-      }).catch(() => {})
-    }
+    fireBrowsePresenceIntent(pageId, clientName, presenceIntent)
 
     // Previously, each browse command sent eventType:'done' in a finally block,
     // which immediately killed the cursor after every CLI call. This made the
@@ -635,14 +974,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       const parts = chainedParts
       // Auto-scroll mutation targets into view first (refs and CSS
       // selectors; see parseScrollTarget for why text= targets are skipped).
-      const expanded: string[][] = []
-      for (const p of parts) {
-        const scrollTarget = parseScrollTarget(parseCommandArgs(p))
-        if (scrollTarget) {
-          expanded.push(['scrollintoview', scrollTarget])
-        }
-        expanded.push(splitShellArgs(p))
-      }
+      const expanded = buildExpandedChainCommands(parts)
       const batchInput = JSON.stringify(expanded)
       const hasWait = parts.some(p => parseCommandArgs(p).verb === 'wait')
       const timeoutMs = hasWait ? 60_000 : 30_000
@@ -722,6 +1054,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           // inside one chain is already surfaced via staleRefHint on
           // failure.
           await recordSnapshotGeneration(pageId)
+          postAgentBrowserRefs(pageId, snapshotText)
           continue
         }
 
@@ -760,14 +1093,18 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
     }
 
     // Auto-scroll the mutation target into view first (refs and CSS
-    // selectors; see parseScrollTarget for why text= targets are skipped).
+    // selectors; see parseScrollTarget for why text= targets are skipped),
+    // then — for a real mutation only — wait for it to stop moving before
+    // dispatching against it (see "Pre-mutation scroll settle" above).
     const scrollTarget = parseScrollTarget(singleParsed)
     if (scrollTarget) {
-      await spawnAsync(
+      await scrollTargetIntoViewAndSettle({
         abPath,
-        [...GLOBAL_AB_FLAGS, ...sessionFlags, '--cdp', cdpUrl, 'scrollintoview', scrollTarget],
-        { timeout: 5_000 },
-      ).catch(() => {}) // Best-effort — don't fail the click if scroll fails
+        sessionFlags,
+        cdpUrl,
+        target: scrollTarget,
+        waitForSettle: Boolean(singleMutationVerb),
+      })
     }
 
     // Use --json for screenshots to get structured path output
@@ -826,6 +1163,9 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
       // D8: mark the snapshot baseline for later mutations to compare
       // against (the route stamps the page's current generation).
       await recordSnapshotGeneration(pageId)
+      // Parsed from the raw output, before any mismatch/warning prefix above
+      // — those aren't part of the accessibility tree.
+      postAgentBrowserRefs(pageId, stdout)
     }
 
     // D8: prepend the staleness warning to a successful mutation's output too
@@ -861,6 +1201,7 @@ export async function handleBrowse(args: Record<string, unknown>): Promise<{
           { timeout: 10_000 },
         )
         content.push({ type: 'text' as const, text: echoOut.trim() || '(no output)' })
+        postAgentBrowserRefs(pageId, echoOut)
       } catch {
         // Best-effort — the mutation already succeeded; don't fail the call for echo
       }

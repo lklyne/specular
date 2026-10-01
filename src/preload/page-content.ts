@@ -43,6 +43,7 @@ import {
   buildElementPath,
   buildStructuredDomSnapshot,
   compactText,
+  findElementsByAccessibleQuery,
   inspectionPayload,
   isInteractiveForSnapshot,
   isVisibleForSnapshot,
@@ -504,6 +505,20 @@ ipcRenderer.on(ipcChannels.queryDomElements, (_event, payload: { requestId: stri
   const results = elements.map((el) => inspectionPayload(el))
   ipcRenderer.send(ipcChannels.queryDomElementsResponse, { requestId: payload.requestId, data: results })
 })
+
+ipcRenderer.on(
+  ipcChannels.queryElementsByName,
+  (
+    _event,
+    payload: { requestId: string; name?: string | null; text?: string | null; role?: string | null },
+  ) => {
+    const matches = findElementsByAccessibleQuery(payload)
+    ipcRenderer.send(ipcChannels.queryElementsByNameResponse, {
+      requestId: payload.requestId,
+      data: matches,
+    })
+  },
+)
 
 ipcRenderer.on(
   ipcChannels.queryElementsInRect,

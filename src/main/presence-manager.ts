@@ -3,6 +3,7 @@ import type {
   AgentSnapshotPage,
   PresenceLabelKey,
   PresenceSurface,
+  PresenceTargetQuery,
   PresenceTargetRect,
   PresenceTargetRefSource,
 } from '../shared/types'
@@ -12,6 +13,7 @@ import { PRESENCE_INTENT_TTL_MS } from '../shared/presence-timing'
 import {
   takePageAgentSnapshot,
   queryPageElements,
+  queryElementsByName,
 } from './runtime/page-runtime'
 import {
   cacheAgentSnapshot,
@@ -50,6 +52,20 @@ interface PresenceTargetCandidate {
   bounds: PresenceTargetRect
 }
 
+/** One step of a chained browse command's presence queue — coerced and
+ *  validated (unlike the wire payload), ready to apply as-is. See
+ *  `advancePendingIntent` in routes/session.ts, which pops these one at a
+ *  time as each step's own CDP event (or its TTL) consumes the step
+ *  before it. */
+export interface QueuedPresenceIntent {
+  labelKey: PresenceLabelKey
+  command: string
+  targetRef: string | null
+  targetRefSource: PresenceTargetRefSource | null
+  targetQuery: PresenceTargetQuery | null
+  labelHint: string | null
+}
+
 export interface PendingIntent {
   labelKey: PresenceLabelKey
   pageId: string | null
@@ -58,6 +74,12 @@ export interface PendingIntent {
   command: string
   receivedAt: number
   expiryTimer: NodeJS.Timeout
+  // The remaining steps of a chained browse command, in execution order —
+  // empty for a single (unqueued) intent. `taskLabel` rides alongside it so
+  // `advancePendingIntent` can re-apply a queued step without needing the
+  // original HTTP payload that started the chain.
+  queue: QueuedPresenceIntent[]
+  taskLabel: string | null
 }
 
 // --- State ---
@@ -255,6 +277,22 @@ async function ensureAgentSnapshot(pageId: string): Promise<AgentSnapshotPage> {
 
 // --- Target matching ---
 
+// `bestElementName` (src/preload/dom-element-utils.ts) formats an element's
+// name as `tag "text"` for human-readable display and caps `text` at 80
+// chars via `compactText` (trailing `…` marks a truncation). Every name
+// presence targeting sees — both the agent-snapshot cache's node.name and
+// query-elements' payload.name — is built from it. Unwrap it before scoring
+// so name/text matching compares the accessible text itself, not that
+// debug-formatted label; `TRUNCATION_MARKER` lets `findTruncatedNameMatch`
+// recognize when the unwrapped text was cut short.
+const TRUNCATION_MARKER = '…'
+
+function unwrapElementLabel(label: string | null): string | null {
+  if (!label) return null
+  const match = label.match(/^[a-z][a-z0-9]*\s+"([\s\S]*)"$/i)
+  return match ? match[1] : label
+}
+
 function normalizeQueryElementCandidate(candidate: unknown): PresenceTargetCandidate | null {
   if (!candidate || typeof candidate !== 'object') return null
   const payload = candidate as Record<string, unknown>
@@ -272,7 +310,7 @@ function normalizeQueryElementCandidate(candidate: unknown): PresenceTargetCandi
   }
   return {
     ref: null,
-    name: typeof payload.name === 'string' ? payload.name : null,
+    name: unwrapElementLabel(typeof payload.name === 'string' ? payload.name : null),
     text: typeof payload.textPreview === 'string' ? payload.textPreview : null,
     interactive: true,
     elementPath: typeof payload.elementPath === 'string' ? payload.elementPath : null,
@@ -304,6 +342,113 @@ function scorePresenceTargetCandidate(
   )
 }
 
+/**
+ * Fallback for a name-only query whose accessible name is longer than
+ * `bestElementName`'s 80-char cap (see `TRUNCATION_MARKER` above). The
+ * normal substring tier in `scoreDescriptorMatch` checks candidate-includes-
+ * query, which can never succeed once the candidate is the *shorter* string
+ * — so a long accessible name (e.g. a flight-result row's full description)
+ * never matches through the normal path, and the cursor stays put (issue
+ * #319 follow-up).
+ *
+ * A truncated candidate name is still an exact character prefix of the real
+ * accessible name, so matching it as a prefix is precise, not permissive —
+ * unlike a generic substring match, it can't hit an unrelated element that
+ * merely mentions the same words. It only fires when the ordinary scoring
+ * pass found nothing, only considers candidates that are visibly truncated,
+ * and refuses (returns null) on more than one prefix match — the same
+ * "ambiguous is worse than absent" rule `synthesizeAgentBrowserTargetQuery`
+ * already applies to the ref map itself.
+ */
+function findTruncatedNameMatch(
+  candidates: PresenceTargetCandidate[],
+  queryName: string,
+  interactiveOnly: boolean,
+): PresenceTargetCandidate | null {
+  const wanted = queryName.trim().toLowerCase()
+  if (!wanted) return null
+  let match: PresenceTargetCandidate | null = null
+  for (const candidate of candidates) {
+    if (interactiveOnly && !candidate.interactive) continue
+    const name = candidate.name
+    if (!name || !name.endsWith(TRUNCATION_MARKER)) continue
+    const prefix = name.slice(0, -TRUNCATION_MARKER.length).trim().toLowerCase()
+    if (!prefix || !wanted.startsWith(prefix)) continue
+    if (match) return null
+    match = candidate
+  }
+  return match
+}
+
+export interface PresenceTargetResolution {
+  targetRef: string | null
+  targetRefSource: PresenceTargetRefSource
+  targetName: string | null
+  targetRect: PresenceTargetRect
+  pageX: number
+  pageY: number
+}
+
+function normalizeNameMatchRect(candidate: unknown): PresenceTargetRect | null {
+  if (!candidate || typeof candidate !== 'object') return null
+  const rect = (candidate as Record<string, unknown>).rect
+  if (!rect || typeof rect !== 'object') return null
+  const r = rect as Record<string, unknown>
+  if (
+    typeof r.x !== 'number' ||
+    typeof r.y !== 'number' ||
+    typeof r.width !== 'number' ||
+    typeof r.height !== 'number'
+  ) {
+    return null
+  }
+  return { x: r.x, y: r.y, width: r.width, height: r.height }
+}
+
+/**
+ * Last resort when neither a CSS-selector query nor snapshot scoring found
+ * anything: ask the live page for elements whose accessible name (or, for a
+ * text query, visible text) exactly matches, bypassing main's own
+ * depth-capped agent snapshot entirely (issue #319 — a deeply nested
+ * interactive leaf on a real app shell never makes it into that snapshot at
+ * all, so name scoring never sees it). Accepted only when the page reports
+ * exactly one rendered match: a real element plus a same-named zero-size
+ * ARIA duplicate collapses to one because the page-side lookup drops
+ * unrendered candidates, but a genuine duplicate stays two and is refused —
+ * the same "ambiguous is worse than absent" rule the ref map and the
+ * truncated-name fallback both already apply.
+ */
+async function findPresenceTargetByAccessibleQuery(
+  pageId: string,
+  query: { name?: string | null; text?: string | null },
+): Promise<PresenceTargetResolution | null> {
+  const name = query.name ?? null
+  const text = name ? null : query.text ?? null
+  if (!name && !text) return null
+  // Never lets a gone page (destroyed mid-flight, unregistered in a test)
+  // surface as a rejection — this is a best-effort fallback, and its
+  // failure mode is the same "don't travel" as finding no match.
+  let results: unknown[]
+  try {
+    results = await queryElementsByName(pageId, { name, text })
+  } catch {
+    return null
+  }
+  const rects = results
+    .map(normalizeNameMatchRect)
+    .filter((rect): rect is PresenceTargetRect => Boolean(rect))
+  if (rects.length !== 1) return null
+  const rect = rects[0]
+  return {
+    targetRef: null,
+    targetRefSource: 'specular',
+    targetName: name ?? text,
+    targetRect: rect,
+    pageX: rect.x + rect.width / 2,
+    pageY: rect.y + rect.height / 2,
+  }
+}
+
 export async function findPresenceTarget(pageId: string, query: {
   selector?: string | null
   name?: string | null
@@ -312,14 +457,7 @@ export async function findPresenceTarget(pageId: string, query: {
   fullPath?: string | null
   interactiveOnly?: boolean
   maxResults?: number
-}): Promise<{
-  targetRef: string | null
-  targetRefSource: PresenceTargetRefSource
-  targetName: string | null
-  targetRect: PresenceTargetRect
-  pageX: number
-  pageY: number
-} | null> {
+}): Promise<PresenceTargetResolution | null> {
   const candidates: PresenceTargetCandidate[] = []
 
   if (query.selector) {
@@ -331,7 +469,7 @@ export async function findPresenceTarget(pageId: string, query: {
     const snapshot = await ensureAgentSnapshot(pageId)
     candidates.push(...snapshot.nodes.map((node) => ({
       ref: node.ref,
-      name: node.name ?? null,
+      name: unwrapElementLabel(node.name ?? null),
       text: node.text ?? null,
       interactive: node.interactive,
       elementPath: node.elementPath,
@@ -350,15 +488,29 @@ export async function findPresenceTarget(pageId: string, query: {
     }
   }
 
-  if (!best || !Number.isFinite(bestScore)) return null
-  return {
-    targetRef: best.ref,
-    targetRefSource: 'specular',
-    targetName: best.name ?? best.text ?? null,
-    targetRect: best.bounds,
-    pageX: best.bounds.x + best.bounds.width / 2,
-    pageY: best.bounds.y + best.bounds.height / 2,
+  if (!best && query.name) {
+    best = findTruncatedNameMatch(candidates, query.name, query.interactiveOnly ?? false)
   }
+
+  if (best) {
+    return {
+      targetRef: best.ref,
+      targetRefSource: 'specular',
+      targetName: best.name ?? best.text ?? null,
+      targetRect: best.bounds,
+      pageX: best.bounds.x + best.bounds.width / 2,
+      pageY: best.bounds.y + best.bounds.height / 2,
+    }
+  }
+
+  // A CSS-selector query already searched the live DOM directly — nothing
+  // left to fall back to. Only the snapshot-scored paths (name/text) reach
+  // for the page-side accessible-name lookup.
+  if (!query.selector && (query.name || query.text)) {
+    return findPresenceTargetByAccessibleQuery(pageId, query)
+  }
+
+  return null
 }
 
 export function resolvePresenceTargetRect(
@@ -371,6 +523,100 @@ export function resolvePresenceTargetRect(
   if (targetRefSource === 'agent-browser') return null
   if (!pageId || !targetRef) return null
   return resolveAgentSnapshotNode(pageId, targetRef)?.bounds ?? null
+}
+
+// --- Agent-browser ref cache ---
+//
+// agent-browser's `@eN` refs are opaque to main — resolvePresenceTargetRect
+// returns null for them above. `handleBrowse` parses each successful
+// `snapshot`'s text output into ref -> {role, name} and POSTs it here
+// (routes/session.ts's `/session/presence/agent-browser-refs`), replacing
+// the session+page's map wholesale, so the intent handler can synthesize a
+// PresenceTargetQuery for a ref it recognizes instead of waiting for the CDP
+// proxy to see agent-browser's own box-model query.
+
+interface AgentBrowserRefEntry {
+  role: string
+  name: string | null
+}
+
+// Per-page cap: bounds one pathological huge snapshot. Per-map-count cap:
+// bounds total memory across every session+page this process has seen —
+// oldest insertion order is a Map's natural iteration order, so evicting the
+// first key is a cheap approximate LRU.
+const AGENT_BROWSER_REF_MAX_ENTRIES_PER_PAGE = 300
+const AGENT_BROWSER_REF_MAX_PAGES = 50
+
+const agentBrowserRefMaps = new Map<string, Map<string, AgentBrowserRefEntry>>()
+
+function agentBrowserRefKey(sessionId: string, pageId: string): string {
+  return `${sessionId}::${pageId}`
+}
+
+/** Replace a session+page's agent-browser ref map wholesale — called after
+ *  every successful `snapshot` (handleBrowse), never merged with what was
+ *  there before, since a stale entry is worse than a missing one. */
+export function setAgentBrowserRefs(
+  sessionId: string,
+  pageId: string,
+  refs: Array<{ ref: string; role: string; name: string | null }>,
+): void {
+  const map = new Map<string, AgentBrowserRefEntry>()
+  for (const entry of refs.slice(0, AGENT_BROWSER_REF_MAX_ENTRIES_PER_PAGE)) {
+    map.set(entry.ref, { role: entry.role, name: entry.name })
+  }
+  agentBrowserRefMaps.set(agentBrowserRefKey(sessionId, pageId), map)
+  while (agentBrowserRefMaps.size > AGENT_BROWSER_REF_MAX_PAGES) {
+    const oldestKey = agentBrowserRefMaps.keys().next().value
+    if (oldestKey === undefined) break
+    agentBrowserRefMaps.delete(oldestKey)
+  }
+}
+
+/** Drop every session's ref map for a page — the same staleness events that
+ *  invalidate main's own agent-snapshot cache (navigation, DOM churn) make
+ *  agent-browser's refs just as untrustworthy. Wired in routes/session.ts
+ *  via `onAgentSnapshotInvalidated`. */
+export function invalidateAgentBrowserRefsForPage(pageId: string): void {
+  const suffix = `::${pageId}`
+  for (const key of agentBrowserRefMaps.keys()) {
+    if (key.endsWith(suffix)) agentBrowserRefMaps.delete(key)
+  }
+}
+
+/**
+ * Synthesize a name-only `PresenceTargetQuery` for an agent-browser `@eN`
+ * ref, or null when it isn't safe to. Two conditions gate this:
+ *
+ * 1. The ref's accessible name is non-empty — an empty name gives
+ *    `findPresenceTarget` nothing to match on.
+ * 2. That name is unique across every entry in the page's ref map,
+ *    regardless of role. `findPresenceTarget`'s snapshot-matching path
+ *    (`scorePresenceTargetCandidate`) scores purely on name/text — it never
+ *    reads a candidate's role at all — so two same-named elements of
+ *    *different* roles are exactly as unresolvable to it as two same-named
+ *    links; role can't rescue an otherwise-ambiguous name here.
+ *
+ * Traveling to the wrong same-named element is worse than not traveling
+ * early at all, so any doubt returns null and the caller falls back to the
+ * existing box-model-driven pre-move (issue #319).
+ */
+export function synthesizeAgentBrowserTargetQuery(
+  sessionId: string,
+  pageId: string,
+  ref: string,
+): PresenceTargetQuery | null {
+  const map = agentBrowserRefMaps.get(agentBrowserRefKey(sessionId, pageId))
+  if (!map) return null
+  const entry = map.get(ref)
+  if (!entry?.name) return null
+  let nameMatches = 0
+  for (const candidate of map.values()) {
+    if (candidate.name === entry.name) nameMatches++
+    if (nameMatches > 1) break
+  }
+  if (nameMatches !== 1) return null
+  return { selector: null, text: null, name: entry.name }
 }
 
 // --- Orchestrator ---

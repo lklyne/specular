@@ -30,7 +30,15 @@ export interface RecordingState {
   outputPath: string | null
   startedAt: number | null
   frameCount: number
+  /** Frames written that repeat the last captured frame to hold the declared
+   *  fps against wall-clock time, rather than fresh captures. High under
+   *  slow capture; the video is still correct-length either way. */
+  duplicatedFrames: number
   droppedFrames: number
+  /** Wall-clock ms excluded from the timeline by a stall too long to
+   *  reproduce frame-for-frame — see `computeFrameWrites`. Zero outside of
+   *  a genuine stall (a blocked process, a system sleep). */
+  stalledMs: number
   elapsed: number
 }
 
@@ -39,10 +47,132 @@ interface QualityPreset {
   crf: number
 }
 
+// Presets differ in quality, not frame rate. A composited capture sustains
+// well under 30 fresh frames a second, and ffmpeg can't convert and encode 60
+// full-size frames a second alongside the running app — it falls behind and
+// the recorder has to drop time to stay bounded.
 const QUALITY_PRESETS: Record<string, QualityPreset> = {
-  high: { fps: 60, crf: 20 },
+  high: { fps: 30, crf: 20 },
   medium: { fps: 30, crf: 30 },
   compact: { fps: 30, crf: 40 },
+}
+
+/** Delay before retrying a failed composite capture, so a persistent failure
+ *  (destroyed page, zero-size race) polls instead of spinning the event loop. */
+const CAPTURE_RETRY_DELAY_MS = 100
+
+// ---------------------------------------------------------------------------
+// ffmpeg argument list
+//
+// Kept as one pure builder so the recorder and anything that needs to
+// reproduce its exact pipe (a scratch script, a test) can't drift from it.
+// ---------------------------------------------------------------------------
+
+export interface FfmpegRecordArgsOptions {
+  width: number
+  height: number
+  fps: number
+  crf: number
+  outputPath: string
+}
+
+/**
+ * Raw BGRA frames arrive on stdin at a constant declared frame rate; the
+ * caller is responsible for writing exactly `fps` frames per second of
+ * wall-clock recording time (see `computeFrameWrites` below) so this stays a
+ * plain constant-frame-rate input rather than needing timestamp-based (vfr)
+ * flags, which would make output timing depend on stdin pipe scheduling.
+ */
+export function buildFfmpegRecordArgs(opts: FfmpegRecordArgsOptions): string[] {
+  return [
+    '-y',
+    '-f', 'rawvideo',
+    '-pixel_format', 'bgra',
+    '-video_size', `${opts.width}x${opts.height}`,
+    '-framerate', String(opts.fps),
+    '-i', 'pipe:0',
+    '-c:v', 'libvpx-vp9',
+    '-crf', String(opts.crf),
+    '-b:v', '0',
+    '-deadline', 'realtime',
+    '-cpu-used', '8',
+    '-row-mt', '1',
+    opts.outputPath,
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// Frame pacing
+//
+// A composited capture (three capturePage calls plus a CPU alpha blend) can
+// take far longer than one frame interval at the declared fps, so captures
+// land at their own, slower, irregular cadence. Piping one written frame per
+// capture would encode real wall-clock time as if every capture were exactly
+// one frame apart — the recording plays back faster than it was made.
+// Instead the capture loop and the write loop run independently: captures
+// happen as fast as they can, and on every write tick this decides how many
+// copies of the latest captured frame to emit so that
+// `framesWritten / fps` tracks wall-clock elapsed time, duplicating frames
+// under slow capture and writing nothing when capture is outpacing playback.
+// ---------------------------------------------------------------------------
+
+export interface FramePacingState {
+  framesWritten: number
+  /** Wall-clock time (ms) folded out of the timeline by a stall too long to
+   *  reproduce frame-for-frame — see `computeFrameWrites`. */
+  droppedMs: number
+}
+
+export const INITIAL_FRAME_PACING_STATE: FramePacingState = { framesWritten: 0, droppedMs: 0 }
+
+export interface FrameWritePlan {
+  framesToWrite: number
+  state: FramePacingState
+}
+
+/**
+ * `elapsedMs` is wall-clock time since recording start. Under steady or
+ * merely slow capture, the write loop's own tick interval never lets a gap
+ * bigger than `maxCatchUpFrames` build up between calls, so the cap is never
+ * hit — duplication alone keeps pace. It only fires after a genuine stall
+ * (the process itself was blocked, or the machine slept), where a single
+ * call can see many seconds of elapsed time appear at once. Reproducing that
+ * frame-for-frame would mean writing an unbounded burst of duplicate frames
+ * (hours of 16MB buffers for a laptop-sleep-length stall); silently capping
+ * the burst without remembering the shortfall would instead quietly
+ * re-introduce a compressed timeline for everything recorded afterward. So
+ * the excess beyond the cap is dropped from the timeline once, and
+ * `droppedMs` carries the amount forward so later calls keep computing
+ * against wall-clock time honestly (the video freezes on the last frame for
+ * `maxCatchUpFrames` worth of time across the stall, then resumes exact
+ * tracking) rather than either extreme.
+ */
+export function computeFrameWrites(
+  state: FramePacingState,
+  elapsedMs: number,
+  fps: number,
+  maxCatchUpFrames: number,
+): FrameWritePlan {
+  const effectiveElapsedMs = elapsedMs - state.droppedMs
+  const targetFrameCount = Math.max(0, Math.floor((effectiveElapsedMs / 1000) * fps))
+  const needed = targetFrameCount - state.framesWritten
+  if (needed <= 0) {
+    return { framesToWrite: 0, state }
+  }
+  if (needed <= maxCatchUpFrames) {
+    return {
+      framesToWrite: needed,
+      state: { framesWritten: state.framesWritten + needed, droppedMs: state.droppedMs },
+    }
+  }
+  const droppedFrames = needed - maxCatchUpFrames
+  return {
+    framesToWrite: maxCatchUpFrames,
+    state: {
+      framesWritten: state.framesWritten + maxCatchUpFrames,
+      droppedMs: state.droppedMs + (droppedFrames / fps) * 1000,
+    },
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -53,8 +183,10 @@ let activeRecorder: VideoRecorderInstance | null = null
 
 class VideoRecorderInstance {
   private ffmpeg: ChildProcess | null = null
-  private captureTimer: NodeJS.Timeout | null = null
-  private capturing = false
+  private writeTimer: NodeJS.Timeout | null = null
+  /** Most recently completed composite; the write loop duplicates it to hold
+   *  pace when captures land slower than the declared fps. */
+  private latestFrame: Buffer | null = null
   /** Recording composites live frames on a timer, with no traffic of its own
    *  to prove the page is in use — hold it awake for the duration. */
   private releaseAwakeHold: (() => void) | null = null
@@ -68,9 +200,14 @@ class VideoRecorderInstance {
 
   private startedAt = 0
   private frameCount = 0
+  private capturedFrameCount = 0
   private droppedFrames = 0
+  private pacing: FramePacingState = INITIAL_FRAME_PACING_STATE
   private captureWidth = 0
   private captureHeight = 0
+  /** One second of frames: enough to ride out an encoder hiccup, small enough
+   *  that a stuck encoder can't exhaust memory. Set once the size is known. */
+  private maxQueuedBytes = Number.POSITIVE_INFINITY
   private dpr = 1
   private stopped = false
   private savedCamera: { zoom: number; panX: number; panY: number } | null = null
@@ -116,6 +253,7 @@ class VideoRecorderInstance {
       const pageRect = boundScreenBoundsForPage(this.page).page
       this.captureWidth = Math.round(pageRect.width * this.dpr)
       this.captureHeight = Math.round(pageRect.height * this.dpr)
+      this.maxQueuedBytes = this.captureWidth * this.captureHeight * 4 * this.fps
 
       if (this.captureWidth === 0 || this.captureHeight === 0) {
         throw new Error('Canvas view has zero dimensions')
@@ -123,23 +261,17 @@ class VideoRecorderInstance {
 
       // Spawn ffmpeg to accept raw BGRA frames on stdin.
       // Use VP9 with realtime deadline for fast encoding at high resolution.
-      this.ffmpeg = spawn('ffmpeg', [
-        '-y',
-        '-f', 'rawvideo',
-        '-pixel_format', 'bgra',
-        '-video_size', `${this.captureWidth}x${this.captureHeight}`,
-        '-framerate', String(this.fps),
-        '-i', 'pipe:0',
-        '-c:v', 'libvpx-vp9',
-        '-crf', String(this.crf),
-        '-b:v', '0',
-        '-deadline', 'realtime',
-        '-cpu-used', '8',
-        '-row-mt', '1',
-        this.outputPath,
-      ], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      })
+      this.ffmpeg = spawn(
+        'ffmpeg',
+        buildFfmpegRecordArgs({
+          width: this.captureWidth,
+          height: this.captureHeight,
+          fps: this.fps,
+          crf: this.crf,
+          outputPath: this.outputPath,
+        }),
+        { stdio: ['pipe', 'pipe', 'pipe'] },
+      )
 
       this.ffmpeg.on('error', (err) => {
         console.error('[video-recorder] ffmpeg error:', err.message)
@@ -156,9 +288,13 @@ class VideoRecorderInstance {
       this.startedAt = Date.now()
       this.activityTracker.start()
 
-      // Start the capture loop.
+      // Capture and write run on independent schedules: capture as fast as
+      // the composite pipeline sustains, and pace writes off the wall clock
+      // (see computeFrameWrites) so the declared fps encodes real elapsed
+      // time regardless of how often a fresh capture actually lands.
+      void this.runCaptureLoop()
       const intervalMs = Math.round(1000 / this.fps)
-      this.captureTimer = setInterval(() => this.captureFrame(), intervalMs)
+      this.writeTimer = setInterval(() => this.paceWrites(), intervalMs)
     } catch (error) {
       this.releaseAwakeHold?.()
       this.restoreCamera()
@@ -166,55 +302,74 @@ class VideoRecorderInstance {
     }
   }
 
-  private async captureFrame(): Promise<void> {
-    // Prevent overlapping captures.
-    if (this.capturing || this.stopped) return
-    this.capturing = true
-
-    try {
-      if (!this.ffmpeg || !this.ffmpeg.stdin || this.ffmpeg.stdin.destroyed) {
+  private async runCaptureLoop(): Promise<void> {
+    while (!this.stopped) {
+      if (!this.ffmpeg?.stdin || this.ffmpeg.stdin.destroyed) {
         this.droppedFrames++
         return
       }
 
-      const result = await captureFrameComposited(this.page, { dpr: this.dpr })
-      if (!result) {
+      try {
+        const result = await captureFrameComposited(this.page, { dpr: this.dpr })
+        if (result && result.width === this.captureWidth && result.height === this.captureHeight) {
+          this.latestFrame = result.bitmap
+          this.capturedFrameCount++
+          continue
+        }
         this.droppedFrames++
-        return
+      } catch (error) {
+        console.error('[video-recorder] capture frame error:', error)
+        this.droppedFrames++
       }
 
-      if (result.width !== this.captureWidth || result.height !== this.captureHeight) {
-        this.droppedFrames++
-        return
-      }
-
-      // Write the raw BGRA frame to ffmpeg. Node.js will buffer internally
-      // even when write() returns false (backpressure hint). At ~23MB per frame,
-      // every write exceeds the default 16KB highWaterMark, but the data is
-      // still queued and ffmpeg consumes it at its encoding pace.
-      this.ffmpeg.stdin.write(result.bitmap)
-      this.frameCount++
-    } catch (error) {
-      console.error('[video-recorder] capture frame error:', error)
-      this.droppedFrames++
-    } finally {
-      this.capturing = false
+      await new Promise((r) => setTimeout(r, CAPTURE_RETRY_DELAY_MS))
     }
+  }
+
+  private paceWrites(): void {
+    if (this.stopped || !this.latestFrame) return
+    if (!this.ffmpeg?.stdin || this.ffmpeg.stdin.destroyed) return
+
+    // An encoder that falls behind would otherwise grow stdin's queue without
+    // bound, each queued frame pinning a full-size bitmap. Skipping the tick
+    // turns the backlog into an elapsed-time jump, which the catch-up cap
+    // below already accounts for as a stall.
+    if (this.ffmpeg.stdin.writableLength > this.maxQueuedBytes) return
+
+    const elapsedMs = Date.now() - this.startedAt
+    // A one-second catch-up cap: ordinary slow capture never builds a
+    // backlog bigger than a tick's worth (this timer duplicates the latest
+    // frame regardless of capture cadence), so hitting the cap means a real
+    // stall, not the compositor being slow.
+    const plan = computeFrameWrites(this.pacing, elapsedMs, this.fps, this.fps)
+    this.pacing = plan.state
+
+    // Node.js buffers internally even when write() returns false
+    // (backpressure hint). At ~16MB per frame every write exceeds the
+    // default highWaterMark, but the data is still queued and ffmpeg
+    // consumes it at its encoding pace; writing the same buffer object
+    // `framesToWrite` times costs no extra allocation.
+    for (let i = 0; i < plan.framesToWrite; i++) {
+      this.ffmpeg.stdin.write(this.latestFrame)
+    }
+    this.frameCount += plan.framesToWrite
   }
 
   async stop(): Promise<{
     outputPath: string
     duration: number
     frameCount: number
+    duplicatedFrames: number
     droppedFrames: number
+    stalledMs: number
     segments: ActivitySegment[]
   }> {
     this.stopped = true
     this.releaseAwakeHold?.()
 
-    if (this.captureTimer) {
-      clearInterval(this.captureTimer)
-      this.captureTimer = null
+    if (this.writeTimer) {
+      clearInterval(this.writeTimer)
+      this.writeTimer = null
     }
 
     this.activityTracker.stop()
@@ -249,9 +404,15 @@ class VideoRecorderInstance {
       outputPath: this.outputPath,
       duration,
       frameCount: this.frameCount,
+      duplicatedFrames: this.duplicatedFrameCount(),
       droppedFrames: this.droppedFrames,
+      stalledMs: this.pacing.droppedMs,
       segments,
     }
+  }
+
+  private duplicatedFrameCount(): number {
+    return Math.max(0, this.frameCount - this.capturedFrameCount)
   }
 
   private restoreCamera(): void {
@@ -270,7 +431,9 @@ class VideoRecorderInstance {
       outputPath: this.outputPath,
       startedAt: this.startedAt,
       frameCount: this.frameCount,
+      duplicatedFrames: this.duplicatedFrameCount(),
       droppedFrames: this.droppedFrames,
+      stalledMs: this.pacing.droppedMs,
       elapsed: (Date.now() - this.startedAt) / 1000,
     }
   }
@@ -305,7 +468,9 @@ export async function stopRecording(): Promise<{
   segmentsPath: string
   duration: number
   frameCount: number
+  duplicatedFrames: number
   droppedFrames: number
+  stalledMs: number
   segments: ActivitySegment[]
 }> {
   if (!activeRecorder) {
@@ -329,7 +494,9 @@ export function getRecordingState(): RecordingState {
       outputPath: null,
       startedAt: null,
       frameCount: 0,
+      duplicatedFrames: 0,
       droppedFrames: 0,
+      stalledMs: 0,
       elapsed: 0,
     }
   }

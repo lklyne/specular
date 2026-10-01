@@ -62,6 +62,20 @@ Two limits: pages can't be created or edited on a background tab (they need a
 live view — `tab switch` first), and background writes are not on the user's
 undo stack, so Cmd+Z will not reverse them.
 
+## Bracket a task
+
+Bracket a multi-step task so your cursor holds its position and stays
+visible on the canvas, instead of going idle between calls:
+
+```bash
+specular presence start "adding the pricing table"
+# ... several specular / browse calls ...
+specular presence done
+```
+
+Always call `done` when the task ends, success or not. An unclosed task
+holds the cursor past its normal idle timeout.
+
 ## Add — kind is the subcommand
 
 ```bash
@@ -286,10 +300,22 @@ are ambiguous. Use `http://localhost:4321/garden`, not `/garden`.
 
 ## Chaining
 
-Commands can be chained with `&&` for atomic sequences:
+Shell `&&` between separate `specular` calls runs separate processes — fine
+for independent steps like creating a page and then reading it:
 
 ```bash
 specular add page http://localhost:3000 && specular snapshot -i -f <pageId>
+```
+
+For steps that belong together — a click and the fill that depends on it —
+use `specular browse "<cmd> && <cmd>" -f <pageId>` instead. It sends the
+whole chain to the app as one atomic batch: the presence cursor gets a
+label per step, it stops at the first failure (no half-applied chain), and
+`@eN` refs stay valid across steps since agent-browser never re-launches
+between them.
+
+```bash
+specular browse "click @e3 && fill @e5 hello" -f <pageId>
 ```
 
 ## Known CLI limitations
@@ -305,6 +331,41 @@ specular add page http://localhost:3000 && specular snapshot -i -f <pageId>
 - **Search box `fill` + `click` may not trigger navigation** — `fill` may not fire input events. If a click on Search fails, re-fill and retry, or click an autocomplete option ref instead.
 - **`update <pageId> --url` lags `canvas`** — changing a page's URL navigates the page async, so the new URL isn't readable via `specular canvas` for a few hundred ms after the `updated` reply. Re-read (or brief wait) before relying on it in an `update → canvas` chain.
 - **Google Sheets (and likely other canvas-rendered grids): no per-cell refs** — the grid is a single `<canvas>` element, not DOM cells, so snapshots can never target cells. Before driving Sheets, read [references/google-sheets.md](references/google-sheets.md) — it has the one write path that works (Name box → formula bar) and the focus traps that silently eat input while reporting "✓ Done".
+
+## MCP server
+
+Clients that don't run shell commands can drive Specular through its MCP
+server instead. It covers the same operations, one tool per verb (or verb
+family). Install: `claude mcp add specular-mcp -- node out/main/mcp-helper.js`
+(a packaged app ships the helper at
+`<App>.app/Contents/Resources/mcp-helper.js`).
+
+| CLI verb | MCP tool |
+|---|---|
+| `canvas` | `get_workspace` |
+| `tab` / `tab new` / `tab switch` / `tab delete` | `list_tabs` / `create_tab` / `switch_tab` / `delete_tab` |
+| `selection` | `get_selection` |
+| `add` / `update` / `upsert` | `upsert_entities` |
+| `apply` | `apply_patch` |
+| `delete` | `delete_entities` |
+| `arrange` | `arrange_entities` |
+| `auto-layout` | `auto_layout` |
+| `focus` | `focus_pages` |
+| `link` / `unlink` | `link_pages` / `unlink_pages` |
+| `group` / `ungroup` | `create_group` / `ungroup_group` |
+| `annotate` / `annotations` / `annotation` | `create_annotation` / `get_annotations` / `get_annotation_detail` |
+| `annotate-selection` | `annotate_selection` |
+| `ack` / `resolve` / `dismiss` / `reply` | `acknowledge_annotation` / `resolve_annotation` / `dismiss_annotation` / `reply_to_annotation` |
+| `record start\|stop\|status\|trim` | `start_recording` / `stop_recording` / `get_recording_status` / `trim_recording` |
+| `print-pdf` | `print_pdf` |
+| `design-system` / `register-design-system` / `component-states` | `get_design_system` / `register_design_system` / `layout_component_states` |
+| `presence start` / `presence done` | `start_task` / `finish_task` |
+| `snapshot`, `click`, `fill`, `type`, `select`, `screenshot`, `scroll`, `wait`, `browse`, and other passthrough verbs | `browse` |
+
+Every tool takes an optional `tab` (id or name) to target another canvas
+without switching the user's focus, the MCP equivalent of the CLI's `--tab`.
+`start_task` / `finish_task` are the tool equivalent of `specular presence
+start|done` above.
 
 ## Passthrough to agent-browser
 

@@ -56,6 +56,23 @@ specular annotate "<feedback>"           # leave a comment for a human or agent
 
 A Claude Code skill ships with the app — see [`resources/skills/specular/SKILL.md`](resources/skills/specular/SKILL.md) for the full surface. An [MCP server](src/main/mcp-tools.ts) covers the same operations for clients that prefer it.
 
+### Using the MCP server
+
+Install it into an MCP-capable client:
+
+```bash
+claude mcp add specular-mcp -- node <path to mcp-helper.js>
+```
+
+The packaged app ships `mcp-helper.js` at `<App>.app/Contents/Resources/mcp-helper.js`. In a checkout, build it first and point at `out/main/mcp-helper.js`:
+
+```bash
+pnpm build:mcp-helper
+claude mcp add specular-mcp -- node out/main/mcp-helper.js
+```
+
+Reach for the MCP server when your client doesn't run shell commands, or you want tool calls validated against a schema instead of parsed from a CLI's stdout. Otherwise the `specular` CLI is the primary surface. It's what the bundled skill drives, and it gets new capabilities first.
+
 ## Security
 
 To report a security vulnerability, see [SECURITY.md](SECURITY.md).

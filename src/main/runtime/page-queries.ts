@@ -27,6 +27,21 @@ export async function queryPageElements(pageId?: string, selector?: string, maxR
   return sendPageIpc(pageId, ipcChannels.queryDomElements, { selector, maxResults: maxResults ?? 20 })
 }
 
+/**
+ * Find rendered elements whose computed accessible name (or, for a text
+ * query, visible text) exactly equals the given value — the page-side
+ * fallback `findPresenceTarget` reaches for when the structural agent
+ * snapshot (depth-capped) doesn't reach the target (issue #319). Queries
+ * narrowly by role rather than walking the whole DOM.
+ */
+export async function queryElementsByName(
+  pageId: string | undefined,
+  query: { name?: string | null; text?: string | null; role?: string | null },
+): Promise<unknown[]> {
+  const data = await sendPageIpc(pageId, ipcChannels.queryElementsByName, query)
+  return Array.isArray(data) ? data : []
+}
+
 export async function queryElementsInRect(
   pageId: string,
   rect: { x: number; y: number; width: number; height: number },

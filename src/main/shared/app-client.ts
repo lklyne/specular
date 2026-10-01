@@ -3,6 +3,7 @@ import { execFileSync } from 'child_process'
 import { readFileSync, writeFileSync } from 'fs'
 import { isAbsolute, join } from 'path'
 import { homedir, tmpdir } from 'os'
+import { AsyncLocalStorage } from 'async_hooks'
 import {
   APP_CONTROL_DISCOVERY_FILE,
   APP_CONTROL_VERSION,
@@ -188,12 +189,28 @@ export function setTargetTabRef(ref: string | null): void {
   targetTabRef = ref && ref.trim() ? ref.trim() : null
 }
 
+// The MCP helper is one long-lived process that can service overlapping tool
+// calls, so a module-level target (fine for the CLI, which is one process per
+// invocation) would let one call's `tab` leak into another's request. Each
+// call runs inside its own AsyncLocalStorage scope instead; `callApp` prefers
+// the scoped value when one is active. `getStore()` returning `undefined`
+// means "no scope" (fall back to `targetTabRef`) — distinct from a scope
+// storing `null` for "this call has no tab", which must not fall back.
+const targetTabScope = new AsyncLocalStorage<string | null>()
+
+export function withTargetTab<T>(ref: string | null | undefined, fn: () => Promise<T>): Promise<T> {
+  const trimmed = ref && ref.trim() ? ref.trim() : null
+  return targetTabScope.run(trimmed, fn)
+}
+
 // ---------------------------------------------------------------------------
 // HTTP client
 // ---------------------------------------------------------------------------
 
 export async function callApp<T>(path: string, init?: RequestInit): Promise<T> {
   const discovery = loadDiscovery()
+  const scopedTab = targetTabScope.getStore()
+  const tabRef = scopedTab !== undefined ? scopedTab : targetTabRef
   const response = await fetch(`http://127.0.0.1:${discovery.port}${path}`, {
     ...init,
     headers: {
@@ -201,7 +218,7 @@ export async function callApp<T>(path: string, init?: RequestInit): Promise<T> {
       'x-specular-secret': discovery.secret,
       'x-specular-session-id': sessionId,
       'x-specular-client-name': clientName,
-      ...(targetTabRef ? { 'x-specular-tab': encodeURIComponent(targetTabRef) } : {}),
+      ...(tabRef ? { 'x-specular-tab': encodeURIComponent(tabRef) } : {}),
       ...(init?.headers ?? {}),
     },
   })
