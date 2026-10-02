@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// A frame counts as long when its interval exceeds this multiple of the
 /// display budget — i.e. at least one refresh was visibly missed.
@@ -63,7 +63,7 @@ impl FrameTimes {
 
 /// Nearest-rank percentile over sorted values (`sorted[ceil(p*n) - 1]`, as
 /// the Electron `computeBuildStats` does).
-fn percentile(sorted: &[f64], p: f64) -> f64 {
+pub(crate) fn percentile(sorted: &[f64], p: f64) -> f64 {
     let rank = (p * sorted.len() as f64).ceil() as usize;
     sorted
         .get(rank.saturating_sub(1))
@@ -71,11 +71,14 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
         .unwrap_or_default()
 }
 
-/// Frame-timing summary, field-compatible with the ADR 0038 lab tables.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize)]
+/// Frame-timing summary, field-compatible with the ADR 0038 lab's
+/// `summarizeFrameIntervals` (`draws`, `drawFps`, `meanFrameMs`,
+/// `maxFrameMs`, `longFrames`) plus percentiles the lab did not report.
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrameSummary {
-    /// Number of intervals.
+    /// Number of intervals (the lab's `draws`).
+    #[serde(rename = "draws", alias = "frames")]
     pub frames: usize,
     /// Presented frames per second over the run.
     pub draw_fps: f64,
@@ -123,6 +126,68 @@ mod tests {
     fn p95_uses_nearest_rank() {
         let summary = times(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).summary(Duration::from_millis(8));
         assert!((summary.p95_frame_ms - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "nearest-rank percentiles return an input value unchanged"
+    )]
+    fn percentiles_on_one_to_hundred_are_their_rank() {
+        let ms: Vec<u64> = (1..=100).collect();
+        let summary = times(&ms).summary(Duration::from_millis(8));
+        assert_eq!(
+            [
+                summary.p50_frame_ms,
+                summary.p95_frame_ms,
+                summary.p99_frame_ms,
+                summary.max_frame_ms
+            ],
+            [50.0, 95.0, 99.0, 100.0]
+        );
+    }
+
+    #[test]
+    fn percentiles_ignore_recording_order() {
+        let summary = times(&[9, 1, 5, 3, 7]).summary(Duration::from_millis(8));
+        assert!((summary.p50_frame_ms - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn single_interval_is_every_percentile() {
+        let summary = times(&[12]).summary(Duration::from_millis(8));
+        assert!(
+            (summary.p99_frame_ms - 12.0).abs() < 1e-9
+                && (summary.p50_frame_ms - 12.0).abs() < 1e-9
+        );
+    }
+
+    #[test]
+    fn mean_matches_arithmetic_mean() {
+        let summary = times(&[4, 8, 12]).summary(Duration::from_millis(8));
+        assert!((summary.mean_frame_ms - 8.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn interval_exactly_at_threshold_is_not_long() {
+        // 1.5 x 8 ms = 12 ms; the lab counts strictly greater.
+        let summary = times(&[12]).summary(Duration::from_millis(8));
+        assert_eq!(summary.long_frames, 0);
+    }
+
+    #[test]
+    fn summary_serializes_frame_count_as_lab_draws() {
+        let json = serde_json::to_value(times(&[8]).summary(Duration::from_millis(8))).unwrap();
+        assert_eq!(json["draws"], 1);
+    }
+
+    #[test]
+    fn summary_deserializes_legacy_frames_field() {
+        let summary: FrameSummary = serde_json::from_str(
+            r#"{"frames":3,"drawFps":1,"meanFrameMs":1,"p50FrameMs":1,"p95FrameMs":1,"p99FrameMs":1,"maxFrameMs":1,"longFrames":0}"#,
+        )
+        .unwrap();
+        assert_eq!(summary.frames, 3);
     }
 
     #[test]

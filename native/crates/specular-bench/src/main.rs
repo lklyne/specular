@@ -1,31 +1,47 @@
-//! `specular-bench`: prints the gesture plan as JSON.
-//!
-//! The live runner (drive the app's camera through [`PROFILES`] while timing
-//! presented frames, then emit one [`specular_bench::FrameSummary`] per
-//! profile) is built on top of this.
+//! `specular-bench`: gesture plans, Electron trace conversion, process-tree
+//! memory sampling, and side-by-side comparison of results files.
 
-use serde::Serialize;
-use specular_bench::{PROFILES, ProfileId, STEP_INTERVAL, build_steps};
+mod attach;
+mod cli;
+mod commands;
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PlannedProfile {
-    id: ProfileId,
-    label: &'static str,
-    duration_ms: u128,
-    steps: usize,
-}
+use anyhow::bail;
+
+use crate::cli::Args;
+
+const USAGE: &str = "\
+usage: specular-bench <command> [args]
+
+  plan            [--profiles a,b] [--duration-ms N] [--frame-ms N]
+                  Print the gesture steps each profile expands to.
+  compare         <baseline.json> <candidate.json>
+                  Markdown table of candidate against baseline.
+  electron-trace  <trace.json> | --response run.json
+                  [--frame-ms N] [--profiles a,b] [--duration-ms N]
+                  [--gap-ms 200] [--thread VizCompositorThread]
+                  [--fixture NAME] [--pages N]
+                  [--memory-idle f] [--memory-end f] [--memory-peak f]
+                  [--page-hosts-before f] [--page-hosts-after f]
+                  Reduce an Electron /perf/pan-zoom/run trace to a report.
+  assemble        <bench.jsonl> [--fixture NAME] [--pages N] [--memory-* f]
+                  Fold the Rust app's --bench JSON lines into a report.
+  rss             --pid N [--peak-ms N]
+                  Resident memory of a process and all its descendants.
+";
 
 fn main() -> anyhow::Result<()> {
-    let plan: Vec<PlannedProfile> = PROFILES
-        .iter()
-        .map(|profile| PlannedProfile {
-            id: profile.id,
-            label: profile.label,
-            duration_ms: profile.duration.as_millis(),
-            steps: build_steps(profile, STEP_INTERVAL).len(),
-        })
-        .collect();
-    println!("{}", serde_json::to_string_pretty(&plan)?);
+    let mut raw = std::env::args().skip(1);
+    let command = raw.next().unwrap_or_else(|| "plan".to_owned());
+    let args = Args::parse(raw)?;
+    let output = match command.as_str() {
+        "plan" => commands::plan(&args)?,
+        "compare" => commands::compare(&args)?,
+        "electron-trace" => commands::electron_trace(&args)?,
+        "assemble" => commands::assemble(&args)?,
+        "rss" => commands::rss(&args)?,
+        "help" | "-h" | "--help" => USAGE.to_owned(),
+        other => bail!("unknown command `{other}`\n\n{USAGE}"),
+    };
+    println!("{output}");
     Ok(())
 }

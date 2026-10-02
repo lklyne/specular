@@ -1,0 +1,328 @@
+//! CEF handler objects: the app (command-line switches) and one client per
+//! page (render, load, request and life-span handlers).
+//!
+//! The `wrap_*!` macros generate the ref-counted C vtables; each handler
+//! holds a [`PageContext`] clone and only translates the callback into page
+//! state or a [`PageEvent`].
+#![expect(
+    clippy::transmute_ptr_to_ptr,
+    reason = "cef's wrap_* macros transmute the ref-count base in their expansion"
+)]
+
+use std::os::raw::c_int;
+
+use cef::{
+    AcceleratedPaintInfo, App, Browser, BrowserSettings, CefString, Client, CommandLine,
+    DictionaryValue, Frame, ImplApp, ImplClient, ImplCommandLine, ImplFrame, ImplLifeSpanHandler,
+    ImplLoadHandler, ImplRenderHandler, ImplRequestHandler, LifeSpanHandler, LoadHandler,
+    PaintElementType, PopupFeatures, Range, Rect, RenderHandler, RequestHandler, ScreenInfo,
+    TerminationStatus, WindowInfo, WindowOpenDisposition, WrapApp, WrapClient, WrapLifeSpanHandler,
+    WrapLoadHandler, WrapRenderHandler, WrapRequestHandler, wrap_app, wrap_client,
+    wrap_life_span_handler, wrap_load_handler, wrap_render_handler, wrap_request_handler,
+};
+// The `wrap_*!` expansions call `add_ref` from this trait unqualified.
+use cef::rc::Rc as _;
+use specular_core::PageEvent;
+
+use crate::config::Switch;
+use crate::coords::{rect_from_cef, union_rects};
+use crate::page::PageContext;
+use crate::paint;
+
+wrap_app! {
+    pub(crate) struct SpecularApp {
+        switches: Vec<Switch>,
+    }
+
+    impl App {
+        fn on_before_command_line_processing(
+            &self,
+            process_type: Option<&CefString>,
+            command_line: Option<&mut CommandLine>,
+        ) {
+            let is_browser = process_type.is_none_or(|kind| kind.to_string().is_empty());
+            let Some(command_line) = command_line else {
+                return;
+            };
+            if !is_browser {
+                return;
+            }
+            for switch in &self.switches {
+                let name = CefString::from(switch.name);
+                match switch.value {
+                    Some(value) => command_line
+                        .append_switch_with_value(Some(&name), Some(&CefString::from(value))),
+                    None => command_line.append_switch(Some(&name)),
+                }
+            }
+        }
+    }
+}
+
+/// The view rect CEF asks for: the page's CSS viewport at the origin.
+/// CEF requires a non-empty rect.
+fn view_rect(ctx: &PageContext) -> Rect {
+    let viewport = ctx.geometry.borrow().viewport;
+    Rect {
+        x: 0,
+        y: 0,
+        width: viewport.width.max(1) as i32,
+        height: viewport.height.max(1) as i32,
+    }
+}
+
+wrap_render_handler! {
+    struct PageRenderHandler {
+        ctx: PageContext,
+    }
+
+    impl RenderHandler {
+        fn view_rect(&self, _browser: Option<&mut Browser>, rect: Option<&mut Rect>) {
+            if let Some(rect) = rect {
+                *rect = view_rect(&self.ctx);
+            }
+        }
+
+        fn screen_info(
+            &self,
+            _browser: Option<&mut Browser>,
+            screen_info: Option<&mut ScreenInfo>,
+        ) -> c_int {
+            let Some(info) = screen_info else {
+                return 0;
+            };
+            // The "screen" is the view itself, so Chromium keeps popups
+            // (<select> lists, date pickers) inside the page's texture.
+            let rect = view_rect(&self.ctx);
+            info.device_scale_factor = self.ctx.geometry.borrow().scale;
+            info.rect = rect.clone();
+            info.available_rect = rect;
+            1
+        }
+
+        fn screen_point(
+            &self,
+            _browser: Option<&mut Browser>,
+            view_x: c_int,
+            view_y: c_int,
+            screen_x: Option<&mut c_int>,
+            screen_y: Option<&mut c_int>,
+        ) -> c_int {
+            // View and screen coincide (see `screen_info`).
+            let (Some(screen_x), Some(screen_y)) = (screen_x, screen_y) else {
+                return 0;
+            };
+            *screen_x = view_x;
+            *screen_y = view_y;
+            1
+        }
+
+        fn on_popup_show(&self, _browser: Option<&mut Browser>, show: c_int) {
+            let visible = show != 0;
+            if !visible {
+                self.ctx.geometry.borrow_mut().clear_popup();
+            }
+            self.ctx.push(PageEvent::PopupVisibility {
+                page: self.ctx.id,
+                visible,
+            });
+        }
+
+        fn on_popup_size(&self, _browser: Option<&mut Browser>, rect: Option<&Rect>) {
+            let Some(rect) = rect else {
+                return;
+            };
+            let css = rect_from_cef(rect.x, rect.y, rect.width, rect.height);
+            let placed = self.ctx.geometry.borrow_mut().set_popup(css);
+            self.ctx.push(PageEvent::PopupRect {
+                page: self.ctx.id,
+                rect: placed,
+            });
+        }
+
+        fn on_paint(
+            &self,
+            _browser: Option<&mut Browser>,
+            type_: PaintElementType,
+            dirty_rects: Option<&[Rect]>,
+            buffer: *const u8,
+            width: c_int,
+            height: c_int,
+        ) {
+            paint::on_paint(&self.ctx, type_, dirty_rects, buffer, width, height);
+        }
+
+        fn on_accelerated_paint(
+            &self,
+            _browser: Option<&mut Browser>,
+            type_: PaintElementType,
+            _dirty_rects: Option<&[Rect]>,
+            info: Option<&AcceleratedPaintInfo>,
+        ) {
+            #[cfg(target_os = "macos")]
+            paint::on_accelerated_paint(&self.ctx, type_, info);
+            #[cfg(not(target_os = "macos"))]
+            {
+                // Shared textures are only requested on macOS
+                // (`CefConfig::uses_shared_texture`).
+                let _ = (type_, info);
+                tracing::warn!(page = %self.ctx.id, "unexpected accelerated paint off macOS");
+            }
+        }
+
+        fn on_ime_composition_range_changed(
+            &self,
+            _browser: Option<&mut Browser>,
+            _selected_range: Option<&Range>,
+            character_bounds: Option<&[Rect]>,
+        ) {
+            let bounds = union_rects(
+                character_bounds
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|r| rect_from_cef(r.x, r.y, r.width, r.height)),
+            );
+            self.ctx.push(PageEvent::ImeCompositionBounds {
+                page: self.ctx.id,
+                bounds,
+            });
+        }
+    }
+}
+
+wrap_load_handler! {
+    struct PageLoadHandler {
+        ctx: PageContext,
+    }
+
+    impl LoadHandler {
+        fn on_load_end(
+            &self,
+            _browser: Option<&mut Browser>,
+            frame: Option<&mut Frame>,
+            http_status_code: c_int,
+        ) {
+            if frame.is_some_and(|frame| frame.is_main() != 0) {
+                self.ctx.push(PageEvent::Loaded {
+                    page: self.ctx.id,
+                    http_status: http_status_code,
+                });
+            }
+        }
+    }
+}
+
+/// The reason string Electron's `render-process-gone` uses for a status, so
+/// bench logs from both shells read the same.
+fn termination_reason(status: TerminationStatus) -> &'static str {
+    use cef::sys::cef_termination_status_t as Status;
+    match *status.as_ref() {
+        Status::TS_PROCESS_WAS_KILLED => "killed",
+        Status::TS_PROCESS_CRASHED => "crashed",
+        Status::TS_PROCESS_OOM => "oom",
+        Status::TS_LAUNCH_FAILED => "launch-failed",
+        Status::TS_INTEGRITY_FAILURE => "integrity-failure",
+        _ => "abnormal-exit",
+    }
+}
+
+wrap_request_handler! {
+    struct PageRequestHandler {
+        ctx: PageContext,
+    }
+
+    impl RequestHandler {
+        fn on_render_process_terminated(
+            &self,
+            _browser: Option<&mut Browser>,
+            status: TerminationStatus,
+            error_code: c_int,
+            _error_string: Option<&CefString>,
+        ) {
+            let reason = termination_reason(status);
+            tracing::warn!(page = %self.ctx.id, reason, error_code, "renderer gone");
+            self.ctx.push(PageEvent::Crashed {
+                page: self.ctx.id,
+                reason: reason.to_owned(),
+            });
+        }
+    }
+}
+
+wrap_life_span_handler! {
+    struct PageLifeSpanHandler {
+        ctx: PageContext,
+    }
+
+    impl LifeSpanHandler {
+        fn on_before_popup(
+            &self,
+            _browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            _popup_id: c_int,
+            target_url: Option<&CefString>,
+            _target_frame_name: Option<&CefString>,
+            _target_disposition: WindowOpenDisposition,
+            _user_gesture: c_int,
+            _popup_features: Option<&PopupFeatures>,
+            _window_info: Option<&mut WindowInfo>,
+            _client: Option<&mut Option<Client>>,
+            _settings: Option<&mut BrowserSettings>,
+            _extra_info: Option<&mut Option<DictionaryValue>>,
+            _no_javascript_access: Option<&mut c_int>,
+        ) -> c_int {
+            // `window.open` / target=_blank would otherwise open a native
+            // (non-OSR) window outside the canvas. Blocked: new pages on the
+            // canvas are an app decision, not the page's.
+            let url = target_url.map(ToString::to_string).unwrap_or_default();
+            tracing::info!(page = %self.ctx.id, url, "blocked window.open popup");
+            1
+        }
+
+        fn on_before_close(&self, _browser: Option<&mut Browser>) {
+            self.ctx.alive.set(self.ctx.alive.get().saturating_sub(1));
+        }
+    }
+}
+
+wrap_client! {
+    struct PageClient {
+        render: RenderHandler,
+        load: LoadHandler,
+        request: RequestHandler,
+        life_span: LifeSpanHandler,
+    }
+
+    impl Client {
+        fn render_handler(&self) -> Option<RenderHandler> {
+            Some(self.render.clone())
+        }
+
+        fn load_handler(&self) -> Option<LoadHandler> {
+            Some(self.load.clone())
+        }
+
+        fn request_handler(&self) -> Option<RequestHandler> {
+            Some(self.request.clone())
+        }
+
+        fn life_span_handler(&self) -> Option<LifeSpanHandler> {
+            Some(self.life_span.clone())
+        }
+    }
+}
+
+/// The app object for `cef_initialize` in the browser process.
+pub(crate) fn new_app(switches: Vec<Switch>) -> App {
+    SpecularApp::new(switches)
+}
+
+/// A client whose handlers all report into `ctx`.
+pub(crate) fn new_client(ctx: &PageContext) -> Client {
+    PageClient::new(
+        PageRenderHandler::new(ctx.clone()),
+        PageLoadHandler::new(ctx.clone()),
+        PageRequestHandler::new(ctx.clone()),
+        PageLifeSpanHandler::new(ctx.clone()),
+    )
+}

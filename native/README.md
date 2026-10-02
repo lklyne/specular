@@ -15,14 +15,20 @@ one Rust process with wgpu), not the compositing model.
 
 | Crate | Kind | Owns |
 |---|---|---|
-| `specular-core` | lib | Camera math, page model, `PageFrame` / `PageSource` contracts, input model, yrs-backed canvas document, JSON Canvas types, synthetic page source |
-| `specular-compositor` | lib | wgpu renderer: dot grid + page textures under the camera; IOSurface -> Metal -> wgpu import on macOS |
-| `specular-cef` | lib | CEF OSR `PageSource`. Empty unless built with `--features cef` |
-| `specular-bench` | lib + bin | Gesture profiles ported from `src/shared/pan-zoom-perf-test.ts`; frame-interval stats in the ADR 0038 lab's field names |
-| `specular-app` | bin | winit shell wiring a page source, the compositor, and the camera |
+| `specular-core` | lib | Camera math, page model, `PageFrame` / `PageSource` contracts, input model, yrs-backed canvas document (lossless `.canvas` round trip), JSON Canvas types, synthetic page source |
+| `specular-compositor` | lib | wgpu renderer: dot grid + page textures under the camera, popup layers, shared-texture retirement and the per-page cap of 6; IOSurface -> Metal -> wgpu import on macOS |
+| `specular-cef` | lib | CEF OSR `PageSource` (`--features cef`) and the CEF-free helpers it is built from (input translation, coords, keys, config). See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
+| `specular-bench` | lib + bin | Gesture profiles ported from `src/shared/pan-zoom-perf-test.ts`, frame stats in the ADR 0038 lab's field names, input latency, process-tree RSS, Electron trace converter, `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
+| `specular-app` | bin | winit shell wiring a page source, the compositor, the camera, input forwarding, and `--bench` |
 
 Dependency direction: `core` <- `compositor`, `cef`, `bench` <- `app`. Only
 `core` types cross crate boundaries; `core` has no GPU, window, or CEF deps.
+
+`fixtures/` holds the bench canvases both shells load: `static-9`,
+`static-20`, `static-40` (real sites, 1280x800 CSS each), `animated-20`
+(a `data:` page with a rAF counter and a CSS animation) and `input` (a
+`data:` page that flips its background on `pointerdown`/`keydown`, with a
+`<select>` and a text input for the popup and IME checks).
 
 ## Build, lint, test (any platform)
 
@@ -31,11 +37,13 @@ cd native
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 ```
 
 The default build uses the synthetic page source (animated CPU frames). It
 runs anywhere, and it is **not representative**: never put its numbers in the
-results table.
+results table. The compositor's GPU tests skip with a message when no wgpu
+adapter exists.
 
 Type-checking the CEF code without downloading CEF (cef's docs.rs mode; it
 cannot link or run):
@@ -48,32 +56,146 @@ cargo clippy --target aarch64-apple-darwin --workspace --all-targets \
   --features specular-app/cef,specular-cef/cef-dox -- -D warnings
 ```
 
-## Run on macOS (Apple Silicon) — the representative configuration
+## App
+
+```
+specular-app [--source synthetic|cef] [--pages N | FILE.canvas]
+             [--bench all|id,id,... [--warmup-ms N]]
+```
+
+Scroll pans; Cmd/Ctrl+scroll and pinch zoom about the cursor (same factor as
+the Electron app: `zoom -= deltaY * 0.002`, clamped to 0.02..3). Click a page
+to focus it; pointer, wheel, keys and IME then go to that page. Click empty
+canvas to clear focus. Logs go to stderr (`RUST_LOG=debug` for more); on
+exit an interactive session logs its input-to-present latency summary.
+
+`--bench` waits `--warmup-ms` (default 2000) for pages to load, runs each
+profile from the same start camera, one step per presented frame at the
+monitor's refresh interval, and prints one JSON line per profile to stdout
+(the bench crate's `PhaseReport` fields plus `source`, `pages`,
+`representative`, `stepIntervalMs`, `maxPaintToSubmitMs`). Then it exits.
+
+## Morning run on macOS (Apple Silicon)
+
+The representative configuration. Same Mac, built-in 120 Hz display, power
+adapter connected, other apps closed, for both shells. Every block is
+copy-paste from the repo root unless it says otherwise.
+
+### 1. Build
 
 ```sh
 cd native
-cargo run -p specular-app --release --features cef -- path/to/file.canvas
+export CEF_PATH="$HOME/.local/share/cef"   # first cef build downloads ~300 MB here
+cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
+cargo build --release -p specular-bench
+cargo build --release -p specular-app --features cef
+crates/specular-cef/scripts/bundle-macos.sh release
+APP="$PWD/target/release/specular-app.app/Contents/MacOS/specular-app"
+BENCH="$PWD/target/release/specular-bench"
+mkdir -p runs
 ```
 
-The first `--features cef` build downloads the CEF binary distribution
-(~300 MB) from `cef-builds.spotifycdn.com`; set `CEF_PATH` to reuse a copy.
-CEF on macOS must run from an `.app` bundle holding the CEF framework and the
-helper apps; `specular-cef` owns producing that bundle and this section
-records the exact command once it lands. With no `.canvas` argument the app
-lays out a 3-column demo grid of pages.
+CEF must run from the `.app` bundle (framework and helper apps); run the
+inner binary directly so stdout, stderr and argv are kept. Re-run
+`bundle-macos.sh` after every rebuild: the bundle holds copies.
 
-Controls: scroll pans, Cmd/Ctrl+scroll zooms (same factor as the Electron
-app: `zoom -= deltaY * 0.002`, clamped to 0.02..3).
-
-## Bench
+### 2. Smoke: synthetic, then CEF interactive
 
 ```sh
-cargo run -p specular-bench --release        # prints the gesture plan
+"$APP" --source synthetic --pages 9 --bench slow-pan   # one JSON line, "representative":false
+"$APP" fixtures/input.canvas                            # interactive; close the window when done
 ```
 
-The six profiles (`slow-pan`, `slow-zoom`, `fast-diagonal-pan`,
-`slow-pan-zoom`, `fast-pan-zoom`, `zoom-out-then-pan`) match the Electron
-test value for value. The comparison method is in the plan doc.
+In the interactive window check, and note the answers for the capability
+table in the plan: the page loads; clicking it flips the background (that
+proves input forwarding); the `<select>` opens a popup drawn over the page
+at the right place; typing with a Japanese/Chinese IME into the text input
+shows marked (underlined) text before commit; the candidate window sits next
+to the caret. Then confirm the zero-copy path is the one in use:
+
+```sh
+"$APP" --pages 4 --bench slow-pan --warmup-ms 5000   # want "representative":true, "drawsWithoutTexture":0
+```
+
+`representative` turns false when any presented frame came through a CPU
+upload (CEF fell back to `OnPaint`). A failing IOSurface import instead
+shows up as `drawsWithoutTexture` > 0 with `failed to import` warnings on
+stderr.
+
+If CEF fails to start, read "Known risks to check first" in
+`crates/specular-cef/README.md` (`CrAppControlProtocol`, retained IOSurface
+tearing, coded vs visible size, 120 fps).
+
+### 3. Rust/CEF runs: 9, 20, 40 static pages and 20 animated, three runs each
+
+```sh
+for fx in static-9 static-20 static-40 animated-20; do
+  pages="${fx##*-}"
+  : > "runs/rust-$fx.jsonl"
+  for i in 1 2 3; do
+    "$APP" --bench all --warmup-ms 8000 "fixtures/$fx.canvas" \
+      >> "runs/rust-$fx.jsonl" 2>> "runs/rust-$fx.log" &
+    pid=$!
+    sleep 6 && "$BENCH" rss --pid "$pid" > "runs/rust-$fx-mem-idle-$i.json"
+    "$BENCH" rss --pid "$pid" --peak-ms 30000 > "runs/rust-$fx-mem-peak-$i.json" &
+    wait "$pid"; wait
+  done
+  "$BENCH" assemble "runs/rust-$fx.jsonl" --fixture "$fx" --pages "$pages" \
+    --memory-idle "runs/rust-$fx-mem-idle-1.json" --memory-peak "runs/rust-$fx-mem-peak-1.json" \
+    > "runs/rust-$fx.json"
+done
+grep -h '"representative":false' runs/rust-*.jsonl && echo "NON-REPRESENTATIVE LINES ABOVE: fix before comparing"
+```
+
+The idle sample lands inside the 8 s warmup, after pages have loaded; the
+peak sampler covers the rest of the run (it samples for 30 s, longer than
+the six profiles take). Each `rust-*.json` holds
+all three runs' phases; `compare` takes the median per cell.
+
+### 4. Electron baseline (Specular release build on `main`)
+
+Copy `native/fixtures/*.canvas` into your Specular space folder. For each
+fixture: open it as the active tab, zoom so the camera roughly matches the
+Rust start camera (pan 40,40, zoom 0.25), wait for pages to settle, then run
+this from `native/` (set `fx` each time):
+
+```sh
+fx=static-20; pages="${fx##*-}"
+SECRET=$(jq -r .secret ~/.specular/specular-mcp.json); H="x-specular-secret: $SECRET"
+PID=$(pgrep -xo Specular)    # `pgrep -xo Electron` under pnpm dev
+for i in 1 2 3; do
+  "$BENCH" rss --pid "$PID" > "runs/e-$fx-mem-idle-$i.json"
+  curl -s -H "$H" localhost:29979/perf/page-hosts > "runs/e-$fx-hosts-before-$i.json"
+  "$BENCH" rss --pid "$PID" --peak-ms 30000 > "runs/e-$fx-mem-peak-$i.json" &
+  curl -s -X POST localhost:29979/perf/pan-zoom/run -H "$H" \
+    -H 'Content-Type: application/json' -d '{}' > "runs/e-$fx-run-$i.json"
+  wait
+  curl -s -H "$H" localhost:29979/perf/page-hosts > "runs/e-$fx-hosts-after-$i.json"
+  "$BENCH" electron-trace --response "runs/e-$fx-run-$i.json" --fixture "$fx" --pages "$pages" \
+    --memory-idle "runs/e-$fx-mem-idle-$i.json" --memory-peak "runs/e-$fx-mem-peak-$i.json" \
+    --page-hosts-before "runs/e-$fx-hosts-before-$i.json" \
+    --page-hosts-after "runs/e-$fx-hosts-after-$i.json" > "runs/e-$fx-$i.json"
+done
+jq -s '.[0] + {phases: (map(.phases) | add)}' runs/e-$fx-[123].json > "runs/electron-$fx.json"
+```
+
+For `animated-20` the trace has no quiet gaps between profiles, so run one
+profile per request instead (`-d '{"profiles":["slow-pan"]}'` and
+`electron-trace ... --profiles slow-pan`), once per profile id; see
+`crates/specular-bench/README.md`.
+
+### 5. Compare
+
+```sh
+for fx in static-9 static-20 static-40 animated-20; do
+  "$BENCH" compare "runs/electron-$fx.json" "runs/rust-$fx.json" > "runs/compare-$fx.md"
+done
+cat runs/compare-*.md
+```
+
+Copy the worst-profile numbers into the results table in
+[`docs/plans/rust-cef-spike.md`](../docs/plans/rust-cef-spike.md) and attach
+`runs/`. A run that `compare` flags "Not representative" does not count.
 
 ## Conventions
 

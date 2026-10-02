@@ -1,46 +1,278 @@
-//! Renders one empty frame offscreen. Skips (passes) on machines with no GPU
-//! adapter, which includes the Linux CI runner and the dev container.
+//! Offscreen renders checked pixel by pixel. Each test passes with a printed
+//! skip on machines with no GPU adapter (the Linux CI runner).
 
+mod common;
+
+use std::time::Instant;
+
+use common::{TARGET_SIZE, gpu_or_skip, pixel, read_pixels, render_target};
 use glam::Vec2;
-use specular_compositor::{Compositor, CompositorError, DotGrid, GpuContext, SceneView};
-use specular_core::Camera;
+use specular_compositor::{Compositor, CompositorError, DotGrid, PageDraw, RenderStats, SceneView};
+use specular_core::{
+    Camera, CanvasRect, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelRect,
+    PixelSize,
+};
+
+const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
+const PAGE: PageId = PageId(1);
+const PAGE_RECT: CanvasRect = CanvasRect::new(8.0, 8.0, 48.0, 48.0);
+/// Linear blue; encodes to exactly (0, 0, 255).
+const BACKGROUND: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
+const BACKGROUND_TEXEL: [u8; 4] = [0, 0, 255, 255];
+
+fn plain_grid() -> DotGrid {
+    DotGrid {
+        spacing: 0.0,
+        background: BACKGROUND,
+        ..DotGrid::default()
+    }
+}
+
+fn solid_frame(size: PixelSize, bgra: [u8; 4]) -> CpuFrame {
+    CpuFrame {
+        size,
+        stride: size.width * 4,
+        bgra: bgra.repeat(size.area() as usize),
+        dirty: Vec::new(),
+    }
+}
+
+fn frame_event(layer: FrameLayer, frame: CpuFrame) -> PageEvent {
+    PageEvent::Frame(FrameEvent {
+        page: PAGE,
+        layer,
+        frame: PageFrame::Cpu(frame),
+        produced_at: Instant::now(),
+    })
+}
+
+struct Harness {
+    gpu: specular_compositor::GpuContext,
+    compositor: Compositor,
+    target: wgpu::Texture,
+}
+
+impl Harness {
+    fn new() -> Option<Self> {
+        let gpu = gpu_or_skip()?;
+        let compositor = Compositor::new(gpu.device.clone(), gpu.queue.clone(), FORMAT);
+        let target = render_target(&gpu, FORMAT);
+        Some(Self {
+            gpu,
+            compositor,
+            target,
+        })
+    }
+
+    fn render(&mut self, camera: Camera, grid: DotGrid, pages: &[PageDraw]) -> RenderStats {
+        let view = self
+            .target
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let size = TARGET_SIZE as f32;
+        self.compositor.render(
+            &view,
+            &SceneView {
+                camera,
+                viewport: Vec2::new(size, size),
+                scale_factor: 1.0,
+                pages,
+                grid,
+            },
+        )
+    }
+
+    fn render_page(&mut self) -> Vec<[u8; 4]> {
+        let pages = [PageDraw {
+            page: PAGE,
+            rect: PAGE_RECT,
+        }];
+        self.render(Camera::default(), plain_grid(), &pages);
+        read_pixels(&self.gpu, &self.target)
+    }
+
+    fn send_view(&mut self, frame: CpuFrame) {
+        let result = self
+            .compositor
+            .handle_page_event(frame_event(FrameLayer::View, frame));
+        assert!(result.is_ok(), "frame rejected: {result:?}");
+    }
+}
 
 #[test]
-fn render_empty_scene_succeeds_when_adapter_present() {
-    let gpu = match pollster::block_on(GpuContext::headless()) {
-        Ok(gpu) => gpu,
-        Err(CompositorError::NoAdapter(reason)) => {
-            eprintln!("skipping: no GPU adapter ({reason})");
-            return;
-        }
-        Err(other) => panic!("GPU setup failed: {other}"),
+fn render_empty_scene_fills_background() {
+    let Some(mut harness) = Harness::new() else {
+        return;
     };
-    let format = wgpu::TextureFormat::Bgra8UnormSrgb;
-    let target = gpu.device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("smoke-target"),
-        size: wgpu::Extent3d {
-            width: 64,
-            height: 64,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        view_formats: &[],
-    });
-    let view = target.create_view(&wgpu::TextureViewDescriptor::default());
-    let mut compositor = Compositor::new(gpu.device.clone(), gpu.queue.clone(), format);
-    let stats = compositor.render(
-        &view,
-        &SceneView {
-            camera: Camera::default(),
-            viewport: Vec2::new(64.0, 64.0),
-            scale_factor: 1.0,
-            pages: &[],
-            grid: DotGrid::default(),
-        },
+    harness.render(Camera::default(), plain_grid(), &[]);
+    let pixels = read_pixels(&harness.gpu, &harness.target);
+    assert_eq!(pixel(&pixels, 40, 3), BACKGROUND_TEXEL);
+}
+
+#[test]
+fn grid_draws_a_dot_at_the_world_origin() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let grid = DotGrid {
+        dot: [1.0, 0.0, 0.0, 1.0],
+        ..plain_grid()
+    };
+    let grid = DotGrid {
+        spacing: 20.0,
+        ..grid
+    };
+    // Pan puts the world origin on pixel (10, 10)'s centre.
+    harness.render(Camera::new(Vec2::splat(10.5), 1.0), grid, &[]);
+    let pixels = read_pixels(&harness.gpu, &harness.target);
+    assert_eq!(
+        [pixel(&pixels, 10, 10), pixel(&pixels, 20, 10)],
+        [[255, 0, 0, 255], BACKGROUND_TEXEL]
     );
-    assert_eq!(stats.pages_drawn, 0);
+}
+
+#[test]
+fn page_without_frame_counts_as_missing_texture() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let pages = [PageDraw {
+        page: PAGE,
+        rect: PAGE_RECT,
+    }];
+    let stats = harness.render(Camera::default(), plain_grid(), &pages);
+    assert_eq!((stats.pages_drawn, stats.pages_without_texture), (0, 1));
+}
+
+#[test]
+fn cpu_frame_is_drawn_inside_page_rect() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    harness.send_view(solid_frame(PixelSize::new(48, 48), [10, 20, 200, 255]));
+    let pixels = harness.render_page();
+    assert_eq!(pixel(&pixels, 32, 32), [200, 20, 10, 255]);
+}
+
+#[test]
+fn rounded_corner_reveals_background() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    harness.send_view(solid_frame(PixelSize::new(48, 48), [10, 20, 200, 255]));
+    let pixels = harness.render_page();
+    assert_eq!(pixel(&pixels, 8, 8), BACKGROUND_TEXEL);
+}
+
+#[test]
+fn first_render_after_frame_reports_it_shown_once() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]));
+    let pages = [PageDraw {
+        page: PAGE,
+        rect: PAGE_RECT,
+    }];
+    let first = harness.render(Camera::default(), plain_grid(), &pages);
+    let second = harness.render(Camera::default(), plain_grid(), &pages);
+    assert_eq!((first.new_frames_shown, second.new_frames_shown), (1, 0));
+}
+
+#[test]
+fn dirty_rect_update_leaves_clean_region_untouched() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let size = PixelSize::new(48, 48);
+    harness.send_view(solid_frame(size, [0, 0, 100, 255]));
+    let mut update = solid_frame(size, [0, 0, 250, 255]);
+    update.dirty = vec![PixelRect::new(0, 0, 24, 48)];
+    harness.send_view(update);
+    let pixels = harness.render_page();
+    // Left half of the page (screen x 8..32) updated, right half kept.
+    assert_eq!(
+        [pixel(&pixels, 20, 32), pixel(&pixels, 44, 32)],
+        [[250, 0, 0, 255], [100, 0, 0, 255]]
+    );
+}
+
+#[test]
+fn popup_frame_draws_over_view_until_hidden() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 100, 255]));
+    let popup_rect = PixelRect::new(16, 16, 16, 16);
+    harness
+        .compositor
+        .handle_page_event(frame_event(
+            FrameLayer::Popup { rect: popup_rect },
+            solid_frame(PixelSize::new(16, 16), [0, 200, 0, 255]),
+        ))
+        .unwrap();
+    let shown = pixel(&harness.render_page(), 32, 32);
+    harness
+        .compositor
+        .handle_page_event(PageEvent::PopupVisibility {
+            page: PAGE,
+            visible: false,
+        })
+        .unwrap();
+    let hidden = pixel(&harness.render_page(), 32, 32);
+    assert_eq!([shown, hidden], [[0, 200, 0, 255], [100, 0, 0, 255]]);
+}
+
+#[test]
+fn removed_page_is_no_longer_drawn() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 100, 255]));
+    harness.compositor.remove_page(PAGE);
+    let pixels = harness.render_page();
+    assert_eq!(pixel(&pixels, 32, 32), BACKGROUND_TEXEL);
+}
+
+#[test]
+fn malformed_cpu_frame_is_rejected_with_import_error() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let mut frame = solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]);
+    frame.bgra.truncate(16);
+    let result = harness
+        .compositor
+        .handle_page_event(frame_event(FrameLayer::View, frame));
+    assert!(matches!(result, Err(CompositorError::Import { .. })));
+}
+
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn shared_frame_without_platform_import_is_released_immediately() {
+    use std::cell::Cell;
+    use std::ptr::NonNull;
+    use std::rc::Rc;
+
+    use specular_core::{NativeSurface, PixelFormat, SharedTexture};
+
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let released = Rc::new(Cell::new(false));
+    let flag = Rc::clone(&released);
+    let shared = SharedTexture::new(
+        NativeSurface::IoSurface(NonNull::dangling()),
+        PixelSize::new(4, 4),
+        PixelFormat::Bgra8Unorm,
+        move || flag.set(true),
+    );
+    let result = harness
+        .compositor
+        .handle_page_event(PageEvent::Frame(FrameEvent {
+            page: PAGE,
+            layer: FrameLayer::View,
+            frame: PageFrame::GpuShared(shared),
+            produced_at: Instant::now(),
+        }));
+    assert!(result.is_err() && released.get());
 }

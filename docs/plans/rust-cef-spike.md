@@ -1,6 +1,6 @@
 # Rust + CEF shell spike
 
-**Status:** In progress — scaffold landed on branch `claude/rust-cef-spike`; code lives in [`native/`](../../native/README.md).
+**Status:** Built, awaiting the first macOS run — all five crates on branch `claude/rust-cef-spike`; code lives in [`native/`](../../native/README.md). See [Implementation status](#implementation-status) for what is verified and what is not, and [`native/README.md` → Morning run](../../native/README.md#morning-run-on-macos-apple-silicon) for the copy-paste sequence.
 **Related:** [ADR 0038 — Offscreen GPU-texture compositing for live pages](../adr/0038-offscreen-texture-canvas-for-live-pages.md) (the Electron architecture this is measured against), [ADR 0023](../adr/0023-renderer-owned-camera-gpu-panzoom.md) (rejected; why "move the camera" alone was not the win), [`perf-tracing.md`](../perf-tracing.md), [`perf-zoom-pan-log.md`](../perf-zoom-pan-log.md).
 
 ## Question
@@ -67,7 +67,10 @@ display, the same window size, power adapter connected, no other apps.
   element page (the ADR 0038 animated-content fixture), uncapped.
 - **Input:** one page that flips its background on `pointerdown` and `keydown`.
 - Both shells load the same `.canvas` file per fixture (JSON Canvas `link`
-  nodes; the Rust app takes the path as its first argument).
+  nodes; the Rust app takes the path as its argument). They live in
+  [`native/fixtures/`](../../native/fixtures/): `static-9`, `static-20`,
+  `static-40`, `animated-20`, `input`. The animated and input pages are
+  `data:` URLs, so no server is needed.
 
 ## Comparison method
 
@@ -75,7 +78,7 @@ display, the same window size, power adapter connected, no other apps.
    `{"summarize": true}` (profiles from `src/shared/pan-zoom-perf-test.ts`,
    input stepped at the display refresh interval, camera anchored at the canvas
    centre). Three runs; keep the trace files.
-2. Rust: `specular-bench` drives the same six profiles through
+2. Rust: `specular-app --bench all` drives the same six profiles through
    `Camera::apply_input_delta` — the same `zoom -= deltaY * 0.002` math, the
    same step expansion (`build_steps` is a port of `buildPanZoomPerfSteps`),
    the same 250 ms phase gap. Three runs.
@@ -97,6 +100,65 @@ Decided per metric against Electron at the same fixture:
 - **Fail:** any frame-time metric worse than Electron beyond noise at 9 or 20
   pages, or the zero-copy IOSurface path cannot be made to work (a spike that
   only runs the CPU path has not answered the question).
+
+## Implementation status
+
+Built in a Linux container with no GPU, no display, and no access to the CEF
+download host. "Verified" below means exactly what it says; nothing has run
+on a Mac or against real Chromium.
+
+**Verified here (Linux x86_64):**
+
+- Whole workspace: `cargo fmt --check`, `cargo clippy --workspace
+  --all-targets -D warnings`, `cargo test --workspace`, `cargo doc
+  --workspace --no-deps` with `-D warnings`, all clean.
+- `specular-core`: `.canvas` load -> save gives back the same JSON value
+  (fixtures copied from the integration snapshots and the starter space);
+  move/resize/add/remove each undo to the original; camera round trips and
+  anchored zoom.
+- `specular-compositor`: 11 GPU tests render and read back pixels on a
+  software Vulkan adapter (lavapipe): grid, page colour, rounded corners,
+  dirty-rect upload, popup show/hide, page removal, bad-frame rejection.
+  They skip cleanly where no adapter exists (CI).
+- `specular-app` end to end with the synthetic source under `xvfb-run`:
+  `--bench` prints one line per profile, `specular-bench assemble` and
+  `compare` consume them. Numbers are meaningless (software GPU, CPU frames).
+- All five bench fixtures under `native/fixtures/` parse and load.
+
+**Type-checked only (`cef-dox`, Linux and `aarch64-apple-darwin`, clippy
+`-D warnings`), never linked or run:**
+
+- Every CEF call in `specular-cef` (listed in its README), the `--features
+  cef` path in `specular-app`, and the macOS IOSurface -> `MTLTexture` ->
+  wgpu import in `specular-compositor`.
+- `crates/specular-cef/scripts/bundle-macos.sh` (syntax-checked only).
+
+**Open questions the first macOS run must answer:**
+
+1. Does CEF start under winit's `NSApplication` (`CrAppControlProtocol`; see
+   `crates/specular-cef/README.md`)?
+2. Does Metal accept the sRGB view of CEF's BGRA IOSurface, and is retaining
+   the IOSurface (instead of copying in the callback) tear-free?
+3. Is a 120 fps `windowless_frame_rate` honoured with shared textures?
+
+**Measurement gaps (known, not yet built):**
+
+- Rust `--bench` reports frame timing, `drawsWithoutTexture` and
+  `maxPaintToSubmitMs` per profile, but not per-phase texture counters, and
+  no input latency (the bench forwards no page input). Forwarded-input
+  latency is logged when an interactive session closes; it counts from the
+  forwarded event to the first presented repaint of that page, a lower bound
+  rather than the plan's colour-flip check. Gesture (wheel -> present)
+  latency is not measured in either shell.
+- Electron phases are recovered from quiet gaps in the trace, so animated
+  fixtures need one profile per request.
+- The Electron and Rust start cameras are matched by hand.
+- Whether the Electron app loads `data:` URLs from `link` nodes (the
+  `animated-20` and `input` fixtures) is unchecked; if not, serve the two
+  pages from a local static server and edit the URLs in both shells' copies.
+- Offscreen pages keep painting in the Rust shell (no painting policy yet),
+  which can only cost Rust frame time and memory. The compositor has no
+  mipmaps, so far-out zoom shimmers (quality, not timing).
 
 ## Results
 

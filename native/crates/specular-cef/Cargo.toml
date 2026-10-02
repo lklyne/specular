@@ -1,6 +1,6 @@
 [package]
 name = "specular-cef"
-description = "CEF offscreen-rendering PageSource. Empty unless built with --features cef."
+description = "CEF offscreen-rendering PageSource (behind --features cef) and its CEF-free translation helpers."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -19,6 +19,7 @@ cef-dox = ["cef", "cef/dox"]
 
 [dependencies]
 specular-core = { workspace = true }
+glam = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 cef = { workspace = true, optional = true }

@@ -1,0 +1,92 @@
+//! Where each page sits on the canvas, and mapping canvas points into it.
+
+use glam::Vec2;
+use specular_core::{CanvasRect, CssSize, PageId};
+
+/// A page on the canvas: its backend id, canvas rect and CSS viewport.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct PlacedPage {
+    pub(crate) page: PageId,
+    pub(crate) rect: CanvasRect,
+    pub(crate) viewport: CssSize,
+}
+
+impl PlacedPage {
+    /// Converts a canvas (world) point to page-local CSS pixels.
+    pub(crate) fn page_local(self, world: Vec2) -> Vec2 {
+        let css = Vec2::new(self.viewport.width as f32, self.viewport.height as f32);
+        (world - self.rect.origin()) * css / self.rect.size().max(Vec2::splat(f32::EPSILON))
+    }
+
+    /// Canvas units per CSS pixel along each axis.
+    pub(crate) fn canvas_per_css(self) -> Vec2 {
+        let css = Vec2::new(self.viewport.width as f32, self.viewport.height as f32);
+        self.rect.size() / css.max(Vec2::ONE)
+    }
+}
+
+/// The topmost page (last in paint order) containing `world`.
+pub(crate) fn hit_test(pages: &[PlacedPage], world: Vec2) -> Option<PlacedPage> {
+    pages
+        .iter()
+        .rev()
+        .find(|placed| placed.rect.contains(world))
+        .copied()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn placed(id: u64, rect: CanvasRect, viewport: CssSize) -> PlacedPage {
+        PlacedPage {
+            page: PageId(id),
+            rect,
+            viewport,
+        }
+    }
+
+    #[test]
+    fn hit_test_returns_topmost_overlapping_page() {
+        let pages = [
+            placed(
+                1,
+                CanvasRect::new(0.0, 0.0, 100.0, 100.0),
+                CssSize::new(100, 100),
+            ),
+            placed(
+                2,
+                CanvasRect::new(50.0, 50.0, 100.0, 100.0),
+                CssSize::new(100, 100),
+            ),
+        ];
+        assert_eq!(
+            hit_test(&pages, Vec2::new(75.0, 75.0)).map(|p| p.page),
+            Some(PageId(2))
+        );
+    }
+
+    #[test]
+    fn hit_test_misses_empty_canvas() {
+        let pages = [placed(
+            1,
+            CanvasRect::new(0.0, 0.0, 10.0, 10.0),
+            CssSize::new(10, 10),
+        )];
+        assert!(hit_test(&pages, Vec2::new(50.0, 50.0)).is_none());
+    }
+
+    #[test]
+    fn page_local_scales_canvas_rect_to_css_viewport() {
+        // A 1280px-wide page shown 640 canvas units wide: 2 CSS px per unit.
+        let page = placed(
+            1,
+            CanvasRect::new(100.0, 100.0, 640.0, 400.0),
+            CssSize::new(1280, 800),
+        );
+        assert_eq!(
+            page.page_local(Vec2::new(110.0, 120.0)),
+            Vec2::new(20.0, 40.0)
+        );
+    }
+}

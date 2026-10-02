@@ -1,72 +1,28 @@
-//! The renderer: page frames + dot grid under a camera.
+//! The renderer: page frames + dot grid under a camera, one pass per frame.
 
-use std::time::Duration;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
-use glam::Vec2;
-use specular_core::{Camera, CanvasRect, PageEvent, PageId};
+use specular_core::{
+    CpuFrame, FrameEvent, FrameLayer, MAX_OUTSTANDING_TEXTURES, PageEvent, PageFrame, PageId,
+    SharedTexture,
+};
 
+use crate::draw_list::{DrawItem, LayerKind, build_draw_list};
 use crate::error::CompositorError;
+use crate::gpu_types::{FRAME_UNIFORMS_SIZE, FrameUniforms, QuadInstance};
+use crate::grid::grid_metrics;
+use crate::import::import_shared;
+use crate::layers::{LayerTexture, PageLayers};
+use crate::pipeline::Pipelines;
+use crate::retire::RetiredTextures;
+use crate::scene::{RenderStats, SceneView};
+use crate::upload;
 
-/// One page to draw this frame, in paint order (back to front).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PageDraw {
-    /// Which page's latest frame to draw.
-    pub page: PageId,
-    /// Where, in canvas space.
-    pub rect: CanvasRect,
-}
-
-/// Dot-grid background parameters (canvas-space spacing, like canvas-bg).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct DotGrid {
-    /// Distance between dots in canvas units.
-    pub spacing: f32,
-    /// Dot radius in screen (logical) pixels.
-    pub radius: f32,
-    /// Background colour, linear RGBA.
-    pub background: [f32; 4],
-    /// Dot colour, linear RGBA.
-    pub dot: [f32; 4],
-}
-
-impl Default for DotGrid {
-    fn default() -> Self {
-        Self {
-            spacing: 24.0,
-            radius: 1.0,
-            background: [0.96, 0.96, 0.96, 1.0],
-            dot: [0.75, 0.75, 0.75, 1.0],
-        }
-    }
-}
-
-/// Everything [`Compositor::render`] needs for one window frame.
-#[derive(Debug, Clone, Copy)]
-pub struct SceneView<'a> {
-    /// Canvas camera.
-    pub camera: Camera,
-    /// Viewport size in logical pixels.
-    pub viewport: Vec2,
-    /// Physical pixels per logical pixel (window scale factor).
-    pub scale_factor: f32,
-    /// Pages in paint order.
-    pub pages: &'a [PageDraw],
-    /// Background grid.
-    pub grid: DotGrid,
-}
-
-/// Per-frame counters, comparable to the Electron lab's benchmark fields.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct RenderStats {
-    /// Pages with a texture that were drawn (after culling).
-    pub pages_drawn: u32,
-    /// Visible pages that had no frame yet (`framesWithoutTexture`).
-    pub pages_without_texture: u32,
-    /// Pages whose current texture came from a CPU upload (non-representative).
-    pub cpu_textures: u32,
-    /// CPU time spent encoding and submitting the frame.
-    pub encode_time: Duration,
-}
+/// Instance capacity of the first instance buffer; it doubles on demand.
+const INITIAL_INSTANCE_CAPACITY: usize = 64;
 
 /// The wgpu compositor; see the crate docs.
 #[derive(Debug)]
@@ -74,6 +30,20 @@ pub struct Compositor {
     device: wgpu::Device,
     queue: wgpu::Queue,
     target_format: wgpu::TextureFormat,
+    pipelines: Pipelines,
+    frame_uniforms: wgpu::Buffer,
+    frame_bind_group: wgpu::BindGroup,
+    instance_buffer: wgpu::Buffer,
+    instance_capacity: usize,
+    pages: HashMap<PageId, PageLayers>,
+    retired: RetiredTextures<SharedTexture>,
+    /// Serial of the most recent submit; 0 before the first.
+    submitted: u64,
+    /// Highest serial the GPU has reported complete.
+    completed: Arc<AtomicU64>,
+    dropped_frames: u64,
+    instances: Vec<QuadInstance>,
+    draw_items: Vec<DrawItem>,
 }
 
 impl Compositor {
@@ -84,10 +54,38 @@ impl Compositor {
         queue: wgpu::Queue,
         target_format: wgpu::TextureFormat,
     ) -> Self {
+        let pipelines = Pipelines::new(&device, target_format);
+        let frame_uniforms = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("frame-uniforms"),
+            size: FRAME_UNIFORMS_SIZE,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let frame_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("frame-bind-group"),
+            layout: &pipelines.frame_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: frame_uniforms.as_entire_binding(),
+            }],
+        });
+        let instance_buffer = create_instance_buffer(&device, INITIAL_INSTANCE_CAPACITY);
         Self {
             device,
             queue,
             target_format,
+            pipelines,
+            frame_uniforms,
+            frame_bind_group,
+            instance_buffer,
+            instance_capacity: INITIAL_INSTANCE_CAPACITY,
+            pages: HashMap::new(),
+            retired: RetiredTextures::default(),
+            submitted: 0,
+            completed: Arc::new(AtomicU64::new(0)),
+            dropped_frames: 0,
+            instances: Vec::with_capacity(INITIAL_INSTANCE_CAPACITY),
+            draw_items: Vec::with_capacity(INITIAL_INSTANCE_CAPACITY),
         }
     }
 
@@ -97,52 +95,295 @@ impl Compositor {
     }
 
     /// Ingests one event from a page source: frames replace the page's
-    /// texture for that layer (dropping, and so releasing, the previous one);
-    /// popup events show/hide/move the popup layer; others are ignored.
+    /// texture for that layer (the previous shared surface is released once
+    /// the GPU is done with it); popup events show/hide/move the popup layer;
+    /// others are ignored.
+    ///
+    /// A shared frame arriving while the page already holds
+    /// [`MAX_OUTSTANDING_TEXTURES`] surfaces is dropped (released at once)
+    /// and counted in [`dropped_frames`](Self::dropped_frames).
     pub fn handle_page_event(&mut self, event: PageEvent) -> Result<(), CompositorError> {
-        drop(event);
-        Ok(())
+        match event {
+            PageEvent::Frame(frame) => self.ingest_frame(frame),
+            PageEvent::PopupVisibility { page, visible } => {
+                let layers = self.pages.entry(page).or_default();
+                layers.popup.visible = visible;
+                if !visible {
+                    let old = layers.popup.texture.take();
+                    self.retire(page, old);
+                }
+                Ok(())
+            }
+            PageEvent::PopupRect { page, rect } => {
+                self.pages.entry(page).or_default().popup.rect = Some(rect);
+                Ok(())
+            }
+            PageEvent::ImeCompositionBounds { .. }
+            | PageEvent::Loaded { .. }
+            | PageEvent::Crashed { .. } => Ok(()),
+        }
     }
 
-    /// Forgets a closed page and releases its textures.
+    /// Forgets a closed page; its shared surfaces are released once the GPU
+    /// has finished with them.
     pub fn remove_page(&mut self, page: PageId) {
-        let _ = page;
+        if let Some(layers) = self.pages.remove(&page) {
+            self.retire(page, layers.view);
+            self.retire(page, layers.popup.texture);
+        }
     }
 
-    /// Number of shared textures currently held for `page` (bounded by
-    /// [`MAX_OUTSTANDING_TEXTURES`](specular_core::MAX_OUTSTANDING_TEXTURES)).
+    /// Number of shared textures currently held for `page`, displayed or
+    /// awaiting GPU completion (bounded by [`MAX_OUTSTANDING_TEXTURES`]).
     pub fn outstanding_textures(&self, page: PageId) -> usize {
-        let _ = page;
-        0
+        let displayed = self.pages.get(&page).map_or(0, PageLayers::shared_count);
+        displayed + self.retired.count_for(page)
+    }
+
+    /// Shared frames dropped because their page was at the outstanding cap.
+    pub fn dropped_frames(&self) -> u64 {
+        self.dropped_frames
     }
 
     /// Draws `scene` into `target` and submits the work.
     pub fn render(&mut self, target: &wgpu::TextureView, scene: &SceneView<'_>) -> RenderStats {
-        let started = std::time::Instant::now();
-        let [r, g, b, a] = scene.grid.background.map(f64::from);
+        let started = Instant::now();
+        self.reclaim();
+
+        let pages = &self.pages;
+        let counts = build_draw_list(
+            scene,
+            |page| pages.get(&page).and_then(PageLayers::info),
+            &mut self.instances,
+            &mut self.draw_items,
+        );
+        let (new_frames_shown, max_paint_to_submit) = self.mark_shown(started);
+
+        let grid = grid_metrics(&scene.camera, &scene.grid, scene.scale_factor);
+        let uniforms = FrameUniforms::new(scene, &grid, !self.target_format.is_srgb());
+        self.queue
+            .write_buffer(&self.frame_uniforms, 0, bytemuck::bytes_of(&uniforms));
+        self.ensure_instance_capacity(self.instances.len());
+        if !self.instances.is_empty() {
+            self.queue.write_buffer(
+                &self.instance_buffer,
+                0,
+                bytemuck::cast_slice(&self.instances),
+            );
+        }
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("specular-frame"),
             });
-        drop(encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        self.encode_pass(&mut encoder, target);
+        self.queue.submit([encoder.finish()]);
+        self.submitted += 1;
+        if !self.retired.is_empty() {
+            let completed = Arc::clone(&self.completed);
+            let serial = self.submitted;
+            self.queue.on_submitted_work_done(move || {
+                completed.fetch_max(serial, Ordering::Release);
+            });
+        }
+
+        RenderStats {
+            pages_drawn: counts.pages_drawn,
+            pages_without_texture: counts.pages_without_texture,
+            cpu_textures: counts.cpu_textures,
+            new_frames_shown,
+            max_paint_to_submit,
+            encode_time: started.elapsed(),
+        }
+    }
+
+    fn encode_pass(&self, encoder: &mut wgpu::CommandEncoder, target: &wgpu::TextureView) {
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("specular-canvas"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target,
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color { r, g, b, a }),
+                    // The grid covers every pixel, so nothing needs clearing.
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],
             ..wgpu::RenderPassDescriptor::default()
-        }));
-        self.queue.submit([encoder.finish()]);
-        RenderStats {
-            pages_without_texture: scene.pages.len() as u32,
-            encode_time: started.elapsed(),
-            ..RenderStats::default()
+        });
+        pass.set_bind_group(0, &self.frame_bind_group, &[]);
+        pass.set_pipeline(&self.pipelines.grid);
+        pass.draw(0..3, 0..1);
+        if self.draw_items.is_empty() {
+            return;
+        }
+        pass.set_pipeline(&self.pipelines.quad);
+        pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
+        for (instance, item) in (0_u32..).zip(&self.draw_items) {
+            let Some(layer) = self
+                .pages
+                .get(&item.page)
+                .and_then(|layers| layers.get(item.layer))
+            else {
+                continue;
+            };
+            pass.set_bind_group(1, &layer.bind_group, &[]);
+            pass.draw(0..4, instance..instance + 1);
         }
     }
+
+    /// Flags this frame's layers as shown; returns how many were new and the
+    /// longest paint-to-submit wait among them.
+    fn mark_shown(&mut self, now: Instant) -> (u32, Option<Duration>) {
+        let mut shown = 0;
+        let mut longest: Option<Duration> = None;
+        for item in &self.draw_items {
+            let Some(layer) = self
+                .pages
+                .get_mut(&item.page)
+                .and_then(|layers| layers.slot_mut(item.layer).as_mut())
+            else {
+                continue;
+            };
+            if !layer.shown {
+                layer.shown = true;
+                shown += 1;
+                let waited = now.saturating_duration_since(layer.produced_at);
+                longest = Some(longest.map_or(waited, |max| max.max(waited)));
+            }
+        }
+        (shown, longest)
+    }
+
+    fn ingest_frame(&mut self, event: FrameEvent) -> Result<(), CompositorError> {
+        let FrameEvent {
+            page,
+            layer,
+            frame,
+            produced_at,
+        } = event;
+        let kind = match layer {
+            FrameLayer::View => LayerKind::View,
+            FrameLayer::Popup { rect } => {
+                let popup = &mut self.pages.entry(page).or_default().popup;
+                popup.rect = Some(rect);
+                popup.visible = true;
+                LayerKind::Popup
+            }
+        };
+        match frame {
+            PageFrame::Cpu(cpu) => self.ingest_cpu(page, kind, &cpu, produced_at),
+            PageFrame::GpuShared(shared) => self.ingest_shared(page, kind, shared, produced_at),
+        }
+    }
+
+    fn ingest_cpu(
+        &mut self,
+        page: PageId,
+        kind: LayerKind,
+        frame: &CpuFrame,
+        produced_at: Instant,
+    ) -> Result<(), CompositorError> {
+        upload::validate_cpu_frame(frame, self.device.limits().max_texture_dimension_2d)
+            .map_err(|reason| CompositorError::Import { page, reason })?;
+        let srgb = self.target_format.is_srgb();
+        let slot = self.pages.entry(page).or_default().slot_mut(kind);
+        let reusable = slot
+            .as_ref()
+            .is_some_and(|layer| layer.shared.is_none() && layer.size == frame.size);
+        if reusable && let Some(layer) = slot.as_mut() {
+            upload::write_frame(&self.queue, &layer.texture, frame, false);
+            layer.produced_at = produced_at;
+            layer.shown = false;
+            return Ok(());
+        }
+        // The CPU path assumes BGRA: that is what CEF `OnPaint` delivers.
+        let format = upload::page_texture_format(specular_core::PixelFormat::Bgra8Unorm, srgb);
+        let texture = upload::create_page_texture(&self.device, frame.size, format);
+        upload::write_frame(&self.queue, &texture, frame, true);
+        let bind_group = self.pipelines.texture_bind_group(&self.device, &texture);
+        let previous = slot.replace(LayerTexture {
+            texture,
+            bind_group,
+            size: frame.size,
+            shared: None,
+            produced_at,
+            shown: false,
+        });
+        self.retire(page, previous);
+        Ok(())
+    }
+
+    fn ingest_shared(
+        &mut self,
+        page: PageId,
+        kind: LayerKind,
+        shared: SharedTexture,
+        produced_at: Instant,
+    ) -> Result<(), CompositorError> {
+        self.reclaim();
+        if self.outstanding_textures(page) >= MAX_OUTSTANDING_TEXTURES {
+            self.dropped_frames += 1;
+            tracing::trace!(%page, "dropping frame: outstanding texture cap reached");
+            return Ok(());
+        }
+        let format = upload::page_texture_format(shared.format(), self.target_format.is_srgb());
+        let texture = import_shared(&self.device, &shared, format)
+            .map_err(|reason| CompositorError::Import { page, reason })?;
+        let bind_group = self.pipelines.texture_bind_group(&self.device, &texture);
+        let previous = self
+            .pages
+            .entry(page)
+            .or_default()
+            .slot_mut(kind)
+            .replace(LayerTexture {
+                texture,
+                bind_group,
+                size: shared.size(),
+                shared: Some(shared),
+                produced_at,
+                shown: false,
+            });
+        self.retire(page, previous);
+        Ok(())
+    }
+
+    /// Parks a replaced layer's shared surface until the GPU has finished
+    /// every submission so far.
+    fn retire(&mut self, page: PageId, layer: Option<LayerTexture>) {
+        if let Some(shared) = layer.and_then(|layer| layer.shared) {
+            self.retired.push(page, self.submitted, shared);
+        }
+    }
+
+    /// Runs GPU completion callbacks and releases surfaces they cover.
+    fn reclaim(&mut self) {
+        if self.retired.is_empty() {
+            return;
+        }
+        if let Err(error) = self.device.poll(wgpu::PollType::Poll) {
+            tracing::warn!("device poll failed: {error}");
+        }
+        self.retired.reclaim(self.completed.load(Ordering::Acquire));
+    }
+
+    fn ensure_instance_capacity(&mut self, needed: usize) {
+        if needed <= self.instance_capacity {
+            return;
+        }
+        let capacity = needed.next_power_of_two();
+        self.instance_buffer = create_instance_buffer(&self.device, capacity);
+        self.instance_capacity = capacity;
+    }
+}
+
+fn create_instance_buffer(device: &wgpu::Device, capacity: usize) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("quad-instances"),
+        size: (capacity * size_of::<QuadInstance>()) as u64,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
 }

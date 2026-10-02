@@ -2445,6 +2445,8 @@ dependencies = [
  "anyhow",
  "glam",
  "pollster",
+ "serde",
+ "serde_json",
  "specular-bench",
  "specular-cef",
  "specular-compositor",
@@ -2472,6 +2474,7 @@ name = "specular-cef"
 version = "0.1.0"
 dependencies = [
  "cef",
+ "glam",
  "objc2-core-foundation",
  "objc2-io-surface",
  "specular-core",

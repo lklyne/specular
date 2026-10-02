@@ -83,6 +83,13 @@ impl Camera {
         CanvasRect::new(origin.x, origin.y, size.x, size.y)
     }
 
+    /// Whether any part of `rect` (canvas space) shows through a viewport of
+    /// `viewport` logical pixels. Pages that fail this are culled: not drawn,
+    /// and candidates for pausing paint.
+    pub fn is_visible(&self, rect: CanvasRect, viewport: Vec2) -> bool {
+        self.visible_world_rect(viewport).intersects(rect)
+    }
+
     /// Pans by a screen-space delta in logical pixels.
     pub fn pan_by(&mut self, delta: Vec2) {
         self.pan += delta;
@@ -179,6 +186,109 @@ mod tests {
         let world_bottom_right = camera.screen_to_world(viewport);
         let clip = m.project_point3(world_bottom_right.extend(0.0));
         assert_close(clip.truncate(), Vec2::new(1.0, -1.0));
+    }
+
+    #[test]
+    fn world_to_screen_inverts_screen_to_world_across_zoom_range() {
+        for zoom in [MIN_ZOOM, 0.1, 1.0, 2.25, MAX_ZOOM] {
+            let camera = Camera::new(Vec2::new(-731.0, 2048.0), zoom);
+            let screen = Vec2::new(640.0, 360.0);
+            assert_close(
+                camera.world_to_screen(camera.screen_to_world(screen)),
+                screen,
+            );
+        }
+    }
+
+    #[test]
+    fn zoom_about_keeps_anchor_fixed_when_zoom_clamps() {
+        let mut camera = Camera::new(Vec2::new(-10.0, 5.0), 2.0);
+        let anchor = Vec2::new(123.0, 456.0);
+        let before = camera.screen_to_world(anchor);
+        camera.zoom_about(anchor, 50.0);
+        assert_close(camera.screen_to_world(anchor), before);
+    }
+
+    #[test]
+    fn anchored_wheel_zoom_keeps_world_point_under_cursor() {
+        let mut camera = Camera::new(Vec2::new(200.0, -80.0), 0.75);
+        let cursor = Vec2::new(512.0, 384.0);
+        let before = camera.screen_to_world(cursor);
+        camera.apply_input_delta(ViewportInputDelta {
+            zoom_delta_y: -37.0,
+            anchor: Some(cursor),
+            ..ViewportInputDelta::default()
+        });
+        assert_close(camera.screen_to_world(cursor), before);
+    }
+
+    #[test]
+    fn unanchored_wheel_zoom_leaves_pan_unchanged() {
+        let pan = Vec2::new(200.0, -80.0);
+        let mut camera = Camera::new(pan, 1.0);
+        camera.apply_input_delta(ViewportInputDelta {
+            zoom_delta_y: -50.0,
+            ..ViewportInputDelta::default()
+        });
+        assert_eq!(camera.pan, pan);
+    }
+
+    #[test]
+    fn apply_input_delta_adds_pan_after_zoom() {
+        let mut camera = Camera::default();
+        camera.apply_input_delta(ViewportInputDelta {
+            pan: Vec2::new(10.0, -4.0),
+            zoom_delta_y: -100.0,
+            anchor: Some(Vec2::ZERO),
+        });
+        assert_eq!(camera.pan, Vec2::new(10.0, -4.0));
+    }
+
+    #[test]
+    fn apply_input_delta_clamps_zoom_to_maximum() {
+        let mut camera = Camera::default();
+        camera.apply_input_delta(ViewportInputDelta {
+            zoom_delta_y: -10_000.0,
+            ..ViewportInputDelta::default()
+        });
+        assert!((camera.zoom - MAX_ZOOM).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn new_clamps_out_of_range_zoom() {
+        assert!((Camera::new(Vec2::ZERO, 0.0).zoom - MIN_ZOOM).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn rect_to_screen_matches_projected_corners() {
+        let camera = Camera::new(Vec2::new(40.0, 60.0), 0.5);
+        let rect = CanvasRect::new(100.0, 200.0, 1280.0, 800.0);
+        let screen = camera.rect_to_screen(rect);
+        let far = camera.world_to_screen(rect.origin() + rect.size());
+        assert_close(screen.origin() + screen.size(), far);
+    }
+
+    #[test]
+    fn page_inside_viewport_is_visible() {
+        let camera = Camera::new(Vec2::new(-100.0, 0.0), 1.0);
+        let page = CanvasRect::new(500.0, 100.0, 390.0, 844.0);
+        assert!(camera.is_visible(page, Vec2::new(800.0, 600.0)));
+    }
+
+    #[test]
+    fn page_left_of_viewport_is_culled() {
+        let camera = Camera::new(Vec2::new(-100.0, 0.0), 1.0);
+        let page = CanvasRect::new(-500.0, 0.0, 390.0, 844.0);
+        assert!(!camera.is_visible(page, Vec2::new(800.0, 600.0)));
+    }
+
+    #[test]
+    fn zooming_out_brings_distant_page_into_view() {
+        let page = CanvasRect::new(3840.0, 360.0, 393.0, 852.0);
+        let viewport = Vec2::new(1280.0, 800.0);
+        let mut camera = Camera::default();
+        camera.zoom_about(Vec2::ZERO, 0.25);
+        assert!(camera.is_visible(page, viewport));
     }
 
     #[test]

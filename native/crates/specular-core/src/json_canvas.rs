@@ -31,12 +31,16 @@ pub struct Node {
     #[serde(rename = "type")]
     pub kind: String,
     /// Left edge in canvas units.
+    #[serde(serialize_with = "serialize_coordinate")]
     pub x: f64,
     /// Top edge in canvas units.
+    #[serde(serialize_with = "serialize_coordinate")]
     pub y: f64,
     /// Width in canvas units.
+    #[serde(serialize_with = "serialize_coordinate")]
     pub width: f64,
     /// Height in canvas units.
+    #[serde(serialize_with = "serialize_coordinate")]
     pub height: f64,
     /// Every other field, preserved verbatim.
     #[serde(flatten)]
@@ -51,6 +55,31 @@ impl Node {
         }
         self.extra.get("url").and_then(Value::as_str)
     }
+}
+
+/// Largest integer an `f64` (and a JavaScript number) holds exactly.
+const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+
+/// Writes whole coordinates as JSON integers. JavaScript has one number type,
+/// so Specular writes `100`, not `100.0`; matching it keeps saved files from
+/// churning on every load/save.
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde's serialize_with passes fields by reference"
+)]
+fn serialize_coordinate<S: serde::Serializer>(
+    value: &f64,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    match whole_number(*value) {
+        Some(whole) => serializer.serialize_i64(whole),
+        None => serializer.serialize_f64(*value),
+    }
+}
+
+/// `value` as an `i64` when it is a whole number JavaScript represents exactly.
+pub(crate) fn whole_number(value: f64) -> Option<i64> {
+    (value.fract() == 0.0 && value.abs() <= MAX_SAFE_INTEGER).then_some(value as i64)
 }
 
 /// One JSON Canvas edge.
@@ -92,6 +121,22 @@ mod tests {
     fn text_node_has_no_link_url() {
         let canvas: JsonCanvas = serde_json::from_str(SAMPLE).unwrap();
         assert_eq!(canvas.nodes[1].link_url(), None);
+    }
+
+    #[test]
+    fn whole_coordinates_serialize_as_integers() {
+        let canvas: JsonCanvas = serde_json::from_str(SAMPLE).unwrap();
+        let json = serde_json::to_string(&canvas.nodes[0]).unwrap();
+        assert!(json.contains(r#""width":1280,"#), "{json}");
+    }
+
+    #[test]
+    fn fractional_coordinates_keep_their_fraction() {
+        let node: Node =
+            serde_json::from_str(r#"{"id":"n","type":"text","x":0.5,"y":0,"width":1,"height":1}"#)
+                .unwrap();
+        let json = serde_json::to_string(&node).unwrap();
+        assert!(json.contains(r#""x":0.5"#), "{json}");
     }
 
     #[test]
