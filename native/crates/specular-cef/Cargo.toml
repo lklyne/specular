@@ -1,0 +1,31 @@
+[package]
+name = "specular-cef"
+description = "CEF offscreen-rendering PageSource. Empty unless built with --features cef."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# Pulls in the `cef` crate, whose build script downloads the CEF binary
+# distribution. Never enabled in the Linux CI job or this repo's container.
+cef = ["dep:cef"]
+# Type-check-only build of the `cef` feature for machines that cannot download
+# CEF (this repo's Linux container): cef's docs.rs mode skips the download and
+# native build. Never link or run with it.
+cef-dox = ["cef", "cef/dox"]
+
+[dependencies]
+specular-core = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+cef = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-io-surface = { workspace = true }
+objc2-core-foundation = { workspace = true }
+
+[lints]
+workspace = true
