@@ -1,0 +1,149 @@
+{
+  "nodes": [
+    {
+      "id": "page-00",
+      "type": "link",
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 800,
+      "url": "https://en.wikipedia.org/wiki/Spatial_computing",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-01",
+      "type": "link",
+      "x": 1360,
+      "y": 0,
+      "width": 1280,
+      "height": 800,
+      "url": "https://github.com/trending",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-02",
+      "type": "link",
+      "x": 2720,
+      "y": 0,
+      "width": 1280,
+      "height": 800,
+      "url": "https://developer.mozilla.org/en-US/docs/Web/CSS",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-03",
+      "type": "link",
+      "x": 4080,
+      "y": 0,
+      "width": 1280,
+      "height": 800,
+      "url": "https://news.ycombinator.com/",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-04",
+      "type": "link",
+      "x": 5440,
+      "y": 0,
+      "width": 1280,
+      "height": 800,
+      "url": "https://doc.rust-lang.org/book/",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-05",
+      "type": "link",
+      "x": 0,
+      "y": 880,
+      "width": 1280,
+      "height": 800,
+      "url": "https://www.w3.org/TR/css-grid-1/",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-06",
+      "type": "link",
+      "x": 1360,
+      "y": 880,
+      "width": 1280,
+      "height": 800,
+      "url": "https://react.dev/learn",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-07",
+      "type": "link",
+      "x": 2720,
+      "y": 880,
+      "width": 1280,
+      "height": 800,
+      "url": "https://docs.python.org/3/tutorial/",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    },
+    {
+      "id": "page-08",
+      "type": "link",
+      "x": 4080,
+      "y": 880,
+      "width": 1280,
+      "height": 800,
+      "url": "https://en.wikipedia.org/wiki/Spatial_computing",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    }
+  ],
+  "edges": []
+}

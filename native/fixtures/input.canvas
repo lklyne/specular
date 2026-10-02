@@ -1,0 +1,21 @@
+{
+  "nodes": [
+    {
+      "id": "page-00",
+      "type": "link",
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 800,
+      "url": "data:text/html;charset=utf-8,%3C%21doctype%20html%3E%3Cmeta%20charset%3Dutf-8%3E%3Ctitle%3Einput%3C/title%3E%3Cstyle%3Ehtml%2Cbody%7Bmargin%3A0%3Bheight%3A100%25%3Bfont%3A32px%20system-ui%3Bdisplay%3Agrid%3Bplace-items%3Acenter%7D%3C/style%3E%3Cbody%20tabindex%3D0%3Epointerdown%20/%20keydown%20flips%20the%20background%3Cselect%3E%3Coption%3Eone%3Coption%3Etwo%3Coption%3Ethree%3C/select%3E%3Cinput%20placeholder%3D%22IME%20here%22%3E%3Cscript%3Elet%20on%3Dfalse%3Bconst%20flip%3D%28%29%3D%3E%7Bon%3D%21on%3Bdocument.body.style.background%3Don%3F%27%23111%27%3A%27%23fff%27%3Bdocument.body.style.color%3Don%3F%27%23fff%27%3A%27%23111%27%7D%3BaddEventListener%28%27pointerdown%27%2Cflip%29%3BaddEventListener%28%27keydown%27%2Cflip%29%3C/script%3E",
+      "metadata": {
+        "pageSizeMode": "custom",
+        "customSize": {
+          "width": 1280,
+          "height": 800
+        }
+      }
+    }
+  ],
+  "edges": []
+}

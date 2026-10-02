@@ -1,0 +1,83 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+license = "UNLICENSED"
+publish = false
+repository = "https://github.com/lklyne/specular"
+
+# Every third-party dependency the spike may use is declared here so crate
+# builders only ever write `dep = { workspace = true }` in their own manifests.
+[workspace.dependencies]
+specular-core = { path = "crates/specular-core" }
+specular-compositor = { path = "crates/specular-compositor" }
+specular-cef = { path = "crates/specular-cef" }
+specular-bench = { path = "crates/specular-bench" }
+
+anyhow = "1.0.100"
+bytemuck = { version = "1.25", features = ["derive"] }
+glam = { version = "0.33", features = ["bytemuck", "serde"] }
+# macOS `proc_pid_rusage` for per-process physical footprint (bench memory).
+libc = "0.2"
+pollster = "1.0"
+raw-window-handle = "0.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+wgpu = "30.0"
+winit = "0.30.13"
+yrs = "0.28"
+
+# CEF: only ever compiled with `--features cef` (its build script downloads the
+# CEF binary distribution). `accelerated_osr` is deliberately not enabled: the
+# compositor owns the IOSurface -> Metal -> wgpu import so it can cache imports
+# per surface and count outstanding textures.
+cef = { version = "154.3", default-features = false, features = ["sandbox", "build-util"] }
+
+# macOS zero-copy interop (IOSurface -> MTLTexture -> wgpu-hal Metal texture).
+# Versions match what wgpu-hal 30 and cef 154 resolve to.
+objc2 = "0.6"
+objc2-core-foundation = "0.3"
+objc2-io-surface = "0.3"
+objc2-metal = { version = "0.3", features = ["objc2-io-surface"] }
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "warn"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "warn"
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "warn"
+# Pedantic exceptions: graphics/geometry code converts between f32/f64/u32
+# constantly and a cast per pixel coordinate is the idiom, not a bug.
+cast_possible_truncation = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+similar_names = "allow"
+
+[profile.release]
+debug = "line-tables-only"
+
+[profile.bench]
+inherits = "release"
