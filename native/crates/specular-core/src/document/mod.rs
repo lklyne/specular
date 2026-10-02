@@ -161,15 +161,20 @@ impl CanvasDocument {
         Ok(serde_json::to_string_pretty(&canvas)?)
     }
 
-    /// Every page (`link` node), back-to-front.
-    pub fn pages(&self) -> Vec<PageNode> {
+    /// Every page (`link` node), back-to-front. A node whose stored fields
+    /// no longer parse is an error, as in [`to_json_canvas`](Self::to_json_canvas),
+    /// rather than a page silently missing from the canvas.
+    pub fn pages(&self) -> Result<Vec<PageNode>, DocumentError> {
         let txn = self.doc.transact();
         self.node_ids(&txn)
             .iter()
             .filter_map(|id| {
-                let node = self.read_node(&txn, id)?.ok()?;
+                let node = match self.read_node(&txn, id)? {
+                    Ok(node) => node,
+                    Err(error) => return Some(Err(error.into())),
+                };
                 let url = node.link_url()?.to_owned();
-                Some(PageNode {
+                Some(Ok(PageNode {
                     rect: CanvasRect::new(
                         node.x as f32,
                         node.y as f32,
@@ -178,7 +183,7 @@ impl CanvasDocument {
                     ),
                     node_id: node.id,
                     url,
-                })
+                }))
             })
             .collect()
     }
@@ -349,8 +354,24 @@ mod tests {
     }
 
     #[test]
+    fn pages_reports_a_node_whose_fields_no_longer_parse() {
+        let document = sample();
+        {
+            let mut txn = document.doc.transact_mut();
+            let broken = serde_json::json!({"id": "broken", "type": "link", "x": "left"});
+            document.insert_node(&mut txn, "broken", &broken);
+        }
+        assert!(document.pages().is_err());
+    }
+
+    #[test]
     fn pages_lists_only_link_nodes_in_order() {
-        let ids: Vec<_> = sample().pages().into_iter().map(|p| p.node_id).collect();
+        let ids: Vec<_> = sample()
+            .pages()
+            .unwrap()
+            .into_iter()
+            .map(|p| p.node_id)
+            .collect();
         assert_eq!(ids, ["p1", "p2"]);
     }
 
@@ -390,7 +411,7 @@ mod tests {
         let mut document = sample();
         let rect = CanvasRect::new(10.0, 20.0, 1280.0, 800.0);
         document.set_node_rect("p1", rect).unwrap();
-        assert_eq!(document.pages()[0].rect, rect);
+        assert_eq!(document.pages().unwrap()[0].rect, rect);
     }
 
     #[test]
@@ -398,7 +419,7 @@ mod tests {
         let mut document = sample();
         let rect = CanvasRect::new(0.0, 0.0, 390.0, 844.0);
         document.set_node_rect("p1", rect).unwrap();
-        assert_eq!(document.pages()[0].rect, rect);
+        assert_eq!(document.pages().unwrap()[0].rect, rect);
     }
 
     #[test]
@@ -437,7 +458,7 @@ mod tests {
         document.set_node_rect("p1", rect).unwrap();
         document.undo();
         document.redo();
-        assert_eq!(document.pages()[0].rect, rect);
+        assert_eq!(document.pages().unwrap()[0].rect, rect);
     }
 
     #[test]
@@ -449,14 +470,14 @@ mod tests {
             .set_node_rect("p1", CanvasRect::new(2.0, 2.0, 1280.0, 800.0))
             .unwrap();
         document.undo();
-        assert_eq!(document.pages()[0].rect, first);
+        assert_eq!(document.pages().unwrap()[0].rect, first);
     }
 
     #[test]
     fn add_page_appends_front_most_page() {
         let mut document = sample();
         document.add_page(&page("p3")).unwrap();
-        assert_eq!(document.pages().last(), Some(&page("p3")));
+        assert_eq!(document.pages().unwrap().last(), Some(&page("p3")));
     }
 
     #[test]

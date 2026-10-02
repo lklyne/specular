@@ -1,19 +1,27 @@
 //! Per-page state shared between a page's CEF handlers and the page source.
 //!
 //! [`PageGeometry`] is pure and compiled everywhere. With the `cef` feature,
-//! `PageContext` bundles it with the event queue and texture cap.
+//! `PageContext` bundles it with the texture cap and the browser count.
 //!
-//! CEF calls the handlers on the browser UI thread, which in this
+//! CEF invokes the handlers on the browser UI thread, which in this
 //! configuration (`multi_threaded_message_loop = 0`, pumped from the winit
-//! loop) is the process main thread, the same thread every `PageSource`
-//! method runs on. Plain `Rc<RefCell<_>>` is therefore sound. Callbacks only
-//! fire inside `CefDoMessageLoopWork` or synchronously inside a host call,
-//! so the source never holds a borrow across a CEF call.
+//! loop) is the process main thread. CEF still reference-counts handler
+//! objects from other threads (the IO thread fetches the request handler for
+//! every network request), so whichever thread drops the last reference runs
+//! the handler's destructor. Everything a handler holds is therefore
+//! `Send + Sync` (`Arc`, `Mutex`, atomics). Events, which carry `!Send`
+//! shared textures, never live in a handler: they go into a queue local to
+//! the UI thread, and a callback arriving on any other thread is logged and
+//! its event dropped rather than raced.
 
 #[cfg(feature = "cef")]
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 #[cfg(feature = "cef")]
-use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+#[cfg(feature = "cef")]
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+#[cfg(feature = "cef")]
+use std::thread::{self, ThreadId};
 
 use specular_core::{CssSize, PageSpec, PixelRect, PixelSize};
 #[cfg(feature = "cef")]
@@ -67,16 +75,32 @@ impl PageGeometry {
     }
 }
 
-/// Everything a page's handlers need; cheap to clone (all shared).
+#[cfg(feature = "cef")]
+thread_local! {
+    /// Events raised by handlers on the UI thread, drained by the source.
+    static EVENTS: RefCell<Vec<PageEvent>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Moves every queued event into `out`. Call on the UI thread.
+#[cfg(feature = "cef")]
+pub(crate) fn drain_events(out: &mut Vec<PageEvent>) {
+    EVENTS.with_borrow_mut(|events| out.append(events));
+}
+
+/// Drops every queued event (releasing any shared textures they hold).
+#[cfg(feature = "cef")]
+pub(crate) fn clear_events() {
+    EVENTS.with_borrow_mut(Vec::clear);
+}
+
+/// Everything a page's handlers need; cheap to clone, `Send + Sync`.
 #[cfg(feature = "cef")]
 #[derive(Debug, Clone)]
 pub(crate) struct PageContext {
     /// The page these handlers belong to.
     pub id: PageId,
     /// Geometry, mutated by the source on resize/rescale.
-    pub geometry: Rc<RefCell<PageGeometry>>,
-    /// Source-wide event queue, drained by `PageSource::drain_events`.
-    pub events: Rc<RefCell<Vec<PageEvent>>>,
+    pub geometry: Arc<Mutex<PageGeometry>>,
     /// The page's shared-texture cap.
     #[cfg_attr(
         not(target_os = "macos"),
@@ -84,14 +108,48 @@ pub(crate) struct PageContext {
     )]
     pub frames: OutstandingFrames,
     /// Browsers created and not yet through `OnBeforeClose`, for shutdown.
-    pub alive: Rc<Cell<usize>>,
+    pub alive: Arc<AtomicUsize>,
+    /// The thread that owns the event queue (the CEF UI thread).
+    pub ui_thread: ThreadId,
 }
 
 #[cfg(feature = "cef")]
 impl PageContext {
-    pub(crate) fn push(&self, event: PageEvent) {
-        self.events.borrow_mut().push(event);
+    /// Locks the geometry. A panic while it was held cannot leave it
+    /// half-updated (every write is one field), so poisoning is ignored.
+    pub(crate) fn geometry(&self) -> MutexGuard<'_, PageGeometry> {
+        lock_geometry(&self.geometry)
     }
+
+    /// Queues `event` for the source, if called on the UI thread.
+    pub(crate) fn push(&self, event: PageEvent) {
+        if thread::current().id() == self.ui_thread {
+            EVENTS.with_borrow_mut(|events| events.push(event));
+        } else {
+            tracing::warn!(page = %self.id, "CEF callback off the UI thread; event dropped");
+        }
+    }
+
+    /// Records that a browser finished closing.
+    pub(crate) fn browser_closed(&self) {
+        // Saturating: a stray extra OnBeforeClose must not wrap the count.
+        let _ = self
+            .alive
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1));
+    }
+}
+
+/// Handlers may be destroyed on any CEF thread; keep their state thread-safe.
+#[cfg(feature = "cef")]
+const _: fn() = || {
+    fn send_sync<T: Send + Sync>() {}
+    send_sync::<PageContext>();
+};
+
+/// Locks `geometry`, ignoring poisoning (see [`PageContext::geometry`]).
+#[cfg(feature = "cef")]
+pub(crate) fn lock_geometry(geometry: &Mutex<PageGeometry>) -> MutexGuard<'_, PageGeometry> {
+    geometry.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(test)]

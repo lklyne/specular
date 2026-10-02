@@ -24,6 +24,13 @@ pub enum PageSourceError {
 pub enum PageEvent {
     /// A layer painted.
     Frame(FrameEvent),
+    /// The source refused a shared-texture paint because the page already
+    /// held [`MAX_OUTSTANDING_TEXTURES`](crate::MAX_OUTSTANDING_TEXTURES)
+    /// (Electron's `framesDroppedForPoolPressure`).
+    FrameDropped {
+        /// The page.
+        page: PageId,
+    },
     /// A popup widget opened or closed (CEF `OnPopupShow`). While hidden, the
     /// compositor drops the page's popup layer.
     PopupVisibility {

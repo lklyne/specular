@@ -67,14 +67,6 @@ impl Camera {
         (screen - self.pan) / self.zoom
     }
 
-    /// Projects a canvas rect to its on-screen rect (still expressed as a
-    /// [`CanvasRect`], in logical screen pixels).
-    pub fn rect_to_screen(&self, rect: CanvasRect) -> CanvasRect {
-        let origin = self.world_to_screen(rect.origin());
-        let size = rect.size() * self.zoom;
-        CanvasRect::new(origin.x, origin.y, size.x, size.y)
-    }
-
     /// The world-space rect visible through a viewport of `viewport` logical
     /// pixels; used for culling and painting policy.
     pub fn visible_world_rect(&self, viewport: Vec2) -> CanvasRect {
@@ -257,15 +249,6 @@ mod tests {
     #[test]
     fn new_clamps_out_of_range_zoom() {
         assert!((Camera::new(Vec2::ZERO, 0.0).zoom - MIN_ZOOM).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn rect_to_screen_matches_projected_corners() {
-        let camera = Camera::new(Vec2::new(40.0, 60.0), 0.5);
-        let rect = CanvasRect::new(100.0, 200.0, 1280.0, 800.0);
-        let screen = camera.rect_to_screen(rect);
-        let far = camera.world_to_screen(rect.origin() + rect.size());
-        assert_close(screen.origin() + screen.size(), far);
     }
 
     #[test]

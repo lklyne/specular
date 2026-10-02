@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use crate::frame::{CpuFrame, FrameEvent, FrameLayer, PageFrame};
 use crate::geometry::CssSize;
 use crate::input::InputEvent;
-use crate::page::{PageId, PageSpec};
+use crate::page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 use crate::source::{PageEvent, PageSource, PageSourceError};
 
 #[derive(Debug)]
@@ -56,11 +56,6 @@ impl SyntheticPageSource {
         }
     }
 
-    /// The currently focused page, if any.
-    pub fn focused(&self) -> Option<PageId> {
-        self.focused
-    }
-
     fn page_mut(&mut self, page: PageId) -> Result<&mut SyntheticPage, PageSourceError> {
         self.pages
             .get_mut(&page)
@@ -91,28 +86,13 @@ fn paint(spec: &PageSpec, frame_index: u64) -> CpuFrame {
     }
 }
 
-fn validate(viewport: CssSize, texture_scale: f32) -> Result<(), PageSourceError> {
-    if viewport.width == 0 || viewport.height == 0 {
-        return Err(PageSourceError::InvalidSpec(format!(
-            "empty viewport {}x{}",
-            viewport.width, viewport.height
-        )));
-    }
-    if texture_scale.is_nan() || texture_scale <= 0.0 {
-        return Err(PageSourceError::InvalidSpec(format!(
-            "texture scale must be positive, got {texture_scale}"
-        )));
-    }
-    Ok(())
-}
-
 impl PageSource for SyntheticPageSource {
     fn name(&self) -> &'static str {
         "synthetic"
     }
 
     fn create_page(&mut self, spec: &PageSpec) -> Result<PageId, PageSourceError> {
-        validate(spec.viewport, spec.texture_scale)?;
+        spec.validate()?;
         self.next_id += 1;
         let id = PageId(self.next_id);
         self.pages.insert(
@@ -133,7 +113,7 @@ impl PageSource for SyntheticPageSource {
 
     fn set_viewport(&mut self, page: PageId, viewport: CssSize) -> Result<(), PageSourceError> {
         let entry = self.page_mut(page)?;
-        validate(viewport, entry.spec.texture_scale)?;
+        validate_viewport(viewport)?;
         entry.spec.viewport = viewport;
         entry.next_paint = None;
         Ok(())
@@ -141,7 +121,7 @@ impl PageSource for SyntheticPageSource {
 
     fn set_texture_scale(&mut self, page: PageId, scale: f32) -> Result<(), PageSourceError> {
         let entry = self.page_mut(page)?;
-        validate(entry.spec.viewport, scale)?;
+        validate_texture_scale(scale)?;
         entry.spec.texture_scale = scale;
         entry.next_paint = None;
         Ok(())

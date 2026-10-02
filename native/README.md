@@ -17,8 +17,8 @@ one Rust process with wgpu), not the compositing model.
 |---|---|---|
 | `specular-core` | lib | Camera math, page model, `PageFrame` / `PageSource` contracts, input model, yrs-backed canvas document (lossless `.canvas` round trip), JSON Canvas types, synthetic page source |
 | `specular-compositor` | lib | wgpu renderer: dot grid + page textures under the camera, popup layers, shared-texture retirement and the per-page cap of 6; IOSurface -> Metal -> wgpu import on macOS |
-| `specular-cef` | lib | CEF OSR `PageSource` (`--features cef`) and the CEF-free helpers it is built from (input translation, coords, keys, config). See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
-| `specular-bench` | lib + bin | Gesture profiles ported from `src/shared/pan-zoom-perf-test.ts`, frame stats in the ADR 0038 lab's field names, input latency, process-tree RSS, Electron trace converter, `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
+| `specular-cef` | lib | CEF OSR `PageSource` (`--features cef`) and the CEF-free helpers it is built from (input translation, coords, config). See [`crates/specular-cef/README.md`](crates/specular-cef/README.md) |
+| `specular-bench` | lib + bin | Gesture profiles ported from `src/shared/pan-zoom-perf-test.ts`, frame stats in the ADR 0038 lab's field names, input latency, process-tree footprint and RSS, Electron trace converter, `compare`. See [`crates/specular-bench/README.md`](crates/specular-bench/README.md) |
 | `specular-app` | bin | winit shell wiring a page source, the compositor, the camera, input forwarding, and `--bench` |
 
 Dependency direction: `core` <- `compositor`, `cef`, `bench` <- `app`. Only
@@ -122,9 +122,17 @@ upload (CEF fell back to `OnPaint`). A failing IOSurface import instead
 shows up as `drawsWithoutTexture` > 0 with `failed to import` warnings on
 stderr.
 
+Closing the interactive window prints an `inputLatency` JSON line on
+stdout and logs `shared-surface import cache` hits/misses on stderr. Keep
+the latency line: `"$APP" fixtures/input.canvas >> runs/rust-input.jsonl`,
+click and type in the page for a minute, close, then append it to a bench
+file before `assemble` (`cat runs/rust-static-9.jsonl runs/rust-input.jsonl`).
+Misses should stay near Chromium's pool size (a handful per page); misses
+close to the number of paints mean the import cache is not hitting.
+
 If CEF fails to start, read "Known risks to check first" in
-`crates/specular-cef/README.md` (`CrAppControlProtocol`, retained IOSurface
-tearing, coded vs visible size, 120 fps).
+`crates/specular-cef/README.md` (`CefAppProtocol` on winit's `NSApp`,
+retained IOSurface tearing, coded vs visible size, 120 fps).
 
 ### 3. Rust/CEF runs: 9, 20, 40 static pages and 20 animated, three runs each
 
@@ -146,6 +154,12 @@ for fx in static-9 static-20 static-40 animated-20; do
 done
 grep -h '"representative":false' runs/rust-*.jsonl && echo "NON-REPRESENTATIVE LINES ABOVE: fix before comparing"
 ```
+
+The app runs Electron's page-host paint LOD by default (`--paint-policy
+electron-lod`: 60/30/15 fps by on-screen scale, texture scale after the
+camera settles, no painting off-screen), so both shells do the same work per
+page; the policy is recorded in every line and `compare` warns on a
+mismatch. `--paint-policy full-rate` is there to measure the LOD's own cost.
 
 The idle sample lands inside the 8 s warmup, after pages have loaded; the
 peak sampler covers the rest of the run (it samples for 30 s, longer than

@@ -6,7 +6,7 @@
 //! - [`camera`] — canvas camera (pan/zoom) and world <-> screen projection,
 //!   matching the Electron app's `applyViewportInputDelta` math.
 //! - [`geometry`] — CSS / pixel / canvas-space size and rect types.
-//! - [`page`] — [`PageId`], [`Page`], [`PageSpec`]: a live web item on the canvas.
+//! - [`page`] — [`PageId`], [`PageSpec`] and its validation: a live web item on the canvas.
 //! - [`frame`] — [`PageFrame`]: what a page host paints (GPU shared surface or
 //!   CPU BGRA bytes), plus popup layers.
 //! - [`input`] — [`InputEvent`]: pointer / wheel / key / IME events forwarded
@@ -38,6 +38,6 @@ pub use input::{
     ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PointerButton, PointerEvent,
     PointerEventKind, WheelEvent,
 };
-pub use page::{Page, PageId, PageSpec};
+pub use page::{PageId, PageSpec, validate_texture_scale, validate_viewport};
 pub use source::{PageEvent, PageSource, PageSourceError};
 pub use synthetic::SyntheticPageSource;

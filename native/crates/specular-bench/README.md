@@ -13,7 +13,7 @@ puts both on one table. The plan, pass/fail criteria and results table are in
 | `recorder` | lab `runLabBenchmark` | One phase's presents into a `PhaseReport`, plus `drawsWithoutTexture` |
 | `textures` | `PageHostStats` in `src/main/runtime/page-host.ts` | `framesReceived`, `popupFrames`, `framesWithoutTexture`, `framesDroppedForPoolPressure`, `outstandingTextures`, `maxOutstandingTextures` (read from `/perf/page-hosts` snapshots) |
 | `latency` | — | Event timestamp to the first presented frame that reflects it |
-| `memory` | — | RSS summed over a process and all its descendants, via `ps` (same code for both shells) |
+| `memory` | — | Physical footprint (macOS `proc_pid_rusage`, the memory verdict's metric: it includes IOSurface and GPU memory) and RSS, summed over a process and all its descendants found via `ps` (same code for both shells) |
 | `report` | — | `RunReport`, the results file |
 | `electron_trace` | `docs/perf-tracing.md` | Electron trace -> `RunReport` |
 | `compare` | — | Two results files -> markdown |
@@ -38,11 +38,16 @@ Options shared by `electron-trace` and `assemble`: `--fixture NAME`,
 written by `rss`), `--page-hosts-before f`, `--page-hosts-after f` (bodies
 of Electron's `GET /perf/page-hosts`). `electron-trace` also takes
 `--frame-ms`, `--profiles`, `--duration-ms` (must match what was run),
-`--gap-ms` (default 200) and `--thread` (default `VizCompositorThread`).
+`--gap-ms` (default 200), `--thread` (default `VizCompositorThread`) and
+`--paint-policy` (default `electron-lod`, the shipped page-host LOD; pass
+`full-rate` if the Electron run had its LOD disabled).
 
 `compare` reads a `RunReport`, a bare array of phase objects (the ADR 0038
 lab's results), or JSON lines (the app's `--bench` output). Concatenate three
-runs into one file and each cell becomes the median, as the plan asks.
+runs into one file and each cell becomes the median, as the plan asks. It
+warns when the runs used different paint policies, lists every run note
+(including the Electron present-count check), and shows footprint rows
+above RSS rows: judge memory by footprint.
 
 ## Capturing the Electron baseline
 
@@ -99,9 +104,14 @@ If segmentation fails, the error says how many bursts it found.
 The copy-paste sequence (build, bundle, three runs per fixture, memory
 samples, `assemble`, `compare`) is in
 [`native/README.md`](../../README.md#morning-run-on-macos-apple-silicon).
-The app's `--bench` lines are `PhaseReport` objects (`phase`, `durationMs`,
-`draws`, ..., `drawsWithoutTexture`) plus `source`, `pages`,
-`representative`, `stepIntervalMs` and `maxPaintToSubmitMs`.
+The app's stdout lines are `BenchLine`s (`bench_line.rs`, shared with
+`assemble`, so a renamed field fails loudly): one per profile, a
+`PhaseReport` (`phase`, `durationMs`, `draws`, ..., `drawsWithoutTexture`,
+`framesReceived`, `textures`) plus `source`, `pages`, `representative`,
+`stepIntervalMs`, `maxPaintToSubmitMs` and `paintPolicy`; and, when any
+input reached a page, one `{"inputLatency": {...}}` line at exit.
+`assemble` refuses lines from different sources, page counts, refresh
+intervals or paint policies.
 
 `assemble` marks the report non-representative when any line says so (the
 synthetic source, or any frame that went through a CPU upload); `compare`
@@ -116,10 +126,13 @@ prints a warning above the table for such runs, and the plan excludes them.
   gesture, and the forwarded-input fixture needs manual trace reading.
 - **Per-phase texture counters for Electron.** `/perf/page-hosts` is
   cumulative, so only whole-run deltas are available.
-- **Input latency in the Rust bench output.** `--bench` drives only the
-  camera, so no page input is forwarded during a run. Forwarded-input
-  latency (p50/p95/max via `LatencyTracker`) is logged to stderr when an
-  interactive session closes; gesture latency is not measured yet.
-- **Per-phase texture counters for the Rust app.** The compositor enforces
-  the cap and counts drops, but `--bench` lines do not carry
-  `textures` yet.
+- **Input latency during a Rust bench run.** `--bench` drives only the
+  camera, so no page input is forwarded. Forwarded-input latency comes from
+  an interactive session: the app prints an `inputLatency` line when it
+  closes, and `assemble` folds it into the report. Gesture (wheel ->
+  present) latency is measured in neither shell.
+- **Electron present counting.** `electron-trace` counts every
+  `Display::DrawAndSwap` on the viz thread. If offscreen page windows draw
+  there too, fps reads high; the converter notes any phase with far more
+  presents than steps, and its numbers stay unverified until a real trace
+  shows about steps + 1 presents per phase.

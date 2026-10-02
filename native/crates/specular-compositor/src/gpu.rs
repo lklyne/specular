@@ -35,6 +35,10 @@ impl GpuContext {
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 label: Some("specular-compositor"),
+                // The adapter's own limits, not wgpu's portable defaults: a
+                // HiDPI page texture can exceed 8192 texels on a side, and
+                // Apple Silicon allows 16384.
+                required_limits: adapter.limits(),
                 ..wgpu::DeviceDescriptor::default()
             })
             .await?;

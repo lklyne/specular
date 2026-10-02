@@ -19,14 +19,16 @@ usage: specular-bench <command> [args]
   electron-trace  <trace.json> | --response run.json
                   [--frame-ms N] [--profiles a,b] [--duration-ms N]
                   [--gap-ms 200] [--thread VizCompositorThread]
+                  [--paint-policy electron-lod|full-rate]
                   [--fixture NAME] [--pages N]
                   [--memory-idle f] [--memory-end f] [--memory-peak f]
                   [--page-hosts-before f] [--page-hosts-after f]
                   Reduce an Electron /perf/pan-zoom/run trace to a report.
   assemble        <bench.jsonl> [--fixture NAME] [--pages N] [--memory-* f]
-                  Fold the Rust app's --bench JSON lines into a report.
+                  Fold the Rust app's JSON lines (--bench profiles, and an
+                  interactive session's inputLatency line) into a report.
   rss             --pid N [--peak-ms N]
-                  Resident memory of a process and all its descendants.
+                  Footprint (macOS) and RSS of a process and its descendants.
 ";
 
 fn main() -> anyhow::Result<()> {

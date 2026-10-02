@@ -21,6 +21,8 @@ specular-bench = { path = "crates/specular-bench" }
 anyhow = "1.0.100"
 bytemuck = { version = "1.25", features = ["derive"] }
 glam = { version = "0.33", features = ["bytemuck", "serde"] }
+# macOS `proc_pid_rusage` for per-process physical footprint (bench memory).
+libc = "0.2"
 pollster = "1.0"
 raw-window-handle = "0.6"
 serde = { version = "1.0", features = ["derive"] }

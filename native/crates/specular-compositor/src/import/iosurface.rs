@@ -11,15 +11,16 @@ use objc2_metal::{
 use specular_core::PixelSize;
 use wgpu::hal::api::Metal;
 
+use crate::error::FrameImportError;
 use crate::upload::extent;
 
-fn metal_pixel_format(format: wgpu::TextureFormat) -> Result<MTLPixelFormat, String> {
+fn metal_pixel_format(format: wgpu::TextureFormat) -> Result<MTLPixelFormat, FrameImportError> {
     match format {
         wgpu::TextureFormat::Bgra8Unorm => Ok(MTLPixelFormat::BGRA8Unorm),
         wgpu::TextureFormat::Bgra8UnormSrgb => Ok(MTLPixelFormat::BGRA8Unorm_sRGB),
         wgpu::TextureFormat::Rgba8Unorm => Ok(MTLPixelFormat::RGBA8Unorm),
         wgpu::TextureFormat::Rgba8UnormSrgb => Ok(MTLPixelFormat::RGBA8Unorm_sRGB),
-        other => Err(format!("no IOSurface import for {other:?}")),
+        other => Err(FrameImportError::UnsupportedFormat(other)),
     }
 }
 
@@ -30,9 +31,12 @@ pub(super) fn import(
     surface: NonNull<c_void>,
     size: PixelSize,
     format: wgpu::TextureFormat,
-) -> Result<wgpu::Texture, String> {
+) -> Result<wgpu::Texture, FrameImportError> {
     if size.is_empty() {
-        return Err(format!("empty IOSurface {}x{}", size.width, size.height));
+        return Err(FrameImportError::EmptyFrame {
+            width: size.width,
+            height: size.height,
+        });
     }
     let descriptor = wgpu::TextureDescriptor {
         label: Some("page-iosurface"),
@@ -63,12 +67,11 @@ pub(super) fn import(
     let raw = {
         // SAFETY: the hal device is only used to create one texture inside
         // this block and is dropped before wgpu is used again.
-        let hal_device = unsafe { device.as_hal::<Metal>() }
-            .ok_or_else(|| "wgpu is not running on Metal".to_owned())?;
+        let hal_device = unsafe { device.as_hal::<Metal>() }.ok_or(FrameImportError::NotMetal)?;
         hal_device
             .raw_device()
             .newTextureWithDescriptor_iosurface_plane(&metal_descriptor, io_surface, 0)
-            .ok_or_else(|| "Metal refused to wrap the IOSurface".to_owned())?
+            .ok_or(FrameImportError::MetalRefused)?
     };
 
     // SAFETY: `raw` is a 2D, single-layer, single-mip texture created on this

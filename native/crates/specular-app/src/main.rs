@@ -10,6 +10,7 @@ mod bench_run;
 mod cli;
 mod input_map;
 mod latency;
+mod paint_lod;
 mod placement;
 mod scene;
 mod source_select;
@@ -50,9 +51,20 @@ fn main() -> anyhow::Result<()> {
     // or CEF installs its own and winit panics.
     let event_loop = EventLoop::new().context("creating event loop")?;
     let source = source_select::create_source(run.source)?;
-    tracing::info!(backend = source.name(), pages = pages.len(), "starting");
+    tracing::info!(
+        backend = source.name(),
+        pages = pages.len(),
+        paint_policy = run.paint_policy.name(),
+        "starting"
+    );
 
-    let mut app = app::App::new(source, pages, run.bench, run.warmup);
+    let session = app::Session {
+        bench: run.bench,
+        warmup: run.warmup,
+        representative_source: run.source.is_representative(),
+        paint_policy: run.paint_policy,
+    };
+    let mut app = app::App::new(source, pages, session);
     event_loop.run_app(&mut app).context("running event loop")?;
     app.into_result()
 }

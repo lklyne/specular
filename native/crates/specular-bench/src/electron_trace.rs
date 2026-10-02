@@ -11,6 +11,14 @@
 //! when nothing presents during the gaps — static pages, nothing animating.
 //! For animated fixtures, run one profile per request (`"profiles":
 //! ["slow-pan"]`) and select that profile here.
+//!
+//! Unverified assumption: under ADR 0038 every offscreen page window has its
+//! own `ui::Compositor` and `viz::Display`, drawing on the same viz thread as
+//! the canvas window. If those draws are `DrawAndSwap` slices too, a burst
+//! holds far more presents than the profile has steps, fps reads high and
+//! frame times low. [`present_count_warning`] flags that per phase; until a
+//! real trace shows about steps + 1 presents per burst, Electron numbers
+//! from this module are unverified.
 
 use std::{collections::HashMap, time::Duration};
 
@@ -22,6 +30,9 @@ use crate::{BenchError, FrameTimes, GestureProfile, PhaseReport};
 pub const PRESENT_EVENT: &str = "Display::DrawAndSwap";
 /// Thread the presents are read from unless told otherwise.
 pub const DEFAULT_THREAD: &str = "VizCompositorThread";
+/// Presents per expected present above which a burst cannot be the canvas
+/// window's alone (one present per step, plus the first).
+const MAX_PRESENTS_PER_EXPECTED: f64 = 1.25;
 /// Bursts with fewer presents than this are paints, not gestures (a page
 /// settling, the camera restore after the last profile).
 const MIN_BURST_PRESENTS: usize = 5;
@@ -195,6 +206,26 @@ pub fn phase_from_burst(profile: &GestureProfile, burst: &[f64], budget: Duratio
     }
 }
 
+/// A warning when `phase` holds implausibly many presents for `profile`
+/// stepped at `interval`: about `steps + 1` are expected from the canvas
+/// window, and many more mean other displays' draws were counted.
+pub fn present_count_warning(
+    profile: &GestureProfile,
+    phase: &PhaseReport,
+    interval: Duration,
+) -> Option<String> {
+    let expected = profile.step_count(interval) + 1;
+    let presents = phase.frames.frames + 1;
+    (presents as f64 > expected as f64 * MAX_PRESENTS_PER_EXPECTED).then(|| {
+        format!(
+            "{}: {presents} presents for ~{expected} expected; `{PRESENT_EVENT}` is likely \
+             counting offscreen page displays too, so these frame times are not the canvas \
+             window's",
+            profile.id
+        )
+    })
+}
+
 /// Reads presents from `trace` and reduces them to one phase per profile.
 pub fn phases_from_trace(
     trace: &str,
@@ -324,6 +355,25 @@ mod tests {
         presents.push(presents[9] + 20_000.0); // one long frame
         let phase = phase_from_burst(&profile, &presents, BUDGET);
         assert_eq!((phase.frames.frames, phase.frames.long_frames), (10, 1));
+    }
+
+    #[test]
+    fn one_present_per_step_raises_no_warning() {
+        let profile = select_profiles(&[ProfileId::SlowPan], None)[0];
+        let steps = profile.step_count(BUDGET);
+        let presents = burst(0.0, steps + 1, 8_000.0);
+        let phase = phase_from_burst(&profile, &presents, BUDGET);
+        assert_eq!(present_count_warning(&profile, &phase, BUDGET), None);
+    }
+
+    #[test]
+    fn presents_from_many_displays_raise_a_warning() {
+        let profile = select_profiles(&[ProfileId::SlowPan], None)[0];
+        let steps = profile.step_count(BUDGET);
+        // Twenty page windows drawing alongside the canvas window.
+        let presents = burst(0.0, (steps + 1) * 20, 400.0);
+        let phase = phase_from_burst(&profile, &presents, BUDGET);
+        assert!(present_count_warning(&profile, &phase, BUDGET).is_some());
     }
 
     #[test]

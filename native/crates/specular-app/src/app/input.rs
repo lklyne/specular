@@ -150,6 +150,7 @@ impl App {
                     self.set_focus(hit.map(|(placed, _)| placed.page));
                 }
                 if let Some((placed, local)) = hit {
+                    self.captured.press(button, placed.page);
                     let click_count = self.clicks.press(button, screen, Instant::now());
                     let event = self.pointer(
                         PointerEventKind::Down {
@@ -162,9 +163,14 @@ impl App {
                 }
             }
             ElementState::Released => {
-                // The release goes to the focused page even if the pointer has
-                // left it, so drags that end outside still complete.
-                let Some(placed) = self.focused.and_then(|page| self.placed_page(page)) else {
+                // The release goes to the page that got the press even if the
+                // pointer has left it, so drags that end outside complete and
+                // no page is left thinking a button is held.
+                let Some(placed) = self
+                    .captured
+                    .release(button)
+                    .and_then(|page| self.placed_page(page))
+                else {
                     return;
                 };
                 let local = placed.page_local(self.camera.screen_to_world(screen));

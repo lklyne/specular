@@ -25,11 +25,6 @@ impl FrameTimes {
         self.intervals.push(interval);
     }
 
-    /// Recorded intervals, in order.
-    pub fn intervals(&self) -> &[Duration] {
-        &self.intervals
-    }
-
     /// Summarises against a display frame `budget` (e.g. 8.33 ms at 120 Hz).
     pub fn summary(&self, budget: Duration) -> FrameSummary {
         let mut ms: Vec<f64> = self

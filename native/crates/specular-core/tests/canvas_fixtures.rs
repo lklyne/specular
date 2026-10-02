@@ -63,7 +63,12 @@ fn saving_a_reloaded_document_is_byte_stable() {
 
 #[test]
 fn pages_fixture_lists_every_link_node() {
-    let urls: Vec<_> = load(PAGES).pages().into_iter().map(|p| p.url).collect();
+    let urls: Vec<_> = load(PAGES)
+        .pages()
+        .unwrap()
+        .into_iter()
+        .map(|p| p.url)
+        .collect();
     assert_eq!(
         urls,
         [
@@ -77,7 +82,7 @@ fn pages_fixture_lists_every_link_node() {
 
 #[test]
 fn rich_workspace_has_no_pages() {
-    assert!(load(RICH_WORKSPACE).pages().is_empty());
+    assert!(load(RICH_WORKSPACE).pages().unwrap().is_empty());
 }
 
 #[test]

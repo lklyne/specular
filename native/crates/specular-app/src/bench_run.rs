@@ -8,29 +8,12 @@
 use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use serde::Serialize;
 use specular_bench::{
-    GestureProfile, GestureStep, PHASE_GAP, PhaseRecorder, PhaseReport, PresentedFrame, build_steps,
+    GestureProfile, GestureStep, PHASE_GAP, PaintPolicy, PhaseRecorder, PresentedFrame,
+    ProfileLine, build_steps,
 };
 use specular_compositor::{FrameObserver, FrameSample};
 use specular_core::Camera;
-
-/// One profile's result, printed as a JSON line: the bench crate's
-/// [`PhaseReport`] fields at the top level, plus what only this shell knows.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct ProfileReport {
-    #[serde(flatten)]
-    pub(crate) phase: PhaseReport,
-    pub(crate) label: &'static str,
-    pub(crate) source: &'static str,
-    pub(crate) pages: usize,
-    /// False when any frame drawn came from CPU upload: such runs must not
-    /// be compared against Electron (ADR 0038).
-    pub(crate) representative: bool,
-    pub(crate) step_interval_ms: f64,
-    pub(crate) max_paint_to_submit_ms: Option<f64>,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Phase {
@@ -55,18 +38,30 @@ pub(crate) enum BenchTick {
     Finished,
 }
 
+/// The page source a run measures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RunSource {
+    /// Backend name for the report (`cef`, `synthetic`).
+    pub(crate) name: &'static str,
+    /// Whether the backend's frames may be compared with Electron's.
+    pub(crate) representative: bool,
+    /// Pages on the canvas.
+    pub(crate) pages: usize,
+    /// How pages were throttled.
+    pub(crate) paint_policy: PaintPolicy,
+}
+
 /// The benchmark state machine.
 #[derive(Debug)]
 pub(crate) struct BenchRun {
     profiles: Vec<GestureProfile>,
     step_interval: Duration,
     start_camera: Camera,
-    source: &'static str,
-    pages: usize,
+    source: RunSource,
     phase: Phase,
     steps: Vec<GestureStep>,
     recording: Option<Recording>,
-    reports: Vec<ProfileReport>,
+    reports: Vec<ProfileLine>,
 }
 
 impl BenchRun {
@@ -78,8 +73,7 @@ impl BenchRun {
         warmup: Duration,
         step_interval: Duration,
         start_camera: Camera,
-        source: &'static str,
-        pages: usize,
+        source: RunSource,
         now: Instant,
     ) -> Self {
         Self {
@@ -87,7 +81,6 @@ impl BenchRun {
             step_interval,
             start_camera,
             source,
-            pages,
             phase: Phase::Warmup {
                 until: now + warmup,
             },
@@ -125,7 +118,7 @@ impl BenchRun {
     }
 
     /// Completed profile reports, in run order.
-    pub(crate) fn reports(&self) -> &[ProfileReport] {
+    pub(crate) fn reports(&self) -> &[ProfileLine] {
         &self.reports
     }
 
@@ -149,15 +142,16 @@ impl BenchRun {
     fn finish(&mut self, index: usize, now: Instant) {
         if let (Some(profile), Some(recording)) = (self.profiles.get(index), self.recording.take())
         {
-            let representative = self.source != "synthetic" && !recording.frames.saw_cpu_texture();
-            self.reports.push(ProfileReport {
-                phase: recording.frames.finish(self.step_interval, None),
-                label: profile.label,
-                source: self.source,
-                pages: self.pages,
+            let representative = self.source.representative && !recording.frames.saw_cpu_texture();
+            self.reports.push(ProfileLine {
+                phase: recording.frames.finish(self.step_interval),
+                label: profile.label.to_owned(),
+                source: self.source.name.to_owned(),
+                pages: self.source.pages,
                 representative,
                 step_interval_ms: millis(self.step_interval),
                 max_paint_to_submit_ms: recording.max_paint_to_submit.map(millis),
+                paint_policy: self.source.paint_policy,
             });
         }
         self.phase = Phase::Gap {
@@ -172,11 +166,17 @@ impl FrameObserver for BenchRun {
         let Some(recording) = self.recording.as_mut() else {
             return;
         };
+        let stats = &sample.stats;
         recording.frames.presented(
             sample.presented_at,
             PresentedFrame {
-                pages_without_texture: sample.stats.pages_without_texture,
-                cpu_textures: sample.stats.cpu_textures,
+                pages_without_texture: stats.pages_without_texture,
+                cpu_textures: stats.cpu_textures,
+                frames_received: stats.frames_received,
+                popup_frames: stats.popup_frames,
+                frames_dropped_for_pool_pressure: stats.frames_dropped_for_pool_pressure,
+                outstanding_textures: stats.outstanding_textures,
+                max_outstanding_textures: stats.max_outstanding_textures,
             },
         );
         recording.max_paint_to_submit = max_option(
@@ -227,7 +227,6 @@ mod tests {
             }
             run.on_frame(&FrameSample {
                 presented_at: now,
-                interval: None,
                 stats: RenderStats {
                     cpu_textures,
                     ..RenderStats::default()
@@ -239,14 +238,18 @@ mod tests {
         panic!("bench never finished");
     }
 
-    fn new_run(profiles: Vec<GestureProfile>, source: &'static str, start: Instant) -> BenchRun {
+    fn new_run(profiles: Vec<GestureProfile>, representative: bool, start: Instant) -> BenchRun {
         BenchRun::new(
             profiles,
             Duration::from_secs(2),
             STEP,
             Camera::default(),
-            source,
-            4,
+            RunSource {
+                name: if representative { "cef" } else { "synthetic" },
+                representative,
+                pages: 4,
+                paint_policy: PaintPolicy::ElectronLod,
+            },
             start,
         )
     }
@@ -254,7 +257,7 @@ mod tests {
     #[test]
     fn run_reports_each_profile_once() {
         let start = Instant::now();
-        let mut run = new_run(vec![pan_profile(), pan_profile()], "cef", start);
+        let mut run = new_run(vec![pan_profile(), pan_profile()], true, start);
         run_to_completion(&mut run, start, 0);
         assert_eq!(run.reports().len(), 2);
     }
@@ -262,7 +265,7 @@ mod tests {
     #[test]
     fn profile_applies_its_total_pan() {
         let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], "cef", start);
+        let mut run = new_run(vec![pan_profile()], true, start);
         let camera = run_to_completion(&mut run, start, 0);
         assert!((camera.pan.x - 30.0).abs() < 1e-4);
     }
@@ -271,7 +274,7 @@ mod tests {
     fn frames_recorded_are_intervals_between_profile_frames() {
         // Three steps -> four frames presented while running -> three intervals.
         let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], "cef", start);
+        let mut run = new_run(vec![pan_profile()], true, start);
         run_to_completion(&mut run, start, 0);
         assert_eq!(run.reports()[0].phase.frames.frames, 3);
     }
@@ -279,15 +282,15 @@ mod tests {
     #[test]
     fn cpu_textures_make_report_non_representative() {
         let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], "cef", start);
+        let mut run = new_run(vec![pan_profile()], true, start);
         run_to_completion(&mut run, start, 1);
         assert!(!run.reports()[0].representative);
     }
 
     #[test]
-    fn synthetic_source_is_never_representative() {
+    fn non_representative_source_is_never_representative() {
         let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], "synthetic", start);
+        let mut run = new_run(vec![pan_profile()], false, start);
         run_to_completion(&mut run, start, 0);
         assert!(!run.reports()[0].representative);
     }
@@ -295,7 +298,7 @@ mod tests {
     #[test]
     fn camera_holds_still_during_warmup() {
         let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], "cef", start);
+        let mut run = new_run(vec![pan_profile()], true, start);
         let mut camera = Camera::new(Vec2::new(5.0, 5.0), 1.0);
         run.tick(start + Duration::from_millis(100), &mut camera, Vec2::ZERO);
         assert_eq!(camera.pan, Vec2::new(5.0, 5.0));
@@ -304,7 +307,7 @@ mod tests {
     #[test]
     fn report_serializes_phase_fields_at_top_level() {
         let start = Instant::now();
-        let mut run = new_run(vec![pan_profile()], "cef", start);
+        let mut run = new_run(vec![pan_profile()], true, start);
         run_to_completion(&mut run, start, 0);
         let json = serde_json::to_value(&run.reports()[0]).unwrap();
         assert_eq!(

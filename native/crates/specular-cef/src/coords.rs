@@ -1,39 +1,14 @@
-//! Coordinate mapping between the canvas, page CSS space, and texels.
+//! Coordinate mapping between page CSS space and texels.
 //!
-//! Three spaces meet at the CEF boundary:
+//! Two spaces meet at the CEF boundary (the app maps canvas points into page
+//! CSS before calling in):
 //!
-//! - **Canvas/screen**: the app's logical window pixels, under the
-//!   [`Camera`] (`screen = world * zoom + pan`).
 //! - **Page CSS** (CEF "view"/DIP coordinates): what `SendMouse*Event`,
 //!   `GetViewRect`, `OnPopupSize` and IME character bounds use.
 //! - **Texels**: frame pixels, CSS × device scale factor; what `OnPaint`
 //!   dirty rects, frame sizes and [`specular_core::FrameLayer::Popup`] use.
 
-use glam::Vec2;
-use specular_core::{Camera, CanvasRect, CssSize, PixelRect, PixelSize};
-
-/// Maps a screen point to page-local CSS pixels without bounds checking.
-///
-/// Used while a pointer is captured by a page (a drag that leaves its rect
-/// must keep reporting positions, possibly negative). The page's canvas rect
-/// may be scaled relative to its CSS viewport (a 1440-wide page drawn 720
-/// world units wide), so each axis scales by `viewport / rect.size`.
-pub fn screen_to_page(camera: &Camera, screen: Vec2, rect: CanvasRect, viewport: CssSize) -> Vec2 {
-    let local = camera.screen_to_world(screen) - rect.origin();
-    let size = rect.size().max(Vec2::splat(f32::EPSILON));
-    local * Vec2::new(viewport.width as f32, viewport.height as f32) / size
-}
-
-/// Maps a screen point to page-local CSS pixels if it lands on the page.
-pub fn hit_page(
-    camera: &Camera,
-    screen: Vec2,
-    rect: CanvasRect,
-    viewport: CssSize,
-) -> Option<Vec2> {
-    rect.contains(camera.screen_to_world(screen))
-        .then(|| screen_to_page(camera, screen, rect, viewport))
-}
+use specular_core::{PixelRect, PixelSize};
 
 /// Builds a [`PixelRect`] from CEF's signed `cef_rect_t` fields, treating a
 /// negative extent as empty.
@@ -106,36 +81,6 @@ pub fn union_rects(rects: impl IntoIterator<Item = PixelRect>) -> Option<PixelRe
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const VIEWPORT: CssSize = CssSize::new(1440, 900);
-
-    #[test]
-    fn screen_point_maps_through_camera_and_page_scale() {
-        // Page drawn at half its CSS width, camera zoomed 2x and panned.
-        let camera = Camera::new(Vec2::new(100.0, 50.0), 2.0);
-        let rect = CanvasRect::new(10.0, 20.0, 720.0, 450.0);
-        let screen = camera.world_to_screen(Vec2::new(10.0 + 360.0, 20.0 + 225.0));
-        let page = screen_to_page(&camera, screen, rect, VIEWPORT);
-        assert!((page - Vec2::new(720.0, 450.0)).length() < 1e-3, "{page}");
-    }
-
-    #[test]
-    fn hit_page_misses_points_outside_the_rect() {
-        let camera = Camera::default();
-        let rect = CanvasRect::new(0.0, 0.0, 100.0, 100.0);
-        assert_eq!(
-            hit_page(&camera, Vec2::new(150.0, 50.0), rect, VIEWPORT),
-            None
-        );
-    }
-
-    #[test]
-    fn captured_drag_reports_negative_positions_left_of_the_page() {
-        let camera = Camera::default();
-        let rect = CanvasRect::new(100.0, 0.0, 1440.0, 900.0);
-        let page = screen_to_page(&camera, Vec2::new(90.0, 10.0), rect, VIEWPORT);
-        assert_eq!(page, Vec2::new(-10.0, 10.0));
-    }
 
     #[test]
     fn negative_cef_extent_is_empty() {

@@ -3,7 +3,9 @@
 use std::time::{Duration, Instant};
 
 use glam::Vec2;
-use specular_core::{ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PointerButton};
+use specular_core::{
+    ImeEvent, InputEvent, KeyEvent, KeyEventKind, Modifiers, PageId, PointerButton,
+};
 use winit::event::{Ime, MouseButton};
 use winit::keyboard::{KeyCode, ModifiersState};
 
@@ -63,7 +65,37 @@ impl ClickCounter {
     }
 }
 
-/// Windows virtual-key codes, which Chromium derives DOM `keyCode` from.
+/// Which page received each held button's press, so its release goes to the
+/// same page (pointer capture per button) wherever the pointer ends up.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct ButtonCapture {
+    pages: [Option<PageId>; 3],
+}
+
+impl ButtonCapture {
+    fn slot(button: PointerButton) -> usize {
+        match button {
+            PointerButton::Left => 0,
+            PointerButton::Middle => 1,
+            PointerButton::Right => 2,
+        }
+    }
+
+    /// Records that `page` received `button`'s press.
+    pub(crate) fn press(&mut self, button: PointerButton, page: PageId) {
+        self.pages[Self::slot(button)] = Some(page);
+    }
+
+    /// The page owed `button`'s release, if a page received its press.
+    pub(crate) fn release(&mut self, button: PointerButton) -> Option<PageId> {
+        self.pages[Self::slot(button)].take()
+    }
+}
+
+/// Windows virtual-key codes (`WinUser.h`), which Chromium derives DOM
+/// `keyCode` from on every platform. `native_key_code` comes from winit's
+/// scancode instead (the `kVK_*` code on macOS), from which Chromium derives
+/// DOM `code` and key location.
 const WINDOWS_KEY_CODES: &[(KeyCode, i32)] = &[
     (KeyCode::Backspace, 0x08),
     (KeyCode::Tab, 0x09),
@@ -75,6 +107,7 @@ const WINDOWS_KEY_CODES: &[(KeyCode, i32)] = &[
     (KeyCode::ControlRight, 0x11),
     (KeyCode::AltLeft, 0x12),
     (KeyCode::AltRight, 0x12),
+    (KeyCode::CapsLock, 0x14),
     (KeyCode::Escape, 0x1B),
     (KeyCode::Space, 0x20),
     (KeyCode::PageUp, 0x21),
@@ -85,6 +118,7 @@ const WINDOWS_KEY_CODES: &[(KeyCode, i32)] = &[
     (KeyCode::ArrowUp, 0x26),
     (KeyCode::ArrowRight, 0x27),
     (KeyCode::ArrowDown, 0x28),
+    (KeyCode::Insert, 0x2D),
     (KeyCode::Delete, 0x2E),
     (KeyCode::Digit0, 0x30),
     (KeyCode::Digit1, 0x31),
@@ -124,6 +158,7 @@ const WINDOWS_KEY_CODES: &[(KeyCode, i32)] = &[
     (KeyCode::KeyZ, 0x5A),
     (KeyCode::SuperLeft, 0x5B),
     (KeyCode::SuperRight, 0x5C),
+    (KeyCode::ContextMenu, 0x5D),
     (KeyCode::F1, 0x70),
     (KeyCode::F2, 0x71),
     (KeyCode::F3, 0x72),
@@ -382,6 +417,22 @@ mod tests {
         counter.press(PointerButton::Left, Vec2::ZERO, start);
         let count = counter.press(PointerButton::Left, Vec2::new(30.0, 0.0), start);
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn release_goes_to_the_page_that_got_the_press() {
+        let mut capture = ButtonCapture::default();
+        capture.press(PointerButton::Right, PageId(2));
+        capture.press(PointerButton::Left, PageId(1));
+        assert_eq!(capture.release(PointerButton::Right), Some(PageId(2)));
+    }
+
+    #[test]
+    fn release_without_press_goes_nowhere() {
+        let mut capture = ButtonCapture::default();
+        capture.press(PointerButton::Left, PageId(1));
+        capture.release(PointerButton::Left);
+        assert_eq!(capture.release(PointerButton::Left), None);
     }
 
     #[test]

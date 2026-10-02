@@ -16,9 +16,12 @@ use crate::geometry::{PixelRect, PixelSize};
 use crate::page::PageId;
 
 /// Per-page cap on [`SharedTexture`]s alive at once, mirroring Electron's
-/// `MAX_OUTSTANDING_TEXTURES` (ADR 0038). A source that hits the cap drops new
-/// frames rather than queueing them, so a slow compositor sheds load instead
-/// of falling arbitrarily far behind.
+/// `MAX_OUTSTANDING_TEXTURES` (ADR 0038). The producer enforces it, because
+/// the pressure is on its pool (Chromium's capture surfaces): past the cap a
+/// source drops the paint and emits
+/// [`PageEvent::FrameDropped`](crate::PageEvent::FrameDropped) instead of
+/// queueing, so a slow compositor sheds load rather than falling arbitrarily
+/// far behind. The compositor only counts what it holds.
 pub const MAX_OUTSTANDING_TEXTURES: usize = 6;
 
 /// Texel layout of a frame.
@@ -31,15 +34,8 @@ pub enum PixelFormat {
     Rgba8Unorm,
 }
 
-impl PixelFormat {
-    /// Bytes per texel.
-    pub const fn bytes_per_pixel(self) -> u32 {
-        4
-    }
-}
-
 /// A platform GPU surface handle. Only the compositor dereferences it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum NativeSurface {
     /// A macOS `IOSurfaceRef`. The producer has already called
@@ -145,11 +141,6 @@ impl PageFrame {
             Self::Cpu(frame) => frame.size,
         }
     }
-
-    /// Whether this frame came through the representative zero-copy path.
-    pub fn is_representative(&self) -> bool {
-        matches!(self, Self::GpuShared(_))
-    }
 }
 
 /// Which surface of a page a frame paints (CEF `PET_VIEW` / `PET_POPUP`).
@@ -197,10 +188,5 @@ mod tests {
         );
         drop(texture);
         assert_eq!(released.get(), 1);
-    }
-
-    #[test]
-    fn cpu_frame_is_not_representative() {
-        assert!(!PageFrame::Cpu(CpuFrame::default()).is_representative());
     }
 }

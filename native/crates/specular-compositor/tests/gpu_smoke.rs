@@ -7,7 +7,9 @@ use std::time::Instant;
 
 use common::{TARGET_SIZE, gpu_or_skip, pixel, read_pixels, render_target};
 use glam::Vec2;
-use specular_compositor::{Compositor, CompositorError, DotGrid, PageDraw, RenderStats, SceneView};
+use specular_compositor::{
+    Compositor, CompositorError, DotGrid, FrameImportError, PageDraw, RenderStats, SceneView,
+};
 use specular_core::{
     Camera, CanvasRect, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelRect,
     PixelSize,
@@ -140,7 +142,7 @@ fn page_without_frame_counts_as_missing_texture() {
         rect: PAGE_RECT,
     }];
     let stats = harness.render(Camera::default(), plain_grid(), &pages);
-    assert_eq!((stats.pages_drawn, stats.pages_without_texture), (0, 1));
+    assert_eq!(stats.pages_without_texture, 1);
 }
 
 #[test]
@@ -164,7 +166,32 @@ fn rounded_corner_reveals_background() {
 }
 
 #[test]
-fn first_render_after_frame_reports_it_shown_once() {
+fn ingested_view_frames_are_counted_once_per_render() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]));
+    harness.send_view(solid_frame(PixelSize::new(48, 48), [0, 0, 0, 255]));
+    let first = harness.render(Camera::default(), plain_grid(), &[]);
+    let second = harness.render(Camera::default(), plain_grid(), &[]);
+    assert_eq!((first.frames_received, second.frames_received), (2, 0));
+}
+
+#[test]
+fn dropped_frame_events_are_counted() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    harness
+        .compositor
+        .handle_page_event(PageEvent::FrameDropped { page: PAGE })
+        .unwrap();
+    let stats = harness.render(Camera::default(), plain_grid(), &[]);
+    assert_eq!(stats.frames_dropped_for_pool_pressure, 1);
+}
+
+#[test]
+fn first_render_after_frame_reports_its_paint_wait_once() {
     let Some(mut harness) = Harness::new() else {
         return;
     };
@@ -175,7 +202,13 @@ fn first_render_after_frame_reports_it_shown_once() {
     }];
     let first = harness.render(Camera::default(), plain_grid(), &pages);
     let second = harness.render(Camera::default(), plain_grid(), &pages);
-    assert_eq!((first.new_frames_shown, second.new_frames_shown), (1, 0));
+    assert_eq!(
+        (
+            first.max_paint_to_submit.is_some(),
+            second.max_paint_to_submit.is_some()
+        ),
+        (true, false)
+    );
 }
 
 #[test]
@@ -243,7 +276,13 @@ fn malformed_cpu_frame_is_rejected_with_import_error() {
     let result = harness
         .compositor
         .handle_page_event(frame_event(FrameLayer::View, frame));
-    assert!(matches!(result, Err(CompositorError::Import { .. })));
+    assert!(matches!(
+        result,
+        Err(CompositorError::Import {
+            source: FrameImportError::ShortBuffer { .. },
+            ..
+        })
+    ));
 }
 
 #[cfg(not(target_os = "macos"))]

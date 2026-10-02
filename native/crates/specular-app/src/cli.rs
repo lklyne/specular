@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Context as _, bail};
-use specular_bench::{GestureProfile, ProfileId, select_profiles};
+use specular_bench::{GestureProfile, PaintPolicy, ProfileId, select_profiles};
 
 /// Usage text for `--help` and argument errors.
 pub(crate) const USAGE: &str = "\
@@ -21,6 +21,9 @@ usage: specular-app [OPTIONS] [FILE.canvas]
                       fast-pan-zoom, zoom-out-then-pan
   --warmup-ms N       with --bench: let pages load and settle for N ms before
                       the first profile (default 2000)
+  --paint-policy P    electron-lod (default): Electron's page-host frame-rate
+                      and texture-scale tiers plus off-screen culling;
+                      full-rate: every page paints at full rate and scale
   -h, --help          print this help";
 
 /// Settle time before the first bench profile when `--warmup-ms` is not given.
@@ -36,6 +39,12 @@ pub(crate) enum SourceKind {
 }
 
 impl SourceKind {
+    /// Whether frames from this source may be compared with Electron's
+    /// (ADR 0038): only CEF's; synthetic frames are CPU-painted stand-ins.
+    pub(crate) const fn is_representative(self) -> bool {
+        matches!(self, Self::Cef)
+    }
+
     fn default_for_build() -> Self {
         if cfg!(feature = "cef") {
             Self::Cef
@@ -67,6 +76,8 @@ pub(crate) struct RunArgs {
     pub(crate) bench: Option<Vec<GestureProfile>>,
     /// Settle time before the first bench profile.
     pub(crate) warmup: Duration,
+    /// How pages are throttled.
+    pub(crate) paint_policy: PaintPolicy,
 }
 
 /// Parses arguments (without the program name).
@@ -77,6 +88,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
         source: SourceKind::default_for_build(),
         bench: None,
         warmup: DEFAULT_WARMUP,
+        paint_policy: PaintPolicy::ElectronLod,
     };
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
@@ -110,6 +122,9 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
                     .parse()
                     .with_context(|| format!("--warmup-ms expects a number, got `{value}`"))?;
                 run.warmup = Duration::from_millis(ms);
+            }
+            "--paint-policy" => {
+                run.paint_policy = value_of(flag, args.next())?.parse()?;
             }
             _ if flag.starts_with('-') => bail!("unknown option `{flag}`"),
             _ => set_canvas(&mut run, arg)?,
@@ -227,6 +242,32 @@ mod tests {
     fn warmup_ms_sets_bench_warmup() {
         let run = run_args(&["--bench", "all", "--warmup-ms", "8000"]);
         assert_eq!(run.warmup, Duration::from_secs(8));
+    }
+
+    #[test]
+    fn paint_policy_defaults_to_electron_lod() {
+        assert_eq!(run_args(&[]).paint_policy, PaintPolicy::ElectronLod);
+    }
+
+    #[test]
+    fn paint_policy_flag_selects_full_rate() {
+        assert_eq!(
+            run_args(&["--paint-policy", "full-rate"]).paint_policy,
+            PaintPolicy::FullRate
+        );
+    }
+
+    #[test]
+    fn unknown_paint_policy_is_rejected() {
+        assert!(parse_strs(&["--paint-policy", "fast"]).is_err());
+    }
+
+    #[test]
+    fn only_cef_frames_are_representative() {
+        assert_eq!(
+            [SourceKind::Cef, SourceKind::Synthetic].map(SourceKind::is_representative),
+            [true, false]
+        );
     }
 
     #[test]

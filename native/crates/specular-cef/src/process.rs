@@ -52,18 +52,17 @@ pub(crate) fn declare_api_version() {
 pub(crate) fn load_framework(helper: bool) -> Result<(), CefError> {
     use std::os::unix::ffi::OsStrExt;
 
-    let exe = std::env::current_exe().map_err(|err| CefError::LoadFramework(err.to_string()))?;
-    let path = crate::config::framework_library_path(&exe, helper).ok_or_else(|| {
-        CefError::LoadFramework(format!("{} has no parent directory", exe.display()))
-    })?;
-    let path = path.canonicalize().map_err(|err| {
-        CefError::LoadFramework(format!(
-            "{}: {err} (run from the .app bundle, see crates/specular-cef/README.md)",
-            path.display()
-        ))
-    })?;
+    let exe = std::env::current_exe().map_err(CefError::CurrentExe)?;
+    let path = crate::config::framework_library_path(&exe, helper)
+        .ok_or_else(|| CefError::FrameworkPath(exe.clone()))?;
+    let path = path
+        .canonicalize()
+        .map_err(|source| CefError::FrameworkNotFound {
+            path: path.clone(),
+            source,
+        })?;
     let c_path = std::ffi::CString::new(path.as_os_str().as_bytes())
-        .map_err(|err| CefError::LoadFramework(err.to_string()))?;
+        .map_err(|_| CefError::FrameworkPath(path.clone()))?;
     // SAFETY: `as_ptr` points at `c_path`'s NUL-terminated buffer, which is
     // live and unmodified for the whole `load_library` call; the binding only
     // reads it as a C string.
@@ -71,10 +70,7 @@ pub(crate) fn load_framework(helper: bool) -> Result<(), CefError> {
     if cef::load_library(Some(first_char)) == 1 {
         Ok(())
     } else {
-        Err(CefError::LoadFramework(format!(
-            "cef_load_library failed for {}",
-            path.display()
-        )))
+        Err(CefError::LoadLibrary(path))
     }
 }
 

@@ -8,14 +8,14 @@ a whole and `docs/plans/rust-cef-spike.md` for what it measures.
 
 | Module | Feature | Responsibility |
 |---|---|---|
-| `config` | always | `CefConfig`, spec validation, browser switches, frame-rate clamp, bundle-relative framework path, subprocess detection |
-| `coords` | always | screen -> page CSS mapping (camera + page scale), CSS -> texel rects, popup placement, IME bounds union |
-| `keys` | always | W3C `code` (= winit `KeyCode` name) -> Windows VK + macOS `kVK_*` + left/right location |
+| `config` | always | `CefConfig`, browser switches, frame-rate clamp, bundle-relative framework path, subprocess detection |
+| `coords` | always | CSS -> texel rects, popup placement, IME bounds union (canvas -> page CSS lives in the app's `placement`) |
 | `translate` | always | core `InputEvent` -> exact `CefBrowserHost` call (`HostCall`): flag bits, held buttons, wheel remainders, UTF-16 surrogates, IME range sentinels |
 | `pool` | always | per-page cap on retained shared textures (`MAX_OUTSTANDING_TEXTURES` = 6) |
 | `page` | always (`PageContext`: `cef`) | per-page view/popup geometry shared by handlers and the source |
 | `cpu_frame` | always | `OnPaint` buffer -> owned `CpuFrame` |
 | `process` | `cef` | `run_subprocess_if_needed`, API-version declaration, macOS framework load/unload |
+| `app_protocol` | `cef` + macOS | adds `CefAppProtocol` (`isHandlingSendEvent` / `setHandlingSendEvent:`) to winit's `NSApp` class before `cef_initialize` |
 | `client` | `cef` | `wrap_*!` handler objects: app (switches), render, load, request, life-span, client |
 | `paint` | `cef` | `OnPaint` / `OnAcceleratedPaint` -> `FrameEvent` |
 | `iosurface` | `cef` + macOS | the one unsafe IOSurface module: retain/use-count/release and its ownership rules |
@@ -168,21 +168,29 @@ here (no CEF download, GPU or display in the build container).
   `LifeSpanHandler::on_before_popup` / `on_before_close`.
 - `objc2-io-surface`: `IOSurfaceRef::increment_use_count` /
   `decrement_use_count`; `CFRetained::retain` on the raw IOSurface.
+- `objc2` runtime: `class_addMethod`, `class_addProtocol` and the
+  `cef::application_mac` protocols (`app_protocol`).
 
 ## Known risks to check first on a real run
 
-1. **`CrAppControlProtocol`.** Chromium's macOS message pump looks for an
-   `NSApplication` that implements `isHandlingSendEvent` /
-   `setHandlingSendEvent:` (`cef::application_mac::CefAppProtocol`).
-   winit's `WinitApplication` does not. Release CEF builds usually run
-   without it, debug builds `CHECK`-fail, and nested event handling (menus,
-   `<select>` popups) can misbehave. If it bites, add the two methods and
-   the protocol to winit's class at runtime (`class_addMethod` +
-   `class_addProtocol` via objc2) before `CefPageSource::new`.
+1. **`CefAppProtocol` on winit's `NSApp`.** Chromium sends
+   `isHandlingSendEvent` / `setHandlingSendEvent:` to `NSApp`, and winit's
+   `WinitApplication` implements neither. `app_protocol::install` adds both
+   methods plus the `CrAppProtocol` / `CrAppControlProtocol` /
+   `CefAppProtocol` conformances to winit's class before `cef_initialize`
+   and fails startup with `CefError::AppProtocol` if that does not take.
+   Type-checked only: confirm CEF starts and a `<select>` popup opens
+   without an "unrecognized selector" crash.
 2. **Retained IOSurface reuse.** Verify that Chromium does not repaint a
    surface whose use count we hold: no tearing under the `fast-pan-zoom`
    profile on an animated page. If it does, use the copy strategy in
    `src/iosurface.rs`.
+   The compositor also caches one Metal/wgpu texture per surface
+   (`specular-compositor`'s `import_cache`). If wrapping an IOSurface in a
+   Metal texture marks it in use for Chromium's pool, the pool would grow
+   instead of recycling: watch the `shared-surface import cache` line the
+   app logs at exit (misses should stay near the pool size, not near the
+   paint count) and the tree footprint.
 3. **Coded vs visible size.** `SharedTexture` has no sub-rect. The paint
    path logs at `debug` when `visible_rect` differs from `coded_size`. If it
    happens, the compositor would sample padding.

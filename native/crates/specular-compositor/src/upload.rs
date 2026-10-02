@@ -2,6 +2,8 @@
 
 use specular_core::{CpuFrame, PixelFormat, PixelRect, PixelSize};
 
+use crate::error::FrameImportError;
+
 /// The wgpu format for page texels. Page bytes are sRGB-encoded; sampling an
 /// `*Srgb` view linearises them so an sRGB render target re-encodes once.
 pub(crate) fn page_texture_format(format: PixelFormat, srgb: bool) -> wgpu::TextureFormat {
@@ -13,31 +15,33 @@ pub(crate) fn page_texture_format(format: PixelFormat, srgb: bool) -> wgpu::Text
     }
 }
 
-/// Checks a CPU frame before it reaches wgpu, whose validation failures
-/// abort the process instead of returning an error.
-pub(crate) fn validate_cpu_frame(frame: &CpuFrame, max_dimension: u32) -> Result<(), String> {
+/// Checks a frame's size against the device before it reaches wgpu.
+pub(crate) fn validate_frame_size(size: PixelSize, max: u32) -> Result<(), FrameImportError> {
+    let PixelSize { width, height } = size;
+    if size.is_empty() {
+        return Err(FrameImportError::EmptyFrame { width, height });
+    }
+    if width > max || height > max {
+        return Err(FrameImportError::ExceedsDeviceLimit { width, height, max });
+    }
+    Ok(())
+}
+
+/// Checks a CPU frame's size and byte layout before it reaches wgpu.
+pub(crate) fn validate_cpu_frame(frame: &CpuFrame, max: u32) -> Result<(), FrameImportError> {
+    validate_frame_size(frame.size, max)?;
     let PixelSize { width, height } = frame.size;
-    if frame.size.is_empty() {
-        return Err(format!("empty frame {width}x{height}"));
-    }
-    if width > max_dimension || height > max_dimension {
-        return Err(format!(
-            "frame {width}x{height} exceeds the device limit of {max_dimension}"
-        ));
-    }
     let row_bytes = u64::from(width) * 4;
     if u64::from(frame.stride) < row_bytes {
-        return Err(format!(
-            "stride {} is shorter than a {width}px row",
-            frame.stride
-        ));
+        return Err(FrameImportError::ShortStride {
+            stride: frame.stride,
+            width,
+        });
     }
     let needed = u64::from(frame.stride) * u64::from(height - 1) + row_bytes;
-    if (frame.bgra.len() as u64) < needed {
-        return Err(format!(
-            "frame has {} bytes, {needed} needed",
-            frame.bgra.len()
-        ));
+    let actual = frame.bgra.len() as u64;
+    if actual < needed {
+        return Err(FrameImportError::ShortBuffer { actual, needed });
     }
     Ok(())
 }
@@ -171,19 +175,49 @@ mod tests {
     fn validate_rejects_short_buffer() {
         let mut frame = frame(8, 4, vec![]);
         frame.bgra.truncate(10);
-        assert!(validate_cpu_frame(&frame, 8192).is_err());
+        assert_eq!(
+            validate_cpu_frame(&frame, 8192),
+            Err(FrameImportError::ShortBuffer {
+                actual: 10,
+                needed: 128
+            })
+        );
     }
 
     #[test]
     fn validate_rejects_short_stride() {
         let mut frame = frame(8, 4, vec![]);
         frame.stride = 16;
-        assert!(validate_cpu_frame(&frame, 8192).is_err());
+        assert_eq!(
+            validate_cpu_frame(&frame, 8192),
+            Err(FrameImportError::ShortStride {
+                stride: 16,
+                width: 8
+            })
+        );
     }
 
     #[test]
     fn validate_rejects_oversized_frame() {
-        assert!(validate_cpu_frame(&frame(16, 4, vec![]), 8).is_err());
+        assert_eq!(
+            validate_cpu_frame(&frame(16, 4, vec![]), 8),
+            Err(FrameImportError::ExceedsDeviceLimit {
+                width: 16,
+                height: 4,
+                max: 8
+            })
+        );
+    }
+
+    #[test]
+    fn validate_rejects_empty_frame() {
+        assert_eq!(
+            validate_frame_size(PixelSize::new(0, 4), 8192),
+            Err(FrameImportError::EmptyFrame {
+                width: 0,
+                height: 4
+            })
+        );
     }
 
     #[test]
@@ -191,7 +225,7 @@ mod tests {
         let mut frame = frame(8, 4, vec![]);
         frame.stride = 40;
         frame.bgra = vec![0; 40 * 3 + 32];
-        assert!(validate_cpu_frame(&frame, 8192).is_ok());
+        assert_eq!(validate_cpu_frame(&frame, 8192), Ok(()));
     }
 
     #[test]

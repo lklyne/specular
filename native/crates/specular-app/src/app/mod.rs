@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
 use glam::Vec2;
-use specular_bench::{GestureProfile, STEP_INTERVAL};
+use specular_bench::{BenchLine, GestureProfile, InputLatencyLine, PaintPolicy, STEP_INTERVAL};
 use specular_compositor::{FrameObserver as _, FrameSample, PageDraw};
 use specular_core::document::PageNode;
 use specular_core::{Camera, CssSize, InputEvent, PageEvent, PageId, PageSource, PageSpec};
@@ -23,9 +23,10 @@ use winit::keyboard::ModifiersState;
 use winit::window::WindowId;
 
 use self::gpu_window::GpuWindow;
-use crate::bench_run::{BenchRun, BenchTick};
-use crate::input_map::ClickCounter;
+use crate::bench_run::{BenchRun, BenchTick, RunSource};
+use crate::input_map::{ButtonCapture, ClickCounter};
 use crate::latency::InputLatencyProbe;
+use crate::paint_lod::LodChange;
 use crate::placement::PlacedPage;
 
 /// Camera the canvas opens at (and each bench profile starts from).
@@ -34,11 +35,25 @@ const START_CAMERA: Camera = Camera {
     zoom: 0.25,
 };
 
+/// How the session runs, from the command line.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Session {
+    /// Profiles to run then exit; `None` stays interactive.
+    pub(crate) bench: Option<Vec<GestureProfile>>,
+    /// Settle time before the first bench profile.
+    pub(crate) warmup: Duration,
+    /// Whether the source's frames may be compared with Electron's.
+    pub(crate) representative_source: bool,
+    /// How pages are throttled.
+    pub(crate) paint_policy: PaintPolicy,
+}
+
 /// Application state driven by winit.
 pub(crate) struct App {
     source: Box<dyn PageSource>,
     initial_pages: Vec<PageNode>,
     placed: Vec<PlacedPage>,
+    /// Per-frame scratch rebuilt from `placed`.
     draws: Vec<PageDraw>,
     camera: Camera,
     gpu: Option<GpuWindow>,
@@ -49,24 +64,22 @@ pub(crate) struct App {
     cursor: Option<Vec2>,
     hovered: Option<PageId>,
     focused: Option<PageId>,
+    captured: ButtonCapture,
     clicks: ClickCounter,
     latency: InputLatencyProbe,
-    bench_profiles: Option<Vec<GestureProfile>>,
-    bench_warmup: Duration,
+    session: Session,
     bench: Option<BenchRun>,
-    last_present: Option<Instant>,
     error: Option<anyhow::Error>,
 }
 
 impl App {
-    /// An app hosting `initial_pages` in `source`; with `bench_profiles` it
-    /// runs them after `bench_warmup` and exits instead of staying
+    /// An app hosting `initial_pages` in `source`; with bench profiles in
+    /// `session` it runs them after the warmup and exits instead of staying
     /// interactive.
     pub(crate) fn new(
         source: Box<dyn PageSource>,
         initial_pages: Vec<PageNode>,
-        bench_profiles: Option<Vec<GestureProfile>>,
-        bench_warmup: Duration,
+        session: Session,
     ) -> Self {
         Self {
             source,
@@ -81,12 +94,11 @@ impl App {
             cursor: None,
             hovered: None,
             focused: None,
+            captured: ButtonCapture::default(),
             clicks: ClickCounter::default(),
             latency: InputLatencyProbe::default(),
-            bench_profiles,
-            bench_warmup,
+            session,
             bench: None,
-            last_present: None,
             error: None,
         }
     }
@@ -102,7 +114,8 @@ impl App {
         self.exit(event_loop);
     }
 
-    /// Reports the session's input latency, then shuts the source down.
+    /// Reports the session's input latency (a JSON line for `assemble`) and
+    /// import-cache use, then shuts the source down.
     fn exit(&mut self, event_loop: &ActiveEventLoop) {
         let latency = self.latency.summary();
         if latency.samples > 0 {
@@ -114,6 +127,19 @@ impl App {
                 max_ms = latency.max_ms,
                 "input to present"
             );
+            let line = BenchLine::InputLatency(InputLatencyLine {
+                input_latency: latency,
+            });
+            match serde_json::to_string(&line) {
+                Ok(json) => println!("{json}"),
+                Err(error) => tracing::warn!("cannot report input latency: {error}"),
+            }
+        }
+        if let Some(gpu) = self.gpu.as_ref() {
+            let (hits, misses) = gpu.compositor.import_cache_hits_and_misses();
+            if hits + misses > 0 {
+                tracing::info!(hits, misses, "shared-surface import cache");
+            }
         }
         self.source.shutdown();
         event_loop.exit();
@@ -133,25 +159,21 @@ impl App {
                 .source
                 .create_page(&spec)
                 .with_context(|| format!("creating page for {}", node.url))?;
-            self.placed.push(PlacedPage {
-                page,
-                rect: node.rect,
-                viewport,
-            });
-            self.draws.push(PageDraw {
-                page,
-                rect: node.rect,
-            });
+            self.placed.push(PlacedPage::new(page, node.rect, viewport));
         }
-        if let Some(profiles) = self.bench_profiles.take() {
+        if let Some(profiles) = self.session.bench.take() {
             let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
             self.bench = Some(BenchRun::new(
                 profiles,
-                self.bench_warmup,
+                self.session.warmup,
                 step_interval,
                 START_CAMERA,
-                self.source.name(),
-                self.placed.len(),
+                RunSource {
+                    name: self.source.name(),
+                    representative: self.session.representative_source,
+                    pages: self.placed.len(),
+                    paint_policy: self.session.paint_policy,
+                },
                 Instant::now(),
             ));
         }
@@ -170,6 +192,9 @@ impl App {
             return Ok(());
         }
 
+        if self.session.paint_policy == PaintPolicy::ElectronLod {
+            self.update_paint_lod(viewport, Instant::now());
+        }
         self.source.pump();
         let mut events = std::mem::take(&mut self.events);
         self.source.drain_events(&mut events);
@@ -181,19 +206,17 @@ impl App {
         let Some(gpu) = self.gpu.as_mut() else {
             return Ok(());
         };
+        self.draws.clear();
+        self.draws.extend(self.placed.iter().map(PlacedPage::draw));
         let Some(stats) = gpu.render(self.camera, &self.draws) else {
             return Ok(());
         };
         let presented_at = Instant::now();
         let sample = FrameSample {
             presented_at,
-            interval: self
-                .last_present
-                .map(|last| presented_at.saturating_duration_since(last)),
             stats,
             input_to_present: self.latency.presented(presented_at),
         };
-        self.last_present = Some(presented_at);
         if let Some(latency) = sample.input_to_present {
             tracing::debug!(?latency, "input to present");
         }
@@ -220,6 +243,7 @@ impl App {
                 }
             }
             PageEvent::Frame(_)
+            | PageEvent::FrameDropped { .. }
             | PageEvent::PopupVisibility { .. }
             | PageEvent::PopupRect { .. } => {}
         }
@@ -261,13 +285,47 @@ impl App {
 
     fn on_scale_factor_changed(&mut self, scale_factor: f64) {
         for placed in &self.placed {
-            if let Err(error) = self
-                .source
-                .set_texture_scale(placed.page, scale_factor as f32)
-            {
+            let scale = scale_factor as f32 * placed.lod.texture().factor();
+            if let Err(error) = self.source.set_texture_scale(placed.page, scale) {
                 tracing::warn!("{error}");
             }
         }
+    }
+
+    /// One layout pass of the Electron page-host LOD: grades every page by
+    /// its on-screen scale and visibility and applies what changed.
+    fn update_paint_lod(&mut self, viewport: Vec2, now: Instant) {
+        let window_scale = self.gpu.as_ref().map_or(1.0, GpuWindow::scale_factor);
+        for placed in &mut self.placed {
+            let on_screen = self.camera.is_visible(placed.rect, viewport);
+            let display_scale = placed.display_scale(&self.camera);
+            let change = placed.lod.update(display_scale, on_screen, now);
+            apply_lod_change(self.source.as_mut(), placed.page, change, window_scale);
+        }
+    }
+}
+
+/// Applies `change` in the order Electron's layout pass does: scale before
+/// painting, so a page coming into view wakes at the scale it is owed.
+fn apply_lod_change(
+    source: &mut dyn PageSource,
+    page: PageId,
+    change: LodChange,
+    window_scale: f32,
+) {
+    let results = [
+        change
+            .texture
+            .map(|tier| source.set_texture_scale(page, window_scale * tier.factor())),
+        change
+            .frame_rate
+            .map(|fps| source.set_frame_rate(page, fps)),
+        change
+            .painting
+            .map(|painting| source.set_painting(page, painting)),
+    ];
+    for error in results.into_iter().flatten().filter_map(Result::err) {
+        tracing::warn!("{error}");
     }
 }
 

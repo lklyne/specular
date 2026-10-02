@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{FrameSummary, LatencySummary, MemoryReport, ProfileId, TextureStats};
+use crate::{BenchError, FrameSummary, LatencySummary, MemoryReport, ProfileId, TextureStats};
 
 /// Which shell produced a report.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,6 +27,43 @@ impl Shell {
             Self::Electron => "Electron",
             Self::RustCef => "Rust/CEF",
         }
+    }
+}
+
+/// How a shell throttles page painting. Recorded in every report because the
+/// policy changes how much work each page does per second, so runs under
+/// different policies do not compare.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PaintPolicy {
+    /// Electron's page-host LOD (`page-frame-rate.ts`, `page-texture-scale.ts`,
+    /// `layout-engine.ts`): 60/30/15 fps by on-screen display scale with
+    /// hysteresis, texture scale 1/0.5/0.25 after the camera settles, and no
+    /// painting while off-screen.
+    ElectronLod,
+    /// Every page paints at the full rate and texture scale, on- or
+    /// off-screen.
+    FullRate,
+}
+
+impl PaintPolicy {
+    /// The name used on command lines and in reports.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::ElectronLod => "electron-lod",
+            Self::FullRate => "full-rate",
+        }
+    }
+}
+
+impl std::str::FromStr for PaintPolicy {
+    type Err = BenchError;
+
+    fn from_str(raw: &str) -> Result<Self, Self::Err> {
+        [Self::ElectronLod, Self::FullRate]
+            .into_iter()
+            .find(|policy| policy.name() == raw)
+            .ok_or_else(|| BenchError::UnknownPaintPolicy(raw.to_owned()))
     }
 }
 
@@ -50,6 +87,9 @@ pub struct RunReport {
     /// False when any frame came through a CPU copy or a synthetic source;
     /// such runs must not be compared with Electron (ADR 0038).
     pub representative: bool,
+    /// The page paint policy the shell ran under (absent in older files).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paint_policy: Option<PaintPolicy>,
     /// Per-profile results, in run order.
     pub phases: Vec<PhaseReport>,
     /// Texture counters over the whole run.
@@ -61,9 +101,6 @@ pub struct RunReport {
     /// Forwarded input -> page repaint -> presented.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub input_latency: Option<LatencySummary>,
-    /// Wheel event -> frame presented with the new camera.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub gesture_latency: Option<LatencySummary>,
     /// How the numbers were obtained, and anything that weakens them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<String>,
@@ -130,6 +167,22 @@ mod tests {
     }
 
     #[test]
+    fn paint_policy_parses_its_own_name() {
+        assert_eq!(
+            PaintPolicy::FullRate.name().parse::<PaintPolicy>().unwrap(),
+            PaintPolicy::FullRate
+        );
+    }
+
+    #[test]
+    fn paint_policy_name_matches_serde_name() {
+        assert_eq!(
+            serde_json::to_value(PaintPolicy::ElectronLod).unwrap(),
+            PaintPolicy::ElectronLod.name()
+        );
+    }
+
+    #[test]
     fn run_report_round_trips_through_json() {
         let report = RunReport {
             shell: Shell::RustCef,
@@ -138,11 +191,11 @@ mod tests {
             page_count: Some(9),
             frame_ms: 8.33,
             representative: true,
+            paint_policy: Some(PaintPolicy::ElectronLod),
             phases: Vec::new(),
             textures: Some(TextureStats::default()),
             memory: None,
-            input_latency: None,
-            gesture_latency: Some(LatencySummary::default()),
+            input_latency: Some(LatencySummary::default()),
             notes: vec!["n".to_owned()],
         };
         let json = serde_json::to_string(&report).unwrap();

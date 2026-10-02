@@ -9,10 +9,11 @@
 //! Frame ingestion: [`Compositor::handle_page_event`] takes every
 //! [`PageEvent`](specular_core::PageEvent) a source emits. GPU shared frames
 //! are imported zero-copy (macOS: IOSurface -> `MTLTexture` -> wgpu-hal Metal
-//! texture) and their surfaces are held until the GPU has finished sampling
-//! them, capped at
-//! [`MAX_OUTSTANDING_TEXTURES`](specular_core::MAX_OUTSTANDING_TEXTURES) per
-//! page; CPU frames are uploaded with `Queue::write_texture` (dirty rects
+//! texture, cached per surface so Chromium's recycled surfaces import once)
+//! and their surfaces are held until the GPU has finished sampling them;
+//! the producer caps how many a page may hold
+//! ([`MAX_OUTSTANDING_TEXTURES`](specular_core::MAX_OUTSTANDING_TEXTURES)).
+//! CPU frames are uploaded with `Queue::write_texture` (dirty rects
 //! only) and counted as non-representative in [`RenderStats`].
 
 mod compositor;
@@ -22,6 +23,7 @@ mod gpu;
 mod gpu_types;
 mod grid;
 mod import;
+mod import_cache;
 mod instrumentation;
 mod layers;
 mod pipeline;
@@ -30,7 +32,7 @@ mod scene;
 mod upload;
 
 pub use compositor::Compositor;
-pub use error::CompositorError;
+pub use error::{CompositorError, FrameImportError};
 pub use gpu::GpuContext;
 pub use instrumentation::{FrameObserver, FrameSample};
 pub use scene::{DotGrid, PageDraw, RenderStats, SceneView};

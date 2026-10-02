@@ -13,7 +13,7 @@ use crate::scene::SceneView;
 pub(crate) const PAGE_CORNER_RADIUS: f32 = 8.0;
 
 /// Which of a page's textures a quad samples.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum LayerKind {
     /// The page's main view.
     View,
@@ -43,7 +43,6 @@ pub(crate) struct PageLayersInfo {
 /// Counters produced while building the draw list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct DrawCounts {
-    pub(crate) pages_drawn: u32,
     pub(crate) pages_without_texture: u32,
     pub(crate) cpu_textures: u32,
 }
@@ -68,7 +67,6 @@ pub(crate) fn build_draw_list(
             counts.pages_without_texture += 1;
             continue;
         };
-        counts.pages_drawn += 1;
         counts.cpu_textures += u32::from(info.view_is_cpu);
         instances.push(QuadInstance::new(
             draw.rect.origin(),

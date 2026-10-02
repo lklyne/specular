@@ -4,13 +4,14 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::geometry::{CanvasRect, CssSize};
+use crate::geometry::CssSize;
+use crate::source::PageSourceError;
 
 /// Identity of a page within one running [`PageSource`](crate::PageSource).
 ///
 /// Allocated by the source on [`create_page`](crate::PageSource::create_page);
 /// it is a process-local handle, not the persisted `.canvas` node id (which
-/// lives on [`Page::node_id`]).
+/// lives on [`PageNode`](crate::document::PageNode)).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PageId(pub u64);
 
@@ -44,19 +45,78 @@ impl PageSpec {
             frame_rate: 60,
         }
     }
+
+    /// Rejects specs no source can host: an empty URL, an empty viewport, or
+    /// a texture scale that is not positive and finite.
+    pub fn validate(&self) -> Result<(), PageSourceError> {
+        if self.url.trim().is_empty() {
+            return Err(PageSourceError::InvalidSpec("empty URL".to_owned()));
+        }
+        validate_viewport(self.viewport)?;
+        validate_texture_scale(self.texture_scale)
+    }
 }
 
-/// A page placed on the canvas: where it sits and what it shows.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Page {
-    /// Runtime handle from the page source.
-    pub id: PageId,
-    /// The `.canvas` node id this page was loaded from (stable across runs).
-    pub node_id: String,
-    /// Full URL.
-    pub url: String,
-    /// Placement in canvas space. Its size is the CSS viewport at zoom 1.
-    pub rect: CanvasRect,
-    /// Layout viewport in CSS pixels.
-    pub viewport: CssSize,
+/// Rejects a viewport with no area.
+pub fn validate_viewport(viewport: CssSize) -> Result<(), PageSourceError> {
+    if viewport.width == 0 || viewport.height == 0 {
+        return Err(PageSourceError::InvalidSpec(format!(
+            "empty viewport {}x{}",
+            viewport.width, viewport.height
+        )));
+    }
+    Ok(())
+}
+
+/// Rejects a texture scale (device scale factor) that is not a positive,
+/// finite number.
+pub fn validate_texture_scale(scale: f32) -> Result<(), PageSourceError> {
+    if scale.is_finite() && scale > 0.0 {
+        Ok(())
+    } else {
+        Err(PageSourceError::InvalidSpec(format!(
+            "texture scale must be positive and finite, got {scale}"
+        )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spec_with_blank_url_is_invalid() {
+        let spec = PageSpec::new("  ", CssSize::new(10, 10));
+        assert!(matches!(
+            spec.validate(),
+            Err(PageSourceError::InvalidSpec(_))
+        ));
+    }
+
+    #[test]
+    fn spec_with_zero_width_viewport_is_invalid() {
+        let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
+        assert!(spec.validate().is_err());
+    }
+
+    #[test]
+    fn default_spec_is_valid() {
+        let spec = PageSpec::new("https://example.com/", CssSize::new(1440, 900));
+        assert!(spec.validate().is_ok());
+    }
+
+    #[test]
+    fn nan_texture_scale_is_invalid() {
+        assert!(validate_texture_scale(f32::NAN).is_err());
+    }
+
+    #[test]
+    fn infinite_texture_scale_is_invalid() {
+        assert!(validate_texture_scale(f32::INFINITY).is_err());
+    }
+
+    #[test]
+    fn zero_texture_scale_is_invalid() {
+        assert!(validate_texture_scale(0.0).is_err());
+    }
 }

@@ -1,9 +1,9 @@
 //! The CEF-backed [`PageSource`].
 
-use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use cef::{
@@ -13,15 +13,13 @@ use cef::{
 };
 use specular_core::{
     CssSize, InputEvent, KeyEventKind, PageEvent, PageId, PageSource, PageSourceError, PageSpec,
-    PointerButton,
+    PointerButton, validate_texture_scale, validate_viewport,
 };
 
 use crate::client::{new_app, new_client};
-use crate::config::{
-    CefConfig, browser_switches, validate_scale, validate_spec, windowless_frame_rate,
-};
+use crate::config::{CefConfig, browser_switches, windowless_frame_rate};
 use crate::error::CefError;
-use crate::page::{PageContext, PageGeometry};
+use crate::page::{PageContext, PageGeometry, clear_events, drain_events, lock_geometry};
 use crate::pool::OutstandingFrames;
 use crate::process::{backend_error, declare_api_version};
 use crate::translate::{CefRange, HostCall, InputTranslator};
@@ -36,7 +34,7 @@ const CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
 struct PageEntry {
     browser: Browser,
     host: BrowserHost,
-    geometry: Rc<RefCell<PageGeometry>>,
+    geometry: Arc<Mutex<PageGeometry>>,
     input: InputTranslator,
 }
 
@@ -50,8 +48,8 @@ pub struct CefPageSource {
     pages: HashMap<PageId, PageEntry>,
     next_id: u64,
     focused: Option<PageId>,
-    events: Rc<RefCell<Vec<PageEvent>>>,
-    alive: Rc<Cell<usize>>,
+    alive: Arc<AtomicUsize>,
+    ui_thread: std::thread::ThreadId,
     running: bool,
 }
 
@@ -78,10 +76,13 @@ impl CefPageSource {
     /// [`PageSource::pump`]. Call [`run_subprocess_if_needed`](crate::run_subprocess_if_needed)
     /// first in `main`. On macOS, create winit's `EventLoop` before this:
     /// winit must install its `NSApplication` subclass before CEF touches
-    /// `NSApp`, or winit panics.
+    /// `NSApp`, or winit panics; this then adds `CefAppProtocol` to it.
     pub fn new(config: CefConfig) -> Result<Self, CefError> {
         #[cfg(target_os = "macos")]
-        crate::process::load_framework(false)?;
+        {
+            crate::process::load_framework(false)?;
+            crate::app_protocol::install()?;
+        }
         declare_api_version();
 
         let cache = config.cache_path.as_deref().map(cef_path).transpose()?;
@@ -114,8 +115,8 @@ impl CefPageSource {
             pages: HashMap::new(),
             next_id: 0,
             focused: None,
-            events: Rc::new(RefCell::new(Vec::new())),
-            alive: Rc::new(Cell::new(0)),
+            alive: Arc::new(AtomicUsize::new(0)),
+            ui_thread: std::thread::current().id(),
             running: true,
         })
     }
@@ -229,16 +230,16 @@ impl PageSource for CefPageSource {
     }
 
     fn create_page(&mut self, spec: &PageSpec) -> Result<PageId, PageSourceError> {
-        validate_spec(spec)?;
+        spec.validate()?;
         self.next_id += 1;
         let id = PageId(self.next_id);
-        let geometry = Rc::new(RefCell::new(PageGeometry::new(spec)));
+        let geometry = Arc::new(Mutex::new(PageGeometry::new(spec)));
         let ctx = PageContext {
             id,
-            geometry: Rc::clone(&geometry),
-            events: Rc::clone(&self.events),
+            geometry: Arc::clone(&geometry),
             frames: OutstandingFrames::default(),
-            alive: Rc::clone(&self.alive),
+            alive: Arc::clone(&self.alive),
+            ui_thread: self.ui_thread,
         };
         let mut client = new_client(&ctx);
         let window_info = WindowInfo {
@@ -268,7 +269,7 @@ impl PageSource for CefPageSource {
         )
         .ok_or_else(create_error)?;
         let host = browser.host().ok_or_else(create_error)?;
-        self.alive.set(self.alive.get() + 1);
+        self.alive.fetch_add(1, Ordering::AcqRel);
         self.pages.insert(
             id,
             PageEntry {
@@ -282,22 +283,17 @@ impl PageSource for CefPageSource {
     }
 
     fn set_viewport(&mut self, page: PageId, viewport: CssSize) -> Result<(), PageSourceError> {
-        if viewport.width == 0 || viewport.height == 0 {
-            return Err(PageSourceError::InvalidSpec(format!(
-                "empty viewport {}x{}",
-                viewport.width, viewport.height
-            )));
-        }
+        validate_viewport(viewport)?;
         let entry = self.entry(page)?;
-        entry.geometry.borrow_mut().viewport = viewport;
+        lock_geometry(&entry.geometry).viewport = viewport;
         entry.host.was_resized();
         Ok(())
     }
 
     fn set_texture_scale(&mut self, page: PageId, scale: f32) -> Result<(), PageSourceError> {
-        validate_scale(scale)?;
+        validate_texture_scale(scale)?;
         let entry = self.entry(page)?;
-        entry.geometry.borrow_mut().scale = scale;
+        lock_geometry(&entry.geometry).scale = scale;
         // CEF re-reads GetScreenInfo on NotifyScreenInfoChanged; WasResized
         // makes it repaint at the new backing size.
         entry.host.notify_screen_info_changed();
@@ -364,7 +360,7 @@ impl PageSource for CefPageSource {
     }
 
     fn drain_events(&mut self, out: &mut Vec<PageEvent>) {
-        out.append(&mut self.events.borrow_mut());
+        drain_events(out);
     }
 
     fn devtools_port(&self) -> Option<u16> {
@@ -383,18 +379,18 @@ impl PageSource for CefPageSource {
         }
         self.focused = None;
         let deadline = Instant::now() + CLOSE_TIMEOUT;
-        while self.alive.get() > 0 && Instant::now() < deadline {
+        while self.alive.load(Ordering::Acquire) > 0 && Instant::now() < deadline {
             cef::do_message_loop_work();
             std::thread::sleep(Duration::from_millis(1));
         }
-        if self.alive.get() > 0 {
+        if self.alive.load(Ordering::Acquire) > 0 {
             tracing::warn!(
-                open = self.alive.get(),
+                open = self.alive.load(Ordering::Acquire),
                 "browsers still open at CEF shutdown"
             );
         }
         // Queued frames hold IOSurfaces; release them while CEF still runs.
-        self.events.borrow_mut().clear();
+        clear_events();
         cef::shutdown();
         #[cfg(target_os = "macos")]
         crate::process::unload_framework();

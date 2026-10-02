@@ -1,8 +1,8 @@
 //! Frame-timing hook for benchmarks and live diagnostics.
 //!
 //! The shell calls a [`FrameObserver`] once per presented window frame; the
-//! bench crate implements it to collect frame intervals and latency, so the
-//! compositor and app stay free of statistics code.
+//! app's bench runner implements it and hands each frame to the bench
+//! crate's recorder, so the compositor stays free of statistics code.
 
 use std::time::{Duration, Instant};
 
@@ -13,8 +13,6 @@ use crate::scene::RenderStats;
 pub struct FrameSample {
     /// When the frame was handed to the presentation engine.
     pub presented_at: Instant,
-    /// Time since the previous presented frame (`None` for the first).
-    pub interval: Option<Duration>,
     /// What the compositor drew.
     pub stats: RenderStats,
     /// Input-to-paint latency, when a forwarded input event's repaint first

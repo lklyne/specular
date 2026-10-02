@@ -17,6 +17,17 @@ pub struct PresentedFrame {
     pub pages_without_texture: u32,
     /// Pages whose texture came through a CPU upload this frame.
     pub cpu_textures: u32,
+    /// View-layer page frames admitted since the previous present.
+    pub frames_received: u32,
+    /// Popup-layer page frames admitted since the previous present.
+    pub popup_frames: u32,
+    /// Paints refused at the outstanding-texture cap since the previous
+    /// present.
+    pub frames_dropped_for_pool_pressure: u32,
+    /// Shared textures held now, summed over pages.
+    pub outstanding_textures: u32,
+    /// Shared textures held now by the page holding the most.
+    pub max_outstanding_textures: u32,
 }
 
 /// Accumulates one phase.
@@ -28,6 +39,7 @@ pub struct PhaseRecorder {
     times: FrameTimes,
     draws_without_texture: u64,
     saw_cpu_texture: bool,
+    textures: TextureStats,
 }
 
 impl PhaseRecorder {
@@ -40,6 +52,7 @@ impl PhaseRecorder {
             times: FrameTimes::new(),
             draws_without_texture: 0,
             saw_cpu_texture: false,
+            textures: TextureStats::default(),
         }
     }
 
@@ -54,6 +67,15 @@ impl PhaseRecorder {
             self.draws_without_texture += 1;
         }
         self.saw_cpu_texture |= frame.cpu_textures > 0;
+        let textures = &mut self.textures;
+        textures.frames_received += u64::from(frame.frames_received);
+        textures.popup_frames += u64::from(frame.popup_frames);
+        textures.frames_dropped_for_pool_pressure +=
+            u64::from(frame.frames_dropped_for_pool_pressure);
+        textures.outstanding_textures = u64::from(frame.outstanding_textures);
+        textures.max_outstanding_textures = textures
+            .max_outstanding_textures
+            .max(u64::from(frame.max_outstanding_textures));
     }
 
     /// True once any frame in the phase used a CPU upload, which makes the
@@ -62,9 +84,8 @@ impl PhaseRecorder {
         self.saw_cpu_texture
     }
 
-    /// Ends the phase. `budget` is the refresh interval; `textures` is the
-    /// phase's share of the texture counters, when the runner tracks them.
-    pub fn finish(self, budget: Duration, textures: Option<TextureStats>) -> PhaseReport {
+    /// Ends the phase; `budget` is the refresh interval.
+    pub fn finish(self, budget: Duration) -> PhaseReport {
         let duration = match (self.first_present, self.last_present) {
             (Some(first), Some(last)) => last.saturating_duration_since(first),
             _ => Duration::ZERO,
@@ -73,9 +94,9 @@ impl PhaseRecorder {
             phase: self.phase,
             duration_ms: duration.as_secs_f64() * 1_000.0,
             frames: self.times.summary(budget),
-            frames_received: textures.map(|t| t.frames_received),
+            frames_received: Some(self.textures.frames_received),
             draws_without_texture: Some(self.draws_without_texture),
-            textures,
+            textures: Some(self.textures),
         }
     }
 }
@@ -97,7 +118,9 @@ mod tests {
                 at,
                 PresentedFrame {
                     pages_without_texture,
-                    cpu_textures: 0,
+                    frames_received: 2,
+                    max_outstanding_textures: u32::try_from(i).unwrap_or(0),
+                    ..PresentedFrame::default()
                 },
             );
         }
@@ -106,19 +129,19 @@ mod tests {
 
     #[test]
     fn first_present_contributes_no_interval() {
-        let report = recorded(&[8, 8, 8], 0).finish(BUDGET, None);
+        let report = recorded(&[8, 8, 8], 0).finish(BUDGET);
         assert_eq!(report.frames.frames, 3);
     }
 
     #[test]
     fn duration_spans_first_to_last_present() {
-        let report = recorded(&[8, 9, 10], 0).finish(BUDGET, None);
+        let report = recorded(&[8, 9, 10], 0).finish(BUDGET);
         assert!((report.duration_ms - 27.0).abs() < 1e-6);
     }
 
     #[test]
     fn draws_without_texture_counts_frames_not_pages() {
-        let report = recorded(&[8, 8, 8, 8], 2).finish(BUDGET, None);
+        let report = recorded(&[8, 8, 8, 8], 2).finish(BUDGET);
         assert_eq!(report.draws_without_texture, Some(2));
     }
 
@@ -128,16 +151,34 @@ mod tests {
         recorder.presented(
             Instant::now(),
             PresentedFrame {
-                pages_without_texture: 0,
                 cpu_textures: 1,
+                ..PresentedFrame::default()
             },
         );
         assert!(recorder.saw_cpu_texture());
     }
 
     #[test]
+    fn frames_received_sum_over_the_phase() {
+        let report = recorded(&[8, 8, 8], 0).finish(BUDGET);
+        assert_eq!(report.frames_received, Some(6));
+    }
+
+    #[test]
+    fn outstanding_peak_is_the_largest_seen() {
+        let report = recorded(&[8, 8, 8, 8], 0).finish(BUDGET);
+        assert_eq!(report.textures.map(|t| t.max_outstanding_textures), Some(3));
+    }
+
+    #[test]
     fn empty_phase_finishes_with_zero_duration() {
-        let report = PhaseRecorder::new(ProfileId::SlowPan).finish(BUDGET, None);
-        assert!(report.duration_ms.abs() < f64::EPSILON && report.frames.frames == 0);
+        let report = PhaseRecorder::new(ProfileId::SlowPan).finish(BUDGET);
+        assert!(report.duration_ms.abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn empty_phase_records_no_frames() {
+        let report = PhaseRecorder::new(ProfileId::SlowPan).finish(BUDGET);
+        assert_eq!(report.frames.frames, 0);
     }
 }

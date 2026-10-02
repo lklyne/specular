@@ -8,6 +8,8 @@ mod iosurface;
 
 use specular_core::{NativeSurface, SharedTexture};
 
+use crate::error::FrameImportError;
+
 /// Wraps `shared`'s surface as a sampled wgpu texture of `format` without
 /// copying. The caller must keep `shared` alive until the GPU has finished
 /// with the returned texture.
@@ -15,7 +17,7 @@ pub(crate) fn import_shared(
     device: &wgpu::Device,
     shared: &SharedTexture,
     format: wgpu::TextureFormat,
-) -> Result<wgpu::Texture, String> {
+) -> Result<wgpu::Texture, FrameImportError> {
     match shared.surface() {
         #[cfg(target_os = "macos")]
         NativeSurface::IoSurface(surface) => {
@@ -24,8 +26,8 @@ pub(crate) fn import_shared(
         #[cfg(not(target_os = "macos"))]
         NativeSurface::IoSurface(_) => {
             let _ = (device, format);
-            Err("IOSurface frames can only be imported on macOS".to_owned())
+            Err(FrameImportError::UnsupportedSurface)
         }
-        other => Err(format!("unsupported native surface {other:?}")),
+        _ => Err(FrameImportError::UnsupportedSurface),
     }
 }

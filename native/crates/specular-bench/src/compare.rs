@@ -69,7 +69,19 @@ const PHASE_METRICS: [Metric; 11] = [
     },
 ];
 
-const RUN_METRICS: [Metric; 11] = [
+const RUN_METRICS: [Metric; 12] = [
+    Metric {
+        key: "/memory/idle/footprintMb",
+        label: "footprint idle (MB)",
+    },
+    Metric {
+        key: "/memory/end/footprintMb",
+        label: "footprint end (MB)",
+    },
+    Metric {
+        key: "/memory/peak/footprintMb",
+        label: "footprint peak (MB)",
+    },
     Metric {
         key: "/memory/idle/rssMb",
         label: "RSS idle (MB)",
@@ -93,14 +105,6 @@ const RUN_METRICS: [Metric; 11] = [
     Metric {
         key: "/inputLatency/p95Ms",
         label: "input latency p95 ms",
-    },
-    Metric {
-        key: "/gestureLatency/p50Ms",
-        label: "gesture latency p50 ms",
-    },
-    Metric {
-        key: "/gestureLatency/p95Ms",
-        label: "gesture latency p95 ms",
     },
     Metric {
         key: "/textures/framesWithoutTexture",
@@ -145,7 +149,12 @@ impl LoadedRun {
                 }
             }
             Ok(_) => return Err(BenchError::NoPhases(name.to_owned())),
-            Err(_) => (Value::Null, parse_json_lines(text, name)?),
+            Err(_) => {
+                // The app's session-wide latency line carries no phase.
+                let mut lines = parse_json_lines(text, name)?;
+                lines.retain(|line| line.get("inputLatency").is_none());
+                (Value::Null, lines)
+            }
         };
         let mut phases: BTreeMap<ProfileId, Vec<Value>> = BTreeMap::new();
         for value in phase_values {
@@ -200,6 +209,28 @@ impl LoadedRun {
         !flagged_false(&self.root) && !self.phases.values().flatten().any(flagged_false)
     }
 
+    fn paint_policy(&self) -> Option<&str> {
+        let phase_policy = || {
+            self.phases
+                .values()
+                .flatten()
+                .find_map(|phase| phase.get("paintPolicy").and_then(Value::as_str))
+        };
+        self.root
+            .get("paintPolicy")
+            .and_then(Value::as_str)
+            .or_else(phase_policy)
+    }
+
+    fn notes(&self) -> impl Iterator<Item = &str> {
+        self.root
+            .get("notes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+    }
+
     fn frame_ms(&self) -> Option<f64> {
         let phase_frame_ms = || {
             self.phases
@@ -245,6 +276,21 @@ fn median(mut values: Vec<f64>) -> Option<f64> {
     } else {
         values[mid]
     })
+}
+
+/// Lists every note either run carries, labelled by run.
+fn write_notes(out: &mut String, a: &LoadedRun, b: &LoadedRun) {
+    let notes: Vec<(&str, &str)> = [a, b]
+        .into_iter()
+        .flat_map(|run| run.notes().map(move |note| (run.label(), note)))
+        .collect();
+    if notes.is_empty() {
+        return;
+    }
+    let _ = writeln!(out, "\n## Notes\n");
+    for (label, note) in notes {
+        let _ = writeln!(out, "- {label}: {note}");
+    }
 }
 
 fn format_value(value: Option<f64>) -> String {
@@ -299,6 +345,15 @@ pub fn compare_markdown(a: &LoadedRun, b: &LoadedRun) -> String {
              `longFrames` and fps are not comparable."
         );
     }
+    if let (Some(pa), Some(pb)) = (a.paint_policy(), b.paint_policy())
+        && pa != pb
+    {
+        let _ = writeln!(
+            out,
+            "\n> **Paint policies differ:** {la} ran `{pa}`, {lb} ran `{pb}`; the shells \
+             painted different amounts per page, so frame times and memory are confounded."
+        );
+    }
     let _ = writeln!(out, "\nDeltas are {lb} minus {la}.\n");
 
     let _ = writeln!(out, "## Frame timing per profile\n");
@@ -347,7 +402,13 @@ pub fn compare_markdown(a: &LoadedRun, b: &LoadedRun) -> String {
         for row in run_rows {
             let _ = writeln!(out, "{row}");
         }
+        let _ = writeln!(
+            out,
+            "\nJudge memory by footprint: RSS misses IOSurface and GPU allocations and \
+             double-counts pages shared between processes."
+        );
     }
+    write_notes(&mut out, a, b);
     out
 }
 
@@ -441,6 +502,36 @@ mod tests {
             table.contains("| RSS idle (MB) | 1500 | — |  |  |"),
             "{table}"
         );
+    }
+
+    #[test]
+    fn markdown_flags_differing_paint_policies() {
+        let lod = ELECTRON.replace(
+            r#""representative":true,"#,
+            r#""representative":true,"paintPolicy":"electron-lod","#,
+        );
+        let full = lod.replace("electron-lod", "full-rate");
+        let (a, b) = (
+            LoadedRun::parse(&lod, "a.json").unwrap(),
+            LoadedRun::parse(&full, "b.json").unwrap(),
+        );
+        assert!(compare_markdown(&a, &b).contains("Paint policies differ"));
+    }
+
+    #[test]
+    fn markdown_lists_run_notes() {
+        let noted = ELECTRON.replace(
+            r#""representative":true,"#,
+            r#""representative":true,"notes":["presents unverified"],"#,
+        );
+        let run = LoadedRun::parse(&noted, "a.json").unwrap();
+        assert!(compare_markdown(&run, &rust()).contains("presents unverified"));
+    }
+
+    #[test]
+    fn json_lines_skip_the_session_latency_line() {
+        let text = format!("{RUST_JSONL}{}\n", r#"{"inputLatency":{"samples":1}}"#);
+        assert!(LoadedRun::parse(&text, "rust.jsonl").is_ok());
     }
 
     #[test]

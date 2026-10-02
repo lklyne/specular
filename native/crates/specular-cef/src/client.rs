@@ -26,6 +26,7 @@ use specular_core::PageEvent;
 
 use crate::config::Switch;
 use crate::coords::{rect_from_cef, union_rects};
+use crate::cpu_frame::bgra_len;
 use crate::page::PageContext;
 use crate::paint;
 
@@ -62,7 +63,7 @@ wrap_app! {
 /// The view rect CEF asks for: the page's CSS viewport at the origin.
 /// CEF requires a non-empty rect.
 fn view_rect(ctx: &PageContext) -> Rect {
-    let viewport = ctx.geometry.borrow().viewport;
+    let viewport = ctx.geometry().viewport;
     Rect {
         x: 0,
         y: 0,
@@ -94,7 +95,7 @@ wrap_render_handler! {
             // The "screen" is the view itself, so Chromium keeps popups
             // (<select> lists, date pickers) inside the page's texture.
             let rect = view_rect(&self.ctx);
-            info.device_scale_factor = self.ctx.geometry.borrow().scale;
+            info.device_scale_factor = self.ctx.geometry().scale;
             info.rect = rect.clone();
             info.available_rect = rect;
             1
@@ -120,7 +121,7 @@ wrap_render_handler! {
         fn on_popup_show(&self, _browser: Option<&mut Browser>, show: c_int) {
             let visible = show != 0;
             if !visible {
-                self.ctx.geometry.borrow_mut().clear_popup();
+                self.ctx.geometry().clear_popup();
             }
             self.ctx.push(PageEvent::PopupVisibility {
                 page: self.ctx.id,
@@ -133,7 +134,7 @@ wrap_render_handler! {
                 return;
             };
             let css = rect_from_cef(rect.x, rect.y, rect.width, rect.height);
-            let placed = self.ctx.geometry.borrow_mut().set_popup(css);
+            let placed = self.ctx.geometry().set_popup(css);
             self.ctx.push(PageEvent::PopupRect {
                 page: self.ctx.id,
                 rect: placed,
@@ -149,7 +150,18 @@ wrap_render_handler! {
             width: c_int,
             height: c_int,
         ) {
-            paint::on_paint(&self.ctx, type_, dirty_rects, buffer, width, height);
+            let Some(len) = bgra_len(width, height) else {
+                return;
+            };
+            if buffer.is_null() {
+                return;
+            }
+            // SAFETY: CEF documents `buffer` as `width * height * 4` bytes of
+            // BGRA, valid for the duration of OnPaint; `len` is exactly that
+            // size, and the slice does not outlive this callback (`on_paint`
+            // copies it before returning).
+            let bytes = unsafe { std::slice::from_raw_parts(buffer, len) };
+            paint::on_paint(&self.ctx, type_, dirty_rects, bytes, width, height);
         }
 
         fn on_accelerated_paint(
@@ -280,7 +292,7 @@ wrap_life_span_handler! {
         }
 
         fn on_before_close(&self, _browser: Option<&mut Browser>) {
-            self.ctx.alive.set(self.ctx.alive.get().saturating_sub(1));
+            self.ctx.browser_closed();
         }
     }
 }

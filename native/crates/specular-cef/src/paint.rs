@@ -6,14 +6,14 @@ use cef::{PaintElementType, Rect};
 use specular_core::{FrameEvent, FrameLayer, PageFrame, PixelRect};
 
 use crate::coords::rect_from_cef;
-use crate::cpu_frame::{bgra_len, copy_paint};
+use crate::cpu_frame::copy_paint;
 use crate::page::PageContext;
 
 /// The layer a paint targets, or `None` for a popup paint that arrives
 /// before `OnPopupSize` placed it (nothing to draw it against yet).
 fn layer_for(ctx: &PageContext, kind: PaintElementType) -> Option<FrameLayer> {
     if kind == PaintElementType::POPUP {
-        let rect = ctx.geometry.borrow().popup()?;
+        let rect = ctx.geometry().popup()?;
         Some(FrameLayer::Popup { rect })
     } else {
         Some(FrameLayer::View)
@@ -29,11 +29,13 @@ fn dirty_rects(dirty: Option<&[Rect]>) -> Vec<PixelRect> {
 }
 
 /// `OnPaint`: copies the CPU buffer out (it dies with the callback).
+///
+/// `bytes` is the callback's whole BGRA buffer, `width * height * 4` long.
 pub(crate) fn on_paint(
     ctx: &PageContext,
     kind: PaintElementType,
     dirty: Option<&[Rect]>,
-    buffer: *const u8,
+    bytes: &[u8],
     width: i32,
     height: i32,
 ) {
@@ -41,16 +43,6 @@ pub(crate) fn on_paint(
     let Some(layer) = layer_for(ctx, kind) else {
         return;
     };
-    let Some(len) = bgra_len(width, height) else {
-        return;
-    };
-    if buffer.is_null() {
-        return;
-    }
-    // SAFETY: CEF documents `buffer` as `width * height * 4` bytes of BGRA,
-    // valid for the duration of OnPaint; `len` is exactly that size, and the
-    // slice is copied before this function returns.
-    let bytes = unsafe { std::slice::from_raw_parts(buffer, len) };
     match copy_paint(bytes, width, height, &dirty_rects(dirty)) {
         Ok(frame) => ctx.push(specular_core::PageEvent::Frame(FrameEvent {
             page: ctx.id,
@@ -106,6 +98,7 @@ pub(crate) fn on_accelerated_paint(
     }
     let Some(lease) = ctx.frames.try_lease() else {
         tracing::debug!(page = %ctx.id, "texture cap reached, dropping paint");
+        ctx.push(specular_core::PageEvent::FrameDropped { page: ctx.id });
         return;
     };
     // SAFETY: `surface` is this callback's `shared_texture_io_surface`, valid

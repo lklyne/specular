@@ -4,11 +4,10 @@ use std::{fs, time::Duration};
 
 use anyhow::{Context as _, bail};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use specular_bench::{
-    FrameSummary, LoadedRun, MemorySample, PeakSampler, PhaseReport, ProfileId, RunReport,
+    BenchLine, LoadedRun, MemorySample, PaintPolicy, PeakSampler, ProfileId, RunReport,
     STEP_INTERVAL, Shell, build_steps, compare_markdown,
-    electron_trace::{DEFAULT_THREAD, PRESENT_EVENT, phases_from_trace},
+    electron_trace::{DEFAULT_THREAD, PRESENT_EVENT, phases_from_trace, present_count_warning},
     sample_process_tree,
 };
 
@@ -105,6 +104,19 @@ pub(crate) fn electron_trace(args: &Args) -> anyhow::Result<String> {
         timeline.presents_us.len(),
         gap.as_millis()
     ));
+    let warnings: Vec<String> = profiles
+        .iter()
+        .zip(&phases)
+        .filter_map(|(profile, phase)| present_count_warning(profile, phase, budget))
+        .collect();
+    if warnings.is_empty() {
+        notes.push(
+            "present counts match one window (about steps + 1 per phase); confirm once \
+             against a real ADR 0038 trace before trusting them"
+                .to_owned(),
+        );
+    }
+    notes.extend(warnings);
     let mut report = RunReport {
         shell: Shell::Electron,
         source: "chromium-trace".to_owned(),
@@ -112,23 +124,34 @@ pub(crate) fn electron_trace(args: &Args) -> anyhow::Result<String> {
         page_count: None,
         frame_ms,
         representative: true,
+        paint_policy: Some(
+            args.parsed::<PaintPolicy>("paint-policy")?
+                .unwrap_or(PaintPolicy::ElectronLod),
+        ),
         phases,
         textures: None,
         memory: None,
         input_latency: None,
-        gesture_latency: None,
         notes,
     };
     attach_run_extras(&mut report, args)?;
     Ok(serde_json::to_string_pretty(&report)?)
 }
 
-/// `assemble`: the app's `--bench` JSON lines folded into one report.
+/// `assemble`: the app's JSON lines folded into one report.
 pub(crate) fn assemble(args: &Args) -> anyhow::Result<String> {
     let path = args
         .positional(0)
         .context("usage: specular-bench assemble <bench.jsonl>")?;
     let text = fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
+    let mut report = assemble_lines(&text).with_context(|| format!("assembling {path}"))?;
+    attach_run_extras(&mut report, args)?;
+    Ok(serde_json::to_string_pretty(&report)?)
+}
+
+/// Folds `specular-app` output lines into a report. Profile lines must agree
+/// on source, page count, step interval and paint policy.
+fn assemble_lines(text: &str) -> anyhow::Result<RunReport> {
     let mut report = RunReport {
         shell: Shell::RustCef,
         source: String::new(),
@@ -136,11 +159,11 @@ pub(crate) fn assemble(args: &Args) -> anyhow::Result<String> {
         page_count: None,
         frame_ms: 0.0,
         representative: true,
+        paint_policy: None,
         phases: Vec::new(),
         textures: None,
         memory: None,
         input_latency: None,
-        gesture_latency: None,
         notes: Vec::new(),
     };
     for (index, line) in text
@@ -148,58 +171,31 @@ pub(crate) fn assemble(args: &Args) -> anyhow::Result<String> {
         .enumerate()
         .filter(|(_, l)| !l.trim().is_empty())
     {
-        let value: Value =
-            serde_json::from_str(line).with_context(|| format!("{path}:{}", index + 1))?;
-        report
-            .phases
-            .push(phase_from_line(&value).with_context(|| format!("{path}:{}", index + 1))?);
-        report.representative &= value.get("representative") != Some(&Value::Bool(false));
-        if let Some(source) = value.get("source").and_then(Value::as_str) {
-            source.clone_into(&mut report.source);
-        }
-        if let Some(ms) = value.get("stepIntervalMs").and_then(Value::as_f64) {
-            report.frame_ms = ms;
-        }
-        if let Some(pages) = value.get("pages").and_then(Value::as_u64) {
-            report.page_count = usize::try_from(pages).ok();
+        let line_no = index + 1;
+        match serde_json::from_str::<BenchLine>(line).with_context(|| format!("line {line_no}"))? {
+            BenchLine::Profile(profile) => {
+                if report.phases.is_empty() {
+                    report.source = profile.source;
+                    report.page_count = Some(profile.pages);
+                    report.frame_ms = profile.step_interval_ms;
+                    report.paint_policy = Some(profile.paint_policy);
+                } else if report.source != profile.source
+                    || report.page_count != Some(profile.pages)
+                    || report.paint_policy != Some(profile.paint_policy)
+                    || (report.frame_ms - profile.step_interval_ms).abs() > 0.5
+                {
+                    bail!("line {line_no} comes from a different run configuration");
+                }
+                report.representative &= profile.representative;
+                report.phases.push(profile.phase);
+            }
+            BenchLine::InputLatency(latency) => report.input_latency = Some(latency.input_latency),
         }
     }
     if report.phases.is_empty() {
-        bail!("{path} holds no profile results");
+        bail!("no profile results");
     }
-    attach_run_extras(&mut report, args)?;
-    Ok(serde_json::to_string_pretty(&report)?)
-}
-
-fn phase_from_line(value: &Value) -> anyhow::Result<PhaseReport> {
-    let id = value
-        .get("phase")
-        .or_else(|| value.get("profile"))
-        .and_then(Value::as_str)
-        .context("no `phase` or `profile` field")?
-        .parse::<ProfileId>()?;
-    let frames: FrameSummary = serde_json::from_value(
-        value
-            .get("frames")
-            .cloned()
-            .unwrap_or_else(|| value.clone()),
-    )
-    .context("no frame summary")?;
-    Ok(PhaseReport {
-        phase: id,
-        duration_ms: value
-            .get("durationMs")
-            .and_then(Value::as_f64)
-            .unwrap_or_default(),
-        frames,
-        frames_received: value.get("framesReceived").and_then(Value::as_u64),
-        draws_without_texture: value.get("drawsWithoutTexture").and_then(Value::as_u64),
-        textures: value
-            .get("textures")
-            .cloned()
-            .map(serde_json::from_value)
-            .transpose()?,
-    })
+    Ok(report)
 }
 
 /// `rss --pid N [--peak-ms D]`: tree RSS now, or the peak over `D`.
@@ -224,26 +220,51 @@ pub(crate) fn rss(args: &Args) -> anyhow::Result<String> {
 mod tests {
     use super::*;
 
+    const PROFILE: &str = r#"{"phase":"slow-zoom","durationMs":2000,"draws":240,"drawFps":120,
+        "meanFrameMs":8.33,"p50FrameMs":8.3,"p95FrameMs":8.6,"p99FrameMs":8.9,"maxFrameMs":9.1,
+        "longFrames":0,"label":"Slow zoom","source":"cef","pages":9,"representative":true,
+        "stepIntervalMs":8.33,"maxPaintToSubmitMs":null,"paintPolicy":"electron-lod"}"#;
+
+    fn one_line(json: &str) -> String {
+        json.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
     #[test]
-    fn app_bench_line_becomes_phase_report() {
-        let line: Value = serde_json::from_str(
-            r#"{"profile":"slow-zoom","label":"Slow zoom","source":"cef","pages":9,
-                "representative":true,"stepIntervalMs":8.33,
-                "frames":{"draws":240,"drawFps":120,"meanFrameMs":8.33,"p50FrameMs":8.3,
-                  "p95FrameMs":8.6,"p99FrameMs":8.9,"maxFrameMs":9.1,"longFrames":0},
-                "maxPaintToSubmitMs":null,"inputToPresentMs":null}"#,
-        )
-        .unwrap();
-        let phase = phase_from_line(&line).unwrap();
+    fn profile_line_becomes_phase_report() {
+        let report = assemble_lines(&one_line(PROFILE)).unwrap();
         assert_eq!(
-            (phase.phase, phase.frames.frames),
+            (report.phases[0].phase, report.phases[0].frames.frames),
             (ProfileId::SlowZoom, 240)
         );
     }
 
     #[test]
-    fn line_without_profile_is_rejected() {
-        let line: Value = serde_json::from_str(r#"{"frames":{}}"#).unwrap();
-        assert!(phase_from_line(&line).is_err());
+    fn input_latency_line_fills_run_latency() {
+        let text = format!(
+            "{}\n{}",
+            one_line(PROFILE),
+            r#"{"inputLatency":{"samples":4,"unresolved":0,"meanMs":20,"p50Ms":18,"p95Ms":30,"maxMs":31}}"#
+        );
+        let report = assemble_lines(&text).unwrap();
+        assert_eq!(report.input_latency.map(|l| l.samples), Some(4));
+    }
+
+    #[test]
+    fn line_with_renamed_field_is_rejected() {
+        let renamed = one_line(PROFILE).replace("stepIntervalMs", "stepMs");
+        assert!(assemble_lines(&renamed).is_err());
+    }
+
+    #[test]
+    fn lines_from_different_paint_policies_are_rejected() {
+        let other = one_line(PROFILE).replace("electron-lod", "full-rate");
+        let text = format!("{}\n{other}", one_line(PROFILE));
+        assert!(assemble_lines(&text).is_err());
+    }
+
+    #[test]
+    fn file_without_profiles_is_rejected() {
+        let latency = r#"{"inputLatency":{"samples":0,"meanMs":0,"p50Ms":0,"p95Ms":0,"maxMs":0}}"#;
+        assert!(assemble_lines(latency).is_err());
     }
 }

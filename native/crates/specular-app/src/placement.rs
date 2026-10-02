@@ -1,17 +1,46 @@
 //! Where each page sits on the canvas, and mapping canvas points into it.
 
 use glam::Vec2;
-use specular_core::{CanvasRect, CssSize, PageId};
+use specular_compositor::PageDraw;
+use specular_core::{Camera, CanvasRect, CssSize, PageId};
 
-/// A page on the canvas: its backend id, canvas rect and CSS viewport.
+use crate::paint_lod::PageLod;
+
+/// A page on the canvas: its backend id, canvas rect, CSS viewport and paint
+/// LOD. The one record of where a page is, for drawing and hit-testing alike.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct PlacedPage {
     pub(crate) page: PageId,
     pub(crate) rect: CanvasRect,
     pub(crate) viewport: CssSize,
+    pub(crate) lod: PageLod,
 }
 
 impl PlacedPage {
+    /// A page at `rect` showing a `viewport` layout, at full paint LOD.
+    pub(crate) fn new(page: PageId, rect: CanvasRect, viewport: CssSize) -> Self {
+        Self {
+            page,
+            rect,
+            viewport,
+            lod: PageLod::default(),
+        }
+    }
+
+    /// What the compositor draws for this page.
+    pub(crate) fn draw(&self) -> PageDraw {
+        PageDraw {
+            page: self.page,
+            rect: self.rect,
+        }
+    }
+
+    /// Screen (logical) pixels per CSS pixel under `camera`, the scale the
+    /// paint LOD grades (`pageScreenRect.width / contentSize.width`).
+    pub(crate) fn display_scale(&self, camera: &Camera) -> f32 {
+        camera.zoom * self.canvas_per_css().x
+    }
+
     /// Converts a canvas (world) point to page-local CSS pixels.
     pub(crate) fn page_local(self, world: Vec2) -> Vec2 {
         let css = Vec2::new(self.viewport.width as f32, self.viewport.height as f32);
@@ -39,11 +68,7 @@ mod tests {
     use super::*;
 
     fn placed(id: u64, rect: CanvasRect, viewport: CssSize) -> PlacedPage {
-        PlacedPage {
-            page: PageId(id),
-            rect,
-            viewport,
-        }
+        PlacedPage::new(PageId(id), rect, viewport)
     }
 
     #[test]
@@ -74,6 +99,32 @@ mod tests {
             CssSize::new(10, 10),
         )];
         assert!(hit_test(&pages, Vec2::new(50.0, 50.0)).is_none());
+    }
+
+    #[test]
+    fn display_scale_combines_zoom_and_page_scale() {
+        // A 1280px page drawn 640 units wide, at zoom 0.5: 0.25 px per CSS px.
+        let page = placed(
+            1,
+            CanvasRect::new(0.0, 0.0, 640.0, 400.0),
+            CssSize::new(1280, 800),
+        );
+        let scale = page.display_scale(&Camera::new(Vec2::ZERO, 0.5));
+        assert!((scale - 0.25).abs() < 1e-6);
+    }
+
+    #[test]
+    fn page_local_goes_negative_left_of_the_page() {
+        // A release captured by a page after the pointer left it.
+        let page = placed(
+            1,
+            CanvasRect::new(100.0, 0.0, 1440.0, 900.0),
+            CssSize::new(1440, 900),
+        );
+        assert_eq!(
+            page.page_local(Vec2::new(90.0, 10.0)),
+            Vec2::new(-10.0, 10.0)
+        );
     }
 
     #[test]

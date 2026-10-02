@@ -56,20 +56,26 @@ pub struct SceneView<'a> {
     pub grid: DotGrid,
 }
 
-/// Per-frame counters, comparable to the Electron lab's benchmark fields.
+/// Per-frame counters, comparable to the Electron lab's benchmark fields
+/// and the page host's `PageHostStats`.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct RenderStats {
-    /// Pages with a texture that were drawn (after culling).
-    pub pages_drawn: u32,
     /// Visible pages that had no frame yet (`framesWithoutTexture`).
     pub pages_without_texture: u32,
     /// Pages whose current texture came from a CPU upload (non-representative).
     pub cpu_textures: u32,
-    /// Page frames drawn for the first time this render.
-    pub new_frames_shown: u32,
     /// Longest wait, among frames shown for the first time this render,
     /// between the source receiving the paint and this frame's submit.
     pub max_paint_to_submit: Option<Duration>,
-    /// CPU time spent encoding and submitting the frame.
-    pub encode_time: Duration,
+    /// View-layer frames ingested since the previous render.
+    pub frames_received: u32,
+    /// Popup-layer frames ingested since the previous render.
+    pub popup_frames: u32,
+    /// Paints the source refused at the outstanding-texture cap since the
+    /// previous render.
+    pub frames_dropped_for_pool_pressure: u32,
+    /// Shared textures held after this render, summed over pages.
+    pub outstanding_textures: u32,
+    /// Shared textures held by the page holding the most.
+    pub max_outstanding_textures: u32,
 }

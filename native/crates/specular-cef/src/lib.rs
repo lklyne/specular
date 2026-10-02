@@ -4,9 +4,8 @@
 //!
 //! - **Always compiled, CEF-free** (unit-tested on every platform): the
 //!   decisions the backend makes, as pure functions. [`config`] (startup
-//!   options, switches, framework paths), [`coords`] (canvas -> page CSS ->
-//!   texel mapping, popup placement), [`keys`] (W3C `code` -> CEF key codes),
-//!   [`translate`] (core `InputEvent` -> exact `CefBrowserHost` calls),
+//!   options, switches, framework paths), [`coords`] (page CSS -> texel
+//!   mapping, popup placement), [`translate`] (core `InputEvent` -> exact `CefBrowserHost` calls),
 //!   [`pool`] (the per-page shared-texture cap), [`page`] (view and popup
 //!   geometry) and [`cpu_frame`] (`OnPaint` copies).
 //! - **Feature `cef`**: `CefPageSource`, a [`specular_core::PageSource`] on
@@ -22,17 +21,15 @@
 //! See this crate's `README.md` for macOS bundling and the list of CEF calls
 //! that have only been type-checked.
 
-/// Whether this build hosts pages in CEF.
-pub const CEF_ENABLED: bool = cfg!(feature = "cef");
-
 pub mod config;
 pub mod coords;
 pub mod cpu_frame;
-pub mod keys;
 pub mod page;
 pub mod pool;
 pub mod translate;
 
+#[cfg(all(feature = "cef", target_os = "macos"))]
+mod app_protocol;
 #[cfg(feature = "cef")]
 mod client;
 #[cfg(feature = "cef")]

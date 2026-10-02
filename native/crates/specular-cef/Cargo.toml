@@ -25,6 +25,7 @@ tracing = { workspace = true }
 cef = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
 objc2-io-surface = { workspace = true }
 objc2-core-foundation = { workspace = true }
 

@@ -6,8 +6,6 @@
 
 use std::path::{Path, PathBuf};
 
-use specular_core::{PageSourceError, PageSpec};
-
 /// Startup options for the CEF page source.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CefConfig {
@@ -104,63 +102,9 @@ pub fn is_subprocess<S: AsRef<str>>(args: &[S]) -> bool {
     args.iter().any(|arg| arg.as_ref().starts_with("--type="))
 }
 
-/// Rejects specs CEF cannot host: an empty URL, an empty viewport, or a
-/// non-positive/non-finite device scale factor.
-pub fn validate_spec(spec: &PageSpec) -> Result<(), PageSourceError> {
-    if spec.url.trim().is_empty() {
-        return Err(PageSourceError::InvalidSpec("empty URL".to_owned()));
-    }
-    if spec.viewport.width == 0 || spec.viewport.height == 0 {
-        return Err(PageSourceError::InvalidSpec(format!(
-            "empty viewport {}x{}",
-            spec.viewport.width, spec.viewport.height
-        )));
-    }
-    validate_scale(spec.texture_scale)
-}
-
-/// Rejects a device scale factor that is not a positive finite number.
-pub fn validate_scale(scale: f32) -> Result<(), PageSourceError> {
-    if scale.is_finite() && scale > 0.0 {
-        Ok(())
-    } else {
-        Err(PageSourceError::InvalidSpec(format!(
-            "texture scale must be positive and finite, got {scale}"
-        )))
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use specular_core::CssSize;
-
     use super::*;
-
-    #[test]
-    fn spec_with_empty_url_is_invalid() {
-        let spec = PageSpec::new(" ", CssSize::new(10, 10));
-        assert!(matches!(
-            validate_spec(&spec),
-            Err(PageSourceError::InvalidSpec(_))
-        ));
-    }
-
-    #[test]
-    fn spec_with_zero_width_viewport_is_invalid() {
-        let spec = PageSpec::new("https://example.com/", CssSize::new(0, 10));
-        assert!(validate_spec(&spec).is_err());
-    }
-
-    #[test]
-    fn nan_scale_is_invalid() {
-        assert!(validate_scale(f32::NAN).is_err());
-    }
-
-    #[test]
-    fn default_spec_is_valid() {
-        let spec = PageSpec::new("https://example.com/", CssSize::new(1440, 900));
-        assert!(validate_spec(&spec).is_ok());
-    }
 
     #[test]
     fn debugging_port_below_1024_is_disabled() {

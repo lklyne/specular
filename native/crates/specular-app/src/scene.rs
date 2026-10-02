@@ -20,7 +20,9 @@ pub(crate) fn load_pages(path: Option<&Path>, demo_pages: usize) -> anyhow::Resu
         std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let document = CanvasDocument::from_json_canvas(&json)
         .with_context(|| format!("parsing {}", path.display()))?;
-    Ok(document.pages())
+    document
+        .pages()
+        .with_context(|| format!("reading pages from {}", path.display()))
 }
 
 /// `count` laptop-sized pages in rows of five, like a multi-page board.

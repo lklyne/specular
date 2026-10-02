@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use specular_core::{
-    CpuFrame, FrameEvent, FrameLayer, MAX_OUTSTANDING_TEXTURES, PageEvent, PageFrame, PageId,
+    CpuFrame, FrameEvent, FrameLayer, NativeSurface, PageEvent, PageFrame, PageId, PixelSize,
     SharedTexture,
 };
 
@@ -15,6 +15,7 @@ use crate::error::CompositorError;
 use crate::gpu_types::{FRAME_UNIFORMS_SIZE, FrameUniforms, QuadInstance};
 use crate::grid::grid_metrics;
 use crate::import::import_shared;
+use crate::import_cache::ImportCache;
 use crate::layers::{LayerTexture, PageLayers};
 use crate::pipeline::Pipelines;
 use crate::retire::RetiredTextures;
@@ -23,6 +24,30 @@ use crate::upload;
 
 /// Instance capacity of the first instance buffer; it doubles on demand.
 const INITIAL_INSTANCE_CAPACITY: usize = 64;
+
+/// Identity of an imported shared surface: the same surface at the same
+/// size and format imports to the same texture.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SurfaceKey {
+    surface: NativeSurface,
+    size: PixelSize,
+    format: wgpu::TextureFormat,
+}
+
+/// A shared surface wrapped for sampling.
+#[derive(Debug)]
+struct ImportedTexture {
+    texture: wgpu::Texture,
+    bind_group: wgpu::BindGroup,
+}
+
+/// Frame counters accumulated between two renders.
+#[derive(Debug, Clone, Copy, Default)]
+struct IngestCounts {
+    frames_received: u32,
+    popup_frames: u32,
+    frames_dropped_for_pool_pressure: u32,
+}
 
 /// The wgpu compositor; see the crate docs.
 #[derive(Debug)]
@@ -37,11 +62,12 @@ pub struct Compositor {
     instance_capacity: usize,
     pages: HashMap<PageId, PageLayers>,
     retired: RetiredTextures<SharedTexture>,
+    imports: HashMap<(PageId, LayerKind), ImportCache<SurfaceKey, ImportedTexture>>,
     /// Serial of the most recent submit; 0 before the first.
     submitted: u64,
     /// Highest serial the GPU has reported complete.
     completed: Arc<AtomicU64>,
-    dropped_frames: u64,
+    ingested: IngestCounts,
     instances: Vec<QuadInstance>,
     draw_items: Vec<DrawItem>,
 }
@@ -81,9 +107,10 @@ impl Compositor {
             instance_capacity: INITIAL_INSTANCE_CAPACITY,
             pages: HashMap::new(),
             retired: RetiredTextures::default(),
+            imports: HashMap::new(),
             submitted: 0,
             completed: Arc::new(AtomicU64::new(0)),
-            dropped_frames: 0,
+            ingested: IngestCounts::default(),
             instances: Vec::with_capacity(INITIAL_INSTANCE_CAPACITY),
             draw_items: Vec::with_capacity(INITIAL_INSTANCE_CAPACITY),
         }
@@ -97,14 +124,18 @@ impl Compositor {
     /// Ingests one event from a page source: frames replace the page's
     /// texture for that layer (the previous shared surface is released once
     /// the GPU is done with it); popup events show/hide/move the popup layer;
-    /// others are ignored.
+    /// dropped-frame events are counted; others are ignored.
     ///
-    /// A shared frame arriving while the page already holds
-    /// [`MAX_OUTSTANDING_TEXTURES`] surfaces is dropped (released at once)
-    /// and counted in [`dropped_frames`](Self::dropped_frames).
+    /// The per-page cap on shared surfaces
+    /// ([`MAX_OUTSTANDING_TEXTURES`](specular_core::MAX_OUTSTANDING_TEXTURES))
+    /// is the source's to enforce; the compositor reports what it holds.
     pub fn handle_page_event(&mut self, event: PageEvent) -> Result<(), CompositorError> {
         match event {
             PageEvent::Frame(frame) => self.ingest_frame(frame),
+            PageEvent::FrameDropped { .. } => {
+                self.ingested.frames_dropped_for_pool_pressure += 1;
+                Ok(())
+            }
             PageEvent::PopupVisibility { page, visible } => {
                 let layers = self.pages.entry(page).or_default();
                 layers.popup.visible = visible;
@@ -131,18 +162,25 @@ impl Compositor {
             self.retire(page, layers.view);
             self.retire(page, layers.popup.texture);
         }
+        self.imports.remove(&(page, LayerKind::View));
+        self.imports.remove(&(page, LayerKind::Popup));
     }
 
-    /// Number of shared textures currently held for `page`, displayed or
-    /// awaiting GPU completion (bounded by [`MAX_OUTSTANDING_TEXTURES`]).
-    pub fn outstanding_textures(&self, page: PageId) -> usize {
+    /// Shared-surface imports served from the per-layer cache, and imports
+    /// made, since startup. A steady page should almost never miss; a miss
+    /// rate near 1 means the producer is not recycling its surfaces.
+    pub fn import_cache_hits_and_misses(&self) -> (u64, u64) {
+        self.imports
+            .values()
+            .map(ImportCache::hits_and_misses)
+            .fold((0, 0), |(h, m), (hits, misses)| (h + hits, m + misses))
+    }
+
+    /// Shared textures currently held for `page`, displayed or awaiting GPU
+    /// completion.
+    fn outstanding_textures(&self, page: PageId) -> usize {
         let displayed = self.pages.get(&page).map_or(0, PageLayers::shared_count);
         displayed + self.retired.count_for(page)
-    }
-
-    /// Shared frames dropped because their page was at the outstanding cap.
-    pub fn dropped_frames(&self) -> u64 {
-        self.dropped_frames
     }
 
     /// Draws `scene` into `target` and submits the work.
@@ -157,7 +195,7 @@ impl Compositor {
             &mut self.instances,
             &mut self.draw_items,
         );
-        let (new_frames_shown, max_paint_to_submit) = self.mark_shown(started);
+        let max_paint_to_submit = self.mark_shown(started);
 
         let grid = grid_metrics(&scene.camera, &scene.grid, scene.scale_factor);
         let uniforms = FrameUniforms::new(scene, &grid, !self.target_format.is_srgb());
@@ -188,13 +226,21 @@ impl Compositor {
             });
         }
 
+        let ingested = std::mem::take(&mut self.ingested);
+        let (outstanding_textures, max_outstanding_textures) = self
+            .pages
+            .keys()
+            .map(|&page| self.outstanding_textures(page))
+            .fold((0, 0), |(total, max), held| (total + held, max.max(held)));
         RenderStats {
-            pages_drawn: counts.pages_drawn,
             pages_without_texture: counts.pages_without_texture,
             cpu_textures: counts.cpu_textures,
-            new_frames_shown,
             max_paint_to_submit,
-            encode_time: started.elapsed(),
+            frames_received: ingested.frames_received,
+            popup_frames: ingested.popup_frames,
+            frames_dropped_for_pool_pressure: ingested.frames_dropped_for_pool_pressure,
+            outstanding_textures: outstanding_textures as u32,
+            max_outstanding_textures: max_outstanding_textures as u32,
         }
     }
 
@@ -206,7 +252,9 @@ impl Compositor {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    // The grid covers every pixel, so nothing needs clearing.
+                    // Clear rather than Load: the grid overwrites every pixel,
+                    // and Clear lets tile-based GPUs skip reading the
+                    // previous frame back.
                     load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
@@ -234,10 +282,9 @@ impl Compositor {
         }
     }
 
-    /// Flags this frame's layers as shown; returns how many were new and the
-    /// longest paint-to-submit wait among them.
-    fn mark_shown(&mut self, now: Instant) -> (u32, Option<Duration>) {
-        let mut shown = 0;
+    /// Flags this frame's layers as shown; returns the longest
+    /// paint-to-submit wait among those shown for the first time.
+    fn mark_shown(&mut self, now: Instant) -> Option<Duration> {
         let mut longest: Option<Duration> = None;
         for item in &self.draw_items {
             let Some(layer) = self
@@ -249,12 +296,11 @@ impl Compositor {
             };
             if !layer.shown {
                 layer.shown = true;
-                shown += 1;
                 let waited = now.saturating_duration_since(layer.produced_at);
                 longest = Some(longest.map_or(waited, |max| max.max(waited)));
             }
         }
-        (shown, longest)
+        longest
     }
 
     fn ingest_frame(&mut self, event: FrameEvent) -> Result<(), CompositorError> {
@@ -265,8 +311,12 @@ impl Compositor {
             produced_at,
         } = event;
         let kind = match layer {
-            FrameLayer::View => LayerKind::View,
+            FrameLayer::View => {
+                self.ingested.frames_received += 1;
+                LayerKind::View
+            }
             FrameLayer::Popup { rect } => {
+                self.ingested.popup_frames += 1;
                 let popup = &mut self.pages.entry(page).or_default().popup;
                 popup.rect = Some(rect);
                 popup.visible = true;
@@ -287,7 +337,7 @@ impl Compositor {
         produced_at: Instant,
     ) -> Result<(), CompositorError> {
         upload::validate_cpu_frame(frame, self.device.limits().max_texture_dimension_2d)
-            .map_err(|reason| CompositorError::Import { page, reason })?;
+            .map_err(|source| CompositorError::Import { page, source })?;
         let srgb = self.target_format.is_srgb();
         let slot = self.pages.entry(page).or_default().slot_mut(kind);
         let reusable = slot
@@ -324,28 +374,43 @@ impl Compositor {
         produced_at: Instant,
     ) -> Result<(), CompositorError> {
         self.reclaim();
-        if self.outstanding_textures(page) >= MAX_OUTSTANDING_TEXTURES {
-            self.dropped_frames += 1;
-            tracing::trace!(%page, "dropping frame: outstanding texture cap reached");
-            return Ok(());
-        }
+        let size = shared.size();
+        upload::validate_frame_size(size, self.device.limits().max_texture_dimension_2d)
+            .map_err(|source| CompositorError::Import { page, source })?;
         let format = upload::page_texture_format(shared.format(), self.target_format.is_srgb());
-        let texture = import_shared(&self.device, &shared, format)
-            .map_err(|reason| CompositorError::Import { page, reason })?;
-        let bind_group = self.pipelines.texture_bind_group(&self.device, &texture);
+        let key = SurfaceKey {
+            surface: shared.surface(),
+            size,
+            format,
+        };
+        let cache = self.imports.entry((page, kind)).or_default();
+        // A resize rebuilds the producer's pool: every older surface is gone.
+        cache.retain(|cached| cached.size == size);
+        let (device, pipelines) = (&self.device, &self.pipelines);
+        let imported = cache
+            .get_or_import(key, || {
+                let texture = import_shared(device, &shared, format)?;
+                let bind_group = pipelines.texture_bind_group(device, &texture);
+                Ok(ImportedTexture {
+                    texture,
+                    bind_group,
+                })
+            })
+            .map_err(|source| CompositorError::Import { page, source })?;
+        let layer = LayerTexture {
+            texture: imported.texture.clone(),
+            bind_group: imported.bind_group.clone(),
+            size,
+            shared: Some(shared),
+            produced_at,
+            shown: false,
+        };
         let previous = self
             .pages
             .entry(page)
             .or_default()
             .slot_mut(kind)
-            .replace(LayerTexture {
-                texture,
-                bind_group,
-                size: shared.size(),
-                shared: Some(shared),
-                produced_at,
-                shown: false,
-            });
+            .replace(layer);
         self.retire(page, previous);
         Ok(())
     }

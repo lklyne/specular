@@ -9,13 +9,18 @@
 //! - [`textures`]: shared-texture pool counters with `PageHostStats` names,
 //!   read from Electron's `/perf/page-hosts`.
 //! - [`latency`]: event timestamp to the first presented frame reflecting it.
-//! - [`memory`]: RSS summed over a shell's whole process tree.
+//! - [`memory`]: physical footprint (macOS) and RSS summed over a shell's
+//!   whole process tree.
+//! - [`bench_line`]: the JSON lines `specular-app` prints, read by
+//!   `assemble`.
 //! - [`report`]: the results file; [`electron_trace`] produces one from an
 //!   Electron trace, and [`compare`] renders two as a markdown table.
 
+pub mod bench_line;
 pub mod compare;
 pub mod electron_trace;
 mod error;
+mod footprint;
 pub mod latency;
 pub mod memory;
 pub mod profile;
@@ -24,6 +29,7 @@ pub mod report;
 pub mod stats;
 pub mod textures;
 
+pub use bench_line::{BenchLine, InputLatencyLine, ProfileLine};
 pub use compare::{LoadedRun, compare_markdown};
 pub use error::BenchError;
 pub use latency::{InputSeq, LatencySummary, LatencyTracker};
@@ -33,6 +39,6 @@ pub use profile::{
     select_profiles,
 };
 pub use recorder::{PhaseRecorder, PresentedFrame};
-pub use report::{PhaseReport, RunReport, Shell};
+pub use report::{PaintPolicy, PhaseReport, RunReport, Shell};
 pub use stats::{FrameSummary, FrameTimes};
 pub use textures::{PageHostsSnapshot, TextureStats};

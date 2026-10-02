@@ -27,10 +27,6 @@ pub mod flags {
     pub const RIGHT_MOUSE_BUTTON: u32 = 1 << 6;
     /// `EVENTFLAG_COMMAND_DOWN` (macOS Command).
     pub const COMMAND_DOWN: u32 = 1 << 7;
-    /// `EVENTFLAG_IS_LEFT`.
-    pub const IS_LEFT: u32 = 1 << 10;
-    /// `EVENTFLAG_IS_RIGHT`.
-    pub const IS_RIGHT: u32 = 1 << 11;
 }
 
 /// CEF's `CefRange::InvalidRange()` component, meaning "no range".
@@ -192,13 +188,18 @@ impl InputTranslator {
     /// The host calls that deliver `event`, in order. Usually one; a
     /// supplementary-plane character becomes two `KEYEVENT_CHAR`s (a UTF-16
     /// surrogate pair), and a wheel event smaller than one pixel becomes none.
-    pub fn translate<'a>(&mut self, event: &'a InputEvent) -> Vec<HostCall<'a>> {
-        match event {
-            InputEvent::Pointer(pointer) => vec![self.pointer(pointer)],
-            InputEvent::Wheel(wheel) => self.wheel(wheel).into_iter().collect(),
+    ///
+    /// Translation happens eagerly (held buttons and wheel remainders update
+    /// now); the result is a fixed two-slot buffer, so the per-event input
+    /// path never allocates.
+    pub fn translate<'a>(&mut self, event: &'a InputEvent) -> impl Iterator<Item = HostCall<'a>> {
+        let calls: [Option<HostCall<'a>>; 2] = match event {
+            InputEvent::Pointer(pointer) => [Some(self.pointer(pointer)), None],
+            InputEvent::Wheel(wheel) => [self.wheel(wheel), None],
             InputEvent::Key(key) => Self::key(key),
-            InputEvent::Ime(ime) => vec![Self::ime(ime)],
-        }
+            InputEvent::Ime(ime) => [Some(Self::ime(ime)), None],
+        };
+        calls.into_iter().flatten()
     }
 
     fn pointer(&mut self, event: &PointerEvent) -> HostCall<'static> {
@@ -259,12 +260,17 @@ impl InputTranslator {
         })
     }
 
-    fn key(event: &KeyEvent) -> Vec<HostCall<'static>> {
+    fn key(event: &KeyEvent) -> [Option<HostCall<'static>>; 2] {
         let flags = modifier_flags(event.modifiers);
         let mut units = [0_u16; 2];
         let encoded: &[u16] = match event.character {
             Some(ch) => ch.encode_utf16(&mut units),
             None => &[0],
+        };
+        let (first, second) = match *encoded {
+            [first, second] => (first, Some(second)),
+            [first, ..] => (first, None),
+            [] => (0, None),
         };
         let call = |character: u16| HostCall::Key {
             kind: event.kind,
@@ -276,8 +282,8 @@ impl InputTranslator {
         match event.kind {
             // A character event is one per UTF-16 unit; Chromium reassembles
             // surrogate pairs, as it does for Windows WM_CHAR pairs.
-            KeyEventKind::Char => encoded.iter().copied().map(call).collect(),
-            KeyEventKind::RawDown | KeyEventKind::Up => vec![call(encoded[0])],
+            KeyEventKind::Char => [Some(call(first)), second.map(call)],
+            KeyEventKind::RawDown | KeyEventKind::Up => [Some(call(first)), None],
         }
     }
 
@@ -307,6 +313,10 @@ impl InputTranslator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn calls<'a>(translator: &mut InputTranslator, event: &'a InputEvent) -> Vec<HostCall<'a>> {
+        translator.translate(event).collect()
+    }
 
     fn pointer(kind: PointerEventKind, x: f32, y: f32) -> InputEvent {
         InputEvent::Pointer(PointerEvent {
@@ -356,10 +366,10 @@ mod tests {
             1.0,
             1.0,
         );
-        translator.translate(&down);
+        calls(&mut translator, &down);
         let moved = pointer(PointerEventKind::Move, 2.0, 2.0);
         assert_eq!(
-            translator.translate(&moved),
+            calls(&mut translator, &moved),
             vec![HostCall::MouseMove {
                 x: 2,
                 y: 2,
@@ -373,14 +383,17 @@ mod tests {
     fn mouse_up_clears_the_released_button_flag() {
         let mut translator = InputTranslator::new();
         let button = PointerButton::Right;
-        translator.translate(&pointer(
-            PointerEventKind::Down {
-                button,
-                click_count: 1,
-            },
-            0.0,
-            0.0,
-        ));
+        calls(
+            &mut translator,
+            &pointer(
+                PointerEventKind::Down {
+                    button,
+                    click_count: 1,
+                },
+                0.0,
+                0.0,
+            ),
+        );
         let up = pointer(
             PointerEventKind::Up {
                 button,
@@ -390,7 +403,7 @@ mod tests {
             0.0,
         );
         assert!(matches!(
-            translator.translate(&up).as_slice(),
+            calls(&mut translator, &up).as_slice(),
             [HostCall::MouseClick {
                 flags: 0,
                 up: true,
@@ -403,7 +416,7 @@ mod tests {
     fn leave_becomes_mouse_move_with_leave_set() {
         let mut translator = InputTranslator::new();
         let event = pointer(PointerEventKind::Leave, 3.0, 4.0);
-        let calls = translator.translate(&event);
+        let calls = calls(&mut translator, &event);
         assert!(matches!(
             calls.as_slice(),
             [HostCall::MouseMove { leave: true, .. }]
@@ -414,7 +427,7 @@ mod tests {
     fn fractional_position_floors_to_containing_pixel() {
         let mut translator = InputTranslator::new();
         let event = pointer(PointerEventKind::Move, -0.5, 10.9);
-        let calls = translator.translate(&event);
+        let calls = calls(&mut translator, &event);
         assert!(matches!(
             calls.as_slice(),
             [HostCall::MouseMove { x: -1, y: 10, .. }]
@@ -425,8 +438,8 @@ mod tests {
     fn sub_pixel_wheel_deltas_accumulate_until_a_whole_pixel() {
         let mut translator = InputTranslator::new();
         let event = wheel(0.0, 0.6);
-        let first = translator.translate(&event).len();
-        let second = translator.translate(&event);
+        let first = calls(&mut translator, &event).len();
+        let second = calls(&mut translator, &event);
         assert_eq!(
             (first, second.as_slice()),
             (
@@ -446,9 +459,9 @@ mod tests {
     #[test]
     fn negative_wheel_remainder_is_kept_with_its_sign() {
         let mut translator = InputTranslator::new();
-        translator.translate(&wheel(-1.5, 0.0));
+        calls(&mut translator, &wheel(-1.5, 0.0));
         let event = wheel(-0.5, 0.0);
-        let calls = translator.translate(&event);
+        let calls = calls(&mut translator, &event);
         assert!(matches!(
             calls.as_slice(),
             [HostCall::MouseWheel { delta_x: -1, .. }]
@@ -459,7 +472,7 @@ mod tests {
     fn bmp_character_is_one_char_event() {
         let mut translator = InputTranslator::new();
         let event = key_char('é');
-        let calls = translator.translate(&event);
+        let calls = calls(&mut translator, &event);
         assert!(matches!(
             calls.as_slice(),
             [HostCall::Key {
@@ -474,7 +487,6 @@ mod tests {
         let mut translator = InputTranslator::new();
         let characters: Vec<u16> = translator
             .translate(&key_char('😀'))
-            .into_iter()
             .filter_map(|call| match call {
                 HostCall::Key { character, .. } => Some(character),
                 _ => None,
@@ -494,7 +506,7 @@ mod tests {
             modifiers: Modifiers::default(),
         });
         assert_eq!(
-            translator.translate(&event),
+            calls(&mut translator, &event),
             vec![HostCall::Key {
                 kind: KeyEventKind::RawDown,
                 flags: 0,
@@ -514,7 +526,7 @@ mod tests {
             replacement: None,
         });
         assert_eq!(
-            translator.translate(&event),
+            calls(&mut translator, &event),
             vec![HostCall::ImeSetComposition {
                 text: "かな",
                 replacement: CefRange::INVALID,
@@ -531,7 +543,7 @@ mod tests {
             replacement: Some(0..2),
         });
         assert!(matches!(
-            translator.translate(&event).as_slice(),
+            calls(&mut translator, &event).as_slice(),
             [HostCall::ImeCommit {
                 replacement: CefRange { from: 0, to: 2 },
                 ..
