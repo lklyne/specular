@@ -9,6 +9,7 @@ use common::{TARGET_SIZE, gpu_or_skip, pixel, read_pixels, render_target};
 use glam::Vec2;
 use specular_compositor::{
     Compositor, CompositorError, DotGrid, FrameImportError, PageDraw, RenderStats, SceneView,
+    ShapeDraw, ShapeExtent,
 };
 use specular_core::{
     Camera, CanvasRect, CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelRect,
@@ -67,6 +68,16 @@ impl Harness {
     }
 
     fn render(&mut self, camera: Camera, grid: DotGrid, pages: &[PageDraw]) -> RenderStats {
+        self.render_with_shapes(camera, grid, pages, &[])
+    }
+
+    fn render_with_shapes(
+        &mut self,
+        camera: Camera,
+        grid: DotGrid,
+        pages: &[PageDraw],
+        shapes: &[ShapeDraw],
+    ) -> RenderStats {
         let view = self
             .target
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -78,6 +89,7 @@ impl Harness {
                 viewport: Vec2::new(size, size),
                 scale_factor: 1.0,
                 pages,
+                shapes,
                 grid,
             },
         )
@@ -163,6 +175,80 @@ fn rounded_corner_reveals_background() {
     harness.send_view(solid_frame(PixelSize::new(48, 48), [10, 20, 200, 255]));
     let pixels = harness.render_page();
     assert_eq!(pixel(&pixels, 8, 8), BACKGROUND_TEXEL);
+}
+
+#[test]
+fn shape_fill_covers_its_rect_and_leaves_the_rest() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let shapes = [ShapeDraw {
+        extent: ShapeExtent::Canvas(CanvasRect::new(16.0, 16.0, 32.0, 32.0)),
+        corner_radius: 0.0,
+        fill: [1.0, 0.0, 0.0, 1.0],
+        stroke: [0.0; 4],
+        stroke_width: 0.0,
+    }];
+    let stats = harness.render_with_shapes(Camera::default(), plain_grid(), &[], &shapes);
+    let pixels = read_pixels(&harness.gpu, &harness.target);
+    assert_eq!(
+        (
+            pixel(&pixels, 32, 32),
+            pixel(&pixels, 4, 4),
+            stats.shapes_drawn
+        ),
+        ([255, 0, 0, 255], BACKGROUND_TEXEL, 1)
+    );
+}
+
+#[test]
+fn shape_stroke_sits_outside_the_rect_edge() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    let shapes = [ShapeDraw {
+        extent: ShapeExtent::Canvas(CanvasRect::new(16.0, 16.0, 32.0, 32.0)),
+        corner_radius: 0.0,
+        fill: [1.0, 0.0, 0.0, 1.0],
+        stroke: [0.0, 1.0, 0.0, 1.0],
+        stroke_width: 2.0,
+    }];
+    harness.render_with_shapes(Camera::default(), plain_grid(), &[], &shapes);
+    let pixels = read_pixels(&harness.gpu, &harness.target);
+    // Pixel 15 is the first outside the rect; 17 is inside it, 13 is clear.
+    assert_eq!(
+        [
+            pixel(&pixels, 32, 15),
+            pixel(&pixels, 32, 16),
+            pixel(&pixels, 32, 13)
+        ],
+        [[0, 255, 0, 255], [255, 0, 0, 255], BACKGROUND_TEXEL]
+    );
+}
+
+#[test]
+fn screen_sized_shape_keeps_its_size_when_zoomed() {
+    let Some(mut harness) = Harness::new() else {
+        return;
+    };
+    // Zoom 0.5 puts canvas (64, 64) at pixel (32, 32).
+    let shapes = [ShapeDraw {
+        extent: ShapeExtent::Screen {
+            anchor: glam::Vec2::new(64.0, 64.0),
+            size: glam::Vec2::splat(16.0),
+        },
+        corner_radius: 8.0,
+        fill: [1.0, 0.0, 0.0, 1.0],
+        stroke: [0.0; 4],
+        stroke_width: 0.0,
+    }];
+    harness.render_with_shapes(Camera::new(Vec2::ZERO, 0.5), plain_grid(), &[], &shapes);
+    let pixels = read_pixels(&harness.gpu, &harness.target);
+    // 6 px from the centre is inside a 16 px circle; 12 px is outside.
+    assert_eq!(
+        [pixel(&pixels, 38, 32), pixel(&pixels, 44, 32)],
+        [[255, 0, 0, 255], BACKGROUND_TEXEL]
+    );
 }
 
 #[test]

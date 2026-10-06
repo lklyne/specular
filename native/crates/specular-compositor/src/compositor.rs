@@ -12,18 +12,17 @@ use specular_core::{
 
 use crate::draw_list::{DrawItem, LayerKind, build_draw_list};
 use crate::error::CompositorError;
-use crate::gpu_types::{FRAME_UNIFORMS_SIZE, FrameUniforms, QuadInstance};
+use crate::gpu_types::{FRAME_UNIFORMS_SIZE, FrameUniforms, QuadInstance, ShapeInstance};
 use crate::grid::grid_metrics;
 use crate::import::import_shared;
 use crate::import_cache::ImportCache;
+use crate::instance_buffer::InstanceBuffer;
 use crate::layers::{LayerTexture, PageLayers};
 use crate::pipeline::Pipelines;
 use crate::retire::RetiredTextures;
 use crate::scene::{RenderStats, SceneView};
+use crate::shape_list::build_shape_list;
 use crate::upload;
-
-/// Instance capacity of the first instance buffer; it doubles on demand.
-const INITIAL_INSTANCE_CAPACITY: usize = 64;
 
 /// Identity of an imported shared surface: the same surface at the same
 /// size and format imports to the same texture.
@@ -58,8 +57,8 @@ pub struct Compositor {
     pipelines: Pipelines,
     frame_uniforms: wgpu::Buffer,
     frame_bind_group: wgpu::BindGroup,
-    instance_buffer: wgpu::Buffer,
-    instance_capacity: usize,
+    instance_buffer: InstanceBuffer<QuadInstance>,
+    shape_buffer: InstanceBuffer<ShapeInstance>,
     pages: HashMap<PageId, PageLayers>,
     retired: RetiredTextures<SharedTexture>,
     imports: HashMap<(PageId, LayerKind), ImportCache<SurfaceKey, ImportedTexture>>,
@@ -69,6 +68,7 @@ pub struct Compositor {
     completed: Arc<AtomicU64>,
     ingested: IngestCounts,
     instances: Vec<QuadInstance>,
+    shape_instances: Vec<ShapeInstance>,
     draw_items: Vec<DrawItem>,
 }
 
@@ -95,7 +95,8 @@ impl Compositor {
                 resource: frame_uniforms.as_entire_binding(),
             }],
         });
-        let instance_buffer = create_instance_buffer(&device, INITIAL_INSTANCE_CAPACITY);
+        let instance_buffer = InstanceBuffer::new(&device, "quad-instances");
+        let shape_buffer = InstanceBuffer::new(&device, "shape-instances");
         Self {
             device,
             queue,
@@ -104,15 +105,16 @@ impl Compositor {
             frame_uniforms,
             frame_bind_group,
             instance_buffer,
-            instance_capacity: INITIAL_INSTANCE_CAPACITY,
+            shape_buffer,
             pages: HashMap::new(),
             retired: RetiredTextures::default(),
             imports: HashMap::new(),
             submitted: 0,
             completed: Arc::new(AtomicU64::new(0)),
             ingested: IngestCounts::default(),
-            instances: Vec::with_capacity(INITIAL_INSTANCE_CAPACITY),
-            draw_items: Vec::with_capacity(INITIAL_INSTANCE_CAPACITY),
+            instances: Vec::new(),
+            shape_instances: Vec::new(),
+            draw_items: Vec::new(),
         }
     }
 
@@ -201,14 +203,11 @@ impl Compositor {
         let uniforms = FrameUniforms::new(scene, &grid, !self.target_format.is_srgb());
         self.queue
             .write_buffer(&self.frame_uniforms, 0, bytemuck::bytes_of(&uniforms));
-        self.ensure_instance_capacity(self.instances.len());
-        if !self.instances.is_empty() {
-            self.queue.write_buffer(
-                &self.instance_buffer,
-                0,
-                bytemuck::cast_slice(&self.instances),
-            );
-        }
+        self.instance_buffer
+            .write(&self.device, &self.queue, &self.instances);
+        build_shape_list(scene, &mut self.shape_instances);
+        self.shape_buffer
+            .write(&self.device, &self.queue, &self.shape_instances);
 
         let mut encoder = self
             .device
@@ -235,6 +234,7 @@ impl Compositor {
         RenderStats {
             pages_without_texture: counts.pages_without_texture,
             cpu_textures: counts.cpu_textures,
+            shapes_drawn: self.shape_instances.len() as u32,
             max_paint_to_submit,
             frames_received: ingested.frames_received,
             popup_frames: ingested.popup_frames,
@@ -264,21 +264,25 @@ impl Compositor {
         pass.set_bind_group(0, &self.frame_bind_group, &[]);
         pass.set_pipeline(&self.pipelines.grid);
         pass.draw(0..3, 0..1);
-        if self.draw_items.is_empty() {
-            return;
+        if !self.draw_items.is_empty() {
+            pass.set_pipeline(&self.pipelines.quad);
+            pass.set_vertex_buffer(0, self.instance_buffer.slice());
+            for (instance, item) in (0_u32..).zip(&self.draw_items) {
+                let Some(layer) = self
+                    .pages
+                    .get(&item.page)
+                    .and_then(|layers| layers.get(item.layer))
+                else {
+                    continue;
+                };
+                pass.set_bind_group(1, &layer.bind_group, &[]);
+                pass.draw(0..4, instance..instance + 1);
+            }
         }
-        pass.set_pipeline(&self.pipelines.quad);
-        pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
-        for (instance, item) in (0_u32..).zip(&self.draw_items) {
-            let Some(layer) = self
-                .pages
-                .get(&item.page)
-                .and_then(|layers| layers.get(item.layer))
-            else {
-                continue;
-            };
-            pass.set_bind_group(1, &layer.bind_group, &[]);
-            pass.draw(0..4, instance..instance + 1);
+        if !self.shape_instances.is_empty() {
+            pass.set_pipeline(&self.pipelines.shape);
+            pass.set_vertex_buffer(0, self.shape_buffer.slice());
+            pass.draw(0..4, 0..self.shape_instances.len() as u32);
         }
     }
 
@@ -433,22 +437,4 @@ impl Compositor {
         }
         self.retired.reclaim(self.completed.load(Ordering::Acquire));
     }
-
-    fn ensure_instance_capacity(&mut self, needed: usize) {
-        if needed <= self.instance_capacity {
-            return;
-        }
-        let capacity = needed.next_power_of_two();
-        self.instance_buffer = create_instance_buffer(&self.device, capacity);
-        self.instance_capacity = capacity;
-    }
-}
-
-fn create_instance_buffer(device: &wgpu::Device, capacity: usize) -> wgpu::Buffer {
-    device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("quad-instances"),
-        size: (capacity * size_of::<QuadInstance>()) as u64,
-        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    })
 }

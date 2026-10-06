@@ -4,7 +4,8 @@
 //! grid, in one render pass per window frame — the Rust analogue of
 //! canvas-bg's `CanvasItemSurface` (CONTEXT.md, "Page textures"). The grid is
 //! one procedural full-screen fill; pages are instanced quads with rounded
-//! corners clipped in the fragment shader.
+//! corners clipped in the fragment shader. Shapes ([`ShapeDraw`]) are
+//! untextured SDF rounded rects drawn above every page in one instanced draw.
 //!
 //! Frame ingestion: [`Compositor::handle_page_event`] takes every
 //! [`PageEvent`](specular_core::PageEvent) a source emits. GPU shared frames
@@ -24,15 +25,17 @@ mod gpu_types;
 mod grid;
 mod import;
 mod import_cache;
+mod instance_buffer;
 mod instrumentation;
 mod layers;
 mod pipeline;
 mod retire;
 mod scene;
+mod shape_list;
 mod upload;
 
 pub use compositor::Compositor;
 pub use error::{CompositorError, FrameImportError};
 pub use gpu::GpuContext;
 pub use instrumentation::{FrameObserver, FrameSample};
-pub use scene::{DotGrid, PageDraw, RenderStats, SceneView};
+pub use scene::{DotGrid, PageDraw, RenderStats, SceneView, ShapeDraw, ShapeExtent};

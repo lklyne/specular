@@ -1,5 +1,5 @@
 // One render pass per window frame: a procedural dot grid under N textured,
-// rounded page quads. Layouts mirror `gpu_types.rs`.
+// rounded page quads, under N untextured shapes. Layouts mirror `gpu_types.rs`.
 
 struct Frame {
     view_proj: mat4x4<f32>,
@@ -24,7 +24,7 @@ fn linear_to_srgb(linear: vec3<f32>) -> vec3<f32> {
     return select(high, low, linear <= vec3<f32>(0.0031308));
 }
 
-// Grid colours are linear; a non-sRGB target needs them encoded here.
+// Scene colours are linear; a non-sRGB target needs them encoded here.
 fn to_target(color: vec4<f32>) -> vec4<f32> {
     if frame.encode_srgb > 0.5 {
         return vec4<f32>(linear_to_srgb(color.rgb), color.a);
@@ -91,4 +91,61 @@ fn fs_quad(in: QuadOut) -> @location(0) vec4<f32> {
     let coverage = clamp(0.5 - distance * frame.scale_factor, 0.0, 1.0);
     // Page texels are premultiplied, so scaling all channels clips the corner.
     return textureSample(page_texture, page_sampler, in.uv) * coverage;
+}
+
+struct ShapeOut {
+    @builtin(position) position: vec4<f32>,
+    // Logical screen px from the shape centre.
+    @location(0) local: vec2<f32>,
+    @location(1) half_size: vec2<f32>,
+    @location(2) fill: vec4<f32>,
+    @location(3) stroke: vec4<f32>,
+    @location(4) style: vec2<f32>,
+};
+
+@vertex
+fn vs_shape(
+    @builtin(vertex_index) index: u32,
+    @location(0) centre_and_half: vec4<f32>,
+    @location(1) fill: vec4<f32>,
+    @location(2) stroke: vec4<f32>,
+    @location(3) style: vec2<f32>,
+) -> ShapeOut {
+    let corner = vec2<f32>(f32(index & 1u), f32((index >> 1u) & 1u));
+    let half_size = centre_and_half.zw;
+    // The quad reaches past the rect edge by the stroke width, which sits outside.
+    let local = (corner * 2.0 - 1.0) * (half_size + vec2<f32>(style.y));
+    let logical_viewport = frame.viewport_px / frame.scale_factor;
+    var out: ShapeOut;
+    out.position = frame.view_proj * vec4<f32>(centre_and_half.xy, 0.0, 1.0);
+    out.position = vec4<f32>(
+        out.position.xy + local * vec2<f32>(2.0, -2.0) / logical_viewport * out.position.w,
+        out.position.zw,
+    );
+    out.local = local;
+    out.half_size = half_size;
+    out.fill = fill;
+    out.stroke = stroke;
+    out.style = style;
+    return out;
+}
+
+@fragment
+fn fs_shape(in: ShapeOut) -> @location(0) vec4<f32> {
+    // Rounded-box signed distance in logical px: negative inside the rect.
+    let radius = in.style.x;
+    let q = abs(in.local) - in.half_size + vec2<f32>(radius);
+    let distance = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    let inside = clamp(0.5 - distance * frame.scale_factor, 0.0, 1.0);
+    let within_stroke = clamp(0.5 - (distance - in.style.y) * frame.scale_factor, 0.0, 1.0);
+    let fill = to_target(in.fill);
+    let stroke = to_target(in.stroke);
+    // The fill and the stroke band are disjoint, so their premultiplied
+    // contributions add.
+    let fill_alpha = fill.a * inside;
+    let stroke_alpha = stroke.a * max(within_stroke - inside, 0.0);
+    return vec4<f32>(
+        fill.rgb * fill_alpha + stroke.rgb * stroke_alpha,
+        fill_alpha + stroke_alpha,
+    );
 }

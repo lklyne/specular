@@ -40,6 +40,45 @@ impl Default for DotGrid {
     }
 }
 
+/// Where a shape sits and how big it is.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShapeExtent {
+    /// A rect in canvas units; it scales with zoom.
+    Canvas(CanvasRect),
+    /// A box of `size` logical pixels centred on a canvas-space `anchor`;
+    /// its size does not change with zoom.
+    Screen {
+        /// Centre, in canvas units.
+        anchor: Vec2,
+        /// Width and height in logical pixels.
+        size: Vec2,
+    },
+}
+
+/// An untextured rounded rectangle drawn above every page.
+///
+/// The fill covers the rect exactly. The stroke sits **outside** the rect
+/// edge: it occupies the band from the edge out to `stroke_width`, so an
+/// outline never covers the content it frames and a page border can hug the
+/// page without overlapping it. A screen-sized shape's footprint therefore
+/// grows by `stroke_width` on every side. The stroke follows the rounded
+/// corners.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ShapeDraw {
+    /// Position and size.
+    pub extent: ShapeExtent,
+    /// Corner radius, in the units of `extent` (canvas units scale with
+    /// zoom, logical pixels do not). Clamped to half the shorter side; a
+    /// circle is a square whose radius is half its size.
+    pub corner_radius: f32,
+    /// Fill colour, linear RGBA with straight alpha.
+    pub fill: [f32; 4],
+    /// Stroke colour, linear RGBA with straight alpha.
+    pub stroke: [f32; 4],
+    /// Stroke width in logical pixels at any zoom.
+    pub stroke_width: f32,
+}
+
 /// Everything [`Compositor::render`](crate::Compositor::render) needs for one
 /// window frame.
 #[derive(Debug, Clone, Copy)]
@@ -52,6 +91,8 @@ pub struct SceneView<'a> {
     pub scale_factor: f32,
     /// Pages in paint order.
     pub pages: &'a [PageDraw],
+    /// Shapes in paint order, drawn above all pages.
+    pub shapes: &'a [ShapeDraw],
     /// Background grid.
     pub grid: DotGrid,
 }
@@ -64,6 +105,8 @@ pub struct RenderStats {
     pub pages_without_texture: u32,
     /// Pages whose current texture came from a CPU upload (non-representative).
     pub cpu_textures: u32,
+    /// Shapes drawn, after culling those outside the viewport.
+    pub shapes_drawn: u32,
     /// Longest wait, among frames shown for the first time this render,
     /// between the source receiving the paint and this frame's submit.
     pub max_paint_to_submit: Option<Duration>,

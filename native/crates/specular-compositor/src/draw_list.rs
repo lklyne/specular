@@ -108,6 +108,7 @@ mod tests {
             viewport: Vec2::new(800.0, 600.0),
             scale_factor: 1.0,
             pages,
+            shapes: &[],
             grid: DotGrid::default(),
         }
     }

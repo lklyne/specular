@@ -109,6 +109,7 @@ impl GpuWindow {
                 viewport: self.logical_viewport(),
                 scale_factor: self.scale_factor(),
                 pages,
+                shapes: &[],
                 grid: DotGrid::default(),
             },
         );

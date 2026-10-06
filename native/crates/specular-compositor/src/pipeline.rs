@@ -1,9 +1,9 @@
 //! Render pipelines, layouts and the shared sampler, built once per
 //! compositor.
 
-use crate::gpu_types::{FRAME_UNIFORMS_SIZE, QuadInstance};
+use crate::gpu_types::{FRAME_UNIFORMS_SIZE, QuadInstance, ShapeInstance};
 
-/// WGSL source for both pipelines.
+/// WGSL source for all pipelines.
 pub(crate) const SHADER_SOURCE: &str = include_str!("shaders/canvas.wgsl");
 
 /// Long-lived GPU objects that do not depend on scene content.
@@ -11,6 +11,7 @@ pub(crate) const SHADER_SOURCE: &str = include_str!("shaders/canvas.wgsl");
 pub(crate) struct Pipelines {
     pub(crate) grid: wgpu::RenderPipeline,
     pub(crate) quad: wgpu::RenderPipeline,
+    pub(crate) shape: wgpu::RenderPipeline,
     pub(crate) frame_layout: wgpu::BindGroupLayout,
     pub(crate) texture_layout: wgpu::BindGroupLayout,
     pub(crate) sampler: wgpu::Sampler,
@@ -32,6 +33,11 @@ impl Pipelines {
         let quad_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("quad-pipeline-layout"),
             bind_group_layouts: &[Some(&frame_layout), Some(&texture_layout)],
+            immediate_size: 0,
+        });
+        let shape_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("shape-pipeline-layout"),
+            bind_group_layouts: &[Some(&frame_layout)],
             immediate_size: 0,
         });
         let instance_layout = wgpu::VertexBufferLayout {
@@ -67,6 +73,24 @@ impl Pipelines {
                 target_format,
             },
         );
+        let shape = render_pipeline(
+            device,
+            &PipelineSpec {
+                label: "shape-pipeline",
+                layout: &shape_layout,
+                shader: &shader,
+                vertex_entry: "vs_shape",
+                fragment_entry: "fs_shape",
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: size_of::<ShapeInstance>() as u64,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &ShapeInstance::ATTRIBUTES,
+                })],
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                target_format,
+            },
+        );
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("page-sampler"),
             mag_filter: wgpu::FilterMode::Linear,
@@ -76,6 +100,7 @@ impl Pipelines {
         Self {
             grid,
             quad,
+            shape,
             frame_layout,
             texture_layout,
             sampler,

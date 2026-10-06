@@ -79,6 +79,53 @@ impl QuadInstance {
         wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32];
 }
 
+/// One untextured shape, resolved against the camera on the CPU so the
+/// shader needs no per-shape branching.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Pod, Zeroable)]
+pub(crate) struct ShapeInstance {
+    /// Centre of the rect, in canvas units.
+    pub(crate) centre: [f32; 2],
+    /// Half the rect's width and height, in logical pixels.
+    pub(crate) half_size: [f32; 2],
+    /// Fill colour, linear RGBA, straight alpha.
+    pub(crate) fill: [f32; 4],
+    /// Stroke colour, linear RGBA, straight alpha.
+    pub(crate) stroke: [f32; 4],
+    /// Corner radius in logical pixels.
+    pub(crate) corner_radius: f32,
+    /// Outside stroke width in logical pixels.
+    pub(crate) stroke_width: f32,
+    padding: [f32; 2],
+}
+
+impl ShapeInstance {
+    /// An instance with every field resolved.
+    pub(crate) fn new(
+        centre: Vec2,
+        half_size: Vec2,
+        corner_radius: f32,
+        fill: [f32; 4],
+        stroke: [f32; 4],
+        stroke_width: f32,
+    ) -> Self {
+        Self {
+            centre: centre.to_array(),
+            half_size: half_size.to_array(),
+            fill,
+            stroke,
+            corner_radius,
+            stroke_width,
+            padding: [0.0; 2],
+        }
+    }
+
+    /// Vertex attributes: `@location(0)` centre and half size, `@location(1)`
+    /// fill, `@location(2)` stroke, `@location(3)` radius and stroke width.
+    pub(crate) const ATTRIBUTES: [wgpu::VertexAttribute; 4] =
+        wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x2];
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +133,10 @@ mod tests {
     #[test]
     fn quad_instance_stride_is_sixteen_byte_aligned() {
         assert_eq!(size_of::<QuadInstance>() % 16, 0);
+    }
+
+    #[test]
+    fn shape_instance_is_sixty_four_bytes() {
+        assert_eq!(size_of::<ShapeInstance>(), 64);
     }
 }
