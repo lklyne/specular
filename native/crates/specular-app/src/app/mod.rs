@@ -354,6 +354,9 @@ fn apply_lod_change(
     change: LodChange,
     window_scale: f32,
 ) {
+    if change != LodChange::default() {
+        tracing::debug!(%page, ?change, "paint LOD");
+    }
     let results = [
         change
             .texture

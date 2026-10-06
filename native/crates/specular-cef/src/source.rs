@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 
 use cef::{
     Browser, BrowserHost, BrowserSettings, CefString, ImplBrowser, ImplBrowserHost,
-    KeyEvent as CefKeyEvent, KeyEventType, MouseButtonType, MouseEvent, RuntimeStyle, Settings,
-    WindowInfo,
+    KeyEvent as CefKeyEvent, KeyEventType, MouseButtonType, MouseEvent, PaintElementType,
+    RuntimeStyle, Settings, WindowInfo,
 };
 use specular_core::{
     CssSize, InputEvent, KeyEventKind, PageEvent, PageId, PageSource, PageSourceError, PageSpec,
@@ -39,6 +39,19 @@ struct PageEntry {
     host: BrowserHost,
     geometry: Arc<Mutex<PageGeometry>>,
     input: InputTranslator,
+    /// Whether the browser is shown (`WasHidden(false)`).
+    painting: bool,
+    /// The rate the page is owed, applied whenever it is shown.
+    frame_rate: i32,
+}
+
+impl PageEntry {
+    /// Makes CEF re-read `GetScreenInfo` and repaint at the backing size the
+    /// geometry now asks for.
+    fn apply_geometry(&self) {
+        self.host.notify_screen_info_changed();
+        self.host.was_resized();
+    }
 }
 
 /// Windowless CEF browsers as a [`PageSource`]; see the crate docs.
@@ -146,6 +159,12 @@ impl CefPageSource {
         if open > 0 {
             tracing::warn!(open, "browsers still open at CEF shutdown");
         }
+    }
+
+    fn entry_mut(&mut self, page: PageId) -> Result<&mut PageEntry, PageSourceError> {
+        self.pages
+            .get_mut(&page)
+            .ok_or(PageSourceError::UnknownPage(page))
     }
 
     fn entry(&self, page: PageId) -> Result<&PageEntry, PageSourceError> {
@@ -304,6 +323,8 @@ impl PageSource for CefPageSource {
                 host,
                 geometry,
                 input: InputTranslator::new(),
+                painting: true,
+                frame_rate: windowless_frame_rate(spec.frame_rate),
             },
         );
         Ok(id)
@@ -313,7 +334,9 @@ impl PageSource for CefPageSource {
         validate_viewport(viewport)?;
         let entry = self.entry(page)?;
         lock_geometry(&entry.geometry).viewport = viewport;
-        entry.host.was_resized();
+        if entry.painting {
+            entry.host.was_resized();
+        }
         Ok(())
     }
 
@@ -321,22 +344,37 @@ impl PageSource for CefPageSource {
         validate_texture_scale(scale)?;
         let entry = self.entry(page)?;
         lock_geometry(&entry.geometry).scale = scale;
-        // CEF re-reads GetScreenInfo on NotifyScreenInfoChanged; WasResized
-        // makes it repaint at the new backing size.
-        entry.host.notify_screen_info_changed();
-        entry.host.was_resized();
+        // A hidden browser picks the scale up when it is shown: resizing it
+        // while hidden leaves it without frames after the show.
+        if entry.painting {
+            entry.apply_geometry();
+        }
         Ok(())
     }
 
     fn set_frame_rate(&mut self, page: PageId, fps: u32) -> Result<(), PageSourceError> {
-        self.entry(page)?
-            .host
-            .set_windowless_frame_rate(windowless_frame_rate(fps));
+        let entry = self.entry_mut(page)?;
+        entry.frame_rate = windowless_frame_rate(fps);
+        if entry.painting {
+            entry.host.set_windowless_frame_rate(entry.frame_rate);
+        }
         Ok(())
     }
 
     fn set_painting(&mut self, page: PageId, painting: bool) -> Result<(), PageSourceError> {
-        self.entry(page)?.host.was_hidden(i32::from(!painting));
+        let entry = self.entry_mut(page)?;
+        if entry.painting == painting {
+            return Ok(());
+        }
+        entry.painting = painting;
+        entry.host.was_hidden(i32::from(!painting));
+        if painting {
+            // Showing a windowless browser schedules no frame of its own, and
+            // it comes back at the scale and rate it had when hidden.
+            entry.apply_geometry();
+            entry.host.set_windowless_frame_rate(entry.frame_rate);
+            entry.host.invalidate(PaintElementType::VIEW);
+        }
         Ok(())
     }
 
