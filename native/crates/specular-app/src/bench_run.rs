@@ -27,6 +27,7 @@ enum Phase {
 struct Recording {
     frames: PhaseRecorder,
     max_paint_to_submit: Option<Duration>,
+    max_shapes_drawn: u32,
 }
 
 /// What the app should do after [`BenchRun::tick`].
@@ -49,6 +50,10 @@ pub(crate) struct RunSource {
     pub(crate) pages: usize,
     /// How pages were throttled.
     pub(crate) paint_policy: PaintPolicy,
+    /// Whether the chrome layer was drawn every frame.
+    pub(crate) chrome: bool,
+    /// Annotations drawn every frame.
+    pub(crate) annotations: usize,
 }
 
 /// The benchmark state machine.
@@ -132,6 +137,7 @@ impl BenchRun {
         self.recording = Some(Recording {
             frames: PhaseRecorder::new(profile.id),
             max_paint_to_submit: None,
+            max_shapes_drawn: 0,
         });
         self.phase = Phase::Running {
             profile: index,
@@ -143,8 +149,10 @@ impl BenchRun {
         if let (Some(profile), Some(recording)) = (self.profiles.get(index), self.recording.take())
         {
             let representative = self.source.representative && !recording.frames.saw_cpu_texture();
+            let mut phase = recording.frames.finish(self.step_interval);
+            phase.max_shapes_drawn = Some(u64::from(recording.max_shapes_drawn));
             self.reports.push(ProfileLine {
-                phase: recording.frames.finish(self.step_interval),
+                phase,
                 label: profile.label.to_owned(),
                 source: self.source.name.to_owned(),
                 pages: self.source.pages,
@@ -152,6 +160,8 @@ impl BenchRun {
                 step_interval_ms: millis(self.step_interval),
                 max_paint_to_submit_ms: recording.max_paint_to_submit.map(millis),
                 paint_policy: self.source.paint_policy,
+                chrome: self.source.chrome,
+                annotations: self.source.annotations,
             });
         }
         self.phase = Phase::Gap {
@@ -179,6 +189,7 @@ impl FrameObserver for BenchRun {
                 max_outstanding_textures: stats.max_outstanding_textures,
             },
         );
+        recording.max_shapes_drawn = recording.max_shapes_drawn.max(stats.shapes_drawn);
         recording.max_paint_to_submit = max_option(
             recording.max_paint_to_submit,
             sample.stats.max_paint_to_submit,
@@ -249,6 +260,8 @@ mod tests {
                 representative,
                 pages: 4,
                 paint_policy: PaintPolicy::ElectronLod,
+                chrome: true,
+                annotations: 3,
             },
             start,
         )
@@ -302,6 +315,30 @@ mod tests {
         let mut camera = Camera::new(Vec2::new(5.0, 5.0), 1.0);
         run.tick(start + Duration::from_millis(100), &mut camera, Vec2::ZERO);
         assert_eq!(camera.pan, Vec2::new(5.0, 5.0));
+    }
+
+    #[test]
+    fn report_carries_chrome_load_and_the_largest_shape_count() {
+        let start = Instant::now();
+        let mut run = new_run(vec![pan_profile()], true, start);
+        let mut camera = Camera::default();
+        let mut now = start;
+        while run.tick(now, &mut camera, Vec2::ZERO) != BenchTick::Finished {
+            run.on_frame(&FrameSample {
+                presented_at: now,
+                stats: RenderStats {
+                    shapes_drawn: if camera.pan.x > 10.0 { 30 } else { 12 },
+                    ..RenderStats::default()
+                },
+                input_to_present: None,
+            });
+            now += STEP;
+        }
+        let line = &run.reports()[0];
+        assert_eq!(
+            (line.chrome, line.annotations, line.phase.max_shapes_drawn),
+            (true, 3, Some(30))
+        );
     }
 
     #[test]

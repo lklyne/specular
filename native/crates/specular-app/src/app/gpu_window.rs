@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use glam::Vec2;
-use specular_compositor::{Compositor, DotGrid, GpuContext, PageDraw, RenderStats, SceneView};
+use specular_compositor::{
+    Compositor, DotGrid, GpuContext, PageDraw, RenderStats, SceneView, ShapeDraw,
+};
 use specular_core::Camera;
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
@@ -86,7 +88,12 @@ impl GpuWindow {
 
     /// Renders and presents one frame; `None` when the surface had no frame
     /// to give (minimised, or reconfigured after loss).
-    pub(super) fn render(&mut self, camera: Camera, pages: &[PageDraw]) -> Option<RenderStats> {
+    pub(super) fn render(
+        &mut self,
+        camera: Camera,
+        pages: &[PageDraw],
+        shapes: &[ShapeDraw],
+    ) -> Option<RenderStats> {
         let frame = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame) => frame,
             wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
@@ -109,7 +116,7 @@ impl GpuWindow {
                 viewport: self.logical_viewport(),
                 scale_factor: self.scale_factor(),
                 pages,
-                shapes: &[],
+                shapes,
                 grid: DotGrid::default(),
             },
         );

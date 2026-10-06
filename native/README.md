@@ -61,6 +61,8 @@ cargo clippy --target aarch64-apple-darwin --workspace --all-targets \
 ```
 specular-app [--source synthetic|cef] [--pages N | FILE.canvas]
              [--bench all|id,id,... [--warmup-ms N]] [--window WxH]
+             [--paint-policy electron-lod|full-rate]
+             [--chrome on|off] [--annotations N]
 ```
 
 Scroll pans; Cmd/Ctrl+scroll and pinch zoom about the cursor (same factor as
@@ -69,11 +71,40 @@ to focus it; pointer, wheel, keys and IME then go to that page. Click empty
 canvas to clear focus. Logs go to stderr (`RUST_LOG=debug` for more); on
 exit an interactive session logs its input-to-present latency summary.
 
+With the chrome layer on (the default), Alt+drag on a page moves it and
+dragging a corner handle of the selected page resizes it (the page's CSS
+viewport changes once, on release). `C` toggles the comment tool while no
+page has keyboard focus (a focused page gets the key); with the tool armed,
+drag on the canvas to draw a region, which is bound to the page the drag
+started over or, off any page, to the canvas; a click creates nothing.
+`Escape` always cancels the drag, leaves the tool and clears page focus, and
+is not forwarded to pages.
+
+### Chrome layer
+
+`--chrome on|off` (default on) switches the per-frame canvas UI the real app
+draws: a border on every page (stronger under the cursor), the selection
+outline with four screen-sized resize handles, and comment annotations (a
+translucent region plus a circular pin at its top-left corner; page-bound
+ones move and scale with their page). It exists so the benchmark can answer
+whether the shell's frame-time advantage survives UI drawn every frame:
+everything goes through the compositor's one-draw shape layer, `--chrome off`
+draws no shapes and has no selection or tool, and `--annotations N` (chrome
+on only) seeds N page-bound annotations so a run draws a known amount.
+`--bench` with chrome on starts with the first page selected. Each bench line
+records `chrome`, `annotations` and `maxShapesDrawn`; `compare` prints them
+and warns when two runs differ.
+
+It is a cost model, not the product's UI: there is no text (pins are plain
+circles), no toolbar or panels, no cursor changes beyond the tool crosshair,
+and annotations are not persisted.
+
 `--bench` waits `--warmup-ms` (default 2000) for pages to load, runs each
 profile from the same start camera, one step per presented frame at the
 monitor's refresh interval, and prints one JSON line per profile to stdout
 (the bench crate's `PhaseReport` fields plus `source`, `pages`,
-`representative`, `stepIntervalMs`, `maxPaintToSubmitMs`). Then it exits.
+`representative`, `stepIntervalMs`, `maxPaintToSubmitMs`, `chrome`,
+`annotations`). Then it exits.
 
 ## Morning run on macOS (Apple Silicon)
 

@@ -5,9 +5,13 @@
 //! source (non-representative CPU frames). `--bench` replays the Electron
 //! pan/zoom profiles and prints frame timing; see `cli::USAGE`.
 
+mod annotation;
 mod app;
 mod bench_run;
+mod chrome;
+mod chrome_state;
 mod cli;
+mod handles;
 mod input_map;
 mod latency;
 mod paint_lod;
@@ -64,6 +68,8 @@ fn main() -> anyhow::Result<()> {
         representative_source: run.source.is_representative(),
         paint_policy: run.paint_policy,
         window: run.window,
+        chrome: run.chrome,
+        annotations: run.annotations,
     };
     let mut app = app::App::new(source, pages, session);
     event_loop.run_app(&mut app).context("running event loop")?;

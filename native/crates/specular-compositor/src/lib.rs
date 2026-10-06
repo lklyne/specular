@@ -35,6 +35,7 @@ mod shape_list;
 mod upload;
 
 pub use compositor::Compositor;
+pub use draw_list::PAGE_CORNER_RADIUS;
 pub use error::{CompositorError, FrameImportError};
 pub use gpu::GpuContext;
 pub use instrumentation::{FrameObserver, FrameSample};

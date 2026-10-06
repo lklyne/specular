@@ -3,19 +3,25 @@
 //!
 //! Wheel over the focused page scrolls that page; anywhere else it pans the
 //! canvas, and Cmd/Ctrl+wheel or a pinch zooms about the cursor.
+//!
+//! With the chrome layer on, a press first goes to its gestures (comment
+//! tool, resize handles, Alt+drag move); a gesture owns the pointer until the
+//! button comes up, and the page under it sees none of it.
 
 use std::time::Instant;
 
 use glam::Vec2;
 use specular_core::{
-    InputEvent, PageId, PointerButton, PointerEvent, PointerEventKind, ViewportInputDelta,
+    CssSize, InputEvent, PageId, PointerButton, PointerEvent, PointerEventKind, ViewportInputDelta,
     WheelEvent,
 };
-use winit::event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent};
-use winit::keyboard::PhysicalKey;
+use winit::event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::platform::scancode::PhysicalKeyExtScancode as _;
+use winit::window::CursorIcon;
 
 use super::App;
+use crate::chrome_state::{ChromeState, Press, Release};
 use crate::input_map::{self, KeyPress};
 use crate::placement::{PlacedPage, hit_test};
 
@@ -35,6 +41,10 @@ impl App {
                 self.on_cursor_moved(Vec2::new(logical.x, logical.y));
             }
             WindowEvent::CursorLeft { .. } => {
+                // A drag that leaves the window still ends at its release.
+                if self.chrome.as_ref().is_some_and(ChromeState::dragging) {
+                    return;
+                }
                 self.cursor = None;
                 self.set_hovered(None, None);
             }
@@ -42,6 +52,10 @@ impl App {
             WindowEvent::MouseWheel { delta, .. } => self.on_wheel(delta),
             WindowEvent::PinchGesture { delta, .. } => self.on_pinch(delta as f32),
             WindowEvent::KeyboardInput { event, .. } => {
+                if self.on_chrome_key(&event) {
+                    self.show_tool_cursor();
+                    return;
+                }
                 let Some(page) = self.focused else {
                     return;
                 };
@@ -115,8 +129,51 @@ impl App {
         }
     }
 
+    /// `C` toggles the comment tool while no page has keyboard focus (a
+    /// focused page gets the key); `Escape` always cancels the drag, leaves
+    /// the tool and clears page focus, so it is never forwarded. Returns
+    /// whether the chrome layer consumed the key.
+    fn on_chrome_key(&mut self, event: &KeyEvent) -> bool {
+        if self.chrome.is_none() {
+            return false;
+        }
+        let pressed = event.state == ElementState::Pressed;
+        match event.physical_key {
+            PhysicalKey::Code(KeyCode::Escape) => {
+                if pressed && let Some(chrome) = self.chrome.as_mut() {
+                    chrome.escape(&mut self.placed);
+                    self.set_focus(None);
+                }
+                true
+            }
+            PhysicalKey::Code(KeyCode::KeyC) if pressed && self.modifiers.is_empty() => {
+                let focused = self.focused.is_some();
+                !event.repeat && self.chrome.as_mut().is_some_and(|c| c.toggle_tool(focused))
+            }
+            _ => false,
+        }
+    }
+
+    /// A crosshair while the comment tool is armed.
+    fn show_tool_cursor(&self) {
+        let armed = self.chrome.as_ref().is_some_and(ChromeState::tool_armed);
+        if let Some(gpu) = self.gpu.as_ref() {
+            gpu.window.set_cursor(if armed {
+                CursorIcon::Crosshair
+            } else {
+                CursorIcon::Default
+            });
+        }
+    }
+
     fn on_cursor_moved(&mut self, screen: Vec2) {
         self.cursor = Some(screen);
+        if let Some(chrome) = self.chrome.as_mut()
+            && chrome.dragging()
+        {
+            chrome.drag(screen, &self.camera, &mut self.placed);
+            return;
+        }
         match self.page_under(screen) {
             Some((placed, local)) => {
                 self.set_hovered(Some(placed.page), Some(local));
@@ -145,6 +202,13 @@ impl App {
         };
         match state {
             ElementState::Pressed => {
+                if button == PointerButton::Left
+                    && let Some(chrome) = self.chrome.as_mut()
+                    && chrome.press(screen, &self.camera, &self.placed, self.modifiers.alt_key())
+                        == Press::Consumed
+                {
+                    return;
+                }
                 let hit = self.page_under(screen);
                 if button == PointerButton::Left {
                     self.set_focus(hit.map(|(placed, _)| placed.page));
@@ -163,6 +227,18 @@ impl App {
                 }
             }
             ElementState::Released => {
+                if button == PointerButton::Left
+                    && let Some(chrome) = self.chrome.as_mut()
+                {
+                    match chrome.release(screen, &self.camera, &self.placed) {
+                        Release::NoGesture => {}
+                        Release::Finished => return,
+                        Release::Resized { page, viewport } => {
+                            self.apply_viewport(page, viewport);
+                            return;
+                        }
+                    }
+                }
                 // The release goes to the page that got the press even if the
                 // pointer has left it, so drags that end outside complete and
                 // no page is left thinking a button is held.
@@ -184,6 +260,17 @@ impl App {
                 );
                 self.send_to_page(placed.page, &event);
             }
+        }
+    }
+
+    /// Applies a resized page's new layout viewport, once per resize.
+    fn apply_viewport(&mut self, page: PageId, viewport: CssSize) {
+        if let Err(error) = self.source.set_viewport(page, viewport) {
+            tracing::warn!("{error}");
+            return;
+        }
+        if let Some(placed) = self.placed.iter_mut().find(|placed| placed.page == page) {
+            placed.viewport = viewport;
         }
     }
 

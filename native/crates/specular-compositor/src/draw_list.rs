@@ -10,7 +10,7 @@ use crate::gpu_types::QuadInstance;
 use crate::scene::SceneView;
 
 /// Page corner radius in canvas units (canvas-bg's page chrome rounding).
-pub(crate) const PAGE_CORNER_RADIUS: f32 = 8.0;
+pub const PAGE_CORNER_RADIUS: f32 = 8.0;
 
 /// Which of a page's textures a quad samples.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

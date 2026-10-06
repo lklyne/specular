@@ -26,7 +26,21 @@ usage: specular-app [OPTIONS] [FILE.canvas]
   --paint-policy P    electron-lod (default): Electron's page-host frame-rate
                       and texture-scale tiers plus off-screen culling;
                       full-rate: every page paints at full rate and scale
-  -h, --help          print this help";
+  --chrome on|off     on (default): draw the canvas chrome (page borders,
+                      selection with resize handles, comment annotations)
+                      through the shape layer every frame; off: draw no
+                      shapes at all. With --bench and chrome on, the first
+                      page starts selected
+  --annotations N     seed N page-bound comment annotations, spread over the
+                      pages (needs --chrome on)
+  -h, --help          print this help
+
+keys (chrome on):
+  Alt + drag a page   move it
+  drag a corner       resize the selected page (page re-lays-out on release)
+  C                   toggle the comment tool, unless a page has keyboard
+                      focus; drag on the canvas to draw an annotation
+  Escape              cancel the drag, leave the comment tool, clear page focus";
 
 /// Settle time before the first bench profile when `--warmup-ms` is not given.
 const DEFAULT_WARMUP: Duration = Duration::from_secs(2);
@@ -82,6 +96,10 @@ pub(crate) struct RunArgs {
     pub(crate) paint_policy: PaintPolicy,
     /// Window size in logical pixels; `None` takes the platform default.
     pub(crate) window: Option<(u32, u32)>,
+    /// Whether the chrome layer is drawn.
+    pub(crate) chrome: bool,
+    /// Page-bound annotations to seed at startup.
+    pub(crate) annotations: usize,
 }
 
 /// Parses arguments (without the program name).
@@ -94,7 +112,10 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
         warmup: DEFAULT_WARMUP,
         paint_policy: PaintPolicy::ElectronLod,
         window: None,
+        chrome: true,
+        annotations: 0,
     };
+    let mut annotations_given = false;
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
         let Some(flag) = arg.to_str() else {
@@ -131,6 +152,20 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
             "--paint-policy" => {
                 run.paint_policy = value_of(flag, args.next())?.parse()?;
             }
+            "--chrome" => {
+                run.chrome = match value_of(flag, args.next())?.as_str() {
+                    "on" => true,
+                    "off" => false,
+                    other => bail!("unknown --chrome `{other}` (expected on or off)"),
+                };
+            }
+            "--annotations" => {
+                let value = value_of(flag, args.next())?;
+                run.annotations = value
+                    .parse()
+                    .with_context(|| format!("--annotations expects a number, got `{value}`"))?;
+                annotations_given = true;
+            }
             "--window" => run.window = Some(window_size(&value_of(flag, args.next())?)?),
             _ if flag.starts_with('-') => bail!("unknown option `{flag}`"),
             _ => set_canvas(&mut run, arg)?,
@@ -138,6 +173,9 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
     }
     if run.canvas.is_some() && run.pages.is_some() {
         bail!("--pages lays out demo pages and cannot be combined with a .canvas file");
+    }
+    if annotations_given && !run.chrome {
+        bail!("--annotations needs the chrome layer; drop --chrome off");
     }
     Ok(Command::Run(run))
 }
@@ -272,6 +310,38 @@ mod tests {
     #[test]
     fn window_flag_rejects_a_zero_side() {
         assert!(parse_strs(&["--window", "0x600"]).is_err());
+    }
+
+    #[test]
+    fn chrome_defaults_on_without_annotations() {
+        let run = run_args(&[]);
+        assert_eq!((run.chrome, run.annotations), (true, 0));
+    }
+
+    #[test]
+    fn chrome_flag_turns_the_layer_off() {
+        assert!(!run_args(&["--chrome", "off"]).chrome);
+    }
+
+    #[test]
+    fn unknown_chrome_value_is_rejected() {
+        assert!(parse_strs(&["--chrome", "maybe"]).is_err());
+    }
+
+    #[test]
+    fn annotations_flag_sets_the_seed_count() {
+        assert_eq!(run_args(&["--annotations", "40"]).annotations, 40);
+    }
+
+    #[test]
+    fn annotations_with_chrome_off_is_rejected() {
+        assert!(parse_strs(&["--chrome", "off", "--annotations", "5"]).is_err());
+        assert!(parse_strs(&["--annotations", "5", "--chrome", "off"]).is_err());
+    }
+
+    #[test]
+    fn annotations_must_be_a_number() {
+        assert!(parse_strs(&["--annotations", "lots"]).is_err());
     }
 
     #[test]

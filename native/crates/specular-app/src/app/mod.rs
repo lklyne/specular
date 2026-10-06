@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use anyhow::Context as _;
 use glam::Vec2;
 use specular_bench::{BenchLine, GestureProfile, InputLatencyLine, PaintPolicy, STEP_INTERVAL};
-use specular_compositor::{FrameObserver as _, FrameSample, PageDraw};
+use specular_compositor::{FrameObserver as _, FrameSample, PageDraw, ShapeDraw};
 use specular_core::document::PageNode;
 use specular_core::{Camera, CssSize, InputEvent, PageEvent, PageId, PageSource, PageSpec};
 use winit::application::ApplicationHandler;
@@ -23,7 +23,10 @@ use winit::keyboard::ModifiersState;
 use winit::window::WindowId;
 
 use self::gpu_window::GpuWindow;
+use crate::annotation;
 use crate::bench_run::{BenchRun, BenchTick, RunSource};
+use crate::chrome::{self, ChromeScene};
+use crate::chrome_state::ChromeState;
 use crate::input_map::{ButtonCapture, ClickCounter};
 use crate::latency::InputLatencyProbe;
 use crate::paint_lod::LodChange;
@@ -48,6 +51,10 @@ pub(crate) struct Session {
     pub(crate) paint_policy: PaintPolicy,
     /// Window size in logical pixels; `None` takes the platform default.
     pub(crate) window: Option<(u32, u32)>,
+    /// Whether the chrome layer (borders, selection, annotations, tools) runs.
+    pub(crate) chrome: bool,
+    /// Page-bound annotations seeded at startup.
+    pub(crate) annotations: usize,
 }
 
 /// Application state driven by winit.
@@ -57,6 +64,10 @@ pub(crate) struct App {
     placed: Vec<PlacedPage>,
     /// Per-frame scratch rebuilt from `placed`.
     draws: Vec<PageDraw>,
+    /// Per-frame chrome shapes, reused across frames.
+    shapes: Vec<ShapeDraw>,
+    /// `None` with `--chrome off`: no shapes, no tool, no selection.
+    chrome: Option<ChromeState>,
     camera: Camera,
     gpu: Option<GpuWindow>,
     events: Vec<PageEvent>,
@@ -90,6 +101,8 @@ impl App {
             initial_pages,
             placed: Vec::new(),
             draws: Vec::new(),
+            shapes: Vec::new(),
+            chrome: None,
             camera: START_CAMERA,
             gpu: None,
             events: Vec::new(),
@@ -170,6 +183,15 @@ impl App {
                 .with_context(|| format!("creating page for {}", node.url))?;
             self.placed.push(PlacedPage::new(page, node.rect, viewport));
         }
+        if self.session.chrome {
+            let mut chrome =
+                ChromeState::new(annotation::seed(self.session.annotations, &self.placed));
+            if self.session.bench.is_some() {
+                // The selection outline and handles belong in every measured frame.
+                chrome.select(self.placed.first().map(|placed| placed.page));
+            }
+            self.chrome = Some(chrome);
+        }
         if let Some(profiles) = self.session.bench.take() {
             let step_interval = gpu.refresh_interval().unwrap_or(STEP_INTERVAL);
             self.bench = Some(BenchRun::new(
@@ -182,6 +204,8 @@ impl App {
                     representative: self.session.representative_source,
                     pages: self.placed.len(),
                     paint_policy: self.session.paint_policy,
+                    chrome: self.session.chrome,
+                    annotations: self.session.annotations,
                 },
                 Instant::now(),
             ));
@@ -217,7 +241,15 @@ impl App {
         };
         self.draws.clear();
         self.draws.extend(self.placed.iter().map(PlacedPage::draw));
-        let Some(stats) = gpu.render(self.camera, &self.draws) else {
+        let scene = self.chrome.as_ref().map(|chrome| ChromeScene {
+            placed: &self.placed,
+            selected: chrome.selected(),
+            hovered: self.hovered,
+            annotations: chrome.annotations(),
+            preview: chrome.preview(),
+        });
+        chrome::build_shapes(scene.as_ref(), &mut self.shapes);
+        let Some(stats) = gpu.render(self.camera, &self.draws, &self.shapes) else {
             return Ok(());
         };
         let presented_at = Instant::now();
