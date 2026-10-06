@@ -97,6 +97,7 @@ impl PhaseRecorder {
             frames_received: Some(self.textures.frames_received),
             draws_without_texture: Some(self.draws_without_texture),
             textures: Some(self.textures),
+            max_shapes_drawn: None,
         }
     }
 }

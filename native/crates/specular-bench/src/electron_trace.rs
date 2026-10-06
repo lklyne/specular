@@ -203,6 +203,7 @@ pub fn phase_from_burst(profile: &GestureProfile, burst: &[f64], budget: Duratio
         frames_received: None,
         draws_without_texture: None,
         textures: None,
+        max_shapes_drawn: None,
     }
 }
 

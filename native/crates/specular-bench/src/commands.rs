@@ -128,6 +128,8 @@ pub(crate) fn electron_trace(args: &Args) -> anyhow::Result<String> {
             args.parsed::<PaintPolicy>("paint-policy")?
                 .unwrap_or(PaintPolicy::ElectronLod),
         ),
+        chrome: None,
+        annotations: None,
         phases,
         textures: None,
         memory: None,
@@ -150,7 +152,7 @@ pub(crate) fn assemble(args: &Args) -> anyhow::Result<String> {
 }
 
 /// Folds `specular-app` output lines into a report. Profile lines must agree
-/// on source, page count, step interval and paint policy.
+/// on source, page count, step interval, paint policy and chrome load.
 fn assemble_lines(text: &str) -> anyhow::Result<RunReport> {
     let mut report = RunReport {
         shell: Shell::RustCef,
@@ -160,6 +162,8 @@ fn assemble_lines(text: &str) -> anyhow::Result<RunReport> {
         frame_ms: 0.0,
         representative: true,
         paint_policy: None,
+        chrome: None,
+        annotations: None,
         phases: Vec::new(),
         textures: None,
         memory: None,
@@ -179,9 +183,13 @@ fn assemble_lines(text: &str) -> anyhow::Result<RunReport> {
                     report.page_count = Some(profile.pages);
                     report.frame_ms = profile.step_interval_ms;
                     report.paint_policy = Some(profile.paint_policy);
+                    report.chrome = Some(profile.chrome);
+                    report.annotations = Some(profile.annotations);
                 } else if report.source != profile.source
                     || report.page_count != Some(profile.pages)
                     || report.paint_policy != Some(profile.paint_policy)
+                    || report.chrome != Some(profile.chrome)
+                    || report.annotations != Some(profile.annotations)
                     || (report.frame_ms - profile.step_interval_ms).abs() > 0.5
                 {
                     bail!("line {line_no} comes from a different run configuration");
@@ -260,6 +268,36 @@ mod tests {
         let other = one_line(PROFILE).replace("electron-lod", "full-rate");
         let text = format!("{}\n{other}", one_line(PROFILE));
         assert!(assemble_lines(&text).is_err());
+    }
+
+    #[test]
+    fn old_lines_assemble_as_no_chrome() {
+        let report = assemble_lines(&one_line(PROFILE)).unwrap();
+        assert_eq!((report.chrome, report.annotations), (Some(false), Some(0)));
+    }
+
+    #[test]
+    fn lines_with_different_annotation_counts_are_rejected() {
+        let other = one_line(PROFILE).replace(r#""pages":9,"#, r#""pages":9,"annotations":5,"#);
+        let text = format!("{}\n{other}", one_line(PROFILE));
+        assert!(assemble_lines(&text).is_err());
+    }
+
+    #[test]
+    fn chrome_fields_carry_into_the_report() {
+        let line = one_line(PROFILE).replace(
+            r#""pages":9,"#,
+            r#""pages":9,"chrome":true,"annotations":40,"maxShapesDrawn":52,"#,
+        );
+        let report = assemble_lines(&line).unwrap();
+        assert_eq!(
+            (
+                report.chrome,
+                report.annotations,
+                report.phases[0].max_shapes_drawn
+            ),
+            (Some(true), Some(40), Some(52))
+        );
     }
 
     #[test]

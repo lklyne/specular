@@ -90,6 +90,13 @@ pub struct RunReport {
     /// The page paint policy the shell ran under (absent in older files).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paint_policy: Option<PaintPolicy>,
+    /// Whether the canvas chrome layer (page borders, selection, annotations)
+    /// was drawn every frame (absent in older files and for Electron).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chrome: Option<bool>,
+    /// Annotations the run drew every frame (absent in older files).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<usize>,
     /// Per-profile results, in run order.
     pub phases: Vec<PhaseReport>,
     /// Texture counters over the whole run.
@@ -128,6 +135,9 @@ pub struct PhaseReport {
     /// Texture counters accumulated during the phase.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub textures: Option<TextureStats>,
+    /// The most shapes any presented frame of the phase drew (chrome load).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_shapes_drawn: Option<u64>,
 }
 
 #[cfg(test)]
@@ -146,6 +156,7 @@ mod tests {
             frames_received: None,
             draws_without_texture: None,
             textures: None,
+            max_shapes_drawn: None,
         };
         let json = serde_json::to_value(phase).unwrap();
         assert_eq!(
@@ -192,6 +203,8 @@ mod tests {
             frame_ms: 8.33,
             representative: true,
             paint_policy: Some(PaintPolicy::ElectronLod),
+            chrome: Some(true),
+            annotations: Some(40),
             phases: Vec::new(),
             textures: Some(TextureStats::default()),
             memory: None,

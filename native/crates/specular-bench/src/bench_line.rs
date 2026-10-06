@@ -45,6 +45,13 @@ pub struct ProfileLine {
     /// The page paint policy the shell applied (frame-rate tiers, culling),
     /// so `compare` can flag runs whose shells did different work.
     pub paint_policy: PaintPolicy,
+    /// Whether the chrome layer was drawn every frame. Older lines predate
+    /// it and drew none.
+    #[serde(default)]
+    pub chrome: bool,
+    /// Annotations drawn every frame; zero in older lines.
+    #[serde(default)]
+    pub annotations: usize,
 }
 
 /// Forwarded input -> page repaint -> presented, over a whole session.
@@ -72,6 +79,7 @@ mod tests {
                 frames_received: None,
                 draws_without_texture: Some(0),
                 textures: None,
+                max_shapes_drawn: Some(12),
             },
             label: "Slow zoom".to_owned(),
             source: "cef".to_owned(),
@@ -80,6 +88,8 @@ mod tests {
             step_interval_ms: 8.33,
             max_paint_to_submit_ms: None,
             paint_policy: PaintPolicy::ElectronLod,
+            chrome: true,
+            annotations: 3,
         }
     }
 
@@ -106,6 +116,23 @@ mod tests {
         });
         let json = serde_json::to_string(&line).unwrap();
         assert_eq!(serde_json::from_str::<BenchLine>(&json).unwrap(), line);
+    }
+
+    #[test]
+    fn profile_line_without_chrome_fields_reads_as_no_chrome() {
+        let mut json = serde_json::to_value(BenchLine::Profile(profile_line())).unwrap();
+        if let Some(object) = json.as_object_mut() {
+            object.remove("chrome");
+            object.remove("annotations");
+            object.remove("maxShapesDrawn");
+        }
+        let BenchLine::Profile(line) = serde_json::from_value(json).unwrap() else {
+            panic!("expected a profile line");
+        };
+        assert_eq!(
+            (line.chrome, line.annotations, line.phase.max_shapes_drawn),
+            (false, 0, None)
+        );
     }
 
     #[test]

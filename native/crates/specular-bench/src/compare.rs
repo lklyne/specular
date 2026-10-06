@@ -22,7 +22,7 @@ struct Metric {
     label: &'static str,
 }
 
-const PHASE_METRICS: [Metric; 11] = [
+const PHASE_METRICS: [Metric; 12] = [
     Metric {
         key: "drawFps",
         label: "drawFps",
@@ -66,6 +66,10 @@ const PHASE_METRICS: [Metric; 11] = [
     Metric {
         key: "maxOutstandingTextures",
         label: "maxOutstandingTextures",
+    },
+    Metric {
+        key: "maxShapesDrawn",
+        label: "maxShapesDrawn",
     },
 ];
 
@@ -222,6 +226,41 @@ impl LoadedRun {
             .or_else(phase_policy)
     }
 
+    /// Whether the chrome layer was drawn. Rust-shell files from before the
+    /// layer existed carry no field and drew none; other producers are
+    /// unknown.
+    fn chrome(&self) -> Option<bool> {
+        self.recorded("chrome", Value::as_bool)
+            .or_else(|| self.is_rust_shell().then_some(false))
+    }
+
+    /// Annotation count, with the same defaulting as [`Self::chrome`].
+    fn annotations(&self) -> Option<u64> {
+        self.recorded("annotations", Value::as_u64)
+            .or_else(|| self.is_rust_shell().then_some(0))
+    }
+
+    /// A run-level or per-phase field, whichever the file has.
+    fn recorded<T>(&self, key: &str, read: impl Fn(&Value) -> Option<T>) -> Option<T> {
+        self.root.get(key).and_then(&read).or_else(|| {
+            self.phases
+                .values()
+                .flatten()
+                .find_map(|phase| phase.get(key).and_then(&read))
+        })
+    }
+
+    /// Whether the file came from the Rust app: its report names the shell,
+    /// and its JSON lines carry a paint policy on every phase.
+    fn is_rust_shell(&self) -> bool {
+        self.root.get("shell").and_then(Value::as_str) == Some("rust-cef")
+            || self
+                .phases
+                .values()
+                .flatten()
+                .any(|phase| phase.get("paintPolicy").is_some())
+    }
+
     fn notes(&self) -> impl Iterator<Item = &str> {
         self.root
             .get("notes")
@@ -293,6 +332,37 @@ fn write_notes(out: &mut String, a: &LoadedRun, b: &LoadedRun) {
     }
 }
 
+/// Says how much canvas chrome each run drew per frame, and warns when the
+/// two differ: the chrome layer costs frame time, so such runs are confounded.
+fn write_chrome(out: &mut String, a: &LoadedRun, b: &LoadedRun) {
+    let describe = |run: &LoadedRun| match (run.chrome(), run.annotations()) {
+        (Some(true), annotations) => {
+            format!(
+                "chrome on, {} annotations",
+                format_value(annotations.map(|n| n as f64))
+            )
+        }
+        (Some(false), _) => "chrome off".to_owned(),
+        (None, _) => "chrome unknown".to_owned(),
+    };
+    let (da, db) = (describe(a), describe(b));
+    if a.chrome().is_none() && b.chrome().is_none() {
+        return;
+    }
+    let (la, lb) = (a.label(), b.label());
+    let _ = writeln!(out, "\nCanvas chrome: {la} {da}; {lb} {db}.");
+    let chrome_differs = matches!((a.chrome(), b.chrome()), (Some(x), Some(y)) if x != y);
+    let annotations_differ =
+        matches!((a.annotations(), b.annotations()), (Some(x), Some(y)) if x != y);
+    if chrome_differs || annotations_differ {
+        let _ = writeln!(
+            out,
+            "\n> **Chrome load differs:** {la} ran {da}, {lb} ran {db}; each frame drew \
+             a different amount of UI, so frame times are confounded."
+        );
+    }
+}
+
 fn format_value(value: Option<f64>) -> String {
     match value {
         None => "—".to_owned(),
@@ -354,6 +424,7 @@ pub fn compare_markdown(a: &LoadedRun, b: &LoadedRun) -> String {
              painted different amounts per page, so frame times and memory are confounded."
         );
     }
+    write_chrome(&mut out, a, b);
     let _ = writeln!(out, "\nDeltas are {lb} minus {la}.\n");
 
     let _ = writeln!(out, "## Frame timing per profile\n");
@@ -516,6 +587,40 @@ mod tests {
             LoadedRun::parse(&full, "b.json").unwrap(),
         );
         assert!(compare_markdown(&a, &b).contains("Paint policies differ"));
+    }
+
+    #[test]
+    fn markdown_flags_differing_chrome_load() {
+        // An older Rust-app file: its lines carry a paint policy, no chrome.
+        let plain = RUST_JSONL.replace(
+            r#""representative":true"#,
+            r#""representative":true,"paintPolicy":"electron-lod""#,
+        );
+        let loaded = RUST_JSONL.replace(
+            r#""representative":true"#,
+            r#""representative":true,"paintPolicy":"electron-lod","chrome":true,"annotations":40"#,
+        );
+        let (a, b) = (
+            LoadedRun::parse(&plain, "a.jsonl").unwrap(),
+            LoadedRun::parse(&loaded, "b.jsonl").unwrap(),
+        );
+        let table = compare_markdown(&a, &b);
+        assert!(table.contains("Chrome load differs"), "{table}");
+    }
+
+    #[test]
+    fn markdown_stays_quiet_when_chrome_load_matches() {
+        let loaded = RUST_JSONL.replace(
+            r#""representative":true"#,
+            r#""representative":true,"chrome":true,"annotations":40"#,
+        );
+        let run = LoadedRun::parse(&loaded, "a.jsonl").unwrap();
+        assert!(!compare_markdown(&run, &run).contains("Chrome load differs"));
+    }
+
+    #[test]
+    fn electron_runs_have_unknown_chrome() {
+        assert_eq!(electron().chrome(), None);
     }
 
     #[test]
