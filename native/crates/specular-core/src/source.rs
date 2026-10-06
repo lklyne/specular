@@ -120,6 +120,16 @@ pub trait PageSource {
     /// Port of the backend's remote-debugging (CDP) endpoint, if enabled.
     fn devtools_port(&self) -> Option<u16>;
 
-    /// Closes every page and shuts the backend down. Idempotent.
+    /// Closes every page and shuts the backend down, blocking until done.
+    /// Idempotent.
     fn shutdown(&mut self);
+
+    /// Non-blocking shutdown for a caller inside a running event loop: call
+    /// once per loop turn until it returns `true`, then leave the loop. A
+    /// backend that can only stop from the running loop (CEF on macOS)
+    /// overrides this; the default shuts down at once.
+    fn poll_shutdown(&mut self) -> bool {
+        self.shutdown();
+        true
+    }
 }

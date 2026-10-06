@@ -22,17 +22,20 @@ use crate::error::CefError;
 use crate::page::{PageContext, PageGeometry, clear_events, drain_events, lock_geometry};
 use crate::pool::OutstandingFrames;
 use crate::process::{backend_error, declare_api_version};
+#[cfg(target_os = "macos")]
+use crate::pump_timer::PumpTimer;
 use crate::translate::{CefRange, HostCall, InputTranslator};
 
 /// Pages paint opaque white under transparent content, like an Electron
 /// `BrowserWindow`, so CPU and GPU frames composite identically.
 const OPAQUE_WHITE: u32 = 0xFFFF_FFFF;
 
-/// How long [`PageSource::shutdown`] pumps CEF waiting for browsers to close.
+/// How long shutdown waits for browsers to close.
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
 
 struct PageEntry {
-    browser: Browser,
+    /// Keeps the browser alive for as long as the page is hosted.
+    _browser: Browser,
     host: BrowserHost,
     geometry: Arc<Mutex<PageGeometry>>,
     input: InputTranslator,
@@ -42,7 +45,8 @@ struct PageEntry {
 ///
 /// One browser per page, sized to the page's CSS viewport at its device
 /// scale factor. CEF runs single-threaded on the caller's (main) thread,
-/// driven by [`PageSource::pump`] from the window event loop.
+/// driven by [`PageSource::pump`] from the window event loop (macOS: by a
+/// main-run-loop timer instead, see `pump_timer`).
 pub struct CefPageSource {
     config: CefConfig,
     pages: HashMap<PageId, PageEntry>,
@@ -51,6 +55,11 @@ pub struct CefPageSource {
     alive: Arc<AtomicUsize>,
     ui_thread: std::thread::ThreadId,
     running: bool,
+    #[cfg(target_os = "macos")]
+    pump_timer: Option<PumpTimer>,
+    /// Set by the first `poll_shutdown`: when to stop waiting for browsers.
+    #[cfg(target_os = "macos")]
+    close_deadline: Option<Instant>,
 }
 
 impl fmt::Debug for CefPageSource {
@@ -118,7 +127,25 @@ impl CefPageSource {
             alive: Arc::new(AtomicUsize::new(0)),
             ui_thread: std::thread::current().id(),
             running: true,
+            #[cfg(target_os = "macos")]
+            pump_timer: Some(PumpTimer::start()?),
+            #[cfg(target_os = "macos")]
+            close_deadline: None,
         })
+    }
+
+    fn close_all(&mut self) {
+        for (_, entry) in self.pages.drain() {
+            entry.host.close_browser(1);
+        }
+        self.focused = None;
+    }
+
+    fn warn_if_browsers_open(&self) {
+        let open = self.alive.load(Ordering::Acquire);
+        if open > 0 {
+            tracing::warn!(open, "browsers still open at CEF shutdown");
+        }
     }
 
     fn entry(&self, page: PageId) -> Result<&PageEntry, PageSourceError> {
@@ -273,7 +300,7 @@ impl PageSource for CefPageSource {
         self.pages.insert(
             id,
             PageEntry {
-                browser,
+                _browser: browser,
                 host,
                 geometry,
                 input: InputTranslator::new(),
@@ -354,6 +381,9 @@ impl PageSource for CefPageSource {
     }
 
     fn pump(&mut self) {
+        // macOS pumps from `pump_timer`: this is called inside a winit
+        // handler, where CEF's nested run-loop turn would re-enter winit.
+        #[cfg(not(target_os = "macos"))]
         if self.running {
             cef::do_message_loop_work();
         }
@@ -373,29 +403,59 @@ impl PageSource for CefPageSource {
         if !self.running {
             return;
         }
-        for (_, entry) in self.pages.drain() {
-            entry.host.close_browser(1);
-            drop(entry.browser);
-        }
-        self.focused = None;
+        #[cfg(target_os = "macos")]
+        drop(self.pump_timer.take());
+        self.close_all();
         let deadline = Instant::now() + CLOSE_TIMEOUT;
         while self.alive.load(Ordering::Acquire) > 0 && Instant::now() < deadline {
             cef::do_message_loop_work();
             std::thread::sleep(Duration::from_millis(1));
         }
-        if self.alive.load(Ordering::Acquire) > 0 {
-            tracing::warn!(
-                open = self.alive.load(Ordering::Acquire),
-                "browsers still open at CEF shutdown"
-            );
-        }
-        // Queued frames hold IOSurfaces; release them while CEF still runs.
-        clear_events();
-        cef::shutdown();
-        #[cfg(target_os = "macos")]
-        crate::process::unload_framework();
+        self.warn_if_browsers_open();
+        stop_cef();
         self.running = false;
     }
+
+    /// Closes the browsers, lets the pump timer run CEF until they are gone,
+    /// then has the timer stop CEF: both the close and `cef::shutdown` spin
+    /// run-loop turns, which must happen outside winit's handlers and before
+    /// its event loop returns (see `pump_timer`).
+    #[cfg(target_os = "macos")]
+    fn poll_shutdown(&mut self) -> bool {
+        if !self.running {
+            return true;
+        }
+        let Some(deadline) = self.close_deadline else {
+            self.close_all();
+            self.close_deadline = Some(Instant::now() + CLOSE_TIMEOUT);
+            return false;
+        };
+        if self.alive.load(Ordering::Acquire) > 0 && Instant::now() < deadline {
+            return false;
+        }
+        if self.pump_timer.is_none() {
+            self.shutdown();
+            return true;
+        }
+        if PumpTimer::request_stop() {
+            self.warn_if_browsers_open();
+        }
+        if !PumpTimer::stopped() {
+            return false;
+        }
+        self.pump_timer = None;
+        self.running = false;
+        true
+    }
+}
+
+/// Stops CEF. Every browser should be closed first.
+pub(crate) fn stop_cef() {
+    // Queued frames hold IOSurfaces; release them while CEF still runs.
+    clear_events();
+    cef::shutdown();
+    #[cfg(target_os = "macos")]
+    crate::process::unload_framework();
 }
 
 impl Drop for CefPageSource {

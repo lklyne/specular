@@ -40,6 +40,8 @@ mod iosurface;
 mod paint;
 #[cfg(feature = "cef")]
 mod process;
+#[cfg(all(feature = "cef", target_os = "macos"))]
+mod pump_timer;
 #[cfg(feature = "cef")]
 mod source;
 

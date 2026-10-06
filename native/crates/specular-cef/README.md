@@ -78,9 +78,11 @@ cargo clippy -p specular-cef --all-targets --features cef-dox \
   Playwright `chromium.connectOverCDP("http://localhost:9222")` and raw CDP
   clients can attach. Every page shows up as a CDP target.
 - **Message loop.** `multi_threaded_message_loop = 0`,
-  `external_message_pump = 1`; `PageSource::pump` calls
-  `CefDoMessageLoopWork` once per winit loop turn (the app runs a Poll loop,
-  so `OnScheduleMessagePumpWork` is not needed).
+  `external_message_pump = 1`. On macOS a 240 Hz main-run-loop timer
+  (`pump_timer`) calls `CefDoMessageLoopWork`: the call spins a nested
+  run-loop turn, which panics winit if made inside one of its handlers.
+  Elsewhere `PageSource::pump` calls it once per winit loop turn.
+  `OnScheduleMessagePumpWork` is not used.
 
 ## macOS setup (Apple Silicon), the representative configuration
 

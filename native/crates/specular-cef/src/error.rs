@@ -33,6 +33,9 @@ pub enum CefError {
     /// `NSApp` could not be made to implement `CefAppProtocol` (macOS).
     #[error("cannot make NSApp a CefAppProtocol application: {0}")]
     AppProtocol(&'static str),
+    /// The main run-loop timer that pumps CEF could not be created (macOS).
+    #[error("cannot start the CEF message pump timer")]
+    PumpTimer,
     /// A configured path cannot be passed to CEF (not valid UTF-8).
     #[error("path is not valid UTF-8: {}", .0.display())]
     InvalidPath(PathBuf),

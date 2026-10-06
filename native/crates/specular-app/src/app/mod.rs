@@ -70,6 +70,8 @@ pub(crate) struct App {
     session: Session,
     bench: Option<BenchRun>,
     error: Option<anyhow::Error>,
+    /// Set once exit starts; the loop ends when the source has shut down.
+    closing: bool,
 }
 
 impl App {
@@ -100,6 +102,7 @@ impl App {
             session,
             bench: None,
             error: None,
+            closing: false,
         }
     }
 
@@ -108,15 +111,19 @@ impl App {
         self.error.map_or(Ok(()), Err)
     }
 
-    fn fail(&mut self, event_loop: &ActiveEventLoop, error: anyhow::Error) {
+    fn fail(&mut self, error: anyhow::Error) {
         tracing::error!("{error:#}");
         self.error.get_or_insert(error);
-        self.exit(event_loop);
+        self.exit();
     }
 
     /// Reports the session's input latency (a JSON line for `assemble`) and
-    /// import-cache use, then shuts the source down.
-    fn exit(&mut self, event_loop: &ActiveEventLoop) {
+    /// import-cache use, then starts shutting down. The event loop keeps
+    /// turning until the source reports it is done (see `about_to_wait`).
+    fn exit(&mut self) {
+        if self.closing {
+            return;
+        }
         let latency = self.latency.summary();
         if latency.samples > 0 {
             tracing::info!(
@@ -141,8 +148,8 @@ impl App {
                 tracing::info!(hits, misses, "shared-surface import cache");
             }
         }
-        self.source.shutdown();
-        event_loop.exit();
+        self.placed.clear();
+        self.closing = true;
     }
 
     fn init(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
@@ -181,14 +188,14 @@ impl App {
         Ok(())
     }
 
-    fn redraw(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
+    fn redraw(&mut self) -> anyhow::Result<()> {
         let Some(viewport) = self.gpu.as_ref().map(GpuWindow::logical_viewport) else {
             return Ok(());
         };
         if let Some(bench) = self.bench.as_mut()
             && bench.tick(Instant::now(), &mut self.camera, viewport / 2.0) == BenchTick::Finished
         {
-            self.finish_bench(event_loop)?;
+            self.finish_bench()?;
             return Ok(());
         }
 
@@ -273,13 +280,13 @@ impl App {
         );
     }
 
-    fn finish_bench(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
+    fn finish_bench(&mut self) -> anyhow::Result<()> {
         if let Some(bench) = self.bench.take() {
             for report in bench.reports() {
                 println!("{}", serde_json::to_string(report)?);
             }
         }
-        self.exit(event_loop);
+        self.exit();
         Ok(())
     }
 
@@ -336,13 +343,13 @@ impl ApplicationHandler for App {
         }
         event_loop.set_control_flow(ControlFlow::Poll);
         if let Err(error) = self.init(event_loop) {
-            self.fail(event_loop, error);
+            self.fail(error);
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+    fn window_event(&mut self, _event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         match event {
-            WindowEvent::CloseRequested => self.exit(event_loop),
+            WindowEvent::CloseRequested => self.exit(),
             WindowEvent::Resized(size) => {
                 if let Some(gpu) = self.gpu.as_mut() {
                     gpu.resize(size);
@@ -352,15 +359,21 @@ impl ApplicationHandler for App {
                 self.on_scale_factor_changed(scale_factor);
             }
             WindowEvent::RedrawRequested => {
-                if let Err(error) = self.redraw(event_loop) {
-                    self.fail(event_loop, error);
+                if let Err(error) = self.redraw() {
+                    self.fail(error);
                 }
             }
             other => self.on_input(other),
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if self.closing {
+            if self.source.poll_shutdown() {
+                event_loop.exit();
+            }
+            return;
+        }
         if let Some(gpu) = self.gpu.as_ref() {
             gpu.window.request_redraw();
         }
