@@ -60,7 +60,7 @@ cargo clippy --target aarch64-apple-darwin --workspace --all-targets \
 
 ```
 specular-app [--source synthetic|cef] [--pages N | FILE.canvas]
-             [--bench all|id,id,... [--warmup-ms N]]
+             [--bench all|id,id,... [--warmup-ms N]] [--window WxH]
 ```
 
 Scroll pans; Cmd/Ctrl+scroll and pinch zoom about the cursor (same factor as
@@ -141,7 +141,7 @@ for fx in static-9 static-20 static-40 animated-20; do
   pages="${fx##*-}"
   : > "runs/rust-$fx.jsonl"
   for i in 1 2 3; do
-    "$APP" --bench all --warmup-ms 8000 "fixtures/$fx.canvas" \
+    "$APP" --window 1600x1000 --bench all --warmup-ms 8000 "fixtures/$fx.canvas" \
       >> "runs/rust-$fx.jsonl" 2>> "runs/rust-$fx.log" &
     pid=$!
     sleep 6 && "$BENCH" rss --pid "$pid" > "runs/rust-$fx-mem-idle-$i.json"
@@ -154,6 +154,10 @@ for fx in static-9 static-20 static-40 animated-20; do
 done
 grep -h '"representative":false' runs/rust-*.jsonl && echo "NON-REPRESENTATIVE LINES ABOVE: fix before comparing"
 ```
+
+`--window` sets the window's logical size; match it to the Electron window
+you compare against (the platform default is far smaller, so each frame
+composites fewer pixels).
 
 The app runs Electron's page-host paint LOD by default (`--paint-policy
 electron-lod`: 60/30/15 fps by on-screen scale, texture scale after the

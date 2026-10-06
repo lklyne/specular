@@ -7,7 +7,7 @@ use anyhow::Context as _;
 use glam::Vec2;
 use specular_compositor::{Compositor, DotGrid, GpuContext, PageDraw, RenderStats, SceneView};
 use specular_core::Camera;
-use winit::dpi::PhysicalSize;
+use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
@@ -21,10 +21,17 @@ pub(super) struct GpuWindow {
 }
 
 impl GpuWindow {
-    pub(super) fn new(event_loop: &ActiveEventLoop) -> anyhow::Result<Self> {
+    pub(super) fn new(
+        event_loop: &ActiveEventLoop,
+        size: Option<(u32, u32)>,
+    ) -> anyhow::Result<Self> {
+        let mut attributes = Window::default_attributes().with_title("Specular (Rust spike)");
+        if let Some((width, height)) = size {
+            attributes = attributes.with_inner_size(LogicalSize::new(width, height));
+        }
         let window = Arc::new(
             event_loop
-                .create_window(Window::default_attributes().with_title("Specular (Rust spike)"))
+                .create_window(attributes)
                 .context("creating window")?,
         );
         let instance = wgpu::Instance::default();

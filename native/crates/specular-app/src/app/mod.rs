@@ -46,6 +46,8 @@ pub(crate) struct Session {
     pub(crate) representative_source: bool,
     /// How pages are throttled.
     pub(crate) paint_policy: PaintPolicy,
+    /// Window size in logical pixels; `None` takes the platform default.
+    pub(crate) window: Option<(u32, u32)>,
 }
 
 /// Application state driven by winit.
@@ -153,7 +155,7 @@ impl App {
     }
 
     fn init(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
-        let gpu = GpuWindow::new(event_loop)?;
+        let gpu = GpuWindow::new(event_loop, self.session.window)?;
         let texture_scale = gpu.scale_factor();
         for node in std::mem::take(&mut self.initial_pages) {
             let viewport = CssSize::new(

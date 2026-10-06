@@ -21,6 +21,8 @@ usage: specular-app [OPTIONS] [FILE.canvas]
                       fast-pan-zoom, zoom-out-then-pan
   --warmup-ms N       with --bench: let pages load and settle for N ms before
                       the first profile (default 2000)
+  --window WxH        window size in logical pixels, e.g. 1600x1000 (default:
+                      the platform's)
   --paint-policy P    electron-lod (default): Electron's page-host frame-rate
                       and texture-scale tiers plus off-screen culling;
                       full-rate: every page paints at full rate and scale
@@ -78,6 +80,8 @@ pub(crate) struct RunArgs {
     pub(crate) warmup: Duration,
     /// How pages are throttled.
     pub(crate) paint_policy: PaintPolicy,
+    /// Window size in logical pixels; `None` takes the platform default.
+    pub(crate) window: Option<(u32, u32)>,
 }
 
 /// Parses arguments (without the program name).
@@ -89,6 +93,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
         bench: None,
         warmup: DEFAULT_WARMUP,
         paint_policy: PaintPolicy::ElectronLod,
+        window: None,
     };
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
@@ -126,6 +131,7 @@ pub(crate) fn parse(args: impl IntoIterator<Item = OsString>) -> anyhow::Result<
             "--paint-policy" => {
                 run.paint_policy = value_of(flag, args.next())?.parse()?;
             }
+            "--window" => run.window = Some(window_size(&value_of(flag, args.next())?)?),
             _ if flag.starts_with('-') => bail!("unknown option `{flag}`"),
             _ => set_canvas(&mut run, arg)?,
         }
@@ -149,6 +155,17 @@ fn value_of(flag: &str, value: Option<OsString>) -> anyhow::Result<String> {
         .with_context(|| format!("{flag} needs a value"))?
         .into_string()
         .map_err(|value| anyhow::anyhow!("{flag} value is not UTF-8: {}", value.display()))
+}
+
+/// A `WxH` window size in logical pixels, both sides at least 1.
+fn window_size(value: &str) -> anyhow::Result<(u32, u32)> {
+    let parsed = value
+        .split_once('x')
+        .and_then(|(width, height)| Some((width.parse().ok()?, height.parse().ok()?)));
+    match parsed {
+        Some((width, height)) if width > 0 && height > 0 => Ok((width, height)),
+        _ => bail!("--window expects WIDTHxHEIGHT, e.g. 1600x1000, got `{value}`"),
+    }
 }
 
 /// The profiles named by `selection`: `all`, or comma-separated Electron
@@ -242,6 +259,19 @@ mod tests {
     fn warmup_ms_sets_bench_warmup() {
         let run = run_args(&["--bench", "all", "--warmup-ms", "8000"]);
         assert_eq!(run.warmup, Duration::from_secs(8));
+    }
+
+    #[test]
+    fn window_flag_sets_logical_size() {
+        assert_eq!(
+            run_args(&["--window", "1600x1000"]).window,
+            Some((1600, 1000))
+        );
+    }
+
+    #[test]
+    fn window_flag_rejects_a_zero_side() {
+        assert!(parse_strs(&["--window", "0x600"]).is_err());
     }
 
     #[test]

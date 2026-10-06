@@ -63,6 +63,7 @@ fn main() -> anyhow::Result<()> {
         warmup: run.warmup,
         representative_source: run.source.is_representative(),
         paint_policy: run.paint_policy,
+        window: run.window,
     };
     let mut app = app::App::new(source, pages, session);
     event_loop.run_app(&mut app).context("running event loop")?;
