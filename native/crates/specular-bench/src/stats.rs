@@ -124,10 +124,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "nearest-rank percentiles return an input value unchanged"
-    )]
     fn percentiles_on_one_to_hundred_are_their_rank() {
         let ms: Vec<u64> = (1..=100).collect();
         let summary = times(&ms).summary(Duration::from_millis(8));

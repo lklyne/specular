@@ -77,11 +77,7 @@ pub(crate) fn read_pixels(gpu: &GpuContext, target: &wgpu::Texture) -> Vec<[u8; 
         .unwrap();
     let data = buffer.slice(..).get_mapped_range().unwrap();
     data.chunks_exact(padded as usize)
-        .flat_map(|row| {
-            row[..row_bytes as usize]
-                .chunks_exact(4)
-                .map(|texel| [texel[0], texel[1], texel[2], texel[3]])
-        })
+        .flat_map(|row| row[..row_bytes as usize].as_chunks::<4>().0.iter().copied())
         .collect()
 }
 

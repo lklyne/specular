@@ -175,10 +175,6 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "nearest-rank percentiles return an input value unchanged"
-    )]
     fn summary_percentiles_use_nearest_rank() {
         let samples: Vec<Duration> = (1..=20).map(|n| MS * n).collect();
         let summary = LatencySummary::from_samples(&samples, 0);

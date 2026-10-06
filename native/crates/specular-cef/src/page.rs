@@ -135,7 +135,7 @@ impl PageContext {
         // Saturating: a stray extra OnBeforeClose must not wrap the count.
         let _ = self
             .alive
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1));
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1));
     }
 }
 

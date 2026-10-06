@@ -108,10 +108,6 @@ pub struct GestureProfile {
 }
 
 /// The six profiles, in run order, with the Electron values.
-#[expect(
-    clippy::duration_suboptimal_units,
-    reason = "milliseconds match the TypeScript source value for value"
-)]
 pub const PROFILES: [GestureProfile; 6] = [
     GestureProfile {
         id: ProfileId::SlowPan,

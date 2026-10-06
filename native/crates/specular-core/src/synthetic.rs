@@ -72,10 +72,11 @@ fn paint(spec: &PageSpec, frame_index: u64) -> CpuFrame {
     let bar_x = (frame_index * 8) % u64::from(size.width.max(1));
     let mut bgra = vec![0_u8; stride as usize * size.height as usize];
     for row in bgra.chunks_exact_mut(stride as usize) {
-        for (x, texel) in row.chunks_exact_mut(4).enumerate() {
+        let (texels, _) = row.as_chunks_mut::<4>();
+        for (x, texel) in texels.iter_mut().enumerate() {
             let in_bar = (x as u64).abs_diff(bar_x) < 16;
             let value = if in_bar { 255 } else { shade };
-            texel.copy_from_slice(&[value, 96, 255 - value, 255]);
+            *texel = [value, 96, 255 - value, 255];
         }
     }
     CpuFrame {

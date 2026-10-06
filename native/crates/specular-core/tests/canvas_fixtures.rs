@@ -82,7 +82,7 @@ fn pages_fixture_lists_every_link_node() {
 
 #[test]
 fn rich_workspace_has_no_pages() {
-    assert!(load(RICH_WORKSPACE).pages().unwrap().is_empty());
+    assert_eq!(load(RICH_WORKSPACE).pages().unwrap().len(), 0);
 }
 
 #[test]

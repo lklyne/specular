@@ -41,7 +41,7 @@ impl OutstandingFrames {
     /// be dropped. The slot frees when the lease drops.
     pub fn try_lease(&self) -> Option<FrameLease> {
         self.live
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |live| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |live| {
                 (live < self.cap).then_some(live + 1)
             })
             .ok()?;
