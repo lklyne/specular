@@ -102,3 +102,12 @@ pub(super) fn import(
         )
     })
 }
+
+/// The system-wide ID of `surface` (a live `IOSurfaceRef` the caller's
+/// [`SharedTexture`](specular_core::SharedTexture) retains).
+pub(super) fn surface_id(surface: NonNull<c_void>) -> u64 {
+    // SAFETY: the `SharedTexture` that owns this pointer retains the
+    // IOSurface and outlives this call.
+    let io_surface: &IOSurfaceRef = unsafe { surface.cast::<IOSurfaceRef>().as_ref() };
+    u64::from(io_surface.id())
+}

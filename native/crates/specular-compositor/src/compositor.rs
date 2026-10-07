@@ -6,15 +6,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use specular_core::{
-    CpuFrame, FrameEvent, FrameLayer, NativeSurface, PageEvent, PageFrame, PageId, PixelSize,
-    SharedTexture,
+    CpuFrame, FrameEvent, FrameLayer, PageEvent, PageFrame, PageId, PixelSize, SharedTexture,
 };
 
 use crate::draw_list::{DrawItem, LayerKind, build_draw_list};
 use crate::error::CompositorError;
 use crate::gpu_types::{FRAME_UNIFORMS_SIZE, FrameUniforms, QuadInstance, ShapeInstance};
 use crate::grid::grid_metrics;
-use crate::import::import_shared;
+use crate::import::{import_shared, surface_identity};
 use crate::import_cache::ImportCache;
 use crate::instance_buffer::InstanceBuffer;
 use crate::layers::{LayerTexture, PageLayers};
@@ -28,7 +27,7 @@ use crate::upload;
 /// size and format imports to the same texture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SurfaceKey {
-    surface: NativeSurface,
+    surface: u64,
     size: PixelSize,
     format: wgpu::TextureFormat,
 }
@@ -383,7 +382,7 @@ impl Compositor {
             .map_err(|source| CompositorError::Import { page, source })?;
         let format = upload::page_texture_format(shared.format(), self.target_format.is_srgb());
         let key = SurfaceKey {
-            surface: shared.surface(),
+            surface: surface_identity(&shared),
             size,
             format,
         };

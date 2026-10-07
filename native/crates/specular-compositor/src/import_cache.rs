@@ -8,7 +8,7 @@
 //! cache keeps those per surface instead.
 //!
 //! A cached texture's `MTLTexture` retains its IOSurface, so while an entry
-//! lives no other surface can take its address and the key cannot alias.
+//! lives no other surface can take its ID and the key cannot alias.
 //! Entries go when they have been idle for [`IDLE_INGESTS`] ingests, when the
 //! cache is full ([`CAPACITY`], least recently used first), when the layer's
 //! frame size changes, and with the page.
