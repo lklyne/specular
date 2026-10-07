@@ -4,6 +4,7 @@ use glam::Vec2;
 use specular_core::Camera;
 use specular_doc::{Document, Entity, EntityId, History, ItemId, Kind, Page};
 
+use crate::edit::{Measurer, TextEdit};
 use crate::images::Images;
 use crate::notes::Notes;
 use crate::page_input::ButtonCapture;
@@ -16,6 +17,8 @@ pub struct App {
     pub(crate) history: History,
     pub(crate) session: Session,
     pub(crate) tool_defaults: ToolDefaults,
+    /// Lays text out for the editor.
+    pub(crate) measure: Measurer,
 }
 
 impl App {
@@ -59,7 +62,8 @@ impl App {
                 Gesture::Move(_)
                 | Gesture::Resize(_)
                 | Gesture::Marquee { .. }
-                | Gesture::CommentRegion { .. },
+                | Gesture::CommentRegion { .. }
+                | Gesture::TextSelect(_),
             )
             | None => None,
         }
@@ -91,7 +95,8 @@ impl App {
                 | Gesture::Marquee { .. }
                 | Gesture::CommentRegion { .. }
                 | Gesture::Place(_)
-                | Gesture::Draw(_),
+                | Gesture::Draw(_)
+                | Gesture::TextSelect(_),
             )
             | None => entity.rect,
         };
@@ -175,9 +180,10 @@ pub struct Session {
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
-    /// The text or sticky whose content is being edited. It stays in editing
-    /// only while it is the whole selection, and Escape ends it.
-    pub editing: Option<EntityId>,
+    /// The text, sticky or shape label being edited, with the edits so far.
+    /// It stays in editing only while its entity is the whole selection, and
+    /// Escape ends it.
+    pub editing: Option<TextEdit>,
     /// The cursor the shell was last asked to show.
     pub cursor: Cursor,
     /// Where the pointer is, in logical screen pixels. `None` when it is
@@ -210,7 +216,8 @@ impl Session {
                 | Gesture::Resize(_)
                 | Gesture::Marquee { .. }
                 | Gesture::Place(_)
-                | Gesture::Draw(_),
+                | Gesture::Draw(_)
+                | Gesture::TextSelect(_),
             )
             | None => None,
         }

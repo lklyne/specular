@@ -24,6 +24,10 @@ pub enum Event {
     Key(KeyInput),
     /// The OS input method composed or committed text.
     Ime(ImeEvent),
+    /// Text from the system clipboard: the answer to an
+    /// [`Effect::ReadClipboard`](crate::Effect::ReadClipboard), or a paste
+    /// from the menu. It goes into the text being edited.
+    Paste(String),
     /// A hosted page reported something.
     Page {
         /// The page entity.
@@ -121,6 +125,10 @@ pub enum Key {
     Backspace,
     /// Forward delete.
     Delete,
+    /// Home.
+    Home,
+    /// End.
+    End,
     /// The space bar.
     Space,
     /// Left arrow.
@@ -172,9 +180,10 @@ pub enum Action {
     /// Switch to the tool a default belongs to and change that default: what
     /// a variant key such as Shift+R or Shift+M does.
     SetToolVariant(ToolDefaultPatch),
-    /// Undo the latest document step.
+    /// Undo the latest document step. While text is being edited, the
+    /// latest step of that edit instead.
     Undo,
-    /// Redo the latest undone step.
+    /// Redo the latest undone step, of the document or of the edit.
     Redo,
     /// Replace the selection. Ids that name nothing are dropped.
     Select(Vec<ItemId>),

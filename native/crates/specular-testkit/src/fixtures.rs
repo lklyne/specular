@@ -2,7 +2,7 @@
 
 use specular_doc::{
     Command, Document, Drawing, Edge, Entity, EntityId, FileRef, Group, Kind, Page, Rect, Shape,
-    ShapeKind, Text,
+    ShapeKind, Text, TextStyle, WidthMode,
 };
 
 /// A page entity `id` at `rect`, showing `https://example.com/{id}`.
@@ -21,6 +21,39 @@ pub fn text(id: &str, rect: Rect) -> Entity {
         ..Text::default()
     };
     Entity::new(id, rect, Kind::Text(text))
+}
+
+/// A sticky note `id` at `rect` reading `content`. Its text starts 8 units
+/// in from the rect's corner and wraps 16 short of its width.
+pub fn sticky(id: &str, rect: Rect, content: &str) -> Entity {
+    let text = Text {
+        text: content.to_owned(),
+        style: Some(TextStyle::Sticky),
+        ..Text::default()
+    };
+    Entity::new(id, rect, Kind::Text(text))
+}
+
+/// Plain text `id` at `rect` reading `content`, as wide as its lines. Its
+/// text starts at the rect's corner and never wraps.
+pub fn plain_text(id: &str, rect: Rect, content: &str) -> Entity {
+    let text = Text {
+        text: content.to_owned(),
+        style: Some(TextStyle::Plain),
+        width_mode: Some(WidthMode::Auto),
+        ..Text::default()
+    };
+    Entity::new(id, rect, Kind::Text(text))
+}
+
+/// A rectangle shape `id` at `rect` with `content` as its label, which is
+/// centred in the rect less 12 units at each side and 8 above and below.
+pub fn labelled(id: &str, rect: Rect, content: &str) -> Entity {
+    let shape = Shape {
+        text: content.to_owned(),
+        ..Shape::new(ShapeKind::Rectangle)
+    };
+    Entity::new(id, rect, Kind::Shape(shape))
 }
 
 /// A rectangle shape `id` at `rect`.

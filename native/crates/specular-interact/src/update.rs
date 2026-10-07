@@ -10,7 +10,7 @@ use crate::images;
 use crate::notes;
 use crate::{
     Action, App, Effect, Event, Focus, PageNotice, ToolDefaultPatch, bindings, camera, cursor,
-    gesture, pages, pointer, verbs,
+    edit, gesture, pages, pointer, verbs,
 };
 
 /// Applies `event` to `app` and returns what the shell must now do, in
@@ -34,8 +34,9 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
                 page: page.clone(),
                 event: InputEvent::Ime(ime),
             }),
-            Focus::Canvas => {}
+            Focus::Canvas => edit::on_ime(app, &ime, &mut effects),
         },
+        Event::Paste(text) => edit::paste(app, &text),
         Event::Page { page, notice } => on_page_notice(app, &page, &notice, &mut effects),
         Event::Image { image, notice } => images::on_notice(app, image, notice),
         Event::Note { file, notice } => notes::on_notice(app, &file, notice),
@@ -66,7 +67,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
             // Escape is staged: it first backs out of whatever is in flight
             // (a drag, an armed tool, a text edit, an entered page) and
             // leaves the selection alone. With nothing in flight it
-            // deselects.
+            // deselects. A text edit is kept, not thrown away.
             let session = &app.session;
             let idle = session.gesture.is_none()
                 && session.tool == crate::Tool::Select
@@ -74,7 +75,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
                 && session.focus == Focus::Canvas;
             gesture::cancel(app);
             app.session.tool = crate::Tool::Select;
-            app.session.editing = None;
+            edit::end(app, effects);
             set_focus(app, None, effects);
             if idle {
                 app.session.selection.set([]);
@@ -82,14 +83,22 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         }
         Action::SetTool(tool) => {
             if app.session.gesture.is_none() {
+                edit::end(app, effects);
                 app.session.tool = tool;
             }
         }
         Action::SetToolDefault(patch) => set_tool_default(app, patch, effects),
         Action::SetToolVariant(patch) => {
             if app.session.gesture.is_none() {
+                edit::end(app, effects);
                 app.session.tool = patch.tool();
                 set_tool_default(app, patch, effects);
+            }
+        }
+        // While text is edited, undo and redo are the editor's own.
+        Action::Undo | Action::Redo if app.session.editing.is_some() => {
+            if app.session.gesture.is_none() {
+                edit::step_history(app, action == Action::Undo);
             }
         }
         Action::Undo => step_history(app, effects, |app| app.history.undo(&mut app.document)),
@@ -119,9 +128,11 @@ fn set_tool_default(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Ef
     }
 }
 
-/// Runs a verb on the selection, unless a drag is in flight.
+/// Runs a verb on the selection, unless a drag is in flight. A text edit
+/// ends first, so the verb acts on its result.
 fn verb(app: &mut App, effects: &mut Vec<Effect>, run: impl FnOnce(&mut App, &mut Vec<Effect>)) {
     if app.session.gesture.is_none() {
+        edit::end(app, effects);
         run(app, effects);
     }
 }
@@ -158,6 +169,7 @@ fn step_history(
 fn open_document(app: &mut App, document: Document, effects: &mut Vec<Effect>) {
     let before = pages::snapshot(&app.document);
     app.session.gesture = None;
+    edit::discard(app, effects);
     app.document = document;
     app.history.clear();
     drop_dangling(app, effects);

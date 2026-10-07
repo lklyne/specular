@@ -52,9 +52,12 @@ pub enum Effect {
     /// Write the document to its file. Nothing returns this until autosave
     /// (task S9) does.
     Save,
-    /// Put text on the system clipboard. Nothing returns this until copy and
-    /// cut (task S6) do.
+    /// Put text on the system clipboard. Copy and cut in the text editor
+    /// return it.
     WriteClipboard(String),
+    /// Read the system clipboard and answer with
+    /// [`Event::Paste`](crate::Event::Paste) if it holds text.
+    ReadClipboard,
     /// Decode an image file and upload it under `image`, then answer with
     /// [`Event::Image`](crate::Event::Image).
     LoadImage {

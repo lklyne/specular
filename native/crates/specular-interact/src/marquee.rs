@@ -60,7 +60,8 @@ impl App {
                 | Gesture::Resize(_)
                 | Gesture::CommentRegion { .. }
                 | Gesture::Place(_)
-                | Gesture::Draw(_),
+                | Gesture::Draw(_)
+                | Gesture::TextSelect(_),
             )
             | None => None,
         }

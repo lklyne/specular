@@ -10,8 +10,8 @@ use specular_doc::{BrushType, ShapeKind};
 
 use crate::update::run_action;
 use crate::{
-    Action, App, Effect, Focus, Key, KeyInput, PointerInput, Tool, ToolDefaultPatch, gesture, grid,
-    page_input,
+    Action, App, Effect, Focus, Key, KeyInput, PointerInput, Tool, ToolDefaultPatch, edit, gesture,
+    grid, page_input,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
@@ -236,6 +236,11 @@ pub(crate) fn on_key(app: &mut App, input: &KeyInput, effects: &mut Vec<Effect>)
             modifiers: input.modifiers,
         };
         gesture::drag(app, &held);
+    }
+    // The text being edited has the keys first. It leaves Escape, undo and
+    // redo to the table.
+    if edit::on_key(app, input, effects) {
+        return;
     }
     match binding_for(app, input) {
         Some(binding) => {

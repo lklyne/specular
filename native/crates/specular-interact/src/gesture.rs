@@ -5,6 +5,7 @@ use glam::{DVec2, Vec2};
 use specular_doc::{Command, EntityId};
 
 use crate::draw::{self, DrawStroke};
+use crate::edit::{self, TextSelectDrag};
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, MoveDrag};
 use crate::place::{self, PlaceDrag};
@@ -56,6 +57,9 @@ pub enum Gesture {
     Place(PlaceDrag),
     /// Drawing a freehand stroke.
     Draw(DrawStroke),
+    /// Pressed inside the text being edited: placing the caret, and
+    /// selecting once the pointer has travelled.
+    TextSelect(TextSelectDrag),
 }
 
 /// The pointer moved mid-drag, or a modifier changed under it.
@@ -97,6 +101,10 @@ pub(crate) fn drag(app: &mut App, input: &PointerInput) {
             draw::drag(app, &mut stroke, world, input.modifiers.shift);
             app.session.gesture = Some(Gesture::Draw(stroke));
         }
+        Some(Gesture::TextSelect(drag)) => {
+            edit::drag(app, &drag, world);
+            app.session.gesture = Some(Gesture::TextSelect(drag));
+        }
     }
 }
 
@@ -134,6 +142,8 @@ pub(crate) fn finish(
         }
         Gesture::Place(drag) => place::finish(app, drag, effects),
         Gesture::Draw(stroke) => draw::finish(app, &stroke, effects),
+        // The selection is already where the drag left it.
+        Gesture::TextSelect(_) => {}
     }
 }
 
@@ -142,7 +152,9 @@ pub(crate) fn finish(
 /// is taken back.
 pub(crate) fn cancel(app: &mut App) {
     match app.session.gesture.take() {
-        None | Some(Gesture::Marquee { .. } | Gesture::CommentRegion { .. }) => {}
+        None
+        | Some(Gesture::Marquee { .. } | Gesture::CommentRegion { .. } | Gesture::TextSelect(_)) => {
+        }
         Some(Gesture::Move(drag)) => move_drag::cancel(app, &drag),
         Some(Gesture::Resize(drag)) => crate::live::restore(&mut app.document, drag.starts()),
         Some(Gesture::Place(drag)) => place::cancel(app, &drag),

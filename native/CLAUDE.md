@@ -65,7 +65,8 @@ fn shift_drag_moves_the_page_along_one_axis() {
 
 - Start from `TestApp::with_pages(n)`, `TestApp::with_entities([..])` or
   `TestApp::from_canvas(json)`. Entities come from `page`, `text`, `shape`,
-  `file`, `drawing` and `group`, each taking an id and a rect.
+  `file`, `drawing` and `group`, each taking an id and a rect. `sticky`,
+  `plain_text` and `labelled` also take the text.
   `inside("g", entity)` puts one in a group, and
   `connected(document(entities), "e1", "a", "b")` adds an edge.
 - Input chains: `pointer_move`, `press`, `drag_to`, `release`, `drag`,
@@ -73,6 +74,11 @@ fn shift_drag_moves_the_page_along_one_axis() {
   `type_text("hi")`, `wheel`, `pinch`, `tick`. `hold(mods)` keeps modifiers
   down until `let_go()`. `select`, `tool`, `zoom`, `undo`, `redo` and `act`
   run `Action`s. Anything else goes through `send(Event)`.
+- Text editing: `double_click` a text, sticky or shape to edit it, then
+  `type_text`, `key`, `chord`, `triple_click`, `compose("に")`, `commit("日")`
+  and `paste("..")`. Read back with `editing_text()` and `caret()`, which is
+  `(caret, anchor)` in bytes. Text is measured by `FixedAdvance`: 10 units a
+  character and 20 a line, so `App::caret_rect()` is in round numbers.
 - Read back with `document()`, `session()`, `selection()`, `selected()`,
   `selected_ids()`, `rect("p1")` and `entity("p1")`. `take_effects()` drains the effects
   returned since the last drain; call it before the step whose effects the

@@ -16,7 +16,7 @@ use specular_doc::{EntityId, ItemId};
 
 use crate::marquee::MarqueeMode;
 use crate::move_drag::{self, Click};
-use crate::{App, Gesture, Hit, PointerInput, hit, resize_drag};
+use crate::{App, Effect, Gesture, Hit, PointerInput, edit, hit, resize_drag};
 
 /// Whether a click with these modifiers changes the selection item by item
 /// instead of replacing it.
@@ -26,7 +26,12 @@ pub(crate) const fn is_additive(modifiers: Modifiers) -> bool {
 
 /// Offers a left press to the select tool. Returns `false` only when the
 /// press is on the body of the entered page, which gets it instead.
-pub(crate) fn press(app: &mut App, input: &PointerInput, click_count: u8) -> bool {
+pub(crate) fn press(
+    app: &mut App,
+    input: &PointerInput,
+    click_count: u8,
+    effects: &mut Vec<Effect>,
+) -> bool {
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
     let hit = match hit::hit_test(app, input.screen) {
         // Edges cannot be drawn yet, so an anchor passes the press to what
@@ -43,6 +48,12 @@ pub(crate) fn press(app: &mut App, input: &PointerInput, click_count: u8) -> boo
         }
         Hit::GroupLabel { group } | Hit::GroupBorder { group } => {
             begin_move(app, &group, world, input, false);
+        }
+        // A double click on a text, a sticky or a shape edits its text.
+        Hit::EntityBody { entity }
+            if click_count > 1 && !is_additive(input.modifiers) && has_text(app, &entity) =>
+        {
+            edit::begin(app, &entity, false, effects);
         }
         Hit::EntityBody { entity } => press_body(app, entity, world, input),
         Hit::Edge { edge } => {
@@ -124,6 +135,10 @@ fn begin_marquee(app: &mut App, origin: Option<EntityId>, world: DVec2, input: &
         dragged: false,
         mode: MarqueeMode::held(input.modifiers),
     });
+}
+
+fn has_text(app: &App, id: &EntityId) -> bool {
+    app.text_frame(id).is_some()
 }
 
 fn is_group(app: &App, id: &EntityId) -> bool {

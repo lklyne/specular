@@ -1,10 +1,12 @@
 //! [`TestApp`]: construction, accessors, undo and the undo assertion.
 
+use std::sync::Arc;
+
 use glam::Vec2;
 use specular_doc::{Document, Entity, EntityId, ItemId, Rect};
 use specular_interact::{Action, App, Effect, Event, Selection, Session, update};
 
-use crate::{doc_snapshot, fixtures};
+use crate::{FixedAdvance, doc_snapshot, fixtures};
 
 /// More undo steps than any test records. Reaching it means undo is not
 /// consuming its stack.
@@ -52,10 +54,13 @@ impl TestApp {
         Self::with_entities(fixtures::pages(count))
     }
 
-    /// An app with an empty document.
+    /// An app with an empty document. Text is measured by a default
+    /// [`FixedAdvance`]: 10 units a character and 20 a line.
     pub fn empty() -> Self {
+        let mut app = App::new(0);
+        app.set_text_measure(Arc::new(FixedAdvance::default()));
         Self {
-            app: App::new(0),
+            app,
             effects: Vec::new(),
             input: crate::input::InputState::default(),
             start: Document::new(),
@@ -90,6 +95,25 @@ impl TestApp {
     /// The unsaved state: camera, tool, gesture, hover, focus.
     pub fn session(&self) -> &Session {
         self.app.session()
+    }
+
+    /// The text being edited, as edited so far.
+    #[track_caller]
+    pub fn editing_text(&self) -> &str {
+        match self.app.text_edit() {
+            Some(edit) => edit.text(),
+            None => panic!("no text is being edited"),
+        }
+    }
+
+    /// The caret and the selection's anchor in the text being edited, as
+    /// byte offsets. They are equal when nothing is selected.
+    #[track_caller]
+    pub fn caret(&self) -> (usize, usize) {
+        match self.app.text_edit() {
+            Some(edit) => (edit.caret(), edit.anchor()),
+            None => panic!("no text is being edited"),
+        }
     }
 
     /// What is selected.

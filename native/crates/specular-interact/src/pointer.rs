@@ -11,7 +11,9 @@ use specular_core::{PointerButton, PointerEventKind};
 use specular_doc::EntityId;
 
 use crate::focus::{pointer_to, set_pointer_page};
-use crate::{App, Effect, Gesture, Hit, PointerInput, Tool, draw, gesture, hit, place, select};
+use crate::{
+    App, Effect, Gesture, Hit, PointerInput, Tool, draw, edit, gesture, hit, place, select,
+};
 
 pub(crate) fn on_pointer(app: &mut App, input: &PointerInput, effects: &mut Vec<Effect>) {
     match input.kind {
@@ -72,7 +74,16 @@ fn on_down(
     effects: &mut Vec<Effect>,
 ) {
     app.session.pointer = Some(input.screen);
-    if button == PointerButton::Left && tool_takes_press(app, input, click_count) {
+    if button == PointerButton::Left && app.session.editing.is_some() {
+        // A press in the text being edited is the editor's. Anywhere else it
+        // ends the edit before it does what it would have done.
+        if let Some(drag) = edit::press(app, input, click_count) {
+            app.session.gesture = Some(drag.into());
+            return;
+        }
+        edit::end(app, effects);
+    }
+    if button == PointerButton::Left && tool_takes_press(app, input, click_count, effects) {
         return;
     }
     if let Some((page, local)) = entered_page(app, hit::hit_test(app, input.screen)) {
@@ -146,7 +157,12 @@ fn on_up(
 
 /// Offers a left press to the active tool. Returns whether the tool took it,
 /// in which case nothing is forwarded.
-fn tool_takes_press(app: &mut App, input: &PointerInput, click_count: u8) -> bool {
+fn tool_takes_press(
+    app: &mut App,
+    input: &PointerInput,
+    click_count: u8,
+    effects: &mut Vec<Effect>,
+) -> bool {
     let world = app.session.camera.screen_to_world(input.screen).as_dvec2();
     match app.session.tool {
         Tool::Comment => {
@@ -158,7 +174,7 @@ fn tool_takes_press(app: &mut App, input: &PointerInput, click_count: u8) -> boo
             });
             true
         }
-        Tool::Select => select::press(app, input, click_count),
+        Tool::Select => select::press(app, input, click_count, effects),
         tool @ (Tool::AddPage | Tool::AddText | Tool::AddSticky | Tool::AddShape) => {
             app.session.gesture = place::begin(tool, world).map(Gesture::Place);
             true

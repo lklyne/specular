@@ -3,6 +3,6 @@ source: crates/specular-interact/tests/tools.rs
 expression: app.doc_snapshot()
 ---
 nodes:
-  {"id":"e220a8397b1dcdaf","type":"text","x":220,"y":140,"width":200,"height":200,"text":"","color":"1","specular":{"textStyle":"plain","widthMode":"auto","colorRole":"neutral","textSize":14,"textFont":"sans"}}
+  {"id":"e220a8397b1dcdaf","type":"text","x":220,"y":140,"width":88,"height":20,"text":"","color":"1","specular":{"textStyle":"plain","widthMode":"auto","colorRole":"neutral","textSize":14,"textFont":"sans"}}
 edges:
 specular: {"entityOrder":["e220a8397b1dcdaf"]}

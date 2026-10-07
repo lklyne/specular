@@ -4,16 +4,21 @@
 
 use specular_core::CssSize;
 use specular_doc::{
-    Color, ColorPreset, Entity, Kind, Page, PageSource, Rect, Shape, ShapeKind, Text, TextFont,
-    TextStyle, WidthMode,
+    Color, ColorPreset, Entity, EntityId, Kind, Page, PageSource, Rect, Shape, ShapeKind, Text,
+    TextFont, TextStyle, WidthMode,
 };
-use specular_interact::{Action, Effect, Key, Tool, ToolDefaultPatch};
+use specular_interact::{Action, Effect, Key, TextEdit, Tool, ToolDefaultPatch};
 use specular_testkit::{SHIFT, TestApp, assert_doc_snapshot};
 
 /// The entity the last placement left selected.
 #[track_caller]
 fn placed(app: &TestApp) -> &Entity {
     app.entity(app.selected().unwrap_or("nothing is selected"))
+}
+
+/// The entity whose text is being edited.
+fn editing(app: &TestApp) -> Option<&EntityId> {
+    app.session().editing.as_ref().map(TextEdit::entity)
 }
 
 fn shape_of(entity: &Entity) -> Option<&Shape> {
@@ -184,7 +189,8 @@ fn clicking_with_the_text_tool_places_plain_text_and_starts_editing_it() {
     app.key(Key::Char('t')).click((212.0, 148.0));
     assert_doc_snapshot!(app);
     let entity = placed(&app);
-    assert_eq!(entity.rect, Rect::new(220.0, 140.0, 200.0, 200.0));
+    // An empty text is as wide as its prompt and one line tall.
+    assert_eq!(entity.rect, Rect::new(220.0, 140.0, 88.0, 20.0));
     assert_eq!(
         text_of(entity),
         Some(&Text {
@@ -196,9 +202,9 @@ fn clicking_with_the_text_tool_places_plain_text_and_starts_editing_it() {
             font: Some(TextFont::Sans),
         })
     );
-    assert_eq!(app.session().editing.as_ref(), Some(&entity.id));
+    assert_eq!(editing(&app), Some(&entity.id));
     assert_eq!(app.session().tool, Tool::Select);
-    app.assert_undo_returns_to_start();
+    app.key(Key::Escape).assert_undo_returns_to_start();
 }
 
 #[test]
@@ -223,8 +229,8 @@ fn clicking_with_the_sticky_tool_places_a_sticky_and_starts_editing_it() {
             font: Some(TextFont::Hand),
         })
     );
-    assert_eq!(app.session().editing.as_ref(), Some(&entity.id));
-    app.assert_undo_returns_to_start();
+    assert_eq!(editing(&app), Some(&entity.id));
+    app.key(Key::Escape).assert_undo_returns_to_start();
 }
 
 #[test]
@@ -239,7 +245,7 @@ fn plain_text_takes_a_picked_color() {
         text_of(placed(&app)).and_then(|text| text.color.as_ref()),
         Some(&Color::Preset(ColorPreset::Purple))
     );
-    app.assert_undo_returns_to_start();
+    app.key(Key::Escape).assert_undo_returns_to_start();
 }
 
 #[test]
@@ -247,7 +253,9 @@ fn while_a_text_is_edited_letters_are_not_tool_keys_and_escape_ends_the_edit_fir
     let mut app = TestApp::empty();
     app.tool(Tool::AddSticky).click((100.0, 100.0));
     let id = app.selected().map(str::to_owned);
-    app.key(Key::Char('m')).key(Key::Backspace);
+    app.key(Key::Char('m'))
+        .key(Key::Backspace)
+        .key(Key::Char('v'));
     assert_eq!(app.session().tool, Tool::Select);
     assert_eq!(app.document().entities().count(), 1, "Backspace is typing");
 
@@ -260,13 +268,13 @@ fn while_a_text_is_edited_letters_are_not_tool_keys_and_escape_ends_the_edit_fir
 }
 
 #[test]
-fn undo_still_works_while_a_text_is_edited_and_ends_the_edit_with_the_entity() {
+fn undo_while_a_text_is_edited_is_the_editors_own_and_keeps_the_entity() {
     let mut app = TestApp::empty();
     app.tool(Tool::AddText).click((100.0, 100.0));
     app.chord(specular_testkit::CMD, Key::Char('z'));
-    assert_eq!(app.document().entities().count(), 0);
-    assert_eq!(app.session().editing, None);
-    app.assert_undo_returns_to_start();
+    assert_eq!(app.document().entities().count(), 1);
+    assert!(app.session().editing.is_some());
+    app.key(Key::Escape).assert_undo_returns_to_start();
 }
 
 #[test]

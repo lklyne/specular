@@ -203,6 +203,8 @@ pub(crate) fn key(code: KeyCode) -> Key {
         KeyCode::Tab => Key::Tab,
         KeyCode::Backspace => Key::Backspace,
         KeyCode::Delete => Key::Delete,
+        KeyCode::Home => Key::Home,
+        KeyCode::End => Key::End,
         KeyCode::Space => Key::Space,
         KeyCode::ArrowLeft => Key::ArrowLeft,
         KeyCode::ArrowRight => Key::ArrowRight,

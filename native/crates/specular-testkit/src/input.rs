@@ -1,7 +1,7 @@
 //! Scripted input: pointer, keys, text, wheel and pinch.
 
 use glam::Vec2;
-use specular_core::{Camera, Modifiers, PointerButton, PointerEventKind};
+use specular_core::{Camera, ImeEvent, Modifiers, PointerButton, PointerEventKind};
 use specular_doc::{EdgeId, EntityId, ItemId};
 use specular_interact::{Action, Event, Key, KeyInput, PointerInput, Tool, WheelInput};
 
@@ -139,6 +139,11 @@ impl TestApp {
         self.click(at).button(true, 2).button(false, 2)
     }
 
+    /// Three clicks at `at`, with click counts of 1, 2 and 3.
+    pub fn triple_click(&mut self, at: impl Into<Vec2>) -> &mut Self {
+        self.double_click(at).button(true, 3).button(false, 3)
+    }
+
     /// The pointer leaves the window.
     pub fn pointer_leave(&mut self) -> &mut Self {
         self.pointer(PointerEventKind::Leave)
@@ -155,6 +160,8 @@ impl TestApp {
             | Key::Tab
             | Key::Backspace
             | Key::Delete
+            | Key::Home
+            | Key::End
             | Key::ArrowLeft
             | Key::ArrowRight
             | Key::ArrowUp
@@ -203,6 +210,30 @@ impl TestApp {
             self.chord(if shift { SHIFT } else { NONE }, key);
         }
         self
+    }
+
+    /// The input method shows `text` as its composition so far, with its
+    /// caret at the end.
+    pub fn compose(&mut self, text: &str) -> &mut Self {
+        let end = text.encode_utf16().count() as u32;
+        self.send(Event::Ime(ImeEvent::SetComposition {
+            text: text.to_owned(),
+            selection: end..end,
+            replacement: None,
+        }))
+    }
+
+    /// The input method commits `text`, ending any composition.
+    pub fn commit(&mut self, text: &str) -> &mut Self {
+        self.send(Event::Ime(ImeEvent::Commit {
+            text: text.to_owned(),
+            replacement: None,
+        }))
+    }
+
+    /// The shell answers a paste with the clipboard's text.
+    pub fn paste(&mut self, text: &str) -> &mut Self {
+        self.send(Event::Paste(text.to_owned()))
     }
 
     /// Scrolls by `delta` logical pixels where the pointer is. Positive `y`

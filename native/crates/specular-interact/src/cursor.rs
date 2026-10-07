@@ -3,7 +3,7 @@
 
 use specular_doc::EdgeSide;
 
-use crate::{App, Corner, Cursor, Effect, Gesture, Handle, Hit, Tool, hit};
+use crate::{App, Corner, Cursor, Effect, Gesture, Handle, Hit, Tool, edit, hit};
 
 /// Asks the shell for a different cursor when the one wanted has changed.
 pub(crate) fn refresh(app: &mut App, effects: &mut Vec<Effect>) {
@@ -20,6 +20,7 @@ fn wanted(app: &App) -> Cursor {
         // The handle's cursor stays for the whole drag, wherever the pointer
         // goes.
         Some(Gesture::Resize(drag)) => return of_handle(drag.handle()),
+        Some(Gesture::TextSelect(_)) => return Cursor::Text,
         Some(
             Gesture::Move(_)
             | Gesture::Marquee { .. }
@@ -30,6 +31,9 @@ fn wanted(app: &App) -> Cursor {
             return session.tool.cursor();
         }
         None => {}
+    }
+    if edit::is_over_text(app) {
+        return Cursor::Text;
     }
     match (session.tool, session.pointer) {
         (Tool::Select, Some(pointer)) => match hit::hit_test(app, pointer) {

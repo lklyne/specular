@@ -31,6 +31,7 @@ mod comment;
 mod cursor;
 mod draw;
 mod edge_path;
+mod edit;
 mod effect;
 mod event;
 mod focus;
@@ -67,6 +68,9 @@ pub use caps::{AspectMode, aspect_mode, has_anchors, min_size};
 pub use comment::{region_annotation, region_on_canvas};
 pub use draw::DrawStroke;
 pub use edge_path::EdgeCurve;
+pub use edit::{
+    CaretStop, LayoutLine, TextEdit, TextFrame, TextLayout, TextMeasure, TextSelectDrag, TextSpec,
+};
 pub use effect::{Cursor, Effect};
 pub use event::{Action, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
 pub use geometry::to_canvas_rect;

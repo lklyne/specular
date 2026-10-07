@@ -14,7 +14,7 @@ use specular_doc::{
     TextStyle, WidthMode,
 };
 
-use crate::{App, Effect, Tool, geometry, grid, live};
+use crate::{App, Effect, Tool, anchor, edit, geometry, grid, live};
 
 /// A shape drag smaller than this on either axis, in canvas units, places
 /// the default size instead.
@@ -138,18 +138,25 @@ pub(crate) fn drag(app: &mut App, drag: &mut PlaceDrag, world: DVec2, modifiers:
     }
 }
 
-/// The button came up: the entity is placed as one undo step and selected,
-/// and the tool goes back to select. A text or a sticky is left being edited.
+/// The button came up: the entity is placed and selected, and the tool goes
+/// back to select. A page or a shape is one undo step. A text or a sticky is
+/// left being edited, and becomes a step when the edit ends with something
+/// typed in it.
 pub(crate) fn finish(app: &mut App, mut drag: PlaceDrag, effects: &mut Vec<Effect>) {
     let dragged = (drag.live.take()).and_then(|id| live::take(&mut app.document, &id));
-    let entity = dragged.unwrap_or_else(|| at_default_size(app, &drag));
+    let mut entity = dragged.unwrap_or_else(|| at_default_size(app, &drag));
     let id = entity.id.clone();
-    live::create(app, entity, effects);
-    app.session.selection.set([ItemId::Entity(id.clone())]);
-    app.session.editing = match drag.what {
-        Placing::Text(_) => Some(id),
-        Placing::Page | Placing::Shape => None,
-    };
+    match drag.what {
+        Placing::Text(_) => {
+            entity.anchor = anchor::page_anchor_for(&app.document, &entity);
+            live::put(&mut app.document, entity);
+            edit::begin(app, &id, true, effects);
+        }
+        Placing::Page | Placing::Shape => {
+            live::create(app, entity, effects);
+            app.session.selection.set([ItemId::Entity(id)]);
+        }
+    }
     app.session.tool = Tool::Select;
 }
 

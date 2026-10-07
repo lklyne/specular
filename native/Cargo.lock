@@ -2839,6 +2839,7 @@ dependencies = [
  "specular-doc",
  "specular-testkit",
  "tracing",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -2864,6 +2865,7 @@ dependencies = [
  "specular-doc",
  "specular-interact",
  "specular-scene",
+ "unicode-segmentation",
 ]
 
 [[package]]

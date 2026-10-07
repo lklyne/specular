@@ -34,7 +34,9 @@ fn a_sticky_whose_centre_lands_on_a_page_is_anchored_and_moves_with_the_page() {
     assert_eq!((anchor.scroll_x, anchor.scroll_y), (None, None));
 
     // The sticky covers the press point, so the page is grabbed beside it.
-    app.key(Key::Escape)
+    // An empty sticky would not outlive its edit.
+    app.type_text("note")
+        .key(Key::Escape)
         .key(Key::Escape)
         .drag((450.0, 380.0), (550.0, 480.0));
     assert_eq!(app.rect("p1"), P1.translated(100.0, 100.0));

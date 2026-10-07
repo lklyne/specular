@@ -43,6 +43,8 @@ serde_json = "1.0"
 thiserror = "2.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+# Grapheme and word boundaries for the text editor.
+unicode-segmentation = "1.13"
 wgpu = "30.0"
 winit = "0.30.13"
 

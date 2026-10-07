@@ -75,7 +75,8 @@ impl App {
                 | crate::Gesture::Marquee { .. }
                 | crate::Gesture::CommentRegion { .. }
                 | crate::Gesture::Place(_)
-                | crate::Gesture::Draw(_),
+                | crate::Gesture::Draw(_)
+                | crate::Gesture::TextSelect(_),
             )
             | None => Vec::new(),
         }

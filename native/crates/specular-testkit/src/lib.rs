@@ -29,12 +29,17 @@
 mod app;
 mod fixtures;
 mod input;
+mod measure;
 mod scene_snapshot;
 mod snapshot;
 
 pub use app::TestApp;
-pub use fixtures::{connected, document, drawing, file, group, inside, page, pages, shape, text};
+pub use fixtures::{
+    connected, document, drawing, file, group, inside, labelled, page, pages, plain_text, shape,
+    sticky, text,
+};
 pub use input::{ALT, CMD, CMD_SHIFT, CTRL, SHIFT};
+pub use measure::FixedAdvance;
 pub use scene_snapshot::scene_snapshot;
 pub use snapshot::doc_snapshot;
 

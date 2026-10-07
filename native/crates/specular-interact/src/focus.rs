@@ -5,24 +5,27 @@ use glam::Vec2;
 use specular_core::{InputEvent, Modifiers, PointerEvent, PointerEventKind};
 use specular_doc::EntityId;
 
-use crate::{App, Effect, Focus};
+use crate::{App, Effect, Focus, TextEdit, edit};
 
 /// Gives `page` keyboard focus, or returns it to the canvas. The input
-/// method is on only while a page has focus.
+/// method is on only while a page has focus or text is being edited.
 pub(crate) fn set_focus(app: &mut App, page: Option<EntityId>, effects: &mut Vec<Effect>) {
     if app.session.focus.page() == page.as_ref() {
         return;
     }
     effects.push(Effect::FocusPage(page.clone()));
-    effects.push(Effect::SetImeAllowed(page.is_some()));
+    effects.push(Effect::SetImeAllowed(
+        page.is_some() || app.session.editing.is_some(),
+    ));
     app.session.focus = page.map_or(Focus::Canvas, Focus::Page);
 }
 
 /// Leaves the entered page, and ends the text edit, when what they are on is
 /// no longer the whole selection.
 pub(crate) fn leave_unless_selected(app: &mut App, effects: &mut Vec<Effect>) {
-    if app.session.editing.as_ref() != app.session.selection.single_entity() {
-        app.session.editing = None;
+    let editing = app.session.editing.as_ref().map(TextEdit::entity);
+    if editing.is_some() && editing != app.session.selection.single_entity() {
+        edit::end(app, effects);
     }
     if let Some(page) = app.session.focus.page()
         && app.session.selection.single_entity() != Some(page)
